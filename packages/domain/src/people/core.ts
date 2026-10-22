@@ -2,7 +2,8 @@ import { requestIdentity } from "@everyfield/contracts/common";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { and, desc, eq, inArray, isNull, notExists, sql, type SQL, type SQLWrapper } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
+import { hash } from "../operations/canonical.ts";
 import "server-only";
 import { z } from "zod";
 import { readPipelinePerson } from "../access/pipeline.ts";
@@ -18,6 +19,7 @@ import {
 	type AuditWrite,
 	type WritePath,
 } from "../operations/writes.ts";
+export { hash };
 
 import { owner, revision } from "@everyfield/contracts/common";
 import type { PeopleContext, PeopleReply, PeopleWriteContext } from "@everyfield/contracts/people";
@@ -39,20 +41,6 @@ export class PeopleReadContext {
 }
 export type Context = PeopleContext | PeopleReadContext;
 export type WriteContext = PeopleWriteContext;
-export const hash = (v: unknown) => createHash("sha256").update(stable(v)).digest("hex");
-function stable(v: unknown): string {
-	if (Array.isArray(v)) return "[" + v.map(stable).join(",") + "]";
-	if (v !== null && typeof v === "object")
-		return (
-			"{" +
-			Object.entries(v)
-				.sort(([a], [b]) => a.localeCompare(b))
-				.map(([k, v]) => JSON.stringify(k) + ":" + stable(v))
-				.join(",") +
-			"}"
-		);
-	return JSON.stringify(v);
-}
 export class Refusal extends Error {
 	readonly code: z.infer<typeof c.peopleError>["code"];
 	readonly details: object;

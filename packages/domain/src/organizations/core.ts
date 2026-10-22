@@ -24,6 +24,7 @@ import * as tables from "@everyfield/db/tables";
 import { currentActor, liveOwner } from "@everyfield/domain/access";
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
+import { canonical } from "../operations/canonical.ts";
 import { finishAudit, prepareWrite } from "../operations/writes.ts";
 
 export { currentActor, liveOwner, sameOwner };
@@ -37,19 +38,6 @@ export function checkRevision(expected: string, actual: string) {
 	if (expected !== actual) refuse("stale_revision");
 }
 export const hash = (value: string) => createHash("sha256").update(value).digest("hex");
-export function canonical(value: unknown): string {
-	if (Array.isArray(value)) return "[" + value.map(canonical).join(",") + "]";
-	if (value !== null && typeof value === "object")
-		return (
-			"{" +
-			Object.entries(value)
-				.sort(([a], [b]) => a.localeCompare(b))
-				.map(([k, v]) => JSON.stringify(k) + ":" + canonical(v))
-				.join(",") +
-			"}"
-		);
-	return JSON.stringify(value);
-}
 export async function writeActor(tx: Transaction, session: string, selected: Owner) {
 	const bound = requestWrite(tx) ?? (await RequestActor.claimWrite(tx, sessionId.parse(session), selected));
 	if (!bound || bound.authority.session !== session || !sameOwner(bound.selected, selected)) refuse();

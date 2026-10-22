@@ -1,6 +1,7 @@
 import type { Transaction } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
 import { contactColumns, peopleWriter, personFields } from "@everyfield/domain/people";
+import type { TaskReminders } from "@everyfield/domain/tasks";
 import {
 	changeStatusRequest,
 	createPersonRequest,
@@ -50,7 +51,12 @@ function reviewed<I, R extends z.ZodType>(spec: {
 	input: z.ZodType<I>;
 	review(actor: EvryActor, input: I): SQL;
 	request: R;
-	run(tx: Transaction, context: PeopleContext, request: z.output<R>): Promise<PeopleReply<Receipt>>;
+	run(
+		tx: Transaction,
+		context: PeopleContext,
+		request: z.output<R>,
+		reminders: TaskReminders,
+	): Promise<PeopleReply<Receipt>>;
 }): ReviewedWrite<I> {
 	return {
 		operation: spec.operation,
@@ -58,9 +64,9 @@ function reviewed<I, R extends z.ZodType>(spec: {
 		input: spec.input,
 		allowed: ownerOrAdmin,
 		review: spec.review,
-		async execute(tx, context, args, effectKey): Promise<EffectResult> {
+		async execute(tx, context, args, effectKey, reminders): Promise<EffectResult> {
 			const request = spec.request.parse({ ...z.object({}).loose().parse(args), requestKey: effectKey });
-			const reply = await spec.run(tx, context, request);
+			const reply = await spec.run(tx, context, request, reminders);
 			if (reply.status !== "ok") return { refused: reply.error.code };
 			return { receiptId: reply.value.receiptId, revision: reply.value.revision };
 		},
@@ -134,7 +140,8 @@ export const changeStatus = reviewed({
 			WHERE p.id=${value.personId}::uuid AND p.tenant_id=${actor.owner.id}::uuid AND p.plant_id=${actor.owner.id}::uuid AND p.state='live'`;
 	},
 	request: changeStatusRequest,
-	run: async (tx, context, request) => personReceipt(await peopleWriter.changeStatus(tx, context, request)),
+	run: async (tx, context, request, reminders) =>
+		personReceipt(await peopleWriter.changeStatus(tx, context, request, reminders)),
 });
 
 export const deletePerson = reviewed({
@@ -151,7 +158,8 @@ export const deletePerson = reviewed({
 			WHERE p.id=${value.personId}::uuid AND p.tenant_id=${actor.owner.id}::uuid AND p.plant_id=${actor.owner.id}::uuid AND p.state='live'`;
 	},
 	request: retirePersonRequest,
-	run: async (tx, context, request) => personReceipt(await peopleWriter.retirePerson(tx, context, request)),
+	run: async (tx, context, request, reminders) =>
+		personReceipt(await peopleWriter.retirePerson(tx, context, request, reminders)),
 });
 
 export const setPersonPhoto = reviewed({

@@ -8,23 +8,11 @@ import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import { currentActor, liveOwner, RequestActor, requestWrite } from "../access/session.ts";
+import { canonical } from "../operations/canonical.ts";
 import { auditTransaction, finishAudit, prepareWrite } from "../operations/writes.ts";
 import { rethrowWriteError } from "./budget.ts";
 export { currentActor, liveOwner };
 export const hash = (value: string) => createHash("sha256").update(value).digest("hex");
-export function canonical(value: unknown): string {
-	if (Array.isArray(value)) return "[" + value.map(canonical).join(",") + "]";
-	if (value !== null && typeof value === "object")
-		return (
-			"{" +
-			Object.entries(value)
-				.sort(([a], [b]) => a.localeCompare(b))
-				.map(([k, v]) => JSON.stringify(k) + ":" + canonical(v))
-				.join(",") +
-			"}"
-		);
-	return JSON.stringify(value);
-}
 export class InvitationRefusal extends Error {
 	constructor(readonly value: z.infer<typeof invitationError> | z.infer<typeof seatError>) {
 		super(value.code);
