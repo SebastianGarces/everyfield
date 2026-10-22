@@ -29,7 +29,13 @@ import {
 	type Outcome,
 	type Venue,
 } from "./model.ts";
-import { DialogNotice, NoticeInDialog, SaveButton, type SaveIntent } from "../../components/save/parts.tsx";
+import {
+	DialogNotice,
+	focusFirstProblem,
+	NoticeInDialog,
+	SaveButton,
+	type SaveIntent,
+} from "../../components/save/parts.tsx";
 import { Problem } from "./parts.tsx";
 
 type Choice = { instant: string; offsetSeconds: number };
@@ -186,7 +192,9 @@ function Form<E extends { problem?: string }>({
 		event.preventDefault();
 		setTouched(true);
 		setProblem(null);
-		if (lane.wait || Object.values(missing).some(Boolean)) return;
+		if (lane.wait) return;
+		// Focus goes to the first field to fix once React has drawn the errors; the entered values stay.
+		if (Object.values(missing).some(Boolean)) return focusFirstProblem(event.currentTarget as HTMLFormElement);
 		if (choices && offset === null) return setProblem("ambiguous_local_time");
 		if (editing) {
 			const moved = draft.date !== meeting.localDate || draft.time !== meeting.localTime;
