@@ -360,9 +360,9 @@ async function saveImport(
 /** A repeated import request: the import's current receipt, and a partial import queued again for its remaining rows. */
 async function resumeImport(tx: Tx, importId: string) {
 	const prior = loadState(
-		z.object({ state: z.unknown() }).parse(
-			(await tx.execute(sql`SELECT ${importState(sql`${importId}::uuid`)} AS state`)).rows[0],
-		).state,
+		z
+			.object({ state: z.unknown() })
+			.parse((await tx.execute(sql`SELECT ${importState(sql`${importId}::uuid`)} AS state`)).rows[0]).state,
 	);
 	const answer = receipt(importId, prior.plan, prior.created, prior.failed, prior.running);
 	if (answer.status !== "partial") return answer;
