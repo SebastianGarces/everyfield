@@ -1,12 +1,9 @@
-import { checkMigrationArtifacts } from "./artifacts.ts";
+import { checkMigrationArtifacts, migrationName } from "./artifacts.ts";
 import { createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import { sql, eq, asc } from "drizzle-orm";
 import type { Database, Transaction } from "../client.ts";
 import { schema_migration } from "./tables.ts";
-
-/** Numbered names until 2026-10-22 (D76), then UTC timestamps (D78). Both sort by name. */
-export const migrationName = /^(?:\d{4}|\d{14})_[a-z0-9_]+\.sql$/;
 
 async function migrations(directory = new URL("../../migrations/", import.meta.url)) {
 	if (directory.href === new URL("../../migrations/", import.meta.url).href) await checkMigrationArtifacts();
