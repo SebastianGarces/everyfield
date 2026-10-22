@@ -78,8 +78,8 @@ Browser checks (any role)
 <task> is WP-NNN for a single-part package, WP-NNN/api (contract first), WP-NNN/ui,
 FB-<n> for public feedback issue n, or OPS-<n> for reviewed tooling maintenance.
 
-task start, verify and browser run wait while the 1-minute load average is above machineLoad in
-evf.config.json (C51, C81). --ignore-load "<reason>" runs at once and logs the override.`;
+task start, verify and browser run wait while the 1-minute load average is above 2 × CPU cores
+(C51, C81). --ignore-load "<reason>" runs at once and logs the override.`;
 
 function flag(args: string[], name: string): boolean {
 	const i = args.indexOf(name);

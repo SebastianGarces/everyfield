@@ -299,7 +299,7 @@ test("INV-workflow-routing: Next server paths stay with implementor and presenta
 
 import { ship, listShipped, prOpen, checkPr } from "../ship.ts";
 import { withShipQueue } from "../ship-queue.ts";
-import { awaitLoad } from "../load.ts";
+import { awaitLoad, loadLimit } from "../load.ts";
 import { availableParallelism } from "node:os";
 import { spawn } from "node:child_process";
 import { renumberMigrations } from "../migrations.ts";
@@ -1505,8 +1505,11 @@ test("INV-load-limit: heavy commands wait above the machine limit with one line 
 			f.cfg.machineLoad = { maxPerCore, maxWaitMinutes };
 			writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
 		};
-		setLimit(2, 3);
 		const limit = 2 * availableParallelism();
+		delete f.cfg.machineLoad;
+		writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+		assert.deepEqual(loadLimit(f.root), { cores: availableParallelism(), maxPerCore: 2, maxWaitMinutes: 30, limit });
+		setLimit(2, 3);
 		// A fake clock: each sleep advances it; the load falls below the limit after `busyMs`.
 		const probe = (busyMs: number) => {
 			let now = 0;

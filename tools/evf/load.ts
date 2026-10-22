@@ -7,15 +7,20 @@ export type LoadLimit = { cores: number; maxPerCore: number; limit: number; maxW
 export type LoadProbe = { read: () => number; sleep: (ms: number) => void; now: () => number };
 const machine: LoadProbe = { read: () => loadavg()[0], sleep, now: Date.now };
 
-/** The shared machine's limit (C51, C81) from the home checkout's evf.config.json. */
+/**
+ * C51 and C81: two per core, 30 minutes of waiting. evf.config.json `machineLoad` may override it; an OPS branch
+ * cannot add that key, because it may change only its own maintenanceTasks entry (OPS-22).
+ */
+const DEFAULT_LOAD = { maxPerCore: 2, maxWaitMinutes: 30 };
+
+/** The shared machine's limit from the home checkout's evf.config.json, or the C51/C81 default. */
 export function loadLimit(root: string): LoadLimit {
-	const setting = loadConfig(root).machineLoad;
+	const setting = loadConfig(root).machineLoad ?? DEFAULT_LOAD;
 	if (
-		!setting ||
 		!(Number.isFinite(setting.maxPerCore) && setting.maxPerCore > 0) ||
 		!(Number.isFinite(setting.maxWaitMinutes) && setting.maxWaitMinutes >= 0)
 	)
-		fail("evf.config.json needs machineLoad: { maxPerCore: <positive number>, maxWaitMinutes: <minutes> }.");
+		fail("evf.config.json machineLoad needs { maxPerCore: <positive number>, maxWaitMinutes: <minutes, 0 or more> }.");
 	const cores = availableParallelism();
 	return { cores, ...setting, limit: setting.maxPerCore * cores };
 }

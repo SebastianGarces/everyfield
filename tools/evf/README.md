@@ -223,9 +223,11 @@ exercise workflow behavior only. Tests contact no real GitHub or application dat
 ## Machine load limit
 
 Agents share one Mac. `evf task start`, `evf verify` and `evf browser run` wait while the 1-minute
-load average is above `machineLoad.maxPerCore` × CPU cores in `evf.config.json` (2 × 12 = 24 on
-Sebastian's Mac, rulings C51 and C81). A waiting command prints one line per minute with the load
-and the limit, and gives up after `machineLoad.maxWaitMinutes` (30) without starting work.
+load average is above 2 × CPU cores (24 on Sebastian's 12-core Mac, rulings C51 and C81). A waiting
+command prints one line per minute with the load and the limit, and gives up after 30 minutes
+without starting work. An optional `"machineLoad": {"maxPerCore": 2, "maxWaitMinutes": 30}` in
+`evf.config.json` overrides the default in `tools/evf/load.ts`; an OPS branch cannot add it,
+because it may change only its own `maintenanceTasks` entry.
 `--ignore-load "<reason>"` runs at once and appends the time, command, load, limit and reason to
 `load-overrides.jsonl` under the Git common directory's `evf/` folder. `evf doctor` shows the
 current load and limit. CI runners use the same rule with their own core count.

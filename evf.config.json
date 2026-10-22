@@ -4,7 +4,6 @@
 	"worktreeDir": ".worktrees",
 	"statusContext": "evf/verify",
 	"maxAgentsMdLines": 150,
-	"machineLoad": { "maxPerCore": 2, "maxWaitMinutes": 30 },
 	"stack": {
 		"usesPaidProviders": false,
 		"up": ["node", "scripts/stack.mjs", "up"],
