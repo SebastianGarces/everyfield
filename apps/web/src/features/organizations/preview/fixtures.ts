@@ -304,6 +304,8 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 	// nothing. "Reply lost once" commits the first command of each kind and then drops its reply.
 	// The API hashes the whole command: the same key with any other input is refused as request_conflict.
 	const replies = new Map<string, { body: string; reply: unknown }>();
+	/** The address each request sent in this visit went to; a request leaves `pending` when it is answered or withdrawn. */
+	const addresses = new Map<string, string>();
 	const run = (async (operation: OperationName, input: unknown) => {
 		await wait(450);
 		if (READS.has(operation)) return answer(operation, input);
@@ -327,6 +329,9 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 				const p = command.input.pair as RelationshipPair;
 				if (refuse) throw new Refusal("invitation_limit");
 				if (pending.some((i) => i.pair.organization.id === p.organization.id)) throw new Refusal("pending_invitation");
+				// As the API does: one waiting request per subject and address, whichever organization it went to.
+				const email = command.input.recipientEmail as string;
+				if (pending.some((i) => addresses.get(i.invitationId) === email)) throw new Refusal("address_pending");
 				const made = C.invitationResult.parse({
 					status: "pending",
 					invitationId: nextId(),
@@ -335,6 +340,7 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 					expiresAt: days(30),
 					inviterDescription: "Daniel Reyes, Owner of Harvest Point Church",
 				});
+				addresses.set(made.invitationId, email);
 				pending = [bare(made), ...pending];
 				return made;
 			}
