@@ -5742,9 +5742,6 @@
       "WP-050",
       "WP-057",
       "WP-058"
-    ],
-    "commitment_change": [
-      "WP-014"
     ]
   },
   "retired_tables": {
@@ -12013,6 +12010,7 @@
       "library_owned": false,
       "jsonb_keys": {},
       "capabilities": [
+        "CAP-A-027",
         "CAP-A-028"
       ],
       "replaces": [],
@@ -12028,7 +12026,9 @@
       },
       "feature_ids": [
         "PPL-014",
-        "PPL-015"
+        "PPL-015",
+        "TEAM-002",
+        "TEAM-009"
       ],
       "acceptance_ids": [],
       "future_case_ids": [],

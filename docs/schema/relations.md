@@ -45,6 +45,8 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `commitment(object_id, plant_id)` | `file_object(id, tenant_id)` | restrict |  |
 | `commitment(corrected_commitment_id, plant_id)` | `commitment(id, plant_id)` | restrict |  |
 | `commitment(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
+| `commitment_change(person_id, plant_id)` | `person(id, tenant_id)` | cascade |  |
+| `commitment_change(plant_id)` | `plant(id)` | no_action |  |
 | `contact_outcome(plant_id)` | `plant(id)` | restrict |  |
 | `contact_outcome(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `contact_outcome(task_id, plant_id)` | `task(id, plant_id)` | restrict |  |
@@ -354,3 +356,4 @@ Every declared Person FK has one registration in `target.json.person_references`
 | `person_merge` | `source_id, tenant_id` | WP-015 |
 | `person_merge` | `survivor_id, tenant_id` | WP-015 |
 | `record_correction` | `person_id, plant_id` | WP-015 |
+| `commitment_change` | `person_id, plant_id` | WP-014 |

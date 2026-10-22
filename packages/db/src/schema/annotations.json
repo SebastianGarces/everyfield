@@ -1906,8 +1906,7 @@
 			"assistant_approval": ["WP-004", "WP-053"],
 			"operation_effect": ["WP-004", "WP-053"],
 			"product_feedback": ["WP-004", "WP-049"],
-			"recovery_manifest": ["WP-004", "WP-050", "WP-057", "WP-058"],
-			"commitment_change": ["WP-014"]
+			"recovery_manifest": ["WP-004", "WP-050", "WP-057", "WP-058"]
 		},
 		"retired_tables": {
 			"recovery_manifest": "Encrypted restricted external backup/restore artifact, outside the live application database.",
@@ -16505,7 +16504,7 @@
 				"purpose": "One explicit dated withdrawal or reactivation of a Person's commitment. With the valid cards it is the whole input of the current commitment; person.commitment_state and commitment_effective_on cache that one function. The audit row with the same ID names the actor.",
 				"library_owned": false,
 				"jsonb_keys": {},
-				"capabilities": ["CAP-A-028"],
+				"capabilities": ["CAP-A-027", "CAP-A-028"],
 				"replaces": [],
 				"producer_work_packages": ["WP-014"],
 				"producer_derivation": {
@@ -16513,7 +16512,7 @@
 					"additional_producers": ["WP-014"],
 					"rule": "WP-014 commitment lifecycle storage through Drizzle Kit (C100)."
 				},
-				"feature_ids": ["PPL-014", "PPL-015"],
+				"feature_ids": ["PPL-014", "PPL-015", "TEAM-002", "TEAM-009"],
 				"acceptance_ids": [],
 				"future_case_ids": [],
 				"scope": "plant",

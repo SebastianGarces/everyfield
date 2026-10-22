@@ -6545,6 +6545,7 @@
         "account",
         "audit_event",
         "commitment",
+        "commitment_change",
         "interview",
         "onboarding_setup",
         "participation",
@@ -6951,6 +6952,7 @@
       "consumer_table_names": [
         "attestation",
         "commitment",
+        "commitment_change",
         "interview",
         "meeting",
         "participation",

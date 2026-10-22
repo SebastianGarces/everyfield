@@ -2,7 +2,7 @@
 
 [target.json](target.json) is generated from the Drizzle declarations in [tables.ts](../../packages/db/src/schema/tables.ts). Those declarations own modeled structure; reviewed custom migrations and supplemental catalog expectations own triggers, functions and privileges. Applied SQL remains immutable.
 
-The schema has 88 tables, 1016 columns, 318 declared FKs and 25 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
+The schema has 89 tables, 1022 columns, 320 declared FKs and 25 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
 
 Run documentation/tooling checks from the repository root:
 
@@ -38,6 +38,7 @@ Each replaced table inherits the union of producer packages from its previous ta
 
 | New table | Ownership basis and ruling | Producers |
 |---|---|---|
+| `commitment_change` | WP-014 commitment lifecycle storage through Drizzle Kit (C100). | WP-014 |
 | `conversation` | WP-051 Evry conversation storage through Drizzle Kit. | WP-051 |
 | `conversation_event` | WP-051 Evry conversation storage through Drizzle Kit. | WP-051 |
 | `development_enrollment` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
