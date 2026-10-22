@@ -391,10 +391,23 @@ async function writeBatch(db: Database, lease: Lease, actorId: string, importId:
 /** Rows each import statement writes. Statements grow with batches, and with failures only while a batch is split. */
 const BATCH = 500;
 /**
+ * Why the database refused a row's values: a data exception (22), a constraint (23) or a trigger's raise (P0). Any
+ * other error, such as a lost connection or a serialization failure, is not the row's own: null.
+ */
+function rowFailure(error: unknown) {
+	const cause = z
+		.object({ cause: z.object({ code: z.string().regex(/^(22|23|P0)/), constraint: z.string().optional() }) })
+		.safeParse(error);
+	return cause.success ? { code: cause.data.cause.code, constraint: cause.data.cause.constraint ?? null } : null;
+}
+type FailedRow = { row: number; reason: "row_write_failed"; code: string; constraint: string | null };
+/**
  * The people_import job: write every remaining reviewed row in batches of one statement each. A batch the database
- * refuses is split in halves until each failing row stands alone, so one bad row never fails its neighbours. The run ends
- * by saving the failed rows, or by clearing the payload when every row exists. "lost" means the lease or the importer's
- * authority ended; nothing more was written.
+ * refuses for a row's values is split in halves until each failing row stands alone, so one bad row never fails its
+ * neighbours; the run saves each failed row with the database's code and constraint, never its values. Any other error
+ * ends the run with the rows still remaining, for the job to try again. The run ends by saving the failed rows, or by
+ * clearing the payload when every row exists. "lost" means the lease or the importer's authority ended; nothing more
+ * was written.
  */
 export async function runPeopleImport(db: Database, lease: Lease): Promise<"succeeded" | "lost"> {
 	const loaded = z
@@ -425,14 +438,16 @@ export async function runPeopleImport(db: Database, lease: Lease): Promise<"succ
 		.parse(loaded.plan)
 		.create.filter((r) => !done.has(r.row))
 		.map((r) => ({ ...r, values: values.get(r.row)! }));
-	const failed: number[] = [];
+	const failed: FailedRow[] = [];
 	let lost = false;
 	const write = async (batch: SavedRow[]): Promise<void> => {
 		if (lost || !batch.length) return;
 		try {
 			if (!(await writeBatch(db, lease, actorId, loaded.id, batch))) lost = true;
-		} catch {
-			if (batch.length === 1) failed.push(batch[0]!.row);
+		} catch (error) {
+			const why = rowFailure(error);
+			if (!why) throw error;
+			if (batch.length === 1) failed.push({ row: batch[0]!.row, reason: "row_write_failed", ...why });
 			else {
 				const half = Math.ceil(batch.length / 2);
 				await write(batch.slice(0, half));
@@ -443,7 +458,7 @@ export async function runPeopleImport(db: Database, lease: Lease): Promise<"succ
 	for (let i = 0; i < pending.length && !lost; i += BATCH) await write(pending.slice(i, i + BATCH));
 	if (lost) return "lost";
 	const finished = await db.execute(sql`UPDATE person_import SET
- failed=${JSON.stringify(failed.map((row) => ({ row, reason: "row_write_failed" })))}::jsonb,
+ failed=${JSON.stringify(failed)}::jsonb,
  upload=CASE WHEN ${failed.length === 0} THEN NULL ELSE upload END
  WHERE id=${loaded.id}::uuid AND ${holds(lease)} RETURNING id`);
 	return finished.rows.length ? "succeeded" : "lost";
