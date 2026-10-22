@@ -139,13 +139,17 @@ export function PersonScreen({
 	const [open, setOpen] = useState<Open>(null);
 	/** The page parts did not read again after an Unmerge: say so, and offer the reload that shows them. */
 	const [stale, setStale] = useState(false);
+	/** The page parts are reading again after an Unmerge; the sections say so with aria-busy until they show the result. */
+	const [refreshing, setRefreshing] = useState(false);
 	/**
 	 * After an Unmerge the records, tags, skills, household and hints on this page may belong to the other person again.
 	 * One read brings the whole page as Unmerge left it; the cards that hold their own copy restart from it.
 	 */
 	async function afterUnmerge(done: Unmerged) {
 		saved(done.receipt, { kind: "activity", action: "person_unmerged" });
+		setRefreshing(true);
 		const r = await loadPersonPage(person.id).catch(() => ({ status: "lost" }) as const);
+		setRefreshing(false);
 		if (r.status !== "ok") return setStale(true);
 		const fresh = r.value;
 		store.dispatch({ type: "server", person: fresh.person });
@@ -303,7 +307,10 @@ export function PersonScreen({
 				</Card>
 			) : null}
 
-			<div className="grid grid-cols-[minmax(0,1.9fr)_minmax(0,1fr)] items-start gap-5 max-app-lg:grid-cols-1">
+			<div
+				aria-busy={refreshing || undefined}
+				className="grid grid-cols-[minmax(0,1.9fr)_minmax(0,1fr)] items-start gap-5 max-app-lg:grid-cols-1"
+			>
 				<div className="flex min-w-0 flex-col gap-5">
 					{records ? (
 						<RecordsSection
