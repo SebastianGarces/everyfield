@@ -10,11 +10,13 @@ import { boundWrite, RequestActor, type requestWrite } from "../access/session.t
 import { canonical } from "../organizations/core.ts";
 import {
 	auditSavepoint,
+	declareWrite,
 	lockedWrite,
 	nativeWrite,
 	finishAudit,
 	prepareWrite,
 	WriteUnavailable,
+	type WritePath,
 	type AuditWrite,
 } from "../operations/writes.ts";
 
@@ -96,6 +98,8 @@ export async function withMeetingsWrite<T>(
 	const selected = authority.actor.context.owner;
 	return settleWrite(() =>
 		nativeWrite(db, authority, selected, async (tx) => {
+			// Every write of this module reads other rows, counts or the church's settings (C88).
+			await declareWrite(tx, "established");
 			const result = await body(tx, { session: authority.session, selected });
 			if (result.status === "refused") throw new Refusal(result.error.code, result.error.details);
 			return result.value;
@@ -162,17 +166,59 @@ export function delta(before: Record<string, unknown> | null, after: Record<stri
 }
 
 /**
+ * Each meeting and venue write's path (C88, operations/writes.ts). All are established: each reads
+ * other rows, counts or the church's settings. A write that only checks rows its final statement locks may declare
+ * "single" here.
+ */
+export const meetingWritePaths = {
+	"meetings.addAttendeeNote": "established",
+	"meetings.captureAttendanceBatch": "established",
+	"meetings.changeStatus": "established",
+	"meetings.checkIn": "established",
+	"meetings.clearAttendance": "established",
+	"meetings.clearCard": "established",
+	"meetings.completePractice": "established",
+	"meetings.correctEvaluation": "established",
+	"meetings.correctOccurrence": "established",
+	"meetings.correctPracticeOccurrence": "established",
+	"meetings.correctRsvp": "established",
+	"meetings.createGuestContact": "established",
+	"meetings.createWalkInContact": "established",
+	"meetings.delete": "established",
+	"meetings.edit": "established",
+	"meetings.finalizeAttendance": "established",
+	"meetings.inviteGuest": "established",
+	"meetings.populateKit": "established",
+	"meetings.reconcileAttendance": "established",
+	"meetings.recordCard": "established",
+	"meetings.recordEvaluation": "established",
+	"meetings.removeGuest": "established",
+	"meetings.replaceAgenda": "established",
+	"meetings.saveOwnRsvp": "established",
+	"meetings.schedule": "established",
+	"meetings.setAttendance": "established",
+	"meetings.setInviter": "established",
+	"meetings.updateKitItem": "established",
+	"venues.archive": "established",
+	"venues.correct": "established",
+	"venues.create": "established",
+	"venues.edit": "established",
+	"venues.restore": "established",
+} as const satisfies Record<string, WritePath>;
+export type MeetingWrite = keyof typeof meetingWritePaths;
+/**
  * The shared write (D70): the locked actor, the request-key claim, the command's own locked fact read, then one
  * statement with the change, the plant's material revision and one audit row. A replay returns the first answer.
  */
 export async function command<T>(
 	tx: Tx,
 	ctx: MeetingsContext,
-	operation: string,
+	operation: MeetingWrite,
 	input: { requestKey: string },
 	body: (w: Writer, audit: AuditWrite) => Promise<Change<T>>,
 	options: { member?: boolean } = {},
 ): Promise<T> {
+	await declareWrite(tx, meetingWritePaths[operation]);
 	const w = await writer(tx, ctx);
 	if (!w.admin && !options.member) deny();
 	const identity = requestIdentity.parse({

@@ -11,11 +11,13 @@ import { boundWrite, currentActor, currentWriteAllowed, liveOwner, RequestActor 
 import {
 	auditSavepoint,
 	auditTransaction,
+	declareWrite,
 	finishAudit,
 	lockedWrite,
 	nativeWrite,
 	prepareWrite,
 	WriteUnavailable,
+	type WritePath,
 } from "../operations/writes.ts";
 import { appendEvent, canonical } from "../organizations/core.ts";
 export { appendEvent, canonical, sameOwner };
@@ -124,7 +126,26 @@ export async function plantAdmin(tx: Tx, ctx: Context, plant: Owner, use: "read"
 	return { ...a, plant: row };
 }
 export type Command = { requestKey: string; expectedRevision: string; input: unknown };
-export async function begin(tx: Tx, ctx: WriteContext, actorId: string, name: string, q: Command) {
+/**
+ * Each settings write's path (C88, operations/writes.ts). All are established: each reads
+ * other rows, counts or the church's settings. A write that only checks rows its final statement locks may declare
+ * "single" here.
+ */
+export const settingsWritePaths = {
+	"account.finalizeAvatar": "established",
+	"account.removeAvatar": "established",
+	"account.requestDeletion": "established",
+	"account.setPersonalTimezone": "established",
+	"churches.requestWorkspaceDeletion": "established",
+	"plant.setDigestSchedule": "established",
+	"plant.setTimezone": "established",
+	"plant.updateProfile": "established",
+	"settings.saveChurch": "established",
+	"settings.saveSection": "established",
+} as const satisfies Record<string, WritePath>;
+export type SettingsWrite = keyof typeof settingsWritePaths;
+export async function begin(tx: Tx, ctx: WriteContext, actorId: string, name: SettingsWrite, q: Command) {
+	await declareWrite(tx, settingsWritePaths[name]);
 	const identity = requestIdentity.parse({
 		owner: ctx.selected,
 		actorId,
@@ -192,6 +213,8 @@ export async function withSettingsWrite<T>(
 	body: (tx: Tx) => Promise<SettingsReply<T>>,
 ): Promise<SettingsReply<T>> {
 	const run = async (tx: Tx) => {
+		// Every settings write reads the gate's account, church and setup rows (C88).
+		await declareWrite(tx, "established");
 		const result = await body(tx);
 		if (result.status === "refused") throw new Refusal(result.error.code);
 		return result;

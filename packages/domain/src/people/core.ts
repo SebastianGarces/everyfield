@@ -239,30 +239,32 @@ export async function project(tx: Tx, context: Context, p: Person, gate: SQL) {
 	return (await projectPeople(tx, context, [p], gate))[0]!;
 }
 export async function projectPeople(tx: Tx, context: Context, people: Person[], gate: SQL) {
-	const evidence =
-		context.selected.kind === "plant" && people.some((p) => p.commitment_state !== "unknown")
-			? await tx
-					.selectDistinctOn([tables.commitment.person_id], {
-						person_id: tables.commitment.person_id,
-						id: tables.commitment.id,
-						kind: tables.commitment.kind,
-						signed_on: tables.commitment.signed_on,
-						revision: tables.commitment.revision,
-					})
-					.from(tables.commitment)
-					.where(
-						and(
-							eq(tables.commitment.plant_id, context.selected.id),
-							inArray(
-								tables.commitment.person_id,
-								people.map((p) => p.id),
-							),
-							isNull(tables.commitment.voided_at),
-							gate,
+	const known = context.selected.kind === "plant" && people.some((p) => p.commitment_state !== "unknown");
+	// Commitment evidence is another row: a native write that answers with it runs in the gate's transaction (C88).
+	if (known) await declareWrite(tx, "established");
+	const evidence = known
+		? await tx
+				.selectDistinctOn([tables.commitment.person_id], {
+					person_id: tables.commitment.person_id,
+					id: tables.commitment.id,
+					kind: tables.commitment.kind,
+					signed_on: tables.commitment.signed_on,
+					revision: tables.commitment.revision,
+				})
+				.from(tables.commitment)
+				.where(
+					and(
+						eq(tables.commitment.plant_id, context.selected.id),
+						inArray(
+							tables.commitment.person_id,
+							people.map((p) => p.id),
 						),
-					)
-					.orderBy(tables.commitment.person_id, desc(tables.commitment.signed_on), desc(tables.commitment.id))
-			: [];
+						isNull(tables.commitment.voided_at),
+						gate,
+					),
+				)
+				.orderBy(tables.commitment.person_id, desc(tables.commitment.signed_on), desc(tables.commitment.id))
+		: [];
 	const byPerson = new Map(evidence.map((e) => [e.person_id, e]));
 	return people.map((p) => {
 		const base = {

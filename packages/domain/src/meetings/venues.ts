@@ -10,6 +10,7 @@ import {
 	parse,
 	read,
 	reply,
+	type MeetingWrite,
 	type MeetingsContext,
 	type Reader,
 	type Tx,
@@ -105,7 +106,7 @@ const update = (before: z.infer<typeof c.venue>, after: z.infer<typeof c.venue>)
 
 /** One venue change: the locked row, the expected revision, then the update and its history row together. */
 function change(
-	operation: string,
+	operation: MeetingWrite,
 	schema: z.ZodType<{ requestKey: string; expectedRevision: string; input: VenueInput }>,
 	apply: (v: Venue, input: VenueInput) => Venue,
 	kind: "edit" | "correct" | "archive" | "restore",

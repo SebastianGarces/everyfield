@@ -162,10 +162,13 @@ export async function auditSavepoint<T>(tx: Transaction, body: (tx: Transaction)
  */
 export type WritePath = "single" | "established";
 
-/** Declares the running command's path. An established command starts its transaction and runs the gate now. */
+/**
+ * Declares the running command's path, or the path a variant needs before a read of another row. An established
+ * command starts its transaction and runs the gate now. A write never returns from established to single.
+ */
 export async function declareWrite(tx: Transaction, path: WritePath) {
 	const session = sessions.get(tx);
-	if (!session) return;
+	if (!session || session.path === "established") return session?.lock();
 	session.path = path;
 	if (path === "established") await session.lock();
 }
@@ -251,7 +254,8 @@ class WriteSession {
 	tx: Transaction | undefined;
 	/** BEGIN was sent: the gate holds its locks until COMMIT. */
 	private begun = false;
-	path: WritePath = "established";
+	/** Undeclared runs as established: only a "single" declaration opens the one-statement path. */
+	path: WritePath | undefined;
 	/** The final statement committed on its own. */
 	private done = false;
 	private locking: Promise<void> | undefined;

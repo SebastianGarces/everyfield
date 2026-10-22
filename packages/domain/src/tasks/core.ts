@@ -8,11 +8,13 @@ import { z } from "zod";
 import { boundWrite, RequestActor } from "../access/session.ts";
 import {
 	auditSavepoint,
+	declareWrite,
 	lockedWrite,
 	nativeWrite,
 	finishAudit,
 	prepareWrite,
 	WriteUnavailable,
+	type WritePath,
 	type AuditWrite,
 } from "../operations/writes.ts";
 
@@ -87,6 +89,8 @@ export async function withTaskWrite<T>(
 	const selected = authority.actor.context.owner;
 	return readReply(() =>
 		nativeWrite(db, authority, selected, async (tx) => {
+			// Every write of this module reads other rows, counts or the church's settings (C88).
+			await declareWrite(tx, "established");
 			const result = await body(tx, { session: authority.session, selected });
 			if (result.status === "refused") throw new TaskRefusal(result.error.code, result.error.details);
 			return result.value;
@@ -144,6 +148,34 @@ export type Command = AuditWrite & { actor: Writer };
 /** Any command that may append task changes: a task command, or another domain's command that generates tasks. */
 export type AuditCommand = AuditWrite & { actor: { accountId: string; plantId: string } };
 /**
+ * Each task and follow-up write's path (C88, operations/writes.ts). All are established: each reads
+ * other rows, counts or the church's settings. A write that only checks rows its final statement locks may declare
+ * "single" here.
+ */
+export const taskWritePaths = {
+	"followups.correctOutcome": "established",
+	"followups.recordOutcome": "established",
+	"tasks.assignFollowUp": "established",
+	"tasks.bulkComplete": "established",
+	"tasks.bulkReschedule": "established",
+	"tasks.changeStatus": "established",
+	"tasks.complete": "established",
+	"tasks.completeOccurrence": "established",
+	"tasks.configureRecurrence": "established",
+	"tasks.create": "established",
+	"tasks.createFollowUp": "established",
+	"tasks.createSubtask": "established",
+	"tasks.delete": "established",
+	"tasks.edit": "established",
+	"tasks.executeHandoff": "established",
+	"tasks.removeSubtask": "established",
+	"tasks.reopen": "established",
+	"tasks.replacePrerequisites": "established",
+	"tasks.setSubtaskCompletion": "established",
+	"tasks.waive": "established",
+} as const satisfies Record<string, WritePath>;
+export type TaskWrite = keyof typeof taskWritePaths;
+/**
  * One retry-safe command (D70): the request key replays the stored answer, the body queues its changes and audit rows
  * on the command, and finishAudit runs them in one statement. `after` runs in the same transaction once the changes
  * are visible, for consequences that read them (reminder sync).
@@ -151,10 +183,11 @@ export type AuditCommand = AuditWrite & { actor: { accountId: string; plantId: s
 export async function command<T>(
 	tx: Tx,
 	context: TaskContext,
-	operation: string,
+	operation: TaskWrite,
 	input: { requestKey: string },
 	body: (command: Command) => Promise<{ value: T; after?: () => Promise<unknown> }>,
 ): Promise<T> {
+	await declareWrite(tx, taskWritePaths[operation]);
 	const actor = await writerOf(tx, context);
 	const identity = requestIdentity.parse({
 		owner: context.selected,

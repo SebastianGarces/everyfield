@@ -5,7 +5,7 @@ import { sql, type SQL } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
 import "server-only";
 import { boundWrite, liveRead, type RequestActor } from "../access/session.ts";
-import { auditSavepoint, nativeWrite, WriteUnavailable } from "../operations/writes.ts";
+import { auditSavepoint, declareWrite, nativeWrite, WriteUnavailable } from "../operations/writes.ts";
 import { TaskRefusal, type Reader, type TaskContext, type Tx } from "../tasks/core.ts";
 
 export type FollowUpReply<T> = { status: "ok"; value: T } | { status: "refused"; error: c.FollowUpError };
@@ -59,6 +59,8 @@ export async function withFollowUpWrite<T>(
 	const selected = authority.actor.context.owner;
 	return readAnswer(() =>
 		nativeWrite(db, authority, selected, async (tx) => {
+			// Every write of this module reads other rows, counts or the church's settings (C88).
+			await declareWrite(tx, "established");
 			const result = await body(tx, { session: authority.session, selected });
 			if (result.status === "refused") throw new FollowUpRefusal(result.error.code, result.error.details);
 			return result.value;
