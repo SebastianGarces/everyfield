@@ -4,7 +4,6 @@ import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import {
-	authorize,
 	authorizeRead,
 	deny,
 	hash,
@@ -199,7 +198,6 @@ export const peopleMerge = {
 		return readReply(async () => {
 			const kind = ownerKind(ctx);
 			const input = parse(c.mergeReviewRequest, raw);
-			await authorize(tx, ctx);
 			const { source, survivor } = await readPair(tx, ctx.selected.id, input, adminRead(ctx));
 			const p = plan(kind, source, survivor, {});
 			const side = (f: Facts) => ({
@@ -321,7 +319,7 @@ export const peopleMerge = {
 			const input = parse(c.mergedPersonDestinationRequest, raw);
 			// Any reader of the church may follow a merged Person. In an organization only Owners and Admins read every
 			// Person, so only they follow one; a Member's per-Person pipeline access does not reach merged identities.
-			const gate = kind === "plant" ? (await authorizeRead(tx, ctx)).gate : (await authorize(tx, ctx), adminRead(ctx));
+			const gate = kind === "plant" ? (await authorizeRead(tx, ctx)).gate : adminRead(ctx);
 			const result = await tx.execute(sql`SELECT p.state,coalesce(p.merged_into_person_id,p.id) AS destination,
  (SELECT m.id FROM person_merge m WHERE m.source_id=p.id AND m.tenant_id=p.tenant_id AND m.unmerged_at IS NULL) AS merge_id
  FROM person p WHERE ${gate} AND p.id=${input.personId}::uuid AND p.tenant_id=${ctx.selected.id}::uuid

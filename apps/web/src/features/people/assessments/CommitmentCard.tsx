@@ -209,9 +209,7 @@ export function CommitmentCard({
 		draft: CommitmentDraft,
 	) {
 		const send = (k: string): Promise<Outcome<CommitmentSaved>> =>
-			upload
-				? saveWithDocument(k, base, upload, setProgress)
-				: sendTwice(() => recordCommitment(k, { ...base, documentUploadId: null }));
+			upload ? saveWithDocument(k, base, upload, setProgress) : sendTwice(() => recordCommitment(k, base));
 		const r = await runSave(store, "commitment", base, send, {
 			fresh,
 			key,

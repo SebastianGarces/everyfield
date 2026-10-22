@@ -3,17 +3,7 @@ import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import { adminRead } from "../assessments/shared.ts";
-import {
-	authorize,
-	deny,
-	mutation,
-	parse,
-	readReply,
-	reply,
-	type Context,
-	type Tx,
-	type WriteContext,
-} from "../core.ts";
+import { deny, mutation, parse, readReply, reply, type Context, type Tx, type WriteContext } from "../core.ts";
 import { factsOf, moveRefs, parseFacts, referencesDigest, updatePerson, type Facts } from "../merge/index.ts";
 import { columnsChanged, freshPosition, sameColumn } from "../people.ts";
 import { lockPair } from "../person-reference-registry/index.ts";
@@ -109,7 +99,6 @@ export const peopleUnmerge = {
 		return readReply(async () => {
 			if (ctx.selected.kind !== "plant" && ctx.selected.kind !== "organization") deny();
 			const input = parse(c.unmergePreviewRequest, raw);
-			await authorize(tx, ctx);
 			const { merge, source, survivor } = await readMerge(tx, ctx.selected.id, input.mergeId, adminRead(ctx));
 			const i = inverse(merge, source, survivor);
 			return c.unmergePreview.parse({

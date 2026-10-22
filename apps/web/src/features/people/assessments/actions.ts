@@ -98,8 +98,9 @@ export async function signCommitmentUpload(
 }
 
 /**
- * Design B, step 2 (RT-2): the card with the document the browser uploaded, saved in one statement after the server has
- * checked the file. A lost answer is retried with the same request key; the first saved card answers.
+ * Design B, step 2 (RT-2): the card with the document the browser uploaded, saved by the same write as recordCommitment
+ * after the server has checked the file. A lost answer is retried with the same request key; the first saved card
+ * answers.
  */
 export async function saveCommitmentWithDocument(
 	requestKey: string,
@@ -109,13 +110,7 @@ export async function saveCommitmentWithDocument(
 		const storage = privateStorage();
 		const db = requestDatabase();
 		if (!storage || !db) return { status: "refused", code: "storage_unavailable" };
-		const saved = await saveCommitmentDocument(
-			db,
-			storage,
-			peopleContext(v),
-			v.authority.actor.accountId,
-			request,
-		).catch(lost);
+		const saved = await saveCommitmentDocument(db, storage, v.authority, request).catch(lost);
 		return outcome(saved, (r) => ({
 			commitment: r.commitment,
 			person: r.person,

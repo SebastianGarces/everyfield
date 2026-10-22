@@ -355,7 +355,13 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 commitments: c
 			saved.commitment.document,
 			saved.commitment.witness,
 		],
-		[{ from: "prospect", to: "core_group" }, "active", day(5), { status: "none" }, { kind: "person", personId: casey.id }],
+		[
+			{ from: "prospect", to: "core_group" },
+			"active",
+			day(5),
+			{ status: "none" },
+			{ kind: "person", personId: casey.id },
+		],
 	);
 	assert.equal(await count("commitment", alex.id), 1);
 	// Renaming the witness changes the names the history shows, never the saved card or its retry.
@@ -414,7 +420,12 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 commitments: c
 	);
 	const after = await commitmentsOf();
 	assert.deepEqual(
-		[reactivated.current.state, after.current.state, after.firstAcquisition.occurredOn, after.firstAcquisition.evidenceId],
+		[
+			reactivated.current.state,
+			after.current.state,
+			after.firstAcquisition.occurredOn,
+			after.firstAcquisition.evidenceId,
+		],
 		["active", "active", day(9), old.commitment.id],
 	);
 	assert.equal(await stageOf(alex.id), "core_group");
@@ -431,7 +442,9 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 commitments: c
 	assert.deepEqual([repeat.person.stage, repeat.person.stageChange], ["leader", null]);
 
 	// Correcting the invalid earliest card's date moves the first acquisition, with old, new, actor and reason.
-	const corrected = ok(await correct(old.commitment.id, old.commitment.revision, { action: "correct", occurredOn: day(3) }));
+	const corrected = ok(
+		await correct(old.commitment.id, old.commitment.revision, { action: "correct", occurredOn: day(3) }),
+	);
 	assert.equal(corrected.current.state, "active");
 	assert.deepEqual((await commitmentsOf()).firstAcquisition, {
 		status: "known",
@@ -451,7 +464,9 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 commitments: c
 	// BUG-R2-1: a correction to the values the card already has changes nothing: no card revision, no Person revision
 	// and no history entry, and the correction history still reads.
 	const unchanged = await commitmentsOf();
-	const same = ok(await correct(old.commitment.id, "2", { action: "correct", occurredOn: day(3), kind: "launch_team" }));
+	const same = ok(
+		await correct(old.commitment.id, "2", { action: "correct", occurredOn: day(3), kind: "launch_team" }),
+	);
 	assert.deepEqual([same.outcome, same.current], ["noop", unchanged.current]);
 	assert.deepEqual(await commitmentsOf(), unchanged);
 	const history = ok(await tx((t) => recordCorrections.listRecordCorrections(t, ctx(), { personId: alex.id })));
@@ -487,7 +502,9 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 commitments: c
 		actions.filter((a) => a === "commitment_withdrawn" || a === "commitment_reactivated"),
 		["commitment_withdrawn", "commitment_reactivated"],
 	);
-	assert.ok(!JSON.stringify([...(await audits(alex.id)), ...(await audits(casey.id))]).match(/Signed after class|Pastor Lee/));
+	assert.ok(
+		!JSON.stringify([...(await audits(alex.id)), ...(await audits(casey.id))]).match(/Signed after class|Pastor Lee/),
+	);
 
 	// BUG-R2-4: the commitment's effective date follows the card that made it active. Correcting that card's date
 	// moves it; voiding that card falls back to the earliest other valid card, or to the withdrawal it ended.
