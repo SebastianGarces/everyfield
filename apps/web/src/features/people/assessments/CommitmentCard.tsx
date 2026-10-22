@@ -616,21 +616,21 @@ function CardRow({
 						</span>
 					</a>
 				) : card.document.status === "attached" ? (
-					<p className="mt-2 flex items-center gap-2 text-sm text-text-3">
+					<div className="mt-2 flex flex-col gap-1.5 text-sm text-text-3">
 						{progress === null ? (
-							"Saving the signed card…"
+							<span>Saving the signed card…</span>
 						) : (
 							<>
+								<span className="tabular-nums">Uploading the signed card… {Math.round(progress * 100)}%</span>
 								<progress
 									value={progress}
 									max={1}
 									aria-label="Uploading the signed card"
-									className="h-1.5 w-28 flex-none appearance-none overflow-hidden rounded-full bg-line [&::-moz-progress-bar]:bg-ink [&::-webkit-progress-bar]:bg-line [&::-webkit-progress-value]:bg-ink"
+									className="h-1.5 w-full max-w-48 appearance-none overflow-hidden rounded-full bg-line [&::-moz-progress-bar]:bg-ink [&::-webkit-progress-bar]:bg-line [&::-webkit-progress-value]:bg-ink"
 								/>
-								<span className="tabular-nums">Uploading the signed card… {Math.round(progress * 100)}%</span>
 							</>
 						)}
-					</p>
+					</div>
 				) : null}
 			</div>
 			{canEdit && !pending && !voided ? (
