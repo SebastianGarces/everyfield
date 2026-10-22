@@ -607,8 +607,6 @@
 			"owningPaths": [
 				".github/workflows/ci.yml",
 				".github/workflows/pr-body.yml",
-				"package.json",
-				"tools/wiki/package.json",
 				"evf.config.json"
 			],
 			"checks": [
