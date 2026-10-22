@@ -5,10 +5,9 @@ import { sql, type SQL } from "@everyfield/db/query";
 import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import { boundWrite, RequestActor, requestWrite } from "../access/session.ts";
+import { boundWrite, RequestActor } from "../access/session.ts";
 import {
 	auditSavepoint,
-	checkedRead,
 	lockedWrite,
 	nativeWrite,
 	finishAudit,
@@ -110,41 +109,20 @@ export function readerOf(authority: RequestActor): Reader {
 		owner: a.context.owner,
 	};
 }
-/** `zone` reads the church's time zone once, for the commands that place a due date. */
-export type Writer = Viewer & { zone: () => Promise<z.infer<typeof timeZone>> };
-/**
- * Locks the actor's authority for this transaction once; a bound native request reuses its lock. A native write's
- * first attempt leaves the authority to its final statement and reads the time zone only when a command asks.
- */
+export type Writer = Viewer & { zone: z.infer<typeof timeZone> };
+/** Locks the actor's authority for this transaction once; a bound native request reuses its lock. */
 export async function writerOf(tx: Tx, context: TaskContext): Promise<Writer> {
-	const deferred = boundWrite(tx);
-	if (deferred && !requestWrite(tx) && sameOwner(deferred.selected, context.selected)) {
-		if (deferred.actor.context.kind !== "seat" || context.selected.kind !== "plant") deny();
-		const plantId = context.selected.id;
-		let zone: Promise<z.infer<typeof timeZone>> | undefined;
-		return {
-			accountId: deferred.actor.accountId,
-			plantId,
-			role: deferred.actor.context.role,
-			zone: () =>
-				(zone ??= (async () => {
-					const rows = await checkedRead(tx, sql`SELECT timezone FROM plant WHERE id=${plantId}::uuid`, null);
-					return timeZone.parse(rows ? rows[0]?.timezone : (await lockedWrite(tx))?.plant?.timezone);
-				})()),
-		};
-	}
-	const bound = requestWrite(tx);
+	const bound = await lockedWrite(tx);
 	const write =
 		bound && sameOwner(bound.selected, context.selected)
 			? bound
 			: await RequestActor.claimWrite(tx, context.session, owner.parse(context.selected));
 	if (!write || write.actor.context.kind !== "seat" || !write.plant || context.selected.kind !== "plant") deny();
-	const zone = timeZone.parse(write.plant.timezone);
 	return {
 		accountId: write.actor.accountId,
 		plantId: write.plant.id,
 		role: write.actor.context.role,
-		zone: async () => zone,
+		zone: timeZone.parse(write.plant.timezone),
 	};
 }
 export const administers = (v: Viewer) => v.role !== "member";
@@ -190,7 +168,7 @@ export async function command<T>(
 	if (claim.kind === "unavailable") deny();
 	if (claim.kind === "replay") return claim.value as T;
 	const result = await body({ ...claim, actor });
-	await finishAudit(tx, claim, identity, result.value, { more: !!result.after });
+	await finishAudit(tx, claim, identity, result.value);
 	await result.after?.();
 	return result.value;
 }

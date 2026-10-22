@@ -6,12 +6,12 @@ import * as tables from "@everyfield/db/tables";
 import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import { boundWrite, RequestActor, requestWrite } from "../access/session.ts";
+import { boundWrite, RequestActor, type requestWrite } from "../access/session.ts";
 import { canonical } from "../organizations/core.ts";
 import {
 	auditSavepoint,
+	lockedWrite,
 	nativeWrite,
-	readRows,
 	finishAudit,
 	prepareWrite,
 	WriteUnavailable,
@@ -119,45 +119,18 @@ export async function read<T>(
 }
 export type Viewer = { plantId: string; accountId: string; admin: boolean };
 
-/** `zone` reads the church's time zone once, for the commands that place a meeting in time. */
-export type Writer = { accountId: string; admin: boolean; plant: { id: string }; zone: () => Promise<string> };
-/**
- * The locked request actor for this plant: bound by the native request, or claimed here by a direct caller. A native
- * write's first attempt leaves the authority to its final statement and reads the time zone only when asked.
- */
+export type Writer = {
+	accountId: string;
+	admin: boolean;
+	plant: NonNullable<NonNullable<ReturnType<typeof requestWrite>>["plant"]>;
+};
+/** The locked request actor for this plant: bound by the native request, or claimed here by a direct caller. */
 export async function writer(tx: Tx, ctx: MeetingsContext): Promise<Writer> {
-	const deferred = boundWrite(tx);
-	if (
-		deferred &&
-		!requestWrite(tx) &&
-		deferred.authority.session === ctx.session &&
-		sameOwner(deferred.selected, ctx.selected)
-	) {
-		if (deferred.actor.context.kind !== "seat" || ctx.selected.kind !== "plant") deny();
-		const plant = { id: ctx.selected.id };
-		let zone: Promise<string> | undefined;
-		return {
-			accountId: deferred.actor.accountId,
-			admin: deferred.actor.context.role !== "member",
-			plant,
-			zone: () =>
-				(zone ??= (async () => {
-					const [row] = await readRows(tx, sql`SELECT timezone FROM plant WHERE id=${plant.id}::uuid`);
-					return z.string().parse(row?.timezone);
-				})()),
-		};
-	}
-	let bound = requestWrite(tx);
+	let bound = await lockedWrite(tx);
 	if (!bound || bound.authority.session !== ctx.session || !sameOwner(bound.selected, ctx.selected))
 		bound = (await RequestActor.claimWrite(tx, ctx.session, ctx.selected)) ?? undefined;
 	if (!bound?.plant || bound.actor.context.kind !== "seat") deny();
-	const zone = bound.plant.timezone;
-	return {
-		accountId: bound.actor.accountId,
-		admin: bound.actor.context.role !== "member",
-		plant: { id: bound.plant.id },
-		zone: async () => zone,
-	};
+	return { accountId: bound.actor.accountId, admin: bound.actor.context.role !== "member", plant: bound.plant };
 }
 
 export const hash = (value: unknown) => createHash("sha256").update(canonical(value)).digest("hex");

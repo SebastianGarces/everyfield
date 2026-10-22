@@ -67,14 +67,7 @@ export async function prepareWrite(tx: Transaction, request: RequestIdentity) {
 	return newWrite();
 }
 
-/** `more` keeps the command's transaction open after the write, for consequences that read the change. */
-export async function finishAudit(
-	tx: Transaction,
-	command: AuditWrite,
-	request: RequestIdentity,
-	result: unknown,
-	{ more = false } = {},
-) {
+export async function finishAudit(tx: Transaction, command: AuditWrite, request: RequestIdentity, result: unknown) {
 	const entries = command.events;
 	if (!entries.some((entry) => entry.id === command.id))
 		entries.unshift({
@@ -95,7 +88,7 @@ export async function finishAudit(
 	const closesOwner = ["account.requestDeletion", "churches.requestWorkspaceDeletion"].includes(request.operation);
 	const writes = [...command.writes, tx.insert(t.audit_event).values(rows)];
 	const session = sessions.get(tx);
-	if (session) return session.finish(writes, closesOwner ? undefined : request, more);
+	if (session) return session.finish(writes, closesOwner ? undefined : request);
 	await executeWrites(tx, writes, closesOwner ? undefined : request);
 }
 
@@ -161,13 +154,30 @@ export async function auditSavepoint<T>(tx: Transaction, body: (tx: Transaction)
 }
 
 /**
- * A native write (RT-3, D70). The first attempt sends no BEGIN, no gate and no request-key read. Row loaders read
- * without a lock and record each row's version (`xmin`). The final statement then checks the request actor's
- * authority with the gate's locks, locks every recorded row still at that version, and makes the changes with their
- * audit, so a single-statement write needs no transaction. A failed check raises inside that statement, which then
- * changes nothing. Any other statement before the final one starts a transaction and runs the gate first, as before.
- * A refusal, a failed check or a request-key conflict reruns the command the established way: BEGIN, gate,
- * request-key read, command, COMMIT. That run answers replays and refusals exactly as before.
+ * Which way a native write runs (C88). "single": every check the write makes is on rows its final statement locks
+ * again, or on a database constraint, so it may run as one statement without a transaction. "established": the write
+ * depends on another row's value (a time zone, a setting, a parent's state), a count or limit, or uniqueness without
+ * a constraint, so it runs in the gate's transaction. A statement's snapshot predates its locks, and a lock refreshes
+ * only the rows it locks. Every write is established unless it declares "single".
+ */
+export type WritePath = "single" | "established";
+
+/** Declares the running command's path. An established command starts its transaction and runs the gate now. */
+export async function declareWrite(tx: Transaction, path: WritePath) {
+	const session = sessions.get(tx);
+	if (!session) return;
+	session.path = path;
+	if (path === "established") await session.lock();
+}
+
+/**
+ * A native write (RT-3, D70). The first attempt sends no BEGIN, no gate and no request-key read. A "single" command
+ * reads its rows without a lock (checkedRead); its final statement checks the request actor's authority with the
+ * gate's locks, repeats each read with its lock and makes the changes with their audit, so it needs no transaction. A
+ * failed check raises inside that statement, which then changes nothing. Any other command, and any other statement
+ * before the final one, starts a transaction and runs the gate first, as before. A refusal, a failed check or a
+ * request-key conflict reruns the command the established way: BEGIN, gate, request-key read, command, COMMIT. That
+ * run answers replays and refusals exactly as before.
  */
 export async function nativeWrite<T>(
 	db: Database,
@@ -198,7 +208,7 @@ export async function nativeWrite<T>(
 /** The BEGIN of a native write's established run, after its first attempt changed nothing. */
 const RETRY = "BEGIN /* evf:retry */";
 
-/** A statement after a native write committed on its own: the command must declare `more` before its final write. */
+/** A statement after a native write committed on its own: a "single" command must end with its final write. */
 export class WriteOrderError extends Error {}
 
 async function firstAttempt<T>(
@@ -226,23 +236,22 @@ async function firstAttempt<T>(
 	}
 }
 
-/** A read the final statement repeats with `lock`: the same rows, apart from `volatile` columns, or the write fails. */
-type Check = { read: SQL; lock: SQL | null; volatile: readonly string[]; digest: string };
+/** A read the final statement repeats with `lock`: the same rows, or the write fails. */
+type Check = { read: SQL; lock: SQL; digest: string };
 const sessions = new WeakMap<Transaction, WriteSession>();
 const gating = new AsyncLocalStorage<true>();
 const FINAL = "/* evf:final */ ",
 	READ = "/* evf:read */ ";
 const skipped = (command: string) => ({ command, rowCount: 0, rows: [], fields: [], oid: 0 });
-/** The rows of `read` as one comparable value, without the columns that differ between two runs of the same read. */
-const digestOf = (read: SQL, volatile: readonly string[]) =>
-	sql`(SELECT md5(coalesce(jsonb_agg(r.v ORDER BY r.v::text)::text,'')) FROM (SELECT to_jsonb(q)${sql.raw(
-		volatile.map((key) => ` - '${key.replaceAll("'", "''")}'`).join(""),
-	)} AS v FROM (${read}) q) r)`;
+/** The rows of `read` as one comparable value. */
+const digestOf = (read: SQL) =>
+	sql`(SELECT md5(coalesce(jsonb_agg(r.v ORDER BY r.v::text)::text,'')) FROM (SELECT to_jsonb(q) AS v FROM (${read}) q) r)`;
 
 class WriteSession {
 	tx: Transaction | undefined;
 	/** BEGIN was sent: the gate holds its locks until COMMIT. */
 	private begun = false;
+	path: WritePath = "established";
 	/** The final statement committed on its own. */
 	private done = false;
 	private locking: Promise<void> | undefined;
@@ -289,13 +298,13 @@ class WriteSession {
 	}
 
 	/** Run `read` without its lock; the final statement repeats it with the lock. Null once the gate holds its locks. */
-	async check(read: SQL, lock: SQL | null, volatile: readonly string[]): Promise<Record<string, unknown>[] | null> {
-		if (this.begun) return null;
+	async check(read: SQL, lock: SQL): Promise<Record<string, unknown>[] | null> {
+		if (this.begun || this.path !== "single") return null;
 		const result = await this.tx!.execute(
-			sql`${sql.raw(READ)}SELECT d.evf_digest, q.* FROM (SELECT ${digestOf(read, volatile)} AS evf_digest) d
+			sql`${sql.raw(READ)}SELECT d.evf_digest, q.* FROM (SELECT ${digestOf(read)} AS evf_digest) d
  LEFT JOIN LATERAL (SELECT x.*, row_number() OVER () AS evf_row FROM (${read}) x) q ON true ORDER BY q.evf_row`,
 		);
-		this.checks.push({ read, lock, volatile, digest: String(result.rows[0]?.evf_digest) });
+		this.checks.push({ read, lock, digest: String(result.rows[0]?.evf_digest) });
 		return result.rows
 			.filter((row) => row.evf_row !== null)
 			.map((row) => {
@@ -306,8 +315,8 @@ class WriteSession {
 			});
 	}
 
-	async finish(writes: readonly SQLWrapper[], request: RequestIdentity | undefined, more: boolean) {
-		if (more) await this.lock();
+	async finish(writes: readonly SQLWrapper[], request: RequestIdentity | undefined) {
+		if (this.path !== "single") await this.lock();
 		const authority = this.begun ? null : boundWrite(this.tx!);
 		const allowed = authority
 			? sql`(SELECT allowed FROM evf_auth)`
@@ -317,9 +326,7 @@ class WriteSession {
 		// Each check runs after the authority's locks and takes its own locks without waiting.
 		const current = this.checks.length
 			? sql.join(
-					this.checks.map(
-						(c) => sql`${digestOf(c.lock ? sql`${c.read} ${c.lock} NOWAIT` : c.read, c.volatile)}=${c.digest}`,
-					),
+					this.checks.map((c) => sql`${digestOf(sql`${c.read} ${c.lock} NOWAIT`)}=${c.digest}`),
 					sql` AND `,
 				)
 			: sql`true`;
@@ -334,22 +341,13 @@ class WriteSession {
 }
 
 /**
- * Use it only for a read whose rows the final statement locks again (`lock`), or whose other rows change only together
- * with the owner root: a write that commits between the final statement's snapshot and its locks is seen only through
- * those locked rows and the root's version check (writeAuthority).
- *
- * A read a native write's first attempt runs without a lock: `read` is the query, `lock` the locking clause the
- * established way adds (FOR UPDATE OF t). The final statement runs `read` again with `lock` NOWAIT and requires the
- * same rows, ignoring `volatile` columns such as clock readings. Null once the command holds the gate: run the read
- * with its lock as usual.
+ * A "single" command's read of rows its final statement locks again: `read` is the query, `lock` the locking clause
+ * the established way adds (FOR UPDATE OF t). The first attempt runs `read` without the lock; the final statement runs
+ * it again with `lock` NOWAIT and requires the same rows. Null for an established command or once the gate holds its
+ * locks: run the read with its lock as usual.
  */
-export function checkedRead(tx: Transaction, read: SQL, lock: SQL | null, volatile: readonly string[] = []) {
-	return sessions.get(tx)?.check(read, lock, volatile) ?? Promise.resolve(null);
-}
-
-/** The rows of `read` with `lock`: through checkedRead in a native write's first attempt, else one locked statement. */
-export async function readRows(tx: Transaction, read: SQL, lock: SQL | null = null, volatile: readonly string[] = []) {
-	return (await checkedRead(tx, read, lock, volatile)) ?? (await tx.execute(lock ? sql`${read} ${lock}` : read)).rows;
+export function checkedRead(tx: Transaction, read: SQL, lock: SQL) {
+	return sessions.get(tx)?.check(read, lock) ?? Promise.resolve(null);
 }
 
 /** The gate's locked rows. A native write's first attempt starts its transaction and runs the gate here. */

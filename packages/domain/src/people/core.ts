@@ -12,9 +12,11 @@ import {
 	finishAudit,
 	nativeWrite,
 	checkedRead,
+	declareWrite,
 	prepareWrite,
 	WriteUnavailable,
 	type AuditWrite,
+	type WritePath,
 } from "../operations/writes.ts";
 
 import { owner, revision } from "@everyfield/contracts/common";
@@ -383,13 +385,62 @@ export function personChanges(before?: Revisioned, after?: Revisioned) {
 	};
 }
 
+/**
+ * Each People write's path (C88, operations/writes.ts). "single" only where every check is on the Person row the
+ * final statement locks again: creating a Person (no read), editing its contact fields and adding a note to it. Every
+ * other write reads another row, a count or the church's settings and runs in the gate's transaction.
+ */
+export const peopleWritePaths = {
+	"orgPeople.merge": "established",
+	"orgPeople.remove": "established",
+	"orgPeople.unmerge": "established",
+	"people.addNote": "single",
+	"people.addSkill": "established",
+	"people.addToHousehold": "established",
+	"people.assignTag": "established",
+	"people.changeStatus": "established",
+	"people.correctAdultClassification": "established",
+	"people.correctCommitmentLifecycle": "established",
+	"people.correctPersonRecord": "established",
+	"people.createAssessment": "established",
+	"people.createCommitment": "established",
+	"people.createHouseholdWithHead": "established",
+	"people.createInterview": "established",
+	"people.createPerson": "single",
+	"people.createTag": "established",
+	"people.deleteHousehold": "established",
+	"people.deleteNote": "established",
+	"people.deletePerson": "established",
+	"people.deleteTag": "established",
+	"people.editNote": "established",
+	"people.mergePeople": "established",
+	"people.propagateAddress": "established",
+	"people.reactivateCommitment": "established",
+	"people.recordAdultClassification": "established",
+	"people.removeFromHousehold": "established",
+	"people.removePersonPhoto": "established",
+	"people.removeSkill": "established",
+	"people.removeTag": "established",
+	"people.reorderPipeline": "established",
+	"people.restorePerson": "established",
+	"people.setHouseholdRole": "established",
+	"people.setPersonPhoto": "established",
+	"people.unmergePeople": "established",
+	"people.updateHousehold": "established",
+	"people.updatePerson": "single",
+	"people.updateSkill": "established",
+	"people.updateTag": "established",
+	"people.withdrawCommitment": "established",
+} as const satisfies Record<string, WritePath>;
+export type PeopleWrite = keyof typeof peopleWritePaths;
+
 export type Mutation = { requestKey: string; expectedRevision?: string };
 /** The fact a write changed: a Person, or another revisioned people fact such as a tag or household. */
 export type Revisioned = { revision: string };
 export async function mutation<T>(
 	tx: Tx,
 	context: WriteContext,
-	name: string,
+	name: PeopleWrite,
 	input: Mutation,
 	body: (
 		actorId: string,
@@ -408,6 +459,8 @@ export async function mutation<T>(
 		metadata?: Record<string, string>;
 	}>,
 ): Promise<unknown> {
+	// An organization's note reads the reader's pipeline duties, another row: it runs in the gate's transaction.
+	await declareWrite(tx, context.selected.kind === "organization" ? "established" : peopleWritePaths[name]);
 	await lockOwner(tx, context);
 	const note = ["people.addNote", "people.editNote", "people.deleteNote"].includes(name);
 	const orgNote = context.selected.kind === "organization" && note;
