@@ -174,7 +174,8 @@ function useReview(proposalId: string) {
 		}
 		// An expired or closed review says so in its own state; only a changed review or an unknown result needs words.
 		const code = reply.status === "refused" ? reply.error.code : null;
-		if (current && (code === "review_expired" || code === "review_closed" || code === "photo_unavailable")) return false;
+		if (current && (code === "review_expired" || code === "review_closed" || code === "photo_unavailable"))
+			return false;
 		setNotice({ text: actionNotice(reply.status === "refused" ? reply.error : "lost"), tone: "error" });
 		return false;
 	}
@@ -347,7 +348,9 @@ export function ReviewCard({ proposalId, target }: { proposalId: string; target:
 	const focusInside = useRef(false);
 	const { review, notice } = r;
 	const upload =
-		review?.operation === "people.setPersonPhoto" ? review.review.changes.find((c) => c.field === "photo")?.after : null;
+		review?.operation === "people.setPersonPhoto"
+			? review.review.changes.find((c) => c.field === "photo")?.after
+			: null;
 	const staged = useStagedPhoto(proposalId, typeof upload === "string" ? upload : null, r.view === "pending");
 	const photoGone =
 		staged.photo.status === "gone" ||
