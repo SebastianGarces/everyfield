@@ -37,6 +37,7 @@ import {
 import {
 	ChoiceField,
 	codeOf,
+	NoticeInDialog,
 	SaveNotice,
 	RecordDialog,
 	recorder,
@@ -159,7 +160,7 @@ export function AssessmentCard({
 					/>
 				) : null}
 			</CardHeader>
-			<SaveNotice notice={form.notice} busy={saving} onDismiss={form.dismiss} />
+			<SaveNotice notice={form.notice} busy={saving} onDismiss={form.dismiss} dialogOpen={form.editing !== null} />
 
 			{initial === null ? (
 				<p className="text-sm text-text-3">The 4 C&rsquo;s did not load. Reload the page to see them.</p>
@@ -224,15 +225,17 @@ export function AssessmentCard({
 				</>
 			)}
 			<p className="mt-4 text-xs text-text-3">Human judgment. Evry and Plant Intelligence never set these.</p>
-			{form.editing ? (
-				<AssessmentDialog
-					editing={form.editing}
-					personName={first}
-					wait={wait}
-					onClose={form.close}
-					onSubmit={submit}
-				/>
-			) : null}
+			<NoticeInDialog notice={form.notice} busy={saving} onDismiss={form.dismiss}>
+				{form.editing ? (
+					<AssessmentDialog
+						editing={form.editing}
+						personName={first}
+						wait={wait}
+						onClose={form.close}
+						onSubmit={submit}
+					/>
+				) : null}
+			</NoticeInDialog>
 		</Card>
 	);
 }

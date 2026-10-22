@@ -11,7 +11,7 @@ import {
 	SegmentedControl,
 } from "@everyfield/ui/controls";
 import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
-import { useId, useRef, useState, type ReactNode } from "react";
+import { createContext, use, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import type { Outcome } from "../model.ts";
 import { fresh, problemText } from "../parts.tsx";
 import {
@@ -126,6 +126,7 @@ export function RecordDialog({
 				>
 					<DialogHeader icon={icon} tone={tone} title={title} description={description} />
 					<DialogBody className="flex flex-col gap-5 pb-1">
+						<DialogNotice />
 						{problem ? (
 							<div
 								ref={alert}
@@ -324,55 +325,90 @@ function noticeText(notice: Notice): string {
 	}
 }
 
-/**
- * The card's notice of a save that was not saved, or whose result is unknown. The live region is always on the page, so
- * a dialog opened later keeps it readable (the dialog hides everything else from screen readers): the notice is
- * announced without moving focus or changing the open form.
- */
-export function SaveNotice({
-	notice,
-	busy,
-	onDismiss,
-}: {
+type NoticeProps = {
 	notice: Notice | null;
 	/** Another change to this person is saving: Check again waits until it ends. */
 	busy: boolean;
 	onDismiss: () => void;
-}) {
+};
+/** The card's notice for its open dialog (NoticeInDialog). Null outside a card's dialog. */
+const NoticeContext = createContext<NoticeProps | null>(null);
+/** Notices already read out, by request key and state: moving between the card and a dialog does not repeat one. */
+const announced = new Set<string>();
+const noticeKey = (n: Notice) => `${n.id}:${n.tone}:${n.tone === "unknown" && n.checking}`;
+
+/**
+ * The card's notice of a save that was not saved, or whose result is unknown. It sits in an assertive live region on
+ * the card. While one of the card's dialogs is open, the notice moves into that dialog (DialogNotice), because a modal
+ * dialog is all a screen reader reads then: it is announced there without moving focus or changing the open form.
+ */
+export function SaveNotice({ dialogOpen, ...props }: NoticeProps & { dialogOpen: boolean }) {
+	return <NoticeRegion {...props} notice={dialogOpen ? null : props.notice} className="mb-4" />;
+}
+
+/** Wraps a card's dialogs so the card's notice shows inside whichever of them is open. */
+export function NoticeInDialog({ children, ...props }: NoticeProps & { children: ReactNode }) {
+	return <NoticeContext value={props}>{children}</NoticeContext>;
+}
+
+function DialogNotice() {
+	const props = use(NoticeContext);
+	return props ? <NoticeRegion {...props} /> : null;
+}
+
+/**
+ * One assertive live region. A notice is read out the first time it appears; one that was already read (it moved
+ * between the card and a dialog) sits inside an aria-live="off" wrapper, so it shows without being announced again.
+ */
+function NoticeRegion({ notice, busy, onDismiss, className }: NoticeProps & { className?: string }) {
+	const key = notice ? noticeKey(notice) : null;
+	const isNew = key !== null && !announced.has(key);
+	useEffect(() => {
+		if (key) announced.add(key);
+	}, [key]);
+	const body = notice ? <NoticeBody notice={notice} busy={busy} onDismiss={onDismiss} /> : null;
+	return (
+		<div aria-live="assertive" className={cn("empty:hidden", className)}>
+			{body && !isNew ? <div aria-live="off">{body}</div> : body}
+		</div>
+	);
+}
+
+function NoticeBody({ notice, busy, onDismiss }: NoticeProps & { notice: Notice }) {
 	const hintId = useId();
 	return (
-		<div aria-live="assertive" aria-atomic="true">
-			{notice ? (
-				<div className="mb-4 flex flex-col items-start gap-2.5 rounded-md bg-magenta-50 px-3.5 py-3 text-sm text-magenta-600">
-					<p className="flex items-start gap-2">
-						<Icon icon={Alert02Icon} size={16} className="mt-px flex-none" />
-						<span>{noticeText(notice)}</span>
-					</p>
-					<div className="flex flex-wrap gap-2">
-						{notice.tone === "unknown" ? (
-							<Button
-								size="sm"
-								variant="secondary"
-								loading={notice.checking}
-								disabled={busy && !notice.checking}
-								aria-describedby={busy && !notice.checking ? hintId : undefined}
-								onClick={notice.check}
-							>
-								Check again
-							</Button>
-						) : null}
-						{notice.tone === "refused" ? (
-							<Button size="sm" variant="ghost" onClick={onDismiss}>
-								Dismiss
-							</Button>
-						) : null}
-					</div>
-					{notice.tone === "unknown" && busy && !notice.checking ? (
-						<p id={hintId} className="text-xs text-magenta-600">
-							Check again waits until the other save to this person ends.
-						</p>
-					) : null}
-				</div>
+		<div
+			aria-atomic="true"
+			className="flex flex-col items-start gap-2.5 rounded-md bg-magenta-50 px-3.5 py-3 text-sm text-magenta-600"
+		>
+			<p className="flex items-start gap-2">
+				<Icon icon={Alert02Icon} size={16} className="mt-px flex-none" />
+				<span>{noticeText(notice)}</span>
+			</p>
+			<div className="flex flex-wrap gap-2">
+				{notice.tone === "unknown" ? (
+					<Button
+						size="sm"
+						variant="secondary"
+						type="button"
+						loading={notice.checking}
+						disabled={busy && !notice.checking}
+						aria-describedby={busy && !notice.checking ? hintId : undefined}
+						onClick={notice.check}
+					>
+						Check again
+					</Button>
+				) : null}
+				{notice.tone === "refused" ? (
+					<Button size="sm" variant="ghost" type="button" onClick={onDismiss}>
+						Dismiss
+					</Button>
+				) : null}
+			</div>
+			{notice.tone === "unknown" && busy && !notice.checking ? (
+				<p id={hintId} className="text-xs text-magenta-600">
+					Check again waits until the other save to this person ends.
+				</p>
 			) : null}
 		</div>
 	);

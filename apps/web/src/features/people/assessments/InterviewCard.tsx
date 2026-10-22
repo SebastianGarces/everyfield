@@ -47,6 +47,7 @@ import {
 import {
 	ChoiceField,
 	codeOf,
+	NoticeInDialog,
 	SaveNotice,
 	RecordDialog,
 	recorder,
@@ -211,7 +212,7 @@ export function InterviewCard({
 					/>
 				) : null}
 			</CardHeader>
-			<SaveNotice notice={form.notice} busy={saving} onDismiss={form.dismiss} />
+			<SaveNotice notice={form.notice} busy={saving} onDismiss={form.dismiss} dialogOpen={form.editing !== null} />
 
 			{initial === null ? (
 				<p className="text-sm text-text-3">Interviews did not load. Reload the page to see them.</p>
@@ -281,16 +282,18 @@ export function InterviewCard({
 				</>
 			)}
 			<p className="mt-4 text-xs text-text-3">Next steps are notes. They do not create tasks.</p>
-			{form.editing ? (
-				<InterviewDialog
-					wait={wait}
-					editing={form.editing}
-					personName={first}
-					moves={moves}
-					onClose={form.close}
-					onSubmit={submit}
-				/>
-			) : null}
+			<NoticeInDialog notice={form.notice} busy={saving} onDismiss={form.dismiss}>
+				{form.editing ? (
+					<InterviewDialog
+						wait={wait}
+						editing={form.editing}
+						personName={first}
+						moves={moves}
+						onClose={form.close}
+						onSubmit={submit}
+					/>
+				) : null}
+			</NoticeInDialog>
 		</Card>
 	);
 }

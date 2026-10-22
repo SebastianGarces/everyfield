@@ -64,7 +64,7 @@ import {
 	stillUnknown,
 	waitOf,
 } from "./model.ts";
-import { codeOf, recorder, SaveNotice, ShowEarlier, useHistory, useRecordForm } from "./parts.tsx";
+import { codeOf, recorder, NoticeInDialog, SaveNotice, ShowEarlier, useHistory, useRecordForm } from "./parts.tsx";
 import type { PlantPerson, RecordProps } from "./RecordsSection.tsx";
 import { newUpload, reusable, saveWithDocument, type DocumentUpload } from "./upload.ts";
 
@@ -425,7 +425,7 @@ export function CommitmentCard({
 					</div>
 				) : null}
 			</CardHeader>
-			<SaveNotice notice={dialog.notice} busy={saving} onDismiss={dialog.dismiss} />
+			<SaveNotice notice={dialog.notice} busy={saving} onDismiss={dialog.dismiss} dialogOpen={editing !== null} />
 
 			{initial === null ? (
 				<p className="text-sm text-text-3">Commitments did not load. Reload the page to see them.</p>
@@ -496,39 +496,41 @@ export function CommitmentCard({
 			)}
 			<p className="mt-4 text-xs text-text-3">A stage alone never counts as a commitment. Only a signed card does.</p>
 
-			{editing?.form === "record" ? (
-				<RecordCommitmentDialog
-					wait={wait}
-					draft={editing.draft}
-					problem={editing.problem}
-					personId={personId}
-					personName={first}
-					moves={moves}
-					documentsEnabled={documentsEnabled}
-					onClose={dialog.close}
-					onSubmit={record}
-				/>
-			) : editing?.form === "withdraw" || editing?.form === "reactivate" ? (
-				<LifecycleDialog
-					wait={wait}
-					change={editing.form}
-					draft={editing.draft}
-					problem={editing.problem}
-					personName={first}
-					since={current?.effectiveOn ?? null}
-					onClose={dialog.close}
-					onSubmit={(d) => lifecycle(editing.form as "withdraw" | "reactivate", d)}
-				/>
-			) : editing?.form === "correct" ? (
-				<CorrectionDialog
-					wait={wait}
-					card={editing.card}
-					draft={editing.draft}
-					problem={editing.problem}
-					onClose={dialog.close}
-					onSubmit={(d) => correct(editing.card, d)}
-				/>
-			) : null}
+			<NoticeInDialog notice={dialog.notice} busy={saving} onDismiss={dialog.dismiss}>
+				{editing?.form === "record" ? (
+					<RecordCommitmentDialog
+						wait={wait}
+						draft={editing.draft}
+						problem={editing.problem}
+						personId={personId}
+						personName={first}
+						moves={moves}
+						documentsEnabled={documentsEnabled}
+						onClose={dialog.close}
+						onSubmit={record}
+					/>
+				) : editing?.form === "withdraw" || editing?.form === "reactivate" ? (
+					<LifecycleDialog
+						wait={wait}
+						change={editing.form}
+						draft={editing.draft}
+						problem={editing.problem}
+						personName={first}
+						since={current?.effectiveOn ?? null}
+						onClose={dialog.close}
+						onSubmit={(d) => lifecycle(editing.form as "withdraw" | "reactivate", d)}
+					/>
+				) : editing?.form === "correct" ? (
+					<CorrectionDialog
+						wait={wait}
+						card={editing.card}
+						draft={editing.draft}
+						problem={editing.problem}
+						onClose={dialog.close}
+						onSubmit={(d) => correct(editing.card, d)}
+					/>
+				) : null}
+			</NoticeInDialog>
 		</Card>
 	);
 }
