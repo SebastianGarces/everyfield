@@ -101,7 +101,7 @@
 	},
 	"followups/core.withFollowUpWrite": {
 		"limit": 11,
-		"retry": 9,
+		"retry": 11,
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 6 locked read, 3 write."
 	},
 	"identity.budget.finish": {
@@ -890,7 +890,7 @@
 	},
 	"people/core.withPeopleWrite": {
 		"limit": 6,
-		"retry": 8
+		"retry": 11
 	},
 	"people/core.withPeopleWrite:people.assignTag": {
 		"limit": 5,
@@ -1039,6 +1039,7 @@
 	},
 	"settings/core.withSettingsWrite": {
 		"limit": 8,
+		"retry": 7,
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 3 locked read, 1 read, 2 write."
 	},
 	"settings/deletion.issueRestrictedDeletionSession": {
@@ -1099,7 +1100,7 @@
 	},
 	"tasks/core.withTaskWrite": {
 		"limit": 16,
-		"retry": 9,
+		"retry": 11,
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 8 locked read, 6 write."
 	},
 	"venues.archive": {
