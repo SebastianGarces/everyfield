@@ -694,6 +694,40 @@ test("AC:TARGET-TSK-014 due and overdue reminders follow the current assignee an
 		}),
 	);
 	assert.deepEqual(await live(t.id), []);
+	// Reopening a dated, assigned task plans its reminders again; completing an occurrence plans the next one's.
+	const pending = async (task) => (await live(task)).map((n) => [n.recipient_id, n.state]);
+	const twice = [
+		[admin2.id, "pending"],
+		[admin2.id, "pending"],
+	];
+	const once = await recurring({
+		title: "Order chairs",
+		assigneeId: admin2.id,
+		due: { kind: "local_date", date: "2099-02-01" },
+	});
+	const done = ok(
+		await write(owner, "completeOccurrence", {
+			requestKey: randomUUID(),
+			expectedRevision: once.revision,
+			input: { taskId: once.id },
+		}),
+	);
+	assert.deepEqual([await pending(once.id), await pending(done.successor.id)], [[], twice]);
+	ok(
+		await write(owner, "delete", {
+			requestKey: randomUUID(),
+			expectedRevision: done.successor.revision,
+			input: { taskId: done.successor.id },
+		}),
+	);
+	ok(
+		await write(owner, "reopen", {
+			requestKey: randomUUID(),
+			expectedRevision: done.task.revision,
+			input: { taskId: once.id },
+		}),
+	);
+	assert.deepEqual(await pending(once.id), twice);
 	// Undated or unassigned tasks have no reminders.
 	const undated = await create(owner, { assigneeId: member.id });
 	const unassigned = await create(owner, { due: { kind: "local_date", date: "2099-01-15" } });
