@@ -15,6 +15,12 @@ import { peopleWriter, accountPersonProducer } from "../../../packages/domain/sr
 import { randomUUID } from "node:crypto";
 import { dropSeed, openSeedEnvironment, writeFixture } from "../seed-env.mts";
 
+// The task reminder port of a stage change or retirement. These people hold no dated, assigned task, so a replan
+// here would be a bug.
+const noReminders = async () => {
+	throw Error("unexpected task reminder replan");
+};
+
 const PASSWORD = "People-preview-pass-1";
 
 async function up(origin: string) {
@@ -166,11 +172,16 @@ async function up(origin: string) {
 	const kim = people["Kim Wu"]!;
 	const review = await admin.execute(sql`SELECT material_revision::text AS r FROM plant WHERE id=${plant.id}`);
 	const retired = await write((tx) =>
-		peopleWriter.retirePerson(tx as never, ctx, {
-			requestKey: randomUUID(),
-			expectedRevision: kim.revision,
-			input: { personId: kim.id, reason: "Moved away", reviewRevision: review.rows[0]!.r, handoffs: [] },
-		} as never),
+		peopleWriter.retirePerson(
+			tx as never,
+			ctx,
+			{
+				requestKey: randomUUID(),
+				expectedRevision: kim.revision,
+				input: { personId: kim.id, reason: "Moved away", reviewRevision: review.rows[0]!.r, handoffs: [] },
+			} as never,
+			noReminders,
+		),
 	);
 	if (retired.status !== "ok") throw Error("retire: " + JSON.stringify(retired));
 

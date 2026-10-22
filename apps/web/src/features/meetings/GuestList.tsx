@@ -17,11 +17,6 @@ import {
 	CardHeading,
 	CardTitle,
 	ConfirmDialog,
-	Dialog,
-	DialogBody,
-	DialogContent,
-	DialogFooter,
-	DialogHeader,
 	Field,
 	IconButton,
 	Input,
@@ -38,9 +33,12 @@ import {
 	Textarea,
 	useToast,
 } from "@everyfield/ui/controls";
+import { instant } from "@everyfield/contracts/common";
 import { Avatar, DataTable, StatusBadge, type Column } from "@everyfield/ui/display";
-import { startTransition, useEffect, useRef, useState } from "react";
+import { startTransition, useState } from "react";
+import { NoticeInDialog, RecordDialog, RowNotices, SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
 import {
+	addAttendeeNote,
 	clearCard,
 	correctRsvp,
 	createGuestContact,
@@ -49,8 +47,9 @@ import {
 	removeGuest,
 	setInviter,
 } from "./actions.ts";
-import { PresenceCell, PresenceUnconfirmed, type usePresence } from "./Attendance.tsx";
+import { PresenceCell, type usePresence } from "./Attendance.tsx";
 import { PersonPicker, ReasonDialog, type PickedPerson } from "./dialogs.tsx";
+import type { Wait } from "../../components/save/model.ts";
 import {
 	CARD_LABEL,
 	CARD_RESPONSES,
@@ -68,18 +67,37 @@ import {
 	type Presence,
 	type Rsvp,
 } from "./model.ts";
-import { isPending, PENDING, type CardEntry, type Change } from "./page-state.ts";
-import { IntentLink, Problem, problemOf, useSave, type SaveCall } from "./parts.tsx";
+import { isPending, PENDING, type CardEntry, type Change, type GuestRow, type PendingGuest } from "./page-state.ts";
+import { IntentLink } from "./parts.tsx";
 
 type Filter = "all" | Rsvp;
-/** The open form and its subject. A form stays mounted while its save runs, so a failure reopens it as it was. */
-type Form = { kind: "add" } | { kind: "inviter"; guest: Guest } | { kind: "card"; guest: Guest };
-type Confirm = { kind: "clear"; guest: Guest } | { kind: "remove"; guest: Guest };
+type AddDraft = {
+	mode: "existing" | "new";
+	person: PickedPerson | null;
+	inviter: PickedPerson | null;
+	contact: { displayName: string; email: string; phone: string };
+};
+/**
+ * The card's open form with what was entered. A save closes it; a refusal opens it again with the same values and the
+ * reason, while it is still the latest form (components/save).
+ */
+type Form = (
+	| { kind: "add"; draft: AddDraft }
+	| { kind: "inviter"; guest: Guest; inviter: PickedPerson | null }
+	| { kind: "card"; guest: Guest; response: CardResponse | null; notes: string }
+	| { kind: "clear"; guest: Guest; reason: string }
+	| { kind: "note"; guest: Guest; text: string }
+) & { problem?: string };
 
 const STATE_NOTE = { retired: "Retired", merged: "Merged", live: null } as const;
 const ACCEPTS_REPLIES = ["planning", "ready", "in_progress"];
-const lost = () => ({ status: "lost" }) as const;
 const nextRevision = (r: string) => String(BigInt(r) + 1n) as Guest["revision"];
+const EMPTY_ADD: AddDraft = {
+	mode: "existing",
+	person: null,
+	inviter: null,
+	contact: { displayName: "", email: "", phone: "" },
+};
 
 /**
  * The guest list (REQ-MTG-007, REQ-MTG-019): each guest's RSVP, who invited them and, for Vision meetings, their
@@ -95,7 +113,6 @@ export function GuestList({
 	attendance,
 	presence,
 	canMark,
-	onNote,
 	canWrite,
 	project,
 	onGuest,
@@ -104,13 +121,12 @@ export function GuestList({
 	onStale,
 }: {
 	meeting: Detail;
-	guests: Guest[] | null;
+	guests: GuestRow[] | null;
 	cards: CardEntry[] | null;
 	attendance: Attendance | null;
 	presence: ReturnType<typeof usePresence>;
 	/** Presence may change: an Owner or Admin, before attendance is final, on a meeting that is not cancelled. */
 	canMark: boolean;
-	onNote: (guest: Guest) => void;
 	canWrite: boolean;
 	project: (change: Change) => void;
 	onGuest: (guest: Guest) => void;
@@ -120,85 +136,178 @@ export function GuestList({
 }) {
 	const toast = useToast();
 	const [filter, setFilter] = useState<Filter>("all");
-	const [form, setForm] = useState<(Form & { visible: boolean; key: number }) | null>(null);
-	const [confirm, setConfirm] = useState<Confirm | null>(null);
+	const [removing, setRemoving] = useState<Guest | null>(null);
+	// One save at a time for the whole guest list (C68): RSVP corrections, cards, inviters, adds and removals.
+	const lane = useSaveIntent<Form>({ explain: problemText });
 	const shown = guests ?? [];
 	const vision = meeting.type === "vision_meeting";
 	const counts = rsvpCounts(shown);
 	const cardOf = new Map((cards ?? []).map((c) => [c.personId, c]));
 	const marker = attendance?.viewerCanMarkAttendance === true;
+	const final = attendance?.finalized != null;
 	const classOf = new Map((attendance?.items ?? []).map((a) => [a.person.personId, a.classification]));
 	const rows = filter === "all" ? shown : shown.filter((g) => g.rsvp === filter);
 	const open = ACCEPTS_REPLIES.includes(meeting.status);
-	const openForm = (f: Form) => setForm({ ...f, visible: true, key: Date.now() });
+	const busy = lane.wait !== null;
 
-	/** One write: show `changes` at once, then keep the answer, or go back and tell why. */
-	function run<T>(
-		changes: Change[],
-		call: () => Promise<Outcome<T> | null>,
-		done: (value: T) => void,
-		failed: (code: string) => void,
-	) {
-		startTransition(async () => {
-			for (const c of changes) project(c);
-			const r = await call().catch(lost);
-			if (r?.status === "ok") startTransition(() => done(r.value));
-			else if (r) {
-				const code = problemOf(r)!;
-				if (code === "conflict") onStale();
-				failed(code);
-			}
-		});
-	}
 	/**
-	 * A form's write: the form closes at once. Its answer closes it for good, or reopens it with its input and the reason.
-	 * Only that form: when another form opened meanwhile, a failure says so in a message instead.
+	 * One save through the card's lane: `changes` show at once, the answer confirms them, and the lane replays a lost
+	 * answer once with the same request key or offers Check again. A refusal puts the page back and says why; out of
+	 * date also reads the meeting again.
 	 */
-	const current = useRef(form);
-	useEffect(() => {
-		current.current = form;
-	});
-	function submitForm<T>(changes: Change[], call: SaveCall<T>, done: (value: T) => void, what: string) {
-		const key = form?.key;
-		setForm((f) => f && { ...f, visible: false });
-		run(
-			changes,
-			call,
-			(v) => {
-				done(v);
-				setForm((f) => (f?.key === key ? null : f));
-			},
-			(code) => {
-				if (current.current?.key === key) setForm((f) => f && { ...f, visible: true });
-				else toast({ message: `${what} was not saved. ${problemText(code)}`, tone: "error" });
-			},
-		);
+	function write<T>(save: {
+		what: string;
+		done: string;
+		changes: Change[];
+		form?: Form;
+		send: (key: string) => Promise<Outcome<T>>;
+		ok: (value: T) => void;
+	}) {
+		if (busy) return;
+		startTransition(async () => {
+			for (const c of save.changes) project(c);
+			await lane.save({
+				...save,
+				ok: (value) => startTransition(() => save.ok(value)),
+				refused: (code) => code === "conflict" && onStale(),
+			});
+		});
 	}
 
 	function correct(guest: Guest, rsvp: Rsvp) {
-		run(
-			[{ kind: "guest", guest: { ...guest, rsvp, rsvpSource: "admin" } }],
-			() =>
-				correctRsvp(
-					crypto.randomUUID(),
-					guest.revision,
-					meeting.id,
-					guest.person.personId,
-					rsvp === "pending" ? null : rsvp,
-				),
-			(v) => {
+		write({
+			what: `The RSVP for ${guest.person.displayName}`,
+			done: "changed",
+			changes: [{ kind: "guest", guest: { ...guest, rsvp, rsvpSource: "admin" } }],
+			send: (key) =>
+				correctRsvp(key, guest.revision, meeting.id, guest.person.personId, rsvp === "pending" ? null : rsvp),
+			ok: (v) => {
 				onGuest(v.guest);
 				toast({ message: `${guest.person.displayName}: RSVP set to ${RSVP_LABEL[rsvp]}.`, tone: "success" });
 			},
-			(code) =>
-				toast({
-					message: `The RSVP for ${guest.person.displayName} was not changed. ${problemText(code)}`,
-					tone: "error",
-				}),
-		);
+		});
+	}
+	function add(draft: AddDraft) {
+		const person = draft.mode === "existing" ? draft.person : null;
+		const name = person?.name ?? draft.contact.displayName.trim();
+		const input = person
+			? { meetingId: meeting.id, personId: person.id, inviterPersonId: draft.inviter?.id ?? null }
+			: {
+					meetingId: meeting.id,
+					displayName: name,
+					email: draft.contact.email.trim() || null,
+					phone: draft.contact.phone.trim() || null,
+					country: "US",
+				};
+		write({
+			what: name,
+			done: "added",
+			form: { kind: "add", draft },
+			changes: [{ kind: "guest", guest: pendingGuest(person, name, person ? draft.inviter : null) }],
+			send: (key) => ("personId" in input ? inviteGuest(key, input) : createGuestContact(key, input)),
+			ok: (v) => {
+				onGuest(v.guest);
+				toast({ message: `${v.guest.person.displayName} is on the guest list.`, tone: "success" });
+			},
+		});
+	}
+	function changeInviter(guest: Guest, inviter: PickedPerson | null) {
+		const id = inviter?.id ?? null;
+		write({
+			what: `Who invited ${guest.person.displayName}`,
+			done: "saved",
+			form: { kind: "inviter", guest, inviter },
+			changes: [
+				{
+					kind: "guest",
+					guest: {
+						...guest,
+						inviter: inviter
+							? ({ personId: inviter.id, displayName: inviter.name, state: "live" } as Guest["inviter"])
+							: null,
+					},
+				},
+			],
+			send: (key) => setInviter(key, guest.revision, meeting.id, guest.person.personId, id),
+			ok: (v) => onGuest(v.guest),
+		});
+	}
+	function saveCard(guest: Guest, response: CardResponse, notes: string) {
+		const input = { meetingId: meeting.id, personId: guest.person.personId, response, notes: notes.trim() || null };
+		const before = cardOf.get(guest.person.personId);
+		const now = instant.parse(new Date().toISOString());
+		write({
+			what: `The card for ${guest.person.displayName}`,
+			done: "saved",
+			form: { kind: "card", guest, response, notes },
+			changes: [
+				{
+					kind: "card",
+					personId: guest.person.personId,
+					card: before
+						? { ...before, response, notes: input.notes }
+						: {
+								guestId: guest.id,
+								personId: guest.person.personId,
+								response,
+								notes: input.notes,
+								occurredAt: now,
+								recordedAt: now,
+								attended: guest.presence === "attended",
+								revision: guest.revision,
+							},
+				},
+				{ kind: "guest", guest: { ...guest, hasCard: true } },
+			],
+			send: (key) => recordCard(key, guest.revision, input),
+			ok: (v) => {
+				if (!v.card) return;
+				onCard(v.card.personId, v.card);
+				onGuest({ ...guest, revision: v.card.revision, hasCard: true });
+			},
+		});
+	}
+	function clear(guest: Guest, reason: string) {
+		write({
+			what: `The card for ${guest.person.displayName}`,
+			done: "cleared",
+			form: { kind: "clear", guest, reason },
+			changes: [
+				{ kind: "card", personId: guest.person.personId, card: null },
+				{ kind: "guest", guest: { ...guest, hasCard: false } },
+			],
+			send: (key) => clearCard(key, guest.revision, meeting.id, guest.person.personId, reason),
+			ok: () => {
+				onCard(guest.person.personId, null);
+				onGuest({ ...guest, revision: nextRevision(guest.revision), hasCard: false });
+			},
+		});
+	}
+	/** A note about an attendee, kept in their history with this meeting as its source (REQ-MTG-017). */
+	function note(guest: Guest, text: string) {
+		write({
+			what: `The note about ${guest.person.displayName}`,
+			done: "saved",
+			form: { kind: "note", guest, text },
+			changes: [],
+			send: (key) => addAttendeeNote(key, meeting.id, guest.person.personId, text),
+			ok: () => toast({ message: `The note is in ${guest.person.displayName}'s history.`, tone: "success" }),
+		});
+	}
+	function remove(guest: Guest) {
+		write({
+			what: guest.person.displayName,
+			done: "removed",
+			changes: [{ kind: "removeGuest", guestId: guest.id }],
+			send: (key) => removeGuest(key, guest.revision, meeting.id, guest.person.personId),
+			ok: () => {
+				onRemoved(guest.id);
+				toast({ message: `${guest.person.displayName} was removed from the guest list.`, tone: "success" });
+			},
+		});
 	}
 
-	const columns: Column<Guest>[] = [
+	const columns: Column<GuestRow>[] = [
 		{
 			key: "guest",
 			header: "Guest",
@@ -250,9 +359,9 @@ export function GuestList({
 			cell: (g) => (
 				<PresenceCell
 					presence={g.presence}
-					classification={classOf.get(g.person.personId) ?? null}
-					final={attendance?.finalized != null}
-					state={presence.stateOf(g.person.personId)}
+					classification={isPending(g) ? null : (classOf.get(g.person.personId) ?? null)}
+					final={final}
+					state={isPending(g) ? undefined : presence.stateOf(g.person.personId)}
 				/>
 			),
 		},
@@ -261,8 +370,8 @@ export function GuestList({
 					{
 						key: "card",
 						header: "Response card",
-						cell: (g: Guest) => {
-							const c = cardOf.get(g.person.personId);
+						cell: (g: GuestRow) => {
+							const c = isPending(g) ? undefined : cardOf.get(g.person.personId);
 							return c ? CARD_LABEL[c.response] : <span className="text-text-3">No card</span>;
 						},
 					},
@@ -276,7 +385,7 @@ export function GuestList({
 						header: "Actions",
 						srOnlyHeader: true,
 						align: "right" as const,
-						cell: (g: Guest) =>
+						cell: (g: GuestRow) =>
 							isPending(g) ? null : (
 								<Menu>
 									<MenuTrigger asChild>
@@ -295,7 +404,11 @@ export function GuestList({
 											</MenuItem>
 										))}
 										{canWrite && g.presence === "attended" && g.person.state === "live" ? (
-											<MenuItem icon={Note01Icon} onSelect={() => onNote(g)}>
+											<MenuItem
+												icon={Note01Icon}
+												disabled={busy}
+												onSelect={() => lane.open({ kind: "note", guest: g, text: "" })}
+											>
 												Add a note to their history
 											</MenuItem>
 										) : null}
@@ -307,32 +420,63 @@ export function GuestList({
 													<MenuItem
 														key={r}
 														icon={CheckmarkCircle02Icon}
-														disabled={g.rsvp === r || !open}
+														disabled={g.rsvp === r || !open || busy}
 														onSelect={() => correct(g, r)}
 													>
 														{r === "pending" ? "Reset to Pending" : `Set to ${RSVP_LABEL[r]}`}
 													</MenuItem>
 												))}
 												<MenuSeparator />
-												<MenuItem icon={UserSwitchIcon} onSelect={() => openForm({ kind: "inviter", guest: g })}>
+												<MenuItem
+													icon={UserSwitchIcon}
+													disabled={busy}
+													onSelect={() =>
+														lane.open({
+															kind: "inviter",
+															guest: g,
+															inviter: g.inviter && { id: g.inviter.personId, name: g.inviter.displayName },
+														})
+													}
+												>
 													Change who invited them
 												</MenuItem>
 												{vision ? (
 													<>
-														<MenuItem icon={Note01Icon} onSelect={() => openForm({ kind: "card", guest: g })}>
+														<MenuItem
+															icon={Note01Icon}
+															disabled={busy}
+															onSelect={() => {
+																const c = cardOf.get(g.person.personId);
+																lane.open({
+																	kind: "card",
+																	guest: g,
+																	response: c?.response ?? null,
+																	notes: c?.notes ?? "",
+																});
+															}}
+														>
 															{cardOf.has(g.person.personId) ? "Correct response card" : "Record response card"}
 														</MenuItem>
 														{cardOf.has(g.person.personId) ? (
-															<MenuItem icon={Note01Icon} onSelect={() => setConfirm({ kind: "clear", guest: g })}>
+															<MenuItem
+																icon={Note01Icon}
+																disabled={busy}
+																onSelect={() => lane.open({ kind: "clear", guest: g, reason: "" })}
+															>
 																Clear response card
 															</MenuItem>
 														) : null}
 													</>
 												) : null}
-												<MenuSeparator />
-												<MenuItem icon={Delete02Icon} danger onSelect={() => setConfirm({ kind: "remove", guest: g })}>
-													Remove from guest list
-												</MenuItem>
+												{/* After finalization only Correct attendance changes who attended (R3-2). */}
+												{final && g.presence === "attended" ? null : (
+													<>
+														<MenuSeparator />
+														<MenuItem icon={Delete02Icon} danger disabled={busy} onSelect={() => setRemoving(g)}>
+															Remove from guest list
+														</MenuItem>
+													</>
+												)}
 											</>
 										) : null}
 									</MenuContent>
@@ -343,8 +487,7 @@ export function GuestList({
 			: []),
 	];
 
-	const closeForm = (o: boolean) => !o && setForm(null);
-	const target = confirm?.guest;
+	const form = lane.editing;
 	return (
 		<Card as="section" aria-labelledby="guests-title">
 			<CardHeader className="flex-wrap items-center">
@@ -366,7 +509,8 @@ export function GuestList({
 					/>
 				) : null}
 			</CardHeader>
-			<PresenceUnconfirmed presence={presence} className="mb-3" />
+			<SaveNotice {...lane.noticeProps} dialogOpen={form !== null} className="mb-3" />
+			<RowNotices lanes={presence.lanes} className="mb-3" />
 			{guests === null ? (
 				<StatePanel tone="error" title="Guests did not load" headingLevel="h3" className="py-8">
 					Nothing was changed. Reload the page in a moment.
@@ -393,7 +537,13 @@ export function GuestList({
 			)}
 			{canWrite && guests ? (
 				<div className="mt-4 flex items-center justify-between gap-3">
-					<Button variant="ghost" size="sm" icon={UserAdd01Icon} onClick={() => openForm({ kind: "add" })}>
+					<Button
+						variant="ghost"
+						size="sm"
+						icon={UserAdd01Icon}
+						disabled={busy}
+						onClick={() => lane.open({ kind: "add", draft: EMPTY_ADD })}
+					>
 						Add guest
 					</Button>
 					<span className="text-sm text-text-3">
@@ -405,102 +555,63 @@ export function GuestList({
 			) : null}
 
 			{canWrite ? (
-				<>
-					<Dialog open={form?.visible ?? false} onOpenChange={closeForm}>
-						{form?.kind === "add" ? (
-							<AddGuestForm
-								key={form.key}
-								open={form.visible}
-								meeting={meeting}
-								guestIds={shown.map((g) => g.person.personId)}
-								onClose={() => setForm(null)}
-								onSubmit={(guest, call) =>
-									submitForm(
-										[{ kind: "guest", guest }],
-										call,
-										(v) => {
-											onGuest(v.guest);
-											toast({ message: `${v.guest.person.displayName} is on the guest list.`, tone: "success" });
-										},
-										`Adding ${guest.person.displayName}`,
-									)
-								}
-							/>
-						) : form?.kind === "inviter" ? (
-							<InviterForm
-								key={form.key}
-								open={form.visible}
-								guest={form.guest}
-								meetingId={meeting.id}
-								onClose={() => setForm(null)}
-								onSubmit={(guest, call) =>
-									submitForm(
-										[{ kind: "guest", guest }],
-										call,
-										(v) => onGuest(v.guest),
-										`Who invited ${guest.person.displayName}`,
-									)
-								}
-							/>
-						) : form?.kind === "card" ? (
-							<CardForm
-								key={form.key}
-								open={form.visible}
-								guest={form.guest}
-								card={cardOf.get(form.guest.person.personId) ?? null}
-								meeting={meeting}
-								onClose={() => setForm(null)}
-								onSubmit={(card, call) =>
-									submitForm(
-										[
-											{ kind: "card", personId: card.personId, card },
-											{ kind: "guest", guest: { ...form.guest, hasCard: true } },
-										],
-										call,
-										(v) => {
-											if (!v.card) return;
-											onCard(v.card.personId, v.card);
-											onGuest({ ...form.guest, revision: v.card.revision as Guest["revision"], hasCard: true });
-										},
-										`The card for ${form.guest.person.displayName}`,
-									)
-								}
-							/>
-						) : null}
-					</Dialog>
-					<ReasonDialog
-						open={confirm?.kind === "clear"}
-						onOpenChange={(o) => !o && setConfirm(null)}
-						title={target ? `Clear ${target.person.displayName}'s response card?` : ""}
-						consequences={["The card counts as unknown again.", "The history keeps that a card was cleared."]}
-						confirmLabel="Clear card"
-						onConfirm={async (reason) => {
-							if (confirm?.kind !== "clear") return false;
-							const g = confirm.guest;
-							run(
-								[
-									{ kind: "card", personId: g.person.personId, card: null },
-									{ kind: "guest", guest: { ...g, hasCard: false } },
-								],
-								() => clearCard(crypto.randomUUID(), g.revision, meeting.id, g.person.personId, reason),
-								() => {
-									onCard(g.person.personId, null);
-									onGuest({ ...g, revision: nextRevision(g.revision), hasCard: false });
-								},
-								(code) =>
-									toast({
-										message: `The card for ${g.person.displayName} was not cleared. ${problemText(code)}`,
-										tone: "error",
-									}),
-							);
-							return true;
-						}}
-					/>
+				<NoticeInDialog {...lane.noticeProps}>
+					{form?.kind === "add" ? (
+						<AddGuestForm
+							initial={form.draft}
+							problem={lane.problem}
+							wait={lane.wait}
+							meeting={meeting}
+							guestIds={shown.flatMap((g) => (g.person.personId ? [g.person.personId] : []))}
+							onClose={lane.close}
+							onSubmit={add}
+						/>
+					) : form?.kind === "inviter" ? (
+						<InviterForm
+							initial={form.inviter}
+							problem={lane.problem}
+							wait={lane.wait}
+							guest={form.guest}
+							onClose={lane.close}
+							onSubmit={(inviter) => changeInviter(form.guest, inviter)}
+						/>
+					) : form?.kind === "card" ? (
+						<CardForm
+							initial={form}
+							problem={lane.problem}
+							wait={lane.wait}
+							guest={form.guest}
+							corrects={cardOf.has(form.guest.person.personId)}
+							onClose={lane.close}
+							onSubmit={(response, notes) => saveCard(form.guest, response, notes)}
+						/>
+					) : form?.kind === "note" ? (
+						<NoteForm
+							initial={form.text}
+							problem={lane.problem}
+							wait={lane.wait}
+							guest={form.guest}
+							meetingTitle={meeting.displayTitle}
+							onClose={lane.close}
+							onSubmit={(text) => note(form.guest, text)}
+						/>
+					) : form?.kind === "clear" ? (
+						<ReasonDialog
+							title={`Clear ${form.guest.person.displayName}'s response card?`}
+							consequences={["The card counts as unknown again.", "The history keeps that a card was cleared."]}
+							confirmLabel="Clear card"
+							initial={form.reason}
+							problem={lane.problem}
+							wait={lane.wait}
+							onClose={lane.close}
+							onSubmit={(reason) => clear(form.guest, reason)}
+						/>
+					) : null}
 					<ConfirmDialog
-						open={confirm?.kind === "remove"}
-						onOpenChange={(o) => !o && setConfirm(null)}
+						open={removing !== null}
+						onOpenChange={(o) => !o && setRemoving(null)}
 						tone="danger"
-						title={target ? `Remove ${target.person.displayName}?` : ""}
+						title={removing ? `Remove ${removing.person.displayName}?` : ""}
 						consequences={[
 							"They leave this meeting's guest list and get no more reminders for it.",
 							"Their open RSVP link stops working.",
@@ -508,44 +619,37 @@ export function GuestList({
 						]}
 						confirmLabel="Remove guest"
 						onConfirm={() => {
-							if (confirm?.kind !== "remove") return;
-							const g = confirm.guest;
-							run(
-								[{ kind: "removeGuest", guestId: g.id }],
-								() => removeGuest(crypto.randomUUID(), g.revision, meeting.id, g.person.personId),
-								() => {
-									onRemoved(g.id);
-									toast({ message: `${g.person.displayName} was removed from the guest list.`, tone: "success" });
-								},
-								(code) =>
-									toast({
-										message: `${g.person.displayName} is still on the guest list. ${problemText(code)}`,
-										tone: "error",
-									}),
-							);
+							if (removing) remove(removing);
 						}}
 					/>
-				</>
+				</NoticeInDialog>
 			) : null}
 		</Card>
 	);
 }
 
 /** A guest row shown while its add is saved: no link, no actions, Pending, absent. */
-function pendingGuest(person: PickedPerson | null, name: string, inviter: PickedPerson | null): Guest {
-	const ref = (p: PickedPerson) => ({ personId: p.id, displayName: p.name, state: "live" as const });
+function pendingGuest(person: PickedPerson | null, name: string, inviter: PickedPerson | null): PendingGuest {
 	return {
-		id: PENDING + (person?.id ?? crypto.randomUUID()),
-		revision: "0",
-		person: person ? ref(person) : { personId: PENDING, displayName: name, state: "live" },
-		inviter: inviter ? ref(inviter) : null,
+		id: `${PENDING}${person?.id ?? crypto.randomUUID()}`,
+		revision: null,
+		person: { personId: person?.id ?? null, displayName: name, state: "live" },
+		inviter: inviter ? { personId: inviter.id, displayName: inviter.name, state: "live" } : null,
 		rsvp: "pending",
 		rsvpSource: null,
 		rsvpAt: null,
 		presence: "absent",
 		hasCard: false,
-	} as unknown as Guest;
+	};
 }
+
+type FormProps<T> = {
+	initial: T;
+	/** Why the last save of this form was refused, in words. */
+	problem: string | undefined;
+	wait: Wait;
+	onClose: () => void;
+};
 
 /**
  * Add guest (REQ-MTG-011): someone already in People, with who invited them, or someone new with a name and optional
@@ -553,191 +657,148 @@ function pendingGuest(person: PickedPerson | null, name: string, inviter: Picked
  * gives them a login.
  */
 function AddGuestForm({
-	open,
+	initial,
+	problem,
+	wait,
 	meeting,
 	guestIds,
 	onClose,
 	onSubmit,
-}: {
-	open: boolean;
-	meeting: Detail;
-	guestIds: string[];
-	onClose: () => void;
-	onSubmit: (guest: Guest, call: SaveCall<{ guest: Guest }>) => void;
-}) {
-	const [mode, setMode] = useState<"existing" | "new">("existing");
-	const [person, setPerson] = useState<PickedPerson | null>(null);
-	const [inviter, setInviterChoice] = useState<PickedPerson | null>(null);
-	const [contact, setContact] = useState({ displayName: "", email: "", phone: "" });
+}: FormProps<AddDraft> & { meeting: Detail; guestIds: string[]; onSubmit: (draft: AddDraft) => void }) {
+	const [draft, setDraft] = useState(initial);
 	const [touched, setTouched] = useState(false);
-	const { save, pending, problemProps } = useSave();
+	const { mode, person, inviter, contact } = draft;
+	const set = (patch: Partial<AddDraft>) => setDraft((d) => ({ ...d, ...patch }));
+	const setContact = (patch: Partial<AddDraft["contact"]>) => set({ contact: { ...contact, ...patch } });
 	const nameMissing = contact.displayName.trim() === "";
+	// The field for the chosen kind of guest takes focus only when the person switches it; RecordDialog decides where
+	// focus starts when the form opens (F4b).
+	const [switched, setSwitched] = useState(false);
 	const emailBad = contact.email.trim() !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email.trim());
-
-	function submit(event: React.FormEvent) {
-		event.preventDefault();
-		setTouched(true);
-		if (mode === "existing") {
-			if (!person) return;
-			const input = { meetingId: meeting.id, personId: person.id, inviterPersonId: inviter?.id ?? null };
-			return onSubmit(pendingGuest(person, person.name, inviter), () => save(input, (key) => inviteGuest(key, input)));
-		}
-		if (nameMissing || emailBad) return;
-		const input = {
-			meetingId: meeting.id,
-			displayName: contact.displayName.trim(),
-			email: contact.email.trim() || null,
-			phone: contact.phone.trim() || null,
-			country: "US",
-		};
-		onSubmit(pendingGuest(null, input.displayName, null), () => save(input, (key) => createGuestContact(key, input)));
-	}
-
-	if (!open) return null;
 	return (
-		<DialogContent aria-busy={pending || undefined}>
-			<form onSubmit={submit} noValidate className="contents">
-				<DialogHeader icon={UserAdd01Icon} tone="green" title="Add guest" description={meeting.displayTitle} />
-				<DialogBody className="flex flex-col gap-4">
-					<SegmentedControl
-						label="Who"
-						value={mode}
-						onValueChange={setMode}
-						options={[
-							{ value: "existing", label: "Someone in People" },
-							{ value: "new", label: "Someone new" },
-						]}
-					/>
-					{mode === "existing" ? (
-						<>
-							<Field label="Guest" error={touched && !person ? "Choose the person to add." : null}>
-								<PersonPicker label="Guest" value={person} onChange={setPerson} exclude={guestIds} autoFocus />
-							</Field>
-							<Field label="Invited by" optional>
-								<PersonPicker
-									label="Invited by"
-									value={inviter}
-									onChange={setInviterChoice}
-									exclude={person ? [person.id] : []}
-									none="Not recorded"
-								/>
-							</Field>
-						</>
-					) : (
-						<>
-							<Field label="Name" error={touched && nameMissing ? "Enter the name people call them." : null}>
-								<Input
-									value={contact.displayName}
-									maxLength={255}
-									autoComplete="off"
-									readOnly={pending}
-									onChange={(e) => setContact((c) => ({ ...c, displayName: e.target.value }))}
-									autoFocus
-								/>
-							</Field>
-							<div className="grid grid-cols-2 gap-4 max-app-sm:grid-cols-1">
-								<Field label="Email" optional error={touched && emailBad ? "Enter a full email address." : null}>
-									<Input
-										type="email"
-										value={contact.email}
-										maxLength={320}
-										autoComplete="off"
-										readOnly={pending}
-										onChange={(e) => setContact((c) => ({ ...c, email: e.target.value }))}
-									/>
-								</Field>
-								<Field label="Phone" optional hint="Country: United States (US). Change it later on their person page.">
-									<Input
-										type="tel"
-										value={contact.phone}
-										maxLength={40}
-										autoComplete="off"
-										readOnly={pending}
-										onChange={(e) => setContact((c) => ({ ...c, phone: e.target.value }))}
-									/>
-								</Field>
-							</div>
-							<p className="text-sm text-text-3">
-								They join People as a prospect from this meeting. If they are already in People, choose them instead, so
-								you do not make a duplicate.
-							</p>
-						</>
-					)}
-					<Problem {...problemProps} />
-				</DialogBody>
-				<DialogFooter>
-					<Button variant="secondary" type="button" onClick={onClose} disabled={pending}>
-						Cancel
-					</Button>
-					<Button variant="primary" type="submit" loading={pending}>
-						Add guest
-					</Button>
-				</DialogFooter>
-			</form>
-		</DialogContent>
+		<RecordDialog
+			icon={UserAdd01Icon}
+			tone="green"
+			title="Add guest"
+			description={meeting.displayTitle}
+			action="Add guest"
+			problem={problem}
+			wait={wait}
+			onClose={onClose}
+			onSubmit={() => {
+				setTouched(true);
+				if (mode === "existing" ? !person : nameMissing || emailBad) return false;
+				onSubmit(draft);
+				return true;
+			}}
+		>
+			<SegmentedControl
+				label="Who"
+				value={mode}
+				onValueChange={(m) => {
+					setSwitched(true);
+					set({ mode: m });
+				}}
+				options={[
+					{ value: "existing", label: "Someone in People" },
+					{ value: "new", label: "Someone new" },
+				]}
+			/>
+			{mode === "existing" ? (
+				<>
+					<Field label="Guest" error={touched && !person ? "Choose the person to add." : null}>
+						<PersonPicker
+							label="Guest"
+							value={person}
+							onChange={(p) => set({ person: p })}
+							exclude={guestIds}
+							autoFocus={switched}
+						/>
+					</Field>
+					<Field label="Invited by" optional>
+						<PersonPicker
+							label="Invited by"
+							value={inviter}
+							onChange={(p) => set({ inviter: p })}
+							exclude={person ? [person.id] : []}
+							none="Not recorded"
+						/>
+					</Field>
+				</>
+			) : (
+				<>
+					<Field label="Name" error={touched && nameMissing ? "Enter the name people call them." : null}>
+						<Input
+							value={contact.displayName}
+							maxLength={255}
+							autoComplete="off"
+							onChange={(e) => setContact({ displayName: e.target.value })}
+							autoFocus={switched}
+						/>
+					</Field>
+					<div className="grid grid-cols-2 gap-4 max-app-sm:grid-cols-1">
+						<Field label="Email" optional error={touched && emailBad ? "Enter a full email address." : null}>
+							<Input
+								type="email"
+								value={contact.email}
+								maxLength={320}
+								autoComplete="off"
+								onChange={(e) => setContact({ email: e.target.value })}
+							/>
+						</Field>
+						<Field label="Phone" optional hint="Country: United States (US). Change it later on their person page.">
+							<Input
+								type="tel"
+								value={contact.phone}
+								maxLength={40}
+								autoComplete="off"
+								onChange={(e) => setContact({ phone: e.target.value })}
+							/>
+						</Field>
+					</div>
+					<p className="text-sm text-text-3">
+						They join People as a prospect from this meeting. If they are already in People, choose them instead, so you
+						do not make a duplicate.
+					</p>
+				</>
+			)}
+		</RecordDialog>
 	);
 }
 
 /** Who invited a guest (REQ-MTG-019). A guest cannot be their own inviter. */
 function InviterForm({
-	open,
+	initial,
+	problem,
+	wait,
 	guest,
-	meetingId,
 	onClose,
 	onSubmit,
-}: {
-	open: boolean;
-	guest: Guest;
-	meetingId: string;
-	onClose: () => void;
-	onSubmit: (guest: Guest, call: SaveCall<{ guest: Guest }>) => void;
-}) {
-	const [inviter, setChoice] = useState<PickedPerson | null>(
-		guest.inviter ? { id: guest.inviter.personId, name: guest.inviter.displayName } : null,
-	);
-	const { save, pending, problemProps } = useSave();
-	if (!open) return null;
+}: FormProps<PickedPerson | null> & { guest: Guest; onSubmit: (inviter: PickedPerson | null) => void }) {
+	const [inviter, setChoice] = useState(initial);
 	return (
-		<DialogContent aria-busy={pending || undefined}>
-			<form
-				noValidate
-				className="contents"
-				onSubmit={(e) => {
-					e.preventDefault();
-					const id = inviter?.id ?? null;
-					onSubmit(
-						{
-							...guest,
-							inviter: inviter
-								? ({ personId: inviter.id, displayName: inviter.name, state: "live" } as Guest["inviter"])
-								: null,
-						},
-						() => save({ id }, (key) => setInviter(key, guest.revision, meetingId, guest.person.personId, id)),
-					);
-				}}
-			>
-				<DialogHeader icon={UserSwitchIcon} title="Who invited them?" description={guest.person.displayName} />
-				<DialogBody className="flex flex-col gap-4">
-					<PersonPicker
-						label="Invited by"
-						value={inviter}
-						onChange={setChoice}
-						exclude={[guest.person.personId]}
-						none="Not recorded"
-						autoFocus
-					/>
-					<Problem {...problemProps} />
-				</DialogBody>
-				<DialogFooter>
-					<Button variant="secondary" type="button" onClick={onClose} disabled={pending}>
-						Cancel
-					</Button>
-					<Button variant="primary" type="submit" loading={pending}>
-						Save
-					</Button>
-				</DialogFooter>
-			</form>
-		</DialogContent>
+		<RecordDialog
+			icon={UserSwitchIcon}
+			tone="blue"
+			title="Who invited them?"
+			description={guest.person.displayName}
+			action="Save"
+			problem={problem}
+			wait={wait}
+			onClose={onClose}
+			onSubmit={() => {
+				onSubmit(inviter);
+				return true;
+			}}
+		>
+			<PersonPicker
+				label="Invited by"
+				value={inviter}
+				onChange={setChoice}
+				exclude={[guest.person.personId]}
+				none="Not recorded"
+			/>
+		</RecordDialog>
 	);
 }
 
@@ -746,93 +807,102 @@ function InviterForm({
  * to Owners and Admins. A card records what the guest wrote; it does not mark them as attended.
  */
 function CardForm({
-	open,
+	initial,
+	problem,
+	wait,
 	guest,
-	card,
-	meeting,
+	corrects,
 	onClose,
 	onSubmit,
-}: {
-	open: boolean;
+}: FormProps<{ response: CardResponse | null; notes: string }> & {
 	guest: Guest;
-	card: CardEntry | null;
-	meeting: Detail;
-	onClose: () => void;
-	onSubmit: (card: CardEntry, call: SaveCall<{ card: CardEntry | null }>) => void;
+	/** The guest already has a card: this corrects it. */
+	corrects: boolean;
+	onSubmit: (response: CardResponse, notes: string) => void;
 }) {
-	const [response, setResponse] = useState<CardResponse | null>(card?.response ?? null);
-	const [notes, setNotes] = useState(card?.notes ?? "");
+	const [response, setResponse] = useState(initial.response);
+	const [notes, setNotes] = useState(initial.notes);
 	const [touched, setTouched] = useState(false);
-	const { save, pending, problemProps } = useSave();
-	if (!open) return null;
 	return (
-		<DialogContent aria-busy={pending || undefined}>
-			<form
-				noValidate
-				className="contents"
-				onSubmit={(e) => {
-					e.preventDefault();
-					setTouched(true);
-					if (!response) return;
-					const input = {
-						meetingId: meeting.id,
-						personId: guest.person.personId,
-						response,
-						notes: notes.trim() || null,
-					};
-					const now = new Date().toISOString();
-					onSubmit(
-						{
-							guestId: guest.id,
-							personId: guest.person.personId,
-							response,
-							notes: input.notes,
-							occurredAt: card?.occurredAt ?? now,
-							recordedAt: now,
-							attended: guest.presence === "attended",
-							revision: guest.revision,
-						} as CardEntry,
-						() => save(input, (key) => recordCard(key, guest.revision, input)),
-					);
-				}}
+		<RecordDialog
+			icon={Note01Icon}
+			tone="violet"
+			title={corrects ? "Correct response card" : "Record response card"}
+			description={guest.person.displayName}
+			action="Save card"
+			problem={problem}
+			wait={wait}
+			onClose={onClose}
+			onSubmit={() => {
+				setTouched(true);
+				if (!response) return false;
+				onSubmit(response, notes);
+				return true;
+			}}
+		>
+			<fieldset className="flex flex-col gap-1">
+				<legend className="mb-1 text-sm font-medium text-ink-2">What they marked</legend>
+				<RadioGroup
+					aria-label="What they marked"
+					aria-invalid={touched && !response ? true : undefined}
+					value={response ?? ""}
+					onValueChange={(v) => setResponse(v as CardResponse)}
+				>
+					{CARD_RESPONSES.map((r) => (
+						<Radio key={r} value={r} label={CARD_LABEL[r]} />
+					))}
+				</RadioGroup>
+				{touched && !response ? (
+					<p className="text-xs font-medium text-magenta-600" role="alert">
+						Choose what they marked on the card.
+					</p>
+				) : null}
+			</fieldset>
+			<Field label="Prayer requests or questions" optional hint="Only Owners and Admins see these notes.">
+				<Textarea value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={2000} rows={3} />
+			</Field>
+		</RecordDialog>
+	);
+}
+
+/** A note about one attendee (REQ-MTG-017). It goes to their history with this meeting as its source. */
+function NoteForm({
+	initial,
+	problem,
+	wait,
+	guest,
+	meetingTitle,
+	onClose,
+	onSubmit,
+}: FormProps<string> & { guest: Guest; meetingTitle: string; onSubmit: (text: string) => void }) {
+	const [text, setText] = useState(initial);
+	const [touched, setTouched] = useState(false);
+	const missing = text.trim() === "";
+	return (
+		<RecordDialog
+			icon={Note01Icon}
+			tone="violet"
+			size="sm"
+			title="Add a note"
+			description={guest.person.displayName}
+			action="Add note"
+			problem={problem}
+			wait={wait}
+			onClose={onClose}
+			onSubmit={() => {
+				setTouched(true);
+				if (missing) return false;
+				onSubmit(text.trim());
+				return true;
+			}}
+		>
+			<Field
+				label="Note"
+				hint={`It goes to their history, marked as from ${meetingTitle}.`}
+				error={touched && missing ? "Write the note first." : null}
 			>
-				<DialogHeader
-					icon={Note01Icon}
-					title={card ? "Correct response card" : "Record response card"}
-					description={guest.person.displayName}
-				/>
-				<DialogBody className="flex flex-col gap-4">
-					<fieldset className="flex flex-col gap-1">
-						<legend className="mb-1 text-sm font-medium text-ink-2">What they marked</legend>
-						<RadioGroup
-							aria-label="What they marked"
-							value={response ?? ""}
-							onValueChange={(v) => setResponse(v as CardResponse)}
-						>
-							{CARD_RESPONSES.map((r) => (
-								<Radio key={r} value={r} label={CARD_LABEL[r]} />
-							))}
-						</RadioGroup>
-						{touched && !response ? (
-							<p className="text-xs font-medium text-magenta-600" role="alert">
-								Choose what they marked on the card.
-							</p>
-						) : null}
-					</fieldset>
-					<Field label="Prayer requests or questions" optional hint="Only Owners and Admins see these notes.">
-						<Textarea value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={2000} rows={3} />
-					</Field>
-					<Problem {...problemProps} />
-				</DialogBody>
-				<DialogFooter>
-					<Button variant="secondary" type="button" onClick={onClose} disabled={pending}>
-						Cancel
-					</Button>
-					<Button variant="primary" type="submit" loading={pending}>
-						Save card
-					</Button>
-				</DialogFooter>
-			</form>
-		</DialogContent>
+				<Textarea value={text} onChange={(e) => setText(e.target.value)} maxLength={5000} rows={4} />
+			</Field>
+		</RecordDialog>
 	);
 }

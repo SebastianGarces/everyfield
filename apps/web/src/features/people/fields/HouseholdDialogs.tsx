@@ -118,7 +118,7 @@ export function StartHouseholdDialog({
 			}}
 		>
 			<Field label="Household name" error={touched && missing ? "Name the household, such as Santos household." : null}>
-				<Input value={name} maxLength={255} autoFocus onChange={(e) => setName(e.target.value)} />
+				<Input value={name} maxLength={255} onChange={(e) => setName(e.target.value)} />
 			</Field>
 			<AddressFields value={address} onChange={setAddress} />
 		</RecordDialog>
@@ -157,7 +157,7 @@ export function EditHouseholdDialog({
 			}}
 		>
 			<Field label="Household name" error={touched && missing ? "Name the household." : null}>
-				<Input value={name} maxLength={255} autoFocus onChange={(e) => setName(e.target.value)} />
+				<Input value={name} maxLength={255} onChange={(e) => setName(e.target.value)} />
 			</Field>
 			<AddressFields value={address} onChange={setAddress} />
 		</RecordDialog>
@@ -224,7 +224,6 @@ export function JoinHouseholdDialog({
 				placeholder="Search households"
 				value={search}
 				maxLength={255}
-				autoFocus
 				onChange={(e) => {
 					const q = e.target.value;
 					setSearch(q);

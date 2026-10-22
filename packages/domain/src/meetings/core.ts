@@ -3,11 +3,11 @@ import { meetingsError, type MeetingsError, type MeetingsReply } from "@everyfie
 import type { Database, Transaction } from "@everyfield/db/client";
 import { eq, sql, type SQL } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
+import { hash } from "../operations/canonical.ts";
 import "server-only";
 import { z } from "zod";
 import { boundWrite, liveRead, RequestActor, type requestWrite } from "../access/session.ts";
-import { canonical } from "../organizations/core.ts";
 import {
 	auditSavepoint,
 	declareWrite,
@@ -183,7 +183,7 @@ export async function writer(tx: Tx, ctx: MeetingsContext): Promise<Writer> {
 	return { accountId: bound.actor.accountId, admin: bound.actor.context.role !== "member", plant: bound.plant };
 }
 
-export const hash = (value: unknown) => createHash("sha256").update(canonical(value)).digest("hex");
+export { hash };
 type AuditInsert = typeof tables.audit_event.$inferInsert;
 export type Change<T> = {
 	value: T;

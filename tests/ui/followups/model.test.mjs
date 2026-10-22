@@ -1,17 +1,8 @@
 // Follow-up screen rules (WP-023/ui) that decide what a save sends and what the screen says while it runs. A silent
-// break would send a guessed contact time, save twice, call a lost answer "not saved" or let a second form submit while
-// the first one's result is unknown. They run in node against the real modules the screens use; no browser.
+// break would send a guessed contact time or count the wrong owner totals. They run in node against the real modules
+// the screens use; no browser. The save lane itself is tested once, in tests/ui/save/model.test.mjs.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import {
-	idle,
-	laneAnswer,
-	laneCheck,
-	laneDismiss,
-	laneStart,
-	sendTwice,
-	waitOf,
-} from "../../../apps/web/src/features/followups/lane.ts";
 import {
 	emptyDraft,
 	keepSelection,
@@ -71,41 +62,6 @@ test("AC:TARGET-TSK-004 no longer needed never completes, and a standalone conta
 		{ completable: false, now },
 	);
 	assert.equal(standalone.input.completeTask, false);
-});
-
-test("INV-request-key: a lost answer is replayed once through the same call; a second loss is unknown, not refused", async () => {
-	const calls = [];
-	const replies = [{ status: "lost" }, { status: "ok", value: 1 }];
-	const call = () => (calls.push("same-key"), Promise.resolve(replies.shift()));
-	assert.deepEqual(await sendTwice(call), { status: "ok", value: 1 });
-	assert.equal(calls.length, 2);
-	// A server that asks for the same request again is not a refusal either.
-	const temp = [{ status: "refused", code: "temporary" }, Promise.reject(new Error("network"))];
-	const r = await sendTwice(() => Promise.resolve(temp.shift()));
-	assert.deepEqual(r, { status: "lost" });
-	assert.deepEqual(laneAnswer(idle, "The outcome", r), {
-		saving: null,
-		unknown: { what: "The outcome", checking: false },
-		refused: null,
-	});
-});
-
-test("C68: one save per card; nothing starts while a save runs or its result is unknown, and unknown cannot be dismissed", () => {
-	const saving = laneStart(idle, "The outcome");
-	assert.equal(waitOf(saving), "saving");
-	assert.equal(laneStart(saving, "The owner"), null);
-	const unknown = laneAnswer(saving, "The outcome", { status: "lost" });
-	assert.equal(waitOf(unknown), "unknown");
-	assert.equal(laneStart(unknown, "The owner"), null);
-	assert.deepEqual(laneDismiss(unknown), unknown);
-	const checking = laneCheck(unknown);
-	assert.equal(checking.unknown.checking, true);
-	assert.equal(laneCheck(checking), null);
-	// Only a server answer settles it: a refusal says "not saved"; the next save may start.
-	const refused = laneAnswer(checking, "The outcome", { status: "refused", code: "conflict" });
-	assert.deepEqual(refused.refused, { what: "The outcome", code: "conflict" });
-	assert.equal(waitOf(refused), null);
-	assert.equal(laneDismiss(refused).refused, null);
 });
 
 const entry = (id, occurredAt, recordedAt, state = "effective") => ({ id, occurredAt, recordedAt, state });

@@ -17,6 +17,7 @@ import { transaction } from "../platform/database";
 import { privateHeaders } from "../platform/boundary";
 import { requestDatabase } from "../database";
 import { getViewer } from "../request-context";
+import { tasksMount } from "../tasks";
 
 // The thin web door to the Evry kernel: one cached viewer per request (D60), the shared pool, sanitized errors and
 // the turn worker on the WP-031 queue. Domain behavior lives in @everyfield/evry.
@@ -115,15 +116,23 @@ const EFFECT_LEASE_SECONDS = 60;
 export function drainEffects() {
 	after(async () => {
 		const pool = evryDatabase();
+		// A People command that hands tasks on replans their reminders through the tasks mount; without it the effects
+		// wait in the queue.
+		const reminders = tasksMount()?.reminders;
+		if (!reminders) return;
 		for (let n = 0; n < 4; n++) {
 			const [claim] = await claimDue(pool, ["evry_effect"], 1, EFFECT_LEASE_SECONDS);
 			if (!claim) return;
-			const outcome = await executeProposal(pool, {
-				jobId: claim.id,
-				tenantId: claim.tenant_id,
-				leaseOwner: claim.lease_owner,
-				generation: claim.claim_generation,
-			});
+			const outcome = await executeProposal(
+				pool,
+				{
+					jobId: claim.id,
+					tenantId: claim.tenant_id,
+					leaseOwner: claim.lease_owner,
+					generation: claim.claim_generation,
+				},
+				reminders,
+			);
 			if (outcome !== "lost")
 				await transaction(pool, (tx) =>
 					finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }),

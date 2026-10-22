@@ -23,6 +23,7 @@ import { HandoffDialog, useHandoff } from "./HandoffDialog.tsx";
 import {
 	COVERAGE_PAGE,
 	coverageOf,
+	problemText,
 	totalsAfter,
 	type Coverage,
 	type Account,
@@ -33,7 +34,7 @@ import {
 
 const COVERAGE_LABEL = { owned: "Owned", needs_owner: "Needs owner", uncovered: "No follow-up" } as const;
 import { useOpener } from "./parts.tsx";
-import { LaneNotice, useLane } from "./save.tsx";
+import { SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
 
 export type Filter = "needs_owner" | "uncovered" | "owned" | "any";
 export type Data =
@@ -74,7 +75,7 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 	const [adding, setAdding] = useState<Row["person"] | null>(null);
 	const [handoffOpen, setHandoffOpen] = useState(false);
 	const opener = useOpener();
-	const lane = useLane();
+	const lane = useSaveIntent({ explain: problemText });
 	const go = (show: Filter, page = 1) => {
 		const q = new URLSearchParams();
 		if (show !== "any") q.set("show", show);
@@ -172,8 +173,8 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 						]}
 						className="max-app-sm:w-full"
 					/>
-					{adding ? null : <LaneNotice control={lane} className="empty:hidden" />}
-					{handoffOpen ? null : <LaneNotice control={handoff.lane} className="empty:hidden" />}
+					<SaveNotice {...lane.noticeProps} dialogOpen={adding !== null} className="" />
+					<SaveNotice {...handoff.lane.noticeProps} dialogOpen={handoffOpen} className="" />
 					<p role="status" className="text-sm text-text-2 empty:hidden">
 						{moved}
 					</p>

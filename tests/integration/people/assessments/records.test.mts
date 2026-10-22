@@ -32,6 +32,12 @@ import {
 	signCommitmentDocument,
 } from "../../../../packages/domain/src/people/index.ts";
 
+// The task reminder port of a stage change or retirement. These people hold no dated, assigned task, so a replan
+// here would be a bug.
+const noReminders = async () => {
+	throw Error("unexpected task reminder replan");
+};
+
 // Four Cs assessments, interviews and commitments through their public operations on a scratch schema.
 const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
 const localCi =
@@ -98,11 +104,16 @@ async function retire(id) {
 	const review = ok(await tx((t) => peopleReader.getStatusWarnings(t, ctx(), { personId: id }))).reviewRevision;
 	ok(
 		await tx(async (t) =>
-			people.retirePerson(t, ctx(), {
-				requestKey: key(),
-				expectedRevision: await revisionOf(id),
-				input: { personId: id, reason: "Moved away", reviewRevision: review, handoffs: [] },
-			}),
+			people.retirePerson(
+				t,
+				ctx(),
+				{
+					requestKey: key(),
+					expectedRevision: await revisionOf(id),
+					input: { personId: id, reason: "Moved away", reviewRevision: review, handoffs: [] },
+				},
+				noReminders,
+			),
 		),
 	);
 }
@@ -642,11 +653,15 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:PROVIDER48-002 AC:PROVIDER48-003 RT-2 
 		);
 	}
 	// A refused card never uses up its upload: a foreign witness or a future date leaves it pending for the corrected
-	// save. BUG-R2-6: a future date names its reason, so the card can say which field to fix.
+	// save. BUG-R2-6: a future date names its reason, so the card can say which field to fix. F4c: these inputs need no
+	// file bytes, so their refusals come before the server reads the bucket.
+	const before = storage.reads.count;
 	refused(await save(0, signed.uploadId, { witness: { personId: foreign.id } }));
+	refused(await save(0, signed.uploadId, { witness: { personId: sam.id } }), "invalid_subject");
 	const future = await save(0, signed.uploadId, { occurredOn: day(-1) });
 	refused(future, "invalid_input");
 	assert.deepEqual(future.error.details, { reason: "future_date" });
+	assert.equal(storage.reads.count, before);
 	assert.deepEqual([await stateOf(signed.uploadId), await count("commitment", sam.id)], ["pending", 0]);
 	// A member and another church cannot save it. BUG-R2-5: a member's save is refused before the server reads the
 	// bucket.

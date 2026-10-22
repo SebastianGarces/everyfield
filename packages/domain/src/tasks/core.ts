@@ -2,7 +2,8 @@ import { owner, requestIdentity, sameOwner, timeZone, type Owner } from "@everyf
 import * as c from "@everyfield/contracts/tasks";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
+import { hash } from "../operations/canonical.ts";
 import "server-only";
 import { z } from "zod";
 import { boundWrite, RequestActor } from "../access/session.ts";
@@ -130,18 +131,7 @@ export async function writerOf(tx: Tx, context: TaskContext): Promise<Writer> {
 }
 export const administers = (v: Viewer) => v.role !== "member";
 
-const stable = (v: unknown): string =>
-	Array.isArray(v)
-		? "[" + v.map(stable).join(",") + "]"
-		: v !== null && typeof v === "object"
-			? "{" +
-				Object.entries(v)
-					.sort(([a], [b]) => a.localeCompare(b))
-					.map(([k, x]) => JSON.stringify(k) + ":" + stable(x))
-					.join(",") +
-				"}"
-			: JSON.stringify(v);
-export const hash = (v: unknown) => createHash("sha256").update(stable(v)).digest("hex");
+export { hash };
 
 export type Command = AuditWrite & { actor: Writer };
 /** Any command that may append task changes: a task command, or another domain's command that generates tasks. */

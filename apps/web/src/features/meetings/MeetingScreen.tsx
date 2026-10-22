@@ -12,6 +12,7 @@ import {
 	MoreHorizontalIcon,
 	Undo02Icon,
 } from "@hugeicons/core-free-icons";
+import { localDate } from "@everyfield/contracts/common";
 import { statusTransitions } from "@everyfield/contracts/meetings";
 import {
 	Button,
@@ -21,11 +22,6 @@ import {
 	CardHeader,
 	CardHeading,
 	CardTitle,
-	Dialog,
-	DialogBody,
-	DialogContent,
-	DialogFooter,
-	DialogHeader,
 	Field,
 	IconButton,
 	Input,
@@ -44,6 +40,14 @@ import { Icon } from "@everyfield/ui/foundations";
 import { useRouter } from "next/navigation";
 import { averageOf } from "@everyfield/contracts/meetings";
 import { useOptimistic, useState, useTransition } from "react";
+import type { Wait } from "../../components/save/model.ts";
+import {
+	NoticeInDialog,
+	RecordDialog,
+	SaveNotice,
+	useSaveIntent,
+	type SaveIntent,
+} from "../../components/save/parts.tsx";
 import {
 	changeStatus,
 	completePractice,
@@ -61,14 +65,16 @@ import {
 	EvaluationCard,
 	EvaluationDialog,
 	HistoryDialog,
-	NoteDialog,
 	settledText,
 	SettleDialog,
 	useEvaluationHistory,
 	usePresence,
 	useSeats,
+	type EvaluationEditing,
 	type EvaluationInput,
+	type SettleEditing,
 	type SettleInput,
+	type ShownEvaluation,
 } from "./Attendance.tsx";
 import { AgendaCard } from "./Agenda.tsx";
 import { ReasonDialog } from "./dialogs.tsx";
@@ -85,18 +91,21 @@ import {
 	TYPE_LABEL,
 	whenText,
 	type Detail,
-	type Evaluation,
-	type Guest,
 	type MeetingStatus,
+	type Outcome,
 	type Scores,
 } from "./model.ts";
-import { MeetingStatusBadge, Problem, problemOf, RsvpBar, useSave, useSlot } from "./parts.tsx";
+import { MeetingStatusBadge, RsvpBar } from "./parts.tsx";
 import { deleteFromList } from "./deletions.ts";
-import { applyChange, withAttendees, type Change, type PageView } from "./page-state.ts";
+import { applyChange, withAttendees, type Change, type GuestRow, type PageView } from "./page-state.ts";
 import { PlanMeetingDialog } from "./PlanMeetingDialog.tsx";
 import type { MeetingPageData } from "./server.ts";
 
-type Reason = "delete" | "void" | "restore" | "not_held" | null;
+type Reason = "void" | "restore" | "not_held";
+/** The meeting's open form, with what was entered when a refusal opens it again. */
+type MeetingForm = ({ kind: "held"; at: string } | { kind: "reason"; reason: Reason; why: string }) & {
+	problem?: string;
+};
 
 /**
  * One meeting (REQ-MTG-001, -002, -005 to -009, -011, -013, -019). Every change updates this page from its own answer;
@@ -112,8 +121,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 		setData(loaded);
 	}
 	const [editing, setEditing] = useState(false);
-	const [holding, setHolding] = useState(false);
-	const [reason, setReason] = useState<Reason>(null);
+	const [deleting, setDeleting] = useState(false);
 	const [, startTransition] = useTransition();
 	const [status, setOptimisticStatus] = useOptimistic(data.meeting.status);
 	// One optimistic page state: a write projects its change at once into every place it shows, then the confirmed
@@ -122,20 +130,30 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 		{ guests: data.guests, cards: data.cards, own: data.own, agenda: data.meeting.agenda, attendance: data.attendance },
 		applyChange,
 	);
+	// The page's save lanes (components/save, C68): one save at a time in each, a lost answer replayed once with the same
+	// request key, then Check again. The meeting itself (status, edit, held, occurrence corrections), the viewer's own
+	// answer, finalizing or correcting attendance, and the evaluation each have one.
+	const meetingLane = useSaveIntent<MeetingForm>({ explain: problemText });
+	const ownLane = useSaveIntent({ explain: problemText });
+	const settleLane = useSaveIntent<SettleEditing>({ explain: problemText });
+	const evaluationLane = useSaveIntent<EvaluationEditing>({ explain: problemText });
 	function chooseOwn(rsvp: "confirmed" | "declined") {
+		if (ownLane.wait) return;
 		startTransition(async () => {
 			project({ kind: "own", rsvp });
-			const r = await saveOwnRsvp(crypto.randomUUID(), m.id, rsvp).catch(() => ({ status: "lost" }) as const);
-			if (r.status === "ok") {
-				const g = r.value.guest;
-				startTransition(() =>
-					setData((d) => ({
-						...d,
-						guests: d.guests?.map((x) => (x.id === g.id ? g : x)) ?? null,
-						own: d.own ? { ...d.own, rsvp: g.rsvp, revision: g.revision } : null,
-					})),
-				);
-			} else toast({ message: `Your answer was not saved. ${problemText(problemOf(r)!)}`, tone: "error" });
+			await ownLane.save({
+				what: "Your answer",
+				send: (key) => saveOwnRsvp(key, m.id, rsvp),
+				ok: ({ guest: g }) =>
+					startTransition(() =>
+						setData((d) => ({
+							...d,
+							guests: d.guests?.map((x) => (x.id === g.id ? g : x)) ?? null,
+							own: d.own ? { ...d.own, rsvp: g.rsvp, revision: g.revision } : null,
+						})),
+					),
+				refused: (code) => code === "conflict" && stale(),
+			});
 		});
 	}
 	// An edit in flight: the page shows the edited meeting until the answer arrives.
@@ -146,8 +164,6 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 	const practice = m.type === "prelaunch_practice";
 
 	const setMeeting = (meeting: Detail) => setData((d) => ({ ...d, meeting }));
-	/** After a refusal as out of date: the latest meeting, guests, kit and cards, without reloading the page. */
-	/** After a refusal as out of date: the latest meeting, guests, kit and cards. Resolves true once they show. */
 	/** After a refusal as out of date: the latest page data, shown and returned; null when it did not load. */
 	const stale = () =>
 		reloadMeeting(m.id).then(
@@ -158,21 +174,35 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 			},
 			() => null,
 		);
+	/** One save of the meeting itself. An answer shows the saved meeting; out of date reads the page again. */
+	function saveMeeting(save: {
+		what: string;
+		done?: string;
+		form?: MeetingForm;
+		send: (key: string) => Promise<Outcome<{ meeting: Detail }>>;
+		ok?: () => void;
+	}) {
+		return meetingLane.save({
+			...save,
+			ok: (value) => {
+				setMeeting(value.meeting);
+				save.ok?.();
+			},
+			refused: (code) => code === "conflict" && stale(),
+		});
+	}
 
 	function moveTo(to: MeetingStatus) {
+		if (meetingLane.wait) return;
 		startTransition(async () => {
 			setOptimisticStatus(to);
-			const r = await changeStatus(crypto.randomUUID(), m.revision, m.id, to).catch(
-				() => ({ status: "lost" }) as const,
-			);
-			if (r.status === "ok") {
-				startTransition(() => setMeeting(r.value.meeting));
-				toast({ message: `${m.displayTitle}: ${STATUS_ACTION[to].toLowerCase()} is saved.`, tone: "success" });
-			} else {
-				const code = problemOf(r)!;
-				toast({ message: `The status did not change. ${problemText(code)}`, tone: "error" });
-				if (code === "conflict") stale();
-			}
+			await saveMeeting({
+				what: "The status",
+				done: "changed",
+				send: (key) => changeStatus(key, m.revision, m.id, to),
+				ok: () =>
+					toast({ message: `${m.displayTitle}: ${STATUS_ACTION[to].toLowerCase()} is saved.`, tone: "success" }),
+			});
 		});
 	}
 
@@ -186,12 +216,8 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 	const final = data.attendance?.finalized != null;
 	// Owners, Admins and the leader of a team meeting mark attendance (C74); the server read says who may.
 	const marker = data.attendance?.viewerCanMarkAttendance === true;
-	type Form<I> = { visible: boolean; input: I | null; problem: string | null };
-	// Finalize and correction share one save slot; the evaluation has its own (C68).
-	const settleSlot = useSlot();
-	const [settle, setSettle] = useState<(Form<SettleInput> & { mode: "finalize" | "reconcile" }) | null>(null);
 	function submitSettle(input: SettleInput) {
-		const mode = settle!.mode;
+		const mode = settleLane.editing!.mode;
 		const attendance = data.attendance!;
 		const body = {
 			meetingId: m.id,
@@ -199,35 +225,12 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 			followUpAssigneeId: input.followUpAssigneeId,
 			...(mode === "finalize" ? { evaluationAssigneeId: input.evaluationAssigneeId } : { reason: input.reason }),
 		};
-		const started = settleSlot.run(
-			(key) => settleAttendance(mode, key, attendance.attendanceRevision, body),
-			(r) => {
-				if (r.status !== "ok") {
-					// Out of date (F6): reload, then review again. A finalize starts from who is marked now; a correction keeps
-					// only the people this person added and removed, applied to the current list, and its reason.
-					if (r.code === "conflict") {
-						setSettle(null);
-						const base = new Set(attended(attendance));
-						return void stale().then((latest) => {
-							const now = latest?.attendance ? attended(latest.attendance) : null;
-							const ids =
-								mode === "reconcile" && now
-									? [
-											...now.filter((id) => !base.has(id) || input.attendeeIds.includes(id)),
-											...input.attendeeIds.filter((id) => !base.has(id) && !now.includes(id)),
-										]
-									: null;
-							setSettle({
-								mode,
-								visible: true,
-								input: ids ? { ...input, attendeeIds: ids } : null,
-								problem: !latest ? "conflict_unloaded" : ids ? "conflict_kept" : "conflict",
-							});
-						});
-					}
-					return setSettle((s) => s && { ...s, visible: true, problem: r.code });
-				}
-				const { result, analytics } = r.value;
+		void settleLane.save({
+			what: "Attendance",
+			done: mode === "finalize" ? "finalized" : "corrected",
+			form: { mode, input },
+			send: (key) => settleAttendance(mode, key, attendance.attendanceRevision, body),
+			ok: ({ result, analytics }) => {
 				setData((d) => {
 					const next = d.attendance ? attendanceAfter(d.attendance, result) : null;
 					const present = new Map(next?.items.map((a) => [a.person.personId, a]));
@@ -242,72 +245,71 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 							}) ?? null,
 					};
 				});
-				setSettle(null);
 				toast({ message: settledText(result, m.displayTitle, mode), tone: "success" });
 			},
-		);
-		if (started) setSettle((s) => s && { ...s, visible: false, input, problem: null });
+			// Out of date (F6): reload, then review again. A finalize starts from who is marked now; a correction keeps
+			// only the people this person added and removed, applied to the current list, and its reason.
+			refused: (code) => {
+				if (code !== "conflict") return;
+				const base = new Set(attended(attendance));
+				void stale().then((latest) => {
+					const now = latest?.attendance ? attended(latest.attendance) : null;
+					const ids =
+						mode === "reconcile" && now
+							? [
+									...now.filter((id) => !base.has(id) || input.attendeeIds.includes(id)),
+									...input.attendeeIds.filter((id) => !base.has(id) && !now.includes(id)),
+								]
+							: null;
+					settleLane.open({
+						mode,
+						input: ids ? { ...input, attendeeIds: ids } : null,
+						problem: !latest ? "conflict_unloaded" : ids ? "conflict_kept" : "conflict",
+					});
+				});
+			},
+		});
 	}
 
-	const evaluationSlot = useSlot();
-	const [evaluating, setEvaluating] = useState<Form<EvaluationInput> | null>(null);
 	const saved = data.evaluation?.status === "available" ? data.evaluation.evaluation : null;
 	// What the person asked for, shown while its save is on its way or unknown; the answer replaces it.
-	const [draft, setDraft] = useState<Evaluation | null>(null);
-	const shownEvaluation = evaluationSlot.state !== "idle" && draft ? draft : saved;
+	const [draft, setDraft] = useState<ShownEvaluation | null>(null);
+	const shownEvaluation = evaluationLane.wait !== null && draft ? draft : saved;
 	function submitEvaluation(input: EvaluationInput) {
 		const scores = { ...saved?.scores, ...input.scores } as Scores;
 		const before = saved;
-		const started = evaluationSlot.run(
-			(key) =>
+		const changed = before
+			? Object.fromEntries(Object.entries(input.scores).filter(([k, v]) => before.scores[k as keyof Scores] !== v))
+			: input.scores;
+		setDraft({
+			evaluatedOn: before?.evaluatedOn ?? localDate.parse(data.now.slice(0, 10)),
+			corrections: before?.corrections ?? { count: 0, lastAt: null },
+			scores,
+			average: averageOf(scores),
+			notes: input.notes || null,
+		});
+		void evaluationLane.save({
+			what: before ? "The corrected evaluation" : "The evaluation",
+			form: { input },
+			send: (key) =>
 				before
 					? correctEvaluation(key, before.revision, {
 							meetingId: m.id,
-							changes: Object.fromEntries(
-								Object.entries(input.scores).filter(([k, v]) => before.scores[k as keyof Scores] !== v),
-							),
+							changes: changed,
 							...(input.notes !== (before.notes ?? "") ? { notes: input.notes || null } : {}),
 							reason: input.reason,
 						})
 					: recordEvaluation(key, { meetingId: m.id, scores: input.scores, notes: input.notes || null }),
-			(r) => {
+			ok: (value) => {
 				setDraft(null);
-				if (r.status !== "ok") {
-					// Out of date (F6): reload, then review again from the scores saved now, with only the factors and notes
-					// this person changed laid over them, and their reason. A colleague's correction stays.
-					if (r.code === "conflict") {
-						setEvaluating(null);
-						return void stale().then((latest) => {
-							const now = latest?.evaluation?.status === "available" ? latest.evaluation.evaluation : null;
-							const changed = before
-								? Object.fromEntries(
-										Object.entries(input.scores).filter(([k, v]) => before.scores[k as keyof Scores] !== v),
-									)
-								: input.scores;
-							const notesChanged = input.notes !== (before?.notes ?? "");
-							setEvaluating({
-								visible: true,
-								input: now
-									? {
-											scores: { ...now.scores, ...changed },
-											notes: notesChanged ? input.notes : (now.notes ?? ""),
-											reason: input.reason,
-										}
-									: null,
-								problem: !latest ? "conflict_unloaded" : now ? "conflict_kept" : "conflict",
-							});
-						});
-					}
-					return setEvaluating((f) => f && { ...f, visible: true, problem: r.code });
-				}
-				const e = r.value.evaluation;
+				const e = value.evaluation;
 				setData((d) => ({
 					...d,
 					evaluation: { status: "available", evaluation: e },
 					analytics: d.analytics && {
 						...d.analytics,
 						evaluation: d.analytics.evaluation && compareWith(d.analytics.evaluation, e.average, before !== null),
-						tasks: r.value.taskCompleted
+						tasks: value.taskCompleted
 							? {
 									...d.analytics.tasks,
 									evaluation: d.analytics.tasks.evaluation && { ...d.analytics.tasks.evaluation, status: "complete" },
@@ -315,37 +317,37 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 							: d.analytics.tasks,
 					},
 				}));
-				setEvaluating(null);
 				toast({
 					message: before
 						? "The evaluation is corrected."
-						: `The evaluation is saved.${r.value.taskCompleted ? " Its task is complete." : ""}`,
+						: `The evaluation is saved.${value.taskCompleted ? " Its task is complete." : ""}`,
 					tone: "success",
 				});
 			},
-		);
-		if (!started) return;
-		setEvaluating((f) => f && { ...f, visible: false, input, problem: null });
-		setDraft({
-			...(before ??
-				({
-					evaluationId: "pending",
-					meetingId: m.id,
-					factorVersion: 1,
-					evaluatedOn: data.now.slice(0, 10),
-					recordedAt: data.now,
-					evaluator: { kind: "former_account" },
-					revision: "0",
-					corrections: { count: 0, lastAt: null },
-				} as unknown as Evaluation)),
-			scores,
-			average: averageOf(scores),
-			notes: input.notes || null,
+			// Out of date (F6): reload, then review again from the scores saved now, with only the factors and notes this
+			// person changed laid over them, and their reason. A colleague's correction stays.
+			refused: (code) => {
+				setDraft(null);
+				if (code !== "conflict") return;
+				void stale().then((latest) => {
+					const now = latest?.evaluation?.status === "available" ? latest.evaluation.evaluation : null;
+					const notesChanged = input.notes !== (before?.notes ?? "");
+					evaluationLane.open({
+						input: now
+							? {
+									scores: { ...now.scores, ...changed },
+									notes: notesChanged ? input.notes : (now.notes ?? ""),
+									reason: input.reason,
+								}
+							: null,
+						problem: !latest ? "conflict_unloaded" : now ? "conflict_kept" : "conflict",
+					});
+				});
+			},
 		});
 	}
 	const history = useEvaluationHistory(m.id);
 	const [historyOpen, setHistoryOpen] = useState(false);
-	const [noteFor, setNoteFor] = useState<Guest | null>(null);
 
 	const moves = (statusTransitions[m.status] ?? []).filter((to) => !(practice && to === "completed"));
 	const held = m.occurrence.heldAt !== null;
@@ -368,12 +370,22 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 				<MenuContent align="end">
 					<MenuLabel>Change the status</MenuLabel>
 					{moves.map((to) => (
-						<MenuItem key={to} icon={CheckmarkCircle02Icon} onSelect={() => moveTo(to)} danger={to === "cancelled"}>
+						<MenuItem
+							key={to}
+							icon={CheckmarkCircle02Icon}
+							disabled={meetingLane.wait !== null}
+							onSelect={() => moveTo(to)}
+							danger={to === "cancelled"}
+						>
 							{STATUS_ACTION[to]}
 						</MenuItem>
 					))}
 					{practice && m.status === "in_progress" ? (
-						<MenuItem icon={Clock01Icon} onSelect={() => setHolding(true)}>
+						<MenuItem
+							icon={Clock01Icon}
+							disabled={meetingLane.wait !== null}
+							onSelect={() => meetingLane.open({ kind: "held", at: heldDefault(m, data.now) })}
+						>
 							Mark as held
 						</MenuItem>
 					) : null}
@@ -384,7 +396,12 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 					) : null}
 				</MenuContent>
 			</Menu>
-			<Button variant="secondary" icon={Edit02Icon} onClick={() => setEditing(true)}>
+			<Button
+				variant="secondary"
+				icon={Edit02Icon}
+				disabled={meetingLane.wait !== null}
+				onClick={() => setEditing(true)}
+			>
 				Edit
 			</Button>
 			<Menu>
@@ -393,22 +410,34 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 				</MenuTrigger>
 				<MenuContent align="end">
 					{m.status === "completed" && practice ? (
-						<MenuItem icon={Undo02Icon} onSelect={() => setReason("not_held")}>
+						<MenuItem
+							icon={Undo02Icon}
+							disabled={meetingLane.wait !== null}
+							onSelect={() => meetingLane.open({ kind: "reason", reason: "not_held", why: "" })}
+						>
 							Mark as not held
 						</MenuItem>
 					) : null}
 					{m.status === "completed" && held && !m.occurrence.voidedAt ? (
-						<MenuItem icon={CalendarRemove01Icon} onSelect={() => setReason("void")}>
+						<MenuItem
+							icon={CalendarRemove01Icon}
+							disabled={meetingLane.wait !== null}
+							onSelect={() => meetingLane.open({ kind: "reason", reason: "void", why: "" })}
+						>
 							Void this occurrence
 						</MenuItem>
 					) : null}
 					{m.occurrence.voidedAt ? (
-						<MenuItem icon={Undo02Icon} onSelect={() => setReason("restore")}>
+						<MenuItem
+							icon={Undo02Icon}
+							disabled={meetingLane.wait !== null}
+							onSelect={() => meetingLane.open({ kind: "reason", reason: "restore", why: "" })}
+						>
 							Restore this occurrence
 						</MenuItem>
 					) : null}
 					{m.status === "completed" ? <MenuSeparator /> : null}
-					<MenuItem icon={Delete02Icon} danger onSelect={() => setReason("delete")}>
+					<MenuItem icon={Delete02Icon} danger onSelect={() => setDeleting(true)}>
 						Delete meeting
 					</MenuItem>
 				</MenuContent>
@@ -449,8 +478,9 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 				actions={actions}
 			/>
 
+			<SaveNotice {...meetingLane.noticeProps} dialogOpen={meetingLane.editing !== null || editing} />
 			<div className="flex flex-col gap-5">
-				{view.own ? <OwnRsvp own={view.own} title={m.displayTitle} onChoose={chooseOwn} /> : null}
+				{view.own ? <OwnRsvp own={view.own} title={m.displayTitle} lane={ownLane} onChoose={chooseOwn} /> : null}
 				<div
 					className={
 						vision
@@ -480,15 +510,10 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 							attendance={view.attendance && { ...view.attendance, items: presence.shown(view.attendance.items) }}
 							analytics={data.analytics}
 							canWrite={canWrite}
-							slot={settleSlot.state}
+							lane={settleLane}
 							blocked={presence.busy}
-							onCheck={settleSlot.checkAgain}
 							now={data.now}
-							onSettle={(mode) =>
-								settleSlot.state === "idle" &&
-								!presence.busy &&
-								setSettle({ mode, visible: true, input: null, problem: null })
-							}
+							onSettle={(mode) => settleLane.wait === null && !presence.busy && settleLane.open({ mode, input: null })}
 							onPrefetch={seats.load}
 						/>
 						<AgendaCard
@@ -508,7 +533,6 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 						attendance={view.attendance}
 						presence={presence}
 						canMark={marker && !final && m.status !== "cancelled"}
-						onNote={setNoteFor}
 						canWrite={canWrite}
 						project={project}
 						onGuest={(g) =>
@@ -535,14 +559,9 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 						analytics={data.analytics}
 						finalized={final}
 						canWrite={canWrite}
-						slot={evaluationSlot.state}
-						onCheck={evaluationSlot.checkAgain}
-						onRecord={() =>
-							evaluationSlot.state === "idle" && setEvaluating({ visible: true, input: null, problem: null })
-						}
-						onCorrect={() =>
-							evaluationSlot.state === "idle" && setEvaluating({ visible: true, input: null, problem: null })
-						}
+						lane={evaluationLane}
+						onRecord={() => evaluationLane.wait === null && evaluationLane.open({ input: null })}
+						onCorrect={() => evaluationLane.wait === null && evaluationLane.open({ input: null })}
 						onHistory={() => {
 							if (saved) history.load(saved.revision);
 							setHistoryOpen(true);
@@ -563,108 +582,151 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 			) : null}
 			{canWrite ? (
 				<>
-					{data.attendance && data.guests && settle ? (
-						<SettleDialog
-							open={settle.visible}
-							mode={settle.mode}
-							meeting={m}
-							guests={data.guests}
-							attendance={data.attendance}
-							seats={seats.seats}
-							onSeats={seats.load}
-							initial={settle.input}
-							problem={settle.problem}
-							onClose={() => setSettle(null)}
-							onSubmit={submitSettle}
-						/>
+					{data.attendance && data.guests && settleLane.editing ? (
+						<NoticeInDialog {...settleLane.noticeProps}>
+							<SettleDialog
+								open
+								mode={settleLane.editing.mode}
+								meeting={m}
+								guests={data.guests}
+								attendance={data.attendance}
+								seats={seats.seats}
+								onSeats={seats.load}
+								initial={settleLane.editing.input}
+								problem={settleLane.problem}
+								onClose={settleLane.close}
+								onSubmit={submitSettle}
+							/>
+						</NoticeInDialog>
 					) : null}
-					{vision && evaluating ? (
-						<EvaluationDialog
-							open={evaluating.visible}
-							evaluation={saved}
-							title={m.displayTitle}
-							initial={evaluating.input}
-							problem={evaluating.problem}
-							onClose={() => setEvaluating(null)}
-							onSubmit={submitEvaluation}
-						/>
+					{vision && evaluationLane.editing ? (
+						<NoticeInDialog {...evaluationLane.noticeProps}>
+							<EvaluationDialog
+								open
+								evaluation={saved}
+								title={m.displayTitle}
+								initial={evaluationLane.editing.input}
+								problem={evaluationLane.problem}
+								onClose={evaluationLane.close}
+								onSubmit={submitEvaluation}
+							/>
+						</NoticeInDialog>
 					) : null}
-					<NoteDialog guest={noteFor} meeting={m} onOpenChange={(o) => !o && setNoteFor(null)} />
 					<PlanMeetingDialog
 						open={editing}
 						onOpenChange={setEditing}
+						lane={meetingLane}
 						meeting={preview ?? data.meeting}
 						onSaved={setMeeting}
 						onPreview={setPreview}
 					/>
-					<HeldDialog open={holding} onOpenChange={setHolding} meeting={m} onSaved={setMeeting} now={data.now} />
-					<ReasonDialog
-						open={reason !== null}
-						onOpenChange={(o) => !o && setReason(null)}
-						danger={reason === "delete"}
-						title={
-							reason === "delete"
-								? `Delete ${m.displayTitle}?`
-								: reason === "void"
-									? "Void this occurrence?"
-									: reason === "restore"
-										? "Restore this occurrence?"
-										: "Mark this practice as not held?"
-						}
-						consequences={
-							reason === "delete"
-								? [
-										"It leaves the meetings list for everyone.",
-										"Its guests, answers and history are kept.",
-										...(practice && held ? ["A practice that really happened still counts toward Launch."] : []),
-									]
-								: reason === "void"
-									? ["Use this when the meeting did not really happen as recorded.", "It no longer counts as held."]
-									: reason === "restore"
-										? ["It counts as held again."]
-										: ["It goes back to Planning with no held time.", "It no longer counts toward Launch."]
-						}
-						confirmLabel={
-							reason === "delete"
-								? "Delete meeting"
-								: reason === "void"
-									? "Void occurrence"
-									: reason === "restore"
-										? "Restore occurrence"
-										: "Mark as not held"
-						}
-						onConfirm={async (why, save) => {
-							if (reason === "delete") {
+					<NoticeInDialog {...meetingLane.noticeProps}>
+						{meetingLane.editing?.kind === "held" ? (
+							<HeldForm
+								meeting={m}
+								initial={meetingLane.editing.at}
+								problem={meetingLane.problem}
+								wait={meetingLane.wait}
+								now={data.now}
+								onClose={meetingLane.close}
+								onSubmit={(at, occurredAt) =>
+									void saveMeeting({
+										what: "The held time",
+										form: { kind: "held", at },
+										send: (key) => completePractice(key, m.revision, m.id, occurredAt),
+									})
+								}
+							/>
+						) : meetingLane.editing?.kind === "reason" ? (
+							<OccurrenceDialog
+								reason={meetingLane.editing.reason}
+								initial={meetingLane.editing.why}
+								problem={meetingLane.problem}
+								wait={meetingLane.wait}
+								onClose={meetingLane.close}
+								onSubmit={(reason, why) =>
+									void saveMeeting({
+										what: REASON_WHAT[reason],
+										form: { kind: "reason", reason, why },
+										send: (key) =>
+											reason === "not_held"
+												? correctPractice(key, m.revision, { meetingId: m.id, state: "not_completed", reason: why })
+												: correctOccurrence(key, m.revision, m.id, reason === "void", why),
+									})
+								}
+							/>
+						) : null}
+					</NoticeInDialog>
+					{deleting ? (
+						<ReasonDialog
+							danger
+							title={`Delete ${m.displayTitle}?`}
+							consequences={[
+								"It leaves the meetings list for everyone.",
+								"Its guests, answers and history are kept.",
+								...(practice && held ? ["A practice that really happened still counts toward Launch."] : []),
+							]}
+							confirmLabel="Delete meeting"
+							onClose={() => setDeleting(false)}
+							onSubmit={(why) => {
 								// The list opens at once without this meeting; the answer confirms it or brings it back.
 								const { id, displayTitle, revision } = m;
 								deleteFromList({ id, title: displayTitle, revision }, why, toast);
 								router.push("/meetings");
-								return true;
-							}
-							const r =
-								reason === "not_held"
-									? await save({ reason, why }, (key) =>
-											correctPractice(key, m.revision, { meetingId: m.id, state: "not_completed", reason: why }),
-										)
-									: await save({ reason, why }, (key) =>
-											correctOccurrence(key, m.revision, m.id, reason === "void", why),
-										);
-							if (r?.status !== "ok") {
-								if (r?.status === "refused" && r.code === "conflict") stale();
-								return false;
-							}
-							setMeeting((r.value as { meeting: Detail }).meeting);
-							return true;
-						}}
-					/>
+							}}
+						/>
+					) : null}
 				</>
 			) : null}
 		</>
 	);
 }
 
+const REASON_WHAT: Record<Reason, string> = {
+	void: "Voiding this occurrence",
+	restore: "Restoring this occurrence",
+	not_held: "Marking this practice as not held",
+};
+
+/** Void or restore an occurrence, or mark a practice as not held: each needs a reason in the history. */
+function OccurrenceDialog({
+	reason,
+	...props
+}: {
+	reason: Reason;
+	initial: string;
+	problem: string | undefined;
+	wait: Wait;
+	onClose: () => void;
+	onSubmit: (reason: Reason, why: string) => void;
+}) {
+	return (
+		<ReasonDialog
+			{...props}
+			title={
+				reason === "void"
+					? "Void this occurrence?"
+					: reason === "restore"
+						? "Restore this occurrence?"
+						: "Mark this practice as not held?"
+			}
+			consequences={
+				reason === "void"
+					? ["Use this when the meeting did not really happen as recorded.", "It no longer counts as held."]
+					: reason === "restore"
+						? ["It counts as held again."]
+						: ["It goes back to Planning with no held time.", "It no longer counts toward Launch."]
+			}
+			confirmLabel={
+				reason === "void" ? "Void occurrence" : reason === "restore" ? "Restore occurrence" : "Mark as not held"
+			}
+			onSubmit={(why) => props.onSubmit(reason, why)}
+		/>
+	);
+}
+
 /** Yes, No and Pending for this meeting, from the guest list. */
-function RsvpSummary({ guests }: { guests: MeetingPageData["guests"] }) {
+function RsvpSummary({ guests }: { guests: GuestRow[] | null }) {
 	const c = rsvpCounts(guests ?? []);
 	const total = guests?.length ?? 0;
 	return (
@@ -705,7 +767,7 @@ function RsvpSummary({ guests }: { guests: MeetingPageData["guests"] }) {
  * Response cards (REQ-MTG-013): attended guests are the base; an attended guest without a card is unknown, never a
  * no. Cards from guests who were not recorded as attending are counted apart.
  */
-function CardsSummary({ guests, cards }: { guests: MeetingPageData["guests"]; cards: MeetingPageData["cards"] }) {
+function CardsSummary({ guests, cards }: { guests: GuestRow[] | null; cards: MeetingPageData["cards"] }) {
 	if (!guests || !cards)
 		return (
 			<Card as="section" aria-labelledby="cards-title">
@@ -798,15 +860,18 @@ function Breakdown({
 function OwnRsvp({
 	own,
 	title,
+	lane,
 	onChoose,
 }: {
 	own: NonNullable<MeetingPageData["own"]>;
 	title: string;
+	lane: SaveIntent;
 	onChoose: (rsvp: "confirmed" | "declined") => void;
 }) {
 	const answer = own.rsvp;
 	return (
 		<Card variant="callout" tone="green" as="section" aria-labelledby="own-rsvp">
+			<SaveNotice {...lane.noticeProps} dialogOpen={false} />
 			<div className="flex flex-wrap items-center justify-between gap-4">
 				<div>
 					<h2 id="own-rsvp" className="font-semibold text-ink">
@@ -823,6 +888,7 @@ function OwnRsvp({
 						<Button
 							variant={answer === "confirmed" ? "primary" : "secondary"}
 							aria-pressed={answer === "confirmed"}
+							disabled={lane.wait !== null}
 							onClick={() => onChoose("confirmed")}
 						>
 							Yes, I&apos;ll come
@@ -830,6 +896,7 @@ function OwnRsvp({
 						<Button
 							variant={answer === "declined" ? "primary" : "secondary"}
 							aria-pressed={answer === "declined"}
+							disabled={lane.wait !== null}
 							onClick={() => onChoose("declined")}
 						>
 							Can&apos;t make it
@@ -843,100 +910,71 @@ function OwnRsvp({
 	);
 }
 
-/**
- * Mark a practice as held (REQ-MTG-002): it records when it actually happened, which cannot be in the future. Three
- * held practices meet the Launch criterion.
- */
-function HeldDialog({
-	open,
-	onOpenChange,
-	meeting,
-	onSaved,
-	now,
-}: {
-	open: boolean;
-	onOpenChange: (open: boolean) => void;
-	meeting: Detail;
-	onSaved: (meeting: Detail) => void;
-	now: string;
-}) {
-	return (
-		<Dialog open={open} onOpenChange={onOpenChange}>
-			{open ? <HeldForm meeting={meeting} onSaved={onSaved} onClose={() => onOpenChange(false)} now={now} /> : null}
-		</Dialog>
-	);
-}
-
 /** "2026-10-21T18:30" in the browser's zone, for a datetime-local input. */
 const localInput = (at: Date) => {
 	const p = (n: number) => String(n).padStart(2, "0");
 	return `${at.getFullYear()}-${p(at.getMonth() + 1)}-${p(at.getDate())}T${p(at.getHours())}:${p(at.getMinutes())}`;
 };
+/** The held time a new form starts from: the meeting's start, or the page's render time when the start is ahead. */
+const heldDefault = (m: Detail, now: string) => localInput(new Date(Math.min(Date.parse(m.startsAt), Date.parse(now))));
 
+/**
+ * Mark a practice as held (REQ-MTG-002): it records when it actually happened, which cannot be in the future. Three
+ * held practices meet the Launch criterion.
+ */
 function HeldForm({
 	meeting,
-	onSaved,
-	onClose,
+	initial,
+	problem,
+	wait,
 	now,
+	onClose,
+	onSubmit,
 }: {
 	meeting: Detail;
-	onSaved: (meeting: Detail) => void;
-	onClose: () => void;
+	initial: string;
+	problem: string | undefined;
+	wait: Wait;
 	now: string;
+	onClose: () => void;
+	/** The form's value and the instant it names. */
+	onSubmit: (at: string, occurredAt: string) => void;
 }) {
-	// The meeting's start, or the page's render time when the start is still ahead.
-	const [value, setValue] = useState(() =>
-		localInput(new Date(Math.min(Date.parse(meeting.startsAt), Date.parse(now)))),
-	);
+	const [value, setValue] = useState(initial);
 	const [future, setFuture] = useState(false);
-	const { save, pending, problemProps } = useSave();
 	return (
-		<DialogContent size="sm" aria-busy={pending || undefined}>
-			<form
-				noValidate
-				className="contents"
-				onSubmit={async (e) => {
-					e.preventDefault();
-					const at = new Date(value);
-					const bad = Number.isNaN(at.getTime()) || at.getTime() > Date.now();
-					setFuture(bad);
-					if (bad) return;
-					const occurredAt = at.toISOString();
-					const r = await save({ occurredAt }, (key) =>
-						completePractice(key, meeting.revision, meeting.id, occurredAt),
-					);
-					if (r?.status === "ok") {
-						onSaved(r.value.meeting);
-						onClose();
-					}
-				}}
+		<RecordDialog
+			icon={Clock01Icon}
+			tone="green"
+			size="sm"
+			title="Mark as held"
+			description={meeting.displayTitle}
+			action="Mark as held"
+			problem={problem}
+			wait={wait}
+			onClose={onClose}
+			onSubmit={() => {
+				const at = new Date(value);
+				const bad = Number.isNaN(at.getTime()) || at.getTime() > Date.now();
+				setFuture(bad);
+				if (bad) return false;
+				onSubmit(value, at.toISOString());
+				return true;
+			}}
+		>
+			<Field
+				label="When it happened"
+				hint="In your own time zone. It cannot be later than now."
+				error={future ? "Choose a time that has already happened." : null}
 			>
-				<DialogHeader icon={Clock01Icon} tone="green" title="Mark as held" description={meeting.displayTitle} />
-				<DialogBody className="flex flex-col gap-4">
-					<Field
-						label="When it happened"
-						hint="In your own time zone. It cannot be later than now."
-						error={future ? "Choose a time that has already happened." : null}
-					>
-						<Input
-							type="datetime-local"
-							value={value}
-							max={localInput(new Date(now))}
-							onChange={(e) => setValue(e.target.value)}
-						/>
-					</Field>
-					<Problem {...problemProps} />
-				</DialogBody>
-				<DialogFooter>
-					<Button variant="secondary" type="button" onClick={onClose} disabled={pending}>
-						Cancel
-					</Button>
-					<Button variant="primary" type="submit" loading={pending}>
-						Mark as held
-					</Button>
-				</DialogFooter>
-			</form>
-		</DialogContent>
+				<Input
+					type="datetime-local"
+					value={value}
+					max={localInput(new Date(now))}
+					onChange={(e) => setValue(e.target.value)}
+				/>
+			</Field>
+		</RecordDialog>
 	);
 }
 

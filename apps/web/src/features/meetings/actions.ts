@@ -7,6 +7,7 @@ import { listPeopleRequest } from "@everyfield/contracts/people";
 import {
 	answerRsvpToken,
 	attendanceReader,
+	describeRsvpToken,
 	createAttendanceWriter,
 	guestsWriter,
 	meetingsReader,
@@ -19,7 +20,8 @@ import {
 } from "@everyfield/domain/meetings";
 import { tasksMount } from "@/server/tasks";
 import { peopleReader } from "@everyfield/domain/people";
-import type { MeetingsReply } from "@everyfield/contracts/meetings";
+import type { MeetingsReply, rsvpTokenView } from "@everyfield/contracts/meetings";
+import type { z } from "zod";
 import type { Transaction } from "@everyfield/db/client";
 import { read as readPeople } from "../people/server.ts";
 import type { Finalization, Outcome } from "./model.ts";
@@ -357,6 +359,20 @@ export async function answerRsvp(token: unknown, rsvp: unknown): Promise<Outcome
 		return r.status === "ok" ? r : { status: "refused", code: r.error.code };
 	} catch (error) {
 		console.error(JSON.stringify({ component: "meetings", outcome: "rsvp_failed", error: String(error) }));
+		return { status: "lost" };
+	}
+}
+/**
+ * What a personal link holds now: its meeting, state and recorded answer. Read once after an answer's reply was lost or
+ * the link said it was closed, so the page shows the answer the server kept instead of guessing (C58). Never writes.
+ */
+export async function readRsvpLink(token: unknown): Promise<Outcome<z.infer<typeof rsvpTokenView>>> {
+	const db = requestDatabase();
+	if (!db) return { status: "lost" };
+	try {
+		return { status: "ok", value: await describeRsvpToken(db, { token }) };
+	} catch (error) {
+		console.error(JSON.stringify({ component: "meetings", outcome: "rsvp_read_failed", error: String(error) }));
 		return { status: "lost" };
 	}
 }

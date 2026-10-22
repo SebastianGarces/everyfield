@@ -295,7 +295,6 @@ function Form({
 					value={draft.title}
 					maxLength={500}
 					autoComplete="off"
-					autoFocus
 					onChange={(e) => set({ title: e.target.value })}
 				/>
 			</Field>
