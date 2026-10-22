@@ -15,7 +15,7 @@ import {
 	venuesWriter,
 	type AttendanceWriter,
 	type MeetingsContext,
-	withMeetingsWrite,
+	previewMeetingsWrite,
 } from "@everyfield/domain/meetings";
 import { tasksMount } from "@/server/tasks";
 import { peopleReader } from "@everyfield/domain/people";
@@ -274,15 +274,9 @@ export async function settleAttendance(
 		value: { result: done.value, analytics: report.status === "ok" ? report.value : null },
 	};
 }
-/** Carries a finalize or correction result out of its transaction, so the transaction rolls back. */
-class Preview extends Error {
-	constructor(readonly value: unknown) {
-		super("preview");
-	}
-}
 /**
  * The exact effects of a finalize or correction before the person confirms it (REQ-MTG-012, C73): each follow-up call
- * with its person and owner, each advance to Attendee and the evaluation task. It runs the real producer in a
+ * with its person and owner, each advance to Attendee and the evaluation task. It runs the real producer once in a
  * transaction and rolls it back, so the review shows what the same command would do now, with nothing saved. Task
  * reminders join the same transaction and roll back with it.
  */
@@ -299,19 +293,16 @@ export async function previewSettlement(
 	attendanceWriter ??= createAttendanceWriter({ reminders: mount.reminders });
 	const w = attendanceWriter;
 	try {
-		const r = await withMeetingsWrite(db, v.people.authority, async (tx, ctx) => {
-			const real = await (mode === "finalize" ? w.finalizeAttendance : w.reconcileAttendance)(tx, ctx, {
-				requestKey: crypto.randomUUID(),
-				expectedRevision,
-				input,
-			});
-			if (real.status !== "ok") return real;
-			throw new Preview(real.value);
-		});
-		// Only a refusal returns here; a computed result leaves as a Preview and rolls the transaction back.
-		return r.status === "refused" ? outcome(r) : { status: "lost" };
+		return outcome(
+			await previewMeetingsWrite(db, v.people.authority, (tx, ctx) =>
+				(mode === "finalize" ? w.finalizeAttendance : w.reconcileAttendance)(tx, ctx, {
+					requestKey: crypto.randomUUID(),
+					expectedRevision,
+					input,
+				}),
+			),
+		);
 	} catch (error) {
-		if (error instanceof Preview) return { status: "ok" as const, value: error.value as Finalization };
 		console.error(JSON.stringify({ component: "meetings", outcome: "preview_failed", error: String(error) }));
 		return { status: "lost" } as const;
 	}

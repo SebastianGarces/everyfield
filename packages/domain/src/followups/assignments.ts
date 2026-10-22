@@ -133,7 +133,6 @@ export function assignmentWriter(reminders: TaskReminders) {
 					if (!administers(cmd.actor)) deny();
 					const v = input.input,
 						plant = cmd.actor.plantId;
-					if (v.fromAccountId === v.toAccountId) deny("invalid_input");
 					const r = await tx.execute(sql`SELECT ${ownerName(plant, v.toAccountId)} AS recipient,
 						EXISTS(SELECT FROM seat s WHERE s.account_id=${v.fromAccountId}::uuid AND s.plant_id=${plant}::uuid
 							AND s.role='owner' AND s.ended_at IS NULL) AS protected,

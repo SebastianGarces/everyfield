@@ -437,7 +437,8 @@ async function settle(
 	const occurredAt = f.occurred_at;
 	const rows: RowWrite[] = [],
 		inserts: RowWrite[] = [];
-	const classifications: z.infer<typeof c.finalizationResult>["classifications"] = [];
+	// The result parses these with the contract below.
+	const classifications: z.input<typeof c.finalizationResult>["classifications"] = [];
 	const stageChanges: { personId: string; from: Stage; to: Stage; revision: string; position: string }[] = [];
 	const closing = new Set<string>();
 	const obligations = new Map(
@@ -449,20 +450,20 @@ async function settle(
 		const prior = f.earlier[personId] ?? null;
 		if (!fresh.includes(personId)) {
 			classifications.push({
-				personId: personId as never,
+				personId,
 				classification: g?.classification ?? classify(p?.stage ?? "prospect", prior),
 				firstVision: prior === null,
-				priorVisionId: (g?.prior_vision_id ?? prior) as never,
+				priorVisionId: g?.prior_vision_id ?? prior,
 			});
 			continue;
 		}
 		const stage = p!.stage;
 		const cls = classify(stage, prior);
 		classifications.push({
-			personId: personId as never,
+			personId,
 			classification: cls,
 			firstVision: prior === null,
-			priorVisionId: prior as never,
+			priorVisionId: prior,
 		});
 		const snapshot = {
 			presence: "attended" as const,
@@ -753,10 +754,10 @@ const scoreArray = (s: z.infer<typeof c.scores>) => sql`${sql.param(c.evaluation
 
 /** The attendance, finalization, evaluation and attendee-note commands. `reminders` is WP-031's task reminder port. */
 export function createAttendanceWriter(deps: { reminders: TaskReminders }) {
-	const presence = (
+	const presence = <S extends z.ZodType<{ requestKey: string; input: { meetingId: string } }>>(
 		operation: MeetingWrite,
-		schema: z.ZodType<{ requestKey: string; input: { meetingId: string } }>,
-		entries: (input: never) => { personId: string; presence: Presence }[],
+		schema: S,
+		entries: (input: z.output<S>["input"]) => { personId: string; presence: Presence }[],
 		join: boolean,
 	) =>
 		async function (tx: Tx, ctx: MeetingsContext, raw: unknown) {
@@ -767,7 +768,7 @@ export function createAttendanceWriter(deps: { reminders: TaskReminders }) {
 					ctx,
 					operation,
 					input,
-					(w, audit) => setPresence(tx, w, audit, input.input.meetingId, entries(input.input as never), { join }),
+					(w, audit) => setPresence(tx, w, audit, input.input.meetingId, entries(input.input), { join }),
 					{ member: true },
 				);
 			});
