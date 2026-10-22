@@ -396,8 +396,32 @@ test("AC:TARGET-TSK-003 AC:TARGET-TSK-015 own-duty completion, one result per re
 	refused(await command(member, "complete", started), "conflict");
 	const reopened = ok(await command(member, "reopen", done.task)).task;
 	assert.deepEqual([reopened.status, reopened.completedAt], ["not_started", null]);
-	const again = ok(await command(member, "reopen", reopened));
+	const same = { requestKey: randomUUID(), expectedRevision: reopened.revision, input: { taskId: t.id } };
+	const again = ok(await write(member, "reopen", same));
 	assert.equal(again.outcome, "noop");
+	// A retried no-op returns the same answer.
+	assert.deepEqual(ok(await write(member, "reopen", same)), again);
+	// A command that changes nothing records exactly one audit row, of kind noop (C98).
+	const keyed = (key) =>
+		rows(
+			sql`SELECT kind, subject_type, subject_id FROM audit_event WHERE tenant_id=${plant.id} AND request_key=${key}`,
+		);
+	const plain = await recurring({ title: "Stack chairs" });
+	const unchanged = [["reopen", same.requestKey, t.id]];
+	for (const [op, input] of [
+		["edit", { patch: { title: "Stack chairs" } }],
+		["replacePrerequisites", { prerequisiteIds: [] }],
+		["configureRecurrence", { rule: { frequency: "weekly", until: null } }],
+	]) {
+		const requestKey = randomUUID();
+		const r = ok(
+			await write(owner, op, { requestKey, expectedRevision: plain.revision, input: { taskId: plain.id, ...input } }),
+		);
+		assert.equal(r.outcome, "noop", op);
+		unchanged.push([op, requestKey, plain.id]);
+	}
+	for (const [op, key, id] of unchanged)
+		assert.deepEqual(await keyed(key), [{ kind: "noop", subject_type: "task", subject_id: id }], op);
 
 	const history = ok(await read(member, "statusHistory", { taskId: t.id }));
 	assert.deepEqual(
@@ -637,14 +661,73 @@ test("AC:TARGET-TSK-014 due and overdue reminders follow the current assignee an
 		before.some((id) => allowed.has(id)),
 		false,
 	);
+	// Every write that moves the revision replans the reminders, so the assignee's mail still goes out.
+	const prerequisite = await create(owner, { title: "Sign the lease" });
+	const blocked = ok(
+		await write(owner, "replacePrerequisites", {
+			requestKey: randomUUID(),
+			expectedRevision: moved.revision,
+			input: { taskId: t.id, prerequisiteIds: [prerequisite.id] },
+		}),
+	).task;
+	const repeating = ok(
+		await write(owner, "configureRecurrence", {
+			requestKey: randomUUID(),
+			expectedRevision: blocked.revision,
+			input: { taskId: t.id, rule: { frequency: "weekly", until: null } },
+		}),
+	).task;
+	const replanned = await rows(
+		sql`SELECT m.id, m.recipient_account_id recipient, m.notice_id notice FROM mail m JOIN notice n ON n.id=m.notice_id
+			WHERE n.source_record_id=${t.id} AND n.cancelled_at IS NULL`,
+	);
+	const sendable = await f.db.transaction((tx) => authorizeTaskReminders(tx, replanned));
+	assert.deepEqual(
+		replanned.filter((m) => sendable.has(m.id)).map((m) => m.recipient),
+		[admin2.id, admin2.id],
+	);
 	ok(
 		await write(admin2, "complete", {
 			requestKey: randomUUID(),
-			expectedRevision: moved.revision,
+			expectedRevision: repeating.revision,
 			input: { taskId: t.id },
 		}),
 	);
 	assert.deepEqual(await live(t.id), []);
+	// Reopening a dated, assigned task plans its reminders again; completing an occurrence plans the next one's.
+	const pending = async (task) => (await live(task)).map((n) => [n.recipient_id, n.state]);
+	const twice = [
+		[admin2.id, "pending"],
+		[admin2.id, "pending"],
+	];
+	const once = await recurring({
+		title: "Order chairs",
+		assigneeId: admin2.id,
+		due: { kind: "local_date", date: "2099-02-01" },
+	});
+	const done = ok(
+		await write(owner, "completeOccurrence", {
+			requestKey: randomUUID(),
+			expectedRevision: once.revision,
+			input: { taskId: once.id },
+		}),
+	);
+	assert.deepEqual([await pending(once.id), await pending(done.successor.id)], [[], twice]);
+	ok(
+		await write(owner, "delete", {
+			requestKey: randomUUID(),
+			expectedRevision: done.successor.revision,
+			input: { taskId: done.successor.id },
+		}),
+	);
+	ok(
+		await write(owner, "reopen", {
+			requestKey: randomUUID(),
+			expectedRevision: done.task.revision,
+			input: { taskId: once.id },
+		}),
+	);
+	assert.deepEqual(await pending(once.id), twice);
 	// Undated or unassigned tasks have no reminders.
 	const undated = await create(owner, { assigneeId: member.id });
 	const unassigned = await create(owner, { due: { kind: "local_date", date: "2099-01-15" } });
@@ -1056,6 +1139,29 @@ test("AC:TARGET-TSK-007 AC:TARGET-TSK-018 completing a recurring task creates ex
 		}),
 		"open_successor",
 	);
+	// Deleting the open occurrence keeps the series: reopen and complete the older one, and the next task returns.
+	ok(
+		await write(owner, "delete", {
+			requestKey: randomUUID(),
+			expectedRevision: first.successor.revision,
+			input: { taskId: first.successor.id },
+		}),
+	);
+	const reopened = ok(
+		await write(owner, "reopen", {
+			requestKey: randomUUID(),
+			expectedRevision: first.task.revision,
+			input: { taskId: t.id },
+		}),
+	).task;
+	const again = ok(await complete(owner, reopened));
+	assert.deepEqual([again.successor?.due, again.successor?.occurrenceId], [due("2026-02-28"), "2"]);
+	assert.deepEqual(ok(await read(member, "findOpenOccurrence", { taskId: t.id })).open, {
+		taskId: again.successor.id,
+		occurrence: 2,
+		predecessorId: t.id,
+		revision: "1",
+	});
 
 	// Leap day yearly, the inclusive end date, and late completion (the next one is already overdue).
 	const cases = [

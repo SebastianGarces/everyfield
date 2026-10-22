@@ -19,7 +19,7 @@ import {
 	type Tx,
 } from "./core.ts";
 import { lastWrite } from "../operations/writes.ts";
-import { detailOf, loadTask, type TaskRow } from "./queries.ts";
+import { detailOf, loadTask, type LockedTask, type TaskRow } from "./queries.ts";
 import { successorOf } from "./recurrence.ts";
 import { structureWriter } from "./structure.ts";
 
@@ -162,18 +162,20 @@ export function insertTasks(plantId: string, creatorId: string, rows: readonly T
 		series_id: r.series_id,
 		occurrence_key: r.occurrence_key,
 		predecessor_id: r.predecessor_id,
+		obligation_id: r.obligation_id,
 		completed_at: r.completed_at?.toISOString() ?? null,
 	}));
 	return sql`INSERT INTO task (id, plant_id, title, description, category, priority, status, creator_id, created_at,
 		assignee_id, due_kind, due_date, due_time, timezone, due_at, resolver_version, person_id, meeting_id, team_id,
-		parent_id, series_id, occurrence_key, predecessor_id, completed_at)
+		parent_id, series_id, occurrence_key, predecessor_id, obligation_id, completed_at)
 	SELECT r.id, ${plantId}::uuid, r.title, r.description, r.category, r.priority, r.status, ${creatorId}::uuid,
 		r.created_at, r.assignee_id, r.due_kind, r.due_date, r.due_time, r.timezone, r.due_at, r.resolver_version,
-		r.person_id, r.meeting_id, r.team_id, r.parent_id, r.series_id, r.occurrence_key, r.predecessor_id, r.completed_at
+		r.person_id, r.meeting_id, r.team_id, r.parent_id, r.series_id, r.occurrence_key, r.predecessor_id, r.obligation_id,
+		r.completed_at
 	FROM jsonb_to_recordset(${JSON.stringify(values)}::jsonb) AS r(id uuid, title text, description text, category text,
 		priority text, status text, created_at timestamptz, assignee_id uuid, due_kind text, due_date date, due_time time,
 		timezone text, due_at timestamptz, resolver_version text, person_id uuid, meeting_id uuid, team_id uuid,
-		parent_id uuid, series_id uuid, occurrence_key text, predecessor_id uuid, completed_at timestamptz)
+		parent_id uuid, series_id uuid, occurrence_key text, predecessor_id uuid, obligation_id uuid, completed_at timestamptz)
 	${after ? sql`WHERE EXISTS(SELECT FROM ${after})` : sql``}`;
 }
 /** The audit rows of newly created tasks. */
@@ -210,6 +212,19 @@ export const audited = (r: TaskRow) => ({
 	deleted_at: r.deleted_at?.toISOString() ?? null,
 });
 export const bump = (r: string) => revision.parse(String(BigInt(r) + 1n));
+/** A command that changes nothing records one noop audit row (C98); it carries the request key and stored answer. */
+export function noop(cmd: AuditCommand, row: TaskRow) {
+	auditRow(cmd, {
+		taskId: row.id,
+		action: "tasks.changed",
+		kind: "noop",
+		before: null,
+		after: null,
+		beforeRevision: row.revision,
+		afterRevision: row.revision,
+	});
+	return { row, outcome: "noop" as const };
+}
 
 /** The locked live task under the expected revision, or a refusal. Members act only on a task they hold (own duty). */
 export async function current(tx: Tx, cmd: Command, taskId: string, expectedRevision: string, ownDuty: boolean) {
@@ -240,27 +255,18 @@ export function update(plantId: string, row: TaskRow, next: TaskRow) {
 export function setStatus(
 	tx: Tx,
 	cmd: AuditCommand,
-	row: TaskRow,
+	row: LockedTask,
 	input: { status: z.infer<typeof c.taskStatus>; reason?: string | null; source?: z.infer<typeof c.historySource> },
 ) {
 	if (row.status === input.status) {
-		// A task command still needs its row to keep the request key; generated work adds nothing.
-		if (input.source !== "generated")
-			auditRow(cmd, {
-				taskId: row.id,
-				action: "tasks.changed",
-				kind: "noop",
-				before: null,
-				after: null,
-				beforeRevision: row.revision,
-				afterRevision: row.revision,
-			});
+		// Generated work appends to another domain's command, which records its own row.
+		if (input.source !== "generated") noop(cmd, row);
 		return { row, outcome: "noop" as const, changes: [], successor: null };
 	}
 	const reopening = !OPEN(row.status) && OPEN(input.status);
 	if (reopening && row.open_successor) deny("open_successor", { successorId: row.open_successor });
 	const at = new Date();
-	const next: TaskRow = {
+	const next: LockedTask = {
 		...row,
 		status: input.status,
 		completed_at: input.status === "complete" ? at : null,
@@ -324,7 +330,7 @@ export function changeTo(
 	tx: Tx,
 	cmd: AuditCommand,
 	reminders: TaskReminders,
-	row: TaskRow,
+	row: LockedTask,
 	input: Parameters<typeof setStatus>[3],
 ) {
 	const r = setStatus(tx, cmd, row, input);
@@ -457,22 +463,20 @@ export function createTaskWriter(deps: { reminders: TaskReminders }) {
 						...(relation ? { ...relation, relation_label: refs?.relationLabel ?? null } : {}),
 					};
 					const delta = changes(audited(row), audited(next));
-					const changed = Object.keys(delta.after).length > 0;
-					if (changed) {
-						next.revision = bump(row.revision);
-						cmd.writes.push(update(cmd.actor.plantId, row, next));
-					}
+					if (!Object.keys(delta.after).length) return { value: mutation(cmd, noop(cmd, next).row, "noop") };
+					next.revision = bump(row.revision);
+					cmd.writes.push(update(cmd.actor.plantId, row, next));
 					auditRow(cmd, {
 						taskId: row.id,
 						action: "tasks.changed",
-						kind: changed ? "edit" : "noop",
-						...(changed ? delta : { before: null, after: null }),
+						kind: "edit",
+						...delta,
 						beforeRevision: row.revision,
 						afterRevision: next.revision,
 					});
 					return {
-						value: mutation(cmd, next, changed ? "changed" : "noop"),
-						after: changed ? syncReminders(reminders, tx, cmd.actor.plantId, row, next) : undefined,
+						value: mutation(cmd, next, "changed"),
+						after: syncReminders(reminders, tx, cmd.actor.plantId, row, next),
 					};
 				});
 			});
