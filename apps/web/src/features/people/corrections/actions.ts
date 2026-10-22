@@ -48,30 +48,47 @@ export async function unmergePreview(mergeId: string): Promise<Outcome<UnmergeVi
 	);
 }
 
-export type Unmerged = {
-	result: z.infer<typeof c.unmergeResult>;
-	/** The survivor and their first Activity page as Unmerge left them, so the page shows the change without a reload. */
-	person: PlantPerson | null;
-	activities: z.infer<typeof c.activitiesResult> | null;
-	receipt: Receipt;
-};
+export type Unmerged = { result: z.infer<typeof c.unmergeResult>; receipt: Receipt };
+/** Unmerge only writes; the screen confirms from this answer and then reads the page again (loadPersonPage). */
 export async function unmergePair(
 	requestKey: string,
 	expectedRevision: string,
 	mergeId: string,
 ): Promise<Outcome<Unmerged>> {
-	return boundary(c.unmergePeopleRequest, { requestKey, expectedRevision, input: { mergeId } }, async (v, request) => {
-		const done = outcome(await write(v, (tx, ctx) => peopleUnmerge.unmergePeople(tx, ctx, request)), (r) => r);
-		if (done.status !== "ok") return done;
-		const page = await loadPerson(v, done.value.survivorId, false);
-		const found = page.status === "ok" ? page.value.found : null;
+	return boundary(c.unmergePeopleRequest, { requestKey, expectedRevision, input: { mergeId } }, async (v, request) =>
+		outcome(await write(v, (tx, ctx) => peopleUnmerge.unmergePeople(tx, ctx, request)), (r) => ({
+			result: r,
+			receipt: receipt(r),
+		})),
+	);
+}
+
+type PageParts = Extract<Awaited<ReturnType<typeof loadPerson>>, { status: "ok" }>["value"];
+export type PersonPage = {
+	person: PlantPerson;
+	activities: z.infer<typeof c.activitiesResult> | null;
+	fields: PageParts["fields"];
+	records: PageParts["records"];
+	duplicates: PageParts["duplicates"];
+};
+/**
+ * The whole person page again, in one read transaction, after an Unmerge moved records, tags, skills and the household
+ * back to the other person: every part shows the authoritative result without a page reload.
+ */
+export async function loadPersonPage(personId: string): Promise<Outcome<PersonPage>> {
+	return boundary(c.personRequest, { personId }, async (v, request) => {
+		const r = outcome(await loadPerson(v, request.personId), (page) => page);
+		if (r.status !== "ok") return r;
+		const { found, activities, fields, records, duplicates } = r.value;
+		if (found.status !== "available" || !("stage" in found.person)) return { status: "refused", code: "unavailable" };
 		return {
 			status: "ok",
 			value: {
-				result: done.value,
-				person: found?.status === "available" && "stage" in found.person ? found.person : null,
-				activities: page.status === "ok" && page.value.activities?.status === "ok" ? page.value.activities.value : null,
-				receipt: receipt(done.value),
+				person: found.person,
+				activities: activities?.status === "ok" ? activities.value : null,
+				fields,
+				records,
+				duplicates,
 			},
 		};
 	});

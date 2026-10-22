@@ -77,7 +77,6 @@ export function UnmergeDialog({
 		setProblem(null);
 		const r = await runSave(store, slot, { mergeId, rev }, (key) => unmergePair(key, rev, mergeId), {
 			fresh,
-			toPerson: (v) => v.person,
 		});
 		if (r === null) {
 			setPending(false);

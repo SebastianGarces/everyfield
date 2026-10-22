@@ -50,6 +50,8 @@ import { DuplicateHints } from "./corrections/DuplicateHints.tsx";
 import { recordsIntent } from "./corrections/intent.ts";
 import type { DuplicateHints as Hints } from "./corrections/server.ts";
 import { UnmergeDialog } from "./corrections/UnmergeDialog.tsx";
+import { loadPersonPage, type Unmerged } from "./corrections/actions.ts";
+import { Problem } from "./corrections/parts.tsx";
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
 type Open = "stage" | "profile" | "classify" | "retire" | "restore" | "correct" | { unmerge: string } | null;
@@ -69,10 +71,10 @@ export function PersonScreen({
 	survivor,
 	accountId,
 	canWrite,
-	fields,
-	records,
+	fields: initialFields,
+	records: initialRecords,
 	photosEnabled,
-	duplicates = null,
+	duplicates: initialDuplicates = null,
 	followedMerge = false,
 }: {
 	person: PlantPerson;
@@ -109,7 +111,16 @@ export function PersonScreen({
 			...fields,
 		} as Item);
 	};
-	const [household, setHousehold] = useState<HouseholdResult | null>(fields?.household ?? null);
+	// The page parts the server read. An Unmerge replaces them with its authoritative result; `generation` restarts the
+	// cards that hold their own copy, so none keeps a record or tag that moved back to the other person.
+	const [parts, setParts] = useState({
+		fields: initialFields,
+		records: initialRecords,
+		duplicates: initialDuplicates,
+		generation: 0,
+	});
+	const { fields, records, duplicates, generation } = parts;
+	const [household, setHousehold] = useState<HouseholdResult | null>(initialFields?.household ?? null);
 	/** A saved tag, skill or photo change: Activity records it as a change to the person's details. */
 	const changed = (receipt: Receipt) => saved(receipt, { kind: "activity", action: "updated" });
 	const householdName = household?.status === "available" ? household.household.name : null;
@@ -126,6 +137,30 @@ export function PersonScreen({
 		...patch,
 	}));
 	const [open, setOpen] = useState<Open>(null);
+	/** The page parts did not read again after an Unmerge: say so, and offer the reload that shows them. */
+	const [stale, setStale] = useState(false);
+	/**
+	 * After an Unmerge the records, tags, skills, household and hints on this page may belong to the other person again.
+	 * One read brings the whole page as Unmerge left it; the cards that hold their own copy restart from it.
+	 */
+	async function afterUnmerge(done: Unmerged) {
+		saved(done.receipt, { kind: "activity", action: "person_unmerged" });
+		const r = await loadPersonPage(person.id).catch(() => ({ status: "lost" }) as const);
+		if (r.status !== "ok") return setStale(true);
+		const fresh = r.value;
+		store.dispatch({ type: "server", person: fresh.person });
+		if (fresh.activities) setHistory({ status: "ok", value: fresh.activities });
+		setParts((old) => ({
+			fields: fresh.fields,
+			records: fresh.records,
+			duplicates: fresh.duplicates,
+			generation: old.generation + 1,
+		}));
+		setHousehold(fresh.fields?.household ?? null);
+		setCorrected([]);
+		setStale(false);
+	}
+
 	/** Every record Correct a record saved on this page, the newest per record, so each card shows its corrected values. */
 	const [corrected, setCorrected] = useState<CorrectedRecord[]>([]);
 	const busy = state.pending !== null;
@@ -141,6 +176,7 @@ export function PersonScreen({
 					<Breadcrumb items={[{ label: "People", href: "/people" }, { label: p.displayName }]} className="mb-4" />
 					<div className="flex items-center gap-6 max-app-sm:gap-4">
 						<PersonPhoto
+							key={generation}
 							store={store}
 							person={p}
 							initial={fields?.photo ?? { status: "absent" }}
@@ -207,6 +243,21 @@ export function PersonScreen({
 				</div>
 			</header>
 
+			{stale ? (
+				<div className="mb-5">
+					<Problem>
+						The Unmerge was saved, but this page did not read the moved records again.{" "}
+						<button
+							type="button"
+							className="font-medium underline underline-offset-2"
+							onClick={() => location.reload()}
+						>
+							Reload the page
+						</button>{" "}
+						to see where they are now.
+					</Problem>
+				</div>
+			) : null}
 			{followedMerge && live ? (
 				<Card variant="callout" tone="blue" className="mb-5">
 					<CalloutLabel tone="blue" icon={GitMergeIcon}>
@@ -256,6 +307,7 @@ export function PersonScreen({
 				<div className="flex min-w-0 flex-col gap-5">
 					{records ? (
 						<RecordsSection
+							key={generation}
 							records={records}
 							documentsEnabled={photosEnabled}
 							personId={p.id}
@@ -330,6 +382,7 @@ export function PersonScreen({
 						</KeyValueList>
 						{fields ? (
 							<TagsField
+								key={generation}
 								personId={p.id}
 								personName={p.displayName}
 								initial={fields.tags}
@@ -338,7 +391,9 @@ export function PersonScreen({
 							/>
 						) : null}
 					</Card>
-					{duplicates && live ? <DuplicateHints personId={p.id} hints={duplicates} canReview={canWrite} /> : null}
+					{duplicates && live ? (
+						<DuplicateHints key={generation} personId={p.id} hints={duplicates} canReview={canWrite} />
+					) : null}
 					{fields ? (
 						<>
 							<HouseholdCard
@@ -354,6 +409,7 @@ export function PersonScreen({
 								onConflict={reload}
 							/>
 							<SkillsCard
+								key={generation}
 								personId={p.id}
 								personName={p.displayName}
 								initial={fields.skills}
@@ -470,10 +526,7 @@ export function PersonScreen({
 							mergeId={open.unmerge}
 							store={store}
 							onClose={close}
-							onUnmerged={(done) => {
-								if (done.activities) setHistory({ status: "ok", value: done.activities });
-								else saved(done.receipt, { kind: "activity", action: "person_unmerged" });
-							}}
+							onUnmerged={(done) => void afterUnmerge(done)}
 						/>
 					) : null}
 				</>
