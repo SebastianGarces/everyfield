@@ -560,7 +560,7 @@ export function Repeats({
 	const other =
 		occurrence?.status === "series" && occurrence.open && occurrence.open.taskId !== task.id ? occurrence.open : null;
 	// Only the open occurrence adds the next one. When none is open (it was deleted, or closed as no longer needed),
-	// the series goes on once the latest occurrence is done again (#241).
+	// the series goes on once the latest occurrence is done again (PR 241).
 	const next = !isSettled(task.status)
 		? "Marking it done adds the next one, with fresh steps."
 		: other
