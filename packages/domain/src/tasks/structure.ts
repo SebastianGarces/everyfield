@@ -27,6 +27,7 @@ import {
 	insertTasks,
 	mutation,
 	newTask,
+	noop,
 	reminderChange,
 	references,
 	setStatus,
@@ -141,7 +142,7 @@ export function structureWriter(reminders: TaskReminders) {
 					const added = ids.filter((id) => !row.prerequisite_ids.includes(id));
 					if (added.includes(row.id)) deny("invalid_subject");
 					if (added.length === 0 && ids.length === row.prerequisite_ids.length)
-						return { value: mutation(cmd, row, "noop") };
+						return { value: mutation(cmd, noop(cmd, row).row, "noop") };
 					const plant = cmd.actor.plantId;
 					const r = await tx.execute(sql`SELECT
 						(SELECT count(*)::int FROM task WHERE id=ANY(${sql.param(added)}::uuid[]) AND plant_id=${plant}::uuid
@@ -195,7 +196,8 @@ export function structureWriter(reminders: TaskReminders) {
 					const before = ruleOf(row),
 						after = v.rule;
 					const plant = cmd.actor.plantId;
-					if (JSON.stringify(before) === JSON.stringify(after)) return { value: mutation(cmd, row, "noop") };
+					if (JSON.stringify(before) === JSON.stringify(after))
+						return { value: mutation(cmd, noop(cmd, row).row, "noop") };
 					let next: TaskRow = { ...row, revision: bump(row.revision) };
 					if (!after) {
 						cmd.writes.push(

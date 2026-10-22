@@ -401,6 +401,27 @@ test("AC:TARGET-TSK-003 AC:TARGET-TSK-015 own-duty completion, one result per re
 	assert.equal(again.outcome, "noop");
 	// A retried no-op returns the same answer.
 	assert.deepEqual(ok(await write(member, "reopen", same)), again);
+	// A command that changes nothing records exactly one audit row, of kind noop (C98).
+	const keyed = (key) =>
+		rows(
+			sql`SELECT kind, subject_type, subject_id FROM audit_event WHERE tenant_id=${plant.id} AND request_key=${key}`,
+		);
+	const plain = await recurring({ title: "Stack chairs" });
+	const unchanged = [["reopen", same.requestKey, t.id]];
+	for (const [op, input] of [
+		["edit", { patch: { title: "Stack chairs" } }],
+		["replacePrerequisites", { prerequisiteIds: [] }],
+		["configureRecurrence", { rule: { frequency: "weekly", until: null } }],
+	]) {
+		const requestKey = randomUUID();
+		const r = ok(
+			await write(owner, op, { requestKey, expectedRevision: plain.revision, input: { taskId: plain.id, ...input } }),
+		);
+		assert.equal(r.outcome, "noop", op);
+		unchanged.push([op, requestKey, plain.id]);
+	}
+	for (const [op, key, id] of unchanged)
+		assert.deepEqual(await keyed(key), [{ kind: "noop", subject_type: "task", subject_id: id }], op);
 
 	const history = ok(await read(member, "statusHistory", { taskId: t.id }));
 	assert.deepEqual(

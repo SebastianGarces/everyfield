@@ -212,6 +212,19 @@ export const audited = (r: TaskRow) => ({
 	deleted_at: r.deleted_at?.toISOString() ?? null,
 });
 export const bump = (r: string) => revision.parse(String(BigInt(r) + 1n));
+/** A command that changes nothing records one noop audit row (C98); it carries the request key and stored answer. */
+export function noop(cmd: AuditCommand, row: TaskRow) {
+	auditRow(cmd, {
+		taskId: row.id,
+		action: "tasks.changed",
+		kind: "noop",
+		before: null,
+		after: null,
+		beforeRevision: row.revision,
+		afterRevision: row.revision,
+	});
+	return { row, outcome: "noop" as const };
+}
 
 /** The locked live task under the expected revision, or a refusal. Members act only on a task they hold (own duty). */
 export async function current(tx: Tx, cmd: Command, taskId: string, expectedRevision: string, ownDuty: boolean) {
@@ -245,7 +258,11 @@ export function setStatus(
 	row: LockedTask,
 	input: { status: z.infer<typeof c.taskStatus>; reason?: string | null; source?: z.infer<typeof c.historySource> },
 ) {
-	if (row.status === input.status) return { row, outcome: "noop" as const, changes: [], successor: null };
+	if (row.status === input.status) {
+		// Generated work appends to another domain's command, which records its own row.
+		if (input.source !== "generated") noop(cmd, row);
+		return { row, outcome: "noop" as const, changes: [], successor: null };
+	}
 	const reopening = !OPEN(row.status) && OPEN(input.status);
 	if (reopening && row.open_successor) deny("open_successor", { successorId: row.open_successor });
 	const at = new Date();
@@ -446,7 +463,7 @@ export function createTaskWriter(deps: { reminders: TaskReminders }) {
 						...(relation ? { ...relation, relation_label: refs?.relationLabel ?? null } : {}),
 					};
 					const delta = changes(audited(row), audited(next));
-					if (!Object.keys(delta.after).length) return { value: mutation(cmd, next, "noop") };
+					if (!Object.keys(delta.after).length) return { value: mutation(cmd, noop(cmd, next).row, "noop") };
 					next.revision = bump(row.revision);
 					cmd.writes.push(update(cmd.actor.plantId, row, next));
 					auditRow(cmd, {
