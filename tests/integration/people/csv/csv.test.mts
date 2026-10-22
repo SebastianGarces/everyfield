@@ -340,6 +340,40 @@ test("AC:TARGET-PPL-018 a partial import names its failed rows, survives a lost 
 	}
 	assert.deepEqual(big.remaining, [600]);
 	assert.deepEqual(big.counts, { created: 1200, skipped: 0, failed: 1, remaining: 1 });
+	// The import keeps why each row failed, as the database named it, without the row's values.
+	assert.deepEqual(
+		await rows(sql`SELECT failed FROM person_import WHERE id=${sql.param(big.importId)}`),
+		[{ failed: [{ row: 600, reason: "row_write_failed", code: "P0001", constraint: null }] }],
+	);
+
+	// A failure that is not the row's own, such as a serialization failure, fails no row: the job tries again later.
+	const transient = header + "Tara,,tara@example.test,,,,,,,,,\r\nUli,,uli@example.test,,,,,,,,,\r\n";
+	const tp = ok(await preview(transient)),
+		transientKey = randomUUID();
+	ok(await submit(transient, tp, choose(tp, () => "create"), transientKey));
+	await admin.execute(
+		sql.raw(`CREATE FUNCTION ${schema}.busy_uli() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+ IF NEW.email='uli@example.test' THEN RAISE EXCEPTION 'synthetic serialization failure' USING ERRCODE='40001'; END IF; RETURN NEW; END $$;
+ CREATE TRIGGER busy_uli BEFORE INSERT ON ${schema}.person FOR EACH ROW EXECUTE FUNCTION ${schema}.busy_uli();`),
+	);
+	try {
+		await drain();
+	} finally {
+		await admin.execute(sql.raw(`DROP TRIGGER busy_uli ON ${schema}.person; DROP FUNCTION ${schema}.busy_uli()`));
+	}
+	const waiting = ok(await receiptOf(transientKey));
+	assert.equal(waiting.status, "in_progress");
+	assert.deepEqual(outcome(waiting), [
+		[1, "remaining"],
+		[2, "remaining"],
+	]);
+	await admin.execute(
+		sql`UPDATE job SET next_attempt_at=clock_timestamp() WHERE kind='people_import' AND state='retry_wait'`,
+	);
+	await drain();
+	const resumed = ok(await receiptOf(transientKey));
+	assert.equal(resumed.status, "complete");
+	assert.deepEqual(resumed.counts, { created: 2, skipped: 0, failed: 0, remaining: 0 });
 });
 
 test("AC:TARGET-PPL-018 INV-jobs an import whose worker loses its lease resumes once and creates every row once", async () => {
