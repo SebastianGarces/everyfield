@@ -15,7 +15,7 @@ import {
 	Select,
 	Skeleton,
 } from "@everyfield/ui/controls";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { SharingDisclosure } from "./Disclosure";
 import { useIntent } from "./intent";
 import { emailProblem, kindLabel } from "./model";
@@ -79,6 +79,11 @@ export function InviteDialog({
 	const [attempt, setAttempt] = useState(0);
 	const send = useIntent<ReturnType<typeof inviteRelationshipRequest.parse>>("relationship-invite");
 	const locked = send.held !== null || send.pending !== null;
+	// The address_pending refusal names a fix the person must make, so focus moves to it; the fields stay editable.
+	const refusal = useRef<HTMLDivElement>(null);
+	useEffect(() => {
+		if (send.code === "address_pending") refusal.current?.focus();
+	}, [send.code]);
 	const target = targets.find((t) => t.pair.organization.id === targetId);
 	const errors = { organization: target ? undefined : "Choose an organization.", email: emailProblem(email) };
 	const shown: Partial<typeof errors> = checked ? errors : {};
@@ -186,6 +191,7 @@ export function InviteDialog({
 							/>
 						</Field>
 						<ProblemLine
+							focusRef={refusal}
 							problem={send.problem}
 							refused={REFUSED[send.code ?? ""] ?? "This invitation was not sent. Nothing changed."}
 						/>
