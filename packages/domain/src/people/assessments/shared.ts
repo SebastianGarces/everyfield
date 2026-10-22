@@ -40,10 +40,11 @@ export async function subject(
 		tx,
 		sql`SELECT p.id,p.state,p.stage,p.revision::text AS revision,
  p.pipeline_position::text AS pipeline_position,p.commitment_state,p.commitment_effective_on::text AS commitment_effective_on,
- (clock_timestamp() AT TIME ZONE pl.timezone)::date::text AS today,clock_timestamp() AS now,${extra ?? sql`NULL`} AS extra
+ pl.timezone AS zone,(clock_timestamp() AT TIME ZONE pl.timezone)::date::text AS today,clock_timestamp() AS now,${extra ?? sql`NULL`} AS extra
  FROM person p JOIN plant pl ON pl.id=p.plant_id WHERE p.id=${typeof person === "string" ? sql`${person}::uuid` : person} AND p.tenant_id=${plant}::uuid AND p.plant_id=${plant}::uuid`,
 		sql`FOR UPDATE OF p`,
-		// The clock readings differ between the read and its check in the final statement.
+		// The clock readings differ between the read and its check in the final statement. `zone`, which `today`
+		// depends on, stays in the check: a church time zone change since the read fails the write's first attempt.
 		["today", "now"],
 	);
 	if (!row) deny();

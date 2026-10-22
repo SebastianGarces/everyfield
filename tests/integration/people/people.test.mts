@@ -9,6 +9,7 @@ import { migrate, migrationArtifact } from "../../../packages/db/src/schema/migr
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { PeopleReadContext, withPeopleWrite } from "../../../packages/domain/src/people/core.ts";
 import {
+	assessments,
 	peopleWriter as write,
 	peopleReader as read,
 	accountPersonProducer as accounts,
@@ -39,6 +40,8 @@ const admin = createDatabase({
 });
 let db;
 let queries = [];
+/** Runs before each statement is sent, for tests that commit another change at an exact point of a write. */
+let beforeSend = null;
 
 const plants = [randomUUID(), randomUUID()],
 	organization = randomUUID(),
@@ -98,8 +101,10 @@ before(async () => {
 	db.$client.on("connect", (client) => {
 		const query = client.query;
 		client.query = function (...args) {
-			queries.push(typeof args[0] === "string" ? args[0] : args[0].text);
-			return Reflect.apply(query, this, args);
+			const text = typeof args[0] === "string" ? args[0] : args[0].text;
+			queries.push(text);
+			const hook = beforeSend;
+			return hook ? hook(text).then(() => Reflect.apply(query, this, args)) : Reflect.apply(query, this, args);
 		};
 	});
 	for (const a of actors) {
@@ -1467,4 +1472,43 @@ test("INV-concurrency (RT-3): a change committed while a native write is in flig
 	await other;
 	refused(await mine, "conflict");
 	assert.equal(ok(await tx((t) => read.getPerson(t, ctx(), { personId: p.id }))).person.displayName, "Other");
+});
+
+test("INV-date (RT-3): a church time zone change between a native write's read and its statement cannot let a future date through", async () => {
+	const p = await create("Zone race", { adultClassification: "adult" });
+	const authority = await tx((t) => RequestActor.resolve(t, actors[0].session));
+	const zone = (name) => admin.execute(sql`UPDATE plant SET timezone=${name} WHERE id=${plants[0]}::uuid`);
+	const lens = { score: 1, notes: null };
+	// Kiritimati (UTC+14) is always at least one day ahead of Pago Pago (UTC-11).
+	await zone("Pacific/Kiritimati");
+	try {
+		const day = (
+			await admin.execute(sql`SELECT (clock_timestamp() AT TIME ZONE 'Pacific/Kiritimati')::date::text AS d`)
+		).rows[0].d;
+		// The change commits after the write read its subject and before its final statement leaves.
+		beforeSend = async (text) => {
+			if (!text.startsWith("/* evf:final */")) return;
+			beforeSend = null;
+			await zone("Pacific/Pago_Pago");
+		};
+		const result = await withPeopleWrite(db, authority, (t, c) =>
+			assessments.createAssessment(t, c, {
+				requestKey: randomUUID(),
+				input: {
+					personId: p.id,
+					occurredOn: day,
+					committed: lens,
+					compelled: lens,
+					contagious: lens,
+					courageous: lens,
+				},
+			}),
+		);
+		refused(result, "invalid_input");
+		const stored = await admin.execute(sql`SELECT count(*)::int AS n FROM four_cs WHERE person_id=${p.id}::uuid`);
+		assert.equal(stored.rows[0].n, 0);
+	} finally {
+		beforeSend = null;
+		await zone("America/New_York");
+	}
 });
