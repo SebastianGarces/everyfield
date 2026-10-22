@@ -39,10 +39,19 @@ const duties = (plantId: string, where: SQL = sql`true`) => sql`SELECT t.id, t.r
 	FROM task t JOIN plant pl ON pl.id=t.plant_id
 	JOIN person p ON p.id=t.person_id AND p.tenant_id=t.plant_id AND p.state='live'
 	WHERE t.plant_id=${plantId}::uuid AND ${followUpTask(sql`t`)} AND t.status IN ${OPEN} AND ${where}`;
-/** A duty row as JSON with its current owner's name. */
+/**
+ * A duty row as JSON with its current owner's name, and, when the stored assignee can no longer own it, that former
+ * owner's name: a handoff starts from them (REQ-TSK-013). Same statement, no extra round trip.
+ */
 const dutyJson = (d: SQL) => sql`to_jsonb(${d}) || jsonb_build_object('owner_name',
-	(SELECT display_name FROM seat_identity(${d}.owner_id)))`;
+	(SELECT display_name FROM seat_identity(${d}.owner_id)), 'former_name', CASE WHEN ${d}.owner_id IS NULL
+	AND ${d}.assignee_id IS NOT NULL THEN (SELECT display_name FROM seat_identity(${d}.assignee_id)) END)`;
 const dutyOrder = (d: SQL) => sql`${d}.due_key NULLS LAST, ${d}.id`;
+/** Accounts that still hold open follow-ups they can no longer own, with how many: where a handoff starts. */
+const formerTally = sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('accountId',x.assignee_id,'displayName',
+	coalesce(x.name,''),'open',x.n) ORDER BY lower(x.name), x.assignee_id),'[]') FROM (SELECT d.assignee_id,
+	(SELECT display_name FROM seat_identity(d.assignee_id)) AS name, count(*)::int AS n FROM duty d
+	WHERE d.owner_id IS NULL AND d.assignee_id IS NOT NULL GROUP BY d.assignee_id) x)`;
 const ownerTally = sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('accountId',x.owner_id,'displayName',
 	coalesce(x.name,''),'open',x.n) ORDER BY lower(x.name), x.owner_id),'[]') FROM (SELECT d.owner_id,
 	(SELECT display_name FROM seat_identity(d.owner_id)) AS name, count(*)::int AS n FROM duty d
@@ -63,6 +72,8 @@ const dutyRow = z.object({
 	plant_zone: timeZone,
 	owner_id: z.uuid().nullable(),
 	owner_name: z.string().nullable(),
+	assignee_id: z.uuid().nullable(),
+	former_name: z.string().nullable(),
 	last_outcome: c.outcome.nullable(),
 });
 function dutyOf(raw: unknown, asOf: Instant) {
@@ -78,6 +89,7 @@ function dutyOf(raw: unknown, asOf: Instant) {
 		obligationId: d.obligation_id,
 		person: { id: d.person_id, label: d.person_label },
 		owner: d.owner_id ? { accountId: d.owner_id, displayName: d.owner_name ?? "" } : null,
+		formerOwner: !d.owner_id && d.assignee_id ? { accountId: d.assignee_id, displayName: d.former_name ?? "" } : null,
 		lastOutcome: d.last_outcome,
 	};
 }
@@ -317,18 +329,19 @@ export const followUpReader = {
 				SELECT 0::bigint AS ord, NULL::uuid AS id, NULL::text AS label, NULL::text AS stage, NULL::text AS coverage,
 					NULL::jsonb AS duties, (SELECT count(*)::int FROM matched) AS total,
 					(SELECT count(*)::int FROM people WHERE coverage='uncovered') AS uncovered,
-					(SELECT count(*)::int FROM duty WHERE owner_id IS NULL) AS needs_owner, ${ownerTally} AS owners
+					(SELECT count(*)::int FROM duty WHERE owner_id IS NULL) AS needs_owner, ${ownerTally} AS owners,
+					${formerTally} AS former
 				UNION ALL (SELECT row_number() OVER (ORDER BY array_position(ARRAY['needs_owner','uncovered','owned'], m.coverage),
 					lower(m.display_name), m.id), m.id, m.display_name, m.stage, m.coverage,
 					(SELECT coalesce(jsonb_agg(${dutyJson(sql`d`)} ORDER BY ${dutyOrder(sql`d`)}),'[]') FROM
 						(SELECT * FROM duty d WHERE d.person_id=m.id ORDER BY ${dutyOrder(sql`d`)} LIMIT 20) d),
-					NULL, NULL, NULL, NULL
+					NULL, NULL, NULL, NULL, NULL
 				FROM matched m ORDER BY 1 LIMIT ${v.limit} OFFSET ${(v.page - 1) * v.limit})`,
 				true,
 			);
 			const [head, ...rows] = found;
 			const totals = z
-				.object({ total: z.int(), uncovered: z.int(), needs_owner: z.int(), owners: tallyRow })
+				.object({ total: z.int(), uncovered: z.int(), needs_owner: z.int(), owners: tallyRow, former: tallyRow })
 				.parse(head);
 			return c.followUpCoverage.parse({
 				items: rows.map((r) => {
@@ -348,6 +361,7 @@ export const followUpReader = {
 					};
 				}),
 				owners: totals.owners,
+				formerOwners: totals.former,
 				needsOwner: totals.needs_owner,
 				uncovered: totals.uncovered,
 				...pageOf(v, totals.total),
