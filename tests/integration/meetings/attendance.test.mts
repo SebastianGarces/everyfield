@@ -190,8 +190,9 @@ test("AC:TARGET-MTG-010 AC:B02-010 AC:PERSONREF-MEETING-INVITATION-RSVP-ATTENDAN
 	const team = randomUUID();
 	await f.admin.execute(sql`INSERT INTO team(id,plant_id,name,state,sort_order,leader_person_id,leader_source)
 		VALUES(${team},${plant.id},'Hosts','active',1,${leader},'explicit')`);
-	const teamMeeting = await meeting("team_meeting");
-	await f.admin.execute(sql`UPDATE meeting SET team_id=${team} WHERE id=${teamMeeting}`);
+	// A team meeting needs its team in the same row, so the plain meeting becomes one in a single update.
+	const teamMeeting = await meeting("orientation");
+	await f.admin.execute(sql`UPDATE meeting SET type='team_meeting', team_id=${team} WHERE id=${teamMeeting}`);
 	assert.equal(await may(member, teamMeeting), true);
 	assert.equal(await may(member, m), false);
 	ok(await write(member, "checkIn", { requestKey: key(), input: { meetingId: teamMeeting, personId: casey } }));
