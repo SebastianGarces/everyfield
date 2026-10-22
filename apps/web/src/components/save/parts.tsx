@@ -3,17 +3,7 @@
 import { Alert02Icon } from "@hugeicons/core-free-icons";
 import { Button, Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader } from "@everyfield/ui/controls";
 import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
-import {
-	createContext,
-	use,
-	useEffect,
-	useId,
-	useRef,
-	useState,
-	useSyncExternalStore,
-	type ReactNode,
-	type RefObject,
-} from "react";
+import { createContext, use, useEffect, useId, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { SaveLane, waitOf, type LaneOptions, type Notice, type SaveSpec, type Wait } from "./model.ts";
 
 /**
@@ -102,7 +92,21 @@ export function RecordDialog({
 	const busyId = useId();
 	return (
 		<Dialog open onOpenChange={(next) => !next && onClose()}>
-			<DialogContent size={size}>
+			<DialogContent
+				size={size}
+				onOpenAutoFocus={(e) => {
+					// The dialog's own focus step runs once its focus trap listens, so the trap records this element and
+					// brings focus back to it when Tab leaves a form whose only other controls are buttons (WebKit, F4b-V3).
+					const root = fields.current;
+					if (!root) return;
+					const target = alert.current
+						? (firstProblem(root) ?? alert.current)
+						: root.querySelector<HTMLElement>(FOCUSABLE);
+					if (!target) return;
+					e.preventDefault();
+					target.focus();
+				}}
+			>
 				<form
 					noValidate
 					className="contents"
@@ -129,7 +133,6 @@ export function RecordDialog({
 						<div ref={fields} className="contents">
 							{children}
 						</div>
-						<OpeningFocus key={problem ?? ""} fields={fields} alert={alert} />
 					</DialogBody>
 					<DialogFooter>
 						{wait ? (
@@ -153,26 +156,6 @@ export function RecordDialog({
 			</DialogContent>
 		</Dialog>
 	);
-}
-
-/**
- * Puts focus where the dialog opens (C68 forms): on the field a refusal names, else on the refusal, else on the first
- * field. It mounts after the fields and runs before the dialog's own focus step, which then leaves the focus alone.
- */
-function OpeningFocus({
-	fields,
-	alert,
-}: {
-	fields: RefObject<HTMLDivElement | null>;
-	alert: RefObject<HTMLDivElement | null>;
-}) {
-	useEffect(() => {
-		const root = fields.current;
-		if (!root) return;
-		const target = alert.current ? (firstProblem(root) ?? alert.current) : root.querySelector<HTMLElement>(FOCUSABLE);
-		target?.focus();
-	}, [fields, alert]);
-	return null;
 }
 
 /** The notice in words. Only a server answer says "not saved". */

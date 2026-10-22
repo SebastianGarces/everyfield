@@ -61,6 +61,14 @@ async function overlong(input) {
 	await input.fill("N".repeat(600));
 }
 const ahead = () => new Date(Date.now() + 3 * 864e5).toISOString().slice(0, 10);
+/** Tab and Shift+Tab from the focused refusal keep the focus inside the dialog (its focus trap knows where it is). */
+async function staysInDialog(page, what) {
+	for (const key of ["Tab", "Shift+Tab"]) {
+		await page.keyboard.press(key);
+		const inside = await page.evaluate(() => !!document.activeElement?.closest('[role="dialog"]'));
+		assert.ok(inside, `${what}: ${key} keeps the focus inside the dialog`);
+	}
+}
 
 for (const [name, engine] of ENGINES) {
 	test(`BUG-249-focus (${name}): a reopened record form focuses the field its refusal names, else the refusal`, async () => {
@@ -117,9 +125,51 @@ for (const [name, engine] of ENGINES) {
 				await page.waitForTimeout(300);
 				const f = await focused(page);
 				for (const [k, v] of Object.entries(c.expect)) assert.equal(f[k], v, `${c.card}: ${JSON.stringify(f)}`);
+				await staysInDialog(page, c.card);
 				await d.getByRole("button", { name: "Cancel" }).click();
 				await d.waitFor({ state: "detached" });
 			}
+			// Forms with only buttons (F4b-V3): WebKit skips buttons on Tab, so only the trap keeps the focus in the dialog.
+			// The household's address differs from the person's, so Copy address is offered. The real server refuses an ID
+			// that is not a UUID.
+			await page
+				.getByRole("button", { name: /^Start a household/ })
+				.first()
+				.click();
+			const start = page.getByRole("dialog");
+			await start.getByLabel("Household name").fill(unique(name));
+			await start.getByLabel(/^Street/).fill("100 Synthetic Lane");
+			await start.getByRole("button", { name: "Start household", exact: true }).click();
+			await start.waitFor({ state: "detached" });
+			const actions = page.getByRole("button", { name: "Household actions", exact: true });
+			await actions.click();
+			await page.getByRole("menuitem", { name: "Edit household", exact: true }).click();
+			const edit = page.getByRole("dialog");
+			await edit.getByLabel(/^Street/).fill("200 Synthetic Lane");
+			await edit.getByRole("button", { name: "Save household", exact: true }).click();
+			await edit.waitFor({ state: "detached" });
+			for (const [item, button] of [
+				["Copy address to members", /^Copy to /],
+				[/^Take .* out$/, /^Take out of household$/],
+			]) {
+				await actions.click();
+				await page.getByRole("menuitem", { name: item }).click();
+				const d = page.getByRole("dialog");
+				await page.route("**/*", (route) => {
+					const r = route.request();
+					if (r.method() !== "POST" || !r.headers()["next-action"]) return route.fallback();
+					const body = (r.postData() ?? "").replace(/"(personId|householdId)":"[0-9a-f-]+"/, '"$1":"not-a-uuid"');
+					return route.continue({ postData: body });
+				});
+				await d.getByRole("button", { name: button }).click();
+				await d.getByRole("alert").waitFor({ timeout: 30_000 });
+				await page.unroute("**/*");
+				assert.equal((await focused(page)).alert, true, `${item}: the refusal of a button-only form is focused`);
+				await staysInDialog(page, String(item));
+				await d.getByRole("button", { name: "Cancel" }).click();
+				await d.waitFor({ state: "detached" });
+			}
+
 			// A task due at 2:30 on the morning clocks spring forward in Austin: the refusal names the time.
 			await page.goto(`${BASE}/tasks`);
 			await page.getByRole("button", { name: "New task", exact: true }).first().click();
@@ -136,6 +186,7 @@ for (const [name, engine] of ENGINES) {
 			await page.waitForTimeout(300);
 			const f = await focused(page);
 			assert.deepEqual({ type: f.type, invalid: f.invalid }, { type: "time", invalid: "true" }, JSON.stringify(f));
+			await staysInDialog(page, "task");
 		});
 	});
 
