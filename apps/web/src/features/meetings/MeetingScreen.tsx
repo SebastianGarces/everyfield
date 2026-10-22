@@ -148,14 +148,15 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 	const setMeeting = (meeting: Detail) => setData((d) => ({ ...d, meeting }));
 	/** After a refusal as out of date: the latest meeting, guests, kit and cards, without reloading the page. */
 	/** After a refusal as out of date: the latest meeting, guests, kit and cards. Resolves true once they show. */
+	/** After a refusal as out of date: the latest page data, shown and returned; null when it did not load. */
 	const stale = () =>
 		reloadMeeting(m.id).then(
 			(r) => {
-				if (r.status !== "ok" || r.value.status !== "found") return false;
+				if (r.status !== "ok" || r.value.status !== "found") return null;
 				setData(r.value);
-				return true;
+				return r.value;
 			},
-			() => false,
+			() => null,
 		);
 
 	function moveTo(to: MeetingStatus) {
@@ -202,12 +203,27 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 			(key) => settleAttendance(mode, key, attendance.attendanceRevision, body),
 			(r) => {
 				if (r.status !== "ok") {
-					// Out of date: review again from what is saved now, never from the earlier list (F6).
+					// Out of date (F6): reload, then review again. A finalize starts from who is marked now; a correction keeps
+					// only the people this person added and removed, applied to the current list, and its reason.
 					if (r.code === "conflict") {
 						setSettle(null);
-						return void stale().then((shown) =>
-							setSettle({ mode, visible: true, input: null, problem: shown ? "conflict" : "conflict_unloaded" }),
-						);
+						const base = new Set(attended(attendance));
+						return void stale().then((latest) => {
+							const now = latest?.attendance ? attended(latest.attendance) : null;
+							const ids =
+								mode === "reconcile" && now
+									? [
+											...now.filter((id) => !base.has(id) || input.attendeeIds.includes(id)),
+											...input.attendeeIds.filter((id) => !base.has(id) && !now.includes(id)),
+										]
+									: null;
+							setSettle({
+								mode,
+								visible: true,
+								input: ids ? { ...input, attendeeIds: ids } : null,
+								problem: !latest ? "conflict_unloaded" : ids ? "conflict_kept" : "conflict",
+							});
+						});
 					}
 					return setSettle((s) => s && { ...s, visible: true, problem: r.code });
 				}
@@ -257,12 +273,30 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 			(r) => {
 				setDraft(null);
 				if (r.status !== "ok") {
-					// Out of date: correct again from the scores saved now, never from the earlier draft (F6).
+					// Out of date (F6): reload, then review again from the scores saved now, with only the factors and notes
+					// this person changed laid over them, and their reason. A colleague's correction stays.
 					if (r.code === "conflict") {
 						setEvaluating(null);
-						return void stale().then((shown) =>
-							setEvaluating({ visible: true, input: null, problem: shown ? "conflict" : "conflict_unloaded" }),
-						);
+						return void stale().then((latest) => {
+							const now = latest?.evaluation?.status === "available" ? latest.evaluation.evaluation : null;
+							const changed = before
+								? Object.fromEntries(
+										Object.entries(input.scores).filter(([k, v]) => before.scores[k as keyof Scores] !== v),
+									)
+								: input.scores;
+							const notesChanged = input.notes !== (before?.notes ?? "");
+							setEvaluating({
+								visible: true,
+								input: now
+									? {
+											scores: { ...now.scores, ...changed },
+											notes: notesChanged ? input.notes : (now.notes ?? ""),
+											reason: input.reason,
+										}
+									: null,
+								problem: !latest ? "conflict_unloaded" : now ? "conflict_kept" : "conflict",
+							});
+						});
 					}
 					return setEvaluating((f) => f && { ...f, visible: true, problem: r.code });
 				}
@@ -905,6 +939,10 @@ function HeldForm({
 		</DialogContent>
 	);
 }
+
+/** The people marked attended in an attendance list. */
+const attended = (a: NonNullable<MeetingPageData["attendance"]>): string[] =>
+	a.items.filter((x) => x.presence === "attended").map((x) => x.person.personId);
 
 /** The comparison after a new or corrected evaluation: the baseline stays, the delta is rounded from it (REQ-MTG-016). */
 function compareWith(

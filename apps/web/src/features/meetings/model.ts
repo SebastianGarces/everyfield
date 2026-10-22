@@ -280,6 +280,8 @@ export function problemText(code: string): string {
 	switch (code) {
 		case "conflict":
 			return "Someone else changed this while you were working. The latest version is shown now. Check it and try again.";
+		case "conflict_kept":
+			return "Someone else changed this while you were working. The form now shows their version with your changes on top. Check it and save again.";
 		case "conflict_unloaded":
 			return "Someone else changed this while you were working, and the latest version did not load. Close this and reload the page before you try again.";
 		case "lost":
