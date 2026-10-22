@@ -31,6 +31,12 @@ import {
 } from "../../../runtime/support.mts";
 import type { PrivateStorage } from "../../../../../packages/db/src/schema/storage.ts";
 
+// The task reminder port of a stage change or retirement. These people hold no dated, assigned task, so a replan
+// here would be a bug.
+const noReminders = async () => {
+	throw Error("unexpected task reminder replan");
+};
+
 before(setup);
 after(teardown);
 
@@ -72,12 +78,16 @@ async function approveAndRun(who: EvryActor, proposal: Proposal, storage: Privat
 	const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
 	assert.ok(claim);
 	const start = queries.length;
-	const outcome = await executeProposal(db, {
-		jobId: claim.id,
-		tenantId: claim.tenant_id,
-		leaseOwner: claim.lease_owner,
-		generation: claim.claim_generation,
-	});
+	const outcome = await executeProposal(
+		db,
+		{
+			jobId: claim.id,
+			tenantId: claim.tenant_id,
+			leaseOwner: claim.lease_owner,
+			generation: claim.claim_generation,
+		},
+		noReminders,
+	);
 	const statements = counted(start);
 	await transaction(db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));
 	assert.deepEqual(await claimDue(db, ["evry_effect"], 1, 60), [], "the effect is queued once");
@@ -379,12 +389,16 @@ test("AC:UI45-003 a photo proposal's owner sees the exact staged upload while th
 	assert.deepEqual([approved.replayed, approved.proposal.status], [false, "approved"]);
 	const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
 	assert.ok(claim, "the approved photo change is queued");
-	const outcome = await executeProposal(db, {
-		jobId: claim.id,
-		tenantId: claim.tenant_id,
-		leaseOwner: claim.lease_owner,
-		generation: claim.claim_generation,
-	});
+	const outcome = await executeProposal(
+		db,
+		{
+			jobId: claim.id,
+			tenantId: claim.tenant_id,
+			leaseOwner: claim.lease_owner,
+			generation: claim.claim_generation,
+		},
+		noReminders,
+	);
 	await transaction(db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));
 	assert.equal(outcome, "completed");
 	assert.equal((await personRow(target)).photo_object_id, a.id, "approve saves that exact upload");

@@ -133,16 +133,19 @@ try {
 		addNote(randomUUID(), await currentRevision(created.value.person.id), "Synthetic note while busy"),
 	);
 	assert.equal(busyNote.status, "ok", JSON.stringify(busyNote));
-	// Each busy write and each replay ran the established way after its first attempt: the counter saw the retry.
+	// Each busy write and each replay ran the established way after its first attempt: the counter saw the retry. Every
+	// other first attempt of these single-path writes, createPerson's included, committed on its own.
 	const retries = (await readFile(process.env.EVF_WRITE_COUNTS, "utf8"))
 		.trim()
 		.split("\n")
 		.map((line) => JSON.parse(line))
 		.filter(
-			(row) => row.kind === "sample" && ["native.people.updatePerson", "native.people.addNote"].includes(row.name),
+			(row) =>
+				row.kind === "sample" &&
+				["native.people.createPerson", "native.people.updatePerson", "native.people.addNote"].includes(row.name),
 		)
 		.filter((row) => row.rollbacks > 0).length;
-	assert.equal(retries, 4, "two replays and two busy writes count as retries");
+	assert.equal(retries, 5, "three replays and two busy writes count as retries");
 
 	// WP-012 people fields, as the web mount runs them: writes in withPeopleWrite, reads in one read transaction with the
 	// request's actor. Reads and writes whose work could grow with rows run at two sizes and must use the same count.

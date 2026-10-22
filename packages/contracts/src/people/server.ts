@@ -58,7 +58,11 @@ export interface PeopleReader<Tx> {
 		input: z.infer<typeof request.ownAccountPersonRequest>,
 	): Promise<PeopleReply<z.infer<typeof result.accountLinkResult>>>;
 }
-export interface PeopleWriter<Tx> {
+/**
+ * The People commands. A command that hands a person's open tasks to someone else takes `reminders`, the task
+ * reminder port, so the tasks' owed reminders follow the new assignee in the same transaction.
+ */
+export interface PeopleWriter<Tx, Reminders> {
 	addNote(
 		tx: Tx,
 		context: PeopleWriteContext,
@@ -106,11 +110,13 @@ export interface PeopleWriter<Tx> {
 		tx: Tx,
 		context: PeopleWriteContext,
 		input: z.infer<typeof request.changeStatusRequest>,
+		reminders: Reminders,
 	): Promise<PeopleReply<z.infer<typeof result.plantPersonMutationResult>>>;
 	retirePerson(
 		tx: Tx,
 		context: PeopleWriteContext,
 		input: z.infer<typeof request.retirePersonRequest>,
+		reminders: Reminders,
 	): Promise<PeopleReply<z.infer<typeof result.plantPersonMutationResult>>>;
 	restorePerson(
 		tx: Tx,

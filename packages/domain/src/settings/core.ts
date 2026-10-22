@@ -4,7 +4,7 @@ import type { SettingsContext, SettingsReply, SettingsWriteContext } from "@ever
 import type { Database, Transaction } from "@everyfield/db/client";
 import { and, eq, isNull, sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import { boundWrite, currentActor, currentWriteAllowed, liveOwner, RequestActor } from "../access/session.ts";
@@ -18,13 +18,14 @@ import {
 	prepareWrite,
 	WriteUnavailable,
 } from "../operations/writes.ts";
-import { appendEvent, canonical } from "../organizations/core.ts";
+import { canonical, hash } from "../operations/canonical.ts";
+import { appendEvent } from "../organizations/core.ts";
 export { appendEvent, canonical, sameOwner };
 export type Tx = Transaction;
 export type Context = SettingsContext;
 export type WriteContext = SettingsWriteContext;
 export const now = sql<Date>`clock_timestamp()`.mapWith((v: string) => new Date(v));
-export const hash = (v: unknown) => createHash("sha256").update(canonical(v)).digest("hex");
+export { hash };
 export class Refusal extends Error {
 	constructor(readonly code: z.infer<typeof settingsError>["code"] = "unavailable") {
 		super(code);

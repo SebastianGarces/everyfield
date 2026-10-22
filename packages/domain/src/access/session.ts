@@ -173,10 +173,10 @@ async function resolveActor(tx: Executor, session: z.infer<typeof sessionId>, re
 /**
  * The signed-in viewer for one request: the registration state, the actor when the account holds one live seat or
  * none, the own Person of a plant seat and whether a seatless account has a Discovery profile. Null when the session
- * has no live account or the account is being deleted. One statement; the page shares it through the request cache.
+ * has no live account or the account is being deleted. One statement and no row lock (C27): it waits for no write.
  */
 export async function readViewer(db: Executor, session: z.infer<typeof sessionId>) {
-	const row = await readSession(db, session);
+	const row = await readSession(db, session, undefined, false);
 	return row && viewerOf(row, session);
 }
 function viewerOf(row: SessionRow, session: z.infer<typeof sessionId>) {

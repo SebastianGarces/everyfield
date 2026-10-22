@@ -19,6 +19,12 @@ import {
 	personFields as fields,
 } from "../../../packages/domain/src/people/index.ts";
 
+// The task reminder port of a stage change or retirement. These people hold no dated, assigned task, so a replan
+// here would be a bug.
+const noReminders = async () => {
+	throw Error("unexpected task reminder replan");
+};
+
 const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
 const localCi =
 	process.env.CI === "true" &&
@@ -421,11 +427,16 @@ test("AC:TARGET-PPL-004 AC:ROLE43-003 exact account links, ambiguous contact sel
 	const review = ok(await tx((t) => read.getStatusWarnings(t, ctx(), { personId: current.id }))).reviewRevision;
 	const retired = ok(
 		await tx((t) =>
-			write.retirePerson(t, ctx(), {
-				requestKey: randomUUID(),
-				expectedRevision: current.revision,
-				input: { personId: current.id, reason: "Retire linked Person", reviewRevision: review, handoffs: [] },
-			}),
+			write.retirePerson(
+				t,
+				ctx(),
+				{
+					requestKey: randomUUID(),
+					expectedRevision: current.revision,
+					input: { personId: current.id, reason: "Retire linked Person", reviewRevision: review, handoffs: [] },
+				},
+				noReminders,
+			),
 		),
 	);
 	const replacement = ok(
@@ -512,16 +523,21 @@ test("AC:TARGET-PPL-006 AC:TARGET-PPL-007 AC:TARGET-PPL-003 stage skip, no-op, c
 	let p = await create("Lifecycle");
 	let result = ok(
 		await tx((t) =>
-			write.changeStatus(t, ctx(), {
-				requestKey: randomUUID(),
-				expectedRevision: p.revision,
-				input: {
-					personId: p.id,
-					stage: "leader",
-					reason: "Human chose a skip",
-					handoffs: [],
+			write.changeStatus(
+				t,
+				ctx(),
+				{
+					requestKey: randomUUID(),
+					expectedRevision: p.revision,
+					input: {
+						personId: p.id,
+						stage: "leader",
+						reason: "Human chose a skip",
+						handoffs: [],
+					},
 				},
-			}),
+				noReminders,
+			),
 		),
 	);
 	p = result.person;
@@ -529,16 +545,21 @@ test("AC:TARGET-PPL-006 AC:TARGET-PPL-007 AC:TARGET-PPL-003 stage skip, no-op, c
 	assert.deepEqual(p.commitment, { state: "unknown" });
 	const noop = ok(
 		await tx((t) =>
-			write.changeStatus(t, ctx(), {
-				requestKey: randomUUID(),
-				expectedRevision: p.revision,
-				input: {
-					personId: p.id,
-					stage: "leader",
-					reason: "Same stage",
-					handoffs: [],
+			write.changeStatus(
+				t,
+				ctx(),
+				{
+					requestKey: randomUUID(),
+					expectedRevision: p.revision,
+					input: {
+						personId: p.id,
+						stage: "leader",
+						reason: "Same stage",
+						handoffs: [],
+					},
 				},
-			}),
+				noReminders,
+			),
 		),
 	);
 	assert.equal(noop.outcome, "noop");
@@ -554,31 +575,41 @@ test("AC:TARGET-PPL-006 AC:TARGET-PPL-007 AC:TARGET-PPL-003 stage skip, no-op, c
 	const review = ok(await tx((t) => read.getStatusWarnings(t, ctx(), { personId: p.id }))).reviewRevision;
 	refused(
 		await tx((t) =>
-			write.retirePerson(t, ctx(), {
-				requestKey: randomUUID(),
-				expectedRevision: p.revision,
-				input: {
-					personId: p.id,
-					reason: "Retire",
-					reviewRevision: review,
-					handoffs: [],
+			write.retirePerson(
+				t,
+				ctx(),
+				{
+					requestKey: randomUUID(),
+					expectedRevision: p.revision,
+					input: {
+						personId: p.id,
+						reason: "Retire",
+						reviewRevision: review,
+						handoffs: [],
+					},
 				},
-			}),
+				noReminders,
+			),
 		),
 		"conflict",
 	);
 	const retired = ok(
 		await tx((t) =>
-			write.retirePerson(t, ctx(), {
-				requestKey: randomUUID(),
-				expectedRevision: p.revision,
-				input: {
-					personId: p.id,
-					reason: "Retire",
-					reviewRevision: review,
-					handoffs: [{ kind: "needs_owner", dutyId: duty, expectedRevision: "1" }],
+			write.retirePerson(
+				t,
+				ctx(),
+				{
+					requestKey: randomUUID(),
+					expectedRevision: p.revision,
+					input: {
+						personId: p.id,
+						reason: "Retire",
+						reviewRevision: review,
+						handoffs: [{ kind: "needs_owner", dutyId: duty, expectedRevision: "1" }],
+					},
 				},
-			}),
+				noReminders,
+			),
 		),
 	);
 	assert.deepEqual(retired.needsOwner, [duty]);
@@ -914,11 +945,16 @@ test("AC:TARGET-PPL-007 INV-stale-view (D68): joining or leaving a column refuse
 	const attendeeSeen = await revision("attendee");
 	const moved = ok(
 		await tx((t) =>
-			write.changeStatus(t, ctx(), {
-				requestKey: randomUUID(),
-				expectedRevision: b.revision,
-				input: { personId: b.id, stage: "attendee", reason: "Stale view", handoffs: [] },
-			}),
+			write.changeStatus(
+				t,
+				ctx(),
+				{
+					requestKey: randomUUID(),
+					expectedRevision: b.revision,
+					input: { personId: b.id, stage: "attendee", reason: "Stale view", handoffs: [] },
+				},
+				noReminders,
+			),
 		),
 	);
 	assert.notEqual(await revision("attendee"), attendeeSeen, "the column B joined moves on");
@@ -928,11 +964,16 @@ test("AC:TARGET-PPL-007 INV-stale-view (D68): joining or leaving a column refuse
 	const review = ok(await tx((t) => read.getStatusWarnings(t, ctx(), { personId: c.id }))).reviewRevision;
 	const retired = ok(
 		await tx((t) =>
-			write.retirePerson(t, ctx(), {
-				requestKey: randomUUID(),
-				expectedRevision: c.revision,
-				input: { personId: c.id, reason: "Stale view", reviewRevision: review, handoffs: [] },
-			}),
+			write.retirePerson(
+				t,
+				ctx(),
+				{
+					requestKey: randomUUID(),
+					expectedRevision: c.revision,
+					input: { personId: c.id, reason: "Stale view", reviewRevision: review, handoffs: [] },
+				},
+				noReminders,
+			),
 		),
 	);
 	refused(await moveWith(seen, a.id, null), "conflict");
@@ -954,11 +995,16 @@ test("AC:TARGET-PPL-007 INV-stale-view (D68): joining or leaving a column refuse
 	const coreSeen = await revision("core_group");
 	ok(
 		await tx((t) =>
-			write.changeStatus(t, ctx(), {
-				requestKey: randomUUID(),
-				expectedRevision: core.revision,
-				input: { personId: core.id, stage: "leader", reason: "Milestone", handoffs: [] },
-			}),
+			write.changeStatus(
+				t,
+				ctx(),
+				{
+					requestKey: randomUUID(),
+					expectedRevision: core.revision,
+					input: { personId: core.id, stage: "leader", reason: "Milestone", handoffs: [] },
+				},
+				noReminders,
+			),
 		),
 	);
 	assert.equal(await revision("core_group"), coreSeen);
@@ -1202,11 +1248,16 @@ test("AC:TARGET-PPL-007 INV-move-round-trips (D68): a pipeline move is one trans
 	// The stage-change action: the producer's command plus the target column's saved order, in one transaction.
 	const moved = ok(
 		await tx(async (t) => {
-			const done = await write.changeStatus(t, ctx(), {
-				requestKey: randomUUID(),
-				expectedRevision: first.revision,
-				input: { personId: first.id, stage: "attendee", reason: "Moved back", handoffs: [] },
-			});
+			const done = await write.changeStatus(
+				t,
+				ctx(),
+				{
+					requestKey: randomUUID(),
+					expectedRevision: first.revision,
+					input: { personId: first.id, stage: "attendee", reason: "Moved back", handoffs: [] },
+				},
+				noReminders,
+			);
 			return done.status === "ok"
 				? { status: "ok", value: { ...done.value, column: (await readColumnOrders(t, ctx(), ["attendee"]))[0] } }
 				: done;

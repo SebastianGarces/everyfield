@@ -14,7 +14,7 @@ import {
 	taskReader,
 	withTaskWrite,
 } from "../../../packages/domain/src/tasks/index.ts";
-import { peopleReader, peopleWriter } from "../../../packages/domain/src/people/index.ts";
+import { peopleReader, peopleWriter, withPeopleWrite } from "../../../packages/domain/src/people/index.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { createNotificationService } from "../../../apps/web/src/server/jobs/notifications.ts";
 import { taskReminders } from "../../../apps/web/src/server/tasks/reminders.ts";
@@ -590,16 +590,25 @@ test("AC:TARGET-TSK-017 AC:PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE generated foll
 	const review = ok(await f.db.transaction((tx) => peopleReader.getStatusWarnings(tx, ctx, { personId: p1 })));
 	ok(
 		await f.db.transaction((tx) =>
-			peopleWriter.retirePerson(tx, ctx, {
-				requestKey: randomUUID(),
-				expectedRevision: review.revision,
-				input: {
-					personId: p1,
-					reason: "Duplicate record",
-					reviewRevision: review.reviewRevision,
-					handoffs: review.openDuties.map((d) => ({ kind: "needs_owner", dutyId: d.id, expectedRevision: d.revision })),
+			peopleWriter.retirePerson(
+				tx,
+				ctx,
+				{
+					requestKey: randomUUID(),
+					expectedRevision: review.revision,
+					input: {
+						personId: p1,
+						reason: "Duplicate record",
+						reviewRevision: review.reviewRevision,
+						handoffs: review.openDuties.map((d) => ({
+							kind: "needs_owner",
+							dutyId: d.id,
+							expectedRevision: d.revision,
+						})),
+					},
 				},
-			}),
+				reminders,
+			),
 		),
 	);
 	assert.deepEqual(await rows(sql`SELECT person_id FROM task WHERE id=${second[0].taskId}`), [{ person_id: p1 }]);
@@ -839,6 +848,109 @@ test("AC:TARGET-TSK-014 a delivered due reminder is not sent again after the dea
 			},
 		],
 	);
+});
+
+test("AC:TARGET-TSK-014 a duty handed off when its person leaves reminds its new assignee", async () => {
+	const local = (ms) =>
+		new Intl.DateTimeFormat("sv-SE", {
+			timeZone: "America/Chicago",
+			year: "numeric",
+			month: "2-digit",
+			day: "2-digit",
+			hour: "2-digit",
+			minute: "2-digit",
+			second: "2-digit",
+		})
+			.format(ms)
+			.replace(" ", "T");
+	const dispatch = async () => {
+		for (const claim of await claimDue(f.db, ["mail"], 10)) await mail.dispatch(claim);
+	};
+	const wait = (ms) => new Promise((resolve) => setTimeout(resolve, Math.max(0, ms - Date.now()) + 200));
+	// Team members with their own Person records, as account links make them.
+	const linked = async (name) => {
+		const a = await f.account();
+		await f.seat(a, plant, "member");
+		const id = await person(name);
+		await f.admin.execute(sql`UPDATE person SET linked_account_id=${a.id} WHERE id=${id}`);
+		return { ...a, person: id };
+	};
+	const [leaving, staying, moving, taking] = [
+		await linked("Leaving Member"),
+		await linked("Staying Member"),
+		await linked("Moving Member"),
+		await linked("Taking Member"),
+	];
+	await f.admin.execute(sql`UPDATE person SET stage='leader' WHERE id=${moving.person}`);
+	const ctx = { session: owner.actor.session, selected: plant };
+	const warnings = (id) => f.db.transaction((tx) => peopleReader.getStatusWarnings(tx, ctx, { personId: id }));
+	const handTo = (duties, to) =>
+		duties.map((d) => ({ kind: "assign", dutyId: d.id, expectedRevision: d.revision, toPersonId: to }));
+	const due = Date.now() + 4000;
+	const dated = (assigneeId, title) =>
+		create(owner, { title, assigneeId, due: { kind: "resolved_instant", local: local(due) } });
+	const [retired, demoted] = [await dated(leaving.id, "Set up chairs"), await dated(moving.id, "Lead worship")];
+	// Retiring a person hands the duty to another member; leaving the core stages does the same.
+	const review = ok(await warnings(leaving.person));
+	ok(
+		await withPeopleWrite(f.db, owner.actor, (tx, c) =>
+			peopleWriter.retirePerson(
+				tx,
+				c,
+				{
+					requestKey: randomUUID(),
+					expectedRevision: review.revision,
+					input: {
+						personId: leaving.person,
+						reason: "Moved away",
+						reviewRevision: review.reviewRevision,
+						handoffs: handTo(review.openDuties, staying.person),
+					},
+				},
+				reminders,
+			),
+		),
+	);
+	const stage = ok(await warnings(moving.person));
+	ok(
+		await withPeopleWrite(f.db, owner.actor, (tx, c) =>
+			peopleWriter.changeStatus(
+				tx,
+				c,
+				{
+					requestKey: randomUUID(),
+					expectedRevision: stage.revision,
+					input: {
+						personId: moving.person,
+						stage: "prospect",
+						reason: "Stepping back",
+						handoffs: handTo(stage.openDuties, taking.person),
+					},
+				},
+				reminders,
+			),
+		),
+	);
+	await wait(due);
+	await dispatch();
+	// Each duty's due reminder went to its new assignee and was sent, and the overdue one waits for them; the former
+	// assignee's two reminders were withdrawn.
+	const delivered = async (task) =>
+		rows(sql`SELECT n.recipient_id, n.cancelled_at IS NOT NULL cancelled, m.state FROM notice n LEFT JOIN mail m ON m.notice_id=n.id
+			WHERE n.source_record_id=${task} ORDER BY n.cancelled_at IS NOT NULL, n.eligible_at`);
+	for (const [task, from, to] of [
+		[retired.id, leaving.id, staying.id],
+		[demoted.id, moving.id, taking.id],
+	])
+		assert.deepEqual(
+			(await delivered(task)).map((n) => [n.recipient_id, n.cancelled, n.state]),
+			[
+				[to, false, "accepted"],
+				[to, false, "pending"],
+				[from, true, "cancelled"],
+				[from, true, "cancelled"],
+			],
+		);
 });
 
 test("INV-tenancy: a seat ended, demoted or signed out after the viewer lookup reads no task data", async () => {

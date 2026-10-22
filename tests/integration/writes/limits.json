@@ -507,7 +507,7 @@
 		"limit": 5
 	},
 	"native.people.executeBulkImport": {
-		"limit": 2
+		"limit": 5
 	},
 	"native.people.exportPeople": {
 		"limit": 3
@@ -725,15 +725,16 @@
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 1 locked read, 3 read, 1 write."
 	},
 	"people.addToHousehold": {
-		"limit": 6,
+		"limit": 4,
 		"retry": 5
 	},
 	"people.assignTag": {
-		"limit": 6,
+		"limit": 4,
 		"retry": 5
 	},
 	"people.changeStatus": {
-		"limit": 6
+		"limit": 18,
+		"reason": "Leaving the core stages hands a dated, assigned duty to another member and replans its due and overdue reminders (the R4-1 fault, REQ-TSK-014); the shared reminder sync (notifications.syncTaskReminders) sends 10 statements for it; RT-6 reviews that sync. Its largest first run: 1 transaction, 10 locked read, 7 write."
 	},
 	"people.correctAdultClassification": {
 		"limit": 9,
@@ -755,7 +756,7 @@
 		"retry": 5
 	},
 	"people.createHouseholdWithHead": {
-		"limit": 6,
+		"limit": 4,
 		"retry": 5
 	},
 	"people.createInterview": {
@@ -766,12 +767,11 @@
 		"retry": 4
 	},
 	"people.createTag": {
-		"limit": 7,
-		"retry": 3,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 1 locked read, 3 read, 1 write."
+		"limit": 5,
+		"retry": 3
 	},
 	"people.deleteHousehold": {
-		"limit": 6,
+		"limit": 4,
 		"retry": 5
 	},
 	"people.deleteNote": {
@@ -779,7 +779,7 @@
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
 	},
 	"people.deleteTag": {
-		"limit": 6
+		"limit": 4
 	},
 	"people.editNote": {
 		"limit": 7,
@@ -807,7 +807,7 @@
 		"limit": 1
 	},
 	"people.propagateAddress": {
-		"limit": 6,
+		"limit": 4,
 		"retry": 5
 	},
 	"people.reactivateCommitment": {
@@ -818,17 +818,16 @@
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 4 read, 1 write."
 	},
 	"people.removeFromHousehold": {
-		"limit": 6
+		"limit": 4
 	},
 	"people.removePersonPhoto": {
-		"limit": 6
+		"limit": 4
 	},
 	"people.removeSkill": {
-		"limit": 7,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 1 locked read, 3 read, 1 write."
+		"limit": 5
 	},
 	"people.removeTag": {
-		"limit": 6
+		"limit": 4
 	},
 	"people.reorderPipeline": {
 		"limit": 7,
@@ -844,15 +843,15 @@
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 1 read, 2 write."
 	},
 	"people.retirePerson": {
-		"limit": 10,
+		"limit": 20,
 		"retry": 7,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 4 locked read, 1 read, 3 write."
+		"reason": "Handing a dated, assigned duty to another member replans its due and overdue reminders (the R4-1 fault, REQ-TSK-014); the shared reminder sync (notifications.syncTaskReminders) sends 10 statements for it; RT-6 reviews that sync. Its largest first run: 1 transaction, 11 locked read, 8 write."
 	},
 	"people.setHouseholdRole": {
-		"limit": 6
+		"limit": 4
 	},
 	"people.setPersonPhoto": {
-		"limit": 6,
+		"limit": 4,
 		"retry": 5
 	},
 	"people.unmergePeople": {
@@ -861,21 +860,19 @@
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write."
 	},
 	"people.updateHousehold": {
-		"limit": 6
+		"limit": 4
 	},
 	"people.updatePerson": {
 		"limit": 6,
 		"retry": 5
 	},
 	"people.updateSkill": {
-		"limit": 7,
-		"retry": 6,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 1 locked read, 3 read, 1 write."
+		"limit": 5,
+		"retry": 6
 	},
 	"people.updateTag": {
-		"limit": 7,
-		"retry": 6,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 1 locked read, 3 read, 1 write."
+		"limit": 5,
+		"retry": 6
 	},
 	"people.withdrawCommitment": {
 		"limit": 6,
@@ -894,6 +891,26 @@
 	"people/core.withPeopleWrite": {
 		"limit": 6,
 		"retry": 8
+	},
+	"people/core.withPeopleWrite:people.assignTag": {
+		"limit": 5,
+		"retry": 10
+	},
+	"people/core.withPeopleWrite:people.changeStatus": {
+		"limit": 19,
+		"reason": "people.changeStatus in its native write: BEGIN and COMMIT around the same work and the same reminder replan. Its largest first run: 2 transaction, 10 locked read, 7 write."
+	},
+	"people/core.withPeopleWrite:people.retirePerson": {
+		"limit": 21,
+		"reason": "people.retirePerson in its native write: BEGIN and COMMIT around the same work and the same reminder replan. Its largest first run: 2 transaction, 11 locked read, 8 write."
+	},
+	"people/core.withPeopleWrite:people/csv/index.executeBulkImport": {
+		"limit": 5,
+		"retry": 10
+	},
+	"people/csv/index.executeBulkImport": {
+		"limit": 5,
+		"retry": 10
 	},
 	"people/fields/index.uploadPersonPhoto": {
 		"limit": 16,

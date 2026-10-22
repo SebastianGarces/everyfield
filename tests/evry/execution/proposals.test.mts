@@ -41,6 +41,12 @@ import {
 	work,
 } from "../runtime/support.mts";
 
+// The task reminder port of a stage change or retirement. These people hold no dated, assigned task, so a replan
+// here would be a bug.
+const noReminders = async () => {
+	throw Error("unexpected task reminder replan");
+};
+
 before(setup);
 after(teardown);
 
@@ -58,7 +64,7 @@ async function effects() {
 	const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
 	if (!claim) return null;
 	const start = queries.length;
-	const outcome = await executeProposal(db, lease(claim));
+	const outcome = await executeProposal(db, lease(claim), noReminders);
 	const statements = counted(start);
 	if (outcome !== "lost")
 		await transaction(db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));
@@ -75,7 +81,7 @@ async function stalledEffect(during: (claim: Claim) => Promise<void>) {
 	let running: Promise<string> | undefined;
 	await admin.transaction(async (tx) => {
 		await tx.execute(sql`SELECT id FROM plant WHERE id=${plant} FOR UPDATE`);
-		running = executeProposal(db, lease(claim));
+		running = executeProposal(db, lease(claim), noReminders);
 		for (let waiting = 0, deadline = Date.now() + 20_000; !waiting;) {
 			assert.ok(Date.now() < deadline, "the executor never waited for write authority");
 			const r = await admin.execute(
@@ -381,7 +387,7 @@ test("AC:EVRY-LEASE-FENCE AC:INH-REGRESSION-RETRY AC:INH-EDGES-12: an executor s
 	assert.equal((await retryUnresolvedEffects(db, owner, proposal.id)).retried, true);
 	assert.equal(counted(start), 1);
 	assert.equal((await effects())?.outcome, "completed");
-	assert.equal(await executeProposal(db, lease(stalled!)), "lost");
+	assert.equal(await executeProposal(db, lease(stalled!), noReminders), "lost");
 	const retry = await retryUnresolvedEffects(db, owner, proposal.id);
 	assert.deepEqual([retry.retried, retry.proposal.outcome], [false, "completed"]);
 	assert.equal(await effects(), null);
@@ -441,7 +447,7 @@ test("AC:EVRY-LEASE-FENCE an executor whose lease expires while it waits for the
 	// until the lease has passed.
 	await admin.transaction(async (tx) => {
 		await tx.execute(sql`SELECT id FROM job WHERE id=${claim.id} FOR UPDATE`);
-		running = executeProposal(db, lease(claim));
+		running = executeProposal(db, lease(claim), noReminders);
 		// The executor's session (the test runtime role) waits on a lock; its query text is too long to match reliably.
 		for (let waiting = 0, deadline = Date.now() + 20_000; !waiting;) {
 			assert.ok(Date.now() < deadline, "the executor never waited for the job row");
