@@ -5,11 +5,14 @@ import { sql, eq, asc } from "drizzle-orm";
 import type { Database, Transaction } from "../client.ts";
 import { schema_migration } from "./tables.ts";
 
+/** Numbered names until 2026-10-22 (D76), then UTC timestamps (D78). Both sort by name. */
+export const migrationName = /^(?:\d{4}|\d{14})_[a-z0-9_]+\.sql$/;
+
 async function migrations(directory = new URL("../../migrations/", import.meta.url)) {
 	if (directory.href === new URL("../../migrations/", import.meta.url).href) await checkMigrationArtifacts();
 	return Promise.all(
 		(await readdir(directory))
-			.filter((name) => /^\d{4}_[a-z0-9_]+\.sql$/.test(name))
+			.filter((name) => migrationName.test(name))
 			.sort()
 			.map(async (name) => {
 				const sql = await readFile(new URL(name, directory));
@@ -31,6 +34,8 @@ export async function migrationArtifact() {
 
 // One transaction covers the batch and original ledger. No automatic checksum adoption.
 // Deploy/build/start never calls this; it is an explicit operator command.
+// Every ledger row must name a file with the same bytes. Every file the ledger lacks then
+// applies in name order, so two branches' migrations apply in either merge order (D78).
 export async function migrate(db: Database, schema = "public", directory?: URL): Promise<string[]> {
 	const files = await migrations(directory);
 	return locked(db, schema, async (tx) => {
@@ -44,20 +49,14 @@ export async function migrate(db: Database, schema = "public", directory?: URL):
 			throw Error("migration_provenance_unverified");
 		const old = await tx
 			.select({ name: schema_migration.name, sha256: schema_migration.sha256, provenance: schema_migration.provenance })
-			.from(schema_migration)
-			.orderBy(asc(schema_migration.name));
-		for (const [index, row] of old.entries()) {
-			const file = files[index];
-			if (
-				!file ||
-				file.name !== row.name ||
-				file.sha256 !== row.sha256 ||
-				!["original", "adopted"].includes(row.provenance)
-			)
+			.from(schema_migration);
+		const byName = new Map(files.map((file) => [file.name, file]));
+		for (const row of old)
+			if (byName.get(row.name)?.sha256 !== row.sha256 || !["original", "adopted"].includes(row.provenance))
 				throw Error("migration_checksum_conflict");
-		}
+		const done = new Set(old.map((row) => row.name));
 		const applied: string[] = [];
-		for (const file of files.slice(old.length)) {
+		for (const file of files.filter((file) => !done.has(file.name))) {
 			await tx.execute(sql.raw(file.sql));
 			await tx.insert(schema_migration).values({ name: file.name, sha256: file.sha256, provenance: "original" });
 			applied.push(file.name);
@@ -80,10 +79,10 @@ export async function adoptMigrationHistory(
 			.from(schema_migration)
 			.orderBy(asc(schema_migration.name));
 		if (!rows.length || Object.keys(approved).length !== rows.length) throw Error("adoption_review_mismatch");
-		for (const [i, row] of rows.entries()) {
-			const file = files[i];
-			if (!file || row.name !== file.name || approved[row.name] !== file.sha256)
-				throw Error("adoption_review_mismatch");
+		const byName = new Map(files.map((file) => [file.name, file]));
+		for (const row of rows) {
+			const file = byName.get(row.name);
+			if (!file || approved[row.name] !== file.sha256) throw Error("adoption_review_mismatch");
 		}
 		const columns = await tx.execute<{ column_name: string }>(
 			sql`SELECT column_name FROM information_schema.columns WHERE table_schema=${schema} AND table_name='schema_migration'`,
@@ -114,11 +113,9 @@ export async function inspectMigrationProvenance(db: Database, schema = "public"
 	const result = await db.execute<{ name: string; applied_at: string; sha256?: string; provenance?: string }>(
 		sql`SELECT name,applied_at${proven ? sql`,sha256,provenance` : sql``} FROM ${sql.identifier(schema)}.schema_migration ORDER BY name`,
 	);
+	const byName = new Map(artifact.map((file) => [file.name, file.sha256]));
 	const coherent = result.rows.every(
-		(row, i) =>
-			artifact[i]?.name === row.name &&
-			artifact[i]?.sha256 === row.sha256 &&
-			["original", "adopted"].includes(row.provenance ?? ""),
+		(row) => byName.get(row.name) === row.sha256 && ["original", "adopted"].includes(row.provenance ?? ""),
 	);
 	return {
 		state: !proven
