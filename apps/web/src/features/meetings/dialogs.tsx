@@ -110,7 +110,7 @@ function ReasonForm({
 							autoFocus
 						/>
 					</Field>
-					<Problem code={saving.problem} />
+					<Problem {...saving.problemProps} />
 				</DialogBody>
 				<DialogFooter>
 					<Button variant="secondary" type="button" onClick={onClose} disabled={saving.pending}>
