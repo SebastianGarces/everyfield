@@ -65,7 +65,7 @@ export function ReasonDialog({
 				</ul>
 			) : null}
 			<Field label="Reason" hint="It stays in the history." error={touched && missing ? "Enter a reason." : null}>
-				<Textarea value={reason} onChange={(e) => setReason(e.target.value)} maxLength={2000} rows={2} autoFocus />
+				<Textarea value={reason} onChange={(e) => setReason(e.target.value)} maxLength={2000} rows={2} />
 			</Field>
 		</RecordDialog>
 	);

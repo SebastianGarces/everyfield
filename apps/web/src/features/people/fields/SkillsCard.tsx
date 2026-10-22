@@ -297,7 +297,7 @@ function SkillDialog({
 			}}
 		>
 			<Field label="Skill" error={touched && nameMissing ? "Name the skill, such as Piano or Hosting." : null}>
-				<Input value={draft.name} maxLength={100} autoFocus onChange={(e) => set({ name: e.target.value })} />
+				<Input value={draft.name} maxLength={100} onChange={(e) => set({ name: e.target.value })} />
 			</Field>
 			<div className="grid grid-cols-2 gap-4 max-app-sm:grid-cols-1">
 				<Field label="Category" error={touched && categoryMissing ? "Choose a category." : null}>

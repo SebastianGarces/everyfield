@@ -38,7 +38,170 @@ async function addPerson(page, name) {
 	return page.url();
 }
 
+/** Where focus is now: the element's tag, its type and whether it is the dialog's refusal. */
+const focused = (page) =>
+	page.evaluate(() => {
+		const a = document.activeElement;
+		return {
+			tag: a?.tagName,
+			type: a?.getAttribute("type"),
+			alert: a?.getAttribute("role") === "alert",
+			invalid: a?.getAttribute("aria-invalid"),
+		};
+	});
+/** Answers every choice group that has no answer yet with its first option. */
+async function answerChoices(dialog) {
+	for (const group of await dialog.getByRole("radiogroup").all())
+		if ((await group.getByRole("radio", { checked: true }).count()) === 0)
+			await group.getByRole("radio").first().click();
+}
+/** A name longer than the field allows: the browser limit is lifted, so the server refuses it with no field named. */
+async function overlong(input) {
+	await input.evaluate((e) => e.removeAttribute("maxlength"));
+	await input.fill("N".repeat(600));
+}
+const ahead = () => new Date(Date.now() + 3 * 864e5).toISOString().slice(0, 10);
+/** Tab and Shift+Tab from the focused refusal keep the focus inside the dialog (its focus trap knows where it is). */
+async function staysInDialog(page, what) {
+	for (const key of ["Tab", "Shift+Tab"]) {
+		await page.keyboard.press(key);
+		const inside = await page.evaluate(() => !!document.activeElement?.closest('[role="dialog"]'));
+		assert.ok(inside, `${what}: ${key} keeps the focus inside the dialog`);
+	}
+}
+
 for (const [name, engine] of ENGINES) {
+	test(`BUG-249-focus (${name}): a reopened record form focuses the field its refusal names, else the refusal`, async () => {
+		// RecordDialog alone decides where focus starts (F4b-V1, V2): no field inside it may take focus on its own.
+		const cards = [
+			{
+				card: "commitment",
+				open: /^Record (a commitment card for |commitment$)/,
+				fill: async (d) => d.locator('input[type="date"]').fill(ahead()),
+				save: "Save commitment",
+				expect: { tag: "INPUT", type: "date", invalid: "true" },
+			},
+			{
+				card: "4 C's",
+				open: /^Record (a 4 C's assessment for |the 4 C)/,
+				fill: async (d) => (await answerChoices(d), d.getByLabel("Assessed on").fill(ahead())),
+				save: "Save assessment",
+				expect: { tag: "INPUT", type: "date", invalid: "true" },
+			},
+			{
+				card: "interview",
+				open: /^Record (an interview with |an interview$)/,
+				fill: async (d) => (await answerChoices(d), d.getByLabel("Interviewed on").fill(ahead())),
+				save: "Save interview",
+				expect: { tag: "INPUT", type: "date", invalid: "true" },
+			},
+			{
+				card: "skills",
+				open: /^Add a skill/,
+				fill: async (d, page) => {
+					await overlong(d.getByLabel("Skill", { exact: true }));
+					await d.getByRole("combobox", { name: "Category" }).click();
+					await page.getByRole("option").first().click();
+				},
+				save: "Add skill",
+				expect: { alert: true },
+			},
+			{
+				card: "household",
+				open: /^Start a household/,
+				fill: async (d) => overlong(d.getByLabel("Household name")),
+				save: "Start household",
+				expect: { alert: true },
+			},
+		];
+		await withPage(engine, "owner", async (page) => {
+			await addPerson(page, unique(name));
+			// Escape returns the focus to the button that opened the dialog (F4b-V4): the dialog's own focus step must
+			// capture the opener before the form takes the focus.
+			const opener = page.getByRole("button", { name: cards[0].open }).first();
+			await opener.focus();
+			await page.keyboard.press("Enter");
+			await page.getByRole("dialog").waitFor();
+			await page.keyboard.press("Escape");
+			await page.getByRole("dialog").waitFor({ state: "detached" });
+			await page
+				.waitForFunction(() => document.activeElement !== document.body, null, { timeout: 5_000 })
+				.catch(() => {});
+			assert.ok(await opener.evaluate((e) => e === document.activeElement), "Escape returns the focus to the opener");
+			for (const c of cards) {
+				await page.getByRole("button", { name: c.open }).first().click();
+				const d = page.getByRole("dialog");
+				await c.fill(d, page);
+				await d.getByRole("button", { name: c.save, exact: true }).click();
+				await d.getByRole("alert").waitFor({ timeout: 30_000 });
+				await page.waitForTimeout(300);
+				const f = await focused(page);
+				for (const [k, v] of Object.entries(c.expect)) assert.equal(f[k], v, `${c.card}: ${JSON.stringify(f)}`);
+				await staysInDialog(page, c.card);
+				await d.getByRole("button", { name: "Cancel" }).click();
+				await d.waitFor({ state: "detached" });
+			}
+			// Forms with only buttons (F4b-V3): WebKit skips buttons on Tab, so only the trap keeps the focus in the dialog.
+			// The household's address differs from the person's, so Copy address is offered. The real server refuses an ID
+			// that is not a UUID.
+			await page
+				.getByRole("button", { name: /^Start a household/ })
+				.first()
+				.click();
+			const start = page.getByRole("dialog");
+			await start.getByLabel("Household name").fill(unique(name));
+			await start.getByLabel(/^Street/).fill("100 Synthetic Lane");
+			await start.getByRole("button", { name: "Start household", exact: true }).click();
+			await start.waitFor({ state: "detached" });
+			const actions = page.getByRole("button", { name: "Household actions", exact: true });
+			await actions.click();
+			await page.getByRole("menuitem", { name: "Edit household", exact: true }).click();
+			const edit = page.getByRole("dialog");
+			await edit.getByLabel(/^Street/).fill("200 Synthetic Lane");
+			await edit.getByRole("button", { name: "Save household", exact: true }).click();
+			await edit.waitFor({ state: "detached" });
+			for (const [item, button] of [
+				["Copy address to members", /^Copy to /],
+				[/^Take .* out$/, /^Take out of household$/],
+			]) {
+				await actions.click();
+				await page.getByRole("menuitem", { name: item }).click();
+				const d = page.getByRole("dialog");
+				await page.route("**/*", (route) => {
+					const r = route.request();
+					if (r.method() !== "POST" || !r.headers()["next-action"]) return route.fallback();
+					const body = (r.postData() ?? "").replace(/"(personId|householdId)":"[0-9a-f-]+"/, '"$1":"not-a-uuid"');
+					return route.continue({ postData: body });
+				});
+				await d.getByRole("button", { name: button }).click();
+				await d.getByRole("alert").waitFor({ timeout: 30_000 });
+				await page.unroute("**/*");
+				assert.equal((await focused(page)).alert, true, `${item}: the refusal of a button-only form is focused`);
+				await staysInDialog(page, String(item));
+				await d.getByRole("button", { name: "Cancel" }).click();
+				await d.waitFor({ state: "detached" });
+			}
+
+			// A task due at 2:30 on the morning clocks spring forward in Austin: the refusal names the time.
+			await page.goto(`${BASE}/tasks`);
+			await page.getByRole("button", { name: "New task", exact: true }).first().click();
+			const d = page.getByRole("dialog");
+			await page.waitForTimeout(300);
+			assert.equal((await focused(page)).tag, "INPUT", "a new form focuses its first field, the title");
+			await d.getByLabel("Title", { exact: true }).fill(unique(name));
+			await d.getByRole("combobox", { name: "Due", exact: true }).click();
+			await page.getByRole("option", { name: "Due at a time", exact: true }).click();
+			await d.getByLabel("Day", { exact: true }).fill("2027-03-14");
+			await d.getByLabel("Time", { exact: false }).fill("02:30");
+			await d.getByRole("button", { name: "Add task", exact: true }).click();
+			await d.getByRole("alert").waitFor({ timeout: 30_000 });
+			await page.waitForTimeout(300);
+			const f = await focused(page);
+			assert.deepEqual({ type: f.type, invalid: f.invalid }, { type: "time", invalid: "true" }, JSON.stringify(f));
+			await staysInDialog(page, "task");
+		});
+	});
+
 	test(`BUG-hydration (${name}): a person page with dated activity hydrates without a page error`, async () => {
 		await withPage(engine, "owner", async (page) => {
 			const errors = [];

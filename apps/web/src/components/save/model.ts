@@ -11,7 +11,8 @@
 
 export type Outcome<T> =
 	| { status: "ok"; value: T }
-	| { status: "refused"; code: string }
+	/** `reason` names the one field the person can fix, when the server says which (a future date, an unreadable file). */
+	| { status: "refused"; code: string; reason?: string }
 	/** The answer was lost (network, server restart). The same request may be sent again with the same key. */
 	| { status: "lost" };
 
@@ -62,7 +63,7 @@ export type SaveSpec<E, T> = {
 	through?: (key: string, send: () => Promise<Outcome<T>>) => Promise<Outcome<T> | null>;
 	/** False when `send` replays on its own (an upload that must not send its file twice, C97). */
 	replay?: boolean;
-	/** The code the form and notice show for a refusal code. */
+	/** The code the form and notice show for a refusal: its reason when it has one, else its code. */
 	code?: (code: string) => string;
 	/** A saved answer. `checked` is true when Check again brought it. */
 	ok: (value: T, checked: boolean) => void;
@@ -146,7 +147,8 @@ export class SaveLane<E extends { problem?: string }> {
 			return this.#refuse(spec, key, token, "busy", done);
 		}
 		if (r.status === "refused") {
-			const code = spec.code?.(r.code) ?? r.code;
+			const named = r.reason ?? r.code;
+			const code = spec.code?.(named) ?? named;
 			this.#refuse(spec, key, token, code, done);
 			return spec.refused?.(code);
 		}

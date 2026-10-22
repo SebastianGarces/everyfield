@@ -141,7 +141,6 @@ export function InterviewCard({
 					(v: { person: { stage: PlantPerson["stage"]; revision: string } }) =>
 						({ ...store.get().saved, stage: v.person.stage, revision: v.person.revision }) as PlantPerson,
 				),
-				code: (code) => (code === "invalid_input" ? "future_date" : code),
 				ok: (value) => {
 					const moved = value.person.stageChange;
 					startTransition(() => history.add(value.interview));
