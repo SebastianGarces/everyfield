@@ -98,6 +98,24 @@ export function withRecord<R extends { id: string; occurredOn: string; recordedA
 	);
 }
 
+/**
+ * A card's records with the corrections made elsewhere on the page (Correct a record, WP-015). Each correction shows in
+ * place of its record only when its revision is newer than the card's copy, so every earlier correction stays and a
+ * later save on the card itself still wins. A correction for a record this card has not loaded adds nothing.
+ */
+export function withCorrections<R extends { id: string; occurredOn: string; recordedAt: string; revision: string }>(
+	items: readonly R[],
+	corrections: readonly R[],
+): R[] {
+	return corrections.reduce<R[]>(
+		(shown, record) => {
+			const held = shown.find((r) => r.id === record.id);
+			return held && BigInt(record.revision) > BigInt(held.revision) ? withRecord(shown, record) : shown;
+		},
+		[...items],
+	);
+}
+
 /** The total of four scores, for the form's running sum. The saved total is the server's. */
 export const totalOf = (scores: readonly (number | null)[]) =>
 	scores.every((s) => s !== null) ? scores.reduce<number>((t, s) => t + (s ?? 0), 0) : null;

@@ -24,6 +24,7 @@ import {
 	formSettled,
 	formStart,
 	formUnknown,
+	withCorrections,
 	withRecord,
 	type FormState,
 	type Notice,
@@ -238,9 +239,11 @@ type Dated = { id: string; occurredOn: string; recordedAt: string };
  * this page saved. A page that arrives after a save never removes or replaces that record: pages only add the records
  * they bring, and a record already shown keeps its place.
  */
-export function useHistory<R extends Dated>(
+export function useHistory<R extends Dated & { revision: string }>(
 	initial: Page<R> | null,
 	load: (page: number) => Promise<Outcome<Page<R>>>,
+	/** Records saved elsewhere on the page (corrections); each replaces the shown copy of that record when newer. */
+	pushed: readonly R[] = [],
 ) {
 	const [page, setPage] = useState<Page<R>>(initial ?? { items: [], next: null, total: 0 });
 	const [state, setState] = useState<"idle" | "loading" | "failed">("idle");
@@ -263,7 +266,8 @@ export function useHistory<R extends Dated>(
 			total: Math.max(p.total, r.value.total),
 		}));
 	}
-	return { ...page, setPage, add, more, loading: state === "loading", failed: state === "failed" };
+	const items = withCorrections(page.items, pushed);
+	return { ...page, items, setPage, add, more, loading: state === "loading", failed: state === "failed" };
 }
 
 /**

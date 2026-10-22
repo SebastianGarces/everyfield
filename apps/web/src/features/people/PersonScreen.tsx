@@ -4,6 +4,8 @@ import {
 	ArrowTurnBackwardIcon,
 	Delete02Icon,
 	Edit02Icon,
+	FileEditIcon,
+	GitMergeIcon,
 	MoreHorizontalIcon,
 	UserCheck01Icon,
 	UserIcon,
@@ -22,11 +24,13 @@ import {
 	MenuSeparator,
 	MenuTrigger,
 	Breadcrumb,
+	CalloutLabel,
+	CalloutText,
 	StatePanel,
 } from "@everyfield/ui/controls";
 import { KeyValue, KeyValueList, StageChip, StatusBadge } from "@everyfield/ui/display";
 import Link from "next/link";
-import { useOptimistic, useState } from "react";
+import { useOptimistic, useRef, useState } from "react";
 import type { z } from "zod";
 import { reloadPerson, type Receipt } from "./actions.ts";
 import { ActivityCard, type Activities, type EntryFields, type Item } from "./ActivityCard.tsx";
@@ -40,12 +44,19 @@ import { PersonPhoto } from "./fields/PersonPhoto.tsx";
 import { SkillsCard } from "./fields/SkillsCard.tsx";
 import { TagsField } from "./fields/TagsField.tsx";
 import type { PersonRecords } from "./assessments/model.ts";
-import { RecordsSection } from "./assessments/RecordsSection.tsx";
+import { RecordsSection, type CorrectedRecord } from "./assessments/RecordsSection.tsx";
+import { CorrectRecordDialog } from "./corrections/CorrectRecordDialog.tsx";
+import { DuplicateHints } from "./corrections/DuplicateHints.tsx";
+import { recordsIntent } from "./corrections/intent.ts";
+import type { DuplicateHints as Hints } from "./corrections/server.ts";
+import { UnmergeDialog } from "./corrections/UnmergeDialog.tsx";
+import { loadPersonPage, type PersonPage, type Unmerged } from "./corrections/actions.ts";
+import { Problem } from "./corrections/parts.tsx";
 import { PersonFollowUps } from "../followups/PersonFollowUps.tsx";
 import type { PersonFollowUps as FollowUpsData } from "../followups/server.ts";
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
-type Open = "stage" | "profile" | "classify" | "retire" | "restore" | null;
+type Open = "stage" | "profile" | "classify" | "retire" | "restore" | "correct" | { unmerge: string } | null;
 
 /**
  * Person (REQ-PPL-002/003/004/006/008). The header says who and where in the pipeline; Owners and Admins change the
@@ -62,10 +73,12 @@ export function PersonScreen({
 	survivor,
 	accountId,
 	canWrite,
-	fields,
-	records,
+	fields: initialFields,
+	records: initialRecords,
 	followUps,
 	photosEnabled,
+	duplicates: initialDuplicates = null,
+	followedMerge = false,
 }: {
 	person: PlantPerson;
 	activities: Outcome<Activities>;
@@ -84,6 +97,10 @@ export function PersonScreen({
 	followUps: FollowUpsData | null;
 	/** Private photo storage is configured, so photos and commitment documents can be added. */
 	photosEnabled: boolean;
+	/** Possible duplicates of this live person (WP-015). Null when they do not apply or could not be read. */
+	duplicates?: Hints | null;
+	/** The page opened from a link to a person who was merged into this one. */
+	followedMerge?: boolean;
 }) {
 	const [store, state] = usePersonStore<PlantPerson, PersonDraft>(person);
 	const [history, setHistory] = useState(activities);
@@ -99,7 +116,16 @@ export function PersonScreen({
 			...fields,
 		} as Item);
 	};
-	const [household, setHousehold] = useState<HouseholdResult | null>(fields?.household ?? null);
+	// The page parts the server read. An Unmerge replaces them with its authoritative result; `generation` restarts the
+	// cards that hold their own copy, so none keeps a record or tag that moved back to the other person.
+	const [parts, setParts] = useState({
+		fields: initialFields,
+		records: initialRecords,
+		duplicates: initialDuplicates,
+		generation: 0,
+	});
+	const { fields, records, duplicates, generation } = parts;
+	const [household, setHousehold] = useState<HouseholdResult | null>(initialFields?.household ?? null);
 	/** A saved tag, skill or photo change: Activity records it as a change to the person's details. */
 	const changed = (receipt: Receipt) => saved(receipt, { kind: "activity", action: "updated" });
 	const householdName = household?.status === "available" ? household.household.name : null;
@@ -116,10 +142,54 @@ export function PersonScreen({
 		...patch,
 	}));
 	const [open, setOpen] = useState<Open>(null);
+	/** The page parts did not read again after an Unmerge: say so, and offer the reload that shows them. */
+	const [stale, setStale] = useState(false);
+	/** The page as the Unmerge left it, read while the Unmerge dialog is still open and shown when it closes (C80). */
+	const fresh = useRef<{ receipt: Receipt | null; page: PersonPage | null } | null>(null);
+	/**
+	 * After an Unmerge the records, tags, skills, household and hints on this page may belong to the other person again.
+	 * The Unmerge answer carries the page as the Unmerge left it (C84); an Unmerge found to have run after a lost answer
+	 * reads it here. The dialog stays open until the page is in hand, so nothing on the page can start behind it, and it
+	 * says itself when the page did not read (C80).
+	 */
+	async function readAfterUnmerge(done: Unmerged | null): Promise<boolean> {
+		let page = done ? done.page : null;
+		if (!done) {
+			const r = await loadPersonPage(person.id).catch(() => ({ status: "lost" }) as const);
+			page = r.status === "ok" ? r.value : null;
+		}
+		fresh.current = { receipt: done?.receipt ?? fresh.current?.receipt ?? null, page };
+		return page !== null;
+	}
+	/** The Unmerge dialog closed: show what it read, or keep the page and say it is out of date. */
+	function closeUnmerge() {
+		const got = fresh.current;
+		fresh.current = null;
+		setOpen(null);
+		if (!got) return;
+		if (got.receipt) saved(got.receipt, { kind: "activity", action: "person_unmerged" });
+		const page = got.page;
+		if (!page) return setStale(true);
+		store.dispatch({ type: "server", person: page.person });
+		if (page.activities) setHistory({ status: "ok", value: page.activities });
+		setParts((old) => ({
+			fields: page.fields,
+			records: page.records,
+			duplicates: page.duplicates,
+			generation: old.generation + 1,
+		}));
+		setHousehold(page.fields?.household ?? null);
+		setCorrected([]);
+		setStale(false);
+	}
+
+	/** Every record Correct a record saved on this page, the newest per record, so each card shows its corrected values. */
+	const [corrected, setCorrected] = useState<CorrectedRecord[]>([]);
 	const busy = state.pending !== null;
 	const lifecycle = p.lifecycle;
 	const live = lifecycle.state === "live";
 	const toggle = (which: Exclude<Open, null>) => (next: boolean) => setOpen(next ? which : null);
+	const close = () => setOpen(null);
 
 	return (
 		<>
@@ -128,6 +198,7 @@ export function PersonScreen({
 					<Breadcrumb items={[{ label: "People", href: "/people" }, { label: p.displayName }]} className="mb-4" />
 					<div className="flex items-center gap-6 max-app-sm:gap-4">
 						<PersonPhoto
+							key={generation}
 							store={store}
 							person={p}
 							initial={fields?.photo ?? { status: "absent" }}
@@ -180,6 +251,9 @@ export function PersonScreen({
 									<MenuItem icon={UserIcon} onSelect={() => setOpen("classify")}>
 										{p.adultClassification === "unknown" ? "Record adult or child" : "Correct adult or child"}
 									</MenuItem>
+									<MenuItem icon={FileEditIcon} onSelect={() => setOpen("correct")} {...recordsIntent(p.id)}>
+										Correct a record
+									</MenuItem>
 									<MenuSeparator />
 									<MenuItem icon={Delete02Icon} danger onSelect={() => setOpen("retire")}>
 										Retire person
@@ -191,6 +265,32 @@ export function PersonScreen({
 				</div>
 			</header>
 
+			{stale ? (
+				<div className="mb-5">
+					<Problem>
+						The Unmerge was saved, but this page did not read the moved records again.{" "}
+						<button
+							type="button"
+							className="font-medium underline underline-offset-2"
+							onClick={() => location.reload()}
+						>
+							Reload the page
+						</button>{" "}
+						to see where they are now.
+					</Problem>
+				</div>
+			) : null}
+			{followedMerge && live ? (
+				<Card variant="callout" tone="blue" className="mb-5">
+					<CalloutLabel tone="blue" icon={GitMergeIcon}>
+						Opened from a merged person
+					</CalloutLabel>
+					<CalloutText className="text-sm">
+						The link you followed was for a person who was merged into {p.displayName}. Their history is in this
+						Activity.
+					</CalloutText>
+				</Card>
+			) : null}
 			{lifecycle.state === "retired" ? (
 				<Card className="mb-5">
 					<StatePanel
@@ -229,6 +329,7 @@ export function PersonScreen({
 				<div className="flex min-w-0 flex-col gap-5">
 					{records ? (
 						<RecordsSection
+							key={generation}
 							records={records}
 							documentsEnabled={photosEnabled}
 							personId={p.id}
@@ -240,6 +341,7 @@ export function PersonScreen({
 							accountId={accountId}
 							onSaved={saved}
 							onConflict={reload}
+							corrected={corrected}
 						/>
 					) : null}
 					{followUps ? (
@@ -259,6 +361,7 @@ export function PersonScreen({
 						onConflict={reload}
 						accountId={accountId}
 						canWrite={canWrite}
+						onUnmerge={canWrite ? (mergeId) => setOpen({ unmerge: mergeId }) : undefined}
 					/>
 				</div>
 				<div className="flex min-w-0 flex-col gap-5 max-app-lg:order-first">
@@ -310,6 +413,7 @@ export function PersonScreen({
 						</KeyValueList>
 						{fields ? (
 							<TagsField
+								key={generation}
 								personId={p.id}
 								personName={p.displayName}
 								initial={fields.tags}
@@ -318,6 +422,9 @@ export function PersonScreen({
 							/>
 						) : null}
 					</Card>
+					{duplicates && live ? (
+						<DuplicateHints key={generation} personId={p.id} hints={duplicates} canReview={canWrite} />
+					) : null}
 					{fields ? (
 						<>
 							<HouseholdCard
@@ -333,6 +440,7 @@ export function PersonScreen({
 								onConflict={reload}
 							/>
 							<SkillsCard
+								key={generation}
 								personId={p.id}
 								personName={p.displayName}
 								initial={fields.skills}
@@ -426,6 +534,26 @@ export function PersonScreen({
 					) : null}
 					{open === "restore" ? (
 						<RestoreDialog open onOpenChange={toggle("restore")} store={store} onSaved={saved} onConflict={reload} />
+					) : null}
+					{open === "correct" ? (
+						<CorrectRecordDialog
+							person={p}
+							store={store}
+							accountId={accountId}
+							onClose={close}
+							onCorrected={(receipt, next) => {
+								setCorrected((all) => [...all.filter((c) => c.record.id !== next.record.id), next]);
+								if (receipt)
+									saved(receipt, {
+										kind: "activity",
+										action: `${next.type}_corrected`,
+										recordId: next.record.id,
+									} as EntryFields);
+							}}
+						/>
+					) : null}
+					{open && typeof open === "object" ? (
+						<UnmergeDialog mergeId={open.unmerge} store={store} onClose={closeUnmerge} onUnmerged={readAfterUnmerge} />
 					) : null}
 				</>
 			) : null}
