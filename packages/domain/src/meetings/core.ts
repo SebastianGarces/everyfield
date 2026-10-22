@@ -6,14 +6,17 @@ import * as tables from "@everyfield/db/tables";
 import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import { RequestActor, requestWrite } from "../access/session.ts";
+import { boundWrite, RequestActor, type requestWrite } from "../access/session.ts";
 import { canonical } from "../organizations/core.ts";
 import {
 	auditSavepoint,
-	auditTransaction,
+	declareWrite,
+	lockedWrite,
+	nativeWrite,
 	finishAudit,
 	prepareWrite,
 	WriteUnavailable,
+	type WritePath,
 	type AuditWrite,
 } from "../operations/writes.ts";
 
@@ -83,7 +86,7 @@ export function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S>
 
 /** Inside a native request the request transaction owns rollback; a direct caller gets a savepoint per command. */
 export async function reply<T>(tx: Tx, body: () => Promise<T>): Promise<MeetingsReply<T>> {
-	if (requestWrite(tx)) return { status: "ok", value: await body() };
+	if (boundWrite(tx)) return { status: "ok", value: await body() };
 	return settleWrite(() => auditSavepoint(tx, body));
 }
 /** One native write: bind the request actor (one locking statement), run the command, roll back on refusal. */
@@ -92,10 +95,11 @@ export async function withMeetingsWrite<T>(
 	authority: RequestActor,
 	body: (tx: Tx, context: MeetingsContext) => Promise<MeetingsReply<T>>,
 ): Promise<MeetingsReply<T>> {
+	const selected = authority.actor.context.owner;
 	return settleWrite(() =>
-		auditTransaction(db, async (tx) => {
-			const selected = authority.actor.context.owner;
-			if (!(await authority.bind(tx, selected))) deny();
+		nativeWrite(db, authority, selected, async (tx) => {
+			// Every write of this module reads other rows, counts or the church's settings (C88).
+			await declareWrite(tx, "established");
 			const result = await body(tx, { session: authority.session, selected });
 			if (result.status === "refused") throw new Refusal(result.error.code, result.error.details);
 			return result.value;
@@ -126,7 +130,7 @@ export type Writer = {
 };
 /** The locked request actor for this plant: bound by the native request, or claimed here by a direct caller. */
 export async function writer(tx: Tx, ctx: MeetingsContext): Promise<Writer> {
-	let bound = requestWrite(tx);
+	let bound = await lockedWrite(tx);
 	if (!bound || bound.authority.session !== ctx.session || !sameOwner(bound.selected, ctx.selected))
 		bound = (await RequestActor.claimWrite(tx, ctx.session, ctx.selected)) ?? undefined;
 	if (!bound?.plant || bound.actor.context.kind !== "seat") deny();
@@ -162,17 +166,59 @@ export function delta(before: Record<string, unknown> | null, after: Record<stri
 }
 
 /**
+ * Each meeting and venue write's path (C88, operations/writes.ts). All are established: each reads
+ * other rows, counts or the church's settings. A write that only checks rows its final statement locks may declare
+ * "single" here.
+ */
+export const meetingWritePaths = {
+	"meetings.addAttendeeNote": "established",
+	"meetings.captureAttendanceBatch": "established",
+	"meetings.changeStatus": "established",
+	"meetings.checkIn": "established",
+	"meetings.clearAttendance": "established",
+	"meetings.clearCard": "established",
+	"meetings.completePractice": "established",
+	"meetings.correctEvaluation": "established",
+	"meetings.correctOccurrence": "established",
+	"meetings.correctPracticeOccurrence": "established",
+	"meetings.correctRsvp": "established",
+	"meetings.createGuestContact": "established",
+	"meetings.createWalkInContact": "established",
+	"meetings.delete": "established",
+	"meetings.edit": "established",
+	"meetings.finalizeAttendance": "established",
+	"meetings.inviteGuest": "established",
+	"meetings.populateKit": "established",
+	"meetings.reconcileAttendance": "established",
+	"meetings.recordCard": "established",
+	"meetings.recordEvaluation": "established",
+	"meetings.removeGuest": "established",
+	"meetings.replaceAgenda": "established",
+	"meetings.saveOwnRsvp": "established",
+	"meetings.schedule": "established",
+	"meetings.setAttendance": "established",
+	"meetings.setInviter": "established",
+	"meetings.updateKitItem": "established",
+	"venues.archive": "established",
+	"venues.correct": "established",
+	"venues.create": "established",
+	"venues.edit": "established",
+	"venues.restore": "established",
+} as const satisfies Record<string, WritePath>;
+export type MeetingWrite = keyof typeof meetingWritePaths;
+/**
  * The shared write (D70): the locked actor, the request-key claim, the command's own locked fact read, then one
  * statement with the change, the plant's material revision and one audit row. A replay returns the first answer.
  */
 export async function command<T>(
 	tx: Tx,
 	ctx: MeetingsContext,
-	operation: string,
+	operation: MeetingWrite,
 	input: { requestKey: string },
 	body: (w: Writer, audit: AuditWrite) => Promise<Change<T>>,
 	options: { member?: boolean } = {},
 ): Promise<T> {
+	await declareWrite(tx, meetingWritePaths[operation]);
 	const w = await writer(tx, ctx);
 	if (!w.admin && !options.member) deny();
 	const identity = requestIdentity.parse({

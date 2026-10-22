@@ -7,8 +7,9 @@ import { randomUUID, randomBytes } from "node:crypto";
 
 import { migrate, migrationArtifact } from "../../../packages/db/src/schema/migrate.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
-import { PeopleReadContext } from "../../../packages/domain/src/people/core.ts";
+import { PeopleReadContext, withPeopleWrite } from "../../../packages/domain/src/people/core.ts";
 import {
+	assessments,
 	peopleWriter as write,
 	peopleReader as read,
 	accountPersonProducer as accounts,
@@ -39,6 +40,8 @@ const admin = createDatabase({
 });
 let db;
 let queries = [];
+/** Runs before each statement is sent, for tests that commit another change at an exact point of a write. */
+let beforeSend = null;
 
 const plants = [randomUUID(), randomUUID()],
 	organization = randomUUID(),
@@ -98,8 +101,10 @@ before(async () => {
 	db.$client.on("connect", (client) => {
 		const query = client.query;
 		client.query = function (...args) {
-			queries.push(typeof args[0] === "string" ? args[0] : args[0].text);
-			return Reflect.apply(query, this, args);
+			const text = typeof args[0] === "string" ? args[0] : args[0].text;
+			queries.push(text);
+			const hook = beforeSend;
+			return hook ? hook(text).then(() => Reflect.apply(query, this, args)) : Reflect.apply(query, this, args);
 		};
 	});
 	for (const a of actors) {
@@ -1225,9 +1230,19 @@ test("INV-reads: the person page and the status warnings use a fixed number of s
 			}),
 		),
 	);
+	// The page reads with the request's cached viewer on the pool, as the web does: one statement for every part.
+	const viewer = new PeopleReadContext(await tx((t) => RequestActor.resolve(t, actors[0].session)));
 	queries = [];
-	const page = ok(await tx((t) => readPersonPage(t, ctx(), { personId: p.id }, 50)));
+	const page = ok(
+		await readPersonPage(db, viewer, { personId: p.id }, 50, { fields: true, records: 10, duplicates: true }),
+	);
 	const pageStatements = queries.length;
+	assert.deepEqual(page.fields, { tags: [], skills: [], household: { status: "none" }, photo: { status: "absent" } });
+	assert.deepEqual(
+		[page.records.assessments.total, page.records.interviews.total, page.records.commitments.total],
+		[0, 0, 0],
+	);
+	assert.deepEqual(page.duplicates, { items: [], completeness: "complete" });
 	assert.equal(page.found.person.id, p.id);
 	assert.deepEqual(page.link, { status: "ok", value: { status: "unlinked" } });
 	assert.deepEqual(
@@ -1242,8 +1257,8 @@ test("INV-reads: the person page and the status warnings use a fixed number of s
 	const warningStatements = queries.length;
 	assert.deepEqual(warnings.warnings, ["assessment_not_recorded", "interview_not_recorded", "commitment_not_recorded"]);
 	assert.deepEqual(warnings.openDuties, []);
-	// BEGIN, actor, person, activities (or warnings), COMMIT; a commitment projection may add one.
-	assert.ok(pageStatements <= 6, `person page: ${pageStatements} statements`);
+	assert.equal(pageStatements, 1, `person page: ${pageStatements} statements`);
+	// Status warnings: BEGIN, actor, person, warnings, COMMIT; a commitment projection may add one.
 	assert.ok(warningStatements <= 5, `status warnings: ${warningStatements} statements`);
 	assert.equal(
 		queries.some((q) => /for\s+(update|share)/i.test(q)),
@@ -1405,4 +1420,110 @@ test("INV-reads (C22): a People read holds no lock on the reader's session, so s
 			}
 		});
 	assert.deepEqual(waited, []);
+});
+
+// RT-3: a native People write sends no BEGIN, gate or request-key read on its first attempt. Its final statement checks
+// the actor's seat and repeats its reads with their locks, so these must hold with no explicit transaction.
+test("INV-revocation INV-idempotency (RT-3): a native write checks the seat in its own statement, and a retry replays", async () => {
+	const p = await create("Native write");
+	const seated = await seatedReader("admin", { kind: "plant", id: plants[0] });
+	const authority = seated.reader.authority;
+	const rename = (requestKey, displayName) =>
+		withPeopleWrite(db, authority, (t, c) =>
+			write.updatePerson(t, c, {
+				requestKey,
+				expectedRevision: p.revision,
+				input: { personId: p.id, patch: { displayName } },
+			}),
+		);
+	// The seat ends after the request resolved its viewer: the write changes nothing.
+	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE id=${seated.seat}`);
+	try {
+		refused(await rename(randomUUID(), "Too late"));
+	} finally {
+		await admin.execute(sql`UPDATE seat SET ended_at=NULL WHERE id=${seated.seat}`);
+	}
+	assert.equal(ok(await tx((t) => read.getPerson(t, ctx(), { personId: p.id }))).person.displayName, "Native write");
+	// A lost reply: the same request again returns the first answer and writes nothing more.
+	const key = randomUUID();
+	const audits = async () =>
+		(await admin.execute(sql`SELECT count(*)::int AS n FROM audit_event WHERE subject_id=${p.id}::uuid`)).rows[0].n;
+	const first = ok(await rename(key, "Renamed once"));
+	const before = await audits();
+	const json = (value) => JSON.parse(JSON.stringify(value));
+	assert.deepEqual(json(ok(await rename(key, "Renamed once"))), json(first));
+	assert.equal(await audits(), before);
+	refused(await rename(key, "Another name"), "conflict");
+});
+
+test("INV-concurrency (RT-3): a change committed while a native write is in flight is never overwritten", async () => {
+	const p = await create("Race");
+	const authority = await tx((t) => RequestActor.resolve(t, actors[0].session));
+	let release, changed;
+	const held = new Promise((resolve) => (release = resolve)),
+		ready = new Promise((resolve) => (changed = resolve));
+	// Another writer changes the Person and keeps its row lock until the native write has read the old row.
+	const other = admin.transaction(async (b) => {
+		await b.execute(sql`UPDATE person SET display_name='Other', revision=revision+1 WHERE id=${p.id}::uuid`);
+		changed();
+		await held;
+	});
+	await ready;
+	queries = [];
+	const mine = withPeopleWrite(db, authority, (t, c) =>
+		write.updatePerson(t, c, {
+			requestKey: randomUUID(),
+			expectedRevision: p.revision,
+			input: { personId: p.id, patch: { displayName: "Mine" } },
+		}),
+	);
+	while (!queries.some((q) => q.startsWith("/* evf:final */"))) await new Promise((r) => setTimeout(r, 10));
+	release();
+	await other;
+	refused(await mine, "conflict");
+	assert.equal(ok(await tx((t) => read.getPerson(t, ctx(), { personId: p.id }))).person.displayName, "Other");
+});
+
+test("INV-date (RT-3, C88): an assessment runs in the gate's transaction, so a church time zone change waits for it", async () => {
+	const p = await create("Zone race", { adultClassification: "adult" });
+	const authority = await tx((t) => RequestActor.resolve(t, actors[0].session));
+	const zone = (name) => admin.execute(sql`UPDATE plant SET timezone=${name} WHERE id=${plants[0]}::uuid`);
+	const lens = { score: 1, notes: null };
+	// Kiritimati (UTC+14) is always at least one day ahead of Pago Pago (UTC-11).
+	await zone("Pacific/Kiritimati");
+	let changed = null;
+	try {
+		const day = (
+			await admin.execute(sql`SELECT (clock_timestamp() AT TIME ZONE 'Pacific/Kiritimati')::date::text AS d`)
+		).rows[0].d;
+		// The change starts after the assessment read its subject, while its transaction holds the church row.
+		beforeSend = async (text) => {
+			if (!text.startsWith("/* evf:final */")) return;
+			beforeSend = null;
+			changed = zone("Pacific/Pago_Pago");
+		};
+		queries = [];
+		const result = await withPeopleWrite(db, authority, (t, c) =>
+			assessments.createAssessment(t, c, {
+				requestKey: randomUUID(),
+				input: {
+					personId: p.id,
+					occurredOn: day,
+					committed: lens,
+					compelled: lens,
+					contagious: lens,
+					courageous: lens,
+				},
+			}),
+		);
+		assert.equal(ok(result).assessment.occurredOn, day);
+		assert.ok(/^begin$/i.test(queries[0]), "the assessment opens its transaction first");
+		await changed;
+		const now = await admin.execute(sql`SELECT timezone FROM plant WHERE id=${plants[0]}::uuid`);
+		assert.equal(now.rows[0].timezone, "Pacific/Pago_Pago");
+	} finally {
+		beforeSend = null;
+		await changed;
+		await zone("America/New_York");
+	}
 });

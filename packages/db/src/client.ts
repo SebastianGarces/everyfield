@@ -21,6 +21,20 @@ export function createDatabase(options: DatabaseOptions) {
 	return drizzle({ client: pool, schema });
 }
 
+export type PoolClient = pg.PoolClient;
+const clientDatabases = new WeakMap<pg.PoolClient, Database>();
+/**
+ * One client of the database's pool and a database bound to it, so a native write decides itself whether that client
+ * begins a transaction. The caller releases the client.
+ */
+export async function checkoutClient(db: Database): Promise<{ client: pg.PoolClient; db: Database }> {
+	// createDatabase builds every Database on a pool, which drizzle exposes as $client.
+	const client = await (db as Database & { $client: pg.Pool }).$client.connect();
+	let bound = clientDatabases.get(client);
+	if (!bound) clientDatabases.set(client, (bound = drizzle({ client, schema })));
+	return { client, db: bound };
+}
+
 export function closeDatabase(db: ReturnType<typeof createDatabase>): Promise<void> {
 	return db.$client.end();
 }

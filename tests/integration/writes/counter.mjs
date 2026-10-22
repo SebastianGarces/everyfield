@@ -123,7 +123,8 @@ export function observeDatabase(db) {
 			for (const frame of frames.getStore() ?? []) {
 				frame.count++;
 				if (/\b(?:INSERT\s+INTO|DELETE\s+FROM|UPDATE\s+(?:"?[\w]+"?)(?:\s+\w+)?\s+SET)\b/i.test(text)) frame.writes++;
-				if (/^\s*ROLLBACK/i.test(text)) frame.rollbacks++;
+				// A native write's established run follows a first attempt that changed nothing: it counts as a retry.
+				if (/^\s*ROLLBACK|^BEGIN \/\* evf:retry \*\//i.test(text)) frame.rollbacks++;
 			}
 			return Reflect.apply(query, this, args);
 		};

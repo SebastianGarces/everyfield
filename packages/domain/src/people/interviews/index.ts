@@ -11,8 +11,11 @@ import {
 	attribution,
 	nextRevision,
 	notFuture,
+	historyJson,
 	personUpdate,
 	readHistory,
+	type History,
+	type HistoryPage,
 	recordEvent,
 	recorderSql,
 	subject,
@@ -146,14 +149,19 @@ export const interviews = {
 	async getInterviews(tx: Tx, ctx: Context, raw: unknown) {
 		return readReply(async () => {
 			const input = parse(c.personRecordsRequest, raw);
-			const h = await readHistory(tx, ctx, input, sql`interview`, interviewJson, latestFirst);
-			return c.interviewsResult.parse({
-				personId: input.personId,
-				latest: h.latest ? interviewView(h.plant, h.latest) : null,
-				items: h.items.map((r) => interviewView(h.plant, r)),
-				next: h.next,
-				total: h.total,
-			});
+			return interviewsOf(input.personId, await readHistory(tx, ctx, input, (plant) => interviewsJson(plant, input)));
 		});
 	},
 };
+
+/** One Person's interview page as one JSON value over the Person alias `p`, for this read or the person page's. */
+export const interviewsJson = (plant: string, input: HistoryPage) =>
+	historyJson(plant, input, sql`interview`, interviewJson, latestFirst);
+export const interviewsOf = (personId: string, h: History) =>
+	c.interviewsResult.parse({
+		personId,
+		latest: h.latest ? interviewView(h.plant, h.latest) : null,
+		items: h.items.map((r) => interviewView(h.plant, r)),
+		next: h.next,
+		total: h.total,
+	});

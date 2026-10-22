@@ -37,10 +37,13 @@ import {
 	adminRead,
 	advance,
 	attribution,
+	historyJson,
 	nextRevision,
 	notFuture,
 	personUpdate,
 	readHistory,
+	type History,
+	type HistoryPage,
 	recordEvent,
 	recorderSql,
 	subject,
@@ -367,44 +370,48 @@ export const commitments = {
 	async getCommitments(tx: Tx, ctx: Context, raw: unknown) {
 		return readReply(async () => {
 			const input = parse(c.personRecordsRequest, raw);
-			const h = await readHistory(
-				tx,
-				ctx,
-				input,
-				sql`commitment`,
-				commitmentJson,
-				latestFirst,
-				sql`jsonb_build_object('state',p.commitment_state,'effective_on',p.commitment_effective_on::text,'revision',p.revision::text,
+			return commitmentsOf(input.personId, await readHistory(tx, ctx, input, (plant) => commitmentsJson(plant, input)));
+		});
+	},
+};
+
+/** One Person's card page and current commitment as one JSON value over the Person alias `p`, for this read or the person page's. */
+export const commitmentsJson = (plant: string, input: HistoryPage) =>
+	historyJson(
+		plant,
+		input,
+		sql`commitment`,
+		commitmentJson,
+		latestFirst,
+		sql`jsonb_build_object('state',p.commitment_state,'effective_on',p.commitment_effective_on::text,'revision',p.revision::text,
  'first',(SELECT jsonb_build_object('id',k.id,'on',k.signed_on::text) FROM commitment k WHERE k.person_id=p.id
    AND k.plant_id=p.plant_id AND k.voided_at IS NULL ORDER BY k.signed_on,k.recorded_at,k.id LIMIT 1),
  'witnesses',(SELECT coalesce(jsonb_object_agg(w.id,w.display_name),'{}') FROM person w WHERE w.tenant_id=p.plant_id
    AND w.id IN (SELECT k.witness_person_id FROM commitment k WHERE k.person_id=p.id AND k.plant_id=p.plant_id)))`,
-			);
-			const extra = z
-				.object({
-					state: z.enum(["active", "withdrawn", "unknown"]),
-					effective_on: z.string().nullable(),
-					revision: z.string(),
-					first: z.object({ id: z.uuid(), on: z.string() }).nullable(),
-					witnesses: z.record(z.string(), z.string()),
-				})
-				.parse(h.extra);
-			return c.commitmentsResult.parse({
-				personId: input.personId,
-				// Without a valid card the current commitment is unknown, whatever was recorded before.
-				current: status(extra.first ? extra.state : "unknown", extra.first ? extra.effective_on : null, extra.revision),
-				firstAcquisition: extra.first
-					? { status: "known", occurredOn: extra.first.on, evidenceId: extra.first.id }
-					: { status: "none" },
-				latest: h.latest ? commitmentView(h.plant, h.latest) : null,
-				items: h.items.map((r) => commitmentView(h.plant, r)),
-				witnessNames: extra.witnesses,
-				next: h.next,
-				total: h.total,
-			});
-		});
-	},
-};
+	);
+const currentRow = z.object({
+	state: z.enum(["active", "withdrawn", "unknown"]),
+	effective_on: z.string().nullable(),
+	revision: z.string(),
+	first: z.object({ id: z.uuid(), on: z.string() }).nullable(),
+	witnesses: z.record(z.string(), z.string()),
+});
+export function commitmentsOf(personId: string, h: History) {
+	const extra = currentRow.parse(h.extra);
+	return c.commitmentsResult.parse({
+		personId,
+		// Without a valid card the current commitment is unknown, whatever was recorded before.
+		current: status(extra.first ? extra.state : "unknown", extra.first ? extra.effective_on : null, extra.revision),
+		firstAcquisition: extra.first
+			? { status: "known", occurredOn: extra.first.on, evidenceId: extra.first.id }
+			: { status: "none" },
+		latest: h.latest ? commitmentView(h.plant, h.latest) : null,
+		items: h.items.map((r) => commitmentView(h.plant, r)),
+		witnessNames: extra.witnesses,
+		next: h.next,
+		total: h.total,
+	});
+}
 
 type DocumentTarget = { commitmentId: string } | { upload: { id: string; byteCount: number; sha256: string } };
 /**

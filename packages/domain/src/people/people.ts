@@ -1,7 +1,7 @@
 import { and, asc, inArray, eq, isNotNull, isNull, or, sql, type SQLWrapper } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 
-import { executeWrites } from "../operations/writes.ts";
+import { declareWrite, executeWrites } from "../operations/writes.ts";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import * as c from "@everyfield/contracts/people";
@@ -490,6 +490,8 @@ async function note(tx: Tx, ctx: WriteContext, input: NoteInput, kind: "add" | "
 				expected(before, input.expectedRevision);
 				let participation: string | null = null;
 				if ("meetingId" in input.input && input.input.meetingId) {
+					// The meeting participation is another row: this note runs in the gate's transaction (C88).
+					await declareWrite(tx, "established");
 					const r = await tx
 						.select({ id: tables.participation.id })
 						.from(tables.participation)
