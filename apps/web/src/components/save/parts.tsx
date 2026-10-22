@@ -34,7 +34,7 @@ export function useSaveIntent<E extends { problem?: string }>(options: Pick<Lane
 }
 
 /** One card's save lane as a hook gives it, for a dialog that shares the card's lane. */
-export type SaveIntent<E extends { problem?: string }> = ReturnType<typeof useSaveIntent<E>>;
+export type SaveIntent<E extends { problem?: string } = { problem?: string }> = ReturnType<typeof useSaveIntent<E>>;
 
 /**
  * After a submit with missing answers, moves focus to the first control marked invalid, or into the first invalid
@@ -86,7 +86,6 @@ export function RecordDialog({
 	children: ReactNode;
 }) {
 	const alert = useRef<HTMLDivElement>(null);
-	const busyId = useId();
 	return (
 		<Dialog open onOpenChange={(next) => !next && onClose()}>
 			<DialogContent
@@ -123,26 +122,64 @@ export function RecordDialog({
 						{children}
 					</DialogBody>
 					<DialogFooter>
-						{wait ? (
-							<p id={busyId} className="mr-auto text-xs text-text-2 max-app-sm:basis-full">
-								{wait === "saving" ? "Waiting for the last save." : "Check the last save first."}
-							</p>
-						) : null}
 						<Button variant="secondary" type="button" onClick={onClose}>
 							Cancel
 						</Button>
-						<Button
-							variant={tone === "magenta" ? "danger" : "primary"}
-							type="submit"
-							disabled={wait !== null || disabled}
-							aria-describedby={wait ? busyId : undefined}
-						>
+						<SaveButton wait={wait} disabled={disabled} variant={tone === "magenta" ? "danger" : "primary"}>
 							{action}
-						</Button>
+						</SaveButton>
 					</DialogFooter>
 				</form>
 			</DialogContent>
 		</Dialog>
+	);
+}
+
+const WAIT_HINT = { saving: "Waiting for the last save.", unknown: "Check the last save first." } as const;
+
+/**
+ * A form's submit button while its card waits (C68): disabled, with the reason before it. `saving` is this form's own
+ * save on its way (a spinner, no hint); `blocked` is a local reason the form cannot be sent yet ("Choose at least one").
+ * Neither is ever shown as a refusal. Put it last in a dialog footer: the hint takes the free space before the buttons.
+ */
+export function SaveButton({
+	wait,
+	saving = false,
+	blocked = null,
+	disabled = false,
+	variant = "primary",
+	className,
+	children,
+}: {
+	wait: Wait;
+	saving?: boolean;
+	blocked?: string | null;
+	/** Nothing to save, with no reason to show (an address copy with no changes). */
+	disabled?: boolean;
+	variant?: "primary" | "danger";
+	className?: string;
+	children: ReactNode;
+}) {
+	const hint = useId();
+	const why = saving ? null : wait ? WAIT_HINT[wait] : blocked;
+	return (
+		<>
+			{why ? (
+				<p id={hint} className="mr-auto text-xs text-text-2 max-app-sm:basis-full">
+					{why}
+				</p>
+			) : null}
+			<Button
+				type="submit"
+				variant={variant}
+				loading={saving}
+				disabled={wait !== null || blocked !== null || disabled}
+				aria-describedby={why ? hint : undefined}
+				className={className}
+			>
+				{children}
+			</Button>
+		</>
 	);
 }
 
