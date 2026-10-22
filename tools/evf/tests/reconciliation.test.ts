@@ -298,6 +298,8 @@ test("INV-workflow-routing: Next server paths stay with implementor and presenta
 });
 
 import { ship, listShipped, prOpen, checkPr } from "../ship.ts";
+import { withShipQueue } from "../ship-queue.ts";
+import { spawn } from "node:child_process";
 import { renumberMigrations } from "../migrations.ts";
 import { approve } from "../approve.ts";
 import { requireImplementation, requireSpend, requireTaskScope } from "../policy.ts";
@@ -1315,6 +1317,179 @@ test("INV-carry-approval: an approval carries only over clean merges of main on 
 		assert.throws(attempt(inWt("rev-parse", "HEAD")), /main changed paths this PR also changes: README.md/);
 		assert.deepEqual(merges(), []);
 	} finally {
+		f.close();
+	}
+});
+
+const fastShip = {
+	queue: { waitMs: 10_000, pollMs: 10 },
+	ciWaitMs: 10_000,
+	ciPollMs: 1,
+};
+
+test("INV-ship-queue: concurrent ships run one after the other in arrival order; a stopped holder never blocks", async () => {
+	const f = fixture(),
+		error = console.error;
+	try {
+		const log = join(f.root, "fake-bin/queue.log"),
+			lock = join(evfDataDir(f.root), "ship-queue/lock.json");
+		const holder = (name: string, holdMs: number) =>
+			spawn(
+				process.execPath,
+				[
+					"--input-type=module",
+					"-e",
+					`import { appendFileSync } from "node:fs";
+import { withShipQueue } from ${JSON.stringify(join(source, "tools/evf/ship-queue.ts"))};
+import { sleep } from ${JSON.stringify(join(source, "tools/evf/lib.ts"))};
+withShipQueue(${JSON.stringify(f.root)}, ${JSON.stringify(name)}, () => {
+	appendFileSync(${JSON.stringify(log)}, "start ${name}\\n");
+	sleep(${holdMs});
+	appendFileSync(${JSON.stringify(log)}, "end ${name}\\n");
+}, { waitMs: 20000, pollMs: 20 });`,
+				],
+				{ stdio: ["ignore", "ignore", "pipe"] },
+			);
+		const started = async (name: string) => {
+			while (!(existsSync(log) && readFileSync(log, "utf8").includes(`start ${name}`)))
+				await new Promise((r) => setTimeout(r, 20));
+		};
+		const finished = (child: ReturnType<typeof spawn>) =>
+			new Promise<{ code: number | null; stderr: string }>((done) => {
+				let stderr = "";
+				child.stderr!.on("data", (d) => (stderr += d));
+				child.on("exit", (code) => done({ code, stderr }));
+			});
+
+		const first = holder("OPS-91", 600),
+			firstDone = finished(first);
+		await started("OPS-91");
+		const second = holder("OPS-92", 50),
+			secondDone = finished(second);
+		const [a, b] = await Promise.all([firstDone, secondDone]);
+		assert.deepEqual([a.code, b.code], [0, 0], a.stderr + b.stderr);
+		assert.deepEqual(readFileSync(log, "utf8").trim().split("\n"), [
+			"start OPS-91",
+			"end OPS-91",
+			"start OPS-92",
+			"end OPS-92",
+		]);
+		assert.match(b.stderr, /OPS-92 waits in the ship queue behind OPS-91/);
+		assert.equal(existsSync(lock), false, "the last ship released the queue");
+
+		// A holder that stopped without releasing (crash, kill) loses the lock to the next ship.
+		const stopped = spawnSync(process.execPath, ["-e", ""]).pid;
+		writeFileSync(lock, JSON.stringify({ pid: stopped, task: "OPS-93", at: new Date().toISOString() }));
+		const lines: string[] = [];
+		console.error = (...args) => lines.push(args.join(" "));
+		assert.equal(
+			withShipQueue(f.root, "OPS-94", () => "merged", fastShip.queue),
+			"merged",
+		);
+		assert.match(lines.join("\n"), /removed the queue lock of a stopped ship \(OPS-93/);
+
+		// A live holder makes the next ship wait only up to its bound, then it refuses without running.
+		const busy = holder("OPS-95", 3_000);
+		await started("OPS-95");
+		let ran = false;
+		assert.throws(
+			() => withShipQueue(f.root, "OPS-96", () => (ran = true), { waitMs: 200, pollMs: 20 }),
+			/ship queue is still busy after 0 min/,
+		);
+		assert.equal(ran, false);
+		assert.deepEqual(
+			readdirSync(join(evfDataDir(f.root), "ship-queue/tickets")),
+			[],
+			"the refused ship left the queue",
+		);
+		busy.kill("SIGKILL");
+		await finished(busy);
+	} finally {
+		console.error = error;
+		f.close();
+	}
+});
+
+test("INV-ship-queue-update: a behind PR is updated by a merge of main, waits for CI and carries; otherwise a fresh gate is needed", () => {
+	const f = mergeFixture(),
+		log = console.log,
+		lines: string[] = [];
+	try {
+		const inWt = (...args: string[]) => execFileSync("git", ["-C", f.wt, ...args], { encoding: "utf8" }).trim();
+		const lock = join(evfDataDir(f.root), "ship-queue/lock.json");
+		const pass = {
+			name: "ci",
+			state: "SUCCESS",
+			bucket: "pass",
+			link: "https://github.com/test/private/actions/runs/2",
+		};
+		const mainCommit = (path: string, text: string) => {
+			writeFileSync(join(f.root, path), text);
+			f.git("add", path);
+			f.git("commit", "-qm", `Main changes ${path}`);
+			f.git("push", "-q", "origin", "main");
+			return f.git("rev-parse", "HEAD");
+		};
+		writeFileSync(join(f.wt, "tools/evf/feature.ts"), "export const feature = 1;\n");
+		writeFileSync(join(f.wt, "README.md"), "Approved PR line.\n" + readFileSync(join(f.wt, "README.md"), "utf8"));
+		inWt("add", "tools/evf/feature.ts", "README.md");
+		inWt("commit", "-qm", "Approved work");
+		const approved = inWt("rev-parse", "HEAD");
+		const attempt = (checksQueue: unknown[]) => {
+			inWt("reset", "-q", "--hard", approved);
+			inWt("push", "-q", "origin", `+${approved}:refs/heads/${f.taskRef.branch}`);
+			const state = f.getState();
+			state.pr.headRefOid = approved;
+			state.comments["77"] = [
+				{
+					body: `EVF-Review: ${JSON.stringify({ head: approved, verifierFamily: "anthropic", verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`,
+					html_url: "https://github.com/test/private/pull/77#issuecomment-3",
+				},
+			];
+			state.requiredChecks = [pass];
+			state.checksQueue = checksQueue;
+			state.calls = [];
+			f.setState(state);
+			lines.length = 0;
+			return () => ship(f.root, f.taskRef, fastShip);
+		};
+		const calls = (sub: string) => f.getState().calls.filter((c) => c.args[0] === "pr" && c.args[1] === sub);
+		console.log = (...args) => lines.push(args.join(" "));
+
+		const main = mainCommit("docs/main-only.md", "Main only.\n");
+		// Checks: the approved head, then the new head with none reported yet, then pending, then green.
+		assert.throws(attempt([[pass], [], [{ name: "ci", bucket: "pending" }]]), /fixture merge barrier/);
+		const head = inWt("rev-parse", "HEAD");
+		assert.equal(f.getState().pr.headRefOid, head);
+		assert.deepEqual(inWt("rev-list", "--parents", "-n", "1", head).split(" ").slice(1), [approved, main]);
+		assert.deepEqual(calls("update-branch")[0].args, ["pr", "update-branch", "77"]);
+		assert.match(lines.join("\n"), /waiting for required CI on/);
+		const proof = JSON.parse(calls("comment")[0].args.at(-1).split("EVF-Carry: ")[1]);
+		assert.deepEqual([proof.approvedHead, proof.head], [approved, head]);
+		assert.deepEqual(calls("merge")[0].args, ["pr", "merge", "77", "--squash", "--match-head-commit", head]);
+		assert.equal(existsSync(lock), false, "a refused merge releases the queue");
+
+		// Required CI fails on the merge of main: no merge, and the queue is free again.
+		mainCommit("docs/second.md", "Second.\n");
+		assert.throws(
+			attempt([[pass], [{ name: "ci", bucket: "fail" }]]),
+			/Fresh gate needed at [a-f0-9]{40}: required CI failed after the merge of main \(ci\)/,
+		);
+		assert.equal(calls("update-branch").length, 1);
+		assert.deepEqual(calls("merge"), []);
+		assert.equal(existsSync(lock), false);
+
+		// Main changed a path the PR changes: refuse before touching the branch.
+		mainCommit("README.md", readFileSync(join(f.root, "README.md"), "utf8") + "Main line.\n");
+		assert.throws(
+			attempt([]),
+			/Fresh gate needed: main changed paths this PR also changes: README.md\. .*branch is unchanged/,
+		);
+		assert.deepEqual([calls("update-branch"), calls("merge")], [[], []]);
+		assert.equal(inWt("rev-parse", "HEAD"), approved);
+		assert.equal(existsSync(lock), false);
+	} finally {
+		console.log = log;
 		f.close();
 	}
 });

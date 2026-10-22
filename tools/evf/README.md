@@ -28,6 +28,23 @@ Design tasks, P2/P3 feedback and every `evf approve` route keep exact-head revie
 Ship never merges on red main. Before it merges, it reads main's latest finished `ci.yml` push run,
 skipping cancelled and skipped runs. When that run failed, only a PR whose body says `Fixes #<n>`
 for the open `P0: CI failed on main` issue may merge. The gate reads the run, not the issue state.
+
+## Ship queue
+
+Any session may run `evf ship` at any time; nobody orders ships by hand. Merging routes wait in one
+machine-wide queue under the Git common directory (`evf/ship-queue/`). Each waiting ship holds a
+ticket, and the oldest live ticket creates `lock.json` exclusively, so ships run one at a time in
+arrival order. A waiting ship prints one line per minute and gives up after 60 minutes without
+changing anything. A ticket or lock whose process has stopped (crash, kill) loses its place, and
+the lock goes away when ship returns, refuses or exits.
+
+Inside the queue, a PR that is behind main gets a plain merge of main through
+`gh pr update-branch`, never a rebase or force push. Ship first refuses with "Fresh gate needed" when
+main changed a path the PR changes, before it touches the branch. After the update it waits up to
+30 minutes for required CI on the new head (one line per minute), then applies the carry rule above
+and merges with `--match-head-commit`. Failed CI or a carry that does not hold also refuses with
+"Fresh gate needed": the author fixes the branch and a verifier reviews the new head. Owner routes
+(design tasks, P2/P3 feedback, `evf approve`) do not queue and never update the branch.
 The ship skill defines the review record and owner approval exceptions.
 
 Model families are `openai` and `anthropic`, not individual model names. Authors put

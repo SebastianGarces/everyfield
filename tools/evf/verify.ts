@@ -18,6 +18,7 @@ import {
 	requireWorktree,
 	run,
 	runtimeDir,
+	sleep,
 	type CheckDef,
 	type TaskRef,
 } from "./lib.ts";
@@ -123,7 +124,7 @@ export function verify(root: string, task: TaskRef, role: Role, mode: Mode, head
 		) {
 			const notice = `Retry ${retry}/3: held Next build lock; waiting 10 seconds.`;
 			console.error(notice);
-			Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10_000);
+			sleep(10_000);
 			if (!inputsUnchanged()) break;
 			if (existsSync(testReport)) unlinkSync(testReport);
 			result = run(argv[0], argv.slice(1), { cwd: wt, env: { ...env, EVF_TEST_REPORT: testReport } });
