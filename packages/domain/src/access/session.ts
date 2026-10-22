@@ -92,9 +92,14 @@ export async function liveOwner(tx: Transaction, selected: Owner, lock = true): 
  */
 async function readSession(db: Executor, session: z.infer<typeof sessionId>, requested?: Owner, lock = true) {
 	const handle = sessionId.parse(session);
+	const row = await viewerRow(db, lock ? sql`access_session(${handle})` : sql`live_session(${handle})`, requested);
+	return row ? sessionRow.parse(row) : null;
+}
+/** The viewer statement over one identity source: a function that returns the session's account row. */
+async function viewerRow(db: Executor, identity: SQL, requested?: Owner) {
 	const r = await db.execute(sql`
 		WITH identity AS MATERIALIZED (
-			SELECT * FROM ${lock ? sql`access_session(${handle})` : sql`live_session(${handle})`} LIMIT 1
+			SELECT * FROM ${identity} LIMIT 1
 		), seats AS MATERIALIZED (
 			SELECT s.id, s.plant_id, s.organization_id, s.role, s.revision::text, s.accepted_at
 			FROM seat s JOIN identity i ON i.account_id=s.account_id
@@ -126,7 +131,7 @@ async function readSession(db: Executor, session: z.infer<typeof sessionId>, req
 			EXISTS (SELECT 1 FROM discovery d WHERE d.account_id=i.account_id AND d.converted_at IS NULL) AS discovery
 		FROM identity i CROSS JOIN selected
 	`);
-	return r.rows.length === 1 ? sessionRow.parse(r.rows[0]!) : null;
+	return r.rows.length === 1 ? r.rows[0]! : null;
 }
 function actorOf(row: SessionRow) {
 	const { now, seats, selected_owner: selected, hidden } = row;
@@ -172,7 +177,10 @@ async function resolveActor(tx: Executor, session: z.infer<typeof sessionId>, re
  */
 export async function readViewer(db: Executor, session: z.infer<typeof sessionId>) {
 	const row = await readSession(db, session);
-	if (!row || row.hidden.some((w) => w.kind === "account" && w.opaque_subject_id === row.account_id)) return null;
+	return row && viewerOf(row, session);
+}
+function viewerOf(row: SessionRow, session: z.infer<typeof sessionId>) {
+	if (row.hidden.some((w) => w.kind === "account" && w.opaque_subject_id === row.account_id)) return null;
 	const actor = actorOf(row);
 	return {
 		accountId: row.account_id,
@@ -180,6 +188,29 @@ export async function readViewer(db: Executor, session: z.infer<typeof sessionId
 		authority: actor.status === "active" ? RequestActor.of(session, actor) : null,
 		person: row.own_person,
 		discovery: row.discovery,
+	};
+}
+
+const requestRow = sessionRow.extend({
+	session_id: sessionId,
+	name: z.string(),
+	email: z.email(),
+	email_verified: z.boolean(),
+});
+/**
+ * The request's session, its user and its viewer in one statement, keyed by the token of a session cookie whose
+ * signature the server has verified (RT-1). It replaces Better Auth's session and user reads and readViewer. No row
+ * locks (C27); every tenant read still checks live access itself (C13). Null when no live session with an account
+ * has this token. `viewer` is null, as from readViewer, when a deletion hold hides the account.
+ */
+export async function readRequestViewer(db: Executor, token: string) {
+	const raw = await viewerRow(db, sql`request_session(${token})`);
+	if (!raw) return null;
+	const row = requestRow.parse(raw);
+	return {
+		session: { id: row.session_id, expiresAt: row.expires_at },
+		user: { name: row.name, email: row.email, emailVerified: row.email_verified },
+		viewer: viewerOf(row, row.session_id),
 	};
 }
 
