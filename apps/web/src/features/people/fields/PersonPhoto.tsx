@@ -14,7 +14,7 @@ import {
 	Spinner,
 	useToast,
 } from "@everyfield/ui/controls";
-import { Avatar } from "@everyfield/ui/display";
+import { Avatar, initials } from "@everyfield/ui/display";
 import { Icon } from "@everyfield/ui/foundations";
 import { useEffect, useRef, useState } from "react";
 import type { z } from "zod";
@@ -175,7 +175,19 @@ export function PersonPhoto({
 		setBusy(null);
 	}
 
-	const avatar = <Avatar name={person.displayName} label={label} src={src} size="xl" decorative={canEdit} />;
+	// Inside the photo button the initials are the placeholder picture of the person, like the photo with alt="": they
+	// are drawn as generated content, so the button's only label is its name ("Add photo of …", WCAG 2.5.3).
+	const avatar = (
+		<Avatar name={person.displayName} label={label} src={src} size="xl" decorative={canEdit}>
+			{canEdit ? (
+				<span
+					aria-hidden="true"
+					data-initials={initials(person.displayName)}
+					className="before:content-[attr(data-initials)]"
+				/>
+			) : undefined}
+		</Avatar>
+	);
 	const has = photo.status === "available";
 	if (!canEdit || (!enabled && !has)) return avatar;
 
