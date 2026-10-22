@@ -46,7 +46,6 @@ const standalone = {
 	"/packages/domain/src/settings/avatar.ts": ["uploadAvatar"],
 	"/packages/domain/src/people/fields/index.ts": ["uploadPersonPhoto"],
 	"/packages/domain/src/people/commitments/index.ts": [
-		"uploadCommitmentDocument",
 		"getCommitmentDownload",
 		"signCommitmentDocument",
 		"saveCommitmentDocument",

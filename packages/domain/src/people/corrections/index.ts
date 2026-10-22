@@ -3,18 +3,7 @@ import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import { adminRead, attribution, notFuture, recordEvent, subject } from "../assessments/shared.ts";
-import {
-	authorize,
-	deny,
-	hash,
-	mutation,
-	parse,
-	readReply,
-	reply,
-	type Context,
-	type Tx,
-	type WriteContext,
-} from "../core.ts";
+import { deny, hash, mutation, parse, readReply, reply, type Context, type Tx, type WriteContext } from "../core.ts";
 import { expectRevision, plantId } from "../fields/shared.ts";
 
 type RecordType = z.infer<typeof c.recordType>;
@@ -172,7 +161,6 @@ export const recordCorrections = {
 		return readReply(async () => {
 			const plant = plantId(ctx);
 			const input = parse(c.recordCorrectionsRequest, raw);
-			await authorize(tx, ctx);
 			const only = input.recordId ? sql`AND x.record_id=${input.recordId}::uuid` : sql``;
 			const result = await tx.execute(sql`WITH x AS (
  SELECT rc.id,rc.record_type,rc.record_id,rc.corrected_at,a.actor_id,rc.reason,rc.before_value AS b,rc.after_value AS n

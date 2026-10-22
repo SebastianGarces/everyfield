@@ -17,6 +17,5 @@ export {
 	getCommitmentDownload,
 	saveCommitmentDocument,
 	signCommitmentDocument,
-	uploadCommitmentDocument,
 } from "./commitments/index.ts";
 export { executeBulkImport, peopleCsv, runPeopleImport } from "./csv/index.ts";
