@@ -9,8 +9,9 @@ export const POST = async (request: Request, { params }: { params: Promise<{ id:
 	const { id } = await params;
 	return evryResponse(async (db, actor) => {
 		const approved = await approveProposal(db, actor, id, await request.json().catch(() => null), privateStorage());
-		// A replayed approval drains too: the first request's drain may never have run.
-		if (approved.proposal.executing) drainEffects();
+		// A first approval starts its effect. Its projection cannot see the job its own statement queued, so it does not
+		// say executing. A replay starts it too while it is still running: the first request's drain may never have run.
+		if (!approved.replayed || approved.proposal.executing) drainEffects();
 		return approved;
 	});
 };

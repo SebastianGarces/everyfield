@@ -10,6 +10,8 @@
 //     its replay and the read all get no answer: the card says it may already be saved and offers only Check again,
 //     with Revise and Cancel disabled. The browser clock then passes the review's expiry: the card stays "Not
 //     confirmed" and never says nothing changed. Check again sends the same request key and the change saves once.
+//   AC:INH-REGRESSION-CONFIRM-REPLAY INV-approve-runs-once (real routes, no page): a first approval's own request runs
+//     the change with no other request; a replay of it returns the saved review and saves nothing again.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { BASE, ENGINES, fixture, hydrated, signIn, withPage } from "../setup.mjs";
@@ -146,3 +148,59 @@ for (const [engine, launcher] of ENGINES)
 			},
 			{ width: 390, height: 844 },
 		));
+
+// A first approval with no later request, through the real routes: its own request starts the change. A replay of the
+// same approval afterwards returns the saved review and saves nothing again.
+test("AC:INH-REGRESSION-CONFIRM-REPLAY INV-approve-runs-once: a first approval saves its change without any other request; its replay saves nothing again", () =>
+	withPage(ENGINES[0][1], async (_page, context) => {
+		const people = fixture("people");
+		await signIn(context, people.owner.cookie);
+		const api = async (path, data) => {
+			const r =
+				data === undefined ? await context.request.get(BASE + path) : await context.request.post(BASE + path, { data });
+			assert.equal(r.status(), 200, `${path}: ${await r.text()}`);
+			return r.json();
+		};
+		const until = async (read, done, ms) => {
+			for (const deadline = Date.now() + ms; ; await new Promise((r) => setTimeout(r, 250))) {
+				const value = await read();
+				if (done(value) || Date.now() > deadline) return value;
+			}
+		};
+		const city = `Irving ${Date.now().toString(36)}`;
+		const conversation = await api("/api/evry/conversations", { requestKey: crypto.randomUUID() });
+		await api(`/api/evry/conversations/${conversation.id}/turns`, {
+			requestKey: crypto.randomUUID(),
+			text: `Change Maria's city to ${city}`,
+			references: [],
+		});
+		const read = await until(
+			() => api(`/api/evry/conversations/${conversation.id}`),
+			(r) => r.events.some((e) => e.kind === "status"),
+			60_000,
+		);
+		const proposalId = read.events.find((e) => e.body.result?.proposalId)?.body.result.proposalId;
+		assert.ok(proposalId, "Evry prepared a review");
+		const review = await api(`/api/evry/proposals/${proposalId}`);
+		const witness = { revision: review.revision, digest: review.digest };
+
+		const first = await api(`/api/evry/proposals/${proposalId}/approve`, witness);
+		assert.equal(first.replayed, false);
+		const saved = await until(
+			() => api(`/api/evry/proposals/${proposalId}`),
+			(r) => r.outcome !== null,
+			15_000,
+		);
+		assert.equal(saved.outcome, "completed", "the first approval's own request ran the change");
+
+		const replay = await api(`/api/evry/proposals/${proposalId}/approve`, witness);
+		assert.deepEqual([replay.replayed, replay.proposal.outcome], [true, "completed"]);
+		const after = await until(
+			() => api(`/api/evry/proposals/${proposalId}`),
+			() => false,
+			2_000,
+		);
+		assert.deepEqual(after.receipt, saved.receipt, "the replay saved nothing again");
+		const person = await context.request.get(`${BASE}/people/${people.people["Maria Santos"]}`);
+		assert.match(await person.text(), new RegExp(city));
+	}));
