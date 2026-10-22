@@ -4,7 +4,6 @@ import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import {
-	authorize,
 	authorizeRead,
 	deny,
 	hash,
@@ -27,6 +26,12 @@ import {
 	type Reference,
 } from "../person-reference-registry/index.ts";
 import { adminRead } from "../assessments/shared.ts";
+import {
+	commitmentInputs,
+	commitmentInputsJson,
+	commitmentOf,
+	type CommitmentInputs,
+} from "../commitments/lifecycle.ts";
 
 type Field = z.infer<typeof c.mergeField>;
 type Kind = z.infer<typeof c.referenceKind>;
@@ -57,38 +62,44 @@ const factsRow = z.object({
 	commitment_state: z.enum(["active", "withdrawn", "unknown"]).nullable(),
 	commitment_effective_on: z.string().nullable(),
 	household_id: z.uuid().nullable(),
+	commitment_inputs: commitmentInputs,
 	refs: z.unknown(),
 });
-export type Facts = Omit<z.infer<typeof factsRow>, "refs"> & { refs: Reference[]; values: Record<string, unknown> };
+export type Facts = Omit<z.infer<typeof factsRow>, "refs" | "commitment_inputs"> & {
+	refs: Reference[];
+	values: Record<string, unknown>;
+	commitment: CommitmentInputs;
+};
 export function parseFacts(raw: unknown): Facts | null {
 	if (raw === null) return null;
-	const row = factsRow.parse(raw);
-	return { ...row, refs: parseReferences(row.refs), values: z.record(z.string(), z.unknown()).parse(raw) };
+	const { commitment_inputs, ...row } = factsRow.parse(raw);
+	const values = z.record(z.string(), z.unknown()).parse(raw);
+	delete values.commitment_inputs;
+	return { ...row, refs: parseReferences(row.refs), values, commitment: commitment_inputs };
 }
 /**
  * One Person with every tracked reference, read in the statement that holds `gate`. Removed organization people are
  * missing, like every other People read.
  */
-export const factsOf = (id: SQL, owner: string) =>
+export const factsOf = (id: SQL, owner: string | SQL) =>
 	sql`(SELECT to_jsonb(p)||jsonb_build_object('revision',p.revision::text,'pipeline_position',p.pipeline_position::text,
- 'refs',${referencesOf(sql`p.id`, owner)}) FROM person p WHERE p.id=${id} AND p.tenant_id=${owner}::uuid
+ 'refs',${referencesOf(sql`p.id`, owner)},'commitment_inputs',${commitmentInputsJson(sql`p.id`, sql`${owner}::uuid`)}) FROM person p WHERE p.id=${id} AND p.tenant_id=${owner}::uuid
  AND NOT EXISTS(SELECT FROM organization_person_removal w WHERE w.person_record_id=p.id AND w.organization_id=p.tenant_id))`;
 
-/** The hash of an exact set of references, independent of read order. */
+/**
+ * The hash of an exact set of references, independent of read order. Commitment changes are left out: each one also
+ * moves its Person's revision, which the review and Unmerge already compare, and merges reviewed before the change
+ * table existed keep a digest without them (C100).
+ */
 export const referencesDigest = (refs: readonly Reference[]) =>
-	hash([...refs].map((x) => [x.kind, x.id, x.revision]).sort((a, b) => (a.join() < b.join() ? -1 : 1)));
+	hash(
+		refs
+			.filter((x) => x.kind !== "commitment_change")
+			.map((x) => [x.kind, x.id, x.revision])
+			.sort((a, b) => (a.join() < b.join() ? -1 : 1)),
+	);
 
 const order = c.stage.options;
-type Commitment = { state: "active" | "withdrawn" | "unknown"; effectiveOn: string | null };
-/**
- * REQ-PPL-026: the survivor keeps the known commitment that took effect last. A withdrawal is never undone by the other
- * Person's older card, and an unknown state never hides a known one.
- */
-function combined(a: Commitment, b: Commitment): Commitment {
-	if (a.state === "unknown") return b;
-	if (b.state === "unknown") return a;
-	return (b.effectiveOn ?? "") > (a.effectiveOn ?? "") ? b : a;
-}
 
 /**
  * The whole merge decision as one pure function of the two Persons and the reviewer's choices, shared by the review and
@@ -119,9 +130,13 @@ export function plan(
 			set.stage = result;
 			if (!sameColumn(survivor.stage!, result)) set.pipeline_position = freshPosition(survivor.id);
 		}
-		const own = { state: survivor.commitment_state!, effectiveOn: survivor.commitment_effective_on };
-		commitment = combined(own, { state: source.commitment_state!, effectiveOn: source.commitment_effective_on });
-		if (commitment !== own) {
+		// REQ-PPL-026 (C100): all the source's history shows on the survivor, so its commitment is the one function over
+		// both Persons' valid cards and dated changes.
+		commitment = commitmentOf({
+			cards: [...survivor.commitment.cards, ...source.commitment.cards],
+			changes: [...survivor.commitment.changes, ...source.commitment.changes],
+		});
+		if (commitment.state !== survivor.commitment_state || commitment.effectiveOn !== survivor.commitment_effective_on) {
 			set.commitment_state = commitment.state;
 			set.commitment_effective_on = commitment.effectiveOn;
 		}
@@ -199,7 +214,6 @@ export const peopleMerge = {
 		return readReply(async () => {
 			const kind = ownerKind(ctx);
 			const input = parse(c.mergeReviewRequest, raw);
-			await authorize(tx, ctx);
 			const { source, survivor } = await readPair(tx, ctx.selected.id, input, adminRead(ctx));
 			const p = plan(kind, source, survivor, {});
 			const side = (f: Facts) => ({
@@ -321,7 +335,7 @@ export const peopleMerge = {
 			const input = parse(c.mergedPersonDestinationRequest, raw);
 			// Any reader of the church may follow a merged Person. In an organization only Owners and Admins read every
 			// Person, so only they follow one; a Member's per-Person pipeline access does not reach merged identities.
-			const gate = kind === "plant" ? (await authorizeRead(tx, ctx)).gate : (await authorize(tx, ctx), adminRead(ctx));
+			const gate = kind === "plant" ? (await authorizeRead(tx, ctx)).gate : adminRead(ctx);
 			const result = await tx.execute(sql`SELECT p.state,coalesce(p.merged_into_person_id,p.id) AS destination,
  (SELECT m.id FROM person_merge m WHERE m.source_id=p.id AND m.tenant_id=p.tenant_id AND m.unmerged_at IS NULL) AS merge_id
  FROM person p WHERE ${gate} AND p.id=${input.personId}::uuid AND p.tenant_id=${ctx.selected.id}::uuid

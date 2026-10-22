@@ -1743,6 +1743,7 @@
       "producer_table_names": [
         "early_access_attempt",
         "early_access_request",
+        "schema_backfill",
         "schema_migration"
       ],
       "consumer_table_names": [],
@@ -2633,6 +2634,7 @@
       ],
       "consumer_table_names": [
         "admission_attempt",
+        "commitment_change",
         "conversation",
         "conversation_event",
         "early_access_attempt",
@@ -2645,6 +2647,7 @@
         "proposal",
         "record_correction",
         "relationship_invitation",
+        "schema_backfill",
         "schema_migration",
         "settings_preview"
       ],
@@ -5785,6 +5788,7 @@
       "producer_table_names": [
         "audit_event",
         "commitment",
+        "commitment_change",
         "four_cs",
         "interview",
         "person_note",
@@ -6063,6 +6067,7 @@
       ],
       "consumer_table_names": [
         "commitment",
+        "commitment_change",
         "interview",
         "organization_person_removal",
         "person",
@@ -6542,6 +6547,7 @@
         "account",
         "audit_event",
         "commitment",
+        "commitment_change",
         "interview",
         "onboarding_setup",
         "participation",
@@ -6948,6 +6954,7 @@
       "consumer_table_names": [
         "attestation",
         "commitment",
+        "commitment_change",
         "interview",
         "meeting",
         "participation",
@@ -25982,6 +25989,7 @@
         "auth_user",
         "auth_verification",
         "commitment",
+        "commitment_change",
         "contact_outcome",
         "conversation",
         "conversation_event",
@@ -26047,6 +26055,7 @@
         "relationship_invitation",
         "residency_link",
         "responsibility",
+        "schema_backfill",
         "schema_migration",
         "seat",
         "settings_preview",
@@ -31975,6 +31984,7 @@
         "auth_user",
         "auth_verification",
         "commitment",
+        "commitment_change",
         "contact_outcome",
         "conversation",
         "conversation_event",
@@ -32037,6 +32047,7 @@
         "relationship_invitation",
         "residency_link",
         "responsibility",
+        "schema_backfill",
         "schema_migration",
         "seat",
         "settings_preview",

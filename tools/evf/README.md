@@ -28,6 +28,23 @@ Design tasks, P2/P3 feedback and every `evf approve` route keep exact-head revie
 Ship never merges on red main. Before it merges, it reads main's latest finished `ci.yml` push run,
 skipping cancelled and skipped runs. When that run failed, only a PR whose body says `Fixes #<n>`
 for the open `P0: CI failed on main` issue may merge. The gate reads the run, not the issue state.
+
+## Ship queue
+
+Any session may run `evf ship` at any time; nobody orders ships by hand. Merging routes wait in one
+machine-wide queue under the Git common directory (`evf/ship-queue/`). Each waiting ship holds a
+ticket, and the oldest live ticket creates `lock.json` exclusively, so ships run one at a time in
+arrival order. A waiting ship prints one line per minute and gives up after 60 minutes without
+changing anything. A ticket or lock whose process has stopped (crash, kill) loses its place, and
+the lock goes away when ship returns, refuses or exits.
+
+Inside the queue, a PR that is behind main gets a plain merge of main through
+`gh pr update-branch`, never a rebase or force push. Ship first refuses with "Fresh gate needed" when
+main changed a path the PR changes, before it touches the branch. After the update it waits up to
+30 minutes for required CI on the new head (one line per minute), then applies the carry rule above
+and merges with `--match-head-commit`. Failed CI or a carry that does not hold also refuses with
+"Fresh gate needed": the author fixes the branch and a verifier reviews the new head. Owner routes
+(design tasks, P2/P3 feedback, `evf approve`) do not queue and never update the branch.
 The ship skill defines the review record and owner approval exceptions.
 
 Model families are `openai` and `anthropic`, not individual model names. Authors put
@@ -139,6 +156,12 @@ runs it before the tooling regressions. A new `.test.mts` file under `tests/inte
 `packages/*/test` must be included by a CI command. The check reads root, package and app scripts;
 it does not execute application tests or claim that an included test passes.
 
+CI runs `test:db` as a matrix with one job and one Postgres service per package
+(`pnpm --filter "${{ matrix.package }}" test:db`). Only `@everyfield/domain` builds the app, for
+the statement census. ci-tests reads the job's `matrix:` values and refuses when the list misses
+a package that defines the script or names an unknown package, so a new package with `test:db`
+cannot drop out of CI. The required check stays the aggregate `ci` job.
+
 `ci-test-exceptions.json` lists exact local-only files, with reasons and local commands.
 D63a retains suites whose helpers require the shared development database, plus the platform
 request proof that needs a preview and S3. Their CI helper changes belong to a WP-087 follow-up.
@@ -196,6 +219,18 @@ ordering with docs/acceptance/check.py and docs/package-context.py --check-case-
 
 Run tooling regressions with `bin/evf test`. Disposable repositories and fake GitHub responses
 exercise workflow behavior only. Tests contact no real GitHub or application database.
+
+## Machine load limit
+
+Agents share one Mac. `evf task start`, `evf verify` and `evf browser run` wait while the 1-minute
+load average is above 2 × CPU cores (24 on Sebastian's 12-core Mac, rulings C51 and C81). A waiting
+command prints one line per minute with the load and the limit, and gives up after 30 minutes
+without starting work. An optional `"machineLoad": {"maxPerCore": 2, "maxWaitMinutes": 30}` in
+`evf.config.json` overrides the default in `tools/evf/load.ts`; an OPS branch cannot add it,
+because it may change only its own `maintenanceTasks` entry.
+`--ignore-load "<reason>"` runs at once and appends the time, command, load, limit and reason to
+`load-overrides.jsonl` under the Git common directory's `evf/` folder. `evf doctor` shows the
+current load and limit. CI runners use the same rule with their own core count.
 
 ## Browser checks and process hygiene
 

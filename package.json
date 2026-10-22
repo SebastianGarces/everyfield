@@ -12,7 +12,7 @@
 		"typecheck": "pnpm -r --if-present typecheck",
 		"check": "pnpm typecheck && pnpm lint && pnpm test:workflow && pnpm test:logs && pnpm build",
 		"access:export": "pnpm --filter @everyfield/db export",
-		"db:migrate": "pnpm --filter @everyfield/db migrate",
+		"db:migrate": "pnpm --filter @everyfield/domain migrate",
 		"test:access": "pnpm --filter @everyfield/domain test",
 		"stack:up": "node scripts/stack.mjs up",
 		"stack:status": "node scripts/stack.mjs status",

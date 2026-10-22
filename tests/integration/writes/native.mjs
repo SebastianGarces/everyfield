@@ -23,7 +23,6 @@ import {
 	assessments,
 	interviews,
 	commitments,
-	uploadCommitmentDocument,
 	getCommitmentDownload,
 	signCommitmentDocument,
 	saveCommitmentDocument,
@@ -532,32 +531,9 @@ try {
 		"correctCommitmentLifecycle",
 	])
 		await fixed(name);
-	// The commitment document: upload, attach and a signed link to the exact object.
-	const cardUpload = value(
-		await run("requestCommitmentUpload", (tx, ctx) =>
-			commitments.requestCommitmentUpload(tx, ctx, {
-				personId: holders[0].id,
-				mime: "image/png",
-				byteLength: png.length,
-			}),
-		),
-	);
-	value(await uploadCommitmentDocument(f.db, storage, plantContext0, { uploadId: cardUpload.uploadId, bytes: png }));
-	const documented = value(
-		await run("createCommitment", (tx, ctx) =>
-			commitments.createCommitment(tx, ctx, {
-				requestKey: key(),
-				input: {
-					personId: holders[0].id,
-					kind: "core_group",
-					occurredOn: daysAgo(1),
-					documentUploadId: cardUpload.uploadId,
-				},
-			}),
-		),
-	);
-	// RT-2 design B: sign is one statement, the browser puts the bytes, and the save is one statement. The URL is signed
-	// locally by the real AWS signer; the fake bucket answers the save's read.
+	// RT-2 design B, then a signed link to the exact object: sign is one statement, the browser puts the bytes, and the
+	// save is createCommitment's native write. The URL is signed locally by the real AWS signer; the fake bucket answers
+	// the save's read.
 	const bucket = {
 		bucket: storage.bucket,
 		client: Object.assign(
@@ -577,8 +553,8 @@ try {
 		}),
 	);
 	objects.set(`private/${plantContext0.selected.id}/${direct.uploadId}`, png);
-	value(
-		await saveCommitmentDocument(f.db, bucket, plantContext0, actor.actor.accountId, {
+	const documented = value(
+		await saveCommitmentDocument(f.db, bucket, actor, {
 			requestKey: key(),
 			input: {
 				personId: holders[1].id,

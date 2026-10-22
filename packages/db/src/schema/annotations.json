@@ -2289,6 +2289,20 @@
 				"privacy_policy": "Private qualification values stay in plant history; never in central audit.",
 				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
 				"future_case_ids": ["ADR1-017"]
+			},
+			{
+				"table": "commitment_change",
+				"columns": ["person_id", "plant_id"],
+				"target_columns": ["id", "tenant_id"],
+				"consumer_work_packages": ["WP-014"],
+				"meaning": "An explicit dated withdrawal or reactivation of this Person's commitment.",
+				"lock_order": "Lock owner and live same-owner source/survivor Persons in UUID order, then consumer rows; reference inserts take the same Person locks.",
+				"merge_policy": "Moves to the survivor, whose commitment is recomputed from both Persons' cards and changes.",
+				"inverse_policy": "Moves back on a guarded Unmerge; each Person's commitment is its own again.",
+				"retirement_policy": "No new change for a retired or merged Person; history stays under current permission and goes with the Person on purge.",
+				"privacy_policy": "Holds only the kind and date; the actor stays in the audit row.",
+				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
+				"future_case_ids": ["ADR1-017"]
 			}
 		],
 		"person_snapshot_references": [
@@ -16479,6 +16493,119 @@
 				},
 				"charged_micro_usd": {
 					"note": ""
+				}
+			},
+			"foreignKeys": {}
+		},
+		"commitment_change": {
+			"table": {
+				"name": "commitment_change",
+				"domain": "people",
+				"purpose": "One explicit dated withdrawal or reactivation of a Person's commitment, with the account that recorded it. With the valid cards it is the whole input of the current commitment; person.commitment_state and commitment_effective_on cache that one function. The audit row with the same ID holds the history entry.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-A-027", "CAP-A-028"],
+				"replaces": [],
+				"producer_work_packages": ["WP-014"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-014"],
+					"rule": "WP-014 commitment lifecycle storage through Drizzle Kit (C100)."
+				},
+				"feature_ids": ["PPL-014", "PPL-015", "TEAM-002", "TEAM-009"],
+				"acceptance_ids": [],
+				"future_case_ids": [],
+				"scope": "plant",
+				"invariants": [
+					"A change names a Person of its own church.",
+					"Effective date and kind never change; a merge and its Unmerge move the row with its Person."
+				],
+				"revision": "Append-only.",
+				"idempotency": "The withdrawal or reactivation audit row's request key returns the recorded result.",
+				"deletion": "Rows cascade with their Person, so church purge removes them.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": ""
+				},
+				"plant_id": {
+					"note": ""
+				},
+				"person_id": {
+					"note": ""
+				},
+				"kind": {
+					"note": ""
+				},
+				"effective_on": {
+					"note": ""
+				},
+				"actor_id": {
+					"note": "The account that recorded the change; null once that account is deleted."
+				},
+				"recorded_at": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"plant_id->plant(id)": {
+					"deletion": {
+						"action": "no_action",
+						"policy": "Owner purge deletes the people first, which removes their commitment changes."
+					}
+				},
+				"person_id,plant_id->person(id,tenant_id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "A commitment change goes with its Person."
+					}
+				},
+				"actor_id->account(id)": {
+					"deletion": {
+						"action": "set_null",
+						"policy": "Account deletion keeps the change and clears its actor, as audit does."
+					}
+				}
+			}
+		},
+		"schema_backfill": {
+			"table": {
+				"name": "schema_backfill",
+				"domain": "operations",
+				"purpose": "Private ledger of the one-time data backfills db:migrate ran after the SQL migrations, with how many rows each changed.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-A-048"],
+				"replaces": [],
+				"producer_work_packages": ["WP-097"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-097"],
+					"rule": "The migration runner ledger's backfill sibling (C102)."
+				},
+				"feature_ids": ["ADM-006"],
+				"acceptance_ids": ["AC-ADM-006--ADM-006"],
+				"future_case_ids": ["CASE-ADM-006"],
+				"scope": "operations",
+				"invariants": [
+					"A backfill name is recorded only in the transaction that completed the backfill.",
+					"A recorded backfill never runs again."
+				],
+				"revision": "Append-only committed backfill receipts.",
+				"idempotency": "The text primary key on name prevents a second receipt; the runner serializes backfills under the migration lock.",
+				"deletion": "Retain receipts for safe repeat execution; they contain no personal data.",
+				"physical_verified": false
+			},
+			"columns": {
+				"name": {
+					"note": "Backfill name and physical primary key."
+				},
+				"applied_at": {
+					"note": "Committed backfill receipt time."
+				},
+				"changed": {
+					"note": "Rows the backfill changed."
 				}
 			},
 			"foreignKeys": {}
