@@ -6,9 +6,11 @@ These owner and coordinator rulings govern the current build. Later rulings over
 
 Resolve the verified session, account, selected owner and seat once per server request and share that context across its callers. Domain reads accept it; writes confirm current authority when changing data. Prefer a short shared read transaction where practical and count page round trips. This removes repeated actor resolution. D60 and D64 refine the authentication mechanism; D70 refines write checks; C13 refines read checks.
 
-## D60, 2026-10-19: standard request authentication
+## D60 and its update, 2026-10-19 and 2026-10-22: standard request authentication
 
 Use a server-only data access layer with one cached session lookup through auth.api.getSession and one cached viewer lookup per request. The proxy checks cookie presence only for redirects; real authorization stays on the server. Domain reads receive the verified viewer. This replaces synthetic requests through the identity handler and hidden proxy routing headers with the supported framework pattern.
+
+Update, 2026-10-22 (RT-1, RT-3, RT-4): the session lookup and the viewer lookup are now one cached statement per request. It reads the session, its user and the viewer by the token of a cookie whose signature the server has verified. auth.api.getSession runs only when that statement finds no live session, so Better Auth deletes the expired row and clears the cookie, or when the session is due for its expiry extension. D64 still holds: the cookie cache stays off and every request reads the database, so a revoked session fails on the next request. A simple write request then sends the session statement and its write: one statement on the one-statement path, or BEGIN, the write gate, its locked reads, the write and COMMIT on the established path (C88). tests/integration/writes/statements.test.mts counts every statement of real HTTP requests on the production build and holds each request, write and page variant to the count in limits.json.
 
 ## D64 and its update, 2026-10-19: cookie cache stays off
 
