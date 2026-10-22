@@ -150,7 +150,7 @@ for (const [name, engine] of ENGINES) {
 			assert.equal(posts(), 3);
 			await dialog.getByRole("button", { name: "Done" }).click();
 			// The owners tally follows the move without a reload.
-			await page.getByText("Daniel Reyes", { exact: true }).waitFor();
+			await page.locator("li", { hasText: "Daniel Reyes" }).filter({ hasText: /\d+ open/ }).waitFor();
 		});
 	});
 }

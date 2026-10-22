@@ -130,7 +130,7 @@ export function AssignMenu({
 					variant={duty.owner ? "ghost" : "outline"}
 					icon={duty.owner ? undefined : UserAdd01Icon}
 					disabled={lane.wait !== null}
-					aria-label={`Owner of ${duty.title}: ${label}. Change owner`}
+					aria-label={duty.owner ? `${label}, owner of ${duty.title}. Change owner` : `Assign ${duty.title}`}
 					{...warmOn(prefetchOwners)}
 					className="max-w-[200px] truncate"
 				>
