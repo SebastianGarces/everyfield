@@ -144,6 +144,8 @@ export type Change<T> = {
 	outcome?: "changed" | "noop";
 	before?: Record<string, unknown> | null;
 	after?: Record<string, unknown> | null;
+	/** The subject's revisions, when a reader orders its history by them: a Person's history needs both. */
+	revision?: { before: string | null; after: string };
 	reason?: string | null;
 	meetingId?: string;
 	metadata?: Record<string, unknown>;
@@ -195,6 +197,8 @@ export async function command<T>(
 		subject_id: change.subject,
 		action: change.action,
 		kind: changed ? change.kind : "noop",
+		before_revision: change.revision?.before ?? null,
+		after_revision: change.revision?.after ?? null,
 		before_value: values.before,
 		after_value: values.after,
 		reason: change.reason ?? null,
