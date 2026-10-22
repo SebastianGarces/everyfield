@@ -40,7 +40,18 @@ import {
 import { KeyValue, KeyValueList, Pagination, StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useOptimistic, useRef, useState, useTransition, type ReactNode } from "react";
+import {
+	useEffect,
+	useId,
+	useOptimistic,
+	useRef,
+	useState,
+	useSyncExternalStore,
+	useTransition,
+	type ReactNode,
+} from "react";
+import { SaveLane, type LaneOptions, type SaveSpec, type Wait } from "../../components/save/model.ts";
+import { NoticeInDialog, SaveNotice } from "../../components/save/parts.tsx";
 import {
 	addStep,
 	bulkComplete,
@@ -85,7 +96,6 @@ import {
 	rangeText,
 	RELATION_LABEL,
 	RELATIONS,
-	Intent,
 	SORT_LABEL,
 	SORTS,
 	STATUS_LABEL,
@@ -108,8 +118,8 @@ import {
 } from "./model.ts";
 import { Assignee, DoneBox, intentHandlers, MetaLine } from "./parts.tsx";
 import type { StepAssignee } from "./structure.tsx";
-import { TaskDialog, warmAssignees, type Commit, type Draft } from "./TaskDialog.tsx";
-import { TaskSheet, type DetailState, type PanelEdit, type PanelProblem } from "./TaskSheet.tsx";
+import { TaskDialog, warmAssignees, type Commit, type EditForm } from "./TaskDialog.tsx";
+import { TaskSheet, type DetailState, type PanelEdit } from "./TaskSheet.tsx";
 
 export type Viewer = { accountId: string; role: "owner" | "admin" | "member"; name: string | null };
 type Loaded = {
@@ -118,7 +128,6 @@ type Loaded = {
 	counts: TaskCounts;
 	opened: TaskLoad | null;
 };
-type BulkItems = { taskId: string; expectedRevision: string }[];
 
 const GROUP: Record<Group["key"], { label: string; tone: "risk" | "measured" | "unknown" | "positive" } | null> = {
 	overdue: { label: "Overdue", tone: "risk" },
@@ -136,6 +145,67 @@ const targetOf = (a: StatusAction): Status =>
 			: a.kind === "waive"
 				? "no_longer_needed"
 				: a.status;
+
+/** Words for a status change in a card's notice: "was not marked done", "may already be reopened". */
+const doneOf = (a: StatusAction): string =>
+	a.kind === "complete"
+		? "marked done"
+		: a.kind === "reopen"
+			? "reopened"
+			: a.kind === "waive"
+				? "closed as no longer needed"
+				: `moved to ${STATUS_LABEL[a.status]}`;
+/** Refusals that mean this screen's copy of the task is old. */
+const STALE = new Set(["conflict", "open_successor"]);
+/** The lanes of the New task form and of bulk changes; every other lane is a task's or a step's ID. */
+const NEW = "new";
+const BULK = "bulk";
+
+/** A form a card's lane opens again after a refused save: the edit dialog or a panel section, with the person's choice. */
+type TaskForm = EditForm | (PanelEdit & { problem?: string });
+
+/**
+ * The save lanes of this screen's cards (C68), made on first use. The screen draws again when any of them changes, so
+ * rows, the panel and the bulk bar read a lane's wait and notice during render.
+ */
+class Lanes {
+	#lanes = new Map<string, SaveLane<TaskForm>>();
+	#listeners = new Set<() => void>();
+	#version = 0;
+	readonly #options: (id: string) => LaneOptions;
+	constructor(options: (id: string) => LaneOptions) {
+		this.#options = options;
+	}
+	of = (id: string): SaveLane<TaskForm> => {
+		let lane = this.#lanes.get(id);
+		if (!lane) {
+			lane = new SaveLane<TaskForm>(this.#options(id));
+			lane.subscribe(() => {
+				this.#version++;
+				for (const l of this.#listeners) l();
+			});
+			this.#lanes.set(id, lane);
+		}
+		return lane;
+	};
+	/** Every lane with a notice, by lane ID. */
+	notices = (): [string, SaveLane<TaskForm>][] => [...this.#lanes].filter(([, l]) => l.get().notice !== null);
+	subscribe = (listener: () => void) => {
+		this.#listeners.add(listener);
+		return () => void this.#listeners.delete(listener);
+	};
+	version = () => this.#version;
+}
+/** A lane's notice props for SaveNotice and NoticeInDialog. */
+const noticeOf = (lane: SaveLane<TaskForm> | null) => ({
+	notice: lane?.get().notice ?? null,
+	busy: lane ? lane.wait() === "saving" : false,
+	onDismiss: () => lane?.dismiss(),
+});
+/** The notices of several cards, each in its own live region. */
+function Notices({ lanes }: { lanes: [string, SaveLane<TaskForm>][] }) {
+	return lanes.map(([id, lane]) => <SaveNotice key={id} dialogOpen={false} className="mb-3" {...noticeOf(lane)} />);
+}
 
 /**
  * Tasks (REQ-TSK-001 to 003, 005 to 008, 015): My and All views, search, filters, sort and pages in the address, with
@@ -164,10 +234,29 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 	// Owner and Admin select tasks for a bulk change; the report says what each selected task did.
 	const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
 	const [report, setReport] = useState<Report | null>(null);
-	const [panelEdit, setPanelEdit] = useState<PanelEdit | null>(null);
-	// A failure that started in the open panel is told there: the modal panel hides the toasts from assistive
-	// technology and keeps keyboard focus inside, so a toast's Try again would be out of reach.
-	const [problem, setProblem] = useState<PanelProblem | null>(null);
+	// Each card's saves (C58, C68): one lane per task, step and new task, and one for bulk changes. The selection a bulk
+	// change may start on, and the tasks the last bulk change holds while it is in flight or unknown.
+	const chosenIds = useRef<readonly string[]>([]);
+	const bulkHeld = useRef<readonly string[]>([]);
+	const [lanes] = useState(
+		(): Lanes =>
+			new Lanes((id): LaneOptions => ({
+				explain: (code) => problemText(code as never),
+				report: (line) => console.error(line),
+				busy:
+					id === BULK
+						? (): boolean => chosenIds.current.some((t) => lanes.of(t).wait() !== null)
+						: (): boolean => {
+								const bulk = lanes.of(BULK).get();
+								return (bulk.saving || bulk.notice?.tone === "unknown") && bulkHeld.current.includes(id);
+							},
+			})),
+	);
+	useSyncExternalStore(lanes.subscribe, lanes.version, lanes.version);
+	// The lane whose edit form the dialog shows, and the lane of the form the person opened last: a refused save opens
+	// its form again only while no other form or task was opened since (C58).
+	const [dialogFor, setDialogFor] = useState<string | null>(null);
+	const formLane = useRef<string | null>(null);
 	// The page's "Blocked by" badges: which read applies, a read in flight, and whether the last one failed.
 	const badgeReads = useRef(new BadgeReads());
 	const readingBadges = useRef(false);
@@ -197,8 +286,6 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 		badgeReads.current.end();
 		readingBadges.current = false;
 	}, [server]);
-	const [busy, setBusy] = useState<ReadonlySet<string>>(() => new Set());
-	const [editing, setEditing] = useState<{ task: TaskDetail | "new"; draft?: Draft } | null>(null);
 	const [deleting, setDeleting] = useState<TaskItem | null>(null);
 	const loading = useRef(new Set<string>());
 	const query = loaded.query;
@@ -232,27 +319,39 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 				}));
 			});
 	};
+	/** Ends the chance of the last form to open again after a refusal, unless it belongs to `keep`. */
+	const leaveForm = (keep?: string) => {
+		const last = formLane.current;
+		if (!last || last === keep) return;
+		lanes.of(last).close();
+		formLane.current = null;
+	};
+	/** Opens a card's form: the edit dialog or a panel section. */
+	const openForm = (id: string, form: TaskForm) => {
+		leaveForm(id);
+		formLane.current = id;
+		lanes.of(id).open(form);
+		if (form.kind === "edit") setDialogFor(id);
+	};
+	const closeForm = (id: string) => {
+		lanes.of(id).close();
+		if (formLane.current === id) formLane.current = null;
+	};
+	// The task the panel shows, for answers that arrive after a later render.
 	const shownId = useRef(openId);
 	const open = (id: string) => {
 		warm(id);
-		if (id !== openId) {
-			setPanelEdit(null);
-			setProblem(null);
-		}
+		if (id !== openId) leaveForm(id);
 		shownId.current = id;
 		setOpenId(id);
 		address(id);
 	};
 	const close = () => {
+		leaveForm();
 		shownId.current = null;
 		setOpenId(null);
-		setPanelEdit(null);
-		setProblem(null);
 		address(null);
 	};
-	/** A failure message: in the panel when it shows the task the change was for, else (or for a batch) as a toast. */
-	const say = (subject: string | null, message: string, action?: PanelProblem["action"]) =>
-		shownId.current === subject ? setProblem({ message, action }) : toast({ tone: "error", message, action });
 
 	/** A confirmed write: the row, the counts and an open panel show the saved task; its history gains the entry. */
 	const confirm = (before: TaskItem | null, saved: Saved, fields = false) => {
@@ -427,35 +526,13 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 		});
 	};
 
-	/** A refused or lost write: the row goes back, the message says why, and an out-of-date copy is read again. */
-	const fail = (
-		task: Pick<TaskItem, "id" | "title">,
-		r: Exclude<Outcome<unknown>, { status: "ok" }>,
-		retry?: () => void,
-		parentId?: string,
-	) => {
-		const code = r.status === "lost" ? "lost" : r.code;
-		const later = r.status === "refused" && r.error?.code === "open_successor" ? r.error.details.successorId : null;
-		say(
-			parentId ?? task.id,
-			`“${task.title}” did not change. ${problemText(code)}`,
-			later
-				? { label: "Open it", altText: "Open the later occurrence that is still open", onSelect: () => open(later) }
-				: retry && r.status === "lost"
-					? { label: "Try again", altText: "Try the change again", onSelect: retry }
-					: undefined,
-		);
-		if (parentId) {
-			if (code !== "lost") refresh(parentId);
-			return;
-		}
-		if (code === "conflict" || code === "open_successor") refresh(task.id);
-		if (code === "unavailable") {
-			setItems((rows) => rows.filter((x) => x.id !== task.id));
-			setTotal((t) => Math.max(0, t - 1));
-		}
+	/** A task the server no longer shows to this seat leaves the list. */
+	const gone = (id: string, code: string) => {
+		if (code !== "unavailable") return;
+		setItems((rows) => rows.filter((x) => x.id !== id));
+		setTotal((t) => Math.max(0, t - 1));
 	};
-	const refresh = (id: string) =>
+	const refresh = (id: string): Promise<void> =>
 		loadTask(id)
 			.catch(() => lost)
 			.then((r) => {
@@ -501,113 +578,53 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 				childTaskComplete: c.childTaskComplete + complete,
 			}));
 	};
-	/** A refused or lost write that is not a status change: the message says what did not happen and why. */
-	const refused = (
-		subject: string | null,
-		what: string,
-		r: Exclude<Outcome<unknown>, { status: "ok" }>,
-		retry: () => void,
-		again?: PanelProblem["action"],
-	) =>
-		say(
-			subject,
-			`${what} ${problemText(r.status === "lost" ? "lost" : r.code)}`,
-			r.status === "lost" ? { label: "Try again", altText: "Try the change again", onSelect: retry } : again,
-		);
-
-	// One write per task at a time, in the order the person asked: a later change waits for the earlier one and sends
-	// the revision it saved, so a quick second change is neither dropped nor refused as out of date.
-	const queue = useRef(new Map<string, Promise<void>>());
-	const revisions = useRef(new Map<string, string>());
-	const revisionOf = (task: Pick<TaskItem, "id" | "revision">) => {
-		const known = revisions.current.get(task.id);
-		return known && BigInt(known) > BigInt(task.revision) ? known : task.revision;
-	};
 	/**
-	 * Runs one write for one task, or one bulk write for several: `show` puts the change on screen, `send` makes the
-	 * request, `settle` confirms or rolls back. It waits for earlier writes to the same tasks, and later ones wait for it.
-	 * The optimistic change lasts exactly as long as the request.
+	 * One save on one card (C58, C68). The change shows at once while the card's lane sends it: a lost answer is sent
+	 * once more with the same key, a saved answer stands in the rows, a refusal opens the form again or puts the reason
+	 * on the card, and an unknown result says it may already be saved, with Check again. Nothing starts on a busy card
+	 * (the lane reports it, C69) and nothing waits in a queue.
 	 */
-	const serial = <T,>(
-		ids: string | readonly string[],
-		show: () => void,
-		send: () => Promise<Outcome<T>>,
-		settle: (r: Outcome<T>) => void,
-	) => {
-		const list = typeof ids === "string" ? [ids] : ids;
-		setBusy((b) => new Set([...b, ...list]));
-		const run: Promise<void> = Promise.all(list.map((id) => queue.current.get(id))).then(
-			() =>
-				new Promise<void>((resolve) =>
-					startAction(async () => {
-						show();
-						const r = await send().catch(() => lost);
-						resolve();
-						startAction(() => {
-							const done = list.filter((id) => queue.current.get(id) === run);
-							for (const id of done) queue.current.delete(id);
-							if (done.length)
-								setBusy((b) => {
-									const n = new Set(b);
-									for (const id of done) n.delete(id);
-									return n;
-								});
-							settle(r);
-						});
-					}),
-				),
-		);
-		for (const id of list) queue.current.set(id, run);
-	};
-	/** One request of a save intent: a retry of a lost answer resends the intent's key and revision. */
-	const keyed = (
-		intent: Intent,
-		call: (key: string, revision: string) => Promise<Outcome<Saved>>,
-		revision: () => string,
-	) => {
-		const sent = intent.send(revision);
-		return call(sent.key, sent.basis).then((r) => {
-			if (r.status === "ok") revisions.current.set(r.value.task.id, r.value.task.revision);
-			return r;
+	const run = <T,>(id: string, show: () => void, spec: SaveSpec<TaskForm, T>) => {
+		const lane = lanes.of(id);
+		if (lane.wait() !== null) return void lane.save(spec);
+		startAction(async () => {
+			show();
+			await lane.save({ ...spec, ok: (value, checked) => startAction(() => spec.ok(value, checked)) });
 		});
 	};
+	/** A refusal that means this screen's copy is old reads the task again first, so the card tells it over the latest. */
+	const reread = async <T,>(id: string, sent: Promise<Outcome<T>>, stale = (code: string) => STALE.has(code)) => {
+		const r = await sent;
+		if (r.status === "refused" && stale(r.code)) await refresh(id);
+		return r;
+	};
 
-	const act = (task: TaskItem, action: StatusAction, intent = new Intent()) =>
-		serial(
-			task.id,
-			() => setPending({ kind: "status", id: task.id, status: targetOf(action) }),
-			() =>
-				keyed(
-					intent,
-					(key, rev) => changeTaskStatus(key, rev, task.id, action),
-					() => revisionOf(task),
-				),
-			(r) => {
-				if (r.status !== "ok") return fail(task, r, () => act(task, action, intent));
-				confirm(task, r.value);
-				if (r.value.successor) succeeded(task, r.value.successor);
+	const act = (task: TaskItem, action: StatusAction) =>
+		run(task.id, () => setPending({ kind: "status", id: task.id, status: targetOf(action) }), {
+			what: `“${task.title}”`,
+			done: doneOf(action),
+			send: (key) => reread(task.id, changeTaskStatus(key, task.revision, task.id, action)),
+			ok: (value: Saved) => {
+				confirm(task, value);
+				if (value.successor) succeeded(task, value.successor);
 				if (action.kind === "waive") toast({ tone: "success", message: `Closed “${task.title}” as no longer needed.` });
 			},
-		);
+			refused: (code) => gone(task.id, code),
+		});
 
 	/** Tick or untick a step, shown at once. Its own assignee or an Owner/Admin may (REQ-TSK-005). */
-	const tickStep = (parentId: string, step: Step, complete: boolean, intent = new Intent()) =>
-		serial(
-			step.id,
-			() => setPending({ kind: "status", id: step.id, status: complete ? "complete" : "not_started" }),
-			() =>
-				keyed(
-					intent,
-					(key, rev) => setStep(key, rev, parentId, step.id, complete),
-					() => revisionOf(step),
-				),
-			(r) =>
-				r.status === "ok"
-					? stepSaved(parentId, r.value.task)
-					: fail(step, r, () => tickStep(parentId, step, complete, intent), parentId),
-		);
-	/** Add a step, shown at once under its task until the server names it. */
-	const addStepTo = (parent: TaskItem, title: string, who: StepAssignee, intent = new Intent()) => {
+	const tickStep = (parentId: string, step: Step, complete: boolean) =>
+		run(step.id, () => setPending({ kind: "status", id: step.id, status: complete ? "complete" : "not_started" }), {
+			what: `The step “${step.title}”`,
+			done: complete ? "marked done" : "reopened",
+			send: (key) => reread(parentId, setStep(key, step.revision, parentId, step.id, complete), () => true),
+			ok: (value: Saved) => stepSaved(parentId, value.task),
+		});
+	/**
+	 * Add a step, shown at once under its task until the server names it. Each new step is its own card: adding one does
+	 * not change its task's revision, so several can be added quickly.
+	 */
+	const addStepTo = (parent: TaskItem, title: string, who: StepAssignee) => {
 		const assignee =
 			who.kind === "inherit"
 				? parent.assignee
@@ -621,149 +638,75 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 			status: "not_started",
 			assignee,
 		};
-		serial(
-			parent.id,
-			() => setPending({ kind: "step", parentId: parent.id, step: shownStep }),
-			() =>
-				keyed(
-					intent,
-					(key, rev) =>
-						addStep(
-							key,
-							rev,
-							parent.id,
-							title,
-							who.kind === "inherit" ? undefined : who.kind === "nobody" ? null : who.accountId,
-						),
-					() => revisionOf(parent),
-				),
-			(r) => {
-				if (r.status === "ok") return stepSaved(parent.id, r.value.task);
-				refused(parent.id, `“${title}” was not added.`, r, () => addStepTo(parent, title, who, intent));
-				if (r.status === "refused" && r.code === "conflict") refresh(parent.id);
-			},
-		);
+		const holder = who.kind === "inherit" ? undefined : who.kind === "nobody" ? null : who.accountId;
+		run(shownStep.id, () => setPending({ kind: "step", parentId: parent.id, step: shownStep }), {
+			what: `The step “${title}”`,
+			done: "added",
+			send: (key) => reread(parent.id, addStep(key, parent.revision, parent.id, title, holder)),
+			ok: (value: Saved) => stepSaved(parent.id, value.task),
+		});
 	};
 	/** Remove a step, shown at once. It leaves the list; its history stays. Owner/Admin. */
-	const removeStepFrom = (parentId: string, step: Step, intent = new Intent()) =>
-		serial(
-			step.id,
-			() => setPending({ kind: "row", id: step.id, row: null }),
-			() =>
-				keyed(
-					intent,
-					(key, rev) => removeStep(key, rev, parentId, step.id),
-					() => revisionOf(step),
-				),
-			(r) => {
-				if (r.status === "ok") {
-					stepSaved(parentId, r.value.task);
-					return toast({ tone: "success", message: `Removed the step “${step.title}”. Its history is kept.` });
-				}
-				refused(parentId, `The step “${step.title}” was not removed.`, r, () => removeStepFrom(parentId, step, intent));
-				if (r.status === "refused") refresh(parentId);
+	const removeStepFrom = (parentId: string, step: Step) =>
+		run(step.id, () => setPending({ kind: "row", id: step.id, row: null }), {
+			what: `The step “${step.title}”`,
+			done: "removed",
+			send: (key) => reread(parentId, removeStep(key, step.revision, parentId, step.id), () => true),
+			ok: (value: Saved) => {
+				stepSaved(parentId, value.task);
+				toast({ tone: "success", message: `Removed the step “${step.title}”. Its history is kept.` });
 			},
-		);
+		});
 
 	/**
 	 * Replace what a task waits for, shown at once in the panel and the row's badge (REQ-TSK-006). A loop or a stale
-	 * copy refuses; the toast offers the person's list again.
+	 * copy refuses, and the list opens again with the person's choice while it is still their latest form.
 	 */
-	const savePrerequisites = (task: TaskItem, list: Prerequisite[], intent = new Intent()) => {
-		setPanelEdit(null);
+	const savePrerequisites = (task: TaskItem, list: Prerequisite[]) => {
 		const openCount = list.filter(blocks).length;
-		serial(
+		run(
 			task.id,
 			() => {
 				setPending({ kind: "panel", id: task.id, panel: { prerequisites: list } });
 				const row = listed.current.find((r) => r.id === task.id);
 				if (row) setPending({ kind: "row", id: task.id, row: { ...row, openPrerequisites: openCount } });
 			},
-			() =>
-				keyed(
-					intent,
-					(key, rev) =>
+			{
+				what: `What “${task.title}” waits for`,
+				form: { kind: "prerequisites", draft: list },
+				send: (key) =>
+					reread(
+						task.id,
 						setPrerequisites(
 							key,
-							rev,
+							task.revision,
 							task.id,
 							list.map((p) => p.id),
 						),
-					() => revisionOf(task),
-				),
-			(r) => {
-				if (r.status === "ok") {
-					confirm(task, r.value);
-					return setDetails((d) => {
+					),
+				ok: (value: Saved) => {
+					confirm(task, value);
+					setDetails((d) => {
 						const cur = d[task.id];
 						return cur?.status === "ok"
 							? { ...d, [task.id]: { ...cur, prerequisites: { taskId: task.id, items: list, blocked: openCount > 0 } } }
 							: d;
 					});
-				}
-				// In the open panel the list opens again with the person's choice; elsewhere the toast offers it.
-				const again = () => {
-					open(task.id);
-					setPanelEdit({ kind: "prerequisites", draft: list });
-				};
-				const here = shownId.current === task.id;
-				if (r.status === "refused" && here) again();
-				refused(
-					task.id,
-					`What “${task.title}” waits for did not change.`,
-					r,
-					() => savePrerequisites(task, list, intent),
-					here
-						? undefined
-						: {
-								label: "Change it again",
-								altText: "Open the list with your changes",
-								onSelect: again,
-							},
-				);
-				if (r.status === "refused" && r.code === "conflict") refresh(task.id);
+				},
 			},
 		);
 	};
 	/** Make a task repeat, change its rule or stop it, shown at once in the panel (REQ-TSK-007). */
-	const saveRepeat = (task: TaskItem, before: TaskDetail["recurrence"], rule: Rule | null, intent = new Intent()) => {
-		setPanelEdit(null);
+	const saveRepeat = (task: TaskItem, before: TaskDetail["recurrence"], rule: Rule | null) => {
 		const shownRule: TaskDetail["recurrence"] = rule
 			? { ...rule, seriesId: before?.seriesId ?? (PENDING_PREFIX as never), stopped: false }
 			: before && { ...before, stopped: true };
-		serial(
-			task.id,
-			() => setPending({ kind: "panel", id: task.id, panel: { recurrence: shownRule } }),
-			() =>
-				keyed(
-					intent,
-					(key, rev) => setRecurrence(key, rev, task.id, rule),
-					() => revisionOf(task),
-				),
-			(r) => {
-				if (r.status === "ok") return confirm(task, r.value);
-				const again = () => {
-					open(task.id);
-					setPanelEdit({ kind: "repeat", draft: rule });
-				};
-				const here = shownId.current === task.id;
-				if (r.status === "refused" && here) again();
-				refused(
-					task.id,
-					`How “${task.title}” repeats did not change.`,
-					r,
-					() => saveRepeat(task, before, rule, intent),
-					here
-						? undefined
-						: {
-								label: "Change it again",
-								altText: "Open the repeat settings with your choice",
-								onSelect: again,
-							},
-				);
-				if (r.status === "refused" && r.code === "conflict") refresh(task.id);
-			},
-		);
+		run(task.id, () => setPending({ kind: "panel", id: task.id, panel: { recurrence: shownRule } }), {
+			what: `How “${task.title}” repeats`,
+			form: { kind: "repeat", draft: rule },
+			send: (key) => reread(task.id, setRecurrence(key, task.revision, task.id, rule)),
+			ok: (value: Saved) => confirm(task, value),
+		});
 	};
 
 	/**
@@ -771,118 +714,105 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 	 * confirms each task that changed, rolls back the rest and reports why each one did not. The open ones that did not
 	 * change stay selected, and a task that changed since it was selected is loaded again for review.
 	 */
-	const runBulk = (
-		kind: Report["kind"],
-		due: DueInput | null,
-		chosen: TaskItem[],
-		intent = new Intent<BulkItems>(),
-	) => {
+	const runBulk = (kind: Report["kind"], due: DueInput | null, chosen: TaskItem[]) => {
 		if (!chosen.length) return;
 		setReport(null);
+		const items = chosen.map((t) => ({ taskId: t.id, expectedRevision: t.revision }));
 		const after = (t: TaskItem, revision: string): TaskItem =>
 			kind === "complete"
 				? { ...t, revision: revision as never, status: "complete", completedAt: new Date().toISOString() as never }
 				: { ...t, revision: revision as never, due: due as TaskItem["due"], overdue: previewOverdue(due!) };
-		serial(
-			chosen.map((t) => t.id),
+		run(
+			BULK,
 			() => {
+				bulkHeld.current = chosen.map((t) => t.id);
 				for (const t of chosen)
 					if (kind === "complete") setPending({ kind: "status", id: t.id, status: "complete" });
 					else if (!isSettled(t.status)) setPending({ kind: "row", id: t.id, row: after(t, t.revision) });
 			},
-			() => {
-				const sent = intent.send(() => chosen.map((t) => ({ taskId: t.id, expectedRevision: revisionOf(t) })));
-				return (
-					kind === "complete" ? bulkComplete(sent.key, sent.basis) : bulkReschedule(sent.key, sent.basis, due)
-				).then((r: Outcome<BulkResult>) => {
-					if (r.status === "ok")
-						for (const i of r.value.items)
-							if (i.outcome === "changed" && i.revision) revisions.current.set(i.taskId, i.revision);
-					return r;
-				});
-			},
-			(r) => {
-				if (r.status !== "ok")
-					return refused(null, kind === "complete" ? "No tasks were completed." : "No tasks were rescheduled.", r, () =>
-						runBulk(kind, due, chosen, intent),
+			{
+				what: `The change to ${chosen.length} ${chosen.length === 1 ? "task" : "tasks"}`,
+				send: (key) => (kind === "complete" ? bulkComplete(key, items) : bulkReschedule(key, items, due)),
+				ok: (result: BulkResult) => {
+					const byId = new Map(chosen.map((t) => [t.id, t]));
+					const outcome = new Map(result.items.map((i) => [i.taskId, i]));
+					const gone = new Set(
+						result.items.filter((i) => i.outcome === "deleted" || i.outcome === "not_found").map((i) => i.taskId),
 					);
-				const result = r.value;
-				const byId = new Map(chosen.map((t) => [t.id, t]));
-				const outcome = new Map(result.items.map((i) => [i.taskId, i]));
-				const gone = new Set(
-					result.items.filter((i) => i.outcome === "deleted" || i.outcome === "not_found").map((i) => i.taskId),
-				);
-				const rows = listed.current;
-				let moved = 0;
-				const nextCounts = (c: TaskCounts) =>
-					rows.reduce((acc, row) => {
-						const i = outcome.get(row.id);
-						if (i?.outcome === "changed") return countsAfter(acc, row, after(row, i.revision!));
-						if (gone.has(row.id)) return countsAfter(acc, row, null);
-						return acc;
-					}, c);
-				for (const row of rows) if (gone.has(row.id)) moved++;
-				setItems((list) =>
-					list.flatMap((row) => {
-						const i = outcome.get(row.id);
-						if (gone.has(row.id)) return [];
-						return i?.outcome === "changed" ? [after(row, i.revision!)] : [row];
-					}),
-				);
-				setCounts(nextCounts);
-				if (moved) setTotal((t) => Math.max(0, t - moved));
-				// A changed task's cached panel no longer matches; the open one reads again, the others on their next open.
-				const changed = new Set<string>(result.items.filter((i) => i.outcome === "changed").map((i) => i.taskId));
-				if (kind === "complete" && changed.size)
-					blockersChanged([...changed].map((id) => ({ id, status: "complete" as const, deleted: false })));
-				const shownTask = shownId.current;
-				setDetails((d) => Object.fromEntries(Object.entries(d).filter(([id]) => !changed.has(id) || id === shownTask)));
-				if (shownTask && changed.has(shownTask)) refresh(shownTask);
-				for (const i of result.items) if (i.outcome === "stale") refresh(i.taskId);
-				setSelected(new Set(result.remaining));
-				const unchanged = result.items
-					.filter((i) => i.outcome !== "changed")
-					.map((i) => ({ id: i.taskId, title: byId.get(i.taskId)?.title ?? "A task", outcome: i.outcome }));
-				if (!unchanged.length) {
-					const n = result.changed;
-					return toast({
-						tone: "success",
-						message: `${kind === "complete" ? "Completed" : "Rescheduled"} ${n} ${n === 1 ? "task" : "tasks"}.`,
-					});
-				}
-				setReport({ kind, changed: result.changed, unchanged, remaining: result.remaining.length });
+					const rows = listed.current;
+					let moved = 0;
+					const nextCounts = (c: TaskCounts) =>
+						rows.reduce((acc, row) => {
+							const i = outcome.get(row.id);
+							if (i?.outcome === "changed") return countsAfter(acc, row, after(row, i.revision!));
+							if (gone.has(row.id)) return countsAfter(acc, row, null);
+							return acc;
+						}, c);
+					for (const row of rows) if (gone.has(row.id)) moved++;
+					setItems((list) =>
+						list.flatMap((row) => {
+							const i = outcome.get(row.id);
+							if (gone.has(row.id)) return [];
+							return i?.outcome === "changed" ? [after(row, i.revision!)] : [row];
+						}),
+					);
+					setCounts(nextCounts);
+					if (moved) setTotal((t) => Math.max(0, t - moved));
+					// A changed task's cached panel no longer matches; the open one reads again, the others on their next open.
+					const changed = new Set<string>(result.items.filter((i) => i.outcome === "changed").map((i) => i.taskId));
+					if (kind === "complete" && changed.size)
+						blockersChanged([...changed].map((id) => ({ id, status: "complete" as const, deleted: false })));
+					const shownTask = shownId.current;
+					setDetails((d) =>
+						Object.fromEntries(Object.entries(d).filter(([id]) => !changed.has(id) || id === shownTask)),
+					);
+					if (shownTask && changed.has(shownTask)) refresh(shownTask);
+					for (const i of result.items) if (i.outcome === "stale") refresh(i.taskId);
+					setSelected(new Set(result.remaining));
+					const unchanged = result.items
+						.filter((i) => i.outcome !== "changed")
+						.map((i) => ({ id: i.taskId, title: byId.get(i.taskId)?.title ?? "A task", outcome: i.outcome }));
+					if (!unchanged.length) {
+						const n = result.changed;
+						return toast({
+							tone: "success",
+							message: `${kind === "complete" ? "Completed" : "Rescheduled"} ${n} ${n === 1 ? "task" : "tasks"}.`,
+						});
+					}
+					setReport({ kind, changed: result.changed, unchanged, remaining: result.remaining.length });
+				},
 			},
 		);
 	};
 
-	/** New task or edit, shown at once. A refusal puts the row back and offers the form again with the person's text. */
-	const commit = (c: Commit, intent = new Intent()) => {
+	/**
+	 * New task or edit, shown at once. A refusal opens the form again with the person's values on the newest copy of
+	 * the task (a conflict reads it first), or, when they opened another form since, puts the reason on the task's card.
+	 */
+	const commit = (c: Commit) => {
 		const before = c.before;
-		const id = before?.id ?? c.preview.id;
-		serial(
+		const id = before?.id ?? NEW;
+		// The lane copies the form when the server refuses, so a question the refusal asks (which of two times) goes in it.
+		const form: EditForm = { kind: "edit", task: before, draft: c.draft };
+		run(
 			id,
 			() => {
 				const fits = matches(query, c.preview, viewer.accountId);
 				if (before) setPending({ kind: "row", id, row: fits ? c.preview : null });
 				else if (fits) setPending({ kind: "add", row: c.preview });
 			},
-			() => keyed(intent, c.send, () => (before ? revisionOf(before) : "0")),
-			(r) => {
-				if (r.status === "ok") return saved(before, r.value);
-				const what = before ? `“${before.title}” did not change.` : `“${c.preview.title}” was not added.`;
-				toast({
-					tone: "error",
-					message: `${what} ${problemText(r.status === "lost" ? "lost" : r.code)}`,
-					action:
-						r.status === "lost"
-							? { label: "Try again", altText: "Save the same change again", onSelect: () => commit(c, intent) }
-							: {
-									label: "Open the form",
-									altText: "Open the task form with your changes",
-									onSelect: () => setEditing({ task: before ?? "new", draft: c.draft }),
-								},
-				});
-				if (before && r.status === "refused" && r.code === "conflict") refresh(before.id);
+			{
+				what: `“${before?.title ?? c.preview.title}”`,
+				done: before ? "saved" : "added",
+				form,
+				send: async (key) => {
+					const r = await (before ? reread(before.id, c.send(key)) : c.send(key));
+					if (r.status === "refused" && r.error?.code === "ambiguous_local_time")
+						form.choices = r.error.details.choices;
+					return r;
+				},
+				ok: (value: Saved) => saved(before, value),
+				refused: (code) => before && gone(before.id, code),
 			},
 		);
 	};
@@ -906,40 +836,34 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 	const canAct = (task: Pick<TaskItem, "assignee">) => admin || task.assignee?.accountId === viewer.accountId;
 
 	/** Delete, shown at once: the row leaves; a refusal brings it back with the reason. */
-	const remove = (task: TaskItem, intent = new Intent()) => {
+	const remove = (task: TaskItem) => {
 		if (openId === task.id) close();
-		serial(
-			task.id,
-			() => setPending({ kind: "row", id: task.id, row: null }),
-			() =>
-				keyed(
-					intent,
-					(key, rev) => deleteTask(key, rev, task.id),
-					() => revisionOf(task),
-				),
-			(r) => {
-				if (r.status === "ok") {
-					confirm(task, r.value);
-					return toast({ tone: "success", message: `Deleted “${task.title}”. Its history is kept.` });
-				}
-				toast({
-					tone: "error",
-					message: `“${task.title}” was not deleted. ${problemText(r.status === "lost" ? "lost" : r.code)}`,
-					action:
-						r.status === "lost"
-							? { label: "Try again", altText: "Delete the task again", onSelect: () => remove(task, intent) }
-							: undefined,
-				});
-				if (r.status === "refused" && r.code === "conflict") refresh(task.id);
+		run(task.id, () => setPending({ kind: "row", id: task.id, row: null }), {
+			what: `“${task.title}”`,
+			done: "deleted",
+			send: (key) => reread(task.id, deleteTask(key, task.revision, task.id)),
+			ok: (value: Saved) => {
+				confirm(task, value);
+				toast({ tone: "success", message: `Deleted “${task.title}”. Its history is kept.` });
 			},
-		);
+			refused: (code) => gone(task.id, code),
+		});
 	};
 	/** Edit needs the description, which the list does not carry: one read, then the form. */
 	const edit = (task: TaskItem) => {
 		const d = details[task.id];
-		if (d?.status === "ok") return setEditing({ task: d.task });
+		if (d?.status === "ok") return openForm(task.id, { kind: "edit", task: d.task });
 		warmAssignees();
-		loadTask(task.id).then((r) => (r.status === "ok" ? setEditing({ task: r.value.task }) : fail(task, r)));
+		loadTask(task.id)
+			.catch(() => lost)
+			.then((r) =>
+				r.status === "ok"
+					? openForm(task.id, { kind: "edit", task: r.value.task })
+					: toast({
+							tone: "error",
+							message: `“${task.title}” did not open. ${r.status === "lost" ? "Check your connection and try again." : problemText(r.code)}`,
+						}),
+			);
 	};
 
 	const openState = openId ? (details[openId] ?? { status: "loading" }) : null;
@@ -949,10 +873,23 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 		? (shown.find((t) => t.id === openId) ??
 			(openDetail ? { ...openDetail, status: pending.status[openDetail.id] ?? openDetail.status } : null))
 		: null;
+	const dialogLane = dialogFor ? lanes.of(dialogFor) : null;
+	const dialogForm = dialogLane?.get().editing?.kind === "edit" ? (dialogLane.get().editing as EditForm) : null;
+	const panelForm = openId ? lanes.of(openId).get().editing : null;
+	// While the panel or the dialog is open, a card's notice shows there and not on its row (C69): the modal hides the
+	// list from assistive technology. The panel shows every notice; the dialog shows its own card's notice.
+	const modal = openId !== null || dialogForm !== null;
+	// The open dialog shows its own card's notice, so the panel under it leaves that one out.
+	const sheetNotices = lanes
+		.notices()
+		.filter(([id]) => !(dialogForm && id === dialogFor))
+		.sort(([a], [b]) => Number(b === openId) - Number(a === openId));
+	const listNotices = modal ? [] : lanes.notices().filter(([id]) => id === NEW || id === BULK);
 	const groups = groupsOf(shown, query.sort);
 	const filtered = isFiltered(query);
 	const selectable = shown.filter((t) => !t.id.startsWith(PENDING_PREFIX));
 	const chosen = selectable.filter((t) => selected.has(t.id));
+	chosenIds.current = chosen.map((t) => t.id);
 	const toggleSelected = (id: string) =>
 		setSelected((s) => {
 			const n = new Set(s);
@@ -984,7 +921,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 							<Button
 								variant="primary"
 								icon={Add01Icon}
-								onClick={() => setEditing({ task: "new" })}
+								onClick={() => openForm(NEW, { kind: "edit", task: null })}
 								{...intentHandlers(warmAssignees)}
 							>
 								New task
@@ -997,6 +934,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 				<Card className="gap-2 px-[18px] py-5 max-app-sm:px-3">
 					<Toolbar query={query} go={go} admin={admin} rows={items} />
 					{report ? <BulkReport report={report} onOpen={open} onClose={() => setReport(null)} /> : null}
+					<Notices lanes={listNotices} />
 					<div role="status" className="empty:hidden">
 						{badgesStale ? (
 							<p className="mx-1.5 mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md bg-surface px-4 py-2 text-sm text-text-2">
@@ -1014,7 +952,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 								filtered={filtered}
 								admin={admin}
 								go={go}
-								onNew={() => setEditing({ task: "new" })}
+								onNew={() => openForm(NEW, { kind: "edit", task: null })}
 							/>
 						) : (
 							groups.map((g) => (
@@ -1044,7 +982,9 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 												canAct={canAct(t) && !t.id.startsWith(PENDING_PREFIX)}
 												selected={admin && !t.id.startsWith(PENDING_PREFIX) ? selected.has(t.id) : null}
 												onSelect={() => toggleSelected(t.id)}
-												busy={busy.has(t.id)}
+												wait={lanes.of(t.id).wait()}
+												notice={noticeOf(lanes.of(t.id))}
+												modal={modal}
 												onToggle={() => toggle(t)}
 												onAction={(a) => act(t, a)}
 												onOpen={() => !t.id.startsWith(PENDING_PREFIX) && open(t.id)}
@@ -1066,6 +1006,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 								setSelected(chosen.length === selectable.length ? new Set() : new Set(selectable.map((t) => t.id)))
 							}
 							onClear={() => setSelected(new Set())}
+							wait={lanes.of(BULK).wait()}
 							onComplete={() => runBulk("complete", null, chosen)}
 							onReschedule={(due) => runBulk("reschedule", due, chosen)}
 						/>
@@ -1096,41 +1037,43 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 				year={year}
 				viewer={viewer}
 				canAct={openTask ? canAct(openTask) : false}
-				busy={openId ? busy.has(openId) : false}
+				wait={openId ? lanes.of(openId).wait() : null}
 				onAction={(a) => openTask && act(openTask, a)}
-				onEdit={() => openState?.status === "ok" && setEditing({ task: openState.task })}
+				onEdit={() => openId && openState?.status === "ok" && openForm(openId, { kind: "edit", task: openState.task })}
 				onDelete={() => openTask && setDeleting(openTask)}
 				onRetry={() => openId && warm(openId)}
 				pending={pending}
 				canActStep={(step) => canAct(step)}
-				stepBusy={(id) => busy.has(id)}
+				stepWait={(id) => lanes.of(id).wait()}
 				onStep={(step, complete) => openId && tickStep(openId, step, complete)}
 				onAddStep={(title, who) => openTask && addStepTo(openTask, title, who)}
 				onRemoveStep={(step) => openId && removeStepFrom(openId, step)}
-				edit={panelEdit}
-				onEditPanel={setPanelEdit}
+				edit={panelForm?.kind === "prerequisites" || panelForm?.kind === "repeat" ? panelForm : null}
+				onEditPanel={(form) => openId && (form ? openForm(openId, form) : closeForm(openId))}
 				onPrerequisites={(list) => openTask && savePrerequisites(openTask, list)}
 				onRepeat={(rule) => openTask && openDetail && saveRepeat(openTask, openDetail.recurrence, rule)}
 				onOpenTask={open}
-				problem={problem}
-				onDismissProblem={() => setProblem(null)}
+				notices={<Notices lanes={sheetNotices} />}
 			/>
 			{admin ? (
-				<TaskDialog
-					task={editing?.task ?? null}
-					draft={editing?.draft}
-					viewer={viewer}
-					onClose={() => setEditing(null)}
-					onCommit={(c) => {
-						setEditing(null);
-						commit(c);
-					}}
-					onSaved={(before, value) => {
-						setEditing(null);
-						saved(before, value);
-					}}
-					onConflict={(id) => refresh(id)}
-				/>
+				<NoticeInDialog {...noticeOf(dialogLane)}>
+					<TaskDialog
+						form={dialogForm}
+						latest={
+							dialogFor && details[dialogFor]?.status === "ok"
+								? (details[dialogFor] as { task: TaskDetail }).task
+								: null
+						}
+						viewer={viewer}
+						wait={dialogLane?.wait() ?? null}
+						problem={dialogForm?.problem ? problemText(dialogForm.problem as never) : undefined}
+						onClose={() => {
+							if (dialogFor) closeForm(dialogFor);
+							setDialogFor(null);
+						}}
+						onCommit={commit}
+					/>
+				</NoticeInDialog>
 			) : null}
 			<ConfirmDialog
 				open={deleting !== null}
@@ -1162,7 +1105,9 @@ function TaskRow({
 	canAct,
 	selected,
 	onSelect,
-	busy,
+	wait,
+	notice,
+	modal,
 	onToggle,
 	onAction,
 	onOpen,
@@ -1178,7 +1123,11 @@ function TaskRow({
 	/** Whether the row is in the bulk selection, or null when the viewer cannot select. */
 	selected: boolean | null;
 	onSelect: () => void;
-	busy: boolean;
+	/** The task's save in flight or unknown: its status controls and Delete wait (C68). */
+	wait: Wait;
+	notice: ReturnType<typeof noticeOf>;
+	/** The panel or a dialog is open, so the notice shows there instead. */
+	modal: boolean;
 	onToggle: () => void;
 	onAction: (a: StatusAction) => void;
 	onOpen: () => void;
@@ -1187,18 +1136,21 @@ function TaskRow({
 	onDelete: () => void;
 }) {
 	const settled = isSettled(task.status);
+	// While the task's save is in flight or unknown, its controls wait (C68) and say why next to the title.
+	const hint = useId();
+	const waiting = canAct && wait !== null;
 	return (
 		<li
 			data-done={settled || undefined}
 			data-selected={selected || undefined}
-			className="group/row flex items-center gap-3.5 rounded-card border-t border-line px-3 py-3.5 first:border-t-0 data-selected:bg-surface-raised data-selected:shadow-[inset_0_0_0_1.5px_var(--ef-ink)] max-app-sm:gap-2 max-app-sm:px-2 [[data-selected]+&]:border-t-transparent"
+			className="group/row flex flex-wrap items-center gap-x-3.5 rounded-card border-t border-line px-3 py-3.5 first:border-t-0 data-selected:bg-surface-raised data-selected:shadow-[inset_0_0_0_1.5px_var(--ef-ink)] max-app-sm:gap-2 max-app-sm:px-2 [[data-selected]+&]:border-t-transparent"
 		>
 			{selected !== null ? (
 				<label className="-m-3 grid size-11 flex-none cursor-pointer place-items-center">
 					<Checkbox aria-label={`Select ${task.title}`} checked={selected} onCheckedChange={onSelect} />
 				</label>
 			) : null}
-			<DoneBox task={task} canAct={canAct} busy={busy} onToggle={onToggle} />
+			<DoneBox task={task} canAct={canAct} wait={wait} describedBy={waiting ? hint : undefined} onToggle={onToggle} />
 			<div className="min-w-0 flex-1">
 				<button
 					type="button"
@@ -1211,23 +1163,33 @@ function TaskRow({
 				>
 					{task.title}
 				</button>
+				{waiting ? (
+					<span id={hint} className="ml-2 text-xs whitespace-nowrap text-text-2">
+						{wait === "saving" ? "Saving…" : "Check the last save first."}
+					</span>
+				) : null}
 				<MetaLine task={task} year={year} />
 			</div>
 			<Assignee task={task} you={you} />
 			{canAct ? (
 				<Menu>
 					<MenuTrigger asChild>
-						<IconButton icon={MoreHorizontalIcon} label={`More for ${task.title}`} size="sm" />
+						<IconButton
+							icon={MoreHorizontalIcon}
+							label={`More for ${task.title}`}
+							size="sm"
+							aria-describedby={waiting ? hint : undefined}
+						/>
 					</MenuTrigger>
 					<MenuContent align="end">
-						<StatusItems task={task} onAction={onAction} />
+						<StatusItems task={task} disabled={wait !== null} onAction={onAction} />
 						{admin ? (
 							<>
 								<MenuSeparator />
 								<MenuItem icon={PencilEdit02Icon} onSelect={onEdit}>
 									Edit
 								</MenuItem>
-								<MenuItem icon={Delete02Icon} danger onSelect={onDelete}>
+								<MenuItem icon={Delete02Icon} danger disabled={wait !== null} onSelect={onDelete}>
 									Delete
 								</MenuItem>
 							</>
@@ -1237,6 +1199,7 @@ function TaskRow({
 			) : (
 				<span aria-hidden="true" className="size-[34px] flex-none" />
 			)}
+			<SaveNotice {...notice} dialogOpen={modal} className="basis-full pt-2.5 pl-[58px] max-app-sm:pl-0" />
 		</li>
 	);
 }
@@ -1244,20 +1207,23 @@ function TaskRow({
 /** The status choices for one task, shared by the row menu and the task panel. */
 export function StatusItems({
 	task,
+	disabled = false,
 	onAction,
 }: {
 	task: Pick<TaskItem, "status">;
+	/** The task's last save is in flight or unknown (C68). */
+	disabled?: boolean;
 	onAction: (a: StatusAction) => void;
 }) {
 	if (isSettled(task.status))
 		return (
-			<MenuItem icon={ArrowTurnBackwardIcon} onSelect={() => onAction({ kind: "reopen" })}>
+			<MenuItem icon={ArrowTurnBackwardIcon} disabled={disabled} onSelect={() => onAction({ kind: "reopen" })}>
 				Reopen
 			</MenuItem>
 		);
 	return (
 		<>
-			<MenuItem icon={Tick02Icon} onSelect={() => onAction({ kind: "complete" })}>
+			<MenuItem icon={Tick02Icon} disabled={disabled} onSelect={() => onAction({ kind: "complete" })}>
 				Mark done
 			</MenuItem>
 			<MenuLabel>Status</MenuLabel>
@@ -1269,13 +1235,13 @@ export function StatusItems({
 				}}
 			>
 				{OPEN_STATUSES.map((s) => (
-					<MenuRadioItem key={s} value={s}>
+					<MenuRadioItem key={s} value={s} disabled={disabled}>
 						{STATUS_LABEL[s]}
 					</MenuRadioItem>
 				))}
 			</MenuRadioGroup>
 			<MenuSeparator />
-			<MenuItem icon={Cancel01Icon} onSelect={() => onAction({ kind: "waive", reason: null })}>
+			<MenuItem icon={Cancel01Icon} disabled={disabled} onSelect={() => onAction({ kind: "waive", reason: null })}>
 				Close as no longer needed
 			</MenuItem>
 		</>
