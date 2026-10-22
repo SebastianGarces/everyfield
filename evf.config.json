@@ -586,6 +586,21 @@
 				}
 			],
 			"risk": "ordinary"
+		},
+		"OPS-33": {
+			"title": "Evidence publisher never reads .env.prod",
+			"owningPaths": [".agents/skills/verify-preview/", "tools/evf/tests/publish.test.ts", "evf.config.json"],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {

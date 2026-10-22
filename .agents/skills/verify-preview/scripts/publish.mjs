@@ -7,13 +7,16 @@
 // Bucket: EVF_EVIDENCE_BUCKET (default everyfield-evidence). Objects are public-read; listing is refused,
 // so each link needs its random 128-bit prefix. Credentials: only the evidence env file, EVF_EVIDENCE_ENV
 // (default ~/.config/everyfield/evidence.env), which holds a key with Editor on the evidence bucket only.
-// It refuses .env.prod and the production key. Only four AWS_* keys are read; no value is printed.
-// Upload refuses a text file that contains any value from the evidence env file or the main checkout's env files.
+// It never opens .env.prod. Before any upload or delete it proves the key is evidence-only: listing the
+// everyfield and everyfield-dev buckets must return 403. Only four AWS_* keys are read; no value is printed.
+// Upload refuses a text file that contains any value from the evidence env file or the main checkout's dev env files.
+// It runs only as the committed file inside a checkout of this repository, never as a copy or an edited file.
 import { createHash, createHmac, randomBytes } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { basename, dirname, extname, join, relative, resolve } from "node:path";
+import { basename, dirname, extname, join, relative, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const args = process.argv.slice(2);
 const target = args[args.indexOf("--delete") + 1]?.replace(/^evf-evidence\//, "");
@@ -24,24 +27,44 @@ if (deleting ? !/^[A-Za-z0-9._-]+(\/[0-9a-f]{32})?$/.test(target ?? "") : !args[
   console.error("Usage: node publish.mjs <evidence-dir> --task <task-id> | --delete <task-id>[/<prefix>]");
   process.exit(2);
 }
-const root = dirname(execFileSync("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"], { encoding: "utf8" }).trim());
+const SELF = ".agents/skills/verify-preview/scripts/publish.mjs";
+const self = realpathSync(fileURLToPath(import.meta.url));
+const git = (...a) => {
+  try {
+    return execFileSync("git", ["-C", dirname(self), ...a], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+  } catch {
+    return null;
+  }
+};
+const top = git("rev-parse", "--show-toplevel");
+if (!top || relative(realpathSync(top), self) !== SELF || git("status", "--porcelain", "--", `:/${SELF}`) !== "") {
+  console.error(`Refused: run ${SELF} unchanged from a checkout of this repository, not ${self}. Commit an edit before you run it.`);
+  process.exit(2);
+}
+const root = dirname(git("rev-parse", "--path-format=absolute", "--git-common-dir"));
 
 const KEYS = ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_ENDPOINT_URL_S3", "AWS_REGION"];
 const BUCKET = process.env.EVF_EVIDENCE_BUCKET ?? "everyfield-evidence";
+const PROTECTED = ["everyfield", "everyfield-dev"];
 const ENV_FILE = resolve(process.env.EVF_EVIDENCE_ENV ?? join(homedir(), ".config/everyfield/evidence.env"));
-const envValues = (file) => Object.fromEntries(readFileSync(file, "utf8").split("\n").flatMap((line) => {
-  const m = /^([A-Z0-9_]+)=(.*)$/.exec(line.trim());
-  return m ? [[m[1], m[2].replace(/^(['"])(.*)\1$/, "$2")]] : [];
-}));
-function credentials() {
+// Every env file read goes through here, so a path or symlink that resolves to .env.prod is refused unopened.
+const envValues = (file) => {
+  if (basename(realpathSync(file)).startsWith(".env.prod")) throw new Error(`Refused: ${file} resolves to a production env file. Use the evidence env file and dev env files only.`);
+  return Object.fromEntries(readFileSync(file, "utf8").split("\n").flatMap((line) => {
+    const m = /^([A-Z0-9_]+)=(.*)$/.exec(line.trim());
+    return m ? [[m[1], m[2].replace(/^(['"])(.*)\1$/, "$2")]] : [];
+  }));
+};
+async function credentials() {
   if (!existsSync(ENV_FILE)) throw new Error(`No evidence credentials at ${ENV_FILE}. Create it as .agents/skills/verify-preview/SKILL.md says, or set EVF_EVIDENCE_ENV.`);
-  if (basename(realpathSync(ENV_FILE)).startsWith(".env.prod")) throw new Error(`Refused: ${ENV_FILE} is a production env file. Use the evidence env file.`);
   const all = envValues(ENV_FILE);
   const env = Object.fromEntries(KEYS.map((k) => [k, all[k]]));
   const missing = KEYS.filter((k) => !env[k]);
   if (missing.length) throw new Error(`Evidence credentials missing in ${ENV_FILE}: ${missing.join(", ")} (values not shown).`);
-  const prod = join(root, ".env.prod");
-  if (existsSync(prod) && envValues(prod).AWS_ACCESS_KEY_ID === env.AWS_ACCESS_KEY_ID) throw new Error(`Refused: ${ENV_FILE} holds the production key. Use the evidence-only key.`);
+  for (const bucket of PROTECTED) {
+    const { status } = await s3(env, "GET", "", { bucket, query: "list-type=2&max-keys=1", check: false });
+    if (status !== 403) throw new Error(`Refused: listing ${bucket} with the key in ${ENV_FILE} returned HTTP ${status}, not 403. Use the evidence-only key.`);
+  }
   return env;
 }
 
@@ -50,9 +73,9 @@ const sha256 = (data) => createHash("sha256").update(data).digest("hex");
 const hmac = (key, data) => createHmac("sha256", key).update(data).digest();
 const encode = (s) => encodeURIComponent(s).replace(/[!'()*]/g, (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase());
 
-async function s3(env, method, key, { query = "", body = "", headers: extra = {} } = {}) {
+async function s3(env, method, key, { bucket = BUCKET, query = "", body = "", headers: extra = {}, check = true } = {}) {
   const endpoint = new URL(env.AWS_ENDPOINT_URL_S3);
-  const path = "/" + [BUCKET, ...(key ? key.split("/") : [])].map(encode).join("/");
+  const path = "/" + [bucket, ...(key ? key.split("/") : [])].map(encode).join("/");
   const now = new Date().toISOString().replace(/[:-]|\.\d{3}/g, "");
   const day = now.slice(0, 8);
   const hash = sha256(body);
@@ -67,12 +90,15 @@ async function s3(env, method, key, { query = "", body = "", headers: extra = {}
   const authorization = `AWS4-HMAC-SHA256 Credential=${env.AWS_ACCESS_KEY_ID}/${scope}, SignedHeaders=${names.join(";")}, Signature=${signature}`;
   const { host: _host, ...sent } = headers;
   const res = await fetch(endpoint.origin + path + (query ? `?${query}` : ""), { method, headers: { ...sent, authorization }, body: body || undefined });
-  if (!res.ok) throw new Error(`${method} ${key || BUCKET} failed: HTTP ${res.status} ${(await res.text()).slice(0, 200)}`);
-  return { text: await res.text(), url: `${endpoint.protocol}//${BUCKET}.${endpoint.host}${path.slice(BUCKET.length + 1)}` };
+  if (check && !res.ok) throw new Error(`${method} ${key || bucket} failed: HTTP ${res.status} ${(await res.text()).slice(0, 200)}`);
+  return { status: res.status, text: await res.text(), url: `${endpoint.protocol}//${bucket}.${endpoint.host}${path.slice(bucket.length + 1)}` };
 }
 
+const DEV_ENV = [".env.local", ".env.development.local", "apps/web/.env.local"];
+console.error(`publish.mjs: key file ${ENV_FILE}. Checks: the key cannot list ${PROTECTED.join(" or ")}, and no text file holds a value from the key file or ${DEV_ENV.join(", ")}.`);
+const env = await credentials();
+
 if (deleting) {
-  const env = credentials();
   const prefix = `evf-evidence/${target}/`;
   let deleted = 0;
   for (;;) {
@@ -88,6 +114,15 @@ if (deleting) {
 const files = (function walk(d) {
   return readdirSync(d).flatMap((n) => (statSync(join(d, n)).isDirectory() ? walk(join(d, n)) : [join(d, n)]));
 })(dir).map((f) => relative(dir, f)).filter((f) => !/^(published\.json|index\.html)$/.test(f) && !f.split("/").some((p) => p.startsWith(".")));
+// Read or write only real files inside the folder: a symlink out of it, for example to .env.prod, is refused unopened.
+const inside = realpathSync(dir) + sep;
+for (const f of files) {
+  const real = realpathSync(join(dir, f));
+  if (!real.startsWith(inside) || basename(real).startsWith(".env.prod")) throw new Error(`Refused: ${f} resolves outside the evidence folder or to a production env file. Copy the file into the folder instead.`);
+}
+for (const f of ["index.html", "published.json"]) {
+  if (lstatSync(join(dir, f), { throwIfNoEntry: false })?.isSymbolicLink()) throw new Error(`Refused: ${f} in the evidence folder is a symlink. Delete it; publish.mjs writes this file itself.`);
+}
 
 // A gallery page so the PR comment needs one link: before and after side by side, then every file.
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
@@ -107,7 +142,7 @@ ${rows ? `<table><tr><th>Shot</th><th>Before (main)</th><th>After (branch)</th><
 <h2>Files</h2><ul>${files.map((f) => `<li><a href="${esc(f)}">${esc(f)}</a></li>`).join("")}</ul>`);
 
 // Refuse to publish any local env value (credentials, tokens, connection strings) found in a text file.
-const secrets = [ENV_FILE, ...[".env.prod", ".env.local", ".env.development.local", "apps/web/.env.local"].map((f) => join(root, f))].filter(existsSync)
+const secrets = [ENV_FILE, ...DEV_ENV.map((f) => join(root, f))].filter(existsSync)
   .flatMap((f) => Object.values(envValues(f))).filter((v) => v.length >= 12);
 const leaks = [...files, "index.html"].filter((f) => !/\.(png|jpg|webm|mp4|zip)$/.test(f)).filter((f) => {
   const text = readFileSync(join(dir, f), "utf8");
@@ -115,7 +150,6 @@ const leaks = [...files, "index.html"].filter((f) => !/\.(png|jpg|webm|mp4|zip)$
 });
 if (leaks.length) throw new Error(`Refused: ${leaks.join(", ")} contain a credential or connection string (value not shown). Remove it and publish again.`);
 
-const env = credentials();
 const prefix = `evf-evidence/${task}/${randomBytes(16).toString("hex")}`;
 const links = {};
 for (const f of [...files, "index.html"]) {
