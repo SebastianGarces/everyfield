@@ -8,7 +8,8 @@
 //   AC:INH-REGRESSION-CONFIRM-REPLAY INV-unknown-approval: an update the server saved whose reply and read are lost
 //     keeps the form and its values, offers only Check again, and Check again shows revision 2. Then an approval,
 //     its replay and the read all get no answer: the card says it may already be saved and offers only Check again,
-//     with Revise and Cancel disabled. Check again sends the same request key and the change saves once.
+//     with Revise and Cancel disabled. The browser clock then passes the review's expiry: the card stays "Not
+//     confirmed" and never says nothing changed. Check again sends the same request key and the change saves once.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { BASE, ENGINES, fixture, hydrated, signIn, withPage } from "../setup.mjs";
@@ -90,6 +91,8 @@ for (const [engine, launcher] of ENGINES)
 				await context.route("**/api/evry/proposals/*", (route) =>
 					lose ? route.abort("connectionreset") : route.continue(),
 				);
+				// The browser's own clock, so the test can pass the review's expiry without waiting 15 minutes.
+				await page.clock.install();
 				await page.goto(`${BASE}/people`);
 				await hydrated(page);
 				await page.getByRole("button", { name: "Ask Evry" }).click();
@@ -127,6 +130,10 @@ for (const [engine, launcher] of ENGINES)
 				assert.equal(await unknown.getByRole("button", { name: "Revise" }).isDisabled(), true);
 				assert.equal(await unknown.getByRole("button", { name: "Cancel" }).isDisabled(), true);
 				assert.equal(approvals.length, 2);
+				// Only the server can say the review expired without an effect; the local clock never does.
+				await page.clock.fastForward("16:00");
+				assert.equal(await panel.getByRole("region", { name: "Expired" }).count(), 0);
+				assert.match(await unknown.innerText(), /may already be saved/);
 
 				lose = false;
 				await unknown.getByRole("button", { name: "Check again" }).click();
