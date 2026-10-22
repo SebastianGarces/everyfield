@@ -5,6 +5,7 @@ import type { Transaction } from "@everyfield/db/client";
 import { and, eq, isNull, or, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { readAccountContacts } from "@everyfield/domain/identity";
+import { reminderSeats } from "@everyfield/domain/tasks";
 import "server-only";
 import { z } from "zod";
 import { meetingReminderTimes, taskReminderTimes } from "./calendar.ts";
@@ -289,10 +290,13 @@ export function createNotificationService(config: {
       AND n.source_record_id=ANY(${sql.param(sources)}::uuid[]) AND n.cancelled_at IS NOT NULL AND m.state='cancelled' AND j.state IN ('ready','retry_wait','claimed')`);
 	}
 	/**
-	 * Replace the owed due and overdue reminders of one or more tasks of one plant, in a fixed number of statements
-	 * whatever the number of tasks. A task at another revision is stale and refuses the whole sync. An open task keeps
-	 * the notices of its current revision and gets its future slots; a closed one loses every owed notice.
-	 * Actual task producers run this in the mutation transaction, after their new revision.
+	 * Replace the owed due and overdue reminders of one or more tasks of one plant in at most two statements, whatever
+	 * the number of tasks: one locked read (sources, delivered slots, assignees, preferences, seats and deletion
+	 * barriers), then one write that cancels the notices, mail and jobs a task no longer owes and inserts the planned
+	 * notices with their mail. A task at another revision is stale and refuses the whole sync. An open task keeps the
+	 * notices of its current revision and gets its future slots; a closed one loses every owed notice. The read checks
+	 * what mail.enqueueMany and the task mail authority check for a new notice, under the same locks, so the write
+	 * queues the mail directly. Actual task producers run this in the mutation transaction, after their new revision.
 	 */
 	async function syncTaskReminders(
 		tx: Transaction,
@@ -314,50 +318,167 @@ export function createNotificationService(config: {
 		const sources = inputs
 			.filter((i) => !i.created)
 			.map((i) => ({ id: i.base.source.id, revision: i.base.source.revision, preserve: i.open }));
-		const reached = new Set<string>();
-		if (sources.length) {
-			// A slot that reached its recipient under an earlier revision (shown in the inbox or handed to mail) is never
-			// planned again after a reschedule (REQ-TSK-014: at most once per assignee). The current revision's notices replay.
-			const locked =
-				await tx.execute(sql`SELECT t.id, coalesce((SELECT jsonb_agg(DISTINCT n.recipient_id::text||'/'||split_part(n.logical_key,'/',2))
-	      FROM notice n WHERE n.tenant_id=t.plant_id AND n.source_record_id=t.id AND n.source_revision<>t.revision AND (
-	        (n.archived_at IS NULL AND n.eligible_at<=clock_timestamp() AND (n.cancelled_at IS NULL OR n.cancelled_at>n.eligible_at))
-	        OR EXISTS(SELECT FROM mail m WHERE m.notice_id=n.id AND m.state IN ('dispatched','unknown','accepted','scheduled','sent')))),'[]') AS reached
-	      FROM task t JOIN jsonb_to_recordset(${JSON.stringify(sources)}::jsonb) i(id uuid,revision bigint,preserve boolean)
-	      ON t.id=i.id AND t.plant_id=${tenant} AND t.revision=i.revision FOR SHARE OF t`);
-			if (locked.rows.length !== new Set(sources.map((s) => s.id)).size) throw Error("notification_source_stale");
-			for (const slot of z
-				.array(z.object({ id: z.uuid(), reached: z.array(z.string()) }))
-				.parse(locked.rows)
-				.flatMap((r) => r.reached.map((slot) => `${r.id}/${slot}`)))
-				reached.add(slot);
-			await tx.execute(sql`UPDATE notice n SET cancelled_at=coalesce(n.cancelled_at,clock_timestamp())
-	      FROM jsonb_to_recordset(${JSON.stringify(sources)}::jsonb) i(id uuid,revision bigint,preserve boolean)
-	      WHERE n.tenant_id=${tenant} AND n.source_record_id=i.id AND (NOT i.preserve OR n.source_revision<>i.revision)`);
-			await cancelOwed(
-				tx,
-				tenant,
-				sources.map((s) => s.id),
-			);
-		}
-		return enqueueMany(
-			tx,
-			inputs
-				.filter((i) => i.open)
-				.flatMap((i) => {
-					const asOf = instant.parse(i.asOf);
-					return taskReminderTimes(i.due)
-						.filter((t) => t.at >= asOf)
-						.map((t) => ({
+		const sourceCount = new Set(sources.map((s) => s.id)).size;
+		const planned = inputs
+			.filter((i) => i.open)
+			.flatMap((i) => {
+				const asOf = instant.parse(i.asOf);
+				return taskReminderTimes(i.due)
+					.filter((t) => t.at >= asOf)
+					.map((t) =>
+						noticeInput.parse({
 							...i.base,
-							recipient: i.base.recipient!,
-							category: t.slot === "due" ? ("task_due" as const) : ("task_overdue" as const),
+							recipient: i.base.recipient,
+							category: t.slot === "due" ? "task_due" : "task_overdue",
 							occurrence: t.slot,
 							eligibleAt: t.at,
-						}))
-						.filter((n) => !reached.has(`${n.source.id}/${n.recipient}/${n.category}`));
-				}),
-		);
+						}),
+					);
+			})
+			.map((v) => ({ v, key: `${v.owner.id}/${v.category}/${v.source.id}/${v.source.revision}/${v.occurrence}` }));
+		const src = sql`src AS (SELECT * FROM jsonb_to_recordset(${JSON.stringify(sources)}::jsonb) i(id uuid,revision bigint,preserve boolean)),
+	    locked AS MATERIALIZED (SELECT t.id,t.plant_id,t.revision FROM task t JOIN src i ON t.id=i.id AND t.plant_id=${tenant} AND t.revision=i.revision FOR SHARE OF t)`;
+		const output: { notice: string | null; mail: string | null }[] = [];
+		const fresh: { v: NoticeInput; key: string; id: string; inApp: boolean }[] = [];
+		const mail: MailIntent[] = [];
+		if (planned.length) {
+			const cand = planned.map(({ v, key }, n) => ({
+				n,
+				source: v.source.id,
+				revision: v.source.revision,
+				recipient: v.recipient,
+				category: v.category,
+				key,
+			}));
+			// A slot that reached its recipient under an earlier revision (shown in the inbox or handed to mail) is never
+			// planned again after a reschedule (REQ-TSK-014: at most once per assignee). The current revision's notices replay.
+			const read =
+				await tx.execute(sql`WITH ${src}, cand AS MATERIALIZED (SELECT * FROM jsonb_to_recordset(${JSON.stringify(cand)}::jsonb) i(n int,source uuid,revision bigint,recipient uuid,category text,key text)),
+	    reached AS MATERIALIZED (SELECT DISTINCT n.source_record_id AS source,n.recipient_id AS recipient,split_part(n.logical_key,'/',2) AS category
+	      FROM notice n JOIN locked t ON n.tenant_id=t.plant_id AND n.source_record_id=t.id AND n.source_revision<>t.revision
+	      WHERE (n.archived_at IS NULL AND n.eligible_at<=clock_timestamp() AND (n.cancelled_at IS NULL OR n.cancelled_at>n.eligible_at))
+	        OR EXISTS(SELECT FROM mail m WHERE m.notice_id=n.id AND m.state IN ('dispatched','unknown','accepted','scheduled','sent'))),
+	    tasks AS MATERIALIZED (SELECT t.* FROM task t WHERE t.id IN (SELECT source FROM cand) ORDER BY t.id FOR SHARE),
+	    seats AS MATERIALIZED (${reminderSeats(tenant, sql`SELECT recipient FROM cand`)}),
+	    accounts AS MATERIALIZED (SELECT a.id FROM account a WHERE a.id IN (SELECT recipient FROM cand) ORDER BY a.id FOR SHARE),
+	    plants AS MATERIALIZED (SELECT p.id FROM plant p WHERE p.id=${tenant} FOR SHARE),
+	    barriers AS MATERIALIZED (SELECT w.opaque_subject_id AS id FROM lifecycle_witness w WHERE w.opaque_subject_id IN (SELECT recipient FROM cand UNION SELECT ${tenant}::uuid)
+	      AND w.state IN ('pending_deletion','purging','purged','revoked') FOR SHARE)
+	    SELECT i.n,(SELECT count(*) FROM locked)::int AS locked,(SELECT kind FROM tenant WHERE id=${tenant}) AS kind,
+	     (SELECT count(*) FROM accounts)+(SELECT count(*) FROM plants)>=0 AS rooted,
+	     EXISTS(SELECT FROM reached r WHERE r.source=i.source AND r.recipient=i.recipient AND r.category=i.category) AS reached,
+	     EXISTS(SELECT FROM tasks s WHERE s.id=i.source AND s.plant_id=${tenant} AND s.revision=i.revision) AS source_live,
+	     EXISTS(SELECT FROM tasks s WHERE s.id=i.source AND s.assignee_id=i.recipient AND s.deleted_at IS NULL AND s.status NOT IN ('complete','no_longer_needed')) AS deliverable,
+	     coalesce((SELECT enabled FROM notification_preference p WHERE p.account_id=i.recipient AND p.category=i.category AND p.channel='in_app'),true) AS in_app,
+	     coalesce((SELECT enabled FROM notification_preference p WHERE p.account_id=i.recipient AND p.category=i.category AND p.channel='email'),true) AS email,
+	     (SELECT s.email FROM seats s WHERE s.account_id=i.recipient LIMIT 1) AS address,
+	     EXISTS(SELECT FROM barriers b WHERE b.id IN (i.recipient,${tenant})) AS blocked,
+	     n.id AS old_id,n.title AS old_title,n.safe_body AS old_body,n.eligible_at AS old_at,(SELECT m.id FROM mail m WHERE m.notice_id=n.id LIMIT 1) AS old_mail
+	    FROM cand i LEFT JOIN notice n ON n.recipient_id=i.recipient AND n.logical_key=i.key ORDER BY i.n`);
+			const rows = z
+				.array(
+					z.object({
+						n: z.number().int(),
+						locked: z.number().int(),
+						kind: z.string().nullable(),
+						reached: z.boolean(),
+						source_live: z.boolean(),
+						deliverable: z.boolean(),
+						in_app: z.boolean(),
+						email: z.boolean(),
+						address: z.email().nullable(),
+						blocked: z.boolean(),
+						old_id: z.uuid().nullable(),
+						old_title: z.string().nullable(),
+						old_body: z.string().nullable(),
+						old_at: z.coerce.date().nullable(),
+						old_mail: z.uuid().nullable(),
+					}),
+				)
+				.parse(read.rows);
+			if (rows[0]?.locked !== sourceCount) throw Error("notification_source_stale");
+			for (const r of rows.filter((r) => !r.reached)) {
+				const { v, key } = planned[r.n]!;
+				if (r.kind !== v.owner.kind) throw Error("notification_owner_mismatch");
+				if (!r.source_live) throw Error("notification_source_stale");
+				const result = { notice: null as string | null, mail: null as string | null };
+				output.push(result);
+				if (!r.deliverable || !r.address) continue;
+				if (r.old_id) {
+					if (
+						r.old_title !== v.title ||
+						r.old_body !== v.text ||
+						r.old_at?.toISOString() !== new Date(v.eligibleAt).toISOString()
+					)
+						throw Error("notification_identity_conflict");
+					Object.assign(result, { notice: r.old_id, mail: r.old_mail });
+					continue;
+				}
+				if (!r.in_app && !r.email) continue;
+				result.notice = crypto.randomUUID();
+				fresh.push({ v, key, id: result.notice, inApp: r.in_app });
+				if (!r.email) continue;
+				if (r.blocked) throw Error("mail_unavailable");
+				mail.push({
+					owner: v.owner,
+					recipient: v.recipient,
+					address: r.address,
+					purpose: "notification",
+					logicalKey: "notice/" + result.notice,
+					notice: result.notice,
+					operation: v.operation,
+					eligibleAt: v.eligibleAt,
+					content: { subject: v.title, text: v.text },
+				});
+			}
+		}
+		if (!sources.length && !fresh.length) return output;
+		const queued = config.mail.queued(mail);
+		queued.ids.forEach((id, n) => {
+			output.find((o) => o.notice === mail[n]!.notice)!.mail = id;
+		});
+		const now = new Date().toISOString();
+		const notices = fresh.map(({ v, key, id, inApp }) => ({
+			id,
+			tenant: v.owner.id,
+			recipient: v.recipient,
+			category: policy[v.category].category,
+			purpose: policy[v.category].purpose,
+			key,
+			source: v.source.id,
+			revision: v.source.revision,
+			title: v.title,
+			body: v.text,
+			eligible: v.eligibleAt,
+			archived: inApp ? null : now,
+		}));
+		// One statement: the cancellations see the notices and mail this statement cancels through their CTEs, because
+		// every part of a statement reads the same snapshot.
+		const write =
+			await tx.execute(sql`WITH ${src}, cancelled AS (UPDATE notice n SET cancelled_at=coalesce(n.cancelled_at,clock_timestamp()) FROM src i
+	      WHERE n.tenant_id=${tenant} AND n.source_record_id=i.id AND (NOT i.preserve OR n.source_revision<>i.revision)
+	        AND (SELECT count(*) FROM locked)=${sourceCount} RETURNING n.id),
+	    owed AS (UPDATE mail m SET state='cancelled' FROM notice n WHERE n.id=m.notice_id AND n.tenant_id=${tenant} AND n.source_record_id IN (SELECT id FROM src)
+	      AND (n.cancelled_at IS NOT NULL OR n.id IN (SELECT id FROM cancelled)) AND m.state IN ('pending','refused') RETURNING m.id),
+	    halted AS (UPDATE job j SET state='cancelled',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=j.revision+1,finished_at=clock_timestamp()
+	      FROM mail m JOIN notice n ON n.id=m.notice_id WHERE m.job_id=j.id AND n.tenant_id=${tenant} AND n.source_record_id IN (SELECT id FROM src)
+	      AND (n.cancelled_at IS NOT NULL OR n.id IN (SELECT id FROM cancelled)) AND (m.state='cancelled' OR m.id IN (SELECT id FROM owed))
+	      AND j.state IN ('ready','retry_wait','claimed') RETURNING j.id),
+	    notices AS (INSERT INTO notice(id,tenant_id,recipient_id,category,purpose,logical_key,source_record_id,source_revision,title,safe_body,eligible_at,created_at,archived_at)
+	      SELECT id,tenant,recipient,category,purpose,key,source,revision,title,body,eligible,${now}::timestamptz,archived
+	      FROM jsonb_to_recordset(${JSON.stringify(notices)}::jsonb) i(id uuid,tenant uuid,recipient uuid,category text,purpose text,key text,source uuid,revision bigint,title text,body text,eligible timestamptz,archived timestamptz)
+	      ON CONFLICT (recipient_id,logical_key) DO NOTHING RETURNING id)
+	    ${mail.length ? sql`, ${queued.ctes}` : sql``}
+	    SELECT (SELECT count(*) FROM locked)::int AS locked,(SELECT count(*) FROM notices)::int AS notices,
+	     ${mail.length ? sql`(SELECT count(*) FROM mail_inserted m JOIN mail_input i ON i.id=m.id AND i.hash=m.payload_hash)::int` : sql`0`} AS mail`);
+		const done = z
+			.object({ locked: z.number().int(), notices: z.number().int(), mail: z.number().int() })
+			.parse(write.rows[0]);
+		if (done.locked !== sourceCount) throw Error("notification_source_stale");
+		// Only a racing sync of the same task revision can hold a planned key; its notice and mail differ from these.
+		if (done.notices !== notices.length) throw Error("notification_identity_conflict");
+		if (done.mail !== mail.length) throw Error("mail_identity_conflict");
+		return output;
 	}
 	async function syncMeetingReminders(
 		tx: Transaction,

@@ -90,8 +90,7 @@
 		"limit": 2
 	},
 	"followups.createFollowUp": {
-		"limit": 8,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 5 locked read, 3 write."
+		"limit": 4
 	},
 	"followups.executeHandoff": {
 		"limit": 3
@@ -100,9 +99,9 @@
 		"limit": 3
 	},
 	"followups/core.withFollowUpWrite": {
-		"limit": 11,
+		"limit": 7,
 		"retry": 9,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 6 locked read, 3 write."
+		"reason": "BEGIN and COMMIT around a follow-up write that plans its assignee's reminders; the shared reminder sync (notifications.syncTaskReminders) sends 2 statements for them (F10). Its largest first run: 2 transaction, 3 locked read, 2 write."
 	},
 	"identity.budget.finish": {
 		"limit": 1
@@ -306,8 +305,7 @@
 		"limit": 1
 	},
 	"meetings.finalizeAttendance": {
-		"limit": 8,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 5 locked read, 3 write."
+		"limit": 4
 	},
 	"meetings.getEvaluation": {
 		"limit": 1
@@ -330,14 +328,14 @@
 		"limit": 1
 	},
 	"meetings.reconcileAttendance": {
-		"limit": 6
+		"limit": 3
 	},
 	"meetings.recordCard": {
 		"limit": 6,
 		"retry": 5
 	},
 	"meetings.recordEvaluation": {
-		"limit": 6
+		"limit": 3
 	},
 	"meetings.removeGuest": {
 		"limit": 6
@@ -373,9 +371,8 @@
 		"retry": 9
 	},
 	"meetings/core.withMeetingsWrite:meetings.finalizeAttendance": {
-		"limit": 9,
-		"retry": 11,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 3 locked read, 4 write."
+		"limit": 6,
+		"retry": 11
 	},
 	"meetings/core.withMeetingsWrite:meetings.reconcileAttendance": {
 		"limit": 5
@@ -388,22 +385,20 @@
 		"limit": 5
 	},
 	"meetings/core.withMeetingsWrite:native.meetings.finalizeAttendance.assigned": {
-		"limit": 11,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 6 locked read, 3 write."
+		"limit": 7,
+		"reason": "BEGIN and COMMIT around finalizing a meeting with assigned follow-up and evaluation tasks, whose reminders the shared reminder sync (notifications.syncTaskReminders) plans in 2 statements (F10). Its largest first run: 2 transaction, 3 locked read, 2 write."
 	},
 	"meetings/core.withMeetingsWrite:native.meetings.reconcileAttendance": {
 		"limit": 5
 	},
 	"meetings/core.withMeetingsWrite:native.meetings.reconcileAttendance.assigned": {
-		"limit": 9,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 3 locked read, 4 write."
+		"limit": 6
 	},
 	"meetings/core.withMeetingsWrite:native.meetings.recordEvaluation": {
 		"limit": 5
 	},
 	"meetings/core.withMeetingsWrite:native.meetings.recordEvaluation.assigned": {
-		"limit": 9,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 3 locked read, 4 write."
+		"limit": 6
 	},
 	"meetings/notifications.syncNotifications": {
 		"limit": 2
@@ -418,22 +413,20 @@
 		"limit": 5
 	},
 	"native.meetings.finalizeAttendance.assigned": {
-		"limit": 11,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 6 locked read, 3 write."
+		"limit": 7,
+		"reason": "BEGIN and COMMIT around finalizing a meeting with assigned follow-up and evaluation tasks, whose reminders the shared reminder sync (notifications.syncTaskReminders) plans in 2 statements (F10). Its largest first run: 2 transaction, 3 locked read, 2 write."
 	},
 	"native.meetings.reconcileAttendance": {
 		"limit": 5
 	},
 	"native.meetings.reconcileAttendance.assigned": {
-		"limit": 9,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 3 locked read, 4 write."
+		"limit": 6
 	},
 	"native.meetings.recordEvaluation": {
 		"limit": 5
 	},
 	"native.meetings.recordEvaluation.assigned": {
-		"limit": 9,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 3 locked read, 4 write."
+		"limit": 6
 	},
 	"native.meetings.schedule": {
 		"limit": 5
@@ -631,15 +624,14 @@
 		"limit": 5
 	},
 	"notifications.enqueueMany": {
-		"limit": 6
+		"limit": 5
 	},
 	"notifications.syncMeetingReminders": {
 		"limit": 8,
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 3 locked read, 5 write."
 	},
 	"notifications.syncTaskReminders": {
-		"limit": 10,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 5 locked read, 5 write."
+		"limit": 2
 	},
 	"onboarding.answerLead": {
 		"limit": 15,
@@ -733,8 +725,8 @@
 		"retry": 5
 	},
 	"people.changeStatus": {
-		"limit": 18,
-		"reason": "Leaving the core stages hands a dated, assigned duty to another member and replans its due and overdue reminders (the R4-1 fault, REQ-TSK-014); the shared reminder sync (notifications.syncTaskReminders) sends 10 statements for it; RT-6 reviews that sync. Its largest first run: 1 transaction, 10 locked read, 7 write."
+		"limit": 10,
+		"reason": "Leaving the core stages hands a dated, assigned duty to another member and replans its due and overdue reminders (the R4-1 fault, REQ-TSK-014); the shared reminder sync (notifications.syncTaskReminders) sends 2 statements for it (F10). Its largest first run: 1 transaction, 6 locked read, 3 write."
 	},
 	"people.correctAdultClassification": {
 		"limit": 9,
@@ -843,9 +835,9 @@
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 1 read, 2 write."
 	},
 	"people.retirePerson": {
-		"limit": 20,
+		"limit": 12,
 		"retry": 7,
-		"reason": "Handing a dated, assigned duty to another member replans its due and overdue reminders (the R4-1 fault, REQ-TSK-014); the shared reminder sync (notifications.syncTaskReminders) sends 10 statements for it; RT-6 reviews that sync. Its largest first run: 1 transaction, 11 locked read, 8 write."
+		"reason": "Handing a dated, assigned duty to another member replans its due and overdue reminders (the R4-1 fault, REQ-TSK-014); the shared reminder sync (notifications.syncTaskReminders) sends 2 statements for it (F10). Its largest first run: 1 transaction, 7 locked read, 4 write."
 	},
 	"people.setHouseholdRole": {
 		"limit": 4
@@ -897,12 +889,12 @@
 		"retry": 10
 	},
 	"people/core.withPeopleWrite:people.changeStatus": {
-		"limit": 19,
-		"reason": "people.changeStatus in its native write: BEGIN and COMMIT around the same work and the same reminder replan. Its largest first run: 2 transaction, 10 locked read, 7 write."
+		"limit": 11,
+		"reason": "people.changeStatus in its native write: BEGIN and COMMIT around the same work and the same reminder replan. Its largest first run: 2 transaction, 6 locked read, 3 write."
 	},
 	"people/core.withPeopleWrite:people.retirePerson": {
-		"limit": 21,
-		"reason": "people.retirePerson in its native write: BEGIN and COMMIT around the same work and the same reminder replan. Its largest first run: 2 transaction, 11 locked read, 8 write."
+		"limit": 13,
+		"reason": "people.retirePerson in its native write: BEGIN and COMMIT around the same work and the same reminder replan. Its largest first run: 2 transaction, 7 locked read, 4 write."
 	},
 	"people/core.withPeopleWrite:people/csv/index.executeBulkImport": {
 		"limit": 5,
@@ -1045,8 +1037,7 @@
 		"limit": 4
 	},
 	"tasks.bulkComplete": {
-		"limit": 12,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 6 locked read, 6 write."
+		"limit": 4
 	},
 	"tasks.bulkReschedule": {
 		"limit": 2
@@ -1055,41 +1046,34 @@
 		"limit": 2
 	},
 	"tasks.complete": {
-		"limit": 12,
-		"reason": "Completing a dated, assigned recurring task cancels its reminders and plans the successor's; RT-6 reviews the reminder sync cost. Its largest first run: 6 locked read, 6 write."
+		"limit": 4
 	},
 	"tasks.completeOccurrence": {
-		"limit": 12,
-		"reason": "Completing a dated, assigned recurring occurrence cancels its reminders and plans the successor's; the shared reminder sync (notifications.syncTaskReminders) sends 10 of them: 1 owed-slot read, 3 cancels (notice, mail, job) and 6 to plan the new due and overdue notices and mail; RT-6 reviews that sync. Its largest first run: 6 locked read, 6 write."
+		"limit": 4
 	},
 	"tasks.configureRecurrence": {
-		"limit": 12,
-		"reason": "Replans the task's due and overdue reminders after the revision moves (R4-1, REQ-TSK-014), like tasks.edit; RT-6 reviews the reminder sync cost. Its largest first run: 6 locked read, 6 write."
+		"limit": 4
 	},
 	"tasks.create": {
-		"limit": 8,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 5 locked read, 3 write."
+		"limit": 4
 	},
 	"tasks.createSubtask": {
 		"limit": 3
 	},
 	"tasks.delete": {
-		"limit": 6
+		"limit": 3
 	},
 	"tasks.edit": {
-		"limit": 13,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 7 locked read, 6 write."
+		"limit": 5
 	},
 	"tasks.removeSubtask": {
 		"limit": 2
 	},
 	"tasks.reopen": {
-		"limit": 12,
-		"reason": "Reopening a dated, assigned task with a future due date plans its reminders again; the shared reminder sync (notifications.syncTaskReminders) sends 10 of them: 1 owed-slot read, 3 cancels (notice, mail, job) and 6 to plan the new due and overdue notices and mail; RT-6 reviews that sync. Its largest first run: 6 locked read, 6 write."
+		"limit": 4
 	},
 	"tasks.replacePrerequisites": {
-		"limit": 13,
-		"reason": "Replans the task's due and overdue reminders after the revision moves (R4-1, REQ-TSK-014), like tasks.edit; RT-6 reviews the reminder sync cost. Its largest first run: 6 locked read, 1 read, 6 write."
+		"limit": 5
 	},
 	"tasks.setSubtaskCompletion": {
 		"limit": 2
@@ -1098,9 +1082,9 @@
 		"limit": 2
 	},
 	"tasks/core.withTaskWrite": {
-		"limit": 16,
+		"limit": 8,
 		"retry": 9,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 8 locked read, 6 write."
+		"reason": "BEGIN and COMMIT around a task write that replans reminders; the shared reminder sync (notifications.syncTaskReminders) sends 2 statements (F10). Its largest first run: 2 transaction, 4 locked read, 2 write."
 	},
 	"venues.archive": {
 		"limit": 6

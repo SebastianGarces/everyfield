@@ -1,4 +1,4 @@
-import { sql } from "@everyfield/db/query";
+import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import type { Tx } from "./core.ts";
@@ -29,16 +29,22 @@ export async function authorizeTaskReminders(
 	);
 }
 
+/**
+ * The given accounts that may receive the plant's task reminders, with their email: each holds a current, accepted seat
+ * in the plant. A query for a CTE, locking the seats it returns.
+ */
+export const reminderSeats = (plantId: string, accounts: SQL) =>
+	sql`SELECT s.account_id, c.email FROM seat s CROSS JOIN LATERAL access_account_contact(s.account_id) c
+		WHERE s.plant_id=${plantId}::uuid AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp()
+			AND s.account_id IN (${accounts}) FOR SHARE OF s`;
+
 /** The email address of each account that holds a current seat in the plant. One statement. */
 export async function reminderRecipients(
 	tx: Tx,
 	plantId: string,
 	accounts: readonly string[],
 ): Promise<ReadonlyMap<string, string>> {
-	const r =
-		await tx.execute(sql`SELECT s.account_id, c.email FROM seat s CROSS JOIN LATERAL access_account_contact(s.account_id) c
-		WHERE s.plant_id=${plantId}::uuid AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp()
-			AND s.account_id=ANY(${sql.param(accounts)}::uuid[]) FOR SHARE OF s`);
+	const r = await tx.execute(reminderSeats(plantId, sql`SELECT unnest(${sql.param(accounts)}::uuid[])`));
 	const rows = z.array(z.object({ account_id: z.uuid(), email: z.email() })).parse(r.rows);
 	return new Map(rows.map((row) => [row.account_id, row.email]));
 }
