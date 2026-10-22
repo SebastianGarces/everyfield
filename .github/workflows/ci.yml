@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
-  NODE_VERSION: "24.14.1"
+  NODE_VERSION: "24.22.1"
 
 jobs:
   app:
