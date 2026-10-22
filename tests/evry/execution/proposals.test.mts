@@ -475,3 +475,42 @@ test("AC:SEC-02 INV-tenancy: a review read takes no lock that a sign-out or sess
 		});
 	});
 });
+
+test("INV-effect-recovery: an approved effect that no worker took within 60 s reads as unconfirmed, not as saving; Try again runs it once and the old job cannot publish", async () => {
+	const owner = await actor("owner");
+	const { proposal } = await propose(owner, "Change Casey's city to Elgin");
+	await approveProposal(db, owner, proposal.id, witness(proposal), null);
+	const queued = await readReview(db, owner, proposal.id);
+	assert.deepEqual([queued.executing, queued.outcome], [true, null]);
+	await admin.execute(
+		sql`UPDATE job SET eligible_at=clock_timestamp()-interval '61 seconds' WHERE kind='evry_effect' AND producer_key LIKE ${proposal.id + ":%"}`,
+	);
+	const stale = await readReview(db, owner, proposal.id);
+	assert.deepEqual([stale.executing, stale.outcome], [false, "unknown"]);
+	const start = queries.length;
+	assert.equal((await retryUnresolvedEffects(db, owner, proposal.id)).retried, true);
+	assert.equal(counted(start), 1);
+	// The old job is claimed first (it is older) and finds the effect moved on; the new one saves it once.
+	assert.deepEqual([(await effects())?.outcome, (await effects())?.outcome], ["lost", "completed"]);
+	assert.deepEqual([(await effectAudits(proposal.id)).length, (await person(people.casey)).city], [1, "Elgin"]);
+});
+
+test("BUG-R5-3: an effect that ends with an error Evry cannot classify stays unconfirmed instead of 'failed, nothing was changed'; Try again saves it once", async () => {
+	const owner = await actor("owner");
+	const { proposal } = await propose(owner, "Change Chen's city to Joliet");
+	await approveProposal(db, owner, proposal.id, witness(proposal), null);
+	await admin.execute(
+		sql.raw(`CREATE FUNCTION f6_fail() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN RAISE EXCEPTION 'synthetic'; END$$`),
+	);
+	await admin.execute(sql.raw(`CREATE TRIGGER f6_fail BEFORE UPDATE ON person FOR EACH ROW EXECUTE FUNCTION f6_fail()`));
+	try {
+		assert.equal((await effects())?.outcome, "failed");
+	} finally {
+		await admin.execute(sql.raw(`DROP TRIGGER f6_fail ON person; DROP FUNCTION f6_fail()`));
+	}
+	const after = await readReview(db, owner, proposal.id);
+	assert.deepEqual([after.outcome, after.receipt, after.executing], ["unknown", null, false]);
+	assert.equal((await retryUnresolvedEffects(db, owner, proposal.id)).retried, true);
+	assert.equal((await effects())?.outcome, "completed");
+	assert.deepEqual([(await effectAudits(proposal.id)).length, (await person(people.alexChen)).city], [1, "Joliet"]);
+});
