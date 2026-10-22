@@ -158,8 +158,10 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('tools/wiki/pnpm-lock.yaml') }}
+      # The runner image already has the libraries Chromium needs. `--with-deps` ran apt on
+      # every run, and a slow Ubuntu mirror held the job until the timeout cancelled it.
       - name: Chromium for render tests
-        run: pnpm exec playwright install --with-deps chromium
+        run: pnpm exec playwright install chromium
       - run: pnpm test
 
   ci:

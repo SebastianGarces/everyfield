@@ -621,6 +621,21 @@
 				}
 			],
 			"risk": "ordinary"
+		},
+		"OPS-41": {
+			"title": "Wiki CI installs Chromium without apt",
+			"owningPaths": [".github/workflows/ci.yml", "evf.config.json"],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {
