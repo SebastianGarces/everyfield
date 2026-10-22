@@ -216,7 +216,7 @@ export async function readRequestViewer(db: Executor, token: string) {
 
 /** The actor for this transaction. A read passes `lock` false, so resolving it takes no session lock (C22). */
 export async function currentActor(tx: Transaction, session: z.infer<typeof sessionId>, selected: Owner, lock = true) {
-	const bound = requestWrites.get(tx);
+	const bound = boundWrite(tx);
 	if (bound && bound.authority.session === session && sameOwner(bound.selected, selected)) return bound.actor;
 	const parsed = owner.safeParse(selected);
 	if (!parsed.success) return currentActorResult.parse({ status: "unavailable" });
@@ -260,9 +260,87 @@ type RequestWrite = {
 	setup: typeof tables.onboarding_setup.$inferSelect | null;
 };
 const requestWrites = new WeakMap<Transaction, RequestWrite>();
-/** An immutable observation held by the native command's outer transaction. */
+/** An immutable observation held by the native command's outer transaction: the gate's locked rows. */
 export const requestWrite = (tx: Transaction) => requestWrites.get(tx);
-export const clearRequestWrite = (tx: Transaction) => requestWrites.delete(tx);
+/**
+ * A native write that has not run the gate: the request's verified actor, checked again with its locks by the final
+ * write statement (D70), or by the gate once the command needs a transaction.
+ */
+type DeferredWrite = Pick<RequestWrite, "authority" | "selected" | "actor">;
+const deferredWrites = new WeakMap<Transaction, DeferredWrite>();
+/** The command's actor, locked by the gate or deferred to the final write. */
+export const boundWrite = (tx: Transaction): DeferredWrite | undefined =>
+	requestWrites.get(tx) ?? deferredWrites.get(tx);
+export const clearRequestWrite = (tx: Transaction) => {
+	requestWrites.delete(tx);
+	deferredWrites.delete(tx);
+};
+/** The request actor's authority over `selected`, or null when only the gate can decide it. */
+export function deferWrite(tx: Transaction, authority: RequestActor, selected: Owner): DeferredWrite | null {
+	const actor = authority.actor;
+	const own =
+		actor.context.kind === "seat" && sameOwner(actor.context.owner, selected)
+			? actor
+			: selected.kind === "account" && selected.id === actor.accountId
+				? { ...actor, context: { kind: "account" as const, owner: selected } }
+				: null;
+	if (!own) return null;
+	const write = { authority, selected, actor: own };
+	deferredWrites.set(tx, write);
+	return write;
+}
+/**
+ * The gate's checks and locks for one final write statement (D70): the WITH entries, ending in `evf_auth(allowed)`.
+ * The same lock order as lockWriteAuthority: session and account, seats, then the owner root. The observed seat must
+ * still be the actor's one live seat with the same role and revision. The statement never waits for a lock: its
+ * snapshot is taken before its locks, so after a wait it could miss what the lock holder committed. A held lock fails
+ * the statement at once, and the command runs the established way, which waits. A writer that changed the account or
+ * the root and committed between the snapshot and the lock leaves a newer version than the snapshot sees: the locked
+ * row's `xmin` then differs from the snapshot's, and the statement refuses too.
+ */
+export function writeAuthority(write: DeferredWrite): SQL {
+	const { authority, selected, actor } = write;
+	const root = selected.kind === "plant" ? sql`plant` : selected.kind === "organization" ? sql`organization` : null;
+	const seat =
+		actor.context.kind === "seat"
+			? sql`EXISTS(SELECT FROM evf_seats s WHERE s.id=${actor.context.seatId}::uuid AND s.role=${actor.context.role}
+ AND s.revision=${actor.context.revision} AND s.accepted_at<=clock_timestamp() AND ${
+		selected.kind === "plant"
+			? sql`s.plant_id=${selected.id}::uuid AND s.organization_id IS NULL`
+			: sql`s.organization_id=${selected.id}::uuid AND s.plant_id IS NULL`
+ }) AND EXISTS(SELECT FROM evf_root r ${
+		selected.kind === "organization"
+			? sql`JOIN organization o ON o.id=r.id WHERE o.kind=${selected.organizationKind}`
+			: sql``
+ })`
+			: sql`${selected.id}::uuid=${actor.accountId}::uuid`;
+	return sql`evf_principal AS MATERIALIZED (
+ SELECT i.account_id, i.verified FROM (SELECT set_config('lock_timeout','1ms',true)) g
+ CROSS JOIN LATERAL invitation_identity(${authority.session}::uuid) i LIMIT 1
+), evf_account AS MATERIALIZED (
+ SELECT a.id, a.registration_state, a.xmin::text AS version FROM account a JOIN evf_principal p ON a.id=p.account_id
+ FOR UPDATE OF a NOWAIT
+), evf_seats AS MATERIALIZED (
+ SELECT s.id, s.plant_id, s.organization_id, s.role, s.revision::text AS revision, s.accepted_at
+ FROM seat s JOIN evf_account a ON s.account_id=a.id WHERE s.ended_at IS NULL ORDER BY s.id FOR SHARE OF s NOWAIT
+), evf_root AS MATERIALIZED (${
+		root
+			? sql`SELECT r.id, r.xmin::text AS version FROM ${root} r WHERE r.id=${selected.id}::uuid AND EXISTS(SELECT FROM evf_account)
+ AND (SELECT count(*) FROM evf_seats)<=1 FOR UPDATE OF r NOWAIT`
+			: sql`SELECT NULL::uuid AS id, NULL::text AS version WHERE false`
+	}), evf_auth AS MATERIALIZED (SELECT (
+ EXISTS(SELECT FROM evf_principal p JOIN evf_account a ON a.id=p.account_id
+  WHERE p.verified AND a.id=${actor.accountId}::uuid AND a.registration_state='active')
+ AND (SELECT count(*) FROM evf_seats)<=1
+ AND EXISTS(SELECT FROM tenant t WHERE t.id=${selected.id}::uuid AND t.kind=${selected.kind})
+ AND ${seat} AND ${writeVisibility(actor.accountId, selected)}
+ AND (SELECT version FROM evf_account)=(SELECT xmin::text FROM account WHERE id=${actor.accountId}::uuid)
+ ${
+		root
+			? sql`AND (SELECT version FROM evf_root)=(SELECT xmin::text FROM ${root} WHERE id=${selected.id}::uuid)`
+			: sql``
+ }) AS allowed)`;
+}
 
 /** Server-only authority for one request. Constructed from a live session, never from JSON. */
 export class RequestActor {

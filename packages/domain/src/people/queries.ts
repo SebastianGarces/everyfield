@@ -4,7 +4,7 @@ import * as tables from "@everyfield/db/tables";
 import { alias } from "@everyfield/db/columns";
 import { z } from "zod";
 import * as c from "@everyfield/contracts/people";
-import type { PeopleReader, PeopleReply } from "@everyfield/contracts/people";
+import type { PeopleReader } from "@everyfield/contracts/people";
 import {
 	authorizeRead,
 	canReadPerson,
@@ -343,14 +343,28 @@ export const peopleReader: PeopleReader<Tx> = {
  * history of people merged into this one shows here too (REQ-PPL-025).
  */
 async function activities(tx: Tx, ctx: Context, p: Person, input: z.infer<typeof c.activityRequest>, gate: SQL) {
-	const result = await tx.execute(sql`SELECT a.*,EXISTS(SELECT FROM account WHERE id=a.actor_id) AS actor_exists FROM (
-      SELECT id,occurred_at,recorded_at,author_id AS actor_id,revision,body,edited_at,removed_at,'note' AS category,'note' AS kind,NULL::text AS action,NULL::jsonb AS before_value,NULL::jsonb AS after_value,NULL::uuid AS obligation_id,NULL::text AS outcome,NULL::uuid AS record_id FROM person_note WHERE tenant_id=${sql.param(ctx.selected.id)} AND person_id=${sql.param(p.id)}
+	const result = await tx.execute(sql`SELECT ${activitiesJson(ctx, sql`${p.id}::uuid`, input, gate)} AS rows`);
+	return activityFeed(ctx, p.id, input, result.rows[0]?.rows);
+}
+/**
+ * One page of a Person's activity as one JSON array, the window's rows plus one that says whether more follow. A scalar
+ * subquery: `personId` may name the outer `person`.
+ */
+export function activitiesJson(ctx: Context, personId: SQL, input: z.infer<typeof c.activityRequest>, gate: SQL) {
+	return sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('id',a.id,'occurred_at',a.occurred_at,'recorded_at',a.recorded_at,
+ 'actor_id',a.actor_id,'revision',a.revision::text,'body',a.body,'edited_at',a.edited_at,'removed_at',a.removed_at,'kind',a.kind,
+ 'action',a.action,'before_value',a.before_value,'after_value',a.after_value,'obligation_id',a.obligation_id,'outcome',a.outcome,
+ 'record_id',a.record_id,'actor_exists',EXISTS(SELECT FROM account WHERE id=a.actor_id)) ORDER BY a.occurred_at,a.id),'[]') FROM (SELECT * FROM (
+      SELECT id,occurred_at,recorded_at,author_id AS actor_id,revision,body,edited_at,removed_at,'note' AS category,'note' AS kind,NULL::text AS action,NULL::jsonb AS before_value,NULL::jsonb AS after_value,NULL::uuid AS obligation_id,NULL::text AS outcome,NULL::uuid AS record_id FROM person_note WHERE tenant_id=${sql.param(ctx.selected.id)} AND person_id=${personId}
       UNION ALL
-      SELECT id,occurred_at,recorded_at,actor_id,after_revision AS revision,NULL,NULL,NULL,'activity',CASE WHEN metadata ? 'event' THEN 'record' WHEN action='people.stage_changed' THEN 'stage_changed' WHEN coalesce(before_value ? 'membership' OR after_value ? 'membership',false) THEN 'household_changed' ELSE 'activity' END,coalesce(metadata->>'event',action),CASE WHEN action='people.stage_changed' AND NOT coalesce(before_value ? 'stage',false) THEN jsonb_build_object('stage',(SELECT prev.after_value->'stage' FROM audit_event prev WHERE prev.subject_id=h.subject_id AND prev.tenant_id=h.tenant_id AND prev.after_revision<=h.after_revision AND prev.after_value ? 'stage' ORDER BY prev.after_revision DESC,prev.occurred_at DESC,prev.id DESC LIMIT 1)) ELSE before_value END,CASE WHEN action='people.stage_changed' AND NOT coalesce(after_value ? 'stage',false) THEN jsonb_build_object('stage',(SELECT prev.after_value->'stage' FROM audit_event prev WHERE prev.subject_id=h.subject_id AND prev.tenant_id=h.tenant_id AND prev.after_revision<=h.after_revision AND prev.after_value ? 'stage' ORDER BY prev.after_revision DESC,prev.occurred_at DESC,prev.id DESC LIMIT 1)) ELSE after_value END,NULL,NULL,(metadata->>'recordId')::uuid FROM audit_event h WHERE metadata->>'category' IS DISTINCT FROM 'note' AND kind<>'noop' AND tenant_id=${sql.param(ctx.selected.id)} AND subject_id IN (SELECT ${sql.param(p.id)}::uuid UNION ALL SELECT m.id FROM person m WHERE m.merged_into_person_id=${sql.param(p.id)} AND m.tenant_id=${sql.param(ctx.selected.id)}) AND action IN ('people.created','people.updated','people.retired','people.restored','people.stage_changed','people.recorded','people.corrected','people.merged','people.unmerged')
+      SELECT id,occurred_at,recorded_at,actor_id,after_revision AS revision,NULL,NULL,NULL,'activity',CASE WHEN metadata ? 'event' THEN 'record' WHEN action='people.stage_changed' THEN 'stage_changed' WHEN coalesce(before_value ? 'membership' OR after_value ? 'membership',false) THEN 'household_changed' ELSE 'activity' END,coalesce(metadata->>'event',action),CASE WHEN action='people.stage_changed' AND NOT coalesce(before_value ? 'stage',false) THEN jsonb_build_object('stage',(SELECT prev.after_value->'stage' FROM audit_event prev WHERE prev.subject_id=h.subject_id AND prev.tenant_id=h.tenant_id AND prev.after_revision<=h.after_revision AND prev.after_value ? 'stage' ORDER BY prev.after_revision DESC,prev.occurred_at DESC,prev.id DESC LIMIT 1)) ELSE before_value END,CASE WHEN action='people.stage_changed' AND NOT coalesce(after_value ? 'stage',false) THEN jsonb_build_object('stage',(SELECT prev.after_value->'stage' FROM audit_event prev WHERE prev.subject_id=h.subject_id AND prev.tenant_id=h.tenant_id AND prev.after_revision<=h.after_revision AND prev.after_value ? 'stage' ORDER BY prev.after_revision DESC,prev.occurred_at DESC,prev.id DESC LIMIT 1)) ELSE after_value END,NULL,NULL,(metadata->>'recordId')::uuid FROM audit_event h WHERE metadata->>'category' IS DISTINCT FROM 'note' AND kind<>'noop' AND tenant_id=${sql.param(ctx.selected.id)} AND subject_id IN (SELECT ${personId} UNION ALL SELECT m.id FROM person m WHERE m.merged_into_person_id=${personId} AND m.tenant_id=${sql.param(ctx.selected.id)}) AND action IN ('people.created','people.updated','people.retired','people.restored','people.stage_changed','people.recorded','people.corrected','people.merged','people.unmerged')
       UNION ALL
-      SELECT id,occurred_at,recorded_at,(SELECT actor_id FROM audit_event WHERE subject_id=contact_outcome.id ORDER BY recorded_at,id LIMIT 1),revision,NULL,NULL,NULL,'follow_up','follow_up',NULL,NULL,NULL,obligation_id,outcome,NULL FROM contact_outcome WHERE plant_id=${sql.param(ctx.selected.id)} AND person_id=${sql.param(p.id)} AND voided_at IS NULL
-    ) a WHERE ${gate} AND category=ANY(${sql.param(input.kinds ?? ["note", "activity", "follow_up"])}) ORDER BY occurred_at,id LIMIT ${sql.param(input.limit + 1)} OFFSET ${sql.param((input.page - 1) * input.limit)}`);
-	const rows = result.rows.slice(0, input.limit).map((row) => activityRow.parse(row)),
+      SELECT id,occurred_at,recorded_at,(SELECT actor_id FROM audit_event WHERE subject_id=contact_outcome.id ORDER BY recorded_at,id LIMIT 1),revision,NULL,NULL,NULL,'follow_up','follow_up',NULL,NULL,NULL,obligation_id,outcome,NULL FROM contact_outcome WHERE plant_id=${sql.param(ctx.selected.id)} AND person_id=${personId} AND voided_at IS NULL
+    ) x WHERE ${gate} AND category=ANY(${sql.param(input.kinds ?? ["note", "activity", "follow_up"])}) ORDER BY occurred_at,id LIMIT ${sql.param(input.limit + 1)} OFFSET ${sql.param((input.page - 1) * input.limit)}) a)`;
+}
+export function activityFeed(ctx: Context, personId: string, input: z.infer<typeof c.activityRequest>, raw: unknown) {
+	const found = z.array(z.unknown()).parse(raw);
+	const rows = found.slice(0, input.limit).map((row) => activityRow.parse(row)),
 		items = [];
 	const actions: Record<string, string> = {
 		"people.created": "created",
@@ -411,42 +425,16 @@ async function activities(tx: Tx, ctx: Context, p: Person, input: z.infer<typeof
 			});
 		else items.push({ ...base, kind: "activity", action: actions[r.action ?? ""] });
 	}
-	const more = result.rows.length > input.limit;
+	const more = found.length > input.limit;
 	return c.activitiesResult.parse({
 		owner: ctx.selected,
-		personId: p.id,
+		personId,
 		items,
 		next: more ? input.page + 1 : null,
 		completeness: more ? "partial" : "complete",
 	});
 }
 
-/**
- * The person page in one read: the person, its first activity page and its account link come from one Person row and
- * one activity statement. A merged person adds its survivor.
- */
-export async function readPersonPage(tx: Tx, ctx: Context, raw: unknown, limit: number) {
-	return readReply(async () => {
-		const input = parse(c.personRequest, raw);
-		const { actor, gate } = await authorizeRead(tx, ctx);
-		const p = await person(tx, ctx, input.personId, gate);
-		await canReadPerson(tx, ctx, p, actor);
-		const found = c.personResult.parse({ status: "available", person: await project(tx, ctx, p, gate) });
-		const feed =
-			ctx.selected.kind === "plant"
-				? await activities(tx, ctx, p, parse(c.activityRequest, { personId: p.id, limit, page: 1 }), gate)
-				: null;
-		const link = c.accountLinkResult.parse(
-			p.linked_account_id ? { status: "linked", personId: p.id } : { status: "unlinked" },
-		);
-		const survivor =
-			p.state === "merged" && p.merged_into_person_id
-				? await peopleReader.getPerson(tx, ctx, c.personRequest.parse({ personId: p.merged_into_person_id }))
-				: null;
-		const ok = <T>(value: T): PeopleReply<T> => ({ status: "ok", value });
-		return { found, activities: feed ? ok(feed) : null, link: ok(link), survivor };
-	});
-}
 export async function getAccountLink(tx: Tx, ctx: Context, raw: unknown) {
 	return readReply(async () => {
 		const input = parse(c.personRequest, raw);

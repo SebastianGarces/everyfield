@@ -85,6 +85,11 @@ function view(h: Household) {
 		})),
 	});
 }
+/** One Person's household, as a scalar subquery read with the Person row (it names the outer `person`). */
+export const personHouseholdJson = (plant: string) => householdJson(plant, sql`person.household_id`);
+/** The household of `personHouseholdJson`, or none for a Person without one. */
+export const personHousehold = (householdId: string | null, raw: unknown) =>
+	householdId ? view(household(raw)) : f.householdResult.parse({ status: "none" });
 /** The Person row after it joins: a person without a meaningful address takes the household's (REQ-PPL-009). */
 function joined(p: PersonFacts, h: Address, role: Role): Member {
 	return {
@@ -152,8 +157,8 @@ export const households = {
 			const input = parse(f.householdRequest, raw);
 			const { gate } = await authorizeRead(tx, ctx);
 			if ("householdId" in input) return view(await readHousehold(tx, plant, input.householdId, gate));
-			const p = await personFacts(tx, plant, input.personId, householdJson(plant, sql`person.household_id`), gate);
-			return p.household_id ? view(household(p.extra)) : f.householdResult.parse({ status: "none" });
+			const p = await personFacts(tx, plant, input.personId, personHouseholdJson(plant), gate);
+			return personHousehold(p.household_id, p.extra);
 		});
 	},
 	// The preview for address propagation: the exact live members and the household revision.

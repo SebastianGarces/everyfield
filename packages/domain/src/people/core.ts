@@ -6,14 +6,17 @@ import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import { readPipelinePerson } from "../access/pipeline.ts";
-import { currentActor, liveRead, RequestActor, requestWrite } from "../access/session.ts";
+import { boundWrite, currentActor, liveRead, RequestActor } from "../access/session.ts";
 import {
 	auditSavepoint,
-	auditTransaction,
 	finishAudit,
+	nativeWrite,
+	checkedRead,
+	declareWrite,
 	prepareWrite,
 	WriteUnavailable,
 	type AuditWrite,
+	type WritePath,
 } from "../operations/writes.ts";
 
 import { owner, revision } from "@everyfield/contracts/common";
@@ -85,7 +88,7 @@ export async function readReply<T>(body: () => Promise<T>): Promise<PeopleReply<
 	}
 }
 export async function reply<T>(tx: Tx, body: () => Promise<T>): Promise<PeopleReply<T>> {
-	if (requestWrite(tx)) return { status: "ok", value: await body() };
+	if (boundWrite(tx)) return { status: "ok", value: await body() };
 	try {
 		return { status: "ok", value: await auditSavepoint(tx, async () => body()) };
 	} catch (error) {
@@ -101,10 +104,9 @@ export async function withPeopleWrite<T>(
 	authority: RequestActor,
 	body: (tx: Tx, context: PeopleWriteContext) => Promise<PeopleReply<T>>,
 ): Promise<PeopleReply<T>> {
+	const selected = authority.actor.context.owner;
 	return readReply(() =>
-		auditTransaction(db, async (tx) => {
-			const selected = authority.actor.context.owner;
-			if (!(await authority.bind(tx, selected))) deny();
+		nativeWrite(db, authority, selected, async (tx) => {
 			const result = await body(tx, {
 				session: authority.session,
 				selected,
@@ -125,6 +127,9 @@ export async function authorize(tx: Tx, context: Context, write = false) {
 		!write && context instanceof PeopleReadContext
 			? context.authority.actor
 			: await currentActor(tx, context.session, context.selected, write);
+	return seated(context, actor, write);
+}
+function seated(context: Context, actor: Awaited<ReturnType<typeof currentActor>>, write: boolean) {
 	if (actor.status !== "active" || !["plant", "organization"].includes(context.selected.kind)) deny();
 	const seat = actor.context;
 	if (seat.kind !== "seat") deny();
@@ -136,7 +141,13 @@ export async function authorize(tx: Tx, context: Context, write = false) {
  * reads every person, so the check keeps that Admin role; any other reader's role does not change what it reads.
  */
 export async function authorizeRead(tx: Tx, context: Context) {
-	const actor = await authorize(tx, context);
+	return readGate(context, await authorize(tx, context));
+}
+/** `authorizeRead` for the request's cached viewer, which needs no statement and so no transaction. */
+export function authorizeCachedRead(context: PeopleReadContext) {
+	return readGate(context, seated(context, context.authority.actor, false));
+}
+function readGate(context: Context, actor: ActiveActor) {
 	const admin = context.selected.kind === "organization" && isAdministrator(actor);
 	return {
 		actor,
@@ -146,7 +157,7 @@ export async function authorizeRead(tx: Tx, context: Context) {
 /** A write's statements need no read gate: its locked authority holds until COMMIT (D70). */
 export const lockedWrite = sql`true`;
 export async function lockOwner(tx: Tx, context: Context) {
-	const locked = requestWrite(tx);
+	const locked = boundWrite(tx);
 	if (locked && locked.selected.id === context.selected.id && locked.selected.kind === context.selected.kind) return;
 	if (!(await RequestActor.claimWrite(tx, context.session, context.selected))) deny();
 }
@@ -196,23 +207,32 @@ export async function person(
 				eq(tables.person.id, id),
 				eq(tables.person.tenant_id, context.selected.id),
 				lock === true ? undefined : lock,
-				notExists(
-					tx
-						.select({ id: tables.organization_person_removal.id })
-						.from(tables.organization_person_removal)
-						.where(
-							and(
-								eq(tables.organization_person_removal.person_record_id, tables.person.id),
-								eq(tables.organization_person_removal.organization_id, tables.person.tenant_id),
-							),
-						),
-				),
+				unremoved(tx),
 			),
 		);
+	// A native write's first attempt reads without the lock; its final statement repeats the read with the lock.
+	const checked = lock === true ? await checkedRead(tx, query.getSQL(), sql`FOR UPDATE OF ${tables.person}`) : null;
+	if (checked) {
+		if (!checked[0]) deny();
+		return personRow.parse(checked[0]);
+	}
 	const rows = await (lock === true ? query.for("update", { of: tables.person }) : query);
 	if (!rows[0]!) deny();
 	return personRow.parse(rows[0]!);
 }
+/** The Person is not removed from its organization (C13). */
+const unremoved = (tx: Tx) =>
+	notExists(
+		tx
+			.select({ id: tables.organization_person_removal.id })
+			.from(tables.organization_person_removal)
+			.where(
+				and(
+					eq(tables.organization_person_removal.person_record_id, tables.person.id),
+					eq(tables.organization_person_removal.organization_id, tables.person.tenant_id),
+				),
+			),
+	);
 /** The reader's authority over one Person. Pass the actor a reader already resolved to avoid a second lookup. */
 export async function canReadPerson(tx: Tx, context: Context, p: Person, actor?: ActiveActor) {
 	const a = actor ?? (await authorize(tx, context));
@@ -228,30 +248,48 @@ export async function project(tx: Tx, context: Context, p: Person, gate: SQL) {
 	return (await projectPeople(tx, context, [p], gate))[0]!;
 }
 export async function projectPeople(tx: Tx, context: Context, people: Person[], gate: SQL) {
-	const evidence =
-		context.selected.kind === "plant" && people.some((p) => p.commitment_state !== "unknown")
-			? await tx
-					.selectDistinctOn([tables.commitment.person_id], {
-						person_id: tables.commitment.person_id,
-						id: tables.commitment.id,
-						kind: tables.commitment.kind,
-						signed_on: tables.commitment.signed_on,
-						revision: tables.commitment.revision,
-					})
-					.from(tables.commitment)
-					.where(
-						and(
-							eq(tables.commitment.plant_id, context.selected.id),
-							inArray(
-								tables.commitment.person_id,
-								people.map((p) => p.id),
-							),
-							isNull(tables.commitment.voided_at),
-							gate,
+	const known = context.selected.kind === "plant" && people.some((p) => p.commitment_state !== "unknown");
+	// Commitment evidence is another row: a native write that answers with it runs in the gate's transaction (C88).
+	if (known) await declareWrite(tx, "established");
+	const evidence = known
+		? await tx
+				.selectDistinctOn([tables.commitment.person_id], {
+					person_id: tables.commitment.person_id,
+					id: tables.commitment.id,
+					kind: tables.commitment.kind,
+					signed_on: tables.commitment.signed_on,
+					revision: tables.commitment.revision,
+				})
+				.from(tables.commitment)
+				.where(
+					and(
+						eq(tables.commitment.plant_id, context.selected.id),
+						inArray(
+							tables.commitment.person_id,
+							people.map((p) => p.id),
 						),
-					)
-					.orderBy(tables.commitment.person_id, desc(tables.commitment.signed_on), desc(tables.commitment.id))
-			: [];
+						isNull(tables.commitment.voided_at),
+						gate,
+					),
+				)
+				.orderBy(tables.commitment.person_id, desc(tables.commitment.signed_on), desc(tables.commitment.id))
+		: [];
+	return projectWith(context, people, evidence);
+}
+/** The commitment card a plant Person's projection names: the latest valid one. */
+export type Evidence = {
+	person_id: string;
+	id: string;
+	kind: "core_group" | "launch_team";
+	signed_on: string;
+	revision: string;
+};
+/** The latest valid card of one Person (`person` may name an outer row) as one JSON value, for a read that projects it in its own statement. */
+export const evidenceJson = (plant: string, person: SQL) =>
+	sql`(SELECT jsonb_build_object('person_id',k.person_id,'id',k.id,'kind',k.kind,'signed_on',k.signed_on::text,'revision',k.revision::text)
+ FROM commitment k WHERE k.plant_id=${plant}::uuid AND k.person_id=${person} AND k.voided_at IS NULL ORDER BY k.signed_on DESC,k.id DESC LIMIT 1)`;
+/** People projected with the cards their caller already read. */
+export function projectWith(context: Pick<Context, "selected">, people: Person[], evidence: Evidence[]) {
 	const byPerson = new Map(evidence.map((e) => [e.person_id, e]));
 	return people.map((p) => {
 		const base = {
@@ -374,13 +412,62 @@ export function personChanges(before?: Revisioned, after?: Revisioned) {
 	};
 }
 
+/**
+ * Each People write's path (C88, operations/writes.ts). "single" only where every check is on the Person row the
+ * final statement locks again: creating a Person (no read), editing its contact fields and adding a note to it. Every
+ * other write reads another row, a count or the church's settings and runs in the gate's transaction.
+ */
+export const peopleWritePaths = {
+	"orgPeople.merge": "established",
+	"orgPeople.remove": "established",
+	"orgPeople.unmerge": "established",
+	"people.addNote": "single",
+	"people.addSkill": "established",
+	"people.addToHousehold": "established",
+	"people.assignTag": "established",
+	"people.changeStatus": "established",
+	"people.correctAdultClassification": "established",
+	"people.correctCommitmentLifecycle": "established",
+	"people.correctPersonRecord": "established",
+	"people.createAssessment": "established",
+	"people.createCommitment": "established",
+	"people.createHouseholdWithHead": "established",
+	"people.createInterview": "established",
+	"people.createPerson": "single",
+	"people.createTag": "established",
+	"people.deleteHousehold": "established",
+	"people.deleteNote": "established",
+	"people.deletePerson": "established",
+	"people.deleteTag": "established",
+	"people.editNote": "established",
+	"people.mergePeople": "established",
+	"people.propagateAddress": "established",
+	"people.reactivateCommitment": "established",
+	"people.recordAdultClassification": "established",
+	"people.removeFromHousehold": "established",
+	"people.removePersonPhoto": "established",
+	"people.removeSkill": "established",
+	"people.removeTag": "established",
+	"people.reorderPipeline": "established",
+	"people.restorePerson": "established",
+	"people.setHouseholdRole": "established",
+	"people.setPersonPhoto": "established",
+	"people.unmergePeople": "established",
+	"people.updateHousehold": "established",
+	"people.updatePerson": "single",
+	"people.updateSkill": "established",
+	"people.updateTag": "established",
+	"people.withdrawCommitment": "established",
+} as const satisfies Record<string, WritePath>;
+export type PeopleWrite = keyof typeof peopleWritePaths;
+
 export type Mutation = { requestKey: string; expectedRevision?: string };
 /** The fact a write changed: a Person, or another revisioned people fact such as a tag or household. */
 export type Revisioned = { revision: string };
 export async function mutation<T>(
 	tx: Tx,
 	context: WriteContext,
-	name: string,
+	name: PeopleWrite,
 	input: Mutation,
 	body: (
 		actorId: string,
@@ -399,6 +486,8 @@ export async function mutation<T>(
 		metadata?: Record<string, string>;
 	}>,
 ): Promise<unknown> {
+	// An organization's note reads the reader's pipeline duties, another row: it runs in the gate's transaction.
+	await declareWrite(tx, context.selected.kind === "organization" ? "established" : peopleWritePaths[name]);
 	await lockOwner(tx, context);
 	const note = ["people.addNote", "people.editNote", "people.deleteNote"].includes(name);
 	const orgNote = context.selected.kind === "organization" && note;

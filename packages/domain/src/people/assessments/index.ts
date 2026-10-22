@@ -8,8 +8,11 @@ import { mutation, parse, readReply, reply, type Context, type Tx, type WriteCon
 import { plantId } from "../fields/shared.ts";
 import {
 	attribution,
+	historyJson,
 	notFuture,
 	readHistory,
+	type History,
+	type HistoryPage,
 	recordEvent,
 	recorderSql,
 	receiptOf,
@@ -126,14 +129,19 @@ export const assessments = {
 	async getAssessments(tx: Tx, ctx: Context, raw: unknown) {
 		return readReply(async () => {
 			const input = parse(c.personRecordsRequest, raw);
-			const h = await readHistory(tx, ctx, input, sql`four_cs`, assessmentJson, latestFirst);
-			return c.assessmentsResult.parse({
-				personId: input.personId,
-				latest: h.latest ? assessmentView(h.plant, h.latest) : null,
-				items: h.items.map((r) => assessmentView(h.plant, r)),
-				next: h.next,
-				total: h.total,
-			});
+			return assessmentsOf(input.personId, await readHistory(tx, ctx, input, (plant) => assessmentsJson(plant, input)));
 		});
 	},
 };
+
+/** One Person's 4 C's page as one JSON value over the Person alias `p`, for this read or the person page's. */
+export const assessmentsJson = (plant: string, input: HistoryPage) =>
+	historyJson(plant, input, sql`four_cs`, assessmentJson, latestFirst);
+export const assessmentsOf = (personId: string, h: History) =>
+	c.assessmentsResult.parse({
+		personId,
+		latest: h.latest ? assessmentView(h.plant, h.latest) : null,
+		items: h.items.map((r) => assessmentView(h.plant, r)),
+		next: h.next,
+		total: h.total,
+	});

@@ -1,8 +1,8 @@
 import "server-only";
-import type { Transaction } from "@everyfield/db/client";
+import type { Database, Transaction } from "@everyfield/db/client";
 import { listPeopleRequest, type PeopleContext } from "@everyfield/contracts/people";
 import type * as people from "@everyfield/contracts/people";
-import { peopleReader, readPersonPage as readPersonPageData } from "@everyfield/domain/people";
+import { peopleReader, readPersonPage as readPersonPageData, type PersonPageParts } from "@everyfield/domain/people";
 import type { z } from "zod";
 import { isFiltered, listRequest, pageCount, type PeopleQuery } from "./model.ts";
 
@@ -36,10 +36,12 @@ export async function readPeoplePage(tx: Transaction, ctx: PeopleContext, query:
 	};
 }
 
+/** The person page in one statement (see the domain readPersonPage), with the first 50 Activity items. */
 export async function readPersonPage(
-	tx: Transaction,
+	db: Database | Transaction,
 	ctx: PeopleContext,
 	personId: Parameters<typeof peopleReader.getPerson>[2]["personId"],
+	parts?: PersonPageParts,
 ) {
-	return readPersonPageData(tx, ctx, { personId }, 50);
+	return readPersonPageData(db, ctx, { personId }, 50, parts);
 }

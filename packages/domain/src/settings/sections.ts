@@ -38,6 +38,7 @@ import {
 	type Context,
 	type Tx,
 	type WriteContext,
+	type SettingsWrite,
 } from "./core.ts";
 export interface SettingsEffects {
 	replan(
@@ -252,7 +253,7 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 		tx: Tx,
 		ctx: WriteContext,
 		raw: unknown,
-		name: string = "settings.saveSection",
+		name: SettingsWrite = "settings.saveSection",
 		church?: z.infer<typeof q.saveChurchRequest>,
 	) {
 		const v: q.SaveSectionRequest = church

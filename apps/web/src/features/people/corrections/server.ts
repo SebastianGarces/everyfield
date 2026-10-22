@@ -4,7 +4,6 @@ import type { PeopleContext } from "@everyfield/contracts/people";
 import type { Transaction } from "@everyfield/db/client";
 import {
 	assessments,
-	checkForDuplicates,
 	commitments,
 	interviews,
 	peopleMerge,
@@ -94,24 +93,8 @@ export async function readPair(tx: Transaction, ctx: PeopleContext, q: PairQuery
 	return { kind: "ready", review, households, photos, added: { [a.id]: a.createdAt, [b.id]: b.createdAt } };
 }
 
-/**
- * Duplicate hints for one live plant person, read inside the person page's own transaction (REQ-PPL-016): people who
- * share a normalized email or phone, or the same name. Hints only; null when they could not be read.
- */
-export async function readDuplicateHints(
-	tx: Transaction,
-	ctx: PeopleContext,
-	p: { id: PersonId; displayName: string; email?: string | null; phone?: string | null },
-) {
-	const r = await checkForDuplicates(tx, ctx, {
-		displayName: p.displayName,
-		...(p.email ? { email: p.email } : {}),
-		...(p.phone ? { phone: p.phone } : {}),
-		excludePersonId: p.id,
-	});
-	return r.status === "ok" ? r.value : null;
-}
-export type DuplicateHints = NonNullable<Awaited<ReturnType<typeof readDuplicateHints>>>;
+/** Duplicate hints for one live plant person (REQ-PPL-016), read with the person page. Hints only. */
+export type DuplicateHints = z.infer<typeof c.duplicateHints>;
 
 /** The Unmerge preview with both people's names, in one transaction. */
 export async function readUnmerge(tx: Transaction, ctx: PeopleContext, mergeId: string) {
