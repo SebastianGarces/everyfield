@@ -99,9 +99,14 @@ export function CommitmentCard({
 	onSaved,
 	onConflict,
 	documentsEnabled,
+	corrected,
 }: RecordProps<Commitments> & { documentsEnabled: boolean }) {
 	const toast = useToast();
-	const history = useHistory(initial, (page) => loadCommitments(personId, page));
+	const history = useHistory(
+		initial,
+		(page) => loadCommitments(personId, page),
+		corrected?.flatMap((c) => (c.type === "commitment" ? [c.record] : [])),
+	);
 	const [current, setCurrent] = useState<CommitmentStatus | null>(initial?.current ?? null);
 	/** Takes a commitment state from an answer only when it is newer: a late or replayed answer never undoes a later one. */
 	const setLatest = (next: CommitmentStatus) =>
