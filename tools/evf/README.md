@@ -156,6 +156,12 @@ runs it before the tooling regressions. A new `.test.mts` file under `tests/inte
 `packages/*/test` must be included by a CI command. The check reads root, package and app scripts;
 it does not execute application tests or claim that an included test passes.
 
+CI runs `test:db` as a matrix with one job and one Postgres service per package
+(`pnpm --filter "${{ matrix.package }}" test:db`). Only `@everyfield/domain` builds the app, for
+the statement census. ci-tests reads the job's `matrix:` values and refuses when the list misses
+a package that defines the script or names an unknown package, so a new package with `test:db`
+cannot drop out of CI. The required check stays the aggregate `ci` job.
+
 `ci-test-exceptions.json` lists exact local-only files, with reasons and local commands.
 D63a retains suites whose helpers require the shared development database, plus the platform
 request proof that needs a preview and S3. Their CI helper changes belong to a WP-087 follow-up.
