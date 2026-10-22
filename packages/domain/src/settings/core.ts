@@ -17,7 +17,6 @@ import {
 	nativeWrite,
 	prepareWrite,
 	WriteUnavailable,
-	type WritePath,
 } from "../operations/writes.ts";
 import { appendEvent, canonical } from "../organizations/core.ts";
 export { appendEvent, canonical, sameOwner };
@@ -126,26 +125,19 @@ export async function plantAdmin(tx: Tx, ctx: Context, plant: Owner, use: "read"
 	return { ...a, plant: row };
 }
 export type Command = { requestKey: string; expectedRevision: string; input: unknown };
-/**
- * Each settings write's path (C88, operations/writes.ts). All are established: each reads
- * other rows, counts or the church's settings. A write that only checks rows its final statement locks may declare
- * "single" here.
- */
-export const settingsWritePaths = {
-	"account.finalizeAvatar": "established",
-	"account.removeAvatar": "established",
-	"account.requestDeletion": "established",
-	"account.setPersonalTimezone": "established",
-	"churches.requestWorkspaceDeletion": "established",
-	"plant.setDigestSchedule": "established",
-	"plant.setTimezone": "established",
-	"plant.updateProfile": "established",
-	"settings.saveChurch": "established",
-	"settings.saveSection": "established",
-} as const satisfies Record<string, WritePath>;
-export type SettingsWrite = keyof typeof settingsWritePaths;
+/** Every settings write name. The wrapper declares each write established (C88), so one declaration decides the path. */
+export type SettingsWrite =
+	| "account.finalizeAvatar"
+	| "account.removeAvatar"
+	| "account.requestDeletion"
+	| "account.setPersonalTimezone"
+	| "churches.requestWorkspaceDeletion"
+	| "plant.setDigestSchedule"
+	| "plant.setTimezone"
+	| "plant.updateProfile"
+	| "settings.saveChurch"
+	| "settings.saveSection";
 export async function begin(tx: Tx, ctx: WriteContext, actorId: string, name: SettingsWrite, q: Command) {
-	await declareWrite(tx, settingsWritePaths[name]);
 	const identity = requestIdentity.parse({
 		owner: ctx.selected,
 		actorId,
