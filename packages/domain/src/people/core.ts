@@ -517,7 +517,9 @@ export async function mutation<T>(
 	if (claim.kind === "conflict") deny("conflict");
 	if (claim.kind === "unavailable") deny();
 	if (claim.kind === "replay") {
+		// Only an organization removes people from its view; a plant replay has nothing to check.
 		if (
+			context.selected.kind === "organization" &&
 			name !== "orgPeople.remove" &&
 			(
 				await tx
