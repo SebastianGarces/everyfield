@@ -16,7 +16,14 @@ import {
 	peopleReader,
 	peopleWriter as people,
 	personFields as fields,
+	withPeopleWrite,
 } from "../../../../packages/domain/src/people/index.ts";
+
+// The task reminder port of a stage change or retirement. These people hold no dated, assigned task, so a replan
+// here would be a bug.
+const noReminders = async () => {
+	throw Error("unexpected task reminder replan");
+};
 
 // People CSV import and export through their public operations on a scratch schema.
 const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
@@ -58,6 +65,8 @@ const count = async (table) => (await rows(sql.raw(`SELECT count(*)::int n FROM 
 const bytes = (text) => new TextEncoder().encode(text);
 const read = (who, body) => db.transaction((t) => body(t, ctx(who)));
 const actor = async (who = 0) => db.transaction((t) => RequestActor.resolve(t, actors[who].session));
+// A write as the web mount runs it: withPeopleWrite with the request's resolved actor (RT-3).
+const write = async (who, body) => withPeopleWrite(db, await actor(who), body);
 const preview = (text, who = 0) => read(who, (t, c) => csv.previewImport(t, c, { file: bytes(text) }));
 const header = "first_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\n";
 const choose = (p, choice = (r) => r.suggested) =>
@@ -83,8 +92,8 @@ const importFile = async (text, p, choices, requestKey = randomUUID(), who = 0) 
 };
 async function person(name, input = {}) {
 	return ok(
-		await db.transaction((t) =>
-			people.createPerson(t, ctx(), { requestKey: randomUUID(), input: { displayName: name, ...input } }),
+		await write(0, (t, c) =>
+			people.createPerson(t, c, { requestKey: randomUUID(), input: { displayName: name, ...input } }),
 		),
 	).person;
 }
@@ -341,16 +350,22 @@ test("AC:TARGET-PPL-018 a partial import names its failed rows, survives a lost 
 	assert.deepEqual(big.remaining, [600]);
 	assert.deepEqual(big.counts, { created: 1200, skipped: 0, failed: 1, remaining: 1 });
 	// The import keeps why each row failed, as the database named it, without the row's values.
-	assert.deepEqual(
-		await rows(sql`SELECT failed FROM person_import WHERE id=${sql.param(big.importId)}`),
-		[{ failed: [{ row: 600, reason: "row_write_failed", code: "P0001", constraint: null }] }],
-	);
+	assert.deepEqual(await rows(sql`SELECT failed FROM person_import WHERE id=${sql.param(big.importId)}`), [
+		{ failed: [{ row: 600, reason: "row_write_failed", code: "P0001", constraint: null }] },
+	]);
 
 	// A failure that is not the row's own, such as a serialization failure, fails no row: the job tries again later.
 	const transient = header + "Tara,,tara@example.test,,,,,,,,,\r\nUli,,uli@example.test,,,,,,,,,\r\n";
 	const tp = ok(await preview(transient)),
 		transientKey = randomUUID();
-	ok(await submit(transient, tp, choose(tp, () => "create"), transientKey));
+	ok(
+		await submit(
+			transient,
+			tp,
+			choose(tp, () => "create"),
+			transientKey,
+		),
+	);
 	await admin.execute(
 		sql.raw(`CREATE FUNCTION ${schema}.busy_uli() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
  IF NEW.email='uli@example.test' THEN RAISE EXCEPTION 'synthetic serialization failure' USING ERRCODE='40001'; END IF; RETURN NEW; END $$;
@@ -499,12 +514,19 @@ test("AC:TARGET-PPL-018 INV-tenancy an import saves exactly the reviewed rows an
 		await done;
 	});
 	const pid = await ready;
-	const pending = submit(late, lp, choose(lp, () => "create"), lateKey);
+	const pending = submit(
+		late,
+		lp,
+		choose(lp, () => "create"),
+		lateKey,
+	);
 	let settled = false;
 	pending.finally(() => (settled = true)).catch(() => {});
 	// Release the seat once the import waits on it, or once it answered without waiting.
 	for (let waited = 0; !settled; waited++) {
-		const [{ n }] = await rows(sql`SELECT count(*)::int n FROM pg_stat_activity WHERE ${pid}::int=ANY(pg_blocking_pids(pid))`);
+		const [{ n }] = await rows(
+			sql`SELECT count(*)::int n FROM pg_stat_activity WHERE ${pid}::int=ANY(pg_blocking_pids(pid))`,
+		);
 		if (n > 0 || waited > 200) break;
 		await new Promise((resolve) => setTimeout(resolve, 25));
 	}
@@ -520,13 +542,13 @@ test("AC:TARGET-PPL-018 INV-tenancy an import saves exactly the reviewed rows an
 
 test("AC:TARGET-PPL-019 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RETIRE INV-tenancy the export matches the directory's filters as formula-safe CSV without private fields", async () => {
 	const plant = (who) =>
-		read(who, (t, c) => fields.createTag(t, c, { requestKey: randomUUID(), input: { name: "Choir" } }));
+		write(who, (t, c) => fields.createTag(t, c, { requestKey: randomUUID(), input: { name: "Choir" } }));
 	const choir = ok(await plant(0)).tag;
 	const north = ok(
-		await read(0, (t, c) => fields.createTag(t, c, { requestKey: randomUUID(), input: { name: "Northside" } })),
+		await write(0, (t, c) => fields.createTag(t, c, { requestKey: randomUUID(), input: { name: "Northside" } })),
 	).tag;
 	const tag = (p, t) =>
-		read(0, (tx, c) => fields.assignTag(tx, c, { requestKey: randomUUID(), input: { personId: p.id, tagId: t.id } }));
+		write(0, (tx, c) => fields.assignTag(tx, c, { requestKey: randomUUID(), input: { personId: p.id, tagId: t.id } }));
 	const alex = await person("Alex Rivera", {
 		firstName: "Alex",
 		lastName: "Rivera",
@@ -550,12 +572,17 @@ test("AC:TARGET-PPL-019 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RETIRE INV-tenancy
 		await read(0, (t, c) => peopleReader.getStatusWarnings(t, c, { personId: gone.id })),
 	).reviewRevision;
 	ok(
-		await read(0, (t, c) =>
-			people.retirePerson(t, c, {
-				requestKey: randomUUID(),
-				expectedRevision: gone.revision,
-				input: { personId: gone.id, reason: "Moved away", reviewRevision: review, handoffs: [] },
-			}),
+		await write(0, (t, c) =>
+			people.retirePerson(
+				t,
+				c,
+				{
+					requestKey: randomUUID(),
+					expectedRevision: gone.revision,
+					input: { personId: gone.id, reason: "Moved away", reviewRevision: review, handoffs: [] },
+				},
+				noReminders,
+			),
 		),
 	);
 	const exported = (filters, who = 0) => read(who, (t, c) => csv.exportPeople(t, c, filters));
