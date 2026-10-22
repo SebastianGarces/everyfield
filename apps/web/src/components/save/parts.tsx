@@ -41,19 +41,19 @@ export type SaveIntent<E extends { problem?: string }> = ReturnType<typeof useSa
  * choice group, once React has drawn the errors.
  */
 export function focusFirstProblem(form: HTMLFormElement) {
-	requestAnimationFrame(() => {
-		const bad = form.querySelector<HTMLElement>('[aria-invalid="true"], [data-invalid="true"]');
-		const target = bad?.matches("input, textarea, button, select")
-			? bad
-			: bad?.querySelector<HTMLElement>('input, textarea, button, [tabindex]:not([tabindex="-1"])');
-		target?.focus();
-	});
+	requestAnimationFrame(() => firstProblem(form)?.focus());
+}
+function firstProblem(root: HTMLElement): HTMLElement | null | undefined {
+	const bad = root.querySelector<HTMLElement>('[aria-invalid="true"], [data-invalid="true"]');
+	return bad?.matches("input, textarea, button, select")
+		? bad
+		: bad?.querySelector<HTMLElement>('input, textarea, button, [tabindex]:not([tabindex="-1"])');
 }
 
 /**
- * A card's form in a dialog. When the dialog opens again after a refused save, focus starts on the reason, so a screen
- * reader reads it first and a keyboard user is next to the fields. A submit with missing answers moves focus to the
- * first one. While the card waits (C68) the form keeps its answers and cannot submit.
+ * A card's form in a dialog. When the dialog opens again after a refused save, focus starts on the field the reason
+ * names (a screen reader reads its error with it), or on the reason when it names no field. A submit with missing
+ * answers moves focus to the first one. While the card waits (C68) the form keeps its answers and cannot submit.
  */
 export function RecordDialog({
 	icon,
@@ -94,7 +94,7 @@ export function RecordDialog({
 				onOpenAutoFocus={(e) => {
 					if (!alert.current) return;
 					e.preventDefault();
-					alert.current.focus();
+					(firstProblem(e.currentTarget as HTMLElement) ?? alert.current).focus();
 				}}
 			>
 				<form

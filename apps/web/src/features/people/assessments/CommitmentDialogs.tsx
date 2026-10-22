@@ -87,12 +87,17 @@ export function RecordCommitmentDialog({
 	const [draft, setDraft] = useState(initial);
 	const [touched, setTouched] = useState(false);
 	const set = (patch: Partial<CommitmentDraft>) => setDraft((d) => ({ ...d, ...patch }));
-	const fileError = draft.file ? documentProblem(draft.file) : null;
+	// A refusal names the one field it is about. Its error stays until that value changes, so the same date or file is
+	// not sent again.
+	const futureDate = problem === "future_date" && draft.occurredOn === initial.occurredOn;
+	const unreadable = problem === "unreadable_document" && draft.file === initial.file;
+	const fileError = draft.file
+		? (documentProblem(draft.file) ?? (unreadable ? "This file could not be read. Choose another file." : null))
+		: null;
 	const witnessMissing =
 		(draft.witness.kind === "person" && !draft.witness.id) ||
 		(draft.witness.kind === "external" && !draft.witness.text.trim());
-	const complete = draft.occurredOn !== "" && !witnessMissing && !fileError;
-	const futureDate = problem === "future_date";
+	const complete = draft.occurredOn !== "" && !witnessMissing && !fileError && !futureDate;
 	return (
 		<RecordDialog
 			wait={wait}

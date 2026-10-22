@@ -96,14 +96,14 @@ test("INV-no-false-refusal (C58, C65) BUG-31d611e R1-2: only a server answer say
 	assert.equal(refused.lane.get().notice, null);
 });
 
-test("INV-form-intent (C58): a refusal reopens its form with the values only while it is the latest form", async () => {
+test("INV-form-intent (C58): a refusal reopens its form with the values and its reason only while it is the latest form", async () => {
 	const { lane, server } = setup();
 	lane.open({ draft: "A" });
 	await lane.save({
 		what: "A",
 		form: { draft: "A" },
-		send: server([{ status: "refused", code: "invalid_input" }]),
-		code: () => "future_date",
+		// The server's reason names the field (F4b, R2-6); the form shows it, not the generic code.
+		send: server([{ status: "refused", code: "invalid_input", reason: "future_date" }]),
 		ok: () => {},
 	});
 	assert.deepEqual(lane.get().editing, { draft: "A", problem: "future_date" });
