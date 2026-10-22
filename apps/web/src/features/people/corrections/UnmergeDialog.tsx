@@ -17,7 +17,8 @@ import {
 import { Avatar, KeyValue, KeyValueList } from "@everyfield/ui/display";
 import { useEffect, useRef, useState } from "react";
 import type { z } from "zod";
-import { runSave, type Outcome, type PersonStore } from "../model.ts";
+import { runSave, type PersonStore } from "../model.ts";
+import type { Outcome } from "../../../components/save/model.ts";
 import { fresh, useStore, When } from "../parts.tsx";
 import type { PersonDraft } from "../StageDialog.tsx";
 import { unmergePair, unmergePreview, type Unmerged } from "./actions.ts";

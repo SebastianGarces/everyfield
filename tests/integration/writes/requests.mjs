@@ -298,6 +298,31 @@ try {
 		{ personId, body: "A note" },
 	]);
 	assert.equal(noted.status, "ok");
+	// Person fields (WP-012/ui): a skill save and its replay after a lost answer (the save lane sends the same key once
+	// more), a tag on the person and its replay, and the reads a conflict sends to show the latest skills and photo.
+	const fields = "apps/web/src/features/people/fields/actions.ts";
+	const page = `/people/${personId}`;
+	const skillKey = randomUUID();
+	const skill = { personId, name: "Piano", category: "worship", proficiency: null, notes: null };
+	const skilled = await act("POST people.fields.addSkill", page, fields, "addSkill", [skillKey, skill]);
+	assert.equal(skilled.status, "ok", JSON.stringify(skilled));
+	const skillReplay = await act("POST people.fields.addSkill (replay)", page, fields, "addSkill", [skillKey, skill]);
+	assert.deepEqual(skillReplay.value.skills, skilled.value.skills);
+	const tagKey = randomUUID();
+	const tagged = await act("POST people.fields.addPersonTag", page, fields, "addPersonTag", [
+		tagKey,
+		{ personId, name: "Hosts" },
+	]);
+	assert.equal(tagged.status, "ok", JSON.stringify(tagged));
+	const tagReplay = await act("POST people.fields.addPersonTag (replay)", page, fields, "addPersonTag", [
+		tagKey,
+		{ personId, name: "Hosts" },
+	]);
+	assert.deepEqual(tagReplay.value.tags, tagged.value.tags);
+	const skills = await act("POST people.fields.readSkills", page, fields, "readSkills", [personId]);
+	assert.equal(skills.value.length, 1);
+	const photo = await act("POST people.fields.readPhoto", page, fields, "readPhoto", [personId]);
+	assert.deepEqual(photo.value, { status: "absent" });
 	const tasked = await act("POST tasks.createTask", "/tasks", "apps/web/src/features/tasks/actions.ts", "createTask", [
 		randomUUID(),
 		{ title: "A task" },

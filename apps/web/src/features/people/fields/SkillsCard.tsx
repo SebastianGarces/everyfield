@@ -7,11 +7,6 @@ import {
 	CardHeader,
 	CardHeading,
 	CardTitle,
-	Dialog,
-	DialogBody,
-	DialogContent,
-	DialogFooter,
-	DialogHeader,
 	Field,
 	IconButton,
 	Input,
@@ -22,16 +17,14 @@ import {
 	MenuTrigger,
 	Select,
 	Textarea,
-	useToast,
 } from "@everyfield/ui/controls";
 import { Tag } from "@everyfield/ui/display";
-import { cn } from "@everyfield/ui/foundations";
-import { startTransition, useOptimistic, useState, useTransition } from "react";
+import { useOptimistic, useState, useTransition } from "react";
+import type { Wait } from "../../../components/save/model.ts";
+import { NoticeInDialog, RecordDialog, SaveNotice, useSaveIntent } from "../../../components/save/parts.tsx";
 import type { Receipt } from "../boundary.ts";
-import type { Outcome } from "../model.ts";
-import { FormProblem, fresh, problemText } from "../parts.tsx";
-import { addSkill, removeSkill, updateSkill } from "./actions.ts";
-import { focusFirstInvalid } from "./focus.ts";
+import { fresh, problemText } from "../parts.tsx";
+import { addSkill, readSkills, removeSkill, updateSkill } from "./actions.ts";
 import {
 	CATEGORY_LABEL,
 	PROFICIENCIES,
@@ -46,6 +39,11 @@ import {
 type Draft = { name: string; category: SkillCategory | ""; proficiency: Proficiency | "none"; notes: string };
 type Editing = { skill: Skill | null; draft: Draft; problem?: string };
 type Change = { put: Skill } | { remove: string };
+/** The words for a refused skill change. */
+const skillProblem = (code: string) =>
+	code === "conflict"
+		? "This skill changed while you were working. The latest skills show now. Check them and try again."
+		: problemText(code);
 const EMPTY: Draft = { name: "", category: "", proficiency: "none", notes: "" };
 const draftOf = (s: Skill): Draft => ({
 	name: s.name,
@@ -53,12 +51,13 @@ const draftOf = (s: Skill): Draft => ({
 	proficiency: s.proficiency ?? "none",
 	notes: s.notes ?? "",
 });
-const codeOf = (r: Outcome<unknown>) => (r.status === "refused" ? r.code : "lost");
 
 /**
- * Skills and gifts (REQ-PPL-011), grouped by category in the requirement's order. A saved change shows at once and rolls
- * back with a message when refused; a refused add or edit opens the form again with the text kept. These are recorded
- * facts: they never stand in for the Gifted interview criterion or say a person is called or ready.
+ * Skills and gifts (REQ-PPL-011), grouped by category in the requirement's order. A change shows at once while it saves
+ * through the card's save lane (components/save): one save at a time, its own request key, one replay after a lost
+ * answer and Check again when the answer stays unknown, so a retry never adds a second skill. A refused add or edit
+ * opens the form again with the text kept; a conflict reads the skills again. These are recorded facts: they never
+ * stand in for the Gifted interview criterion or say a person is called or ready.
  */
 export function SkillsCard({
 	personId,
@@ -74,7 +73,6 @@ export function SkillsCard({
 	canEdit: boolean;
 	onSaved: (receipt: Receipt) => void;
 }) {
-	const toast = useToast();
 	const [skills, setSkills] = useState<Skill[]>(initial ?? []);
 	const [shown, apply] = useOptimistic(skills, (current, change: Change) =>
 		"put" in change
@@ -82,8 +80,18 @@ export function SkillsCard({
 			: current.filter((s) => s.id !== change.remove),
 	);
 	const [, start] = useTransition();
-	const [editing, setEditing] = useState<Editing | null>(null);
+	const form = useSaveIntent<Editing>({ explain: skillProblem });
 	const first = personName.split(" ")[0] ?? personName;
+	const saved = (value: { skills: Skill[]; receipt: Receipt }) => {
+		setSkills(value.skills);
+		onSaved(value.receipt);
+	};
+	/** A conflict: another change moved a skill on, so the card shows the skills as saved now. */
+	const reload = async (code: string) => {
+		if (code !== "conflict") return;
+		const r = await readSkills(personId).catch(() => null);
+		if (r?.status === "ok") setSkills(r.value);
+	};
 
 	function submit(target: Skill | null, draft: Draft) {
 		if (!draft.category) return;
@@ -93,28 +101,31 @@ export function SkillsCard({
 			proficiency: draft.proficiency === "none" ? null : draft.proficiency,
 			notes: draft.notes.trim() || null,
 		};
-		setEditing(null);
 		start(async () => {
 			apply({ put: { ...(target ?? { id: `new:${fresh()}`, personId, revision: "0" }), ...values } as Skill });
-			const r = await (
-				target
-					? updateSkill(fresh(), target.revision, { skillId: target.id, patch: values })
-					: addSkill(fresh(), { personId, ...values })
-			).catch(() => ({ status: "lost" }) as const);
-			// Part of the same transition, so the rollback and the reopened form show together.
-			if (r.status !== "ok") return startTransition(() => setEditing({ skill: target, draft, problem: codeOf(r) }));
-			setSkills(r.value.skills);
-			onSaved(r.value.receipt);
+			await form.save({
+				what: values.name,
+				done: target ? "saved" : "added",
+				form: { skill: target, draft },
+				send: (key) =>
+					target
+						? updateSkill(key, target.revision, { skillId: target.id, patch: values })
+						: addSkill(key, { personId, ...values }),
+				refused: reload,
+				ok: saved,
+			});
 		});
 	}
 	function remove(skill: Skill) {
 		start(async () => {
 			apply({ remove: skill.id });
-			const r = await removeSkill(fresh(), skill.revision, skill.id).catch(() => ({ status: "lost" }) as const);
-			if (r.status !== "ok")
-				return toast({ tone: "error", message: `${skill.name} was not removed. ${problemText(codeOf(r))}` });
-			setSkills(r.value.skills);
-			onSaved(r.value.receipt);
+			await form.save({
+				what: skill.name,
+				done: "removed",
+				send: (key) => removeSkill(key, skill.revision, skill.id),
+				refused: reload,
+				ok: saved,
+			});
 		});
 	}
 
@@ -130,10 +141,11 @@ export function SkillsCard({
 						icon={Add01Icon}
 						label="Add a skill"
 						size="sm"
-						onClick={() => setEditing({ skill: null, draft: EMPTY })}
+						onClick={() => form.open({ skill: null, draft: EMPTY })}
 					/>
 				) : null}
 			</CardHeader>
+			<SaveNotice {...form.noticeProps} dialogOpen={form.editing !== null} />
 			{initial === null ? (
 				<p className="text-sm text-text-3">Skills did not load. Reload the page to see them.</p>
 			) : groups.length === 0 ? (
@@ -144,7 +156,7 @@ export function SkillsCard({
 							size="sm"
 							variant="secondary"
 							icon={Add01Icon}
-							onClick={() => setEditing({ skill: null, draft: EMPTY })}
+							onClick={() => form.open({ skill: null, draft: EMPTY })}
 						>
 							Add a skill
 						</Button>
@@ -166,7 +178,8 @@ export function SkillsCard({
 										key={s.id}
 										skill={s}
 										canEdit={canEdit}
-										onEdit={() => setEditing({ skill: s, draft: draftOf(s) })}
+										wait={form.wait}
+										onEdit={() => form.open({ skill: s, draft: draftOf(s) })}
 										onRemove={() => remove(s)}
 									/>
 								))}
@@ -176,14 +189,18 @@ export function SkillsCard({
 				</div>
 			)}
 			<p className="mt-3 text-xs text-text-3">Recorded skills only. They do not decide calling or readiness.</p>
-			{editing ? (
-				<SkillDialog
-					editing={editing}
-					personName={first}
-					onClose={() => setEditing(null)}
-					onSubmit={(draft) => submit(editing.skill, draft)}
-				/>
-			) : null}
+			<NoticeInDialog {...form.noticeProps}>
+				{form.editing ? (
+					<SkillDialog
+						editing={form.editing}
+						problem={form.problem}
+						wait={form.wait}
+						personName={first}
+						onClose={form.close}
+						onSubmit={(draft) => submit(form.editing?.skill ?? null, draft)}
+					/>
+				) : null}
+			</NoticeInDialog>
 		</Card>
 	);
 }
@@ -191,23 +208,30 @@ export function SkillsCard({
 function SkillRow({
 	skill,
 	canEdit,
+	wait,
 	onEdit,
 	onRemove,
 }: {
 	skill: Skill;
 	canEdit: boolean;
+	/** The card's last save is in flight or unknown (C68): no other change can start. */
+	wait: Wait;
 	onEdit: () => void;
 	onRemove: () => void;
 }) {
 	const pending = skill.id.startsWith("new:");
 	return (
-		<li className={cn("flex items-start gap-3 border-t border-line py-2.5 first:border-t-0", pending && "opacity-60")}>
+		<li
+			className="flex items-start gap-3 border-t border-line py-2.5 first:border-t-0"
+			aria-busy={pending || undefined}
+		>
 			<div className="min-w-0 flex-1">
 				<div className="flex flex-wrap items-center gap-2">
 					<span className="font-medium text-ink [overflow-wrap:anywhere]">{skill.name}</span>
 					{skill.proficiency ? (
 						<Tag className="h-[22px] px-2 text-xs">{PROFICIENCY_LABEL[skill.proficiency]}</Tag>
 					) : null}
+					{pending ? <span className="text-xs text-text-3">Saving…</span> : null}
 				</div>
 				{skill.notes ? (
 					<p className="mt-1 line-clamp-3 text-sm whitespace-pre-wrap text-text-2 [overflow-wrap:anywhere]">
@@ -225,7 +249,7 @@ function SkillRow({
 							Edit skill
 						</MenuItem>
 						<MenuSeparator />
-						<MenuItem icon={Delete02Icon} danger onSelect={onRemove}>
+						<MenuItem icon={Delete02Icon} danger disabled={wait !== null} onSelect={onRemove}>
 							Remove skill
 						</MenuItem>
 					</MenuContent>
@@ -237,11 +261,15 @@ function SkillRow({
 
 function SkillDialog({
 	editing,
+	problem,
+	wait,
 	personName,
 	onClose,
 	onSubmit,
 }: {
 	editing: Editing;
+	problem: string | undefined;
+	wait: Wait;
 	personName: string;
 	onClose: () => void;
 	onSubmit: (draft: Draft) => void;
@@ -252,68 +280,48 @@ function SkillDialog({
 	const nameMissing = draft.name.trim() === "";
 	const categoryMissing = draft.category === "";
 	return (
-		<Dialog open onOpenChange={(next) => !next && onClose()}>
-			<DialogContent>
-				<form
-					noValidate
-					className="contents"
-					onSubmit={(e) => {
-						e.preventDefault();
-						setTouched(true);
-						if (!nameMissing && !categoryMissing) onSubmit(draft);
-						else focusFirstInvalid(e.currentTarget);
-					}}
-				>
-					<DialogHeader
-						icon={StarIcon}
-						tone="green"
-						title={editing.skill ? `Edit ${editing.skill.name}` : `Add a skill for ${personName}`}
-						description="What they can do or have done. You can leave the level blank."
+		<RecordDialog
+			icon={StarIcon}
+			tone="green"
+			title={editing.skill ? `Edit ${editing.skill.name}` : `Add a skill for ${personName}`}
+			description="What they can do or have done. You can leave the level blank."
+			action={editing.skill ? "Save skill" : "Add skill"}
+			problem={problem}
+			wait={wait}
+			onClose={onClose}
+			onSubmit={() => {
+				setTouched(true);
+				const ok = !nameMissing && !categoryMissing;
+				if (ok) onSubmit(draft);
+				return ok;
+			}}
+		>
+			<Field label="Skill" error={touched && nameMissing ? "Name the skill, such as Piano or Hosting." : null}>
+				<Input value={draft.name} maxLength={100} autoFocus onChange={(e) => set({ name: e.target.value })} />
+			</Field>
+			<div className="grid grid-cols-2 gap-4 max-app-sm:grid-cols-1">
+				<Field label="Category" error={touched && categoryMissing ? "Choose a category." : null}>
+					<Select
+						value={draft.category}
+						placeholder="Choose a category"
+						onValueChange={(category) => set({ category: category as SkillCategory })}
+						options={SKILL_CATEGORIES.map((c) => ({ value: c, label: CATEGORY_LABEL[c] }))}
 					/>
-					<DialogBody className="flex flex-col gap-4">
-						<Field label="Skill" error={touched && nameMissing ? "Name the skill, such as Piano or Hosting." : null}>
-							<Input value={draft.name} maxLength={100} autoFocus onChange={(e) => set({ name: e.target.value })} />
-						</Field>
-						<div className="grid grid-cols-2 gap-4 max-app-sm:grid-cols-1">
-							<Field label="Category" error={touched && categoryMissing ? "Choose a category." : null}>
-								<Select
-									value={draft.category}
-									placeholder="Choose a category"
-									onValueChange={(category) => set({ category: category as SkillCategory })}
-									options={SKILL_CATEGORIES.map((c) => ({ value: c, label: CATEGORY_LABEL[c] }))}
-								/>
-							</Field>
-							<Field label="Level" optional>
-								<Select
-									value={draft.proficiency}
-									onValueChange={(proficiency) => set({ proficiency: proficiency as Draft["proficiency"] })}
-									options={[
-										{ value: "none", label: "Not recorded" },
-										...PROFICIENCIES.map((p) => ({ value: p, label: PROFICIENCY_LABEL[p] })),
-									]}
-								/>
-							</Field>
-						</div>
-						<Field label="Notes" optional>
-							<Textarea
-								value={draft.notes}
-								maxLength={5000}
-								rows={3}
-								onChange={(e) => set({ notes: e.target.value })}
-							/>
-						</Field>
-						<FormProblem code={editing.problem} />
-					</DialogBody>
-					<DialogFooter>
-						<Button variant="secondary" type="button" onClick={onClose}>
-							Cancel
-						</Button>
-						<Button variant="primary" type="submit">
-							{editing.skill ? "Save skill" : "Add skill"}
-						</Button>
-					</DialogFooter>
-				</form>
-			</DialogContent>
-		</Dialog>
+				</Field>
+				<Field label="Level" optional>
+					<Select
+						value={draft.proficiency}
+						onValueChange={(proficiency) => set({ proficiency: proficiency as Draft["proficiency"] })}
+						options={[
+							{ value: "none", label: "Not recorded" },
+							...PROFICIENCIES.map((p) => ({ value: p, label: PROFICIENCY_LABEL[p] })),
+						]}
+					/>
+				</Field>
+			</div>
+			<Field label="Notes" optional>
+				<Textarea value={draft.notes} maxLength={5000} rows={3} onChange={(e) => set({ notes: e.target.value })} />
+			</Field>
+		</RecordDialog>
 	);
 }

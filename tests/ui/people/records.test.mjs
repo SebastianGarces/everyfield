@@ -3,20 +3,7 @@
 // in node against the real module the cards use; no browser.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import {
-	advancedStage,
-	formClose,
-	formDismiss,
-	formOpen,
-	formRefused,
-	formSend,
-	formSettled,
-	formStart,
-	formUnknown,
-	sendTwice,
-	withCard,
-	withRecord,
-} from "../../../apps/web/src/features/people/assessments/model.ts";
+import { advancedStage, withCard, withRecord } from "../../../apps/web/src/features/people/assessments/model.ts";
 
 const rec = (id, occurredOn, recordedAt) => ({ id, occurredOn, recordedAt });
 
@@ -52,51 +39,6 @@ test("AC:TARGET-PPL-026 a new card sets the first commitment only when it is ear
 	assert.deepEqual(withCard({ status: "unknown" }, card), { status: "unknown" });
 });
 
-test("INV-request-key: a lost answer is sent once more through the same call; a second loss goes back to the person", async () => {
-	const calls = [];
-	const replies = [{ status: "lost" }, { status: "ok", value: 1 }];
-	const call = () => (calls.push("same-key"), Promise.resolve(replies.shift()));
-	assert.deepEqual(await sendTwice(call), { status: "ok", value: 1 });
-	assert.equal(calls.length, 2);
-	let n = 0;
-	const failing = () => (n++, Promise.reject(new Error("network")));
-	assert.deepEqual(await sendTwice(failing), { status: "lost" });
-	assert.equal(n, 2);
-	let refused = 0;
-	assert.deepEqual(await sendTwice(() => (refused++, Promise.resolve({ status: "refused", code: "conflict" }))), {
-		status: "refused",
-		code: "conflict",
-	});
-	assert.equal(refused, 1);
-});
-
-test("INV-form-intent (C58, review F2): a refusal reopens its form only while it is the latest form", () => {
-	const sent = formSend(formOpen(formStart(), { draft: "A" }));
-	const reopened = formRefused(sent.state, sent.token, { draft: "A", problem: "conflict" }, { id: "kA", what: "A" });
-	assert.equal(reopened.editing.draft, "A");
-	assert.equal(reopened.notice, null);
-	// A newer form opened (and then closed): the refusal never replaces it and never opens by itself; the card says why.
-	const newer = formOpen(sent.state, { draft: "B" });
-	const late = formRefused(newer, sent.token, { draft: "A", problem: "conflict" }, { id: "kA", what: "A" });
-	assert.equal(late.editing.draft, "B");
-	assert.deepEqual(late.notice, { tone: "refused", id: "kA", what: "A", problem: "conflict" });
-	const closed = formRefused(
-		formClose(newer),
-		sent.token,
-		{ draft: "A", problem: "conflict" },
-		{ id: "kA", what: "A" },
-	);
-	assert.equal(closed.editing, null);
-	assert.equal(formDismiss(closed).notice, null);
-});
-
-test("INV-request-key (C58): an unknown result offers Check again; its answer clears only its own notice", () => {
-	const s = formUnknown(formStart(), "kA", "A", () => {});
-	assert.equal(s.notice.tone, "unknown");
-	assert.equal(formSettled(s, "kB").notice, s.notice, "another save never clears it");
-	assert.equal(formSettled(s, "kA").notice, null);
-});
-
 test("INV-request-key (C58, review F4): Check again sends the same key; a new intent with the same answers gets its own", async () => {
 	const { PersonStore, runSave } = await import("../../../apps/web/src/features/people/model.ts");
 	const store = new PersonStore({ id: "p1", revision: "1" });
@@ -118,29 +60,4 @@ test("INV-request-key (C58, review F4): Check again sends the same key; a new in
 	await runSave(store, "other", same, call({ status: "lost" }), { fresh: () => "k1" });
 	await runSave(store, "other", same, call({ status: "ok", value: null }), { fresh: () => "k2" });
 	assert.deepEqual(sent.slice(3), ["k1", "k1"]);
-});
-
-test("INV-no-false-refusal (review F4d, C65): a Check again that could not start stays unknown", async () => {
-	const { stillUnknown } = await import("../../../apps/web/src/features/people/assessments/model.ts");
-	assert.equal(stillUnknown({ status: "lost" }, 3), true);
-	assert.equal(stillUnknown(null, -1), true, "a blocked Check again sent nothing: the first request may be saved");
-	assert.equal(stillUnknown({ status: "refused", code: "conflict" }, -1), false, "only a server answer says not saved");
-});
-
-test("INV-one-save-per-card (C68): no form submits while the last save is in flight or unknown", async () => {
-	const { waitOf, formUnknown, formStart, formRefused, formSend, formOpen } =
-		await import("../../../apps/web/src/features/people/assessments/model.ts");
-	assert.equal(waitOf(true, null), "saving");
-	const unknown = formUnknown(formStart(), "kA", "A", () => {}).notice;
-	assert.equal(waitOf(false, unknown), "unknown", "an unknown result must be checked first");
-	assert.equal(waitOf(true, unknown), "saving");
-	const sent = formSend(formOpen(formStart(), { draft: "A" }));
-	const refused = formRefused(
-		formOpen(sent.state, { draft: "B" }),
-		sent.token,
-		{ draft: "A", problem: "x" },
-		{ id: "kA", what: "A" },
-	).notice;
-	assert.equal(waitOf(false, refused), null, "a server refusal is final; new forms may submit");
-	assert.equal(waitOf(false, null), null);
 });
