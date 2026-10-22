@@ -131,9 +131,9 @@ export function HandoffDialog({
 									<Select
 										value={from || undefined}
 										onValueChange={(v) => {
-										setFrom(v);
-										void preview(v, false);
-									}}
+											setFrom(v);
+											void preview(v, false);
+										}}
 										placeholder={seats === null ? "Loading seats" : "Choose a person"}
 										disabled={seats?.status !== "ok"}
 										options={
