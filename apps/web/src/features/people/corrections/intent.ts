@@ -1,7 +1,7 @@
 "use client";
 
 import type { FocusEvent, PointerEvent } from "react";
-import type { Outcome } from "../model.ts";
+import type { Outcome } from "../../../components/save/model.ts";
 import { loadRecords, unmergePreview } from "./actions.ts";
 
 // Intent prefetch for the dialog reads (patterns.md, Interface behavior): a pointer over the button, a touch on it or

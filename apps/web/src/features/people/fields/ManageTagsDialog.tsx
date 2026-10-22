@@ -24,8 +24,9 @@ import {
 import { TINT, type Tone } from "@everyfield/ui/display";
 import { cn } from "@everyfield/ui/foundations";
 import { useEffect, useOptimistic, useRef, useState, useTransition } from "react";
-import type { Outcome } from "../model.ts";
-import { FormProblem, fresh, problemText } from "../parts.tsx";
+import type { Outcome } from "../../../components/save/model.ts";
+import { DialogNotice, type SaveIntent } from "../../../components/save/parts.tsx";
+import { FormProblem, problemText } from "../parts.tsx";
 import { createChurchTag, deleteChurchTag, listChurchTags, updateChurchTag } from "./actions.ts";
 import { TAG_COLOR_LABEL, TAG_COLORS, tagLook, type ChurchTag } from "./model.ts";
 
@@ -33,21 +34,24 @@ const byName = (a: { name: string }, b: { name: string }) =>
 	a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
 const problem = (r: Outcome<unknown>) => (r.status === "ok" ? undefined : r.status === "lost" ? "lost" : r.code);
 /** The words for a tag write that was refused: a rename onto an existing name is a conflict (REQ-PPL-010). */
-const tagProblem = (code: string) =>
+export const tagProblem = (code: string) =>
 	code === "conflict"
 		? "Another tag already has this name, or the tag changed. Check the list and try again."
 		: problemText(code);
 
 /**
  * Church tags (REQ-PPL-010): create, rename, recolor and delete the church's own tags. A change shows on every person
- * who has the tag. Delete says how many people have it first; their history keeps the tag.
+ * who has the tag. Delete says how many people have it first; their history keeps the tag. Changes save through the tags
+ * card's lane, so the card and this dialog save one change at a time and its notice shows here while the dialog is open.
  */
 export function ManageTagsDialog({
 	open,
+	lane,
 	onOpenChange,
 	onChurchTags,
 }: {
 	open: boolean;
+	lane: SaveIntent<{ problem?: string }>;
 	onOpenChange: (open: boolean) => void;
 	/** Every change to the church's tags, so chips on the page follow it. */
 	onChurchTags: (tags: ChurchTag[]) => void;
@@ -63,8 +67,9 @@ export function ManageTagsDialog({
 	);
 	const [, start] = useTransition();
 	const [name, setName] = useState("");
-	const [addProblem, setAddProblem] = useState<string>();
+	/** A delete whose fresh read of the tags failed: nothing was sent. */
 	const [rowProblem, setRowProblem] = useState<{ id: string; text: string } | null>(null);
+	const wait = lane.wait;
 	const [renaming, setRenaming] = useState<string | null>(null);
 	const [deleting, setDeleting] = useState<ChurchTag | null>(null);
 	// The list as last saved. Saves that finish out of order each start from it, so none brings back an older tag.
@@ -108,18 +113,18 @@ export function ManageTagsDialog({
 	function create(event: React.FormEvent) {
 		event.preventDefault();
 		const term = name.trim();
-		if (!term) return;
+		if (!term || wait) return;
 		setName("");
-		setAddProblem(undefined);
 		start(async () => {
 			apply({ put: { id: `new:${term}`, name: term, color: null, revision: "0", linkedPeople: 0 } as ChurchTag });
-			const r = await createChurchTag(fresh(), { name: term }).catch(() => ({ status: "lost" }) as const);
-			if (r.status !== "ok") {
+			await lane.save({
+				what: term,
+				done: "added",
+				send: (key) => createChurchTag(key, { name: term }),
 				// The typed name comes back so a retry needs no retyping.
-				setName((now) => now || term);
-				return setAddProblem(problem(r));
-			}
-			save((all) => [...all.filter((t) => t.id !== r.value.id), r.value]);
+				refused: () => setName((now) => now || term),
+				ok: (tag) => save((all) => [...all.filter((t) => t.id !== tag.id), tag]),
+			});
 		});
 	}
 	function remove(tag: ChurchTag) {
@@ -127,10 +132,12 @@ export function ManageTagsDialog({
 		setRowProblem(null);
 		start(async () => {
 			apply({ remove: tag.id });
-			const r = await deleteChurchTag(fresh(), tag.revision, tag.id).catch(() => ({ status: "lost" }) as const);
-			if (r.status !== "ok")
-				return setRowProblem({ id: tag.id, text: `${tag.name} was not deleted. ${tagProblem(problem(r)!)}` });
-			save((all) => all.filter((t) => t.id !== tag.id));
+			await lane.save({
+				what: tag.name,
+				done: "deleted",
+				send: (key) => deleteChurchTag(key, tag.revision, tag.id),
+				ok: () => save((all) => all.filter((t) => t.id !== tag.id)),
+			});
 		});
 	}
 
@@ -138,11 +145,12 @@ export function ManageTagsDialog({
 		setRowProblem(null);
 		start(async () => {
 			apply({ put: { ...tag, ...patch } as ChurchTag });
-			const r = await updateChurchTag(fresh(), tag.revision, { tagId: tag.id, ...patch }).catch(
-				() => ({ status: "lost" }) as const,
-			);
-			if (r.status !== "ok") return setRowProblem({ id: tag.id, text: tagProblem(problem(r)!) });
-			save((all) => all.map((t) => (t.id === tag.id ? r.value : t)));
+			await lane.save({
+				what: tag.name,
+				done: "changed",
+				send: (key) => updateChurchTag(key, tag.revision, { tagId: tag.id, ...patch }),
+				ok: (next) => save((all) => all.map((t) => (t.id === tag.id ? next : t))),
+			});
 		});
 	}
 
@@ -156,6 +164,7 @@ export function ManageTagsDialog({
 					description="Tags belong to your church. A change shows on everyone who has the tag."
 				/>
 				<DialogBody className="flex flex-col gap-4">
+					<DialogNotice />
 					<form onSubmit={create} className="flex items-start gap-2" noValidate>
 						<Input
 							aria-label="New tag name"
@@ -164,11 +173,10 @@ export function ManageTagsDialog({
 							maxLength={100}
 							onChange={(e) => setName(e.target.value)}
 						/>
-						<Button type="submit" variant="secondary" disabled={!name.trim()}>
+						<Button type="submit" variant="secondary" disabled={!name.trim() || wait !== null}>
 							Add tag
 						</Button>
 					</form>
-					<FormProblem code={addProblem} />
 					{loaded === null ? (
 						<div aria-busy="true" className="flex flex-col gap-2">
 							<span className="sr-only" role="status">
@@ -188,6 +196,7 @@ export function ManageTagsDialog({
 									{renaming === t.id ? (
 										<RenameRow
 											tag={t}
+											disabled={wait !== null}
 											onCancel={() => setRenaming(null)}
 											onSave={(next) => {
 												setRenaming(null);
@@ -195,13 +204,13 @@ export function ManageTagsDialog({
 											}}
 										/>
 									) : (
-										<div className={cn("flex min-h-11 items-center gap-3", t.id.startsWith("new:") && "opacity-60")}>
+										<div className="flex min-h-11 items-center gap-3">
 											{t.id.startsWith("new:") ? (
 												<span className="grid size-8 flex-none place-items-center">
 													<Swatch />
 												</span>
 											) : (
-												<ColorMenu tag={t} onColor={(color) => change(t, { color })} />
+												<ColorMenu tag={t} disabled={wait !== null} onColor={(color) => change(t, { color })} />
 											)}
 											<span className="min-w-0 flex-1 truncate font-medium text-ink">{t.name}</span>
 											<span className="text-sm text-text-3 tabular-nums">
@@ -217,11 +226,16 @@ export function ManageTagsDialog({
 														<IconButton icon={MoreHorizontalIcon} label={`Actions for ${t.name}`} size="sm" />
 													</MenuTrigger>
 													<MenuContent align="end">
-														<MenuItem icon={Edit02Icon} onSelect={() => setRenaming(t.id)}>
+														<MenuItem icon={Edit02Icon} disabled={wait !== null} onSelect={() => setRenaming(t.id)}>
 															Rename
 														</MenuItem>
 														<MenuSeparator />
-														<MenuItem icon={Delete02Icon} danger onSelect={() => void confirmDelete(t)}>
+														<MenuItem
+															icon={Delete02Icon}
+															danger
+															disabled={wait !== null}
+															onSelect={() => void confirmDelete(t)}
+														>
 															Delete tag
 														</MenuItem>
 													</MenuContent>
@@ -267,10 +281,13 @@ export function ManageTagsDialog({
 
 function RenameRow({
 	tag,
+	disabled,
 	onSave,
 	onCancel,
 }: {
 	tag: ChurchTag;
+	/** The card's last save is in flight or unknown (C68). */
+	disabled: boolean;
 	onSave: (name: string) => void;
 	onCancel: () => void;
 }) {
@@ -281,7 +298,7 @@ function RenameRow({
 			className="flex items-center gap-2"
 			onSubmit={(e) => {
 				e.preventDefault();
-				if (term) onSave(term);
+				if (term && !disabled) onSave(term);
 			}}
 		>
 			<Input
@@ -292,7 +309,7 @@ function RenameRow({
 				onChange={(e) => setValue(e.target.value)}
 				onKeyDown={(e) => e.key === "Escape" && (e.preventDefault(), onCancel())}
 			/>
-			<Button type="submit" size="sm" variant="primary" disabled={!term}>
+			<Button type="submit" size="sm" variant="primary" disabled={!term || disabled}>
 				Save
 			</Button>
 			<Button type="button" size="sm" variant="ghost" onClick={onCancel}>
@@ -303,7 +320,15 @@ function RenameRow({
 }
 
 /** The tag's color as a swatch button; its menu offers no color and one color per brand tone. */
-function ColorMenu({ tag, onColor }: { tag: ChurchTag; onColor: (color: string | null) => void }) {
+function ColorMenu({
+	tag,
+	disabled,
+	onColor,
+}: {
+	tag: ChurchTag;
+	disabled: boolean;
+	onColor: (color: string | null) => void;
+}) {
 	const look = tagLook(tag.color);
 	const current = tag.color ?? "none";
 	const named = (TAG_COLORS as readonly string[]).includes(current) || current === "none";
@@ -313,8 +338,9 @@ function ColorMenu({ tag, onColor }: { tag: ChurchTag; onColor: (color: string |
 			<MenuTrigger asChild>
 				<button
 					type="button"
+					disabled={disabled}
 					aria-label={`Color for ${tag.name}: ${label}`}
-					className="grid size-8 flex-none cursor-pointer place-items-center rounded-sm transition-[background-color] duration-150 hover:bg-surface-2"
+					className="grid size-8 flex-none cursor-pointer place-items-center rounded-sm transition-[background-color] duration-150 hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50"
 				>
 					<Swatch tone={look.tone} dot={look.dot} />
 				</button>

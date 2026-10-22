@@ -2,16 +2,28 @@
 
 import { Camera01Icon, Delete02Icon, ImageUpload01Icon } from "@hugeicons/core-free-icons";
 import type * as people from "@everyfield/contracts/people";
-import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger, Spinner, useToast } from "@everyfield/ui/controls";
+import {
+	Menu,
+	MenuContent,
+	MenuItem,
+	MenuSeparator,
+	MenuTrigger,
+	Popover,
+	PopoverAnchor,
+	PopoverContent,
+	Spinner,
+	useToast,
+} from "@everyfield/ui/controls";
 import { Avatar } from "@everyfield/ui/display";
 import { Icon } from "@everyfield/ui/foundations";
 import { useEffect, useRef, useState } from "react";
 import type { z } from "zod";
+import { SaveNotice, useSaveIntent } from "../../../components/save/parts.tsx";
 import type { Receipt } from "../boundary.ts";
-import { runSave, type Outcome, type PersonStore } from "../model.ts";
-import { fresh, problemText } from "../parts.tsx";
+import { throughStore, type PersonStore } from "../model.ts";
+import { problemText, useStore } from "../parts.tsx";
 import type { PersonDraft } from "../StageDialog.tsx";
-import { removePhoto, uploadPhoto, type PhotoSaved } from "./actions.ts";
+import { readPhoto, removePhoto, uploadPhoto, type PhotoSaved } from "./actions.ts";
 import { photoSrc, type PhotoResult } from "./model.ts";
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
@@ -25,19 +37,26 @@ export function photoProblem(file: { size: number; type: string }): string | nul
 	if (file.size > MAX) return "Choose a photo smaller than 3 MB.";
 	return null;
 }
-const failText = (r: Outcome<unknown> | null) =>
-	!r
-		? "Another change to this person is still saving. Try again in a moment."
-		: r.status === "refused" && r.code === "storage_unavailable"
-			? "Photo storage is not set up yet."
-			: r.status === "refused" && r.code === "invalid_input"
-				? "The file is not a valid JPG, PNG or WebP photo under 3 MB."
-				: problemText(r.status === "refused" ? r.code : "lost");
+/** The words for a refused photo change. */
+function photoRefusal(code: string): string {
+	switch (code) {
+		case "busy":
+			return "Another change to this person was still saving, so nothing was sent. Try again when it ends.";
+		case "storage_unavailable":
+			return "Photo storage is not set up yet.";
+		case "invalid_input":
+			return "The file is not a valid JPG, PNG or WebP photo under 3 MB.";
+		default:
+			return problemText(code);
+	}
+}
 
 /**
  * The person's photo in the page header (REQ-PPL-005). The image comes only from the app's own route for the exact
  * version. Owners and Admins add, replace or remove it from the photo menu. A new photo shows at once from the chosen
- * file; the old one stays saved until the new one is, and a failed upload goes back to it with a message.
+ * file; the old one stays saved until the new one is. Changes save through a save lane (components/save) in the person
+ * store: a lost answer is replayed with the same key, an answer that stays unknown offers Check again, and only a
+ * server answer says the photo was not saved. The photo has no card, so its notice opens under it.
  */
 export function PersonPhoto({
 	store,
@@ -46,6 +65,7 @@ export function PersonPhoto({
 	canEdit,
 	enabled,
 	onSaved,
+	onConflict,
 }: {
 	store: PersonStore<PlantPerson, PersonDraft>;
 	person: PlantPerson;
@@ -54,8 +74,16 @@ export function PersonPhoto({
 	/** Private photo storage is configured for this deployment. */
 	enabled: boolean;
 	onSaved: (receipt: Receipt) => void;
+	/** The person changed elsewhere: read the person again. */
+	onConflict: () => void;
 }) {
 	const toast = useToast();
+	// Another change to this person is saving: the photo waits, and Check again waits for it (C65, C68).
+	useStore(store);
+	const lane = useSaveIntent<{ problem?: string }>({
+		explain: photoRefusal,
+		busy: () => store.get().pending !== null,
+	});
 	const input = useRef<HTMLInputElement>(null);
 	const [photo, setPhoto] = useState(initial);
 	const [preview, setPreview] = useState<string | null>(null);
@@ -79,17 +107,18 @@ export function PersonPhoto({
 	const src = busy === "remove" ? undefined : (preview ?? (saved && loaded === saved ? saved : undefined));
 	const label = src ? `Photo of ${person.displayName}` : person.displayName;
 
-	async function save(slot: string, call: (key: string) => Promise<Outcome<PhotoSaved>>) {
-		const r = await runSave(store, slot, slot, call, {
-			fresh,
-			toPerson: (v) => ({ ...store.get().saved, revision: v.personRevision }) as PlantPerson,
-		});
-		if (r?.status === "ok") {
-			setPhoto(r.value.photo);
-			onSaved(r.value.receipt);
-		}
-		return r;
-	}
+	const through = throughStore(
+		store,
+		"photo",
+		(v: PhotoSaved) => ({ ...store.get().saved, revision: v.personRevision }) as PlantPerson,
+	);
+	/** A conflict: the person or the photo changed elsewhere, so the page reads the person and the photo again. */
+	const refused = async (code: string) => {
+		if (code !== "conflict") return;
+		onConflict();
+		const r = await readPhoto(person.id).catch(() => null);
+		if (r?.status === "ok") setPhoto(r.value);
+	};
 
 	async function upload(file: File) {
 		const problem = photoProblem(file);
@@ -98,35 +127,52 @@ export function PersonPhoto({
 		setPreview(local);
 		setBusy("upload");
 		const revision = store.get().saved.revision;
-		const r = await save("photo", (key) => {
-			const form = new FormData();
-			form.set("requestKey", key);
-			form.set("expectedRevision", revision);
-			form.set("personId", person.id);
-			form.set("file", file);
-			return uploadPhoto(form);
+		let settled = false;
+		await lane.save({
+			what: "The photo",
+			send: (key) => {
+				const form = new FormData();
+				form.set("requestKey", key);
+				form.set("expectedRevision", revision);
+				form.set("personId", person.id);
+				form.set("file", file);
+				return uploadPhoto(form);
+			},
+			through,
+			refused,
+			ok: (value) => {
+				settled = true;
+				setPhoto(value.photo);
+				onSaved(value.receipt);
+				// Keep the chosen file on screen until the saved version has loaded, so the header never flashes empty.
+				const saved = photoSrc(value.photo);
+				if (!saved) return setPreview(null);
+				const img = new Image();
+				img.onload = img.onerror = () => setPreview((p) => (p === local ? null : p));
+				img.src = saved;
+				toast({ tone: "success", message: "Photo saved." });
+			},
 		});
 		setBusy(null);
 		if (input.current) input.current.value = "";
-		if (r?.status !== "ok") {
-			setPreview(null);
-			return toast({ tone: "error", message: `The photo was not saved. ${failText(r)}` });
-		}
-		// Keep the chosen file on screen until the saved version has loaded, so the header never flashes empty.
-		const saved = photoSrc(r.value.photo);
-		if (!saved) return setPreview(null);
-		const img = new Image();
-		img.onload = img.onerror = () => setPreview((p) => (p === local ? null : p));
-		img.src = saved;
-		toast({ tone: "success", message: "Photo saved." });
+		if (!settled) setPreview(null);
 	}
 
 	async function remove() {
 		setBusy("remove");
 		const revision = store.get().saved.revision;
-		const r = await save("photo", (key) => removePhoto(key, revision, person.id));
+		await lane.save({
+			what: "The photo",
+			done: "removed",
+			send: (key) => removePhoto(key, revision, person.id),
+			through,
+			refused,
+			ok: (value) => {
+				setPhoto(value.photo);
+				onSaved(value.receipt);
+			},
+		});
 		setBusy(null);
-		if (r?.status !== "ok") toast({ tone: "error", message: `The photo was not removed. ${failText(r)}` });
 	}
 
 	const avatar = <Avatar name={person.displayName} label={label} src={src} size="xl" decorative={canEdit} />;
@@ -134,58 +180,72 @@ export function PersonPhoto({
 	if (!canEdit || (!enabled && !has)) return avatar;
 
 	return (
-		<div className="relative flex-none" aria-busy={busy !== null || undefined}>
-			<Menu>
-				<MenuTrigger asChild>
-					<button
-						type="button"
-						aria-label={`${has ? "Change" : "Add"} photo of ${person.displayName}`}
-						className="group relative block cursor-pointer rounded-full"
-						disabled={busy !== null}
-					>
-						{avatar}
-						<span
-							aria-hidden="true"
-							className="absolute right-0 bottom-0 grid size-8 place-items-center rounded-full bg-surface-raised text-ink-2 shadow-[0_0_0_2px_var(--ef-surface),var(--ef-shadow-pop)] transition-[background-color] duration-150 group-hover:bg-surface-2"
-						>
-							<Icon icon={Camera01Icon} size={16} />
-						</span>
-						{busy ? (
-							<span className="absolute inset-0 grid place-items-center rounded-full bg-black/35 text-white">
-								<Spinner size={20} />
-								<span className="sr-only">{busy === "upload" ? "Saving the photo" : "Removing the photo"}</span>
-							</span>
-						) : null}
-					</button>
-				</MenuTrigger>
-				<MenuContent align="start">
-					{enabled ? (
-						<MenuItem icon={ImageUpload01Icon} onSelect={() => input.current?.click()}>
-							{has ? "Replace photo" : "Upload a photo"}
-						</MenuItem>
-					) : null}
-					{has ? (
-						<>
-							{enabled ? <MenuSeparator /> : null}
-							<MenuItem icon={Delete02Icon} danger onSelect={() => void remove()}>
-								Remove photo
-							</MenuItem>
-						</>
-					) : null}
-				</MenuContent>
-			</Menu>
-			<input
-				ref={input}
-				type="file"
-				accept={TYPES.join(",")}
-				className="sr-only"
-				tabIndex={-1}
-				aria-hidden="true"
-				onChange={(e) => {
-					const file = e.target.files?.[0];
-					if (file) void upload(file);
-				}}
-			/>
-		</div>
+		<Popover open={lane.notice !== null}>
+			<PopoverAnchor asChild>
+				<div className="relative flex-none" aria-busy={busy !== null || undefined}>
+					<Menu>
+						<MenuTrigger asChild>
+							<button
+								type="button"
+								aria-label={`${has ? "Change" : "Add"} photo of ${person.displayName}`}
+								className="group relative block cursor-pointer rounded-full"
+								disabled={busy !== null || lane.wait !== null}
+							>
+								{avatar}
+								<span
+									aria-hidden="true"
+									className="absolute right-0 bottom-0 grid size-8 place-items-center rounded-full bg-surface-raised text-ink-2 shadow-[0_0_0_2px_var(--ef-surface),var(--ef-shadow-pop)] transition-[background-color] duration-150 group-hover:bg-surface-2"
+								>
+									<Icon icon={Camera01Icon} size={16} />
+								</span>
+								{busy ? (
+									<span className="absolute inset-0 grid place-items-center rounded-full bg-black/35 text-white">
+										<Spinner size={20} />
+										<span className="sr-only">{busy === "upload" ? "Saving the photo" : "Removing the photo"}</span>
+									</span>
+								) : null}
+							</button>
+						</MenuTrigger>
+						<MenuContent align="start">
+							{enabled ? (
+								<MenuItem icon={ImageUpload01Icon} onSelect={() => input.current?.click()}>
+									{has ? "Replace photo" : "Upload a photo"}
+								</MenuItem>
+							) : null}
+							{has ? (
+								<>
+									{enabled ? <MenuSeparator /> : null}
+									<MenuItem icon={Delete02Icon} danger onSelect={() => void remove()}>
+										Remove photo
+									</MenuItem>
+								</>
+							) : null}
+						</MenuContent>
+					</Menu>
+					<input
+						ref={input}
+						type="file"
+						accept={TYPES.join(",")}
+						className="sr-only"
+						tabIndex={-1}
+						aria-hidden="true"
+						onChange={(e) => {
+							const file = e.target.files?.[0];
+							if (file) void upload(file);
+						}}
+					/>
+				</div>
+			</PopoverAnchor>
+			<PopoverContent
+				label="Photo"
+				className="w-[340px] p-0"
+				// The notice is an assertive live region: it is read out where it is, without taking focus from the page.
+				onOpenAutoFocus={(e) => e.preventDefault()}
+				onInteractOutside={(e) => e.preventDefault()}
+				onEscapeKeyDown={() => lane.dismiss()}
+			>
+				<SaveNotice {...lane.noticeProps} dialogOpen={false} className="" />
+			</PopoverContent>
+		</Popover>
 	);
 }
