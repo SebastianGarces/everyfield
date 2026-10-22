@@ -645,6 +645,7 @@ export const contact_outcome = pgTable(
 		revision: int64("revision")
 			.notNull()
 			.default(sql`1`),
+		completes_task: boolean("completes_task").notNull().default(false),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		foreignKey({ name: "contact_outcome_fk_0", columns: [table.plant_id], foreignColumns: [plant.id] })
