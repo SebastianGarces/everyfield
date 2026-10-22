@@ -6,6 +6,8 @@ import * as schema from "./tables.ts";
 import { assertUnqualifiedOwnTables, assertQualifiedVectorTypes } from "./normalize.ts";
 
 export const migrationDirectory = new URL("../../migrations/", import.meta.url);
+/** Numbered names until 2026-10-22 (D76), then UTC timestamps (D78). Both sort by name. */
+export const migrationName = /^(?:\d{4}|\d{14})_[a-z0-9_]+\.sql$/;
 export const ownTableNames = new Set(
 	Object.values(schema)
 		.filter((value) => is(value, PgTable))
@@ -19,6 +21,8 @@ export async function checkMigrationArtifacts(directory = migrationDirectory): P
 		await readFile(new URL("meta/_journal.json", directory), "utf8"),
 	);
 	const files = (await readdir(directory)).filter((name) => name.endsWith(".sql")).sort();
+	// Kit's journal registers the numbered migrations only. Timestamped ones need no registry: the folder is one.
+	const numbered = files.filter((name) => /^\d{4}_/.test(name));
 	const registered = journal.entries.map((entry) => entry.tag + ".sql").sort();
 	if (
 		new Set(journal.entries.map((entry) => entry.idx)).size !== journal.entries.length ||
@@ -28,10 +32,10 @@ export async function checkMigrationArtifacts(directory = migrationDirectory): P
 				entry.idx < 0 ||
 				(index > 0 && entry.idx <= (journal.entries[index - 1]?.idx ?? -1)),
 		) ||
-		new Set(files.map((name) => name.slice(0, 4))).size !== files.length ||
+		new Set(numbered.map((name) => name.slice(0, 4))).size !== numbered.length ||
 		journal.entries.some((entry) => !entry.tag.startsWith(String(entry.idx).padStart(4, "0") + "_")) ||
 		new Set(registered).size !== registered.length ||
-		JSON.stringify(files) !== JSON.stringify(registered)
+		JSON.stringify(numbered) !== JSON.stringify(registered)
 	)
 		throw Error("Unregistered or duplicate migration artifact");
 	const frozen = new Map(manifest.files.map((file) => [file.name, file.sha256]));
@@ -43,7 +47,7 @@ export async function checkMigrationArtifacts(directory = migrationDirectory): P
 			if (createHash("sha256").update(bytes).digest("hex") !== frozen.get(name))
 				throw Error("Frozen migration changed: " + name);
 		} else {
-			if (!/^\d{4}_[a-z0-9_]+\.sql$/.test(name)) throw Error("Invalid migration filename: " + name);
+			if (!migrationName.test(name)) throw Error("Invalid migration filename: " + name);
 			assertUnqualifiedOwnTables(bytes.toString("utf8"), ownTableNames);
 			assertQualifiedVectorTypes(bytes.toString("utf8"));
 		}

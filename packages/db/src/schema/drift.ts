@@ -7,6 +7,7 @@ import type { Database } from "../client.ts";
 import * as declarations from "./tables.ts";
 import { declaredSnapshot } from "./snapshot.ts";
 import { qualifyVectorTypes } from "./normalize.ts";
+import { migrationDirectory } from "./artifacts.ts";
 import { modeledCatalog, supplementalCatalog } from "./catalog-state.ts";
 
 export async function verifySchemaDrift(
@@ -70,21 +71,32 @@ export async function verifySchemaDrift(
 		throw Error("Custom migration drift: deferred keys, triggers, functions, role attributes or privileges differ");
 }
 
+// UUID links and Kit's rename notes identify generation events; the supported definitions must agree.
+export const definitions = (snapshot: Record<string, unknown>): Record<string, unknown> =>
+	Object.fromEntries(Object.entries(snapshot).filter(([key]) => !["id", "prevId", "_meta"].includes(key)));
+
+/**
+ * Kit's diff base: the declared schema after every migration in the folder. Timestamped migrations
+ * share one snapshot file, migrations/meta/current.json, which two branches change in separate hunks
+ * unless they change the same table (D78). Until the first timestamped migration, a numbered branch
+ * that D76 allowed may still extend the numbered chain, so its latest snapshot is the base.
+ */
+export async function currentSnapshot(): Promise<Record<string, unknown>> {
+	const meta = new URL("meta/", migrationDirectory);
+	const timestamped = (await readdir(migrationDirectory)).some((name) => /^\d{14}_/.test(name));
+	const name = timestamped
+		? "current.json"
+		: (await readdir(meta))
+				.filter((name) => /^\d{4}_snapshot\.json$/.test(name))
+				.sort()
+				.at(-1);
+	if (!name) throw Error("Missing Drizzle baseline snapshot");
+	return definitions(JSON.parse(await readFile(new URL(name, meta), "utf8")));
+}
+
 export async function verifySnapshotBaseline(): Promise<void> {
-	const directory = new URL("../../migrations/meta/", import.meta.url);
-	const snapshots = (await readdir(directory)).filter((name) => /^\d{4}_snapshot\.json$/.test(name)).sort();
-	const last = snapshots.at(-1);
-	if (!last) throw Error("Missing Drizzle baseline snapshot");
-	const previous: Record<string, unknown> = JSON.parse(await readFile(new URL(last, directory), "utf8"));
 	const current = generateDrizzleJson(declarations);
-	// UUID links identify generation events; the actual supported definitions must agree.
-	const definitions = (snapshot: Record<string, unknown>): unknown =>
-		JSON.parse(
-			JSON.stringify(
-				Object.fromEntries(Object.entries(snapshot).filter(([key]) => !["id", "prevId", "_meta"].includes(key))),
-			),
-		);
-	if (!isDeepStrictEqual(definitions(previous), definitions(current)))
+	if (!isDeepStrictEqual(await currentSnapshot(), definitions(JSON.parse(JSON.stringify(current)))))
 		throw Error("Schema declarations changed without a Kit migration; run generate and review its output");
 	if ((await generateMigration(current, current)).length) throw Error("Kit emitted SQL for an unchanged snapshot");
 }
