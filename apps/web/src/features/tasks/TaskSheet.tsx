@@ -3,6 +3,7 @@
 import { Alert02Icon, ArrowDown01Icon, Delete02Icon, Link04Icon, PencilEdit02Icon } from "@hugeicons/core-free-icons";
 import {
 	Button,
+	buttonVariants,
 	IntentLink,
 	Menu,
 	MenuContent,
@@ -235,6 +236,15 @@ export function TaskSheet({
 					) : null}
 					{task.managed ? (
 						<p className="rounded-md bg-surface px-3.5 py-2.5 text-sm">{MANAGED[task.managed.kind]}</p>
+					) : null}
+					{/* A follow-up with a person records what happened, not just a tick (WP-023, REQ-MTG-022). */}
+					{task.relation?.kind === "person" && !task.parentId && !task.deleted ? (
+						<IntentLink
+							href={`/follow-ups/${task.id}`}
+							className={buttonVariants({ variant: "outline", size: "sm", className: "self-start" })}
+						>
+							Record what happened
+						</IntentLink>
 					) : null}
 					<KeyValueList>
 						<KeyValue

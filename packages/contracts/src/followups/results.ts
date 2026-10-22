@@ -93,6 +93,8 @@ export const dutyItem = z.strictObject({
 	obligationId: recordId.nullable(),
 	person: z.strictObject({ id: personId, label: z.string() }),
 	owner: account.nullable(),
+	// The stored assignee when they can no longer own it (demoted or departed); null otherwise. A handoff starts here.
+	formerOwner: account.nullable(),
 	// The latest effective outcome recorded on the task, if any.
 	lastOutcome: outcome.nullable(),
 });
@@ -109,6 +111,8 @@ export const followUpCoverage = z.strictObject({
 		)
 		.max(100),
 	owners: ownerTally,
+	// Accounts holding open follow-ups they can no longer own, with how many (REQ-TSK-013).
+	formerOwners: ownerTally,
 	needsOwner: count,
 	uncovered: count,
 	...paging,

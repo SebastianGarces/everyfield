@@ -184,7 +184,8 @@ export const activity = z.discriminatedUnion("kind", [
 		...activityBase,
 		kind: z.literal("follow_up"),
 		outcome: z.enum(["contacted", "attempted_no_contact", "administrative_completion", "no_longer_needed"]),
-		obligationId: recordId,
+		// Null for a manual follow-up or a contact recorded with no task: only generated duties have one (REQ-TSK-012).
+		obligationId: recordId.nullable(),
 	}),
 ]);
 export const activitiesResult = z.strictObject({

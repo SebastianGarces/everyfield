@@ -331,12 +331,16 @@ function Column({
 	);
 }
 
-/** Milestone and due-day badges. A person with no duty shows none: no follow-up is not urgent work (REQ-PPL-007). */
+/**
+ * Milestone, due-day and inactivity badges. A person with no duty shows no due-day badge: no follow-up is not urgent
+ * work. No recorded activity for longer than the church's Settings allow shows the inactivity badge (REQ-PPL-007).
+ */
 function CardBadges({ card }: { card: CardData }) {
 	const overdue = card.activeParentDuties.filter((d) => d.warning === "overdue").length;
 	const undated = card.activeParentDuties.filter((d) => d.warning === "missing_due_date").length;
 	const stage = card.person.stage;
-	if (!overdue && !undated && stage !== "launch_team" && stage !== "leader") return null;
+	const quiet = card.inactivity.level;
+	if (!overdue && !undated && quiet === "none" && stage !== "launch_team" && stage !== "leader") return null;
 	return (
 		<span className="flex flex-wrap items-center gap-1.5">
 			{stage === "launch_team" || stage === "leader" ? (
@@ -352,8 +356,19 @@ function CardBadges({ card }: { card: CardData }) {
 					No due date
 				</StatusBadge>
 			) : null}
+			{quiet !== "none" ? (
+				<StatusBadge status={quiet === "alert" ? "risk" : "attention"} size="sm" suppressHydrationWarning>
+					Quiet {quietDays(card.inactivity.lastActivityAt)}
+				</StatusBadge>
+			) : null}
 		</span>
 	);
+}
+
+/** Whole days since the last recorded activity, as the badge says it ("12 days"). */
+function quietDays(lastActivityAt: string): string {
+	const days = Math.max(1, Math.floor((Date.now() - Date.parse(lastActivityAt)) / 86_400_000));
+	return `${days} ${days === 1 ? "day" : "days"}`;
 }
 
 /**
