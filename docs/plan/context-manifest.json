@@ -2633,6 +2633,7 @@
       ],
       "consumer_table_names": [
         "admission_attempt",
+        "commitment_change",
         "conversation",
         "conversation_event",
         "early_access_attempt",
@@ -5785,6 +5786,7 @@
       "producer_table_names": [
         "audit_event",
         "commitment",
+        "commitment_change",
         "four_cs",
         "interview",
         "person_note",
@@ -6063,6 +6065,7 @@
       ],
       "consumer_table_names": [
         "commitment",
+        "commitment_change",
         "interview",
         "organization_person_removal",
         "person",
@@ -25982,6 +25985,7 @@
         "auth_user",
         "auth_verification",
         "commitment",
+        "commitment_change",
         "contact_outcome",
         "conversation",
         "conversation_event",
@@ -31975,6 +31979,7 @@
         "auth_user",
         "auth_verification",
         "commitment",
+        "commitment_change",
         "contact_outcome",
         "conversation",
         "conversation_event",
