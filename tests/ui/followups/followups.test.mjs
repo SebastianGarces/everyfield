@@ -9,7 +9,9 @@ import { BASE, ENGINES, fixture, hydrated, withPage } from "../setup.mjs";
 const signIn = (context, cookie) => {
 	const [name, value] = cookie.split(/=(.*)/s);
 	const { hostname } = new URL(BASE);
-	return context.addCookies([{ name, value, domain: hostname, path: "/", httpOnly: true, secure: true, sameSite: "Lax" }]);
+	return context.addCookies([
+		{ name, value, domain: hostname, path: "/", httpOnly: true, secure: true, sameSite: "Lax" },
+	]);
 };
 
 const people = () => fixture("people");
@@ -35,6 +37,8 @@ for (const [name, engine] of ENGINES) {
 				const personUrl = `${BASE}/people/${people().people[PERSON[name]]}`;
 				await page.goto(personUrl);
 				await hydrated(page);
+				const entries = page.locator("#contact-log li");
+				const before = await entries.count();
 				// An explicit follow-up, undated, Needs owner.
 				await page.getByRole("button", { name: "Add follow-up" }).click();
 				const add = page.getByRole("dialog", { name: "Add a follow-up" });
@@ -68,11 +72,10 @@ for (const [name, engine] of ENGINES) {
 				await page.getByRole("heading", { name: "Saved: Contacted" }).waitFor();
 				assert.equal(posts(), 3);
 
-				// The contact log holds exactly one entry for the three sends.
+				// The contact log holds exactly one new entry for the three sends.
 				await page.goto(personUrl);
-				const log = page.locator("#contact-log");
-				await log.getByText("Contacted", { exact: true }).first().waitFor();
-				assert.equal(await log.locator("li").count(), 1);
+				await page.locator("#contact-log").getByText("Contacted", { exact: true }).first().waitFor();
+				assert.equal(await entries.count(), before + 1);
 			},
 			{ width: 390, height: 844 },
 		);
@@ -83,6 +86,8 @@ for (const [name, engine] of ENGINES) {
 			await signIn(context, people().owner.cookie);
 			await page.goto(`${BASE}/people/${people().people["Maria Santos"]}`);
 			await hydrated(page);
+			const entries = page.locator("#contact-log li");
+			const before = await entries.count();
 			const posts = await loseReplies(context, 2);
 			await page.getByRole("button", { name: "Record contact" }).click();
 			const dialog = page.getByRole("dialog", { name: "Record a contact" });
@@ -97,8 +102,9 @@ for (const [name, engine] of ENGINES) {
 			const card = page.locator("#contact-log");
 			assert.equal(await card.getByRole("button", { name: "Record contact" }).isDisabled(), true);
 			await card.getByRole("button", { name: "Check again" }).click();
-			await card.getByText("Tried, no contact", { exact: true }).first().waitFor();
-			assert.equal(await card.getByRole("button", { name: "Check again" }).count(), 0);
+			await card.getByRole("button", { name: "Check again" }).waitFor({ state: "detached" });
+			assert.equal(await entries.count(), before + 1);
+			assert.equal(await card.getByRole("button", { name: "Record contact" }).isDisabled(), false);
 		});
 	});
 }
