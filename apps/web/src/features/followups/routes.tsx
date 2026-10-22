@@ -10,7 +10,16 @@ import type { ReactNode } from "react";
 import { CallScreen } from "./CallScreen.tsx";
 import { FollowUpsScreen, type Data, type Filter } from "./FollowUpsScreen.tsx";
 import type { Outcome } from "./model.ts";
-import { administers, COVERAGE_PAGE, loadCall, outcomeOf, read, taskViewer, type TaskViewer } from "./server.ts";
+import {
+	administers,
+	COVERAGE_PAGE,
+	loadCall,
+	outcomeOf,
+	read,
+	readOwners,
+	taskViewer,
+	type TaskViewer,
+} from "./server.ts";
 
 // The follow-up routes. The files under apps/web/src/app/(product)/(frame)/ only re-export these, so the screens, their
 // data loading and their states stay in this feature folder.
@@ -123,7 +132,14 @@ export async function FollowUpsPage({ searchParams }: { searchParams: Search }) 
 				}),
 			);
 		}
-		return r.status === "ok" ? { status: "ok", value: { kind: "coverage", coverage: r.value } } : r;
+		if (r.status !== "ok") return r;
+		// The eligible owners come with the page, one statement, so Assign opens with its list (C77). Null on a refusal;
+		// the menu then reads them itself.
+		const owners = await readOwners(tx, viewer);
+		return {
+			status: "ok",
+			value: { kind: "coverage", coverage: r.value, owners: owners.status === "ok" ? owners.value : null },
+		};
 	});
 	if (loaded.status !== "ok")
 		return (

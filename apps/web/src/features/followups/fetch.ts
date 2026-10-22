@@ -41,6 +41,10 @@ function cached<T>(read: () => Promise<Outcome<T>>) {
 		forget() {
 			entry = null;
 		},
+		/** A copy the page already has, kept like a fresh read. */
+		seed(value: T) {
+			entry = { at: Date.now(), value: Promise.resolve({ status: "ok", value }) };
+		},
 	};
 }
 
@@ -53,6 +57,7 @@ const seats = cached(() => get<z.infer<typeof tc.assigneeOptions>>({ what: "seat
 export const prefetchOwners = owners.get;
 /** After a save names an owner as not eligible, or owners changed, the next read asks again. */
 export const forgetOwners = owners.forget;
+export const seedOwners = owners.seed;
 export const prefetchSeats = seats.get;
 
 /** Intent handlers that warm `read` before a click: mouse hover, touch, or keyboard focus (not a mouse click's focus). */

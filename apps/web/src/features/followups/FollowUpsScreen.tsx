@@ -18,13 +18,14 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { STAGE_KEY, STAGE_LABEL, type StageValue } from "../people/model.ts";
 import { AddFollowUpDialog, AssignMenu, DutyFacts } from "./duties.tsx";
-import { forgetOwners, loadCoverage, prefetchOwners, prefetchSeats, warmOn } from "./fetch.ts";
+import { forgetOwners, loadCoverage, prefetchOwners, prefetchSeats, seedOwners, warmOn } from "./fetch.ts";
 import { HandoffDialog, useHandoff } from "./HandoffDialog.tsx";
 import {
 	COVERAGE_PAGE,
 	coverageOf,
 	totalsAfter,
 	type Coverage,
+	type Account,
 	type DutyItem,
 	type Owners,
 	type Totals,
@@ -35,7 +36,8 @@ import { useOpener } from "./parts.tsx";
 import { LaneNotice, useLane } from "./save.tsx";
 
 export type Filter = "needs_owner" | "uncovered" | "owned" | "any";
-export type Data = { kind: "coverage"; coverage: Coverage } | { kind: "mine"; owners: Owners };
+export type Data =
+	{ kind: "coverage"; coverage: Coverage; owners: Account[] | null } | { kind: "mine"; owners: Owners };
 type Row = Coverage["items"][number];
 
 /**
@@ -48,7 +50,12 @@ export function FollowUpsScreen({ data, filter, accountId }: { data: Data; filte
 		<>
 			<Breadcrumb items={[{ label: "Tasks", href: "/tasks" }, { label: "Follow-ups" }]} className="mb-4" />
 			{data.kind === "coverage" ? (
-				<Coverage key={`${filter}:${data.coverage.page}`} coverage={data.coverage} filter={filter} />
+				<Coverage
+					key={`${filter}:${data.coverage.page}`}
+					coverage={data.coverage}
+					owners={data.owners}
+					filter={filter}
+				/>
 			) : (
 				<Mine owners={data.owners} accountId={accountId} />
 			)}
@@ -56,7 +63,9 @@ export function FollowUpsScreen({ data, filter, accountId }: { data: Data; filte
 	);
 }
 
-function Coverage({ coverage, filter }: { coverage: Coverage; filter: Filter }) {
+function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Account[] | null; filter: Filter }) {
+	// The page brought the eligible owners: Assign and Add follow-up use them without another read.
+	useState(() => owners && seedOwners(owners));
 	const router = useRouter();
 	const path = usePathname();
 	const [rows, setRows] = useState<Row[]>(coverage.items);
