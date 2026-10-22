@@ -112,11 +112,7 @@ const joins = sql`FROM task t JOIN plant pl ON pl.id=t.plant_id
 	LEFT JOIN meeting m ON m.id=t.meeting_id AND m.plant_id=t.plant_id
 	LEFT JOIN team tm ON tm.id=t.team_id AND tm.plant_id=t.plant_id`;
 
-/**
- * One task of the plant with its labels and checklist. A write locks the task row. It stays a locked read inside the
- * gate's transaction (RT-3): its prerequisite, checklist and successor facts come from other task rows, which a
- * concurrent task write can change without touching the church row the final statement checks.
- */
+/** One task of the plant with its labels and checklist. A write locks the task row. */
 export async function loadTask(tx: Tx, plantId: string, task: string | { obligationId: string }, lock: boolean) {
 	const which =
 		typeof task === "string"

@@ -3,7 +3,6 @@ import type { Owner } from "@everyfield/contracts/common";
 import { and, eq, sql, type SQL } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import "server-only";
-import { checkedRead } from "../../operations/writes.ts";
 import { z } from "zod";
 import { deny, type Tx } from "../core.ts";
 
@@ -61,7 +60,7 @@ export async function personFacts(
 	extra?: SQL,
 	visible?: SQL,
 ): Promise<PersonFacts & { extra: unknown }> {
-	const query = tx
+	const [row] = await tx
 		.select({
 			id: tables.person.id,
 			display_name: tables.person.display_name,
@@ -75,14 +74,12 @@ export async function personFacts(
 			state_province: tables.person.state_province,
 			postal_code: tables.person.postal_code,
 			country: tables.person.country,
-			extra: (extra ? sql<unknown>`${extra}` : sql<unknown>`NULL`).as("extra"),
+			extra: extra ? sql<unknown>`${extra}` : sql<unknown>`NULL`,
 		})
 		.from(tables.person)
 		.where(
 			and(eq(tables.person.id, id), eq(tables.person.tenant_id, plant), eq(tables.person.plant_id, plant), visible),
 		);
-	// A native write's first attempt checks this read again in its final statement, with the Person row locked.
-	const [row] = (await checkedRead(tx, query.getSQL(), sql`FOR UPDATE OF ${tables.person}`)) ?? (await query);
 	if (!row) deny();
 	return { ...factRow.parse(row), extra: row.extra };
 }

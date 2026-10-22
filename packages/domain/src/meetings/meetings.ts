@@ -3,7 +3,6 @@ import * as c from "@everyfield/contracts/meetings";
 import { sql, type SQLWrapper } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
 import "server-only";
-import { readRows } from "../operations/writes.ts";
 import { z } from "zod";
 import { command, deny, next, parse, reply, type MeetingsContext, type Tx, type Writer } from "./core.ts";
 import { syncReminderJobs } from "./notifications.ts";
@@ -55,14 +54,12 @@ function location(
 
 /** The locked meeting and the clock, in one statement. Missing, foreign and retired meetings read the same. */
 async function lockMeeting(tx: Tx, w: Writer, meetingId: string, extra = sql`NULL::json`) {
-	const [row] = await readRows(
-		tx,
+	const r = await tx.execute(
 		sql`SELECT ${meetingColumns}, ${extra} AS extra, clock_timestamp() AS now FROM meeting m
-			WHERE ${plantMeeting(w.plant.id, meetingId)} AND m.retired_at IS NULL`,
-		sql`FOR UPDATE OF m`,
-		["now"],
+			WHERE ${plantMeeting(w.plant.id, meetingId)} AND m.retired_at IS NULL FOR UPDATE OF m`,
 	);
-	if (!row) deny();
+	if (!r.rows[0]) deny();
+	const row = r.rows[0] as Record<string, unknown>;
 	return { m: meetingRow.parse(row), extra: row.extra, now: z.coerce.date().parse(row.now) };
 }
 function expected(m: MeetingRow, revision: string) {
@@ -94,7 +91,7 @@ export const meetingsWriter = {
 			const input = parse(c.scheduleMeetingRequest, raw);
 			return command(tx, ctx, "meetings.schedule", input, async (w, audit) => {
 				const i = input.input,
-					zone = await w.zone(),
+					zone = w.plant.timezone,
 					startsAt = resolve(i.date, i.time, zone, i.offsetSeconds);
 				const r = await tx.execute(sql`SELECT
 					(SELECT coalesce(max(vision_number), 0) + 1 FROM meeting WHERE plant_id = ${w.plant.id}::uuid) AS vision_number,
