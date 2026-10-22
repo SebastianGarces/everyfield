@@ -2,7 +2,12 @@ import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { fixture } from "./invitations-support.mts";
 import { sql } from "../../../packages/db/src/query.ts";
-import { currentActor, readOwnResidency, readViewer } from "../../../packages/domain/src/access/index.ts";
+import {
+	currentActor,
+	readOwnResidency,
+	readRequestViewer,
+	readViewer,
+} from "../../../packages/domain/src/access/index.ts";
 import {
 	readHistory,
 	readPlantSharing,
@@ -120,6 +125,22 @@ test("INV-reads: viewer, roster, invitation list, sharing history, sharing choic
 		false,
 		"page reads must not lock rows",
 	);
+});
+
+test("RT-1: one lock-free statement reads the request session, its user and the viewer; a revoked session reads nothing", async () => {
+	const s = await f.setup();
+	const [{ token }] = (await f.admin.execute(sql`SELECT token FROM auth_session WHERE id=${s.sender.session}`)).rows;
+	const request = await count(() => readRequestViewer(f.db, token));
+	assert.equal(request.statements.length, 1);
+	assert.doesNotMatch(request.statements[0], /access_session|for\s+(update|share)/i);
+	assert.equal(request.value.session.id, s.sender.session);
+	assert.deepEqual(request.value.user, { name: "Synthetic person", email: s.sender.email, emailVerified: true });
+	const viewer = await readViewer(f.db, sessionId.parse(s.sender.session));
+	const plain = (v) => ({ ...v, authority: v.authority.actor });
+	assert.deepEqual(plain(request.value.viewer), plain(viewer));
+	assert.equal(await readRequestViewer(f.db, token + "0"), null);
+	await f.admin.execute(sql`DELETE FROM auth_session WHERE id=${s.sender.session}`);
+	assert.equal(await readRequestViewer(f.db, token), null);
 });
 
 test("INV-reads: a resident's own residency read reuses the observed actor and takes no lock", async (t) => {
