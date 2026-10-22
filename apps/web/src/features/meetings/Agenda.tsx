@@ -161,7 +161,7 @@ function AgendaForm({
 		meeting.agenda.sections.map((s) => ({ id: s.id, title: s.title, minutes: String(s.minutes) })),
 	);
 	const [touched, setTouched] = useState(false);
-	const { save, pending, problem } = useSave();
+	const { save, pending, problemProps } = useSave();
 	const errorOf = (r: Row) => {
 		const m = Number(r.minutes);
 		if (r.title.trim() === "") return "Enter a title.";
@@ -265,7 +265,7 @@ function AgendaForm({
 					>
 						Add section
 					</Button>
-					<Problem code={problem} />
+					<Problem {...problemProps} />
 				</DialogBody>
 				<DialogFooter>
 					<Button variant="secondary" type="button" onClick={onClose} disabled={pending}>

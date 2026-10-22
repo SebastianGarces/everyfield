@@ -15,13 +15,14 @@ import {
 	venuesWriter,
 	type AttendanceWriter,
 	type MeetingsContext,
+	withMeetingsWrite,
 } from "@everyfield/domain/meetings";
 import { tasksMount } from "@/server/tasks";
 import { peopleReader } from "@everyfield/domain/people";
 import type { MeetingsReply } from "@everyfield/contracts/meetings";
 import type { Transaction } from "@everyfield/db/client";
 import { read as readPeople } from "../people/server.ts";
-import type { Outcome } from "./model.ts";
+import type { Finalization, Outcome } from "./model.ts";
 import { loadCheckIn, loadMeeting, loadReport, outcome, read, readAnalytics, write, type Viewer } from "./server.ts";
 
 // Server actions behind the meetings screens: the browser boundary. Each one rebuilds the viewer from the request and
@@ -272,6 +273,48 @@ export async function settleAttendance(
 		status: "ok" as const,
 		value: { result: done.value, analytics: report.status === "ok" ? report.value : null },
 	};
+}
+/** Carries a finalize or correction result out of its transaction, so the transaction rolls back. */
+class Preview extends Error {
+	constructor(readonly value: unknown) {
+		super("preview");
+	}
+}
+/**
+ * The exact effects of a finalize or correction before the person confirms it (REQ-MTG-012, C73): each follow-up call
+ * with its person and owner, each advance to Attendee and the evaluation task. It runs the real producer in a
+ * transaction and rolls it back, so the review shows what the same command would do now, with nothing saved. Task
+ * reminders join the same transaction and roll back with it.
+ */
+export async function previewSettlement(
+	mode: "finalize" | "reconcile",
+	expectedRevision: string,
+	input: unknown,
+): Promise<Outcome<Finalization>> {
+	if (mode !== "finalize" && mode !== "reconcile") return { status: "refused", code: "invalid_input" } as const;
+	const v = await getViewer();
+	const mount = tasksMount();
+	const db = requestDatabase();
+	if (!v?.people || !mount || !db) return noSeat;
+	attendanceWriter ??= createAttendanceWriter({ reminders: mount.reminders });
+	const w = attendanceWriter;
+	try {
+		const r = await withMeetingsWrite(db, v.people.authority, async (tx, ctx) => {
+			const real = await (mode === "finalize" ? w.finalizeAttendance : w.reconcileAttendance)(tx, ctx, {
+				requestKey: crypto.randomUUID(),
+				expectedRevision,
+				input,
+			});
+			if (real.status !== "ok") return real;
+			throw new Preview(real.value);
+		});
+		// Only a refusal returns here; a computed result leaves as a Preview and rolls the transaction back.
+		return r.status === "refused" ? outcome(r) : { status: "lost" };
+	} catch (error) {
+		if (error instanceof Preview) return { status: "ok" as const, value: error.value as Finalization };
+		console.error(JSON.stringify({ component: "meetings", outcome: "preview_failed", error: String(error) }));
+		return { status: "lost" } as const;
+	}
 }
 export async function recordEvaluation(requestKey: string, input: unknown) {
 	return settle((w) => (tx, ctx) => w.recordEvaluation(tx, ctx, { requestKey, input }));

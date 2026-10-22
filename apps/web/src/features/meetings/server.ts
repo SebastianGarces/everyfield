@@ -105,8 +105,10 @@ export async function loadMeetings(viewer: Viewer, query: MeetingsQuery) {
  */
 export async function loadMeeting(viewer: Viewer, meetingId: string) {
 	const request = { meetingId };
+	// The evaluation exists only for a Vision meeting, so it is read right after the meeting, while the other reads run.
+	const meetingRead = read(viewer, (db, a) => meetingsReader.get(db, a, request));
 	const [meeting, guests, kit, cards, own, attendance, analytics, evaluation] = await Promise.all([
-		read(viewer, (db, a) => meetingsReader.get(db, a, request)),
+		meetingRead,
 		read(viewer, (db, a) => meetingsReader.listGuests(db, a, request)),
 		read(viewer, (db, a) => meetingsReader.listKit(db, a, request)),
 		read(viewer, (db, a) => meetingsReader.listCards(db, a, request)),
@@ -114,13 +116,14 @@ export async function loadMeeting(viewer: Viewer, meetingId: string) {
 		readAttendance(viewer, meetingId),
 		// The meeting's report is for Owners and Admins; a Member's read would only be refused.
 		canWrite(viewer) ? readAnalytics(viewer, meetingId) : null,
-		// The type is not known before the meeting is read; waiting for it would add a round trip. Another type's
-		// answer is "none" and is dropped.
-		read(viewer, (db, a) => attendanceReader.getEvaluation(db, a, request)),
+		meetingRead.then((m) =>
+			m.status === "ok" && m.value.status !== "unavailable" && m.value.meeting.type === "vision_meeting"
+				? read(viewer, (db, a) => attendanceReader.getEvaluation(db, a, request))
+				: null,
+		),
 	]);
 	if (meeting.status === "failed") return { status: "failed" } as const;
 	if (meeting.status === "refused" || meeting.value.status === "unavailable") return { status: "missing" } as const;
-	const vision = meeting.value.meeting.type === "vision_meeting";
 	return {
 		status: "found",
 		meeting: meeting.value.meeting,
@@ -130,7 +133,7 @@ export async function loadMeeting(viewer: Viewer, meetingId: string) {
 		own: value(own),
 		attendance: value(attendance),
 		analytics: analytics ? value(analytics) : null,
-		evaluation: vision ? value(evaluation) : null,
+		evaluation: evaluation ? value(evaluation) : null,
 		now: new Date().toISOString(),
 	} as const;
 }

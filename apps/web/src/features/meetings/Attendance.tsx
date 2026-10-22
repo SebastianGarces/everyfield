@@ -26,9 +26,9 @@ import {
 	useToast,
 } from "@everyfield/ui/controls";
 import { DeltaChip, StatusBadge } from "@everyfield/ui/display";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { assigneeOptions } from "../tasks/fetch.ts";
-import { addAttendeeNote, evaluationHistory, setPresence } from "./actions.ts";
+import { addAttendeeNote, evaluationHistory, previewSettlement, setPresence } from "./actions.ts";
 import {
 	CLASSIFICATION_LABEL,
 	dateText,
@@ -58,6 +58,12 @@ import { Problem, problemOf, sendOnce, Unconfirmed, useSlot, type Slot } from ".
 
 type Who = { personId: string; displayName: string };
 type PresenceAnswer = Extract<Awaited<ReturnType<typeof setPresence>>, { status: "ok" }>["value"];
+
+/**
+ * A trigger held by a save in flight or unknown (C68). It stays focusable, so focus can return to it when its dialog
+ * closes, but it starts nothing; it looks like a disabled button.
+ */
+const HELD = "aria-disabled:cursor-not-allowed aria-disabled:opacity-45 aria-disabled:active:translate-y-0";
 
 /** When a meeting can be finalized: it has started (or was held), and it is not cancelled or voided. */
 export const canSettle = (m: Detail, now: string) =>
@@ -255,8 +261,9 @@ export function AttendanceCard({
 							variant="secondary"
 							size="sm"
 							icon={Edit02Icon}
-							disabled={held}
-							onClick={() => onSettle("reconcile")}
+							aria-disabled={held || undefined}
+							className={HELD}
+							onClick={() => !held && onSettle("reconcile")}
 							{...intent}
 						>
 							Correct attendance
@@ -266,8 +273,9 @@ export function AttendanceCard({
 							variant="primary"
 							size="sm"
 							icon={CheckListIcon}
-							disabled={held}
-							onClick={() => onSettle("finalize")}
+							aria-disabled={held || undefined}
+							className={HELD}
+							onClick={() => !held && onSettle("finalize")}
 							{...intent}
 						>
 							Finalize attendance
@@ -437,6 +445,8 @@ function SettleForm({
 	const [followUp, setFollowUp] = useState(initial?.followUpAssigneeId ?? NEEDS_OWNER);
 	const [evaluation, setEvaluation] = useState(initial?.evaluationAssigneeId ?? NEEDS_OWNER);
 	const [reason, setReason] = useState(initial?.reason ?? "");
+	const listRef = useRef<HTMLFieldSetElement>(null);
+	const reasonRef = useRef<HTMLTextAreaElement>(null);
 	const [touched, setTouched] = useState(false);
 	const vision = meeting.type === "vision_meeting";
 	const reconcile = mode === "reconcile";
@@ -455,6 +465,36 @@ function SettleForm({
 		{ value: NEEDS_OWNER, label: "Needs owner" },
 		...(seats?.status === "ok" ? seats.value.items.map((s) => ({ value: s.accountId, label: s.displayName })) : []),
 	];
+	const ownerName = (accountId: string | null) =>
+		(accountId && seats?.status === "ok" && seats.value.items.find((x) => x.accountId === accountId)?.displayName) ||
+		(accountId ? "an owner" : "Needs owner");
+	// The exact effects of these choices, from the real command run and rolled back on the server (C73). A change of
+	// people or owners asks again after a short pause; an answer for older choices is never shown.
+	const choice = {
+		meetingId: meeting.id,
+		attendeeIds: [...ids].sort(),
+		followUpAssigneeId: followUp === NEEDS_OWNER ? null : followUp,
+		...(reconcile ? { reason: "Review" } : { evaluationAssigneeId: evaluation === NEEDS_OWNER ? null : evaluation }),
+	};
+	const choiceKey = JSON.stringify(choice);
+	const [attempt, setAttempt] = useState(0);
+	const [got, setGot] = useState<{ key: string; attempt: number; value: Outcome<Finalization> } | null>(null);
+	const retryRef = useRef<HTMLButtonElement>(null);
+	useEffect(() => {
+		if (unchanged) return;
+		let live = true;
+		const t = setTimeout(() => {
+			previewSettlement(mode, attendance.attendanceRevision, JSON.parse(choiceKey))
+				.catch(() => ({ status: "lost" }) as const)
+				.then((value) => live && setGot({ key: choiceKey, attempt, value }));
+		}, 250);
+		return () => {
+			live = false;
+			clearTimeout(t);
+		};
+	}, [choiceKey, attempt, mode, attendance.attendanceRevision, unchanged]);
+	const settled = got !== null && got.key === choiceKey && got.attempt === attempt;
+	const effects: Outcome<Finalization> = settled ? got.value : { status: "lost" };
 	const owner = (label: string, value: string, set: (v: string) => void, hint: string) => (
 		<Field label={label} hint={hint}>
 			{seats === null ? (
@@ -472,7 +512,12 @@ function SettleForm({
 				onSubmit={(e) => {
 					e.preventDefault();
 					setTouched(true);
-					if (unchanged || reasonMissing) return;
+					// Focus goes to the first thing to fix (F5): who attended, then the reason.
+					if (unchanged) return listRef.current?.querySelector<HTMLElement>('button[role="checkbox"]')?.focus();
+					if (reasonMissing) return reasonRef.current?.focus();
+					// Confirm only what the review shows: the exact effects of these choices (C73).
+					if (!settled) return;
+					if (effects.status !== "ok") return retryRef.current?.focus();
 					onSubmit({
 						attendeeIds: ids,
 						followUpAssigneeId: followUp === NEEDS_OWNER ? null : followUp,
@@ -489,7 +534,7 @@ function SettleForm({
 				/>
 				<DialogBody className="flex flex-col gap-5">
 					{reconcile ? (
-						<fieldset className="flex flex-col">
+						<fieldset ref={listRef} className="flex flex-col">
 							<legend className="mb-1 text-sm font-medium text-ink-2">Who attended</legend>
 							<div className="max-h-[248px] overflow-y-auto rounded-md px-1">
 								{choices.map((p) => (
@@ -525,43 +570,40 @@ function SettleForm({
 							)}
 						</section>
 					)}
-					<section aria-labelledby="settle-effects">
+					<section aria-labelledby="settle-effects" aria-live="polite" aria-busy={!settled || undefined}>
 						<h3 id="settle-effects" className="text-sm font-medium text-ink-2">
 							{reconcile ? "What this changes" : "What finalizing does"}
 						</h3>
-						<ul className="mt-1.5 flex list-disc flex-col gap-1 pl-5 text-md text-text-2">
-							{reconcile ? (
-								<>
-									<li>
-										{added.length ? `Adds ${added.map((id) => name.get(id)).join(", ")}.` : "Adds nobody."}{" "}
-										{removed.length ? `Removes ${removed.map((id) => name.get(id)).join(", ")}.` : "Removes nobody."}
-									</li>
-									{vision ? (
-										<>
-											<li>An added person at their first Vision meeting gets a follow-up call.</li>
-											<li>
-												A removed person&apos;s open follow-up closes as no longer needed. Work already done stays done.
-											</li>
-										</>
-									) : null}
-									<li>The history keeps the earlier list and your reason.</li>
-								</>
-							) : (
-								<>
-									<li>Each person counts as a first visit, returning or core group, as they are today.</li>
-									{vision ? (
-										<>
-											<li>Prospects at their first Vision meeting move to Attendee.</li>
-											<li>
-												Each person at their first Vision meeting gets a follow-up call, due two days after the meeting.
-											</li>
-											<li>The meeting gets one evaluation task.</li>
-										</>
-									) : null}
-									<li>It does not change the meeting&apos;s status.</li>
-								</>
-							)}
-						</ul>
+						{unchanged ? (
+							<p className="mt-1.5 text-md text-text-3">Add or remove someone to see what changes.</p>
+						) : !settled ? (
+							<p role="status" className="mt-1.5 flex items-center gap-2 text-md text-text-3">
+								<Spinner size={14} /> Working out exactly what this creates…
+							</p>
+						) : effects.status !== "ok" ? (
+							<div role="alert" className="mt-1.5 flex flex-wrap items-center justify-between gap-3">
+								<p className="min-w-0 flex-1 text-md text-magenta-600">
+									{effects.status === "lost"
+										? "The list of what this creates did not load. Nothing was changed."
+										: problemText(effects.code)}
+								</p>
+								<Button
+									ref={retryRef}
+									variant="secondary"
+									size="sm"
+									type="button"
+									onClick={() => setAttempt((n) => n + 1)}
+								>
+									Try again
+								</Button>
+							</div>
+						) : (
+							<ul className="mt-1.5 flex list-disc flex-col gap-1 pl-5 text-md text-text-2">
+								{effectLines(effects.value, meeting, name, ownerName, mode).map((line) => (
+									<li key={line}>{line}</li>
+								))}
+							</ul>
+						)}
 					</section>
 					{vision ? (
 						<div className="grid grid-cols-2 gap-4 max-app-sm:grid-cols-1">
@@ -585,7 +627,13 @@ function SettleForm({
 							hint="It stays in the history."
 							error={touched && reasonMissing ? "Enter a reason." : null}
 						>
-							<Textarea value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} rows={2} />
+							<Textarea
+								ref={reasonRef}
+								value={reason}
+								onChange={(e) => setReason(e.target.value)}
+								maxLength={500}
+								rows={2}
+							/>
 						</Field>
 					) : null}
 					<Problem code={problem} />
@@ -594,13 +642,59 @@ function SettleForm({
 					<Button variant="secondary" type="button" onClick={onClose}>
 						Cancel
 					</Button>
-					<Button variant="primary" type="submit">
+					<Button variant="primary" type="submit" loading={!unchanged && !settled}>
 						{reconcile ? "Save correction" : "Finalize"}
 					</Button>
 				</DialogFooter>
 			</form>
 		</DialogContent>
 	);
+}
+
+const plusDays = (localDate: string, days: number) => {
+	const [y, m, d] = localDate.split("-").map(Number) as [number, number, number];
+	return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+};
+
+/** The review's exact list: every follow-up call with its person, due day and owner, every advance and the task. */
+function effectLines(
+	r: Finalization,
+	meeting: Detail,
+	name: Map<string, string>,
+	ownerName: (accountId: string | null) => string,
+	mode: "finalize" | "reconcile",
+): string[] {
+	if (r.outcome === "noop") return ["Attendance is already final with these people. Nothing changes."];
+	const who = (id: string | null) => (id && name.get(id)) || "someone no longer on the list";
+	const owned = (w: Finalization["work"][number]) =>
+		w.needsOwner ? "Needs owner" : `Owner: ${ownerName(w.assigneeId)}`;
+	const due = dateText(plusDays(meeting.localDate, 2));
+	const counts = { first_time: 0, returning: 0, core_group: 0 };
+	for (const c of r.classifications) counts[c.classification]++;
+	const lines = [
+		`Counts ${(Object.keys(counts) as Classification[]).map((k) => `${counts[k]} ${CLASSIFICATION_LABEL[k].toLowerCase()}`).join(", ")}.`,
+		...r.work
+			.filter((w) => w.kind === "first_vision_follow_up" && w.outcome !== "existing")
+			.map((w) =>
+				w.outcome === "closed"
+					? `Follow-up call with ${who(w.personId)} closes as no longer needed. Work already done stays.`
+					: w.meetingId !== meeting.id
+						? `Follow-up call with ${who(w.personId)} for a later Vision meeting · ${owned(w)}`
+						: `Follow-up call with ${who(w.personId)}, due ${due} · ${owned(w)}`,
+			),
+		...r.stageChanges.map((c) => `${who(c.personId)} moves from Prospect to Attendee.`),
+		...r.work
+			.filter((w) => w.kind === "meeting_evaluation" && w.outcome === "created")
+			.map((w) => `Evaluation task for this meeting · ${owned(w)}`),
+	];
+	if (!r.work.some((w) => w.outcome !== "existing") && meeting.type !== "vision_meeting")
+		lines.push("No tasks are created for this kind of meeting.");
+	lines.push(
+		mode === "reconcile"
+			? "The history keeps the earlier list and your reason."
+			: "The meeting status does not change.",
+	);
+	return lines;
 }
 
 /** One sentence for the result of a finalize or correction: what it created and what needs an owner. */
@@ -711,7 +805,14 @@ export function EvaluationCard({
 							History
 						</Button>
 						{canWrite ? (
-							<Button variant="secondary" size="sm" icon={Edit02Icon} onClick={onCorrect} disabled={held}>
+							<Button
+								variant="secondary"
+								size="sm"
+								icon={Edit02Icon}
+								onClick={() => !held && onCorrect()}
+								aria-disabled={held || undefined}
+								className={HELD}
+							>
 								Correct scores
 							</Button>
 						) : null}
@@ -754,7 +855,14 @@ export function EvaluationCard({
 			) : canWrite ? (
 				<div className="flex flex-wrap items-center justify-between gap-3">
 					<p className="text-md text-text-2">Score the meeting while it is fresh. It completes the evaluation task.</p>
-					<Button variant="primary" size="sm" icon={StarIcon} onClick={onRecord} disabled={held}>
+					<Button
+						variant="primary"
+						size="sm"
+						icon={StarIcon}
+						onClick={() => !held && onRecord()}
+						aria-disabled={held || undefined}
+						className={HELD}
+					>
 						Record evaluation
 					</Button>
 				</div>
@@ -857,6 +965,7 @@ function EvaluationForm({
 		correcting &&
 		(FACTORS.some((f) => scores[f.key] !== evaluation.scores[f.key]) || notes.trim() !== (evaluation.notes ?? ""));
 	const first = useRef<HTMLDivElement>(null);
+	const reasonRef = useRef<HTMLTextAreaElement>(null);
 	return (
 		<DialogContent size="lg">
 			<form
@@ -869,7 +978,10 @@ function EvaluationForm({
 						first.current?.querySelector<HTMLElement>(`[data-factor="${missing[0]!.key}"] button`)?.focus();
 						return;
 					}
-					if (correcting && (!changed || reason.trim() === "")) return;
+					// Focus goes to the first thing to fix (F5): a score to change, then the reason.
+					if (correcting && !changed)
+						return first.current?.querySelector<HTMLElement>('[role="radio"][aria-checked="true"]')?.focus();
+					if (correcting && reason.trim() === "") return reasonRef.current?.focus();
 					onSubmit({ scores, notes: notes.trim(), reason: reason.trim() });
 				}}
 			>
@@ -931,7 +1043,13 @@ function EvaluationForm({
 										: null
 							}
 						>
-							<Textarea value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} rows={2} />
+							<Textarea
+								ref={reasonRef}
+								value={reason}
+								onChange={(e) => setReason(e.target.value)}
+								maxLength={500}
+								rows={2}
+							/>
 						</Field>
 					) : null}
 					<Problem code={problem} />

@@ -147,11 +147,16 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 
 	const setMeeting = (meeting: Detail) => setData((d) => ({ ...d, meeting }));
 	/** After a refusal as out of date: the latest meeting, guests, kit and cards, without reloading the page. */
-	const stale = () => {
-		reloadMeeting(m.id).then((r) => {
-			if (r.status === "ok" && r.value.status === "found") setData(r.value);
-		});
-	};
+	/** After a refusal as out of date: the latest meeting, guests, kit and cards. Resolves true once they show. */
+	const stale = () =>
+		reloadMeeting(m.id).then(
+			(r) => {
+				if (r.status !== "ok" || r.value.status !== "found") return false;
+				setData(r.value);
+				return true;
+			},
+			() => false,
+		);
 
 	function moveTo(to: MeetingStatus) {
 		startTransition(async () => {
@@ -195,7 +200,13 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 			(key) => settleAttendance(mode, key, attendance.attendanceRevision, body),
 			(r) => {
 				if (r.status !== "ok") {
-					if (r.code === "conflict") stale();
+					// Out of date: review again from what is saved now, never from the earlier list (F6).
+					if (r.code === "conflict") {
+						setSettle(null);
+						return void stale().then((shown) =>
+							setSettle({ mode, visible: true, input: null, problem: shown ? "conflict" : "conflict_unloaded" }),
+						);
+					}
 					return setSettle((s) => s && { ...s, visible: true, problem: r.code });
 				}
 				const { result, analytics } = r.value;
@@ -244,7 +255,13 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 			(r) => {
 				setDraft(null);
 				if (r.status !== "ok") {
-					if (r.code === "conflict") stale();
+					// Out of date: correct again from the scores saved now, never from the earlier draft (F6).
+					if (r.code === "conflict") {
+						setEvaluating(null);
+						return void stale().then((shown) =>
+							setEvaluating({ visible: true, input: null, problem: shown ? "conflict" : "conflict_unloaded" }),
+						);
+					}
 					return setEvaluating((f) => f && { ...f, visible: true, problem: r.code });
 				}
 				const e = r.value.evaluation;
@@ -834,7 +851,7 @@ function HeldForm({
 		localInput(new Date(Math.min(Date.parse(meeting.startsAt), Date.parse(now)))),
 	);
 	const [future, setFuture] = useState(false);
-	const { save, pending, problem } = useSave();
+	const { save, pending, problemProps } = useSave();
 	return (
 		<DialogContent size="sm" aria-busy={pending || undefined}>
 			<form
@@ -870,7 +887,7 @@ function HeldForm({
 							onChange={(e) => setValue(e.target.value)}
 						/>
 					</Field>
-					<Problem code={problem} />
+					<Problem {...problemProps} />
 				</DialogBody>
 				<DialogFooter>
 					<Button variant="secondary" type="button" onClick={onClose} disabled={pending}>

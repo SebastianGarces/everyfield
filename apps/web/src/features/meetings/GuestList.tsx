@@ -564,7 +564,7 @@ function AddGuestForm({
 	const [inviter, setInviterChoice] = useState<PickedPerson | null>(null);
 	const [contact, setContact] = useState({ displayName: "", email: "", phone: "" });
 	const [touched, setTouched] = useState(false);
-	const { save, pending, problem } = useSave();
+	const { save, pending, problemProps } = useSave();
 	const nameMissing = contact.displayName.trim() === "";
 	const emailBad = contact.email.trim() !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email.trim());
 
@@ -657,7 +657,7 @@ function AddGuestForm({
 							</p>
 						</>
 					)}
-					<Problem code={problem} />
+					<Problem {...problemProps} />
 				</DialogBody>
 				<DialogFooter>
 					<Button variant="secondary" type="button" onClick={onClose} disabled={pending}>
@@ -689,7 +689,7 @@ function InviterForm({
 	const [inviter, setChoice] = useState<PickedPerson | null>(
 		guest.inviter ? { id: guest.inviter.personId, name: guest.inviter.displayName } : null,
 	);
-	const { save, pending, problem } = useSave();
+	const { save, pending, problemProps } = useSave();
 	if (!open) return null;
 	return (
 		<DialogContent aria-busy={pending || undefined}>
@@ -720,7 +720,7 @@ function InviterForm({
 						none="Not recorded"
 						autoFocus
 					/>
-					<Problem code={problem} />
+					<Problem {...problemProps} />
 				</DialogBody>
 				<DialogFooter>
 					<Button variant="secondary" type="button" onClick={onClose} disabled={pending}>
@@ -757,7 +757,7 @@ function CardForm({
 	const [response, setResponse] = useState<CardResponse | null>(card?.response ?? null);
 	const [notes, setNotes] = useState(card?.notes ?? "");
 	const [touched, setTouched] = useState(false);
-	const { save, pending, problem } = useSave();
+	const { save, pending, problemProps } = useSave();
 	if (!open) return null;
 	return (
 		<DialogContent aria-busy={pending || undefined}>
@@ -816,7 +816,7 @@ function CardForm({
 					<Field label="Prayer requests or questions" optional hint="Only Owners and Admins see these notes.">
 						<Textarea value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={2000} rows={3} />
 					</Field>
-					<Problem code={problem} />
+					<Problem {...problemProps} />
 				</DialogBody>
 				<DialogFooter>
 					<Button variant="secondary" type="button" onClick={onClose} disabled={pending}>

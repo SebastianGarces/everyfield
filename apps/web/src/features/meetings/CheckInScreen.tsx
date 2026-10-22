@@ -19,7 +19,7 @@ import {
 } from "@everyfield/ui/controls";
 import { Avatar, StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { addWalkIn, reloadCheckIn, setPresence, settleAttendance } from "./actions.ts";
 import {
 	attendanceAfter,
@@ -69,10 +69,16 @@ function CheckIn({ loaded }: { loaded: CheckInData }) {
 	const [draft, setDraft] = useState<Guest | null>(null);
 	const m = data.meeting;
 	const final = data.attendance?.finalized != null;
+	/** The latest guests and attendance after a refusal as out of date. Resolves true once they show. */
 	const stale = () =>
-		reloadCheckIn(m.id).then((r) => {
-			if (r.status === "ok" && r.value.status === "found") setData(r.value);
-		});
+		reloadCheckIn(m.id).then(
+			(r) => {
+				if (r.status !== "ok" || r.value.status !== "found") return false;
+				setData(r.value);
+				return true;
+			},
+			() => false,
+		);
 	const presence = usePresence({
 		meetingId: m.id,
 		onSaved: (a) => setData((d) => withAttendees(d, a.attendees, a.attendanceRevision)),
@@ -162,7 +168,13 @@ function CheckIn({ loaded }: { loaded: CheckInData }) {
 				}),
 			(r) => {
 				if (r.status !== "ok") {
-					if (r.code === "conflict") stale();
+					// Out of date: review again from who is marked now, never from the earlier list (F6).
+					if (r.code === "conflict") {
+						setSettle(null);
+						return void stale().then((shown) =>
+							setSettle({ visible: true, input: null, problem: shown ? "conflict" : "conflict_unloaded" }),
+						);
+					}
 					return setSettle((s) => s && { ...s, visible: true, problem: r.code });
 				}
 				setData((d) => ({ ...d, attendance: d.attendance && attendanceAfter(d.attendance, r.value.result) }));
@@ -402,6 +414,7 @@ function WalkInDialog({
 	const [mode, setMode] = useState<"existing" | "new">(initial && !initial.person ? "new" : "existing");
 	const [input, setInput] = useState<WalkInInput>(initial ?? { person: null, name: "", email: "", phone: "" });
 	const [touched, setTouched] = useState(false);
+	const body = useRef<HTMLDivElement>(null);
 	const nameMissing = input.name.trim() === "";
 	const emailBad = input.email.trim() !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim());
 	return (
@@ -413,13 +426,18 @@ function WalkInDialog({
 					onSubmit={(e) => {
 						e.preventDefault();
 						setTouched(true);
-						if (mode === "existing") return input.person && onSubmit({ ...input, name: input.person.name });
-						if (nameMissing || emailBad) return;
+						// Focus goes to the first field to fix (F5).
+						const focus = (name: string) =>
+							body.current?.querySelector<HTMLElement>(`[data-field="${name}"] input`)?.focus();
+						if (mode === "existing")
+							return input.person ? onSubmit({ ...input, name: input.person.name }) : focus("person");
+						if (nameMissing) return focus("name");
+						if (emailBad) return focus("email");
 						onSubmit({ ...input, person: null });
 					}}
 				>
 					<DialogHeader icon={UserAdd01Icon} tone="green" title="Add a walk-in" />
-					<DialogBody className="flex flex-col gap-4">
+					<DialogBody ref={body} className="flex flex-col gap-4">
 						<SegmentedControl
 							label="Who"
 							value={mode}
@@ -431,36 +449,42 @@ function WalkInDialog({
 							]}
 						/>
 						{mode === "existing" ? (
-							<Field label="Person" error={touched && !input.person ? "Choose who came." : null}>
-								<PersonPicker
-									label="Person"
-									value={input.person}
-									onChange={(person) => setInput((i) => ({ ...i, person }))}
-									exclude={exclude}
-									autoFocus
-								/>
-							</Field>
-						) : (
-							<>
-								<Field label="Name" error={touched && nameMissing ? "Enter the name people call them." : null}>
-									<Input
-										value={input.name}
-										maxLength={255}
-										autoComplete="off"
-										onChange={(e) => setInput((i) => ({ ...i, name: e.target.value }))}
+							<div data-field="person" className="contents">
+								<Field label="Person" error={touched && !input.person ? "Choose who came." : null}>
+									<PersonPicker
+										label="Person"
+										value={input.person}
+										onChange={(person) => setInput((i) => ({ ...i, person }))}
+										exclude={exclude}
 										autoFocus
 									/>
 								</Field>
-								<Field label="Email" optional error={touched && emailBad ? "Enter a full email address." : null}>
-									<Input
-										type="email"
-										inputMode="email"
-										value={input.email}
-										maxLength={320}
-										autoComplete="off"
-										onChange={(e) => setInput((i) => ({ ...i, email: e.target.value }))}
-									/>
-								</Field>
+							</div>
+						) : (
+							<>
+								<div data-field="name" className="contents">
+									<Field label="Name" error={touched && nameMissing ? "Enter the name people call them." : null}>
+										<Input
+											value={input.name}
+											maxLength={255}
+											autoComplete="off"
+											onChange={(e) => setInput((i) => ({ ...i, name: e.target.value }))}
+											autoFocus
+										/>
+									</Field>
+								</div>
+								<div data-field="email" className="contents">
+									<Field label="Email" optional error={touched && emailBad ? "Enter a full email address." : null}>
+										<Input
+											type="email"
+											inputMode="email"
+											value={input.email}
+											maxLength={320}
+											autoComplete="off"
+											onChange={(e) => setInput((i) => ({ ...i, email: e.target.value }))}
+										/>
+									</Field>
+								</div>
 								<Field label="Phone" optional hint="Country: United States (US).">
 									<Input
 										type="tel"
