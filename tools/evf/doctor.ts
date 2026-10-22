@@ -6,6 +6,8 @@ import { leftoverBrowsers } from "./browser.ts";
 import { type ShippedRecord } from "./progress.ts";
 import { producerReady } from "./progress.ts";
 import { principlesStatus } from "./principles.ts";
+import { describeLoad, loadLimit } from "./load.ts";
+import { loadavg } from "node:os";
 
 type Level = "PASS" | "WARN" | "FAIL";
 
@@ -168,6 +170,14 @@ export function doctor(root: string, browserAgeMinutes = 15): number {
 		"WARN",
 	);
 	check(isClean(root), "workspace root is clean", "workspace root has uncommitted changes", "WARN");
+	const gate = loadLimit(root),
+		load = loadavg()[0];
+	check(
+		load <= gate.limit,
+		`machine ${describeLoad(load, gate)}`,
+		`machine ${describeLoad(load, gate)}: task start, verify and browser run wait`,
+		"WARN",
+	);
 
 	const wtRoot = join(root, cfg.worktreeDir);
 	const open = existsSync(wtRoot) ? readdirSync(wtRoot) : [];
