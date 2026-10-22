@@ -120,7 +120,11 @@ function afterCard(p: Subject, signedOn: string): { state: State; effectiveOn: s
 }
 const currentOf = (p: Subject) => ({ state: p.commitment_state, effectiveOn: p.commitment_effective_on });
 
-/** The card and the Person's other valid cards, read with the locked Person. */
+const commitmentState = z.object({ state: z.enum(["active", "withdrawn", "unknown"]), effectiveOn: z.string().nullable() });
+/**
+ * The card, the signed dates of the Person's other valid cards and, when recording the card made the commitment
+ * active, the commitment it replaced (from its `people.recorded` audit row), read with the locked Person.
+ */
 const cardRow = z.object({
 	id: z.uuid(),
 	person_id: z.uuid(),
@@ -128,8 +132,18 @@ const cardRow = z.object({
 	signed_on: z.string(),
 	revision: z.string(),
 	voided: z.boolean(),
-	others: z.number(),
+	others: z.array(z.string()),
+	replaced: commitmentState.nullable(),
 });
+/**
+ * REQ-PPL-015 and REQ-PPL-026: the current commitment after the card that made it active is corrected or voided. The
+ * earliest valid card that still makes it active decides; without one, the commitment that card replaced comes back.
+ */
+function reactivatedBy(replaced: z.infer<typeof commitmentState>, valid: string[]) {
+	const since = valid.filter((d) => replaced.state !== "withdrawn" || d > (replaced.effectiveOn ?? "")).sort()[0];
+	if (since) return { state: "active" as const, effectiveOn: since };
+	return replaced.state === "withdrawn" ? replaced : { state: "unknown" as const, effectiveOn: null };
+}
 
 async function lifecycle(tx: Tx, ctx: WriteContext, raw: unknown, to: "withdrawn" | "active") {
 	return reply(tx, async () => {
@@ -305,7 +319,8 @@ export const commitments = {
 	/**
 	 * REQ-PPL-015 and REQ-PPL-026: correct a card's signed date or kind, or void a card that was never genuine, with a
 	 * reason and its old and new values in the history. First acquisition follows the valid cards. Voiding the last valid
-	 * card makes the current commitment unknown. Stage never changes.
+	 * card makes the current commitment unknown; correcting or voiding the card that made it active recomputes its date.
+	 * A correction to the values the card already has changes nothing. Stage never changes.
 	 */
 	async correctCommitmentLifecycle(tx: Tx, ctx: WriteContext, raw: unknown) {
 		return reply(tx, async () => {
@@ -320,8 +335,11 @@ export const commitments = {
 						ctx,
 						card,
 						sql`(SELECT jsonb_build_object('id',k.id,'person_id',k.person_id,'kind',k.kind,'signed_on',k.signed_on::text,
- 'revision',k.revision::text,'voided',k.voided_at IS NOT NULL,'others',(SELECT count(*)::int FROM commitment o
- WHERE o.person_id=k.person_id AND o.plant_id=k.plant_id AND o.id<>k.id AND o.voided_at IS NULL))
+ 'revision',k.revision::text,'voided',k.voided_at IS NOT NULL,'others',(SELECT coalesce(jsonb_agg(o.signed_on::text),'[]')
+ FROM commitment o WHERE o.person_id=k.person_id AND o.plant_id=k.plant_id AND o.id<>k.id AND o.voided_at IS NULL),
+ 'replaced',(SELECT a.before_value->'commitment' FROM audit_event a WHERE a.tenant_id=k.plant_id AND a.subject_id IN
+ (SELECT k.person_id UNION ALL SELECT m.id FROM person m WHERE m.merged_into_person_id=k.person_id AND m.tenant_id=k.plant_id)
+ AND a.action='people.recorded' AND a.metadata->>'recordId'=k.id::text ORDER BY a.occurred_at,a.id LIMIT 1))
  FROM commitment k WHERE k.id=${commitmentId}::uuid AND k.plant_id=${plant}::uuid)`,
 					);
 					const k = cardRow.parse(p.extra);
@@ -333,6 +351,15 @@ export const commitments = {
 							? { ...before, voided: true }
 							: { ...before, occurredOn: correction.occurredOn ?? k.signed_on, kind: correction.kind ?? k.kind };
 					if (correction.action === "correct") notFuture(p, after.occurredOn);
+					if (!after.voided && after.occurredOn === before.occurredOn && after.kind === before.kind) {
+						const value = {
+							personId: p.id,
+							current: status(p.commitment_state, p.commitment_effective_on, p.revision),
+							outcome: "noop",
+							receiptId,
+						};
+						return { value, subject: p.id, action: "people.corrected", outcome: "noop" };
+					}
 					audit.writes.push(
 						tx
 							.update(tables.commitment)
@@ -344,11 +371,19 @@ export const commitments = {
 							})
 							.where(and(eq(tables.commitment.id, k.id), eq(tables.commitment.plant_id, plant))),
 					);
-					const none = after.voided && k.others === 0;
-					const set = none ? { commitment_state: "unknown" as const, commitment_effective_on: null } : {};
+					const valid = after.voided ? k.others : [...k.others, after.occurredOn];
+					const activated = p.commitment_state === "active" && p.commitment_effective_on === k.signed_on;
+					const current = !valid.length
+						? { state: "unknown" as const, effectiveOn: null }
+						: activated
+							? reactivatedBy(k.replaced ?? { state: "unknown", effectiveOn: null }, valid)
+							: currentOf(p);
+					const set =
+						current.state !== p.commitment_state || current.effectiveOn !== p.commitment_effective_on
+							? { commitment_state: current.state, commitment_effective_on: current.effectiveOn }
+							: {};
 					audit.writes.push(...personUpdate(tx, plant, p, set));
 					const revision = nextRevision(p, set);
-					const current = none ? { state: "unknown" as const, effectiveOn: null } : currentOf(p);
 					return {
 						value: {
 							personId: p.id,
