@@ -29,9 +29,14 @@ import type { z } from "zod";
 import { dueText } from "../tasks/model.ts";
 import { assignFollowUp, createFollowUp } from "./actions.ts";
 import { forgetOwners, prefetchOwners, warmOn } from "./fetch.ts";
-import { focusFirstProblem } from "./fields.tsx";
 import { OUTCOME_LABEL, type Account, type DutyItem, type Outcome } from "./model.ts";
-import { LaneNotice, SaveButton, type LaneControl } from "./save.tsx";
+import {
+	DialogNotice,
+	focusFirstProblem,
+	NoticeInDialog,
+	SaveButton,
+	type SaveIntent,
+} from "../../components/save/parts.tsx";
 
 type TaskDetail = z.infer<typeof tc.taskDetail>;
 const NEEDS_OWNER = "needs_owner";
@@ -83,7 +88,7 @@ export function AssignMenu({
 	onConflict,
 }: {
 	duty: DutyItem;
-	lane: LaneControl;
+	lane: SaveIntent;
 	canAssign: boolean;
 	/** The follow-up as shown: at once when chosen, again from the server's answer, or back on a refusal. */
 	onChange: (duty: DutyItem) => void;
@@ -105,24 +110,24 @@ export function AssignMenu({
 	async function assign(value: string) {
 		const assigneeId = value === NEEDS_OWNER ? null : value;
 		if (assigneeId === (duty.owner?.accountId ?? null)) return;
+		if (lane.wait) return;
 		const before = duty;
 		const chosen = owners?.status === "ok" ? owners.value.find((o) => o.accountId === assigneeId) : undefined;
 		onChange({ ...duty, owner: chosen ?? null });
-		const started = await lane.save(
-			`The owner of ${duty.title}`,
-			(key) => assignFollowUp(key, duty.revision, { taskId: duty.taskId, assigneeId }),
-			(r) => {
-				if (r.status === "ok") {
-					const after = dutyFrom(r.value.task, before);
-					onChange(after);
-					return onSaved?.(before, after);
-				}
-				onChange(before);
-				if (r.code === "owner_ineligible") forgetOwners();
-				if (r.code === "conflict") onConflict();
+		await lane.save({
+			what: `The owner of ${duty.title}`,
+			send: (key) => assignFollowUp(key, duty.revision, { taskId: duty.taskId, assigneeId }),
+			ok: (value) => {
+				const after = dutyFrom(value.task, before);
+				onChange(after);
+				onSaved?.(before, after);
 			},
-		);
-		if (!started) onChange(before);
+			refused: (code) => {
+				onChange(before);
+				if (code === "owner_ineligible") forgetOwners();
+				if (code === "conflict") onConflict();
+			},
+		});
 	}
 	return (
 		<Menu open={open} onOpenChange={setOpen}>
@@ -209,7 +214,7 @@ export function AddFollowUpDialog({
 	returnFocus,
 }: {
 	person: { id: string; label: string };
-	lane: LaneControl;
+	lane: SaveIntent;
 	onClose: () => void;
 	onCreated: (duty: DutyItem) => void;
 	/** Focus back to the button that opened the dialog (useOpener). */
@@ -217,7 +222,6 @@ export function AddFollowUpDialog({
 }) {
 	const [draft, setDraft] = useState<AddDraft>({ title: "", dated: "undated", date: "", owner: NEEDS_OWNER });
 	const [dateError, setDateError] = useState<string | null>(null);
-	const [sent, setSent] = useState(false);
 	const owners = useOwners(true);
 	const set = (patch: Partial<AddDraft>) => setDraft((d) => ({ ...d, ...patch }));
 
@@ -233,90 +237,88 @@ export function AddFollowUpDialog({
 			due: draft.dated === "date" ? { kind: "local_date", date: draft.date } : { kind: "undated" },
 			assigneeId: draft.owner === NEEDS_OWNER ? null : draft.owner,
 		};
-		setSent(true);
-		await lane.save(
-			"The follow-up",
-			(key) => createFollowUp(key, input),
-			(r) => {
-				setSent(false);
-				if (r.status === "ok") {
-					onCreated(dutyFrom(r.value.task));
-					onClose();
-				} else if (r.code === "owner_ineligible") forgetOwners();
+		await lane.save({
+			what: "The follow-up",
+			send: (key) => createFollowUp(key, input),
+			ok: (value) => {
+				onCreated(dutyFrom(value.task));
+				onClose();
 			},
-		);
-		setSent(false);
+			refused: (code) => code === "owner_ineligible" && forgetOwners(),
+		});
 	}
 
 	return (
-		<Dialog open onOpenChange={(next) => !next && onClose()}>
-			<DialogContent size="sm" onCloseAutoFocus={returnFocus}>
-				<form
-					noValidate
-					className="contents"
-					onSubmit={(e) => {
-						e.preventDefault();
-						if (!lane.wait) void submit(e.currentTarget);
-					}}
-				>
-					<DialogHeader
-						icon={Add01Icon}
-						tone="green"
-						title="Add a follow-up"
-						description={`A follow-up with ${person.label}. It has no date unless you choose one.`}
-					/>
-					<DialogBody className="flex flex-col gap-5 pb-1">
-						<LaneNotice control={lane} />
-						<Field label="Title" optional hint={`Leave blank for “Follow up with ${person.label}”.`}>
-							<Input value={draft.title} maxLength={200} onChange={(e) => set({ title: e.target.value })} />
-						</Field>
-						<div className="flex flex-col gap-2">
-							<SegmentedControl
-								label="Due date"
-								value={draft.dated}
-								onValueChange={(dated) => set({ dated })}
-								options={[
-									{ value: "undated", label: "No date" },
-									{ value: "date", label: "Choose a date" },
-								]}
-								className="w-full *:flex-1 *:justify-center"
-							/>
-							{draft.dated === "date" ? (
-								<Field label="Due on" error={dateError}>
-									<Input type="date" value={draft.date} onChange={(e) => set({ date: e.target.value })} />
-								</Field>
-							) : null}
-						</div>
-						<Field
-							label="Owner"
-							hint={
-								owners?.status === "ok" && owners.value.length === 0
-									? "No one can own follow-ups yet. It starts as Needs owner."
-									: "Only people with a seat and a committed stage can own follow-ups."
-							}
-						>
-							<Select
-								value={draft.owner}
-								onValueChange={(owner) => set({ owner })}
-								options={[
-									{ value: NEEDS_OWNER, label: "Needs owner" },
-									...(owners?.status === "ok"
-										? owners.value.map((o) => ({ value: o.accountId, label: o.displayName }))
-										: []),
-								]}
-							/>
-						</Field>
-					</DialogBody>
-					<DialogFooter>
-						<Button variant="secondary" type="button" onClick={onClose}>
-							Cancel
-						</Button>
-						<SaveButton wait={lane.wait} saving={sent}>
-							Add follow-up
-						</SaveButton>
-					</DialogFooter>
-				</form>
-			</DialogContent>
-		</Dialog>
+		<NoticeInDialog {...lane.noticeProps}>
+			<Dialog open onOpenChange={(next) => !next && onClose()}>
+				<DialogContent size="sm" onCloseAutoFocus={returnFocus}>
+					<form
+						noValidate
+						className="contents"
+						onSubmit={(e) => {
+							e.preventDefault();
+							if (!lane.wait) void submit(e.currentTarget);
+						}}
+					>
+						<DialogHeader
+							icon={Add01Icon}
+							tone="green"
+							title="Add a follow-up"
+							description={`A follow-up with ${person.label}. It has no date unless you choose one.`}
+						/>
+						<DialogBody className="flex flex-col gap-5 pb-1">
+							<DialogNotice />
+							<Field label="Title" optional hint={`Leave blank for “Follow up with ${person.label}”.`}>
+								<Input value={draft.title} maxLength={200} onChange={(e) => set({ title: e.target.value })} />
+							</Field>
+							<div className="flex flex-col gap-2">
+								<SegmentedControl
+									label="Due date"
+									value={draft.dated}
+									onValueChange={(dated) => set({ dated })}
+									options={[
+										{ value: "undated", label: "No date" },
+										{ value: "date", label: "Choose a date" },
+									]}
+									className="w-full *:flex-1 *:justify-center"
+								/>
+								{draft.dated === "date" ? (
+									<Field label="Due on" error={dateError}>
+										<Input type="date" value={draft.date} onChange={(e) => set({ date: e.target.value })} />
+									</Field>
+								) : null}
+							</div>
+							<Field
+								label="Owner"
+								hint={
+									owners?.status === "ok" && owners.value.length === 0
+										? "No one can own follow-ups yet. It starts as Needs owner."
+										: "Only people with a seat and a committed stage can own follow-ups."
+								}
+							>
+								<Select
+									value={draft.owner}
+									onValueChange={(owner) => set({ owner })}
+									options={[
+										{ value: NEEDS_OWNER, label: "Needs owner" },
+										...(owners?.status === "ok"
+											? owners.value.map((o) => ({ value: o.accountId, label: o.displayName }))
+											: []),
+									]}
+								/>
+							</Field>
+						</DialogBody>
+						<DialogFooter>
+							<Button variant="secondary" type="button" onClick={onClose}>
+								Cancel
+							</Button>
+							<SaveButton wait={lane.wait} saving={lane.saving}>
+								Add follow-up
+							</SaveButton>
+						</DialogFooter>
+					</form>
+				</DialogContent>
+			</Dialog>
+		</NoticeInDialog>
 	);
 }

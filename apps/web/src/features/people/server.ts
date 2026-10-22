@@ -1,7 +1,7 @@
 import { requestDatabase } from "@/server/database";
 import type { PeopleContext, PeopleReply, PeopleWriteContext } from "@everyfield/contracts/people";
 import type { Database, Transaction } from "@everyfield/db/client";
-import { type readPeopleViewer, PeopleReadContext, withPeopleWrite } from "@everyfield/domain/people";
+import { type peopleViewer, PeopleReadContext, withPeopleWrite } from "@everyfield/domain/people";
 import "server-only";
 import type { PeopleQuery } from "./model.ts";
 import { HISTORY_PAGE } from "./assessments/server.ts";
@@ -11,7 +11,7 @@ import { readPeoplePage, readPersonPage } from "./page-data.ts";
 // Layout, pages and actions share this request's native session and actor.
 // Reads consume that observation; writes recheck authority inside their transaction.
 
-export type Viewer = Extract<Awaited<ReturnType<typeof readPeopleViewer>>, { status: "viewer" }>["viewer"];
+export type Viewer = NonNullable<ReturnType<typeof peopleViewer>>;
 export type Role = Viewer["role"];
 export const canWrite = (v: Viewer) => v.role === "owner" || v.role === "admin";
 

@@ -23,6 +23,12 @@ import {
 	withMeetingsWrite,
 } from "../../../packages/domain/src/meetings/index.ts";
 
+// The task reminder port of a stage change or retirement. These people hold no dated, assigned task, so a replan
+// here would be a bug.
+const noReminders = async () => {
+	throw Error("unexpected task reminder replan");
+};
+
 const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
 const localCi =
 	process.env.CI === "true" &&
@@ -87,11 +93,18 @@ async function retire(personId) {
 	const p = (await admin.execute(sql`SELECT revision::text AS r FROM person WHERE id=${personId}`)).rows[0].r;
 	const review = (await admin.execute(sql`SELECT material_revision::text AS r FROM plant WHERE id=${P}`)).rows[0].r;
 	ok(
-		await run(peopleWriter.retirePerson, {
-			requestKey: key(),
-			expectedRevision: p,
-			input: { personId, reason: "Moved away", reviewRevision: review, handoffs: [] },
-		}),
+		await tx((t) =>
+			peopleWriter.retirePerson(
+				t,
+				ctx(0),
+				{
+					requestKey: key(),
+					expectedRevision: p,
+					input: { personId, reason: "Moved away", reviewRevision: review, handoffs: [] },
+				},
+				noReminders,
+			),
+		),
 	);
 }
 const guestOf = async (meetingId, personId, who = 0) =>

@@ -1,4 +1,4 @@
-import { and, asc, inArray, eq, isNotNull, isNull, or, sql, type SQLWrapper } from "@everyfield/db/query";
+import { and, asc, inArray, eq, isNull, sql, type SQLWrapper } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 
 import { declareWrite, executeWrites } from "../operations/writes.ts";
@@ -6,7 +6,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import * as c from "@everyfield/contracts/people";
 import type { PeopleWriter, AccountPersonProducer } from "@everyfield/contracts/people";
-import { owner, recordId } from "@everyfield/contracts/common";
+import { owner, recordId, revision } from "@everyfield/contracts/common";
 import {
 	authorize,
 	deny,
@@ -26,6 +26,8 @@ import {
 	reply,
 } from "./core.ts";
 import type { Context, WriteContext, Tx, Person } from "./core.ts";
+import { lockTasks } from "../tasks/queries.ts";
+import { reminderChange, syncAll, type TaskReminders } from "../tasks/writes.ts";
 
 export function appendPerson(
 	tx: Tx,
@@ -113,40 +115,28 @@ async function output(tx: Tx, ctx: Context, p: Person, id: string, needsOwner: s
 		needsOwner,
 	};
 }
+/** The person's open tasks, as subject or through their linked account, locked for a handoff. One statement. */
 export async function openDuties(tx: Tx, ctx: Context, p: Person) {
 	if (ctx.selected.kind !== "plant") return [];
 	// Tasks store account assignees; Person subjects are separate references.
-	const r = await tx
-		.select({
-			id: tables.task.id,
-			revision: tables.task.revision,
-			due_date: tables.task.due_date,
-			parent_id: tables.task.parent_id,
-		})
-		.from(tables.task)
-		.where(
-			and(
-				and(
-					and(
-						eq(tables.task.plant_id, ctx.selected.id),
-						or(
-							eq(tables.task.person_id, p.id),
-							and(
-								sql`${tables.task.assignee_id} = ${p.linked_account_id}`,
-								isNotNull(sql<string>`(${sql.param(p.linked_account_id)})::uuid`),
-							),
-						),
-					),
-					isNull(tables.task.deleted_at),
-				),
-				sql<boolean>`(${tables.task.status} NOT IN ('complete', 'no_longer_needed'))`,
-			),
-		)
-		.orderBy(asc(tables.task.id))
-		.for("update");
-	return r;
+	return lockTasks(
+		tx,
+		ctx.selected.id,
+		sql`(t.person_id=${p.id}::uuid OR t.assignee_id=${p.linked_account_id}::uuid) AND t.deleted_at IS NULL
+ AND t.status NOT IN ('complete','no_longer_needed')`,
+	);
 }
-async function handoff(tx: Tx, ctx: Context, p: Person, choices: z.infer<typeof c.handoffChoice>[]) {
+/**
+ * Hands the person's open tasks to the chosen people, or leaves them needing an owner. Each moved task's owed
+ * reminders follow it in the same transaction: the new assignee's are planned and the former assignee's withdrawn.
+ */
+async function handoff(
+	tx: Tx,
+	ctx: Context,
+	p: Person,
+	choices: z.infer<typeof c.handoffChoice>[],
+	reminders: TaskReminders,
+) {
 	const duties = await openDuties(tx, ctx, p),
 		byId = new Map(choices.map((c) => [c.dutyId, c]));
 	if (
@@ -195,14 +185,23 @@ async function handoff(tx: Tx, ctx: Context, p: Person, choices: z.infer<typeof 
 		if (!seats.some((seat) => seat.account === target.linked_account_id)) deny();
 		return { id: duty.id, account: target.linked_account_id };
 	});
-	if (changes.length)
+	if (changes.length) {
 		await tx.execute(
 			sql`UPDATE task t SET assignee_id=v.account,revision=t.revision+1 FROM jsonb_to_recordset(${JSON.stringify(changes)}::jsonb) v(id uuid,account uuid) WHERE t.id=v.id`,
 		);
-
+		const moved = changes.map(({ id, account }) => {
+			const row = duties.find((duty) => duty.id === id)!;
+			return reminderChange(ctx.selected.id, row, {
+				...row,
+				assignee_id: account,
+				revision: revision.parse(String(BigInt(row.revision) + 1n)),
+			});
+		});
+		await syncAll(reminders, tx, moved)?.();
+	}
 	return needsOwner;
 }
-export const peopleWriter: PeopleWriter<Tx> = {
+export const peopleWriter: PeopleWriter<Tx, TaskReminders> = {
 	async createPerson(tx, ctx, raw) {
 		return reply(tx, async () => {
 			if (ctx.selected.kind !== "plant") deny();
@@ -245,7 +244,7 @@ export const peopleWriter: PeopleWriter<Tx> = {
 			);
 		});
 	},
-	async changeStatus(tx, ctx, raw) {
+	async changeStatus(tx, ctx, raw, reminders) {
 		return reply(tx, async () => {
 			if (ctx.selected.kind !== "plant") deny();
 			const input = parse(c.changeStatusRequest, raw);
@@ -258,7 +257,7 @@ export const peopleWriter: PeopleWriter<Tx> = {
 					const leaving =
 						["core_group", "launch_team", "leader"].includes(before.stage!) &&
 						!["core_group", "launch_team", "leader"].includes(input.input.stage);
-					const needsOwner = !noop && leaving ? await handoff(tx, ctx, before, input.input.handoffs) : [];
+					const needsOwner = !noop && leaving ? await handoff(tx, ctx, before, input.input.handoffs, reminders) : [];
 					if (!leaving && input.input.handoffs.length) deny("invalid_input");
 					// Into another column: the person goes to its end with a fresh key (D68).
 					const position = sameColumn(before.stage!, input.input.stage)
@@ -296,11 +295,11 @@ export const peopleWriter: PeopleWriter<Tx> = {
 			);
 		});
 	},
-	async retirePerson(tx, ctx, raw) {
+	async retirePerson(tx, ctx, raw, reminders) {
 		return reply(tx, async () => {
 			if (ctx.selected.kind !== "plant") deny();
 			const input = parse(c.retirePersonRequest, raw);
-			return c.plantPersonMutationResult.parse(await retire(tx, ctx, input, "people.deletePerson"));
+			return c.plantPersonMutationResult.parse(await retire(tx, ctx, input, "people.deletePerson", reminders));
 		});
 	},
 	async restorePerson(tx, ctx, raw) {
@@ -347,6 +346,7 @@ export async function retire(
 	ctx: WriteContext,
 	input: z.infer<typeof c.retirePersonRequest>,
 	name: Parameters<typeof mutation>[2],
+	reminders: TaskReminders,
 ) {
 	return mutation(tx, ctx, name, input, async (_a, id, audit) => {
 		const before = await person(tx, ctx, input.input.personId, true);
@@ -364,7 +364,7 @@ export async function retire(
 				: before.revision;
 		if (input.input.reviewRevision !== review) deny("conflict");
 		let after = before;
-		const needsOwner = before.state === "live" ? await handoff(tx, ctx, before, input.input.handoffs) : [];
+		const needsOwner = before.state === "live" ? await handoff(tx, ctx, before, input.input.handoffs, reminders) : [];
 		// Existing historical endpoints remain; current leadership is ended explicitly.
 		if (before.state === "live") {
 			const [updated] = await tx

@@ -1,6 +1,7 @@
 import type { Transaction } from "@everyfield/db/client";
 import type { SQL } from "@everyfield/db/query";
 import type { PeopleContext } from "@everyfield/contracts/people";
+import type { TaskReminders } from "@everyfield/domain/tasks";
 import type { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
 
@@ -24,7 +25,14 @@ export type ReviewedWrite<I> = {
 	review(actor: EvryActor, input: I): SQL;
 	/**
 	 * The native command inside the executor's transaction, for the approving session in the proposal's exact context,
-	 * with the effect key as its request key. The command checks that session's live seat and role itself.
+	 * with the effect key as its request key. The command checks that session's live seat and role itself. A command that
+	 * hands tasks to someone else replans their reminders through `reminders`.
 	 */
-	execute(tx: Transaction, context: PeopleContext, args: unknown, effectKey: string): Promise<EffectResult>;
+	execute(
+		tx: Transaction,
+		context: PeopleContext,
+		args: unknown,
+		effectKey: string,
+		reminders: TaskReminders,
+	): Promise<EffectResult>;
 };

@@ -1,6 +1,5 @@
-import { owner, type Owner } from "@everyfield/contracts/common";
+import { owner, requestIdentity, type Owner } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/people";
-import type { PeopleContext } from "@everyfield/contracts/people";
 import type { Database } from "@everyfield/db/client";
 import { and, sql, type SQL } from "@everyfield/db/query";
 import { createHash, randomUUID } from "node:crypto";
@@ -8,7 +7,20 @@ import { gunzipSync, gzipSync } from "node:zlib";
 import "server-only";
 import { z } from "zod";
 import { liveRead, writeVisibility, type RequestActor } from "../../access/session.ts";
-import { deny, hash, parse, readReply, type Context, type Tx } from "../core.ts";
+import { declareWrite, finishAudit, prepareWrite } from "../../operations/writes.ts";
+import {
+	authorize,
+	deny,
+	hash,
+	lockOwner,
+	parse,
+	readReply,
+	reply,
+	withPeopleWrite,
+	type Context,
+	type Tx,
+	type WriteContext,
+} from "../core.ts";
 import { contactSignals, personEmail, personPhone } from "../duplicates.ts";
 import { plantId } from "../fields/shared.ts";
 import { newPerson } from "../people.ts";
@@ -272,79 +284,93 @@ function loadState(raw: unknown) {
 }
 
 /**
- * Save the reviewed rows and queue the job that writes them, in one statement, and return at once. Repeating the request
- * returns the import's current receipt; after a partial import it queues the job again for the remaining rows.
+ * Save the reviewed rows and queue the job that writes them, and return at once. The bytes are read before any
+ * database work. The save is a People write (D70): the gate holds the importer's Owner/Admin seat until COMMIT, and
+ * the shared request key answers a repeat. Repeating the request returns the import's current receipt; after a
+ * partial import it queues the job again for the remaining rows.
  */
 export async function executeBulkImport(db: Database, authority: RequestActor, raw: unknown) {
-	return readReply(async () => {
-		const ctx: PeopleContext = { session: authority.session, selected: authority.actor.context.owner };
-		const plant = plantId(ctx),
-			actorId = authority.actor.accountId;
+	const read = await readReply(async () => {
 		const input = parse(c.executeBulkImportRequest, raw);
 		const file = readFile(input.file);
 		if (file.fileDigest !== input.fileDigest) deny("file_changed");
-		const choices = [...input.choices].sort((a, b) => a.row - b.row);
-		const identity = {
-			owner: ctx.selected,
-			actorId,
-			operation: OPERATION,
-			requestKey: input.requestKey,
-			digest: hash({ reviewDigest: input.reviewDigest, choices }),
-		};
-		const known = sql`(SELECT a.id FROM audit_event a WHERE a.tenant_id=${plant}::uuid AND a.request_key=${input.requestKey})`;
-		const state = z
-			.object({
-				allowed: z.boolean(),
-				prior: z.object({ id: z.uuid(), identity: z.unknown(), state: z.unknown() }).nullable(),
-				people: match,
-			})
-			.parse(
-				(
-					await db.execute(sql`SELECT ${access(ctx, true)} AS allowed,
- (SELECT jsonb_build_object('id',a.id,'identity',a.request_identity,'state',${importState(sql`a.id`)}) FROM audit_event a
-  WHERE a.id=${known}) AS prior, ${existingPeople(plant, file.rows, sql`EXISTS${known}`)} AS people`)
-				).rows[0],
-			);
-		if (!state.allowed) deny();
-		if (state.prior) {
-			if (hash(state.prior.identity) !== hash(identity)) deny("review_digest_conflict");
-			const prior = loadState(state.prior.state);
-			const answer = receipt(state.prior.id, prior.plan, prior.created, prior.failed, prior.running);
-			if (answer.status !== "partial") return answer;
-			// A partial import runs again for its remaining rows; its last failures clear until the job reports again.
-			const requeued = await db.execute(sql`WITH ok AS (SELECT ${access(ctx, true)} AS ok),
- imported AS (UPDATE person_import SET failed='[]'::jsonb WHERE id=${state.prior.id}::uuid AND (SELECT ok FROM ok) RETURNING job_id)
- UPDATE job SET state='ready',eligible_at=clock_timestamp(),next_attempt_at=NULL,attempt_count=0,error_code=NULL,
-  finished_at=NULL,revision=revision+1 FROM imported WHERE job.id=imported.job_id AND job.state IN ('succeeded','failed')
- RETURNING job.id`);
-			if (!requeued.rows.length) deny();
-			return receipt(state.prior.id, prior.plan, prior.created, new Map(), true);
-		}
-		const { findings, reviewDigest } = findDuplicates(file, state.people);
-		// The church's people may have changed since the preview; the review is only valid against today's findings.
-		if (reviewDigest !== input.reviewDigest) deny("review_stale");
-		const importId = randomUUID();
-		const plan = planImport(file, findings, choices, importId);
-		// The job keeps the exact reviewed bytes, compressed; it parses them again rather than trusting saved rows.
-		const upload = gzipSync(input.file).toString("base64");
-		// The audit intent, the job and its payload in one statement, under the live Owner/Admin check.
-		const saved = await db.execute(sql`WITH ok AS (SELECT ${access(ctx, true)} AS ok),
- intent AS (INSERT INTO audit_event(id,tenant_id,actor_id,actor_token,action,kind,subject_type,subject_id,command_id,
-  request_key,request_identity)
-  SELECT ${importId}::uuid,${plant}::uuid,${actorId}::uuid,${hash([plant, actorId])},'people.updated','edit','command',
-  ${plant}::uuid,${importId}::uuid,${input.requestKey},${JSON.stringify(identity)}::jsonb
-  WHERE (SELECT ok FROM ok) ON CONFLICT (tenant_id,request_key) DO NOTHING RETURNING id),
- queued AS (INSERT INTO job(tenant_id,kind,subject_record_id,producer_key,state,eligible_at,attempt_count,max_attempts,claim_generation)
-  SELECT ${plant}::uuid,'people_import',${plant}::uuid,'people-import/'||id,'ready',clock_timestamp(),0,4,0 FROM intent RETURNING id),
- payload AS (INSERT INTO person_import(id,tenant_id,job_id,actor_id,plan,upload)
-  SELECT intent.id,${plant}::uuid,queued.id,${actorId}::uuid,${JSON.stringify(plan)}::jsonb,${upload} FROM intent,queued RETURNING id)
- SELECT (SELECT ok FROM ok) AS ok, (SELECT id FROM payload) AS id`);
-		const result = z.object({ ok: z.boolean(), id: z.uuid().nullable() }).parse(saved.rows[0]);
-		if (!result.ok) deny();
-		// A concurrent first request with the same key won; repeating the request returns its receipt.
-		if (!result.id) deny("conflict");
-		return receipt(importId, plan, new Map(), new Map(), true);
+		return { input, file };
 	});
+	if (read.status !== "ok") return read;
+	const { input, file } = read.value;
+	return withPeopleWrite(db, authority, (tx, ctx) => reply(tx, () => saveImport(tx, ctx, input, file)));
+}
+
+async function saveImport(
+	tx: Tx,
+	ctx: WriteContext,
+	input: z.infer<typeof c.executeBulkImportRequest>,
+	file: ReadFile,
+) {
+	const plant = plantId(ctx);
+	// The duplicate findings read the church's other people: the save runs in the gate's transaction (C88).
+	await declareWrite(tx, "established");
+	await lockOwner(tx, ctx);
+	const actorId = (await authorize(tx, ctx, true)).accountId;
+	const choices = [...input.choices].sort((a, b) => a.row - b.row);
+	const identity = requestIdentity.parse({
+		owner: ctx.selected,
+		actorId,
+		operation: OPERATION,
+		requestKey: input.requestKey,
+		digest: hash({ reviewDigest: input.reviewDigest, choices }),
+	});
+	const claim = await prepareWrite(tx, identity);
+	if (claim.kind === "conflict") deny("review_digest_conflict");
+	if (claim.kind === "unavailable") deny();
+	if (claim.kind === "replay") return resumeImport(tx, claim.id);
+	const people = match.parse(
+		(await tx.execute(sql`SELECT ${existingPeople(plant, file.rows)} AS people`)).rows[0]?.people,
+	);
+	const { findings, reviewDigest } = findDuplicates(file, people);
+	// The church's people may have changed since the preview; the review is only valid against today's findings.
+	if (reviewDigest !== input.reviewDigest) deny("review_stale");
+	const importId = claim.id,
+		jobId = randomUUID();
+	const plan = planImport(file, findings, choices, importId);
+	// The job keeps the exact reviewed bytes, compressed; it parses them again rather than trusting saved rows.
+	const upload = gzipSync(input.file).toString("base64");
+	claim.events.push({
+		id: importId,
+		tenant_id: plant,
+		actor_id: actorId,
+		actor_token: hash([plant, actorId]),
+		action: "people.updated",
+		kind: "edit",
+		subject_type: "command",
+		subject_id: plant,
+	});
+	claim.writes.push(
+		sql`INSERT INTO job(id,tenant_id,kind,subject_record_id,producer_key,state,eligible_at,attempt_count,max_attempts,claim_generation)
+ VALUES(${jobId}::uuid,${plant}::uuid,'people_import',${plant}::uuid,${"people-import/" + importId},'ready',clock_timestamp(),0,4,0)`,
+		sql`INSERT INTO person_import(id,tenant_id,job_id,actor_id,plan,upload)
+ VALUES(${importId}::uuid,${plant}::uuid,${jobId}::uuid,${actorId}::uuid,${JSON.stringify(plan)}::jsonb,${upload})`,
+	);
+	const answer = receipt(importId, plan, new Map(), new Map(), true);
+	// The intent, the job and its payload in one statement with the audit row and its request key.
+	await finishAudit(tx, claim, identity, answer);
+	return answer;
+}
+
+/** A repeated import request: the import's current receipt, and a partial import queued again for its remaining rows. */
+async function resumeImport(tx: Tx, importId: string) {
+	const prior = loadState(
+		z
+			.object({ state: z.unknown() })
+			.parse((await tx.execute(sql`SELECT ${importState(sql`${importId}::uuid`)} AS state`)).rows[0]).state,
+	);
+	const answer = receipt(importId, prior.plan, prior.created, prior.failed, prior.running);
+	if (answer.status !== "partial") return answer;
+	// Its last failures clear until the job reports again.
+	await tx.execute(sql`WITH imported AS (UPDATE person_import SET failed='[]'::jsonb WHERE id=${importId}::uuid RETURNING job_id)
+ UPDATE job SET state='ready',eligible_at=clock_timestamp(),next_attempt_at=NULL,attempt_count=0,error_code=NULL,
+  finished_at=NULL,revision=revision+1 FROM imported WHERE job.id=imported.job_id AND job.state IN ('succeeded','failed')`);
+	return receipt(importId, prior.plan, prior.created, new Map(), true);
 }
 
 /** The importing account's current Owner/Admin seat in this church, for a worker that has no request session. */
@@ -391,10 +417,23 @@ async function writeBatch(db: Database, lease: Lease, actorId: string, importId:
 /** Rows each import statement writes. Statements grow with batches, and with failures only while a batch is split. */
 const BATCH = 500;
 /**
+ * Why the database refused a row's values: a data exception (22), a constraint (23) or a trigger's raise (P0). Any
+ * other error, such as a lost connection or a serialization failure, is not the row's own: null.
+ */
+function rowFailure(error: unknown) {
+	const cause = z
+		.object({ cause: z.object({ code: z.string().regex(/^(22|23|P0)/), constraint: z.string().optional() }) })
+		.safeParse(error);
+	return cause.success ? { code: cause.data.cause.code, constraint: cause.data.cause.constraint ?? null } : null;
+}
+type FailedRow = { row: number; reason: "row_write_failed"; code: string; constraint: string | null };
+/**
  * The people_import job: write every remaining reviewed row in batches of one statement each. A batch the database
- * refuses is split in halves until each failing row stands alone, so one bad row never fails its neighbours. The run ends
- * by saving the failed rows, or by clearing the payload when every row exists. "lost" means the lease or the importer's
- * authority ended; nothing more was written.
+ * refuses for a row's values is split in halves until each failing row stands alone, so one bad row never fails its
+ * neighbours; the run saves each failed row with the database's code and constraint, never its values. Any other error
+ * ends the run with the rows still remaining, for the job to try again. The run ends by saving the failed rows, or by
+ * clearing the payload when every row exists. "lost" means the lease or the importer's authority ended; nothing more
+ * was written.
  */
 export async function runPeopleImport(db: Database, lease: Lease): Promise<"succeeded" | "lost"> {
 	const loaded = z
@@ -425,14 +464,16 @@ export async function runPeopleImport(db: Database, lease: Lease): Promise<"succ
 		.parse(loaded.plan)
 		.create.filter((r) => !done.has(r.row))
 		.map((r) => ({ ...r, values: values.get(r.row)! }));
-	const failed: number[] = [];
+	const failed: FailedRow[] = [];
 	let lost = false;
 	const write = async (batch: SavedRow[]): Promise<void> => {
 		if (lost || !batch.length) return;
 		try {
 			if (!(await writeBatch(db, lease, actorId, loaded.id, batch))) lost = true;
-		} catch {
-			if (batch.length === 1) failed.push(batch[0]!.row);
+		} catch (error) {
+			const why = rowFailure(error);
+			if (!why) throw error;
+			if (batch.length === 1) failed.push({ row: batch[0]!.row, reason: "row_write_failed", ...why });
 			else {
 				const half = Math.ceil(batch.length / 2);
 				await write(batch.slice(0, half));
@@ -443,7 +484,7 @@ export async function runPeopleImport(db: Database, lease: Lease): Promise<"succ
 	for (let i = 0; i < pending.length && !lost; i += BATCH) await write(pending.slice(i, i + BATCH));
 	if (lost) return "lost";
 	const finished = await db.execute(sql`UPDATE person_import SET
- failed=${JSON.stringify(failed.map((row) => ({ row, reason: "row_write_failed" })))}::jsonb,
+ failed=${JSON.stringify(failed)}::jsonb,
  upload=CASE WHEN ${failed.length === 0} THEN NULL ELSE upload END
  WHERE id=${loaded.id}::uuid AND ${holds(lease)} RETURNING id`);
 	return finished.rows.length ? "succeeded" : "lost";

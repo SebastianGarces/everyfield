@@ -18,8 +18,8 @@ import {
 	readReply,
 	type Person,
 } from "./core.ts";
-import { readViewer, type RequestActor } from "../access/session.ts";
-import { revision, type sessionId } from "@everyfield/contracts/common";
+import type { RequestActor } from "../access/session.ts";
+import { revision } from "@everyfield/contracts/common";
 import type { Tx, Context } from "./core.ts";
 const task_t = alias(tables.task, "t");
 const plant_p = alias(tables.plant, "p");
@@ -460,13 +460,6 @@ export function peopleViewer(authority: RequestActor, own: { id: string; name: s
 		displayName: own?.name ?? "You",
 		ownPersonId: own?.id ?? null,
 	};
-}
-
-/** Request DAL entry: one statement for the current actor and the bounded own-Person summary. */
-export async function readPeopleViewer(db: Parameters<typeof readViewer>[0], session: z.infer<typeof sessionId>) {
-	const v = await readViewer(db, session);
-	const viewer = v?.authority ? peopleViewer(v.authority, v.person) : null;
-	return viewer ? ({ status: "viewer", viewer } as const) : ({ status: "no_access" } as const);
 }
 
 /**

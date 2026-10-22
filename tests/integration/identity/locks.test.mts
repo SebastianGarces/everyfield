@@ -3,11 +3,11 @@ import assert from "node:assert/strict";
 import { fixture, key } from "./invitations-support.mts";
 import { eq, sql, and } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
-import { currentActor, RequestActor } from "../../../packages/domain/src/access/index.ts";
+import { currentActor, readViewer, RequestActor } from "../../../packages/domain/src/access/index.ts";
 import { owner, sessionId } from "../../../packages/contracts/src/common/index.ts";
 import {
 	PeopleReadContext,
-	readPeopleViewer,
+	peopleViewer,
 	peopleWriter,
 	peopleReader,
 } from "../../../packages/domain/src/people/index.ts";
@@ -400,11 +400,15 @@ test("INV-request-page: revoked membership refuses writes from a stale viewer", 
 		})),
 	);
 	let viewer;
+	// The People viewer as the request context composes it: the session's viewer and its own Person.
+	const readPeople = async (id) => {
+		const v = await readViewer(f.db, sessionId.parse(id));
+		return v?.authority ? peopleViewer(v.authority, v.person) : null;
+	};
 	async function pageRead(page) {
 		const session = await native.auth.api.getSession({ headers: new Headers({ cookie }) });
-		const resolved = await f.db.transaction((tx) => readPeopleViewer(tx, sessionId.parse(session.session.id)));
-		assert.equal(resolved.status, "viewer");
-		viewer = resolved.viewer;
+		viewer = await readPeople(session.session.id);
+		assert.ok(viewer);
 		assert.equal(viewer.displayName, "Request Person 00");
 		assert.equal(viewer.ownPersonId, ids[0]);
 		return f.db.transaction((tx) => page(tx, new PeopleReadContext(viewer.authority)));
@@ -439,6 +443,5 @@ test("INV-request-page: revoked membership refuses writes from a stale viewer", 
 		(await f.admin.select().from(t.person).where(eq(t.person.id, ids[0])))[0].display_name,
 		"Request Person 00",
 	);
-	const next = await f.db.transaction((tx) => readPeopleViewer(tx, sessionId.parse(session.session.id)));
-	assert.deepEqual(next, { status: "no_access" });
+	assert.equal(await readPeople(session.session.id), null);
 });

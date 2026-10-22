@@ -22,9 +22,16 @@ import { cn, Icon } from "@everyfield/ui/foundations";
 import { useRef, useState } from "react";
 import { addWalkIn, reloadCheckIn, setPresence, settleAttendance } from "./actions.ts";
 import {
+	DialogNotice,
+	NoticeInDialog,
+	RowNotices,
+	SaveNotice,
+	useSaveIntent,
+	type RowSave,
+} from "../../components/save/parts.tsx";
+import {
 	attendanceAfter,
 	canSettle,
-	PresenceUnconfirmed,
 	settledText,
 	SettleDialog,
 	usePresence,
@@ -32,9 +39,9 @@ import {
 	type SettleInput,
 } from "./Attendance.tsx";
 import { PersonPicker, type PickedPerson } from "./dialogs.tsx";
-import { RSVP_LABEL, timeText, type Guest } from "./model.ts";
-import { attendeeOf, withAttendees } from "./page-state.ts";
-import { Problem, Unconfirmed, useSlot, type Slot } from "./parts.tsx";
+import { problemText, RSVP_LABEL, timeText, type Guest } from "./model.ts";
+import { attendeeOf, isPending, PENDING, withAttendees, type GuestRow, type PendingGuest } from "./page-state.ts";
+import { Problem } from "./parts.tsx";
 import type { CheckInData } from "./server.ts";
 
 /**
@@ -59,18 +66,12 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 	const [data, setData] = useState(loaded);
 	const [filter, setFilter] = useState<"waiting" | "here">("waiting");
 	const [search, setSearch] = useState("");
-	const [walkIn, setWalkIn] = useState<{ visible: boolean; problem: string | null; input: WalkInInput | null } | null>(
-		null,
-	);
-	const [settle, setSettle] = useState<{ visible: boolean; input: SettleInput | null; problem: string | null } | null>(
-		null,
-	);
 	const [early, setEarly] = useState(false);
 	const seats = useSeats();
-	// A walk-in and Finish both change who attended, so they share one save slot (C68). Presence taps have one per person.
-	const door = useSlot();
+	// A walk-in and Finish both change who attended, so they share one save lane (C68). Presence taps have one per person.
+	const door = useSaveIntent<DoorForm>({ explain: problemText });
 	// The walk-in row as the person asked for it, shown while its save is on its way or unknown.
-	const [draft, setDraft] = useState<Guest | null>(null);
+	const [draft, setDraft] = useState<PendingGuest | null>(null);
 	const m = data.meeting;
 	const final = data.attendance?.finalized != null;
 	/** The latest guests and attendance after a refusal as out of date. Resolves true once they show. */
@@ -89,12 +90,15 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 		onStale: stale,
 	});
 
-	const guests = [...presence.shown(data.guests), ...(door.state !== "idle" && draft ? [draft] : [])];
+	const guests: GuestRow[] = [...presence.shown(data.guests), ...(door.wait !== null && draft ? [draft] : [])];
 	// A row whose save is unknown stays in the list where it was tapped, marked Not confirmed, so it is easy to find.
 	const before = new Map(data.guests.map((g) => [g.person.personId, g.presence]));
-	const listed = (g: Guest) => {
-		const st = presence.stateOf(g.person.personId);
-		return st === "unknown" || st === "checking" ? (before.get(g.person.personId) ?? g.presence) : g.presence;
+	const stateOf = (g: GuestRow) => (isPending(g) ? undefined : presence.stateOf(g.person.personId));
+	const listed = (g: GuestRow) => {
+		const st = stateOf(g);
+		return (st === "unknown" || st === "checking") && !isPending(g)
+			? (before.get(g.person.personId) ?? g.presence)
+			: g.presence;
 	};
 	const here = guests.filter((g) => listed(g) === "attended");
 	const waiting = guests.filter((g) => listed(g) !== "attended");
@@ -104,17 +108,51 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 		.sort((a, b) => rank(a) - rank(b) || a.person.displayName.localeCompare(b.person.displayName));
 
 	function submitWalkIn(input: WalkInInput) {
-		const pending = {
-			id: `pending-${crypto.randomUUID()}`,
-			revision: "0",
-			person: { personId: input.person?.id ?? "pending", displayName: input.person?.name ?? input.name, state: "live" },
+		const p = input.person;
+		const pending: PendingGuest = {
+			id: `${PENDING}${crypto.randomUUID()}`,
+			revision: null,
+			person: { personId: p?.id ?? null, displayName: p?.name ?? input.name, state: "live" },
 			inviter: null,
 			rsvp: "pending",
 			rsvpSource: null,
 			rsvpAt: null,
 			presence: "attended",
 			hasCard: false,
-		} as unknown as Guest;
+		};
+		const done = () => {
+			setDraft(null);
+			toast({ message: `${pending.person.displayName} is checked in.`, tone: "success" });
+		};
+		const save = {
+			what: pending.person.displayName,
+			done: "checked in",
+			form: { kind: "walkIn", input } as const,
+			refused: () => setDraft(null),
+		};
+		setDraft(pending);
+		setFilter("here");
+		if (p)
+			return void door.save({
+				...save,
+				send: (key) => setPresence(key, m.id, p.id, "attended"),
+				ok: (value) => {
+					const a = value.attendees[0]!;
+					const g: Guest = {
+						id: a.guestId,
+						revision: a.revision,
+						person: a.person,
+						inviter: null,
+						rsvp: a.rsvp,
+						rsvpSource: null,
+						rsvpAt: null,
+						presence: a.presence,
+						hasCard: a.hasCard,
+					};
+					setData((d) => withAttendees({ ...d, guests: [...d.guests, g] }, value.attendees, value.attendanceRevision));
+					done();
+				},
+			});
 		const body = {
 			meetingId: m.id,
 			displayName: input.name.trim(),
@@ -122,73 +160,55 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 			phone: input.phone.trim() || null,
 			country: "US",
 		};
-		const p = input.person;
-		const answered = (r: Awaited<ReturnType<typeof setPresence>> | Awaited<ReturnType<typeof addWalkIn>>) => {
-			setDraft(null);
-			if (r.status === "lost") return;
-			if (r.status !== "ok") return setWalkIn((w) => w && { ...w, visible: true, problem: r.code });
-			setData((d) => {
-				if ("guest" in r.value) {
-					const g = r.value.guest as Guest;
-					return {
-						...d,
-						guests: [...d.guests, g],
-						attendance: d.attendance && { ...d.attendance, items: [...d.attendance.items, attendeeOf(g)] },
-					};
-				}
-				const a = r.value.attendees[0]!;
-				const g = { ...pending, id: a.guestId, revision: a.revision, person: a.person } as Guest;
-				return withAttendees({ ...d, guests: [...d.guests, g] }, r.value.attendees, r.value.attendanceRevision);
-			});
-			setWalkIn(null);
-			toast({ message: `${pending.person.displayName} is checked in.`, tone: "success" });
-		};
-		const started = p
-			? door.run((key) => setPresence(key, m.id, p.id, "attended"), answered)
-			: door.run((key) => addWalkIn(key, body), answered);
-		if (!started) return;
-		setWalkIn((w) => w && { ...w, visible: false, input, problem: null });
-		setDraft(pending);
-		setFilter("here");
+		void door.save({
+			...save,
+			send: (key) => addWalkIn(key, body),
+			ok: ({ guest: g }) => {
+				setData((d) => ({
+					...d,
+					guests: [...d.guests, g],
+					attendance: d.attendance && { ...d.attendance, items: [...d.attendance.items, attendeeOf(g)] },
+				}));
+				done();
+			},
+		});
 	}
 
 	function finish() {
-		if (door.state !== "idle" || presence.busy) return;
+		if (door.wait !== null || presence.busy) return;
 		// The meeting must have started before attendance can be final; the time is read when the person asks.
 		if (!canSettle(m, new Date().toISOString())) return setEarly(true);
 		setEarly(false);
 		seats.load();
-		setSettle({ visible: true, input: null, problem: null });
+		door.open({ kind: "settle", input: null });
 	}
 	function submitSettle(input: SettleInput) {
 		const attendance = data.attendance!;
-		const started = door.run(
-			(key) =>
+		void door.save({
+			what: "Attendance",
+			done: "finalized",
+			form: { kind: "settle", input },
+			send: (key) =>
 				settleAttendance("finalize", key, attendance.attendanceRevision, {
 					meetingId: m.id,
 					attendeeIds: input.attendeeIds,
 					followUpAssigneeId: input.followUpAssigneeId,
 					evaluationAssigneeId: input.evaluationAssigneeId,
 				}),
-			(r) => {
-				if (r.status !== "ok") {
-					// Out of date: review again from who is marked now, never from the earlier list (F6).
-					if (r.code === "conflict") {
-						setSettle(null);
-						return void stale().then((shown) =>
-							setSettle({ visible: true, input: null, problem: shown ? "conflict" : "conflict_unloaded" }),
-						);
-					}
-					return setSettle((s) => s && { ...s, visible: true, problem: r.code });
-				}
-				setData((d) => ({ ...d, attendance: d.attendance && attendanceAfter(d.attendance, r.value.result) }));
-				setSettle(null);
-				toast({ message: settledText(r.value.result, m.displayTitle, "finalize"), tone: "success" });
+			ok: ({ result }) => {
+				setData((d) => ({ ...d, attendance: d.attendance && attendanceAfter(d.attendance, result) }));
+				toast({ message: settledText(result, m.displayTitle, "finalize"), tone: "success" });
 			},
-		);
-		if (started) setSettle((s) => s && { ...s, visible: false, input, problem: null });
+			// Out of date: review again from who is marked now, never from the earlier list (F6).
+			refused: (code) => {
+				if (code !== "conflict") return;
+				void stale().then((shown) =>
+					door.open({ kind: "settle", input: null, problem: shown ? "conflict" : "conflict_unloaded" }),
+				);
+			},
+		});
 	}
-	const doorBusy = door.state !== "idle";
+	const doorBusy = door.wait !== null;
 
 	return (
 		<div className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col bg-frame">
@@ -241,11 +261,8 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 			</header>
 
 			<main className="flex flex-1 flex-col px-4 pb-4">
-				<Unconfirmed state={door.state} onCheck={door.checkAgain} className="mb-3">
-					{settle ? "Finalizing attendance" : `Checking in ${draft?.person.displayName ?? "the walk-in"}`}: we did not
-					hear back from the server, so we cannot tell whether it saved.
-				</Unconfirmed>
-				<PresenceUnconfirmed presence={presence} className="mb-3" />
+				<SaveNotice {...door.noticeProps} dialogOpen={door.editing !== null} className="mb-3" />
+				<RowNotices lanes={presence.lanes} className="mb-3" />
 				<h2 className="sr-only">{filter === "here" ? "Here" : "Not here yet"}</h2>
 				{rows.length === 0 ? (
 					<p className="px-1 py-8 text-center text-md text-text-3" aria-live="polite">
@@ -263,9 +280,11 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 							<li key={g.id}>
 								<Row
 									guest={g}
-									disabled={final || g.id.startsWith("pending-") || g.person.state !== "live"}
-									state={g.id.startsWith("pending-") ? door.state : presence.stateOf(g.person.personId)}
-									onToggle={() => presence.set(g.person, g.presence === "attended" ? "absent" : "attended")}
+									disabled={final || isPending(g) || g.person.state !== "live"}
+									state={isPending(g) ? (door.saving ? "saving" : "unknown") : stateOf(g)}
+									onToggle={() =>
+										!isPending(g) && presence.set(g.person, g.presence === "attended" ? "absent" : "attended")
+									}
 								/>
 							</li>
 						))}
@@ -291,7 +310,7 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 							icon={UserAdd01Icon}
 							className="h-12"
 							disabled={doorBusy}
-							onClick={() => !doorBusy && setWalkIn({ visible: true, problem: null, input: null })}
+							onClick={() => !doorBusy && door.open({ kind: "walkIn", input: null })}
 						>
 							Add a walk-in
 						</Button>
@@ -300,7 +319,7 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 								variant="primary"
 								icon={CheckListIcon}
 								className="h-12"
-								loading={door.state === "pending" && settle !== null}
+								loading={door.saving && !draft}
 								disabled={doorBusy || presence.busy}
 								onClick={finish}
 								onPointerEnter={seats.load}
@@ -314,38 +333,38 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 				</footer>
 			)}
 
-			{walkIn ? (
-				<WalkInDialog
-					open={walkIn.visible}
-					initial={walkIn.input}
-					problem={walkIn.problem}
-					exclude={guests.map((g) => g.person.personId)}
-					allowNew={admin}
-					onClose={() => setWalkIn(null)}
-					onSubmit={submitWalkIn}
-				/>
-			) : null}
-			{settle && data.attendance ? (
-				<SettleDialog
-					open={settle.visible}
-					mode="finalize"
-					meeting={m}
-					guests={data.guests}
-					attendance={data.attendance}
-					seats={seats.seats}
-					onSeats={seats.load}
-					initial={settle.input}
-					problem={settle.problem}
-					onClose={() => setSettle(null)}
-					onSubmit={submitSettle}
-				/>
-			) : null}
+			<NoticeInDialog {...door.noticeProps}>
+				{door.editing?.kind === "walkIn" ? (
+					<WalkInDialog
+						initial={door.editing.input}
+						problem={door.problem}
+						exclude={guests.flatMap((g) => (g.person.personId ? [g.person.personId] : []))}
+						allowNew={admin}
+						onClose={door.close}
+						onSubmit={submitWalkIn}
+					/>
+				) : door.editing?.kind === "settle" && data.attendance ? (
+					<SettleDialog
+						open
+						mode="finalize"
+						meeting={m}
+						guests={data.guests}
+						attendance={data.attendance}
+						seats={seats.seats}
+						onSeats={seats.load}
+						initial={door.editing.input}
+						problem={door.problem}
+						onClose={door.close}
+						onSubmit={submitSettle}
+					/>
+				) : null}
+			</NoticeInDialog>
 		</div>
 	);
 }
 
 /** Guests who said yes come first, then pending, then no. */
-const rank = (g: Guest) => (g.rsvp === "confirmed" ? 0 : g.rsvp === "pending" ? 1 : 2);
+const rank = (g: GuestRow) => (g.rsvp === "confirmed" ? 0 : g.rsvp === "pending" ? 1 : 2);
 
 /** One guest at the door: a 58px toggle button. Pressed means here. */
 function Row({
@@ -354,14 +373,14 @@ function Row({
 	state,
 	onToggle,
 }: {
-	guest: Guest;
+	guest: GuestRow;
 	disabled: boolean;
 	/** This row's save: on its way, unknown or being checked again. Undefined when the row takes a tap. */
-	state: Slot | undefined;
+	state: RowSave | undefined;
 	onToggle: () => void;
 }) {
 	const here = g.presence === "attended";
-	const saving = state !== undefined && state !== "idle";
+	const saving = state !== undefined;
 	const detail = [
 		state === "unknown" ? "Not confirmed" : saving ? "Saving…" : null,
 		g.person.state !== "live" ? (g.person.state === "merged" ? "Merged" : "Retired") : null,
@@ -374,7 +393,7 @@ function Row({
 		<button
 			type="button"
 			aria-pressed={here}
-			aria-busy={state === "pending" || state === "checking" || undefined}
+			aria-busy={state === "saving" || state === "checking" || undefined}
 			aria-disabled={disabled || saving || undefined}
 			onClick={() => !saving && !disabled && onToggle()}
 			className={cn(
@@ -403,13 +422,16 @@ function Row({
 }
 
 type WalkInInput = { person: PickedPerson | null; name: string; email: string; phone: string };
+/** The door's open form, with what was entered when a refusal opens it again. */
+type DoorForm = ({ kind: "walkIn"; input: WalkInInput | null } | { kind: "settle"; input: SettleInput | null }) & {
+	problem?: string;
+};
 
 /**
  * A walk-in (REQ-MTG-010, REQ-MTG-011): someone in People who is not on the list, or someone new. Someone new joins
  * People as a prospect from this meeting with their attendance in the same save; nothing gives them a login.
  */
 function WalkInDialog({
-	open,
 	initial,
 	problem,
 	exclude,
@@ -417,9 +439,9 @@ function WalkInDialog({
 	onClose,
 	onSubmit,
 }: {
-	open: boolean;
 	initial: WalkInInput | null;
-	problem: string | null;
+	/** Why the last check-in was refused, in words. */
+	problem: string | undefined;
 	exclude: string[];
 	/** Only an Owner or Admin adds someone new to People; a team leader picks someone already there. */
 	allowNew: boolean;
@@ -433,7 +455,7 @@ function WalkInDialog({
 	const nameMissing = input.name.trim() === "";
 	const emailBad = input.email.trim() !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim());
 	return (
-		<Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+		<Dialog open onOpenChange={(o) => !o && onClose()}>
 			<DialogContent size="sm">
 				<form
 					noValidate
@@ -453,6 +475,7 @@ function WalkInDialog({
 				>
 					<DialogHeader icon={UserAdd01Icon} tone="green" title="Add a walk-in" />
 					<DialogBody ref={body} className="flex flex-col gap-4">
+						<DialogNotice />
 						{allowNew ? (
 							<SegmentedControl
 								label="Who"
@@ -516,7 +539,7 @@ function WalkInDialog({
 								</p>
 							</>
 						)}
-						<Problem code={problem} />
+						<Problem text={problem} />
 					</DialogBody>
 					<DialogFooter>
 						<Button variant="secondary" type="button" onClick={onClose}>

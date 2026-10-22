@@ -522,11 +522,16 @@ test("AC:TARGET-TSK-012 AC:TARGET-PPL-022 AC:GAP-PPL-022 only a currently eligib
 	const current = (await rows(sql`SELECT revision::text r FROM person WHERE id=${casey}`))[0].r;
 	ok(
 		await f.db.transaction((tx) =>
-			peopleWriter.changeStatus(tx, ctx, {
-				requestKey: key(),
-				expectedRevision: current,
-				input: { personId: casey, stage: "following_up", reason: "Met at coffee", handoffs: [] },
-			}),
+			peopleWriter.changeStatus(
+				tx,
+				ctx,
+				{
+					requestKey: key(),
+					expectedRevision: current,
+					input: { personId: casey, stage: "following_up", reason: "Met at coffee", handoffs: [] },
+				},
+				reminders,
+			),
 		),
 	);
 	assert.deepEqual(await rows(sql`SELECT count(*)::int n FROM task WHERE person_id=${casey}`), [{ n: 0 }]);

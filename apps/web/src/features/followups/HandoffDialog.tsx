@@ -21,12 +21,13 @@ import { loadPlan, prefetchSeats } from "./fetch.ts";
 import {
 	HANDOFF_LIMIT,
 	keepSelection,
+	problemText,
 	type Account,
 	type HandoffPlan,
 	type HandoffResult,
 	type Outcome,
 } from "./model.ts";
-import { LaneNotice, SaveButton, useLane } from "./save.tsx";
+import { DialogNotice, NoticeInDialog, SaveButton, useSaveIntent } from "../../components/save/parts.tsx";
 
 type Seat = { accountId: string; displayName: string; role: string };
 
@@ -42,9 +43,8 @@ export function useHandoff(onMoved: (r: HandoffResult, plan: HandoffPlan) => voi
 	const [selected, setSelected] = useState<Set<string>>(new Set());
 	const [to, setTo] = useState("");
 	const [toError, setToError] = useState<string | null>(null);
-	const [sent, setSent] = useState(false);
 	const [result, setResult] = useState<HandoffResult | null>(null);
-	const lane = useLane();
+	const lane = useSaveIntent({ explain: problemText });
 
 	/** Reads the preview. `keep` keeps the person's selection and recipient for follow-ups still in it. */
 	async function preview(account: string, keep: boolean) {
@@ -70,26 +70,22 @@ export function useHandoff(onMoved: (r: HandoffResult, plan: HandoffPlan) => voi
 			toAccountId: recipient.accountId,
 			items: chosen.slice(0, HANDOFF_LIMIT).map((d) => ({ taskId: d.taskId, expectedRevision: d.revision })),
 		};
-		setSent(true);
-		await lane.save(
-			`Moving ${input.items.length} follow-up${input.items.length === 1 ? "" : "s"}`,
-			(key) => executeHandoff(key, input),
-			async (r) => {
-				setSent(false);
-				if (r.status === "ok") {
-					setResult(r.value);
-					onMoved(r.value, p);
-					return;
-				}
-				// Out of date or the recipient lost eligibility: read the preview again and keep the person's own choices.
-				if (r.code === "conflict" || r.code === "handoff_target_ineligible") await preview(p.from.accountId, true);
+		await lane.save({
+			what: `Moving ${input.items.length} follow-up${input.items.length === 1 ? "" : "s"}`,
+			send: (key) => executeHandoff(key, input),
+			ok: (value) => {
+				setResult(value);
+				onMoved(value, p);
 			},
-		);
-		setSent(false);
+			// Out of date or the recipient lost eligibility: read the preview again and keep the person's own choices.
+			refused: async (code) => {
+				if (code === "conflict" || code === "handoff_target_ineligible") await preview(p.from.accountId, true);
+			},
+		});
 	}
 	/** Opens the review for one account, as the "Waiting for a handoff" list does. */
 	function start(account: string) {
-		if (lane.wait || lane.lane.refused) return;
+		if (lane.notice || lane.wait) return;
 		setResult(null);
 		setFrom(account);
 		void preview(account, false);
@@ -100,7 +96,7 @@ export function useHandoff(onMoved: (r: HandoffResult, plan: HandoffPlan) => voi
 	}
 	/** Closes the dialog. With nothing saving, unknown or refused, the next opening starts afresh (Cancel changes nothing). */
 	function closed() {
-		if (lane.wait || lane.lane.refused) return;
+		if (lane.notice || lane.wait) return;
 		setFrom("");
 		setPlan(null);
 		setSelected(new Set());
@@ -122,7 +118,6 @@ export function useHandoff(onMoved: (r: HandoffResult, plan: HandoffPlan) => voi
 		to,
 		setTo,
 		toError,
-		sent,
 		result,
 		setResult,
 		lane,
@@ -155,130 +150,132 @@ export function HandoffDialog({
 	former: readonly (Account & { open: number })[];
 	onClose: () => void;
 }) {
-	const { seats, from, setFrom, plan, p, selected, setSelected, to, setTo, toError, sent, result, setResult, lane } = h;
+	const { seats, from, setFrom, plan, p, selected, setSelected, to, setTo, toError, result, setResult, lane } = h;
 	const { chosen, preview, submit, sourceName } = h;
 	useEffect(h.opened, []); // eslint-disable-line react-hooks/exhaustive-deps
 	return (
-		<Dialog open onOpenChange={(next) => !next && onClose()}>
-			<DialogContent size="lg" onCloseAutoFocus={returnFocus}>
-				<form
-					noValidate
-					className="contents"
-					onSubmit={(e) => {
-						e.preventDefault();
-						if (!lane.wait && !result) void submit();
-					}}
-				>
-					<DialogHeader
-						icon={ArrowDataTransferHorizontalIcon}
-						tone="blue"
-						title="Hand off follow-ups"
-						description="Move open follow-ups from someone who can no longer own them. Nothing moves until you confirm."
-					/>
-					<DialogBody className="flex flex-col gap-5 pb-1">
-						<LaneNotice control={lane} />
-						{result ? (
-							<div role="status" className="flex flex-col gap-2 text-sm text-ink-2">
-								<p className="font-medium text-ink">
-									Moved {result.moved.length} follow-up{result.moved.length === 1 ? "" : "s"} to {result.to.displayName}
-									.
-								</p>
-								<p>
-									{result.remainingTotal === 0
-										? `${sourceName ?? "They"} has no open follow-ups left.`
-										: `${result.remainingTotal} open follow-up${result.remainingTotal === 1 ? "" : "s"} still belong to ${sourceName ?? "them"}. Review them next, or leave them; they show as Needs owner while ${sourceName ?? "they"} cannot own follow-ups.`}
-								</p>
-							</div>
-						) : (
-							<>
-								<Field label="Whose follow-ups">
-									<Select
-										value={from || undefined}
-										onValueChange={(v) => {
-											setFrom(v);
-											void preview(v, false);
-										}}
-										placeholder={seats === null && !former.length ? "Loading seats" : "Choose a person"}
-										disabled={seats?.status !== "ok" && !former.length}
-										options={sourceOptions(seats?.status === "ok" ? seats.value.items : [], former)}
-									/>
-								</Field>
-								{seats?.status === "refused" || seats?.status === "lost" ? (
-									<p className="text-sm text-text-2">
-										The current seats did not load. People who can no longer own follow-ups are still listed.
+		<NoticeInDialog {...lane.noticeProps}>
+			<Dialog open onOpenChange={(next) => !next && onClose()}>
+				<DialogContent size="lg" onCloseAutoFocus={returnFocus}>
+					<form
+						noValidate
+						className="contents"
+						onSubmit={(e) => {
+							e.preventDefault();
+							if (!lane.wait && !result) void submit();
+						}}
+					>
+						<DialogHeader
+							icon={ArrowDataTransferHorizontalIcon}
+							tone="blue"
+							title="Hand off follow-ups"
+							description="Move open follow-ups from someone who can no longer own them. Nothing moves until you confirm."
+						/>
+						<DialogBody className="flex flex-col gap-5 pb-1">
+							<DialogNotice />
+							{result ? (
+								<div role="status" className="flex flex-col gap-2 text-sm text-ink-2">
+									<p className="font-medium text-ink">
+										Moved {result.moved.length} follow-up{result.moved.length === 1 ? "" : "s"} to{" "}
+										{result.to.displayName}.
 									</p>
-								) : null}
-								{from && plan === null ? (
-									<p role="status" className="flex items-center gap-2 text-sm text-text-2">
-										<Spinner size={16} /> Loading their follow-ups
+									<p>
+										{result.remainingTotal === 0
+											? `${sourceName ?? "They"} has no open follow-ups left.`
+											: `${result.remainingTotal} open follow-up${result.remainingTotal === 1 ? "" : "s"} still belong to ${sourceName ?? "them"}. Review them next, or leave them; they show as Needs owner while ${sourceName ?? "they"} cannot own follow-ups.`}
 									</p>
-								) : null}
-								{plan && plan.status !== "ok" ? (
-									<p className="text-sm text-text-2">
-										Their follow-ups did not load. Choose the person again to retry.
-									</p>
-								) : null}
-								{p ? <Review plan={p} selected={selected} onSelected={setSelected} /> : null}
-								{p && !p.from.protectedOwner && p.duties.length ? (
-									<Field
-										label="Give them to"
-										error={toError}
-										hint={
-											p.recipients.length
-												? "Only people who can own follow-ups now are listed."
-												: "No one else can own follow-ups now. Give someone a committed stage first."
-										}
-									>
+								</div>
+							) : (
+								<>
+									<Field label="Whose follow-ups">
 										<Select
-											value={to || undefined}
-											onValueChange={setTo}
-											placeholder="Choose a person"
-											options={p.recipients.map((r) => ({ value: r.accountId, label: r.displayName }))}
+											value={from || undefined}
+											onValueChange={(v) => {
+												setFrom(v);
+												void preview(v, false);
+											}}
+											placeholder={seats === null && !former.length ? "Loading seats" : "Choose a person"}
+											disabled={seats?.status !== "ok" && !former.length}
+											options={sourceOptions(seats?.status === "ok" ? seats.value.items : [], former)}
 										/>
 									</Field>
-								) : null}
-							</>
-						)}
-					</DialogBody>
-					<DialogFooter>
-						{result ? (
-							<>
-								{result.remainingTotal > 0 && p ? (
-									<Button
-										variant="secondary"
-										type="button"
-										onClick={() => {
-											setResult(null);
-											void preview(p.from.accountId, false);
-										}}
-									>
-										Review the rest
+									{seats?.status === "refused" || seats?.status === "lost" ? (
+										<p className="text-sm text-text-2">
+											The current seats did not load. People who can no longer own follow-ups are still listed.
+										</p>
+									) : null}
+									{from && plan === null ? (
+										<p role="status" className="flex items-center gap-2 text-sm text-text-2">
+											<Spinner size={16} /> Loading their follow-ups
+										</p>
+									) : null}
+									{plan && plan.status !== "ok" ? (
+										<p className="text-sm text-text-2">
+											Their follow-ups did not load. Choose the person again to retry.
+										</p>
+									) : null}
+									{p ? <Review plan={p} selected={selected} onSelected={setSelected} /> : null}
+									{p && !p.from.protectedOwner && p.duties.length ? (
+										<Field
+											label="Give them to"
+											error={toError}
+											hint={
+												p.recipients.length
+													? "Only people who can own follow-ups now are listed."
+													: "No one else can own follow-ups now. Give someone a committed stage first."
+											}
+										>
+											<Select
+												value={to || undefined}
+												onValueChange={setTo}
+												placeholder="Choose a person"
+												options={p.recipients.map((r) => ({ value: r.accountId, label: r.displayName }))}
+											/>
+										</Field>
+									) : null}
+								</>
+							)}
+						</DialogBody>
+						<DialogFooter>
+							{result ? (
+								<>
+									{result.remainingTotal > 0 && p ? (
+										<Button
+											variant="secondary"
+											type="button"
+											onClick={() => {
+												setResult(null);
+												void preview(p.from.accountId, false);
+											}}
+										>
+											Review the rest
+										</Button>
+									) : null}
+									<Button variant="primary" type="button" onClick={onClose}>
+										Done
 									</Button>
-								) : null}
-								<Button variant="primary" type="button" onClick={onClose}>
-									Done
-								</Button>
-							</>
-						) : (
-							<>
-								<Button variant="secondary" type="button" onClick={onClose}>
-									Cancel
-								</Button>
-								{p && !p.from.protectedOwner && p.duties.length ? (
-									<SaveButton
-										wait={lane.wait}
-										saving={sent}
-										blocked={chosen.length ? null : "Choose at least one follow-up."}
-									>
-										{`Move ${Math.min(chosen.length, HANDOFF_LIMIT)} follow-up${chosen.length === 1 ? "" : "s"}`}
-									</SaveButton>
-								) : null}
-							</>
-						)}
-					</DialogFooter>
-				</form>
-			</DialogContent>
-		</Dialog>
+								</>
+							) : (
+								<>
+									<Button variant="secondary" type="button" onClick={onClose}>
+										Cancel
+									</Button>
+									{p && !p.from.protectedOwner && p.duties.length ? (
+										<SaveButton
+											wait={lane.wait}
+											saving={lane.saving}
+											blocked={chosen.length ? null : "Choose at least one follow-up."}
+										>
+											{`Move ${Math.min(chosen.length, HANDOFF_LIMIT)} follow-up${chosen.length === 1 ? "" : "s"}`}
+										</SaveButton>
+									) : null}
+								</>
+							)}
+						</DialogFooter>
+					</form>
+				</DialogContent>
+			</Dialog>
+		</NoticeInDialog>
 	);
 }
 

@@ -9,7 +9,8 @@ import type {
 import type { Database, Transaction } from "@everyfield/db/client";
 import { and, eq, isNull, sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
+import { hash } from "../operations/canonical.ts";
 import "server-only";
 import { z } from "zod";
 import { RequestActor, currentActor, liveOwner, lockWriteAuthority, requestWrite } from "../access/session.ts";
@@ -43,20 +44,7 @@ export function deny(code?: Refusal["code"]): never {
 	throw new Refusal(code);
 }
 export const now = sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value));
-export function stable(value: unknown): string {
-	if (Array.isArray(value)) return "[" + value.map(stable).join(",") + "]";
-	if (value !== null && typeof value === "object")
-		return (
-			"{" +
-			Object.entries(value)
-				.sort(([a], [b]) => a.localeCompare(b))
-				.map(([k, v]) => JSON.stringify(k) + ":" + stable(v))
-				.join(",") +
-			"}"
-		);
-	return JSON.stringify(value);
-}
-export const hash = (v: unknown) => createHash("sha256").update(stable(v)).digest("hex");
+export { hash };
 export async function reply<T>(tx: Tx, body: () => Promise<T>): Promise<OnboardingReply<T>> {
 	if (requestWrite(tx)) return { status: "ok", value: await body() };
 	return recover(async () => ({ status: "ok", value: await auditSavepoint(tx, async () => body()) }));

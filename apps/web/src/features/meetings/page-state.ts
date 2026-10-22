@@ -8,8 +8,21 @@ import type { MeetingPageData } from "./server.ts";
 // the confirmed data (or the unchanged data after a failure) shows instead.
 
 export type CardEntry = z.infer<typeof c.card>;
+
+/** A guest row as the page knows it before the server answers: no ID, revision, link or actions until it is saved. */
+export const PENDING = "pending-";
+export type PendingGuest = Omit<Guest, "id" | "revision" | "person" | "inviter"> & {
+	id: `${typeof PENDING}${string}`;
+	revision: null;
+	/** Someone new has no Person yet. */
+	person: { personId: string | null; displayName: string; state: "live" };
+	inviter: { personId: string; displayName: string; state: "live" } | null;
+};
+export type GuestRow = Guest | PendingGuest;
+export const isPending = (g: GuestRow): g is PendingGuest => g.revision === null;
+
 export type PageView = {
-	guests: Guest[] | null;
+	guests: GuestRow[] | null;
 	cards: CardEntry[] | null;
 	own: MeetingPageData["own"];
 	agenda: Detail["agenda"];
@@ -17,7 +30,7 @@ export type PageView = {
 };
 export type Change =
 	| { kind: "own"; rsvp: Rsvp }
-	| { kind: "guest"; guest: Guest }
+	| { kind: "guest"; guest: GuestRow }
 	| { kind: "removeGuest"; guestId: string }
 	| { kind: "card"; personId: string; card: CardEntry | null }
 	| { kind: "agenda"; agenda: Detail["agenda"] };
@@ -60,10 +73,6 @@ export const attendeeOf = (g: Guest): Attendee =>
 		classificationStage: null,
 		priorVisionId: null,
 	}) as Attendee;
-
-/** A guest row as the page knows it before the server answers: no link and no actions until it is saved. */
-export const PENDING = "pending-";
-export const isPending = (g: Pick<Guest, "id">) => g.id.startsWith(PENDING);
 
 export function applyChange(v: PageView, change: Change): PageView {
 	switch (change.kind) {

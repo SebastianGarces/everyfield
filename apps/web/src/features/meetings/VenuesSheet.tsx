@@ -19,7 +19,7 @@ import { KeyValue, KeyValueList, List, ListRow, Tag } from "@everyfield/ui/displ
 import { useEffect, useOptimistic, useRef, useState, useTransition } from "react";
 import { changeVenue, createVenue, getVenue, listVenues } from "./actions.ts";
 import { problemText, type Outcome, type Venue } from "./model.ts";
-import { Problem, useSave } from "./parts.tsx";
+import { SaveButton, SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
 
 type History = Extract<Awaited<ReturnType<typeof getVenue>>, { status: "ok" }>["value"];
 /** `saved` is the place a save just answered with: the screen shows it at once and loads only its history. */
@@ -200,7 +200,7 @@ function Place({
 	const [, startTransition] = useTransition();
 	const [active, setActive] = useOptimistic<boolean | null>(null);
 	const [archiving, setArchiving] = useState(false);
-	const archive = useSave();
+	const archive = useSaveIntent({ explain: problemText });
 	useEffect(() => {
 		let live = true;
 		getVenue(id).then(
@@ -254,17 +254,19 @@ function Place({
 		startTransition(async () => {
 			setActive(to === "restore");
 			const input = { venueId: venue.id, ...(reason ? { reason } : {}) };
-			const r = await archive.save({ to, input }, (key) => changeVenue(to, key, venue.revision, input));
-			if (r?.status === "ok") {
-				startTransition(() => setGot({ status: "ok", value: { ...loaded, venue: r.value.venue } }));
-				toast({
-					message: to === "archive" ? `${venue.name} is archived.` : `${venue.name} is restored.`,
-					tone: "success",
-				});
-			} else if (r) {
-				toast({ message: problemText(r.status === "lost" ? "lost" : r.code), tone: "error" });
-				if (r.status === "refused" && r.code === "conflict") getVenue(venue.id).then(setGot);
-			}
+			await archive.save({
+				what: venue.name,
+				done: to === "archive" ? "archived" : "restored",
+				send: (key) => changeVenue(to, key, venue.revision, input),
+				ok: (value) => {
+					startTransition(() => setGot({ status: "ok", value: { ...loaded, venue: value.venue } }));
+					toast({
+						message: to === "archive" ? `${venue.name} is archived.` : `${venue.name} is restored.`,
+						tone: "success",
+					});
+				},
+				refused: (code) => code === "conflict" && getVenue(venue.id).then(setGot),
+			});
 		});
 	}
 
@@ -296,17 +298,17 @@ function Place({
 						Change details
 					</Button>
 					{isActive ? (
-						<Button variant="ghost" size="sm" onClick={() => setArchiving(true)} disabled={archive.pending}>
+						<Button variant="ghost" size="sm" onClick={() => setArchiving(true)} disabled={archive.wait !== null}>
 							Archive
 						</Button>
 					) : (
-						<Button variant="secondary" size="sm" onClick={() => toggle("restore")} disabled={archive.pending}>
+						<Button variant="secondary" size="sm" onClick={() => toggle("restore")} disabled={archive.wait !== null}>
 							Restore
 						</Button>
 					)}
 				</div>
 			) : null}
-			<Problem slot={archive.problemProps.slot} onCheck={archive.problemProps.onCheck} code={null} />
+			<SaveNotice {...archive.noticeProps} dialogOpen={false} className="" />
 			{canWrite ? (
 				<ConfirmDialog
 					open={archiving}
@@ -397,7 +399,9 @@ function VenueForm({ venue, onDone }: { venue?: Venue; onDone: (id: string | nul
 		reason: "",
 	});
 	const [touched, setTouched] = useState(false);
-	const { save, pending, problemProps } = useSave();
+	// The form stays open while it saves; its notice says why a save was refused or that it may already be saved.
+	const lane = useSaveIntent({ explain: problemText });
+	const pending = lane.saving;
 	const set = (k: keyof VenueDraft) => (e: { target: { value: string } }) =>
 		setDraft((d) => ({ ...d, [k]: e.target.value }));
 	const capacity = draft.capacity.trim() === "" ? null : Number(draft.capacity);
@@ -417,7 +421,7 @@ function VenueForm({ venue, onDone }: { venue?: Venue; onDone: (id: string | nul
 	async function submit(event: React.FormEvent) {
 		event.preventDefault();
 		setTouched(true);
-		if (Object.values(errors).some(Boolean)) return;
+		if (lane.wait || Object.values(errors).some(Boolean)) return;
 		const fields = {
 			name: draft.name.trim(),
 			address: draft.address.trim(),
@@ -429,9 +433,12 @@ function VenueForm({ venue, onDone }: { venue?: Venue; onDone: (id: string | nul
 			notes: draft.notes.trim() || null,
 		};
 		if (!venue) {
-			const r = await save(fields, (key) => createVenue(key, fields));
-			if (r?.status === "ok") onDone(r.value.venue.id, r.value.venue);
-			return;
+			return lane.save({
+				what: fields.name,
+				done: "added",
+				send: (key) => createVenue(key, fields),
+				ok: (value) => onDone(value.venue.id, value.venue),
+			});
 		}
 		const patch = Object.fromEntries(
 			Object.entries(fields).filter(([k, v]) => v !== (venue as Record<string, unknown>)[k]),
@@ -440,8 +447,11 @@ function VenueForm({ venue, onDone }: { venue?: Venue; onDone: (id: string | nul
 		const reason = draft.reason.trim();
 		const op = reason ? "correct" : "edit";
 		const input = { venueId: venue.id, patch, ...(reason ? { reason } : {}) };
-		const r = await save({ op, input }, (key) => changeVenue(op, key, venue.revision, input));
-		if (r?.status === "ok") onDone(venue.id, r.value.venue);
+		await lane.save({
+			what: `The changes to ${venue.name}`,
+			send: (key) => changeVenue(op, key, venue.revision, input),
+			ok: (value) => onDone(venue.id, value.venue),
+		});
 	}
 
 	const show = (k: keyof typeof errors) => (touched ? errors[k] : null);
@@ -522,14 +532,14 @@ function VenueForm({ venue, onDone }: { venue?: Venue; onDone: (id: string | nul
 					<Input value={draft.reason} onChange={set("reason")} maxLength={2000} autoComplete="off" readOnly={pending} />
 				</Field>
 			) : null}
-			<Problem {...problemProps} />
+			<SaveNotice {...lane.noticeProps} dialogOpen={false} className="" />
 			<div className="flex flex-wrap justify-end gap-2.5">
 				<Button variant="secondary" type="button" onClick={() => onDone(venue?.id ?? null)} disabled={pending}>
 					Cancel
 				</Button>
-				<Button variant="primary" type="submit" loading={pending}>
+				<SaveButton wait={lane.wait} saving={pending}>
 					{venue ? "Save changes" : "Add place"}
-				</Button>
+				</SaveButton>
 			</div>
 		</form>
 	);
