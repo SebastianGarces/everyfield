@@ -6,7 +6,9 @@ import { fixture } from "../identity/invitations-support.mts";
 import {
 	attendanceReader as reads,
 	createAttendanceWriter,
+	guestsWriter,
 	meetingsReader,
+	previewMeetingsWrite,
 	withMeetingsWrite,
 } from "../../../packages/domain/src/meetings/index.ts";
 import { authorizeTaskReminders, reminderRecipients } from "../../../packages/domain/src/tasks/index.ts";
@@ -29,6 +31,8 @@ const refused = (r, code) => {
 	return r.error;
 };
 const write = (who, op, input) => withMeetingsWrite(f.db, who.actor, (tx, ctx) => writer[op](tx, ctx, input));
+const guestWrite = (who, op, input) =>
+	withMeetingsWrite(f.db, who.actor, (tx, ctx) => guestsWriter[op](tx, ctx, input));
 const read = (who, op, input) => reads[op](f.db, who.actor, input);
 const rows = async (q) => (await f.admin.execute(q)).rows;
 const one = async (q) => (await rows(q))[0];
@@ -74,8 +78,22 @@ const classOf = async (meetingId, personId) =>
 		sql`SELECT presence, classification, prior_vision_id FROM participation WHERE meeting_id=${meetingId} AND person_id=${personId}`,
 	);
 
+let statements = 0;
+async function counted(body) {
+	const start = statements;
+	const value = await body();
+	return { value, statements: statements - start };
+}
+
 before(async () => {
 	f = await fixture();
+	f.db.$client.on("connect", (client) => {
+		const query = client.query;
+		client.query = function (...args) {
+			statements++;
+			return Reflect.apply(query, this, args);
+		};
+	});
 	const mail = createMailService({
 		db: f.db,
 		encryptionKey: randomBytes(32),
@@ -632,4 +650,88 @@ test("AC:GAP-MTG-017 AC:TARGET-MTG-017 an attendee note names its attended meeti
 	// The generated follow-up and its task are the meeting's linked work.
 	const progress = ok(await read(owner, "linkedTaskProgress", { meetingId: v }));
 	assert.deepEqual(progress.followUps, { total: 1, open: 1, complete: 0, closed: 0, needsOwner: 1 });
+});
+
+test("INV-attendance: guest list writes that change the attended set move its revision and wait for Correct attendance once finalized", async () => {
+	const m = await meeting();
+	const [alex, casey, dana] = [await person("Alex"), await person("Casey"), await person("Dana")];
+	const guestRevision = async (personId) =>
+		ok(await meetingsReader.listGuests(f.db, owner.actor, { meetingId: m })).guests.find(
+			(g) => g.person.personId === personId,
+		).revision;
+	const remove = async (personId) =>
+		guestWrite(owner, "removeGuest", {
+			requestKey: key(),
+			expectedRevision: await guestRevision(personId),
+			input: { meetingId: m, personId },
+		});
+	const invite = (personId) =>
+		guestWrite(owner, "inviteGuest", { requestKey: key(), input: { meetingId: m, personId } });
+	const walkIn = (displayName) =>
+		guestWrite(owner, "createWalkInContact", { requestKey: key(), input: { meetingId: m, displayName } });
+	const contact = (displayName, attendance) =>
+		guestWrite(owner, "createGuestContact", { requestKey: key(), input: { meetingId: m, displayName, attendance } });
+	const attended = async () =>
+		ok(await read(owner, "listAttendance", { meetingId: m }))
+			.items.filter((a) => a.presence === "attended")
+			.map((a) => a.person.displayName)
+			.sort();
+	ok(await invite(dana));
+	for (const personId of [alex, casey])
+		ok(await write(owner, "checkIn", { requestKey: key(), input: { meetingId: m, personId } }));
+
+	// Before finalization: a walk-in and the removal of an attended guest each move the attendance revision, so a
+	// finalize reviewed before them conflicts instead of settling a set nobody reviewed.
+	const reviewed = await finalizeRequest(m, [alex, casey]);
+	const door = ok(await walkIn("Door")).guest.person.personId;
+	refused(await write(owner, "finalizeAttendance", reviewed), "conflict");
+	const beforeRemoval = await finalizeRequest(m, [alex, casey, door]);
+	ok(await remove(casey));
+	refused(await write(owner, "finalizeAttendance", beforeRemoval), "conflict");
+	ok(await finalize(owner, m, [alex, door]));
+	const finalized = await revision(m);
+
+	// After finalization, each guest write that would change who attended refuses; only the reconcile changes the set.
+	refused(await remove(alex), "status_transition");
+	refused(await walkIn("Late"), "status_transition");
+	refused(await contact("Late", "attended"), "status_transition");
+	// Casey was removed while attended: restoring them would put an attendee back without classification.
+	refused(await invite(casey), "status_transition");
+	assert.deepEqual(await attended(), ["Alex", "Door"]);
+	assert.equal(await revision(m), finalized);
+	// Writes that leave the attended set alone still work after finalization.
+	ok(await remove(dana));
+	ok(await invite(dana));
+	ok(await contact("Later guest", "not_recorded"));
+	assert.equal(await revision(m), finalized);
+	ok(await reconcile(owner, m, [alex]));
+	assert.deepEqual(await attended(), ["Alex"]);
+});
+
+test("INV-statements: a finalize preview runs the command once and saves nothing", async () => {
+	const m = await meeting();
+	const [alex, casey] = [await person("Alex"), await person("Casey")];
+	const request = await finalizeRequest(m, [alex, casey]);
+	const preview = await counted(() =>
+		previewMeetingsWrite(f.db, owner.actor, (tx, ctx) => writer.finalizeAttendance(tx, ctx, request)),
+	);
+	assert.deepEqual(
+		ok(preview.value)
+			.classifications.map((c) => [c.personId, c.classification])
+			.sort(),
+		[
+			[alex, "first_time"],
+			[casey, "first_time"],
+		].sort(),
+	);
+	assert.equal((await one(sql`SELECT finalized_at FROM meeting WHERE id=${m}`)).finalized_at, null);
+	assert.deepEqual(await work(m), []);
+	assert.equal(await revision(m), request.expectedRevision);
+	// One run: BEGIN, the write gate, the request-key read, the locked fact read, the write statement and ROLLBACK.
+	assert.equal(preview.statements, 6);
+	// The real finalize then does exactly what the preview showed.
+	assert.deepEqual(
+		ok(await write(owner, "finalizeAttendance", request)).classifications,
+		ok(preview.value).classifications,
+	);
 });
