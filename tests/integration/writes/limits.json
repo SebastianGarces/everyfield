@@ -704,8 +704,8 @@
 		"retry": 16
 	},
 	"tasks.configureRecurrence": {
-		"limit": 2,
-		"retry": 6
+		"limit": 12,
+		"retry": 26
 	},
 	"tasks.createSubtask": {
 		"limit": 3,
@@ -716,8 +716,8 @@
 		"retry": 6
 	},
 	"tasks.replacePrerequisites": {
-		"limit": 3,
-		"retry": 8
+		"limit": 13,
+		"retry": 28
 	},
 	"tasks.setSubtaskCompletion": {
 		"limit": 2,
@@ -728,8 +728,8 @@
 		"retry": 8
 	},
 	"tasks.complete": {
-		"limit": 8,
-		"retry": 16
+		"limit": 12,
+		"retry": 26
 	},
 	"tasks.create": {
 		"limit": 10,
@@ -744,8 +744,8 @@
 		"retry": 28
 	},
 	"tasks.reopen": {
-		"limit": 4,
-		"retry": 8
+		"limit": 6,
+		"retry": 14
 	},
 	"tasks.waive": {
 		"limit": 4,
