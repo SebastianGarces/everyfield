@@ -100,19 +100,21 @@ export type SaveIntent<E extends { problem?: string } = { problem?: string }> = 
  * choice group, once React has drawn the errors.
  */
 export function focusFirstProblem(form: HTMLFormElement) {
-	requestAnimationFrame(() => {
-		const bad = form.querySelector<HTMLElement>('[aria-invalid="true"], [data-invalid="true"]');
-		const target = bad?.matches("input, textarea, button, select")
-			? bad
-			: bad?.querySelector<HTMLElement>('input, textarea, button, [tabindex]:not([tabindex="-1"])');
-		target?.focus();
-	});
+	requestAnimationFrame(() => firstProblem(form)?.focus());
+}
+/** What a keyboard can focus: not disabled, not taken out of the tab order (a roving group's other options). */
+const FOCUSABLE =
+	'input:not([disabled]):not([tabindex="-1"]), textarea:not([disabled]), select:not([disabled]), button:not([disabled]):not([tabindex="-1"]), [tabindex]:not([tabindex="-1"])';
+function firstProblem(root: HTMLElement): HTMLElement | null | undefined {
+	const bad = root.querySelector<HTMLElement>('[aria-invalid="true"], [data-invalid="true"]');
+	return bad?.matches("input, textarea, button, select") ? bad : bad?.querySelector<HTMLElement>(FOCUSABLE);
 }
 
 /**
- * A card's form in a dialog. When the dialog opens again after a refused save, focus starts on the reason, so a screen
- * reader reads it first and a keyboard user is next to the fields. A submit with missing answers moves focus to the
- * first one. While the card waits (C68) the form keeps its answers and cannot submit.
+ * A card's form in a dialog. The dialog alone decides where focus starts, so no field inside sets autoFocus: the first
+ * field, or after a refused save the field the reason names (a screen reader reads its error with it), or the reason
+ * when it names no field. A submit with missing answers moves focus to the first one. While the card waits (C68) the
+ * form keeps its answers and cannot submit.
  */
 export function RecordDialog({
 	icon,
@@ -145,14 +147,22 @@ export function RecordDialog({
 	children: ReactNode;
 }) {
 	const alert = useRef<HTMLDivElement>(null);
+	const fields = useRef<HTMLDivElement>(null);
 	return (
 		<Dialog open onOpenChange={(next) => !next && onClose()}>
 			<DialogContent
 				size={size}
 				onOpenAutoFocus={(e) => {
-					if (!alert.current) return;
+					// The dialog's own focus step runs once its focus trap listens, so the trap records this element and
+					// brings focus back to it when Tab leaves a form whose only other controls are buttons (WebKit, F4b-V3).
+					const root = fields.current;
+					if (!root) return;
+					const target = alert.current
+						? (firstProblem(root) ?? alert.current)
+						: root.querySelector<HTMLElement>(FOCUSABLE);
+					if (!target) return;
 					e.preventDefault();
-					alert.current.focus();
+					target.focus();
 				}}
 			>
 				<form
@@ -178,7 +188,9 @@ export function RecordDialog({
 								{problem}
 							</div>
 						) : null}
-						{children}
+						<div ref={fields} className="contents">
+							{children}
+						</div>
 					</DialogBody>
 					<DialogFooter>
 						<Button variant="secondary" type="button" onClick={onClose}>

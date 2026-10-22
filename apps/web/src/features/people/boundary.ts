@@ -25,7 +25,11 @@ export const receipt = (r: { receiptId: string; outcome: "changed" | "noop" }): 
 
 export function outcome<T, U>(reply: Reply<T>, map: (value: T) => U): Outcome<U> {
 	if (reply.status === "failed") return { status: "lost" };
-	if (reply.status === "refused") return { status: "refused", code: reply.error.code };
+	if (reply.status === "refused") {
+		const { code, details } = reply.error;
+		const reason = code === "invalid_input" ? details.reason : undefined;
+		return reason ? { status: "refused", code, reason } : { status: "refused", code };
+	}
 	return { status: "ok", value: map(reply.value) };
 }
 

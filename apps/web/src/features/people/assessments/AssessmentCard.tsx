@@ -107,7 +107,6 @@ export function AssessmentCard({
 					(v: { person: { stage: PlantPerson["stage"]; revision: string } }) =>
 						({ ...store.get().saved, stage: v.person.stage, revision: v.person.revision }) as PlantPerson,
 				),
-				code: (code) => (code === "invalid_input" ? "future_date" : code),
 				ok: (value) => {
 					startTransition(() => history.add(value.assessment));
 					onSaved(value.receipt, { kind: "activity", action: "assessment_recorded", recordId: value.assessment.id });
