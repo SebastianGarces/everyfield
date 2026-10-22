@@ -333,6 +333,21 @@ test("AC:TARGET-COM-011 AC:TARGET-MTG-022 AC:ROLE43-008 contact log: only an eff
 		}),
 	);
 	assert.deepEqual([done.task.status, done.record.contact, done.record.completedTask], ["complete", false, true]);
+	// The Person's Activity still reads: an outcome with no generated duty has no obligation (WP-023/ui found the page
+	// failing on it).
+	const activity = ok(
+		await f.db.transaction((tx) =>
+			peopleReader.getActivities(tx, new PeopleReadContext(c.owner.actor), { personId: alex, kinds: ["follow_up"] }),
+		),
+	);
+	assert.deepEqual(
+		activity.items.map((i) => [i.outcome, i.obligationId]),
+		[
+			["contacted", null],
+			["attempted_no_contact", null],
+			["administrative_completion", null],
+		],
+	);
 	const before = await material();
 	const wrong = ok(await record(c.owner, standalone, "contacted", { occurredAt: "2026-10-12T15:00:00Z" }));
 	assert.equal(await contactAt(), "2026-10-12T15:00:00.000Z");

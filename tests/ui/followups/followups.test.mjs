@@ -3,7 +3,14 @@
 // state on a seeded preview: set UI_BASE_URL, then seed People and follow-ups (tests/ui/followups/seed.mts).
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { BASE, ENGINES, fixture, hydrated, signIn, withPage } from "../setup.mjs";
+import { BASE, ENGINES, fixture, hydrated, withPage } from "../setup.mjs";
+
+/** Signs in with a seeded session. The cookie is always Secure: a preview reached on http://localhost is a secure context. */
+const signIn = (context, cookie) => {
+	const [name, value] = cookie.split(/=(.*)/s);
+	const { hostname } = new URL(BASE);
+	return context.addCookies([{ name, value, domain: hostname, path: "/", httpOnly: true, secure: true, sameSite: "Lax" }]);
+};
 
 const people = () => fixture("people");
 /** Server actions are POSTs with a Next-Action header. The first `lose` of them reach the server, but their answers are lost. */
