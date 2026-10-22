@@ -53,17 +53,19 @@ export type SaveIntent<E extends { problem?: string }> = ReturnType<typeof useSa
 export function focusFirstProblem(form: HTMLFormElement) {
 	requestAnimationFrame(() => firstProblem(form)?.focus());
 }
+/** What a keyboard can focus: not disabled, not taken out of the tab order (a roving group's other options). */
+const FOCUSABLE =
+	'input:not([disabled]):not([tabindex="-1"]), textarea:not([disabled]), select:not([disabled]), button:not([disabled]):not([tabindex="-1"]), [tabindex]:not([tabindex="-1"])';
 function firstProblem(root: HTMLElement): HTMLElement | null | undefined {
 	const bad = root.querySelector<HTMLElement>('[aria-invalid="true"], [data-invalid="true"]');
-	return bad?.matches("input, textarea, button, select")
-		? bad
-		: bad?.querySelector<HTMLElement>('input, textarea, button, [tabindex]:not([tabindex="-1"])');
+	return bad?.matches("input, textarea, button, select") ? bad : bad?.querySelector<HTMLElement>(FOCUSABLE);
 }
 
 /**
- * A card's form in a dialog. When the dialog opens again after a refused save, focus starts on the field the reason
- * names (a screen reader reads its error with it), or on the reason when it names no field. A submit with missing
- * answers moves focus to the first one. While the card waits (C68) the form keeps its answers and cannot submit.
+ * A card's form in a dialog. The dialog alone decides where focus starts, so no field inside sets autoFocus: the first
+ * field, or after a refused save the field the reason names (a screen reader reads its error with it), or the reason
+ * when it names no field. A submit with missing answers moves focus to the first one. While the card waits (C68) the
+ * form keeps its answers and cannot submit.
  */
 export function RecordDialog({
 	icon,
@@ -96,13 +98,12 @@ export function RecordDialog({
 	children: ReactNode;
 }) {
 	const alert = useRef<HTMLDivElement>(null);
-	const form = useRef<HTMLFormElement>(null);
+	const fields = useRef<HTMLDivElement>(null);
 	const busyId = useId();
 	return (
 		<Dialog open onOpenChange={(next) => !next && onClose()}>
 			<DialogContent size={size}>
 				<form
-					ref={form}
 					noValidate
 					className="contents"
 					onSubmit={(e) => {
@@ -125,8 +126,10 @@ export function RecordDialog({
 								{problem}
 							</div>
 						) : null}
-						{children}
-						{problem ? <FocusProblem key={problem} form={form} alert={alert} /> : null}
+						<div ref={fields} className="contents">
+							{children}
+						</div>
+						<OpeningFocus key={problem ?? ""} fields={fields} alert={alert} />
 					</DialogBody>
 					<DialogFooter>
 						{wait ? (
@@ -153,20 +156,22 @@ export function RecordDialog({
 }
 
 /**
- * Moves focus to the field a refusal names, or to the reason, when the reason appears. It mounts after the form's fields
- * and runs before the dialog's own focus step, so it also wins over a field that focuses itself on mount (autoFocus).
+ * Puts focus where the dialog opens (C68 forms): on the field a refusal names, else on the refusal, else on the first
+ * field. It mounts after the fields and runs before the dialog's own focus step, which then leaves the focus alone.
  */
-function FocusProblem({
-	form,
+function OpeningFocus({
+	fields,
 	alert,
 }: {
-	form: RefObject<HTMLFormElement | null>;
+	fields: RefObject<HTMLDivElement | null>;
 	alert: RefObject<HTMLDivElement | null>;
 }) {
 	useEffect(() => {
-		const field = form.current && firstProblem(form.current);
-		(field ?? alert.current)?.focus();
-	}, [form, alert]);
+		const root = fields.current;
+		if (!root) return;
+		const target = alert.current ? (firstProblem(root) ?? alert.current) : root.querySelector<HTMLElement>(FOCUSABLE);
+		target?.focus();
+	}, [fields, alert]);
 	return null;
 }
 

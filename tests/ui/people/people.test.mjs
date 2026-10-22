@@ -38,7 +38,107 @@ async function addPerson(page, name) {
 	return page.url();
 }
 
+/** Where focus is now: the element's tag, its type and whether it is the dialog's refusal. */
+const focused = (page) =>
+	page.evaluate(() => {
+		const a = document.activeElement;
+		return {
+			tag: a?.tagName,
+			type: a?.getAttribute("type"),
+			alert: a?.getAttribute("role") === "alert",
+			invalid: a?.getAttribute("aria-invalid"),
+		};
+	});
+/** Answers every choice group that has no answer yet with its first option. */
+async function answerChoices(dialog) {
+	for (const group of await dialog.getByRole("radiogroup").all())
+		if ((await group.getByRole("radio", { checked: true }).count()) === 0)
+			await group.getByRole("radio").first().click();
+}
+/** A name longer than the field allows: the browser limit is lifted, so the server refuses it with no field named. */
+async function overlong(input) {
+	await input.evaluate((e) => e.removeAttribute("maxlength"));
+	await input.fill("N".repeat(600));
+}
+const ahead = () => new Date(Date.now() + 3 * 864e5).toISOString().slice(0, 10);
+
 for (const [name, engine] of ENGINES) {
+	test(`BUG-249-focus (${name}): a reopened record form focuses the field its refusal names, else the refusal`, async () => {
+		// RecordDialog alone decides where focus starts (F4b-V1, V2): no field inside it may take focus on its own.
+		const cards = [
+			{
+				card: "commitment",
+				open: /^Record (a commitment card for |commitment$)/,
+				fill: async (d) => d.locator('input[type="date"]').fill(ahead()),
+				save: "Save commitment",
+				expect: { tag: "INPUT", type: "date", invalid: "true" },
+			},
+			{
+				card: "4 C's",
+				open: /^Record (a 4 C's assessment for |the 4 C)/,
+				fill: async (d) => (await answerChoices(d), d.getByLabel("Assessed on").fill(ahead())),
+				save: "Save assessment",
+				expect: { tag: "INPUT", type: "date", invalid: "true" },
+			},
+			{
+				card: "interview",
+				open: /^Record (an interview with |an interview$)/,
+				fill: async (d) => (await answerChoices(d), d.getByLabel("Interviewed on").fill(ahead())),
+				save: "Save interview",
+				expect: { tag: "INPUT", type: "date", invalid: "true" },
+			},
+			{
+				card: "skills",
+				open: /^Add a skill/,
+				fill: async (d, page) => {
+					await overlong(d.getByLabel("Skill", { exact: true }));
+					await d.getByRole("combobox", { name: "Category" }).click();
+					await page.getByRole("option").first().click();
+				},
+				save: "Add skill",
+				expect: { alert: true },
+			},
+			{
+				card: "household",
+				open: /^Start a household/,
+				fill: async (d) => overlong(d.getByLabel("Household name")),
+				save: "Start household",
+				expect: { alert: true },
+			},
+		];
+		await withPage(engine, "owner", async (page) => {
+			await addPerson(page, unique(name));
+			for (const c of cards) {
+				await page.getByRole("button", { name: c.open }).first().click();
+				const d = page.getByRole("dialog");
+				await c.fill(d, page);
+				await d.getByRole("button", { name: c.save, exact: true }).click();
+				await d.getByRole("alert").waitFor({ timeout: 30_000 });
+				await page.waitForTimeout(300);
+				const f = await focused(page);
+				for (const [k, v] of Object.entries(c.expect)) assert.equal(f[k], v, `${c.card}: ${JSON.stringify(f)}`);
+				await d.getByRole("button", { name: "Cancel" }).click();
+				await d.waitFor({ state: "detached" });
+			}
+			// A task due at 2:30 on the morning clocks spring forward in Austin: the refusal names the time.
+			await page.goto(`${BASE}/tasks`);
+			await page.getByRole("button", { name: "New task", exact: true }).first().click();
+			const d = page.getByRole("dialog");
+			await page.waitForTimeout(300);
+			assert.equal((await focused(page)).tag, "INPUT", "a new form focuses its first field, the title");
+			await d.getByLabel("Title", { exact: true }).fill(unique(name));
+			await d.getByRole("combobox", { name: "Due", exact: true }).click();
+			await page.getByRole("option", { name: "Due at a time", exact: true }).click();
+			await d.getByLabel("Day", { exact: true }).fill("2027-03-14");
+			await d.getByLabel("Time", { exact: false }).fill("02:30");
+			await d.getByRole("button", { name: "Add task", exact: true }).click();
+			await d.getByRole("alert").waitFor({ timeout: 30_000 });
+			await page.waitForTimeout(300);
+			const f = await focused(page);
+			assert.deepEqual({ type: f.type, invalid: f.invalid }, { type: "time", invalid: "true" }, JSON.stringify(f));
+		});
+	});
+
 	test(`BUG-hydration (${name}): a person page with dated activity hydrates without a page error`, async () => {
 		await withPage(engine, "owner", async (page) => {
 			const errors = [];
