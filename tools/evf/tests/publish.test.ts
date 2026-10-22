@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
-import { appendFileSync, chmodSync, copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, chmodSync, copyFileSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -64,6 +64,7 @@ async function setup(listing: Record<string, number>) {
 		script,
 		evidence,
 		requests,
+		keyFile,
 		publish: (scriptPath = script) => run(scriptPath, [evidence, "--task", "OPS-33"]),
 		remove: () => run(script, ["--delete", "OPS-33"]),
 		close: () => {
@@ -135,6 +136,26 @@ test("OPS-33 publish: an evidence file with a development env value is blocked",
 		assert.notEqual(r.code, 0);
 		assert.match(r.err, /Refused: server\.log contain a credential/);
 		assert.doesNotMatch(r.err, new RegExp(DEV_SECRET));
+		assert.deepEqual(t.requests.filter((q) => q.startsWith("PUT")), []);
+	} finally {
+		t.close();
+	}
+});
+
+test("OPS-33 publish: an evidence or dev env file that resolves to .env.prod is refused unopened", async () => {
+	const t = await setup(evidenceOnly);
+	try {
+		rmSync(join(t.repo, ".env.local"));
+		symlinkSync(join(t.repo, ".env.prod"), join(t.repo, ".env.local"));
+		const dev = await t.publish();
+		assert.notEqual(dev.code, 0);
+		assert.match(dev.err, /Refused: .*\.env\.local resolves to a production env file/);
+		rmSync(t.keyFile);
+		symlinkSync(join(t.repo, ".env.prod"), t.keyFile);
+		const key = await t.publish();
+		assert.notEqual(key.code, 0);
+		assert.match(key.err, /Refused: .*evidence\.env resolves to a production env file/);
+		for (const r of [dev, key]) assert.doesNotMatch(r.err, /EACCES/);
 		assert.deepEqual(t.requests.filter((q) => q.startsWith("PUT")), []);
 	} finally {
 		t.close();

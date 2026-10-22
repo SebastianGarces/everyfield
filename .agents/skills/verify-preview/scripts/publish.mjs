@@ -47,13 +47,16 @@ const KEYS = ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_ENDPOINT_URL_S3
 const BUCKET = process.env.EVF_EVIDENCE_BUCKET ?? "everyfield-evidence";
 const PROTECTED = ["everyfield", "everyfield-dev"];
 const ENV_FILE = resolve(process.env.EVF_EVIDENCE_ENV ?? join(homedir(), ".config/everyfield/evidence.env"));
-const envValues = (file) => Object.fromEntries(readFileSync(file, "utf8").split("\n").flatMap((line) => {
-  const m = /^([A-Z0-9_]+)=(.*)$/.exec(line.trim());
-  return m ? [[m[1], m[2].replace(/^(['"])(.*)\1$/, "$2")]] : [];
-}));
+// Every env file read goes through here, so a path or symlink that resolves to .env.prod is refused unopened.
+const envValues = (file) => {
+  if (basename(realpathSync(file)).startsWith(".env.prod")) throw new Error(`Refused: ${file} resolves to a production env file. Use the evidence env file and dev env files only.`);
+  return Object.fromEntries(readFileSync(file, "utf8").split("\n").flatMap((line) => {
+    const m = /^([A-Z0-9_]+)=(.*)$/.exec(line.trim());
+    return m ? [[m[1], m[2].replace(/^(['"])(.*)\1$/, "$2")]] : [];
+  }));
+};
 async function credentials() {
   if (!existsSync(ENV_FILE)) throw new Error(`No evidence credentials at ${ENV_FILE}. Create it as .agents/skills/verify-preview/SKILL.md says, or set EVF_EVIDENCE_ENV.`);
-  if (basename(realpathSync(ENV_FILE)).startsWith(".env.prod")) throw new Error(`Refused: ${ENV_FILE} is a production env file. Use the evidence env file.`);
   const all = envValues(ENV_FILE);
   const env = Object.fromEntries(KEYS.map((k) => [k, all[k]]));
   const missing = KEYS.filter((k) => !env[k]);

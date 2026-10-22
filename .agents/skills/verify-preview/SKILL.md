@@ -162,7 +162,7 @@ repository, mode 600, and holds `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `A
 and `AWS_REGION` for the `everyfield-evidence-upload` key. That key has the Editor role on
 `everyfield-evidence` only and default permissions disabled, so it cannot list or write
 `everyfield` or `everyfield-dev`. `publish.mjs` ignores `AWS_*` in the shell and never opens
-`.env.prod`. At start it prints the key file path and what it checks. Before any upload or delete
+`.env.prod`: it refuses any env file whose path or symlink resolves to it. At start it prints the key file path and what it checks. Before any upload or delete
 it lists `everyfield` and `everyfield-dev` with the key and refuses unless both return 403.
 Run it as `$S/publish.mjs` from a checkout of this repo. It refuses a copy or an uncommitted
 edit, so commit a change to it first. To create the file on a new machine, sign in to the
