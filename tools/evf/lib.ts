@@ -25,6 +25,8 @@ export type Config = {
 	worktreeDir: string;
 	statusContext: string;
 	maxAgentsMdLines: number;
+	/** C51, C81: task start, verify and browser run wait while the 1-minute load is above maxPerCore × CPU cores. Default in load.ts. */
+	machineLoad?: { maxPerCore: number; maxWaitMinutes: number };
 	stack: StackDef | null;
 	checks: CheckDef[];
 	maintenanceTasks?: Record<string, MaintenanceScope>;
@@ -137,6 +139,11 @@ export class EvfError extends Error {}
 
 export function fail(message: string): never {
 	throw new EvfError(message);
+}
+
+/** evf is synchronous; waits block the process without spinning. */
+export function sleep(ms: number): void {
+	if (ms > 0) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
 export type RunResult = { code: number; stdout: string; stderr: string };

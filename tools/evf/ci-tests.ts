@@ -29,7 +29,7 @@ export function checkCiTests(root: string): void {
 	});
 	const covered = new Set<string>(),
 		visited = new Set<string>();
-	function follow(command: string, pkg: Package): void {
+	function follow(command: string, pkg: Package, matrix: Record<string, string[]> = {}): void {
 		for (const part of command.split(/\s*(?:&&|\|\||;|\n)\s*/)) {
 			const tokens = (part.match(/"[^"]*"|'[^']*'|[^\s]+/g) ?? []).map((t) => t.replace(/^(['"])(.*)\1$/, "$2"));
 			if (tokens[0] === "corepack") tokens.shift();
@@ -39,11 +39,24 @@ export function checkCiTests(root: string): void {
 					filter = filterAt < 0 ? undefined : args.splice(filterAt, 2)[1];
 				const recursive = args.includes("-r") || args.includes("--recursive");
 				const script = args.filter((t) => !t.startsWith("-") && t !== "run")[0];
-				const targets = filter
-					? packages.filter((p) => p.name === filter)
-					: recursive
-						? packages.filter((p) => p.dir !== ".")
-						: [pkg];
+				const axis = filter?.match(/^\$\{\{\s*matrix\.([\w-]+)\s*\}\}$/)?.[1];
+				if (axis) {
+					// A matrix over package names replaces `pnpm -r --if-present`: it must list every package with the script.
+					const names = matrix[axis] ?? [];
+					const missing = packages.filter((p) => p.dir !== "." && p.scripts[script] && !names.includes(p.name));
+					const unknown = names.filter((name) => !packages.some((p) => p.name === name));
+					if (!names.length || missing.length || unknown.length)
+						fail(
+							`ci.yml runs ${script} for each matrix.${axis}, which must list exactly the packages that define it. Missing: ${missing.map((p) => p.name).join(", ") || "none"}. Unknown: ${unknown.join(", ") || "none"}.`,
+						);
+				}
+				const targets = axis
+					? packages.filter((p) => matrix[axis].includes(p.name))
+					: filter
+						? packages.filter((p) => p.name === filter)
+						: recursive
+							? packages.filter((p) => p.dir !== ".")
+							: [pkg];
 				for (const target of targets) {
 					const key = `${target.dir}:${script}`;
 					if (!target.scripts[script] || visited.has(key)) continue;
@@ -78,6 +91,12 @@ export function checkCiTests(root: string): void {
 	// Only CI's run steps count. Resolve each job's default directory and any step override.
 	for (const job of readFileSync(workflow, "utf8").split(/(?=^  [\w-]+:\s*$)/m)) {
 		const defaultDir = job.match(/^    defaults:\n      run:\n        working-directory:\s*(.+)$/m)?.[1] ?? ".";
+		// Matrix values, from `key: value` lines (plain or `- key: value` include entries) under `matrix:`.
+		const matrix: Record<string, string[]> = {};
+		for (const [, key, value] of (job.split(/^\s+matrix:\s*$/m)[1]?.split(/^    \S/m)[0] ?? "").matchAll(
+			/^\s+(?:-\s+)?([\w-]+):\s*["']?([^"'\s#]+)["']?\s*(?:#.*)?$/gm,
+		))
+			(matrix[key] ??= []).push(value);
 		for (const step of job.split(/(?=^      - )/m).slice(1)) {
 			const dir = step.match(/^        working-directory:\s*(.+)$/m)?.[1] ?? defaultDir;
 			const pkg = packages.find((p) => p.dir === dir) ?? { dir, name: "", scripts: {} };
@@ -91,7 +110,7 @@ export function checkCiTests(root: string): void {
 					while (i + 1 < lines.length && (!lines[i + 1].trim() || lines[i + 1].search(/\S/) > match[1].length))
 						command += lines[++i].trim() + "\n";
 				}
-				follow(command, pkg);
+				follow(command, pkg, matrix);
 			}
 		}
 	}

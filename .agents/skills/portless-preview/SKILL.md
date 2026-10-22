@@ -56,4 +56,6 @@ Confirm the record is terminal, its URL no longer serves the app, and an explici
 
 Slots: the managed launcher sets `PORTLESS_PREVIEW_LIMIT=4`, so four previews run at a time. The supervisor reads the limit when it starts; restarting it stops every active preview, so never restart it while another agent's preview runs. Builders and verifiers come first. The coordinator may stop Sebastian's review preview at any time and restarts it later on main. Never stop another workspace's preview. See D74 in `docs/architecture/decisions.md`.
 
+Tests of Portless itself never touch the shared service. Give the test a new temporary folder in `PORTLESS_STATE_DIR` and `PORTLESS_PREVIEW_DIR`, its own `PORTLESS_PORT` and `PORTLESS_PREVIEW_PORT`, and `PORTLESS_PREVIEW_HTTP=1`. Never restart, reinstall, `clean` or stop the shared service or its supervisor: at 02:04 UTC on 2026-10-22 one restart removed every live preview.
+
 Worktree cleanup does not revert commits. If a rehearsal requires reverting the change, keep its SHA and revert it on the retained branch after cleanup. Report preview removal and Git reversion separately.

@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import {
+	EvfError,
 	evfDataDir,
 	fail,
 	baseRef,
@@ -14,11 +15,13 @@ import {
 	pathsForPart,
 	requireWorktree,
 	run,
+	sleep,
 	type Config,
 	type TaskRef,
 } from "./lib.ts";
 import { maintenanceScope, requireTaskScope } from "./policy.ts";
 import { checkPrBody } from "./pr-body.ts";
+import { withShipQueue, type QueueTiming } from "./ship-queue.ts";
 import { formatScope, wpScope } from "./scope.ts";
 import { recordProgress, type ShippedRecord } from "./progress.ts";
 import { requireVerifiedHead } from "./verify.ts";
@@ -396,7 +399,14 @@ export function checkPr(
 	};
 }
 
-export function ship(root: string, task: TaskRef): number {
+export type ShipTiming = { queue: QueueTiming; ciWaitMs: number; ciPollMs: number };
+const SHIP_TIMING: ShipTiming = {
+	queue: { waitMs: 60 * 60_000, pollMs: 2_000 },
+	ciWaitMs: 30 * 60_000,
+	ciPollMs: 20_000,
+};
+
+export function ship(root: string, task: TaskRef, timing: ShipTiming = SHIP_TIMING): number {
 	const cfg = loadConfig(root),
 		wp = task.kind === "wp" ? task.wp : task.kind === "fb" ? cachedTriage(root, task.issue!)?.wp : undefined;
 	const wt = requireWorktree(root, cfg, task);
@@ -408,34 +418,85 @@ export function ship(root: string, task: TaskRef): number {
 	if (!pr || pr.state !== "OPEN") fail(`No open PR for ${task.branch}.`);
 	if (cfg.mergePolicy.ordinary !== "automatic-after-independent-review")
 		fail("Ordinary automatic merge is not approved.");
-	git(root, "fetch", "--quiet", cfg.remote, cfg.baseBranch);
-	const sha = git(wt, "rev-parse", "HEAD"),
-		baseSha = git(root, "merge-base", sha, baseRef(root, cfg));
-	requireFreeMigrationNumbers(wt, baseRef(root, cfg), task);
 	const design = task.kind === "ops" && maintenanceScope(wt, task).route === "design",
 		cls = task.kind === "fb" ? cachedTriage(root, task.issue!)?.class : undefined;
-	// The PR #13 owner routes keep exact-head review; only routes that merge here may carry an approval.
-	const ownerRoute =
-		design || (task.kind === "fb" && !(cfg.mergePolicy.feedbackVerifierMerge as string[]).includes(cls ?? ""));
-	const verification = checkPr(wt, pr.number, sha, { carry: !ownerRoute });
-	if (design) {
+	// The PR #13 owner routes keep exact-head review and never merge here; only the merging routes queue and carry.
+	if (design || (task.kind === "fb" && !(cfg.mergePolicy.feedbackVerifierMerge as string[]).includes(cls ?? "")))
+		return ownerRoute(root, cfg, task, wt, pr.number, design, cls);
+	return withShipQueue(root, task.id, () => queuedMerge(root, cfg, task, wt, pr.number, timing), timing.queue);
+}
+
+function ownerRoute(
+	root: string,
+	cfg: Config,
+	task: TaskRef,
+	wt: string,
+	number: number,
+	design: boolean,
+	cls: string | undefined,
+): number {
+	git(root, "fetch", "--quiet", cfg.remote, cfg.baseBranch);
+	const sha = git(wt, "rev-parse", "HEAD");
+	requireFreeMigrationNumbers(wt, baseRef(root, cfg), task);
+	const verification = checkPr(wt, number, sha);
+	const verified = () =>
 		postStatus(wt, cfg, sha, "success", `Verified by ${verification.approval.verifierFamily} at ${sha.slice(0, 10)}`);
-		console.log(
-			`PR #${pr.number} is a verified design task and waits for Sebastian's chat approval, then evf approve.`,
-		);
+	if (design) {
+		verified();
+		console.log(`PR #${number} is a verified design task and waits for Sebastian's chat approval, then evf approve.`);
 		return 0;
 	}
-	if (task.kind === "fb") {
-		if (!cls) fail("Feedback must be triaged before shipping.");
-		if ((cfg.mergePolicy.feedbackOwnerAfterVerifier as string[]).includes(cls)) {
-			postStatus(wt, cfg, sha, "success", `Verified by ${verification.approval.verifierFamily} at ${sha.slice(0, 10)}`);
-			console.log(`PR #${pr.number} is verified and waits for Sebastian's chat approval, then evf approve.`);
-			return 0;
+	if (!cls) fail("Feedback must be triaged before shipping.");
+	if (!(cfg.mergePolicy.feedbackOwnerAfterVerifier as string[]).includes(cls))
+		fail("This feedback class requires the owner approval route.");
+	verified();
+	console.log(`PR #${number} is verified and waits for Sebastian's chat approval, then evf approve.`);
+	return 0;
+}
+
+/**
+ * Runs inside the ship queue, so no other ship moves main meanwhile. Branch protection requires an up-to-date
+ * branch: a behind PR gets a plain merge of main (`gh pr update-branch`, never a force push), waits for required
+ * CI on the new head and merges only when its approval carries (carryProof). Anything else needs a fresh gate.
+ */
+function queuedMerge(root: string, cfg: Config, task: TaskRef, wt: string, number: number, timing: ShipTiming): number {
+	git(root, "fetch", "--quiet", cfg.remote, cfg.baseBranch);
+	let sha = git(wt, "rev-parse", "HEAD");
+	requireFreeMigrationNumbers(wt, baseRef(root, cfg), task);
+	let verification = checkPr(wt, number, sha, { carry: true });
+	const body = () => gh(wt, ["pr", "view", String(number), "--json", "body", "--jq", ".body"]);
+	requireGreenMain(wt, cfg, body());
+	for (let round = 1; !gitOk(wt, "merge-base", "--is-ancestor", baseRef(root, cfg), sha); round++) {
+		if (round > 3) fail(`Main moved during ${round - 1} branch updates. Run evf ship ${task.id} again.`);
+		const main = git(root, "rev-parse", baseRef(root, cfg)),
+			approved = verification.approval.head,
+			base = git(root, "merge-base", approved, main),
+			paths = (to: string) => git(root, "diff", "--name-only", "--no-renames", base, to).split("\n").filter(Boolean);
+		const mainPaths = new Set(paths(main)),
+			overlap = paths(approved).filter((path) => mainPaths.has(path));
+		if (overlap.length)
+			fail(
+				`Fresh gate needed: main changed paths this PR also changes: ${overlap.join(", ")}. Include current main, run CI and get a new verifier review. The branch is unchanged.`,
+			);
+		console.log(`ship: PR #${number} is behind ${cfg.baseBranch}; merging ${main.slice(0, 10)} into ${task.branch}.`);
+		gh(wt, ["pr", "update-branch", String(number)]);
+		git(wt, "fetch", "--quiet", cfg.remote, task.branch);
+		git(wt, "merge", "--quiet", "--ff-only", "FETCH_HEAD");
+		sha = git(wt, "rev-parse", "HEAD");
+		waitForRequiredCi(wt, number, sha, timing);
+		try {
+			verification = checkPr(wt, number, sha, { carry: true });
+		} catch (e) {
+			if (e instanceof EvfError)
+				fail(
+					`Fresh gate needed at ${sha}: ${e.message} The branch now includes ${cfg.baseBranch} at ${main.slice(0, 10)}.`,
+				);
+			throw e;
 		}
-		if (!(cfg.mergePolicy.feedbackVerifierMerge as string[]).includes(cls))
-			fail("This feedback class requires the owner approval route.");
+		git(root, "fetch", "--quiet", cfg.remote, cfg.baseBranch);
 	}
-	requireGreenMain(wt, cfg, gh(wt, ["pr", "view", String(pr.number), "--json", "body", "--jq", ".body"]));
+	const baseSha = git(root, "merge-base", sha, baseRef(root, cfg));
+	requireGreenMain(wt, cfg, body());
 	if (verification.carry) {
 		const { approvedHead, merges, base, mainIncluded } = verification.carry;
 		const proof = [
@@ -445,15 +506,45 @@ export function ship(root: string, task: TaskRef): number {
 			"",
 			`EVF-Carry: ${JSON.stringify(verification.carry)}`,
 		].join("\n");
-		gh(wt, ["pr", "comment", String(pr.number), "--body", proof]);
+		gh(wt, ["pr", "comment", String(number), "--body", proof]);
 		console.log(proof);
 	}
-	const merge = run("gh", ["pr", "merge", String(pr.number), "--squash", "--match-head-commit", sha], { cwd: wt });
+	const merge = run("gh", ["pr", "merge", String(number), "--squash", "--match-head-commit", sha], { cwd: wt });
 	if (merge.code !== 0)
 		fail(
 			`Merge refused: ${(merge.stderr || merge.stdout).trim()}. A changed head needs fresh CI and verifier approval.`,
 		);
-	return afterMerge(root, cfg, task, wt, pr.number, verification, baseSha);
+	return afterMerge(root, cfg, task, wt, number, verification, baseSha);
+}
+
+/** Required checks of a new head start empty or pending. Any failure means the merge of main broke something. */
+function waitForRequiredCi(wt: string, number: number, sha: string, timing: ShipTiming): void {
+	const start = Date.now();
+	for (let printed = 0; ;) {
+		const r = run("gh", ["pr", "checks", String(number), "--required", "--json", "name,bucket"], { cwd: wt });
+		let checks: Array<{ name: string; bucket: string }> = [];
+		try {
+			checks = JSON.parse(r.stdout);
+		} catch {
+			// No checks reported yet for the new head.
+		}
+		const failed = checks.filter((c) => c.bucket === "fail" || c.bucket === "cancel");
+		if (failed.length)
+			fail(
+				`Fresh gate needed at ${sha}: required CI failed after the merge of main (${failed.map((c) => c.name).join(", ")}). Fix the branch, then get a new verifier review.`,
+			);
+		if (checks.length && checks.every((c) => c.bucket === "pass" || c.bucket === "skipping")) return;
+		const waited = Date.now() - start;
+		if (waited >= timing.ciWaitMs)
+			fail(
+				`Required CI on ${sha} is still running after ${Math.round(waited / 60_000)} min. Run evf ship again when it finishes.`,
+			);
+		if (waited >= printed * 60_000) {
+			console.log(`ship: waiting for required CI on ${sha.slice(0, 10)}, ${Math.floor(waited / 60_000)} min.`);
+			printed = Math.floor(waited / 60_000) + 1;
+		}
+		sleep(Math.min(timing.ciPollMs, timing.ciWaitMs - waited));
+	}
 }
 
 const MAIN_CI_WORKFLOW = "ci.yml",
