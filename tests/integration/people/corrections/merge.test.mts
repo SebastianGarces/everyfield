@@ -558,11 +558,17 @@ test("AC:PERSONREF-ACCOUNT-LINK-CONFLICT AC:TARGET-PPL-017 AC:TARGET-PPL-016 mer
 });
 
 test("REQ-PPL-016: the person page shows the duplicate hints checkForDuplicates gives for that person's own facts", async () => {
-	const p = await person("  Jordan   Lee ", { email: " Jordan@Example.test ", phone: "(512) 555-0199" });
-	const name = await person("jordan lee"),
-		email = await person("J. Lee", { email: "jordan@example.test" }),
-		phone = await person("Phone twin", { phone: "512.555.0199" });
-	await person("Jordan Leeds", { phone: "555-0199" });
+	// Unique facts, so other tests' people in this church never match.
+	const tag = randomBytes(4).toString("hex"),
+		digits = String(1e9 + (randomBytes(4).readUInt32BE() % 1e9)).slice(1);
+	const p = await person(`  Jordan   Lee${tag} `, {
+		email: ` Jordan${tag}@Example.test `,
+		phone: `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`,
+	});
+	const name = await person(`jordan lee${tag}`),
+		email = await person("J. Lee", { email: `jordan${tag}@example.test` }),
+		phone = await person("Phone twin", { phone: `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}` });
+	await person(`Jordan Leeds${tag}`, { phone: digits.slice(3) });
 	const page = ok(await tx((t) => readPersonPage(t, ctx(1), { personId: p.id }, 50, { duplicates: true })));
 	const own = page.found.person;
 	const hints = ok(
