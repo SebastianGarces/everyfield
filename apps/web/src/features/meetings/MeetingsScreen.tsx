@@ -248,14 +248,16 @@ function columns(thisYear: number): Column<Summary>[] {
 	];
 }
 
-/** The next upcoming meeting, as the prototype's "Next" card: one link to the meeting page. */
+/**
+ * The next upcoming meeting, as the prototype's "Next" card: one link to the meeting page. Its name is the card's visible
+ * text, so a voice-control user can say what they see (WCAG 2.5.3).
+ */
 function NextMeeting({ meeting: m, now, thisYear }: { meeting: Summary; now: string; thisYear: number }) {
 	const until = untilText(m.startsAt, now);
 	return (
 		<IntentLink
 			href={`/meetings/${m.id}`}
 			className="group rounded-card focus-visible:outline-none"
-			aria-label={`Next meeting: ${m.displayTitle}, ${whenText(m, thisYear)}${m.venue ? `, ${m.venue.name}` : ""}`}
 		>
 			<Card className="flex-row flex-wrap items-center gap-x-8 gap-y-4 transition-shadow group-hover:shadow-raised group-focus-visible:shadow-[0_0_0_2px_var(--ef-ink)]">
 				<div className="flex min-w-0 flex-1 items-center gap-4">
