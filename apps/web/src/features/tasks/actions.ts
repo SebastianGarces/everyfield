@@ -7,23 +7,16 @@ import { taskViewer, write, type TaskViewer } from "./server.ts";
 
 // Server actions behind the Tasks screens' writes: the browser boundary. Reads go through read.ts, a GET handler, because
 // Next runs one server action at a time and a read must never hold up a save. Each one rebuilds the viewer from the request and
-// parses the browser's input with the WP-024 contract, whose strict schemas refuse any owner, creator or authority
-// field. The writer then rechecks authority inside its statement. A lost answer may be retried with the same request
-// key: the writer replays a write that did commit instead of acting twice.
+// hands the browser's input to the writer, which parses it with the WP-024 contract, whose strict schemas refuse any
+// owner, creator or authority field, and rechecks authority inside its statement. A lost answer may be retried with the
+// same request key: the writer replays a write that did commit instead of acting twice.
 
 const denied = { status: "refused", code: "access_denied" } as const;
 const invalid = { status: "refused", code: "invalid_input" } as const;
 
-async function boundary<S extends z.ZodType, T>(
-	schema: S,
-	raw: unknown,
-	run: (viewer: TaskViewer, input: z.output<S>) => Promise<Outcome<T>>,
-): Promise<Outcome<T>> {
+async function boundary<T>(run: (viewer: TaskViewer) => Promise<Outcome<T>>): Promise<Outcome<T>> {
 	const viewer = await taskViewer();
-	if (!viewer) return denied;
-	const input = schema.safeParse(raw);
-	if (!input.success) return invalid;
-	return run(viewer, input.data);
+	return viewer ? run(viewer) : denied;
 }
 
 /** The saved task after a write, as the screen shows it from now on, with the audit record that is its history entry. */
@@ -37,10 +30,7 @@ const savedOf = <T extends Parameters<typeof saved>[0]>(r: Outcome<T>): Outcome<
 	r.status === "ok" ? { status: "ok", value: saved(r.value) } : r;
 
 export async function createTask(requestKey: string, input: unknown): Promise<Outcome<Saved>> {
-	return boundary(c.createTaskRequest, { requestKey, input }, async (v, request) => {
-		const r = await write(v, (w, tx, ctx) => w.create(tx, ctx, request));
-		return r.status === "ok" ? { status: "ok", value: saved(r.value) } : r;
-	});
+	return boundary(async (v) => savedOf(await write(v, (w, tx, ctx) => w.create(tx, ctx, { requestKey, input }))));
 }
 
 export async function editTask(
@@ -49,10 +39,8 @@ export async function editTask(
 	taskId: string,
 	patch: unknown,
 ): Promise<Outcome<Saved>> {
-	return boundary(c.editTaskRequest, { requestKey, expectedRevision, input: { taskId, patch } }, async (v, request) => {
-		const r = await write(v, (w, tx, ctx) => w.edit(tx, ctx, request));
-		return r.status === "ok" ? { status: "ok", value: saved(r.value) } : r;
-	});
+	const request = { requestKey, expectedRevision, input: { taskId, patch } };
+	return boundary(async (v) => savedOf(await write(v, (w, tx, ctx) => w.edit(tx, ctx, request))));
 }
 
 export async function deleteTask(
@@ -60,10 +48,8 @@ export async function deleteTask(
 	expectedRevision: string,
 	taskId: string,
 ): Promise<Outcome<Saved>> {
-	return boundary(c.taskCommandRequest, { requestKey, expectedRevision, input: { taskId } }, async (v, request) => {
-		const r = await write(v, (w, tx, ctx) => w.delete(tx, ctx, request));
-		return r.status === "ok" ? { status: "ok", value: saved(r.value) } : r;
-	});
+	const request = { requestKey, expectedRevision, input: { taskId } };
+	return boundary(async (v) => savedOf(await write(v, (w, tx, ctx) => w.delete(tx, ctx, request))));
 }
 
 export type StatusAction =
@@ -84,31 +70,22 @@ export async function changeTaskStatus(
 	action: StatusAction,
 ): Promise<Outcome<Saved>> {
 	const envelope = { requestKey, expectedRevision };
-	const run = async <T extends Parameters<typeof saved>[0]>(fn: (v: TaskViewer) => Promise<Outcome<T>>) => {
-		const viewer = await taskViewer();
-		return viewer ? savedOf(await fn(viewer)) : denied;
-	};
+	const run = <T extends Parameters<typeof saved>[0]>(fn: (v: TaskViewer) => Promise<Outcome<T>>) =>
+		boundary(async (v) => savedOf(await fn(v)));
 	switch (action?.kind) {
-		case "complete": {
-			const request = c.taskCommandRequest.safeParse({ ...envelope, input: { taskId } });
-			if (!request.success) return invalid;
-			return run((v) => write(v, (w, tx, ctx) => w.completeOccurrence(tx, ctx, request.data)));
-		}
-		case "reopen": {
-			const request = c.taskCommandRequest.safeParse({ ...envelope, input: { taskId } });
-			if (!request.success) return invalid;
-			return run((v) => write(v, (w, tx, ctx) => w.reopen(tx, ctx, request.data)));
-		}
+		case "complete":
+			return run((v) => write(v, (w, tx, ctx) => w.completeOccurrence(tx, ctx, { ...envelope, input: { taskId } })));
+		case "reopen":
+			return run((v) => write(v, (w, tx, ctx) => w.reopen(tx, ctx, { ...envelope, input: { taskId } })));
 		case "waive": {
-			const request = c.waiveTaskRequest.safeParse({ ...envelope, input: { taskId, reason: action.reason } });
-			if (!request.success) return invalid;
-			return run((v) => write(v, (w, tx, ctx) => w.waive(tx, ctx, request.data)));
+			const input = { taskId, reason: action.reason };
+			return run((v) => write(v, (w, tx, ctx) => w.waive(tx, ctx, { ...envelope, input })));
 		}
 		case "status": {
-			const request = c.changeStatusRequest.safeParse({ ...envelope, input: { taskId, status: action.status } });
-			if (!request.success || !["not_started", "in_progress", "blocked"].includes(request.data.input.status))
-				return invalid;
-			return run((v) => write(v, (w, tx, ctx) => w.changeStatus(tx, ctx, request.data)));
+			// This action sets an open status only; completion and closing have their own paths above.
+			if (!["not_started", "in_progress", "blocked"].includes(action.status)) return invalid;
+			const input = { taskId, status: action.status };
+			return run((v) => write(v, (w, tx, ctx) => w.changeStatus(tx, ctx, { ...envelope, input })));
 		}
 		default:
 			return invalid;
@@ -126,8 +103,10 @@ export async function addStep(
 	assigneeId?: string | null,
 ): Promise<Outcome<Saved>> {
 	const input = { parentId, title, ...(assigneeId !== undefined ? { assigneeId } : {}) };
-	return boundary(c.createSubtaskRequest, { requestKey, expectedRevision: parentRevision, input }, async (v, r) =>
-		savedOf(await write(v, (w, tx, ctx) => w.createSubtask(tx, ctx, r))),
+	return boundary(async (v) =>
+		savedOf(
+			await write(v, (w, tx, ctx) => w.createSubtask(tx, ctx, { requestKey, expectedRevision: parentRevision, input })),
+		),
 	);
 }
 
@@ -140,8 +119,8 @@ export async function setStep(
 	complete: boolean,
 ): Promise<Outcome<Saved>> {
 	const input = { parentId, taskId, complete };
-	return boundary(c.setSubtaskCompletionRequest, { requestKey, expectedRevision, input }, async (v, r) =>
-		savedOf(await write(v, (w, tx, ctx) => w.setSubtaskCompletion(tx, ctx, r))),
+	return boundary(async (v) =>
+		savedOf(await write(v, (w, tx, ctx) => w.setSubtaskCompletion(tx, ctx, { requestKey, expectedRevision, input }))),
 	);
 }
 
@@ -152,8 +131,12 @@ export async function removeStep(
 	parentId: string,
 	taskId: string,
 ): Promise<Outcome<Saved>> {
-	return boundary(c.removeSubtaskRequest, { requestKey, expectedRevision, input: { parentId, taskId } }, async (v, r) =>
-		savedOf(await write(v, (w, tx, ctx) => w.removeSubtask(tx, ctx, r))),
+	return boundary(async (v) =>
+		savedOf(
+			await write(v, (w, tx, ctx) =>
+				w.removeSubtask(tx, ctx, { requestKey, expectedRevision, input: { parentId, taskId } }),
+			),
+		),
 	);
 }
 
@@ -164,10 +147,12 @@ export async function setPrerequisites(
 	taskId: string,
 	prerequisiteIds: string[],
 ): Promise<Outcome<Saved>> {
-	return boundary(
-		c.replacePrerequisitesRequest,
-		{ requestKey, expectedRevision, input: { taskId, prerequisiteIds } },
-		async (v, r) => savedOf(await write(v, (w, tx, ctx) => w.replacePrerequisites(tx, ctx, r))),
+	return boundary(async (v) =>
+		savedOf(
+			await write(v, (w, tx, ctx) =>
+				w.replacePrerequisites(tx, ctx, { requestKey, expectedRevision, input: { taskId, prerequisiteIds } }),
+			),
+		),
 	);
 }
 
@@ -178,23 +163,21 @@ export async function setRecurrence(
 	taskId: string,
 	rule: Rule | null,
 ): Promise<Outcome<Saved>> {
-	return boundary(
-		c.configureRecurrenceRequest,
-		{ requestKey, expectedRevision, input: { taskId, rule } },
-		async (v, r) => savedOf(await write(v, (w, tx, ctx) => w.configureRecurrence(tx, ctx, r))),
+	return boundary(async (v) =>
+		savedOf(
+			await write(v, (w, tx, ctx) =>
+				w.configureRecurrence(tx, ctx, { requestKey, expectedRevision, input: { taskId, rule } }),
+			),
+		),
 	);
 }
 
 type BulkItems = { taskId: string; expectedRevision: string }[];
 /** Complete up to 100 reviewed tasks. Each gets its own outcome; a retry with the same key changes nothing twice. */
 export async function bulkComplete(requestKey: string, items: BulkItems): Promise<Outcome<BulkResult>> {
-	return boundary(c.bulkCompleteRequest, { requestKey, items }, (v, r) =>
-		write(v, (w, tx, ctx) => w.bulkComplete(tx, ctx, r)),
-	);
+	return boundary((v) => write(v, (w, tx, ctx) => w.bulkComplete(tx, ctx, { requestKey, items })));
 }
 /** Give up to 100 reviewed open tasks the same due date. Owner/Admin. */
 export async function bulkReschedule(requestKey: string, items: BulkItems, due: unknown): Promise<Outcome<BulkResult>> {
-	return boundary(c.bulkRescheduleRequest, { requestKey, items, due }, (v, r) =>
-		write(v, (w, tx, ctx) => w.bulkReschedule(tx, ctx, r)),
-	);
+	return boundary((v) => write(v, (w, tx, ctx) => w.bulkReschedule(tx, ctx, { requestKey, items, due })));
 }

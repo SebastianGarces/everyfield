@@ -34312,13 +34312,13 @@
             "series_id",
             "occurrence_key"
           ],
-          "where": "(series_id IS NOT NULL)"
+          "where": "((series_id IS NOT NULL) AND (deleted_at IS NULL))"
         },
         {
           "columns": [
             "predecessor_id"
           ],
-          "where": "(predecessor_id IS NOT NULL)"
+          "where": "((predecessor_id IS NOT NULL) AND (deleted_at IS NULL))"
         },
         {
           "columns": [
@@ -34879,7 +34879,7 @@
         "task_uq_1": {
           "name": "task_uq_1",
           "isUnique": true,
-          "where": "(series_id IS NOT NULL)",
+          "where": "((series_id IS NOT NULL) AND (deleted_at IS NULL))",
           "columns": [
             {
               "expression": "series_id",
@@ -34901,7 +34901,7 @@
         "task_uq_2": {
           "name": "task_uq_2",
           "isUnique": true,
-          "where": "(predecessor_id IS NOT NULL)",
+          "where": "((predecessor_id IS NOT NULL) AND (deleted_at IS NULL))",
           "columns": [
             {
               "expression": "predecessor_id",
