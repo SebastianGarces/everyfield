@@ -4330,10 +4330,10 @@ export const task = pgTable(
 		index("task_ref_9").using("btree", table.predecessor_id.asc().nullsLast(), table.plant_id.asc().nullsLast()),
 		uniqueIndex("task_uq_1")
 			.using("btree", table.series_id.asc().nullsLast(), table.occurrence_key.asc().nullsLast())
-			.where(sql`(series_id IS NOT NULL)`),
+			.where(sql`((series_id IS NOT NULL) AND (deleted_at IS NULL))`),
 		uniqueIndex("task_uq_2")
 			.using("btree", table.predecessor_id.asc().nullsLast())
-			.where(sql`(predecessor_id IS NOT NULL)`),
+			.where(sql`((predecessor_id IS NOT NULL) AND (deleted_at IS NULL))`),
 		uniqueIndex("task_uq_3")
 			.using("btree", table.series_id.asc().nullsLast())
 			.where(

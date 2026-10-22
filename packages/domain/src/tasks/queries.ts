@@ -102,7 +102,8 @@ const checklist = sql`(SELECT jsonb_agg(jsonb_build_object('id',k.id,'revision',
 	WHERE k.parent_id=t.id AND k.plant_id=t.plant_id AND k.deleted_at IS NULL) AS checklist,
 	(SELECT jsonb_build_object('id',r.id,'frequency',r.interval,'until',r.end_date,'local_time',to_char(r.local_time,'HH24:MI'),
 		'stopped',r.stopped_at IS NOT NULL) FROM recurrence r WHERE r.id=t.series_id AND r.plant_id=t.plant_id) AS rule,
-	EXISTS(SELECT FROM task n WHERE n.predecessor_id=t.id AND n.plant_id=t.plant_id) AS has_successor,
+	EXISTS(SELECT FROM task n WHERE n.predecessor_id=t.id AND n.plant_id=t.plant_id AND n.deleted_at IS NULL)
+		AS has_successor,
 	${seated(sql`t.assignee_id`)} AS assignee_seated,
 	(t.person_id IS NULL OR p.state='live') AND (t.team_id IS NULL OR tm.archived_at IS NULL) AS relation_live`;
 const joins = sql`FROM task t JOIN plant pl ON pl.id=t.plant_id
