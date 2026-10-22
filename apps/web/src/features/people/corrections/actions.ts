@@ -6,8 +6,19 @@ import { peopleMerge, peopleUnmerge, recordCorrections } from "@everyfield/domai
 import { z } from "zod";
 import { boundary, outcome, receipt, type Receipt } from "../boundary.ts";
 import type { Outcome } from "../model.ts";
-import { loadPerson, read, write } from "../server.ts";
-import { readPair, readRecords, readUnmerge, type PairView, type Records, type UnmergeView } from "./server.ts";
+import { canWrite, read, write, type Viewer } from "../server.ts";
+import { readPersonPage } from "../page-data.ts";
+import { readPersonFields } from "../fields/server.ts";
+import { readPersonRecords } from "../assessments/server.ts";
+import {
+	readDuplicateHints,
+	readPair,
+	readRecords,
+	readUnmerge,
+	type PairView,
+	type Records,
+	type UnmergeView,
+} from "./server.ts";
 
 // Server actions behind the duplicate review, merge, Unmerge and correction screens. Each one rebuilds the viewer, parses
 // the browser's input with the WP-015 contract schemas, calls the producer and answers with an Outcome. A database
@@ -48,49 +59,68 @@ export async function unmergePreview(mergeId: string): Promise<Outcome<UnmergeVi
 	);
 }
 
-export type Unmerged = { result: z.infer<typeof c.unmergeResult>; receipt: Receipt };
-/** Unmerge only writes; the screen confirms from this answer and then reads the page again (loadPersonPage). */
+type PersonId = z.infer<typeof c.personRequest>["personId"];
+export type PersonPage = {
+	person: PlantPerson;
+	activities: z.infer<typeof c.activitiesResult> | null;
+	fields: Awaited<ReturnType<typeof readPersonFields>> | null;
+	records: Awaited<ReturnType<typeof readPersonRecords>> | null;
+	duplicates: Awaited<ReturnType<typeof readDuplicateHints>>;
+};
+/**
+ * The whole person page again, after an Unmerge moved records, tags, skills and the household back to the other person.
+ * The three independent parts read in parallel, each in its own short read transaction, so the wait is the slowest part
+ * rather than all of them in a row (C84: Unmerge with its refresh stays under one second). Null when a part did not read.
+ */
+async function readPersonPageNow(v: Viewer, personId: PersonId): Promise<PersonPage | null> {
+	const ok = <T>(value: T) => ({ status: "ok" as const, value });
+	const [base, fields, records] = await Promise.all([
+		// The person, their first Activity page and their duplicate hints, which need the person's current facts.
+		read(v, async (tx, ctx) => {
+			const page = await readPersonPage(tx, ctx, personId);
+			if (page.status !== "ok") return page;
+			const found = page.value.found;
+			const person = found.status === "available" && "stage" in found.person ? found.person : null;
+			const duplicates = person?.lifecycle.state === "live" ? await readDuplicateHints(tx, ctx, person) : null;
+			return ok({ person, activities: page.value.activities, duplicates });
+		}),
+		read(v, async (tx, ctx) => ok(await readPersonFields(tx, ctx, personId))),
+		canWrite(v) ? read(v, async (tx, ctx) => ok(await readPersonRecords(tx, ctx, personId))) : null,
+	]);
+	if (base.status !== "ok" || !base.value?.person || fields.status !== "ok" || (records && records.status !== "ok"))
+		return null;
+	return {
+		person: base.value.person,
+		activities: base.value.activities?.status === "ok" ? base.value.activities.value : null,
+		fields: fields.value ?? null,
+		records: records?.status === "ok" ? (records.value ?? null) : null,
+		duplicates: base.value.duplicates,
+	};
+}
+
+/**
+ * The Unmerge answer carries the survivor's page as the Unmerge left it, so one request both confirms the Unmerge and
+ * lets the page show what moved back (C84). `page` is null when the write is saved but the page did not read.
+ */
+export type Unmerged = { result: z.infer<typeof c.unmergeResult>; receipt: Receipt; page: PersonPage | null };
 export async function unmergePair(
 	requestKey: string,
 	expectedRevision: string,
 	mergeId: string,
 ): Promise<Outcome<Unmerged>> {
-	return boundary(c.unmergePeopleRequest, { requestKey, expectedRevision, input: { mergeId } }, async (v, request) =>
-		outcome(await write(v, (tx, ctx) => peopleUnmerge.unmergePeople(tx, ctx, request)), (r) => ({
-			result: r,
-			receipt: receipt(r),
-		})),
-	);
+	return boundary(c.unmergePeopleRequest, { requestKey, expectedRevision, input: { mergeId } }, async (v, request) => {
+		const done = outcome(await write(v, (tx, ctx) => peopleUnmerge.unmergePeople(tx, ctx, request)), (r) => r);
+		if (done.status !== "ok") return done;
+		const page = await readPersonPageNow(v, done.value.survivorId).catch(() => null);
+		return { status: "ok", value: { result: done.value, receipt: receipt(done.value), page } };
+	});
 }
 
-type PageParts = Extract<Awaited<ReturnType<typeof loadPerson>>, { status: "ok" }>["value"];
-export type PersonPage = {
-	person: PlantPerson;
-	activities: z.infer<typeof c.activitiesResult> | null;
-	fields: PageParts["fields"];
-	records: PageParts["records"];
-	duplicates: PageParts["duplicates"];
-};
-/**
- * The whole person page again, in one read transaction, after an Unmerge moved records, tags, skills and the household
- * back to the other person: every part shows the authoritative result without a page reload.
- */
+/** The person page again, for an Unmerge found to have run after its own answer was lost. */
 export async function loadPersonPage(personId: string): Promise<Outcome<PersonPage>> {
-	return boundary(c.personRequest, { personId }, async (v, request) => {
-		const r = outcome(await loadPerson(v, request.personId), (page) => page);
-		if (r.status !== "ok") return r;
-		const { found, activities, fields, records, duplicates } = r.value;
-		if (found.status !== "available" || !("stage" in found.person)) return { status: "refused", code: "unavailable" };
-		return {
-			status: "ok",
-			value: {
-				person: found.person,
-				activities: activities?.status === "ok" ? activities.value : null,
-				fields,
-				records,
-				duplicates,
-			},
-		};
+	return boundary(c.personRequest, { personId }, async (v, request): Promise<Outcome<PersonPage>> => {
+		const page = await readPersonPageNow(v, request.personId).catch(() => null);
+		return page ? { status: "ok", value: page } : { status: "lost" };
 	});
 }
 

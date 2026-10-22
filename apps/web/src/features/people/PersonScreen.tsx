@@ -50,7 +50,7 @@ import { DuplicateHints } from "./corrections/DuplicateHints.tsx";
 import { recordsIntent } from "./corrections/intent.ts";
 import type { DuplicateHints as Hints } from "./corrections/server.ts";
 import { UnmergeDialog } from "./corrections/UnmergeDialog.tsx";
-import { loadPersonPage, type PersonPage } from "./corrections/actions.ts";
+import { loadPersonPage, type PersonPage, type Unmerged } from "./corrections/actions.ts";
 import { Problem } from "./corrections/parts.tsx";
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
@@ -143,13 +143,18 @@ export function PersonScreen({
 	const fresh = useRef<{ receipt: Receipt | null; page: PersonPage | null } | null>(null);
 	/**
 	 * After an Unmerge the records, tags, skills, household and hints on this page may belong to the other person again.
-	 * One read brings the whole page as Unmerge left it. The dialog stays open until this read settles, so nothing on the
-	 * page can start behind it, and it says itself when the read failed.
+	 * The Unmerge answer carries the page as the Unmerge left it (C84); an Unmerge found to have run after a lost answer
+	 * reads it here. The dialog stays open until the page is in hand, so nothing on the page can start behind it, and it
+	 * says itself when the page did not read (C80).
 	 */
-	async function readAfterUnmerge(receipt: Receipt | null): Promise<boolean> {
-		const r = await loadPersonPage(person.id).catch(() => ({ status: "lost" }) as const);
-		fresh.current = { receipt: receipt ?? fresh.current?.receipt ?? null, page: r.status === "ok" ? r.value : null };
-		return r.status === "ok";
+	async function readAfterUnmerge(done: Unmerged | null): Promise<boolean> {
+		let page = done ? done.page : null;
+		if (!done) {
+			const r = await loadPersonPage(person.id).catch(() => ({ status: "lost" }) as const);
+			page = r.status === "ok" ? r.value : null;
+		}
+		fresh.current = { receipt: done?.receipt ?? fresh.current?.receipt ?? null, page };
+		return page !== null;
 	}
 	/** The Unmerge dialog closed: show what it read, or keep the page and say it is out of date. */
 	function closeUnmerge() {
@@ -534,12 +539,7 @@ export function PersonScreen({
 						/>
 					) : null}
 					{open && typeof open === "object" ? (
-						<UnmergeDialog
-							mergeId={open.unmerge}
-							store={store}
-							onClose={closeUnmerge}
-							onUnmerged={(done) => readAfterUnmerge(done?.receipt ?? null)}
-						/>
+						<UnmergeDialog mergeId={open.unmerge} store={store} onClose={closeUnmerge} onUnmerged={readAfterUnmerge} />
 					) : null}
 				</>
 			) : null}
