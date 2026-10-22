@@ -3,15 +3,15 @@ import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import type { RequestActor } from "../access/session.ts";
-import { deny, parse, read, type Reader } from "./core.ts";
+import { deny, one, parse, read, type Reader } from "./core.ts";
 import { card, guest, guestColumns, guestRow } from "./guests.ts";
 import { kitColumns, kitItem, kitRow } from "./meetings.ts";
 import { agendaOf, detail, meetingColumns, meetingRow, plantMeeting, summary } from "./rows.ts";
 
-// Every read is one statement over the request's verified viewer (D59/D60). Members read; prayer and question notes
-// are only in Owner/Admin projections. Missing, foreign and deleted meetings read as unavailable.
+// Every read is one statement that checks the reader's live access (C13) after the request's verified viewer names
+// them (D59/D60). Members read; prayer and question notes are only in live Owner/Admin projections. Missing, foreign
+// and deleted meetings read as unavailable.
 
-const one = async (db: Reader, query: SQL) => (await db.execute(query)).rows[0] as Record<string, unknown> | undefined;
 const current = (plantId: string, meetingId: string) =>
 	sql`${plantMeeting(plantId, meetingId)} AND m.retired_at IS NULL`;
 const guests = (where: SQL) =>
@@ -31,8 +31,9 @@ export const meetingsReader = {
 				statuses = [...new Set(i.statuses)];
 			const unchecked = sql`EXISTS (SELECT FROM meeting_kit_item k WHERE k.meeting_id = m.id AND NOT k.checked)`;
 			const order = i.window === "upcoming" ? sql`f.starts_at ASC, f.id ASC` : sql`f.starts_at DESC, f.id DESC`;
-			const row = await one(
+			const { row } = await one(
 				db,
+				v,
 				sql`WITH f AS (SELECT m.id, m.starts_at FROM meeting m WHERE m.plant_id = ${v.plantId}::uuid AND m.retired_at IS NULL
 					AND (cardinality(${sql.param(types)}::text[]) = 0 OR m.type = ANY(${sql.param(types)}::text[]))
 					AND (cardinality(${sql.param(statuses)}::text[]) = 0 OR m.status = ANY(${sql.param(statuses)}::text[]))
@@ -57,7 +58,11 @@ export const meetingsReader = {
 	async get(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (v) => {
 			const i = parse(c.meetingRequest, raw);
-			const row = await one(db, sql`SELECT ${meetingColumns} FROM meeting m WHERE ${current(v.plantId, i.meetingId)}`);
+			const { row } = await one(
+				db,
+				v,
+				sql`SELECT ${meetingColumns} FROM meeting m WHERE ${current(v.plantId, i.meetingId)}`,
+			);
 			return c.meetingResult.parse(
 				row ? { status: "available", meeting: detail(meetingRow.parse(row)) } : { status: "unavailable" },
 			);
@@ -68,8 +73,9 @@ export const meetingsReader = {
 		return read(authority, async (v) => {
 			const i = parse(c.hasHistoryRequest, raw);
 			const types = [...new Set(i.types)];
-			const row = await one(
+			const { row } = await one(
 				db,
+				v,
 				sql`SELECT EXISTS (SELECT FROM meeting m WHERE m.plant_id = ${v.plantId}::uuid AND m.retired_at IS NULL
 					AND (cardinality(${sql.param(types)}::text[]) = 0 OR m.type = ANY(${sql.param(types)}::text[]))) AS found`,
 			);
@@ -79,7 +85,11 @@ export const meetingsReader = {
 	async readAgenda(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (v) => {
 			const i = parse(c.meetingRequest, raw);
-			const row = await one(db, sql`SELECT ${meetingColumns} FROM meeting m WHERE ${current(v.plantId, i.meetingId)}`);
+			const { row } = await one(
+				db,
+				v,
+				sql`SELECT ${meetingColumns} FROM meeting m WHERE ${current(v.plantId, i.meetingId)}`,
+			);
 			if (!row) deny();
 			return agendaOf(meetingRow.parse(row));
 		});
@@ -88,8 +98,9 @@ export const meetingsReader = {
 	async listKit(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (v) => {
 			const i = parse(c.meetingRequest, raw);
-			const row = await one(
+			const { row } = await one(
 				db,
+				v,
 				sql`SELECT m.kit_version, (SELECT coalesce(json_agg(row_to_json(k) ORDER BY k.position), '[]') FROM (${kitColumns}
 					WHERE k.meeting_id = m.id) k) AS items FROM meeting m WHERE ${current(v.plantId, i.meetingId)}`,
 			);
@@ -108,8 +119,9 @@ export const meetingsReader = {
 	async listGuests(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (v) => {
 			const i = parse(c.meetingRequest, raw);
-			const row = await one(
+			const { row } = await one(
 				db,
+				v,
 				sql`SELECT ${guests(sql`true`)} AS guests FROM meeting m WHERE ${current(v.plantId, i.meetingId)}`,
 			);
 			if (!row) deny();
@@ -120,8 +132,9 @@ export const meetingsReader = {
 	async listCards(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (v) => {
 			const i = parse(c.meetingRequest, raw);
-			const row = await one(
+			const { row, admin } = await one(
 				db,
+				v,
 				sql`SELECT ${guests(sql`g.card_response IS NOT NULL`)} AS guests FROM meeting m WHERE ${current(v.plantId, i.meetingId)}`,
 			);
 			if (!row) deny();
@@ -130,7 +143,7 @@ export const meetingsReader = {
 				cards: z
 					.array(guestRow)
 					.parse(row.guests)
-					.map((g) => card(g, v.admin)),
+					.map((g) => card(g, admin)),
 			});
 		});
 	},
@@ -141,8 +154,9 @@ export const meetingsReader = {
 	async cardBreakdown(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (v) => {
 			const i = parse(c.meetingRequest, raw);
-			const row = await one(
+			const { row } = await one(
 				db,
+				v,
 				sql`SELECT coalesce(json_agg(json_build_object('attended', g.presence = 'attended', 'response', g.card_response)), '[]') AS rows
 					FROM meeting m LEFT JOIN participation g ON g.meeting_id = m.id AND g.removed_at IS NULL
 					WHERE ${current(v.plantId, i.meetingId)} GROUP BY m.id`,
@@ -172,8 +186,9 @@ export const meetingsReader = {
 	async invitationAttribution(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (v) => {
 			const i = parse(c.meetingRequest, raw);
-			const row = await one(
+			const { row } = await one(
 				db,
+				v,
 				sql`SELECT ${guests(sql`true`)} AS guests FROM meeting m WHERE ${current(v.plantId, i.meetingId)}`,
 			);
 			if (!row) deny();
@@ -192,15 +207,16 @@ export const meetingsReader = {
 	/** What an invitation composer needs (Owner/Admin): the meeting, its agenda and the live guests it may address. */
 	async communicationContext(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (v) => {
-			if (!v.admin) deny();
 			const i = parse(c.meetingRequest, raw);
-			const row = await one(
+			const { row } = await one(
 				db,
+				v,
 				sql`SELECT ${meetingColumns}, (SELECT coalesce(json_agg(json_build_object('guestId', g.id, 'personId', p.id,
 						'displayName', p.display_name, 'hasEmail', p.email IS NOT NULL, 'rsvp', coalesce(g.rsvp, 'pending'))
 						ORDER BY p.display_name, g.id), '[]') FROM participation g JOIN person p ON p.id = g.person_id
 						WHERE g.meeting_id = m.id AND g.removed_at IS NULL AND p.state = 'live') AS recipients
 					FROM meeting m WHERE ${current(v.plantId, i.meetingId)}`,
+				true,
 			);
 			if (!row) deny();
 			const m = meetingRow.parse(row);
@@ -213,8 +229,9 @@ export const meetingsReader = {
 	 */
 	async listCompletedPreLaunchPractices(db: Reader, authority: RequestActor) {
 		return read(authority, async (v) => {
-			const row = await one(
+			const { row } = await one(
 				db,
+				v,
 				sql`SELECT coalesce(array_agg(m.id ORDER BY m.actual_occurrence_at, m.id), '{}') AS ids FROM meeting m
 					WHERE m.plant_id = ${v.plantId}::uuid AND m.type = 'prelaunch_practice' AND m.status = 'completed'
 					AND m.actual_occurrence_at <= clock_timestamp() AND m.occurrence_voided_at IS NULL`,
@@ -231,8 +248,9 @@ export const meetingsReader = {
 	async getOwnRsvp(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (v) => {
 			const i = parse(c.meetingRequest, raw);
-			const row = await one(
+			const { row } = await one(
 				db,
+				v,
 				sql`SELECT g.id, g.revision::text AS revision, coalesce(g.rsvp, 'pending') AS rsvp, m.status
 					FROM meeting m JOIN participation g ON g.meeting_id = m.id AND g.removed_at IS NULL
 					JOIN person p ON p.id = g.person_id AND p.linked_account_id = ${v.accountId}::uuid AND p.state = 'live'
