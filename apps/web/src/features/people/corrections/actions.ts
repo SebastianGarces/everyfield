@@ -6,7 +6,7 @@ import { peopleMerge, peopleUnmerge, recordCorrections } from "@everyfield/domai
 import { z } from "zod";
 import { boundary, outcome, receipt, type Receipt } from "../boundary.ts";
 import type { Outcome } from "../model.ts";
-import { loadPerson, read, write, type Viewer } from "../server.ts";
+import { read, readPersonView, write, type Viewer } from "../server.ts";
 import type { PersonFields } from "../fields/model.ts";
 import type { PersonRecords } from "../assessments/model.ts";
 import {
@@ -72,7 +72,7 @@ export type PersonPage = {
  * did not read.
  */
 async function readPersonPageNow(v: Viewer, personId: PersonId): Promise<PersonPage | null> {
-	const r = await loadPerson(v, personId);
+	const r = await readPersonView(v, personId);
 	if (r.status !== "ok") return null;
 	const { found, activities, fields, records, duplicates } = r.value;
 	if (found.status !== "available" || !("stage" in found.person)) return null;

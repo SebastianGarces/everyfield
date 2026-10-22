@@ -5,6 +5,7 @@ import { type readPeopleViewer, PeopleReadContext, withPeopleWrite } from "@ever
 import "server-only";
 import type { PeopleQuery } from "./model.ts";
 import { HISTORY_PAGE } from "./assessments/server.ts";
+import { loadPersonFollowUps } from "../followups/server.ts";
 import { readPeoplePage, readPersonPage } from "./page-data.ts";
 
 // Layout, pages and actions share this request's native session and actor.
@@ -55,12 +56,31 @@ export async function write<T>(
 export type { PeopleData, PeopleView } from "./page-data.ts";
 
 /**
- * The person page in one statement on the pool: the person, their first Activity page and, for the page itself, their
- * WP-012 fields and duplicate hints (WP-015). An Owner or Admin's page also reads the person's 4 C's, interviews and
- * commitments; no one else's page asks for them. A conflict reload passes `withFields: false`: it needs only the person
- * and Activity, and each field card reads its own part again when its own save is refused.
+ * The person page: the person read in one statement on the pool (readPersonView) and, for the page itself, the
+ * follow-ups and contact log (WP-023) in their own short transaction at the same time, on a second connection: they
+ * need nothing from the person read, and running beside it keeps the page within its one-second budget (C77). They
+ * show only for a plant person. A conflict reload passes `withFields: false`: it needs only the person and Activity.
  */
 export async function loadPerson(viewer: Viewer, personId: Parameters<typeof readPersonPage>[2], withFields = true) {
+	const followUps = withFields ? loadPersonFollowUps(viewer.authority, personId) : Promise.resolve(null);
+	const loaded = await readPersonView(viewer, personId, withFields);
+	const parts = await followUps;
+	if (loaded.status !== "ok") return loaded;
+	const { found } = loaded.value;
+	const plant = withFields && found.status === "available" && "stage" in found.person;
+	return { status: "ok" as const, value: { ...loaded.value, followUps: plant ? parts : null } };
+}
+
+/**
+ * The person, their first Activity page and, with `withFields`, their WP-012 fields and duplicate hints (WP-015), in
+ * one statement on the pool. An Owner or Admin's page also reads the person's 4 C's, interviews and commitments; no
+ * one else's page asks for them. Each field card reads its own part again when its own save is refused.
+ */
+export async function readPersonView(
+	viewer: Viewer,
+	personId: Parameters<typeof readPersonPage>[2],
+	withFields = true,
+) {
 	const parts = withFields
 		? { fields: true, duplicates: true, ...(canWrite(viewer) ? { records: HISTORY_PAGE } : {}) }
 		: {};
