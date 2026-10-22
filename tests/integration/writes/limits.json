@@ -37,7 +37,7 @@
 		"reason": "A new tag name creates the church tag and puts it on the person in one transaction: two producer writes (people.createTag, people.assignTag). Above the pattern today; RT-6 reviews it."
 	},
 	"POST people.fields.addPersonTag (replay)": {
-		"limit": 14,
+		"limit": 12,
 		"reason": "A replay of the same request key after a lost answer (the save lane sends it once more): the first attempt meets the stored key, so the command reruns the established way to answer the stored result, as POST people.createPerson (replay) does (RT-3). RT-6 reviews it."
 	},
 	"POST people.fields.addSkill": {
@@ -45,7 +45,7 @@
 		"reason": "The same statements as people.addSkill (limit 7): 2 transaction, 1 locked read, 3 read, 1 write. Above the pattern today; RT-6 reviews it."
 	},
 	"POST people.fields.addSkill (replay)": {
-		"limit": 12,
+		"limit": 11,
 		"reason": "A replay of the same request key after a lost answer (the save lane sends it once more): the first attempt meets the stored key, so the command reruns the established way to answer the stored result, as POST people.createPerson (replay) does (RT-3). RT-6 reviews it."
 	},
 	"POST people.fields.readPhoto": {
