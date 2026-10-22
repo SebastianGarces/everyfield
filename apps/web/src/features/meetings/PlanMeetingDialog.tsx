@@ -113,7 +113,7 @@ function Form({
 	const [choices, setChoices] = useState<Choice[] | null>(null);
 	const [offset, setOffset] = useState<number | null>(null);
 	const [venues, setVenues] = useState<Venue[] | null>(null);
-	const { save, pending, problem, setProblem } = useSave();
+	const { save, pending, setProblem, problemProps } = useSave();
 	// Each opening starts from the meeting as it is now, unless it reopens after a failed save.
 	const [wasOpen, setWasOpen] = useState(open);
 	const [keep, setKeep] = useState(false);
@@ -368,7 +368,7 @@ function Form({
 							onChange={(e) => set({ notes: e.target.value })}
 						/>
 					</Field>
-					<Problem code={problem} />
+					<Problem {...problemProps} />
 				</DialogBody>
 				<DialogFooter>
 					<Button variant="secondary" type="button" onClick={onClose} disabled={pending}>

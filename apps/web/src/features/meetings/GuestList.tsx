@@ -5,6 +5,7 @@ import {
 	Delete02Icon,
 	MoreHorizontalIcon,
 	Note01Icon,
+	Tick02Icon,
 	UserAdd01Icon,
 	UserMultipleIcon,
 	UserSwitchIcon,
@@ -48,6 +49,7 @@ import {
 	removeGuest,
 	setInviter,
 } from "./actions.ts";
+import { PresenceCell, PresenceUnconfirmed, type usePresence } from "./Attendance.tsx";
 import { PersonPicker, ReasonDialog, type PickedPerson } from "./dialogs.tsx";
 import {
 	CARD_LABEL,
@@ -56,11 +58,14 @@ import {
 	RSVP_LABEL,
 	RSVP_SOURCE_LABEL,
 	RSVP_TONE,
+	PRESENCE_LABEL,
 	rsvpCounts,
+	type Attendance,
 	type CardResponse,
 	type Detail,
 	type Guest,
 	type Outcome,
+	type Presence,
 	type Rsvp,
 } from "./model.ts";
 import { isPending, PENDING, type CardEntry, type Change } from "./page-state.ts";
@@ -80,12 +85,17 @@ const nextRevision = (r: string) => String(BigInt(r) + 1n) as Guest["revision"];
  * The guest list (REQ-MTG-007, REQ-MTG-019): each guest's RSVP, who invited them and, for Vision meetings, their
  * response card. Owners and Admins correct an RSVP from the row menu (REQ-MTG-008, not drawn: composed from Menu).
  * Every change shows at once in the row and the page's counts; the answer confirms it, or the page goes back and says
- * why. A form that fails reopens with what was entered.
+ * why. A form that fails reopens with what was entered. Before attendance is final, the row menu marks each guest
+ * attended, excused or absent (REQ-MTG-010); an attended guest can get a note in their history (REQ-MTG-017).
  */
 export function GuestList({
 	meeting,
 	guests,
 	cards,
+	attendance,
+	presence,
+	canMark,
+	onNote,
 	canWrite,
 	project,
 	onGuest,
@@ -96,6 +106,11 @@ export function GuestList({
 	meeting: Detail;
 	guests: Guest[] | null;
 	cards: CardEntry[] | null;
+	attendance: Attendance | null;
+	presence: ReturnType<typeof usePresence>;
+	/** Presence may change: an Owner or Admin, before attendance is final, on a meeting that is not cancelled. */
+	canMark: boolean;
+	onNote: (guest: Guest) => void;
 	canWrite: boolean;
 	project: (change: Change) => void;
 	onGuest: (guest: Guest) => void;
@@ -111,6 +126,8 @@ export function GuestList({
 	const vision = meeting.type === "vision_meeting";
 	const counts = rsvpCounts(shown);
 	const cardOf = new Map((cards ?? []).map((c) => [c.personId, c]));
+	const marker = attendance?.viewerCanMarkAttendance === true;
+	const classOf = new Map((attendance?.items ?? []).map((a) => [a.person.personId, a.classification]));
 	const rows = filter === "all" ? shown : shown.filter((g) => g.rsvp === filter);
 	const open = ACCEPTS_REPLIES.includes(meeting.status);
 	const openForm = (f: Form) => setForm({ ...f, visible: true, key: Date.now() });
@@ -227,6 +244,18 @@ export function GuestList({
 				</div>
 			),
 		},
+		{
+			key: "attendance",
+			header: "Attendance",
+			cell: (g) => (
+				<PresenceCell
+					presence={g.presence}
+					classification={classOf.get(g.person.personId) ?? null}
+					final={attendance?.finalized != null}
+					state={presence.stateOf(g.person.personId)}
+				/>
+			),
+		},
 		...(vision
 			? [
 					{
@@ -239,7 +268,8 @@ export function GuestList({
 					},
 				]
 			: []),
-		...(canWrite
+		// An Owner or Admin gets the whole menu; the leader of a team meeting gets only attendance (C74).
+		...(canWrite || marker
 			? [
 					{
 						key: "actions",
@@ -253,37 +283,58 @@ export function GuestList({
 										<IconButton icon={MoreHorizontalIcon} label={`Actions for ${g.person.displayName}`} size="sm" />
 									</MenuTrigger>
 									<MenuContent align="end">
-										<MenuLabel>Correct the RSVP</MenuLabel>
-										{(["confirmed", "declined", "pending"] as const).map((r) => (
+										<MenuLabel>Attendance</MenuLabel>
+										{(["attended", "excused", "absent"] as const satisfies Presence[]).map((p) => (
 											<MenuItem
-												key={r}
-												icon={CheckmarkCircle02Icon}
-												disabled={g.rsvp === r || !open}
-												onSelect={() => correct(g, r)}
+												key={p}
+												icon={Tick02Icon}
+												disabled={!canMark || g.presence === p || presence.stateOf(g.person.personId) !== undefined}
+												onSelect={() => presence.set(g.person, p)}
 											>
-												{r === "pending" ? "Reset to Pending" : `Set to ${RSVP_LABEL[r]}`}
+												Mark as {PRESENCE_LABEL[p].toLowerCase()}
 											</MenuItem>
 										))}
-										<MenuSeparator />
-										<MenuItem icon={UserSwitchIcon} onSelect={() => openForm({ kind: "inviter", guest: g })}>
-											Change who invited them
-										</MenuItem>
-										{vision ? (
+										{canWrite && g.presence === "attended" && g.person.state === "live" ? (
+											<MenuItem icon={Note01Icon} onSelect={() => onNote(g)}>
+												Add a note to their history
+											</MenuItem>
+										) : null}
+										{canWrite ? (
 											<>
-												<MenuItem icon={Note01Icon} onSelect={() => openForm({ kind: "card", guest: g })}>
-													{cardOf.has(g.person.personId) ? "Correct response card" : "Record response card"}
-												</MenuItem>
-												{cardOf.has(g.person.personId) ? (
-													<MenuItem icon={Note01Icon} onSelect={() => setConfirm({ kind: "clear", guest: g })}>
-														Clear response card
+												<MenuSeparator />
+												<MenuLabel>Correct the RSVP</MenuLabel>
+												{(["confirmed", "declined", "pending"] as const).map((r) => (
+													<MenuItem
+														key={r}
+														icon={CheckmarkCircle02Icon}
+														disabled={g.rsvp === r || !open}
+														onSelect={() => correct(g, r)}
+													>
+														{r === "pending" ? "Reset to Pending" : `Set to ${RSVP_LABEL[r]}`}
 													</MenuItem>
+												))}
+												<MenuSeparator />
+												<MenuItem icon={UserSwitchIcon} onSelect={() => openForm({ kind: "inviter", guest: g })}>
+													Change who invited them
+												</MenuItem>
+												{vision ? (
+													<>
+														<MenuItem icon={Note01Icon} onSelect={() => openForm({ kind: "card", guest: g })}>
+															{cardOf.has(g.person.personId) ? "Correct response card" : "Record response card"}
+														</MenuItem>
+														{cardOf.has(g.person.personId) ? (
+															<MenuItem icon={Note01Icon} onSelect={() => setConfirm({ kind: "clear", guest: g })}>
+																Clear response card
+															</MenuItem>
+														) : null}
+													</>
 												) : null}
+												<MenuSeparator />
+												<MenuItem icon={Delete02Icon} danger onSelect={() => setConfirm({ kind: "remove", guest: g })}>
+													Remove from guest list
+												</MenuItem>
 											</>
 										) : null}
-										<MenuSeparator />
-										<MenuItem icon={Delete02Icon} danger onSelect={() => setConfirm({ kind: "remove", guest: g })}>
-											Remove from guest list
-										</MenuItem>
 									</MenuContent>
 								</Menu>
 							),
@@ -315,6 +366,7 @@ export function GuestList({
 					/>
 				) : null}
 			</CardHeader>
+			<PresenceUnconfirmed presence={presence} className="mb-3" />
 			{guests === null ? (
 				<StatePanel tone="error" title="Guests did not load" headingLevel="h3" className="py-8">
 					Nothing was changed. Reload the page in a moment.
@@ -326,7 +378,7 @@ export function GuestList({
 					state={{ status: "ready", data: rows }}
 					rowId={(g) => g.id}
 					rowLabel={(g) => g.person.displayName}
-					minWidth={560}
+					minWidth={vision ? 760 : 640}
 					empty={{
 						icon: UserMultipleIcon,
 						title: filter === "all" ? "No guests yet" : `No guests with ${RSVP_LABEL[filter]}`,
@@ -518,7 +570,7 @@ function AddGuestForm({
 	const [inviter, setInviterChoice] = useState<PickedPerson | null>(null);
 	const [contact, setContact] = useState({ displayName: "", email: "", phone: "" });
 	const [touched, setTouched] = useState(false);
-	const { save, pending, problem } = useSave();
+	const { save, pending, problemProps } = useSave();
 	const nameMissing = contact.displayName.trim() === "";
 	const emailBad = contact.email.trim() !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email.trim());
 
@@ -611,7 +663,7 @@ function AddGuestForm({
 							</p>
 						</>
 					)}
-					<Problem code={problem} />
+					<Problem {...problemProps} />
 				</DialogBody>
 				<DialogFooter>
 					<Button variant="secondary" type="button" onClick={onClose} disabled={pending}>
@@ -643,7 +695,7 @@ function InviterForm({
 	const [inviter, setChoice] = useState<PickedPerson | null>(
 		guest.inviter ? { id: guest.inviter.personId, name: guest.inviter.displayName } : null,
 	);
-	const { save, pending, problem } = useSave();
+	const { save, pending, problemProps } = useSave();
 	if (!open) return null;
 	return (
 		<DialogContent aria-busy={pending || undefined}>
@@ -674,7 +726,7 @@ function InviterForm({
 						none="Not recorded"
 						autoFocus
 					/>
-					<Problem code={problem} />
+					<Problem {...problemProps} />
 				</DialogBody>
 				<DialogFooter>
 					<Button variant="secondary" type="button" onClick={onClose} disabled={pending}>
@@ -711,7 +763,7 @@ function CardForm({
 	const [response, setResponse] = useState<CardResponse | null>(card?.response ?? null);
 	const [notes, setNotes] = useState(card?.notes ?? "");
 	const [touched, setTouched] = useState(false);
-	const { save, pending, problem } = useSave();
+	const { save, pending, problemProps } = useSave();
 	if (!open) return null;
 	return (
 		<DialogContent aria-busy={pending || undefined}>
@@ -770,7 +822,7 @@ function CardForm({
 					<Field label="Prayer requests or questions" optional hint="Only Owners and Admins see these notes.">
 						<Textarea value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={2000} rows={3} />
 					</Field>
-					<Problem code={problem} />
+					<Problem {...problemProps} />
 				</DialogBody>
 				<DialogFooter>
 					<Button variant="secondary" type="button" onClick={onClose} disabled={pending}>

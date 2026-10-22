@@ -152,7 +152,11 @@ const counted = sql`m.finalized_at IS NOT NULL AND m.retired_at IS NULL AND m.oc
 	AND m.status <> 'cancelled'`;
 
 export const attendanceReader = {
-	/** The guest list with presence and finalized classification, by name; members read it too. */
+	/**
+	 * The guest list with presence and finalized classification, by name; members read it too. It also says whether the
+	 * viewer may mark attendance here, by the write's rule: a live Owner or Admin, or the live current leader of this
+	 * team meeting's team (REQ-MTG-010, C74, C79). The write still decides; this only lets the screen show the controls.
+	 */
 	async listAttendance(db: Reader, authority: RequestActor, raw: unknown) {
 		return gated(
 			db,
@@ -161,6 +165,9 @@ export const attendanceReader = {
 			c.attendanceListRequest,
 			raw,
 			(plant, i) => sql`SELECT true AS found, m.attendance_revision::text AS attendance_revision, m.finalized_at,
+				(m.type = 'team_meeting' AND EXISTS (SELECT FROM team t JOIN person lp ON lp.id = t.leader_person_id
+					WHERE t.id = m.team_id AND t.plant_id = m.plant_id AND t.archived_at IS NULL AND lp.state = 'live'
+					AND lp.linked_account_id = ${authority.actor.accountId}::uuid)) AS leads,
 				m.finalized_revision::text AS finalized_revision,
 				(SELECT count(*)::int FROM participation g WHERE g.meeting_id = m.id AND g.removed_at IS NULL) AS matched,
 				(SELECT coalesce(json_agg(x ORDER BY x.n), '[]') FROM (SELECT g.id, g.revision::text AS revision, g.person_id,
@@ -172,10 +179,11 @@ export const attendanceReader = {
 					FROM participation g JOIN person p ON p.id = g.person_id WHERE g.meeting_id = m.id AND g.removed_at IS NULL
 					ORDER BY p.display_name, g.id LIMIT ${i.limit} OFFSET ${(i.page - 1) * i.limit}) x) AS items
 				FROM meeting m WHERE ${meeting(plant, i.meetingId)}`,
-			(row, i) => {
+			(row, i, viewer) => {
 				const f = z
 					.object({
 						attendance_revision: z.string(),
+						leads: z.boolean(),
 						finalized_at: date.nullable(),
 						finalized_revision: z.string().nullable(),
 						matched: z.number().int(),
@@ -192,6 +200,7 @@ export const attendanceReader = {
 					page: i.page,
 					next: i.page * i.limit < f.matched ? i.page + 1 : null,
 					completeness: "complete",
+					viewerCanMarkAttendance: viewer.admin || f.leads,
 				});
 			},
 		);

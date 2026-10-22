@@ -16,7 +16,7 @@ import {
 import { useOptimistic, useState, useTransition } from "react";
 import { populateKit, updateKitItem } from "./actions.ts";
 import { KIT_CATEGORY_LABEL, problemText, type Detail, type KitItem } from "./model.ts";
-import { problemOf, useSave } from "./parts.tsx";
+import { Problem, problemOf, useSave } from "./parts.tsx";
 
 export type Kit = { version: number | null; items: KitItem[] };
 
@@ -111,6 +111,7 @@ export function KitCard({
 					}
 				>
 					The reviewed checklist: sign-in sheets, response cards, banners, cables and the rest.
+					<Problem {...adding.problemProps} className="mt-3" />
 				</EmptyState>
 			</Card>
 		);
