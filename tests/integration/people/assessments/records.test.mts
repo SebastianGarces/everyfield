@@ -20,6 +20,12 @@ import {
 	uploadCommitmentDocument,
 } from "../../../../packages/domain/src/people/index.ts";
 
+// The task reminder port of a stage change or retirement. These people hold no dated, assigned task, so a replan
+// here would be a bug.
+const noReminders = async () => {
+	throw Error("unexpected task reminder replan");
+};
+
 // Four Cs assessments, interviews and commitments through their public operations on a scratch schema.
 const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
 const localCi =
@@ -86,11 +92,16 @@ async function retire(id) {
 	const review = ok(await tx((t) => peopleReader.getStatusWarnings(t, ctx(), { personId: id }))).reviewRevision;
 	ok(
 		await tx(async (t) =>
-			people.retirePerson(t, ctx(), {
-				requestKey: key(),
-				expectedRevision: await revisionOf(id),
-				input: { personId: id, reason: "Moved away", reviewRevision: review, handoffs: [] },
-			}),
+			people.retirePerson(
+				t,
+				ctx(),
+				{
+					requestKey: key(),
+					expectedRevision: await revisionOf(id),
+					input: { personId: id, reason: "Moved away", reviewRevision: review, handoffs: [] },
+				},
+				noReminders,
+			),
 		),
 	);
 }
