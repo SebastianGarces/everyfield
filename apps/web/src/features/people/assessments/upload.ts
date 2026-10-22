@@ -1,6 +1,5 @@
-import type { Outcome } from "../model.ts";
+import { sendTwice, type Outcome } from "../../../components/save/model.ts";
 import { saveCommitmentWithDocument, signCommitmentUpload, type CommitmentSaved } from "./actions.ts";
-import { sendTwice } from "./model.ts";
 
 // The commitment document on design B (RT-2): sign a five-minute PUT URL, put the file's bytes straight into the private
 // bucket, then save the card with that upload in one statement. One save intent owns one DocumentUpload, so Check again

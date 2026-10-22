@@ -6,7 +6,8 @@ import { recordId, revision } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/people";
 import { peopleReader, peopleWriter, readColumnOrders } from "@everyfield/domain/people";
 import type { z } from "zod";
-import { columnOf, parseQuery, type Outcome } from "./model.ts";
+import { columnOf, parseQuery } from "./model.ts";
+import type { Outcome } from "../../components/save/model.ts";
 import { boundary, invalid, outcome, receipt, type Receipt } from "./boundary.ts";
 import { loadPeople, loadPerson, read, write, type PeopleView, type Viewer } from "./server.ts";
 

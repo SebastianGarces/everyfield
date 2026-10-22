@@ -30,7 +30,8 @@ import {
 import { Avatar, KeyValue, KeyValueList, StageChip, StatusBadge } from "@everyfield/ui/display";
 import { cn } from "@everyfield/ui/foundations";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { keyFor, STAGE_KEY, STAGE_LABEL, type KeyedPayload, type Outcome, type StageValue } from "../model.ts";
+import { keyFor, STAGE_KEY, STAGE_LABEL, type KeyedPayload, type StageValue } from "../model.ts";
+import type { Outcome } from "../../../components/save/model.ts";
 import { fresh, LocalDay, When } from "../parts.tsx";
 import { mergeDestination, mergePair, reviewPair, type Merged } from "./actions.ts";
 import {

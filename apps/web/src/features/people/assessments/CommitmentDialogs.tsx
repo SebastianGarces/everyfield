@@ -20,11 +20,12 @@ import {
 	useFieldControl,
 } from "@everyfield/ui/controls";
 import { useEffect, useId, useRef, useState } from "react";
-import type { Outcome } from "../model.ts";
+import type { Outcome, Wait } from "../../../components/save/model.ts";
+import { RecordDialog } from "../../../components/save/parts.tsx";
 import { LocalDay } from "../parts.tsx";
 import { findWitnesses } from "./actions.ts";
-import { KIND_LABEL, today, type Commitment, type Kind, type Wait } from "./model.ts";
-import { ChoiceField, RecordDialog } from "./parts.tsx";
+import { KIND_LABEL, today, type Commitment, type Kind } from "./model.ts";
+import { ChoiceField, recordProblem } from "./parts.tsx";
 
 export const DOCUMENT_TYPES = ["application/pdf", "image/jpeg", "image/png"] as const;
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -104,7 +105,7 @@ export function RecordCommitmentDialog({
 					: "The card they signed. The stage stays as it is."
 			}
 			action="Save commitment"
-			problem={problem}
+			problem={problem && recordProblem(problem)}
 			onClose={onClose}
 			onSubmit={() => {
 				setTouched(true);
@@ -406,7 +407,7 @@ export function LifecycleDialog({
 					: `${personName} counts as committed again from this date. The first commitment date stays.`
 			}
 			action={withdraw ? "Withdraw commitment" : "Reactivate commitment"}
-			problem={problem}
+			problem={problem && recordProblem(problem)}
 			onClose={onClose}
 			onSubmit={() => {
 				setTouched(true);
@@ -485,7 +486,7 @@ export function CorrectionDialog({
 				</>
 			}
 			action={voiding ? "Void card" : "Save correction"}
-			problem={problem}
+			problem={problem && recordProblem(problem)}
 			onClose={onClose}
 			onSubmit={() => {
 				setTouched(true);
