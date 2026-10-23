@@ -401,7 +401,7 @@ Owner: WP-007.
 <a id="req-mul-004"></a>
 ### REQ-MUL-004: Organization invitation to a resident account
 
-An organization Owner or Admin may invite a specific pipeline person to link an EveryField account. Use sealed, expiring, purpose-bound invitation proof, the exact organization and Person, and verified addressed-account acceptance. Names or matching emails alone never authorize a link. The person sees the disclosure and accepts or declines without acquiring a seat. Decline leaves their account unchanged. Revoke, resend, retire, remove, concurrent claim and expiry recheck current facts at commit; one accepted link and receipt survive retries, never two accounts or two people. Public invitation responses do not reveal whether an account exists. A pending personal deletion or foreign owner refuses acceptance.
+An organization Owner or Admin may invite a specific pipeline person to link an Everyfield account. Use sealed, expiring, purpose-bound invitation proof, the exact organization and Person, and verified addressed-account acceptance. Names or matching emails alone never authorize a link. The person sees the disclosure and accepts or declines without acquiring a seat. Decline leaves their account unchanged. Revoke, resend, retire, remove, concurrent claim and expiry recheck current facts at commit; one accepted link and receipt survive retries, never two accounts or two people. Public invitation responses do not reveal whether an account exists. A pending personal deletion or foreign owner refuses acceptance.
 
 Owner: WP-008.
 

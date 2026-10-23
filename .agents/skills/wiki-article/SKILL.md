@@ -1,6 +1,6 @@
 ---
 name: wiki-article
-description: Research, draft, fact-check or revise an EveryField Wiki article using primary sources, JSON drafts, rendered screenshots and independent Opus review before human approval.
+description: Research, draft, fact-check or revise an Everyfield Wiki article using primary sources, JSON drafts, rendered screenshots and independent Opus review before human approval.
 ---
 
 # Writing a Wiki article
@@ -28,7 +28,7 @@ Do not decide theology, pastoral care or methodology. Record the question in `dr
 the task note; resolve it before review. Do not contradict `docs/reference/playbook.md` or change
 methodology to reconcile an article. Apply Bryan's rubric rulings, including the 50 to 100 adult
 benchmark rather than a gate (C03) and not calling the core group factor "Unity" (C04), from
-`docs/reference/bryan-comments-review.md`. EveryField does not provide finance, coaching or
+`docs/reference/bryan-comments-review.md`. Everyfield does not provide finance, coaching or
 background checks in the app (`docs/product/scope.md`); articles must not imply that it does.
 
 ## Procedure

@@ -1,6 +1,6 @@
 # Durable execution
 
-Ordinary asynchronous work is durable, bounded and authenticated. Missed wake-ups or process restarts do not lose owed work. Storage, scheduling, deployment and worker ownership follow [EveryField patterns](intent://local/note/df294729-367b-493b-9faf-654cf6b25b62).
+Ordinary asynchronous work is durable, bounded and authenticated. Missed wake-ups or process restarts do not lose owed work. Storage, scheduling, deployment and worker ownership follow [Everyfield patterns](intent://local/note/df294729-367b-493b-9faf-654cf6b25b62).
 
 ## Claims and outcomes
 

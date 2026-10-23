@@ -16,7 +16,7 @@ NI copies remain governed by their source plants. A plant deletion request or sh
 
 Purpose-specific projections define permitted output. Raw account/Person/interview/assessment rows never reach client props, JSON/errors, HTML metadata, stream chunks or model context by accident. Counts and errors cannot reconstruct hidden identities or private-care existence. Public Wiki crawler previews expose only approved global content regardless of user agent. Organization Wiki body entitlement is rechecked on current/history/citation/print/download/chat/source/preview access; completed reading or old citation never grants departed-body access.
 
-Private response caching cannot expose a prior caller's data or bypass current entitlement, lifecycle or purpose rules. Personalized responses and downloads cannot enter public caches. Any future shared private cache requires proof of actor/scope/projection separation and current-entitlement invalidation. Global reference caching remains separate from effective organization corpus access. Default cache mechanisms follow [EveryField patterns](intent://local/note/df294729-367b-493b-9faf-654cf6b25b62).
+Private response caching cannot expose a prior caller's data or bypass current entitlement, lifecycle or purpose rules. Personalized responses and downloads cannot enter public caches. Any future shared private cache requires proof of actor/scope/projection separation and current-entitlement invalidation. Global reference caching remains separate from effective organization corpus access. Default cache mechanisms follow [Everyfield patterns](intent://local/note/df294729-367b-493b-9faf-654cf6b25b62).
 
 ## Private native care
 

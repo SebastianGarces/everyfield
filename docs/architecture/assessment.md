@@ -1,6 +1,6 @@
 # Assessment consistency and publication
 
-Plant Intelligence and Network Intelligence retain different rubrics and authorized projections. [Methodology requirements](../product/methodology-intelligence.md) define evidence meaning and formulas. The intelligence producer owns consistent inputs, freshness and publication. Default storage and execution choices follow [EveryField patterns](intent://local/note/df294729-367b-493b-9faf-654cf6b25b62).
+Plant Intelligence and Network Intelligence retain different rubrics and authorized projections. [Methodology requirements](../product/methodology-intelligence.md) define evidence meaning and formulas. The intelligence producer owns consistent inputs, freshness and publication. Default storage and execution choices follow [Everyfield patterns](intent://local/note/df294729-367b-493b-9faf-654cf6b25b62).
 
 ## Stored identities
 

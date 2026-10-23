@@ -1910,7 +1910,7 @@
       "feature_ids": [
         "PI-043"
       ],
-      "text": "Use separately authored EveryField network v1 six-rule operational rubric with current exact organization sharing/category/release projections, at least two distinct relevant contributors per pattern, bounded shared plant name/state/reason/link, Not shared without zero credit, Unknown, no people/raw assessments/ranking/second consent. Versioned own feedback/run/history and shared bounded execution.",
+      "text": "Use separately authored Everyfield network v1 six-rule operational rubric with current exact organization sharing/category/release projections, at least two distinct relevant contributors per pattern, bounded shared plant name/state/reason/link, Not shared without zero credit, Unknown, no people/raw assessments/ranking/second consent. Versioned own feedback/run/history and shared bounded execution.",
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
         "organizationIntelligence.read",

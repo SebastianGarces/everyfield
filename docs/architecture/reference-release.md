@@ -6,7 +6,7 @@ Editorial conflict with the authoritative SME rubric/Playbook requires content-o
 
 ## Identities and manifest
 
-Canonical articles, sections and packaged definitions have stable identities and immutable reviewed versions. Each generation preserves exact source, content hash, owner and derivative provenance rather than using display names as identities. The six canonical Discovery article identities remain explicit. Storage and activation mechanisms follow [EveryField patterns](intent://local/note/df294729-367b-493b-9faf-654cf6b25b62).
+Canonical articles, sections and packaged definitions have stable identities and immutable reviewed versions. Each generation preserves exact source, content hash, owner and derivative provenance rather than using display names as identities. The six canonical Discovery article identities remain explicit. Storage and activation mechanisms follow [Everyfield patterns](intent://local/note/df294729-367b-493b-9faf-654cf6b25b62).
 
 The reviewed manifest pins topology, source revisions, content hashes, required templates, rubric/Playbook versions, chunking profile, embedding model/dimensions and expected derivative keys/checksums. Repeated deterministic content/chunk construction yields the same manifest. Provider vectors have stored checksums and model provenance; generation is not assumed bit-identical.
 

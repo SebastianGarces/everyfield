@@ -679,9 +679,13 @@
 				"docs/product/",
 				"docs/catalog/",
 				"docs/schema/capabilities/a-identity-people-teams-ops.json",
+				"docs/schema/schema-diagram.html",
 				"docs/text-allowlist.json",
 				"docs/check-text.py",
 				"docs/check-all.py",
+				"docs/package-context.py",
+				"docs/render-build-explorer.py",
+				"docs/acceptance/operations.json",
 				"docs/plan/dag.json",
 				"docs/plan/build-plan.md",
 				"docs/plan/context-manifest.json"
@@ -689,17 +693,11 @@
 			"checks": [
 				{
 					"name": "documentation",
-					"run": [
-						"python3",
-						"docs/check-all.py"
-					]
+					"run": ["python3", "docs/check-all.py"]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": [
-						"bin/evf",
-						"test"
-					]
+					"run": ["bin/evf", "test"]
 				}
 			],
 			"risk": "ordinary"
