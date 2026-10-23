@@ -224,9 +224,7 @@ test("D69/D70: every request and write stays within its statement budget", { tim
 		output = join(directory, "counts.jsonl");
 	await writeFile(output, "");
 	const patterns = JSON.parse(await readFile(new URL("./suites.json", import.meta.url), "utf8"));
-	const suites = globSync(patterns, { cwd: root })
-		.map((file) => join(root, file))
-		.sort();
+	const suites = globSync(patterns, { cwd: root }).map((file) => join(root, file));
 	const part = census.kind === "part" ? census : { index: 1, total: 1 };
 	const files = partSuites(suites, part.index, part.total);
 	const typescript = [
