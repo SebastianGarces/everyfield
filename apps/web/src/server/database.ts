@@ -1,6 +1,5 @@
 import "server-only";
-import { createDatabase, type Database, type DatabaseOptions } from "@everyfield/db/client";
-import { sql } from "@everyfield/db/query";
+import { checkoutClient, createDatabase, type Database, type DatabaseOptions } from "@everyfield/db/client";
 
 // Share connections for the same configured login and schema. The native auth
 // adapter and the development proof may use different credentials or schemas.
@@ -26,7 +25,25 @@ export function requestDatabase(): Database | null {
 	return url ? database(url) : null;
 }
 
-/** Opens one connection on every pool created so far. Server start calls it once the identity mount exists. */
+/**
+ * The most connections one request holds at once on the request pool: the person and meetings pages read on two in
+ * parallel (RT-6c). Other pools (the auth login) stay at one: no measured request used two at once.
+ */
+const REQUEST_CONNECTIONS = 2;
+/**
+ * Opens the connections one request needs on every pool created so far, all at once, so no early request pays a TLS
+ * handshake. Server start calls it once the identity mount exists.
+ */
 export function warmPools(): Promise<unknown> {
-	return Promise.all([...pools.values()].map((db) => db.execute(sql`SELECT 1`)));
+	const request = requestDatabase();
+	return Promise.all(
+		[...pools.values()].map(async (db) => {
+			const held = await Promise.allSettled(
+				Array.from({ length: db === request ? REQUEST_CONNECTIONS : 1 }, () => checkoutClient(db)),
+			);
+			for (const r of held) if (r.status === "fulfilled") r.value.client.release();
+			const failed = held.find((r) => r.status === "rejected");
+			if (failed) throw failed.reason;
+		}),
+	);
 }
