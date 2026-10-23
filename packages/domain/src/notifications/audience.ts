@@ -35,30 +35,46 @@ function liveAccount(session: string, accountId: string) {
 export async function readAssociationAudience(db: Database, authority: RequestActor, raw: unknown) {
 	return readReply(async () => {
 		const input = parse(readAssociationAudienceRequest, raw);
-		const result = await db.execute(sql`WITH allowed AS (
-				SELECT ${liveAccount(authority.session, authority.actor.accountId)}
+		const org = input.organizationId;
+		const discovery = input.discoveryAccountId;
+		const result = await db.execute(sql`WITH caller AS (
+				SELECT 1 AS ok
+				WHERE ${liveAccount(authority.session, authority.actor.accountId)}
 					AND EXISTS (
 						SELECT FROM seat mine
 						WHERE mine.account_id = ${authority.actor.accountId}::uuid
-							AND mine.organization_id = ${input.organizationId}::uuid
+							AND mine.organization_id = ${org}::uuid
 							AND mine.role IN ('owner','admin') AND mine.ended_at IS NULL
 							AND mine.accepted_at <= clock_timestamp()
 					)
+			),
+			linked AS (
+				SELECT ${discovery}::uuid AS account_id
+				WHERE EXISTS (SELECT FROM caller)
 					AND EXISTS (
 						SELECT FROM affiliation a
-						JOIN seat planter ON planter.plant_id = a.plant_id
-							AND planter.account_id = ${input.discoveryAccountId}::uuid
-							AND planter.ended_at IS NULL AND planter.accepted_at <= clock_timestamp()
-						WHERE a.organization_id = ${input.organizationId}::uuid
-							AND a.ended_at IS NULL AND a.accepted_at IS NOT NULL
-					) AS ok
+						WHERE a.organization_id = ${org}::uuid
+							AND a.ended_at IS NULL AND a.accepted_at <= clock_timestamp()
+							AND (
+								a.account_id = ${discovery}::uuid
+								OR EXISTS (
+									SELECT FROM seat planter
+									WHERE planter.plant_id = a.plant_id
+										AND planter.account_id = ${discovery}::uuid
+										AND planter.ended_at IS NULL AND planter.accepted_at <= clock_timestamp()
+								)
+							)
+					)
 			)
-			SELECT (SELECT ok FROM allowed) AS allowed,
-				COALESCE((SELECT json_agg(s.account_id ORDER BY s.account_id) FROM seat s
-					WHERE (SELECT ok FROM allowed)
-						AND s.organization_id = ${input.organizationId}::uuid AND s.role = 'owner'
+			SELECT EXISTS (SELECT FROM linked) AS allowed,
+				COALESCE((SELECT json_agg(account_id ORDER BY account_id) FROM (
+					SELECT account_id FROM linked
+					UNION
+					SELECT s.account_id FROM seat s
+					WHERE EXISTS (SELECT FROM linked)
+						AND s.organization_id = ${org}::uuid AND s.role = 'owner'
 						AND s.ended_at IS NULL AND s.accepted_at <= clock_timestamp()
-				), '[]'::json) AS ids`);
+				) recipients), '[]'::json) AS ids`);
 		const row = idsRow.parse({ ...result.rows[0], ids: jsonValue(result.rows[0]?.ids) });
 		if (!row.allowed) deny("access_denied");
 		return associationAudienceResult.parse({ recipientIds: row.ids });

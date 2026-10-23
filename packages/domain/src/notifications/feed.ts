@@ -69,14 +69,14 @@ function feedSql(
 					'read', n.read_at IS NOT NULL,
 					'dueLocalDate', n.schedule_date,
 					'overdue', ${overdueSql(asOf)},
-					'cursorAt', to_char(n.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')
-				) AS item, n.created_at AS sort_at, n.id AS sort_id
+					'cursorAt', to_char(n.eligible_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')
+				) AS item, n.eligible_at AS sort_at, n.id AS sort_id
 				FROM notice n
 				WHERE ${noticeVisible()}
 					AND (${category}::text IS NULL OR split_part(n.logical_key,'/',2) = ${category})
 					AND (${unread}::boolean IS NOT TRUE OR n.read_at IS NULL)
-					AND (${cursorAt}::timestamptz IS NULL OR (n.created_at, n.id) < (${cursorAt}::timestamptz, ${cursorId}::uuid))
-				ORDER BY n.created_at DESC, n.id DESC
+					AND (${cursorAt}::timestamptz IS NULL OR (n.eligible_at, n.id) < (${cursorAt}::timestamptz, ${cursorId}::uuid))
+				ORDER BY n.eligible_at DESC, n.id DESC
 				LIMIT ${PAGE + 1}
 				OFFSET ${offset}
 			) page), '[]'::json) AS items`;
@@ -142,8 +142,9 @@ async function mark(
 	ids: string[] | null,
 	cutoff: string | null,
 ) {
+	// eligibleAt is an instant, so it stops at milliseconds. Include that whole millisecond.
 	const eligible = cutoff
-		? sql`n.eligible_at <= ${cutoff}::timestamptz AND n.eligible_at <= clock_timestamp()`
+		? sql`n.eligible_at < ${cutoff}::timestamptz + interval '1 millisecond' AND n.eligible_at <= clock_timestamp()`
 		: sql`n.eligible_at <= clock_timestamp()`;
 	const idFilter = ids ? sql`n.id = ANY(${sql.param(ids)}::uuid[])` : sql`true`;
 	const markedFrom = sql.raw(cutoff ? "updated" : "visible");

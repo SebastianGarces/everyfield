@@ -248,6 +248,36 @@ test("AC:CASE-NTF-003 AC:NOTIFY47-001 AC:NOTIFY47-010 the feed and mark stay ins
 	assert.equal(sameSecond.items.length, 10);
 	assert.equal(sameIds.size, 60);
 	assert.equal(samePage.items.length, 10);
+	const dueChurch = await plant("Due");
+	const duePerson = await identity(dueChurch);
+	const dueTask = await task(dueChurch.id);
+	await admin.execute(sql`INSERT INTO notice(tenant_id,recipient_id,category,purpose,logical_key,source_record_id,source_revision,title,eligible_at,created_at,timezone)
+		SELECT ${dueChurch.id},${duePerson.id},'task','task_due',${dueChurch.id} || '/task_due/' || ${dueTask} || '/' || g::text || '/old',${dueTask},g,'Yesterday ' || g,
+			clock_timestamp() - interval '1 day', clock_timestamp() - interval '1 day', 'America/Chicago'
+		FROM generate_series(1,60) g`);
+	const justDue = randomUUID();
+	await admin.execute(sql`INSERT INTO notice(id,tenant_id,recipient_id,category,purpose,logical_key,source_record_id,source_revision,title,eligible_at,created_at,timezone)
+		VALUES(${justDue},${dueChurch.id},${duePerson.id},'task','task_due',${dueChurch.id + "/task_due/" + dueTask + "/1/just"},${dueTask},1,'Just due',
+			clock_timestamp() - interval '1 minute', clock_timestamp() - interval '30 days', 'America/Chicago')`);
+	const dueFeed = ok(await api.readFeed(db, await actor(duePerson.session), {}));
+	assert.equal(dueFeed.items[0].id, justDue);
+	assert.equal(dueFeed.items.length, 50);
+	const preciseChurch = await plant("Precise");
+	const precise = await identity(preciseChurch);
+	const preciseTask = await task(preciseChurch.id);
+	const shown = randomUUID();
+	const laterMs = randomUUID();
+	await admin.execute(sql`INSERT INTO notice(id,tenant_id,recipient_id,category,purpose,logical_key,source_record_id,source_revision,title,eligible_at,created_at,timezone)
+		VALUES
+		(${shown},${preciseChurch.id},${precise.id},'task','task_due',${preciseChurch.id + "/task_due/" + preciseTask + "/1/shown"},${preciseTask},1,'Shown',timestamptz '2026-10-20 12:00:00.123456+00',clock_timestamp(),'America/Chicago'),
+		(${laterMs},${preciseChurch.id},${precise.id},'task','task_due',${preciseChurch.id + "/task_due/" + preciseTask + "/1/later"},${preciseTask},1,'Next millisecond',timestamptz '2026-10-20 12:00:00.124000+00',clock_timestamp(),'America/Chicago')`);
+	const preciseReader = await actor(precise.session);
+	const preciseFeed = ok(await api.readFeed(db, preciseReader, {}));
+	const shownItem = preciseFeed.items.find((row) => row.id === shown);
+	assert.equal(shownItem.eligibleAt, "2026-10-20T12:00:00.123Z");
+	const preciseMarked = ok(await api.markAllVisibleRead(db, preciseReader, command({ cutoff: shownItem.eligibleAt })));
+	assert.deepEqual(preciseMarked.markedIds, [shown]);
+	assert.equal(await count(sql`SELECT count(*)::int AS n FROM notice WHERE id=${laterMs} AND read_at IS NULL`), 1);
 	const meeting = randomUUID();
 	await admin.execute(
 		sql`INSERT INTO meeting(id,plant_id,type,title,creator_id,local_date,local_time,timezone,starts_at,resolver_version,status,attendance_revision) VALUES(${meeting},${church.id},'vision_meeting','Vision',${a.id},'2026-10-13','18:00','America/Chicago','2026-10-13T23:00:00Z','1','completed',1)`,
@@ -632,8 +662,24 @@ test("AC:CASE-NTF-014 AC:NOTIFY47-009 AC:WIKI52-002 wiki notices stay in the app
 	const audience = ok(
 		await api.readAssociationAudience(db, reader, { organizationId: network.id, discoveryAccountId: planter.id }),
 	);
-	assert.deepEqual(audience.recipientIds, [editor.id]);
+	assert.deepEqual(audience.recipientIds, [editor.id, planter.id].sort());
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM plant`), plantsBefore);
+	const discovery = await identity();
+	await admin.execute(sql`INSERT INTO affiliation(id,account_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
+		VALUES(${randomUUID()},${discovery.id},${network.id},clock_timestamp(),false,false,false,false,false,false,false)`);
+	const seatless = ok(
+		await api.readAssociationAudience(db, reader, {
+			organizationId: network.id,
+			discoveryAccountId: discovery.id,
+		}),
+	);
+	assert.deepEqual(seatless.recipientIds, [discovery.id, editor.id].sort());
+	assert.equal(await count(sql`SELECT count(*)::int AS n FROM plant`), plantsBefore);
+	const loose = await identity();
+	denied(
+		await api.readAssociationAudience(db, reader, { organizationId: network.id, discoveryAccountId: loose.id }),
+		"access_denied",
+	);
 	const stranger = await identity();
 	denied(
 		await api.readAssociationAudience(db, await actor(stranger.session), {

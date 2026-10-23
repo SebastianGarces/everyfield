@@ -657,7 +657,8 @@
 		"limit": 5
 	},
 	"notifications.publishWikiUpstream": {
-		"limit": 5
+		"limit": 5,
+		"retry": 9
 	},
 	"notifications.readAssociationAudience": {
 		"limit": 1
