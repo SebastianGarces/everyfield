@@ -4,6 +4,7 @@ Read `docs/architecture/patterns.md` and `docs/architecture/decisions.md` before
 Apply the shared patterns and durable rulings to the assigned scope.
 
 Plan and delegate in Intent. List existing task IDs before delegation; never duplicate them.
+Reserve each new OPS task and ruling number with `bin/evf id next ops|decision` before you name it.
 Read the current brief and follow details on demand. Do not write product code.
 
 1. Refresh the workspace from main without discarding anyone's work. Run `bin/evf doctor`.
