@@ -353,7 +353,7 @@ try {
 	]);
 	assert.equal(noted.status, "ok");
 	// Person fields (WP-012/ui): a skill save and its replay after a lost answer (the save lane sends the same key once
-	// more), a tag on the person and its replay, and the reads a conflict sends to show the latest skills and photo.
+	// more), a Member's refused skill, a tag on the person and its replay, and the reads a conflict sends to show the latest skills and photo.
 	const fields = "apps/web/src/features/people/fields/actions.ts";
 	const page = `/people/${personId}`;
 	const skillKey = randomUUID();
@@ -362,6 +362,16 @@ try {
 	assert.equal(skilled.status, "ok", JSON.stringify(skilled));
 	const skillReplay = await act("POST people.fields.addSkill (replay)", page, fields, "addSkill", [skillKey, skill]);
 	assert.deepEqual(skillReplay.value.skills, skilled.value.skills);
+	// A Member may not change skills: the refusal on the gate's locks is the answer, with no second run (RT-6b).
+	const memberSkill = await act(
+		"POST people.fields.addSkill (member)",
+		page,
+		fields,
+		"addSkill",
+		[randomUUID(), { ...skill, name: "Organ" }],
+		member.cookie,
+	);
+	assert.equal(memberSkill.status, "refused", JSON.stringify(memberSkill));
 	const tagKey = randomUUID();
 	const tagged = await act("POST people.fields.addPersonTag", page, fields, "addPersonTag", [
 		tagKey,

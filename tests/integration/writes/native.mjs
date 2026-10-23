@@ -58,9 +58,9 @@ try {
 	);
 	assert.equal(created.status, "ok");
 	if (created.status !== "ok") throw Error("create_refused");
-	// A lost reply: the same request again. The first attempt's write meets the stored key, and the established run
-	// replays the first answer (RT-3); the budget counts both as one retry.
-	const replayed = await run("createPerson", (tx, ctx) =>
+	// A lost reply: the same request again. The first attempt's write meets the stored key, and one read answers the
+	// stored reply without a transaction (RT-6b).
+	const replayed = await run("createPerson:replay", (tx, ctx) =>
 		peopleWriter.createPerson(tx, ctx, { requestKey: createKey, input: { displayName: "Synthetic native" } }),
 	);
 	assert.deepEqual(JSON.parse(JSON.stringify(replayed)), JSON.parse(JSON.stringify(created)));
@@ -99,8 +99,8 @@ try {
 	};
 	const currentRevision = async (id) =>
 		(await f.db.execute(sql`SELECT revision::text AS r FROM person WHERE id=${id}::uuid`)).rows[0].r;
-	const rename = (requestKey, expectedRevision, displayName) =>
-		run("updatePerson", (tx, ctx) =>
+	const rename = (requestKey, expectedRevision, displayName, sample = "updatePerson") =>
+		run(sample, (tx, ctx) =>
 			peopleWriter.updatePerson(tx, ctx, {
 				requestKey,
 				expectedRevision,
@@ -112,12 +112,12 @@ try {
 	assert.equal(changed.status, "ok");
 	if (changed.status !== "ok") throw Error("update_refused");
 	assert.equal(changed.value.person.displayName, "Changed");
-	same(await rename(renameKey, created.value.person.revision, "Changed"), changed);
+	same(await rename(renameKey, created.value.person.revision, "Changed", "updatePerson:replay"), changed);
 	const busy = await whileChurchBusy(() => rename(randomUUID(), changed.value.person.revision, "Changed while busy"));
 	assert.equal(busy.status, "ok", JSON.stringify(busy));
 	if (busy.status !== "ok") throw Error("busy_update_refused");
-	const addNote = (requestKey, expectedRevision, body) =>
-		run("addNote", (tx, ctx) =>
+	const addNote = (requestKey, expectedRevision, body, sample = "addNote") =>
+		run(sample, (tx, ctx) =>
 			peopleWriter.addNote(tx, ctx, {
 				requestKey,
 				expectedRevision,
@@ -128,24 +128,25 @@ try {
 	const noteRevision = await currentRevision(created.value.person.id);
 	const note = await addNote(noteKey, noteRevision, "Synthetic note");
 	assert.equal(note.status, "ok", JSON.stringify(note));
-	same(await addNote(noteKey, noteRevision, "Synthetic note"), note);
+	same(await addNote(noteKey, noteRevision, "Synthetic note", "addNote:replay"), note);
 	const busyNote = await whileChurchBusy(async () =>
 		addNote(randomUUID(), await currentRevision(created.value.person.id), "Synthetic note while busy"),
 	);
 	assert.equal(busyNote.status, "ok", JSON.stringify(busyNote));
-	// Each busy write and each replay ran the established way after its first attempt: the counter saw the retry. Every
-	// other first attempt of these single-path writes, createPerson's included, committed on its own.
-	const retries = (await readFile(process.env.EVF_WRITE_COUNTS, "utf8"))
+	// Each busy write ran the established way after its first attempt: the counter saw the retry. Each replay read its
+	// stored answer instead, with no transaction (RT-6b). Every other first attempt committed on its own.
+	const singles = (await readFile(process.env.EVF_WRITE_COUNTS, "utf8"))
 		.trim()
 		.split("\n")
 		.map((line) => JSON.parse(line))
 		.filter(
-			(row) =>
-				row.kind === "sample" &&
-				["native.people.createPerson", "native.people.updatePerson", "native.people.addNote"].includes(row.name),
-		)
-		.filter((row) => row.rollbacks > 0).length;
-	assert.equal(retries, 5, "three replays and two busy writes count as retries");
+			(row) => row.kind === "sample" && /^native\.people\.(createPerson|updatePerson|addNote)(:|$)/.test(row.name),
+		);
+	assert.deepEqual(
+		singles.filter((row) => row.rollbacks > 0 || row.kinds.transaction).map((row) => row.name),
+		["native.people.updatePerson", "native.people.addNote"],
+		"only the two busy writes ran a transaction",
+	);
 
 	// WP-012 people fields, as the web mount runs them: writes in withPeopleWrite, reads in one read transaction with the
 	// request's actor. Reads and writes whose work could grow with rows run at two sizes and must use the same count.
