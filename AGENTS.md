@@ -16,7 +16,8 @@ Current requirements and cases live in `docs/catalog/index.json`. Keep this file
    Ship requires green required GitHub CI, independent approval and a valid PR body.
 
 Use `bin/evf help` for commands. IDs are WP-NNN, WP-NNN/api or /ui,
-FB-<n> for feedback and OPS-<n> for tooling maintenance.
+FB-<n> for feedback and OPS-<n> for tooling maintenance. Reserve a new OPS-<n> or ruling
+number D<n> with `bin/evf id next ops|decision`; never take the next number from main.
 
 ## Rules
 
@@ -24,7 +25,8 @@ FB-<n> for feedback and OPS-<n> for tooling maintenance.
   push directly to main or force-push. Preserve the owner approval routes from PR #13.
 - All UI work belongs to `ui-designer` on Opus 5.5.
 - Use one portless preview per worktree. No Vercel preview deployments.
-- Use the shared development database for checks. It may be wiped and reseeded.
+- Use the shared development database for behavior checks. It may be wiped and reseeded.
+  Timing sets run only through `bin/evf timing`, on its own quiet local database (D81).
   Production is separate. Never print credentials or use production for tests.
 - Follow `docs/architecture/patterns.md` and `docs/architecture/decisions.md` for shared mechanisms
   and durable rulings. Requirements describe end-state behavior.
