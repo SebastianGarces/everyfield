@@ -6,6 +6,8 @@ import { initials } from "@everyfield/ui/display";
 import { AppShell, RoleBanner, type ShellNav } from "@everyfield/ui/shell";
 import { createContext, use, useState, type ReactNode } from "react";
 import { useEvryPanel } from "../evry/conversation/EvryPanel.tsx";
+import { useNotificationBell } from "../notifications/Bell.tsx";
+import { NotificationsProvider } from "../notifications/feed.tsx";
 import { AccountMenu } from "../settings/AccountMenu";
 import { firstSection } from "../settings/model";
 import type { SectionSeed, SettingsViewer } from "../settings/port";
@@ -13,8 +15,9 @@ import { useProductSettings } from "../settings/ProductSettings";
 import type { Role } from "./server.ts";
 
 // The product frame around the People and Settings pages. Only destinations that exist are in the navigation; the full
-// product navigation, command palette and notifications come from their own packages and replace these when they
-// ship. Settings sits at the bottom of the rail and in the user menu behind the name button (screens.md, Overlays).
+// product navigation and command palette come from their own packages and replace these when they ship. The bell
+// opens the notification drop-down (WP-030). Settings sits at the bottom of the rail and in the user menu behind the
+// name button (screens.md, Overlays).
 
 const PEOPLE = { kind: "link", key: "people", label: "People", href: "/people", icon: UserMultipleIcon } as const;
 // Meetings is a dynamic page; it loads when chosen, not whenever the frame renders.
@@ -62,7 +65,9 @@ export function PeopleFrame({ settings: initial, seed, ...props }: FrameProps) {
 	return (
 		<ToastProvider>
 			<OwnSeat value={change}>
-				<Frame {...props} settings={settings} seed={settings === initial ? seed : null} />
+				<NotificationsProvider>
+					<Frame {...props} settings={settings} seed={settings === initial ? seed : null} />
+				</NotificationsProvider>
 			</OwnSeat>
 		</ToastProvider>
 	);
@@ -72,6 +77,7 @@ function Frame({ name, settings, seed = null, children }: FrameProps) {
 	const toast = useToast();
 	const dialog = useProductSettings(settings, seed);
 	const evry = useEvryPanel({ inPlant: settings?.context === "plant" });
+	const bell = useNotificationBell();
 	const role = settings && settings.context !== "account" ? settings.role : null;
 	// A plant Member reads People and Tasks and works on their own tasks; organization seats have neither.
 	const banner =
@@ -109,20 +115,21 @@ function Frame({ name, settings, seed = null, children }: FrameProps) {
 			user={{ name, initials: initials(name), detail: role ? ROLE[role] : "" }}
 			userMenu={<AccountMenu name={name} detail={seat} onAccount={() => dialog.open("account")} />}
 			homeHref="/people"
-			unread={0}
+			unread={bell.unread}
 			width="wide"
 			onSearch={() => {
 				const search = document.querySelector<HTMLInputElement>("[data-people-search]");
 				if (search) search.focus();
 				else later("Search")();
 			}}
-			onNotifications={later("Notifications")}
+			onNotifications={bell.open}
 			onAskEvry={evry.open}
 			banner={banner}
 		>
 			{children}
 			{dialog.element}
 			{evry.element}
+			{bell.element}
 		</AppShell>
 	);
 }
