@@ -920,20 +920,20 @@
 		"reason": "Platform operator publication, not a user request (RT-6a reviewed, kept). A preflight transaction checks the operator's grant before the protected artifact is read (4); then one transaction: the global publication lock, the grant again at the commit boundary, the request-key read, the current activation, the release lock, a set-based install (one statement per table), a re-read of every stored derivative before activation and one activation statement with its audit."
 	},
 	"seats.appointAdmin": {
-		"limit": 8,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 3 locked read, 2 read, 1 write."
+		"limit": 7,
+		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
 	},
 	"seats.changeOrdinaryRole": {
-		"limit": 8,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 3 locked read, 2 read, 1 write."
+		"limit": 7,
+		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
 	},
 	"seats.demote": {
-		"limit": 8,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 3 locked read, 2 read, 1 write."
+		"limit": 7,
+		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
 	},
 	"seats.remove": {
 		"limit": 15,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 7 locked read, 4 read, 2 write."
+		"reason": "Handing a dated, assigned task to another member replans its due and overdue reminders (the R4-1 fault, REQ-TSK-014); the shared reminder sync (notifications.syncTaskReminders) sends 2 statements for it (1 locked read, 1 write). A removal without such a task sends 13. Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 8 locked read, 2 read, 3 write."
 	},
 	"settings.cancelAccountDeletion": {
 		"limit": 4,
