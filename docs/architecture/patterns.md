@@ -16,6 +16,8 @@ The cached viewer names the actor. It does not prove access at the time of a lat
 
 Include tenant and active-seat authority in the write statement. Zero changed rows means refused or not found. Normal writes need no separate authorize call or advisory lock. Use a revision column checked in the same update only where people can actually edit the same record concurrently. A pipeline move updates one row's sortable position key.
 
+Known limit: writes for one account queue on the write gate, which locks the account row until COMMIT. This order is deliberate, not a defect. In F11, five parallel effect retries for one account waited up to 934 ms.
+
 ## Audit
 
 Write one append-only audit row per write with tenant, actor, action, subject type and identity, occurred_at, permitted changed fields with their before/after values, and an optional request_key. Write it in the same statement as the change, using a CTE. Activity and history read this audit record instead of requiring a separate operation ledger, per-module result tables, event table and per-module history tables. The [audit contract](audit.md) still limits fields and excludes private care. Personal settings audit records the changed field names and the section revision, never their before/after values, because those values are personal.
@@ -23,6 +25,8 @@ Write one append-only audit row per write with tenant, actor, action, subject ty
 ## Safe retries
 
 Use a request key only for actions a double submit or lost reply can repeat, such as forms and invitations. A unique tenant/request-key pair on that audit row lets a retry return the known result without writing again. Simple idempotent updates that set a value need no request key.
+
+A native write's first attempt does not read its request key. A replay meets the stored key at its write and then reads the stored answer in one statement per key, with the request actor's live access and no transaction. A refusal whose first attempt ran on the write gate's locks, or sent no statement, is the answer; it reads the key once only when the command reached its key check. A refusal that rests on an unlocked read reads the key, then reruns the established way without reading it again. A failed statement reruns the established way.
 
 ## Side effects
 
