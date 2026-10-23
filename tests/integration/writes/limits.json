@@ -188,7 +188,7 @@
 		"limit": 2
 	},
 	"jobs/queue.claimDue": {
-		"limit": 4
+		"limit": 1
 	},
 	"jobs/queue.enqueueJob": {
 		"limit": 2

@@ -162,12 +162,10 @@ export async function verifyPeople(
 	ids: readonly string[],
 ): Promise<SourceRow[]> {
 	if (!ids.length || !inPlant(actor)) return [];
-	const context = actor.authority.actor.context;
-	const seatId = context.kind === "seat" ? context.seatId : undefined;
 	const r = await db.execute(sql`
 		SELECT p.id,p.display_name,p.city,p.stage FROM person p
 		WHERE p.id=ANY(${sql.param([...ids])}::uuid[]) AND p.tenant_id=${actor.owner.id}::uuid AND p.plant_id=${actor.owner.id}::uuid
-			AND p.state='live' AND ${liveRead({ session: actor.session, owner: actor.owner, seatId })}
+			AND p.state='live' AND ${liveRead({ session: actor.session, owner: actor.owner, seatId: actor.seatId ?? undefined })}
 		ORDER BY array_position(${sql.param([...ids])}::uuid[], p.id)`);
 	return r.rows.map((raw) => {
 		const p = verifiedRow.parse(raw);
