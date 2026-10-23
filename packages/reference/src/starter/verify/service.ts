@@ -5,7 +5,7 @@ import "server-only";
 import { canonical, hash, stableId, vectorHash } from "../../hash.ts";
 import { chunkEntries } from "../../bundle.ts";
 import { approvedWiki } from "../manifest/approved.ts";
-import { localEmbedding } from "./embed.ts";
+import { resolveWikiEmbedding, type ResolvedWikiEmbedding, type WikiEmbedder, type WikiEmbedFetch } from "./embed.ts";
 import { loadApprovedSnapshot, WikiRefusal } from "./snapshot.ts";
 import type { ApprovedSnapshot, WikiErrorCode } from "./snapshot.ts";
 
@@ -72,7 +72,10 @@ export interface WikiCaller {
 export interface WikiDependencies {
 	root?: URL;
 	loadSnapshot?: () => Promise<ApprovedSnapshot>;
-	embed?: (text: string) => readonly number[];
+	embed?: WikiEmbedder;
+	embeddingProfile?: string;
+	embeddingDimensions?: number;
+	fetch?: WikiEmbedFetch;
 }
 type InstallCommand = z.infer<typeof installSchema>;
 type PassageRow = {
@@ -146,11 +149,11 @@ function requirePins(manifestSha256: string, payloadSha256: string): void {
 function commandDigest(value: Record<string, string>): string {
 	return hash(canonical(value));
 }
-function planPassages(
+async function planPassages(
 	snapshot: ApprovedSnapshot,
 	release: string,
-	embed: (text: string) => readonly number[],
-): PassageRow[] | null {
+	embedding: ResolvedWikiEmbedding,
+): Promise<PassageRow[] | null> {
 	try {
 		const entries = snapshot.articles.map((article) => ({
 			id: article.id,
@@ -173,19 +176,24 @@ function planPassages(
 			slug: article.slug,
 			sectionId: article.sectionId,
 		}));
+		const chunks = chunkEntries(entries);
+		const raws: (readonly number[])[] = [];
+		if (embedding.embedMany) raws.push(...(await embedding.embedMany(chunks.map((chunk) => chunk.text))));
+		else for (const chunk of chunks) raws.push(await embedding.embed(chunk.text));
+		if (raws.length !== chunks.length) return null;
 		const passages: PassageRow[] = [];
-		for (const chunk of chunkEntries(entries)) {
-			const raw = embed(chunk.text);
-			if (raw.length !== approvedWiki.embeddingDimensions || raw.some((value) => !Number.isFinite(value))) return null;
-			const embedding = raw.map((value) => Math.fround(value));
+		for (const [index, chunk] of chunks.entries()) {
+			const raw = raws[index];
+			if (!raw || raw.length !== embedding.dimensions || raw.some((value) => !Number.isFinite(value))) return null;
+			const vector = raw.map((value) => Math.fround(value));
 			passages.push({
 				id: stableId(`passage:${release}:${chunk.revisionId}:${chunk.ordinal}`),
 				revision: chunk.revisionId,
 				ordinal: chunk.ordinal,
 				body: chunk.text,
 				hash: chunk.contentHash,
-				vector: JSON.stringify(embedding),
-				checksum: vectorHash(embedding),
+				vector: JSON.stringify(vector),
+				checksum: vectorHash(vector),
 			});
 		}
 		return passages;
@@ -256,11 +264,20 @@ function writeSql(input: {
 	fault: string;
 	reason: string;
 	passages: number;
+	embeddingProfile: string;
+	embeddingDimensions: number;
 	items: unknown[];
 	versions: unknown[];
 	articles: unknown[];
 	passageRows: readonly PassageRow[];
 }): string {
+	if (
+		!/^[a-z0-9-]{1,64}$/.test(input.embeddingProfile) ||
+		!Number.isSafeInteger(input.embeddingDimensions) ||
+		input.embeddingDimensions < 1 ||
+		input.embeddingDimensions > 4096
+	)
+		throw new WikiRefusal("incomplete_candidate", "embedding_profile");
 	const body = `
 DECLARE
   v_actor uuid := ${quote(input.caller.actorId)}::uuid;
@@ -357,8 +374,8 @@ BEGIN
       tenant_id, expected_passages
     )
     SELECT v_new_release, v_release_key, v_locator, v_payload_sha, 'validated', clock_timestamp(), clock_timestamp(),
-      v_approval, v_payload_sha, ${quote(approvedWiki.chunker)}, ${quote(approvedWiki.embeddingProfile)},
-      ${approvedWiki.embeddingDimensions}, v_global, v_expected_passages
+      v_approval, v_payload_sha, ${quote(approvedWiki.chunker)}, ${quote(input.embeddingProfile)},
+      ${input.embeddingDimensions}, v_global, v_expected_passages
     WHERE NOT EXISTS (SELECT 1 FROM reference_release WHERE release_key = v_release_key);
     SELECT id INTO v_saved FROM reference_release WHERE release_key = v_release_key;
     INSERT INTO reference_item(id, kind, canonical_key, tenant_id)
@@ -430,7 +447,7 @@ END`;
 }
 
 export function referenceService(db: Database, deps: WikiDependencies = {}) {
-	const embed = deps.embed ?? localEmbedding;
+	const embedding = resolveWikiEmbedding(process.env, deps);
 	async function snapshot(): Promise<ApprovedSnapshot> {
 		return deps.loadSnapshot ? deps.loadSnapshot() : loadApprovedSnapshot(deps.root);
 	}
@@ -485,6 +502,8 @@ export function referenceService(db: Database, deps: WikiDependencies = {}) {
 				fault: command.fault ?? "",
 				reason: command.kind === "rollback" ? approvedWiki.rollbackReason : approvedWiki.version,
 				passages: 0,
+				embeddingProfile: approvedWiki.embeddingProfile,
+				embeddingDimensions: approvedWiki.embeddingDimensions,
 				items: built.items,
 				versions: built.versions,
 				articles: built.articles,
@@ -501,7 +520,7 @@ export function referenceService(db: Database, deps: WikiDependencies = {}) {
 		const command = parsed.data;
 		requirePins(command.manifestSha256, command.payloadSha256);
 		const loaded = await snapshot();
-		const passageRows = planPassages(loaded, command.release, embed);
+		const passageRows = await planPassages(loaded, command.release, embedding);
 		if (!passageRows) return { activated: false, activeRelease: null, activationNumber: null, passages: 0 };
 		const built = rowsFor(loaded, command.release, passageRows);
 		const digest = commandDigest({
@@ -523,6 +542,8 @@ export function referenceService(db: Database, deps: WikiDependencies = {}) {
 				fault: "",
 				reason: approvedWiki.version,
 				passages: passageRows.length,
+				embeddingProfile: embedding.profile,
+				embeddingDimensions: embedding.dimensions,
 				items: built.items,
 				versions: built.versions,
 				articles: built.articles,
