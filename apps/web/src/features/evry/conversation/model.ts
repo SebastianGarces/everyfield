@@ -96,20 +96,24 @@ export type State = {
 
 export const EMPTY: State = { conversation: null, events: [], activeTurnId: null, stopping: false, sends: [] };
 
-const TERMINAL = new Set(["succeeded", "failed", "cancelled", "superseded"]);
-
 /** A conversation as the API reads it: its saved events and the state of its active run. */
 export type ReadConversation = {
 	conversation: Conversation;
-	run: { turnId: string; state: string | null } | null;
+	/**
+	 * The active run: running while its job can make progress, lost once it cannot. The stream saves a lost run's end
+	 * (closeLostRun) and delivers it, so the panel waits for both.
+	 */
+	run: { turnId: string; state: "running" | "lost" } | null;
 	events: ConversationEvent[];
 	more: boolean;
 };
 
-/** Opens a conversation read from the server. A run whose job already ended is not waited for. */
+/** Opens a conversation read from the server, waiting for its active run's final status. */
 export function opened(read: ReadConversation): State {
-	const run = read.run && !TERMINAL.has(read.run.state ?? "") ? read.run.turnId : null;
-	return { ...merge({ ...EMPTY, conversation: read.conversation }, read.events), activeTurnId: run };
+	return {
+		...merge({ ...EMPTY, conversation: read.conversation }, read.events),
+		activeTurnId: read.run?.turnId ?? null,
+	};
 }
 
 /** The highest saved sequence the panel has: the cursor for the next read or stream. */
