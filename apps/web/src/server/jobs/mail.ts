@@ -5,6 +5,7 @@ import { notificationCategory } from "@everyfield/contracts/settings";
 import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { z } from "zod";
+import { executeWrites } from "@everyfield/domain/operations";
 import { transaction } from "../platform/database.ts";
 import { finishClaim, lockClaim, checkpoint, claimSchema, DEFAULT_LEASE_SECONDS, type Claim } from "./queue.ts";
 
@@ -202,8 +203,8 @@ export function createMailService(config: {
 		}
 		return (await config.authorize(tx, [authority(m)])).has(m.id);
 	}
-	async function audit(tx: Transaction, m: z.infer<typeof stored>, key: string, action: string) {
-		await tx
+	function audit(tx: Transaction, m: z.infer<typeof stored>, key: string, action: string) {
+		return tx
 			.insert(tables.audit_event)
 			.values({
 				tenant_id: m.tenant_id,
@@ -468,25 +469,28 @@ export function createMailService(config: {
 			);
 			const to = z.email().parse(open(m.recipient_address_encrypted, aad(m.id, m.tenant_id, "address")));
 			const attempt = randomUUID();
-			await tx
-				.update(tables.mail_request)
-				.set({
-					first_dispatched_at:
-						sql<Date>`coalesce(${tables.mail_request.first_dispatched_at}, clock_timestamp())`.mapWith(
-							(value: string) => new Date(value),
-						),
-				})
-				.where(eq(tables.mail_request.id, r.id));
-			await tx.insert(tables.mail_attempt).values({
-				id: attempt,
-				tenant_id: m.tenant_id,
-				request_id: r.id,
-				attempt_number: claim.attempt_count,
-				claim_generation: sql`${claim.claim_generation}`,
-				started_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
-				outcome: "in_flight",
-			});
-			await tx.update(tables.mail).set({ state: "dispatched" }).where(eq(tables.mail.id, m.id));
+			// The request's first send time, the in-flight attempt and the dispatched state: one statement.
+			await executeWrites(tx, [
+				tx
+					.update(tables.mail_request)
+					.set({
+						first_dispatched_at:
+							sql<Date>`coalesce(${tables.mail_request.first_dispatched_at}, clock_timestamp())`.mapWith(
+								(value: string) => new Date(value),
+							),
+					})
+					.where(eq(tables.mail_request.id, r.id)),
+				tx.insert(tables.mail_attempt).values({
+					id: attempt,
+					tenant_id: m.tenant_id,
+					request_id: r.id,
+					attempt_number: claim.attempt_count,
+					claim_generation: sql`${claim.claim_generation}`,
+					started_at: sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value)),
+					outcome: "in_flight",
+				}),
+				tx.update(tables.mail).set({ state: "dispatched" }).where(eq(tables.mail.id, m.id)),
+			]);
 			await checkpoint(tx, claim, "external");
 			return {
 				m,
@@ -505,7 +509,8 @@ export function createMailService(config: {
 		const recorded = await transaction(config.db, async (tx) => {
 			if (!(await lockClaim(tx, claim))) return false;
 			const { m, attempt } = prepared;
-			await tx
+			// The attempt's outcome, the mail's state and its outcome audit row: one statement.
+			const completed = tx
 				.update(tables.mail_attempt)
 				.set({
 					outcome: outcome.kind,
@@ -516,26 +521,35 @@ export function createMailService(config: {
 				.where(eq(tables.mail_attempt.id, attempt));
 			if (outcome.kind === "accepted") {
 				z.string().min(1).max(128).parse(outcome.id);
-				await tx
-					.update(tables.mail)
-					.set({
-						state: "accepted",
-						provider_message_id: outcome.id,
-						accepted_at: sql<Date>`coalesce(${tables.mail.accepted_at}, clock_timestamp())`.mapWith(
-							(value: string) => new Date(value),
-						),
-					})
-					.where(eq(tables.mail.id, m.id));
-				await audit(tx, m, attempt, "mail.accepted");
+				await executeWrites(tx, [
+					completed,
+					tx
+						.update(tables.mail)
+						.set({
+							state: "accepted",
+							provider_message_id: outcome.id,
+							accepted_at: sql<Date>`coalesce(${tables.mail.accepted_at}, clock_timestamp())`.mapWith(
+								(value: string) => new Date(value),
+							),
+						})
+						.where(eq(tables.mail.id, m.id)),
+					audit(tx, m, attempt, "mail.accepted"),
+				]);
 				await finishClaim(tx, claim, { state: "succeeded" });
 			} else if (outcome.kind === "unknown") {
-				await tx.update(tables.mail).set({ state: "unknown" }).where(eq(tables.mail.id, m.id));
+				await executeWrites(tx, [
+					completed,
+					tx.update(tables.mail).set({ state: "unknown" }).where(eq(tables.mail.id, m.id)),
+				]);
 				await finishClaim(tx, claim, { state: "reconcile", code: "provider_unknown" });
 			} else {
-				await tx.update(tables.mail).set({ state: "refused" }).where(eq(tables.mail.id, m.id));
+				await executeWrites(tx, [
+					completed,
+					tx.update(tables.mail).set({ state: "refused" }).where(eq(tables.mail.id, m.id)),
+					audit(tx, m, attempt, "mail.refused"),
+				]);
 				// Authoritative refusal makes this checkpoint safe for the bounded retry path.
 				await checkpoint(tx, claim, "refused");
-				await audit(tx, m, attempt, "mail.refused");
 				await finishClaim(
 					tx,
 					claim,

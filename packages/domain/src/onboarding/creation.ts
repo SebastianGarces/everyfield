@@ -54,6 +54,7 @@ export const off = sharingChoices.parse({
 	shared_findings: false,
 });
 export const pending = { status: "pending" } as const;
+const startRow = z.object({ seats: z.number().int(), setup: z.boolean(), discovery: z.boolean() });
 export async function profile(tx: Tx, accountId: string, d: typeof t.discovery.$inferSelect) {
 	const links = await loadAffiliations(
 		tx,
@@ -118,20 +119,23 @@ async function provision(
 		selection: { kind: "create", displayName },
 	});
 	if (linked.status !== "ok" || linked.value.status !== "linked") deny();
-	await tx.insert(t.onboarding_setup).values({
-		plant_id: plantId,
-		account_id: account.id,
-		creation_operation_id: cx.id,
-		lead: { answer: "pending" },
-		journey: pending,
-		launch: pending,
-		people_step: "pending",
-	});
 	const creation = await recordCreationEntry(tx, cx, plantId);
-	await tx
-		.update(t.account)
-		.set({ registration_state: "active", revision: sql`${t.account.revision}+1` })
-		.where(eq(t.account.id, account.id));
+	// The setup row and the account's activation go in the command's final statement with its audit rows.
+	cx.writes.push(
+		tx.insert(t.onboarding_setup).values({
+			plant_id: plantId,
+			account_id: account.id,
+			creation_operation_id: cx.id,
+			lead: { answer: "pending" },
+			journey: pending,
+			launch: pending,
+			people_step: "pending",
+		}),
+		tx
+			.update(t.account)
+			.set({ registration_state: "active", revision: sql`${t.account.revision}+1` })
+			.where(eq(t.account.id, account.id)),
+	);
 	await event(tx, cx, plantId, "plant.created", "create");
 	await event(tx, cx, seat!.id, "membership.created", "create");
 	return {
@@ -168,17 +172,17 @@ export function creation(effects: OnboardingEffects) {
 				const cx = await begin(tx, ctx, a.account.id, "onboarding.createPlant", q);
 				if (cx.kind === "replay")
 					return c.createPlantResult.parse(await currentCreation(tx, ctx, c.createPlantResult.parse(cx.value)));
-				await seatless(tx, a.account.id);
-				const [prior] = await tx
-					.select()
-					.from(t.onboarding_setup)
-					.where(eq(t.onboarding_setup.account_id, a.account.id));
-				if (prior) deny("active_seat_conflict");
-				const associated = await tx
-					.select({ id: t.discovery.id })
-					.from(t.discovery)
-					.where(eq(t.discovery.account_id, a.account.id));
-				if (associated.length) deny("association_resolution_required");
+				// One statement locks the account's active seats and reads its setup and discovery; the gate already holds the
+				// account's lock, which every writer of these rows takes first.
+				const state = startRow.parse(
+					(
+						await tx.execute(sql`SELECT (SELECT count(*) FROM (SELECT id FROM seat WHERE account_id=${a.account.id}::uuid
+ AND ended_at IS NULL FOR UPDATE) s)::int AS seats, EXISTS(SELECT FROM onboarding_setup WHERE account_id=${a.account.id}::uuid) AS setup,
+ EXISTS(SELECT FROM discovery WHERE account_id=${a.account.id}::uuid) AS discovery`)
+					).rows[0],
+				);
+				if (state.seats || state.setup) deny("active_seat_conflict");
+				if (state.discovery) deny("association_resolution_required");
 				revision(q.expectedRevision, a.account.revision);
 				const result = await provision(tx, cx, a.account, q.input, a.principal.display_name);
 				await effects.enqueue(

@@ -740,13 +740,11 @@ export const accountPersonProducer: AccountPersonProducer<Tx> = {
 			if (selected.kind !== "plant") deny();
 			// Trusted collaborator, never a client account selector. Provisioning owns
 			// account proof/eligibility and enclosing transaction; these locks arbitrate retries.
-			const account = await tx
-				.select({ id: tables.account.id })
-				.from(tables.account)
-				.where(eq(tables.account.id, input.accountId))
-				.for("update");
-			if (!account.length) deny();
-			await tx.select({ id: tables.plant.id }).from(tables.plant).where(eq(tables.plant.id, selected.id)).for("update");
+			// One statement locks the account, then the plant: the plant's lock waits for the account's.
+			const locked = await tx.execute(sql`WITH a AS MATERIALIZED (SELECT id FROM account WHERE id=${input.accountId}::uuid FOR UPDATE)
+ SELECT (SELECT count(*) FROM a)::int AS accounts, (SELECT count(*) FROM (SELECT id FROM plant WHERE id=${selected.id}::uuid
+ AND EXISTS(SELECT FROM a) FOR UPDATE) p)::int AS plants`);
+			if (!z.object({ accounts: z.number() }).parse(locked.rows[0]).accounts) deny();
 			const exact = await tx
 				.select({ id: tables.person.id })
 				.from(tables.person)
@@ -763,24 +761,29 @@ export const accountPersonProducer: AccountPersonProducer<Tx> = {
 					personId: exact[0]!.id,
 				});
 			const ctx = { selected };
-			const candidates = await tx.execute(
-				sql`SELECT p.id FROM person p JOIN access_account_contact(${sql.param(input.accountId)}) a ON lower(p.email)=lower(a.email) WHERE p.plant_id=${sql.param(selected.id)} AND p.state='live' AND p.linked_account_id IS NULL AND a.verified ORDER BY p.id LIMIT 100 FOR UPDATE OF p`,
-			);
-			if (input.selection.kind === "resolve")
-				return candidates.rowCount
+			// Only resolve and reviewed_contact use the matching People; a new Person needs none.
+			const candidates = () =>
+				tx.execute(
+					sql`SELECT p.id FROM person p JOIN access_account_contact(${sql.param(input.accountId)}) a ON lower(p.email)=lower(a.email) WHERE p.plant_id=${sql.param(selected.id)} AND p.state='live' AND p.linked_account_id IS NULL AND a.verified ORDER BY p.id LIMIT 100 FOR UPDATE OF p`,
+				);
+			if (input.selection.kind === "resolve") {
+				const found = await candidates();
+				return found.rowCount
 					? c.accountPersonResolution.parse({
 							status: "needs_selection",
-							candidatePersonIds: candidates.rows.map((p) => p.id),
+							candidatePersonIds: found.rows.map((p) => p.id),
 						})
 					: deny("invalid_subject");
+			}
 			const writes: SQLWrapper[] = [];
 			let before: Person | undefined, linked: Person;
 			if (input.selection.kind === "reviewed_contact") {
+				const found = await candidates();
 				if (input.selection.person.owner.id !== selected.id || input.selection.person.owner.kind !== "plant") deny();
 				before = await person(tx, ctx, input.selection.person.personId, true);
 				live(before);
 				expected(before, input.selection.person.revision);
-				if (before.linked_account_id || !candidates.rows.some((x) => x.id === before!.id)) deny();
+				if (before.linked_account_id || !found.rows.some((x) => x.id === before!.id)) deny();
 				linked = personRow.parse({
 					...before,
 					linked_account_id: input.accountId,

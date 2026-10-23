@@ -125,6 +125,24 @@ test("AC:TEN-005 AC:SEC-02 AC:AUTH-002 INV-claim: wrong mailbox unverified accou
 	});
 	await denied(f.invitations.accept(s.recipient.session, i.claim));
 	assert.equal(await count(t.seat, eq(t.seat.account_id, s.recipient.id)), 0);
+	// RT-6a: the workspace's deletion witness, read by the command's admission check after the root lock, also refuses.
+	const s2 = await f.setup(),
+		i2 = await f.invitation(s2);
+	await f.admin.insert(t.lifecycle_witness).values({
+		id: key(),
+		kind: "plant",
+		opaque_subject_id: s2.w.id,
+		plant_id: s2.w.id,
+		state: "pending_deletion",
+		request_id: key(),
+		request_revision: "1",
+		requested_at: requested,
+		cancel_until: new Date(requested.getTime() + 30 * 86400000),
+		witness_checkpoint: "1",
+		cleanup_state: "not_started",
+	});
+	await denied(f.invitations.accept(s2.recipient.session, i2.claim));
+	assert.equal(await count(t.seat, eq(t.seat.account_id, s2.recipient.id)), 0);
 });
 test("AC:TARGET-IDN-017 INV-tenancy: active seat or independent Discovery association refuses a first seat without moving grants", async () => {
 	const s = await f.setup(),
