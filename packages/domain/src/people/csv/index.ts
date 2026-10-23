@@ -431,8 +431,9 @@ type FailedRow = { row: number; reason: "row_write_failed"; code: string; constr
  * The people_import job: write every remaining reviewed row in batches of one statement each. A batch the database
  * refuses for a row's values is split in halves until each failing row stands alone, so one bad row never fails its
  * neighbours; the run saves each failed row with the database's code and constraint, never its values. Any other error
- * ends the run with the rows still remaining, for the job to try again. The run ends by saving the failed rows, or by
- * clearing the payload when every row exists. "lost" means the lease or the importer's authority ended; nothing more
+ * ends the run with the rows still remaining, for the job to try again. Failed rows are saved during the run, so a
+ * resumed run starts after every row already created or failed. The run ends by saving the failed rows, or by clearing
+ * the payload when every row exists. "lost" means the lease or the importer's authority ended; nothing more
  * was written.
  */
 export async function runPeopleImport(db: Database, lease: Lease): Promise<"succeeded" | "lost"> {
@@ -443,11 +444,19 @@ export async function runPeopleImport(db: Database, lease: Lease): Promise<"succ
 			upload: z.string().nullable(),
 			plan: z.unknown(),
 			created: z.array(z.int()),
+			failed: z.array(
+				z.object({
+					row: z.int(),
+					reason: z.literal("row_write_failed"),
+					code: z.string(),
+					constraint: z.string().nullable(),
+				}),
+			),
 		})
 		.optional()
 		.parse(
 			(
-				await db.execute(sql`SELECT pi.id,pi.actor_id,pi.upload,pi.plan,
+				await db.execute(sql`SELECT pi.id,pi.actor_id,pi.upload,pi.plan,pi.failed,
  coalesce((SELECT jsonb_agg((e.metadata->'import'->>'row')::int) FROM audit_event e
   WHERE e.command_id=pi.id AND e.action='people.created'),'[]'::jsonb) AS created
  FROM person_import pi WHERE pi.job_id=${lease.id}::uuid AND pi.tenant_id=${lease.tenant_id}::uuid`)
@@ -459,13 +468,26 @@ export async function runPeopleImport(db: Database, lease: Lease): Promise<"succ
 	if (!actorId) return "lost";
 	const file = readFile(gunzipSync(Buffer.from(loaded.upload, "base64")));
 	const values = new Map(file.rows.flatMap((r) => (r.status === "valid" ? [[r.row, r.values] as const] : [])));
-	const done = new Set(loaded.created);
+	// Rows an earlier run created or saved as failed are done, so a stopped run's retry moves past them.
+	const done = new Set([...loaded.created, ...loaded.failed.map((f) => f.row)]);
 	const pending: SavedRow[] = savedPlan
 		.parse(loaded.plan)
 		.create.filter((r) => !done.has(r.row))
 		.map((r) => ({ ...r, values: values.get(r.row)! }));
-	const failed: FailedRow[] = [];
+	const failed: FailedRow[] = [...loaded.failed];
 	let lost = false;
+	// Failed rows are saved at least every 10 s while a batch is split, and saved progress starts a fresh retry budget,
+	// as scanPage does: a run the platform stops never repeats saved rows, so even a file whose rows all fail finishes.
+	let saved = failed.length,
+		savedAt = Date.now();
+	const save = async () => {
+		const r = await db.execute(sql`WITH saved AS (
+ UPDATE person_import SET failed=${JSON.stringify(failed)}::jsonb WHERE id=${loaded.id}::uuid AND ${holds(lease)} RETURNING id)
+ UPDATE job SET attempt_count=0,revision=revision+1 WHERE id=${lease.id}::uuid AND EXISTS(SELECT FROM saved) RETURNING id`);
+		if (!r.rows.length) lost = true;
+		saved = failed.length;
+		savedAt = Date.now();
+	};
 	const write = async (batch: SavedRow[]): Promise<void> => {
 		if (lost || !batch.length) return;
 		try {
@@ -473,15 +495,20 @@ export async function runPeopleImport(db: Database, lease: Lease): Promise<"succ
 		} catch (error) {
 			const why = rowFailure(error);
 			if (!why) throw error;
-			if (batch.length === 1) failed.push({ row: batch[0]!.row, reason: "row_write_failed", ...why });
-			else {
+			if (batch.length === 1) {
+				failed.push({ row: batch[0]!.row, reason: "row_write_failed", ...why });
+				if (Date.now() - savedAt > 10_000) await save();
+			} else {
 				const half = Math.ceil(batch.length / 2);
 				await write(batch.slice(0, half));
 				await write(batch.slice(half));
 			}
 		}
 	};
-	for (let i = 0; i < pending.length && !lost; i += BATCH) await write(pending.slice(i, i + BATCH));
+	for (let i = 0; i < pending.length && !lost; i += BATCH) {
+		await write(pending.slice(i, i + BATCH));
+		if (!lost && failed.length > saved && i + BATCH < pending.length) await save();
+	}
 	if (lost) return "lost";
 	const finished = await db.execute(sql`UPDATE person_import SET
  failed=${JSON.stringify(failed)}::jsonb,

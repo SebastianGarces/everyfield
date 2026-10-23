@@ -202,7 +202,7 @@
 		"limit": 1
 	},
 	"jobs/queue.finishClaim": {
-		"limit": 2
+		"limit": 1
 	},
 	"jobs/queue.recoverLease": {
 		"limit": 4
@@ -224,8 +224,8 @@
 		"reason": "RT-6 outlier. Its largest first run: 8 transaction, 7 locked read, 6 read, 3 write."
 	},
 	"mail.dispatch": {
-		"limit": 26,
-		"reason": "RT-6 outlier. Its largest first run: 4 transaction, 10 locked read, 3 read, 9 write."
+		"limit": 25,
+		"reason": "RT-6 outlier. Its largest first run: 4 transaction, 9 locked read, 3 read, 9 write."
 	},
 	"mail.enqueue": {
 		"limit": 3
