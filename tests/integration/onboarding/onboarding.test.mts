@@ -82,7 +82,19 @@ async function counts() {
 	return r.rows[0];
 }
 async function resume(f) {
-	return ok(await call("getResume", f.a, {}, f.p));
+	const value = ok(await call("getResume", f.a, {}, f.p));
+	// RT-6a: the one-statement entry read gives exactly the resume of the separate reads.
+	const viewer = await readViewer(db, writeSessionId.parse(f.a.session));
+	const entry = await readOnboardingEntry(
+		db,
+		api,
+		{ status: "active", accountId: f.a.id, sessionId: f.a.session, expiresAt: new Date(Date.now() + 3600000).toISOString() },
+		viewer.authority,
+		true,
+	);
+	assert.equal(entry.kind, "plant");
+	assert.deepEqual(entry.resume, value);
+	return value;
 }
 before(async () => {
 	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
@@ -1119,7 +1131,7 @@ async function verifiedWriteActor(session: string) {
 	});
 }
 
-test("INV-reads: the onboarding entry of a plant owner is one transaction with a fixed statement count and no locks", async (t) => {
+test("INV-reads: the onboarding entry of a plant owner is one statement with no locks (RT-6a)", async (t) => {
 	const f = await makePlant();
 	const viewer = await readViewer(db, writeSessionId.parse(f.a.session));
 	assert.equal(viewer.authority.actor.context.role, "owner");
@@ -1153,8 +1165,7 @@ test("INV-reads: the onboarding entry of a plant owner is one transaction with a
 	assert.equal(entry.plantName, "Harvest Point");
 	assert.equal(entry.resume.basics, "created");
 	t.diagnostic(JSON.stringify({ onboardingEntryStatements: statements.length }));
-	assert.ok(statements.length <= 12, `onboarding entry: ${statements.length} statements`);
-	assert.equal(statements.filter((q) => /^\s*BEGIN/i.test(q)).length, 1, "one transaction");
+	assert.equal(statements.length, 1, `onboarding entry: ${statements.length} statements`);
 	assert.equal(
 		statements.some((q) => /for\s+(update|share)|pg_advisory/i.test(q)),
 		false,

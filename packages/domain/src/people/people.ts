@@ -24,6 +24,7 @@ import {
 	personRow,
 	project,
 	reply,
+	replyWithoutSavepoint,
 } from "./core.ts";
 import type { Context, WriteContext, Tx, Person } from "./core.ts";
 import { lockTasks } from "../tasks/queries.ts";
@@ -734,7 +735,7 @@ async function pipelineOrder(tx: Tx, ctx: WriteContext, input: z.infer<typeof c.
 const placeRow = z.object({ revision: z.string(), found: z.boolean(), key: z.string().nullable() });
 export const accountPersonProducer: AccountPersonProducer<Tx> = {
 	async ensureAccountPerson(tx, raw) {
-		return reply(tx, async () => {
+		return replyWithoutSavepoint(tx, async () => {
 			const input = raw,
 				selected = owner.parse(input.owner);
 			if (selected.kind !== "plant") deny();
