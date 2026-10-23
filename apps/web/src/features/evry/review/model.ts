@@ -31,7 +31,7 @@ export type Review = {
 		changes: Change[];
 		withheld?: true;
 	};
-	/** "failed" is only on rows saved before #245, which said "nothing was changed" without proof (R5-3). */
+	/** "failed" is only on rows saved before PR 245, which said "nothing was changed" without proof (R5-3). */
 	outcome: "completed" | "failed" | "refused" | "unknown" | null;
 	executing: boolean;
 	receipt: { receiptId?: string; revision?: string; code?: string } | null;
