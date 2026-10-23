@@ -127,6 +127,7 @@ const schema = z.object({
 			monday_core_label: text,
 			teams_sign_core: text,
 			launch_team_member: text,
+			// Sample rows for the phases rail (one per demo seat). No page states how many ministries a church has.
 			ministry_areas: z.array(text).length(8),
 			share_unshared_status: text,
 			hero_dash_finding: text,

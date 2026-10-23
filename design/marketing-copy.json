@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "revision_note": "Revision 8 (2026-10-23, Sebastian's GTM review): cost FAQ on /oversight, an About section on home, the network path on /oversight goes to /access?role=network, a new /oversight problem text, smaller wording fixes, \"Sample data\" captions on the mockups that show the Austin Sending Network and a draft product-data section in the privacy policy. Revision 8 replaces Revision 5's rule that pages do not label sample data, for those /oversight mockups only. Revision 7 (2026-10-18): the home page tells story A (plan first: the vision, then this week) and /oversight tells story B (mission first: your plants and your future planters, then the proof). Both replace the earlier copy in the same keys. Revision 6 (2026-10-08): longer home hero subtext, lighter hero text and more space inside the panel. Revision 5 removes sample-data and placeholder labels; Revision 4 wording rules apply site-wide (Evry creates and assigns follow-up tasks, teams grow toward launch, gatherings happen when the planter holds them). Story A (journey) leads the home page and story B (oversight) leads /oversight.",
+  "revision_note": "Addendum (2026-10-23): no fixed number of ministries or Plant Intelligence lenses, no core group target, no Playbook anywhere rendered. Revision 8 (2026-10-23, Sebastian's GTM review): cost FAQ on /oversight, an About section on home, the network path on /oversight goes to /access?role=network, a new /oversight problem text, smaller wording fixes, \"Sample data\" captions on the mockups that show the Austin Sending Network and a draft product-data section in the privacy policy. Revision 8 replaces Revision 5's rule that pages do not label sample data, for those /oversight mockups only. Revision 7 (2026-10-18): the home page tells story A (plan first: the vision, then this week) and /oversight tells story B (mission first: your plants and your future planters, then the proof). Both replace the earlier copy in the same keys. Revision 6 (2026-10-08): longer home hero subtext, lighter hero text and more space inside the panel. Revision 5 removes sample-data and placeholder labels; Revision 4 wording rules apply site-wide (Evry creates and assigns follow-up tasks, teams grow toward launch, gatherings happen when the planter holds them). Story A (journey) leads the home page and story B (oversight) leads /oversight.",
   "review_status": {
     "note": "Sebastian approved the look of every page. On 2026-10-18 he chose story order A for the home page and story order B for /oversight, and approved their copy as verified at 6950ce1. On 2026-10-14 he approved the access, privacy and terms copy as drafted. Planters and trust copy is not yet reviewed.",
     "home": "look approved, copy approved 2026-10-18 (story A)",
@@ -102,7 +102,7 @@
     "intelligence": {
       "note": "Revision 17 (2026-10-09): the home Plant Intelligence section title. R4 (2026-10-15): the lead line and the four steps move here from the prototype's draft; the Evry step leads with setting up a vision meeting in one approval.",
       "title": "Know what needs you most.",
-      "lead": "Plant Intelligence reads your plant through eight lenses, such as emerging leadership and generosity.",
+      "lead": "Plant Intelligence reads your plant through lenses such as emerging leadership and generosity.",
       "steps": [
         {
           "panel": "focus",
@@ -753,7 +753,7 @@
             {
               "label": "Launch team",
               "title": "Set the date and fill the roles",
-              "short": "See which of the eight ministry areas still has no leader."
+              "short": "See which of your ministries still need a leader."
             },
             {
               "label": "Training",

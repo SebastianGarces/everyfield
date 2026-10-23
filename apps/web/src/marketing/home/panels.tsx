@@ -85,9 +85,10 @@ export function FocusPanel({ title }: { title: string }) {
 	);
 }
 
-/* Phase 1 exit benchmarks of the demo plant (PI-028): four met, the financial base still open. */
+/* Phase 1 exit benchmarks of the demo plant (PI-028): four met, the financial base still open. Addendum 2026-10-23: the
+   committed adults row shows the count with no target. */
 const BENCH = [
-	["Committed adults", "34, 30 needed"],
+	["Committed adults", "34"],
 	["New adults, last 28 days", "9"],
 	["Worship leader", "Maria Santos"],
 	["Community chosen", "Hyde Park"],
