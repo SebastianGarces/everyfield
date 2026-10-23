@@ -68,8 +68,8 @@
 		"limit": 5
 	},
 	"accountPerson.ensureAccountPerson": {
-		"limit": 8,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 5 locked read, 1 write."
+		"limit": 7,
+		"reason": "RT-6a: one statement locks the account then the plant; the exact linked Person is read after that lock (C88), then the write. The 7 is the reviewed_contact path: savepoint, locks, candidate read, Person read, write, release. A new Person costs 5 with its savepoint."
 	},
 	"accountPerson.ensureGuest": {
 		"limit": 5
@@ -129,9 +129,9 @@
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 4 transaction, 2 locked read, 12 read, 8 write."
 	},
 	"identity.handle:resume-registration": {
-		"limit": 33,
+		"limit": 18,
 		"retry": 13,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 4 transaction, 12 locked read, 11 read, 6 write."
+		"reason": "RT-6a: the session read (4, Better Auth adapter) and invitations.resume (14, see that entry)."
 	},
 	"identity.handle:revoke-other-sessions": {
 		"limit": 9,
@@ -151,8 +151,8 @@
 		"limit": 2
 	},
 	"invitations.accept": {
-		"limit": 28,
-		"reason": "RT-6 outlier. Its largest first run: 4 transaction, 12 locked read, 6 read, 6 write."
+		"limit": 14,
+		"reason": "Established path (C88), RT-6a: BEGIN; the timeouts, source invitation and workspace seat lock; the session's account (invitation_identity locks it); the invitation with its workspace and clock; the workspace root lock; the request-key and lifecycle read (prepareWrite); the account's seats and links locked together; the account's Person (ensureAccountPerson, 5 with its savepoint); one final statement with every change and audit row; COMMIT. Each lock is its own statement because a statement's snapshot predates its locks (C88). RT-6a brought it from 28."
 	},
 	"invitations.invite": {
 		"limit": 6
@@ -166,12 +166,12 @@
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 4 read, 2 write."
 	},
 	"invitations.respondResident": {
-		"limit": 26,
-		"reason": "RT-6 outlier. Its largest first run: 2 transaction, 10 locked read, 7 read, 7 write."
+		"limit": 15,
+		"reason": "Established path (C88), RT-6a: BEGIN; the timeouts, source invitation and workspace seat lock; the session's account (invitation_identity locks it); the invitation with its workspace and clock; the workspace root lock; the request-key and lifecycle read (prepareWrite); the source Person lock; the competing link read; the organization link lock (and insert when new); the link's witness; the residency link insert (its trigger locks the Person, so it precedes the final statement); one final statement; COMMIT. RT-6a brought it from 26."
 	},
 	"invitations.resume": {
-		"limit": 29,
-		"reason": "RT-6 outlier. Its largest first run: 4 transaction, 12 locked read, 7 read, 6 write."
+		"limit": 14,
+		"reason": "RT-6a: invitations.accept found by its proof in the same first statement; the same 14 statements (was 29)."
 	},
 	"invitations.revoke": {
 		"limit": 9,
@@ -218,11 +218,11 @@
 	},
 	"lifecycle.purge": {
 		"limit": 24,
-		"reason": "RT-6 outlier. Its largest first run: 8 transaction, 7 locked read, 6 read, 3 write."
+		"reason": "Background deletion after the cancellation deadline, not a user request (RT-6a reviewed, kept). Three committed stages around the external storage removal so a crash resumes at the right stage: each stage authorizes, locks the root and re-reads the witness; the content purge and subject purge are one database function each; the owned-file removal adds its own claim and purge statements."
 	},
 	"mail.dispatch": {
-		"limit": 26,
-		"reason": "RT-6 outlier. Its largest first run: 4 transaction, 10 locked read, 3 read, 9 write."
+		"limit": 22,
+		"reason": "Background job, not a user request. Two short transactions around the provider call, which must hold no lock: claim fence, mail lock, lifecycle and seat reads, address lock, suppression read, request lock, one write statement, checkpoint; then fence, one write statement with the outcome audit, finishClaim. RT-6a batched the writes (was 26); the repeated fence and finishClaim statements belong to the shared WP-031 queue (RT-6 finishClaim follow-up)."
 	},
 	"mail.enqueue": {
 		"limit": 3
@@ -644,9 +644,9 @@
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 1 locked read, 1 read, 4 write."
 	},
 	"onboarding.convertDiscovery": {
-		"limit": 27,
+		"limit": 23,
 		"retry": 7,
-		"reason": "RT-6 outlier. Its largest first run: 4 transaction, 9 locked read, 3 read, 11 write."
+		"reason": "Provisions a church: gate, request-key read, seat lock, discovery lock with the linked organizations, links read, plant insert, seat insert (the audit subject lookup needs their records before the final statement), the account's Person, the creation phase entry (its recorded time is in the reply), new links, the shared relationship notices (owner and contact reads, job, mail authorization and insert), the discovery retirement (its time is in the reply) and one final statement. RT-6a moved the setup row and account activation into the final statement (was 27)."
 	},
 	"onboarding.createDiscovery": {
 		"limit": 8,
@@ -654,9 +654,9 @@
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 1 locked read, 4 read, 1 write."
 	},
 	"onboarding.createPlant": {
-		"limit": 20,
+		"limit": 14,
 		"retry": 8,
-		"reason": "RT-6 outlier. Its largest first run: 4 transaction, 6 locked read, 3 read, 7 write."
+		"reason": "Provisions a church: gate, request-key read, one statement for the seat lock and the setup and discovery checks, plant insert, seat insert (the audit subject lookup needs their records before the final statement), the account's Person (5 with its savepoint), the creation phase entry (its recorded time is in the reply) and one final statement. RT-6a brought it from 20."
 	},
 	"onboarding.declareJourney": {
 		"limit": 14,
@@ -917,7 +917,7 @@
 	},
 	"reference.promote": {
 		"limit": 24,
-		"reason": "RT-6 outlier. Its largest first run: 4 transaction, 6 locked read, 7 read, 7 write."
+		"reason": "Platform operator publication, not a user request (RT-6a reviewed, kept). A preflight transaction checks the operator's grant before the protected artifact is read (4); then one transaction: the global publication lock, the grant again at the commit boundary, the request-key read, the current activation, the release lock, a set-based install (one statement per table), a re-read of every stored derivative before activation and one activation statement with its audit."
 	},
 	"seats.appointAdmin": {
 		"limit": 8,
