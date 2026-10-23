@@ -26,6 +26,23 @@ export function requestDatabase(): Database | null {
 	return url ? database(url) : null;
 }
 
+/**
+ * The scheduled runner's own pool. Every statement on it, lock waits included, ends after 5 s, so a job worker that
+ * writes outside a bounded transaction (People imports) cannot hold the run past its maxDuration. Other PGOPTIONS stay.
+ */
+export function jobDatabase(): Database | null {
+	const url = process.env.IDENTITY_DATABASE_URL;
+	if (!url) return null;
+	const key = `${url}#jobs`;
+	let pool = pools.get(key);
+	if (!pool) {
+		const options = `${process.env.PGOPTIONS ?? ""} -c statement_timeout=5s`.trim();
+		pool = createDatabase({ connectionString: url, max: 4, options });
+		pools.set(key, pool);
+	}
+	return pool;
+}
+
 /** Opens one connection on every pool created so far. Server start calls it once the identity mount exists. */
 export function warmPools(): Promise<unknown> {
 	return Promise.all([...pools.values()].map((db) => db.execute(sql`SELECT 1`)));

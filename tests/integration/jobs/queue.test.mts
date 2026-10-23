@@ -6,6 +6,7 @@ import {
 	enqueueJob,
 	claimDue,
 	finishClaim,
+	finishJob,
 	recoverLease,
 	checkpoint,
 	extendLease,
@@ -50,10 +51,11 @@ test("AC:CASE-NTF-002 INV-jobs: concurrent claims fence late completions and ret
 		{ ...newClaim, lease_owner: claim.lease_owner },
 	]) {
 		assert.equal(await transaction(runtime, (tx) => finishClaim(tx, stale, { state: "succeeded" })), false);
+		assert.equal(await finishJob(runtime, stale, { state: "succeeded" }), false);
 		assert.equal(await transaction(runtime, (tx) => checkpoint(tx, stale, "stale-output")), false);
 		assert.equal(await extendLease(runtime, stale, 30), false);
 	}
-	assert.equal(await transaction(runtime, (tx) => finishClaim(tx, newClaim, { state: "succeeded" })), true);
+	assert.equal(await finishJob(runtime, newClaim, { state: "succeeded" }), true);
 	assert.equal(
 		(await db.execute(querySql`SELECT state FROM job WHERE id=${querySql.param(id)}`)).rows[0].state,
 		"succeeded",
@@ -118,15 +120,14 @@ test("INV-jobs: safe checkpoints resume, external effects reconcile, exhausted j
 	const id = await create();
 	const [claim] = await claimDue(runtime, ["document_render"]);
 	assert.equal(
-		await transaction(runtime, (tx) =>
-			finishClaim(tx, claim, { state: "retry_wait", code: "busy", retryAfterSeconds: 900 }),
-		),
+		await finishJob(runtime, claim, { state: "retry_wait", code: "busy'; --", retryAfterSeconds: 900 }),
 		true,
 	);
 	const wait = await db.execute(
-		querySql`SELECT round(extract(epoch FROM next_attempt_at-clock_timestamp()))::int seconds FROM job WHERE id=${querySql.param(id)}`,
+		querySql`SELECT round(extract(epoch FROM next_attempt_at-clock_timestamp()))::int seconds,state,error_code FROM job WHERE id=${querySql.param(id)}`,
 	);
 	assert.ok(wait.rows[0].seconds >= 899 && wait.rows[0].seconds <= 900);
+	assert.deepEqual([wait.rows[0].state, wait.rows[0].error_code], ["retry_wait", "busy'; --"]);
 	assert.deepEqual(await claimDue(runtime, ["document_render"]), []);
 });
 test("INV-jobs: intent and producer fact roll back together, replay retains original job identity", async () => {

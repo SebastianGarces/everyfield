@@ -1,5 +1,5 @@
 import { privateStorage } from "@everyfield/db/schema";
-import { requestDatabase } from "@/server/database";
+import { jobDatabase } from "@/server/database";
 import { scheduledJobs } from "@/server/jobs/scheduled";
 import { tasksMount } from "@/server/tasks";
 
@@ -12,7 +12,7 @@ export const maxDuration = 300;
 export function GET(request: Request): Promise<Response> {
 	return scheduledJobs({
 		secret: process.env.CRON_SECRET,
-		db: requestDatabase(),
+		db: jobDatabase(),
 		storage: privateStorage(),
 		reminders: tasksMount()?.reminders ?? null,
 	})(request);

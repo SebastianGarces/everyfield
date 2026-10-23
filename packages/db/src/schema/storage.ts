@@ -340,7 +340,10 @@ export async function deleteUnreferencedObject(
 		return { file, generation };
 	});
 	try {
-		await storage.client.send(new DeleteObjectCommand({ Bucket: storage.bucket, Key: claimed.file.opaque_key }));
+		// Bounded, so a hung provider cannot hold a scheduled run; a timeout leaves the claim for the retry.
+		await storage.client.send(new DeleteObjectCommand({ Bucket: storage.bucket, Key: claimed.file.opaque_key }), {
+			abortSignal: AbortSignal.timeout(10_000),
+		});
 	} catch {
 		return { status: "unknown" as const };
 	} // Retained claim is retried with the same immutable key.

@@ -180,18 +180,55 @@ export async function extendLease(db: Database, claim: Claim, seconds: number): 
 export type JobResult =
 	| { state: "succeeded" | "cancelled" | "superseded" | "failed" | "reconcile"; code?: string }
 	| { state: "retry_wait"; retryAfterSeconds?: number; code: string };
-export async function finishClaim(tx: Transaction, claim: Claim, result: JobResult): Promise<boolean> {
-	if (!(await lockClaim(tx, claim))) return false;
+const literal = (value: string) =>
+	`'${z
+		.string()
+		.regex(/^[^\0]*$/)
+		.parse(value)
+		.replaceAll("'", "''")}'`;
+/**
+ * The finish as one UPDATE whose WHERE is the claim fence (lockClaim's conditions), so the row lock, the fence check and
+ * the outcome are one statement. Values are parsed and inlined so finishJob can send it with the simple protocol.
+ */
+function finishStatement(claim: Claim, result: JobResult) {
+	const c = claimSchema
+		.extend({ claim_generation: z.string().regex(/^\d+$/), source_revision: z.string().regex(/^\d+$/).nullable() })
+		.parse(claim);
 	const terminal = result.state !== "retry_wait" && result.state !== "reconcile";
-	const exhausted = result.state === "retry_wait" && claim.attempt_count >= claim.max_attempts;
-	const delay =
-		result.state === "retry_wait"
-			? Math.max([300, 600, 1200][Math.min(claim.attempt_count - 1, 2)] ?? 1200, result.retryAfterSeconds ?? 0)
-			: 0;
-	await tx.execute(sql`UPDATE job SET state=${exhausted ? "failed" : result.state},error_code=${result.code ?? null},lease_owner=NULL,lease_until=NULL,
-    next_attempt_at=CASE WHEN ${result.state === "retry_wait" && !exhausted}::boolean THEN clock_timestamp()+make_interval(secs=>${delay}) ELSE NULL END,
-    finished_at=CASE WHEN ${terminal || exhausted}::boolean THEN clock_timestamp() ELSE NULL END,revision=revision+1 WHERE id=${claim.id}`);
-	return true;
+	const exhausted = result.state === "retry_wait" && c.attempt_count >= c.max_attempts;
+	const delay = z
+		.number()
+		.finite()
+		.min(0)
+		.parse(
+			result.state === "retry_wait"
+				? Math.max([300, 600, 1200][Math.min(c.attempt_count - 1, 2)] ?? 1200, result.retryAfterSeconds ?? 0)
+				: 0,
+		);
+	const state = z
+		.enum(["succeeded", "cancelled", "superseded", "failed", "reconcile", "retry_wait"])
+		.parse(exhausted ? "failed" : result.state);
+	return `UPDATE job SET state='${state}',error_code=${result.code === undefined ? "NULL" : literal(result.code)},lease_owner=NULL,lease_until=NULL,
+  next_attempt_at=${result.state === "retry_wait" && !exhausted ? `clock_timestamp()+make_interval(secs=>${delay})` : "NULL"},
+  finished_at=${terminal || exhausted ? "clock_timestamp()" : "NULL"},revision=revision+1
+  WHERE id='${c.id}' AND tenant_id='${c.tenant_id}' AND state='claimed' AND claim_generation=${c.claim_generation}
+  AND lease_owner=${literal(c.lease_owner)} AND source_revision IS NOT DISTINCT FROM ${c.source_revision ?? "NULL"}::bigint
+  AND lease_until>clock_timestamp()`;
+}
+/** Ends a claim inside the caller's transaction, only while the claim is current. One statement. */
+export async function finishClaim(tx: Transaction, claim: Claim, result: JobResult): Promise<boolean> {
+	return (await tx.execute(sql.raw(finishStatement(claim, result)))).rowCount === 1;
+}
+/**
+ * Ends a claim on its own, only while the claim is current. One round trip: the 5-second statement bound and the finish
+ * are one simple-protocol message, which Postgres runs as one implicit transaction (as claimDue does, C111).
+ */
+export async function finishJob(db: Database, claim: Claim, result: JobResult): Promise<boolean> {
+	const pool = (db as Database & { $client: { query(text: string): Promise<unknown> } }).$client;
+	const results = (await pool.query(`SET LOCAL statement_timeout = '5s';\n${finishStatement(claim, result)}`)) as {
+		rowCount: number | null;
+	}[];
+	return results[1]!.rowCount === 1;
 }
 
 // A crash after the external marker cannot turn into a new external effect.

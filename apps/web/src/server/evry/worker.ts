@@ -11,8 +11,7 @@ import {
 	selectQualifiedModel,
 } from "@everyfield/evry";
 import "server-only";
-import { claimDue, finishClaim } from "../jobs/queue.ts";
-import { transaction } from "../platform/database.ts";
+import { claimDue, finishJob } from "../jobs/queue.ts";
 
 // The Evry workers on the WP-031 queue. The request drains (index.ts) and the scheduled runner (jobs/scheduled.ts)
 // both run them. A job older than CLAIM_SECONDS is never claimed: Evry already reports it lost, and the scheduled
@@ -49,10 +48,7 @@ export async function runTurns(pool: Database, limit: number, until = Infinity) 
 				},
 				{ claimStart, claimEnd: new Date() },
 			);
-			if (outcome !== "lost")
-				await transaction(pool, (tx) =>
-					finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }),
-				);
+			if (outcome !== "lost") await finishJob(pool, claim, { state: outcome === "failed" ? "failed" : "succeeded" });
 		}
 	} finally {
 		await flushTraces();
@@ -64,9 +60,9 @@ export async function runTurns(pool: Database, limit: number, until = Infinity) 
  * Claims approved Evry effects and runs each once. The executor saves the outcome with the change; the claim then
  * ends. A People command that hands tasks on replans their reminders through `reminders`. Returns how many ran.
  */
-export async function runEffects(pool: Database, reminders: TaskReminders, limit: number) {
+export async function runEffects(pool: Database, reminders: TaskReminders, limit: number, until = Infinity) {
 	let ran = 0;
-	for (; ran < limit; ran++) {
+	for (; ran < limit && Date.now() < until; ran++) {
 		const [claim] = await claimDue(pool, ["evry_effect"], 1, EFFECT_LEASE_SECONDS, CLAIM_SECONDS);
 		if (!claim) break;
 		const outcome = await executeProposal(
@@ -74,8 +70,7 @@ export async function runEffects(pool: Database, reminders: TaskReminders, limit
 			{ jobId: claim.id, tenantId: claim.tenant_id, leaseOwner: claim.lease_owner, generation: claim.claim_generation },
 			reminders,
 		);
-		if (outcome !== "lost")
-			await transaction(pool, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));
+		if (outcome !== "lost") await finishJob(pool, claim, { state: outcome === "failed" ? "failed" : "succeeded" });
 	}
 	return ran;
 }

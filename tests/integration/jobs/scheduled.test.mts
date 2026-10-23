@@ -11,6 +11,7 @@ import {
 	type EvryActor,
 } from "../../../packages/evry/src/index.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
+import { claimDue, finishJob } from "../../../apps/web/src/server/jobs/queue.ts";
 import { actor, admin, db, people, queries, setup, sql, teardown, work } from "../../evry/runtime/support.mts";
 
 // The scheduled runner as Vercel cron calls it: GET with the CRON_SECRET bearer, on a suite schema of the shared
@@ -119,11 +120,17 @@ test("INV-run-recovery: with no page open, the scheduled run closes a turn and a
 	}
 });
 
-test("INV-budget: an idle scheduled run sends a fixed number of statements", async () => {
+test("INV-budget: an idle scheduled run sends a fixed number of statements, and finishing a job is one round trip", async () => {
 	await run();
 	const start = queries.length;
 	await run();
 	const sent = queries.slice(start).filter((q) => !/^(BEGIN|COMMIT)/i.test(q.trim()));
 	// closeLostJobs 2 (timeout, close); imports: recoverLease 2, claim 1; effects claim 1; turns claim 1.
 	assert.equal(sent.length, 7, sent.join("\n---\n"));
+	// A job the runner finishes costs one round trip: the statement bound and the fenced finish in one message.
+	await ask(await actor("owner"), "Find Casey");
+	const [claim] = await claimDue(db, ["assistant_turn"], 1, 240);
+	const before = queries.length;
+	assert.equal(await finishJob(db, claim!, { state: "cancelled" }), true);
+	assert.equal(queries.length - before, 1);
 });
