@@ -116,8 +116,21 @@ type-checks a fresh detached checkout of HEAD, so ignored local files such as Ne
 
 Before a manual push, run `bin/evf pre-push <task>`. It checks for a full passing author report at
 that exact clean HEAD. Quick checks and verifier reports do not satisfy this gate. `evf pr open`
-runs the same gate before its push. Plain `git push` is not intercepted; use the pre-push command
-or let `evf pr open` push. These local records do not replace required CI or independent review.
+runs the same gate before its push. These local records do not replace required CI or independent review.
+
+Authors push only through `evf pr open`, also for fixes after review (OPS-52). The project's
+`.claude/settings.json`, which Claude Code and Grok Build both read, allows `bin/evf pr open` and
+`cd` without a prompt, asks before a raw `git push` and denies force and mirror pushes. Rules match
+each segment of a chained command, so `cd <home checkout> && bin/evf pr open <task> --body-file <file>`
+runs at once. Both tools apply project rules only in a folder the user trusts, and trusting a parent
+folder does not cover the folders inside it (Claude Code 2.1.302). Trust each workspace folder once,
+or copy the `allow` entries into `~/.claude/settings.json`. Codex sessions do not read that file. Give them the same rule in a file under
+`~/.codex/rules/` and check it with `codex execpolicy check --rules <file> bin/evf pr open OPS-1`:
+
+```text
+prefix_rule(pattern = ["bin/evf", "pr", "open"], decision = "allow")
+prefix_rule(pattern = ["git", "push"], decision = "prompt")
+```
 
 A failed check that reports Next 16.4.1's `Another next build process is already running.`
 message waits ten seconds and retries up to three times. Matching strips ANSI color codes.
