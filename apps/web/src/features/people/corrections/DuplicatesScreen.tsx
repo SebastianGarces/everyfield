@@ -102,7 +102,7 @@ export function DuplicatesScreen({ initial, query }: { initial: PairView; query:
 			<PageHeader
 				title="Possible duplicate"
 				breadcrumb={crumbs}
-				subtitle="EveryField never merges on its own. You choose which details to keep."
+				subtitle="Everyfield never merges on its own. You choose which details to keep."
 			/>
 			{notice ? (
 				<div className="mb-5" key={notice.n}>
@@ -289,7 +289,7 @@ function PairReview({
 					<CalloutText className="text-sm">
 						After merging, links to {source.displayName} open {survivor.displayName}. If this was a mistake, Review
 						Unmerge in {first(survivor.displayName)}&rsquo;s Activity brings {first(source.displayName)} back.
-						EveryField shows what goes back first, and stops if a later change depends on the merge.
+						Everyfield shows what goes back first, and stops if a later change depends on the merge.
 					</CalloutText>
 				</Card>
 			</Card>

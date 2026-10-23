@@ -221,7 +221,7 @@ export function UnmergeDialog({
 										))}
 									</ul>
 									<p className="mt-2 text-sm">
-										An Unmerge would lose those changes, so EveryField will not run it. Correct {first(names.survivor)}
+										An Unmerge would lose those changes, so Everyfield will not run it. Correct {first(names.survivor)}
 										&rsquo;s details by hand instead; each change is kept in the history.
 									</p>
 								</div>

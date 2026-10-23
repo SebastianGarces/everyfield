@@ -62,7 +62,7 @@ export function Mark({ className }: { className?: string }) {
 export function Logo({ variant }: { variant: "nav" | "pill" | "footer" }) {
 	if (variant === "footer")
 		return (
-			<svg viewBox="0 0 1052 241" role="img" aria-label="EveryField" className="block h-5 w-auto flex-none text-cream">
+			<svg viewBox="0 0 1052 241" role="img" aria-label="Everyfield" className="block h-5 w-auto flex-none text-cream">
 				<use href="#ef-wordmark" />
 			</svg>
 		);
@@ -71,13 +71,13 @@ export function Logo({ variant }: { variant: "nav" | "pill" | "footer" }) {
 			<svg
 				viewBox="0 0 1308 241"
 				role="img"
-				aria-label="EveryField"
+				aria-label="Everyfield"
 				className={cn("block h-7 w-auto max-mk-sm:h-6", variant === "pill" && "max-mk-xs:hidden")}
 			>
 				<use href="#ef-lockup" />
 			</svg>
 			{variant === "pill" ? (
-				<svg viewBox="0 0 340 340" role="img" aria-label="EveryField" className="hidden size-[22px] max-mk-xs:block">
+				<svg viewBox="0 0 340 340" role="img" aria-label="Everyfield" className="hidden size-[22px] max-mk-xs:block">
 					<use href="#ef-symbol" />
 				</svg>
 			) : null}
