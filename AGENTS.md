@@ -16,7 +16,8 @@ Current requirements and cases live in `docs/catalog/index.json`. Keep this file
    Ship requires green required GitHub CI, independent approval and a valid PR body.
 
 Use `bin/evf help` for commands. IDs are WP-NNN, WP-NNN/api or /ui,
-FB-<n> for feedback and OPS-<n> for tooling maintenance.
+FB-<n> for feedback and OPS-<n> for tooling maintenance. Reserve a new OPS-<n> or ruling
+number D<n> with `bin/evf id next ops|decision`; never take the next number from main.
 
 ## Rules
 

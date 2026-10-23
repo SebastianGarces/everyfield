@@ -28,6 +28,8 @@ Design tasks, P2/P3 feedback and every `evf approve` route keep exact-head revie
 Ship never merges on red main. Before it merges, it reads main's latest finished `ci.yml` push run,
 skipping cancelled and skipped runs. When that run failed, only a PR whose body says `Fixes #<n>`
 for the open `P0: CI failed on main` issue may merge. The gate reads the run, not the issue state.
+The fail-forward workflow closes that issue when a later main CI run passes on a commit that
+contains the failed one. A late success for an older commit leaves it open.
 
 ## Ship queue
 
@@ -127,6 +129,20 @@ Child commands inherit the selected Node directory first on PATH, including shel
 its recorded head, no newer task start, no open PR, and no live Portless preview. A reused task
 records its new start outside the repository. Unavailable or malformed provider status keeps the
 worktree. Cleanup never stops previews itself.
+
+## Task and ruling IDs
+
+Workspaces share the GitHub remote, not one checkout, so the remote holds ID reservations.
+`bin/evf id next ops` or `bin/evf id next decision` takes the number after every one in use (main's
+maintenance tasks or `## D<n>` rulings, remote `task/ops-<n>` branches and reservations), pushes a
+new parentless commit to `refs/evf/ids/<ID>` and prints the ID. A plain push to an existing ref
+cannot fast-forward to a parentless commit, so the remote rejects it; the caller then tries the
+next number. Two concurrent callers always get two different IDs. The reservation commit message
+records the time, the git user name and the host.
+
+`evf task start OPS-<n>` on a new branch keeps a reservation that `id next` made, reserves a free
+ID itself, and refuses an ID whose `task/ops-<n>` branch already exists on the remote. An ID that
+main already registers needs no reservation.
 
 ## Migration numbers
 

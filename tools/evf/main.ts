@@ -25,6 +25,7 @@ import { debugCmd, stack, taskStart } from "./task.ts";
 import { requireVerifiedHead, verify } from "./verify.ts";
 import { migrationsRenumber } from "./migrations.ts";
 import { awaitLoad } from "./load.ts";
+import { nextId } from "./ids.ts";
 
 const HELP = `evf: Everyfield v3 workflow CLI
 
@@ -61,6 +62,9 @@ Feedback desk (public feedback repo)
 Human approval (only after Sebastian approves that PR in chat)
   evf approve <PR> --owner-approval "<his words>" [--head <sha>]
                           Wiki articles, prototypes, feedback P2/P3: record his approval and squash-merge
+
+IDs (coordinator)
+  evf id next ops|decision                                    reserve the next OPS-n or Dn on the remote and print it
 
 Upkeep
   evf ci-tests                                              check integration test inclusion in CI
@@ -299,6 +303,12 @@ function main(argv: string[]): number | Promise<number> {
 		case "migrations":
 			if (args[0] === "renumber") return migrationsRenumber(root, parseTask(args[1]));
 			break;
+		case "id": {
+			const kind = args[1];
+			if (args[0] !== "next" || (kind !== "ops" && kind !== "decision") || args.length !== 2) break;
+			console.log(nextId(root, loadConfig(root), kind));
+			return 0;
+		}
 		case "ship": {
 			return ship(root, parseTask(args[0]));
 		}
