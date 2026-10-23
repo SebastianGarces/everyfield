@@ -24,7 +24,7 @@
   },
   "http": {
     "liveness": "/api/health returns process status and UTC time only, private no-store.",
-    "executor": "/api/internal/jobs is disabled. mountExecutor composes the WP-031 executor with registered feature handlers and fresh domain publishers; trigger authentication grants no domain authority.",
+    "executor": "/api/cron/jobs runs every minute from apps/web/vercel.json with the CRON_SECRET bearer. It closes lost Evry jobs and runs one bounded batch of every job kind that has a worker; the schedule grants no domain authority. Mail has no worker yet.",
     "callback": "/api/callbacks/mail is disabled. mountCallback verifies raw signed bytes before durable safe receipts. No live subscription or credentials are configured.",
     "supported_callback_types": [
       "email.accepted",
@@ -37,7 +37,7 @@
       "email.clicked",
       "email.cancelled"
     ],
-    "execution": "One same-app Next Node invocation, at most 30 seconds, WP-031 internal request bounds. No standalone worker or new scheduler.",
+    "execution": "One same-app Next Node invocation per minute from Vercel cron, at most 300 seconds, WP-031 batch bounds. No standalone worker.",
     "activation": "Integrating feature owners supply actual handlers and current authorization. Explicit owner approval is required before live subscription, Vercel schedule or provider settings."
   },
   "observability": {

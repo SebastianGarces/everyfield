@@ -26,6 +26,24 @@ export function requestDatabase(): Database | null {
 }
 
 /**
+ * The scheduled runner's own pool. Every statement on it, lock waits included, ends after 5 s unless its boundary sets
+ * its own timeout (the native write gate sets 10 s), so a job worker that writes outside a bounded transaction (People
+ * imports) cannot wait without limit. Other PGOPTIONS stay.
+ */
+export function jobDatabase(): Database | null {
+	const url = process.env.IDENTITY_DATABASE_URL;
+	if (!url) return null;
+	const key = `${url}#jobs`;
+	let pool = pools.get(key);
+	if (!pool) {
+		const options = `${process.env.PGOPTIONS ?? ""} -c statement_timeout=5s`.trim();
+		pool = createDatabase({ connectionString: url, max: 4, options });
+		pools.set(key, pool);
+	}
+	return pool;
+}
+
+/**
  * The most connections one request holds at once on the request pool: the person and meetings pages read on two in
  * parallel (RT-6c). Other pools (the auth login) stay at one: no measured request used two at once.
  */
