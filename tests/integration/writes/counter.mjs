@@ -54,7 +54,6 @@ const standalone = {
 	],
 	"/packages/domain/src/settings/deletion.ts": ["issueRestrictedDeletionSession"],
 	"/packages/domain/src/people/references.ts": ["detachAccountPersonLinks"],
-	"/packages/domain/src/phases/creation-entry/index.ts": ["recordCreationEntry"],
 	"/apps/web/src/server/jobs/queue.ts": [
 		"enqueueJob",
 		"enqueueJobs",

@@ -404,6 +404,19 @@ test("AC:TARGET-PPL-004 AC:ROLE43-003 exact account links, ambiguous contact sel
 		).rows[0].n,
 		1,
 	);
+	// RT-6a: a "first" selection reads nothing, so on a plant that already has the account's Person the unique live
+	// link refuses a second one instead of creating it.
+	await assert.rejects(
+		tx((t) => accounts.ensureAccountPerson(t, { ...input, selection: { kind: "first", displayName: "Second" } })),
+	);
+	assert.equal(
+		(
+			await admin.execute(
+				sql`SELECT count(*)::int n FROM person WHERE linked_account_id=${sql.param(actors[0].id)} AND plant_id=${sql.param(plants[0])} AND state='live'`,
+			)
+		).rows[0].n,
+		1,
+	);
 	assert.deepEqual(ok(await tx((t) => getAccountLink(t, ctx(), { personId: contact.id }))), {
 		status: "linked",
 		personId: contact.id,

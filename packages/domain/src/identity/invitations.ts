@@ -8,7 +8,8 @@ import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import { RequestActor } from "../access/session.ts";
-import { transaction } from "./budget.ts";
+import { timedTransaction, timeouts, transaction } from "./budget.ts";
+import { lastWrite } from "../operations/writes.ts";
 import * as d from "./invitation-core.ts";
 export interface InvitationMail {
 	owner: Owner;
@@ -28,6 +29,15 @@ export interface InvitationConfig {
 	enqueueMail(tx: Transaction, input: InvitationMail, command: d.Command): Promise<string>;
 	people: Pick<AccountPersonProducer<Transaction>, "ensureAccountPerson">;
 }
+const sourceRow = z.object({
+	id: z.uuid(),
+	tenant_id: z.uuid(),
+	purpose: z.enum(t.invitation.purpose.enumValues),
+	resident_person_id: z.uuid().nullable(),
+	revision: z.string(),
+	state: z.string(),
+});
+const heldRow = z.object({ seats: z.number().int(), links: z.number().int() });
 export function createInvitationService(config: InvitationConfig) {
 	const origin = new URL(config.origin).origin;
 	if (origin !== config.origin) throw Error("canonical_origin_required");
@@ -283,24 +293,39 @@ export function createInvitationService(config: InvitationConfig) {
 			);
 		});
 	}
-	async function accept(session: string, raw: unknown, resident = false) {
-		const v = resident ? c.respondResidentInvitationRequest.parse(raw) : c.acceptSeatInvitationRequest.parse(raw);
-		return transaction(config.db, async (tx) => {
-			const [source] = await tx
-				.select({
-					tenant_id: t.invitation.tenant_id,
-					purpose: t.invitation.purpose,
-					resident_person_id: t.invitation.resident_person_id,
-				})
-				.from(t.invitation)
-				.where(eq(t.invitation.id, v.input.invitationId));
+	/**
+	 * seats.acceptInvitation and residency.respondInvitation, on the established path (C88): every check depends on other
+	 * rows (the session, the workspace, the account's seats and links), so it runs in a transaction. The locks keep their
+	 * order (the workspace seat lock, the account, the source Person, the invitation, the workspace root, the account's
+	 * seats and links); the changes and their audit rows go in the final statement. `resume` finds the invitation by its
+	 * proof in the same first statement.
+	 */
+	async function accept(
+		session: string,
+		raw: unknown,
+		resident = false,
+		resume?: { proof: string; requestKey: string },
+	) {
+		const parse = (value: unknown) =>
+			resident ? c.respondResidentInvitationRequest.parse(value) : c.acceptSeatInvitationRequest.parse(value);
+		const given = resume ? null : parse(raw);
+		return timedTransaction(config.db, async (tx) => {
+			const found = await tx.execute(sql`SELECT ${timeouts} AS timeouts, id, tenant_id, purpose, resident_person_id,
+ revision::text AS revision, state, pg_advisory_xact_lock(hashtextextended(concat('workspace-seats/',tenant_id),8008))
+ FROM invitation WHERE ${resume ? sql`token_hash=${d.hash(resume.proof)} AND purpose='seat'` : sql`id=${given!.input.invitationId}::uuid`}`);
+			const [source] = sourceRow.array().parse(found.rows);
 			if (!source) d.refuse();
-			await d.lock(tx, "workspace-seats/" + source.tenant_id);
+			const v =
+				given ??
+				parse({
+					requestKey: resume!.requestKey,
+					expectedRevision: source.state === "accepted" ? (BigInt(source.revision) - 1n).toString() : source.revision,
+					input: { invitationId: source.id, proof: resume!.proof },
+				});
 			const a = await d.identity(tx, session);
 			if (!a.verified) d.refuse();
 			await lockSourcePerson(tx, source);
-			const i = await d.load(tx, v.input.invitationId),
-				{ selected } = await d.workspace(tx, i.tenant_id);
+			const { invitation: i, selected, now } = await d.lockForWrite(tx, v.input.invitationId);
 			if (
 				i.resident_person_id !== source.resident_person_id ||
 				i.purpose !== (resident ? "residency_link" : "seat") ||
@@ -320,25 +345,22 @@ export function createInvitationService(config: InvitationConfig) {
 				return resident
 					? c.residentInvitationDecisionResult.parse(cmd.result)
 					: c.seatInvitationAcceptedResult.parse(cmd.result);
-			await d.pending(tx, i, v.expectedRevision);
+			d.current(i, now, v.expectedRevision);
 			const events: string[] = [];
 
 			const after = d.bump(i.revision);
+			const claim = (state: "accepted" | "declined") =>
+				tx
+					.update(t.invitation)
+					.set({ state, acted_at: sql`clock_timestamp()`, accepted_account_id: a.account_id, revision: after })
+					.where(eq(t.invitation.id, i.id));
 			let result: () => unknown;
 			if (resident) {
 				const p = await activePerson(tx, selected.id, i.resident_person_id!);
 				if (p.linked_account_id !== null && p.linked_account_id !== a.account_id) d.refuse();
 				const decision = c.respondResidentInvitationRequest.parse(raw).input;
 				if (decision.decision === "decline") {
-					await tx
-						.update(t.invitation)
-						.set({
-							state: "declined",
-							acted_at: sql`clock_timestamp()`,
-							accepted_account_id: a.account_id,
-							revision: after,
-						})
-						.where(eq(t.invitation.id, i.id));
+					cmd.writes.push(claim("declined"));
 					result = () => c.residentInvitationDecisionResult.parse({ status: "declined", invitationId: i.id });
 				} else {
 					const competing = await tx
@@ -390,32 +412,31 @@ export function createInvitationService(config: InvitationConfig) {
 					if (blocked.length) d.refuse();
 					const id = randomUUID(),
 						choices = decision.choices;
-					await tx
-						.update(t.person)
-						.set({ linked_account_id: a.account_id, revision: d.bump(p.revision) })
-						.where(eq(t.person.id, p.id));
-					await tx.insert(t.residency_link).values({
-						id,
-						organization_id: selected.id,
-						person_id: p.id,
-						account_id: a.account_id,
-						affiliation_id: affiliation.id,
-						invitation_id: i.id,
-						accepted_at: sql`clock_timestamp()`,
-						consent_revision: "1",
-						share_foundations: choices.shareFoundations,
-						share_milestones: choices.shareMilestones,
-						revision: "1",
-					});
-					await tx
-						.update(t.invitation)
-						.set({
-							state: "accepted",
-							acted_at: sql`clock_timestamp()`,
-							accepted_account_id: a.account_id,
-							revision: after,
-						})
-						.where(eq(t.invitation.id, i.id));
+					// One final statement: the link's insert (its trigger checks the locked Person is live), then the Person's
+					// account link, which depends on the inserted link so it runs after it.
+					cmd.writes.push(
+						tx.insert(t.residency_link).values({
+							id,
+							organization_id: selected.id,
+							person_id: p.id,
+							account_id: a.account_id,
+							affiliation_id: affiliation.id,
+							invitation_id: i.id,
+							accepted_at: sql`clock_timestamp()`,
+							consent_revision: "1",
+							share_foundations: choices.shareFoundations,
+							share_milestones: choices.shareMilestones,
+							revision: "1",
+						}),
+					);
+					const link = lastWrite(cmd);
+					cmd.writes.push(
+						tx
+							.update(t.person)
+							.set({ linked_account_id: a.account_id, revision: d.bump(p.revision) })
+							.where(and(eq(t.person.id, p.id), sql`EXISTS(SELECT FROM ${link})`)),
+						claim("accepted"),
+					);
 					events.push(await d.event(tx, cmd, p.id, "edit", "people.updated", p.revision, d.bump(p.revision)));
 					result = () =>
 						c.residentInvitationDecisionResult.parse({
@@ -430,28 +451,14 @@ export function createInvitationService(config: InvitationConfig) {
 				}
 			} else {
 				if (!i.role || (selected.kind !== "plant" && selected.kind !== "organization")) d.refuse();
-				const seats = await tx
-					.select({ id: t.seat.id })
-					.from(t.seat)
-					.where(and(eq(t.seat.account_id, a.account_id), isNull(t.seat.ended_at)))
-					.for("update");
-				if (seats.length) d.refuse();
-				const associations = await tx
-					.select({ id: t.affiliation.id })
-					.from(t.affiliation)
-					.where(and(eq(t.affiliation.account_id, a.account_id), isNull(t.affiliation.ended_at)))
-					.for("update");
-				if (associations.length) d.refuse();
+				// The account's active seats, then its active links, locked in that order in one statement.
+				const held =
+					await tx.execute(sql`WITH s AS MATERIALIZED (SELECT id FROM seat WHERE account_id=${a.account_id}::uuid
+ AND ended_at IS NULL FOR UPDATE), f AS MATERIALIZED (SELECT id FROM affiliation WHERE account_id=${a.account_id}::uuid
+ AND ended_at IS NULL FOR UPDATE) SELECT (SELECT count(*) FROM s)::int AS seats, (SELECT count(*) FROM f)::int AS links`);
+				const { seats, links } = heldRow.parse(held.rows[0]);
+				if (seats || links) d.refuse();
 				const id = randomUUID();
-				await tx.insert(t.seat).values({
-					id,
-					account_id: a.account_id,
-					plant_id: selected.kind === "plant" ? selected.id : null,
-					organization_id: selected.kind === "organization" ? selected.id : null,
-					role: i.role,
-					accepted_at: sql`clock_timestamp()`,
-					invitation_id: i.id,
-				});
 				let seat: unknown = { kind: "organization", workspace: selected, seatId: id, role: i.role };
 				if (selected.kind === "plant") {
 					const linked = await config.people.ensureAccountPerson(tx, {
@@ -462,15 +469,18 @@ export function createInvitationService(config: InvitationConfig) {
 					if (linked.status !== "ok" || linked.value.status !== "linked") d.refuse();
 					seat = { kind: "plant", workspace: selected, seatId: id, role: i.role, personId: linked.value.personId };
 				}
-				await tx
-					.update(t.invitation)
-					.set({
-						state: "accepted",
-						acted_at: sql`clock_timestamp()`,
-						accepted_account_id: a.account_id,
-						revision: after,
-					})
-					.where(eq(t.invitation.id, i.id));
+				cmd.writes.push(
+					tx.insert(t.seat).values({
+						id,
+						account_id: a.account_id,
+						plant_id: selected.kind === "plant" ? selected.id : null,
+						organization_id: selected.kind === "organization" ? selected.id : null,
+						role: i.role,
+						accepted_at: sql`clock_timestamp()`,
+						invitation_id: i.id,
+					}),
+					claim("accepted"),
+				);
 				events.push(await d.event(tx, cmd, id, "create", "membership.created", "0", "1"));
 				result = () =>
 					c.seatInvitationAcceptedResult.parse({
@@ -483,24 +493,26 @@ export function createInvitationService(config: InvitationConfig) {
 			}
 			const declined = "decision" in v.input && v.input.decision === "decline";
 			if (!declined) {
-				await tx
-					.update(t.account)
-					.set({
-						registration_state: "active",
-						registration_digest: d.hash(i.id),
-						revision: sql`${t.account.revision}+1`,
-					})
-					.where(eq(t.account.id, a.account_id));
-				await tx.insert(t.audit_event).values({
-					tenant_id: a.account_id,
-					subject_id: a.account_id,
-					actor_id: a.account_id,
-					kind: "accept",
-					action: "identity.domain_accepted",
-					occurred_at: sql`clock_timestamp()`,
-					recorded_at: sql`clock_timestamp()`,
-					event_key: cmd.id,
-				});
+				cmd.writes.push(
+					tx
+						.update(t.account)
+						.set({
+							registration_state: "active",
+							registration_digest: d.hash(i.id),
+							revision: sql`${t.account.revision}+1`,
+						})
+						.where(eq(t.account.id, a.account_id)),
+					tx.insert(t.audit_event).values({
+						tenant_id: a.account_id,
+						subject_id: a.account_id,
+						actor_id: a.account_id,
+						kind: "accept",
+						action: "identity.domain_accepted",
+						occurred_at: sql`clock_timestamp()`,
+						recorded_at: sql`clock_timestamp()`,
+						event_key: cmd.id,
+					}),
+				);
 				await enqueue(tx, cmd, {
 					owner: selected,
 					invitationId: i.id,
@@ -535,16 +547,7 @@ export function createInvitationService(config: InvitationConfig) {
 		return !!i && (await describe({ proof })).status === "pending";
 	}
 	async function resume(session: string, proof: string, requestKey: string) {
-		const [i] = await config.db
-			.select({ id: t.invitation.id, revision: t.invitation.revision, state: t.invitation.state })
-			.from(t.invitation)
-			.where(and(eq(t.invitation.token_hash, d.hash(proof)), eq(t.invitation.purpose, "seat")));
-		if (!i) d.refuse();
-		return accept(session, {
-			requestKey,
-			expectedRevision: i.state === "accepted" ? (BigInt(i.revision) - 1n).toString() : i.revision,
-			input: { invitationId: i.id, proof },
-		});
+		return accept(session, undefined, false, { proof, requestKey });
 	}
 	return {
 		registrationEligible,
