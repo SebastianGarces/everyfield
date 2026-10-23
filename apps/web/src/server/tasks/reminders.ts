@@ -18,7 +18,7 @@ export function taskReminders(notifications: ReturnType<typeof createNotificatio
 					source: { kind: "task" as const, id: s.taskId, revision: s.revision },
 					recipient: s.assigneeId,
 					title: `Task due: ${s.title}`.slice(0, 500),
-					text: `"${s.title}" is assigned to you in EveryField.`,
+					text: `"${s.title}" is assigned to you in Everyfield.`,
 					operation: null,
 				},
 				due: s.due,

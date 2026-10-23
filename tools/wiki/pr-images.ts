@@ -31,7 +31,7 @@ export async function prImages(pr: number, files: string[], update: boolean, roo
 		};
 		if (!id) {
 			const intro = join(temp, "wiki-screenshots.txt");
-			await writeFile(intro, `EveryField Wiki review screenshots for ${repo} PR #${pr}.\n`);
+			await writeFile(intro, `Everyfield Wiki review screenshots for ${repo} PR #${pr}.\n`);
 			const url = gh("gist", "create", intro, "--desc", `${repo} PR #${pr}: Wiki screenshots`);
 			id = /\/([a-f0-9]+)$/.exec(url)?.[1];
 			if (!id) throw new Error("Could not read the created gist id");

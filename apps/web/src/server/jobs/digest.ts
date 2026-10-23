@@ -130,7 +130,7 @@ export function createDigestService(config: {
 			title,
 			...input.lines.map((l) => (l.kind === "activity" ? `${l.date}: ${l.count} activities` : `${l.date}: ${l.title}`)),
 			`Total: ${input.total}. Showing ${input.lines.length}.`,
-			input.total > input.lines.length ? `Open EveryField for the remaining items: ${native.href}` : "",
+			input.total > input.lines.length ? `Open Everyfield for the remaining items: ${native.href}` : "",
 		]
 			.filter(Boolean)
 			.join("\n");

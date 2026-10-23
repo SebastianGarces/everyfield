@@ -155,17 +155,7 @@ const schema = z.object({
 	directions: z.tuple([journey], z.unknown()),
 });
 
-// The official brand spelling is EveryField. The copy file sometimes says "Everyfield"; fix it once, here.
-const brand = (v: unknown): unknown =>
-	typeof v === "string"
-		? v.replace(/Everyfield/g, "EveryField")
-		: Array.isArray(v)
-			? v.map(brand)
-			: v && typeof v === "object"
-				? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, brand(x)]))
-				: v;
-
-const parsed = schema.parse(brand(raw));
+const parsed = schema.parse(raw);
 
 export const COPY = {
 	shared: parsed.shared,

@@ -74,8 +74,8 @@ function create(v: z.infer<typeof env>) {
 					recipient: null,
 					address: input.recipientEmail,
 					content: {
-						subject: `${input.inviterDescription} asks to connect on EveryField`,
-						text: `${input.inviterDescription} asks to connect on EveryField. Open this link to accept or decline. It works for 30 days.\n\n${link}`,
+						subject: `${input.inviterDescription} asks to connect on Everyfield`,
+						text: `${input.inviterDescription} asks to connect on Everyfield. Open this link to accept or decline. It works for 30 days.\n\n${link}`,
 					},
 					operation: input.operationId,
 					notice: null,
