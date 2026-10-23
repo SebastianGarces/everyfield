@@ -114,7 +114,7 @@ const schema = z.object({
 		week: z.object({ title: text, steps: z.array(step.extend({ panel: text, icon: text })).length(4) }),
 		intelligence: z.object({ title: text, lead: text, steps: z.array(step.extend({ panel: text })).length(4) }),
 		sending: z.object({ title: text, body: text, link: text }),
-		// Revision 8: the home About section, and the caption on every /oversight mockup.
+		// Revision 8: the home About section, and the caption on the /oversight mockups of the network's data.
 		about: z.object({ eyebrow: text, headline: text, body: text }),
 		sample_label: text,
 		// Text that sits inside the product pictures on / and /oversight.

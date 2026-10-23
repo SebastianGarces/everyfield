@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "revision_note": "Revision 8 (2026-10-23, Sebastian's GTM review): cost FAQ on /oversight, an About section on home, the network path on /oversight goes to /access?role=network, a new /oversight problem text, smaller wording fixes, \"Sample data\" captions on the Austin Sending Network mockups and a draft product-data section in the privacy policy. Revision 8 replaces Revision 5's rule that pages do not label sample data, for the /oversight mockups only. Revision 7 (2026-10-18): the home page tells story A (plan first: the vision, then this week) and /oversight tells story B (mission first: your plants and your future planters, then the proof). Both replace the earlier copy in the same keys. Revision 6 (2026-10-08): longer home hero subtext, lighter hero text and more space inside the panel. Revision 5 removes sample-data and placeholder labels; Revision 4 wording rules apply site-wide (Evry creates and assigns follow-up tasks, teams grow toward launch, gatherings happen when the planter holds them). Story A (journey) leads the home page and story B (oversight) leads /oversight.",
+  "revision_note": "Revision 8 (2026-10-23, Sebastian's GTM review): cost FAQ on /oversight, an About section on home, the network path on /oversight goes to /access?role=network, a new /oversight problem text, smaller wording fixes, \"Sample data\" captions on the mockups that show the Austin Sending Network and a draft product-data section in the privacy policy. Revision 8 replaces Revision 5's rule that pages do not label sample data, for those /oversight mockups only. Revision 7 (2026-10-18): the home page tells story A (plan first: the vision, then this week) and /oversight tells story B (mission first: your plants and your future planters, then the proof). Both replace the earlier copy in the same keys. Revision 6 (2026-10-08): longer home hero subtext, lighter hero text and more space inside the panel. Revision 5 removes sample-data and placeholder labels; Revision 4 wording rules apply site-wide (Evry creates and assigns follow-up tasks, teams grow toward launch, gatherings happen when the planter holds them). Story A (journey) leads the home page and story B (oversight) leads /oversight.",
   "review_status": {
     "note": "Sebastian approved the look of every page. On 2026-10-18 he chose story order A for the home page and story order B for /oversight, and approved their copy as verified at 6950ce1. On 2026-10-14 he approved the access, privacy and terms copy as drafted. Planters and trust copy is not yet reviewed.",
     "home": "look approved, copy approved 2026-10-18 (story A)",
@@ -12,7 +12,7 @@
     "terms": "approved"
   },
   "source_note": "Marketing copy and structure (workspace note). This file holds the same copy in a form the prototype can load.",
-  "sample_data_rule": "Names and numbers inside product visuals come from demo data: Harvest Point on home, the Austin Sending Network and its churches on /oversight. Since Revision 8 every /oversight mockup carries the shared.sample_label caption; home visuals stay unlabeled.",
+  "sample_data_rule": "Names and numbers inside product visuals come from demo data: Harvest Point on home, the Austin Sending Network and its churches on /oversight. Since Revision 8 the /oversight mockups of the network's data carry the shared.sample_label caption: the hero dashboard, the plants, leaders and Network Intelligence chapters, the plant rail and the sending paths. The trust-section sharing picture and the home visuals stay unlabeled.",
   "shared": {
     "brand": "Everyfield",
     "nav": [
@@ -557,14 +557,15 @@
             "This section is a draft and does not apply yet. It describes how Everyfield, the product, is built to handle a church's data. We will confirm it before you use the product."
           ],
           "items": [
-            "Vercel hosts the product. Neon stores a church's records in a database, Tigris stores its files and Resend sends its email. [PLACEHOLDER: the storage regions for product data]",
-            "A church that signs up on its own starts with all sharing off. A church that joins through an invitation from a sending church or network sees what the invitation shares before it accepts. The church can turn each kind of sharing on or off at any time.",
-            "A sending church or network sees totals and summaries of what a church shares, such as people, meetings, tasks and teams. It never sees people records, contact details, notes or the church's street address.",
-            "Plant Intelligence shows each concern to the church first. A sending church or network sees it after someone at the church opens it, or after 72 hours. When a church stops sharing, that view ends.",
-            "The daily email to a sending church or network holds counts and dates only, never names, notes or message bodies.",
-            "Inside a church, Owners and Admins manage the church. Members can read the church's records, but not interview and assessment records or private intake details.",
-            "Only the person who writes a private weekly check-in can read it. Other leaders, sending churches, networks and Evry cannot, and it is never sent to an AI model.",
+            "Vercel hosts the product. A church's records are stored in a Postgres database at Neon, and its files in a private Tigris storage bucket. [PLACEHOLDER: the storage regions for product data]",
+            "A church that signs up on its own starts with every kind of sharing turned off. The church's Owner or an Admin can turn each kind of sharing on or off for each sending church or network.",
             "Evry conversations are private to the person who starts them.",
+            "[PLACEHOLDER: what a sending church or network sees of the data a church shares, to confirm when oversight ships]",
+            "[PLACEHOLDER: when a sending church or network sees a Plant Intelligence concern, to confirm when it ships]",
+            "[PLACEHOLDER: what the daily email to a sending church or network contains, to confirm when it ships]",
+            "[PLACEHOLDER: what Members of a church can and cannot see, to confirm before launch]",
+            "[PLACEHOLDER: who can read the private weekly check-in, to confirm when it ships]",
+            "[PLACEHOLDER: which service sends product email]",
             "[PLACEHOLDER: which AI model provider Evry and Plant Intelligence use in production, what they send to it, and the provider's data-use terms]",
             "[PLACEHOLDER: how long product data is kept, how deletion and the cancellation period work, and how backups are kept]"
           ]

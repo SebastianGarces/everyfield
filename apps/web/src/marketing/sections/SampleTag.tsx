@@ -1,7 +1,7 @@
 import { cn } from "@/components/cn";
 import { COPY } from "../copy";
 
-/** Revision 8: the "Sample data" caption in a corner of each /oversight product picture (the Austin Sending Network). */
+/** Revision 8: the "Sample data" caption in a corner of the /oversight mockups of the sample Austin Sending Network's data. */
 export function SampleTag({ className }: { className?: string }) {
 	return (
 		<span
