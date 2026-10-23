@@ -276,3 +276,8 @@ export async function fixture({ lockTimeout = "0" } = {}) {
 		},
 	};
 }
+
+/** The task reminder port of a seat removal whose tasks are undated, so a replan there would be a bug. */
+export const noReminders = async () => {
+	throw Error("unexpected task reminder replan");
+};

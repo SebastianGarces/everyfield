@@ -1,6 +1,6 @@
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
-import { fixture, key } from "./invitations-support.mts";
+import { fixture, key, noReminders } from "./invitations-support.mts";
 import { eq, sql, and } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
 import { currentActor, readViewer, RequestActor } from "../../../packages/domain/src/access/index.ts";
@@ -118,7 +118,7 @@ test("BUG-127: resend during a 250-duty removal completes or safely retries", as
 		await f.admin.transaction(async (tx) => {
 			await tx.select().from(t.task).where(eq(t.task.id, ids[0])).for("update");
 			const r = await tx.execute(sql`SELECT pg_backend_pid() AS pid`);
-			removal = outcome(f.seats.remove(authority, s.w, command));
+			removal = outcome(f.seats.remove(authority, s.w, command, noReminders));
 			await waitingOn(r.rows[0].pid);
 			concurrent = outcome(f.invitations.resend(authority, resend));
 		});
@@ -136,7 +136,7 @@ test("BUG-127: resend during a 250-duty removal completes or safely retries", as
 	}
 	const result = sent.value ?? (await f.invitations.resend(authority, resend));
 	assert.equal(result.invitation.revision, "2");
-	assert.deepEqual(await f.seats.remove(authority, s.w, command), removed.value);
+	assert.deepEqual(await f.seats.remove(authority, s.w, command, noReminders), removed.value);
 	const [{ n }] = await f.admin
 		.select({ n: sql`count(*)::int` })
 		.from(t.task)
@@ -221,7 +221,7 @@ test("BUG-127: statement timeout rolls back every handoff and permits exact retr
 		sql`CREATE TRIGGER stall_receipt BEFORE INSERT ON audit_event FOR EACH ROW EXECUTE FUNCTION stall_receipt()`,
 	);
 	try {
-		await assert.rejects(f.seats.remove(await f.actor(s.sender.session), s.w, command), (error) => {
+		await assert.rejects(f.seats.remove(await f.actor(s.sender.session), s.w, command, noReminders), (error) => {
 			assert.equal(error.value?.code, "temporary");
 			assert.equal(error.value.retry, "same_request");
 			return true;
@@ -239,7 +239,7 @@ test("BUG-127: statement timeout rolls back every handoff and permits exact retr
 		.from(t.audit_event)
 		.where(eq(t.audit_event.request_key, command.requestKey));
 	assert.equal(n, 0);
-	const result = await f.seats.remove(await f.actor(s.sender.session), s.w, command);
+	const result = await f.seats.remove(await f.actor(s.sender.session), s.w, command, noReminders);
 	assert.deepEqual(result.duties, [{ status: "moved", dutyId: duty, recipientAccountId: s.sender.id }]);
 });
 

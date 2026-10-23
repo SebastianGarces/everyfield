@@ -94,7 +94,12 @@ export async function references(
 }
 
 const OPEN = (s: string) => !(c.settledStatus as readonly string[]).includes(s);
-function reminderSource(plantId: string, row: TaskRow): ReminderSource {
+/** The task columns a reminder reads: a task row, or a light locked read of the task table with the plant's zone. */
+export type ReminderRow = Pick<
+	TaskRow,
+	"id" | "title" | "status" | "assignee_id" | "due_kind" | "due_date" | "due_at" | "deleted_at"
+> & { revision: string; plant_zone: string };
+function reminderSource(plantId: string, row: ReminderRow): ReminderSource {
 	return {
 		plantId,
 		taskId: row.id,
@@ -113,7 +118,7 @@ function reminderSource(plantId: string, row: TaskRow): ReminderSource {
 }
 const remindable = (s: ReminderSource) => s.open && s.assigneeId !== null && s.due.kind !== "undated";
 /** Reminders change only when the task had or now has owed reminders; other writes keep their small budget. */
-export function reminderChange(plantId: string, before: TaskRow | null, after: TaskRow) {
+export function reminderChange(plantId: string, before: ReminderRow | null, after: ReminderRow) {
 	const prior = before && reminderSource(plantId, before),
 		next = reminderSource(plantId, after);
 	if (!(prior && remindable(prior)) && !remindable(next)) return undefined;
