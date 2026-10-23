@@ -713,6 +713,21 @@
 				}
 			],
 			"risk": "ordinary"
+		},
+		"OPS-46": {
+			"title": "Trim the brand guard kept-path list",
+			"owningPaths": ["docs/text-allowlist.json", "docs/check-text.py", "evf.config.json"],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {
