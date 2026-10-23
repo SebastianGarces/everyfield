@@ -29,8 +29,15 @@ export async function register() {
 			import("./server/identity"),
 			import("./server/database"),
 		]);
-		await Promise.all([requestAuth().$context, warmPools()]);
+		const [, pools] = await Promise.all([requestAuth().$context, warmPools()]);
 		console.log(JSON.stringify({ component: "server", event: "warm", ms: ms() }));
+		pools.rest.then(
+			() => console.log(JSON.stringify({ component: "server", event: "warm_rest", ms: ms() })),
+			(error) => {
+				const message = error instanceof Error ? error.message : String(error);
+				console.error(JSON.stringify({ component: "server", event: "warm_failed", ms: ms(), message }));
+			},
+		);
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
 		console.error(JSON.stringify({ component: "server", event: "warm_failed", ms: ms(), message }));

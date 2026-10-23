@@ -281,10 +281,14 @@ try {
 		["GET /signin (signed out)", "/signin", ""],
 	];
 	// RT-6c: no request pays a cold-start cost. Server start checks the bucket's privacy without any request, and opens
-	// the connections one request uses, so the first person page (two reads at once) and the first upload sign open no
-	// connection and call no bucket.
-	for (const started = Date.now(); !bucketCalls.length; await new Promise((resolve) => setTimeout(resolve, 50)))
-		assert.ok(Date.now() - started < 10_000, "server start never checked the bucket's privacy");
+	// the connections one request uses (the first before it answers, the rest just after: warm_rest), so the first
+	// person page (two reads at once) and the first upload sign open no connection and call no bucket.
+	for (
+		const started = Date.now();
+		!bucketCalls.length || !log.includes('"event":"warm_rest"');
+		await new Promise((resolve) => setTimeout(resolve, 50))
+	)
+		assert.ok(Date.now() - started < 10_000, "server start never checked the bucket or never opened every connection");
 	assert.deepEqual(bucketCalls, ["GET /census-private/?acl="]);
 	const opened = async (name) => {
 		for (const started = Date.now(); ; await new Promise((resolve) => setTimeout(resolve, 20))) {
