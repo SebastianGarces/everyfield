@@ -143,6 +143,23 @@ its recorded head, no newer task start, no open PR, and no live Portless preview
 records its new start outside the repository. Unavailable or malformed provider status keeps the
 worktree. Cleanup never stops previews itself.
 
+## Timing sets
+
+`evf timing <task> --set <file> [--head <sha>]` measures a declared timing set (D81, OPS-52). It
+takes the author's clean task head, or a verifier's `--head`, into a detached `timing-<sha7>`
+worktree, starts a quiet Postgres in Docker, migrates it, gives the app its own logins and fresh
+identity keys, and starts a production preview whose env is only that database. The set runs inside
+`evf browser run`, beside an independent probe on its own connections: SELECT 1 every 100 ms, and for
+`write: true` sets a one-row update and COMMIT in one protocol call. Labels (C108, C114, C118): load
+above the machine limit at the start or end of a sample; a probe round trip above 150 ms in its
+window (database spike, database write stall), or no probe answer within 2 s after it;
+self-interference the set reports. Each non-qualifying sample, a replacement included, adds exactly
+one labeled replacement. More non-qualifying samples than declared ones stop the run as not
+measured. Only one set samples at a time on the machine; setup runs outside that lock. The report
+goes to `.git/evf/evidence/<task>/<sha>/timing-<set>/report.json` and holds no connection string.
+evf removes the preview, the database and the worktree at the end; a crashed run's database goes at
+the next start. The verify-preview skill describes the set file.
+
 ## Task and ruling IDs
 
 Workspaces share the GitHub remote, not one checkout, so the remote holds ID reservations.

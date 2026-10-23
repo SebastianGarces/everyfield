@@ -26,6 +26,7 @@ import { requireVerifiedHead, verify } from "./verify.ts";
 import { migrationsRenumber } from "./migrations.ts";
 import { awaitLoad } from "./load.ts";
 import { nextId } from "./ids.ts";
+import { timing } from "./timing.ts";
 
 const HELP = `evf: Everyfield v3 workflow CLI
 
@@ -49,6 +50,9 @@ Task loop (implementor, ui-designer)
 
 Verification (verifier)
   evf verify <task> --role verifier [--head <sha>] [--quick]
+  evf timing <task> --set <file> [--head <sha>] [--timeout <seconds>] [--ignore-load "<reason>"]
+        runs a declared timing set on a production preview of the exact head and a quiet local
+        database, with the SELECT 1 (and, for saves, write) probe; labels, replaces, passes or fails
   evf pre-push <task>                                        require full exact-head author checks
   evf ship <task>                           report status and squash-merge
 
@@ -82,7 +86,7 @@ Browser checks (any role)
 <task> is WP-NNN for a single-part package, WP-NNN/api (contract first), WP-NNN/ui,
 FB-<n> for public feedback issue n, or OPS-<n> for reviewed tooling maintenance.
 
-task start, verify and browser run wait while the 1-minute load average is above 2 × CPU cores
+task start, verify, timing and browser run wait while the 1-minute load average is above 2 × CPU cores
 (C51, C81). --ignore-load "<reason>" runs at once and logs the override.`;
 
 function flag(args: string[], name: string): boolean {
@@ -108,7 +112,14 @@ function main(argv: string[]): number | Promise<number> {
 		return 0;
 	}
 	const root = homeRoot();
-	const duration = cmd === "test" ? "2-5 minutes" : cmd === "pre-push" ? "under 10 seconds" : undefined;
+	const duration =
+		cmd === "test"
+			? "2-5 minutes"
+			: cmd === "pre-push"
+				? "under 10 seconds"
+				: cmd === "timing"
+					? "5-20 minutes"
+					: undefined;
 	if (duration) requireForeground(cmd, duration);
 	switch (cmd) {
 		case "ci-tests":
@@ -303,6 +314,17 @@ function main(argv: string[]): number | Promise<number> {
 		case "migrations":
 			if (args[0] === "renumber") return migrationsRenumber(root, parseTask(args[1]));
 			break;
+		case "timing": {
+			const setFile = option(args, "--set"),
+				head = option(args, "--head"),
+				ignoreLoad = option(args, "--ignore-load"),
+				timeoutSeconds = Number(option(args, "--timeout") ?? 3600);
+			if (!setFile || args.length !== 1) break;
+			if (!Number.isFinite(timeoutSeconds) || timeoutSeconds <= 0)
+				throw new EvfError("--timeout takes a number of seconds.");
+			awaitLoad(root, "timing", ignoreLoad);
+			return timing(root, parseTask(args[0]), { setFile, head, timeoutSeconds });
+		}
 		case "id": {
 			const kind = args[1];
 			if (args[0] !== "next" || (kind !== "ops" && kind !== "decision") || args.length !== 2) break;
