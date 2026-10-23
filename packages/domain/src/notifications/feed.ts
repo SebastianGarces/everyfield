@@ -55,7 +55,6 @@ function feedSql(
 	cursorId: string | null,
 	asOf: string,
 	unread: boolean,
-	offset: number,
 ) {
 	return sql`WITH ${selfSql(session, accountId)}
 		SELECT (SELECT account_id FROM me) AS account_id,
@@ -78,7 +77,6 @@ function feedSql(
 					AND (${cursorAt}::timestamptz IS NULL OR (n.eligible_at, n.id) < (${cursorAt}::timestamptz, ${cursorId}::uuid))
 				ORDER BY n.eligible_at DESC, n.id DESC
 				LIMIT ${PAGE + 1}
-				OFFSET ${offset}
 			) page), '[]'::json) AS items`;
 }
 
@@ -87,7 +85,6 @@ export async function readFeed(db: Database, authority: RequestActor, raw: unkno
 		const input = parse(readFeedRequest, raw);
 		const cursor = input.cursor?.split("|");
 		const asOf = input.asOf ?? new Date().toISOString();
-		const offset = input.cursor ? 0 : input.page ? (input.page - 1) * PAGE : 0;
 		const result = await db.execute(
 			feedSql(
 				authority.session,
@@ -97,7 +94,6 @@ export async function readFeed(db: Database, authority: RequestActor, raw: unkno
 				cursor?.[1] ?? null,
 				asOf,
 				input.unread === true,
-				offset,
 			),
 		);
 		const row = pageRow.parse({ ...result.rows[0], items: jsonValue(result.rows[0]?.items) });

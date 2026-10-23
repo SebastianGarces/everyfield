@@ -12,7 +12,6 @@ const page = z.strictObject({
 });
 export const readFeedRequest = page.extend({
 	unread: z.boolean().optional(),
-	page: z.number().int().min(1).max(200).optional(),
 });
 export const readUnreadCountRequest = page.omit({ cursor: true });
 export const setPreferenceRequest = commandEnvelope(z.strictObject({ choice: notificationChoice }));

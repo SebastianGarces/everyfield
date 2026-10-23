@@ -231,6 +231,24 @@ test("AC:CASE-NTF-003 AC:NOTIFY47-001 AC:NOTIFY47-010 the feed and mark stay ins
 		unread.items.some((row) => row.id === due),
 		false,
 	);
+	await admin.execute(sql`INSERT INTO notice(tenant_id,recipient_id,category,purpose,logical_key,source_record_id,source_revision,title,eligible_at,created_at,timezone)
+		SELECT ${church.id},${a.id},'task','task_due',${church.id} || '/task_due/' || ${work} || '/' || g::text || '/arrived-late',${work},g,'Arrived late ' || g,
+			clock_timestamp(),clock_timestamp(),'America/Chicago'
+		FROM generate_series(1,5) g`);
+	const held = ok(await api.readFeed(db, reader, { cursor: first.nextCursor }));
+	assert.deepEqual(
+		held.items.map((row) => row.id),
+		second.items.map((row) => row.id),
+	);
+	const unreadNow = ok(await api.readFeed(db, reader, { unread: true }));
+	assert.equal(unreadNow.items.length, 50);
+	ok(await api.markSelectedRead(db, reader, command({ noticeIds: unreadNow.items.map((row) => row.id) }, "1")));
+	const unreadRest = ok(await api.readFeed(db, reader, { unread: true, cursor: unreadNow.nextCursor }));
+	assert.equal(unreadRest.items.length, 15);
+	assert.equal(
+		unreadRest.items.some((row) => unreadNow.items.some((seen) => seen.id === row.id)),
+		false,
+	);
 	const burstChurch = await plant("Burst");
 	const burst = await identity(burstChurch);
 	const burstTask = await task(burstChurch.id);
@@ -242,12 +260,11 @@ test("AC:CASE-NTF-003 AC:NOTIFY47-001 AC:NOTIFY47-010 the feed and mark stay ins
 	const burstReader = await actor(burst.session);
 	const sameFirst = ok(await api.readFeed(db, burstReader, {}));
 	const sameSecond = ok(await api.readFeed(db, burstReader, { cursor: sameFirst.nextCursor }));
-	const samePage = ok(await api.readFeed(db, burstReader, { page: 2 }));
+	denied(await api.readFeed(db, burstReader, { page: 2 }), "invalid_input");
 	const sameIds = new Set([...sameFirst.items, ...sameSecond.items].map((row) => row.id));
 	assert.equal(sameFirst.items.length, 50);
 	assert.equal(sameSecond.items.length, 10);
 	assert.equal(sameIds.size, 60);
-	assert.equal(samePage.items.length, 10);
 	const dueChurch = await plant("Due");
 	const duePerson = await identity(dueChurch);
 	const dueTask = await task(dueChurch.id);
