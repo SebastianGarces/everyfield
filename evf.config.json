@@ -792,6 +792,21 @@
 				}
 			],
 			"risk": "ordinary"
+		},
+		"OPS-53": {
+			"title": "Quiet-database evf test races Docker",
+			"owningPaths": ["evf.config.json", "tools/evf/"],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {
