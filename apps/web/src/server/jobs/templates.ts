@@ -32,8 +32,8 @@ export function protectedTemplate(input: { purpose: z.infer<typeof purpose>; url
 		password_reset: "Reset your password",
 		email_verification: "Verify your email",
 		email_change: "Confirm your email change",
-		seat_invitation: "Your EveryField invitation",
-		relationship_invitation: "Your EveryField relationship invitation",
+		seat_invitation: "Your Everyfield invitation",
+		relationship_invitation: "Your Everyfield relationship invitation",
 	} as const;
 	return {
 		subject: subjects[p],

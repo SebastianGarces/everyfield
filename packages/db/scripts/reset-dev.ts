@@ -44,7 +44,7 @@ try {
 				email,
 				data: { ...data, email },
 				mail_payload: {
-					from: "EveryField Development <development@example.test>",
+					from: "Everyfield Development <development@example.test>",
 					to: [email],
 					reply_to: "support@example.test",
 					subject: "Synthetic development fixture",

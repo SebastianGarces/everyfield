@@ -14,7 +14,7 @@
   "source_note": "Marketing copy and structure (workspace note). This file holds the same copy in a form the prototype can load.",
   "sample_data_rule": "Names and numbers inside product visuals come from a demo church (Harvest Point). The page does not label them.",
   "shared": {
-    "brand": "EveryField",
+    "brand": "Everyfield",
     "nav": [
       {
         "label": "Planters",
@@ -62,7 +62,7 @@
           ]
         }
       ],
-      "fineprint": "\u00a9 2026 EveryField LLC",
+      "fineprint": "\u00a9 2026 Everyfield LLC",
       "headline_home_oversight": "Church planting software for planters and the churches that send them."
     },
     "week": {
@@ -128,7 +128,7 @@
     },
     "trust_page": {
       "eyebrow": "Privacy and trust",
-      "headline": "Who sees what in EveryField.",
+      "headline": "Who sees what in Everyfield.",
       "subhead": "Planters own their records. Sending churches and networks see summaries, and only what each plant shares.",
       "planter_rules": {
         "headline": "Your records stay yours.",
@@ -284,19 +284,19 @@
           },
           {
             "id": "phase",
-            "q": "Does EveryField move a plant to the next phase or rate the planter?",
-            "a": "No. The planter sets the phase. EveryField does not change it or grade the planter."
+            "q": "Does Everyfield move a plant to the next phase or rate the planter?",
+            "a": "No. The planter sets the phase. Everyfield does not change it or grade the planter."
           },
           {
             "id": "start",
             "q": "How do we get started?",
-            "a": "EveryField is in early access. Request access for your church or network, and we will be in touch.",
+            "a": "Everyfield is in early access. Request access for your church or network, and we will be in touch.",
             "link": "Request early access"
           }
         ]
       },
       "cta": {
-        "headline": "Bring EveryField to the plants you send.",
+        "headline": "Bring Everyfield to the plants you send.",
         "body": "We are working with a small group of networks and sending churches during early access.",
         "cta_primary": "Talk to us about your network",
         "cta_secondary": "Request early access as a planter"
@@ -306,7 +306,7 @@
         "items": [
           {
             "title": "Planters run their plant here.",
-            "body": "People, meetings, tasks and teams live in EveryField, so your view follows the work as it happens. No one fills in a report."
+            "body": "People, meetings, tasks and teams live in Everyfield, so your view follows the work as it happens. No one fills in a report."
           },
           {
             "title": "The planter chooses what to share.",
@@ -350,7 +350,7 @@
       "hero": {
         "eyebrow": "Early access",
         "headline": "Request early access",
-        "subhead": "EveryField is in early access for church planters and the churches and networks that send them."
+        "subhead": "Everyfield is in early access for church planters and the churches and networks that send them."
       },
       "contact_email": "hello@everyfield.app",
       "form": {
@@ -490,7 +490,7 @@
       "title": "Privacy policy",
       "updated": "October 14, 2026",
       "intro": [
-        "This policy covers everyfield.app, the early access site for EveryField. EveryField LLC runs the site.",
+        "This policy covers everyfield.app, the early access site for Everyfield. Everyfield LLC runs the site.",
         "The site has no accounts, no sign in and no newsletter. We collect the details you send in an early access request. Our hosting provider also records information about visits, as described below."
       ],
       "sections": [
@@ -576,13 +576,13 @@
       "title": "Terms",
       "updated": "October 14, 2026",
       "intro": [
-        "These terms apply to everyfield.app, the early access site for EveryField. EveryField LLC runs the site. When you use the site, you agree to these terms."
+        "These terms apply to everyfield.app, the early access site for Everyfield. Everyfield LLC runs the site. When you use the site, you agree to these terms."
       ],
       "sections": [
         {
           "heading": "Early access",
           "paragraphs": [
-            "EveryField is in early access. You cannot sign in or use the product on this site.",
+            "Everyfield is in early access. You cannot sign in or use the product on this site.",
             "A request does not reserve a place. We choose who joins early access and when, and we can say no.",
             "The product will have its own terms. We will give them to you before you use it."
           ]
@@ -590,7 +590,7 @@
         {
           "heading": "What the site shows",
           "paragraphs": [
-            "The site describes EveryField as we build it. Features can change before you can use them.",
+            "The site describes Everyfield as we build it. Features can change before you can use them.",
             "Names and numbers in the product pictures come from a sample church."
           ]
         },
@@ -611,7 +611,7 @@
         {
           "heading": "Our content",
           "paragraphs": [
-            "The EveryField name, logo, text and pictures on this site belong to EveryField LLC. You can link to any page and share it. Ask us before you copy our content for other uses."
+            "The Everyfield name, logo, text and pictures on this site belong to Everyfield LLC. You can link to any page and share it. Ask us before you copy our content for other uses."
           ]
         },
         {
@@ -623,7 +623,7 @@
         {
           "heading": "Limit of liability",
           "paragraphs": [
-            "As far as the law allows, EveryField LLC is not liable for any loss that comes from your use of this site. These terms do not limit any rights that the law does not let us limit."
+            "As far as the law allows, Everyfield LLC is not liable for any loss that comes from your use of this site. These terms do not limit any rights that the law does not let us limit."
           ]
         },
         {
@@ -683,25 +683,25 @@
       "sections": {
         "hero": {
           "headline": "From calling to Launch Sunday.",
-          "subhead": "EveryField connects the launch plan to this week's work: the people to reach, the gatherings to hold and the tasks that move your plant toward launch.",
+          "subhead": "Everyfield connects the launch plan to this week's work: the people to reach, the gatherings to hold and the tasks that move your plant toward launch.",
           "cta_primary": "Request early access",
           "cta_secondary": "See how it works"
         },
         "problem": {
           "headline": "A church launch has a hundred moving parts. Most of them live in your head.",
-          "body": "Every task matters, but not every task matters this week. EveryField keeps the vision and Launch Sunday at the center, and shows you the next most important thing."
+          "body": "Every task matters, but not every task matters this week. Everyfield keeps the vision and Launch Sunday at the center, and shows you the next most important thing."
         },
         "proof": {
           "note": "R6 (2026-10-17): no longer rendered on the site; the overview now sits inside the vision section. Kept for the prototype's second home story.",
           "headline": "Here is what a Monday looks like.",
-          "body": "Open EveryField and see your core team, your launch team, your next gathering and the follow-ups that need you first.",
+          "body": "Open Everyfield and see your core team, your launch team, your next gathering and the follow-ups that need you first.",
           "callouts": [],
           "visual": "Overview dashboard from the round-buffalo mockup: Core group, Vision meetings, Where people are, Coming up, Focus this week and Needs you."
         },
         "vision": {
-          "note": "R4 (2026-10-15) and R6 (2026-10-17): the home section from the homepage-design handoff \"Connect the vision to this week\" and Instagram ad 13-a, merged with the Monday overview (Sebastian chose R6 variant B). Four levels: Launch Sunday, the current phase with its benchmark, one launch milestone and this week's tasks, each with the goal it serves; then a \"Monday morning\" label leads to the overview. EveryField stores no vision statement.",
+          "note": "R4 (2026-10-15) and R6 (2026-10-17): the home section from the homepage-design handoff \"Connect the vision to this week\" and Instagram ad 13-a, merged with the Monday overview (Sebastian chose R6 variant B). Four levels: Launch Sunday, the current phase with its benchmark, one launch milestone and this week's tasks, each with the goal it serves; then a \"Monday morning\" label leads to the overview. Everyfield stores no vision statement.",
           "headline": "The vision, down to this week.",
-          "body": "Launch Sunday sets the date. Each phase has its benchmarks, and the launch milestones lead up to the day. EveryField lines them up with this week's tasks, so you open Monday knowing what to do and why.",
+          "body": "Launch Sunday sets the date. Each phase has its benchmarks, and the launch milestones lead up to the day. Everyfield lines them up with this week's tasks, so you open Monday knowing what to do and why.",
           "bridge": "Monday morning"
         },
         "features": {
@@ -710,7 +710,7 @@
             {
               "label": "Discovery",
               "title": "Start with clear guidance",
-              "short": "EveryField opens the library articles for your phase and suggests the tasks that go with them."
+              "short": "Everyfield opens the library articles for your phase and suggests the tasks that go with them."
             },
             {
               "label": "Core group",
@@ -781,7 +781,7 @@
         },
         "evry": {
           "headline": "Evry prepares the work. You approve it.",
-          "body": "Evry is the assistant inside EveryField. Ask it to set up your next vision meeting, and it prepares the meeting, the 90-minute agenda, the guest list and the invitation email. Nothing is saved or sent until you approve.",
+          "body": "Evry is the assistant inside Everyfield. Ask it to set up your next vision meeting, and it prepares the meeting, the 90-minute agenda, the guest list and the invitation email. Nothing is saved or sent until you approve.",
           "example": {
             "ask": "Set up vision meeting #12 for Sun, Oct 25 and invite the 9 guests from #11.",
             "answer": "Ready for your review: Sun, Oct 25 at the Reyes home, the 90-minute agenda, 9 guests and the invitation email.",
@@ -790,8 +790,8 @@
           "limits": "Evry does not write prayers, give spiritual counsel or judge whether a person is ready. It changes your phase only after you decide and approve."
         },
         "cta": {
-          "headline": "Bring your plant into EveryField.",
-          "body": "EveryField is in early access. Tell us about your plant, and we will be in touch.",
+          "headline": "Bring your plant into Everyfield.",
+          "body": "Everyfield is in early access. Tell us about your plant, and we will be in touch.",
           "cta_primary": "Request early access",
           "cta_secondary": "Talk to us about your network"
         },

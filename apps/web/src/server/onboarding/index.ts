@@ -69,7 +69,7 @@ function create(v: z.infer<typeof env>) {
 							? { subject: "Your Discovery space is ready", text: "You can read the foundations at your own pace." }
 							: {
 									subject: "Your church is set up",
-									text: "Your church is in EveryField. Setup continues where you left off.",
+									text: "Your church is in Everyfield. Setup continues where you left off.",
 								},
 					operation: input.operationId,
 					notice: null,

@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import type { LIVE_PAGES } from "@/site";
 import { COPY } from "./copy";
 
-export const SITE_NAME = "EveryField";
+export const SITE_NAME = "Everyfield";
 
 /** Alt text for a share image: the words it shows. scripts/render-share-images.mjs writes the same text. */
 export function shareAlt(headline: string, subhead: string) {

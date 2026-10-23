@@ -29,7 +29,7 @@ before(async () => {
 });
 const env = {
 	RESEND_API_KEY: "fake-provider-key",
-	EMAIL_FROM: "EveryField <hello@everyfield.app>",
+	EMAIL_FROM: "Everyfield <hello@everyfield.app>",
 	EARLY_ACCESS_EMAIL_TO: "owner@example.org",
 };
 const planter = {
@@ -109,14 +109,14 @@ test("INV-access: accepted forms normalize email, store every field and send one
 				from: env.EMAIL_FROM,
 				to: [env.EARLY_ACCESS_EMAIL_TO],
 				reply_to: "sam@example.org",
-				subject: "EveryField early access: planter",
+				subject: "Everyfield early access: planter",
 				text: "Form: planter\nName: Sam Planter\nEmail: sam@example.org\nPlant name: Hope Church\nCity: Boston\nPhase: 0 · Discovery\nSending church or network: Sending Church",
 			},
 			{
 				from: env.EMAIL_FROM,
 				to: [env.EARLY_ACCESS_EMAIL_TO],
 				reply_to: "alex@example.org",
-				subject: "EveryField early access: network",
+				subject: "Everyfield early access: network",
 				text: "Form: network\nName: Alex\nEmail: alex@example.org\nNetwork or church: Network\nRole: Director\nPlants sent or supported: 12\nMessage: Please send details.",
 			},
 		],
