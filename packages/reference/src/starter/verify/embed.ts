@@ -14,14 +14,16 @@ export function localEmbedding(text: string): number[] {
 }
 
 export type WikiEmbedder = (text: string) => readonly number[] | Promise<readonly number[]>;
+export type WikiEmbedMany = (
+	texts: readonly string[],
+) => Promise<{ vectors: readonly (readonly number[])[]; totalTokens: number }>;
 export type { WikiEmbedFetch };
 
 export interface ResolvedWikiEmbedding {
-	kind: "injected" | "openai" | "local";
 	profile: string;
 	dimensions: number;
-	embed: WikiEmbedder;
-	embedMany?: (texts: readonly string[]) => Promise<readonly (readonly number[])[]>;
+	embed?: WikiEmbedder;
+	embedMany?: WikiEmbedMany;
 }
 
 // A present OPENAI_API_KEY is not an opt-in. Tests inject embed and stay on the local provider.
@@ -36,7 +38,6 @@ export function resolveWikiEmbedding(
 ): ResolvedWikiEmbedding {
 	if (deps.embed) {
 		return {
-			kind: "injected",
 			profile: deps.embeddingProfile ?? approvedWiki.embeddingProfile,
 			dimensions: deps.embeddingDimensions ?? approvedWiki.embeddingDimensions,
 			embed: deps.embed,
@@ -45,15 +46,12 @@ export function resolveWikiEmbedding(
 	if (env.EVF_WIKI_EMBEDDINGS === "openai") {
 		const provider = openAiWikiEmbedding(env, deps.fetch);
 		return {
-			kind: "openai",
 			profile: provider.profile,
 			dimensions: provider.dimensions,
-			embed: async (text) => (await provider.embedMany([text]))[0] ?? [],
 			embedMany: provider.embedMany,
 		};
 	}
 	return {
-		kind: "local",
 		profile: approvedWiki.embeddingProfile,
 		dimensions: approvedWiki.embeddingDimensions,
 		embed: localEmbedding,

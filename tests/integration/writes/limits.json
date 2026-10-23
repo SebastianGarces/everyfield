@@ -927,7 +927,8 @@
 		"limit": 1
 	},
 	"reference.installApprovedWiki": {
-		"limit": 4
+		"limit": 24,
+		"reason": "Activates through reference.promote. Its largest first run: 4 transaction, 4 locked read, 9 read, 7 write."
 	},
 	"reference.invalidateWikiCache": {
 		"limit": 1
@@ -937,7 +938,8 @@
 		"reason": "RT-6 outlier. Its largest first run: 4 transaction, 6 locked read, 7 read, 7 write."
 	},
 	"reference.rebuildEmbeddings": {
-		"limit": 4
+		"limit": 24,
+		"reason": "Activates through reference.promote. Its largest first run: 4 transaction, 4 locked read, 9 read, 7 write."
 	},
 	"seats.appointAdmin": {
 		"limit": 7,

@@ -223,6 +223,8 @@ test("AC:REF-CASE-002 AC:GAP-REF-002 AC:CASE-WIKI-010 AC:SCHEMA-014 approved wik
 	assert.equal(rebuilt.activated, true);
 	assert.equal(rebuilt.activeRelease, "R2");
 	assert.equal(rebuilt.activationNumber, "2");
+	assert.equal(rebuilt.reason, null);
+	assert.equal(rebuilt.usageTokens, 0);
 	assert.ok((rebuilt.passages ?? 0) > 0);
 	const vectors = await db.execute(
 		sql`SELECT p.content, p.embedding_checksum, r.embedding_profile, r.embedding_dimensions, r.expected_passages
@@ -252,7 +254,14 @@ test("AC:REF-CASE-002 AC:GAP-REF-002 AC:CASE-WIKI-010 AC:SCHEMA-014 approved wik
 		target: approvedWiki.target,
 	});
 	dropVector = false;
-	assert.deepEqual(missing, { activated: false, activeRelease: null, activationNumber: null, passages: 0 });
+	assert.deepEqual(missing, {
+		activated: false,
+		activeRelease: null,
+		activationNumber: null,
+		passages: 0,
+		reason: "incomplete_candidate",
+		usageTokens: 0,
+	});
 	failProvider = true;
 	const timedOut = await service.rebuildEmbeddings(publisher, {
 		release: "R4",
@@ -264,6 +273,8 @@ test("AC:REF-CASE-002 AC:GAP-REF-002 AC:CASE-WIKI-010 AC:SCHEMA-014 approved wik
 	});
 	failProvider = false;
 	assert.equal(timedOut.activated, false);
+	assert.equal(timedOut.reason, "provider_timeout");
+	assert.equal(timedOut.usageTokens, 0);
 	assert.equal((await counts())?.releases, 2);
 	assert.equal((await counts())?.activations, 2);
 
