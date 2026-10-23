@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { invitationService } from "@/server/invitations";
 import { namesFor, subjectFacts, viewerOf } from "@/server/organizations";
+import { tasksMount } from "@/server/tasks";
 import { answer, refused, type Reply } from "../server";
 
 // The Seats and invitations page's only doors (WP-008/ui ruling U1). The session and the one current seat come from
@@ -100,7 +101,12 @@ export async function runSeatCommand(name: SeatOperation, command: unknown): Pro
 			return answer(() => mount.seats.appointAdmin(s, selected, command));
 		case "demote":
 			return answer(() => mount.seats.demote(s, selected, command));
-		case "remove":
-			return answer(() => mount.seats.remove(s, selected, command));
+		case "remove": {
+			// A removal hands the seat's open tasks on, and their owed reminders follow them through the tasks mount in
+			// the same transaction. A deployment without it cannot replan reminders, so the removal is refused there.
+			const reminders = tasksMount()?.reminders;
+			if (!reminders) return refused("unavailable");
+			return answer(() => mount.seats.remove(s, selected, command, reminders));
+		}
 	}
 }
