@@ -18,6 +18,8 @@ type Props = {
 	/** Mirrored (Revision 19): the panel on the left, the heading in the list column. */
 	mirror?: boolean;
 	steps: AutoStep[];
+	/** A caption over the panel area (Revision 8: "Sample data" on /oversight). */
+	tag?: ReactNode;
 };
 
 /* Revision 17: every step lasts the longest panel plus this hold. */
@@ -29,7 +31,7 @@ const HOLD = 1200;
  * step starts. Progress holds while the section is off screen or a tab has keyboard focus. Reduced motion: no advance
  * and no fill; the active line is full and the tabs still switch.
  */
-export function AutoList({ id, head, mirror, steps }: Props) {
+export function AutoList({ id, head, mirror, steps, tag }: Props) {
 	const n = steps.length;
 	const reduced = useReduced();
 	const root = useRef<HTMLElement>(null);
@@ -218,6 +220,7 @@ export function AutoList({ id, head, mirror, steps }: Props) {
 							{steps.map((st, i) => (
 								<DeskBg key={i} bg={st.bg} sw={c.sw} sel={c.sel} i={i} />
 							))}
+							{tag}
 							{steps.map((st, i) => (
 								<div key={i} aria-hidden="true" className="contents">
 									<DeskPanel sw={c.sw} sel={c.sel} i={i} t={c.t[i]!} since={c.since[i]!} place="auto">

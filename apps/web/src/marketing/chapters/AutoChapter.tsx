@@ -4,6 +4,7 @@ import { Display } from "@/components/Display";
 import { COPY } from "../copy";
 import type { Backdrop } from "../photo/photos";
 import { isPanelKind, type PanelKind } from "../scene-data";
+import { SampleTag } from "../sections/SampleTag";
 import { AutoList, type AutoStep } from "./AutoList";
 
 type Id = "intelligence" | "every-plant" | "leaders" | "network-intelligence";
@@ -76,5 +77,7 @@ export function AutoChapter({ id, panels }: { id: Id; panels: Partial<Record<Pan
 		if (!panels[s.kind]) throw new Error(`${id}: the page passes no "${s.kind}" panel`);
 		return { ...s, panel: panels[s.kind] };
 	});
-	return <AutoList id={id} head={head} mirror={d.mirror} steps={steps} />;
+	// Revision 8: the /oversight chapters show the sample Austin Sending Network, so their pictures carry a caption.
+	const tag = id === "intelligence" ? undefined : <SampleTag className="top-3 left-3 max-mk-cx:top-2" />;
+	return <AutoList id={id} head={head} mirror={d.mirror} steps={steps} tag={tag} />;
 }

@@ -13,6 +13,8 @@ type Props = {
 	subhead: string;
 	primary: { label: string; href: string };
 	secondary?: { label: string; href: string };
+	/** One line under the buttons: what happens after the primary button. */
+	note?: string;
 	/** The product visual under the buttons. */
 	children: ReactNode;
 	/** "dashboard" (/oversight, Revision 24): a wider lead, and the band is a window of fixed height onto a large
@@ -29,7 +31,7 @@ const arrow = <Icon icon={ArrowRight02Icon} size={17} />;
  * It is wider than the page column: 8 to 24 px window margins, and at most the nav width plus 56 px on each side (Revision 23).
  * Headline, lead and buttons are centred in ink on the faded top; the product visual sits on the photo below them.
  */
-export function HeroPanel({ headline, subhead, primary, secondary, children, band, photo }: Props) {
+export function HeroPanel({ headline, subhead, primary, secondary, note, children, band, photo }: Props) {
 	const dash = band === "dashboard";
 	return (
 		<section
@@ -64,6 +66,7 @@ export function HeroPanel({ headline, subhead, primary, secondary, children, ban
 									</ButtonLink>
 								) : null}
 							</div>
+							{note ? <p className="max-w-[44ch] type-md [text-wrap:balance] text-ink">{note}</p> : null}
 						</div>
 					</div>
 					<Reveal

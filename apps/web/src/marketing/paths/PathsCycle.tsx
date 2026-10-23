@@ -20,6 +20,8 @@ type Props = {
 	panes: ReactNode[];
 	apps: ReactNode[];
 	photos: PhotoName[];
+	/** A caption in the picture's corner (Revision 8: "Sample data"). */
+	tag?: ReactNode;
 };
 
 /* Revision 28: one timer moves the phrase and the card together every STEP ms, only while 30 % of the block is on screen. */
@@ -41,7 +43,7 @@ const EASE = "cubic-bezier(.65,0,.35,1)";
  * Phrase widths are measured once per resize. Reduced motion: no auto advance and no transitions; the control shows
  * the next state.
  */
-export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, photos }: Props) {
+export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, photos, tag }: Props) {
 	const reduced = useReduced();
 	const run = useRef<HTMLDivElement>(null);
 	const items = useRef<(HTMLSpanElement | null)[]>([]);
@@ -170,6 +172,7 @@ export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, photos 
 							{a}
 						</Fade>
 					))}
+					{tag}
 				</div>
 				<button
 					type="button"

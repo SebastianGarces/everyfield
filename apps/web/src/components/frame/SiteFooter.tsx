@@ -7,13 +7,18 @@ import { Logo, Mark } from "../Logo";
 import { COPY } from "@/marketing/copy";
 import { ACCESS_PATH } from "@/site";
 
+const LINK =
+	"text-mk-on-ink-2 no-underline hover:text-cream hover:underline hover:underline-offset-3 focus-visible:outline-cream";
+
 // Footer links come from shared.footer in design/marketing-copy.json. Only live pages get links: the planters page,
-// the trust page, Evry and About are not live, so their links are left out, and so is a column left with no links.
+// the trust page and Evry are not live, so their links are left out, and so is a column left with no links.
+// About is the home page section; Contact writes to the team inbox (Revision 8).
 const ROUTES: Record<string, string> = {
 	Overview: "/",
 	"Plant Intelligence": "/#intelligence",
 	"Churches & Networks": "/oversight",
-	Contact: ACCESS_PATH,
+	About: "/#about",
+	Contact: "mailto:" + COPY.shared.access_page.contact_email,
 	"Privacy policy": "/privacy",
 	Terms: "/terms",
 };
@@ -55,12 +60,15 @@ export function SiteFooter({ headline = footer.headline }: { headline?: string }
 							<ul>
 								{c.links.map((l) => (
 									<li key={l.label} className="mb-2.5 type-md">
-										<Link
-											href={l.href}
-											className="text-mk-on-ink-2 no-underline hover:text-cream hover:underline hover:underline-offset-3 focus-visible:outline-cream"
-										>
-											{l.label}
-										</Link>
+										{l.href.startsWith("mailto:") ? (
+											<a href={l.href} className={LINK}>
+												{l.label}
+											</a>
+										) : (
+											<Link href={l.href} className={LINK}>
+												{l.label}
+											</Link>
+										)}
 									</li>
 								))}
 							</ul>
