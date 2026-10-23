@@ -1,6 +1,6 @@
 # Architecture contracts
 
-Architecture chapters state required ownership, privacy, consistency and recovery outcomes. [Core](core.md), [auth](auth.md), [security](security.md), [audit](audit.md), [execution](execution.md), [assessment](assessment.md), [reference release](reference-release.md) and [recovery](recovery.md) preserve those contracts. Default mechanisms belong to [EveryField patterns](patterns.md), sourced from the coordinator note. [Architecture decisions](decisions.md) records current owner rulings.
+Architecture chapters state required ownership, privacy, consistency and recovery outcomes. [Core](core.md), [auth](auth.md), [security](security.md), [audit](audit.md), [execution](execution.md), [assessment](assessment.md), [reference release](reference-release.md) and [recovery](recovery.md) preserve those contracts. Default mechanisms belong to [Everyfield patterns](patterns.md), sourced from the coordinator note. [Architecture decisions](decisions.md) records current owner rulings.
 
 The [schema](../schema/README.md) and derived [Person inventory](person-references.json) describe the current implementation for reference. [Package ownership](../plan/build-plan.md) assigns producers. Builders may revise storage, transaction strategy, internal types, signatures and file layouts while preserving approved behavior and all acceptance obligations.
 

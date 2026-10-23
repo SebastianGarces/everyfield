@@ -259,7 +259,7 @@ Use `--budget not_applicable` only when there is no UI experience to measure, an
 For an approved reports or analytics timing exception, pass `--budget exceeded
 --experience-exception reports` (or `analytics`); the PR body must contain the matching standalone
 line `EVF-Experience-Exception: reports` (or `analytics`) and explain the action and reason.
-These categories are the approved timing exceptions in EveryField patterns. They never waive
+These categories are the approved timing exceptions in Everyfield patterns. They never waive
 failed smoothness or code quality; use `--experience-verdict changes_requested` for those failures.
 
 The script appends `EVF-Review: {"head":...,"verifierFamily":...,"verdict":...,"quality":{"verdict":...,"principles":[...]},"experience":{"verdict":...,"budget":...}}` and posts one

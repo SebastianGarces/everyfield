@@ -1,6 +1,6 @@
 # Core architecture
 
-Native UI, server entry points and Evry use the same scoped domain behavior. The [package plan](../plan/build-plan.md) assigns producers and prerequisite interfaces. There is no customer migration. The [schema catalog](../schema/target.json) describes the current implementation and may evolve through reviewed migrations that preserve the behavior below. Default implementation choices belong to [EveryField patterns](intent://local/note/df294729-367b-493b-9faf-654cf6b25b62).
+Native UI, server entry points and Evry use the same scoped domain behavior. The [package plan](../plan/build-plan.md) assigns producers and prerequisite interfaces. There is no customer migration. The [schema catalog](../schema/target.json) describes the current implementation and may evolve through reviewed migrations that preserve the behavior below. Default implementation choices belong to [Everyfield patterns](intent://local/note/df294729-367b-493b-9faf-654cf6b25b62).
 
 ## Boundaries and ownership
 

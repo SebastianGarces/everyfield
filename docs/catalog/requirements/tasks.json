@@ -6,7 +6,7 @@
       "feature_ids": [
         "TSK-001"
       ],
-      "text": "Preserve My/All/Assignments, title search, closed status/priority/category/relation filters and sorting by due, priority, status, title or creation time. Pages default to 50 and allow at most 100 rows with deterministic ordering and null due dates last. Counts use the same authorized query scope, counting top-level tasks separately from checklist subtasks. The Team filter applies to My/All, not the independent Assignments contact-coverage view; foreign or unavailable teams reveal no names or rows. Filter changes preserve sibling filters and reset pagination. Concurrent deletion either permits coherent continuation or an explicit reset, without silent skips, duplicates or leaks. Pagination representation follows EveryField patterns.",
+      "text": "Preserve My/All/Assignments, title search, closed status/priority/category/relation filters and sorting by due, priority, status, title or creation time. Pages default to 50 and allow at most 100 rows with deterministic ordering and null due dates last. Counts use the same authorized query scope, counting top-level tasks separately from checklist subtasks. The Team filter applies to My/All, not the independent Assignments contact-coverage view; foreign or unavailable teams reveal no names or rows. Filter changes preserve sibling filters and reset pagination. Concurrent deletion either permits coherent continuation or an explicit reset, without silent skips, duplicates or leaks. Pagination representation follows Everyfield patterns.",
       "spec": "docs/product/tasks.md#req-tsk-001",
       "operations": [
         "tasks.list",

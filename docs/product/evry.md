@@ -26,7 +26,7 @@ Corrections are command-specific. Person merge retains native `people.previewUnm
 
 ## Finite runtime contract
 
-Conversations, turns, saved reviews and authorized execution remain app-owned and recoverable. Reads compose within the shared turn budget. Storage, SDK and execution-loop choices follow [EveryField patterns](../architecture/patterns.md). Evry has no arbitrary code-execution or general workflow authority.
+Conversations, turns, saved reviews and authorized execution remain app-owned and recoverable. Reads compose within the shared turn budget. Storage, SDK and execution-loop choices follow [Everyfield patterns](../architecture/patterns.md). Evry has no arbitrary code-execution or general workflow authority.
 
 The following limits are engineering constants, not a provider/model purchase or a new autonomy permission. The runtime integrator owns them and the named failure fixtures. Changing a constant requires updating the contract and rerunning affected acceptance; it never enlarges write authority.
 

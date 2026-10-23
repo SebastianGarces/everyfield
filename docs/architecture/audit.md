@@ -1,6 +1,6 @@
 # Platform audit and domain history
 
-Meaningful changes have append-only attributable audit records and the domain history needed by authorized readers. History and audit may share storage. Domain packages own history meaning; platform audit permits only safe attribution and purpose-bound investigation. Audit never supplies current authority. Private care has original-author history and no central audit identity. Mechanisms follow [EveryField patterns](intent://local/note/df294729-367b-493b-9faf-654cf6b25b62).
+Meaningful changes have append-only attributable audit records and the domain history needed by authorized readers. History and audit may share storage. Domain packages own history meaning; platform audit permits only safe attribution and purpose-bound investigation. Audit never supplies current authority. Private care has original-author history and no central audit identity. Mechanisms follow [Everyfield patterns](intent://local/note/df294729-367b-493b-9faf-654cf6b25b62).
 
 ## Envelope and closed actions
 

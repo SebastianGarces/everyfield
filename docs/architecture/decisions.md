@@ -1,6 +1,6 @@
 # Architecture decisions
 
-These owner and coordinator rulings govern the current build. Later rulings override earlier mechanisms. [EveryField patterns](patterns.md) records the current implementation defaults; requirements and acceptance cases define product behavior.
+These owner and coordinator rulings govern the current build. Later rulings override earlier mechanisms. [Everyfield patterns](patterns.md) records the current implementation defaults; requirements and acceptance cases define product behavior.
 
 ## D59, 2026-10-19: one actor per request
 
@@ -38,7 +38,7 @@ Every simple write uses a fixed small statement count, about four to six in tota
 
 ## D70, 2026-10-19: shared write and audit patterns
 
-Follow [EveryField patterns](patterns.md): authority in the write, one append-only audit record with permitted changed fields, request keys only for repeatable actions, conflict checks where concurrent edits require them, and recoverable jobs for side effects. Replace redundant operation, result, event and history bookkeeping with the shared audit record. Audit, privacy, safe retries and recoverable consequences remain required; a deviation needs a product reason in the PR. This keeps writes small without dropping product behavior.
+Follow [Everyfield patterns](patterns.md): authority in the write, one append-only audit record with permitted changed fields, request keys only for repeatable actions, conflict checks where concurrent edits require them, and recoverable jobs for side effects. Replace redundant operation, result, event and history bookkeeping with the shared audit record. Audit, privacy, safe retries and recoverable consequences remain required; a deviation needs a product reason in the PR. This keeps writes small without dropping product behavior.
 
 ## 2026-10-19: performance budget and optimistic UI
 
@@ -54,7 +54,7 @@ Do not start S1 until the simplification phase is complete and reviewed: decide 
 
 ## D71, 2026-10-19: durable rules live in the repository
 
-Keep durable rulings here and implementation defaults in [EveryField patterns](patterns.md), with short pointers in the agent instructions and roles. Use repository links between these documents because other workspaces cannot read this workspace's notes.
+Keep durable rulings here and implementation defaults in [Everyfield patterns](patterns.md), with short pointers in the agent instructions and roles. Use repository links between these documents because other workspaces cannot read this workspace's notes.
 
 ## D72, 2026-10-19: plan and schema grow with features
 
@@ -95,3 +95,11 @@ On 2026-10-21 the S1 coordinator ordered ships by hand (C45, C59, C61, C67), bec
 ## D80, 2026-10-22: machine load limit in evf (OPS-40)
 
 Load on the shared Mac reached 60 to 136 on 2026-10-22, and Portless answered 502 under that load. The S1 rulings C51 and C81 asked agents to check uptime and wait while the 1-minute load is above 24 (two per core on 12 cores). evf now enforces it: task start, verify and browser run wait while the load is above 2 × CPU cores, print one line per minute and stop after 30 minutes. An optional machine load setting in evf.config.json overrides the default in tools/evf/load.ts. An --ignore-load reason runs at once and evf logs it. Tests of Portless itself use their own state folder and never restart the shared service, because one restart at 02:04 UTC removed every live preview.
+
+## 2026-10-23: Everyfield brand spelling (OPS-44, WP-103)
+
+Sebastian said: "Go with the lead's suggestions, and also change the Wiki seed through the Wiki approval route." The brand spelling is "Everyfield". OPS-44 changes documentation and workflow copy, including the early-access mail acceptance fixtures. WP-103 changes app copy and email and notification text (R2). Wiki F6 changes the published Wiki seed through its approval route.
+
+Keep the legacy spelling permanently in the DB default and migrations (R1), stored phase-history reasons (R3), frozen reference files (R4) and the recorded kickoff quote (R6). These include docs/schema/target.json, docs/schema/schema-diagram.html, docs/acceptance/intelligence.json, docs/product/methodology-intelligence.md's quoted declaration reason, docs/reference/ outside the Wiki seed, and docs/plan/release-gates.json. Lowercase identifiers, paths, URLs, domains, buckets and storage keys stay unchanged. The production EMAIL_FROM display name and social preview caches stay with Sebastian.
+
+Sebastian chose "Exemption, start soon (recommended)" on 2026-10-23. Only WP-103 may declare the copy-only overlap exemption, linked to this ruling. It owns the narrowest directories for the selected copy files, excluding apps/web/README.md and bin/wiki, and adds no prerequisites or future dependents. It changes text only: no logic, schema, route or file moves. Every other plan and merge check stays in force. An open PR that changes the same files as WP-103 needs a new review after WP-103 merges under the evf ship fresh-gate rule. The exemption avoids adding a copy change to future packages' prerequisite chains; it does not carry their reviews across overlapping changes.

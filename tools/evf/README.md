@@ -1,4 +1,4 @@
-# EveryField workflow tools
+# Everyfield workflow tools
 
 Intent plans, delegates and records decisions. evf supplies briefs, worktrees, local checks,
 case checks, feedback routing, progress and merge guards. Run `bin/evf help` for commands.

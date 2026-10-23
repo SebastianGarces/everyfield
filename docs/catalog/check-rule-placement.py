@@ -86,7 +86,7 @@ def check(root, write=False):
         assert Counter(map(token, req.get('behavior_rules', []))) == Counter(map(token, expected[rid])), f'Lost, changed, extra or misplaced rule: {rid}'
         for b in req.get('behavior_rules', []):
             assert not re.search(r'\b\S+\.(?:ts|tsx|js|py)\b|\bpackages/|\b\w+\(\)|\b(?:ActorContext|UnitOfWork|DomainTransaction)\b', b['rule']), f'Code prescription: {rid}'
-            assert not re.search(r'[a-z][A-Z]', re.sub(r'\b(?:\d+MiB|EveryField)\b', '', b['rule'])), f'Internal field/type name: {rid}'
+            assert not re.search(r'[a-z][A-Z]', re.sub(r'\b\d+MiB\b', '', b['rule'])), f'Internal field/type name: {rid}'
     ops_path = root / 'docs/catalog/operations.json'
     operations = json.loads(ops_path.read_text())
     old_operations = {o['id']: o for o in old_inventory['operations']}

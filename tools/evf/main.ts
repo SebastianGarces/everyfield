@@ -26,7 +26,7 @@ import { requireVerifiedHead, verify } from "./verify.ts";
 import { migrationsRenumber } from "./migrations.ts";
 import { awaitLoad } from "./load.ts";
 
-const HELP = `evf: EveryField v3 workflow CLI
+const HELP = `evf: Everyfield v3 workflow CLI
 
 Planning (coordinator)
   evf plan <S0..S5 | WP-NNN ...> [--include-done] [--json]   @@@task blocks for Intent
