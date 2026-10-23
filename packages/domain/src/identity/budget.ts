@@ -24,12 +24,18 @@ export class IdentityRefusal extends Error {
 		super(code);
 	}
 }
-export async function transaction<T>(db: Database, body: (tx: Transaction) => Promise<T>): Promise<T> {
+/** The transaction's statement and lock timeouts, for the select list of its first statement. */
+export const timeouts = sql`set_config('statement_timeout','10s',true)||set_config('lock_timeout','5s',true)`;
+export function transaction<T>(db: Database, body: (tx: Transaction) => Promise<T>): Promise<T> {
+	return timedTransaction(db, async (tx) => {
+		await tx.execute(sql`SELECT ${timeouts}`);
+		return body(tx);
+	});
+}
+/** A transaction whose first statement selects `timeouts` itself, so the timeouts cost no statement of their own. */
+export async function timedTransaction<T>(db: Database, body: (tx: Transaction) => Promise<T>): Promise<T> {
 	try {
-		return await auditTransaction(db, async (tx) => {
-			await tx.execute(sql`SELECT set_config('statement_timeout','10s',true),set_config('lock_timeout','5s',true)`);
-			return body(tx);
-		});
+		return await auditTransaction(db, body);
 	} catch (error) {
 		rethrowWriteError(error);
 	}
