@@ -625,13 +625,72 @@
 	"native.settings.account": {
 		"limit": 4
 	},
+	"notifications.applyEmailOptOut": {
+		"limit": 1
+	},
 	"notifications.cancelForEntity": {
 		"limit": 4
+	},
+	"notifications.cancelTaskReminders": {
+		"limit": 5
+	},
+	"notifications.describeEmailOptOut": {
+		"limit": 1
 	},
 	"notifications.enqueue": {
 		"limit": 5
 	},
 	"notifications.enqueueMany": {
+		"limit": 5
+	},
+	"notifications.getPreferences": {
+		"limit": 1
+	},
+	"notifications.markAllVisibleRead": {
+		"limit": 5
+	},
+	"notifications.markRead": {
+		"limit": 5,
+		"retry": 9
+	},
+	"notifications.markSelectedRead": {
+		"limit": 5
+	},
+	"notifications.publishWikiUpstream": {
+		"limit": 5
+	},
+	"notifications.readAssociationAudience": {
+		"limit": 1
+	},
+	"notifications.readAssociationReceipt": {
+		"limit": 1
+	},
+	"notifications.readFeed": {
+		"limit": 1
+	},
+	"notifications.readMeetingAudience": {
+		"limit": 1
+	},
+	"notifications.readOversightDigest": {
+		"limit": 1
+	},
+	"notifications.readPlanterDigest": {
+		"limit": 1
+	},
+	"notifications.readUnreadCount": {
+		"limit": 1
+	},
+	"notifications.setDigestCadence": {
+		"limit": 5,
+		"retry": 9
+	},
+	"notifications.setOversightDigestCadence": {
+		"limit": 5
+	},
+	"notifications.setPreference": {
+		"limit": 5
+	},
+	"notifications.setPreferences": {
 		"limit": 5
 	},
 	"notifications.syncMeetingReminders": {
@@ -640,6 +699,9 @@
 	},
 	"notifications.syncTaskReminders": {
 		"limit": 2
+	},
+	"notifications.undoEmailOptOut": {
+		"limit": 1
 	},
 	"onboarding.answerLead": {
 		"limit": 15,

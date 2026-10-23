@@ -25,6 +25,7 @@ const factories = {
 	createIdentityService: "identity",
 	createMailService: "mail",
 	createNotificationService: "notifications",
+	createNotificationProducer: "notifications",
 	createDigestService: "digest",
 	createLifecycleCleanup: "lifecycle.purge",
 	referenceService: "reference",
