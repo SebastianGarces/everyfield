@@ -122,6 +122,12 @@ export async function enqueueJob(tx: Transaction, input: JobInput): Promise<stri
 }
 
 // The duration override applies to ordinary jobs; assessment claims always use 120 seconds.
+/**
+ * Claims up to `limit` due jobs of these kinds, oldest first, skipping rows another claim holds. One round trip: the
+ * claim and its 5-second statement bound are one simple-protocol message, which Postgres runs as one implicit
+ * transaction, so `SET LOCAL statement_timeout` bounds the claim exactly as the transaction wrapper did. The values are
+ * inlined because that protocol takes no parameters; each is parsed first (kind names, integers, a random UUID).
+ */
 export async function claimDue(
 	db: Database,
 	kinds: readonly JobKind[],
@@ -131,17 +137,19 @@ export async function claimDue(
 	const config = z
 		.object({ kinds: z.array(jobKind).min(1).max(10), limit: z.number().int().min(1).max(100), lease: leaseDuration })
 		.parse({ kinds, limit, lease: leaseSeconds });
-	return transaction(db, async (tx) => {
-		const result = await tx.execute(sql`WITH due AS (
-      SELECT id FROM job WHERE kind=ANY(${sql.param(config.kinds)}::text[]) AND state IN ('ready','retry_wait')
-      AND attempt_count<max_attempts AND eligible_at<=clock_timestamp()
-      AND (next_attempt_at IS NULL OR next_attempt_at<=clock_timestamp())
-      ORDER BY eligible_at,id FOR UPDATE SKIP LOCKED LIMIT ${config.limit}
-    ) UPDATE job j SET state='claimed',attempt_count=attempt_count+1,claim_generation=claim_generation+1,
-      lease_owner=${randomUUID()},lease_until=clock_timestamp()+make_interval(secs=>CASE WHEN j.kind='assessment' THEN ${ASSESSMENT_LEASE_SECONDS}::int ELSE ${config.lease}::int END),revision=revision+1
-      FROM due WHERE j.id=due.id RETURNING j.*`);
-		return result.rows.map((row) => claimSchema.parse(row));
-	});
+	const owner = z.uuid().parse(randomUUID());
+	// The pool runs a text without parameters as a simple query and answers one result per statement.
+	const pool = (db as Database & { $client: { query(text: string): Promise<unknown> } }).$client;
+	const results = (await pool.query(`SET LOCAL statement_timeout = '5s';
+WITH due AS (
+  SELECT id FROM job WHERE kind IN (${config.kinds.map((kind) => `'${kind}'`).join(",")}) AND state IN ('ready','retry_wait')
+  AND attempt_count<max_attempts AND eligible_at<=clock_timestamp()
+  AND (next_attempt_at IS NULL OR next_attempt_at<=clock_timestamp())
+  ORDER BY eligible_at,id FOR UPDATE SKIP LOCKED LIMIT ${config.limit}
+) UPDATE job j SET state='claimed',attempt_count=attempt_count+1,claim_generation=claim_generation+1,
+  lease_owner='${owner}',lease_until=clock_timestamp()+make_interval(secs=>CASE WHEN j.kind='assessment' THEN ${ASSESSMENT_LEASE_SECONDS} ELSE ${config.lease} END),revision=revision+1
+  FROM due WHERE j.id=due.id RETURNING j.*`)) as { rows: unknown[] }[];
+	return results[1]!.rows.map((row) => claimSchema.parse(row));
 }
 export async function lockClaim(tx: Transaction, claim: Claim): Promise<boolean> {
 	const r =

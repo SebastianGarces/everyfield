@@ -2,7 +2,7 @@ import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
-import { currentAuthority } from "../context/authority.ts";
+import { liveAuthority } from "../context/authority.ts";
 import { LIMITS } from "../context/limits.ts";
 import { retainedEvents } from "../conversations/retained.ts";
 import { eventRow, reference, type ConversationEvent } from "../conversations/store.ts";
@@ -40,8 +40,8 @@ const history = (lease: RunLease) =>
 			AND e.turn_id IS DISTINCT FROM ${lease.turnId}::uuid ORDER BY e.sequence DESC LIMIT ${LIMITS.recentMessages * 2}`)}) h), '[]'::jsonb)`;
 
 /**
- * The turn's retained history read again right before a model call, with the actor's current authority checked in the
- * same statement: a source retired or removed since the turn started is withheld. Null when the actor lost access or
+ * The turn's retained history read again right before a model call, with the actor's live authority checked in the
+ * same statement without a session lock (C27): a source retired or removed since the turn started is withheld. Null when the actor lost access or
  * the run no longer owns the conversation. One statement.
  */
 export async function loadHistory(
@@ -52,7 +52,7 @@ export async function loadHistory(
 ): Promise<ConversationEvent[] | null> {
 	const r = await db.execute(sql`
 		SELECT ${history(lease)} AS history FROM conversation c
-		WHERE c.id=${conversationId}::uuid AND c.active_turn_id=${lease.turnId}::uuid AND ${fence(lease)} AND ${currentAuthority(actor)}`);
+		WHERE c.id=${conversationId}::uuid AND c.active_turn_id=${lease.turnId}::uuid AND ${fence(lease)} AND ${liveAuthority(actor)}`);
 	return r.rows.length ? z.array(eventRow).parse(r.rows[0]!.history) : null;
 }
 

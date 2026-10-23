@@ -209,3 +209,38 @@ test("INV-scan: committed pages retain the owed tail beyond both page and retry 
 		"succeeded",
 	);
 });
+test("INV-jobs: a claim is one round trip; it takes the oldest due job, skips one another claim holds and never claims a job twice", async () => {
+	const ids = [await create(4, "reference_generation"), await create(4, "reference_generation")].sort();
+	const pool = runtime.$client;
+	const calls = { query: 0, connect: 0 };
+	const query = pool.query,
+		connect = pool.connect;
+	pool.query = function (...args) {
+		calls.query++;
+		return Reflect.apply(query, this, args);
+	};
+	pool.connect = function (...args) {
+		calls.connect++;
+		return Reflect.apply(connect, this, args);
+	};
+	let held;
+	try {
+		// Another transaction holds the oldest job: the claim skips it and takes the next one, without waiting.
+		held = await db.transaction(async (tx) => {
+			await tx.execute(querySql`SELECT id FROM job WHERE id=${querySql.param(ids[0])} FOR UPDATE`);
+			return claimDue(runtime, ["reference_generation"]);
+		});
+		// One message on one checked-out connection; a transaction would check out a connection and send no pool query.
+		assert.deepEqual(calls, { query: 1, connect: 1 });
+	} finally {
+		pool.query = query;
+		pool.connect = connect;
+	}
+	assert.deepEqual(
+		held.map((c) => c.id),
+		[ids[1]],
+	);
+	const [oldest] = await claimDue(runtime, ["reference_generation"]);
+	assert.deepEqual([oldest.id, oldest.attempt_count, oldest.claim_generation], [ids[0], 1, "1"]);
+	assert.deepEqual(await claimDue(runtime, ["reference_generation"]), []);
+});

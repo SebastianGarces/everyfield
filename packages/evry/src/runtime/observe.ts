@@ -1,6 +1,6 @@
 import type { Database } from "@everyfield/db/client";
 import type { EvryActor } from "../context/actor.ts";
-import { readConversation, type ConversationEvent } from "../conversations/store.ts";
+import { closeLostRun, readConversation, type ConversationEvent } from "../conversations/store.ts";
 import { traceDelivery } from "./trace.ts";
 
 const pause = (ms: number, signal: AbortSignal) =>
@@ -11,8 +11,9 @@ const pause = (ms: number, signal: AbortSignal) =>
 
 /**
  * evry.observeRun and evry.resumeRun: the conversation's saved events after a cursor, then each new saved event while
- * a run is active. Reconnecting with the last seen sequence resumes without gaps or duplicates. Observing only reads:
- * it never starts, repeats or extends a run, and each poll checks ownership again.
+ * a run is active. Reconnecting with the last seen sequence resumes without gaps or duplicates. Observing never starts,
+ * repeats or extends a run, and each poll checks ownership again. A lost run gets its interrupted end saved once
+ * (closeLostRun), which the next read delivers before the stream ends.
  */
 export async function* observeConversation(
 	db: Database,
@@ -40,6 +41,7 @@ export async function* observeConversation(
 		}
 		if (page.more) continue;
 		if (!page.run) return;
+		if (page.run.state === "lost" && (await closeLostRun(db, actor, conversationId, page.run.turnId))) continue;
 		await pause(pollMs, signal);
 	}
 }
