@@ -28,6 +28,8 @@ Design tasks, P2/P3 feedback and every `evf approve` route keep exact-head revie
 Ship never merges on red main. Before it merges, it reads main's latest finished `ci.yml` push run,
 skipping cancelled and skipped runs. When that run failed, only a PR whose body says `Fixes #<n>`
 for the open `P0: CI failed on main` issue may merge. The gate reads the run, not the issue state.
+The fail-forward workflow closes that issue when a later main CI run passes on a commit that
+contains the failed one. A late success for an older commit leaves it open.
 
 ## Ship queue
 
@@ -114,8 +116,21 @@ type-checks a fresh detached checkout of HEAD, so ignored local files such as Ne
 
 Before a manual push, run `bin/evf pre-push <task>`. It checks for a full passing author report at
 that exact clean HEAD. Quick checks and verifier reports do not satisfy this gate. `evf pr open`
-runs the same gate before its push. Plain `git push` is not intercepted; use the pre-push command
-or let `evf pr open` push. These local records do not replace required CI or independent review.
+runs the same gate before its push. These local records do not replace required CI or independent review.
+
+Authors push only through `evf pr open`, also for fixes after review (OPS-52). The project's
+`.claude/settings.json`, which Claude Code and Grok Build both read, allows `bin/evf pr open` and
+`cd` without a prompt, asks before a raw `git push` and denies force and mirror pushes. Rules match
+each segment of a chained command, so `cd <home checkout> && bin/evf pr open <task> --body-file <file>`
+runs at once. Both tools apply project rules only in a folder the user trusts, and trusting a parent
+folder does not cover the folders inside it (Claude Code 2.1.302). Trust each workspace folder once,
+or copy the `allow` entries into `~/.claude/settings.json`. Codex sessions do not read that file. Give them the same rule in a file under
+`~/.codex/rules/` and check it with `codex execpolicy check --rules <file> bin/evf pr open OPS-1`:
+
+```text
+prefix_rule(pattern = ["bin/evf", "pr", "open"], decision = "allow")
+prefix_rule(pattern = ["git", "push"], decision = "prompt")
+```
 
 A failed check that reports Next 16.4.1's `Another next build process is already running.`
 message waits ten seconds and retries up to three times. Matching strips ANSI color codes.
@@ -127,6 +142,37 @@ Child commands inherit the selected Node directory first on PATH, including shel
 its recorded head, no newer task start, no open PR, and no live Portless preview. A reused task
 records its new start outside the repository. Unavailable or malformed provider status keeps the
 worktree. Cleanup never stops previews itself.
+
+## Timing sets
+
+`evf timing <task> --set <file> [--head <sha>]` measures a declared timing set (D81, OPS-52). It
+takes the author's clean task head, or a verifier's `--head`, into a detached `timing-<sha7>`
+worktree, starts a quiet Postgres in Docker, migrates it, gives the app its own logins and fresh
+identity keys, and starts a production preview whose env is only that database. The set runs inside
+`evf browser run`, beside an independent probe on its own connections: SELECT 1 every 100 ms, and for
+`write: true` sets a one-row update and COMMIT in one protocol call. Labels (C108, C114, C118): load
+above the machine limit at the start or end of a sample; a probe round trip above 150 ms in its
+window (database spike, database write stall), or no probe answer within 2 s after it;
+self-interference the set reports. Each non-qualifying sample, a replacement included, adds exactly
+one labeled replacement. More non-qualifying samples than declared ones stop the run as not
+measured. Only one set samples at a time on the machine; setup runs outside that lock. The report
+goes to `.git/evf/evidence/<task>/<sha>/timing-<set>/report.json` and holds no connection string.
+evf removes the preview, the database and the worktree at the end; a crashed run's database goes at
+the next start. The verify-preview skill describes the set file.
+
+## Task and ruling IDs
+
+Workspaces share the GitHub remote, not one checkout, so the remote holds ID reservations.
+`bin/evf id next ops` or `bin/evf id next decision` takes the number after every one in use (main's
+maintenance tasks or `## D<n>` rulings, remote `task/ops-<n>` branches and reservations), pushes a
+new parentless commit to `refs/evf/ids/<ID>` and prints the ID. A plain push to an existing ref
+cannot fast-forward to a parentless commit, so the remote rejects it; the caller then tries the
+next number. Two concurrent callers always get two different IDs. The reservation commit message
+records the time, the git user name and the host.
+
+`evf task start OPS-<n>` on a new branch keeps a reservation that `id next` made, reserves a free
+ID itself, and refuses an ID whose `task/ops-<n>` branch already exists on the remote. An ID that
+main already registers needs no reservation.
 
 ## Migration numbers
 

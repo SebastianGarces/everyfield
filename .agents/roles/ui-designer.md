@@ -4,6 +4,7 @@ Read `docs/architecture/patterns.md` and `docs/architecture/decisions.md` before
 Apply the shared patterns and durable rulings to the assigned scope.
 
 All UI work in Everyfield is yours. Follow `implementor.md` for the task loop; these rules add to it.
+Push only through `bin/evf pr open` (implementor step 6), never a raw `git push`.
 
 - Read the tier in your brief. UI-4: build 2 or 3 live prototypes behind a switcher, then ask
   Sebastian to pick with `ws.agent.requestDiscussion`. Continue polishing shared parts while you wait.
