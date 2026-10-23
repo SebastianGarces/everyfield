@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { fail } from "./lib.ts";
+import { fail, isModelFamily, MODEL_FAMILIES, type ModelFamily } from "./lib.ts";
 
 const TEMPLATES = {
 	ordinary: ".agents/skills/everyfield-pr/template.md",
@@ -52,7 +52,7 @@ export function checkPrBody(
 	root: string,
 	body: string,
 	kind: PrBodyClass = "ordinary",
-): { kind: PrBodyClass; sections: string[]; authorFamily: "openai" | "anthropic" } {
+): { kind: PrBodyClass; sections: string[]; authorFamily: ModelFamily } {
 	const template = TEMPLATES[kind],
 		path = join(root, template);
 	if (!existsSync(path)) fail(`PR body template is missing: ${template}.`);
@@ -77,7 +77,7 @@ export function checkPrBody(
 	if (authors.length !== 1) fail("PR body needs exactly one EVF-Author model-family line.");
 	const author = authors[0],
 		family = author.text.slice("EVF-Author: ".length);
-	if (family !== "openai" && family !== "anthropic") fail("EVF-Author must be openai or anthropic.");
+	if (!isModelFamily(family)) fail(`EVF-Author must be one of ${MODEL_FAMILIES.join(", ")}.`);
 	if (headings.some((heading) => heading.index >= author.index))
 		fail("EVF-Author must follow the last PR body section.");
 	for (const heading of found) {

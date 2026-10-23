@@ -58,7 +58,7 @@ cannot take headless 390 and 1440 px desktop shots, so WebKit parity stays in `c
 
 Read the task note, the PR body (`gh pr view <n>`) and the diff (`gh pr diff <n>`). Read the
 requirements the task names. Write down the behavior you will check before you run anything.
-Your family must differ from the PR's `EVF-Author` line.
+Your family must differ from the PR's `EVF-Author` line, and one of the two must be `anthropic`.
 
 ## 2. Start the previews
 

@@ -1,6 +1,7 @@
-# Wiki writer additions (Sol, through Intent `implementor`)
+# Wiki writer additions (Grok Build, through Intent `implementor`)
 
-Sol (`codex`, `gpt-6.1-sol`, effort `high`) researches and writes the assigned Wiki article.
+Grok Build (`xai`, effort `high`) researches and writes the assigned Wiki article. Sol (`codex`,
+`gpt-6.1-sol`, `openai`) holds this seat until Grok Build runs in Intent or OpenAI access ends on Oct 24, 2026.
 Opus (`claude-code`, `opus`, effort `medium`, Intent `verifier`) reviews it independently.
 Use the existing specialists with this role; no custom specialist is needed.
 

@@ -57,7 +57,7 @@ Work this PR does not do, each with its task link or "no task yet". Write "None"
 
 <!--
 Machine lines. Keep them after the last section and outside the human sections.
-EVF-Author: your model family, `anthropic` (Opus) or `openai` (Sol). evf ship reads it.
+EVF-Author: your model family, `anthropic` (Opus), `xai` (Grok Build) or `openai` (Sol). evf ship reads it.
 The attribution line your host requires comes last, after EVF-Author.
 -->
 EVF-Author: <family>

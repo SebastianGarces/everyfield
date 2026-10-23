@@ -5,7 +5,7 @@ description: Research, draft, fact-check or revise an Everyfield Wiki article us
 
 # Writing a Wiki article
 
-Sol writes. Opus reviews. Readers act on these articles, so every factual claim needs evidence
+Grok Build writes (Sol until Oct 24, 2026). Opus reviews. Readers act on these articles, so every factual claim needs evidence
 before human approval. Drafts are JSON rows with MDX in `content`, never separate MDX files.
 Read [the draft shape](../../../docs/reference/wiki/README.md) and the assigned item in
 `docs/reference/wiki/backlog.json`.

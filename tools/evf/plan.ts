@@ -98,7 +98,9 @@ export function buildBlocks(root: string, pkgs: Package[]): { blocks: Block[]; e
 				part,
 				paths: pathsForPart(pkg, part),
 				specialist: ui ? "ui-designer" : "implementor",
-				model: ui ? "Opus 5.5 (claude-code), effort from UI tier" : "Sol 6.1 (codex, gpt-6.1-sol)",
+				model: ui
+					? "Opus 5.5 (claude-code), effort from UI tier"
+					: "Grok Build (xai); Sol 6.1 (codex, gpt-6.1-sol) until Oct 24, 2026",
 				...(pkg.ui_specialist
 					? {
 							uiHandoff: `UI work: ${pkg.ui_specialist} on ${pkg.ui_model}.\nUI guidance: ${pkg.ui_composition_rule ?? pkg.goal}`,
