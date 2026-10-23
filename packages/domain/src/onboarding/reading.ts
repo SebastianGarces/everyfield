@@ -6,6 +6,8 @@ import { owner } from "@everyfield/contracts/common";
 import foundations from "../../../../docs/reference/discovery-foundations.json" with { type: "json" };
 import type { Tx } from "./core.ts";
 
+/** The foundation articles' ids, for a read that selects their readings. */
+export const foundationArticles = foundations.articles.map((a) => a.id);
 async function readingRows(tx: Tx, accounts: readonly string[]) {
 	const rows = await tx
 		.select({
@@ -42,7 +44,14 @@ async function readingRows(tx: Tx, accounts: readonly string[]) {
 		);
 	return rows;
 }
-function readingValue(accountId: string, rows: Awaited<ReturnType<typeof readingRows>>) {
+/** One completed reading with its published source, from readingRows or the one-statement entry read. */
+export type ReadingRow = {
+	reading: { account_id: string; article_id: string; completed_fraction: string | null; completed_at: Date | null };
+	source: { id: string; tenant_id: string; revision_number: number | string };
+	kind: string;
+	organizationKind: string | null;
+};
+function readingValue(accountId: string, rows: readonly ReadingRow[]) {
 	return c.ownDiscoveryReading.parse({
 		readerAccountId: accountId,
 		articles: rows
@@ -101,6 +110,14 @@ export async function plantReading(tx: Tx, plantId: string) {
 				candidates.map((c) => c.accountId),
 			)
 		: [];
+	return readingFrom(plantId, candidates, rows);
+}
+/** The plant's foundation reading from its current Owner and Admin lead candidates and their completed readings. */
+export function readingFrom(
+	plantId: string,
+	candidates: readonly { accountId: string; role: string; personId: string | null; lead: boolean }[],
+	rows: readonly ReadingRow[],
+) {
 	for (const candidate of candidates) {
 		let eligibility;
 		if (candidate.role === "owner") eligibility = { kind: "current_owner" };

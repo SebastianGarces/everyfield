@@ -9,7 +9,7 @@ import { currentActor, liveOwner } from "../access/session.ts";
 import { setAuditDetails, type AuditWrite } from "../operations/writes.ts";
 import { choices, loadAffiliations, pairOf, type OrganizationEffects } from "../organizations/core.ts";
 import { accountPersonProducer } from "../people/index.ts";
-import { recordCreationEntry } from "../phases/creation-entry/index.ts";
+import { creationEntry } from "../phases/creation-entry/index.ts";
 import {
 	actor,
 	begin,
@@ -54,6 +54,7 @@ export const off = sharingChoices.parse({
 	shared_findings: false,
 });
 export const pending = { status: "pending" } as const;
+const startRow = z.object({ seats: z.number().int(), setup: z.boolean(), discovery: z.boolean() });
 export async function profile(tx: Tx, accountId: string, d: typeof t.discovery.$inferSelect) {
 	const links = await loadAffiliations(
 		tx,
@@ -93,53 +94,64 @@ async function provision(
 	input: z.infer<typeof c.plantBasics>,
 	displayName: string,
 ) {
-	const plantId = randomUUID();
-	await tx.insert(t.plant).values({
-		id: plantId,
-		name: input.name,
-		timezone: "America/Chicago",
-		warning_days: 7,
-		alert_days: 14,
-		digest_weekday: 0,
-		digest_hour: 16,
-		phase: 1,
-		material_revision: "1",
-		city: input.locality?.city ?? null,
-		state_province: input.locality?.stateProvince ?? null,
-		country: input.locality?.country ?? null,
-	});
-	const [seat] = await tx
-		.insert(t.seat)
-		.values({ account_id: account.id, plant_id: plantId, role: "owner", accepted_at: now })
-		.returning();
+	const plantId = randomUUID(),
+		seatId = randomUUID(),
+		entry = creationEntry(tx, cx, plantId);
+	// One statement creates the plant, then its owner seat and its creation entry, which read the new plant's row so
+	// they run after it (their record bindings need the plant's tenant row).
+	const placed = await tx.execute(sql`WITH p AS (${tx
+		.insert(t.plant)
+		.values({
+			id: plantId,
+			name: input.name,
+			timezone: "America/Chicago",
+			warning_days: 7,
+			alert_days: 14,
+			digest_weekday: 0,
+			digest_hour: 16,
+			phase: 1,
+			material_revision: "1",
+			city: input.locality?.city ?? null,
+			state_province: input.locality?.stateProvince ?? null,
+			country: input.locality?.country ?? null,
+		})
+		.getSQL()} RETURNING id),
+ s AS (INSERT INTO seat(id,account_id,plant_id,role,accepted_at) SELECT ${seatId}::uuid, ${account.id}::uuid, p.id, 'owner', clock_timestamp() FROM p RETURNING id),
+ e AS (${entry.insert(sql`p`)})
+ SELECT (SELECT count(*) FROM s)::int AS seats, (extract(epoch FROM (SELECT recorded_at FROM e))*1000)::float8 AS recorded`);
+	const row = z.object({ seats: z.literal(1), recorded: z.number() }).parse(placed.rows[0]);
+	// The plant is new in this transaction and the gate holds the account's lock, so the account's Person is the first.
 	const linked = await accountPersonProducer.ensureAccountPerson(tx, {
 		accountId: accountId.parse(account.id),
 		owner: { kind: "plant", id: tenantId.parse(plantId) },
-		selection: { kind: "create", displayName },
+		selection: { kind: "first", displayName },
 	});
 	if (linked.status !== "ok" || linked.value.status !== "linked") deny();
-	await tx.insert(t.onboarding_setup).values({
-		plant_id: plantId,
-		account_id: account.id,
-		creation_operation_id: cx.id,
-		lead: { answer: "pending" },
-		journey: pending,
-		launch: pending,
-		people_step: "pending",
-	});
-	const creation = await recordCreationEntry(tx, cx, plantId);
-	await tx
-		.update(t.account)
-		.set({ registration_state: "active", revision: sql`${t.account.revision}+1` })
-		.where(eq(t.account.id, account.id));
+	const creation = await entry.recorded(new Date(row.recorded));
+	// The setup row and the account's activation go in the command's final statement with its audit rows.
+	cx.writes.push(
+		tx.insert(t.onboarding_setup).values({
+			plant_id: plantId,
+			account_id: account.id,
+			creation_operation_id: cx.id,
+			lead: { answer: "pending" },
+			journey: pending,
+			launch: pending,
+			people_step: "pending",
+		}),
+		tx
+			.update(t.account)
+			.set({ registration_state: "active", revision: sql`${t.account.revision}+1` })
+			.where(eq(t.account.id, account.id)),
+	);
 	await event(tx, cx, plantId, "plant.created", "create");
-	await event(tx, cx, seat!.id, "membership.created", "create");
+	await event(tx, cx, seatId, "membership.created", "create");
 	return {
 		plant: plantOwner.parse({ kind: "plant", id: plantId }),
 		revision: "1",
 		materialRevision: "2",
 		currentPhase: 1,
-		ownerSeat: { seatId: seat!.id, role: "owner", personId: linked.value.personId },
+		ownerSeat: { seatId, role: "owner", personId: linked.value.personId },
 		creation,
 	};
 }
@@ -168,17 +180,17 @@ export function creation(effects: OnboardingEffects) {
 				const cx = await begin(tx, ctx, a.account.id, "onboarding.createPlant", q);
 				if (cx.kind === "replay")
 					return c.createPlantResult.parse(await currentCreation(tx, ctx, c.createPlantResult.parse(cx.value)));
-				await seatless(tx, a.account.id);
-				const [prior] = await tx
-					.select()
-					.from(t.onboarding_setup)
-					.where(eq(t.onboarding_setup.account_id, a.account.id));
-				if (prior) deny("active_seat_conflict");
-				const associated = await tx
-					.select({ id: t.discovery.id })
-					.from(t.discovery)
-					.where(eq(t.discovery.account_id, a.account.id));
-				if (associated.length) deny("association_resolution_required");
+				// One statement locks the account's active seats and reads its setup and discovery; the gate already holds the
+				// account's lock, which every writer of these rows takes first.
+				const state = startRow.parse(
+					(
+						await tx.execute(sql`SELECT (SELECT count(*) FROM (SELECT id FROM seat WHERE account_id=${a.account.id}::uuid
+ AND ended_at IS NULL FOR UPDATE) s)::int AS seats, EXISTS(SELECT FROM onboarding_setup WHERE account_id=${a.account.id}::uuid) AS setup,
+ EXISTS(SELECT FROM discovery WHERE account_id=${a.account.id}::uuid) AS discovery`)
+					).rows[0],
+				);
+				if (state.seats || state.setup) deny("active_seat_conflict");
+				if (state.discovery) deny("association_resolution_required");
 				revision(q.expectedRevision, a.account.revision);
 				const result = await provision(tx, cx, a.account, q.input, a.principal.display_name);
 				await effects.enqueue(
