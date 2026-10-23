@@ -132,7 +132,7 @@ export function createSeatService(db: Database) {
 					tx
 						.select({
 							...getTableColumns(t.task),
-							plant_zone: sql<string>`(SELECT timezone FROM plant WHERE id=${selected.id}::uuid)`,
+							plant_zone: sql<string>`(SELECT p.timezone FROM plant p WHERE p.id=${selected.id}::uuid)`,
 						})
 						.from(t.task)
 						.where(
@@ -146,13 +146,14 @@ export function createSeatService(db: Database) {
 						.orderBy(asc(t.task.id)),
 				)
 			: [];
-		// `linked`: a task carries this obligation (open or closed), so the task is the one reviewed duty.
+		// `linked`: a task carries this obligation (open or closed), so the task is the one reviewed duty. Drizzle writes a
+		// column in the select list without its table, where "id" would mean k.id, so the outer column is spelled out.
 		const obligations = plant
 			? await locked(
 					tx
 						.select({
 							...getTableColumns(t.obligation),
-							linked: sql<boolean>`EXISTS(SELECT FROM task k WHERE k.plant_id=${selected.id}::uuid AND k.obligation_id=${t.obligation.id})`,
+							linked: sql<boolean>`EXISTS(SELECT FROM task k WHERE k.plant_id=${selected.id}::uuid AND k.obligation_id=obligation.id)`,
 						})
 						.from(t.obligation)
 						.where(
