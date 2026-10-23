@@ -652,9 +652,9 @@
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 1 locked read, 1 read, 4 write."
 	},
 	"onboarding.convertDiscovery": {
-		"limit": 23,
+		"limit": 19,
 		"retry": 7,
-		"reason": "Provisions a church: gate, request-key read, seat lock, discovery lock with the linked organizations, links read, plant insert, seat insert (the audit subject lookup needs their records before the final statement), the account's Person, the creation phase entry (its recorded time is in the reply), new links, the shared relationship notices (owner and contact reads, job, mail authorization and insert), the discovery retirement (its time is in the reply) and one final statement. RT-6a moved the setup row and account activation into the final statement (was 27)."
+		"reason": "Provisions a church from a discovery profile: gate, request-key read, seat lock, discovery lock with the linked organizations, links read, one statement for the plant with its owner seat and creation entry, the account's first Person (one write), new links, the shared relationship notices (owner and contact reads, job, mail authorization and insert), the discovery retirement (its time is in the reply) and one final statement. RT-6a brought it from 27 (13 without relationships)."
 	},
 	"onboarding.createDiscovery": {
 		"limit": 8,
@@ -662,9 +662,9 @@
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 1 locked read, 4 read, 1 write."
 	},
 	"onboarding.createPlant": {
-		"limit": 14,
+		"limit": 10,
 		"retry": 8,
-		"reason": "Provisions a church: gate, request-key read, one statement for the seat lock and the setup and discovery checks, plant insert, seat insert (the audit subject lookup needs their records before the final statement), the account's Person (5 with its savepoint), the creation phase entry (its recorded time is in the reply) and one final statement. RT-6a brought it from 20."
+		"reason": "Provisions a church: gate, request-key read, one statement for the seat lock and the setup and discovery checks, one statement for the plant with its owner seat and creation entry (its recorded time is in the reply), the account's first Person (one write, with its savepoint in the producer-level count), and one final statement. RT-6a brought it from 20; per HTTP request it is 9 (was 13 before this change)."
 	},
 	"onboarding.declareJourney": {
 		"limit": 14,
