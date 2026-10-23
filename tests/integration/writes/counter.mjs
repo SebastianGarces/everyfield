@@ -94,7 +94,8 @@ function decorate(prefix, value) {
 			return measure(prefix, () => Reflect.apply(value, this, args));
 		};
 	for (const key of Object.keys(value)) {
-		if (typeof value[key] !== "function" || key === "addressHash") continue;
+		// Pure helpers send no statement and return a value, not a promise.
+		if (typeof value[key] !== "function" || key === "addressHash" || key === "queued") continue;
 		const name = prefix + "." + key,
 			fn = value[key];
 		emit({ kind: "declaration", name, write: !read.test(key.split(".").at(-1)) });
