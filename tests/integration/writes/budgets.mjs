@@ -18,7 +18,42 @@ export function budgetName(limits, name) {
 	return Object.hasOwn(limits, name) ? name : name.split(":")[0];
 }
 
+/** Problems a sample shows alone: no budget, or more statements than its budget. One census part checks these. */
+export function checkSamples(rows, limits) {
+	return measure(rows, limits).problems;
+}
+
+/** Every rule over the whole census: each sample, then each budget against all of its samples. */
 export function checkBudgets(rows, limits) {
+	const { problems, measured } = measure(rows, limits);
+	for (const [name, budget] of Object.entries(limits)) {
+		const entry = measured.get(name);
+		if (!entry) {
+			problems.push(`${name}: budgeted but never measured; remove it or exercise it`);
+			continue;
+		}
+		// A retry's count depends on which of two racing writes lands first, so only the first run is held exactly.
+		const most = Math.max(...entry.limit.map((s) => s.count));
+		if (entry.limit.length && budget.limit > most)
+			problems.push(`${name}: ${most} statements at most, limit ${budget.limit}; set it to ${most}`);
+		const over = entry.write && budget.limit > WRITE_PATTERN;
+		if (over && !budget.reason?.trim())
+			problems.push(
+				`${name}: limit ${budget.limit} is above the ${WRITE_PATTERN}-statement write pattern; add a reason`,
+			);
+		if (!over && budget.reason !== undefined) problems.push(`${name}: within the pattern; remove its reason`);
+		// A page read uses a fixed number of statements independent of data size: every read of it sends the same count.
+		if (name.startsWith("GET ")) {
+			const counts = [...new Set(entry.limit.map((s) => s.count))];
+			if (counts.length > 1)
+				problems.push(`${name}: ${counts.join(" and ")} statements as its data grows; a page read must be fixed`);
+		}
+	}
+	return problems;
+}
+
+/** Each sample against its budget: the per-sample problems and, for each budget, its first-run and retry samples. */
+function measure(rows, limits) {
 	const problems = [];
 	// Writes always need a budget. A run that wrote nothing (a read, a replay, a refusal) is held to the budget of its
 	// operation, found after the variant suffix is removed.
@@ -49,28 +84,5 @@ export function checkBudgets(rows, limits) {
 				`${sample.name}: ${sample.count} statements, limit ${budget[variant]}${variant === "retry" ? " (retry)" : ""} (${kindsText(sample.kinds)})`,
 			);
 	}
-	for (const [name, budget] of Object.entries(limits)) {
-		const entry = measured.get(name);
-		if (!entry) {
-			problems.push(`${name}: budgeted but never measured; remove it or exercise it`);
-			continue;
-		}
-		// A retry's count depends on which of two racing writes lands first, so only the first run is held exactly.
-		const most = Math.max(...entry.limit.map((s) => s.count));
-		if (entry.limit.length && budget.limit > most)
-			problems.push(`${name}: ${most} statements at most, limit ${budget.limit}; set it to ${most}`);
-		const over = entry.write && budget.limit > WRITE_PATTERN;
-		if (over && !budget.reason?.trim())
-			problems.push(
-				`${name}: limit ${budget.limit} is above the ${WRITE_PATTERN}-statement write pattern; add a reason`,
-			);
-		if (!over && budget.reason !== undefined) problems.push(`${name}: within the pattern; remove its reason`);
-		// A page read uses a fixed number of statements independent of data size: every read of it sends the same count.
-		if (name.startsWith("GET ")) {
-			const counts = [...new Set(entry.limit.map((s) => s.count))];
-			if (counts.length > 1)
-				problems.push(`${name}: ${counts.join(" and ")} statements as its data grows; a page read must be fixed`);
-		}
-	}
-	return problems;
+	return { problems, measured };
 }
