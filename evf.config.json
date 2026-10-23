@@ -659,6 +659,50 @@
 				}
 			],
 			"risk": "ordinary"
+		},
+		"OPS-44": {
+			"title": "Everyfield spelling in docs and workflow files, and register WP-103",
+			"owningPaths": [
+				"AGENTS.md",
+				"README.md",
+				"skills-lock.json",
+				"bin/evf",
+				"evf.config.json",
+				"everyfield-feature-review.html",
+				".agents/roles/ui-designer.md",
+				".agents/skills/everyfield-pr/",
+				".agents/skills/verify-preview/SKILL.md",
+				".agents/skills/wiki-article/SKILL.md",
+				"tools/evf/",
+				"docs/START-HERE.md",
+				"docs/architecture/",
+				"docs/product/",
+				"docs/catalog/",
+				"docs/schema/capabilities/a-identity-people-teams-ops.json",
+				"docs/text-allowlist.json",
+				"docs/check-text.py",
+				"docs/check-all.py",
+				"docs/plan/dag.json",
+				"docs/plan/build-plan.md",
+				"docs/plan/context-manifest.json"
+			],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": [
+						"bin/evf",
+						"test"
+					]
+				}
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {
