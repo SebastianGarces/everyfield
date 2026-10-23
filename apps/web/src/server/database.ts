@@ -1,6 +1,5 @@
 import "server-only";
-import { createDatabase, type Database, type DatabaseOptions } from "@everyfield/db/client";
-import { sql } from "@everyfield/db/query";
+import { checkoutClient, createDatabase, type Database, type DatabaseOptions } from "@everyfield/db/client";
 
 // Share connections for the same configured login and schema. The native auth
 // adapter and the development proof may use different credentials or schemas.
@@ -44,7 +43,24 @@ export function jobDatabase(): Database | null {
 	return pool;
 }
 
-/** Opens one connection on every pool created so far. Server start calls it once the identity mount exists. */
-export function warmPools(): Promise<unknown> {
-	return Promise.all([...pools.values()].map((db) => db.execute(sql`SELECT 1`)));
+/**
+ * The most connections one request holds at once on the request pool: the person and meetings pages read on two in
+ * parallel (RT-6c). Other pools (the auth login) stay at one: no measured request used two at once.
+ */
+const REQUEST_CONNECTIONS = 2;
+/**
+ * Opens the connections one request needs on every pool created so far, all at once, so no early request pays a TLS
+ * handshake. It answers once each pool has one open connection; `rest` settles when the others are open too, so the
+ * warm-up never delays the first answer (C115). Server start calls it once the identity mount exists.
+ */
+export async function warmPools(): Promise<{ rest: Promise<unknown> }> {
+	const request = requestDatabase();
+	const opening = [...pools.values()].map((db) =>
+		// Started together, each checkout opens its own connection; each is released as soon as it is open.
+		Array.from({ length: db === request ? REQUEST_CONNECTIONS : 1 }, () =>
+			checkoutClient(db).then(({ client }) => client.release()),
+		),
+	);
+	await Promise.all(opening.map((pool) => Promise.any(pool)));
+	return { rest: Promise.all(opening.flat()) };
 }
