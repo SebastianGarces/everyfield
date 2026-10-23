@@ -1,2 +1,2 @@
 export { liveness } from "./health.ts";
-export { auditTransaction } from "./writes.ts";
+export { auditTransaction, executeWrites } from "./writes.ts";
