@@ -74,8 +74,7 @@
 		"limit": 5
 	},
 	"accountPerson.ensureAccountPerson": {
-		"limit": 7,
-		"reason": "RT-6a: one statement locks the account then the plant; the exact linked Person is read after that lock (C88), then the write. The 7 is the reviewed_contact path: savepoint, locks, candidate read, Person read, write, release. A new Person costs 5 with its savepoint."
+		"limit": 5
 	},
 	"accountPerson.ensureGuest": {
 		"limit": 5
@@ -135,9 +134,9 @@
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 4 transaction, 2 locked read, 12 read, 8 write."
 	},
 	"identity.handle:resume-registration": {
-		"limit": 18,
+		"limit": 16,
 		"retry": 13,
-		"reason": "RT-6a: the session read (4, Better Auth adapter) and invitations.resume (14, see that entry)."
+		"reason": "RT-6a: the session read (4, Better Auth adapter and readIdentitySession) and invitations.resume (12, see that entry)."
 	},
 	"identity.handle:revoke-other-sessions": {
 		"limit": 9,
@@ -157,8 +156,8 @@
 		"limit": 2
 	},
 	"invitations.accept": {
-		"limit": 14,
-		"reason": "Established path (C88), RT-6a: BEGIN; the timeouts, source invitation and workspace seat lock; the session's account (invitation_identity locks it); the invitation with its workspace and clock; the workspace root lock; the request-key and lifecycle read (prepareWrite); the account's seats and links locked together; the account's Person (ensureAccountPerson, 5 with its savepoint); one final statement with every change and audit row; COMMIT. Each lock is its own statement because a statement's snapshot predates its locks (C88). RT-6a brought it from 28."
+		"limit": 12,
+		"reason": "Established path (C88), RT-6a: BEGIN; the timeouts, source invitation and workspace seat lock; the session's account (invitation_identity locks it); the invitation with its workspace and clock; the workspace root lock; the request-key and lifecycle read (prepareWrite); the account's seats and links locked together; the account's Person (ensureAccountPerson: its account and plant lock, the linked Person read and the write); one final statement with every change and audit row; COMMIT. Each lock is its own statement because a statement's snapshot predates its locks (C88). RT-6a brought it from 28 to 12."
 	},
 	"invitations.invite": {
 		"limit": 6
@@ -176,8 +175,8 @@
 		"reason": "Established path (C88), RT-6a: BEGIN; the timeouts, source invitation and workspace seat lock; the session's account (invitation_identity locks it); the invitation with its workspace and clock; the workspace root lock; the request-key and lifecycle read (prepareWrite); the source Person lock; the competing link read; the organization link lock (and insert when new); the link's witness; one final statement with the link, the Person's account link (after the link, by dependency) and every audit row; COMMIT. RT-6a brought it from 26."
 	},
 	"invitations.resume": {
-		"limit": 14,
-		"reason": "RT-6a: invitations.accept found by its proof in the same first statement; the same 14 statements (was 29)."
+		"limit": 12,
+		"reason": "RT-6a: invitations.accept found by its proof in the same first statement; the same 12 statements (was 29)."
 	},
 	"invitations.revoke": {
 		"limit": 9,
@@ -652,9 +651,9 @@
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 1 locked read, 1 read, 4 write."
 	},
 	"onboarding.convertDiscovery": {
-		"limit": 19,
+		"limit": 17,
 		"retry": 7,
-		"reason": "Provisions a church from a discovery profile: gate, request-key read, seat lock, discovery lock with the linked organizations, links read, one statement for the plant with its owner seat and creation entry, the account's first Person (one write), new links, the shared relationship notices (owner and contact reads, job, mail authorization and insert), the discovery retirement (its time is in the reply) and one final statement. RT-6a brought it from 27 (13 without relationships)."
+		"reason": "Provisions a church from a discovery profile: gate, request-key read, seat lock, discovery lock with the linked organizations, links read, one statement for the plant with its owner seat and creation entry, the account's first Person (one write), new links, the shared relationship notices (owner and contact reads, job, mail authorization and insert), the discovery retirement (its time is in the reply) and one final statement. RT-6a brought it from 27; per HTTP request without relationships it is 12 (was 16), and the screen's entry reload after it is one statement."
 	},
 	"onboarding.createDiscovery": {
 		"limit": 8,
@@ -662,9 +661,9 @@
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 1 locked read, 4 read, 1 write."
 	},
 	"onboarding.createPlant": {
-		"limit": 10,
+		"limit": 8,
 		"retry": 8,
-		"reason": "Provisions a church: gate, request-key read, one statement for the seat lock and the setup and discovery checks, one statement for the plant with its owner seat and creation entry (its recorded time is in the reply), the account's first Person (one write, with its savepoint in the producer-level count), and one final statement. RT-6a brought it from 20; per HTTP request it is 9 (was 13 before this change)."
+		"reason": "Provisions a church: gate, request-key read, one statement for the seat lock and the setup and discovery checks, one statement for the plant with its owner seat and creation entry (its recorded time is in the reply), the account's first Person (one write) and one final statement; the producer-level count adds the caller's savepoint. RT-6a brought it from 20; per HTTP request it is 9 (was 13), and the screen's entry reload after it is one statement."
 	},
 	"onboarding.declareJourney": {
 		"limit": 14,
