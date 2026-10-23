@@ -54,6 +54,8 @@ Ordinary `down` stops processes and removes owned dependencies/data/snapshots. I
 
 Confirm the record is terminal, its URL no longer serves the app, and an explicitly removed worktree is absent from disk and `git worktree list`. Successful cleanup reports `removed`; an already-cleaned failed startup may retain `failed` for diagnosis. `cleanup_pending` is incomplete cleanup; inspect its error and retry after fixing the cause. `gc` is a dry run unless passed `--apply`. Shut down a dedicated test supervisor after verification; do not stop unrelated previews.
 
+Timing previews: `bin/evf timing` starts its own production preview of the exact head on a quiet local database and stops it when the run ends (D81). Do not reuse it for behavior checks, and do not point another preview at that database.
+
 Slots: the managed launcher sets `PORTLESS_PREVIEW_LIMIT=4`, so four previews run at a time. The supervisor reads the limit when it starts; restarting it stops every active preview, so never restart it while another agent's preview runs. Builders and verifiers come first. The coordinator may stop Sebastian's review preview at any time and restarts it later on main. Never stop another workspace's preview. See D74 in `docs/architecture/decisions.md`.
 
 Tests of Portless itself never touch the shared service. Give the test a new temporary folder in `PORTLESS_STATE_DIR` and `PORTLESS_PREVIEW_DIR`, its own `PORTLESS_PORT` and `PORTLESS_PREVIEW_PORT`, and `PORTLESS_PREVIEW_HTTP=1`. Never restart, reinstall, `clean` or stop the shared service or its supervisor: at 02:04 UTC on 2026-10-22 one restart removed every live preview.

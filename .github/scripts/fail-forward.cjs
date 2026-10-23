@@ -44,6 +44,36 @@ const DETAIL_BUDGET = 60000;
 const LOG_BUDGET = 48000;
 const MORE_RESERVE = 200;
 
+function incident(source, options) {
+  return {
+    marker: `<!-- evf-fail-forward:${options.test ? 'test:' : ''}${source} -->`,
+    anchorName: `evf-incident-${options.test ? 'test-' : ''}${source}`,
+  };
+}
+
+// Main CI is green again (OPS-52). Close the open CI incident when the green commit contains the failed one,
+// so a late success for an older commit never closes a newer failure.
+async function recover({ github, context, core }, run, options) {
+  const repo = context.repo;
+  const { marker, anchorName } = incident('ci', options);
+  let anchor;
+  try { anchor = (await github.rest.issues.getLabel({ ...repo, name: anchorName })).data; }
+  catch (error) { if (error.status === 404) return; throw error; }
+  const saved = /^evf-incident:(\d+)$/.exec(anchor.description || '');
+  if (!saved) return;
+  const issue = (await github.rest.issues.get({ ...repo, issue_number: Number(saved[1]) })).data;
+  if (issue.state !== 'open' || !issue.body?.includes(marker)) return;
+  const failed = /^Commit: ([0-9a-f]{40})$/m.exec(issue.body)?.[1];
+  if (!failed) return;
+  const comparison = await github.rest.repos.compareCommitsWithBasehead({ ...repo, basehead: `${failed}...${run.head_sha}` });
+  if (!['ahead', 'identical'].includes(comparison.data.status)) return;
+  await github.rest.issues.createComment({ ...repo, issue_number: issue.number,
+    body: `Main CI passed again at ${run.head_sha}, which contains the failed commit ${failed}: ${run.html_url}\n\nThe fail-forward workflow closed this incident.` });
+  await github.rest.issues.update({ ...repo, issue_number: issue.number, state: 'closed', state_reason: 'completed' });
+  core.info(`Closed failure issue: ${issue.html_url}`);
+  return issue.number;
+}
+
 module.exports = async function report({ github, context, core }, options = {}) {
   const repo = context.repo;
   if (`${repo.owner}/${repo.repo}` !== 'SebastianGarces/everyfield') throw new Error('Unexpected failure repository');
@@ -52,8 +82,10 @@ module.exports = async function report({ github, context, core }, options = {}) 
   let source, sha, url, detail;
   if (context.eventName === 'workflow_run') {
     const run = context.payload.workflow_run;
-    if (!['failure', 'timed_out', 'startup_failure'].includes(run.conclusion) || run.event !== 'push' || run.head_branch !== branch ||
-        run.path !== workflowPath || run.head_repository?.full_name !== 'SebastianGarces/everyfield') return;
+    if (run.event !== 'push' || run.head_branch !== branch || run.path !== workflowPath ||
+        run.head_repository?.full_name !== 'SebastianGarces/everyfield') return;
+    if (run.conclusion === 'success') return recover({ github, context, core }, run, options);
+    if (!['failure', 'timed_out', 'startup_failure'].includes(run.conclusion)) return;
     source = 'ci'; sha = run.head_sha; url = run.html_url;
     const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
       ...repo, run_id: run.id, filter: 'latest', per_page: 100,
@@ -99,10 +131,9 @@ module.exports = async function report({ github, context, core }, options = {}) 
   } else { return; }
 
   await labels(github, repo);
-  const marker = `<!-- evf-fail-forward:${options.test ? 'test:' : ''}${source} -->`;
+  const { marker, anchorName } = incident(source, options);
   // Issue lists can lag behind creation. Keep the incident number on a directly-read label.
   // A reserved/unknown creation fails closed instead of opening a second issue after a crash.
-  const anchorName = `evf-incident-${options.test ? 'test-' : ''}${source}`;
   let anchor;
   try { anchor = (await github.rest.issues.getLabel({ ...repo, name: anchorName })).data; }
   catch (error) {
