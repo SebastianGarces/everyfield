@@ -32,6 +32,21 @@
       "risk": "F1 shows that at least one admin article has a wrong fact. Run the claim-check step of the pipeline on each one. This is also the safest first test of the writing agent, because the agent only checks and does not write."
     },
     {
+      "id": "F6",
+      "tier": "F",
+      "title": "Wiki F6: Everyfield spelling in Volunteer Background Check Process",
+      "slug": "launch-team/volunteer-background-check-process",
+      "section": "launch-team",
+      "phase": 2,
+      "type": "guide",
+      "closes": [],
+      "sources": [
+        "Published article approved in PR #44",
+        "Sebastian brand spelling decision, 2026-10-23"
+      ],
+      "risk": "Spelling correction only: EveryField to Everyfield in the heading, body and excerpt. Retain the article id and lowercase heading anchor. No other wording changes. Sebastian approves the final diff before promotion and merge."
+    },
+    {
       "id": "A1",
       "tier": "A",
       "title": "Getting Your Church's EIN",
@@ -502,7 +517,7 @@
         "FTC: using consumer reports (FCRA disclosure and authorization)",
         "State child-protection screening laws"
       ],
-      "risk": "Medium. EveryField does not store background checks (scope.md), so the article must not imply the app tracks them. Pair with B10 for policy."
+      "risk": "Medium. Everyfield does not store background checks (scope.md), so the article must not imply the app tracks them. Pair with B10 for policy."
     },
     {
       "id": "B1",
