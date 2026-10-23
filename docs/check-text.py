@@ -478,13 +478,15 @@ def check_brand(root):
         for number, line in enumerate((root / name).read_bytes().splitlines(), 1):
             if legacy.encode() in line:
                 print(f'{name}:{number}: use Everyfield; legacy spelling is not kept here')
-    for name in sorted(kept.keys() - matches):
-        print(f'NOTE: stale brand kept path: {name}')
+    stale = kept.keys() - matches
+    for name in sorted(stale):
+        print(f'stale brand kept path: {name}')
     failures = matches - kept.keys()
-    print(f'{"FAIL" if failures else "PASS"}: brand spelling, '
+    print(f'{"FAIL" if failures or stale else "PASS"}: brand spelling, '
           f'{len(failures)} unapproved tracked text files; '
-          f'{len(matches & kept.keys())} reviewed kept paths.')
-    return bool(failures)
+          f'{len(matches & kept.keys())} reviewed kept paths; '
+          f'{len(stale)} stale kept paths.')
+    return bool(failures or stale)
 
 
 def main():
