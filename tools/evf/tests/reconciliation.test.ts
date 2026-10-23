@@ -776,6 +776,7 @@ function mergeFixture(scope: Record<string, unknown> = { owningPaths: ["tools/ev
 		baseRefName: "main",
 		body: validPrBody(),
 	};
+	state.protection = { required_status_checks: { strict: true, contexts: ["CI"] } };
 	state.requiredChecks = [
 		{ name: "CI", state: "SUCCESS", bucket: "pass", link: "https://github.com/test/private/actions/runs/1" },
 	];
@@ -1057,6 +1058,16 @@ test("INV-phase7-ship: CI, independent exact-head approval and approved code qua
 					s.requiredChecks[0].bucket = "pending";
 				},
 				reason: /CI must be green/,
+			},
+			{
+				name: "required check not created yet",
+				edit: (s) => {
+					s.rules = [
+						{ type: "required_status_checks", parameters: { required_status_checks: [{ context: "pr-body" }] } },
+					];
+					s.requiredChecks = [{ ...s.requiredChecks[0], name: "pr-body" }];
+				},
+				reason: /Required GitHub CI is missing on the exact PR head: CI\./,
 			},
 			{
 				name: "same-family approval",
@@ -1464,7 +1475,7 @@ withShipQueue(${JSON.stringify(f.root)}, ${JSON.stringify(name)}, () => {
 	}
 });
 
-test("INV-ship-queue-update: a behind PR is updated by a merge of main, waits for CI and carries; otherwise a fresh gate is needed", () => {
+test("INV-ship-queue-update: a behind PR is updated by a merge of main, waits for every required check and carries; otherwise a fresh gate is needed", () => {
 	const f = mergeFixture(),
 		log = console.log,
 		lines: string[] = [];
@@ -1477,6 +1488,7 @@ test("INV-ship-queue-update: a behind PR is updated by a merge of main, waits fo
 			bucket: "pass",
 			link: "https://github.com/test/private/actions/runs/2",
 		};
+		const prBody = { ...pass, name: "pr-body" };
 		const mainCommit = (path: string, text: string) => {
 			writeFileSync(join(f.root, path), text);
 			f.git("add", path);
@@ -1489,7 +1501,7 @@ test("INV-ship-queue-update: a behind PR is updated by a merge of main, waits fo
 		inWt("add", "tools/evf/feature.ts", "README.md");
 		inWt("commit", "-qm", "Approved work");
 		const approved = inWt("rev-parse", "HEAD");
-		const attempt = (checksQueue: unknown[]) => {
+		const attempt = (checksQueue: unknown[], reported = [pass, prBody], timing = fastShip) => {
 			inWt("reset", "-q", "--hard", approved);
 			inWt("push", "-q", "origin", `+${approved}:refs/heads/${f.taskRef.branch}`);
 			const state = f.getState();
@@ -1500,19 +1512,25 @@ test("INV-ship-queue-update: a behind PR is updated by a merge of main, waits fo
 					html_url: "https://github.com/test/private/pull/77#issuecomment-3",
 				},
 			];
-			state.requiredChecks = [pass];
+			state.protection = { required_status_checks: { strict: true, contexts: ["ci", "pr-body"] } };
+			state.requiredChecks = reported;
 			state.checksQueue = checksQueue;
 			state.calls = [];
 			f.setState(state);
 			lines.length = 0;
-			return () => ship(f.root, f.taskRef, fastShip);
+			return () => ship(f.root, f.taskRef, timing);
 		};
 		const calls = (sub: string) => f.getState().calls.filter((c) => c.args[0] === "pr" && c.args[1] === sub);
 		console.log = (...args) => lines.push(args.join(" "));
 
 		const main = mainCommit("docs/main-only.md", "Main only.\n");
-		// Checks: the approved head, then the new head with none reported yet, then pending, then green.
-		assert.throws(attempt([[pass], [], [{ name: "ci", bucket: "pending" }]]), /fixture merge barrier/);
+		// Checks: the approved head, then the new head with none reported, with only pr-body (ci not created yet),
+		// with ci pending, then every required check green.
+		assert.throws(
+			attempt([[pass, prBody], [], [prBody], [prBody, { name: "ci", bucket: "pending" }]]),
+			/fixture merge barrier/,
+		);
+		assert.equal(calls("checks").length, 6, "ship polled until ci existed and passed");
 		const head = inWt("rev-parse", "HEAD");
 		assert.equal(f.getState().pr.headRefOid, head);
 		assert.deepEqual(inWt("rev-list", "--parents", "-n", "1", head).split(" ").slice(1), [approved, main]);
@@ -1523,10 +1541,19 @@ test("INV-ship-queue-update: a behind PR is updated by a merge of main, waits fo
 		assert.deepEqual(calls("merge")[0].args, ["pr", "merge", "77", "--squash", "--match-head-commit", head]);
 		assert.equal(existsSync(lock), false, "a refused merge releases the queue");
 
+		// Required ci is never created on the new head (CI run 40016189676): ship refuses at its bound, no merge.
+		mainCommit("docs/never.md", "Never.\n");
+		assert.throws(
+			attempt([[pass, prBody]], [prBody], { ...fastShip, ciWaitMs: 300, ciPollMs: 20 }),
+			/Required CI on [a-f0-9]{40} is still running after 0 min \(ci missing\)/,
+		);
+		assert.deepEqual([calls("comment"), calls("merge")], [[], []]);
+		assert.equal(existsSync(lock), false);
+
 		// Required CI fails on the merge of main: no merge, and the queue is free again.
 		mainCommit("docs/second.md", "Second.\n");
 		assert.throws(
-			attempt([[pass], [{ name: "ci", bucket: "fail" }]]),
+			attempt([[pass, prBody], [prBody, { name: "ci", bucket: "fail" }]]),
 			/Fresh gate needed at [a-f0-9]{40}: required CI failed after the merge of main \(ci\)/,
 		);
 		assert.equal(calls("update-branch").length, 1);
