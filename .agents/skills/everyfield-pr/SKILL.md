@@ -1,9 +1,9 @@
 ---
 name: everyfield-pr
-description: "Apply when writing or reviewing an EveryField PR body. Fill template.md so Sebastian can read what changed, why, and how it was verified without opening the code."
+description: "Apply when writing or reviewing an Everyfield PR body. Fill template.md so Sebastian can read what changed, why, and how it was verified without opening the code."
 ---
 
-# EveryField PR body
+# Everyfield PR body
 
 Sebastian reads the PR body, often after an automatic merge, and usually without opening the code.
 The body is the record of what changed and how we know it works. Write it for him.
@@ -13,7 +13,7 @@ The body is the record of what changed and how we know it works. Write it for hi
 The upstream `pr` skill (`.agents/skills/pr/SKILL.md`, verbatim, do not edit) supplies the visual
 menu for showing a change: pseudocode, call trees, file trees, Mermaid and diff sketches. It also
 supplies the evidence tiers and the door and blast radius ideas. Use those inside the sections below.
-Where the two skills differ, this skill wins. The upstream skill points to `GLOSSARY.md`. EveryField
+Where the two skills differ, this skill wins. The upstream skill points to `GLOSSARY.md`. Everyfield
 has no glossary file: use the terms from the task brief and `docs/product/`.
 
 ## Required sections

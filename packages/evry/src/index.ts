@@ -6,6 +6,7 @@ export { readCatalog, READ_DOMAINS, SELECT_RETURNED_ROWS, type Catalog } from ".
 export { invokeRead } from "./catalog/invoke.ts";
 export {
 	cancelTurn,
+	closeLostJobs,
 	createConversation,
 	latestConversation,
 	listConversations,
@@ -15,6 +16,7 @@ export {
 	type Conversation,
 	type ConversationEvent,
 } from "./conversations/store.ts";
+export { CLAIM_SECONDS } from "./runtime/job.ts";
 export { observeConversation } from "./runtime/observe.ts";
 export { selectQualifiedModel, type QualifiedModel } from "./runtime/model.ts";
 export { runTurn, type RunDeps, type RunOutcome } from "./runtime/turn.ts";

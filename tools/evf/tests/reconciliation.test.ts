@@ -2546,3 +2546,75 @@ test("INV-design-route: a design task owns only design/, waits after the verifie
 		f.close();
 	}
 });
+
+test("INV-copy-overlap: only WP-103 can bypass unordered ownership for its approved copy change", () => {
+	const f = fixture();
+	try {
+		const path = join(f.root, "docs/plan/dag.json");
+		const original = JSON.parse(readFileSync(path, "utf8"));
+		const check = (dag: typeof original) => {
+			writeFileSync(path, JSON.stringify(dag));
+			return spawnSync("python3", ["docs/package-context.py", "--check-plan"], {
+				cwd: f.root,
+				encoding: "utf8",
+			});
+		};
+		const accepted = check(original);
+		assert.equal(accepted.status, 0, accepted.stderr);
+		const exception = original.packages.find((p) => p.id === "WP-103").overlap_exempt;
+		const second = structuredClone(original);
+		second.packages.find((p) => p.id === "WP-005").overlap_exempt = exception;
+		const refused = check(second);
+		assert.equal(refused.status, 1);
+		assert.match(refused.stderr, /Only WP-103 may declare the approved copy-only overlap exemption: WP-005/);
+		const unapproved = structuredClone(original);
+		unapproved.packages.find((p) => p.id === "WP-103").overlap_exempt.kind = "any-change";
+		const invalid = check(unapproved);
+		assert.equal(invalid.status, 1);
+		assert.match(invalid.stderr, /Only WP-103 may declare the approved copy-only overlap exemption: WP-103/);
+		const ordinary = structuredClone(original);
+		for (const id of ["WP-026", "WP-049"])
+			ordinary.packages.find((p) => p.id === id).owning_paths.push("copy-overlap/");
+		const overlap = check(ordinary);
+		assert.equal(overlap.status, 1);
+		assert.match(overlap.stderr, /Unordered owning path overlap: WP-026 and WP-049/);
+	} finally {
+		f.close();
+	}
+});
+
+test("INV-plan-progress: explorer renders a newly planned package without writing progress and rejects unknown records", () => {
+	const f = fixture();
+	const output = f.root + ".html";
+	try {
+		reconcileProgress(f.root);
+		const path = join(f.root, "docs/build-progress.json");
+		const progress = JSON.parse(readFileSync(path, "utf8"));
+		delete progress.packages["WP-103"];
+		const recorded = JSON.stringify(progress);
+		writeFileSync(path, recorded);
+		const render = () =>
+			spawnSync("python3", ["docs/render-build-explorer.py", "--output", output], {
+				cwd: f.root,
+				encoding: "utf8",
+			});
+		const planned = render();
+		assert.equal(planned.status, 0, planned.stderr);
+		const embedded = readFileSync(output, "utf8").match(/id="canonical-progress">(.*?)<\/script>/s)![1];
+		const view = JSON.parse(embedded);
+		assert.deepEqual(view.packages["WP-103"], {
+			status: "not_started",
+			evidence: [],
+			notes: "New planned package; no canonical progress recorded yet.",
+		});
+		assert.equal(readFileSync(path, "utf8"), recorded);
+		progress.packages["WP-999"] = { status: "done" };
+		writeFileSync(path, JSON.stringify(progress));
+		const unknown = render();
+		assert.equal(unknown.status, 1);
+		assert.match(unknown.stderr, /Progress IDs differ from active\/retired DAG IDs/);
+	} finally {
+		rmSync(output, { force: true });
+		f.close();
+	}
+});

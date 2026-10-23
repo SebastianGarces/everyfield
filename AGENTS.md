@@ -1,6 +1,6 @@
-# EveryField v3: agent instructions
+# Everyfield v3: agent instructions
 
-EveryField v3 rebuilds v2. Packages and dependencies live in `docs/plan/dag.json`.
+Everyfield v3 rebuilds v2. Packages and dependencies live in `docs/plan/dag.json`.
 Current requirements and cases live in `docs/catalog/index.json`. Keep this file under 150 lines.
 
 ## Task flow
@@ -65,7 +65,7 @@ FB-<n> for feedback and OPS-<n> for tooling maintenance.
 
 Each name maps to `.agents/skills/principle-<name>/SKILL.md`. Read the principles named
 by your role, then others when needed. These are verbatim upstream copies pinned by
-`skills-lock.json`; put EveryField adaptations in roles or other skills.
+`skills-lock.json`; put Everyfield adaptations in roles or other skills.
 
 - `attack-the-premise`: Two fixes with one premise failed? Question the premise, not the fix.
 - `boundary-discipline`: Guards at system boundaries; trust internal types; pure business logic.

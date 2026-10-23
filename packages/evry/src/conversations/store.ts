@@ -236,6 +236,38 @@ export async function closeLostRun(db: Database, actor: EvryActor, conversationI
 }
 
 /**
+ * The scheduled runner's recovery, so no Evry job waits for a page to be open: every turn and approved effect whose
+ * job can no longer make progress (runtime/job.ts) ends as failed with a new claim generation, so no worker takes it
+ * later, and every conversation whose active run ended without its end saves it once as interrupted, as closeLostRun
+ * does. An effect's review then reads unknown for good and may be tried again. The job update re-checks the live rule
+ * on the row a concurrent claim locked, so a claim and a close never both win. At most `limit` of each. One statement.
+ */
+export async function closeLostJobs(db: Pick<Database, "execute">, limit = 100) {
+	const n = z.int().min(1).max(100).parse(limit);
+	const r = await db.execute(sql`
+		WITH lost AS (
+			SELECT j.id FROM job j WHERE j.kind IN ('assistant_turn','evry_effect') AND j.state IN ('ready','claimed')
+				AND NOT ${sql.raw(liveJob("j"))} ORDER BY j.eligible_at,j.id LIMIT ${n} FOR UPDATE SKIP LOCKED
+		), ended AS (
+			UPDATE job j SET state='failed',error_code=CASE WHEN j.kind='assistant_turn' THEN 'interrupted' ELSE 'lost' END,
+				lease_owner=NULL,lease_until=NULL,finished_at=clock_timestamp(),claim_generation=j.claim_generation+1,revision=j.revision+1
+			FROM lost WHERE j.id=lost.id RETURNING j.id
+		), runs AS (
+			SELECT c.id,c.active_turn_id FROM conversation c JOIN job j ON j.id=c.active_turn_id
+			WHERE j.id IN (SELECT id FROM ended) OR j.state IN ${TERMINAL_JOB} LIMIT ${n}
+		), conv AS (
+			UPDATE conversation c SET active_turn_id=NULL,active_session_id=NULL,last_sequence=c.last_sequence+1,updated_at=clock_timestamp()
+			FROM runs WHERE c.id=runs.id AND c.active_turn_id=runs.active_turn_id
+			RETURNING c.id,c.last_sequence,runs.active_turn_id AS turn_id
+		), saved AS (
+			INSERT INTO conversation_event(conversation_id,sequence,turn_id,kind,body)
+			SELECT id,last_sequence,turn_id,'status',${JSON.stringify(interrupted())}::jsonb FROM conv RETURNING 1
+		)
+		SELECT (SELECT count(*) FROM ended)::int AS jobs,(SELECT count(*) FROM saved)::int AS runs`);
+	return z.object({ jobs: z.number(), runs: z.number() }).parse(r.rows[0]);
+}
+
+/**
  * evry.cancelTurn: stops the active run. Model work and new tool scheduling end at the worker's next fenced save; saved
  * messages, results and receipts stay as they are. Cancelling an idle conversation changes nothing.
  */

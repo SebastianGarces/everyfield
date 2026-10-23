@@ -8,7 +8,7 @@ The following additions are deliberately outside the current build: finance, SMS
 
 Explicitly deferred source feature IDs IDN-018, IDN-025 and TEAM-014 are not active build obligations. EVR-267 and EVR-268 are prohibited assistant-care surfaces; the native private-care capabilities remain. Their source identifiers are traced outside active build context. Background-check fields/filters are removed from otherwise retained People/team/training reads. No other source capability disappears merely because its old mechanism is replaced or its source suite is absent.
 
-Requirements and acceptance cases describe product end states. Default implementation choices belong to [EveryField patterns](intent://local/note/df294729-367b-493b-9faf-654cf6b25b62). Fixture labels illustrate inputs and observations; they do not require tables, API fields, counters or lock strategies.
+Requirements and acceptance cases describe product end states. Default implementation choices belong to [Everyfield patterns](intent://local/note/df294729-367b-493b-9faf-654cf6b25b62). Fixture labels illustrate inputs and observations; they do not require tables, API fields, counters or lock strategies.
 
 ## Accepted multiplication scope
 

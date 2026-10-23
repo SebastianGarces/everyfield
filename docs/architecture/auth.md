@@ -1,6 +1,6 @@
 # Authentication and domain acceptance
 
-Credentials, cookies, sessions and mailbox proofs have one supported authentication owner. Application grants remain separate. A valid credential does not itself authorize domain access. Adapter mappings and supported library settings follow [EveryField patterns](intent://local/note/df294729-367b-493b-9faf-654cf6b25b62).
+Credentials, cookies, sessions and mailbox proofs have one supported authentication owner. Application grants remain separate. A valid credential does not itself authorize domain access. Adapter mappings and supported library settings follow [Everyfield patterns](intent://local/note/df294729-367b-493b-9faf-654cf6b25b62).
 
 ## Staged registration
 

@@ -1,23 +1,11 @@
 import "server-only";
-import {
-	EvryRefusal,
-	evryActor,
-	executeProposal,
-	flushTraces,
-	projectError,
-	runTurn,
-	selectQualifiedModel,
-	type EvryActor,
-} from "@everyfield/evry";
-import { readViewer } from "@everyfield/domain/access";
-import { sessionId } from "@everyfield/contracts/common";
+import { EvryRefusal, evryActor, projectError, type EvryActor } from "@everyfield/evry";
 import { after } from "next/server";
-import { claimDue, finishClaim } from "../jobs/queue";
-import { transaction } from "../platform/database";
 import { privateHeaders } from "../platform/boundary";
 import { requestDatabase } from "../database";
 import { getViewer } from "../request-context";
 import { tasksMount } from "../tasks";
+import { runEffects, runTurns } from "./worker";
 
 // The thin web door to the Evry kernel: one cached viewer per request (D60), the shared pool, sanitized errors and
 // the turn worker on the WP-031 queue. Domain behavior lives in @everyfield/evry.
@@ -64,79 +52,17 @@ export async function evryResponse(body: (db: ReturnType<typeof evryDatabase>, a
 	}
 }
 
-/** The current authority of a turn's session, read again from the database before every read the turn makes. */
-async function freshActor(session: string) {
-	const parsed = sessionId.safeParse(session);
-	const viewer = parsed.success ? await readViewer(evryDatabase(), parsed.data) : null;
-	return viewer?.authority ? evryActor(viewer.authority) : null;
-}
-
-const LEASE_SECONDS = 240; // above the 180-second turn wall time
-
-/**
- * After the response, claims due turns through the WP-031 queue and runs them one at a time. The turns' traces are
- * exported last, inside the function's lifetime, after every turn saved its end.
- */
+/** After the response, runs the turns this request queued (worker.ts). The scheduled runner takes any it misses. */
 export function drainTurns() {
-	after(async () => {
-		const pool = evryDatabase();
-		const model = selectQualifiedModel();
-		try {
-			for (let n = 0; n < 4; n++) {
-				const claimStart = new Date();
-				const [claim] = await claimDue(pool, ["assistant_turn"], 1, LEASE_SECONDS);
-				if (!claim) return;
-				const outcome = await runTurn(
-					{ db: pool, model, freshActor },
-					{
-						turnId: claim.id,
-						tenantId: claim.tenant_id,
-						leaseOwner: claim.lease_owner,
-						generation: claim.claim_generation,
-					},
-					{ claimStart, claimEnd: new Date() },
-				);
-				if (outcome !== "lost")
-					await transaction(pool, (tx) =>
-						finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }),
-					);
-			}
-		} finally {
-			await flushTraces();
-		}
-	});
+	after(() => runTurns(evryDatabase(), 4));
 }
 
-const EFFECT_LEASE_SECONDS = 60;
-
-/**
- * After the response, claims approved Evry effects through the WP-031 queue and runs each once. The executor saves
- * the outcome with the change; the claim then ends.
- */
+/** After the response, runs the approved effects this request queued (worker.ts). */
 export function drainEffects() {
 	after(async () => {
-		const pool = evryDatabase();
 		// A People command that hands tasks on replans their reminders through the tasks mount; without it the effects
 		// wait in the queue.
 		const reminders = tasksMount()?.reminders;
-		if (!reminders) return;
-		for (let n = 0; n < 4; n++) {
-			const [claim] = await claimDue(pool, ["evry_effect"], 1, EFFECT_LEASE_SECONDS);
-			if (!claim) return;
-			const outcome = await executeProposal(
-				pool,
-				{
-					jobId: claim.id,
-					tenantId: claim.tenant_id,
-					leaseOwner: claim.lease_owner,
-					generation: claim.claim_generation,
-				},
-				reminders,
-			);
-			if (outcome !== "lost")
-				await transaction(pool, (tx) =>
-					finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }),
-				);
-		}
+		if (reminders) await runEffects(evryDatabase(), reminders, 4);
 	});
 }

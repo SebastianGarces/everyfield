@@ -349,6 +349,10 @@ def check_plan(root, manifest):
         c = contexts[p['id']]
         if 'fast_track' in p and p['id'] != 'WP-097':
             raise ValueError('Only WP-097 may declare fast_track: ' + p['id'])
+        if 'overlap_exempt' in p and (p['id'] != 'WP-103' or p['overlap_exempt'] != {
+                'kind': 'copy-only',
+                'ruling': 'docs/architecture/decisions.md#2026-10-23-everyfield-brand-spelling-ops-44-wp-103'}):
+            raise ValueError('Only WP-103 may declare the approved copy-only overlap exemption: ' + p['id'])
         if set(c['case_ids']) & set(c['context_case_ids']):
             raise ValueError('Context-only cases cannot be proof obligations: ' + p['id'])
         for cid in c['case_ids']:
@@ -403,7 +407,8 @@ def check_plan(root, manifest):
     for i, a in enumerate(owners):
         for b in owners[i + 1:]:
             overlap = any(x.startswith(y) or y.startswith(x) for x in a['owning_paths'] for y in b['owning_paths'])
-            if overlap and a['id'] not in ancestors(b['id']) and b['id'] not in ancestors(a['id']):
+            if (overlap and not (a.get('overlap_exempt') or b.get('overlap_exempt'))
+                    and a['id'] not in ancestors(b['id']) and b['id'] not in ancestors(a['id'])):
                 raise ValueError('Unordered owning path overlap: ' + a['id'] + ' and ' + b['id'])
     seen = set()
     for s in dag['vertical_slices']:

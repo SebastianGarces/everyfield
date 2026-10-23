@@ -855,9 +855,9 @@
       "slug": "launch-team/planning-services-around-room-capacity"
     },
     {
-      "contentSHA256": "12f1dabe021d6f0f5afc44d3489c157d7047b0aec407e93c087ee46bc78da942",
+      "contentSHA256": "69cffff1f9ad62cd349923137ac4e2f3513e37aa94bf106b61212d037e64e631",
       "id": "54755550-faf2-47ff-9990-1dcdd442fda7",
-      "recordSHA256": "f9a39fa5bb3bf7c6c9fe1d95d3b07f0b1890cf9bb6d728326310f6682af69b72",
+      "recordSHA256": "d998be9434e330c01833b724599d5e93d43f5df55b3bf1ddf79f853e8224c8f4",
       "sectionId": "4ece2273-e203-4365-9c64-c48cffd0efe9",
       "slug": "launch-team/volunteer-background-check-process"
     },
@@ -4998,6 +4998,15 @@
       "previousRecordSHA256": "064d54a7d094dae8cc4a4b43904c04ca149bc911e351229910e0d51b1666a940",
       "recordSHA256": "b1e2f7b062585872d84657191840537e344775e887fe9e6a96444757476311af",
       "slug": "administrative/financial/first-year-budget-planning"
+    },
+    {
+      "approvedBy": "Sebastian",
+      "date": "2026-10-23T06:24:47.676Z",
+      "id": "54755550-faf2-47ff-9990-1dcdd442fda7",
+      "pr": 262,
+      "previousRecordSHA256": "f9a39fa5bb3bf7c6c9fe1d95d3b07f0b1890cf9bb6d728326310f6682af69b72",
+      "recordSHA256": "d998be9434e330c01833b724599d5e93d43f5df55b3bf1ddf79f853e8224c8f4",
+      "slug": "launch-team/volunteer-background-check-process"
     }
   ],
   "revision": "2107df58885c883960422ce7e60719f0adbac0e4",
@@ -5130,7 +5139,7 @@
       "slug": "training"
     }
   ],
-  "seedPayloadSHA256": "4756457e9e9978d73c95bdcf7b66a7dd29f2b4d5630f200c00f825c30d81f7e1",
+  "seedPayloadSHA256": "271f03b271969b5357bbeeac09dcac61d3f9ef5a5ee9fc74b4a189d5a245f4bd",
   "sourceBranch": "br-autumn-mud-ah4urw7t",
   "templates": [
     {

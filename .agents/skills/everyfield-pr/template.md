@@ -1,5 +1,5 @@
 <!--
-EveryField PR body template. Copy everything below this comment into the PR body.
+Everyfield PR body template. Copy everything below this comment into the PR body.
 
 This file is the only list of required PR sections. Each level-2 heading ("## ") is one
 required section. A PR body must contain each heading with the exact text, in this order,

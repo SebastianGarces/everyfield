@@ -380,7 +380,7 @@ test("INV-identity: interruption after credentials preserves authenticated resum
 	await f.dispatch();
 	assert.ok(
 		f.effects.find(
-			(v) => v.to === "interrupted@example.test" && v.text.startsWith("Your EveryField password was reset"),
+			(v) => v.to === "interrupted@example.test" && v.text.startsWith("Your Everyfield password was reset"),
 		),
 		JSON.stringify(
 			(
