@@ -6,8 +6,8 @@ description: Open or merge a Phase 7 PR with exact-head CI, different-model veri
 # Ship
 
 Authors commit in their task worktree, include current main, run checks and open a PR for Sebastian.
-Use the PR standard skill and template, then `evf pr open <task> --body-file <file>`. Record one `EVF-Author: openai` or `anthropic`
-line in the body, based on the actual author model family. Never merge your own work, push to
+Use the PR standard skill and template, then `evf pr open <task> --body-file <file>`. Record one `EVF-Author: anthropic`, `xai` or
+`openai` line in the body, based on the actual author model family. Never merge your own work, push to
 main or force-push.
 
 A different-model verifier independently exercises the branch's own portless preview and dev
@@ -22,7 +22,8 @@ Every review comment needs a "Code quality" section naming concrete simplificati
 why none are needed. Its quality field names the principles checked, including the four shown above.
 Ship refuses missing or unapproved quality and incomplete principle lists.
 
-Use the verifier's actual family. Comments are deliberate because agents share the owner's
+Use the verifier's actual family. An `anthropic` PR needs an `xai` or `openai` verifier; an
+`xai` or `openai` PR needs an `anthropic` verifier. Comments are deliberate because agents share the owner's
 GitHub account. These records are unsigned coordination evidence, not authenticated identities.
 Use `changes_requested` instead of `approved` when verification fails. The latest record for that
 head wins. A changed head needs new CI and real verification.

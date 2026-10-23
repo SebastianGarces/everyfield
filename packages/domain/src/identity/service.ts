@@ -406,7 +406,7 @@ export function createIdentityService(config: IdentityConfig) {
 							purpose: "password_reset",
 							logicalKey: `password_reset/outcome/${correlationId}`,
 							subject: "Your password was reset",
-							text: "Your EveryField password was reset. Sign in with your new password. If this was not you, request password recovery.",
+							text: "Your Everyfield password was reset. Sign in with your new password. If this was not you, request password recovery.",
 						});
 					});
 				} catch {

@@ -1,11 +1,11 @@
 ---
 name: wiki-article
-description: Research, draft, fact-check or revise an EveryField Wiki article using primary sources, JSON drafts, rendered screenshots and independent Opus review before human approval.
+description: Research, draft, fact-check or revise an Everyfield Wiki article using primary sources, JSON drafts, rendered screenshots and independent Opus review before human approval.
 ---
 
 # Writing a Wiki article
 
-Sol writes. Opus reviews. Readers act on these articles, so every factual claim needs evidence
+Grok Build writes (Sol until Oct 24, 2026). Opus reviews. Readers act on these articles, so every factual claim needs evidence
 before human approval. Drafts are JSON rows with MDX in `content`, never separate MDX files.
 Read [the draft shape](../../../docs/reference/wiki/README.md) and the assigned item in
 `docs/reference/wiki/backlog.json`.
@@ -28,7 +28,7 @@ Do not decide theology, pastoral care or methodology. Record the question in `dr
 the task note; resolve it before review. Do not contradict `docs/reference/playbook.md` or change
 methodology to reconcile an article. Apply Bryan's rubric rulings, including the 50 to 100 adult
 benchmark rather than a gate (C03) and not calling the core group factor "Unity" (C04), from
-`docs/reference/bryan-comments-review.md`. EveryField does not provide finance, coaching or
+`docs/reference/bryan-comments-review.md`. Everyfield does not provide finance, coaching or
 background checks in the app (`docs/product/scope.md`); articles must not imply that it does.
 
 ## Procedure

@@ -84,7 +84,7 @@ export function PersonScreen({
 }: {
 	person: PlantPerson;
 	activities: Outcome<Activities>;
-	/** The person has a live EveryField account link (never which account). */
+	/** The person has a live Everyfield account link (never which account). */
 	linked: boolean;
 	/** The person is the viewer's own account person. */
 	isYou: boolean;
@@ -232,7 +232,7 @@ export function PersonScreen({
 									</StatusBadge>
 								) : linked ? (
 									<StatusBadge status="measured" size="sm">
-										Has an EveryField account
+										Has an Everyfield account
 									</StatusBadge>
 								) : null}
 							</p>

@@ -48,7 +48,7 @@ export function DuplicateHints({ personId, hints, canReview }: { personId: strin
 				))}
 			</ul>
 			<p className="mt-2 text-xs text-text-3">
-				{hints.completeness === "partial" ? "The first 25 hints. " : null}A hint is not proof. EveryField never merges
+				{hints.completeness === "partial" ? "The first 25 hints. " : null}A hint is not proof. Everyfield never merges
 				on its own.
 			</p>
 		</Card>

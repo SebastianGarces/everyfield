@@ -114,7 +114,7 @@ The hook considers intake, eligible pending work and unresolved reservations. Mo
 3. `bin/evf feedback status` shows today's started tasks against `dailyFixLimit`.
 4. Start work for P0 and P1 now, then small features, within the limit. Put
    `bin/evf task brief FB-<n>` in each task note and delegate:
-   - Bug: `implementor` (Sol). A bug only in UI code: `ui-designer` (Opus, tier UI-1 or UI-2).
+   - Bug: `implementor` (Grok Build, or Sol until Oct 24, 2026). A bug only in UI code: `ui-designer` (Opus, tier UI-1 or UI-2).
      P0 and P1: the independent verifier merges, as for ordinary builds. P2 and P3: the verifier runs `evf ship`,
      which verifies the PR and stops; after Sebastian approves in chat, merge with `bin/evf approve`. Follow `.agents/skills/ship/SKILL.md` for merge authority.
    - `feature-small`: `ui-designer` (Opus, tier UI-2 or UI-3) for the prototype. The PR is a draft

@@ -1241,6 +1241,58 @@ test("INV-phase7-ship: CI, independent exact-head approval and approved code qua
 	}
 });
 
+test("INV-phase7-ship: anthropic pairs with openai or xai; openai and xai never review each other", () => {
+	const f = mergeFixture();
+	try {
+		const valid = f.getState();
+		writeFileSync(join(f.root, "fake-bin/review.md"), "## Code quality\nApproved.\n\n## Experience\nNot applicable.\n");
+		const pairs = [
+			{ author: "openai", verifier: "anthropic", ships: true },
+			{ author: "xai", verifier: "anthropic", ships: true },
+			{ author: "anthropic", verifier: "openai", ships: true },
+			{ author: "anthropic", verifier: "xai", ships: true },
+			{ author: "xai", verifier: "openai", ships: false },
+			{ author: "openai", verifier: "xai", ships: false },
+			{ author: "xai", verifier: "xai", ships: false },
+			{ author: "anthropic", verifier: "anthropic", ships: false },
+		];
+		for (const { author, verifier, ships } of pairs) {
+			const state = structuredClone(valid);
+			state.pr.body = valid.pr.body.replace("EVF-Author: openai", `EVF-Author: ${author}`);
+			assert.equal(checkPrBody(f.root, state.pr.body).authorFamily, author);
+			state.comments["77"][0].body =
+				`EVF-Review: ${JSON.stringify({ head: f.sha, verifierFamily: verifier, verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
+			state.calls = [];
+			f.setState(state);
+			assert.throws(
+				() => ship(f.root, f.taskRef),
+				ships ? /fixture merge barrier/ : /different model family/,
+				`${author} author with ${verifier} verifier`,
+			);
+			const poster = spawnSync(
+				process.execPath,
+				[
+					join(source, ".agents/skills/verify-preview/scripts/post-review.mjs"),
+					...["--pr", "77", "--report", join(f.root, "fake-bin/review.md"), "--family", verifier],
+					...["--verdict", "approved", "--head", f.sha, "--experience-verdict", "approved", "--budget", "met"],
+					...["--quality-verdict", "approved", "--principles", approvedQuality.principles.join(","), "--dry-run"],
+				],
+				{ cwd: f.root, encoding: "utf8" },
+			);
+			assert.equal(
+				poster.status,
+				ships ? 0 : 1,
+				`poster: ${author} author with ${verifier} verifier: ${poster.stderr}`,
+			);
+		}
+		const state = structuredClone(valid);
+		state.pr.body = valid.pr.body.replace("EVF-Author: openai", "EVF-Author: grok");
+		assert.throws(() => checkPrBody(f.root, state.pr.body), /EVF-Author must be one of anthropic, openai, xai/);
+	} finally {
+		f.close();
+	}
+});
+
 test("INV-carry-approval: an approval carries only over clean merges of main on paths the PR never changed", () => {
 	const f = mergeFixture();
 	try {
@@ -2543,6 +2595,78 @@ test("INV-design-route: a design task owns only design/, waits after the verifie
 			/design\/everyfield-ui.html keeps its approved bytes/,
 		);
 	} finally {
+		f.close();
+	}
+});
+
+test("INV-copy-overlap: only WP-103 can bypass unordered ownership for its approved copy change", () => {
+	const f = fixture();
+	try {
+		const path = join(f.root, "docs/plan/dag.json");
+		const original = JSON.parse(readFileSync(path, "utf8"));
+		const check = (dag: typeof original) => {
+			writeFileSync(path, JSON.stringify(dag));
+			return spawnSync("python3", ["docs/package-context.py", "--check-plan"], {
+				cwd: f.root,
+				encoding: "utf8",
+			});
+		};
+		const accepted = check(original);
+		assert.equal(accepted.status, 0, accepted.stderr);
+		const exception = original.packages.find((p) => p.id === "WP-103").overlap_exempt;
+		const second = structuredClone(original);
+		second.packages.find((p) => p.id === "WP-005").overlap_exempt = exception;
+		const refused = check(second);
+		assert.equal(refused.status, 1);
+		assert.match(refused.stderr, /Only WP-103 may declare the approved copy-only overlap exemption: WP-005/);
+		const unapproved = structuredClone(original);
+		unapproved.packages.find((p) => p.id === "WP-103").overlap_exempt.kind = "any-change";
+		const invalid = check(unapproved);
+		assert.equal(invalid.status, 1);
+		assert.match(invalid.stderr, /Only WP-103 may declare the approved copy-only overlap exemption: WP-103/);
+		const ordinary = structuredClone(original);
+		for (const id of ["WP-026", "WP-049"])
+			ordinary.packages.find((p) => p.id === id).owning_paths.push("copy-overlap/");
+		const overlap = check(ordinary);
+		assert.equal(overlap.status, 1);
+		assert.match(overlap.stderr, /Unordered owning path overlap: WP-026 and WP-049/);
+	} finally {
+		f.close();
+	}
+});
+
+test("INV-plan-progress: explorer renders a newly planned package without writing progress and rejects unknown records", () => {
+	const f = fixture();
+	const output = f.root + ".html";
+	try {
+		reconcileProgress(f.root);
+		const path = join(f.root, "docs/build-progress.json");
+		const progress = JSON.parse(readFileSync(path, "utf8"));
+		delete progress.packages["WP-103"];
+		const recorded = JSON.stringify(progress);
+		writeFileSync(path, recorded);
+		const render = () =>
+			spawnSync("python3", ["docs/render-build-explorer.py", "--output", output], {
+				cwd: f.root,
+				encoding: "utf8",
+			});
+		const planned = render();
+		assert.equal(planned.status, 0, planned.stderr);
+		const embedded = readFileSync(output, "utf8").match(/id="canonical-progress">(.*?)<\/script>/s)![1];
+		const view = JSON.parse(embedded);
+		assert.deepEqual(view.packages["WP-103"], {
+			status: "not_started",
+			evidence: [],
+			notes: "New planned package; no canonical progress recorded yet.",
+		});
+		assert.equal(readFileSync(path, "utf8"), recorded);
+		progress.packages["WP-999"] = { status: "done" };
+		writeFileSync(path, JSON.stringify(progress));
+		const unknown = render();
+		assert.equal(unknown.status, 1);
+		assert.match(unknown.stderr, /Progress IDs differ from active\/retired DAG IDs/);
+	} finally {
+		rmSync(output, { force: true });
 		f.close();
 	}
 });

@@ -79,7 +79,7 @@ export function createInvitationService(config: InvitationConfig) {
 			recipientAccountId: null,
 			purpose: i.purpose === "seat" ? "seat_invitation" : "relationship_invitation",
 			logicalKey: `invitation/${i.id}/${i.revision}`,
-			subject: "Your EveryField invitation",
+			subject: "Your Everyfield invitation",
 			text:
 				i.purpose === "seat"
 					? `${i.inviter_description} invited you to join ${name} as ${i.role === "admin" ? "an Admin" : "a Member"}.\n\nReview the invitation: ${url.href}\n\nExpires ${d.expires(i).toISOString()}.`
@@ -523,8 +523,8 @@ export function createInvitationService(config: InvitationConfig) {
 					logicalKey: `invitation-accepted/${i.id}`,
 					subject: "Your invitation was accepted",
 					text: resident
-						? "You accepted an invitation to link your EveryField account. This link does not add a workspace seat. Sign in to review your sharing choices."
-						: "You accepted an invitation to join an EveryField workspace. Sign in to review your membership. If this was not you, review your account security.",
+						? "You accepted an invitation to link your Everyfield account. This link does not add a workspace seat. Sign in to review your sharing choices."
+						: "You accepted an invitation to join an Everyfield workspace. Sign in to review your membership. If this was not you, review your account security.",
 				});
 			}
 			events.push(await d.event(tx, cmd, i.id, "accept", declined ? null : "invitation.claimed", i.revision, after));

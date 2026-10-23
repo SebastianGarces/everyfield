@@ -8981,6 +8981,78 @@
         "table_days": 0.1
       },
       "integration_rule": "Scope: MUL-001, MUL-002, MUL-003, MUL-004, MUL-005, MUL-006, MUL-007, MUL-008, MUL-009, MUL-010, MUL-011, MUL-012, MUL-013, MUL-014, MUL-015, MUL-016, MUL-017."
+    },
+    {
+      "id": "WP-103",
+      "title": "Everyfield brand spelling in app copy",
+      "goal": "Use Everyfield in safe app copy and email and notification text.",
+      "lane": "web",
+      "domain": "workflow",
+      "depends_on": [],
+      "estimate_engineer_days": 0.5,
+      "inputs": [],
+      "outputs": [
+        "Everyfield brand spelling in app copy and email and notification text."
+      ],
+      "owning_paths": [
+        "apps/web/scripts/",
+        "apps/web/src/app/",
+        "apps/web/src/components/",
+        "apps/web/src/features/organizations/",
+        "apps/web/src/features/people/",
+        "apps/web/src/features/settings/",
+        "apps/web/src/features/tasks/",
+        "apps/web/src/marketing/",
+        "apps/web/src/server/jobs/",
+        "apps/web/src/server/onboarding/",
+        "apps/web/src/server/organizations/",
+        "apps/web/src/server/tasks/",
+        "design/",
+        "packages/db/scripts/",
+        "packages/domain/src/early-access/",
+        "packages/domain/src/identity/",
+        "packages/domain/test/",
+        "packages/evry/src/context/",
+        "tests/integration/identity/",
+        "tools/wiki/"
+      ],
+      "interfaces": [],
+      "acceptance_gates": [],
+      "spec_paths": [
+        "docs/architecture/decisions.md",
+        "docs/product/operations.md"
+      ],
+      "specialist": "ui-designer",
+      "context_scope": {
+        "features": "explicit",
+        "feature_ids": [],
+        "requirements": "explicit",
+        "requirement_ids": [],
+        "cases": "explicit",
+        "case_ids": [],
+        "operations": "explicit",
+        "operation_ids": [],
+        "acceptance": "explicit",
+        "acceptance_ids": [],
+        "schema": "produced",
+        "proof_stage": "brand copy only; no whole-target acceptance",
+        "case_requirements_at_start": []
+      },
+      "estimate_factors": {
+        "base_days": 0.5,
+        "requirement_days": 0,
+        "operation_days": 0,
+        "case_days": 0,
+        "table_days": 0
+      },
+      "integration_rule": "Text-only changes of the brand spelling in UI copy and email and notification text (R2). No logic, schema, route or file moves. Preserve lowercase identifiers. Keep DB defaults and migrations (R1), stored phase-history reasons (R3), frozen references (R4) and owner approval records (R6) unchanged. Leave apps/web/README.md and bin/wiki unchanged. Published Wiki content changes only through Wiki F6. The owner-approved copy-only overlap exemption changes no prerequisite or merge gate; overlapping open PRs need fresh review after this task merges.",
+      "ui_specialist": "ui-designer",
+      "ui_model": "Opus 5.5",
+      "model": "Opus 5.5",
+      "overlap_exempt": {
+        "kind": "copy-only",
+        "ruling": "docs/architecture/decisions.md#2026-10-23-everyfield-brand-spelling-ops-44-wp-103"
+      }
     }
   ],
   "edge_count": 499,
@@ -9081,7 +9153,8 @@
     "WP-095",
     "WP-096",
     "WP-057",
-    "WP-058"
+    "WP-058",
+    "WP-103"
   ],
   "critical_path": [
     "WP-097",
@@ -9115,7 +9188,7 @@
     "WP-058"
   ],
   "critical_path_unconstrained_days": 89.0,
-  "total_engineer_days": 229.5,
+  "total_engineer_days": 230.0,
   "contract_milestones": {
     "C0": [
       "WP-002"
@@ -9162,7 +9235,8 @@
         "WP-087",
         "WP-088",
         "WP-089",
-        "WP-090"
+        "WP-090",
+        "WP-103"
       ],
       "cumulative_packages": [
         "WP-097",
@@ -9183,7 +9257,8 @@
         "WP-087",
         "WP-088",
         "WP-089",
-        "WP-090"
+        "WP-090",
+        "WP-103"
       ],
       "dependency_closed": true,
       "meaning": "Fresh foundation and identity/reference skeleton"
@@ -9235,7 +9310,8 @@
         "WP-087",
         "WP-088",
         "WP-089",
-        "WP-090"
+        "WP-090",
+        "WP-103"
       ],
       "dependency_closed": true,
       "meaning": "People, meeting and task native features with a reviewed Evry slice for people; Evry meeting and task adapters arrive in S4"
@@ -9299,7 +9375,8 @@
         "WP-087",
         "WP-088",
         "WP-089",
-        "WP-090"
+        "WP-090",
+        "WP-103"
       ],
       "dependency_closed": true,
       "meaning": "Teams/training/communication/Wiki/documents"
@@ -9361,7 +9438,8 @@
         "WP-099",
         "WP-100",
         "WP-101",
-        "WP-102"
+        "WP-102",
+        "WP-103"
       ],
       "dependency_closed": true,
       "meaning": "ADR-001 stages 1 and 2 after planter S2 and before alpha"
@@ -9444,7 +9522,8 @@
         "WP-099",
         "WP-100",
         "WP-101",
-        "WP-102"
+        "WP-102",
+        "WP-103"
       ],
       "dependency_closed": true,
       "meaning": "Full phases/Plant and Network Intelligence/Launch/operations"
@@ -9568,7 +9647,8 @@
         "WP-099",
         "WP-100",
         "WP-101",
-        "WP-102"
+        "WP-102",
+        "WP-103"
       ],
       "dependency_closed": true,
       "meaning": "All assistant adapters and whole-target integration"
@@ -9683,7 +9763,8 @@
         "WP-099",
         "WP-100",
         "WP-101",
-        "WP-102"
+        "WP-102",
+        "WP-103"
       ],
       "dependency_closed": true,
       "meaning": "Full target release rehearsal"

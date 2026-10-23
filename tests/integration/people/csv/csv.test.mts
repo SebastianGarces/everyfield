@@ -430,6 +430,50 @@ test("AC:TARGET-PPL-018 INV-jobs an import whose worker loses its lease resumes 
 	assert.equal(await count("person"), peopleBefore + 1001);
 });
 
+test("AC:TARGET-PPL-018 INV-jobs an import on its last attempt that saved progress waits for its retry after a transient error, then finishes", async () => {
+	const file =
+		"first_name,email\r\n" +
+		Array.from({ length: 501 }, (_, i) => {
+			const name = i < 3 ? `Refused${i}` : i === 500 ? "Flaky" : `Budget${i}`;
+			return `${name},budget${i}@example.test\r\n`;
+		}).join("");
+	const p = ok(await preview(file));
+	const requestKey = randomUUID(),
+		peopleBefore = await count("person");
+	ok(await submit(file, p, choose(p), requestKey));
+	// Three rows the database refuses (P0001) in the first batch, and one transient failure (40001) in the second.
+	await admin.execute(
+		sql.raw(`CREATE FUNCTION ${schema}.budget_faults() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+ IF NEW.first_name LIKE 'Refused%' THEN RAISE EXCEPTION 'refused'; END IF;
+ IF NEW.first_name='Flaky' THEN RAISE EXCEPTION 'busy' USING ERRCODE='40001'; END IF; RETURN NEW; END $$;
+ CREATE TRIGGER budget_faults BEFORE INSERT ON ${schema}.person FOR EACH ROW EXECUTE FUNCTION ${schema}.budget_faults();`),
+	);
+	const job = async () =>
+		(
+			await rows(
+				sql`SELECT state,attempt_count,error_code FROM job WHERE kind='people_import' ORDER BY eligible_at DESC LIMIT 1`,
+			)
+		)[0];
+	try {
+		// Three attempts are already spent: the run claims the last one.
+		await admin.execute(sql`UPDATE job SET attempt_count=3 WHERE kind='people_import' AND state='ready'`);
+		await drain();
+		// The first batch saved its three failed rows, which starts a fresh budget, so the transient error waits.
+		assert.deepEqual(await job(), { state: "retry_wait", attempt_count: 0, error_code: "import_interrupted" });
+		assert.equal(await count("person"), peopleBefore + 497);
+	} finally {
+		await admin.execute(
+			sql.raw(`DROP TRIGGER budget_faults ON ${schema}.person; DROP FUNCTION ${schema}.budget_faults()`),
+		);
+	}
+	await admin.execute(
+		sql`UPDATE job SET next_attempt_at=clock_timestamp() WHERE kind='people_import' AND state='retry_wait'`,
+	);
+	await drain();
+	assert.equal((await job()).state, "succeeded");
+	assert.deepEqual(ok(await receiptOf(requestKey)).counts, { created: 498, skipped: 0, failed: 3, remaining: 3 });
+	assert.equal(await count("person"), peopleBefore + 498);
+});
 test("AC:TARGET-PPL-018 INV-tenancy an import saves exactly the reviewed rows and refuses a changed file, review or authority", async () => {
 	const existing = await person("Rae Existing", { phone: "(555) 010-2030" });
 	const file =

@@ -554,7 +554,7 @@
       "feature_ids": [
         "OPS-001"
       ],
-      "text": "Background execution is authenticated, bounded, durable and recoverable under the execution contract. Worker replacement, cancellation and stale input cannot publish or duplicate work. Unknown provider outcomes require reconciliation. G-LOAD owns measured fairness and alert tuning. Schedule invocation supplies no business authority, and actual deployment schedule and limits require configuration proof. Execution mechanisms follow EveryField patterns.",
+      "text": "Background execution is authenticated, bounded, durable and recoverable under the execution contract. Worker replacement, cancellation and stale input cannot publish or duplicate work. Unknown provider outcomes require reconciliation. G-LOAD owns measured fairness and alert tuning. Schedule invocation supplies no business authority, and actual deployment schedule and limits require configuration proof. Execution mechanisms follow Everyfield patterns.",
       "spec": "docs/product/operations.md#engineering-and-operational-scope",
       "operations": [
         "jobs.tickNotifications",

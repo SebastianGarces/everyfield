@@ -185,7 +185,7 @@ export function sourceChoices(choices: Partial<Record<MergeField, Side>>): Parti
 }
 
 /**
- * Which of two people stays when the address does not say: the one with an EveryField account (a linked person must
+ * Which of two people stays when the address does not say: the one with an Everyfield account (a linked person must
  * survive), otherwise the one added first.
  */
 export function defaultSurvivor(
@@ -210,13 +210,13 @@ export type Blocker = "linked_account_collision" | "linked_source" | "unregister
 export function blockerText(cause: Blocker, names: { source: string; survivor: string }, kinds: ReferenceKind[]) {
 	switch (cause) {
 		case "linked_account_collision":
-			return `${names.source} and ${names.survivor} both have an EveryField account. Two accounts cannot become one person.`;
+			return `${names.source} and ${names.survivor} both have an Everyfield account. Two accounts cannot become one person.`;
 		case "linked_source":
 			return names.source === names.survivor
-				? "The record with an EveryField account must be the one you keep."
-				: `${names.source} has an EveryField account, so ${names.source} must be the person you keep.`;
+				? "The record with an Everyfield account must be the one you keep."
+				: `${names.source} has an Everyfield account, so ${names.source} must be the person you keep.`;
 		case "unregistered_reference":
-			return `${names.source} still has ${kindList(kinds)}. EveryField cannot move these yet. Finish or reassign them, then review again.`;
+			return `${names.source} still has ${kindList(kinds)}. Everyfield cannot move these yet. Finish or reassign them, then review again.`;
 	}
 }
 

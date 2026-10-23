@@ -1505,6 +1505,13 @@ test("INV-revocation INV-idempotency (RT-3): a native write checks the seat in i
 	assert.deepEqual(json(ok(await rename(key, "Renamed once"))), json(first));
 	assert.equal(await audits(), before);
 	refused(await rename(key, "Another name"), "conflict");
+	// RT-6b: the replay reads its stored answer without the gate, but with the actor's live access: no seat, no answer.
+	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE id=${seated.seat}`);
+	try {
+		refused(await rename(key, "Renamed once"));
+	} finally {
+		await admin.execute(sql`UPDATE seat SET ended_at=NULL WHERE id=${seated.seat}`);
+	}
 });
 
 test("INV-concurrency (RT-3): a change committed while a native write is in flight is never overwritten", async () => {

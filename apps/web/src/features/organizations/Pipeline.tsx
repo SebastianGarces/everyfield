@@ -182,7 +182,7 @@ export function PipelineAccessNote({ access }: { access: z.infer<typeof pipeline
 					<p className="font-semibold text-ink">Pipeline totals from churches</p>
 					<p className="mt-1 text-text-2">
 						{access.allowed
-							? `At least ${access.minimumContributors} churches share pipeline totals with you. Combined totals are not shown in EveryField yet.`
+							? `At least ${access.minimumContributors} churches share pipeline totals with you. Combined totals are not shown in Everyfield yet.`
 							: `Fewer than ${access.minimumContributors} churches share pipeline totals with you, so nothing is shown. Totals are never shown for one church alone.`}
 					</p>
 				</div>

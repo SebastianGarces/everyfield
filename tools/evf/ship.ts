@@ -5,11 +5,13 @@ import {
 	evfDataDir,
 	fail,
 	baseRef,
+	crossFamilyReview,
 	findPackage,
 	git,
 	gitOk,
 	hasRemote,
 	isClean,
+	isModelFamily,
 	loadConfig,
 	loadDag,
 	pathsForPart,
@@ -17,6 +19,7 @@ import {
 	run,
 	sleep,
 	type Config,
+	type ModelFamily,
 	type TaskRef,
 } from "./lib.ts";
 import { maintenanceScope, requireTaskScope } from "./policy.ts";
@@ -159,7 +162,6 @@ export function prOpen(root: string, task: TaskRef, bodyFile?: string): number {
 	return 0;
 }
 
-const FAMILIES = ["openai", "anthropic"];
 const QUALITY_PRINCIPLES = [
 	"laziness-protocol",
 	"minimize-reader-load",
@@ -168,7 +170,7 @@ const QUALITY_PRINCIPLES = [
 ];
 export type Approval = {
 	head: string;
-	verifierFamily: string;
+	verifierFamily: ModelFamily;
 	verdict: "approved" | "changes_requested";
 	quality: { verdict: "approved" | "changes_requested"; principles: string[] };
 	experience: {
@@ -190,7 +192,7 @@ export type CarryProof = {
 };
 export type MergeEvidence = {
 	head: string;
-	authorFamily: string;
+	authorFamily: ModelFamily;
 	approval: Approval;
 	approvalUrl: string;
 	checks: RequiredCheck[];
@@ -215,12 +217,7 @@ function readApproval(input: unknown): Approval | null {
 		!/^([a-f0-9]{40})$/.test(input.head)
 	)
 		return null;
-	if (
-		!("verifierFamily" in input) ||
-		typeof input.verifierFamily !== "string" ||
-		!FAMILIES.includes(input.verifierFamily)
-	)
-		return null;
+	if (!("verifierFamily" in input) || !isModelFamily(input.verifierFamily)) return null;
 	if (!("verdict" in input) || (input.verdict !== "approved" && input.verdict !== "changes_requested")) return null;
 	if (!("quality" in input) || !input.quality || typeof input.quality !== "object") return null;
 	const quality = input.quality;
@@ -381,8 +378,10 @@ export function checkPr(
 		(!experience.exception || !pr.body.split(/\r?\n/).includes(`EVF-Experience-Exception: ${experience.exception}`))
 	)
 		fail("Experience budget exceeded. Name the approved reports or analytics exception in the PR and review.");
-	if (selected.approval.verifierFamily === authorFamily)
-		fail("Verifier approval must come from a different model family.");
+	if (!crossFamilyReview(authorFamily, selected.approval.verifierFamily))
+		fail(
+			`Verifier approval must come from a different model family: ${authorFamily} work needs ${authorFamily === "anthropic" ? "an openai or xai" : "an anthropic"} verifier.`,
+		);
 	const current: PullRequest = JSON.parse(
 		gh(root, ["pr", "view", String(number), "--json", "number,body,headRefOid,baseRefName,state,isDraft"]),
 	);

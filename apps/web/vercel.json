@@ -1,6 +1,6 @@
 {
 	"crons": [
 		{ "path": "/api/cron/access-retention", "schedule": "0 5 * * *" },
-		{ "path": "/api/cron/object-cleanup", "schedule": "30 5 * * *" }
+		{ "path": "/api/cron/jobs", "schedule": "* * * * *" }
 	]
 }

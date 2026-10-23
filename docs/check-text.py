@@ -8,6 +8,7 @@ import argparse
 import json
 from pathlib import Path
 import re
+import subprocess
 
 ROOT = Path(__file__).resolve().parent.parent
 PROSE_KEYS = {'text', 'title', 'description', 'purpose', 'rule', 'meaning', 'behavior',
@@ -464,11 +465,36 @@ def check(root):
     return bool(failures)
 
 
+def check_brand(root):
+    """Reject legacy brand spelling outside the exact reviewed tracked paths."""
+    kept = json.loads((root / 'docs/text-allowlist.json').read_text())['brand_kept_paths']
+    legacy = 'Every' + 'Field'
+    result = subprocess.run(['git', 'grep', '-I', '-l', '-z', '-F', legacy],
+                            cwd=root, capture_output=True)
+    if result.returncode not in (0, 1):
+        result.check_returncode()
+    matches = set(result.stdout.decode().rstrip('\0').split('\0')) if result.stdout else set()
+    for name in sorted(matches - kept.keys()):
+        for number, line in enumerate((root / name).read_bytes().splitlines(), 1):
+            if legacy.encode() in line:
+                print(f'{name}:{number}: use Everyfield; legacy spelling is not kept here')
+    stale = kept.keys() - matches
+    for name in sorted(stale):
+        print(f'stale brand kept path: {name}')
+    failures = matches - kept.keys()
+    print(f'{"FAIL" if failures or stale else "PASS"}: brand spelling, '
+          f'{len(failures)} unapproved tracked text files; '
+          f'{len(matches & kept.keys())} reviewed kept paths; '
+          f'{len(stale)} stale kept paths.')
+    return bool(failures or stale)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, default=ROOT)
+    parser.add_argument('--brand', action='store_true', help='Check brand spelling in all tracked text files')
     args = parser.parse_args()
-    return check(args.root.resolve())
+    return check_brand(args.root.resolve()) if args.brand else check(args.root.resolve())
 
 
 if __name__ == '__main__':

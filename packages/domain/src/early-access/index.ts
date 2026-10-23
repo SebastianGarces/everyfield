@@ -44,7 +44,7 @@ function mailFor(request: AccessRequest, env: NodeJS.ProcessEnv) {
 		from: env.EMAIL_FROM,
 		to: [env.EARLY_ACCESS_EMAIL_TO],
 		reply_to: data.email,
-		subject: `${env.EARLY_ACCESS_EMAIL_SUBJECT_PREFIX ?? ""}EveryField early access: ${request.kind}`,
+		subject: `${env.EARLY_ACCESS_EMAIL_SUBJECT_PREFIX ?? ""}Everyfield early access: ${request.kind}`,
 		text: [["Form", request.kind], ["Name", data.name], ["Email", data.email], ...fields]
 			.map(([label, value]) => `${label}: ${value ?? "(not provided)"}`)
 			.join("\n"),

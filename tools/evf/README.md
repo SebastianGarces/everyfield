@@ -1,4 +1,4 @@
-# EveryField workflow tools
+# Everyfield workflow tools
 
 Intent plans, delegates and records decisions. evf supplies briefs, worktrees, local checks,
 case checks, feedback routing, progress and merge guards. Run `bin/evf help` for commands.
@@ -47,7 +47,8 @@ and merges with `--match-head-commit`. Failed CI or a carry that does not hold a
 (design tasks, P2/P3 feedback, `evf approve`) do not queue and never update the branch.
 The ship skill defines the review record and owner approval exceptions.
 
-Model families are `openai` and `anthropic`, not individual model names. Authors put
+Model families are `anthropic` (Opus), `xai` (Grok Build) and `openai` (Sol), not individual
+model names. `anthropic` pairs with either other family; `xai` and `openai` never review each other. Authors put
 `EVF-Author: <family>` in the body. Verifiers put one JSON line in their PR comment:
 
 ```text

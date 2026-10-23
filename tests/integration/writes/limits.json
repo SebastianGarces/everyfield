@@ -33,23 +33,26 @@
 		"limit": 2
 	},
 	"POST people.createPerson (replay)": {
-		"limit": 6
+		"limit": 3
 	},
 	"POST people.fields.addPersonTag": {
 		"limit": 8,
 		"reason": "A new tag name creates the church tag and puts it on the person in one transaction: two producer writes (people.createTag, people.assignTag). Above the pattern today; RT-6 reviews it."
 	},
 	"POST people.fields.addPersonTag (replay)": {
-		"limit": 12,
-		"reason": "A replay of the same request key after a lost answer (the save lane sends it once more): the first attempt meets the stored key, so the command reruns the established way to answer the stored result, as POST people.createPerson (replay) does (RT-3). RT-6 reviews it."
+		"limit": 9,
+		"reason": "A replay of the same request key after a lost answer: the first attempt runs the gate and its reads and meets the stored key at its write; one read per stored key (people.createTag, people.assignTag) then answers the stored result (RT-6b)."
 	},
 	"POST people.fields.addSkill": {
 		"limit": 7,
 		"reason": "The same statements as people.addSkill (limit 7): 2 transaction, 1 locked read, 3 read, 1 write. Above the pattern today; RT-6 reviews it."
 	},
+	"POST people.fields.addSkill (member)": {
+		"limit": 4
+	},
 	"POST people.fields.addSkill (replay)": {
-		"limit": 11,
-		"reason": "A replay of the same request key after a lost answer (the save lane sends it once more): the first attempt meets the stored key, so the command reruns the established way to answer the stored result, as POST people.createPerson (replay) does (RT-3). RT-6 reviews it."
+		"limit": 8,
+		"reason": "A replay of the same request key after a lost answer (the save lane sends it once more): the first attempt runs the gate and its reads and meets the stored key at its write; one read then answers the stored result (RT-6b). The first attempt is the established write (people.addSkill, 7 with the session lookup)."
 	},
 	"POST people.fields.readPhoto": {
 		"limit": 4
@@ -202,7 +205,7 @@
 		"limit": 1
 	},
 	"jobs/queue.finishClaim": {
-		"limit": 2
+		"limit": 1
 	},
 	"jobs/queue.recoverLease": {
 		"limit": 4
@@ -487,8 +490,10 @@
 		"limit": 5
 	},
 	"native.people.createPerson": {
-		"limit": 1,
-		"retry": 6
+		"limit": 1
+	},
+	"native.people.createPerson:replay": {
+		"limit": 2
 	},
 	"native.people.createTag": {
 		"limit": 5
@@ -885,11 +890,11 @@
 	},
 	"people/core.withPeopleWrite": {
 		"limit": 6,
-		"retry": 11
+		"retry": 9
 	},
 	"people/core.withPeopleWrite:people.assignTag": {
 		"limit": 5,
-		"retry": 10
+		"retry": 6
 	},
 	"people/core.withPeopleWrite:people.changeStatus": {
 		"limit": 11,

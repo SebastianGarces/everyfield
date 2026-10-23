@@ -18,12 +18,12 @@ const MAX_BYTES = 300 * 1024;
 const SIZE = { width: 1200, height: 630 };
 
 // Copy: the approved hero copy in design/marketing-copy.json (the same fields src/marketing/meta.ts uses).
-const copy = JSON.parse(read("../../../design/marketing-copy.json").toString().replace(/Everyfield/g, "EveryField"));
+const copy = JSON.parse(read("../../../design/marketing-copy.json").toString());
 const IMAGES = [
   { dir: "../src/app", photo: "wildflowers", hero: copy.directions[0].sections.hero },
   { dir: "../src/app/oversight", photo: "bluebells", hero: copy.shared.oversight_page.hero },
 ];
-const alt = (h) => `EveryField: ${h.headline} ${h.subhead}`; // shareAlt in src/marketing/meta.ts
+const alt = (h) => `Everyfield: ${h.headline} ${h.subhead}`; // shareAlt in src/marketing/meta.ts
 
 const FONTS = ["../src/marketing/share-fonts/dm-serif-display-400.woff2", "../src/marketing/share-fonts/dm-sans-500.woff2"];
 const photoFile = (img) => `../src/marketing/photo/files/${img.photo}.jpg`;
