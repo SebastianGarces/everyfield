@@ -932,8 +932,8 @@
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
 	},
 	"seats.remove": {
-		"limit": 23,
-		"reason": "Handing a dated, assigned task to another member replans its due and overdue reminders (the R4-1 fault, REQ-TSK-014); the shared reminder sync (notifications.syncTaskReminders) sends 10 statements for it (5 locked read, 5 write), which F10 rewrites. A removal without such a task sends 13. Its largest first run: 2 transaction, 12 locked read, 2 read, 7 write."
+		"limit": 15,
+		"reason": "Handing a dated, assigned task to another member replans its due and overdue reminders (the R4-1 fault, REQ-TSK-014); the shared reminder sync (notifications.syncTaskReminders) sends 2 statements for it (1 locked read, 1 write). A removal without such a task sends 13. Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 8 locked read, 2 read, 3 write."
 	},
 	"settings.cancelAccountDeletion": {
 		"limit": 4,
