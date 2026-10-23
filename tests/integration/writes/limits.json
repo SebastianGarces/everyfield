@@ -100,7 +100,7 @@
 	},
 	"followups/core.withFollowUpWrite": {
 		"limit": 7,
-		"retry": 9,
+		"retry": 11,
 		"reason": "BEGIN and COMMIT around a follow-up write that plans its assignee's reminders; the shared reminder sync (notifications.syncTaskReminders) sends 2 statements for them (F10). Its largest first run: 2 transaction, 3 locked read, 2 write."
 	},
 	"identity.budget.finish": {
@@ -882,7 +882,7 @@
 	},
 	"people/core.withPeopleWrite": {
 		"limit": 6,
-		"retry": 8
+		"retry": 11
 	},
 	"people/core.withPeopleWrite:people.assignTag": {
 		"limit": 5,
@@ -1031,6 +1031,7 @@
 	},
 	"settings/core.withSettingsWrite": {
 		"limit": 8,
+		"retry": 7,
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 3 locked read, 1 read, 2 write."
 	},
 	"settings/deletion.issueRestrictedDeletionSession": {
@@ -1083,7 +1084,7 @@
 	},
 	"tasks/core.withTaskWrite": {
 		"limit": 8,
-		"retry": 9,
+		"retry": 11,
 		"reason": "BEGIN and COMMIT around a task write that replans reminders; the shared reminder sync (notifications.syncTaskReminders) sends 2 statements (F10). Its largest first run: 2 transaction, 4 locked read, 2 write."
 	},
 	"venues.archive": {

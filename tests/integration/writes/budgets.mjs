@@ -20,9 +20,13 @@ export function budgetName(limits, name) {
 
 export function checkBudgets(rows, limits) {
 	const problems = [];
-	// Writes always need a budget; a read named in the budget file (a request, a native read boundary) is held to it.
+	// Writes always need a budget. A run that wrote nothing (a read, a replay, a refusal) is held to the budget of its
+	// operation, found after the variant suffix is removed.
 	const samples = rows.filter(
-		(row) => row.kind === "sample" && row.status !== "threw" && (row.writes > 0 || Object.hasOwn(limits, row.name)),
+		(row) =>
+			row.kind === "sample" &&
+			row.status !== "threw" &&
+			(row.writes > 0 || Object.hasOwn(limits, budgetName(limits, row.name))),
 	);
 	const measured = new Map();
 	for (const sample of samples) {

@@ -151,6 +151,18 @@ jobs:
           NEXT_TELEMETRY_DISABLED: "1"
       - name: Domain tests
         run: pnpm --filter "${{ matrix.package }}" test:db
+        env:
+          EVF_CENSUS_LOGS: ${{ runner.temp }}/census
+      # The census keeps each suite's full log (behaviors.log holds every inner assertion and its time) and the
+      # counts file. A failed or timed-out job uploads them; a passing job skips this step.
+      - name: Statement census logs
+        if: matrix.build && (failure() || cancelled())
+        uses: actions/upload-artifact@v7
+        with:
+          name: statement-census-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/census
+          if-no-files-found: ignore
+          retention-days: 14
 
   wiki:
     name: wiki (tooling tests)
