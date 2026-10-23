@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderBrief } from "./brief.ts";
 import { awaitLoad } from "./load.ts";
+import { requireOpsReservation } from "./ids.ts";
 import { maintenanceScope, requireImplementation, requireSpend, requireTaskRisk, requireTaskScope } from "./policy.ts";
 import { reviewedMilestone } from "./progress.ts";
 import { startFeedbackTask, cachedTriage } from "./feedback.ts";
@@ -148,6 +149,9 @@ export function taskStart(
 		git(root, "worktree", "add", "--quiet", wt, task.branch);
 		console.log(`worktree: ${wt} on existing branch ${task.branch}.`);
 	} else {
+		// A new OPS ID needs a reservation on the remote (OPS-52), unless main already registers it.
+		if (task.kind === "ops" && hasRemote(root, cfg) && !committedConfig(root, base).maintenanceTasks?.[task.id])
+			requireOpsReservation(root, cfg, task);
 		git(root, "worktree", "add", "--quiet", "-b", task.branch, wt, base);
 		console.log(`worktree: ${wt} on new branch ${task.branch} from ${base}.`);
 	}

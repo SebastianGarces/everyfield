@@ -4,6 +4,7 @@ const report = require('./fail-forward.cjs');
 
 function provider() {
   const issues = [];
+  const comments = [];
   const anchors = new Map();
   const github = { rest: {
     issues: {
@@ -16,13 +17,14 @@ function provider() {
       updateLabel: async input => { anchors.set(input.name, input); return { data: input }; },
       get: async ({ issue_number }) => ({ data: issues.find(i => i.number === issue_number) }),
       listForRepo: () => {},
+      createComment: async ({ issue_number, body }) => { comments.push({ issue_number, body }); return { data: {} }; },
       create: async input => {
         const issue = { ...input, state: 'open', number: issues.length + 1, html_url: `https://github.com/SebastianGarces/everyfield/issues/${issues.length + 1}`, labels: input.labels.map(name => ({ name })) };
         issues.push(issue); return { data: issue };
       },
       update: async input => {
         const issue = issues.find(issue => issue.number === input.issue_number);
-        Object.assign(issue, input, { labels: input.labels.map(name => ({ name })) });
+        Object.assign(issue, input, input.labels ? { labels: input.labels.map(name => ({ name })) } : {});
         return { data: issue };
       },
     },
@@ -35,7 +37,7 @@ function provider() {
     id: 7, name: 'app', conclusion: 'failure', html_url: 'https://github.com/job/7',
     steps: [{ name: 'Build', conclusion: 'failure' }],
   }] };
-  return { github, issues, core: { info() {}, setOutput() {} } };
+  return { github, issues, comments, core: { info() {}, setOutput() {} } };
 }
 function ci(overrides = {}) {
   return { repo: { owner: 'SebastianGarces', repo: 'everyfield' }, runId: 100,
@@ -159,4 +161,29 @@ test('INV-fail-forward: a CI run that never started is reported as an incident',
   assert.equal(p.issues[0].title, 'P0: CI failed on main');
   assert.match(p.issues[0].body, /CI did not start \(startup_failure\)/);
   assert.match(p.issues[0].body, /Source: https:\/\/github.com\/run\/3/);
+});
+
+test('OPS-52-P5: green main CI closes the open CI incident only when the green commit contains the failed one', async () => {
+  const p = provider();
+  assert.equal(await report({ ...p, context: ci({ conclusion: 'success' }) }), undefined);
+  assert.equal(await report({ ...p, context: ci() }), 1);
+  const compared = [];
+  for (const status of ['behind', 'diverged']) {
+    p.github.rest.repos.compareCommitsWithBasehead = async ({ basehead }) => { compared.push(basehead); return { data: { status } }; };
+    assert.equal(await report({ ...p, context: ci({ conclusion: 'success', head_sha: 'c'.repeat(40) }) }), undefined);
+  }
+  assert.equal(p.issues[0].state, 'open');
+  assert.deepEqual(compared, [`${'a'.repeat(40)}...${'c'.repeat(40)}`, `${'a'.repeat(40)}...${'c'.repeat(40)}`]);
+  // A green pull request run never closes a main incident.
+  p.github.rest.repos.compareCommitsWithBasehead = async () => ({ data: { status: 'ahead' } });
+  assert.equal(await report({ ...p, context: ci({ conclusion: 'success', event: 'pull_request' }) }), undefined);
+  assert.equal(p.issues[0].state, 'open');
+  assert.equal(await report({ ...p, context: ci({ conclusion: 'success', head_sha: 'c'.repeat(40), html_url: 'https://github.com/run/9' }) }), 1);
+  assert.equal(p.issues[0].state, 'closed');
+  assert.equal(p.comments.length, 1);
+  assert.match(p.comments[0].body, /passed again at c{40}, which contains the failed commit a{40}: https:\/\/github.com\/run\/9/);
+  // The next failure opens a new incident instead of reopening the closed one.
+  assert.equal(await report({ ...p, context: ci({ head_sha: 'd'.repeat(40) }) }), 2);
+  assert.equal(await report({ ...p, context: ci({ conclusion: 'success', head_sha: 'e'.repeat(40) }) }), 2);
+  assert.deepEqual(p.issues.map(i => i.state), ['closed', 'closed']);
 });

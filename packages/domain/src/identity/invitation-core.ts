@@ -43,12 +43,16 @@ const identityRow = z.object({
 	verified: z.boolean(),
 	registration_state: z.enum(["pending_domain", "active"]),
 });
+/**
+ * The session's account in one statement. invitation_identity locks the account row; the command's admission check
+ * (prepareWrite's writeVisibility) reads the account's lifecycle witness after that lock, so no second read is needed.
+ */
 export async function identity(tx: Transaction, session: string) {
-	const r = await tx.execute(sql`SELECT * FROM invitation_identity(${z.uuid().parse(session)}::uuid)`);
+	const r = await tx.execute(
+		sql`SELECT i.* FROM invitation_identity(${z.uuid().parse(session)}::uuid) i JOIN tenant t ON t.id=i.account_id AND t.kind='account'`,
+	);
 	if (!r.rows[0]) refuse();
-	const a = identityRow.parse(r.rows[0]);
-	if (!(await liveOwner(tx, owner.parse({ kind: "account", id: a.account_id })))) refuse();
-	return a;
+	return identityRow.parse(r.rows[0]);
 }
 export async function readAdministrator(tx: Transaction, session: string, selected: Owner) {
 	const actor = await currentActor(tx, sessionId.parse(session), selected);
@@ -136,6 +140,46 @@ export async function load(tx: Transaction, id: string) {
 	if (!i || (i.purpose !== "seat" && i.purpose !== "residency_link")) refuse();
 	return i;
 }
+/**
+ * A write's invitation row, locked, with its workspace in one statement, then the workspace root share-locked with the
+ * database clock. The command's admission check reads the workspace's lifecycle witness after that lock.
+ */
+export async function lockForWrite(tx: Transaction, id: string) {
+	const [r] = await tx
+		.select({
+			invitation: t.invitation,
+			kind: t.tenant.kind,
+			organizationKind: t.organization.kind,
+		})
+		.from(t.invitation)
+		.innerJoin(t.tenant, eq(t.tenant.id, t.invitation.tenant_id))
+		.leftJoin(t.organization, eq(t.organization.id, t.tenant.id))
+		.where(eq(t.invitation.id, id))
+		.for("update", { of: t.invitation });
+	if (!r || (r.invitation.purpose !== "seat" && r.invitation.purpose !== "residency_link")) refuse();
+	if (r.kind !== "plant" && r.kind !== "organization") refuse();
+	const selected = owner.parse(
+		r.kind === "plant"
+			? { kind: "plant", id: r.invitation.tenant_id }
+			: { kind: "organization", id: r.invitation.tenant_id, organizationKind: r.organizationKind },
+	);
+	const root = selected.kind === "plant" ? t.plant : t.organization;
+	// The clock is read in the outer query, which needs the locked root row first: it is the time after any wait for
+	// that lock, as the expiry check requires.
+	const result =
+		await tx.execute(sql`WITH r AS MATERIALIZED (SELECT x.id FROM ${root} x WHERE x.id=${selected.id}::uuid FOR SHARE)
+ SELECT t.kind, o.kind AS organization_kind, (extract(epoch FROM clock_timestamp())*1000)::float8 AS now
+ FROM r JOIN tenant t ON t.id=r.id LEFT JOIN organization o ON o.id=t.id`);
+	const locked = lockedRoot.safeParse(result.rows[0]);
+	if (
+		!locked.success ||
+		locked.data.kind !== selected.kind ||
+		(selected.kind === "organization" && locked.data.organization_kind !== selected.organizationKind)
+	)
+		refuse();
+	return { invitation: r.invitation, selected, now: new Date(locked.data.now) };
+}
+const lockedRoot = z.object({ kind: z.string(), organization_kind: z.string().nullable(), now: z.number() });
 export async function workspace(tx: Transaction, id: string) {
 	const bound = requestWrite(tx);
 	if (bound?.selected.id === id && bound.selected.kind !== "account")
@@ -168,7 +212,10 @@ export async function now(tx: Transaction) {
 }
 export const expires = (i: Invitation) => new Date(i.created_at.getTime() + 30 * 86400000);
 export async function pending(tx: Transaction, i: Invitation, expected?: string) {
-	if (i.state !== "pending" || expires(i) <= (await now(tx)) || (expected !== undefined && i.revision !== expected))
-		refuse();
+	current(i, await now(tx), expected);
+}
+/** Refuses unless the invitation is pending, unexpired at `at` and, when given, at the expected revision. */
+export function current(i: Invitation, at: Date, expected?: string) {
+	if (i.state !== "pending" || expires(i) <= at || (expected !== undefined && i.revision !== expected)) refuse();
 }
 export const bump = (r: string) => (BigInt(r) + 1n).toString();

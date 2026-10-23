@@ -5,7 +5,8 @@ import * as t from "@everyfield/db/tables";
 import type { SessionResult } from "@everyfield/contracts/identity";
 import type { OnboardingProducer } from "@everyfield/contracts/onboarding/server";
 import type { RequestActor } from "../access/index.ts";
-import { OnboardingReadContext } from "./core.ts";
+import { OnboardingReadContext, readReply } from "./core.ts";
+import { plantEntry } from "./setup.ts";
 
 export type RawEntry =
 	| { kind: "signed_out" }
@@ -34,13 +35,11 @@ export async function readOnboardingEntry(
 		const w = context.owner;
 		if (w.kind !== "plant") return { kind: "elsewhere", reason: "organization" };
 		if (context.role !== "owner") return { kind: "elsewhere", reason: "member" };
-		return db.transaction(async (tx): Promise<RawEntry> => {
-			const reply = await producer.getResume(tx, new OnboardingReadContext(authority), {});
-			if (reply.status !== "ok" || reply.value.status !== "available") return { kind: "elsewhere", reason: "member" };
-			// R3 gap: resume carries no plant name. Read it for the heading only.
-			const [plant] = await tx.select({ name: t.plant.name }).from(t.plant).where(eq(t.plant.id, w.id));
-			return { kind: "plant", plantName: plant?.name ?? null, resume: reply.value };
-		});
+		// One statement gives the resume facts and the plant's name (R3 gap: resume carries no name).
+		const entry = await readReply(() => plantEntry(db, new OnboardingReadContext(authority)));
+		if (entry.status !== "ok" || entry.value.resume.status !== "available")
+			return { kind: "elsewhere", reason: "member" };
+		return { kind: "plant", plantName: entry.value.plantName, resume: entry.value.resume };
 	}
 	// Creating a Discovery profile activates the account, so only an active (seatless) account can hold one.
 	if (authority) {
