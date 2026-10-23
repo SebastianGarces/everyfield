@@ -194,23 +194,27 @@ function finishStatement(claim: Claim, result: JobResult) {
 	const c = claimSchema
 		.extend({ claim_generation: z.string().regex(/^\d+$/), source_revision: z.string().regex(/^\d+$/).nullable() })
 		.parse(claim);
-	const terminal = result.state !== "retry_wait" && result.state !== "reconcile";
-	const exhausted = result.state === "retry_wait" && c.attempt_count >= c.max_attempts;
-	const delay = z
+	const state = z
+		.enum(["succeeded", "cancelled", "superseded", "failed", "reconcile", "retry_wait"])
+		.parse(result.state);
+	const terminal = state !== "retry_wait" && state !== "reconcile";
+	const after = z
 		.number()
 		.finite()
 		.min(0)
-		.parse(
-			result.state === "retry_wait"
-				? Math.max([300, 600, 1200][Math.min(c.attempt_count - 1, 2)] ?? 1200, result.retryAfterSeconds ?? 0)
-				: 0,
-		);
-	const state = z
-		.enum(["succeeded", "cancelled", "superseded", "failed", "reconcile", "retry_wait"])
-		.parse(exhausted ? "failed" : result.state);
-	return `UPDATE job SET state='${state}',error_code=${result.code === undefined ? "NULL" : literal(result.code)},lease_owner=NULL,lease_until=NULL,
-  next_attempt_at=${result.state === "retry_wait" && !exhausted ? `clock_timestamp()+make_interval(secs=>${delay})` : "NULL"},
-  finished_at=${terminal || exhausted ? "clock_timestamp()" : "NULL"},revision=revision+1
+		.parse(result.state === "retry_wait" ? (result.retryAfterSeconds ?? 0) : 0);
+	// A retry reads the row's own attempt count, never the claim's: a worker that saved progress reset it (scanPage, People
+	// imports), and that fresh budget must decide exhaustion and backoff (300, 600, then 1200 s).
+	const exhausted = "attempt_count>=max_attempts";
+	const code = result.code === undefined ? "NULL" : literal(result.code);
+	const set =
+		state === "retry_wait"
+			? `state=CASE WHEN ${exhausted} THEN 'failed' ELSE 'retry_wait' END,error_code=${code},lease_owner=NULL,lease_until=NULL,
+  next_attempt_at=CASE WHEN ${exhausted} THEN NULL ELSE clock_timestamp()+make_interval(secs=>GREATEST((ARRAY[300,600,1200])[LEAST(GREATEST(attempt_count,1),3)],${after})) END,
+  finished_at=CASE WHEN ${exhausted} THEN clock_timestamp() ELSE NULL END`
+			: `state='${state}',error_code=${code},lease_owner=NULL,lease_until=NULL,next_attempt_at=NULL,
+  finished_at=${terminal ? "clock_timestamp()" : "NULL"}`;
+	return `UPDATE job SET ${set},revision=revision+1
   WHERE id='${c.id}' AND tenant_id='${c.tenant_id}' AND state='claimed' AND claim_generation=${c.claim_generation}
   AND lease_owner=${literal(c.lease_owner)} AND source_revision IS NOT DISTINCT FROM ${c.source_revision ?? "NULL"}::bigint
   AND lease_until>clock_timestamp()`;
