@@ -22,6 +22,7 @@ import type { Reply } from "../conversation/api.ts";
 import * as api from "./api.ts";
 import {
 	actionNotice,
+	approvalLeft,
 	approvable,
 	CHOICES,
 	clock,
@@ -76,14 +77,12 @@ function useReview(proposalId: string) {
 		done: (now: Review, before: Review) => boolean;
 		settled: (now: Review) => Notice | null;
 	} | null>(null);
-	const [now, setNow] = useState(() => Date.now());
 	// Every action takes a new generation; a read that started before it is dropped when it answers late.
 	const generation = useRef(0);
 	const inFlight = useRef(false);
 	const show = (next: Review) => {
 		setReview(next);
 		setLoad("ready");
-		setNow(Date.now());
 	};
 	/** The review refused to load: access ended or changed. Its content is not shown again. */
 	const gone = () => {
@@ -111,15 +110,19 @@ function useReview(proposalId: string) {
 		};
 	}, [proposalId]);
 
+	/** The review whose approval ran out on the card's timer. A newer review from the server starts its own count. */
+	const [ranOut, setRanOut] = useState<Review | null>(null);
+	const lapsed = !!review && (approvalLeft(review) <= 0 || ranOut === review);
 	const view: Exclude<View, "photo_unavailable" | "unknown"> =
-		load === "ready" && review ? phaseOf(review, now) : load === "ready" ? "loading" : load;
+		load === "ready" && review ? phaseOf(review, lapsed) : load === "ready" ? "loading" : load;
 
-	// The clock only matters at the expiry: one timer flips a pending review to expired, with no request.
+	// The expiry is the server's: one timer waits the time the server said was left, with no request. The browser's
+	// clock is never read, so a clock set hours ahead or behind changes nothing (R5-5).
 	useEffect(() => {
 		if (!review) return;
-		const left = Date.parse(review.expiresAt) - Date.now();
+		const left = approvalLeft(review);
 		if (left <= 0) return;
-		const t = setTimeout(() => setNow(Date.now()), Math.min(left + 50, 2 ** 31 - 1));
+		const t = setTimeout(() => setRanOut(review), Math.min(left + 50, 2 ** 31 - 1));
 		return () => clearTimeout(t);
 	}, [review]);
 
@@ -240,7 +243,7 @@ function useReview(proposalId: string) {
 		notice,
 		refused,
 		unknown,
-		now,
+		lapsed,
 		reload: () => {
 			setLoad("loading");
 			void read().then((reply) => reply?.status === "lost" && setLoad("lost"));
@@ -334,7 +337,6 @@ const HEAD: Record<Exclude<View, "loading" | "lost">, { icon: IconSvgElement; ti
 	running: { icon: Edit02Icon, title: "Saving…", tone: "amber" },
 	completed: { icon: CheckmarkCircle02Icon, title: "Saved", tone: "green" },
 	refused: { icon: Alert02Icon, title: "Not saved", tone: "magenta" },
-	failed: { icon: Alert02Icon, title: "Not saved", tone: "magenta" },
 	unconfirmed: { icon: Alert02Icon, title: "Not confirmed", tone: "magenta" },
 	expired: { icon: Clock01Icon, title: "Expired", tone: "gray" },
 	cancelled: { icon: Cancel01Icon, title: "Cancelled", tone: "gray" },
@@ -351,7 +353,7 @@ const HEAD_TONE: Record<Tone, string> = {
 };
 
 /** The note under the head: why the card is in this state, when that needs saying. Also what is announced. */
-function note(view: View, review: Review | null, now: number, unknown?: Action): string | null {
+function note(view: View, review: Review | null, lapsed: boolean, unknown?: Action): string | null {
 	const who = review?.review.target?.label ?? null;
 	switch (view) {
 		case "pending":
@@ -362,12 +364,8 @@ function note(view: View, review: Review | null, now: number, unknown?: Action):
 			return "Saving in the background. You can keep working. This card shows the result.";
 		case "refused":
 			return refusalText(review?.receipt?.code, who);
-		case "failed":
-			return review && retryable(review, now)
-				? "Saving failed and nothing was changed. Try again."
-				: "Saving failed and nothing was changed. The approval expired, so ask Evry to prepare it again.";
 		case "unconfirmed":
-			return review && retryable(review, now)
+			return review && retryable(review, lapsed)
 				? "Evry can't confirm that this was saved. Try again. A change that was saved is not saved twice."
 				: "Evry can't confirm that this was saved, and the approval expired. Open the person to check.";
 		case "unknown":
@@ -392,13 +390,13 @@ function note(view: View, review: Review | null, now: number, unknown?: Action):
 }
 
 /** What a screen reader hears when the card changes after it loaded. */
-function announcement(view: View, review: Review | null, now: number, unknown?: Action) {
+function announcement(view: View, review: Review | null, lapsed: boolean, unknown?: Action) {
 	const head = view === "loading" || view === "lost" ? "" : HEAD[view].title.replace("…", "");
 	if (view === "pending" && !(review && review.revision > 1)) return "";
 	if (view === "running") return "Approved. Saving in the background.";
 	if (view === "completed")
 		return review?.review.target ? `Saved. ${review.review.target.label} is updated.` : "Saved.";
-	return [head, note(view, review, now, unknown)].filter(Boolean).join(". ");
+	return [head, note(view, review, lapsed, unknown)].filter(Boolean).join(". ");
 }
 
 export function ReviewCard({ proposalId, target }: { proposalId: string; target: string | null }) {
@@ -430,7 +428,7 @@ export function ReviewCard({ proposalId, target }: { proposalId: string; target:
 	const [announce, setAnnounce] = useState("");
 	if (seen !== key) {
 		setSeen(key);
-		setAnnounce(seen.startsWith("loading") ? "" : announcement(view, review, r.now, unknown));
+		setAnnounce(seen.startsWith("loading") ? "" : announcement(view, review, r.lapsed, unknown));
 	}
 	// Focus that was on a control the change removed goes to the card's head, so keyboard users stay in the card
 	// (PR 197, finding F2).
@@ -443,7 +441,7 @@ export function ReviewCard({ proposalId, target }: { proposalId: string; target:
 		if (notice?.tone === "error") noticeRef.current?.focus();
 	}, [notice]);
 
-	const why = note(view, review, r.now, unknown);
+	const why = note(view, review, r.lapsed, unknown);
 	const h = view === "loading" || view === "lost" ? HEAD.pending : HEAD[view];
 	const title = view === "loading" || view === "lost" ? (target ? `Change for ${target}` : "Prepared change") : h.title;
 	const meta =
@@ -502,12 +500,8 @@ export function ReviewCard({ proposalId, target }: { proposalId: string; target:
 				/>
 			) : (
 				<>
-					<div
-						className={cn(
-							"flex flex-col gap-3 px-4 py-3.5",
-							(view === "expired" || view === "cancelled") && "opacity-60",
-						)}
-					>
+					{/* A closed review keeps full contrast: the gray head says it is closed (WCAG 1.4.3). */}
+					<div className="flex flex-col gap-3 px-4 py-3.5">
 						<Affects review={review} />
 						<Changes review={review} staged={photoGone ? { status: "gone" } : staged.photo} onRetry={staged.retry} />
 						{consequence(review) ? <p className="text-sm text-text-2">{consequence(review)}</p> : null}
@@ -658,7 +652,7 @@ function Footer({
 				) : null}
 			</>
 		);
-	else if ((view === "failed" || view === "unconfirmed") && retryable(review, r.now))
+	else if (view === "unconfirmed" && retryable(review, r.lapsed))
 		body = (
 			<Button size="sm" variant="secondary" loading={r.busy === "retry"} onClick={() => void r.retry()}>
 				Try again

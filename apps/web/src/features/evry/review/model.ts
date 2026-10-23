@@ -1,6 +1,7 @@
 // The Evry review card's rules (WP-053/ui), as plain data and pure functions. The server's review is the only truth
 // about a prepared change: its review status (pending, approved, cancelled, expired) and the recorded outcome of the
-// approved revision are separate (REQ-EVR-033). The card derives what it shows from that review and the clock.
+// approved revision are separate (REQ-EVR-033). The card derives what it shows from that review and the time the
+// approval has left on the server's clock; the browser's clock is never read.
 
 import { SOURCE_LABEL, STAGE_LABEL, type SourceValue, type StageValue } from "../../people/model.ts";
 import type { ProjectedError } from "../conversation/model.ts";
@@ -30,34 +31,44 @@ export type Review = {
 		changes: Change[];
 		withheld?: true;
 	};
+	/** "failed" is only on rows saved before #245, which said "nothing was changed" without proof (R5-3). */
 	outcome: "completed" | "failed" | "refused" | "unknown" | null;
 	executing: boolean;
 	receipt: { receiptId?: string; revision?: string; code?: string } | null;
+	/** The server's time when it answered: the approval's time left is counted from it. */
+	now: string;
 };
 
 /**
  * What the card is now. pending can be approved, revised or cancelled until it expires; running means the approved
- * change is queued or running in the background; the rest are final for this revision, except that a failed or
- * unconfirmed run can be tried again while its approval lasts.
+ * change is queued or running in the background; the rest are final for this revision, except that an unconfirmed
+ * run can be tried again while its approval lasts.
  */
 export type Phase =
-	"pending" | "expired" | "cancelled" | "running" | "completed" | "refused" | "failed" | "unconfirmed" | "withheld";
+	"pending" | "expired" | "cancelled" | "running" | "completed" | "refused" | "unconfirmed" | "withheld";
 
-export function phaseOf(review: Review, now: number): Phase {
+/**
+ * The approval's time left when the server answered, in milliseconds, on the server's clock. The card waits that long
+ * on its own timer, so a browser clock set hours ahead or behind changes nothing.
+ */
+export const approvalLeft = (review: Review) => Date.parse(review.expiresAt) - Date.parse(review.now);
+
+/** `lapsed`: the approval's time ran out since the server answered (approvalLeft, counted on the card's timer). */
+export function phaseOf(review: Review, lapsed: boolean): Phase {
 	if (review.outcome === "completed") return "completed";
 	if (review.review.withheld) return "withheld";
 	if (review.status === "cancelled") return "cancelled";
 	if (review.status === "expired") return "expired";
-	if (review.status === "pending") return Date.parse(review.expiresAt) <= now ? "expired" : "pending";
+	if (review.status === "pending") return lapsed ? "expired" : "pending";
 	if (review.outcome === "refused") return "refused";
-	if (review.outcome === "failed") return "failed";
-	if (review.outcome === "unknown") return "unconfirmed";
+	// An old "failed" row is as unproven as "unknown": the change may or may not be saved, and Try again settles it.
+	if (review.outcome === "failed" || review.outcome === "unknown") return "unconfirmed";
 	return "running";
 }
 
-/** A failed or unconfirmed run can go again under the same approval until it expires. */
-export const retryable = (review: Review, now: number) =>
-	(review.outcome === "failed" || review.outcome === "unknown") && Date.parse(review.expiresAt) > now;
+/** An unconfirmed run can go again under the same approval until it expires. */
+export const retryable = (review: Review, lapsed: boolean) =>
+	(review.outcome === "failed" || review.outcome === "unknown") && !lapsed;
 
 // ---------------------------------------------------------------------------------------------------------------
 // What will change: each field with its value before and after, in the words the People screens use.
