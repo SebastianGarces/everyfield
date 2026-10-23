@@ -716,11 +716,7 @@
 		},
 		"OPS-46": {
 			"title": "Trim the brand guard kept-path list",
-			"owningPaths": [
-				"docs/text-allowlist.json",
-				"docs/check-text.py",
-				"evf.config.json"
-			],
+			"owningPaths": ["docs/text-allowlist.json", "docs/check-text.py", "evf.config.json"],
 			"checks": [
 				{
 					"name": "documentation",
