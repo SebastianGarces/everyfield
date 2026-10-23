@@ -227,8 +227,8 @@
 		"reason": "Background deletion after the cancellation deadline, not a user request (RT-6a reviewed, kept). Three committed stages around the external storage removal so a crash resumes at the right stage: each stage authorizes, locks the root and re-reads the witness; the content purge and subject purge are one database function each; the owned-file removal adds its own claim and purge statements."
 	},
 	"mail.dispatch": {
-		"limit": 22,
-		"reason": "Background job, not a user request. Two short transactions around the provider call, which must hold no lock: claim fence, mail lock, lifecycle and seat reads, address lock, suppression read, request lock, one write statement, checkpoint; then fence, one write statement with the outcome audit, finishClaim. RT-6a batched the writes (was 26); the repeated fence and finishClaim statements belong to the shared WP-031 queue (RT-6 finishClaim follow-up)."
+		"limit": 21,
+		"reason": "Background job, not a user request. Two short transactions around the provider call, which must hold no lock: claim fence, mail lock, lifecycle and seat reads, address lock, suppression read, request lock, one write statement, checkpoint; then fence, one write statement with the outcome audit, finishClaim. RT-6a batched the writes (was 25 on main after #257); the repeated fence and finishClaim statements belong to the shared WP-031 queue (RT-6 finishClaim follow-up)."
 	},
 	"mail.enqueue": {
 		"limit": 3
