@@ -23,6 +23,9 @@
 	"GET /tasks": {
 		"limit": 5
 	},
+	"GET /communication": {
+		"limit": 1
+	},
 	"POST people.addNote": {
 		"limit": 6
 	},
@@ -34,6 +37,9 @@
 	},
 	"POST people.createPerson (replay)": {
 		"limit": 3
+	},
+	"POST people.createPerson (with email)": {
+		"limit": 2
 	},
 	"POST people.fields.addPersonTag": {
 		"limit": 8,
@@ -72,6 +78,54 @@
 	},
 	"POST tasks.createTask": {
 		"limit": 5
+	},
+	"POST communication.saveDraft": {
+		"limit": 5
+	},
+	"POST communication.saveDraft (incomplete)": {
+		"limit": 5
+	},
+	"POST communication.getDraft": {
+		"limit": 4
+	},
+	"POST communication.scheduleReviewed": {
+		"limit": 7,
+		"reason": "The first schedule reads the saved audience and refuses when nobody is eligible. Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write."
+	},
+	"POST communication.rescheduleReviewed": {
+		"limit": 6
+	},
+	"POST communication.deleteDraft": {
+		"limit": 6
+	},
+	"POST communication.createTemplate": {
+		"limit": 5
+	},
+	"POST communication.forkTemplate": {
+		"limit": 7,
+		"reason": "A fork takes an advisory lock and reads any plant row for that source before it inserts. Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write."
+	},
+	"POST communication.updateTemplate": {
+		"limit": 6
+	},
+	"POST communication.archiveTemplate": {
+		"limit": 6
+	},
+	"POST communication.deleteTemplate": {
+		"limit": 7,
+		"reason": "A delete reads whether a communication still names the template before it removes the row. Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write."
+	},
+	"POST communication.preview": {
+		"limit": 4
+	},
+	"POST communication.resolveAudience": {
+		"limit": 4
+	},
+	"POST communication.searchRecipients": {
+		"limit": 4
+	},
+	"POST communication.listTemplates": {
+		"limit": 4
 	},
 	"accountPerson.ensureAccountPerson": {
 		"limit": 5

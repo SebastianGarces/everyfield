@@ -278,6 +278,7 @@ try {
 		["GET /tasks", "/tasks", owner.cookie],
 		["GET /meetings", "/meetings", owner.cookie],
 		["GET /settings", "/settings", owner.cookie],
+		["GET /communication", "/communication", owner.cookie],
 		["GET /signin (signed out)", "/signin", ""],
 	];
 	// RT-6c: no request pays a cold-start cost. Server start checks the bucket's privacy without any request, and opens
@@ -392,6 +393,109 @@ try {
 		{ title: "A task" },
 	]);
 	assert.equal(tasked.status, "ok");
+	const communication = "apps/web/src/features/communication/actions.ts";
+	const composed = "/communication";
+	const emailed = await act("POST people.createPerson (with email)", "/people", people, "createPerson", [
+		randomUUID(),
+		{ displayName: "Reachable guest", email: "guest@example.com" },
+	]);
+	assert.equal(emailed.status, "ok", JSON.stringify(emailed));
+	const guestId = emailed.value.personId;
+	const incomplete = await act("POST communication.saveDraft (incomplete)", composed, communication, "saveDraft", [
+		randomUUID(),
+		{},
+	]);
+	assert.equal(incomplete.status, "ok", JSON.stringify(incomplete));
+	const removed = await act("POST communication.deleteDraft", composed, communication, "deleteDraft", [
+		randomUUID(),
+		incomplete.value.revision,
+		incomplete.value.communicationId,
+	]);
+	assert.equal(removed.status, "ok", JSON.stringify(removed));
+	const complete = await act("POST communication.saveDraft", composed, communication, "saveDraft", [
+		randomUUID(),
+		{
+			subject: "Sunday note",
+			bodyHtml: "<p>Hello</p>",
+			audience: { groups: [], teamIds: [], personIds: [guestId] },
+		},
+	]);
+	assert.equal(complete.status, "ok", JSON.stringify(complete));
+	const loaded = await act("POST communication.getDraft", composed, communication, "getDraft", [
+		complete.value.communicationId,
+	]);
+	assert.equal(loaded.status, "ok", JSON.stringify(loaded));
+	const scheduled = await act("POST communication.scheduleReviewed", composed, communication, "scheduleReviewed", [
+		randomUUID(),
+		complete.value.revision,
+		complete.value.communicationId,
+		new Date(Date.now() + 86_400_000).toISOString(),
+	]);
+	assert.equal(scheduled.status, "ok", JSON.stringify(scheduled));
+	const moved = await act("POST communication.rescheduleReviewed", composed, communication, "rescheduleReviewed", [
+		randomUUID(),
+		scheduled.value.revision,
+		complete.value.communicationId,
+		new Date(Date.now() + 2 * 86_400_000).toISOString(),
+	]);
+	assert.equal(moved.status, "ok", JSON.stringify(moved));
+	const customTemplate = await act("POST communication.createTemplate", composed, communication, "createTemplate", [
+		randomUUID(),
+		{
+			name: "Custom note",
+			description: null,
+			category: "announcement",
+			meetingType: null,
+			subject: "Hello",
+			bodyHtml: "<p>Hello</p>",
+		},
+	]);
+	assert.equal(customTemplate.status, "ok", JSON.stringify(customTemplate));
+	const forked = await act("POST communication.forkTemplate", composed, communication, "forkTemplate", [
+		randomUUID(),
+		"vision-meeting-invitation",
+	]);
+	assert.equal(forked.status, "ok", JSON.stringify(forked));
+	const updated = await act("POST communication.updateTemplate", composed, communication, "updateTemplate", [
+		randomUUID(),
+		forked.value.revision,
+		forked.value.templateId,
+		{
+			name: forked.value.name,
+			description: forked.value.description,
+			category: forked.value.category,
+			meetingType: forked.value.meetingType,
+			subject: "Updated subject",
+			bodyHtml: forked.value.bodyHtml,
+		},
+	]);
+	assert.equal(updated.status, "ok", JSON.stringify(updated));
+	const archived = await act("POST communication.archiveTemplate", composed, communication, "archiveTemplate", [
+		randomUUID(),
+		customTemplate.value.revision,
+		customTemplate.value.templateId,
+	]);
+	assert.equal(archived.status, "ok", JSON.stringify(archived));
+	const deleted = await act("POST communication.deleteTemplate", composed, communication, "deleteTemplate", [
+		randomUUID(),
+		updated.value.revision,
+		forked.value.templateId,
+	]);
+	assert.equal(deleted.status, "ok", JSON.stringify(deleted));
+	const shown = await act("POST communication.preview", composed, communication, "preview", [
+		{ bodyHtml: "<p>Hello {{name}}</p>", merge: { name: "Alex" } },
+	]);
+	assert.equal(shown.status, "ok", JSON.stringify(shown));
+	const audience = await act("POST communication.resolveAudience", composed, communication, "resolveAudience", [
+		{ groups: [], teamIds: [], personIds: [guestId] },
+	]);
+	assert.equal(audience.status, "ok", JSON.stringify(audience));
+	const searched = await act("POST communication.searchRecipients", composed, communication, "searchRecipients", [
+		"Reachable",
+	]);
+	assert.equal(searched.status, "ok", JSON.stringify(searched));
+	const templates = await act("POST communication.listTemplates", composed, communication, "listTemplates", []);
+	assert.equal(templates.status, "ok", JSON.stringify(templates));
 	const settings = "apps/web/src/features/settings/actions.ts";
 	const section = await act(null, "/settings", settings, "getSection", [{ section: "account" }]);
 	assert.equal(section.status, "ok", JSON.stringify(section));

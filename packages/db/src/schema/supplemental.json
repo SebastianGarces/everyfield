@@ -177,6 +177,30 @@
 		{
 			"deferrable": true,
 			"initially_deferred": false,
+			"name": "communication_fk_0",
+			"table_name": "communication"
+		},
+		{
+			"deferrable": true,
+			"initially_deferred": false,
+			"name": "communication_fk_1",
+			"table_name": "communication"
+		},
+		{
+			"deferrable": true,
+			"initially_deferred": false,
+			"name": "communication_fk_2",
+			"table_name": "communication"
+		},
+		{
+			"deferrable": true,
+			"initially_deferred": false,
+			"name": "communication_fk_3",
+			"table_name": "communication"
+		},
+		{
+			"deferrable": true,
+			"initially_deferred": false,
 			"name": "contact_outcome_fk_0",
 			"table_name": "contact_outcome"
 		},
@@ -593,6 +617,12 @@
 			"initially_deferred": false,
 			"name": "meeting_fk_4",
 			"table_name": "meeting"
+		},
+		{
+			"deferrable": true,
+			"initially_deferred": false,
+			"name": "message_template_fk_0",
+			"table_name": "message_template"
 		},
 		{
 			"deferrable": true,
@@ -1293,6 +1323,12 @@
 		{
 			"deferrable": true,
 			"initially_deferred": true,
+			"name": "communication_fk_4",
+			"table_name": "communication"
+		},
+		{
+			"deferrable": true,
+			"initially_deferred": true,
 			"name": "contact_outcome_fk_6",
 			"table_name": "contact_outcome"
 		},
@@ -1439,6 +1475,12 @@
 			"initially_deferred": true,
 			"name": "meeting_fk_5",
 			"table_name": "meeting"
+		},
+		{
+			"deferrable": true,
+			"initially_deferred": true,
+			"name": "message_template_fk_1",
+			"table_name": "message_template"
 		},
 		{
 			"deferrable": true,
@@ -1743,6 +1785,12 @@
 			"table_name": "commitment"
 		},
 		{
+			"definition": "CREATE CONSTRAINT TRIGGER assert_record_binding AFTER INSERT OR UPDATE ON <schema>.communication DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION assert_record_binding('\"plant_id\"')",
+			"enabled": "O",
+			"name": "assert_record_binding",
+			"table_name": "communication"
+		},
+		{
 			"definition": "CREATE CONSTRAINT TRIGGER assert_record_binding AFTER INSERT OR UPDATE ON <schema>.contact_outcome DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION assert_record_binding('\"plant_id\"')",
 			"enabled": "O",
 			"name": "assert_record_binding",
@@ -1867,6 +1915,12 @@
 			"enabled": "O",
 			"name": "assert_record_binding",
 			"table_name": "meeting"
+		},
+		{
+			"definition": "CREATE CONSTRAINT TRIGGER assert_record_binding AFTER INSERT OR UPDATE ON <schema>.message_template DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION assert_record_binding('\"plant_id\"')",
+			"enabled": "O",
+			"name": "assert_record_binding",
+			"table_name": "message_template"
 		},
 		{
 			"definition": "CREATE CONSTRAINT TRIGGER assert_record_binding AFTER INSERT OR UPDATE ON <schema>.notice DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION assert_record_binding('\"tenant_id\"')",
@@ -2127,6 +2181,12 @@
 			"table_name": "commitment"
 		},
 		{
+			"definition": "CREATE TRIGGER bind_record AFTER INSERT OR UPDATE ON <schema>.communication FOR EACH ROW EXECUTE FUNCTION communication_bind_record()",
+			"enabled": "O",
+			"name": "bind_record",
+			"table_name": "communication"
+		},
+		{
 			"definition": "CREATE TRIGGER bind_record AFTER INSERT OR UPDATE ON <schema>.contact_outcome FOR EACH ROW EXECUTE FUNCTION contact_outcome_bind_record()",
 			"enabled": "O",
 			"name": "bind_record",
@@ -2251,6 +2311,12 @@
 			"enabled": "O",
 			"name": "bind_record",
 			"table_name": "meeting"
+		},
+		{
+			"definition": "CREATE TRIGGER bind_record AFTER INSERT OR UPDATE ON <schema>.message_template FOR EACH ROW EXECUTE FUNCTION message_template_bind_record()",
+			"enabled": "O",
+			"name": "bind_record",
+			"table_name": "message_template"
 		},
 		{
 			"definition": "CREATE TRIGGER bind_record AFTER INSERT OR UPDATE ON <schema>.notice FOR EACH ROW EXECUTE FUNCTION notice_bind_record()",
@@ -2661,6 +2727,11 @@
 		},
 		{
 			"arguments": "",
+			"definition": "CREATE OR REPLACE FUNCTION <schema>.communication_bind_record()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nDECLARE actual_owner uuid;\nBEGIN\n  actual_owner := NEW.plant_id;\n  \n  IF TG_OP='UPDATE' AND NEW.id <> OLD.id THEN RAISE EXCEPTION 'immutable_record_id' USING ERRCODE='23514'; END IF;\n  INSERT INTO record(id,kind,tenant_id) VALUES (NEW.id,'communication',actual_owner) ON CONFLICT DO NOTHING;\n  PERFORM 1 FROM record WHERE id=NEW.id AND kind='communication' AND tenant_id=actual_owner FOR KEY SHARE;\n  IF NOT FOUND THEN RAISE EXCEPTION 'record_subtype_owner_mismatch' USING ERRCODE='23514'; END IF;\n  RETURN NEW;\nEND $function$\n",
+			"name": "communication_bind_record"
+		},
+		{
+			"arguments": "",
 			"definition": "CREATE OR REPLACE FUNCTION <schema>.contact_outcome_bind_record()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nDECLARE actual_owner uuid;\nBEGIN\n  actual_owner := NEW.plant_id;\n  \n  IF TG_OP='UPDATE' AND NEW.id <> OLD.id THEN RAISE EXCEPTION 'immutable_record_id' USING ERRCODE='23514'; END IF;\n  INSERT INTO record(id,kind,tenant_id) VALUES (NEW.id,'contact_outcome',actual_owner) ON CONFLICT DO NOTHING;\n  PERFORM 1 FROM record WHERE id=NEW.id AND kind='contact_outcome' AND tenant_id=actual_owner FOR KEY SHARE;\n  IF NOT FOUND THEN RAISE EXCEPTION 'record_subtype_owner_mismatch' USING ERRCODE='23514'; END IF;\n  RETURN NEW;\nEND $function$\n",
 			"name": "contact_outcome_bind_record"
 		},
@@ -2788,6 +2859,11 @@
 			"arguments": "",
 			"definition": "CREATE OR REPLACE FUNCTION <schema>.meeting_bind_record()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nDECLARE actual_owner uuid;\nBEGIN\n  actual_owner := NEW.plant_id;\n  \n  IF TG_OP='UPDATE' AND NEW.id <> OLD.id THEN RAISE EXCEPTION 'immutable_record_id' USING ERRCODE='23514'; END IF;\n  INSERT INTO record(id,kind,tenant_id) VALUES (NEW.id,'meeting',actual_owner) ON CONFLICT DO NOTHING;\n  PERFORM 1 FROM record WHERE id=NEW.id AND kind='meeting' AND tenant_id=actual_owner FOR KEY SHARE;\n  IF NOT FOUND THEN RAISE EXCEPTION 'record_subtype_owner_mismatch' USING ERRCODE='23514'; END IF;\n  RETURN NEW;\nEND $function$\n",
 			"name": "meeting_bind_record"
+		},
+		{
+			"arguments": "",
+			"definition": "CREATE OR REPLACE FUNCTION <schema>.message_template_bind_record()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nDECLARE actual_owner uuid;\nBEGIN\n  actual_owner := NEW.plant_id;\n  \n  IF TG_OP='UPDATE' AND NEW.id <> OLD.id THEN RAISE EXCEPTION 'immutable_record_id' USING ERRCODE='23514'; END IF;\n  INSERT INTO record(id,kind,tenant_id) VALUES (NEW.id,'message_template',actual_owner) ON CONFLICT DO NOTHING;\n  PERFORM 1 FROM record WHERE id=NEW.id AND kind='message_template' AND tenant_id=actual_owner FOR KEY SHARE;\n  IF NOT FOUND THEN RAISE EXCEPTION 'record_subtype_owner_mismatch' USING ERRCODE='23514'; END IF;\n  RETURN NEW;\nEND $function$\n",
+			"name": "message_template_bind_record"
 		},
 		{
 			"arguments": "",
@@ -3466,6 +3542,27 @@
 			"grantee": "everyfield_cleanup",
 			"is_grantable": false,
 			"kind": "table",
+			"object": "communication",
+			"privilege_type": "DELETE"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "communication",
+			"privilege_type": "SELECT"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "communication",
+			"privilege_type": "UPDATE"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
 			"object": "contact_outcome",
 			"privilege_type": "DELETE"
 		},
@@ -4013,6 +4110,27 @@
 			"is_grantable": false,
 			"kind": "table",
 			"object": "meeting",
+			"privilege_type": "UPDATE"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "message_template",
+			"privilege_type": "DELETE"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "message_template",
+			"privilege_type": "SELECT"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "message_template",
 			"privilege_type": "UPDATE"
 		},
 		{
@@ -5244,6 +5362,34 @@
 			"grantee": "everyfield_runtime",
 			"is_grantable": false,
 			"kind": "table",
+			"object": "communication",
+			"privilege_type": "DELETE"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "communication",
+			"privilege_type": "INSERT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "communication",
+			"privilege_type": "SELECT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "communication",
+			"privilege_type": "UPDATE"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
 			"object": "contact_outcome",
 			"privilege_type": "DELETE"
 		},
@@ -5959,6 +6105,34 @@
 			"is_grantable": false,
 			"kind": "table",
 			"object": "meeting",
+			"privilege_type": "UPDATE"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "message_template",
+			"privilege_type": "DELETE"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "message_template",
+			"privilege_type": "INSERT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "message_template",
+			"privilege_type": "SELECT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "message_template",
 			"privilege_type": "UPDATE"
 		},
 		{

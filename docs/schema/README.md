@@ -2,7 +2,7 @@
 
 [target.json](target.json) is generated from the Drizzle declarations in [tables.ts](../../packages/db/src/schema/tables.ts). Those declarations own modeled structure; reviewed custom migrations and supplemental catalog expectations own triggers, functions and privileges. Applied SQL remains immutable.
 
-The schema has 90 tables, 1026 columns, 321 declared FKs and 25 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
+The schema has 92 tables, 1054 columns, 328 declared FKs and 26 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
 
 Run documentation/tooling checks from the repository root:
 
@@ -39,6 +39,7 @@ Each replaced table inherits the union of producer packages from its previous ta
 | New table | Ownership basis and ruling | Producers |
 |---|---|---|
 | `commitment_change` | WP-014 commitment lifecycle storage through Drizzle Kit (C100). | WP-014 |
+| `communication` | WP-027 composition storage through Drizzle Kit (C100). | WP-027 |
 | `conversation` | WP-051 Evry conversation storage through Drizzle Kit. | WP-051 |
 | `conversation_event` | WP-051 Evry conversation storage through Drizzle Kit. | WP-051 |
 | `development_enrollment` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-099 |
@@ -51,6 +52,7 @@ Each replaced table inherits the union of producer packages from its previous ta
 | `identity_proof` | Application-owned email-change/cancellation proof splits from account/auth and deletion facts; password reset remains library-owned. | WP-004, WP-005, WP-010, WP-050, WP-057 |
 | `mail_request` | Exact request/replay clock splits from the shared mail intent/attempt ledger. | WP-004, WP-028, WP-031 |
 | `mail_request_member` | Exact ordered membership splits from the shared mail intent/attempt ledger. | WP-004, WP-028, WP-031 |
+| `message_template` | WP-027 template storage through Drizzle Kit (C100). | WP-027 |
 | `model_spend` | WP-051 Evry model qualification spend limit through Drizzle Kit. | WP-051 |
 | `onboarding_setup` | WP-009 additive onboarding storage. | WP-009 |
 | `organization_person_removal` | WP-011 owns removal and WP-050 synchronizes body-free witnesses into recovery; WP-004 installs the baseline. | WP-004, WP-011, WP-050 |
@@ -61,7 +63,7 @@ Each replaced table inherits the union of producer packages from its previous ta
 | `pipeline_sharing` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-007 |
 | `pipeline_stage` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-098 |
 | `proposal` | WP-053 Evry review and execution storage through Drizzle Kit. | WP-053 |
-| `record` | Referenceable subtype writers must bind their own actual identity and owner; inherit the union of those writers, with WP-004 owning trigger/DDL proof. | WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-011, WP-012, WP-013, WP-014, WP-017, WP-018, WP-020, WP-022, WP-023, WP-024, WP-026, WP-028, WP-030, WP-031, WP-032, WP-033, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-041, WP-045, WP-046, WP-047, WP-048, WP-050, WP-054, WP-057, WP-098, WP-099 |
+| `record` | Referenceable subtype writers must bind their own actual identity and owner; inherit the union of those writers, with WP-004 owning trigger/DDL proof. | WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-011, WP-012, WP-013, WP-014, WP-017, WP-018, WP-020, WP-022, WP-023, WP-024, WP-026, WP-027, WP-028, WP-030, WP-031, WP-032, WP-033, WP-034, WP-035, WP-036, WP-037, WP-038, WP-039, WP-041, WP-045, WP-046, WP-047, WP-048, WP-050, WP-054, WP-057, WP-098, WP-099 |
 | `record_correction` | WP-015 People merge and record correction storage through Drizzle Kit. | WP-015 |
 | `relationship_invitation` | WP-007 native organization adapter storage introduced by forward migration 0005; D29/D32 current-catalog authority. | WP-007 |
 | `residency_link` | Accepted ADR-001: baseline SQL is WP-004; named domain producer owns behavior. | WP-004, WP-008 |
@@ -375,6 +377,7 @@ Each name identifies one exact FK. The checker requires this list whenever `targ
 - `affiliation(recognition_operation_id) -> audit_event(id)`: D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access.
 - `audit_event(command_id) -> audit_event(id)`: Original command correlation may cross the owned endpoint of a reviewed conversion. Cleanup may sever correlation while retaining only independently owned facts.
 - `audit_event(subject_id) -> record(id)`: D70 audit subject or original-command correlation may name an authorized bilateral endpoint or retained identity; pair/source checks and current authority remain mandatory. Operator projections omit protected history and retry content.
+- `communication(meeting_id) -> meeting(id)`: A meeting can be removed while a draft still names it. The pointer clears. The draft stays in its plant. The app checks the meeting belongs to the plant before it saves the pointer.
 - `development_program(director_seat_id) -> seat(id)`: Current eligible duty seat belongs to the exact organization. Serialized boundary checks seat tenant/kind and current authority; the relation grants no broader access.
 - `discovery(conversion_operation_id) -> audit_event(id)`: D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access.
 - `onboarding_setup(creation_operation_id) -> audit_event(id)`: D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access.

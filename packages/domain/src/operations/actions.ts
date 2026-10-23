@@ -41,6 +41,7 @@ export function writeAction(operation: string): string {
 				: "phase.transitioned";
 	if (domain === "tasks") return "tasks.changed";
 	if (domain === "notifications") return "settings.changed";
+	if (domain === "communication") return "communication.approved";
 	if (operation === "identity.answerLeadOnboarding") return "identity.domain_accepted";
 	throw Error("unknown_write_action:" + operation);
 }
