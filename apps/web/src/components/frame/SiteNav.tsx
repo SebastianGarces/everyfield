@@ -154,7 +154,7 @@ function NavBar({ which, links, cta, logo, arrow, menuIcon, open, toggleRef, onT
 				pill ? "h-[60px] pr-2 max-mk-sm:h-14 max-mk-sm:pr-[7px]" : "h-[70px] max-mk-sm:h-16",
 			)}
 		>
-			<Link href="/" aria-label="EveryField home" className="flex flex-none items-center no-underline">
+			<Link href="/" aria-label="Everyfield home" className="flex flex-none items-center no-underline">
 				{logo}
 			</Link>
 			<nav

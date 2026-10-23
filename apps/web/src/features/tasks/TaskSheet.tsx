@@ -63,7 +63,7 @@ const MANAGED = {
 function actorText(a: Entry["actor"]): string {
 	if (a.kind === "system") {
 		const words = a.cause.replaceAll(/[_.]+/g, " ").trim();
-		return `EveryField (${words || "automatic"})`;
+		return `Everyfield (${words || "automatic"})`;
 	}
 	if (a.kind === "former_account") return "A former member";
 	return a.displayName ?? "A former member";
