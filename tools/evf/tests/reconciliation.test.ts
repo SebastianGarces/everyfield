@@ -1553,7 +1553,10 @@ test("INV-ship-queue-update: a behind PR is updated by a merge of main, waits fo
 		// Required CI fails on the merge of main: no merge, and the queue is free again.
 		mainCommit("docs/second.md", "Second.\n");
 		assert.throws(
-			attempt([[pass, prBody], [prBody, { name: "ci", bucket: "fail" }]]),
+			attempt([
+				[pass, prBody],
+				[prBody, { name: "ci", bucket: "fail" }],
+			]),
 			/Fresh gate needed at [a-f0-9]{40}: required CI failed after the merge of main \(ci\)/,
 		);
 		assert.equal(calls("update-branch").length, 1);
