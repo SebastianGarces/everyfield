@@ -27,8 +27,9 @@ export function requestDatabase(): Database | null {
 }
 
 /**
- * The scheduled runner's own pool. Every statement on it, lock waits included, ends after 5 s, so a job worker that
- * writes outside a bounded transaction (People imports) cannot hold the run past its maxDuration. Other PGOPTIONS stay.
+ * The scheduled runner's own pool. Every statement on it, lock waits included, ends after 5 s unless its boundary sets
+ * its own timeout (the native write gate sets 10 s), so a job worker that writes outside a bounded transaction (People
+ * imports) cannot wait without limit. Other PGOPTIONS stay.
  */
 export function jobDatabase(): Database | null {
 	const url = process.env.IDENTITY_DATABASE_URL;

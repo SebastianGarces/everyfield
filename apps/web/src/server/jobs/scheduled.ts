@@ -10,9 +10,11 @@ import { transaction } from "../platform/database.ts";
 import { runDueObjectCleanup } from "./object-cleanup.ts";
 
 /**
- * A job starts only in the first minute of a run. Every statement on the job pool ends within 5 s, a file delete within
- * 10 s, a turn within its 180-second wall time and a People import of at most 10,000 rows within about 22 statements, so
- * the last job started ends inside the route's 300 s. A run the platform still stops leaves leased jobs for recovery.
+ * A job starts only in the first minute of a run, so a normal run ends well inside the route's 300 s. Every statement
+ * has a database timeout: 5 s on the job pool, or its boundary's own (the native write gate sets 10 s, lock waits 5 s).
+ * A file delete aborts after 10 s and a turn ends at its 180-second wall time. A job that still runs past the route's
+ * limit (a large import whose rows fail one by one) is stopped by the platform; its lease returns it to recovery,
+ * fenced, and rows it already imported are skipped when it resumes.
  */
 const START_MS = 60_000;
 
