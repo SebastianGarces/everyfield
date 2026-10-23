@@ -2549,7 +2549,7 @@
     "id": "TSK-001",
     "title": "Task views, search, filters and counts",
     "module": "tasks",
-    "behavior": "Preserve My/All/Assignments, title search, closed status/priority/category/relation filters and sorting by due, priority, status, title or creation time. Pages default to 50 and allow at most 100 rows with deterministic ordering and null due dates last. Counts use the same authorized query scope, counting top-level tasks separately from checklist subtasks. The Team filter applies to My/All, not the independent Assignments contact-coverage view; foreign or unavailable teams reveal no names or rows. Filter changes preserve sibling filters and reset pagination. Concurrent deletion either permits coherent continuation or an explicit reset, without silent skips, duplicates or leaks. Pagination representation follows EveryField patterns.",
+    "behavior": "Preserve My/All/Assignments, title search, closed status/priority/category/relation filters and sorting by due, priority, status, title or creation time. Pages default to 50 and allow at most 100 rows with deterministic ordering and null due dates last. Counts use the same authorized query scope, counting top-level tasks separately from checklist subtasks. The Team filter applies to My/All, not the independent Assignments contact-coverage view; foreign or unavailable teams reveal no names or rows. Filter changes preserve sibling filters and reset pagination. Concurrent deletion either permits coherent continuation or an explicit reset, without silent skips, duplicates or leaks. Pagination representation follows Everyfield patterns.",
     "spec_file": "docs/product/tasks.md#req-tsk-001",
     "requirement_ids": [
       "REQ-TSK-001",
@@ -5992,7 +5992,7 @@
     "id": "OPS-001",
     "title": "External schedules and bounded HTTP job ticks",
     "module": "operations",
-    "behavior": "Background execution is authenticated, bounded, durable and recoverable under the execution contract. Worker replacement, cancellation and stale input cannot publish or duplicate work. Unknown provider outcomes require reconciliation. G-LOAD owns measured fairness and alert tuning. Schedule invocation supplies no business authority, and actual deployment schedule and limits require configuration proof. Execution mechanisms follow EveryField patterns.",
+    "behavior": "Background execution is authenticated, bounded, durable and recoverable under the execution contract. Worker replacement, cancellation and stale input cannot publish or duplicate work. Unknown provider outcomes require reconciliation. G-LOAD owns measured fairness and alert tuning. Schedule invocation supplies no business authority, and actual deployment schedule and limits require configuration proof. Execution mechanisms follow Everyfield patterns.",
     "spec_file": "docs/product/operations.md#engineering-and-operational-scope",
     "requirement_ids": [
       "REQ-OPS-001",
@@ -9476,7 +9476,7 @@
     "id": "EVR-014",
     "title": "Approved actions run once with a matching audit record",
     "module": "evry",
-    "behavior": "Only work covered by the initiating account, acting context and exact current human approval may execute. Each executed effect writes its audit record together with the change, and its history and known outcome agree. Supported closed outcome values: completed, partial, failed, refused, unknown. Repeating or reconnecting to a completed action returns its recorded outcome without repeating effects. Expired, cancelled or replaced execution cannot publish. The representation of execution ownership and saved outcomes follows EveryField patterns. Recording an outcome creates no new domain permission.",
+    "behavior": "Only work covered by the initiating account, acting context and exact current human approval may execute. Each executed effect writes its audit record together with the change, and its history and known outcome agree. Supported closed outcome values: completed, partial, failed, refused, unknown. Repeating or reconnecting to a completed action returns its recorded outcome without repeating effects. Expired, cancelled or replaced execution cannot publish. The representation of execution ownership and saved outcomes follows Everyfield patterns. Recording an outcome creates no new domain permission.",
     "spec_file": "docs/product/evry.md",
     "requirement_ids": [
       "REQ-EVR-014"
@@ -9526,7 +9526,7 @@
     "id": "EVR-016",
     "title": "One active run per conversation, with streaming and recovery",
     "module": "evry",
-    "behavior": "Allow at most one active run per account, acting context and conversation. Stream progress and recover interrupted runs from factual saved state. A run that loses execution ownership stops further work and cannot publish. Resuming work preserves committed outcomes and executes only still-authorized unresolved effects. Lease duration, renewal and ownership representation follow EveryField patterns.",
+    "behavior": "Allow at most one active run per account, acting context and conversation. Stream progress and recover interrupted runs from factual saved state. A run that loses execution ownership stops further work and cannot publish. Resuming work preserves committed outcomes and executes only still-authorized unresolved effects. Lease duration, renewal and ownership representation follow Everyfield patterns.",
     "spec_file": "docs/product/evry.md",
     "requirement_ids": [
       "REQ-EVR-016"
@@ -9668,7 +9668,7 @@
     "id": "EVR-021",
     "title": "Owned conversation runtime and private session access",
     "module": "evry",
-    "behavior": "Conversations, turns, saved reviews and approved effects remain app-owned and recoverable. Native and Evry calls use the same domain policy and outcomes. Reconnect, replay, interruption and retry preserve factual progress without authorizing or duplicating effects. Storage and background execution follow EveryField patterns; no per-feature execution protocol is required. Session ownership stays private to the initiating account and exact context. Transport exposes only allowed application operations and grants no arbitrary code, network, filesystem, SQL or approval capability.",
+    "behavior": "Conversations, turns, saved reviews and approved effects remain app-owned and recoverable. Native and Evry calls use the same domain policy and outcomes. Reconnect, replay, interruption and retry preserve factual progress without authorizing or duplicating effects. Storage and background execution follow Everyfield patterns; no per-feature execution protocol is required. Session ownership stays private to the initiating account and exact context. Transport exposes only allowed application operations and grants no arbitrary code, network, filesystem, SQL or approval capability.",
     "spec_file": "docs/product/evry.md",
     "requirement_ids": [
       "REQ-EVR-021"
@@ -10148,7 +10148,7 @@
     "id": "PI-043",
     "title": "Network Intelligence: versioned portfolio patterns and shared plant lens evidence",
     "module": "intelligence",
-    "behavior": "Use separately authored EveryField network v1 six-rule operational rubric with current exact organization sharing/category/release projections, at least two distinct relevant contributors per pattern, bounded shared plant name/state/reason/link, Not shared without zero credit, Unknown, no people/raw assessments/ranking/second consent. Versioned own feedback/run/history and shared bounded execution.",
+    "behavior": "Use separately authored Everyfield network v1 six-rule operational rubric with current exact organization sharing/category/release projections, at least two distinct relevant contributors per pattern, bounded shared plant name/state/reason/link, Not shared without zero credit, Unknown, no people/raw assessments/ranking/second consent. Versioned own feedback/run/history and shared bounded execution.",
     "spec_file": "docs/product/methodology-intelligence.md",
     "requirement_ids": [
       "REQ-KNOW-062",
@@ -10469,7 +10469,7 @@
     "id": "MUL-004",
     "title": "Organization invitation to a resident account",
     "module": "people",
-    "behavior": "An organization Owner or Admin may invite a specific pipeline person to link an EveryField account. Use sealed, expiring, purpose-bound invitation proof, the exact organization and Person, and verified addressed-account acceptance. Names or matching emails alone never authorize a link. The person sees the disclosure and accepts or declines without acquiring a seat. Decline leaves their account unchanged. Revoke, resend, retire, remove, concurrent claim and expiry recheck current facts at commit; one accepted link and receipt survive retries, never two accounts or two people. Public invitation responses do not reveal whether an account exists. A pending personal deletion or foreign owner refuses acceptance.",
+    "behavior": "An organization Owner or Admin may invite a specific pipeline person to link an Everyfield account. Use sealed, expiring, purpose-bound invitation proof, the exact organization and Person, and verified addressed-account acceptance. Names or matching emails alone never authorize a link. The person sees the disclosure and accepts or declines without acquiring a seat. Decline leaves their account unchanged. Revoke, resend, retire, remove, concurrent claim and expiry recheck current facts at commit; one accepted link and receipt survive retries, never two accounts or two people. Public invitation responses do not reveal whether an account exists. A pending personal deletion or foreign owner refuses acceptance.",
     "spec_file": "docs/product/people.md#req-mul-004",
     "requirement_ids": [
       "REQ-MUL-004"

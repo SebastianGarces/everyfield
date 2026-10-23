@@ -4,7 +4,7 @@ Cancellation and recoverability are separate rights. An authenticated account re
 
 ## Current lifecycle witness
 
-Current body-free deletion and access-revocation evidence remains authoritative independently of restored content. Distinguish active access, pending deletion, cleanup in progress, completed purge, cancellation and independent revocation. Preserve the exact subject and deletion request after removing private bodies. Stale cancellation proof cannot affect a later request. Storage follows [EveryField patterns](intent://local/note/df294729-367b-493b-9faf-654cf6b25b62).
+Current body-free deletion and access-revocation evidence remains authoritative independently of restored content. Distinguish active access, pending deletion, cleanup in progress, completed purge, cancellation and independent revocation. Preserve the exact subject and deletion request after removing private bodies. Stale cancellation proof cannot affect a later request. Storage follows [Everyfield patterns](intent://local/note/df294729-367b-493b-9faf-654cf6b25b62).
 
 Record the immutable request instant and its 30-day cancellation deadline. Pending hold, successful cancellation and completed live purge remain distinguishable, with actual cancellation, purge-completion and copy-expiry instants. Cancellation occurs strictly before the deadline; completed purge occurs at or after it and establishes copy expiry. Preserve original request/deadline evidence. Cancellation restores only independently valid access and cannot revive revoked affiliation or old sessions.
 
