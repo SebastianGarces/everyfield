@@ -228,10 +228,7 @@ test("D69/D70: every request and write stays within its statement budget", { tim
 		.map((file) => join(root, file))
 		.sort();
 	const part = census.kind === "part" ? census : { index: 1, total: 1 };
-	// TEMPORARY WP-087 demo, reverted in the next commit: part 3 skips the follow-up suite, so its budgets go unmeasured.
-	const files = partSuites(suites, part.index, part.total).filter(
-		(file) => !file.endsWith("followups/followups.test.mts"),
-	);
+	const files = partSuites(suites, part.index, part.total);
 	const typescript = [
 		process.env.NODE_OPTIONS ?? "",
 		"--conditions=react-server",
