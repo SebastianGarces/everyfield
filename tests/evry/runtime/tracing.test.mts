@@ -69,28 +69,36 @@ test("INV-privacy C64: one Evry turn sends one Langfuse trace with the queue, ac
 
 	const traceId = createHash("sha256").update(turnId).digest("hex").slice(0, 32);
 	assert.deepEqual([...new Set(spans.map((s) => s.traceId))], [traceId], "one trace, keyed by the turn");
+	// The spans Evry owns, exactly; the AI SDK adds its own model and tool spans to the same trace under names it owns.
+	const evry = new Set([
+		"evry turn",
+		"queue wait",
+		"queue claim",
+		"load turn",
+		"access check",
+		"first text saved",
+		"first SSE delivery",
+	]);
 	assert.deepEqual(
-		spans.map((s) => s.name).sort(),
+		spans
+			.map((s) => s.name)
+			.filter((name) => evry.has(name))
+			.sort(),
 		[
 			"access check",
 			"access check",
-			"chat scripted",
-			"chat scripted",
-			"chat scripted",
 			"evry turn",
-			"execute_tool people_read",
 			"first SSE delivery",
 			"first text saved",
-			"invoke_agent scripted",
-			"invoke_agent scripted",
 			"load turn",
 			"queue claim",
 			"queue wait",
-			"step 1",
-			"step 1",
-			"step 2",
 		],
-		"the classification call, then two answer steps with one tool call",
+		"one access check at the start and one before the tool call",
+	);
+	assert.ok(
+		spans.some((s) => !evry.has(s.name)),
+		"the model calls are in the same trace",
 	);
 	assert.equal(attribute("evry turn", "session.id"), conversationId);
 	assert.match(attribute("first text saved", "langfuse.observation.metadata.submitToFirstTextMs") ?? "", /^\d+$/);

@@ -5,7 +5,8 @@ import { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
 import { currentAuthority, liveAuthority } from "../context/authority.ts";
 import { retainedEvents } from "./retained.ts";
-import { EvryRefusal } from "../context/errors.ts";
+import { EvryRefusal, projectError } from "../context/errors.ts";
+import { liveJob } from "../runtime/job.ts";
 
 // Conversation commands are one statement each (D70): the current-authority check, the change, the run's job row and
 // one audit row commit together, and zero changed rows means refused or not found. Message bodies never enter audit.
@@ -13,6 +14,9 @@ import { EvryRefusal } from "../context/errors.ts";
 export const PAGE_SIZE = 24;
 export const EVENT_PAGE = 200;
 const TERMINAL_JOB = sql`('succeeded','failed','cancelled','superseded')`;
+/** The conversation's active run can still make progress (runtime/job.ts). */
+const liveRun = (alias: string) =>
+	sql`EXISTS(SELECT FROM job j WHERE j.id=${sql.raw(alias)}.active_turn_id AND ${sql.raw(liveJob("j"))})`;
 
 const uuid = z.uuid();
 const text = z.string().trim().min(1).max(8_000);
@@ -115,24 +119,27 @@ export async function listConversations(db: Database, actor: EvryActor, raw: unk
 
 /**
  * evry.readConversation and evry.openConversation: the conversation and its saved events after a cursor, with the
- * active run's state. A foreign or missing conversation is not_found, with no metadata. One statement.
+ * active run: running while its job can still make progress, lost once its worker or claim is gone and its end is not
+ * saved yet (closeLostRun saves it). A foreign or missing conversation is not_found, with no metadata. One statement.
  */
 export async function readConversation(db: Database, actor: EvryActor, id: string, after = 0) {
 	const conversationId = parse(uuid, id);
 	const cursor = parse(z.int().min(0), after);
 	const r = await db.execute(sql`
 		SELECT ${conversationJson("c")} AS conversation,
-			(SELECT j.state FROM job j WHERE j.id=c.active_turn_id) AS run_state,
+			${liveRun("c")} AS run_live,
 			coalesce((SELECT jsonb_agg(jsonb_build_object('sequence',e.sequence,'turnId',e.turn_id,'kind',e.kind,'body',e.body,'createdAt',e.created_at) ORDER BY e.sequence)
 				FROM (${retainedEvents(sql`SELECT * FROM conversation_event WHERE conversation_id=c.id AND sequence>${cursor} ORDER BY sequence LIMIT ${EVENT_PAGE}`)}) e), '[]'::jsonb) AS events
 		FROM conversation c WHERE c.id=${conversationId}::uuid AND ${owned(actor, "c")} AND ${liveAuthority(actor)}`);
 	if (!r.rows.length) throw new EvryRefusal("not_found");
 	const row = z
-		.object({ conversation: conversationRow, run_state: z.string().nullable(), events: z.array(eventRow) })
+		.object({ conversation: conversationRow, run_live: z.boolean(), events: z.array(eventRow) })
 		.parse(r.rows[0]);
 	return {
 		conversation: row.conversation,
-		run: row.conversation.activeTurnId ? { turnId: row.conversation.activeTurnId, state: row.run_state } : null,
+		run: row.conversation.activeTurnId
+			? { turnId: row.conversation.activeTurnId, state: row.run_live ? ("running" as const) : ("lost" as const) }
+			: null,
 		events: row.events,
 		more: row.events.length === EVENT_PAGE,
 	};
@@ -151,8 +158,7 @@ export type Submitted = z.infer<typeof submitted> & { replayed: boolean };
 
 /**
  * evry.submitTurn: saves the message, starts the conversation's one run as an assistant_turn job and audits it, in one
- * statement. A repeated request key returns the saved turn and starts nothing. A run that ended, or whose worker lost
- * its lease, no longer blocks a new turn.
+ * statement. A repeated request key returns the saved turn and starts nothing. Only a live run blocks a new turn.
  */
 export async function submitTurn(
 	db: Database,
@@ -173,8 +179,7 @@ export async function submitTurn(
 			UPDATE conversation c SET last_sequence=c.last_sequence+1,active_turn_id=${turnId}::uuid,active_session_id=${actor.session}::uuid,
 				updated_at=clock_timestamp(),title=CASE WHEN c.last_sequence=0 THEN ${titleOf(input.text)} ELSE c.title END
 			WHERE c.id=${id}::uuid AND ${owned(actor, "c")} AND NOT EXISTS(SELECT FROM known)
-				AND (c.active_turn_id IS NULL OR c.active_turn_id IN (SELECT j.id FROM job j WHERE j.state IN ${TERMINAL_JOB}
-					OR (j.state='claimed' AND j.lease_until<clock_timestamp())))
+				AND NOT ${liveRun("c")}
 				AND ${currentAuthority(actor)}
 			RETURNING c.id,c.tenant_id,c.account_id,c.last_sequence
 		), run AS (
@@ -190,12 +195,44 @@ export async function submitTurn(
 		)
 		SELECT (SELECT jsonb_build_object('turnId',${turnId}::uuid,'sequence',last_sequence) FROM conv) AS submitted,
 			(SELECT to_jsonb(known) FROM known) AS known,
-			(SELECT c.active_turn_id IS NOT NULL FROM conversation c WHERE c.id=${id}::uuid AND ${owned(actor, "c")}) AS active`);
+			(SELECT ${liveRun("c")} FROM conversation c WHERE c.id=${id}::uuid AND ${owned(actor, "c")}) AS active`);
 	const row = r.rows[0] as { submitted: unknown; known: unknown; active: boolean | null };
 	if (row.submitted) return { ...submitted.parse(row.submitted), replayed: false };
 	if (row.known) return { ...submitted.parse(row.known), replayed: true };
 	if (row.active === null) throw new EvryRefusal("not_found");
 	throw new EvryRefusal(row.active ? "run_active" : "access_denied");
+}
+
+const interrupted = () => ({
+	state: "failed",
+	reason: "failed",
+	text: "",
+	error: projectError(new EvryRefusal("interrupted")),
+});
+
+/**
+ * Saves the end of a lost run once: the conversation still points at the turn and its job can no longer make progress
+ * (runtime/job.ts). The job ends as failed with a new claim generation, so a late worker cannot pass the run fence; the
+ * turn ends as interrupted, which may be tried again. The job update re-checks the live rule on the row a concurrent
+ * claim locked, so a claim and a close never both win. Nothing about access is read or changed. One statement.
+ */
+export async function closeLostRun(db: Database, actor: EvryActor, conversationId: string, turnId: string) {
+	const r = await db.execute(sql`
+		WITH ended AS (
+			UPDATE job j SET state='failed',error_code='interrupted',lease_owner=NULL,lease_until=NULL,finished_at=clock_timestamp(),
+				claim_generation=j.claim_generation+1,revision=j.revision+1
+			WHERE j.id=${turnId}::uuid AND j.state IN ('ready','claimed') AND NOT ${sql.raw(liveJob("j"))}
+				AND EXISTS(SELECT FROM conversation c WHERE c.id=${conversationId}::uuid AND c.active_turn_id=j.id AND ${owned(actor, "c")})
+			RETURNING j.id
+		), conv AS (
+			UPDATE conversation c SET active_turn_id=NULL,active_session_id=NULL,last_sequence=c.last_sequence+1,updated_at=clock_timestamp()
+			WHERE c.id=${conversationId}::uuid AND c.active_turn_id=${turnId}::uuid AND ${owned(actor, "c")}
+				AND (EXISTS(SELECT FROM ended) OR EXISTS(SELECT FROM job j WHERE j.id=${turnId}::uuid AND j.state IN ${TERMINAL_JOB}))
+			RETURNING c.id,c.last_sequence
+		)
+		INSERT INTO conversation_event(conversation_id,sequence,turn_id,kind,body)
+		SELECT id,last_sequence,${turnId}::uuid,'status',${JSON.stringify(interrupted())}::jsonb FROM conv RETURNING sequence`);
+	return r.rows.length > 0;
 }
 
 /**
@@ -241,7 +278,7 @@ export async function retryTurn(db: Database, actor: EvryActor, conversationId: 
 			(SELECT jsonb_build_object('turnId',k.turn_id,'sequence',k.sequence) FROM conversation_event k WHERE k.conversation_id=c.id AND k.request_key=${key}) AS known
 		FROM conversation c
 		JOIN LATERAL (SELECT * FROM conversation_event e WHERE e.conversation_id=c.id AND e.kind='user_message' ORDER BY e.sequence DESC LIMIT 1) m ON true
-		WHERE c.id=${id}::uuid AND ${owned(actor, "c")} AND ${currentAuthority(actor)}`);
+		WHERE c.id=${id}::uuid AND ${owned(actor, "c")} AND ${liveAuthority(actor)}`);
 	if (!r.rows.length) throw new EvryRefusal("not_found");
 	const last = z
 		.object({

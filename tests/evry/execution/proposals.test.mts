@@ -30,7 +30,6 @@ import {
 	actor,
 	admin,
 	db,
-	freshActor,
 	people,
 	plant,
 	queries,
@@ -75,8 +74,8 @@ async function effects() {
  * Runs the next approved effect while another transaction holds the plant row, so the executor passes its first
  * check and then waits for write authority. `during` runs while it waits; then the plant row is released.
  */
-async function stalledEffect(during: (claim: Claim) => Promise<void>) {
-	const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
+async function stalledEffect(during: (claim: Claim) => Promise<void>, leaseSeconds = 60) {
+	const [claim] = await claimDue(db, ["evry_effect"], 1, leaseSeconds);
 	assert.ok(claim);
 	let running: Promise<string> | undefined;
 	await admin.transaction(async (tx) => {
@@ -217,7 +216,7 @@ test("AC:UI45-004 AC:UI45-003 AC:INH-REGRESSION-REVISED-APPROVAL AC:INH-REGRESSI
 		runs.map((r) => r.outcome),
 		["completed"],
 	);
-	assert.equal(runs[0]!.statements, 7);
+	assert.equal(runs[0]!.statements, 6);
 	const audits = await effectAudits(proposal.id);
 	const done = await readReview(db, owner, proposal.id);
 	assert.deepEqual(
@@ -371,15 +370,20 @@ test("AC:EVRY-LEASE-FENCE AC:INH-REGRESSION-RETRY AC:INH-EDGES-12: an executor s
 	const { proposal } = await propose(owner, "Change Rivera's city to Naperville");
 	await approveProposal(db, owner, proposal.id, witness(proposal), null);
 	assert.equal((await readReview(db, owner, proposal.id)).executing, true);
-	// The executor passes its first check, then waits for the plant lock while its lease expires and recovery
-	// replaces the claim. When the lock frees, it must not publish the change, its audit row or an outcome.
+	// The executor passes its first check, then waits for the plant lock while its 2-second lease runs out. It holds
+	// the job's share lock from its first read, so recovery skips the claim while it runs. When the lock frees, it
+	// must not publish the change, its audit row or an outcome; recovery then replaces the claim.
 	let stalled: Claim | undefined;
 	const outcome = await stalledEffect(async (claim) => {
 		stalled = claim;
-		await admin.execute(sql`UPDATE job SET lease_until=clock_timestamp()-interval '1 second' WHERE id=${claim.id}`);
-		assert.equal(await recoverLease(admin), 1);
-	});
+		for (let passed = false; !passed;) {
+			const r = await admin.execute(sql`SELECT lease_until<=clock_timestamp() AS passed FROM job WHERE id=${claim.id}`);
+			passed = (r.rows[0] as { passed: boolean }).passed;
+		}
+		assert.equal(await recoverLease(admin), 0);
+	}, 2);
 	assert.equal(outcome, "lost");
+	assert.equal(await recoverLease(admin), 1);
 	assert.deepEqual([await effectAudits(proposal.id), (await person(people.alexRivera)).city], [[], "Chicago"]);
 	// The outcome is unknown, not failed: the retry resumes the same effect key.
 	assert.equal((await readReview(db, owner, proposal.id)).outcome, "unknown");
@@ -405,15 +409,22 @@ test("AC:UI45-006 AC:EVRY-CONTEXT-BOUNDS a review's fields leave model input onc
 		model: scriptedModel(),
 		middleware: { specificationVersion: "v4", transformParams: async ({ params }) => (calls.push(params), params) },
 	}) as LanguageModelV4;
-	// Robin is retired right after the review is saved, before the next model call reads its input.
-	const retiring = async (session: string) => {
-		await admin.execute(sql`UPDATE person SET state='retired',retired_at=clock_timestamp()
-			WHERE id=${robin} AND state='live' AND EXISTS(SELECT FROM proposal WHERE review->'target'->>'id'=${robin})`);
-		return freshActor(session);
-	};
+	// Robin is retired as the review is saved, before the next model call reads its input.
+	await admin.execute(
+		sql.raw(`CREATE FUNCTION f6_retire() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN
+			UPDATE person SET state='retired',retired_at=clock_timestamp() WHERE id='${robin}' AND id::text=NEW.review->'target'->>'id';
+			RETURN NULL; END$$`),
+	);
+	await admin.execute(
+		sql.raw(`CREATE TRIGGER f6_retire AFTER INSERT ON proposal FOR EACH ROW EXECUTE FUNCTION f6_retire()`),
+	);
 	const c = await createConversation(db, owner, { requestKey: randomUUID() });
 	await submitTurn(db, owner, c.id, { requestKey: randomUUID(), text: "Change Robin's city to Newtown" });
-	assert.equal(await work({ status: "qualified", id: "test", model }, { freshActor: retiring }), "succeeded");
+	try {
+		assert.equal(await work({ status: "qualified", id: "test", model }), "succeeded");
+	} finally {
+		await admin.execute(sql.raw(`DROP TRIGGER f6_retire ON proposal; DROP FUNCTION f6_retire()`));
+	}
 	const page = await readConversation(db, owner, c.id);
 	const card = page.events.find((e) => e.kind === "tool_result" && e.body.operation === "evry.prepareProposal");
 	assert.ok(card, "a review was prepared before the retirement");
@@ -480,4 +491,52 @@ test("AC:SEC-02 INV-tenancy: a review read takes no lock that a sign-out or sess
 			await other.execute(sql`UPDATE auth_session SET expires_at=expires_at WHERE id=${accounts.owner.session}`);
 		});
 	});
+});
+
+test("INV-effect-recovery: an approved effect that no worker took within 60 s reads as unconfirmed, not as saving; Try again's job is claimed first and runs it once", async () => {
+	const owner = await actor("owner");
+	const { proposal } = await propose(owner, "Change Casey's city to Elgin");
+	await approveProposal(db, owner, proposal.id, witness(proposal), null);
+	const queued = await readReview(db, owner, proposal.id);
+	assert.deepEqual([queued.executing, queued.outcome], [true, null]);
+	await admin.execute(
+		sql`UPDATE job SET eligible_at=clock_timestamp()-interval '61 seconds' WHERE kind='evry_effect' AND producer_key LIKE ${proposal.id + ":%"}`,
+	);
+	const stale = await readReview(db, owner, proposal.id);
+	assert.deepEqual([stale.executing, stale.outcome], [false, "unknown"]);
+	const start = queries.length;
+	assert.equal((await retryUnresolvedEffects(db, owner, proposal.id)).retried, true);
+	assert.equal(counted(start), 1);
+	// The old job no worker took is superseded, so the next claim takes the new job at once, not the old one first.
+	assert.deepEqual(await effectJobs(proposal.id), ["superseded", "ready"]);
+	const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
+	assert.equal(await executeProposal(db, lease(claim!), noReminders), "completed");
+	// The review reports the saved outcome before the job finishes: nothing the person sees waits for finishClaim.
+	const shown = await readReview(db, owner, proposal.id);
+	assert.deepEqual([shown.outcome, shown.executing], ["completed", false]);
+	assert.equal(await transaction(db, (tx) => finishClaim(tx, claim!, { state: "succeeded" })), true);
+	assert.equal(await effects(), null);
+	assert.deepEqual([(await effectAudits(proposal.id)).length, (await person(people.casey)).city], [1, "Elgin"]);
+});
+
+test("BUG-R5-3: an effect that ends with an error Evry cannot classify stays unconfirmed instead of 'failed, nothing was changed'; Try again saves it once", async () => {
+	const owner = await actor("owner");
+	const { proposal } = await propose(owner, "Change Chen's city to Joliet");
+	await approveProposal(db, owner, proposal.id, witness(proposal), null);
+	await admin.execute(
+		sql.raw(`CREATE FUNCTION f6_fail() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN RAISE EXCEPTION 'synthetic'; END$$`),
+	);
+	await admin.execute(
+		sql.raw(`CREATE TRIGGER f6_fail BEFORE UPDATE ON person FOR EACH ROW EXECUTE FUNCTION f6_fail()`),
+	);
+	try {
+		assert.equal((await effects())?.outcome, "failed");
+	} finally {
+		await admin.execute(sql.raw(`DROP TRIGGER f6_fail ON person; DROP FUNCTION f6_fail()`));
+	}
+	const after = await readReview(db, owner, proposal.id);
+	assert.deepEqual([after.outcome, after.receipt, after.executing], ["unknown", null, false]);
+	assert.equal((await retryUnresolvedEffects(db, owner, proposal.id)).retried, true);
+	assert.equal((await effects())?.outcome, "completed");
+	assert.deepEqual([(await effectAudits(proposal.id)).length, (await person(people.alexChen)).city], [1, "Joliet"]);
 });

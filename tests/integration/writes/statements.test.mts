@@ -2,7 +2,7 @@ import { appendFileSync } from "node:fs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createRequire } from "node:module";
@@ -68,10 +68,46 @@ test("RT-4: a budget fails on growth, slack, an unexplained write above six and 
 	]);
 });
 
+// F8: a replay through a shared wrapper writes nothing and carries a variant suffix; it still meets its retry budget.
+test("F8: a zero-write replay with a suffixed name is held to its operation's retry budget", () => {
+	const save = "people/commitments/index.saveCommitmentDocument";
+	const name = save + ":people/core.withPeopleWrite:" + save;
+	// Two samples from the #251 verifier's census: the first save and its replay.
+	const rows = [
+		{
+			kind: "sample",
+			name,
+			count: 6,
+			writes: 1,
+			rollbacks: 0,
+			status: "ok",
+			ms: 271,
+			kinds: { read: 1, transaction: 2, "locked read": 2, write: 1 },
+		},
+		{
+			kind: "sample",
+			name,
+			count: 10,
+			writes: 0,
+			rollbacks: 2,
+			status: "ok",
+			ms: 590,
+			kinds: { read: 3, transaction: 4, "locked read": 3 },
+		},
+	];
+	assert.deepEqual(checkBudgets(rows, { [save]: { limit: 6, retry: 9 } }), [
+		name + ": 10 statements, limit 9 (retry) (3 read, 4 transaction, 3 locked read)",
+	]);
+	assert.deepEqual(checkBudgets(rows, { [save]: { limit: 6, retry: 10 } }), []);
+});
+
 // One regression checks every budget in limits.json: real HTTP requests on the production build, the native write
 // boundaries and every write the behavior suites run. It records no SQL or parameters.
 test("D69/D70: every request and write stays within its statement budget", { timeout: 30 * 60 * 1000 }, async () => {
-	const directory = await mkdtemp(join(tmpdir(), "evf-write-counts-")),
+	// CI names a folder (EVF_CENSUS_LOGS) and uploads it when the job fails: these logs and the counts file.
+	const parent = process.env.EVF_CENSUS_LOGS ?? tmpdir();
+	await mkdir(parent, { recursive: true });
+	const directory = await mkdtemp(join(parent, "evf-write-counts-")),
 		output = join(directory, "counts.jsonl");
 	const patterns = JSON.parse(await readFile(new URL("./suites.json", import.meta.url), "utf8"));
 	const { globSync } = await import("node:fs");

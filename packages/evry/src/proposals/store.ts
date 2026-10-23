@@ -8,6 +8,7 @@ import { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
 import { currentAuthority } from "../context/authority.ts";
 import { EvryRefusal } from "../context/errors.ts";
+import { liveJob } from "../runtime/job.ts";
 import { fence, type RunLease } from "../runtime/run-store.ts";
 import { PEOPLE_COMMANDS } from "../adapters/people/commands/index.ts";
 import type { ReviewedWrite } from "./types.ts";
@@ -23,7 +24,6 @@ const operation = z.enum(Object.keys(REVIEWED_WRITES) as [Operation]);
 
 /** REQ-EVR-012: approval lapses 15 minutes after the review revision was published. */
 export const REVIEW_MINUTES = 15;
-const TERMINAL_JOB = sql`('succeeded','failed','cancelled','superseded')`;
 
 export function allowedWrites(actor: EvryActor) {
 	return (Object.values(REVIEWED_WRITES) as ReviewedWrite<unknown>[]).filter((w) => w.allowed(actor));
@@ -49,11 +49,8 @@ const owned = (actor: EvryActor) => sql`${mine(actor)} AND ${currentAuthority(ac
  * The review read (C32): the actor's own proposal under the lock-free live check, so a sign-out or seat change never
  * waits for it. Reviewed writes need Owner or Admin, the same floor as the native command.
  */
-const readable = (actor: EvryActor) => {
-	const context = actor.authority.actor.context;
-	const seatId = context.kind === "seat" ? context.seatId : undefined;
-	return sql`${mine(actor)} AND ${liveRead({ session: actor.session, owner: actor.owner, seatId }, true)}`;
-};
+const readable = (actor: EvryActor) =>
+	sql`${mine(actor)} AND ${liveRead({ session: actor.session, owner: actor.owner, seatId: actor.seatId ?? undefined }, true)}`;
 const digest = (revision: SQL) =>
 	sql`encode(sha256(convert_to(jsonb_build_object('operation',p.operation,'revision',${revision},'args',r.args,'review',r.review)::text,'UTF8')),'hex')`;
 const expiry = sql`clock_timestamp()+make_interval(mins=>${REVIEW_MINUTES})`;
@@ -67,8 +64,10 @@ const audit = (action: string, kind: string, alias: string) =>
 
 /**
  * A proposal as its owner may see it now. The review status (pending, approved, cancelled, expired) is separate from
- * the recorded outcome of the approved revision. A review whose target is no longer available withholds its fields;
- * a saved receipt stays as it was.
+ * the recorded outcome of the approved revision. An approved revision without a saved outcome is executing while its
+ * effect job can still make progress (runtime/job.ts) and unknown once it cannot. A review whose target is no longer
+ * available withholds its fields; a saved receipt stays as it was. `now` is the database time the status was decided
+ * at, so a card counts the approval down from the server's clock, never the browser's.
  */
 const projection = (alias: string) =>
 	sql.raw(`jsonb_build_object('id',${alias}.id,'conversationId',${alias}.conversation_id,'operation',${alias}.operation,
@@ -77,10 +76,10 @@ const projection = (alias: string) =>
 		'review',CASE WHEN ${alias}.review->'target'='null'::jsonb OR EXISTS(SELECT FROM person t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.tenant_id=${alias}.tenant_id AND t.state='live')
 			THEN ${alias}.review ELSE jsonb_build_object('target',NULL,'changes','[]'::jsonb,'withheld',true) END,
 		'outcome',coalesce(${alias}.outcome,(SELECT 'unknown' FROM job j WHERE j.id=${alias}.job_id AND ${alias}.state='approved'
-			AND (j.state IN ('succeeded','failed','cancelled','superseded') OR (j.state='claimed' AND j.lease_until<=clock_timestamp())))),
+			AND NOT ${liveJob("j")})),
 		'executing',${alias}.state='approved' AND ${alias}.outcome IS NULL AND EXISTS(SELECT FROM job j WHERE j.id=${alias}.job_id
-			AND (j.state='ready' OR (j.state='claimed' AND j.lease_until>clock_timestamp()))),
-		'receipt',${alias}.receipt)`);
+			AND ${liveJob("j")}),
+		'receipt',${alias}.receipt,'now',clock_timestamp())`);
 
 const review = z.object({
 	target: z.object({ kind: z.literal("person"), id: z.uuid(), label: z.string() }).nullable(),
@@ -102,6 +101,7 @@ export const proposalRow = z.object({
 	receipt: z
 		.object({ receiptId: z.uuid().optional(), revision: z.string().optional(), code: z.string().optional() })
 		.nullable(),
+	now: z.coerce.date(),
 });
 export type Proposal = z.infer<typeof proposalRow>;
 
@@ -308,8 +308,10 @@ export async function cancelProposal(db: Database, actor: EvryActor, id: string)
 
 /**
  * evry.retryUnresolvedEffects: runs the approved revision again after a failed or unknown attempt, under the same
- * still-valid approval and the same effect key, so an effect that did commit returns its saved receipt. A completed
- * or refused effect is never repeated, and an expired approval needs a new review. One statement.
+ * still-valid approval and the same effect key, so an effect that did commit returns its saved receipt. Unknown means
+ * its job can no longer make progress (runtime/job.ts). An old job that no worker took is superseded, so the next drain
+ * claims the new job first; an old job a worker already holds finds the proposal on the new job and cannot publish. A
+ * completed or refused effect is never repeated, and an expired approval needs a new review. One statement.
  */
 export async function retryUnresolvedEffects(db: Database, actor: EvryActor, id: string) {
 	const proposalId = parse(z.uuid(), id);
@@ -317,11 +319,15 @@ export async function retryUnresolvedEffects(db: Database, actor: EvryActor, id:
 	const r = await db.execute(sql`
 		WITH x AS (
 			UPDATE proposal p SET outcome=NULL,receipt=NULL,job_id=${job}::uuid,approved_session_id=${actor.session}::uuid,updated_at=clock_timestamp()
-			WHERE p.id=${proposalId}::uuid AND ${owned(actor)} AND p.state='approved' AND p.expires_at>clock_timestamp()
-				AND (p.outcome='failed' OR (p.outcome IS NULL AND EXISTS(SELECT FROM job j WHERE j.id=p.job_id
-					AND (j.state IN ${TERMINAL_JOB} OR (j.state='claimed' AND j.lease_until<=clock_timestamp())))))
-			RETURNING p.*
+			FROM (SELECT id,job_id FROM proposal WHERE id=${proposalId}::uuid) old
+			WHERE p.id=old.id AND ${owned(actor)} AND p.state='approved' AND p.expires_at>clock_timestamp()
+				AND (p.outcome='failed' OR (p.outcome IS NULL AND NOT EXISTS(SELECT FROM job j WHERE j.id=p.job_id AND ${sql.raw(liveJob("j"))})))
+			RETURNING p.*,old.job_id AS old_job_id
 		), run AS (${effectJob(job, "x")}),
+		superseded AS (
+			UPDATE job j SET state='superseded',error_code='retried',finished_at=clock_timestamp(),revision=j.revision+1
+			FROM x WHERE j.id=x.old_job_id AND j.state='ready'
+		),
 		audit AS (${audit("evry.proposal_retried", "reopen", "x")})
 		SELECT ${projection("x")} AS proposal FROM x`);
 	if (r.rows.length) return { proposal: proposalRow.parse(r.rows[0]!.proposal), retried: true };

@@ -280,8 +280,9 @@ export function createMailService(config: {
 		);
 		return id;
 	}
-	async function enqueueMany(tx: Transaction, inputs: readonly MailIntent[]): Promise<string[]> {
-		const intents = inputs.map((input) => {
+	/** Validate, hash and seal mail intents into the rows `mailInsert` writes. Pure: no statement. */
+	function sealIntents(inputs: readonly MailIntent[]) {
+		return inputs.map((input) => {
 			const v = intentSchema.parse(input),
 				id = randomUUID(),
 				address = v.address.trim().toLowerCase();
@@ -297,8 +298,56 @@ export function createMailService(config: {
 					operation: v.operation,
 				}),
 			);
-			return { v, id, address, addressHash, hash, job: randomUUID(), request: randomUUID() };
+			return {
+				v,
+				id,
+				addressHash,
+				hash,
+				row: {
+					id,
+					tenant: v.owner.id,
+					recipient: v.recipient,
+					purpose: v.purpose,
+					key: v.logicalKey,
+					operation: v.operation,
+					notice: v.notice,
+					hash,
+					addressHash,
+					payload: {
+						v: 1,
+						sealed: seal(JSON.stringify({ ...v.content, from: config.from }), aad(id, v.owner.id, v.purpose)),
+					},
+					address: seal(address, aad(id, v.owner.id, "address")),
+					job: randomUUID(),
+					request: randomUUID(),
+					eligible: v.eligibleAt,
+				},
+			};
 		});
+	}
+	/**
+	 * The CTEs that insert sealed mail with its request, member and job rows, for the end of one write statement.
+	 * `mail_input` holds the sealed rows and `mail_inserted` the stored mail (the existing row for a known key).
+	 * `queued` gives a producer these CTEs for intents it has already authorized and checked for deletion barriers
+	 * under its own locks; it sends no statement.
+	 */
+	function mailInsert(rows: readonly ReturnType<typeof sealIntents>[number]["row"][]) {
+		return sql`mail_input AS MATERIALIZED (SELECT * FROM jsonb_to_recordset(${JSON.stringify(rows)}::jsonb) i(id uuid,tenant uuid,recipient uuid,purpose text,key text,operation uuid,notice uuid,hash text,"addressHash" text,payload jsonb,address text,job uuid,request uuid,eligible timestamptz)),
+   mail_inserted AS (
+    INSERT INTO mail(id,tenant_id,recipient_account_id,purpose,logical_key,operation_id,notice_id,payload_hash,audience_hash,frozen_payload,recipient_address_encrypted,address_hash,state,created_at,job_id)
+    SELECT id,tenant,recipient,purpose,key,operation,notice,hash,"addressHash",payload,address,"addressHash",'pending',clock_timestamp(),job FROM mail_input
+    ON CONFLICT(tenant_id,logical_key) DO UPDATE SET logical_key=excluded.logical_key RETURNING id,tenant_id,logical_key,payload_hash
+   ), mail_requests AS (
+    INSERT INTO mail_request(id,tenant_id,provider_key,request_hash) SELECT i.request,i.tenant,'mail/'||i.request::text,i.hash FROM mail_input i JOIN mail_inserted m ON m.id=i.id RETURNING id,tenant_id
+   ), mail_members AS (
+    INSERT INTO mail_request_member(request_id,tenant_id,mail_id,position) SELECT r.id,i.tenant,i.id,0 FROM mail_input i JOIN mail_requests r ON r.id=i.request RETURNING mail_id
+   ), mail_jobs AS (
+    INSERT INTO job(id,tenant_id,kind,subject_record_id,producer_key,source_revision,state,eligible_at,attempt_count,max_attempts,claim_generation)
+    SELECT i.job,i.tenant,'mail',i.id,i.id::text||'/1',1,'ready',i.eligible,0,4,0 FROM mail_input i JOIN mail_members m ON m.mail_id=i.id RETURNING id
+   )`;
+	}
+	async function enqueueMany(tx: Transaction, inputs: readonly MailIntent[]): Promise<string[]> {
+		const intents = sealIntents(inputs);
 		if (!intents.length) return [];
 		const input = intents.map((i, n) => ({ n, tenant: i.v.owner.id, recipient: i.v.recipient, key: i.v.logicalKey }));
 		const raw =
@@ -348,39 +397,9 @@ export function createMailService(config: {
 		if (authorities.some((a) => !authorized.has(a.id))) throw Error("mail_unavailable");
 		for (const [n, i] of intents.entries())
 			if (observations[n]?.prior_id && observations[n]?.prior_hash !== i.hash) throw Error("mail_identity_conflict");
-		const values = intents.map((i) => ({
-			id: i.id,
-			tenant: i.v.owner.id,
-			recipient: i.v.recipient,
-			purpose: i.v.purpose,
-			key: i.v.logicalKey,
-			operation: i.v.operation,
-			notice: i.v.notice,
-			hash: i.hash,
-			addressHash: i.addressHash,
-			payload: {
-				v: 1,
-				sealed: seal(JSON.stringify({ ...i.v.content, from: config.from }), aad(i.id, i.v.owner.id, i.v.purpose)),
-			},
-			address: seal(i.address, aad(i.id, i.v.owner.id, "address")),
-			job: i.job,
-			request: i.request,
-			eligible: i.v.eligibleAt,
-		}));
-		const result =
-			await tx.execute(sql`WITH input AS MATERIALIZED (SELECT * FROM jsonb_to_recordset(${JSON.stringify(values)}::jsonb) i(id uuid,tenant uuid,recipient uuid,purpose text,key text,operation uuid,notice uuid,hash text,"addressHash" text,payload jsonb,address text,job uuid,request uuid,eligible timestamptz)),
-   inserted AS (
-    INSERT INTO mail(id,tenant_id,recipient_account_id,purpose,logical_key,operation_id,notice_id,payload_hash,audience_hash,frozen_payload,recipient_address_encrypted,address_hash,state,created_at,job_id)
-    SELECT id,tenant,recipient,purpose,key,operation,notice,hash,"addressHash",payload,address,"addressHash",'pending',clock_timestamp(),job FROM input
-    ON CONFLICT(tenant_id,logical_key) DO UPDATE SET logical_key=excluded.logical_key RETURNING id,tenant_id,logical_key,payload_hash
-   ), requests AS (
-    INSERT INTO mail_request(id,tenant_id,provider_key,request_hash) SELECT i.request,i.tenant,'mail/'||i.request::text,i.hash FROM input i JOIN inserted m ON m.id=i.id RETURNING id,tenant_id
-   ), members AS (
-    INSERT INTO mail_request_member(request_id,tenant_id,mail_id,position) SELECT r.id,i.tenant,i.id,0 FROM input i JOIN requests r ON r.id=i.request RETURNING mail_id
-   ), jobs AS (
-    INSERT INTO job(id,tenant_id,kind,subject_record_id,producer_key,source_revision,state,eligible_at,attempt_count,max_attempts,claim_generation)
-    SELECT i.job,i.tenant,'mail',i.id,i.id::text||'/1',1,'ready',i.eligible,0,4,0 FROM input i JOIN members m ON m.mail_id=i.id RETURNING id
-   ) SELECT m.id,m.payload_hash,i.hash,i.id AS input_id FROM inserted m JOIN input i ON m.tenant_id=i.tenant AND m.logical_key=i.key`);
+		const result = await tx.execute(
+			sql`WITH ${mailInsert(intents.map((i) => i.row))} SELECT m.id,m.payload_hash,i.hash,i.id AS input_id FROM mail_inserted m JOIN mail_input i ON m.tenant_id=i.tenant AND m.logical_key=i.key`,
+		);
 		const rows = z
 			.array(z.object({ id: z.uuid(), input_id: z.uuid(), payload_hash: z.string(), hash: z.string() }))
 			.parse(result.rows);
@@ -656,6 +675,10 @@ export function createMailService(config: {
 		append,
 		enqueue,
 		enqueueMany,
+		queued: (inputs: readonly MailIntent[]) => {
+			const sealed = sealIntents(inputs);
+			return { ids: sealed.map((m) => m.id), ctes: mailInsert(sealed.map((m) => m.row)) };
+		},
 		dispatch,
 		reconcileUnknownOutcome,
 		recordProviderReceipt,
