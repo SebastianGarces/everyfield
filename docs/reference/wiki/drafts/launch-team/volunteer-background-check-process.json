@@ -156,9 +156,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": "Wiki F6 changes brand spelling only. Published claims and scripture are unchanged. Sources retain their original 2026-10-16 access dates and historical wording from approved PR #44; these dates do not represent fresh checks. Independent Opus review is pending."
+      "status": "passed",
+      "reviewer": "Opus 5.5 verifier (claude-opus-5-5, independent, claude-code)",
+      "notes": "Passed at reviewed draft commit ab7fecb5d8fd8ffb6d92559b2d7ad48d647c9394 for the Wiki F6 spelling correction. Compared with published seed row 54755550-faf2-47ff-9990-1dcdd442fda7, the only article changes are EveryField to Everyfield in the H2 'Protect the records outside Everyfield', the first sentence of that section and the excerpt; status and published_at take the required draft values. id and draft.replaces_id keep the published id; the lowercase heading anchor is unchanged. draft.sources equal the passed PR #44 draft (61e79fb) entry for entry. No factual claim changed, so sources were not re-read; their 2026-10-16 access dates are provenance from PR #44. Scope.md still excludes background checks from the app, which supports the changed sentence. Proverbs 22:3 (LSB) re-checked word for word on lsbible.org on 2026-10-23. bin/wiki lint passes (965 words, no warnings); check-seed passes; seed and manifest are byte-identical to main. Fresh desktop 1280 and mobile 390 screenshots render all sections, callouts, list, checklist, scripture and the LSB notice, and match the PR-body images byte for byte. Editorial content/tooling proof, not application acceptance. Sebastian approval still required."
     },
     "rulings": [
       "Wiki F6 changes only EveryField to Everyfield in the published article heading, body and excerpt. Article id, slug, heading anchor, related articles, timestamps and all other wording remain unchanged.",
