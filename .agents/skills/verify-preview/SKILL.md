@@ -101,12 +101,40 @@ difference into `$E/ui-results.json`. The flow runs on both sides with a video. 
 a non-200 status, a page or console error, an axe violation that main does not have, or a failed
 flow check on the branch.
 
-On the production preview, measure end-to-end time for every changed read and write, from the
-user action until its confirmed result. Simple actions must finish in under 1 second. Record
-whether writes update the UI optimistically and roll back clearly on failure. Count requests for
-main actions and inspect them for needless refetches or refreshes. Keep timings and request logs
-in `$E` and summarize them in the Experience section. Reports and analytics may exceed the time
-budget only when the PR names that approved category and explains the slower action.
+Measure end-to-end time for every changed read and write, from the user action until its
+confirmed result, with `bin/evf timing` (D81). Simple actions must finish in under 1 second.
+Do not time a head that already has blocking behavior findings (C119). Write one timing set per
+action in `$E`, then run it on the exact head:
+
+```js
+// $E/timing-add-person.mjs: ctx = { url, databaseUrl, env, require, out, index, replacementFor }
+export default {
+  name: "add a person", budgetMs: 1000, samples: 40, write: true, // write: saves add the write probe
+  async setup(ctx) {}, // seed synthetic data in ctx.databaseUrl; sign a session with ctx.env.IDENTITY_SECRET;
+                       // open a browser with ctx.require("playwright")
+  async sample(ctx) {  // untimed steps first, then the timed action until its confirmed result
+    const startedAt = Date.now();
+    return { startedAt, endedAt: Date.now() }; // add interference: "<what>" when the set wrote in parallel
+  },
+  async teardown(ctx) {}, // close the browser
+};
+```
+
+```bash
+bin/evf timing <task> --set "$E/timing-add-person.mjs" --head <40-char sha>
+```
+
+It builds a production preview of that head on its own quiet local database, never the shared
+one, and runs an independent SELECT 1 probe (and a write probe for saves) every 100 ms. Each sample
+is qualifying or labeled non-qualifying: load above the machine limit, a probe round trip above
+150 ms in its window (database spike or write stall), or self-interference. Each non-qualifying
+sample gets exactly one labeled replacement. The set passes only when every declared sample has a
+qualifying result under budget; a qualifying miss is never rerun away. Copy its PASSED or FAILED
+line and `report.json` into the evidence. Record whether writes update the UI optimistically and
+roll back clearly on failure. Count requests for main actions and inspect them for needless
+refetches or refreshes. Keep request logs in `$E` and summarize them in the Experience section.
+Reports and analytics may exceed the time budget only when the PR names that approved category
+and explains the slower action.
 
 Then check the changed behavior by hand with agent-browser on the branch preview: open the pages,
 use the controls, read `ab errors` and `ab console`, and take screenshots of states the flow does

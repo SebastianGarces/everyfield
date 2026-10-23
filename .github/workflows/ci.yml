@@ -77,11 +77,15 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
       - name: pnpm in the corepack cache (retries registry errors)
         run: .github/scripts/corepack-install.sh
+      # The quiet timing database test (OPS-52) migrates a Docker Postgres with the repository's own db:migrate.
+      - run: pnpm install --frozen-lockfile
       - name: Git identity for test fixtures
         run: |
           git config --global user.name "evf ci"
