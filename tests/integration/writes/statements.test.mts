@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { checkBudgets, checkSamples } from "./budgets.mjs";
@@ -13,8 +13,9 @@ const root = fileURLToPath(new URL("../../../", import.meta.url));
 
 // CI splits the census into parts. EVF_CENSUS_PART=i/N runs part i of N: part 1 runs the HTTP requests and the native
 // boundaries, and the behavior suites spread over the other parts. A part checks only what its own samples show. Each
-// passing part adds a marker to its counts file, and EVF_CENSUS_UNION=<folder> checks every rule over the counts files of
-// all N parts, so a budget that no part measured still fails. Without either variable one run does all of it.
+// passing part adds a marker to its counts file that names the scripts and suites it ran. EVF_CENSUS_UNION=<folder>
+// requires each of them exactly once over all N parts, then checks every rule over their counts files, so a skipped suite
+// or a budget that no part measured still fails. Without either variable one run does all of it.
 type Census = { kind: "whole" } | { kind: "part"; index: number; total: number } | { kind: "union"; folder: string };
 type Row = { kind: string; [key: string]: any };
 
@@ -49,8 +50,18 @@ const parseRows = (text: string): Row[] =>
 		.filter(Boolean)
 		.map((line) => JSON.parse(line));
 
-/** The rows of every counts file under `folder`, which must hold each part of one split exactly once. */
-async function unionRows(folder: string): Promise<Row[]> {
+/** Everything one census runs, as repository paths: the request and native scripts, then the behavior suites. */
+async function censusUnits(): Promise<string[]> {
+	const patterns = JSON.parse(await readFile(new URL("./suites.json", import.meta.url), "utf8"));
+	return [
+		"tests/integration/writes/requests.mjs",
+		"tests/integration/writes/native.mjs",
+		...globSync(patterns, { cwd: root }),
+	];
+}
+
+/** The rows of every counts file under `folder`: each part of one split exactly once, together running `units` once. */
+async function unionRows(folder: string, units: string[]): Promise<Row[]> {
 	const files = globSync("**/counts.jsonl", { cwd: folder });
 	const rows = (await Promise.all(files.map((file) => readFile(join(folder, file), "utf8")))).flatMap(parseRows);
 	const parts = rows.filter((row) => row.kind === "part").map((row) => `${row.index}/${row.total}`);
@@ -60,6 +71,14 @@ async function unionRows(folder: string): Promise<Row[]> {
 		parts.sort(),
 		Array.from({ length: total }, (_, i) => `${i + 1}/${total}`).sort(),
 		"The census union needs every part exactly once",
+	);
+	assert.deepEqual(
+		rows
+			.filter((row) => row.kind === "part")
+			.flatMap((row) => row.ran)
+			.sort(),
+		[...units].sort(),
+		"The census parts must run every suite exactly once",
 	);
 	return rows;
 }
@@ -184,8 +203,9 @@ test("F8: a zero-write replay with a suffixed name is held to its operation's re
 });
 
 // WP-087: the union of the parts holds every whole-census rule. A budget that no part measured fails, and so does a
-// missing part, which would otherwise drop its budgets from the check.
-test("WP-087: the census union fails on a budget no part measured and on a missing part", async () => {
+// missing part, which would otherwise drop its budgets from the check. A suite that no part ran fails even when it
+// measured nothing of its own, and so does a suite that two parts ran.
+test("WP-087: the census union fails on a budget no part measured, a missing part and a skipped suite", async () => {
 	const folder = await mkdtemp(join(tmpdir(), "evf-census-union-"));
 	const sample = (name: string) => ({
 		kind: "sample",
@@ -201,32 +221,44 @@ test("WP-087: the census union fails on a budget no part measured and on a missi
 		await mkdir(join(folder, part), { recursive: true });
 		await writeFile(join(folder, part, "counts.jsonl"), rows.map((row) => JSON.stringify(row) + "\n").join(""));
 	};
-	await write("part-1", [sample("GET /people"), { kind: "part", index: 1, total: 2 }]);
-	await write("part-2", [sample("people.addNote"), { kind: "part", index: 2, total: 2 }]);
-	const rows = await unionRows(folder);
+	const units = ["requests.mjs", "people.test.mts", "tasks.test.mts", "unit.test.mts"];
+	const marker = (index: number, ran: string[]) => ({ kind: "part", index, total: 2, ran });
+	await write("part-1", [sample("GET /people"), marker(1, ["requests.mjs"])]);
+	await write("part-2", [sample("people.addNote"), marker(2, ["people.test.mts", "tasks.test.mts", "unit.test.mts"])]);
+	const rows = await unionRows(folder, units);
 	assert.deepEqual(checkSamples(rows, limits), []);
 	assert.deepEqual(checkBudgets(rows, limits), ["tasks.edit: budgeted but never measured; remove it or exercise it"]);
-	await write("part-2", [sample("people.addNote"), sample("tasks.edit"), { kind: "part", index: 2, total: 2 }]);
-	assert.deepEqual(checkBudgets(await unionRows(folder), limits), []);
-	await write("part-2", [sample("people.addNote"), sample("tasks.edit")]);
-	await assert.rejects(unionRows(folder), /The census union needs every part exactly once/);
+	const measured = [sample("people.addNote"), sample("tasks.edit")];
+	await write("part-2", [...measured, marker(2, ["people.test.mts", "tasks.test.mts", "unit.test.mts"])]);
+	assert.deepEqual(checkBudgets(await unionRows(folder, units), limits), []);
+	// unit.test.mts measures nothing, so only the list of suites the part ran shows that it was skipped.
+	await write("part-2", [...measured, marker(2, ["people.test.mts", "tasks.test.mts"])]);
+	await assert.rejects(unionRows(folder, units), /The census parts must run every suite exactly once/);
+	await write("part-2", [
+		...measured,
+		marker(2, ["requests.mjs", "people.test.mts", "tasks.test.mts", "unit.test.mts"]),
+	]);
+	await assert.rejects(unionRows(folder, units), /The census parts must run every suite exactly once/);
+	await write("part-2", measured);
+	await assert.rejects(unionRows(folder, units), /The census union needs every part exactly once/);
 });
 
 // One regression checks every budget in limits.json: real HTTP requests on the production build, the native write
 // boundaries and every write the behavior suites run. It records no SQL or parameters.
 test("D69/D70: every request and write stays within its statement budget", { timeout: 30 * 60 * 1000 }, async () => {
 	const limits = JSON.parse(await readFile(new URL("./limits.json", import.meta.url), "utf8"));
-	if (census.kind === "union") return checkWhole(await unionRows(census.folder), limits);
+	if (census.kind === "union") return checkWhole(await unionRows(census.folder, await censusUnits()), limits);
 	// CI names a folder (EVF_CENSUS_LOGS) and uploads it: these logs and the counts file.
 	const parent = process.env.EVF_CENSUS_LOGS ?? tmpdir();
 	await mkdir(parent, { recursive: true });
 	const directory = await mkdtemp(join(parent, "evf-write-counts-")),
 		output = join(directory, "counts.jsonl");
 	await writeFile(output, "");
-	const patterns = JSON.parse(await readFile(new URL("./suites.json", import.meta.url), "utf8"));
-	const suites = globSync(patterns, { cwd: root }).map((file) => join(root, file));
+	const [requestsScript, nativeScript, ...suites] = (await censusUnits()).map((file) => join(root, file));
 	const part = census.kind === "part" ? census : { index: 1, total: 1 };
 	const files = partSuites(suites, part.index, part.total);
+	// What this part ran and passed, as repository paths, for the union to require each exactly once.
+	const ran: string[] = [];
 	const typescript = [
 		process.env.NODE_OPTIONS ?? "",
 		"--conditions=react-server",
@@ -261,14 +293,15 @@ test("D69/D70: every request and write stays within its statement budget", { tim
 	}
 	// HTTP requests and native entry points first, so a missing build or a retired producer fails before the corpus.
 	if (part.index === 1) {
-		const requests = await run("requests", [join(root, "tests/integration/writes/requests.mjs")], typescript);
+		const requests = await run("requests", [requestsScript], typescript);
 		assert.equal(
 			requests.exit,
 			0,
 			"HTTP request proof failed: " + requests.evidence + "\n" + requests.log.slice(-2000),
 		);
-		const native = await run("native", [join(root, "tests/integration/writes/native.mjs")], counted);
+		const native = await run("native", [nativeScript], counted);
 		assert.equal(native.exit, 0, "Native boundary proof failed: " + native.evidence + "\n" + native.log.slice(-1000));
+		ran.push(requestsScript, nativeScript);
 	}
 	if (files.length) {
 		const behaviors = await run("behaviors", ["--test", "--test-concurrency=2", ...files], counted);
@@ -283,11 +316,13 @@ test("D69/D70: every request and write stays within its statement budget", { tim
 					.filter((line) => line.includes("✖"))
 					.join("\n"),
 		);
+		ran.push(...files);
 	}
 	console.log("Statement census:", output);
 
 	const rows = parseRows(await readFile(output, "utf8"));
 	if (census.kind === "whole") return checkWhole(rows, limits);
 	checkPart(rows, limits);
-	appendFileSync(output, JSON.stringify({ kind: "part", index: part.index, total: part.total }) + "\n");
+	const marker = { kind: "part", index: part.index, total: part.total, ran: ran.map((file) => relative(root, file)) };
+	appendFileSync(output, JSON.stringify(marker) + "\n");
 });
