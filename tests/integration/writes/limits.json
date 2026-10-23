@@ -169,8 +169,8 @@
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 4 read, 2 write."
 	},
 	"invitations.respondResident": {
-		"limit": 15,
-		"reason": "Established path (C88), RT-6a: BEGIN; the timeouts, source invitation and workspace seat lock; the session's account (invitation_identity locks it); the invitation with its workspace and clock; the workspace root lock; the request-key and lifecycle read (prepareWrite); the source Person lock; the competing link read; the organization link lock (and insert when new); the link's witness; the residency link insert (its trigger locks the Person, so it precedes the final statement); one final statement; COMMIT. RT-6a brought it from 26."
+		"limit": 14,
+		"reason": "Established path (C88), RT-6a: BEGIN; the timeouts, source invitation and workspace seat lock; the session's account (invitation_identity locks it); the invitation with its workspace and clock; the workspace root lock; the request-key and lifecycle read (prepareWrite); the source Person lock; the competing link read; the organization link lock (and insert when new); the link's witness; one final statement with the link, the Person's account link (after the link, by dependency) and every audit row; COMMIT. RT-6a brought it from 26."
 	},
 	"invitations.resume": {
 		"limit": 14,

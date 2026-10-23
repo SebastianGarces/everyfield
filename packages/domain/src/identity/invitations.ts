@@ -9,6 +9,7 @@ import "server-only";
 import { z } from "zod";
 import { RequestActor } from "../access/session.ts";
 import { timedTransaction, timeouts, transaction } from "./budget.ts";
+import { lastWrite } from "../operations/writes.ts";
 import * as d from "./invitation-core.ts";
 export interface InvitationMail {
 	owner: Owner;
@@ -411,26 +412,29 @@ export function createInvitationService(config: InvitationConfig) {
 					if (blocked.length) d.refuse();
 					const id = randomUUID(),
 						choices = decision.choices;
-					// The link's insert trigger locks the Person (people_live_reference), so it runs before the final statement
-					// that links the Person to the account.
-					await tx.insert(t.residency_link).values({
-						id,
-						organization_id: selected.id,
-						person_id: p.id,
-						account_id: a.account_id,
-						affiliation_id: affiliation.id,
-						invitation_id: i.id,
-						accepted_at: sql`clock_timestamp()`,
-						consent_revision: "1",
-						share_foundations: choices.shareFoundations,
-						share_milestones: choices.shareMilestones,
-						revision: "1",
-					});
+					// One final statement: the link's insert (its trigger checks the locked Person is live), then the Person's
+					// account link, which depends on the inserted link so it runs after it.
+					cmd.writes.push(
+						tx.insert(t.residency_link).values({
+							id,
+							organization_id: selected.id,
+							person_id: p.id,
+							account_id: a.account_id,
+							affiliation_id: affiliation.id,
+							invitation_id: i.id,
+							accepted_at: sql`clock_timestamp()`,
+							consent_revision: "1",
+							share_foundations: choices.shareFoundations,
+							share_milestones: choices.shareMilestones,
+							revision: "1",
+						}),
+					);
+					const link = lastWrite(cmd);
 					cmd.writes.push(
 						tx
 							.update(t.person)
 							.set({ linked_account_id: a.account_id, revision: d.bump(p.revision) })
-							.where(eq(t.person.id, p.id)),
+							.where(and(eq(t.person.id, p.id), sql`EXISTS(SELECT FROM ${link})`)),
 						claim("accepted"),
 					);
 					events.push(await d.event(tx, cmd, p.id, "edit", "people.updated", p.revision, d.bump(p.revision)));
