@@ -15,5 +15,6 @@
 	"tests/integration/jobs/*.test.mts",
 	"tests/integration/operations/*.test.mts",
 	"packages/domain/test/requests.test.ts",
-	"tests/reference/releases/*.db.mts"
+	"tests/reference/releases/*.db.mts",
+	"tests/reference/starter/*.db.mts"
 ]

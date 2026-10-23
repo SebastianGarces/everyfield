@@ -923,9 +923,21 @@
 	"phases/creation-entry/index.recordCreationEntry": {
 		"limit": 1
 	},
+	"reference.exportApprovedWiki": {
+		"limit": 1
+	},
+	"reference.installApprovedWiki": {
+		"limit": 4
+	},
+	"reference.invalidateWikiCache": {
+		"limit": 1
+	},
 	"reference.promote": {
 		"limit": 24,
 		"reason": "RT-6 outlier. Its largest first run: 4 transaction, 6 locked read, 7 read, 7 write."
+	},
+	"reference.rebuildEmbeddings": {
+		"limit": 4
 	},
 	"seats.appointAdmin": {
 		"limit": 7,
