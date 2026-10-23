@@ -741,7 +741,8 @@ export const accountPersonProducer: AccountPersonProducer<Tx> = {
 			// Trusted collaborator, never a client account selector. Provisioning owns
 			// account proof/eligibility and enclosing transaction; these locks arbitrate retries.
 			// One statement locks the account, then the plant: the plant's lock waits for the account's.
-			const locked = await tx.execute(sql`WITH a AS MATERIALIZED (SELECT id FROM account WHERE id=${input.accountId}::uuid FOR UPDATE)
+			const locked =
+				await tx.execute(sql`WITH a AS MATERIALIZED (SELECT id FROM account WHERE id=${input.accountId}::uuid FOR UPDATE)
  SELECT (SELECT count(*) FROM a)::int AS accounts, (SELECT count(*) FROM (SELECT id FROM plant WHERE id=${selected.id}::uuid
  AND EXISTS(SELECT FROM a) FOR UPDATE) p)::int AS plants`);
 			if (!z.object({ accounts: z.number() }).parse(locked.rows[0]).accounts) deny();

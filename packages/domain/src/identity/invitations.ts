@@ -448,7 +448,8 @@ export function createInvitationService(config: InvitationConfig) {
 			} else {
 				if (!i.role || (selected.kind !== "plant" && selected.kind !== "organization")) d.refuse();
 				// The account's active seats, then its active links, locked in that order in one statement.
-				const held = await tx.execute(sql`WITH s AS MATERIALIZED (SELECT id FROM seat WHERE account_id=${a.account_id}::uuid
+				const held =
+					await tx.execute(sql`WITH s AS MATERIALIZED (SELECT id FROM seat WHERE account_id=${a.account_id}::uuid
  AND ended_at IS NULL FOR UPDATE), f AS MATERIALIZED (SELECT id FROM affiliation WHERE account_id=${a.account_id}::uuid
  AND ended_at IS NULL FOR UPDATE) SELECT (SELECT count(*) FROM s)::int AS seats, (SELECT count(*) FROM f)::int AS links`);
 				const { seats, links } = heldRow.parse(held.rows[0]);
