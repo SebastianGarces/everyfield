@@ -64,12 +64,7 @@ export async function resolveReferences(
 	references: readonly { kind: "person"; id: string }[],
 ) {
 	const ids = [...new Set(references.slice(0, LIMITS.references).map((r) => r.id))];
-	const verified = (await verifyPeople(db, actor, ids)).map((r) => ({
-		kind: "person" as const,
-		id: r.id,
-		label: r.label,
-	}));
-	return { verified, dropped: references.length - verified.length };
+	return (await verifyPeople(db, actor, ids)).map((r) => ({ kind: "person" as const, id: r.id, label: r.label }));
 }
 
 const estimate = (text: string) => Math.ceil(text.length / 4);

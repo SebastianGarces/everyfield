@@ -181,11 +181,13 @@ async function run(
 				catalog,
 				history,
 				text: request,
-				references: references.verified,
+				references,
 				now: deps.now?.() ?? new Date(),
 			});
 		};
 		const context = await compile();
+		/** The actor as the last access check before a tool call found it. */
+		let current = actor;
 		/** This turn's messages with sources that are no longer available withheld. One read per model call. */
 		const withLiveRows = async (messages: ModelMessage[]) => {
 			const ids = new Set<string>();
@@ -198,10 +200,8 @@ async function run(
 			for (const m of messages)
 				if (m.role === "tool") for (const part of m.content) for (const row of rowsOf(part) ?? []) ids.add(row.id);
 			if (!ids.size) return messages;
-			const fresh = await deps.freshActor(session);
-			const live = new Set(
-				(fresh && sameContext(fresh, actor) ? await verifyPeople(db, fresh, [...ids]) : []).map((r) => r.id),
-			);
+			// verifyPeople checks live access in its statement, so a source the actor lost since the last tool call drops out.
+			const live = new Set((await verifyPeople(db, current, [...ids])).map((r) => r.id));
 			// The replay rule (retained.ts): when a source of this turn is withheld, so is this turn's assistant text,
 			// which may quote it. Tool calls and their results stay, so the call/result protocol holds.
 			const withheld = [...ids].some((id) => !live.has(id));
@@ -254,7 +254,7 @@ async function run(
 				fail(new EvryRefusal("access_denied"));
 				return null;
 			}
-			return fresh;
+			return (current = fresh);
 		};
 		const read = async <I>(adapter: ReadAdapter<I>, input: I) => {
 			const fresh = await admit();

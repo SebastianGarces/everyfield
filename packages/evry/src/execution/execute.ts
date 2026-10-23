@@ -13,8 +13,10 @@ import type { ReviewedWrite } from "../proposals/types.ts";
 export type EffectLease = { jobId: string; tenantId: string; leaseOwner: string; generation: string };
 
 /**
- * completed, refused or failed: the outcome saved with this attempt. expired: the approval lapsed before the effect
- * started, so nothing ran. closed: the review was cancelled or revised first. lost: this claim is no longer current.
+ * completed or refused: the outcome saved with this attempt. failed: the attempt ended with an error that is not a
+ * domain refusal, so nothing is saved and the review reads as unknown (the change may have committed). expired: the
+ * approval lapsed before the effect started, so nothing ran. closed: the review was cancelled or revised first. lost:
+ * this claim is no longer current.
  */
 export type EffectOutcome = "completed" | "refused" | "failed" | "expired" | "closed" | "lost";
 
@@ -27,13 +29,13 @@ const fence = (lease: EffectLease) =>
  * Takes the publication locks before any time is read: the proposal row, then a share lock on the job row, so lease
  * recovery cannot replace the claim before this transaction ends. A predicate inside a locking statement is evaluated
  * before its lock wait and not again for an unchanged row, so the lease and approval expiry are read only by the next
- * statement, after every lock is held.
+ * statement, after every lock is held. The run itself takes both locks in its first read (executeProposal); a
+ * refusal or an expiry, which saves under a new transaction, takes them here.
  */
-async function holdPublicationLocks(tx: Transaction, lease: EffectLease, proposal = true) {
-	if (proposal)
-		await tx.execute(
-			sql`SELECT 1 FROM proposal WHERE job_id=${lease.jobId}::uuid AND tenant_id=${lease.tenantId}::uuid FOR UPDATE`,
-		);
+async function holdPublicationLocks(tx: Transaction, lease: EffectLease) {
+	await tx.execute(
+		sql`SELECT 1 FROM proposal WHERE job_id=${lease.jobId}::uuid AND tenant_id=${lease.tenantId}::uuid FOR UPDATE`,
+	);
 	await tx.execute(
 		sql`SELECT 1 FROM job WHERE id=${lease.jobId}::uuid AND tenant_id=${lease.tenantId}::uuid FOR SHARE`,
 	);
@@ -76,7 +78,8 @@ class Refused extends Error {
  * request key and saves the outcome only if the approval is unexpired and the claim still current once the publication
  * locks are held. The native command writes its own audit row with the change, so the effect, its audit record and the
  * saved outcome commit together or not at all. A refusal rolls everything back and then saves the refusal under the
- * same claim. `reminders` is the task reminder port for a command that hands tasks to someone else.
+ * same claim. Any other error saves nothing: only a server answer may say that nothing was changed (C58). `reminders`
+ * is the task reminder port for a command that hands tasks to someone else.
  */
 export async function executeProposal(
 	db: Database,
@@ -88,8 +91,8 @@ export async function executeProposal(
 			const r = await tx.execute(sql`
 				SELECT p.id,p.account_id,p.tenant_id,c.context_kind,p.operation,p.revision,p.input,p.state,p.outcome,p.approved_session_id,
 					p.expires_at<=clock_timestamp() AS expired,${fence(lease)} AS fenced
-				FROM proposal p JOIN conversation c ON c.id=p.conversation_id
-				WHERE p.job_id=${lease.jobId}::uuid AND p.tenant_id=${lease.tenantId}::uuid FOR UPDATE OF p`);
+				FROM proposal p JOIN conversation c ON c.id=p.conversation_id JOIN job j ON j.id=p.job_id AND j.tenant_id=p.tenant_id
+				WHERE p.job_id=${lease.jobId}::uuid AND p.tenant_id=${lease.tenantId}::uuid FOR UPDATE OF p FOR SHARE OF j`);
 			if (!r.rows.length) return "lost";
 			const p = locked.parse(r.rows[0]);
 			if (!p.fenced) return "lost";
@@ -114,9 +117,8 @@ export async function executeProposal(
 				reminders,
 			);
 			if ("refused" in result) throw new Refused(refusalCode(result.refused));
-			// Publish only if the approval is still unexpired and this claim still current once every lock is held;
-			// otherwise the change and its audit row roll back with the transaction.
-			await holdPublicationLocks(tx, lease, false);
+			// Publish only if the approval is still unexpired and this claim still current; the first read already holds
+			// the proposal and job locks. Otherwise the change and its audit row roll back with the transaction.
 			const published = await tx.execute(
 				sql`UPDATE proposal SET outcome='completed',receipt=${JSON.stringify(result)}::jsonb,updated_at=clock_timestamp()
 					WHERE id=${p.id}::uuid AND expires_at>clock_timestamp() AND ${fence(lease)}`,
@@ -143,16 +145,14 @@ export async function executeProposal(
 					? refusalCode(error.code)
 					: error instanceof EvryRefusal
 						? error.code
-						: error instanceof Error && error.message === "unavailable"
-							? "access_denied"
-							: null;
-		const outcome = refused ? "refused" : "failed";
+						: null;
+		if (!refused) return "failed";
 		const saved = await db.transaction(async (tx) => {
 			await holdPublicationLocks(tx, lease);
 			return tx.execute(sql`
-				UPDATE proposal SET outcome=${outcome},receipt=jsonb_build_object('code',${refused ?? "unknown"}::text),updated_at=clock_timestamp()
+				UPDATE proposal SET outcome='refused',receipt=jsonb_build_object('code',${refused}::text),updated_at=clock_timestamp()
 				WHERE job_id=${lease.jobId}::uuid AND tenant_id=${lease.tenantId}::uuid AND state='approved' AND outcome IS NULL AND ${fence(lease)}`);
 		});
-		return saved.rowCount ? outcome : "lost";
+		return saved.rowCount ? "refused" : "lost";
 	}
 }

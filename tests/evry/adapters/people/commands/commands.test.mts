@@ -155,7 +155,7 @@ test("INV-budget: a proposed person is created only after approval, once, with i
 	]);
 	assert.deepEqual([review.status, review.outcome, review.review.target], ["approved", "completed", null]);
 	console.log(JSON.stringify({ effect: "people.createPerson", statements }));
-	assert.equal(statements, 6);
+	assert.equal(statements, 5);
 
 	// Only an Owner or Admin may propose, the same floor as the native command.
 	const member = await actor("member");
@@ -204,7 +204,7 @@ test("INV-budget: a stage change hands the person's open tasks back as reviewed,
 		);
 	}
 	console.log(JSON.stringify({ effect: "people.changeStatus", statements }));
-	assert.deepEqual(statements, [9, 9], "the effect does not grow with the number of open tasks");
+	assert.deepEqual(statements, [8, 8], "the effect does not grow with the number of open tasks");
 
 	// A stage change inside the pipeline hands nothing off.
 	const proposal = await t.propose("people.changeStatus", {
@@ -246,7 +246,7 @@ test("AC:PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-RETIRE a retirement runs 
 	const { outcome, statements, review } = await approveAndRun(owner, proposal);
 	assert.equal(outcome, "completed");
 	console.log(JSON.stringify({ effect: "people.deletePerson", statements }));
-	assert.equal(statements, 11);
+	assert.equal(statements, 10);
 	assert.deepEqual([(await personRow(p2)).state, await personRow(p1)], ["retired", p1Before]);
 	// The historical record names P2; the review no longer shows a person that is not current; the receipt stays.
 	assert.deepEqual(await effectAudits(proposal.id), [
@@ -304,7 +304,7 @@ test("AC:PROVIDER48-002 a photo change uses only this church's own verified uplo
 			statements: [first.statements, second.statements],
 		}),
 	);
-	assert.deepEqual([first.statements, second.statements], [7, 7]);
+	assert.deepEqual([first.statements, second.statements], [6, 6]);
 });
 
 test("AC:UI45-003 a photo proposal's owner sees the exact staged upload while the review lasts; approval needs it", async () => {

@@ -21,10 +21,9 @@ export function currentAuthority(actor: EvryActor): SQL {
  * so a sign-out never waits for it, and a stream or worker still loses access the moment the session or seat ends.
  */
 export function liveAuthority(actor: EvryActor): SQL {
-	const context = actor.authority.actor.context;
 	return liveRead(
-		context.kind === "seat"
-			? { session: actor.session, owner: actor.owner, seatId: context.seatId, role: context.role }
+		actor.seatId && actor.role
+			? { session: actor.session, owner: actor.owner, seatId: actor.seatId, role: actor.role }
 			: { session: actor.session, owner: actor.owner },
 	);
 }
