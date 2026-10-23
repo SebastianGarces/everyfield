@@ -2,7 +2,7 @@ import { writeAction } from "../operations/actions.ts";
 import { accountId, owner, requestIdentity, sessionId, type Owner } from "@everyfield/contracts/common";
 import { invitationError, seatError } from "@everyfield/contracts/identity";
 import type { Database, Transaction } from "@everyfield/db/client";
-import { alias, eq, sql } from "@everyfield/db/query";
+import { eq, sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
 import { createHash, randomUUID } from "node:crypto";
 import "server-only";
@@ -140,11 +140,9 @@ export async function load(tx: Transaction, id: string) {
 	if (!i || (i.purpose !== "seat" && i.purpose !== "residency_link")) refuse();
 	return i;
 }
-const rootTenant = alias(t.tenant, "t"),
-	rootOrganization = alias(t.organization, "o");
 /**
- * A write's invitation row, locked, with its workspace and the database clock in one statement, then the workspace
- * root share-locked. The command's admission check reads the workspace's lifecycle witness after that lock.
+ * A write's invitation row, locked, with its workspace in one statement, then the workspace root share-locked with the
+ * database clock. The command's admission check reads the workspace's lifecycle witness after that lock.
  */
 export async function lockForWrite(tx: Transaction, id: string) {
 	const [r] = await tx
@@ -152,7 +150,6 @@ export async function lockForWrite(tx: Transaction, id: string) {
 			invitation: t.invitation,
 			kind: t.tenant.kind,
 			organizationKind: t.organization.kind,
-			now: sql`clock_timestamp()`.mapWith((value: string) => new Date(value)),
 		})
 		.from(t.invitation)
 		.innerJoin(t.tenant, eq(t.tenant.id, t.invitation.tenant_id))
@@ -167,21 +164,22 @@ export async function lockForWrite(tx: Transaction, id: string) {
 			: { kind: "organization", id: r.invitation.tenant_id, organizationKind: r.organizationKind },
 	);
 	const root = selected.kind === "plant" ? t.plant : t.organization;
-	const [locked] = await tx
-		.select({ kind: rootTenant.kind, organizationKind: rootOrganization.kind })
-		.from(root)
-		.innerJoin(rootTenant, eq(rootTenant.id, root.id))
-		.leftJoin(rootOrganization, eq(rootOrganization.id, rootTenant.id))
-		.where(eq(root.id, selected.id))
-		.for("share", { of: root });
+	// The clock is read in the outer query, which needs the locked root row first: it is the time after any wait for
+	// that lock, as the expiry check requires.
+	const result =
+		await tx.execute(sql`WITH r AS MATERIALIZED (SELECT x.id FROM ${root} x WHERE x.id=${selected.id}::uuid FOR SHARE)
+ SELECT t.kind, o.kind AS organization_kind, (extract(epoch FROM clock_timestamp())*1000)::float8 AS now
+ FROM r JOIN tenant t ON t.id=r.id LEFT JOIN organization o ON o.id=t.id`);
+	const locked = lockedRoot.safeParse(result.rows[0]);
 	if (
-		!locked ||
-		locked.kind !== selected.kind ||
-		(selected.kind === "organization" && locked.organizationKind !== selected.organizationKind)
+		!locked.success ||
+		locked.data.kind !== selected.kind ||
+		(selected.kind === "organization" && locked.data.organization_kind !== selected.organizationKind)
 	)
 		refuse();
-	return { invitation: r.invitation, selected, now: r.now };
+	return { invitation: r.invitation, selected, now: new Date(locked.data.now) };
 }
+const lockedRoot = z.object({ kind: z.string(), organization_kind: z.string().nullable(), now: z.number() });
 export async function workspace(tx: Transaction, id: string) {
 	const bound = requestWrite(tx);
 	if (bound?.selected.id === id && bound.selected.kind !== "account")

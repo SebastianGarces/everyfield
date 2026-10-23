@@ -144,6 +144,48 @@ test("AC:TEN-005 AC:SEC-02 AC:AUTH-002 INV-claim: wrong mailbox unverified accou
 	await denied(f.invitations.accept(s2.recipient.session, i2.claim));
 	assert.equal(await count(t.seat, eq(t.seat.account_id, s2.recipient.id)), 0);
 });
+// RT-6a verifier finding: the expiry check uses the database time after the wait for the workspace root lock.
+test("INV-expiry: an accept or resume that waits on the workspace lock past expiry refuses", async () => {
+	for (const via of ["accept", "resume"] as const) {
+		const s = await f.setup(),
+			i = await f.invitation(s),
+			id = i.result.invitation.invitationId;
+		// The invitation expires 2.5 seconds from now, by the database clock.
+		await f.admin.execute(
+			sql`UPDATE invitation SET created_at=clock_timestamp()-interval '720 hours'+interval '2.5 seconds' WHERE id=${id}`,
+		);
+		let claim;
+		await f.admin.transaction(async (tx) => {
+			const [{ pid }] = await tx
+				.select({ pid: sql`pg_backend_pid()` })
+				.from(t.plant)
+				.where(eq(t.plant.id, s.w.id))
+				.for("update");
+			claim = (
+				via === "accept"
+					? f.invitations.accept(s.recipient.session, i.claim)
+					: f.invitations.resume(s.recipient.session, i.proof, key())
+			).then(
+				(value) => ({ value }),
+				(error) => ({ error }),
+			);
+			let blocked = false;
+			for (let attempt = 0; attempt < 300 && !blocked; attempt++) {
+				const result = await f.admin.execute(
+					sql`SELECT count(*)::int AS n FROM pg_stat_activity a WHERE a.datname=current_database() AND ${pid}::int=ANY(pg_blocking_pids(a.pid))`,
+				);
+				blocked = Number(result.rows[0].n) > 0;
+				if (!blocked) await new Promise((resolve) => setTimeout(resolve, 10));
+			}
+			assert.equal(blocked, true, `${via} must wait for the workspace root lock`);
+			await new Promise((resolve) => setTimeout(resolve, 3000));
+		});
+		const result = await claim;
+		assert.equal(result.error?.value?.code, "invitation_unavailable", via + ": " + JSON.stringify(result.value ?? null));
+		assert.equal(await count(t.seat, eq(t.seat.account_id, s.recipient.id)), 0);
+		assert.equal((await f.admin.select().from(t.invitation).where(eq(t.invitation.id, id)))[0].state, "pending");
+	}
+});
 test("AC:TARGET-IDN-017 INV-tenancy: active seat or independent Discovery association refuses a first seat without moving grants", async () => {
 	const s = await f.setup(),
 		i = await f.invitation(s),
