@@ -1,6 +1,6 @@
-# EveryField rebuild specification
+# Everyfield rebuild specification
 
-This repository specifies a fresh EveryField application. It contains documentation, approved reference content and an on-demand plan explorer. [Canonical build progress](docs/build-progress.json) records implementation milestones and completion. There are no customer imports or data migration.
+This repository specifies a fresh Everyfield application. It contains documentation, approved reference content and an on-demand plan explorer. [Canonical build progress](docs/build-progress.json) records implementation milestones and completion. There are no customer imports or data migration.
 
 Start with [current orientation](docs/START-HERE.md), then generate only the assigned [package context](docs/plan/context.md). Requirement JSON in `docs/catalog/requirements/` is the behavior authority. Product chapters are readable summaries; when they differ, the requirement wins and the summary must be corrected. The catalogs provide stable feature, operation, requirement and acceptance identifiers. The target schema is the proposed v3 design, not the v2 source-table inventory. Builders do not need v2 or the former decision chronology.
 
@@ -19,7 +19,7 @@ Start with [current orientation](docs/START-HERE.md), then generate only the ass
 
 The fix wave changed the schema, catalogs, cases, package plan and design handoff. G-DESIGN requires a new independent review; [verification](docs/verification.json) retains prior review provenance and proof limits. Implementation kickoff requires separate authorization. Later compatibility, SQL/security, UI/model, provider configuration, purge and restore tests remain explicit future acceptance gates. Documentation checks do not establish those results. Intent is the future implementation harness. Its merged local helpers are reviewed; actual spending and concrete Intent review/identity/approval receipt and environment setup remain gated external inputs. Ordinary build PR automatic merge is owner-approved after final-head tests and independent approved review; feedback PR human review remains required. Existing external source backups are preserved; superseded material is removed only after requirement preservation checks, without an archive folder in this repository.
 
-EveryField is an operational church-planting workspace with native workflows and the reviewed Evry assistant. The SME Playbook and Plant Intelligence rubric define its methodology; Network Intelligence reports only eligible organization-shared evidence. Plants and organizations have separate access scopes, and original-author private care stays outside the assistant and shared intelligence.
+Everyfield is an operational church-planting workspace with native workflows and the reviewed Evry assistant. The SME Playbook and Plant Intelligence rubric define its methodology; Network Intelligence reports only eligible organization-shared evidence. Plants and organizations have separate access scopes, and original-author private care stays outside the assistant and shared intelligence.
 
 Current catalogs own requirements, acceptance cases, operations and the schema once. Generate a short assigned packet with `python3 docs/package-context.py WP-019 --output /tmp/WP-019.json`. Generate the read-only explorer with `python3 docs/render-build-explorer.py --output /tmp/everyfield-build-explorer.html`. Run all documentation checks with `python3 docs/check-all.py`; projections do not write canonical progress.
 

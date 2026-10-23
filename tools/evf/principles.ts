@@ -177,7 +177,7 @@ export function principles(home: string, opts: { apply: boolean; ref?: string; t
 			upstreamPath: `${up.path}/${name}`,
 			upstreamCommit: c.commit,
 			policy:
-				"verbatim: do not edit; update with `bin/evf principles --apply`; put EveryField rules in .agents/roles/ or workflow skills",
+				"verbatim: do not edit; update with `bin/evf principles --apply`; put Everyfield rules in .agents/roles/ or workflow skills",
 			sha256: sha256(readFileSync(join(skillsDir, name, "SKILL.md"))),
 		};
 	}

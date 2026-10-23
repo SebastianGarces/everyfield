@@ -52,7 +52,7 @@ Use distinct LocalDate, entered LocalDateTime +IANA zone+selected offset and res
 
 ### TSK-001 — Task queues, filters and pagination
 
-**REQ-TSK-001.** Preserve My/All/Assignments, title search, closed status/priority/category/relation filters and sorting by due, priority, status, title or creation time. Pages default to 50 and allow at most 100 rows with deterministic ordering and null due dates last. Counts use the same authorized query scope, counting top-level tasks separately from checklist subtasks. The Team filter applies to My/All, not the independent Assignments contact-coverage view; foreign or unavailable teams reveal no names or rows. Filter changes preserve sibling filters and reset pagination. Concurrent deletion either permits coherent continuation or an explicit reset, without silent skips, duplicates or leaks. Pagination representation follows EveryField patterns.
+**REQ-TSK-001.** Preserve My/All/Assignments, title search, closed status/priority/category/relation filters and sorting by due, priority, status, title or creation time. Pages default to 50 and allow at most 100 rows with deterministic ordering and null due dates last. Counts use the same authorized query scope, counting top-level tasks separately from checklist subtasks. The Team filter applies to My/All, not the independent Assignments contact-coverage view; foreign or unavailable teams reveal no names or rows. Filter changes preserve sibling filters and reset pagination. Concurrent deletion either permits coherent continuation or an explicit reset, without silent skips, duplicates or leaks. Pagination representation follows Everyfield patterns.
 
 **Target operations:** `tasks.list`, `tasks.count`, `tasks.followUpCoverage`.
 

@@ -566,7 +566,7 @@
       "feature_ids": [
         "EVR-014"
       ],
-      "text": "Only work covered by the initiating account, acting context and exact current human approval may execute. Each executed effect writes its audit record together with the change, and its history and known outcome agree. Supported closed outcome values: completed, partial, failed, refused, unknown. Repeating or reconnecting to a completed action returns its recorded outcome without repeating effects. Expired, cancelled or replaced execution cannot publish. The representation of execution ownership and saved outcomes follows EveryField patterns. Recording an outcome creates no new domain permission.",
+      "text": "Only work covered by the initiating account, acting context and exact current human approval may execute. Each executed effect writes its audit record together with the change, and its history and known outcome agree. Supported closed outcome values: completed, partial, failed, refused, unknown. Repeating or reconnecting to a completed action returns its recorded outcome without repeating effects. Expired, cancelled or replaced execution cannot publish. The representation of execution ownership and saved outcomes follows Everyfield patterns. Recording an outcome creates no new domain permission.",
       "operations": [],
       "case_ids": [
         "EVRY-FAMILY-RUNTIME-REVIEW-EXECUTION",
@@ -624,7 +624,7 @@
       "feature_ids": [
         "EVR-016"
       ],
-      "text": "Allow at most one active run per account, acting context and conversation. Stream progress and recover interrupted runs from factual saved state. A run that loses execution ownership stops further work and cannot publish. Resuming work preserves committed outcomes and executes only still-authorized unresolved effects. Lease duration, renewal and ownership representation follow EveryField patterns.",
+      "text": "Allow at most one active run per account, acting context and conversation. Stream progress and recover interrupted runs from factual saved state. A run that loses execution ownership stops further work and cannot publish. Resuming work preserves committed outcomes and executes only still-authorized unresolved effects. Lease duration, renewal and ownership representation follow Everyfield patterns.",
       "operations": [
         "evry.observeRun",
         "evry.resumeRun"
@@ -827,7 +827,7 @@
       "feature_ids": [
         "EVR-021"
       ],
-      "text": "Conversations, turns, saved reviews and approved effects remain app-owned and recoverable. Native and Evry calls use the same domain policy and outcomes. Reconnect, replay, interruption and retry preserve factual progress without authorizing or duplicating effects. Storage and background execution follow EveryField patterns; no per-feature execution protocol is required. Session ownership stays private to the initiating account and exact context. Transport exposes only allowed application operations and grants no arbitrary code, network, filesystem, SQL or approval capability.",
+      "text": "Conversations, turns, saved reviews and approved effects remain app-owned and recoverable. Native and Evry calls use the same domain policy and outcomes. Reconnect, replay, interruption and retry preserve factual progress without authorizing or duplicating effects. Storage and background execution follow Everyfield patterns; no per-feature execution protocol is required. Session ownership stays private to the initiating account and exact context. Transport exposes only allowed application operations and grants no arbitrary code, network, filesystem, SQL or approval capability.",
       "operations": [
         "evry.cancelTurn",
         "evry.createConversation",

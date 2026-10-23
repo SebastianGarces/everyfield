@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parent.parent
 # Fix 8 installs its lint at this path and adds any required arguments here.
 TEXT_LINT = 'docs/check-text.py'
 CHECKS = [
+    ('brand spelling', [TEXT_LINT, '--brand']),
     ('schema', ['docs/schema/check.py']),
     ('schema self-test', ['docs/schema/check.py', '--self-test']),
     ('schema docs freshness', ['docs/schema/render-docs.py', '--check']),

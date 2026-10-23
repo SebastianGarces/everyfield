@@ -1,10 +1,10 @@
 # Future build plan
 
-The approved target has 97 active single-owner packages. WP-086 is retired into WP-085; WP-016 is retired into WP-017; WP-021 is retired into WP-020; WP-052 is retired into WP-051; WP-060 is retired into WP-059; IDs are never reused. Implementation state lives only in docs/build-progress.json.
+The approved target has 98 active single-owner packages. WP-086 is retired into WP-085; WP-016 is retired into WP-017; WP-021 is retired into WP-020; WP-052 is retired into WP-051; WP-060 is retired into WP-059; IDs are never reused. Implementation state lives only in docs/build-progress.json.
 
 Start with a [short package brief](context.md). Read detailed requirements and cases on demand. The [DAG](dag.json) owns scope and dependencies; builders choose filenames and internal structures within the owned directories.
 
-Rough scope-based effort is 229.5 engineer-days. The weighted prerequisite lower bound with unconstrained capacity is 89 working days. These are planning estimates, not autonomous-agent throughput or a delivery date. Reviews, real scheduling and external setup add time. Re-estimate after the local runtime and first integrated slice.
+Rough scope-based effort is 230 engineer-days. The weighted prerequisite lower bound with unconstrained capacity is 89 working days. These are planning estimates, not autonomous-agent throughput or a delivery date. Reviews, real scheduling and external setup add time. Re-estimate after the local runtime and first integrated slice.
 
 ## Foundation and shared UI
 
@@ -20,7 +20,7 @@ Each row lists only packages newly reached in that dependency-closed slice.
 
 | Slice | Delivery | New packages |
 |---|---|---|
-| S0 | Fresh foundation and identity/reference skeleton | WP-097, WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-011, WP-031, WP-032, WP-050, WP-087, WP-088, WP-089, WP-090 |
+| S0 | Fresh foundation and identity/reference skeleton | WP-097, WP-001, WP-002, WP-003, WP-004, WP-005, WP-006, WP-007, WP-008, WP-009, WP-010, WP-011, WP-031, WP-032, WP-050, WP-087, WP-088, WP-089, WP-090, WP-103 |
 | S1 | People, meeting and task native features with a reviewed Evry slice for people; Evry meeting and task adapters arrive in S4 | WP-012, WP-013, WP-014, WP-015, WP-020, WP-022, WP-023, WP-024, WP-025, WP-051, WP-053, WP-059 |
 | S2 | Teams/training/communication/Wiki/documents | WP-017, WP-018, WP-019, WP-027, WP-028, WP-029, WP-030, WP-033, WP-034, WP-035, WP-036, WP-037 |
 | S2M | ADR-001 stages 1 and 2 after planter S2 and before alpha | WP-098, WP-099, WP-100, WP-101, WP-102 |
@@ -131,6 +131,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-096 | Intelligence browser, file and native/Evry feature parity | 3 | 0 | 18 | 0 | 1.5 |
 | WP-057 | Complete browser, file and native/Evry feature parity | 0 | 0 | 1161 | 4 | 14.5 |
 | WP-058 | Fresh bootstrap and release rehearsal | 12 | 0 | 29 | 0 | 1.5 |
+| WP-103 | Everyfield brand spelling in app copy | 0 | 0 | 0 | 0 | 0.5 |
 
 ## Package splits
 
@@ -250,6 +251,7 @@ graph LR
   WP096["WP-096: Intelligence browser, file and native/Evry feature parity"]
   WP057["WP-057: Complete browser, file and native/Evry feature parity"]
   WP058["WP-058: Fresh bootstrap and release rehearsal"]
+  WP103["WP-103: Everyfield brand spelling in app copy"]
   WP097 --> WP087
   WP087 --> WP001
   WP001 --> WP002

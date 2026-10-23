@@ -18,9 +18,9 @@ All three books name the same limit on new churches: there are not enough ready 
 
 Across those phases the church performs three functions: discover, develop and deploy. *Discerning a Call* adds survey data from Send Network planters: 33% came from churches that prioritized planting, 19% started because a church staff member approached them, and 78% planted within three years of sensing the call (pp. 16-17). The sample is small, self-selected and from one denomination, so these numbers are illustration, not thresholds. They still point at one thing: **what the sending church does before a plant exists decides whether a planter appears.**
 
-### What EveryField has today
+### What Everyfield has today
 
-EveryField is built around the planter. A plant tenant moves through Phases 0 to 6. Organization tenants (a sending church or a sending network) have these capabilities:
+Everyfield is built around the planter. A plant tenant moves through Phases 0 to 6. Organization tenants (a sending church or a sending network) have these capabilities:
 
 - Typed relationship invitations, including Discovery to sending church and Discovery to network (IDN-020).
 - Consent-filtered aggregate oversight of linked plants (IDN-022, IDN-023) and a network's sending-church roster (IDN-024).
@@ -37,7 +37,7 @@ This ADR uses three kinds of workspace. Keep them apart, because they look alike
 
 A sending church can look at a plant it sent, but only as a read-only, consent-filtered overview. It never works inside the plant.
 
-An organization has no records of its own about the people it is developing. The pre-plant Discovery state belongs to the individual account. So EveryField starts to see a planter only after that person decides to plant. That is after the bottleneck.
+An organization has no records of its own about the people it is developing. The pre-plant Discovery state belongs to the individual account. So Everyfield starts to see a planter only after that person decides to plant. That is after the bottleneck.
 
 ### Constraints this decision must respect
 
@@ -74,13 +74,13 @@ Write Wiki articles and document templates from the books: the ICNU ("I see in y
 Model the sending church's whole discipleship pathway as records: every member, their groups, courses, serving and spiritual progress.
 
 - Good: matches the book's full "lost to planter" diagram.
-- Bad: this is a church management system. Planning Center and similar products already do it, and churches will not move their congregation into EveryField. It puts pastoral judgments about many people into software and multiplies the privacy work. It also pulls focus from the planter journey, which is the core of the product.
+- Bad: this is a church management system. Planning Center and similar products already do it, and churches will not move their congregation into Everyfield. It puts pastoral judgments about many people into software and multiplies the privacy work. It also pulls focus from the planter journey, which is the core of the product.
 
 ### Option C: leader pipeline and residency for organizations (chosen)
 
 Model only the leadership end of the pathway: the small number of people a sending church is deliberately developing toward planting or mission, from the first ICNU conversation to commissioning. Keep the congregation's discipleship pathway as a document the church writes, not as records. Connect the pipeline to the existing Discovery state and to plant creation, so that a resident's preparation becomes the start of the plant's journey.
 
-- Good: it targets the bottleneck. The data is small and the people in it are known to the staff. It gives a sending church its own daily use for EveryField, which today it lacks. It produces aggregate pipeline data that a network can use.
+- Good: it targets the bottleneck. The data is small and the people in it are known to the staff. It gives a sending church its own daily use for Everyfield, which today it lacks. It produces aggregate pipeline data that a network can use.
 - Bad: it adds organization-owned person records, which need deletion, export and consent rules. It sits close to the coaching exclusion and needs an explicit ruling on that. It is a new product area.
 
 ### Option D: network-wide candidate sharing
@@ -88,17 +88,17 @@ Model only the leadership end of the pathway: the small number of people a sendi
 Let a network share residencies and candidates across its sending churches. *Churches Plant Churches* mentions this as the "relationally" path (p. 51): a future planter may serve in a church that has no residency.
 
 - Good: it helps small churches that cannot run a residency alone.
-- Bad: it needs Option C first, plus cross-tenant consent for individual people, which EveryField does not have.
+- Bad: it needs Option C first, plus cross-tenant consent for individual people, which Everyfield does not have.
 
 ## Decision
 
 **Adopt Option C, delivered in stages. Ship Option A content now, alongside it. Keep Option D as a later extension. Reject Option B.**
 
-The principle: **EveryField models the people a church is deliberately sending, not the whole church.** The congregation's discipleship pathway is something the church defines and writes. The leader pipeline is something EveryField tracks.
+The principle: **Everyfield models the people a church is deliberately sending, not the whole church.** The congregation's discipleship pathway is something the church defines and writes. The leader pipeline is something Everyfield tracks.
 
 ```mermaid
 flowchart LR
-  subgraph Church[Sending church, outside EveryField records]
+  subgraph Church[Sending church, outside Everyfield records]
     L[Congregation and discipleship pathway]
   end
   subgraph Org[Organization tenant, new]
@@ -126,14 +126,14 @@ Each part below is a candidate requirement. Names are illustrative. The builder 
 
 *Source: Churches Plant Churches pp. 24, 47 ("X to Y by when").*
 
-An organization records one or more goals: "develop N leaders to plant M churches by YEAR", with a short statement of why. EveryField shows the goal next to deterministic counts from the pipeline: people in each stage, residents finished, plants commissioned. It never forecasts or judges whether the goal is realistic.
+An organization records one or more goals: "develop N leaders to plant M churches by YEAR", with a short statement of why. Everyfield shows the goal next to deterministic counts from the pipeline: people in each stage, residents finished, plants commissioned. It never forecasts or judges whether the goal is realistic.
 
 ### 2. Leader pipeline with configurable stages
 
 *Source: Churches Plant Churches ch. 2 and 3; Discerning a Call pp. 17-27.*
 
 - The organization uses a default stage set: Potential leader, Apprentice, Resident, Commissioned, Not continuing. It may rename stages or add its own. Each stage maps to a stable kind, the same way team responsibilities use stable mappings and not names.
-- A **pipeline person** is an organization-owned record: display name, optional contact, the staff member responsible, the current stage and dated stage history. A person with an EveryField account can be linked to their account, but only after they accept (see part 5).
+- A **pipeline person** is an organization-owned record: display name, optional contact, the staff member responsible, the current stage and dated stage history. A person with an Everyfield account can be linked to their account, but only after they accept (see part 5).
 - A stage move is an explicit human action. It records the actor, the date and a reason. It is never automatic and never inferred from attendance, reading or task completion.
 - "Not continuing" is a normal, respectful outcome. *Building Your Core Team* treats leaving well as healthy, and so should the pipeline.
 - What the default stages mean: **Potential leader**, staff see leadership potential and have had an "I see in you" conversation. **Apprentice**, in ministry training. **Resident**, in a planting residency. **Commissioned**, sent out at a commissioning service. **Not continuing**, stepped off the pathway.
@@ -146,14 +146,14 @@ An organization records one or more goals: "develop N leaders to plant M churche
 
 A staff member logs that an ICNU conversation took place: who, when and with whom. An optional short note is visible only to the organization's Owner, Admins and the person responsible. The organization sees how many conversations its staff had per month or quarter.
 
-This is the cheapest lever in the whole design. The 19% figure says that asking people is how many planters start. A dashboard count that sits at zero for a quarter is a useful prompt for the staff. EveryField counts conversations. It does not judge them.
+This is the cheapest lever in the whole design. The 19% figure says that asking people is how many planters start. A dashboard count that sits at zero for a quarter is a useful prompt for the staff. Everyfield counts conversations. It does not judge them.
 
 ### 4. Development programs: apprenticeship and residency
 
 *Source: Churches Plant Churches pp. 46-56, Appendix B, Appendix C.*
 
 - An organization defines a program: kind (apprenticeship or residency), director, meeting rhythm, expected length (the book recommends 12 to 18 months), stages and a milestone checklist.
-- EveryField offers a starter residency template with four stages from Appendix C, written in our own words: Assimilating (2 to 3 months), Training and planning (6 to 9 months), Gathering (2 to 3 months), Sending and planting (2 to 3 months). The template also offers milestones such as "start a small group and raise a replacement", "present your vision to the sending church leadership" and "write a church planting prospectus".
+- Everyfield offers a starter residency template with four stages from Appendix C, written in our own words: Assimilating (2 to 3 months), Training and planning (6 to 9 months), Gathering (2 to 3 months), Sending and planting (2 to 3 months). The template also offers milestones such as "start a small group and raise a replacement", "present your vision to the sending church leadership" and "write a church planting prospectus".
 - A reading list links to Wiki articles. The organization's own Wiki versions can supply residency content, so a network can publish its residency curriculum once.
 - An **enrollment** connects one pipeline person to one program and cohort, with a start date, an expected end and a status.
 - Milestones on an enrollment record who completed each item and when. The resident can mark an item done when their account is linked. The director confirms it. Each fact is an attributable record, not a judgment.
@@ -164,7 +164,7 @@ This is the cheapest lever in the whole design. The 19% figure says that asking 
 
 *Source: the existing Discovery state and relationship (IDN-016, IDN-020).*
 
-- A resident who has an EveryField account stays in the Discovery state. They keep their account-private Wiki reading and documents.
+- A resident who has an Everyfield account stays in the Discovery state. They keep their account-private Wiki reading and documents.
 - Today the Discovery account starts the Discovery to sending church relationship. This ADR proposes that the organization may also invite a pipeline person to link their account. The person accepts or declines, and the link uses the same relationship and consent rules.
 - With consent, the director sees the resident's progress facts: which program milestones are done and whether the six Discovery foundations articles are complete. The director does not see the resident's private documents, reflections or anything from private care. A calling-story worksheet, if added later, is account-private by default (the *Discerning a Call* review recommends this).
 - The invitation tells the person, before they accept, exactly what the church will see and what it will never see. Declining leaves the account as it was.
@@ -178,7 +178,7 @@ The person does not see the church's internal pipeline view of them: the pipelin
 *Source: Churches Plant Churches pp. 61, 73-74.*
 
 - Commissioning is a dated event on the enrollment. It closes the residency and moves the person to Commissioned.
-- During the residency the resident records key decisions: church name, target community, launch window, team size and a first-year budget document (Appendix C, stage 1). When the commissioned person creates the plant, EveryField offers these decisions as prefilled values for plant basics (IDN-013) and for the `geographic_area` attestation. The planter confirms each value. Nothing is attested silently.
+- During the residency the resident records key decisions: church name, target community, launch window, team size and a first-year budget document (Appendix C, stage 1). When the commissioned person creates the plant, Everyfield offers these decisions as prefilled values for plant basics (IDN-013) and for the `geographic_area` attestation. The planter confirms each value. Nothing is attested silently.
 - The plant's creation journal records that it came from that organization's residency, which gives a network the multiplication lineage: which church sent which plant.
 - The plant then follows the normal Phase 1 rule. Commissioning does not set a phase.
 - After that, the sending church sees the plant through a read-only, consent-filtered overview in its own workspace: phase and journey, launch date and the published launch summary, limited to what the planter shares with that church (IDN-022, IDN-023). The screen says plainly that the church is viewing another workspace and cannot edit it.
@@ -203,7 +203,7 @@ The book's "send them and forget them" warning is real. A sending church could k
 *Source: Churches Plant Churches p. 5, and Send Network's published sending church pathway.*
 
 - A network sees aggregate pipeline counts across its sending churches: people per stage, active residents, commissioned per year. It sees no individual people, unless Option D is later accepted.
-- **Church sending stage, defined by the network.** Send Network sorts its churches on a five-stage pathway. Its first four stages are Cooperating (prays for and gives to planting through the network), Supporting (partners with a specific plant through prayer, people or resources), Sending (takes responsibility for one planter: develops, commissions, cares) and Multiplying (sends again and again, and its plants start to send). The book only names these stages, on its opening page, and does not define them. The definitions here follow Send Network's public material. EveryField offers **Cooperating, Supporting, Sending and Multiplying** as its starter template, because these four describe sending churches in any tradition. Send Network's fifth stage, Movement, is not in the template, but a network can add it. A network edits its list with the same editor as the pipeline stages: rename, reorder, add, remove a stage only when no church is in it, history kept for renames, a review before saving. A network can also turn church stages off. A sending church then picks its stage on its organization profile, and the network roster (IDN-024) can sort by it. A church that has not picked a stage shows as "Not declared".
+- **Church sending stage, defined by the network.** Send Network sorts its churches on a five-stage pathway. Its first four stages are Cooperating (prays for and gives to planting through the network), Supporting (partners with a specific plant through prayer, people or resources), Sending (takes responsibility for one planter: develops, commissions, cares) and Multiplying (sends again and again, and its plants start to send). The book only names these stages, on its opening page, and does not define them. The definitions here follow Send Network's public material. Everyfield offers **Cooperating, Supporting, Sending and Multiplying** as its starter template, because these four describe sending churches in any tradition. Send Network's fifth stage, Movement, is not in the template, but a network can add it. A network edits its list with the same editor as the pipeline stages: rename, reorder, add, remove a stage only when no church is in it, history kept for renames, a review before saving. A network can also turn church stages off. A sending church then picks its stage on its organization profile, and the network roster (IDN-024) can sort by it. A church that has not picked a stage shows as "Not declared".
 - These are new Network Intelligence inputs. They need a rubric revision, with the existing rule that a pattern needs at least two contributing organizations.
 
 ### What Evry may do
@@ -227,7 +227,7 @@ Stages 1 and 2 ship before the alpha release and can be built together. The plan
 
 ### Positive
 
-- EveryField sees planters before they plant, which is where the bottleneck is.
+- Everyfield sees planters before they plant, which is where the bottleneck is.
 - Sending churches get their own daily use for the product, and not only oversight.
 - A planter who comes from a residency starts Phase 1 with decisions already made, without typing them again.
 - Networks get a measurable pipeline: where people stall, and how many conversations become residents.
