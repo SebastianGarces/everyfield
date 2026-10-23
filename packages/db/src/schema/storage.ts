@@ -51,11 +51,16 @@ export function privateStorageFrom(env: Record<string, string | undefined>): Pri
 		}),
 	};
 }
-let configured: PrivateStorage | null | undefined;
+// Next bundles server start (instrumentation) and request code as separate module graphs, each with its own copy of this
+// module. The process's bucket and its privacy checks live on globalThis, so the check server start runs is the one
+// every request reuses (RT-6c).
+type Shared = { configured?: PrivateStorage | null; checks: WeakMap<PrivateStorage, Promise<void>> };
+const SHARED: unique symbol = Symbol.for("everyfield.db.privateStorage");
+const shared: Shared = ((globalThis as { [SHARED]?: Shared })[SHARED] ??= { checks: new WeakMap() });
 /** This process's private bucket, read once from process.env. */
 export function privateStorage(): PrivateStorage | null {
-	if (configured === undefined) configured = privateStorageFrom(process.env);
-	return configured;
+	if (shared.configured === undefined) shared.configured = privateStorageFrom(process.env);
+	return shared.configured;
 }
 export type FileIdentity = Pick<FileObjectRow, "id" | "tenant_id" | "purpose">;
 // Native producers supply fresh current resource/session/lifecycle checks in this transaction.
@@ -215,9 +220,12 @@ export async function putPrivateObject(
 // Direct uploads (RT-2, design B): the browser puts the bytes straight into the private bucket with a short signed URL,
 // and the save reads them back to check them. No SQL runs here, so no lock is held during any bucket call.
 
-const privateChecks = new WeakMap<PrivateStorage, Promise<void>>();
-/** The bucket's privacy, checked once per process and bucket instead of once per upload. A failed check is retried. */
+/**
+ * The bucket's privacy, checked once per process and bucket instead of once per upload. Server start runs it, so no
+ * upload waits for it. A failed check is retried.
+ */
 export function assertPrivateBucket(storage: PrivateStorage): Promise<void> {
+	const privateChecks = shared.checks;
 	const known = privateChecks.get(storage);
 	if (known) return known;
 	const check = storage.client
