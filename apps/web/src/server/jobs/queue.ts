@@ -127,16 +127,23 @@ export async function enqueueJob(tx: Transaction, input: JobInput): Promise<stri
  * claim and its 5-second statement bound are one simple-protocol message, which Postgres runs as one implicit
  * transaction, so `SET LOCAL statement_timeout` bounds the claim exactly as the transaction wrapper did. The values are
  * inlined because that protocol takes no parameters; each is parsed first (kind names, integers, a random UUID).
+ * `maxAgeSeconds` leaves older jobs to their kind's own recovery, for kinds whose unclaimed jobs expire (Evry's).
  */
 export async function claimDue(
 	db: Database,
 	kinds: readonly JobKind[],
 	limit = 1,
 	leaseSeconds = DEFAULT_LEASE_SECONDS,
+	maxAgeSeconds?: number,
 ): Promise<Claim[]> {
 	const config = z
-		.object({ kinds: z.array(jobKind).min(1).max(10), limit: z.number().int().min(1).max(100), lease: leaseDuration })
-		.parse({ kinds, limit, lease: leaseSeconds });
+		.object({
+			kinds: z.array(jobKind).min(1).max(10),
+			limit: z.number().int().min(1).max(100),
+			lease: leaseDuration,
+			maxAge: z.number().int().min(1).max(86_400).optional(),
+		})
+		.parse({ kinds, limit, lease: leaseSeconds, maxAge: maxAgeSeconds });
 	const owner = z.uuid().parse(randomUUID());
 	// The pool runs a text without parameters as a simple query and answers one result per statement.
 	const pool = (db as Database & { $client: { query(text: string): Promise<unknown> } }).$client;
@@ -144,7 +151,12 @@ export async function claimDue(
 WITH due AS (
   SELECT id FROM job WHERE kind IN (${config.kinds.map((kind) => `'${kind}'`).join(",")}) AND state IN ('ready','retry_wait')
   AND attempt_count<max_attempts AND eligible_at<=clock_timestamp()
-  AND (next_attempt_at IS NULL OR next_attempt_at<=clock_timestamp())
+  AND (next_attempt_at IS NULL OR next_attempt_at<=clock_timestamp())${
+		config.maxAge
+			? `
+  AND eligible_at>clock_timestamp()-make_interval(secs=>${config.maxAge})`
+			: ""
+	}
   ORDER BY eligible_at,id FOR UPDATE SKIP LOCKED LIMIT ${config.limit}
 ) UPDATE job j SET state='claimed',attempt_count=attempt_count+1,claim_generation=claim_generation+1,
   lease_owner='${owner}',lease_until=clock_timestamp()+make_interval(secs=>CASE WHEN j.kind='assessment' THEN ${ASSESSMENT_LEASE_SECONDS} ELSE ${config.lease} END),revision=revision+1
