@@ -46,8 +46,9 @@ only a comment counts as empty.
 - Keep evidence files out of the repository. Link to media stored outside it.
 - Write short sentences in the active voice. Explain a technical term the first time, or drop it.
 - Do not paste credentials, tokens or connection strings, even partly.
-- After the last section, add one line `EVF-Author: anthropic` or `EVF-Author: openai` for your
-  model family. evf ship uses it to refuse a review from the same family. Then end the body with
+- After the last section, add one line `EVF-Author: anthropic`, `EVF-Author: xai` or
+  `EVF-Author: openai` for your model family. evf ship uses it to refuse a review from the same
+  family, and an `xai` or `openai` PR needs an `anthropic` review. Then end the body with
   the attribution line your host requires.
 
 ## Check before you open the PR

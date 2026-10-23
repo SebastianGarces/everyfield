@@ -43,6 +43,14 @@ export type MaintenanceScope = {
 	route?: "design";
 };
 
+export const MODEL_FAMILIES = ["anthropic", "openai", "xai"] as const;
+export type ModelFamily = (typeof MODEL_FAMILIES)[number];
+export const isModelFamily = (value: unknown): value is ModelFamily =>
+	MODEL_FAMILIES.some((family) => family === value);
+/** Opus (anthropic) and one other family check each other's work; openai and xai never review each other. */
+export const crossFamilyReview = (author: ModelFamily, verifier: ModelFamily): boolean =>
+	author !== verifier && (author === "anthropic" || verifier === "anthropic");
+
 export const FEEDBACK_BUG_CLASSES = ["p0", "p1", "p2", "p3"] as const;
 export type FeedbackBugClass = (typeof FEEDBACK_BUG_CLASSES)[number];
 /** Feedback bug classes that merge through the verifier, and those the verifier passes before Sebastian approves. */

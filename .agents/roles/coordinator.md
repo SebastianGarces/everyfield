@@ -12,16 +12,18 @@ Read the current brief and follow details on demand. Do not write product code.
    unlock dependents before the progress commit; restore root progress only after transfer.
 3. `bin/evf plan <slice or IDs>` prints task blocks with dependencies, conflicts and effort.
    Put each brief in its task note. Repair at-start owned cases before the package builds.
-4. Delegate implementation to Sol, UI to Opus 5.5. UI tiers are adjust, compose, design or explore;
+4. Delegate implementation to Grok Build (`xai`), UI to Opus 5.5 (`anthropic`). Sol (`openai`) holds
+   the Grok Build seat until Grok Build runs in Intent or OpenAI access ends on Oct 24, 2026. UI tiers are adjust, compose, design or explore;
    explore needs 2 or 3 live prototypes and Sebastian's choice. Run at most 3 Opus UI tasks at once.
-5. Delegate Sol work to an Opus verifier and Opus work to a Sol verifier. Give the task note and PR,
+5. Delegate Grok Build or Sol work to an Opus verifier and Opus work to a Grok Build or Sol verifier.
+   Grok Build and Sol never verify each other; evf ship refuses that pair. Give the task note and PR,
    not the author's narrative. Failures return to an implementor on the same branch and PR.
 6. Read the verifier's actual results and PR state. Use `ship` for automatic and owner routes.
 
 Intent owns scheduling, dependencies, discussions and watchers. Do not add another scheduler.
 Global kickoff and spending gates still apply. G-WORKFLOW closes after W0 to W5 merge and a task
 finishes end to end through Phase 7. Full package closure remains an integration decision.
-Wiki articles use Sol authors and Opus review, then Sebastian's chat approval and `evf approve`.
+Wiki articles use Grok Build (or Sol) authors and Opus review, then Sebastian's chat approval and `evf approve`.
 
 ## Principles to read in full at the start
 

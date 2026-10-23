@@ -660,6 +660,29 @@
 			],
 			"risk": "ordinary"
 		},
+		"OPS-43": {
+			"title": "Grok Build (xAI) as the second model family in evf",
+			"owningPaths": [
+				"evf.config.json",
+				"tools/evf/",
+				".agents/roles/",
+				".agents/skills/everyfield-pr/",
+				".agents/skills/ship/SKILL.md",
+				".agents/skills/verify-preview/",
+				".agents/skills/wiki-article/SKILL.md"
+			],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
+		},
 		"OPS-44": {
 			"title": "Everyfield spelling in docs and workflow files, and register WP-103",
 			"owningPaths": [

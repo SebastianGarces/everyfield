@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Post the one verification comment: the report followed by the exact-head EVF-Review line.
-// Usage: node post-review.mjs --pr <n> --report <report.md> --family openai|anthropic
+// Usage: node post-review.mjs --pr <n> --report <report.md> --family anthropic|openai|xai
 //          --verdict approved|changes_requested --head <40-char sha>
 //          --experience-verdict approved|changes_requested --budget met|exceeded|not_applicable
 //          [--experience-exception reports|analytics]
@@ -20,7 +20,7 @@ const quality = { verdict: value("quality-verdict"), principles: value("principl
 const experience = { verdict: value("experience-verdict"), budget: value("budget"), ...(value("experience-exception") ? { exception: value("experience-exception") } : {}) };
 const refuse = (why) => { console.error(`Refused: ${why}`); process.exit(1); };
 if (!pr || !reportFile || !head) refuse("usage: --pr <n> --report <file> --family <f> --verdict <v> --head <sha>");
-if (!["openai", "anthropic"].includes(family)) refuse("--family must be openai or anthropic");
+if (!["anthropic", "openai", "xai"].includes(family)) refuse("--family must be anthropic, openai or xai");
 if (!["approved", "changes_requested"].includes(verdict)) refuse("--verdict must be approved or changes_requested");
 if (!["approved", "changes_requested"].includes(quality.verdict)) refuse("--quality-verdict must be approved or changes_requested");
 if (!quality.principles?.length || quality.principles.some((name) => !name)) refuse("--principles must name the principles checked, separated by commas");
@@ -39,7 +39,8 @@ if (view.headRefOid !== head) refuse(`PR head is ${view.headRefOid}, you verifie
 if (verdict === "approved" && experience.budget === "exceeded" && (!experience.exception || !view.body.split(/\r?\n/).includes(`EVF-Experience-Exception: ${experience.exception}`))) refuse("exceeded budget needs the matching approved reports or analytics exception in the PR body");
 const author = /^EVF-Author:\s*(\w+)\s*$/m.exec(view.body)?.[1];
 if (!author) refuse("PR body has no EVF-Author line");
-if (author === family) refuse(`author family is ${author}; a verifier of the other family must review`);
+// Same rule as crossFamilyReview in tools/evf/lib.ts: anthropic pairs with openai or xai.
+if (author === family || (author !== "anthropic" && family !== "anthropic")) refuse(`author family is ${author}; ${author === "anthropic" ? "an openai or xai" : "an anthropic"} verifier must review`);
 for (const file of all("results")) {
   const r = JSON.parse(readFileSync(file, "utf8"));
   if (r.after?.head && r.after.head !== head) refuse(`${file} was captured on ${r.after.head}, not ${head}`);
