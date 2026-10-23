@@ -228,12 +228,12 @@ function create(v: z.infer<typeof env>) {
 					content:
 						i.action === "password_changed"
 							? {
-									subject: "Your EveryField password changed",
-									text: "The password for your EveryField account changed. Other devices were signed out.\n\nIf you did not change it, reset your password now.",
+									subject: "Your Everyfield password changed",
+									text: "The password for your Everyfield account changed. Other devices were signed out.\n\nIf you did not change it, reset your password now.",
 								}
 							: {
-									subject: "Your EveryField sign-in email changed",
-									text: "The email you use to sign in to EveryField changed. This address no longer signs in.\n\nIf you did not change it, contact EveryField support now.",
+									subject: "Your Everyfield sign-in email changed",
+									text: "The email you use to sign in to Everyfield changed. This address no longer signs in.\n\nIf you did not change it, contact Everyfield support now.",
 								},
 					operation: null,
 					notice: null,
