@@ -18,6 +18,8 @@ concurrency:
 
 env:
   NODE_VERSION: "24.22.1"
+  # The domain matrix lists census parts 1 to CENSUS_PARTS; the census job checks their union.
+  CENSUS_PARTS: "4"
 
 jobs:
   app:
@@ -95,7 +97,8 @@ jobs:
     # One job per package with a test:db script, each with its own Postgres service, so the
     # longest package suite sets the critical path instead of the sum of all suites.
     # `evf ci-tests` fails when a package with test:db is missing from this matrix.
-    name: db (${{ matrix.package }})
+    # @everyfield/domain runs only the statement census, split into parts so they run side by side.
+    name: db (${{ matrix.package }}${{ matrix.part && format(' part {0}', matrix.part) || '' }})
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     strategy:
@@ -105,8 +108,15 @@ jobs:
           - package: "@everyfield/db"
             schema: true
           - package: "@everyfield/domain"
-            # The statement census counts real HTTP requests on the production build.
+            part: 1
+            # Part 1 counts real HTTP requests on the production build.
             build: true
+          - package: "@everyfield/domain"
+            part: 2
+          - package: "@everyfield/domain"
+            part: 3
+          - package: "@everyfield/domain"
+            part: 4
           - package: "@everyfield/evry"
           - package: "@everyfield/reference"
     services:
@@ -153,16 +163,40 @@ jobs:
         run: pnpm --filter "${{ matrix.package }}" test:db
         env:
           EVF_CENSUS_LOGS: ${{ runner.temp }}/census
-      # The census keeps each suite's full log (behaviors.log holds every inner assertion and its time) and the
-      # counts file. A failed or timed-out job uploads them; a passing job skips this step.
-      - name: Statement census logs
-        if: matrix.build && (failure() || cancelled())
+          EVF_CENSUS_PART: ${{ matrix.part && format('{0}/{1}', matrix.part, env.CENSUS_PARTS) || '' }}
+      # Each census part keeps its full logs (behaviors.log holds every inner assertion and its time) and its counts
+      # file. The census job reads the counts; a failed or timed-out part leaves its logs for reading. A rerun
+      # replaces its part's artifact.
+      - name: Statement census part
+        if: matrix.part && always()
         uses: actions/upload-artifact@v7
         with:
-          name: statement-census-${{ github.run_attempt }}
+          name: statement-census-part-${{ matrix.part }}
           path: ${{ runner.temp }}/census
           if-no-files-found: ignore
+          overwrite: true
           retention-days: 14
+
+  census:
+    # The rules over the whole census: every budget measured by some part, every declared write exercised, no budget
+    # above its most measured count. It needs no database: it reads the counts files of every passing part.
+    name: census (union of the parts)
+    needs: [db]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: statement-census-part-*
+          path: ${{ runner.temp }}/census
+      - name: Statement budgets over the union of the parts
+        run: node --test tests/integration/writes/statements.test.mts
+        env:
+          EVF_CENSUS_UNION: ${{ runner.temp }}/census
 
   wiki:
     name: wiki (tooling tests)
@@ -195,7 +229,7 @@ jobs:
   ci:
     name: ci
     if: always()
-    needs: [app, db, docs, evf, wiki]
+    needs: [app, census, db, docs, evf, wiki]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
