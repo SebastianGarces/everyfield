@@ -1,15 +1,23 @@
 // Evry review card rules (WP-053/ui) that a silent break would turn into a false state on an approval, or a revision
 // that changes facts the person did not edit. They run in node against the module the card uses; no browser.
 //   AC:UI45-004 AC:INH-REGRESSION-EXPIRED-APPROVAL INV-phase: the card's state comes from the saved review and the
-//     clock: a pending review past its expiry is expired, an approved one without an outcome is still running, a saved
-//     outcome stays saved after its person is gone, and a failed run can go again only while its approval lasts.
+//     time the server said was left: a pending review whose time ran out is expired, an approved one without an
+//     outcome is still running, a saved outcome stays saved after its person is gone, and an unconfirmed run (or an
+//     old "failed" one) can go again only while its approval lasts. The time left is the server's, whatever the
+//     browser's clock says (R5-5).
 //   AC:INH-REGRESSION-REVISED-APPROVAL INV-revise: a revision sends the native command's exact reviewed input with only
 //     the edited values changed, for every People reviewed write.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { approvable, phaseOf, retryable, reviseInput } from "../../../apps/web/src/features/evry/review/model.ts";
+import {
+	approvable,
+	approvalLeft,
+	phaseOf,
+	retryable,
+	reviseInput,
+} from "../../../apps/web/src/features/evry/review/model.ts";
 
-const NOW = Date.parse("2026-10-21T12:00:00Z");
+const now = "2026-10-21T12:00:00Z";
 const later = "2026-10-21T12:10:00Z";
 const earlier = "2026-10-21T11:59:59Z";
 const maria = { kind: "person", id: "11111111-1111-4111-8111-111111111111", label: "Maria Santos" };
@@ -26,30 +34,34 @@ const review = (over = {}) => ({
 	outcome: null,
 	executing: false,
 	receipt: null,
+	now,
 	...over,
 });
 
 test("AC:UI45-004 AC:INH-REGRESSION-EXPIRED-APPROVAL INV-phase: each saved state shows as itself", () => {
-	assert.equal(phaseOf(review(), NOW), "pending");
-	assert.equal(phaseOf(review({ expiresAt: earlier }), NOW), "expired");
-	assert.equal(
-		phaseOf(review({ expiresAt: new Date(NOW).toISOString() }), NOW),
-		"expired",
-		"expiresAt itself is too late",
-	);
-	assert.equal(phaseOf(review({ status: "cancelled" }), NOW), "cancelled");
+	// The time left is the server's expiry minus the server's own time, with no browser clock in it.
+	assert.equal(approvalLeft(review()), 600_000);
+	assert.equal(approvalLeft(review({ expiresAt: earlier })), -1000);
+	assert.equal(approvalLeft(review({ expiresAt: now })), 0);
+	assert.equal(phaseOf(review(), false), "pending");
+	assert.equal(phaseOf(review(), true), "expired", "the time the server gave ran out");
+	assert.equal(phaseOf(review({ status: "expired" }), false), "expired");
+	assert.equal(phaseOf(review({ status: "cancelled" }), false), "cancelled");
 	// An approval whose reply was lost reads back as approved with no outcome yet: running, never "not approved".
-	assert.equal(phaseOf(review({ status: "approved", executing: true }), NOW), "running");
-	assert.equal(phaseOf(review({ status: "approved", outcome: "completed" }), NOW), "completed");
-	assert.equal(phaseOf(review({ status: "approved", outcome: "refused" }), NOW), "refused");
-	assert.equal(phaseOf(review({ status: "approved", outcome: "unknown" }), NOW), "unconfirmed");
+	assert.equal(phaseOf(review({ status: "approved", executing: true }), false), "running");
+	assert.equal(phaseOf(review({ status: "approved", outcome: "completed" }), true), "completed");
+	assert.equal(phaseOf(review({ status: "approved", outcome: "refused" }), false), "refused");
+	assert.equal(phaseOf(review({ status: "approved", outcome: "unknown" }), false), "unconfirmed");
+	// A row saved before #245 as "failed" never proved that nothing changed: it is unconfirmed too.
+	assert.equal(phaseOf(review({ status: "approved", outcome: "failed" }), false), "unconfirmed");
 	const gone = { target: null, changes: [], withheld: true };
-	assert.equal(phaseOf(review({ review: gone }), NOW), "withheld");
-	assert.equal(phaseOf(review({ review: gone, status: "approved", outcome: "completed" }), NOW), "completed");
+	assert.equal(phaseOf(review({ review: gone }), false), "withheld");
+	assert.equal(phaseOf(review({ review: gone, status: "approved", outcome: "completed" }), false), "completed");
 
-	assert.equal(retryable(review({ status: "approved", outcome: "failed" }), NOW), true);
-	assert.equal(retryable(review({ status: "approved", outcome: "failed", expiresAt: earlier }), NOW), false);
-	assert.equal(retryable(review({ status: "approved", outcome: "refused" }), NOW), false);
+	assert.equal(retryable(review({ status: "approved", outcome: "unknown" }), false), true);
+	assert.equal(retryable(review({ status: "approved", outcome: "failed" }), false), true);
+	assert.equal(retryable(review({ status: "approved", outcome: "unknown" }), true), false);
+	assert.equal(retryable(review({ status: "approved", outcome: "refused" }), false), false);
 	// REQ-EVR-011: a new photo is approvable only while the card shows its exact upload.
 	assert.equal(approvable(review({ operation: "people.setPersonPhoto" }), false), false);
 	assert.equal(approvable(review({ operation: "people.setPersonPhoto" }), true), true);

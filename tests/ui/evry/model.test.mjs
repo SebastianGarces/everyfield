@@ -59,7 +59,7 @@ const end = (sequence, body) => ({ sequence, turnId: T, kind: "status", body, cr
 const conversation = { id: "c", title: "t", context: "plant", lastSequence: 0, activeTurnId: null, updatedAt: at };
 
 test("AC:EVRY-RETRY-CANCEL INV-merge: overlapping reads show each event once, and the final status ends the run", () => {
-	let s = opened({ conversation, run: { turnId: T, state: "claimed" }, events: [ask(1), say(2, "Look")], more: false });
+	let s = opened({ conversation, run: { turnId: T, state: "running" }, events: [ask(1), say(2, "Look")], more: false });
 	assert.equal(s.activeTurnId, T);
 	// A reconnect resends from its last id; the read and the stream overlap.
 	s = merge(s, [say(2, "Look"), card(3), say(4, "ing.")]);
@@ -69,9 +69,13 @@ test("AC:EVRY-RETRY-CANCEL INV-merge: overlapping reads show each event once, an
 		[1, 2, 3, 4, 5],
 	);
 	assert.equal(s.activeTurnId, null);
-	// A run whose job already ended is never waited for.
+	// A lost run is waited for: the stream saves its end and delivers it. No run, nothing to wait for.
 	assert.equal(
-		opened({ conversation, run: { turnId: T, state: "failed" }, events: [ask(1)], more: false }).activeTurnId,
+		opened({ conversation, run: { turnId: T, state: "lost" }, events: [ask(1)], more: false }).activeTurnId,
+		T,
+	);
+	assert.equal(
+		opened({ conversation, run: null, events: [ask(1), end(2, { state: "completed" })], more: false }).activeTurnId,
 		null,
 	);
 });

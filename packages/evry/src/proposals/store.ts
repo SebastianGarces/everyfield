@@ -66,7 +66,8 @@ const audit = (action: string, kind: string, alias: string) =>
  * A proposal as its owner may see it now. The review status (pending, approved, cancelled, expired) is separate from
  * the recorded outcome of the approved revision. An approved revision without a saved outcome is executing while its
  * effect job can still make progress (runtime/job.ts) and unknown once it cannot. A review whose target is no longer
- * available withholds its fields; a saved receipt stays as it was.
+ * available withholds its fields; a saved receipt stays as it was. `now` is the database time the status was decided
+ * at, so a card counts the approval down from the server's clock, never the browser's.
  */
 const projection = (alias: string) =>
 	sql.raw(`jsonb_build_object('id',${alias}.id,'conversationId',${alias}.conversation_id,'operation',${alias}.operation,
@@ -78,7 +79,7 @@ const projection = (alias: string) =>
 			AND NOT ${liveJob("j")})),
 		'executing',${alias}.state='approved' AND ${alias}.outcome IS NULL AND EXISTS(SELECT FROM job j WHERE j.id=${alias}.job_id
 			AND ${liveJob("j")}),
-		'receipt',${alias}.receipt)`);
+		'receipt',${alias}.receipt,'now',clock_timestamp())`);
 
 const review = z.object({
 	target: z.object({ kind: z.literal("person"), id: z.uuid(), label: z.string() }).nullable(),
@@ -100,6 +101,7 @@ export const proposalRow = z.object({
 	receipt: z
 		.object({ receiptId: z.uuid().optional(), revision: z.string().optional(), code: z.string().optional() })
 		.nullable(),
+	now: z.coerce.date(),
 });
 export type Proposal = z.infer<typeof proposalRow>;
 
