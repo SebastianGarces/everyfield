@@ -6,16 +6,28 @@ import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import { z } from "zod";
 import { deny, parse, readReply } from "./core.ts";
 
+const stamp = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/);
 const payload = z.strictObject({
 	v: z.literal(1),
 	purpose: optOutPurpose,
 	accountId: z.uuid(),
 	category: notificationCategory,
-	exp: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/),
+	iat: stamp,
+	exp: stamp,
 	unsubscribeRevision: z.string().regex(/^(0|[1-9]\d*)$/),
 });
 type Payload = z.infer<typeof payload>;
 const DAY = 86_400_000;
+const HOUR = 60 * 60 * 1000;
+export const OPT_OUT_DISABLE_MS = 180 * DAY;
+export type OptOutKeyRing = { current: Buffer; previous?: readonly Buffer[] };
+
+function asRing(key: Buffer | OptOutKeyRing): OptOutKeyRing {
+	return Buffer.isBuffer(key) ? { current: key } : key;
+}
+function boundMs(purpose: Payload["purpose"]) {
+	return purpose === "undo" ? HOUR : OPT_OUT_DISABLE_MS;
+}
 const stateRow = z.object({
 	account_id: z.uuid().nullable(),
 	rev: z.string().nullable(),
@@ -24,18 +36,37 @@ const stateRow = z.object({
 	changed: z.boolean(),
 });
 
-export function issueEmailOptOutToken(key: Buffer, input: Omit<Payload, "v">): string {
-	if (key.length !== 32) throw new Error("opt_out_key");
+export function issueEmailOptOutToken(
+	key: Buffer | OptOutKeyRing,
+	input: Omit<Payload, "v" | "iat" | "exp"> & { iat?: string; exp?: string },
+): string {
+	const ring = asRing(key);
+	if (ring.current.length !== 32) throw new Error("opt_out_key");
+	const iat = input.iat ?? new Date().toISOString();
+	const exp = input.exp ?? new Date(Date.parse(iat) + boundMs(input.purpose)).toISOString();
 	const iv = randomBytes(12);
-	const cipher = createCipheriv("aes-256-gcm", key, iv);
-	const body = Buffer.concat([cipher.update(JSON.stringify({ v: 1, ...input })), cipher.final()]);
+	const cipher = createCipheriv("aes-256-gcm", ring.current, iv);
+	const body = Buffer.concat([
+		cipher.update(
+			JSON.stringify({
+				v: 1,
+				purpose: input.purpose,
+				accountId: input.accountId,
+				category: input.category,
+				iat,
+				exp,
+				unsubscribeRevision: input.unsubscribeRevision,
+			}),
+		),
+		cipher.final(),
+	]);
 	return Buffer.concat([iv, cipher.getAuthTag(), body]).toString("base64url");
 }
 
-function openToken(key: Buffer, token: string): Payload | null {
+function openWith(key: Buffer, token: string): Payload | null {
 	try {
 		const buf = Buffer.from(token, "base64url");
-		if (buf.length < 29) return null;
+		if (buf.length < 29 || key.length !== 32) return null;
 		const decipher = createDecipheriv("aes-256-gcm", key, buf.subarray(0, 12));
 		decipher.setAuthTag(buf.subarray(12, 28));
 		const json = Buffer.concat([decipher.update(buf.subarray(28)), decipher.final()]).toString();
@@ -44,6 +75,19 @@ function openToken(key: Buffer, token: string): Payload | null {
 	} catch {
 		return null;
 	}
+}
+
+function openToken(key: Buffer | OptOutKeyRing, token: string): Payload | null {
+	const ring = asRing(key);
+	for (const candidate of [ring.current, ...(ring.previous ?? [])]) {
+		const claim = openWith(candidate, token);
+		if (claim) return claim;
+	}
+	return null;
+}
+
+function windowTooLong(claim: Payload) {
+	return Date.parse(claim.exp) - Date.parse(claim.iat) > boundMs(claim.purpose);
 }
 
 function defaultInApp(category: string) {
@@ -115,7 +159,7 @@ async function writeState(db: Database, claim: Payload) {
 
 export function emailOptOut(
 	db: Database,
-	key: Buffer,
+	key: Buffer | OptOutKeyRing,
 	now: () => Date,
 	raw: unknown,
 	purpose: "disable" | "undo" | "describe",
@@ -125,8 +169,8 @@ export function emailOptOut(
 			purpose === "describe" ? { token: parse(emailOptOutRequest, raw).token } : parse(emailOptOutRequest, raw);
 		const claim = openToken(key, input.token);
 		if (!claim || (purpose !== "describe" && claim.purpose !== purpose)) deny("access_denied");
-		if (!claim) deny("access_denied");
 		if (claim.category === "wiki_upstream_review") deny("invalid_input");
+		if (windowTooLong(claim)) deny("access_denied");
 		const expired = Date.parse(claim.exp) <= now().getTime();
 		const row = expired || purpose === "describe" ? await readState(db, claim) : await writeState(db, claim);
 		if (!row.account_id || row.rev === null || row.email_enabled === null || row.in_app_enabled === null)
@@ -142,7 +186,7 @@ export function emailOptOut(
 						purpose: "undo",
 						accountId: claim.accountId,
 						category: claim.category,
-						exp: new Date(now().getTime() + 60 * 60 * 1000).toISOString(),
+						iat: now().toISOString(),
 						unsubscribeRevision: row.rev,
 					})
 				: null;
@@ -157,5 +201,3 @@ export function emailOptOut(
 		});
 	});
 }
-
-export const OPT_OUT_DISABLE_MS = 180 * DAY;

@@ -25,14 +25,26 @@ const oversightRow = z.object({
 const planterRow = z.object({
 	timezone: z.string().nullable(),
 	in_app: z.boolean().nullable(),
+	cadence: z.enum(["daily", "weekly"]).nullable(),
+	weekday: z.number().int().nullable(),
+	hour: z.number().int().nullable(),
 	allowed: z.boolean(),
 });
 const actions =
 	"'tasks.changed','tasks.completed','meetings.changed','meetings.finalized','people.updated','people.created','plant.profile_changed'";
 
-/** The next Sunday-or-daily 16:00 slot in the plant zone. Not a producer method: it sends no statement. */
-export function nextDigestInstant(zone: TimeZone, cadence: "daily" | "weekly", now: Date): Instant {
+const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+
+/** The next stored slot in the plant zone. Not a producer method: it sends no statement. */
+export function nextDigestInstant(
+	zone: TimeZone,
+	cadence: "daily" | "weekly",
+	now: Date,
+	slot: { weekday: number; hour: number } = { weekday: 0, hour: 16 },
+): Instant {
 	const start = new Date(now);
+	const hour = String(slot.hour).padStart(2, "0");
+	const weekday = weekdays[slot.weekday] ?? "Sun";
 	for (let day = 0; day < 14; day++) {
 		const probe = new Date(start.getTime() + day * 86_400_000);
 		const parts = new Intl.DateTimeFormat("en-CA", {
@@ -45,8 +57,8 @@ export function nextDigestInstant(zone: TimeZone, cadence: "daily" | "weekly", n
 		}).formatToParts(probe);
 		const part = (type: string) => parts.find((item) => item.type === type)?.value ?? "";
 		const date = localDate.parse(`${part("year")}-${part("month")}-${part("day")}`);
-		if (cadence === "weekly" && part("weekday") !== "Sun") continue;
-		const resolved = resolveCalendar(localDateTime.parse(`${date}T16:00:00`), zone, "automatic");
+		if (cadence === "weekly" && part("weekday") !== weekday) continue;
+		const resolved = resolveCalendar(localDateTime.parse(`${date}T${hour}:00:00`), zone, "automatic");
 		if (resolved.kind !== "resolved") continue;
 		if (Date.parse(resolved.occurrence.instant) > now.getTime()) return resolved.occurrence.instant;
 	}
@@ -96,17 +108,25 @@ export async function readOversightDigest(db: Database, authority: RequestActor,
 			period: input.period,
 			lines: row.lines.map((line) => ({ date: line.date, count: line.count })),
 			plants,
-			mailIntents: 0,
 		});
 	});
 }
 
-export async function readPlanterDigest(db: Database, authority: RequestActor, raw: unknown) {
+export async function readPlanterDigest(db: Database, authority: RequestActor, raw: unknown, now: () => Date) {
 	return readReply(async () => {
 		const input = parse(readPlanterDigestRequest, raw);
 		const result = await db.execute(sql`SELECT p.timezone,
 				COALESCE((SELECT enabled FROM notification_preference
 					WHERE account_id = ${authority.actor.accountId}::uuid AND category = 'planter_digest' AND channel = 'in_app'), false) AS in_app,
+				(SELECT cadence FROM notification_preference
+					WHERE account_id = ${authority.actor.accountId}::uuid AND category = 'planter_digest' AND cadence IS NOT NULL
+					LIMIT 1) AS cadence,
+				COALESCE((SELECT hour FROM notification_preference
+					WHERE account_id = ${authority.actor.accountId}::uuid AND category = 'planter_digest' AND hour IS NOT NULL
+					LIMIT 1), p.digest_hour)::int AS hour,
+				COALESCE((SELECT weekday FROM notification_preference
+					WHERE account_id = ${authority.actor.accountId}::uuid AND category = 'planter_digest' AND weekday IS NOT NULL
+					LIMIT 1), p.digest_weekday)::int AS weekday,
 				EXISTS (
 					SELECT FROM live_session(${authority.session}::uuid) i
 					WHERE i.registration_state = 'active' AND i.account_id = ${authority.actor.accountId}::uuid
@@ -116,15 +136,18 @@ export async function readPlanterDigest(db: Database, authority: RequestActor, r
 						)
 				) AS allowed
 			FROM plant p WHERE p.id = ${input.plantId}::uuid`);
-		const row = planterRow.parse(result.rows[0] ?? { timezone: null, in_app: null, allowed: false });
-		if (!row.allowed || !row.timezone || row.in_app === null) deny("access_denied");
+		const row = planterRow.parse(
+			result.rows[0] ?? { timezone: null, in_app: null, cadence: null, weekday: null, hour: null, allowed: false },
+		);
+		if (!row.allowed || !row.timezone || row.in_app === null || row.weekday === null || row.hour === null)
+			deny("access_denied");
 		const zone = input.zone ?? timeZone.parse(row.timezone);
 		let sendAt: Instant;
 		if (input.wall) {
 			const resolved = resolveCalendar(input.wall, zone, "automatic");
 			if (resolved.kind !== "resolved") deny("invalid_input");
 			sendAt = resolved.occurrence.instant;
-		} else sendAt = nextDigestInstant(zone, "weekly", new Date());
-		return planterDigestResult.parse({ sendAt, logicalIntents: 1, inAppDigest: row.in_app, mailIntents: 0 });
+		} else sendAt = nextDigestInstant(zone, row.cadence ?? "weekly", now(), { weekday: row.weekday, hour: row.hour });
+		return planterDigestResult.parse({ sendAt, inAppDigest: row.in_app });
 	});
 }

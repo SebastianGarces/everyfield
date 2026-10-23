@@ -19,6 +19,7 @@ import {
 	type OrganizationEffects,
 	type Reader,
 } from "../organizations/core.ts";
+import { preferenceUpsert } from "../notifications/preferences.ts";
 import { applyOrganizationProfile, profileValue } from "../organizations/profile.ts";
 import { applySharingMutation } from "../organizations/sharing.ts";
 import {
@@ -148,19 +149,22 @@ async function notifications(db: Reader, deps: SectionDependencies, v: Viewer) {
 		})),
 	);
 	const suppression = await deps.suppression(db, v.principal.email);
-	return q.sectionResult.parse({
-		section: "notifications",
-		accountId: account.id,
-		revision: account.revision,
-		values: {
-			choices,
-			planterCadence: rows.find((r) => r.category === "planter_digest")?.cadence ?? "weekly",
-			oversightCadence: account.organization
-				? (rows.find((r) => r.category === "oversight_digest")?.cadence ?? "weekly")
-				: null,
-			suppression,
-		},
-	});
+	return {
+		stored: rows,
+		result: q.sectionResult.parse({
+			section: "notifications",
+			accountId: account.id,
+			revision: account.revision,
+			values: {
+				choices,
+				planterCadence: rows.find((r) => r.category === "planter_digest")?.cadence ?? "weekly",
+				oversightCadence: account.organization
+					? (rows.find((r) => r.category === "oversight_digest")?.cadence ?? "weekly")
+					: null,
+				suppression,
+			},
+		}),
+	};
 }
 export function sectionOperations(deps: SectionDependencies): Operations {
 	/**
@@ -179,7 +183,7 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 				return accountValue({ account, principal: v.principal });
 			}
 			case "notifications":
-				return notifications(db, deps, v);
+				return (await notifications(db, deps, v)).result;
 			case "plant": {
 				const [row] = await db
 					.select()
@@ -314,7 +318,8 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 			}
 			case "notifications": {
 				revision(v.expectedRevision, a.account.revision);
-				current = await notifications(tx, deps, viewer);
+				const loaded = await notifications(tx, deps, viewer);
+				current = loaded.result;
 				if (current.section !== "notifications") deny();
 				const patch = i.patch;
 				const values = current.values;
@@ -327,57 +332,33 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 				if (!current.values.choices.some((c) => c.category === category)) deny();
 				if (patch.kind === "channel") {
 					const choice = patch.choice;
-					changed =
-						current.values.choices.find((r) => r.category === category && r.channel === choice.channel)?.enabled !==
-						choice.enabled;
+					const existing = loaded.stored.find((r) => r.category === category && r.channel === choice.channel);
+					changed = !existing || existing.enabled !== choice.enabled;
 					if (changed)
 						c.writes.push(
-							tx
-								.insert(t.notification_preference)
-								.values({
-									account_id: a.account.id,
-									category,
-									channel: choice.channel,
-									enabled: choice.enabled,
-									unsubscribe_revision: "1",
-								})
-								.onConflictDoUpdate({
-									target: [
-										t.notification_preference.account_id,
-										t.notification_preference.category,
-										t.notification_preference.channel,
-									],
-									set: { enabled: choice.enabled, revision: sql`${t.notification_preference.revision}+1` },
-								}),
+							preferenceUpsert(
+								a.account.id,
+								[{ category, channel: choice.channel, enabled: choice.enabled, cadence: null }],
+								false,
+								sql`true`,
+							),
 						);
 				} else {
-					changed =
-						(patch.kind === "planter_cadence" ? current.values.planterCadence : current.values.oversightCadence) !==
-						patch.cadence;
+					const storedCadence = loaded.stored.find((r) => r.category === category && r.cadence)?.cadence ?? null;
+					changed = storedCadence !== patch.cadence;
 					if (changed)
 						c.writes.push(
-							tx
-								.insert(t.notification_preference)
-								.values(
-									(["email", "in_app"] as const).map((channel) => ({
-										account_id: a.account.id,
-										category,
-										channel,
-										enabled: values.choices.find((r) => r.category === category && r.channel === channel)!.enabled,
-										cadence: patch.cadence,
-										weekday: 0,
-										hour: 16,
-										unsubscribe_revision: "1",
-									})),
-								)
-								.onConflictDoUpdate({
-									target: [
-										t.notification_preference.account_id,
-										t.notification_preference.category,
-										t.notification_preference.channel,
-									],
-									set: { cadence: patch.cadence, revision: sql`${t.notification_preference.revision}+1` },
-								}),
+							preferenceUpsert(
+								a.account.id,
+								(["email", "in_app"] as const).map((channel) => ({
+									category,
+									channel,
+									enabled: values.choices.find((r) => r.category === category && r.channel === channel)!.enabled,
+									cadence: patch.cadence,
+								})),
+								true,
+								sql`true`,
+							),
 						);
 				}
 				if (changed)

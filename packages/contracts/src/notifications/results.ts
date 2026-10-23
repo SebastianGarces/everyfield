@@ -2,14 +2,7 @@ import { z } from "zod";
 import { safeError } from "../common/values.ts";
 import { instant, timeZone } from "../common/time.ts";
 import { notificationSettings } from "../settings/values.ts";
-import {
-	digestCadence,
-	digestPeriod,
-	excludedNotificationHelpers,
-	notificationCategory,
-	notificationProducers,
-	optOutPurpose,
-} from "./values.ts";
+import { digestCadence, digestPeriod, notificationCategory, optOutPurpose } from "./values.ts";
 
 export const notificationError = safeError;
 export type NotificationError = z.infer<typeof notificationError>;
@@ -54,33 +47,20 @@ export const oversightDigestResult = z.strictObject({
 	period: digestPeriod,
 	lines: z.array(z.strictObject({ date: z.iso.date(), count: z.number().int().positive() })),
 	plants: z.array(z.uuid()),
-	mailIntents: z.literal(0),
 });
 export const planterDigestResult = z.strictObject({
 	sendAt: instant,
-	logicalIntents: z.literal(1),
 	inAppDigest: z.boolean(),
-	mailIntents: z.literal(0),
 });
 export const associationAudienceResult = z.strictObject({
 	recipientIds: z.array(z.uuid()),
-	phantomPlantCreated: z.literal(false),
 });
 export const associationReceiptResult = z.strictObject({
 	recipients: z.array(z.strictObject({ accountId: z.uuid(), state: z.string() })),
 });
 export const meetingAudienceResult = z.strictObject({ recipientIds: z.array(z.uuid()) });
-export const producerResult = z.strictObject({
-	implementedNewProducer: z.literal("Wiki_upstream"),
-	genericRulesEngine: z.literal(false),
-	unusedHelpersEnabled: z.literal(false),
-	producers: z.array(z.enum(notificationProducers)),
-	excluded: z.array(z.enum(excludedNotificationHelpers)),
-});
 export const cancelRemindersResult = z.strictObject({ cancelledIds: z.array(z.uuid()) });
 export const wikiPublishResult = z.strictObject({
 	noticeIds: z.array(z.uuid()),
 	recipientIds: z.array(z.uuid()),
-	emailIntents: z.literal(0),
-	autoAdoptions: z.literal(0),
 });

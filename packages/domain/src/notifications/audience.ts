@@ -4,21 +4,17 @@ import {
 	associationReceiptResult,
 	cancelRemindersResult,
 	cancelTaskRemindersRequest,
-	excludedNotificationHelpers,
 	meetingAudienceResult,
-	notificationProducers,
-	producerResult,
 	publishWikiUpstreamRequest,
 	readAssociationAudienceRequest,
 	readAssociationReceiptRequest,
 	readMeetingAudienceRequest,
-	readProducersRequest,
 	wikiPublishResult,
 } from "@everyfield/contracts/notifications";
 import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import { z } from "zod";
-import { RequestActor, accountOwner, audit, deny, jsonValue, parse, readReply, refusal, runWrite } from "./core.ts";
+import { RequestActor, accountOwner, audit, deny, jsonValue, parse, readReply, runWrite } from "./core.ts";
 
 const idsRow = z.object({ allowed: z.boolean(), ids: z.array(z.uuid()) });
 const receiptRow = z.object({
@@ -27,6 +23,7 @@ const receiptRow = z.object({
 });
 const cancelRow = z.object({ ids: z.array(z.uuid()) });
 const wikiRow = z.object({
+	published: z.boolean(),
 	rows: z.array(z.object({ id: z.uuid(), recipient: z.uuid() })),
 });
 
@@ -38,23 +35,33 @@ function liveAccount(session: string, accountId: string) {
 export async function readAssociationAudience(db: Database, authority: RequestActor, raw: unknown) {
 	return readReply(async () => {
 		const input = parse(readAssociationAudienceRequest, raw);
-		const result = await db.execute(sql`SELECT ${liveAccount(authority.session, authority.actor.accountId)}
-				AND (
-					${authority.actor.accountId}::uuid = ${input.discoveryAccountId}::uuid
-					OR EXISTS (SELECT FROM seat s WHERE s.account_id = ${authority.actor.accountId}::uuid
-						AND s.organization_id = ${input.organizationId}::uuid AND s.role IN ('owner','admin')
-						AND s.ended_at IS NULL AND s.accepted_at <= clock_timestamp())
-				) AS allowed,
-				COALESCE((SELECT json_agg(id ORDER BY id) FROM (
-					SELECT ${input.discoveryAccountId}::uuid AS id
-					UNION
-					SELECT s.account_id FROM seat s
-					WHERE s.organization_id = ${input.organizationId}::uuid AND s.role = 'owner'
+		const result = await db.execute(sql`WITH allowed AS (
+				SELECT ${liveAccount(authority.session, authority.actor.accountId)}
+					AND EXISTS (
+						SELECT FROM seat mine
+						WHERE mine.account_id = ${authority.actor.accountId}::uuid
+							AND mine.organization_id = ${input.organizationId}::uuid
+							AND mine.role IN ('owner','admin') AND mine.ended_at IS NULL
+							AND mine.accepted_at <= clock_timestamp()
+					)
+					AND EXISTS (
+						SELECT FROM affiliation a
+						JOIN seat planter ON planter.plant_id = a.plant_id
+							AND planter.account_id = ${input.discoveryAccountId}::uuid
+							AND planter.ended_at IS NULL AND planter.accepted_at <= clock_timestamp()
+						WHERE a.organization_id = ${input.organizationId}::uuid
+							AND a.ended_at IS NULL AND a.accepted_at IS NOT NULL
+					) AS ok
+			)
+			SELECT (SELECT ok FROM allowed) AS allowed,
+				COALESCE((SELECT json_agg(s.account_id ORDER BY s.account_id) FROM seat s
+					WHERE (SELECT ok FROM allowed)
+						AND s.organization_id = ${input.organizationId}::uuid AND s.role = 'owner'
 						AND s.ended_at IS NULL AND s.accepted_at <= clock_timestamp()
-				) people), '[]'::json) AS ids`);
+				), '[]'::json) AS ids`);
 		const row = idsRow.parse({ ...result.rows[0], ids: jsonValue(result.rows[0]?.ids) });
 		if (!row.allowed) deny("access_denied");
-		return associationAudienceResult.parse({ recipientIds: [...new Set(row.ids)], phantomPlantCreated: false });
+		return associationAudienceResult.parse({ recipientIds: row.ids });
 	});
 }
 
@@ -164,48 +171,59 @@ export function publishWikiUpstream(db: Database, authority: RequestActor, raw: 
 		"notifications.publishWikiUpstream",
 		wikiPublishResult,
 		async (tx, cmd, input) => {
-			const key = `${input.input.organizationId}/wiki_upstream_review/${input.input.sourceId}/${input.input.sourceRevision}/published`;
-			const result = await tx.execute(sql`INSERT INTO notice
-					(tenant_id, recipient_id, category, purpose, logical_key, source_record_id, source_revision, title, eligible_at, created_at)
-				SELECT ${input.input.organizationId}::uuid, s.account_id, 'reference_update', 'reference_update', ${key},
-					${input.input.organizationId}::uuid, ${input.input.sourceRevision}::bigint, ${input.input.title},
-					clock_timestamp(), clock_timestamp()
-				FROM seat s
-				WHERE s.organization_id = ${input.input.organizationId}::uuid AND s.role IN ('owner','admin')
-					AND s.ended_at IS NULL AND s.accepted_at <= clock_timestamp()
-				ON CONFLICT (recipient_id, logical_key) DO NOTHING
-				RETURNING id, recipient_id AS recipient`);
-			const row = wikiRow.parse({ rows: result.rows });
+			const org = input.input.organizationId;
+			const result = await tx.execute(sql`WITH seated AS (
+					SELECT s.account_id FROM seat s
+					WHERE s.organization_id = ${org}::uuid AND s.role IN ('owner','admin')
+						AND s.ended_at IS NULL AND s.accepted_at <= clock_timestamp()
+						AND EXISTS (
+							SELECT FROM live_session(${authority.session}::uuid) i
+							WHERE i.registration_state = 'active' AND i.account_id = ${authority.actor.accountId}::uuid
+								AND i.account_id = s.account_id
+						)
+				),
+				published AS (
+					SELECT r.id, r.title, r.meaningful_sequence
+					FROM article_revision r
+					WHERE r.id = ${input.input.sourceId}::uuid
+						AND r.published_at IS NOT NULL
+						AND r.tenant_id = '00000000-0000-0000-0000-000000000000'::uuid
+						AND r.meaningful_sequence = ${input.input.sourceRevision}::bigint
+						AND EXISTS (
+							SELECT FROM article_editor_state e
+							WHERE e.organization_id = ${org}::uuid AND e.article_id = r.article_id
+								AND e.state <> 'inherited'
+						)
+						AND EXISTS (SELECT FROM seated)
+				),
+				inserted AS (
+					INSERT INTO notice
+						(tenant_id, recipient_id, category, purpose, logical_key, source_record_id, source_revision, title, eligible_at, created_at)
+					SELECT ${org}::uuid, s.account_id, 'reference_update', 'reference_update',
+						${org}::text || '/wiki_upstream_review/' || p.id::text || '/' || p.meaningful_sequence::text || '/published',
+						${org}::uuid, p.meaningful_sequence, p.title, clock_timestamp(), clock_timestamp()
+					FROM published p
+					JOIN seat s ON s.organization_id = ${org}::uuid AND s.role IN ('owner','admin')
+						AND s.ended_at IS NULL AND s.accepted_at <= clock_timestamp()
+					ON CONFLICT (recipient_id, logical_key) DO NOTHING
+					RETURNING id, recipient_id AS recipient
+				)
+				SELECT EXISTS(SELECT FROM published) AS published,
+					COALESCE((SELECT json_agg(json_build_object('id', id, 'recipient', recipient)) FROM inserted), '[]'::json) AS rows`);
+			const row = wikiRow.parse({
+				published: result.rows[0]?.published,
+				rows: jsonValue(result.rows[0]?.rows),
+			});
+			if (!row.published) deny("access_denied");
 			audit(cmd, {
-				subjectId: input.input.organizationId,
-				action: "wiki.published",
-				kind: "publish",
-				fields: ["wiki_upstream_review"],
+				subjectId: org,
+				kind: row.rows.length ? "edit" : "noop",
+				fields: row.rows.length ? ["wiki_upstream_review"] : [],
 			});
 			return {
 				noticeIds: row.rows.map((item) => item.id),
 				recipientIds: row.rows.map((item) => item.recipient),
-				emailIntents: 0,
-				autoAdoptions: 0,
 			};
 		},
 	);
-}
-
-export function readProducers(raw: unknown) {
-	try {
-		parse(readProducersRequest, raw);
-		return {
-			status: "ok" as const,
-			value: producerResult.parse({
-				implementedNewProducer: "Wiki_upstream",
-				genericRulesEngine: false,
-				unusedHelpersEnabled: false,
-				producers: [...notificationProducers],
-				excluded: [...excludedNotificationHelpers],
-			}),
-		};
-	} catch (error) {
-		return refusal(error);
-	}
 }

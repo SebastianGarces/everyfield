@@ -194,8 +194,20 @@ test("AC:CASE-NTF-003 AC:NOTIFY47-001 AC:NOTIFY47-010 the feed and mark stay ins
 	denied(await api.markRead(db, reader, command({ noticeId: foreign })), "access_denied");
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM notice WHERE id=${foreign} AND read_at IS NULL`), 1);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM task WHERE id=${work} AND status='not_started'`), 1);
-	const marked = ok(await api.markAllVisibleRead(db, reader, command({})));
+	const arrived = await notice({
+		tenant: church.id,
+		recipient: a.id,
+		category: "task",
+		purpose: "task_due",
+		key: `${church.id}/task_due/${work}/1/arrived`,
+		source: work,
+		title: "Arrived after the page",
+		eligible: "2026-10-20T16:00:00Z",
+	});
+	const marked = ok(await api.markAllVisibleRead(db, reader, command({ cutoff: item.eligibleAt })));
 	assert.deepEqual(marked.markedIds, [due]);
+	assert.equal(await count(sql`SELECT count(*)::int AS n FROM notice WHERE id=${arrived} AND read_at IS NULL`), 1);
+	await admin.execute(sql`UPDATE notice SET cancelled_at = clock_timestamp() WHERE id = ${arrived}`);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM notice WHERE id=${future} AND read_at IS NULL`), 1);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM notice WHERE id=${foreign} AND read_at IS NULL`), 1);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM task WHERE id=${work} AND status='not_started'`), 1);
@@ -214,6 +226,28 @@ test("AC:CASE-NTF-003 AC:NOTIFY47-001 AC:NOTIFY47-010 the feed and mark stay ins
 		false,
 	);
 	assert.equal(ok(await api.readUnreadCount(db, reader, {})).count, 60);
+	const unread = ok(await api.readFeed(db, reader, { unread: true }));
+	assert.equal(
+		unread.items.some((row) => row.id === due),
+		false,
+	);
+	const burstChurch = await plant("Burst");
+	const burst = await identity(burstChurch);
+	const burstTask = await task(burstChurch.id);
+	await admin.execute(sql`INSERT INTO notice(tenant_id,recipient_id,category,purpose,logical_key,source_record_id,source_revision,title,eligible_at,created_at,timezone)
+		SELECT ${burstChurch.id},${burst.id},'task','task_due',${burstChurch.id} || '/task_due/' || gen_random_uuid() || '/1/b' || g,${burstTask},1,'Same millisecond ' || g,
+			timestamptz '2026-10-23 14:00:00.123+00' + (g || ' microseconds')::interval,
+			timestamptz '2026-10-23 15:00:00.123456+00','America/Chicago'
+		FROM generate_series(1,60) g`);
+	const burstReader = await actor(burst.session);
+	const sameFirst = ok(await api.readFeed(db, burstReader, {}));
+	const sameSecond = ok(await api.readFeed(db, burstReader, { cursor: sameFirst.nextCursor }));
+	const samePage = ok(await api.readFeed(db, burstReader, { page: 2 }));
+	const sameIds = new Set([...sameFirst.items, ...sameSecond.items].map((row) => row.id));
+	assert.equal(sameFirst.items.length, 50);
+	assert.equal(sameSecond.items.length, 10);
+	assert.equal(sameIds.size, 60);
+	assert.equal(samePage.items.length, 10);
 	const meeting = randomUUID();
 	await admin.execute(
 		sql`INSERT INTO meeting(id,plant_id,type,title,creator_id,local_date,local_time,timezone,starts_at,resolver_version,status,attendance_revision) VALUES(${meeting},${church.id},'vision_meeting','Vision',${a.id},'2026-10-13','18:00','America/Chicago','2026-10-13T23:00:00Z','1','completed',1)`,
@@ -316,10 +350,14 @@ test("AC:CASE-NTF-004 AC:CASE-NTF-012 AC:NOTIFY47-002 AC:NOTIFY47-004 AC:TARGET-
 	const second = ok(await api.readPlanterDigest(db, reader, wall));
 	assert.equal(Date.parse(first.sendAt), Date.parse("2026-10-18T21:00:00Z"));
 	assert.equal(second.sendAt, first.sendAt);
-	assert.equal(first.logicalIntents, 1);
 	assert.equal(first.inAppDigest, false);
-	assert.equal(first.mailIntents, 0);
-	ok(await api.readPlanterDigest(db, reader, { plantId: church.id }));
+	const daily = ok(
+		await api.setDigestCadence(db, reader, command({ plantId: church.id, cadence: "daily" }, cadence.revision)),
+	);
+	assert.equal(daily.cadence, "daily");
+	const stored = ok(await api.readPlanterDigest(db, reader, { plantId: church.id }));
+	assert.equal(Date.parse(stored.sendAt), Date.parse("2026-10-23T21:00:00Z"));
+	assert.equal(await count(sql`SELECT count(*)::int AS n FROM mail`), beforeMail);
 	const exp = "2026-10-13T16:00:00Z";
 	clock.at = new Date(exp);
 	const expired = issueEmailOptOutToken(optOutKey, {
@@ -337,7 +375,7 @@ test("AC:CASE-NTF-004 AC:CASE-NTF-012 AC:NOTIFY47-002 AC:NOTIFY47-004 AC:TARGET-
 	assert.equal(refused.changed, false);
 	assert.equal(refused.emailEnabled, true);
 	assert.equal(
-		await count(sql`SELECT count(*)::int AS n FROM account WHERE id=${a.id} AND revision::text=${after.revision}`),
+		await count(sql`SELECT count(*)::int AS n FROM account WHERE id=${a.id} AND revision::text=${daily.revision}`),
 		1,
 	);
 	clock.at = new Date("2026-10-14T00:00:00Z");
@@ -370,6 +408,26 @@ test("AC:CASE-NTF-004 AC:CASE-NTF-012 AC:NOTIFY47-002 AC:NOTIFY47-004 AC:TARGET-
 	const undone = ok(await api.undoEmailOptOut(db, { token: applied.undoToken }));
 	assert.equal(undone.emailEnabled, true);
 	assert.equal(undone.changed, true);
+	const rotated = createNotificationProducer({
+		optOutKeys: { current: randomBytes(32), previous: [optOutKey] },
+		now: () => clock.at,
+	});
+	const previous = issueEmailOptOutToken(optOutKey, {
+		purpose: "disable",
+		accountId: a.id,
+		category: "task_overdue",
+		exp: "2027-04-01T00:00:00Z",
+		unsubscribeRevision: "0",
+	});
+	assert.equal(ok(await rotated.describeEmailOptOut(db, reader, { token: previous })).category, "task_overdue");
+	const tooLong = issueEmailOptOutToken(optOutKey, {
+		purpose: "disable",
+		accountId: a.id,
+		category: "task_overdue",
+		exp: "2031-10-14T00:00:00Z",
+		unsubscribeRevision: "0",
+	});
+	denied(await api.applyEmailOptOut(db, { token: tooLong }), "access_denied");
 	denied(await api.describeEmailOptOut(db, reader, { token: "not-a-token" }), "access_denied");
 });
 
@@ -388,7 +446,6 @@ test("AC:AF-030 AC:AF-032 AC:AF-033 AC:CASE-NTF-008 AC:NOTIFY47-005 AC:TARGET-ID
 	};
 	const southLink = await link(south, true);
 	const northLink = await link(north, true);
-	const plantActor = await actor(planter.session);
 	const changed = await orgCall(
 		"privacy.setSharing",
 		planter,
@@ -432,7 +489,7 @@ test("AC:AF-030 AC:AF-032 AC:AF-033 AC:CASE-NTF-008 AC:NOTIFY47-005 AC:TARGET-ID
 			period: "current",
 		}),
 	);
-	assert.equal(preview.mailIntents, 0);
+	assert.equal(await count(sql`SELECT count(*)::int AS n FROM mail WHERE purpose='oversight_digest'`), 0);
 	assert.deepEqual(preview.plants, [church.id]);
 	assert.equal(preview.lines.length, 1);
 	assert.equal(JSON.stringify(preview).includes("PRIVATE-CARE-MARKER"), false);
@@ -446,7 +503,7 @@ test("AC:AF-030 AC:AF-032 AC:AF-033 AC:CASE-NTF-008 AC:NOTIFY47-005 AC:TARGET-ID
 	);
 	assert.deepEqual(quiet.lines, []);
 	assert.deepEqual(quiet.plants, []);
-	assert.equal(quiet.mailIntents, 0);
+	assert.equal(await count(sql`SELECT count(*)::int AS n FROM plant WHERE id=${church.id}`), 1);
 	denied(
 		await api.readOversightDigest(db, northReader, {
 			organizationId: south.id,
@@ -499,7 +556,6 @@ test("AC:AF-030 AC:AF-032 AC:AF-033 AC:CASE-NTF-008 AC:NOTIFY47-005 AC:TARGET-ID
 		),
 	);
 	assert.equal(ok(await api.getPreferences(db, northReader, {})).oversightCadence, "daily");
-	void plantActor;
 });
 
 test("AC:CASE-NTF-014 AC:NOTIFY47-009 AC:WIKI52-002 wiki notices stay in the app for current editors", async () => {
@@ -507,31 +563,56 @@ test("AC:CASE-NTF-014 AC:NOTIFY47-009 AC:WIKI52-002 wiki notices stay in the app
 	const editor = await identity(network);
 	const revoked = await identity(network, "admin");
 	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${revoked.id}`);
-	const article = randomUUID(),
+	const global = "00000000-0000-0000-0000-000000000000";
+	const section = randomUUID(),
+		article = randomUUID(),
+		release = randomUUID(),
+		typoId = randomUUID(),
+		updateId = randomUUID(),
 		state = randomUUID();
+	await admin.execute(sql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id) VALUES
+		(${section},'section',${"section-" + section},${global}),
+		(${article},'article',${"article-" + article},${global})`);
+	await admin.execute(sql`INSERT INTO reference_release(id,release_key,artifact_locator,manifest_hash,state,chunker_version,embedding_profile,embedding_dimensions,tenant_id,expected_passages)
+		VALUES(${release},${"release-" + release},'memory://synthetic','hash','validated','v','profile',1,${global},0)`);
+	await admin.execute(sql`INSERT INTO article_revision(id,article_id,tenant_id,release_id,revision_number,title,slug,body,content_type,position,content_hash,published_at,meaningful,meaningful_sequence,section_id)
+		VALUES
+		(${typoId},${article},${global},${release},1,'Typo','typo','body','safe_mdx',1,${"a".repeat(64)},clock_timestamp(),true,1,${section}),
+		(${updateId},${article},${global},${release},2,'Meaningful update','update','body','safe_mdx',1,${"b".repeat(64)},clock_timestamp(),true,2,${section})`);
 	await admin.execute(
-		sql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id) VALUES(${article},'article',${"synthetic-" + article},'00000000-0000-0000-0000-000000000000')`,
-	);
-	await admin.execute(
-		sql`INSERT INTO article_editor_state(id,organization_id,article_id,state,revision) VALUES(${state},${network.id},${article},'published',1)`,
+		sql`INSERT INTO article_editor_state(id,organization_id,article_id,state,based_on_upstream_id,revision) VALUES(${state},${network.id},${article},'published',${updateId},1)`,
 	);
 	const reader = await actor(editor.session);
-	const publish = (revision, title) =>
+	const publish = (sourceId, revision) =>
 		api.publishWikiUpstream(
 			db,
 			reader,
 			command({
 				organizationId: network.id,
 				organizationKind: "sending_network",
-				sourceId: article,
+				sourceId,
 				sourceRevision: revision,
-				title,
 			}),
 		);
-	const typo = ok(await publish("1", "Typo"));
-	const meaningful = ok(await publish("2", "Meaningful update"));
-	assert.equal(typo.emailIntents, 0);
-	assert.equal(meaningful.autoAdoptions, 0);
+	denied(
+		await api.publishWikiUpstream(
+			db,
+			reader,
+			command({
+				organizationId: network.id,
+				organizationKind: "sending_network",
+				sourceId: randomUUID(),
+				sourceRevision: "7",
+				title: "Please re-enter your password at evil.example",
+			}),
+		),
+		"invalid_input",
+	);
+	denied(await publish(randomUUID(), "7"), "access_denied");
+	assert.equal(await count(sql`SELECT count(*)::int AS n FROM notice WHERE title LIKE 'Please re-enter%'`), 0);
+	assert.equal(await count(sql`SELECT count(*)::int AS n FROM audit_event WHERE action='wiki.published'`), 0);
+	const typo = ok(await publish(typoId, "1"));
+	const meaningful = ok(await publish(updateId, "2"));
 	assert.deepEqual(typo.recipientIds, [editor.id]);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM mail WHERE tenant_id=${network.id}`), 0);
 	assert.deepEqual(
@@ -543,21 +624,24 @@ test("AC:CASE-NTF-014 AC:NOTIFY47-009 AC:WIKI52-002 wiki notices stay in the app
 	assert.deepEqual(feed.items.map((item) => item.title).sort(), ["Meaningful update", "Typo"]);
 	const hidden = ok(await api.readFeed(db, await actor(revoked.session), {}));
 	assert.deepEqual(hidden.items, []);
-	const producers = ok(
-		await api.readProducers(db, reader, { requested: ["team_health", "snooze", "NeedsYou", "Wiki_upstream"] }),
-	);
-	assert.equal(producers.implementedNewProducer, "Wiki_upstream");
-	assert.equal(producers.genericRulesEngine, false);
-	assert.equal(producers.unusedHelpersEnabled, false);
-	assert.equal(producers.producers.includes("wiki_upstream_review"), true);
-	assert.equal(producers.excluded.includes("NeedsYou"), true);
+	const field = await plant("Field");
+	const planter = await identity(field);
+	await admin.execute(sql`INSERT INTO affiliation(id,plant_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
+		VALUES(${randomUUID()},${field.id},${network.id},clock_timestamp(),false,false,false,false,false,false,false)`);
 	const plantsBefore = await count(sql`SELECT count(*)::int AS n FROM plant`);
 	const audience = ok(
-		await api.readAssociationAudience(db, reader, { organizationId: network.id, discoveryAccountId: editor.id }),
+		await api.readAssociationAudience(db, reader, { organizationId: network.id, discoveryAccountId: planter.id }),
 	);
 	assert.deepEqual(audience.recipientIds, [editor.id]);
-	assert.equal(audience.phantomPlantCreated, false);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM plant`), plantsBefore);
+	const stranger = await identity();
+	denied(
+		await api.readAssociationAudience(db, await actor(stranger.session), {
+			organizationId: network.id,
+			discoveryAccountId: stranger.id,
+		}),
+		"access_denied",
+	);
 	const adminSeat = await identity();
 	await admin.execute(
 		sql`INSERT INTO seat(account_id,organization_id,role,accepted_at) VALUES(${adminSeat.id},${network.id},'admin',clock_timestamp())`,
@@ -571,7 +655,7 @@ test("AC:CASE-NTF-014 AC:NOTIFY47-009 AC:WIKI52-002 wiki notices stay in the app
 	assert.deepEqual(receipt.recipients, [{ accountId: editor.id, state: "refused" }]);
 	assert.equal(JSON.stringify(receipt).includes("hash"), false);
 	const seen = ok(
-		await api.readAssociationAudience(db, reader, { organizationId: network.id, discoveryAccountId: editor.id }),
+		await api.readAssociationAudience(db, reader, { organizationId: network.id, discoveryAccountId: planter.id }),
 	);
 	assert.equal(seen.recipientIds.includes(adminSeat.id), false);
 });

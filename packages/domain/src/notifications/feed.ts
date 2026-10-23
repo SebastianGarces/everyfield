@@ -36,6 +36,7 @@ const itemRow = z.object({
 	read: z.boolean(),
 	dueLocalDate: z.string().nullable(),
 	overdue: z.boolean(),
+	cursorAt: z.string(),
 });
 const pageRow = z.object({ account_id: z.uuid().nullable(), items: z.array(itemRow) });
 const countRow = z.object({ account_id: z.uuid().nullable(), count: z.number().int() });
@@ -53,6 +54,8 @@ function feedSql(
 	cursorAt: string | null,
 	cursorId: string | null,
 	asOf: string,
+	unread: boolean,
+	offset: number,
 ) {
 	return sql`WITH ${selfSql(session, accountId)}
 		SELECT (SELECT account_id FROM me) AS account_id,
@@ -65,14 +68,17 @@ function feedSql(
 					'eligibleAt', to_char(n.eligible_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
 					'read', n.read_at IS NOT NULL,
 					'dueLocalDate', n.schedule_date,
-					'overdue', ${overdueSql(asOf)}
-				) AS item, n.eligible_at AS sort_at, n.id AS sort_id
+					'overdue', ${overdueSql(asOf)},
+					'cursorAt', to_char(n.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')
+				) AS item, n.created_at AS sort_at, n.id AS sort_id
 				FROM notice n
 				WHERE ${noticeVisible()}
 					AND (${category}::text IS NULL OR split_part(n.logical_key,'/',2) = ${category})
-					AND (${cursorAt}::timestamptz IS NULL OR (n.eligible_at, n.id) < (${cursorAt}::timestamptz, ${cursorId}::uuid))
-				ORDER BY n.eligible_at DESC, n.id DESC
+					AND (${unread}::boolean IS NOT TRUE OR n.read_at IS NULL)
+					AND (${cursorAt}::timestamptz IS NULL OR (n.created_at, n.id) < (${cursorAt}::timestamptz, ${cursorId}::uuid))
+				ORDER BY n.created_at DESC, n.id DESC
 				LIMIT ${PAGE + 1}
+				OFFSET ${offset}
 			) page), '[]'::json) AS items`;
 }
 
@@ -81,6 +87,7 @@ export async function readFeed(db: Database, authority: RequestActor, raw: unkno
 		const input = parse(readFeedRequest, raw);
 		const cursor = input.cursor?.split("|");
 		const asOf = input.asOf ?? new Date().toISOString();
+		const offset = input.cursor ? 0 : input.page ? (input.page - 1) * PAGE : 0;
 		const result = await db.execute(
 			feedSql(
 				authority.session,
@@ -89,15 +96,27 @@ export async function readFeed(db: Database, authority: RequestActor, raw: unkno
 				cursor?.[0] ?? null,
 				cursor?.[1] ?? null,
 				asOf,
+				input.unread === true,
+				offset,
 			),
 		);
 		const row = pageRow.parse({ ...result.rows[0], items: jsonValue(result.rows[0]?.items) });
 		if (!row.account_id) deny();
 		const more = row.items.length > PAGE;
-		const items = more ? row.items.slice(0, PAGE) : row.items;
+		const visible = more ? row.items.slice(0, PAGE) : row.items;
+		const last = visible.at(-1);
 		return feedResult.parse({
-			items,
-			nextCursor: more ? `${items[PAGE - 1]!.eligibleAt}|${items[PAGE - 1]!.id}` : null,
+			items: visible.map(({ id, category, title, body, eligibleAt, read, dueLocalDate, overdue }) => ({
+				id,
+				category,
+				title,
+				body,
+				eligibleAt,
+				read,
+				dueLocalDate,
+				overdue,
+			})),
+			nextCursor: more && last ? `${last.cursorAt}|${last.id}` : null,
 		});
 	});
 }
@@ -115,12 +134,20 @@ export async function readUnreadCount(db: Database, authority: RequestActor, raw
 	});
 }
 
-async function mark(tx: Tx, session: string, accountId: string, expected: string, ids: string[] | null, all: boolean) {
-	const eligible = all ? sql`n.eligible_at <= (SELECT at FROM cutoff)` : sql`n.eligible_at <= clock_timestamp()`;
+async function mark(
+	tx: Tx,
+	session: string,
+	accountId: string,
+	expected: string,
+	ids: string[] | null,
+	cutoff: string | null,
+) {
+	const eligible = cutoff
+		? sql`n.eligible_at <= ${cutoff}::timestamptz AND n.eligible_at <= clock_timestamp()`
+		: sql`n.eligible_at <= clock_timestamp()`;
 	const idFilter = ids ? sql`n.id = ANY(${sql.param(ids)}::uuid[])` : sql`true`;
-	const markedFrom = sql.raw(all ? "updated" : "visible");
+	const markedFrom = sql.raw(cutoff ? "updated" : "visible");
 	const result = await tx.execute(sql`WITH ${selfSql(session, accountId)},
-		cutoff AS (SELECT clock_timestamp() AS at),
 		locked AS (
 			SELECT a.id FROM account a
 			WHERE a.id = (SELECT account_id FROM me) AND a.revision = ${expected}::bigint
@@ -162,7 +189,7 @@ export function markRead(db: Database, authority: RequestActor, raw: unknown) {
 				authority.actor.accountId,
 				input.expectedRevision,
 				[input.input.noticeId],
-				false,
+				null,
 			);
 			if (row.visible_ids.length !== 1) deny("access_denied");
 			audit(cmd, {
@@ -192,7 +219,7 @@ export function markSelectedRead(db: Database, authority: RequestActor, raw: unk
 				authority.actor.accountId,
 				input.expectedRevision,
 				input.input.noticeIds,
-				false,
+				null,
 			);
 			audit(cmd, {
 				subjectId: authority.actor.accountId,
@@ -215,7 +242,14 @@ export function markAllVisibleRead(db: Database, authority: RequestActor, raw: u
 		"notifications.markAllVisibleRead",
 		markResult,
 		async (tx, cmd, input) => {
-			const row = await mark(tx, authority.session, authority.actor.accountId, input.expectedRevision, null, true);
+			const row = await mark(
+				tx,
+				authority.session,
+				authority.actor.accountId,
+				input.expectedRevision,
+				null,
+				input.input.cutoff,
+			);
 			audit(cmd, {
 				subjectId: authority.actor.accountId,
 				kind: row.changed ? "read" : "noop",

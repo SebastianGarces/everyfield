@@ -88,33 +88,8 @@ async function save(
 				AND EXISTS (SELECT FROM seat_ok)
 			FOR UPDATE
 		),
-		input AS (
-			SELECT * FROM jsonb_to_recordset(${JSON.stringify(rows)}::jsonb)
-				AS i(category text, channel text, enabled boolean, cadence text)
-		),
 		upserted AS (
-			INSERT INTO notification_preference
-				(account_id, category, channel, enabled, cadence, weekday, hour, unsubscribe_revision)
-			SELECT locked.id, i.category, i.channel,
-				CASE WHEN ${cadenceWrite} THEN COALESCE(p.enabled, i.enabled) ELSE i.enabled END,
-				CASE WHEN ${cadenceWrite} THEN i.cadence ELSE p.cadence END,
-				CASE WHEN ${cadenceWrite} THEN 0 ELSE p.weekday END,
-				CASE WHEN ${cadenceWrite} THEN 16 ELSE p.hour END,
-				COALESCE(p.unsubscribe_revision, 1)
-			FROM locked
-			JOIN input i ON true
-			LEFT JOIN notification_preference p
-				ON p.account_id = locked.id AND p.category = i.category AND p.channel = i.channel
-			ON CONFLICT (account_id, category, channel) DO UPDATE SET
-				enabled = CASE WHEN ${cadenceWrite} THEN notification_preference.enabled ELSE EXCLUDED.enabled END,
-				cadence = CASE WHEN ${cadenceWrite} THEN EXCLUDED.cadence ELSE notification_preference.cadence END,
-				weekday = CASE WHEN ${cadenceWrite} THEN EXCLUDED.weekday ELSE notification_preference.weekday END,
-				hour = CASE WHEN ${cadenceWrite} THEN EXCLUDED.hour ELSE notification_preference.hour END,
-				revision = notification_preference.revision + 1
-			WHERE (${cadenceWrite} AND (notification_preference.cadence IS DISTINCT FROM EXCLUDED.cadence
-					OR notification_preference.weekday IS DISTINCT FROM EXCLUDED.weekday
-					OR notification_preference.hour IS DISTINCT FROM EXCLUDED.hour))
-				OR (NOT ${cadenceWrite} AND notification_preference.enabled IS DISTINCT FROM EXCLUDED.enabled)
+			${preferenceUpsert(accountId, rows, cadenceWrite, sql`EXISTS (SELECT FROM locked)`)}
 			RETURNING account_id
 		),
 		bumped AS (
@@ -131,6 +106,40 @@ async function save(
 	if (!row.seat_ok) deny("access_denied");
 	if (!row.locked || !row.revision) deny("conflict");
 	return { revision: row.revision, changed: row.changed };
+}
+
+type PreferenceRow = { category: string; channel: string; enabled: boolean; cadence: string | null };
+
+/** The only channel and cadence write for notification_preference. Settings and this producer both call it. */
+export function preferenceUpsert(
+	accountId: string,
+	rows: readonly PreferenceRow[],
+	cadenceWrite: boolean,
+	gate: ReturnType<typeof sql>,
+) {
+	return sql`INSERT INTO notification_preference
+			(account_id, category, channel, enabled, cadence, weekday, hour, unsubscribe_revision)
+		SELECT ${accountId}::uuid, i.category, i.channel,
+			CASE WHEN ${cadenceWrite} THEN COALESCE(p.enabled, i.enabled) ELSE i.enabled END,
+			CASE WHEN ${cadenceWrite} THEN i.cadence ELSE p.cadence END,
+			CASE WHEN ${cadenceWrite} THEN 0 ELSE p.weekday END,
+			CASE WHEN ${cadenceWrite} THEN 16 ELSE p.hour END,
+			COALESCE(p.unsubscribe_revision, 1)
+		FROM jsonb_to_recordset(${JSON.stringify(rows)}::jsonb)
+			AS i(category text, channel text, enabled boolean, cadence text)
+		LEFT JOIN notification_preference p
+			ON p.account_id = ${accountId}::uuid AND p.category = i.category AND p.channel = i.channel
+		WHERE ${gate}
+		ON CONFLICT (account_id, category, channel) DO UPDATE SET
+			enabled = CASE WHEN ${cadenceWrite} THEN notification_preference.enabled ELSE EXCLUDED.enabled END,
+			cadence = CASE WHEN ${cadenceWrite} THEN EXCLUDED.cadence ELSE notification_preference.cadence END,
+			weekday = CASE WHEN ${cadenceWrite} THEN EXCLUDED.weekday ELSE notification_preference.weekday END,
+			hour = CASE WHEN ${cadenceWrite} THEN EXCLUDED.hour ELSE notification_preference.hour END,
+			revision = notification_preference.revision + 1
+		WHERE (${cadenceWrite} AND (notification_preference.cadence IS DISTINCT FROM EXCLUDED.cadence
+				OR notification_preference.weekday IS DISTINCT FROM EXCLUDED.weekday
+				OR notification_preference.hour IS DISTINCT FROM EXCLUDED.hour))
+			OR (NOT ${cadenceWrite} AND notification_preference.enabled IS DISTINCT FROM EXCLUDED.enabled)`;
 }
 
 const selfSeat = sql`SELECT 1`;

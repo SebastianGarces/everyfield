@@ -6,11 +6,10 @@ import {
 	readAssociationAudience,
 	readAssociationReceipt,
 	readMeetingAudience,
-	readProducers,
 } from "./audience.ts";
 import { readOversightDigest, readPlanterDigest } from "./digest.ts";
 import { markAllVisibleRead, markRead, markSelectedRead, readFeed, readUnreadCount } from "./feed.ts";
-import { emailOptOut } from "./opt-out.ts";
+import { emailOptOut, type OptOutKeyRing } from "./opt-out.ts";
 import {
 	getPreferences,
 	setDigestCadence,
@@ -19,23 +18,30 @@ import {
 	setPreferences,
 } from "./preferences.ts";
 
-export type NotificationConfig = { optOutKey: Buffer; now?: () => Date };
+export type NotificationConfig = { optOutKey?: Buffer; optOutKeys?: OptOutKeyRing; now?: () => Date };
+
+function optOutRing(config: NotificationConfig): OptOutKeyRing {
+	const ring = config.optOutKeys ?? (config.optOutKey ? { current: config.optOutKey, previous: [] } : null);
+	if (!ring || ring.current.length !== 32 || (ring.previous ?? []).some((key) => key.length !== 32))
+		throw new Error("opt_out_key");
+	return ring;
+}
 
 export function createNotificationProducer(config: NotificationConfig) {
-	if (config.optOutKey.length !== 32) throw new Error("opt_out_key");
+	const keys = optOutRing(config);
 	const now = () => config.now?.() ?? new Date();
 	return {
 		readFeed,
 		readUnreadCount,
 		getPreferences,
 		describeEmailOptOut: (database: Database, _authority: RequestActor, raw: unknown) =>
-			emailOptOut(database, config.optOutKey, now, raw, "describe"),
+			emailOptOut(database, keys, now, raw, "describe"),
 		readOversightDigest,
-		readPlanterDigest,
+		readPlanterDigest: (database: Database, authority: RequestActor, raw: unknown) =>
+			readPlanterDigest(database, authority, raw, now),
 		readAssociationReceipt,
 		readAssociationAudience,
 		readMeetingAudience,
-		readProducers: (_database: Database, _authority: RequestActor, raw: unknown) => readProducers(raw),
 		setPreference,
 		setPreferences,
 		setDigestCadence,
@@ -43,9 +49,8 @@ export function createNotificationProducer(config: NotificationConfig) {
 		markRead,
 		markAllVisibleRead,
 		markSelectedRead,
-		applyEmailOptOut: (database: Database, raw: unknown) =>
-			emailOptOut(database, config.optOutKey, now, raw, "disable"),
-		undoEmailOptOut: (database: Database, raw: unknown) => emailOptOut(database, config.optOutKey, now, raw, "undo"),
+		applyEmailOptOut: (database: Database, raw: unknown) => emailOptOut(database, keys, now, raw, "disable"),
+		undoEmailOptOut: (database: Database, raw: unknown) => emailOptOut(database, keys, now, raw, "undo"),
 		cancelTaskReminders,
 		publishWikiUpstream,
 	};
