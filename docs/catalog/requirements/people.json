@@ -1269,7 +1269,7 @@
       "feature_ids": [
         "MUL-004"
       ],
-      "text": "An organization Owner or Admin may invite a specific pipeline person to link an EveryField account. Use sealed, expiring, purpose-bound invitation proof, the exact organization and Person, and verified addressed-account acceptance. Names or matching emails alone never authorize a link. The person sees the disclosure and accepts or declines without acquiring a seat. Decline leaves their account unchanged. Revoke, resend, retire, remove, concurrent claim and expiry recheck current facts at commit; one accepted link and receipt survive retries, never two accounts or two people. Public invitation responses do not reveal whether an account exists. A pending personal deletion or foreign owner refuses acceptance.",
+      "text": "An organization Owner or Admin may invite a specific pipeline person to link an Everyfield account. Use sealed, expiring, purpose-bound invitation proof, the exact organization and Person, and verified addressed-account acceptance. Names or matching emails alone never authorize a link. The person sees the disclosure and accepts or declines without acquiring a seat. Decline leaves their account unchanged. Revoke, resend, retire, remove, concurrent claim and expiry recheck current facts at commit; one accepted link and receipt survive retries, never two accounts or two people. Public invitation responses do not reveal whether an account exists. A pending personal deletion or foreign owner refuses acceptance.",
       "spec": "docs/product/people.md#req-mul-004",
       "operations": [
         "residency.invite",

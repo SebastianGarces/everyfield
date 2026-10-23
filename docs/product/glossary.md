@@ -1,8 +1,8 @@
 # Glossary
 
-These terms describe approved behavior. They grant no access and prescribe no storage or code names. Default mechanisms follow [EveryField patterns](intent://local/note/df294729-367b-493b-9faf-654cf6b25b62).
+These terms describe approved behavior. They grant no access and prescribe no storage or code names. Default mechanisms follow [Everyfield patterns](intent://local/note/df294729-367b-493b-9faf-654cf6b25b62).
 
-| Term | Meaning in EveryField |
+| Term | Meaning in Everyfield |
 |---|---|
 | Receipt | A truthful saved outcome shown where an action requires it. A retry returns the known result without repeating committed effects. A separate receipt object or table is not required. A receipt can report partial completion or an unknown external outcome. Provider acceptance does not prove delivery. Tooling also uses receipts to bind reviewed authorization or proof to a particular task and revision. |
 | Projection | The fields and records a caller may see for a particular purpose. The server derives this view from current rights and sharing rules. A saved result, affiliation or earlier response does not grant continuing access to its source records. |

@@ -41647,9 +41647,34 @@
       ],
       "proof_stage": "stages 1 and 2 producer; final whole-target integration admits no deferrals",
       "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
+    },
+    {
+      "id": "WP-103",
+      "feature_ids": [],
+      "own_requirement_ids": [],
+      "own_case_ids": [],
+      "own_operation_ids": [],
+      "case_requirements_at_start": [],
+      "requirement_ids": [],
+      "shared_requirement_ids": [],
+      "consumed_acceptance_requirement_ids": [],
+      "consumed_acceptance_operation_ids": [],
+      "acceptance_ids": [],
+      "case_ids": [],
+      "context_case_ids": [],
+      "operation_ids": [],
+      "shared_operation_ids": [],
+      "shared_contract_ids": [],
+      "unresolved_current_operation_references": [],
+      "direct_prerequisites": [],
+      "ui_prerequisites": [],
+      "producer_table_names": [],
+      "consumer_table_names": [],
+      "proof_stage": "brand copy only; no whole-target acceptance",
+      "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     }
   ],
-  "package_count": 97,
+  "package_count": 98,
   "shared_contract_source": "docs/catalog/shared-contracts.json",
   "omission_policy": "All selected IDs remain indexed. Read full requirements and acceptance cases on demand; selected context does not change package ownership."
 }

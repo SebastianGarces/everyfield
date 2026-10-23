@@ -1,5 +1,5 @@
 #!/bin/sh
-# evf: EveryField v3 workflow CLI. Runs tools/evf/main.ts on Node 24+ (native TypeScript).
+# evf: Everyfield v3 workflow CLI. Runs tools/evf/main.ts on Node 24+ (native TypeScript).
 set -e
 here=$(cd "$(dirname "$0")/.." && pwd)
 node_bin=node

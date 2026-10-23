@@ -8,7 +8,7 @@
         "DOC-001",
         "WIKI-010"
       ],
-      "text": "Immutable global generations preserve exact articles, source versions and hashes, topology, rubric, Playbook, templates and derivative profile with complete checksums. Only a complete validated generation may become current. Concurrent activation has one winner, readers see a coherent release, and failed builds leave the prior release serving. Rollback is a new attributable reviewed activation of a revalidated prior generation, preserving current entitlement and source provenance without organization adoption or departed-body access. Activation storage and concurrency mechanisms follow EveryField patterns.",
+      "text": "Immutable global generations preserve exact articles, source versions and hashes, topology, rubric, Playbook, templates and derivative profile with complete checksums. Only a complete validated generation may become current. Concurrent activation has one winner, readers see a coherent release, and failed builds leave the prior release serving. Rollback is a new attributable reviewed activation of a revalidated prior generation, preserving current entitlement and source provenance without organization adoption or departed-body access. Activation storage and concurrency mechanisms follow Everyfield patterns.",
       "spec": "docs/architecture/reference-release.md#build-validation-and-promotion",
       "operations": [
         "reference.validateBundle",
