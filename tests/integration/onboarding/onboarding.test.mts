@@ -176,6 +176,10 @@ test("AC:TARGET-IDN-013 AC:ROLE43-003 AC:ROLE43-014 AC:DC-021 AC:DC-027 AC:DC-02
 	assert.equal(entries[0].kind, "creation");
 	assert.equal(entries[0].from_phase, null);
 	assert.equal(entries[0].to_phase, 1);
+	// RT-6a: the plant, its owner seat and its creation entry are one statement; the reply names the stored rows.
+	assert.equal(first.creation.recordedAt, entries[0].recorded_at.toISOString());
+	const [owner] = await admin.select().from(t.seat).where(eq(t.seat.plant_id, plant.id));
+	assert.equal(first.ownerSeat.seatId, owner.id);
 	const f = { a, p: first.plant };
 	const r = await resume(f);
 	assert.equal(r.reading.status, "incomplete");

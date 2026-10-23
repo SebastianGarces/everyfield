@@ -740,27 +740,31 @@ export const accountPersonProducer: AccountPersonProducer<Tx> = {
 			if (selected.kind !== "plant") deny();
 			// Trusted collaborator, never a client account selector. Provisioning owns
 			// account proof/eligibility and enclosing transaction; these locks arbitrate retries.
-			// One statement locks the account, then the plant: the plant's lock waits for the account's.
-			const locked =
-				await tx.execute(sql`WITH a AS MATERIALIZED (SELECT id FROM account WHERE id=${input.accountId}::uuid FOR UPDATE)
- SELECT (SELECT count(*) FROM a)::int AS accounts, (SELECT count(*) FROM (SELECT id FROM plant WHERE id=${selected.id}::uuid
- AND EXISTS(SELECT FROM a) FOR UPDATE) p)::int AS plants`);
-			if (!z.object({ accounts: z.number() }).parse(locked.rows[0]).accounts) deny();
-			const exact = await tx
-				.select({ id: tables.person.id })
-				.from(tables.person)
-				.where(
-					and(
-						and(eq(tables.person.plant_id, selected.id), eq(tables.person.linked_account_id, input.accountId)),
-						eq(tables.person.state, "live"),
-					),
-				)
-				.for("update");
-			if (exact.length)
-				return c.accountPersonResolution.parse({
-					status: "linked",
-					personId: exact[0]!.id,
-				});
+			// A first Person needs no lock or read: the caller created the plant in this transaction and holds the
+			// account's lock, so no other request can see the plant or link a Person to it (person_uq_1 still holds).
+			if (input.selection.kind !== "first") {
+				// One statement locks the account, then the plant: the plant's lock waits for the account's.
+				const locked =
+					await tx.execute(sql`WITH a AS MATERIALIZED (SELECT id FROM account WHERE id=${input.accountId}::uuid FOR UPDATE)
+	 SELECT (SELECT count(*) FROM a)::int AS accounts, (SELECT count(*) FROM (SELECT id FROM plant WHERE id=${selected.id}::uuid
+	 AND EXISTS(SELECT FROM a) FOR UPDATE) p)::int AS plants`);
+				if (!z.object({ accounts: z.number() }).parse(locked.rows[0]).accounts) deny();
+				const exact = await tx
+					.select({ id: tables.person.id })
+					.from(tables.person)
+					.where(
+						and(
+							and(eq(tables.person.plant_id, selected.id), eq(tables.person.linked_account_id, input.accountId)),
+							eq(tables.person.state, "live"),
+						),
+					)
+					.for("update");
+				if (exact.length)
+					return c.accountPersonResolution.parse({
+						status: "linked",
+						personId: exact[0]!.id,
+					});
+			}
 			const ctx = { selected };
 			// Only resolve and reviewed_contact use the matching People; a new Person needs none.
 			const candidates = () =>
