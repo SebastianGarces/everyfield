@@ -8,6 +8,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
+import { createServer as httpServer } from "node:http";
 import { createServer } from "node:net";
 import { fileURLToPath } from "node:url";
 import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
@@ -58,7 +59,7 @@ const login = (name) => {
 	return url.href;
 };
 const admin = createDatabase({ connectionString: source.href, options, max: 2 });
-let runtime, authDb, server;
+let runtime, authDb, server, bucket;
 try {
 	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
 	await migrate(admin, schema);
@@ -176,7 +177,21 @@ try {
 	maria = await note(maria, "First note");
 	await task("First task");
 
-	// The production server, with only the identity settings it needs. The observer counts per request.
+	// A private bucket on this machine: it answers the privacy check (GetBucketAcl) and records every call it gets.
+	// Signing an upload URL needs no other bucket call.
+	const bucketCalls = [];
+	bucket = httpServer((request, response) => {
+		bucketCalls.push(`${request.method} ${request.url}`);
+		response.setHeader("content-type", "application/xml");
+		response.end(
+			'<?xml version="1.0" encoding="UTF-8"?><AccessControlPolicy><Owner><ID>census</ID></Owner><AccessControlList>' +
+				'<Grant><Grantee xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="CanonicalUser"><ID>census</ID>' +
+				"</Grantee><Permission>FULL_CONTROL</Permission></Grant></AccessControlList></AccessControlPolicy>",
+		);
+	});
+	await new Promise((resolve) => bucket.listen(0, "127.0.0.1", resolve));
+
+	// The production server, with only the identity and bucket settings it needs. The observer counts per request.
 	server = spawn(
 		process.execPath,
 		[web + "node_modules/next/dist/bin/next", "start", "-H", "127.0.0.1", "-p", String(port)],
@@ -196,6 +211,10 @@ try {
 				IDENTITY_MAIL_KEY: randomBytes(32).toString("hex"),
 				IDENTITY_ADDRESS_KEY: randomBytes(32).toString("hex"),
 				IDENTITY_MAIL_FROM: "requests@example.test",
+				AWS_BUCKET_NAME: "census-private",
+				AWS_ACCESS_KEY_ID: "census",
+				AWS_SECRET_ACCESS_KEY: randomBytes(16).toString("hex"),
+				AWS_ENDPOINT_URL_S3: `http://127.0.0.1:${bucket.address().port}`,
 			},
 			stdio: ["ignore", "pipe", "pipe"],
 		},
@@ -261,6 +280,41 @@ try {
 		["GET /settings", "/settings", owner.cookie],
 		["GET /signin (signed out)", "/signin", ""],
 	];
+	// RT-6c: no request pays a cold-start cost. Server start checks the bucket's privacy without any request, and opens
+	// the connections one request uses (the first before it answers, the rest just after: warm_rest), so the first
+	// person page (two reads at once) and the first upload sign open no connection and call no bucket.
+	for (
+		const started = Date.now();
+		!bucketCalls.length || !log.includes('"event":"warm_rest"');
+		await new Promise((resolve) => setTimeout(resolve, 50))
+	)
+		assert.ok(Date.now() - started < 10_000, "server start never checked the bucket or never opened every connection");
+	assert.deepEqual(bucketCalls, ["GET /census-private/?acl="]);
+	const opened = async (name) => {
+		for (const started = Date.now(); ; await new Promise((resolve) => setTimeout(resolve, 20))) {
+			const row = readFileSync(output, "utf8")
+				.split("\n")
+				.filter(Boolean)
+				.map((line) => JSON.parse(line))
+				.find((r) => r.name === name);
+			if (row) return row.connects;
+			assert.ok(Date.now() - started < 5_000, `${name}: no sample`);
+		}
+	};
+	await get("GET /people/[personId]", `/people/${maria.id}`, owner.cookie);
+	assert.equal(await opened("GET /people/[personId]"), 0, "the first person page opened a database connection");
+	const sign = "POST people.assessments.signCommitmentUpload";
+	const signed = await act(
+		sign,
+		`/people/${maria.id}`,
+		"apps/web/src/features/people/assessments/actions.ts",
+		"signCommitmentUpload",
+		[{ personId: maria.id, mime: "image/png", byteLength: 68 }],
+	);
+	assert.equal(signed.status, "ok", JSON.stringify(signed));
+	assert.equal(await opened(sign), 0, "the first upload sign opened a database connection");
+	assert.deepEqual(bucketCalls, ["GET /census-private/?acl="], "the first upload sign called the bucket");
+
 	// Warm every route once (module load, first connections), then read each page with little data.
 	for (const [, path, cookie] of pages) await fetch(origin + path, { headers: { cookie } }).then((r) => r.text());
 	for (const [name, path, cookie] of pages) await get(name, path, cookie);
@@ -350,6 +404,7 @@ try {
 	await exited;
 } finally {
 	if (server?.exitCode === null) server.kill("SIGKILL");
+	bucket?.close();
 	if (runtime) await closeDatabase(runtime);
 	if (authDb) await closeDatabase(authDb);
 	await admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${schema} CASCADE`));

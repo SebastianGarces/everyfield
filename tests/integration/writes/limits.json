@@ -26,6 +26,9 @@
 	"POST people.addNote": {
 		"limit": 6
 	},
+	"POST people.assessments.signCommitmentUpload": {
+		"limit": 2
+	},
 	"POST people.createPerson": {
 		"limit": 2
 	},
