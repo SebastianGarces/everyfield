@@ -18,12 +18,10 @@ import { sql } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import type { RequestActor } from "../access/session.ts";
-import { GLOBAL, deny, meSql, parse, runRead, runWrite, WikiOutcome } from "./core.ts";
+import { GLOBAL, deny, meSql, parse, runRead, runWrite } from "./core.ts";
 
 type OrgValue = z.infer<typeof organizationArticleResult>;
 type Mine = z.infer<typeof feedbackMine>;
-type Draft = z.infer<typeof organizationDraft>;
-type Upstream = z.infer<typeof upstreamReviewResult>;
 
 function refuse(code: "access_denied" | "invalid_input" = "access_denied"): WikiReply<never> {
 	return {
@@ -64,7 +62,7 @@ function orgEditor(authority: RequestActor, organizationId: string): Owner | nul
 	return context.owner;
 }
 const voteList = z.array(z.enum(["helpful", "unhelpful"]));
-function votesOf(raw: unknown): string[] {
+function votesOf(raw: unknown) {
 	const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
 	return voteList.parse(parsed ?? []);
 }
