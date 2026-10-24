@@ -235,3 +235,59 @@ export const statsResult = z.strictObject({
 });
 export const recentResult = z.strictObject({ articles: z.array(wikiArticle) });
 export const resumeResult = z.strictObject({ article: wikiArticle.nullable() });
+
+export const feedbackVote = z.enum(["helpful", "unhelpful"]);
+export const feedbackMine = z.strictObject({
+	articleId: z.uuid(),
+	currentVote: feedbackVote.nullable(),
+	ownHistoryVotes: z.array(feedbackVote),
+	phantomPlants: z.number().int().nonnegative(),
+	foreignVoteBody: z.string().nullable(),
+});
+export const feedbackGetMineRequest = z.strictObject({ articleId: z.uuid() });
+export const feedbackSetMineRequest = commandEnvelope(
+	z.strictObject({ articleId: z.uuid(), vote: feedbackVote }),
+);
+
+export const organizationArticleError = z.enum([
+	"editorial_access_denied",
+	"review_required",
+	"revision_conflict",
+]);
+export const organizationArticleResult = z.strictObject({
+	errorCode: organizationArticleError.nullable(),
+	publishedRevision: z.number().int().nullable(),
+	organizationId: z.uuid().nullable(),
+	additionalHistoryEntries: z.number().int().nonnegative(),
+	publicationsAdded: z.number().int().nonnegative(),
+	invalidationCalls: z.number().int().nonnegative(),
+	state: z.enum(["published", "hide", "draft", "inherited"]).nullable(),
+});
+export const organizationArticleCommand = commandEnvelope(
+	z.strictObject({
+		articleId: z.uuid(),
+		organizationId: z.string().min(1).max(80),
+		body: z.string().max(20000).optional(),
+		adapter: z.enum(["Evry", "human"]).optional(),
+		cachePath: z.string().max(400).optional(),
+	}),
+);
+export const organizationDraftRequest = z.strictObject({
+	articleId: z.uuid(),
+	organizationId: z.string().min(1).max(80),
+});
+export const organizationDraft = z.strictObject({
+	errorCode: z.literal("editorial_access_denied").nullable(),
+	articleId: z.uuid(),
+	organizationId: z.uuid().nullable(),
+	body: z.string().nullable(),
+	revisionNumber: z.number().int().nullable(),
+	state: z.enum(["published", "hide", "draft", "inherited"]).nullable(),
+});
+export const upstreamReviewRequest = commandEnvelope(z.strictObject({ articleId: z.uuid() }));
+export const upstreamReviewResult = z.strictObject({
+	inAppCues: z.number().int().nonnegative(),
+	emailIntents: z.number().int().nonnegative(),
+	autoAdoptions: z.number().int().nonnegative(),
+	recipientIds: z.array(z.uuid()),
+});

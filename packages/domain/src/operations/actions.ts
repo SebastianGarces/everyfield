@@ -45,6 +45,18 @@ export function writeAction(operation: string): string {
 		if (verb === "setSourceOrder") return "wiki.source_order_changed";
 		if (verb === "bookmarks") return "wiki.bookmark_changed";
 		if (verb === "reading") return "wiki.reading_recorded";
+		if (verb === "feedback") return "feedback.received";
+		// The audit check has no wiki.draft and no upstream action.
+		// Draft add/edit and upstream review record wiki.published.
+		// Hide records wiki.hidden. The stored result carries the real state.
+		if (operation === "wiki.organizationArticles.hide") return "wiki.hidden";
+		if (
+			operation === "wiki.organizationArticles.publish" ||
+			operation === "wiki.organizationArticles.add" ||
+			operation === "wiki.organizationArticles.edit" ||
+			operation === "wiki.emitUpstreamReview"
+		)
+			return "wiki.published";
 	}
 	if (domain === "communication") {
 		const named: Record<string, string> = {
