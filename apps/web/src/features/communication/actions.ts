@@ -6,8 +6,22 @@ import {
 	type CommunicationReply,
 } from "@everyfield/domain/communication";
 import type { Transaction } from "@everyfield/db/client";
-import type { AudienceSummary, Draft, Outcome, Preview, Recipient, Template } from "./model.ts";
-import { canWrite, communicationViewer, read, write, type Viewer } from "./server.ts";
+import type {
+	AudienceSummary,
+	CancelReport,
+	DeliveryReport,
+	Draft,
+	Outcome,
+	Preview,
+	Recipient,
+	ReplaceReport,
+	RescheduleReport,
+	RestoreReport,
+	SuppressionReport,
+	Template,
+} from "./model.ts";
+import { canWrite, communicationViewer, deliver, read, write, type Viewer } from "./server.ts";
+import { deliveryTransport } from "./mail.ts";
 
 // Server actions for the Messages screens. The actor is the request's seat. The browser cannot send one.
 // A lost write keeps its request key so a retry replays. The caller mints a new key after success or a refusal.
@@ -98,6 +112,147 @@ export async function rescheduleReviewed(
 			input: { communicationId, scheduledAt },
 		}),
 	);
+}
+
+/** Hand a scheduled email to the provider now. The provider key is the domain idempotency key. */
+export async function sendReviewed(
+	requestKey: string,
+	expectedRevision: string,
+	communicationId: string,
+): Promise<Outcome<DeliveryReport>> {
+	const result = await deliver((db, viewer, mail) =>
+		communicationWriter.sendReviewed(
+			db,
+			viewer.authority,
+			{ requestKey, expectedRevision, input: { communicationId } },
+			deliveryTransport(mail),
+			mail.keys,
+		),
+	);
+	if (result.status !== "ok") return result;
+	return {
+		status: "ok",
+		value: {
+			status: result.value.status,
+			acceptedCount: result.value.acceptedCount,
+			rejectedCount: result.value.rejectedCount,
+			unknownCount: result.value.unknownCount,
+		},
+	};
+}
+
+/** Ask the provider about a send that already exists. A missing send is not_found. */
+export async function reconcileDelivery(
+	requestKey: string,
+	expectedRevision: string,
+	communicationId: string,
+): Promise<Outcome<DeliveryReport>> {
+	const result = await deliver((db, viewer, mail) =>
+		communicationWriter.reconcileProviderOutcome(
+			db,
+			viewer.authority,
+			{ requestKey, expectedRevision, input: { communicationId } },
+			deliveryTransport(mail),
+			mail.keys,
+		),
+	);
+	if (result.status !== "ok") return result;
+	return {
+		status: "ok",
+		value: {
+			status: result.value.status,
+			acceptedCount: result.value.acceptedCount,
+			rejectedCount: result.value.rejectedCount,
+			unknownCount: result.value.unknownCount,
+		},
+	};
+}
+
+/** Request cancellation. The domain id is not a provider email id, so confirmation can stay unknown. */
+export async function cancelScheduled(
+	requestKey: string,
+	expectedRevision: string,
+	communicationId: string,
+): Promise<Outcome<CancelReport>> {
+	const result = await deliver((db, viewer, mail) =>
+		communicationWriter.cancelScheduledReviewed(
+			db,
+			viewer.authority,
+			{ requestKey, expectedRevision, input: { communicationId } },
+			deliveryTransport(mail),
+		),
+	);
+	if (result.status !== "ok") return result;
+	return { status: "ok", value: { scheduledCancel: result.value.scheduledCancel } };
+}
+
+/** Read whether every previous send is cancelled. This does not create or send a message. */
+export async function replaceScheduled(
+	requestKey: string,
+	expectedRevision: string,
+	communicationId: string,
+): Promise<Outcome<ReplaceReport>> {
+	const result = await deliver((db, viewer) =>
+		communicationWriter.replaceScheduledReviewed(db, viewer.authority, {
+			requestKey,
+			expectedRevision,
+			input: { communicationId },
+		}),
+	);
+	if (result.status !== "ok") return result;
+	return { status: "ok", value: { replacementAllowed: result.value.replacementAllowed } };
+}
+
+/** Change the send time and ask the provider when a provider key exists. The new revision comes from readDraft. */
+export async function rescheduleDispatched(
+	requestKey: string,
+	expectedRevision: string,
+	communicationId: string,
+	scheduledAt: string,
+): Promise<Outcome<RescheduleReport>> {
+	const result = await deliver((db, viewer, mail) =>
+		communicationWriter.rescheduleDispatched(
+			db,
+			viewer.authority,
+			{ requestKey, expectedRevision, input: { communicationId, scheduledAt } },
+			deliveryTransport(mail),
+		),
+	);
+	if (result.status !== "ok") return result;
+	return {
+		status: "ok",
+		value: { rescheduleStatus: result.value.rescheduleStatus, scheduledAt: result.value.scheduledAt },
+	};
+}
+
+export async function readDraft(communicationId: string): Promise<Outcome<Draft>> {
+	return look((tx, viewer) => communicationWriter.get(tx, viewer.authority, { id: communicationId }));
+}
+
+/** The address is the signed-in account email. The browser cannot choose a different one. */
+export async function readOwnSuppression(): Promise<Outcome<SuppressionReport>> {
+	const gate = await communicationViewer();
+	if (!gate.viewer || !canWrite(gate.viewer)) return denied;
+	const address = gate.email;
+	if (!address) return denied;
+	const result = await deliver((db, viewer, mail) =>
+		communicationWriter.listForSelf(db, viewer.authority, { address }, mail.keys),
+	);
+	if (result.status !== "ok") return result;
+	return { status: "ok", value: { address: result.value.address, active: result.value.active } };
+}
+
+/** Clear suppression for the signed-in account email. This does not send email. */
+export async function restoreOwnSuppression(requestKey: string, reason: string): Promise<Outcome<RestoreReport>> {
+	const gate = await communicationViewer();
+	if (!gate.viewer || !canWrite(gate.viewer)) return denied;
+	const address = gate.email;
+	if (!address) return denied;
+	const result = await deliver((db, viewer, mail) =>
+		communicationWriter.requestRestore(db, viewer.authority, { requestKey, input: { address, reason } }, mail.keys),
+	);
+	if (result.status !== "ok") return result;
+	return { status: "ok", value: { suppressionClears: result.value.suppressionClears } };
 }
 
 export async function previewMessage(input: unknown): Promise<Outcome<Preview>> {

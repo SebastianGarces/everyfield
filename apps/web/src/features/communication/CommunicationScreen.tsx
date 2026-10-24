@@ -22,31 +22,44 @@ import {
 import { useEffect, useRef, useState } from "react";
 import {
 	archiveTemplate,
+	cancelScheduled,
 	createTemplate,
 	deleteDraft,
 	deleteTemplate,
 	forkTemplate,
 	previewMessage,
+	readDraft,
 	readMeetingTemplate,
-	rescheduleReviewed,
+	readOwnSuppression,
+	reconcileDelivery,
+	replaceScheduled,
+	rescheduleDispatched,
 	resolveAudience,
+	restoreOwnSuppression,
 	saveDraft,
 	scheduleDraft,
 	searchRecipients,
+	sendReviewed,
 	updateTemplate,
 } from "./actions.ts";
 import {
 	audienceGroups,
+	cancelText,
 	categoryLabel,
+	deliveryText,
 	emptyAudience,
 	groupLabel,
 	meetingLabel,
 	meetingTypes,
 	originLabel,
 	outcomeText,
+	replaceText,
+	rescheduleText,
+	restoreText,
 	stateLabel,
 	templateBinding,
 	templateCategories,
+	type SuppressionReport,
 	type Audience,
 	type AudienceSummary,
 	type Draft,
@@ -59,8 +72,9 @@ import {
 	type TemplateCategory,
 } from "./model.ts";
 
-// Messages: compose a draft, preview the sanitized message, schedule it, and keep church templates.
+// Messages: compose a draft, preview the sanitized message, schedule it, and hand a scheduled email to the provider.
 // A system template stays in code. A draft stores its source key, never the code id.
+// Your address shows whether that account email is suppressed now. Older clears are not listed.
 
 const WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -78,6 +92,8 @@ type DraftForm = {
 	people: PersonRef[];
 };
 type Issues = { subject?: string; body?: string; time?: string; form?: string };
+type Notice = { text: string; tone: "alert" | "status" };
+type Section = "compose" | "templates" | "address";
 type TemplateFields = {
 	name: string;
 	description: string;
@@ -220,32 +236,40 @@ function hasIssue(issues: TemplateIssues): boolean {
 }
 
 export function CommunicationScreen({ data, canWrite }: { data: PageData; canWrite: boolean }) {
-	const [tab, setTab] = useState<"compose" | "templates">("compose");
+	const [tab, setTab] = useState<Section>("compose");
 	const [drafts, setDrafts] = useState(data.drafts);
 	const [templates, setTemplates] = useState(data.templates);
+	const [notices, setNotices] = useState<Record<string, Notice>>({});
+	const sections: { value: Section; label: string; count?: number }[] = [
+		{ value: "compose", label: "Compose", count: drafts.length },
+		{ value: "templates", label: "Templates", count: templates.length },
+	];
+	if (canWrite) sections.push({ value: "address", label: "Your address" });
 	return (
 		<div className="flex flex-col gap-6">
 			<PageHeader
 				size="xl"
 				title="Messages"
-				subtitle="Write a message, choose who receives it, and schedule the email."
+				subtitle="Write a message, choose who receives it, and send or schedule the email."
 			/>
 			{canWrite ? null : (
 				<p className="text-md text-text-2">You can read messages. An Owner or Admin writes and schedules them.</p>
 			)}
-			<SegmentedControl
-				label="Message sections"
-				value={tab}
-				onValueChange={setTab}
-				options={[
-					{ value: "compose", label: "Compose", count: drafts.length },
-					{ value: "templates", label: "Templates", count: templates.length },
-				]}
-			/>
+			<SegmentedControl label="Message sections" value={tab} onValueChange={setTab} options={sections} />
 			{tab === "compose" ? (
-				<Compose drafts={drafts} setDrafts={setDrafts} templates={templates} teams={data.teams} canWrite={canWrite} />
-			) : (
+				<Compose
+					drafts={drafts}
+					setDrafts={setDrafts}
+					templates={templates}
+					teams={data.teams}
+					canWrite={canWrite}
+					notices={notices}
+					setNotices={setNotices}
+				/>
+			) : tab === "templates" ? (
 				<Templates templates={templates} setTemplates={setTemplates} canWrite={canWrite} />
+			) : (
+				<Address />
 			)}
 		</div>
 	);
@@ -257,12 +281,16 @@ function Compose({
 	templates,
 	teams,
 	canWrite,
+	notices,
+	setNotices,
 }: {
 	drafts: Draft[];
 	setDrafts: (next: Draft[] | ((rows: Draft[]) => Draft[])) => void;
 	templates: Template[];
 	teams: PageData["teams"];
 	canWrite: boolean;
+	notices: Record<string, Notice>;
+	setNotices: (next: Record<string, Notice> | ((rows: Record<string, Notice>) => Record<string, Notice>)) => void;
 }) {
 	const keys = useKeys();
 	const busy = useRef(false);
@@ -284,7 +312,10 @@ function Compose({
 	const [templatePick, setTemplatePick] = useState("none");
 	const [sampleName, setSampleName] = useState("");
 	const [confirmDelete, setConfirmDelete] = useState(false);
+	const [confirmSend, setConfirmSend] = useState(false);
+	const [confirmCancel, setConfirmCancel] = useState(false);
 	const locked = !canWrite || (form.state !== "new" && form.state !== "draft");
+	const notice = form.communicationId ? (notices[form.communicationId] ?? null) : null;
 
 	useEffect(() => {
 		if (!canWrite || locked) return;
@@ -317,6 +348,10 @@ function Compose({
 	const adopt = (draft: Draft, people = form.people) => {
 		setDrafts((rows) => [draft, ...rows.filter((row) => row.communicationId !== draft.communicationId)]);
 		setForm(formFrom(draft, people));
+	};
+
+	const remember = (id: string, text: string, tone: Notice["tone"]) => {
+		setNotices((current) => ({ ...current, [id]: { text, tone } }));
 	};
 
 	const openDraft = (draft: Draft | null) => {
@@ -364,15 +399,35 @@ function Compose({
 				return;
 			}
 			const instant = at.toISOString();
-			if (form.state === "scheduled" && form.communicationId && form.revision) {
-				const moved = await rescheduleReviewed(keys.take("schedule"), form.revision, form.communicationId, instant);
+			if (form.state === "scheduled") {
+				if (!form.communicationId || !form.revision) {
+					setIssues({ form: "Reload the page before you change this email again." });
+					return;
+				}
+				const id = form.communicationId;
+				const moved = await rescheduleDispatched(keys.take("schedule"), form.revision, id, instant);
 				keys.settle("schedule", moved);
 				if (moved.status !== "ok") {
 					setIssues({ form: outcomeText(moved) ?? undefined });
 					return;
 				}
-				adopt(moved.value);
-				setStatus(`The email is scheduled for ${formatWhen(moved.value.scheduledAt)}. It has not been sent.`);
+				const when = formatWhen(moved.value.scheduledAt);
+				const fresh = await readDraft(id);
+				if (fresh.status !== "ok") {
+					setForm((current) => (current.communicationId === id ? { ...current, revision: null } : current));
+					remember(
+						id,
+						`${rescheduleText(moved.value, when)} Reload the page before you change this email again.`,
+						"alert",
+					);
+					return;
+				}
+				adopt(fresh.value);
+				remember(
+					id,
+					rescheduleText(moved.value, when),
+					moved.value.rescheduleStatus === "unknown" ? "alert" : "status",
+				);
 				return;
 			}
 			const next: Issues = {};
@@ -400,6 +455,36 @@ function Compose({
 			}
 			adopt(scheduled.value, form.people);
 			setStatus(`The email is scheduled for ${formatWhen(scheduled.value.scheduledAt)}. It has not been sent.`);
+		});
+
+	const onReplace = () =>
+		run("replace", async () => {
+			if (!form.communicationId || !form.revision) return;
+			const id = form.communicationId;
+			const result = await replaceScheduled(keys.take("replace"), form.revision, id);
+			keys.settle("replace", result);
+			if (result.status !== "ok") {
+				setIssues({ form: outcomeText(result) ?? undefined });
+				return;
+			}
+			remember(id, replaceText(result.value), "status");
+		});
+
+	const onReconcile = () =>
+		run("reconcile", async () => {
+			if (!form.communicationId || !form.revision) return;
+			const id = form.communicationId;
+			const result = await reconcileDelivery(keys.take("reconcile"), form.revision, id);
+			keys.settle("reconcile", result);
+			if (result.status === "refused" && result.code === "not_found") {
+				remember(id, "The provider has no send for this email yet.", "status");
+				return;
+			}
+			if (result.status !== "ok") {
+				setIssues({ form: outcomeText(result) ?? undefined });
+				return;
+			}
+			remember(id, deliveryText(result.value), result.value.status === "accepted" ? "status" : "alert");
 		});
 
 	const onPreview = () =>
@@ -501,14 +586,27 @@ function Compose({
 					<CardHeading>
 						<CardTitle>{title}</CardTitle>
 						<CardDescription>
-							{form.state === "new" ? "Not saved yet." : stateLabel[form.state]}
-							{form.state === "scheduled" ? " It has not been sent." : ""}
+							{form.state === "new"
+								? "Not saved yet."
+								: form.state === "scheduled"
+									? canWrite
+										? "Scheduled. Send now hands it to the provider now."
+										: "Scheduled."
+									: stateLabel[form.state]}
 						</CardDescription>
 					</CardHeading>
 				</CardHeader>
 				{status ? (
 					<p role="status" className="text-md text-ink">
 						{status}
+					</p>
+				) : null}
+				{notice ? (
+					<p
+						role={notice.tone}
+						className={notice.tone === "alert" ? "text-sm font-medium text-magenta-600" : "text-md text-ink"}
+					>
+						{notice.text}
 					</p>
 				) : null}
 				{issues.form ? (
@@ -770,7 +868,18 @@ function Compose({
 								}}
 							/>
 						</Field>
+						{form.state === "scheduled" && form.revision ? (
+							<p className="text-sm text-text-2">
+								Send now hands this email to the provider now. It does not wait for the send time. Accepted does not
+								mean delivered.
+							</p>
+						) : null}
 						<div className="flex flex-wrap gap-2">
+							{form.state === "scheduled" && form.revision ? (
+								<Button variant="primary" onClick={() => setConfirmSend(true)} disabled={pending !== null}>
+									Send now
+								</Button>
+							) : null}
 							{locked ? null : (
 								<Button
 									variant="secondary"
@@ -782,13 +891,38 @@ function Compose({
 								</Button>
 							)}
 							<Button
-								variant="primary"
+								variant={form.state === "scheduled" ? "secondary" : "primary"}
 								onClick={onSchedule}
 								loading={pending === "schedule"}
 								disabled={pending !== null && pending !== "schedule"}
 							>
 								{form.state === "scheduled" ? "Change send time" : "Schedule email"}
 							</Button>
+							{form.state === "scheduled" && form.revision ? (
+								<Button variant="danger" onClick={() => setConfirmCancel(true)} disabled={pending !== null}>
+									Cancel provider send
+								</Button>
+							) : null}
+							{form.state === "scheduled" && form.revision ? (
+								<Button
+									variant="secondary"
+									onClick={onReplace}
+									loading={pending === "replace"}
+									disabled={pending !== null && pending !== "replace"}
+								>
+									Check replacement
+								</Button>
+							) : null}
+							{form.state === "scheduled" && form.revision ? (
+								<Button
+									variant="secondary"
+									onClick={onReconcile}
+									loading={pending === "reconcile"}
+									disabled={pending !== null && pending !== "reconcile"}
+								>
+									Check provider result
+								</Button>
+							) : null}
 							{form.state === "draft" ? (
 								<Button variant="danger" onClick={() => setConfirmDelete(true)} disabled={pending !== null}>
 									Delete draft
@@ -825,6 +959,63 @@ function Compose({
 					}
 				}}
 			/>
+			<ConfirmDialog
+				open={confirmSend}
+				onOpenChange={setConfirmSend}
+				title="Send this email now?"
+				description="The provider receives this email now."
+				consequences={[
+					"It does not wait for the send time.",
+					"Accepted does not mean delivered.",
+					"If this email was already handed off, it is not sent again.",
+				]}
+				confirmLabel="Send email"
+				onConfirm={async () => {
+					if (!form.communicationId || !form.revision || form.state !== "scheduled") {
+						throw new Error("Schedule the email before you send it.");
+					}
+					const id = form.communicationId;
+					const result = await sendReviewed(keys.take("send"), form.revision, id);
+					keys.settle("send", result);
+					if (result.status !== "ok") {
+						const text = outcomeText(result) ?? "Unable to send the email.";
+						setIssues({ form: text });
+						throw new Error(text);
+					}
+					const text = deliveryText(result.value);
+					setStatus(null);
+					remember(id, text, result.value.status === "accepted" ? "status" : "alert");
+					if (result.value.status === "failed") throw new Error(text);
+				}}
+			/>
+			<ConfirmDialog
+				open={confirmCancel}
+				onOpenChange={setConfirmCancel}
+				title="Cancel the provider send?"
+				description="This asks the provider to cancel. The scheduled message stays here."
+				consequences={[
+					"Mail that already went out cannot be recalled.",
+					"The provider may not confirm the cancellation.",
+				]}
+				confirmLabel="Cancel provider send"
+				tone="danger"
+				onConfirm={async () => {
+					if (!form.communicationId || !form.revision) {
+						throw new Error("Open a scheduled email before you cancel the provider send.");
+					}
+					const id = form.communicationId;
+					const result = await cancelScheduled(keys.take("cancel"), form.revision, id);
+					keys.settle("cancel", result);
+					if (result.status !== "ok") {
+						const text = outcomeText(result) ?? "Unable to cancel the provider send.";
+						setIssues({ form: text });
+						throw new Error(text);
+					}
+					const text = cancelText(result.value);
+					setStatus(null);
+					remember(id, text, result.value.scheduledCancel === "reconcile" ? "alert" : "status");
+				}}
+			/>
 		</div>
 	);
 }
@@ -834,6 +1025,113 @@ function mailLine(emails: string[]): string {
 	const noun = emails.length === 1 ? "person" : "people";
 	if (emails.length > 5) return `${emails.length} ${noun} can receive this email.`;
 	return `${emails.length} ${noun} can receive this email: ${emails.join(", ")}.`;
+}
+
+function Address() {
+	const keys = useKeys();
+	const reasonRef = useRef<HTMLInputElement>(null);
+	const [report, setReport] = useState<SuppressionReport | null>(null);
+	const [reason, setReason] = useState("");
+	const [reasonError, setReasonError] = useState<string | undefined>();
+	const [status, setStatus] = useState<string | null>(null);
+	const [tone, setTone] = useState<Notice["tone"]>("status");
+	const [pending, setPending] = useState(false);
+	const [loaded, setLoaded] = useState(false);
+
+	useEffect(() => {
+		let live = true;
+		void readOwnSuppression().then((result) => {
+			if (!live) return;
+			setLoaded(true);
+			if (result.status !== "ok") {
+				setTone("alert");
+				setStatus(outcomeText(result) ?? "Unable to read this address.");
+				return;
+			}
+			setReport(result.value);
+		});
+		return () => {
+			live = false;
+		};
+	}, []);
+
+	const onRestore = () => {
+		const trimmed = reason.trim();
+		if (!trimmed) {
+			setReasonError("Enter the reason for this restore.");
+			reasonRef.current?.focus();
+			return;
+		}
+		setPending(true);
+		setReasonError(undefined);
+		void restoreOwnSuppression(keys.take("restore"), trimmed).then((result) => {
+			keys.settle("restore", result);
+			setPending(false);
+			if (result.status !== "ok") {
+				setTone("alert");
+				setStatus(outcomeText(result) ?? "Unable to restore this address.");
+				return;
+			}
+			setTone("status");
+			setStatus(restoreText(result.value));
+			if (result.value.suppressionClears > 0) {
+				setReport((current) => (current ? { ...current, active: false } : current));
+				setReason("");
+			}
+		});
+	};
+
+	return (
+		<Card as="section" className="flex flex-col gap-4">
+			<CardHeader>
+				<CardHeading>
+					<CardTitle>Your address</CardTitle>
+					<CardDescription>Only the verified email on this account can be restored.</CardDescription>
+				</CardHeading>
+			</CardHeader>
+			<p className="text-sm text-text-2">
+				Older clears are not listed here. This shows whether the address is suppressed now.
+			</p>
+			{loaded ? null : (
+				<p role="status" className="text-md text-ink">
+					Checking this address.
+				</p>
+			)}
+			{status ? (
+				<p role={tone} className={tone === "alert" ? "text-sm font-medium text-magenta-600" : "text-md text-ink"}>
+					{status}
+				</p>
+			) : null}
+			{report ? (
+				<div className="flex flex-col gap-4">
+					<p className="text-md text-ink">{report.address}</p>
+					<p className="text-md text-ink">
+						{report.active
+							? "This address is suppressed. It does not receive church email."
+							: "This address is not suppressed. It can receive church email."}
+					</p>
+					{report.active ? (
+						<div className="flex flex-col gap-4">
+							<Field label="Reason" hint="Say why this address should receive email again." error={reasonError}>
+								<Input
+									ref={reasonRef}
+									value={reason}
+									maxLength={500}
+									onChange={(event) => {
+										setReason(event.target.value);
+										setReasonError(undefined);
+									}}
+								/>
+							</Field>
+							<Button variant="primary" onClick={onRestore} loading={pending} disabled={pending}>
+								Restore this address
+							</Button>
+						</div>
+					) : null}
+				</div>
+			) : null}
+		</Card>
+	);
 }
 
 function Templates({
