@@ -1,4 +1,4 @@
-import { loadStarter, referenceArtifactSha256 } from "./starter.ts";
+import { loadStarter, referenceArtifactSha256 } from "./starter-load.ts";
 
 export type PlaybookTeam = { description: string | null; version: string };
 
