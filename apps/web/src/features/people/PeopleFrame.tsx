@@ -1,6 +1,6 @@
 "use client";
 
-import { Calendar03Icon, Settings02Icon, Task01Icon, UserMultipleIcon } from "@hugeicons/core-free-icons";
+import { Calendar03Icon, File02Icon, Settings02Icon, Task01Icon, UserMultipleIcon } from "@hugeicons/core-free-icons";
 import { ToastProvider, useToast } from "@everyfield/ui/controls";
 import { initials } from "@everyfield/ui/display";
 import { AppShell, RoleBanner, type ShellNav } from "@everyfield/ui/shell";
@@ -30,6 +30,15 @@ const MEETINGS = {
 	prefetch: false,
 } as const;
 const TASKS = { kind: "link", key: "tasks", label: "Tasks", href: "/tasks", icon: Task01Icon } as const;
+// Documents is a secondary rail page. It loads when chosen, not whenever the frame renders.
+const DOCUMENTS = {
+	kind: "link",
+	key: "documents",
+	label: "Documents",
+	href: "/documents",
+	icon: File02Icon,
+	prefetch: false,
+} as const;
 const ROLE: Record<Role, string> = { owner: "Owner", admin: "Admin", member: "Member" };
 
 type FrameProps = {
@@ -90,7 +99,7 @@ function Frame({ name, settings, seed = null, children }: FrameProps) {
 	// The rail's Settings opens the dialog over the current page, as the user menu does; /settings is its address.
 	const nav: ShellNav = {
 		main: [PEOPLE, MEETINGS, TASKS],
-		pages: [],
+		pages: [DOCUMENTS],
 		tools: [
 			{
 				kind: "link",

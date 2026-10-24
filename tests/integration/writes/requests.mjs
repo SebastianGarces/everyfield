@@ -284,6 +284,7 @@ try {
 		["GET /people (member)", "/people", member.cookie],
 		["GET /people/[personId]", `/people/${maria.id}`, owner.cookie],
 		["GET /tasks", "/tasks", owner.cookie],
+		["GET /documents", "/documents", owner.cookie],
 		["GET /meetings", "/meetings", owner.cookie],
 		["GET /settings", "/settings", owner.cookie],
 		["GET /notifications", "/notifications", owner.cookie],
