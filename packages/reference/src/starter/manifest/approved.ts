@@ -1,0 +1,22 @@
+// Pins for the approved global Wiki snapshot. The bytes stay in docs/reference.
+export const approvedWiki = {
+	version: "wiki-starter-2026-10-03",
+	target: "fresh-isolated-v3",
+	manifestPath: "docs/reference/bootstrap/manifest.json",
+	payloadPath: "docs/reference/bootstrap/global-seed-payload.json",
+	discoveryPath: "docs/reference/discovery-foundations.json",
+	playbookPath: "docs/reference/playbook.md",
+	manifestSha256: "b60b368d7c0ae901c26e429bcda314502e7e836bf97ad57525d9c8816724e68b",
+	payloadSha256: "7933b93d693b73b3d8768aa2f7e2ad91fa665b6ec23127cb8b4856466d936f59",
+	playbookSha256: "d365dd4992156e674f8e67601239fbf97c173074a3ca7e0bc8010aa725205e7a",
+	provenanceRevision: "2107df58885c883960422ce7e60719f0adbac0e4",
+	articles: 96,
+	sections: 21,
+	systemTemplates: 7,
+	discoveryArticles: 6,
+	documentTemplatesSeparate: 11,
+	embeddingProfile: "local-deterministic-v1",
+	embeddingDimensions: 8,
+	chunker: "fixed-codepoints-1200-v1",
+	rollbackReason: "Reviewed rollback of the approved Wiki snapshot",
+} as const;
