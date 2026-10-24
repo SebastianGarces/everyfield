@@ -2,7 +2,7 @@ import { loadStarter, referenceArtifactSha256 } from "./starter-load.ts";
 
 export type PlaybookTeam = { description: string | null; version: string };
 
-export { referenceArtifactSha256 };
+export { loadStarter, referenceArtifactSha256 };
 
 /** One team's description from the frozen catalog. `version` is the catalog artifact sha256. */
 export async function playbookTeam(teamKey: string): Promise<PlaybookTeam> {
