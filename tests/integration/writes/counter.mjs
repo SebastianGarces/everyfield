@@ -33,6 +33,7 @@ const factories = {
 	createTaskWriter: "tasks",
 	createFollowUpWriter: "followups",
 	createAttendanceWriter: "meetings",
+	createWikiProducer: "wiki",
 };
 const standalone = {
 	"/packages/domain/src/early-access/index.ts": ["receiveAccessRequest"],

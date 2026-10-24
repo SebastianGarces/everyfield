@@ -16,7 +16,8 @@
 		"./tasks": "./src/tasks/index.ts",
 		"./followups": "./src/followups/index.ts",
 		"./notifications": "./src/notifications/index.ts",
-		"./communication": "./src/communication/index.ts"
+		"./communication": "./src/communication/index.ts",
+		"./wiki": "./src/wiki/index.ts"
 	},
 	"scripts": {
 		"typecheck": "tsc --noEmit",
