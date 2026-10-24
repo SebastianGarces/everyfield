@@ -2,6 +2,12 @@
 	"GET /meetings": {
 		"limit": 3
 	},
+	"GET /notifications": {
+		"limit": 4
+	},
+	"GET /notifications/read?what=count": {
+		"limit": 2
+	},
 	"GET /people": {
 		"limit": 5
 	},
@@ -22,6 +28,15 @@
 	},
 	"GET /tasks": {
 		"limit": 5
+	},
+	"POST notifications.markAllVisibleRead": {
+		"limit": 6
+	},
+	"POST notifications.markRead": {
+		"limit": 6
+	},
+	"POST notifications.markSelectedRead": {
+		"limit": 6
 	},
 	"POST people.addNote": {
 		"limit": 6
