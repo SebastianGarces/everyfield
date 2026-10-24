@@ -1,0 +1,1 @@
+ALTER TABLE "article_revision" ADD COLUMN "related_slugs" text[] DEFAULT ARRAY[]::text[] NOT NULL;

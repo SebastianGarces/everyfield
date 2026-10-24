@@ -24,6 +24,13 @@ type ReferenceErrorCode =
 	| "stale_claim"
 	| "rollback_unavailable";
 const GLOBAL = "00000000-0000-0000-0000-000000000000";
+function textArray(value: unknown): string[] {
+	if (Array.isArray(value)) return value.map(String);
+	if (typeof value !== "string" || value === "{}") return [];
+	const body = value.slice(1, -1);
+	if (!body) return [];
+	return body.split(",").map((part) => part.replace(/^"|"$/g, "").replaceAll('\\"', '"'));
+}
 export class ReferenceRefusal extends Error {
 	readonly code: ReferenceErrorCode;
 	constructor(code: ReferenceErrorCode) {
@@ -344,14 +351,16 @@ async function install(
 				position: a.sort_order,
 				hash: hash(a.content),
 				section: e.sectionId,
+				related: a.related_article_slugs ?? [],
 			};
 		});
 	await tx.execute(sql`INSERT INTO article_revision(id,article_id,tenant_id,release_id,revision_number,title,slug,excerpt,body,content_type,
-    phase,parent_article_id,position,content_hash,published_at,meaningful,meaningful_sequence,section_id)
+    phase,parent_article_id,position,content_hash,published_at,meaningful,meaningful_sequence,section_id,related_slugs)
     SELECT x.id,x.item,${sql.param(GLOBAL)},${sql.param(id)},coalesce((SELECT max(revision_number) FROM article_revision WHERE article_id=x.item AND tenant_id=${sql.param(GLOBAL)}),0)+1,
     x.title,x.slug,x.excerpt,x.body,'safe_mdx',x.phase,null,x.position,x.hash,clock_timestamp(),true,
-    coalesce((SELECT max(meaningful_sequence) FROM article_revision WHERE article_id=x.item AND tenant_id=${sql.param(GLOBAL)}),0)+1,x.section
-    FROM jsonb_to_recordset(${sql.param(JSON.stringify(articles))}::jsonb) AS x(id uuid,item uuid,title text,slug text,excerpt text,body text,phase int,position int,hash text,section uuid)`);
+    coalesce((SELECT max(meaningful_sequence) FROM article_revision WHERE article_id=x.item AND tenant_id=${sql.param(GLOBAL)}),0)+1,x.section,
+    coalesce(ARRAY(SELECT jsonb_array_elements_text(coalesce(x.related, '[]'::jsonb))), ARRAY[]::text[])
+    FROM jsonb_to_recordset(${sql.param(JSON.stringify(articles))}::jsonb) AS x(id uuid,item uuid,title text,slug text,excerpt text,body text,phase int,position int,hash text,section uuid,related jsonb)`);
 	const passages = bundle.passages.map((p) => ({ ...p, id: randomUUID(), vector: JSON.stringify(p.embedding) }));
 	await tx.execute(sql`INSERT INTO passage(id,release_id,revision_id,tenant_id,ordinal,content,content_hash,embedding,embedding_checksum)
     SELECT x.id,${sql.param(id)},x."revisionId",${sql.param(GLOBAL)},x.ordinal,x.text,x."contentHash",x.vector::public.vector,x."embeddingChecksum"
@@ -430,6 +439,7 @@ async function verifyStored(tx: Transaction, bundle: ReferenceGeneration, id: st
 			position: tables.article_revision.position,
 			content_hash: tables.article_revision.content_hash,
 			content_type: tables.article_revision.content_type,
+			related_slugs: tables.article_revision.related_slugs,
 		})
 		.from(tables.article_revision)
 		.where(eq(tables.article_revision.release_id, id))
@@ -451,10 +461,12 @@ async function verifyStored(tx: Transaction, bundle: ReferenceGeneration, id: st
 				position: a.sort_order,
 				content_hash: hash(a.content),
 				content_type: "safe_mdx",
+				related_slugs: a.related_article_slugs ?? [],
 			};
 		})
 		.sort((a, b) => a.id.localeCompare(b.id, "en"));
-	if (canonical(published) !== canonical(expectedArticles)) throw new ReferenceRefusal("immutable_conflict");
+	const storedArticles = published.map((row) => ({ ...row, related_slugs: textArray(row.related_slugs) }));
+	if (canonical(storedArticles) !== canonical(expectedArticles)) throw new ReferenceRefusal("immutable_conflict");
 	const articles = new Set(bundle.entries.filter((e) => e.kind === "article").map((e) => e.revisionId));
 	const passages = await tx
 		.select({

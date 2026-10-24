@@ -41,6 +41,11 @@ export function writeAction(operation: string): string {
 				: "phase.transitioned";
 	if (domain === "tasks") return "tasks.changed";
 	if (domain === "notifications") return "settings.changed";
+	if (domain === "wiki") {
+		if (verb === "setSourceOrder") return "wiki.source_order_changed";
+		if (verb === "bookmarks") return "wiki.bookmark_changed";
+		if (verb === "reading") return "wiki.reading_recorded";
+	}
 	if (domain === "communication") {
 		const named: Record<string, string> = {
 			"communication.saveDraft": "communication.draft_saved",
