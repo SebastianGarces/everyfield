@@ -1,4 +1,4 @@
-import { playbookTeam } from "@everyfield/reference/playbook";
+import { playbookTeam, referenceArtifactSha256 } from "@everyfield/reference/playbook";
 import { sql, type SQL } from "@everyfield/db/query";
 import { reviewDigest } from "../templates.ts";
 
@@ -46,14 +46,14 @@ export function playbookLines(description: string | null): PlaybookLine[] {
 		});
 }
 
-export function linesForTemplate(templateKey: string | null): PlaybookLine[] {
+export async function linesForTemplate(templateKey: string | null): Promise<PlaybookLine[]> {
 	const referenceKey = referenceTeamKey(templateKey);
 	if (!referenceKey) return [];
-	return playbookLines(playbookTeam(referenceKey).description);
+	return playbookLines((await playbookTeam(referenceKey)).description);
 }
 
-export function catalogSha(): string {
-	return playbookTeam("").version;
+export function catalogSha(): Promise<string> {
+	return referenceArtifactSha256();
 }
 
 /** The caller selects from team t. The CASE reads t.template_key. */
@@ -79,13 +79,17 @@ function byStoredLine(a: StoredLine, b: StoredLine) {
 }
 
 /** Preview and offer share this digest. A declined offer shows no proposed lines. */
-export function responsibilityReview(templateKey: string | null, stored: readonly StoredLine[], declined: boolean) {
-	const catalog = linesForTemplate(templateKey);
+export async function responsibilityReview(
+	templateKey: string | null,
+	stored: readonly StoredLine[],
+	declined: boolean,
+) {
+	const catalog = await linesForTemplate(templateKey);
 	const storedKeys = new Set(stored.map((row) => row.sourceLine));
 	const proposed = catalog.filter((line) => !storedKeys.has(line.key));
 	const lines = declined ? [] : proposed;
 	const customizations = [...stored].sort(byStoredLine);
-	const templateVersion = catalogSha();
+	const templateVersion = await catalogSha();
 	return {
 		catalog,
 		lines,

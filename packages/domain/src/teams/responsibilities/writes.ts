@@ -10,7 +10,6 @@ import {
 	insertCustom,
 	insertOfferLines,
 	markRemoved,
-	revisionDefaultSql,
 	saveCompleted,
 	saveText,
 	stampOffer,
@@ -27,7 +26,6 @@ const teamLock = z.object({
 	archived: z.boolean(),
 	templateKey: z.string().nullable(),
 	versionId: id.nullable(),
-	revisionDefault: z.string().regex(/^(0|[1-9]\d*)$/),
 	nextSort: z.coerce.number().int(),
 	lines: z.array(lineRow),
 });
@@ -60,7 +58,6 @@ async function lockTeam(tx: Tx, w: Writer, teamId: string): Promise<TeamLock> {
 			(t.archived_at IS NOT NULL) AS archived,
 			t.template_key AS "templateKey",
 			${catalogVersion()} AS "versionId",
-			${revisionDefaultSql()} AS "revisionDefault",
 			coalesce((SELECT max(r.sort_order) FROM responsibility r
 				WHERE r.team_id = t.id AND r.plant_id = t.plant_id), 0) + 1 AS "nextSort",
 			coalesce((SELECT json_agg(json_build_object(
@@ -149,7 +146,7 @@ export const responsibilityWriter = {
 					text: line.text,
 					removed: line.removed,
 				}));
-				const review = responsibilityReview(team.templateKey, stored, team.offer === "declined");
+				const review = await responsibilityReview(team.templateKey, stored, team.offer === "declined");
 				if (input.input.expectedVersion !== review.templateVersion) deny("stale_template_version");
 				if (input.input.reviewDigest !== review.reviewDigest) deny("stale_review");
 				const known = new Set([...review.catalog.map((line) => line.key), ...team.lines.map((line) => line.line)]);
@@ -222,7 +219,7 @@ export const responsibilityWriter = {
 							outcome: "changed",
 							id: responsibilityId,
 							teamId: team.id,
-							revision: team.revisionDefault,
+							revision: "1", // responsibility.revision column default is 1
 							sourceLine,
 							text: input.input.text,
 						}),

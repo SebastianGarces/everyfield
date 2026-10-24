@@ -4,14 +4,6 @@ import "server-only";
 
 const tuples = (rows: SQL[]) => sql.join(rows, sql`, `);
 
-/** Column default of responsibility.revision. Audit writes cannot return the inserted value. */
-export const revisionDefaultSql = () => sql`(SELECT pg_get_expr(d.adbin, d.adrelid)
-	FROM pg_attribute a
-	JOIN pg_class c ON c.oid = a.attrelid
-	JOIN pg_namespace n ON n.oid = c.relnamespace
-	LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
-	WHERE c.relname = 'responsibility' AND a.attname = 'revision' AND n.nspname = current_schema())`;
-
 type VersionLine = { teamId: string; sourceVersionId: string; sourceLine: string; text: string };
 
 /** The only insert used by team import. Same row shape as before this package. */

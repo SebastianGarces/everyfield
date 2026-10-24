@@ -85,8 +85,8 @@ const marks = async () => ({
 	rows: await count(sql`SELECT count(*)::int AS n FROM responsibility`),
 	audits: await count(sql`SELECT count(*)::int AS n FROM audit_event`),
 });
-function expectedLines(referenceKey) {
-	const described = playbookTeam(referenceKey);
+async function expectedLines(referenceKey) {
+	const described = await playbookTeam(referenceKey);
 	if (typeof described.description !== "string" || described.description.length === 0) {
 		throw new Error("missing catalog team " + referenceKey);
 	}
@@ -211,7 +211,7 @@ after(async () => {
 });
 
 test("AC:B01-028 preview stores nothing and one selected line stays the only active line", async () => {
-	const lines = expectedLines("senior_pastor");
+	const lines = await expectedLines("senior_pastor");
 	const team = await makeTemplateTeam("Welcome", "leadership");
 	const beforeRead = await marks();
 	const preview = ok(await responsibilityReader.previewResponsibilities(db, await viewer(), { teamId: team.id }));
@@ -288,7 +288,7 @@ test("AC:B01-028 preview stores nothing and one selected line stays the only act
 });
 
 test("AC:TARGET-TEAM-007 chosen lines commit once and deleted, edited, or declined lines do not return", async () => {
-	const worship = expectedLines("worship");
+	const worship = await expectedLines("worship");
 	const team = await makeTemplateTeam("Launch", "worship");
 	const started = await phase();
 	assert.equal(
@@ -423,7 +423,7 @@ test("AC:TARGET-TEAM-007 chosen lines commit once and deleted, edited, or declin
 	assert.equal((await linesOf(team.id)).find((row) => row.id === added.id).removed, false);
 	assert.equal(await phase(), started);
 
-	const facilities = expectedLines("facilities");
+	const facilities = await expectedLines("facilities");
 	const declinedTeam = await makeTemplateTeam("Passed", "facilities");
 	const declinedInput = await offerInput(declinedTeam.id, "decline", [facilities[0].key], declinedTeam.revision);
 	const declined = ok(await run(responsibilityWriter.offerResponsibilities, declinedInput));
@@ -485,7 +485,7 @@ test("AC:TARGET-TEAM-007 chosen lines commit once and deleted, edited, or declin
 	);
 	assert.deepEqual(await linesOf(team.id), beforeDecline);
 
-	const assimilation = expectedLines("assimilation");
+	const assimilation = await expectedLines("assimilation");
 	const blank = await makeTemplateTeam("None", "assimilation");
 	const empty = ok(
 		await run(responsibilityWriter.offerResponsibilities, await offerInput(blank.id, "accept", [], blank.revision)),
@@ -505,7 +505,7 @@ test("AC:TARGET-TEAM-007 chosen lines commit once and deleted, edited, or declin
 });
 
 test("INV-tenancy a forged session, a stale role, and a non-leader cannot change responsibilities", async () => {
-	const technology = expectedLines("technology");
+	const technology = await expectedLines("technology");
 	const team = await makeTemplateTeam("Guarded", "technology");
 	const accepted = ok(
 		await run(
@@ -709,25 +709,25 @@ test("a custom team and administration have no Playbook lines", async () => {
 	}
 });
 
-test("every WP-017 template key maps to a frozen catalog team or the no-lines key", () => {
+test("every WP-017 template key maps to a frozen catalog team or the no-lines key", async () => {
 	const templateKeys = new Set(TEMPLATES.map((team) => team.key));
 	for (const key of Object.keys(REFERENCE_TEAM_KEY)) assert.equal(templateKeys.has(key), true);
 	for (const team of TEMPLATES) {
 		const referenceKey = referenceTeamKey(team.key);
 		if (referenceKey === null) {
 			assert.equal(team.key, NO_PLAYBOOK_TEAM_KEY);
-			assert.deepEqual(linesForTemplate(team.key), []);
+			assert.deepEqual(await linesForTemplate(team.key), []);
 			continue;
 		}
-		assert.equal(typeof playbookTeam(referenceKey).description, "string");
-		assert.deepEqual(linesForTemplate(team.key), expectedLines(referenceKey));
+		assert.equal(typeof (await playbookTeam(referenceKey)).description, "string");
+		assert.deepEqual(await linesForTemplate(team.key), await expectedLines(referenceKey));
 	}
 	assert.equal(referenceTeamKey("leadership"), "senior_pastor");
 	assert.equal(referenceTeamKey(null), null);
 	assert.deepEqual(
-		linesForTemplate("leadership").map((line) => line.text),
+		(await linesForTemplate("leadership")).map((line) => line.text),
 		["Overall leadership", "Vision casting", "Preaching calendar", "Shepherding", "Leader development"],
 	);
-	assert.equal(playbookTeam("senior_pastor").version, freeze.artifactSha256);
-	assert.equal(playbookTeam("not-a-team").description, null);
+	assert.equal((await playbookTeam("senior_pastor")).version, freeze.artifactSha256);
+	assert.equal((await playbookTeam("not-a-team")).description, null);
 });

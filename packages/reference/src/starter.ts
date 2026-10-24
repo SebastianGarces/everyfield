@@ -18,13 +18,36 @@ const artifact = z.strictObject({
 	}),
 });
 export type Starter = z.infer<typeof artifact>;
-export async function loadStarter(): Promise<Starter> {
+type FrozenStarter = { starter: Starter; artifactSha256: string };
+
+let frozen: Promise<FrozenStarter> | null = null;
+
+function loadFrozen(): Promise<FrozenStarter> {
+	frozen ??= readFrozen().catch((error: unknown) => {
+		frozen = null;
+		throw error;
+	});
+	return frozen;
+}
+
+async function readFrozen(): Promise<FrozenStarter> {
 	const freeze = JSON.parse(await readFile(new URL("freeze.json", import.meta.url), "utf8"));
 	const bytes = await readFile(new URL("artifacts.json", import.meta.url));
-	if (hash(bytes) !== freeze.artifactSha256) throw Error("reference_artifact_mismatch");
+	if (typeof freeze.artifactSha256 !== "string" || hash(bytes) !== freeze.artifactSha256) {
+		throw Error("reference_artifact_mismatch");
+	}
 	const result = artifact.parse(JSON.parse(bytes.toString("utf8")));
 	for (const s of result.sources) if (hash(s.body) !== s.sha256) throw Error("reference_source_mismatch");
-	return result;
+	return { starter: result, artifactSha256: freeze.artifactSha256 };
+}
+
+export async function loadStarter(): Promise<Starter> {
+	return (await loadFrozen()).starter;
+}
+
+/** Artifact sha256 from the same cached read as `loadStarter`. */
+export async function referenceArtifactSha256(): Promise<string> {
+	return (await loadFrozen()).artifactSha256;
 }
 export async function verifyCheckout(
 	root: URL,

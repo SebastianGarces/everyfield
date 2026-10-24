@@ -67,7 +67,7 @@ export const responsibilityReader = {
 				})
 				.parse(found);
 			const stored: StoredLine[] = row.customizations;
-			const review = responsibilityReview(row.templateKey, stored, row.offer === "declined");
+			const review = await responsibilityReview(row.templateKey, stored, row.offer === "declined");
 			return c.previewPage.parse({
 				teamId: input.teamId,
 				offer: row.offer,
