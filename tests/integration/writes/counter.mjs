@@ -236,6 +236,7 @@ registerHooks({
 				"/packages/domain/src/communication/writer.ts": { communicationWriter: "communication" },
 				"/packages/domain/src/teams/responsibilities/reads.ts": { responsibilityReader: "teams" },
 				"/packages/domain/src/documents/reads.ts": { documentsReader: "documents" },
+				"/packages/domain/src/documents/writes.ts": { documentsWriter: "documents" },
 				"/packages/domain/src/teams/responsibilities/writes.ts": { responsibilityWriter: "teams" },
 				"/packages/domain/src/teams/training/commands.ts": { trainingWriter: "teams" },
 				"/packages/domain/src/teams/training/reads.ts": { trainingReader: "teams" },

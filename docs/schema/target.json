@@ -70,9 +70,9 @@
   "contract_status": "Reviewed starting design; builders may change it through a reviewed migration.",
   "as_of": "2026-10-17",
   "implementation_authorized": false,
-  "table_count": 95,
-  "column_count": 1084,
-  "foreign_key_count": 337,
+  "table_count": 96,
+  "column_count": 1098,
+  "foreign_key_count": 341,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
     "date": "YYYY-MM-DD local calendar date, never UTC midnight instant.",
@@ -239,6 +239,11 @@
       "failed",
       "cleanup",
       "purged"
+    ],
+    "generated_document.format": [
+      "pdf",
+      "docx",
+      "xlsx"
     ],
     "identity_proof.purpose": [
       "email_change",
@@ -1295,7 +1300,12 @@
       "communication.template_updated",
       "deletion.cancelled",
       "deletion.live_purge_completed",
+      "documents.archived",
       "documents.copied",
+      "documents.designated",
+      "documents.generated",
+      "documents.imported",
+      "documents.purged",
       "documents.saved",
       "evry.conversation_created",
       "evry.proposal_approved",
@@ -10778,7 +10788,7 @@
         }
       ],
       "checks": [
-        "action in ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','audit.imported','communication.approved','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','documents.copied','documents.saved','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','execution.cancelled','execution.completed','execution.partial','execution.reconciled','execution.started','feedback.publication_intended','feedback.published','feedback.received','feedback.reconciled','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.credential_reconciled','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.feedback_recorded','intelligence.published','intelligence.requested','intelligence.superseded','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','note_correction','organization.profile_changed','people.corrected','people.created','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','security.access_denied','security.audit_exported','security.audit_inspected','security.bulk_export','security.operator_accessed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed')",
+        "action in ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','audit.imported','communication.approved','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','documents.archived','documents.copied','documents.designated','documents.generated','documents.imported','documents.purged','documents.saved','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','execution.cancelled','execution.completed','execution.partial','execution.reconciled','execution.started','feedback.publication_intended','feedback.published','feedback.received','feedback.reconciled','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.credential_reconciled','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.feedback_recorded','intelligence.published','intelligence.requested','intelligence.superseded','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','note_correction','organization.profile_changed','people.corrected','people.created','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','security.access_denied','security.audit_exported','security.audit_inspected','security.bulk_export','security.operator_accessed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed')",
         "num_nonnulls(actor_id,actor_token,system_cause)>=1",
         "kind in ('create','edit','correct','retire','restore','merge','unmerge','stage_change','classification_change','commitment_change','assign','remove','accept','revoke','resend','role_change','leader_change','tick','untick','archive','earn','revoke_credit','offer_answer','publish','hide','read','progress','complete','reopen','waive','supersede','finalize','reconcile','noop','triage','suppress','suppression_clear','preference','model_attempt','tool_attempt','effect_result','mail_member','outcome','declaration','movement')",
         "jsonb_typeof(metadata)='object' AND (metadata->'diff' IS NULL OR (jsonb_typeof(metadata->'diff')='object' AND octet_length(convert_to((metadata->'diff')::text,'UTF8'))<=2048))"
@@ -16941,6 +16951,345 @@
           "four_cs_ck_2",
           "four_cs_ck_3",
           "four_cs_ck_4"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "generated_document",
+      "domain": "documents",
+      "purpose": "One saved render of a catalog template. The plant owns the row. The creator account is attribution, not ownership. Frozen inputs, template version and bytes stay when church facts change.",
+      "library_owned": false,
+      "jsonb_keys": {
+        "inputs": [
+          "key: catalog merge field id",
+          "value: frozen text used for this render",
+          "source: catalog default or an explicit nonempty override"
+        ]
+      },
+      "capabilities": [
+        "CAP-C-013"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-037"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-037"
+        ],
+        "rule": "WP-037 stores one saved catalog render. The plant owns the row. Creator attribution is not ownership."
+      },
+      "feature_ids": [
+        "DOC-003"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-003--DOC-003"
+      ],
+      "future_case_ids": [
+        "CASE-DOC-003",
+        "PROVIDER48-002",
+        "PROVIDER48-003"
+      ],
+      "scope": "documents",
+      "invariants": [
+        "A saved row points at one ready private file in the same plant.",
+        "The same request key returns the stored render and does not write a second file.",
+        "Plant ownership survives creator deletion."
+      ],
+      "revision": "A saved render is immutable. revision stays 1.",
+      "idempotency": "The same request key returns the stored render and does not write a second file.",
+      "deletion": "Plant purge removes the generated row with the plant. Account deletion clears creator attribution and keeps the plant-owned file.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "note": "Plant owner. A generated row is never account-owned.",
+          "name": "tenant_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "Attribution only. Account deletion nulls it and keeps the plant file.",
+          "name": "creator_account_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "Catalog template id frozen at generation.",
+          "name": "template_id",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "Catalog version frozen at generation.",
+          "name": "template_version",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "Template name frozen so a retired catalog entry still has a label.",
+          "name": "saved_template_name",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "Render engine version that produced the bytes.",
+          "name": "renderer_version",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "format",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "Ready private file that holds the exact bytes.",
+          "name": "object_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "Frozen merge fields. Each entry has key, value and source.",
+          "name": "inputs",
+          "type": "jsonb",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "download_name",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "generated_at",
+          "type": "timestamptz",
+          "nullable": false
+        },
+        {
+          "note": "Repeat of the same key returns this row.",
+          "name": "request_key",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "",
+          "name": "revision",
+          "type": "bigint",
+          "nullable": false,
+          "default": "1"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [
+        {
+          "columns": [
+            "id",
+            "tenant_id"
+          ]
+        },
+        {
+          "columns": [
+            "object_id"
+          ]
+        },
+        {
+          "columns": [
+            "tenant_id",
+            "request_key"
+          ],
+          "where": "(request_key IS NOT NULL)"
+        }
+      ],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Plant purge removes the generated row before the plant."
+          },
+          "columns": [
+            "tenant_id"
+          ],
+          "references": {
+            "table": "tenant",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "set_null",
+            "policy": "Clear creator attribution when the account row is removed. The plant keeps the generated file."
+          },
+          "columns": [
+            "creator_account_id"
+          ],
+          "references": {
+            "table": "account",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "set_null"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "The private file stays while this row references it. Cleanup deletes only an unreferenced object."
+          },
+          "columns": [
+            "object_id",
+            "tenant_id"
+          ],
+          "references": {
+            "table": "file_object",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "The record binding stays with the generated row."
+          },
+          "columns": [
+            "id",
+            "tenant_id"
+          ],
+          "references": {
+            "table": "record",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "restrict"
+        }
+      ],
+      "checks": [
+        "(revision >= 1)",
+        "format in ('pdf', 'docx', 'xlsx')",
+        "(tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid)",
+        "(octet_length(inputs::text) <= 65536)"
+      ],
+      "indexes": {
+        "generated_document_uq_2": {
+          "name": "generated_document_uq_2",
+          "isUnique": true,
+          "where": "(request_key IS NOT NULL)",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "request_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "generated_document_ref_0": {
+          "name": "generated_document_ref_0",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "generated_document_ref_1": {
+          "name": "generated_document_ref_1",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "generated_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "first"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "generated_document_ref_2": {
+          "name": "generated_document_ref_2",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "object_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "generated_document_pkey"
+        ],
+        "unique": [
+          "generated_document_uq_0",
+          "generated_document_uq_1"
+        ],
+        "foreign": [
+          "generated_document_fk_0",
+          "generated_document_fk_1",
+          "generated_document_fk_2",
+          "generated_document_fk_3"
+        ],
+        "checks": [
+          "generated_document_ck_0",
+          "generated_document_ck_1",
+          "generated_document_ck_2",
+          "generated_document_ck_3"
         ]
       },
       "policies": {},
@@ -30244,6 +30593,7 @@
           "document_revision",
           "file_object",
           "four_cs",
+          "generated_document",
           "household",
           "interview",
           "invitation",

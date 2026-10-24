@@ -9841,6 +9841,84 @@
 				}
 			}
 		},
+		"generated_document": {
+			"table": {
+				"name": "generated_document",
+				"domain": "documents",
+				"purpose": "One saved render of a catalog template. The plant owns the row. The creator account is attribution, not ownership. Frozen inputs, template version and bytes stay when church facts change.",
+				"library_owned": false,
+				"jsonb_keys": {
+					"inputs": [
+						"key: catalog merge field id",
+						"value: frozen text used for this render",
+						"source: catalog default or an explicit nonempty override"
+					]
+				},
+				"capabilities": ["CAP-C-013"],
+				"replaces": [],
+				"producer_work_packages": ["WP-037"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-037"],
+					"rule": "WP-037 stores one saved catalog render. The plant owns the row. Creator attribution is not ownership."
+				},
+				"feature_ids": ["DOC-003"],
+				"acceptance_ids": ["AC-DOC-003--DOC-003"],
+				"future_case_ids": ["CASE-DOC-003", "PROVIDER48-002", "PROVIDER48-003"],
+				"scope": "documents",
+				"invariants": [
+					"A saved row points at one ready private file in the same plant.",
+					"The same request key returns the stored render and does not write a second file.",
+					"Plant ownership survives creator deletion."
+				],
+				"revision": "A saved render is immutable. revision stays 1.",
+				"idempotency": "The same request key returns the stored render and does not write a second file.",
+				"deletion": "Plant purge removes the generated row with the plant. Account deletion clears creator attribution and keeps the plant-owned file.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": { "note": "" },
+				"tenant_id": { "note": "Plant owner. A generated row is never account-owned." },
+				"creator_account_id": { "note": "Attribution only. Account deletion nulls it and keeps the plant file." },
+				"template_id": { "note": "Catalog template id frozen at generation." },
+				"template_version": { "note": "Catalog version frozen at generation." },
+				"saved_template_name": { "note": "Template name frozen so a retired catalog entry still has a label." },
+				"renderer_version": { "note": "Render engine version that produced the bytes." },
+				"format": { "note": "" },
+				"object_id": { "note": "Ready private file that holds the exact bytes." },
+				"inputs": { "note": "Frozen merge fields. Each entry has key, value and source." },
+				"download_name": { "note": "" },
+				"generated_at": { "note": "" },
+				"request_key": { "note": "Repeat of the same key returns this row." },
+				"revision": { "note": "" }
+			},
+			"foreignKeys": {
+				"tenant_id->tenant(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Plant purge removes the generated row before the plant."
+					}
+				},
+				"creator_account_id->account(id)": {
+					"deletion": {
+						"action": "set_null",
+						"policy": "Clear creator attribution when the account row is removed. The plant keeps the generated file."
+					}
+				},
+				"object_id,tenant_id->file_object(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "The private file stays while this row references it. Cleanup deletes only an unreferenced object."
+					}
+				},
+				"id,tenant_id->record(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "The record binding stays with the generated row."
+					}
+				}
+			}
+		},
 		"document": {
 			"table": {
 				"name": "document",
@@ -12413,6 +12491,7 @@
 						"document_revision",
 						"file_object",
 						"four_cs",
+						"generated_document",
 						"household",
 						"interview",
 						"invitation",

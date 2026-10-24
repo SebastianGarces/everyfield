@@ -58,7 +58,7 @@ const authority = async (who = 0) => {
 const countOf = async (table: string) =>
 	Number((await admin.execute(sql.raw(`SELECT count(*)::int AS n FROM ${table}`))).rows[0].n);
 const counts = async () => {
-	const tables = ["document", "document_revision", "file_object", "audit_event"];
+	const tables = ["document", "document_revision", "file_object", "audit_event", "generated_document"];
 	return Object.fromEntries(await Promise.all(tables.map(async (table) => [table, await countOf(table)])));
 };
 const previewInput = (templateId: string, format: string, extra = {}) => ({ templateId, format, ...extra });
@@ -332,7 +332,6 @@ describe("WP-036/api document templates", { concurrency: 1 }, () => {
 		} finally {
 			await admin.execute(sql`UPDATE seat SET role='member' WHERE account_id=${actors[1].id}`);
 		}
-		assert.equal((await admin.execute(sql`SELECT to_regclass('generated_document') AS name`)).rows[0].name, null);
 		assert.deepEqual(await counts(), before);
 		const title = (await admin.execute(sql`SELECT title FROM document WHERE tenant_id=${P}`)).rows[0].title;
 		assert.equal(title, editedTitle);
