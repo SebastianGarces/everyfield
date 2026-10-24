@@ -150,25 +150,17 @@ export async function templateCatalog() {
 
 type Selection = { teamKey: string; roleKeys: string[] };
 /**
- * The review of chosen templates: the exact choices and a digest of them, computed here so the browser cannot claim a
- * review it did not see. Importing sends the digest back; a different choice is refused as a stale review.
+ * Adds the templates the person just reviewed. The digest is computed here from those choices, so the browser never
+ * computes it and cannot send a review for a different choice. The answer says how many ministries and roles are new.
  */
-export async function reviewTemplates(version: string, selections: Selection[]) {
-	if ((await seat()) === null) return noSeat;
-	return {
-		status: "ok",
-		value: { version, digest: reviewDigest({ expectedVersion: version, mode: "import", selections, lines: [] }) },
-	} as const;
-}
-/** Adds the reviewed templates. The answer says how many ministries and roles are new. */
 export async function importTemplates(
 	requestKey: string,
 	version: string,
-	digest: string,
 	selections: Selection[],
 ): Promise<Outcome<{ newTeams: number; newRoles: number }>> {
 	const v = await seat();
 	if (!v) return noSeat;
+	const digest = reviewDigest({ expectedVersion: version, mode: "import", selections, lines: [] });
 	const done = await write(v, (tx, ctx) =>
 		teamsWriter.initialize(tx, ctx, {
 			requestKey,

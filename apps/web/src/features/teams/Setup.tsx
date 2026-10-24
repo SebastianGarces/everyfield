@@ -16,7 +16,7 @@ import { StatusBadge } from "@everyfield/ui/display";
 import { Icon } from "@everyfield/ui/foundations";
 import { useEffect, useState } from "react";
 import { DialogNotice, SaveButton, type SaveIntent } from "../../components/save/parts.tsx";
-import { importTemplates, reviewTemplates, templateCatalog } from "./actions.ts";
+import { importTemplates, templateCatalog } from "./actions.ts";
 import { plural, type Catalog, type Outcome } from "./model.ts";
 
 // Set up ministries from the ten templates (REQ-TEAM-003). Nothing is created until the person reviews the exact
@@ -90,11 +90,7 @@ export function SetupDialog({
 			what: "The ministries",
 			done: "added",
 			form: kept,
-			send: async (key) => {
-				const review = await reviewTemplates(version, selections);
-				if (review.status !== "ok") return review;
-				return importTemplates(key, version, review.value.digest, selections);
-			},
+			send: (key) => importTemplates(key, version, selections),
 			ok: onDone,
 			refused: (code) => code === "stale_template_version" && setCatalog(null),
 		});
