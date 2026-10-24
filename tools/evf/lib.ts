@@ -47,9 +47,35 @@ export const MODEL_FAMILIES = ["anthropic", "openai", "xai"] as const;
 export type ModelFamily = (typeof MODEL_FAMILIES)[number];
 export const isModelFamily = (value: unknown): value is ModelFamily =>
 	MODEL_FAMILIES.some((family) => family === value);
-/** Opus (anthropic) and one other family check each other's work; openai and xai never review each other. */
-export const crossFamilyReview = (author: ModelFamily, verifier: ModelFamily): boolean =>
-	author !== verifier && (author === "anthropic" || verifier === "anthropic");
+/** xai may review xai only before this instant. That is 2026-10-27 15:00 America/New_York. */
+export const XAI_SAME_FAMILY_REVIEW_UNTIL = "2026-10-27T19:00:00.000Z";
+const xaiSameFamilyReviewOpen = (at: number): boolean =>
+	Number.isFinite(at) && at < Date.parse(XAI_SAME_FAMILY_REVIEW_UNTIL);
+
+/**
+ * anthropic pairs with openai or xai. openai and xai never review each other.
+ * Before XAI_SAME_FAMILY_REVIEW_UNTIL, xai may review xai.
+ * `at` is the review time. Ship passes the clock it stores as verification.checkedAt.
+ * A later milestone check passes that stored time, not the acknowledgement time.
+ */
+export const crossFamilyReview = (author: ModelFamily, verifier: ModelFamily, at = Date.now()): boolean =>
+	author === "xai" && verifier === "xai"
+		? xaiSameFamilyReviewOpen(at)
+		: author !== verifier && (author === "anthropic" || verifier === "anthropic");
+
+export const crossFamilyReviewRefusal = (author: ModelFamily, at = Date.now()): string => {
+	const needs =
+		author === "anthropic"
+			? "an openai or xai"
+			: author === "xai" && xaiSameFamilyReviewOpen(at)
+				? "an anthropic or xai"
+				: "an anthropic";
+	const rule =
+		author === "xai" && xaiSameFamilyReviewOpen(at)
+			? "Verifier approval must come from an allowed model family"
+			: "Verifier approval must come from a different model family";
+	return `${rule}: ${author} work needs ${needs} verifier.`;
+};
 
 export const FEEDBACK_BUG_CLASSES = ["p0", "p1", "p2", "p3"] as const;
 export type FeedbackBugClass = (typeof FEEDBACK_BUG_CLASSES)[number];

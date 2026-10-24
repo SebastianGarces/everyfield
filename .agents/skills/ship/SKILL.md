@@ -22,13 +22,16 @@ Every review comment needs a "Code quality" section naming concrete simplificati
 why none are needed. Its quality field names the principles checked, including the four shown above.
 Ship refuses missing or unapproved quality and incomplete principle lists.
 
-Use the verifier's actual family. An `anthropic` PR needs an `xai` or `openai` verifier; an
-`xai` or `openai` PR needs an `anthropic` verifier. Comments are deliberate because agents share the owner's
+Use the verifier's actual family. An `anthropic` PR needs an `xai` or `openai` verifier. An
+`openai` PR needs an `anthropic` verifier. Until 2026-10-27T19:00:00.000Z, an `xai` PR may use an
+`xai` verifier. At and after that instant, a new `xai` review of `xai` work is refused. A milestone
+stored from an earlier review still passes. Ship keeps `verification.checkedAt`, not the acknowledgement
+time. Comments are deliberate because agents share the owner's
 GitHub account. These records are unsigned coordination evidence, not authenticated identities.
 Use `changes_requested` instead of `approved` when verification fails. The latest record for that
 head wins. A changed head needs new CI and real verification.
 
-`evf ship <task>` requires every required GitHub check to pass on the exact PR head, a different
+`evf ship <task>` requires every required GitHub check to pass on the exact PR head, an allowed
 family's approval of that head and a body passing the PR standard. Missing checks refuse.
 The verifier or coordinator runs it; it squash-merges with `--match-head-commit`. Never arm
 GitHub auto-merge. A branch update requires fresh CI and review, except a merge-only head: when

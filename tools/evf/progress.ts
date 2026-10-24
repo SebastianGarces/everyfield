@@ -80,7 +80,7 @@ export function reviewedMilestone(root: string, record: ShippedRecord): boolean 
 				v.carry.head !== v.head ||
 				typeof carryProof(root, v.approval.head, v.head, baseRef(root, cfg)) === "string")) ||
 		v.approval.verdict !== "approved" ||
-		!crossFamilyReview(v.authorFamily, v.approval.verifierFamily) ||
+		!crossFamilyReview(v.authorFamily, v.approval.verifierFamily, Date.parse(v.checkedAt)) ||
 		!v.checks.length ||
 		v.checks.some((c) => c.bucket !== "pass")
 	)
