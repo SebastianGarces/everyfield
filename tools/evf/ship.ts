@@ -6,6 +6,7 @@ import {
 	fail,
 	baseRef,
 	crossFamilyReview,
+	crossFamilyReviewRefusal,
 	findPackage,
 	git,
 	gitOk,
@@ -415,10 +416,9 @@ export function checkPr(
 		(!experience.exception || !pr.body.split(/\r?\n/).includes(`EVF-Experience-Exception: ${experience.exception}`))
 	)
 		fail("Experience budget exceeded. Name the approved reports or analytics exception in the PR and review.");
-	if (!crossFamilyReview(authorFamily, selected.approval.verifierFamily))
-		fail(
-			`Verifier approval must come from a different model family: ${authorFamily} work needs ${authorFamily === "anthropic" ? "an openai or xai" : "an anthropic"} verifier.`,
-		);
+	const checkedAtMs = Date.now();
+	if (!crossFamilyReview(authorFamily, selected.approval.verifierFamily, checkedAtMs))
+		fail(crossFamilyReviewRefusal(authorFamily, checkedAtMs));
 	const current: PullRequest = JSON.parse(
 		gh(root, ["pr", "view", String(number), "--json", "number,body,headRefOid,baseRefName,state,isDraft"]),
 	);
@@ -430,7 +430,7 @@ export function checkPr(
 		approval: selected.approval,
 		approvalUrl: selected.url,
 		checks,
-		checkedAt: new Date().toISOString(),
+		checkedAt: new Date(checkedAtMs).toISOString(),
 		...(carry ? { carry } : {}),
 	};
 }

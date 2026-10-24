@@ -2302,7 +2302,6 @@
 				"retirement_policy": "No new change for a retired or merged Person; history stays under current permission and goes with the Person on purge.",
 				"privacy_policy": "Holds only the kind and date; the actor stays in the audit row.",
 				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
-
 				"future_case_ids": ["ADR1-017"]
 			},
 			{
@@ -12371,6 +12370,7 @@
 					"WP-023",
 					"WP-024",
 					"WP-026",
+					"WP-027",
 					"WP-028",
 					"WP-030",
 					"WP-031",
@@ -12401,6 +12401,7 @@
 						"article_revision",
 						"attestation",
 						"commitment",
+						"communication",
 						"contact_outcome",
 						"development_enrollment",
 						"development_program",
@@ -12422,6 +12423,7 @@
 						"mail_attempt",
 						"mail_request",
 						"meeting",
+						"message_template",
 						"notice",
 						"notification_preference",
 						"obligation",
@@ -16641,6 +16643,203 @@
 				}
 			},
 			"foreignKeys": {}
+		},
+		"communication": {
+			"table": {
+				"name": "communication",
+				"domain": "communication",
+				"purpose": "A plant draft or a reviewed schedule. It stores the audience and an optional subject and body. It stores no mail intent.",
+				"library_owned": false,
+				"jsonb_keys": {
+					"audience": ["groups", "teamIds", "personIds"]
+				},
+				"capabilities": ["CAP-B-035"],
+				"replaces": [],
+				"producer_work_packages": ["WP-027"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-027"],
+					"rule": "WP-027 composition storage through Drizzle Kit (C100)."
+				},
+				"feature_ids": ["COM-003", "COM-004", "COM-012"],
+				"acceptance_ids": [],
+				"future_case_ids": [],
+				"scope": "plant",
+				"invariants": [
+					"A draft belongs to one plant.",
+					"A scheduled row has a subject, a safe body, and a schedule instant.",
+					"Deleting a draft removes the row. The record identity stays."
+				],
+				"revision": "Expected revision fences an update. A change advances it.",
+				"idempotency": "The request key returns the stored result.",
+				"deletion": "Plant deletion removes the row. A draft delete removes the row. The record identity stays.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": ""
+				},
+				"plant_id": {
+					"note": ""
+				},
+				"author_id": {
+					"note": "The account that saved the draft. Null after that account is deleted."
+				},
+				"revision": {
+					"note": ""
+				},
+				"state": {
+					"note": ""
+				},
+				"subject": {
+					"note": "Null while the draft is incomplete. Required once the row is scheduled."
+				},
+				"body_html": {
+					"note": "Sanitized HTML. Null while the draft is incomplete."
+				},
+				"body_text": {
+					"note": "Plain text derived from the sanitized HTML."
+				},
+				"template_id": {
+					"note": "Optional plant template. Null when the draft uses no plant template."
+				},
+				"template_source": {
+					"note": "Optional system source key. It does not point at a row."
+				},
+				"meeting_id": {
+					"note": "Optional meeting in the same plant. Null when the meeting is removed."
+				},
+				"audience": {
+					"note": "Group names, team ids, and person ids. Search does not change this value."
+				},
+				"review_digest": {
+					"note": "Hash of the reviewed subject, body, and eligible people. Null on a draft."
+				},
+				"scheduled_at": {
+					"note": "The accepted schedule instant. Null until the row is scheduled."
+				},
+				"created_at": {
+					"note": ""
+				},
+				"updated_at": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"plant_id->plant(id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "Plant deletion removes the row. The record identity stays."
+					}
+				},
+				"author_id->account(id)": {
+					"deletion": {
+						"action": "set_null",
+						"policy": "Account deletion keeps the draft and clears the author."
+					}
+				},
+				"template_id,plant_id->message_template(id,plant_id)": {
+					"deletion": {
+						"action": "no_action",
+						"policy": "A referenced template stays. The app refuses to delete it."
+					}
+				},
+				"meeting_id->meeting(id)": {
+					"deletion": {
+						"action": "set_null",
+						"policy": "Removing the meeting clears the pointer. The draft stays."
+					},
+					"scope_exception": "A meeting can be removed while a draft still names it. The pointer clears. The draft stays in its plant. The app checks the meeting belongs to the plant before it saves the pointer."
+				},
+				"id,plant_id->record(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "The record identity stays when the row is removed. A foreign key grants no access."
+					}
+				}
+			}
+		},
+		"message_template": {
+			"table": {
+				"name": "message_template",
+				"domain": "communication",
+				"purpose": "A plant copy of a system email template, or a template the plant wrote. The seven system templates stay in code. One live fork per source.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-B-036"],
+				"replaces": [],
+				"producer_work_packages": ["WP-027"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-027"],
+					"rule": "WP-027 template storage through Drizzle Kit (C100)."
+				},
+				"feature_ids": ["COM-007", "COM-008"],
+				"acceptance_ids": [],
+				"future_case_ids": [],
+				"scope": "plant",
+				"invariants": [
+					"A plant fork does not change the system template in code.",
+					"One row per plant and source key.",
+					"A referenced template is archived or kept. An unreferenced fork can be deleted."
+				],
+				"revision": "Expected revision fences an update. A change advances it.",
+				"idempotency": "The request key returns the stored result. A repeated fork returns the one row.",
+				"deletion": "Plant deletion removes the row. An unreferenced fork can be deleted. The record identity stays.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": ""
+				},
+				"plant_id": {
+					"note": ""
+				},
+				"source_key": {
+					"note": "The system source this fork copies. Null for a template the plant wrote."
+				},
+				"name": {
+					"note": ""
+				},
+				"description": {
+					"note": ""
+				},
+				"category": {
+					"note": ""
+				},
+				"meeting_type": {
+					"note": "Set only for a meeting invitation."
+				},
+				"subject": {
+					"note": ""
+				},
+				"body_html": {
+					"note": ""
+				},
+				"body_text": {
+					"note": ""
+				},
+				"archived_at": {
+					"note": "Set when the plant archives the template. The row stays."
+				},
+				"revision": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"plant_id->plant(id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "Plant deletion removes the row. The record identity stays."
+					}
+				},
+				"id,plant_id->record(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "The record identity stays when the row is removed. A foreign key grants no access."
+					}
+				}
+			}
 		},
 		"training_program": {
 			"table": {

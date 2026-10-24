@@ -48,6 +48,11 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `commitment_change(actor_id)` | `account(id)` | set_null |  |
 | `commitment_change(person_id, plant_id)` | `person(id, tenant_id)` | cascade |  |
 | `commitment_change(plant_id)` | `plant(id)` | no_action |  |
+| `communication(plant_id)` | `plant(id)` | cascade |  |
+| `communication(author_id)` | `account(id)` | set_null |  |
+| `communication(template_id, plant_id)` | `message_template(id, plant_id)` | no_action |  |
+| `communication(meeting_id)` | `meeting(id)` | set_null | A meeting can be removed while a draft still names it. The pointer clears. The draft stays in its plant. The app checks the meeting belongs to the plant before it saves the pointer. |
+| `communication(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `contact_outcome(plant_id)` | `plant(id)` | restrict |  |
 | `contact_outcome(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `contact_outcome(task_id, plant_id)` | `task(id, plant_id)` | restrict |  |
@@ -152,6 +157,8 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `meeting_kit_item(plant_id)` | `plant(id)` | restrict |  |
 | `meeting_kit_item(meeting_id, plant_id)` | `meeting(id, plant_id)` | cascade |  |
 | `meeting_kit_item(assignee_person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
+| `message_template(plant_id)` | `plant(id)` | cascade |  |
+| `message_template(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `notice(tenant_id)` | `tenant(id)` | restrict |  |
 | `notice(recipient_id)` | `account(id)` | restrict |  |
 | `notice(source_record_id)` | `record(id)` | restrict | Own inbox context may refer to an exact entitled source in another tenant; no inherited grant. |

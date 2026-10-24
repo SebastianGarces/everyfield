@@ -50,6 +50,9 @@
 	"POST people.createPerson (replay)": {
 		"limit": 3
 	},
+	"POST people.createPerson (with email)": {
+		"limit": 2
+	},
 	"POST people.fields.addPersonTag": {
 		"limit": 8,
 		"reason": "A new tag name creates the church tag and puts it on the person in one transaction: two producer writes (people.createTag, people.assignTag). Above the pattern today; RT-6 reviews it."
@@ -93,6 +96,57 @@
 	},
 	"accountPerson.ensureGuest": {
 		"limit": 5
+	},
+	"communication.archiveTemplate": {
+		"limit": 2
+	},
+	"communication.createTemplate": {
+		"limit": 1
+	},
+	"communication.deleteDraft": {
+		"limit": 2
+	},
+	"communication.deleteTemplate": {
+		"limit": 3
+	},
+	"communication.forkTemplate": {
+		"limit": 3
+	},
+	"communication.getDraft": {
+		"limit": 1
+	},
+	"communication.getTemplate": {
+		"limit": 1
+	},
+	"communication.listDrafts": {
+		"limit": 1
+	},
+	"communication.listTemplates": {
+		"limit": 1
+	},
+	"communication.readAudience": {
+		"limit": 1
+	},
+	"communication.readMeetingTemplate": {
+		"limit": 1
+	},
+	"communication.readPreview": {
+		"limit": 1
+	},
+	"communication.readRecipients": {
+		"limit": 1
+	},
+	"communication.rescheduleReviewed": {
+		"limit": 2
+	},
+	"communication.saveDraft": {
+		"limit": 2
+	},
+	"communication.scheduleReviewed": {
+		"limit": 3
+	},
+	"communication.updateTemplate": {
+		"limit": 2
 	},
 	"digest.generateOwed": {
 		"limit": 10,

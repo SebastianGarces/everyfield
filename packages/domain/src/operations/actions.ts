@@ -46,6 +46,22 @@ export function writeAction(operation: string): string {
 		if (verb === "bookmarks") return "wiki.bookmark_changed";
 		if (verb === "reading") return "wiki.reading_recorded";
 	}
+	if (domain === "communication") {
+		const named: Record<string, string> = {
+			"communication.saveDraft": "communication.draft_saved",
+			"communication.deleteDraft": "communication.draft_deleted",
+			"communication.scheduleReviewed": "communication.scheduled",
+			"communication.rescheduleReviewed": "communication.rescheduled",
+			"communication.templates.create": "communication.template_created",
+			"communication.templates.fork": "communication.template_forked",
+			"communication.templates.update": "communication.template_updated",
+			"communication.templates.archive": "communication.template_archived",
+			"communication.templates.delete": "communication.template_deleted",
+		};
+		const action = named[operation];
+		if (!action) throw Error("unknown_write_action:" + operation);
+		return action;
+	}
 	if (operation === "identity.answerLeadOnboarding") return "identity.domain_accepted";
 	throw Error("unknown_write_action:" + operation);
 }
