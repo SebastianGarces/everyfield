@@ -16669,18 +16669,28 @@
 				"physical_verified": false
 			},
 			"columns": {
-				"id": {"note": ""},
-				"plant_id": {"note": ""},
-				"team_id": {"note": "Null means churchwide. Archiving the team does not null this."},
-				"name": {"note": ""},
-				"required": {"note": "Required programs count only people with a saved active assignment."},
-				"version": {"note": "Content generation. A credit names the version it was earned against."},
-				"revision": {"note": ""},
-				"archived_at": {"note": ""}
+				"id": { "note": "" },
+				"plant_id": { "note": "" },
+				"team_id": { "note": "Null means churchwide. Archiving the team does not null this." },
+				"name": { "note": "" },
+				"required": { "note": "Required programs count only people with a saved active assignment." },
+				"version": { "note": "Content generation. A credit names the version it was earned against." },
+				"revision": { "note": "" },
+				"archived_at": { "note": "" }
 			},
 			"foreignKeys": {
-				"plant_id->plant(id)": {"deletion": {"action": "restrict", "policy": "Church purge deletes the program after its credits and assignments."}},
-				"team_id,plant_id->team(id,plant_id)": {"deletion": {"action": "restrict", "policy": "Church purge deletes the program before the team. A null team_id is churchwide and skips this key."}}
+				"plant_id->plant(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Church purge deletes the program after its credits and assignments."
+					}
+				},
+				"team_id,plant_id->team(id,plant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Church purge deletes the program before the team. A null team_id is churchwide and skips this key."
+					}
+				}
 			}
 		},
 		"training_assignment": {
@@ -16713,20 +16723,29 @@
 				"physical_verified": false
 			},
 			"columns": {
-				"id": {"note": ""},
-				"plant_id": {"note": ""},
-				"program_id": {"note": ""},
-				"person_id": {"note": "Moves to the survivor on merge."},
-				"version": {"note": "Program version when the episode was saved."},
-				"state": {"note": ""},
-				"effective_on": {"note": ""},
-				"ended_on": {"note": "Null exactly while the episode is active."},
-				"revision": {"note": ""}
+				"id": { "note": "" },
+				"plant_id": { "note": "" },
+				"program_id": { "note": "" },
+				"person_id": { "note": "Moves to the survivor on merge." },
+				"version": { "note": "Program version when the episode was saved." },
+				"state": { "note": "" },
+				"effective_on": { "note": "" },
+				"ended_on": { "note": "Null exactly while the episode is active." },
+				"revision": { "note": "" }
 			},
 			"foreignKeys": {
-				"plant_id->plant(id)": {"deletion": {"action": "restrict", "policy": "Church purge deletes assignments before programs."}},
-				"program_id,plant_id->training_program(id,plant_id)": {"deletion": {"action": "restrict", "policy": "Delete assignments before the program."}},
-				"person_id,plant_id->person(id,tenant_id)": {"deletion": {"action": "restrict", "policy": "The episode stays for history. Retirement hides the person from operational rosters."}}
+				"plant_id->plant(id)": {
+					"deletion": { "action": "restrict", "policy": "Church purge deletes assignments before programs." }
+				},
+				"program_id,plant_id->training_program(id,plant_id)": {
+					"deletion": { "action": "restrict", "policy": "Delete assignments before the program." }
+				},
+				"person_id,plant_id->person(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "The episode stays for history. Retirement hides the person from operational rosters."
+					}
+				}
 			}
 		},
 		"training_credit": {
@@ -16759,24 +16778,40 @@
 				"physical_verified": false
 			},
 			"columns": {
-				"id": {"note": ""},
-				"plant_id": {"note": ""},
-				"person_id": {"note": "Stays on the source person through merge and unmerge."},
-				"program_id": {"note": "Null for a service span."},
-				"kind": {"note": ""},
-				"version": {"note": "Program version for earned and revoked rows. Null for service."},
-				"earned_on": {"note": "Set on earned rows only. The original date is not rewritten."},
-				"verifier_account_id": {"note": "The session account that recorded the row. Null after that account is deleted."},
-				"attendance_days": {"note": "Service spans only."},
-				"volunteer_days": {"note": "Service spans only."},
-				"recorded_at": {"note": ""},
-				"revision": {"note": ""}
+				"id": { "note": "" },
+				"plant_id": { "note": "" },
+				"person_id": { "note": "Stays on the source person through merge and unmerge." },
+				"program_id": { "note": "Null for a service span." },
+				"kind": { "note": "" },
+				"version": { "note": "Program version for earned and revoked rows. Null for service." },
+				"earned_on": { "note": "Set on earned rows only. The original date is not rewritten." },
+				"verifier_account_id": {
+					"note": "The session account that recorded the row. Null after that account is deleted."
+				},
+				"attendance_days": { "note": "Service spans only." },
+				"volunteer_days": { "note": "Service spans only." },
+				"recorded_at": { "note": "" },
+				"revision": { "note": "" }
 			},
 			"foreignKeys": {
-				"plant_id->plant(id)": {"deletion": {"action": "restrict", "policy": "Church purge deletes credits first."}},
-				"person_id,plant_id->person(id,tenant_id)": {"deletion": {"action": "restrict", "policy": "Evidence stays on the person. Retirement hides them from operational selectors."}},
-				"program_id,plant_id->training_program(id,plant_id)": {"deletion": {"action": "restrict", "policy": "Delete credits before the program. A null program_id is a service span."}},
-				"verifier_account_id->account(id)": {"deletion": {"action": "set_null", "policy": "Account deletion keeps the credit and clears the verifier."}}
+				"plant_id->plant(id)": {
+					"deletion": { "action": "restrict", "policy": "Church purge deletes credits first." }
+				},
+				"person_id,plant_id->person(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Evidence stays on the person. Retirement hides them from operational selectors."
+					}
+				},
+				"program_id,plant_id->training_program(id,plant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Delete credits before the program. A null program_id is a service span."
+					}
+				},
+				"verifier_account_id->account(id)": {
+					"deletion": { "action": "set_null", "policy": "Account deletion keeps the credit and clears the verifier." }
+				}
 			}
 		}
 	}

@@ -5173,11 +5173,7 @@ export const training_assignment = pgTable(
 		check("training_assignment_ck_3", sql`((state = 'active'::text) = (ended_on IS NULL))`),
 		check("training_assignment_ck_4", sql`((ended_on IS NULL) OR (ended_on >= effective_on))`),
 		index("training_assignment_ref_0").using("btree", t.plant_id.asc().nullsLast()),
-		index("training_assignment_ref_1").using(
-			"btree",
-			t.program_id.asc().nullsLast(),
-			t.plant_id.asc().nullsLast(),
-		),
+		index("training_assignment_ref_1").using("btree", t.program_id.asc().nullsLast(), t.plant_id.asc().nullsLast()),
 		index("training_assignment_ref_2").using("btree", t.person_id.asc().nullsLast(), t.plant_id.asc().nullsLast()),
 		uniqueIndex("training_assignment_uq_1")
 			.using("btree", t.plant_id.asc().nullsLast(), t.program_id.asc().nullsLast(), t.person_id.asc().nullsLast())
