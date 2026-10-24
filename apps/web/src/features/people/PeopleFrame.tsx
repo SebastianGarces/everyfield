@@ -4,6 +4,7 @@ import {
 	BookOpen01Icon,
 	Calendar03Icon,
 	InformationCircleIcon,
+	Mail01Icon,
 	Settings02Icon,
 	Task01Icon,
 	UserMultipleIcon,
@@ -23,7 +24,7 @@ import { useProductSettings } from "../settings/ProductSettings";
 import type { Role } from "./server.ts";
 import { useWikiChrome, WikiChrome } from "../wiki/client.tsx";
 
-// The product frame around People, Meetings, Tasks, Wiki and Settings. Only destinations that exist are in the navigation; the full
+// The product frame around People, Meetings, Messages, Tasks, Wiki and Settings. Only destinations that exist are in the navigation; the full
 // product navigation and command palette come from their own packages and replace these when they ship. The bell
 // opens the notification drop-down (WP-030). Settings sits at the bottom of the rail and in the user menu behind the
 // name button (screens.md, Overlays).
@@ -39,6 +40,15 @@ const MEETINGS = {
 	prefetch: false,
 } as const;
 const TASKS = { kind: "link", key: "tasks", label: "Tasks", href: "/tasks", icon: Task01Icon } as const;
+// Messages is a dynamic page. It loads when chosen, not whenever the frame renders.
+const MESSAGES = {
+	kind: "link",
+	key: "messages",
+	label: "Messages",
+	href: "/communication",
+	icon: Mail01Icon,
+	prefetch: false,
+} as const;
 const WIKI = { kind: "link", key: "wiki", label: "Wiki", href: "/wiki", icon: BookOpen01Icon } as const;
 const ROLE: Record<Role, string> = { owner: "Owner", admin: "Admin", member: "Member" };
 
@@ -103,7 +113,7 @@ function Frame({ name, settings, seed = null, children }: FrameProps) {
 		) : null;
 	// The rail's Settings opens the dialog over the current page, as the user menu does; /settings is its address.
 	const nav: ShellNav = {
-		main: [PEOPLE, MEETINGS, TASKS, WIKI],
+		main: [PEOPLE, MEETINGS, MESSAGES, TASKS, WIKI],
 		pages: [
 			{
 				kind: "action",
