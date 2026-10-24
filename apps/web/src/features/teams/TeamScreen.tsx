@@ -89,6 +89,7 @@ import {
 import { ChartTree } from "./OrgChart.tsx";
 import { LeaderLine, TeamBadge, TeamIcon } from "./parts.tsx";
 import { apply, today, type Change } from "./page-state.ts";
+import { ResponsibilitiesPanel } from "./responsibilities/Responsibilities.tsx";
 import type { TeamView } from "./server.ts";
 
 // One ministry (REQ-TEAM-001, -002, -004 to -006): its roles, its people now and before, its leader, its place in the
@@ -435,6 +436,7 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 						<Tab value="roles" count={roles?.length}>
 							Roles
 						</Tab>
+						<Tab value="responsibilities">Responsibilities</Tab>
 						<Tab value="people" count={crew?.length}>
 							People
 						</Tab>
@@ -458,6 +460,18 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 									name: r.occupantName ?? "This person",
 									roles: roles?.filter((x) => x.occupantPersonId === r.occupantPersonId).map((x) => x.name) ?? [],
 								})
+							}
+						/>
+					</TabsPanel>
+					<TabsPanel value="responsibilities">
+						<ResponsibilitiesPanel
+							teamId={t.id}
+							teamRevision={t.revision}
+							archived={t.archived}
+							canChange={can}
+							canOffer={admin}
+							onTeamRevision={(revision) =>
+								setData((d) => apply(d, { kind: "team", patch: { revision: asRevision(revision) } }))
 							}
 						/>
 					</TabsPanel>

@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { hash } from "./hash.ts";
 
@@ -29,9 +30,14 @@ function loadFrozen(): Promise<FrozenStarter> {
 	return frozen;
 }
 
+function catalogFile(name: string): string {
+	// Turbopack's file reader rejects a URL from another realm (`instanceof URL` fails). A string path is accepted.
+	return fileURLToPath(new URL(name, import.meta.url).href);
+}
+
 async function readFrozen(): Promise<FrozenStarter> {
-	const freeze = JSON.parse(await readFile(new URL("freeze.json", import.meta.url), "utf8"));
-	const bytes = await readFile(new URL("artifacts.json", import.meta.url));
+	const freeze = JSON.parse(await readFile(catalogFile("freeze.json"), "utf8"));
+	const bytes = await readFile(catalogFile("artifacts.json"));
 	if (typeof freeze.artifactSha256 !== "string" || hash(bytes) !== freeze.artifactSha256) {
 		throw Error("reference_artifact_mismatch");
 	}
