@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import { scheduleAccepted, systemTemplates } from "../../../packages/contracts/src/communication/index.ts";
+import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import {
 	communicationWriter,
 	replaceScheduled,
@@ -515,4 +516,38 @@ test("AC:CASE-COM-012 drafts save and a reviewed schedule stays inside thirty da
 	const after = await counts();
 	assert.equal(after.intents, before.intents);
 	assert.equal(after.attempts, before.attempts);
+});
+
+test("a forged actor with another user's live session writes nothing", async () => {
+	const snapshot = async () =>
+		(
+			await rows(sql`SELECT
+				(SELECT count(*)::int FROM communication WHERE plant_id = ${plant.id}) AS communications,
+				(SELECT count(*)::int FROM message_template WHERE plant_id = ${plant.id}) AS templates,
+				(SELECT count(*)::int FROM mail WHERE tenant_id = ${plant.id} AND purpose = 'communication') AS intents,
+				(SELECT count(*)::int FROM mail_attempt WHERE tenant_id = ${plant.id}) AS attempts,
+				(SELECT count(*)::int FROM audit_event WHERE tenant_id = ${plant.id} AND action = 'communication.approved') AS audits`)
+		)[0];
+	const before = await snapshot();
+	const forged = RequestActor.of(member.actor.session, owner.actor.actor);
+	const swapped = RequestActor.of(member.actor.session, {
+		...member.actor.actor,
+		accountId: owner.actor.actor.accountId,
+	});
+	refused(await read({ actor: forged }, "listTemplates"), "access_denied");
+	refused(await read({ actor: swapped }, "listTemplates"), "access_denied");
+	refused(await read({ actor: swapped }, "readPreview", { bodyHtml: "<p>Hi</p>", merge: {} }), "access_denied");
+	const saved = await write({ actor: forged }, "saveDraft", {
+		requestKey: key(),
+		input: { subject: "Forged" },
+	});
+	assert.equal(saved.status, "refused", JSON.stringify(saved));
+	assert.equal(saved.error.code, "unavailable");
+	const swappedSave = await write({ actor: swapped }, "saveDraft", {
+		requestKey: key(),
+		input: { subject: "Forged seat" },
+	});
+	assert.equal(swappedSave.status, "refused", JSON.stringify(swappedSave));
+	assert.equal(swappedSave.error.code, "unavailable");
+	assert.deepEqual(await snapshot(), before);
 });

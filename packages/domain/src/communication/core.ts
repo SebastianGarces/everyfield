@@ -120,11 +120,14 @@ export async function writerOf(tx: Tx, context: CommunicationContext) {
 		accountId: write.actor.accountId,
 		plantId: write.plant.id,
 		role: write.actor.context.role,
+		seatId: write.actor.context.seatId,
 	};
 }
 export const administers = (viewer: Viewer) => viewer.role !== "member";
 
-export type Command = AuditWrite & { actor: { accountId: string; plantId: string; role: Viewer["role"] } };
+export type Command = AuditWrite & {
+	actor: { accountId: string; plantId: string; role: Viewer["role"]; seatId: string };
+};
 export async function command<T>(
 	tx: Tx,
 	context: CommunicationContext,

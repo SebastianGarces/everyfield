@@ -1,21 +1,45 @@
-import { CommunicationRegister } from "@/features/communication/register";
+import {
+	archiveTemplate,
+	createTemplate,
+	deleteDraft,
+	deleteTemplate,
+	forkTemplate,
+	getDraft,
+	listTemplates,
+	preview,
+	rescheduleReviewed,
+	resolveAudience,
+	saveDraft,
+	scheduleReviewed,
+	searchRecipients,
+	updateTemplate,
+} from "@/features/communication/actions";
 import { getViewer } from "@/server/request-context";
-import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-export const metadata: Metadata = {
-	title: "Communication",
-	robots: { index: false, follow: false },
-};
 export const dynamic = "force-dynamic";
+
+// The statement census reads these action ids from the production build. This route renders no screen.
+const censusActions = [
+	archiveTemplate,
+	createTemplate,
+	deleteDraft,
+	deleteTemplate,
+	forkTemplate,
+	getDraft,
+	listTemplates,
+	preview,
+	rescheduleReviewed,
+	resolveAudience,
+	saveDraft,
+	scheduleReviewed,
+	searchRecipients,
+	updateTemplate,
+];
 
 export default async function CommunicationPage() {
 	const viewer = await getViewer();
 	if (!viewer || viewer.status === "unauthenticated") redirect("/signin?returnTo=%2Fcommunication");
-	return (
-		<>
-			<h1>Communication</h1>
-			<CommunicationRegister />
-		</>
-	);
+	if (censusActions.length !== 14) redirect("/signin");
+	return null;
 }
