@@ -8,6 +8,7 @@ import {
 	Mail01Icon,
 	Settings02Icon,
 	Task01Icon,
+	UserGroupIcon,
 	UserMultipleIcon,
 } from "@hugeicons/core-free-icons";
 import { ToastProvider, useToast } from "@everyfield/ui/controls";
@@ -25,8 +26,9 @@ import { useProductSettings } from "../settings/ProductSettings";
 import type { Role } from "./server.ts";
 import { useWikiChrome, WikiChrome } from "../wiki/client.tsx";
 
-// The product frame around People, Meetings, Messages, Tasks, Wiki, Documents and Settings. Only destinations that exist are in the navigation; the full
-// product navigation and command palette come from their own packages and replace these when they ship. The bell
+// The product frame around People, Meetings, Messages, Tasks, Ministries, Wiki, Documents and Settings. Only destinations that
+// exist are in the navigation. The full product navigation and command palette come from their own packages and
+// replace these when they ship. The bell
 // opens the notification drop-down (WP-030). Settings sits at the bottom of the rail and in the user menu behind the
 // name button (screens.md, Overlays).
 
@@ -48,6 +50,15 @@ const MESSAGES = {
 	label: "Messages",
 	href: "/communication",
 	icon: Mail01Icon,
+	prefetch: false,
+} as const;
+// Ministries (WP-017) loads when chosen, like Meetings.
+const MINISTRIES = {
+	kind: "link",
+	key: "ministries",
+	label: "Ministries",
+	href: "/ministries",
+	icon: UserGroupIcon,
 	prefetch: false,
 } as const;
 const WIKI = { kind: "link", key: "wiki", label: "Wiki", href: "/wiki", icon: BookOpen01Icon } as const;
@@ -123,7 +134,7 @@ function Frame({ name, settings, seed = null, children }: FrameProps) {
 		) : null;
 	// The rail's Settings opens the dialog over the current page, as the user menu does; /settings is its address.
 	const nav: ShellNav = {
-		main: [PEOPLE, MEETINGS, MESSAGES, TASKS, WIKI],
+		main: [PEOPLE, MEETINGS, MESSAGES, TASKS, MINISTRIES, WIKI],
 		pages: [
 			DOCUMENTS,
 			{

@@ -13,6 +13,7 @@
 		"./onboarding": "./src/onboarding/index.ts",
 		"./settings": "./src/settings/index.ts",
 		"./meetings": "./src/meetings/index.ts",
+		"./teams": "./src/teams/index.ts",
 		"./tasks": "./src/tasks/index.ts",
 		"./followups": "./src/followups/index.ts",
 		"./notifications": "./src/notifications/index.ts",

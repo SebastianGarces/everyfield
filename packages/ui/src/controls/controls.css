@@ -127,8 +127,7 @@
 		animation: ef-shimmer 1.4s infinite;
 	}
 
-	/* Overlay motion: pop-overs and menus drop in 6px and scale from .98 (the prototype's float-pop); dialogs fade and
-     scale; the scrim fades; sheets slide in from the right; toasts rise. Exit runs the same keyframes backwards. */
+	/* Overlay motion: pop-overs and menus drop in 6px and scale from .98 (the prototype's float-pop); dialogs fade; the scrim fades; sheets slide in from the right; toasts rise. Exit runs the same keyframes backwards. */
 	[data-product-root] .ef-pop[data-state="open"] {
 		animation: ef-pop-in 0.2s var(--ef-slide-ease) both;
 	}
@@ -219,11 +218,9 @@
 @keyframes ef-dialog-in {
 	from {
 		opacity: 0;
-		transform: translateY(8px) scale(0.98);
 	}
 	to {
 		opacity: 1;
-		transform: none;
 	}
 }
 @keyframes ef-sheet-in {
