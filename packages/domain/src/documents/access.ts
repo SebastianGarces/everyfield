@@ -28,7 +28,7 @@ function refused(error: Refusal): DocumentsReply<never> {
 			code: error.code,
 			details: error.details,
 			correlationId: randomUUID(),
-			retry: "never",
+			retry: error.code === "conflict" ? "refresh" : "never",
 		}),
 	};
 }

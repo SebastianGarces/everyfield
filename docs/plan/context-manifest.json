@@ -2640,6 +2640,7 @@
         "conversation_event",
         "early_access_attempt",
         "early_access_request",
+        "generated_document",
         "message_template",
         "model_spend",
         "onboarding_setup",
@@ -11800,6 +11801,7 @@
       "consumer_table_names": [
         "audit_event",
         "file_object",
+        "generated_document",
         "reference_item",
         "reference_release",
         "reference_version"
@@ -12168,6 +12170,7 @@
       ],
       "producer_table_names": [
         "file_object",
+        "generated_document",
         "record"
       ],
       "consumer_table_names": [
@@ -26022,6 +26025,7 @@
         "early_access_request",
         "file_object",
         "four_cs",
+        "generated_document",
         "household",
         "identity_proof",
         "interview",
@@ -32022,6 +32026,7 @@
         "early_access_request",
         "file_object",
         "four_cs",
+        "generated_document",
         "household",
         "interview",
         "invitation",

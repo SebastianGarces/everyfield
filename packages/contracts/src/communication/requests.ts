@@ -81,3 +81,61 @@ export const sendTransactionalRequest = z.strictObject({
 	}),
 });
 export const listSuppressionRequest = z.strictObject({ address: z.email() });
+
+const contactOutcomes = ["contacted", "attempted_no_contact", "administrative_completion", "no_longer_needed"] as const;
+const resendSelections = ["delivered_nonopeners", "proven_failed"] as const;
+
+/** Hub filters are loose: unknown keys are ignored and invalid values fall back in the read. */
+export const historyQuery = z
+	.object({
+		limit: z.unknown().optional(),
+		cursor: z.unknown().optional(),
+		state: z.unknown().optional(),
+		channel: z.unknown().optional(),
+		meetingId: z.unknown().optional(),
+		personId: z.unknown().optional(),
+		query: z.unknown().optional(),
+	})
+	.strip();
+export const deliveryTotalsRequest = z.strictObject({ communicationId: recordId });
+export const personHistoryRequest = z.strictObject({
+	personId: recordId,
+	limit: z.number().int().positive().max(100).optional(),
+	cursor: z.string().max(200).optional(),
+});
+export const meetingHistoryRequest = z.strictObject({
+	meetingId: recordId,
+	limit: z.number().int().positive().max(100).optional(),
+	cursor: z.string().max(200).optional(),
+});
+export const recipientHistoryRequest = z.strictObject({
+	communicationId: recordId,
+	limit: z.number().int().positive().max(100).optional(),
+	cursor: z.string().max(200).optional(),
+});
+export const executionRequest = z.strictObject({ communicationId: recordId });
+export const resendCandidatesRequest = z.strictObject({
+	communicationId: recordId,
+	selection: z.enum(resendSelections).default("delivered_nonopeners"),
+});
+export const executeResendRequest = z.strictObject({
+	requestKey,
+	input: z.strictObject({
+		communicationId: recordId,
+		selection: z.enum(resendSelections).default("delivered_nonopeners"),
+	}),
+});
+export const recordContactFromTaskRequest = z.strictObject({
+	requestKey,
+	input: z.strictObject({ taskId: recordId }),
+});
+export const correctContactLogRequest = z.strictObject({
+	requestKey,
+	expectedRevision: revision,
+	input: z.strictObject({
+		outcomeId: recordId,
+		outcome: z.enum(contactOutcomes),
+		occurredAt: instant.optional(),
+		reason: z.string().trim().min(1).max(500),
+	}),
+});
