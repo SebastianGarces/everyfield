@@ -67,6 +67,7 @@ import {
 	type RoleForm,
 	type TeamForm,
 } from "./dialogs.tsx";
+import { TrainingTab } from "./training/TrainingTab.tsx";
 import {
 	changedFields,
 	dayText,
@@ -438,6 +439,7 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 						<Tab value="people" count={crew?.length}>
 							People
 						</Tab>
+						<Tab value="training">Training</Tab>
 						<Tab value="history">History</Tab>
 					</TabsList>
 					<TabsPanel value="roles">
@@ -473,6 +475,15 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 								setConfirm({ kind: "leave", personId: p.personId, name: p.name, roles: p.roles.map((r) => r.roleName) })
 							}
 							onRejoin={rejoin}
+						/>
+					</TabsPanel>
+					<TabsPanel value="training">
+						<TrainingTab
+							teamId={t.id}
+							teamName={t.name}
+							people={(crew ?? []).map((person) => ({ id: person.personId, name: person.name }))}
+							canChange={can}
+							admin={data.admin}
 						/>
 					</TabsPanel>
 					<TabsPanel value="history">
