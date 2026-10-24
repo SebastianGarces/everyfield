@@ -1054,9 +1054,23 @@
 	"people/references.detachAccountPersonLinks": {
 		"limit": 4
 	},
+	"reference.exportApprovedWiki": {
+		"limit": 1
+	},
+	"reference.installApprovedWiki": {
+		"limit": 24,
+		"reason": "Activates through reference.promote. Its largest first run: 4 transaction, 4 locked read, 9 read, 7 write."
+	},
+	"reference.invalidateWikiCache": {
+		"limit": 1
+	},
 	"reference.promote": {
 		"limit": 24,
 		"reason": "Platform operator publication, not a user request (RT-6a reviewed, kept). A preflight transaction checks the operator's grant before the protected artifact is read (4); then one transaction: the global publication lock, the grant again at the commit boundary, the request-key read, the current activation, the release lock, a set-based install (one statement per table), a re-read of every stored derivative before activation and one activation statement with its audit."
+	},
+	"reference.rebuildEmbeddings": {
+		"limit": 24,
+		"reason": "Activates through reference.promote. Its largest first run: 4 transaction, 4 locked read, 9 read, 7 write."
 	},
 	"seats.appointAdmin": {
 		"limit": 7,

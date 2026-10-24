@@ -6,5 +6,5 @@
 		"typeRoots": ["./node_modules/@types"],
 		"allowJs": true
 	},
-	"include": ["src/**/*.ts", "../../tests/reference/releases/**/*.mts"]
+	"include": ["src/**/*.ts", "../../tests/reference/releases/**/*.mts", "../../tests/reference/starter/**/*.mts"]
 }
