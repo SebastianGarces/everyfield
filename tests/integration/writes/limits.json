@@ -59,6 +59,9 @@
 	"POST people.createPerson (replay)": {
 		"limit": 3
 	},
+	"POST people.createPerson (with email)": {
+		"limit": 2
+	},
 	"POST people.fields.addPersonTag": {
 		"limit": 8,
 		"reason": "A new tag name creates the church tag and puts it on the person in one transaction: two producer writes (people.createTag, people.assignTag). Above the pattern today; RT-6 reviews it."
@@ -102,6 +105,57 @@
 	},
 	"accountPerson.ensureGuest": {
 		"limit": 5
+	},
+	"communication.archiveTemplate": {
+		"limit": 2
+	},
+	"communication.createTemplate": {
+		"limit": 1
+	},
+	"communication.deleteDraft": {
+		"limit": 2
+	},
+	"communication.deleteTemplate": {
+		"limit": 3
+	},
+	"communication.forkTemplate": {
+		"limit": 3
+	},
+	"communication.getDraft": {
+		"limit": 1
+	},
+	"communication.getTemplate": {
+		"limit": 1
+	},
+	"communication.listDrafts": {
+		"limit": 1
+	},
+	"communication.listTemplates": {
+		"limit": 1
+	},
+	"communication.readAudience": {
+		"limit": 1
+	},
+	"communication.readMeetingTemplate": {
+		"limit": 1
+	},
+	"communication.readPreview": {
+		"limit": 1
+	},
+	"communication.readRecipients": {
+		"limit": 1
+	},
+	"communication.rescheduleReviewed": {
+		"limit": 2
+	},
+	"communication.saveDraft": {
+		"limit": 2
+	},
+	"communication.scheduleReviewed": {
+		"limit": 3
+	},
+	"communication.updateTemplate": {
+		"limit": 2
 	},
 	"digest.generateOwed": {
 		"limit": 10,
@@ -1349,5 +1403,57 @@
 	},
 	"venues.restore": {
 		"limit": 6
+	},
+	"wiki.articleNeighbors": {
+		"limit": 1
+	},
+	"wiki.bookmarksList": {
+		"limit": 1
+	},
+	"wiki.contextGuide": {
+		"limit": 1
+	},
+	"wiki.exportPdf": {
+		"limit": 1
+	},
+	"wiki.navigation": {
+		"limit": 1
+	},
+	"wiki.printArticle": {
+		"limit": 1
+	},
+	"wiki.publicPreviewMetadata": {
+		"limit": 0
+	},
+	"wiki.recommendForPhase": {
+		"limit": 1
+	},
+	"wiki.recordView": {
+		"limit": 5
+	},
+	"wiki.referenceExcerpt": {
+		"limit": 1
+	},
+	"wiki.renderGlobalPreview": {
+		"limit": 1
+	},
+	"wiki.search": {
+		"limit": 4,
+		"retry": 4
+	},
+	"wiki.setBookmark": {
+		"limit": 5,
+		"retry": 9
+	},
+	"wiki.setSourceOrder": {
+		"limit": 5,
+		"retry": 9
+	},
+	"wiki.tableOfContents": {
+		"limit": 1
+	},
+	"wiki.updateProgress": {
+		"limit": 5,
+		"retry": 3
 	}
 }

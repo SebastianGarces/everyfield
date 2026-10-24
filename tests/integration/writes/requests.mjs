@@ -422,6 +422,11 @@ try {
 		{ title: "A task" },
 	]);
 	assert.equal(tasked.status, "ok");
+	const emailed = await act("POST people.createPerson (with email)", "/people", people, "createPerson", [
+		randomUUID(),
+		{ displayName: "Reachable guest", email: "guest@example.com" },
+	]);
+	assert.equal(emailed.status, "ok", JSON.stringify(emailed));
 	// Marks carry the account revision the feed read returned: one entry, the shown entries and "Mark all read".
 	const notifications = "apps/web/src/features/notifications/actions.ts";
 	const owned = (
