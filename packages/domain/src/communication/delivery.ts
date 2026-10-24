@@ -249,7 +249,7 @@ async function prepare(
 	keys: ReturnType<typeof keysOf>,
 	lookupOnly: boolean,
 ): Promise<Prepared> {
-	const { found, parts } = loaded;
+	const { found } = loaded;
 	if (found.request_id && found.provider_key && found.attempt_id) {
 		return {
 			kind: "resume",
@@ -304,7 +304,7 @@ async function prepare(
 	const stored = one(
 		await db.execute(sql`WITH gate AS (SELECT ${adminGate(actor)} AS allowed),
 			input AS (
-				SELECT * FROM jsonb_to_recordset(${JSON.stringify(rows.map(({ to: _to, ...row }) => row))}::jsonb) AS i(
+				SELECT * FROM jsonb_to_recordset(${JSON.stringify(rows.map(({ id, person, logical_key, payload_hash, address_hash, payload, address, position }) => ({ id, person, logical_key, payload_hash, address_hash, payload, address, position })))}::jsonb) AS i(
 					id uuid, person uuid, logical_key text, payload_hash text, address_hash text, payload jsonb, address text, position int
 				)
 			),
