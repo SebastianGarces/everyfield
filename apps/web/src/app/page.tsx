@@ -10,16 +10,18 @@ import { EvrySection, SendingGlimpse } from "@/marketing/home/sections";
 import { PAGES, pageMetadata } from "@/marketing/meta";
 import { FactsPanel, SharePanel } from "@/marketing/panels/intelligence";
 import { PhasesRail } from "@/marketing/rail/PhasesRail";
+import { AboutSection } from "@/marketing/sections/AboutSection";
 import { CtaSection } from "@/marketing/sections/CtaSection";
 import { ProblemSection } from "@/marketing/sections/SectionHead";
 import { VisionSection } from "@/marketing/sections/VisionSection";
 import { Site } from "@/marketing/Site";
 import { MondayOverview } from "@/marketing/visuals/MondayOverview";
-import { ACCESS_PATH } from "@/site";
+import { ACCESS_PATH, accessFor } from "@/site";
 
 export const metadata: Metadata = pageMetadata(PAGES.home);
 
-/** The home page, plan first: the vision, then this week's work, then what needs you, Evry and the sending church. */
+/** The home page, plan first: the vision, then this week's work, then what needs you, Evry, the sending church and who
+ *  is behind Everyfield. */
 export default function Home() {
 	const J = COPY.journey,
 		S = COPY.shared,
@@ -66,7 +68,8 @@ export default function Home() {
 				demo={evryDemo(J.evry.example)}
 			/>
 			<SendingGlimpse title={S.sending.title} body={S.sending.body} link={S.sending.link} />
-			<CtaSection c={J.cta} />
+			<AboutSection a={S.about} />
+			<CtaSection c={J.cta} href={{ secondary: accessFor("network") }} />
 		</Site>
 	);
 }

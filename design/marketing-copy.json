@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "revision_note": "Revision 7 (2026-10-18): the home page tells story A (plan first: the vision, then this week) and /oversight tells story B (mission first: your plants and your future planters, then the proof). Both replace the earlier copy in the same keys. Revision 6 (2026-10-08): longer home hero subtext, lighter hero text and more space inside the panel. Revision 5 removes sample-data and placeholder labels; Revision 4 wording rules apply site-wide (Evry creates and assigns follow-up tasks, teams grow toward launch, gatherings happen when the planter holds them). Story A (journey) leads the home page and story B (oversight) leads /oversight.",
+  "revision_note": "Revision 8 (2026-10-23, Sebastian's GTM review): cost FAQ on /oversight, an About section on home, the network path on /oversight goes to /access?role=network, a new /oversight problem text, smaller wording fixes, \"Sample data\" captions on the mockups that show the Austin Sending Network and a draft product-data section in the privacy policy. Revision 8 replaces Revision 5's rule that pages do not label sample data, for those /oversight mockups only. Revision 7 (2026-10-18): the home page tells story A (plan first: the vision, then this week) and /oversight tells story B (mission first: your plants and your future planters, then the proof). Both replace the earlier copy in the same keys. Revision 6 (2026-10-08): longer home hero subtext, lighter hero text and more space inside the panel. Revision 5 removes sample-data and placeholder labels; Revision 4 wording rules apply site-wide (Evry creates and assigns follow-up tasks, teams grow toward launch, gatherings happen when the planter holds them). Story A (journey) leads the home page and story B (oversight) leads /oversight.",
   "review_status": {
     "note": "Sebastian approved the look of every page. On 2026-10-18 he chose story order A for the home page and story order B for /oversight, and approved their copy as verified at 6950ce1. On 2026-10-14 he approved the access, privacy and terms copy as drafted. Planters and trust copy is not yet reviewed.",
     "home": "look approved, copy approved 2026-10-18 (story A)",
@@ -12,7 +12,7 @@
     "terms": "approved"
   },
   "source_note": "Marketing copy and structure (workspace note). This file holds the same copy in a form the prototype can load.",
-  "sample_data_rule": "Names and numbers inside product visuals come from a demo church (Harvest Point). The page does not label them.",
+  "sample_data_rule": "Names and numbers inside product visuals come from demo data: Harvest Point on home, the Austin Sending Network and its churches on /oversight. Since Revision 8 the /oversight mockups of the network's data carry the shared.sample_label caption: the hero dashboard, the plants, leaders and Network Intelligence chapters, the plant rail and the sending paths. The trust-section sharing picture and the home visuals stay unlabeled.",
   "shared": {
     "brand": "Everyfield",
     "nav": [
@@ -28,7 +28,7 @@
     "nav_cta": "Request early access",
     "nav_signin": "Sign in",
     "footer": {
-      "headline": "Church planting software, from calling to launch Sunday.",
+      "headline": "Church planting software, from calling to Launch Sunday.",
       "cta": "Request early access",
       "columns": [
         {
@@ -87,7 +87,7 @@
           "panel": "follow",
           "tone": "sage",
           "icon": "task",
-          "title": "No new guest slips through.",
+          "title": "Every new guest gets followed up.",
           "body": "Three new guests came to your vision meeting. Evry prepares a follow-up task for each one, and adds them to your week when you approve. You and your team reach out."
         },
         {
@@ -155,12 +155,13 @@
       "hero": {
         "headline": "See every plant you send.",
         "subhead": "Whether you are one sending church or a whole network, see how each plant is doing on the way to launch.",
-        "cta_primary": "Request early access",
-        "cta_secondary": "See how it works"
+        "cta_primary": "Talk to us about your network",
+        "cta_secondary": "See how it works",
+        "note": "Tell us about your network, and we will set up a short call."
       },
       "problem": {
         "headline": "You usually hear about a struggling plant when it is already late.",
-        "body": "Reports come once a quarter, and each planter writes them a different way. A plant can go a month without a vision meeting before anyone notices. See whether each plant that shares with you is moving toward launch, without asking for a report."
+        "body": "Today the plan lives in conversations between the planter and their coach. There's no shared record, and no signal when a plant starts to drift. See whether each plant that shares with you is moving toward launch, without asking for a report."
       },
       "note_r25": "Revision 25 (2026-10-10): the rest of /oversight. chapter is a pinned stacking chapter like shared.week; intelligence is the auto list of the home network section (same panels); plants is a pinned rail like the home phases; paths and privacy are centered sections; cta closes the page.",
       "note_r28": "Revision 28 (2026-10-10): paths is one section, with no review options and no sent= in the hash. The sentence (lead, changing phrase, tail) sits over one large card. One timer moves both through states in order: a church, a network through a church, a network.",
@@ -288,6 +289,11 @@
             "a": "No. The planter sets the phase. Everyfield does not change it or grade the planter."
           },
           {
+            "id": "cost",
+            "q": "What does Everyfield cost?",
+            "a": "Discernment is free, always. People still discerning a call to plant can sign up for free. When a church is created it uses a seat, usually paid by the sending church or network. We share pricing directly with early-access groups."
+          },
+          {
             "id": "start",
             "q": "How do we get started?",
             "a": "Everyfield is in early access. Request access for your church or network, and we will be in touch.",
@@ -297,9 +303,10 @@
       },
       "cta": {
         "headline": "Bring Everyfield to the plants you send.",
-        "body": "We are working with a small group of networks and sending churches during early access.",
+        "body": "We're inviting a small group of networks and sending churches during early access.",
         "cta_primary": "Talk to us about your network",
-        "cta_secondary": "Request early access as a planter"
+        "cta_secondary": "Request early access as a planter",
+        "note": "We will set up a short call to learn about the plants you send."
       },
       "trust": {
         "headline": "Why you can trust these numbers.",
@@ -545,6 +552,25 @@
           ]
         },
         {
+          "heading": "How the product handles a church's data [DRAFT FOR SEBASTIAN'S REVIEW]",
+          "paragraphs": [
+            "This section is a draft and does not apply yet. It describes how Everyfield, the product, is built to handle a church's data. We will confirm it before you use the product."
+          ],
+          "items": [
+            "Vercel hosts the product. A church's records are stored in a Postgres database at Neon, and its files in a private Tigris storage bucket. [PLACEHOLDER: the storage regions for product data]",
+            "A church that signs up on its own starts with every kind of sharing turned off. The church's Owner or an Admin can turn each kind of sharing on or off for each sending church or network.",
+            "Evry conversations are private to the person who starts them.",
+            "[PLACEHOLDER: what a sending church or network sees of the data a church shares, to confirm when oversight ships]",
+            "[PLACEHOLDER: when a sending church or network sees a Plant Intelligence concern, to confirm when it ships]",
+            "[PLACEHOLDER: what the daily email to a sending church or network contains, to confirm when it ships]",
+            "[PLACEHOLDER: what Members of a church can and cannot see, to confirm before launch]",
+            "[PLACEHOLDER: who can read the private weekly check-in, to confirm when it ships]",
+            "[PLACEHOLDER: which service sends product email]",
+            "[PLACEHOLDER: which AI model provider Evry and Plant Intelligence use in production, what they send to it, and the provider's data-use terms]",
+            "[PLACEHOLDER: how long product data is kept, how deletion and the cancellation period work, and how backups are kept]"
+          ]
+        },
+        {
           "heading": "Ask for a copy, a correction or deletion",
           "paragraphs": [
             "Email privacy@everyfield.app to get a copy of your request, to correct it or to delete it. Send the email from the address you used in the form, so we know the request is yours.",
@@ -673,7 +699,14 @@
       "status_watch": "Watch",
       "mueller_plant": "Mueller Hope Church",
       "share_unshared_status": "Limited visibility"
-    }
+    },
+    "about": {
+      "note": "Revision 8 (2026-10-23): the home About section. The placeholder stays visible until Sebastian writes his own words.",
+      "eyebrow": "About",
+      "headline": "Built by Sebastian Garces.",
+      "body": "[PLACEHOLDER: Sebastian's words on why he's building Everyfield]"
+    },
+    "sample_label": "Sample data"
   },
   "directions": [
     {
@@ -715,7 +748,7 @@
             {
               "label": "Core group",
               "title": "Grow a committed core group",
-              "short": "Interview each person against five considerations and the 4 Cs, then record their commitment."
+              "short": "Interview each person, then record their commitment."
             },
             {
               "label": "Launch team",
@@ -796,7 +829,7 @@
           "cta_secondary": "Talk to us about your network"
         },
         "footer": {
-          "tagline": "Church planting software, from calling to launch Sunday."
+          "tagline": "Church planting software, from calling to Launch Sunday."
         }
       }
     },

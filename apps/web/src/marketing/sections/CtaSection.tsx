@@ -11,10 +11,10 @@ type Cta = { headline: string; body: string; cta_primary: string; cta_secondary:
 
 /**
  * The closing call to action: the lake photo with the cream symbol, the headline and both buttons in cream. Both buttons
- * go to the request page. Wide boxes take a 45 % overlay (bright reed tips sit behind the lead); tall boxes zoom into the
+ * go to the request page, by default at its first step; `href` can choose the answer to "who are you". Wide boxes take a 45 % overlay (bright reed tips sit behind the lead); tall boxes zoom into the
  * brown band behind the text. Every glyph keeps 4.5:1.
  */
-export function CtaSection({ c }: { c: Cta }) {
+export function CtaSection({ c, href }: { c: Cta; href?: { primary?: string; secondary?: string } }) {
 	return (
 		<section id="cta" className="relative py-section">
 			<div className="mx-auto max-w-mk px-page">
@@ -31,10 +31,14 @@ export function CtaSection({ c }: { c: Cta }) {
 					</Display>
 					<p className="mx-auto max-w-[58ch] text-mk-lead text-mk-cream-90">{c.body}</p>
 					<div className="mt-2 flex flex-wrap justify-center gap-3">
-						<ButtonLink href={ACCESS_PATH} variant="photo" icon={<Icon icon={ICONS.arrow} size={17} />}>
+						<ButtonLink
+							href={href?.primary ?? ACCESS_PATH}
+							variant="photo"
+							icon={<Icon icon={ICONS.arrow} size={17} />}
+						>
 							{c.cta_primary}
 						</ButtonLink>
-						<ButtonLink href={ACCESS_PATH} variant="photo-secondary">
+						<ButtonLink href={href?.secondary ?? ACCESS_PATH} variant="photo-secondary">
 							{c.cta_secondary}
 						</ButtonLink>
 					</div>

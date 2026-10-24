@@ -1,13 +1,18 @@
 import type { ReactNode } from "react";
 import { Display } from "@/components/Display";
 import { COPY, type LegalCopy } from "./copy";
+import { marked } from "./sections/Marked";
 import { PageHero } from "./sections/PageHero";
 import { Site } from "./Site";
 
 const LINK = "text-green-600 underline";
 
-/** Plain copy text with links: e-mail addresses become mailto links, and `privacyWords` links to /privacy. */
+/** Plain copy text with links: e-mail addresses become mailto links, and `privacyWords` links to /privacy. Draft markers
+ *  are highlighted. */
 function linked(text: string, privacyWords?: string): ReactNode[] {
+	return marked(text, (part) => links(part, privacyWords));
+}
+function links(text: string, privacyWords?: string): ReactNode[] {
 	const pattern = new RegExp(
 		"([^\\s@]+@[^\\s@]+\\.[a-z]{2,})" +
 			(privacyWords ? "|(" + privacyWords.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")" : ""),
@@ -52,7 +57,7 @@ export function Legal({ path, copy }: { path: string; copy: LegalCopy }) {
 					{copy.sections.map((s) => (
 						<section key={s.heading} className="mt-4 grid gap-3">
 							<Display as="h2" size="h3" className="text-ink">
-								{s.heading}
+								{marked(s.heading)}
 							</Display>
 							{s.paragraphs?.map((p, i) => (
 								<p key={i}>{linked(p, privacy)}</p>

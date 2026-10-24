@@ -6,6 +6,7 @@ import { Reveal } from "@/components/motion/Reveal";
 import type { Copy } from "../copy";
 import { ICONS, type IconName } from "../icons";
 import type { PhotoName } from "../photo/photos";
+import { SampleTag } from "../sections/SampleTag";
 import { PathsCycle } from "./PathsCycle";
 
 type Paths = Copy["shared"]["oversight_page"]["paths"];
@@ -47,6 +48,7 @@ export function SendingPaths({ p }: { p: Paths }) {
 					panes={panes}
 					apps={APPS}
 					photos={PHOTOS}
+					tag={<SampleTag className="top-3 left-3" />}
 				/>
 				<p className="mx-auto mt-[clamp(24px,3vw,36px)] max-w-[720px] text-center text-mk-lead-sm leading-[1.55] text-pretty text-text-2">
 					{p.line}
