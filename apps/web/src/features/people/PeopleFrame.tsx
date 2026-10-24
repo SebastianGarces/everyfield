@@ -1,7 +1,10 @@
 "use client";
 
 import {
+	BookOpen01Icon,
 	Calendar03Icon,
+	InformationCircleIcon,
+	Mail01Icon,
 	Settings02Icon,
 	Task01Icon,
 	UserGroupIcon,
@@ -10,6 +13,7 @@ import {
 import { ToastProvider, useToast } from "@everyfield/ui/controls";
 import { initials } from "@everyfield/ui/display";
 import { AppShell, RoleBanner, type ShellNav } from "@everyfield/ui/shell";
+import { usePathname } from "next/navigation";
 import { createContext, use, useState, type ReactNode } from "react";
 import { useEvryPanel } from "../evry/conversation/EvryPanel.tsx";
 import { useNotificationBell } from "../notifications/Bell.tsx";
@@ -19,9 +23,11 @@ import { firstSection } from "../settings/model";
 import type { SectionSeed, SettingsViewer } from "../settings/port";
 import { useProductSettings } from "../settings/ProductSettings";
 import type { Role } from "./server.ts";
+import { useWikiChrome, WikiChrome } from "../wiki/client.tsx";
 
-// The product frame around the People and Settings pages. Only destinations that exist are in the navigation; the full
-// product navigation and command palette come from their own packages and replace these when they ship. The bell
+// The product frame around People, Meetings, Messages, Tasks, Ministries, Wiki and Settings. Only destinations that
+// exist are in the navigation. The full product navigation and command palette come from their own packages and
+// replace these when they ship. The bell
 // opens the notification drop-down (WP-030). Settings sits at the bottom of the rail and in the user menu behind the
 // name button (screens.md, Overlays).
 
@@ -36,6 +42,15 @@ const MEETINGS = {
 	prefetch: false,
 } as const;
 const TASKS = { kind: "link", key: "tasks", label: "Tasks", href: "/tasks", icon: Task01Icon } as const;
+// Messages is a dynamic page. It loads when chosen, not whenever the frame renders.
+const MESSAGES = {
+	kind: "link",
+	key: "messages",
+	label: "Messages",
+	href: "/communication",
+	icon: Mail01Icon,
+	prefetch: false,
+} as const;
 // Ministries (WP-017) loads when chosen, like Meetings.
 const MINISTRIES = {
 	kind: "link",
@@ -45,6 +60,7 @@ const MINISTRIES = {
 	icon: UserGroupIcon,
 	prefetch: false,
 } as const;
+const WIKI = { kind: "link", key: "wiki", label: "Wiki", href: "/wiki", icon: BookOpen01Icon } as const;
 const ROLE: Record<Role, string> = { owner: "Owner", admin: "Admin", member: "Member" };
 
 type FrameProps = {
@@ -81,7 +97,9 @@ export function PeopleFrame({ settings: initial, seed, ...props }: FrameProps) {
 		<ToastProvider>
 			<OwnSeat value={change}>
 				<NotificationsProvider>
-					<Frame {...props} settings={settings} seed={settings === initial ? seed : null} />
+					<WikiChrome>
+						<Frame {...props} settings={settings} seed={settings === initial ? seed : null} />
+					</WikiChrome>
 				</NotificationsProvider>
 			</OwnSeat>
 		</ToastProvider>
@@ -93,6 +111,8 @@ function Frame({ name, settings, seed = null, children }: FrameProps) {
 	const dialog = useProductSettings(settings, seed);
 	const evry = useEvryPanel({ inPlant: settings?.context === "plant" });
 	const bell = useNotificationBell();
+	const wiki = useWikiChrome();
+	const pathname = usePathname();
 	const role = settings && settings.context !== "account" ? settings.role : null;
 	// A plant Member reads People and Tasks and works on their own tasks; organization seats have neither.
 	const banner =
@@ -104,8 +124,17 @@ function Frame({ name, settings, seed = null, children }: FrameProps) {
 		) : null;
 	// The rail's Settings opens the dialog over the current page, as the user menu does; /settings is its address.
 	const nav: ShellNav = {
-		main: [PEOPLE, MEETINGS, TASKS, MINISTRIES],
-		pages: [],
+		main: [PEOPLE, MEETINGS, MESSAGES, TASKS, MINISTRIES, WIKI],
+		pages: [
+			{
+				kind: "action",
+				key: "guide",
+				label: "Guide",
+				icon: InformationCircleIcon,
+				onSelect: () => wiki?.openGuide(),
+				expanded: wiki?.guideOpen,
+			},
+		],
 		tools: [
 			{
 				kind: "link",
@@ -133,6 +162,10 @@ function Frame({ name, settings, seed = null, children }: FrameProps) {
 			unread={bell.unread}
 			width="wide"
 			onSearch={() => {
+				if (pathname.startsWith("/wiki")) {
+					wiki?.openSearch();
+					return;
+				}
 				const search = document.querySelector<HTMLInputElement>("[data-people-search]");
 				if (search) search.focus();
 				else later("Search")();
