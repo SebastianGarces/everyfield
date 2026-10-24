@@ -179,6 +179,21 @@
 		"limit": 10,
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 5 locked read, 2 read, 3 write."
 	},
+	"documents.preview": {
+		"limit": 1
+	},
+	"documents.resolveContext": {
+		"limit": 1
+	},
+	"documents.templates.contextual": {
+		"limit": 1
+	},
+	"documents.templates.get": {
+		"limit": 1
+	},
+	"documents.templates.list": {
+		"limit": 1
+	},
 	"early-access/index.receiveAccessRequest": {
 		"limit": 10,
 		"retry": 5,
@@ -1421,5 +1436,57 @@
 	},
 	"venues.restore": {
 		"limit": 6
+	},
+	"wiki.articleNeighbors": {
+		"limit": 1
+	},
+	"wiki.bookmarksList": {
+		"limit": 1
+	},
+	"wiki.contextGuide": {
+		"limit": 1
+	},
+	"wiki.exportPdf": {
+		"limit": 1
+	},
+	"wiki.navigation": {
+		"limit": 1
+	},
+	"wiki.printArticle": {
+		"limit": 1
+	},
+	"wiki.publicPreviewMetadata": {
+		"limit": 0
+	},
+	"wiki.recommendForPhase": {
+		"limit": 1
+	},
+	"wiki.recordView": {
+		"limit": 5
+	},
+	"wiki.referenceExcerpt": {
+		"limit": 1
+	},
+	"wiki.renderGlobalPreview": {
+		"limit": 1
+	},
+	"wiki.search": {
+		"limit": 4,
+		"retry": 4
+	},
+	"wiki.setBookmark": {
+		"limit": 5,
+		"retry": 9
+	},
+	"wiki.setSourceOrder": {
+		"limit": 5,
+		"retry": 9
+	},
+	"wiki.tableOfContents": {
+		"limit": 1
+	},
+	"wiki.updateProgress": {
+		"limit": 5,
+		"retry": 3
 	}
 }

@@ -33,6 +33,7 @@ const factories = {
 	createTaskWriter: "tasks",
 	createFollowUpWriter: "followups",
 	createAttendanceWriter: "meetings",
+	createWikiProducer: "wiki",
 };
 const standalone = {
 	"/packages/domain/src/early-access/index.ts": ["receiveAccessRequest"],
@@ -234,6 +235,7 @@ registerHooks({
 				"/packages/domain/src/teams/commands.ts": { teamsWriter: "teams" },
 				"/packages/domain/src/communication/writer.ts": { communicationWriter: "communication" },
 				"/packages/domain/src/teams/responsibilities/reads.ts": { responsibilityReader: "teams" },
+				"/packages/domain/src/documents/reads.ts": { documentsReader: "documents" },
 				"/packages/domain/src/teams/responsibilities/writes.ts": { responsibilityWriter: "teams" },
 				"/packages/domain/src/teams/training/commands.ts": { trainingWriter: "teams" },
 				"/packages/domain/src/teams/training/reads.ts": { trainingReader: "teams" },
