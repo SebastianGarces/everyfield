@@ -9,9 +9,10 @@ import {
 } from "@everyfield/domain/communication";
 import "server-only";
 import type { Outcome, PageData } from "./model.ts";
+import { deliveryTransport, mailReady, type MailReady } from "./mail.ts";
 
-// The Messages screens reach the WP-027 writer here. Reads recheck the live seat. Writes recheck authority inside
-// the write statement. A member may read drafts and templates. Audience, preview and writes need an Owner or Admin.
+// The Messages screens reach the communication writer here. Reads recheck the live seat. Writes recheck authority
+// inside the write statement. A member may read drafts and templates. Audience, preview and writes need an Owner or Admin.
 
 type Peopled = NonNullable<NonNullable<Awaited<ReturnType<typeof getViewer>>>["people"]>;
 export type Viewer = Peopled;
@@ -23,12 +24,13 @@ export async function communicationViewer() {
 		const viewer = await getViewer();
 		return {
 			viewer: viewer?.people ?? null,
+			email: viewer?.email ?? null,
 			signedOut: !viewer || viewer.status === "unauthenticated",
 			ok: viewer !== null,
 		};
 	} catch (error) {
 		console.error(JSON.stringify({ component: "communication", outcome: "viewer_failed", error: String(error) }));
-		return { viewer: null, signedOut: false, ok: false };
+		return { viewer: null, email: null, signedOut: false, ok: false };
 	}
 }
 
@@ -64,6 +66,36 @@ export async function write<T>(
 		return { status: "lost" };
 	}
 }
+
+/** One provider call. Mail setup is checked before the domain writes a send. A thrown provider error stays lost. */
+export async function deliver<T>(
+	run: (
+		db: NonNullable<ReturnType<typeof requestDatabase>>,
+		viewer: Viewer,
+		mail: MailReady,
+	) => Promise<CommunicationReply<T>>,
+): Promise<Outcome<T>> {
+	const seat = await communicationViewer();
+	if (!seat.viewer || !canWrite(seat.viewer)) return { status: "refused", code: "access_denied" };
+	const mail = mailReady();
+	if (!mail) return { status: "refused", code: "unavailable" };
+	const db = requestDatabase();
+	if (!db) return { status: "lost" };
+	try {
+		return outcome(await run(db, seat.viewer, mail));
+	} catch (error) {
+		console.error(
+			JSON.stringify({
+				component: "communication",
+				outcome: "delivery_failed",
+				error: error instanceof Error ? error.name : "error",
+			}),
+		);
+		return { status: "lost" };
+	}
+}
+
+export { deliveryTransport };
 
 /** Drafts, templates and teams for the page. Three statements for an Owner or Admin. A member skips the team read. */
 export function loadCommunicationPage(viewer: Viewer): Promise<Outcome<PageData>> {
