@@ -2,9 +2,15 @@
 
 import { boundary, communicationWriter, read, write } from "./server.ts";
 
-export async function saveDraft(requestKey: string, input: unknown) {
+export async function saveDraft(requestKey: string, input: unknown, expectedRevision?: string) {
 	return boundary((viewer) =>
-		write(viewer, (tx, context) => communicationWriter.saveDraft(tx, context, { requestKey, input })),
+		write(viewer, (tx, context) =>
+			communicationWriter.saveDraft(tx, context, {
+				requestKey,
+				input,
+				...(expectedRevision === undefined ? {} : { expectedRevision }),
+			}),
+		),
 	);
 }
 
