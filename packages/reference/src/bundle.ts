@@ -173,8 +173,14 @@ export function completeGeneration(
 }
 export interface ValidationPolicy {
 	identities: { sourceManifestSha256: string; catalogSha256: string };
-	plan: GenerationPlan;
+	plan: {
+		profile: ReferenceProfile;
+		entries: readonly ReferenceEntry[];
+		discoveryIds: readonly string[];
+	};
 	editorial: { approved: boolean; originalAvailable: boolean; conflicts: readonly string[] };
+	// The approved snapshot install stores no derived passages. A later rebuild supplies them.
+	deferDerivatives?: boolean;
 }
 export interface ValidationReport {
 	ok: boolean;
@@ -267,26 +273,29 @@ function validateParsed(input: unknown, policy: ValidationPolicy): ValidationRep
 		);
 		reject(safeMdx(parsed.data.content, slugs), "unsafe_content");
 	}
-	const expected = chunkEntries(value.entries),
-		actual = new Map(value.passages.map((p) => [p.key, p]));
-	reject(actual.size === value.passages.length && actual.size === expected.length, "derivative_keys_mismatch");
-	for (const p of expected) {
-		const a = actual.get(p.key);
+	if (policy.deferDerivatives) reject(value.passages.length === 0, "derivative_keys_mismatch");
+	else {
+		const expected = chunkEntries(value.entries),
+			actual = new Map(value.passages.map((p) => [p.key, p]));
+		reject(actual.size === value.passages.length && actual.size === expected.length, "derivative_keys_mismatch");
+		for (const p of expected) {
+			const a = actual.get(p.key);
+			reject(
+				!!a &&
+					a.revisionId === p.revisionId &&
+					a.ordinal === p.ordinal &&
+					a.text === p.text &&
+					a.contentHash === p.contentHash,
+				"derivative_mismatch",
+			);
+		}
 		reject(
-			!!a &&
-				a.revisionId === p.revisionId &&
-				a.ordinal === p.ordinal &&
-				a.text === p.text &&
-				a.contentHash === p.contentHash,
-			"derivative_mismatch",
+			value.passages.every(
+				(p) => p.embedding.length === value.profile.dimensions && vectorHash(p.embedding) === p.embeddingChecksum,
+			),
+			"embedding_mismatch",
 		);
 	}
-	reject(
-		value.passages.every(
-			(p) => p.embedding.length === value.profile.dimensions && vectorHash(p.embedding) === p.embeddingChecksum,
-		),
-		"embedding_mismatch",
-	);
 	const hashIntegrity = blockers.size === 0;
 	reject(policy.editorial.conflicts.length === 0, "editorial_conflict");
 	reject(policy.editorial.originalAvailable, "original_unavailable");
