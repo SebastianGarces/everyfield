@@ -4,7 +4,6 @@ import { getViewer } from "@/server/request-context";
 import { reviewDigest, teamsWriter } from "@everyfield/domain/teams";
 import type { Transaction } from "@everyfield/db/client";
 import type { TeamsReply } from "@everyfield/contracts/teams";
-import { redirect } from "next/navigation";
 import type { Outcome } from "./model.ts";
 import {
 	loadTeam,
@@ -48,13 +47,14 @@ const command = (requestKey: string, expectedRevision: string, input: unknown) =
 
 // Teams ---------------------------------------------------------------------------------------------------------
 
-/** Creates a ministry and opens its page in the same response. A refusal comes back as an Outcome. */
+/**
+ * Creates a ministry and returns that ministry. The list draws the page from the form when the save starts, then
+ * opens this address from the answer. A refusal comes back as an Outcome.
+ */
 export async function createTeam(requestKey: string, input: unknown) {
 	const v = await seat();
 	if (!v) return noSeat;
-	const r = await write(v, (tx, ctx) => teamsWriter.create(tx, ctx, { requestKey, input }));
-	if (r.status === "ok") redirect(`/ministries/${r.value.team.id}`);
-	return r;
+	return write(v, (tx, ctx) => teamsWriter.create(tx, ctx, { requestKey, input }));
 }
 
 /** Edit, correct (with a reason), archive or restore one ministry, at the revision the page last saw. */

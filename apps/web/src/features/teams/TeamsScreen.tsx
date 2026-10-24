@@ -23,14 +23,16 @@ import {
 	Switch,
 	useToast,
 } from "@everyfield/ui/controls";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { NoticeInDialog, SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
 import { createTeam, reloadTeams } from "./actions.ts";
 import { optional, TeamDialog, type TeamForm } from "./dialogs.tsx";
-import { isLeadership, plural, problemText } from "./model.ts";
+import { isLeadership, plural, problemText, type Team } from "./model.ts";
 import { OrgChart } from "./OrgChart.tsx";
 import { MinistryCard } from "./parts.tsx";
-import type { TeamsView } from "./server.ts";
+import type { TeamView, TeamsView } from "./server.ts";
+import { TeamScreen } from "./TeamScreen.tsx";
 import { NEW_SETUP, SetupDialog, type SetupForm } from "./Setup.tsx";
 
 export type TeamsTab = "teams" | "chart";
@@ -42,8 +44,11 @@ const NEW_TEAM: TeamForm = { mode: "create", name: "", description: "", icon: "t
  * address without a reload, so a link opens the same view.
  */
 export function TeamsScreen({ view: initial, tab: first, admin }: { view: TeamsView; tab: TeamsTab; admin: boolean }) {
+	const router = useRouter();
 	const toast = useToast();
 	const [view, setView] = useState(initial);
+	// The ministry page drawn when Create ministry starts, before the write answers.
+	const [draft, setDraft] = useState<TeamView | null>(null);
 	const [tab, setTab] = useState(first);
 	const [archived, setArchived] = useState(false);
 	const createLane = useSaveIntent<TeamForm>({ explain: problemText });
@@ -75,19 +80,22 @@ export function TeamsScreen({ view: initial, tab: first, admin }: { view: TeamsV
 	}
 
 	function create(form: TeamForm) {
+		setDraft(openedMinistry(form, view.nodes, admin));
 		void createLane.save({
 			what: `The ministry ${form.name.trim()}`,
 			done: "created",
 			form,
-			// Success opens the new ministry's page in the same response: no answer comes back.
 			send: (key) =>
 				createTeam(key, {
 					name: form.name.trim(),
 					description: optional(form.description),
 					icon: form.icon,
 					state: form.state,
-				}).then((r) => r ?? new Promise<never>(() => {})),
-			ok: () => {},
+				}),
+			ok: (result) => {
+				router.push(`/ministries/${result.team.id}`);
+			},
+			refused: () => setDraft(null),
 		});
 	}
 
@@ -101,6 +109,16 @@ export function TeamsScreen({ view: initial, tab: first, admin }: { view: TeamsV
 			New ministry
 		</Button>
 	) : null;
+
+	// The heading is the result. It is on screen while the write is still in flight. The saved page replaces it.
+	if (draft) {
+		return (
+			<>
+				<SaveNotice {...createLane.noticeProps} dialogOpen={createLane.editing !== null} />
+				<TeamScreen data={draft} />
+			</>
+		);
+	}
 
 	return (
 		<>
@@ -274,6 +292,36 @@ export function TeamsScreen({ view: initial, tab: first, admin }: { view: TeamsV
 			) : null}
 		</>
 	);
+}
+
+/** A new ministry with no roles yet. It cannot be changed until the saved page replaces it. */
+function openedMinistry(form: TeamForm, nodes: TeamView["nodes"], admin: boolean): TeamView {
+	const id = crypto.randomUUID() as Team["id"];
+	return {
+		status: "found",
+		team: {
+			id,
+			revision: "1" as Team["revision"],
+			name: form.name.trim(),
+			description: optional(form.description),
+			icon: form.icon,
+			templateKey: null,
+			state: form.state,
+			archived: false,
+			sortOrder: 0,
+			leaderPersonId: null,
+			leaderSource: null,
+			leaderRoleId: null,
+			activeCount: 0,
+			leaderName: null,
+		},
+		nodes,
+		roles: [],
+		members: [],
+		past: [],
+		canChange: false,
+		admin,
+	};
 }
 
 const leaderHint = (missing: number) =>
