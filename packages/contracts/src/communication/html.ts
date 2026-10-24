@@ -58,3 +58,17 @@ export const SCHEDULE_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 export function scheduleAccepted(now: Date, at: Date): boolean {
 	return at.getTime() >= now.getTime() && at.getTime() <= now.getTime() + SCHEDULE_WINDOW_MS;
 }
+
+/** A protected security message. The caller stores the token only inside the sealed mail payload. */
+export function renderTransactional(
+	purpose: "password_reset",
+	token: string,
+): { subject: string; html: string; text: string } {
+	if (purpose !== "password_reset" || token.length < 1) throw new Error("invalid_transactional_message");
+	const safe = escapeHtml(token);
+	return {
+		subject: "Reset your password",
+		html: `<p>Reset your password: ${safe}</p>`,
+		text: `Reset your password: ${token}`,
+	};
+}
