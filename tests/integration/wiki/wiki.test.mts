@@ -106,6 +106,77 @@ async function orgCopy(org, article, body, state, currentId) {
 	await admin.execute(sql`INSERT INTO article_editor_state(id,organization_id,article_id,state,current_revision_id,revision)
 		VALUES(${randomUUID()},${org},${article},${state},${currentId ?? null},1)`);
 }
+
+async function enroll(role, place) {
+	const who = { id: randomUUID(), user: randomUUID(), session: randomUUID() };
+	await admin.execute(
+		sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${who.user},${who.id + "@example.test"},true,'Synthetic')`,
+	);
+	await admin.execute(
+		sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${who.id},${who.user},'active','planter')`,
+	);
+	await admin.execute(
+		sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${who.session},${who.user},${key()},clock_timestamp()+interval '1 day')`,
+	);
+	if (place.kind === "plant")
+		await admin.execute(
+			sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${who.id},${place.id},${role},clock_timestamp())`,
+		);
+	else if (place.kind === "organization" && place.ended)
+		await admin.execute(
+			sql`INSERT INTO seat(account_id,organization_id,role,accepted_at,ended_at) VALUES(${who.id},${place.id},${role},clock_timestamp()-interval '1 day',clock_timestamp())`,
+		);
+	else if (place.kind === "organization")
+		await admin.execute(
+			sql`INSERT INTO seat(account_id,organization_id,role,accepted_at) VALUES(${who.id},${place.id},${role},clock_timestamp())`,
+		);
+	return who;
+}
+async function globalPiece(slug, bodies) {
+	const article = randomUUID();
+	await item(article, "article", slug, GLOBAL);
+	const ids = [];
+	for (const [index, body] of bodies.entries()) {
+		ids.push(
+			await revision({
+				id: randomUUID(),
+				article,
+				tenant: GLOBAL,
+				release,
+				number: index + 1,
+				title: slug,
+				slug,
+				body: body.text,
+				meaningful: body.meaningful ?? true,
+				sequence: index + 1,
+			}),
+		);
+	}
+	return { article, ids };
+}
+async function orgEdition(org, article, body, upstreamId, state = "published") {
+	const currentId =
+		state === "hide"
+			? null
+			: await revision({
+					id: randomUUID(),
+					article,
+					tenant: org,
+					number: 1,
+					title: "Organization guidance",
+					slug: "organization-guidance",
+					body,
+					content: "safe_nodes",
+					meaningful: true,
+					sequence: 1,
+				});
+	await admin.execute(
+		sql`INSERT INTO article_editor_state(id,organization_id,article_id,state,current_revision_id,based_on_upstream_id,revision)
+			VALUES(${randomUUID()},${org},${article},${state},${currentId},${upstreamId},1)`,
+	);
+	return currentId;
+}
+
 async function affiliate(org, minutes) {
 	const id = randomUUID();
 	links[org] = id;
@@ -1077,6 +1148,367 @@ describe("wiki api", { concurrency: 1 }, () => {
 			);
 		},
 	);
+
+	test(ac(["CASE-WIKI-006"]) + " own plant feedback keeps history and hides it from other plants", async () => {
+		const plants = await count(sql`SELECT count(*)::int AS n FROM plant`);
+		const reader = await actor(people.lead);
+		ok(await api.setMine(db, reader, cmd({ articleId: guide, vote: "helpful" })));
+		ok(await api.setMine(db, reader, cmd({ articleId: guide, vote: "unhelpful" })));
+		const view = ok(await api.getMine(db, reader, { articleId: guide }));
+		assert.equal(view.currentVote, "unhelpful");
+		assert.deepEqual(view.ownHistoryVotes, ["helpful", "unhelpful"]);
+		assert.equal(view.phantomPlants, 0);
+		assert.equal(view.foreignVoteBody, null);
+		assert.equal(await count(sql`SELECT count(*)::int AS n FROM plant`), plants);
+		const foreign = ok(await api.getMine(db, await actor(people.outsider), { articleId: guide }));
+		assert.equal(foreign.currentVote, null);
+		assert.deepEqual(foreign.ownHistoryVotes, []);
+		assert.equal(foreign.foreignVoteBody, null);
+		const churchless = await enroll("member", { kind: "account" });
+		const empty = ok(await api.getMine(db, await actor(churchless), { articleId: guide }));
+		assert.equal(empty.currentVote, null);
+		assert.deepEqual(empty.ownHistoryVotes, []);
+		assert.equal(empty.foreignVoteBody, null);
+		refused(
+			await api.setMine(db, await actor(churchless), cmd({ articleId: guide, vote: "helpful" })),
+			"access_denied",
+		);
+		const table = await admin.execute(sql`SELECT to_regclass('wiki_article_feedback') AS name`);
+		assert.equal(table.rows[0].name, null);
+	});
+
+	test(
+		ac(["CASE-WIKI-009", "WR-032", "WR-033", "WR-034", "WR-035", "WR-036", "WR-037"]) +
+			" plant, member, foreign, global, ended and Evry callers publish nothing",
+		async () => {
+			const piece = await globalPiece("wp035/deny/" + randomUUID(), [{ text: "Global guidance." }]);
+			await orgEdition(S1, piece.article, "S1 guidance.", piece.ids[0]);
+			const before = await count(
+				sql`SELECT count(*)::int AS n FROM article_revision WHERE article_id=${piece.article} AND tenant_id=${S1}`,
+			);
+			const input = {
+				articleId: piece.article,
+				body: "Edited organization guidance.",
+				cachePath: "wiki/缓存/路径",
+			};
+			const plantAdmin = ok(
+				await api.publishOrganizationArticle(db, await actor(people.lead), cmd({ ...input, organizationId: S1 }, "1")),
+			);
+			assert.equal(plantAdmin.errorCode, "editorial_access_denied");
+			assert.equal(plantAdmin.publicationsAdded, 0);
+			assert.equal(plantAdmin.invalidationCalls, 0);
+			assert.equal(plantAdmin.additionalHistoryEntries, 0);
+			const member = await enroll("member", { kind: "organization", id: S1 });
+			const memberDeny = ok(
+				await api.publishOrganizationArticle(db, await actor(member), cmd({ ...input, organizationId: S1 }, "1")),
+			);
+			assert.equal(memberDeny.errorCode, "editorial_access_denied");
+			assert.equal(memberDeny.additionalHistoryEntries, 0);
+			const owner = await enroll("owner", { kind: "organization", id: S1 });
+			const foreign = ok(
+				await api.publishOrganizationArticle(db, await actor(owner), cmd({ ...input, organizationId: S2 }, "1")),
+			);
+			assert.equal(foreign.errorCode, "editorial_access_denied");
+			assert.equal(foreign.additionalHistoryEntries, 0);
+			const globalDeny = ok(
+				await api.publishOrganizationArticle(
+					db,
+					await actor(people.org),
+					cmd({ ...input, organizationId: "global" }, "1"),
+				),
+			);
+			assert.equal(globalDeny.errorCode, "editorial_access_denied");
+			assert.equal(globalDeny.additionalHistoryEntries, 0);
+			const plantOwner = ok(
+				await api.publishOrganizationArticle(db, await actor(people.owner), cmd({ ...input, organizationId: S1 }, "1")),
+			);
+			assert.equal(plantOwner.errorCode, "editorial_access_denied");
+			assert.equal(plantOwner.additionalHistoryEntries, 0);
+			const ended = await enroll("admin", { kind: "organization", id: S1, ended: true });
+			const endedDeny = ok(
+				await api.publishOrganizationArticle(db, await actor(ended), cmd({ ...input, organizationId: S1 }, "1")),
+			);
+			assert.equal(endedDeny.errorCode, "editorial_access_denied");
+			assert.equal(endedDeny.additionalHistoryEntries, 0);
+			const evry = ok(
+				await api.publishOrganizationArticle(
+					db,
+					await actor(people.org),
+					cmd({ ...input, organizationId: S1, adapter: "Evry" }, "1"),
+				),
+			);
+			assert.equal(evry.errorCode, "review_required");
+			assert.equal(evry.additionalHistoryEntries, 0);
+			assert.equal(evry.publicationsAdded, 0);
+			assert.equal(evry.invalidationCalls, 0);
+			assert.equal(
+				await count(
+					sql`SELECT count(*)::int AS n FROM article_revision WHERE article_id=${piece.article} AND tenant_id=${S1}`,
+				),
+				before,
+			);
+		},
+	);
+
+	test(
+		ac(["WR-028", "WR-029", "WR-030", "WR-031"]) + " church and network owners and admins publish the next revision",
+		async () => {
+			const cases = [
+				["owner", S1],
+				["admin", S1],
+				["owner", N1],
+				["admin", N1],
+			];
+			for (const [role, org] of cases) {
+				if (role === "owner")
+					await admin.execute(
+						sql`UPDATE seat SET ended_at=clock_timestamp() WHERE organization_id=${org} AND role='owner' AND ended_at IS NULL`,
+					);
+				const who = role === "admin" && org === S1 ? people.org : await enroll(role, { kind: "organization", id: org });
+				const piece = await globalPiece("wp035/publish/" + org + "/" + randomUUID(), [{ text: "Global guidance." }]);
+				await orgEdition(org, piece.article, "S1 guidance.", piece.ids[0]);
+				const value = ok(
+					await api.publishOrganizationArticle(
+						db,
+						await actor(who),
+						cmd(
+							{
+								articleId: piece.article,
+								organizationId: org,
+								body: "Edited organization guidance.",
+								cachePath: "wiki/缓存/路径",
+							},
+							"1",
+						),
+					),
+				);
+				assert.equal(value.errorCode, null);
+				assert.equal(value.publishedRevision, 2);
+				assert.equal(value.organizationId, org);
+				assert.equal(value.additionalHistoryEntries, 1);
+				assert.equal(value.publicationsAdded, 0);
+				assert.equal(value.invalidationCalls, 0);
+				const rows = (
+					await admin.execute(
+						sql`SELECT revision_number, body, content_type, release_id IS NULL AS no_release
+							FROM article_revision WHERE article_id=${piece.article} AND tenant_id=${org} ORDER BY revision_number`,
+					)
+				).rows;
+				assert.equal(rows.length, 2);
+				assert.equal(rows[0].body, "S1 guidance.");
+				assert.equal(rows[1].body, "Edited organization guidance.");
+				assert.equal(rows[1].content_type, "safe_nodes");
+				assert.equal(rows[1].no_release, true);
+			}
+		},
+	);
+
+	test(
+		ac(["WR-019", "WR-020", "WR-021", "WR-022"]) +
+			" source selection keeps organization text and sends an in-app upstream notice",
+		async () => {
+			const inherited = await globalPiece("wp035/select/inherited/" + randomUUID(), [
+				{ text: "Global guidance." },
+				{ text: "Updated global guidance.", meaningful: false },
+			]);
+			const inheritedView = await current(people.owner, inherited.article);
+			assert.equal(inheritedView.article.revisionNumber, 2);
+			assert.equal(inheritedView.article.body, "Updated global guidance.");
+			assert.equal(inheritedView.article.sourceKind, "global");
+			const inheritedNote = ok(
+				await api.emitUpstreamReview(db, await actor(people.owner), cmd({ articleId: inherited.article })),
+			);
+			assert.equal(inheritedNote.emailIntents, 0);
+			assert.equal(inheritedNote.autoAdoptions, 0);
+			assert.ok(inheritedNote.inAppCues >= 1);
+			assert.equal(
+				await count(
+					sql`SELECT count(*)::int AS n FROM article_revision WHERE article_id=${inherited.article} AND tenant_id<>${GLOBAL}`,
+				),
+				0,
+			);
+
+			const network = await globalPiece("wp035/select/network/" + randomUUID(), [
+				{ text: "Global guidance." },
+				{ text: "Updated global guidance.", meaningful: false },
+			]);
+			await orgEdition(N1, network.article, "N1 guidance.", network.ids[0]);
+			const networkView = await current(people.owner, network.article);
+			assert.equal(networkView.article.sourceId, N1);
+			assert.equal(networkView.article.body, "N1 guidance.");
+			const networkNote = ok(
+				await api.emitUpstreamReview(db, await actor(people.owner), cmd({ articleId: network.article })),
+			);
+			assert.equal(networkNote.emailIntents, 0);
+			assert.equal(networkNote.autoAdoptions, 0);
+			assert.ok(networkNote.inAppCues >= 1);
+			assert.equal(
+				(
+					await admin.execute(
+						sql`SELECT body FROM article_revision WHERE article_id=${network.article} AND tenant_id=${N1}`,
+					)
+				).rows[0].body,
+				"N1 guidance.",
+			);
+
+			const church = await globalPiece("wp035/select/church/" + randomUUID(), [
+				{ text: "Global guidance." },
+				{ text: "Updated global guidance.", meaningful: false },
+			]);
+			await orgEdition(S1, church.article, "S1 guidance.", church.ids[0]);
+			await orgEdition(N1, church.article, "N1 guidance.", church.ids[0]);
+			const churchView = await current(people.owner, church.article);
+			assert.equal(churchView.article.sourceId, S1);
+			assert.equal(churchView.article.body, "S1 guidance.");
+			const churchNote = ok(
+				await api.emitUpstreamReview(db, await actor(people.owner), cmd({ articleId: church.article })),
+			);
+			assert.equal(churchNote.emailIntents, 0);
+			assert.equal(churchNote.autoAdoptions, 0);
+			assert.ok(churchNote.inAppCues >= 1);
+
+			const hidden = await globalPiece("wp035/select/hidden/" + randomUUID(), [
+				{ text: "Global guidance." },
+				{ text: "Updated global guidance.", meaningful: false },
+			]);
+			await orgEdition(S1, hidden.article, "S1 guidance.", hidden.ids[0], "hide");
+			await orgEdition(N1, hidden.article, "N1 guidance.", hidden.ids[0]);
+			const hiddenView = await current(people.owner, hidden.article);
+			assert.equal(hiddenView.article.body, null);
+			assert.equal(hiddenView.article.state, "hidden");
+			assert.deepEqual(hiddenView.article.alternates.map((item) => item.sourceId).sort(), [GLOBAL, N1].sort());
+			const hiddenNote = ok(
+				await api.emitUpstreamReview(db, await actor(people.owner), cmd({ articleId: hidden.article })),
+			);
+			assert.equal(hiddenNote.emailIntents, 0);
+			assert.equal(hiddenNote.autoAdoptions, 0);
+			assert.ok(hiddenNote.inAppCues >= 1);
+			assert.equal(
+				(
+					await admin.execute(
+						sql`SELECT body FROM article_revision WHERE article_id=${hidden.article} AND tenant_id=${N1}`,
+					)
+				).rows[0].body,
+				"N1 guidance.",
+			);
+		},
+	);
+
+	test(
+		ac(["CASE-NTF-014", "WIKI52-001", "WIKI52-002"]) +
+			" customized organization text stays put while inherited readers move and editors get in-app notices",
+		async () => {
+			const article = await globalPiece("wp035/upstream/" + randomUUID(), [{ text: "Global guidance." }]);
+			await orgEdition(S2, article.article, "S1 guidance.", article.ids[0]);
+			await revision({
+				id: randomUUID(),
+				article: article.article,
+				tenant: GLOBAL,
+				release,
+				number: 2,
+				title: "wp035/upstream",
+				slug: "wp035/upstream/" + article.article,
+				body: "Typo fix.",
+				meaningful: false,
+				sequence: 2,
+			});
+			await revision({
+				id: randomUUID(),
+				article: article.article,
+				tenant: GLOBAL,
+				release,
+				number: 3,
+				title: "wp035/upstream",
+				slug: "wp035/upstream/" + article.article,
+				body: "Meaningful update.",
+				meaningful: true,
+				sequence: 3,
+			});
+			const editor = await enroll("admin", { kind: "organization", id: S2 });
+			const revoked = await enroll("admin", { kind: "organization", id: S2, ended: true });
+			const note = ok(await api.emitUpstreamReview(db, await actor(editor), cmd({ articleId: article.article })));
+			assert.equal(note.inAppCues, 2);
+			assert.equal(note.emailIntents, 0);
+			assert.equal(note.autoAdoptions, 0);
+			assert.deepEqual(note.recipientIds, [editor.id]);
+			const kept = await current(people.owner, article.article);
+			assert.equal(kept.article.body, "S1 guidance.");
+			assert.equal(kept.article.sourceId, S2);
+			const moved = await current(people.outsider, article.article);
+			assert.equal(moved.article.revisionNumber, 3);
+			assert.equal(moved.article.body, "Meaningful update.");
+			const blocked = await current(revoked, article.article, { kind: "organization", organizationId: S2 });
+			assert.equal(blocked.article, null);
+			assert.equal(blocked.errorCode, "content_access_denied");
+			assert.equal(
+				(
+					await admin.execute(
+						sql`SELECT body FROM article_revision WHERE article_id=${article.article} AND tenant_id=${S2}`,
+					)
+				).rows[0].body,
+				"S1 guidance.",
+			);
+		},
+	);
+
+	test("organization draft edit and hide keep every prior revision", async () => {
+		const piece = await globalPiece("wp035/draft/" + randomUUID(), [{ text: "Global guidance." }]);
+		const editor = await enroll("admin", { kind: "organization", id: S3 });
+		const added = ok(
+			await api.addOrganizationArticle(
+				db,
+				await actor(editor),
+				cmd({ articleId: piece.article, organizationId: S3, body: "草案 指引", cachePath: "wiki/缓存/路径" }),
+			),
+		);
+		assert.equal(added.errorCode, null);
+		assert.equal(added.state, "draft");
+		assert.equal(added.additionalHistoryEntries, 1);
+		assert.equal(added.invalidationCalls, 0);
+		assert.equal(added.publicationsAdded, 0);
+		const draft = ok(
+			await api.getOrganizationDraft(db, await actor(editor), { articleId: piece.article, organizationId: S3 }),
+		);
+		assert.equal(draft.errorCode, null);
+		assert.equal(draft.body, "草案 指引");
+		assert.equal(draft.revisionNumber, 1);
+		assert.equal(draft.state, "draft");
+		const edited = ok(
+			await api.editOrganizationArticle(
+				db,
+				await actor(editor),
+				cmd({ articleId: piece.article, organizationId: S3, body: "草案 修订" }, "1"),
+			),
+		);
+		assert.equal(edited.additionalHistoryEntries, 1);
+		assert.equal(edited.state, "draft");
+		const again = ok(
+			await api.getOrganizationDraft(db, await actor(editor), { articleId: piece.article, organizationId: S3 }),
+		);
+		assert.equal(again.body, "草案 修订");
+		assert.equal(again.revisionNumber, 2);
+		const hidden = ok(
+			await api.hideOrganizationArticle(
+				db,
+				await actor(editor),
+				cmd({ articleId: piece.article, organizationId: S3 }, "2"),
+			),
+		);
+		assert.equal(hidden.state, "hide");
+		assert.equal(hidden.additionalHistoryEntries, 0);
+		assert.equal(
+			await count(
+				sql`SELECT count(*)::int AS n FROM article_revision WHERE article_id=${piece.article} AND tenant_id=${S3}`,
+			),
+			2,
+		);
+		const member = await enroll("member", { kind: "organization", id: S3 });
+		const no = ok(
+			await api.getOrganizationDraft(db, await actor(member), { articleId: piece.article, organizationId: S3 }),
+		);
+		assert.equal(no.errorCode, "editorial_access_denied");
+		assert.equal(no.body, null);
+	});
 
 	test(
 		ac([
