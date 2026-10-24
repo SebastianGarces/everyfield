@@ -8,13 +8,13 @@ import {
 	updateProgressRequest,
 	type WikiReply,
 } from "@everyfield/contracts/wiki";
-import type { Database, Transaction } from "@everyfield/db/client";
+import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import type { RequestActor } from "../access/session.ts";
 import { corpusCtes } from "./corpus.ts";
-import { deny, meSql, runWrite, selectedOwner, WikiOutcome, parse, type Command } from "./core.ts";
+import { deny, meSql, runWrite, selectedOwner, WikiOutcome, parse } from "./core.ts";
 
 type ReadingValue = z.infer<typeof readingResult>;
 type OrderValue = z.infer<typeof sourceOrderResult>;
@@ -213,15 +213,8 @@ export async function setSourceOrder(
 	if (duplicates(input.input.churches) || duplicates(input.input.networks))
 		return { status: "ok", value: orderValue({ errorCode: "invalid_source_order", ...listed }) };
 	const owner = context.owner;
-	return runWrite(
-		db,
-		authority,
-		owner,
-		"wiki.setSourceOrder",
-		input,
-		sourceOrderResult,
-		async (tx: Transaction, _command: Command) => {
-			const result = await tx.execute(sql`WITH ${meSql(authority, owner, true)},
+	return runWrite(db, authority, owner, "wiki.setSourceOrder", input, sourceOrderResult, async (tx) => {
+		const result = await tx.execute(sql`WITH ${meSql(authority, owner, true)},
 			active AS (
 				SELECT o.id, o.kind
 				FROM affiliation f
@@ -245,41 +238,40 @@ export async function setSourceOrder(
 				COALESCE((SELECT revision FROM stored), '0') AS stored_revision,
 				COALESCE((SELECT json_agg(id) FROM active WHERE kind = 'sending_church'), '[]'::json) AS churches,
 				COALESCE((SELECT json_agg(id) FROM active WHERE kind = 'sending_network'), '[]'::json) AS networks`);
-			const row = z
-				.object({
-					allowed: z.boolean(),
-					stored_revision: z.string(),
-					churches: z.array(z.uuid()),
-					networks: z.array(z.uuid()),
-				})
-				.parse(result.rows[0]);
-			const fail = (errorCode: OrderValue["errorCode"]) => {
-				throw new WikiOutcome(
-					orderValue({
-						errorCode,
-						churches: input.input.churches,
-						networks: input.input.networks,
-						revision: row.stored_revision,
-					}),
-				);
-			};
-			if (!row.allowed) fail("access_denied");
-			const foreign =
-				input.input.churches.some((id) => !row.churches.includes(id)) ||
-				input.input.networks.some((id) => !row.networks.includes(id));
-			if (foreign) fail("access_denied");
-			if (input.input.churches.length !== row.churches.length || input.input.networks.length !== row.networks.length)
-				fail("invalid_source_order");
-			if (row.stored_revision !== input.expectedRevision) fail("revision_conflict");
-			const revision = (BigInt(row.stored_revision) + 1n).toString();
-			return orderValue({
-				errorCode: null,
-				historyAdded: 1,
-				churches: input.input.churches,
-				networks: input.input.networks,
-				revision,
-				orderUnchanged: false,
-			});
-		},
-	);
+		const row = z
+			.object({
+				allowed: z.boolean(),
+				stored_revision: z.string(),
+				churches: z.array(z.uuid()),
+				networks: z.array(z.uuid()),
+			})
+			.parse(result.rows[0]);
+		const fail = (errorCode: OrderValue["errorCode"]) => {
+			throw new WikiOutcome(
+				orderValue({
+					errorCode,
+					churches: input.input.churches,
+					networks: input.input.networks,
+					revision: row.stored_revision,
+				}),
+			);
+		};
+		if (!row.allowed) fail("access_denied");
+		const foreign =
+			input.input.churches.some((id) => !row.churches.includes(id)) ||
+			input.input.networks.some((id) => !row.networks.includes(id));
+		if (foreign) fail("access_denied");
+		if (input.input.churches.length !== row.churches.length || input.input.networks.length !== row.networks.length)
+			fail("invalid_source_order");
+		if (row.stored_revision !== input.expectedRevision) fail("revision_conflict");
+		const revision = (BigInt(row.stored_revision) + 1n).toString();
+		return orderValue({
+			errorCode: null,
+			historyAdded: 1,
+			churches: input.input.churches,
+			networks: input.input.networks,
+			revision,
+			orderUnchanged: false,
+		});
+	});
 }
