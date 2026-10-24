@@ -232,6 +232,7 @@ registerHooks({
 				"/packages/domain/src/meetings/venues.ts": { venuesWriter: "venues" },
 				"/packages/domain/src/meetings/analytics.ts": { attendanceReader: "meetings" },
 				"/packages/domain/src/teams/commands.ts": { teamsWriter: "teams" },
+				"/packages/domain/src/communication/writer.ts": { communicationWriter: "communication" },
 				"/packages/domain/src/teams/responsibilities/reads.ts": { responsibilityReader: "teams" },
 				"/packages/domain/src/teams/responsibilities/writes.ts": { responsibilityWriter: "teams" },
 				"/packages/domain/src/teams/training/commands.ts": { trainingWriter: "teams" },

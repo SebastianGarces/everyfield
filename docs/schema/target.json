@@ -70,9 +70,9 @@
   "contract_status": "Reviewed starting design; builders may change it through a reviewed migration.",
   "as_of": "2026-10-17",
   "implementation_authorized": false,
-  "table_count": 93,
-  "column_count": 1055,
-  "foreign_key_count": 330,
+  "table_count": 95,
+  "column_count": 1083,
+  "foreign_key_count": 337,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
     "date": "YYYY-MM-DD local calendar date, never UTC midnight instant.",
@@ -142,6 +142,11 @@
     "commitment_change.kind": [
       "withdrawn",
       "reactivated"
+    ],
+    "communication.state": [
+      "draft",
+      "reviewed",
+      "scheduled"
     ],
     "contact_outcome.outcome": [
       "contacted",
@@ -397,6 +402,17 @@
       "setup",
       "av",
       "organization"
+    ],
+    "message_template.category": [
+      "meeting_invitation",
+      "meeting_reminder",
+      "follow_up",
+      "announcement"
+    ],
+    "message_template.meeting_type": [
+      "vision_meeting",
+      "orientation",
+      "team_meeting"
     ],
     "notice.category": [
       "task",
@@ -1267,7 +1283,16 @@
       "attestation.recorded",
       "audit.imported",
       "communication.approved",
+      "communication.draft_deleted",
+      "communication.draft_saved",
+      "communication.rescheduled",
+      "communication.scheduled",
       "communication.send_intended",
+      "communication.template_archived",
+      "communication.template_created",
+      "communication.template_deleted",
+      "communication.template_forked",
+      "communication.template_updated",
       "deletion.cancelled",
       "deletion.live_purge_completed",
       "documents.copied",
@@ -10744,7 +10769,7 @@
         }
       ],
       "checks": [
-        "action in ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','audit.imported','communication.approved','communication.send_intended','deletion.cancelled','deletion.live_purge_completed','documents.copied','documents.saved','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','execution.cancelled','execution.completed','execution.partial','execution.reconciled','execution.started','feedback.publication_intended','feedback.published','feedback.received','feedback.reconciled','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.credential_reconciled','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.feedback_recorded','intelligence.published','intelligence.requested','intelligence.superseded','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','note_correction','organization.profile_changed','people.corrected','people.created','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','security.access_denied','security.audit_exported','security.audit_inspected','security.bulk_export','security.operator_accessed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.hidden','wiki.published','wiki.source_order_changed')",
+        "action in ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','audit.imported','communication.approved','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','documents.copied','documents.saved','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','execution.cancelled','execution.completed','execution.partial','execution.reconciled','execution.started','feedback.publication_intended','feedback.published','feedback.received','feedback.reconciled','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.credential_reconciled','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.feedback_recorded','intelligence.published','intelligence.requested','intelligence.superseded','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','note_correction','organization.profile_changed','people.corrected','people.created','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','security.access_denied','security.audit_exported','security.audit_inspected','security.bulk_export','security.operator_accessed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.hidden','wiki.published','wiki.source_order_changed')",
         "num_nonnulls(actor_id,actor_token,system_cause)>=1",
         "kind in ('create','edit','correct','retire','restore','merge','unmerge','stage_change','classification_change','commitment_change','assign','remove','accept','revoke','resend','role_change','leader_change','tick','untick','archive','earn','revoke_credit','offer_answer','publish','hide','read','progress','complete','reopen','waive','supersede','finalize','reconcile','noop','triage','suppress','suppression_clear','preference','model_attempt','tool_attempt','effect_result','mail_member','outcome','declaration','movement')",
         "jsonb_typeof(metadata)='object' AND (metadata->'diff' IS NULL OR (jsonb_typeof(metadata->'diff')='object' AND octet_length(convert_to((metadata->'diff')::text,'UTF8'))<=2048))"
@@ -12251,6 +12276,338 @@
         ],
         "checks": [
           "commitment_change_kind"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "communication",
+      "domain": "communication",
+      "purpose": "A plant draft or a reviewed schedule. It stores the audience and an optional subject and body. It stores no mail intent.",
+      "library_owned": false,
+      "jsonb_keys": {
+        "audience": [
+          "groups",
+          "teamIds",
+          "personIds"
+        ]
+      },
+      "capabilities": [
+        "CAP-B-035"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-027"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-027"
+        ],
+        "rule": "WP-027 composition storage through Drizzle Kit (C100)."
+      },
+      "feature_ids": [
+        "COM-003",
+        "COM-004",
+        "COM-012"
+      ],
+      "acceptance_ids": [],
+      "future_case_ids": [],
+      "scope": "plant",
+      "invariants": [
+        "A draft belongs to one plant.",
+        "A scheduled row has a subject, a safe body, and a schedule instant.",
+        "Deleting a draft removes the row. The record identity stays."
+      ],
+      "revision": "Expected revision fences an update. A change advances it.",
+      "idempotency": "The request key returns the stored result.",
+      "deletion": "Plant deletion removes the row. A draft delete removes the row. The record identity stays.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "plant_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "The account that saved the draft. Null after that account is deleted.",
+          "name": "author_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "",
+          "name": "revision",
+          "type": "bigint",
+          "nullable": false,
+          "default": "1"
+        },
+        {
+          "note": "",
+          "name": "state",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "Null while the draft is incomplete. Required once the row is scheduled.",
+          "name": "subject",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "Sanitized HTML. Null while the draft is incomplete.",
+          "name": "body_html",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "Plain text derived from the sanitized HTML.",
+          "name": "body_text",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "Optional plant template. Null when the draft uses no plant template.",
+          "name": "template_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "Optional system source key. It does not point at a row.",
+          "name": "template_source",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "Optional meeting in the same plant. Null when the meeting is removed.",
+          "name": "meeting_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "Group names, team ids, and person ids. Search does not change this value.",
+          "name": "audience",
+          "type": "jsonb",
+          "nullable": false,
+          "default": "'{\"groups\":[],\"teamIds\":[],\"personIds\":[]}'::jsonb"
+        },
+        {
+          "note": "Hash of the reviewed subject, body, and eligible people. Null on a draft.",
+          "name": "review_digest",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "The accepted schedule instant. Null until the row is scheduled.",
+          "name": "scheduled_at",
+          "type": "timestamptz",
+          "nullable": true
+        },
+        {
+          "note": "",
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()"
+        },
+        {
+          "note": "",
+          "name": "updated_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [
+        {
+          "columns": [
+            "id",
+            "plant_id"
+          ]
+        }
+      ],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "Plant deletion removes the row. The record identity stays."
+          },
+          "columns": [
+            "plant_id"
+          ],
+          "references": {
+            "table": "plant",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "cascade"
+        },
+        {
+          "deletion": {
+            "action": "set_null",
+            "policy": "Account deletion keeps the draft and clears the author."
+          },
+          "columns": [
+            "author_id"
+          ],
+          "references": {
+            "table": "account",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "set_null"
+        },
+        {
+          "deletion": {
+            "action": "no_action",
+            "policy": "A referenced template stays. The app refuses to delete it."
+          },
+          "columns": [
+            "template_id",
+            "plant_id"
+          ],
+          "references": {
+            "table": "message_template",
+            "columns": [
+              "id",
+              "plant_id"
+            ]
+          },
+          "on_delete": "no_action"
+        },
+        {
+          "deletion": {
+            "action": "set_null",
+            "policy": "Removing the meeting clears the pointer. The draft stays."
+          },
+          "scope_exception": "A meeting can be removed while a draft still names it. The pointer clears. The draft stays in its plant. The app checks the meeting belongs to the plant before it saves the pointer.",
+          "columns": [
+            "meeting_id"
+          ],
+          "references": {
+            "table": "meeting",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "set_null"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "The record identity stays when the row is removed. A foreign key grants no access."
+          },
+          "columns": [
+            "id",
+            "plant_id"
+          ],
+          "references": {
+            "table": "record",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "restrict"
+        }
+      ],
+      "checks": [
+        "(revision >= 1)",
+        "state in ('draft', 'reviewed', 'scheduled')",
+        "((subject IS NULL) OR ((length(btrim(subject)) >= 1) AND (length(btrim(subject)) <= 500)))",
+        "((body_html IS NULL) OR (length(btrim(body_html)) >= 1))",
+        "((state <> 'scheduled'::text) OR ((scheduled_at IS NOT NULL) AND (subject IS NOT NULL) AND (body_html IS NOT NULL)))",
+        "(jsonb_typeof(audience) = 'object'::text)",
+        "((template_source IS NULL) OR ((length(template_source) >= 1) AND (length(template_source) <= 80)))"
+      ],
+      "indexes": {
+        "communication_ref_0": {
+          "name": "communication_ref_0",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "communication_ref_1": {
+          "name": "communication_ref_1",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "template_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "communication_ref_2": {
+          "name": "communication_ref_2",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "meeting_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "communication_pkey"
+        ],
+        "unique": [
+          "communication_uq_0"
+        ],
+        "foreign": [
+          "communication_fk_0",
+          "communication_fk_1",
+          "communication_fk_2",
+          "communication_fk_3",
+          "communication_fk_4"
+        ],
+        "checks": [
+          "communication_ck_0",
+          "communication_ck_1",
+          "communication_ck_2",
+          "communication_ck_3",
+          "communication_ck_4",
+          "communication_ck_5",
+          "communication_ck_6"
         ]
       },
       "policies": {},
@@ -21710,6 +22067,248 @@
       "rls": false
     },
     {
+      "name": "message_template",
+      "domain": "communication",
+      "purpose": "A plant copy of a system email template, or a template the plant wrote. The seven system templates stay in code. One live fork per source.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-B-036"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-027"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-027"
+        ],
+        "rule": "WP-027 template storage through Drizzle Kit (C100)."
+      },
+      "feature_ids": [
+        "COM-007",
+        "COM-008"
+      ],
+      "acceptance_ids": [],
+      "future_case_ids": [],
+      "scope": "plant",
+      "invariants": [
+        "A plant fork does not change the system template in code.",
+        "One row per plant and source key.",
+        "A referenced template is archived or kept. An unreferenced fork can be deleted."
+      ],
+      "revision": "Expected revision fences an update. A change advances it.",
+      "idempotency": "The request key returns the stored result. A repeated fork returns the one row.",
+      "deletion": "Plant deletion removes the row. An unreferenced fork can be deleted. The record identity stays.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "note": "",
+          "name": "plant_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "The system source this fork copies. Null for a template the plant wrote.",
+          "name": "source_key",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "",
+          "name": "name",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "description",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "",
+          "name": "category",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "Set only for a meeting invitation.",
+          "name": "meeting_type",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "",
+          "name": "subject",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "body_html",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "body_text",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "Set when the plant archives the template. The row stays.",
+          "name": "archived_at",
+          "type": "timestamptz",
+          "nullable": true
+        },
+        {
+          "note": "",
+          "name": "revision",
+          "type": "bigint",
+          "nullable": false,
+          "default": "1"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [
+        {
+          "columns": [
+            "id",
+            "plant_id"
+          ]
+        },
+        {
+          "columns": [
+            "plant_id",
+            "source_key"
+          ],
+          "where": "(source_key IS NOT NULL)"
+        }
+      ],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "Plant deletion removes the row. The record identity stays."
+          },
+          "columns": [
+            "plant_id"
+          ],
+          "references": {
+            "table": "plant",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "cascade"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "The record identity stays when the row is removed. A foreign key grants no access."
+          },
+          "columns": [
+            "id",
+            "plant_id"
+          ],
+          "references": {
+            "table": "record",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "restrict"
+        }
+      ],
+      "checks": [
+        "(revision >= 1)",
+        "category in ('meeting_invitation', 'meeting_reminder', 'follow_up', 'announcement')",
+        "meeting_type in ('vision_meeting', 'orientation', 'team_meeting')",
+        "((length(btrim(name)) >= 1) AND (length(btrim(name)) <= 255))",
+        "((description IS NULL) OR (length(description) <= 1000))",
+        "((length(btrim(subject)) >= 1) AND (length(btrim(subject)) <= 500))",
+        "(length(btrim(body_html)) >= 1)",
+        "((meeting_type IS NULL) OR (category = 'meeting_invitation'::text))",
+        "((source_key IS NULL) OR ((length(source_key) >= 1) AND (length(source_key) <= 80)))"
+      ],
+      "indexes": {
+        "message_template_ref_0": {
+          "name": "message_template_ref_0",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "message_template_uq_1": {
+          "name": "message_template_uq_1",
+          "isUnique": true,
+          "where": "(source_key IS NOT NULL)",
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "source_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "message_template_pkey"
+        ],
+        "unique": [
+          "message_template_uq_0"
+        ],
+        "foreign": [
+          "message_template_fk_0",
+          "message_template_fk_1"
+        ],
+        "checks": [
+          "message_template_ck_0",
+          "message_template_ck_1",
+          "message_template_ck_2",
+          "message_template_ck_3",
+          "message_template_ck_4",
+          "message_template_ck_5",
+          "message_template_ck_6",
+          "message_template_ck_7",
+          "message_template_ck_8"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
       "name": "model_spend",
       "domain": "assistant",
       "purpose": "Paid Evry model spend committed per calendar month (UTC) in this database: reservations for model calls in progress plus the settled cost of finished calls, checked against the monthly limit before the provider sees any paid call (D77).",
@@ -29593,6 +30192,7 @@
         "WP-023",
         "WP-024",
         "WP-026",
+        "WP-027",
         "WP-028",
         "WP-030",
         "WP-031",
@@ -29623,6 +30223,7 @@
           "article_revision",
           "attestation",
           "commitment",
+          "communication",
           "contact_outcome",
           "development_enrollment",
           "development_program",
@@ -29644,6 +30245,7 @@
           "mail_attempt",
           "mail_request",
           "meeting",
+          "message_template",
           "notice",
           "notification_preference",
           "obligation",
