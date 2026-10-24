@@ -15,6 +15,7 @@
 	"tests/integration/access/*.test.mts",
 	"tests/integration/jobs/*.test.mts",
 	"tests/integration/notifications/*.test.mts",
+	"tests/integration/wiki/*.test.mts",
 	"tests/integration/operations/*.test.mts",
 	"packages/domain/test/requests.test.ts",
 	"tests/reference/releases/*.db.mts",

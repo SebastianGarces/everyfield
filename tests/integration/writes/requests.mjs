@@ -278,6 +278,9 @@ try {
 		return JSON.parse(line.slice(2));
 	};
 
+	const wikiArticle = "00000000-0000-4000-8000-000000000034";
+	const wikiChurch = randomUUID();
+	const wikiNetwork = randomUUID();
 	const pages = [
 		["GET /people", "/people", owner.cookie],
 		["GET /people?view=pipeline", "/people?view=pipeline", owner.cookie],
@@ -288,6 +291,11 @@ try {
 		["GET /settings", "/settings", owner.cookie],
 		["GET /notifications", "/notifications", owner.cookie],
 		["GET /notifications/read?what=count", "/notifications/read?what=count", owner.cookie],
+		["GET /wiki/read?what=list", "/wiki/read?what=list", owner.cookie],
+		["GET /wiki/read?what=article", `/wiki/read?what=article&id=${wikiArticle}`, owner.cookie],
+		["GET /wiki/read?what=search", "/wiki/read?what=search&q=Guide", owner.cookie],
+		["GET /wiki/read?what=bookmarks", "/wiki/read?what=bookmarks", owner.cookie],
+		["GET /wiki/read?what=stats", "/wiki/read?what=stats", owner.cookie],
 		["GET /signin (signed out)", "/signin", ""],
 	];
 	// RT-6c: no request pays a cold-start cost. Server start checks the bucket's privacy without any request, and opens
@@ -431,11 +439,86 @@ try {
 	assert.equal(saved.status, "ok", JSON.stringify(saved));
 
 	// More data than one screen shows: the same pages must send the same statements.
+	const wikiRelease = randomUUID();
+	const wikiSection = randomUUID();
+	const wikiHash = randomBytes(32).toString("hex");
+	const globalTenant = "00000000-0000-0000-0000-000000000000";
+	await admin.execute(
+		sql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id) VALUES(${wikiSection},'section','census/section',${globalTenant}::uuid)`,
+	);
+	await admin.execute(
+		sql`INSERT INTO reference_release(id,release_key,artifact_locator,manifest_hash,state,complete_at,validated_at,approval_locator,approval_hash,chunker_version,embedding_profile,embedding_dimensions,tenant_id,expected_passages)
+			VALUES(${wikiRelease},${"census-" + wikiRelease},'memory://census',${wikiHash},'validated',clock_timestamp(),clock_timestamp(),'memory://approval',${wikiHash},'v','profile',1,${globalTenant}::uuid,0)`,
+	);
+	await admin.execute(
+		sql`INSERT INTO reference_activation(id,release_id,activation_number,activated_at,actor_tombstone,reason,expected_prior_number)
+			VALUES(${randomUUID()},${wikiRelease},1,clock_timestamp(),'synthetic','census',0)`,
+	);
+	await admin.execute(sql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id)
+		SELECT CASE WHEN g = 1 THEN ${wikiArticle}::uuid ELSE gen_random_uuid() END, 'article', 'census/' || g, ${globalTenant}::uuid
+		FROM generate_series(1, 25) g`);
+	await admin.execute(sql`INSERT INTO article_revision(id,article_id,tenant_id,release_id,revision_number,title,slug,excerpt,body,content_type,phase,position,content_hash,published_at,meaningful,meaningful_sequence,section_id)
+		SELECT gen_random_uuid(), i.id, ${globalTenant}::uuid, ${wikiRelease}::uuid, 1, 'Census ' || i.canonical_key, i.canonical_key,
+			'Guide excerpt', 'Guide body ' || i.canonical_key, 'safe_mdx', 1, 1, ${wikiHash}, clock_timestamp(), true, 1, ${wikiSection}::uuid
+		FROM reference_item i WHERE i.kind = 'article' AND i.canonical_key LIKE 'census/%'`);
+	await admin.execute(
+		sql`INSERT INTO organization(id,kind,name,timezone,material_revision) VALUES
+			(${wikiChurch},'sending_church','Census church','America/Chicago',1),
+			(${wikiNetwork},'sending_network','Census network','America/Chicago',1)`,
+	);
+	await admin.execute(
+		sql`INSERT INTO affiliation(id,plant_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
+			VALUES
+			(${randomUUID()},${plant.id},${wikiChurch},clock_timestamp(),false,false,false,false,true,false,false),
+			(${randomUUID()},${plant.id},${wikiNetwork},clock_timestamp(),false,false,false,false,true,false,false)`,
+	);
 	for (let i = 0; i < 30; i++) await person(`Grown ${String(i).padStart(2, "0")}`);
 	for (let i = 0; i < 5; i++) maria = await note(maria, `Grown note ${i}`);
 	for (let i = 0; i < 30; i++) await task(`Grown task ${i}`);
 	await notices(80);
 	for (const [name, path, cookie] of pages) await get(name, path, cookie);
+
+	const wiki = "apps/web/src/features/wiki/actions.ts";
+	const progressed = await act("POST wiki.updateProgress", "/wiki", wiki, "updateProgress", [
+		{
+			requestKey: randomUUID(),
+			expectedRevision: "0",
+			input: { articleId: wikiArticle, fraction: "0.91", plantId: plant.id },
+		},
+	]);
+	assert.equal(progressed.status, "ok", JSON.stringify(progressed));
+	assert.equal(progressed.value.written, true);
+	assert.equal(progressed.value.errorCode, null);
+	const viewed = await act("POST wiki.recordView", "/wiki", wiki, "recordView", [
+		{
+			requestKey: randomUUID(),
+			expectedRevision: progressed.value.revision,
+			input: { articleId: wikiArticle, plantId: plant.id },
+		},
+	]);
+	assert.equal(viewed.status, "ok", JSON.stringify(viewed));
+	assert.equal(viewed.value.errorCode, null);
+	const other = (
+		await admin.execute(
+			sql`SELECT id FROM reference_item WHERE kind='article' AND canonical_key LIKE 'census/%' AND id<>${wikiArticle}::uuid LIMIT 1`,
+		)
+	).rows[0].id;
+	const bookmarked = await act("POST wiki.setBookmark", "/wiki", wiki, "setBookmark", [
+		{ requestKey: randomUUID(), expectedRevision: "0", input: { articleId: other, desired: true } },
+	]);
+	assert.equal(bookmarked.status, "ok", JSON.stringify(bookmarked));
+	assert.equal(bookmarked.value.bookmarked, true);
+	const ordered = await act("POST wiki.setSourceOrder", "/wiki", wiki, "setSourceOrder", [
+		{ requestKey: randomUUID(), expectedRevision: "0", input: { churches: [wikiChurch], networks: [wikiNetwork] } },
+	]);
+	assert.equal(ordered.status, "ok", JSON.stringify(ordered));
+	assert.equal(ordered.value.errorCode, null);
+	assert.equal(ordered.value.historyAdded, 1);
+	const personal = await fetch(origin + "/wiki/read?what=list", {
+		headers: { "x-evf-request": "GET /wiki/read?what=list", cookie: owner.cookie },
+	});
+	assert.equal(personal.headers.get("cache-control"), "private, no-store");
+	await personal.text();
 
 	server.kill("SIGTERM");
 	await exited;

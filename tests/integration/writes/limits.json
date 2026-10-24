@@ -29,6 +29,21 @@
 	"GET /tasks": {
 		"limit": 5
 	},
+	"GET /wiki/read?what=article": {
+		"limit": 2
+	},
+	"GET /wiki/read?what=bookmarks": {
+		"limit": 2
+	},
+	"GET /wiki/read?what=list": {
+		"limit": 2
+	},
+	"GET /wiki/read?what=search": {
+		"limit": 5
+	},
+	"GET /wiki/read?what=stats": {
+		"limit": 2
+	},
 	"POST notifications.markAllVisibleRead": {
 		"limit": 6
 	},
@@ -87,6 +102,18 @@
 	},
 	"POST tasks.createTask": {
 		"limit": 5
+	},
+	"POST wiki.recordView": {
+		"limit": 6
+	},
+	"POST wiki.setBookmark": {
+		"limit": 6
+	},
+	"POST wiki.setSourceOrder": {
+		"limit": 6
+	},
+	"POST wiki.updateProgress": {
+		"limit": 6
 	},
 	"accountPerson.ensureAccountPerson": {
 		"limit": 5
@@ -1251,5 +1278,57 @@
 	},
 	"venues.restore": {
 		"limit": 6
+	},
+	"wiki.articleNeighbors": {
+		"limit": 1
+	},
+	"wiki.bookmarksList": {
+		"limit": 1
+	},
+	"wiki.contextGuide": {
+		"limit": 1
+	},
+	"wiki.exportPdf": {
+		"limit": 1
+	},
+	"wiki.navigation": {
+		"limit": 1
+	},
+	"wiki.printArticle": {
+		"limit": 1
+	},
+	"wiki.publicPreviewMetadata": {
+		"limit": 0
+	},
+	"wiki.recommendForPhase": {
+		"limit": 1
+	},
+	"wiki.recordView": {
+		"limit": 5
+	},
+	"wiki.referenceExcerpt": {
+		"limit": 1
+	},
+	"wiki.renderGlobalPreview": {
+		"limit": 1
+	},
+	"wiki.search": {
+		"limit": 4,
+		"retry": 4
+	},
+	"wiki.setBookmark": {
+		"limit": 5,
+		"retry": 9
+	},
+	"wiki.setSourceOrder": {
+		"limit": 5,
+		"retry": 9
+	},
+	"wiki.tableOfContents": {
+		"limit": 1
+	},
+	"wiki.updateProgress": {
+		"limit": 5,
+		"retry": 3
 	}
 }

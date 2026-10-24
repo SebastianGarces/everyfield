@@ -15,7 +15,8 @@
 		"./meetings": "./src/meetings/index.ts",
 		"./tasks": "./src/tasks/index.ts",
 		"./followups": "./src/followups/index.ts",
-		"./notifications": "./src/notifications/index.ts"
+		"./notifications": "./src/notifications/index.ts",
+		"./wiki": "./src/wiki/index.ts"
 	},
 	"scripts": {
 		"typecheck": "tsc --noEmit",
