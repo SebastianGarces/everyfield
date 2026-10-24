@@ -21,6 +21,16 @@ import {
 	search,
 	tableOfContents,
 } from "./reads.ts";
+import {
+	addOrganizationArticle,
+	editOrganizationArticle,
+	emitUpstreamReview,
+	getMine,
+	getOrganizationDraft,
+	hideOrganizationArticle,
+	publishOrganizationArticle,
+	setMine,
+} from "./editorial.ts";
 import { recordView, setBookmark, setSourceOrder, updateProgress } from "./writes.ts";
 
 export type WikiConfig = { renderPdf?: PdfRenderer };
@@ -49,5 +59,13 @@ export function createWikiProducer(config: WikiConfig = {}) {
 		recordView,
 		updateProgress,
 		setSourceOrder,
+		getMine,
+		setMine,
+		addOrganizationArticle,
+		editOrganizationArticle,
+		hideOrganizationArticle,
+		publishOrganizationArticle,
+		getOrganizationDraft,
+		emitUpstreamReview,
 	};
 }
