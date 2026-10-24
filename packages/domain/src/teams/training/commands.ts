@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { lastWrite, type AuditWrite } from "../../operations/writes.ts";
 import { command, deny, next, parse, reply, type Change, type TeamsContext, type Tx, type Writer } from "../core.ts";
+import { unique } from "../reads.ts";
 import { rosterDigest } from "./digest.ts";
 
 const nil = "00000000-0000-0000-0000-000000000000";
@@ -22,16 +23,6 @@ type Program = z.infer<typeof programRow>;
 async function oneRow(tx: Tx, query: ReturnType<typeof sql>) {
 	const found = await tx.execute(query);
 	return found.rows[0] as Record<string, unknown> | undefined;
-}
-function unique(ids: string[]) {
-	const seen = new Set<string>();
-	const out: string[] = [];
-	for (const id of ids) {
-		if (seen.has(id)) continue;
-		seen.add(id);
-		out.push(id);
-	}
-	return out;
 }
 function today(zone: string) {
 	return sql`(clock_timestamp() AT TIME ZONE ${zone})::date`;
@@ -98,7 +89,6 @@ const creditFacts = z.object({
 	verifierAccountId: z.string().uuid().nullable(),
 	assigned: z.boolean(),
 	member: z.boolean(),
-	roleChanges: z.number().int(),
 });
 async function creditContext(tx: Tx, w: Writer, program: Program, personId: string) {
 	const row = await oneRow(
@@ -111,8 +101,7 @@ async function creditContext(tx: Tx, w: Writer, program: Program, personId: stri
 			EXISTS (SELECT 1 FROM team_tenure tn
 				JOIN team_role r ON r.id = tn.role_id AND r.retired_at IS NULL AND r.plant_id = p.tenant_id
 				WHERE tn.person_id = p.id AND tn.ended_on IS NULL AND tn.plant_id = p.tenant_id
-					AND r.team_id IS NOT DISTINCT FROM ${program.teamId}::uuid) AS member,
-			(SELECT count(*)::int FROM team_role r WHERE r.plant_id = ${w.plant.id}::uuid AND r.id IS NULL) AS "roleChanges"
+					AND r.team_id IS NOT DISTINCT FROM ${program.teamId}::uuid) AS member
 			FROM person p
 			LEFT JOIN LATERAL (
 				SELECT c.kind, c.version, c.earned_on, c.verifier_account_id
@@ -155,7 +144,6 @@ function creditValue(
 	candidate: boolean,
 	verifier: string,
 	earnedOn: string | null,
-	roleChanges: number,
 ) {
 	return c.creditResult.parse({
 		receiptId: auditId,
@@ -166,7 +154,6 @@ function creditValue(
 		candidate,
 		verifierAccountId: verifier,
 		earnedOn,
-		automaticRoleChanges: roleChanges,
 	});
 }
 
@@ -314,7 +301,6 @@ async function attestProgram(
 				true,
 				facts.verifierAccountId ?? w.accountId,
 				facts.earnedOn,
-				facts.roleChanges,
 			),
 			subject: body.personId,
 			subjectType: "training_credit",
@@ -327,17 +313,7 @@ async function attestProgram(
 		VALUES (${w.plant.id}::uuid, ${body.personId}::uuid, ${program.id}::uuid, 'earned', ${program.version}::int,
 			${body.earnedOn}::date, ${w.accountId}::uuid)`);
 	return {
-		value: creditValue(
-			audit.id,
-			"changed",
-			body.personId,
-			program.id,
-			"earned",
-			true,
-			w.accountId,
-			body.earnedOn,
-			facts.roleChanges,
-		),
+		value: creditValue(audit.id, "changed", body.personId, program.id, "earned", true, w.accountId, body.earnedOn),
 		subject: body.personId,
 		subjectType: "training_credit",
 		action: "training.completed",
@@ -362,8 +338,7 @@ async function attestService(
 	const body = input.input;
 	const person = await oneRow(
 		tx,
-		sql`SELECT state, (SELECT count(*)::int FROM team_role r WHERE r.plant_id = ${w.plant.id}::uuid AND r.id IS NULL) AS "roleChanges"
-			FROM person WHERE id = ${body.personId}::uuid AND tenant_id = ${w.plant.id}::uuid FOR UPDATE`,
+		sql`SELECT state FROM person WHERE id = ${body.personId}::uuid AND tenant_id = ${w.plant.id}::uuid FOR UPDATE`,
 	);
 	if (!person) {
 		const other = await oneRow(tx, sql`SELECT 1 AS n FROM person WHERE id = ${body.personId}::uuid`);
@@ -371,14 +346,13 @@ async function attestService(
 		deny("invalid_subject");
 	}
 	if (person.state !== "live") deny("invalid_subject");
-	const roleChanges = z.number().int().parse(person.roleChanges);
 	const candidate = body.attendanceDays >= 60 && body.volunteerDays >= 60;
 	audit.writes
 		.push(sql`INSERT INTO training_credit (plant_id, person_id, kind, attendance_days, volunteer_days, verifier_account_id)
 		VALUES (${w.plant.id}::uuid, ${body.personId}::uuid, 'service', ${body.attendanceDays}::int, ${body.volunteerDays}::int,
 			${w.accountId}::uuid)`);
 	return {
-		value: creditValue(audit.id, "changed", body.personId, null, "service", candidate, w.accountId, null, roleChanges),
+		value: creditValue(audit.id, "changed", body.personId, null, "service", candidate, w.accountId, null),
 		subject: body.personId,
 		subjectType: "training_credit",
 		action: "training.completed",
@@ -402,17 +376,7 @@ async function revoke(
 	const facts = await creditContext(tx, w, program, input.input.personId);
 	if (facts.kind !== "earned" || facts.version === null)
 		return {
-			value: creditValue(
-				audit.id,
-				"noop",
-				input.input.personId,
-				program.id,
-				"revoked",
-				false,
-				w.accountId,
-				null,
-				facts.roleChanges,
-			),
+			value: creditValue(audit.id, "noop", input.input.personId, program.id, "revoked", false, w.accountId, null),
 			subject: input.input.personId,
 			subjectType: "training_credit",
 			action: "training.revoked",
@@ -424,17 +388,7 @@ async function revoke(
 		VALUES (${w.plant.id}::uuid, ${input.input.personId}::uuid, ${program.id}::uuid, 'revoked', ${facts.version}::int,
 			${w.accountId}::uuid)`);
 	return {
-		value: creditValue(
-			audit.id,
-			"changed",
-			input.input.personId,
-			program.id,
-			"revoked",
-			false,
-			w.accountId,
-			null,
-			facts.roleChanges,
-		),
+		value: creditValue(audit.id, "changed", input.input.personId, program.id, "revoked", false, w.accountId, null),
 		subject: input.input.personId,
 		subjectType: "training_credit",
 		action: "training.revoked",
@@ -468,7 +422,6 @@ async function recomplete(
 				true,
 				facts.verifierAccountId ?? w.accountId,
 				facts.earnedOn,
-				facts.roleChanges,
 			),
 			subject: input.input.personId,
 			subjectType: "training_credit",
@@ -490,7 +443,6 @@ async function recomplete(
 			true,
 			w.accountId,
 			input.input.earnedOn,
-			facts.roleChanges,
 		),
 		subject: input.input.personId,
 		subjectType: "training_credit",
@@ -525,17 +477,16 @@ async function schedule(
 	if (team.revision !== input.expectedRevision) deny("conflict");
 	if (team.archived === true) deny();
 	const guests = unique(input.input.guestIds);
-	const found = await tx.execute(sql`SELECT p.id AS id, (p.id IS NOT NULL) AS live, EXISTS (
+	const found = guests.length
+		? await tx.execute(sql`SELECT p.id AS id, (p.id IS NOT NULL) AS live, EXISTS (
 			SELECT 1 FROM team_tenure tn
 			JOIN team_role r ON r.id = tn.role_id AND r.retired_at IS NULL AND r.team_id = ${teamId}::uuid
 			WHERE tn.person_id = p.id AND tn.ended_on IS NULL AND tn.plant_id = p.tenant_id
-		) AS member,
-		(SELECT count(*)::int FROM training_credit c WHERE c.plant_id = ${w.plant.id}::uuid AND c.id IS NULL) AS "trainingCredits",
-		(SELECT count(*)::int FROM job j WHERE j.id IS NULL) AS "calendarEventsCreated"
-		FROM unnest(${sql.param(guests.length ? guests : [nil])}::uuid[]) WITH ORDINALITY AS u(id, ord)
+		) AS member
+		FROM unnest(${sql.param(guests)}::uuid[]) WITH ORDINALITY AS u(id, ord)
 		LEFT JOIN person p ON p.id = u.id AND p.tenant_id = ${w.plant.id}::uuid AND p.state = 'live'
-		WHERE ${guests.length > 0}
-		ORDER BY u.ord`);
+		ORDER BY u.ord`)
+		: { rows: [] as Record<string, unknown>[] };
 	if (guests.length && found.rows.some((row) => (row as { live?: boolean }).live !== true)) {
 		const other = await oneRow(
 			tx,
@@ -544,37 +495,7 @@ async function schedule(
 		if (other) deny("access_denied");
 		deny("invalid_subject");
 	}
-	const rows = z
-		.array(
-			guestRow.extend({
-				trainingCredits: z.number().int(),
-				calendarEventsCreated: z.number().int(),
-				live: z.boolean(),
-			}),
-		)
-		.parse(guests.length ? found.rows : []);
-	if (found.rows.length !== guests.length) {
-		const other = guests.length
-			? await oneRow(
-					tx,
-					sql`SELECT 1 AS n FROM person WHERE id = ANY(${sql.param(guests)}::uuid[]) AND tenant_id <> ${w.plant.id}::uuid`,
-				)
-			: undefined;
-		if (other) deny("access_denied");
-		deny("invalid_subject");
-	}
-	const counted = z.object({ trainingCredits: z.number().int(), calendarEventsCreated: z.number().int() });
-	const head = rows[0];
-	if (guests.length && !head) deny("invalid_subject");
-	const zeros = head
-		? head
-		: counted.parse(
-				(await oneRow(
-					tx,
-					sql`SELECT (SELECT count(*)::int FROM training_credit c WHERE c.plant_id = ${w.plant.id}::uuid AND c.id IS NULL) AS "trainingCredits",
-							(SELECT count(*)::int FROM job j WHERE j.id IS NULL) AS "calendarEventsCreated"`,
-				)) ?? {},
-			);
+	const rows = z.array(guestRow.extend({ live: z.boolean() })).parse(found.rows);
 	const id = randomUUID();
 	const members = rows.filter((row) => row.member).map((row) => row.id);
 	const meeting = sql`INSERT INTO meeting (id, plant_id, type, subtype, team_id, creator_id, local_date, local_time, timezone,
@@ -595,8 +516,6 @@ async function schedule(
 			teamId,
 			subtype: input.input.subtype,
 			guestIds: guests,
-			trainingCredits: zeros.trainingCredits,
-			calendarEventsCreated: zeros.calendarEventsCreated,
 		}),
 		subject: id,
 		subjectType: "meeting",
@@ -625,31 +544,22 @@ async function attend(
 		deny();
 	}
 	if (meeting.revision !== input.expectedRevision) deny("conflict");
-	const known = await oneRow(
+	const counts = await oneRow(
 		tx,
-		sql`SELECT count(*)::int AS n FROM participation
-			WHERE meeting_id = ${meetingId}::uuid AND plant_id = ${w.plant.id}::uuid AND removed_at IS NULL
-				AND person_id = ANY(${sql.param(people.length ? people : [nil])}::uuid[]) AND ${people.length > 0}`,
+		sql`SELECT count(*) FILTER (WHERE plant_id = ${w.plant.id}::uuid AND person_id = ANY(${sql.param(people.length ? people : [nil])}::uuid[]) AND ${people.length > 0})::int AS known,
+			count(*) FILTER (WHERE presence = 'attended' AND person_id = ANY(${sql.param(people.length ? people : [nil])}::uuid[]))::int AS already
+			FROM participation WHERE meeting_id = ${meetingId}::uuid AND removed_at IS NULL`,
 	);
-	if (
-		z
-			.number()
-			.int()
-			.parse(known?.n ?? 0) !== people.length
-	)
-		deny("invalid_subject");
-	const already = await oneRow(
-		tx,
-		sql`SELECT count(*)::int AS n FROM participation
-			WHERE meeting_id = ${meetingId}::uuid AND presence = 'attended' AND removed_at IS NULL
-				AND person_id = ANY(${sql.param(people.length ? people : [nil])}::uuid[])`,
-	);
-	const done =
-		meeting.status === "completed" &&
-		z
-			.number()
-			.int()
-			.parse(already?.n ?? 0) === people.length;
+	const known = z
+		.number()
+		.int()
+		.parse(counts?.known ?? 0);
+	const already = z
+		.number()
+		.int()
+		.parse(counts?.already ?? 0);
+	if (known !== people.length) deny("invalid_subject");
+	const done = meeting.status === "completed" && already === people.length;
 	if (!done && people.length) {
 		audit.writes.push(sql`UPDATE participation SET presence = 'attended', revision = revision + 1
 			WHERE meeting_id = ${meetingId}::uuid AND plant_id = ${w.plant.id}::uuid AND removed_at IS NULL

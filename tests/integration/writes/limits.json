@@ -1269,8 +1269,8 @@
 		"reason": "Recomplete locks the program, the person and the latest credit before it appends an earned row. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
 	},
 	"teams.recordAttendance": {
-		"limit": 10,
-		"reason": "Attendance checks the meeting and every named person before it marks presence and completes the meeting. Its largest first run: 2 transaction, 2 locked read, 5 read, 1 write."
+		"limit": 9,
+		"reason": "Attendance checks the meeting and every named person before it marks presence and completes the meeting. Its largest first run: 2 transaction, 2 locked read, 4 read, 1 write."
 	},
 	"teams.restore": {
 		"limit": 6

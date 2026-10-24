@@ -15,14 +15,17 @@ const stamp = z
 	.union([z.string(), z.date()])
 	.transform((value) => (value instanceof Date ? value.toISOString() : String(value)));
 
-async function row(db: Reader, viewer: Viewer, query: ReturnType<typeof sql>) {
+export async function row(db: Reader, viewer: Viewer, query: ReturnType<typeof sql>) {
 	const found = await one(db, viewer, query);
 	if (!found) deny();
 	return found;
 }
-function owner(plantId: string, value: unknown) {
+export function owner(plantId: string, value: unknown) {
 	if (typeof value !== "string") deny();
 	if (value !== plantId) deny("access_denied");
+}
+export function unique(ids: string[]) {
+	return [...new Set(ids)];
 }
 
 const teamJson = sql`json_build_object(

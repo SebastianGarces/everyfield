@@ -3,28 +3,9 @@ import { sql } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import type { RequestActor } from "../../access/session.ts";
-import { deny, one, parse, read, type Reader, type Viewer } from "../core.ts";
+import { deny, parse, read, type Reader } from "../core.ts";
+import { owner, row, unique } from "../reads.ts";
 import { rosterDigest } from "./digest.ts";
-
-async function row(db: Reader, viewer: Viewer, query: ReturnType<typeof sql>) {
-	const found = await one(db, viewer, query);
-	if (!found) deny();
-	return found;
-}
-function owner(plantId: string, value: unknown) {
-	if (value == null) deny();
-	if (value !== plantId) deny("access_denied");
-}
-function unique(ids: string[]) {
-	const seen = new Set<string>();
-	const out: string[] = [];
-	for (const id of ids) {
-		if (seen.has(id)) continue;
-		seen.add(id);
-		out.push(id);
-	}
-	return out;
-}
 const compatible = sql`(SELECT c.kind = 'earned' AND c.version = g.version
 	FROM training_credit c
 	WHERE c.plant_id = g.plant_id AND c.program_id = g.id AND c.person_id = a.person_id
@@ -47,16 +28,11 @@ function facts(plantId: string, teamId: string) {
 			WHEN coalesce(att.roster, 0) = 0 THEN 0::float8
 			ELSE att.members::float8 / att.roster END AS "attendanceRate",
 		json_build_array(40, 35, 25) AS weights,
-		(40 + 35 + 25 <> 100) AS reweighted,
 		CASE WHEN coalesce(train.denominator, 0) = 0 OR coalesce(roles.n, 0) = 0 OR coalesce(meetings.n, 0) = 0 THEN NULL
 			ELSE ((train.numerator::float8 / train.denominator) * 40)
 				+ ((coalesce(fill.filled, 0)::float8 / roles.n) * 35)
 				+ ((CASE WHEN coalesce(att.roster, 0) = 0 THEN 0::float8 ELSE att.members::float8 / att.roster END) * 25)
-			END AS composite,
-		(SELECT count(*)::int FROM audit_event e
-			WHERE e.tenant_id = ${plantId}::uuid AND e.action IN ('phase.created', 'phase.declared', 'phase.transitioned')
-				AND e.occurred_at > clock_timestamp()) AS "phaseChanges",
-		(SELECT count(*)::int FROM job j WHERE j.id IS NULL) AS "newJobs"
+			END AS composite
 		FROM (SELECT count(*)::int AS n FROM team_role r
 			WHERE r.team_id = ${teamId}::uuid AND r.plant_id = ${plantId}::uuid AND r.retired_at IS NULL) roles
 		CROSS JOIN (SELECT count(*)::int AS filled, count(DISTINCT tn.person_id)::int AS people
@@ -190,8 +166,6 @@ export const trainingReader = {
 							AND NOT coalesce(${compatible}, false))) AS "currentTrainingComplete",
 					EXISTS (SELECT 1 FROM training_credit c
 						WHERE c.person_id = ${input.personId}::uuid AND c.plant_id = ${viewer.plantId}::uuid AND c.kind = 'earned') AS "earnedHistoryRetained",
-					NULL::text AS "actualContact",
-					(SELECT false FROM person p WHERE p.id = ${input.personId}::uuid AND p.tenant_id = ${viewer.plantId}::uuid) AS "deliveredEmailIsContact",
 					(SELECT count(*)::int FROM person p WHERE p.id = ${input.personId}::uuid AND p.tenant_id = ${viewer.plantId}::uuid) AS "distinctPeople"`,
 			);
 			owner(viewer.plantId, found.owner);
@@ -202,8 +176,6 @@ export const trainingReader = {
 				concurrentAssignments: found.concurrentAssignments,
 				currentTrainingComplete: found.currentTrainingComplete,
 				earnedHistoryRetained: found.earnedHistoryRetained,
-				actualContact: found.actualContact,
-				deliveredEmailIsContact: found.deliveredEmailIsContact,
 				distinctPeople: found.distinctPeople,
 			});
 		});
@@ -228,22 +200,8 @@ export const trainingReader = {
 			return c.trainingHistory.parse({ personId: input.personId, credits: found.credits });
 		});
 	},
-	async readStaffingFacts(db: Reader, authority: RequestActor, raw: unknown) {
-		return read(authority, async (viewer) => {
-			const input = parse(c.staffingFactsRequest, raw);
-			const found = await row(db, viewer, facts(viewer.plantId, input.teamId));
-			owner(viewer.plantId, found.owner);
-			return c.teamFacts.parse({ teamId: input.teamId, ...picked(found) });
-		});
-	},
-	async readTrainingHealth(db: Reader, authority: RequestActor, raw: unknown) {
-		return read(authority, async (viewer) => {
-			const input = parse(c.trainingHealthRequest, raw);
-			const found = await row(db, viewer, facts(viewer.plantId, input.teamId));
-			owner(viewer.plantId, found.owner);
-			return c.teamFacts.parse({ teamId: input.teamId, ...picked(found) });
-		});
-	},
+	readStaffingFacts: teamFactsRead(c.staffingFactsRequest),
+	readTrainingHealth: teamFactsRead(c.trainingHealthRequest),
 	async listTeamMeetings(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (viewer) => {
 			const input = parse(c.listTeamMeetingsRequest, raw);
@@ -265,6 +223,15 @@ export const trainingReader = {
 	},
 };
 
+function teamFactsRead(request: typeof c.staffingFactsRequest | typeof c.trainingHealthRequest) {
+	return (db: Reader, authority: RequestActor, raw: unknown) =>
+		read(authority, async (viewer) => {
+			const input = parse(request, raw);
+			const found = await row(db, viewer, facts(viewer.plantId, input.teamId));
+			owner(viewer.plantId, found.owner);
+			return c.teamFacts.parse({ teamId: input.teamId, ...picked(found) });
+		});
+}
 function picked(found: Record<string, unknown>) {
 	return {
 		filledSlots: found.filledSlots,
@@ -277,9 +244,6 @@ function picked(found: Record<string, unknown>) {
 		staffingRate: found.staffingRate,
 		attendanceRate: found.attendanceRate,
 		weights: found.weights,
-		reweighted: found.reweighted,
 		composite: found.composite,
-		phaseChanges: found.phaseChanges,
-		newJobs: found.newJobs,
 	};
 }

@@ -349,7 +349,6 @@ test("AC:TARGET-TEAM-009 completion revoke and redo keep the original credit", a
 		),
 	);
 	assert.equal(earned.verifierAccountId, actors[2].id);
-	assert.equal(earned.automaticRoleChanges, 0);
 	ok(
 		await run(trainingWriter.revokeCompletion, {
 			requestKey: key(),
@@ -423,8 +422,6 @@ test("AC:TARGET-TEAM-017 AC:SME53-009 service evidence does not change a role", 
 		}),
 	);
 	assert.deepEqual([yes.candidate, no.candidate], [true, false]);
-	assert.equal(yes.automaticRoleChanges, 0);
-	assert.equal(no.automaticRoleChanges, 0);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM seat`), seats);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM team_role`), roles);
 	assert.equal((await admin.execute(sql`SELECT stage FROM person WHERE id=${alex}`)).rows[0].stage, stage);
@@ -438,8 +435,6 @@ test("AC:TARGET-TEAM-017 AC:SME53-009 service evidence does not change a role", 
 		"invalid_input",
 	);
 	const facts = ok(await trainingReader.readPersonTraining(db, await viewer(), { personId: alex }));
-	assert.equal(facts.actualContact, null);
-	assert.equal(facts.deliveredEmailIsContact, false);
 	assert.equal(facts.distinctPeople, 1);
 });
 
@@ -501,8 +496,6 @@ test("AC:B01-001 AC:GAP-TEAM-013 AC:TARGET-TEAM-013 a team meeting keeps its gue
 		),
 	);
 	assert.deepEqual(meeting.guestIds, [alex, casey]);
-	assert.equal(meeting.trainingCredits, 0);
-	assert.equal(meeting.calendarEventsCreated, 0);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM training_credit`), credits);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM job`), jobs);
 	ok(
@@ -564,7 +557,6 @@ test("AC:B01-003 AC:SME53-002 AC:SME53-004 AC:TARGET-TEAM-011 health keeps its w
 	const bareFacts = ok(await trainingReader.readTrainingHealth(db, await viewer(), { teamId: bare.id }));
 	assert.equal(bareFacts.composite, null);
 	assert.deepEqual(bareFacts.weights, [40, 35, 25]);
-	assert.equal(bareFacts.reweighted, false);
 	const team = await makeTeam("Staffed health");
 	const alex = await person("Alex Health");
 	const casey = await person("Casey Health");
@@ -625,8 +617,6 @@ test("AC:B01-003 AC:SME53-002 AC:SME53-004 AC:TARGET-TEAM-011 health keeps its w
 	assert.equal(facts.guestCount, 1);
 	assert.equal(facts.rosterDenominator, 2);
 	assert.equal(facts.trainingRate, null);
-	assert.equal(facts.phaseChanges, 0);
-	assert.equal(facts.newJobs, 0);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM audit_event WHERE action LIKE 'phase.%'`), phases);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM job`), jobs);
 	const course = await program("Coverage", { teamId: team.id });
@@ -706,8 +696,6 @@ test("AC:GAP-TEAM-010 AC:TARGET-PPL-021 AC:TARGET-TEAM-010 a person keeps curren
 	assert.deepEqual(facts.formerTeams, ["Hospitality"]);
 	assert.equal(facts.currentTrainingComplete, false);
 	assert.equal(facts.earnedHistoryRetained, true);
-	assert.equal(facts.actualContact, null);
-	assert.equal(facts.deliveredEmailIsContact, false);
 	assert.equal(facts.distinctPeople, 1);
 	const assignments = ok(await teamsReader.listPersonAssignments(db, await viewer(), { personId: alex }));
 	assert.equal(JSON.stringify(assignments).includes("background"), false);
@@ -919,6 +907,67 @@ test("AC:PERSONREF-TRAINING-APPLICABILITY-COMPLETION-MERGE AC:PERSONREF-TRAINING
 	);
 	assert.equal((await admin.execute(sql`SELECT state FROM person WHERE id=${source.id}`)).rows[0].state, "live");
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM job WHERE kind='mail'`), jobs);
+	const left = await make("Shared left");
+	const right = await make("Shared right");
+	const shared = await program("Shared roster", { teamId: null });
+	await saveRoster(shared.id, [left.id, right.id]);
+	const leftRow = (
+		await admin.execute(
+			sql`SELECT id, revision::int AS revision FROM training_assignment WHERE person_id=${left.id} AND program_id=${shared.id} AND state='active'`,
+		)
+	).rows[0];
+	const rightId = (
+		await admin.execute(
+			sql`SELECT id FROM training_assignment WHERE person_id=${right.id} AND program_id=${shared.id} AND state='active'`,
+		)
+	).rows[0].id;
+	const reviewBoth = ok(
+		await tx((t) => peopleMerge.getMergeReview(t, ctx(), { sourceId: left.id, survivorId: right.id })),
+	);
+	const mergedBoth = ok(
+		await tx((t) =>
+			peopleMerge.mergePeople(t, ctx(), {
+				requestKey: key(),
+				input: { sourceId: left.id, survivorId: right.id, reviewDigest: reviewBoth.reviewDigest },
+			}),
+		),
+	);
+	const placed = (
+		await admin.execute(
+			sql`SELECT id, person_id, state, revision::int AS revision, (ended_on IS NOT NULL) AS ended FROM training_assignment WHERE program_id=${shared.id}`,
+		)
+	).rows;
+	const active = placed.filter((row) => row.state === "active");
+	assert.equal(active.length, 1);
+	assert.equal(active[0].id, rightId);
+	assert.equal(active[0].person_id, right.id);
+	const ended = placed.find((row) => row.id === leftRow.id);
+	assert.equal(ended.person_id, right.id);
+	assert.equal(ended.state, "removed");
+	assert.equal(ended.ended, true);
+	assert.equal(ended.revision, leftRow.revision + 1);
+	const previewBoth = ok(await tx((t) => peopleUnmerge.previewUnmerge(t, ctx(), { mergeId: mergedBoth.mergeId })));
+	ok(
+		await tx((t) =>
+			peopleUnmerge.unmergePeople(t, ctx(), {
+				requestKey: key(),
+				expectedRevision: previewBoth.reviewRevision,
+				input: { mergeId: mergedBoth.mergeId },
+			}),
+		),
+	);
+	const restored = (
+		await admin.execute(
+			sql`SELECT id, person_id, state, revision::int AS revision FROM training_assignment WHERE program_id=${shared.id}`,
+		)
+	).rows;
+	const back = restored.find((row) => row.id === leftRow.id);
+	assert.equal(back.person_id, left.id);
+	assert.equal(back.state, "removed");
+	assert.equal(back.revision, leftRow.revision + 2);
+	const keptActive = restored.find((row) => row.id === rightId);
+	assert.equal(keptActive.person_id, right.id);
+	assert.equal(keptActive.state, "active");
 	const retired = await make("P2 retire");
 	const kept = await program("Retire course", { teamId: null });
 	await saveRoster(kept.id, [retired.id]);

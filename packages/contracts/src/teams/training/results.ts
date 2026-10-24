@@ -40,7 +40,6 @@ export const creditResult = z.strictObject({
 	candidate: z.boolean(),
 	verifierAccountId: recordId,
 	earnedOn: localDate.nullable(),
-	automaticRoleChanges: z.int().min(0),
 });
 export const meetingResult = z.strictObject({
 	...receipt,
@@ -48,8 +47,6 @@ export const meetingResult = z.strictObject({
 	teamId: recordId,
 	subtype: meetingSubtype,
 	guestIds: z.array(personId).max(200),
-	trainingCredits: z.literal(0),
-	calendarEventsCreated: z.literal(0),
 });
 export const attendanceResult = z.strictObject({
 	...receipt,
@@ -75,8 +72,6 @@ export const personTraining = z.strictObject({
 	concurrentAssignments: z.int().min(0),
 	currentTrainingComplete: z.boolean(),
 	earnedHistoryRetained: z.boolean(),
-	actualContact: z.null(),
-	deliveredEmailIsContact: z.boolean(),
 	distinctPeople: z.literal(1),
 });
 export const historyRow = z.strictObject({
@@ -105,10 +100,7 @@ export const teamFacts = z.strictObject({
 	staffingRate: z.number().nullable(),
 	attendanceRate: z.number().nullable(),
 	weights: z.tuple([z.number(), z.number(), z.number()]),
-	reweighted: z.boolean(),
 	composite: z.number().nullable(),
-	phaseChanges: z.int().min(0),
-	newJobs: z.int().min(0),
 });
 export const teamMeetingRow = z.strictObject({
 	id: recordId,
