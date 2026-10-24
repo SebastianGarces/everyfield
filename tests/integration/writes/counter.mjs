@@ -231,6 +231,8 @@ registerHooks({
 				"/packages/domain/src/meetings/guests.ts": { guestsWriter: "meetings" },
 				"/packages/domain/src/meetings/venues.ts": { venuesWriter: "venues" },
 				"/packages/domain/src/meetings/analytics.ts": { attendanceReader: "meetings" },
+				"/packages/domain/src/teams/commands.ts": { teamsWriter: "teams" },
+				"/packages/domain/src/teams/roster.ts": { rosterWriter: "meetings" },
 			};
 			for (const [name, prefix] of Object.entries(objects[path.slice(root.length)] ?? {}))
 				source += `\nglobalThis.__evfWriteCounts.decorate(${JSON.stringify(prefix)},${name});`;

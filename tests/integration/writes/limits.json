@@ -344,6 +344,9 @@
 		"limit": 6,
 		"retry": 5
 	},
+	"meetings.copyTeamRoster": {
+		"limit": 6
+	},
 	"meetings.correctEvaluation": {
 		"limit": 2
 	},
@@ -1222,6 +1225,55 @@
 		"limit": 8,
 		"retry": 11,
 		"reason": "BEGIN and COMMIT around a task write that replans reminders; the shared reminder sync (notifications.syncTaskReminders) sends 2 statements (F10). Its largest first run: 2 transaction, 4 locked read, 2 write."
+	},
+	"teams.appointLeader": {
+		"limit": 7,
+		"reason": "The appointment locks the person row as well as the team. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
+	},
+	"teams.archive": {
+		"limit": 6,
+		"retry": 5
+	},
+	"teams.assignRole": {
+		"limit": 6,
+		"retry": 5
+	},
+	"teams.correct": {
+		"limit": 6
+	},
+	"teams.create": {
+		"limit": 6
+	},
+	"teams.createRole": {
+		"limit": 6,
+		"retry": 2
+	},
+	"teams.edit": {
+		"limit": 6,
+		"retry": 6
+	},
+	"teams.editRole": {
+		"limit": 8,
+		"reason": "A non-admin leader resolves the role team, then checks that they lead it. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write."
+	},
+	"teams.endMembership": {
+		"limit": 7,
+		"reason": "Ending a membership counts the open tenures after the team lock. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write."
+	},
+	"teams.initialize": {
+		"limit": 6,
+		"retry": 4
+	},
+	"teams.reactivateMembership": {
+		"limit": 6
+	},
+	"teams.restore": {
+		"limit": 6
+	},
+	"teams.retireRole": {
+		"limit": 8,
+		"retry": 5,
+		"reason": "A non-admin leader resolves the role team, then checks that they lead it. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write."
 	},
 	"venues.archive": {
 		"limit": 6
