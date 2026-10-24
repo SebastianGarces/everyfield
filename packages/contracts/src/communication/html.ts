@@ -1,11 +1,37 @@
-/** Safe rich text for a church email body. Scripts and event handlers never remain. */
+import sanitize from "sanitize-html";
+
+/** Tags a church email may keep. Everything else is discarded, including its nested content when it is a script. */
+const allowedTags = [
+	"a",
+	"b",
+	"blockquote",
+	"br",
+	"em",
+	"h1",
+	"h2",
+	"h3",
+	"i",
+	"li",
+	"ol",
+	"p",
+	"span",
+	"strong",
+	"u",
+	"ul",
+];
+
+/**
+ * Allowlist sanitizer. It parses the markup, so a nested or unclosed tag cannot reassemble into a script.
+ * The repo had no HTML parser. sanitize-html parses with htmlparser2 and keeps only this email subset.
+ */
 export function sanitizeHtml(input: string): string {
-	let html = input.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "");
-	html = html.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, "");
-	html = html.replace(/<\/?(?:iframe|object|embed|link|meta)\b[^>]*>/gi, "");
-	html = html.replace(/\son\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, "");
-	html = html.replace(/javascript:/gi, "");
-	return html.trim();
+	return sanitize(input, {
+		allowedTags,
+		allowedAttributes: { a: ["href"] },
+		allowedSchemes: ["http", "https", "mailto"],
+		allowProtocolRelative: false,
+		disallowedTagsMode: "discard",
+	}).trim();
 }
 
 export function escapeHtml(value: string): string {
@@ -26,9 +52,9 @@ export function plainText(input: string): string {
 		.trim();
 }
 
-/** Thirty 24-hour days. An instant equal to this window is accepted. A later instant is not. */
+/** Thirty 24-hour days. An instant equal to this window is accepted. A later instant is not. A past instant is not. */
 export const SCHEDULE_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
 export function scheduleAccepted(now: Date, at: Date): boolean {
-	return at.getTime() <= now.getTime() + SCHEDULE_WINDOW_MS;
+	return at.getTime() >= now.getTime() && at.getTime() <= now.getTime() + SCHEDULE_WINDOW_MS;
 }

@@ -16,9 +16,12 @@ export type CommunicationViewer = {
 	role: "owner" | "admin" | "member";
 };
 
-export type Outcome<T> = { status: "ok"; value: T } | { status: "refused"; code: string } | { status: "lost" };
+type RefusalDetails = Extract<CommunicationReply<unknown>, { status: "refused" }>["error"]["details"];
 
-const denied = { status: "refused", code: "access_denied" } as const;
+export type Outcome<T> =
+	{ status: "ok"; value: T } | { status: "refused"; code: string; details: RefusalDetails } | { status: "lost" };
+
+const denied = { status: "refused", code: "access_denied", details: {} } as const;
 
 export async function communicationViewer(): Promise<CommunicationViewer | null> {
 	const viewer = await getViewer();
@@ -30,7 +33,9 @@ export async function communicationViewer(): Promise<CommunicationViewer | null>
 }
 
 const outcome = <T>(reply: CommunicationReply<T>): Outcome<T> =>
-	reply.status === "ok" ? { status: "ok", value: reply.value } : { status: "refused", code: reply.error.code };
+	reply.status === "ok"
+		? { status: "ok", value: reply.value }
+		: { status: "refused", code: reply.error.code, details: reply.error.details };
 
 export async function read<T>(
 	viewer: CommunicationViewer,

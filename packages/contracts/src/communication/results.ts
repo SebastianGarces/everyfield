@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { defineSafeError, recordId, revision, safeError } from "../common/values.ts";
 import { instant } from "../common/time.ts";
-import { communicationStates, meetingTemplateType, templateCategory } from "./values.ts";
+import { audienceInput, communicationStates, meetingTemplateType, templateCategory } from "./values.ts";
 
 export const communicationError = z.discriminatedUnion("code", [
 	...safeError.options,
@@ -25,6 +25,10 @@ export const draftResult = z.strictObject({
 	subject: z.string().nullable(),
 	bodyHtml: z.string().nullable(),
 	bodyText: z.string().nullable(),
+	audience: audienceInput,
+	meetingId: recordId.nullable(),
+	templateId: recordId.nullable(),
+	templateSource: z.string().nullable(),
 });
 export const scheduleResult = draftResult.extend({
 	scheduleStatus: z.literal("accepted"),

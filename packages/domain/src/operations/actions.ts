@@ -41,7 +41,22 @@ export function writeAction(operation: string): string {
 				: "phase.transitioned";
 	if (domain === "tasks") return "tasks.changed";
 	if (domain === "notifications") return "settings.changed";
-	if (domain === "communication") return "communication.approved";
+	if (domain === "communication") {
+		const named: Record<string, string> = {
+			"communication.saveDraft": "communication.draft_saved",
+			"communication.deleteDraft": "communication.draft_deleted",
+			"communication.scheduleReviewed": "communication.scheduled",
+			"communication.rescheduleReviewed": "communication.rescheduled",
+			"communication.templates.create": "communication.template_created",
+			"communication.templates.fork": "communication.template_forked",
+			"communication.templates.update": "communication.template_updated",
+			"communication.templates.archive": "communication.template_archived",
+			"communication.templates.delete": "communication.template_deleted",
+		};
+		const action = named[operation];
+		if (!action) throw Error("unknown_write_action:" + operation);
+		return action;
+	}
 	if (operation === "identity.answerLeadOnboarding") return "identity.domain_accepted";
 	throw Error("unknown_write_action:" + operation);
 }

@@ -5,11 +5,7 @@ import { sql } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import { scheduleAccepted, systemTemplates } from "../../../packages/contracts/src/communication/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
-import {
-	communicationWriter,
-	replaceScheduled,
-	withCommunicationWrite,
-} from "../../../packages/domain/src/communication/index.ts";
+import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
 
 let f, plant, other, owner, member, foreign;
 const ok = (result) => {
@@ -354,6 +350,8 @@ test("AC:CASE-COM-007 a plant fork replaces one system source and keeps referenc
 
 test("AC:CASE-COM-012 drafts save and a reviewed schedule stays inside thirty days", async () => {
 	const now = new Date("2026-10-13T16:00:00Z");
+	assert.equal(scheduleAccepted(now, new Date("2026-10-12T16:00:00Z")), false);
+	assert.equal(scheduleAccepted(now, now), true);
 	assert.equal(scheduleAccepted(now, new Date("2026-11-12T16:00:00Z")), true);
 	assert.equal(scheduleAccepted(now, new Date("2026-11-13T16:00:00Z")), false);
 
@@ -381,6 +379,42 @@ test("AC:CASE-COM-012 drafts save and a reviewed schedule stays inside thirty da
 			audience: { ...emptyAudience, personIds: [guest] },
 		}),
 	);
+	const reloaded = ok(await read(owner, "getDraft", { id: saved.communicationId }));
+	assert.deepEqual(reloaded.audience, { ...emptyAudience, personIds: [guest] });
+	assert.equal(reloaded.meetingId, null);
+	assert.equal(reloaded.templateId, null);
+	assert.equal(reloaded.templateSource, null);
+	const meet = await meeting("Draft meeting", plant);
+	const source = ok(await write(owner, "createTemplate", { requestKey: key(), input: templateInput() }));
+	const rich = ok(
+		await draft({
+			subject: "Rich",
+			bodyHtml: "<p>Rich</p>",
+			audience: { ...emptyAudience, personIds: [guest], groups: ["leaders"] },
+			meetingId: meet,
+			templateId: source.templateId,
+			templateSource: "general-announcement",
+		}),
+	);
+	const again = ok(await read(owner, "getDraft", { id: rich.communicationId }));
+	assert.equal(again.meetingId, meet);
+	assert.equal(again.templateId, source.templateId);
+	assert.equal(again.templateSource, "general-announcement");
+	assert.deepEqual(again.audience.personIds, [guest]);
+	assert.deepEqual(again.audience.groups, ["leaders"]);
+	const listed = ok(await read(owner, "listDrafts"));
+	const listedRich = listed.drafts.find((row) => row.communicationId === rich.communicationId);
+	assert.equal(listedRich.templateSource, "general-announcement");
+	assert.equal(listedRich.meetingId, meet);
+	const [draftAudit] = await rows(
+		sql`SELECT action, before_value, after_value FROM audit_event WHERE subject_id = ${saved.communicationId}::uuid`,
+	);
+	assert.equal(draftAudit.action, "communication.draft_saved");
+	assert.equal(draftAudit.before_value, null);
+	assert.equal(draftAudit.after_value.subject, "Hold the date");
+	assert.equal(draftAudit.after_value.state, "draft");
+	assert.equal(Object.hasOwn(draftAudit.after_value, "body_html"), false);
+	assert.equal(typeof draftAudit.after_value.body_sha256, "string");
 	const mailBefore = await counts();
 	refused(
 		await write(owner, "saveDraft", {
@@ -434,6 +468,17 @@ test("AC:CASE-COM-012 drafts save and a reviewed schedule stays inside thirty da
 	const [unsent] = await rows(sql`SELECT state FROM communication WHERE id = ${unreachable.communicationId}`);
 	assert.equal(unsent.state, "draft");
 
+	refused(
+		await write(owner, "scheduleReviewed", {
+			requestKey: key(),
+			expectedRevision: saved.revision,
+			input: {
+				communicationId: saved.communicationId,
+				scheduledAt: new Date(Date.now() - 86_400_000).toISOString(),
+			},
+		}),
+		"schedule_window_exceeded",
+	);
 	const soon = new Date(Date.now() + 86_400_000).toISOString();
 	const accepted = ok(
 		await write(owner, "scheduleReviewed", {
@@ -447,6 +492,37 @@ test("AC:CASE-COM-012 drafts save and a reviewed schedule stays inside thirty da
 	assert.equal(accepted.draftIntents, 0);
 	assert.equal(accepted.replacementIntents, 0);
 	assert.equal(accepted.state, "scheduled");
+	const same = ok(
+		await read(owner, "readPreview", {
+			bodyHtml: "<p>Hold the date</p>",
+			merge: {},
+			audience: { ...emptyAudience, personIds: [guest] },
+			communicationId: saved.communicationId,
+		}),
+	);
+	assert.equal(same.previewBody, "<p>Hold the date</p>");
+	const drifted = refused(
+		await read(owner, "readPreview", {
+			bodyHtml: "<p>Changed</p>",
+			merge: {},
+			audience: { ...emptyAudience, personIds: [guest] },
+			communicationId: saved.communicationId,
+		}),
+		"stale_review",
+	);
+	assert.equal(drifted.details.previewBody, "<p>Changed</p>");
+	assert.equal(drifted.details.scriptExecution, false);
+	assert.equal(drifted.details.providerCalls, 0);
+	const scheduleAudits = await rows(
+		sql`SELECT action, before_value, after_value FROM audit_event WHERE subject_id = ${saved.communicationId}::uuid ORDER BY recorded_at, id`,
+	);
+	assert.deepEqual(
+		scheduleAudits.map((row) => row.action),
+		["communication.draft_saved", "communication.scheduled"],
+	);
+	assert.equal(scheduleAudits[1].before_value.state, "draft");
+	assert.equal(scheduleAudits[1].after_value.state, "scheduled");
+	assert.equal(typeof scheduleAudits[1].after_value.review_digest, "string");
 	const later = new Date(Date.now() + 2 * 86_400_000).toISOString();
 	const moved = ok(
 		await write(owner, "rescheduleReviewed", {
@@ -509,10 +585,14 @@ test("AC:CASE-COM-012 drafts save and a reviewed schedule stays inside thirty da
 		"schedule_window_exceeded",
 	);
 	assert.equal(window.details.providerHandoffs, 0);
-	const replaced = replaceScheduled();
-	assert.equal(replaced.status, "refused");
-	assert.equal(replaced.error.code, "cancel_unconfirmed");
-	assert.equal(replaced.error.details.replacementIntents, 0);
+	refused(
+		await write(owner, "saveDraft", {
+			requestKey: key(),
+			expectedRevision: moved.revision,
+			input: { communicationId: saved.communicationId, subject: "Replace" },
+		}),
+		"conflict",
+	);
 	const after = await counts();
 	assert.equal(after.intents, before.intents);
 	assert.equal(after.attempts, before.attempts);
@@ -526,7 +606,7 @@ test("a forged actor with another user's live session writes nothing", async () 
 				(SELECT count(*)::int FROM message_template WHERE plant_id = ${plant.id}) AS templates,
 				(SELECT count(*)::int FROM mail WHERE tenant_id = ${plant.id} AND purpose = 'communication') AS intents,
 				(SELECT count(*)::int FROM mail_attempt WHERE tenant_id = ${plant.id}) AS attempts,
-				(SELECT count(*)::int FROM audit_event WHERE tenant_id = ${plant.id} AND action = 'communication.approved') AS audits`)
+				(SELECT count(*)::int FROM audit_event WHERE tenant_id = ${plant.id}) AS audits`)
 		)[0];
 	const before = await snapshot();
 	const forged = RequestActor.of(member.actor.session, owner.actor.actor);
