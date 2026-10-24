@@ -12,7 +12,8 @@ import {
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
-import { isAdmin, loadTeam, loadTeams, plantViewer, type Viewer } from "./server.ts";
+import { plantViewer } from "../meetings/server.ts";
+import { isAdmin, loadTeam, loadTeams, type Viewer } from "./server.ts";
 import { TeamScreen } from "./TeamScreen.tsx";
 import { TeamsScreen } from "./TeamsScreen.tsx";
 

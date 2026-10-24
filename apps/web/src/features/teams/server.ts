@@ -1,5 +1,5 @@
 import { requestDatabase } from "@/server/database";
-import { getViewer } from "@/server/request-context";
+import type { Viewer } from "../meetings/server.ts";
 import type { TeamsReply } from "@everyfield/contracts/teams";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { teamsReader, withTeamsWrite } from "@everyfield/domain/teams";
@@ -10,8 +10,7 @@ import type { ChartNode, Member, Outcome, Role, Team } from "./model.ts";
 // by side on the request's pool: the page waits for one round trip, not four. Writes run in their own transaction
 // through the producer's native write, which checks the seat and the team leader inside it.
 
-type Peopled = NonNullable<NonNullable<Awaited<ReturnType<typeof getViewer>>>["people"]>;
-export type Viewer = Peopled;
+export type { Viewer };
 export const isAdmin = (v: Viewer) => v.role === "owner" || v.role === "admin";
 
 type Reply<T> = TeamsReply<T> | { status: "failed" };
@@ -50,12 +49,6 @@ export function outcome<T>(reply: Reply<T>): Outcome<T> {
 	return { status: "ok", value: reply.value };
 }
 const value = <T>(r: Reply<T>): T | null => (r.status === "ok" ? r.value : null);
-
-/** The viewer when they hold a plant seat; null otherwise. */
-export async function plantViewer() {
-	const v = await getViewer();
-	return { viewer: v?.people ?? null, signedOut: !v || v.status === "unauthenticated", ok: v !== null };
-}
 
 /** A team as the screens show it: the team, its leader's name, and whether this viewer may change it. */
 export type TeamCard = Team & { leaderName: string | null };
