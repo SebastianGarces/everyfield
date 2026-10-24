@@ -2,7 +2,7 @@
 
 [target.json](target.json) is generated from the Drizzle declarations in [tables.ts](../../packages/db/src/schema/tables.ts). Those declarations own modeled structure; reviewed custom migrations and supplemental catalog expectations own triggers, functions and privileges. Applied SQL remains immutable.
 
-The schema has 90 tables, 1026 columns, 321 declared FKs and 25 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
+The schema has 93 tables, 1055 columns, 330 declared FKs and 25 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
 
 Run documentation/tooling checks from the repository root:
 
@@ -69,6 +69,9 @@ Each replaced table inherits the union of producer packages from its previous ta
 | `schema_migration` | WP-097 installs the migration runner ledger with its physical text primary key. | WP-097 |
 | `settings_preview` | WP-010 settings storage through Drizzle Kit. | WP-010 |
 | `tenant` | Stable body-free ownership is shared by root and deletion producers; no independent access grant. | WP-004, WP-005, WP-007, WP-010, WP-050, WP-057 |
+| `training_assignment` | WP-019 saved training applicability. | WP-019 |
+| `training_credit` | WP-019 training evidence. Historical completion stays on the person who earned it. | WP-019 |
+| `training_program` | WP-019 training program storage. The dropped training tables are not the contract (D72). | WP-019 |
 
 `assessment_fact` also adds WP-040, which owns deterministic fact capture. Its remaining producers inherit the replaced assessment stores. Original-author care excludes generic record/history movement. The Person registry is rebuilt from all adopted Person FKs; generic person-kind record references and frozen opaque inputs are separately registered as immutable evidence.
 

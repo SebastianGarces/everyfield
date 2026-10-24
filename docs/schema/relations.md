@@ -323,6 +323,15 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `team_tenure(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `team_tenure(previous_tenure_id, plant_id)` | `team_tenure(id, plant_id)` | restrict |  |
 | `team_tenure(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
+| `training_assignment(plant_id)` | `plant(id)` | restrict |  |
+| `training_assignment(program_id, plant_id)` | `training_program(id, plant_id)` | restrict |  |
+| `training_assignment(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
+| `training_credit(plant_id)` | `plant(id)` | restrict |  |
+| `training_credit(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
+| `training_credit(program_id, plant_id)` | `training_program(id, plant_id)` | restrict |  |
+| `training_credit(verifier_account_id)` | `account(id)` | set_null |  |
+| `training_program(plant_id)` | `plant(id)` | restrict |  |
+| `training_program(team_id, plant_id)` | `team(id, plant_id)` | restrict |  |
 | `venue(plant_id)` | `plant(id)` | restrict |  |
 | `venue(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 
@@ -358,3 +367,5 @@ Every declared Person FK has one registration in `target.json.person_references`
 | `person_merge` | `survivor_id, tenant_id` | WP-015 |
 | `record_correction` | `person_id, plant_id` | WP-015 |
 | `commitment_change` | `person_id, plant_id` | WP-014 |
+| `training_assignment` | `person_id, plant_id` | WP-019 |
+| `training_credit` | `person_id, plant_id` | WP-019 |

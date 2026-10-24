@@ -6,6 +6,7 @@
 	"tests/integration/people/corrections/*.test.mts",
 	"tests/integration/meetings/*.test.mts",
 	"tests/integration/teams/*.test.mts",
+	"tests/integration/teams/training/*.test.mts",
 	"tests/integration/identity/*.test.mts",
 	"tests/integration/organizations/*.test.mts",
 	"tests/integration/onboarding/*.test.mts",
