@@ -103,12 +103,6 @@ function wikiOf(error: unknown): never {
 	}
 	throw error instanceof Error ? error : new WikiRefusal("incomplete_candidate", "write_failed");
 }
-function rethrow(error: unknown): never {
-	if (error instanceof WikiRefusal) throw error;
-	const text = error instanceof Error ? error.message : "";
-	if (text.includes("23505")) throw new WikiRefusal("revision_conflict");
-	throw error;
-}
 function parseCaller(input: unknown): WikiCaller {
 	const parsed = callerSchema.safeParse(input);
 	if (!parsed.success) throw new WikiRefusal("access_denied");
@@ -136,9 +130,14 @@ async function authorizeCaller(
 	caller: WikiCaller,
 	command: Promotion,
 ): Promise<ReferenceAuthority | null> {
-	const selected = await tx.execute(
-		sql`SELECT id FROM auth_session WHERE id = ${caller.sessionId}::uuid AND user_id = ${caller.userId}::uuid AND expires_at > clock_timestamp()`,
-	);
+	const selected = await tx.execute(sql`
+		SELECT s.id
+		FROM auth_session s
+		JOIN account a ON a.id = ${caller.actorId}::uuid AND a.auth_user_id = s.user_id
+		WHERE s.id = ${caller.sessionId}::uuid
+		  AND s.user_id = ${caller.userId}::uuid
+		  AND s.expires_at > clock_timestamp()
+	`);
 	if (selected.rows.length !== 1) return null;
 	return {
 		actorId: caller.actorId,
@@ -301,8 +300,7 @@ export function referenceService(db: Database, deps: WikiDependencies = {}) {
 		if (!parsed.success) throw new WikiRefusal("access_denied");
 		const requestKey = parsed.data.requestKey;
 		const digest = commandDigest({ kind: "cache", target: approvedWiki.target });
-		try {
-			const selected = await db.execute(sql`
+		const selected = await db.execute(sql`
 				WITH prior AS (
 				  SELECT id, result, metadata->>'requestDigest' AS digest, actor_id
 				  FROM audit_event WHERE tenant_id = ${GLOBAL}::uuid AND request_key = ${requestKey}
@@ -313,7 +311,7 @@ export function referenceService(db: Database, deps: WikiDependencies = {}) {
 				  JOIN platform_grant g ON g.account_id = a.id AND g.capability = 'reference_publish' AND g.revoked_at IS NULL
 				    AND (g.expires_at IS NULL OR g.expires_at > clock_timestamp())
 				  JOIN auth_session s ON s.id = ${caller.sessionId}::uuid AND s.user_id = ${caller.userId}::uuid
-				    AND s.expires_at > clock_timestamp()
+				    AND s.expires_at > clock_timestamp() AND a.auth_user_id = s.user_id
 				  WHERE a.id = ${caller.actorId}::uuid AND a.registration_state = 'active'
 				  FOR UPDATE OF a
 				),
@@ -361,25 +359,21 @@ export function referenceService(db: Database, deps: WikiDependencies = {}) {
 				  ELSE (SELECT result FROM ins)
 				END AS result
 			`);
-			const row = z
-				.object({
-					status: z.enum(["written", "replay", "access_denied", "idempotency_conflict", "revision_conflict"]),
-					result: z.unknown(),
-				})
-				.parse(selected.rows[0]);
-			if (row.status !== "written" && row.status !== "replay") throw new WikiRefusal(row.status);
-			return { ...cacheReceipt.parse(row.result), replayed: row.status === "replay" };
-		} catch (error) {
-			rethrow(error);
-		}
+		const row = z
+			.object({
+				status: z.enum(["written", "replay", "access_denied", "idempotency_conflict", "revision_conflict"]),
+				result: z.unknown(),
+			})
+			.parse(selected.rows[0]);
+		if (row.status !== "written" && row.status !== "replay") throw new WikiRefusal(row.status);
+		return { ...cacheReceipt.parse(row.result), replayed: row.status === "replay" };
 	}
 	async function exportApprovedWiki(callerInput: unknown) {
 		const caller = parseCaller(callerInput);
 		const loaded = await snapshot();
 		if (loaded.discoveryIds.some((id) => !z.uuid().safeParse(id).success))
 			throw new WikiRefusal("incomplete_candidate", "discovery_id");
-		try {
-			const selected = await db.execute(sql`
+		const selected = await db.execute(sql`
 				SELECT gate.n AS gate,
 				  cur.release_key AS "activeRelease",
 				  cur.activation_number AS "activationNumber",
@@ -398,7 +392,7 @@ export function referenceService(db: Database, deps: WikiDependencies = {}) {
 				    JOIN platform_grant g ON g.account_id = a.id AND g.capability = 'reference_publish' AND g.revoked_at IS NULL
 				      AND (g.expires_at IS NULL OR g.expires_at > clock_timestamp())
 				    JOIN auth_session s ON s.id = ${caller.sessionId}::uuid AND s.user_id = ${caller.userId}::uuid
-				      AND s.expires_at > clock_timestamp()
+				      AND s.expires_at > clock_timestamp() AND a.auth_user_id = s.user_id
 				    WHERE a.id = ${caller.actorId}::uuid AND a.registration_state = 'active'
 				    FOR UPDATE OF a
 				  ) locked
@@ -412,25 +406,22 @@ export function referenceService(db: Database, deps: WikiDependencies = {}) {
 				  LIMIT 1
 				) cur ON true
 			`);
-			const row = exportRow.parse(selected.rows[0]);
-			if (row.gate !== 1) throw new WikiRefusal("access_denied");
-			if (!row.activeRelease || !row.activationNumber || row.passages === null)
-				throw new WikiRefusal("revision_conflict");
-			return {
-				activeRelease: row.activeRelease,
-				activationNumber: row.activationNumber,
-				partialActivation: row.partialActivation,
-				orgAdoptionRequired: false as const,
-				articles: row.articles,
-				sections: row.sections,
-				systemTemplates: row.systemTemplates,
-				passages: row.passages,
-				discoveryArticles: row.discovery,
-				documentTemplatesSeparate: approvedWiki.documentTemplatesSeparate,
-			};
-		} catch (error) {
-			rethrow(error);
-		}
+		const row = exportRow.parse(selected.rows[0]);
+		if (row.gate !== 1) throw new WikiRefusal("access_denied");
+		if (!row.activeRelease || !row.activationNumber || row.passages === null)
+			throw new WikiRefusal("revision_conflict");
+		return {
+			activeRelease: row.activeRelease,
+			activationNumber: row.activationNumber,
+			partialActivation: row.partialActivation,
+			orgAdoptionRequired: false as const,
+			articles: row.articles,
+			sections: row.sections,
+			systemTemplates: row.systemTemplates,
+			passages: row.passages,
+			discoveryArticles: row.discovery,
+			documentTemplatesSeparate: approvedWiki.documentTemplatesSeparate,
+		};
 	}
 	return { exportApprovedWiki, installApprovedWiki, invalidateWikiCache, rebuildEmbeddings };
 }

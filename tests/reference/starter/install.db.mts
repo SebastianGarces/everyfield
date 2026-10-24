@@ -42,6 +42,7 @@ const orgRevision = randomUUID();
 const global = "00000000-0000-0000-0000-000000000000";
 const publisher = { actorId: actor, userId: user, sessionId: session };
 const foreign = { actorId: foreignActor, userId: foreignUser, sessionId: foreignSession };
+const forged = { actorId: actor, userId: foreignUser, sessionId: foreignSession };
 let dropVector = false;
 let failProvider = false;
 const service = referenceService(db, {
@@ -147,6 +148,22 @@ test("AC:REF-CASE-002 AC:GAP-REF-002 AC:CASE-WIKI-010 AC:SCHEMA-014 approved wik
 		refusal("source_unavailable"),
 	);
 	assert.deepEqual(await counts(), empty);
+	await assert.rejects(service.installApprovedWiki(forged, command("R1", "0")), refusal("access_denied"));
+	await assert.rejects(service.exportApprovedWiki(forged), refusal("access_denied"));
+	await assert.rejects(service.installApprovedWiki(forged, command("R1", "0", "rollback")), refusal("access_denied"));
+	await assert.rejects(service.invalidateWikiCache(forged, { requestKey: randomUUID() }), refusal("access_denied"));
+	await assert.rejects(
+		service.rebuildEmbeddings(forged, {
+			release: "R9",
+			manifestSha256: approvedWiki.manifestSha256,
+			payloadSha256: approvedWiki.payloadSha256,
+			requestKey: randomUUID(),
+			expectedActivation: "0",
+			target: approvedWiki.target,
+		}),
+		refusal("access_denied"),
+	);
+	assert.deepEqual(await counts(), empty);
 
 	const firstKey = randomUUID();
 	const first = await service.installApprovedWiki(publisher, command("R1", "0", "install", firstKey));
@@ -166,6 +183,9 @@ test("AC:REF-CASE-002 AC:GAP-REF-002 AC:CASE-WIKI-010 AC:SCHEMA-014 approved wik
 		mail: 0,
 		leaked: 0,
 	});
+	await assert.rejects(service.installApprovedWiki(forged, command("R1", "1")), refusal("access_denied"));
+	assert.equal((await counts())?.events, 1);
+	assert.equal((await counts())?.activations, 1);
 	const discovery = await db.execute(
 		sql`SELECT count(*)::int AS n FROM reference_item WHERE kind = 'article' AND tenant_id = ${global}::uuid AND id IN (
       SELECT value::uuid FROM jsonb_array_elements_text(${JSON.stringify((await loadApprovedSnapshot()).discoveryIds)}::jsonb)
@@ -317,6 +337,12 @@ test("AC:REF-CASE-002 AC:GAP-REF-002 AC:CASE-WIKI-010 AC:SCHEMA-014 approved wik
 	assert.equal(cached.activationNumber, "3");
 	assert.equal(cached.cacheGeneration, 1);
 	assert.equal((await service.exportApprovedWiki(publisher)).activationNumber, "3");
+	const eventsAfterCache = (await counts())?.events;
+	await assert.rejects(service.exportApprovedWiki(forged), refusal("access_denied"));
+	await assert.rejects(service.invalidateWikiCache(forged, { requestKey: randomUUID() }), refusal("access_denied"));
+	await assert.rejects(service.installApprovedWiki(forged, command("R2", "3", "rollback")), refusal("access_denied"));
+	assert.equal((await counts())?.events, eventsAfterCache);
+	assert.equal((await counts())?.activations, 3);
 
 	const org = await db.execute(
 		sql`SELECT body, tenant_id::text AS tenant_id FROM article_revision WHERE slug = 'org/edition'`,
