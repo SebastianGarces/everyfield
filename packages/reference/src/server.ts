@@ -50,6 +50,7 @@ export interface ActivationReceipt {
 	number: string;
 	generationKey: string;
 	replayed: boolean;
+	createdRelease: boolean;
 }
 
 // No HTTP/session adapter is installed by this producer. Its trusted adapter owns session and review loading.
@@ -192,7 +193,16 @@ export function referenceService(db: Database, deps: ReferenceDependencies) {
 			const activationId = unchanged ? current.id : randomUUID();
 			const number = unchanged ? current.activation_number : (BigInt(command.expectedActivation) + 1n).toString();
 			const eventId = operationId;
-			const result = { operationId, activationId, eventId, number, generationKey: bundle.key, replayed: false };
+			const createdRelease = command.kind !== "rollback" && !saved;
+			const result = {
+				operationId,
+				activationId,
+				eventId,
+				number,
+				generationKey: bundle.key,
+				replayed: false,
+				createdRelease,
+			};
 			const audit = tx.insert(tables.audit_event).values({
 				id: operationId,
 				tenant_id: GLOBAL,
@@ -267,6 +277,7 @@ async function readReceipt(tx: Transaction, operationId: string): Promise<Activa
 			number: z.string(),
 			generationKey: z.string(),
 			replayed: z.boolean(),
+			createdRelease: z.boolean(),
 		})
 		.parse(row?.result);
 }
