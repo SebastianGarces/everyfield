@@ -21,7 +21,7 @@ import type {
 	Template,
 } from "./model.ts";
 import { canWrite, communicationViewer, deliver, read, write, type Viewer } from "./server.ts";
-import { deliveryTransport } from "./mail.ts";
+import { anticipateProvider, deliveryTransport } from "./mail.ts";
 
 // Server actions for the Messages screens. The actor is the request's seat. The browser cannot send one.
 // A lost write keeps its request key so a retry replays. The caller mints a new key after success or a refusal.
@@ -120,15 +120,16 @@ export async function sendReviewed(
 	expectedRevision: string,
 	communicationId: string,
 ): Promise<Outcome<DeliveryReport>> {
-	const result = await deliver((db, viewer, mail) =>
-		communicationWriter.sendReviewed(
+	const result = await deliver((db, viewer, mail) => {
+		anticipateProvider(mail);
+		return communicationWriter.sendReviewed(
 			db,
 			viewer.authority,
 			{ requestKey, expectedRevision, input: { communicationId } },
 			deliveryTransport(mail),
 			mail.keys,
-		),
-	);
+		);
+	});
 	if (result.status !== "ok") return result;
 	return {
 		status: "ok",

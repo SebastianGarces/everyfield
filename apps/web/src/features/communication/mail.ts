@@ -19,6 +19,91 @@ const batchBody = z.object({
 
 const refusedStatus = new Set([400, 401, 403, 422]);
 
+const reservedExact = new Set(["example.com", "example.net", "example.org", "example", "invalid", "localhost", "test"]);
+const reservedSuffix = [".example", ".invalid", ".localhost", ".test"];
+
+const domainListBody = z.object({
+	has_more: z.boolean().optional(),
+	data: z.array(z.object({ name: z.string().min(1).max(253), status: z.string() })).max(100),
+});
+
+type DomainList = { verified: Set<string> } | { failed: true } | { refused: true };
+
+let domainList: Promise<void> | null = null;
+let domainListAt = 0;
+
+function fromDomain(from: string): string {
+	const at = from.lastIndexOf("@");
+	return (at === -1 ? from : from.slice(at + 1)).trim().toLowerCase().replace(/\.$/, "");
+}
+
+function reservedDomain(domain: string): boolean {
+	if (reservedExact.has(domain)) return true;
+	return reservedSuffix.some((suffix) => domain.endsWith(suffix));
+}
+
+function resendTestDomain(domain: string): boolean {
+	return domain === "resend.dev" || domain.endsWith(".resend.dev");
+}
+
+async function loadDomains(apiKey: string): Promise<DomainList> {
+	try {
+		const response = await fetch("https://api.resend.com/domains", {
+			method: "GET",
+			redirect: "error",
+			signal: AbortSignal.timeout(2_500),
+			headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
+		});
+		if (response.status === 401) return { refused: true };
+		if (!response.ok) {
+			await response.body?.cancel();
+			return { failed: true };
+		}
+		const parsed = domainListBody.safeParse(await response.json());
+		if (!parsed.success || parsed.data.has_more === true) return { failed: true };
+		return {
+			verified: new Set(
+				parsed.data.data.filter((row) => row.status === "verified").map((row) => row.name.toLowerCase()),
+			),
+		};
+	} catch {
+		return { failed: true };
+	}
+}
+
+let settledList: DomainList | null = null;
+
+function refreshDomains(apiKey: string): void {
+	if (domainList) return;
+	if (settledList && Date.now() - domainListAt < 15_000) return;
+	const pending = loadDomains(apiKey).then((result) => {
+		domainList = null;
+		if (!("failed" in result)) {
+			settledList = result;
+			domainListAt = Date.now();
+		}
+	});
+	domainList = pending;
+}
+
+/** Start the domain read before the send statements. A known refusal then skips the batch POST. */
+export function anticipateProvider(ready: MailReady): void {
+	const domain = fromDomain(ready.keys.from);
+	if (reservedDomain(domain) || resendTestDomain(domain)) return;
+	refreshDomains(ready.apiKey);
+}
+
+function knownRefusal(ready: MailReady): boolean {
+	const domain = fromDomain(ready.keys.from);
+	if (reservedDomain(domain)) return true;
+	if (resendTestDomain(domain)) return false;
+	const list = settledList;
+	if (!list || Date.now() - domainListAt > 15_000) return false;
+	if ("refused" in list) return true;
+	if ("failed" in list) return false;
+	return !list.verified.has(domain);
+}
+
 export type MailReady = {
 	keys: { encryptionKey: Uint8Array; addressKey: Uint8Array; from: string };
 	apiKey: string;
@@ -48,6 +133,8 @@ export function mailReady(): MailReady | null {
 export function deliveryTransport(ready: MailReady, request: typeof fetch = fetch) {
 	async function post(key: string, messages: readonly Outgoing[], signal: AbortSignal): Promise<Batch> {
 		if (key.length < 1 || key.length > 256) return { outcome: "refused" };
+		// Reserved and unverified from-addresses are a confirmed provider refusal. Do not wait for that POST.
+		if (knownRefusal(ready)) return { outcome: "refused" };
 		const response = await request("https://api.resend.com/emails/batch", {
 			method: "POST",
 			redirect: "error",
