@@ -84,7 +84,7 @@ export async function WikiPage({
 function PublicPreview({ title, excerpt }: { title: string | null; excerpt: string | null }) {
 	return (
 		<main className="mx-auto max-w-[700px] px-6 py-16">
-			<h1 className="font-title text-[40px] tracking-[-0.02em] text-ink">{title ?? "Wiki"}</h1>
+			<h1 className="font-display text-[40px] tracking-[-0.02em] text-ink">{title ?? "Wiki"}</h1>
 			{excerpt ? <p className="mt-4 text-text-2">{excerpt}</p> : null}
 			{!title ? <p className="mt-4 text-text-2">This page has no public preview.</p> : null}
 		</main>
