@@ -42,6 +42,7 @@
 		"@everyfield/db": "workspace:*",
 		"zod": "4.6.7",
 		"@everyfield/contracts": "workspace:*",
+		"@everyfield/reference": "workspace:*",
 		"better-auth": "1.7.10",
 		"server-only": "0.0.1"
 	},

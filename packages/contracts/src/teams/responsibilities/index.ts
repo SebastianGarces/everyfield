@@ -1,9 +1,4 @@
-export {
-	RESPONSIBILITY_CATALOG_KEY,
-	RESPONSIBILITY_ITEM_KIND,
-	RESPONSIBILITY_LINES,
-	RESPONSIBILITY_PAGE,
-} from "./catalog.ts";
+export { RESPONSIBILITY_PAGE } from "./catalog.ts";
 export {
 	addRequest,
 	completeRequest,

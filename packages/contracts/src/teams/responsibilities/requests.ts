@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { recordId } from "../../common/values.ts";
+import { digest, recordId } from "../../common/values.ts";
 import { commandEnvelope } from "../../common/writes.ts";
 
 const lineKey = z.string().trim().min(1).max(80);
@@ -10,11 +10,14 @@ export const listRequest = z.strictObject({
 	page: z.int().min(1).max(1000).optional(),
 });
 export const previewRequest = z.strictObject({ teamId: recordId });
+const catalogSha = z.string().regex(/^[a-f0-9]{64}$/);
 export const offerRequest = commandEnvelope(
 	z.strictObject({
 		teamId: recordId,
 		decision: z.enum(["accept", "decline"]),
 		selected: z.array(lineKey).max(20),
+		expectedVersion: catalogSha,
+		reviewDigest: digest,
 	}),
 );
 export const addRequest = commandEnvelope(z.strictObject({ teamId: recordId, text: lineText }));

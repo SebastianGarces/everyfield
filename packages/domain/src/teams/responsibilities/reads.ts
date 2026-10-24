@@ -4,7 +4,7 @@ import "server-only";
 import { z } from "zod";
 import type { RequestActor } from "../../access/session.ts";
 import { deny, one, parse, read, type Reader, type Viewer } from "../core.ts";
-import { catalogVersion } from "./store.ts";
+import { responsibilityReview, type StoredLine } from "./playbook.ts";
 
 const pageOf = (page: number | undefined) => page ?? 1;
 
@@ -51,23 +51,32 @@ export const responsibilityReader = {
 			const found = await teamRow(
 				db,
 				viewer,
-				sql`SELECT t.responsibility_offer AS offer,
-					coalesce((SELECT json_agg(r.source_line) FROM responsibility r
-						WHERE r.team_id = t.id AND r.plant_id = t.plant_id), '[]'::json) AS stored,
-					${catalogVersion()} AS version
+				sql`SELECT t.responsibility_offer AS offer, t.template_key AS "templateKey",
+					coalesce((SELECT json_agg(json_build_object(
+						'sourceLine', r.source_line, 'text', r.text, 'removed', (r.removed_at IS NOT NULL)
+					)) FROM responsibility r
+						WHERE r.team_id = t.id AND r.plant_id = t.plant_id), '[]'::json) AS customizations
 					FROM team t
 					WHERE t.id = ${input.teamId}::uuid AND t.plant_id = ${viewer.plantId}::uuid`,
 			);
-			const stored = z.array(z.string()).parse(found.stored);
-			const hidden = found.offer === "declined" || found.version == null;
-			const lines = hidden
-				? []
-				: c.RESPONSIBILITY_LINES.filter((line) => !stored.includes(line.key)).map((line) => ({
-						key: line.key,
-						text: line.text,
-						sortOrder: line.sortOrder,
-					}));
-			return c.previewPage.parse({ teamId: input.teamId, offer: found.offer, lines });
+			const row = z
+				.object({
+					offer: z.enum(["accepted", "declined"]).nullable(),
+					templateKey: z.string().nullable(),
+					customizations: z.array(z.object({ sourceLine: z.string(), text: z.string(), removed: z.boolean() })),
+				})
+				.parse(found);
+			const stored: StoredLine[] = row.customizations;
+			const review = responsibilityReview(row.templateKey, stored, row.offer === "declined");
+			return c.previewPage.parse({
+				teamId: input.teamId,
+				offer: row.offer,
+				lines: review.lines,
+				customizations: review.customizations,
+				templateVersion: review.templateVersion,
+				reviewDigest: review.reviewDigest,
+				proposedCount: review.proposedCount,
+			});
 		});
 	},
 };

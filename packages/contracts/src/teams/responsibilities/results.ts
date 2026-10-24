@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { operationId, recordId, revision } from "../../common/values.ts";
+import { digest, operationId, recordId, revision } from "../../common/values.ts";
 import { RESPONSIBILITY_PAGE } from "./catalog.ts";
 
 const outcome = z.enum(["changed", "noop"]);
@@ -24,15 +24,25 @@ export const responsibilityPage = z.strictObject({
 	page: z.int().min(1),
 	items: z.array(responsibilityItem).max(RESPONSIBILITY_PAGE),
 });
+const catalogSha = z.string().regex(/^[a-f0-9]{64}$/);
 export const previewLine = z.strictObject({
 	key: z.string().min(1).max(80),
 	text: lineText,
 	sortOrder: z.int().min(1),
 });
+export const previewCustomization = z.strictObject({
+	sourceLine: z.string().min(1).max(120),
+	text: lineText,
+	removed: z.boolean(),
+});
 export const previewPage = z.strictObject({
 	teamId: recordId,
 	offer: offerState,
 	lines: z.array(previewLine).max(20),
+	customizations: z.array(previewCustomization).max(1000),
+	templateVersion: catalogSha,
+	reviewDigest: digest,
+	proposedCount: z.int().min(0).max(20),
 });
 export const offerResult = z.strictObject({
 	...receipt,

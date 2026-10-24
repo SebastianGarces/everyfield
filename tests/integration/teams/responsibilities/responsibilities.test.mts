@@ -1,4 +1,4 @@
-import { RESPONSIBILITY_LINES } from "../../../../packages/contracts/src/teams/responsibilities/index.ts";
+import { readFileSync } from "node:fs";
 import { createDatabase, closeDatabase } from "../../../../packages/db/src/client.ts";
 import { sql } from "../../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { before, after } from "node:test";
@@ -11,6 +11,14 @@ import {
 	responsibilityWriter,
 	teamsWriter,
 } from "../../../../packages/domain/src/teams/index.ts";
+import {
+	NO_PLAYBOOK_TEAM_KEY,
+	REFERENCE_TEAM_KEY,
+	linesForTemplate,
+	referenceTeamKey,
+} from "../../../../packages/domain/src/teams/responsibilities/playbook.ts";
+import { TEMPLATES, reviewDigest } from "../../../../packages/domain/src/teams/templates.ts";
+import { playbookTeam } from "../../../../packages/reference/src/playbook.ts";
 
 const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
 const localCi =
@@ -37,7 +45,11 @@ const P = randomUUID();
 const Q = randomUUID();
 const actors = Array.from({ length: 4 }, () => ({ id: randomUUID(), user: randomUUID(), session: randomUUID() }));
 const releaseId = randomUUID();
-const itemId = randomUUID();
+const itemIds = new Map();
+const freeze = JSON.parse(
+	readFileSync(new URL("../../../../packages/reference/src/freeze.json", import.meta.url), "utf8"),
+);
+const referenceKeys = [...new Set(Object.values(REFERENCE_TEAM_KEY))];
 const ctx = (who = 0) => ({ session: actors[who].session, selected: { kind: "plant", id: who === 3 ? Q : P } });
 const ok = (result) => {
 	assert.equal(result.status, "ok", JSON.stringify(result));
@@ -73,11 +85,24 @@ const marks = async () => ({
 	rows: await count(sql`SELECT count(*)::int AS n FROM responsibility`),
 	audits: await count(sql`SELECT count(*)::int AS n FROM audit_event`),
 });
-const catalogPreview = RESPONSIBILITY_LINES.map((line) => ({
-	key: line.key,
-	text: line.text,
-	sortOrder: line.sortOrder,
-}));
+function expectedLines(referenceKey) {
+	const described = playbookTeam(referenceKey);
+	if (typeof described.description !== "string" || described.description.length === 0) {
+		throw new Error("missing catalog team " + referenceKey);
+	}
+	return described.description
+		.split(",")
+		.map((item) => item.trim())
+		.filter((item) => item.length > 0)
+		.map((item, index) => {
+			const line = item.charAt(0).toUpperCase() + item.slice(1);
+			return { key: line, text: line, sortOrder: index + 1 };
+		});
+}
+function flipHex(value) {
+	const last = value.at(-1);
+	return value.slice(0, -1) + (last === "0" ? "1" : "0");
+}
 
 async function person(name, account) {
 	const id = randomUUID();
@@ -85,13 +110,29 @@ async function person(name, account) {
 		pipeline_position,state,created_at,linked_account_id) VALUES(${id},${P},${P},${name},'other','launch_team','unknown','unknown',0,'live',clock_timestamp(),${account})`);
 	return id;
 }
-async function makeTeam(name) {
-	return ok(await run(teamsWriter.create, { requestKey: key(), input: { name } })).team;
+async function makeTemplateTeam(name, templateKey) {
+	const team = ok(await run(teamsWriter.create, { requestKey: key(), input: { name } })).team;
+	if (templateKey) {
+		await admin.execute(sql`UPDATE team SET template_key=${templateKey} WHERE id=${team.id}`);
+	}
+	return team;
 }
-function offerInput(teamId, decision, selected, revision, requestKey = key()) {
-	return { requestKey, expectedRevision: revision, input: { teamId, decision, selected } };
+async function offerInput(teamId, decision, selected, revision, requestKey = key()) {
+	const preview = ok(await responsibilityReader.previewResponsibilities(db, await viewer(), { teamId }));
+	return {
+		requestKey,
+		expectedRevision: revision,
+		input: {
+			teamId,
+			decision,
+			selected,
+			expectedVersion: preview.templateVersion,
+			reviewDigest: preview.reviewDigest,
+		},
+	};
 }
-async function addVersion() {
+async function addVersion(referenceKey) {
+	const itemId = itemIds.get(referenceKey);
 	const version = randomUUID();
 	const token = randomUUID().replaceAll("-", "");
 	const number = Number(
@@ -150,10 +191,14 @@ before(async () => {
 	const token = randomUUID().replaceAll("-", "");
 	await admin.execute(sql`INSERT INTO reference_release(id,release_key,artifact_locator,manifest_hash,state,chunker_version,embedding_profile,embedding_dimensions,tenant_id,expected_passages)
 		VALUES(${releaseId},${token},'memory',${token},'validated','0','none',1,${GLOBAL},0)`);
-	await admin.execute(
-		sql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id) VALUES(${itemId},'playbook','responsibilities',${GLOBAL})`,
-	);
-	await addVersion();
+	for (const referenceKey of referenceKeys) {
+		const itemId = randomUUID();
+		itemIds.set(referenceKey, itemId);
+		await admin.execute(
+			sql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id) VALUES(${itemId},'ministry_template',${referenceKey},${GLOBAL})`,
+		);
+		await addVersion(referenceKey);
+	}
 });
 after(async () => {
 	if (db) await closeDatabase(db);
@@ -166,11 +211,24 @@ after(async () => {
 });
 
 test("AC:B01-028 preview stores nothing and one selected line stays the only active line", async () => {
-	const team = await makeTeam("Welcome");
+	const lines = expectedLines("senior_pastor");
+	const team = await makeTemplateTeam("Welcome", "leadership");
 	const beforeRead = await marks();
 	const preview = ok(await responsibilityReader.previewResponsibilities(db, await viewer(), { teamId: team.id }));
-	assert.deepEqual(preview.lines, catalogPreview);
+	assert.deepEqual(preview.lines, lines);
 	assert.equal(preview.offer, null);
+	assert.equal(preview.proposedCount, lines.length);
+	assert.deepEqual(preview.customizations, []);
+	assert.equal(preview.templateVersion, freeze.artifactSha256);
+	assert.equal(
+		preview.reviewDigest,
+		reviewDigest({
+			expectedVersion: preview.templateVersion,
+			mode: "responsibilities",
+			selections: preview.customizations,
+			lines: preview.lines,
+		}),
+	);
 	const listed = ok(await responsibilityReader.listResponsibilities(db, await viewer(), { teamId: team.id }));
 	assert.deepEqual(listed.items, []);
 	assert.equal(listed.offer, null);
@@ -184,44 +242,62 @@ test("AC:B01-028 preview stores nothing and one selected line stays the only act
 	);
 	assert.deepEqual(await marks(), beforeRead);
 
-	const input = offerInput(team.id, "accept", ["invite"], team.revision);
+	const staleVersion = await offerInput(team.id, "accept", [lines[0].key], team.revision);
+	staleVersion.input.expectedVersion = flipHex(staleVersion.input.expectedVersion);
+	refused(await run(responsibilityWriter.offerResponsibilities, staleVersion), "stale_template_version");
+	const staleDigest = await offerInput(team.id, "accept", [lines[0].key], team.revision);
+	staleDigest.input.reviewDigest = flipHex(staleDigest.input.reviewDigest);
+	refused(await run(responsibilityWriter.offerResponsibilities, staleDigest), "stale_review");
+	assert.equal(await count(sql`SELECT count(*)::int AS n FROM responsibility WHERE team_id=${team.id}`), 0);
+
+	const input = await offerInput(team.id, "accept", [lines[0].key], team.revision);
 	const accepted = ok(await run(responsibilityWriter.offerResponsibilities, input));
 	assert.equal(accepted.outcome, "changed");
 	assert.equal(accepted.decision, "accept");
-	assert.equal(accepted.createdIds.length, 3);
+	assert.equal(accepted.createdIds.length, lines.length);
 	const replay = ok(await run(responsibilityWriter.offerResponsibilities, input));
 	assert.equal(replay.receiptId, accepted.receiptId);
 	assert.deepEqual(replay.createdIds, accepted.createdIds);
 	assert.equal(await audits(input.requestKey), 1);
 	const stored = await linesOf(team.id);
-	assert.equal(stored.filter((row) => row.removed).length, 2);
+	assert.equal(stored.filter((row) => row.removed).length, lines.length - 1);
 	assert.deepEqual(
 		stored.filter((row) => !row.removed).map((row) => row.source_line),
-		["invite"],
+		[lines[0].key],
 	);
 	const page = ok(await responsibilityReader.listResponsibilities(db, await viewer(), { teamId: team.id }));
 	assert.equal(page.offer, "accepted");
 	assert.equal(page.items.length, 1);
-	assert.equal(page.items[0].sourceLine, "invite");
-	assert.equal(page.items[0].text, "Invite new people each week");
-	const again = offerInput(team.id, "accept", ["invite", "follow-up", "train"], (await offerOf(team.id)).revision);
+	assert.equal(page.items[0].sourceLine, lines[0].key);
+	assert.equal(page.items[0].text, lines[0].text);
+	const again = await offerInput(
+		team.id,
+		"accept",
+		lines.map((line) => line.key),
+		(await offerOf(team.id)).revision,
+	);
 	const repeat = ok(await run(responsibilityWriter.offerResponsibilities, again));
 	assert.equal(repeat.outcome, "noop");
 	assert.deepEqual(repeat.createdIds, []);
 	assert.equal((await linesOf(team.id)).filter((row) => !row.removed).length, 1);
 	const quiet = ok(await responsibilityReader.previewResponsibilities(db, await viewer(), { teamId: team.id }));
 	assert.deepEqual(quiet.lines, []);
+	assert.equal(quiet.proposedCount, 0);
+	assert.equal(quiet.offer, "accepted");
+	assert.equal(quiet.customizations.length, lines.length);
 });
 
 test("AC:TARGET-TEAM-007 chosen lines commit once and deleted, edited, or declined lines do not return", async () => {
-	const team = await makeTeam("Launch");
+	const worship = expectedLines("worship");
+	const team = await makeTemplateTeam("Launch", "worship");
 	const started = await phase();
 	assert.equal(
 		(await responsibilityReader.previewResponsibilities(db, await viewer(), { teamId: team.id })).status,
 		"ok",
 	);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM responsibility WHERE team_id=${team.id}`), 0);
-	const input = offerInput(team.id, "accept", ["invite", "follow-up"], team.revision);
+	const picked = worship.slice(0, 2).map((line) => line.key);
+	const input = await offerInput(team.id, "accept", picked, team.revision);
 	await assert.rejects(
 		tx(async (t) => {
 			const result = await responsibilityWriter.offerResponsibilities(t, ctx(), input);
@@ -233,7 +309,7 @@ test("AC:TARGET-TEAM-007 chosen lines commit once and deleted, edited, or declin
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM responsibility WHERE team_id=${team.id}`), 0);
 	assert.equal(await audits(input.requestKey), 0);
 	const accepted = ok(await run(responsibilityWriter.offerResponsibilities, input));
-	assert.equal(accepted.createdIds.length, 3);
+	assert.equal(accepted.createdIds.length, worship.length);
 	const replay = ok(await run(responsibilityWriter.offerResponsibilities, input));
 	assert.equal(replay.receiptId, accepted.receiptId);
 	assert.equal(await audits(input.requestKey), 1);
@@ -244,25 +320,28 @@ test("AC:TARGET-TEAM-007 chosen lines commit once and deleted, edited, or declin
 			.filter((row) => row.removed)
 			.map((row) => row.source_line)
 			.join(),
-		"train",
+		worship
+			.slice(2)
+			.map((line) => line.key)
+			.join(),
 	);
 
-	const invite = stored.find((row) => row.source_line === "invite");
-	const follow = stored.find((row) => row.source_line === "follow-up");
+	const first = stored.find((row) => row.source_line === worship[0].key);
+	const second = stored.find((row) => row.source_line === worship[1].key);
 	const removed = ok(
 		await run(responsibilityWriter.deleteResponsibility, {
 			requestKey: key(),
-			expectedRevision: invite.revision,
-			input: { responsibilityId: invite.id },
+			expectedRevision: first.revision,
+			input: { responsibilityId: first.id },
 		}),
 	);
 	assert.equal(removed.outcome, "changed");
-	assert.equal((await linesOf(team.id)).find((row) => row.id === invite.id).removed, true);
+	assert.equal((await linesOf(team.id)).find((row) => row.id === first.id).removed, true);
 	const edited = ok(
 		await run(responsibilityWriter.editResponsibility, {
 			requestKey: key(),
-			expectedRevision: follow.revision,
-			input: { responsibilityId: follow.id, text: "Follow up within two days" },
+			expectedRevision: second.revision,
+			input: { responsibilityId: second.id, text: "Follow up within two days" },
 		}),
 	);
 	assert.equal(edited.text, "Follow up within two days");
@@ -270,7 +349,7 @@ test("AC:TARGET-TEAM-007 chosen lines commit once and deleted, edited, or declin
 		await run(responsibilityWriter.editResponsibility, {
 			requestKey: key(),
 			expectedRevision: edited.revision,
-			input: { responsibilityId: follow.id, text: "Follow up within two days" },
+			input: { responsibilityId: second.id, text: "Follow up within two days" },
 		}),
 	);
 	assert.equal(same.outcome, "noop");
@@ -279,21 +358,21 @@ test("AC:TARGET-TEAM-007 chosen lines commit once and deleted, edited, or declin
 		await run(responsibilityWriter.editResponsibility, {
 			requestKey: key(),
 			expectedRevision: "999",
-			input: { responsibilityId: follow.id, text: "Replaced" },
+			input: { responsibilityId: second.id, text: "Replaced" },
 		}),
 		"conflict",
 	);
-	assert.equal((await linesOf(team.id)).find((row) => row.id === follow.id).text, "Follow up within two days");
+	assert.equal((await linesOf(team.id)).find((row) => row.id === second.id).text, "Follow up within two days");
 	const today = (await admin.execute(sql`SELECT (clock_timestamp() AT TIME ZONE 'America/Chicago')::date::text AS d`))
 		.rows[0].d;
 	const tickInput = {
 		requestKey: key(),
 		expectedRevision: edited.revision,
-		input: { responsibilityId: follow.id, done: true },
+		input: { responsibilityId: second.id, done: true },
 	};
 	const ticked = ok(await run(responsibilityWriter.completeResponsibility, tickInput));
 	assert.equal(ticked.completedOn, today);
-	assert.equal((await linesOf(team.id)).find((row) => row.id === follow.id).completed_on, today);
+	assert.equal((await linesOf(team.id)).find((row) => row.id === second.id).completed_on, today);
 	const tickReplay = ok(await run(responsibilityWriter.completeResponsibility, tickInput));
 	assert.equal(tickReplay.receiptId, ticked.receiptId);
 	assert.equal(await audits(tickInput.requestKey), 1);
@@ -301,7 +380,7 @@ test("AC:TARGET-TEAM-007 chosen lines commit once and deleted, edited, or declin
 		await run(responsibilityWriter.completeResponsibility, {
 			requestKey: key(),
 			expectedRevision: ticked.revision,
-			input: { responsibilityId: follow.id, done: true },
+			input: { responsibilityId: second.id, done: true },
 		}),
 	);
 	assert.equal(retick.outcome, "noop");
@@ -310,16 +389,16 @@ test("AC:TARGET-TEAM-007 chosen lines commit once and deleted, edited, or declin
 		await run(responsibilityWriter.completeResponsibility, {
 			requestKey: key(),
 			expectedRevision: retick.revision,
-			input: { responsibilityId: follow.id, done: false },
+			input: { responsibilityId: second.id, done: false },
 		}),
 	);
 	assert.equal(cleared.completedOn, null);
-	assert.equal((await linesOf(team.id)).find((row) => row.id === follow.id).completed_on, null);
+	assert.equal((await linesOf(team.id)).find((row) => row.id === second.id).completed_on, null);
 	const tickedAgain = ok(
 		await run(responsibilityWriter.completeResponsibility, {
 			requestKey: key(),
 			expectedRevision: cleared.revision,
-			input: { responsibilityId: follow.id, done: true },
+			input: { responsibilityId: second.id, done: true },
 		}),
 	);
 	assert.equal(tickedAgain.completedOn, today);
@@ -331,27 +410,40 @@ test("AC:TARGET-TEAM-007 chosen lines commit once and deleted, edited, or declin
 		}),
 	);
 	assert.equal(added.sourceLine, `custom:${added.id}`);
+	assert.equal(added.revision, (await linesOf(team.id)).find((row) => row.id === added.id).revision);
+	const columnDefault = (
+		await admin.execute(sql`SELECT pg_get_expr(d.adbin, d.adrelid) AS value
+			FROM pg_attribute a
+			JOIN pg_class c ON c.oid = a.attrelid
+			JOIN pg_namespace n ON n.oid = c.relnamespace
+			LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
+			WHERE c.relname = 'responsibility' AND a.attname = 'revision' AND n.nspname = current_schema()`)
+	).rows[0].value;
+	assert.equal(added.revision, columnDefault);
 	assert.equal((await linesOf(team.id)).find((row) => row.id === added.id).removed, false);
 	assert.equal(await phase(), started);
 
-	const declinedTeam = await makeTeam("Passed");
-	const declinedInput = offerInput(declinedTeam.id, "decline", ["invite"], declinedTeam.revision);
+	const facilities = expectedLines("facilities");
+	const declinedTeam = await makeTemplateTeam("Passed", "facilities");
+	const declinedInput = await offerInput(declinedTeam.id, "decline", [facilities[0].key], declinedTeam.revision);
 	const declined = ok(await run(responsibilityWriter.offerResponsibilities, declinedInput));
 	assert.equal(declined.decision, "decline");
 	assert.equal((await linesOf(declinedTeam.id)).filter((row) => !row.removed).length, 0);
-	assert.equal((await linesOf(declinedTeam.id)).length, 3);
+	assert.equal((await linesOf(declinedTeam.id)).length, facilities.length);
 	const declinedPreview = ok(
 		await responsibilityReader.previewResponsibilities(db, await viewer(), { teamId: declinedTeam.id }),
 	);
 	assert.deepEqual(declinedPreview.lines, []);
-	const version = await addVersion();
+	assert.equal(declinedPreview.proposedCount, 0);
+	const held = (await offerOf(declinedTeam.id)).version;
+	const facilitiesVersion = await addVersion("facilities");
 	const blocked = ok(
 		await run(
 			responsibilityWriter.offerResponsibilities,
-			offerInput(
+			await offerInput(
 				declinedTeam.id,
 				"accept",
-				["invite", "follow-up", "train"],
+				facilities.map((line) => line.key),
 				(await offerOf(declinedTeam.id)).revision,
 			),
 		),
@@ -359,58 +451,70 @@ test("AC:TARGET-TEAM-007 chosen lines commit once and deleted, edited, or declin
 	assert.equal(blocked.outcome, "noop");
 	assert.equal(blocked.decision, "decline");
 	assert.deepEqual(blocked.createdIds, []);
-	assert.equal((await offerOf(declinedTeam.id)).version === version, false);
+	assert.equal((await offerOf(declinedTeam.id)).version, held);
+	assert.notEqual(held, facilitiesVersion);
 	assert.equal((await linesOf(declinedTeam.id)).filter((row) => !row.removed).length, 0);
 
+	const worshipVersion = await addVersion("worship");
 	const moved = ok(
 		await run(
 			responsibilityWriter.offerResponsibilities,
-			offerInput(team.id, "accept", ["invite", "follow-up", "train"], (await offerOf(team.id)).revision),
+			await offerInput(
+				team.id,
+				"accept",
+				worship.map((line) => line.key),
+				(await offerOf(team.id)).revision,
+			),
 		),
 	);
 	assert.equal(moved.outcome, "changed");
 	assert.deepEqual(moved.createdIds, []);
-	assert.equal((await offerOf(team.id)).version, version);
+	assert.equal((await offerOf(team.id)).version, worshipVersion);
 	stored = await linesOf(team.id);
-	assert.equal(stored.find((row) => row.id === follow.id).text, "Follow up within two days");
-	assert.equal(stored.find((row) => row.id === invite.id).removed, true);
-	assert.equal(stored.find((row) => row.source_line === "train").removed, true);
+	assert.equal(stored.find((row) => row.id === second.id).text, "Follow up within two days");
+	assert.equal(stored.find((row) => row.id === first.id).removed, true);
+	assert.equal(stored.find((row) => row.source_line === worship[2].key).removed, true);
 	assert.equal(stored.find((row) => row.id === added.id).text, "Bring the keys");
 	const beforeDecline = await linesOf(team.id);
 	refused(
 		await run(
 			responsibilityWriter.offerResponsibilities,
-			offerInput(team.id, "decline", [], (await offerOf(team.id)).revision),
+			await offerInput(team.id, "decline", [], (await offerOf(team.id)).revision),
 		),
 		"conflict",
 	);
 	assert.deepEqual(await linesOf(team.id), beforeDecline);
 
-	const blank = await makeTeam("None");
+	const assimilation = expectedLines("assimilation");
+	const blank = await makeTemplateTeam("None", "assimilation");
 	const empty = ok(
-		await run(responsibilityWriter.offerResponsibilities, offerInput(blank.id, "accept", [], blank.revision)),
+		await run(responsibilityWriter.offerResponsibilities, await offerInput(blank.id, "accept", [], blank.revision)),
 	);
 	assert.equal(empty.outcome, "changed");
 	assert.equal((await linesOf(blank.id)).filter((row) => !row.removed).length, 0);
-	assert.equal((await linesOf(blank.id)).length, 3);
+	assert.equal((await linesOf(blank.id)).length, assimilation.length);
 	assert.equal(await phase(), started);
 	refused(
 		await run(responsibilityWriter.deleteResponsibility, {
 			requestKey: key(),
 			expectedRevision: removed.revision,
-			input: { responsibilityId: invite.id },
+			input: { responsibilityId: first.id },
 		}),
 		"conflict",
 	);
 });
 
 test("INV-tenancy a forged session, a stale role, and a non-leader cannot change responsibilities", async () => {
-	const team = await makeTeam("Guarded");
+	const technology = expectedLines("technology");
+	const team = await makeTemplateTeam("Guarded", "technology");
 	const accepted = ok(
-		await run(responsibilityWriter.offerResponsibilities, offerInput(team.id, "accept", ["train"], team.revision)),
+		await run(
+			responsibilityWriter.offerResponsibilities,
+			await offerInput(team.id, "accept", [technology[0].key], team.revision),
+		),
 	);
-	assert.equal(accepted.createdIds.length, 3);
-	const row = (await linesOf(team.id)).find((item) => item.source_line === "train");
+	assert.equal(accepted.createdIds.length, technology.length);
+	const row = (await linesOf(team.id)).find((item) => item.source_line === technology[0].key);
 	const before = await marks();
 	const memberPreview = ok(
 		await responsibilityReader.previewResponsibilities(db, await viewer(1), { teamId: team.id }),
@@ -422,7 +526,7 @@ test("INV-tenancy a forged session, a stale role, and a non-leader cannot change
 	refused(
 		await run(
 			responsibilityWriter.offerResponsibilities,
-			offerInput(team.id, "accept", ["invite"], (await offerOf(team.id)).revision),
+			await offerInput(team.id, "accept", [technology[1].key], (await offerOf(team.id)).revision),
 			1,
 		),
 		"access_denied",
@@ -441,7 +545,7 @@ test("INV-tenancy a forged session, a stale role, and a non-leader cannot change
 	);
 	assert.equal((await linesOf(team.id)).find((item) => item.id === row.id).completed_on, null);
 
-	const forgedInput = offerInput(team.id, "decline", [], (await offerOf(team.id)).revision);
+	const forgedInput = await offerInput(team.id, "decline", [], (await offerOf(team.id)).revision);
 	const forgedBefore = await count(sql`SELECT count(*)::int AS n FROM responsibility WHERE team_id=${team.id}`);
 	refused(
 		await tx((t) =>
@@ -461,17 +565,13 @@ test("INV-tenancy a forged session, a stale role, and a non-leader cannot change
 	refused(
 		await run(
 			responsibilityWriter.offerResponsibilities,
-			offerInput(team.id, "accept", ["missing-line"], (await offerOf(team.id)).revision),
+			await offerInput(team.id, "accept", ["missing-line"], (await offerOf(team.id)).revision),
 		),
 		"access_denied",
 	);
-	refused(
-		await run(
-			responsibilityWriter.offerResponsibilities,
-			offerInput(randomUUID(), "accept", ["invite"], team.revision),
-		),
-		"access_denied",
-	);
+	const missing = await offerInput(team.id, "accept", [technology[0].key], (await offerOf(team.id)).revision);
+	missing.input.teamId = randomUUID();
+	refused(await run(responsibilityWriter.offerResponsibilities, missing), "access_denied");
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM responsibility WHERE team_id=${team.id}`), forgedBefore);
 
 	const lead = await person("Team Lead", actors[1].id);
@@ -531,7 +631,7 @@ test("INV-tenancy a forged session, a stale role, and a non-leader cannot change
 	refused(
 		await run(
 			responsibilityWriter.offerResponsibilities,
-			offerInput(team.id, "accept", ["invite"], (await offerOf(team.id)).revision),
+			await offerInput(team.id, "accept", [technology[0].key], (await offerOf(team.id)).revision),
 			1,
 		),
 		"access_denied",
@@ -569,7 +669,7 @@ test("INV-tenancy a forged session, a stale role, and a non-leader cannot change
 	refused(
 		await run(
 			responsibilityWriter.offerResponsibilities,
-			offerInput(team.id, "accept", [], (await offerOf(team.id)).revision),
+			await offerInput(team.id, "accept", [], (await offerOf(team.id)).revision),
 		),
 		"access_denied",
 	);
@@ -581,4 +681,53 @@ test("INV-tenancy a forged session, a stale role, and a non-leader cannot change
 		}),
 		"access_denied",
 	);
+});
+
+test("a custom team and administration have no Playbook lines", async () => {
+	for (const [name, templateKey] of [
+		["Office", "administration"],
+		["Custom", null],
+	]) {
+		const team = await makeTemplateTeam(name, templateKey);
+		const preview = ok(await responsibilityReader.previewResponsibilities(db, await viewer(), { teamId: team.id }));
+		assert.deepEqual(preview.lines, []);
+		assert.equal(preview.proposedCount, 0);
+		assert.equal(preview.templateVersion, freeze.artifactSha256);
+		const before = await count(sql`SELECT count(*)::int AS n FROM responsibility WHERE team_id=${team.id}`);
+		refused(
+			await run(
+				responsibilityWriter.offerResponsibilities,
+				await offerInput(team.id, "accept", ["Overall leadership"], team.revision),
+			),
+			"access_denied",
+		);
+		refused(
+			await run(responsibilityWriter.offerResponsibilities, await offerInput(team.id, "accept", [], team.revision)),
+			"unavailable",
+		);
+		assert.equal(await count(sql`SELECT count(*)::int AS n FROM responsibility WHERE team_id=${team.id}`), before);
+	}
+});
+
+test("every WP-017 template key maps to a frozen catalog team or the no-lines key", () => {
+	const templateKeys = new Set(TEMPLATES.map((team) => team.key));
+	for (const key of Object.keys(REFERENCE_TEAM_KEY)) assert.equal(templateKeys.has(key), true);
+	for (const team of TEMPLATES) {
+		const referenceKey = referenceTeamKey(team.key);
+		if (referenceKey === null) {
+			assert.equal(team.key, NO_PLAYBOOK_TEAM_KEY);
+			assert.deepEqual(linesForTemplate(team.key), []);
+			continue;
+		}
+		assert.equal(typeof playbookTeam(referenceKey).description, "string");
+		assert.deepEqual(linesForTemplate(team.key), expectedLines(referenceKey));
+	}
+	assert.equal(referenceTeamKey("leadership"), "senior_pastor");
+	assert.equal(referenceTeamKey(null), null);
+	assert.deepEqual(
+		linesForTemplate("leadership").map((line) => line.text),
+		["Overall leadership", "Vision casting", "Preaching calendar", "Shepherding", "Leader development"],
+	);
+	assert.equal(playbookTeam("senior_pastor").version, freeze.artifactSha256);
+	assert.equal(playbookTeam("not-a-team").description, null);
 });

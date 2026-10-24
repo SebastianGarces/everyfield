@@ -1,18 +1,16 @@
-import { RESPONSIBILITY_CATALOG_KEY, RESPONSIBILITY_ITEM_KIND } from "@everyfield/contracts/teams/responsibilities";
 import { sql, type SQL } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
 import "server-only";
 
-const GLOBAL = "00000000-0000-0000-0000-000000000000";
 const tuples = (rows: SQL[]) => sql.join(rows, sql`, `);
 
-/** Latest Playbook release. The offer stamps this id. Line text stays in the contract. */
-export const catalogVersion = () => sql`(SELECT v.id FROM reference_version v
-	JOIN reference_item i ON i.id = v.item_id
-	WHERE i.kind = ${RESPONSIBILITY_ITEM_KIND} AND i.canonical_key = ${RESPONSIBILITY_CATALOG_KEY}
-		AND i.tenant_id = ${GLOBAL}::uuid
-	ORDER BY v.version_number DESC, v.id DESC
-	LIMIT 1)`;
+/** Column default of responsibility.revision. Audit writes cannot return the inserted value. */
+export const revisionDefaultSql = () => sql`(SELECT pg_get_expr(d.adbin, d.adrelid)
+	FROM pg_attribute a
+	JOIN pg_class c ON c.oid = a.attrelid
+	JOIN pg_namespace n ON n.oid = c.relnamespace
+	LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
+	WHERE c.relname = 'responsibility' AND a.attname = 'revision' AND n.nspname = current_schema())`;
 
 type VersionLine = { teamId: string; sourceVersionId: string; sourceLine: string; text: string };
 

@@ -5,11 +5,12 @@ import "server-only";
 import { z } from "zod";
 import type { AuditWrite } from "../../operations/writes.ts";
 import { command, deny, next, parse, reply, type TeamsContext, type Tx, type Writer } from "../core.ts";
+import { catalogVersion, responsibilityReview, type PlaybookLine } from "./playbook.ts";
 import {
-	catalogVersion,
 	insertCustom,
 	insertOfferLines,
 	markRemoved,
+	revisionDefaultSql,
 	saveCompleted,
 	saveText,
 	stampOffer,
@@ -24,7 +25,9 @@ const teamLock = z.object({
 	offer: z.enum(["accepted", "declined"]).nullable(),
 	offerVersion: id.nullable(),
 	archived: z.boolean(),
+	templateKey: z.string().nullable(),
 	versionId: id.nullable(),
+	revisionDefault: z.string().regex(/^(0|[1-9]\d*)$/),
 	nextSort: z.coerce.number().int(),
 	lines: z.array(lineRow),
 });
@@ -55,7 +58,9 @@ async function lockTeam(tx: Tx, w: Writer, teamId: string): Promise<TeamLock> {
 		sql`SELECT t.id, t.revision::text AS revision, t.responsibility_offer AS offer,
 			t.responsibility_offer_version_id AS "offerVersion",
 			(t.archived_at IS NOT NULL) AS archived,
+			t.template_key AS "templateKey",
 			${catalogVersion()} AS "versionId",
+			${revisionDefaultSql()} AS "revisionDefault",
 			coalesce((SELECT max(r.sort_order) FROM responsibility r
 				WHERE r.team_id = t.id AND r.plant_id = t.plant_id), 0) + 1 AS "nextSort",
 			coalesce((SELECT json_agg(json_build_object(
@@ -94,16 +99,32 @@ function teamOf(responsibilityId: string) {
 		return typeof found?.teamId === "string" ? found.teamId : undefined;
 	};
 }
-function freshLines(team: TeamLock, active: ReadonlySet<string>): OfferLine[] {
+function freshLines(catalog: readonly PlaybookLine[], team: TeamLock, active: ReadonlySet<string>): OfferLine[] {
 	const stored = new Set(team.lines.map((line) => line.line));
-	return c.RESPONSIBILITY_LINES.filter((line) => !stored.has(line.key)).map((line) => ({
-		id: randomUUID(),
-		key: line.key,
-		text: line.text,
-		sortOrder: line.sortOrder,
-		active: active.has(line.key),
-	}));
+	return catalog
+		.filter((line) => !stored.has(line.key))
+		.map((line) => ({
+			id: randomUUID(),
+			key: line.key,
+			text: line.text,
+			sortOrder: line.sortOrder,
+			active: active.has(line.key),
+		}));
 }
+function offerNoop(audit: AuditWrite, team: TeamLock, decision: "accept" | "decline") {
+	const offer = decision === "accept" ? "accepted" : "declined";
+	return {
+		value: offerValue(audit, "noop", team.id, decision, team.revision, []),
+		subject: team.id,
+		subjectType: "team" as const,
+		kind: "offer_answer" as const,
+		outcome: "noop" as const,
+		before: { offer: team.offer, version: team.offerVersion },
+		after: { offer, version: team.offerVersion },
+		revision: { before: team.revision, after: team.revision },
+	};
+}
+
 function offerValue(
 	audit: AuditWrite,
 	outcome: "changed" | "noop",
@@ -123,37 +144,28 @@ export const responsibilityWriter = {
 				const team = await lockTeam(tx, w, input.input.teamId);
 				if (team.archived) deny("access_denied");
 				expectRevision(team.revision, input.expectedRevision);
-				if (!team.versionId) deny("unavailable");
+				const stored = team.lines.map((line) => ({
+					sourceLine: line.line,
+					text: line.text,
+					removed: line.removed,
+				}));
+				const review = responsibilityReview(team.templateKey, stored, team.offer === "declined");
+				if (input.input.expectedVersion !== review.templateVersion) deny("stale_template_version");
+				if (input.input.reviewDigest !== review.reviewDigest) deny("stale_review");
+				const known = new Set([...review.catalog.map((line) => line.key), ...team.lines.map((line) => line.line)]);
 				const selected = [...new Set(input.input.selected)];
-				if (selected.some((key) => !c.RESPONSIBILITY_LINES.some((line) => line.key === key))) deny("access_denied");
-				if (team.offer === "declined") {
-					return {
-						value: offerValue(audit, "noop", team.id, "decline", team.revision, []),
-						subject: team.id,
-						subjectType: "team" as const,
-						kind: "offer_answer" as const,
-						outcome: "noop" as const,
-						before: { offer: "declined" },
-						after: { offer: "declined" },
-						revision: { before: team.revision, after: team.revision },
-					};
-				}
+				if (selected.some((key) => !known.has(key))) deny("access_denied");
+				if (team.offer === "declined") return offerNoop(audit, team, "decline");
 				if (input.input.decision === "decline" && team.offer === "accepted") deny("conflict");
+				if (!team.versionId) deny("unavailable");
 				const versionId = team.versionId;
-				const lines = freshLines(team, input.input.decision === "accept" ? new Set(selected) : new Set());
+				const lines = freshLines(
+					review.catalog,
+					team,
+					input.input.decision === "accept" ? new Set(selected) : new Set(),
+				);
 				const same = input.input.decision === "accept" && team.offer === "accepted" && team.offerVersion === versionId;
-				if (same && lines.length === 0) {
-					return {
-						value: offerValue(audit, "noop", team.id, "accept", team.revision, []),
-						subject: team.id,
-						subjectType: "team" as const,
-						kind: "offer_answer" as const,
-						outcome: "noop" as const,
-						before: { offer: team.offer, version: team.offerVersion },
-						after: { offer: "accepted", version: versionId },
-						revision: { before: team.revision, after: team.revision },
-					};
-				}
+				if (same && lines.length === 0) return offerNoop(audit, team, "accept");
 				const inserted = insertOfferLines(w.plant.id, team.id, versionId, lines);
 				if (inserted) audit.writes.push(inserted);
 				const decision = input.input.decision === "accept" ? "accepted" : "declined";
@@ -210,7 +222,7 @@ export const responsibilityWriter = {
 							outcome: "changed",
 							id: responsibilityId,
 							teamId: team.id,
-							revision: "1",
+							revision: team.revisionDefault,
 							sourceLine,
 							text: input.input.text,
 						}),
