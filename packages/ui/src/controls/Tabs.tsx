@@ -16,6 +16,8 @@ type SegmentedProps<V extends string> = {
 	value: V;
 	onValueChange: (value: V) => void;
 	size?: "md" | "sm";
+	/** Options wrap onto more than one line. The default control scrolls sideways. */
+	wrap?: boolean;
 	className?: string;
 };
 
@@ -30,6 +32,7 @@ export function SegmentedControl<V extends string>({
 	value,
 	onValueChange,
 	size = "md",
+	wrap = false,
 	className,
 }: SegmentedProps<V>) {
 	return (
@@ -43,7 +46,9 @@ export function SegmentedControl<V extends string>({
 			<HoverGroup
 				current={value}
 				className={cn(
-					"inline-flex max-w-full gap-0.5 overflow-x-auto rounded-md [scrollbar-width:none] bg-surface-2 p-1",
+					wrap
+						? "flex w-full flex-wrap gap-0.5 rounded-md bg-surface-2 p-1"
+						: "inline-flex max-w-full gap-0.5 overflow-x-auto rounded-md [scrollbar-width:none] bg-surface-2 p-1",
 					className,
 				)}
 			>
