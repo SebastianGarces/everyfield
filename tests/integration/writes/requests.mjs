@@ -17,6 +17,7 @@ import { migrate } from "../../../packages/db/src/schema/migrate.ts";
 import { createIdentityService } from "../../../packages/domain/src/identity/index.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
 import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
+import { teamsWriter } from "../../../packages/domain/src/teams/index.ts";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 const web = root + "apps/web/";
@@ -184,6 +185,22 @@ try {
 			FROM (SELECT id FROM task WHERE plant_id=${plant.id} ORDER BY created_at LIMIT 1) t, generate_series(1, ${count}) g
 			ON CONFLICT DO NOTHING`);
 	await notices(3);
+	// Ministries (WP-017/ui): one team with one filled role, through the producer the screens call.
+	const teams = async (op, input) => {
+		const r = await runtime.transaction((tx) => op(tx, ctx, { requestKey: randomUUID(), ...input }));
+		assert.equal(r.status, "ok", JSON.stringify(r));
+		return r.value;
+	};
+	const ministry = (await teams(teamsWriter.create, { input: { name: "Worship" } })).team;
+	const staff = async (name) => {
+		const { role } = await teams(teamsWriter.createRole, { input: { teamId: ministry.id, name } });
+		const holder = await person(`${name} holder`);
+		await teams(teamsWriter.assignRole, {
+			expectedRevision: role.revision,
+			input: { roleId: role.id, teamId: ministry.id, personId: holder.id },
+		});
+	};
+	await staff("Worship lead");
 
 	// A private bucket on this machine: it answers the privacy check (GetBucketAcl) and records every call it gets.
 	// Signing an upload URL needs no other bucket call.
@@ -288,6 +305,9 @@ try {
 		["GET /settings", "/settings", owner.cookie],
 		["GET /notifications", "/notifications", owner.cookie],
 		["GET /notifications/read?what=count", "/notifications/read?what=count", owner.cookie],
+		["GET /ministries", "/ministries", owner.cookie],
+		["GET /ministries?view=chart", "/ministries?view=chart", owner.cookie],
+		["GET /ministries/[teamId]", `/ministries/${ministry.id}`, owner.cookie],
 		["GET /signin (signed out)", "/signin", ""],
 	];
 	// RT-6c: no request pays a cold-start cost. Server start checks the bucket's privacy without any request, and opens
@@ -435,6 +455,8 @@ try {
 	for (let i = 0; i < 5; i++) maria = await note(maria, `Grown note ${i}`);
 	for (let i = 0; i < 30; i++) await task(`Grown task ${i}`);
 	await notices(80);
+	for (let i = 0; i < 30; i++) await teams(teamsWriter.create, { input: { name: `Grown ministry ${i}` } });
+	for (let i = 0; i < 8; i++) await staff(`Grown role ${i}`);
 	for (const [name, path, cookie] of pages) await get(name, path, cookie);
 
 	server.kill("SIGTERM");
