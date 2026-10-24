@@ -24,8 +24,8 @@ import {
 // actor or authority can be sent). A lost answer may be retried with the same request key; the producer replays a
 // write that did commit instead of acting twice.
 //
-// A change on a ministry page answers with that page's data as it is after the change, read in the same request, so
-// the page shows every effect (a derived leader, a vacated role, the new revision) without a second round trip.
+// A write answers with its own result, never with the page read again (patterns.md, Writes): the page draws the
+// change from that answer (page-state.ts). After a refusal as out of date, the page reads itself in its own request.
 
 const noSeat = { status: "refused", code: "unavailable" } as const;
 type Context = Parameters<typeof teamsWriter.create>[1];
@@ -34,14 +34,11 @@ type Run<T> = (tx: Transaction, ctx: Context) => Promise<TeamsReply<T>>;
 async function seat() {
 	return (await getViewer())?.people ?? null;
 }
-/** One write, then the ministry page read again. The write's own answer decides ok or refused. */
-async function change<T>(teamId: string, run: Run<T>): Promise<Outcome<{ result: T; view: TeamView | null }>> {
+/** One write in its own transaction. */
+async function change<T>(run: Run<T>): Promise<Outcome<T>> {
 	const v = await seat();
 	if (!v) return noSeat;
-	const done = await write(v, run);
-	if (done.status !== "ok") return done;
-	const view = await loadTeam(v, teamId);
-	return { status: "ok", value: { result: done.value, view: view.status === "found" ? view : null } };
+	return write(v, run);
 }
 const command = (requestKey: string, expectedRevision: string, input: unknown) => ({
 	requestKey,
@@ -70,14 +67,12 @@ export async function changeTeam(
 ) {
 	if (!["edit", "correct", "archive", "restore"].includes(op))
 		return { status: "refused", code: "invalid_input" } as const;
-	return change(teamId, (tx, ctx) =>
-		teamsWriter[op](tx, ctx, command(requestKey, expectedRevision, { ...patch, teamId })),
-	);
+	return change((tx, ctx) => teamsWriter[op](tx, ctx, command(requestKey, expectedRevision, { ...patch, teamId })));
 }
 
 /** Appoints a leader explicitly. It outranks a leader that comes from a leadership role (REQ-TEAM-004). */
 export async function appointLeader(requestKey: string, expectedRevision: string, teamId: string, personId: string) {
-	return change(teamId, (tx, ctx) =>
+	return change((tx, ctx) =>
 		teamsWriter.appointLeader(tx, ctx, command(requestKey, expectedRevision, { teamId, personId })),
 	);
 }
@@ -85,24 +80,21 @@ export async function appointLeader(requestKey: string, expectedRevision: string
 // Roles and people ----------------------------------------------------------------------------------------------
 
 export async function createRole(requestKey: string, teamId: string, input: Record<string, unknown>) {
-	return change(teamId, (tx, ctx) => teamsWriter.createRole(tx, ctx, { requestKey, input: { ...input, teamId } }));
+	return change((tx, ctx) => teamsWriter.createRole(tx, ctx, { requestKey, input: { ...input, teamId } }));
 }
 export async function editRole(
 	requestKey: string,
 	expectedRevision: string,
-	teamId: string,
 	roleId: string,
 	patch: Record<string, unknown>,
 ) {
-	return change(teamId, (tx, ctx) =>
+	return change((tx, ctx) =>
 		teamsWriter.editRole(tx, ctx, command(requestKey, expectedRevision, { ...patch, roleId })),
 	);
 }
 /** Takes a role out of the current structure. Its holder's tenure ends; past tenure stays in the history. */
-export async function retireRole(requestKey: string, expectedRevision: string, teamId: string, roleId: string) {
-	return change(teamId, (tx, ctx) =>
-		teamsWriter.retireRole(tx, ctx, command(requestKey, expectedRevision, { roleId })),
-	);
+export async function retireRole(requestKey: string, expectedRevision: string, roleId: string) {
+	return change((tx, ctx) => teamsWriter.retireRole(tx, ctx, command(requestKey, expectedRevision, { roleId })));
 }
 /** Puts one live person in one open role. The answer says when they now serve on two or more teams. */
 export async function assignRole(
@@ -112,13 +104,13 @@ export async function assignRole(
 	roleId: string,
 	personId: string,
 ) {
-	return change(teamId, (tx, ctx) =>
+	return change((tx, ctx) =>
 		teamsWriter.assignRole(tx, ctx, command(requestKey, expectedRevision, { roleId, teamId, personId })),
 	);
 }
 /** Ends every role the person holds on this ministry. Stage, commitments and training stay as they are. */
 export async function endMembership(requestKey: string, expectedRevision: string, teamId: string, personId: string) {
-	return change(teamId, (tx, ctx) =>
+	return change((tx, ctx) =>
 		teamsWriter.endMembership(tx, ctx, command(requestKey, expectedRevision, { teamId, personId })),
 	);
 }
@@ -126,11 +118,10 @@ export async function endMembership(requestKey: string, expectedRevision: string
 export async function reactivateMembership(
 	requestKey: string,
 	expectedRevision: string,
-	teamId: string,
 	roleId: string,
 	personId: string,
 ) {
-	return change(teamId, (tx, ctx) =>
+	return change((tx, ctx) =>
 		teamsWriter.reactivateMembership(tx, ctx, command(requestKey, expectedRevision, { roleId, personId })),
 	);
 }
@@ -169,13 +160,13 @@ export async function reviewTemplates(version: string, selections: Selection[]) 
 		value: { version, digest: reviewDigest({ expectedVersion: version, mode: "import", selections, lines: [] }) },
 	} as const;
 }
-/** Adds the reviewed templates and answers with the ministries list as it is after the import. */
+/** Adds the reviewed templates. The answer says how many ministries and roles are new. */
 export async function importTemplates(
 	requestKey: string,
 	version: string,
 	digest: string,
 	selections: Selection[],
-): Promise<Outcome<{ newTeams: number; newRoles: number; view: TeamsView }>> {
+): Promise<Outcome<{ newTeams: number; newRoles: number }>> {
 	const v = await seat();
 	if (!v) return noSeat;
 	const done = await write(v, (tx, ctx) =>
@@ -185,10 +176,16 @@ export async function importTemplates(
 		}),
 	);
 	if (done.status !== "ok") return done;
-	return {
-		status: "ok",
-		value: { newTeams: done.value.newTeams, newRoles: done.value.newSelectedRoles, view: await loadTeams(v) },
-	};
+	return { status: "ok", value: { newTeams: done.value.newTeams, newRoles: done.value.newSelectedRoles } };
+}
+/**
+ * The ministries list and chart again, after an import created ministries whose ids only the server knows. A read in
+ * its own request, so the import's write request stays within its statement budget.
+ */
+export async function reloadTeams(): Promise<Outcome<TeamsView>> {
+	const v = await seat();
+	if (!v) return noSeat;
+	return { status: "ok", value: await loadTeams(v) };
 }
 // Organization view (REQ-TEAM-012) ------------------------------------------------------------------------------
 

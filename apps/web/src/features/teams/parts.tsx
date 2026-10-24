@@ -50,16 +50,14 @@ export function LeaderLine({ name, className }: { name: string | null; className
  * ministry, so a voice-control user can say what they see (WCAG 2.5.3). It prefetches on intent only.
  */
 export function MinistryCard({ team }: { team: Team & { leaderName: string | null } }) {
+	// The name comes first in reading order, so the link is named by the ministry; the icon and state row is drawn
+	// above it with `order`.
 	return (
 		<IntentLink
 			href={`/ministries/${team.id}`}
-			className="group flex flex-col rounded-card border border-[var(--ef-card-edge)] bg-surface p-5 shadow-card transition-shadow duration-150 hover:shadow-raised focus-visible:shadow-[0_0_0_2px_var(--ef-ink)] focus-visible:outline-none"
+			className="group flex w-full flex-col rounded-card border border-[var(--ef-card-edge)] bg-surface p-5 shadow-card transition-shadow duration-150 hover:shadow-raised focus-visible:shadow-[0_0_0_2px_var(--ef-ink)] focus-visible:outline-none"
 		>
-			<span className="flex items-start justify-between gap-3">
-				<TeamIcon team={team} />
-				<TeamBadge team={team} size="sm" />
-			</span>
-			<span className="mt-4 flex items-center gap-1.5">
+			<span className="order-2 mt-4 flex items-center gap-1.5">
 				<span className="min-w-0 font-title text-title-sm tracking-[-0.01em] wrap-anywhere text-ink">{team.name}</span>
 				<Icon
 					icon={ArrowRight01Icon}
@@ -67,8 +65,12 @@ export function MinistryCard({ team }: { team: Team & { leaderName: string | nul
 					className="flex-none text-text-3 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100"
 				/>
 			</span>
-			<LeaderLine name={team.leaderName} className="mt-2 mb-4" />
-			<span className="mt-auto flex items-center justify-between border-t border-line pt-3 text-sm">
+			<span className="order-1 flex items-start justify-between gap-3">
+				<TeamIcon team={team} />
+				<TeamBadge team={team} size="sm" />
+			</span>
+			<LeaderLine name={team.leaderName} className="order-3 mt-2 mb-4" />
+			<span className="order-4 mt-auto flex items-center justify-between border-t border-line pt-3 text-sm">
 				<span className="text-text-3">Serving</span>
 				<b className="font-semibold text-ink tabular-nums">{plural(team.activeCount, "person", "people")}</b>
 			</span>

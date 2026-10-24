@@ -177,8 +177,6 @@ export const FIELD_LABEL: Record<string, string> = {
 	icon: "Icon",
 	state: "State",
 	archived: "Archived",
-	leaderPersonId: "Leader",
-	leaderSource: "Leader source",
 	occupantPersonId: "Person",
 	desiredSkills: "Desired skills",
 	retired: "Retired",

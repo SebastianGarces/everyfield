@@ -18,7 +18,6 @@ import { useEffect, useState } from "react";
 import { DialogNotice, SaveButton, type SaveIntent } from "../../components/save/parts.tsx";
 import { importTemplates, reviewTemplates, templateCatalog } from "./actions.ts";
 import { plural, type Catalog, type Outcome } from "./model.ts";
-import type { TeamsView } from "./server.ts";
 
 // Set up ministries from the ten templates (REQ-TEAM-003). Nothing is created until the person reviews the exact
 // ministries and roles and confirms. Choosing nothing, closing or going back creates nothing. A template that is
@@ -35,7 +34,7 @@ export function SetupDialog({
 	lane: SaveIntent<SetupForm>;
 	/** Template keys this church already has, archived ones too. */
 	present: ReadonlySet<string>;
-	onDone: (view: TeamsView, added: { newTeams: number; newRoles: number }) => void;
+	onDone: (added: { newTeams: number; newRoles: number }) => void;
 }) {
 	const form = lane.editing;
 	const [catalog, setCatalog] = useState<Outcome<Catalog> | null>(null);
@@ -96,7 +95,7 @@ export function SetupDialog({
 				if (review.status !== "ok") return review;
 				return importTemplates(key, version, review.value.digest, selections);
 			},
-			ok: (v) => onDone(v.view, { newTeams: v.newTeams, newRoles: v.newRoles }),
+			ok: onDone,
 			refused: (code) => code === "stale_template_version" && setCatalog(null),
 		});
 	}

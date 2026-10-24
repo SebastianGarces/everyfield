@@ -57,10 +57,27 @@ function Node({ node, current }: { node: ChartNode; current?: boolean }) {
 	);
 }
 
-/** The tree itself. `focus` draws one ministry under the root, for the ministry page. */
+/** The tree itself. `focus` draws only the root and that ministry, stacked, for the ministry page. */
 export function ChartTree({ nodes, focus }: { nodes: readonly ChartNode[]; focus?: string }) {
 	const t = tree(nodes);
-	const children = focus ? t.children.filter((n) => n.id === focus) : t.children;
+	if (focus) {
+		const node = nodes.find((n) => n.id === focus);
+		if (!node) return null;
+		return (
+			<ul aria-label="Place in the organization view" className="flex flex-col">
+				{t.root && t.root.id !== focus ? (
+					<li className="flex flex-col">
+						<Node node={t.root} />
+						<span aria-hidden="true" className="ml-8 block h-4 w-0.5 bg-line-2" />
+					</li>
+				) : null}
+				<li className={t.root && t.root.id !== focus ? "ml-8 border-l-2 border-line-2 pt-3 pl-4" : undefined}>
+					<Node node={node} current />
+				</li>
+			</ul>
+		);
+	}
+	const children = t.children;
 	const list = (
 		<ul
 			className={cn(

@@ -25,7 +25,7 @@ import {
 } from "@everyfield/ui/controls";
 import { useState } from "react";
 import { NoticeInDialog, SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
-import { createTeam } from "./actions.ts";
+import { createTeam, reloadTeams } from "./actions.ts";
 import { optional, TeamDialog, type TeamForm } from "./dialogs.tsx";
 import { isLeadership, plural, problemText } from "./model.ts";
 import { OrgChart } from "./OrgChart.tsx";
@@ -62,6 +62,17 @@ export function TeamsScreen({ view: initial, tab: first, admin }: { view: TeamsV
 	const filled = current.reduce((n, t) => n + t.activeCount, 0);
 	// Leadership first, as on the chart; then the ministries in their saved order.
 	const ordered = [...current.filter(isLeadership), ...current.filter((t) => !isLeadership(t))];
+
+	// After an import the new ministries' ids are the server's, so the list reads itself once, in its own request.
+	const [refreshing, setRefreshing] = useState(false);
+	async function refresh() {
+		setRefreshing(true);
+		const r = await reloadTeams().catch(() => ({ status: "lost" }) as const);
+		setRefreshing(false);
+		if (r.status === "ok") setView(r.value);
+		else
+			toast({ tone: "error", message: "The new ministries are saved, but the list did not update. Reload the page." });
+	}
 
 	function create(form: TeamForm) {
 		void createLane.save({
@@ -115,7 +126,7 @@ export function TeamsScreen({ view: initial, tab: first, admin }: { view: TeamsV
 			/>
 			<SaveNotice {...createLane.noticeProps} dialogOpen={createLane.editing !== null} />
 			<SaveNotice {...setupLane.noticeProps} dialogOpen={setupLane.editing !== null} />
-			{setupLane.saving ? (
+			{setupLane.saving || refreshing ? (
 				<p role="status" className="mb-4 text-sm text-text-2">
 					Adding the ministries you chose…
 				</p>
@@ -176,13 +187,13 @@ export function TeamsScreen({ view: initial, tab: first, admin }: { view: TeamsV
 										? `${leaderless[0]!.name} has no leader`
 										: `${plural(leaderless.length, "ministry", "ministries")} have no leader`}
 								</InsightTitle>
-								<InsightText>
+								<InsightText className="wrap-anywhere">
 									{leaderless.length === 1
 										? "Open it to appoint someone, or fill a leadership role."
 										: `${leaderless
 												.slice(0, 4)
 												.map((t) => t.name)
-												.join(", ")}${leaderless.length > 4 ? " and others" : ""}.`}
+												.join(", ")}${leaderless.length > 4 ? ` and ${leaderless.length - 4} more` : ""}.`}
 								</InsightText>
 							</InsightCard>
 						) : null}
@@ -247,9 +258,9 @@ export function TeamsScreen({ view: initial, tab: first, admin }: { view: TeamsV
 					<SetupDialog
 						lane={setupLane}
 						present={present}
-						onDone={(next, added) => {
-							setView(next);
+						onDone={(added) => {
 							setTab("teams");
+							void refresh();
 							toast({
 								tone: "success",
 								message:

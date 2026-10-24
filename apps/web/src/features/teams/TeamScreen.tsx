@@ -70,7 +70,6 @@ import {
 import {
 	changedFields,
 	dayText,
-	asDay,
 	asPersonId,
 	asRecordId,
 	asRevision,
@@ -89,74 +88,20 @@ import {
 } from "./model.ts";
 import { ChartTree } from "./OrgChart.tsx";
 import { LeaderLine, TeamBadge, TeamIcon } from "./parts.tsx";
+import { apply, today, type Change } from "./page-state.ts";
 import type { TeamView } from "./server.ts";
 
 // One ministry (REQ-TEAM-001, -002, -004 to -006): its roles, its people now and before, its leader, its place in the
-// organization view and its history. Every change shows at once, then the page takes the server's answer, which
-// carries the page as it is after the change; a refusal puts the page back and says why. Nothing reloads the page.
+// organization view and its history. Every change shows at once, then settles from the write's own answer through the
+// same step (page-state.ts); a refusal puts the page back and says why. Nothing reloads the page.
 //
 // The tabs are a list so the responsibilities (WP-018) and training (WP-019) tabs join it without reshaping the page.
-
-type Change =
-	| { kind: "team"; patch: Partial<TeamView["team"]> }
-	| { kind: "fill"; role: Role; person: { id: string; name: string } }
-	| { kind: "leave"; personId: string }
-	| { kind: "retire"; roleId: string }
-	| { kind: "role"; role: Role };
-
-function apply(v: TeamView, c: Change): TeamView {
-	switch (c.kind) {
-		case "team":
-			return { ...v, team: { ...v.team, ...c.patch } };
-		case "fill": {
-			const row: Member = {
-				personId: asPersonId(c.person.id),
-				name: c.person.name,
-				roleId: c.role.id,
-				roleName: c.role.name,
-				startedOn: asDay(new Date().toISOString().slice(0, 10)),
-				endedOn: null,
-				active: true,
-				live: true,
-			};
-			const leads = c.role.leadership && !v.team.leaderPersonId;
-			return {
-				...v,
-				team: leads ? { ...v.team, leaderPersonId: row.personId, leaderName: c.person.name } : v.team,
-				roles:
-					v.roles?.map((r) =>
-						r.id === c.role.id ? { ...r, occupantPersonId: row.personId, occupantName: c.person.name } : r,
-					) ?? null,
-				members: v.members ? [...v.members, row] : null,
-			};
-		}
-		case "leave":
-			return {
-				...v,
-				roles:
-					v.roles?.map((r) =>
-						r.occupantPersonId === c.personId ? { ...r, occupantPersonId: null, occupantName: null } : r,
-					) ?? null,
-				members: v.members?.filter((m) => m.personId !== c.personId) ?? null,
-			};
-		case "retire":
-			return { ...v, roles: v.roles?.filter((r) => r.id !== c.roleId) ?? null };
-		case "role":
-			return {
-				...v,
-				roles: v.roles?.some((r) => r.id === c.role.id)
-					? v.roles.map((r) => (r.id === c.role.id ? c.role : r))
-					: [...(v.roles ?? []), c.role],
-			};
-	}
-}
 
 type Confirm =
 	| { kind: "archive" }
 	| { kind: "retire"; role: Role }
 	| { kind: "leave"; personId: string; name: string; roles: string[] };
 type PersonFlow = { kind: "leader" } | { kind: "member"; role: Role | null };
-type Saved = Outcome<{ result: unknown; view: TeamView | null }>;
 
 export function TeamScreen({ data: loaded }: { data: TeamView }) {
 	const router = useRouter();
@@ -194,35 +139,33 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 			},
 			() => {},
 		);
-	/** The confirmed page after a change, or the list when the ministry is no longer here. */
-	const settle = (next: TeamView | null) =>
-		startTransition(() => {
-			if (next) setData(next);
-			else router.push("/ministries");
-		});
-
-	function save<F extends { problem?: string }>(
+	/**
+	 * One change: drawn at once, then settled from the write's own answer. `change` is what the person asked for;
+	 * `confirm` turns the answer into the saved change.
+	 */
+	function save<F extends { problem?: string }, T>(
 		lane: ReturnType<typeof useSaveIntent<F>>,
 		spec: {
 			what: string;
 			done?: string;
 			form?: F;
-			change?: Change;
-			send: (key: string) => Promise<Saved>;
-			ok?: (result: unknown) => void;
+			change: Change;
+			send: (key: string) => Promise<Outcome<T>>;
+			confirm: (result: T) => Change;
+			ok?: (result: T) => void;
 		},
 	) {
 		if (lane.wait) return;
 		startTransition(async () => {
-			if (spec.change) project(spec.change);
+			project(spec.change);
 			await lane.save({
 				what: spec.what,
 				done: spec.done,
 				form: spec.form,
 				send: spec.send,
-				ok: (v) => {
-					settle(v.view);
-					spec.ok?.(v.result);
+				ok: (result) => {
+					startTransition(() => setData((d) => apply(d, spec.confirm(result))));
+					spec.ok?.(result);
 				},
 				refused: (code) => {
 					if (code === "conflict") void stale();
@@ -256,6 +199,7 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 				patch: { name: patch.name, description: patch.description, icon: patch.icon, state: patch.state },
 			},
 			send: (key) => changeTeam(form.mode === "correct" ? "correct" : "edit", key, t.revision, t.id, patch),
+			confirm: (r) => ({ kind: "team", patch: r.team }),
 			ok: () =>
 				toast({
 					tone: "success",
@@ -269,6 +213,7 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 			done: to ? "archived" : "restored",
 			change: { kind: "team", patch: { archived: to } },
 			send: (key) => changeTeam(to ? "archive" : "restore", key, t.revision, t.id),
+			confirm: (r) => ({ kind: "team", patch: r.team }),
 			ok: () => toast({ tone: "success", message: to ? `${t.name} is archived.` : `${t.name} is restored.` }),
 		});
 	}
@@ -283,6 +228,7 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 				patch: { leaderPersonId: asPersonId(person.id), leaderName: person.name, leaderSource: "explicit" },
 			},
 			send: (key) => appointLeader(key, t.revision, t.id, person.id),
+			confirm: (r) => ({ kind: "team", patch: { ...r.team, leaderName: person.name } }),
 			ok: () => toast({ tone: "success", message: `${person.name} now leads ${t.name}.` }),
 		});
 	}
@@ -311,17 +257,18 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 			what: `The role ${facts.name}`,
 			done: form.roleId ? "saved" : "added",
 			form,
-			change: { kind: "role", role: shown },
-			send: (key) =>
-				form.roleId ? editRole(key, form.revision, t.id, form.roleId, facts) : createRole(key, t.id, facts),
+			change: { kind: "role", role: shown, today: today() },
+			send: (key) => (form.roleId ? editRole(key, form.revision, form.roleId, facts) : createRole(key, t.id, facts)),
+			confirm: (r) => ({ kind: "role", role: r.role, today: today() }),
 		});
 	}
 	function retire(role: Role) {
 		save(roleLane, {
 			what: `The role ${role.name}`,
 			done: "retired",
-			change: { kind: "retire", roleId: role.id },
-			send: (key) => retireRole(key, role.revision, t.id, role.id),
+			change: { kind: "role", role: { ...role, retired: true }, today: today() },
+			send: (key) => retireRole(key, role.revision, role.id),
+			confirm: (r) => ({ kind: "role", role: r.role, today: today() }),
 			ok: () => toast({ tone: "success", message: `${role.name} is retired. Its history stays.` }),
 		});
 	}
@@ -333,10 +280,10 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 			what: `${person.name} in ${role.name}`,
 			done: "added",
 			form,
-			change: { kind: "fill", role, person },
+			change: { kind: "fill", role, person, today: today(), derive: true },
 			send: (key) => assignRole(key, role.revision, t.id, role.id, person.id),
-			ok: (r) => {
-				const result = r as { warning: "overload" | null; teamCount: number };
+			confirm: () => ({ kind: "fill", role, person, today: today(), derive: true }),
+			ok: (result) => {
 				toast(
 					result.warning === "overload"
 						? {
@@ -352,8 +299,9 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 		save(peopleLane, {
 			what: `${name}'s place on ${t.name}`,
 			done: "ended",
-			change: { kind: "leave", personId },
+			change: { kind: "leave", personId, today: today() },
 			send: (key) => endMembership(key, t.revision, t.id, personId),
+			confirm: () => ({ kind: "leave", personId, today: today() }),
 			ok: () => toast({ tone: "success", message: `${name} is no longer on ${t.name}. Their history stays.` }),
 		});
 	}
@@ -363,8 +311,9 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 		save(peopleLane, {
 			what: `${m.name} in ${role.name}`,
 			done: "added",
-			change: { kind: "fill", role, person: { id: m.personId, name: m.name } },
-			send: (key) => reactivateMembership(key, role.revision, t.id, role.id, m.personId),
+			change: { kind: "fill", role, person: { id: m.personId, name: m.name }, today: today(), derive: false },
+			send: (key) => reactivateMembership(key, role.revision, role.id, m.personId),
+			confirm: () => ({ kind: "fill", role, person: { id: m.personId, name: m.name }, today: today(), derive: false }),
 			ok: () => toast({ tone: "success", message: `${m.name} is back in ${role.name}.` }),
 		});
 	}
@@ -378,75 +327,92 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 					? "From an earlier record"
 					: null;
 
+	// Roles and people: Owners, Admins and this ministry's linked leader. The ministry's details, its leader and its
+	// archive: Owners and Admins only (the producer decides again).
+	const admin = data.admin && can;
 	const actions = can ? (
-		<>
-			<Button
-				variant="secondary"
-				icon={LEADER_ICON}
-				onClick={() => setFlow({ kind: "leader" })}
-				disabled={peopleLane.wait !== null}
-			>
-				{t.leaderPersonId ? "Change leader" : "Appoint leader"}
-			</Button>
-			<Button
-				variant="primary"
-				icon={UserAdd01Icon}
-				onClick={() => setFlow({ kind: "member", role: null })}
-				disabled={open.length === 0 || peopleLane.wait !== null}
-				aria-describedby={open.length === 0 ? "no-open-roles" : undefined}
-			>
-				Add member
-			</Button>
-			<Menu>
-				<MenuTrigger asChild>
-					<IconButton icon={MoreHorizontalIcon} label="More actions" />
-				</MenuTrigger>
-				<MenuContent align="end">
-					<MenuItem icon={Edit02Icon} onSelect={() => teamLane.open(teamForm("edit"))}>
-						Edit details
-					</MenuItem>
-					{data.admin ? (
-						<>
-							<MenuItem icon={FileEditIcon} onSelect={() => teamLane.open(teamForm("correct"))}>
-								Correct the record
-							</MenuItem>
-							<MenuSeparator />
-							<MenuItem icon={Archive02Icon} danger onSelect={() => setConfirm({ kind: "archive" })}>
-								Archive ministry
-							</MenuItem>
-						</>
-					) : null}
-				</MenuContent>
-			</Menu>
-		</>
+		<span className="flex flex-wrap items-center gap-2.5">
+			{admin ? (
+				<Button
+					variant="secondary"
+					icon={LEADER_ICON}
+					onClick={() => setFlow({ kind: "leader" })}
+					disabled={peopleLane.wait !== null}
+				>
+					{t.leaderPersonId ? "Change leader" : "Appoint leader"}
+				</Button>
+			) : null}
+			{/* With every role filled, a new person needs a new role first. */}
+			{open.length ? (
+				<Button
+					variant="primary"
+					icon={UserAdd01Icon}
+					onClick={() => setFlow({ kind: "member", role: null })}
+					disabled={peopleLane.wait !== null}
+				>
+					Add member
+				</Button>
+			) : (
+				<Button
+					variant="primary"
+					icon={Add01Icon}
+					onClick={() => roleLane.open(roleForm(null))}
+					disabled={roleLane.wait !== null}
+				>
+					Add role
+				</Button>
+			)}
+			{admin ? (
+				<Menu>
+					<MenuTrigger asChild>
+						<IconButton icon={MoreHorizontalIcon} label="More actions" />
+					</MenuTrigger>
+					<MenuContent align="end">
+						<MenuItem icon={Edit02Icon} onSelect={() => teamLane.open(teamForm("edit"))}>
+							Edit details
+						</MenuItem>
+						<MenuItem icon={FileEditIcon} onSelect={() => teamLane.open(teamForm("correct"))}>
+							Correct the record
+						</MenuItem>
+						<MenuSeparator />
+						<MenuItem icon={Archive02Icon} danger onSelect={() => setConfirm({ kind: "archive" })}>
+							Archive ministry
+						</MenuItem>
+					</MenuContent>
+				</Menu>
+			) : null}
+		</span>
 	) : null;
 
 	return (
 		<>
 			<PageHeader
-				breadcrumb={[{ label: "Ministries", href: "/ministries" }, { label: t.name }]}
+				// The actions keep their width; a long name wraps instead (REQ-TEAM-012 long names).
+				className="[&>div:last-child]:flex-none max-app-md:[&>div:last-child]:flex-initial"
+				breadcrumb={[{ label: "Ministries", href: "/ministries" }, { label: short(t.name) }]}
 				title={
-					<span className="flex flex-wrap items-center gap-x-4 gap-y-2">
-						<TeamIcon team={t} />
-						<span className="wrap-anywhere">{t.name}</span>
-						<TeamBadge team={t} />
+					<span className="flex items-center gap-4">
+						<span aria-hidden="true" className="flex-none">
+							<TeamIcon team={t} />
+						</span>
+						<span className="min-w-0 wrap-anywhere">{t.name}</span>
 					</span>
 				}
-				subtitle={t.description ?? undefined}
+				subtitle={
+					<span className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+						<TeamBadge team={t} size="sm" />
+						{t.description ? <span>{t.description}</span> : null}
+					</span>
+				}
 				actions={actions}
 			/>
-			{open.length === 0 && can ? (
-				<p id="no-open-roles" className="sr-only">
-					Every role is filled. Add a role first.
-				</p>
-			) : null}
 			{t.archived ? (
 				<Card variant="callout" tone="ink" className="mb-5 flex-row flex-wrap items-center justify-between gap-3">
 					<p className="text-md text-text-2">
 						<b className="font-semibold text-ink">This ministry is archived.</b> It is out of lists, counts and the
 						organization view. Its roles, people and history stay as they were.
 					</p>
-					{data.admin && data.canChange ? (
+					{data.admin ? (
 						<Button
 							variant="secondary"
 							size="sm"
@@ -497,6 +463,7 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 					</TabsPanel>
 					<TabsPanel value="people">
 						<PeopleCard
+							archived={t.archived}
 							crew={crew}
 							past={view.past}
 							roles={roles ?? []}
@@ -513,7 +480,7 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 					</TabsPanel>
 				</Tabs>
 
-				<aside className="flex flex-col gap-5 max-app-lg:order-first" aria-label="Leader and organization">
+				<aside className="flex flex-col gap-5" aria-label="Leader and organization">
 					<Card>
 						<CardHeader>
 							<CardHeading>
@@ -576,7 +543,10 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 					<PersonFlowDialog
 						flow={flow ?? (peopleLane.editing?.roleId === null ? { kind: "leader" } : { kind: "member", role: null })}
 						form={
-							peopleLane.editing ?? { person: null, roleId: flow?.kind === "member" ? (flow.role?.id ?? null) : null }
+							peopleLane.editing ?? {
+								person: null,
+								roleId: flow?.kind === "member" ? (flow.role?.id ?? (open.length === 1 ? open[0]!.id : null)) : null,
+							}
 						}
 						open={open}
 						teamName={t.name}
@@ -617,6 +587,9 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 		</>
 	);
 }
+
+/** A name short enough for a breadcrumb; the page title shows it in full. */
+const short = (name: string) => (name.length > 48 ? `${name.slice(0, 47)}…` : name);
 
 function confirmCopy(
 	c: Confirm | null,
@@ -826,8 +799,7 @@ function RoleSlot({
 			aria-busy={pending || undefined}
 			className={cn(
 				"flex min-h-[68px] items-center gap-3 rounded-md bg-surface-2 px-3.5 py-3",
-				!r.occupantPersonId &&
-					"bg-transparent shadow-[inset_0_0_0_1.5px_var(--ef-line-2)] [box-shadow:inset_0_0_0_1.5px_var(--ef-line-2)]",
+				!r.occupantPersonId && "border border-dashed border-line-2 bg-transparent",
 				pending && "opacity-60",
 			)}
 		>
@@ -887,6 +859,7 @@ function RoleSlot({
 // People ---------------------------------------------------------------------------------------------------------
 
 function PeopleCard({
+	archived,
 	crew,
 	past,
 	roles,
@@ -895,6 +868,7 @@ function PeopleCard({
 	onLeave,
 	onRejoin,
 }: {
+	archived: boolean;
 	crew: ReturnType<typeof people> | null;
 	past: Member[] | null;
 	roles: Role[];
@@ -919,8 +893,14 @@ function PeopleCard({
 						This is a loading problem. Nothing was changed. Reload the page in a moment.
 					</StatePanel>
 				) : crew.length === 0 ? (
-					<EmptyState icon={UserGroupIcon} title="No one serves here yet" headingLevel="h3">
-						Fill a role to add someone to this ministry.
+					<EmptyState
+						icon={UserGroupIcon}
+						title={archived ? "No one serves while it is archived" : "No one serves here yet"}
+						headingLevel="h3"
+					>
+						{archived
+							? "Their roles are kept. Restore the ministry to see who serves in them again."
+							: "Fill a role to add someone to this ministry."}
 					</EmptyState>
 				) : (
 					<ul className="flex flex-col divide-y divide-line">
