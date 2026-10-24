@@ -1,9 +1,9 @@
 import { z } from "zod";
-import { correlationId, tenantId } from "../common/values.ts";
+import { correlationId, recordId, tenantId } from "../common/values.ts";
 import { documentCategory, documentFormat, templateId } from "./values.ts";
 
 const issue = z.strictObject({ path: z.string().max(200), problem: z.string().max(200) });
-const error = <C extends string, D extends z.ZodRawShape>(code: C, details: D, retry: "never") =>
+const error = <C extends string, D extends z.ZodRawShape>(code: C, details: D, retry: "never" | "refresh") =>
 	z.strictObject({ code: z.literal(code), details: z.strictObject(details), correlationId, retry: z.literal(retry) });
 
 /** Refusals a document-template read can return. An unknown template is "unavailable". */
@@ -12,6 +12,7 @@ export const documentsError = z.discriminatedUnion("code", [
 	error("unavailable", {}, "never"),
 	error("invalid_subject", {}, "never"),
 	error("render_failed", {}, "never"),
+	error("conflict", {}, "refresh"),
 ]);
 export type DocumentsError = z.infer<typeof documentsError>;
 export type DocumentsReply<T> = { status: "ok"; value: T } | { status: "refused"; error: DocumentsError };
@@ -66,4 +67,50 @@ export const previewResult = z.strictObject({
 	artifact: z.string().min(1).nullable(),
 	digest: sha256.nullable(),
 	engineVersion: sha256.nullable(),
+});
+
+const revisionToken = z.string().regex(/^[0-9]{1,20}$/);
+export const generatedDocument = z.strictObject({
+	id: recordId,
+	plantId: tenantId,
+	templateId,
+	templateVersion: sha256,
+	savedTemplateName: z.string().min(1).max(200),
+	format: documentFormat,
+	digest: sha256,
+	byteCount: z
+		.int()
+		.min(1)
+		.max(8 * 1024 * 1024),
+	downloadName: z.string().min(1).max(220),
+	generatedAt: z.iso.datetime(),
+	creatorAccountId: z.uuid().nullable(),
+	revision: revisionToken,
+});
+export const generatedHistory = z.strictObject({
+	entries: z.array(generatedDocument).max(100),
+});
+export const downloadResult = z.strictObject({
+	url: z.url(),
+	expiresAt: z.iso.datetime(),
+	expiresInSeconds: z.literal(300),
+});
+export const ownedDocument = z.strictObject({
+	id: recordId,
+	tenantId: tenantId,
+	kind: z.enum(["native", "core_values", "launch_summary"]),
+	title: z.string().min(1).max(200),
+	body: z.string().max(2_000_000),
+	revision: revisionToken,
+	contentHash: sha256,
+	archived: z.boolean(),
+	copiedFromRevisionId: recordId.nullable(),
+	copiedFromHash: sha256.nullable(),
+});
+export const ownedDocumentPage = z.strictObject({
+	documents: z.array(ownedDocument).max(100),
+});
+export const coreValuesEvidence = z.strictObject({
+	documentId: recordId.nullable(),
+	text: z.string().max(2_000_000).nullable(),
 });
