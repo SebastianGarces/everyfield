@@ -46,7 +46,8 @@ export function outlinePhrases(description: string): string[] {
 }
 
 export async function library() {
-	const [starter, version] = await Promise.all([loadStarter(), referenceArtifactSha256()]);
+	const starter = await loadStarter();
+	const version = await referenceArtifactSha256();
 	return { version, templates: z.array(templateSchema).parse(starter.catalogs.documents) };
 }
 
