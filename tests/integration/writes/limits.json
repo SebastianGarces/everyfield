@@ -1524,5 +1524,29 @@
 	"wiki.updateProgress": {
 		"limit": 5,
 		"retry": 3
+	},
+	"wiki.getMine": {
+		"limit": 1
+	},
+	"wiki.setMine": {
+		"limit": 5
+	},
+	"wiki.getOrganizationDraft": {
+		"limit": 1
+	},
+	"wiki.addOrganizationArticle": {
+		"limit": 5
+	},
+	"wiki.editOrganizationArticle": {
+		"limit": 5
+	},
+	"wiki.hideOrganizationArticle": {
+		"limit": 5
+	},
+	"wiki.publishOrganizationArticle": {
+		"limit": 5
+	},
+	"wiki.emitUpstreamReview": {
+		"limit": 5
 	}
 }
