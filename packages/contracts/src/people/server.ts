@@ -138,7 +138,9 @@ export interface AccountPersonProducer<Tx> {
 			selection:
 				| { kind: "resolve" }
 				| { kind: "reviewed_contact"; person: z.infer<typeof lockedPersonReference> }
-				| { kind: "create"; displayName: string };
+				| { kind: "create"; displayName: string }
+				// The caller created the plant in this transaction and holds the account's lock: no Person exists in it yet.
+				| { kind: "first"; displayName: string };
 		},
 	): Promise<PeopleReply<z.infer<typeof result.accountPersonResolution>>>;
 	ensureGuest(

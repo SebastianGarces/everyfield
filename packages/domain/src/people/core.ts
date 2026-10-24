@@ -86,6 +86,21 @@ export async function reply<T>(tx: Tx, body: () => Promise<T>): Promise<PeopleRe
 	}
 }
 
+/**
+ * reply for a producer whose refusals all come before its one write statement: a refusal leaves nothing to roll back
+ * and a database error aborts the caller's transaction either way, so it needs no savepoint.
+ */
+export async function replyWithoutSavepoint<T>(tx: Tx, body: () => Promise<T>): Promise<PeopleReply<T>> {
+	if (boundWrite(tx)) return { status: "ok", value: await body() };
+	try {
+		return { status: "ok", value: await body() };
+	} catch (error) {
+		if (error instanceof WriteUnavailable) return refused(new Refusal("unavailable"));
+		if (!(error instanceof Refusal)) throw error;
+		return refused(error);
+	}
+}
+
 /** The native request owns rollback, so a successful write needs no nested savepoint. */
 export async function withPeopleWrite<T>(
 	db: Database,

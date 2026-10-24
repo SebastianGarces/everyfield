@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import { once } from "node:events";
 import { randomBytes } from "node:crypto";
 import { createRequire } from "node:module";
 import { join } from "node:path";
@@ -9,12 +10,16 @@ import { QUIET_IMAGE, startQuietDatabase, stopQuietDatabase } from "../timing-st
 
 const docker = (...args: string[]) => spawnSync("docker", args, { encoding: "utf8" }).stdout.trim();
 
-test("OPS-52-P2: the quiet database starts, migrates, logs the app in as its own roles and stops", async () => {
-	// A run that crashed left its database behind: its process is gone.
-	const ended = spawnSync(process.execPath, ["-e", ""]).pid;
+test("OPS-52-P2: the quiet database starts, migrates, logs the app in as its own roles and stops", async (t) => {
+	// A run that crashed left its database behind. Every evf run on this machine sweeps databases whose run has
+	// ended, so the owner stays alive until the check below has seen the fixture, then it crashes (OPS-53).
+	const owner = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"]);
+	t.after(() => owner.kill());
 	const stale = `evf-timing-stale-${randomBytes(3).toString("hex")}`;
-	docker("create", "--name", stale, "--label", "evf.timing=1", "--label", `evf.pid=${ended}`, QUIET_IMAGE);
+	docker("create", "--name", stale, "--label", "evf.timing=1", "--label", `evf.pid=${owner.pid}`, QUIET_IMAGE);
 	assert.equal(docker("ps", "-a", "--filter", `name=${stale}`, "--format", "{{.Names}}"), stale);
+	owner.kill("SIGKILL");
+	await once(owner, "exit");
 
 	const db = startQuietDatabase(source, "test");
 	try {
