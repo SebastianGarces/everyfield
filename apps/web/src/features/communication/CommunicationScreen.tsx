@@ -28,11 +28,10 @@ import {
 	forkTemplate,
 	previewMessage,
 	readMeetingTemplate,
-	reloadTemplates,
 	rescheduleReviewed,
 	resolveAudience,
 	saveDraft,
-	scheduleReviewed,
+	scheduleDraft,
 	searchRecipients,
 	updateTemplate,
 } from "./actions.ts";
@@ -385,24 +384,15 @@ function Compose({
 				setIssues(next);
 				return;
 			}
-			let current = form;
-			if (form.state === "new" || form.state === "draft") {
-				const saved = await saveDraft(keys.take("save"), form.revision, draftPayload(form));
-				keys.settle("save", saved);
-				if (saved.status !== "ok") {
-					setIssues({ form: outcomeText(saved) ?? undefined });
-					return;
-				}
-				current = formFrom(saved.value, form.people);
-				adopt(saved.value);
-			}
-			if (!current.communicationId || !current.revision) return;
-			const scheduled = await scheduleReviewed(
+			if (form.state !== "new" && form.state !== "draft") return;
+			const scheduled = await scheduleDraft(
+				keys.take("save"),
 				keys.take("schedule"),
-				current.revision,
-				current.communicationId,
+				form.revision,
+				draftPayload(form),
 				instant,
 			);
+			keys.settle("save", scheduled);
 			keys.settle("schedule", scheduled);
 			if (scheduled.status !== "ok") {
 				setIssues({ form: outcomeText(scheduled) ?? undefined });
@@ -818,12 +808,21 @@ function Compose({
 				tone="danger"
 				onConfirm={async () => {
 					if (!form.communicationId || !form.revision) throw new Error("Save the draft before you delete it.");
-					const result = await deleteDraft(keys.take("delete"), form.revision, form.communicationId);
-					keys.settle("delete", result);
-					if (result.status !== "ok") throw new Error(outcomeText(result) ?? "Unable to delete the draft.");
-					setDrafts((rows) => rows.filter((row) => row.communicationId !== form.communicationId));
+					const id = form.communicationId;
+					const revision = form.revision;
+					const previous = form;
+					const snapshot = drafts.find((row) => row.communicationId === id) ?? null;
+					setDrafts((rows) => rows.filter((row) => row.communicationId !== id));
 					openDraft(null);
 					setStatus("Draft deleted.");
+					const result = await deleteDraft(keys.take("delete"), revision, id);
+					keys.settle("delete", result);
+					if (result.status !== "ok") {
+						if (snapshot) setDrafts((rows) => [snapshot, ...rows.filter((row) => row.communicationId !== id)]);
+						setForm(previous);
+						setStatus(null);
+						throw new Error(outcomeText(result) ?? "Unable to delete the draft.");
+					}
 				}}
 			/>
 		</div>
@@ -982,6 +981,11 @@ function Templates({
 				)}
 			</Card>
 			<Card as="section" className="flex min-w-0 flex-col gap-5">
+				{status ? (
+					<p role="status" className="text-md text-ink">
+						{status}
+					</p>
+				) : null}
 				{!creating && !selected ? (
 					<EmptyState icon={Mail01Icon} title="Choose a template">
 						{canWrite ? "Select a template, or create one for this church." : "Select a template to read it."}
@@ -997,11 +1001,6 @@ function Templates({
 						{system ? (
 							<p className="text-md text-text-2">
 								System templates stay as they are. Fork the template to change a copy.
-							</p>
-						) : null}
-						{status ? (
-							<p role="status" className="text-md text-ink">
-								{status}
 							</p>
 						) : null}
 						{issues.form ? (
@@ -1134,13 +1133,9 @@ function Templates({
 							: await archiveTemplate(keys.take("archive"), selected.revision, selected.templateId);
 					keys.settle(kind, result);
 					if (result.status !== "ok") throw new Error(outcomeText(result) ?? "Unable to update the template.");
-					if (selected.sourceKey) {
-						const again = await reloadTemplates();
-						if (again.status === "ok") setTemplates(again.value);
-						else setTemplates((rows) => rows.filter((row) => row.templateId !== selected.templateId));
-					} else {
-						setTemplates((rows) => rows.filter((row) => row.templateId !== selected.templateId));
-					}
+					const removedId = selected.templateId;
+					if (result.value.templates) setTemplates(result.value.templates);
+					else setTemplates((rows) => rows.filter((row) => row.templateId !== removedId));
 					setSelected(null);
 					setCreating(false);
 					setConfirm(null);

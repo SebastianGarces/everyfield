@@ -62,19 +62,27 @@ export async function deleteDraft(
 	);
 }
 
-export async function scheduleReviewed(
-	requestKey: string,
-	expectedRevision: string,
-	communicationId: string,
+/** Save and schedule in one request. Two requests were the schedule that passed one second. */
+export async function scheduleDraft(
+	saveKey: string,
+	scheduleKey: string,
+	expectedRevision: string | null,
+	input: unknown,
 	scheduledAt: string,
 ): Promise<Outcome<Scheduled>> {
-	return change((tx, context) =>
-		communicationWriter.scheduleReviewed(tx, context, {
-			requestKey,
-			expectedRevision,
-			input: { communicationId, scheduledAt },
-		}),
-	);
+	return change(async (tx, context) => {
+		const saved = await communicationWriter.saveDraft(tx, context, {
+			requestKey: saveKey,
+			...(expectedRevision ? { expectedRevision } : {}),
+			input,
+		});
+		if (saved.status !== "ok") return saved;
+		return communicationWriter.scheduleReviewed(tx, context, {
+			requestKey: scheduleKey,
+			expectedRevision: saved.value.revision,
+			input: { communicationId: saved.value.communicationId, scheduledAt },
+		});
+	});
 }
 
 export async function rescheduleReviewed(
@@ -104,15 +112,6 @@ export async function searchRecipients(query: string): Promise<Outcome<{ people:
 	return look((tx, viewer) => communicationWriter.readRecipients(tx, viewer.authority, { query }));
 }
 
-/** Templates after a fork is archived, so the system original shows again. */
-export async function reloadTemplates(): Promise<Outcome<Template[]>> {
-	const viewer = await seat();
-	if (!viewer) return denied;
-	const result = await read(viewer, (tx) => communicationWriter.listTemplates(tx, viewer.authority));
-	if (result.status !== "ok") return result;
-	return { status: "ok", value: result.value.templates };
-}
-
 export async function readMeetingTemplate(meetingType: string): Promise<Outcome<Template>> {
 	return look((tx, viewer) => communicationWriter.readMeetingTemplate(tx, viewer.authority, { meetingType }));
 }
@@ -140,30 +139,50 @@ export async function updateTemplate(
 	);
 }
 
+type TemplateChange = { template: Template; templates: Template[] | null };
+
+/** One request removes the row and, for a fork, returns the list with the system template restored. */
+async function removeTemplate(
+	kind: "archive" | "delete",
+	requestKey: string,
+	expectedRevision: string,
+	templateId: string,
+): Promise<Outcome<TemplateChange>> {
+	const viewer = await seat();
+	if (!viewer || !canWrite(viewer)) return denied;
+	return write(viewer, async (tx, context): Promise<CommunicationReply<TemplateChange>> => {
+		const removed =
+			kind === "delete"
+				? await communicationWriter.deleteTemplate(tx, context, {
+						requestKey,
+						expectedRevision,
+						input: { templateId },
+					})
+				: await communicationWriter.archiveTemplate(tx, context, {
+						requestKey,
+						expectedRevision,
+						input: { templateId },
+					});
+		if (removed.status !== "ok") return removed;
+		if (!removed.value.sourceKey) return { status: "ok", value: { template: removed.value, templates: null } };
+		const again = await communicationWriter.listTemplates(tx, viewer.authority);
+		if (again.status !== "ok") return again;
+		return { status: "ok", value: { template: removed.value, templates: again.value.templates } };
+	});
+}
+
 export async function archiveTemplate(
 	requestKey: string,
 	expectedRevision: string,
 	templateId: string,
-): Promise<Outcome<Template>> {
-	return change((tx, context) =>
-		communicationWriter.archiveTemplate(tx, context, {
-			requestKey,
-			expectedRevision,
-			input: { templateId },
-		}),
-	);
+): Promise<Outcome<TemplateChange>> {
+	return removeTemplate("archive", requestKey, expectedRevision, templateId);
 }
 
 export async function deleteTemplate(
 	requestKey: string,
 	expectedRevision: string,
 	templateId: string,
-): Promise<Outcome<Template>> {
-	return change((tx, context) =>
-		communicationWriter.deleteTemplate(tx, context, {
-			requestKey,
-			expectedRevision,
-			input: { templateId },
-		}),
-	);
+): Promise<Outcome<TemplateChange>> {
+	return removeTemplate("delete", requestKey, expectedRevision, templateId);
 }
