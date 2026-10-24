@@ -29,9 +29,6 @@
 	"GET /tasks": {
 		"limit": 5
 	},
-	"GET /communication": {
-		"limit": 1
-	},
 	"POST notifications.markAllVisibleRead": {
 		"limit": 6
 	},
@@ -94,59 +91,62 @@
 	"POST tasks.createTask": {
 		"limit": 5
 	},
-	"POST communication.saveDraft": {
-		"limit": 5
-	},
-	"POST communication.saveDraft (incomplete)": {
-		"limit": 5
-	},
-	"POST communication.getDraft": {
-		"limit": 4
-	},
-	"POST communication.scheduleReviewed": {
-		"limit": 7,
-		"reason": "The first schedule reads the saved audience and refuses when nobody is eligible. Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write."
-	},
-	"POST communication.rescheduleReviewed": {
-		"limit": 6
-	},
-	"POST communication.deleteDraft": {
-		"limit": 6
-	},
-	"POST communication.createTemplate": {
-		"limit": 5
-	},
-	"POST communication.forkTemplate": {
-		"limit": 7,
-		"reason": "A fork takes an advisory lock and reads any plant row for that source before it inserts. Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write."
-	},
-	"POST communication.updateTemplate": {
-		"limit": 6
-	},
-	"POST communication.archiveTemplate": {
-		"limit": 6
-	},
-	"POST communication.deleteTemplate": {
-		"limit": 7,
-		"reason": "A delete reads whether a communication still names the template before it removes the row. Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write."
-	},
-	"POST communication.preview": {
-		"limit": 4
-	},
-	"POST communication.resolveAudience": {
-		"limit": 4
-	},
-	"POST communication.searchRecipients": {
-		"limit": 4
-	},
-	"POST communication.listTemplates": {
-		"limit": 4
-	},
 	"accountPerson.ensureAccountPerson": {
 		"limit": 5
 	},
 	"accountPerson.ensureGuest": {
 		"limit": 5
+	},
+	"communication.archiveTemplate": {
+		"limit": 2
+	},
+	"communication.createTemplate": {
+		"limit": 1
+	},
+	"communication.deleteDraft": {
+		"limit": 2
+	},
+	"communication.deleteTemplate": {
+		"limit": 3
+	},
+	"communication.forkTemplate": {
+		"limit": 3
+	},
+	"communication.getDraft": {
+		"limit": 1
+	},
+	"communication.getTemplate": {
+		"limit": 1
+	},
+	"communication.listDrafts": {
+		"limit": 1
+	},
+	"communication.listTemplates": {
+		"limit": 1
+	},
+	"communication.readAudience": {
+		"limit": 1
+	},
+	"communication.readMeetingTemplate": {
+		"limit": 1
+	},
+	"communication.readPreview": {
+		"limit": 1
+	},
+	"communication.readRecipients": {
+		"limit": 1
+	},
+	"communication.rescheduleReviewed": {
+		"limit": 2
+	},
+	"communication.saveDraft": {
+		"limit": 2
+	},
+	"communication.scheduleReviewed": {
+		"limit": 3
+	},
+	"communication.updateTemplate": {
+		"limit": 2
 	},
 	"digest.generateOwed": {
 		"limit": 10,
