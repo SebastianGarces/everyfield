@@ -6,3 +6,4 @@ export { teamsReader } from "./reads.ts";
 export { responsibilityReader, responsibilityWriter } from "./responsibilities/index.ts";
 export { rosterWriter } from "./roster.ts";
 export { reviewDigest, TEMPLATES } from "./templates.ts";
+export { rosterDigest, trainingReader, trainingWriter } from "./training/index.ts";

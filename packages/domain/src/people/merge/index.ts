@@ -195,6 +195,22 @@ const ownerKind = (ctx: Pick<Context, "selected">) => {
  */
 export function moveRefs(owner: string, k: Kind, ids: string[], from: string, to: string): SQLWrapper {
 	const e = registrationOf(k);
+	if (k === "training_assignment") {
+		// The destination's active episode for that program stays. This row ends in the same update.
+		// The partial unique index does not raise, and the revision moves once.
+		return sql`UPDATE ${sql.identifier(e.table)} SET ${sql.identifier(e.column)}=${to}::uuid,
+ state=CASE WHEN clash.hit THEN 'removed' ELSE state END,
+ ended_on=CASE WHEN clash.hit THEN (clock_timestamp() AT TIME ZONE (SELECT timezone FROM plant WHERE id=${owner}::uuid))::date ELSE ended_on END,
+ revision=revision+1
+ FROM (SELECT s.id, (s.state='active' AND EXISTS (
+ SELECT 1 FROM ${sql.identifier(e.table)} o
+ WHERE o.plant_id=s.plant_id AND o.program_id=s.program_id AND o.person_id=${to}::uuid
+ AND o.state='active' AND o.id<>s.id)) AS hit
+ FROM ${sql.identifier(e.table)} s
+ WHERE s.${sql.identifier(e.column)}=${from}::uuid AND s.${sql.identifier(e.owner)}=${owner}::uuid
+ AND s.${sql.identifier(e.key)}=ANY(${sql.param(ids)}::uuid[])) AS clash
+ WHERE ${sql.identifier(e.table)}.id=clash.id`;
+	}
 	return sql`UPDATE ${sql.identifier(e.table)} SET ${sql.identifier(e.column)}=${to}::uuid${e.revision ? sql`,revision=revision+1` : sql``}
  WHERE ${sql.identifier(e.column)}=${from}::uuid AND ${sql.identifier(e.owner)}=${owner}::uuid
  AND ${sql.identifier(e.key)}=ANY(${sql.param(ids)}::uuid[])`;

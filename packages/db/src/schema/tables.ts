@@ -5083,3 +5083,168 @@ export const commitment_change = pgTable(
 		index("commitment_change_person_order").on(t.person_id, t.plant_id, t.effective_on, t.recorded_at),
 	],
 );
+
+/**
+ * One training program (REQ-TEAM-008, REQ-TEAM-009). A null team is an explicit churchwide program.
+ * Archiving a team does not clear team_id. A correction may change the name and whether it is required.
+ * It may not change the team. version advances when the content changes so an older credit stays on the
+ * version that was earned.
+ */
+export const training_program = pgTable(
+	"training_program",
+	{
+		id: uuid("id")
+			.notNull()
+			.default(sql`gen_random_uuid()`),
+		plant_id: uuid("plant_id").notNull(),
+		team_id: uuid("team_id"),
+		name: text("name").notNull(),
+		required: boolean("required").notNull(),
+		version: integer("version").notNull().default(1),
+		revision: int64("revision")
+			.notNull()
+			.default(sql`1`),
+		archived_at: timestamp("archived_at", { withTimezone: true, mode: "date" }),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		foreignKey({ name: "training_program_fk_0", columns: [t.plant_id], foreignColumns: [plant.id] })
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "training_program_fk_1",
+			columns: [t.team_id, t.plant_id],
+			foreignColumns: [team.id, team.plant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		primaryKey({ name: "training_program_pkey", columns: [t.id] }),
+		unique("training_program_uq_0").on(t.id, t.plant_id),
+		check("training_program_ck_0", sql`(revision >= 1)`),
+		check("training_program_ck_1", sql`(version >= 1)`),
+		check("training_program_ck_2", sql`((char_length(name) >= 1) AND (char_length(name) <= 200))`),
+		index("training_program_ref_0").using("btree", t.plant_id.asc().nullsLast()),
+		index("training_program_ref_1").using("btree", t.team_id.asc().nullsLast(), t.plant_id.asc().nullsLast()),
+	],
+);
+/**
+ * One saved person/program applicability episode (REQ-TEAM-016). Later membership never rewrites these rows.
+ * One active episode per person and program. Ending it keeps the row.
+ */
+export const training_assignment = pgTable(
+	"training_assignment",
+	{
+		id: uuid("id")
+			.notNull()
+			.default(sql`gen_random_uuid()`),
+		plant_id: uuid("plant_id").notNull(),
+		program_id: uuid("program_id").notNull(),
+		person_id: uuid("person_id").notNull(),
+		version: integer("version").notNull(),
+		state: text("state", { enum: ["active", "removed"] }).notNull(),
+		effective_on: date("effective_on", { mode: "string" }).notNull(),
+		ended_on: date("ended_on", { mode: "string" }),
+		revision: int64("revision")
+			.notNull()
+			.default(sql`1`),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		foreignKey({ name: "training_assignment_fk_0", columns: [t.plant_id], foreignColumns: [plant.id] })
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "training_assignment_fk_1",
+			columns: [t.program_id, t.plant_id],
+			foreignColumns: [training_program.id, training_program.plant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "training_assignment_fk_2",
+			columns: [t.person_id, t.plant_id],
+			foreignColumns: [person.id, person.tenant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		primaryKey({ name: "training_assignment_pkey", columns: [t.id] }),
+		unique("training_assignment_uq_0").on(t.id, t.plant_id),
+		check("training_assignment_ck_0", sql`(revision >= 1)`),
+		check("training_assignment_ck_1", sql`(version >= 1)`),
+		check("training_assignment_ck_2", sql`(state = ANY (ARRAY['active'::text, 'removed'::text]))`),
+		check("training_assignment_ck_3", sql`((state = 'active'::text) = (ended_on IS NULL))`),
+		check("training_assignment_ck_4", sql`((ended_on IS NULL) OR (ended_on >= effective_on))`),
+		index("training_assignment_ref_0").using("btree", t.plant_id.asc().nullsLast()),
+		index("training_assignment_ref_1").using("btree", t.program_id.asc().nullsLast(), t.plant_id.asc().nullsLast()),
+		index("training_assignment_ref_2").using("btree", t.person_id.asc().nullsLast(), t.plant_id.asc().nullsLast()),
+		uniqueIndex("training_assignment_uq_1")
+			.using("btree", t.plant_id.asc().nullsLast(), t.program_id.asc().nullsLast(), t.person_id.asc().nullsLast())
+			.where(sql`(state = 'active'::text)`),
+	],
+);
+/**
+ * Append-only training evidence (REQ-TEAM-009, REQ-TEAM-017). earned and revoked rows belong to a program version.
+ * A service row has no program: it records dated attendance days and volunteer days. Revoke and redo insert rows.
+ * They do not update an earlier row. A merge leaves these rows on the source person.
+ */
+export const training_credit = pgTable(
+	"training_credit",
+	{
+		id: uuid("id")
+			.notNull()
+			.default(sql`gen_random_uuid()`),
+		plant_id: uuid("plant_id").notNull(),
+		person_id: uuid("person_id").notNull(),
+		program_id: uuid("program_id"),
+		kind: text("kind", { enum: ["earned", "revoked", "service"] }).notNull(),
+		version: integer("version"),
+		earned_on: date("earned_on", { mode: "string" }),
+		verifier_account_id: uuid("verifier_account_id"),
+		attendance_days: integer("attendance_days"),
+		volunteer_days: integer("volunteer_days"),
+		recorded_at: timestamp("recorded_at", { withTimezone: true, mode: "date" })
+			.notNull()
+			.default(sql`clock_timestamp()`),
+		revision: int64("revision")
+			.notNull()
+			.default(sql`1`),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		foreignKey({ name: "training_credit_fk_0", columns: [t.plant_id], foreignColumns: [plant.id] })
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "training_credit_fk_1",
+			columns: [t.person_id, t.plant_id],
+			foreignColumns: [person.id, person.tenant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "training_credit_fk_2",
+			columns: [t.program_id, t.plant_id],
+			foreignColumns: [training_program.id, training_program.plant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({ name: "training_credit_fk_3", columns: [t.verifier_account_id], foreignColumns: [account.id] })
+			.onDelete("set null")
+			.onUpdate("no action"),
+		primaryKey({ name: "training_credit_pkey", columns: [t.id] }),
+		unique("training_credit_uq_0").on(t.id, t.plant_id),
+		check("training_credit_ck_0", sql`(revision >= 1)`),
+		check("training_credit_ck_1", sql`(kind = ANY (ARRAY['earned'::text, 'revoked'::text, 'service'::text]))`),
+		check(
+			"training_credit_ck_2",
+			sql`((kind = 'earned'::text) AND (program_id IS NOT NULL) AND (version IS NOT NULL) AND (earned_on IS NOT NULL) AND (attendance_days IS NULL) AND (volunteer_days IS NULL)) OR ((kind = 'revoked'::text) AND (program_id IS NOT NULL) AND (version IS NOT NULL) AND (earned_on IS NULL) AND (attendance_days IS NULL) AND (volunteer_days IS NULL)) OR ((kind = 'service'::text) AND (program_id IS NULL) AND (version IS NULL) AND (earned_on IS NULL) AND (attendance_days IS NOT NULL) AND (volunteer_days IS NOT NULL) AND (attendance_days >= 0) AND (volunteer_days >= 0))`,
+		),
+		index("training_credit_ref_0").using("btree", t.plant_id.asc().nullsLast()),
+		index("training_credit_ref_1").using("btree", t.person_id.asc().nullsLast(), t.plant_id.asc().nullsLast()),
+		index("training_credit_ref_2").using("btree", t.program_id.asc().nullsLast(), t.plant_id.asc().nullsLast()),
+		index("training_credit_ref_3").using("btree", t.verifier_account_id.asc().nullsLast()),
+		index("training_credit_order").using(
+			"btree",
+			t.person_id.asc().nullsLast(),
+			t.program_id.asc().nullsLast(),
+			t.recorded_at.asc().nullsLast(),
+		),
+	],
+);
