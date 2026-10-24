@@ -19028,6 +19028,675 @@
       },
       "isRLSEnabled": false
     },
+    "public.training_assignment": {
+      "name": "training_assignment",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "plant_id": {
+          "name": "plant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "program_id": {
+          "name": "program_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "person_id": {
+          "name": "person_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "state": {
+          "name": "state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "effective_on": {
+          "name": "effective_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ended_on": {
+          "name": "ended_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "revision": {
+          "name": "revision",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "1"
+        }
+      },
+      "indexes": {
+        "training_assignment_ref_0": {
+          "name": "training_assignment_ref_0",
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "training_assignment_ref_1": {
+          "name": "training_assignment_ref_1",
+          "columns": [
+            {
+              "expression": "program_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "training_assignment_ref_2": {
+          "name": "training_assignment_ref_2",
+          "columns": [
+            {
+              "expression": "person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "training_assignment_uq_1": {
+          "name": "training_assignment_uq_1",
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "program_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "(state = 'active'::text)",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "training_assignment_fk_0": {
+          "name": "training_assignment_fk_0",
+          "tableFrom": "training_assignment",
+          "tableTo": "plant",
+          "columnsFrom": [
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "training_assignment_fk_1": {
+          "name": "training_assignment_fk_1",
+          "tableFrom": "training_assignment",
+          "tableTo": "training_program",
+          "columnsFrom": [
+            "program_id",
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id",
+            "plant_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "training_assignment_fk_2": {
+          "name": "training_assignment_fk_2",
+          "tableFrom": "training_assignment",
+          "tableTo": "person",
+          "columnsFrom": [
+            "person_id",
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id",
+            "tenant_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "training_assignment_pkey": {
+          "name": "training_assignment_pkey",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "training_assignment_uq_0": {
+          "name": "training_assignment_uq_0",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "plant_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "training_assignment_ck_0": {
+          "name": "training_assignment_ck_0",
+          "value": "(revision >= 1)"
+        },
+        "training_assignment_ck_1": {
+          "name": "training_assignment_ck_1",
+          "value": "(version >= 1)"
+        },
+        "training_assignment_ck_2": {
+          "name": "training_assignment_ck_2",
+          "value": "(state = ANY (ARRAY['active'::text, 'removed'::text]))"
+        },
+        "training_assignment_ck_3": {
+          "name": "training_assignment_ck_3",
+          "value": "((state = 'active'::text) = (ended_on IS NULL))"
+        },
+        "training_assignment_ck_4": {
+          "name": "training_assignment_ck_4",
+          "value": "((ended_on IS NULL) OR (ended_on >= effective_on))"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.training_credit": {
+      "name": "training_credit",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "plant_id": {
+          "name": "plant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "person_id": {
+          "name": "person_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "program_id": {
+          "name": "program_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "earned_on": {
+          "name": "earned_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "verifier_account_id": {
+          "name": "verifier_account_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "attendance_days": {
+          "name": "attendance_days",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "volunteer_days": {
+          "name": "volunteer_days",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "recorded_at": {
+          "name": "recorded_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "clock_timestamp()"
+        },
+        "revision": {
+          "name": "revision",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "1"
+        }
+      },
+      "indexes": {
+        "training_credit_ref_0": {
+          "name": "training_credit_ref_0",
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "training_credit_ref_1": {
+          "name": "training_credit_ref_1",
+          "columns": [
+            {
+              "expression": "person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "training_credit_ref_2": {
+          "name": "training_credit_ref_2",
+          "columns": [
+            {
+              "expression": "program_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "training_credit_ref_3": {
+          "name": "training_credit_ref_3",
+          "columns": [
+            {
+              "expression": "verifier_account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "training_credit_order": {
+          "name": "training_credit_order",
+          "columns": [
+            {
+              "expression": "person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "program_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "recorded_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "training_credit_fk_0": {
+          "name": "training_credit_fk_0",
+          "tableFrom": "training_credit",
+          "tableTo": "plant",
+          "columnsFrom": [
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "training_credit_fk_1": {
+          "name": "training_credit_fk_1",
+          "tableFrom": "training_credit",
+          "tableTo": "person",
+          "columnsFrom": [
+            "person_id",
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id",
+            "tenant_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "training_credit_fk_2": {
+          "name": "training_credit_fk_2",
+          "tableFrom": "training_credit",
+          "tableTo": "training_program",
+          "columnsFrom": [
+            "program_id",
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id",
+            "plant_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "training_credit_fk_3": {
+          "name": "training_credit_fk_3",
+          "tableFrom": "training_credit",
+          "tableTo": "account",
+          "columnsFrom": [
+            "verifier_account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "training_credit_pkey": {
+          "name": "training_credit_pkey",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "training_credit_uq_0": {
+          "name": "training_credit_uq_0",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "plant_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "training_credit_ck_0": {
+          "name": "training_credit_ck_0",
+          "value": "(revision >= 1)"
+        },
+        "training_credit_ck_1": {
+          "name": "training_credit_ck_1",
+          "value": "(kind = ANY (ARRAY['earned'::text, 'revoked'::text, 'service'::text]))"
+        },
+        "training_credit_ck_2": {
+          "name": "training_credit_ck_2",
+          "value": "((kind = 'earned'::text) AND (program_id IS NOT NULL) AND (version IS NOT NULL) AND (earned_on IS NOT NULL) AND (attendance_days IS NULL) AND (volunteer_days IS NULL)) OR ((kind = 'revoked'::text) AND (program_id IS NOT NULL) AND (version IS NOT NULL) AND (earned_on IS NULL) AND (attendance_days IS NULL) AND (volunteer_days IS NULL)) OR ((kind = 'service'::text) AND (program_id IS NULL) AND (version IS NULL) AND (earned_on IS NULL) AND (attendance_days IS NOT NULL) AND (volunteer_days IS NOT NULL) AND (attendance_days >= 0) AND (volunteer_days >= 0))"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.training_program": {
+      "name": "training_program",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "plant_id": {
+          "name": "plant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "team_id": {
+          "name": "team_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "required": {
+          "name": "required",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "revision": {
+          "name": "revision",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "1"
+        },
+        "archived_at": {
+          "name": "archived_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "training_program_ref_0": {
+          "name": "training_program_ref_0",
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "training_program_ref_1": {
+          "name": "training_program_ref_1",
+          "columns": [
+            {
+              "expression": "team_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "training_program_fk_0": {
+          "name": "training_program_fk_0",
+          "tableFrom": "training_program",
+          "tableTo": "plant",
+          "columnsFrom": [
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "training_program_fk_1": {
+          "name": "training_program_fk_1",
+          "tableFrom": "training_program",
+          "tableTo": "team",
+          "columnsFrom": [
+            "team_id",
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id",
+            "plant_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "training_program_pkey": {
+          "name": "training_program_pkey",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "training_program_uq_0": {
+          "name": "training_program_uq_0",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id",
+            "plant_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "training_program_ck_0": {
+          "name": "training_program_ck_0",
+          "value": "(revision >= 1)"
+        },
+        "training_program_ck_1": {
+          "name": "training_program_ck_1",
+          "value": "(version >= 1)"
+        },
+        "training_program_ck_2": {
+          "name": "training_program_ck_2",
+          "value": "((char_length(name) >= 1) AND (char_length(name) <= 200))"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.venue": {
       "name": "venue",
       "schema": "",

@@ -4,6 +4,7 @@
 	"type": "module",
 	"exports": {
 		".": "./src/index.ts",
+		"./playbook": "./src/playbook.ts",
 		"./server": "./src/server.ts"
 	},
 	"scripts": {

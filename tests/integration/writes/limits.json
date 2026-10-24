@@ -1195,6 +1195,10 @@
 		"retry": 11,
 		"reason": "BEGIN and COMMIT around a task write that replans reminders; the shared reminder sync (notifications.syncTaskReminders) sends 2 statements (F10). Its largest first run: 2 transaction, 4 locked read, 2 write."
 	},
+	"teams.addResponsibility": {
+		"limit": 7,
+		"reason": "A non-admin leader checks that they lead the team. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write."
+	},
 	"teams.appointLeader": {
 		"limit": 7,
 		"reason": "The appointment locks the person row as well as the team. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
@@ -1207,19 +1211,47 @@
 		"limit": 6,
 		"retry": 5
 	},
+	"teams.attestCompletion": {
+		"limit": 7,
+		"retry": 2,
+		"reason": "Attest locks the program, the person and the latest credit before it inserts the earned row. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
+	},
+	"teams.completeResponsibility": {
+		"limit": 8,
+		"retry": 5,
+		"reason": "A non-admin leader resolves the responsibility team, then checks that they lead it. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write."
+	},
 	"teams.correct": {
 		"limit": 6
 	},
+	"teams.correctProgram": {
+		"limit": 6,
+		"retry": 6
+	},
 	"teams.create": {
 		"limit": 6
+	},
+	"teams.createProgram": {
+		"limit": 6,
+		"retry": 4
 	},
 	"teams.createRole": {
 		"limit": 6,
 		"retry": 2
 	},
+	"teams.deleteResponsibility": {
+		"limit": 8,
+		"retry": 5,
+		"reason": "A non-admin leader resolves the responsibility team, then checks that they lead it. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write."
+	},
 	"teams.edit": {
 		"limit": 6,
 		"retry": 6
+	},
+	"teams.editResponsibility": {
+		"limit": 8,
+		"retry": 5,
+		"reason": "A non-admin leader resolves the responsibility team, then checks that they lead it. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write."
 	},
 	"teams.editRole": {
 		"limit": 8,
@@ -1233,8 +1265,50 @@
 		"limit": 6,
 		"retry": 4
 	},
+	"teams.listResponsibilities": {
+		"limit": 1
+	},
+	"teams.listTeamMeetings": {
+		"limit": 1
+	},
+	"teams.listTraining": {
+		"limit": 1
+	},
+	"teams.offerResponsibilities": {
+		"limit": 6,
+		"retry": 5
+	},
+	"teams.previewResponsibilities": {
+		"limit": 1
+	},
 	"teams.reactivateMembership": {
 		"limit": 6
+	},
+	"teams.readPersonTraining": {
+		"limit": 1
+	},
+	"teams.readRequiredTrainingPreview": {
+		"limit": 1
+	},
+	"teams.readStaffingFacts": {
+		"limit": 1
+	},
+	"teams.readTrainingHealth": {
+		"limit": 1
+	},
+	"teams.readTrainingHistory": {
+		"limit": 1
+	},
+	"teams.readTrainingMatrix": {
+		"limit": 1
+	},
+	"teams.recompleteTraining": {
+		"limit": 7,
+		"reason": "Recomplete locks the program, the person and the latest credit before it appends an earned row. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
+	},
+	"teams.recordAttendance": {
+		"limit": 9,
+		"reason": "Attendance checks the meeting and every named person before it marks presence and completes the meeting. Its largest first run: 2 transaction, 2 locked read, 4 read, 1 write."
 	},
 	"teams.restore": {
 		"limit": 6
@@ -1243,6 +1317,21 @@
 		"limit": 8,
 		"retry": 5,
 		"reason": "A non-admin leader resolves the role team, then checks that they lead it. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write."
+	},
+	"teams.revokeCompletion": {
+		"limit": 7,
+		"retry": 6,
+		"reason": "Revoke locks the program, the person and the latest credit before it inserts the revoked row. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
+	},
+	"teams.scheduleMeeting": {
+		"limit": 9,
+		"retry": 4,
+		"reason": "The meeting row is inserted before the audit batch so the record bind can see it, then guests are written. Its largest first run: 2 transaction, 2 locked read, 3 read, 2 write."
+	},
+	"teams.setRequiredTrainingParticipants": {
+		"limit": 8,
+		"retry": 6,
+		"reason": "The roster change checks the digest and the named people, then removes and adds assignments in one batch. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write."
 	},
 	"venues.archive": {
 		"limit": 6

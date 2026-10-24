@@ -102,7 +102,12 @@ export async function read<T>(authority: RequestActor, body: (viewer: Viewer) =>
 		return body({
 			plantId: actor.context.owner.id,
 			accountId: actor.accountId,
-			access: { session: authority.session, owner: actor.context.owner, seatId: actor.context.seatId },
+			access: {
+				session: authority.session,
+				owner: actor.context.owner,
+				seatId: actor.context.seatId,
+				role: actor.context.role,
+			},
 		});
 	});
 }
@@ -133,7 +138,25 @@ type AuditInsert = typeof tables.audit_event.$inferInsert;
 export type Change<T> = {
 	value: T;
 	subject: string;
-	subjectType: "team" | "team_role" | "team_tenure" | "participation" | "record";
+	subjectType:
+		| "team"
+		| "team_role"
+		| "team_tenure"
+		| "participation"
+		| "record"
+		| "responsibility"
+		| "training_program"
+		| "training_assignment"
+		| "training_credit"
+		| "meeting";
+	action?:
+		| "teams.changed"
+		| "training.assigned"
+		| "training.assignment_removed"
+		| "training.completed"
+		| "training.corrected"
+		| "training.revoked"
+		| "meetings.changed";
 	kind: NonNullable<AuditInsert["kind"]>;
 	outcome?: "changed" | "noop";
 	before?: Record<string, unknown> | null;
@@ -164,7 +187,20 @@ export type TeamWrite =
 	| "teams.reactivateMembership"
 	| "teams.appointLeader"
 	| "teams.initialize"
-	| "meetings.copyTeamRoster";
+	| "teams.offerResponsibilities"
+	| "teams.addResponsibility"
+	| "teams.editResponsibility"
+	| "teams.completeResponsibility"
+	| "teams.deleteResponsibility"
+	| "meetings.copyTeamRoster"
+	| "teams.createProgram"
+	| "teams.correctProgram"
+	| "teams.setRequiredTrainingParticipants"
+	| "teams.attestCompletion"
+	| "teams.revokeCompletion"
+	| "teams.recompleteTraining"
+	| "teams.scheduleMeeting"
+	| "teams.recordAttendance";
 
 /** A team id, or a lookup that runs only when the actor is not an admin. */
 type LeaderGate = string | ((tx: Tx, w: Writer) => Promise<string | undefined>);
@@ -209,7 +245,7 @@ export async function command<T>(
 		actor_id: w.accountId,
 		subject_type: change.subjectType,
 		subject_id: change.subject,
-		action: "teams.changed",
+		action: change.action ?? "teams.changed",
 		kind: changed ? change.kind : "noop",
 		before_revision: change.revision?.before ?? null,
 		after_revision: change.revision?.after ?? null,

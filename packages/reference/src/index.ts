@@ -11,3 +11,4 @@ export type { ValidationPolicy, ValidationReport, GenerationPlan } from "./bundl
 export { hash, canonical, stableId } from "./hash.ts";
 export { methodologyResponsibilities, separatePrayerResponsibility } from "./responsibilities.ts";
 export { readRubricManifest, auditLanguage } from "./catalog.ts";
+export { playbookTeam } from "./playbook.ts";

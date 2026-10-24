@@ -15,14 +15,17 @@ const stamp = z
 	.union([z.string(), z.date()])
 	.transform((value) => (value instanceof Date ? value.toISOString() : String(value)));
 
-async function row(db: Reader, viewer: Viewer, query: ReturnType<typeof sql>) {
+export async function row(db: Reader, viewer: Viewer, query: ReturnType<typeof sql>) {
 	const found = await one(db, viewer, query);
 	if (!found) deny();
 	return found;
 }
-function owner(plantId: string, value: unknown) {
+export function owner(plantId: string, value: unknown) {
 	if (typeof value !== "string") deny();
 	if (value !== plantId) deny("access_denied");
+}
+export function unique(ids: string[]) {
+	return [...new Set(ids)];
 }
 
 const teamJson = sql`json_build_object(
@@ -181,7 +184,9 @@ export const teamsReader = {
 	},
 	async listLeaderCandidates(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (viewer) => {
-			parse(c.listLeaderCandidatesRequest, raw);
+			const input = parse(c.listLeaderCandidatesRequest, raw);
+			const q = input.q ?? "";
+			const needle = q.replace(/[\\%_]/g, (ch) => "\\" + ch);
 			const found = await row(
 				db,
 				viewer,
@@ -189,6 +194,7 @@ export const teamsReader = {
 					ORDER BY p.display_name, p.id)
 					FROM (SELECT id, display_name, stage FROM person
 						WHERE tenant_id = ${viewer.plantId}::uuid AND state = 'live' AND stage IS NOT NULL
+							AND (${q} = '' OR display_name ILIKE ${"%" + needle + "%"} ESCAPE '\\')
 						ORDER BY display_name, id LIMIT 50) p), '[]'::json) AS people`,
 			);
 			return c.leaderCandidates.parse({
