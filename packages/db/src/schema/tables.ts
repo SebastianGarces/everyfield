@@ -1384,6 +1384,76 @@ export const four_cs = pgTable(
 		index("four_cs_ref_1").using("btree", table.person_id.asc().nullsLast(), table.plant_id.asc().nullsLast()),
 	],
 );
+export const generated_document = pgTable(
+	"generated_document",
+	{
+		id: uuid("id")
+			.notNull()
+			.default(sql`gen_random_uuid()`),
+		tenant_id: uuid("tenant_id").notNull(),
+		creator_account_id: uuid("creator_account_id"),
+		template_id: text("template_id").notNull(),
+		template_version: text("template_version").notNull(),
+		saved_template_name: text("saved_template_name").notNull(),
+		renderer_version: text("renderer_version").notNull(),
+		format: text("format", { enum: ["pdf", "docx", "xlsx"] }).notNull(),
+		object_id: uuid("object_id").notNull(),
+		inputs: jsonb("inputs").notNull(),
+		download_name: text("download_name").notNull(),
+		generated_at: timestamp("generated_at", { withTimezone: true, mode: "date" }).notNull(),
+		request_key: text("request_key"),
+		revision: int64("revision")
+			.notNull()
+			.default(sql`1`),
+	},
+	(table): PgTableExtraConfigValue[] => [
+		foreignKey({ name: "generated_document_fk_0", columns: [table.tenant_id], foreignColumns: [tenant.id] })
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "generated_document_fk_1",
+			columns: [table.creator_account_id],
+			foreignColumns: [account.id],
+		})
+			.onDelete("set null")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "generated_document_fk_2",
+			columns: [table.object_id, table.tenant_id],
+			foreignColumns: [file_object.id, file_object.tenant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "generated_document_fk_3",
+			columns: [table.id, table.tenant_id],
+			foreignColumns: [record.id, record.tenant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		primaryKey({ name: "generated_document_pkey", columns: [table.id] }),
+		unique("generated_document_uq_0").on(table.id, table.tenant_id),
+		unique("generated_document_uq_1").on(table.object_id),
+		uniqueIndex("generated_document_uq_2")
+			.using("btree", table.tenant_id.asc().nullsLast(), table.request_key.asc().nullsLast())
+			.where(sql`(request_key IS NOT NULL)`),
+		check("generated_document_ck_0", sql`(revision >= 1)`),
+		check("generated_document_ck_1", sql`(format = ANY (ARRAY['pdf'::text, 'docx'::text, 'xlsx'::text]))`),
+		check("generated_document_ck_2", sql`(tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid)`),
+		check("generated_document_ck_3", sql`(octet_length(inputs::text) <= 65536)`),
+		index("generated_document_ref_0").using("btree", table.tenant_id.asc().nullsLast()),
+		index("generated_document_ref_1").using(
+			"btree",
+			table.tenant_id.asc().nullsLast(),
+			table.generated_at.desc().nullsFirst(),
+		),
+		index("generated_document_ref_2").using(
+			"btree",
+			table.object_id.asc().nullsLast(),
+			table.tenant_id.asc().nullsLast(),
+		),
+	],
+);
 export const household = pgTable(
 	"household",
 	{
@@ -4940,7 +5010,7 @@ export const audit_event = pgTable(
 		check(
 			"audit_action",
 			sql.raw(
-				"(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','audit.imported','communication.approved','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','documents.copied','documents.saved','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','execution.cancelled','execution.completed','execution.partial','execution.reconciled','execution.started','feedback.publication_intended','feedback.published','feedback.received','feedback.reconciled','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.credential_reconciled','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.feedback_recorded','intelligence.published','intelligence.requested','intelligence.superseded','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','note_correction','organization.profile_changed','people.corrected','people.created','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','security.access_denied','security.audit_exported','security.audit_inspected','security.bulk_export','security.operator_accessed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed'))",
+				"(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','audit.imported','communication.approved','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','documents.archived','documents.copied','documents.designated','documents.generated','documents.imported','documents.purged','documents.saved','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','execution.cancelled','execution.completed','execution.partial','execution.reconciled','execution.started','feedback.publication_intended','feedback.published','feedback.received','feedback.reconciled','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.credential_reconciled','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.feedback_recorded','intelligence.published','intelligence.requested','intelligence.superseded','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','note_correction','organization.profile_changed','people.corrected','people.created','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','security.access_denied','security.audit_exported','security.audit_inspected','security.bulk_export','security.operator_accessed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed'))",
 			),
 		),
 		check(
