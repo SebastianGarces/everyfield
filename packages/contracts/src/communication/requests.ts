@@ -52,3 +52,32 @@ export const recordRequest = z.strictObject({ id: recordId });
 export const meetingTemplateRequest = z.strictObject({
 	meetingType: z.enum(["vision_meeting", "orientation", "team_meeting"]),
 });
+
+export const dispatchRequest = z.strictObject({
+	requestKey,
+	expectedRevision: revision,
+	input: z.strictObject({ communicationId: recordId }),
+});
+export const cancelScheduledRequest = z.strictObject({
+	requestKey,
+	expectedRevision: revision,
+	input: z.strictObject({ communicationId: recordId, signedUrlExpires: instant.optional() }),
+});
+export const replaceScheduledRequest = z.strictObject({
+	requestKey,
+	expectedRevision: revision,
+	input: z.strictObject({ communicationId: recordId }),
+});
+export const restoreSuppressionRequest = z.strictObject({
+	requestKey,
+	input: z.strictObject({ address: z.email(), reason: z.string().trim().min(1).max(500) }),
+});
+export const sendTransactionalRequest = z.strictObject({
+	requestKey,
+	input: z.strictObject({
+		purpose: z.literal("password_reset"),
+		token: z.string().min(20).max(200),
+		address: z.email(),
+	}),
+});
+export const listSuppressionRequest = z.strictObject({ address: z.email() });

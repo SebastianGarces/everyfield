@@ -89,10 +89,17 @@ export function summarizeAudience(raw: unknown) {
 }
 
 export function eligibleIds(raw: unknown): string[] {
-	return z
+	return reviewedParts(raw).people;
+}
+
+/** Person ids and addresses a review freezes. Both lists are sorted the same way at schedule and at handoff. */
+export function reviewedParts(raw: unknown): { people: string[]; emails: string[] } {
+	const rows = z
 		.array(personRow)
 		.parse(raw ?? [])
-		.filter((row) => row.email?.trim())
-		.map((row) => row.id)
-		.sort();
+		.filter((row) => row.email?.trim());
+	return {
+		people: rows.map((row) => row.id).sort(),
+		emails: rows.map((row) => row.email!.trim().toLowerCase()).sort(),
+	};
 }

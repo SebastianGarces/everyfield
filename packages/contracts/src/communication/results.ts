@@ -79,3 +79,60 @@ export const draftListResult = z.strictObject({
 });
 export const templateListResult = z.strictObject({ templates: z.array(templateResult) });
 export const mergeResult = z.strictObject({ bodyHtml: z.string(), bodyText: z.string() });
+
+export const dispatchResult = z.strictObject({
+	communicationId: recordId,
+	sentAt: instant.nullable(),
+	acceptedCount: z.number().int().nonnegative(),
+	rejectedCount: z.number().int().nonnegative(),
+	unknownCount: z.number().int().nonnegative(),
+	uncertain: z.boolean(),
+	failed: z.boolean(),
+	providerCalls: z.number().int().nonnegative(),
+	replayedWithNewKeys: z.literal(0),
+	automaticReplayAllowed: z.literal(false),
+	negativeEvidenceRequired: z.boolean(),
+	firstDispatchClockReset: z.literal(false),
+	crossScopeBatchAllowed: z.literal(false),
+	status: z.enum(["accepted", "partial", "uncertain", "failed", "accepted_unknown"]),
+	confirmedRecipientIds: z.array(z.string()),
+});
+export const cancelScheduledResult = z.strictObject({
+	newHandoffs: z.literal(0),
+	scheduledCancel: z.enum(["reconcile", "confirmed", "none"]),
+	sentRecalled: z.literal(false),
+	cancelRequested: z.boolean(),
+	recallGuaranteed: z.literal(false),
+	newSend: z.literal(false),
+	existingUrlMayWorkUntil: instant.nullable(),
+});
+export const replaceScheduledResult = z.strictObject({
+	replacementAllowed: z.boolean(),
+	replacementIntents: z.literal(0),
+	blindResends: z.literal(0),
+});
+export const rescheduleDispatchedResult = z.strictObject({
+	body: z.string(),
+	rescheduleStatus: z.enum(["accepted", "unknown"]),
+	newCommunications: z.literal(0),
+	scheduledAt: instant,
+});
+export const transactionalResult = z.strictObject({
+	purposeMailAttempted: z.literal(true),
+	deliveryStatus: z.enum(["unknown", "accepted", "refused"]),
+	sentAt: instant.nullable(),
+});
+export const suppressionListResult = z.strictObject({
+	address: z.email(),
+	active: z.boolean(),
+	suppressionClears: z.literal(0),
+	newSends: z.literal(0),
+});
+export const restoreSuppressionResult = z.strictObject({
+	suppressionClears: z.number().int().nonnegative(),
+	newSends: z.literal(0),
+});
+export const retryResult = z.strictObject({
+	blindResends: z.literal(0),
+	retried: z.number().int().nonnegative(),
+});
