@@ -441,9 +441,9 @@ export function emitUpstreamReview(db: Database, authority: RequestActor, raw: u
 			.object({ allowed: z.boolean(), recipients: z.unknown(), cues: z.number().int() })
 			.parse(result.rows[0]);
 		if (!row.allowed) deny();
-		const recipients = z.array(z.uuid()).parse(
-			typeof row.recipients === "string" ? JSON.parse(row.recipients) : row.recipients,
-		);
+		const recipients = z
+			.array(z.uuid())
+			.parse(typeof row.recipients === "string" ? JSON.parse(row.recipients) : row.recipients);
 		return upstreamReviewResult.parse({
 			inAppCues: row.cues,
 			emailIntents: 0,
@@ -452,4 +452,3 @@ export function emitUpstreamReview(db: Database, authority: RequestActor, raw: u
 		});
 	});
 }
-

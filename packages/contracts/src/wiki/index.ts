@@ -245,15 +245,9 @@ export const feedbackMine = z.strictObject({
 	foreignVoteBody: z.string().nullable(),
 });
 export const feedbackGetMineRequest = z.strictObject({ articleId: z.uuid() });
-export const feedbackSetMineRequest = commandEnvelope(
-	z.strictObject({ articleId: z.uuid(), vote: feedbackVote }),
-);
+export const feedbackSetMineRequest = commandEnvelope(z.strictObject({ articleId: z.uuid(), vote: feedbackVote }));
 
-export const organizationArticleError = z.enum([
-	"editorial_access_denied",
-	"review_required",
-	"revision_conflict",
-]);
+export const organizationArticleError = z.enum(["editorial_access_denied", "review_required", "revision_conflict"]);
 export const organizationArticleResult = z.strictObject({
 	errorCode: organizationArticleError.nullable(),
 	publishedRevision: z.number().int().nullable(),

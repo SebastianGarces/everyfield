@@ -1149,33 +1149,33 @@ describe("wiki api", { concurrency: 1 }, () => {
 		},
 	);
 
-	test(
-		ac(["CASE-WIKI-006"]) + " own plant feedback keeps history and hides it from other plants",
-		async () => {
-			const plants = await count(sql`SELECT count(*)::int AS n FROM plant`);
-			const reader = await actor(people.lead);
-			ok(await api.setMine(db, reader, cmd({ articleId: guide, vote: "helpful" })));
-			ok(await api.setMine(db, reader, cmd({ articleId: guide, vote: "unhelpful" })));
-			const view = ok(await api.getMine(db, reader, { articleId: guide }));
-			assert.equal(view.currentVote, "unhelpful");
-			assert.deepEqual(view.ownHistoryVotes, ["helpful", "unhelpful"]);
-			assert.equal(view.phantomPlants, 0);
-			assert.equal(view.foreignVoteBody, null);
-			assert.equal(await count(sql`SELECT count(*)::int AS n FROM plant`), plants);
-			const foreign = ok(await api.getMine(db, await actor(people.outsider), { articleId: guide }));
-			assert.equal(foreign.currentVote, null);
-			assert.deepEqual(foreign.ownHistoryVotes, []);
-			assert.equal(foreign.foreignVoteBody, null);
-			const churchless = await enroll("member", { kind: "account" });
-			const empty = ok(await api.getMine(db, await actor(churchless), { articleId: guide }));
-			assert.equal(empty.currentVote, null);
-			assert.deepEqual(empty.ownHistoryVotes, []);
-			assert.equal(empty.foreignVoteBody, null);
-			refused(await api.setMine(db, await actor(churchless), cmd({ articleId: guide, vote: "helpful" })), "access_denied");
-			const table = await admin.execute(sql`SELECT to_regclass('wiki_article_feedback') AS name`);
-			assert.equal(table.rows[0].name, null);
-		},
-	);
+	test(ac(["CASE-WIKI-006"]) + " own plant feedback keeps history and hides it from other plants", async () => {
+		const plants = await count(sql`SELECT count(*)::int AS n FROM plant`);
+		const reader = await actor(people.lead);
+		ok(await api.setMine(db, reader, cmd({ articleId: guide, vote: "helpful" })));
+		ok(await api.setMine(db, reader, cmd({ articleId: guide, vote: "unhelpful" })));
+		const view = ok(await api.getMine(db, reader, { articleId: guide }));
+		assert.equal(view.currentVote, "unhelpful");
+		assert.deepEqual(view.ownHistoryVotes, ["helpful", "unhelpful"]);
+		assert.equal(view.phantomPlants, 0);
+		assert.equal(view.foreignVoteBody, null);
+		assert.equal(await count(sql`SELECT count(*)::int AS n FROM plant`), plants);
+		const foreign = ok(await api.getMine(db, await actor(people.outsider), { articleId: guide }));
+		assert.equal(foreign.currentVote, null);
+		assert.deepEqual(foreign.ownHistoryVotes, []);
+		assert.equal(foreign.foreignVoteBody, null);
+		const churchless = await enroll("member", { kind: "account" });
+		const empty = ok(await api.getMine(db, await actor(churchless), { articleId: guide }));
+		assert.equal(empty.currentVote, null);
+		assert.deepEqual(empty.ownHistoryVotes, []);
+		assert.equal(empty.foreignVoteBody, null);
+		refused(
+			await api.setMine(db, await actor(churchless), cmd({ articleId: guide, vote: "helpful" })),
+			"access_denied",
+		);
+		const table = await admin.execute(sql`SELECT to_regclass('wiki_article_feedback') AS name`);
+		assert.equal(table.rows[0].name, null);
+	});
 
 	test(
 		ac(["CASE-WIKI-009", "WR-032", "WR-033", "WR-034", "WR-035", "WR-036", "WR-037"]) +
@@ -1192,11 +1192,7 @@ describe("wiki api", { concurrency: 1 }, () => {
 				cachePath: "wiki/缓存/路径",
 			};
 			const plantAdmin = ok(
-				await api.publishOrganizationArticle(
-					db,
-					await actor(people.lead),
-					cmd({ ...input, organizationId: S1 }, "1"),
-				),
+				await api.publishOrganizationArticle(db, await actor(people.lead), cmd({ ...input, organizationId: S1 }, "1")),
 			);
 			assert.equal(plantAdmin.errorCode, "editorial_access_denied");
 			assert.equal(plantAdmin.publicationsAdded, 0);
@@ -1224,11 +1220,7 @@ describe("wiki api", { concurrency: 1 }, () => {
 			assert.equal(globalDeny.errorCode, "editorial_access_denied");
 			assert.equal(globalDeny.additionalHistoryEntries, 0);
 			const plantOwner = ok(
-				await api.publishOrganizationArticle(
-					db,
-					await actor(people.owner),
-					cmd({ ...input, organizationId: S1 }, "1"),
-				),
+				await api.publishOrganizationArticle(db, await actor(people.owner), cmd({ ...input, organizationId: S1 }, "1")),
 			);
 			assert.equal(plantOwner.errorCode, "editorial_access_denied");
 			assert.equal(plantOwner.additionalHistoryEntries, 0);
@@ -1250,7 +1242,9 @@ describe("wiki api", { concurrency: 1 }, () => {
 			assert.equal(evry.publicationsAdded, 0);
 			assert.equal(evry.invalidationCalls, 0);
 			assert.equal(
-				await count(sql`SELECT count(*)::int AS n FROM article_revision WHERE article_id=${piece.article} AND tenant_id=${S1}`),
+				await count(
+					sql`SELECT count(*)::int AS n FROM article_revision WHERE article_id=${piece.article} AND tenant_id=${S1}`,
+				),
 				before,
 			);
 		},
@@ -1328,7 +1322,9 @@ describe("wiki api", { concurrency: 1 }, () => {
 			assert.equal(inheritedNote.autoAdoptions, 0);
 			assert.ok(inheritedNote.inAppCues >= 1);
 			assert.equal(
-				await count(sql`SELECT count(*)::int AS n FROM article_revision WHERE article_id=${inherited.article} AND tenant_id<>${GLOBAL}`),
+				await count(
+					sql`SELECT count(*)::int AS n FROM article_revision WHERE article_id=${inherited.article} AND tenant_id<>${GLOBAL}`,
+				),
 				0,
 			);
 
@@ -1347,7 +1343,11 @@ describe("wiki api", { concurrency: 1 }, () => {
 			assert.equal(networkNote.autoAdoptions, 0);
 			assert.ok(networkNote.inAppCues >= 1);
 			assert.equal(
-				(await admin.execute(sql`SELECT body FROM article_revision WHERE article_id=${network.article} AND tenant_id=${N1}`)).rows[0].body,
+				(
+					await admin.execute(
+						sql`SELECT body FROM article_revision WHERE article_id=${network.article} AND tenant_id=${N1}`,
+					)
+				).rows[0].body,
 				"N1 guidance.",
 			);
 
@@ -1360,7 +1360,9 @@ describe("wiki api", { concurrency: 1 }, () => {
 			const churchView = await current(people.owner, church.article);
 			assert.equal(churchView.article.sourceId, S1);
 			assert.equal(churchView.article.body, "S1 guidance.");
-			const churchNote = ok(await api.emitUpstreamReview(db, await actor(people.owner), cmd({ articleId: church.article })));
+			const churchNote = ok(
+				await api.emitUpstreamReview(db, await actor(people.owner), cmd({ articleId: church.article })),
+			);
 			assert.equal(churchNote.emailIntents, 0);
 			assert.equal(churchNote.autoAdoptions, 0);
 			assert.ok(churchNote.inAppCues >= 1);
@@ -1375,12 +1377,18 @@ describe("wiki api", { concurrency: 1 }, () => {
 			assert.equal(hiddenView.article.body, null);
 			assert.equal(hiddenView.article.state, "hidden");
 			assert.deepEqual(hiddenView.article.alternates.map((item) => item.sourceId).sort(), [GLOBAL, N1].sort());
-			const hiddenNote = ok(await api.emitUpstreamReview(db, await actor(people.owner), cmd({ articleId: hidden.article })));
+			const hiddenNote = ok(
+				await api.emitUpstreamReview(db, await actor(people.owner), cmd({ articleId: hidden.article })),
+			);
 			assert.equal(hiddenNote.emailIntents, 0);
 			assert.equal(hiddenNote.autoAdoptions, 0);
 			assert.ok(hiddenNote.inAppCues >= 1);
 			assert.equal(
-				(await admin.execute(sql`SELECT body FROM article_revision WHERE article_id=${hidden.article} AND tenant_id=${N1}`)).rows[0].body,
+				(
+					await admin.execute(
+						sql`SELECT body FROM article_revision WHERE article_id=${hidden.article} AND tenant_id=${N1}`,
+					)
+				).rows[0].body,
 				"N1 guidance.",
 			);
 		},
@@ -1433,7 +1441,11 @@ describe("wiki api", { concurrency: 1 }, () => {
 			assert.equal(blocked.article, null);
 			assert.equal(blocked.errorCode, "content_access_denied");
 			assert.equal(
-				(await admin.execute(sql`SELECT body FROM article_revision WHERE article_id=${article.article} AND tenant_id=${S2}`)).rows[0].body,
+				(
+					await admin.execute(
+						sql`SELECT body FROM article_revision WHERE article_id=${article.article} AND tenant_id=${S2}`,
+					)
+				).rows[0].body,
 				"S1 guidance.",
 			);
 		},
@@ -1485,7 +1497,9 @@ describe("wiki api", { concurrency: 1 }, () => {
 		assert.equal(hidden.state, "hide");
 		assert.equal(hidden.additionalHistoryEntries, 0);
 		assert.equal(
-			await count(sql`SELECT count(*)::int AS n FROM article_revision WHERE article_id=${piece.article} AND tenant_id=${S3}`),
+			await count(
+				sql`SELECT count(*)::int AS n FROM article_revision WHERE article_id=${piece.article} AND tenant_id=${S3}`,
+			),
 			2,
 		);
 		const member = await enroll("member", { kind: "organization", id: S3 });
