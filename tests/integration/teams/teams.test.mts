@@ -646,6 +646,62 @@ test("AC:TARGET-TEAM-005 AC:TARGET-TEAM-006 AC:GAP-TEAM-014 AC:TARGET-TEAM-014 a
 	);
 });
 
+test("AC:TARGET-TEAM-006 a second role on the same team counts as one team", async () => {
+	const team = await makeTeam("Kitchen");
+	const cook = await makeRole(team.id, "Cook");
+	const helper = await makeRole(team.id, "Helper");
+	const sam = await person("Sam Cook", { stage: "launch_team" });
+	const first = ok(
+		await run(teamsWriter.assignRole, {
+			requestKey: key(),
+			expectedRevision: await rev("team_role", cook.id),
+			input: { roleId: cook.id, teamId: team.id, personId: sam },
+		}),
+	);
+	assert.equal(first.teamCount, 1);
+	assert.equal(first.warning, null);
+	const second = ok(
+		await run(teamsWriter.assignRole, {
+			requestKey: key(),
+			expectedRevision: await rev("team_role", helper.id),
+			input: { roleId: helper.id, teamId: team.id, personId: sam },
+		}),
+	);
+	assert.equal(second.teamCount, 1);
+	assert.equal(second.warning, null);
+	assert.equal(
+		await count(
+			sql`SELECT count(DISTINCT r.team_id)::int AS n FROM team_tenure tn JOIN team_role r ON r.id = tn.role_id WHERE tn.person_id=${sam} AND tn.ended_on IS NULL`,
+		),
+		1,
+	);
+	ok(
+		await run(teamsWriter.endMembership, {
+			requestKey: key(),
+			expectedRevision: await rev("team", team.id),
+			input: { teamId: team.id, personId: sam },
+		}),
+	);
+	const returned = ok(
+		await run(teamsWriter.reactivateMembership, {
+			requestKey: key(),
+			expectedRevision: await rev("team_role", cook.id),
+			input: { roleId: cook.id, personId: sam },
+		}),
+	);
+	assert.equal(returned.teamCount, 1);
+	assert.equal(returned.warning, null);
+	const again = ok(
+		await run(teamsWriter.reactivateMembership, {
+			requestKey: key(),
+			expectedRevision: await rev("team_role", helper.id),
+			input: { roleId: helper.id, personId: sam },
+		}),
+	);
+	assert.equal(again.teamCount, 1);
+	assert.equal(again.warning, null);
+});
+
 test("AC:TARGET-TEAM-012 the org chart and its PDF use the same wrapped lines", async () => {
 	const longName = "A".repeat(200);
 	const root = (await admin.execute(sql`SELECT id FROM team WHERE plant_id=${P} AND template_key='leadership'`)).rows[0]

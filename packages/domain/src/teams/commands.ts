@@ -109,9 +109,12 @@ async function lockRole(tx: Tx, w: Writer, roleId: string, personId: string | nu
 			t.leader_person_id AS "leaderPersonId", t.leader_source AS "leaderSource",
 			t.revision::text AS "teamRevision", person.stage, person.state AS "personState",
 			person.revision AS "personRevision", person.position AS "pipelinePosition",
-			(SELECT count(DISTINCT r2.team_id)::int FROM team_tenure tn
+			(SELECT count(DISTINCT team_id)::int FROM (
+				SELECT r2.team_id FROM team_tenure tn
 				JOIN team_role r2 ON r2.id = tn.role_id
-				WHERE tn.person_id = ${person}::uuid AND tn.ended_on IS NULL AND tn.plant_id = r.plant_id) AS "teamCount"
+				WHERE tn.person_id = ${person}::uuid AND tn.ended_on IS NULL AND tn.plant_id = r.plant_id
+				UNION SELECT r.team_id
+			) counted) AS "teamCount"
 			FROM team_role r
 			JOIN team t ON t.id = r.team_id AND t.plant_id = r.plant_id
 			LEFT JOIN LATERAL (
@@ -760,7 +763,7 @@ export const teamsWriter = {
 					const already = before.occupantPersonId === input.input.personId;
 					const tenureId = already ? null : randomUUID();
 					const stage = stageAfter(before.stage, before.leadership);
-					const teamCount = already ? before.teamCount : before.teamCount + 1;
+					const teamCount = before.teamCount;
 					if (!already) {
 						audit.writes.push(sql`INSERT INTO team_tenure (id, plant_id, role_id, person_id, started_on)
 							VALUES (${tenureId}::uuid, ${w.plant.id}::uuid, ${before.id}::uuid, ${input.input.personId}::uuid,
@@ -896,8 +899,8 @@ export const teamsWriter = {
 							roleId: before.id,
 							personId: input.input.personId,
 							stage,
-							warning: null,
-							teamCount: before.teamCount + (already ? 0 : 1),
+							warning: before.teamCount >= 2 ? "overload" : null,
+							teamCount: before.teamCount,
 						}),
 						subject: tenureId ?? before.previousTenureId,
 						subjectType: "team_tenure",
