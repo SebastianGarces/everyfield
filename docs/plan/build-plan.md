@@ -66,7 +66,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-025 | Task structure | 6 | 12 | 7 | 0 | 1.5 |
 | WP-038 | Phase initial declaration and transitions | 32 | 7 | 23 | 2 | 2.5 |
 | WP-026 | Phase task templates and prompts | 5 | 7 | 5 | 3 | 1.5 |
-| WP-027 | Communication composition/templates | 14 | 17 | 5 | 0 | 2 |
+| WP-027 | Communication composition/templates | 14 | 17 | 5 | 3 | 2 |
 | WP-028 | Shared email delivery and webhook reconciliation | 20 | 19 | 25 | 7 | 2.5 |
 | WP-029 | Communication history and resend | 19 | 9 | 18 | 0 | 2 |
 | WP-030 | Notification feed/preferences | 19 | 19 | 25 | 4 | 2.5 |

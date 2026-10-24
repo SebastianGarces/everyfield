@@ -41,7 +41,6 @@ function forkId(plantId: string, sourceKey: string): string {
 }
 const bump = (revision: string) => String(BigInt(revision) + 1n);
 const one = (result: { rows: unknown[] }) => result.rows[0];
-const rowsOf = (result: { rows: unknown[] }) => result.rows;
 
 const draftRow = z.object({
 	id: z.uuid(),

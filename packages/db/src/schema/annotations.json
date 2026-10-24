@@ -16679,7 +16679,7 @@
 					"note": "Optional meeting in the same plant. Null when the meeting is removed."
 				},
 				"audience": {
-					"note": "groups, teamIds, and personIds. Search does not change this value."
+					"note": "Group names, team ids, and person ids. Search does not change this value."
 				},
 				"review_digest": {
 					"note": "Hash of the reviewed subject, body, and eligible people. Null on a draft."

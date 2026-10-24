@@ -12325,7 +12325,7 @@
           "nullable": true
         },
         {
-          "note": "groups, teamIds, and personIds. Search does not change this value.",
+          "note": "Group names, team ids, and person ids. Search does not change this value.",
           "name": "audience",
           "type": "jsonb",
           "nullable": false,
