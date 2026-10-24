@@ -51,9 +51,7 @@ export function problemText(code: string): string {
 /** This ministry's programs, then programs for every ministry. Archived programs go last. */
 export function orderPrograms(programs: readonly ShownProgram[], teamId: string): ShownProgram[] {
 	const rank = (p: ShownProgram) => (p.archived ? 2 : p.teamId === teamId ? 0 : 1);
-	return [...programs].sort(
-		(a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name) || a.id.localeCompare(b.id),
-	);
+	return [...programs].sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
 }
 
 export function toShown(load: TrainingLoad, teamId: string): ShownProgram[] {
@@ -77,7 +75,9 @@ export function canWriteProgram(
 }
 
 /** The sentence under a program. Missing assignments are never called 100% complete. */
-export function progressText(program: Pick<ShownProgram, "required" | "requiredPeople" | "compatibleCredits" | "countsKnown">): string {
+export function progressText(
+	program: Pick<ShownProgram, "required" | "requiredPeople" | "compatibleCredits" | "countsKnown">,
+): string {
 	if (!program.required) return "Optional. A recorded completion stays, and it is not part of the required count.";
 	if (!program.countsKnown) return "The required list changed. Reload to see how many have finished.";
 	if (program.requiredPeople === 0) return "No one is assigned. This is not complete.";
@@ -100,7 +100,11 @@ export function applyCreate(programs: readonly ShownProgram[], program: ProgramB
 	return orderPrograms([...programs, row], teamId);
 }
 
-export function applyCorrect(programs: readonly ShownProgram[], result: { outcome: "changed" | "noop"; program: ProgramBody }, teamId: string): ShownProgram[] {
+export function applyCorrect(
+	programs: readonly ShownProgram[],
+	result: { outcome: "changed" | "noop"; program: ProgramBody },
+	teamId: string,
+): ShownProgram[] {
 	if (result.outcome === "noop") return [...programs];
 	return orderPrograms(
 		programs.map((p) =>

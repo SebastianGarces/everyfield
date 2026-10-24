@@ -48,11 +48,7 @@ export function PersonLookup({
 }) {
 	const [person, setPerson] = useState<{ id: string; name: string } | null>(null);
 	const [attempt, setAttempt] = useState(0);
-	const [got, setGot] = useState<
-		| { key: string; value: PersonLoad }
-		| { key: string; failed: true }
-		| null
-	>(null);
+	const [got, setGot] = useState<{ key: string; value: PersonLoad } | { key: string; failed: true } | null>(null);
 	const key = person ? `${person.id}:${tick}:${attempt}` : "";
 
 	useEffect(() => {
@@ -255,8 +251,14 @@ function History({
 	}
 	const rows = [...ids]
 		.map((id) => ({ id, program: byId.get(id) ?? null, credit: latest.get(id) ?? null }))
-		.sort((a, b) => (a.program?.name ?? "A program").localeCompare(b.program?.name ?? "A program") || a.id.localeCompare(b.id));
-	const service = credits.filter((credit) => credit.kind === "service").slice().reverse();
+		.sort(
+			(a, b) =>
+				(a.program?.name ?? "A program").localeCompare(b.program?.name ?? "A program") || a.id.localeCompare(b.id),
+		);
+	const service = credits
+		.filter((credit) => credit.kind === "service")
+		.slice()
+		.reverse();
 	return (
 		<div className="flex flex-col gap-6">
 			<div className="flex flex-col gap-3">
@@ -331,7 +333,10 @@ function ProgramHistory({
 }) {
 	const name = row.program?.name ?? "A program";
 	const writable = row.program ? canWrite(row.program) : false;
-	const events = credits.filter((credit) => credit.programId === row.id).slice().reverse();
+	const events = credits
+		.filter((credit) => credit.programId === row.id)
+		.slice()
+		.reverse();
 	const earned = row.credit?.kind === "earned";
 	return (
 		<>
@@ -391,7 +396,8 @@ function latestText(credit: Credit | null): string {
 
 function eventText(credit: Credit): string {
 	const version = credit.version ? ` Version ${credit.version}.` : "";
-	if (credit.kind === "earned") return `Completed on ${credit.earnedOn ? dayText(credit.earnedOn) : "a recorded day"}.${version}`;
+	if (credit.kind === "earned")
+		return `Completed on ${credit.earnedOn ? dayText(credit.earnedOn) : "a recorded day"}.${version}`;
 	if (credit.kind === "revoked") return `Revoked.${version}`;
 	return `Attendance ${credit.attendanceDays ?? 0} days. Serving ${credit.volunteerDays ?? 0} days.`;
 }

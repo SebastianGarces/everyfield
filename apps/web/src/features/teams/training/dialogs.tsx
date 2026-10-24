@@ -63,7 +63,12 @@ export function CreateDialog({
 			}}
 		>
 			<Field label="Name" error={touched ? name : null}>
-				<Input className={fieldText} value={f.name} maxLength={NAME_MAX} onChange={(e) => setF({ ...f, name: e.target.value })} />
+				<Input
+					className={fieldText}
+					value={f.name}
+					maxLength={NAME_MAX}
+					onChange={(e) => setF({ ...f, name: e.target.value })}
+				/>
 			</Field>
 			<Checkbox
 				label="People must finish this"
@@ -117,7 +122,12 @@ export function CorrectDialog({
 			}}
 		>
 			<Field label="Name" error={touched ? name : null}>
-				<Input className={fieldText} value={f.name} maxLength={NAME_MAX} onChange={(e) => setF({ ...f, name: e.target.value })} />
+				<Input
+					className={fieldText}
+					value={f.name}
+					maxLength={NAME_MAX}
+					onChange={(e) => setF({ ...f, name: e.target.value })}
+				/>
 			</Field>
 			<Checkbox
 				label="People must finish this"
@@ -199,7 +209,12 @@ export function CompletionDialog({
 			{touched && missingPerson ? <p className="text-xs font-medium text-magenta-600">Choose a person.</p> : null}
 			{revoke ? null : (
 				<Field label="Day they finished" error={touched ? date : null}>
-					<Input className={fieldText} type="date" value={f.earnedOn} onChange={(e) => setF({ ...f, earnedOn: e.target.value })} />
+					<Input
+						className={fieldText}
+						type="date"
+						value={f.earnedOn}
+						onChange={(e) => setF({ ...f, earnedOn: e.target.value })}
+					/>
 				</Field>
 			)}
 		</RecordDialog>
@@ -342,7 +357,11 @@ export function ServiceDialog({
 				onChange={(person) => setF({ ...f, personId: person?.id ?? null, personName: person?.name ?? "" })}
 			/>
 			{touched && missingPerson ? <p className="text-xs font-medium text-magenta-600">Choose a person.</p> : null}
-			<Field label="Attendance days" hint="Days you can account for, from 0 to 20000." error={touched ? attendance : null}>
+			<Field
+				label="Attendance days"
+				hint="Days you can account for, from 0 to 20000."
+				error={touched ? attendance : null}
+			>
 				<Input
 					className={fieldText}
 					inputMode="numeric"

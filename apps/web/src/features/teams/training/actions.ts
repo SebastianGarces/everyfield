@@ -62,7 +62,10 @@ export async function loadPersonTraining(personId: string): Promise<PersonLoad> 
 	};
 }
 
-export async function createProgram(requestKey: string, input: { name: string; required: boolean; teamId: string | null }) {
+export async function createProgram(
+	requestKey: string,
+	input: { name: string; required: boolean; teamId: string | null },
+) {
 	const viewer = await seat();
 	if (!viewer) return noSeat;
 	return write(viewer, (tx, ctx) => trainingWriter.createProgram(tx, ctx, { requestKey, input }));
@@ -81,7 +84,11 @@ export async function correctProgram(
 export async function previewRoster(programId: string, personIds: string[]) {
 	const viewer = await seat();
 	if (!viewer) return noSeat;
-	return outcome(await read(viewer, (db, authority) => trainingReader.readRequiredTrainingPreview(db, authority, { programId, personIds })));
+	return outcome(
+		await read(viewer, (db, authority) =>
+			trainingReader.readRequiredTrainingPreview(db, authority, { programId, personIds }),
+		),
+	);
 }
 
 export async function saveRoster(

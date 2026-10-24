@@ -1,6 +1,12 @@
 "use client";
 
-import { Add01Icon, BookOpen01Icon, Certificate01Icon, FileEditIcon, MoreHorizontalIcon } from "@hugeicons/core-free-icons";
+import {
+	Add01Icon,
+	BookOpen01Icon,
+	Certificate01Icon,
+	FileEditIcon,
+	MoreHorizontalIcon,
+} from "@hugeicons/core-free-icons";
 import {
 	Button,
 	Card,
@@ -251,7 +257,10 @@ export function TrainingTab({
 	}
 
 	const editing = lane.editing;
-	const rosterKnown = editing?.kind === "assign" ? (programs?.find((program) => program.id === editing.programId)?.rosterKnown ?? false) : true;
+	const rosterKnown =
+		editing?.kind === "assign"
+			? (programs?.find((program) => program.id === editing.programId)?.rosterKnown ?? false)
+			: true;
 	const staleCounts = programs?.some((program) => !program.countsKnown) ?? false;
 
 	return (
@@ -267,7 +276,12 @@ export function TrainingTab({
 					</CardHeading>
 					{canChange ? (
 						<div className="flex flex-wrap justify-end gap-2 max-app-sm:w-full">
-							<Button variant="outline" icon={Certificate01Icon} disabled={busy} onClick={() => lane.open(serviceForm())}>
+							<Button
+								variant="outline"
+								icon={Certificate01Icon}
+								disabled={busy}
+								onClick={() => lane.open(serviceForm())}
+							>
 								Record attendance and serving
 							</Button>
 							<Button variant="primary" icon={Add01Icon} disabled={busy} onClick={() => lane.open(createForm())}>
@@ -368,7 +382,10 @@ export function TrainingTab({
 	);
 }
 
-function creditMessage(form: Extract<Flow, { kind: "complete" | "redo" | "revoke" }>, outcome: "changed" | "noop"): string {
+function creditMessage(
+	form: Extract<Flow, { kind: "complete" | "redo" | "revoke" }>,
+	outcome: "changed" | "noop",
+): string {
 	if (form.kind === "revoke") {
 		return outcome === "noop"
 			? "There is no current completion to revoke."
@@ -464,7 +481,9 @@ function TrainingDialogs({
 }) {
 	if (!editing) return null;
 	if (editing.kind === "create") {
-		return <CreateDialog form={editing} admin={admin} problem={problem} wait={wait} onClose={onClose} onSubmit={onSubmit} />;
+		return (
+			<CreateDialog form={editing} admin={admin} problem={problem} wait={wait} onClose={onClose} onSubmit={onSubmit} />
+		);
 	}
 	if (editing.kind === "correct") {
 		return <CorrectDialog form={editing} problem={problem} wait={wait} onClose={onClose} onSubmit={onSubmit} />;
