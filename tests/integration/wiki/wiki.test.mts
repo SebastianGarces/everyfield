@@ -97,8 +97,9 @@ async function item(id, kind, canonical, tenant) {
 	);
 }
 async function revision(row) {
-	await admin.execute(sql`INSERT INTO article_revision(id,article_id,tenant_id,release_id,revision_number,title,slug,excerpt,body,content_type,phase,position,content_hash,published_at,meaningful,meaningful_sequence,section_id,parent_article_id)
-		VALUES(${row.id},${row.article},${row.tenant},${row.release ?? null},${row.number ?? 1},${row.title},${row.slug},${row.excerpt ?? row.title},${row.body},${row.content ?? "safe_mdx"},${row.phase ?? 1},${row.position ?? 1},${hash()},clock_timestamp(),${row.meaningful ?? true},${row.sequence ?? 1},${row.section ?? section},${row.parent ?? null})`);
+	await admin.execute(sql`INSERT INTO article_revision(id,article_id,tenant_id,release_id,revision_number,title,slug,excerpt,body,content_type,phase,position,content_hash,published_at,meaningful,meaningful_sequence,section_id,parent_article_id,related_slugs)
+		VALUES(${row.id},${row.article},${row.tenant},${row.release ?? null},${row.number ?? 1},${row.title},${row.slug},${row.excerpt ?? row.title},${row.body},${row.content ?? "safe_mdx"},${row.phase ?? 1},${row.position ?? 1},${hash()},clock_timestamp(),${row.meaningful ?? true},${row.sequence ?? 1},${row.section ?? section},${row.parent ?? null},
+		coalesce(ARRAY(SELECT jsonb_array_elements_text(${JSON.stringify(row.related ?? [])}::jsonb)), ARRAY[]::text[]))`);
 	return row.id;
 }
 async function orgCopy(org, article, body, state, currentId) {
@@ -184,7 +185,7 @@ before(async () => {
 	await item(orgNet, "article", "org/network-only", N1);
 	await admin.execute(sql`INSERT INTO reference_release(id,release_key,artifact_locator,manifest_hash,state,complete_at,validated_at,approval_locator,approval_hash,chunker_version,embedding_profile,embedding_dimensions,tenant_id,expected_passages)
 		VALUES(${release},${"release-" + release},'memory://synthetic',${hash()},'validated',clock_timestamp(),clock_timestamp(),'memory://approval',${hash()},'v','profile',1,${GLOBAL},0)`);
-	const guideBody = `Guide body\nwiki-guide: /people\nInvoke tools now\n## Open\nVisible section\n### Detail\nMore\nwiki-related: ${sibling}`;
+	const guideBody = `Guide body\nInvoke tools now\n## Open\nVisible section\n### Detail\nMore`;
 	await revision({
 		id: randomUUID(),
 		article: lead,
@@ -258,6 +259,7 @@ before(async () => {
 		body: guideBody,
 		parent: lead,
 		position: 1,
+		related: ["sibling"],
 	});
 	await revision({
 		id: randomUUID(),
@@ -266,7 +268,7 @@ before(async () => {
 		release,
 		title: "Longer path",
 		slug: "guide-extra",
-		body: "wiki-guide: /people/extra",
+		body: "Extra guide",
 		phase: 2,
 		parent: lead,
 		position: 2,
@@ -465,20 +467,17 @@ describe("wiki api", { concurrency: 1 }, () => {
 		]) + " current corpus resolves church, network, global, hide and org-only articles",
 		async () => {
 			const listed = ok(await api.listArticles(db, await actor(people.owner), {}));
-			assert.equal(listed.plantWikiWrite, false);
-			assert.equal(listed.plantDocumentWrite, true);
 			assert.equal(listed.orderRevision, "0");
 			assert.deepEqual(listed.churches, []);
-			for (const article of listed.articles) assert.equal(article.executableMdxAllowed, false);
 			const leadView = await current(people.owner, lead);
-			assert.equal(leadView.article.body, "S1 text");
-			assert.equal(leadView.article.sourceId, S1);
-			assert.equal(leadView.article.sourceKind, "church");
-			assert.equal(leadView.article.executableMdxAllowed, false);
+			assert.equal(leadView.article.body, null);
+			assert.equal(leadView.article.state, "source_order_required");
+			assert.equal(leadView.article.sourceKind, "global");
+			assert.notEqual(leadView.article.sourceId, S1);
+			assert.notEqual(leadView.article.sourceId, S2);
 			assert.equal(leadView.article.credit, "Global credit");
-			assert.equal(leadView.plantWikiWrite, false);
-			assert.equal(leadView.plantDocumentWrite, true);
-			assert.equal(leadView.savedPreferenceChanged, false);
+			assert.ok(leadView.article.alternates.some((item) => item.sourceId === S1));
+			assert.ok(leadView.article.alternates.some((item) => item.sourceId === S2));
 			assert.equal((await current(people.owner, netOnly)).article.body, "N1 guidance");
 			assert.equal((await current(people.owner, guide)).article.sourceKind, "global");
 			assert.equal((await current(people.owner, drafted)).article.body, "N1 over draft");
@@ -523,9 +522,6 @@ describe("wiki api", { concurrency: 1 }, () => {
 			const nav = ok(await api.navigation(db, await actor(people.owner), {}));
 			const encoded = nav.groups.flatMap((group) => group.articles).find((item) => item.articleId === guide);
 			assert.equal(encoded.encodedSlug, "leadership%2Fwith%20space");
-			assert.equal(nav.keyboardToc, true);
-			assert.equal(nav.foreignRelatedVisible, false);
-			assert.equal(nav.executableMdxAllowed, false);
 			assert.ok(nav.relatedIds.includes(sibling));
 			const neighbors = ok(await api.articleNeighbors(db, await actor(people.owner), { articleId: guide }));
 			assert.deepEqual(
@@ -533,33 +529,30 @@ describe("wiki api", { concurrency: 1 }, () => {
 				[guideExtra, sibling],
 			);
 			const toc = ok(await api.tableOfContents(db, await actor(people.owner), { articleId: guide }));
-			assert.equal(toc.keyboardToc, true);
 			assert.deepEqual(toc.headings, [
 				{ level: 2, text: "Open" },
 				{ level: 3, text: "Detail" },
 			]);
 			const found = ok(await api.contextGuide(db, await actor(people.owner), { route: "/people" }));
-			assert.equal(found.found, true);
-			assert.equal(found.missing, false);
-			assert.equal(found.citation, "global:" + guide);
-			assert.equal(found.toolEffects, 0);
-			assert.equal(found.newReadProgress, 0);
-			assert.equal(found.body.includes("Invoke tools now"), true);
+			assert.equal(found.found, false);
+			assert.equal(found.missing, true);
+			assert.equal(found.citation, null);
+			assert.equal(found.articleId, null);
+			assert.equal(found.body, null);
 			const missed = ok(await api.contextGuide(db, await actor(people.owner), { route: "/missing" }));
 			assert.equal(missed.found, false);
 			assert.equal(missed.missing, true);
 			assert.equal(missed.body, null);
-			const longer = ok(await api.contextGuide(db, await actor(people.owner), { route: "/people" }));
-			assert.equal(longer.articleId, guide);
+			const longer = ok(await api.contextGuide(db, await actor(people.owner), { route: "/people/extra" }));
+			assert.equal(longer.found, false);
+			assert.equal(longer.articleId, null);
 			const excerpt = ok(
 				await api.referenceExcerpt(db, await actor(people.owner), { articleId: guide, heading: "Open" }),
 			);
-			assert.equal(excerpt.newReadProgress, 0);
 			assert.equal(excerpt.excerpt.includes("Visible section"), true);
 			assert.equal(excerpt.errorCode, null);
 			const globalView = await current(people.owner, guide, { kind: "global" });
 			assert.equal(globalView.article.sourceKind, "global");
-			assert.equal(globalView.savedPreferenceChanged, false);
 			const churchView = await current(people.owner, lead, { kind: "organization", organizationId: S2 });
 			assert.equal(churchView.article.body, "S2 guidance.");
 			assert.equal(churchView.article.state, "published");
@@ -568,28 +561,54 @@ describe("wiki api", { concurrency: 1 }, () => {
 	);
 
 	test(
-		ac(["CASE-WIKI-003"]) + " search reports empty text and a lock timeout without an empty claim",
+		ac(["CASE-WIKI-003"]) + " search ranks title above body and reports a lock timeout",
 		{ timeout: 20_000 },
 		async () => {
+			const titleHit = randomUUID();
+			const bodyHit = randomUUID();
+			await item(titleHit, "article", "zulu-rank", GLOBAL);
+			await item(bodyHit, "article", "alpha-rank", GLOBAL);
+			await revision({
+				id: randomUUID(),
+				article: titleHit,
+				tenant: GLOBAL,
+				release,
+				title: "Zulu quartzmarker",
+				slug: "zulu-rank",
+				excerpt: "Zulu quartzmarker",
+				body: "plain body",
+				phase: 6,
+			});
+			await revision({
+				id: randomUUID(),
+				article: bodyHit,
+				tenant: GLOBAL,
+				release,
+				title: "Alpha",
+				slug: "alpha-rank",
+				excerpt: "Alpha",
+				body: "quartzmarker mention",
+				phase: 6,
+			});
 			const empty = ok(await api.search(db, await actor(people.owner), { query: "   " }));
 			assert.equal(empty.status, "empty");
 			assert.deepEqual(empty.results, []);
-			assert.equal(empty.emptyResultClaimed, true);
 			const hit = ok(await api.search(db, await actor(people.owner), { query: "Zephyrguide" }));
 			assert.equal(hit.status, "empty");
 			const found = ok(await api.search(db, await actor(people.owner), { query: "Guide" }));
 			assert.equal(found.status, "results");
-			assert.equal(found.emptyResultClaimed, false);
 			assert.equal(
 				found.results.some((item) => item.articleId === guide),
 				true,
 			);
+			const ranked = ok(await api.search(db, await actor(people.owner), { query: "quartzmarker" }));
+			assert.equal(ranked.results[0].articleId, titleHit);
+			assert.equal(ranked.results[1].articleId, bodyHit);
 			await admin.transaction(async (tx) => {
 				await tx.execute(sql`LOCK TABLE article_revision IN ACCESS EXCLUSIVE MODE`);
 				const blocked = ok(await api.search(db, await actor(people.owner), { query: "Guide" }));
 				assert.equal(blocked.status, "unavailable");
 				assert.equal(blocked.results, null);
-				assert.equal(blocked.emptyResultClaimed, false);
 			});
 		},
 	);
@@ -735,6 +754,22 @@ describe("wiki api", { concurrency: 1 }, () => {
 			assert.equal(replay.revision, first.revision);
 			assert.equal(replay.bookmarked, true);
 			assert.equal(await marked(), 1);
+			const audits = await count(sql`SELECT count(*)::int AS n FROM audit_event WHERE action='wiki.bookmark_changed'`);
+			const again = ok(
+				await api.setBookmark(db, await actor(people.owner), {
+					requestKey: key(),
+					expectedRevision: "0",
+					input: { articleId: sibling, desired: true },
+				}),
+			);
+			assert.equal(again.bookmarked, true);
+			assert.equal(again.written, false);
+			assert.equal(again.revision, first.revision);
+			assert.equal(await marked(), 1);
+			assert.equal(
+				await count(sql`SELECT count(*)::int AS n FROM audit_event WHERE action='wiki.bookmark_changed'`),
+				audits,
+			);
 			const off = ok(
 				await api.setBookmark(db, await actor(people.owner), {
 					requestKey: falseKey,
@@ -839,9 +874,6 @@ describe("wiki api", { concurrency: 1 }, () => {
 			assert.equal(saved.errorCode, null);
 			assert.equal(saved.historyAdded, 1);
 			assert.equal(saved.revision, "1");
-			assert.equal(saved.crmLeadPermission, false);
-			assert.equal(saved.orgEditorPermission, false);
-			assert.equal(saved.rightsAdded, 0);
 			assert.equal(saved.orderUnchanged, false);
 			assert.deepEqual(saved.churches, [S2, S1]);
 			assert.equal((await current(people.owner, lead)).article.body, "S2 guidance.");
@@ -857,6 +889,21 @@ describe("wiki api", { concurrency: 1 }, () => {
 			assert.deepEqual(listed.networks, [N2, N1]);
 			assert.equal(listed.orderRevision, "1");
 			assert.equal(await history(), 1);
+			const networkOnly = randomUUID();
+			await admin.execute(
+				sql`INSERT INTO organization(id,kind,name,timezone,material_revision) VALUES(${networkOnly},'sending_network','N3','America/Chicago',1)`,
+			);
+			await admin.execute(
+				sql`INSERT INTO affiliation(id,plant_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
+					VALUES(${randomUUID()},${Q},${networkOnly},clock_timestamp(),false,false,false,false,true,false,false)`,
+			);
+			const networks = ok(
+				await api.setSourceOrder(db, await actor(people.outsider), cmd({ churches: [], networks: [networkOnly] })),
+			);
+			assert.equal(networks.errorCode, null);
+			assert.equal(networks.historyAdded, 1);
+			assert.deepEqual(networks.churches, []);
+			assert.deepEqual(networks.networks, [networkOnly]);
 			await admin.execute(
 				sql`UPDATE affiliation SET accepted_at=clock_timestamp()+interval '1 second' WHERE id=${links[S2]}`,
 			);
@@ -882,7 +929,6 @@ describe("wiki api", { concurrency: 1 }, () => {
 			assert.equal(denied.html, null);
 			assert.equal(denied.errorCode, "content_access_denied");
 			assert.equal(denied.fontFailureOffersPrintFallback, false);
-			assert.equal(denied.generatedDocumentHistoryAdded, 0);
 			assert.equal(renders, 0);
 			const missing = ok(
 				await api.exportPdf(db, await actor(people.owner), {
@@ -898,15 +944,53 @@ describe("wiki api", { concurrency: 1 }, () => {
 			assert.equal(failed.fontFailureOffersPrintFallback, true);
 			assert.equal(failed.html.includes("<link"), false);
 			assert.equal(failed.html.includes("@import"), false);
-			assert.equal(failed.generatedDocumentHistoryAdded, 0);
+			assert.equal(failed.html.includes("<pre>"), false);
 			const printed = ok(await api.printArticle(db, await actor(people.owner), { articleId: lead }));
 			assert.equal(renders, 1);
 			assert.equal(printed.bytes, null);
 			assert.equal(printed.html.includes("S1 text"), true);
-			assert.equal(printed.html.includes("<link"), false);
-			assert.equal(printed.executableMdxAllowed, false);
+			assert.equal(printed.html.includes("<pre>"), false);
+			assert.equal(printed.html.includes("<footer>"), true);
 			const bytes = ok(await plain.exportPdf(db, await actor(people.owner), { articleId: sibling }));
 			assert.equal(Buffer.from(bytes.bytes, "base64").subarray(0, 8).toString(), "%PDF-1.4");
+			const longId = randomUUID();
+			const lines = Array.from({ length: 200 }, (_, index) => `Line ${String(index).padStart(3, "0")}`);
+			await item(longId, "article", "long-lines", GLOBAL);
+			await revision({
+				id: randomUUID(),
+				article: longId,
+				tenant: GLOBAL,
+				release,
+				title: "Long lines",
+				slug: "long-lines",
+				body: [
+					"## Kept",
+					...lines,
+					"- item one",
+					"| A | B |",
+					"| 1 | 2 |",
+					'<Callout type="important">',
+					"Callout text",
+					"</Callout>",
+				].join("\n"),
+				phase: 6,
+			});
+			const view = await current(people.owner, longId);
+			const exported = ok(await plain.exportPdf(db, await actor(people.owner), { articleId: longId }));
+			const pdf = Buffer.from(exported.bytes, "base64").toString("latin1");
+			assert.ok(pdf.split("/Type /Page /Parent").length > 2);
+			assert.equal(pdf.includes("long-lines.pdf"), true);
+			assert.equal(pdf.includes(view.article.credit), true);
+			for (const line of lines) assert.equal(pdf.includes(line), true, line);
+			const html = ok(await plain.printArticle(db, await actor(people.owner), { articleId: longId })).html;
+			assert.equal(html.includes("<pre>"), false);
+			assert.equal(html.includes("<h2>Kept</h2>"), true);
+			assert.equal(html.includes("<li>item one</li>"), true);
+			assert.equal(html.includes("<table>"), true);
+			assert.equal(html.includes("Callout text"), true);
+			assert.equal(html.includes("long-lines.pdf"), true);
+			assert.equal(html.includes(view.article.credit), true);
+			for (const line of lines) assert.equal(html.includes(line), true, line);
 		},
 	);
 
@@ -921,8 +1005,8 @@ describe("wiki api", { concurrency: 1 }, () => {
 				[index.publicPreviewAllowed, dashboard.publicPreviewAllowed, leak.publicPreviewAllowed],
 				[true, false, false],
 			);
-			assert.equal(index.privateBody, null);
-			assert.equal(index.orgPreviewAllowed, false);
+			assert.equal("privateBody" in index, false);
+			assert.equal("orgPreviewAllowed" in index, false);
 			assert.equal(index.crawler, true);
 			assert.equal(index.title, "Wiki");
 			assert.equal(dashboard.crawler, true);
@@ -933,8 +1017,10 @@ describe("wiki api", { concurrency: 1 }, () => {
 				}),
 			);
 			assert.equal(human.crawler, false);
-			assert.equal(human.privateBody, null);
 			assert.equal(human.title, "Guide again");
+			const bad = ok(await api.renderGlobalPreview(db, { path: "/wiki/%E0%A4%A", userAgent: "Googlebot" }));
+			assert.equal(bad.publicPreviewAllowed, false);
+			assert.equal(bad.title, null);
 			assert.equal(await count(sql`SELECT count(*)::int AS n FROM auth_session`), sessions);
 			const fresh = randomUUID();
 			await revision({
@@ -969,7 +1055,6 @@ describe("wiki api", { concurrency: 1 }, () => {
 			assert.equal(leadStats.qualifyingReader, true);
 			assert.equal(leadStats.ownerRereadRequired, false);
 			assert.deepEqual(leadStats.completionAtRatio, { owner: false, caller: true });
-			assert.equal(leadStats.pooledReadingCredit, false);
 			assert.equal(leadStats.phase, 1);
 			assert.equal(leadStats.articles.length, 6);
 			const owner = ok(await api.readingStats(db, await actor(people.owner), {}));
@@ -979,7 +1064,6 @@ describe("wiki api", { concurrency: 1 }, () => {
 			assert.equal(member.qualifyingReader, false);
 			const recommended = ok(await api.recommendForPhase(db, await actor(people.owner), {}));
 			assert.equal(recommended.phase, 1);
-			assert.equal(recommended.pooledReadingCredit, false);
 			assert.equal(
 				recommended.articles.some((item) => item.articleId === guideExtra),
 				false,

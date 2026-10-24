@@ -36,9 +36,6 @@ function orderValue(partial: Partial<OrderValue> & Pick<OrderValue, "errorCode">
 		churches: [],
 		networks: [],
 		revision: "0",
-		crmLeadPermission: false,
-		orgEditorPermission: false,
-		rightsAdded: 0,
 		orderUnchanged: partial.errorCode != null,
 		...partial,
 	});
@@ -125,7 +122,12 @@ async function saveReading(
 				JOIN visible v ON true
 				LEFT JOIN existing e ON true
 				CROSS JOIN plant_ok p
-				WHERE (e.id IS NULL AND ${input.expectedRevision} = '0') OR e.revision::text = ${input.expectedRevision}
+				WHERE (
+					(e.id IS NULL AND ${input.expectedRevision} = '0') OR e.revision::text = ${input.expectedRevision}
+				)
+				AND NOT (
+					${mode} = 'bookmark' AND e.id IS NOT NULL AND e.bookmarked IS NOT DISTINCT FROM ${desired}::boolean
+				)
 				ON CONFLICT (account_id, article_id) DO UPDATE SET
 					last_revision_id = EXCLUDED.last_revision_id,
 					plant_context_id = EXCLUDED.plant_context_id,
@@ -153,7 +155,12 @@ async function saveReading(
 				(SELECT bookmarked FROM ins) AS bookmarked,
 				(SELECT last_read FROM ins) AS last_read,
 				(SELECT meaningful FROM visible) AS meaningful,
-				(SELECT meaningful_sequence FROM visible) AS visible_sequence`);
+				(SELECT meaningful_sequence FROM visible) AS visible_sequence,
+				(SELECT bookmarked FROM existing) AS stored_bookmarked,
+				(SELECT revision::text FROM existing) AS stored_revision,
+				(SELECT observed_fraction::text FROM existing) AS stored_fraction,
+				(SELECT completed_at IS NOT NULL FROM existing) AS stored_completed,
+				(SELECT last_read_meaningful_sequence FROM existing) AS stored_last_read`);
 		const row = z
 			.object({
 				allowed: z.boolean(),
@@ -166,10 +173,31 @@ async function saveReading(
 				last_read: z.coerce.number().nullable(),
 				meaningful: z.boolean().nullable(),
 				visible_sequence: z.coerce.number().nullable(),
+				stored_bookmarked: z.boolean().nullable(),
+				stored_revision: z.string().nullable(),
+				stored_fraction: z.string().nullable(),
+				stored_completed: z.boolean().nullable(),
+				stored_last_read: z.coerce.number().nullable(),
 			})
 			.parse(result.rows[0]);
 		if (!row.allowed) deny();
 		if (!row.entitled) throw new WikiOutcome(readingValue({ errorCode: "content_access_denied", written: false }));
+		if (mode === "bookmark" && row.stored_revision && row.stored_bookmarked === desired) {
+			const completed = row.stored_completed === true;
+			throw new WikiOutcome(
+				readingValue({
+					errorCode: null,
+					written: false,
+					revision: row.stored_revision,
+					completed,
+					observedFraction: row.stored_fraction ?? "0",
+					bookmarked: desired,
+					meaningfulUpdateLabel:
+						completed && row.meaningful === true && (row.visible_sequence ?? 0) > (row.stored_last_read ?? 0),
+					earnedCreditRetained: completed,
+				}),
+			);
+		}
 		if (!row.written_id || !row.written_revision) deny("conflict");
 		const completed = row.completed === true;
 		return readingValue({
@@ -208,8 +236,6 @@ export async function setSourceOrder(
 	const plantAdmin = context.kind === "seat" && context.owner.kind === "plant" && context.role !== "member";
 	const listed = { churches: input.input.churches, networks: input.input.networks, revision: input.expectedRevision };
 	if (!plantAdmin) return { status: "ok", value: orderValue({ errorCode: "access_denied", ...listed }) };
-	if (input.input.churches.length === 0)
-		return { status: "ok", value: orderValue({ errorCode: "source_order_required", ...listed }) };
 	if (duplicates(input.input.churches) || duplicates(input.input.networks))
 		return { status: "ok", value: orderValue({ errorCode: "invalid_source_order", ...listed }) };
 	const owner = context.owner;
@@ -257,6 +283,7 @@ export async function setSourceOrder(
 			);
 		};
 		if (!row.allowed) fail("access_denied");
+		if (input.input.churches.length === 0 && row.churches.length > 0) fail("source_order_required");
 		const foreign =
 			input.input.churches.some((id) => !row.churches.includes(id)) ||
 			input.input.networks.some((id) => !row.networks.includes(id));

@@ -960,6 +960,13 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
+        },
+        "related_slugs": {
+          "name": "related_slugs",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "ARRAY[]::text[]"
         }
       },
       "indexes": {

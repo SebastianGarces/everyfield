@@ -79,7 +79,8 @@ export function corpusCtes(access: CorpusAccess, source: SourceView): SQL {
 				r.content_type,
 				r.parent_article_id,
 				r.published_at,
-				i.canonical_key AS section_key
+				i.canonical_key AS section_key,
+				COALESCE(r.related_slugs, ARRAY[]::text[]) AS related_slugs
 			FROM article_revision r
 			JOIN reference_item i ON i.id = r.section_id
 			JOIN release rel ON r.release_id = rel.release_id
@@ -106,6 +107,10 @@ export function corpusCtes(access: CorpusAccess, source: SourceView): SQL {
 				COALESCE(rev.parent_article_id, g.parent_article_id) AS parent_article_id,
 				COALESCE(rev.published_at, g.published_at) AS published_at,
 				COALESCE(sec.canonical_key, g.section_key, 'section') AS section_key,
+				CASE
+					WHEN rev.id IS NOT NULL THEN COALESCE(rev.related_slugs, ARRAY[]::text[])
+					ELSE COALESCE(g.related_slugs, ARRAY[]::text[])
+				END AS related_slugs,
 				l.org_id AS source_id,
 				CASE WHEN l.kind = 'sending_church' THEN 'church' ELSE 'network' END AS source_kind,
 				(e.state = 'hide') AS hidden,
@@ -153,6 +158,7 @@ export function corpusCtes(access: CorpusAccess, source: SourceView): SQL {
 				g.parent_article_id,
 				g.published_at,
 				g.section_key,
+				g.related_slugs,
 				${GLOBAL}::uuid AS source_id,
 				'global'::text AS source_kind,
 				false AS hidden,
@@ -178,6 +184,7 @@ export function corpusCtes(access: CorpusAccess, source: SourceView): SQL {
 				g.parent_article_id,
 				g.published_at,
 				g.section_key,
+				g.related_slugs,
 				${pick.organizationId}::uuid AS source_id,
 				COALESCE(
 					(SELECT CASE o.kind WHEN 'sending_church' THEN 'church' ELSE 'network' END
@@ -203,17 +210,35 @@ export function corpusCtes(access: CorpusAccess, source: SourceView): SQL {
 			UNION ALL
 			SELECT * FROM inherited
 		),
+		unordered AS (
+			SELECT c.article_id
+			FROM candidates c
+			WHERE ${pick.kind} = 'current'
+				AND c.source_kind = 'church'
+				AND c.state = 'published'
+				AND NOT c.hidden
+			GROUP BY c.article_id
+			HAVING count(*) FILTER (WHERE c.rank = 100000) >= 2
+				AND count(*) FILTER (WHERE c.rank < 100000) = 0
+		),
 		chosen AS (
 			SELECT DISTINCT ON (c.article_id) c.*
 			FROM candidates c
 			WHERE ${pick.kind} = 'current'
 				OR (${pick.kind} = 'global' AND c.source_kind = 'global')
 				OR (${pick.kind} = 'organization' AND c.source_id = ${pick.organizationId}::uuid)
-			ORDER BY c.article_id, c.rank, c.accepted_at, c.source_id
+			ORDER BY c.article_id,
+				CASE
+					WHEN EXISTS (SELECT FROM unordered u WHERE u.article_id = c.article_id)
+						THEN CASE WHEN c.source_kind = 'global' THEN 0 ELSE 1 END
+					ELSE 0
+				END,
+				c.rank, c.accepted_at, c.source_id
 		),
 		picked AS (
 			SELECT
 				c.*,
+				EXISTS (SELECT FROM unordered u WHERE u.article_id = c.article_id) AS order_required,
 				COALESCE((
 					SELECT json_agg(json_build_object(
 						'sourceId', a.source_id,
@@ -228,15 +253,9 @@ export function corpusCtes(access: CorpusAccess, source: SourceView): SQL {
 						AND a.state <> 'inherited'
 				), '[]'::json) AS alternates,
 				COALESCE((
-					SELECT json_agg(x.id)
-					FROM (
-						SELECT DISTINCT m[1]::uuid AS id
-						FROM regexp_matches(COALESCE(c.body, ''), 'wiki-related:[[:space:]]*([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})', 'g') AS m
-						WHERE EXISTS (
-							SELECT FROM chosen h
-							WHERE h.article_id = m[1]::uuid AND h.article_id <> c.article_id
-						)
-					) x
+					SELECT json_agg(h.article_id ORDER BY u.ord)
+					FROM unnest(COALESCE(c.related_slugs, ARRAY[]::text[])) WITH ORDINALITY AS u(slug, ord)
+					JOIN chosen h ON h.slug = u.slug AND h.article_id <> c.article_id AND NOT h.hidden
 				), '[]'::json) AS related_ids
 			FROM chosen c
 		)`;
@@ -248,8 +267,8 @@ export function articleJson(): SQL {
 		'sourceId', p.source_id,
 		'sourceKind', p.source_kind,
 		'hidden', p.hidden,
-		'state', p.state,
-		'body', CASE WHEN p.hidden THEN NULL ELSE p.body END,
+		'state', CASE WHEN p.order_required THEN 'source_order_required' ELSE p.state END,
+		'body', CASE WHEN p.hidden OR p.order_required THEN NULL ELSE p.body END,
 		'title', p.title,
 		'slug', p.slug,
 		'excerpt', p.excerpt,
@@ -329,5 +348,45 @@ export function pageQuery(access: CorpusAccess, source: SourceView, page: number
 					WHERE v.item_id = p.article_id
 					ORDER BY v.version_number DESC LIMIT 1
 				) cr ON true
+			), '[]'::json) AS articles`;
+}
+
+/** Every matching article in one statement. The count does not grow with the corpus. */
+export function catalogQuery(access: CorpusAccess, source: SourceView, where: SQL = sql`true`): SQL {
+	return sql`WITH ${corpusCtes(access, source)},
+		rows AS (
+			SELECT p.*, NULL::text AS snippet
+			FROM ${articleFrom(where)}
+		)
+		SELECT
+			EXISTS (SELECT FROM me) AS allowed,
+			(SELECT pl.phase FROM plant pl WHERE ${access.owner.kind} = 'plant' AND pl.id = ${access.owner.id}::uuid) AS plant_phase,
+			COALESCE((
+				SELECT json_agg(${articleJson()} ORDER BY p.section_key, p.phase NULLS LAST, p.position, p.title, p.article_id)
+				FROM rows p
+				LEFT JOIN reading rd ON rd.account_id = (SELECT account_id FROM me) AND rd.article_id = p.article_id
+				LEFT JOIN LATERAL (
+					SELECT v.source_credit FROM reference_version v
+					WHERE v.item_id = p.article_id
+					ORDER BY v.version_number DESC LIMIT 1
+				) cr ON true
+			), '[]'::json) AS articles`;
+}
+
+/** Navigation ids in one statement: title, slug, phase, section, and stored related ids. */
+export function navigationQuery(access: CorpusAccess, source: SourceView): SQL {
+	return sql`WITH ${corpusCtes(access, source)}
+		SELECT
+			EXISTS (SELECT FROM me) AS allowed,
+			COALESCE((
+				SELECT json_agg(json_build_object(
+					'articleId', p.article_id,
+					'title', p.title,
+					'slug', p.slug,
+					'phase', p.phase,
+					'sectionKey', p.section_key,
+					'relatedIds', p.related_ids
+				) ORDER BY p.section_key, p.phase NULLS LAST, p.position, p.title, p.article_id)
+				FROM picked p
 			), '[]'::json) AS articles`;
 }

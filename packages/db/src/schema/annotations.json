@@ -9052,6 +9052,9 @@
 				},
 				"section_id": {
 					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
+				},
+				"related_slugs": {
+					"note": "Approved related article slugs stored by the release install. A read resolves them to entitled article ids."
 				}
 			},
 			"foreignKeys": {

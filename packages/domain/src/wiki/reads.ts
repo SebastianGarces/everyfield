@@ -32,8 +32,8 @@ import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import type { RequestActor } from "../access/session.ts";
-import { articleJson, corpusCtes, pageQuery, type CorpusAccess } from "./corpus.ts";
-import { printHtml, type PdfRenderer } from "./pdf.ts";
+import { articleJson, catalogQuery, corpusCtes, navigationQuery, pageQuery, type CorpusAccess } from "./corpus.ts";
+import { pdfFilename, printHtml, type PdfRenderer } from "./pdf.ts";
 import { deny, GLOBAL, meSql, PAGE, parse, pgCode, runRead, selectedOwner } from "./core.ts";
 
 const loaded = z.object({
@@ -68,10 +68,7 @@ function displayBody(contentType: unknown, hidden: unknown, body: unknown): stri
 	try {
 		return JSON.stringify(stripNodes(JSON.parse(text)));
 	} catch {
-		return text
-			.split("\n")
-			.filter((line) => !/^\s*(import|export)\s/.test(line) && !line.includes("<script"))
-			.join("\n");
+		return text;
 	}
 }
 export function headings(contentType: string, body: string | null): { level: 2 | 3; text: string }[] {
@@ -113,7 +110,6 @@ function present(raw: Record<string, unknown>): WikiArticle {
 		revisionNumber: Number(raw.revisionNumber),
 		meaningfulSequence: Number(raw.meaningfulSequence),
 		encodedSlug: encodeURIComponent(String(raw.slug ?? "")),
-		executableMdxAllowed: false,
 		snippet: raw.snippet == null ? null : String(raw.snippet),
 	});
 }
@@ -135,8 +131,6 @@ function listValue(articles: WikiArticle[], nextCursor: string | null, row: z.in
 		churches: row.churches ?? [],
 		networks: row.networks ?? [],
 		orderRevision: row.order_revision,
-		plantWikiWrite: false,
-		plantDocumentWrite: true,
 	});
 }
 function accessFor(authority: RequestActor, owner = selectedOwner(authority)): CorpusAccess {
@@ -168,9 +162,6 @@ export function getArticle(db: Database, authority: RequestActor, raw: unknown) 
 		return {
 			article,
 			errorCode: article ? null : ("content_access_denied" as const),
-			plantWikiWrite: false as const,
-			plantDocumentWrite: true as const,
-			savedPreferenceChanged: false as const,
 		};
 	});
 }
@@ -201,7 +192,7 @@ export async function search(db: Database, authority: RequestActor, raw: unknown
 				sql`WITH ${meSql(authority, access.owner)} SELECT EXISTS (SELECT FROM me) AS allowed`,
 			);
 			if (!z.object({ allowed: z.boolean() }).parse(gate.rows[0]).allowed) deny();
-			return searchResult.parse({ status: "empty", results: [], nextCursor: null, emptyResultClaimed: true });
+			return searchResult.parse({ status: "empty", results: [], nextCursor: null });
 		}
 		const page = input.page ?? 1;
 		const offset = (page - 1) * PAGE;
@@ -212,24 +203,27 @@ export async function search(db: Database, authority: RequestActor, raw: unknown
 				return tx.execute(sql`WITH ${corpusCtes(access, source)},
 					scored AS (
 						SELECT p.*,
+							ts_rank(v.vector, websearch_to_tsquery('english', ${input.query})) AS text_rank,
 							ts_headline('english', coalesce(p.body, p.excerpt, p.title, ''), websearch_to_tsquery('english', ${input.query}), 'MaxFragments=1, MinWords=5, MaxWords=20') AS snippet
 						FROM picked p
-						WHERE NOT p.hidden
-							AND (${phase === null}::boolean OR p.phase = ${phase ?? 0})
-							AND (
+						CROSS JOIN LATERAL (
+							SELECT
 								setweight(to_tsvector('english', coalesce(p.title, '')), 'A')
 								|| setweight(to_tsvector('english', coalesce(p.excerpt, '')), 'B')
-								|| setweight(to_tsvector('english', coalesce(p.body, '')), 'C')
-							) @@ websearch_to_tsquery('english', ${input.query})
+								|| setweight(to_tsvector('english', coalesce(p.body, '')), 'C') AS vector
+						) v
+						WHERE NOT p.hidden
+							AND (${phase === null}::boolean OR p.phase = ${phase ?? 0})
+							AND v.vector @@ websearch_to_tsquery('english', ${input.query})
 					)
 					SELECT
 						EXISTS (SELECT FROM me) AS allowed,
 						(SELECT count(*)::int FROM scored) AS total,
 						COALESCE((
-							SELECT json_agg(${articleJson()} ORDER BY p.title, p.article_id)
+							SELECT json_agg(${articleJson()} ORDER BY p.text_rank DESC, p.article_id)
 							FROM (
 								SELECT * FROM scored
-								ORDER BY title, article_id
+								ORDER BY text_rank DESC, article_id
 								OFFSET ${offset} LIMIT ${PAGE}
 							) p
 							LEFT JOIN reading rd ON rd.account_id = (SELECT account_id FROM me) AND rd.article_id = p.article_id
@@ -249,23 +243,20 @@ export async function search(db: Database, authority: RequestActor, raw: unknown
 				.parse(result.rows[0]);
 			if (!row.allowed) deny();
 			const results = (row.articles ?? []).map(present);
-			if (!results.length)
-				return searchResult.parse({ status: "empty", results: [], nextCursor: null, emptyResultClaimed: true });
+			if (!results.length) return searchResult.parse({ status: "empty", results: [], nextCursor: null });
 			return searchResult.parse({
 				status: "results",
 				results,
 				nextCursor: page * PAGE < row.total ? String(page + 1) : null,
-				emptyResultClaimed: false,
 			});
 		} catch (error) {
 			const code = pgCode(error);
-			if (code === "55P03" || code === "57014")
-				return searchResult.parse({ status: "unavailable", results: null, emptyResultClaimed: false });
+			if (code === "55P03" || code === "57014") return searchResult.parse({ status: "unavailable", results: null });
 			throw error;
 		}
 	});
 }
-function groupName(article: WikiArticle): string {
+function groupName(article: { sectionKey: string; phase: number | null }): string {
 	const key = article.sectionKey.toLowerCase();
 	if (key.includes("framework")) return "Frameworks";
 	if (key.includes("reference")) return "Reference";
@@ -273,13 +264,25 @@ function groupName(article: WikiArticle): string {
 	if (article.phase != null) return `Journey ${article.phase}`;
 	return "Getting started";
 }
+const navRow = z.object({
+	articleId: z.uuid(),
+	title: z.string(),
+	slug: z.string(),
+	phase: z.coerce.number().int().nullable(),
+	sectionKey: z.string(),
+	relatedIds: z.array(z.uuid()),
+});
 export function navigation(db: Database, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
 		const input = parse(navigationRequest, raw);
-		const articles = await allArticles(db, accessFor(authority), sourceOf(input.source));
-		const groups = new Map<string, WikiArticle[]>();
+		const access = accessFor(authority);
+		const result = await db.execute(navigationQuery(access, sourceOf(input.source)));
+		const row = z.object({ allowed: z.boolean(), articles: z.array(navRow).nullable() }).parse(result.rows[0]);
+		if (!row.allowed) deny();
+		const articles = row.articles ?? [];
+		const groups = new Map<string, typeof articles>();
 		for (const article of articles) {
-			const name = groupName(article);
+			const name = groupName({ sectionKey: article.sectionKey, phase: article.phase });
 			groups.set(name, [...(groups.get(name) ?? []), article]);
 		}
 		return navigationResult.parse({
@@ -289,30 +292,14 @@ export function navigation(db: Database, authority: RequestActor, raw: unknown) 
 					articleId: item.articleId,
 					title: item.title,
 					slug: item.slug,
-					encodedSlug: item.encodedSlug,
+					encodedSlug: encodeURIComponent(item.slug),
 					phase: item.phase,
 				})),
 			})),
 			breadcrumbs: articles.map((item) => ({ articleId: item.articleId, crumbs: [item.sectionKey, item.title] })),
 			relatedIds: [...new Set(articles.flatMap((item) => item.relatedIds))],
-			keyboardToc: true,
-			foreignRelatedVisible: false,
-			executableMdxAllowed: false,
 		});
 	});
-}
-async function allArticles(
-	db: Database,
-	access: CorpusAccess,
-	source: SourceView,
-	where: SQL = sql`true`,
-): Promise<WikiArticle[]> {
-	const first = await readPage(db, access, source, 1, where);
-	const articles = [...first.articles];
-	const pages = Math.ceil(first.row.total / PAGE);
-	for (let page = 2; page <= pages; page += 1)
-		articles.push(...(await readPage(db, access, source, page, where)).articles);
-	return articles;
 }
 export function articleNeighbors(db: Database, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
@@ -360,59 +347,26 @@ export function tableOfContents(db: Database, authority: RequestActor, raw: unkn
 		const article = page.articles[0] ?? null;
 		return tocResult.parse({
 			headings: article ? headings(article.contentType, article.body) : [],
-			keyboardToc: true,
 			errorCode: article ? null : "content_access_denied",
 		});
 	});
 }
 export function contextGuide(db: Database, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
-		const input = parse(contextGuideRequest, raw);
+		parse(contextGuideRequest, raw);
 		const access = accessFor(authority);
-		const marker = `wiki-guide: ${input.route}`;
-		const result = await db.execute(sql`WITH ${corpusCtes(access, sourceOf(input.source))},
-			hit AS (
-				SELECT p.article_id, p.source_kind, p.source_id, p.body
-				FROM picked p
-				WHERE NOT p.hidden
-					AND p.body IS NOT NULL
-					AND strpos(p.body, ${marker}) > 0
-					AND (
-						strpos(p.body, ${marker}) + char_length(${marker}) > char_length(p.body)
-						OR substring(p.body from strpos(p.body, ${marker}) + char_length(${marker}) for 1) !~ '^[A-Za-z0-9/_-]'
-					)
-				ORDER BY p.rank, p.article_id
-				LIMIT 1
-			)
-			SELECT
-				EXISTS (SELECT FROM me) AS allowed,
-				(SELECT article_id FROM hit) AS article_id,
-				(SELECT source_kind FROM hit) AS source_kind,
-				(SELECT source_id FROM hit) AS source_id,
-				(SELECT body FROM hit) AS body`);
-		const row = z
-			.object({
-				allowed: z.boolean(),
-				article_id: z.uuid().nullable(),
-				source_kind: z.string().nullable(),
-				source_id: z.uuid().nullable(),
-				body: z.string().nullable(),
-			})
-			.parse(result.rows[0]);
+		const result = await db.execute(
+			sql`WITH ${meSql(authority, access.owner)} SELECT EXISTS (SELECT FROM me) AS allowed`,
+		);
+		const row = z.object({ allowed: z.boolean() }).parse(result.rows[0]);
 		if (!row.allowed) deny();
-		const found = row.article_id != null;
+		// No approved release maps an app route to an article.
 		return guideResult.parse({
-			found,
-			missing: !found,
-			citation: found
-				? row.source_kind === "global"
-					? `global:${row.article_id}`
-					: `${row.source_id}:${row.article_id}`
-				: null,
-			articleId: row.article_id,
-			body: row.body,
-			toolEffects: 0,
-			newReadProgress: 0,
+			found: false,
+			missing: true,
+			citation: null,
+			articleId: null,
+			body: null,
 		});
 	});
 }
@@ -431,16 +385,13 @@ export function referenceExcerpt(db: Database, authority: RequestActor, raw: unk
 			return excerptResult.parse({
 				excerpt: null,
 				errorCode: page.articles[0] ? null : "content_access_denied",
-				newReadProgress: 0,
 			});
-		if (!input.heading)
-			return excerptResult.parse({ excerpt: body.slice(0, 500), errorCode: null, newReadProgress: 0 });
+		if (!input.heading) return excerptResult.parse({ excerpt: body.slice(0, 500), errorCode: null });
 		const lines = body.split("\n");
 		const start = lines.findIndex((line) => line.replace(/^#{1,6}\s*/, "").trim() === input.heading);
-		if (start < 0) return excerptResult.parse({ excerpt: body.slice(0, 500), errorCode: null, newReadProgress: 0 });
+		if (start < 0) return excerptResult.parse({ excerpt: body.slice(0, 500), errorCode: null });
 		const opening = lines[start];
-		if (opening == null)
-			return excerptResult.parse({ excerpt: body.slice(0, 500), errorCode: null, newReadProgress: 0 });
+		if (opening == null) return excerptResult.parse({ excerpt: body.slice(0, 500), errorCode: null });
 		const marks = /^(#+)\s/.exec(opening);
 		const level = marks?.[1]?.length ?? 2;
 		const taken = [opening];
@@ -449,7 +400,7 @@ export function referenceExcerpt(db: Database, authority: RequestActor, raw: unk
 			if (next != null && next <= level) break;
 			taken.push(line);
 		}
-		return excerptResult.parse({ excerpt: taken.join("\n").slice(0, 500), errorCode: null, newReadProgress: 0 });
+		return excerptResult.parse({ excerpt: taken.join("\n").slice(0, 500), errorCode: null });
 	});
 }
 export function readingRecent(db: Database, authority: RequestActor, raw: unknown) {
@@ -564,7 +515,6 @@ export function readingStats(db: Database, authority: RequestActor, raw: unknown
 			ownerRereadRequired: row.owner_reread,
 			qualifyingReader: row.caller_complete && row.seated_lead,
 			completionAtRatio: { owner: row.owner_complete, caller: row.caller_complete },
-			pooledReadingCredit: false,
 			phase: row.phase,
 			articles: row.articles,
 		});
@@ -578,14 +528,19 @@ export function recommendForPhase(db: Database, authority: RequestActor, raw: un
 			input.phase == null
 				? sql`(${access.owner.kind} <> 'plant' OR p.phase = (SELECT phase FROM plant WHERE id = ${access.owner.id}::uuid))`
 				: sql`p.phase = ${input.phase}`;
-		const page = await readPage(db, access, sourceOf(input.source), 1, where);
-		const articles =
-			page.row.total <= PAGE ? page.articles : await allArticles(db, access, sourceOf(input.source), where);
-		const phased = input.phase == null ? articles : articles.filter((item) => item.phase === input.phase);
+		const result = await db.execute(catalogQuery(access, sourceOf(input.source), where));
+		const row = z
+			.object({
+				allowed: z.boolean(),
+				plant_phase: z.number().int().nullable(),
+				articles: z.array(z.record(z.string(), z.unknown())).nullable(),
+			})
+			.parse(result.rows[0]);
+		if (!row.allowed) deny();
+		const articles = (row.articles ?? []).map(present);
 		return recommendResult.parse({
-			phase: input.phase ?? page.row.plant_phase,
-			pooledReadingCredit: false,
-			articles: input.phase == null ? articles : phased,
+			phase: input.phase ?? row.plant_phase,
+			articles,
 		});
 	});
 }
@@ -597,49 +552,38 @@ function isCrawler(userAgent: string | undefined): boolean {
 function wikiPath(path: string): boolean {
 	return /^\/wiki(\/|$)/.test(path);
 }
+function preview(value: {
+	publicPreviewAllowed: boolean;
+	crawler: boolean;
+	title: string | null;
+	excerpt?: string | null;
+}) {
+	return previewResult.parse({ excerpt: null, ...value });
+}
 export async function publicPreviewMetadata(_db: Database, raw: unknown) {
 	const input = parse(publicPreviewRequest, raw);
 	const allowed = wikiPath(input.path);
 	return {
 		status: "ok" as const,
-		value: previewResult.parse({
+		value: preview({
 			publicPreviewAllowed: allowed,
-			orgPreviewAllowed: false,
-			privateBody: null,
 			crawler: isCrawler(input.userAgent),
 			title: allowed ? "Wiki" : null,
-			excerpt: null,
 		}),
 	};
 }
 export async function renderGlobalPreview(db: Database, raw: unknown) {
 	const input = parse(publicPreviewRequest, raw);
 	const allowed = wikiPath(input.path);
-	if (!allowed)
-		return {
-			status: "ok" as const,
-			value: previewResult.parse({
-				publicPreviewAllowed: false,
-				orgPreviewAllowed: false,
-				privateBody: null,
-				crawler: isCrawler(input.userAgent),
-				title: null,
-				excerpt: null,
-			}),
-		};
-	const slug = decodeURIComponent(input.path.replace(/^\/wiki\/?/, "").replace(/\/$/, ""));
-	if (!slug)
-		return {
-			status: "ok" as const,
-			value: previewResult.parse({
-				publicPreviewAllowed: true,
-				orgPreviewAllowed: false,
-				privateBody: null,
-				crawler: isCrawler(input.userAgent),
-				title: "Wiki",
-				excerpt: null,
-			}),
-		};
+	const crawler = isCrawler(input.userAgent);
+	if (!allowed) return { status: "ok" as const, value: preview({ publicPreviewAllowed: false, crawler, title: null }) };
+	let slug = "";
+	try {
+		slug = decodeURIComponent(input.path.replace(/^\/wiki\/?/, "").replace(/\/$/, ""));
+	} catch {
+		return { status: "ok" as const, value: preview({ publicPreviewAllowed: false, crawler, title: null }) };
+	}
+	if (!slug) return { status: "ok" as const, value: preview({ publicPreviewAllowed: true, crawler, title: "Wiki" }) };
 	const result = await db.execute(sql`WITH release AS (
 			SELECT a.release_id FROM reference_activation a ORDER BY a.activation_number DESC LIMIT 1
 		)
@@ -655,11 +599,9 @@ export async function renderGlobalPreview(db: Database, raw: unknown) {
 	const row = z.object({ title: z.string(), excerpt: z.string().nullable() }).safeParse(result.rows[0]);
 	return {
 		status: "ok" as const,
-		value: previewResult.parse({
+		value: preview({
 			publicPreviewAllowed: true,
-			orgPreviewAllowed: false,
-			privateBody: null,
-			crawler: isCrawler(input.userAgent),
+			crawler,
 			title: row.success ? row.data.title : null,
 			excerpt: row.success ? row.data.excerpt : null,
 		}),
@@ -672,9 +614,10 @@ function deniedExport() {
 		html: null,
 		errorCode: "content_access_denied",
 		fontFailureOffersPrintFallback: false,
-		generatedDocumentHistoryAdded: 0,
-		executableMdxAllowed: false,
 	});
+}
+function exportMeta(article: WikiArticle) {
+	return { filename: pdfFilename(article.slug), source: article.credit };
 }
 async function visibleBody(db: Database, authority: RequestActor, raw: unknown) {
 	const input = parse(getArticleRequest, raw);
@@ -693,24 +636,21 @@ export function exportPdf(db: Database, authority: RequestActor, raw: unknown, r
 	return runRead(async () => {
 		const article = await visibleBody(db, authority, raw);
 		if (!article) return deniedExport();
+		const meta = exportMeta(article);
 		try {
-			const bytes = Buffer.from(render(article.title, article.body!)).toString("base64");
+			const bytes = Buffer.from(render(article.title, article.body!, meta)).toString("base64");
 			return exportResult.parse({
 				bytes,
 				html: null,
 				errorCode: null,
 				fontFailureOffersPrintFallback: false,
-				generatedDocumentHistoryAdded: 0,
-				executableMdxAllowed: false,
 			});
 		} catch {
 			return exportResult.parse({
 				bytes: null,
-				html: printHtml(article.title, article.body!),
+				html: printHtml(article.title, article.body!, meta),
 				errorCode: null,
 				fontFailureOffersPrintFallback: true,
-				generatedDocumentHistoryAdded: 0,
-				executableMdxAllowed: false,
 			});
 		}
 	});
@@ -719,16 +659,12 @@ export function printArticle(db: Database, authority: RequestActor, raw: unknown
 	return runRead(async () => {
 		const article = await visibleBody(db, authority, raw);
 		if (!article) return deniedExport();
+		const meta = exportMeta(article);
 		return exportResult.parse({
 			bytes: null,
-			html: printHtml(article.title, article.body!),
+			html: printHtml(article.title, article.body!, meta),
 			errorCode: null,
 			fontFailureOffersPrintFallback: false,
-			generatedDocumentHistoryAdded: 0,
-			executableMdxAllowed: false,
 		});
 	});
-}
-export function groupOf(article: WikiArticle): string {
-	return groupName(article);
 }

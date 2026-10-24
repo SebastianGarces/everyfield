@@ -277,6 +277,10 @@ export const article_revision = pgTable(
 		meaningful_sequence: int64("meaningful_sequence").notNull(),
 		author_id: uuid("author_id"),
 		section_id: uuid("section_id").notNull(),
+		related_slugs: text("related_slugs")
+			.array()
+			.notNull()
+			.default(sql`ARRAY[]::text[]`),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		foreignKey({ name: "article_revision_fk_0", columns: [table.article_id], foreignColumns: [reference_item.id] })

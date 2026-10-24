@@ -51,5 +51,3 @@ export function createWikiProducer(config: WikiConfig = {}) {
 		setSourceOrder,
 	};
 }
-
-export { helveticaPdf };

@@ -22,7 +22,7 @@ export const wikiArticle = z.strictObject({
 	sourceId: z.uuid(),
 	sourceKind: z.enum(["church", "network", "global"]),
 	hidden: z.boolean(),
-	state: z.enum(["published", "hidden", "inherited"]),
+	state: z.enum(["published", "hidden", "inherited", "source_order_required"]),
 	body: z.string().nullable(),
 	title: z.string(),
 	slug: z.string(),
@@ -53,7 +53,6 @@ export const wikiArticle = z.strictObject({
 	relatedIds: z.array(z.uuid()),
 	encodedSlug: z.string(),
 	snippet: z.string().nullable(),
-	executableMdxAllowed: z.literal(false),
 });
 export type WikiArticle = z.infer<typeof wikiArticle>;
 
@@ -124,33 +123,21 @@ export const listResult = z.strictObject({
 	churches: z.array(z.uuid()),
 	networks: z.array(z.uuid()),
 	orderRevision: z.string(),
-	plantWikiWrite: z.literal(false),
-	plantDocumentWrite: z.literal(true),
-});
-export const getResult = z.strictObject({
-	article: wikiArticle.nullable(),
-	errorCode: z.literal("content_access_denied").nullable(),
-	plantWikiWrite: z.literal(false),
-	plantDocumentWrite: z.literal(true),
-	savedPreferenceChanged: z.literal(false),
 });
 export const searchResult = z.discriminatedUnion("status", [
 	z.strictObject({
 		status: z.literal("results"),
 		results: z.array(wikiArticle).max(20),
 		nextCursor: z.string().nullable(),
-		emptyResultClaimed: z.literal(false),
 	}),
 	z.strictObject({
 		status: z.literal("empty"),
 		results: z.array(wikiArticle).max(0),
 		nextCursor: z.null(),
-		emptyResultClaimed: z.literal(true),
 	}),
 	z.strictObject({
 		status: z.literal("unavailable"),
 		results: z.null(),
-		emptyResultClaimed: z.literal(false),
 	}),
 ]);
 export const navigationResult = z.strictObject({
@@ -170,9 +157,6 @@ export const navigationResult = z.strictObject({
 	),
 	breadcrumbs: z.array(z.strictObject({ articleId: z.uuid(), crumbs: z.array(z.string()) })),
 	relatedIds: z.array(z.uuid()),
-	keyboardToc: z.literal(true),
-	foreignRelatedVisible: z.literal(false),
-	executableMdxAllowed: z.literal(false),
 });
 export const neighborsResult = z.strictObject({
 	articles: z.array(
@@ -187,7 +171,6 @@ export const neighborsResult = z.strictObject({
 });
 export const tocResult = z.strictObject({
 	headings: z.array(z.strictObject({ level: z.union([z.literal(2), z.literal(3)]), text: z.string() })),
-	keyboardToc: z.literal(true),
 	errorCode: z.literal("content_access_denied").nullable(),
 });
 export const guideResult = z.strictObject({
@@ -196,23 +179,17 @@ export const guideResult = z.strictObject({
 	citation: z.string().nullable(),
 	articleId: z.uuid().nullable(),
 	body: z.string().nullable(),
-	toolEffects: z.literal(0),
-	newReadProgress: z.literal(0),
 });
 export const excerptResult = z.strictObject({
 	excerpt: z.string().nullable(),
 	errorCode: z.literal("content_access_denied").nullable(),
-	newReadProgress: z.literal(0),
 });
 export const recommendResult = z.strictObject({
 	phase: phase.nullable(),
-	pooledReadingCredit: z.literal(false),
 	articles: z.array(wikiArticle),
 });
 export const previewResult = z.strictObject({
 	publicPreviewAllowed: z.boolean(),
-	orgPreviewAllowed: z.literal(false),
-	privateBody: z.null(),
 	crawler: z.boolean(),
 	title: z.string().nullable(),
 	excerpt: z.string().nullable(),
@@ -233,9 +210,6 @@ export const sourceOrderResult = z.strictObject({
 	churches: z.array(z.uuid()),
 	networks: z.array(z.uuid()),
 	revision: z.string(),
-	crmLeadPermission: z.literal(false),
-	orgEditorPermission: z.literal(false),
-	rightsAdded: z.literal(0),
 	orderUnchanged: z.boolean(),
 });
 export const exportResult = z.strictObject({
@@ -243,15 +217,12 @@ export const exportResult = z.strictObject({
 	html: z.string().nullable(),
 	errorCode: z.literal("content_access_denied").nullable(),
 	fontFailureOffersPrintFallback: z.boolean(),
-	generatedDocumentHistoryAdded: z.literal(0),
-	executableMdxAllowed: z.literal(false),
 });
 export const statsResult = z.strictObject({
 	discoveryComplete: z.boolean(),
 	ownerRereadRequired: z.boolean(),
 	qualifyingReader: z.boolean(),
 	completionAtRatio: z.strictObject({ owner: z.boolean(), caller: z.boolean() }),
-	pooledReadingCredit: z.literal(false),
 	phase: phase.nullable(),
 	articles: z.array(
 		z.strictObject({
@@ -264,4 +235,3 @@ export const statsResult = z.strictObject({
 });
 export const recentResult = z.strictObject({ articles: z.array(wikiArticle) });
 export const resumeResult = z.strictObject({ article: wikiArticle.nullable() });
-export const bookmarkListResult = listResult;

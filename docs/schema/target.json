@@ -71,7 +71,7 @@
   "as_of": "2026-10-17",
   "implementation_authorized": false,
   "table_count": 90,
-  "column_count": 1026,
+  "column_count": 1027,
   "foreign_key_count": 321,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
@@ -8308,6 +8308,13 @@
           "name": "section_id",
           "type": "uuid",
           "nullable": false
+        },
+        {
+          "note": "Approved related article slugs stored by the release install. A read resolves them to entitled article ids.",
+          "name": "related_slugs",
+          "type": "text[]",
+          "nullable": false,
+          "default": "ARRAY[]::text[]"
         }
       ],
       "primary_key": [

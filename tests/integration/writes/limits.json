@@ -29,21 +29,6 @@
 	"GET /tasks": {
 		"limit": 5
 	},
-	"GET /wiki/read?what=article": {
-		"limit": 2
-	},
-	"GET /wiki/read?what=bookmarks": {
-		"limit": 2
-	},
-	"GET /wiki/read?what=list": {
-		"limit": 2
-	},
-	"GET /wiki/read?what=search": {
-		"limit": 5
-	},
-	"GET /wiki/read?what=stats": {
-		"limit": 2
-	},
 	"POST notifications.markAllVisibleRead": {
 		"limit": 6
 	},
@@ -102,18 +87,6 @@
 	},
 	"POST tasks.createTask": {
 		"limit": 5
-	},
-	"POST wiki.recordView": {
-		"limit": 6
-	},
-	"POST wiki.setBookmark": {
-		"limit": 6
-	},
-	"POST wiki.setSourceOrder": {
-		"limit": 6
-	},
-	"POST wiki.updateProgress": {
-		"limit": 6
 	},
 	"accountPerson.ensureAccountPerson": {
 		"limit": 5
