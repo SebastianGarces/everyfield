@@ -6,15 +6,13 @@ import { documentsReader } from "@everyfield/domain/documents";
 import type { Format, Resolved } from "./model.ts";
 import { documentActor } from "./server.ts";
 
-// Preview and field fill for the open template. The actor is read again here. The browser cannot name a person,
-// meeting, or team. A preview does not save a copy.
+// Field fill for the open template. The actor is read again here. The browser cannot name a person, meeting, or
+// team. Preview bytes use their own route.
 
 export type DocumentOutcome<T> =
 	| { status: "ok"; value: T }
 	| { status: "refused"; code: DocumentsError["code"]; problem?: string }
 	| { status: "lost" };
-
-export type PreviewValue = Resolved & { artifact: string | null };
 
 function refused(error: DocumentsError): DocumentOutcome<never> {
 	const problem = error.code === "invalid_input" ? error.details.issues[0]?.problem : undefined;
@@ -52,32 +50,6 @@ export async function resolveDocument(templateId: string, format: Format): Promi
 				fields: value.fields,
 				missing: value.missing,
 				complete: value.complete,
-			},
-		};
-	});
-}
-
-/** Exact preview bytes. Nothing is stored. */
-export async function previewDocument(
-	templateId: string,
-	format: Format,
-	overrides: Record<string, string>,
-): Promise<DocumentOutcome<PreviewValue>> {
-	return run(async (db, actor) => {
-		const reply = await documentsReader.preview(db, actor, { templateId, format, overrides });
-		if (reply.status === "refused") return refused(reply.error);
-		const value = reply.value;
-		const artifact = "artifact" in value ? value.artifact : undefined;
-		if (typeof artifact !== "string" && artifact !== null) return { status: "lost" };
-		return {
-			status: "ok",
-			value: {
-				templateId: value.templateId,
-				format: value.format,
-				fields: value.fields,
-				missing: value.missing,
-				complete: value.complete,
-				artifact,
 			},
 		};
 	});

@@ -14,7 +14,7 @@ import {
 import { Tag } from "@everyfield/ui/display";
 import { cn } from "@everyfield/ui/foundations";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { previewDocument, resolveDocument } from "./actions.ts";
+import { resolveDocument } from "./actions.ts";
 import {
 	CATEGORIES,
 	FORMAT_LABEL,
@@ -65,6 +65,44 @@ function downloadBytes(name: string, format: Format, encoded: string) {
 	link.click();
 	link.remove();
 	URL.revokeObjectURL(url);
+}
+
+type PreviewReply =
+	| { status: "ok"; value: Resolved & { artifact: string | null } }
+	| { status: "refused"; code: string; problem?: string }
+	| { status: "lost" };
+
+/** One JSON post. The preview route skips the server-action flight, which was the slow part. */
+async function postPreview(
+	templateId: string,
+	format: Format,
+	overrides: Record<string, string>,
+): Promise<PreviewReply> {
+	try {
+		const response = await fetch("/documents/preview", {
+			method: "POST",
+			headers: { accept: "application/json", "content-type": "application/json" },
+			body: JSON.stringify({ templateId, format, overrides }),
+		});
+		const body: unknown = await response.json();
+		if (!body || typeof body !== "object" || !("status" in body)) return { status: "lost" };
+		const status = (body as { status: unknown }).status;
+		if (status === "lost") return { status: "lost" };
+		if (status === "refused") {
+			const code = (body as { code?: unknown }).code;
+			const problem = (body as { problem?: unknown }).problem;
+			if (typeof code !== "string") return { status: "lost" };
+			return typeof problem === "string" ? { status: "refused", code, problem } : { status: "refused", code };
+		}
+		if (status !== "ok") return { status: "lost" };
+		const value = (body as { value?: unknown }).value;
+		if (!value || typeof value !== "object") return { status: "lost" };
+		const artifact = (value as { artifact?: unknown }).artifact;
+		if (typeof artifact !== "string" && artifact !== null) return { status: "lost" };
+		return { status: "ok", value: value as Resolved & { artifact: string | null } };
+	} catch {
+		return { status: "lost" };
+	}
 }
 
 function failureText(code: string, problem?: string) {
@@ -174,7 +212,7 @@ export function DocumentsScreen({ templates, query, context, canPreview }: Props
 		const template = selected;
 		const nextFormat = activeFormat;
 		startPreview(async () => {
-			const result = await previewDocument(template.id, nextFormat, overrides);
+			const result = await postPreview(template.id, nextFormat, overrides);
 			if (result.status !== "ok") {
 				setPreview({
 					kind: "message",
