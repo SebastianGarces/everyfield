@@ -1,6 +1,6 @@
 "use client";
 
-import { Calendar03Icon, Settings02Icon, Task01Icon, UserMultipleIcon } from "@hugeicons/core-free-icons";
+import { Calendar03Icon, Mail01Icon, Settings02Icon, Task01Icon, UserMultipleIcon } from "@hugeicons/core-free-icons";
 import { ToastProvider, useToast } from "@everyfield/ui/controls";
 import { initials } from "@everyfield/ui/display";
 import { AppShell, RoleBanner, type ShellNav } from "@everyfield/ui/shell";
@@ -30,6 +30,15 @@ const MEETINGS = {
 	prefetch: false,
 } as const;
 const TASKS = { kind: "link", key: "tasks", label: "Tasks", href: "/tasks", icon: Task01Icon } as const;
+// Messages is a dynamic page. It loads when chosen, not whenever the frame renders.
+const MESSAGES = {
+	kind: "link",
+	key: "messages",
+	label: "Messages",
+	href: "/communication",
+	icon: Mail01Icon,
+	prefetch: false,
+} as const;
 const ROLE: Record<Role, string> = { owner: "Owner", admin: "Admin", member: "Member" };
 
 type FrameProps = {
@@ -89,7 +98,7 @@ function Frame({ name, settings, seed = null, children }: FrameProps) {
 		) : null;
 	// The rail's Settings opens the dialog over the current page, as the user menu does; /settings is its address.
 	const nav: ShellNav = {
-		main: [PEOPLE, MEETINGS, TASKS],
+		main: [PEOPLE, MEETINGS, MESSAGES, TASKS],
 		pages: [],
 		tools: [
 			{
