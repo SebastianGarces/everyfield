@@ -185,6 +185,9 @@
 	"documents.designateCoreValues": {
 		"limit": 1
 	},
+	"documents.download": {
+		"limit": 9
+	},
 	"documents.generate": {
 		"limit": 15,
 		"reason": "The saved file is stored before the generated row. putPrivateObject claims the object and finalizes it in two transactions so the provider call holds no lock, then one statement inserts the generated row and its audit. Its largest first run: 5 read, 4 transaction, 2 locked read, 4 write."
@@ -194,6 +197,9 @@
 		"reason": "An import stores the original bytes before the native revision. putPrivateObject claims the object and finalizes it in two transactions so the provider call holds no lock, then one statement writes the revision and its audit. Its largest first run: 4 read, 4 transaction, 2 locked read, 4 write."
 	},
 	"documents.preview": {
+		"limit": 1
+	},
+	"documents.purgeOwnedForDeletion": {
 		"limit": 1
 	},
 	"documents.reconcileOrphans": {
