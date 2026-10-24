@@ -2635,10 +2635,12 @@
       "consumer_table_names": [
         "admission_attempt",
         "commitment_change",
+        "communication",
         "conversation",
         "conversation_event",
         "early_access_attempt",
         "early_access_request",
+        "message_template",
         "model_spend",
         "onboarding_setup",
         "people_column",
@@ -8563,7 +8565,11 @@
         "WP-089",
         "WP-090"
       ],
-      "producer_table_names": [],
+      "producer_table_names": [
+        "communication",
+        "message_template",
+        "record"
+      ],
       "consumer_table_names": [
         "audit_event",
         "reference_version"
@@ -8818,6 +8824,7 @@
       ],
       "consumer_table_names": [
         "audit_event",
+        "communication",
         "participation"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
@@ -9087,6 +9094,7 @@
       "producer_table_names": [],
       "consumer_table_names": [
         "audit_event",
+        "communication",
         "contact_outcome",
         "mail",
         "obligation"
@@ -9788,6 +9796,7 @@
       ],
       "consumer_table_names": [
         "audit_event",
+        "communication",
         "digest_coverage",
         "job",
         "notice",
@@ -10205,6 +10214,7 @@
       "consumer_table_names": [
         "attestation",
         "audit_event",
+        "message_template",
         "plant_geography",
         "reference_activation",
         "reference_item",
@@ -25996,6 +26006,7 @@
         "auth_verification",
         "commitment",
         "commitment_change",
+        "communication",
         "contact_outcome",
         "conversation",
         "conversation_event",
@@ -26025,6 +26036,7 @@
         "mail_request_member",
         "meeting",
         "meeting_kit_item",
+        "message_template",
         "model_spend",
         "notice",
         "notification_preference",
@@ -31994,6 +32006,7 @@
         "auth_verification",
         "commitment",
         "commitment_change",
+        "communication",
         "contact_outcome",
         "conversation",
         "conversation_event",
@@ -32021,6 +32034,7 @@
         "mail_request_member",
         "meeting",
         "meeting_kit_item",
+        "message_template",
         "model_spend",
         "notice",
         "notification_preference",
