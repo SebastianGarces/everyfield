@@ -2,7 +2,7 @@ import { hash } from "../operations/canonical.ts";
 import "server-only";
 
 /** The generation a client must send. Version "1" is stale against this catalog. */
-export const TEMPLATE_VERSION = "2";
+export { TEMPLATE_VERSION } from "@everyfield/contracts/teams";
 
 export type CatalogRole = { key: string; name: string; leadership: boolean; responsibilityKey: string | null };
 export type CatalogTeam = { key: string; name: string; roles: CatalogRole[] };

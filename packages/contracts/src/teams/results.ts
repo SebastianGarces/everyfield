@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { localDate } from "../common/time.ts";
 import { correlationId, operationId, personId, recordId, revision } from "../common/values.ts";
-import { leaderSource, teamState } from "./values.ts";
+import { TEMPLATE_VERSION, leaderSource, teamState } from "./values.ts";
 
 const issue = z.strictObject({ path: z.string().max(200), problem: z.string().max(200) });
 const error = <C extends string, D extends z.ZodRawShape>(
@@ -14,6 +14,7 @@ const error = <C extends string, D extends z.ZodRawShape>(
 /** Every refusal a teams operation can return. Missing rows are "unavailable". */
 export const teamsError = z.discriminatedUnion("code", [
 	error("invalid_input", { issues: z.array(issue).max(50) }, "never"),
+	error("unsupported_filter", {}, "never"),
 	error("unavailable", {}, "never"),
 	error("access_denied", {}, "never"),
 	error("invalid_subject", {}, "never"),
@@ -48,14 +49,11 @@ export const teamMutationResult = z.strictObject({
 	...receipt,
 	team,
 	stableKey: z.string().nullable(),
-	nameMerge: z.literal(false),
-	customMatchedByName: z.literal(false),
 });
 export const teamPage = z.strictObject({
 	items: z.array(team).max(200),
 	ordinaryIds: z.array(recordId).max(200),
 	archivedIds: z.array(recordId).max(200),
-	safetySystem: z.literal(false),
 });
 
 export const historyEntry = z.strictObject({
@@ -90,13 +88,10 @@ export const roleMutationResult = z.strictObject({
 	role: teamRole,
 	activeStaffingSlots: z.int().min(0),
 	historicalOccupant: z.string().nullable(),
-	newAccountGrants: z.literal(0),
-	safetySystem: z.literal(false),
 });
 export const rolePage = z.strictObject({
 	teamId: recordId,
 	roles: z.array(teamRole).max(100),
-	safetySystem: z.literal(false),
 });
 
 export const membershipResult = z.strictObject({
@@ -107,8 +102,6 @@ export const membershipResult = z.strictObject({
 	stage: z.string().min(1).max(40),
 	warning: z.enum(["overload"]).nullable(),
 	teamCount: z.int().min(0),
-	membershipHistoryRetained: z.literal(true),
-	newAccountGrants: z.literal(0),
 });
 export const memberRow = z.strictObject({
 	personId,
@@ -124,7 +117,6 @@ export const memberPage = z.strictObject({
 	teamId: recordId,
 	members: z.array(memberRow).max(500),
 	history: z.array(memberRow).max(500),
-	safetySystem: z.literal(false),
 });
 export const assignmentRow = z.strictObject({
 	teamId: recordId,
@@ -139,7 +131,6 @@ export const assignmentRow = z.strictObject({
 export const personAssignments = z.strictObject({
 	personId,
 	assignments: z.array(assignmentRow).max(200),
-	safetySystem: z.literal(false),
 });
 export const leaderCandidate = z.strictObject({
 	personId,
@@ -148,7 +139,6 @@ export const leaderCandidate = z.strictObject({
 });
 export const leaderCandidates = z.strictObject({
 	people: z.array(leaderCandidate).max(50),
-	safetySystem: z.literal(false),
 });
 
 export const catalogRole = z.strictObject({
@@ -162,7 +152,7 @@ export const catalogTeam = z.strictObject({
 	roles: z.array(catalogRole).max(20),
 });
 export const catalogPage = z.strictObject({
-	version: z.literal("2"),
+	version: z.literal(TEMPLATE_VERSION),
 	teams: z.array(catalogTeam).max(20),
 	newTenantRows: z.literal(0),
 });
@@ -171,38 +161,16 @@ export const initializeResult = z.strictObject({
 	...receipt,
 	teamKeys: z.array(z.string()).max(20),
 	roleKeys: z.array(z.string()).max(50),
-	automaticOtherRows: z.literal(0),
 	newTenantRows: z.int().min(0),
 	newTeams: z.int().min(0),
 	newSelectedRoles: z.int().min(0),
-	receipts: z.literal(1),
-	duplicateRows: z.literal(0),
-	includedStates: z.tuple([z.literal("active")]),
-	historicalStatesRetained: z.tuple([z.literal("pending"), z.literal("inactive"), z.literal("archived")]),
-	previewRows: z.literal(0),
 	createdResponsibilities: z.int().min(0),
-	otherLinesRecreated: z.literal(0),
 	importedRows: z.int().min(0),
 	newRows: z.int().min(0),
-	customRowsRetained: z.literal(true),
-	newAccountGrants: z.literal(0),
 	importOfferAvailable: z.boolean(),
 	stableKey: z.string().nullable(),
 	label: z.string().nullable(),
-	customMatchedByName: z.literal(false),
-	nameMerge: z.literal(false),
 	phase: z.int(),
-	modelApprovalAllowed: z.literal(false),
-});
-export const answerLeadResult = z.strictObject({
-	...receipt,
-	teamId: recordId.nullable(),
-	roleId: recordId.nullable(),
-	createdTeams: z.int().min(0).max(1),
-	createdRoles: z.int().min(0).max(1),
-	assigned: z.boolean(),
-	newAccountGrants: z.literal(0),
-	wholeTemplateImport: z.literal(false),
 });
 
 export const chartNode = z.strictObject({
@@ -215,15 +183,12 @@ export const chartNode = z.strictObject({
 });
 export const orgChart = z.strictObject({
 	nodes: z.array(chartNode).max(200),
-	foreignTeamVisible: z.literal(false),
 });
 export const orgChartExport = z.strictObject({
 	format: z.literal("pdf"),
 	pdf: z.string().min(1),
 	svg: z.string().min(1),
 	lines: z.array(z.string().min(1).max(200)).max(800),
-	rawStorageKey: z.null(),
-	foreignTeamVisible: z.literal(false),
 	nodes: z.array(chartNode).max(200),
 });
 

@@ -51,7 +51,6 @@ export const createRoleRequest = z.strictObject({
 		leadership: z.boolean().optional(),
 		timeCommitment: teamText.nullable().optional(),
 		desiredSkills: teamText.nullable().optional(),
-		templateKey: roleKey.optional(),
 	}),
 });
 export const editRoleRequest = commandEnvelope(roleTarget.extend(roleFacts.shape));
@@ -84,13 +83,6 @@ export const initializeRequest = z.strictObject({
 		mode: z.enum(["import", "read", "skip", "cancel"]),
 		selections: z.array(selection).max(20),
 		lines: z.array(responsibilityLine).max(20).optional(),
-	}),
-});
-export const answerLeadRequest = z.strictObject({
-	requestKey,
-	input: z.strictObject({
-		answer: z.enum(["yes", "no"]),
-		personId,
 	}),
 });
 export const copyTeamRosterRequest = z.strictObject({

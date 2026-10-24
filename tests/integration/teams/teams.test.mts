@@ -64,7 +64,10 @@ async function person(name, fields = {}) {
 	return id;
 }
 async function makeTeam(name, who = 0) {
-	return ok(await run(teamsWriter.create, { requestKey: key(), input: { name } }, who)).team;
+	const team = ok(await run(teamsWriter.create, { requestKey: key(), input: { name } }, who)).team;
+	const stored = Number((await admin.execute(sql`SELECT sort_order FROM team WHERE id=${team.id}`)).rows[0].sort_order);
+	assert.equal(team.sortOrder, stored);
+	return team;
 }
 async function makeRole(teamId, name, fields = {}) {
 	return ok(
@@ -172,11 +175,6 @@ test("AC:B01-004 AC:B01-011 AC:B01-032 AC:B01-035 skip, read and cancel add no t
 		assert.equal(value.newTenantRows, 0);
 		assert.equal(value.newTeams, 0);
 		assert.equal(value.phase, 1);
-		assert.equal(value.modelApprovalAllowed, false);
-		assert.equal(value.automaticOtherRows, 0);
-		assert.equal(value.previewRows, 0);
-		assert.deepEqual([...value.includedStates], ["active"]);
-		assert.deepEqual([...value.historicalStatesRetained], ["pending", "inactive", "archived"]);
 	}
 	assert.equal(
 		await count(sql`SELECT count(*)::int AS n FROM team_tenure WHERE person_id=${alex} AND ended_on IS NOT NULL`),
@@ -224,14 +222,10 @@ test("AC:B01-010 AC:B01-012 AC:B01-013 AC:B01-014 AC:B01-015 AC:B01-028 AC:B01-0
 	assert.equal(second.status, "ok", JSON.stringify(second));
 	assert.deepEqual(first.value.teamKeys, ["worship"]);
 	assert.deepEqual(first.value.roleKeys, ["worship_lead"]);
-	assert.equal(first.value.automaticOtherRows, 0);
-	assert.equal(first.value.duplicateRows, 0);
-	assert.equal(first.value.receipts, 1);
 	assert.equal(second.value.receiptId, first.value.receiptId);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM team WHERE plant_id=${P} AND template_key='worship'`), 1);
 	const replay = ok(await run(teamsWriter.initialize, same));
 	assert.equal(replay.receiptId, first.value.receiptId);
-	assert.equal(replay.duplicateRows, 0);
 	const named = await makeTeam("Worship");
 	const worshipId = (await admin.execute(sql`SELECT id FROM team WHERE plant_id=${P} AND template_key='worship'`))
 		.rows[0].id;
@@ -245,8 +239,6 @@ test("AC:B01-010 AC:B01-012 AC:B01-013 AC:B01-014 AC:B01-015 AC:B01-028 AC:B01-0
 	assert.equal(renamed.stableKey, "worship");
 	assert.equal(renamed.team.name, "Gathering music");
 	assert.equal(renamed.team.templateKey, "worship");
-	assert.equal(renamed.nameMerge, false);
-	assert.equal(renamed.customMatchedByName, false);
 	assert.equal((await admin.execute(sql`SELECT name FROM team WHERE id=${named.id}`)).rows[0].name, "Worship");
 	assert.equal(
 		(await admin.execute(sql`SELECT template_key FROM team WHERE id=${named.id}`)).rows[0].template_key,
@@ -280,7 +272,6 @@ test("AC:B01-010 AC:B01-012 AC:B01-013 AC:B01-014 AC:B01-015 AC:B01-028 AC:B01-0
 			selections: [{ teamKey: "facilities", roleKeys: ["facilities_lead"], destinationTeamId: destination.id }],
 		}),
 	);
-	assert.equal(placed.automaticOtherRows, 0);
 	assert.equal(placed.newSelectedRoles, 1);
 	const roleTeam = (
 		await admin.execute(sql`SELECT team_id FROM team_role WHERE plant_id=${P} AND template_key='facilities_lead'`)
@@ -298,8 +289,19 @@ test("AC:B01-010 AC:B01-012 AC:B01-013 AC:B01-014 AC:B01-015 AC:B01-028 AC:B01-0
 	);
 	assert.deepEqual(lead.teamKeys, ["leadership"]);
 	assert.deepEqual(lead.roleKeys, ["senior_pastor"]);
-	assert.equal(lead.newAccountGrants, 0);
-	assert.equal(lead.automaticOtherRows, 0);
+	assert.equal((await admin.execute(sql`SELECT stage FROM person WHERE id=${pastor}`)).rows[0].stage, "leader");
+	assert.equal(
+		await count(
+			sql`SELECT count(*)::int AS n FROM audit_event WHERE subject_id=${pastor} AND action='people.stage_changed'`,
+		),
+		1,
+	);
+	assert.equal(
+		Number(
+			(await admin.execute(sql`SELECT pipeline_position FROM person WHERE id=${pastor}`)).rows[0].pipeline_position,
+		),
+		0,
+	);
 	assert.equal(
 		await count(
 			sql`SELECT count(*)::int AS n FROM team_role WHERE plant_id=${P} AND template_key='launch_coordinator'`,
@@ -337,7 +339,6 @@ test("AC:B01-010 AC:B01-012 AC:B01-013 AC:B01-014 AC:B01-015 AC:B01-028 AC:B01-0
 			selections: [{ teamKey: "worship", roleKeys: ["worship_lead"] }],
 		}),
 	);
-	assert.equal(again.duplicateRows, 0);
 	assert.equal(again.newTeams, 0);
 	assert.equal(again.newSelectedRoles, 0);
 	const later = ok(
@@ -362,9 +363,7 @@ test("AC:B01-010 AC:B01-012 AC:B01-013 AC:B01-014 AC:B01-015 AC:B01-028 AC:B01-0
 			],
 		}),
 	);
-	assert.equal(duties.previewRows, 0);
 	assert.equal(duties.createdResponsibilities, 1);
-	assert.equal(duties.otherLinesRecreated, 0);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM responsibility WHERE team_id=${custom.id}`), 1);
 	const repeatDuties = ok(
 		await init({
@@ -377,27 +376,6 @@ test("AC:B01-010 AC:B01-012 AC:B01-013 AC:B01-014 AC:B01-015 AC:B01-028 AC:B01-0
 	assert.equal(repeatDuties.createdResponsibilities, 0);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM responsibility WHERE team_id=${custom.id}`), 1);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM account`), accounts);
-});
-
-test("answerLead yes opens only the senior pastor slot", async () => {
-	const ownerPerson = await person("Owner Lead", { stage: "launch_team" });
-	const skipped = ok(
-		await run(teamsWriter.answerLead, { requestKey: key(), input: { answer: "no", personId: ownerPerson } }),
-	);
-	assert.equal(skipped.outcome, "noop");
-	assert.equal(skipped.wholeTemplateImport, false);
-	assert.equal(skipped.createdTeams, 0);
-	const answered = ok(
-		await run(teamsWriter.answerLead, { requestKey: key(), input: { answer: "yes", personId: ownerPerson } }),
-	);
-	assert.equal(answered.wholeTemplateImport, false);
-	assert.equal(answered.newAccountGrants, 0);
-	assert.equal(answered.createdTeams, 0);
-	assert.equal(answered.assigned, false);
-	assert.equal(
-		await count(sql`SELECT count(*)::int AS n FROM team WHERE plant_id=${P} AND template_key='childrens_ministry'`),
-		0,
-	);
 });
 
 test("AC:GAP-TEAM-002 AC:TARGET-TEAM-002 archive keeps history and the linked task", async () => {
@@ -472,6 +450,18 @@ test("AC:GAP-TEAM-002 AC:TARGET-TEAM-002 archive keeps history and the linked ta
 
 test("AC:TARGET-TEAM-005 AC:TARGET-TEAM-006 AC:GAP-TEAM-014 AC:TARGET-TEAM-014 a role has one live person, and lists hide safety fields", async () => {
 	const team = await makeTeam("Music");
+	refused(
+		await run(teamsWriter.createRole, {
+			requestKey: key(),
+			input: { teamId: team.id, name: "Fake lead", templateKey: "worship_lead" },
+		}),
+		"invalid_input",
+	);
+	assert.equal(
+		await count(sql`SELECT count(*)::int AS n FROM team_role WHERE team_id=${team.id} AND template_key='worship_lead'`),
+		0,
+	);
+	refused(await teamsReader.list(db, await viewer(), { background_check: "passed" }), "unsupported_filter");
 	const other = await makeTeam("Welcome");
 	const slot = await makeRole(team.id, "Player", { desiredSkills: "guitar" });
 	const lead = await makeRole(team.id, "Director", { leadership: true });
@@ -487,8 +477,17 @@ test("AC:TARGET-TEAM-005 AC:TARGET-TEAM-006 AC:GAP-TEAM-014 AC:TARGET-TEAM-014 a
 	);
 	assert.equal(first.stage, "launch_team");
 	assert.equal(first.warning, null);
-	assert.equal(first.membershipHistoryRetained, true);
-	assert.equal(first.newAccountGrants, 0);
+	assert.equal((await admin.execute(sql`SELECT stage FROM person WHERE id=${alex}`)).rows[0].stage, "launch_team");
+	assert.equal(
+		Number((await admin.execute(sql`SELECT pipeline_position FROM person WHERE id=${alex}`)).rows[0].pipeline_position),
+		0,
+	);
+	assert.equal(
+		await count(
+			sql`SELECT count(*)::int AS n FROM audit_event WHERE subject_id=${alex} AND action='people.stage_changed'`,
+		),
+		1,
+	);
 	const again = ok(
 		await run(teamsWriter.assignRole, {
 			requestKey: key(),
@@ -497,6 +496,12 @@ test("AC:TARGET-TEAM-005 AC:TARGET-TEAM-006 AC:GAP-TEAM-014 AC:TARGET-TEAM-014 a
 		}),
 	);
 	assert.equal(again.outcome, "noop");
+	assert.equal(
+		await count(
+			sql`SELECT count(*)::int AS n FROM audit_event WHERE subject_id=${alex} AND action='people.stage_changed'`,
+		),
+		1,
+	);
 	refused(
 		await run(teamsWriter.assignRole, {
 			requestKey: key(),
@@ -592,12 +597,10 @@ test("AC:TARGET-TEAM-005 AC:TARGET-TEAM-006 AC:GAP-TEAM-014 AC:TARGET-TEAM-014 a
 		1,
 	);
 	const roles = ok(await teamsReader.listRoles(db, await viewer(), { teamId: team.id }));
-	assert.equal(roles.safetySystem, false);
 	assert.equal(roles.roles.find((item) => item.id === slot.id).desiredSkills, "guitar");
 	assert.equal(JSON.stringify(roles).includes("background"), false);
 	assert.equal(JSON.stringify(roles).includes("penalty"), false);
 	const assignments = ok(await teamsReader.listPersonAssignments(db, await viewer(), { personId: alex }));
-	assert.equal(assignments.safetySystem, false);
 	assert.equal(JSON.stringify(assignments).includes("background"), false);
 	assert.equal(
 		assignments.assignments.some((item) => item.desiredSkills === "guitar"),
@@ -612,8 +615,6 @@ test("AC:TARGET-TEAM-005 AC:TARGET-TEAM-006 AC:GAP-TEAM-014 AC:TARGET-TEAM-014 a
 	);
 	assert.equal(retired.activeStaffingSlots, 0);
 	assert.equal(retired.historicalOccupant, "Alex Player");
-	assert.equal(retired.newAccountGrants, 0);
-	assert.equal(retired.safetySystem, false);
 	assert.equal(
 		await count(sql`SELECT count(*)::int AS n FROM team_tenure WHERE role_id=${slot.id} AND ended_on IS NULL`),
 		0,
@@ -630,6 +631,19 @@ test("AC:TARGET-TEAM-005 AC:TARGET-TEAM-006 AC:GAP-TEAM-014 AC:TARGET-TEAM-014 a
 		.rows[0];
 	assert.equal(leader.leader_person_id, explicit);
 	assert.equal(leader.leader_source, "explicit");
+	assert.equal((await admin.execute(sql`SELECT stage FROM person WHERE id=${explicit}`)).rows[0].stage, "leader");
+	assert.equal(
+		await count(
+			sql`SELECT count(*)::int AS n FROM audit_event WHERE subject_id=${explicit} AND action='people.stage_changed'`,
+		),
+		1,
+	);
+	assert.equal(
+		Number(
+			(await admin.execute(sql`SELECT pipeline_position FROM person WHERE id=${explicit}`)).rows[0].pipeline_position,
+		),
+		0,
+	);
 });
 
 test("AC:TARGET-TEAM-012 the org chart and its PDF use the same wrapped lines", async () => {
@@ -648,7 +662,6 @@ test("AC:TARGET-TEAM-012 the org chart and its PDF use the same wrapped lines", 
 		sql`INSERT INTO team(id,plant_id,name,state,sort_order) VALUES(${foreign},${Q},'Foreign team','forming',1)`,
 	);
 	const chart = ok(await teamsReader.readOrgChart(db, await viewer(), {}));
-	assert.equal(chart.foreignTeamVisible, false);
 	assert.equal(
 		chart.nodes.some((node) => node.id === foreign),
 		false,
@@ -670,8 +683,6 @@ test("AC:TARGET-TEAM-012 the org chart and its PDF use the same wrapped lines", 
 	);
 	const exported = ok(await teamsReader.readOrgChartExport(db, await viewer(), {}));
 	assert.equal(exported.format, "pdf");
-	assert.equal(exported.rawStorageKey, null);
-	assert.equal(exported.foreignTeamVisible, false);
 	assert.equal(exported.pdf.startsWith("%PDF-1.4"), true);
 	const chunks = [];
 	for (let i = 0; i < longName.length; i += 42) chunks.push(longName.slice(i, i + 42));
@@ -750,6 +761,37 @@ test("a team leader can edit a role and still cannot change the church profile",
 		),
 	);
 	assert.equal(edited.role.desiredSkills, "guitar");
+	const extra = await makeRole(team.id, "Extra title");
+	const retired = ok(
+		await run(
+			teamsWriter.retireRole,
+			{
+				requestKey: key(),
+				expectedRevision: await rev("team_role", extra.id),
+				input: { roleId: extra.id },
+			},
+			1,
+		),
+	);
+	assert.equal(retired.role.retired, true);
+	assert.equal(
+		await count(sql`SELECT count(*)::int AS n FROM team_role WHERE id=${extra.id} AND retired_at IS NOT NULL`),
+		1,
+	);
+	const stranger = await makeTeam("Other desk");
+	const strangerRole = await makeRole(stranger.id, "Stranger role");
+	refused(
+		await run(
+			teamsWriter.retireRole,
+			{
+				requestKey: key(),
+				expectedRevision: await rev("team_role", strangerRole.id),
+				input: { roleId: strangerRole.id },
+			},
+			1,
+		),
+		"access_denied",
+	);
 	refused(
 		await run(
 			teamsWriter.archive,
@@ -856,7 +898,6 @@ test("AC:PERSONREF-TEAM-ROLE-LEADER-RETIRE retirement ends the open role and kee
 		members.history.some((item) => item.personId === alex),
 		true,
 	);
-	assert.equal(members.safetySystem, false);
 	const leader = (await admin.execute(sql`SELECT leader_person_id FROM team WHERE id=${team.id}`)).rows[0];
 	assert.equal(leader.leader_person_id, null);
 });

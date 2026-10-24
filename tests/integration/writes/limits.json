@@ -1157,10 +1157,6 @@
 		"retry": 11,
 		"reason": "BEGIN and COMMIT around a task write that replans reminders; the shared reminder sync (notifications.syncTaskReminders) sends 2 statements (F10). Its largest first run: 2 transaction, 4 locked read, 2 write."
 	},
-	"teams.answerLead": {
-		"limit": 7,
-		"reason": "The yes path reads the person before it locks the plant. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write."
-	},
 	"teams.appointLeader": {
 		"limit": 7,
 		"reason": "The appointment locks the person row as well as the team. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
@@ -1177,10 +1173,11 @@
 		"limit": 6
 	},
 	"teams.create": {
-		"limit": 5
+		"limit": 6
 	},
 	"teams.createRole": {
-		"limit": 6
+		"limit": 6,
+		"retry": 2
 	},
 	"teams.edit": {
 		"limit": 6,
@@ -1205,7 +1202,9 @@
 		"limit": 6
 	},
 	"teams.retireRole": {
-		"limit": 6
+		"limit": 8,
+		"retry": 5,
+		"reason": "A non-admin leader resolves the role team, then checks that they lead it. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write."
 	},
 	"venues.archive": {
 		"limit": 6

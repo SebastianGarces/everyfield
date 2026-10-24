@@ -41,7 +41,7 @@ export const teamsReader = {
 			parse(z.object({}).strict(), raw ?? {});
 			await one(db, viewer, sql`SELECT 1 AS ok`);
 			return c.catalogPage.parse({
-				version: "2",
+				version: c.TEMPLATE_VERSION,
 				teams: TEMPLATES.map((team) => ({
 					key: team.key,
 					name: team.name,
@@ -53,6 +53,7 @@ export const teamsReader = {
 	},
 	async list(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (viewer) => {
+			if (raw !== null && typeof raw === "object" && "background_check" in raw) deny("unsupported_filter");
 			const input = parse(c.listTeamsRequest, raw);
 			const found = await row(
 				db,
@@ -66,7 +67,6 @@ export const teamsReader = {
 				items: all.filter((team) => include || !team.archived),
 				ordinaryIds: all.filter((team) => !team.archived).map((team) => team.id),
 				archivedIds: all.filter((team) => team.archived).map((team) => team.id),
-				safetySystem: false,
 			});
 		});
 	},
@@ -125,7 +125,6 @@ export const teamsReader = {
 			return c.rolePage.parse({
 				teamId: input.teamId,
 				roles: z.array(c.teamRole).parse(found.roles).slice(0, 100),
-				safetySystem: false,
 			});
 		});
 	},
@@ -138,7 +137,6 @@ export const teamsReader = {
 				teamId: input.teamId,
 				members: members.parse(found.members).slice(0, 500),
 				history: members.parse(found.history).slice(0, 500),
-				safetySystem: false,
 			});
 		});
 	},
@@ -178,7 +176,6 @@ export const teamsReader = {
 			return c.personAssignments.parse({
 				personId: input.personId,
 				assignments: assignments.slice(0, 200),
-				safetySystem: false,
 			});
 		});
 	},
@@ -196,7 +193,6 @@ export const teamsReader = {
 			);
 			return c.leaderCandidates.parse({
 				people: z.array(c.leaderCandidate).parse(found.people),
-				safetySystem: false,
 			});
 		});
 	},
@@ -205,7 +201,6 @@ export const teamsReader = {
 			const input = parse(c.orgChartRequest, raw);
 			return c.orgChart.parse({
 				nodes: await chartNodes(db, viewer, input.includeArchived === true),
-				foreignTeamVisible: false,
 			});
 		});
 	},
@@ -219,8 +214,6 @@ export const teamsReader = {
 				pdf: drawingPdf(lines),
 				svg: drawingSvg(lines),
 				lines,
-				rawStorageKey: null,
-				foreignTeamVisible: false,
 				nodes,
 			});
 		});

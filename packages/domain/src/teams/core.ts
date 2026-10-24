@@ -95,31 +95,6 @@ export async function withTeamsWrite<T>(
 		}),
 	);
 }
-class Preview extends Error {
-	constructor(readonly value: unknown) {
-		super("preview");
-	}
-}
-export async function previewTeamsWrite<T>(
-	db: Database,
-	authority: RequestActor,
-	body: (tx: Tx, context: TeamsContext) => Promise<TeamsReply<T>>,
-): Promise<TeamsReply<T>> {
-	const selected = authority.actor.context.owner;
-	return settleWrite(() =>
-		db
-			.transaction(async (tx) => {
-				if (!(await authority.bind(tx, selected))) throw new WriteUnavailable();
-				const result = await body(tx, { session: authority.session, selected });
-				if (result.status === "refused") throw new Refusal(result.error.code, result.error.details);
-				throw new Preview(result.value);
-			})
-			.catch((error: unknown) => {
-				if (error instanceof Preview) return error.value as T;
-				throw error;
-			}),
-	);
-}
 export async function read<T>(authority: RequestActor, body: (viewer: Viewer) => Promise<T>): Promise<TeamsReply<T>> {
 	return settle(() => {
 		const actor = authority.actor;
@@ -189,7 +164,6 @@ export type TeamWrite =
 	| "teams.reactivateMembership"
 	| "teams.appointLeader"
 	| "teams.initialize"
-	| "teams.answerLead"
 	| "meetings.copyTeamRoster";
 
 /** A team id, or a lookup that runs only when the actor is not an admin. */

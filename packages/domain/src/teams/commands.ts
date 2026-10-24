@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import type { AuditWrite } from "../operations/writes.ts";
+import { columnsChanged, freshPosition, sameColumn } from "../people/people.ts";
 import { command, deny, next, parse, reply, type TeamsContext, type Tx, type Writer } from "./core.ts";
 import {
 	catalogRole,
@@ -60,6 +61,8 @@ const roleRow = z.object({
 	teamRevision: z.string(),
 	stage: z.string().nullable(),
 	personState: z.string().nullable(),
+	personRevision: z.string().nullable(),
+	pipelinePosition: z.string().nullable(),
 	teamCount: z.coerce.number().int(),
 });
 type RoleRow = z.infer<typeof roleRow>;
@@ -105,6 +108,7 @@ async function lockRole(tx: Tx, w: Writer, roleId: string, personId: string | nu
 			prev.id AS "previousTenureId", (t.archived_at IS NOT NULL) AS "teamArchived",
 			t.leader_person_id AS "leaderPersonId", t.leader_source AS "leaderSource",
 			t.revision::text AS "teamRevision", person.stage, person.state AS "personState",
+			person.revision AS "personRevision", person.position AS "pipelinePosition",
 			(SELECT count(DISTINCT r2.team_id)::int FROM team_tenure tn
 				JOIN team_role r2 ON r2.id = tn.role_id
 				WHERE tn.person_id = ${person}::uuid AND tn.ended_on IS NULL AND tn.plant_id = r.plant_id) AS "teamCount"
@@ -120,7 +124,12 @@ async function lockRole(tx: Tx, w: Writer, roleId: string, personId: string | nu
 				WHERE tn.role_id = r.id AND tn.person_id = ${person}::uuid AND tn.ended_on IS NOT NULL
 				ORDER BY tn.ended_on DESC, tn.id DESC LIMIT 1
 			) prev ON true
-			LEFT JOIN person ON person.id = ${person}::uuid AND person.tenant_id = r.plant_id
+			LEFT JOIN LATERAL (
+				SELECT stage, state, revision::text AS revision, pipeline_position::text AS position
+				FROM person
+				WHERE person.id = ${person}::uuid AND person.tenant_id = r.plant_id
+				FOR UPDATE
+			) person ON true
 			WHERE r.id = ${roleId}::uuid AND r.plant_id = ${w.plant.id}::uuid
 			FOR UPDATE OF r, t`,
 	);
@@ -166,8 +175,6 @@ const teamResult = (receiptId: string, outcome: "changed" | "noop", row: TeamRow
 		outcome,
 		team: teamValue(row),
 		stableKey: row.templateKey,
-		nameMerge: false,
-		customMatchedByName: false,
 	});
 const roleResult = (
 	receiptId: string,
@@ -182,8 +189,6 @@ const roleResult = (
 		role: roleValue(row),
 		activeStaffingSlots: slots,
 		historicalOccupant: historical,
-		newAccountGrants: 0,
-		safetySystem: false,
 	});
 
 function saveTeam(w: Writer, before: TeamRow, after: TeamRow) {
@@ -200,6 +205,91 @@ function stageAfter(stage: string | null, leadership: boolean) {
 	if (!leadership && stage === "core_group") return "launch_team";
 	return stage ?? "prospect";
 }
+type StageMove = {
+	id: string;
+	from: string;
+	to: string;
+	revision: string;
+	position: string;
+	cross: boolean;
+};
+function stageMove(
+	personId: string,
+	stage: string | null,
+	revision: string | null,
+	pipelinePosition: string | null,
+	leadership: boolean,
+): StageMove | null {
+	if (!stage || !revision) return null;
+	const to =
+		leadership && stage === "launch_team" ? "leader" : !leadership && stage === "core_group" ? "launch_team" : null;
+	if (!to) return null;
+	const cross = !sameColumn(stage, to);
+	return {
+		id: personId,
+		from: stage,
+		to,
+		revision,
+		position: cross || pipelinePosition === null ? freshPosition(personId) : pipelinePosition,
+		cross,
+	};
+}
+function importMoves(
+	people: { id: string; stage: string | null; revision: string; pipelinePosition: string | null }[],
+	tenures: { personId: string; leadership: boolean }[],
+): StageMove[] {
+	const flags = new Map<string, { lead: boolean; member: boolean }>();
+	for (const row of tenures) {
+		const flag = flags.get(row.personId) ?? { lead: false, member: false };
+		if (row.leadership) flag.lead = true;
+		else flag.member = true;
+		flags.set(row.personId, flag);
+	}
+	const moves: StageMove[] = [];
+	for (const [personId, flag] of flags) {
+		const person = people.find((item) => item.id === personId);
+		if (!person) continue;
+		const leadership =
+			flag.lead && person.stage === "launch_team" ? true : flag.member && person.stage === "core_group" ? false : null;
+		if (leadership === null) continue;
+		const move = stageMove(personId, person.stage, person.revision, person.pipelinePosition, leadership);
+		if (move) moves.push(move);
+	}
+	return moves;
+}
+function queueStageMoves(audit: AuditWrite, plantId: string, actorId: string, moves: StageMove[], cause: string) {
+	if (!moves.length) return;
+	audit.writes
+		.push(sql`UPDATE person AS p SET stage = v.stage, pipeline_position = v.position, revision = p.revision + 1
+		FROM (VALUES ${tuples(
+			moves.map((move) => sql`(${move.id}::uuid, ${move.to}, ${move.position}::numeric, ${move.revision}::bigint)`),
+		)}) AS v(id, stage, position, revision)
+		WHERE p.id = v.id AND p.tenant_id = ${plantId}::uuid AND p.revision = v.revision
+			AND p.stage IS DISTINCT FROM v.stage`);
+	const crossed = moves.filter((move) => move.cross);
+	if (crossed.length)
+		audit.writes.push(
+			columnsChanged(
+				plantId,
+				crossed.flatMap((move) => [move.from, move.to]),
+			),
+		);
+	for (const move of moves)
+		audit.events.push({
+			id: randomUUID(),
+			tenant_id: plantId,
+			actor_id: actorId,
+			subject_type: "person",
+			subject_id: move.id,
+			action: "people.stage_changed",
+			kind: "stage_change",
+			before_value: { stage: move.from },
+			after_value: { stage: move.to },
+			before_revision: move.revision,
+			after_revision: next(move.revision),
+			metadata: { cause },
+		});
+}
 
 const loadedShape = z.object({
 	phase: z.coerce.number().int(),
@@ -207,8 +297,17 @@ const loadedShape = z.object({
 	teamIds: z.array(id),
 	roles: z.array(z.object({ id, teamId: id, key: z.string(), holder: id.nullable() })),
 	lines: z.array(z.object({ teamId: id, version: id, line: z.string() })),
+	people: z.array(
+		z.object({
+			id,
+			stage: z.string().nullable(),
+			revision: z.string(),
+			pipelinePosition: z.string().nullable(),
+		}),
+	),
 });
-async function loadPlant(tx: Tx, plantId: string) {
+async function loadPlant(tx: Tx, plantId: string, personIds: string[]) {
+	const ids = personIds.length ? personIds : ["00000000-0000-0000-0000-000000000000"];
 	const row = await oneRow(
 		tx,
 		sql`WITH locked_plant AS (
@@ -220,6 +319,12 @@ async function loadPlant(tx: Tx, plantId: string) {
 			SELECT r.id, r.team_id, r.template_key AS key,
 				(SELECT tn.person_id FROM team_tenure tn WHERE tn.role_id = r.id AND tn.ended_on IS NULL) AS holder
 			FROM team_role r WHERE r.plant_id = ${plantId}::uuid FOR UPDATE
+		), locked_people AS (
+			SELECT id, stage, revision::text AS revision, pipeline_position::text AS position
+			FROM person
+			WHERE tenant_id = ${plantId}::uuid AND ${personIds.length}::int > 0
+				AND id = ANY(${sql.param(ids)}::uuid[])
+			FOR UPDATE
 		)
 		SELECT (SELECT phase FROM locked_plant) AS phase,
 			coalesce((SELECT json_agg(json_build_object('id', id, 'key', key, 'name', name, 'leader', leader))
@@ -228,7 +333,10 @@ async function loadPlant(tx: Tx, plantId: string) {
 			coalesce((SELECT json_agg(json_build_object('id', id, 'teamId', team_id, 'key', key, 'holder', holder))
 				FROM locked_roles WHERE key IS NOT NULL), '[]'::json) AS roles,
 			coalesce((SELECT json_agg(json_build_object('teamId', team_id, 'version', source_version_id, 'line', source_line))
-				FROM responsibility WHERE plant_id = ${plantId}::uuid), '[]'::json) AS lines`,
+				FROM responsibility WHERE plant_id = ${plantId}::uuid), '[]'::json) AS lines,
+			coalesce((SELECT json_agg(json_build_object(
+				'id', id, 'stage', stage, 'revision', revision, 'pipelinePosition', position))
+				FROM locked_people), '[]'::json) AS people`,
 	);
 	return loadedShape.parse(row);
 }
@@ -305,7 +413,6 @@ function planImport(plantId: string, loaded: z.infer<typeof loadedShape>, select
 				roles.push(role);
 			}
 			if (!selection.personId || role.holder) continue;
-			if (role.holder === selection.personId) continue;
 			tenureInserts.push({
 				id: randomUUID(),
 				roleId: role.id,
@@ -364,15 +471,7 @@ function planImport(plantId: string, loaded: z.infer<typeof loadedShape>, select
 			FROM (VALUES ${tuples(
 				tenureInserts.map((row) => sql`(${row.id}::uuid, ${row.roleId}::uuid, ${row.personId}::uuid)`),
 			)}) AS v(id, role_id, person_id)`);
-	if (tenureInserts.length)
-		writes.push(sql`UPDATE person AS p SET stage = CASE
-			WHEN v.leadership AND p.stage = 'launch_team' THEN 'leader'
-			WHEN NOT v.leadership AND p.stage = 'core_group' THEN 'launch_team'
-			ELSE p.stage END, revision = p.revision + 1
-			FROM (VALUES ${tuples(tenureInserts.map((row) => sql`(${row.personId}::uuid, ${row.leadership}::boolean)`))})
-				AS v(person_id, leadership)
-			WHERE p.id = v.person_id AND p.tenant_id = ${plantId}::uuid
-				AND ((v.leadership AND p.stage = 'launch_team') OR (NOT v.leadership AND p.stage = 'core_group'))`);
+	const moves = importMoves(loaded.people, tenureInserts);
 	const existingLeaders = [...leaderRows].filter(([teamId]) => !insertedTeams.has(teamId));
 	if (existingLeaders.length)
 		writes.push(sql`UPDATE team AS t SET leader_person_id = v.person_id, leader_source = 'role_derived',
@@ -402,6 +501,7 @@ function planImport(plantId: string, loaded: z.infer<typeof loadedShape>, select
 	const newTenantRows = teamInserts.length + roleInserts.length + tenureInserts.length + responsibilities.length;
 	return {
 		writes,
+		moves,
 		changed: newTenantRows > 0 || renames.length > 0,
 		subject: teamInserts[0]?.id ?? roleInserts[0]?.id ?? renames[0]?.id ?? plantId,
 		subjectType: (teamInserts.length ? "team" : roleInserts.length ? "team_role" : "record") as
@@ -428,18 +528,6 @@ const baseResult = (receiptId: string, outcome: "changed" | "noop", value: Retur
 		receiptId,
 		outcome,
 		...value,
-		automaticOtherRows: 0,
-		receipts: 1,
-		duplicateRows: 0,
-		includedStates: ["active"],
-		historicalStatesRetained: ["pending", "inactive", "archived"],
-		previewRows: 0,
-		otherLinesRecreated: 0,
-		customRowsRetained: true,
-		newAccountGrants: 0,
-		customMatchedByName: false,
-		nameMerge: false,
-		modelApprovalAllowed: false,
 	});
 
 export const teamsWriter = {
@@ -448,6 +536,17 @@ export const teamsWriter = {
 			const input = parse(c.createTeamRequest, raw);
 			return command(tx, ctx, "teams.create", input, async (w, audit) => {
 				const id = randomUUID();
+				const sortOrder = z.coerce
+					.number()
+					.int()
+					.parse(
+						(
+							await oneRow(
+								tx,
+								sql`SELECT coalesce(max(sort_order), 0) + 1 AS n FROM team WHERE plant_id = ${w.plant.id}::uuid`,
+							)
+						)?.n,
+					);
 				const row = teamRow.parse({
 					id,
 					revision: "1",
@@ -457,7 +556,7 @@ export const teamsWriter = {
 					templateKey: null,
 					state: input.input.state ?? "forming",
 					archived: false,
-					sortOrder: 0,
+					sortOrder,
 					leaderPersonId: null,
 					leaderSource: null,
 					leaderRoleId: null,
@@ -465,7 +564,7 @@ export const teamsWriter = {
 				});
 				audit.writes.push(sql`INSERT INTO team (id, plant_id, name, description, icon, state, sort_order)
 					SELECT ${id}::uuid, ${w.plant.id}::uuid, ${row.name}, ${row.description}, ${row.icon}, ${row.state},
-						(SELECT coalesce(max(sort_order), 0) + 1 FROM team WHERE plant_id = ${w.plant.id}::uuid)`);
+						${sortOrder}::int`);
 				return {
 					value: teamResult(audit.id, "changed", row),
 					subject: id,
@@ -516,7 +615,7 @@ export const teamsWriter = {
 						leadership: input.input.leadership ?? false,
 						timeCommitment: input.input.timeCommitment ?? null,
 						desiredSkills: input.input.desiredSkills ?? null,
-						templateKey: input.input.templateKey ?? null,
+						templateKey: null,
 						retired: false,
 						occupantPersonId: null,
 						occupantName: null,
@@ -527,6 +626,8 @@ export const teamsWriter = {
 						teamRevision: team.revision,
 						stage: null,
 						personState: null,
+						personRevision: null,
+						pipelinePosition: null,
 						teamCount: 0,
 					});
 					audit.writes.push(sql`INSERT INTO team_role
@@ -599,37 +700,44 @@ export const teamsWriter = {
 	async retireRole(tx: Tx, ctx: TeamsContext, raw: unknown) {
 		return reply(tx, async () => {
 			const input = parse(c.retireRoleRequest, raw);
-			return command(tx, ctx, "teams.retireRole", input, async (w, audit) => {
-				const before = await lockRole(tx, w, input.input.roleId, null);
-				expectRevision(before.revision, input.expectedRevision);
-				const noop = before.retired;
-				if (!noop) {
-					audit.writes.push(sql`UPDATE team_tenure SET ended_on = ${churchDate(w.plant.id)}, revision = revision + 1
+			return command(
+				tx,
+				ctx,
+				"teams.retireRole",
+				input,
+				async (w, audit) => {
+					const before = await lockRole(tx, w, input.input.roleId, null);
+					expectRevision(before.revision, input.expectedRevision);
+					const noop = before.retired;
+					if (!noop) {
+						audit.writes.push(sql`UPDATE team_tenure SET ended_on = ${churchDate(w.plant.id)}, revision = revision + 1
 						WHERE role_id = ${before.id}::uuid AND ended_on IS NULL AND plant_id = ${w.plant.id}::uuid`);
-					audit.writes.push(sql`UPDATE team_role SET retired_at = clock_timestamp(), revision = revision + 1
+						audit.writes.push(sql`UPDATE team_role SET retired_at = clock_timestamp(), revision = revision + 1
 						WHERE id = ${before.id}::uuid AND plant_id = ${w.plant.id}::uuid AND retired_at IS NULL`);
-					audit.writes.push(sql`UPDATE team SET leader_person_id = NULL, leader_source = NULL, leader_role_id = NULL,
+						audit.writes.push(sql`UPDATE team SET leader_person_id = NULL, leader_source = NULL, leader_role_id = NULL,
 						revision = revision + 1
 						WHERE id = ${before.teamId}::uuid AND plant_id = ${w.plant.id}::uuid
 							AND leader_source = 'role_derived' AND leader_role_id = ${before.id}::uuid`);
-				}
-				const after = roleRow.parse({
-					...before,
-					retired: true,
-					revision: noop ? before.revision : next(before.revision),
-					occupantPersonId: null,
-				});
-				return {
-					value: roleResult(audit.id, noop ? "noop" : "changed", after, 0, before.occupantName),
-					subject: before.id,
-					subjectType: "team_role",
-					kind: "retire",
-					outcome: noop ? "noop" : "changed",
-					before: { retired: before.retired, occupantPersonId: before.occupantPersonId },
-					after: { retired: true, occupantPersonId: null },
-					revision: { before: before.revision, after: after.revision },
-				};
-			});
+					}
+					const after = roleRow.parse({
+						...before,
+						retired: true,
+						revision: noop ? before.revision : next(before.revision),
+						occupantPersonId: null,
+					});
+					return {
+						value: roleResult(audit.id, noop ? "noop" : "changed", after, 0, before.occupantName),
+						subject: before.id,
+						subjectType: "team_role",
+						kind: "retire",
+						outcome: noop ? "noop" : "changed",
+						before: { retired: before.retired, occupantPersonId: before.occupantPersonId },
+						after: { retired: true, occupantPersonId: null },
+						revision: { before: before.revision, after: after.revision },
+					};
+				},
+				roleTeam(input.input.roleId),
+			);
 		});
 	},
 	async assignRole(tx: Tx, ctx: TeamsContext, raw: unknown) {
@@ -657,8 +765,14 @@ export const teamsWriter = {
 						audit.writes.push(sql`INSERT INTO team_tenure (id, plant_id, role_id, person_id, started_on)
 							VALUES (${tenureId}::uuid, ${w.plant.id}::uuid, ${before.id}::uuid, ${input.input.personId}::uuid,
 								${churchDate(w.plant.id)})`);
-						audit.writes.push(sql`UPDATE person SET stage = ${stage}, revision = revision + 1
-							WHERE id = ${input.input.personId}::uuid AND tenant_id = ${w.plant.id}::uuid AND stage IS DISTINCT FROM ${stage}`);
+						const move = stageMove(
+							input.input.personId,
+							before.stage,
+							before.personRevision,
+							before.pipelinePosition,
+							before.leadership,
+						);
+						if (move) queueStageMoves(audit, w.plant.id, w.accountId, [move], "team_membership");
 						if (before.leadership)
 							audit.writes.push(sql`UPDATE team SET leader_person_id = ${input.input.personId}::uuid,
 								leader_source = 'role_derived', leader_role_id = ${before.id}::uuid, revision = revision + 1
@@ -674,8 +788,6 @@ export const teamsWriter = {
 							stage,
 							warning: teamCount >= 2 ? "overload" : null,
 							teamCount,
-							membershipHistoryRetained: true,
-							newAccountGrants: 0,
 						}),
 						subject: tenureId ?? before.id,
 						subjectType: tenureId ? "team_tenure" : "team_role",
@@ -731,8 +843,6 @@ export const teamsWriter = {
 							stage: count.stage ?? "prospect",
 							warning: null,
 							teamCount: 0,
-							membershipHistoryRetained: true,
-							newAccountGrants: 0,
 						}),
 						subject: team.id,
 						subjectType: "team",
@@ -769,8 +879,14 @@ export const teamsWriter = {
 							.push(sql`INSERT INTO team_tenure (id, plant_id, role_id, person_id, started_on, previous_tenure_id)
 						VALUES (${tenureId}::uuid, ${w.plant.id}::uuid, ${before.id}::uuid, ${input.input.personId}::uuid,
 							${churchDate(w.plant.id)}, ${before.previousTenureId}::uuid)`);
-						audit.writes.push(sql`UPDATE person SET stage = ${stage}, revision = revision + 1
-						WHERE id = ${input.input.personId}::uuid AND tenant_id = ${w.plant.id}::uuid AND stage IS DISTINCT FROM ${stage}`);
+						const move = stageMove(
+							input.input.personId,
+							before.stage,
+							before.personRevision,
+							before.pipelinePosition,
+							before.leadership,
+						);
+						if (move) queueStageMoves(audit, w.plant.id, w.accountId, [move], "team_membership");
 					}
 					return {
 						value: c.membershipResult.parse({
@@ -782,8 +898,6 @@ export const teamsWriter = {
 							stage,
 							warning: null,
 							teamCount: before.teamCount + (already ? 0 : 1),
-							membershipHistoryRetained: true,
-							newAccountGrants: 0,
 						}),
 						subject: tenureId ?? before.previousTenureId,
 						subjectType: "team_tenure",
@@ -806,19 +920,32 @@ export const teamsWriter = {
 				if (before.archived) deny();
 				const person = await oneRow(
 					tx,
-					sql`SELECT stage, state FROM person WHERE id = ${input.input.personId}::uuid AND tenant_id = ${w.plant.id}::uuid FOR UPDATE`,
+					sql`SELECT stage, state, revision::text AS revision, pipeline_position::text AS "pipelinePosition"
+						FROM person WHERE id = ${input.input.personId}::uuid AND tenant_id = ${w.plant.id}::uuid FOR UPDATE`,
 				);
-				const who = z.object({ stage: z.string().nullable(), state: z.string() }).safeParse(person);
+				const who = z
+					.object({
+						stage: z.string().nullable(),
+						state: z.string(),
+						revision: z.string(),
+						pipelinePosition: z.string().nullable(),
+					})
+					.safeParse(person);
 				if (!who.success || who.data.state !== "live") deny("invalid_subject");
 				const noop = before.leaderPersonId === input.input.personId && before.leaderSource === "explicit";
-				const stage = stageAfter(who.data.stage, true);
 				if (!noop) {
 					audit.writes
 						.push(sql`UPDATE team SET leader_person_id = ${input.input.personId}::uuid, leader_source = 'explicit',
 						leader_role_id = NULL, revision = revision + 1
 						WHERE id = ${before.id}::uuid AND plant_id = ${w.plant.id}::uuid`);
-					audit.writes.push(sql`UPDATE person SET stage = ${stage}, revision = revision + 1
-						WHERE id = ${input.input.personId}::uuid AND tenant_id = ${w.plant.id}::uuid AND stage IS DISTINCT FROM ${stage}`);
+					const move = stageMove(
+						input.input.personId,
+						who.data.stage,
+						who.data.revision,
+						who.data.pipelinePosition,
+						true,
+					);
+					if (move) queueStageMoves(audit, w.plant.id, w.accountId, [move], "team_leader");
 				}
 				const after = teamRow.parse({
 					...before,
@@ -856,12 +983,17 @@ export const teamsWriter = {
 				)
 					deny("stale_review");
 				if (input.input.mode === "import" && unknownSelection(input.input.selections)) deny("access_denied");
-				const loaded = await loadPlant(tx, w.plant.id);
+				const personIds =
+					input.input.mode === "import"
+						? [...new Set(input.input.selections.flatMap((item) => (item.personId ? [item.personId] : [])))]
+						: [];
+				const loaded = await loadPlant(tx, w.plant.id, personIds);
 				const planned =
 					input.input.mode === "import"
 						? planImport(w.plant.id, loaded, input.input.selections, lines)
 						: planImport(w.plant.id, loaded, [], []);
 				for (const query of planned.writes) audit.writes.push(query);
+				queueStageMoves(audit, w.plant.id, w.accountId, planned.moves, "team_membership");
 				return {
 					value: baseResult(audit.id, planned.changed ? "changed" : "noop", planned.value),
 					subject: planned.subject,
@@ -870,66 +1002,6 @@ export const teamsWriter = {
 					outcome: planned.changed ? "changed" : "noop",
 					before: null,
 					after: { newTeams: planned.value.newTeams, newSelectedRoles: planned.value.newSelectedRoles },
-				};
-			});
-		});
-	},
-	async answerLead(tx: Tx, ctx: TeamsContext, raw: unknown) {
-		return reply(tx, async () => {
-			const input = parse(c.answerLeadRequest, raw);
-			return command(tx, ctx, "teams.answerLead", input, async (w, audit) => {
-				if (input.input.answer === "no") {
-					return {
-						value: c.answerLeadResult.parse({
-							receiptId: audit.id,
-							outcome: "noop",
-							teamId: null,
-							roleId: null,
-							createdTeams: 0,
-							createdRoles: 0,
-							assigned: false,
-							newAccountGrants: 0,
-							wholeTemplateImport: false,
-						}),
-						subject: w.plant.id,
-						subjectType: "record",
-						kind: "noop",
-						outcome: "noop",
-					};
-				}
-				const person = await oneRow(
-					tx,
-					sql`SELECT state FROM person WHERE id = ${input.input.personId}::uuid AND tenant_id = ${w.plant.id}::uuid`,
-				);
-				if (!person || person.state !== "live") deny("invalid_subject");
-				const loaded = await loadPlant(tx, w.plant.id);
-				const planned = planImport(
-					w.plant.id,
-					loaded,
-					[{ teamKey: "leadership", roleKeys: ["senior_pastor"], personId: input.input.personId }],
-					[],
-				);
-				for (const query of planned.writes) audit.writes.push(query);
-				const teamId = loaded.teams.find((item) => item.key === "leadership")?.id ?? planned.subject;
-				const role = planned.roles.find((item) => item.key === "senior_pastor" && item.teamId === teamId);
-				return {
-					value: c.answerLeadResult.parse({
-						receiptId: audit.id,
-						outcome: planned.changed ? "changed" : "noop",
-						teamId,
-						roleId: role?.id ?? null,
-						createdTeams: planned.value.newTeams,
-						createdRoles: planned.value.newSelectedRoles,
-						assigned:
-							planned.value.newRows > planned.value.newTeams + planned.value.newSelectedRoles ||
-							Boolean(role?.holder === input.input.personId),
-						newAccountGrants: 0,
-						wholeTemplateImport: false,
-					}),
-					subject: planned.subject,
-					subjectType: planned.subjectType,
-					kind: planned.changed ? "assign" : "noop",
-					outcome: planned.changed ? "changed" : "noop",
 				};
 			});
 		});
@@ -956,8 +1028,6 @@ function membershipNoop(audit: AuditWrite, personId: string, stage: string, team
 			stage,
 			warning: null,
 			teamCount: 0,
-			membershipHistoryRetained: true as const,
-			newAccountGrants: 0 as const,
 		}),
 		subject: teamId,
 		subjectType: "team" as const,
