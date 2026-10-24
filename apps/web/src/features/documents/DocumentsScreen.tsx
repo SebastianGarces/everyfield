@@ -245,7 +245,9 @@ export function DocumentsScreen({ templates, query, context, canPreview }: Props
 				subtitle="Print-ready templates from the Playbook, filled in with your church's details."
 				actions={
 					<Button variant="secondary" icon={Clock01Icon} asChild>
-						<a href="#saved">History</a>
+						<a href="#saved" data-scroll="instant">
+							History
+						</a>
 					</Button>
 				}
 			/>
@@ -259,6 +261,7 @@ export function DocumentsScreen({ templates, query, context, canPreview }: Props
 				<div className="flex min-w-0 flex-col gap-4">
 					<div className="flex flex-col gap-3">
 						<SegmentedControl
+							wrap
 							label="Category"
 							value={category}
 							onValueChange={(next) => setCategory(next)}

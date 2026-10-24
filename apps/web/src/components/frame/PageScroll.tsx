@@ -26,6 +26,7 @@ const stopGlide = () => {
  * fragment jump (history entry, :target, focus start; Next's Link stands aside for a prevented click), then animates
  * from where the reader was to there. The glide is a frame loop, so it stops at once on reader input, a new link
  * click or a route change; WebKit could not stop the native smooth scroll it replaces. Reduced motion: the jump only.
+ * A link with data-scroll="instant" keeps that jump and does not glide.
  *
  * A page opened at a #fragment (a direct load or a link from another page): until the reader scrolls, the target stays
  * where the jump put it while the page above it changes height (web fonts swapping in, the pinned sections measuring
@@ -43,6 +44,7 @@ export function PageScroll() {
 			if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
 			const a = e.target instanceof Element ? e.target.closest("a[href]") : null;
 			if (!(a instanceof HTMLAnchorElement) || (a.target && a.target !== "_self") || a.hasAttribute("download")) return;
+			if (a.dataset.scroll === "instant") return;
 			const url = new URL(a.href);
 			const page = location.pathname + location.search;
 			if (url.origin !== location.origin || url.pathname + url.search !== page || !url.hash) return;
