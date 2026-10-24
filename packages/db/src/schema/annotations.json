@@ -16646,7 +16646,7 @@
 				"purpose": "A training program for one team, or an explicit churchwide program when team_id is null. Archiving the team does not clear team_id. A correction changes name, required, and version. It does not change the team.",
 				"library_owned": false,
 				"jsonb_keys": {},
-				"capabilities": [],
+				"capabilities": ["CAP-A-038"],
 				"replaces": [],
 				"producer_work_packages": ["WP-019"],
 				"producer_derivation": {
@@ -16654,8 +16654,8 @@
 					"additional_producers": ["WP-019"],
 					"rule": "WP-019 training program storage. The dropped training tables are not the contract (D72)."
 				},
-				"feature_ids": [],
-				"acceptance_ids": [],
+				"feature_ids": ["TEAM-008", "TEAM-009"],
+				"acceptance_ids": ["AC-TEAM-008--TEAM-008", "AC-TEAM-009--TEAM-009"],
 				"future_case_ids": [],
 				"scope": "plant",
 				"invariants": [
@@ -16700,7 +16700,7 @@
 				"purpose": "One saved applicability episode for a person and a program. Later membership, leadership, or commitment changes do not rewrite it. One active episode per person and program.",
 				"library_owned": false,
 				"jsonb_keys": {},
-				"capabilities": [],
+				"capabilities": ["CAP-A-039"],
 				"replaces": [],
 				"producer_work_packages": ["WP-019"],
 				"producer_derivation": {
@@ -16708,8 +16708,8 @@
 					"additional_producers": ["WP-019"],
 					"rule": "WP-019 saved training applicability."
 				},
-				"feature_ids": [],
-				"acceptance_ids": [],
+				"feature_ids": ["TEAM-008", "TEAM-009", "TEAM-011"],
+				"acceptance_ids": ["AC-TEAM-008--TEAM-008", "AC-TEAM-009--TEAM-009", "AC-TEAM-011--TEAM-011"],
 				"future_case_ids": [],
 				"scope": "plant",
 				"invariants": [
@@ -16755,7 +16755,7 @@
 				"purpose": "Append-only earned, revoked, or service evidence. A program credit names the version earned. A service row records attendance days and volunteer days and has no program. Revoke and redo insert rows.",
 				"library_owned": false,
 				"jsonb_keys": {},
-				"capabilities": [],
+				"capabilities": ["CAP-A-040"],
 				"replaces": [],
 				"producer_work_packages": ["WP-019"],
 				"producer_derivation": {
@@ -16763,8 +16763,8 @@
 					"additional_producers": ["WP-019"],
 					"rule": "WP-019 training evidence. Historical completion stays on the person who earned it."
 				},
-				"feature_ids": [],
-				"acceptance_ids": [],
+				"feature_ids": ["TEAM-008", "TEAM-009", "TEAM-010"],
+				"acceptance_ids": ["AC-TEAM-008--TEAM-008", "AC-TEAM-009--TEAM-009", "AC-TEAM-010--TEAM-010"],
 				"future_case_ids": [],
 				"scope": "plant",
 				"invariants": [

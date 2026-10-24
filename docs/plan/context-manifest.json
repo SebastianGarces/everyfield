@@ -26072,6 +26072,9 @@
         "team_role",
         "team_tenure",
         "tenant",
+        "training_assignment",
+        "training_credit",
+        "training_program",
         "venue"
       ],
       "proof_stage": "whole-target integration; no deferred portions",
@@ -32063,6 +32066,9 @@
         "team",
         "team_role",
         "team_tenure",
+        "training_assignment",
+        "training_credit",
+        "training_program",
         "venue"
       ],
       "proof_stage": "whole-target integration; no deferred portions",
