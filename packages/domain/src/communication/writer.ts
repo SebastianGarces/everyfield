@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import type { Database } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
 import * as c from "@everyfield/contracts/communication";
 import {
@@ -13,7 +14,19 @@ import {
 import { z } from "zod";
 import type { RequestActor } from "../access/session.ts";
 import { liveRead } from "../access/session.ts";
-import { audiencePeople, eligibleIds, summarizeAudience } from "./audience.ts";
+import { audiencePeople, reviewedParts, summarizeAudience } from "./audience.ts";
+import {
+	cancelScheduled,
+	dispatchReviewed,
+	listOwnSuppression,
+	reconcileReviewed,
+	replaceScheduled,
+	rescheduleDispatched,
+	restoreOwnSuppression,
+	sendTransactionalMail,
+	type DeliveryKeys,
+	type DeliveryTransport,
+} from "./delivery.ts";
 import {
 	administers,
 	audit,
@@ -239,8 +252,13 @@ function whenLive(live: SQL, query: SQL) {
 	return sql`SELECT g.allowed, q.* FROM (SELECT ${live} AS allowed) g LEFT JOIN LATERAL (${query}) q ON g.allowed`;
 }
 /** The fields a schedule stores and a later preview compares. Both calls use this one value. */
-function reviewedDigest(subject: string | null, body: string | null, people: readonly string[]) {
-	return hash({ subject, body, people });
+function reviewedDigest(
+	subject: string | null,
+	body: string | null,
+	people: readonly string[],
+	emails: readonly string[],
+) {
+	return hash({ subject, body, people, emails });
 }
 const draftFields = [
 	"state",
@@ -312,6 +330,44 @@ export const communicationWriter = {
 	listAudienceTeams: (tx: Tx, authority: RequestActor) => readReply(() => teams(tx, authority)),
 	listTemplates: (tx: Tx, authority: RequestActor) => readReply(() => templates(tx, authority)),
 	getTemplate: (tx: Tx, authority: RequestActor, raw: unknown) => readReply(() => template(tx, authority, raw)),
+	dispatchAttempt: (
+		db: Database,
+		authority: RequestActor,
+		raw: unknown,
+		transport: DeliveryTransport,
+		keys: DeliveryKeys,
+	) => dispatchReviewed(db, authority, raw, transport, keys),
+	sendReviewed: (
+		db: Database,
+		authority: RequestActor,
+		raw: unknown,
+		transport: DeliveryTransport,
+		keys: DeliveryKeys,
+	) => dispatchReviewed(db, authority, raw, transport, keys),
+	reconcileProviderOutcome: (
+		db: Database,
+		authority: RequestActor,
+		raw: unknown,
+		transport: DeliveryTransport,
+		keys: DeliveryKeys,
+	) => reconcileReviewed(db, authority, raw, transport, keys),
+	cancelScheduledReviewed: (db: Database, authority: RequestActor, raw: unknown, transport: DeliveryTransport) =>
+		cancelScheduled(db, authority, raw, transport),
+	replaceScheduledReviewed: (db: Database, authority: RequestActor, raw: unknown) =>
+		replaceScheduled(db, authority, raw),
+	rescheduleDispatched: (db: Database, authority: RequestActor, raw: unknown, transport: DeliveryTransport) =>
+		rescheduleDispatched(db, authority, raw, transport),
+	listForSelf: (db: Database, authority: RequestActor, raw: unknown, keys: DeliveryKeys) =>
+		listOwnSuppression(db, authority, raw, keys),
+	requestRestore: (db: Database, authority: RequestActor, raw: unknown, keys: DeliveryKeys) =>
+		restoreOwnSuppression(db, authority, raw, keys),
+	sendTransactional: (
+		db: Database,
+		authority: RequestActor,
+		raw: unknown,
+		transport: DeliveryTransport,
+		keys: DeliveryKeys,
+	) => sendTransactionalMail(db, authority, raw, transport, keys),
 };
 
 type DraftValue = z.infer<typeof c.draftResult>;
@@ -465,8 +521,9 @@ async function schedule(tx: Tx, context: CommunicationContext, raw: unknown, onl
 			) as { allowed: boolean; people: unknown };
 			if (peopleRaw.allowed !== true) deny("access_denied");
 			const people = peopleRaw.people;
-			if (!eligibleIds(people).length) deny("invalid_input");
-			const digest = reviewedDigest(current.subject, current.body_html, eligibleIds(people));
+			const parts = reviewedParts(people);
+			if (!parts.people.length) deny("invalid_input");
+			const digest = reviewedDigest(current.subject, current.body_html, parts.people, parts.emails);
 			const revision = bump(current.revision);
 			const scheduled = {
 				...current,
@@ -708,7 +765,8 @@ async function preview(tx: Tx, authority: RequestActor, request: unknown) {
 	const summary = summarizeAudience(found.people);
 	const previewBody = renderBody(input.bodyHtml, input.merge);
 	const sourceBody = sanitizeHtml(input.bodyHtml);
-	const digest = reviewedDigest(found.subject, sourceBody ? sourceBody : null, eligibleIds(found.people));
+	const parts = reviewedParts(found.people);
+	const digest = reviewedDigest(found.subject, sourceBody ? sourceBody : null, parts.people, parts.emails);
 	if (input.audienceChangedAfterReview || (found.review_digest !== null && found.review_digest !== digest))
 		deny("stale_review", { previewBody, scriptExecution: false, providerCalls: 0 });
 	return c.previewResult.parse({

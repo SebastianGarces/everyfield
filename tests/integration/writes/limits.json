@@ -100,6 +100,9 @@
 	"communication.archiveTemplate": {
 		"limit": 2
 	},
+	"communication.cancelScheduledReviewed": {
+		"limit": 3
+	},
 	"communication.createTemplate": {
 		"limit": 1
 	},
@@ -108,6 +111,9 @@
 	},
 	"communication.deleteTemplate": {
 		"limit": 3
+	},
+	"communication.dispatchAttempt": {
+		"limit": 4
 	},
 	"communication.forkTemplate": {
 		"limit": 3
@@ -120,6 +126,9 @@
 	},
 	"communication.listDrafts": {
 		"limit": 1
+	},
+	"communication.listForSelf": {
+		"limit": 2
 	},
 	"communication.listTemplates": {
 		"limit": 1
@@ -136,6 +145,18 @@
 	"communication.readRecipients": {
 		"limit": 1
 	},
+	"communication.reconcileProviderOutcome": {
+		"limit": 3
+	},
+	"communication.replaceScheduledReviewed": {
+		"limit": 1
+	},
+	"communication.requestRestore": {
+		"limit": 2
+	},
+	"communication.rescheduleDispatched": {
+		"limit": 2
+	},
 	"communication.rescheduleReviewed": {
 		"limit": 2
 	},
@@ -143,6 +164,12 @@
 		"limit": 2
 	},
 	"communication.scheduleReviewed": {
+		"limit": 3
+	},
+	"communication.sendReviewed": {
+		"limit": 4
+	},
+	"communication.sendTransactional": {
 		"limit": 3
 	},
 	"communication.updateTemplate": {
