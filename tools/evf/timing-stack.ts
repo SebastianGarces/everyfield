@@ -44,7 +44,14 @@ export function removeStaleQuietDatabases(): string[] {
 		.map((line) => line.split(" "))
 		.filter(([, pid]) => !alive(Number(pid)))
 		.map(([name]) => name);
-	if (stale.length) docker("rm", "-f", ...stale);
+	if (!stale.length) return stale;
+	// Every evf run on this machine sweeps, so another run may remove the same container at the same moment. Docker
+	// then refuses this removal as already in progress, or the container is already gone: either way it is removed.
+	// A failure with no message, or with any other message, is a real failure.
+	const r = run("docker", ["rm", "-f", ...stale]);
+	const errors = r.stderr.split("\n").filter((line) => line.trim());
+	if (r.code !== 0 && (!errors.length || errors.some((line) => !/No such container|is already in progress/.test(line))))
+		fail(`docker rm failed (exit ${r.code}): ${(r.stderr || r.stdout).trim() || "no message"}`);
 	return stale;
 }
 
