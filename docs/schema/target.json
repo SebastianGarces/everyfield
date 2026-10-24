@@ -70,9 +70,9 @@
   "contract_status": "Reviewed starting design; builders may change it through a reviewed migration.",
   "as_of": "2026-10-17",
   "implementation_authorized": false,
-  "table_count": 90,
-  "column_count": 1027,
-  "foreign_key_count": 321,
+  "table_count": 93,
+  "column_count": 1056,
+  "foreign_key_count": 330,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
     "date": "YYYY-MM-DD local calendar date, never UTC midnight instant.",
@@ -828,6 +828,15 @@
       "plant",
       "organization",
       "global"
+    ],
+    "training_assignment.state": [
+      "active",
+      "removed"
+    ],
+    "training_credit.kind": [
+      "earned",
+      "revoked",
+      "service"
     ],
     "account.personal_timezone": [
       "Africa/Abidjan",
@@ -6458,6 +6467,56 @@
       "immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
       "future_case_ids": [
         "ADR1-017"
+      ]
+    },
+    {
+      "table": "training_assignment",
+      "columns": [
+        "person_id",
+        "plant_id"
+      ],
+      "target_columns": [
+        "id",
+        "tenant_id"
+      ],
+      "consumer_work_packages": [
+        "WP-019"
+      ],
+      "meaning": "Saved person and program applicability. A merge moves every episode to the survivor.",
+      "lock_order": "Lock live same-plant source and survivor in UUID order, then the assignment row.",
+      "merge_policy": "Move the assignment to the survivor. Do not put both people on one active episode of the same program.",
+      "inverse_policy": "Unmerge moves the assignment back when the reviewed survivor revision still matches.",
+      "retirement_policy": "Operational rosters list live people only. The episode row remains.",
+      "privacy_policy": "Assignment movement never transfers account grants, private care, or mail.",
+      "immutable_evidence_policy": "Ended episodes keep their dates. A merge moves the row. It does not rewrite the dates.",
+      "future_case_ids": [
+        "SCHEMA-009",
+        "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-MERGE"
+      ]
+    },
+    {
+      "table": "training_credit",
+      "columns": [
+        "person_id",
+        "plant_id"
+      ],
+      "target_columns": [
+        "id",
+        "tenant_id"
+      ],
+      "consumer_work_packages": [
+        "WP-019"
+      ],
+      "meaning": "Append-only earned, revoked, or service evidence. A merge leaves it on the source person.",
+      "lock_order": "Lock live same-plant source and survivor in UUID order. Do not rewrite the credit.",
+      "merge_policy": "Keep the credit on the source person. Do not move historical completion.",
+      "inverse_policy": "Unmerge does not move the credit, because the merge did not move it.",
+      "retirement_policy": "Operational selectors omit a retired person. The credit row remains under that person.",
+      "privacy_policy": "Credit evidence never transfers account grants, private care, or organization person evidence.",
+      "immutable_evidence_policy": "Verifier, earned date, and kind stay as written. Revoke and redo append rows.",
+      "future_case_ids": [
+        "SCHEMA-009",
+        "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-MERGE"
       ]
     }
   ],
@@ -36595,6 +36654,824 @@
         "checks": [
           "tenant_ck_0",
           "tenant_ck_1"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "training_assignment",
+      "domain": "teams",
+      "purpose": "One saved applicability episode for a person and a program. Later membership, leadership, or commitment changes do not rewrite it. One active episode per person and program.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-A-039"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-019"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-019"
+        ],
+        "rule": "WP-019 saved training applicability."
+      },
+      "feature_ids": [
+        "TEAM-008",
+        "TEAM-009",
+        "TEAM-011"
+      ],
+      "acceptance_ids": [
+        "AC-TEAM-008--TEAM-008",
+        "AC-TEAM-009--TEAM-009",
+        "AC-TEAM-011--TEAM-011"
+      ],
+      "future_case_ids": [],
+      "scope": "plant",
+      "invariants": [
+        "One active episode per plant, program, and person.",
+        "An ended episode stays.",
+        "A merge moves the episode. A credit does not move with it."
+      ],
+      "revision": "Optimistic revision. A merge increments it.",
+      "idempotency": "The roster request key returns the recorded person list.",
+      "deletion": "Church purge deletes assignments before programs. Person retirement does not delete the row.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "note": "",
+          "name": "plant_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "program_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "Moves to the survivor on merge.",
+          "name": "person_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "Program version when the episode was saved.",
+          "name": "version",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "state",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "effective_on",
+          "type": "date",
+          "nullable": false
+        },
+        {
+          "note": "Null exactly while the episode is active.",
+          "name": "ended_on",
+          "type": "date",
+          "nullable": true
+        },
+        {
+          "note": "",
+          "name": "revision",
+          "type": "bigint",
+          "nullable": false,
+          "default": "1"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [
+        {
+          "columns": [
+            "id",
+            "plant_id"
+          ]
+        },
+        {
+          "columns": [
+            "plant_id",
+            "program_id",
+            "person_id"
+          ],
+          "where": "(state = 'active'::text)"
+        }
+      ],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Church purge deletes assignments before programs."
+          },
+          "columns": [
+            "plant_id"
+          ],
+          "references": {
+            "table": "plant",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Delete assignments before the program."
+          },
+          "columns": [
+            "program_id",
+            "plant_id"
+          ],
+          "references": {
+            "table": "training_program",
+            "columns": [
+              "id",
+              "plant_id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "The episode stays for history. Retirement hides the person from operational rosters."
+          },
+          "columns": [
+            "person_id",
+            "plant_id"
+          ],
+          "references": {
+            "table": "person",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "restrict"
+        }
+      ],
+      "checks": [
+        "(revision >= 1)",
+        "(version >= 1)",
+        "state in ('active', 'removed')",
+        "((state = 'active'::text) = (ended_on IS NULL))",
+        "((ended_on IS NULL) OR (ended_on >= effective_on))"
+      ],
+      "indexes": {
+        "training_assignment_ref_0": {
+          "name": "training_assignment_ref_0",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "training_assignment_ref_1": {
+          "name": "training_assignment_ref_1",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "program_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "training_assignment_ref_2": {
+          "name": "training_assignment_ref_2",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "training_assignment_uq_1": {
+          "name": "training_assignment_uq_1",
+          "isUnique": true,
+          "where": "(state = 'active'::text)",
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "program_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "training_assignment_pkey"
+        ],
+        "unique": [
+          "training_assignment_uq_0"
+        ],
+        "foreign": [
+          "training_assignment_fk_0",
+          "training_assignment_fk_1",
+          "training_assignment_fk_2"
+        ],
+        "checks": [
+          "training_assignment_ck_0",
+          "training_assignment_ck_1",
+          "training_assignment_ck_2",
+          "training_assignment_ck_3",
+          "training_assignment_ck_4"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "training_credit",
+      "domain": "teams",
+      "purpose": "Append-only earned, revoked, or service evidence. A program credit names the version earned. A service row records attendance days and volunteer days and has no program. Revoke and redo insert rows.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-A-040"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-019"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-019"
+        ],
+        "rule": "WP-019 training evidence. Historical completion stays on the person who earned it."
+      },
+      "feature_ids": [
+        "TEAM-008",
+        "TEAM-009",
+        "TEAM-010"
+      ],
+      "acceptance_ids": [
+        "AC-TEAM-008--TEAM-008",
+        "AC-TEAM-009--TEAM-009",
+        "AC-TEAM-010--TEAM-010"
+      ],
+      "future_case_ids": [],
+      "scope": "plant",
+      "invariants": [
+        "Rows are inserted, not updated, except the verifier account may become null when that account is deleted.",
+        "A merge does not move the person.",
+        "A service row has no program. An earned or revoked row has one."
+      ],
+      "revision": "Append-only. revision stays 1.",
+      "idempotency": "The attest, revoke, and redo request keys return the recorded credit outcome.",
+      "deletion": "Church purge deletes credits before assignments and programs.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "note": "",
+          "name": "plant_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "Stays on the source person through merge and unmerge.",
+          "name": "person_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "Null for a service span.",
+          "name": "program_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "",
+          "name": "kind",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "Program version for earned and revoked rows. Null for service.",
+          "name": "version",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "note": "Set on earned rows only. The original date is not rewritten.",
+          "name": "earned_on",
+          "type": "date",
+          "nullable": true
+        },
+        {
+          "note": "The session account that recorded the row. Null after that account is deleted.",
+          "name": "verifier_account_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "Service spans only.",
+          "name": "attendance_days",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "note": "Service spans only.",
+          "name": "volunteer_days",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "note": "",
+          "name": "recorded_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()"
+        },
+        {
+          "note": "",
+          "name": "revision",
+          "type": "bigint",
+          "nullable": false,
+          "default": "1"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [
+        {
+          "columns": [
+            "id",
+            "plant_id"
+          ]
+        }
+      ],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Church purge deletes credits first."
+          },
+          "columns": [
+            "plant_id"
+          ],
+          "references": {
+            "table": "plant",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Evidence stays on the person. Retirement hides them from operational selectors."
+          },
+          "columns": [
+            "person_id",
+            "plant_id"
+          ],
+          "references": {
+            "table": "person",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Delete credits before the program. A null program_id is a service span."
+          },
+          "columns": [
+            "program_id",
+            "plant_id"
+          ],
+          "references": {
+            "table": "training_program",
+            "columns": [
+              "id",
+              "plant_id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "set_null",
+            "policy": "Account deletion keeps the credit and clears the verifier."
+          },
+          "columns": [
+            "verifier_account_id"
+          ],
+          "references": {
+            "table": "account",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "set_null"
+        }
+      ],
+      "checks": [
+        "(revision >= 1)",
+        "kind in ('earned', 'revoked', 'service')",
+        "((kind = 'earned'::text) AND (program_id IS NOT NULL) AND (version IS NOT NULL) AND (earned_on IS NOT NULL) AND (attendance_days IS NULL) AND (volunteer_days IS NULL)) OR ((kind = 'revoked'::text) AND (program_id IS NOT NULL) AND (version IS NOT NULL) AND (earned_on IS NULL) AND (attendance_days IS NULL) AND (volunteer_days IS NULL)) OR ((kind = 'service'::text) AND (program_id IS NULL) AND (version IS NULL) AND (earned_on IS NULL) AND (attendance_days IS NOT NULL) AND (volunteer_days IS NOT NULL) AND (attendance_days >= 0) AND (volunteer_days >= 0))"
+      ],
+      "indexes": {
+        "training_credit_ref_0": {
+          "name": "training_credit_ref_0",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "training_credit_ref_1": {
+          "name": "training_credit_ref_1",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "training_credit_ref_2": {
+          "name": "training_credit_ref_2",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "program_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "training_credit_ref_3": {
+          "name": "training_credit_ref_3",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "verifier_account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "training_credit_order": {
+          "name": "training_credit_order",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "program_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "recorded_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "training_credit_pkey"
+        ],
+        "unique": [
+          "training_credit_uq_0"
+        ],
+        "foreign": [
+          "training_credit_fk_0",
+          "training_credit_fk_1",
+          "training_credit_fk_2",
+          "training_credit_fk_3"
+        ],
+        "checks": [
+          "training_credit_ck_0",
+          "training_credit_ck_1",
+          "training_credit_ck_2"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "training_program",
+      "domain": "teams",
+      "purpose": "A training program for one team, or an explicit churchwide program when team_id is null. Archiving the team does not clear team_id. A correction changes name, required, and version. It does not change the team.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-A-038"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-019"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-019"
+        ],
+        "rule": "WP-019 training program storage. The dropped training tables are not the contract (D72)."
+      },
+      "feature_ids": [
+        "TEAM-008",
+        "TEAM-009"
+      ],
+      "acceptance_ids": [
+        "AC-TEAM-008--TEAM-008",
+        "AC-TEAM-009--TEAM-009"
+      ],
+      "future_case_ids": [],
+      "scope": "plant",
+      "invariants": [
+        "A null team_id is an explicit churchwide program.",
+        "A correction never changes team_id.",
+        "version advances when the name or required flag changes."
+      ],
+      "revision": "Optimistic revision. version is the content generation a credit must match.",
+      "idempotency": "The create and correct request keys return the recorded program.",
+      "deletion": "Church purge deletes credits, then assignments, then programs, before teams.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "note": "",
+          "name": "plant_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "Null means churchwide. Archiving the team does not null this.",
+          "name": "team_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "",
+          "name": "name",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "Required programs count only people with a saved active assignment.",
+          "name": "required",
+          "type": "boolean",
+          "nullable": false
+        },
+        {
+          "note": "Content generation. A credit names the version it was earned against.",
+          "name": "version",
+          "type": "integer",
+          "nullable": false,
+          "default": 1
+        },
+        {
+          "note": "",
+          "name": "revision",
+          "type": "bigint",
+          "nullable": false,
+          "default": "1"
+        },
+        {
+          "note": "",
+          "name": "archived_at",
+          "type": "timestamptz",
+          "nullable": true
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [
+        {
+          "columns": [
+            "id",
+            "plant_id"
+          ]
+        }
+      ],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Church purge deletes the program after its credits and assignments."
+          },
+          "columns": [
+            "plant_id"
+          ],
+          "references": {
+            "table": "plant",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Church purge deletes the program before the team. A null team_id is churchwide and skips this key."
+          },
+          "columns": [
+            "team_id",
+            "plant_id"
+          ],
+          "references": {
+            "table": "team",
+            "columns": [
+              "id",
+              "plant_id"
+            ]
+          },
+          "on_delete": "restrict"
+        }
+      ],
+      "checks": [
+        "(revision >= 1)",
+        "(version >= 1)",
+        "((char_length(name) >= 1) AND (char_length(name) <= 200))"
+      ],
+      "indexes": {
+        "training_program_ref_0": {
+          "name": "training_program_ref_0",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "training_program_ref_1": {
+          "name": "training_program_ref_1",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "team_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "training_program_pkey"
+        ],
+        "unique": [
+          "training_program_uq_0"
+        ],
+        "foreign": [
+          "training_program_fk_0",
+          "training_program_fk_1"
+        ],
+        "checks": [
+          "training_program_ck_0",
+          "training_program_ck_1",
+          "training_program_ck_2"
         ]
       },
       "policies": {},
