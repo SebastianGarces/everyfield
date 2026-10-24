@@ -106,6 +106,8 @@ export function refusalText(code: string): string {
 			return "That meeting or template is not in this church.";
 		case "invalid_input":
 			return "Check the subject, the message, and that at least one person can receive it.";
+		case "unavailable":
+			return "Email delivery is not set up on this server. Nothing was sent.";
 		default:
 			return "Unable to save. Try again in a moment.";
 	}
@@ -127,4 +129,54 @@ export function outcomeText<T>(result: Outcome<T>): string | null {
 	if (result.status === "ok") return null;
 	if (result.status === "lost") return "Unable to reach the church records. Try again in a moment.";
 	return refusalText(result.code);
+}
+
+export type DeliveryReport = {
+	status: "accepted" | "partial" | "uncertain" | "failed" | "accepted_unknown";
+	acceptedCount: number;
+	rejectedCount: number;
+	unknownCount: number;
+};
+
+export type CancelReport = { scheduledCancel: "reconcile" | "confirmed" | "none" };
+export type ReplaceReport = { replacementAllowed: boolean };
+export type RescheduleReport = { rescheduleStatus: "accepted" | "unknown"; scheduledAt: string };
+export type SuppressionReport = { address: string; active: boolean };
+export type RestoreReport = { suppressionClears: number };
+
+/** Provider acceptance is not delivery, and an unknown result is not a success. */
+export function deliveryText(report: DeliveryReport): string {
+	if (report.status === "failed") return "The provider refused this email. No recipient was accepted.";
+	if (report.status === "uncertain" || report.status === "accepted_unknown")
+		return "The provider did not confirm this email. It was not sent again.";
+	if (report.status === "partial") {
+		return `Accepted ${report.acceptedCount}. Refused ${report.rejectedCount}. No result yet for ${report.unknownCount}. Nothing was marked sent.`;
+	}
+	if (report.acceptedCount === 1) return "The provider accepted 1 recipient. Accepted does not mean delivered.";
+	return `The provider accepted ${report.acceptedCount} recipients. Accepted does not mean delivered.`;
+}
+
+export function cancelText(report: CancelReport): string {
+	if (report.scheduledCancel === "confirmed")
+		return "The provider cancelled the scheduled send. Mail that already went out stays out.";
+	if (report.scheduledCancel === "reconcile")
+		return "Cancellation was requested. The provider has not confirmed it. Mail that already went out cannot be recalled.";
+	return "No provider send is waiting to cancel. Mail that already went out cannot be recalled.";
+}
+
+export function replaceText(report: ReplaceReport): string {
+	if (report.replacementAllowed)
+		return "Every previous send is cancelled. Write a new message to send again. No email was sent.";
+	return "A replacement stays blocked until every previous send is cancelled. No email was sent.";
+}
+
+export function rescheduleText(report: RescheduleReport, when: string): string {
+	if (report.rescheduleStatus === "unknown")
+		return `The send time is now ${when}. The provider has not confirmed that time.`;
+	return `The send time is now ${when}. This change did not send the email.`;
+}
+
+export function restoreText(report: RestoreReport): string {
+	if (report.suppressionClears > 0) return "This address can receive email again. No new email was sent.";
+	return "This address was already clear. No new email was sent.";
 }
