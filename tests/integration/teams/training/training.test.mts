@@ -1030,4 +1030,18 @@ test("AC:S2-11 the session account is the actor", async () => {
 		await trainingReader.readPersonTraining(db, await viewer(3), { personId: await person("Local only") }),
 		"access_denied",
 	);
+	const ownerView = await viewer(0);
+	await admin.execute(sql`UPDATE seat SET role='member' WHERE account_id=${actors[0].id} AND plant_id=${P}`);
+	try {
+		refused(await trainingReader.listTraining(db, ownerView, {}));
+		refused(
+			await run(trainingWriter.createProgram, {
+				requestKey: key(),
+				input: { name: "Member churchwide", required: false, teamId: null },
+			}),
+			"access_denied",
+		);
+	} finally {
+		await admin.execute(sql`UPDATE seat SET role='owner' WHERE account_id=${actors[0].id} AND plant_id=${P}`);
+	}
 });

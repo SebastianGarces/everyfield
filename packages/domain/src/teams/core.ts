@@ -102,7 +102,12 @@ export async function read<T>(authority: RequestActor, body: (viewer: Viewer) =>
 		return body({
 			plantId: actor.context.owner.id,
 			accountId: actor.accountId,
-			access: { session: authority.session, owner: actor.context.owner, seatId: actor.context.seatId },
+			access: {
+				session: authority.session,
+				owner: actor.context.owner,
+				seatId: actor.context.seatId,
+				role: actor.context.role,
+			},
 		});
 	});
 }
