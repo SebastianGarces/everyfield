@@ -26,7 +26,6 @@ import {
 	reply,
 	type Command,
 	type CommunicationContext,
-	type CommunicationReply,
 	type Tx,
 } from "./core.ts";
 
