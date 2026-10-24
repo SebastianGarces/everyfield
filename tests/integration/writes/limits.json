@@ -103,6 +103,9 @@
 	"communication.cancelScheduledReviewed": {
 		"limit": 3
 	},
+	"communication.correctContactLog": {
+		"limit": 2
+	},
 	"communication.createTemplate": {
 		"limit": 1
 	},
@@ -115,10 +118,22 @@
 	"communication.dispatchAttempt": {
 		"limit": 4
 	},
+	"communication.executeResend": {
+		"limit": 2
+	},
 	"communication.forkTemplate": {
 		"limit": 3
 	},
+	"communication.getDeliveryTotals": {
+		"limit": 1
+	},
+	"communication.getDetail": {
+		"limit": 1
+	},
 	"communication.getDraft": {
+		"limit": 1
+	},
+	"communication.getExecutionResult": {
 		"limit": 1
 	},
 	"communication.getTemplate": {
@@ -127,8 +142,26 @@
 	"communication.listDrafts": {
 		"limit": 1
 	},
+	"communication.listForMeeting": {
+		"limit": 1
+	},
+	"communication.listForPerson": {
+		"limit": 1
+	},
 	"communication.listForSelf": {
 		"limit": 2
+	},
+	"communication.listHistory": {
+		"limit": 1
+	},
+	"communication.listHistoryRecipients": {
+		"limit": 1
+	},
+	"communication.listMeetingTracking": {
+		"limit": 1
+	},
+	"communication.listResendCandidates": {
+		"limit": 1
 	},
 	"communication.listTemplates": {
 		"limit": 1
@@ -144,6 +177,9 @@
 	},
 	"communication.readRecipients": {
 		"limit": 1
+	},
+	"communication.recordContactFromTask": {
+		"limit": 2
 	},
 	"communication.reconcileProviderOutcome": {
 		"limit": 3

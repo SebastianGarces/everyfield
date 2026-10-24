@@ -57,6 +57,9 @@ export function writeAction(operation: string): string {
 			"communication.templates.update": "communication.template_updated",
 			"communication.templates.archive": "communication.template_archived",
 			"communication.templates.delete": "communication.template_deleted",
+			"communication.executeResend": "communication.send_intended",
+			"communication.correctContactLog": "followup.corrected",
+			"communication.recordContactFromTask": "followup.recorded",
 		};
 		const action = named[operation];
 		if (!action) throw Error("unknown_write_action:" + operation);
