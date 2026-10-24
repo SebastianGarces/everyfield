@@ -98,6 +98,21 @@
 		"limit": 10,
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 5 locked read, 2 read, 3 write."
 	},
+	"documents.preview": {
+		"limit": 1
+	},
+	"documents.resolveContext": {
+		"limit": 1
+	},
+	"documents.templates.contextual": {
+		"limit": 1
+	},
+	"documents.templates.get": {
+		"limit": 1
+	},
+	"documents.templates.list": {
+		"limit": 1
+	},
 	"early-access/index.receiveAccessRequest": {
 		"limit": 10,
 		"retry": 5,

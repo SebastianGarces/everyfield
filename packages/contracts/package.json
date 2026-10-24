@@ -16,6 +16,7 @@
 		"./settings/server": "./src/settings/server.ts",
 		"./meetings": "./src/meetings/index.ts",
 		"./teams": "./src/teams/index.ts",
+		"./documents": "./src/documents/index.ts",
 		"./teams/responsibilities": "./src/teams/responsibilities/index.ts",
 		"./tasks": "./src/tasks/index.ts",
 		"./followups": "./src/followups/index.ts",

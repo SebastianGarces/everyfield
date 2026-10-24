@@ -8,6 +8,7 @@
 	"tests/integration/teams/*.test.mts",
 	"tests/integration/teams/responsibilities/*.test.mts",
 	"tests/integration/teams/training/*.test.mts",
+	"tests/integration/documents/*.test.mts",
 	"tests/integration/identity/*.test.mts",
 	"tests/integration/organizations/*.test.mts",
 	"tests/integration/onboarding/*.test.mts",
