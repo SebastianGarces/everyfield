@@ -6,6 +6,7 @@ import { z } from "zod";
 import type { AuditWrite } from "../operations/writes.ts";
 import { columnsChanged, freshPosition, sameColumn } from "../people/people.ts";
 import { command, deny, next, parse, reply, type TeamsContext, type Tx, type Writer } from "./core.ts";
+import { insertVersionLines } from "./responsibilities/store.ts";
 import {
 	catalogRole,
 	catalogTeam,
@@ -487,18 +488,8 @@ function planImport(plantId: string, loaded: z.infer<typeof loadedShape>, select
 		writes.push(sql`UPDATE team AS t SET name = v.name, revision = t.revision + 1
 			FROM (VALUES ${tuples(renames.map((row) => sql`(${row.id}::uuid, ${row.name})`))}) AS v(id, name)
 			WHERE t.id = v.id AND t.plant_id = ${plantId}::uuid AND t.name IS DISTINCT FROM v.name`);
-	if (responsibilities.length)
-		writes.push(sql`INSERT INTO responsibility
-			(id, plant_id, team_id, source_version_id, source_line, text, sort_order)
-			SELECT v.id, ${plantId}::uuid, v.team_id, v.version, v.line, v.text, v.ord
-			FROM (VALUES ${tuples(
-				responsibilities.map(
-					(line, index) =>
-						sql`(${randomUUID()}::uuid, ${line.teamId}::uuid, ${line.sourceVersionId}::uuid, ${line.sourceLine}, ${line.text}, ${index + 1}::int)`,
-				),
-			)}) AS v(id, team_id, version, line, text, ord)
-			WHERE NOT EXISTS (SELECT 1 FROM responsibility r
-				WHERE r.team_id = v.team_id AND r.source_version_id = v.version AND r.source_line = v.line)`);
+	const responsibilityInsert = insertVersionLines(plantId, responsibilities);
+	if (responsibilityInsert) writes.push(responsibilityInsert);
 	const first = selections[0];
 	const catalog = first ? catalogTeam(first.teamKey) : undefined;
 	const newTenantRows = teamInserts.length + roleInserts.length + tenureInserts.length + responsibilities.length;
