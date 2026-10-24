@@ -2,8 +2,8 @@ import { getViewer } from "@/server/request-context";
 import { requestDatabase } from "@/server/database";
 import type { WikiArticle } from "@everyfield/contracts/wiki";
 import type { Database } from "@everyfield/db/client";
-import { and, eq, inArray } from "@everyfield/db/query";
-import { organization, reading } from "@everyfield/db/tables";
+import { alias, and, eq, inArray } from "@everyfield/db/query";
+import { article_editor_state, article_revision, organization, reading } from "@everyfield/db/tables";
 import type { RequestActor } from "@everyfield/domain/access";
 import { createWikiProducer } from "@everyfield/domain/wiki";
 import "server-only";
@@ -48,6 +48,69 @@ export function plantContext(actor: RequestActor): { plantId?: string; canOrder:
 	const context = actor.actor.context;
 	if (context.kind !== "seat" || context.owner.kind !== "plant") return { canOrder: false };
 	return { plantId: context.owner.id, canOrder: context.role === "owner" || context.role === "admin" };
+}
+
+/** Organization Owner or Admin. The seat owner kind is only a sending church or a sending network. */
+export function editorContext(actor: RequestActor): { organizationId: string } | null {
+	const context = actor.actor.context;
+	if (context.kind !== "seat" || context.owner.kind !== "organization") return null;
+	if (context.role !== "owner" && context.role !== "admin") return null;
+	return { organizationId: context.owner.id };
+}
+
+type StoredEditor = {
+	revision: string;
+	state: "published" | "hide" | "draft" | "inherited" | null;
+	draftBody: string | null;
+	draftType: "safe_mdx" | "safe_nodes" | null;
+	currentBody: string | null;
+	currentType: "safe_mdx" | "safe_nodes" | null;
+};
+
+/** Editor revision. The draft read does not return it, and a write must send it back. */
+async function editorRevision(mount: Mount, organizationId: string, articleId: string): Promise<StoredEditor | "lost"> {
+	const draft = alias(article_revision, "wiki_draft_revision");
+	const current = alias(article_revision, "wiki_current_revision");
+	try {
+		const rows = await mount.db
+			.select({
+				revision: article_editor_state.revision,
+				state: article_editor_state.state,
+				draftBody: draft.body,
+				draftType: draft.content_type,
+				currentBody: current.body,
+				currentType: current.content_type,
+			})
+			.from(article_editor_state)
+			.leftJoin(draft, eq(draft.id, article_editor_state.draft_revision_id))
+			.leftJoin(current, eq(current.id, article_editor_state.current_revision_id))
+			.where(
+				and(eq(article_editor_state.organization_id, organizationId), eq(article_editor_state.article_id, articleId)),
+			)
+			.limit(1);
+		const row = rows[0];
+		if (!row) {
+			return {
+				revision: "0",
+				state: null,
+				draftBody: null,
+				draftType: null,
+				currentBody: null,
+				currentType: null,
+			};
+		}
+		return {
+			revision: row.revision,
+			state: row.state,
+			draftBody: row.draftBody,
+			draftType: row.draftType,
+			currentBody: row.currentBody,
+			currentType: row.currentType,
+		};
+	} catch (error) {
+		console.error(JSON.stringify({ component: "wiki", outcome: "editor-revision-failed", error: String(error) }));
+		return "lost";
+	}
 }
 
 /** The reading row revision. "0" means this account has no row yet. */
@@ -164,18 +227,35 @@ export type WikiPageData = {
 	article: ArticleView | null;
 	missing: boolean;
 	order: boolean;
+	feedback: { vote: "helpful" | "unhelpful" | null } | null;
+	editorName: string | null;
+	editing: boolean;
+	draft: WikiDraft | null;
+	draftLost: boolean;
+};
+
+export type WikiDraft = {
+	organizationId: string;
+	revision: string;
+	state: "published" | "hide" | "draft" | "inherited" | null;
+	initialBody: string | null;
+	initialContentType: string;
+	baselineBody: string | null;
+	baselineContentType: string;
 };
 
 export async function loadWiki(
 	slug: string,
 	source: SourceChoice,
 	order: boolean,
+	editing = false,
 ): Promise<WikiPageData | "lost" | "signed-out"> {
 	const mount = wikiMount();
 	const actor = await wikiActor();
 	if (actor === "down" || !mount) return "lost";
 	if (!actor) return "signed-out";
 	const seat = plantContext(actor);
+	const editor = editorContext(actor);
 	try {
 		const [nav, resume, recent, marks, recommended] = await Promise.all([
 			mount.producer.navigation(mount.db, actor, { source: { kind: "current" } }),
@@ -206,10 +286,19 @@ export async function loadWiki(
 				article: null,
 				missing: true,
 				order,
+				feedback: null,
+				editorName: null,
+				editing,
+				draft: null,
+				draftLost: false,
 			};
 		}
 		let article: ArticleView | null = null;
 		let phaseRead: WikiPageData["phaseRead"] = null;
+		let editorName: string | null = null;
+		let draft: WikiDraft | null = null;
+		let draftLost = false;
+		let feedback: WikiPageData["feedback"] = null;
 		if (hit) {
 			const current = await articleOf(mount, actor, hit.articleId, { kind: "current" });
 			if (current.status !== "ok") return "lost";
@@ -231,6 +320,11 @@ export async function loadWiki(
 					article: null,
 					missing: true,
 					order,
+					feedback: null,
+					editorName: null,
+					editing,
+					draft: null,
+					draftLost: false,
 				};
 			}
 			const names = await organizationNames([
@@ -238,7 +332,9 @@ export async function loadWiki(
 				shown.sourceId,
 				...preferred.alternates.map((item) => item.sourceId),
 				...shown.alternates.map((item) => item.sourceId),
+				...(editor ? [editor.organizationId] : []),
 			]);
+			if (editor) editorName = names.get(editor.organizationId) ?? "Your organization";
 			const neighbors = await mount.producer.articleNeighbors(mount.db, actor, {
 				articleId: hit.articleId,
 				source: sourceInput(viewed ? source : { kind: "current" }),
@@ -277,6 +373,56 @@ export async function loadWiki(
 				}),
 			};
 		}
+		if (article && editor) {
+			if (!editorName) editorName = "Your organization";
+			if (editing) {
+				const stored = await editorRevision(mount, editor.organizationId, article.article.articleId);
+				if (stored === "lost") draftLost = true;
+				else {
+					try {
+						const reply = await mount.producer.getOrganizationDraft(mount.db, actor, {
+							articleId: article.article.articleId,
+							organizationId: editor.organizationId,
+						});
+						if (reply.status !== "ok") {
+							if (reply.error.code !== "access_denied") draftLost = true;
+						} else if (!reply.value.errorCode) {
+							const fromDraft = reply.value.body ?? stored.draftBody;
+							const initialBody =
+								fromDraft ?? stored.currentBody ?? (article.block === null ? article.article.body : null);
+							const initialContentType = reply.value.body
+								? "safe_nodes"
+								: stored.draftBody
+									? (stored.draftType ?? "safe_nodes")
+									: stored.currentBody
+										? (stored.currentType ?? article.article.contentType)
+										: article.article.contentType;
+							draft = {
+								organizationId: editor.organizationId,
+								revision: stored.revision,
+								state: reply.value.state ?? stored.state,
+								initialBody,
+								initialContentType,
+								baselineBody: stored.currentBody ?? (article.block === null ? article.article.body : null),
+								baselineContentType: stored.currentType ?? article.article.contentType,
+							};
+						}
+					} catch (error) {
+						console.error(JSON.stringify({ component: "wiki", outcome: "draft-failed", error: String(error) }));
+						draftLost = true;
+					}
+				}
+			}
+		}
+		if (article && article.block === null && seat.plantId && !editing) {
+			try {
+				const mine = await mount.producer.getMine(mount.db, actor, { articleId: article.article.articleId });
+				if (mine.status === "ok") feedback = { vote: mine.value.currentVote };
+			} catch (error) {
+				console.error(JSON.stringify({ component: "wiki", outcome: "feedback-failed", error: String(error) }));
+			}
+		}
+		if (!article) editorName = null;
 		return {
 			tree,
 			readCount,
@@ -289,6 +435,11 @@ export async function loadWiki(
 			article,
 			missing: false,
 			order,
+			feedback,
+			editorName,
+			editing,
+			draft,
+			draftLost,
 		};
 	} catch (error) {
 		console.error(JSON.stringify({ component: "wiki", outcome: "page-failed", error: String(error) }));

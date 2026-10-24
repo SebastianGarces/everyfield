@@ -1,7 +1,7 @@
 "use server";
 
 import { parseSource, sourceInput } from "./model.ts";
-import { organizationNames, plantContext, runSearch, wikiActor, wikiMount } from "./server.ts";
+import { editorContext, organizationNames, plantContext, runSearch, wikiActor, wikiMount } from "./server.ts";
 
 // Browser writes for the wiki screens. The producer checks the session again and parses every input.
 // Opening the guide or searching does not record a view.
@@ -277,4 +277,110 @@ export async function saveSourceOrder(
 		console.error(JSON.stringify({ component: "wiki", outcome: "order-save-failed", error: String(error) }));
 		return { status: "lost" };
 	}
+}
+
+export type FeedbackResult =
+	{ status: "ok"; vote: "helpful" | "unhelpful" } | { status: "denied" } | { status: "conflict" } | { status: "lost" };
+
+export async function setFeedback(input: {
+	requestKey: string;
+	articleId: string;
+	vote: "helpful" | "unhelpful";
+}): Promise<FeedbackResult> {
+	const ready = await actorMount();
+	if (ready.status !== "ready") return ready;
+	if (!plantContext(ready.actor).plantId) return { status: "denied" };
+	try {
+		const reply = await ready.mount.producer.setMine(ready.mount.db, ready.actor, {
+			requestKey: input.requestKey,
+			expectedRevision: "0",
+			input: { articleId: input.articleId, vote: input.vote },
+		});
+		if (reply.status !== "ok") return reply.error.code === "conflict" ? { status: "conflict" } : { status: "denied" };
+		const vote = reply.value.currentVote;
+		if (vote !== "helpful" && vote !== "unhelpful") return { status: "lost" };
+		return { status: "ok", vote };
+	} catch (error) {
+		console.error(JSON.stringify({ component: "wiki", outcome: "feedback-failed", error: String(error) }));
+		return { status: "lost" };
+	}
+}
+
+export type OrgResult =
+	| { status: "ok"; revision: string; state: "published" | "hide" | "draft" | "inherited" | null }
+	| { status: "denied" }
+	| { status: "invalid" }
+	| { status: "conflict" }
+	| { status: "review" }
+	| { status: "lost" };
+
+type OrgCommand = {
+	requestKey: string;
+	expectedRevision: string;
+	articleId: string;
+	organizationId: string;
+	body?: string;
+	cachePath?: string;
+};
+
+function nextRevision(current: string): string {
+	return (BigInt(current) + 1n).toString();
+}
+
+async function orgWrite(mode: "add" | "edit" | "publish" | "hide", command: OrgCommand): Promise<OrgResult> {
+	const ready = await actorMount();
+	if (ready.status !== "ready") return ready;
+	const editor = editorContext(ready.actor);
+	if (!editor || editor.organizationId !== command.organizationId) return { status: "denied" };
+	if (!/^(0|[1-9]\d*)$/.test(command.expectedRevision)) return { status: "invalid" };
+	if (mode !== "hide" && (!command.body || command.body.length > 20000)) return { status: "invalid" };
+	const cachePath = command.cachePath?.slice(0, 400);
+	const input = {
+		articleId: command.articleId,
+		organizationId: command.organizationId,
+		...(mode === "hide" || !command.body ? {} : { body: command.body }),
+		...(cachePath ? { cachePath } : {}),
+	};
+	try {
+		const reply = await (
+			mode === "add"
+				? ready.mount.producer.addOrganizationArticle
+				: mode === "edit"
+					? ready.mount.producer.editOrganizationArticle
+					: mode === "publish"
+						? ready.mount.producer.publishOrganizationArticle
+						: ready.mount.producer.hideOrganizationArticle
+		)(ready.mount.db, ready.actor, {
+			requestKey: command.requestKey,
+			expectedRevision: command.expectedRevision,
+			input,
+		});
+		if (reply.status !== "ok") {
+			if (reply.error.code === "conflict") return { status: "conflict" };
+			if (reply.error.code === "invalid_input" || reply.error.code === "invalid_subject") return { status: "invalid" };
+			if (reply.error.code === "access_denied") return { status: "denied" };
+			return { status: "lost" };
+		}
+		if (reply.value.errorCode === "editorial_access_denied") return { status: "denied" };
+		if (reply.value.errorCode === "review_required") return { status: "review" };
+		if (reply.value.errorCode === "revision_conflict") return { status: "conflict" };
+		if (reply.value.errorCode) return { status: "lost" };
+		return { status: "ok", revision: nextRevision(command.expectedRevision), state: reply.value.state };
+	} catch (error) {
+		console.error(JSON.stringify({ component: "wiki", outcome: "organization-write-failed", error: String(error) }));
+		return { status: "lost" };
+	}
+}
+
+export async function saveWikiDraft(command: OrgCommand): Promise<OrgResult> {
+	return orgWrite(command.expectedRevision === "0" ? "add" : "edit", command);
+}
+
+export async function publishWikiArticle(command: OrgCommand): Promise<OrgResult> {
+	return orgWrite("publish", command);
+}
+
+export async function hideWikiSource(command: OrgCommand): Promise<OrgResult> {
+	if (command.expectedRevision === "0") return { status: "invalid" };
+	return orgWrite("hide", command);
 }

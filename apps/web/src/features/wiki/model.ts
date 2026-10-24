@@ -362,6 +362,8 @@ function nodeBlocks(value: unknown, blocks: Block[]): void {
 export function nodeDocument(body: string): Block[] | null {
 	try {
 		const parsed = JSON.parse(body) as unknown;
+		const editor = blocksFromEditorDocument(parsed);
+		if (editor) return withIds(editor);
 		if (!parsed || typeof parsed !== "object") return null;
 		const blocks: Block[] = [];
 		nodeBlocks(parsed, blocks);
@@ -454,4 +456,171 @@ export function listed(article: WikiArticle): Listed {
 		observedFraction: article.observedFraction,
 		completed: article.completed,
 	};
+}
+
+/** `/wiki/a/b/edit` opens the organization editor. A slug alone named edit stays an article. */
+export function splitWikiPath(parts: string[] | undefined): { slug: string; editing: boolean } {
+	if (parts && parts.length >= 2 && parts[parts.length - 1] === "edit") {
+		return { slug: slugFromParts(parts.slice(0, -1)), editing: true };
+	}
+	return { slug: slugFromParts(parts), editing: false };
+}
+
+export function editPath(slug: string): string {
+	return `${articlePath(slug)}/edit`;
+}
+
+export type EditorBlock =
+	| { kind: "paragraph"; text: string }
+	| { kind: "heading"; level: 2 | 3; text: string }
+	| { kind: "quote"; text: string }
+	| { kind: "list"; ordered: boolean; text: string };
+
+const EDITOR_FORMAT = "everyfield-editor-v1";
+export const EDITOR_BODY_LIMIT = 20000;
+
+function inlineText(value: unknown): string {
+	if (!Array.isArray(value)) return "";
+	return value
+		.map((part) => {
+			if (!part || typeof part !== "object") return "";
+			const node = part as { type?: string; text?: string; children?: unknown };
+			if (node.type === "text" && typeof node.text === "string") return node.text;
+			if (node.type === "link") return inlineText(node.children);
+			return "";
+		})
+		.join("");
+}
+
+function blocksFromEditorDocument(value: unknown): Block[] | null {
+	if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+	const doc = value as { format?: unknown; blocks?: unknown };
+	if (doc.format !== EDITOR_FORMAT || !Array.isArray(doc.blocks)) return null;
+	const blocks: Block[] = [];
+	for (const raw of doc.blocks) {
+		const block = contractToReader(raw);
+		if (block) blocks.push(block);
+	}
+	return blocks;
+}
+
+function contractToReader(value: unknown): Block | null {
+	if (!value || typeof value !== "object") return null;
+	const node = value as {
+		type?: string;
+		level?: number;
+		text?: string;
+		ordered?: boolean;
+		children?: unknown;
+		items?: unknown;
+		rows?: unknown;
+	};
+	if (node.type === "heading") {
+		const text = inlineText(node.children).trim();
+		if (!text) return null;
+		if (node.level === 2 || node.level === 3) return { kind: "heading", level: node.level, text, id: "" };
+		return { kind: "paragraph", text };
+	}
+	if (node.type === "paragraph" || node.type === "quote") {
+		const text = inlineText(node.children).trim();
+		if (!text) return null;
+		return node.type === "quote" ? { kind: "quote", text } : { kind: "paragraph", text };
+	}
+	if (node.type === "list" && Array.isArray(node.items)) {
+		const items = node.items.map((item) => inlineText(item).trim()).filter(Boolean);
+		if (!items.length) return null;
+		return { kind: "list", ordered: node.ordered === true, items };
+	}
+	if (node.type === "code" && typeof node.text === "string" && node.text.trim()) {
+		return { kind: "paragraph", text: node.text.trim() };
+	}
+	if (node.type === "table" && Array.isArray(node.rows)) {
+		const rows = node.rows
+			.map((row) => (Array.isArray(row) ? row.map((cell) => inlineText(cell).trim()) : []))
+			.filter((row) => row.some(Boolean));
+		if (!rows.length) return null;
+		return { kind: "table", rows };
+	}
+	return null;
+}
+
+function readerToEditor(block: Block): EditorBlock {
+	if (block.kind === "heading") return { kind: "heading", level: block.level, text: block.text };
+	if (block.kind === "quote") return { kind: "quote", text: block.text };
+	if (block.kind === "list") return { kind: "list", ordered: block.ordered, text: block.items.join("\n") };
+	if (block.kind === "table") return { kind: "paragraph", text: block.rows.map((row) => row.join(" · ")).join("\n") };
+	if (block.kind === "callout")
+		return { kind: "paragraph", text: block.label ? `${block.label}: ${block.text}` : block.text };
+	return { kind: "paragraph", text: block.text };
+}
+
+function editorFromContract(value: unknown): EditorBlock[] | null {
+	if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+	const doc = value as { format?: unknown; blocks?: unknown };
+	if (doc.format !== EDITOR_FORMAT || !Array.isArray(doc.blocks)) return null;
+	const blocks: EditorBlock[] = [];
+	for (const raw of doc.blocks) {
+		const reader = contractToReader(raw);
+		if (reader) blocks.push(readerToEditor(reader));
+	}
+	return blocks;
+}
+
+/** Draft JSON first. Published markdown and older plain text become the same blocks. */
+export function editorBlocksFromBody(contentType: string, body: string): EditorBlock[] {
+	try {
+		const parsed = editorFromContract(JSON.parse(body) as unknown);
+		if (parsed && parsed.length) return parsed;
+	} catch {
+		// Plain text and markdown are not editor JSON.
+	}
+	return articleBlocks(contentType, body).map(readerToEditor);
+}
+
+function contractBlock(block: EditorBlock): unknown {
+	const text = [{ type: "text", text: block.text, marks: [] }];
+	if (block.kind === "heading") return { type: "heading", level: block.level, children: text };
+	if (block.kind === "quote") return { type: "quote", children: text };
+	if (block.kind === "list") {
+		const items = block.text
+			.split("\n")
+			.map((item) => item.trim())
+			.filter(Boolean)
+			.map((item) => [{ type: "text", text: item, marks: [] }]);
+		return {
+			type: "list",
+			ordered: block.ordered,
+			items: items.length ? items : [[{ type: "text", text: "", marks: [] }]],
+		};
+	}
+	return { type: "paragraph", children: text };
+}
+
+export function editorDocumentJson(blocks: EditorBlock[]): string {
+	return JSON.stringify({ format: EDITOR_FORMAT, blocks: blocks.map(contractBlock) });
+}
+
+export function editorHasText(blocks: EditorBlock[]): boolean {
+	return blocks.some((block) => block.text.trim().length > 0);
+}
+
+export function changedSectionLabels(before: EditorBlock[], after: EditorBlock[]): string[] {
+	const previous = before.flatMap((block) =>
+		block.kind === "heading" && block.text.trim() ? [block.text.trim()] : [],
+	);
+	const next = after.flatMap((block) => (block.kind === "heading" && block.text.trim() ? [block.text.trim()] : []));
+	const labels: string[] = [];
+	const count = Math.max(previous.length, next.length);
+	for (let index = 0; index < count; index += 1) {
+		const prior = previous[index];
+		const current = next[index];
+		if (prior === current) continue;
+		if (current) labels.push(current);
+		else if (prior) labels.push(`Removed: ${prior}`);
+	}
+	return labels;
+}
+
+export function articleTextChanged(before: EditorBlock[], after: EditorBlock[]): boolean {
+	return editorDocumentJson(before) !== editorDocumentJson(after);
 }

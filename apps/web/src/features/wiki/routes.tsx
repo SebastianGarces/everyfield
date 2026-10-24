@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { isCrawler, parseSource, slugFromParts, wikiReturn } from "./model.ts";
+import { editPath, isCrawler, parseSource, splitWikiPath, wikiReturn } from "./model.ts";
 import { WikiScreen } from "./screen.tsx";
 import { loadPreview, loadWiki } from "./server.ts";
 
@@ -27,10 +27,11 @@ async function requestPath(slug: string): Promise<string> {
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug?: string[] }> }): Promise<Metadata> {
-	const slug = slugFromParts((await params).slug);
-	const path = await requestPath(slug);
+	const { slug, editing } = splitWikiPath((await params).slug);
 	const userAgent = (await headers()).get("user-agent");
-	if (!isCrawler(userAgent)) return { title: "Wiki", robots: { index: false, follow: false } };
+	if (editing || !isCrawler(userAgent))
+		return { title: editing ? "Edit article" : "Wiki", robots: { index: false, follow: false } };
+	const path = await requestPath(slug);
 	const preview = await loadPreview(path, userAgent ?? "");
 	if (!preview?.allowed || !preview.crawler) return { title: "Wiki", robots: { index: false, follow: false } };
 	return { title: preview.title ?? "Wiki", description: preview.excerpt ?? undefined };
@@ -43,16 +44,16 @@ export async function WikiPage({
 	params: Promise<{ slug?: string[] }>;
 	searchParams: Search;
 }) {
-	const slug = slugFromParts((await params).slug);
-	const path = await requestPath(slug);
+	const { slug, editing } = splitWikiPath((await params).slug);
+	const path = editing ? editPath(slug) : await requestPath(slug);
 	const userAgent = (await headers()).get("user-agent");
 	if (isCrawler(userAgent)) {
-		const preview = await loadPreview(path, userAgent ?? "");
+		const preview = await loadPreview(await requestPath(slug), userAgent ?? "");
 		if (preview?.crawler && preview.allowed) return <PublicPreview title={preview.title} excerpt={preview.excerpt} />;
 	}
 	const query = await searchParams;
 	const source = parseSource(one(query.source));
-	const data = await loadWiki(slug, source, one(query.order) === "edit");
+	const data = await loadWiki(slug, source, one(query.order) === "edit", editing);
 	if (data === "signed-out") redirect(`/signin?returnTo=${encodeURIComponent(wikiReturn(path, source))}`);
 	if (data === "lost") {
 		return (
