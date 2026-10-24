@@ -136,3 +136,165 @@ export const retryResult = z.strictObject({
 	blindResends: z.literal(0),
 	retried: z.number().int().nonnegative(),
 });
+
+const hubStates = ["draft", "scheduled", "sending", "sent", "logged", "cancelled", "failed", "unknown"] as const;
+const contactOutcomes = ["contacted", "attempted_no_contact", "administrative_completion", "no_longer_needed"] as const;
+
+export const historyItem = z.strictObject({
+	id: recordId,
+	subject: z.string().nullable(),
+	state: z.enum(hubStates),
+	channel: z.literal("email"),
+	meetingId: recordId.nullable(),
+	createdAt: instant,
+	countsAsSent: z.boolean(),
+	rate: z.number().nullable(),
+	reachable: z.number().int().nonnegative(),
+	delivered: z.number().int().nonnegative(),
+});
+export const historyPage = z.strictObject({
+	items: z.array(historyItem),
+	nextCursor: z.string().nullable(),
+	visibleCount: z.number().int().nonnegative(),
+	asOf: instant,
+	complete: z.boolean(),
+	limit: z.number().int().min(1).max(100),
+	rate: z.number().nullable(),
+	draftCountsAsSent: z.literal(false),
+	unknownCountsAsSent: z.literal(false),
+	foreignRows: z.array(z.string()).max(0),
+});
+export const deliveryTotalsResult = z.strictObject({
+	communicationId: recordId,
+	state: z.enum(hubStates),
+	selected: z.number().int().nonnegative(),
+	reachable: z.number().int().nonnegative(),
+	attempted: z.number().int().nonnegative(),
+	accepted: z.number().int().nonnegative(),
+	sent: z.number().int().nonnegative(),
+	delivered: z.number().int().nonnegative(),
+	opened: z.number().int().nonnegative(),
+	clicked: z.number().int().nonnegative(),
+	bounced: z.number().int().nonnegative(),
+	failed: z.number().int().nonnegative(),
+	suppressed: z.number().int().nonnegative(),
+	unknown: z.number().int().nonnegative(),
+	asOf: instant,
+	rate: z.number().nullable(),
+	outcomes: z.array(z.enum(["accepted", "unknown", "rejected"])),
+	sentForAll: z.boolean(),
+});
+export const detailResult = z.strictObject({
+	communicationId: recordId,
+	revision: revision,
+	state: z.enum(communicationStates),
+	subject: z.string().nullable(),
+	bodyHtml: z.string().nullable(),
+	bodyText: z.string().nullable(),
+	meetingId: recordId.nullable(),
+	deliveryAddress: z.string().nullable(),
+	currentPersonAddress: z.string().nullable(),
+	deliveryStatus: z.string().nullable(),
+	recipients: z.array(
+		z.strictObject({
+			personId: recordId.nullable(),
+			deliveryAddress: z.string().nullable(),
+			currentPersonAddress: z.string().nullable(),
+			deliveryStatus: z.string(),
+			sentAt: instant.nullable(),
+			deliveredAt: instant.nullable(),
+			openedAt: instant.nullable(),
+			clickedAt: instant.nullable(),
+		}),
+	),
+});
+export const personHistoryResult = historyPage.extend({
+	personId: recordId,
+	lastConfirmedContactAt: instant.nullable(),
+	contacts: z.array(
+		z.strictObject({
+			outcomeId: recordId,
+			outcome: z.enum(contactOutcomes),
+			occurredAt: instant,
+			voided: z.boolean(),
+			taskId: recordId.nullable(),
+		}),
+	),
+});
+export const meetingHistoryResult = historyPage.extend({ meetingId: recordId });
+export const recipientHistoryResult = z.strictObject({
+	communicationId: recordId,
+	items: z.array(
+		z.strictObject({
+			personId: recordId.nullable(),
+			name: z.string().nullable(),
+			deliveryStatus: z.string(),
+			deliveryAddress: z.string().nullable(),
+		}),
+	),
+	nextCursor: z.string().nullable(),
+	complete: z.boolean(),
+});
+export const meetingTrackingResult = z.strictObject({
+	meetingId: recordId,
+	items: z.array(
+		z.strictObject({
+			personId: recordId,
+			name: z.string(),
+			deliveryStatus: z.string(),
+		}),
+	),
+	complete: z.literal(true),
+});
+export const executionResult = z.strictObject({
+	communicationId: recordId,
+	status: z.enum(["failed", "unknown", "accepted", "partial"]),
+	accepted: z.number().int().nonnegative(),
+	refused: z.number().int().nonnegative(),
+	unknown: z.number().int().nonnegative(),
+});
+export const resendCandidatesResult = z.strictObject({
+	communicationId: recordId,
+	selection: z.enum(["delivered_nonopeners", "proven_failed"]),
+	eligibleIds: z.array(recordId),
+	eligibleNames: z.array(z.string()),
+	excludedNames: z.array(z.string()),
+	openTrackingIsCertain: z.literal(false),
+	confirmedDelivery: z.boolean(),
+});
+export const resendResult = z.strictObject({
+	communicationId: recordId,
+	newCommunications: z.literal(1),
+	originalMutated: z.literal(false),
+	replayNewIntents: z.literal(0),
+	openTrackingIsCertain: z.literal(false),
+	eligibleIds: z.array(recordId),
+	eligibleNames: z.array(z.string()),
+});
+export const recordContactResult = z.strictObject({
+	projectionRevision: revision,
+	outcomeId: recordId,
+	outcome: z.literal("contacted"),
+	lastConfirmedContactAt: instant,
+});
+export const contactCorrectionResult = z.strictObject({
+	executionId: recordId,
+	status: z.literal("corrected"),
+	affected: z.literal(1),
+	excluded: z.literal(0),
+	results: z.array(
+		z.strictObject({
+			outcomeId: recordId,
+			outcome: z.enum(contactOutcomes),
+			voided: z.boolean(),
+		}),
+	),
+	correction: z.strictObject({
+		supersedesId: recordId,
+		outcomeId: recordId,
+		outcome: z.enum(contactOutcomes),
+		occurredAt: instant.nullable(),
+	}),
+	correlationId: recordId,
+	lastConfirmedContactAt: instant.nullable(),
+});

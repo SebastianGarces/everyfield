@@ -16,6 +16,20 @@ import type { RequestActor } from "../access/session.ts";
 import { liveRead } from "../access/session.ts";
 import { audiencePeople, reviewedParts, summarizeAudience } from "./audience.ts";
 import {
+	correctContactLog as correctContactLogCommand,
+	executeResend as executeResendCommand,
+	getDeliveryTotals,
+	getDetail,
+	getExecutionResult,
+	listForMeeting,
+	listForPerson,
+	listHistory,
+	listHistoryRecipients,
+	listMeetingTracking,
+	listResendCandidates,
+	recordContactFromTask as recordContactFromTaskCommand,
+} from "./history.ts";
+import {
 	cancelScheduled,
 	dispatchReviewed,
 	listOwnSuppression,
@@ -368,6 +382,31 @@ export const communicationWriter = {
 		transport: DeliveryTransport,
 		keys: DeliveryKeys,
 	) => sendTransactionalMail(db, authority, raw, transport, keys),
+	listHistory: (tx: Tx, authority: RequestActor, raw: unknown) => readReply(() => listHistory(tx, authority, raw)),
+	getDetail: (tx: Tx, authority: RequestActor, raw: unknown, keys?: DeliveryKeys) =>
+		readReply(() => getDetail(tx, authority, raw, keys)),
+	getDeliveryTotals: (tx: Tx, authority: RequestActor, raw: unknown) =>
+		readReply(() => getDeliveryTotals(tx, authority, raw)),
+	listForPerson: (tx: Tx, authority: RequestActor, raw: unknown) => readReply(() => listForPerson(tx, authority, raw)),
+	listForMeeting: (tx: Tx, authority: RequestActor, raw: unknown) =>
+		readReply(() => listForMeeting(tx, authority, raw)),
+	listHistoryRecipients: (tx: Tx, authority: RequestActor, raw: unknown, keys?: DeliveryKeys) =>
+		readReply(() => listHistoryRecipients(tx, authority, raw, keys)),
+	listMeetingTracking: (tx: Tx, authority: RequestActor, raw: unknown) =>
+		readReply(() => listMeetingTracking(tx, authority, raw)),
+	getExecutionResult: (tx: Tx, authority: RequestActor, raw: unknown) =>
+		readReply(() => getExecutionResult(tx, authority, raw)),
+	listResendCandidates: (tx: Tx, authority: RequestActor, raw: unknown) =>
+		readReply(() => listResendCandidates(tx, authority, raw)),
+	async executeResend(tx: Tx, context: CommunicationContext, raw: unknown) {
+		return reply(tx, () => executeResendCommand(tx, context, raw));
+	},
+	async correctContactLog(tx: Tx, context: CommunicationContext, raw: unknown) {
+		return reply(tx, () => correctContactLogCommand(tx, context, raw));
+	},
+	async recordContactFromTask(tx: Tx, context: CommunicationContext, raw: unknown) {
+		return reply(tx, () => recordContactFromTaskCommand(tx, context, raw));
+	},
 };
 
 type DraftValue = z.infer<typeof c.draftResult>;
