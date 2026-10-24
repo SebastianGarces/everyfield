@@ -30,14 +30,14 @@ function loadFrozen(): Promise<FrozenStarter> {
 	return frozen;
 }
 
-function catalogFile(name: string): string {
-	// Turbopack's file reader rejects a URL from another realm (`instanceof URL` fails). A string path is accepted.
+/** A file path string. Next's server bundle uses its own URL class, which Node's fs rejects. */
+function frozenFile(name: string) {
 	return fileURLToPath(new URL(name, import.meta.url).href);
 }
 
 async function readFrozen(): Promise<FrozenStarter> {
-	const freeze = JSON.parse(await readFile(catalogFile("freeze.json"), "utf8"));
-	const bytes = await readFile(catalogFile("artifacts.json"));
+	const freeze = JSON.parse(await readFile(frozenFile("freeze.json"), "utf8"));
+	const bytes = await readFile(frozenFile("artifacts.json"));
 	if (typeof freeze.artifactSha256 !== "string" || hash(bytes) !== freeze.artifactSha256) {
 		throw Error("reference_artifact_mismatch");
 	}

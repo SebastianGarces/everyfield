@@ -3,6 +3,7 @@
 import {
 	BookOpen01Icon,
 	Calendar03Icon,
+	File02Icon,
 	InformationCircleIcon,
 	Mail01Icon,
 	Settings02Icon,
@@ -25,7 +26,7 @@ import { useProductSettings } from "../settings/ProductSettings";
 import type { Role } from "./server.ts";
 import { useWikiChrome, WikiChrome } from "../wiki/client.tsx";
 
-// The product frame around People, Meetings, Messages, Tasks, Ministries, Wiki and Settings. Only destinations that
+// The product frame around People, Meetings, Messages, Tasks, Ministries, Wiki, Documents and Settings. Only destinations that
 // exist are in the navigation. The full product navigation and command palette come from their own packages and
 // replace these when they ship. The bell
 // opens the notification drop-down (WP-030). Settings sits at the bottom of the rail and in the user menu behind the
@@ -61,6 +62,15 @@ const MINISTRIES = {
 	prefetch: false,
 } as const;
 const WIKI = { kind: "link", key: "wiki", label: "Wiki", href: "/wiki", icon: BookOpen01Icon } as const;
+// Documents is a secondary rail page. It loads when chosen, not whenever the frame renders.
+const DOCUMENTS = {
+	kind: "link",
+	key: "documents",
+	label: "Documents",
+	href: "/documents",
+	icon: File02Icon,
+	prefetch: false,
+} as const;
 const ROLE: Record<Role, string> = { owner: "Owner", admin: "Admin", member: "Member" };
 
 type FrameProps = {
@@ -126,6 +136,7 @@ function Frame({ name, settings, seed = null, children }: FrameProps) {
 	const nav: ShellNav = {
 		main: [PEOPLE, MEETINGS, MESSAGES, TASKS, MINISTRIES, WIKI],
 		pages: [
+			DOCUMENTS,
 			{
 				kind: "action",
 				key: "guide",
