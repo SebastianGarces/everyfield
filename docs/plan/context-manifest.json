@@ -2651,7 +2651,10 @@
         "relationship_invitation",
         "schema_backfill",
         "schema_migration",
-        "settings_preview"
+        "settings_preview",
+        "training_assignment",
+        "training_credit",
+        "training_program"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
       "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
@@ -6951,7 +6954,10 @@
         "WP-090"
       ],
       "producer_table_names": [
-        "audit_event"
+        "audit_event",
+        "training_assignment",
+        "training_credit",
+        "training_program"
       ],
       "consumer_table_names": [
         "attestation",
@@ -26078,6 +26084,9 @@
         "team_role",
         "team_tenure",
         "tenant",
+        "training_assignment",
+        "training_credit",
+        "training_program",
         "venue"
       ],
       "proof_stage": "whole-target integration; no deferred portions",
@@ -32071,6 +32080,9 @@
         "team",
         "team_role",
         "team_tenure",
+        "training_assignment",
+        "training_credit",
+        "training_program",
         "venue"
       ],
       "proof_stage": "whole-target integration; no deferred portions",

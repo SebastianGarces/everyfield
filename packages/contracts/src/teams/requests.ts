@@ -95,7 +95,9 @@ export const teamHistoryRequest = z.strictObject({ teamId: recordId });
 export const listRolesRequest = z.strictObject({ teamId: recordId });
 export const listMembersRequest = z.strictObject({ teamId: recordId });
 export const personAssignmentsRequest = z.strictObject({ personId });
-export const listLeaderCandidatesRequest = z.strictObject({});
+export const listLeaderCandidatesRequest = z.strictObject({
+	q: z.string().trim().min(1).max(80).optional(),
+});
 export const orgChartRequest = z.strictObject({ includeArchived: z.boolean().optional() });
 export const orgChartExportRequest = z.strictObject({ includeArchived: z.boolean().optional() });
 export const rosterPreviewRequest = z.strictObject({ meetingId: recordId, teamId: recordId });

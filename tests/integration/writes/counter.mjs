@@ -235,6 +235,8 @@ registerHooks({
 				"/packages/domain/src/communication/writer.ts": { communicationWriter: "communication" },
 				"/packages/domain/src/teams/responsibilities/reads.ts": { responsibilityReader: "teams" },
 				"/packages/domain/src/teams/responsibilities/writes.ts": { responsibilityWriter: "teams" },
+				"/packages/domain/src/teams/training/commands.ts": { trainingWriter: "teams" },
+				"/packages/domain/src/teams/training/reads.ts": { trainingReader: "teams" },
 				"/packages/domain/src/teams/roster.ts": { rosterWriter: "meetings" },
 			};
 			for (const [name, prefix] of Object.entries(objects[path.slice(root.length)] ?? {}))
