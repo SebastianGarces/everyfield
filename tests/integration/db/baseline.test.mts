@@ -304,7 +304,8 @@ test("INV-migration: two branches' migrations apply by name in either merge orde
 		]) {
 			const upgraded = await schema();
 			await writeFile(new URL(first.name, migrations), first.sql);
-			assert.deepEqual(await migrate(admin, upgraded, migrations), [...main, first.name]);
+			// D78 applies by file name. A committed migration may sort between these branch names.
+			assert.deepEqual(await migrate(admin, upgraded, migrations), [...main, first.name].sort());
 			await writeFile(new URL(second.name, migrations), second.sql);
 			assert.deepEqual(await migrate(admin, upgraded, migrations), [second.name]);
 			assert.deepEqual(await migrate(admin, upgraded, migrations), []);
@@ -313,7 +314,7 @@ test("INV-migration: two branches' migrations apply by name in either merge orde
 		}
 		for (const file of [a, b]) await writeFile(new URL(file.name, migrations), file.sql);
 		const fresh = await schema();
-		assert.deepEqual(await migrate(admin, fresh, migrations), [...main, a.name, b.name]);
+		assert.deepEqual(await migrate(admin, fresh, migrations), [...main, a.name, b.name].sort());
 		await writeFile(new URL(a.name, migrations), a.sql + ";\nSELECT 1");
 		await assert.rejects(migrate(admin, fresh, migrations), /migration_checksum_conflict/);
 	} finally {
