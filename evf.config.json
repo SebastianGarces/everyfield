@@ -777,6 +777,52 @@
 				}
 			],
 			"risk": "ordinary"
+		},
+		"OPS-54": {
+			"title": "Ship waits for every required check to exist and pass",
+			"owningPaths": ["evf.config.json", "tools/evf/"],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
+		},
+		"OPS-53": {
+			"title": "Quiet-database evf test races Docker",
+			"owningPaths": ["evf.config.json", "tools/evf/"],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
+		},
+		"OPS-55": {
+			"title": "Let Grok review Grok work until Oct 27",
+			"owningPaths": [
+				"tools/evf/",
+				".agents/skills/verify-preview/",
+				".agents/skills/ship/SKILL.md",
+				".agents/skills/everyfield-pr/SKILL.md"
+			],
+			"checks": [
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {

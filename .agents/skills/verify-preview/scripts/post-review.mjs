@@ -4,9 +4,10 @@
 //          --verdict approved|changes_requested --head <40-char sha>
 //          --experience-verdict approved|changes_requested --budget met|exceeded|not_applicable
 //          [--experience-exception reports|analytics]
-//          --quality-verdict approved|changes_requested --principles <comma-separated names> [--results <results.json> ...] [--dry-run]
-// Refuses a head that is not the PR's current head, a same-family review, and an approval
+//          --quality-verdict approved|changes_requested --principles <comma-separated names> [--results <results.json> ...] [--at <ISO time>] [--dry-run]
+// Refuses a head that is not the PR's current head, a family pair ship refuses, and an approval
 // when any results file has a failing verdict.
+// --at pins the review clock for tests. Ship uses its own clock and stores verification.checkedAt.
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -39,8 +40,20 @@ if (view.headRefOid !== head) refuse(`PR head is ${view.headRefOid}, you verifie
 if (verdict === "approved" && experience.budget === "exceeded" && (!experience.exception || !view.body.split(/\r?\n/).includes(`EVF-Experience-Exception: ${experience.exception}`))) refuse("exceeded budget needs the matching approved reports or analytics exception in the PR body");
 const author = /^EVF-Author:\s*(\w+)\s*$/m.exec(view.body)?.[1];
 if (!author) refuse("PR body has no EVF-Author line");
-// Same rule as crossFamilyReview in tools/evf/lib.ts: anthropic pairs with openai or xai.
-if (author === family || (author !== "anthropic" && family !== "anthropic")) refuse(`author family is ${author}; ${author === "anthropic" ? "an openai or xai" : "an anthropic"} verifier must review`);
+// Same rule as crossFamilyReview in tools/evf/lib.ts.
+const XAI_SAME_FAMILY_REVIEW_UNTIL = "2026-10-27T19:00:00.000Z";
+const reviewAt = value("at");
+const at = reviewAt === undefined ? Date.now() : Date.parse(reviewAt);
+if (reviewAt !== undefined && Number.isNaN(at)) refuse("--at must be an ISO time");
+const waiverOpen = at < Date.parse(XAI_SAME_FAMILY_REVIEW_UNTIL);
+const allowed =
+	(author === "xai" && family === "xai" && waiverOpen) ||
+	(author !== family && (author === "anthropic" || family === "anthropic"));
+if (!allowed) {
+	const needs =
+		author === "anthropic" ? "an openai or xai" : author === "xai" && waiverOpen ? "an anthropic or xai" : "an anthropic";
+	refuse(`author family is ${author}; ${needs} verifier must review`);
+}
 for (const file of all("results")) {
   const r = JSON.parse(readFileSync(file, "utf8"));
   if (r.after?.head && r.after.head !== head) refuse(`${file} was captured on ${r.after.head}, not ${head}`);

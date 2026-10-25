@@ -50,7 +50,7 @@ and merges with `--match-head-commit`. Failed CI or a carry that does not hold a
 The ship skill defines the review record and owner approval exceptions.
 
 Model families are `anthropic` (Opus), `xai` (Grok Build) and `openai` (Sol), not individual
-model names. `anthropic` pairs with either other family; `xai` and `openai` never review each other. Authors put
+model names. `anthropic` pairs with either other family. `openai` and `xai` never review each other. Until 2026-10-27T19:00:00.000Z, `xai` may review `xai`. Ship stores that time as `verification.checkedAt`. A milestone from that review still passes after the instant. At and after the instant, a new `xai` review of `xai` work is refused. Authors put
 `EVF-Author: <family>` in the body. Verifiers put one JSON line in their PR comment:
 
 ```text

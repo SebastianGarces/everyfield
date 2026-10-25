@@ -59,14 +59,14 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-020 | Meetings, venues, list and detail, invitations and RSVP | 29 | 48 | 35 | 5 | 3 |
 | WP-017 | Teams, roster, roles, leader appointments and org chart | 11 | 41 | 26 | 4 | 2.5 |
 | WP-018 | Responsibilities canonical offer | 3 | 7 | 3 | 2 | 1.5 |
-| WP-019 | Training programs completion revoke/correct | 14 | 10 | 27 | 1 | 2 |
+| WP-019 | Training programs completion revoke/correct | 14 | 10 | 27 | 4 | 2 |
 | WP-024 | Task core | 11 | 22 | 14 | 5 | 2 |
 | WP-022 | Attendance, finalization, evaluation and analytics | 13 | 19 | 15 | 4 | 2 |
 | WP-023 | Follow-up obligation/outcome C2b | 12 | 10 | 17 | 2 | 2 |
 | WP-025 | Task structure | 6 | 12 | 7 | 0 | 1.5 |
 | WP-038 | Phase initial declaration and transitions | 32 | 7 | 23 | 2 | 2.5 |
 | WP-026 | Phase task templates and prompts | 5 | 7 | 5 | 3 | 1.5 |
-| WP-027 | Communication composition/templates | 14 | 17 | 5 | 0 | 2 |
+| WP-027 | Communication composition/templates | 14 | 17 | 5 | 3 | 2 |
 | WP-028 | Shared email delivery and webhook reconciliation | 20 | 19 | 25 | 7 | 2.5 |
 | WP-029 | Communication history and resend | 19 | 9 | 18 | 0 | 2 |
 | WP-030 | Notification feed/preferences | 19 | 19 | 25 | 4 | 2.5 |
@@ -74,7 +74,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-034 | Wiki browsing/search/progress/bookmarks | 80 | 21 | 88 | 4 | 4 |
 | WP-035 | Wiki feedback/admin/revalidation | 89 | 7 | 88 | 3 | 4 |
 | WP-036 | Document template and format contracts | 22 | 5 | 11 | 3 | 2 |
-| WP-037 | Generated files and native owned documents | 20 | 15 | 25 | 2 | 2 |
+| WP-037 | Generated files and native owned documents | 20 | 15 | 25 | 3 | 2 |
 | WP-039 | Check-ins manual signals and corrections | 15 | 11 | 41 | 2 | 2 |
 | WP-045 | Launch plan/readiness/milestones | 18 | 10 | 19 | 7 | 2 |
 | WP-046 | Launch outcomes/events/history | 43 | 11 | 45 | 5 | 3 |

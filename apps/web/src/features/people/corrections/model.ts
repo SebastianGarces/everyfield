@@ -61,7 +61,9 @@ export type ReferenceKind =
 	| "residency_link"
 	| "task"
 	| "team_leader"
-	| "team_tenure";
+	| "team_tenure"
+	| "training_assignment"
+	| "training_credit";
 
 /** What each kind is called in a count: "2 notes". The singular is used for one. */
 export const KIND_LABEL: Record<ReferenceKind, [one: string, many: string]> = {
@@ -90,6 +92,8 @@ export const KIND_LABEL: Record<ReferenceKind, [one: string, many: string]> = {
 	task: ["task", "tasks"],
 	team_leader: ["ministry leader role", "ministry leader roles"],
 	team_tenure: ["ministry role", "ministry roles"],
+	training_assignment: ["training assignment", "training assignments"],
+	training_credit: ["training credit", "training credits"],
 };
 export const counted = (kind: ReferenceKind, count: number) => `${count} ${KIND_LABEL[kind][count === 1 ? 0 : 1]}`;
 /** A kind as a list heading: "Notes". */

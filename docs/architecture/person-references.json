@@ -686,6 +686,56 @@
       "future_case_ids": [
         "ADR1-017"
       ]
+    },
+    {
+      "table": "training_assignment",
+      "columns": [
+        "person_id",
+        "plant_id"
+      ],
+      "target_columns": [
+        "id",
+        "tenant_id"
+      ],
+      "consumer_work_packages": [
+        "WP-019"
+      ],
+      "meaning": "Saved person and program applicability. A merge moves every episode to the survivor.",
+      "lock_order": "Lock live same-plant source and survivor in UUID order, then the assignment row.",
+      "merge_policy": "Move the assignment to the survivor. Do not put both people on one active episode of the same program.",
+      "inverse_policy": "Unmerge moves the assignment back when the reviewed survivor revision still matches.",
+      "retirement_policy": "Operational rosters list live people only. The episode row remains.",
+      "privacy_policy": "Assignment movement never transfers account grants, private care, or mail.",
+      "immutable_evidence_policy": "Ended episodes keep their dates. A merge moves the row. It does not rewrite the dates.",
+      "future_case_ids": [
+        "SCHEMA-009",
+        "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-MERGE"
+      ]
+    },
+    {
+      "table": "training_credit",
+      "columns": [
+        "person_id",
+        "plant_id"
+      ],
+      "target_columns": [
+        "id",
+        "tenant_id"
+      ],
+      "consumer_work_packages": [
+        "WP-019"
+      ],
+      "meaning": "Append-only earned, revoked, or service evidence. A merge leaves it on the source person.",
+      "lock_order": "Lock live same-plant source and survivor in UUID order. Do not rewrite the credit.",
+      "merge_policy": "Keep the credit on the source person. Do not move historical completion.",
+      "inverse_policy": "Unmerge does not move the credit, because the merge did not move it.",
+      "retirement_policy": "Operational selectors omit a retired person. The credit row remains under that person.",
+      "privacy_policy": "Credit evidence never transfers account grants, private care, or organization person evidence.",
+      "immutable_evidence_policy": "Verifier, earned date, and kind stay as written. Revoke and redo append rows.",
+      "future_case_ids": [
+        "SCHEMA-009",
+        "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-MERGE"
+      ]
     }
   ],
   "person_snapshot_references": [

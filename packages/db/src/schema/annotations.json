@@ -2303,6 +2303,34 @@
 				"privacy_policy": "Holds only the kind and date; the actor stays in the audit row.",
 				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
 				"future_case_ids": ["ADR1-017"]
+			},
+			{
+				"table": "training_assignment",
+				"columns": ["person_id", "plant_id"],
+				"target_columns": ["id", "tenant_id"],
+				"consumer_work_packages": ["WP-019"],
+				"meaning": "Saved person and program applicability. A merge moves every episode to the survivor.",
+				"lock_order": "Lock live same-plant source and survivor in UUID order, then the assignment row.",
+				"merge_policy": "Move the assignment to the survivor. Do not put both people on one active episode of the same program.",
+				"inverse_policy": "Unmerge moves the assignment back when the reviewed survivor revision still matches.",
+				"retirement_policy": "Operational rosters list live people only. The episode row remains.",
+				"privacy_policy": "Assignment movement never transfers account grants, private care, or mail.",
+				"immutable_evidence_policy": "Ended episodes keep their dates. A merge moves the row. It does not rewrite the dates.",
+				"future_case_ids": ["SCHEMA-009", "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-MERGE"]
+			},
+			{
+				"table": "training_credit",
+				"columns": ["person_id", "plant_id"],
+				"target_columns": ["id", "tenant_id"],
+				"consumer_work_packages": ["WP-019"],
+				"meaning": "Append-only earned, revoked, or service evidence. A merge leaves it on the source person.",
+				"lock_order": "Lock live same-plant source and survivor in UUID order. Do not rewrite the credit.",
+				"merge_policy": "Keep the credit on the source person. Do not move historical completion.",
+				"inverse_policy": "Unmerge does not move the credit, because the merge did not move it.",
+				"retirement_policy": "Operational selectors omit a retired person. The credit row remains under that person.",
+				"privacy_policy": "Credit evidence never transfers account grants, private care, or organization person evidence.",
+				"immutable_evidence_policy": "Verifier, earned date, and kind stay as written. Revoke and redo append rows.",
+				"future_case_ids": ["SCHEMA-009", "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-MERGE"]
 			}
 		],
 		"person_snapshot_references": [
@@ -9052,6 +9080,9 @@
 				},
 				"section_id": {
 					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
+				},
+				"related_slugs": {
+					"note": "Approved related article slugs stored by the release install. A read resolves them to entitled article ids."
 				}
 			},
 			"foreignKeys": {
@@ -9806,6 +9837,84 @@
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+					}
+				}
+			}
+		},
+		"generated_document": {
+			"table": {
+				"name": "generated_document",
+				"domain": "documents",
+				"purpose": "One saved render of a catalog template. The plant owns the row. The creator account is attribution, not ownership. Frozen inputs, template version and bytes stay when church facts change.",
+				"library_owned": false,
+				"jsonb_keys": {
+					"inputs": [
+						"key: catalog merge field id",
+						"value: frozen text used for this render",
+						"source: catalog default or an explicit nonempty override"
+					]
+				},
+				"capabilities": ["CAP-C-013"],
+				"replaces": [],
+				"producer_work_packages": ["WP-037"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-037"],
+					"rule": "WP-037 stores one saved catalog render. The plant owns the row. Creator attribution is not ownership."
+				},
+				"feature_ids": ["DOC-003"],
+				"acceptance_ids": ["AC-DOC-003--DOC-003"],
+				"future_case_ids": ["CASE-DOC-003", "PROVIDER48-002", "PROVIDER48-003"],
+				"scope": "documents",
+				"invariants": [
+					"A saved row points at one ready private file in the same plant.",
+					"The same request key returns the stored render and does not write a second file.",
+					"Plant ownership survives creator deletion."
+				],
+				"revision": "A saved render is immutable. revision stays 1.",
+				"idempotency": "The same request key returns the stored render and does not write a second file.",
+				"deletion": "Plant purge removes the generated row with the plant. Account deletion clears creator attribution and keeps the plant-owned file.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": { "note": "" },
+				"tenant_id": { "note": "Plant owner. A generated row is never account-owned." },
+				"creator_account_id": { "note": "Attribution only. Account deletion nulls it and keeps the plant file." },
+				"template_id": { "note": "Catalog template id frozen at generation." },
+				"template_version": { "note": "Catalog version frozen at generation." },
+				"saved_template_name": { "note": "Template name frozen so a retired catalog entry still has a label." },
+				"renderer_version": { "note": "Render engine version that produced the bytes." },
+				"format": { "note": "" },
+				"object_id": { "note": "Ready private file that holds the exact bytes." },
+				"inputs": { "note": "Frozen merge fields. Each entry has key, value and source." },
+				"download_name": { "note": "" },
+				"generated_at": { "note": "" },
+				"request_key": { "note": "Repeat of the same key returns this row." },
+				"revision": { "note": "" }
+			},
+			"foreignKeys": {
+				"tenant_id->tenant(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Plant purge removes the generated row before the plant."
+					}
+				},
+				"creator_account_id->account(id)": {
+					"deletion": {
+						"action": "set_null",
+						"policy": "Clear creator attribution when the account row is removed. The plant keeps the generated file."
+					}
+				},
+				"object_id,tenant_id->file_object(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "The private file stays while this row references it. Cleanup deletes only an unreferenced object."
+					}
+				},
+				"id,tenant_id->record(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "The record binding stays with the generated row."
 					}
 				}
 			}
@@ -12339,6 +12448,7 @@
 					"WP-023",
 					"WP-024",
 					"WP-026",
+					"WP-027",
 					"WP-028",
 					"WP-030",
 					"WP-031",
@@ -12369,6 +12479,7 @@
 						"article_revision",
 						"attestation",
 						"commitment",
+						"communication",
 						"contact_outcome",
 						"development_enrollment",
 						"development_program",
@@ -12380,6 +12491,7 @@
 						"document_revision",
 						"file_object",
 						"four_cs",
+						"generated_document",
 						"household",
 						"interview",
 						"invitation",
@@ -12390,6 +12502,7 @@
 						"mail_attempt",
 						"mail_request",
 						"meeting",
+						"message_template",
 						"notice",
 						"notification_preference",
 						"obligation",
@@ -16609,6 +16722,378 @@
 				}
 			},
 			"foreignKeys": {}
+		},
+		"communication": {
+			"table": {
+				"name": "communication",
+				"domain": "communication",
+				"purpose": "A plant draft or a reviewed schedule. It stores the audience and an optional subject and body. It stores no mail intent.",
+				"library_owned": false,
+				"jsonb_keys": {
+					"audience": ["groups", "teamIds", "personIds"]
+				},
+				"capabilities": ["CAP-B-035"],
+				"replaces": [],
+				"producer_work_packages": ["WP-027"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-027"],
+					"rule": "WP-027 composition storage through Drizzle Kit (C100)."
+				},
+				"feature_ids": ["COM-003", "COM-004", "COM-012"],
+				"acceptance_ids": [],
+				"future_case_ids": [],
+				"scope": "plant",
+				"invariants": [
+					"A draft belongs to one plant.",
+					"A scheduled row has a subject, a safe body, and a schedule instant.",
+					"Deleting a draft removes the row. The record identity stays."
+				],
+				"revision": "Expected revision fences an update. A change advances it.",
+				"idempotency": "The request key returns the stored result.",
+				"deletion": "Plant deletion removes the row. A draft delete removes the row. The record identity stays.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": ""
+				},
+				"plant_id": {
+					"note": ""
+				},
+				"author_id": {
+					"note": "The account that saved the draft. Null after that account is deleted."
+				},
+				"revision": {
+					"note": ""
+				},
+				"state": {
+					"note": ""
+				},
+				"subject": {
+					"note": "Null while the draft is incomplete. Required once the row is scheduled."
+				},
+				"body_html": {
+					"note": "Sanitized HTML. Null while the draft is incomplete."
+				},
+				"body_text": {
+					"note": "Plain text derived from the sanitized HTML."
+				},
+				"template_id": {
+					"note": "Optional plant template. Null when the draft uses no plant template."
+				},
+				"template_source": {
+					"note": "Optional system source key. It does not point at a row."
+				},
+				"meeting_id": {
+					"note": "Optional meeting in the same plant. Null when the meeting is removed."
+				},
+				"audience": {
+					"note": "Group names, team ids, and person ids. Search does not change this value."
+				},
+				"review_digest": {
+					"note": "Hash of the reviewed subject, body, and eligible people. Null on a draft."
+				},
+				"scheduled_at": {
+					"note": "The accepted schedule instant. Null until the row is scheduled."
+				},
+				"created_at": {
+					"note": ""
+				},
+				"updated_at": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"plant_id->plant(id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "Plant deletion removes the row. The record identity stays."
+					}
+				},
+				"author_id->account(id)": {
+					"deletion": {
+						"action": "set_null",
+						"policy": "Account deletion keeps the draft and clears the author."
+					}
+				},
+				"template_id,plant_id->message_template(id,plant_id)": {
+					"deletion": {
+						"action": "no_action",
+						"policy": "A referenced template stays. The app refuses to delete it."
+					}
+				},
+				"meeting_id->meeting(id)": {
+					"deletion": {
+						"action": "set_null",
+						"policy": "Removing the meeting clears the pointer. The draft stays."
+					},
+					"scope_exception": "A meeting can be removed while a draft still names it. The pointer clears. The draft stays in its plant. The app checks the meeting belongs to the plant before it saves the pointer."
+				},
+				"id,plant_id->record(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "The record identity stays when the row is removed. A foreign key grants no access."
+					}
+				}
+			}
+		},
+		"message_template": {
+			"table": {
+				"name": "message_template",
+				"domain": "communication",
+				"purpose": "A plant copy of a system email template, or a template the plant wrote. The seven system templates stay in code. One live fork per source.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-B-036"],
+				"replaces": [],
+				"producer_work_packages": ["WP-027"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-027"],
+					"rule": "WP-027 template storage through Drizzle Kit (C100)."
+				},
+				"feature_ids": ["COM-007", "COM-008"],
+				"acceptance_ids": [],
+				"future_case_ids": [],
+				"scope": "plant",
+				"invariants": [
+					"A plant fork does not change the system template in code.",
+					"One row per plant and source key.",
+					"A referenced template is archived or kept. An unreferenced fork can be deleted."
+				],
+				"revision": "Expected revision fences an update. A change advances it.",
+				"idempotency": "The request key returns the stored result. A repeated fork returns the one row.",
+				"deletion": "Plant deletion removes the row. An unreferenced fork can be deleted. The record identity stays.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": ""
+				},
+				"plant_id": {
+					"note": ""
+				},
+				"source_key": {
+					"note": "The system source this fork copies. Null for a template the plant wrote."
+				},
+				"name": {
+					"note": ""
+				},
+				"description": {
+					"note": ""
+				},
+				"category": {
+					"note": ""
+				},
+				"meeting_type": {
+					"note": "Set only for a meeting invitation."
+				},
+				"subject": {
+					"note": ""
+				},
+				"body_html": {
+					"note": ""
+				},
+				"body_text": {
+					"note": ""
+				},
+				"archived_at": {
+					"note": "Set when the plant archives the template. The row stays."
+				},
+				"revision": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"plant_id->plant(id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "Plant deletion removes the row. The record identity stays."
+					}
+				},
+				"id,plant_id->record(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "The record identity stays when the row is removed. A foreign key grants no access."
+					}
+				}
+			}
+		},
+		"training_program": {
+			"table": {
+				"name": "training_program",
+				"domain": "teams",
+				"purpose": "A training program for one team, or an explicit churchwide program when team_id is null. Archiving the team does not clear team_id. A correction changes name, required, and version. It does not change the team.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-A-038"],
+				"replaces": [],
+				"producer_work_packages": ["WP-019"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-019"],
+					"rule": "WP-019 training program storage. The dropped training tables are not the contract (D72)."
+				},
+				"feature_ids": ["TEAM-008", "TEAM-009"],
+				"acceptance_ids": ["AC-TEAM-008--TEAM-008", "AC-TEAM-009--TEAM-009"],
+				"future_case_ids": [],
+				"scope": "plant",
+				"invariants": [
+					"A null team_id is an explicit churchwide program.",
+					"A correction never changes team_id.",
+					"version advances when the name or required flag changes."
+				],
+				"revision": "Optimistic revision. version is the content generation a credit must match.",
+				"idempotency": "The create and correct request keys return the recorded program.",
+				"deletion": "Church purge deletes credits, then assignments, then programs, before teams.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": { "note": "" },
+				"plant_id": { "note": "" },
+				"team_id": { "note": "Null means churchwide. Archiving the team does not null this." },
+				"name": { "note": "" },
+				"required": { "note": "Required programs count only people with a saved active assignment." },
+				"version": { "note": "Content generation. A credit names the version it was earned against." },
+				"revision": { "note": "" },
+				"archived_at": { "note": "" }
+			},
+			"foreignKeys": {
+				"plant_id->plant(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Church purge deletes the program after its credits and assignments."
+					}
+				},
+				"team_id,plant_id->team(id,plant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Church purge deletes the program before the team. A null team_id is churchwide and skips this key."
+					}
+				}
+			}
+		},
+		"training_assignment": {
+			"table": {
+				"name": "training_assignment",
+				"domain": "teams",
+				"purpose": "One saved applicability episode for a person and a program. Later membership, leadership, or commitment changes do not rewrite it. One active episode per person and program.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-A-039"],
+				"replaces": [],
+				"producer_work_packages": ["WP-019"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-019"],
+					"rule": "WP-019 saved training applicability."
+				},
+				"feature_ids": ["TEAM-008", "TEAM-009", "TEAM-011"],
+				"acceptance_ids": ["AC-TEAM-008--TEAM-008", "AC-TEAM-009--TEAM-009", "AC-TEAM-011--TEAM-011"],
+				"future_case_ids": [],
+				"scope": "plant",
+				"invariants": [
+					"One active episode per plant, program, and person.",
+					"An ended episode stays.",
+					"A merge moves the episode. A credit does not move with it."
+				],
+				"revision": "Optimistic revision. A merge increments it.",
+				"idempotency": "The roster request key returns the recorded person list.",
+				"deletion": "Church purge deletes assignments before programs. Person retirement does not delete the row.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": { "note": "" },
+				"plant_id": { "note": "" },
+				"program_id": { "note": "" },
+				"person_id": { "note": "Moves to the survivor on merge." },
+				"version": { "note": "Program version when the episode was saved." },
+				"state": { "note": "" },
+				"effective_on": { "note": "" },
+				"ended_on": { "note": "Null exactly while the episode is active." },
+				"revision": { "note": "" }
+			},
+			"foreignKeys": {
+				"plant_id->plant(id)": {
+					"deletion": { "action": "restrict", "policy": "Church purge deletes assignments before programs." }
+				},
+				"program_id,plant_id->training_program(id,plant_id)": {
+					"deletion": { "action": "restrict", "policy": "Delete assignments before the program." }
+				},
+				"person_id,plant_id->person(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "The episode stays for history. Retirement hides the person from operational rosters."
+					}
+				}
+			}
+		},
+		"training_credit": {
+			"table": {
+				"name": "training_credit",
+				"domain": "teams",
+				"purpose": "Append-only earned, revoked, or service evidence. A program credit names the version earned. A service row records attendance days and volunteer days and has no program. Revoke and redo insert rows.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-A-040"],
+				"replaces": [],
+				"producer_work_packages": ["WP-019"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-019"],
+					"rule": "WP-019 training evidence. Historical completion stays on the person who earned it."
+				},
+				"feature_ids": ["TEAM-008", "TEAM-009", "TEAM-010"],
+				"acceptance_ids": ["AC-TEAM-008--TEAM-008", "AC-TEAM-009--TEAM-009", "AC-TEAM-010--TEAM-010"],
+				"future_case_ids": [],
+				"scope": "plant",
+				"invariants": [
+					"Rows are inserted, not updated, except the verifier account may become null when that account is deleted.",
+					"A merge does not move the person.",
+					"A service row has no program. An earned or revoked row has one."
+				],
+				"revision": "Append-only. revision stays 1.",
+				"idempotency": "The attest, revoke, and redo request keys return the recorded credit outcome.",
+				"deletion": "Church purge deletes credits before assignments and programs.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": { "note": "" },
+				"plant_id": { "note": "" },
+				"person_id": { "note": "Stays on the source person through merge and unmerge." },
+				"program_id": { "note": "Null for a service span." },
+				"kind": { "note": "" },
+				"version": { "note": "Program version for earned and revoked rows. Null for service." },
+				"earned_on": { "note": "Set on earned rows only. The original date is not rewritten." },
+				"verifier_account_id": {
+					"note": "The session account that recorded the row. Null after that account is deleted."
+				},
+				"attendance_days": { "note": "Service spans only." },
+				"volunteer_days": { "note": "Service spans only." },
+				"recorded_at": { "note": "" },
+				"revision": { "note": "" }
+			},
+			"foreignKeys": {
+				"plant_id->plant(id)": {
+					"deletion": { "action": "restrict", "policy": "Church purge deletes credits first." }
+				},
+				"person_id,plant_id->person(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Evidence stays on the person. Retirement hides them from operational selectors."
+					}
+				},
+				"program_id,plant_id->training_program(id,plant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Delete credits before the program. A null program_id is a service span."
+					}
+				},
+				"verifier_account_id->account(id)": {
+					"deletion": { "action": "set_null", "policy": "Account deletion keeps the credit and clears the verifier." }
+				}
+			}
 		}
 	}
 }

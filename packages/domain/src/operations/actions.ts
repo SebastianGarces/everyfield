@@ -41,6 +41,42 @@ export function writeAction(operation: string): string {
 				: "phase.transitioned";
 	if (domain === "tasks") return "tasks.changed";
 	if (domain === "notifications") return "settings.changed";
+	if (domain === "wiki") {
+		if (verb === "setSourceOrder") return "wiki.source_order_changed";
+		if (verb === "bookmarks") return "wiki.bookmark_changed";
+		if (verb === "reading") return "wiki.reading_recorded";
+		if (verb === "feedback") return "feedback.received";
+		// The audit check has no wiki.draft and no upstream action.
+		// Draft add/edit and upstream review record wiki.published.
+		// Hide records wiki.hidden. The stored result carries the real state.
+		if (operation === "wiki.organizationArticles.hide") return "wiki.hidden";
+		if (
+			operation === "wiki.organizationArticles.publish" ||
+			operation === "wiki.organizationArticles.add" ||
+			operation === "wiki.organizationArticles.edit" ||
+			operation === "wiki.emitUpstreamReview"
+		)
+			return "wiki.published";
+	}
+	if (domain === "communication") {
+		const named: Record<string, string> = {
+			"communication.saveDraft": "communication.draft_saved",
+			"communication.deleteDraft": "communication.draft_deleted",
+			"communication.scheduleReviewed": "communication.scheduled",
+			"communication.rescheduleReviewed": "communication.rescheduled",
+			"communication.templates.create": "communication.template_created",
+			"communication.templates.fork": "communication.template_forked",
+			"communication.templates.update": "communication.template_updated",
+			"communication.templates.archive": "communication.template_archived",
+			"communication.templates.delete": "communication.template_deleted",
+			"communication.executeResend": "communication.send_intended",
+			"communication.correctContactLog": "followup.corrected",
+			"communication.recordContactFromTask": "followup.recorded",
+		};
+		const action = named[operation];
+		if (!action) throw Error("unknown_write_action:" + operation);
+		return action;
+	}
 	if (operation === "identity.answerLeadOnboarding") return "identity.domain_accepted";
 	throw Error("unknown_write_action:" + operation);
 }

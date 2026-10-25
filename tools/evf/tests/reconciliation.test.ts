@@ -56,7 +56,16 @@ test("INV-context: load current acceptance and fail when its required input is m
 });
 
 import { fixture } from "./fixtures.ts";
-import { parseTask, evfDataDir, evidenceDir, loadConfig, runtimeDir } from "../lib.ts";
+import {
+	parseTask,
+	evfDataDir,
+	evidenceDir,
+	loadConfig,
+	runtimeDir,
+	XAI_SAME_FAMILY_REVIEW_UNTIL,
+	crossFamilyReview,
+	crossFamilyReviewRefusal,
+} from "../lib.ts";
 import {
 	feedbackTriage,
 	startFeedbackTask,
@@ -499,7 +508,7 @@ test("INV-model-feedback: verified bot identity never authorizes arbitrary raw p
 import { existsSync } from "node:fs";
 import { stack } from "../task.ts";
 import { caseCoverage, caseGrep } from "../coverage.ts";
-import { producerReady, recordProgress, recordFastTrack, reconcileProgress } from "../progress.ts";
+import { producerReady, recordProgress, recordFastTrack, reconcileProgress, reviewedMilestone } from "../progress.ts";
 import { renderAc, renderBrief } from "../brief.ts";
 
 test("BUG-fast-track: real prerequisite policy unlocks WP-087 only after bounded reviewed completion on main", () => {
@@ -776,6 +785,7 @@ function mergeFixture(scope: Record<string, unknown> = { owningPaths: ["tools/ev
 		baseRefName: "main",
 		body: validPrBody(),
 	};
+	state.protection = { required_status_checks: { strict: true, contexts: ["CI"] } };
 	state.requiredChecks = [
 		{ name: "CI", state: "SUCCESS", bucket: "pass", link: "https://github.com/test/private/actions/runs/1" },
 	];
@@ -1059,6 +1069,16 @@ test("INV-phase7-ship: CI, independent exact-head approval and approved code qua
 				reason: /CI must be green/,
 			},
 			{
+				name: "required check not created yet",
+				edit: (s) => {
+					s.rules = [
+						{ type: "required_status_checks", parameters: { required_status_checks: [{ context: "pr-body" }] } },
+					];
+					s.requiredChecks = [{ ...s.requiredChecks[0], name: "pr-body" }];
+				},
+				reason: /Required GitHub CI is missing on the exact PR head: CI\./,
+			},
+			{
 				name: "same-family approval",
 				edit: (s) => {
 					s.comments["77"][0].body =
@@ -1241,49 +1261,104 @@ test("INV-phase7-ship: CI, independent exact-head approval and approved code qua
 	}
 });
 
-test("INV-phase7-ship: anthropic pairs with openai or xai; openai and xai never review each other", () => {
+test("INV-phase7-ship: xai may review xai only before 2026-10-27T19:00:00.000Z", () => {
+	const until = Date.parse(XAI_SAME_FAMILY_REVIEW_UNTIL);
+	assert.equal(XAI_SAME_FAMILY_REVIEW_UNTIL, "2026-10-27T19:00:00.000Z");
+	assert.equal(crossFamilyReview("xai", "xai", until - 1), true);
+	assert.equal(crossFamilyReview("xai", "xai", until), false);
+	assert.equal(crossFamilyReview("xai", "xai", until + 1), false);
+	assert.equal(crossFamilyReview("xai", "xai", Number.NaN), false);
+	assert.equal(crossFamilyReview("openai", "xai", until - 1), false);
+	assert.equal(crossFamilyReview("xai", "openai", until - 1), false);
+	assert.equal(crossFamilyReview("anthropic", "anthropic", until - 1), false);
+	assert.equal(crossFamilyReview("openai", "openai", until - 1), false);
+	assert.equal(crossFamilyReview("xai", "anthropic", until + 1), true);
+	assert.equal(crossFamilyReview("anthropic", "xai", until + 1), true);
+	assert.match(
+		crossFamilyReviewRefusal("xai", until - 1),
+		/allowed model family: xai work needs an anthropic or xai verifier/,
+	);
+	assert.match(crossFamilyReviewRefusal("xai", until), /different model family: xai work needs an anthropic verifier/);
+	assert.match(
+		crossFamilyReviewRefusal("openai", until - 1),
+		/different model family: openai work needs an anthropic verifier/,
+	);
+	assert.match(
+		crossFamilyReviewRefusal("anthropic", until - 1),
+		/different model family: anthropic work needs an openai or xai verifier/,
+	);
+	assert.ok(
+		readFileSync(join(source, ".agents/skills/verify-preview/scripts/post-review.mjs"), "utf8").includes(
+			XAI_SAME_FAMILY_REVIEW_UNTIL,
+		),
+	);
+});
+
+test("INV-phase7-ship: anthropic pairs with openai or xai; xai may review xai before the waiver instant", () => {
 	const f = mergeFixture();
 	try {
 		const valid = f.getState();
 		writeFileSync(join(f.root, "fake-bin/review.md"), "## Code quality\nApproved.\n\n## Experience\nNot applicable.\n");
+		const until = Date.parse(XAI_SAME_FAMILY_REVIEW_UNTIL);
+		const before = until - 1;
 		const pairs = [
-			{ author: "openai", verifier: "anthropic", ships: true },
-			{ author: "xai", verifier: "anthropic", ships: true },
-			{ author: "anthropic", verifier: "openai", ships: true },
-			{ author: "anthropic", verifier: "xai", ships: true },
-			{ author: "xai", verifier: "openai", ships: false },
-			{ author: "openai", verifier: "xai", ships: false },
-			{ author: "xai", verifier: "xai", ships: false },
-			{ author: "anthropic", verifier: "anthropic", ships: false },
+			{ author: "openai", verifier: "anthropic", at: before, ships: true },
+			{ author: "xai", verifier: "anthropic", at: before, ships: true },
+			{ author: "xai", verifier: "anthropic", at: until, ships: true },
+			{ author: "anthropic", verifier: "openai", at: before, ships: true },
+			{ author: "anthropic", verifier: "xai", at: before, ships: true },
+			{ author: "xai", verifier: "openai", at: before, ships: false },
+			{ author: "openai", verifier: "xai", at: before, ships: false },
+			{ author: "openai", verifier: "xai", at: until, ships: false },
+			{ author: "xai", verifier: "xai", at: before, ships: true },
+			{ author: "xai", verifier: "xai", at: until, ships: false },
+			{ author: "anthropic", verifier: "anthropic", at: before, ships: false },
+			{ author: "openai", verifier: "openai", at: before, ships: false },
 		];
-		for (const { author, verifier, ships } of pairs) {
-			const state = structuredClone(valid);
-			state.pr.body = valid.pr.body.replace("EVF-Author: openai", `EVF-Author: ${author}`);
-			assert.equal(checkPrBody(f.root, state.pr.body).authorFamily, author);
-			state.comments["77"][0].body =
-				`EVF-Review: ${JSON.stringify({ head: f.sha, verifierFamily: verifier, verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
-			state.calls = [];
-			f.setState(state);
-			assert.throws(
-				() => ship(f.root, f.taskRef),
-				ships ? /fixture merge barrier/ : /different model family/,
-				`${author} author with ${verifier} verifier`,
-			);
-			const poster = spawnSync(
-				process.execPath,
-				[
-					join(source, ".agents/skills/verify-preview/scripts/post-review.mjs"),
-					...["--pr", "77", "--report", join(f.root, "fake-bin/review.md"), "--family", verifier],
-					...["--verdict", "approved", "--head", f.sha, "--experience-verdict", "approved", "--budget", "met"],
-					...["--quality-verdict", "approved", "--principles", approvedQuality.principles.join(","), "--dry-run"],
-				],
-				{ cwd: f.root, encoding: "utf8" },
-			);
-			assert.equal(
-				poster.status,
-				ships ? 0 : 1,
-				`poster: ${author} author with ${verifier} verifier: ${poster.stderr}`,
-			);
+		const realNow = Date.now;
+		try {
+			for (const { author, verifier, ships, at } of pairs) {
+				const atIso = new Date(at).toISOString();
+				const state = structuredClone(valid);
+				state.pr.body = valid.pr.body.replace("EVF-Author: openai", `EVF-Author: ${author}`);
+				assert.equal(checkPrBody(f.root, state.pr.body).authorFamily, author);
+				state.comments["77"][0].body =
+					`EVF-Review: ${JSON.stringify({ head: f.sha, verifierFamily: verifier, verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
+				state.calls = [];
+				f.setState(state);
+				const reason = ships
+					? /fixture merge barrier/
+					: author === "xai" && at < until
+						? /allowed model family: xai work needs an anthropic or xai verifier/
+						: /different model family/;
+				Date.now = () => at;
+				try {
+					assert.throws(
+						() => ship(f.root, f.taskRef),
+						reason,
+						`${author} author with ${verifier} verifier at ${atIso}`,
+					);
+				} finally {
+					Date.now = realNow;
+				}
+				const poster = spawnSync(
+					process.execPath,
+					[
+						join(source, ".agents/skills/verify-preview/scripts/post-review.mjs"),
+						...["--pr", "77", "--report", join(f.root, "fake-bin/review.md"), "--family", verifier, "--at", atIso],
+						...["--verdict", "approved", "--head", f.sha, "--experience-verdict", "approved", "--budget", "met"],
+						...["--quality-verdict", "approved", "--principles", approvedQuality.principles.join(","), "--dry-run"],
+					],
+					{ cwd: f.root, encoding: "utf8" },
+				);
+				assert.equal(
+					poster.status,
+					ships ? 0 : 1,
+					`poster: ${author} author with ${verifier} verifier at ${atIso}: ${poster.stderr}`,
+				);
+			}
+		} finally {
+			Date.now = realNow;
 		}
 		const state = structuredClone(valid);
 		state.pr.body = valid.pr.body.replace("EVF-Author: openai", "EVF-Author: grok");
@@ -1464,7 +1539,7 @@ withShipQueue(${JSON.stringify(f.root)}, ${JSON.stringify(name)}, () => {
 	}
 });
 
-test("INV-ship-queue-update: a behind PR is updated by a merge of main, waits for CI and carries; otherwise a fresh gate is needed", () => {
+test("INV-ship-queue-update: a behind PR is updated by a merge of main, waits for every required check and carries; otherwise a fresh gate is needed", () => {
 	const f = mergeFixture(),
 		log = console.log,
 		lines: string[] = [];
@@ -1477,6 +1552,7 @@ test("INV-ship-queue-update: a behind PR is updated by a merge of main, waits fo
 			bucket: "pass",
 			link: "https://github.com/test/private/actions/runs/2",
 		};
+		const prBody = { ...pass, name: "pr-body" };
 		const mainCommit = (path: string, text: string) => {
 			writeFileSync(join(f.root, path), text);
 			f.git("add", path);
@@ -1489,7 +1565,7 @@ test("INV-ship-queue-update: a behind PR is updated by a merge of main, waits fo
 		inWt("add", "tools/evf/feature.ts", "README.md");
 		inWt("commit", "-qm", "Approved work");
 		const approved = inWt("rev-parse", "HEAD");
-		const attempt = (checksQueue: unknown[]) => {
+		const attempt = (checksQueue: unknown[], reported = [pass, prBody], timing = fastShip) => {
 			inWt("reset", "-q", "--hard", approved);
 			inWt("push", "-q", "origin", `+${approved}:refs/heads/${f.taskRef.branch}`);
 			const state = f.getState();
@@ -1500,19 +1576,25 @@ test("INV-ship-queue-update: a behind PR is updated by a merge of main, waits fo
 					html_url: "https://github.com/test/private/pull/77#issuecomment-3",
 				},
 			];
-			state.requiredChecks = [pass];
+			state.protection = { required_status_checks: { strict: true, contexts: ["ci", "pr-body"] } };
+			state.requiredChecks = reported;
 			state.checksQueue = checksQueue;
 			state.calls = [];
 			f.setState(state);
 			lines.length = 0;
-			return () => ship(f.root, f.taskRef, fastShip);
+			return () => ship(f.root, f.taskRef, timing);
 		};
 		const calls = (sub: string) => f.getState().calls.filter((c) => c.args[0] === "pr" && c.args[1] === sub);
 		console.log = (...args) => lines.push(args.join(" "));
 
 		const main = mainCommit("docs/main-only.md", "Main only.\n");
-		// Checks: the approved head, then the new head with none reported yet, then pending, then green.
-		assert.throws(attempt([[pass], [], [{ name: "ci", bucket: "pending" }]]), /fixture merge barrier/);
+		// Checks: the approved head, then the new head with none reported, with only pr-body (ci not created yet),
+		// with ci pending, then every required check green.
+		assert.throws(
+			attempt([[pass, prBody], [], [prBody], [prBody, { name: "ci", bucket: "pending" }]]),
+			/fixture merge barrier/,
+		);
+		assert.equal(calls("checks").length, 6, "ship polled until ci existed and passed");
 		const head = inWt("rev-parse", "HEAD");
 		assert.equal(f.getState().pr.headRefOid, head);
 		assert.deepEqual(inWt("rev-list", "--parents", "-n", "1", head).split(" ").slice(1), [approved, main]);
@@ -1523,10 +1605,22 @@ test("INV-ship-queue-update: a behind PR is updated by a merge of main, waits fo
 		assert.deepEqual(calls("merge")[0].args, ["pr", "merge", "77", "--squash", "--match-head-commit", head]);
 		assert.equal(existsSync(lock), false, "a refused merge releases the queue");
 
+		// Required ci is never created on the new head (CI run 40016189676): ship refuses at its bound, no merge.
+		mainCommit("docs/never.md", "Never.\n");
+		assert.throws(
+			attempt([[pass, prBody]], [prBody], { ...fastShip, ciWaitMs: 300, ciPollMs: 20 }),
+			/Required CI on [a-f0-9]{40} is still running after 0 min \(ci missing\)/,
+		);
+		assert.deepEqual([calls("comment"), calls("merge")], [[], []]);
+		assert.equal(existsSync(lock), false);
+
 		// Required CI fails on the merge of main: no merge, and the queue is free again.
 		mainCommit("docs/second.md", "Second.\n");
 		assert.throws(
-			attempt([[pass], [{ name: "ci", bucket: "fail" }]]),
+			attempt([
+				[pass, prBody],
+				[prBody, { name: "ci", bucket: "fail" }],
+			]),
 			/Fresh gate needed at [a-f0-9]{40}: required CI failed after the merge of main \(ci\)/,
 		);
 		assert.equal(calls("update-branch").length, 1);
@@ -1972,6 +2066,28 @@ test("INV-phase7-progress: ship and acknowledgement preserve reviewed milestones
 			record = JSON.parse(readFileSync(path, "utf8"));
 		assert.equal(record.verified_head, sha);
 		assert.equal(record.verification.approval.verifierFamily, "anthropic");
+		const held = structuredClone(record);
+		held.acknowledged = true;
+		held.verification.authorFamily = "xai";
+		held.verification.approval.verifierFamily = "xai";
+		held.verification.checkedAt = new Date(Date.parse(XAI_SAME_FAMILY_REVIEW_UNTIL) - 1).toISOString();
+		const realNow = Date.now;
+		Date.now = () => Date.parse(XAI_SAME_FAMILY_REVIEW_UNTIL) + 60_000;
+		try {
+			assert.equal(reviewedMilestone(f.root, held), true, "stored checkedAt still counts after the waiver");
+		} finally {
+			Date.now = realNow;
+		}
+		held.verification.checkedAt = XAI_SAME_FAMILY_REVIEW_UNTIL;
+		assert.equal(reviewedMilestone(f.root, held), false, "a review at the waiver instant does not count");
+		held.verification.authorFamily = "openai";
+		held.verification.approval.verifierFamily = "xai";
+		held.verification.checkedAt = "2026-10-24T00:00:00.000Z";
+		assert.equal(reviewedMilestone(f.root, held), false, "openai never reviews xai");
+		held.verification.authorFamily = "xai";
+		held.verification.approval.verifierFamily = "anthropic";
+		held.verification.checkedAt = "2026-10-28T00:00:00.000Z";
+		assert.equal(reviewedMilestone(f.root, held), true, "anthropic can still review xai after the waiver");
 		assert.deepEqual(record.verification.approval.quality, approvedQuality);
 		assert.equal(loadProgress(f.root)["WP-001"].status, "in_progress");
 		assert.equal(producerReady(f.root, "WP-001"), false);

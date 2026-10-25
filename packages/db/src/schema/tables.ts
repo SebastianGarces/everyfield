@@ -277,6 +277,10 @@ export const article_revision = pgTable(
 		meaningful_sequence: int64("meaningful_sequence").notNull(),
 		author_id: uuid("author_id"),
 		section_id: uuid("section_id").notNull(),
+		related_slugs: text("related_slugs")
+			.array()
+			.notNull()
+			.default(sql`ARRAY[]::text[]`),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		foreignKey({ name: "article_revision_fk_0", columns: [table.article_id], foreignColumns: [reference_item.id] })
@@ -1378,6 +1382,76 @@ export const four_cs = pgTable(
 		check("four_cs_ck_4", sql`((courageous >= 1) AND (courageous <= 5))`),
 		index("four_cs_ref_0").using("btree", table.plant_id.asc().nullsLast()),
 		index("four_cs_ref_1").using("btree", table.person_id.asc().nullsLast(), table.plant_id.asc().nullsLast()),
+	],
+);
+export const generated_document = pgTable(
+	"generated_document",
+	{
+		id: uuid("id")
+			.notNull()
+			.default(sql`gen_random_uuid()`),
+		tenant_id: uuid("tenant_id").notNull(),
+		creator_account_id: uuid("creator_account_id"),
+		template_id: text("template_id").notNull(),
+		template_version: text("template_version").notNull(),
+		saved_template_name: text("saved_template_name").notNull(),
+		renderer_version: text("renderer_version").notNull(),
+		format: text("format", { enum: ["pdf", "docx", "xlsx"] }).notNull(),
+		object_id: uuid("object_id").notNull(),
+		inputs: jsonb("inputs").notNull(),
+		download_name: text("download_name").notNull(),
+		generated_at: timestamp("generated_at", { withTimezone: true, mode: "date" }).notNull(),
+		request_key: text("request_key"),
+		revision: int64("revision")
+			.notNull()
+			.default(sql`1`),
+	},
+	(table): PgTableExtraConfigValue[] => [
+		foreignKey({ name: "generated_document_fk_0", columns: [table.tenant_id], foreignColumns: [tenant.id] })
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "generated_document_fk_1",
+			columns: [table.creator_account_id],
+			foreignColumns: [account.id],
+		})
+			.onDelete("set null")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "generated_document_fk_2",
+			columns: [table.object_id, table.tenant_id],
+			foreignColumns: [file_object.id, file_object.tenant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "generated_document_fk_3",
+			columns: [table.id, table.tenant_id],
+			foreignColumns: [record.id, record.tenant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		primaryKey({ name: "generated_document_pkey", columns: [table.id] }),
+		unique("generated_document_uq_0").on(table.id, table.tenant_id),
+		unique("generated_document_uq_1").on(table.object_id),
+		uniqueIndex("generated_document_uq_2")
+			.using("btree", table.tenant_id.asc().nullsLast(), table.request_key.asc().nullsLast())
+			.where(sql`(request_key IS NOT NULL)`),
+		check("generated_document_ck_0", sql`(revision >= 1)`),
+		check("generated_document_ck_1", sql`(format = ANY (ARRAY['pdf'::text, 'docx'::text, 'xlsx'::text]))`),
+		check("generated_document_ck_2", sql`(tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid)`),
+		check("generated_document_ck_3", sql`(octet_length(inputs::text) <= 65536)`),
+		index("generated_document_ref_0").using("btree", table.tenant_id.asc().nullsLast()),
+		index("generated_document_ref_1").using(
+			"btree",
+			table.tenant_id.asc().nullsLast(),
+			table.generated_at.desc().nullsFirst(),
+		),
+		index("generated_document_ref_2").using(
+			"btree",
+			table.object_id.asc().nullsLast(),
+			table.tenant_id.asc().nullsLast(),
+		),
 	],
 );
 export const household = pgTable(
@@ -4936,7 +5010,7 @@ export const audit_event = pgTable(
 		check(
 			"audit_action",
 			sql.raw(
-				"(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','audit.imported','communication.approved','communication.send_intended','deletion.cancelled','deletion.live_purge_completed','documents.copied','documents.saved','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','execution.cancelled','execution.completed','execution.partial','execution.reconciled','execution.started','feedback.publication_intended','feedback.published','feedback.received','feedback.reconciled','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.credential_reconciled','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.feedback_recorded','intelligence.published','intelligence.requested','intelligence.superseded','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','note_correction','organization.profile_changed','people.corrected','people.created','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','security.access_denied','security.audit_exported','security.audit_inspected','security.bulk_export','security.operator_accessed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.hidden','wiki.published','wiki.source_order_changed'))",
+				"(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','audit.imported','communication.approved','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','documents.archived','documents.copied','documents.designated','documents.generated','documents.imported','documents.purged','documents.saved','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','execution.cancelled','execution.completed','execution.partial','execution.reconciled','execution.started','feedback.publication_intended','feedback.published','feedback.received','feedback.reconciled','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.credential_reconciled','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.feedback_recorded','intelligence.published','intelligence.requested','intelligence.superseded','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','note_correction','organization.profile_changed','people.corrected','people.created','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','security.access_denied','security.audit_exported','security.audit_inspected','security.bulk_export','security.operator_accessed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed'))",
 			),
 		),
 		check(
@@ -5081,5 +5155,320 @@ export const commitment_change = pgTable(
 		}).onDelete("cascade"),
 		check("commitment_change_kind", sql`${t.kind} IN ('withdrawn','reactivated')`),
 		index("commitment_change_person_order").on(t.person_id, t.plant_id, t.effective_on, t.recorded_at),
+	],
+);
+/**
+ * One training program (REQ-TEAM-008, REQ-TEAM-009). A null team is an explicit churchwide program.
+ * Archiving a team does not clear team_id. A correction may change the name and whether it is required.
+ * It may not change the team. version advances when the content changes so an older credit stays on the
+ * version that was earned.
+ */
+export const training_program = pgTable(
+	"training_program",
+	{
+		id: uuid("id")
+			.notNull()
+			.default(sql`gen_random_uuid()`),
+		plant_id: uuid("plant_id").notNull(),
+		team_id: uuid("team_id"),
+		name: text("name").notNull(),
+		required: boolean("required").notNull(),
+		version: integer("version").notNull().default(1),
+		revision: int64("revision")
+			.notNull()
+			.default(sql`1`),
+		archived_at: timestamp("archived_at", { withTimezone: true, mode: "date" }),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		foreignKey({ name: "training_program_fk_0", columns: [t.plant_id], foreignColumns: [plant.id] })
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "training_program_fk_1",
+			columns: [t.team_id, t.plant_id],
+			foreignColumns: [team.id, team.plant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		primaryKey({ name: "training_program_pkey", columns: [t.id] }),
+		unique("training_program_uq_0").on(t.id, t.plant_id),
+		check("training_program_ck_0", sql`(revision >= 1)`),
+		check("training_program_ck_1", sql`(version >= 1)`),
+		check("training_program_ck_2", sql`((char_length(name) >= 1) AND (char_length(name) <= 200))`),
+		index("training_program_ref_0").using("btree", t.plant_id.asc().nullsLast()),
+		index("training_program_ref_1").using("btree", t.team_id.asc().nullsLast(), t.plant_id.asc().nullsLast()),
+	],
+);
+/**
+ * One saved person/program applicability episode (REQ-TEAM-016). Later membership never rewrites these rows.
+ * One active episode per person and program. Ending it keeps the row.
+ */
+/**
+ * One saved person/program applicability episode (REQ-TEAM-016). Later membership never rewrites these rows.
+ * One active episode per person and program. Ending it keeps the row.
+ */
+export const training_assignment = pgTable(
+	"training_assignment",
+	{
+		id: uuid("id")
+			.notNull()
+			.default(sql`gen_random_uuid()`),
+		plant_id: uuid("plant_id").notNull(),
+		program_id: uuid("program_id").notNull(),
+		person_id: uuid("person_id").notNull(),
+		version: integer("version").notNull(),
+		state: text("state", { enum: ["active", "removed"] }).notNull(),
+		effective_on: date("effective_on", { mode: "string" }).notNull(),
+		ended_on: date("ended_on", { mode: "string" }),
+		revision: int64("revision")
+			.notNull()
+			.default(sql`1`),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		foreignKey({ name: "training_assignment_fk_0", columns: [t.plant_id], foreignColumns: [plant.id] })
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "training_assignment_fk_1",
+			columns: [t.program_id, t.plant_id],
+			foreignColumns: [training_program.id, training_program.plant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "training_assignment_fk_2",
+			columns: [t.person_id, t.plant_id],
+			foreignColumns: [person.id, person.tenant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		primaryKey({ name: "training_assignment_pkey", columns: [t.id] }),
+		unique("training_assignment_uq_0").on(t.id, t.plant_id),
+		check("training_assignment_ck_0", sql`(revision >= 1)`),
+		check("training_assignment_ck_1", sql`(version >= 1)`),
+		check("training_assignment_ck_2", sql`(state = ANY (ARRAY['active'::text, 'removed'::text]))`),
+		check("training_assignment_ck_3", sql`((state = 'active'::text) = (ended_on IS NULL))`),
+		check("training_assignment_ck_4", sql`((ended_on IS NULL) OR (ended_on >= effective_on))`),
+		index("training_assignment_ref_0").using("btree", t.plant_id.asc().nullsLast()),
+		index("training_assignment_ref_1").using("btree", t.program_id.asc().nullsLast(), t.plant_id.asc().nullsLast()),
+		index("training_assignment_ref_2").using("btree", t.person_id.asc().nullsLast(), t.plant_id.asc().nullsLast()),
+		uniqueIndex("training_assignment_uq_1")
+			.using("btree", t.plant_id.asc().nullsLast(), t.program_id.asc().nullsLast(), t.person_id.asc().nullsLast())
+			.where(sql`(state = 'active'::text)`),
+	],
+);
+/**
+ * Append-only training evidence (REQ-TEAM-009, REQ-TEAM-017). earned and revoked rows belong to a program version.
+ * A service row has no program: it records dated attendance days and volunteer days. Revoke and redo insert rows.
+ * They do not update an earlier row. A merge leaves these rows on the source person.
+ */
+/**
+ * Append-only training evidence (REQ-TEAM-009, REQ-TEAM-017). earned and revoked rows belong to a program version.
+ * A service row has no program: it records dated attendance days and volunteer days. Revoke and redo insert rows.
+ * They do not update an earlier row. A merge leaves these rows on the source person.
+ */
+export const training_credit = pgTable(
+	"training_credit",
+	{
+		id: uuid("id")
+			.notNull()
+			.default(sql`gen_random_uuid()`),
+		plant_id: uuid("plant_id").notNull(),
+		person_id: uuid("person_id").notNull(),
+		program_id: uuid("program_id"),
+		kind: text("kind", { enum: ["earned", "revoked", "service"] }).notNull(),
+		version: integer("version"),
+		earned_on: date("earned_on", { mode: "string" }),
+		verifier_account_id: uuid("verifier_account_id"),
+		attendance_days: integer("attendance_days"),
+		volunteer_days: integer("volunteer_days"),
+		recorded_at: timestamp("recorded_at", { withTimezone: true, mode: "date" })
+			.notNull()
+			.default(sql`clock_timestamp()`),
+		revision: int64("revision")
+			.notNull()
+			.default(sql`1`),
+	},
+	(t): PgTableExtraConfigValue[] => [
+		foreignKey({ name: "training_credit_fk_0", columns: [t.plant_id], foreignColumns: [plant.id] })
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "training_credit_fk_1",
+			columns: [t.person_id, t.plant_id],
+			foreignColumns: [person.id, person.tenant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "training_credit_fk_2",
+			columns: [t.program_id, t.plant_id],
+			foreignColumns: [training_program.id, training_program.plant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({ name: "training_credit_fk_3", columns: [t.verifier_account_id], foreignColumns: [account.id] })
+			.onDelete("set null")
+			.onUpdate("no action"),
+		primaryKey({ name: "training_credit_pkey", columns: [t.id] }),
+		unique("training_credit_uq_0").on(t.id, t.plant_id),
+		check("training_credit_ck_0", sql`(revision >= 1)`),
+		check("training_credit_ck_1", sql`(kind = ANY (ARRAY['earned'::text, 'revoked'::text, 'service'::text]))`),
+		check(
+			"training_credit_ck_2",
+			sql`((kind = 'earned'::text) AND (program_id IS NOT NULL) AND (version IS NOT NULL) AND (earned_on IS NOT NULL) AND (attendance_days IS NULL) AND (volunteer_days IS NULL)) OR ((kind = 'revoked'::text) AND (program_id IS NOT NULL) AND (version IS NOT NULL) AND (earned_on IS NULL) AND (attendance_days IS NULL) AND (volunteer_days IS NULL)) OR ((kind = 'service'::text) AND (program_id IS NULL) AND (version IS NULL) AND (earned_on IS NULL) AND (attendance_days IS NOT NULL) AND (volunteer_days IS NOT NULL) AND (attendance_days >= 0) AND (volunteer_days >= 0))`,
+		),
+		index("training_credit_ref_0").using("btree", t.plant_id.asc().nullsLast()),
+		index("training_credit_ref_1").using("btree", t.person_id.asc().nullsLast(), t.plant_id.asc().nullsLast()),
+		index("training_credit_ref_2").using("btree", t.program_id.asc().nullsLast(), t.plant_id.asc().nullsLast()),
+		index("training_credit_ref_3").using("btree", t.verifier_account_id.asc().nullsLast()),
+		index("training_credit_order").using(
+			"btree",
+			t.person_id.asc().nullsLast(),
+			t.program_id.asc().nullsLast(),
+			t.recorded_at.asc().nullsLast(),
+		),
+	],
+);
+/**
+ * A plant copy of an email template, or a template the plant wrote. The seven system templates stay in code.
+ * One live fork per source. plant_id cascades so church deletion removes the row without a purge edit.
+ */
+export const message_template = pgTable(
+	"message_template",
+	{
+		id: uuid("id")
+			.notNull()
+			.default(sql`gen_random_uuid()`),
+		plant_id: uuid("plant_id").notNull(),
+		source_key: text("source_key"),
+		name: text("name").notNull(),
+		description: text("description"),
+		category: text("category", {
+			enum: ["meeting_invitation", "meeting_reminder", "follow_up", "announcement"],
+		}).notNull(),
+		meeting_type: text("meeting_type", { enum: ["vision_meeting", "orientation", "team_meeting"] }),
+		subject: text("subject").notNull(),
+		body_html: text("body_html").notNull(),
+		body_text: text("body_text").notNull(),
+		archived_at: timestamp("archived_at", { withTimezone: true, mode: "date" }),
+		revision: int64("revision")
+			.notNull()
+			.default(sql`1`),
+	},
+	(table): PgTableExtraConfigValue[] => [
+		foreignKey({ name: "message_template_fk_0", columns: [table.plant_id], foreignColumns: [plant.id] })
+			.onDelete("cascade")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "message_template_fk_1",
+			columns: [table.id, table.plant_id],
+			foreignColumns: [record.id, record.tenant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		primaryKey({ name: "message_template_pkey", columns: [table.id] }),
+		unique("message_template_uq_0").on(table.id, table.plant_id),
+		check("message_template_ck_0", sql`(revision >= 1)`),
+		check(
+			"message_template_ck_1",
+			sql`(category = ANY (ARRAY['meeting_invitation'::text, 'meeting_reminder'::text, 'follow_up'::text, 'announcement'::text]))`,
+		),
+		check(
+			"message_template_ck_2",
+			sql`(meeting_type = ANY (ARRAY['vision_meeting'::text, 'orientation'::text, 'team_meeting'::text]))`,
+		),
+		check("message_template_ck_3", sql`((length(btrim(name)) >= 1) AND (length(btrim(name)) <= 255))`),
+		check("message_template_ck_4", sql`((description IS NULL) OR (length(description) <= 1000))`),
+		check("message_template_ck_5", sql`((length(btrim(subject)) >= 1) AND (length(btrim(subject)) <= 500))`),
+		check("message_template_ck_6", sql`(length(btrim(body_html)) >= 1)`),
+		check("message_template_ck_7", sql`((meeting_type IS NULL) OR (category = 'meeting_invitation'::text))`),
+		check(
+			"message_template_ck_8",
+			sql`((source_key IS NULL) OR ((length(source_key) >= 1) AND (length(source_key) <= 80)))`,
+		),
+		index("message_template_ref_0").using("btree", table.plant_id.asc().nullsLast()),
+		uniqueIndex("message_template_uq_1")
+			.using("btree", table.plant_id.asc().nullsLast(), table.source_key.asc().nullsLast())
+			.where(sql`(source_key IS NOT NULL)`),
+	],
+);
+/**
+ * A native church message: an incomplete draft or a reviewed schedule. It stores no mail intent.
+ * Optional meeting and template pointers use deletion actions that do not block church purge.
+ */
+export const communication = pgTable(
+	"communication",
+	{
+		id: uuid("id").notNull(),
+		plant_id: uuid("plant_id").notNull(),
+		author_id: uuid("author_id"),
+		revision: int64("revision")
+			.notNull()
+			.default(sql`1`),
+		state: text("state", { enum: ["draft", "reviewed", "scheduled"] }).notNull(),
+		subject: text("subject"),
+		body_html: text("body_html"),
+		body_text: text("body_text"),
+		template_id: uuid("template_id"),
+		template_source: text("template_source"),
+		meeting_id: uuid("meeting_id"),
+		audience: jsonb("audience")
+			.notNull()
+			.default(sql`'{"groups":[],"teamIds":[],"personIds":[]}'::jsonb`),
+		review_digest: text("review_digest"),
+		scheduled_at: timestamp("scheduled_at", { withTimezone: true, mode: "date" }),
+		created_at: timestamp("created_at", { withTimezone: true, mode: "date" })
+			.notNull()
+			.default(sql`clock_timestamp()`),
+		updated_at: timestamp("updated_at", { withTimezone: true, mode: "date" })
+			.notNull()
+			.default(sql`clock_timestamp()`),
+	},
+	(table): PgTableExtraConfigValue[] => [
+		foreignKey({ name: "communication_fk_0", columns: [table.plant_id], foreignColumns: [plant.id] })
+			.onDelete("cascade")
+			.onUpdate("no action"),
+		foreignKey({ name: "communication_fk_1", columns: [table.author_id], foreignColumns: [account.id] })
+			.onDelete("set null")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "communication_fk_2",
+			columns: [table.template_id, table.plant_id],
+			foreignColumns: [message_template.id, message_template.plant_id],
+		})
+			.onDelete("no action")
+			.onUpdate("no action"),
+		foreignKey({ name: "communication_fk_3", columns: [table.meeting_id], foreignColumns: [meeting.id] })
+			.onDelete("set null")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "communication_fk_4",
+			columns: [table.id, table.plant_id],
+			foreignColumns: [record.id, record.tenant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		primaryKey({ name: "communication_pkey", columns: [table.id] }),
+		unique("communication_uq_0").on(table.id, table.plant_id),
+		check("communication_ck_0", sql`(revision >= 1)`),
+		check("communication_ck_1", sql`(state = ANY (ARRAY['draft'::text, 'reviewed'::text, 'scheduled'::text]))`),
+		check(
+			"communication_ck_2",
+			sql`((subject IS NULL) OR ((length(btrim(subject)) >= 1) AND (length(btrim(subject)) <= 500)))`,
+		),
+		check("communication_ck_3", sql`((body_html IS NULL) OR (length(btrim(body_html)) >= 1))`),
+		check(
+			"communication_ck_4",
+			sql`((state <> 'scheduled'::text) OR ((scheduled_at IS NOT NULL) AND (subject IS NOT NULL) AND (body_html IS NOT NULL)))`,
+		),
+		check("communication_ck_5", sql`(jsonb_typeof(audience) = 'object'::text)`),
+		check(
+			"communication_ck_6",
+			sql`((template_source IS NULL) OR ((length(template_source) >= 1) AND (length(template_source) <= 80)))`,
+		),
+		index("communication_ref_0").using("btree", table.plant_id.asc().nullsLast()),
+		index("communication_ref_1").using("btree", table.template_id.asc().nullsLast(), table.plant_id.asc().nullsLast()),
+		index("communication_ref_2").using("btree", table.meeting_id.asc().nullsLast()),
 	],
 );
