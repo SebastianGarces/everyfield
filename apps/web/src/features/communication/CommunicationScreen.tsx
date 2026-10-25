@@ -283,7 +283,7 @@ export function CommunicationScreen({
 					You can read messages. An Owner or Admin writes, schedules, and saves a follow-up.
 				</p>
 			)}
-			<SegmentedControl label="Message sections" value={tab} onValueChange={setTab} options={sections} />
+			<SegmentedControl label="Message sections" value={tab} onValueChange={setTab} options={sections} wrap />
 			{tab === "history" ? (
 				<History canWrite={canWrite} personId={personId} meetingId={meetingId} onOpen={openReviewed} />
 			) : tab === "compose" ? (

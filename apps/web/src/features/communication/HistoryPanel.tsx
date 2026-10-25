@@ -293,6 +293,7 @@ function Detail({
 	onConfirm,
 	onPerson,
 	onMeeting,
+	keepScope,
 }: {
 	view: MessageView;
 	canWrite: boolean;
@@ -303,6 +304,7 @@ function Detail({
 	onConfirm: () => void;
 	onPerson: (personId: string) => void;
 	onMeeting: (meetingId: string) => void;
+	keepScope: boolean;
 }) {
 	const detail = view.detail;
 	const names = new Map(view.recipients.map((row) => [row.personId, row.name]));
@@ -344,7 +346,7 @@ function Detail({
 				) : detail.recipients.length > 1 ? (
 					<p className="text-sm text-text-2">Each person has an address in the list below.</p>
 				) : null}
-				{meetingId ? (
+				{meetingId && !keepScope ? (
 					<Button variant="ghost" onClick={() => onMeeting(meetingId)}>
 						Show this meeting
 					</Button>
@@ -369,7 +371,7 @@ function Detail({
 										Sent {when(row.sentAt)} · Delivered {when(row.deliveredAt)} · Opened {when(row.openedAt)} · Clicked{" "}
 										{when(row.clickedAt)}
 									</p>
-									{personId ? (
+									{personId && !keepScope ? (
 										<Button variant="ghost" onClick={() => onPerson(personId)}>
 											Show this person
 										</Button>
@@ -438,6 +440,7 @@ function Browser({
 	onOpen,
 	onPerson,
 	onMeeting,
+	keepScope,
 }: {
 	canWrite: boolean;
 	title: string;
@@ -449,6 +452,7 @@ function Browser({
 	onOpen: (draft: Draft, people: PersonName[]) => void;
 	onPerson: (personId: string) => void;
 	onMeeting: (meetingId: string) => void;
+	keepScope: boolean;
 }) {
 	const history = useHistory(load);
 	const keys = useKeys();
@@ -594,6 +598,7 @@ function Browser({
 							onConfirm={() => setConfirm(true)}
 							onPerson={onPerson}
 							onMeeting={onMeeting}
+							keepScope={keepScope}
 						/>
 					) : detailPending === "open" || detailError ? null : (
 						<EmptyState icon={Mail01Icon} title="Choose a message">
@@ -677,11 +682,14 @@ export function History({
 	personId,
 	meetingId,
 	onOpen,
+	keepScope = false,
 }: {
 	canWrite: boolean;
 	personId: string | null;
 	meetingId: string | null;
 	onOpen: (draft: Draft, people: PersonName[]) => void;
+	/** Stay on the opened person or meeting. The person tab uses this so the tab does not open the church list. */
+	keepScope?: boolean;
 }) {
 	const [scope, setScope] = useState<Scope>(
 		personId ? { kind: "person", personId } : meetingId ? { kind: "meeting", meetingId } : { kind: "hub" },
@@ -789,7 +797,7 @@ export function History({
 						/>
 					</Field>
 				</div>
-			) : (
+			) : keepScope ? null : (
 				<Button
 					variant="ghost"
 					onClick={() => {
@@ -851,6 +859,7 @@ export function History({
 					setContacts(null);
 					setTracking(null);
 				}}
+				keepScope={keepScope}
 				header={
 					scope.kind === "person" && contacts ? (
 						<ContactLog contacts={contacts} lastConfirmedContactAt={lastContact} />
