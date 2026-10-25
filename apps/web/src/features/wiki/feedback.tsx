@@ -52,7 +52,7 @@ export function ArticleFeedback({ articleId, vote }: { articleId: string; vote: 
 			<h2 id="wiki-feedback-title" className="font-title text-[22px] tracking-[-0.02em] text-ink">
 				Was this article helpful?
 			</h2>
-			<div className="mt-4 flex flex-wrap gap-2">
+			<div className="mt-4 flex flex-wrap gap-3">
 				<Button
 					variant={current === "helpful" ? "primary" : "outline"}
 					aria-pressed={current === "helpful"}

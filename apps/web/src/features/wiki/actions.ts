@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { parseSource, sourceInput } from "./model.ts";
 import { editorContext, organizationNames, plantContext, runSearch, wikiActor, wikiMount } from "./server.ts";
 
@@ -327,6 +328,14 @@ function nextRevision(current: string): string {
 	return (BigInt(current) + 1n).toString();
 }
 
+/** Refresh the article the editor just wrote. Ignore any other path. */
+function refreshWiki(path: string | undefined) {
+	if (!path || path.length > 400 || !path.startsWith("/wiki")) return;
+	if (path.includes("..") || path.includes("//") || path.includes("\\") || path.includes("?")) return;
+	revalidatePath(path);
+	if (!path.endsWith("/edit")) revalidatePath(path === "/wiki" ? "/wiki/edit" : `${path}/edit`);
+}
+
 async function orgWrite(mode: "add" | "edit" | "publish" | "hide", command: OrgCommand): Promise<OrgResult> {
 	const ready = await actorMount();
 	if (ready.status !== "ready") return ready;
@@ -365,6 +374,13 @@ async function orgWrite(mode: "add" | "edit" | "publish" | "hide", command: OrgC
 		if (reply.value.errorCode === "review_required") return { status: "review" };
 		if (reply.value.errorCode === "revision_conflict") return { status: "conflict" };
 		if (reply.value.errorCode) return { status: "lost" };
+		try {
+			refreshWiki(cachePath);
+		} catch (refreshError) {
+			console.error(
+				JSON.stringify({ component: "wiki", outcome: "revalidate-failed", error: String(refreshError) }),
+			);
+		}
 		return { status: "ok", revision: nextRevision(command.expectedRevision), state: reply.value.state };
 	} catch (error) {
 		console.error(JSON.stringify({ component: "wiki", outcome: "organization-write-failed", error: String(error) }));

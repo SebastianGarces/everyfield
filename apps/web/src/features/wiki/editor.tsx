@@ -9,8 +9,8 @@ import {
 	articleTextChanged,
 	changedSectionLabels,
 	editorBlocksFromBody,
-	editorDocumentJson,
 	editorHasText,
+	editorWriteBody,
 	type EditorBlock,
 } from "./model.ts";
 
@@ -126,9 +126,13 @@ export function WikiEditor({
 		pendingFocus.current = key;
 	}
 
+	function writeBody(): string {
+		return editorWriteBody(initialBody, initialContentType, blocks);
+	}
+
 	function problem(): string | null {
 		if (!editorHasText(blocks)) return EMPTY_TEXT;
-		if (editorDocumentJson(blocks).length > EDITOR_BODY_LIMIT) return LONG_TEXT;
+		if (writeBody().length > EDITOR_BODY_LIMIT) return LONG_TEXT;
 		return null;
 	}
 
@@ -141,7 +145,7 @@ export function WikiEditor({
 		lock.current = true;
 		setBusy(kind);
 		setFormError("");
-		const body = editorDocumentJson(blocks);
+		const body = writeBody();
 		const command = {
 			requestKey: crypto.randomUUID(),
 			expectedRevision: revisionRef.current,
@@ -237,6 +241,15 @@ export function WikiEditor({
 	const locked = busy !== null || publishOpen || hideOpen;
 	const canHide = revision !== "0" && articleState !== "hide";
 
+	useEffect(() => {
+		const root = document.documentElement;
+		const previous = root.style.scrollPaddingBottom;
+		root.style.scrollPaddingBottom = "128px";
+		return () => {
+			root.style.scrollPaddingBottom = previous;
+		};
+	}, []);
+
 	return (
 		<div className="rounded-card bg-surface px-6 py-8 shadow-card max-app-sm:px-4 sm:px-11">
 			<form
@@ -302,31 +315,35 @@ export function WikiEditor({
 						Add a paragraph
 					</Button>
 				</div>
-				<div role="alert" className="empty:hidden">
-					{formError && formError !== EMPTY_TEXT ? (
-						<p className="text-sm font-medium text-magenta-600">{formError}</p>
-					) : null}
-				</div>
-				<p role="status" className="min-h-6 text-sm text-text-2">
-					{status}
-				</p>
-				<div className="flex flex-wrap gap-2">
-					<Button
-						type="button"
-						loading={busy === "save"}
-						disabled={locked && busy !== "save"}
-						onClick={() => void save()}
-					>
-						Save draft
-					</Button>
-					<Button type="button" variant="primary" disabled={locked} onClick={openPublish}>
-						Publish article
-					</Button>
-					{canHide ? (
-						<Button type="button" variant="danger" disabled={locked} onClick={openHide}>
-							Hide this source
+				<div
+					className="sticky bottom-0 z-[2] -mx-6 -mb-8 flex flex-col gap-3 rounded-b-card border-t border-line bg-surface px-6 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] max-app-sm:-mx-4 max-app-sm:px-4 sm:-mx-11 sm:px-11"
+				>
+					<div role="alert" className="empty:hidden">
+						{formError && formError !== EMPTY_TEXT ? (
+							<p className="text-sm font-medium text-magenta-600">{formError}</p>
+						) : null}
+					</div>
+					<p role="status" className="min-h-6 text-sm text-text-2">
+						{status}
+					</p>
+					<div className="flex flex-wrap gap-3">
+						<Button
+							type="button"
+							loading={busy === "save"}
+							disabled={locked && busy !== "save"}
+							onClick={() => void save()}
+						>
+							Save draft
 						</Button>
-					) : null}
+						<Button type="button" variant="primary" disabled={locked} onClick={openPublish}>
+							Review and publish
+						</Button>
+						{canHide ? (
+							<Button type="button" variant="danger" disabled={locked} onClick={openHide}>
+								Hide this source
+							</Button>
+						) : null}
+					</div>
 				</div>
 				<ConfirmDialog
 					open={publishOpen}

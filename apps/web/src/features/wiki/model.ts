@@ -600,6 +600,18 @@ export function editorDocumentJson(blocks: EditorBlock[]): string {
 	return JSON.stringify({ format: EDITOR_FORMAT, blocks: blocks.map(contractBlock) });
 }
 
+/**
+ * The body to store. An unchanged editor keeps the loaded text, so a save does not turn
+ * markdown or a table into editor JSON. An edit stores everyfield-editor-v1.
+ */
+export function editorWriteBody(initialBody: string | null, initialContentType: string, blocks: EditorBlock[]): string {
+	if (initialBody) {
+		const seeded = editorBlocksFromBody(initialContentType, initialBody);
+		if (seeded.length > 0 && editorDocumentJson(seeded) === editorDocumentJson(blocks)) return initialBody;
+	}
+	return editorDocumentJson(blocks);
+}
+
 export function editorHasText(blocks: EditorBlock[]): boolean {
 	return blocks.some((block) => block.text.trim().length > 0);
 }

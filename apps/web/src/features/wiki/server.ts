@@ -415,12 +415,15 @@ export async function loadWiki(
 			}
 		}
 		if (article && article.block === null && seat.plantId && !editing) {
+			let vote: "helpful" | "unhelpful" | null = null;
 			try {
 				const mine = await mount.producer.getMine(mount.db, actor, { articleId: article.article.articleId });
-				if (mine.status === "ok") feedback = { vote: mine.value.currentVote };
+				if (mine.status === "ok" && (mine.value.currentVote === "helpful" || mine.value.currentVote === "unhelpful"))
+					vote = mine.value.currentVote;
 			} catch (error) {
 				console.error(JSON.stringify({ component: "wiki", outcome: "feedback-failed", error: String(error) }));
 			}
+			feedback = { vote };
 		}
 		if (!article) editorName = null;
 		return {
