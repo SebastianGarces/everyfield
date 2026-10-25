@@ -38,10 +38,12 @@ import {
 	restoreOwnSuppression,
 	saveDraft,
 	scheduleDraft,
+	scheduleExisting,
 	searchRecipients,
 	sendReviewed,
 	updateTemplate,
 } from "./actions.ts";
+import { History } from "./HistoryPanel.tsx";
 import {
 	audienceGroups,
 	cancelText,
@@ -93,7 +95,7 @@ type DraftForm = {
 };
 type Issues = { subject?: string; body?: string; time?: string; form?: string };
 type Notice = { text: string; tone: "alert" | "status" };
-type Section = "compose" | "templates" | "address";
+type Section = "history" | "compose" | "templates" | "address";
 type TemplateFields = {
 	name: string;
 	description: string;
@@ -235,28 +237,56 @@ function hasIssue(issues: TemplateIssues): boolean {
 	return Boolean(issues.name || issues.subject || issues.body || issues.meetingType || issues.form);
 }
 
-export function CommunicationScreen({ data, canWrite }: { data: PageData; canWrite: boolean }) {
-	const [tab, setTab] = useState<Section>("compose");
+export function CommunicationScreen({
+	data,
+	canWrite,
+	personId = null,
+	meetingId = null,
+}: {
+	data: PageData;
+	canWrite: boolean;
+	personId?: string | null;
+	meetingId?: string | null;
+}) {
+	const [tab, setTab] = useState<Section>("history");
 	const [drafts, setDrafts] = useState(data.drafts);
 	const [templates, setTemplates] = useState(data.templates);
 	const [notices, setNotices] = useState<Record<string, Notice>>({});
+	const [opening, setOpening] = useState<{ draft: Draft; people: PersonRef[] } | null>(null);
 	const sections: { value: Section; label: string; count?: number }[] = [
+		{ value: "history", label: "History" },
 		{ value: "compose", label: "Compose", count: drafts.length },
 		{ value: "templates", label: "Templates", count: templates.length },
 	];
 	if (canWrite) sections.push({ value: "address", label: "Your address" });
+	const openReviewed = (draft: Draft, people: PersonRef[]) => {
+		setDrafts((rows) => [draft, ...rows.filter((row) => row.communicationId !== draft.communicationId)]);
+		setNotices((current) => ({
+			...current,
+			[draft.communicationId]: {
+				text: "This follow-up keeps the original subject and body. The original message was not changed. No email was sent.",
+				tone: "status",
+			},
+		}));
+		setOpening({ draft, people });
+		setTab("compose");
+	};
 	return (
 		<div className="flex flex-col gap-6">
 			<PageHeader
 				size="xl"
 				title="Messages"
-				subtitle="Write a message, choose who receives it, and send or schedule the email."
+				subtitle="Review what was sent, write a message, and schedule the email."
 			/>
 			{canWrite ? null : (
-				<p className="text-md text-text-2">You can read messages. An Owner or Admin writes and schedules them.</p>
+				<p className="text-md text-text-2">
+					You can read messages. An Owner or Admin writes, schedules, and saves a follow-up.
+				</p>
 			)}
-			<SegmentedControl label="Message sections" value={tab} onValueChange={setTab} options={sections} />
-			{tab === "compose" ? (
+			<SegmentedControl label="Message sections" value={tab} onValueChange={setTab} options={sections} wrap />
+			{tab === "history" ? (
+				<History canWrite={canWrite} personId={personId} meetingId={meetingId} onOpen={openReviewed} />
+			) : tab === "compose" ? (
 				<Compose
 					drafts={drafts}
 					setDrafts={setDrafts}
@@ -265,6 +295,8 @@ export function CommunicationScreen({ data, canWrite }: { data: PageData; canWri
 					canWrite={canWrite}
 					notices={notices}
 					setNotices={setNotices}
+					opening={opening}
+					onOpened={() => setOpening(null)}
 				/>
 			) : tab === "templates" ? (
 				<Templates templates={templates} setTemplates={setTemplates} canWrite={canWrite} />
@@ -283,6 +315,8 @@ function Compose({
 	canWrite,
 	notices,
 	setNotices,
+	opening,
+	onOpened,
 }: {
 	drafts: Draft[];
 	setDrafts: (next: Draft[] | ((rows: Draft[]) => Draft[])) => void;
@@ -291,15 +325,21 @@ function Compose({
 	canWrite: boolean;
 	notices: Record<string, Notice>;
 	setNotices: (next: Record<string, Notice> | ((rows: Record<string, Notice>) => Record<string, Notice>)) => void;
+	opening: { draft: Draft; people: PersonRef[] } | null;
+	onOpened: () => void;
 }) {
 	const keys = useKeys();
 	const busy = useRef(false);
+	useEffect(() => {
+		if (!opening) return;
+		onOpened();
+	}, [opening, onOpened]);
 	const searchSeq = useRef(0);
 	const [windowBounds] = useState(() => {
 		const now = new Date();
 		return { min: localStamp(now), max: localStamp(new Date(now.getTime() + WINDOW_MS)) };
 	});
-	const [form, setForm] = useState<DraftForm>(blankForm);
+	const [form, setForm] = useState<DraftForm>(() => (opening ? formFrom(opening.draft, opening.people) : blankForm()));
 	const [issues, setIssues] = useState<Issues>({});
 	const [status, setStatus] = useState<string | null>(null);
 	const [pending, setPending] = useState<string | null>(null);
@@ -399,6 +439,22 @@ function Compose({
 				return;
 			}
 			const instant = at.toISOString();
+			if (form.state === "reviewed") {
+				if (!form.communicationId || !form.revision) {
+					setIssues({ form: "Reload the page before you schedule this email." });
+					return;
+				}
+				const id = form.communicationId;
+				const scheduled = await scheduleExisting(keys.take("schedule"), form.revision, id, instant);
+				keys.settle("schedule", scheduled);
+				if (scheduled.status !== "ok") {
+					setIssues({ form: outcomeText(scheduled) ?? undefined });
+					return;
+				}
+				adopt(scheduled.value);
+				setStatus(`The email is scheduled for ${formatWhen(scheduled.value.scheduledAt)}. It has not been sent.`);
+				return;
+			}
 			if (form.state === "scheduled") {
 				if (!form.communicationId || !form.revision) {
 					setIssues({ form: "Reload the page before you change this email again." });
@@ -850,6 +906,12 @@ function Compose({
 									<p className="text-sm text-text-2">Missing an email: {listed(preview.excludedMissingEmail)}.</p>
 								) : null}
 							</div>
+						) : null}
+						{form.state === "reviewed" ? (
+							<p className="text-sm text-text-2">
+								This message is reviewed. The subject and body stay as saved. Choose a send time. Scheduling does not
+								send the email.
+							</p>
 						) : null}
 						<Field
 							label="Send time"
