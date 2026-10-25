@@ -67,21 +67,21 @@ export function CreateDialog({
 					className={fieldText}
 					value={f.name}
 					maxLength={NAME_MAX}
-					onChange={(e) => setF({ ...f, name: e.target.value })}
+					onChange={(e) => setF((current) => ({ ...current, name: e.target.value }))}
 				/>
 			</Field>
 			<Checkbox
 				label="People must finish this"
 				description="Required programs count only the people you put on the list."
 				checked={f.required}
-				onCheckedChange={(checked) => setF({ ...f, required: checked === true })}
+				onCheckedChange={(checked) => setF((current) => ({ ...current, required: checked === true }))}
 			/>
 			{admin ? (
 				<Checkbox
 					label="Every ministry"
 					description="An Owner or Admin records a program that is not limited to this ministry."
 					checked={f.churchwide}
-					onCheckedChange={(checked) => setF({ ...f, churchwide: checked === true })}
+					onCheckedChange={(checked) => setF((current) => ({ ...current, churchwide: checked === true }))}
 				/>
 			) : null}
 		</RecordDialog>
@@ -126,14 +126,14 @@ export function CorrectDialog({
 					className={fieldText}
 					value={f.name}
 					maxLength={NAME_MAX}
-					onChange={(e) => setF({ ...f, name: e.target.value })}
+					onChange={(e) => setF((current) => ({ ...current, name: e.target.value }))}
 				/>
 			</Field>
 			<Checkbox
 				label="People must finish this"
 				description="Turn this on only when a saved list of people should count."
 				checked={f.required}
-				onCheckedChange={(checked) => setF({ ...f, required: checked === true })}
+				onCheckedChange={(checked) => setF((current) => ({ ...current, required: checked === true }))}
 			/>
 			<Field label="Reason" hint="The reason stays in the history." error={touched ? reason : null}>
 				<Textarea
@@ -141,7 +141,7 @@ export function CorrectDialog({
 					value={f.reason}
 					rows={3}
 					maxLength={REASON_MAX}
-					onChange={(e) => setF({ ...f, reason: e.target.value })}
+					onChange={(e) => setF((current) => ({ ...current, reason: e.target.value }))}
 				/>
 			</Field>
 		</RecordDialog>
@@ -204,7 +204,13 @@ export function CompletionDialog({
 			<PersonPicker
 				label="Person"
 				value={personValue(f.personId, f.personName)}
-				onChange={(person) => setF({ ...f, personId: person?.id ?? null, personName: person?.name ?? "" })}
+				onChange={(person) =>
+					setF((current) => ({
+						...current,
+						personId: person?.id ?? null,
+						personName: person?.name ?? "",
+					}))
+				}
 			/>
 			{touched && missingPerson ? <p className="text-xs font-medium text-magenta-600">Choose a person.</p> : null}
 			{revoke ? null : (
@@ -213,7 +219,7 @@ export function CompletionDialog({
 						className={fieldText}
 						type="date"
 						value={f.earnedOn}
-						onChange={(e) => setF({ ...f, earnedOn: e.target.value })}
+						onChange={(e) => setF((current) => ({ ...current, earnedOn: e.target.value }))}
 					/>
 				</Field>
 			)}
@@ -244,10 +250,12 @@ export function AssignDialog({
 	const selected = new Set(f.personIds);
 	const known = new Map([...directory, ...extra].map((person) => [person.id, person.name]));
 	const toggle = (id: string, on: boolean) => {
-		const next = new Set(f.personIds);
-		if (on) next.add(id);
-		else next.delete(id);
-		setF({ ...f, personIds: [...next] });
+		setF((current) => {
+			const next = new Set(current.personIds);
+			if (on) next.add(id);
+			else next.delete(id);
+			return { ...current, personIds: [...next] };
+		});
 	};
 	return (
 		<RecordDialog
@@ -304,7 +312,7 @@ export function AssignDialog({
 				onChange={(person) => {
 					if (!person || selected.has(person.id)) return;
 					setExtra((rows) => [...rows, person]);
-					setF({ ...f, personIds: [...f.personIds, person.id] });
+					setF((current) => ({ ...current, personIds: [...current.personIds, person.id] }));
 				}}
 			/>
 			<p
@@ -354,7 +362,13 @@ export function ServiceDialog({
 			<PersonPicker
 				label="Person"
 				value={personValue(f.personId, f.personName)}
-				onChange={(person) => setF({ ...f, personId: person?.id ?? null, personName: person?.name ?? "" })}
+				onChange={(person) =>
+					setF((current) => ({
+						...current,
+						personId: person?.id ?? null,
+						personName: person?.name ?? "",
+					}))
+				}
 			/>
 			{touched && missingPerson ? <p className="text-xs font-medium text-magenta-600">Choose a person.</p> : null}
 			<Field
@@ -366,7 +380,7 @@ export function ServiceDialog({
 					className={fieldText}
 					inputMode="numeric"
 					value={f.attendanceDays}
-					onChange={(e) => setF({ ...f, attendanceDays: e.target.value })}
+					onChange={(e) => setF((current) => ({ ...current, attendanceDays: e.target.value }))}
 				/>
 			</Field>
 			<Field label="Serving days" hint="Days you can account for, from 0 to 20000." error={touched ? serving : null}>
@@ -374,7 +388,7 @@ export function ServiceDialog({
 					className={fieldText}
 					inputMode="numeric"
 					value={f.volunteerDays}
-					onChange={(e) => setF({ ...f, volunteerDays: e.target.value })}
+					onChange={(e) => setF((current) => ({ ...current, volunteerDays: e.target.value }))}
 				/>
 			</Field>
 		</RecordDialog>
