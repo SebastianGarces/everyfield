@@ -377,9 +377,7 @@ async function orgWrite(mode: "add" | "edit" | "publish" | "hide", command: OrgC
 		try {
 			refreshWiki(cachePath);
 		} catch (refreshError) {
-			console.error(
-				JSON.stringify({ component: "wiki", outcome: "revalidate-failed", error: String(refreshError) }),
-			);
+			console.error(JSON.stringify({ component: "wiki", outcome: "revalidate-failed", error: String(refreshError) }));
 		}
 		return { status: "ok", revision: nextRevision(command.expectedRevision), state: reply.value.state };
 	} catch (error) {
