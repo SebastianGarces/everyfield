@@ -1,5 +1,17 @@
 {
+	"GET /documents": {
+		"limit": 3
+	},
 	"GET /meetings": {
+		"limit": 3
+	},
+	"GET /ministries": {
+		"limit": 3
+	},
+	"GET /ministries/[teamId]": {
+		"limit": 5
+	},
+	"GET /ministries?view=chart": {
 		"limit": 3
 	},
 	"GET /notifications": {
@@ -103,6 +115,9 @@
 	"communication.cancelScheduledReviewed": {
 		"limit": 3
 	},
+	"communication.correctContactLog": {
+		"limit": 2
+	},
 	"communication.createTemplate": {
 		"limit": 1
 	},
@@ -115,10 +130,22 @@
 	"communication.dispatchAttempt": {
 		"limit": 4
 	},
+	"communication.executeResend": {
+		"limit": 2
+	},
 	"communication.forkTemplate": {
 		"limit": 3
 	},
+	"communication.getDeliveryTotals": {
+		"limit": 1
+	},
+	"communication.getDetail": {
+		"limit": 1
+	},
 	"communication.getDraft": {
+		"limit": 1
+	},
+	"communication.getExecutionResult": {
 		"limit": 1
 	},
 	"communication.getTemplate": {
@@ -127,8 +154,26 @@
 	"communication.listDrafts": {
 		"limit": 1
 	},
+	"communication.listForMeeting": {
+		"limit": 1
+	},
+	"communication.listForPerson": {
+		"limit": 1
+	},
 	"communication.listForSelf": {
 		"limit": 2
+	},
+	"communication.listHistory": {
+		"limit": 1
+	},
+	"communication.listHistoryRecipients": {
+		"limit": 1
+	},
+	"communication.listMeetingTracking": {
+		"limit": 1
+	},
+	"communication.listResendCandidates": {
+		"limit": 1
 	},
 	"communication.listTemplates": {
 		"limit": 1
@@ -144,6 +189,9 @@
 	},
 	"communication.readRecipients": {
 		"limit": 1
+	},
+	"communication.recordContactFromTask": {
+		"limit": 2
 	},
 	"communication.reconcileProviderOutcome": {
 		"limit": 3
@@ -179,10 +227,37 @@
 		"limit": 10,
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 5 locked read, 2 read, 3 write."
 	},
+	"documents.archive": {
+		"limit": 1
+	},
+	"documents.designateCoreValues": {
+		"limit": 1
+	},
+	"documents.download": {
+		"limit": 9
+	},
+	"documents.generate": {
+		"limit": 15,
+		"reason": "The saved file is stored before the generated row. putPrivateObject claims the object and finalizes it in two transactions so the provider call holds no lock, then one statement inserts the generated row and its audit. Its largest first run: 5 read, 4 transaction, 2 locked read, 4 write."
+	},
+	"documents.importTextOrWord": {
+		"limit": 14,
+		"reason": "An import stores the original bytes before the native revision. putPrivateObject claims the object and finalizes it in two transactions so the provider call holds no lock, then one statement writes the revision and its audit. Its largest first run: 4 read, 4 transaction, 2 locked read, 4 write."
+	},
 	"documents.preview": {
 		"limit": 1
 	},
+	"documents.purgeOwnedForDeletion": {
+		"limit": 1
+	},
+	"documents.reconcileOrphans": {
+		"limit": 13,
+		"reason": "Each unreferenced object is claimed and purged in its own transactions around the provider delete, and this run purged two. Its largest first run: 3 read, 4 transaction, 2 locked read, 4 write."
+	},
 	"documents.resolveContext": {
+		"limit": 1
+	},
+	"documents.saveNative": {
 		"limit": 1
 	},
 	"documents.templates.contextual": {
@@ -192,6 +267,9 @@
 		"limit": 1
 	},
 	"documents.templates.list": {
+		"limit": 1
+	},
+	"documents.useForChurch": {
 		"limit": 1
 	},
 	"early-access/index.receiveAccessRequest": {

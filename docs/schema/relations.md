@@ -104,6 +104,10 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `four_cs(plant_id)` | `plant(id)` | restrict |  |
 | `four_cs(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `four_cs(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
+| `generated_document(tenant_id)` | `tenant(id)` | restrict |  |
+| `generated_document(creator_account_id)` | `account(id)` | set_null |  |
+| `generated_document(object_id, tenant_id)` | `file_object(id, tenant_id)` | restrict |  |
+| `generated_document(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
 | `household(plant_id)` | `plant(id)` | restrict |  |
 | `household(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `identity_proof(account_id)` | `account(id)` | restrict |  |

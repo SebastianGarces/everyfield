@@ -1,4 +1,4 @@
-import { createCipheriv, createHmac, randomBytes, randomUUID } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHmac, randomBytes, randomUUID } from "node:crypto";
 import { sql } from "@everyfield/db/query";
 import type { Database } from "@everyfield/db/client";
 import * as c from "@everyfield/contracts/communication";
@@ -46,6 +46,36 @@ function seal(key: Buffer, value: string, aad: string) {
 }
 function addressHash(addressKey: Buffer, address: string) {
 	return createHmac("sha256", addressKey).update(address).digest("hex");
+}
+/** The address seal binds the ciphertext to this plant and this mail row. */
+export function addressAad(plantId: string, mailId: string) {
+	return `${plantId}/${mailId}/address`;
+}
+export function sealText(key: Uint8Array, value: string, aad: string) {
+	const buf = Buffer.from(key);
+	if (buf.length !== 32) throw new Error("mail_keys_required");
+	return seal(buf, value, aad);
+}
+export function openText(key: Uint8Array, sealed: string, aad: string): string | null {
+	try {
+		const buf = Buffer.from(key);
+		if (buf.length !== 32) return null;
+		const raw = Buffer.from(sealed, "base64url");
+		const iv = raw.subarray(0, 12);
+		const tag = raw.subarray(12, 28);
+		const data = raw.subarray(28);
+		const decipher = createDecipheriv("aes-256-gcm", buf, iv);
+		decipher.setAAD(Buffer.from(aad));
+		decipher.setAuthTag(tag);
+		return Buffer.concat([decipher.update(data), decipher.final()]).toString("utf8");
+	} catch {
+		return null;
+	}
+}
+export function mailAddressHash(key: Uint8Array, address: string) {
+	const addressKey = Buffer.from(key);
+	if (addressKey.length !== 32) throw new Error("mail_keys_required");
+	return addressHash(addressKey, address);
 }
 function adminGate(actor: Actor) {
 	return sql`EXISTS (SELECT 1 FROM live_session(${actor.session}::uuid) i
