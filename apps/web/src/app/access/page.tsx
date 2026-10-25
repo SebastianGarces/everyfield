@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { AccessForm, type FieldSpec, type FormText, type StepSpec } from "@/access/AccessForm";
 import { FIELD_MAX, PHASES } from "@/access/contract";
-import { FIELD_STEPS, WHO, kindOf, type Who } from "@/access/steps";
+import { FIELD_STEPS, WHO, isWho, kindOf, type Who } from "@/access/steps";
 import { COPY } from "@/marketing/copy";
 import { PAGES, pageMetadata } from "@/marketing/meta";
 import { PageHero } from "@/marketing/sections/PageHero";
@@ -80,7 +80,14 @@ const text: FormText = {
 
 export const metadata: Metadata = pageMetadata(PAGES.access);
 
-export default function Access() {
+/** ?role=planter, church or network (Revision 8) opens the form with that answer chosen; anything else is ignored. */
+export default async function Access({
+	searchParams,
+}: {
+	searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+	const role = (await searchParams).role;
+	const who = isWho(role) ? role : undefined;
 	const note = A.hero.note ?? COPY.journey.cta.note;
 	return (
 		<Site path="/access">
@@ -92,7 +99,7 @@ export default function Access() {
 			</PageHero>
 			<section className="relative pb-section">
 				<div className="mx-auto max-w-mk px-page">
-					<AccessForm paths={paths} text={text} />
+					<AccessForm paths={paths} text={text} who={who} />
 				</div>
 			</section>
 		</Site>

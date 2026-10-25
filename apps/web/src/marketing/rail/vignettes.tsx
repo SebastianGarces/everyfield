@@ -85,7 +85,8 @@ function Meter({ pct, color, hatch }: { pct: string; color: string; hatch?: bool
 }
 
 /* ---------- Home: the six phases ---------- */
-/** Demo data the page passes (home/demo.ts): the eight ministry areas (the second one empty), the training rows and the milestone count. */
+/** Demo data the page passes (home/demo.ts): the demo plant's own ministries (the second one has no leader), the training
+ *  rows and the milestone count. No label states a set number of ministries (addendum 2026-10-23). */
 export type PhaseDemo = { areas: readonly string[]; training: readonly string[]; milestones: string; wrap?: boolean };
 const SEATS = [
 	["MS", "violet"],
@@ -154,9 +155,9 @@ export function PhaseVignette({ i, demo }: { i: number; demo: PhaseDemo }) {
 				<Head
 					icon="calendar"
 					tone="amber"
-					title="Ministry areas"
-					sub="Launch Sunday, Mar 14"
-					right={<span className={K}>7 of 8</span>}
+					title="Ministries"
+					sub="Launch Mar 14"
+					right={<span className={K}>1 needs a leader</span>}
 				/>
 				<div className="mt-3.5 grid grid-cols-4 gap-x-1.5 gap-y-3">
 					{seats.map(([name, who, tone]) => (

@@ -69,8 +69,9 @@ export type FormText = {
 	contactEmail: string;
 	outcomes: Record<"received" | "invalid" | Notice, Outcome>;
 };
-/** paths: the three steps after the choice, per answer. A church and a network differ in labels only. */
-type Props = { paths: Record<Who, StepSpec[]>; text: FormText };
+/** paths: the three steps after the choice, per answer. A church and a network differ in labels only. who: the answer
+ *  chosen in advance by a link (/access?role=network); the first step still shows it and lets the person change it. */
+type Props = { paths: Record<Who, StepSpec[]>; text: FormText; who?: Who };
 
 const ARROW = <Icon icon={ArrowRight02Icon} size={17} />;
 const BACK = <Icon icon={ArrowLeft02Icon} size={17} />;
@@ -238,7 +239,7 @@ type Focus = "step" | "error" | "message";
  * The server stays the authority: an "invalid" answer goes back to the first step with an error.
  * A failed send keeps every answer in the form.
  */
-export function AccessForm({ paths, text }: Props) {
+export function AccessForm({ paths, text, who: chosen }: Props) {
 	const uid = useId();
 	const formRef = useRef<HTMLFormElement>(null);
 	const cardRef = useRef<HTMLElement>(null);
@@ -246,7 +247,7 @@ export function AccessForm({ paths, text }: Props) {
 	const primaryRef = useRef<HTMLButtonElement>(null);
 	useReveal(cardRef);
 	const rv = revealProps();
-	const [serverState, formAction] = useActionState(stepAccessForm, START);
+	const [serverState, formAction] = useActionState(stepAccessForm, chosen ? { ...START, who: chosen } : START);
 	const [s, setS] = useState<FormState>(serverState);
 	const [sending, setSending] = useState(false);
 	const [said, setSaid] = useState("");

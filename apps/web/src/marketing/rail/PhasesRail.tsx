@@ -3,6 +3,7 @@ import { Reveal } from "@/components/motion/Reveal";
 import { Backdrop } from "../photo/Backdrop";
 import type { PhotoName } from "../photo/photos";
 import { PinnedRail } from "./PinnedRail";
+import { SampleTag } from "../sections/SampleTag";
 import { PhaseVignette, PlantVignette, type PhaseDemo } from "./vignettes";
 
 type Item = { label: string; title: string; body?: string; short?: string };
@@ -51,6 +52,7 @@ export function PhasesRail(props: Props) {
 							<Backdrop bg={art} sizes="(max-width: 640px) 82vw, 372px" className="absolute inset-0 -z-1" />
 							{/* The cream number sits on an ink corner shade: 3:1 or more on the lightest crops. */}
 							<span aria-hidden="true" className="mk-corner-shade absolute inset-0 -z-1" />
+							{props.vignettes === "plants" ? <SampleTag className="top-4 right-4" /> : null}
 							<span
 								aria-hidden="true"
 								className="absolute top-4 left-[18px] font-display type-mk-display-xl leading-[.8] tracking-[-0.02em] text-cream tabular-nums"

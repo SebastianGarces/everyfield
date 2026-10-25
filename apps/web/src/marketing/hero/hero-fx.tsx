@@ -49,7 +49,9 @@ const d = (ms: number) => ms * TM.act;
 /** Card 0 also covers the loop seam. */
 const seam = (i: number, v: number) => (i === 0 && v >= LOOP - 300 ? v - LOOP : v);
 const join = (v: number) => inOut(P(v, at(4, 500), d(520)));
-const ROWS = [41, 23, 34] as const;
+/** Scene 5 meter counts, in HeroAnimation's BOARD order (Prospect … Leader), before the person moves. */
+const ROWS = [82, 41, 23, 15, 33, 12, 8] as const;
+const FULL = 90;
 
 const FX = {
 	/** One scene card: in 380 ms ease-out with an 8 px lift, out 250 ms sine (6 px up). */
@@ -85,11 +87,11 @@ const FX = {
 		const p = P(v, at(3, k * 260), d(340));
 		return [0, 0, 0.4 + 0.6 * back(p), clamp(p * 2.5)];
 	},
-	/** Scene 5: the bars fill, Maria joins the core group (one out of Following up, one into Core group). */
+	/** Scene 5: the bars fill, Maria joins the core group (one out of Interviewed, one into Core group). */
 	meter: (v: number, k: number) => {
-		const p = out(P(v, at(4, k * 90), d(650))),
+		const p = out(P(v, at(4, k * 60), d(650))),
 			j = join(v);
-		const val = (ROWS[k]! / 50) * p + (k === 2 ? j : k === 1 ? -j : 0) / 50;
+		const val = (ROWS[k]! / FULL) * p + (k === 4 ? j : k === 3 ? -j : 0) / FULL;
 		return "translate3d(" + (-100 + 100 * val).toFixed(2) + "%,0,0)";
 	},
 	hl: (v: number) => out(P(v, at(4, 400), d(300))) * (1 - sine(P(v, SC[4]![1] - 1500, d(600)))),

@@ -26,9 +26,8 @@ const FX = {
 	"vision.out": (t: number, n: number) => scaleY(out(P(t, at(n) + 0.35 * gap(n), 0.45 * gap(n)))),
 	/** ... and the part inside the next node (from its top edge to its icon). */
 	"vision.in": (t: number, n: number) => scaleY(out(P(t, at(n - 1) + 0.8 * gap(n - 1), 0.35 * gap(n - 1)))),
-	/** The phase benchmark: the count and the bar fill together once the phase has landed. */
+	/** The committed adults count rises once the phase has landed. */
 	"vision.count": (t: number) => 34 * out(P(t, 560, 1000)),
-	"vision.bar": (t: number) => "scaleX(" + out(P(t, 560, 1000)).toFixed(4) + ")",
 	/** The launch milestone: its first task's segment fills. */
 	"vision.ms": (t: number) => "scaleX(" + out(P(t, 940, 600)).toFixed(4) + ")",
 };

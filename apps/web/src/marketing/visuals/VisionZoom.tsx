@@ -97,20 +97,6 @@ const TASKS = [
 	["Interview David Kim", "Close to committing", "blue", "Committed adults"],
 ] as const satisfies readonly (readonly [string, string, Tone, string])[];
 
-/** A thin progress bar whose fill grows from the left (fx gives its scaleX). */
-function Meter({ fx, fill, color }: { fx: string; fill: string; color: string }) {
-	return (
-		<div
-			aria-hidden="true"
-			className="relative mt-2 h-2 overflow-hidden bg-surface-2 shadow-[inset_0_0_0_1px_var(--color-line)]"
-		>
-			<span className={cn("absolute inset-y-0 left-0 overflow-hidden", fill)}>
-				<Tf fx={fx} as="span" layer={false} className={cn("absolute inset-0 origin-left", color)} />
-			</span>
-		</div>
-	);
-}
-
 export function VisionZoom() {
 	return (
 		<VisionScene className="ef-ui relative isolate overflow-hidden px-[clamp(16px,3vw,40px)] py-[clamp(20px,3.2vw,44px)] shadow-mk-frame">
@@ -136,7 +122,7 @@ export function VisionZoom() {
 					</div>
 				</Move>
 
-				{/* The current phase with its benchmark (a benchmark, never a requirement). */}
+				{/* The current phase and the plant's committed adults (addendum 2026-10-23: a count, with no target). */}
 				<Level
 					n={1}
 					tone="violet"
@@ -147,13 +133,11 @@ export function VisionZoom() {
 				>
 					<div className="mt-3 ml-[50px]">
 						<div className="flex items-baseline justify-between gap-3">
-							<span className="type-sm text-text-3">Benchmark: committed adults</span>
+							<span className="type-sm text-text-3">Committed adults</span>
 							<span className={cn(NUM, "font-title type-title-md leading-none")}>
 								<Count fx="vision.count" max={34} />
-								<span className="ml-1 font-sans type-sm font-medium tracking-normal text-text-3">of 50</span>
 							</span>
 						</div>
-						<Meter fx="vision.bar" fill="w-[68%]" color="bg-blue-500" />
 					</div>
 				</Level>
 
