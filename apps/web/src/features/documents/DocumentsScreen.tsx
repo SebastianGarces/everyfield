@@ -14,7 +14,7 @@ import {
 import { Tag } from "@everyfield/ui/display";
 import { cn } from "@everyfield/ui/foundations";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { resolveDocument } from "./actions.ts";
+import { generateDocument, resolveDocument } from "./actions.ts";
 import {
 	CATEGORIES,
 	FORMAT_LABEL,
@@ -23,6 +23,7 @@ import {
 	categoryLabel,
 	choose,
 	combinedTooLong,
+	documentProblem,
 	draftsFrom,
 	fieldError,
 	fileName,
@@ -35,9 +36,11 @@ import {
 	type Resolved,
 	type Template,
 } from "./model.ts";
+import { NativeDocuments } from "./native.tsx";
+import { SavedHistory } from "./saved.tsx";
 
-// The documents library and the side-effect-free preview. Saved history is a later package, so this page does not
-// invent rows. A download of preview bytes is not a saved copy.
+// The documents library and the side-effect-free preview. Saving stores a generated file for the church.
+// A preview download stays on this device.
 
 type PreviewState =
 	{ kind: "idle" } | { kind: "pdf"; url: string } | { kind: "office" } | { kind: "message"; text: string };
@@ -47,6 +50,9 @@ type Props = {
 	query: DocumentsQuery;
 	context: Resolved | null;
 	canPreview: boolean;
+	canEdit: boolean;
+	canStore: boolean;
+	written: "church" | "account" | null;
 };
 
 function bytesOf(encoded: string) {
@@ -113,7 +119,7 @@ function failureText(code: string, problem?: string) {
 	return "This file did not render. Nothing was saved.";
 }
 
-export function DocumentsScreen({ templates, query, context, canPreview }: Props) {
+export function DocumentsScreen({ templates, query, context, canPreview, canEdit, canStore, written }: Props) {
 	const initial = filterTemplates(templates, query);
 	const [category, setCategory] = useState(query.category);
 	const [wiki, setWiki] = useState(query.wiki);
@@ -131,8 +137,12 @@ export function DocumentsScreen({ templates, query, context, canPreview }: Props
 	const [artifact, setArtifact] = useState<{ key: string; format: Format; bytes: string } | null>(null);
 	const [resolving, startResolve] = useTransition();
 	const [previewing, startPreview] = useTransition();
+	const [saving, startSave] = useTransition();
+	const [saveNote, setSaveNote] = useState<string | null>(null);
+	const [savedTick, setSavedTick] = useState(0);
 	const previewUrl = useRef<string | null>(null);
 	const resolveToken = useRef(0);
+	const saveKeys = useRef(new Map<string, string>());
 
 	function revokePreview() {
 		if (previewUrl.current) URL.revokeObjectURL(previewUrl.current);
@@ -231,6 +241,30 @@ export function DocumentsScreen({ templates, query, context, canPreview }: Props
 			setArtifact({ key: signature, format: nextFormat, bytes: result.value.artifact });
 			if (download) downloadBytes(template.name, nextFormat, result.value.artifact);
 			else showBytes(nextFormat, result.value.artifact);
+		});
+	}
+
+	function runSave() {
+		if (!selected || !activeFormat || !ready || !canStore) return;
+		const template = selected;
+		const nextFormat = activeFormat;
+		const key = saveKeys.current.get(signature) ?? crypto.randomUUID();
+		saveKeys.current.set(signature, key);
+		startSave(async () => {
+			const result = await generateDocument(template.id, nextFormat, overrides, key);
+			if (result.status !== "ok") {
+				if (result.status === "refused" && result.code === "conflict") saveKeys.current.delete(signature);
+				setSaveNote(
+					documentProblem(
+						result.status === "refused" ? result.code : "lost",
+						result.status === "refused" ? result.problem : undefined,
+						"This file did not save. Nothing was stored.",
+					),
+				);
+				return;
+			}
+			setSaveNote(`Saved ${result.value.savedTemplateName} for your church.`);
+			setSavedTick((current) => current + 1);
 		});
 	}
 
@@ -380,19 +414,25 @@ export function DocumentsScreen({ templates, query, context, canPreview }: Props
 								busy={previewing || resolving}
 								ready={ready}
 								preview={preview}
+								canStore={canStore}
+								saving={saving}
+								saveNote={saveNote}
 								onDraft={(key, value) => {
 									setDrafts((current) => ({ ...current, [key]: value }));
 									setArtifact(null);
+									setSaveNote(null);
 									if (preview.kind !== "idle") setPreview({ kind: "idle" });
 								}}
 								onFormat={(next) => {
 									setFormat(next);
 									setArtifact(null);
+									setSaveNote(null);
 									revokePreview();
 									setPreview({ kind: "idle" });
 								}}
 								onPreview={() => runPreview(false)}
 								onDownload={() => runPreview(true)}
+								onSave={runSave}
 							/>
 						) : (
 							<EmptyState icon={File02Icon} title="Select a template" headingLevel="h2">
@@ -402,16 +442,8 @@ export function DocumentsScreen({ templates, query, context, canPreview }: Props
 					</Card>
 				</aside>
 			</section>
-			<section id="saved" aria-labelledby="saved-heading" className="mt-8 scroll-mt-24">
-				<Card>
-					<h2 id="saved-heading" className="font-title text-title-sm tracking-[-0.02em] text-ink">
-						Saved for your church
-					</h2>
-					<EmptyState icon={Clock01Icon} title="Nothing saved for your church yet." headingLevel="h3">
-						A preview download stays on this device. It is not saved here.
-					</EmptyState>
-				</Card>
-			</section>
+			<SavedHistory enabled={canPreview} refreshKey={savedTick} />
+			{written ? <NativeDocuments written={written} canEdit={canEdit} canStore={canStore} /> : null}
 		</>
 	);
 }
@@ -422,30 +454,38 @@ function TemplatePanel({
 	drafts,
 	resolved,
 	canPreview,
+	canStore,
 	tooLong,
 	missing,
 	busy,
+	saving,
 	ready,
 	preview,
+	saveNote,
 	onDraft,
 	onFormat,
 	onPreview,
 	onDownload,
+	onSave,
 }: {
 	template: Template;
 	format: Format;
 	drafts: Record<string, string>;
 	resolved: Resolved | null;
 	canPreview: boolean;
+	canStore: boolean;
 	tooLong: boolean;
 	missing: string[];
 	busy: boolean;
+	saving: boolean;
 	ready: boolean;
 	preview: PreviewState;
+	saveNote: string | null;
 	onDraft: (key: string, value: string) => void;
 	onFormat: (format: Format) => void;
 	onPreview: () => void;
 	onDownload: () => void;
+	onSave: () => void;
 }) {
 	return (
 		<div className="flex flex-col gap-4">
@@ -501,10 +541,25 @@ function TemplatePanel({
 				<Button variant="secondary" loading={busy} disabled={!ready} onClick={onPreview}>
 					Preview
 				</Button>
-				<Button variant="primary" icon={Download01Icon} loading={busy} disabled={!ready} onClick={onDownload}>
+				<Button variant="secondary" icon={Download01Icon} loading={busy} disabled={!ready} onClick={onDownload}>
 					Download {FORMAT_LABEL[format]}
 				</Button>
+				{canPreview ? (
+					<Button variant="primary" loading={saving} disabled={!ready || !canStore} onClick={onSave}>
+						Save for your church
+					</Button>
+				) : null}
 			</div>
+			{canPreview && !canStore ? (
+				<p className="text-sm text-text-2">
+					Saving for your church is not available right now. A preview download stays on this device.
+				</p>
+			) : null}
+			{saveNote ? (
+				<p role="status" className="text-sm text-text-2">
+					{saveNote}
+				</p>
+			) : null}
 			{preview.kind === "message" ? (
 				<p role="status" className="text-sm text-text-2">
 					{preview.text}

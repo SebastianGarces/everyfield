@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { DocumentsScreen } from "./DocumentsScreen.tsx";
 import { parseQuery } from "./model.ts";
-import { loadDocuments } from "./server.ts";
+import { canEditDocuments, canStoreDocuments, loadDocuments, writtenScope } from "./server.ts";
 
 // The documents routes. The files under apps/web/src/app/ only re-export these.
 
@@ -32,6 +32,9 @@ export async function DocumentsPage({ searchParams }: { searchParams: Search }) 
 			query={query}
 			context={loaded.context}
 			canPreview={loaded.canPreview}
+			canEdit={canEditDocuments(viewer.authority)}
+			canStore={canStoreDocuments()}
+			written={writtenScope(viewer.authority)}
 		/>
 	);
 }

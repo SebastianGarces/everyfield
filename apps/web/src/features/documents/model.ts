@@ -1,4 +1,11 @@
-import type { contextResult, documentCategory, documentFormat, templateView } from "@everyfield/contracts/documents";
+import type {
+	contextResult,
+	documentCategory,
+	documentFormat,
+	generatedDocument,
+	ownedDocument,
+	templateView,
+} from "@everyfield/contracts/documents";
 import type { z } from "zod";
 
 // Launch is the screen name for the operational category. The catalog has no "launch" value.
@@ -165,4 +172,28 @@ export function fileName(name: string, format: Format) {
 		.replace(/[^a-z0-9]+/g, "-")
 		.replace(/^-|-$/g, "");
 	return `${safe || "document"}.${format}`;
+}
+
+export type SavedFile = Pick<
+	z.infer<typeof generatedDocument>,
+	"id" | "savedTemplateName" | "format" | "generatedAt" | "downloadName"
+>;
+
+export type OwnedView = Pick<z.infer<typeof ownedDocument>, "id" | "kind" | "title" | "body" | "revision" | "archived">;
+
+/**
+ * A sentence for a refused document action. Invalid input keeps the server's problem.
+ * A conflict always tells the person to reload.
+ */
+export function documentProblem(code: string, problem: string | undefined, fallback: string) {
+	if (code === "invalid_input" && problem) return problem;
+	if (code === "unavailable" && problem) return problem;
+	if (code === "conflict") return "This document changed. Reload it, then try again.";
+	return fallback;
+}
+
+export function savedWhen(iso: string) {
+	const date = new Date(iso);
+	if (Number.isNaN(date.getTime())) return iso;
+	return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date);
 }
