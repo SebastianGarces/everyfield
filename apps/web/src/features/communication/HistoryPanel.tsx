@@ -56,7 +56,8 @@ function problem(result: Outcome<unknown>): string {
 	if (result.status === "refused" && result.code === "not_found") return "That record is no longer here.";
 	if (result.status === "refused" && result.code === "access_denied")
 		return "An Owner or Admin seat is required to change messages.";
-	if (result.status === "refused" && result.code === "invalid_input") return "That link is not valid. Check it and try again.";
+	if (result.status === "refused" && result.code === "invalid_input")
+		return "That link is not valid. Check it and try again.";
 	return outcomeText(result) ?? "Unable to load history. Try again.";
 }
 
@@ -120,7 +121,8 @@ function useHistory(load: (cursor: string | null) => Promise<Outcome<HistoryPage
 
 	useEffect(() => {
 		let cancel = false;
-		void loadRef.current(null)
+		void loadRef
+			.current(null)
 			.then((result) => {
 				if (cancel) return;
 				setPending(null);
@@ -185,8 +187,17 @@ function useHistory(load: (cursor: string | null) => Promise<Outcome<HistoryPage
 	return { items, page, error, pending, more, reload };
 }
 
-function MessageButton({ item, selected, onSelect }: { item: HistoryItem; selected: boolean; onSelect: (id: string) => void }) {
-	const reached = item.rate === null ? "No reachable recipients" : `${item.delivered} delivered of ${item.reachable} reachable`;
+function MessageButton({
+	item,
+	selected,
+	onSelect,
+}: {
+	item: HistoryItem;
+	selected: boolean;
+	onSelect: (id: string) => void;
+}) {
+	const reached =
+		item.rate === null ? "No reachable recipients" : `${item.delivered} delivered of ${item.reachable} reachable`;
 	return (
 		<button
 			type="button"
@@ -252,7 +263,9 @@ function Totals({ view }: { view: MessageView }) {
 			))}
 			<p className="text-sm text-text-2">{rateText(totals.delivered, totals.reachable, totals.rate)}</p>
 			<p className="text-sm text-text-2">An open and a click stay separate. Neither one is a typed contact.</p>
-			{totals.unknown > 0 ? <p className="text-sm text-text-2">Some recipients have no result yet. Unknown is not delivered.</p> : null}
+			{totals.unknown > 0 ? (
+				<p className="text-sm text-text-2">Some recipients have no result yet. Unknown is not delivered.</p>
+			) : null}
 			<p className="text-sm text-text-2">
 				{totals.sentForAll ? "Every recipient record is sent." : "Not every recipient record is sent."}
 				{totals.outcomes.length > 0 ? ` Provider words: ${totals.outcomes.map(deliveryName).join(", ")}.` : ""}
@@ -317,7 +330,9 @@ function Detail({
 				) : (
 					<p className="text-sm text-text-2">The plain text of this message was not stored.</p>
 				)}
-				<p className="text-sm text-text-3">The subject and body above are the saved send. A later address change is separate.</p>
+				<p className="text-sm text-text-3">
+					The subject and body above are the saved send. A later address change is separate.
+				</p>
 				{detail.recipients.length === 1 ? (
 					<>
 						<AddressFact label="Address at send" value={detail.deliveryAddress} />
@@ -364,7 +379,9 @@ function Detail({
 						})}
 					</ul>
 				)}
-				{view.recipientsComplete ? null : <p className="text-sm text-text-2">More than 100 recipients. The first 100 are listed.</p>}
+				{view.recipientsComplete ? null : (
+					<p className="text-sm text-text-2">More than 100 recipients. The first 100 are listed.</p>
+				)}
 			</div>
 			{canWrite && view.totals.state === "sent" ? (
 				<div className="flex flex-col gap-3">
@@ -372,7 +389,12 @@ function Detail({
 					<p className="text-sm text-text-2">
 						Open tracking is not certain. A person can receive the email and still be listed as not opened.
 					</p>
-					<Button variant="secondary" onClick={onReview} loading={pending === "review"} disabled={pending !== null && pending !== "review"}>
+					<Button
+						variant="secondary"
+						onClick={onReview}
+						loading={pending === "review"}
+						disabled={pending !== null && pending !== "review"}
+					>
 						Review follow-up
 					</Button>
 					{reviewError ? (
@@ -503,15 +525,25 @@ function Browser({
 							<CardDescription>{intro}</CardDescription>
 						</CardHeading>
 					</CardHeader>
-					{history.pending === "list" ? <p role="status" className="text-sm text-text-2">Loading history.</p> : null}
+					{history.pending === "list" ? (
+						<p role="status" className="text-sm text-text-2">
+							Loading history.
+						</p>
+					) : null}
 					{history.error ? (
 						<div className="flex flex-col items-start gap-3">
-							<p role="alert" className="text-sm font-medium text-magenta-600">{history.error}</p>
-							<Button variant="secondary" onClick={history.reload}>Try again</Button>
+							<p role="alert" className="text-sm font-medium text-magenta-600">
+								{history.error}
+							</p>
+							<Button variant="secondary" onClick={history.reload}>
+								Try again
+							</Button>
 						</div>
 					) : null}
 					{history.pending !== "list" && !history.error && history.items.length === 0 ? (
-						<EmptyState icon={Mail01Icon} title={emptyTitle}>{emptyBody}</EmptyState>
+						<EmptyState icon={Mail01Icon} title={emptyTitle}>
+							{emptyBody}
+						</EmptyState>
 					) : null}
 					{history.items.length > 0 ? (
 						<ul className="flex flex-col gap-1">
@@ -523,7 +555,12 @@ function Browser({
 						</ul>
 					) : null}
 					{history.page && !history.page.complete ? (
-						<Button variant="secondary" onClick={history.more} loading={history.pending === "more"} disabled={history.pending !== null && history.pending !== "more"}>
+						<Button
+							variant="secondary"
+							onClick={history.more}
+							loading={history.pending === "more"}
+							disabled={history.pending !== null && history.pending !== "more"}
+						>
 							Load more
 						</Button>
 					) : null}
@@ -536,8 +573,16 @@ function Browser({
 					) : null}
 				</Card>
 				<Card as="section" aria-live="polite" className="flex min-w-0 flex-col gap-5">
-					{detailPending === "open" ? <p role="status" className="text-sm text-text-2">Loading the message.</p> : null}
-					{detailError ? <p role="alert" className="text-sm font-medium text-magenta-600">{detailError}</p> : null}
+					{detailPending === "open" ? (
+						<p role="status" className="text-sm text-text-2">
+							Loading the message.
+						</p>
+					) : null}
+					{detailError ? (
+						<p role="alert" className="text-sm font-medium text-magenta-600">
+							{detailError}
+						</p>
+					) : null}
 					{view ? (
 						<Detail
 							view={view}
@@ -593,12 +638,20 @@ function Browser({
 	);
 }
 
-function ContactLog({ contacts, lastConfirmedContactAt }: { contacts: ContactRow[]; lastConfirmedContactAt: string | null }) {
+function ContactLog({
+	contacts,
+	lastConfirmedContactAt,
+}: {
+	contacts: ContactRow[];
+	lastConfirmedContactAt: string | null;
+}) {
 	return (
 		<div className="flex flex-col gap-3">
 			<h2 className="text-sm font-medium text-ink-2">Contact log</h2>
 			<p className="text-sm text-text-2">A contact is a typed outcome for this person. It is not an email delivery.</p>
-			<p className="text-sm text-text-2">Last confirmed contact: {lastConfirmedContactAt ? when(lastConfirmedContactAt) : "None"}.</p>
+			<p className="text-sm text-text-2">
+				Last confirmed contact: {lastConfirmedContactAt ? when(lastConfirmedContactAt) : "None"}.
+			</p>
 			{contacts.length === 0 ? (
 				<p className="text-sm text-text-2">No typed contact yet. An email delivery does not fill this log.</p>
 			) : (
@@ -630,7 +683,9 @@ export function History({
 	meetingId: string | null;
 	onOpen: (draft: Draft, people: PersonName[]) => void;
 }) {
-	const [scope, setScope] = useState<Scope>(personId ? { kind: "person", personId } : meetingId ? { kind: "meeting", meetingId } : { kind: "hub" });
+	const [scope, setScope] = useState<Scope>(
+		personId ? { kind: "person", personId } : meetingId ? { kind: "meeting", meetingId } : { kind: "hub" },
+	);
 	const [filters, setFilters] = useState<Filters>(emptyFilters);
 	const [query, setQuery] = useState("");
 	const [contacts, setContacts] = useState<ContactRow[] | null>(null);
@@ -688,7 +743,14 @@ export function History({
 	};
 
 	const filtered = filters.query.trim() !== "" || filters.state !== "any" || filters.channel !== "any";
-	const emptyTitle = scope.kind === "person" ? "No email for this person" : scope.kind === "meeting" ? "No email for this meeting" : filtered ? "No messages match" : "No messages yet";
+	const emptyTitle =
+		scope.kind === "person"
+			? "No email for this person"
+			: scope.kind === "meeting"
+				? "No email for this meeting"
+				: filtered
+					? "No messages match"
+					: "No messages yet";
 	const emptyBody =
 		scope.kind === "person"
 			? "Email sent to this person is listed here. A typed contact stays in the log above."
@@ -710,7 +772,10 @@ export function History({
 						<Select
 							value={filters.state}
 							onValueChange={(state) => setFilters((current) => ({ ...current, state }))}
-							options={[{ value: "any", label: "Any status" }, ...hubStates.map((state) => ({ value: state, label: hubLabel[state] }))]}
+							options={[
+								{ value: "any", label: "Any status" },
+								...hubStates.map((state) => ({ value: state, label: hubLabel[state] })),
+							]}
 						/>
 					</Field>
 					<Field label="Channel">
@@ -738,15 +803,31 @@ export function History({
 				</Button>
 			)}
 			{scope.kind === "hub" && filtered ? (
-				<Button variant="ghost" onClick={() => { setQuery(""); setFilters(emptyFilters); }}>
+				<Button
+					variant="ghost"
+					onClick={() => {
+						setQuery("");
+						setFilters(emptyFilters);
+					}}
+				>
 					Clear filters
 				</Button>
 			) : null}
-			{scopeNote ? <p role="alert" className="text-sm font-medium text-magenta-600">{scopeNote}</p> : null}
+			{scopeNote ? (
+				<p role="alert" className="text-sm font-medium text-magenta-600">
+					{scopeNote}
+				</p>
+			) : null}
 			<Browser
 				key={reloadKey}
 				canWrite={canWrite}
-				title={scope.kind === "person" ? "This person's email" : scope.kind === "meeting" ? "This meeting's email" : "History"}
+				title={
+					scope.kind === "person"
+						? "This person's email"
+						: scope.kind === "meeting"
+							? "This meeting's email"
+							: "History"
+				}
 				intro={
 					scope.kind === "person"
 						? "Email for this person. The contact log above is separate from delivery."

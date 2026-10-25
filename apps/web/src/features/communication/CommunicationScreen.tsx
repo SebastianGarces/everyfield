@@ -279,7 +279,9 @@ export function CommunicationScreen({
 				subtitle="Review what was sent, write a message, and schedule the email."
 			/>
 			{canWrite ? null : (
-				<p className="text-md text-text-2">You can read messages. An Owner or Admin writes, schedules, and saves a follow-up.</p>
+				<p className="text-md text-text-2">
+					You can read messages. An Owner or Admin writes, schedules, and saves a follow-up.
+				</p>
 			)}
 			<SegmentedControl label="Message sections" value={tab} onValueChange={setTab} options={sections} />
 			{tab === "history" ? (

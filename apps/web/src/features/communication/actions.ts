@@ -367,10 +367,7 @@ export async function readHistory(query: {
 	return read(viewer, (tx) => communicationWriter.listHistory(tx, viewer.authority, query));
 }
 
-export async function readPersonHistory(
-	personId: string,
-	cursor?: string,
-): Promise<Outcome<PersonHistory>> {
+export async function readPersonHistory(personId: string, cursor?: string): Promise<Outcome<PersonHistory>> {
 	const viewer = await seat();
 	if (!viewer) return denied;
 	return read(viewer, (tx) =>
@@ -382,10 +379,7 @@ export async function readPersonHistory(
 	);
 }
 
-export async function readMeetingHistory(
-	meetingId: string,
-	cursor?: string,
-): Promise<Outcome<MeetingHistory>> {
+export async function readMeetingHistory(meetingId: string, cursor?: string): Promise<Outcome<MeetingHistory>> {
 	const viewer = await seat();
 	if (!viewer) return denied;
 	return read(viewer, (tx) =>
