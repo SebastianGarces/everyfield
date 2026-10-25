@@ -10,18 +10,28 @@ import type {
 	AudienceSummary,
 	CancelReport,
 	DeliveryReport,
+	DeliveryTotals,
 	Draft,
+	HistoryPage,
+	MeetingHistory,
+	MessageDetail,
+	MessageView,
+	NamedRecipient,
 	Outcome,
+	PersonHistory,
 	Preview,
 	Recipient,
 	ReplaceReport,
 	RescheduleReport,
+	ResendReview,
 	RestoreReport,
+	SavedResend,
 	SuppressionReport,
 	Template,
+	TrackingRow,
 } from "./model.ts";
 import { canWrite, communicationViewer, deliver, read, write, type Viewer } from "./server.ts";
-import { anticipateProvider, deliveryTransport } from "./mail.ts";
+import { anticipateProvider, deliveryTransport, mailReady } from "./mail.ts";
 
 // Server actions for the Messages screens. The actor is the request's seat. The browser cannot send one.
 // A lost write keeps its request key so a retry replays. The caller mints a new key after success or a refusal.
@@ -341,4 +351,160 @@ export async function deleteTemplate(
 	templateId: string,
 ): Promise<Outcome<TemplateChange>> {
 	return removeTemplate("delete", requestKey, expectedRevision, templateId);
+}
+
+export async function readHistory(query: {
+	limit?: unknown;
+	cursor?: unknown;
+	state?: unknown;
+	channel?: unknown;
+	meetingId?: unknown;
+	personId?: unknown;
+	query?: unknown;
+}): Promise<Outcome<HistoryPage>> {
+	const viewer = await seat();
+	if (!viewer) return denied;
+	return read(viewer, (tx) => communicationWriter.listHistory(tx, viewer.authority, query));
+}
+
+export async function readPersonHistory(
+	personId: string,
+	cursor?: string,
+): Promise<Outcome<PersonHistory>> {
+	const viewer = await seat();
+	if (!viewer) return denied;
+	return read(viewer, (tx) =>
+		communicationWriter.listForPerson(tx, viewer.authority, {
+			personId,
+			limit: 50,
+			...(cursor ? { cursor } : {}),
+		}),
+	);
+}
+
+export async function readMeetingHistory(
+	meetingId: string,
+	cursor?: string,
+): Promise<Outcome<MeetingHistory>> {
+	const viewer = await seat();
+	if (!viewer) return denied;
+	return read(viewer, (tx) =>
+		communicationWriter.listForMeeting(tx, viewer.authority, {
+			meetingId,
+			limit: 50,
+			...(cursor ? { cursor } : {}),
+		}),
+	);
+}
+
+export async function readMeetingTracking(meetingId: string): Promise<Outcome<{ items: TrackingRow[] }>> {
+	const viewer = await seat();
+	if (!viewer) return denied;
+	return read(viewer, async (tx) => {
+		const result = await communicationWriter.listMeetingTracking(tx, viewer.authority, { meetingId });
+		if (result.status !== "ok") return result;
+		return { status: "ok", value: { items: result.value.items } };
+	});
+}
+
+/** Detail, totals and the first 100 named recipients. One read. Addresses need mail keys. */
+export async function openMessage(communicationId: string): Promise<Outcome<MessageView>> {
+	const viewer = await seat();
+	if (!viewer) return denied;
+	const keys = mailReady()?.keys;
+	return read(viewer, async (tx) => {
+		const detail = await communicationWriter.getDetail(tx, viewer.authority, { id: communicationId }, keys);
+		if (detail.status !== "ok") return detail;
+		const totals = await communicationWriter.getDeliveryTotals(tx, viewer.authority, { communicationId });
+		if (totals.status !== "ok") return totals;
+		const recipients = await communicationWriter.listHistoryRecipients(
+			tx,
+			viewer.authority,
+			{ communicationId, limit: 100 },
+			keys,
+		);
+		if (recipients.status !== "ok") return recipients;
+		return {
+			status: "ok",
+			value: {
+				detail: detail.value satisfies MessageDetail,
+				totals: totals.value satisfies DeliveryTotals,
+				recipients: recipients.value.items satisfies NamedRecipient[],
+				recipientsComplete: recipients.value.complete,
+			},
+		};
+	});
+}
+
+export async function reviewResend(communicationId: string): Promise<Outcome<ResendReview>> {
+	return look(async (tx, viewer) => {
+		const result = await communicationWriter.listResendCandidates(tx, viewer.authority, {
+			communicationId,
+			selection: "delivered_nonopeners",
+		});
+		if (result.status !== "ok") return result;
+		return {
+			status: "ok",
+			value: {
+				communicationId: result.value.communicationId,
+				eligibleIds: result.value.eligibleIds,
+				eligibleNames: result.value.eligibleNames,
+				excludedNames: result.value.excludedNames,
+				confirmedDelivery: result.value.confirmedDelivery,
+			},
+		};
+	});
+}
+
+/** Save a reviewed follow-up. This does not send email and does not change the original. */
+export async function saveResend(requestKey: string, communicationId: string): Promise<Outcome<SavedResend>> {
+	return change(async (tx, context) => {
+		const result = await communicationWriter.executeResend(tx, context, {
+			requestKey,
+			input: { communicationId, selection: "delivered_nonopeners" },
+		});
+		if (result.status !== "ok") return result;
+		return {
+			status: "ok",
+			value: {
+				communicationId: result.value.communicationId,
+				eligibleIds: result.value.eligibleIds,
+				eligibleNames: result.value.eligibleNames,
+			},
+		};
+	});
+}
+
+/** Schedule a message that is already reviewed. The subject and body stay as saved. */
+export async function scheduleExisting(
+	requestKey: string,
+	expectedRevision: string,
+	communicationId: string,
+	scheduledAt: string,
+): Promise<Outcome<Draft & { scheduledAt: string }>> {
+	return change(async (tx, context) => {
+		const result = await communicationWriter.scheduleReviewed(tx, context, {
+			requestKey,
+			expectedRevision,
+			input: { communicationId, scheduledAt },
+		});
+		if (result.status !== "ok") return result;
+		const value = result.value;
+		return {
+			status: "ok",
+			value: {
+				communicationId: value.communicationId,
+				revision: value.revision,
+				state: value.state,
+				subject: value.subject,
+				bodyHtml: value.bodyHtml,
+				bodyText: value.bodyText,
+				audience: value.audience,
+				meetingId: value.meetingId,
+				templateId: value.templateId,
+				templateSource: value.templateSource,
+				scheduledAt: value.scheduledAt,
+			},
+		};
+	});
 }

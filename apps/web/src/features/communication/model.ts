@@ -180,3 +180,147 @@ export function restoreText(report: RestoreReport): string {
 	if (report.suppressionClears > 0) return "This address can receive email again. No new email was sent.";
 	return "This address was already clear. No new email was sent.";
 }
+
+export const hubStates = ["draft", "scheduled", "sending", "sent", "logged", "cancelled", "failed", "unknown"] as const;
+export type HubState = (typeof hubStates)[number];
+export const hubLabel: Record<HubState, string> = {
+	draft: "Draft",
+	scheduled: "Scheduled",
+	sending: "Sending",
+	sent: "Sent",
+	logged: "Logged",
+	cancelled: "Cancelled",
+	failed: "Failed",
+	unknown: "Unknown",
+};
+
+export type HistoryItem = {
+	id: string;
+	subject: string | null;
+	state: HubState;
+	channel: "email";
+	meetingId: string | null;
+	createdAt: string;
+	countsAsSent: boolean;
+	rate: number | null;
+	reachable: number;
+	delivered: number;
+};
+
+export type HistoryPage = {
+	items: HistoryItem[];
+	nextCursor: string | null;
+	visibleCount: number;
+	asOf: string;
+	complete: boolean;
+	limit: number;
+	rate: number | null;
+};
+
+export type DeliveryTotals = {
+	communicationId: string;
+	state: HubState;
+	selected: number;
+	reachable: number;
+	attempted: number;
+	accepted: number;
+	sent: number;
+	delivered: number;
+	opened: number;
+	clicked: number;
+	bounced: number;
+	failed: number;
+	suppressed: number;
+	unknown: number;
+	asOf: string;
+	rate: number | null;
+	outcomes: ("accepted" | "unknown" | "rejected")[];
+	sentForAll: boolean;
+};
+
+export type DetailRecipient = {
+	personId: string | null;
+	deliveryAddress: string | null;
+	currentPersonAddress: string | null;
+	deliveryStatus: string;
+	sentAt: string | null;
+	deliveredAt: string | null;
+	openedAt: string | null;
+	clickedAt: string | null;
+};
+
+export type MessageDetail = {
+	communicationId: string;
+	revision: string;
+	state: DraftState;
+	subject: string | null;
+	bodyHtml: string | null;
+	bodyText: string | null;
+	meetingId: string | null;
+	deliveryAddress: string | null;
+	currentPersonAddress: string | null;
+	deliveryStatus: string | null;
+	recipients: DetailRecipient[];
+};
+
+export type NamedRecipient = {
+	personId: string | null;
+	name: string | null;
+	deliveryStatus: string;
+	deliveryAddress: string | null;
+};
+
+export type MessageView = {
+	detail: MessageDetail;
+	totals: DeliveryTotals;
+	recipients: NamedRecipient[];
+	recipientsComplete: boolean;
+};
+
+export type ResendReview = {
+	communicationId: string;
+	eligibleIds: string[];
+	eligibleNames: string[];
+	excludedNames: string[];
+	confirmedDelivery: boolean;
+};
+
+export type SavedResend = {
+	communicationId: string;
+	eligibleIds: string[];
+	eligibleNames: string[];
+};
+
+export const contactOutcomes = ["contacted", "attempted_no_contact", "administrative_completion", "no_longer_needed"] as const;
+export type ContactOutcome = (typeof contactOutcomes)[number];
+export const contactLabel: Record<ContactOutcome, string> = {
+	contacted: "Contacted",
+	attempted_no_contact: "Attempt, no contact",
+	administrative_completion: "Administrative completion",
+	no_longer_needed: "No longer needed",
+};
+
+export type ContactRow = {
+	outcomeId: string;
+	outcome: ContactOutcome;
+	occurredAt: string;
+	voided: boolean;
+	taskId: string | null;
+};
+
+export type PersonHistory = HistoryPage & {
+	personId: string;
+	lastConfirmedContactAt: string | null;
+	contacts: ContactRow[];
+};
+
+export type MeetingHistory = HistoryPage & { meetingId: string };
+
+export type TrackingRow = { personId: string; name: string; deliveryStatus: string };
+
+/** Delivered divided by reachable. A zero reachable count has no rate. */
+export function rateText(delivered: number, reachable: number, rate: number | null): string {
+	if (rate === null || reachable === 0) return "No reachable recipients, so there is no delivery rate.";
+	const percent = new Intl.NumberFormat(undefined, { style: "percent", maximumFractionDigits: 1 }).format(rate);
+	return `${delivered} delivered of ${reachable} reachable (${percent}).`;
+}

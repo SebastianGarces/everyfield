@@ -36,7 +36,11 @@ async function gate(returnTo: string, title: string): Promise<{ viewer: Viewer }
 
 export const communicationMetadata: Metadata = { title: "Messages", robots: { index: false, follow: false } };
 
-export async function CommunicationPage() {
+type Search = Promise<Record<string, string | string[] | undefined>>;
+const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) ?? null;
+
+export async function CommunicationPage({ searchParams }: { searchParams?: Search }) {
+	const raw = searchParams ? await searchParams : {};
 	const g = await gate("/communication", "Messages");
 	if ("blocked" in g) return g.blocked;
 	const loaded = await loadCommunicationPage(g.viewer);
@@ -52,5 +56,5 @@ export async function CommunicationPage() {
 			</>
 		);
 	}
-	return <CommunicationScreen data={loaded.value} canWrite={canWrite(g.viewer)} />;
+	return <CommunicationScreen data={loaded.value} canWrite={canWrite(g.viewer)} personId={one(raw.person)} meetingId={one(raw.meeting)} />;
 }
