@@ -125,7 +125,12 @@ export function SavedHistory({ enabled, refreshKey }: Props) {
 										Download
 									</Button>
 									{link?.id === entry.id ? (
-										<a href={link.url} target="_blank" rel="noopener noreferrer" className="rounded-sm text-sm text-ink underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2">
+										<a
+											href={link.url}
+											target="_blank"
+											rel="noopener noreferrer"
+											className="rounded-sm text-sm text-ink underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+										>
 											Open the download
 										</a>
 									) : null}

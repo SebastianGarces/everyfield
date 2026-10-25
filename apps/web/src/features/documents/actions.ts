@@ -62,13 +62,7 @@ const storageMissing = {
 	problem: "Saving is not available right now.",
 };
 
-function presentSaved(value: {
-	id: string;
-	savedTemplateName: string;
-	format: Format;
-	generatedAt: string;
-	downloadName: string;
-}): SavedFile {
+function presentSaved(value: SavedFile): SavedFile {
 	return {
 		id: value.id,
 		savedTemplateName: value.savedTemplateName,
