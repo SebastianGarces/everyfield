@@ -1,8 +1,10 @@
 import { BookOpen01Icon } from "@hugeicons/core-free-icons";
-import { Card, EmptyState, PageHeader, StatePanel } from "@everyfield/ui/controls";
+import { Button, Card, EmptyState, PageHeader, StatePanel } from "@everyfield/ui/controls";
 import Link from "next/link";
 import { ArticleTools, ArticleColumns, SourceBar, TocRail, WikiSearchButton } from "./client.tsx";
-import { articleBlocks, articlePath, humanCredit, percentLabel, PHASE_NAME, type Listed } from "./model.ts";
+import { WikiEditor } from "./editor.tsx";
+import { ArticleFeedback } from "./feedback.tsx";
+import { articleBlocks, articlePath, editPath, humanCredit, percentLabel, PHASE_NAME, type Listed } from "./model.ts";
 import { ArticleBody } from "./prose.tsx";
 import type { WikiPageData } from "./server.ts";
 
@@ -59,12 +61,13 @@ function ArticleList({ title, articles }: { title: string; articles: Listed[] })
 
 export function WikiScreen({ data, source }: { data: WikiPageData; source: string | null }) {
 	const article = data.article;
-	const headings = article?.article.body
-		? articleBlocks(article.article.contentType, article.article.body).flatMap((block) =>
-				block.kind === "heading" ? [{ id: block.id, label: block.text, level: block.level }] : [],
-			)
-		: [];
-	const title = article?.article.title ?? "Wiki";
+	const headings =
+		!data.editing && article?.article.body
+			? articleBlocks(article.article.contentType, article.article.body).flatMap((block) =>
+					block.kind === "heading" ? [{ id: block.id, label: block.text, level: block.level }] : [],
+				)
+			: [];
+	const title = data.editing ? `Edit ${article?.article.title ?? "article"}` : (article?.article.title ?? "Wiki");
 	const phase = article?.article.phase;
 	const credit = article ? humanCredit(article.article.credit) : null;
 	return (
@@ -77,12 +80,21 @@ export function WikiScreen({ data, source }: { data: WikiPageData; source: strin
 						? [
 								{ label: "Wiki", href: "/wiki" },
 								...(phase != null ? [{ label: PHASE_NAME[phase] ?? `Phase ${phase}` }] : []),
-								{ label: article.article.title },
+								data.editing
+									? { label: article.article.title, href: articlePath(article.article.slug) }
+									: { label: article.article.title },
+								...(data.editing ? [{ label: "Edit" }] : []),
 							]
 						: undefined
 				}
 				subtitle={
-					article ? (
+					data.editing ? (
+						data.editorName ? (
+							`This version belongs to ${data.editorName}`
+						) : (
+							"Organization version"
+						)
+					) : article ? (
 						<>
 							{percentLabel(article.article.observedFraction)}
 							{credit ? ` · ${credit}` : ""}
@@ -96,24 +108,37 @@ export function WikiScreen({ data, source }: { data: WikiPageData; source: strin
 					article ? (
 						<>
 							<WikiSearchButton />
-							<ArticleTools
-								articleId={article.article.articleId}
-								slug={article.article.slug}
-								source={source}
-								readingRevision={article.readingRevision}
-								plantId={article.plantId}
-								bookmarked={article.article.bookmarked}
-								observedFraction={article.article.observedFraction}
-								completed={article.article.completed}
-								updated={article.article.updatedLabel}
-							/>
+							{data.editing ? (
+								<Button asChild variant="outline">
+									<Link href={articlePath(article.article.slug)}>Back to article</Link>
+								</Button>
+							) : (
+								<>
+									{data.editorName ? (
+										<Button asChild variant="outline">
+											<Link href={editPath(article.article.slug)}>Edit article</Link>
+										</Button>
+									) : null}
+									<ArticleTools
+										articleId={article.article.articleId}
+										slug={article.article.slug}
+										source={source}
+										readingRevision={article.readingRevision}
+										plantId={article.plantId}
+										bookmarked={article.article.bookmarked}
+										observedFraction={article.article.observedFraction}
+										completed={article.article.completed}
+										updated={article.article.updatedLabel}
+									/>
+								</>
+							)}
 						</>
 					) : (
 						<WikiSearchButton />
 					)
 				}
 			/>
-			{article && article.sources.length ? (
+			{article && article.sources.length && !data.editing ? (
 				<div className="mb-6">
 					<SourceBar
 						sources={article.sources}
@@ -146,6 +171,41 @@ export function WikiScreen({ data, source }: { data: WikiPageData; source: strin
 							It is not in the wiki you can read. Pick another article from the list.
 						</StatePanel>
 					</Card>
+				) : data.editing && data.draftLost ? (
+					<Card>
+						<StatePanel
+							tone="error"
+							title="We could not open the editor"
+							headingLevel="h2"
+							actions={
+								article ? (
+									<Button asChild>
+										<Link href={editPath(article.article.slug)}>Try again</Link>
+									</Button>
+								) : undefined
+							}
+						>
+							This is a loading problem. Try again in a moment.
+						</StatePanel>
+					</Card>
+				) : data.editing && article && data.draft ? (
+					<WikiEditor
+						articleId={article.article.articleId}
+						slug={article.article.slug}
+						organizationId={data.draft.organizationId}
+						revision={data.draft.revision}
+						state={data.draft.state}
+						initialBody={data.draft.initialBody}
+						initialContentType={data.draft.initialContentType}
+						baselineBody={data.draft.baselineBody}
+						baselineContentType={data.draft.baselineContentType}
+					/>
+				) : data.editing ? (
+					<Card>
+						<StatePanel tone="lock" title="You cannot edit this article" headingLevel="h2">
+							An Owner or Admin of this organization can edit it.
+						</StatePanel>
+					</Card>
 				) : article?.block === "order" ? (
 					<Card>
 						<StatePanel tone="neutral" title="Choose a source order" headingLevel="h2">
@@ -168,6 +228,7 @@ export function WikiScreen({ data, source }: { data: WikiPageData; source: strin
 				) : article?.article.body ? (
 					<div id="wiki-article" className="rounded-card bg-surface px-6 py-8 shadow-card max-app-sm:px-4 sm:px-11">
 						<ArticleBody contentType={article.article.contentType} body={article.article.body} />
+						{data.feedback ? <ArticleFeedback articleId={article.article.articleId} vote={data.feedback.vote} /> : null}
 						{article.siblings.length ? (
 							<section className="mx-auto mt-10 max-w-[700px]">
 								<h2 className="mb-3 font-title text-[22px] tracking-[-0.02em] text-ink">In this section</h2>
