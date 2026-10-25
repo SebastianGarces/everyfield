@@ -2,6 +2,7 @@ import { requestDatabase } from "@/server/database";
 import { getViewer } from "@/server/request-context";
 import type { DocumentsError } from "@everyfield/contracts/documents";
 import type { RequestActor } from "@everyfield/domain/access";
+import { privateStorage } from "@everyfield/db/schema";
 import { documentsReader } from "@everyfield/domain/documents";
 import "server-only";
 import {
@@ -127,4 +128,24 @@ export async function loadDocuments(authority: RequestActor, query: DocumentsQue
 		console.error(JSON.stringify({ component: "documents", outcome: "read_failed", error: String(error) }));
 		return { status: "failed" };
 	}
+}
+
+/** Account context, or a plant seat. An organization seat has neither library of written documents. */
+export function writtenScope(authority: RequestActor): "church" | "account" | null {
+	const context = authority.actor.context;
+	if (context.kind === "account") return "account";
+	if (context.kind === "seat" && context.owner.kind === "plant") return "church";
+	return null;
+}
+
+/** Members can read written documents. They cannot save, import, archive, or designate. */
+export function canEditDocuments(authority: RequestActor) {
+	const context = authority.actor.context;
+	if (context.kind === "account") return true;
+	return context.kind === "seat" && context.owner.kind === "plant" && context.role !== "member";
+}
+
+/** Private storage is configured for this process. Generation and import need it. Text save does not. */
+export function canStoreDocuments() {
+	return privateStorage() !== null;
 }
