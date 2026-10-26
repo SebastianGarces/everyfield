@@ -556,17 +556,9 @@
             "This section is a draft and does not apply yet. It describes how Everyfield, the product, is built to handle a church's data. We will confirm it before you use the product."
           ],
           "items": [
-            "Vercel hosts the product. A church's records are stored in a Postgres database at Neon, and its files in a private Tigris storage bucket. [PLACEHOLDER: the storage regions for product data]",
+            "Vercel hosts the product. A church's records are stored in a Postgres database at Neon, and its files in a private Tigris storage bucket.",
             "A church that signs up on its own starts with every kind of sharing turned off. The church's Owner or an Admin can turn each kind of sharing on or off for each sending church or network.",
-            "Evry conversations are private to the person who starts them.",
-            "[PLACEHOLDER: what a sending church or network sees of the data a church shares, to confirm when oversight ships]",
-            "[PLACEHOLDER: when a sending church or network sees a Plant Intelligence concern, to confirm when it ships]",
-            "[PLACEHOLDER: what the daily email to a sending church or network contains, to confirm when it ships]",
-            "[PLACEHOLDER: what Members of a church can and cannot see, to confirm before launch]",
-            "[PLACEHOLDER: who can read the private weekly check-in, to confirm when it ships]",
-            "[PLACEHOLDER: which service sends product email]",
-            "[PLACEHOLDER: which AI model provider Evry and Plant Intelligence use in production, what they send to it, and the provider's data-use terms]",
-            "[PLACEHOLDER: how long product data is kept, how deletion and the cancellation period work, and how backups are kept]"
+            "Evry conversations are private to the person who starts them."
           ]
         },
         {
