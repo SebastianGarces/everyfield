@@ -48,6 +48,11 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `commitment_change(actor_id)` | `account(id)` | set_null |  |
 | `commitment_change(person_id, plant_id)` | `person(id, tenant_id)` | cascade |  |
 | `commitment_change(plant_id)` | `plant(id)` | no_action |  |
+| `communication(plant_id)` | `plant(id)` | cascade |  |
+| `communication(author_id)` | `account(id)` | set_null |  |
+| `communication(template_id, plant_id)` | `message_template(id, plant_id)` | no_action |  |
+| `communication(meeting_id)` | `meeting(id)` | set_null | A meeting can be removed while a draft still names it. The pointer clears. The draft stays in its plant. The app checks the meeting belongs to the plant before it saves the pointer. |
+| `communication(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `contact_outcome(plant_id)` | `plant(id)` | restrict |  |
 | `contact_outcome(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `contact_outcome(task_id, plant_id)` | `task(id, plant_id)` | restrict |  |
@@ -99,6 +104,10 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `four_cs(plant_id)` | `plant(id)` | restrict |  |
 | `four_cs(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `four_cs(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
+| `generated_document(tenant_id)` | `tenant(id)` | restrict |  |
+| `generated_document(creator_account_id)` | `account(id)` | set_null |  |
+| `generated_document(object_id, tenant_id)` | `file_object(id, tenant_id)` | restrict |  |
+| `generated_document(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
 | `household(plant_id)` | `plant(id)` | restrict |  |
 | `household(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `identity_proof(account_id)` | `account(id)` | restrict |  |
@@ -152,6 +161,8 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `meeting_kit_item(plant_id)` | `plant(id)` | restrict |  |
 | `meeting_kit_item(meeting_id, plant_id)` | `meeting(id, plant_id)` | cascade |  |
 | `meeting_kit_item(assignee_person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
+| `message_template(plant_id)` | `plant(id)` | cascade |  |
+| `message_template(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `notice(tenant_id)` | `tenant(id)` | restrict |  |
 | `notice(recipient_id)` | `account(id)` | restrict |  |
 | `notice(source_record_id)` | `record(id)` | restrict | Own inbox context may refer to an exact entitled source in another tenant; no inherited grant. |
@@ -323,6 +334,15 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `team_tenure(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `team_tenure(previous_tenure_id, plant_id)` | `team_tenure(id, plant_id)` | restrict |  |
 | `team_tenure(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
+| `training_assignment(plant_id)` | `plant(id)` | restrict |  |
+| `training_assignment(program_id, plant_id)` | `training_program(id, plant_id)` | restrict |  |
+| `training_assignment(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
+| `training_credit(plant_id)` | `plant(id)` | restrict |  |
+| `training_credit(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
+| `training_credit(program_id, plant_id)` | `training_program(id, plant_id)` | restrict |  |
+| `training_credit(verifier_account_id)` | `account(id)` | set_null |  |
+| `training_program(plant_id)` | `plant(id)` | restrict |  |
+| `training_program(team_id, plant_id)` | `team(id, plant_id)` | restrict |  |
 | `venue(plant_id)` | `plant(id)` | restrict |  |
 | `venue(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 
@@ -358,3 +378,5 @@ Every declared Person FK has one registration in `target.json.person_references`
 | `person_merge` | `survivor_id, tenant_id` | WP-015 |
 | `record_correction` | `person_id, plant_id` | WP-015 |
 | `commitment_change` | `person_id, plant_id` | WP-014 |
+| `training_assignment` | `person_id, plant_id` | WP-019 |
+| `training_credit` | `person_id, plant_id` | WP-019 |

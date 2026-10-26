@@ -2635,10 +2635,13 @@
       "consumer_table_names": [
         "admission_attempt",
         "commitment_change",
+        "communication",
         "conversation",
         "conversation_event",
         "early_access_attempt",
         "early_access_request",
+        "generated_document",
+        "message_template",
         "model_spend",
         "onboarding_setup",
         "people_column",
@@ -2649,7 +2652,10 @@
         "relationship_invitation",
         "schema_backfill",
         "schema_migration",
-        "settings_preview"
+        "settings_preview",
+        "training_assignment",
+        "training_credit",
+        "training_program"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
       "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
@@ -6949,7 +6955,10 @@
         "WP-090"
       ],
       "producer_table_names": [
-        "audit_event"
+        "audit_event",
+        "training_assignment",
+        "training_credit",
+        "training_program"
       ],
       "consumer_table_names": [
         "attestation",
@@ -8557,7 +8566,11 @@
         "WP-089",
         "WP-090"
       ],
-      "producer_table_names": [],
+      "producer_table_names": [
+        "communication",
+        "message_template",
+        "record"
+      ],
       "consumer_table_names": [
         "audit_event",
         "reference_version"
@@ -8812,6 +8825,7 @@
       ],
       "consumer_table_names": [
         "audit_event",
+        "communication",
         "participation"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
@@ -9081,6 +9095,7 @@
       "producer_table_names": [],
       "consumer_table_names": [
         "audit_event",
+        "communication",
         "contact_outcome",
         "mail",
         "obligation"
@@ -9782,6 +9797,7 @@
       ],
       "consumer_table_names": [
         "audit_event",
+        "communication",
         "digest_coverage",
         "job",
         "notice",
@@ -10199,6 +10215,7 @@
       "consumer_table_names": [
         "attestation",
         "audit_event",
+        "message_template",
         "plant_geography",
         "reference_activation",
         "reference_item",
@@ -11784,6 +11801,7 @@
       "consumer_table_names": [
         "audit_event",
         "file_object",
+        "generated_document",
         "reference_item",
         "reference_release",
         "reference_version"
@@ -12152,6 +12170,7 @@
       ],
       "producer_table_names": [
         "file_object",
+        "generated_document",
         "record"
       ],
       "consumer_table_names": [
@@ -25990,6 +26009,7 @@
         "auth_verification",
         "commitment",
         "commitment_change",
+        "communication",
         "contact_outcome",
         "conversation",
         "conversation_event",
@@ -26005,6 +26025,7 @@
         "early_access_request",
         "file_object",
         "four_cs",
+        "generated_document",
         "household",
         "identity_proof",
         "interview",
@@ -26019,6 +26040,7 @@
         "mail_request_member",
         "meeting",
         "meeting_kit_item",
+        "message_template",
         "model_spend",
         "notice",
         "notification_preference",
@@ -26066,6 +26088,9 @@
         "team_role",
         "team_tenure",
         "tenant",
+        "training_assignment",
+        "training_credit",
+        "training_program",
         "venue"
       ],
       "proof_stage": "whole-target integration; no deferred portions",
@@ -31985,6 +32010,7 @@
         "auth_verification",
         "commitment",
         "commitment_change",
+        "communication",
         "contact_outcome",
         "conversation",
         "conversation_event",
@@ -32000,6 +32026,7 @@
         "early_access_request",
         "file_object",
         "four_cs",
+        "generated_document",
         "household",
         "interview",
         "invitation",
@@ -32012,6 +32039,7 @@
         "mail_request_member",
         "meeting",
         "meeting_kit_item",
+        "message_template",
         "model_spend",
         "notice",
         "notification_preference",
@@ -32057,6 +32085,9 @@
         "team",
         "team_role",
         "team_tenure",
+        "training_assignment",
+        "training_credit",
+        "training_program",
         "venue"
       ],
       "proof_stage": "whole-target integration; no deferred portions",

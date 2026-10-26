@@ -33,6 +33,7 @@ const factories = {
 	createTaskWriter: "tasks",
 	createFollowUpWriter: "followups",
 	createAttendanceWriter: "meetings",
+	createWikiProducer: "wiki",
 };
 const standalone = {
 	"/packages/domain/src/early-access/index.ts": ["receiveAccessRequest"],
@@ -231,6 +232,15 @@ registerHooks({
 				"/packages/domain/src/meetings/guests.ts": { guestsWriter: "meetings" },
 				"/packages/domain/src/meetings/venues.ts": { venuesWriter: "venues" },
 				"/packages/domain/src/meetings/analytics.ts": { attendanceReader: "meetings" },
+				"/packages/domain/src/teams/commands.ts": { teamsWriter: "teams" },
+				"/packages/domain/src/communication/writer.ts": { communicationWriter: "communication" },
+				"/packages/domain/src/teams/responsibilities/reads.ts": { responsibilityReader: "teams" },
+				"/packages/domain/src/documents/reads.ts": { documentsReader: "documents" },
+				"/packages/domain/src/documents/writes.ts": { documentsWriter: "documents" },
+				"/packages/domain/src/teams/responsibilities/writes.ts": { responsibilityWriter: "teams" },
+				"/packages/domain/src/teams/training/commands.ts": { trainingWriter: "teams" },
+				"/packages/domain/src/teams/training/reads.ts": { trainingReader: "teams" },
+				"/packages/domain/src/teams/roster.ts": { rosterWriter: "meetings" },
 			};
 			for (const [name, prefix] of Object.entries(objects[path.slice(root.length)] ?? {}))
 				source += `\nglobalThis.__evfWriteCounts.decorate(${JSON.stringify(prefix)},${name});`;

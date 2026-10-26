@@ -114,6 +114,9 @@ const schema = z.object({
 		week: z.object({ title: text, steps: z.array(step.extend({ panel: text, icon: text })).length(4) }),
 		intelligence: z.object({ title: text, lead: text, steps: z.array(step.extend({ panel: text })).length(4) }),
 		sending: z.object({ title: text, body: text, link: text }),
+		// Revision 8: the home About section, and the caption on the /oversight mockups of the network's data.
+		about: z.object({ eyebrow: text, headline: text, body: text }),
+		sample_label: text,
 		// Text that sits inside the product pictures on / and /oversight.
 		panels: z.object({
 			week_follow_says: text,
@@ -124,6 +127,7 @@ const schema = z.object({
 			monday_core_label: text,
 			teams_sign_core: text,
 			launch_team_member: text,
+			// Sample rows for the phases rail (one per demo seat). No page states how many ministries a church has.
 			ministry_areas: z.array(text).length(8),
 			share_unshared_status: text,
 			hero_dash_finding: text,

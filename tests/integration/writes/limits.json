@@ -1,6 +1,24 @@
 {
+	"GET /documents": {
+		"limit": 3
+	},
 	"GET /meetings": {
 		"limit": 3
+	},
+	"GET /ministries": {
+		"limit": 3
+	},
+	"GET /ministries/[teamId]": {
+		"limit": 5
+	},
+	"GET /ministries?view=chart": {
+		"limit": 3
+	},
+	"GET /notifications": {
+		"limit": 4
+	},
+	"GET /notifications/read?what=count": {
+		"limit": 2
 	},
 	"GET /people": {
 		"limit": 5
@@ -23,6 +41,15 @@
 	"GET /tasks": {
 		"limit": 5
 	},
+	"POST notifications.markAllVisibleRead": {
+		"limit": 6
+	},
+	"POST notifications.markRead": {
+		"limit": 6
+	},
+	"POST notifications.markSelectedRead": {
+		"limit": 6
+	},
 	"POST people.addNote": {
 		"limit": 6
 	},
@@ -34,6 +61,9 @@
 	},
 	"POST people.createPerson (replay)": {
 		"limit": 3
+	},
+	"POST people.createPerson (with email)": {
+		"limit": 2
 	},
 	"POST people.fields.addPersonTag": {
 		"limit": 8,
@@ -79,9 +109,168 @@
 	"accountPerson.ensureGuest": {
 		"limit": 5
 	},
+	"communication.archiveTemplate": {
+		"limit": 2
+	},
+	"communication.cancelScheduledReviewed": {
+		"limit": 3
+	},
+	"communication.correctContactLog": {
+		"limit": 2
+	},
+	"communication.createTemplate": {
+		"limit": 1
+	},
+	"communication.deleteDraft": {
+		"limit": 2
+	},
+	"communication.deleteTemplate": {
+		"limit": 3
+	},
+	"communication.dispatchAttempt": {
+		"limit": 4
+	},
+	"communication.executeResend": {
+		"limit": 2
+	},
+	"communication.forkTemplate": {
+		"limit": 3
+	},
+	"communication.getDeliveryTotals": {
+		"limit": 1
+	},
+	"communication.getDetail": {
+		"limit": 1
+	},
+	"communication.getDraft": {
+		"limit": 1
+	},
+	"communication.getExecutionResult": {
+		"limit": 1
+	},
+	"communication.getTemplate": {
+		"limit": 1
+	},
+	"communication.listDrafts": {
+		"limit": 1
+	},
+	"communication.listForMeeting": {
+		"limit": 1
+	},
+	"communication.listForPerson": {
+		"limit": 1
+	},
+	"communication.listForSelf": {
+		"limit": 2
+	},
+	"communication.listHistory": {
+		"limit": 1
+	},
+	"communication.listHistoryRecipients": {
+		"limit": 1
+	},
+	"communication.listMeetingTracking": {
+		"limit": 1
+	},
+	"communication.listResendCandidates": {
+		"limit": 1
+	},
+	"communication.listTemplates": {
+		"limit": 1
+	},
+	"communication.readAudience": {
+		"limit": 1
+	},
+	"communication.readMeetingTemplate": {
+		"limit": 1
+	},
+	"communication.readPreview": {
+		"limit": 1
+	},
+	"communication.readRecipients": {
+		"limit": 1
+	},
+	"communication.recordContactFromTask": {
+		"limit": 2
+	},
+	"communication.reconcileProviderOutcome": {
+		"limit": 3
+	},
+	"communication.replaceScheduledReviewed": {
+		"limit": 1
+	},
+	"communication.requestRestore": {
+		"limit": 2
+	},
+	"communication.rescheduleDispatched": {
+		"limit": 2
+	},
+	"communication.rescheduleReviewed": {
+		"limit": 2
+	},
+	"communication.saveDraft": {
+		"limit": 2
+	},
+	"communication.scheduleReviewed": {
+		"limit": 3
+	},
+	"communication.sendReviewed": {
+		"limit": 4
+	},
+	"communication.sendTransactional": {
+		"limit": 3
+	},
+	"communication.updateTemplate": {
+		"limit": 2
+	},
 	"digest.generateOwed": {
 		"limit": 10,
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 5 locked read, 2 read, 3 write."
+	},
+	"documents.archive": {
+		"limit": 1
+	},
+	"documents.designateCoreValues": {
+		"limit": 1
+	},
+	"documents.download": {
+		"limit": 9
+	},
+	"documents.generate": {
+		"limit": 15,
+		"reason": "The saved file is stored before the generated row. putPrivateObject claims the object and finalizes it in two transactions so the provider call holds no lock, then one statement inserts the generated row and its audit. Its largest first run: 5 read, 4 transaction, 2 locked read, 4 write."
+	},
+	"documents.importTextOrWord": {
+		"limit": 14,
+		"reason": "An import stores the original bytes before the native revision. putPrivateObject claims the object and finalizes it in two transactions so the provider call holds no lock, then one statement writes the revision and its audit. Its largest first run: 4 read, 4 transaction, 2 locked read, 4 write."
+	},
+	"documents.preview": {
+		"limit": 1
+	},
+	"documents.purgeOwnedForDeletion": {
+		"limit": 1
+	},
+	"documents.reconcileOrphans": {
+		"limit": 13,
+		"reason": "Each unreferenced object is claimed and purged in its own transactions around the provider delete, and this run purged two. Its largest first run: 3 read, 4 transaction, 2 locked read, 4 write."
+	},
+	"documents.resolveContext": {
+		"limit": 1
+	},
+	"documents.saveNative": {
+		"limit": 1
+	},
+	"documents.templates.contextual": {
+		"limit": 1
+	},
+	"documents.templates.get": {
+		"limit": 1
+	},
+	"documents.templates.list": {
+		"limit": 1
+	},
+	"documents.useForChurch": {
+		"limit": 1
 	},
 	"early-access/index.receiveAccessRequest": {
 		"limit": 10,
@@ -274,6 +463,9 @@
 	"meetings.completePractice": {
 		"limit": 6,
 		"retry": 5
+	},
+	"meetings.copyTeamRoster": {
+		"limit": 6
 	},
 	"meetings.correctEvaluation": {
 		"limit": 2
@@ -982,9 +1174,23 @@
 	"people/references.detachAccountPersonLinks": {
 		"limit": 4
 	},
+	"reference.exportApprovedWiki": {
+		"limit": 1
+	},
+	"reference.installApprovedWiki": {
+		"limit": 24,
+		"reason": "Activates through reference.promote. Its largest first run: 4 transaction, 4 locked read, 9 read, 7 write."
+	},
+	"reference.invalidateWikiCache": {
+		"limit": 1
+	},
 	"reference.promote": {
 		"limit": 24,
 		"reason": "Platform operator publication, not a user request (RT-6a reviewed, kept). A preflight transaction checks the operator's grant before the protected artifact is read (4); then one transaction: the global publication lock, the grant again at the commit boundary, the request-key read, the current activation, the release lock, a set-based install (one statement per table), a re-read of every stored derivative before activation and one activation statement with its audit."
+	},
+	"reference.rebuildEmbeddings": {
+		"limit": 24,
+		"reason": "Activates through reference.promote. Its largest first run: 4 transaction, 4 locked read, 9 read, 7 write."
 	},
 	"seats.appointAdmin": {
 		"limit": 7,
@@ -1154,6 +1360,144 @@
 		"retry": 11,
 		"reason": "BEGIN and COMMIT around a task write that replans reminders; the shared reminder sync (notifications.syncTaskReminders) sends 2 statements (F10). Its largest first run: 2 transaction, 4 locked read, 2 write."
 	},
+	"teams.addResponsibility": {
+		"limit": 7,
+		"reason": "A non-admin leader checks that they lead the team. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write."
+	},
+	"teams.appointLeader": {
+		"limit": 7,
+		"reason": "The appointment locks the person row as well as the team. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
+	},
+	"teams.archive": {
+		"limit": 6,
+		"retry": 5
+	},
+	"teams.assignRole": {
+		"limit": 6,
+		"retry": 5
+	},
+	"teams.attestCompletion": {
+		"limit": 7,
+		"retry": 2,
+		"reason": "Attest locks the program, the person and the latest credit before it inserts the earned row. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
+	},
+	"teams.completeResponsibility": {
+		"limit": 8,
+		"retry": 5,
+		"reason": "A non-admin leader resolves the responsibility team, then checks that they lead it. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write."
+	},
+	"teams.correct": {
+		"limit": 6
+	},
+	"teams.correctProgram": {
+		"limit": 6,
+		"retry": 6
+	},
+	"teams.create": {
+		"limit": 6
+	},
+	"teams.createProgram": {
+		"limit": 6,
+		"retry": 4
+	},
+	"teams.createRole": {
+		"limit": 6,
+		"retry": 2
+	},
+	"teams.deleteResponsibility": {
+		"limit": 8,
+		"retry": 5,
+		"reason": "A non-admin leader resolves the responsibility team, then checks that they lead it. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write."
+	},
+	"teams.edit": {
+		"limit": 6,
+		"retry": 6
+	},
+	"teams.editResponsibility": {
+		"limit": 8,
+		"retry": 5,
+		"reason": "A non-admin leader resolves the responsibility team, then checks that they lead it. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write."
+	},
+	"teams.editRole": {
+		"limit": 8,
+		"reason": "A non-admin leader resolves the role team, then checks that they lead it. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write."
+	},
+	"teams.endMembership": {
+		"limit": 7,
+		"reason": "Ending a membership counts the open tenures after the team lock. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write."
+	},
+	"teams.initialize": {
+		"limit": 6,
+		"retry": 4
+	},
+	"teams.listResponsibilities": {
+		"limit": 1
+	},
+	"teams.listTeamMeetings": {
+		"limit": 1
+	},
+	"teams.listTraining": {
+		"limit": 1
+	},
+	"teams.offerResponsibilities": {
+		"limit": 6,
+		"retry": 5
+	},
+	"teams.previewResponsibilities": {
+		"limit": 1
+	},
+	"teams.reactivateMembership": {
+		"limit": 6
+	},
+	"teams.readPersonTraining": {
+		"limit": 1
+	},
+	"teams.readRequiredTrainingPreview": {
+		"limit": 1
+	},
+	"teams.readStaffingFacts": {
+		"limit": 1
+	},
+	"teams.readTrainingHealth": {
+		"limit": 1
+	},
+	"teams.readTrainingHistory": {
+		"limit": 1
+	},
+	"teams.readTrainingMatrix": {
+		"limit": 1
+	},
+	"teams.recompleteTraining": {
+		"limit": 7,
+		"reason": "Recomplete locks the program, the person and the latest credit before it appends an earned row. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
+	},
+	"teams.recordAttendance": {
+		"limit": 9,
+		"reason": "Attendance checks the meeting and every named person before it marks presence and completes the meeting. Its largest first run: 2 transaction, 2 locked read, 4 read, 1 write."
+	},
+	"teams.restore": {
+		"limit": 6
+	},
+	"teams.retireRole": {
+		"limit": 8,
+		"retry": 5,
+		"reason": "A non-admin leader resolves the role team, then checks that they lead it. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write."
+	},
+	"teams.revokeCompletion": {
+		"limit": 7,
+		"retry": 6,
+		"reason": "Revoke locks the program, the person and the latest credit before it inserts the revoked row. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
+	},
+	"teams.scheduleMeeting": {
+		"limit": 9,
+		"retry": 4,
+		"reason": "The meeting row is inserted before the audit batch so the record bind can see it, then guests are written. Its largest first run: 2 transaction, 2 locked read, 3 read, 2 write."
+	},
+	"teams.setRequiredTrainingParticipants": {
+		"limit": 8,
+		"retry": 6,
+		"reason": "The roster change checks the digest and the named people, then removes and adds assignments in one batch. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write."
+	},
 	"venues.archive": {
 		"limit": 6
 	},
@@ -1170,5 +1514,81 @@
 	},
 	"venues.restore": {
 		"limit": 6
+	},
+	"wiki.articleNeighbors": {
+		"limit": 1
+	},
+	"wiki.bookmarksList": {
+		"limit": 1
+	},
+	"wiki.contextGuide": {
+		"limit": 1
+	},
+	"wiki.exportPdf": {
+		"limit": 1
+	},
+	"wiki.navigation": {
+		"limit": 1
+	},
+	"wiki.printArticle": {
+		"limit": 1
+	},
+	"wiki.publicPreviewMetadata": {
+		"limit": 0
+	},
+	"wiki.recommendForPhase": {
+		"limit": 1
+	},
+	"wiki.recordView": {
+		"limit": 5
+	},
+	"wiki.referenceExcerpt": {
+		"limit": 1
+	},
+	"wiki.renderGlobalPreview": {
+		"limit": 1
+	},
+	"wiki.search": {
+		"limit": 4,
+		"retry": 4
+	},
+	"wiki.setBookmark": {
+		"limit": 5,
+		"retry": 9
+	},
+	"wiki.setSourceOrder": {
+		"limit": 5,
+		"retry": 9
+	},
+	"wiki.tableOfContents": {
+		"limit": 1
+	},
+	"wiki.updateProgress": {
+		"limit": 5,
+		"retry": 3
+	},
+	"wiki.getMine": {
+		"limit": 1
+	},
+	"wiki.setMine": {
+		"limit": 5
+	},
+	"wiki.getOrganizationDraft": {
+		"limit": 1
+	},
+	"wiki.addOrganizationArticle": {
+		"limit": 5
+	},
+	"wiki.editOrganizationArticle": {
+		"limit": 5
+	},
+	"wiki.hideOrganizationArticle": {
+		"limit": 5
+	},
+	"wiki.publishOrganizationArticle": {
+		"limit": 5
+	},
+	"wiki.emitUpstreamReview": {
+		"limit": 5
 	}
 }

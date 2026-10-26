@@ -20,7 +20,7 @@ export const HERO: HeroDemo = {
 	meeting: { title: "Vision meeting #11", sub: "Sun, Oct 4 · 6:00 PM" },
 	draftSub: "Due today. Waiting for your approval.",
 	peopleTitle: "Maria joins the core group",
-	person: { name: "Maria Santos", initials: "MS", core: [33, 34] },
+	person: { name: "Maria Santos", initials: "MS", core: [33, 34], interviewed: [15, 14] },
 };
 export const PEOPLE_TITLE = "Add people";
 export const MEET_WHEN = "Sun, Oct 4, 6 pm";

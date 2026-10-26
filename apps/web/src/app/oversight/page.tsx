@@ -13,9 +13,10 @@ import { PhasesRail } from "@/marketing/rail/PhasesRail";
 import { CtaSection } from "@/marketing/sections/CtaSection";
 import { Faq } from "@/marketing/sections/Faq";
 import { ProblemSection } from "@/marketing/sections/SectionHead";
+import { SampleTag } from "@/marketing/sections/SampleTag";
 import { Site } from "@/marketing/Site";
 import { NetworkDash } from "@/marketing/visuals/NetworkDash";
-import { ACCESS_PATH } from "@/site";
+import { accessFor } from "@/site";
 
 export const metadata: Metadata = pageMetadata(PAGES.oversight);
 
@@ -29,13 +30,15 @@ export default function Oversight() {
 				photo="bluebells"
 				headline={O.hero.headline}
 				subhead={O.hero.subhead}
-				primary={{ label: O.hero.cta_primary, href: ACCESS_PATH }}
+				primary={{ label: O.hero.cta_primary, href: accessFor("network") }}
+				note={O.hero.note}
 				secondary={O.hero.cta_secondary ? { label: O.hero.cta_secondary, href: "#every-plant" } : undefined}
 				band="dashboard"
 			>
 				<div className="mx-auto max-w-[1200px]">
 					<figure className="relative m-0 min-w-0">
 						<NetworkDash demo={dashDemo(S.panels)} />
+						<SampleTag className="top-3 left-1/2 -translate-x-1/2" />
 					</figure>
 				</div>
 			</HeroPanel>
@@ -56,7 +59,7 @@ export default function Oversight() {
 			<PhasesRail id="plants" headline={O.plants.headline} items={O.plants.items} vignettes="plants" />
 			<SendingPaths p={O.paths} />
 			<Faq f={O.faq} />
-			<CtaSection c={O.cta} />
+			<CtaSection c={O.cta} href={{ primary: accessFor("network"), secondary: accessFor("planter") }} />
 		</Site>
 	);
 }

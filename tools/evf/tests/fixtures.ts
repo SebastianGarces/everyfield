@@ -131,6 +131,7 @@ if(a[0]==='api') {
  else if(/pulls\/\d+\/reviews/.test(path))result=[s.reviews||[]];
  else if(/commits\/.*\/status$/.test(path))result=s.commitStatus||{statuses:[]};
  else if(/statuses\//.test(path)&&a.includes('POST'))result={};
+ else if(/rules\/branches\/main$/.test(path))result=s.rules??[];
  else if(/branches\/main\/protection/.test(path))result=s.protection||{required_status_checks:{strict:true,contexts:['evf/verify']},enforce_admins:{enabled:true},required_pull_request_reviews:{required_approving_review_count:1,dismiss_stale_reviews:true}};
 }
 else if(a[0]==='repo'&&a[1]==='view')result=a.includes('-q')||a.includes('--jq')?'test/private':{nameWithOwner:'test/private',isPrivate:true};

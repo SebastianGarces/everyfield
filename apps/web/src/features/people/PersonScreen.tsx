@@ -27,6 +27,10 @@ import {
 	CalloutLabel,
 	CalloutText,
 	StatePanel,
+	Tab,
+	Tabs,
+	TabsList,
+	TabsPanel,
 } from "@everyfield/ui/controls";
 import { KeyValue, KeyValueList, StageChip, StatusBadge } from "@everyfield/ui/display";
 import Link from "next/link";
@@ -53,6 +57,7 @@ import type { DuplicateHints as Hints } from "./corrections/server.ts";
 import { UnmergeDialog } from "./corrections/UnmergeDialog.tsx";
 import { loadPersonPage, type PersonPage, type Unmerged } from "./corrections/actions.ts";
 import { Problem } from "./corrections/parts.tsx";
+import { PersonCommunication } from "../communication/PersonCommunication.tsx";
 import { PersonFollowUps } from "../followups/PersonFollowUps.tsx";
 import type { PersonFollowUps as FollowUpsData } from "../followups/server.ts";
 
@@ -330,178 +335,189 @@ export function PersonScreen({
 				</Card>
 			) : null}
 
-			<div className="grid grid-cols-[minmax(0,1.9fr)_minmax(0,1fr)] items-start gap-5 max-app-lg:grid-cols-1">
-				<div className="flex min-w-0 flex-col gap-5">
-					{records ? (
-						<RecordsSection
-							key={generation}
-							records={records}
-							documentsEnabled={documentsEnabled}
-							personId={p.id}
-							personName={p.displayName}
-							stage={p.stage}
-							store={store}
-							expectPerson={expectPerson}
-							canEdit={canWrite && live}
-							accountId={accountId}
-							onSaved={saved}
-							onConflict={reload}
-							corrected={corrected}
-						/>
-					) : null}
-					{followUps ? (
-						<PersonFollowUps
-							initial={followUps}
-							person={{ id: p.id, label: p.displayName }}
-							accountId={accountId}
-							admin={canWrite}
-							live={live}
-						/>
-					) : null}
-					<ActivityCard
-						store={store}
-						activities={history}
-						onActivities={setHistory}
-						onEntry={show}
-						onConflict={reload}
-						accountId={accountId}
-						canWrite={canWrite}
-						onUnmerge={canWrite ? (mergeId) => setOpen({ unmerge: mergeId }) : undefined}
-					/>
-				</div>
-				<div className="flex min-w-0 flex-col gap-5 max-app-lg:order-first">
-					<Card>
-						<CardHeader className="mb-2">
-							<CardHeading>
-								<CardTitle size="sm">Details</CardTitle>
-							</CardHeading>
-							{canWrite && live ? (
-								<IconButton
-									icon={Edit02Icon}
-									label="Edit profile"
-									size="sm"
-									disabled={busy}
-									onClick={() => setOpen("profile")}
+			<Tabs defaultValue="profile">
+				<TabsList aria-label="Person">
+					<Tab value="profile">Profile</Tab>
+					<Tab value="communication">Communication</Tab>
+				</TabsList>
+				<TabsPanel value="profile">
+					<div className="grid grid-cols-[minmax(0,1.9fr)_minmax(0,1fr)] items-start gap-5 max-app-lg:grid-cols-1">
+						<div className="flex min-w-0 flex-col gap-5">
+							{records ? (
+								<RecordsSection
+									key={generation}
+									records={records}
+									documentsEnabled={documentsEnabled}
+									personId={p.id}
+									personName={p.displayName}
+									stage={p.stage}
+									store={store}
+									expectPerson={expectPerson}
+									canEdit={canWrite && live}
+									accountId={accountId}
+									onSaved={saved}
+									onConflict={reload}
+									corrected={corrected}
 								/>
 							) : null}
-						</CardHeader>
-						<KeyValueList>
-							<KeyValue
-								size="sm"
-								k="Email"
-								value={
-									p.email ? (
-										<a
-											href={`mailto:${p.email}`}
-											className="underline-offset-2 hover:underline [overflow-wrap:anywhere]"
-										>
-											{p.email}
-										</a>
-									) : null
-								}
-							/>
-							<KeyValue
-								size="sm"
-								k="Phone"
-								value={
-									p.phone ? (
-										<a href={`tel:${p.phone}`} className="underline-offset-2 hover:underline">
-											{p.phone}
-										</a>
-									) : null
-								}
-							/>
-							<KeyValue size="sm" k="Address" value={address(p)} />
-							<KeyValue size="sm" k="Source" value={SOURCE_LABEL[p.source]} />
-							{p.sourceDetails ? <KeyValue size="sm" k="Source details" value={p.sourceDetails} /> : null}
-							<KeyValue size="sm" k="Birth date" value={p.birthDate ? <LocalDay day={p.birthDate} /> : null} />
-						</KeyValueList>
-						{fields ? (
-							<TagsField
-								key={generation}
-								personId={p.id}
-								personName={p.displayName}
-								initial={fields.tags}
-								canEdit={canWrite && live}
-								onSaved={changed}
-							/>
-						) : null}
-					</Card>
-					{duplicates && live ? (
-						<DuplicateHints key={generation} personId={p.id} hints={duplicates} canReview={canWrite} />
-					) : null}
-					{fields ? (
-						<>
-							<HouseholdCard
-								store={store}
-								onExpectPerson={expectPerson}
-								person={p}
-								household={household}
-								onHousehold={setHousehold}
-								canEdit={canWrite && live}
-								onMembership={(receipt, change) =>
-									saved(receipt, { kind: "activity", action: "updated", household: change })
-								}
-								onConflict={reload}
-							/>
-							<SkillsCard
-								key={generation}
-								personId={p.id}
-								personName={p.displayName}
-								initial={fields.skills}
-								canEdit={canWrite && live}
-								onSaved={changed}
-							/>
-						</>
-					) : null}
-					<Card>
-						<CardHeader className="mb-2">
-							<CardHeading>
-								<CardTitle size="sm">{records ? "Adult or child" : "Adult or child and commitment"}</CardTitle>
-							</CardHeading>
-						</CardHeader>
-						<KeyValueList>
-							<KeyValue
-								size="sm"
-								k="Adult or child"
-								value={p.adultClassification === "unknown" ? null : CLASSIFICATION_LABEL[p.adultClassification]}
-							/>
-							{records ? null : (
-								<KeyValue
-									size="sm"
-									k="Commitment"
-									value={
-										p.commitment.state === "unknown" ? null : (
-											<span className="flex items-center gap-2">
-												<StatusBadge status={p.commitment.state === "active" ? "positive" : "unknown"} size="sm">
-													{p.commitment.state === "active" ? "Committed" : "Withdrawn"}
-												</StatusBadge>
-												<span className="text-text-3">
-													{p.commitment.kind === "core_group" ? "Core group" : "Launch team"} ·{" "}
-													<LocalDay day={p.commitment.occurredOn} />
-												</span>
-											</span>
-										)
-									}
+							{followUps ? (
+								<PersonFollowUps
+									initial={followUps}
+									person={{ id: p.id, label: p.displayName }}
+									accountId={accountId}
+									admin={canWrite}
+									live={live}
 								/>
-							)}
-						</KeyValueList>
-						<p className="mt-3 text-xs text-text-3">
-							Recorded facts only. The stage alone never counts as a commitment or as adult.
-						</p>
-					</Card>
-					{p.summaryNotes ? (
-						<Card>
-							<CardHeader className="mb-2">
-								<CardHeading>
-									<CardTitle size="sm">Summary</CardTitle>
-								</CardHeading>
-							</CardHeader>
-							<p className="whitespace-pre-wrap text-ink-2 [overflow-wrap:anywhere]">{p.summaryNotes}</p>
-						</Card>
-					) : null}
-				</div>
-			</div>
+							) : null}
+							<ActivityCard
+								store={store}
+								activities={history}
+								onActivities={setHistory}
+								onEntry={show}
+								onConflict={reload}
+								accountId={accountId}
+								canWrite={canWrite}
+								onUnmerge={canWrite ? (mergeId) => setOpen({ unmerge: mergeId }) : undefined}
+							/>
+						</div>
+						<div className="flex min-w-0 flex-col gap-5 max-app-lg:order-first">
+							<Card>
+								<CardHeader className="mb-2">
+									<CardHeading>
+										<CardTitle size="sm">Details</CardTitle>
+									</CardHeading>
+									{canWrite && live ? (
+										<IconButton
+											icon={Edit02Icon}
+											label="Edit profile"
+											size="sm"
+											disabled={busy}
+											onClick={() => setOpen("profile")}
+										/>
+									) : null}
+								</CardHeader>
+								<KeyValueList>
+									<KeyValue
+										size="sm"
+										k="Email"
+										value={
+											p.email ? (
+												<a
+													href={`mailto:${p.email}`}
+													className="underline-offset-2 hover:underline [overflow-wrap:anywhere]"
+												>
+													{p.email}
+												</a>
+											) : null
+										}
+									/>
+									<KeyValue
+										size="sm"
+										k="Phone"
+										value={
+											p.phone ? (
+												<a href={`tel:${p.phone}`} className="underline-offset-2 hover:underline">
+													{p.phone}
+												</a>
+											) : null
+										}
+									/>
+									<KeyValue size="sm" k="Address" value={address(p)} />
+									<KeyValue size="sm" k="Source" value={SOURCE_LABEL[p.source]} />
+									{p.sourceDetails ? <KeyValue size="sm" k="Source details" value={p.sourceDetails} /> : null}
+									<KeyValue size="sm" k="Birth date" value={p.birthDate ? <LocalDay day={p.birthDate} /> : null} />
+								</KeyValueList>
+								{fields ? (
+									<TagsField
+										key={generation}
+										personId={p.id}
+										personName={p.displayName}
+										initial={fields.tags}
+										canEdit={canWrite && live}
+										onSaved={changed}
+									/>
+								) : null}
+							</Card>
+							{duplicates && live ? (
+								<DuplicateHints key={generation} personId={p.id} hints={duplicates} canReview={canWrite} />
+							) : null}
+							{fields ? (
+								<>
+									<HouseholdCard
+										store={store}
+										onExpectPerson={expectPerson}
+										person={p}
+										household={household}
+										onHousehold={setHousehold}
+										canEdit={canWrite && live}
+										onMembership={(receipt, change) =>
+											saved(receipt, { kind: "activity", action: "updated", household: change })
+										}
+										onConflict={reload}
+									/>
+									<SkillsCard
+										key={generation}
+										personId={p.id}
+										personName={p.displayName}
+										initial={fields.skills}
+										canEdit={canWrite && live}
+										onSaved={changed}
+									/>
+								</>
+							) : null}
+							<Card>
+								<CardHeader className="mb-2">
+									<CardHeading>
+										<CardTitle size="sm">{records ? "Adult or child" : "Adult or child and commitment"}</CardTitle>
+									</CardHeading>
+								</CardHeader>
+								<KeyValueList>
+									<KeyValue
+										size="sm"
+										k="Adult or child"
+										value={p.adultClassification === "unknown" ? null : CLASSIFICATION_LABEL[p.adultClassification]}
+									/>
+									{records ? null : (
+										<KeyValue
+											size="sm"
+											k="Commitment"
+											value={
+												p.commitment.state === "unknown" ? null : (
+													<span className="flex items-center gap-2">
+														<StatusBadge status={p.commitment.state === "active" ? "positive" : "unknown"} size="sm">
+															{p.commitment.state === "active" ? "Committed" : "Withdrawn"}
+														</StatusBadge>
+														<span className="text-text-3">
+															{p.commitment.kind === "core_group" ? "Core group" : "Launch team"} ·{" "}
+															<LocalDay day={p.commitment.occurredOn} />
+														</span>
+													</span>
+												)
+											}
+										/>
+									)}
+								</KeyValueList>
+								<p className="mt-3 text-xs text-text-3">
+									Recorded facts only. The stage alone never counts as a commitment or as adult.
+								</p>
+							</Card>
+							{p.summaryNotes ? (
+								<Card>
+									<CardHeader className="mb-2">
+										<CardHeading>
+											<CardTitle size="sm">Summary</CardTitle>
+										</CardHeading>
+									</CardHeader>
+									<p className="whitespace-pre-wrap text-ink-2 [overflow-wrap:anywhere]">{p.summaryNotes}</p>
+								</Card>
+							) : null}
+						</div>
+					</div>
+				</TabsPanel>
+				<TabsPanel value="communication">
+					<PersonCommunication personId={p.id} canWrite={canWrite} />
+				</TabsPanel>
+			</Tabs>
 
 			{canWrite ? (
 				<>

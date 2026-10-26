@@ -66,6 +66,9 @@ export const registry: readonly Registration[] = [
 	r("task", "task", "person_id", "plant_id", "block"),
 	r("team_leader", "team", "leader_person_id", "plant_id", "block"),
 	r("team_tenure", "team_tenure", "person_id", "plant_id", "block"),
+	// Current applicability moves with the person. Earned and revoked evidence stays (WP-019).
+	r("training_assignment", "training_assignment", "person_id", "plant_id", "move"),
+	r("training_credit", "training_credit", "person_id", "plant_id", "keep", "id", false),
 ];
 /** The references that decide whether a reviewed state is still current: everything except kept lineage and evidence. */
 export const tracked = registry.filter((e) => e.treatment !== "keep");

@@ -17,6 +17,7 @@ import { migrate } from "../../../packages/db/src/schema/migrate.ts";
 import { createIdentityService } from "../../../packages/domain/src/identity/index.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
 import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
+import { teamsWriter } from "../../../packages/domain/src/teams/index.ts";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 const web = root + "apps/web/";
@@ -176,6 +177,30 @@ try {
 	let maria = await person("Maria Santos");
 	maria = await note(maria, "First note");
 	await task("First task");
+	// The owner's own notifications (WP-030/ui), from a task, as the reminder producers write them.
+	const notices = (count) =>
+		admin.execute(sql`INSERT INTO notice(tenant_id,recipient_id,category,purpose,logical_key,source_record_id,source_revision,title,eligible_at,created_at,timezone)
+			SELECT ${plant.id},${owner.accountId},'task','task_due',${plant.id}::text || '/task_due/' || t.id || '/' || g,t.id,g,'Task due ' || g,
+				clock_timestamp() - g * interval '1 minute',clock_timestamp(),'America/Chicago'
+			FROM (SELECT id FROM task WHERE plant_id=${plant.id} ORDER BY created_at LIMIT 1) t, generate_series(1, ${count}) g
+			ON CONFLICT DO NOTHING`);
+	await notices(3);
+	// Ministries (WP-017/ui): one team with one filled role, through the producer the screens call.
+	const teams = async (op, input) => {
+		const r = await runtime.transaction((tx) => op(tx, ctx, { requestKey: randomUUID(), ...input }));
+		assert.equal(r.status, "ok", JSON.stringify(r));
+		return r.value;
+	};
+	const ministry = (await teams(teamsWriter.create, { input: { name: "Worship" } })).team;
+	const staff = async (name) => {
+		const { role } = await teams(teamsWriter.createRole, { input: { teamId: ministry.id, name } });
+		const holder = await person(`${name} holder`);
+		await teams(teamsWriter.assignRole, {
+			expectedRevision: role.revision,
+			input: { roleId: role.id, teamId: ministry.id, personId: holder.id },
+		});
+	};
+	await staff("Worship lead");
 
 	// A private bucket on this machine: it answers the privacy check (GetBucketAcl) and records every call it gets.
 	// Signing an upload URL needs no other bucket call.
@@ -276,8 +301,14 @@ try {
 		["GET /people (member)", "/people", member.cookie],
 		["GET /people/[personId]", `/people/${maria.id}`, owner.cookie],
 		["GET /tasks", "/tasks", owner.cookie],
+		["GET /documents", "/documents", owner.cookie],
 		["GET /meetings", "/meetings", owner.cookie],
 		["GET /settings", "/settings", owner.cookie],
+		["GET /notifications", "/notifications", owner.cookie],
+		["GET /notifications/read?what=count", "/notifications/read?what=count", owner.cookie],
+		["GET /ministries", "/ministries", owner.cookie],
+		["GET /ministries?view=chart", "/ministries?view=chart", owner.cookie],
+		["GET /ministries/[teamId]", `/ministries/${ministry.id}`, owner.cookie],
 		["GET /signin (signed out)", "/signin", ""],
 	];
 	// RT-6c: no request pays a cold-start cost. Server start checks the bucket's privacy without any request, and opens
@@ -392,6 +423,27 @@ try {
 		{ title: "A task" },
 	]);
 	assert.equal(tasked.status, "ok");
+	const emailed = await act("POST people.createPerson (with email)", "/people", people, "createPerson", [
+		randomUUID(),
+		{ displayName: "Reachable guest", email: "guest@example.com" },
+	]);
+	assert.equal(emailed.status, "ok", JSON.stringify(emailed));
+	// Marks carry the account revision the feed read returned: one entry, the shown entries and "Mark all read".
+	const notifications = "apps/web/src/features/notifications/actions.ts";
+	const owned = (
+		await admin.execute(sql`SELECT id FROM notice WHERE recipient_id=${owner.accountId} ORDER BY eligible_at DESC`)
+	).rows.map((r) => r.id);
+	const [{ revision }] = (
+		await admin.execute(sql`SELECT revision::text AS revision FROM account WHERE id=${owner.accountId}`)
+	).rows;
+	const envelope = () => ({ requestKey: randomUUID(), expectedRevision: revision });
+	const marking = (name, action, input) => act(name, "/notifications", notifications, action, [envelope(), input]);
+	const marked = await marking("POST notifications.markRead", "markRead", owned[0]);
+	assert.deepEqual(marked, { status: "ok", value: { markedIds: [owned[0]] } });
+	const selected = await marking("POST notifications.markSelectedRead", "markSelectedRead", [owned[1]]);
+	assert.deepEqual(selected, { status: "ok", value: { markedIds: [owned[1]] } });
+	const all = await marking("POST notifications.markAllVisibleRead", "markAllVisibleRead", new Date().toISOString());
+	assert.deepEqual(all, { status: "ok", value: { markedIds: [owned[2]] } });
 	const settings = "apps/web/src/features/settings/actions.ts";
 	const section = await act(null, "/settings", settings, "getSection", [{ section: "account" }]);
 	assert.equal(section.status, "ok", JSON.stringify(section));
@@ -408,6 +460,9 @@ try {
 	for (let i = 0; i < 30; i++) await person(`Grown ${String(i).padStart(2, "0")}`);
 	for (let i = 0; i < 5; i++) maria = await note(maria, `Grown note ${i}`);
 	for (let i = 0; i < 30; i++) await task(`Grown task ${i}`);
+	await notices(80);
+	for (let i = 0; i < 30; i++) await teams(teamsWriter.create, { input: { name: `Grown ministry ${i}` } });
+	for (let i = 0; i < 8; i++) await staff(`Grown role ${i}`);
 	for (const [name, path, cookie] of pages) await get(name, path, cookie);
 
 	server.kill("SIGTERM");

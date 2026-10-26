@@ -13,9 +13,13 @@
 		"./onboarding": "./src/onboarding/index.ts",
 		"./settings": "./src/settings/index.ts",
 		"./meetings": "./src/meetings/index.ts",
+		"./teams": "./src/teams/index.ts",
 		"./tasks": "./src/tasks/index.ts",
 		"./followups": "./src/followups/index.ts",
-		"./notifications": "./src/notifications/index.ts"
+		"./notifications": "./src/notifications/index.ts",
+		"./communication": "./src/communication/index.ts",
+		"./wiki": "./src/wiki/index.ts",
+		"./documents": "./src/documents/index.ts"
 	},
 	"scripts": {
 		"typecheck": "tsc --noEmit",
@@ -34,6 +38,7 @@
 		"test:invitations": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test ../../tests/integration/identity/invitations.test.mts ../../tests/integration/identity/locks.test.mts",
 		"test:settings": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 ../../tests/integration/settings/*.test.mts",
 		"test:tasks": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 ../../tests/integration/tasks/*.test.mts",
+		"test:communication": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 ../../tests/integration/communication/*.test.mts",
 		"test:followups": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 ../../tests/integration/followups/*.test.mts",
 		"test:writes": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test ../../tests/integration/writes/statements.test.mts",
 		"migrate": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local scripts/migrate.ts"
@@ -42,6 +47,7 @@
 		"@everyfield/db": "workspace:*",
 		"zod": "4.6.7",
 		"@everyfield/contracts": "workspace:*",
+		"@everyfield/reference": "workspace:*",
 		"better-auth": "1.7.10",
 		"server-only": "0.0.1"
 	},

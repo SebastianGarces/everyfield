@@ -6,6 +6,7 @@ import {
 	fail,
 	baseRef,
 	crossFamilyReview,
+	crossFamilyReviewRefusal,
 	findPackage,
 	git,
 	gitOk,
@@ -181,6 +182,8 @@ export type Approval = {
 	packageClosures?: string[];
 };
 export type RequiredCheck = { name: string; bucket: string; state: string; link: string };
+/** Required CI on one PR head, by name. Only a pass counts; skipped and cancelled checks are failures. */
+type RequiredCi = { passed: RequiredCheck[]; failed: string[]; missing: string[]; pending: string[] };
 /** Why an approval of `approvedHead` still holds at `head`: only clean merges of main, on paths the PR never changed. */
 export type CarryProof = {
 	approvedHead: string;
@@ -296,6 +299,51 @@ export function carryProof(repo: string, approved: string, head: string, main: s
 }
 
 /**
+ * The check names that branch protection and rulesets require on `base`. They come from the rules, never from
+ * the checks a head reports so far: a required workflow that has not started yet reports nothing.
+ */
+function requiredCheckNames(cwd: string, repo: string, base: string): string[] {
+	const names = new Set<string>();
+	const protection = run("gh", ["api", `repos/${repo}/branches/${base}/protection`], { cwd });
+	if (protection.code === 0) {
+		const rsc = JSON.parse(protection.stdout)?.required_status_checks;
+		for (const name of [...(rsc?.contexts ?? []), ...(rsc?.checks ?? []).map((c: { context: unknown }) => c.context)])
+			if (typeof name === "string") names.add(name);
+	} else if (!/HTTP 404/.test(protection.stderr))
+		fail(`Branch protection of ${base} is unreadable: ${(protection.stderr || protection.stdout).trim()}`);
+	const rules: unknown = JSON.parse(gh(cwd, ["api", `repos/${repo}/rules/branches/${base}`]));
+	if (!Array.isArray(rules)) fail(`The rulesets of ${base} are unreadable.`);
+	for (const rule of rules)
+		if (rule?.type === "required_status_checks")
+			for (const check of rule.parameters?.required_status_checks ?? [])
+				if (typeof check?.context === "string") names.add(check.context);
+	if (!names.size) fail(`${base} requires no status checks, so evf cannot prove required CI.`);
+	return [...names].sort();
+}
+
+/** Matches the checks the PR head reports against the required names. A required name with no check is missing. */
+function requiredCi(cwd: string, number: number, required: string[]): RequiredCi {
+	const r = run("gh", ["pr", "checks", String(number), "--json", "name,state,bucket,link"], { cwd });
+	let reported: RequiredCheck[] = [];
+	try {
+		const parsed: unknown = JSON.parse(r.stdout);
+		if (Array.isArray(parsed)) reported = parsed;
+	} catch {
+		// gh prints nothing while the head reports no checks yet.
+	}
+	const ci: RequiredCi = { passed: [], failed: [], missing: [], pending: [] };
+	for (const name of required) {
+		const checks = reported.filter((c) => c?.name === name);
+		if (!checks.length) ci.missing.push(name);
+		else if (checks.some((c) => c.bucket === "fail" || c.bucket === "cancel" || c.bucket === "skipping"))
+			ci.failed.push(name);
+		else if (checks.every((c) => c.bucket === "pass" && typeof c.link === "string")) ci.passed.push(...checks);
+		else ci.pending.push(name);
+	}
+	return ci;
+}
+
+/**
  * One unsigned review convention, shared by the verifier and GitHub merge workflow. `carry` lets an approval of
  * an earlier head hold over merge-only commits (carryProof); the owner approval routes never pass it.
  */
@@ -314,23 +362,13 @@ export function checkPr(
 	if (expectedHead && pr.headRefOid !== expectedHead)
 		fail("PR head changed. Verify the new exact head before shipping.");
 	const { authorFamily } = checkPrBody(root, pr.body);
-	// gh discovers required checks from the PR's actual branch rules; absent and unreadable checks refuse.
-	const result = run("gh", ["pr", "checks", String(number), "--required", "--json", "name,state,bucket,link"], {
-		cwd: root,
-	});
-	let checks: RequiredCheck[] = [];
-	try {
-		checks = JSON.parse(result.stdout);
-	} catch {
-		fail("Required GitHub CI is missing or unreadable.");
-	}
-	if (!Array.isArray(checks) || !checks.length) fail("Required GitHub CI is missing.");
-	if (
-		result.code !== 0 ||
-		checks.some((c) => !c || c.bucket !== "pass" || typeof c.name !== "string" || typeof c.link !== "string")
-	)
-		fail("Required GitHub CI must be green on the exact PR head.");
 	const repo = nameWithOwner(root);
+	const ci = requiredCi(root, number, requiredCheckNames(root, repo, cfg.baseBranch));
+	if (ci.failed.length) fail(`Required GitHub CI must be green on the exact PR head: ${ci.failed.join(", ")} failed.`);
+	if (ci.missing.length) fail(`Required GitHub CI is missing on the exact PR head: ${ci.missing.join(", ")}.`);
+	if (ci.pending.length)
+		fail(`Required GitHub CI must be green on the exact PR head: ${ci.pending.join(", ")} pending.`);
+	const checks = ci.passed;
 	const pages = JSON.parse(gh(root, ["api", `repos/${repo}/issues/${number}/comments`, "--paginate", "--slurp"]));
 	if (!Array.isArray(pages) || pages.some((page) => !Array.isArray(page)))
 		fail("GitHub verifier comments are unreadable.");
@@ -378,10 +416,9 @@ export function checkPr(
 		(!experience.exception || !pr.body.split(/\r?\n/).includes(`EVF-Experience-Exception: ${experience.exception}`))
 	)
 		fail("Experience budget exceeded. Name the approved reports or analytics exception in the PR and review.");
-	if (!crossFamilyReview(authorFamily, selected.approval.verifierFamily))
-		fail(
-			`Verifier approval must come from a different model family: ${authorFamily} work needs ${authorFamily === "anthropic" ? "an openai or xai" : "an anthropic"} verifier.`,
-		);
+	const checkedAtMs = Date.now();
+	if (!crossFamilyReview(authorFamily, selected.approval.verifierFamily, checkedAtMs))
+		fail(crossFamilyReviewRefusal(authorFamily, checkedAtMs));
 	const current: PullRequest = JSON.parse(
 		gh(root, ["pr", "view", String(number), "--json", "number,body,headRefOid,baseRefName,state,isDraft"]),
 	);
@@ -393,7 +430,7 @@ export function checkPr(
 		approval: selected.approval,
 		approvalUrl: selected.url,
 		checks,
-		checkedAt: new Date().toISOString(),
+		checkedAt: new Date(checkedAtMs).toISOString(),
 		...(carry ? { carry } : {}),
 	};
 }
@@ -482,7 +519,7 @@ function queuedMerge(root: string, cfg: Config, task: TaskRef, wt: string, numbe
 		git(wt, "fetch", "--quiet", cfg.remote, task.branch);
 		git(wt, "merge", "--quiet", "--ff-only", "FETCH_HEAD");
 		sha = git(wt, "rev-parse", "HEAD");
-		waitForRequiredCi(wt, number, sha, timing);
+		waitForRequiredCi(wt, cfg, number, sha, timing);
 		try {
 			verification = checkPr(wt, number, sha, { carry: true });
 		} catch (e) {
@@ -516,27 +553,24 @@ function queuedMerge(root: string, cfg: Config, task: TaskRef, wt: string, numbe
 	return afterMerge(root, cfg, task, wt, number, verification, baseSha);
 }
 
-/** Required checks of a new head start empty or pending. Any failure means the merge of main broke something. */
-function waitForRequiredCi(wt: string, number: number, sha: string, timing: ShipTiming): void {
+/**
+ * Required checks of a new head start missing or pending; ship waits until every required name has passed.
+ * Any failure means the merge of main broke something.
+ */
+function waitForRequiredCi(wt: string, cfg: Config, number: number, sha: string, timing: ShipTiming): void {
+	const required = requiredCheckNames(wt, nameWithOwner(wt), cfg.baseBranch);
 	const start = Date.now();
 	for (let printed = 0; ;) {
-		const r = run("gh", ["pr", "checks", String(number), "--required", "--json", "name,bucket"], { cwd: wt });
-		let checks: Array<{ name: string; bucket: string }> = [];
-		try {
-			checks = JSON.parse(r.stdout);
-		} catch {
-			// No checks reported yet for the new head.
-		}
-		const failed = checks.filter((c) => c.bucket === "fail" || c.bucket === "cancel");
-		if (failed.length)
+		const ci = requiredCi(wt, number, required);
+		if (ci.failed.length)
 			fail(
-				`Fresh gate needed at ${sha}: required CI failed after the merge of main (${failed.map((c) => c.name).join(", ")}). Fix the branch, then get a new verifier review.`,
+				`Fresh gate needed at ${sha}: required CI failed after the merge of main (${ci.failed.join(", ")}). Fix the branch, then get a new verifier review.`,
 			);
-		if (checks.length && checks.every((c) => c.bucket === "pass" || c.bucket === "skipping")) return;
+		if (!ci.missing.length && !ci.pending.length) return;
 		const waited = Date.now() - start;
 		if (waited >= timing.ciWaitMs)
 			fail(
-				`Required CI on ${sha} is still running after ${Math.round(waited / 60_000)} min. Run evf ship again when it finishes.`,
+				`Required CI on ${sha} is still running after ${Math.round(waited / 60_000)} min (${[...ci.missing.map((n) => `${n} missing`), ...ci.pending.map((n) => `${n} pending`)].join(", ")}). Run evf ship again when it finishes.`,
 			);
 		if (waited >= printed * 60_000) {
 			console.log(`ship: waiting for required CI on ${sha.slice(0, 10)}, ${Math.floor(waited / 60_000)} min.`);

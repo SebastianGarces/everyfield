@@ -1,20 +1,36 @@
 "use client";
 
-import { Calendar03Icon, Settings02Icon, Task01Icon, UserMultipleIcon } from "@hugeicons/core-free-icons";
+import {
+	BookOpen01Icon,
+	Calendar03Icon,
+	File02Icon,
+	InformationCircleIcon,
+	Mail01Icon,
+	Settings02Icon,
+	Task01Icon,
+	UserGroupIcon,
+	UserMultipleIcon,
+} from "@hugeicons/core-free-icons";
 import { ToastProvider, useToast } from "@everyfield/ui/controls";
 import { initials } from "@everyfield/ui/display";
 import { AppShell, RoleBanner, type ShellNav } from "@everyfield/ui/shell";
+import { usePathname } from "next/navigation";
 import { createContext, use, useState, type ReactNode } from "react";
 import { useEvryPanel } from "../evry/conversation/EvryPanel.tsx";
+import { useNotificationBell } from "../notifications/Bell.tsx";
+import { NotificationsProvider } from "../notifications/feed.tsx";
 import { AccountMenu } from "../settings/AccountMenu";
 import { firstSection } from "../settings/model";
 import type { SectionSeed, SettingsViewer } from "../settings/port";
 import { useProductSettings } from "../settings/ProductSettings";
 import type { Role } from "./server.ts";
+import { useWikiChrome, WikiChrome } from "../wiki/client.tsx";
 
-// The product frame around the People and Settings pages. Only destinations that exist are in the navigation; the full
-// product navigation, command palette and notifications come from their own packages and replace these when they
-// ship. Settings sits at the bottom of the rail and in the user menu behind the name button (screens.md, Overlays).
+// The product frame around People, Meetings, Messages, Tasks, Ministries, Wiki, Documents and Settings. Only destinations that
+// exist are in the navigation. The full product navigation and command palette come from their own packages and
+// replace these when they ship. The bell
+// opens the notification drop-down (WP-030). Settings sits at the bottom of the rail and in the user menu behind the
+// name button (screens.md, Overlays).
 
 const PEOPLE = { kind: "link", key: "people", label: "People", href: "/people", icon: UserMultipleIcon } as const;
 // Meetings is a dynamic page; it loads when chosen, not whenever the frame renders.
@@ -27,6 +43,34 @@ const MEETINGS = {
 	prefetch: false,
 } as const;
 const TASKS = { kind: "link", key: "tasks", label: "Tasks", href: "/tasks", icon: Task01Icon } as const;
+// Messages is a dynamic page. It loads when chosen, not whenever the frame renders.
+const MESSAGES = {
+	kind: "link",
+	key: "messages",
+	label: "Messages",
+	href: "/communication",
+	icon: Mail01Icon,
+	prefetch: false,
+} as const;
+// Ministries (WP-017) loads when chosen, like Meetings.
+const MINISTRIES = {
+	kind: "link",
+	key: "ministries",
+	label: "Ministries",
+	href: "/ministries",
+	icon: UserGroupIcon,
+	prefetch: false,
+} as const;
+const WIKI = { kind: "link", key: "wiki", label: "Wiki", href: "/wiki", icon: BookOpen01Icon } as const;
+// Documents is a secondary rail page. It loads when chosen, not whenever the frame renders.
+const DOCUMENTS = {
+	kind: "link",
+	key: "documents",
+	label: "Documents",
+	href: "/documents",
+	icon: File02Icon,
+	prefetch: false,
+} as const;
 const ROLE: Record<Role, string> = { owner: "Owner", admin: "Admin", member: "Member" };
 
 type FrameProps = {
@@ -62,7 +106,11 @@ export function PeopleFrame({ settings: initial, seed, ...props }: FrameProps) {
 	return (
 		<ToastProvider>
 			<OwnSeat value={change}>
-				<Frame {...props} settings={settings} seed={settings === initial ? seed : null} />
+				<NotificationsProvider>
+					<WikiChrome>
+						<Frame {...props} settings={settings} seed={settings === initial ? seed : null} />
+					</WikiChrome>
+				</NotificationsProvider>
 			</OwnSeat>
 		</ToastProvider>
 	);
@@ -72,6 +120,9 @@ function Frame({ name, settings, seed = null, children }: FrameProps) {
 	const toast = useToast();
 	const dialog = useProductSettings(settings, seed);
 	const evry = useEvryPanel({ inPlant: settings?.context === "plant" });
+	const bell = useNotificationBell();
+	const wiki = useWikiChrome();
+	const pathname = usePathname();
 	const role = settings && settings.context !== "account" ? settings.role : null;
 	// A plant Member reads People and Tasks and works on their own tasks; organization seats have neither.
 	const banner =
@@ -83,8 +134,18 @@ function Frame({ name, settings, seed = null, children }: FrameProps) {
 		) : null;
 	// The rail's Settings opens the dialog over the current page, as the user menu does; /settings is its address.
 	const nav: ShellNav = {
-		main: [PEOPLE, MEETINGS, TASKS],
-		pages: [],
+		main: [PEOPLE, MEETINGS, MESSAGES, TASKS, MINISTRIES, WIKI],
+		pages: [
+			DOCUMENTS,
+			{
+				kind: "action",
+				key: "guide",
+				label: "Guide",
+				icon: InformationCircleIcon,
+				onSelect: () => wiki?.openGuide(),
+				expanded: wiki?.guideOpen,
+			},
+		],
 		tools: [
 			{
 				kind: "link",
@@ -109,20 +170,25 @@ function Frame({ name, settings, seed = null, children }: FrameProps) {
 			user={{ name, initials: initials(name), detail: role ? ROLE[role] : "" }}
 			userMenu={<AccountMenu name={name} detail={seat} onAccount={() => dialog.open("account")} />}
 			homeHref="/people"
-			unread={0}
+			unread={bell.unread}
 			width="wide"
 			onSearch={() => {
+				if (pathname.startsWith("/wiki")) {
+					wiki?.openSearch();
+					return;
+				}
 				const search = document.querySelector<HTMLInputElement>("[data-people-search]");
 				if (search) search.focus();
 				else later("Search")();
 			}}
-			onNotifications={later("Notifications")}
+			onNotifications={bell.open}
 			onAskEvry={evry.open}
 			banner={banner}
 		>
 			{children}
 			{dialog.element}
 			{evry.element}
+			{bell.element}
 		</AppShell>
 	);
 }

@@ -21,6 +21,18 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"people.getPerson",
 		"people.getPersonPhoto",
 		"people.checkForDuplicates",
+		"people.exportPeople",
+		"people.generateCsvTemplate",
+		"people.getActivities",
+		"people.getHousehold",
+		"people.getHouseholdMembers",
+		"people.getImportReceipt",
+		"people.getPersonSkills",
+		"people.getPersonTags",
+		"people.getPipelineData",
+		"people.listHouseholds",
+		"people.listTags",
+		"people.previewImport",
 		"evry.selectReturnedRows",
 	]);
 	for (const id of installed) {
