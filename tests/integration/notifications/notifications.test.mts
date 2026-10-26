@@ -29,6 +29,8 @@ const admin = createDatabase({
 	options: `-c search_path=${schema},pg_catalog,pg_temp`,
 });
 const clock = { at: new Date("2026-10-23T15:00:00Z") };
+// Visibility and cancel use the database clock, not this injected producer clock.
+const notYetEligible = new Date(Date.now() + 86_400_000).toISOString();
 const optOutKey = randomBytes(32);
 const api = createNotificationProducer({ optOutKey, now: () => clock.at });
 const orgs = createOrganizationAdapter(
@@ -168,7 +170,7 @@ test("AC:CASE-NTF-003 AC:NOTIFY47-001 AC:NOTIFY47-010 the feed and mark stay ins
 		key: `${church.id}/task_due/${work}/1/future`,
 		source: work,
 		title: "Later",
-		eligible: "2026-10-25T16:00:00Z",
+		eligible: notYetEligible,
 	});
 	const foreign = await notice({
 		tenant: church.id,
@@ -312,7 +314,7 @@ test("AC:CASE-NTF-003 AC:NOTIFY47-001 AC:NOTIFY47-010 the feed and mark stay ins
 		source: work,
 		revision: 2,
 		title: "Upcoming",
-		eligible: "2026-10-30T16:00:00Z",
+		eligible: notYetEligible,
 	});
 	const cancelled = ok(await api.cancelTaskReminders(db, reader, command({ plantId: church.id, taskId: work })));
 	assert.deepEqual(cancelled.cancelledIds.sort(), [future, upcoming].sort());
