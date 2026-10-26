@@ -49,7 +49,6 @@
         {
           "title": "Company",
           "links": [
-            "About",
             "Privacy and trust",
             "Contact"
           ]
@@ -699,12 +698,6 @@
       "status_watch": "Watch",
       "mueller_plant": "Mueller Hope Church",
       "share_unshared_status": "Limited visibility"
-    },
-    "about": {
-      "note": "Revision 8 (2026-10-23): the home About section. The placeholder stays visible until Sebastian writes his own words.",
-      "eyebrow": "About",
-      "headline": "Built by Sebastian Garces.",
-      "body": "[PLACEHOLDER: Sebastian's words on why he's building Everyfield]"
     },
     "sample_label": "Sample data"
   },

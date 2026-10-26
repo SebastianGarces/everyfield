@@ -12,12 +12,11 @@ const LINK =
 
 // Footer links come from shared.footer in design/marketing-copy.json. Only live pages get links: the planters page,
 // the trust page and Evry are not live, so their links are left out, and so is a column left with no links.
-// About is the home page section; Contact writes to the team inbox (Revision 8).
+// Contact writes to the team inbox (Revision 8).
 const ROUTES: Record<string, string> = {
 	Overview: "/",
 	"Plant Intelligence": "/#intelligence",
 	"Churches & Networks": "/oversight",
-	About: "/#about",
 	Contact: "mailto:" + COPY.shared.access_page.contact_email,
 	"Privacy policy": "/privacy",
 	Terms: "/terms",
