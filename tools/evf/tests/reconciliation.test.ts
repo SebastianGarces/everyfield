@@ -56,16 +56,7 @@ test("INV-context: load current acceptance and fail when its required input is m
 });
 
 import { fixture } from "./fixtures.ts";
-import {
-	parseTask,
-	evfDataDir,
-	evidenceDir,
-	loadConfig,
-	runtimeDir,
-	XAI_SAME_FAMILY_REVIEW_UNTIL,
-	crossFamilyReview,
-	crossFamilyReviewRefusal,
-} from "../lib.ts";
+import { parseTask, evfDataDir, evidenceDir, loadConfig, runtimeDir, independentReview } from "../lib.ts";
 import {
 	feedbackTriage,
 	startFeedbackTask,
@@ -508,7 +499,14 @@ test("INV-model-feedback: verified bot identity never authorizes arbitrary raw p
 import { existsSync } from "node:fs";
 import { stack } from "../task.ts";
 import { caseCoverage, caseGrep } from "../coverage.ts";
-import { producerReady, recordProgress, recordFastTrack, reconcileProgress, reviewedMilestone } from "../progress.ts";
+import {
+	LEGACY_FAMILY_WAIVER_END,
+	producerReady,
+	recordProgress,
+	recordFastTrack,
+	reconcileProgress,
+	reviewedMilestone,
+} from "../progress.ts";
 import { renderAc, renderBrief } from "../brief.ts";
 
 test("BUG-fast-track: real prerequisite policy unlocks WP-087 only after bounded reviewed completion on main", () => {
@@ -736,6 +734,11 @@ test("BUG-bootstrap-reader: case and full brief preserve structured fixtures, ac
 	}
 });
 
+// Review parties (D82): the author and the verifier are different Claude Code sessions; the verifier is Opus.
+const AUTHOR = { session: "11111111-1111-4111-8111-111111111111", model: "claude-sonnet-5-5", role: "implementer" };
+const VERIFIER = { session: "22222222-2222-4222-8222-222222222222", model: "claude-opus-5-5", role: "verifier" };
+const authorLine = `EVF-Author: ${JSON.stringify(AUTHOR)}`;
+
 function validPrBody() {
 	const template = readFileSync(join(source, ".agents/skills/everyfield-pr/template.md"), "utf8").replace(
 		/<!--[^]*?-->/g,
@@ -746,7 +749,10 @@ function validPrBody() {
 			.split("\n")
 			.filter((line) => line.startsWith("## "))
 			.map((heading) => heading + "\nConcrete task evidence.")
-			.join("\n\n") + "\n\nEVF-Author: openai\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+			.join("\n\n") +
+		"\n\n" +
+		authorLine +
+		"\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"
 	);
 }
 
@@ -791,7 +797,7 @@ function mergeFixture(scope: Record<string, unknown> = { owningPaths: ["tools/ev
 	];
 	state.comments["77"] = [
 		{
-			body: `Verified the actual tooling behavior.\n\nEVF-Review: ${JSON.stringify({ head: sha, verifierFamily: "anthropic", verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`,
+			body: `Verified the actual tooling behavior.\n\nEVF-Review: ${JSON.stringify({ head: sha, verifier: VERIFIER, verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`,
 			html_url: "https://github.com/test/private/pull/77#issuecomment-1",
 		},
 	];
@@ -909,7 +915,7 @@ test("BUG-c048ea5-folder-path: maintenance refuses an existing folder without a 
 test("BUG-c048ea5-pr-class: body checks select Wiki and prototype formats from PR metadata and keep ordinary work strict", () => {
 	const f = mergeFixture();
 	try {
-		const footer = "\n\nEVF-Author: openai\n\n🤖 Generated with [Codex](https://openai.com/codex/)";
+		const footer = "\n\n" + authorLine + "\n\n🤖 Generated with [Codex](https://openai.com/codex/)";
 		const bodies = {
 			wiki:
 				"## Scope and sources\nA16 article; publisher sources checked on 2026-10-18.\n\n## Verification\nLint and desktop/mobile renders passed at abc123; screenshots linked in the task.\n\n## Review and approval\nIndependent Opus review pending. Sebastian approval pending." +
@@ -938,14 +944,17 @@ test("BUG-c048ea5-pr-class: body checks select Wiki and prototype formats from P
 			f.setState(state);
 			const checked = cli("77");
 			assert.equal(checked.status, 0, checked.stderr);
-			assert.match(checked.stdout, new RegExp(`PASSED ${kind} PR body standard for openai`));
+			assert.match(
+				checked.stdout,
+				new RegExp(`PASSED ${kind} PR body standard for claude-sonnet-5-5 \\(implementer\\)`),
+			);
 			const file = join(f.root, "fake-bin/body.md");
 			writeFileSync(file, bodies[kind]);
 			const local = cli("--body-file", file, "--class", kind);
 			assert.equal(local.status, 0, local.stderr);
-			assert.match(local.stdout, new RegExp(`PASSED ${kind} PR body standard for openai`));
+			assert.match(local.stdout, new RegExp(`PASSED ${kind} PR body standard for claude-sonnet-5-5 \\(implementer\\)`));
 			assert.equal(cli("--body-file", file).status, 1, "local files default to the ordinary template");
-			for (const missing of ["## Review and approval", "EVF-Author: openai"]) {
+			for (const missing of ["## Review and approval", authorLine]) {
 				state.pr.body = bodies[kind].replace(missing, "Removed");
 				f.setState(state);
 				assert.equal(cli("77").status, 1, `${kind} must require ${missing}`);
@@ -968,7 +977,7 @@ test("BUG-c048ea5-pr-class: body checks select Wiki and prototype formats from P
 		f.setState(state);
 		const ordinary = cli("77");
 		assert.equal(ordinary.status, 0, ordinary.stderr);
-		assert.match(ordinary.stdout, /PASSED ordinary PR body standard for openai/);
+		assert.match(ordinary.stdout, /PASSED ordinary PR body standard for claude-sonnet-5-5 \(implementer\)/);
 		const file = join(f.root, "fake-bin/body.md");
 		writeFileSync(file, validPrBody());
 		assert.match(cli("--body-file", file, "--class", "unknown").stderr, /class must be ordinary, wiki or prototype/);
@@ -1007,8 +1016,7 @@ test("BUG-fb0159d-wiki-images: real pr-images output keeps a Wiki body valid on 
 			readFileSync(join(f.root, "tools/evf/templates/wiki-pr.md"), "utf8")
 				.replace(/<!--[^]*?-->/g, (comment) => (/^<!-- \/?wiki-screenshots -->$/.test(comment) ? comment : ""))
 				.replace(/^## .+$/gm, (heading) => heading + "\nVerified fixture article evidence.")
-				.replace("EVF-Author: <family>", "EVF-Author: openai") +
-			"\n🤖 Generated with [Codex](https://openai.com/codex/)";
+				.replace(/^EVF-Author: .*$/m, authorLine) + "\n🤖 Generated with [Codex](https://openai.com/codex/)";
 		const state = f.getState();
 		state.pr = { body };
 		f.setState(state);
@@ -1023,7 +1031,7 @@ test("BUG-fb0159d-wiki-images: real pr-images output keeps a Wiki body valid on 
 			);
 			await prImages(77, [png], true, f.root);
 			const published = f.getState().pr.body;
-			assert.equal(checkPrBody(f.root, published, "wiki").authorFamily, "openai");
+			assert.deepEqual(checkPrBody(f.root, published, "wiki").author, AUTHOR);
 			const image = `![${name.replace(/\.png$/, "")}](https://gist.githubusercontent.com/fixture-owner/a1b2c3/raw/${name})`;
 			assert.ok(published.indexOf(image) > published.indexOf("## Verification"));
 			assert.ok(published.indexOf(image) < published.indexOf("## Review and approval"));
@@ -1079,18 +1087,34 @@ test("INV-phase7-ship: CI, independent exact-head approval and approved code qua
 				reason: /Required GitHub CI is missing on the exact PR head: CI\./,
 			},
 			{
-				name: "same-family approval",
+				name: "author session approval",
 				edit: (s) => {
 					s.comments["77"][0].body =
-						`EVF-Review: ${JSON.stringify({ head: f.sha, verifierFamily: "openai", verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
+						`EVF-Review: ${JSON.stringify({ head: f.sha, verifier: { ...VERIFIER, session: AUTHOR.session }, verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
 				},
-				reason: /different model family/,
+				reason: /independent session/,
+			},
+			{
+				name: "non-Opus verifier",
+				edit: (s) => {
+					s.comments["77"][0].body =
+						`EVF-Review: ${JSON.stringify({ head: f.sha, verifier: { ...VERIFIER, model: "claude-sonnet-5-5" }, verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
+				},
+				reason: /Opus model/,
+			},
+			{
+				name: "non-verifier seat",
+				edit: (s) => {
+					s.comments["77"][0].body =
+						`EVF-Review: ${JSON.stringify({ head: f.sha, verifier: { ...VERIFIER, role: "implementer" }, verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
+				},
+				reason: /verifier seat/,
 			},
 			{
 				name: "older-head approval",
 				edit: (s) => {
 					s.comments["77"][0].body =
-						`EVF-Review: ${JSON.stringify({ head: "a".repeat(40), verifierFamily: "anthropic", verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
+						`EVF-Review: ${JSON.stringify({ head: "a".repeat(40), verifier: VERIFIER, verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
 				},
 				reason: /approval for the exact PR head/,
 			},
@@ -1098,7 +1122,7 @@ test("INV-phase7-ship: CI, independent exact-head approval and approved code qua
 				name: "rejected approval",
 				edit: (s) => {
 					s.comments["77"].push({
-						body: `EVF-Review: ${JSON.stringify({ head: f.sha, verifierFamily: "anthropic", verdict: "changes_requested", quality: approvedQuality, experience: approvedExperience })}`,
+						body: `EVF-Review: ${JSON.stringify({ head: f.sha, verifier: VERIFIER, verdict: "changes_requested", quality: approvedQuality, experience: approvedExperience })}`,
 					});
 				},
 				reason: /approval for the exact PR head/,
@@ -1129,7 +1153,7 @@ test("INV-phase7-ship: CI, independent exact-head approval and approved code qua
 				reason,
 				edit: (s) => {
 					s.comments["77"][0].body =
-						`EVF-Review: ${JSON.stringify({ head: f.sha, verifierFamily: "anthropic", verdict: "approved", quality, experience: approvedExperience })}`;
+						`EVF-Review: ${JSON.stringify({ head: f.sha, verifier: VERIFIER, verdict: "approved", quality, experience: approvedExperience })}`;
 				},
 			})),
 			...[
@@ -1158,7 +1182,7 @@ test("INV-phase7-ship: CI, independent exact-head approval and approved code qua
 				reason,
 				edit: (s) => {
 					s.comments["77"][0].body =
-						`EVF-Review: ${JSON.stringify({ head: f.sha, verifierFamily: "anthropic", verdict: "approved", quality: approvedQuality, experience })}`;
+						`EVF-Review: ${JSON.stringify({ head: f.sha, verifier: VERIFIER, verdict: "approved", quality: approvedQuality, experience })}`;
 				},
 			})),
 			{
@@ -1186,7 +1210,7 @@ test("INV-phase7-ship: CI, independent exact-head approval and approved code qua
 			state.pr.body = state.pr.body.replace("EVF-Author:", `EVF-Experience-Exception: ${category}\n\nEVF-Author:`);
 			const experience = { ...approvedExperience, budget: "exceeded", exception: category };
 			state.comments["77"][0].body =
-				`EVF-Review: ${JSON.stringify({ head: f.sha, verifierFamily: "anthropic", verdict: "approved", quality: approvedQuality, experience })}`;
+				`EVF-Review: ${JSON.stringify({ head: f.sha, verifier: VERIFIER, verdict: "approved", quality: approvedQuality, experience })}`;
 			f.setState(state);
 			assert.throws(() => ship(f.root, f.taskRef), /fixture merge barrier/);
 			assert.deepEqual(f.getState().calls.find((c) => c.args[0] === "pr" && c.args[1] === "merge").args, [
@@ -1199,7 +1223,7 @@ test("INV-phase7-ship: CI, independent exact-head approval and approved code qua
 			]);
 			state.calls = [];
 			state.comments["77"][0].body =
-				`EVF-Review: ${JSON.stringify({ head: f.sha, verifierFamily: "anthropic", verdict: "approved", quality: approvedQuality, experience: { ...experience, verdict: "changes_requested" } })}`;
+				`EVF-Review: ${JSON.stringify({ head: f.sha, verifier: VERIFIER, verdict: "approved", quality: approvedQuality, experience: { ...experience, verdict: "changes_requested" } })}`;
 			f.setState(state);
 			assert.throws(() => ship(f.root, f.taskRef), /Experience must be approved/);
 			assert.deepEqual(
@@ -1221,8 +1245,10 @@ test("INV-phase7-ship: CI, independent exact-head approval and approved code qua
 			"77",
 			"--report",
 			report,
-			"--family",
-			"anthropic",
+			"--session",
+			VERIFIER.session,
+			"--model",
+			VERIFIER.model,
 			"--verdict",
 			"approved",
 			"--head",
@@ -1261,108 +1287,144 @@ test("INV-phase7-ship: CI, independent exact-head approval and approved code qua
 	}
 });
 
-test("INV-phase7-ship: xai may review xai only before 2026-10-27T19:00:00.000Z", () => {
-	const until = Date.parse(XAI_SAME_FAMILY_REVIEW_UNTIL);
-	assert.equal(XAI_SAME_FAMILY_REVIEW_UNTIL, "2026-10-27T19:00:00.000Z");
-	assert.equal(crossFamilyReview("xai", "xai", until - 1), true);
-	assert.equal(crossFamilyReview("xai", "xai", until), false);
-	assert.equal(crossFamilyReview("xai", "xai", until + 1), false);
-	assert.equal(crossFamilyReview("xai", "xai", Number.NaN), false);
-	assert.equal(crossFamilyReview("openai", "xai", until - 1), false);
-	assert.equal(crossFamilyReview("xai", "openai", until - 1), false);
-	assert.equal(crossFamilyReview("anthropic", "anthropic", until - 1), false);
-	assert.equal(crossFamilyReview("openai", "openai", until - 1), false);
-	assert.equal(crossFamilyReview("xai", "anthropic", until + 1), true);
-	assert.equal(crossFamilyReview("anthropic", "xai", until + 1), true);
+test("INV-phase7-ship: independent review is another session, the verifier seat and an Opus model (D82)", () => {
+	assert.equal(independentReview(AUTHOR, VERIFIER), null);
+	assert.equal(independentReview(AUTHOR, { ...VERIFIER, model: "claude-opus-6-0" }), null);
+	assert.match(independentReview(AUTHOR, { ...VERIFIER, session: AUTHOR.session })!, /independent session/);
 	assert.match(
-		crossFamilyReviewRefusal("xai", until - 1),
-		/allowed model family: xai work needs an anthropic or xai verifier/,
+		independentReview(AUTHOR, { ...VERIFIER, role: "implementer" })!,
+		/verifier seat: the review role is implementer/,
 	);
-	assert.match(crossFamilyReviewRefusal("xai", until), /different model family: xai work needs an anthropic verifier/);
+	assert.match(independentReview({ ...AUTHOR, role: "verifier" }, VERIFIER)!, /the author role is verifier/);
 	assert.match(
-		crossFamilyReviewRefusal("openai", until - 1),
-		/different model family: openai work needs an anthropic verifier/,
+		independentReview(AUTHOR, { ...VERIFIER, model: "claude-sonnet-5-5" })!,
+		/Opus model: the review model is claude-sonnet-5-5/,
+	);
+	const poster = readFileSync(join(source, ".agents/skills/verify-preview/scripts/post-review.mjs"), "utf8");
+	assert.match(
+		poster,
+		/import \{ independentReview, readParty \} from "[./]+tools\/evf\/lib\.ts"/,
+		"the poster uses the rule, not a copy",
 	);
 	assert.match(
-		crossFamilyReviewRefusal("anthropic", until - 1),
-		/different model family: anthropic work needs an openai or xai verifier/,
-	);
-	assert.ok(
-		readFileSync(join(source, ".agents/skills/verify-preview/scripts/post-review.mjs"), "utf8").includes(
-			XAI_SAME_FAMILY_REVIEW_UNTIL,
-		),
+		poster,
+		/import \{ checkPrBody \} from "[./]+tools\/evf\/pr-body\.ts"/,
+		"the poster reads the body as ship does",
 	);
 });
 
-test("INV-phase7-ship: anthropic pairs with openai or xai; xai may review xai before the waiver instant", () => {
+test("INV-phase7-ship: ship and the review poster accept an independent Opus verifier and refuse the author's session, another seat or a non-Opus model", () => {
 	const f = mergeFixture();
 	try {
 		const valid = f.getState();
 		writeFileSync(join(f.root, "fake-bin/review.md"), "## Code quality\nApproved.\n\n## Experience\nNot applicable.\n");
-		const until = Date.parse(XAI_SAME_FAMILY_REVIEW_UNTIL);
-		const before = until - 1;
-		const pairs = [
-			{ author: "openai", verifier: "anthropic", at: before, ships: true },
-			{ author: "xai", verifier: "anthropic", at: before, ships: true },
-			{ author: "xai", verifier: "anthropic", at: until, ships: true },
-			{ author: "anthropic", verifier: "openai", at: before, ships: true },
-			{ author: "anthropic", verifier: "xai", at: before, ships: true },
-			{ author: "xai", verifier: "openai", at: before, ships: false },
-			{ author: "openai", verifier: "xai", at: before, ships: false },
-			{ author: "openai", verifier: "xai", at: until, ships: false },
-			{ author: "xai", verifier: "xai", at: before, ships: true },
-			{ author: "xai", verifier: "xai", at: until, ships: false },
-			{ author: "anthropic", verifier: "anthropic", at: before, ships: false },
-			{ author: "openai", verifier: "openai", at: before, ships: false },
+		const cases = [
+			{ name: "independent Opus verifier", verifier: VERIFIER, ships: true, reason: /fixture merge barrier/ },
+			{
+				name: "later Opus version",
+				verifier: { ...VERIFIER, model: "claude-opus-6-0" },
+				ships: true,
+				reason: /fixture merge barrier/,
+			},
+			{
+				name: "author session",
+				verifier: { ...VERIFIER, session: AUTHOR.session },
+				ships: false,
+				reason: /independent session/,
+			},
+			{
+				name: "implementer seat",
+				verifier: { ...VERIFIER, role: "implementer" },
+				ships: false,
+				reason: /verifier seat/,
+			},
+			{
+				name: "Sonnet verifier",
+				verifier: { ...VERIFIER, model: "claude-sonnet-5-5" },
+				ships: false,
+				reason: /Opus model/,
+			},
 		];
-		const realNow = Date.now;
-		try {
-			for (const { author, verifier, ships, at } of pairs) {
-				const atIso = new Date(at).toISOString();
-				const state = structuredClone(valid);
-				state.pr.body = valid.pr.body.replace("EVF-Author: openai", `EVF-Author: ${author}`);
-				assert.equal(checkPrBody(f.root, state.pr.body).authorFamily, author);
-				state.comments["77"][0].body =
-					`EVF-Review: ${JSON.stringify({ head: f.sha, verifierFamily: verifier, verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
-				state.calls = [];
-				f.setState(state);
-				const reason = ships
-					? /fixture merge barrier/
-					: author === "xai" && at < until
-						? /allowed model family: xai work needs an anthropic or xai verifier/
-						: /different model family/;
-				Date.now = () => at;
-				try {
-					assert.throws(
-						() => ship(f.root, f.taskRef),
-						reason,
-						`${author} author with ${verifier} verifier at ${atIso}`,
-					);
-				} finally {
-					Date.now = realNow;
-				}
-				const poster = spawnSync(
-					process.execPath,
-					[
-						join(source, ".agents/skills/verify-preview/scripts/post-review.mjs"),
-						...["--pr", "77", "--report", join(f.root, "fake-bin/review.md"), "--family", verifier, "--at", atIso],
-						...["--verdict", "approved", "--head", f.sha, "--experience-verdict", "approved", "--budget", "met"],
-						...["--quality-verdict", "approved", "--principles", approvedQuality.principles.join(","), "--dry-run"],
-					],
-					{ cwd: f.root, encoding: "utf8" },
+		for (const { name, verifier, ships, reason } of cases) {
+			const state = structuredClone(valid);
+			assert.deepEqual(checkPrBody(f.root, state.pr.body).author, AUTHOR);
+			state.comments["77"][0].body =
+				`EVF-Review: ${JSON.stringify({ head: f.sha, verifier, verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
+			state.calls = [];
+			f.setState(state);
+			assert.throws(() => ship(f.root, f.taskRef), reason, name);
+			const poster = spawnSync(
+				process.execPath,
+				[
+					join(source, ".agents/skills/verify-preview/scripts/post-review.mjs"),
+					...["--pr", "77", "--report", join(f.root, "fake-bin/review.md")],
+					...["--session", verifier.session, "--model", verifier.model, "--role", verifier.role],
+					...["--verdict", "approved", "--head", f.sha, "--experience-verdict", "approved", "--budget", "met"],
+					...["--quality-verdict", "approved", "--principles", approvedQuality.principles.join(","), "--dry-run"],
+				],
+				{ cwd: f.root, encoding: "utf8" },
+			);
+			assert.equal(poster.status, ships ? 0 : 1, `poster: ${name}: ${poster.stderr}`);
+			if (ships)
+				assert.ok(
+					poster.stdout.includes(`"verifier":${JSON.stringify(verifier)}`),
+					`poster records the verifier: ${poster.stdout}`,
 				);
-				assert.equal(
-					poster.status,
-					ships ? 0 : 1,
-					`poster: ${author} author with ${verifier} verifier at ${atIso}: ${poster.stderr}`,
-				);
-			}
-		} finally {
-			Date.now = realNow;
 		}
 		const state = structuredClone(valid);
-		state.pr.body = valid.pr.body.replace("EVF-Author: openai", "EVF-Author: grok");
-		assert.throws(() => checkPrBody(f.root, state.pr.body), /EVF-Author must be one of anthropic, openai, xai/);
+		state.pr.body = valid.pr.body.replace(authorLine, "EVF-Author: anthropic");
+		assert.throws(() => checkPrBody(f.root, state.pr.body), /EVF-Author must be \{"session"/);
+		state.pr.body = valid.pr.body.replace(
+			authorLine,
+			`EVF-Author: ${JSON.stringify({ ...AUTHOR, session: "not-a-uuid" })}`,
+		);
+		assert.throws(() => checkPrBody(f.root, state.pr.body), /session must be the Claude Code session UUID/);
+
+		// The poster reads the body with ship's parser, so HTML comments and fenced examples count for neither.
+		const posted = (body: string) => {
+			const s = structuredClone(valid);
+			s.pr.body = body;
+			f.setState(s);
+			return spawnSync(
+				process.execPath,
+				[
+					join(source, ".agents/skills/verify-preview/scripts/post-review.mjs"),
+					...["--pr", "77", "--report", join(f.root, "fake-bin/review.md")],
+					...["--session", VERIFIER.session, "--model", VERIFIER.model],
+					...["--verdict", "approved", "--head", f.sha, "--experience-verdict", "approved", "--budget", "met"],
+					...["--quality-verdict", "approved", "--principles", approvedQuality.principles.join(","), "--dry-run"],
+				],
+				{ cwd: f.root, encoding: "utf8" },
+			);
+		};
+		const template = readFileSync(join(source, ".agents/skills/everyfield-pr/template.md"), "utf8");
+		const withComments =
+			template
+				.replace(/^## .+$/gm, (heading) => `${heading}\nConcrete task evidence.`)
+				.replace(/^EVF-Author: \{"session".*$/m, authorLine) +
+			"\n🤖 Generated with [Claude Code](https://claude.com/claude-code)";
+		const fencedExample = valid.pr.body.replace(
+			authorLine,
+			`\`\`\`text\nEVF-Author: anthropic\n\`\`\`\n\n${authorLine}`,
+		);
+		const oldForm = valid.pr.body.replace(authorLine, "EVF-Author: anthropic");
+		assert.deepEqual(
+			checkPrBody(f.root, withComments).author,
+			AUTHOR,
+			"ship accepts a body that keeps the template comments",
+		);
+		assert.deepEqual(checkPrBody(f.root, fencedExample).author, AUTHOR, "ship ignores a fenced example");
+		assert.throws(() => checkPrBody(f.root, oldForm));
+		for (const [name, body, accepted] of [
+			["template comments kept", withComments, true],
+			["fenced example before the line", fencedExample, true],
+			["old family form", oldForm, false],
+		] as const) {
+			const result = posted(body);
+			assert.equal(result.status, accepted ? 0 : 1, `poster, ${name}: ${result.stderr}`);
+			if (accepted) assert.ok(result.stdout.includes(`"verifier":${JSON.stringify(VERIFIER)}`), name);
+			else assert.match(result.stderr, /standard ship checks: EVF-Author must be/);
+		}
 	} finally {
 		f.close();
 	}
@@ -1393,7 +1455,7 @@ test("INV-carry-approval: an approval carries only over clean merges of main on 
 			state.pr.headRefOid = head;
 			state.comments["77"] = [
 				{
-					body: `EVF-Review: ${JSON.stringify({ head: approved, verifierFamily: "anthropic", verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`,
+					body: `EVF-Review: ${JSON.stringify({ head: approved, verifier: VERIFIER, verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`,
 					html_url: "https://github.com/test/private/pull/77#issuecomment-2",
 				},
 			];
@@ -1572,7 +1634,7 @@ test("INV-ship-queue-update: a behind PR is updated by a merge of main, waits fo
 			state.pr.headRefOid = approved;
 			state.comments["77"] = [
 				{
-					body: `EVF-Review: ${JSON.stringify({ head: approved, verifierFamily: "anthropic", verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`,
+					body: `EVF-Review: ${JSON.stringify({ head: approved, verifier: VERIFIER, verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`,
 					html_url: "https://github.com/test/private/pull/77#issuecomment-3",
 				},
 			];
@@ -1743,7 +1805,7 @@ test("BUG-196-carry-progress: a carried approval on owning paths records progres
 		state.mergeBranch = task.branch;
 		state.pr.headRefOid = head;
 		state.comments["77"][0].body =
-			`EVF-Review: ${JSON.stringify({ head: approved, verifierFamily: "anthropic", verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
+			`EVF-Review: ${JSON.stringify({ head: approved, verifier: VERIFIER, verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
 		f.setState(state);
 		console.log = () => {};
 		assert.equal(ship(f.root, task), 0);
@@ -2004,7 +2066,7 @@ test("INV-phase7-feedback: P2 waits for owner after the same checks, while P1 re
 			sha = f.git("rev-parse", task.branch);
 		state.pr.headRefOid = sha;
 		state.comments["77"][0].body =
-			`EVF-Review: ${JSON.stringify({ head: sha, verifierFamily: "anthropic", verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
+			`EVF-Review: ${JSON.stringify({ head: sha, verifier: VERIFIER, verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
 		state.calls = [];
 		f.setState(state);
 		assert.equal(ship(f.root, task), 0);
@@ -2058,36 +2120,37 @@ test("INV-phase7-progress: ship and acknowledgement preserve reviewed milestones
 		state.mergeBranch = task.branch;
 		state.pr.headRefOid = sha;
 		state.comments["77"][0].body =
-			`EVF-Review: ${JSON.stringify({ head: sha, verifierFamily: "anthropic", verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
+			`EVF-Review: ${JSON.stringify({ head: sha, verifier: VERIFIER, verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
 		f.setState(state);
 		console.log = () => {};
 		assert.equal(ship(f.root, task), 0);
 		const path = join(evfDataDir(f.root), "shipped", `${task.slug}.json`),
 			record = JSON.parse(readFileSync(path, "utf8"));
 		assert.equal(record.verified_head, sha);
-		assert.equal(record.verification.approval.verifierFamily, "anthropic");
+		assert.deepEqual(record.verification.approval.verifier, VERIFIER);
+		assert.deepEqual(record.verification.author, AUTHOR);
 		const held = structuredClone(record);
 		held.acknowledged = true;
+		assert.equal(reviewedMilestone(f.root, held), true, "an independent Opus review counts");
+		held.verification.approval.verifier = { ...VERIFIER, session: AUTHOR.session };
+		assert.equal(reviewedMilestone(f.root, held), false, "the author's own session never counts");
+		// Records written before D82 carry model families; the rule that shipped them stays frozen for them.
+		delete held.verification.author;
+		delete held.verification.approval.verifier;
 		held.verification.authorFamily = "xai";
 		held.verification.approval.verifierFamily = "xai";
-		held.verification.checkedAt = new Date(Date.parse(XAI_SAME_FAMILY_REVIEW_UNTIL) - 1).toISOString();
-		const realNow = Date.now;
-		Date.now = () => Date.parse(XAI_SAME_FAMILY_REVIEW_UNTIL) + 60_000;
-		try {
-			assert.equal(reviewedMilestone(f.root, held), true, "stored checkedAt still counts after the waiver");
-		} finally {
-			Date.now = realNow;
-		}
-		held.verification.checkedAt = XAI_SAME_FAMILY_REVIEW_UNTIL;
+		held.verification.checkedAt = new Date(Date.parse(LEGACY_FAMILY_WAIVER_END) - 1).toISOString();
+		assert.equal(reviewedMilestone(f.root, held), true, "a stored checkedAt inside the waiver still counts");
+		held.verification.checkedAt = LEGACY_FAMILY_WAIVER_END;
 		assert.equal(reviewedMilestone(f.root, held), false, "a review at the waiver instant does not count");
 		held.verification.authorFamily = "openai";
 		held.verification.approval.verifierFamily = "xai";
 		held.verification.checkedAt = "2026-10-24T00:00:00.000Z";
-		assert.equal(reviewedMilestone(f.root, held), false, "openai never reviews xai");
+		assert.equal(reviewedMilestone(f.root, held), false, "openai never reviewed xai");
 		held.verification.authorFamily = "xai";
 		held.verification.approval.verifierFamily = "anthropic";
 		held.verification.checkedAt = "2026-10-28T00:00:00.000Z";
-		assert.equal(reviewedMilestone(f.root, held), true, "anthropic can still review xai after the waiver");
+		assert.equal(reviewedMilestone(f.root, held), true, "anthropic reviewed xai after the waiver");
 		assert.deepEqual(record.verification.approval.quality, approvedQuality);
 		assert.equal(loadProgress(f.root)["WP-001"].status, "in_progress");
 		assert.equal(producerReady(f.root, "WP-001"), false);
@@ -2123,7 +2186,7 @@ test("INV-phase7-progress: ship and acknowledgement preserve reviewed milestones
 			laterState = f.getState();
 		laterState.pr.headRefOid = laterSha;
 		laterState.comments["77"][0].body =
-			`EVF-Review: ${JSON.stringify({ head: laterSha, verifierFamily: "anthropic", verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
+			`EVF-Review: ${JSON.stringify({ head: laterSha, verifier: VERIFIER, verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
 		f.setState(laterState);
 		assert.equal(ship(f.root, task), 0);
 		assert.equal(producerReady(f.root, "WP-001"), true, "new outside-path record hid reviewed producer");
@@ -2199,7 +2262,7 @@ test("INV-phase7-pr-body: missing, empty and reordered required sections refuse 
 				[],
 			);
 		}
-		assert.equal(checkPrBody(f.root, valid.pr.body).authorFamily, "openai");
+		assert.deepEqual(checkPrBody(f.root, valid.pr.body).author, AUTHOR);
 		// A template change takes effect without copying its headings into the checker.
 		writeFileSync(template, readFileSync(template, "utf8") + "\n## New obligation\n");
 		assert.throws(() => checkPrBody(f.root, valid.pr.body), /missing required sections: ## New obligation/);
@@ -2581,7 +2644,7 @@ test("BUG-ops15-ship: an outside-path merge succeeds and cleans up without packa
 		state.mergeBranch = task.branch;
 		state.pr.headRefOid = sha;
 		state.comments["77"][0].body =
-			`EVF-Review: ${JSON.stringify({ head: sha, verifierFamily: "anthropic", verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
+			`EVF-Review: ${JSON.stringify({ head: sha, verifier: VERIFIER, verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
 		f.setState(state);
 		mkdirSync(runtimeDir(f.root, task), { recursive: true });
 		const before = readFileSync(join(f.root, "docs/build-progress.json"), "utf8");
@@ -2672,7 +2735,7 @@ test("INV-design-route: a design task owns only design/, waits after the verifie
 		const status = f.getState().calls.find((c: any) => c.args.some((a: string) => a.endsWith(`statuses/${f.sha}`)));
 		assert.ok(
 			status.args.includes("state=success") &&
-				status.args.includes(`description=Verified by anthropic at ${f.sha.slice(0, 10)}`),
+				status.args.includes(`description=Verified by claude-opus-5-5 (session 22222222) at ${f.sha.slice(0, 10)}`),
 		);
 
 		const s = f.getState();

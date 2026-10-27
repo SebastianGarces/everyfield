@@ -10,9 +10,9 @@ which may be wiped and reseeded, never production. Vercel builds production from
 Include current main, commit and run `bin/evf verify <task>`. Logs and checks.json live under
 the Git common directory. Local checks do not prove application acceptance or mint approval.
 
-A verifier from another model family exercises the real branch, records an exact-head review
+An independent verifier (another Claude Code session, verifier seat, Opus model; D82) exercises the real branch, records an exact-head review
 on the PR and runs `evf ship`. Ship reads the PR's required GitHub check status, refuses missing
-or nonpassing CI, verifies the recorded head and model families and checks the PR body against
+or nonpassing CI, verifies the recorded head and the review's independence and checks the PR body against
 the PR standard template. It squash-merges only that head. Branch changes require fresh CI
 and review, with one exception: a merge-only head. The verifier or coordinator runs ship; never
 arm GitHub auto-merge.
@@ -49,12 +49,14 @@ and merges with `--match-head-commit`. Failed CI or a carry that does not hold a
 (design tasks, P2/P3 feedback, `evf approve`) do not queue and never update the branch.
 The ship skill defines the review record and owner approval exceptions.
 
-Model families are `anthropic` (Opus), `xai` (Grok Build) and `openai` (Sol), not individual
-model names. `anthropic` pairs with either other family. `openai` and `xai` never review each other. Until 2026-10-27T19:00:00.000Z, `xai` may review `xai`. Ship stores that time as `verification.checkedAt`. A milestone from that review still passes after the instant. At and after the instant, a new `xai` review of `xai` work is refused. Authors put
-`EVF-Author: <family>` in the body. Verifiers put one JSON line in their PR comment:
+Independence is by session (D82). Authors put
+`EVF-Author: {"session":"<Claude Code session UUID>","model":"<model id>","role":"<seat role>"}` in the body.
+The verifier's session must differ from the author's, its role is `verifier` and its model is Opus
+(`claude-opus-*`). Ship stores the check time as `verification.checkedAt`. Shipped records written before
+D82 carry model families and keep the rule that shipped them. Verifiers put one JSON line in their PR comment:
 
 ```text
-EVF-Review: {"head":"<full SHA>","verifierFamily":"anthropic","verdict":"approved","quality":{"verdict":"approved","principles":["laziness-protocol","minimize-reader-load","subtract-before-you-add","test-behavior-not-implementation"]},"experience":{"verdict":"approved","budget":"met"}}
+EVF-Review: {"head":"<full SHA>","verifier":{"session":"<verifier session UUID>","model":"claude-opus-5-5","role":"verifier"},"verdict":"approved","quality":{"verdict":"approved","principles":["laziness-protocol","minimize-reader-load","subtract-before-you-add","test-behavior-not-implementation"]},"experience":{"verdict":"approved","budget":"met"}}
 ```
 
 Every review includes a "Code quality" section with concrete simplifications, or why none are needed,

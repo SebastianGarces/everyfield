@@ -5,22 +5,21 @@ import {
 	evfDataDir,
 	fail,
 	baseRef,
-	crossFamilyReview,
-	crossFamilyReviewRefusal,
 	findPackage,
 	git,
 	gitOk,
 	hasRemote,
+	independentReview,
 	isClean,
-	isModelFamily,
 	loadConfig,
 	loadDag,
 	pathsForPart,
+	readParty,
 	requireWorktree,
 	run,
 	sleep,
 	type Config,
-	type ModelFamily,
+	type ReviewParty,
 	type TaskRef,
 } from "./lib.ts";
 import { maintenanceScope, requireTaskScope } from "./policy.ts";
@@ -171,7 +170,7 @@ const QUALITY_PRINCIPLES = [
 ];
 export type Approval = {
 	head: string;
-	verifierFamily: ModelFamily;
+	verifier: ReviewParty;
 	verdict: "approved" | "changes_requested";
 	quality: { verdict: "approved" | "changes_requested"; principles: string[] };
 	experience: {
@@ -181,6 +180,8 @@ export type Approval = {
 	};
 	packageClosures?: string[];
 };
+/** How a verifier appears in statuses, carry proofs and shipped records: model and the session's first 8 characters. */
+const verifierLabel = (v: ReviewParty): string => `${v.model} (session ${v.session.slice(0, 8)})`;
 export type RequiredCheck = { name: string; bucket: string; state: string; link: string };
 /** Required CI on one PR head, by name. Only a pass counts; skipped and cancelled checks are failures. */
 type RequiredCi = { passed: RequiredCheck[]; failed: string[]; missing: string[]; pending: string[] };
@@ -195,7 +196,7 @@ export type CarryProof = {
 };
 export type MergeEvidence = {
 	head: string;
-	authorFamily: ModelFamily;
+	author: ReviewParty;
 	approval: Approval;
 	approvalUrl: string;
 	checks: RequiredCheck[];
@@ -220,7 +221,9 @@ function readApproval(input: unknown): Approval | null {
 		!/^([a-f0-9]{40})$/.test(input.head)
 	)
 		return null;
-	if (!("verifierFamily" in input) || !isModelFamily(input.verifierFamily)) return null;
+	if (!("verifier" in input)) return null;
+	const verifier = readParty(input.verifier);
+	if (typeof verifier === "string") return null;
 	if (!("verdict" in input) || (input.verdict !== "approved" && input.verdict !== "changes_requested")) return null;
 	if (!("quality" in input) || !input.quality || typeof input.quality !== "object") return null;
 	const quality = input.quality;
@@ -253,7 +256,7 @@ function readApproval(input: unknown): Approval | null {
 	}
 	return {
 		head: input.head,
-		verifierFamily: input.verifierFamily,
+		verifier,
 		verdict: input.verdict,
 		quality: { verdict: quality.verdict, principles },
 		experience: {
@@ -361,7 +364,7 @@ export function checkPr(
 		fail("Shipping requires an open, ready PR targeting main.");
 	if (expectedHead && pr.headRefOid !== expectedHead)
 		fail("PR head changed. Verify the new exact head before shipping.");
-	const { authorFamily } = checkPrBody(root, pr.body);
+	const { author } = checkPrBody(root, pr.body);
 	const repo = nameWithOwner(root);
 	const ci = requiredCi(root, number, requiredCheckNames(root, repo, cfg.baseBranch));
 	if (ci.failed.length) fail(`Required GitHub CI must be green on the exact PR head: ${ci.failed.join(", ")} failed.`);
@@ -417,8 +420,8 @@ export function checkPr(
 	)
 		fail("Experience budget exceeded. Name the approved reports or analytics exception in the PR and review.");
 	const checkedAtMs = Date.now();
-	if (!crossFamilyReview(authorFamily, selected.approval.verifierFamily, checkedAtMs))
-		fail(crossFamilyReviewRefusal(authorFamily, checkedAtMs));
+	const dependent = independentReview(author, selected.approval.verifier);
+	if (dependent) fail(dependent);
 	const current: PullRequest = JSON.parse(
 		gh(root, ["pr", "view", String(number), "--json", "number,body,headRefOid,baseRefName,state,isDraft"]),
 	);
@@ -426,7 +429,7 @@ export function checkPr(
 		fail("PR changed during merge checks. Run verification again.");
 	return {
 		head: pr.headRefOid,
-		authorFamily,
+		author,
 		approval: selected.approval,
 		approvalUrl: selected.url,
 		checks,
@@ -476,7 +479,13 @@ function ownerRoute(
 	requireFreeMigrationNumbers(wt, baseRef(root, cfg), task);
 	const verification = checkPr(wt, number, sha);
 	const verified = () =>
-		postStatus(wt, cfg, sha, "success", `Verified by ${verification.approval.verifierFamily} at ${sha.slice(0, 10)}`);
+		postStatus(
+			wt,
+			cfg,
+			sha,
+			"success",
+			`Verified by ${verifierLabel(verification.approval.verifier)} at ${sha.slice(0, 10)}`,
+		);
 	if (design) {
 		verified();
 		console.log(`PR #${number} is a verified design task and waits for Sebastian's chat approval, then evf approve.`);
@@ -536,7 +545,7 @@ function queuedMerge(root: string, cfg: Config, task: TaskRef, wt: string, numbe
 	if (verification.carry) {
 		const { approvedHead, merges, base, mainIncluded } = verification.carry;
 		const proof = [
-			`evf ship carries the ${verification.approval.verifierFamily} approval of ${approvedHead} to ${sha}.`,
+			`evf ship carries the ${verifierLabel(verification.approval.verifier)} approval of ${approvedHead} to ${sha}.`,
 			...merges.map((m) => `- ${m.commit}: clean merge of ${m.branchParent} (branch) and ${m.mainParent} (main)`),
 			`PR paths (${base.slice(0, 10)}..${approvedHead.slice(0, 10)}) and main paths (${base.slice(0, 10)}..${mainIncluded.slice(0, 10)}) do not overlap. Required CI is green on ${sha}.`,
 			"",
@@ -644,9 +653,9 @@ function afterMerge(
 		evidence: {
 			path: taskPaths(root, wt, task)[0] ?? "",
 			commit: mergeSha,
-			test: `GitHub required CI and ${verification.approval.verifierFamily} approval`,
+			test: `GitHub required CI and ${verifierLabel(verification.approval.verifier)} approval`,
 			result: "passed",
-			note: `${task.id} merged in PR #${prNumber} after cross-model verification at ${verification.head.slice(0, 10)}. ${verification.approvalUrl}`,
+			note: `${task.id} merged in PR #${prNumber} after independent verification at ${verification.head.slice(0, 10)}. ${verification.approvalUrl}`,
 		},
 	};
 	const dir = join(evfDataDir(root), "shipped");

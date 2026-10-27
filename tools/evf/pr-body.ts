@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { fail, isModelFamily, MODEL_FAMILIES, type ModelFamily } from "./lib.ts";
+import { fail, readParty, type ReviewParty } from "./lib.ts";
 
 const TEMPLATES = {
 	ordinary: ".agents/skills/everyfield-pr/template.md",
@@ -52,7 +52,7 @@ export function checkPrBody(
 	root: string,
 	body: string,
 	kind: PrBodyClass = "ordinary",
-): { kind: PrBodyClass; sections: string[]; authorFamily: ModelFamily } {
+): { kind: PrBodyClass; sections: string[]; author: ReviewParty } {
 	const template = TEMPLATES[kind],
 		path = join(root, template);
 	if (!existsSync(path)) fail(`PR body template is missing: ${template}.`);
@@ -74,10 +74,19 @@ export function checkPrBody(
 		);
 	}
 	const authors = plain.filter((l) => l.text.startsWith("EVF-Author:"));
-	if (authors.length !== 1) fail("PR body needs exactly one EVF-Author model-family line.");
-	const author = authors[0],
-		family = author.text.slice("EVF-Author: ".length);
-	if (!isModelFamily(family)) fail(`EVF-Author must be one of ${MODEL_FAMILIES.join(", ")}.`);
+	if (authors.length !== 1) fail("PR body needs exactly one EVF-Author line.");
+	const author = authors[0];
+	let parsed: unknown = null;
+	try {
+		parsed = JSON.parse(author.text.slice("EVF-Author:".length));
+	} catch {
+		// Not JSON: readParty names the expected shape.
+	}
+	const party = readParty(parsed);
+	if (typeof party === "string")
+		fail(
+			`EVF-Author must be {"session":"<Claude Code session UUID>","model":"<model id>","role":"<seat role>"}: ${party}.`,
+		);
 	if (headings.some((heading) => heading.index >= author.index))
 		fail("EVF-Author must follow the last PR body section.");
 	for (const heading of found) {
@@ -92,5 +101,5 @@ export function checkPrBody(
 	const footer = lines.slice(author.index + 1).filter((line) => line.trim());
 	if (footer.length !== 1 || !/^🤖 Generated with \[[^\]]+\]\(https:\/\/[^)]+\)$/.test(footer[0]))
 		fail("End the PR body with its attribution line after EVF-Author.");
-	return { kind, sections, authorFamily: family };
+	return { kind, sections, author: party };
 }

@@ -43,39 +43,42 @@ export type MaintenanceScope = {
 	route?: "design";
 };
 
-export const MODEL_FAMILIES = ["anthropic", "openai", "xai"] as const;
-export type ModelFamily = (typeof MODEL_FAMILIES)[number];
-export const isModelFamily = (value: unknown): value is ModelFamily =>
-	MODEL_FAMILIES.some((family) => family === value);
-/** xai may review xai only before this instant. That is 2026-10-27 15:00 America/New_York. */
-export const XAI_SAME_FAMILY_REVIEW_UNTIL = "2026-10-27T19:00:00.000Z";
-const xaiSameFamilyReviewOpen = (at: number): boolean =>
-	Number.isFinite(at) && at < Date.parse(XAI_SAME_FAMILY_REVIEW_UNTIL);
+/** One side of a review: the Claude Code session that did the work, the model it ran and its seat role. */
+export type ReviewParty = { session: string; model: string; role: string };
+const SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const MODEL_ID = /^[a-z][a-z0-9.-]*$/;
+const ROLE = /^[a-z][a-z0-9-]*$/;
+/** Only an Opus model verifies (D82). The prefix admits later Opus versions. */
+const VERIFIER_MODEL = /^claude-opus-/;
+
+/** The `{"session","model","role"}` object of an EVF-Author or EVF-Review line, or why it is invalid. */
+export function readParty(input: unknown): ReviewParty | string {
+	if (!input || typeof input !== "object") return "it must be a JSON object with session, model and role";
+	const { session, model, role } = input as Record<string, unknown>;
+	if (typeof session !== "string" || !SESSION_ID.test(session))
+		return "session must be the Claude Code session UUID in lowercase";
+	if (typeof model !== "string" || !MODEL_ID.test(model)) return "model must be the model id, such as claude-opus-5-5";
+	if (typeof role !== "string" || !ROLE.test(role))
+		return "role must be the seat role, such as implementer or verifier";
+	return { session, model, role };
+}
 
 /**
- * anthropic pairs with openai or xai. openai and xai never review each other.
- * Before XAI_SAME_FAMILY_REVIEW_UNTIL, xai may review xai.
- * `at` is the review time. Ship passes the clock it stores as verification.checkedAt.
- * A later milestone check passes that stored time, not the acknowledgement time.
+ * Independent review (D82): the verifier is a different Claude Code session from the author, sits in the
+ * verifier seat and runs an Opus model. Returns the refusal, or null when the pair is independent.
+ * Ship checks it at merge time and stores that time as verification.checkedAt.
  */
-export const crossFamilyReview = (author: ModelFamily, verifier: ModelFamily, at = Date.now()): boolean =>
-	author === "xai" && verifier === "xai"
-		? xaiSameFamilyReviewOpen(at)
-		: author !== verifier && (author === "anthropic" || verifier === "anthropic");
-
-export const crossFamilyReviewRefusal = (author: ModelFamily, at = Date.now()): string => {
-	const needs =
-		author === "anthropic"
-			? "an openai or xai"
-			: author === "xai" && xaiSameFamilyReviewOpen(at)
-				? "an anthropic or xai"
-				: "an anthropic";
-	const rule =
-		author === "xai" && xaiSameFamilyReviewOpen(at)
-			? "Verifier approval must come from an allowed model family"
-			: "Verifier approval must come from a different model family";
-	return `${rule}: ${author} work needs ${needs} verifier.`;
-};
+export function independentReview(author: ReviewParty, verifier: ReviewParty): string | null {
+	if (author.session === verifier.session)
+		return `Verifier approval must come from an independent session: review session ${verifier.session} is the author session.`;
+	if (verifier.role !== "verifier")
+		return `Verifier approval must come from the verifier seat: the review role is ${verifier.role}.`;
+	if (author.role === "verifier")
+		return "Verifier approval must come from the verifier seat: the author role is verifier.";
+	if (!VERIFIER_MODEL.test(verifier.model))
+		return `Verifier approval must come from an Opus model: the review model is ${verifier.model}.`;
+	return null;
+}
 
 export const FEEDBACK_BUG_CLASSES = ["p0", "p1", "p2", "p3"] as const;
 export type FeedbackBugClass = (typeof FEEDBACK_BUG_CLASSES)[number];

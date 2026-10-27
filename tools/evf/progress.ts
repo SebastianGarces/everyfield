@@ -3,19 +3,20 @@ import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
 	baseRef,
-	crossFamilyReview,
 	evfDataDir,
 	fail,
 	findPackage,
 	git,
 	gitOk,
+	independentReview,
 	loadConfig,
 	loadDag,
 	parseTask,
 	partsOf,
 	pathsForPart,
-	recordedPathsFor,
 	readJson,
+	readParty,
+	recordedPathsFor,
 	run,
 } from "./lib.ts";
 import { carryProof, type MergeEvidence } from "./ship.ts";
@@ -59,6 +60,23 @@ type ProgressPackage = {
 };
 type Progress = { revision: number; updated_at: string; packages: Partial<Record<string, ProgressPackage>> };
 
+/** Records written before D82 carry model families. The family rule that shipped them stays frozen for them. */
+export const LEGACY_FAMILY_WAIVER_END = "2026-10-27T19:00:00.000Z";
+function legacyFamilyReview(author: unknown, verifier: unknown, at: number): boolean {
+	if (typeof author !== "string" || typeof verifier !== "string") return false;
+	if (author === "xai" && verifier === "xai") return Number.isFinite(at) && at < Date.parse(LEGACY_FAMILY_WAIVER_END);
+	return author !== verifier && (author === "anthropic" || verifier === "anthropic");
+}
+/** The stored review is independent by session, seat and model (D82), or by the frozen family rule for older records. */
+function independentRecord(v: MergeEvidence): boolean {
+	const legacy = v as unknown as { authorFamily?: unknown; approval?: { verifierFamily?: unknown } };
+	if (legacy.authorFamily !== undefined)
+		return legacyFamilyReview(legacy.authorFamily, legacy.approval?.verifierFamily, Date.parse(v.checkedAt));
+	const author = readParty(v.author),
+		verifier = readParty(v.approval?.verifier);
+	return typeof author === "object" && typeof verifier === "object" && independentReview(author, verifier) === null;
+}
+
 function retained(root: string, task: string): ShippedRecord | null {
 	const path = join(evfDataDir(root), "shipped", `${parseTask(task).slug}.json`);
 	return existsSync(path) ? readJson<ShippedRecord>(path) : null;
@@ -80,7 +98,7 @@ export function reviewedMilestone(root: string, record: ShippedRecord): boolean 
 				v.carry.head !== v.head ||
 				typeof carryProof(root, v.approval.head, v.head, baseRef(root, cfg)) === "string")) ||
 		v.approval.verdict !== "approved" ||
-		!crossFamilyReview(v.authorFamily, v.approval.verifierFamily, Date.parse(v.checkedAt)) ||
+		!independentRecord(v) ||
 		!v.checks.length ||
 		v.checks.some((c) => c.bucket !== "pass")
 	)

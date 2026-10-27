@@ -1,6 +1,6 @@
 ---
 name: verify-preview
-description: "Apply when you verify a PR written by the other model family. Run the PR head on its own portless preview against the shared dev database, check UI in Chromium and WebKit and backend with a temporary script, drive interactive checks with agent-browser, publish the evidence, then post one PR comment with the exact-head EVF-Review line."
+description: "Apply when you verify a PR as the independent Opus verifier. Run the PR head on its own portless preview against the shared dev database, check UI in Chromium and WebKit and backend with a temporary script, drive interactive checks with agent-browser, publish the evidence, then post one PR comment with the exact-head EVF-Review line."
 ---
 
 # Verify on a preview
@@ -58,7 +58,7 @@ cannot take headless 390 and 1440 px desktop shots, so WebKit parity stays in `c
 
 Read the task note, the PR body (`gh pr view <n>`) and the diff (`gh pr diff <n>`). Read the
 requirements the task names. Write down the behavior you will check before you run anything.
-Your family must differ from the PR's `EVF-Author` line, and one of the two must be `anthropic`. Until 2026-10-27T19:00:00.000Z, `xai` may review `xai`. For that pair, run this checkout's `post-review.mjs` and `bin/evf ship`. The copies on main refuse the pair until this change is on main.
+You are a fresh Opus 5.5 high session that never shared context with the author (D82). Your session id must differ from the one in the PR's `EVF-Author` line; `post-review.mjs` and `bin/evf ship` refuse the author's session, a non-verifier role and a non-Opus model. Find your session id with `herdr agent get <your agent name>` (field `agent_session.value`).
 
 ## 2. Start the previews
 
@@ -236,7 +236,7 @@ The command prints how many objects it deleted. Then check that the old index li
 Write `$E/report.md` in this shape. Name what you did not check.
 
 ```markdown
-## Verification of <task> at <sha7> (<family> verifier)
+## Verification of <task> at <sha7> (Opus verifier, session <first 8 characters of your session id>)
 
 **Verdict:** approved | changes requested
 **Evidence:** <index link>
@@ -274,7 +274,7 @@ Read the diff against those principles. Needless layers, copied patterns or dead
 changes_requested even when behavior passes. Post it once:
 
 ```bash
-node $S/post-review.mjs --pr <n> --report "$E/report.md" --family <your family> \
+node $S/post-review.mjs --pr <n> --report "$E/report.md" --session <your session UUID> --model claude-opus-5-5 \
   --verdict approved --head <40-char sha> --quality-verdict approved \
   --experience-verdict approved --budget met \
   --principles laziness-protocol,minimize-reader-load,subtract-before-you-add,test-behavior-not-implementation \
@@ -290,8 +290,8 @@ line `EVF-Experience-Exception: reports` (or `analytics`) and explain the action
 These categories are the approved timing exceptions in Everyfield patterns. They never waive
 failed smoothness or code quality; use `--experience-verdict changes_requested` for those failures.
 
-The script appends `EVF-Review: {"head":...,"verifierFamily":...,"verdict":...,"quality":{"verdict":...,"principles":[...]},"experience":{"verdict":...,"budget":...}}` and posts one
-comment. It refuses a head that is not the PR's current head, a family pair ship refuses, results captured on
+The script appends `EVF-Review: {"head":...,"verifier":{"session":...,"model":...,"role":"verifier"},"verdict":...,"quality":{"verdict":...,"principles":[...]},"experience":{"verdict":...,"budget":...}}` and posts one
+comment. It refuses a head that is not the PR's current head, a verifier ship refuses (the author's session, a non-verifier seat, a non-Opus model), results captured on
 another head, and an approval when any results file or the report shows a failure. Use
 `--verdict changes_requested` when anything fails, then send the failures to the coordinator.
 A new head needs a new verification and a new comment. One exception: do not re-review a head that
