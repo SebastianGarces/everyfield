@@ -823,6 +823,41 @@
 				}
 			],
 			"risk": "ordinary"
+		},
+		"OPS-56": {
+			"title": "Independent review by session, model and seat (D82); dormant merge_group trigger",
+			"owningPaths": [
+				"tools/evf/",
+				"evf.config.json",
+				".agents/skills/ship/SKILL.md",
+				".agents/skills/verify-preview/",
+				".agents/skills/everyfield-pr/",
+				".agents/skills/verify/SKILL.md",
+				".agents/roles/",
+				"AGENTS.md",
+				".github/",
+				"docs/architecture/decisions.md"
+			],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				},
+				{
+					"name": "reporter-tests",
+					"run": [
+						"node",
+						"--test",
+						".github/scripts/fail-forward.test.cjs",
+						".github/scripts/internal-feedback-queue.test.cjs"
+					]
+				}
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {
