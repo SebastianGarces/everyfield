@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { baseRef, evfDataDir, fail, git, loadConfig, sleep } from "./lib.ts";
+import { baseRef, evfDataDir, fail, git, loadConfig, sleep, type TaskRef } from "./lib.ts";
 
 /**
  * The harness work store (OPS-57): tasks, runs, events, proofs, approvals, goals and learnings in one sqlite file
@@ -266,6 +266,30 @@ export function seedProgress(
 		throw e;
 	}
 	return { tasks, events, seen: entries.length };
+}
+
+export type TaskRow = { id: number; ref: string; slug: string; mode: string; status: string; round: number; goal_id: number | null };
+
+/** The open task row for a ref (one per ref until it merges), created as `new` when none exists. */
+export function ensureTask(db: DatabaseSync, task: TaskRef, mode: string): TaskRow {
+	const open = db
+		.prepare(
+			"SELECT id, ref, slug, mode, status, round, goal_id FROM tasks WHERE ref = ? AND status NOT IN ('merged', 'abandoned') ORDER BY id DESC LIMIT 1",
+		)
+		.get(task.id) as TaskRow | undefined;
+	if (open) return open;
+	const ts = now();
+	const goal = task.wp
+		? (db
+				.prepare("SELECT id FROM goals WHERE kind = 'mission' AND EXISTS (SELECT 1 FROM json_each(goals.packages) WHERE value = ?)")
+				.get(task.wp) as { id: number } | undefined)
+		: undefined;
+	const id = db
+		.prepare(
+			"INSERT INTO tasks (slug, mode, ref, goal_id, title, branch, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 'new', ?, ?)",
+		)
+		.run(task.slug, mode, task.id, goal?.id ?? null, task.id, task.branch, ts, ts).lastInsertRowid;
+	return { id: Number(id), ref: task.id, slug: task.slug, mode, status: "new", round: 0, goal_id: goal?.id ?? null };
 }
 
 export function dbMigrate(root: string): number {

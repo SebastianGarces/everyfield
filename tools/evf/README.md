@@ -47,6 +47,23 @@ docs/build-progress.json committed on main as merged tasks, once each, with a `l
 it never reads a checkout's working copy of the ledger. `evf status [--json] [<task>]` lists tasks,
 active seats, recent events and the health counters.
 
+## Seats
+
+A seat is one fresh top-level Claude Code session in its own Herdr pane and task worktree. `evf launch <task>
+--role <role>` creates the worktree when it is missing (the task start rules apply), opens a Herdr workspace
+whose shell carries `EVF_TASK`, `EVF_RUN`, `EVF_ROLE`, `EVF_STAGE`, `EVF_WORKTREE` and `EVF_SESSION`, starts
+`claude --agent <role>` with the session id evf chose, the role's model and effort and `acceptEdits`, and
+records the run and a `stage_start` event in the work store. `--dry-run` prints every step. The role files
+are `.claude/agents/<role>.md`: planner and verifier on Opus 5.5 high, implementer, ui, simplifier and
+evidence on Sonnet 5.5 medium. Every seat has the advisor and the update prompt disabled.
+
+The hooks in `.claude/settings.json` route to `bin/evf hook <event>`. They do nothing unless `EVF_RUN` is
+set, so an ordinary session in the repository is untouched. In a seat, session start writes the session id
+on the run and injects `evf refocus` (the goal chain, also after a compaction), the path guard denies an
+Edit or Write outside `EVF_WORKTREE`, stop and session end are recorded and a seat that exits without
+closing its stage is marked aborted. `evf session` prints the pane's Claude Code session id from Herdr,
+for the EVF-Author and EVF-Review lines.
+
 ## Ship queue
 
 Any session may run `evf ship` at any time; nobody orders ships by hand. Merging routes wait in one
