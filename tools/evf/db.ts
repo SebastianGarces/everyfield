@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { baseRef, evfDataDir, fail, git, loadConfig } from "./lib.ts";
+import { baseRef, evfDataDir, fail, git, loadConfig, sleep } from "./lib.ts";
 
 /**
  * The harness work store (OPS-57): tasks, runs, events, proofs, approvals, goals and learnings in one sqlite file
@@ -31,29 +31,57 @@ export function openWorkDb(root: string, opts: { readOnly?: boolean } = {}): Dat
 	mkdirSync(evfDataDir(root), { recursive: true });
 	const db = new DatabaseSync(path);
 	db.exec("PRAGMA busy_timeout = 5000");
-	db.exec("PRAGMA journal_mode = WAL");
+	enableWal(db);
 	db.exec("PRAGMA foreign_keys = ON");
 	migrate(db);
 	return db;
 }
 
-/** Apply every migration above the stored version, each in its own transaction, in file order without gaps. */
+/**
+ * Switching a fresh file to WAL needs the file to itself, and SQLite answers "database is locked" at once instead of
+ * waiting when another connection is open on it (the busy timeout does not cover a journal-mode change). Several
+ * processes opening a new store at the same moment therefore retry briefly; the first one wins and the rest find WAL.
+ */
+function enableWal(db: DatabaseSync): void {
+	const deadline = Date.now() + 5000;
+	for (;;) {
+		try {
+			const mode = (db.prepare("PRAGMA journal_mode = WAL").get() as { journal_mode: string }).journal_mode;
+			if (mode === "wal") return;
+			fail(`The work store refused WAL mode (journal_mode is ${mode}).`);
+		} catch (e) {
+			if (!/locked|busy/i.test(String(e)) || Date.now() > deadline) throw e;
+			sleep(25);
+		}
+	}
+}
+
+/**
+ * Apply every migration above the stored version, in file order without gaps. Each migration takes the write lock
+ * first (BEGIN IMMEDIATE) and reads the version inside it, so two processes opening a fresh store at once apply each
+ * migration once: the second one waits on the lock, then sees the version and skips.
+ */
 export function migrate(db: DatabaseSync): { version: number; applied: string[] } {
 	db.exec(
 		"CREATE TABLE IF NOT EXISTS schema_version (version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TEXT NOT NULL)",
 	);
-	let version = (db.prepare("SELECT COALESCE(MAX(version), 0) AS v FROM schema_version").get() as { v: number }).v;
 	const files = readdirSync(MIGRATIONS)
 		.map((file) => MIGRATION.exec(file))
 		.filter((m): m is RegExpExecArray => m !== null)
 		.map((m) => ({ file: m[0], version: Number(m[1]), name: m[2] }))
 		.sort((a, b) => a.version - b.version);
 	const applied: string[] = [];
+	let version = schemaVersion(db);
 	for (const m of files) {
 		if (m.version <= version) continue;
-		if (m.version !== version + 1) fail(`Migration ${m.file} skips version ${version + 1}.`);
-		db.exec("BEGIN");
+		db.exec("BEGIN IMMEDIATE");
 		try {
+			version = schemaVersion(db);
+			if (m.version <= version) {
+				db.exec("COMMIT"); // Another process applied it while we waited for the lock.
+				continue;
+			}
+			if (m.version !== version + 1) fail(`Migration ${m.file} skips version ${version + 1}.`);
 			db.exec(readFileSync(join(MIGRATIONS, m.file), "utf8"));
 			db.prepare("INSERT INTO schema_version (version, name, applied_at) VALUES (?, ?, ?)").run(
 				m.version,
@@ -107,7 +135,7 @@ export function syncGoals(root: string, db: DatabaseSync): { project: string; mi
 		 ON CONFLICT (key) DO UPDATE SET title = excluded.title, body = excluded.body, parent_id = excluded.parent_id,
 		 packages = excluded.packages, updated_at = excluded.updated_at`,
 	);
-	db.exec("BEGIN");
+	db.exec("BEGIN IMMEDIATE");
 	try {
 		upsert.run("project", "project", "Everyfield v3", project, null, "[]", ts, ts);
 		const projectId = (db.prepare("SELECT id FROM goals WHERE key = 'project'").get() as { id: number }).id;
@@ -168,21 +196,21 @@ export function seedProgress(
 		p: LedgerPackage;
 	}> = [];
 	for (const [pkg, p] of Object.entries(data.packages ?? {})) {
-		const milestones = Object.values(p.milestones ?? {});
-		if (milestones.length)
+		const milestones = Object.values(p.milestones ?? {}).filter((m) => m.task && m.merge_commit);
+		if (milestones.length) {
 			for (const m of milestones)
-				if (m.task && m.merge_commit)
-					entries.push({
-						pkg,
-						ref: m.task,
-						commit: m.merge_commit,
-						stage: m.stage ?? null,
-						acknowledged: m.acknowledged ?? null,
-						p,
-					});
-				else if (p.status === "done")
-					for (const e of p.evidence ?? [])
-						if (e.commit) entries.push({ pkg, ref: pkg, commit: e.commit, stage: "done", acknowledged: true, p });
+				entries.push({
+					pkg,
+					ref: m.task,
+					commit: m.merge_commit,
+					stage: m.stage ?? null,
+					acknowledged: m.acknowledged ?? null,
+					p,
+				});
+		} else if (p.status === "done") {
+			for (const e of p.evidence ?? [])
+				if (e.commit) entries.push({ pkg, ref: pkg, commit: e.commit, stage: "done", acknowledged: true, p });
+		}
 	}
 	const missionFor = db.prepare(
 		"SELECT id FROM goals WHERE kind = 'mission' AND EXISTS (SELECT 1 FROM json_each(goals.packages) WHERE value = ?)",
@@ -197,7 +225,7 @@ export function seedProgress(
 	);
 	let tasks = 0,
 		events = 0;
-	db.exec("BEGIN");
+	db.exec("BEGIN IMMEDIATE");
 	try {
 		for (const x of entries) {
 			const evidence = (x.p.evidence ?? []).find((e) => e.commit === x.commit);
@@ -269,7 +297,11 @@ export function goalsSync(root: string): number {
 }
 
 export function goalsList(root: string): number {
-	const db = openWorkDb(root);
+	if (!existsSync(workDbPath(root))) {
+		console.log("goals: no work store yet. Run evf goals sync.");
+		return 0;
+	}
+	const db = openWorkDb(root, { readOnly: true });
 	const rows = db
 		.prepare("SELECT key, kind, title, status, json_array_length(packages) AS packages FROM goals ORDER BY id")
 		.all() as Row[];
@@ -292,7 +324,27 @@ const column = (value: unknown, width: number) =>
 
 /** Tasks, seats, recent events and health, from the views only. `task` narrows to one ref and its parts. */
 export function status(root: string, opts: { json: boolean; task?: string }): number {
-	const db = openWorkDb(root);
+	const path = workDbPath(root);
+	if (!existsSync(path)) {
+		const empty = {
+			path,
+			schema_version: 0,
+			health: {
+				open_tasks: 0,
+				escalated_tasks: 0,
+				active_seats: 0,
+				merged_24h: 0,
+				merged_7d: 0,
+				rounds_per_merge_7d: null,
+			},
+			tasks: [],
+			seats: [],
+			recent: [],
+		};
+		console.log(opts.json ? JSON.stringify(empty, null, 2) : `work store: none at ${path}. Run evf db migrate.`);
+		return 0;
+	}
+	const db = openWorkDb(root, { readOnly: true });
 	const health = db.prepare("SELECT * FROM v_health").get() as Row;
 	const tasks = (
 		opts.task

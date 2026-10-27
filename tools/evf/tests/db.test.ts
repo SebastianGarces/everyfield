@@ -52,6 +52,66 @@ test("OPS-57-store: the work store migrates from empty under the Git common dir,
 	}
 });
 
+test("OPS-57-fresh: several processes open a new store at once and each migration runs once", async () => {
+	const f = fixture();
+	try {
+		const script = `const { openWorkDb } = await import(${JSON.stringify(join(source, "tools/evf/db.ts"))});
+			const db = openWorkDb(process.argv[1]);
+			const v = db.prepare("SELECT COUNT(*) AS n FROM schema_version").get().n;
+			db.close();
+			process.stdout.write(String(v));`;
+		const children = Array.from({ length: 5 }, () =>
+			spawn(process.execPath, ["--input-type=module", "-e", script, f.root], { stdio: ["ignore", "pipe", "pipe"] }),
+		);
+		const results = await Promise.all(
+			children.map(
+				(child) =>
+					new Promise<{ code: number | null; out: string; err: string }>((resolve) => {
+						let out = "",
+							err = "";
+						child.stdout.on("data", (d) => (out += d));
+						child.stderr.on("data", (d) => (err += d));
+						child.on("exit", (code) => resolve({ code, out, err }));
+					}),
+			),
+		);
+		for (const r of results) assert.equal(r.code, 0, r.err);
+		assert.deepEqual(
+			results.map((r) => r.out),
+			["1", "1", "1", "1", "1"],
+		);
+		const db = openWorkDb(f.root, { readOnly: true });
+		assert.equal((db.prepare("SELECT COUNT(*) AS n FROM schema_version").get() as { n: number }).n, 1);
+		assert.equal((db.prepare("PRAGMA journal_mode").get() as { journal_mode: string }).journal_mode, "wal");
+		db.close();
+	} finally {
+		f.close();
+	}
+});
+
+test("OPS-57-readers: status and goals list read an existing store read-only, and report an empty store without creating it", () => {
+	const f = fixture();
+	try {
+		const missing = cli(f.root, "status", "--json");
+		assert.equal(missing.status, 0, missing.stderr);
+		assert.deepEqual(JSON.parse(missing.stdout).tasks, []);
+		assert.equal(JSON.parse(missing.stdout).schema_version, 0);
+		assert.match(cli(f.root, "status").stdout, /work store: none at/);
+		assert.match(cli(f.root, "goals", "list").stdout, /no work store yet/);
+		assert.ok(!existsSync(workDbPath(f.root)), "readers never create the store");
+		// A writer that opened and closed the store leaves a WAL-mode file that a read-only open can use.
+		openWorkDb(f.root).close();
+		const report = cli(f.root, "status", "--json");
+		assert.equal(report.status, 0, report.stderr);
+		assert.equal(JSON.parse(report.stdout).schema_version, 1);
+		const listed = cli(f.root, "goals", "list");
+		assert.equal(listed.status, 0, listed.stderr);
+		assert.match(listed.stdout, /goals: none/);
+	} finally {
+		f.close();
+	}
+});
+
 test("OPS-57-goals: goals sync caches the project line and the S-row missions of the build plan, and is idempotent", () => {
 	const f = fixture();
 	try {
@@ -112,6 +172,16 @@ test("OPS-57-seed: the ledger committed on the base branch seeds merged tasks on
 				"WP-005/ui": { task: "WP-005/ui", merge_commit: sha("c"), acknowledged: false, stage: "part" },
 			},
 		};
+		ledger.packages["WP-097"] = {
+			...ledger.packages["WP-097"],
+			status: "done",
+			updated_at: "2026-10-14T00:00:00.000Z",
+			evidence: [
+				{ commit: sha("d"), note: "WP-097 fast-track go-live at dddddddddd." },
+				{ path: "docs/", note: "no commit here" },
+			],
+			milestones: {},
+		};
 		writeFileSync(path, JSON.stringify(ledger));
 		f.git("add", "-A");
 		f.commit();
@@ -119,8 +189,8 @@ test("OPS-57-seed: the ledger committed on the base branch seeds merged tasks on
 		writeFileSync(path, JSON.stringify({ ...ledger, packages: {} }));
 		const db = openWorkDb(f.root);
 		syncGoals(f.root, db);
-		assert.deepEqual(seedProgress(f.root, db), { tasks: 3, events: 3, seen: 3 });
-		assert.deepEqual(seedProgress(f.root, db), { tasks: 0, events: 0, seen: 3 });
+		assert.deepEqual(seedProgress(f.root, db), { tasks: 4, events: 4, seen: 4 });
+		assert.deepEqual(seedProgress(f.root, db), { tasks: 0, events: 0, seen: 4 });
 		db.close();
 		const out = cli(f.root, "status", "--json");
 		assert.equal(out.status, 0, out.stderr);
@@ -133,7 +203,13 @@ test("OPS-57-seed: the ledger committed on the base branch seeds merged tasks on
 		assert.equal(byRef["WP-001"].merge_commit, sha("a"));
 		assert.equal(byRef["WP-005/ui"].pr_number, 113);
 		assert.equal(byRef["WP-005/ui"].slug, "wp-005-ui");
-		assert.equal(report.recent.filter((e: { type: string }) => e.type === "legacy_milestone").length, 3);
+		assert.equal(
+			byRef["WP-097"].merge_commit,
+			sha("d"),
+			"a done package without milestones seeds one task per evidence commit",
+		);
+		assert.equal(byRef["WP-097"].pr_number, null);
+		assert.equal(report.recent.filter((e: { type: string }) => e.type === "legacy_milestone").length, 4);
 		assert.equal(report.health.merged_24h, 0, "seeded tasks keep their ledger dates");
 		assert.equal(report.seats.length, 0);
 		const one = JSON.parse(cli(f.root, "status", "--json", "WP-005").stdout);
@@ -143,7 +219,7 @@ test("OPS-57-seed: the ledger committed on the base branch seeds merged tasks on
 		assert.match(text.stdout, /WP-001 .*merged .*#81 .*S0/);
 		const seeded = cli(f.root, "db", "seed-progress");
 		assert.equal(seeded.status, 0, seeded.stderr);
-		assert.match(seeded.stdout, /0 new merged tasks .* \(3 already stored\)/);
+		assert.match(seeded.stdout, /0 new merged tasks .* \(4 already stored\)/);
 	} finally {
 		f.close();
 	}
