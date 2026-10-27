@@ -31,6 +31,22 @@ for the open `P0: CI failed on main` issue may merge. The gate reads the run, no
 The fail-forward workflow closes that issue when a later main CI run passes on a commit that
 contains the failed one. A late success for an older commit leaves it open.
 
+## Work store
+
+The harness keeps its state in one sqlite file, `work.sqlite` under the Git common directory next to
+the ship queue and evidence (`evf db path` prints it). Every worktree shares it. Writers open it in WAL
+mode with a five-second busy timeout, so `evf status` and the TUI read while a hook writes. The schema
+is the numbered SQL in `tools/evf/db/migrations/`; `evf db migrate` (or any writer) applies new files in
+order, one transaction each. The views `v_tasks`, `v_seats`, `v_recent` and `v_health` are the read
+contract: change them with a new migration, never in place.
+
+`evf goals sync` caches the refocus chain from the plan documents: the project line from
+docs/START-HERE.md and one mission per S-row of the Vertical slices table in docs/plan/build-plan.md.
+The documents stay the source. `evf db seed-progress` imports the merged milestones of the
+docs/build-progress.json committed on main as merged tasks, once each, with a `legacy_milestone` event;
+it never reads a checkout's working copy of the ledger. `evf status [--json] [<task>]` lists tasks,
+active seats, recent events and the health counters.
+
 ## Ship queue
 
 Any session may run `evf ship` at any time; nobody orders ships by hand. Merging routes wait in one

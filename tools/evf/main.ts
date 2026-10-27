@@ -26,6 +26,7 @@ import { requireVerifiedHead, verify } from "./verify.ts";
 import { migrationsRenumber } from "./migrations.ts";
 import { awaitLoad } from "./load.ts";
 import { nextId } from "./ids.ts";
+import { dbMigrate, dbSeedProgress, goalsList, goalsSync, status, workDbPath } from "./db.ts";
 import { timing } from "./timing.ts";
 
 const HELP = `evf: Everyfield v3 workflow CLI
@@ -69,6 +70,12 @@ Human approval (only after Sebastian approves that PR in chat)
 
 IDs (coordinator)
   evf id next ops|decision                                    reserve the next OPS-n or Dn on the remote and print it
+
+State store (harness)
+  evf db migrate | path | seed-progress                       work.sqlite under the Git common dir; seed merged
+                                                              tasks from the ledger committed on main
+  evf goals sync | list                                       project goal and S-row missions from the plan docs
+  evf status [--json] [<task>]                                tasks, seats, recent events and health from the store
 
 Upkeep
   evf ci-tests                                              check integration test inclusion in CI
@@ -330,6 +337,27 @@ function main(argv: string[]): number | Promise<number> {
 			if (args[0] !== "next" || (kind !== "ops" && kind !== "decision") || args.length !== 2) break;
 			console.log(nextId(root, loadConfig(root), kind));
 			return 0;
+		}
+		case "db": {
+			const sub = args.shift();
+			if (sub === "migrate" && !args.length) return dbMigrate(root);
+			if (sub === "path" && !args.length) {
+				console.log(workDbPath(root));
+				return 0;
+			}
+			if (sub === "seed-progress" && !args.length) return dbSeedProgress(root);
+			break;
+		}
+		case "goals": {
+			const sub = args.shift();
+			if (sub === "sync" && !args.length) return goalsSync(root);
+			if (sub === "list" && !args.length) return goalsList(root);
+			break;
+		}
+		case "status": {
+			const json = flag(args, "--json");
+			if (args.length > 1) break;
+			return status(root, { json, task: args[0] });
 		}
 		case "ship": {
 			return ship(root, parseTask(args[0]));
