@@ -29,6 +29,7 @@ import { nextId } from "./ids.ts";
 import { dbMigrate, dbSeedProgress, goalsList, goalsSync, status, workDbPath } from "./db.ts";
 import { isRole, launch, ROLES } from "./launch.ts";
 import { hook, refocus, session } from "./seat.ts";
+import { askPlanner, check, drive, next, proofAdd, proofShow, runDone, taskNew, taskSpec } from "./drive.ts";
 import { timing } from "./timing.ts";
 
 const HELP = `evf: Everyfield v3 workflow CLI
@@ -86,6 +87,17 @@ Seats (harness)
   evf refocus <task>                                          the goal chain for a seat (40 lines max)
   evf session                                                 this pane's Claude Code session id, for EVF-Author and EVF-Review
   evf hook <event>                                            Claude Code hook entry (session-start, path-guard, stop, session-end)
+
+Drive (harness)
+  evf task new <task> --ask-file <file> [--title <t>]         record the verbatim ask in the work store
+  evf task spec <task> --file <file>                          store the spec: Goal, numbered Done criteria, Non-goals
+  evf next <task>                                             the next stage from the store, as JSON
+  evf drive <task> [--once] [--detach]                        run the stage machine: seats, pr, ci, ship; cap 3 rounds
+  evf run done <run> --status passed|failed --summary-file <file>   close a stage (seats call this)
+  evf check <task> [--ignore-load "<reason>"]                 author checks, recorded as a check_result event
+  evf proof add <task> --criterion <n> --status met|unmet|n/a [--evidence <url>] [--notes <text>]
+  evf proof show <task> [--json]                              proof rows, bound to the worktree head
+  evf ask planner <task> "<question>"                         ask the task's planner (forked session resume)
 
 Upkeep
   evf ci-tests                                              check integration test inclusion in CI
@@ -249,6 +261,20 @@ function main(argv: string[]): number | Promise<number> {
 				console.log(renderBrief(root, parseTask(args[0]), { uiTier, full }));
 				return 0;
 			}
+			if (sub === "new") {
+				const askFile = option(args, "--ask-file"),
+					title = option(args, "--title"),
+					mode = option(args, "--mode");
+				if (!askFile || !existsSync(askFile)) throw new EvfError("Give --ask-file <file> with the verbatim ask.");
+				if (args.length !== 1) break;
+				return taskNew(root, parseTask(args[0]), { askFile, title, mode });
+			}
+			if (sub === "spec") {
+				const file = option(args, "--file");
+				if (!file || !existsSync(file)) throw new EvfError("Give --file <file> with the spec.");
+				if (args.length !== 1) break;
+				return taskSpec(root, parseTask(args[0]), file);
+			}
 			if (sub === "start") {
 				const allowUnready = flag(args, "--allow-unready");
 				const noStack = flag(args, "--no-stack");
@@ -396,6 +422,53 @@ function main(argv: string[]): number | Promise<number> {
 			const event = args.shift();
 			if (!event || args.length) break;
 			return hook(root, event);
+		}
+		case "next":
+			if (args.length !== 1) break;
+			return next(root, parseTask(args[0]));
+		case "drive": {
+			const once = flag(args, "--once"),
+				detach = flag(args, "--detach");
+			if (args.length !== 1) break;
+			return drive(root, parseTask(args[0]), { once, detach });
+		}
+		case "run": {
+			const sub = args.shift(),
+				id = Number(args.shift()),
+				status = option(args, "--status"),
+				summaryFile = option(args, "--summary-file");
+			if (sub !== "done" || !Number.isInteger(id) || id <= 0 || args.length) break;
+			if (status !== "passed" && status !== "failed") throw new EvfError("--status must be passed or failed.");
+			if (!summaryFile || !existsSync(summaryFile)) throw new EvfError("Give --summary-file <file> with what happened.");
+			return runDone(root, id, { status, summaryFile });
+		}
+		case "check": {
+			const ignoreLoad = option(args, "--ignore-load");
+			if (args.length !== 1) break;
+			return check(root, parseTask(args[0]), ignoreLoad);
+		}
+		case "proof": {
+			const sub = args.shift();
+			if (sub === "add") {
+				const criterion = option(args, "--criterion"),
+					status = option(args, "--status"),
+					evidence = option(args, "--evidence"),
+					notes = option(args, "--notes");
+				if (!criterion) throw new EvfError("Give --criterion <n>.");
+				if (status !== "met" && status !== "unmet" && status !== "n/a") throw new EvfError("--status must be met, unmet or n/a.");
+				if (args.length !== 1) break;
+				return proofAdd(root, parseTask(args[0]), { criterion, status, evidence, notes });
+			}
+			if (sub === "show") {
+				const json = flag(args, "--json");
+				if (args.length !== 1) break;
+				return proofShow(root, parseTask(args[0]), json);
+			}
+			break;
+		}
+		case "ask": {
+			if (args[0] !== "planner" || args.length !== 3) break;
+			return askPlanner(root, parseTask(args[1]), args[2]!);
 		}
 		case "ship": {
 			return ship(root, parseTask(args[0]));

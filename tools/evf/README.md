@@ -67,6 +67,25 @@ the run is aborted at once, so the store never lists a seat that does not exist.
 not a sandbox: it covers the edit tools only, and a seat with shell access can still write elsewhere.
 `evf session` prints the pane's Claude Code session id from Herdr, for the EVF-Author and EVF-Review lines.
 
+## Drive loop
+
+`evf drive <task>` runs implement mode as a stage machine kept in the work store: plan → implement →
+simplify → pr → evidence → verify → ci → ship → merged. Seat stages launch a fresh session through
+`evf launch` with a stage prompt, wait on it through Herdr and expect it to close with
+`evf run done <run> --status passed|failed --summary-file <file>`; the Stop hook blocks a seat that
+tries to end its turn with the stage open, and a seat that goes idle twice without closing is aborted.
+evf runs pr (from the PR body the implementer wrote to the task's runtime dir), ci (polls the PR checks)
+and ship itself and records them as runs of role `evf`. A failed verify or ci costs a round; the fourth
+round sets the task to escalated, records `loop_cap_hit` and `escalation`, shows a Herdr notification
+and launches nothing more. `evf next <task>` prints the next stage without acting; `--once` performs one
+transition; `--detach` runs the loop in the background with a log under the Git common directory.
+Jonah polls `evf status --json`.
+
+`evf task new` records the verbatim ask, `evf task spec` the spec with its hash, `evf proof add` one
+proof row per Done criterion bound to the worktree head, `evf check` the author checks as an event, and
+`evf ask planner` forks the planner's session for a question. When the store knows a PR's branch, ship
+also refuses an EVF-Author or EVF-Review session that evf never launched.
+
 ## Ship queue
 
 Any session may run `evf ship` at any time; nobody orders ships by hand. Merging routes wait in one

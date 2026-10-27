@@ -303,6 +303,30 @@ export function ensureTask(db: DatabaseSync, task: TaskRef, mode: string): TaskR
 	return { id: Number(id), ref: task.id, slug: task.slug, mode, status: "new", round: 0, goal_id: goal?.id ?? null };
 }
 
+/**
+ * When the store knows this branch, the EVF-Author and EVF-Review sessions must be runs evf launched: an implementer
+ * (or ui or simplifier) seat for the author and a verifier seat for the review. Returns the refusal, or null.
+ */
+export function sessionsRecorded(root: string, branch: string | undefined, author: string, verifier: string): string | null {
+	if (!branch || !existsSync(workDbPath(root))) return null;
+	const db = openWorkDb(root, { readOnly: true });
+	try {
+		const t = db
+			.prepare("SELECT id, ref FROM tasks WHERE branch = ? AND status <> 'abandoned' ORDER BY id DESC LIMIT 1")
+			.get(branch) as { id: number; ref: string } | undefined;
+		if (!t) return null;
+		const roles = (session: string) =>
+			(db.prepare("SELECT role FROM runs WHERE task_id = ? AND session_id = ?").all(t.id, session) as Array<{ role: string }>).map((r) => r.role);
+		if (!roles(author).some((role) => ["implementer", "ui", "simplifier"].includes(role)))
+			return `The work store has no implementer session ${author} for ${t.ref}: the EVF-Author line names a session evf never launched.`;
+		if (!roles(verifier).includes("verifier"))
+			return `The work store has no verifier session ${verifier} for ${t.ref}: the EVF-Review line names a session evf never launched.`;
+		return null;
+	} finally {
+		db.close();
+	}
+}
+
 export function dbMigrate(root: string): number {
 	const path = workDbPath(root);
 	const existed = existsSync(path);
