@@ -268,7 +268,15 @@ export function seedProgress(
 	return { tasks, events, seen: entries.length };
 }
 
-export type TaskRow = { id: number; ref: string; slug: string; mode: string; status: string; round: number; goal_id: number | null };
+export type TaskRow = {
+	id: number;
+	ref: string;
+	slug: string;
+	mode: string;
+	status: string;
+	round: number;
+	goal_id: number | null;
+};
 
 /** The open task row for a ref (one per ref until it merges), created as `new` when none exists. */
 export function ensureTask(db: DatabaseSync, task: TaskRef, mode: string): TaskRow {
@@ -281,7 +289,9 @@ export function ensureTask(db: DatabaseSync, task: TaskRef, mode: string): TaskR
 	const ts = now();
 	const goal = task.wp
 		? (db
-				.prepare("SELECT id FROM goals WHERE kind = 'mission' AND EXISTS (SELECT 1 FROM json_each(goals.packages) WHERE value = ?)")
+				.prepare(
+					"SELECT id FROM goals WHERE kind = 'mission' AND EXISTS (SELECT 1 FROM json_each(goals.packages) WHERE value = ?)",
+				)
 				.get(task.wp) as { id: number } | undefined)
 		: undefined;
 	const id = db

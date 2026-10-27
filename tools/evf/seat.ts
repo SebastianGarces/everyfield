@@ -44,9 +44,9 @@ export function refocusText(db: DatabaseSync, task: TaskRef): string {
 				: undefined
 	) as Row | undefined;
 	const stage = t
-		? (db.prepare("SELECT stage, role FROM runs WHERE task_id = ? ORDER BY started_at DESC, id DESC LIMIT 1").get(t.id as number) as
-				| Row
-				| undefined)
+		? (db
+				.prepare("SELECT stage, role FROM runs WHERE task_id = ? ORDER BY started_at DESC, id DESC LIMIT 1")
+				.get(t.id as number) as Row | undefined)
 		: undefined;
 	const lines = [`Goal chain for ${task.id}`, `Project: ${project?.body ?? "(not synced yet: run evf goals sync)"}`];
 	if (mission) lines.push(`Mission: ${mission.title}`);
@@ -84,8 +84,8 @@ export function sessionId(): string | null {
 	const r = run("herdr", ["agent", "get", pane]);
 	if (r.code !== 0) return null;
 	try {
-		const value = (JSON.parse(r.stdout) as { result?: { agent?: { agent_session?: { value?: unknown } } } }).result?.agent
-			?.agent_session?.value;
+		const value = (JSON.parse(r.stdout) as { result?: { agent?: { agent_session?: { value?: unknown } } } }).result
+			?.agent?.agent_session?.value;
 		return typeof value === "string" ? value : null;
 	} catch {
 		return null;
@@ -94,7 +94,8 @@ export function sessionId(): string | null {
 
 export function session(_root: string): number {
 	const id = sessionId();
-	if (!id) fail("No Claude Code session id here: EVF_SESSION is unset and this is not a Herdr pane with a detected agent.");
+	if (!id)
+		fail("No Claude Code session id here: EVF_SESSION is unset and this is not a Herdr pane with a detected agent.");
 	console.log(id);
 	return 0;
 }
@@ -130,13 +131,18 @@ function record(db: DatabaseSync, taskId: number, runId: number, type: string, p
 	);
 }
 
-function seatRun(db: DatabaseSync, runId: number): { id: number; task_id: number; session_id: string | null; ref: string; role: string; status: string } | null {
+function seatRun(
+	db: DatabaseSync,
+	runId: number,
+): { id: number; task_id: number; session_id: string | null; ref: string; role: string; status: string } | null {
 	return (
 		(db
 			.prepare(
 				"SELECT r.id, r.task_id, r.session_id, r.role, r.status, t.ref FROM runs r JOIN tasks t ON t.id = r.task_id WHERE r.id = ?",
 			)
-			.get(runId) as { id: number; task_id: number; session_id: string | null; ref: string; role: string; status: string } | undefined) ?? null
+			.get(runId) as
+			| { id: number; task_id: number; session_id: string | null; ref: string; role: string; status: string }
+			| undefined) ?? null
 	);
 }
 
@@ -165,7 +171,11 @@ export function hook(root: string, event: string): number {
 				summary: `${seat.role}@${seat.ref} session ${source}`,
 			});
 			const chain = refocusText(db, parseTask(seat.ref));
-			record(db, seat.task_id, runId, "refocus", { source, lines: chain.split("\n").length, summary: `refocus after ${source}` });
+			record(db, seat.task_id, runId, "refocus", {
+				source,
+				lines: chain.split("\n").length,
+				summary: `refocus after ${source}`,
+			});
 			const header = `You are the ${seat.role} seat for ${seat.ref} (run ${runId}${process.env.EVF_WORKTREE ? `, worktree ${process.env.EVF_WORKTREE}` : ""}).`;
 			console.log(
 				JSON.stringify({

@@ -58,7 +58,12 @@ export type LaunchPlan = {
 	claudeArgs: string[];
 };
 
-export function launchPlan(root: string, task: TaskRef, role: Role, opts: { mode?: string; round?: number; run?: string }): LaunchPlan {
+export function launchPlan(
+	root: string,
+	task: TaskRef,
+	role: Role,
+	opts: { mode?: string; round?: number; run?: string },
+): LaunchPlan {
 	const cfg = loadConfig(root),
 		seat = ROLES[role],
 		session = randomUUID(),
@@ -124,7 +129,12 @@ const startArgs = (plan: LaunchPlan, pane: string) => [
 ];
 
 /** Print every step without touching Herdr, the store or the worktree. */
-export function launchDryRun(root: string, task: TaskRef, role: Role, opts: { mode?: string; prompt?: string }): number {
+export function launchDryRun(
+	root: string,
+	task: TaskRef,
+	role: Role,
+	opts: { mode?: string; prompt?: string },
+): number {
 	const plan = launchPlan(root, task, role, { mode: opts.mode });
 	const lines = [
 		`# evf launch ${task.id} --role ${role} (dry run)`,
@@ -179,8 +189,16 @@ export function launch(
 				`INSERT INTO runs (task_id, stage, role, model, effort, round, session_id, status, started_at)
 				 VALUES (?, ?, ?, ?, ?, ?, ?, 'started', ?)`,
 			)
-			.run(taskRow.id, plan.stage, role, ROLES[role].model, ROLES[role].effort, taskRow.round, plan.session, now)
-			.lastInsertRowid;
+			.run(
+				taskRow.id,
+				plan.stage,
+				role,
+				ROLES[role].model,
+				ROLES[role].effort,
+				taskRow.round,
+				plan.session,
+				now,
+			).lastInsertRowid;
 		plan.env.EVF_RUN = String(runId);
 		const ws = herdr(workspaceArgs(plan, task.slug)).result ?? {};
 		const workspace = idOf(ws.workspace, "workspace_id"),
@@ -204,7 +222,14 @@ export function launch(
 			taskRow.id,
 			runId,
 			new Date().toISOString(),
-			JSON.stringify({ role, stage: plan.stage, workspace, pane, session: plan.session, summary: `${plan.name} started in ${workspace}` }),
+			JSON.stringify({
+				role,
+				stage: plan.stage,
+				workspace,
+				pane,
+				session: plan.session,
+				summary: `${plan.name} started in ${workspace}`,
+			}),
 		);
 		if (opts.prompt) {
 			herdr(["agent", "prompt", plan.agent, opts.prompt]);
@@ -216,7 +241,17 @@ export function launch(
 			);
 		}
 		console.log(
-			JSON.stringify({ task: task.id, run: runId, role, stage: plan.stage, session: plan.session, workspace, pane, agent: plan.agent, worktree: plan.worktree }),
+			JSON.stringify({
+				task: task.id,
+				run: runId,
+				role,
+				stage: plan.stage,
+				session: plan.session,
+				workspace,
+				pane,
+				agent: plan.agent,
+				worktree: plan.worktree,
+			}),
 		);
 		return 0;
 	} finally {
