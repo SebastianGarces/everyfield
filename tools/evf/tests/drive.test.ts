@@ -32,7 +32,10 @@ function fakeHerdr(root: string) {
 			`process.stdout.write(JSON.stringify({result:r}));\n`,
 	);
 	chmodSync(join(root, "fake-bin/herdr"), 0o755);
-	return { calls: () => JSON.parse(readFileSync(calls, "utf8")) as string[][], setState: (s: object) => writeFileSync(state, JSON.stringify(s)) };
+	return {
+		calls: () => JSON.parse(readFileSync(calls, "utf8")) as string[][],
+		setState: (s: object) => writeFileSync(state, JSON.stringify(s)),
+	};
 }
 
 function driveFixture() {
@@ -46,9 +49,21 @@ function driveFixture() {
 	const db = openWorkDb(f.root);
 	syncGoals(f.root, db);
 	const t = ensureTask(db, task, "implement");
-	const runs = () => db.prepare("SELECT id, stage, role, status, round FROM runs WHERE task_id = ? ORDER BY id").all(t.id) as Array<Record<string, unknown>>;
-	const events = (type: string) => db.prepare("SELECT payload FROM events WHERE task_id = ? AND type = ? ORDER BY id").all(t.id, type) as Array<{ payload: string }>;
-	const taskRow = () => db.prepare("SELECT status, round, spec, pr_number FROM tasks WHERE id = ?").get(t.id) as { status: string; round: number; spec: string | null; pr_number: number | null };
+	const runs = () =>
+		db.prepare("SELECT id, stage, role, status, round FROM runs WHERE task_id = ? ORDER BY id").all(t.id) as Array<
+			Record<string, unknown>
+		>;
+	const events = (type: string) =>
+		db.prepare("SELECT payload FROM events WHERE task_id = ? AND type = ? ORDER BY id").all(t.id, type) as Array<{
+			payload: string;
+		}>;
+	const taskRow = () =>
+		db.prepare("SELECT status, round, spec, pr_number FROM tasks WHERE id = ?").get(t.id) as {
+			status: string;
+			round: number;
+			spec: string | null;
+			pr_number: number | null;
+		};
 	const file = (name: string, text: string) => {
 		const path = join(f.root, "fake-bin", name);
 		writeFileSync(path, text);
@@ -57,11 +72,22 @@ function driveFixture() {
 	return { ...f, task, wt, db, taskId: t.id, herdr, runs, events, taskRow, file };
 }
 
-const SPEC = "Goal: a usable doghouse.\nDone criteria:\n1. The dog fits.\n2. The roof keeps rain out.\nNon-goals: lighting.";
+const SPEC =
+	"Goal: a usable doghouse.\nDone criteria:\n1. The dog fits.\n2. The roof keeps rain out.\nNon-goals: lighting.";
 
 test("OPS-59-next: the stage machine follows plan, implement, simplify, pr, evidence, verify, ci, ship and loops back on failures", () => {
 	const task = parseTask("WP-005/ui");
-	const t = { id: 1, ref: task.id, slug: task.slug, mode: "implement", status: "active", round: 0, goal_id: null, spec: null, pr_number: null };
+	const t = {
+		id: 1,
+		ref: task.id,
+		slug: task.slug,
+		mode: "implement",
+		status: "active",
+		round: 0,
+		goal_id: null,
+		spec: null,
+		pr_number: null,
+	};
 	const run = (stage: string, status: string, id = 1) => ({ id, stage, role: "x", status, round: 0, summary: "s" });
 	assert.deepEqual(nextStage(task, t, []), { stage: "plan", role: "planner", round: 0, reason: "no spec yet" });
 	const specced = { ...t, spec: SPEC };
@@ -92,7 +118,12 @@ test("OPS-59-drive: one transition launches the next seat through Herdr with the
 		const ask = f.file("ask.md", "Make the doghouse usable.");
 		const made = cli(f.root, {}, "task", "new", "OPS-1", "--ask-file", ask, "--title", "Usable doghouse");
 		assert.equal(made.status, 0, made.stderr);
-		assert.deepEqual(JSON.parse(cli(f.root, {}, "next", "OPS-1").stdout), { stage: "plan", role: "planner", round: 0, reason: "no spec yet" });
+		assert.deepEqual(JSON.parse(cli(f.root, {}, "next", "OPS-1").stdout), {
+			stage: "plan",
+			role: "planner",
+			round: 0,
+			reason: "no spec yet",
+		});
 
 		let n = driveOnce(f.root, f.task, TIMING);
 		assert.equal(n.stage, "plan");
@@ -101,7 +132,12 @@ test("OPS-59-drive: one transition launches the next seat through Herdr with the
 		assert.equal(launched[0]!.role, "planner");
 		assert.equal(launched[0]!.status, "started");
 		const calls = f.herdr.calls();
-		assert.ok(calls.some((c) => c[0] === "workspace" && c[1] === "create" && c.includes("--env") && c.includes("EVF_STAGE=plan")), "workspace with the stage env");
+		assert.ok(
+			calls.some(
+				(c) => c[0] === "workspace" && c[1] === "create" && c.includes("--env") && c.includes("EVF_STAGE=plan"),
+			),
+			"workspace with the stage env",
+		);
 		const start = calls.find((c) => c[0] === "agent" && c[1] === "start")!;
 		assert.ok(start.includes("--agent") && start.includes("planner"), start.join(" "));
 		const prompt = calls.find((c) => c[0] === "agent" && c[1] === "prompt")!;
@@ -110,12 +146,17 @@ test("OPS-59-drive: one transition launches the next seat through Herdr with the
 		// The seat went idle without closing its stage: one nudge, then the run is aborted as failed.
 		n = driveOnce(f.root, f.task, TIMING);
 		assert.equal(n.stage, "waiting");
-		const nudges = f.herdr.calls().filter((c) => c[0] === "agent" && c[1] === "prompt" && /Close your stage now/.test(c[3] ?? ""));
+		const nudges = f.herdr
+			.calls()
+			.filter((c) => c[0] === "agent" && c[1] === "prompt" && /Close your stage now/.test(c[3] ?? ""));
 		assert.equal(nudges.length, 1);
 		assert.equal(f.runs()[0]!.status, "failed");
 		assert.equal(f.events("nudge").length, 1);
 		assert.match(f.events("stage_end")[0]!.payload, /idle twice without closing plan/);
-		assert.equal(nextStage(f.task, { ...ensureTask(f.db, f.task, "implement"), spec: null, pr_number: null }, []).stage, "plan");
+		assert.equal(
+			nextStage(f.task, { ...ensureTask(f.db, f.task, "implement"), spec: null, pr_number: null }, []).stage,
+			"plan",
+		);
 
 		// A seat that stores the spec and closes its stage moves the task to implement.
 		n = driveOnce(f.root, f.task, TIMING);
@@ -123,17 +164,35 @@ test("OPS-59-drive: one transition launches the next seat through Herdr with the
 		const planRun = f.runs()[1]!;
 		const spec = f.file("spec.md", SPEC);
 		assert.equal(cli(f.root, {}, "task", "spec", "OPS-1", "--file", spec).status, 0);
-		assert.equal(cli(f.root, {}, "task", "spec", "OPS-1", "--file", f.file("bad.md", "just words")).status, 1, "a spec needs Done criteria");
+		assert.equal(
+			cli(f.root, {}, "task", "spec", "OPS-1", "--file", f.file("bad.md", "just words")).status,
+			1,
+			"a spec needs Done criteria",
+		);
 		const summary = f.file("summary.md", "Spec written: two criteria.");
 		const closed = cli(f.root, {}, "run", "done", String(planRun.id), "--status", "passed", "--summary-file", summary);
 		assert.equal(closed.status, 0, closed.stderr);
-		assert.deepEqual(JSON.parse(cli(f.root, {}, "next", "OPS-1").stdout), { stage: "implement", role: "implementer", round: 0, reason: "plan passed" });
-		assert.equal(cli(f.root, {}, "run", "done", String(planRun.id), "--status", "passed", "--summary-file", summary).status, 1, "a run closes once");
+		assert.deepEqual(JSON.parse(cli(f.root, {}, "next", "OPS-1").stdout), {
+			stage: "implement",
+			role: "implementer",
+			round: 0,
+			reason: "plan passed",
+		});
+		assert.equal(
+			cli(f.root, {}, "run", "done", String(planRun.id), "--status", "passed", "--summary-file", summary).status,
+			1,
+			"a run closes once",
+		);
 
 		// Blocked seats are reported and waited on, then the wait resumes.
 		n = driveOnce(f.root, f.task, TIMING);
 		assert.equal(n.stage, "implement");
-		assert.match(f.herdr.calls().find((c) => c[0] === "agent" && c[1] === "prompt" && /Implement task OPS-1/.test(c[3] ?? ""))![3]!, /pr-body\.md/);
+		assert.match(
+			f.herdr
+				.calls()
+				.find((c) => c[0] === "agent" && c[1] === "prompt" && /Implement task OPS-1/.test(c[3] ?? ""))![3]!,
+			/pr-body\.md/,
+		);
 		f.herdr.setState({ status: "blocked" });
 		const implementRun = f.runs().at(-1)!;
 		// driveOnce blocks this thread, so another process flips the seat to idle and closes its stage.
@@ -155,11 +214,17 @@ test("OPS-59-drive: one transition launches the next seat through Herdr with the
 		closer.kill();
 		assert.equal(n.stage, "waiting");
 		assert.ok(f.events("blocked").length >= 1, "the blocked state is recorded");
-		assert.ok(f.herdr.calls().some((c) => c[0] === "notification" && c[1] === "show"), "and Sebastian is notified");
+		assert.ok(
+			f.herdr.calls().some((c) => c[0] === "notification" && c[1] === "show"),
+			"and Sebastian is notified",
+		);
 		assert.equal(JSON.parse(cli(f.root, {}, "next", "OPS-1").stdout).stage, "simplify");
 
 		// The pr stage is evf's own run and fails cleanly without a PR body.
-		runDone(f.root, Number((driveOnce(f.root, f.task, TIMING), f.runs().at(-1)!.id)), { status: "passed", summary: "Simplified." });
+		runDone(f.root, Number((driveOnce(f.root, f.task, TIMING), f.runs().at(-1)!.id)), {
+			status: "passed",
+			summary: "Simplified.",
+		});
 		n = driveOnce(f.root, f.task, TIMING);
 		assert.equal(n.stage, "pr");
 		const prRun = f.runs().at(-1)!;
@@ -181,18 +246,33 @@ test("OPS-59-cap: a failed verify or ci costs a round and the fourth round escal
 		const verifyRun = () =>
 			Number(
 				f.db
-					.prepare("INSERT INTO runs (task_id, stage, role, round, session_id, status, started_at) VALUES (?, 'verify', 'verifier', ?, ?, 'started', ?)")
-					.run(f.taskId, f.taskRow().round, `66666666-6666-4666-8666-66666666666${f.runs().length}`, new Date().toISOString()).lastInsertRowid,
+					.prepare(
+						"INSERT INTO runs (task_id, stage, role, round, session_id, status, started_at) VALUES (?, 'verify', 'verifier', ?, ?, 'started', ?)",
+					)
+					.run(
+						f.taskId,
+						f.taskRow().round,
+						`66666666-6666-4666-8666-66666666666${f.runs().length}`,
+						new Date().toISOString(),
+					).lastInsertRowid,
 			);
 		for (let i = 1; i <= LOOP_CAP; i++) {
 			runDone(f.root, verifyRun(), { status: "failed", summary: `finding ${i}` });
 			assert.equal(f.taskRow().round, i);
 			assert.notEqual(f.taskRow().status, "escalated");
-			assert.equal(nextStage(f.task, { ...ensureTask(f.db, f.task, "implement"), ...f.taskRow() }, []).stage, "implement");
+			assert.equal(
+				nextStage(f.task, { ...ensureTask(f.db, f.task, "implement"), ...f.taskRow() }, []).stage,
+				"implement",
+			);
 		}
 		assert.equal(f.events("round").length, LOOP_CAP);
-		const approvals = f.db.prepare("SELECT decision FROM approvals WHERE task_id = ?").all(f.taskId) as Array<{ decision: string }>;
-		assert.deepEqual(approvals.map((a) => a.decision), ["changes_requested", "changes_requested", "changes_requested"]);
+		const approvals = f.db.prepare("SELECT decision FROM approvals WHERE task_id = ?").all(f.taskId) as Array<{
+			decision: string;
+		}>;
+		assert.deepEqual(
+			approvals.map((a) => a.decision),
+			["changes_requested", "changes_requested", "changes_requested"],
+		);
 		runDone(f.root, verifyRun(), { status: "failed", summary: "finding 4" });
 		assert.equal(f.taskRow().status, "escalated");
 		assert.equal(f.taskRow().round, LOOP_CAP + 1);
@@ -213,25 +293,54 @@ test("OPS-59-cap: a failed verify or ci costs a round and the fourth round escal
 test("OPS-59-proof: proofs bind to the worktree head, check records an event, and ask planner forks the planner session", () => {
 	const f = driveFixture();
 	try {
-		const added = cli(f.root, {}, "proof", "add", "OPS-1", "--criterion", "1", "--status", "met", "--evidence", "https://evidence.example/1.png");
+		const added = cli(
+			f.root,
+			{},
+			"proof",
+			"add",
+			"OPS-1",
+			"--criterion",
+			"1",
+			"--status",
+			"met",
+			"--evidence",
+			"https://evidence.example/1.png",
+		);
 		assert.equal(added.status, 0, added.stderr);
-		assert.equal(cli(f.root, {}, "proof", "add", "OPS-1", "--criterion", "2", "--status", "unmet", "--notes", "no WebKit").status, 0);
-		assert.match(cli(f.root, {}, "proof", "add", "OPS-1", "--criterion", "3", "--status", "maybe").stderr, /met, unmet or n\/a/);
+		assert.equal(
+			cli(f.root, {}, "proof", "add", "OPS-1", "--criterion", "2", "--status", "unmet", "--notes", "no WebKit").status,
+			0,
+		);
+		assert.match(
+			cli(f.root, {}, "proof", "add", "OPS-1", "--criterion", "3", "--status", "maybe").stderr,
+			/met, unmet or n\/a/,
+		);
 		const shown = JSON.parse(cli(f.root, {}, "proof", "show", "OPS-1", "--json").stdout);
 		assert.equal(shown.at_head.length, 2);
 		assert.equal(shown.proofs[0].evidence_url, "https://evidence.example/1.png");
 		spawnSync("git", ["-C", f.wt, "commit", "-q", "--allow-empty", "-m", "move the head"]);
-		assert.equal(JSON.parse(cli(f.root, {}, "proof", "show", "OPS-1", "--json").stdout).at_head.length, 0, "a new head has no proofs yet");
+		assert.equal(
+			JSON.parse(cli(f.root, {}, "proof", "show", "OPS-1", "--json").stdout).at_head.length,
+			0,
+			"a new head has no proofs yet",
+		);
 		assert.match(cli(f.root, {}, "proof", "show", "OPS-1").stdout, /0 at head, 2 total/);
 
 		const checked = cli(f.root, {}, "check", "OPS-1");
 		assert.equal(checked.status, 0, checked.stderr);
 		assert.match(f.events("check_result")[0]!.payload, /"passed":true/);
 
-		writeFileSync(join(f.root, "fake-bin/claude"), `#!${process.execPath}\nconst a=process.argv.slice(2);process.stdout.write(JSON.stringify({result:"Use the porch roof; "+a.includes("--fork-session")+" "+a[a.indexOf("--resume")+1]}));\n`);
+		writeFileSync(
+			join(f.root, "fake-bin/claude"),
+			`#!${process.execPath}\nconst a=process.argv.slice(2);process.stdout.write(JSON.stringify({result:"Use the porch roof; "+a.includes("--fork-session")+" "+a[a.indexOf("--resume")+1]}));\n`,
+		);
 		chmodSync(join(f.root, "fake-bin/claude"), 0o755);
 		assert.match(cli(f.root, {}, "ask", "planner", "OPS-1", "Which roof?").stderr, /no planner run to ask/);
-		f.db.prepare("INSERT INTO runs (task_id, stage, role, round, session_id, status, started_at) VALUES (?, 'plan', 'planner', 0, '77777777-7777-4777-8777-777777777777', 'passed', ?)").run(f.taskId, new Date().toISOString());
+		f.db
+			.prepare(
+				"INSERT INTO runs (task_id, stage, role, round, session_id, status, started_at) VALUES (?, 'plan', 'planner', 0, '77777777-7777-4777-8777-777777777777', 'passed', ?)",
+			)
+			.run(f.taskId, new Date().toISOString());
 		const asked = cli(f.root, { EVF_ROLE: "implementer" }, "ask", "planner", "OPS-1", "Which roof?");
 		assert.equal(asked.status, 0, asked.stderr);
 		assert.equal(asked.stdout.trim(), "Use the porch roof; true 77777777-7777-4777-8777-777777777777");
@@ -248,13 +357,29 @@ test("OPS-59-ship: when the store knows the branch, ship refuses author or verif
 	try {
 		const author = "11111111-1111-4111-8111-111111111111",
 			verifier = "22222222-2222-4222-8222-222222222222";
-		assert.equal(sessionsRecorded(f.root, "task/other", author, verifier), null, "an unknown branch is not the store's business");
+		assert.equal(
+			sessionsRecorded(f.root, "task/other", author, verifier),
+			null,
+			"an unknown branch is not the store's business",
+		);
 		assert.match(sessionsRecorded(f.root, "task/ops-1", author, verifier)!, /no implementer session/);
-		f.db.prepare("INSERT INTO runs (task_id, stage, role, round, session_id, status, started_at) VALUES (?, 'implement', 'implementer', 0, ?, 'passed', ?)").run(f.taskId, author, new Date().toISOString());
+		f.db
+			.prepare(
+				"INSERT INTO runs (task_id, stage, role, round, session_id, status, started_at) VALUES (?, 'implement', 'implementer', 0, ?, 'passed', ?)",
+			)
+			.run(f.taskId, author, new Date().toISOString());
 		assert.match(sessionsRecorded(f.root, "task/ops-1", author, verifier)!, /no verifier session/);
-		f.db.prepare("INSERT INTO runs (task_id, stage, role, round, session_id, status, started_at) VALUES (?, 'verify', 'verifier', 0, ?, 'passed', ?)").run(f.taskId, verifier, new Date().toISOString());
+		f.db
+			.prepare(
+				"INSERT INTO runs (task_id, stage, role, round, session_id, status, started_at) VALUES (?, 'verify', 'verifier', 0, ?, 'passed', ?)",
+			)
+			.run(f.taskId, verifier, new Date().toISOString());
 		assert.equal(sessionsRecorded(f.root, "task/ops-1", author, verifier), null);
-		assert.match(sessionsRecorded(f.root, "task/ops-1", verifier, author)!, /no implementer session/, "swapped sessions are refused");
+		assert.match(
+			sessionsRecorded(f.root, "task/ops-1", verifier, author)!,
+			/no implementer session/,
+			"swapped sessions are refused",
+		);
 		assert.ok(existsSync(join(f.root, "herdr-calls.json")));
 	} finally {
 		f.db.close();

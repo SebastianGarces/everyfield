@@ -329,11 +329,23 @@ test("OPS-58-hooks: the path guard denies an edit outside the seat's worktree an
 		);
 		assert.equal(unguarded.stdout, "", "no worktree, no guard");
 
-		const stop = cli(f.root, { ...f.env, EVF_STAGE: "implement" }, { session_id: SESSION, stop_hook_active: false }, "hook", "stop");
+		const stop = cli(
+			f.root,
+			{ ...f.env, EVF_STAGE: "implement" },
+			{ session_id: SESSION, stop_hook_active: false },
+			"hook",
+			"stop",
+		);
 		assert.equal(stop.status, 0, stop.stderr);
 		assert.match(JSON.parse(stop.stdout).reason, /still open\. Close it now: bin\/evf run done \d+/);
 		assert.equal(JSON.parse(stop.stdout).decision, "block");
-		const again = cli(f.root, { ...f.env, EVF_STAGE: "implement" }, { session_id: SESSION, stop_hook_active: true }, "hook", "stop");
+		const again = cli(
+			f.root,
+			{ ...f.env, EVF_STAGE: "implement" },
+			{ session_id: SESSION, stop_hook_active: true },
+			"hook",
+			"stop",
+		);
 		assert.equal(again.stdout, "", "the block is not repeated while Claude Code is already continuing");
 		assert.equal(f.events("stop").length, 2);
 		const status = () =>
@@ -356,7 +368,13 @@ test("OPS-58-hooks: the path guard denies an edit outside the seat's worktree an
 		assert.equal(status().status, "aborted", "a seat that exits without closing its stage is aborted");
 		assert.ok(status().ended_at);
 		assert.match(f.events("session_end").at(-1)!.payload, /"aborted":true/);
-		const closed = cli(f.root, { ...f.env, EVF_STAGE: "implement" }, { session_id: next, stop_hook_active: false }, "hook", "stop");
+		const closed = cli(
+			f.root,
+			{ ...f.env, EVF_STAGE: "implement" },
+			{ session_id: next, stop_hook_active: false },
+			"hook",
+			"stop",
+		);
 		assert.equal(closed.stdout, "", "a closed stage never blocks a stop");
 	} finally {
 		f.db.close();

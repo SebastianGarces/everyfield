@@ -439,7 +439,8 @@ function main(argv: string[]): number | Promise<number> {
 				summaryFile = option(args, "--summary-file");
 			if (sub !== "done" || !Number.isInteger(id) || id <= 0 || args.length) break;
 			if (status !== "passed" && status !== "failed") throw new EvfError("--status must be passed or failed.");
-			if (!summaryFile || !existsSync(summaryFile)) throw new EvfError("Give --summary-file <file> with what happened.");
+			if (!summaryFile || !existsSync(summaryFile))
+				throw new EvfError("Give --summary-file <file> with what happened.");
 			return runDone(root, id, { status, summaryFile });
 		}
 		case "check": {
@@ -455,7 +456,8 @@ function main(argv: string[]): number | Promise<number> {
 					evidence = option(args, "--evidence"),
 					notes = option(args, "--notes");
 				if (!criterion) throw new EvfError("Give --criterion <n>.");
-				if (status !== "met" && status !== "unmet" && status !== "n/a") throw new EvfError("--status must be met, unmet or n/a.");
+				if (status !== "met" && status !== "unmet" && status !== "n/a")
+					throw new EvfError("--status must be met, unmet or n/a.");
 				if (args.length !== 1) break;
 				return proofAdd(root, parseTask(args[0]), { criterion, status, evidence, notes });
 			}
