@@ -1,32 +1,31 @@
 ---
 name: ship
-description: Open or merge a Phase 7 PR with exact-head CI, different-model verification and the PR standard.
+description: Open or merge a Phase 7 PR with exact-head CI, independent verification and the PR standard.
 ---
 
 # Ship
 
 Authors commit in their task worktree, include current main, run checks and open a PR for Sebastian.
-Use the PR standard skill and template, then `evf pr open <task> --body-file <file>`. Record one `EVF-Author: anthropic`, `xai` or
-`openai` line in the body, based on the actual author model family. Never merge your own work, push to
-main or force-push.
+Use the PR standard skill and template, then `evf pr open <task> --body-file <file>`. Record one
+`EVF-Author: {"session":"<your Claude Code session UUID>","model":"<model id>","role":"<seat role>"}`
+line in the body. Never merge your own work, push to main or force-push.
 
-A different-model verifier independently exercises the branch's own portless preview and dev
-database. Tooling tasks need tooling checks, not application screenshots. Record actual scope,
+An independent verifier, a fresh Opus 5.5 high session that never shared context with the author,
+exercises the branch's own portless preview and dev database. Tooling tasks need tooling checks, not application screenshots. Record actual scope,
 results and external evidence on the PR, followed by this exact line with the full tested SHA:
 
 ```text
-EVF-Review: {"head":"<40-character SHA>","verifierFamily":"anthropic","verdict":"approved","quality":{"verdict":"approved","principles":["laziness-protocol","minimize-reader-load","subtract-before-you-add","test-behavior-not-implementation"]}}
+EVF-Review: {"head":"<40-character SHA>","verifier":{"session":"<verifier session UUID>","model":"claude-opus-5-5","role":"verifier"},"verdict":"approved","quality":{"verdict":"approved","principles":["laziness-protocol","minimize-reader-load","subtract-before-you-add","test-behavior-not-implementation"]}}
 ```
 
 Every review comment needs a "Code quality" section naming concrete simplifications, or explaining
 why none are needed. Its quality field names the principles checked, including the four shown above.
 Ship refuses missing or unapproved quality and incomplete principle lists.
 
-Use the verifier's actual family. An `anthropic` PR needs an `xai` or `openai` verifier. An
-`openai` PR needs an `anthropic` verifier. Until 2026-10-27T19:00:00.000Z, an `xai` PR may use an
-`xai` verifier. At and after that instant, a new `xai` review of `xai` work is refused. A milestone
-stored from an earlier review still passes. Ship keeps `verification.checkedAt`, not the acknowledgement
-time. Comments are deliberate because agents share the owner's
+Independent review (D82) means: the verifier's session id differs from the author's, the review comes
+from the `verifier` seat, and the verifier model is Opus (`claude-opus-*`). Ship refuses anything else
+and keeps `verification.checkedAt`. Milestones stored before D82 keep the model-family rule that shipped
+them. Comments are deliberate because agents share the owner's
 GitHub account. These records are unsigned coordination evidence, not authenticated identities.
 Use `changes_requested` instead of `approved` when verification fails. The latest record for that
 head wins. A changed head needs new CI and real verification.

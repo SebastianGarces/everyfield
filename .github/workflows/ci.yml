@@ -8,6 +8,8 @@ on:
   pull_request:
   push:
     branches: [main]
+  # Dormant until this repository can use a merge queue (OPS-56): the `ci` check then also runs on the queue commit.
+  merge_group:
 
 permissions:
   contents: read

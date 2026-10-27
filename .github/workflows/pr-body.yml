@@ -7,6 +7,8 @@ name: PR body
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened, labeled, unlabeled]
+  # Dormant until a merge queue exists (OPS-56): the queue commit reports the same `pr-body` check name.
+  merge_group:
 
 permissions:
   contents: read
@@ -31,9 +33,13 @@ jobs:
         with:
           node-version: "24.22.1"
       - name: Required sections and EVF-Author line for the PR class
+        if: github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           bin/evf pr body "$PR_NUMBER"
+      - name: Merge group commit
+        if: github.event_name == 'merge_group'
+        run: echo "pr-body passed on the pull request; the queue commit has nothing new to check."

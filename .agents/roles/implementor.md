@@ -12,7 +12,7 @@ Own the assigned task through a reviewable PR. Do not merge it.
 3. Build only in owning paths. Follow `test-standard`, `debug-with-traces` and `decisions`.
 4. Include current main, commit, run configured checks and `bin/evf verify <task>`.
 5. Follow the PR standard to open a PR. Record SHA, actual checks, evidence, risks and follow-ups
-   in the task note and shared PR Context note. Leave review_required for the other model family.
+   in the task note and shared PR Context note. Leave review_required for the independent verifier.
 6. Push only with `cd <home checkout> && bin/evf pr open <task> --body-file <file>`. It pushes the
    verified head and opens or updates the PR, also after review fixes. `.claude/settings.json` allows
    it without a prompt. Raw `git push` asks for approval and force pushes are denied: never wait on them.

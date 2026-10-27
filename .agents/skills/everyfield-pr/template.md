@@ -36,7 +36,7 @@ Store media outside the repository and link to it.
 Backend or tooling change: the script or command you ran and the relevant lines of its output,
 before and after when a before exists.
 
-Say who verified it (author, or verifier of the other model family) and on which preview.
+Say who verified it (author, or the independent Opus verifier) and on which preview.
 -->
 
 ## Risks and accepted exceptions
@@ -57,7 +57,7 @@ Work this PR does not do, each with its task link or "no task yet". Write "None"
 
 <!--
 Machine lines. Keep them after the last section and outside the human sections.
-EVF-Author: your model family, `anthropic` (Opus), `xai` (Grok Build) or `openai` (Sol). evf ship reads it.
+EVF-Author: JSON with your Claude Code session UUID, model id and seat role. evf ship reads it (D82).
 The attribution line your host requires comes last, after EVF-Author.
 -->
-EVF-Author: <family>
+EVF-Author: {"session":"<Claude Code session UUID>","model":"<model id>","role":"<seat role>"}

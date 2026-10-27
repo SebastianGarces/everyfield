@@ -12,5 +12,5 @@
 
 <!-- List decisions for Sebastian and his approval status. A prototype waits for product review. -->
 
-EVF-Author: <family>
+EVF-Author: {"session":"<Claude Code session UUID>","model":"<model id>","role":"<seat role>"}
 <!-- End with the host attribution line. This body does not grant implementation or merge approval. -->

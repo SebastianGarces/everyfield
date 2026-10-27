@@ -1,4 +1,4 @@
-# UI designer additions (Intent `ui-designer`, Opus 5.5)
+# UI designer additions (`ui-designer` seat, Sonnet 5.5 medium)
 
 Read `docs/architecture/patterns.md` and `docs/architecture/decisions.md` before planning or building.
 Apply the shared patterns and durable rulings to the assigned scope.

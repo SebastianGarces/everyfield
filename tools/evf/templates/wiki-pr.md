@@ -16,5 +16,5 @@
 
 <!-- State independent Opus review status, open rulings and Sebastian's approval status. -->
 
-EVF-Author: <family>
+EVF-Author: {"session":"<Claude Code session UUID>","model":"<model id>","role":"<seat role>"}
 <!-- End with the host attribution line. This body does not grant merge or publication approval. -->

@@ -46,11 +46,10 @@ only a comment counts as empty.
 - Keep evidence files out of the repository. Link to media stored outside it.
 - Write short sentences in the active voice. Explain a technical term the first time, or drop it.
 - Do not paste credentials, tokens or connection strings, even partly.
-- After the last section, add one line `EVF-Author: anthropic`, `EVF-Author: xai` or
-  `EVF-Author: openai` for your model family. evf ship uses it. An `openai` PR needs an
-  `anthropic` review. An `xai` PR needs an `anthropic` review, except before
-  2026-10-27T19:00:00.000Z, when an `xai` review is also accepted. Then end the body with
-  the attribution line your host requires.
+- After the last section, add one line
+  `EVF-Author: {"session":"<your Claude Code session UUID>","model":"<model id>","role":"<seat role>"}`.
+  evf ship uses it: the verifier must be another session, in the verifier seat, on an Opus model (D82).
+  Then end the body with the attribution line your host requires.
 
 ## Check before you open the PR
 

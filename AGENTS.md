@@ -11,8 +11,8 @@ Current requirements and cases live in `docs/catalog/index.json`. Keep this file
 3. Build inside the owning paths. Use the brief and linked current clauses as the contract.
 4. Include current main, commit, run the task checks and `bin/evf verify <task>`.
    Open a PR explaining the change, actual verification, evidence, risks and follow-ups.
-5. A verifier from a different model family checks the PR head on its own preview with
-   `verify-preview`, posts the exact-head review on the PR and runs `bin/evf ship <task>`.
+5. An independent verifier (a fresh Opus 5.5 high session that never shared context with the
+   author, D82) checks the PR head with `verify-preview`, posts the exact-head review and runs `bin/evf ship <task>`.
    Ship requires green required GitHub CI, independent approval and a valid PR body.
 
 Use `bin/evf help` for commands. IDs are WP-NNN, WP-NNN/api or /ui,
@@ -23,7 +23,7 @@ number D<n> with `bin/evf id next ops|decision`; never take the next number from
 
 - Follow `.agents/skills/ship/SKILL.md` for merge authority. Never merge your own work,
   push directly to main or force-push. Preserve the owner approval routes from PR #13.
-- All UI work belongs to `ui-designer` on Opus 5.5.
+- All UI work belongs to `ui-designer` (Sonnet 5.5 medium). Opus 5.5 high plans and verifies.
 - Use one portless preview per worktree. No Vercel preview deployments.
 - Use the shared development database for behavior checks. It may be wiped and reseeded.
   Timing sets run only through `bin/evf timing`, on its own quiet local database (D81).

@@ -13,8 +13,8 @@ outside the checkout. It refuses dirty or stale inputs and detects changes durin
 `--role verifier` labels local logs; it grants no identity or approval. `--quick` aids iteration.
 Neither command replaces green GitHub CI or independent real verification.
 
-Independent verification of a PR uses [verify-preview](../verify-preview/SKILL.md): a verifier of
-the other model family runs the exact PR head on its own preview, publishes the evidence and posts
+Independent verification of a PR uses [verify-preview](../verify-preview/SKILL.md): a fresh Opus
+verifier session runs the exact PR head on its own preview, publishes the evidence and posts
 the exact-head review. Tooling tests establish tooling behavior only.
 
 At package start, write or repair owned cases named by `case_requirements_at_start` before building.

@@ -298,7 +298,7 @@ function main(argv: string[]): number | Promise<number> {
 				}
 				const checked = checkPrBody(here, body, kind);
 				console.log(
-					`PASSED ${checked.kind} PR body standard for ${checked.authorFamily}: ${checked.sections.join(", ")}`,
+					`PASSED ${checked.kind} PR body standard for ${checked.author.model} (${checked.author.role}): ${checked.sections.join(", ")}`,
 				);
 				return 0;
 			}

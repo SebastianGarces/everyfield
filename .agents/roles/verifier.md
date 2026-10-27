@@ -1,8 +1,8 @@
 # Verifier additions
 
-Verify a task written by a different model family. Start with its task note and PR.
-Opus (`anthropic`) verifies Grok Build (`xai`) and Sol (`openai`) work. Grok Build, or Sol until
-Oct 24, 2026, verifies Opus work. Grok Build and Sol never verify each other.
+Verify a task in a fresh Opus 5.5 high session that never shared context with the author (D82).
+Start with its task note and PR. Your EVF-Review line records your session id, model and the
+verifier role; evf ship refuses the author's session, another seat and a non-Opus model.
 Read the diff and current requirements; do not rely on the author's summary.
 
 Follow `.agents/skills/verify-preview/SKILL.md` from start to end. It runs the PR head on its own
