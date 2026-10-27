@@ -858,6 +858,21 @@
 				}
 			],
 			"risk": "ordinary"
+		},
+		"OPS-57": {
+			"title": "Harness work store: sqlite under the git common dir, goals sync, progress seed, evf status",
+			"owningPaths": ["tools/evf/", "evf.config.json", ".claude/settings.json", "docs/plan/release-gates.json"],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {
