@@ -44,7 +44,7 @@
       "id": "G-WORKFLOW",
       "title": "Merged development workflow",
       "owner": "Phase 7 coordinator",
-      "closure": "W0 to W5 are merged, and one task has run end to end through the Phase 7 flow: isolated worktree and local preview, real verification by a different model family, green GitHub CI on the exact head, a PR body meeting the standard, and merge through the new flow. Preserve feedback routing and owner approval rules.",
+      "closure": "W0 to W5 are merged, and one task has run end to end through the Phase 7 flow: isolated worktree and local preview, real verification by an independent verifier session (another Claude Code session, verifier seat, Opus model; D82), green GitHub CI on the exact head, a PR body meeting the standard, and merge through the new flow. Preserve feedback routing and owner approval rules.",
       "status": "reconciled-independent-review",
       "source": {
         "repository": "https://github.com/SebastianGarces/everyfield",

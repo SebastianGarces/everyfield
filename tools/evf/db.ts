@@ -55,7 +55,11 @@ export function migrate(db: DatabaseSync): { version: number; applied: string[] 
 		db.exec("BEGIN");
 		try {
 			db.exec(readFileSync(join(MIGRATIONS, m.file), "utf8"));
-			db.prepare("INSERT INTO schema_version (version, name, applied_at) VALUES (?, ?, ?)").run(m.version, m.name, now());
+			db.prepare("INSERT INTO schema_version (version, name, applied_at) VALUES (?, ?, ?)").run(
+				m.version,
+				m.name,
+				now(),
+			);
 			db.exec("COMMIT");
 		} catch (e) {
 			db.exec("ROLLBACK");
@@ -155,16 +159,30 @@ export function seedProgress(
 ): { tasks: number; events: number; seen: number } {
 	const data: Ledger =
 		ledger ?? (JSON.parse(git(root, "show", `${baseRef(root, loadConfig(root))}:docs/build-progress.json`)) as Ledger);
-	const entries: Array<{ pkg: string; ref: string; commit: string; stage: string | null; acknowledged: boolean | null; p: LedgerPackage }> = [];
+	const entries: Array<{
+		pkg: string;
+		ref: string;
+		commit: string;
+		stage: string | null;
+		acknowledged: boolean | null;
+		p: LedgerPackage;
+	}> = [];
 	for (const [pkg, p] of Object.entries(data.packages ?? {})) {
 		const milestones = Object.values(p.milestones ?? {});
 		if (milestones.length)
 			for (const m of milestones)
 				if (m.task && m.merge_commit)
-					entries.push({ pkg, ref: m.task, commit: m.merge_commit, stage: m.stage ?? null, acknowledged: m.acknowledged ?? null, p });
-		else if (p.status === "done")
-			for (const e of p.evidence ?? [])
-				if (e.commit) entries.push({ pkg, ref: pkg, commit: e.commit, stage: "done", acknowledged: true, p });
+					entries.push({
+						pkg,
+						ref: m.task,
+						commit: m.merge_commit,
+						stage: m.stage ?? null,
+						acknowledged: m.acknowledged ?? null,
+						p,
+					});
+				else if (p.status === "done")
+					for (const e of p.evidence ?? [])
+						if (e.commit) entries.push({ pkg, ref: pkg, commit: e.commit, stage: "done", acknowledged: true, p });
 	}
 	const missionFor = db.prepare(
 		"SELECT id FROM goals WHERE kind = 'mission' AND EXISTS (SELECT 1 FROM json_each(goals.packages) WHERE value = ?)",
@@ -174,7 +192,9 @@ export function seedProgress(
 		 VALUES (?, 'implement', ?, ?, ?, ?, 'merged', ?, ?, ?, ?)
 		 ON CONFLICT (ref, merge_commit) WHERE merge_commit IS NOT NULL DO NOTHING`,
 	);
-	const insertEvent = db.prepare("INSERT INTO events (task_id, ts, type, payload) VALUES (?, ?, 'legacy_milestone', ?)");
+	const insertEvent = db.prepare(
+		"INSERT INTO events (task_id, ts, type, payload) VALUES (?, ?, 'legacy_milestone', ?)",
+	);
 	let tasks = 0,
 		events = 0;
 	db.exec("BEGIN");
@@ -234,7 +254,9 @@ export function dbSeedProgress(root: string): number {
 	const db = openWorkDb(root);
 	const r = seedProgress(root, db);
 	db.close();
-	console.log(`seed: ${r.tasks} new merged tasks and ${r.events} events from ${r.seen} ledger milestones (${r.seen - r.tasks} already stored).`);
+	console.log(
+		`seed: ${r.tasks} new merged tasks and ${r.events} events from ${r.seen} ledger milestones (${r.seen - r.tasks} already stored).`,
+	);
 	return 0;
 }
 
@@ -256,11 +278,17 @@ export function goalsList(root: string): number {
 		console.log("goals: none. Run evf goals sync.");
 		return 0;
 	}
-	for (const g of rows) console.log(`${String(g.key).padEnd(8)} ${String(g.kind).padEnd(8)} ${g.status}  ${g.title}${g.kind === "mission" ? ` (${g.packages} packages)` : ""}`);
+	for (const g of rows)
+		console.log(
+			`${String(g.key).padEnd(8)} ${String(g.kind).padEnd(8)} ${g.status}  ${g.title}${g.kind === "mission" ? ` (${g.packages} packages)` : ""}`,
+		);
 	return 0;
 }
 
-const column = (value: unknown, width: number) => String(value ?? "-").padEnd(width).slice(0, width);
+const column = (value: unknown, width: number) =>
+	String(value ?? "-")
+		.padEnd(width)
+		.slice(0, width);
 
 /** Tasks, seats, recent events and health, from the views only. `task` narrows to one ref and its parts. */
 export function status(root: string, opts: { json: boolean; task?: string }): number {
@@ -298,7 +326,9 @@ export function status(root: string, opts: { json: boolean; task?: string }): nu
 		`tasks: ${tasks.length} listed · open ${health.open_tasks} · escalated ${health.escalated_tasks} · merged 24 h ${health.merged_24h}, 7 d ${health.merged_7d} · seats active ${health.active_seats}`,
 	);
 	if (tasks.length) {
-		console.log(`${column("REF", 16)} ${column("MODE", 13)} ${column("STATUS", 10)} ${column("STAGE", 10)} ${column("ROUND", 5)} ${column("PR", 6)} ${column("GOAL", 5)} UPDATED`);
+		console.log(
+			`${column("REF", 16)} ${column("MODE", 13)} ${column("STATUS", 10)} ${column("STAGE", 10)} ${column("ROUND", 5)} ${column("PR", 6)} ${column("GOAL", 5)} UPDATED`,
+		);
 		for (const t of tasks)
 			console.log(
 				`${column(t.ref ?? t.slug, 16)} ${column(t.mode, 13)} ${column(t.status, 10)} ${column(t.stage, 10)} ${column(t.round, 5)} ${column(t.pr_number ? `#${t.pr_number}` : "-", 6)} ${column(t.goal_key, 5)} ${String(t.updated_at ?? "").slice(0, 16)}`,
@@ -307,12 +337,16 @@ export function status(root: string, opts: { json: boolean; task?: string }): nu
 	if (seats.length) {
 		console.log("seats:");
 		for (const s of seats)
-			console.log(`  ${column(s.seat, 28)} ${column(s.stage, 10)} ${column(s.model, 18)} ${column(s.effort, 6)} ${column(s.status, 8)} ${s.last_event ?? "-"}`);
+			console.log(
+				`  ${column(s.seat, 28)} ${column(s.stage, 10)} ${column(s.model, 18)} ${column(s.effort, 6)} ${column(s.status, 8)} ${s.last_event ?? "-"}`,
+			);
 	}
 	if (recent.length) {
 		console.log("recent:");
 		for (const e of recent.slice(0, 20))
-			console.log(`  ${String(e.ts).slice(0, 19)} ${column(e.seat ?? e.ref ?? "-", 24)} ${column(e.type, 18)} ${e.summary ?? ""}`);
+			console.log(
+				`  ${String(e.ts).slice(0, 19)} ${column(e.seat ?? e.ref ?? "-", 24)} ${column(e.type, 18)} ${e.summary ?? ""}`,
+			);
 	}
 	return 0;
 }

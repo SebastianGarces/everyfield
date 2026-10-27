@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { fixture, source } from "./fixtures.ts";
@@ -20,9 +20,9 @@ test("OPS-57-store: the work store migrates from empty under the Git common dir,
 		const db = openWorkDb(f.root);
 		assert.ok(existsSync(path));
 		assert.equal((db.prepare("PRAGMA journal_mode").get() as { journal_mode: string }).journal_mode, "wal");
-		const names = (db.prepare("SELECT name FROM sqlite_master WHERE type IN ('table', 'view')").all() as Array<{ name: string }>).map(
-			(r) => r.name,
-		);
+		const names = (
+			db.prepare("SELECT name FROM sqlite_master WHERE type IN ('table', 'view')").all() as Array<{ name: string }>
+		).map((r) => r.name);
 		for (const name of [
 			"goals",
 			"tasks",
@@ -42,7 +42,8 @@ test("OPS-57-store: the work store migrates from empty under the Git common dir,
 		const again = openWorkDb(f.root);
 		assert.equal((again.prepare("SELECT COUNT(*) AS n FROM schema_version").get() as { n: number }).n, 1);
 		again.close();
-		assert.equal(cli(f.root, "db", "path").stdout.trim(), path);
+		// The CLI resolves the home root through git, which returns the real path of a symlinked temp dir.
+		assert.equal(cli(f.root, "db", "path").stdout.trim(), realpathSync(path));
 		const migrated = cli(f.root, "db", "migrate");
 		assert.equal(migrated.status, 0, migrated.stderr);
 		assert.match(migrated.stdout, /schema 1/);
@@ -62,7 +63,10 @@ test("OPS-57-goals: goals sync caches the project line and the S-row missions of
 		assert.equal(count(), first.missions.length + 1);
 		syncGoals(f.root, db);
 		assert.equal(count(), first.missions.length + 1);
-		const s1 = db.prepare("SELECT packages, parent_id FROM goals WHERE key = 'S1'").get() as { packages: string; parent_id: number };
+		const s1 = db.prepare("SELECT packages, parent_id FROM goals WHERE key = 'S1'").get() as {
+			packages: string;
+			parent_id: number;
+		};
 		assert.ok(JSON.parse(s1.packages).includes("WP-012"));
 		assert.equal(s1.parent_id, (db.prepare("SELECT id FROM goals WHERE key = 'project'").get() as { id: number }).id);
 		db.close();
@@ -175,7 +179,9 @@ test("OPS-57-locks: a reader opens read-only while a writer holds the store, and
 		reader.close();
 		const started = Date.now();
 		const writer = openWorkDb(f.root);
-		writer.prepare("INSERT INTO events (ts, type, payload) VALUES (?, 'lock_test_2', '{}')").run(new Date().toISOString());
+		writer
+			.prepare("INSERT INTO events (ts, type, payload) VALUES (?, 'lock_test_2', '{}')")
+			.run(new Date().toISOString());
 		const waited = Date.now() - started;
 		assert.ok(waited >= 200, `the writer waited for the lock instead of failing (${waited} ms)`);
 		assert.equal(

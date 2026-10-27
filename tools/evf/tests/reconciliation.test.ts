@@ -1300,17 +1300,6 @@ test("INV-phase7-ship: independent review is another session, the verifier seat 
 		independentReview(AUTHOR, { ...VERIFIER, model: "claude-sonnet-5-5" })!,
 		/Opus model: the review model is claude-sonnet-5-5/,
 	);
-	const poster = readFileSync(join(source, ".agents/skills/verify-preview/scripts/post-review.mjs"), "utf8");
-	assert.match(
-		poster,
-		/import \{ independentReview, readParty \} from "[./]+tools\/evf\/lib\.ts"/,
-		"the poster uses the rule, not a copy",
-	);
-	assert.match(
-		poster,
-		/import \{ checkPrBody \} from "[./]+tools\/evf\/pr-body\.ts"/,
-		"the poster reads the body as ship does",
-	);
 });
 
 test("INV-phase7-ship: ship and the review poster accept an independent Opus verifier and refuse the author's session, another seat or a non-Opus model", () => {
@@ -1365,6 +1354,9 @@ test("INV-phase7-ship: ship and the review poster accept an independent Opus ver
 				{ cwd: f.root, encoding: "utf8" },
 			);
 			assert.equal(poster.status, ships ? 0 : 1, `poster: ${name}: ${poster.stderr}`);
+			// The poster refuses with the rule's own words, so it cannot drift from ship.
+			if (!ships)
+				assert.ok(poster.stderr.includes(independentReview(AUTHOR, verifier)!), `poster: ${name}: ${poster.stderr}`);
 			if (ships)
 				assert.ok(
 					poster.stdout.includes(`"verifier":${JSON.stringify(verifier)}`),

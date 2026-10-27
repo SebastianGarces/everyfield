@@ -1,6 +1,15 @@
 {
 	"permissions": {
-		"allow": ["Bash(cd *)", "Bash(bin/evf pr open *)", "Bash(./bin/evf pr open *)", "Bash(*/bin/evf pr open *)", "Bash(git add *)", "Bash(git commit *)", "Bash(git -C * add *)", "Bash(git -C * commit *)"],
+		"allow": [
+			"Bash(cd *)",
+			"Bash(bin/evf pr open *)",
+			"Bash(./bin/evf pr open *)",
+			"Bash(*/bin/evf pr open *)",
+			"Bash(git add *)",
+			"Bash(git commit *)",
+			"Bash(git -C * add *)",
+			"Bash(git -C * commit *)"
+		],
 		"ask": ["Bash(git push)", "Bash(git push *)"],
 		"deny": [
 			"Bash(git push *--force*)",
