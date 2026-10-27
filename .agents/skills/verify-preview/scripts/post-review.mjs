@@ -7,25 +7,25 @@
 //          --quality-verdict approved|changes_requested --principles <comma-separated names> [--results <results.json> ...] [--dry-run]
 // Refuses a head that is not the PR's current head, a verifier ship refuses (D82: the author's own session,
 // a non-verifier seat or a non-Opus model), and an approval when any results file has a failing verdict.
+// The PR body and the review parties are read by the same code ship uses (tools/evf), so the two never disagree.
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { independentReview, readParty } from "../../../../tools/evf/lib.ts";
+import { checkPrBody } from "../../../../tools/evf/pr-body.ts";
 
+const root = resolve(import.meta.dirname, "../../../..");
 const argv = process.argv.slice(2);
 const value = (n) => (argv.indexOf(`--${n}`) >= 0 ? argv[argv.indexOf(`--${n}`) + 1] : undefined);
 const all = (n) => argv.flatMap((a, i) => (a === `--${n}` ? [argv[i + 1]] : []));
 const [pr, reportFile, verdict, head] = ["pr", "report", "verdict", "head"].map(value);
-const verifier = { session: value("session"), model: value("model"), role: value("role") ?? "verifier" };
 const quality = { verdict: value("quality-verdict"), principles: value("principles")?.split(",").map((name) => name.trim()) };
 const experience = { verdict: value("experience-verdict"), budget: value("budget"), ...(value("experience-exception") ? { exception: value("experience-exception") } : {}) };
 const refuse = (why) => { console.error(`Refused: ${why}`); process.exit(1); };
 if (!pr || !reportFile || !head) refuse("usage: --pr <n> --report <file> --session <uuid> --model <id> --verdict <v> --head <sha>");
-// Same shapes as readParty and independentReview in tools/evf/lib.ts.
-const SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-if (!verifier.session || !SESSION_ID.test(verifier.session)) refuse("--session must be your Claude Code session UUID in lowercase (herdr agent get <you> shows it as agent_session.value)");
-if (!verifier.model || !/^[a-z][a-z0-9.-]*$/.test(verifier.model)) refuse("--model must be the model id, such as claude-opus-5-5");
-if (!/^[a-z][a-z0-9-]*$/.test(verifier.role)) refuse("--role must be the seat role");
+const verifier = readParty({ session: value("session"), model: value("model"), role: value("role") ?? "verifier" });
+if (typeof verifier === "string") refuse(`${verifier} (--session, --model, --role; herdr agent get <you> shows your session as agent_session.value)`);
 if (!["approved", "changes_requested"].includes(verdict)) refuse("--verdict must be approved or changes_requested");
 if (!["approved", "changes_requested"].includes(quality.verdict)) refuse("--quality-verdict must be approved or changes_requested");
 if (!quality.principles?.length || quality.principles.some((name) => !name)) refuse("--principles must name the principles checked, separated by commas");
@@ -42,16 +42,14 @@ if (!/^[0-9a-f]{40}$/.test(head)) refuse("--head must be the full 40-character S
 const view = JSON.parse(execFileSync("gh", ["pr", "view", pr, "--json", "headRefOid,body,url"], { encoding: "utf8" }));
 if (view.headRefOid !== head) refuse(`PR head is ${view.headRefOid}, you verified ${head}. Verify the current head.`);
 if (verdict === "approved" && experience.budget === "exceeded" && (!experience.exception || !view.body.split(/\r?\n/).includes(`EVF-Experience-Exception: ${experience.exception}`))) refuse("exceeded budget needs the matching approved reports or analytics exception in the PR body");
-const authorLine = /^EVF-Author:(.*)$/m.exec(view.body)?.[1];
-if (!authorLine) refuse("PR body has no EVF-Author line");
 let author;
-try { author = JSON.parse(authorLine); } catch { author = null; }
-if (!author || typeof author !== "object" || !SESSION_ID.test(String(author.session)) || typeof author.model !== "string" || typeof author.role !== "string")
-	refuse('EVF-Author must be {"session":"<Claude Code session UUID>","model":"<model id>","role":"<seat role>"}');
-if (author.session === verifier.session) refuse("you are the author session; an independent session must review");
-if (verifier.role !== "verifier") refuse(`your role is ${verifier.role}; only the verifier seat reviews`);
-if (author.role === "verifier") refuse("the author role is verifier; a verifier seat does not author work");
-if (!/^claude-opus-/.test(verifier.model)) refuse(`your model is ${verifier.model}; only an Opus model reviews`);
+try {
+	author = checkPrBody(root, view.body).author; // Ship reads the body with the ordinary template too.
+} catch (e) {
+	refuse(`the PR body fails the standard ship checks: ${e.message}`);
+}
+const dependent = independentReview(author, verifier);
+if (dependent) refuse(dependent);
 for (const file of all("results")) {
   const r = JSON.parse(readFileSync(file, "utf8"));
   if (r.after?.head && r.after.head !== head) refuse(`${file} was captured on ${r.after.head}, not ${head}`);

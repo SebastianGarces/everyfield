@@ -1301,7 +1301,16 @@ test("INV-phase7-ship: independent review is another session, the verifier seat 
 		/Opus model: the review model is claude-sonnet-5-5/,
 	);
 	const poster = readFileSync(join(source, ".agents/skills/verify-preview/scripts/post-review.mjs"), "utf8");
-	assert.ok(poster.includes("claude-opus-"), "the review poster mirrors the Opus rule");
+	assert.match(
+		poster,
+		/import \{ independentReview, readParty \} from "[./]+tools\/evf\/lib\.ts"/,
+		"the poster uses the rule, not a copy",
+	);
+	assert.match(
+		poster,
+		/import \{ checkPrBody \} from "[./]+tools\/evf\/pr-body\.ts"/,
+		"the poster reads the body as ship does",
+	);
 });
 
 test("INV-phase7-ship: ship and the review poster accept an independent Opus verifier and refuse the author's session, another seat or a non-Opus model", () => {
@@ -1370,6 +1379,52 @@ test("INV-phase7-ship: ship and the review poster accept an independent Opus ver
 			`EVF-Author: ${JSON.stringify({ ...AUTHOR, session: "not-a-uuid" })}`,
 		);
 		assert.throws(() => checkPrBody(f.root, state.pr.body), /session must be the Claude Code session UUID/);
+
+		// The poster reads the body with ship's parser, so HTML comments and fenced examples count for neither.
+		const posted = (body: string) => {
+			const s = structuredClone(valid);
+			s.pr.body = body;
+			f.setState(s);
+			return spawnSync(
+				process.execPath,
+				[
+					join(source, ".agents/skills/verify-preview/scripts/post-review.mjs"),
+					...["--pr", "77", "--report", join(f.root, "fake-bin/review.md")],
+					...["--session", VERIFIER.session, "--model", VERIFIER.model],
+					...["--verdict", "approved", "--head", f.sha, "--experience-verdict", "approved", "--budget", "met"],
+					...["--quality-verdict", "approved", "--principles", approvedQuality.principles.join(","), "--dry-run"],
+				],
+				{ cwd: f.root, encoding: "utf8" },
+			);
+		};
+		const template = readFileSync(join(source, ".agents/skills/everyfield-pr/template.md"), "utf8");
+		const withComments =
+			template
+				.replace(/^## .+$/gm, (heading) => `${heading}\nConcrete task evidence.`)
+				.replace(/^EVF-Author: \{"session".*$/m, authorLine) +
+			"\n🤖 Generated with [Claude Code](https://claude.com/claude-code)";
+		const fencedExample = valid.pr.body.replace(
+			authorLine,
+			`\`\`\`text\nEVF-Author: anthropic\n\`\`\`\n\n${authorLine}`,
+		);
+		const oldForm = valid.pr.body.replace(authorLine, "EVF-Author: anthropic");
+		assert.deepEqual(
+			checkPrBody(f.root, withComments).author,
+			AUTHOR,
+			"ship accepts a body that keeps the template comments",
+		);
+		assert.deepEqual(checkPrBody(f.root, fencedExample).author, AUTHOR, "ship ignores a fenced example");
+		assert.throws(() => checkPrBody(f.root, oldForm));
+		for (const [name, body, accepted] of [
+			["template comments kept", withComments, true],
+			["fenced example before the line", fencedExample, true],
+			["old family form", oldForm, false],
+		] as const) {
+			const result = posted(body);
+			assert.equal(result.status, accepted ? 0 : 1, `poster, ${name}: ${result.stderr}`);
+			if (accepted) assert.ok(result.stdout.includes(`"verifier":${JSON.stringify(VERIFIER)}`), name);
+			else assert.match(result.stderr, /standard ship checks: EVF-Author must be/);
+		}
 	} finally {
 		f.close();
 	}

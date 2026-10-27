@@ -8,15 +8,15 @@ import {
 	findPackage,
 	git,
 	gitOk,
+	independentReview,
 	loadConfig,
 	loadDag,
 	parseTask,
 	partsOf,
-	independentReview,
 	pathsForPart,
-	recordedPathsFor,
 	readJson,
 	readParty,
+	recordedPathsFor,
 	run,
 } from "./lib.ts";
 import { carryProof, type MergeEvidence } from "./ship.ts";
