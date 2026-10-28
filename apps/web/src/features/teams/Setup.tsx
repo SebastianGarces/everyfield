@@ -17,7 +17,7 @@ import { Icon } from "@everyfield/ui/foundations";
 import { useEffect, useState } from "react";
 import { DialogNotice, SaveButton, type SaveIntent } from "../../components/save/parts.tsx";
 import { importTemplates, templateCatalog } from "./actions.ts";
-import { plural, type Catalog, type Outcome } from "./model.ts";
+import { NEW_SETUP, plural, reopened, type Catalog, type Outcome, type SetupForm } from "./model.ts";
 
 // Set up ministries from the ten templates (REQ-TEAM-003). Nothing is created until the person reviews the exact
 // ministries and roles and confirms. Choosing nothing, closing or going back creates nothing. A template that is
@@ -25,9 +25,7 @@ import { plural, type Catalog, type Outcome } from "./model.ts";
 // With `into` the same dialog adds roles to that one ministry: its own template comes first and is preselected, a role
 // it already has cannot be chosen again, and no ministry is created.
 
-/** `chosen` is null until the person changes a choice: then the default applies (nothing, or the `into` template). */
-export type SetupForm = { chosen: Record<string, string[]> | null; step: "choose" | "review"; problem?: string };
-export const NEW_SETUP: SetupForm = { chosen: null, step: "choose" };
+export { NEW_SETUP, type SetupForm };
 
 export type SetupInto = {
 	id: string;
@@ -61,7 +59,8 @@ export function SetupDialog({
 	const [wasOpen, setWasOpen] = useState(open);
 	if (open !== wasOpen) {
 		setWasOpen(open);
-		if (form) setF(form);
+		const fresh = reopened(wasOpen, form);
+		if (fresh) setF(fresh);
 	}
 	useEffect(() => {
 		if (!open || catalog?.status === "ok") return;
