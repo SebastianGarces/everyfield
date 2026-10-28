@@ -437,6 +437,21 @@ test("AC:TARGET-TSK-003 AC:TARGET-TSK-015 own-duty completion, one result per re
 	assert.deepEqual(await rows(sql`SELECT count(*)::int n FROM contact_outcome`), [{ n: 0 }]);
 	refused(await read(foreign, "statusHistory", { taskId: t.id }), "unavailable");
 
+	// A readable task with no status audit row (a direct-SQL seed) reads an empty history, never a denial; a caller
+	// outside its church still gets the refusal, with or without audit rows.
+	const seeded = randomUUID();
+	await f.admin.execute(sql`INSERT INTO task (id, plant_id, title, category, priority, status, created_at, due_kind)
+		VALUES (${seeded}, ${plant.id}, 'Call James', 'general', 'medium', 'not_started', now(), 'undated')`);
+	for (const who of [owner, member])
+		assert.deepEqual(ok(await read(who, "statusHistory", { taskId: seeded })), {
+			taskId: seeded,
+			items: [],
+			next: null,
+			completeness: "complete",
+		});
+	refused(await read(foreign, "statusHistory", { taskId: seeded }), "unavailable");
+	refused(await read(owner, "statusHistory", { taskId: randomUUID() }), "unavailable");
+
 	// An older occurrence cannot reopen while a later one of its series is open; the refusal names it.
 	const older = await create(owner, { title: "Weekly check-in" });
 	const newer = await create(owner, { title: "Weekly check-in" });
