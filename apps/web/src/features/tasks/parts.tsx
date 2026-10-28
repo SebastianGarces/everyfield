@@ -65,13 +65,7 @@ export function DoneBox({
 	if (!canAct) return <span aria-hidden="true" className="size-11 flex-none" />;
 	const settled = isSettled(task.status);
 	return (
-		<label
-			className={cn(
-				"-m-3 grid size-11 flex-none place-items-center rounded-full",
-				// The box shows progress while a save runs and not-allowed while it waits for another reason (C68).
-				wait === "saving" ? "cursor-progress" : wait === null ? "cursor-pointer" : "cursor-not-allowed",
-			)}
-		>
+		<label className="-m-3 grid size-11 flex-none cursor-pointer place-items-center rounded-full has-[:disabled]:cursor-default">
 			<Checkbox
 				shape="round"
 				aria-label={`${settled ? "Reopen" : "Complete"} ${task.title}`}

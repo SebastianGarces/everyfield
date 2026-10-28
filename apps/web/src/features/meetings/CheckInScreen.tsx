@@ -380,7 +380,7 @@ function Row({
 			aria-disabled={disabled || saving || undefined}
 			onClick={() => !saving && !disabled && onToggle()}
 			className={cn(
-				"flex min-h-[58px] w-full items-center gap-3 rounded-card px-3.5 py-2 text-left transition-[background-color,box-shadow] duration-150 focus-visible:shadow-[0_0_0_2px_var(--ef-ink)] focus-visible:outline-none",
+				"flex min-h-[58px] w-full cursor-pointer items-center gap-3 rounded-card px-3.5 py-2 text-left transition-[background-color,box-shadow] duration-150 focus-visible:shadow-[0_0_0_2px_var(--ef-ink)] focus-visible:outline-none aria-disabled:cursor-default",
 				here
 					? "bg-green-50 shadow-edge"
 					: "bg-surface-raised shadow-edge hover:bg-surface-2 aria-disabled:hover:bg-surface-raised",
