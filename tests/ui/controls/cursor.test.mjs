@@ -148,8 +148,7 @@ for (const [name, engine] of ENGINES) {
 			const combobox = role("combobox", "Owner with a disabled option");
 			await pointer(combobox, 'combobox trigger "Owner with a disabled option"');
 			await combobox.click();
-			const items = page.getByRole("option");
-			await items.first().waitFor();
+			await page.getByRole("option").first().waitFor();
 			const enabledOwner = page.locator('[role="option"]:not([aria-disabled="true"])').first();
 			await pointer(enabledOwner, "combobox item (enabled)");
 			await blocked(page.locator('[role="option"][aria-disabled="true"]'), "combobox item (disabled)");
