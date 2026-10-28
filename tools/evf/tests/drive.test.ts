@@ -462,6 +462,12 @@ test("OPS-59-gate: a verify closes passed only with a met or n/a proof per Done 
 			"2",
 			"3",
 		]);
+		assert.deepEqual(
+			doneCriteria("## Goal\nx\n## Done criteria\n1. a\n2. b\n## Non-goals\n1. not this\n2. nor this\n3. nor this"),
+			["1", "2"],
+			"a heading ends the criteria",
+		);
+		assert.deepEqual(doneCriteria("Goal: x\nDone criteria:\n1. a\n2. b\n**Non-goals**\n1. not this"), ["1", "2"]);
 		f.db.prepare("UPDATE tasks SET spec = ?, status = 'active' WHERE id = ?").run(SPEC, f.taskId);
 		const verifyRun = f.insertRun("verify", "verifier", "started");
 		const summary = f.file("approved.md", "Approved.");

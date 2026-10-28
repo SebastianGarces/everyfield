@@ -159,7 +159,10 @@ function escalate(db: DatabaseSync, t: { id: number; ref: string }, runId: numbe
 	notify(`${t.ref} escalated`, cause);
 }
 
-/** The numbered Done criteria of a spec, as written: "1.", "2.", ... up to the Non-goals line. */
+/**
+ * The numbered Done criteria of a spec, as written: "1.", "2.", ... until the next section. A section starts at a
+ * Markdown heading or at a Non-goals line in any marking (plain, "## Non-goals", "**Non-goals**").
+ */
 export function doneCriteria(spec: string | null): string[] {
 	if (!spec) return [];
 	const lines = spec.split("\n");
@@ -167,7 +170,7 @@ export function doneCriteria(spec: string | null): string[] {
 	if (start < 0) return [];
 	const out: string[] = [];
 	for (const line of lines.slice(start + 1)) {
-		if (/^\s*non-goals/i.test(line)) break;
+		if (/^\s*#/.test(line) || /^\s*[*_]*non-goals/i.test(line)) break;
 		const m = /^\s*(\d+)\./.exec(line);
 		if (m) out.push(m[1]!);
 	}
