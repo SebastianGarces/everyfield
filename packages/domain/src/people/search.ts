@@ -7,10 +7,11 @@ import { authorizeRead, deny, readReply, type Context, type Tx } from "./core.ts
 /**
  * The person-search rule, built once (REQ-MTG pickers now, Compose recipients later). Each whitespace-separated query
  * word must match the start of a name word or the start of a word of the email local part. Name words split on spaces
- * and hyphens; the local part also splits on `.`, `_` and `+`. A word that starts the whole address (a typed email) also matches. The email
- * domain never matches, because every match is anchored at the start of the address or of a name word. Case and diacritics are
- * ignored through a fixed Latin translate(), because a migration and a new extension fall outside this rule. A query of
- * phone characters with 3 or more digits also matches people whose phone digits contain those digits.
+ * and hyphens; the local part splits on `.`, `_`, `-` and `+`. A word that starts the whole address (a typed email)
+ * also matches. The email domain never matches, because every match is anchored at the start of the address or of a
+ * name word. Case and diacritics are ignored through a fixed Latin translate(), because a migration and a new
+ * extension fall outside this rule. A query of phone characters with 3 or more digits also matches people whose phone
+ * digits contain those digits.
  */
 const FOLD: readonly [string, string][] = [
 	["àáâãäåāăą", "a"],

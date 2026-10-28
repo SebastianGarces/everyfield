@@ -143,3 +143,39 @@ for (const [name, engine] of ENGINES) {
 		});
 	});
 }
+
+for (const [name, engine] of ENGINES) {
+	test(`AC:TARGET-MTG-007 (${name}): the walk-in "In People" picker and the inviter picker use the name-start rule`, async () => {
+		const { meetingId } = fixture("meetings");
+		await withPage(engine, async (page, context) => {
+			await signIn(context, fixture("people").owner.cookie);
+			// Add a walk-in, "In People": "example" is only an email domain and finds no one; "ruth a" finds Ruth Allen.
+			await page.goto(`${BASE}/meetings/${meetingId}/check-in`);
+			await hydrated(page);
+			await page.getByRole("button", { name: "Add a walk-in" }).click();
+			const walkIn = page.getByRole("dialog", { name: "Add a walk-in" });
+			const search = walkIn.getByRole("searchbox", { name: /Search people/ });
+			await search.fill("example");
+			await walkIn.getByText("No one matches", { exact: false }).waitFor();
+			assert.equal(await walkIn.getByRole("radiogroup", { name: "Person" }).getByRole("radio").count(), 0);
+			await search.fill("ruth a");
+			await walkIn.getByRole("radio", { name: /Ruth Allen/ }).waitFor();
+			await page.keyboard.press("Escape");
+
+			// "Who invited them?" on a guest row.
+			await page.goto(`${BASE}/meetings/${meetingId}`);
+			await hydrated(page);
+			await page
+				.getByRole("button", { name: /^Actions for / })
+				.first()
+				.click();
+			await page.getByRole("menuitem", { name: "Change who invited them" }).click();
+			const inviter = page.getByRole("dialog", { name: "Who invited them?" });
+			const find = inviter.getByRole("searchbox", { name: /Search people/ });
+			await find.fill("example");
+			await inviter.getByText("No one matches", { exact: false }).waitFor();
+			await find.fill("ruth a");
+			await inviter.getByRole("radio", { name: /Ruth Allen/ }).waitFor();
+		});
+	});
+}
