@@ -18,6 +18,7 @@ import {
 	type TaskRef,
 } from "./lib.ts";
 import { prFor, prOpen, ship } from "./ship.ts";
+import { doneCriteria } from "./spec.ts";
 import { verify } from "./verify.ts";
 
 /**
@@ -208,24 +209,6 @@ function escalate(db: DatabaseSync, t: { id: number; ref: string }, runId: numbe
 	db.prepare("UPDATE tasks SET status = 'escalated', updated_at = ? WHERE id = ?").run(now(), t.id);
 	record(db, t.id, runId, "escalation", { summary: `${t.ref} needs Sebastian: ${cause}` });
 	notify(`${t.ref} escalated`, cause);
-}
-
-/**
- * The numbered Done criteria of a spec, as written: "1.", "2.", ... until the next section. A section starts at a
- * Markdown heading or at a Non-goals line in any marking (plain, "## Non-goals", "**Non-goals**").
- */
-export function doneCriteria(spec: string | null): string[] {
-	if (!spec) return [];
-	const lines = spec.split("\n");
-	const start = lines.findIndex((l) => /done criteria/i.test(l));
-	if (start < 0) return [];
-	const out: string[] = [];
-	for (const line of lines.slice(start + 1)) {
-		if (/^\s*#/.test(line) || /^\s*[*_]*non-goals/i.test(line)) break;
-		const m = /^\s*(\d+)\./.exec(line);
-		if (m) out.push(m[1]!);
-	}
-	return out;
 }
 
 /**
@@ -625,9 +608,9 @@ const STAGE_PROMPTS: Record<string, Prompt> = {
 	simplify: (task) =>
 		`Simplify task ${task.id}: read the spec and git diff origin/main...HEAD, remove what the Done criteria do not need, keep bin/evf verify ${task.id} green, commit. ${CLOSE}`,
 	evidence: (task) =>
-		`Capture evidence for task ${task.id} at the current head: one bin/evf proof add ${task.id} --criterion <n> --status met|unmet|n/a --evidence <url-or-path> per Done criterion. ${CLOSE}`,
+		`Capture evidence for task ${task.id} at the current head. First read the full spec with bin/evf task spec ${task.id} --show: your session-start context may shorten it. Then record one bin/evf proof add ${task.id} --criterion <n> --status met|unmet|n/a --evidence <url-or-path> per Done criterion. ${CLOSE}`,
 	verify: (task) =>
-		`Verify task ${task.id}: read the ask, spec, goal chain and bin/evf proof show ${task.id}; follow verify-preview; post one review with post-review.mjs --session <bin/evf session> --model claude-opus-5-5. Close with bin/evf run done $EVF_RUN --status passed (approved; every Done criterion needs a met or n/a proof at the head) or failed (changes requested) --summary-file <path> listing every finding.`,
+		`Verify task ${task.id}: before you judge, read the full ask and spec with bin/evf task spec ${task.id} --show (your session-start context may shorten them), the goal chain and bin/evf proof show ${task.id}; follow verify-preview; post one review with post-review.mjs --session <bin/evf session> --model claude-opus-5-5. Close with bin/evf run done $EVF_RUN --status passed (approved; every Done criterion needs a met or n/a proof at the head) or failed (changes requested) --summary-file <path> listing every finding.`,
 };
 
 const prBodyPath = (root: string, task: TaskRef) => join(runtimeDir(root, task), "pr-body.md");
