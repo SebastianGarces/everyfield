@@ -268,10 +268,7 @@ export async function restoreOwnSuppression(requestKey: string, reason: string):
 
 export async function previewMessage(input: unknown): Promise<Outcome<Preview>> {
 	// The preview shows the RSVP line where the planter put it, with a sample link on the deployment's origin.
-	const origin = appOrigin();
-	const request = input && typeof input === "object" ? (input as { merge?: Record<string, string> }) : {};
-	const withLink = origin ? { ...request, merge: { ...request.merge, rsvp_link: `${origin}/rsvp/preview` } } : input;
-	return look((tx, viewer) => communicationWriter.readPreview(tx, viewer.authority, withLink));
+	return look((tx, viewer) => communicationWriter.readPreview(tx, viewer.authority, input, appOrigin() ?? undefined));
 }
 
 export async function resolveAudience(input: unknown): Promise<Outcome<AudienceSummary>> {

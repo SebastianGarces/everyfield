@@ -55,7 +55,7 @@ function rsvpHref(value: string | undefined): string | null {
 	return value === url.origin + url.pathname ? value : null;
 }
 
-const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+export const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 
 /**
  * The RSVP button, built by system code from a checked URL. A table cell carries the background, an inline-styled link
@@ -86,15 +86,23 @@ export type RenderMode = "send" | "preview";
  * RSVP URL and is empty otherwise. Every other value is escaped text, never markup or an attribute.
  */
 export function renderBody(input: string, merge: Readonly<Record<string, string>>, mode: RenderMode = "send"): string {
+	const field = /\{\{\s*([a-z0-9_]+)\s*\}\}/gi;
+	// Fields fill text only. A field inside a tag (an href) is dropped, so no merge value reaches an attribute.
 	return sanitizeHtml(input)
-		.replace(/\{\{\s*([a-z0-9_]+)\s*\}\}/gi, (_match, key: string) => {
-			if (key.toLowerCase() === "rsvp_link") {
-				const href = rsvpHref(merge.rsvp_link);
-				if (href) return rsvpButton(href);
-				return mode === "preview" ? rsvpPlaceholder() : "";
-			}
-			return escapeHtml(merge[key] ?? "");
-		})
+		.split(/(<[^>]*>)/)
+		.map((part) =>
+			part.startsWith("<")
+				? part.replace(field, "")
+				: part.replace(field, (_match, key: string) => {
+						if (key.toLowerCase() === "rsvp_link") {
+							const href = rsvpHref(merge.rsvp_link);
+							if (href) return rsvpButton(href);
+							return mode === "preview" ? rsvpPlaceholder() : "";
+						}
+						return escapeHtml(merge[key] ?? "");
+					}),
+		)
+		.join("")
 		.replace(/<p>\s*(<table data-rsvp-(?:button|placeholder)[\s\S]*?<\/table>)\s*<\/p>/g, "$1")
 		.replace(/<p>\s*<\/p>/g, "");
 }

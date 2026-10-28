@@ -1,4 +1,4 @@
-import { escapeHtml, renderBody, type RenderMode } from "./html.ts";
+import { FONT, escapeHtml, renderBody, type RenderMode } from "./html.ts";
 
 // The one place that builds the HTML of a church email. Delivery seals its output and the Messages preview shows the
 // same string in an isolated frame, so the preview cannot drift from the inbox. It is plain TypeScript with no app,
@@ -7,7 +7,6 @@ import { escapeHtml, renderBody, type RenderMode } from "./html.ts";
 
 export type EmailContext = { churchName: string };
 
-const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 const INK = "#181D19";
 
 const blockStyles: Record<string, string> = {

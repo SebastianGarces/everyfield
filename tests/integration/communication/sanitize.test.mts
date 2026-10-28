@@ -82,3 +82,12 @@ test("AC:COM-010 the email layout is inline-styled tables around the rendered bo
 	const hostile = renderEmailHtml("<script>alert(1)</script><p onclick=x>Hi</p>", {}, { churchName: "<b>Bad</b>" });
 	assert.equal(/<script|onclick|<b>Bad/.test(hostile), false);
 });
+
+test("AC:COM-010 a merge field inside an href never writes into the attribute", () => {
+	assert.equal(
+		renderBody('<p><a href="{{rsvp_link}}">Answer here</a></p>', { rsvp_link: link }),
+		'<p><a href="">Answer here</a></p>',
+	);
+	const named = renderBody('<p><a href="https://example.com/?who={{name}}">Hi</a></p>', { name: "Ann" });
+	assert.ok(!named.includes("Ann"), named);
+});

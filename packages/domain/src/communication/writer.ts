@@ -16,6 +16,7 @@ import {
 import { z } from "zod";
 import type { RequestActor } from "../access/session.ts";
 import { liveRead } from "../access/session.ts";
+import { meetingOpenSql } from "../meetings/tokens.ts";
 import { audiencePeople, reviewedParts, summarizeAudience } from "./audience.ts";
 import {
 	correctContactLog as correctContactLogCommand,
@@ -197,7 +198,7 @@ async function subjects(
 /** True when the meeting is in this church, not retired and still open for answers. A null id is never open. */
 function meetingOpen(meetingId: string | null, plantId: string) {
 	return sql`(${meetingId}::uuid IS NOT NULL AND EXISTS (SELECT 1 FROM meeting m WHERE m.id = ${meetingId}::uuid
-		AND m.plant_id = ${plantId}::uuid AND m.retired_at IS NULL AND m.status IN ('planning', 'ready', 'in_progress')))`;
+		AND m.plant_id = ${plantId}::uuid AND ${meetingOpenSql("m")}))`;
 }
 function storedBody(value: string | null | undefined): string | null {
 	if (value == null) return null;
@@ -338,7 +339,8 @@ export const communicationWriter = {
 	async deleteTemplate(tx: Tx, context: CommunicationContext, raw: unknown) {
 		return reply(tx, () => deleteTemplate(tx, context, raw));
 	},
-	readPreview: (tx: Tx, authority: RequestActor, raw: unknown) => readReply(() => preview(tx, authority, raw)),
+	readPreview: (tx: Tx, authority: RequestActor, raw: unknown, previewOrigin?: string) =>
+		readReply(() => preview(tx, authority, raw, previewOrigin)),
 	readAudience: (tx: Tx, authority: RequestActor, raw: unknown) => readReply(() => audience(tx, authority, raw)),
 	readRecipients: (tx: Tx, authority: RequestActor, raw: unknown) => readReply(() => recipients(tx, authority, raw)),
 	readMergeFields: (tx: Tx, authority: RequestActor, raw: unknown) => readReply(() => merge(tx, authority, raw)),
@@ -780,7 +782,7 @@ async function deleteTemplate(tx: Tx, context: CommunicationContext, raw: unknow
 	});
 }
 
-async function preview(tx: Tx, authority: RequestActor, request: unknown) {
+async function preview(tx: Tx, authority: RequestActor, request: unknown, previewOrigin?: string) {
 	const input = parse(c.previewRequest, request);
 	const { reader, access } = accessOf(authority);
 	const audience = input.audience ?? emptyAudience;
@@ -816,7 +818,9 @@ async function preview(tx: Tx, authority: RequestActor, request: unknown) {
 	if (!found.meeting_ok || !found.template_ok || !found.known) deny("invalid_subject");
 	if (usesRsvpLink(input.bodyHtml) && !found.meeting_open) deny("rsvp_needs_meeting");
 	const summary = summarizeAudience(found.people);
-	const previewBody = renderBody(input.bodyHtml, input.merge, "preview");
+	// The sample link is built here from the server origin, after the client input is parsed.
+	const merge = previewOrigin ? { ...input.merge, rsvp_link: `${previewOrigin}/rsvp/preview` } : input.merge;
+	const previewBody = renderBody(input.bodyHtml, merge, "preview");
 	const sourceBody = sanitizeHtml(input.bodyHtml);
 	const parts = reviewedParts(found.people);
 	const digest = reviewedDigest(found.subject, sourceBody ? sourceBody : null, parts.people, parts.emails);
@@ -824,7 +828,7 @@ async function preview(tx: Tx, authority: RequestActor, request: unknown) {
 		deny("stale_review", { previewBody, scriptExecution: false, providerCalls: 0 });
 	return c.previewResult.parse({
 		previewBody,
-		previewHtml: renderEmailHtml(input.bodyHtml, input.merge, { churchName: found.church_name ?? "" }, "preview"),
+		previewHtml: renderEmailHtml(input.bodyHtml, merge, { churchName: found.church_name ?? "" }, "preview"),
 		scriptExecution: false,
 		providerCalls: 0,
 		eligibleEmails: summary.eligibleEmails,

@@ -14,7 +14,7 @@ import type { RequestActor } from "../access/session.ts";
 import { audiencePeople, reviewedParts } from "./audience.ts";
 import { z } from "zod";
 import { administers, deny, hash, parse, readReply, readerOf } from "./core.ts";
-import { newRsvpToken, rsvpTokenDigest, rsvpTokenUpdate } from "../meetings/tokens.ts";
+import { meetingOpenSql, newRsvpToken, rsvpTokenDigest, rsvpTokenUpdate } from "../meetings/tokens.ts";
 
 const BATCH_LIMIT = 100;
 const CALL_TIMEOUT_MS = 10_000;
@@ -209,8 +209,7 @@ async function loadAudience(db: Database, actor: Actor, communicationId: string)
 			c.audience, c.review_digest, c.meeting_id,
 			(SELECT pl.name FROM plant pl WHERE pl.id = c.plant_id) AS church_name,
 			CASE WHEN c.meeting_id IS NULL THEN false ELSE EXISTS (
-				SELECT 1 FROM meeting mt WHERE mt.id = c.meeting_id AND mt.plant_id = c.plant_id AND mt.retired_at IS NULL
-				AND mt.status IN ('planning', 'ready', 'in_progress')
+				SELECT 1 FROM meeting mt WHERE mt.id = c.meeting_id AND mt.plant_id = c.plant_id AND ${meetingOpenSql("mt")}
 			) END AS meeting_open,
 			CASE WHEN c.meeting_id IS NULL THEN '[]'::jsonb ELSE (
 				SELECT coalesce(jsonb_agg(pt.person_id), '[]'::jsonb) FROM participation pt
@@ -319,6 +318,8 @@ async function prepare(
 	if (lookupOnly) deny("not_found");
 	// A message with an RSVP link needs an open meeting whose guest list the links come from.
 	const linked = usesRsvpLink(found.body_html);
+	// A link needs an https origin; without one the field renders nothing and no token is minted.
+	const canLink = linked && new URL(keys.origin).protocol === "https:";
 	if (linked && (!found.meeting_id || !found.meeting_open)) deny("rsvp_needs_meeting");
 	const guests = new Set(z.array(z.uuid()).parse(asJson(found.guests) ?? []));
 	const people = z
@@ -332,10 +333,9 @@ async function prepare(
 		const address = person.email!.trim().toLowerCase();
 		const id = randomUUID();
 		// Each recipient gets their own message. The raw token lives only in this message and the provider call.
-		const token = linked && guests.has(person.id) ? newRsvpToken() : null;
+		const token = canLink && guests.has(person.id) ? newRsvpToken() : null;
 		const merge = { name: person.displayName, rsvp_link: token ? `${keys.origin}/rsvp/${token}` : "" };
 		const html = renderEmailHtml(found.body_html!, merge, { churchName: found.church_name ?? "" });
-		const rendered = token && html.includes(token) ? token : null;
 		const text = plainText(renderBody(found.body_html!, merge)) || found.subject!;
 		const payloadHash = hash({
 			purpose: "communication",
@@ -350,7 +350,7 @@ async function prepare(
 			person: person.id,
 			logical_key: `communication/${found.id}/${person.id}`,
 			payload_hash: payloadHash,
-			token_hash: rendered ? rsvpTokenDigest(rendered) : null,
+			token_hash: token ? rsvpTokenDigest(token) : null,
 			html,
 			text,
 			address_hash: addressHash(keys.addressKey, address),
