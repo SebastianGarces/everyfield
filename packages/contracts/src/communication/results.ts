@@ -66,9 +66,12 @@ export const audienceResult = z.strictObject({
 	eligibleEmails: z.array(z.string()),
 	searchResultLimit: z.literal(20),
 	searchLimitTruncatesAudience: z.literal(false),
+	/** The reachable people by name, capped at 200. `complete` is false when the cap cut the list. */
+	recipients: z.array(z.strictObject({ id: recordId, displayName: z.string() })).max(200),
+	complete: z.boolean(),
 });
 export const recipientResult = z.strictObject({
-	people: z.array(z.strictObject({ id: recordId, displayName: z.string(), email: z.string() })).max(20),
+	people: z.array(z.strictObject({ id: recordId, displayName: z.string(), email: z.string().nullable() })).max(20),
 	limit: z.literal(20),
 });
 export const teamListResult = z.strictObject({
@@ -151,6 +154,9 @@ export const historyItem = z.strictObject({
 	rate: z.number().nullable(),
 	reachable: z.number().int().nonnegative(),
 	delivered: z.number().int().nonnegative(),
+	scheduledAt: instant.nullable(),
+	sentAt: instant.nullable(),
+	senderName: z.string().nullable(),
 });
 export const historyPage = z.strictObject({
 	items: z.array(historyItem),
@@ -192,6 +198,9 @@ export const detailResult = z.strictObject({
 	bodyHtml: z.string().nullable(),
 	bodyText: z.string().nullable(),
 	meetingId: recordId.nullable(),
+	scheduledAt: instant.nullable(),
+	sentAt: instant.nullable(),
+	senderName: z.string().nullable(),
 	deliveryAddress: z.string().nullable(),
 	currentPersonAddress: z.string().nullable(),
 	deliveryStatus: z.string().nullable(),
