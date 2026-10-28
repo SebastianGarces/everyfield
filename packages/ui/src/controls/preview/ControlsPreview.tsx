@@ -76,6 +76,8 @@ import {
 	MenuContent,
 	MenuItem,
 	MenuLabel,
+	MenuRadioGroup,
+	MenuRadioItem,
 	MenuSeparator,
 	MenuTrigger,
 	PageHeader,
@@ -452,7 +454,123 @@ function ButtonsSection() {
 					</Button>
 				</div>
 			</Specimen>
+			<CursorSamples />
 		</Section>
+	);
+}
+
+const CURSOR_STAGES = STAGES.map((o) => (o.value === "leader" ? { ...o, disabled: true } : o));
+const CURSOR_OWNERS = TAGS.owners.map((o, i) => (i === 1 ? { ...o, disabled: true } : o));
+/** Plain trigger look with no cursor class, so the samples show what the product-root cursor rule gives. */
+const PLAIN = "h-[34px] rounded-sm bg-surface-2 px-3 text-sm font-medium text-ink";
+
+/**
+ * Enabled and disabled samples of the clickable controls, so the cursor test (tests/ui/controls/cursor.test.mjs) can
+ * reach each one. The plain triggers use no asChild and no cursor class: the product-root rule gives them a pointer.
+ */
+function CursorSamples() {
+	const [view, setView] = useState("grid");
+	const [tab, setTab] = useState("one");
+	const [stage, setStage] = useState("core");
+	const [owner, setOwner] = useState<string[]>([]);
+	const [failed, setFailed] = useState<string[]>([]);
+	const [paletteError, setPaletteError] = useState(false);
+	const [density, setDensity] = useState("comfortable");
+	return (
+		<Specimen label="Pointer and disabled cursors" className="mt-5">
+			<div className="flex flex-wrap items-center gap-3">
+				<IconButton icon={Edit02Icon} label="Edit (disabled)" disabled />
+				<Menu>
+					<MenuTrigger className={PLAIN}>Plain menu trigger</MenuTrigger>
+					<MenuContent>
+						<MenuRadioGroup value={density} onValueChange={setDensity}>
+							<MenuRadioItem value="comfortable">Comfortable</MenuRadioItem>
+							<MenuRadioItem value="compact">Compact</MenuRadioItem>
+							<MenuRadioItem value="dense" disabled>
+								Dense (disabled)
+							</MenuRadioItem>
+						</MenuRadioGroup>
+					</MenuContent>
+				</Menu>
+				<Dialog>
+					<DialogTrigger className={PLAIN}>Plain dialog trigger</DialogTrigger>
+					<DialogContent>
+						<DialogHeader title="Plain dialog" />
+						<DialogBody>This dialog opens from a trigger without asChild.</DialogBody>
+					</DialogContent>
+				</Dialog>
+				<Popover>
+					<PopoverTrigger className={PLAIN}>Plain popover trigger</PopoverTrigger>
+					<PopoverContent label="Plain popover" className="w-[240px] p-4">
+						<p className="text-sm text-text-2">This pop-over opens from a trigger without asChild.</p>
+					</PopoverContent>
+				</Popover>
+				<Button size="sm" variant="outline" onClick={() => setPaletteError(true)}>
+					Palette with error
+				</Button>
+				<CommandPalette
+					open={paletteError}
+					onOpenChange={setPaletteError}
+					groups={[]}
+					error={{ message: "Search is unavailable.", onRetry: () => setPaletteError(false) }}
+				/>
+			</div>
+			<div className="mt-5 grid items-start gap-4 app-md:grid-cols-2">
+				<Field label="Stage with a disabled option">
+					<Select value={stage} onValueChange={setStage} options={CURSOR_STAGES} />
+				</Field>
+				<Field label="Stage (disabled)">
+					<Select defaultValue="core" onValueChange={() => {}} options={STAGES} disabled />
+				</Field>
+				<Field label="Owner with a disabled option">
+					<Combobox
+						searchLabel="Search owners"
+						options={CURSOR_OWNERS}
+						value={owner}
+						onValueChange={setOwner}
+						placeholder="Choose an owner"
+					/>
+				</Field>
+				<Field label="Owner that failed to load">
+					<Combobox
+						searchLabel="Search failed owners"
+						options={[]}
+						value={failed}
+						onValueChange={setFailed}
+						placeholder="Choose a failed owner"
+						error={{ message: "Owners did not load.", onRetry: () => {} }}
+					/>
+				</Field>
+			</div>
+			<div className="mt-5 flex flex-wrap items-start gap-x-8 gap-y-4">
+				<Checkbox label="Disabled checkbox" disabled />
+				<Checkbox label="Disabled checked checkbox" disabled defaultChecked />
+				<div className="min-w-0">
+					<SegmentedControl
+						label="Layout"
+						value={view}
+						onValueChange={setView}
+						options={[
+							{ value: "grid", label: "Grid" },
+							{ value: "rows", label: "Rows" },
+							{ value: "map", label: "Map", disabled: true },
+						]}
+					/>
+					<Tabs value={tab} onValueChange={setTab} className="mt-4">
+						<TabsList aria-label="Sample tabs">
+							<Tab value="one">One</Tab>
+							<Tab value="two">Two</Tab>
+							<Tab value="three" disabled>
+								Three
+							</Tab>
+						</TabsList>
+						<TabsPanel value="one">First tab.</TabsPanel>
+						<TabsPanel value="two">Second tab.</TabsPanel>
+						<TabsPanel value="three">Third tab.</TabsPanel>
+					</Tabs>
+				</div>
+			</div>
+		</Specimen>
 	);
 }
 

@@ -24,7 +24,7 @@ export function Breadcrumb({ items, className }: { items: Crumb[]; className?: s
 							) : item.href ? (
 								<IntentLink
 									href={item.href}
-									className="rounded-xs underline-offset-[3px] transition-colors hover:text-ink hover:underline"
+									className="cursor-pointer rounded-xs underline-offset-[3px] transition-colors hover:text-ink hover:underline"
 								>
 									{item.label}
 								</IntentLink>
