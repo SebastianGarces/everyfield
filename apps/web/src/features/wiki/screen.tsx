@@ -10,7 +10,9 @@ import {
 	SourceBar,
 	TocRail,
 	WikiSearchButton,
+	FixedFrame,
 } from "./client.tsx";
+import { HEADER_GAP, SOURCE_BAR_GAP } from "./layout.ts";
 import { WikiEditor } from "./editor.tsx";
 import { ArticleFeedback } from "./feedback.tsx";
 import {
@@ -115,7 +117,7 @@ export function WikiScreen({ data, source }: { data: WikiPageData; source: strin
 	const fixed = !data.editing;
 	const header = (
 		<PageHeader
-			className={fixed ? "min-[1280px]:mb-4" : undefined}
+			className={fixed ? HEADER_GAP : undefined}
 			title={title}
 			size={article ? "default" : "xl"}
 			breadcrumb={
@@ -170,13 +172,7 @@ export function WikiScreen({ data, source }: { data: WikiPageData; source: strin
 	);
 	const steps = article && !data.editing ? stepsAround(data.tree, article.article.articleId) : null;
 	return (
-		<div
-			className={
-				fixed
-					? "min-[1280px]:-mb-[72px] min-[1280px]:flex min-[1280px]:h-[calc(100dvh-132px)] min-[1280px]:flex-col"
-					: undefined
-			}
-		>
+		<FixedFrame fixed={fixed}>
 			{article && !data.editing ? (
 				<ArticleSession
 					key={article.article.articleId}
@@ -196,7 +192,7 @@ export function WikiScreen({ data, source }: { data: WikiPageData; source: strin
 				header
 			)}
 			{article && article.sources.length && !data.editing ? (
-				<div className={fixed ? "mb-6 min-[1280px]:mb-4" : "mb-6"}>
+				<div className={fixed ? SOURCE_BAR_GAP : "mb-6"}>
 					<SourceBar
 						sources={article.sources}
 						currentId={article.currentSourceId}
@@ -331,6 +327,6 @@ export function WikiScreen({ data, source }: { data: WikiPageData; source: strin
 					</>
 				)}
 			</ArticleColumns>
-		</div>
+		</FixedFrame>
 	);
 }

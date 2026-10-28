@@ -8,11 +8,11 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { BASE, ENGINES, fixture, hydrated, signIn, withPage as onPreview } from "../setup.mjs";
 
-const withPage = (engine, path, run, size) =>
+const withPage = (engine, path, run, size, seat = "owner") =>
 	onPreview(
 		engine,
 		async (page, context) => {
-			await signIn(context, fixture("people").owner.cookie);
+			await signIn(context, fixture("people")[seat].cookie);
 			await page.goto(`${BASE}${path}`);
 			await hydrated(page);
 			await page.locator("h1").waitFor();
@@ -230,6 +230,41 @@ for (const [name, engine] of ENGINES) {
 		});
 	});
 
+	test(`AC:WIKI-ARTICLE-LAYOUT: a Member seat keeps the fixed header under its banner (${name})`, async () => {
+		await withPage(
+			engine,
+			"/wiki/website-setup",
+			async (page) => {
+				await page.locator("#wiki-scroll").waitFor();
+				const before = await fixed(page);
+				assert.equal(before.doc, true, "the Member banner does not make the window scroll");
+				const article = await page.locator("#wiki-scroll").boundingBox();
+				await page.mouse.move(article.x + 200, article.y + 100);
+				await page.mouse.wheel(0, 100000);
+				await page.waitForTimeout(600);
+				const after = await fixed(page);
+				assert.equal(after.title, before.title);
+				assert.equal((await tops(page)).page, 0);
+			},
+			undefined,
+			"member",
+		);
+	});
+
+	test(`AC:WIKI-ARTICLE-LAYOUT: the first Tab on a fresh load reaches the top of the page (${name})`, async () => {
+		await withPage(engine, "/wiki/launch-checklist-20", async (page) => {
+			await page.keyboard.press("Tab");
+			const place = await page.evaluate(() => {
+				const el = document.activeElement;
+				return {
+					inSide: !!el?.closest("#wiki-scroll")?.previousElementSibling?.contains(el),
+					text: el?.textContent ?? "",
+				};
+			});
+			assert.equal(place.inSide, false, `the first Tab went to the sidenav: ${place.text}`);
+		});
+	});
+
 	test(`AC:WIKI-PREV-NEXT: Previous and Next follow the sidenav order (${name})`, async () => {
 		const card = (page, label) => page.getByRole("link", { name: new RegExp(`^${label}\\b`) }).last();
 		const hasNoList = (page) => page.getByRole("heading", { name: "In this section" }).count();
@@ -252,6 +287,12 @@ for (const [name, engine] of ENGINES) {
 			await page.waitForURL(/meeting-place$/);
 			await page.locator("h1", { hasText: "Choosing a meeting place" }).waitFor();
 			assert.equal(await page.evaluate(() => document.getElementById("wiki-scroll").scrollTop), 0);
+		});
+		// The first article of the second group: its Previous card names the group it comes from.
+		await withPage(engine, "/wiki/launch-checklist-1", async (page) => {
+			const previous = card(page, "Previous");
+			assert.match((await previous.textContent()) ?? "", /Frameworks/);
+			assert.doesNotMatch((await card(page, "Next").textContent()) ?? "", /Reference|Frameworks/);
 		});
 		// The last article: Previous only.
 		await withPage(engine, "/wiki/launch-checklist-22", async (page) => {

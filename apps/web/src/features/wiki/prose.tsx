@@ -1,4 +1,5 @@
 import { Prose } from "@everyfield/ui/display";
+import { HEADING_STOP } from "./layout.ts";
 import { articleBlocks, inlineParts, type Inline } from "./model.ts";
 
 // Renders the entitled body as elements. It does not parse MDX and it does not emit raw HTML.
@@ -33,7 +34,9 @@ function Lines({ text }: { text: string }) {
 export function ArticleBody({ contentType, body }: { contentType: string; body: string }) {
 	const blocks = articleBlocks(contentType, body);
 	return (
-		<Prose className="min-[1280px]:[&_h2]:scroll-mt-3 min-[1280px]:[&_h3]:scroll-mt-3 [&_td]:border [&_td]:border-line [&_td]:px-2.5 [&_td]:py-1.5 [&_th]:border [&_th]:border-line [&_th]:px-2.5 [&_th]:py-1.5 [&_table]:w-full [&_table]:border-collapse">
+		<Prose
+			className={`${HEADING_STOP} [&_td]:border [&_td]:border-line [&_td]:px-2.5 [&_td]:py-1.5 [&_th]:border [&_th]:border-line [&_th]:px-2.5 [&_th]:py-1.5 [&_table]:w-full [&_table]:border-collapse`}
+		>
 			{blocks.map((block, index) => {
 				if (block.kind === "heading") {
 					const Tag = block.level === 3 ? "h3" : "h2";

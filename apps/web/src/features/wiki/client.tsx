@@ -36,6 +36,16 @@ import {
 } from "./actions.ts";
 import { fractionText, pdfFilename, PHASE_NAME, snippetParts, type SourceRow } from "./model.ts";
 
+import {
+	ARTICLE_FIXED,
+	BELOW_WIDE_ONLY,
+	FRAME,
+	GRID,
+	GRID_FIXED,
+	RAIL_FIXED,
+	RAIL_STICKY,
+	RAIL_TOC_PAD,
+} from "./layout.ts";
 const Chrome = createContext<{ openSearch: () => void; openGuide: () => void; guideOpen: boolean } | null>(null);
 
 export function useWikiChrome() {
@@ -460,11 +470,11 @@ export function ArticleSession({ children, ...props }: ArticleProps) {
 			timer = window.setTimeout(measure, 500);
 		};
 		measure();
-		const targets: (Element | Window)[] = column ? [column, window] : [window];
-		for (const target of targets) target.addEventListener("scroll", onScroll, { passive: true });
+		const target: Element | Window = column ?? window;
+		target.addEventListener("scroll", onScroll, { passive: true });
 		window.addEventListener("resize", onScroll);
 		return () => {
-			for (const target of targets) target.removeEventListener("scroll", onScroll);
+			target.removeEventListener("scroll", onScroll);
 			window.removeEventListener("resize", onScroll);
 			window.clearTimeout(timer);
 		};
@@ -790,8 +800,8 @@ const SCROLL =
 	"overscroll-contain [scrollbar-color:var(--ef-line-2)_transparent] [scrollbar-gutter:stable] [scrollbar-width:thin]";
 
 /** A side column: it scrolls on its own when the layout is fixed, else it sticks below the app bar. */
-const RAIL = `hidden min-[1280px]:block min-[1280px]:min-h-0 min-[1280px]:overflow-y-auto min-[1280px]:pr-3 min-[1280px]:pb-6 ${SCROLL}`;
-const STICKY_RAIL = "hidden min-[1280px]:sticky min-[1280px]:top-24 min-[1280px]:block";
+const RAIL = `${RAIL_FIXED} ${SCROLL}`;
+const STICKY_RAIL = RAIL_STICKY;
 
 /** The heading nearest the top of the article column (the window below 1280px) is the current one. */
 function useCurrentHeading(ids: string[]): string | undefined {
@@ -859,7 +869,14 @@ export function ArticleColumns({
 		const el = side.current;
 		if (!el) return;
 		el.scrollTop = sidenavTop;
-		el.querySelector('[aria-current="page"]')?.scrollIntoView({ block: "nearest" });
+		// Set scrollTop directly: scrollIntoView moves Chromium's focus start point and breaks the first Tab.
+		const current = el.querySelector<HTMLElement>('[aria-current="page"]');
+		if (current) {
+			const box = el.getBoundingClientRect();
+			const link = current.getBoundingClientRect();
+			if (link.top < box.top) el.scrollTop += link.top - box.top;
+			else if (link.bottom > box.bottom) el.scrollTop += link.bottom - box.bottom;
+		}
 		sidenavTop = el.scrollTop;
 	}, []);
 	const tree = () => (
@@ -894,7 +911,7 @@ export function ArticleColumns({
 	);
 	return (
 		<>
-			<div className="mb-4 min-[1280px]:hidden">
+			<div className={`mb-4 ${BELOW_WIDE_ONLY}`}>
 				<Button variant="secondary" onClick={() => setOpenPath(pathname)}>
 					Articles
 				</Button>
@@ -905,13 +922,7 @@ export function ArticleColumns({
 					<DialogBody>{tree()}</DialogBody>
 				</DialogContent>
 			</Dialog>
-			<div
-				className={
-					fixed
-						? "grid items-start gap-8 min-[1280px]:min-h-0 min-[1280px]:flex-1 min-[1280px]:grid-cols-[250px_minmax(0,1fr)_220px] min-[1280px]:items-stretch min-[1280px]:gap-0"
-						: "grid items-start gap-8 min-[1280px]:grid-cols-[250px_minmax(0,1fr)_220px]"
-				}
-			>
+			<div className={fixed ? GRID_FIXED : GRID}>
 				<div
 					ref={side}
 					onScroll={(event) => {
@@ -925,17 +936,40 @@ export function ArticleColumns({
 					id={fixed ? ARTICLE_SCROLL_ID : undefined}
 					tabIndex={fixed ? 0 : undefined}
 					aria-label={fixed ? "Article" : undefined}
-					className={
-						fixed
-							? `min-w-0 min-[1280px]:min-h-0 min-[1280px]:overflow-y-auto min-[1280px]:px-4 min-[1280px]:pb-6 ${SCROLL}`
-							: "min-w-0"
-					}
+					className={fixed ? `${ARTICLE_FIXED} ${SCROLL}` : "min-w-0"}
 				>
-					<div className="mb-6 min-[1280px]:hidden">{toc}</div>
+					<div className={`mb-6 ${BELOW_WIDE_ONLY}`}>{toc}</div>
 					{children}
 				</div>
-				<div className={fixed ? `${RAIL} min-[1280px]:pl-6` : STICKY_RAIL}>{toc}</div>
+				<div className={fixed ? `${RAIL} ${RAIL_TOC_PAD}` : STICKY_RAIL}>{toc}</div>
 			</div>
 		</>
+	);
+}
+
+/** The fixed layout fills the space below the app bar and any banner. It reads its own top, so no shell size is fixed here. */
+export function FixedFrame({ fixed, children }: { fixed: boolean; children: ReactNode }) {
+	const frame = useRef<HTMLDivElement>(null);
+	useLayoutEffect(() => {
+		const el = frame.current;
+		if (!el || !fixed) return;
+		const fit = () => {
+			// The shell leaves 96px under the page; the frame's -72px margin leaves 24px.
+			const top = el.getBoundingClientRect().top + window.scrollY;
+			el.style.setProperty("--frame-h", `${Math.max(window.innerHeight - top - 24, 320)}px`);
+		};
+		fit();
+		const watch = new ResizeObserver(fit);
+		watch.observe(document.body);
+		window.addEventListener("resize", fit);
+		return () => {
+			watch.disconnect();
+			window.removeEventListener("resize", fit);
+		};
+	}, [fixed]);
+	return (
+		<div ref={frame} className={fixed ? FRAME : undefined}>
+			{children}
+		</div>
 	);
 }

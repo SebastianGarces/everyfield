@@ -202,9 +202,15 @@ async function up(origin: string) {
 	const digest = () => randomBytes(32).toString("hex");
 	const release = randomUUID();
 	const sectionId = randomUUID();
-	await admin.execute(
-		sql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id) VALUES(${sectionId},'section','framework/start',${GLOBAL})`,
-	);
+	// A second section puts the launch checklists in the "Reference" sidenav group, so one Previous card crosses groups.
+	const referenceSectionId = randomUUID();
+	for (const [id, key] of [
+		[sectionId, "framework/start"],
+		[referenceSectionId, "reference/checklists"],
+	] as const)
+		await admin.execute(
+			sql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id) VALUES(${id},'section',${key},${GLOBAL})`,
+		);
 	await admin.execute(sql`INSERT INTO reference_release(id,release_key,artifact_locator,manifest_hash,state,complete_at,validated_at,approval_locator,approval_hash,chunker_version,embedding_profile,embedding_dimensions,tenant_id,expected_passages)
 		VALUES(${release},${"release-" + release},'memory://ui-seed',${digest()},'validated',clock_timestamp(),clock_timestamp(),'memory://approval',${digest()},'v','profile',1,${GLOBAL},0)`);
 	const articles: [string, string, string, number][] = [
@@ -243,7 +249,7 @@ async function up(origin: string) {
 			sql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id) VALUES(${id},'article',${slug},${GLOBAL})`,
 		);
 		await admin.execute(sql`INSERT INTO article_revision(id,article_id,tenant_id,release_id,revision_number,title,slug,excerpt,body,content_type,phase,position,content_hash,published_at,meaningful,meaningful_sequence,section_id,parent_article_id,related_slugs)
-			VALUES(${randomUUID()},${id},${GLOBAL},${release},1,${title},${slug},${title},${body},'safe_mdx',${phase},${position + 1},${digest()},clock_timestamp(),true,1,${sectionId},NULL,ARRAY[]::text[])`);
+			VALUES(${randomUUID()},${id},${GLOBAL},${release},1,${title},${slug},${title},${body},'safe_mdx',${phase},${position + 1},${digest()},clock_timestamp(),true,1,${slug.startsWith("launch-checklist-") ? referenceSectionId : sectionId},NULL,ARRAY[]::text[])`);
 		await admin.execute(sql`INSERT INTO reference_version(id,item_id,release_id,version_number,artifact_path,content_hash,source_credit)
 			VALUES(${randomUUID()},${id},${release},1,${"wiki/" + slug},${digest()},${position === 0 ? `docs/reference/bootstrap/global-seed-payload.json@${digest()}` : "UI seed"})`);
 	}
