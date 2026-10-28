@@ -919,6 +919,21 @@
 			],
 			"risk": "ordinary"
 		},
+		"OPS-61": {
+			"title": "Harness live TUI: Rust evf-tui crate, evf tui builds and runs it",
+			"owningPaths": ["tools/evf/", "tools/evf-tui/", "evf.config.json", ".gitignore"],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
+		},
 		"OPS-62": {
 			"title": "Policy: tools/evf-tui/ is a maintenance owning path",
 			"owningPaths": ["tools/evf/", "evf.config.json"],

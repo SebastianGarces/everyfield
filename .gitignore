@@ -42,3 +42,6 @@ apps/web/AGENTS.md
 # Build progress administration
 docs/.build-progress.lock
 docs/.build-progress-*.tmp
+
+# Rust TUI built in place (evf tui builds under the Git common dir instead)
+tools/evf-tui/target/
