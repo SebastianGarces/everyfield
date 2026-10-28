@@ -1,13 +1,6 @@
 import type * as c from "@everyfield/contracts/tasks";
 import type { z } from "zod";
-import type {
-	Candidate,
-	Occurrence,
-	Outcome,
-	Prerequisites,
-	TaskDetail,
-	TaskHistory,
-} from "./model.ts";
+import type { Candidate, Occurrence, Outcome, Prerequisites, TaskDetail, TaskHistory } from "./model.ts";
 
 // The browser side of read.ts. A network failure or a server error reads as lost, so the screen can offer a retry.
 async function get<T>(params: Record<string, string> | URLSearchParams): Promise<Outcome<T>> {
