@@ -66,9 +66,6 @@ type PresenceAnswer = Extract<Awaited<ReturnType<typeof setPresence>>, { status:
  */
 const HELD = "aria-disabled:cursor-not-allowed aria-disabled:opacity-45 aria-disabled:active:translate-y-0";
 
-/** When a meeting can be finalized: at any time, unless it is cancelled or voided. */
-const canSettle = (m: Detail) => m.status !== "cancelled" && !m.occurrence.voidedAt;
-
 /**
  * Presence saves, one save lane per person (components/save useRowLanes, C68): marking people at the door never waits
  * for anyone else's answer, and one person takes no other change while their save is on its way or unknown. The row
@@ -160,7 +157,8 @@ export function AttendanceCard({
 	const excused = attendance.items.filter((x) => x.presence === "excused").length;
 	const final = attendance.finalized;
 	const counts = classified(attendance);
-	const open = canSettle(m);
+	// A meeting can be finalized at any time, unless it is cancelled or voided.
+	const open = m.status !== "cancelled" && !m.occurrence.voidedAt;
 	const vision = m.type === "vision_meeting";
 	const intent = { onPointerEnter: onPrefetch, onFocus: onPrefetch, onTouchStart: onPrefetch };
 	const settling = lane.saving;
