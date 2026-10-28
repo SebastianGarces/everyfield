@@ -82,7 +82,7 @@ export function WikiSearchButton() {
 					boxClassName="w-[280px]"
 					onClick={open}
 					onKeyDown={(event) => {
-						if (event.key !== "Enter" && event.key !== " ") return;
+						if (event.key !== "Enter" && event.key !== " " && event.key !== "/") return;
 						event.preventDefault();
 						open();
 					}}
@@ -163,7 +163,7 @@ function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
 				}}
 			>
 				<DialogHeader title="Search the wiki" description="Search titles, excerpts and article text." />
-				<DialogBody className="flex flex-col gap-4">
+				<DialogBody className="flex flex-col gap-4 pt-1 pb-7 max-app-sm:pb-5">
 					<form
 						className="flex flex-col gap-3"
 						onSubmit={(event) => {
@@ -205,9 +205,22 @@ function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
 	);
 }
 
+/** Shows the pending line whenever a search runs, also while the previous hits stay on screen. */
 function SearchBody({ result, pending, query }: { result: SearchResult | null; pending: boolean; query: string }) {
 	if (!query) return <p className="text-text-2">Type a word to search the wiki.</p>;
 	if (!result) return <p className="text-text-2">{pending ? "Searching." : "Type a word to search the wiki."}</p>;
+	if (!pending) return <SearchResults result={result} />;
+	return (
+		<div className="flex flex-col gap-3" aria-busy="true">
+			<p className="text-text-2">Searching.</p>
+			<div className="opacity-50">
+				<SearchResults result={result} />
+			</div>
+		</div>
+	);
+}
+
+function SearchResults({ result }: { result: SearchResult }) {
 	if (result.status === "lost")
 		return (
 			<StatePanel tone="error" title="Search could not be loaded" headingLevel="h3">
@@ -632,7 +645,7 @@ function SourceOrder({ open }: { open: boolean }) {
 					title="Preferred source order"
 					description="This order chooses the article people see first. It does not hide the other sources."
 				/>
-				<DialogBody className="flex flex-col gap-4">
+				<DialogBody className="flex flex-col gap-4 pt-1 pb-7 max-app-sm:pb-5">
 					<OrderList title="Churches" rows={churches} kind="church" onMove={move} />
 					<OrderList title="Networks" rows={networks} kind="network" onMove={move} />
 					{note ? (

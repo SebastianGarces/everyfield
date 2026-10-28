@@ -53,13 +53,26 @@ for (const [name, engine] of ENGINES) {
 
 for (const [name, engine] of ENGINES) {
 	test(`BUG-wiki-search-hits: typing a word lists highlighted hits, and a hit opens its article and closes the modal (${name})`, async () => {
-		await withPage(engine, async (page) => {
+		await withPage(engine, async (page, context) => {
 			await header(page).click();
 			await dialog(page).getByRole("searchbox", { name: "Search words" }).fill("financial");
 			const hit = dialog(page).getByRole("link", { name: /Financial planning for a plant/ });
 			await hit.waitFor();
 			assert.ok((await dialog(page).locator("mark").count()) > 0);
 			assert.equal(await dialog(page).getByText("Search could not be loaded").count(), 0);
+			// A new query shows the pending line while the old hits stay on screen.
+			await context.route("**/*", async (route) => {
+				const r = route.request();
+				if (r.method() === "POST" && r.headers()["next-action"]) await new Promise((done) => setTimeout(done, 1500));
+				return route.fallback();
+			});
+			await dialog(page).getByRole("searchbox", { name: "Search words" }).fill("meeting");
+			await dialog(page).getByText("Searching.").waitFor();
+			assert.equal(await hit.count(), 1);
+			await dialog(page).getByText("Searching.").waitFor({ state: "detached" });
+			await context.unroute("**/*");
+			await dialog(page).getByRole("searchbox", { name: "Search words" }).fill("financial");
+			await hit.waitFor();
 			await hit.click();
 			await page.waitForURL(/\/wiki\/.+/);
 			await dialog(page).waitFor({ state: "detached" });
