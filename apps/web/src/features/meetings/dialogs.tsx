@@ -1,8 +1,16 @@
 "use client";
 
 import { Alert02Icon, Cancel01Icon } from "@hugeicons/core-free-icons";
-import { Checkbox, Field, IconButton, Radio, RadioGroup, SearchInput, Spinner, Textarea } from "@everyfield/ui/controls";
-import { Icon } from "@everyfield/ui/foundations";
+import {
+	Checkbox,
+	Field,
+	IconButton,
+	Radio,
+	RadioGroup,
+	SearchInput,
+	Spinner,
+	Textarea,
+} from "@everyfield/ui/controls";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import type { PersonHit } from "@everyfield/domain/people";
 import { searchPeople } from "./actions.ts";
