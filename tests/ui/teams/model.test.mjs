@@ -12,12 +12,12 @@ test("INV-reason-alone: only a reason sends nothing and says so", () => {
 	assert.equal(planTeamEdit(was, now({ reason: "   " })), "close");
 });
 
-test("an untouched Edit closes quietly", () => {
+test("INV-reason-alone: an untouched Edit closes quietly", () => {
 	assert.equal(planTeamEdit(was, now()), "close");
 	assert.equal(planTeamEdit(was, now({ name: "  Hospitality " })), "close");
 });
 
-test("a real change is sent, with or without a reason", () => {
+test("INV-reason-alone: a real change is sent, with or without a reason", () => {
 	assert.equal(planTeamEdit(was, now({ name: "Welcome" })), "send");
 	assert.equal(planTeamEdit(was, now({ state: "paused", reason: "Summer" })), "send");
 	assert.equal(planTeamEdit(was, now({ description: "" })), "send");

@@ -55,12 +55,14 @@ export function SetupDialog({
 	const form = lane.editing;
 	const [catalog, setCatalog] = useState<Outcome<Catalog> | null>(null);
 	const [f, setF] = useState<SetupForm>(form ?? NEW_SETUP);
-	const [shown, setShown] = useState(form);
-	if (form && form !== shown) {
-		setShown(form);
-		setF(form);
-	}
 	const open = form !== null;
+	// Each time the dialog opens it starts from the form it was opened with, even when
+	// that is the same shared object as last time.
+	const [wasOpen, setWasOpen] = useState(open);
+	if (open !== wasOpen) {
+		setWasOpen(open);
+		if (form) setF(form);
+	}
 	useEffect(() => {
 		if (!open || catalog?.status === "ok") return;
 		let live = true;
