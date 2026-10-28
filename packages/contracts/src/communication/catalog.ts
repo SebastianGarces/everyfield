@@ -16,10 +16,8 @@ export type SystemTemplate = {
 /**
  * The seven approved system messages. They live in code. A plant fork never changes these bytes.
  *
- * Merge fields: only `{{name}}` has a producer today. Meeting details are bracket placeholders the
- * planter replaces before sending. Task 6 and Task 9 add real fields. A comment at each template
- * names the future fields: `meeting_date`, `meeting_time`, `meeting_location`.
- * Subjects hold no merge fields, because nothing merges a subject.
+ * Only `{{name}}` has a merge-field producer today. Meeting details are bracket placeholders the
+ * planter replaces before sending. Subjects hold no merge fields, because nothing merges a subject.
  */
 export const systemTemplates: readonly SystemTemplate[] = [
 	{
