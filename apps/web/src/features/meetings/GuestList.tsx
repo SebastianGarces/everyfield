@@ -48,8 +48,8 @@ import {
 	setInviter,
 } from "./actions.ts";
 import { PresenceCell, type usePresence } from "./Attendance.tsx";
-import { PersonPicker, ReasonDialog, type PickedPerson } from "./dialogs.tsx";
-import type { Wait } from "../../components/save/model.ts";
+import { PeoplePicker, PersonPicker, ReasonDialog, type PickedPerson } from "./dialogs.tsx";
+import { sendTwice, type Wait } from "../../components/save/model.ts";
 import {
 	CARD_LABEL,
 	CARD_RESPONSES,
@@ -68,14 +68,16 @@ import {
 	type Rsvp,
 } from "./model.ts";
 import { isPending, PENDING, type CardEntry, type Change, type GuestRow, type PendingGuest } from "./page-state.ts";
-import { IntentLink } from "./parts.tsx";
+import { IntentLink, TabStack } from "./parts.tsx";
 
 type Filter = "all" | Rsvp;
 type AddDraft = {
 	mode: "existing" | "new";
-	person: PickedPerson | null;
-	inviter: PickedPerson | null;
+	/** Everyone chosen in "Someone in People", across searches. */
+	people: PickedPerson[];
 	contact: { displayName: string; email: string; phone: string };
+	/** Names of people an earlier add did not reach: the form opens again with only them chosen. */
+	notAdded?: string[];
 };
 /**
  * The card's open form with what was entered. A save closes it; a refusal opens it again with the same values and the
@@ -94,8 +96,7 @@ const ACCEPTS_REPLIES = ["planning", "ready", "in_progress"];
 const nextRevision = (r: string) => String(BigInt(r) + 1n) as Guest["revision"];
 const EMPTY_ADD: AddDraft = {
 	mode: "existing",
-	person: null,
-	inviter: null,
+	people: [],
 	contact: { displayName: "", email: "", phone: "" },
 };
 
@@ -187,29 +188,74 @@ export function GuestList({
 			},
 		});
 	}
-	function add(draft: AddDraft) {
-		const person = draft.mode === "existing" ? draft.person : null;
-		const name = person?.name ?? draft.contact.displayName.trim();
-		const input = person
-			? { meetingId: meeting.id, personId: person.id, inviterPersonId: draft.inviter?.id ?? null }
-			: {
-					meetingId: meeting.id,
-					displayName: name,
-					email: draft.contact.email.trim() || null,
-					phone: draft.contact.phone.trim() || null,
-					country: "US",
-				};
+	/** Someone new: their Person and guest row in one write. */
+	function addNew(draft: AddDraft) {
+		const input = {
+			meetingId: meeting.id,
+			displayName: draft.contact.displayName.trim(),
+			email: draft.contact.email.trim() || null,
+			phone: draft.contact.phone.trim() || null,
+			country: "US" as const,
+		};
 		write({
-			what: name,
+			what: input.displayName,
 			done: "added",
 			form: { kind: "add", draft },
-			changes: [{ kind: "guest", guest: pendingGuest(person, name, person ? draft.inviter : null) }],
-			send: (key) => ("personId" in input ? inviteGuest(key, input) : createGuestContact(key, input)),
+			changes: [{ kind: "guest", guest: pendingGuest(null, input.displayName) }],
+			send: (key) => createGuestContact(key, input),
 			ok: (v) => {
 				onGuest(v.guest);
 				toast({ message: `${v.guest.person.displayName} is on the guest list.`, tone: "success" });
 			},
 		});
+	}
+	/**
+	 * Everyone chosen in People, added with meetings.inviteGuest once per person, each with its own request key. The
+	 * keys are made once per click, so the lane's replay of a lost answer never adds anyone twice. Some refused or lost:
+	 * the added guests stay and the form opens again with only the others chosen.
+	 */
+	function addPeople(draft: AddDraft) {
+		const people = draft.people;
+		const keys = people.map(() => crypto.randomUUID());
+		write<{ added: Guest[]; left: PickedPerson[] }>({
+			what: people.length === 1 ? people[0]!.name : `${people.length} guests`,
+			done: "added",
+			form: { kind: "add", draft },
+			changes: people.map((p) => ({ kind: "guest" as const, guest: pendingGuest(p, p.name) })),
+			send: async () => {
+				const added: Guest[] = [];
+				const left: PickedPerson[] = [];
+				let refusal: string | null = null;
+				for (const [i, p] of people.entries()) {
+					const input = { meetingId: meeting.id, personId: p.id, inviterPersonId: null };
+					const r = await sendTwice(() => inviteGuest(keys[i]!, input));
+					if (r.status === "ok") added.push(r.value.guest);
+					else {
+						left.push(p);
+						if (r.status === "refused") refusal ??= r.code;
+					}
+				}
+				if (!added.length) return refusal ? { status: "refused", code: refusal } : { status: "lost" };
+				return { status: "ok", value: { added, left } };
+			},
+			ok: ({ added, left }) => {
+				for (const g of added) onGuest(g);
+				if (!left.length)
+					return toast({
+						message:
+							added.length === 1
+								? `${added[0]!.person.displayName} is on the guest list.`
+								: `${added.length} guests are on the guest list.`,
+						tone: "success",
+					});
+				toast({ message: `${added.length} added. ${left.length} not added.`, tone: "info" });
+				lane.open({ kind: "add", draft: { ...draft, people: left, notAdded: left.map((p) => p.name) } });
+			},
+		});
+	}
+	function add(draft: AddDraft) {
+		if (draft.mode === "existing") addPeople(draft);
+		else addNew(draft);
 	}
 	function changeInviter(guest: Guest, inviter: PickedPerson | null) {
 		const id = inviter?.id ?? null;
@@ -629,12 +675,12 @@ export function GuestList({
 }
 
 /** A guest row shown while its add is saved: no link, no actions, Pending, absent. */
-function pendingGuest(person: PickedPerson | null, name: string, inviter: PickedPerson | null): PendingGuest {
+function pendingGuest(person: PickedPerson | null, name: string): PendingGuest {
 	return {
 		id: `${PENDING}${person?.id ?? crypto.randomUUID()}`,
 		revision: null,
 		person: { personId: person?.id ?? null, displayName: name, state: "live" },
-		inviter: inviter ? { personId: inviter.id, displayName: inviter.name, state: "live" } : null,
+		inviter: null,
 		rsvp: "pending",
 		rsvpSource: null,
 		rsvpAt: null,
@@ -652,9 +698,10 @@ type FormProps<T> = {
 };
 
 /**
- * Add guest (REQ-MTG-011): someone already in People, with who invited them, or someone new with a name and optional
- * contact details. A new person starts as a prospect from this meeting, in the United States by default. Nothing here
- * gives them a login.
+ * Add guest (REQ-MTG-011): one or more people already in People, chosen across searches and added together, or someone
+ * new with a name and optional contact details. A new person starts as a prospect from this meeting, in the United
+ * States by default. Nothing here gives them a login, and a guest added here has no inviter: "Who invited them?" on the
+ * guest row sets one later.
  */
 function AddGuestForm({
 	initial,
@@ -667,27 +714,27 @@ function AddGuestForm({
 }: FormProps<AddDraft> & { meeting: Detail; guestIds: string[]; onSubmit: (draft: AddDraft) => void }) {
 	const [draft, setDraft] = useState(initial);
 	const [touched, setTouched] = useState(false);
-	const { mode, person, inviter, contact } = draft;
+	const { mode, people, contact } = draft;
 	const set = (patch: Partial<AddDraft>) => setDraft((d) => ({ ...d, ...patch }));
 	const setContact = (patch: Partial<AddDraft["contact"]>) => set({ contact: { ...contact, ...patch } });
 	const nameMissing = contact.displayName.trim() === "";
-	// The field for the chosen kind of guest takes focus only when the person switches it; RecordDialog decides where
-	// focus starts when the form opens (F4b).
-	const [switched, setSwitched] = useState(false);
 	const emailBad = contact.email.trim() !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.email.trim());
+	const partial = initial.notAdded?.length
+		? `${initial.notAdded.join(", ")} ${initial.notAdded.length === 1 ? "was" : "were"} not added. The others are on the guest list. Choose Add guest to try again.`
+		: undefined;
 	return (
 		<RecordDialog
 			icon={UserAdd01Icon}
 			tone="green"
 			title="Add guest"
 			description={meeting.displayTitle}
-			action="Add guest"
-			problem={problem}
+			action={mode === "existing" && people.length > 1 ? `Add ${people.length} guests` : "Add guest"}
+			problem={problem ?? partial}
 			wait={wait}
 			onClose={onClose}
 			onSubmit={() => {
 				setTouched(true);
-				if (mode === "existing" ? !person : nameMissing || emailBad) return false;
+				if (mode === "existing" ? people.length === 0 : nameMissing || emailBad) return false;
 				onSubmit(draft);
 				return true;
 			}}
@@ -695,73 +742,64 @@ function AddGuestForm({
 			<SegmentedControl
 				label="Who"
 				value={mode}
-				onValueChange={(m) => {
-					setSwitched(true);
-					set({ mode: m });
-				}}
+				onValueChange={(m) => set({ mode: m })}
 				options={[
 					{ value: "existing", label: "Someone in People" },
 					{ value: "new", label: "Someone new" },
 				]}
 			/>
-			{mode === "existing" ? (
-				<>
-					<Field label="Guest" error={touched && !person ? "Choose the person to add." : null}>
-						<PersonPicker
-							label="Guest"
-							value={person}
-							onChange={(p) => set({ person: p })}
-							exclude={guestIds}
-							autoFocus={switched}
-						/>
-					</Field>
-					<Field label="Invited by" optional>
-						<PersonPicker
-							label="Invited by"
-							value={inviter}
-							onChange={(p) => set({ inviter: p })}
-							exclude={person ? [person.id] : []}
-							none="Not recorded"
-						/>
-					</Field>
-				</>
-			) : (
-				<>
-					<Field label="Name" error={touched && nameMissing ? "Enter the name people call them." : null}>
-						<Input
-							value={contact.displayName}
-							maxLength={255}
-							autoComplete="off"
-							onChange={(e) => setContact({ displayName: e.target.value })}
-							autoFocus={switched}
-						/>
-					</Field>
-					<div className="grid grid-cols-2 gap-4 max-app-sm:grid-cols-1">
-						<Field label="Email" optional error={touched && emailBad ? "Enter a full email address." : null}>
-							<Input
-								type="email"
-								value={contact.email}
-								maxLength={320}
-								autoComplete="off"
-								onChange={(e) => setContact({ email: e.target.value })}
+			<TabStack
+				active={mode}
+				className="gap-5"
+				panels={{
+					existing: (
+						<Field label="Guests" error={touched && people.length === 0 ? "Choose at least one person." : null}>
+							<PeoplePicker
+								label="Guests"
+								value={people}
+								onChange={(next) => set({ people: next })}
+								exclude={guestIds}
 							/>
 						</Field>
-						<Field label="Phone" optional hint="Country: United States (US). Change it later on their person page.">
-							<Input
-								type="tel"
-								value={contact.phone}
-								maxLength={40}
-								autoComplete="off"
-								onChange={(e) => setContact({ phone: e.target.value })}
-							/>
-						</Field>
-					</div>
-					<p className="text-sm text-text-3">
-						They join People as a prospect from this meeting. If they are already in People, choose them instead, so you
-						do not make a duplicate.
-					</p>
-				</>
-			)}
+					),
+					new: (
+						<>
+							<Field label="Name" error={touched && nameMissing ? "Enter the name people call them." : null}>
+								<Input
+									value={contact.displayName}
+									maxLength={255}
+									autoComplete="off"
+									onChange={(e) => setContact({ displayName: e.target.value })}
+								/>
+							</Field>
+							<div className="grid grid-cols-2 gap-4 max-app-sm:grid-cols-1">
+								<Field label="Email" optional error={touched && emailBad ? "Enter a full email address." : null}>
+									<Input
+										type="email"
+										value={contact.email}
+										maxLength={320}
+										autoComplete="off"
+										onChange={(e) => setContact({ email: e.target.value })}
+									/>
+								</Field>
+								<Field label="Phone" optional hint="Country: United States (US). Change it later on their person page.">
+									<Input
+										type="tel"
+										value={contact.phone}
+										maxLength={40}
+										autoComplete="off"
+										onChange={(e) => setContact({ phone: e.target.value })}
+									/>
+								</Field>
+							</div>
+							<p className="text-sm text-text-2">
+								They join People as a prospect from this meeting. If they are already in People, choose them instead, so
+								you do not make a duplicate.
+							</p>
+						</>
+					),
+				}}
+			/>
 		</RecordDialog>
 	);
 }
