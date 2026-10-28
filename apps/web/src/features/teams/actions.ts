@@ -57,16 +57,15 @@ export async function createTeam(requestKey: string, input: unknown) {
 	return write(v, (tx, ctx) => teamsWriter.create(tx, ctx, { requestKey, input }));
 }
 
-/** Edit, correct (with a reason), archive or restore one ministry, at the revision the page last saw. */
+/** Edit (with an optional reason), archive or restore one ministry, at the revision the page last saw. */
 export async function changeTeam(
-	op: "edit" | "correct" | "archive" | "restore",
+	op: "edit" | "archive" | "restore",
 	requestKey: string,
 	expectedRevision: string,
 	teamId: string,
 	patch: Record<string, unknown> = {},
 ) {
-	if (!["edit", "correct", "archive", "restore"].includes(op))
-		return { status: "refused", code: "invalid_input" } as const;
+	if (!["edit", "archive", "restore"].includes(op)) return { status: "refused", code: "invalid_input" } as const;
 	return change((tx, ctx) => teamsWriter[op](tx, ctx, command(requestKey, expectedRevision, { ...patch, teamId })));
 }
 
@@ -148,7 +147,7 @@ export async function templateCatalog() {
 	return outcome(await readCatalog(v));
 }
 
-type Selection = { teamKey: string; roleKeys: string[] };
+type Selection = { teamKey: string; roleKeys: string[]; destinationTeamId?: string };
 /**
  * Adds the templates the person just reviewed. The digest is computed here from those choices, so the browser never
  * computes it and cannot send a review for a different choice. The answer says how many ministries and roles are new.
@@ -169,6 +168,23 @@ export async function importTemplates(
 	);
 	if (done.status !== "ok") return done;
 	return { status: "ok", value: { newTeams: done.value.newTeams, newRoles: done.value.newSelectedRoles } };
+}
+/**
+ * Adds the reviewed template roles to one existing ministry. Each selection names that ministry as its destination,
+ * so no ministry is created and a role it already has is skipped. The answer says how many roles are new.
+ */
+export async function importRolesInto(
+	requestKey: string,
+	version: string,
+	teamId: string,
+	selections: { teamKey: string; roleKeys: string[] }[],
+): Promise<Outcome<{ newRoles: number }>> {
+	const done = await importTemplates(
+		requestKey,
+		version,
+		selections.map((s) => ({ ...s, destinationTeamId: teamId })),
+	);
+	return done.status === "ok" ? { status: "ok", value: { newRoles: done.value.newRoles } } : done;
 }
 /**
  * The ministries list and chart again, after an import created ministries whose ids only the server knows. A read in

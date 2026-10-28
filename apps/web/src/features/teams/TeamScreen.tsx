@@ -6,7 +6,6 @@ import {
 	ArchiveArrowUpIcon,
 	CrownIcon,
 	Edit02Icon,
-	FileEditIcon,
 	MoreHorizontalIcon,
 	UserAdd01Icon,
 	UserGroupIcon,
@@ -177,8 +176,8 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 	}
 
 	// The ministry ---------------------------------------------------------------------------------------------------
-	const teamForm = (mode: "edit" | "correct"): TeamForm => ({
-		mode,
+	const teamForm = (): TeamForm => ({
+		mode: "edit",
 		name: t.name,
 		description: t.description ?? "",
 		icon: iconKey(t),
@@ -191,7 +190,7 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 			description: optional(form.description),
 			icon: form.icon,
 			state: form.state,
-			...(form.mode === "correct" ? { reason: form.reason.trim() } : {}),
+			reason: form.reason.trim(),
 		};
 		save(teamLane, {
 			what: "The ministry",
@@ -200,13 +199,9 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 				kind: "team",
 				patch: { name: patch.name, description: patch.description, icon: patch.icon, state: patch.state },
 			},
-			send: (key) => changeTeam(form.mode === "correct" ? "correct" : "edit", key, t.revision, t.id, patch),
+			send: (key) => changeTeam("edit", key, t.revision, t.id, patch),
 			confirm: (r) => ({ kind: "team", patch: r.team }),
-			ok: () =>
-				toast({
-					tone: "success",
-					message: form.mode === "correct" ? "The correction is saved." : "The ministry is saved.",
-				}),
+			ok: () => toast({ tone: "success", message: "The ministry is saved." }),
 		});
 	}
 	function archive(to: boolean) {
@@ -370,11 +365,8 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 						<IconButton icon={MoreHorizontalIcon} label="More actions" />
 					</MenuTrigger>
 					<MenuContent align="end">
-						<MenuItem icon={Edit02Icon} onSelect={() => teamLane.open(teamForm("edit"))}>
+						<MenuItem icon={Edit02Icon} onSelect={() => teamLane.open(teamForm())}>
 							Edit details
-						</MenuItem>
-						<MenuItem icon={FileEditIcon} onSelect={() => teamLane.open(teamForm("correct"))}>
-							Correct the record
 						</MenuItem>
 						<MenuSeparator />
 						<MenuItem icon={Archive02Icon} danger onSelect={() => setConfirm({ kind: "archive" })}>
@@ -529,7 +521,8 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 							</CardHeading>
 						</CardHeader>
 						<div className="[&_a]:w-full">
-							<ChartTree nodes={view.nodes} focus={t.id} />
+							{/* An archived ministry is out of the organization view; its own page shows only itself, labelled Archived. */}
+							<ChartTree nodes={view.nodes.filter((n) => !n.archived || n.id === t.id)} focus={t.id} />
 						</div>
 						<IntentLink
 							href="/ministries?view=chart"
