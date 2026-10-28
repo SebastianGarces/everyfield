@@ -963,6 +963,21 @@
 				}
 			],
 			"risk": "ordinary"
+		},
+		"OPS-64": {
+			"title": "Seats see the full spec: no silent truncation of Done criteria in session context",
+			"owningPaths": ["tools/evf/", "evf.config.json", ".agents/roles/", ".agents/skills/verify/", ".agents/skills/verify-preview/"],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {
