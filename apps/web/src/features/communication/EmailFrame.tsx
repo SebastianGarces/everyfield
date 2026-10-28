@@ -61,7 +61,7 @@ export function EmailFrame({ html, width, label = "Email preview" }: { html: str
 					height,
 					border: 0,
 					display: "block",
-					background: "#fff",
+					background: "Canvas",
 					colorScheme: "light",
 					transform: `scale(${scale})`,
 					transformOrigin: "top left",

@@ -131,7 +131,7 @@ export function MessageEditor({
 							role="listbox"
 							aria-label="Fields"
 							style={{ top: open.top, left: open.left }}
-							className="absolute z-10 w-[220px] rounded-md bg-surface-raised p-1 shadow-[0_0_0_1px_var(--ef-line-2),0_8px_24px_rgba(0,0,0,0.12)]"
+							className="absolute z-10 w-[220px] rounded-md bg-surface-raised p-1 shadow-[var(--ef-shadow-pop),0_0_0_1px_var(--ef-line)]"
 						>
 							{shown.map((field, index) => (
 								<li

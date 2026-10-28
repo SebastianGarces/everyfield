@@ -249,7 +249,7 @@ const recipientCount = (n: number, state: HubState) =>
 function Tile({ label, value }: { label: string; value: number }) {
 	return (
 		<div className="flex flex-col gap-1 rounded-lg bg-surface px-4 py-3">
-			<span className="font-title text-[32px] leading-none tracking-[-0.02em] text-ink tabular-nums">{value}</span>
+			<span className="font-display text-[28px] leading-none tracking-[-0.02em] text-ink tabular-nums">{value}</span>
 			<span className="text-sm text-text-2">{label}</span>
 		</div>
 	);

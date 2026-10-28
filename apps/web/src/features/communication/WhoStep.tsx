@@ -171,7 +171,7 @@ function Counts({
 			<div aria-live="polite" className="grid max-w-3xl grid-cols-3 gap-3">
 				{tiles.map((tile) => (
 					<div key={tile.label} className="flex flex-col gap-1 rounded-lg bg-surface px-5 py-4">
-						<span className="font-title text-[40px] leading-none tracking-[-0.02em] text-ink tabular-nums">
+						<span className="font-display text-[40px] leading-none tracking-[-0.02em] text-ink tabular-nums">
 							{tile.value === null ? <Spinner size={20} /> : tile.value}
 						</span>
 						<span className="text-sm text-text-2">{tile.label}</span>
@@ -350,7 +350,7 @@ function ToField({
 								<div
 									id={`${id}-card-${person.id}`}
 									role="tooltip"
-									className="absolute top-full left-0 z-20 mt-1 flex w-64 flex-col gap-1 rounded-md bg-surface-raised p-3 text-sm shadow-[0_0_0_1px_var(--ef-line-2),0_8px_24px_rgba(0,0,0,0.12)]"
+									className="absolute top-full left-0 z-20 mt-1 flex w-64 flex-col gap-1 rounded-md bg-surface-raised p-3 text-sm shadow-[var(--ef-shadow-pop),0_0_0_1px_var(--ef-line)]"
 								>
 									<span className="font-medium text-ink">{person.displayName}</span>
 									<span className="break-all text-text-2">{person.email ?? "Email shown at send"}</span>
@@ -404,7 +404,7 @@ function ToField({
 						id={listId}
 						role="listbox"
 						aria-label="People"
-						className="absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-md bg-surface-raised p-1 shadow-[0_0_0_1px_var(--ef-line-2),0_8px_24px_rgba(0,0,0,0.12)]"
+						className="absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-md bg-surface-raised p-1 shadow-[var(--ef-shadow-pop),0_0_0_1px_var(--ef-line)]"
 					>
 						{shown.map((person, index) => {
 							const disabled = !person.email || picked.has(person.id);
