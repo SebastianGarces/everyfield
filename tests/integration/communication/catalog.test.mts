@@ -55,7 +55,7 @@ for (const template of systemTemplates) {
 		const outsideBrackets = text.replace(/\[[^\]]*\]/g, "");
 		assert.ok(!/\bthe link\b|\bthe button\b|\bbelow\b|\bclick/i.test(outsideBrackets), "reads correctly without the RSVP link");
 		for (const sentence of text.split(/(?<=[.!?])\s+/)) {
-			if (/\breply\b/i.test(sentence)) {
+			if (/repl(y|ies|ied|ying)\b/i.test(sentence)) {
 				assert.ok(
 					!/confirm|attend|\bcome\b|\bcoming\b|cannot|plans change|\bseat\b|rsvp/i.test(sentence),
 					`no reply-as-RSVP sentence: ${sentence}`,
