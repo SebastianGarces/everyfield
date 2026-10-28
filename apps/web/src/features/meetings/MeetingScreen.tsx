@@ -512,7 +512,6 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 							canWrite={canWrite}
 							lane={settleLane}
 							blocked={presence.busy}
-							now={data.now}
 							onSettle={(mode) => settleLane.wait === null && !presence.busy && settleLane.open({ mode, input: null })}
 							onPrefetch={seats.load}
 						/>

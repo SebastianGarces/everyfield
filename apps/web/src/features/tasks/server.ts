@@ -86,7 +86,7 @@ export async function loadTask(tx: Transaction, viewer: TaskViewer, taskId: stri
 		status: "ok",
 		value: {
 			task,
-			history: ok(history),
+			history,
 			prerequisites: task.prerequisiteIds.length ? ok(prerequisites) : { taskId: task.id, items: [], blocked: false },
 			occurrence: ok(occurrence),
 		},
