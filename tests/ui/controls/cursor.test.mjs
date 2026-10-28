@@ -83,11 +83,19 @@ for (const [name, engine] of ENGINES) {
 			await role("tab", "Two").focus();
 			await page.keyboard.press("ArrowRight");
 			assert.equal(await role("tab", "Three").getAttribute("aria-selected"), "false", "arrow key skips disabled tab");
-			assert.equal(await role("tab", "Three").evaluate((el) => el === document.activeElement), false, "focus skips disabled tab");
+			assert.equal(
+				await role("tab", "Three").evaluate((el) => el === document.activeElement),
+				false,
+				"focus skips disabled tab",
+			);
 			await role("tab", "Three").focus();
 			await page.keyboard.press("Enter");
 			await page.keyboard.press("Space");
-			assert.equal(await role("tab", "Three").getAttribute("aria-selected"), "false", "keys do not select disabled tab");
+			assert.equal(
+				await role("tab", "Three").getAttribute("aria-selected"),
+				"false",
+				"keys do not select disabled tab",
+			);
 			await pointer(role("radio", "List"), 'segmented item "List"');
 			await blocked(role("radio", "Map"), 'disabled segmented item "Map"');
 			await role("radio", "Map").click({ force: true });
