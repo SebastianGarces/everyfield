@@ -108,6 +108,22 @@ and runs `evf task handoff <task> --file <spec>`, which marks the prototype task
 implement task for the same package with that spec). Idea branches are left for `evf gc`; the harness
 deletes nothing.
 
+## Live TUI
+
+`evf tui` opens one read-only screen of the harness: every open task and running seat (task, stage, seat,
+model, effort, Herdr state, round of three, proof rows met, gate, last event), the event feed in Eastern
+Time and the health counters, with an explorer by mode and task on the left. It is the Rust crate in
+`tools/evf-tui/` (ratatui, rusqlite bundled, notify), outside the pnpm workspace. `evf tui` runs
+`cargo build --release` with the target directory under the Git common dir when the cached binary at
+`<git-common-dir>/evf/bin/evf-tui` is missing or older than the crate sources, then starts it with `--db`
+set to the work store path; `--dry-run` prints those paths and the build decision, `--once` prints one
+plain-text report. The binary opens the store read-only in WAL mode with a 200 ms busy timeout, re-reads
+when the file watcher or the 250 ms fallback poll sees `PRAGMA data_version` move, polls
+`herdr api snapshot` every second and joins agents to runs by the Claude session id, and lists worktrees
+every ten seconds for head SHAs. `t` runs `herdr agent focus <agent>` (the task's workspace as the
+fallback), `Enter` opens the ask, spec and proof rows, `/` filters. It writes nothing: HEALTH names the
+evf command for every human gate (`awaiting_pick`, `escalated`) and every blocked seat.
+
 ## Ship queue
 
 Any session may run `evf ship` at any time; nobody orders ships by hand. Merging routes wait in one

@@ -1,0 +1,20 @@
+[package]
+name = "evf-tui"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Live, read-only terminal view of the Everyfield harness: work store seats and tasks joined to Herdr panes"
+
+# Built by `evf tui` with `cargo build --release` into <git-common-dir>/evf/cargo-target; never part of the pnpm workspace.
+
+[dependencies]
+anyhow = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+chrono-tz = "0.10"
+notify = "8"
+ratatui = "0.30"
+rusqlite = { version = "0.41", features = ["bundled"] }
+serde_json = "1"
+
+[profile.release]
+strip = true

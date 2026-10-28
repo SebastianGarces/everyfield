@@ -29,6 +29,7 @@ import { nextId } from "./ids.ts";
 import { dbMigrate, dbSeedProgress, goalsList, goalsSync, status, workDbPath } from "./db.ts";
 import { isRole, launch, ROLES } from "./launch.ts";
 import { hook, refocus, session } from "./seat.ts";
+import { tui } from "./tui.ts";
 import {
 	askPlanner,
 	check,
@@ -91,6 +92,8 @@ State store (harness)
                                                               tasks from the ledger committed on main
   evf goals sync | list                                       project goal and S-row missions from the plan docs
   evf status [--json] [<task>]                                tasks, seats, recent events and health from the store
+  evf tui [--dry-run] [--once]                                live screen of every task, seat and event (tools/evf-tui,
+                                                              built with cargo when the cached binary is stale)
 
 Seats (harness)
   evf launch <task> --role <role> [--idea <n>] [--prompt-file <file>] [--dry-run] [--ignore-load "<reason>"]
@@ -419,6 +422,12 @@ function main(argv: string[]): number | Promise<number> {
 			const json = flag(args, "--json");
 			if (args.length > 1) break;
 			return status(root, { json, task: args[0] });
+		}
+		case "tui": {
+			const dryRun = flag(args, "--dry-run"),
+				once = flag(args, "--once");
+			if (args.length) break;
+			return tui(root, { dryRun, once });
 		}
 		case "launch": {
 			const role = option(args, "--role"),

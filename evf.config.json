@@ -921,13 +921,7 @@
 		},
 		"OPS-61": {
 			"title": "Harness live TUI: Rust evf-tui crate, evf tui builds and runs it",
-			"owningPaths": [
-				"tools/evf/",
-				"tools/evf-tui/",
-				"evf.config.json",
-				"README.md",
-				".claude/settings.json"
-			],
+			"owningPaths": ["tools/evf/", "tools/evf-tui/", "evf.config.json", "README.md", ".claude/settings.json"],
 			"checks": [
 				{
 					"name": "documentation",
