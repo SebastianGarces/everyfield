@@ -84,7 +84,11 @@ function usePersonSearch() {
 	const [query, setQuery] = useState("");
 	const [got, setGot] = useState<{ query: string; value: Outcome<PersonHit[]> } | null>(null);
 	const idle = query === "";
-	const result: Outcome<PersonHit[]> | null = idle ? { status: "ok", value: [] } : got?.query === query ? got.value : null;
+	const result: Outcome<PersonHit[]> | null = idle
+		? { status: "ok", value: [] }
+		: got?.query === query
+			? got.value
+			: null;
 	const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
 	useEffect(() => {
 		if (query === "") return;
