@@ -195,6 +195,16 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 			state: form.state,
 			reason: form.reason,
 		};
+		// Nothing changed and no reason given: there is nothing to save or record, so just close.
+		const was = teamForm();
+		if (
+			!patch.reason.trim() &&
+			patch.name === was.name &&
+			patch.description === optional(was.description) &&
+			patch.icon === was.icon &&
+			patch.state === was.state
+		)
+			return teamLane.close();
 		save(teamLane, {
 			what: "The ministry",
 			form,
