@@ -160,6 +160,8 @@ for (const [name, engine] of ENGINES) {
 			// The frame: sandbox, title, no inner scrollbar, cursor pointer, Desktop 600 and Phone 375.
 			const frame = page.locator('iframe[title="Email preview"]');
 			assert.equal(await frame.getAttribute("sandbox"), "allow-same-origin");
+			// The frame gets exactly the renderer's output, with no wrapper of the app's own (criterion 34 seam).
+			assert.match(await frame.getAttribute("srcdoc"), /^<p>Hello .+\. Join us<\/p>$/);
 			const wide = await frame.evaluate((el) => el.getBoundingClientRect().width);
 			assert.ok(Math.abs(wide - 600) < 2 || wide < 600, `desktop width ${wide}`);
 			await page.getByRole("radio", { name: "Phone" }).click();
