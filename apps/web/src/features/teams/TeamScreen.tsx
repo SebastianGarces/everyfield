@@ -89,7 +89,7 @@ import {
 } from "./model.ts";
 import { ChartTree } from "./OrgChart.tsx";
 import { LeaderLine, TeamBadge, TeamIcon } from "./parts.tsx";
-import { NEW_ROLE_SETUP, RoleSetupDialog, type RoleSetupForm } from "./RoleSetup.tsx";
+import { NEW_SETUP, SetupDialog, type SetupForm } from "./Setup.tsx";
 import { apply, today, type Change } from "./page-state.ts";
 import { ResponsibilitiesPanel } from "./responsibilities/Responsibilities.tsx";
 import type { TeamView } from "./server.ts";
@@ -121,7 +121,7 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 	const teamLane = useSaveIntent<TeamForm>({ explain: problemText });
 	const roleLane = useSaveIntent<RoleForm>({ explain: problemText });
 	const peopleLane = useSaveIntent<PersonForm>({ explain: problemText });
-	const templatesLane = useSaveIntent<RoleSetupForm>({ explain: problemText });
+	const templatesLane = useSaveIntent<SetupForm>({ explain: problemText });
 	const [flow, setFlow] = useState<PersonFlow | null>(null);
 	const [confirm, setConfirm] = useState<Confirm | null>(null);
 	const [tab, setTab] = useState("roles");
@@ -193,7 +193,7 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 			description: optional(form.description),
 			icon: form.icon,
 			state: form.state,
-			reason: form.reason.trim(),
+			reason: form.reason,
 		};
 		save(teamLane, {
 			what: "The ministry",
@@ -332,7 +332,7 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 		admin: data.admin,
 		disabled: roleLane.wait !== null || templatesLane.wait !== null,
 		onBlank: () => roleLane.open(roleForm(null)),
-		onTemplates: () => templatesLane.open(NEW_ROLE_SETUP),
+		onTemplates: () => templatesLane.open(NEW_SETUP),
 	};
 
 	const leaderNote =
@@ -607,12 +607,14 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 			</NoticeInDialog>
 			{data.admin && can ? (
 				<NoticeInDialog {...templatesLane.noticeProps}>
-					<RoleSetupDialog
+					<SetupDialog
 						lane={templatesLane}
-						teamName={t.name}
-						teamKey={t.templateKey}
-						teamId={t.id}
-						here={new Set((view.roles ?? []).flatMap((r) => (r.templateKey ? [r.templateKey] : [])))}
+						into={{
+							id: t.id,
+							name: t.name,
+							templateKey: t.templateKey,
+							has: new Set((view.roles ?? []).flatMap((r) => (r.templateKey ? [r.templateKey] : []))),
+						}}
 						onDone={addedFromTemplates}
 					/>
 				</NoticeInDialog>

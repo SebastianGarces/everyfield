@@ -170,23 +170,6 @@ export async function importTemplates(
 	return { status: "ok", value: { newTeams: done.value.newTeams, newRoles: done.value.newSelectedRoles } };
 }
 /**
- * Adds the reviewed template roles to one existing ministry. Each selection names that ministry as its destination,
- * so no ministry is created and a role it already has is skipped. The answer says how many roles are new.
- */
-export async function importRolesInto(
-	requestKey: string,
-	version: string,
-	teamId: string,
-	selections: { teamKey: string; roleKeys: string[] }[],
-): Promise<Outcome<{ newRoles: number }>> {
-	const done = await importTemplates(
-		requestKey,
-		version,
-		selections.map((s) => ({ ...s, destinationTeamId: teamId })),
-	);
-	return done.status === "ok" ? { status: "ok", value: { newRoles: done.value.newRoles } } : done;
-}
-/**
  * The ministries list and chart again, after an import created ministries whose ids only the server knows. A read in
  * its own request, so the import's write request stays within its statement budget.
  */

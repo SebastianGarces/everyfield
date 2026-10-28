@@ -22,18 +22,34 @@ import { plural, type Catalog, type Outcome } from "./model.ts";
 // Set up ministries from the ten templates (REQ-TEAM-003). Nothing is created until the person reviews the exact
 // ministries and roles and confirms. Choosing nothing, closing or going back creates nothing. A template that is
 // already here only adds the roles it does not have yet; a renamed ministry keeps its name.
+// With `into` the same dialog adds roles to that one ministry: its own template comes first and is preselected, a role
+// it already has cannot be chosen again, and no ministry is created.
 
-export type SetupForm = { chosen: Record<string, string[]>; step: "choose" | "review"; problem?: string };
-export const NEW_SETUP: SetupForm = { chosen: {}, step: "choose" };
+/** `chosen` is null until the person changes a choice: then the default applies (nothing, or the `into` template). */
+export type SetupForm = { chosen: Record<string, string[]> | null; step: "choose" | "review"; problem?: string };
+export const NEW_SETUP: SetupForm = { chosen: null, step: "choose" };
+
+export type SetupInto = {
+	id: string;
+	name: string;
+	/** The ministry's own template, when it has one. */
+	templateKey: string | null;
+	/** Template role keys the ministry already has, retired ones too. */
+	has: ReadonlySet<string>;
+};
+
+const NONE: ReadonlySet<string> = new Set();
 
 export function SetupDialog({
 	lane,
-	present,
+	present = NONE,
+	into,
 	onDone,
 }: {
 	lane: SaveIntent<SetupForm>;
-	/** Template keys this church already has, archived ones too. */
-	present: ReadonlySet<string>;
+	/** Template keys this church already has, archived ones too. Not needed with `into`. */
+	present?: ReadonlySet<string>;
+	into?: SetupInto;
 	onDone: (added: { newTeams: number; newRoles: number }) => void;
 }) {
 	const form = lane.editing;
@@ -57,29 +73,42 @@ export function SetupDialog({
 		};
 	}, [open, catalog?.status]);
 
-	const teams = catalog?.status === "ok" ? catalog.value.teams : [];
+	const all = catalog?.status === "ok" ? catalog.value.teams : [];
+	const teams = into
+		? [...all.filter((t) => t.key === into.templateKey), ...all.filter((t) => t.key !== into.templateKey)].filter(
+				(t) => t.roles.length > 0,
+			)
+		: all;
+	const has = into?.has;
+	const fresh = (t: (typeof teams)[number]) => t.roles.filter((r) => !has?.has(r.key)).map((r) => r.key);
+	const chosen: Record<string, string[]> =
+		f.chosen ??
+		Object.fromEntries(
+			into ? teams.filter((t) => t.key === into.templateKey && fresh(t).length).map((t) => [t.key, fresh(t)]) : [],
+		);
 	const selections = teams
-		.filter((t) => f.chosen[t.key])
+		.filter((t) => chosen[t.key] && (!into || chosen[t.key]!.length > 0))
 		.map((t) => ({
 			teamKey: t.key,
-			roleKeys: t.roles.filter((r) => f.chosen[t.key]!.includes(r.key)).map((r) => r.key),
+			roleKeys: t.roles.filter((r) => chosen[t.key]!.includes(r.key)).map((r) => r.key),
+			...(into ? { destinationTeamId: into.id } : {}),
 		}));
-	const newTeams = selections.filter((s) => !present.has(s.teamKey)).length;
+	const newTeams = into ? 0 : selections.filter((s) => !present.has(s.teamKey)).length;
 	const roleCount = selections.reduce((n, s) => n + s.roleKeys.length, 0);
 	// A template that is already here with no role chosen would add nothing.
 	const nothing = newTeams === 0 && roleCount === 0;
 
 	const toggleTeam = (key: string, on: boolean) =>
 		setF((x) => {
-			const chosen = { ...x.chosen };
-			if (on) chosen[key] = teams.find((t) => t.key === key)?.roles.map((r) => r.key) ?? [];
-			else delete chosen[key];
-			return { ...x, chosen };
+			const next = { ...chosen };
+			if (on) next[key] = fresh(teams.find((t) => t.key === key)!);
+			else delete next[key];
+			return { ...x, chosen: next };
 		});
 	const toggleRole = (team: string, role: string, on: boolean) =>
 		setF((x) => {
-			const now = x.chosen[team] ?? [];
-			return { ...x, chosen: { ...x.chosen, [team]: on ? [...now, role] : now.filter((r) => r !== role) } };
+			const now = chosen[team] ?? [];
+			return { ...x, chosen: { ...chosen, [team]: on ? [...now, role] : now.filter((r) => r !== role) } };
 		});
 
 	async function confirm() {
@@ -87,9 +116,9 @@ export function SetupDialog({
 		const version = catalog.value.version;
 		const kept = f;
 		await lane.save({
-			what: "The ministries",
+			what: into ? "The roles" : "The ministries",
 			done: "added",
-			form: kept,
+			form: { ...kept, chosen },
 			send: (key) => importTemplates(key, version, selections),
 			ok: onDone,
 			refused: (code) => code === "stale_template_version" && setCatalog(null),
@@ -101,11 +130,21 @@ export function SetupDialog({
 			<DialogContent size="md">
 				<DialogHeader
 					icon={LayoutGridIcon}
-					title={f.step === "choose" ? "Set up ministries" : "Review what will be added"}
+					title={
+						f.step === "review"
+							? "Review what will be added"
+							: into
+								? "Set up roles from templates"
+								: "Set up ministries"
+					}
 					description={
 						f.step === "choose"
-							? "Choose the ministries and roles you want. You can add more later, or create your own instead."
-							: "Only these rows are created. Nothing else changes."
+							? into
+								? `Choose the roles to add to ${into.name}. You can edit or retire them later.`
+								: "Choose the ministries and roles you want. You can add more later, or create your own instead."
+							: into
+								? `Only these roles are added to ${into.name}. No ministry is created and nothing else changes.`
+								: "Only these rows are created. Nothing else changes."
 					}
 				/>
 				<DialogBody className="flex flex-col gap-4 pb-1">
@@ -126,19 +165,25 @@ export function SetupDialog({
 					) : f.step === "choose" ? (
 						<ul className="flex flex-col divide-y divide-line">
 							{teams.map((t) => {
-								const on = f.chosen[t.key] !== undefined;
-								const here = present.has(t.key);
+								const on = chosen[t.key] !== undefined;
+								const here = !into && present.has(t.key);
+								const left = fresh(t).length;
 								return (
 									<li key={t.key} className="py-1">
 										<div className="flex items-center justify-between gap-3">
 											<Checkbox
 												checked={on}
+												disabled={!!into && left === 0}
 												onCheckedChange={(v) => toggleTeam(t.key, v === true)}
-												label={t.name}
+												label={into && t.key === into.templateKey ? `${t.name} (this ministry's template)` : t.name}
 												description={
-													t.roles.length === 0
-														? "No starter role. Add your own roles later."
-														: plural(t.roles.length, "starter role")
+													into
+														? left === 0
+															? "This ministry has all of its roles."
+															: `${plural(left, "role")} to add`
+														: t.roles.length === 0
+															? "No starter role. Add your own roles later."
+															: plural(t.roles.length, "starter role")
 												}
 											/>
 											{here ? (
@@ -150,24 +195,34 @@ export function SetupDialog({
 										{on && t.roles.length ? (
 											<fieldset className="mb-2 ml-8 flex flex-col">
 												<legend className="sr-only">Roles for {t.name}</legend>
-												{t.roles.map((r) => (
-													<Checkbox
-														key={r.key}
-														checked={f.chosen[t.key]!.includes(r.key)}
-														onCheckedChange={(v) => toggleRole(t.key, r.key, v === true)}
-														label={
-															<span className="flex items-center gap-1.5">
-																{r.name}
-																{r.leadership ? (
-																	<>
-																		<Icon icon={CrownIcon} size={16} className="text-amber-600" />
-																		<span className="sr-only">, leadership role</span>
-																	</>
-																) : null}
-															</span>
-														}
-													/>
-												))}
+												{t.roles.map((r) => {
+													const have = !!has?.has(r.key);
+													return (
+														<div key={r.key} className="flex items-center justify-between gap-3">
+															<Checkbox
+																checked={have || chosen[t.key]!.includes(r.key)}
+																disabled={have}
+																onCheckedChange={(v) => toggleRole(t.key, r.key, v === true)}
+																label={
+																	<span className="flex items-center gap-1.5">
+																		{r.name}
+																		{r.leadership ? (
+																			<>
+																				<Icon icon={CrownIcon} size={16} className="text-amber-600" />
+																				<span className="sr-only">, leadership role</span>
+																			</>
+																		) : null}
+																	</span>
+																}
+															/>
+															{have ? (
+																<StatusBadge status="measured" size="sm">
+																	Already here
+																</StatusBadge>
+															) : null}
+														</div>
+													);
+												})}
 											</fieldset>
 										) : null}
 									</li>
@@ -182,7 +237,11 @@ export function SetupDialog({
 								return (
 									<li key={s.teamKey} className="rounded-md bg-surface-2 px-4 py-3">
 										<p className="font-medium text-ink">
-											{here ? `Adds to your ${t.name} ministry` : `New ministry: ${t.name}`}
+											{into
+												? `Adds ${plural(s.roleKeys.length, "role")} to ${into.name}`
+												: here
+													? `Adds to your ${t.name} ministry`
+													: `New ministry: ${t.name}`}
 										</p>
 										<p className="mt-0.5 text-sm text-text-2">
 											{s.roleKeys.length === 0
@@ -190,7 +249,7 @@ export function SetupDialog({
 												: `Roles: ${t.roles
 														.filter((r) => s.roleKeys.includes(r.key))
 														.map((r) => r.name)
-														.join(", ")}${here ? ". A role it already has is skipped." : ""}`}
+														.join(", ")}${here && !into ? ". A role it already has is skipped." : ""}`}
 										</p>
 									</li>
 								);
@@ -200,7 +259,11 @@ export function SetupDialog({
 				</DialogBody>
 				<DialogFooter>
 					{f.step === "review" ? (
-						<Button variant="secondary" icon={ArrowLeft01Icon} onClick={() => setF((x) => ({ ...x, step: "choose" }))}>
+						<Button
+							variant="secondary"
+							icon={ArrowLeft01Icon}
+							onClick={() => setF((x) => ({ ...x, chosen, step: "choose" }))}
+						>
 							Back
 						</Button>
 					) : (
@@ -209,7 +272,11 @@ export function SetupDialog({
 						</Button>
 					)}
 					{f.step === "choose" ? (
-						<Button variant="primary" disabled={nothing} onClick={() => setF((x) => ({ ...x, step: "review" }))}>
+						<Button
+							variant="primary"
+							disabled={nothing}
+							onClick={() => setF((x) => ({ ...x, chosen, step: "review" }))}
+						>
 							Review
 						</Button>
 					) : (

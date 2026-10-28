@@ -753,6 +753,8 @@ test("AC:TARGET-TEAM-012 the org chart and its PDF use the same wrapped lines", 
 });
 
 test("AC:TARGET-TEAM-012 an archived Leadership template ministry is never the root of the chart", async () => {
+	// Own the setup: importing the Leadership template again is a no-op when it is already here.
+	ok(await init({ expectedVersion: "2", mode: "import", selections: [{ teamKey: "leadership", roleKeys: [] }] }));
 	const root = (await admin.execute(sql`SELECT id FROM team WHERE plant_id=${P} AND template_key='leadership'`)).rows[0]
 		.id;
 	const archiveRoot = ok(
@@ -816,7 +818,11 @@ test("AC:TARGET-TEAM-002 one edit keeps an optional reason in the history", asyn
 		found.map((entry) => entry.after.name),
 		["Reason desk three", "Reason desk two", "Reason desk one"],
 	);
-	assert.deepEqual(withReason.before, { ...withReason.before, name: "Reason desk" });
+	assert.equal(withReason.before.name, "Reason desk");
+	assert.equal(withReason.after.name, "Reason desk one");
+	assert.equal(withReason.reason, "Spelling fix");
+	assert.equal(withReason.kind, "edit");
+	assert.equal(none.reason, null);
 	refused(
 		await run(teamsWriter.edit, {
 			requestKey: key(),
