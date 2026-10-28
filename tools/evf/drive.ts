@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { spawn } from "node:child_process";
 import type { DatabaseSync } from "node:sqlite";
 import { ensureTask, findTask, openWorkDb, type TaskRow } from "./db.ts";
-import { launch, type Role } from "./launch.ts";
+import { ideaWorktree, launch, type Role } from "./launch.ts";
 import {
 	EvfError,
 	evfDataDir,
@@ -33,13 +33,19 @@ export const LOOP_CAP = 3;
 /** Failures in a row that cost no round (plan, implement, simplify, pr, evidence, ship, aborted seats) before escalation. */
 export const RETRY_CAP = 3;
 export const STAGES = ["plan", "implement", "simplify", "pr", "evidence", "verify", "ci", "ship", "merged"] as const;
-export type Stage = (typeof STAGES)[number];
+/** Prototype mode: plan (angles) → three idea seats → compare → pick (Sebastian) → merge (handoff) → done. */
+export const PROTOTYPE_STAGES = ["plan", "idea", "compare", "pick", "merge"] as const;
+export const IDEAS = 3;
+export type Stage = (typeof STAGES)[number] | (typeof PROTOTYPE_STAGES)[number];
 const SEAT_STAGES: Partial<Record<Stage, Role>> = {
 	plan: "planner",
 	implement: "implementer",
 	simplify: "simplifier",
 	evidence: "evidence",
 	verify: "verifier",
+	idea: "ideator",
+	compare: "comparer",
+	merge: "prototype-merger",
 };
 export const seatOf = (stage: Stage, task: TaskRef): Role | undefined =>
 	stage === "implement" && task.part === "ui" ? "ui" : SEAT_STAGES[stage];
@@ -47,6 +53,7 @@ export const seatOf = (stage: Stage, task: TaskRef): Role | undefined =>
 export type Next = {
 	stage: Stage | "waiting" | "escalated" | "done";
 	role?: Role;
+	idea?: number;
 	round: number;
 	reason: string;
 	run?: number;
@@ -97,10 +104,54 @@ const trailingFailures = (runs: RunRow[]): number => {
 	return n;
 };
 
-/** Pure: the next stage from the task's closed runs. Rounds are counted when a verify or ci run closes failed. */
-export function nextStage(task: TaskRef, t: TaskRow, runs: RunRow[]): Next {
+/** Prototype mode. Idea seats launch one per transition and run side by side; the pick is Sebastian's, not evf's. */
+function nextPrototype(task: TaskRef, t: TaskRow, runs: RunRow[], picked: boolean): Next {
 	const round = t.round;
-	if (t.status === "merged") return { stage: "done", round, reason: "merged" };
+	if (t.status === "done") return { stage: "done", round, reason: "handed off" };
+	if (t.status === "escalated") return { stage: "escalated", round, reason: "escalated" };
+	const failures = trailingFailures(runs);
+	if (failures >= RETRY_CAP)
+		return { stage: "escalated", round, reason: `${failures} failures in a row without a passed stage` };
+	const go = (stage: Stage, reason: string, idea?: number): Next => ({
+		stage,
+		role: seatOf(stage, task),
+		...(idea ? { idea } : {}),
+		round,
+		reason,
+	});
+	const lastOf = (stage: string) => runs.filter((r) => r.stage === stage).at(-1);
+	if (!t.spec) {
+		const plan = lastOf("plan");
+		if (plan?.status === "started")
+			return { stage: "waiting", round, run: plan.id, reason: "the plan seat is still open" };
+		return go("plan", plan ? `plan ${plan.status}, no spec stored` : "no spec yet");
+	}
+	for (let i = 1; i <= IDEAS; i++) {
+		const last = lastOf(`idea${i}`);
+		if (!last || last.status === "failed" || last.status === "aborted")
+			return go("idea", `idea ${i} ${last ? last.status : "not started"}`, i);
+	}
+	const openIdea = runs.find((r) => /^idea\d$/.test(r.stage) && r.status === "started");
+	if (openIdea) return { stage: "waiting", round, run: openIdea.id, reason: `${openIdea.stage} is still open` };
+	const compare = lastOf("compare");
+	if (compare?.status !== "passed") {
+		if (compare?.status === "started")
+			return { stage: "waiting", round, run: compare.id, reason: "the compare seat is still open" };
+		return go("compare", compare ? `compare ${compare.status}` : "all ideas built");
+	}
+	if (!picked) return { stage: "pick", round, reason: "waiting for Sebastian's pick: evf task pick" };
+	const merge = lastOf("merge");
+	if (merge?.status === "started")
+		return { stage: "waiting", round, run: merge.id, reason: "the merge seat is still open" };
+	if (merge?.status === "passed") return { stage: "done", round, reason: "handed off" };
+	return go("merge", merge ? `merge ${merge.status}` : "idea picked");
+}
+
+/** Pure: the next stage from the task's closed runs. Rounds are counted when a verify or ci run closes failed. */
+export function nextStage(task: TaskRef, t: TaskRow, runs: RunRow[], picked = false): Next {
+	const round = t.round;
+	if (t.mode === "prototype") return nextPrototype(task, t, runs, picked);
+	if (t.status === "merged" || t.status === "done") return { stage: "done", round, reason: t.status };
 	if (t.status === "escalated") return { stage: "escalated", round, reason: `loop cap of ${LOOP_CAP} rounds hit` };
 	const open = runs.find((r) => r.status === "started");
 	if (open) return { stage: "waiting", round, run: open.id, reason: `the ${open.stage} seat is still open` };
@@ -141,7 +192,7 @@ export function next(root: string, task: TaskRef): number {
 	const db = openWorkDb(root);
 	try {
 		const t = findTask(db, task) ?? unknownTask(task);
-		console.log(JSON.stringify(nextStage(task, t, t.id ? runsOf(db, t.id) : [])));
+		console.log(JSON.stringify(nextStage(task, t, t.id ? runsOf(db, t.id) : [], !!(t.id && pickOf(db, t.id)))));
 		return 0;
 	} finally {
 		db.close();
@@ -281,7 +332,11 @@ export function taskNew(root: string, task: TaskRef, opts: { askFile: string; ti
 	if (!ask) fail("The ask file is empty.");
 	const db = openWorkDb(root);
 	try {
-		const t = ensureTask(db, task, opts.mode ?? "implement");
+		const mode = opts.mode ?? "implement";
+		if (!["implement", "prototype"].includes(mode)) fail("--mode must be implement or prototype.");
+		const t = ensureTask(db, task, mode);
+		if (t.mode !== mode)
+			fail(`${t.ref} already has an open ${t.mode} task; finish or abandon it before a ${mode} task.`);
 		db.prepare("UPDATE tasks SET ask = ?, title = ?, updated_at = ? WHERE id = ?").run(
 			ask,
 			opts.title ?? t.ref,
@@ -308,6 +363,101 @@ export function taskSpec(root: string, task: TaskRef, file: string): number {
 		).run(spec, hash, now(), t.id);
 		record(db, t.id, null, "spec_set", { hash, summary: `${t.ref} spec stored (${spec.split("\n").length} lines)` });
 		console.log(`spec: ${t.ref} ${hash.slice(0, 12)}`);
+		return 0;
+	} finally {
+		db.close();
+	}
+}
+
+type Pick = { idea: number; quote: string; created_at: string };
+const pickOf = (db: DatabaseSync, taskId: number): Pick | null => {
+	const row = db
+		.prepare(
+			"SELECT proof_ids, quote, created_at FROM approvals WHERE task_id = ? AND gate = 'pick' AND decision = 'approved' ORDER BY id DESC LIMIT 1",
+		)
+		.get(taskId) as { proof_ids: string; quote: string; created_at: string } | undefined;
+	if (!row) return null;
+	const idea = Number((JSON.parse(row.proof_ids) as number[])[0]);
+	return Number.isInteger(idea) ? { idea, quote: row.quote, created_at: row.created_at } : null;
+};
+
+/** Sebastian's pick, in his words, recorded as an approval of gate `pick` so the merge seat can start. */
+export function taskPick(root: string, task: TaskRef, idea: number, ownerApproval: string): number {
+	if (process.env.EVF_RUN)
+		fail("The pick is Sebastian's, recorded by Jonah or a human shell: a seat cannot run evf task pick.");
+	if (!Number.isInteger(idea) || idea < 1 || idea > IDEAS) fail(`Pick an idea from 1 to ${IDEAS}.`);
+	if (ownerApproval.trim().split(/\s+/).filter(Boolean).length < 2)
+		fail('Quote Sebastian\'s pick: --owner-approval "<his words>".');
+	const db = openWorkDb(root);
+	try {
+		const t = ensureTask(db, task, "prototype");
+		if (t.mode !== "prototype") fail(`${t.ref} is in ${t.mode} mode; only prototype tasks take a pick.`);
+		const wt = ideaWorktree(root, loadConfig(root), task, idea);
+		const head = existsSync(wt) ? git(wt, "rev-parse", "HEAD") : null;
+		db.prepare(
+			"INSERT INTO approvals (task_id, gate, approver, head_sha, proof_ids, decision, quote, created_at) VALUES (?, 'pick', 'Sebastian', ?, ?, 'approved', ?, ?)",
+		).run(t.id, head, JSON.stringify([idea]), ownerApproval.trim(), now());
+		db.prepare("UPDATE tasks SET status = 'active', updated_at = ? WHERE id = ?").run(now(), t.id);
+		record(db, t.id, null, "pick", {
+			idea,
+			head,
+			summary: `Sebastian picked idea ${idea}: ${ownerApproval.trim().slice(0, 120)}`,
+		});
+		console.log(`pick: ${t.ref} idea ${idea}${head ? ` at ${head.slice(0, 10)}` : ""}.`);
+		return 0;
+	} finally {
+		db.close();
+	}
+}
+
+/** The merge seat's handoff becomes the implement task's spec; the prototype task is done and its code discarded. */
+export function taskHandoff(root: string, task: TaskRef, file: string): number {
+	const spec = readFileSync(file, "utf8").trim();
+	if (!doneCriteria(spec).length) fail("The handoff needs a Goal, numbered Done criteria, Non-goals and an Approach.");
+	const hash = createHash("sha256").update(spec).digest("hex");
+	const db = openWorkDb(root);
+	try {
+		const proto = ensureTask(db, task, "prototype");
+		if (proto.mode !== "prototype") fail(`${proto.ref} is in ${proto.mode} mode; a handoff ends a prototype task.`);
+		if (!pickOf(db, proto.id)) fail(`${proto.ref} has no pick yet; Sebastian picks before the handoff.`);
+		const ask = (db.prepare("SELECT ask FROM tasks WHERE id = ?").get(proto.id) as { ask: string }).ask;
+		db.exec("BEGIN IMMEDIATE");
+		try {
+			db.prepare("UPDATE tasks SET status = 'done', updated_at = ? WHERE id = ?").run(now(), proto.id);
+			const implementId = Number(
+				db
+					.prepare(
+						"INSERT INTO tasks (slug, mode, ref, goal_id, title, ask, spec, spec_hash, branch, status, created_at, updated_at) VALUES (?, 'implement', ?, ?, ?, ?, ?, ?, ?, 'specced', ?, ?)",
+					)
+					.run(
+						task.slug,
+						task.id,
+						proto.goal_id,
+						`${task.id} from prototype`,
+						ask,
+						spec,
+						hash,
+						task.branch,
+						now(),
+						now(),
+					).lastInsertRowid,
+			);
+			record(db, proto.id, Number(process.env.EVF_RUN) || null, "handoff", {
+				implement_task: implementId,
+				hash,
+				summary: `${proto.ref} handed off to implement task ${implementId}`,
+			});
+			record(db, implementId, null, "spec_set", {
+				hash,
+				from_prototype: proto.id,
+				summary: `${task.id} spec from the prototype handoff`,
+			});
+			db.exec("COMMIT");
+		} catch (e) {
+			db.exec("ROLLBACK");
+			throw e;
+		}
+		console.log(`handoff: ${proto.ref} done; implement task created with spec ${hash.slice(0, 12)}.`);
 		return 0;
 	} finally {
 		db.close();
@@ -448,11 +598,30 @@ export function askPlanner(root: string, task: TaskRef, question: string): numbe
 }
 
 const CLOSE = "Close with bin/evf run done $EVF_RUN --status passed|failed --summary-file <path>.";
-const STAGE_PROMPTS: Record<string, (task: TaskRef, next: Next, prBody: string) => string> = {
+/** What a stage prompt may name: the spec, the idea worktrees, the comparison dir, the pick and the PR body path. */
+type PromptContext = { spec: string | null; ideas: string[]; comparison: string; pick: Pick | null; prBody: string };
+type Prompt = (task: TaskRef, next: Next, ctx: PromptContext) => string;
+const angleOf = (spec: string | null, idea: number) =>
+	spec
+		?.split("\n")
+		.find((line) => new RegExp(`^\\s*Angle ${idea}\\s*:`, "i").test(line))
+		?.replace(/^\s*Angle \d\s*:\s*/i, "") ??
+	`angle ${idea} (the spec names none; choose a distinct approach and say which)`;
+const PROTOTYPE_PROMPTS: Record<string, Prompt> = {
+	plan: (task) =>
+		`Plan prototype task ${task.id}: from the brief in your session-start context write the spec with Goal, three lines "Angle 1:", "Angle 2:" and "Angle 3:" naming three distinct approaches worth a proof of concept, numbered Done criteria for what every proof of concept must show, and Non-goals. Store it with bin/evf task spec ${task.id} --file <path>, then close with bin/evf run done $EVF_RUN --status passed --summary-file <path>.`,
+	idea: (task, next, ctx) =>
+		`Build idea ${next.idea} of prototype task ${task.id} in this worktree. Your angle: ${angleOf(ctx.spec, next.idea!)}. The brief and the Done criteria are in your session-start context. Write IDEA.md at the worktree root, commit, and close with bin/evf run done $EVF_RUN --status passed|failed --summary-file <path>.`,
+	compare: (task, _next, ctx) =>
+		`Compare the three ideas of prototype task ${task.id}. Idea worktrees: ${ctx.ideas.join(", ")}. Build the comparison in ${ctx.comparison} (a toggle page for UI work; a compare script plus one diagram per idea for backend work) and write comparison.md there without naming a winner. Record it with bin/evf proof add ${task.id} --criterion comparison --status met --evidence ${ctx.comparison}/comparison.md, then close with bin/evf run done $EVF_RUN --status passed|failed --summary-file <path>.`,
+	merge: (task, _next, ctx) =>
+		`Sebastian picked idea ${ctx.pick?.idea} of prototype task ${task.id}: "${ctx.pick?.quote}". Its worktree: ${ctx.ideas[(ctx.pick?.idea ?? 1) - 1]}. Comparison: ${ctx.comparison}. Read the brief, the comparison and all three ideas, write the handoff spec (Goal, numbered Done criteria, Non-goals, Approach) and run bin/evf task handoff ${task.id} --file <path>. Close with bin/evf run done $EVF_RUN --status passed|failed --summary-file <path>.`,
+};
+const STAGE_PROMPTS: Record<string, Prompt> = {
 	plan: (task) =>
 		`Plan task ${task.id}: write the spec (Goal, numbered testable Done criteria, Non-goals) from the ask in your session-start context, store it with bin/evf task spec ${task.id} --file <path>, then close with bin/evf run done $EVF_RUN --status passed --summary-file <path>.`,
-	implement: (task, next, prBody) =>
-		`Implement task ${task.id} in this worktree against the spec in your session-start context.${next.round ? ` Round ${next.round}: ${next.reason}. Read the last verify or ci summary with bin/evf status --json ${task.id} and fix those findings first.` : ""} Keep bin/evf verify ${task.id} green, commit, and write the PR body to ${prBody} following .agents/skills/everyfield-pr/template.md with your EVF-Author line (bin/evf session prints your id). ${CLOSE}`,
+	implement: (task, next, ctx) =>
+		`Implement task ${task.id} in this worktree against the spec in your session-start context.${next.round ? ` Round ${next.round}: ${next.reason}. Read the last verify or ci summary with bin/evf status --json ${task.id} and fix those findings first.` : ""} Keep bin/evf verify ${task.id} green, commit, and write the PR body to ${ctx.prBody} following .agents/skills/everyfield-pr/template.md with your EVF-Author line (bin/evf session prints your id). ${CLOSE}`,
 	simplify: (task) =>
 		`Simplify task ${task.id}: read the spec and git diff origin/main...HEAD, remove what the Done criteria do not need, keep bin/evf verify ${task.id} green, commit. ${CLOSE}`,
 	evidence: (task) =>
@@ -657,11 +826,12 @@ function waitOnSeat(
 /** One transition. Returns the stage it performed or waited on. */
 export function driveOnce(root: string, task: TaskRef, timing: DriveTiming = DRIVE_TIMING): Next {
 	const db = openWorkDb(root);
-	let launching: { role: Role; prompt: string } | undefined;
+	let launching: { role: Role; prompt: string; idea?: number; mode: string; comparison: string } | undefined;
 	try {
 		const t = ensureTask(db, task, "implement");
 		const runs = runsOf(db, t.id);
-		const n = nextStage(task, t, runs);
+		const pick = pickOf(db, t.id);
+		const n = nextStage(task, t, runs, !!pick);
 		record(db, t.id, n.run ?? null, "next", {
 			stage: n.stage,
 			round: n.round,
@@ -669,6 +839,19 @@ export function driveOnce(root: string, task: TaskRef, timing: DriveTiming = DRI
 		});
 		if (n.stage === "escalated" && t.status !== "escalated") escalate(db, t, null, n.reason);
 		if (n.stage === "done" || n.stage === "escalated") return n;
+		if (n.stage === "pick") {
+			if (t.status !== "awaiting_pick") {
+				db.prepare("UPDATE tasks SET status = 'awaiting_pick', updated_at = ? WHERE id = ?").run(now(), t.id);
+				record(db, t.id, null, "awaiting_pick", {
+					summary: `${task.id}: comparison ready, waiting for Sebastian's pick`,
+				});
+				notify(
+					`${task.id} ready to pick`,
+					`Three ideas and the comparison are ready: evf task pick ${task.id} <n> --owner-approval "<words>"`,
+				);
+			}
+			return n;
+		}
 		if (n.stage === "waiting") {
 			const open = runs.find((r) => r.id === n.run)!;
 			if (open.role === "evf") {
@@ -688,7 +871,22 @@ export function driveOnce(root: string, task: TaskRef, timing: DriveTiming = DRI
 			return n;
 		}
 		if (n.role) {
-			launching = { role: n.role, prompt: STAGE_PROMPTS[n.stage]!(task, n, prBodyPath(root, task)) };
+			const cfg = loadConfig(root);
+			const ctx: PromptContext = {
+				spec: t.spec,
+				ideas: Array.from({ length: IDEAS }, (_, i) => ideaWorktree(root, cfg, task, i + 1)),
+				comparison: join(runtimeDir(root, task), "comparison"),
+				pick,
+				prBody: prBodyPath(root, task),
+			};
+			const prompts = t.mode === "prototype" ? PROTOTYPE_PROMPTS : STAGE_PROMPTS;
+			launching = {
+				role: n.role,
+				prompt: prompts[n.stage]!(task, n, ctx),
+				idea: n.idea,
+				mode: t.mode,
+				comparison: ctx.comparison,
+			};
 			return n;
 		}
 		evfStage(db, root, task, t, n.stage, timing);
@@ -696,8 +894,8 @@ export function driveOnce(root: string, task: TaskRef, timing: DriveTiming = DRI
 	} finally {
 		db.close();
 		if (launching) {
-			mkdirSync(runtimeDir(root, task), { recursive: true });
-			launch(root, task, launching.role, { prompt: launching.prompt });
+			mkdirSync(launching.comparison, { recursive: true });
+			launch(root, task, launching.role, { prompt: launching.prompt, idea: launching.idea, mode: launching.mode });
 		}
 	}
 }
@@ -747,7 +945,8 @@ export function drive(
 		for (;;) {
 			const n = driveOnce(root, task, timing);
 			console.log(`${now()} drive ${task.id}: ${n.stage} (${n.reason})`);
-			if (n.stage === "done" || n.stage === "escalated" || opts.once) return n.stage === "escalated" ? 2 : 0;
+			if (n.stage === "done" || n.stage === "escalated" || n.stage === "pick" || opts.once)
+				return n.stage === "escalated" ? 2 : 0;
 		}
 	} finally {
 		if (existsSync(pidFile) && Number(readFileSync(pidFile, "utf8").trim()) === process.pid) unlinkSync(pidFile);

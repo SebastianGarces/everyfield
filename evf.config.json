@@ -903,6 +903,21 @@
 				}
 			],
 			"risk": "ordinary"
+		},
+		"OPS-60": {
+			"title": "Harness prototype mode: three blind idea seats, comparison, pick, Opus merge and handoff",
+			"owningPaths": ["tools/evf/", "evf.config.json", ".claude/"],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {
