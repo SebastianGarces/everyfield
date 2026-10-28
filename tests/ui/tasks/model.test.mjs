@@ -19,10 +19,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+	bulkActions,
 	countsAfter,
 	dueInputOf,
 	listRequest,
 	matches,
+	ownerLabel,
 	NO_PENDING,
 	shownRows,
 	shownSteps,
@@ -253,4 +255,26 @@ test("AC:TARGET-TSK-006 INV-badge-reads: an old badge read never lands on a newe
 	assert.equal(reads.applies(newer, list), true);
 	reads.end();
 	assert.equal(reads.applies(newer, list), false, "a new list ends every read of the old one, and its retries");
+});
+
+test("AC:TARGET-TSK-001 INV-owner-label: an owner shows by name, also the signed-in person, never as You", () => {
+	const signedIn = { displayName: "Dana Reyes" };
+	const otherMember = { displayName: "Aisha Bello" };
+	assert.equal(ownerLabel(signedIn), "Dana Reyes", "the signed-in owner");
+	assert.equal(ownerLabel(otherMember), "Aisha Bello", "another member");
+	// Every empty name reads the same: the signed-in person, another seat and a former member (REQ-TSK-001).
+	assert.equal(ownerLabel({ displayName: "  " }), "Unnamed member", "a member with no name");
+	assert.equal(ownerLabel({ displayName: "" }), "Unnamed member", "a former member whose deleted account has no name");
+	assert.equal(ownerLabel(null), "Needs owner", "no owner");
+});
+
+test("AC:TARGET-TSK-008 INV-bulk-actions: complete and reschedule apply only to open tasks", () => {
+	const open = ["not_started", "in_progress", "blocked"];
+	const settled = ["complete", "no_longer_needed"];
+	const enabled = { kind: "open", settled: 0 };
+	assert.deepEqual(bulkActions(open), enabled, "all open");
+	for (const status of open) assert.deepEqual(bulkActions([status]), enabled, status);
+	assert.deepEqual(bulkActions(settled), { kind: "settled", settled: 2 });
+	for (const status of settled) assert.deepEqual(bulkActions([status]), { kind: "settled", settled: 1 }, status);
+	assert.deepEqual(bulkActions(["complete", "in_progress", "no_longer_needed"]), { kind: "mixed", settled: 2 });
 });
