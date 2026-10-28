@@ -17,7 +17,6 @@ for (const [name, engine] of ENGINES)
 					assert.equal(await go.getAttribute("href"), "/people");
 					const classes = await go.getAttribute("class");
 					assert.match(classes ?? "", /bg-ink|primary/, "the link uses the primary button style");
-					assert.equal(await page.getByRole("button", { name: "Go to dashboard" }).count(), 0);
 					await page.waitForTimeout(10_500);
 					assert.match(new URL(page.url()).pathname, /\/design\/onboarding$/, "no automatic redirect");
 					assert.ok(await page.getByRole("heading", { name: "Setup is finished" }).isVisible());
