@@ -75,20 +75,30 @@ function rsvpButton(href: string): string {
 	);
 }
 
+export const RSVP_PLACEHOLDER_TEXT = "RSVP button appears here (needs an https app origin)";
+
+/** Preview only: a labeled box where the button goes when the app origin cannot make a link. Never sent. */
+const rsvpPlaceholder = (): string =>
+	`<table data-rsvp-placeholder="" role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0 6px 0;"><tr>` +
+	`<td align="center" style="border:2px dashed #9A9E98;padding:12px 20px;font-family:${FONT};font-size:14px;color:#666A64;">${RSVP_PLACEHOLDER_TEXT}</td></tr></table>`;
+
+export type RenderMode = "send" | "preview";
+
 /**
  * Replace `{{field}}` after sanitizing. An unknown field becomes empty text. `rsvp_link` becomes a link only for a valid
  * RSVP URL and is empty otherwise. Every other value is escaped text, never markup or an attribute.
  */
-export function renderBody(input: string, merge: Readonly<Record<string, string>>): string {
+export function renderBody(input: string, merge: Readonly<Record<string, string>>, mode: RenderMode = "send"): string {
 	return sanitizeHtml(input)
 		.replace(/\{\{\s*([a-z0-9_]+)\s*\}\}/gi, (_match, key: string) => {
 			if (key.toLowerCase() === "rsvp_link") {
 				const href = rsvpHref(merge.rsvp_link);
-				return href ? rsvpButton(href) : "";
+				if (href) return rsvpButton(href);
+				return mode === "preview" ? rsvpPlaceholder() : "";
 			}
 			return escapeHtml(merge[key] ?? "");
 		})
-		.replace(/<p>\s*(<table data-rsvp-button[\s\S]*?<\/table>)\s*<\/p>/g, "$1")
+		.replace(/<p>\s*(<table data-rsvp-(?:button|placeholder)[\s\S]*?<\/table>)\s*<\/p>/g, "$1")
 		.replace(/<p>\s*<\/p>/g, "");
 }
 

@@ -290,3 +290,65 @@ test("AC:COM-010 the preview equals the sent message apart from the name and the
 	);
 	assert.equal(preview.previewBody, renderBody(BODY, { name: "Sample Person", rsvp_link: `${origin}/rsvp/preview` }));
 });
+
+test("AC:COM-010 a send without the RSVP field mints no token", async () => {
+	const m = await meeting("orientation", new Date(Date.now() + 2 * day));
+	const g = await person("Hal Ross", "hal@example.test");
+	await guest(m, g);
+	const s = await send(m, [g], "<p>Hi {{name}}, see you soon.</p>");
+	ok(await s.dispatch());
+	const mail = s.transport.sent[0];
+	assert.equal(mail.html.includes("/rsvp/"), false);
+	assert.equal((await guestRow(m, g)).rsvp_token_hash, null);
+	const [audit] = await rows(
+		sql`SELECT after_value FROM audit_event WHERE action = 'communication.send_intended' AND subject_id = ${s.communicationId}`,
+	);
+	assert.equal(audit.after_value.rsvpLinks, 0);
+});
+
+test("AC:COM-010 an http app origin sends no link and mints no token", async () => {
+	const m = await meeting("vision_meeting", new Date(Date.now() + 2 * day));
+	const g = await person("Ivy Cole", "ivy@example.test");
+	await guest(m, g);
+	const draft = await scheduled(m, [g]);
+	const accepted = ok(await draft.schedule());
+	const transport = capture();
+	ok(
+		await communicationWriter.dispatchAttempt(
+			f.db,
+			owner.actor,
+			{
+				requestKey: key(),
+				expectedRevision: accepted.revision,
+				input: { communicationId: draft.saved.communicationId },
+			},
+			transport,
+			{ ...keys, origin: "http://localhost:3000" },
+		),
+	);
+	const mail = transport.sent[0];
+	assert.equal(mail.html.includes("/rsvp/"), false);
+	assert.equal(mail.html.includes("data-rsvp-placeholder"), false);
+	assert.equal(mail.html.includes("RSVP button appears here"), false);
+	assert.equal(mail.text.includes("RSVP button appears here"), false);
+	assert.equal((await guestRow(m, g)).rsvp_token_hash, null);
+});
+
+test("AC:COM-010 the preview shows a labeled placeholder when no https link is possible, and a send never does", () => {
+	const context = { churchName: "Grace" };
+	for (const merge of [{ name: "Sam", rsvp_link: "http://localhost:3000/rsvp/preview" }, { name: "Sam" }]) {
+		const preview = renderEmailHtml(BODY, merge, context, "preview");
+		assert.ok(preview.includes("data-rsvp-placeholder"));
+		assert.ok(preview.includes("RSVP button appears here (needs an https app origin)"));
+		assert.equal(preview.includes("data-rsvp-button"), false);
+		assert.equal(preview.includes("<p></p>"), false);
+		const sent = renderEmailHtml(BODY, merge, context);
+		assert.equal(sent.includes("data-rsvp-placeholder"), false);
+		assert.equal(sent.includes("RSVP button appears here"), false);
+		assert.equal(renderBody(BODY, merge).includes("RSVP button appears here"), false);
+	}
+	// A valid https link renders the button in both modes.
+	const merge = { name: "Sam", rsvp_link: `${origin}/rsvp/preview` };
+	assert.ok(renderEmailHtml(BODY, merge, context, "preview").includes("data-rsvp-button"));
+	assert.equal(renderEmailHtml(BODY, merge, context, "preview").includes("data-rsvp-placeholder"), false);
+});

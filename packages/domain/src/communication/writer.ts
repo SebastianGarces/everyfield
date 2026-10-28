@@ -816,7 +816,7 @@ async function preview(tx: Tx, authority: RequestActor, request: unknown) {
 	if (!found.meeting_ok || !found.template_ok || !found.known) deny("invalid_subject");
 	if (usesRsvpLink(input.bodyHtml) && !found.meeting_open) deny("rsvp_needs_meeting");
 	const summary = summarizeAudience(found.people);
-	const previewBody = renderBody(input.bodyHtml, input.merge);
+	const previewBody = renderBody(input.bodyHtml, input.merge, "preview");
 	const sourceBody = sanitizeHtml(input.bodyHtml);
 	const parts = reviewedParts(found.people);
 	const digest = reviewedDigest(found.subject, sourceBody ? sourceBody : null, parts.people, parts.emails);
@@ -824,7 +824,7 @@ async function preview(tx: Tx, authority: RequestActor, request: unknown) {
 		deny("stale_review", { previewBody, scriptExecution: false, providerCalls: 0 });
 	return c.previewResult.parse({
 		previewBody,
-		previewHtml: renderEmailHtml(input.bodyHtml, input.merge, { churchName: found.church_name ?? "" }),
+		previewHtml: renderEmailHtml(input.bodyHtml, input.merge, { churchName: found.church_name ?? "" }, "preview"),
 		scriptExecution: false,
 		providerCalls: 0,
 		eligibleEmails: summary.eligibleEmails,

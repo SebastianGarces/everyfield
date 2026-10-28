@@ -1,4 +1,4 @@
-import { escapeHtml, renderBody } from "./html.ts";
+import { escapeHtml, renderBody, type RenderMode } from "./html.ts";
 
 // The one place that builds the HTML of a church email. Delivery seals its output and the Messages preview shows the
 // same string in an isolated frame, so the preview cannot drift from the inbox. It is plain TypeScript with no app,
@@ -39,9 +39,14 @@ function initials(name: string): string {
 }
 
 /** The complete HTML document for one recipient: layout, the rendered body and the RSVP button. */
-export function renderEmailHtml(body: string, merge: Readonly<Record<string, string>>, context: EmailContext): string {
+export function renderEmailHtml(
+	body: string,
+	merge: Readonly<Record<string, string>>,
+	context: EmailContext,
+	mode: RenderMode = "send",
+): string {
 	const church = escapeHtml(context.churchName.trim() || "Your church");
-	const content = inlineStyles(renderBody(body, merge));
+	const content = inlineStyles(renderBody(body, merge, mode));
 	return (
 		`<!DOCTYPE html><html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office"><head>` +
 		`<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light">` +
