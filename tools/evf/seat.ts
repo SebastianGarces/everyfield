@@ -302,7 +302,6 @@ export function hook(root: string, event: string): number {
 			record(db, seat.task_id, runId, "refocus", {
 				source,
 				lines: context.split("\n").length,
-				shortened: context.includes("\nSHORTENED to fit"),
 				summary: `refocus after ${source}`,
 			});
 			console.log(
