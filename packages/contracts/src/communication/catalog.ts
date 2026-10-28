@@ -61,8 +61,7 @@ export const systemTemplates: readonly SystemTemplate[] = [
 	{
 		sourceKey: "vision-meeting-follow-up-attended",
 		name: "Vision meeting follow-up",
-		description:
-			"Thanks a guest who came to the vision meeting and asks them to reply with their next step.",
+		description: "Thanks a guest who came to the vision meeting and asks them to reply with their next step.",
 		category: "follow_up",
 		meetingType: null,
 		subject: "Thank you for coming to our vision meeting",
@@ -77,8 +76,7 @@ export const systemTemplates: readonly SystemTemplate[] = [
 	{
 		sourceKey: "vision-meeting-follow-up-no-show",
 		name: "Vision meeting follow-up for a missed guest",
-		description:
-			"Writes to a guest who could not come to the vision meeting and offers a way to catch up.",
+		description: "Writes to a guest who could not come to the vision meeting and offers a way to catch up.",
 		category: "follow_up",
 		meetingType: null,
 		subject: "We missed you at our vision meeting",
