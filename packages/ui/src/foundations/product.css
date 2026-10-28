@@ -18,7 +18,6 @@
 
 	/* The edge of a control or an unchecked state ring (WCAG 1.4.11, 3:1 on the frame, the surfaces and tinted rows).
      The hairline --ef-line-2 stays for dividers and decoration. */
-	--color-edge: var(--ef-edge);
 	--shadow-edge: 0 0 0 1px var(--ef-edge);
 	--shadow-edge-inset: inset 0 0 0 1.5px var(--ef-edge);
 

@@ -67,7 +67,7 @@ type PresenceAnswer = Extract<Awaited<ReturnType<typeof setPresence>>, { status:
 const HELD = "aria-disabled:cursor-not-allowed aria-disabled:opacity-45 aria-disabled:active:translate-y-0";
 
 /** When a meeting can be finalized: at any time, unless it is cancelled or voided. */
-export const canSettle = (m: Detail) => m.status !== "cancelled" && !m.occurrence.voidedAt;
+const canSettle = (m: Detail) => m.status !== "cancelled" && !m.occurrence.voidedAt;
 
 /**
  * Presence saves, one save lane per person (components/save useRowLanes, C68): marking people at the door never waits
