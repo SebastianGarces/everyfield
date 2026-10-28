@@ -369,11 +369,11 @@ export const taskReader = {
 				viewer,
 				sql`SELECT a.id, a.occurred_at, a.before_value->>'status' AS "from",
 					a.after_value->>'status' AS "to", a.actor_id, a.actor_token, a.system_cause,
-					coalesce(a.metadata->>'source','person') AS source, ai.display_name, count(*) OVER () AS total,
+					coalesce(a.metadata->>'source','person') AS source, ai.display_name, count(a.id) OVER () AS total,
 					row_number() OVER (ORDER BY a.occurred_at, a.id) AS ord
-				FROM task t JOIN audit_event a ON a.tenant_id=t.plant_id AND a.subject_id=t.id
+				FROM task t LEFT JOIN audit_event a ON a.tenant_id=t.plant_id AND a.subject_id=t.id AND a.after_value ? 'status'
 				LEFT JOIN LATERAL seat_identity(a.actor_id) ai ON true
-				WHERE t.id=${v.taskId}::uuid AND t.plant_id=${viewer.plantId}::uuid AND a.after_value ? 'status'
+				WHERE t.id=${v.taskId}::uuid AND t.plant_id=${viewer.plantId}::uuid
 				ORDER BY a.occurred_at, a.id LIMIT ${v.limit} OFFSET ${(v.page - 1) * v.limit}`,
 			);
 			const rows = z
@@ -391,9 +391,10 @@ export const taskReader = {
 						total: z.coerce.number().int(),
 					}),
 				)
-				.parse(found);
-			// Every task has its creation entry, so no rows on the first page means no such task in this church.
-			if (!rows.length && v.page === 1) deny();
+				.parse(found.filter((a) => a.id !== null));
+			// The task row always comes back: no rows on page 1 means no such task here. A task with no status audit row
+			// comes back as one row with null audit columns, which reads as an empty history.
+			if (!found.length && v.page === 1) deny();
 			const total = rows[0]?.total ?? 0;
 			return c.statusHistory.parse({
 				taskId: v.taskId,
