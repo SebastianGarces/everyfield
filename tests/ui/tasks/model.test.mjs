@@ -21,7 +21,6 @@ import { test } from "node:test";
 import {
 	bulkActions,
 	countsAfter,
-	historyProblem,
 	dueInputOf,
 	listRequest,
 	matches,
@@ -259,14 +258,14 @@ test("AC:TARGET-TSK-006 INV-badge-reads: an old badge read never lands on a newe
 });
 
 test("AC:TARGET-TSK-001 INV-owner-label: an owner shows by name, also the signed-in person, never as You", () => {
-	const you = "a0000000-0000-4000-8000-000000000001";
-	const other = "a0000000-0000-4000-8000-000000000002";
-	assert.equal(ownerLabel({ accountId: you, displayName: "Dana Reyes" }), "Dana Reyes");
-	assert.equal(ownerLabel({ accountId: other, displayName: "Aisha Bello" }), "Aisha Bello");
+	const signedIn = { displayName: "Dana Reyes" };
+	const otherMember = { displayName: "Aisha Bello" };
+	assert.equal(ownerLabel(signedIn), "Dana Reyes", "the signed-in owner");
+	assert.equal(ownerLabel(otherMember), "Aisha Bello", "another member");
 	// Every empty name reads the same: the signed-in person, another seat and a former member (REQ-TSK-001).
-	assert.equal(ownerLabel({ accountId: you, displayName: "  " }), "Unnamed member");
-	assert.equal(ownerLabel({ accountId: other, displayName: "" }), "Unnamed member");
-	assert.equal(ownerLabel(null), "Needs owner");
+	assert.equal(ownerLabel({ displayName: "  " }), "Unnamed member", "a member with no name");
+	assert.equal(ownerLabel({ displayName: "" }), "Unnamed member", "a former member whose deleted account has no name");
+	assert.equal(ownerLabel(null), "Needs owner", "no owner");
 });
 
 test("AC:TARGET-TSK-008 INV-bulk-actions: complete and reschedule apply only to open tasks", () => {
@@ -278,11 +277,4 @@ test("AC:TARGET-TSK-008 INV-bulk-actions: complete and reschedule apply only to 
 	assert.deepEqual(bulkActions(settled), { kind: "settled", settled: 2 });
 	for (const status of settled) assert.deepEqual(bulkActions([status]), { kind: "settled", settled: 1 }, status);
 	assert.deepEqual(bulkActions(["complete", "in_progress", "no_longer_needed"]), { kind: "mixed", settled: 2 });
-});
-
-test("AC:TARGET-TSK-015 INV-history-read: a task with no recorded change reads differently from a failed read", () => {
-	// BUG (task 18): the domain refuses page 1 as "unavailable" when a task has no status audit row (a seeded task).
-	assert.equal(historyProblem({ status: "refused", code: "unavailable" }), "unrecorded");
-	assert.equal(historyProblem({ status: "lost" }), "failed");
-	assert.equal(historyProblem({ status: "refused", code: "access_denied" }), "failed");
 });

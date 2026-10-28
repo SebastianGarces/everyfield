@@ -94,10 +94,6 @@ export const SORT_LABEL: Record<(typeof SORTS)[number], string> = {
 	created: "Date added",
 };
 
-/** A refusal as "unavailable" means no status change is recorded; any other miss is a failed read. */
-export const historyProblem = (r: Exclude<Outcome<unknown>, { status: "ok" }>): "unrecorded" | "failed" =>
-	r.status === "refused" && r.code === "unavailable" ? "unrecorded" : "failed";
-
 export const isSettled = (s: Status) => s === "complete" || s === "no_longer_needed";
 
 /**

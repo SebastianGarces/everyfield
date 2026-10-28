@@ -22,7 +22,6 @@ import { loadHistory, type Loaded } from "./fetch.ts";
 import {
 	blockedText,
 	CATEGORY_LABEL,
-	historyProblem,
 	isSettled,
 	ownerLabel,
 	PRIORITY_LABEL,
@@ -408,9 +407,7 @@ function History({ taskId, first }: { taskId: string; first: Outcome<TaskHistory
 		return (
 			<Section title="Status history">
 				<p className="text-sm text-text-3">
-					{historyProblem(page) === "unrecorded"
-						? "No status changes are recorded for this task."
-						: "The history did not load."}
+					The history did not load.
 				</p>
 				<Button
 					variant="ghost"
@@ -432,6 +429,7 @@ function History({ taskId, first }: { taskId: string; first: Outcome<TaskHistory
 	const next = more ? more.next : page.value.next;
 	return (
 		<Section title="Status history">
+			{items.length === 0 ? <p className="text-sm text-text-3">No status changes are recorded for this task.</p> : null}
 			<ol className="flex flex-col">
 				{items.map((e) => (
 					<li
