@@ -13,13 +13,7 @@ export type SystemTemplate = {
 	bodyHtml: string;
 };
 
-/**
- * The seven approved system messages. They live in code. A plant fork never changes these bytes.
- *
- * `{{name}}` and `{{rsvp_link}}` are the merge fields. A guest answers a meeting invitation or reminder on the RSVP page, never by reply.
- * The four meeting templates carry `{{rsvp_link}}`; it renders nothing when the RSVP link does not apply. Meeting details are bracket placeholders the
- * planter replaces before sending. Subjects hold no merge fields, because nothing merges a subject.
- */
+/** The seven approved system messages. They live in code. A plant fork never changes these bytes. Merge fields: `{{name}}`, `{{rsvp_link}}` (meeting templates only). */
 export const systemTemplates: readonly SystemTemplate[] = [
 	{
 		sourceKey: "vision-meeting-invitation",
