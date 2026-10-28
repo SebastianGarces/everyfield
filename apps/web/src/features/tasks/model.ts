@@ -96,6 +96,23 @@ export const SORT_LABEL: Record<(typeof SORTS)[number], string> = {
 
 export const isSettled = (s: Status) => s === "complete" || s === "no_longer_needed";
 
+/**
+ * Who owns a task or step, as text. The owner's own name shows, also for the signed-in person (never "You"). Every
+ * empty name reads "Unnamed member": a current seat never reads as a former member, and a former member whose account
+ * still exists keeps their name.
+ */
+export function ownerLabel(owner: { displayName: string } | null): string {
+	return owner ? owner.displayName.trim() || "Unnamed member" : "Needs owner";
+}
+
+/** What the bulk bar offers for the selected tasks' current statuses (REQ-TSK-008: only open tasks complete or move). */
+export type BulkActions = { kind: "open" | "settled" | "mixed"; settled: number };
+
+export function bulkActions(statuses: readonly Status[]): BulkActions {
+	const settled = statuses.filter(isSettled).length;
+	return { kind: settled === 0 ? "open" : settled === statuses.length ? "settled" : "mixed", settled };
+}
+
 // ---------------------------------------------------------------------------------------------------------------
 // Task structure (REQ-TSK-005 to 008): steps, what a task waits for, repeats and bulk changes.
 
