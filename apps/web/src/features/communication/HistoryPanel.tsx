@@ -234,13 +234,17 @@ function MessageButton({
 				<StateBadge state={item.state} />
 			</span>
 			<span className="text-sm text-text-3">
-				{rowTime(item)} · {plural(item.reachable, "recipient", "recipients")}
+				{rowTime(item)} · {recipientCount(item.reachable, item.state)}
 			</span>
 		</button>
 	);
 }
 
 const plural = (n: number, one: string, many: string) => (n === 1 ? `1 ${one}` : `${n} ${many}`);
+
+/** A message that has not gone out has no recipient records yet, so a zero there would mislead. */
+const recipientCount = (n: number, state: HubState) =>
+	n === 0 && (state === "draft" || state === "scheduled") ? "Not sent yet" : plural(n, "recipient", "recipients");
 
 function Tile({ label, value }: { label: string; value: number }) {
 	return (
@@ -496,7 +500,7 @@ function Detail({
 					<dt className="text-text-3">Sender</dt>
 					<dd className="text-ink">{detail.senderName ?? "Not recorded"}</dd>
 					<dt className="text-text-3">Recipients</dt>
-					<dd className="text-ink">{plural(totals.selected, "recipient", "recipients")}</dd>
+					<dd className="text-ink">{recipientCount(totals.selected, totals.state)}</dd>
 					<dt className="text-text-3">Delivery</dt>
 					<dd className="text-ink">
 						{hubLabel[totals.state]}. {rateText(totals.delivered, totals.reachable, totals.rate)}
