@@ -1,6 +1,7 @@
 import { requestDatabase } from "@/server/database";
 import { getViewer } from "@/server/request-context";
 import type { Transaction } from "@everyfield/db/client";
+import { sql } from "@everyfield/db/query";
 import {
 	communicationWriter,
 	withCommunicationWrite,
@@ -97,21 +98,43 @@ export async function deliver<T>(
 
 export { deliveryTransport };
 
-/** Drafts, templates and teams for the page. Three statements for an Owner or Admin. A member skips the team read. */
-export function loadCommunicationPage(viewer: Viewer): Promise<Outcome<PageData>> {
+/** The church name for the inbox chrome. A failed read falls back to a plain word and never blocks the page. */
+async function churchNameOf(tx: Transaction, viewer: Viewer): Promise<string> {
+	try {
+		const rows = (
+			await tx.execute(sql`SELECT name FROM plant WHERE id = ${viewer.authority.actor.context.owner.id}::uuid LIMIT 1`)
+		).rows as { name?: string }[];
+		return rows[0]?.name?.trim() || "Your church";
+	} catch {
+		return "Your church";
+	}
+}
+
+/** Drafts, templates, teams and the church name for the page. A member skips the team read. */
+export function loadCommunicationPage(viewer: Viewer, origin: string): Promise<Outcome<PageData>> {
 	return read(viewer, async (tx) => {
 		const drafts = await communicationWriter.list(tx, viewer.authority);
 		if (drafts.status !== "ok") return drafts;
 		const templates = await communicationWriter.listTemplates(tx, viewer.authority);
 		if (templates.status !== "ok") return templates;
+		const churchName = await churchNameOf(tx, viewer);
 		if (!canWrite(viewer)) {
-			return { status: "ok", value: { drafts: drafts.value.drafts, templates: templates.value.templates, teams: [] } };
+			return {
+				status: "ok",
+				value: { drafts: drafts.value.drafts, templates: templates.value.templates, teams: [], churchName, origin },
+			};
 		}
 		const teams = await communicationWriter.listAudienceTeams(tx, viewer.authority);
 		if (teams.status !== "ok") return teams;
 		return {
 			status: "ok",
-			value: { drafts: drafts.value.drafts, templates: templates.value.templates, teams: teams.value.teams },
+			value: {
+				drafts: drafts.value.drafts,
+				templates: templates.value.templates,
+				teams: teams.value.teams,
+				churchName,
+				origin,
+			},
 		};
 	});
 }

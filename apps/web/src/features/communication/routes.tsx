@@ -1,6 +1,7 @@
 import { LockKeyIcon } from "@hugeicons/core-free-icons";
 import { Card, PageHeader, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { CommunicationScreen } from "./CommunicationScreen.tsx";
@@ -37,13 +38,16 @@ async function gate(returnTo: string, title: string): Promise<{ viewer: Viewer }
 export const communicationMetadata: Metadata = { title: "Messages", robots: { index: false, follow: false } };
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
-const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) ?? null;
 
 export async function CommunicationPage({ searchParams }: { searchParams?: Search }) {
-	const raw = searchParams ? await searchParams : {};
+	// The address is read on the client from useSearchParams. This awaits it so the page stays dynamic.
+	if (searchParams) await searchParams;
 	const g = await gate("/communication", "Messages");
 	if ("blocked" in g) return g.blocked;
-	const loaded = await loadCommunicationPage(g.viewer);
+	const head = await headers();
+	const host = head.get("x-forwarded-host") ?? head.get("host") ?? "localhost";
+	const proto = head.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+	const loaded = await loadCommunicationPage(g.viewer, `${proto}://${host}`);
 	if (loaded.status !== "ok") {
 		return (
 			<>
@@ -57,11 +61,6 @@ export async function CommunicationPage({ searchParams }: { searchParams?: Searc
 		);
 	}
 	return (
-		<CommunicationScreen
-			data={loaded.value}
-			canWrite={canWrite(g.viewer)}
-			personId={one(raw.person)}
-			meetingId={one(raw.meeting)}
-		/>
+		<CommunicationScreen data={loaded.value} canWrite={canWrite(g.viewer)} />
 	);
 }

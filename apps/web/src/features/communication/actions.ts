@@ -15,6 +15,7 @@ import type {
 	HistoryPage,
 	MeetingHistory,
 	MessageDetail,
+	MeetingContext,
 	MessageView,
 	NamedRecipient,
 	Outcome,
@@ -26,10 +27,13 @@ import type {
 	ResendReview,
 	RestoreReport,
 	SavedResend,
+	SendNowResult,
 	SuppressionReport,
 	Template,
 	TrackingRow,
 } from "./model.ts";
+import { requestDatabase } from "@/server/database";
+import { meetingsReader } from "@everyfield/domain/meetings";
 import { canWrite, communicationViewer, deliver, read, write, type Viewer } from "./server.ts";
 import { anticipateProvider, deliveryTransport, mailReady } from "./mail.ts";
 
@@ -501,4 +505,68 @@ export async function scheduleExisting(
 			},
 		};
 	});
+}
+
+/**
+ * Send now from a draft. It chains the existing commands: save and schedule in one transaction, at the earliest time
+ * the window accepts, then hand the new revision to the provider. Each step has its own request key. A send step that
+ * fails or returns no result leaves the message Scheduled; the result says so and nothing is sent twice.
+ */
+export async function sendNow(
+	keys: { save: string; schedule: string; send: string },
+	expectedRevision: string | null,
+	target: { kind: "draft"; input: unknown } | { kind: "reviewed"; communicationId: string },
+): Promise<Outcome<SendNowResult>> {
+	const at = new Date(Date.now() + 60_000).toISOString();
+	const scheduled =
+		target.kind === "draft"
+			? await scheduleDraft(keys.save, keys.schedule, expectedRevision, target.input, at)
+			: await scheduleExisting(keys.schedule, expectedRevision ?? "", target.communicationId, at);
+	if (scheduled.status !== "ok") return scheduled;
+	const { communicationId, revision, scheduledAt } = scheduled.value;
+	const sent = await sendReviewed(keys.send, revision, communicationId);
+	if (sent.status !== "ok") {
+		const issue = sent.status === "lost" ? "lost" : sent.code;
+		return { status: "ok", value: { communicationId, revision, scheduledAt, report: null, sendIssue: issue } };
+	}
+	return { status: "ok", value: { communicationId, revision, scheduledAt, report: sent.value, sendIssue: null } };
+}
+
+/** The meeting a message is attached to: title, time, place and its live guest list. */
+export async function readMeetingContext(meetingId: string): Promise<Outcome<MeetingContext>> {
+	const viewer = await seat();
+	if (!viewer || !canWrite(viewer)) return denied;
+	if (!/^[0-9a-f-]{36}$/i.test(meetingId)) return { status: "refused", code: "not_found" };
+	const db = requestDatabase();
+	if (!db) return { status: "lost" };
+	try {
+		const request = { meetingId };
+		const [meeting, guests] = await Promise.all([
+			meetingsReader.get(db, viewer.authority, request),
+			meetingsReader.listGuests(db, viewer.authority, request),
+		]);
+		if (meeting.status !== "ok" || meeting.value.status !== "available" || meeting.value.meeting.retiredAt)
+			return { status: "refused", code: "not_found" };
+		const m = meeting.value.meeting;
+		return {
+			status: "ok",
+			value: {
+				id: m.id,
+				type: m.type,
+				title: m.displayTitle,
+				date: m.localDate,
+				time: m.localTime,
+				place: m.venue?.name ?? null,
+				guests:
+					guests.status === "ok"
+						? guests.value.guests
+								.filter((g) => g.person.state === "live")
+								.map((g) => ({ id: g.person.personId, displayName: g.person.displayName }))
+						: [],
+			},
+		};
+	} catch (error) {
+		console.error(JSON.stringify({ component: "communication", outcome: "meeting_read_failed", error: String(error) }));
+		return { status: "lost" };
+	}
 }

@@ -58,14 +58,20 @@ export function textToBody(text: string): string {
 		const list = BULLET.test(line) ? BULLET : NUMBER.test(line) ? NUMBER : null;
 		if (list) {
 			const items: string[] = [];
-			while (i < lines.length && list.test(lines[i]!)) items.push(`<li>${inline(list.exec(lines[i]!)![1]!)}</li>`), (i += 1);
+			while (i < lines.length && list.test(lines[i]!)) {
+				items.push(`<li>${inline(list.exec(lines[i]!)![1]!)}</li>`);
+				i += 1;
+			}
 			const tag = list === BULLET ? "ul" : "ol";
 			blocks.push(`<${tag}>${items.join("")}</${tag}>`);
 			continue;
 		}
 		if (QUOTE.test(line)) {
 			const parts: string[] = [];
-			while (i < lines.length && QUOTE.test(lines[i]!)) parts.push(inline(QUOTE.exec(lines[i]!)![1]!)), (i += 1);
+			while (i < lines.length && QUOTE.test(lines[i]!)) {
+				parts.push(inline(QUOTE.exec(lines[i]!)![1]!));
+				i += 1;
+			}
 			blocks.push(`<blockquote>${parts.join("<br />")}</blockquote>`);
 			continue;
 		}
@@ -132,7 +138,11 @@ export function bodyToTextResult(html: string): BodyText {
 			}
 		} else if (/^h[1-3]$/.test(tag)) {
 			if (!closing) heading = Number(tag[1]);
-			else closeBlock((text) => `${"#".repeat(heading)} ${text}`), (heading = 0);
+			else {
+				const level = heading;
+				closeBlock((text) => `${"#".repeat(level)} ${text}`);
+				heading = 0;
+			}
 		} else if (tag === "ul" || tag === "ol") {
 			if (!closing) {
 				listKind = tag;
