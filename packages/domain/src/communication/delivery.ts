@@ -5,6 +5,7 @@ import * as c from "@everyfield/contracts/communication";
 import {
 	plainText,
 	renderBody,
+	renderEmailHtml,
 	renderTransactional,
 	scheduleAccepted,
 	usesRsvpLink,
@@ -173,6 +174,7 @@ type Loaded = {
 	meeting_id: string | null;
 	meeting_open: boolean | null;
 	guests: unknown;
+	church_name: string | null;
 };
 
 const loadedSchema = z.object({
@@ -197,6 +199,7 @@ const loadedSchema = z.object({
 	meeting_id: z.uuid().nullable(),
 	meeting_open: z.boolean().nullable(),
 	guests: z.unknown().nullable(),
+	church_name: z.string().nullable(),
 });
 
 async function loadAudience(db: Database, actor: Actor, communicationId: string): Promise<Loaded> {
@@ -204,6 +207,7 @@ async function loadAudience(db: Database, actor: Actor, communicationId: string)
 	const raw = one(
 		await db.execute(sql`SELECT g.allowed, c.id, c.revision::text AS revision, c.state, c.subject, c.body_html, c.body_text,
 			c.audience, c.review_digest, c.meeting_id,
+			(SELECT pl.name FROM plant pl WHERE pl.id = c.plant_id) AS church_name,
 			CASE WHEN c.meeting_id IS NULL THEN false ELSE EXISTS (
 				SELECT 1 FROM meeting mt WHERE mt.id = c.meeting_id AND mt.plant_id = c.plant_id AND mt.retired_at IS NULL
 				AND mt.status IN ('planning', 'ready', 'in_progress')
@@ -329,12 +333,10 @@ async function prepare(
 		const id = randomUUID();
 		// Each recipient gets their own message. The raw token lives only in this message and the provider call.
 		const token = linked && guests.has(person.id) ? newRsvpToken() : null;
-		const html = renderBody(found.body_html!, {
-			name: person.displayName,
-			rsvp_link: token ? `${keys.origin}/rsvp/${token}` : "",
-		});
+		const merge = { name: person.displayName, rsvp_link: token ? `${keys.origin}/rsvp/${token}` : "" };
+		const html = renderEmailHtml(found.body_html!, merge, { churchName: found.church_name ?? "" });
 		const rendered = token && html.includes(token) ? token : null;
-		const text = plainText(html) || found.subject!;
+		const text = plainText(renderBody(found.body_html!, merge)) || found.subject!;
 		const payloadHash = hash({
 			purpose: "communication",
 			personId: person.id,

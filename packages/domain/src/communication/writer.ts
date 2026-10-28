@@ -6,6 +6,7 @@ import {
 	scheduleAccepted,
 	plainText,
 	renderBody,
+	renderEmailHtml,
 	sanitizeHtml,
 	systemInvitation,
 	systemTemplate,
@@ -790,6 +791,7 @@ async function preview(tx: Tx, authority: RequestActor, request: unknown) {
 				sql`SELECT
 					(${input.meetingId ?? null}::uuid IS NULL OR EXISTS (SELECT 1 FROM meeting m WHERE m.id = ${input.meetingId ?? null}::uuid AND m.plant_id = ${reader.plantId}::uuid)) AS meeting_ok,
 					${meetingOpen(input.meetingId ?? null, reader.plantId)} AS meeting_open,
+					(SELECT pl.name FROM plant pl WHERE pl.id = ${reader.plantId}::uuid) AS church_name,
 					(${input.templateId ?? null}::uuid IS NULL OR EXISTS (SELECT 1 FROM message_template t WHERE t.id = ${input.templateId ?? null}::uuid AND t.plant_id = ${reader.plantId}::uuid)) AS template_ok,
 					(${input.communicationId ?? null}::uuid IS NULL OR EXISTS (SELECT 1 FROM communication c WHERE c.id = ${input.communicationId ?? null}::uuid AND c.plant_id = ${reader.plantId}::uuid)) AS known,
 					(SELECT c.subject FROM communication c WHERE c.id = ${input.communicationId ?? null}::uuid AND c.plant_id = ${reader.plantId}::uuid) AS subject,
@@ -803,6 +805,7 @@ async function preview(tx: Tx, authority: RequestActor, request: unknown) {
 		.object({
 			meeting_ok: z.boolean(),
 			meeting_open: z.boolean(),
+			church_name: z.string().nullable(),
 			template_ok: z.boolean(),
 			known: z.boolean(),
 			subject: z.string().nullable(),
@@ -821,6 +824,7 @@ async function preview(tx: Tx, authority: RequestActor, request: unknown) {
 		deny("stale_review", { previewBody, scriptExecution: false, providerCalls: 0 });
 	return c.previewResult.parse({
 		previewBody,
+		previewHtml: renderEmailHtml(input.bodyHtml, input.merge, { churchName: found.church_name ?? "" }),
 		scriptExecution: false,
 		providerCalls: 0,
 		eligibleEmails: summary.eligibleEmails,

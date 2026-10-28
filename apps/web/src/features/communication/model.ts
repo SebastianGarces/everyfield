@@ -70,6 +70,7 @@ export type AudienceSummary = {
 };
 export type Preview = {
 	previewBody: string;
+	previewHtml: string;
 	eligibleEmails: string[];
 	excludedMissingEmail: string[];
 	duplicateAddressesRemoved: number;

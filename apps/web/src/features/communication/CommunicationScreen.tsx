@@ -902,10 +902,12 @@ function Compose({
 							<div className="flex flex-col gap-3">
 								<h3 className="text-sm font-medium text-ink-2">Preview</h3>
 								{preview.previewBody ? (
-									<div
-										className="rounded-md bg-surface-raised px-4 py-3 text-md text-ink shadow-[0_0_0_1px_var(--ef-line-2)] [&_a]:underline [&_ol]:list-decimal [&_ol]:pl-5 [&_p+p]:mt-3 [&_ul]:list-disc [&_ul]:pl-5"
-										// previewBody is the server sanitizer output.
-										dangerouslySetInnerHTML={{ __html: preview.previewBody }}
+									// previewHtml is the exact HTML delivery sends. An empty sandbox runs no script and gives it no app CSS.
+									<iframe
+										title="Email preview"
+										sandbox=""
+										srcDoc={preview.previewHtml}
+										className="h-[520px] w-full rounded-md bg-white shadow-[0_0_0_1px_var(--ef-line-2)]"
 									/>
 								) : (
 									<p className="text-sm text-text-2">The preview is empty. Check the message HTML.</p>

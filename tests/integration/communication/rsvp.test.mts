@@ -5,6 +5,7 @@ import { sql } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
 import { answerRsvpToken, describeRsvpToken } from "../../../packages/domain/src/meetings/index.ts";
+import { renderEmailHtml } from "../../../packages/contracts/src/communication/email.ts";
 import { renderBody } from "../../../packages/contracts/src/communication/html.ts";
 
 // REQ-COM-010, REQ-MTG-018: an invitation email carries each guest's own RSVP link, minted when the send is handed off.
@@ -278,8 +279,14 @@ test("AC:COM-010 the preview equals the sent message apart from the name and the
 		}),
 	);
 	assert.equal(
-		preview.previewBody.replace("Sample Person", "Gus Pike").replace("/rsvp/preview", "/rsvp/" + link.token),
+		preview.previewHtml.replaceAll("Sample Person", "Gus Pike").replaceAll("/rsvp/preview", "/rsvp/" + link.token),
 		sent.html,
+	);
+	// The sent HTML is the system layout around the rendered body.
+	const [church] = await rows(sql`SELECT name FROM plant WHERE id = ${plant.id}`);
+	assert.equal(
+		sent.html,
+		renderEmailHtml(BODY, { name: "Gus Pike", rsvp_link: link.url }, { churchName: church.name }),
 	);
 	assert.equal(preview.previewBody, renderBody(BODY, { name: "Sample Person", rsvp_link: `${origin}/rsvp/preview` }));
 });

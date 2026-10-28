@@ -57,6 +57,24 @@ function rsvpHref(value: string | undefined): string | null {
 	return value === url.origin + url.pathname ? value : null;
 }
 
+const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+
+/**
+ * The RSVP button, built by system code from a checked URL. A table cell carries the background, an inline-styled link
+ * fills the cell, and a VML shape does the same in Outlook's Word engine. Nothing here depends on a `<style>` block.
+ */
+function rsvpButton(href: string): string {
+	const url = escapeHtml(href);
+	const text = RSVP_LINK_TEXT;
+	return (
+		`<table data-rsvp-button="" role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0 6px 0;"><tr>` +
+		`<td align="center" bgcolor="#1AF197" style="background-color:#1AF197;">` +
+		`<!--[if mso]><v:rect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${url}" style="height:46px;v-text-anchor:middle;width:250px;" stroke="f" fillcolor="#1AF197"><w:anchorlock/><center style="color:#181D19;font-family:Arial,sans-serif;font-size:15px;font-weight:600;">${text}</center></v:rect><![endif]-->` +
+		`<!--[if !mso]><!--><a href="${url}" style="display:block;padding:13px 22px;background-color:#1AF197;color:#181D19;font-family:${FONT};font-size:15px;font-weight:600;line-height:20px;text-align:center;text-decoration:none;">${text}</a><!--<![endif]-->` +
+		`</td></tr></table>`
+	);
+}
+
 /**
  * Replace `{{field}}` after sanitizing. An unknown field becomes empty text. `rsvp_link` becomes a link only for a valid
  * RSVP URL and is empty otherwise. Every other value is escaped text, never markup or an attribute.
@@ -66,10 +84,11 @@ export function renderBody(input: string, merge: Readonly<Record<string, string>
 		.replace(/\{\{\s*([a-z0-9_]+)\s*\}\}/gi, (_match, key: string) => {
 			if (key.toLowerCase() === "rsvp_link") {
 				const href = rsvpHref(merge.rsvp_link);
-				return href ? `<a href="${escapeHtml(href)}"><strong>${RSVP_LINK_TEXT}</strong></a>` : "";
+				return href ? rsvpButton(href) : "";
 			}
 			return escapeHtml(merge[key] ?? "");
 		})
+		.replace(/<p>\s*(<table data-rsvp-button[\s\S]*?<\/table>)\s*<\/p>/g, "$1")
 		.replace(/<p>\s*<\/p>/g, "");
 }
 

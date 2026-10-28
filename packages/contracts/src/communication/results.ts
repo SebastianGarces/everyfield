@@ -53,6 +53,7 @@ export const templateResult = z.strictObject({
 });
 export const previewResult = z.strictObject({
 	previewBody: z.string(),
+	previewHtml: z.string(),
 	scriptExecution: z.literal(false),
 	providerCalls: z.literal(0),
 	eligibleEmails: z.array(z.string()),
