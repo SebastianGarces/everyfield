@@ -98,7 +98,7 @@ export function BulkBar({
 				</Button>
 			) : null}
 			{/* On a phone the actions take their own row, so the labels never wrap. */}
-			{actions.complete !== "hidden" ? (
+			{actions.kind !== "settled" ? (
 				<div className="flex gap-2 max-app-sm:order-last max-app-sm:grid max-app-sm:basis-full max-app-sm:grid-cols-2">
 					<Button
 						variant="ghost"

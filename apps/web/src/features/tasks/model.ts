@@ -115,16 +115,11 @@ export function ownerLabel(owner: { accountId: string; displayName: string } | n
 }
 
 /** What the bulk bar offers for the selected tasks' current statuses (REQ-TSK-008: only open tasks complete or move). */
-export type BulkActions =
-	| { kind: "open"; complete: "enabled"; reschedule: "enabled"; settled: 0 }
-	| { kind: "settled"; complete: "hidden"; reschedule: "hidden"; settled: number }
-	| { kind: "mixed"; complete: "disabled"; reschedule: "disabled"; settled: number };
+export type BulkActions = { kind: "open" | "settled" | "mixed"; settled: number };
 
 export function bulkActions(statuses: readonly Status[]): BulkActions {
 	const settled = statuses.filter(isSettled).length;
-	if (settled === 0) return { kind: "open", complete: "enabled", reschedule: "enabled", settled: 0 };
-	if (settled === statuses.length) return { kind: "settled", complete: "hidden", reschedule: "hidden", settled };
-	return { kind: "mixed", complete: "disabled", reschedule: "disabled", settled };
+	return { kind: settled === 0 ? "open" : settled === statuses.length ? "settled" : "mixed", settled };
 }
 
 // ---------------------------------------------------------------------------------------------------------------

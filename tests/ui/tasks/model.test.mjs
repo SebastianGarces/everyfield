@@ -273,22 +273,17 @@ test("AC:TARGET-TSK-001 INV-owner-label: an owner shows by name, also the signed
 test("AC:TARGET-TSK-008 INV-bulk-actions: complete and reschedule apply only to open tasks", () => {
 	const open = ["not_started", "in_progress", "blocked"];
 	const settled = ["complete", "no_longer_needed"];
-	const enabled = { kind: "open", complete: "enabled", reschedule: "enabled", settled: 0 };
+	const enabled = { kind: "open", settled: 0 };
 	assert.deepEqual(bulkActions(open), enabled, "all open");
 	for (const status of open) assert.deepEqual(bulkActions([status]), enabled, status);
-	assert.deepEqual(bulkActions(settled), { kind: "settled", complete: "hidden", reschedule: "hidden", settled: 2 });
+	assert.deepEqual(bulkActions(settled), { kind: "settled", settled: 2 });
 	for (const status of settled)
 		assert.deepEqual(
 			bulkActions([status]),
-			{ kind: "settled", complete: "hidden", reschedule: "hidden", settled: 1 },
+			{ kind: "settled", settled: 1 },
 			status,
 		);
-	assert.deepEqual(bulkActions(["complete", "in_progress", "no_longer_needed"]), {
-		kind: "mixed",
-		complete: "disabled",
-		reschedule: "disabled",
-		settled: 2,
-	});
+	assert.deepEqual(bulkActions(["complete", "in_progress", "no_longer_needed"]), { kind: "mixed", settled: 2 });
 });
 
 test("AC:TARGET-TSK-015 INV-history-read: a task with no recorded change reads differently from a failed read", () => {

@@ -22,6 +22,7 @@ import { loadHistory, type Loaded } from "./fetch.ts";
 import {
 	blockedText,
 	CATEGORY_LABEL,
+	historyProblem,
 	isSettled,
 	ownerLabel,
 	PRIORITY_LABEL,
@@ -433,10 +434,7 @@ function History({
 						setRetried(
 							r.status === "ok"
 								? { history: r.value, problem: null }
-								: {
-										history: null,
-										problem: r.status === "refused" && r.code === "unavailable" ? "unrecorded" : "failed",
-									},
+								: { history: null, problem: historyProblem(r) },
 						);
 					}}
 				>
