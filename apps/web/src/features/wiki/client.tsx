@@ -789,6 +789,10 @@ function OrderList({
 const SCROLL =
 	"overscroll-contain [scrollbar-color:var(--ef-line-2)_transparent] [scrollbar-gutter:stable] [scrollbar-width:thin]";
 
+/** A side column: it scrolls on its own when the layout is fixed, else it sticks below the app bar. */
+const RAIL = `hidden min-[1280px]:block min-[1280px]:min-h-0 min-[1280px]:overflow-y-auto min-[1280px]:pr-3 min-[1280px]:pb-6 ${SCROLL}`;
+const STICKY_RAIL = "hidden min-[1280px]:sticky min-[1280px]:top-24 min-[1280px]:block";
+
 /** The heading nearest the top of the article column (the window below 1280px) is the current one. */
 function useCurrentHeading(ids: string[]): string | undefined {
 	const [current, setCurrent] = useState<string | undefined>(ids[0]);
@@ -913,11 +917,7 @@ export function ArticleColumns({
 					onScroll={(event) => {
 						sidenavTop = event.currentTarget.scrollTop;
 					}}
-					className={
-						fixed
-							? `hidden min-[1280px]:block min-[1280px]:min-h-0 min-[1280px]:overflow-y-auto min-[1280px]:pr-3 min-[1280px]:pb-6 ${SCROLL}`
-							: "hidden min-[1280px]:sticky min-[1280px]:top-24 min-[1280px]:block"
-					}
+					className={fixed ? RAIL : STICKY_RAIL}
 				>
 					{tree()}
 				</div>
@@ -934,15 +934,7 @@ export function ArticleColumns({
 					<div className="mb-6 min-[1280px]:hidden">{toc}</div>
 					{children}
 				</div>
-				<div
-					className={
-						fixed
-							? `hidden min-[1280px]:block min-[1280px]:min-h-0 min-[1280px]:overflow-y-auto min-[1280px]:pr-3 min-[1280px]:pb-6 min-[1280px]:pl-6 ${SCROLL}`
-							: "hidden min-[1280px]:sticky min-[1280px]:top-24 min-[1280px]:block"
-					}
-				>
-					{toc}
-				</div>
+				<div className={fixed ? `${RAIL} min-[1280px]:pl-6` : STICKY_RAIL}>{toc}</div>
 			</div>
 		</>
 	);
