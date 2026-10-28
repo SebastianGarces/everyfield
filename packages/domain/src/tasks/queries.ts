@@ -392,8 +392,8 @@ export const taskReader = {
 					}),
 				)
 				.parse(found);
-			// The task row always comes back, so no rows on page 1 means no such task in this church. A readable task with
-			// no status audit row (a seeded or fixture task) comes back as one row without audit columns: an empty history.
+			// The task row always comes back: no rows on page 1 means no such task here. A task with no status audit row
+			// comes back as one row with null audit columns, which reads as an empty history.
 			if (!rows.length && v.page === 1) deny();
 			const total = rows[0]?.total ?? 0;
 			const entries = rows.flatMap((a) =>
