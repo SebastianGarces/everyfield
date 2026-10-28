@@ -147,10 +147,6 @@ function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
 
 	function schedule(text: string, phaseValue: string) {
 		window.clearTimeout(timer.current);
-		if (!text.trim()) {
-			void run(text, phaseValue, 1);
-			return;
-		}
 		// Supersede any request in flight while the delay runs.
 		sequence.current += 1;
 		setPending(true);
