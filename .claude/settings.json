@@ -56,6 +56,16 @@
 						"timeout": 10
 					}
 				]
+			},
+			{
+				"matcher": "Read|Grep|Glob",
+				"hooks": [
+					{
+						"type": "command",
+						"command": "\"$CLAUDE_PROJECT_DIR\"/bin/evf hook read-guard",
+						"timeout": 10
+					}
+				]
 			}
 		],
 		"Stop": [

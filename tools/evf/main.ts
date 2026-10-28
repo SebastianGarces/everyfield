@@ -29,7 +29,19 @@ import { nextId } from "./ids.ts";
 import { dbMigrate, dbSeedProgress, goalsList, goalsSync, status, workDbPath } from "./db.ts";
 import { isRole, launch, ROLES } from "./launch.ts";
 import { hook, refocus, session } from "./seat.ts";
-import { askPlanner, check, drive, next, proofAdd, proofShow, runDone, taskNew, taskSpec } from "./drive.ts";
+import {
+	askPlanner,
+	check,
+	drive,
+	next,
+	proofAdd,
+	proofShow,
+	runDone,
+	taskHandoff,
+	taskNew,
+	taskPick,
+	taskSpec,
+} from "./drive.ts";
 import { timing } from "./timing.ts";
 
 const HELP = `evf: Everyfield v3 workflow CLI
@@ -81,9 +93,9 @@ State store (harness)
   evf status [--json] [<task>]                                tasks, seats, recent events and health from the store
 
 Seats (harness)
-  evf launch <task> --role <role> [--mode implement] [--prompt-file <file>] [--dry-run] [--ignore-load "<reason>"]
+  evf launch <task> --role <role> [--idea <n>] [--prompt-file <file>] [--dry-run] [--ignore-load "<reason>"]
         worktree + Herdr workspace + claude --agent <role> with evf's session id; records the run.
-        Roles: planner, implementer, ui, simplifier, evidence, verifier.
+        Roles: planner, implementer, ui, simplifier, evidence, verifier, ideator (with --idea), comparer, prototype-merger.
   evf refocus <task>                                          the goal chain for a seat (40 lines max)
   evf session                                                 this pane's Claude Code session id, for EVF-Author and EVF-Review
   evf hook <event>                                            Claude Code hook entry (session-start, path-guard, stop, session-end)
@@ -91,6 +103,8 @@ Seats (harness)
 Drive (harness)
   evf task new <task> --ask-file <file> [--title <t>]         record the verbatim ask in the work store
   evf task spec <task> --file <file>                          store the spec: Goal, numbered Done criteria, Non-goals
+  evf task pick <task> <1|2|3> --owner-approval "<words>"     prototype mode: record Sebastian's pick
+  evf task handoff <task> --file <spec>                       prototype mode: end the prototype, create the implement task
   evf next <task>                                             the next stage from the store, as JSON
   evf drive <task> [--once] [--detach]                        run the stage machine: seats, pr, ci, ship; cap 3 rounds; one per task
   evf run done <run> --status passed|failed --summary-file <file>   close a stage (seats call this; a passed verify needs proofs)
@@ -275,6 +289,17 @@ function main(argv: string[]): number | Promise<number> {
 				if (args.length !== 1) break;
 				return taskSpec(root, parseTask(args[0]), file);
 			}
+			if (sub === "pick") {
+				const words = option(args, "--owner-approval");
+				if (args.length !== 2) break;
+				return taskPick(root, parseTask(args[0]), Number(args[1]), words ?? "");
+			}
+			if (sub === "handoff") {
+				const file = option(args, "--file");
+				if (!file || !existsSync(file)) throw new EvfError("Give --file <file> with the handoff spec.");
+				if (args.length !== 1) break;
+				return taskHandoff(root, parseTask(args[0]), file);
+			}
 			if (sub === "start") {
 				const allowUnready = flag(args, "--allow-unready");
 				const noStack = flag(args, "--no-stack");
@@ -400,16 +425,22 @@ function main(argv: string[]): number | Promise<number> {
 				mode = option(args, "--mode"),
 				promptFile = option(args, "--prompt-file"),
 				ignoreLoad = option(args, "--ignore-load"),
+				ideaArg = option(args, "--idea"),
 				dryRun = flag(args, "--dry-run");
 			if (!isRole(role)) throw new EvfError(`--role must be one of ${Object.keys(ROLES).join(", ")}.`);
-			if (mode !== undefined && mode !== "implement") throw new EvfError("Only implement mode launches today.");
+			if (mode !== undefined && mode !== "implement" && mode !== "prototype")
+				throw new EvfError("--mode must be implement or prototype.");
 			if (promptFile && !existsSync(promptFile)) throw new EvfError("The prompt file does not exist.");
+			const idea = ideaArg === undefined ? undefined : Number(ideaArg);
+			if (idea !== undefined && (!Number.isInteger(idea) || idea < 1 || idea > 3))
+				throw new EvfError("--idea takes 1, 2 or 3.");
 			if (args.length !== 1) break;
 			return launch(root, parseTask(args[0]), role, {
 				mode,
 				prompt: promptFile ? readFileSync(promptFile, "utf8").trim() : undefined,
 				ignoreLoad,
 				dryRun,
+				idea,
 			});
 		}
 		case "refocus":

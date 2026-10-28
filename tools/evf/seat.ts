@@ -156,10 +156,11 @@ const seatRunId = (): number | null => {
 };
 
 export function hook(root: string, event: string): number {
-	if (!["session-start", "path-guard", "stop", "session-end"].includes(event))
-		fail("evf hook takes session-start, path-guard, stop or session-end.");
+	if (!["session-start", "path-guard", "read-guard", "stop", "session-end"].includes(event))
+		fail("evf hook takes session-start, path-guard, read-guard, stop or session-end.");
 	const input = readHookInput();
 	if (event === "path-guard") return pathGuard(input);
+	if (event === "read-guard") return readGuard(input);
 	const runId = seatRunId();
 	if (runId === null) return 0; // Not a seat: an ordinary session in the repository.
 	const db = openWorkDb(root);
@@ -222,7 +223,14 @@ export function hook(root: string, event: string): number {
 	}
 }
 
-/** Deny an Edit, Write or notebook edit outside the seat's worktree. Silent (allow) everywhere else. */
+const deny = (reason: string) =>
+	console.log(
+		JSON.stringify({
+			hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: reason },
+		}),
+	);
+
+/** Deny an Edit, Write or notebook edit outside the seat's worktree or its runtime dir. Silent (allow) everywhere else. */
 function pathGuard(input: HookInput): number {
 	const worktree = process.env.EVF_WORKTREE;
 	if (!worktree) return 0;
@@ -230,6 +238,7 @@ function pathGuard(input: HookInput): number {
 	if (typeof target !== "string" || !target) return 0;
 	const absolute = resolve(input.cwd ?? process.cwd(), expandHome(target));
 	if (inside(absolute, worktree)) return 0;
+	if (process.env.EVF_RUNTIME && inside(absolute, process.env.EVF_RUNTIME)) return 0;
 	console.log(
 		JSON.stringify({
 			hookSpecificOutput: {
@@ -239,5 +248,20 @@ function pathGuard(input: HookInput): number {
 			},
 		}),
 	);
+	return 0;
+}
+
+/**
+ * A blind seat (an idea seat of prototype mode, EVF_BLIND=1) reads only its own worktree: Read, Grep and Glob
+ * outside it are denied, so one idea cannot see another. Other seats read the whole repository.
+ */
+function readGuard(input: HookInput): number {
+	const worktree = process.env.EVF_WORKTREE;
+	if (process.env.EVF_BLIND !== "1" || !worktree) return 0;
+	const target = input.tool_input?.file_path ?? input.tool_input?.path;
+	const cwd = input.cwd ?? process.cwd();
+	const absolute = resolve(cwd, typeof target === "string" && target ? target : ".");
+	if (inside(absolute, worktree)) return 0;
+	deny(`This idea seat reads only its own worktree ${worktree}; ${absolute} is outside it.`);
 	return 0;
 }

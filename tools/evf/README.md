@@ -95,6 +95,19 @@ worktree head (guard rail 3). For a driven task (one with an evf run), ship also
 or EVF-Review session that evf never launched; a task row alone, from `evf check` or a launch by hand,
 changes nothing for an ordinary PR.
 
+## Prototype mode
+
+`evf task new <task> --mode prototype --ask-file <brief>` starts prototype mode for a package. Its stages:
+plan (an Opus planner writes the spec with three "Angle n:" lines), three idea seats at once (Sonnet, each
+in its own worktree `<slug>-idea<n>` on branch `task/<slug>-idea<n>`, blind to the others: the read guard
+denies Read, Grep and Glob outside the seat's worktree and the role file removes messaging and subagents),
+compare (a Sonnet seat builds the comparison artifact in the task's runtime dir: a toggle page for UI, a
+compare script plus one diagram per idea for backend), pick (the task waits as `awaiting_pick` until
+`evf task pick <task> <n> --owner-approval "<Sebastian's words>"`), merge (an Opus seat writes the handoff
+and runs `evf task handoff <task> --file <spec>`, which marks the prototype task done and creates the
+implement task for the same package with that spec). Idea branches are left for `evf gc`; the harness
+deletes nothing.
+
 ## Ship queue
 
 Any session may run `evf ship` at any time; nobody orders ships by hand. Merging routes wait in one

@@ -74,6 +74,9 @@ export function migrate(db: DatabaseSync): { version: number; applied: string[] 
 	let version = schemaVersion(db);
 	for (const m of files) {
 		if (m.version <= version) continue;
+		// A migration may rebuild a table other tables reference (the documented twelve-step ALTER), so foreign
+		// keys are off around it and checked afterwards. PRAGMA foreign_keys is a no-op inside a transaction.
+		db.exec("PRAGMA foreign_keys = OFF");
 		db.exec("BEGIN IMMEDIATE");
 		try {
 			version = schemaVersion(db);
@@ -88,10 +91,14 @@ export function migrate(db: DatabaseSync): { version: number; applied: string[] 
 				m.name,
 				now(),
 			);
+			const broken = db.prepare("PRAGMA foreign_key_check").all();
+			if (broken.length) fail(`Migration ${m.file} left ${broken.length} dangling foreign keys.`);
 			db.exec("COMMIT");
 		} catch (e) {
 			db.exec("ROLLBACK");
 			throw e;
+		} finally {
+			db.exec("PRAGMA foreign_keys = ON");
 		}
 		version = m.version;
 		applied.push(m.file);

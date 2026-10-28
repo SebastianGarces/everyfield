@@ -90,7 +90,7 @@ test("OPS-58-launch: a dry run prints the worktree, workspace, agent and store s
 		assert.match(out.stdout, /# worktree exists: .*\.worktrees\/ops-1/);
 		assert.match(
 			out.stdout,
-			/herdr workspace create --cwd \S+ --label ops-1 --env EVF_TASK=OPS-1 --env 'EVF_RUN=<run>' --env EVF_ROLE=verifier --env EVF_STAGE=verify --env EVF_WORKTREE=\S+ --env EVF_SESSION=[0-9a-f-]{36} --env DISABLE_AUTO_UPDATE=true --env CLAUDE_CODE_DISABLE_ADVISOR_TOOL=1 --no-focus/,
+			/herdr workspace create --cwd \S+ --label ops-1 --env EVF_TASK=OPS-1 --env 'EVF_RUN=<run>' --env EVF_ROLE=verifier --env EVF_STAGE=verify --env EVF_WORKTREE=\S+ --env EVF_RUNTIME=\S+ --env EVF_SESSION=[0-9a-f-]{36} --env DISABLE_AUTO_UPDATE=true --env DISABLE_AUTOUPDATER=1 --env CLAUDE_CODE_DISABLE_ADVISOR_TOOL=1 --no-focus/,
 		);
 		assert.match(
 			out.stdout,
@@ -279,7 +279,10 @@ test("OPS-58-hooks: session start records the session and injects the chain, als
 		assert.equal(silent.status, 0, silent.stderr);
 		assert.equal(silent.stdout, "");
 		assert.equal(f.events().length, 4);
-		assert.match(cli(f.root, f.env, {}, "hook", "dance").stderr, /session-start, path-guard, stop or session-end/);
+		assert.match(
+			cli(f.root, f.env, {}, "hook", "dance").stderr,
+			/session-start, path-guard, read-guard, stop or session-end/,
+		);
 	} finally {
 		f.db.close();
 		f.close();

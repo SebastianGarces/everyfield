@@ -10,6 +10,7 @@ import { evfDataDir } from "../lib.ts";
 const cli = (cwd: string, ...args: string[]) =>
 	spawnSync(process.execPath, [join(source, "tools/evf/main.ts"), ...args], { cwd, encoding: "utf8" });
 const sha = (c: string) => c.repeat(40);
+const LATEST = 2; // migrations in tools/evf/db/migrations
 
 test("OPS-57-store: the work store migrates from empty under the Git common dir, exposes the views and migrates once", () => {
 	const f = fixture();
@@ -37,16 +38,16 @@ test("OPS-57-store: the work store migrates from empty under the Git common dir,
 			"v_health",
 		])
 			assert.ok(names.includes(name), name);
-		assert.deepEqual(migrate(db), { version: 1, applied: [] });
+		assert.deepEqual(migrate(db), { version: LATEST, applied: [] });
 		db.close();
 		const again = openWorkDb(f.root);
-		assert.equal((again.prepare("SELECT COUNT(*) AS n FROM schema_version").get() as { n: number }).n, 1);
+		assert.equal((again.prepare("SELECT COUNT(*) AS n FROM schema_version").get() as { n: number }).n, LATEST);
 		again.close();
 		// The CLI resolves the home root through git, which returns the real path of a symlinked temp dir.
 		assert.equal(cli(f.root, "db", "path").stdout.trim(), realpathSync(path));
 		const migrated = cli(f.root, "db", "migrate");
 		assert.equal(migrated.status, 0, migrated.stderr);
-		assert.match(migrated.stdout, /schema 1/);
+		assert.match(migrated.stdout, new RegExp(`schema ${LATEST}`));
 	} finally {
 		f.close();
 	}
@@ -78,10 +79,10 @@ test("OPS-57-fresh: several processes open a new store at once and each migratio
 		for (const r of results) assert.equal(r.code, 0, r.err);
 		assert.deepEqual(
 			results.map((r) => r.out),
-			["1", "1", "1", "1", "1"],
+			Array(5).fill(String(LATEST)),
 		);
 		const db = openWorkDb(f.root, { readOnly: true });
-		assert.equal((db.prepare("SELECT COUNT(*) AS n FROM schema_version").get() as { n: number }).n, 1);
+		assert.equal((db.prepare("SELECT COUNT(*) AS n FROM schema_version").get() as { n: number }).n, LATEST);
 		assert.equal((db.prepare("PRAGMA journal_mode").get() as { journal_mode: string }).journal_mode, "wal");
 		db.close();
 	} finally {
@@ -103,7 +104,7 @@ test("OPS-57-readers: status and goals list read an existing store read-only, an
 		openWorkDb(f.root).close();
 		const report = cli(f.root, "status", "--json");
 		assert.equal(report.status, 0, report.stderr);
-		assert.equal(JSON.parse(report.stdout).schema_version, 1);
+		assert.equal(JSON.parse(report.stdout).schema_version, LATEST);
 		const listed = cli(f.root, "goals", "list");
 		assert.equal(listed.status, 0, listed.stderr);
 		assert.match(listed.stdout, /goals: none/);
@@ -195,7 +196,7 @@ test("OPS-57-seed: the ledger committed on the base branch seeds merged tasks on
 		const out = cli(f.root, "status", "--json");
 		assert.equal(out.status, 0, out.stderr);
 		const report = JSON.parse(out.stdout);
-		assert.equal(report.schema_version, 1);
+		assert.equal(report.schema_version, LATEST);
 		const byRef = Object.fromEntries(report.tasks.map((t: { ref: string }) => [t.ref, t]));
 		assert.equal(byRef["WP-001"].pr_number, 81);
 		assert.equal(byRef["WP-001"].status, "merged");
