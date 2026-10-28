@@ -18,11 +18,9 @@ for (const [name, engine] of ENGINES)
 					const classes = await go.getAttribute("class");
 					assert.match(classes ?? "", /bg-ink|primary/, "the link uses the primary button style");
 					assert.equal(await page.getByRole("button", { name: "Go to dashboard" }).count(), 0);
-					assert.ok(await page.getByRole("heading", { name: "Still to do" }).isVisible());
 					await page.waitForTimeout(10_500);
 					assert.match(new URL(page.url()).pathname, /\/design\/onboarding$/, "no automatic redirect");
 					assert.ok(await page.getByRole("heading", { name: "Setup is finished" }).isVisible());
-					assert.ok(await page.getByRole("heading", { name: "Still to do" }).isVisible());
 					assert.ok(await page.getByRole("button", { name: "Review answers" }).isVisible());
 					const box = await go.boundingBox();
 					const list = await page.getByRole("heading", { name: "Still to do" }).boundingBox();

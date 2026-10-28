@@ -31,7 +31,7 @@ import type { Actions } from "../store";
 
 type Props = { state: State; actions: Actions; resume: Resume; plantName: string | null };
 /** The product home: the app shell's homeHref (PeopleFrame). There is no separate /dashboard route. */
-export const DASHBOARD_HREF = "/people";
+const DASHBOARD_HREF = "/people";
 const churchName = (name: string | null) => name ?? "your church";
 const phaseName = (n: number) => PHASES[n]?.name ?? `Phase ${n}`;
 const longDate = (iso: string) =>
