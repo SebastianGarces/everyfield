@@ -28,7 +28,6 @@ export const systemTemplates: readonly SystemTemplate[] = [
 		category: "meeting_invitation",
 		meetingType: "vision_meeting",
 		subject: "You are invited to hear the vision for our new church",
-		// [Day, date] = meeting_date, [Start time] and [End time] = meeting_time, [Address or meeting link] = meeting_location.
 		bodyHtml:
 			"<p>Hello {{name}},</p>" +
 			"<p>We are starting a new church, and we would love for you to hear the vision behind it. Please join us for a vision meeting.</p>" +
@@ -47,7 +46,6 @@ export const systemTemplates: readonly SystemTemplate[] = [
 		category: "meeting_reminder",
 		meetingType: null,
 		subject: "Reminder: our vision meeting is coming up",
-		// [Day, date] = meeting_date, [Start time] = meeting_time, [Address or meeting link] = meeting_location.
 		bodyHtml:
 			"<p>Hello {{name}},</p>" +
 			"<p>This is a friendly reminder about our vision meeting. We are glad you plan to come.</p>" +
@@ -93,7 +91,6 @@ export const systemTemplates: readonly SystemTemplate[] = [
 		category: "meeting_invitation",
 		meetingType: "orientation",
 		subject: "Join us for orientation, your next step with our team",
-		// [Day, date] = meeting_date, [Start time] and [End time] = meeting_time, [Address or meeting link] = meeting_location.
 		bodyHtml:
 			"<p>Hello {{name}},</p>" +
 			"<p>Thank you for your interest in serving with our church plant. Orientation is the next step toward joining our core group. We explain how the team works and where you can help.</p>" +
@@ -112,7 +109,6 @@ export const systemTemplates: readonly SystemTemplate[] = [
 		category: "meeting_invitation",
 		meetingType: "team_meeting",
 		subject: "You are invited to our team meeting",
-		// [Day, date] = meeting_date, [Start time] and [End time] = meeting_time, [Address or meeting link] = meeting_location.
 		bodyHtml:
 			"<p>Hello {{name}},</p>" +
 			"<p>Our next team meeting is coming up, and we would like you to be there.</p>" +
