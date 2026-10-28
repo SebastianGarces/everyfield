@@ -48,6 +48,8 @@
   --ef-surface-raised: #FFFFFF;
   --ef-line: rgba(22, 30, 46, .075);
   --ef-line-2: rgba(22, 30, 46, .13);
+  /* A control's boundary or an unchecked state ring: 3:1 on frame, surfaces and tinted rows (WCAG 1.4.11). */
+  --ef-edge: #7A808C;
   --ef-on-ink: #FFFFFF;
   --ef-on-ink-soft: rgba(255,255,255,.12);
   --ef-surface-3: #E6E8EC;
@@ -200,6 +202,7 @@
   --ef-surface-raised: #1C2026;
   --ef-line: rgba(255,255,255,.07);
   --ef-line-2: rgba(255,255,255,.13);
+  --ef-edge: #747B88;
   --ef-on-ink: #111318;
   --ef-on-ink-soft: rgba(17,19,24,.10);
   --ef-hover: rgba(255,255,255,.06);
@@ -267,6 +270,7 @@
   --color-surface-raised: var(--ef-surface-raised);
   --color-line: var(--ef-line);
   --color-line-2: var(--ef-line-2);
+  --color-edge: var(--ef-edge);
   --color-on-ink: var(--ef-on-ink);
   --color-on-ink-soft: var(--ef-on-ink-soft);
   --color-hover: var(--ef-hover);
@@ -353,6 +357,8 @@
   --shadow-raised: var(--ef-shadow-raised);
   --shadow-pop: var(--ef-shadow-pop);
   --shadow-pill: var(--ef-shadow-pill);
+  --shadow-edge: 0 0 0 1px var(--ef-edge);
+  --shadow-edge-inset: inset 0 0 0 1.5px var(--ef-edge);
   --shadow-nav: var(--ef-shadow-nav);
   --shadow-nav-active: var(--ef-shadow-nav-active);
   --ease-slide: var(--ef-slide-ease);

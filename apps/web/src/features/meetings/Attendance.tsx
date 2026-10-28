@@ -66,11 +66,8 @@ type PresenceAnswer = Extract<Awaited<ReturnType<typeof setPresence>>, { status:
  */
 const HELD = "aria-disabled:cursor-not-allowed aria-disabled:opacity-45 aria-disabled:active:translate-y-0";
 
-/** When a meeting can be finalized: it has started (or was held), and it is not cancelled or voided. */
-export const canSettle = (m: Detail, now: string) =>
-	m.status !== "cancelled" &&
-	!m.occurrence.voidedAt &&
-	Date.parse(m.occurrence.heldAt ?? m.startsAt) <= Date.parse(now);
+/** When a meeting can be finalized: at any time, unless it is cancelled or voided. */
+export const canSettle = (m: Detail) => m.status !== "cancelled" && !m.occurrence.voidedAt;
 
 /**
  * Presence saves, one save lane per person (components/save useRowLanes, C68): marking people at the door never waits
@@ -138,7 +135,6 @@ export function AttendanceCard({
 	canWrite,
 	lane,
 	blocked,
-	now,
 	onSettle,
 	onPrefetch,
 }: {
@@ -150,7 +146,6 @@ export function AttendanceCard({
 	lane: SaveIntent<SettleEditing>;
 	/** Presence saves are on their way or unknown; finalizing waits for them. */
 	blocked: boolean;
-	now: string;
 	onSettle: (mode: "finalize" | "reconcile") => void;
 	onPrefetch: () => void;
 }) {
@@ -165,7 +160,7 @@ export function AttendanceCard({
 	const excused = attendance.items.filter((x) => x.presence === "excused").length;
 	const final = attendance.finalized;
 	const counts = classified(attendance);
-	const open = canSettle(m, now);
+	const open = canSettle(m);
 	const vision = m.type === "vision_meeting";
 	const intent = { onPointerEnter: onPrefetch, onFocus: onPrefetch, onTouchStart: onPrefetch };
 	const settling = lane.saving;
@@ -184,8 +179,10 @@ export function AttendanceCard({
 							`Final since ${dateText(final.at.slice(0, 10))}`
 						) : open ? (
 							"Not final yet"
+						) : m.status === "cancelled" ? (
+							"This meeting was cancelled"
 						) : (
-							"The meeting has not started"
+							"This meeting was voided"
 						)}
 					</CardDescription>
 				</CardHeading>
@@ -244,9 +241,7 @@ export function AttendanceCard({
 						>
 							Finalize attendance
 						</Button>
-					) : (
-						<p className="text-sm text-text-3">You can finalize after the meeting starts.</p>
-					)}
+					) : null}
 				</div>
 			) : null}
 		</Card>

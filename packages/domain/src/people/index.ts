@@ -4,6 +4,7 @@ export { getAccountLink, peopleReader, peopleViewer, readColumnOrders } from "./
 export { readPersonPage, type PersonPageParts } from "./page.ts";
 export { detachAccountPersonLinks } from "./references.ts";
 export { checkForDuplicates } from "./duplicates.ts";
+export { personSearchMatch, searchPeople } from "./search.ts";
 export { peopleMerge } from "./merge/index.ts";
 export { peopleUnmerge } from "./unmerge/index.ts";
 export { recordCorrections } from "./corrections/index.ts";

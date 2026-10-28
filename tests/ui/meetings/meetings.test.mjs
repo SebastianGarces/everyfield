@@ -75,3 +75,71 @@ for (const [name, engine] of ENGINES) {
 		});
 	});
 }
+
+// Each engine adds its own three people to the one future meeting, so the two runs never share a guest.
+const CHOICES = {
+	chromium: [
+		["eli", "Eli Park"],
+		["mia h", "Mia Hall"],
+		["tom b", "Tom Baker"],
+	],
+	webkit: [
+		["david k", "David Kim"],
+		["james", "James Okafor"],
+		["rosa", "Rosa Bennett"],
+	],
+};
+for (const [name, engine] of ENGINES) {
+	const [[q1, p1], [q2, p2], [q3, p3]] = CHOICES[name];
+	test(`AC:TARGET-MTG-007 AC:TARGET-MTG-011 (${name}): Add guest picks people across searches, adds them with one click and keeps the ones that were not reached`, async () => {
+		const { meetingId } = fixture("meetings");
+		const ids = fixture("people").people;
+		await withPage(engine, async (page, context) => {
+			await signIn(context, fixture("people").owner.cookie);
+			await page.goto(`${BASE}/meetings/${meetingId}`);
+			await hydrated(page);
+			await page.getByRole("button", { name: "Add guest" }).first().click();
+			const dialog = page.getByRole("dialog", { name: "Add guest" });
+			assert.equal(await dialog.getByText("Invited by").count(), 0);
+			assert.equal(await dialog.getByText("Not recorded").count(), 0);
+			const search = dialog.getByRole("searchbox", { name: /Search people/ });
+			const pick = async (query, person) => {
+				await search.fill(query);
+				const box = dialog.getByRole("checkbox", { name: new RegExp(person) });
+				await box.waitFor();
+				await box.check();
+			};
+			// "s" finds names that start a word with s, never the email domain (example.test).
+			await search.fill("s");
+			await dialog.getByRole("checkbox", { name: /Maria Santos/ }).waitFor();
+			assert.equal(await dialog.getByRole("checkbox", { name: new RegExp(p1) }).count(), 0);
+			await pick(q1, p1);
+			await pick(q2, p2);
+			await pick(q3, p3);
+			// The earlier choices stay chosen after the search changed, and each has a remove control.
+			await dialog.getByText("Chosen (3)").waitFor();
+			await dialog.getByRole("button", { name: `Remove ${p1}` }).waitFor();
+
+			// The second person's save is lost both times: the others are added and the form keeps only that person.
+			let lost = 0;
+			await context.route("**/*", async (route) => {
+				const r = route.request();
+				if (r.method() === "POST" && r.headers()["next-action"] && (r.postData() ?? "").includes(ids[p3])) {
+					lost++;
+					return route.abort("failed");
+				}
+				return route.fallback();
+			});
+			await dialog.getByRole("button", { name: "Add 3 guests" }).click();
+			const again = page.getByRole("dialog", { name: "Add guest" });
+			await again.getByText(`${p3} was not added`, { exact: false }).waitFor();
+			await again.getByText("Chosen (1)").waitFor();
+			assert.equal(lost, 2);
+			await context.unroute("**/*");
+			for (const person of [p1, p2]) await page.locator("tr", { hasText: person }).waitFor();
+			await again.getByRole("button", { name: "Add guest" }).click();
+			await page.locator("tr", { hasText: p3 }).waitFor();
+			assert.equal(await page.getByRole("dialog", { name: "Add guest" }).count(), 0);
+		});
+	});
+}
