@@ -16,7 +16,9 @@ const MAX_CHIPS = 8;
 /** The whole-audience counts, debounced to one request per 300 ms pause. `ready` is false while a request is out. */
 export function useAudienceSummary(audience: Audience) {
 	const key = JSON.stringify(audience);
-	const [done, setDone] = useState<{ key: string; summary: AudienceSummary | null; failed: string | null } | null>(null);
+	const [done, setDone] = useState<{ key: string; summary: AudienceSummary | null; failed: string | null } | null>(
+		null,
+	);
 	const empty = audienceSize(audience) === 0;
 	useEffect(() => {
 		if (empty) return;
@@ -123,7 +125,7 @@ export function WhoStep({
 						))}
 					</ul>
 				) : null}
-				<ToField form={form} setForm={setForm} locked={locked} />
+				<ToField form={form} setForm={setForm} locked={locked} known={summary?.recipients ?? []} />
 			</div>
 			<Counts summary={summary} failed={failed} empty={audienceSize(form.audience) === 0} />
 		</div>
@@ -212,10 +214,13 @@ function ToField({
 	form,
 	setForm,
 	locked,
+	known,
 }: {
 	form: Form;
 	setForm: (update: (current: Form) => Form) => void;
 	locked: boolean;
+	/** Names the audience read returned, for people saved by id only. */
+	known: { id: string; displayName: string }[];
 }) {
 	const id = useId();
 	const input = useRef<HTMLInputElement>(null);
@@ -227,7 +232,12 @@ function ToField({
 	const [expanded, setExpanded] = useState(false);
 	const [card, setCard] = useState<string | null>(null);
 	const seq = useRef(0);
-	const people = form.people;
+	const names = new Map(known.map((person) => [person.id, person.displayName]));
+	const people = form.people.map((person) =>
+		person.displayName === "Person on this message" && names.has(person.id)
+			? { ...person, displayName: names.get(person.id)! }
+			: person,
+	);
 	const shown = query.trim() ? results : [];
 	const visible = expanded ? people : people.slice(0, MAX_CHIPS);
 

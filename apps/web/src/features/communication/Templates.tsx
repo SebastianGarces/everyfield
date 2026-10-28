@@ -4,13 +4,7 @@ import { ArrowLeft01Icon, Mail01Icon } from "@hugeicons/core-free-icons";
 import { Button, ConfirmDialog, EmptyState, Field, Input, Select } from "@everyfield/ui/controls";
 import { Icon } from "@everyfield/ui/foundations";
 import { useRef, useState } from "react";
-import {
-	archiveTemplate,
-	createTemplate,
-	deleteTemplate,
-	forkTemplate,
-	updateTemplate,
-} from "./actions.ts";
+import { archiveTemplate, createTemplate, deleteTemplate, forkTemplate, updateTemplate } from "./actions.ts";
 import { bodyToTextResult, textToBody } from "./body.ts";
 import { PreviewStage } from "./EmailFrame.tsx";
 import { fieldProblem, pickSampleName, usableKeys } from "./fields.ts";
@@ -94,23 +88,12 @@ export function Templates({
 }) {
 	const creating = selected === "new";
 	const template = templates.find((t) => t.templateId === selected) ?? null;
-	if (selected && !creating && !template) {
-		return (
-			<div className="flex flex-col items-start gap-3">
-				<p role="alert" className="text-md font-medium text-magenta-600">
-					That template is not here. It may have been archived or deleted.
-				</p>
-				<Button variant="secondary" onClick={() => onSelect(null)}>
-					Back to templates
-				</Button>
-			</div>
-		);
-	}
 	if (!selected) return <TemplateList templates={templates} canWrite={canWrite} onSelect={onSelect} />;
 	return (
 		<Editor
-			key={template?.templateId ?? "new"}
+			key="editor"
 			template={template}
+			missing={!creating && !template}
 			canWrite={canWrite}
 			setTemplates={setTemplates}
 			onSelect={onSelect}
@@ -180,6 +163,7 @@ function TemplateList({
 
 function Editor({
 	template,
+	missing,
 	canWrite,
 	setTemplates,
 	onSelect,
@@ -187,6 +171,8 @@ function Editor({
 	origin,
 }: {
 	template: Template | null;
+	/** The address names a template that is not in the list. A save that just replaced the row is not missing. */
+	missing: boolean;
 	canWrite: boolean;
 	setTemplates: (next: Template[] | ((rows: Template[]) => Template[])) => void;
 	onSelect: (id: string | null) => void;
@@ -202,6 +188,18 @@ function Editor({
 	const [pending, setPending] = useState<string | null>(null);
 	const [confirm, setConfirm] = useState<null | "archive" | "delete">(null);
 	const [sample] = useState(pickSampleName);
+	if (missing && !current) {
+		return (
+			<div className="flex flex-col items-start gap-3">
+				<p role="alert" className="text-md font-medium text-magenta-600">
+					That template is not here. It may have been archived or deleted.
+				</p>
+				<Button variant="secondary" onClick={() => onSelect(null)}>
+					Back to templates
+				</Button>
+			</div>
+		);
+	}
 	const system = current?.origin === "system";
 	const editing = canWrite && !system;
 	const invitation = fields.category === "meeting_invitation";

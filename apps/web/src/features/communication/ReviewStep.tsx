@@ -30,7 +30,7 @@ const localStamp = (d: Date) =>
 /** Tomorrow at 9:00 and the next Sunday at 8:00, both local, both inside the window. */
 export function presets(now = new Date()): { label: string; at: Date }[] {
 	const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 9, 0);
-	const toSunday = ((7 - now.getDay()) % 7) || 7;
+	const toSunday = (7 - now.getDay()) % 7 || 7;
 	const sunday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + toSunday, 8, 0);
 	return [
 		{ label: "Tomorrow, 9:00 AM", at: tomorrow },
@@ -91,7 +91,12 @@ export function ReviewStep({
 
 	const schedulePicked = () => {
 		const at = custom ? new Date(custom) : null;
-		if (!at || Number.isNaN(at.getTime()) || at.getTime() < Date.now() - 60_000 || at.getTime() > Date.now() + WINDOW_MS) {
+		if (
+			!at ||
+			Number.isNaN(at.getTime()) ||
+			at.getTime() < Date.now() - 60_000 ||
+			at.getTime() > Date.now() + WINDOW_MS
+		) {
 			setCustomError("Choose a send time from now through the next 30 days.");
 			return;
 		}
@@ -140,11 +145,27 @@ export function ReviewStep({
 				<h2 className="font-title text-title-md leading-[1.2] tracking-[-0.02em] text-ink">Ready to send?</h2>
 				<dl className="flex flex-col gap-3 text-md">
 					<Row label="From" value={churchName} />
-					<Row label="To" value={`${plural(eligible, "person", "people")}${chosen.length ? ` · ${listed(chosen)}` : ""}`} />
 					<Row
-						label="Left out"
-						value={left.length === 0 ? "No one" : left.map((n) => `${n}, no email address`).join("; ")}
+						label="To"
+						value={`${plural(eligible, "person", "people")}${chosen.length ? ` · ${listed(chosen)}` : ""}`}
 					/>
+					<div className="grid grid-cols-[84px_minmax(0,1fr)] gap-3">
+						<dt className="text-sm text-text-3">Left out</dt>
+						<dd className="min-w-0 text-ink">
+							{left.length === 0 ? (
+								"No one"
+							) : (
+								<ul className="flex max-h-40 flex-col gap-0.5 overflow-y-auto" aria-label="Left out">
+									{left.map((n, i) => (
+										<li key={`${n}-${i}`}>
+											{n}
+											<span className="text-text-3">, no email address</span>
+										</li>
+									))}
+								</ul>
+							)}
+						</dd>
+					</div>
 					<Row label="Subject" value={form.subject} />
 					<Row label="Template" value={template?.name ?? "None"} />
 					<Row label="Meeting" value={meeting ? `${meeting.title}` : "None"} />

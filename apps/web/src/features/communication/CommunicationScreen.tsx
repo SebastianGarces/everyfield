@@ -2,20 +2,12 @@
 
 import { Add01Icon } from "@hugeicons/core-free-icons";
 import { Button, PageHeader, SegmentedControl } from "@everyfield/ui/controls";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useState } from "react";
 import { Address } from "./Address.tsx";
 import { Compose } from "./Compose.tsx";
 import { History } from "./HistoryPanel.tsx";
-import {
-	parseRoute,
-	routeHref,
-	type Draft,
-	type PageData,
-	type Route,
-	type Step,
-	type Template,
-} from "./model.ts";
+import { parseRoute, routeHref, type Draft, type PageData, type Route, type Step, type Template } from "./model.ts";
 import { Templates } from "./Templates.tsx";
 
 // Messages. The page opens on the history list. New message starts the guided flow. Every state is in the address, so
@@ -25,16 +17,20 @@ type Section = "messages" | "templates" | "address";
 
 export function CommunicationScreen({ data, canWrite }: { data: PageData; canWrite: boolean }) {
 	const params = useSearchParams();
+	const router = useRouter();
 	const route = parseRoute(Object.fromEntries(params.entries()));
 	const [templates, setTemplates] = useState<Template[]>(data.templates);
 	const [drafts, setDrafts] = useState<Draft[]>(data.drafts);
 	const [banner, setBanner] = useState<string | null>(null);
 
-	const go = useCallback((next: Route, mode: "push" | "replace" = "push") => {
-		const href = routeHref(next);
-		if (mode === "push") window.history.pushState(null, "", href);
-		else window.history.replaceState(null, "", href);
-	}, []);
+	const go = useCallback(
+		(next: Route, mode: "push" | "replace" = "push") => {
+			const href = routeHref(next);
+			if (mode === "push") router.push(href, { scroll: false });
+			else router.replace(href, { scroll: false });
+		},
+		[router],
+	);
 
 	const section: Section = route.kind === "templates" ? "templates" : route.kind === "address" ? "address" : "messages";
 	const composing = route.kind === "compose" && canWrite;
@@ -46,7 +42,13 @@ export function CommunicationScreen({ data, canWrite }: { data: PageData; canWri
 
 	const openSection = (value: Section) => {
 		setBanner(null);
-		go(value === "templates" ? { kind: "templates", template: null } : value === "address" ? { kind: "address" } : { kind: "history", message: null, meeting: null, person: null });
+		go(
+			value === "templates"
+				? { kind: "templates", template: null }
+				: value === "address"
+					? { kind: "address" }
+					: { kind: "history", message: null, meeting: null, person: null },
+		);
 	};
 	const newMessage = () => {
 		setBanner(null);
@@ -74,16 +76,13 @@ export function CommunicationScreen({ data, canWrite }: { data: PageData; canWri
 			)}
 			{composing && route.kind === "compose" ? (
 				<Compose
-					key={route.handoff ? `handoff:${route.handoff.meeting}` : route.id === "new" ? "new" : "saved"}
+					key="compose"
 					data={{ ...data, drafts, templates }}
 					id={route.id}
 					step={route.step}
 					handoff={route.handoff}
 					onStep={(step: Step) => go({ ...route, step }, "replace")}
-					onSaved={(id, step) => {
-						setDrafts((rows) => rows);
-						go({ kind: "compose", id, step, handoff: null }, "replace");
-					}}
+					onSaved={(id, step) => go({ kind: "compose", id, step, handoff: null }, "replace")}
 					onLeave={() => go({ kind: "history", message: null, meeting: null, person: null })}
 					onDone={(messageId, text) => {
 						setBanner(text);
@@ -92,7 +91,13 @@ export function CommunicationScreen({ data, canWrite }: { data: PageData; canWri
 				/>
 			) : (
 				<>
-					<SegmentedControl label="Message sections" value={section} onValueChange={openSection} options={sections} wrap />
+					<SegmentedControl
+						label="Message sections"
+						value={section}
+						onValueChange={openSection}
+						options={sections}
+						wrap
+					/>
 					{route.kind === "templates" ? (
 						<Templates
 							templates={templates}
@@ -111,8 +116,17 @@ export function CommunicationScreen({ data, canWrite }: { data: PageData; canWri
 							personId={route.kind === "history" ? route.person : null}
 							meetingId={route.kind === "history" ? route.meeting : null}
 							selected={route.kind === "history" ? route.message : null}
-							onSelected={(id) => go({ kind: "history", message: id, meeting: route.kind === "history" ? route.meeting : null, person: route.kind === "history" ? route.person : null })}
-							onCompose={(id, step, replace) => go({ kind: "compose", id, step, handoff: null }, replace ? "replace" : "push")}
+							onSelected={(id) =>
+								go({
+									kind: "history",
+									message: id,
+									meeting: route.kind === "history" ? route.meeting : null,
+									person: route.kind === "history" ? route.person : null,
+								})
+							}
+							onCompose={(id, step, replace) =>
+								go({ kind: "compose", id, step, handoff: null }, replace ? "replace" : "push")
+							}
 							onNew={newMessage}
 							onOpen={(draft) => {
 								setDrafts((rows) => [draft, ...rows.filter((row) => row.communicationId !== draft.communicationId)]);

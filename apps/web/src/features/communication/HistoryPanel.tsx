@@ -354,7 +354,8 @@ function ScheduledPanel({ view, actions }: { view: MessageView; actions: Schedul
 				{detail.scheduledAt ? `Scheduled for ${when(detail.scheduledAt)}` : "Scheduled"}
 			</h3>
 			<p className="text-sm text-text-2">
-				Send now hands this email to the provider now. It does not wait for the send time. Accepted does not mean delivered.
+				Send now hands this email to the provider now. It does not wait for the send time. Accepted does not mean
+				delivered.
 			</p>
 			{actions.notice ? (
 				<p
@@ -371,10 +372,20 @@ function ScheduledPanel({ view, actions }: { view: MessageView; actions: Schedul
 				<Button variant="danger" onClick={actions.onCancel} disabled={busy}>
 					Cancel provider send
 				</Button>
-				<Button variant="secondary" onClick={actions.onReconcile} loading={actions.pending === "reconcile"} disabled={busy && actions.pending !== "reconcile"}>
+				<Button
+					variant="secondary"
+					onClick={actions.onReconcile}
+					loading={actions.pending === "reconcile"}
+					disabled={busy && actions.pending !== "reconcile"}
+				>
 					Check provider result
 				</Button>
-				<Button variant="secondary" onClick={actions.onReplace} loading={actions.pending === "replace"} disabled={busy && actions.pending !== "replace"}>
+				<Button
+					variant="secondary"
+					onClick={actions.onReplace}
+					loading={actions.pending === "replace"}
+					disabled={busy && actions.pending !== "replace"}
+				>
 					Check replacement
 				</Button>
 			</div>
@@ -398,7 +409,12 @@ function ScheduledPanel({ view, actions }: { view: MessageView; actions: Schedul
 					disabled={busy && actions.pending !== "reschedule"}
 					onClick={() => {
 						const at = when_ ? new Date(when_) : null;
-						if (!at || Number.isNaN(at.getTime()) || at.getTime() < Date.now() - 60_000 || at.getTime() > Date.now() + 30 * 24 * 60 * 60 * 1000) {
+						if (
+							!at ||
+							Number.isNaN(at.getTime()) ||
+							at.getTime() < Date.now() - 60_000 ||
+							at.getTime() > Date.now() + 30 * 24 * 60 * 60 * 1000
+						) {
 							setError("Choose a send time from now through the next 30 days.");
 							return;
 						}
@@ -659,7 +675,9 @@ function Browser({
 	const keys = useKeys();
 	const [detail, setDetail] = useState<{ id: string; view: MessageView | null; error: string | null } | null>(null);
 	const [acting, setActing] = useState<string | null>(null);
-	const [reviewed, setReviewed] = useState<{ id: string; review: ResendReview | null; error: string | null } | null>(null);
+	const [reviewed, setReviewed] = useState<{ id: string; review: ResendReview | null; error: string | null } | null>(
+		null,
+	);
 	const [confirm, setConfirm] = useState<null | "follow-up" | "send" | "cancel">(null);
 	const [notice, setNotice] = useState<{ text: string; tone: "alert" | "status" } | null>(null);
 
@@ -697,7 +715,8 @@ function Browser({
 				setNotice(null);
 			})
 			.catch(() => {
-				if (live) setDetail({ id: selected, view: null, error: "Unable to reach the church records. Try again in a moment." });
+				if (live)
+					setDetail({ id: selected, view: null, error: "Unable to reach the church records. Try again in a moment." });
 			});
 		return () => {
 			live = false;
@@ -718,7 +737,9 @@ function Browser({
 		void reviewResend(id)
 			.then((result) => {
 				setReviewed(
-					result.status === "ok" ? { id, review: result.value, error: null } : { id, review: null, error: problem(result) },
+					result.status === "ok"
+						? { id, review: result.value, error: null }
+						: { id, review: null, error: problem(result) },
 				);
 			})
 			.catch(() => {
@@ -772,7 +793,11 @@ function Browser({
 						void act(
 							"reconcile",
 							async () => {
-								const result = await reconcileDelivery(keys.take("reconcile"), view.detail.revision, view.detail.communicationId);
+								const result = await reconcileDelivery(
+									keys.take("reconcile"),
+									view.detail.revision,
+									view.detail.communicationId,
+								);
 								if (result.status === "refused" && result.code === "not_found") {
 									return { status: "ok", value: null } as Outcome<DeliveryReport | null>;
 								}
@@ -792,7 +817,13 @@ function Browser({
 					onReschedule: (instant) =>
 						void act(
 							"reschedule",
-							() => rescheduleDispatched(keys.take("reschedule"), view.detail.revision, view.detail.communicationId, instant.toISOString()),
+							() =>
+								rescheduleDispatched(
+									keys.take("reschedule"),
+									view.detail.revision,
+									view.detail.communicationId,
+									instant.toISOString(),
+								),
 							(report) => {
 								const text = rescheduleText(report, when(report.scheduledAt));
 								return { text, tone: report.rescheduleStatus === "unknown" ? "alert" : "status" };
@@ -869,11 +900,13 @@ function Browser({
 							Load more
 						</Button>
 					) : null}
-					{history.page ? (
-						<p className="px-2 text-sm text-text-3">Counts as of {when(history.page.asOf)}.</p>
-					) : null}
+					{history.page ? <p className="px-2 text-sm text-text-3">Counts as of {when(history.page.asOf)}.</p> : null}
 				</section>
-				<section aria-label="Message" aria-live="polite" className="flex min-w-0 flex-col gap-5 rounded-lg bg-surface p-6">
+				<section
+					aria-label="Message"
+					aria-live="polite"
+					className="flex min-w-0 flex-col gap-5 rounded-lg bg-surface p-6"
+				>
 					{detailPending === "open" ? (
 						<p role="status" className="text-sm text-text-2">
 							Loading the message.
@@ -926,7 +959,11 @@ function Browser({
 					if (result.status !== "ok") throw new Error(problem(result));
 					const fresh = await readDraft(result.value.communicationId);
 					if (fresh.status !== "ok") {
-						setReviewed({ id: selected, review, error: `${problem(fresh)} The follow-up was saved. Reload Messages, then open it from the list.` });
+						setReviewed({
+							id: selected,
+							review,
+							error: `${problem(fresh)} The follow-up was saved. Reload Messages, then open it from the list.`,
+						});
 						return;
 					}
 					onOpen(
@@ -981,7 +1018,10 @@ function Browser({
 					const result = await cancelScheduled(keys.take("cancel"), view.detail.revision, id);
 					keys.settle("cancel", result);
 					if (result.status !== "ok") throw new Error(outcomeText(result) ?? "Unable to cancel the provider send.");
-					setNotice({ text: cancelText(result.value), tone: result.value.scheduledCancel === "reconcile" ? "alert" : "status" });
+					setNotice({
+						text: cancelText(result.value),
+						tone: result.value.scheduledCancel === "reconcile" ? "alert" : "status",
+					});
 					await refresh(id);
 				}}
 			/>

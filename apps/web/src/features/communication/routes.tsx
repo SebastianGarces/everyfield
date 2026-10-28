@@ -60,7 +60,5 @@ export async function CommunicationPage({ searchParams }: { searchParams?: Searc
 			</>
 		);
 	}
-	return (
-		<CommunicationScreen data={loaded.value} canWrite={canWrite(g.viewer)} />
-	);
+	return <CommunicationScreen data={loaded.value} canWrite={canWrite(g.viewer)} />;
 }

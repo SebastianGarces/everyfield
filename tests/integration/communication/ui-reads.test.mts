@@ -51,7 +51,9 @@ test("AC:CASE-COM-004 recipient search matches word prefixes of the name and the
 	await person("Aisha Bello", "aisha@example.test");
 	await person("Chloe Bennett", "chloe@example.test");
 	const names = async (query) =>
-		ok(await read("readRecipients", { query })).people.map((p) => p.displayName).sort();
+		ok(await read("readRecipients", { query }))
+			.people.map((p) => p.displayName)
+			.sort();
 	assert.deepEqual(await names("s"), ["Maria Santos", "Sara Nunez", "Sebastian Garces"]);
 	assert.deepEqual(await names("maria s"), ["Maria Santos"]);
 	assert.deepEqual(await names("test"), []);
@@ -87,7 +89,8 @@ test("AC:CASE-COM-001 history items and detail carry scheduled time, sent time a
 	const sent = await message("reviewed", { subject: "T-sent" });
 	const target = await person("Receiver", "receiver@aud.test");
 	const mailId = randomUUID();
-	await f.admin.execute(sql`INSERT INTO mail (id, tenant_id, recipient_person_id, recipient_address_encrypted, purpose, logical_key,
+	await f.admin
+		.execute(sql`INSERT INTO mail (id, tenant_id, recipient_person_id, recipient_address_encrypted, purpose, logical_key,
 		payload_hash, audience_hash, frozen_payload, state, address_hash, created_at, sent_at)
 		VALUES(${mailId}, ${plant.id}, ${target}, ${sealText(keys.encryptionKey, "receiver@aud.test", addressAad(plant.id, mailId))},
 		'communication', ${`communication/${sent}/${target}`}, 'p', 'a', ${JSON.stringify({ v: 1, sealed: "x" })}::jsonb, 'sent',

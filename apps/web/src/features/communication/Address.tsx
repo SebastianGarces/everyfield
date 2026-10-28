@@ -1,6 +1,15 @@
 "use client";
 
-import { Button, Card, CardDescription, CardHeader, CardHeading, CardTitle, Field, Input } from "@everyfield/ui/controls";
+import {
+	Button,
+	Card,
+	CardDescription,
+	CardHeader,
+	CardHeading,
+	CardTitle,
+	Field,
+	Input,
+} from "@everyfield/ui/controls";
 import { useEffect, useRef, useState } from "react";
 import { readOwnSuppression, restoreOwnSuppression } from "./actions.ts";
 import { outcomeText, restoreText, type Outcome, type SuppressionReport } from "./model.ts";

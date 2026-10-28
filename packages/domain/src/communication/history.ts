@@ -130,7 +130,9 @@ function reachableSql(plantId: string) {
 			AND NOT EXISTS (SELECT 1 FROM suppression s WHERE s.address_hash = m.address_hash AND s.cleared_at IS NULL))`;
 }
 function sentAtSql(plantId: string) {
-	return stamp(sql`(SELECT min(coalesce(m.sent_at, m.accepted_at, m.delivered_at)) FROM mail m WHERE ${mailOn(plantId)})`);
+	return stamp(
+		sql`(SELECT min(coalesce(m.sent_at, m.accepted_at, m.delivered_at)) FROM mail m WHERE ${mailOn(plantId)})`,
+	);
 }
 function senderSql() {
 	return sql`(SELECT p.display_name FROM person p WHERE p.linked_account_id = c.author_id AND p.tenant_id = c.plant_id AND p.state = 'live' ORDER BY p.id LIMIT 1)`;

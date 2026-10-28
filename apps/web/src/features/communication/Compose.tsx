@@ -63,6 +63,16 @@ function useKeys() {
 	};
 }
 
+/** The meeting's own local date and time, as words. The parts are not shifted by the viewer's zone. */
+function meetingWhen(date: string, time: string): string {
+	const [y, m, d] = date.split("-").map(Number);
+	const [h, min] = time.split(":").map(Number);
+	if (!y || !m || !d || h === undefined || min === undefined) return `${date}, ${time}`;
+	return new Intl.DateTimeFormat(undefined, { dateStyle: "full", timeStyle: "short" }).format(
+		new Date(y, m - 1, d, h, min),
+	);
+}
+
 type Loaded = { status: "loading" } | { status: "ready" } | { status: "failed"; text: string };
 
 export function Compose({
@@ -93,16 +103,26 @@ export function Compose({
 	const [extra, setExtra] = useState<Template[]>([]);
 	const [meeting, setMeeting] = useState<MeetingContext | null>(null);
 	const [notes, setNotes] = useState<string[]>([]);
-	const [undo, setUndo] = useState<{ subject: string; text: string; templateKey: string; binding: Pick<Form, "templateId" | "templateSource"> } | null>(null);
+	const [undo, setUndo] = useState<{
+		subject: string;
+		text: string;
+		templateKey: string;
+		binding: Pick<Form, "templateId" | "templateSource">;
+	} | null>(null);
 	const [pending, setPending] = useState<string | null>(null);
 	const [problem, setProblem] = useState<string | null>(null);
 	const [plan, setPlan] = useState<SendPlan | null>(null);
 	const [leaving, setLeaving] = useState(false);
 	const [scheduledId, setScheduledId] = useState<string | null>(null);
 	const [sample] = useState(() => pickSampleName());
+	/** The id this form already holds, set the moment a save returns, before the address changes to it. */
+	const heldId = useRef<string | null>(null);
 	const heading = useRef<HTMLHeadingElement>(null);
 	const { summary, failed, ready } = useAudienceSummary(form.audience);
-	const templates = [...data.templates, ...extra.filter((t) => !data.templates.some((d) => d.templateId === t.templateId))];
+	const templates = [
+		...data.templates,
+		...extra.filter((t) => !data.templates.some((d) => d.templateId === t.templateId)),
+	];
 	const locked = isLocked(form);
 	const setForm = useCallback((update: (current: Form) => Form) => setFormState(update), []);
 
@@ -111,12 +131,15 @@ export function Compose({
 		let live = true;
 		const fail = (text: string) => live && setLoaded({ status: "failed", text });
 		const open = async () => {
+			// The address moves from "new" to the saved id after the first save. The form already holds it.
+			if (id !== "new" && heldId.current === id) return;
 			if (id !== "new") {
 				const row = data.drafts.find((d) => d.communicationId === id);
 				const draft = row ?? (await readDraft(id).then((r) => (r.status === "ok" ? r.value : null)));
 				if (!draft) return fail("That message is not here. It may have been deleted.");
 				if (!live) return;
 				const next = formFrom(draft, data.templates);
+				heldId.current = draft.communicationId;
 				setFormState(next);
 				setSaved(JSON.stringify(draftPayload(next)));
 				setLoaded({ status: "ready" });
@@ -150,10 +173,14 @@ export function Compose({
 						...templateBinding(t),
 					};
 				} else {
-					notesNext.push("No invitation template for this meeting type. Write the message, or start from another template.");
+					notesNext.push(
+						"No invitation template for this meeting type. Write the message, or start from another template.",
+					);
 				}
 			} else if (handoff.template) {
-				notesNext.push("No invitation template for this meeting type. Write the message, or start from another template.");
+				notesNext.push(
+					"No invitation template for this meeting type. Write the message, or start from another template.",
+				);
 			}
 			if (handoff.recipients === "guests") {
 				const people = context.value.guests.map((g) => ({ id: g.id, displayName: g.displayName, email: null }));
@@ -172,7 +199,7 @@ export function Compose({
 			live = false;
 		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [id]);
+	}, [id, handoff?.meeting]);
 
 	// A saved draft that belongs to a meeting shows the meeting's context line.
 	useEffect(() => {
@@ -232,7 +259,13 @@ export function Compose({
 			return null;
 		}
 		const draft = result.value;
-		const next: Form = { ...form, communicationId: draft.communicationId, revision: draft.revision, state: draft.state };
+		heldId.current = draft.communicationId;
+		const next: Form = {
+			...form,
+			communicationId: draft.communicationId,
+			revision: draft.revision,
+			state: draft.state,
+		};
 		setFormState(next);
 		setSaved(JSON.stringify(draftPayload(next)));
 		onSaved(draft.communicationId, target);
@@ -248,8 +281,9 @@ export function Compose({
 				if (step === "write" && !locked && write) return;
 			}
 			if (order === current) return;
-			if (!locked && !(await persist(target))) return;
-			onStep(target);
+			// A save moves the address to the draft and the step in one replace. A locked message has nothing to save.
+			if (locked) onStep(target);
+			else await persist(target);
 		});
 
 	const saveOnly = () =>
@@ -264,10 +298,17 @@ export function Compose({
 		const changed = form.subject.trim() !== "" || form.text.trim() !== "";
 		const previous = templates.find((t) => t.templateId === form.templateKey);
 		const same =
-			previous && previous.subject === form.subject && textToBody(form.text) === textToBody(bodyToTextResult(previous.bodyHtml).text);
+			previous &&
+			previous.subject === form.subject &&
+			textToBody(form.text) === textToBody(bodyToTextResult(previous.bodyHtml).text);
 		setUndo(
 			changed && !same
-				? { subject: form.subject, text: form.text, templateKey: form.templateKey, binding: { templateId: form.templateId, templateSource: form.templateSource } }
+				? {
+						subject: form.subject,
+						text: form.text,
+						templateKey: form.templateKey,
+						binding: { templateId: form.templateId, templateSource: form.templateSource },
+					}
 				: null,
 		);
 		setForm((current) => ({
@@ -300,7 +341,12 @@ export function Compose({
 			if (result.status !== "ok") throw new Error(outcomeText(result) ?? "The email was not sent.");
 			if (result.value.report === null) {
 				keys.settle("send", { status: "ok", value: null });
-				setFormState({ ...next, communicationId: result.value.communicationId, revision: result.value.revision, state: "scheduled" });
+				setFormState({
+					...next,
+					communicationId: result.value.communicationId,
+					revision: result.value.revision,
+					state: "scheduled",
+				});
 				setScheduledId(result.value.communicationId);
 				throw new Error(scheduledNotSentText);
 			}
@@ -315,7 +361,10 @@ export function Compose({
 		keys.settle("save", result);
 		keys.settle("schedule", result);
 		if (result.status !== "ok") throw new Error(outcomeText(result) ?? "The email was not scheduled.");
-		finish(result.value.communicationId, `Scheduled for ${formatWhen(result.value.scheduledAt)}. It has not been sent.`);
+		finish(
+			result.value.communicationId,
+			`Scheduled for ${formatWhen(result.value.scheduledAt)}. It has not been sent.`,
+		);
 	};
 
 	const count = eligible;
@@ -387,7 +436,7 @@ export function Compose({
 			{meeting ? (
 				<p className="rounded-md bg-surface px-4 py-3 text-md text-ink">
 					<span className="font-medium">{meeting.title}</span>
-					{` · ${meeting.date} · ${meeting.time}${meeting.place ? ` · ${meeting.place}` : ""}`}
+					{` · ${meetingWhen(meeting.date, meeting.time)}${meeting.place ? ` · ${meeting.place}` : ""}`}
 				</p>
 			) : null}
 			{notes.map((note) => (
@@ -492,18 +541,27 @@ export function Compose({
 				/>
 			) : null}
 
-			<div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 border-t border-line bg-canvas py-4">
+			<div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 border-t border-line bg-[var(--ef-frame)] py-4">
 				<p id="step-reason" className="text-sm text-text-2" role={reason ? "status" : undefined}>
 					{reason ?? ""}
 				</p>
 				<div className="flex items-center gap-2">
 					{stepIndex > 0 ? (
-						<Button variant="secondary" onClick={() => void go(STEPS[stepIndex - 1]!.value)} disabled={pending !== null}>
+						<Button
+							variant="secondary"
+							onClick={() => void go(STEPS[stepIndex - 1]!.value)}
+							disabled={pending !== null}
+						>
 							Back
 						</Button>
 					) : null}
 					{!locked ? (
-						<Button variant="ghost" onClick={saveOnly} loading={pending === "save"} disabled={pending !== null && pending !== "save"}>
+						<Button
+							variant="ghost"
+							onClick={saveOnly}
+							loading={pending === "save"}
+							disabled={pending !== null && pending !== "save"}
+						>
 							Save draft
 						</Button>
 					) : null}

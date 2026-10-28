@@ -1,0 +1,395 @@
+// Messages: history first, the guided compose flow, the true email preview and the meeting handoff. Seed with
+// tests/ui/people/seed.mts, then tests/ui/meetings/seed.mts; set UI_BASE_URL. Both browser engines run.
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { BASE, ENGINES, fixture, hydrated, signIn, withPage } from "../setup.mjs";
+
+const owner = () => fixture("people").owner.cookie;
+const member = () => fixture("people").member.cookie;
+
+/** Console errors and warnings of a page, and the count of server action POSTs. */
+function watch(page) {
+	const state = { logs: [], posts: 0 };
+	page.on("console", (m) => {
+		if (m.type() === "error" || m.type() === "warning") state.logs.push(m.text());
+	});
+	page.on("request", (r) => {
+		if (r.method() === "POST" && r.headers()["next-action"]) state.posts += 1;
+	});
+	return state;
+}
+
+const open = async (page, path) => {
+	await page.goto(`${BASE}${path}`);
+	await hydrated(page);
+};
+const heading = (page, name) => page.getByRole("heading", { level: 2, name });
+const next = (page) => page.getByRole("button", { name: "Next", exact: true });
+
+/** The text of the email shown in the preview frame. */
+const emailText = (page) => page.frameLocator('iframe[title="Email preview"]').locator("body");
+
+/** Who step with everyone selected through the group list. */
+async function chooseEveryone(page) {
+	await page.getByLabel("Groups and teams").click();
+	await page.getByRole("option", { name: /All people/ }).click();
+	await page.keyboard.press("Escape");
+	await page.getByText("Will get this email").waitFor();
+	await next(page).waitFor();
+	await page.waitForFunction(() => !document.querySelector('button[aria-describedby="step-reason"][disabled]'));
+}
+
+for (const [name, engine] of ENGINES) {
+	test(`AC:CASE-COM-003 (${name}): Messages opens on history, New message is the one writer action, and each address shows its state`, async () => {
+		await withPage(engine, async (page, context) => {
+			await signIn(context, owner());
+			await open(page, "/communication");
+			await page.getByText("Messages", { exact: true }).first().waitFor();
+			assert.equal(await page.getByRole("button", { name: "New message" }).first().isVisible(), true);
+			assert.equal(await page.getByRole("tab", { name: "Compose" }).count(), 0);
+			assert.equal(await page.getByRole("radio", { name: "Compose" }).count(), 0);
+			for (const label of ["Messages", "Templates", "Your address"])
+				assert.equal(await page.getByRole("radio", { name: label }).count(), 1, label);
+
+			await open(page, "/communication?view=templates");
+			await page.getByRole("heading", { name: "System" }).waitFor();
+			await page.getByRole("heading", { name: "Your church" }).waitFor();
+			await open(page, "/communication?view=address");
+			await page.getByText("Your address", { exact: true }).first().waitFor();
+
+			await open(page, "/communication");
+			// New message pushes an entry; Back returns to history.
+			// The last step reloads and goes Back. A full navigation after a reload crashes Playwright's WebKit on any
+			// Next page, so this test makes none.
+			await page.getByRole("button", { name: "New message" }).first().click();
+			await page.waitForURL(/compose=new&step=who/);
+			await heading(page, "Who is this for?").waitFor();
+			assert.equal(
+				await page
+					.getByRole("navigation", { name: "Steps" })
+					.getByRole("button", { name: /Who/ })
+					.getAttribute("aria-current"),
+				"step",
+			);
+			await page.reload();
+			await hydrated(page);
+			await heading(page, "Who is this for?").waitFor();
+			await page.goBack();
+			await page.waitForURL((url) => !url.search.includes("compose"));
+			await page.getByRole("button", { name: "New message" }).first().waitFor();
+		});
+	});
+
+	test(`AC:CASE-COM-003 (${name}): a read-only seat sees history, no compose action and the read-only line`, async () => {
+		await withPage(engine, async (page, context) => {
+			await signIn(context, member());
+			await open(page, "/communication");
+			await page.getByText("You can read messages.", { exact: false }).waitFor();
+			assert.equal(await page.getByRole("button", { name: "New message" }).count(), 0);
+			assert.equal(await page.getByRole("radio", { name: "Your address" }).count(), 0);
+		});
+	});
+
+	test(`AC:CASE-COM-003 AC:CASE-COM-004 (${name}): Who finds people by word prefix, shows left-out people and counts`, async () => {
+		await withPage(engine, async (page, context) => {
+			await signIn(context, owner());
+			const state = watch(page);
+			await open(page, "/communication?compose=new&step=who");
+			await next(page).waitFor();
+			assert.equal(await next(page).isDisabled(), true);
+			await page.getByText("Choose at least one person who can get email").waitFor();
+
+			const to = page.getByRole("combobox", { name: "Add a person" });
+			await to.fill("sa");
+			await page.getByRole("option", { name: /Sara Nunez/ }).waitFor();
+			// The domain never matches: "test" finds nobody.
+			await to.fill("test");
+			await page.getByText("No people match.").waitFor();
+			await to.fill("sara");
+			await page.getByRole("option", { name: /Sara Nunez/ }).waitFor();
+			await to.press("Enter");
+			await page.getByRole("button", { name: "Remove Sara Nunez" }).waitFor();
+			await to.press("Backspace");
+			assert.equal(await page.getByRole("button", { name: "Remove Sara Nunez" }).count(), 0);
+
+			await chooseEveryone(page);
+			const tiles = page.getByText("Left out", { exact: true }).first();
+			await tiles.waitFor();
+			await page.getByRole("region", { name: "Left out, and why" }).getByText("No email address").first().waitFor();
+			assert.equal(await next(page).isEnabled(), true);
+			assert.deepEqual(
+				state.logs.filter((l) => /uncontrolled to controlled/.test(l)),
+				[],
+			);
+		});
+	});
+
+	test(`AC:CASE-COM-003 (${name}): Write keeps the template, marks unfinished fields, previews in a sandboxed frame and resizes to phone`, async () => {
+		await withPage(engine, async (page, context) => {
+			await signIn(context, owner());
+			const state = watch(page);
+			await open(page, "/communication?compose=new&step=who");
+			await chooseEveryone(page);
+			await next(page).click();
+			await heading(page, "Write the message").waitFor();
+			await page.waitForURL(/compose=[0-9a-f-]{36}&step=write/);
+
+			// Task 13: the picker keeps the chosen template's name.
+			await page.getByLabel("Start from a template").click();
+			await page.getByRole("option", { name: /Vision meeting invitation/ }).click();
+			assert.match(await page.getByLabel("Start from a template").innerText(), /Vision meeting invitation/);
+			await page.getByLabel("Subject").fill("Sunday gathering");
+			assert.match(await page.getByLabel("Start from a template").innerText(), /Vision meeting invitation/);
+
+			// Task 15: an unfinished field shows a readable marker, never raw braces.
+			const message = page.getByRole("combobox", { name: "Message" });
+			await message.fill("Hello {{na");
+			await emailText(page).getByText("[finish this field]").waitFor();
+			assert.doesNotMatch(await emailText(page).innerText(), /[{}]/);
+			await page.getByText("Finish or remove the field {{na").first().waitFor();
+			assert.equal(await next(page).isDisabled(), true);
+			await message.fill("Hello {{nmae}}.");
+			await emailText(page).getByText("[unknown field: nmae]").waitFor();
+			await message.fill("Hello {{name}}. Join us");
+			await emailText(page)
+				.getByText(/Hello .+\. Join us/)
+				.waitFor();
+			assert.doesNotMatch(await emailText(page).innerText(), /[{}]/);
+			assert.equal(await next(page).isEnabled(), true);
+
+			// The frame: sandbox, title, no inner scrollbar, cursor pointer, Desktop 600 and Phone 375.
+			const frame = page.locator('iframe[title="Email preview"]');
+			assert.equal(await frame.getAttribute("sandbox"), "allow-same-origin");
+			const wide = await frame.evaluate((el) => el.getBoundingClientRect().width);
+			assert.ok(Math.abs(wide - 600) < 2 || wide < 600, `desktop width ${wide}`);
+			await page.getByRole("radio", { name: "Phone" }).click();
+			await page.waitForFunction(
+				() => document.querySelector('iframe[title="Email preview"]')?.style.width === "375px",
+			);
+			assert.equal(
+				await page.getByRole("radio", { name: "Phone" }).evaluate((el) => getComputedStyle(el).cursor),
+				"pointer",
+			);
+			assert.equal(
+				await page.getByRole("radio", { name: "Desktop" }).evaluate((el) => getComputedStyle(el).cursor),
+				"pointer",
+			);
+			assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+			assert.doesNotMatch(await page.locator("main").innerText(), /HTML/);
+			assert.deepEqual(
+				state.logs.filter((l) => /uncontrolled to controlled/.test(l)),
+				[],
+			);
+		});
+	});
+
+	test(`AC:CASE-COM-003 (${name}): typing sends at most one preview request per pause`, async () => {
+		await withPage(engine, async (page, context) => {
+			await signIn(context, owner());
+			const state = watch(page);
+			await open(page, "/communication?compose=new&step=who");
+			await chooseEveryone(page);
+			await next(page).click();
+			await heading(page, "Write the message").waitFor();
+			await page.getByLabel("Subject").fill("Typing test");
+			const message = page.getByRole("combobox", { name: "Message" });
+			await message.fill("");
+			await message.focus();
+			const before = state.posts;
+			// Forty characters, 20 ms apart: one pause at the end. After the WP-020/api swap this count is 0 (criterion 34).
+			await page.keyboard.type("Forty characters typed without a long stop", { delay: 20 });
+			const during = state.posts - before;
+			assert.ok(during <= 1, `at most one request while typing, got ${during}`);
+			await emailText(page)
+				.getByText(/Forty characters typed/)
+				.waitFor();
+			assert.ok(state.posts - before <= 2, "one request for the pause");
+		});
+	});
+
+	test(`AC:CASE-COM-003 (${name}): Send now asks first, names the people and the subject, and Cancel sends nothing`, async () => {
+		await withPage(engine, async (page, context) => {
+			await signIn(context, owner());
+			await open(page, "/communication?compose=new&step=who");
+			await chooseEveryone(page);
+			await next(page).click();
+			await heading(page, "Write the message").waitFor();
+			await page.getByLabel("Subject").fill("Dialog check");
+			await page.getByRole("combobox", { name: "Message" }).fill("Hello {{name}}.");
+			await next(page).click();
+			await heading(page, "Review and send").waitFor();
+			await page.getByRole("heading", { name: "Ready to send?" }).waitFor();
+			const switcher = page.getByRole("combobox", { name: "Preview as" });
+			await switcher.waitFor();
+			await page.getByText(/1 of \d+/).waitFor();
+
+			await page.getByRole("button", { name: /^Send now to \d+/ }).click();
+			const dialog = page.getByRole("alertdialog");
+			await dialog.getByText(/^Send to \d+ people now\?$/).waitFor();
+			await dialog.getByText('"Dialog check"').waitFor();
+			await dialog.getByText("You cannot unsend it once it leaves.").waitFor();
+			await dialog.getByText(/have no email and will be skipped/).waitFor();
+			await dialog.getByRole("button", { name: "Cancel" }).click();
+			await dialog.waitFor({ state: "hidden" });
+			// Focus returns to the trigger.
+			assert.match(await page.evaluate(() => document.activeElement?.textContent ?? ""), /Send now to/);
+
+			// Schedule opens the same dialog with the time in its title.
+			await page.getByRole("button", { name: "More ways to send" }).click();
+			await page.getByRole("menuitem", { name: /Tomorrow, 9:00 AM/ }).click();
+			await page
+				.getByRole("alertdialog")
+				.getByText(/^Schedule for /)
+				.waitFor();
+			await page.getByRole("alertdialog").getByText(/on .+/).first().waitFor();
+			await page.getByRole("alertdialog").getByRole("button", { name: "Cancel" }).click();
+
+			// Nothing was sent or scheduled: the draft is a Draft in history.
+			await open(page, "/communication");
+			await page
+				.getByRole("button", { name: /Dialog check/ })
+				.first()
+				.waitFor();
+			assert.match(
+				await page
+					.getByRole("button", { name: /Dialog check/ })
+					.first()
+					.innerText(),
+				/Draft/,
+			);
+		});
+	});
+
+	test(`AC:CASE-COM-003 AC:CASE-COM-012 (${name}): Schedule confirms, returns to history with the message open and its scheduled actions, and a draft row reopens Write`, async () => {
+		await withPage(engine, async (page, context) => {
+			await signIn(context, owner());
+			await open(page, "/communication?compose=new&step=who");
+			await chooseEveryone(page);
+			await next(page).click();
+			await heading(page, "Write the message").waitFor();
+			const subject = `Schedule check ${name}`;
+			await page.getByLabel("Subject").fill(subject);
+			await page.getByRole("combobox", { name: "Message" }).fill("Hello {{name}}.");
+			await next(page).click();
+			await heading(page, "Review and send").waitFor();
+			await page.getByRole("button", { name: "More ways to send" }).click();
+			await page.getByRole("menuitem", { name: /Sunday, 8:00 AM/ }).click();
+			const dialog = page.getByRole("alertdialog");
+			await dialog.getByText(/^Schedule for /).waitFor();
+			await dialog.getByText("You cannot unsend it once it leaves.").waitFor();
+			await dialog.getByRole("button", { name: "Schedule email" }).click();
+			await page.waitForURL(/\/communication\?message=[0-9a-f-]{36}$/);
+			await page
+				.getByRole("status")
+				.filter({ hasText: /^Scheduled for .+ It has not been sent\.$/ })
+				.waitFor();
+			// The new message is first in the list and open, with the scheduled actions.
+			const first = page.getByRole("region", { name: "History" }).getByRole("listitem").first();
+			assert.match(await first.innerText(), new RegExp(subject));
+			assert.match(await first.innerText(), /Scheduled/);
+			for (const label of [
+				"Send now",
+				"Cancel provider send",
+				"Check provider result",
+				"Check replacement",
+				"Change send time",
+			])
+				await page.getByRole("button", { name: label, exact: true }).first().waitFor();
+
+			// A draft row goes back to Write at its own address.
+			await page.goto(`${BASE}/communication?compose=new&step=who`);
+			await hydrated(page);
+			await chooseEveryone(page);
+			await next(page).click();
+			await heading(page, "Write the message").waitFor();
+			await page.getByLabel("Subject").fill(`Draft row ${name}`);
+			await page.getByRole("button", { name: "Save draft" }).first().click();
+			await page.getByText("Draft saved.").waitFor();
+			await page.goto(`${BASE}/communication`);
+			await hydrated(page);
+			await page.getByRole("button", { name: new RegExp(`Draft row ${name}`) }).click();
+			await page.waitForURL(/compose=[0-9a-f-]{36}&step=write/);
+			assert.equal(await page.getByLabel("Subject").inputValue(), `Draft row ${name}`);
+		});
+	});
+
+	test(`AC:CASE-COM-003 (${name}): the meeting handoff opens Write with the meeting, its invitation and its guests, and names a missing meeting`, async () => {
+		const { meetingId } = fixture("meetings");
+		await withPage(engine, async (page, context) => {
+			await signIn(context, owner());
+			await open(page, `/communication?meeting=${meetingId}&template=invitation&recipients=guests`);
+			await heading(page, "Write the message").waitFor();
+			await page
+				.getByText(/Vision meeting/)
+				.first()
+				.waitFor();
+			assert.match(await page.getByLabel("Start from a template").innerText(), /Vision meeting invitation/);
+			assert.notEqual(await page.getByLabel("Subject").inputValue(), "");
+			await page.getByText("RSVP button").first().waitFor();
+			// The live guest list is in To, as person chips, on the Who step.
+			await page.getByRole("navigation", { name: "Steps" }).getByRole("button", { name: /Who/ }).click();
+			await heading(page, "Who is this for?").waitFor();
+			await page.getByRole("button", { name: /^Sara Nunez, details/ }).waitFor();
+			await page.getByRole("button", { name: /^Leo Pratt, details/ }).waitFor();
+
+			const gone = "00000000-0000-4000-8000-000000000000";
+			await open(page, `/communication?meeting=${gone}&template=invitation&recipients=guests`);
+			await heading(page, "Write the message").waitFor();
+			await page.getByText("That meeting is not available. The message has no meeting.").waitFor();
+			assert.equal(await page.getByLabel("Subject").inputValue(), "");
+		});
+	});
+
+	test(`AC:CASE-COM-007 (${name}): a system template is read-only with Fork, and the editor uses the Write layout`, async () => {
+		await withPage(engine, async (page, context) => {
+			await signIn(context, owner());
+			await open(page, "/communication?view=templates");
+			await page
+				.getByRole("region", { name: "System" })
+				.getByRole("button", { name: /Vision meeting invitation/ })
+				.click();
+			await page.getByText("System templates stay as they are. Fork the template to change a copy.").waitFor();
+			await page.getByRole("button", { name: "Fork template" }).waitFor();
+			assert.equal(await page.getByLabel("Name").isDisabled(), true);
+			await page.locator('iframe[title="Email preview"]').waitFor();
+			assert.doesNotMatch(await page.locator("main").innerText(), /HTML/);
+			await page.getByRole("button", { name: "Fork template" }).click();
+			await page.getByText("Template forked. You can edit the church copy.").waitFor();
+			await page.getByRole("button", { name: "Save template" }).waitFor();
+			// Messages that started from the template keep it, so a delete is refused in the dialog with the server's words.
+			await page.getByRole("button", { name: "Delete template" }).click();
+			await page.getByRole("alertdialog").getByRole("button", { name: "Delete template" }).click();
+			await page
+				.getByRole("alertdialog")
+				.getByText("This template is used by a message. Archive it instead of deleting it.")
+				.waitFor();
+			await page.getByRole("alertdialog").getByRole("button", { name: "Cancel" }).click();
+			await page.getByRole("button", { name: "Archive template" }).click();
+			await page.getByRole("alertdialog").getByRole("button", { name: "Archive template" }).click();
+			await page.getByRole("heading", { name: "System" }).waitFor();
+		});
+	});
+
+	test(`AC:CASE-COM-003 (${name}): at 1440 and 1280 the 600 px email is whole and the page has no sideways scroll`, async () => {
+		for (const width of [1440, 1280]) {
+			await withPage(
+				engine,
+				async (page, context) => {
+					await signIn(context, owner());
+					await open(page, "/communication?compose=new&step=who");
+					await chooseEveryone(page);
+					await next(page).click();
+					await heading(page, "Write the message").waitFor();
+					await page.getByLabel("Subject").fill("Layout");
+					await page.getByRole("combobox", { name: "Message" }).fill("Hello {{name}}.");
+					await emailText(page).getByText(/Hello/).waitFor();
+					const box = await page.locator('iframe[title="Email preview"]').boundingBox();
+					assert.ok(box.x >= 0 && box.x + box.width <= width, `frame fits at ${width}`);
+					assert.ok(box.width >= 590, `frame is not cropped at ${width}: ${box.width}`);
+					assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+				},
+				{ width },
+			);
+		}
+	});
+}

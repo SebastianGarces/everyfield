@@ -42,7 +42,9 @@ export function formFrom(draft: Draft, templates: readonly Template[], known: re
 	const body = bodyToTextResult(draft.bodyHtml ?? "");
 	const byId = new Map(known.map((person) => [person.id, person]));
 	const template = templates.find((item) =>
-		draft.templateId ? item.templateId === draft.templateId : draft.templateSource && item.sourceKey === draft.templateSource,
+		draft.templateId
+			? item.templateId === draft.templateId
+			: draft.templateSource && item.sourceKey === draft.templateSource,
 	);
 	return {
 		communicationId: draft.communicationId,
@@ -84,7 +86,10 @@ export const audienceSize = (audience: Audience) =>
 	audience.groups.length + audience.teamIds.length + audience.personIds.length;
 
 /** Why Write cannot move on, or null. The first issue of the subject and field rules comes first. */
-export function writeReason(form: Form, hasMeeting: boolean): { reason: string; subject?: string; body?: string } | null {
+export function writeReason(
+	form: Form,
+	hasMeeting: boolean,
+): { reason: string; subject?: string; body?: string } | null {
 	if (form.subject.includes("{{")) {
 		const text = "Fields work in the message, not the subject.";
 		return { reason: text, subject: text };
@@ -94,8 +99,9 @@ export function writeReason(form: Form, hasMeeting: boolean): { reason: string; 
 		const text = `Finish or remove the field ${problem}`;
 		return { reason: text, body: text };
 	}
-	if (!form.subject.trim()) return { reason: "Enter a subject.", subject: "Enter a subject." };
-	if (!form.text.trim()) return { reason: "Write the message.", body: "Write the message." };
+	// An empty field is named in the footer only. A red error on a fresh form would scold before anyone typed.
+	if (!form.subject.trim()) return { reason: "Enter a subject." };
+	if (!form.text.trim()) return { reason: "Write the message." };
 	return null;
 }
 
