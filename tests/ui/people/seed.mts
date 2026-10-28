@@ -227,6 +227,16 @@ async function up(origin: string) {
 			1,
 		],
 	];
+	// A reading-length article (Discovery) and enough short ones to make the sidenav taller than its column.
+	const long = Array.from(
+		{ length: 14 },
+		(_, n) =>
+			`## Section ${n + 1}\n\n${"Plan the work, name an owner and review it each month. ".repeat(14)}\n\n### Detail ${n + 1}\n\n${"Keep each step small and write down what you decided. ".repeat(10)}`,
+	).join("\n\n");
+	articles.unshift(["Setting up your website", "website-setup", long, 0], ["Team handbook", "team-handbook", long, 0]);
+	articles.push(["Volunteer guide", "volunteer-guide", long, 0]);
+	for (let n = 1; n <= 22; n += 1)
+		articles.push([`Launch checklist ${n}`, `launch-checklist-${n}`, `Checklist ${n} for the launch team.`, 3]);
 	for (const [position, [title, slug, body, phase]] of articles.entries()) {
 		const id = randomUUID();
 		await admin.execute(
@@ -235,7 +245,7 @@ async function up(origin: string) {
 		await admin.execute(sql`INSERT INTO article_revision(id,article_id,tenant_id,release_id,revision_number,title,slug,excerpt,body,content_type,phase,position,content_hash,published_at,meaningful,meaningful_sequence,section_id,parent_article_id,related_slugs)
 			VALUES(${randomUUID()},${id},${GLOBAL},${release},1,${title},${slug},${title},${body},'safe_mdx',${phase},${position + 1},${digest()},clock_timestamp(),true,1,${sectionId},NULL,ARRAY[]::text[])`);
 		await admin.execute(sql`INSERT INTO reference_version(id,item_id,release_id,version_number,artifact_path,content_hash,source_credit)
-			VALUES(${randomUUID()},${id},${release},1,${"wiki/" + slug},${digest()},'UI seed')`);
+			VALUES(${randomUUID()},${id},${release},1,${"wiki/" + slug},${digest()},${position === 0 ? `docs/reference/bootstrap/global-seed-payload.json@${digest()}` : "UI seed"})`);
 	}
 	await admin.execute(sql`INSERT INTO reference_activation(id,release_id,activation_number,activated_at,actor_tombstone,reason,expected_prior_number)
 		VALUES(${randomUUID()},${release},1,clock_timestamp(),'ui-seed','ui seed',0)`);

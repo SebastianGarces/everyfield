@@ -211,7 +211,6 @@ export type ArticleView = {
 	plantId?: string;
 	canOrder: boolean;
 	block: ArticleBlock;
-	siblings: { articleId: string; title: string; slug: string }[];
 	related: { articleId: string; title: string; href: string }[];
 };
 
@@ -335,10 +334,6 @@ export async function loadWiki(
 				...(editor ? [editor.organizationId] : []),
 			]);
 			if (editor) editorName = names.get(editor.organizationId) ?? "Your organization";
-			const neighbors = await mount.producer.articleNeighbors(mount.db, actor, {
-				articleId: hit.articleId,
-				source: sourceInput(viewed ? source : { kind: "current" }),
-			});
 			const titles = new Map(nav.value.groups.flatMap((group) => group.articles).map((item) => [item.articleId, item]));
 			const phaseItems = tree.phases.find((phase) => phase.number === shown.phase)?.items ?? [];
 			if (shown.phase != null && phaseItems.length) {
@@ -366,7 +361,6 @@ export async function loadWiki(
 				plantId: seat.plantId,
 				canOrder: seat.canOrder,
 				block,
-				siblings: neighbors.status === "ok" ? neighbors.value.articles : [],
 				related: shown.relatedIds.flatMap((id) => {
 					const item = titles.get(id);
 					return item ? [{ articleId: id, title: item.title, href: articlePath(item.slug) }] : [];
