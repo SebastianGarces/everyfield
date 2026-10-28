@@ -29,19 +29,11 @@ import {
 	useSaveIntent,
 	type RowSave,
 } from "../../components/save/parts.tsx";
-import {
-	attendanceAfter,
-	canSettle,
-	settledText,
-	SettleDialog,
-	usePresence,
-	useSeats,
-	type SettleInput,
-} from "./Attendance.tsx";
+import { attendanceAfter, settledText, SettleDialog, usePresence, useSeats, type SettleInput } from "./Attendance.tsx";
 import { PersonPicker, type PickedPerson } from "./dialogs.tsx";
 import { problemText, RSVP_LABEL, timeText, type Guest } from "./model.ts";
 import { attendeeOf, isPending, PENDING, withAttendees, type GuestRow, type PendingGuest } from "./page-state.ts";
-import { Problem } from "./parts.tsx";
+import { Problem, TabStack } from "./parts.tsx";
 import type { CheckInData } from "./server.ts";
 
 /**
@@ -66,7 +58,6 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 	const [data, setData] = useState(loaded);
 	const [filter, setFilter] = useState<"waiting" | "here">("waiting");
 	const [search, setSearch] = useState("");
-	const [early, setEarly] = useState(false);
 	const seats = useSeats();
 	// A walk-in and Finish both change who attended, so they share one save lane (C68). Presence taps have one per person.
 	const door = useSaveIntent<DoorForm>({ explain: problemText });
@@ -176,9 +167,6 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 
 	function finish() {
 		if (door.wait !== null || presence.busy) return;
-		// The meeting must have started before attendance can be final; the time is read when the person asks.
-		if (!canSettle(m, new Date().toISOString())) return setEarly(true);
-		setEarly(false);
 		seats.load();
 		door.open({ kind: "settle", input: null });
 	}
@@ -211,7 +199,7 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 	const doorBusy = door.wait !== null;
 
 	return (
-		<div className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col bg-frame">
+		<div className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col bg-frame [--control-edge:var(--ef-edge)]">
 			<header className="sticky top-0 z-10 flex flex-col gap-3 bg-frame px-4 pt-3 pb-3">
 				<div className="flex items-center justify-between gap-3">
 					<IntentLink
@@ -294,11 +282,6 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 
 			{final ? null : (
 				<footer className="sticky bottom-0 flex flex-col gap-2 bg-frame px-4 pt-2 pb-[max(16px,env(safe-area-inset-bottom))]">
-					{early ? (
-						<p role="status" className="text-center text-sm text-text-2">
-							You can finish after the meeting starts at {timeText(m.localTime)}.
-						</p>
-					) : null}
 					{admin ? null : (
 						<p className="text-center text-sm text-text-2">
 							An Owner or Admin finalizes attendance on the meeting page.
@@ -306,7 +289,7 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 					)}
 					<div className={admin ? "grid grid-cols-2 gap-2" : "grid grid-cols-1 gap-2"}>
 						<Button
-							variant="secondary"
+							variant="outline"
 							icon={UserAdd01Icon}
 							className="h-12"
 							disabled={doorBusy}
@@ -399,8 +382,8 @@ function Row({
 			className={cn(
 				"flex min-h-[58px] w-full cursor-pointer items-center gap-3 rounded-card px-3.5 py-2 text-left transition-[background-color,box-shadow] duration-150 focus-visible:shadow-[0_0_0_2px_var(--ef-ink)] focus-visible:outline-none aria-disabled:cursor-default",
 				here
-					? "bg-green-50 shadow-[inset_0_0_0_1px_var(--ef-green-200)]"
-					: "bg-surface-raised shadow-[inset_0_0_0_1px_var(--ef-line)] hover:bg-surface-2 aria-disabled:hover:bg-surface-raised",
+					? "bg-green-50 shadow-edge"
+					: "bg-surface-raised shadow-edge hover:bg-surface-2 aria-disabled:hover:bg-surface-raised",
 			)}
 		>
 			<Avatar name={g.person.displayName} size="sm" decorative />
@@ -412,7 +395,7 @@ function Row({
 				aria-hidden="true"
 				className={cn(
 					"grid size-8 flex-none place-items-center rounded-full transition-[background-color,box-shadow] duration-150",
-					here ? "bg-green-500 text-white" : "shadow-[inset_0_0_0_1.5px_var(--ef-line-2)]",
+					here ? "bg-green-500 text-ink-fixed" : "shadow-edge-inset",
 				)}
 			>
 				{here ? <Icon icon={Tick02Icon} size={16} /> : null}
@@ -448,7 +431,8 @@ function WalkInDialog({
 	onClose: () => void;
 	onSubmit: (input: WalkInInput) => void;
 }) {
-	const [mode, setMode] = useState<"existing" | "new">(initial && !initial.person ? "new" : "existing");
+	const initialMode = initial && !initial.person ? "new" : "existing";
+	const [mode, setMode] = useState<"existing" | "new">(initialMode);
 	const [input, setInput] = useState<WalkInInput>(initial ?? { person: null, name: "", email: "", phone: "" });
 	const [touched, setTouched] = useState(false);
 	const body = useRef<HTMLDivElement>(null);
@@ -456,7 +440,7 @@ function WalkInDialog({
 	const emailBad = input.email.trim() !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim());
 	return (
 		<Dialog open onOpenChange={(o) => !o && onClose()}>
-			<DialogContent size="sm">
+			<DialogContent size="sm" className="[--control-edge:var(--ef-edge)]">
 				<form
 					noValidate
 					className="contents"
@@ -488,61 +472,75 @@ function WalkInDialog({
 								]}
 							/>
 						) : null}
-						{mode === "existing" ? (
-							<div data-field="person" className="contents">
-								<Field label="Person" error={touched && !input.person ? "Choose who came." : null}>
-									<PersonPicker
-										label="Person"
-										value={input.person}
-										onChange={(person) => setInput((i) => ({ ...i, person }))}
-										exclude={exclude}
-										autoFocus
-									/>
-								</Field>
-							</div>
-						) : (
-							<>
-								<div data-field="name" className="contents">
-									<Field label="Name" error={touched && nameMissing ? "Enter the name people call them." : null}>
-										<Input
-											value={input.name}
-											maxLength={255}
-											autoComplete="off"
-											onChange={(e) => setInput((i) => ({ ...i, name: e.target.value }))}
-											autoFocus
-										/>
-									</Field>
-								</div>
-								<div data-field="email" className="contents">
-									<Field label="Email" optional error={touched && emailBad ? "Enter a full email address." : null}>
-										<Input
-											type="email"
-											inputMode="email"
-											value={input.email}
-											maxLength={320}
-											autoComplete="off"
-											onChange={(e) => setInput((i) => ({ ...i, email: e.target.value }))}
-										/>
-									</Field>
-								</div>
-								<Field label="Phone" optional hint="Country: United States (US).">
-									<Input
-										type="tel"
-										value={input.phone}
-										maxLength={40}
-										autoComplete="off"
-										onChange={(e) => setInput((i) => ({ ...i, phone: e.target.value }))}
-									/>
-								</Field>
-								<p className="text-sm text-text-3">
-									They join People as a prospect from this meeting. If they are already in People, choose In People.
-								</p>
-							</>
-						)}
+						<TabStack
+							active={mode}
+							className="gap-4"
+							panels={{
+								existing: (
+									<div data-field="person" className="contents">
+										<Field label="Person" error={touched && !input.person ? "Choose who came." : null}>
+											<PersonPicker
+												label="Person"
+												value={input.person}
+												onChange={(person) => setInput((i) => ({ ...i, person }))}
+												exclude={exclude}
+												autoFocus={initialMode === "existing"}
+											/>
+										</Field>
+									</div>
+								),
+								...(allowNew && {
+									new: (
+										<>
+											<div data-field="name" className="contents">
+												<Field label="Name" error={touched && nameMissing ? "Enter the name people call them." : null}>
+													<Input
+														value={input.name}
+														maxLength={255}
+														autoComplete="off"
+														onChange={(e) => setInput((i) => ({ ...i, name: e.target.value }))}
+														autoFocus={initialMode === "new"}
+													/>
+												</Field>
+											</div>
+											<div data-field="email" className="contents">
+												<Field
+													label="Email"
+													optional
+													error={touched && emailBad ? "Enter a full email address." : null}
+												>
+													<Input
+														type="email"
+														inputMode="email"
+														value={input.email}
+														maxLength={320}
+														autoComplete="off"
+														onChange={(e) => setInput((i) => ({ ...i, email: e.target.value }))}
+													/>
+												</Field>
+											</div>
+											<Field label="Phone" optional hint="Country: United States (US).">
+												<Input
+													type="tel"
+													value={input.phone}
+													maxLength={40}
+													autoComplete="off"
+													onChange={(e) => setInput((i) => ({ ...i, phone: e.target.value }))}
+												/>
+											</Field>
+											<p className="text-sm text-text-2">
+												They join People as a prospect from this meeting. If they are already in People, choose In
+												People.
+											</p>
+										</>
+									),
+								}),
+							}}
+						/>
 						<Problem text={problem} />
 					</DialogBody>
 					<DialogFooter>
-						<Button variant="secondary" type="button" onClick={onClose}>
+						<Button variant="outline" type="button" onClick={onClose}>
 							Cancel
 						</Button>
 						<Button variant="primary" type="submit">
