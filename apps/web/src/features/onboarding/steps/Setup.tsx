@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Field, Input } from "@everyfield/ui/controls";
+import { Button, Field, IntentLink, Input } from "@everyfield/ui/controls";
 import { cn } from "@everyfield/ui/foundations";
 import { useState, type ReactNode } from "react";
 import {
@@ -29,6 +29,8 @@ import { ChoiceCard, Notice, SavedCard, StepFooter, StepHeading } from "../parts
 import type { Actions } from "../store";
 
 type Props = { state: State; actions: Actions; resume: Resume; plantName: string | null };
+/** The product home: the app shell's homeHref (PeopleFrame). There is no separate /dashboard route. */
+const DASHBOARD_HREF = "/people";
 const churchName = (name: string | null) => name ?? "your church";
 const phaseName = (n: number) => PHASES[n]?.name ?? `Phase ${n}`;
 const longDate = (iso: string) =>
@@ -414,11 +416,16 @@ export function FinishStep({
 			) : null}
 			<Notice code={state.notice?.op === "complete" ? state.notice.code : null} />
 			{done ? (
-				<div className="mx-auto mt-[30px] flex max-w-[820px] flex-wrap items-center justify-between gap-3">
-					<Button variant="ghost" onClick={() => actions.go("team")}>
-						Review answers
-					</Button>
-					{after}
+				<div className="mx-auto mt-[30px] max-w-[820px]">
+					<div className="flex flex-wrap items-center justify-between gap-3">
+						<Button variant="ghost" onClick={() => actions.go("team")}>
+							Review answers
+						</Button>
+						<Button variant="primary" asChild>
+							<IntentLink href={DASHBOARD_HREF}>Go to dashboard</IntentLink>
+						</Button>
+					</div>
+					{after ? <div className="mt-4 flex justify-end">{after}</div> : null}
 				</div>
 			) : (
 				<StepFooter
