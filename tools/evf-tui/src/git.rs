@@ -8,7 +8,6 @@ pub struct Worktree {
     pub path: String,
     pub head: String,
     pub branch: Option<String>,
-    pub prunable: bool,
 }
 
 pub fn parse(text: &str) -> Vec<Worktree> {
@@ -35,8 +34,6 @@ pub fn parse(text: &str) -> Vec<Worktree> {
                     .unwrap_or(branch)
                     .to_string(),
             );
-        } else if line.starts_with("prunable") {
-            w.prunable = true;
         }
     }
     if let Some(w) = current {
@@ -75,9 +72,7 @@ mod tests {
         let list = parse(text);
         assert_eq!(list.len(), 3);
         assert_eq!(list[0].branch.as_deref(), Some("main"));
-        assert!(!list[0].prunable);
         assert_eq!(list[1].branch, None);
-        assert!(list[1].prunable);
         let wt = head_for(&list, "/Users/s/dev/everyfield_v3/.worktrees/ops-61/").unwrap();
         assert_eq!(wt.branch.as_deref(), Some("task/ops-61"));
         assert!(wt.head.starts_with("9b19c516"));

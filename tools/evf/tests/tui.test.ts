@@ -30,7 +30,7 @@ test("OPS-61-tui: evf tui --dry-run names the store, the cached binary and wheth
 		assert.equal(lines.build, "needed (binary missing)");
 		assert.match(
 			lines.cargo,
-			/^cargo build --release --manifest-path .*tools\/evf-tui\/Cargo\.toml --target-dir .*\/evf\/cargo-target$/,
+			/^cargo build --release --locked --manifest-path .*tools\/evf-tui\/Cargo\.toml --target-dir .*\/evf\/cargo-target$/,
 		);
 		assert.ok(lines.cargo.endsWith(join(evfDataDir(root), "cargo-target")), "the build lands under the Git common dir");
 

@@ -10,17 +10,13 @@ pub struct Agent {
     pub name: String,
     pub status: String,
     pub session: Option<String>,
-    pub cwd: Option<String>,
-    pub pane_id: Option<String>,
     pub workspace_id: Option<String>,
-    pub title: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Workspace {
     pub id: String,
     pub label: String,
-    pub status: String,
 }
 
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -75,10 +71,7 @@ pub fn parse(json: &str) -> Result<State> {
                 .get("agent_session")
                 .and_then(|s| text(s, "value"))
                 .filter(|s| !s.is_empty()),
-            cwd: text(a, "cwd"),
-            pane_id: text(a, "pane_id"),
             workspace_id: text(a, "workspace_id"),
-            title: text(a, "terminal_title_stripped").or_else(|| text(a, "terminal_title")),
         })
         .collect();
     let workspaces = snapshot
@@ -89,7 +82,6 @@ pub fn parse(json: &str) -> Result<State> {
                 .map(|w| Workspace {
                     id: text(w, "workspace_id").unwrap_or_default(),
                     label: text(w, "label").unwrap_or_default(),
-                    status: text(w, "agent_status").unwrap_or_default(),
                 })
                 .collect()
         })
@@ -176,7 +168,6 @@ pub mod tests {
         assert_eq!(a.name, "implementer-wp-101");
         assert_eq!(a.status, "working");
         assert_eq!(a.workspace_id.as_deref(), Some("wA"));
-        assert_eq!(a.title.as_deref(), Some("implement"));
         assert!(state.by_session("missing").is_none());
         assert_eq!(state.by_name("scratch").unwrap().session, None);
         assert_eq!(state.workspace("wA").unwrap().label, "wp-101");

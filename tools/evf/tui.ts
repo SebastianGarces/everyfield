@@ -53,7 +53,7 @@ export function tuiPlan(root: string, crate = crateDir()): TuiPlan {
 		binary,
 		targetDir,
 		build: buildNeeded(crate, binary),
-		cargo: ["build", "--release", "--manifest-path", join(crate, "Cargo.toml"), "--target-dir", targetDir],
+		cargo: ["build", "--release", "--locked", "--manifest-path", join(crate, "Cargo.toml"), "--target-dir", targetDir],
 	};
 }
 
