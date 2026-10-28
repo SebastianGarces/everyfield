@@ -207,8 +207,8 @@ function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
 
 /** Shows the pending line whenever a search runs, also while the previous hits stay on screen. */
 function SearchBody({ result, pending, query }: { result: SearchResult | null; pending: boolean; query: string }) {
-	if (!query) return <p className="text-text-2">Type a word to search the wiki.</p>;
-	if (!result) return <p className="text-text-2">{pending ? "Searching." : "Type a word to search the wiki."}</p>;
+	if (!query || (!result && !pending)) return <p className="text-text-2">Type a word to search the wiki.</p>;
+	if (!result) return <p className="text-text-2">Searching.</p>;
 	if (!pending) return <SearchResults result={result} />;
 	return (
 		<div className="flex flex-col gap-3" aria-busy="true">
@@ -645,7 +645,7 @@ function SourceOrder({ open }: { open: boolean }) {
 					title="Preferred source order"
 					description="This order chooses the article people see first. It does not hide the other sources."
 				/>
-				<DialogBody className="flex flex-col gap-4 pt-1 pb-7 max-app-sm:pb-5">
+				<DialogBody className="flex flex-col gap-4">
 					<OrderList title="Churches" rows={churches} kind="church" onMove={move} />
 					<OrderList title="Networks" rows={networks} kind="network" onMove={move} />
 					{note ? (
