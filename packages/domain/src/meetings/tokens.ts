@@ -12,7 +12,7 @@ import { displayTitle } from "./rows.ts";
 // at most one live link. Opening a link reads only; an explicit answer sets the canonical RSVP and closes the link.
 
 const TOKEN_DAYS = 7;
-const digest = (token: string) => createHash("sha256").update(token).digest("hex");
+export const rsvpTokenDigest = (token: string) => createHash("sha256").update(token).rsvpTokenDigest("hex");
 
 /**
  * Mints the guest's RSVP token inside the caller's write: the invitation send or guest transaction that holds the
@@ -32,14 +32,13 @@ export async function createRsvpToken(tx: Tx, ctx: MeetingsContext, raw: unknown
 	if (!r.rows[0]) deny();
 	const g = z.object({ id: z.uuid(), revision: z.string(), expires_at: z.coerce.date() }).parse(r.rows[0]);
 	const token = randomBytes(32).toString("base64url");
-	writes.push(sql`UPDATE participation SET rsvp_token_hash = ${digest(token)}, rsvp_token_expires_at = ${g.expires_at.toISOString()}::timestamptz,
+	writes.push(sql`UPDATE participation SET rsvp_token_hash = ${rsvpTokenDigest(token)}, rsvp_token_expires_at = ${g.expires_at.toISOString()}::timestamptz,
 		rsvp_token_open = true, revision = revision + 1 WHERE id = ${g.id}::uuid AND revision = ${g.revision}::bigint`);
 	return c.rsvpTokenIssued.parse({ token, expiresAt: g.expires_at.toISOString(), guestId: g.id });
 }
 
 /** A fresh raw RSVP token. The caller keeps it only inside the message it builds; the database keeps only `rsvpTokenDigest`. */
 export const newRsvpToken = () => randomBytes(32).toString("base64url");
-export const rsvpTokenDigest = digest;
 
 /**
  * Set-based token write for an invitation send. `pairs` is a relation with columns `person_id uuid` and `token_hash text`.
@@ -83,7 +82,7 @@ export async function describeRsvpToken(db: Reader, raw: unknown) {
 			coalesce(g.rsvp, 'pending') AS rsvp, p.first_name, p.display_name, m.title, m.type, m.vision_number, m.starts_at,
 			m.local_date::text AS local_date, to_char(m.local_time, 'HH24:MI') AS local_time, m.timezone, m.venue_name, m.venue_address
 		FROM participation g JOIN meeting m ON m.id = g.meeting_id JOIN person p ON p.id = g.person_id
-		WHERE g.rsvp_token_hash = ${digest(input.data.token)} AND g.removed_at IS NULL AND m.retired_at IS NULL AND p.state = 'live'`);
+		WHERE g.rsvp_token_hash = ${rsvpTokenDigest(input.data.token)} AND g.removed_at IS NULL AND m.retired_at IS NULL AND p.state = 'live'`);
 	if (!r.rows[0]) return c.rsvpTokenView.parse({ state: "unavailable" });
 	const v = viewRow.parse(r.rows[0]);
 	return c.rsvpTokenView.parse({
@@ -126,7 +125,7 @@ export async function answerRsvpToken(db: Database, raw: unknown) {
 	const r = await db.execute(sql`WITH target AS (
 			SELECT g.id, g.plant_id, g.meeting_id, coalesce(g.rsvp, 'pending') AS rsvp FROM participation g
 			JOIN meeting m ON m.id = g.meeting_id JOIN person p ON p.id = g.person_id
-			WHERE g.rsvp_token_hash = ${digest(token)} AND g.rsvp_token_open AND g.rsvp_token_expires_at > clock_timestamp()
+			WHERE g.rsvp_token_hash = ${rsvpTokenDigest(token)} AND g.rsvp_token_open AND g.rsvp_token_expires_at > clock_timestamp()
 			AND g.removed_at IS NULL AND m.retired_at IS NULL AND m.status IN ('planning', 'ready', 'in_progress') AND p.state = 'live'
 			FOR UPDATE OF g
 		), answered AS (

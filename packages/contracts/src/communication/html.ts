@@ -41,8 +41,6 @@ export function escapeHtml(value: string): string {
 /** True when a stored body holds the `{{rsvp_link}}` field. Such a message can only be sent from an open meeting. */
 export const usesRsvpLink = (body: string | null | undefined): boolean => /\{\{\s*rsvp_link\s*\}\}/i.test(body ?? "");
 
-const RSVP_LINK_TEXT = "Tell us if you can come";
-
 /** The one merge value that becomes markup: an absolute https URL whose path is `/rsvp/<token>`. Anything else is null. */
 function rsvpHref(value: string | undefined): string | null {
 	if (!value) return null;
@@ -65,12 +63,11 @@ const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial
  */
 function rsvpButton(href: string): string {
 	const url = escapeHtml(href);
-	const text = RSVP_LINK_TEXT;
 	return (
 		`<table data-rsvp-button="" role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0 6px 0;"><tr>` +
 		`<td align="center" bgcolor="#1AF197" style="background-color:#1AF197;">` +
-		`<!--[if mso]><v:rect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${url}" style="height:46px;v-text-anchor:middle;width:250px;" stroke="f" fillcolor="#1AF197"><w:anchorlock/><center style="color:#181D19;font-family:Arial,sans-serif;font-size:15px;font-weight:600;">${text}</center></v:rect><![endif]-->` +
-		`<!--[if !mso]><!--><a href="${url}" style="display:block;padding:13px 22px;background-color:#1AF197;color:#181D19;font-family:${FONT};font-size:15px;font-weight:600;line-height:20px;text-align:center;text-decoration:none;">${text}</a><!--<![endif]-->` +
+		`<!--[if mso]><v:rect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${url}" style="height:46px;v-text-anchor:middle;width:250px;" stroke="f" fillcolor="#1AF197"><w:anchorlock/><center style="color:#181D19;font-family:Arial,sans-serif;font-size:15px;font-weight:600;">Tell us if you can come</center></v:rect><![endif]-->` +
+		`<!--[if !mso]><!--><a href="${url}" style="display:block;padding:13px 22px;background-color:#1AF197;color:#181D19;font-family:${FONT};font-size:15px;font-weight:600;line-height:20px;text-align:center;text-decoration:none;">Tell us if you can come</a><!--<![endif]-->` +
 		`</td></tr></table>`
 	);
 }
