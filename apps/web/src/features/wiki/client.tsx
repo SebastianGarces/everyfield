@@ -366,7 +366,13 @@ function useSession(): Session {
 }
 
 /** The scroll container of the article column. Below 1280px it does not scroll and the window does. */
-export const ARTICLE_SCROLL_ID = "wiki-scroll";
+const ARTICLE_SCROLL_ID = "wiki-scroll";
+
+/** The article column when it is the scroll container (1280px and up), else null and the window scrolls. */
+function scrollColumn(): HTMLElement | null {
+	const column = document.getElementById(ARTICLE_SCROLL_ID);
+	return column && getComputedStyle(column).overflowY !== "visible" ? column : null;
+}
 
 /**
  * One article's reading state: the open record, scroll progress, the bookmark and the print and PDF writes.
@@ -421,7 +427,7 @@ export function ArticleSession({ children, ...props }: ArticleProps) {
 			);
 		}
 		const article = document.getElementById("wiki-article");
-		const column = document.getElementById(ARTICLE_SCROLL_ID);
+		const column = scrollColumn();
 		if (!article) return;
 		let timer = 0;
 		// Progress is the share of the article above the bottom edge of what the reader sees. That edge is the
@@ -430,8 +436,7 @@ export function ArticleSession({ children, ...props }: ArticleProps) {
 			const total = article.scrollHeight;
 			if (total <= 0) return;
 			const rect = article.getBoundingClientRect();
-			const inColumn = column !== null && getComputedStyle(column).overflowY !== "visible";
-			const edge = inColumn ? column.getBoundingClientRect().bottom : window.innerHeight;
+			const edge = column ? column.getBoundingClientRect().bottom : window.innerHeight;
 			const visible = Math.min(total, Math.max(0, edge - rect.top));
 			const next = Math.min(1, visible / total);
 			const finished = next >= 0.995 && seen.current < 1;
@@ -790,11 +795,10 @@ function useCurrentHeading(ids: string[]): string | undefined {
 	useEffect(() => {
 		const list = key ? key.split("|") : [];
 		if (!list.length) return;
-		const column = document.getElementById(ARTICLE_SCROLL_ID);
-		const inColumn = column !== null && getComputedStyle(column).overflowY !== "visible";
+		const column = scrollColumn();
 		const update = () => {
 			// Below 1280px the window scrolls and headings stop under the sticky app bar.
-			const top = inColumn ? column.getBoundingClientRect().top + 24 : 120;
+			const top = column ? column.getBoundingClientRect().top + 24 : 120;
 			let found = list[0];
 			for (const id of list) {
 				const el = document.getElementById(id);
@@ -803,7 +807,7 @@ function useCurrentHeading(ids: string[]): string | undefined {
 			setCurrent(found);
 		};
 		update();
-		const target: Element | Window = inColumn ? column : window;
+		const target: Element | Window = column ?? window;
 		target.addEventListener("scroll", update, { passive: true });
 		return () => target.removeEventListener("scroll", update);
 	}, [key]);
