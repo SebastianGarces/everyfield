@@ -23,6 +23,7 @@ import {
 	blockedText,
 	CATEGORY_LABEL,
 	isSettled,
+	ownerLabel,
 	PRIORITY_LABEL,
 	problemText,
 	shownSteps,
@@ -31,6 +32,7 @@ import {
 	type Prerequisite,
 	type Rule,
 	type Step,
+	type Outcome,
 	type TaskHistory,
 	type TaskItem,
 } from "./model.ts";
@@ -129,7 +131,8 @@ export function TaskSheet({
 }) {
 	const hint = useId();
 	const locked = wait !== null;
-	const detail = state?.status === "ok" ? state.task : null;
+	const loaded = state?.status === "ok" ? state : null;
+	const detail = loaded ? loaded.task : null;
 	const panel = detail ? pending.panel[detail.id] : undefined;
 	// The row is the latest confirmed or optimistic state; the detail adds description, steps and history.
 	const task: TaskItem | null = row ?? detail;
@@ -269,11 +272,7 @@ export function TaskSheet({
 							k="Assigned to"
 							value={
 								task.assignee ? (
-									task.assignee.accountId === viewer.accountId ? (
-										"You"
-									) : (
-										task.assignee.displayName || "A former member"
-									)
+									ownerLabel(task.assignee)
 								) : (
 									<StatusBadge status="attention" size="sm">
 										Needs owner
@@ -359,7 +358,7 @@ export function TaskSheet({
 									/>
 								</>
 							)}
-							<History key={detail.id} taskId={detail.id} history={state?.status === "ok" ? state.history : null} />
+							{loaded ? <History key={detail.id} taskId={detail.id} first={loaded.history} /> : null}
 						</>
 					) : state?.status === "failed" ? (
 						<StatePanel
@@ -397,19 +396,38 @@ function Loading() {
 }
 
 /** Every status change, oldest first, with who or what made it and when. Later pages load on request. */
-function History({ taskId, history }: { taskId: string; history: TaskHistory | null }) {
+function History({ taskId, first }: { taskId: string; first: Outcome<TaskHistory> }) {
 	const [more, setMore] = useState<{ items: Entry[]; next: number | null; problem?: string } | null>(null);
 	const [loading, setLoading] = useState(false);
-	if (!history)
+	// A first page that did not load is read again on request, so a failed read never needs the panel closed. A newer
+	// first page from the panel replaces the one read here.
+	const [read, setRead] = useState({ from: first, page: first });
+	const page = read.from === first ? read.page : first;
+	if (page.status !== "ok")
 		return (
 			<Section title="Status history">
-				<p className="text-sm text-text-3">The history did not load. Close and open the task to try again.</p>
+				<p className="text-sm text-text-3">The history did not load.</p>
+				<Button
+					variant="ghost"
+					size="sm"
+					loading={loading}
+					className="self-start"
+					onClick={async () => {
+						setLoading(true);
+						const r = await loadHistory(taskId, 1);
+						setLoading(false);
+						setRead({ from: first, page: r });
+					}}
+				>
+					Try again
+				</Button>
 			</Section>
 		);
-	const items = [...history.items, ...(more?.items ?? [])];
-	const next = more ? more.next : history.next;
+	const items = [...page.value.items, ...(more?.items ?? [])];
+	const next = more ? more.next : page.value.next;
 	return (
 		<Section title="Status history">
+			{items.length === 0 ? <p className="text-sm text-text-3">No status changes are recorded for this task.</p> : null}
 			<ol className="flex flex-col">
 				{items.map((e) => (
 					<li
