@@ -197,9 +197,7 @@ function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
 							className="w-[240px]"
 						/>
 					</form>
-					<div aria-live="polite" className="flex flex-col gap-4">
-						<SearchBody result={result} pending={pending} query={query.trim()} />
-					</div>
+					<SearchBody result={result} pending={pending} query={query.trim()} />
 					{result?.status === "results" && result.nextPage ? (
 						<Button variant="secondary" onClick={() => void run(query, phase, page + 1)} loading={pending}>
 							Next page
