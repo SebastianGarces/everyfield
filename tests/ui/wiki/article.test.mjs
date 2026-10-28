@@ -217,9 +217,7 @@ for (const [name, engine] of ENGINES) {
 			const button = page.locator("button[aria-pressed]").first();
 			const errors = [];
 			page.on("pageerror", (error) => errors.push(error));
-			await page.route("**/*", (route) =>
-				route.request().method() === "POST" ? route.abort() : route.continue(),
-			);
+			await page.route("**/*", (route) => (route.request().method() === "POST" ? route.abort() : route.continue()));
 			assert.equal(await button.getAttribute("aria-pressed"), "false");
 			await button.click();
 			await page.getByText("That did not save. Try again.").waitFor();
