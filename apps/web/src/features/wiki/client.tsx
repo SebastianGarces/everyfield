@@ -396,8 +396,9 @@ export function ArticleSession({ children, ...props }: ArticleProps) {
 	const [busy, setBusy] = useState<"pdf" | "print" | null>(null);
 
 	function enqueue(task: (rev: string) => Promise<WriteResult>) {
-		chain.current = chain.current.then(async () => {
-			const result = await task(revision.current);
+		chain.current = chain.current.then(async (): Promise<WriteResult> => {
+			// A thrown write (network failure) must not reject the chain: that would stop every later write.
+			const result = await task(revision.current).catch((): WriteResult => ({ status: "lost" }));
 			if (result.status === "ok") {
 				revision.current = result.revision;
 				setMarked(result.bookmarked);

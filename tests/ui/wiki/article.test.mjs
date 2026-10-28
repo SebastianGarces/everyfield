@@ -191,7 +191,7 @@ for (const [name, engine] of ENGINES) {
 			assert.deepEqual(await state(), { pressed: "true", name: "Remove bookmark" });
 			// The on state is drawn, not only announced: the fill differs from the off state.
 			assert.notEqual(await button().evaluate((el) => getComputedStyle(el).backgroundColor), "rgba(0, 0, 0, 0)");
-			await page.waitForTimeout(1500);
+			await page.waitForLoadState("networkidle");
 			await page.reload();
 			await hydrated(page);
 			assert.deepEqual(await state(), { pressed: "true", name: "Remove bookmark" });
@@ -202,13 +202,30 @@ for (const [name, engine] of ENGINES) {
 			await hydrated(page);
 			await button().click();
 			assert.deepEqual(await state(), { pressed: "false", name: "Bookmark" });
-			await page.waitForTimeout(1500);
+			await page.waitForLoadState("networkidle");
 			await page.reload();
 			await hydrated(page);
 			assert.deepEqual(await state(), { pressed: "false", name: "Bookmark" });
 			await page.goto(`${BASE}/wiki`);
 			await page.getByRole("heading", { name: "Recent" }).waitFor();
 			assert.equal(await page.getByRole("heading", { name: "Bookmarks" }).count(), 0);
+		});
+	});
+
+	test(`AC:WIKI-BOOKMARK: a failed bookmark write rolls back and shows a message (${name})`, async () => {
+		await withPage(engine, "/wiki/raising-support", async (page) => {
+			const button = page.locator("button[aria-pressed]").first();
+			const errors = [];
+			page.on("pageerror", (error) => errors.push(error));
+			await page.route("**/*", (route) =>
+				route.request().method() === "POST" ? route.abort() : route.continue(),
+			);
+			assert.equal(await button.getAttribute("aria-pressed"), "false");
+			await button.click();
+			await page.getByText("That did not save. Try again.").waitFor();
+			assert.equal(await button.getAttribute("aria-pressed"), "false");
+			assert.equal(await button.getAttribute("aria-label"), "Bookmark");
+			assert.deepEqual(errors, []);
 		});
 	});
 
