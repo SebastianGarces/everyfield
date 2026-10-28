@@ -88,12 +88,6 @@ export type PageData = {
 
 export type Outcome<T> = { status: "ok"; value: T } | { status: "refused"; code: string } | { status: "lost" };
 
-export const stateLabel: Record<DraftState, string> = {
-	draft: "Draft",
-	reviewed: "Reviewed",
-	scheduled: "Scheduled",
-};
-
 /** What the person can do about a refusal. The code stays the server's word. */
 export function refusalText(code: string): string {
 	switch (code) {
