@@ -3,10 +3,9 @@
    express: the gradient card layers, the light-token island, overlay motion and the skeleton shimmer.
    Every rule is scoped to [data-product-root], so marketing pages never match. Overlays portal into the product root
    (overlay-portal.tsx), so they match too.
-   Pointer cursor rule (S2 task 29b): Tailwind v4 Preflight gives a native <button> the default cursor, so a raw button
-   outside these controls, or a Radix trigger rendered without asChild, showed an arrow. The @layer base rule below
-   restores the pointer for every enabled clickable and not-allowed for a disabled one. It sits in the base layer so a
-   component utility (cursor-progress on a loading Button, cursor-not-allowed) still wins. */
+   Pointer cursor rule (S2 task 29b): Tailwind v4 Preflight gives a native <button> the default cursor, so raw buttons
+   and Radix triggers without asChild showed an arrow. The @layer base rule below restores pointer (enabled) and
+   not-allowed (disabled). It sits in the base layer so a component utility (cursor-progress) still wins. */
 
 @layer base {
 	[data-product-root]
