@@ -14,7 +14,7 @@ export const buttonVariants = cva(
 				brand:
 					"bg-green-600 text-on-ink shadow-raised hover:bg-[color-mix(in_srgb,var(--ef-green-600)_90%,var(--ef-ink))]",
 				secondary: "bg-surface-2 text-ink hover:bg-surface-3",
-				outline: "bg-surface-raised text-ink shadow-[0_0_0_1px_var(--ef-line-2)] hover:bg-surface",
+				outline: "bg-surface-raised text-ink shadow-[0_0_0_1px_var(--control-edge,var(--ef-line-2))] hover:bg-surface",
 				ghost: "bg-transparent text-ink hover:bg-hover",
 				light: "bg-white text-ink-fixed shadow-raised hover:bg-surface-2",
 				glass: "bg-white/14 text-white ring-1 ring-white/25 ring-inset hover:bg-white/20",
@@ -84,7 +84,8 @@ export const iconButtonVariants = cva(
 	{
 		variants: {
 			variant: {
-				default: "rounded-md bg-transparent shadow-[0_0_0_1px_var(--ef-line-2)] hover:bg-surface-raised",
+				default:
+					"rounded-md bg-transparent shadow-[0_0_0_1px_var(--control-edge,var(--ef-line-2))] hover:bg-surface-raised",
 				soft: "rounded-md bg-surface-2 hover:bg-surface-3",
 				square: "rounded-sm bg-transparent shadow-[0_0_0_1px_var(--ef-line-2)] hover:bg-surface-raised",
 			},

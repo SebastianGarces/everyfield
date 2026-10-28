@@ -16,6 +16,11 @@
 	--text-nav: 15px;
 	--text-nav--line-height: 1.2;
 
+	/* The edge of a control or an unchecked state ring (WCAG 1.4.11, 3:1 on the frame, the surfaces and tinted rows).
+     The hairline --ef-line-2 stays for dividers and decoration. */
+	--shadow-edge: 0 0 0 1px var(--ef-edge);
+	--shadow-edge-inset: inset 0 0 0 1.5px var(--ef-edge);
+
 	/* Shell breakpoints from foundations.md (Layout), as max-* variants: max-app-lg is 1340px and narrower.
      app-md and app-sm are the narrow-screen shell, which the prototype does not draw (WP-088 decision). */
 	--breakpoint-app-sm: 640px;
@@ -28,6 +33,15 @@
 @theme {
 	/* The brand ink in both themes, for marks drawn on a brand-green fill (the Evry eyes). The ink token flips in dark mode. */
 	--color-ink-fixed: #181d19;
+}
+
+/* The --ef-edge values per theme: light #7A808C is 3.4:1 or more on every light surface of the product, dark #747B88 is
+   3.1:1 or more on every dark surface. They extend the generated tokens, which stay as the prototype exports them. */
+:root {
+	--ef-edge: #7a808c;
+}
+[data-theme="dark"] {
+	--ef-edge: #747b88;
 }
 
 /* Product dark mode is the data-theme attribute, never the system setting. */

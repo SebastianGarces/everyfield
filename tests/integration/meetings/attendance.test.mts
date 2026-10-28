@@ -258,6 +258,33 @@ test("AC:TARGET-MTG-010 AC:B02-010 AC:PERSONREF-MEETING-INVITATION-RSVP-ATTENDAN
 	refused(await finalize(owner, m, [alex, casey, retired]), "invalid_subject");
 });
 
+test("AC:TARGET-MTG-020 AC:TARGET-MTG-012 an Owner can finalize a Vision meeting that starts tomorrow, but not a cancelled one", async () => {
+	const at = new Date(Date.now() + 24 * 3600_000).toISOString();
+	const v = await meeting("vision_meeting", at);
+	const alex = await person("Early Alex");
+	const done = ok(await finalize(owner, v, [alex]));
+	assert.equal(done.outcome, "changed");
+	assert.equal(await stageOf(alex), "attendee");
+	assert.deepEqual(
+		(await work(v)).map((w) => w.kind),
+		["evaluation", "follow_up"],
+	);
+	assert.equal(
+		(await one(sql`SELECT count(*)::int n FROM audit_event WHERE subject_id=${v} AND action='meetings.finalized'`)).n,
+		1,
+	);
+	// The actual occurrence time is the scheduled start.
+	const held = await one(
+		sql`SELECT actual_occurrence_at = ${at}::timestamptz AS same FROM participation WHERE meeting_id=${v} AND person_id=${alex}`,
+	);
+	assert.equal(held.same, true);
+	// Reconcile also accepts the future meeting.
+	ok(await reconcile(owner, v, [alex]));
+	const cancelled = await meeting("vision_meeting", at);
+	await f.admin.execute(sql`UPDATE meeting SET status='cancelled' WHERE id=${cancelled}`);
+	refused(await finalize(owner, cancelled, [alex]), "status_transition");
+});
+
 test("AC:TARGET-MTG-020 AC:TARGET-MTG-012 AC:TARGET-TSK-017 AC:GAP-PPL-020 AC:CASE-OPS-004 finalize commits attendance, progression and generated work together", async () => {
 	const v = await meeting("vision_meeting", "2026-10-08T23:00:00Z");
 	const alex = await person("Alex"),
