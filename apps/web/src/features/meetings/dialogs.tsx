@@ -224,13 +224,11 @@ export function PeoplePicker({
 	value,
 	onChange,
 	exclude = [],
-	autoFocus,
 }: {
 	label: string;
 	value: PickedPerson[];
 	onChange: (people: PickedPerson[]) => void;
 	exclude?: string[];
-	autoFocus?: boolean;
 }) {
 	const { search, onChange: setSearch, idle, result } = usePersonSearch();
 	const chosenId = useId();
@@ -242,7 +240,7 @@ export function PeoplePicker({
 		);
 	return (
 		<div className="flex flex-col gap-2">
-			<PersonSearchBox label={label} search={search} onChange={setSearch} autoFocus={autoFocus} />
+			<PersonSearchBox label={label} search={search} onChange={setSearch} />
 			<div className="h-[184px] overflow-y-auto rounded-md px-1">
 				<SearchState result={result} />
 				{result?.status === "ok" ? (
