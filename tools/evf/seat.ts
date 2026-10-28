@@ -265,8 +265,9 @@ function readGuard(input: HookInput): number {
 		deny(`This idea seat reads only its own worktree ${worktree}; ${absolute} is outside it.`);
 		return 0;
 	}
-	// A Glob or Grep pattern can leave the search path on its own (absolute, ~ or ..): judge its fixed prefix too.
-	const pattern = input.tool_input?.pattern;
+	// A Glob pattern can leave the search path on its own (absolute, ~ or ..): judge its fixed prefix too. Grep's
+	// pattern is a regex, not a path, and Grep's location is the path checked above.
+	const pattern = input.tool_name === "Glob" ? input.tool_input?.pattern : undefined;
 	if (typeof pattern === "string" && (/^[~/]/.test(pattern) || /(^|\/)\.\.(\/|$)/.test(pattern))) {
 		const prefix = expandHome(pattern).split(/[*?[{]/)[0]!;
 		const where = resolve(absolute, prefix);

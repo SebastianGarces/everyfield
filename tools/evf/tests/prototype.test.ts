@@ -310,6 +310,17 @@ test("OPS-60-blind: the read guard confines an idea seat to its worktree and lea
 			"",
 			"dots inside a name are not a parent step",
 		);
+		for (const pattern of ["/api/users", "/settings", "../lib", "^import .* from '\\.\\./lib'"])
+			assert.equal(
+				read({ EVF_BLIND: "1" }, { pattern }, "Grep").stdout,
+				"",
+				`Grep's pattern is a regex, not a path: ${pattern} searches the cwd`,
+			);
+		assert.match(
+			read({ EVF_BLIND: "1" }, { pattern: "/api/users", path: "../ops-1-idea2" }, "Grep").stdout,
+			/deny/,
+			"Grep is confined by its path",
+		);
 		assert.equal(
 			read({}, { file_path: join(f.root, ".worktrees/ops-1-idea2/IDEA.md") }).stdout,
 			"",
