@@ -450,6 +450,10 @@ export async function loadWiki(
 	}
 }
 
+export function logSearchLost(cause: string): void {
+	console.error(JSON.stringify({ component: "wiki", outcome: "search-lost", cause }));
+}
+
 export async function runSearch(
 	actor: RequestActor,
 	query: string,
@@ -465,7 +469,7 @@ export async function runSearch(
 > {
 	const mount = wikiMount();
 	if (!mount) {
-		console.error(JSON.stringify({ component: "wiki", outcome: "search-lost", cause: "no-mount" }));
+		logSearchLost("no-mount");
 		return "lost";
 	}
 	try {
@@ -477,7 +481,7 @@ export async function runSearch(
 		});
 		if (reply.status !== "ok") {
 			if (reply.error.code === "access_denied") return "denied";
-			console.error(JSON.stringify({ component: "wiki", outcome: "search-lost", cause: reply.error.code }));
+			logSearchLost(reply.error.code);
 			return "lost";
 		}
 		if (reply.value.status === "unavailable") return { status: "unavailable" };
