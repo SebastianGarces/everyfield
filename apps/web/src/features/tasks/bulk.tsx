@@ -76,7 +76,7 @@ export function BulkBar({
 					className="bg-on-ink-soft shadow-[inset_0_0_0_1.5px_var(--ef-on-ink)] data-[state=checked]:bg-on-ink-soft data-[state=indeterminate]:bg-on-ink-soft"
 				/>
 			</label>
-			<span className="flex min-w-48 flex-1 flex-col">
+			<span className="flex flex-1 flex-col app-sm:min-w-48">
 				<span className="font-medium" aria-live="polite">
 					{count} selected
 				</span>
