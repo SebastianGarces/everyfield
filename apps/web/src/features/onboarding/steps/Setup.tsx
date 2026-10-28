@@ -417,16 +417,14 @@ export function FinishStep({
 			) : null}
 			<Notice code={state.notice?.op === "complete" ? state.notice.code : null} />
 			{done ? (
-				<div className="mx-auto mt-[30px] flex max-w-[820px] flex-col gap-4">
-					<div className="flex flex-wrap items-center justify-between gap-3">
-						<Button variant="ghost" onClick={() => actions.go("team")}>
-							Review answers
-						</Button>
-						<Button variant="primary" asChild>
-							<Link href={DASHBOARD_HREF}>Go to dashboard</Link>
-						</Button>
-					</div>
-					{after ? <div className="flex flex-wrap items-center justify-end gap-3">{after}</div> : null}
+				<div className="mx-auto mt-[30px] flex max-w-[820px] flex-wrap items-center justify-between gap-3">
+					<Button variant="ghost" onClick={() => actions.go("team")}>
+						Review answers
+					</Button>
+					<Button variant="primary" asChild>
+						<Link href={DASHBOARD_HREF}>Go to dashboard</Link>
+					</Button>
+					{after}
 				</div>
 			) : (
 				<StepFooter
