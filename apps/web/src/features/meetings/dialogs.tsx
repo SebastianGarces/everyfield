@@ -281,7 +281,7 @@ export function PeoplePicker({
 									label={`Remove ${p.name}`}
 									variant="soft"
 									size="sm"
-									className="size-7 rounded-full bg-transparent"
+									className="size-7 rounded-full"
 									onClick={() => toggle(p, false)}
 								/>
 							</li>
