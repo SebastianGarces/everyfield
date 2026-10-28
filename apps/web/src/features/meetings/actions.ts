@@ -3,7 +3,6 @@
 import { requestDatabase } from "@/server/database";
 import { getViewer } from "@/server/request-context";
 import { redirect } from "next/navigation";
-import { listPeopleRequest } from "@everyfield/contracts/people";
 import {
 	answerRsvpToken,
 	attendanceReader,
@@ -19,9 +18,9 @@ import {
 	previewMeetingsWrite,
 } from "@everyfield/domain/meetings";
 import { tasksMount } from "@/server/tasks";
-import { peopleReader } from "@everyfield/domain/people";
+import { searchPeople as findPeople } from "@everyfield/domain/people";
 import type { MeetingsReply, rsvpTokenView } from "@everyfield/contracts/meetings";
-import type { z } from "zod";
+import { z } from "zod";
 import type { Transaction } from "@everyfield/db/client";
 import { read as readPeople } from "../people/server.ts";
 import type { Finalization, Outcome } from "./model.ts";
@@ -205,19 +204,19 @@ export async function clearCard(
 	);
 }
 
-/** People to add as a guest or name as an inviter: live people of this church whose name, email or phone match. */
+/**
+ * People to add as a guest or name as an inviter: live people of this church whose name word or email local part starts
+ * with each query word, or whose phone holds the typed digits. The rule is the shared people search.
+ */
 export async function searchPeople(search: unknown): Promise<Outcome<{ id: string; name: string; detail: string }[]>> {
 	const v = await getViewer();
 	if (!v?.people) return noSeat;
-	const request = listPeopleRequest.safeParse({ search, limit: 8 });
-	if (!request.success) return { status: "refused", code: "invalid_input" };
-	const r = await readPeople(v.people, (tx, ctx) => peopleReader.listPeople(tx, ctx, request.data));
+	const query = z.string().trim().max(255).safeParse(search);
+	if (!query.success) return { status: "refused", code: "invalid_input" };
+	const r = await readPeople(v.people, (tx, ctx) => findPeople(tx, ctx, query.data, 8));
 	if (r.status === "failed") return { status: "lost" };
 	if (r.status === "refused") return { status: "refused", code: r.error.code };
-	return {
-		status: "ok",
-		value: r.value.items.map((p) => ({ id: p.id, name: p.displayName, detail: p.email ?? p.phone ?? "" })),
-	};
+	return { status: "ok", value: r.value };
 }
 
 // Attendance, finalization, evaluation (WP-022) -----------------------------------------------------------------

@@ -416,7 +416,7 @@ async function settle(
 	const f = await lockAttendance(tx, w, input.meetingId, input.attendeeIds, {
 		assignees: [input.followUpAssigneeId, input.evaluationAssigneeId].filter((a) => a !== null),
 	});
-	if (f.status === "cancelled" || f.voided || f.occurred_at > f.now) deny("status_transition");
+	if (f.status === "cancelled" || f.voided) deny("status_transition");
 	const vision = f.type === "vision_meeting";
 	const current = attendedIds(f),
 		finalSet = new Set(input.attendeeIds);

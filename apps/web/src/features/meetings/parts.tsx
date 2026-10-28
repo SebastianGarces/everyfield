@@ -10,6 +10,7 @@ import {
 import { CardIcon } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
+import { useEffect, useRef, type ReactNode } from "react";
 import { PersonLink } from "../people/parts.tsx";
 import { STATUS_LABEL, STATUS_TONE, TYPE_TONE, type MeetingStatus, type MeetingType } from "./model.ts";
 
@@ -94,6 +95,48 @@ export function Problem({ text, className }: { text: string | undefined; classNa
 					{text}
 				</p>
 			) : null}
+		</div>
+	);
+}
+
+const FIRST_CONTROL = "input:not([disabled]), textarea:not([disabled]), select:not([disabled]), button:not([disabled])";
+
+/**
+ * The panels of a tabbed dialog, drawn in one grid cell so the dialog is as tall as its tallest panel on every tab.
+ * Switching tabs then changes neither the dialog height nor the tab control's position. The panels that are not shown
+ * keep their state, stay invisible and take no focus or screen-reader reading (inert). A tab change moves focus to the
+ * first control of the shown panel; opening the dialog leaves focus to the dialog.
+ */
+export function TabStack({
+	active,
+	panels,
+	className,
+}: {
+	active: string;
+	panels: Record<string, ReactNode>;
+	className?: string;
+}) {
+	const root = useRef<HTMLDivElement>(null);
+	const first = useRef(true);
+	useEffect(() => {
+		if (first.current) {
+			first.current = false;
+			return;
+		}
+		root.current?.querySelector<HTMLElement>(`[data-panel="${active}"] :is(${FIRST_CONTROL})`)?.focus();
+	}, [active]);
+	return (
+		<div ref={root} className="grid">
+			{Object.entries(panels).map(([key, node]) => (
+				<div
+					key={key}
+					data-panel={key}
+					inert={key !== active}
+					className={cn("col-start-1 row-start-1 flex min-w-0 flex-col", className, key !== active && "invisible")}
+				>
+					{node}
+				</div>
+			))}
 		</div>
 	);
 }
