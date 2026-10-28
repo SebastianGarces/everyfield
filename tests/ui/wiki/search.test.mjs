@@ -19,7 +19,10 @@ const dialog = (page) => page.getByRole("dialog", { name: "Search the wiki" });
 for (const [name, engine] of ENGINES) {
 	test(`BUG-wiki-search-close: Esc and X close the search modal and it stays closed (${name})`, async () => {
 		await withPage(engine, async (page) => {
-			for (const close of [() => page.keyboard.press("Escape"), () => dialog(page).getByRole("button", { name: /close/i }).click()]) {
+			for (const close of [
+				() => page.keyboard.press("Escape"),
+				() => dialog(page).getByRole("button", { name: /close/i }).click(),
+			]) {
 				await header(page).click();
 				await dialog(page).waitFor();
 				assert.equal(await dialog(page).getByText("Type a word to search the wiki.").count(), 1);
