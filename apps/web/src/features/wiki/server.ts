@@ -464,7 +464,10 @@ export async function runSearch(
 	| { status: "results"; hits: Listed[]; nextPage: string | null }
 > {
 	const mount = wikiMount();
-	if (!mount) return "lost";
+	if (!mount) {
+		console.error(JSON.stringify({ component: "wiki", outcome: "search-lost", cause: "no-mount" }));
+		return "lost";
+	}
 	try {
 		const reply = await mount.producer.search(mount.db, actor, {
 			query: query.slice(0, 200),
@@ -472,7 +475,11 @@ export async function runSearch(
 			page,
 			source: sourceInput(source),
 		});
-		if (reply.status !== "ok") return reply.error.code === "access_denied" ? "denied" : "lost";
+		if (reply.status !== "ok") {
+			if (reply.error.code === "access_denied") return "denied";
+			console.error(JSON.stringify({ component: "wiki", outcome: "search-lost", cause: reply.error.code }));
+			return "lost";
+		}
 		if (reply.value.status === "unavailable") return { status: "unavailable" };
 		if (reply.value.status === "empty") return { status: "empty" };
 		return {

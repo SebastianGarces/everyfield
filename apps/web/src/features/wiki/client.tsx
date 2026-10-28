@@ -80,8 +80,12 @@ export function WikiSearchButton() {
 					shortcut="/"
 					aria-label="Search the wiki"
 					boxClassName="w-[280px]"
-					onFocus={open}
 					onClick={open}
+					onKeyDown={(event) => {
+						if (event.key !== "Enter" && event.key !== " ") return;
+						event.preventDefault();
+						open();
+					}}
 				/>
 			</div>
 			<IconButton className="app-sm:hidden" icon={Search01Icon} label="Search the wiki" onClick={open} />
@@ -94,8 +98,11 @@ const PHASES = [
 	...PHASE_NAME.map((name, number) => ({ value: String(number), label: `${number} ${name}` })),
 ];
 
+const SEARCH_DELAY_MS = 250;
+
 function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
 	const params = useSearchParams();
+	const source = params.get("source");
 	const pathname = usePathname();
 	const route = useRef(pathname);
 	const [query, setQuery] = useState("");
@@ -104,6 +111,8 @@ function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
 	const [result, setResult] = useState<SearchResult | null>(null);
 	const [pending, setPending] = useState(false);
 	const field = useRef<HTMLInputElement>(null);
+	const sequence = useRef(0);
+	const timer = useRef(0);
 
 	useEffect(() => {
 		if (route.current === pathname) return;
@@ -111,17 +120,41 @@ function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
 		onOpenChange(false);
 	}, [pathname, onOpenChange]);
 
-	async function run(nextPage: number, text = query) {
+	useEffect(() => () => window.clearTimeout(timer.current), []);
+
+	/** Run one search. Only the newest request may write its result. */
+	async function run(text: string, phaseValue: string, nextPage: number) {
+		window.clearTimeout(timer.current);
+		const id = ++sequence.current;
 		const trimmed = text.trim();
 		if (!trimmed) {
 			setResult(null);
+			setPending(false);
 			return;
 		}
 		setPending(true);
-		const found = await searchWiki(trimmed, phase === "all" ? null : Number(phase), nextPage, params.get("source"));
+		let found: SearchResult;
+		try {
+			found = await searchWiki(trimmed, phaseValue === "all" ? null : Number(phaseValue), nextPage, source);
+		} catch {
+			found = { status: "lost" };
+		}
+		if (id !== sequence.current) return;
 		setResult(found);
 		setPage(nextPage);
 		setPending(false);
+	}
+
+	function schedule(text: string, phaseValue: string) {
+		window.clearTimeout(timer.current);
+		if (!text.trim()) {
+			void run(text, phaseValue, 1);
+			return;
+		}
+		// Supersede any request in flight while the delay runs.
+		sequence.current += 1;
+		setPending(true);
+		timer.current = window.setTimeout(() => void run(text, phaseValue, 1), SEARCH_DELAY_MS);
 	}
 
 	return (
@@ -139,7 +172,7 @@ function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
 						className="flex flex-col gap-3"
 						onSubmit={(event) => {
 							event.preventDefault();
-							void run(1);
+							void run(query, phase, 1);
 						}}
 					>
 						<SearchInput
@@ -148,24 +181,27 @@ function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
 							maxLength={200}
 							placeholder="Search the wiki"
 							aria-label="Search words"
-							onChange={(event) => setQuery(event.target.value)}
+							onChange={(event) => {
+								setQuery(event.target.value);
+								schedule(event.target.value, phase);
+							}}
 						/>
-						<div className="flex flex-wrap items-center gap-2">
-							<Select
-								aria-label="Phase"
-								value={phase}
-								options={PHASES}
-								onValueChange={setPhase}
-								className="w-[240px]"
-							/>
-							<Button type="submit" loading={pending}>
-								Search
-							</Button>
-						</div>
+						<Select
+							aria-label="Phase"
+							value={phase}
+							options={PHASES}
+							onValueChange={(next) => {
+								setPhase(next);
+								void run(query, next, 1);
+							}}
+							className="w-[240px]"
+						/>
 					</form>
-					<SearchBody result={result} pending={pending} query={query.trim()} />
+					<div aria-live="polite" className="flex flex-col gap-4">
+						<SearchBody result={result} pending={pending} query={query.trim()} />
+					</div>
 					{result?.status === "results" && result.nextPage ? (
-						<Button variant="secondary" onClick={() => void run(page + 1)} loading={pending}>
+						<Button variant="secondary" onClick={() => void run(query, phase, page + 1)} loading={pending}>
 							Next page
 						</Button>
 					) : null}
@@ -177,8 +213,8 @@ function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
 
 function SearchBody({ result, pending, query }: { result: SearchResult | null; pending: boolean; query: string }) {
 	if (!query) return <p className="text-text-2">Type a word to search the wiki.</p>;
-	if (pending && !result) return <p className="text-text-2">Searching.</p>;
-	if (!result || result.status === "lost")
+	if (!result) return <p className="text-text-2">{pending ? "Searching." : "Type a word to search the wiki."}</p>;
+	if (result.status === "lost")
 		return (
 			<StatePanel tone="error" title="Search could not be loaded" headingLevel="h3">
 				This is a loading problem. Try again.
