@@ -2,7 +2,6 @@ import type * as c from "@everyfield/contracts/tasks";
 import type { z } from "zod";
 import type {
 	Candidate,
-	HistoryProblem,
 	Occurrence,
 	Outcome,
 	Prerequisites,
