@@ -126,6 +126,24 @@ export function treeModel(groups: NavGroup[], read: ReadonlySet<string>): TreeMo
 	return { phases, more };
 }
 
+export type Step = { title: string; href: string; group: string };
+
+/** The article before and after `currentId` in the order the sidenav draws: journey phases, then the other groups. */
+export function stepsAround(tree: TreeModel, currentId: string): { previous: Step | null; next: Step | null } {
+	const flat = [
+		...tree.phases.map((phase) => ({ group: `Phase ${phase.number} · ${phase.name}`, items: phase.items })),
+		...tree.more.map((group) => ({ group: group.name, items: group.items })),
+	].flatMap((group) =>
+		group.items.map((item) => ({ id: item.id, title: item.title, href: item.href, group: group.group })),
+	);
+	const index = flat.findIndex((item) => item.id === currentId);
+	if (index < 0) return { previous: null, next: null };
+	const here = flat[index]?.group;
+	const step = (item: (typeof flat)[number] | undefined): Step | null =>
+		item ? { title: item.title, href: item.href, group: item.group === here ? "" : item.group } : null;
+	return { previous: step(flat[index - 1]), next: step(flat[index + 1]) };
+}
+
 export type SourceRow = {
 	id: string;
 	kind: "church" | "network" | "global";
@@ -142,9 +160,11 @@ function letters(name: string): string {
 	return text.slice(0, 2) || "SO";
 }
 
+/** A credit that names a person or church. Internal ids, source paths and digests never reach a reader. */
 export function humanCredit(credit: string): string | null {
 	if (!credit || /^(church|network|global):/i.test(credit)) return null;
 	if (uuid.safeParse(credit).success) return null;
+	if (/\.(json|mdx?|ya?ml)\b|\bdocs\/|@[0-9a-f]{7,}|\b[0-9a-f]{40,}\b/i.test(credit)) return null;
 	return credit;
 }
 
