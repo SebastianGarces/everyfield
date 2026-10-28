@@ -2,6 +2,7 @@
 
 import { Button, Field, Input } from "@everyfield/ui/controls";
 import { cn } from "@everyfield/ui/foundations";
+import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import {
 	DEFAULT_LEAD,
@@ -29,7 +30,9 @@ import { ChoiceCard, Notice, SavedCard, StepFooter, StepHeading } from "../parts
 import type { Actions } from "../store";
 
 type Props = { state: State; actions: Actions; resume: Resume; plantName: string | null };
-const churchName = (name: string | null) => name ?? "your church";
+/** The product home: the app shell's homeHref (PeopleFrame). There is no separate /dashboard route. */
+export const DASHBOARD_HREF = "/people";
+const churchName =(name: string | null) => name ?? "your church";
 const phaseName = (n: number) => PHASES[n]?.name ?? `Phase ${n}`;
 const longDate = (iso: string) =>
 	new Date(`${iso}T12:00:00`).toLocaleDateString(undefined, {
@@ -414,11 +417,16 @@ export function FinishStep({
 			) : null}
 			<Notice code={state.notice?.op === "complete" ? state.notice.code : null} />
 			{done ? (
-				<div className="mx-auto mt-[30px] flex max-w-[820px] flex-wrap items-center justify-between gap-3">
-					<Button variant="ghost" onClick={() => actions.go("team")}>
-						Review answers
-					</Button>
-					{after}
+				<div className="mx-auto mt-[30px] flex max-w-[820px] flex-col gap-4">
+					<div className="flex flex-wrap items-center justify-between gap-3">
+						<Button variant="ghost" onClick={() => actions.go("team")}>
+							Review answers
+						</Button>
+						<Button variant="primary" asChild>
+							<Link href={DASHBOARD_HREF}>Go to dashboard</Link>
+						</Button>
+					</div>
+					{after ? <div className="flex flex-wrap items-center justify-end gap-3">{after}</div> : null}
 				</div>
 			) : (
 				<StepFooter
