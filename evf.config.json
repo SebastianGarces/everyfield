@@ -918,6 +918,27 @@
 				}
 			],
 			"risk": "ordinary"
+		},
+		"OPS-61": {
+			"title": "Harness live TUI: Rust evf-tui crate, evf tui builds and runs it",
+			"owningPaths": [
+				"tools/evf/",
+				"tools/evf-tui/",
+				"evf.config.json",
+				"README.md",
+				".claude/settings.json"
+			],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {
