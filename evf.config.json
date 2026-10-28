@@ -873,6 +873,21 @@
 				}
 			],
 			"risk": "ordinary"
+		},
+		"OPS-58": {
+			"title": "Harness seats: evf launch, role agent files, settings denies and hooks, refocus, session",
+			"owningPaths": ["tools/evf/", "evf.config.json", ".claude/", "AGENTS.md"],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {

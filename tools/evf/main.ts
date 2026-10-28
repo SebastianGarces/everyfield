@@ -27,6 +27,8 @@ import { migrationsRenumber } from "./migrations.ts";
 import { awaitLoad } from "./load.ts";
 import { nextId } from "./ids.ts";
 import { dbMigrate, dbSeedProgress, goalsList, goalsSync, status, workDbPath } from "./db.ts";
+import { isRole, launch, ROLES } from "./launch.ts";
+import { hook, refocus, session } from "./seat.ts";
 import { timing } from "./timing.ts";
 
 const HELP = `evf: Everyfield v3 workflow CLI
@@ -76,6 +78,14 @@ State store (harness)
                                                               tasks from the ledger committed on main
   evf goals sync | list                                       project goal and S-row missions from the plan docs
   evf status [--json] [<task>]                                tasks, seats, recent events and health from the store
+
+Seats (harness)
+  evf launch <task> --role <role> [--mode implement] [--prompt-file <file>] [--dry-run] [--ignore-load "<reason>"]
+        worktree + Herdr workspace + claude --agent <role> with evf's session id; records the run.
+        Roles: planner, implementer, ui, simplifier, evidence, verifier.
+  evf refocus <task>                                          the goal chain for a seat (40 lines max)
+  evf session                                                 this pane's Claude Code session id, for EVF-Author and EVF-Review
+  evf hook <event>                                            Claude Code hook entry (session-start, path-guard, stop, session-end)
 
 Upkeep
   evf ci-tests                                              check integration test inclusion in CI
@@ -358,6 +368,34 @@ function main(argv: string[]): number | Promise<number> {
 			const json = flag(args, "--json");
 			if (args.length > 1) break;
 			return status(root, { json, task: args[0] });
+		}
+		case "launch": {
+			const role = option(args, "--role"),
+				mode = option(args, "--mode"),
+				promptFile = option(args, "--prompt-file"),
+				ignoreLoad = option(args, "--ignore-load"),
+				dryRun = flag(args, "--dry-run");
+			if (!isRole(role)) throw new EvfError(`--role must be one of ${Object.keys(ROLES).join(", ")}.`);
+			if (mode !== undefined && mode !== "implement") throw new EvfError("Only implement mode launches today.");
+			if (promptFile && !existsSync(promptFile)) throw new EvfError("The prompt file does not exist.");
+			if (args.length !== 1) break;
+			return launch(root, parseTask(args[0]), role, {
+				mode,
+				prompt: promptFile ? readFileSync(promptFile, "utf8").trim() : undefined,
+				ignoreLoad,
+				dryRun,
+			});
+		}
+		case "refocus":
+			if (args.length !== 1) break;
+			return refocus(root, parseTask(args[0]));
+		case "session":
+			if (args.length) break;
+			return session();
+		case "hook": {
+			const event = args.shift();
+			if (!event || args.length) break;
+			return hook(root, event);
 		}
 		case "ship": {
 			return ship(root, parseTask(args[0]));
