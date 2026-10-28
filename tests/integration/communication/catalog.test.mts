@@ -1,23 +1,42 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { systemTemplates } from "../../../packages/contracts/src/communication/catalog.ts";
-import { sanitizeHtml } from "../../../packages/contracts/src/communication/html.ts";
+import { renderBody, sanitizeHtml } from "../../../packages/contracts/src/communication/html.ts";
+import { templateDraft } from "../../../packages/contracts/src/communication/values.ts";
 
-test("there are seven system templates with unique source keys", () => {
-	assert.equal(systemTemplates.length, 7);
-	assert.equal(new Set(systemTemplates.map((t) => t.sourceKey)).size, 7);
+// Identity of the seven system templates. Copy may change; these may not.
+const pinned = [
+	["vision-meeting-invitation", "Vision meeting invitation", "meeting_invitation", "vision_meeting"],
+	["vision-meeting-reminder", "Vision meeting reminder", "meeting_reminder", null],
+	["vision-meeting-follow-up-attended", "Vision meeting follow-up", "follow_up", null],
+	["vision-meeting-follow-up-no-show", "Vision meeting follow-up for a missed guest", "follow_up", null],
+	["orientation-invitation", "Orientation invitation", "meeting_invitation", "orientation"],
+	["team-meeting-invitation", "Team meeting invitation", "meeting_invitation", "team_meeting"],
+	["general-announcement", "General announcement", "announcement", null],
+];
+
+test("the seven system templates keep their keys, names, categories, meeting types and order", () => {
+	assert.deepEqual(
+		systemTemplates.map((t) => [t.sourceKey, t.name, t.category, t.meetingType]),
+		pinned,
+	);
 });
 
 for (const template of systemTemplates) {
 	test(`system template ${template.sourceKey} is a complete, sendable email`, () => {
+		const { sourceKey: _sourceKey, ...draft } = template;
+		assert.doesNotThrow(() => templateDraft.parse(draft), "the contract parser accepts it, as a fork does");
 		assert.equal(sanitizeHtml(template.bodyHtml), template.bodyHtml, "body survives the sanitizer unchanged");
 		assert.ok(template.bodyHtml.startsWith("<p>Hello {{name}},</p>"));
 		assert.ok(template.bodyHtml.endsWith("[Your name]</p>"));
-		assert.ok(template.bodyHtml.length <= 100_000);
-		assert.ok(template.subject.length >= 1 && template.subject.length <= 500);
 		assert.ok(!template.subject.includes("{{"), "subjects are never merged");
-		assert.ok(template.description && template.description.length <= 1000);
+		assert.ok(template.description, "has a description");
+		assert.equal(template.description.split(/[.!?](?:\s|$)/).filter(Boolean).length, 1, "description is one sentence");
+		assert.ok(template.description.endsWith("."));
 		const fields = [...template.bodyHtml.matchAll(/\{\{\s*([a-z0-9_]+)\s*\}\}/gi)].map((m) => m[1]);
 		assert.deepEqual([...new Set(fields)], ["name"], "only the merge field that works today");
+		const rendered = renderBody(template.bodyHtml, { name: "Alex" });
+		assert.ok(rendered.startsWith("<p>Hello Alex,</p>"), "name merges into the greeting");
+		assert.ok(!rendered.includes("{{"), "no merge field is left unresolved");
 	});
 }
