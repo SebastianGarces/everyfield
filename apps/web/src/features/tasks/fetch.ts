@@ -1,6 +1,14 @@
 import type * as c from "@everyfield/contracts/tasks";
 import type { z } from "zod";
-import type { Candidate, Occurrence, Outcome, Prerequisites, TaskDetail, TaskHistory } from "./model.ts";
+import type {
+	Candidate,
+	HistoryProblem,
+	Occurrence,
+	Outcome,
+	Prerequisites,
+	TaskDetail,
+	TaskHistory,
+} from "./model.ts";
 
 // The browser side of read.ts. A network failure or a server error reads as lost, so the screen can offer a retry.
 async function get<T>(params: Record<string, string> | URLSearchParams): Promise<Outcome<T>> {
@@ -15,6 +23,8 @@ async function get<T>(params: Record<string, string> | URLSearchParams): Promise
 export type Loaded = {
 	task: TaskDetail;
 	history: TaskHistory | null;
+	/** Set when `history` is null: the task has no recorded status change, or the read failed. */
+	historyProblem: HistoryProblem | null;
 	prerequisites: Pick<Prerequisites, "taskId" | "items" | "blocked"> | null;
 	occurrence: Occurrence | null;
 };

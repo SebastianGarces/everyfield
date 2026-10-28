@@ -94,7 +94,38 @@ export const SORT_LABEL: Record<(typeof SORTS)[number], string> = {
 	created: "Date added",
 };
 
+/** Why a task panel has no first history page. */
+export type HistoryProblem = "unrecorded" | "failed";
+/** A refusal as "unavailable" means no status change is recorded; any other miss is a failed read. */
+export const historyProblem = (r: Outcome<unknown>): HistoryProblem | null =>
+	r.status === "ok" ? null : r.status === "refused" && r.code === "unavailable" ? "unrecorded" : "failed";
+
 export const isSettled = (s: Status) => s === "complete" || s === "no_longer_needed";
+
+/**
+ * Who owns a task or step, as text. The owner's own name shows, also for the signed-in person (never "You"). A name
+ * that is empty reads the same everywhere: the data cannot tell a former member from a seat with no name, so only
+ * the signed-in person, who is a current seat, gets "Unnamed member"; every other empty name reads "A former member".
+ */
+export function ownerLabel(owner: { accountId: string; displayName: string } | null, you: string): string {
+	if (!owner) return "Needs owner";
+	const name = owner.displayName.trim();
+	if (name) return name;
+	return owner.accountId === you ? "Unnamed member" : "A former member";
+}
+
+/** What the bulk bar offers for the selected tasks' current statuses (REQ-TSK-008: only open tasks complete or move). */
+export type BulkActions =
+	| { kind: "open"; complete: "enabled"; reschedule: "enabled"; settled: 0 }
+	| { kind: "settled"; complete: "hidden"; reschedule: "hidden"; settled: number }
+	| { kind: "mixed"; complete: "disabled"; reschedule: "disabled"; settled: number };
+
+export function bulkActions(statuses: readonly Status[]): BulkActions {
+	const settled = statuses.filter(isSettled).length;
+	if (settled === 0) return { kind: "open", complete: "enabled", reschedule: "enabled", settled: 0 };
+	if (settled === statuses.length) return { kind: "settled", complete: "hidden", reschedule: "hidden", settled };
+	return { kind: "mixed", complete: "disabled", reschedule: "disabled", settled };
+}
 
 // ---------------------------------------------------------------------------------------------------------------
 // Task structure (REQ-TSK-005 to 008): steps, what a task waits for, repeats and bulk changes.

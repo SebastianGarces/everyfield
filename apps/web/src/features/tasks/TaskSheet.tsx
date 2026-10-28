@@ -23,6 +23,7 @@ import {
 	blockedText,
 	CATEGORY_LABEL,
 	isSettled,
+	ownerLabel,
 	PRIORITY_LABEL,
 	problemText,
 	shownSteps,
@@ -31,6 +32,7 @@ import {
 	type Prerequisite,
 	type Rule,
 	type Step,
+	type HistoryProblem,
 	type TaskHistory,
 	type TaskItem,
 } from "./model.ts";
@@ -269,11 +271,7 @@ export function TaskSheet({
 							k="Assigned to"
 							value={
 								task.assignee ? (
-									task.assignee.accountId === viewer.accountId ? (
-										"You"
-									) : (
-										task.assignee.displayName || "A former member"
-									)
+									ownerLabel(task.assignee, viewer.accountId)
 								) : (
 									<StatusBadge status="attention" size="sm">
 										Needs owner
@@ -359,7 +357,12 @@ export function TaskSheet({
 									/>
 								</>
 							)}
-							<History key={detail.id} taskId={detail.id} history={state?.status === "ok" ? state.history : null} />
+							<History
+								key={detail.id}
+								taskId={detail.id}
+								first={state?.status === "ok" ? state.history : null}
+								problem={state?.status === "ok" ? state.historyProblem : "failed"}
+							/>
 						</>
 					) : state?.status === "failed" ? (
 						<StatePanel
@@ -397,13 +400,48 @@ function Loading() {
 }
 
 /** Every status change, oldest first, with who or what made it and when. Later pages load on request. */
-function History({ taskId, history }: { taskId: string; history: TaskHistory | null }) {
+function History({
+	taskId,
+	first,
+	problem: firstProblem,
+}: {
+	taskId: string;
+	first: TaskHistory | null;
+	problem: HistoryProblem | null;
+}) {
 	const [more, setMore] = useState<{ items: Entry[]; next: number | null; problem?: string } | null>(null);
 	const [loading, setLoading] = useState(false);
+	// A first page that did not load is read again on request, so a failed read never needs the panel closed.
+	const [retried, setRetried] = useState<{ history: TaskHistory | null; problem: HistoryProblem | null } | null>(null);
+	const history = retried ? retried.history : first;
+	const problem = retried ? retried.problem : firstProblem;
 	if (!history)
 		return (
 			<Section title="Status history">
-				<p className="text-sm text-text-3">The history did not load. Close and open the task to try again.</p>
+				<p className="text-sm text-text-3">
+					{problem === "unrecorded" ? "No status changes are recorded for this task." : "The history did not load."}
+				</p>
+				<Button
+					variant="ghost"
+					size="sm"
+					loading={loading}
+					className="self-start"
+					onClick={async () => {
+						setLoading(true);
+						const r = await loadHistory(taskId, 1);
+						setLoading(false);
+						setRetried(
+							r.status === "ok"
+								? { history: r.value, problem: null }
+								: {
+										history: null,
+										problem: r.status === "refused" && r.code === "unavailable" ? "unrecorded" : "failed",
+									},
+						);
+					}}
+				>
+					Try again
+				</Button>
 			</Section>
 		);
 	const items = [...history.items, ...(more?.items ?? [])];

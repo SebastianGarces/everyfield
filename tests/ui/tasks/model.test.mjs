@@ -19,10 +19,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+	bulkActions,
 	countsAfter,
+	historyProblem,
 	dueInputOf,
 	listRequest,
 	matches,
+	ownerLabel,
 	NO_PENDING,
 	shownRows,
 	shownSteps,
@@ -253,4 +256,45 @@ test("AC:TARGET-TSK-006 INV-badge-reads: an old badge read never lands on a newe
 	assert.equal(reads.applies(newer, list), true);
 	reads.end();
 	assert.equal(reads.applies(newer, list), false, "a new list ends every read of the old one, and its retries");
+});
+
+test("AC:TARGET-TSK-001 INV-owner-label: an owner shows by name, also the signed-in person, never as You", () => {
+	const you = "a0000000-0000-4000-8000-000000000001";
+	const other = "a0000000-0000-4000-8000-000000000002";
+	assert.equal(ownerLabel({ accountId: you, displayName: "Dana Reyes" }, you), "Dana Reyes");
+	assert.equal(ownerLabel({ accountId: other, displayName: "Aisha Bello" }, you), "Aisha Bello");
+	// A current seat with no name never reads as a former member.
+	assert.equal(ownerLabel({ accountId: you, displayName: "  " }, you), "Unnamed member");
+	// The data cannot tell a former member from another seat's empty name: both read the same.
+	assert.equal(ownerLabel({ accountId: other, displayName: "" }, you), "A former member");
+	assert.equal(ownerLabel(null, you), "Needs owner");
+});
+
+test("AC:TARGET-TSK-008 INV-bulk-actions: complete and reschedule apply only to open tasks", () => {
+	const open = ["not_started", "in_progress", "blocked"];
+	const settled = ["complete", "no_longer_needed"];
+	const enabled = { kind: "open", complete: "enabled", reschedule: "enabled", settled: 0 };
+	assert.deepEqual(bulkActions(open), enabled, "all open");
+	for (const status of open) assert.deepEqual(bulkActions([status]), enabled, status);
+	assert.deepEqual(bulkActions(settled), { kind: "settled", complete: "hidden", reschedule: "hidden", settled: 2 });
+	for (const status of settled)
+		assert.deepEqual(
+			bulkActions([status]),
+			{ kind: "settled", complete: "hidden", reschedule: "hidden", settled: 1 },
+			status,
+		);
+	assert.deepEqual(bulkActions(["complete", "in_progress", "no_longer_needed"]), {
+		kind: "mixed",
+		complete: "disabled",
+		reschedule: "disabled",
+		settled: 2,
+	});
+});
+
+test("AC:TARGET-TSK-015 INV-history-read: a task with no recorded change reads differently from a failed read", () => {
+	// BUG (task 18): the domain refuses page 1 as "unavailable" when a task has no status audit row (a seeded task).
+	assert.equal(historyProblem({ status: "refused", code: "unavailable" }), "unrecorded");
+	assert.equal(historyProblem({ status: "lost" }), "failed");
+	assert.equal(historyProblem({ status: "refused", code: "access_denied" }), "failed");
+	assert.equal(historyProblem({ status: "ok", value: {} }), null);
 });

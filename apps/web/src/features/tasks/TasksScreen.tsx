@@ -76,6 +76,7 @@ import {
 	matches,
 	NO_PENDING,
 	PENDING_PREFIX,
+	bulkActions,
 	shownRows,
 	withChange,
 	CATEGORIES,
@@ -714,7 +715,9 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 	 * confirms each task that changed, rolls back the rest and reports why each one did not. The open ones that did not
 	 * change stay selected, and a task that changed since it was selected is loaded again for review.
 	 */
-	const runBulk = (kind: Report["kind"], due: DueInput | null, chosen: TaskItem[]) => {
+	const runBulk = (kind: Report["kind"], due: DueInput | null, selectedTasks: TaskItem[]) => {
+		// A closed task never goes in a bulk request: its status and due date stay as they are (REQ-TSK-008).
+		const chosen = selectedTasks.filter((t) => !isSettled(t.status));
 		if (!chosen.length) return;
 		setReport(null);
 		const items = chosen.map((t) => ({ taskId: t.id, expectedRevision: t.revision }));
@@ -1007,6 +1010,8 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 							}
 							onClear={() => setSelected(new Set())}
 							wait={lanes.of(BULK).wait()}
+							actions={bulkActions(chosen.map((t) => t.status))}
+							onKeepOpen={() => setSelected(new Set(chosen.filter((t) => !isSettled(t.status)).map((t) => t.id)))}
 							onComplete={() => runBulk("complete", null, chosen)}
 							onReschedule={(due) => runBulk("reschedule", due, chosen)}
 						/>
