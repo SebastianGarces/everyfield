@@ -45,6 +45,7 @@ import {
 	RAIL_TOC_PAD,
 } from "./layout.ts";
 import { fractionText, pdfFilename, PHASE_NAME, snippetParts, type SourceRow } from "./model.ts";
+
 const Chrome = createContext<{ openSearch: () => void; openGuide: () => void; guideOpen: boolean } | null>(null);
 
 export function useWikiChrome() {
