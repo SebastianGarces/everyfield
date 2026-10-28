@@ -22,24 +22,11 @@
 			[role="switch"],
 			[role="checkbox"],
 			[role="radio"]
-		):not(:disabled, [aria-disabled="true"], [data-disabled]) {
+		) {
 		cursor: pointer;
-	}
-	[data-product-root]
-		:is(
-			button,
-			summary,
-			[role="button"],
-			[role="tab"],
-			[role="menuitem"],
-			[role="menuitemradio"],
-			[role="menuitemcheckbox"],
-			[role="option"],
-			[role="switch"],
-			[role="checkbox"],
-			[role="radio"]
-		):is(:disabled, [aria-disabled="true"], [data-disabled]) {
-		cursor: not-allowed;
+		&:is(:disabled, [aria-disabled="true"], [data-disabled]) {
+			cursor: not-allowed;
+		}
 	}
 }
 

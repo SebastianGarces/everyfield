@@ -187,9 +187,6 @@ for (const [name, engine] of ENGINES) {
 			await page.goto(BASE + "/design/shell/owner");
 			await page.locator("html[data-theme]").waitFor({ state: "attached", timeout: 60_000 });
 			// These buttons carry no cursor class of their own.
-			const raw = page.locator("button:not(:disabled)").filter({
-				hasNot: page.locator("[class*='cursor-']"),
-			});
 			const cursorClass = await page.locator("[data-product-root] button:not(:disabled)").evaluateAll((els) =>
 				els
 					.filter((el) => !/\bcursor-/.test(el.className))
@@ -205,7 +202,6 @@ for (const [name, engine] of ENGINES) {
 			for (const { name: buttonName, cursor } of cursorClass) {
 				assert.equal(cursor, "pointer", `shell button "${buttonName}": cursor`);
 			}
-			void raw;
 		}),
 	);
 }
