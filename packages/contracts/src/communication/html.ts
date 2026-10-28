@@ -38,6 +38,9 @@ export function escapeHtml(value: string): string {
 	return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 }
 
+/** True when a stored body holds the `{{rsvp_link}}` field. Such a message can only be sent from an open meeting. */
+export const usesRsvpLink = (body: string | null | undefined): boolean => /\{\{\s*rsvp_link\s*\}\}/i.test(body ?? "");
+
 const RSVP_LINK_TEXT = "Tell us if you can come";
 
 /** The one merge value that becomes markup: an absolute https URL whose path is `/rsvp/<token>`. Anything else is null. */

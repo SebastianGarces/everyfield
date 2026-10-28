@@ -31,7 +31,7 @@ import type {
 	TrackingRow,
 } from "./model.ts";
 import { canWrite, communicationViewer, deliver, read, write, type Viewer } from "./server.ts";
-import { anticipateProvider, deliveryTransport, mailReady } from "./mail.ts";
+import { anticipateProvider, appOrigin, deliveryTransport, mailReady } from "./mail.ts";
 
 // Server actions for the Messages screens. The actor is the request's seat. The browser cannot send one.
 // A lost write keeps its request key so a retry replays. The caller mints a new key after success or a refusal.
@@ -267,7 +267,11 @@ export async function restoreOwnSuppression(requestKey: string, reason: string):
 }
 
 export async function previewMessage(input: unknown): Promise<Outcome<Preview>> {
-	return look((tx, viewer) => communicationWriter.readPreview(tx, viewer.authority, input));
+	// The preview shows the RSVP line where the planter put it, with a sample link on the deployment's origin.
+	const origin = appOrigin();
+	const request = input && typeof input === "object" ? (input as { merge?: Record<string, string> }) : {};
+	const withLink = origin ? { ...request, merge: { ...request.merge, rsvp_link: `${origin}/rsvp/preview` } } : input;
+	return look((tx, viewer) => communicationWriter.readPreview(tx, viewer.authority, withLink));
 }
 
 export async function resolveAudience(input: unknown): Promise<Outcome<AudienceSummary>> {

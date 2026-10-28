@@ -2,16 +2,24 @@ import { createCipheriv, createDecipheriv, createHmac, randomBytes, randomUUID }
 import { sql } from "@everyfield/db/query";
 import type { Database } from "@everyfield/db/client";
 import * as c from "@everyfield/contracts/communication";
-import { renderTransactional, scheduleAccepted } from "@everyfield/contracts/communication";
+import {
+	plainText,
+	renderBody,
+	renderTransactional,
+	scheduleAccepted,
+	usesRsvpLink,
+} from "@everyfield/contracts/communication";
 import type { RequestActor } from "../access/session.ts";
 import { audiencePeople, reviewedParts } from "./audience.ts";
 import { z } from "zod";
 import { administers, deny, hash, parse, readReply, readerOf } from "./core.ts";
+import { newRsvpToken, rsvpTokenDigest, rsvpTokenUpdate } from "../meetings/tokens.ts";
 
 const BATCH_LIMIT = 100;
 const CALL_TIMEOUT_MS = 10_000;
 
-export type DeliveryKeys = { encryptionKey: Uint8Array; addressKey: Uint8Array; from: string };
+/** `origin` is the deployment's app origin (the one Better Auth uses). RSVP links in invitations start with it. */
+export type DeliveryKeys = { encryptionKey: Uint8Array; addressKey: Uint8Array; from: string; origin: string };
 export type DeliveryMessage = { to: string; subject: string; html: string; text: string };
 export type DeliveryBatch =
 	{ outcome: "ids"; ids: readonly (string | null)[] } | { outcome: "unknown" } | { outcome: "refused" };
@@ -35,7 +43,8 @@ function keysOf(keys: DeliveryKeys) {
 	if (encryptionKey.length !== 32 || addressKey.length !== 32 || encryptionKey.equals(addressKey))
 		throw new Error("mail_keys_required");
 	const from = z.email().parse(keys.from);
-	return { encryptionKey, addressKey, from };
+	const origin = new URL(keys.origin).origin;
+	return { encryptionKey, addressKey, from, origin };
 }
 function seal(key: Buffer, value: string, aad: string) {
 	const iv = randomBytes(12);
@@ -161,6 +170,9 @@ type Loaded = {
 	attempt_outcome: string | null;
 	first_at: string | null;
 	members: unknown;
+	meeting_id: string | null;
+	meeting_open: boolean | null;
+	guests: unknown;
 };
 
 const loadedSchema = z.object({
@@ -182,13 +194,24 @@ const loadedSchema = z.object({
 	attempt_outcome: z.string().nullable(),
 	first_at: z.string().nullable(),
 	members: z.unknown().nullable(),
+	meeting_id: z.uuid().nullable(),
+	meeting_open: z.boolean().nullable(),
+	guests: z.unknown().nullable(),
 });
 
 async function loadAudience(db: Database, actor: Actor, communicationId: string): Promise<Loaded> {
 	const gate = adminGate(actor);
 	const raw = one(
 		await db.execute(sql`SELECT g.allowed, c.id, c.revision::text AS revision, c.state, c.subject, c.body_html, c.body_text,
-			c.audience, c.review_digest,
+			c.audience, c.review_digest, c.meeting_id,
+			CASE WHEN c.meeting_id IS NULL THEN false ELSE EXISTS (
+				SELECT 1 FROM meeting mt WHERE mt.id = c.meeting_id AND mt.plant_id = c.plant_id AND mt.retired_at IS NULL
+				AND mt.status IN ('planning', 'ready', 'in_progress')
+			) END AS meeting_open,
+			CASE WHEN c.meeting_id IS NULL THEN '[]'::jsonb ELSE (
+				SELECT coalesce(jsonb_agg(pt.person_id), '[]'::jsonb) FROM participation pt
+				WHERE pt.meeting_id = c.meeting_id AND pt.plant_id = c.plant_id AND pt.removed_at IS NULL
+			) END AS guests,
 			to_char(c.scheduled_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS scheduled_at,
 			'[]'::jsonb AS people,
 			CASE WHEN c.id IS NULL THEN 0 ELSE (
@@ -290,6 +313,10 @@ async function prepare(
 		};
 	}
 	if (lookupOnly) deny("not_found");
+	// A message with an RSVP link needs an open meeting whose guest list the links come from.
+	const linked = usesRsvpLink(found.body_html);
+	if (linked && (!found.meeting_id || !found.meeting_open)) deny("rsvp_needs_meeting");
+	const guests = new Set(z.array(z.uuid()).parse(asJson(found.guests) ?? []));
 	const people = z
 		.array(z.object({ id: z.uuid(), email: z.string().nullable(), displayName: z.string(), n: z.number() }))
 		.parse(asJson(found.people) ?? [])
@@ -300,12 +327,20 @@ async function prepare(
 	const rows = unique.map((person, position) => {
 		const address = person.email!.trim().toLowerCase();
 		const id = randomUUID();
+		// Each recipient gets their own message. The raw token lives only in this message and the provider call.
+		const token = linked && guests.has(person.id) ? newRsvpToken() : null;
+		const html = renderBody(found.body_html!, {
+			name: person.displayName,
+			rsvp_link: token ? `${keys.origin}/rsvp/${token}` : "",
+		});
+		const rendered = token && html.includes(token) ? token : null;
+		const text = plainText(html) || found.subject!;
 		const payloadHash = hash({
 			purpose: "communication",
 			personId: person.id,
 			address,
 			subject: found.subject,
-			body: found.body_text ?? found.body_html,
+			body: html,
 			from: keys.from,
 		});
 		return {
@@ -313,12 +348,15 @@ async function prepare(
 			person: person.id,
 			logical_key: `communication/${found.id}/${person.id}`,
 			payload_hash: payloadHash,
+			token_hash: rendered ? rsvpTokenDigest(rendered) : null,
+			html,
+			text,
 			address_hash: addressHash(keys.addressKey, address),
 			payload: {
 				v: 1,
 				sealed: seal(
 					keys.encryptionKey,
-					JSON.stringify({ subject: found.subject, text: found.body_text, html: found.body_html, from: keys.from }),
+					JSON.stringify({ subject: found.subject, text, html, from: keys.from }),
 					`${actor.plantId}/${id}/communication`,
 				),
 			},
@@ -331,11 +369,23 @@ async function prepare(
 	const providerKey = `communication/${found.id}/${requestHash}`;
 	const requestId = randomUUID();
 	const attemptId = randomUUID();
+	// One set-based token write in the same statement as the mail rows, for the guests whose message carries a link.
+	const minted = found.meeting_id !== null && rows.some((row) => row.token_hash !== null);
+	const tokens = minted
+		? sql`,
+			ins_tok AS (${rsvpTokenUpdate(
+				actor.plantId,
+				found.meeting_id!,
+				sql`(SELECT i.person AS person_id, i.token_hash FROM input i JOIN ins_mail m ON m.id = i.id AND m.state = 'dispatched'
+					WHERE i.token_hash IS NOT NULL)`,
+			)})`
+		: sql``;
+	const issued = minted ? sql`(SELECT count(*) FROM ins_tok)` : sql`0`;
 	const stored = one(
 		await db.execute(sql`WITH gate AS (SELECT ${adminGate(actor)} AS allowed),
 			input AS (
-				SELECT * FROM jsonb_to_recordset(${JSON.stringify(rows.map(({ id, person, logical_key, payload_hash, address_hash, payload, address, position }) => ({ id, person, logical_key, payload_hash, address_hash, payload, address, position })))}::jsonb) AS i(
-					id uuid, person uuid, logical_key text, payload_hash text, address_hash text, payload jsonb, address text, position int
+				SELECT * FROM jsonb_to_recordset(${JSON.stringify(rows.map(({ id, person, logical_key, payload_hash, token_hash, address_hash, payload, address, position }) => ({ id, person, logical_key, payload_hash, token_hash, address_hash, payload, address, position })))}::jsonb) AS i(
+					id uuid, person uuid, logical_key text, payload_hash text, token_hash text, address_hash text, payload jsonb, address text, position int
 				)
 			),
 			ins_mail AS (
@@ -355,7 +405,7 @@ async function prepare(
 					AND c.revision = ${found.revision}::bigint AND c.review_digest = ${loaded.digest}
 				)
 				RETURNING id, state
-			),
+			)${tokens},
 			ins_req AS (
 				INSERT INTO mail_request (id, tenant_id, provider_key, request_hash, first_dispatched_at)
 				SELECT ${requestId}::uuid, ${actor.plantId}::uuid, ${providerKey}, ${requestHash}, clock_timestamp()
@@ -385,7 +435,7 @@ async function prepare(
 				INSERT INTO audit_event (tenant_id, actor_id, action, kind, subject_type, subject_id, event_key, metadata, after_value)
 				SELECT ${actor.plantId}::uuid, ${actor.accountId}::uuid, 'communication.send_intended', 'outcome', 'record',
 					${found.id}::uuid, ${"dispatch/" + providerKey}, '{}'::jsonb,
-					jsonb_build_object('recipients', (SELECT count(*) FROM ins_mail))
+					jsonb_build_object('recipients', (SELECT count(*) FROM ins_mail), 'rsvpLinks', ${issued})
 				WHERE EXISTS (SELECT 1 FROM ins_mail)
 				ON CONFLICT (subject_id, event_key) DO NOTHING
 				RETURNING id
@@ -405,8 +455,8 @@ async function prepare(
 		.map((row) => ({
 			to: row.to,
 			subject: found.subject!,
-			html: found.body_html!,
-			text: found.body_text ?? found.subject!,
+			html: row.html,
+			text: row.text,
 		}));
 	if (stored.outcome === "refused" || messages.length === 0) return { kind: "done", members };
 	return { kind: "send", requestId, attemptId, providerKey, messages, members };

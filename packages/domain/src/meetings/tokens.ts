@@ -37,6 +37,27 @@ export async function createRsvpToken(tx: Tx, ctx: MeetingsContext, raw: unknown
 	return c.rsvpTokenIssued.parse({ token, expiresAt: g.expires_at.toISOString(), guestId: g.id });
 }
 
+/** A fresh raw RSVP token. The caller keeps it only inside the message it builds; the database keeps only `rsvpTokenDigest`. */
+export const newRsvpToken = () => randomBytes(32).toString("base64url");
+export const rsvpTokenDigest = digest;
+
+/**
+ * Set-based token write for an invitation send. `pairs` is a relation with columns `person_id uuid` and `token_hash text`.
+ * Each pair that matches a live guest row of the open meeting gets the hash, an open link and an expiry at the later of
+ * seven days from now and the meeting start; a newer token replaces the older one. Persons with no guest row are skipped.
+ * The caller embeds this as a CTE in the statement that writes the mail rows, so it commits with them or not at all.
+ */
+export function rsvpTokenUpdate(plantId: string, meetingId: string, pairs: SQLWrapper) {
+	return sql`UPDATE participation g SET rsvp_token_hash = t.token_hash,
+			rsvp_token_expires_at = greatest(clock_timestamp() + make_interval(days => ${TOKEN_DAYS}), m.starts_at),
+			rsvp_token_open = true, revision = g.revision + 1
+		FROM ${pairs} t, meeting m
+		WHERE m.id = ${meetingId}::uuid AND m.plant_id = ${plantId}::uuid AND m.retired_at IS NULL
+			AND m.status IN ('planning', 'ready', 'in_progress')
+			AND g.meeting_id = m.id AND g.plant_id = ${plantId}::uuid AND g.person_id = t.person_id AND g.removed_at IS NULL
+		RETURNING g.id`;
+}
+
 const viewRow = z.object({
 	open: z.boolean(),
 	expired: z.boolean(),
