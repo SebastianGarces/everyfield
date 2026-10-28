@@ -77,14 +77,23 @@ tries to end its turn with the stage open, and a seat that goes idle twice witho
 evf runs pr (from the PR body the implementer wrote to the task's runtime dir), ci (polls the PR checks)
 and ship itself and records them as runs of role `evf`. A failed verify or ci costs a round; the fourth
 round sets the task to escalated, records `loop_cap_hit` and `escalation`, shows a Herdr notification
-and launches nothing more. `evf next <task>` prints the next stage without acting; `--once` performs one
-transition; `--detach` runs the loop in the background with a log under the Git common directory.
-Jonah polls `evf status --json`.
+and launches nothing more. Any other failure costs no round, but three failures in a row without a
+passed stage escalate the same way, so no loop runs unattended forever. A blocked seat is notified every
+10 minutes until someone answers its pane. Each launch gets its own Herdr agent, `<role>-<slug>-<run>`,
+so a later round never waits on an earlier seat. `evf next <task>` prints the next stage without acting
+and writes nothing; `--once` performs one transition; `--detach` runs the loop in the background with a
+log under the Git common directory. One drive per task: a second `evf drive` refuses while the first
+process is alive (pid file under `evf/drive/`). If a drive dies inside its own pr, ci or ship stage, the
+next drive aborts that run without a round and performs the stage again; a PR GitHub already merged is
+recorded, not shipped twice. Jonah polls `evf status --json`.
 
 `evf task new` records the verbatim ask, `evf task spec` the spec with its hash, `evf proof add` one
-proof row per Done criterion bound to the worktree head, `evf check` the author checks as an event, and
-`evf ask planner` forks the planner's session for a question. When the store knows a PR's branch, ship
-also refuses an EVF-Author or EVF-Review session that evf never launched.
+proof row per Done criterion bound to the worktree head, `evf check` the author checks as an event when
+the store knows the task, and `evf ask planner` forks the planner's session in plan mode for a question.
+A verify run closes passed only when every numbered Done criterion has a `met` or `n/a` proof at the
+worktree head (guard rail 3). For a driven task (one with an evf run), ship also refuses an EVF-Author
+or EVF-Review session that evf never launched; a task row alone, from `evf check` or a launch by hand,
+changes nothing for an ordinary PR.
 
 ## Ship queue
 

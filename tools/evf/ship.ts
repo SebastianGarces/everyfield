@@ -80,7 +80,7 @@ function pushBranch(wt: string, cfg: Config, task: TaskRef): void {
 	git(wt, "push", "--quiet", "-u", cfg.remote, `HEAD:refs/heads/${task.branch}`);
 }
 
-function prFor(wt: string, task: TaskRef): { number: number; url: string; state: string } | null {
+export function prFor(wt: string, task: TaskRef): { number: number; url: string; state: string } | null {
 	const r = run("gh", ["pr", "view", task.branch, "--json", "number,url,state"], { cwd: wt });
 	return r.code === 0 ? (JSON.parse(r.stdout) as { number: number; url: string; state: string }) : null;
 }

@@ -92,8 +92,8 @@ Drive (harness)
   evf task new <task> --ask-file <file> [--title <t>]         record the verbatim ask in the work store
   evf task spec <task> --file <file>                          store the spec: Goal, numbered Done criteria, Non-goals
   evf next <task>                                             the next stage from the store, as JSON
-  evf drive <task> [--once] [--detach]                        run the stage machine: seats, pr, ci, ship; cap 3 rounds
-  evf run done <run> --status passed|failed --summary-file <file>   close a stage (seats call this)
+  evf drive <task> [--once] [--detach]                        run the stage machine: seats, pr, ci, ship; cap 3 rounds; one per task
+  evf run done <run> --status passed|failed --summary-file <file>   close a stage (seats call this; a passed verify needs proofs)
   evf check <task> [--ignore-load "<reason>"]                 author checks, recorded as a check_result event
   evf proof add <task> --criterion <n> --status met|unmet|n/a [--evidence <url>] [--notes <text>]
   evf proof show <task> [--json]                              proof rows, bound to the worktree head

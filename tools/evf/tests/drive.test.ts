@@ -1,12 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { fixture, source } from "./fixtures.ts";
 import { ensureTask, openWorkDb, sessionsRecorded, syncGoals } from "../db.ts";
-import { driveOnce, LOOP_CAP, nextStage, runDone } from "../drive.ts";
-import { parseTask } from "../lib.ts";
+import { doneCriteria, driveOnce, LOOP_CAP, nextStage, RETRY_CAP, runDone } from "../drive.ts";
+import { evfDataDir, parseTask, sleep } from "../lib.ts";
 
 const cli = (cwd: string, env: Record<string, string>, ...args: string[]) =>
 	spawnSync(process.execPath, [join(source, "tools/evf/main.ts"), ...args], {
@@ -69,7 +69,16 @@ function driveFixture() {
 		writeFileSync(path, text);
 		return path;
 	};
-	return { ...f, task, wt, db, taskId: t.id, herdr, runs, events, taskRow, file };
+	const insertRun = (stage: string, role: string, status: string, session?: string) =>
+		Number(
+			db
+				.prepare(
+					"INSERT INTO runs (task_id, stage, role, round, session_id, status, started_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+				)
+				.run(t.id, stage, role, taskRow().round, session ?? null, status, new Date().toISOString()).lastInsertRowid,
+		);
+	db.prepare("UPDATE tasks SET worktree = ? WHERE id = ?").run(wt, t.id);
+	return { ...f, task, wt, db, taskId: t.id, herdr, runs, events, taskRow, file, insertRun };
 }
 
 const SPEC =
@@ -162,6 +171,12 @@ test("OPS-59-drive: one transition launches the next seat through Herdr with the
 		n = driveOnce(f.root, f.task, TIMING);
 		assert.equal(n.stage, "plan");
 		const planRun = f.runs()[1]!;
+		const starts = f.herdr.calls().filter((c) => c[0] === "agent" && c[1] === "start");
+		assert.deepEqual(
+			starts.map((c) => c[2]),
+			[`planner-ops-1-${f.runs()[0]!.id}`, `planner-ops-1-${planRun.id}`],
+			"each launch gets its own Herdr agent, so the second never waits on the first seat",
+		);
 		const spec = f.file("spec.md", SPEC);
 		assert.equal(cli(f.root, {}, "task", "spec", "OPS-1", "--file", spec).status, 0);
 		assert.equal(
@@ -210,7 +225,7 @@ test("OPS-59-drive: one transition launches the next seat through Herdr with the
 			{ stdio: "inherit", env: { ...process.env, EVF_RUN: "", EVF_WORKTREE: "", EVF_STAGE: "" } },
 		);
 		n = driveOnce(f.root, f.task, TIMING);
-		spawnSync(process.execPath, ["-e", "0"]); // keep the closer's exit ordered before the next assertions
+		for (let i = 0; i < 100 && !/idle/.test(readFileSync(join(f.root, "herdr-state.json"), "utf8")); i++) sleep(20);
 		closer.kill();
 		assert.equal(n.stage, "waiting");
 		assert.ok(f.events("blocked").length >= 1, "the blocked state is recorded");
@@ -277,7 +292,7 @@ test("OPS-59-cap: a failed verify or ci costs a round and the fourth round escal
 		assert.equal(f.taskRow().status, "escalated");
 		assert.equal(f.taskRow().round, LOOP_CAP + 1);
 		assert.equal(f.events("loop_cap_hit").length, 1);
-		assert.match(f.events("escalation")[0]!.payload, /needs Sebastian: finding 4/);
+		assert.match(f.events("escalation")[0]!.payload, /needs Sebastian: loop cap 3 hit after verify failed\. finding 4/);
 		assert.ok(f.herdr.calls().some((c) => c[0] === "notification" && c[2] === "OPS-1 escalated"));
 		assert.equal(driveOnce(f.root, f.task, TIMING).stage, "escalated");
 		assert.equal(f.runs().length, LOOP_CAP + 1, "no seat launches after the cap");
@@ -352,7 +367,7 @@ test("OPS-59-proof: proofs bind to the worktree head, check records an event, an
 	}
 });
 
-test("OPS-59-ship: when the store knows the branch, ship refuses author or verifier sessions evf never launched", () => {
+test("OPS-59-ship: for a driven task, ship refuses author or verifier sessions evf never launched", () => {
 	const f = driveFixture();
 	try {
 		const author = "11111111-1111-4111-8111-111111111111",
@@ -362,25 +377,136 @@ test("OPS-59-ship: when the store knows the branch, ship refuses author or verif
 			null,
 			"an unknown branch is not the store's business",
 		);
+		assert.equal(
+			sessionsRecorded(f.root, "task/ops-1", author, verifier),
+			null,
+			"a task row alone (evf check, evf launch by hand) does not make the branch a driven one",
+		);
+		f.insertRun("pr", "evf", "passed");
 		assert.match(sessionsRecorded(f.root, "task/ops-1", author, verifier)!, /no implementer session/);
-		f.db
-			.prepare(
-				"INSERT INTO runs (task_id, stage, role, round, session_id, status, started_at) VALUES (?, 'implement', 'implementer', 0, ?, 'passed', ?)",
-			)
-			.run(f.taskId, author, new Date().toISOString());
+		f.insertRun("implement", "implementer", "passed", author);
 		assert.match(sessionsRecorded(f.root, "task/ops-1", author, verifier)!, /no verifier session/);
-		f.db
-			.prepare(
-				"INSERT INTO runs (task_id, stage, role, round, session_id, status, started_at) VALUES (?, 'verify', 'verifier', 0, ?, 'passed', ?)",
-			)
-			.run(f.taskId, verifier, new Date().toISOString());
+		f.insertRun("verify", "verifier", "passed", verifier);
 		assert.equal(sessionsRecorded(f.root, "task/ops-1", author, verifier), null);
 		assert.match(
 			sessionsRecorded(f.root, "task/ops-1", verifier, author)!,
 			/no implementer session/,
 			"swapped sessions are refused",
 		);
-		assert.ok(existsSync(join(f.root, "herdr-calls.json")));
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-59-retry: three failures in a row that cost no round escalate; a restart aborts evf's own open stage without a round and runs it again", () => {
+	const f = driveFixture();
+	try {
+		f.db.prepare("UPDATE tasks SET spec = ?, status = 'active' WHERE id = ?").run(SPEC, f.taskId);
+		for (let i = 1; i < RETRY_CAP; i++) {
+			runDone(f.root, f.insertRun("implement", "implementer", "started"), { status: "failed", summary: `broke ${i}` });
+			assert.equal(f.taskRow().status, "active");
+		}
+		assert.equal(f.taskRow().round, 0, "implement failures cost no round");
+		runDone(f.root, f.insertRun("implement", "implementer", "started"), { status: "failed", summary: "broke again" });
+		assert.equal(f.taskRow().status, "escalated");
+		assert.match(f.events("escalation")[0]!.payload, /3 failures in a row, last in implement\. broke again/);
+		assert.ok(f.herdr.calls().some((c) => c[0] === "notification" && c[2] === "OPS-1 escalated"));
+		assert.equal(driveOnce(f.root, f.task, TIMING).stage, "escalated");
+		assert.equal(f.runs().length, RETRY_CAP, "no seat launches after the escalation");
+
+		// A seat aborted by its session-end hook counts too, and the drive loop is what escalates it. A passed stage resets the count.
+		f.db.prepare("UPDATE tasks SET status = 'active' WHERE id = ?").run(f.taskId);
+		runDone(f.root, f.insertRun("implement", "implementer", "started"), { status: "passed", summary: "built" });
+		assert.equal(driveOnce(f.root, f.task, TIMING).stage, "simplify");
+		runDone(f.root, f.runs().at(-1)!.id as number, { status: "failed", summary: "could not" });
+		for (let i = 0; i < RETRY_CAP; i++) f.insertRun("simplify", "simplifier", "aborted");
+		assert.equal(driveOnce(f.root, f.task, TIMING).stage, "escalated");
+		assert.equal(f.taskRow().status, "escalated");
+		assert.equal(f.events("escalation").length, 2);
+
+		// Restart: an open evf ci run from a drive that died is aborted, costs nothing, and ci runs again.
+		f.db.prepare("UPDATE tasks SET status = 'active', pr_number = 77 WHERE id = ?").run(f.taskId);
+		const head = spawnSync("git", ["-C", f.wt, "rev-parse", "HEAD"], { encoding: "utf8" }).stdout.trim();
+		for (const c of ["1", "2"])
+			f.db
+				.prepare("INSERT INTO proofs (task_id, head_sha, criterion, status, created_at) VALUES (?, ?, ?, 'met', ?)")
+				.run(f.taskId, head, c, new Date().toISOString());
+		runDone(f.root, f.insertRun("verify", "verifier", "started"), { status: "passed", summary: "approved" });
+		const stale = f.insertRun("ci", "evf", "started");
+		let n = driveOnce(f.root, f.task, TIMING);
+		assert.equal(n.stage, "waiting");
+		assert.match(n.reason, /ci stage restarts after a drive restart/);
+		assert.equal(f.runs().find((r) => r.id === stale)!.status, "aborted");
+		assert.equal(f.taskRow().round, 0, "a restart costs no round");
+		assert.equal(f.events("restart").length, 1);
+		const state = f.getState();
+		state.requiredChecks = [{ name: "ci", bucket: "pass" }];
+		f.setState(state);
+		n = driveOnce(f.root, f.task, TIMING);
+		assert.equal(n.stage, "ci", "the stage before the aborted run decides: ci runs again");
+		assert.deepEqual([f.runs().at(-1)!.role, f.runs().at(-1)!.status], ["evf", "passed"]);
+		assert.equal(JSON.parse(cli(f.root, {}, "next", "OPS-1").stdout).stage, "ship");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-59-gate: a verify closes passed only with a met or n/a proof per Done criterion at the head; read commands write nothing; one drive per task", () => {
+	const f = driveFixture();
+	try {
+		assert.deepEqual(doneCriteria(SPEC), ["1", "2"]);
+		assert.deepEqual(doneCriteria("Goal: x\nDone criteria:\n1. a\n  2. b\n3. c\nNon-goals:\n1. not this"), [
+			"1",
+			"2",
+			"3",
+		]);
+		f.db.prepare("UPDATE tasks SET spec = ?, status = 'active' WHERE id = ?").run(SPEC, f.taskId);
+		const verifyRun = f.insertRun("verify", "verifier", "started");
+		const summary = f.file("approved.md", "Approved.");
+		const close = (run: number, status: string) =>
+			cli(f.root, {}, "run", "done", String(run), "--status", status, "--summary-file", summary);
+		const refused = close(verifyRun, "passed");
+		assert.equal(refused.status, 1);
+		assert.match(refused.stderr, /Done criteria 1, 2 have no met or n\/a proof at [0-9a-f]{10}/);
+		assert.equal(f.runs()[0]!.status, "started", "the run stays open");
+		assert.equal(cli(f.root, {}, "proof", "add", "OPS-1", "--criterion", "1", "--status", "met").status, 0);
+		assert.match(close(verifyRun, "passed").stderr, /Done criteria 2 have no met/);
+		assert.equal(cli(f.root, {}, "proof", "add", "OPS-1", "--criterion", "2", "--status", "unmet").status, 0);
+		assert.match(close(verifyRun, "passed").stderr, /Done criteria 2 have no met/, "an unmet proof does not count");
+		assert.equal(cli(f.root, {}, "proof", "add", "OPS-1", "--criterion", "2", "--status", "n/a").status, 0);
+		const closed = close(verifyRun, "passed");
+		assert.equal(closed.status, 0, closed.stderr);
+		assert.equal(
+			(f.db.prepare("SELECT decision FROM approvals WHERE task_id = ?").get(f.taskId) as { decision: string }).decision,
+			"approved",
+		);
+		spawnSync("git", ["-C", f.wt, "commit", "-q", "--allow-empty", "-m", "move the head"]);
+		const later = f.insertRun("verify", "verifier", "started");
+		assert.match(close(later, "passed").stderr, /Done criteria 1, 2 have no met/, "proofs bind to their head");
+		assert.equal(close(later, "failed").status, 0, "a failed verify needs no proofs");
+
+		const other = parseTask("OPS-2");
+		assert.equal(JSON.parse(cli(f.root, {}, "next", "OPS-2").stdout).stage, "plan");
+		assert.match(cli(f.root, {}, "proof", "show", "OPS-2").stdout, /0 at head, 0 total/);
+		assert.match(cli(f.root, {}, "ask", "planner", "OPS-2", "Why?").stderr, /no planner run to ask/);
+		assert.equal(
+			(f.db.prepare("SELECT COUNT(*) AS n FROM tasks WHERE ref = ?").get(other.id) as { n: number }).n,
+			0,
+			"next, proof show and ask planner create no task row",
+		);
+
+		const pidFile = join(evfDataDir(f.root), "drive", "ops-1.pid");
+		mkdirSync(join(evfDataDir(f.root), "drive"), { recursive: true });
+		writeFileSync(pidFile, `${process.pid}\n`);
+		const busy = cli(f.root, {}, "drive", "OPS-1", "--once");
+		assert.equal(busy.status, 1);
+		assert.match(busy.stderr, new RegExp(`evf drive already runs for OPS-1 \\(pid ${process.pid}\\)`));
+		writeFileSync(pidFile, "999999999\n");
+		f.db.prepare("UPDATE tasks SET status = 'escalated' WHERE id = ?").run(f.taskId);
+		assert.equal(cli(f.root, {}, "drive", "OPS-1", "--once").status, 2, "a dead holder's pid file is taken over");
+		assert.equal(existsSync(pidFile), false, "the pid file goes when the loop ends");
 	} finally {
 		f.db.close();
 		f.close();

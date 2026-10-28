@@ -273,9 +273,11 @@ export type TaskRow = {
 	status: string;
 	round: number;
 	goal_id: number | null;
+	spec: string | null;
+	pr_number: number | null;
+	worktree: string | null;
 };
 
-/** The open task row for a ref (one per ref until it merges), created as `new` when none exists. */
 /** The mission goal that owns a package, if the goals are synced. */
 export function missionFor(db: DatabaseSync, pkg: string): { id: number; title: string } | undefined {
 	if (!pkg) return undefined;
@@ -286,12 +288,18 @@ export function missionFor(db: DatabaseSync, pkg: string): { id: number; title: 
 		.get(pkg) as { id: number; title: string } | undefined;
 }
 
-export function ensureTask(db: DatabaseSync, task: TaskRef, mode: string): TaskRow {
-	const open = db
+/** The open task row for a ref (one per ref until it merges), or undefined. Read commands never create one. */
+export function findTask(db: DatabaseSync, task: TaskRef): TaskRow | undefined {
+	return db
 		.prepare(
-			"SELECT id, ref, slug, mode, status, round, goal_id FROM tasks WHERE ref = ? AND status NOT IN ('merged', 'abandoned') ORDER BY id DESC LIMIT 1",
+			"SELECT id, ref, slug, mode, status, round, goal_id, spec, pr_number, worktree FROM tasks WHERE ref = ? AND status NOT IN ('merged', 'abandoned') ORDER BY id DESC LIMIT 1",
 		)
 		.get(task.id) as TaskRow | undefined;
+}
+
+/** The open task row, created as `new` when none exists. Only commands that start work call this. */
+export function ensureTask(db: DatabaseSync, task: TaskRef, mode: string): TaskRow {
+	const open = findTask(db, task);
 	if (open) return open;
 	const ts = now();
 	const goal = missionFor(db, task.wp);
@@ -300,12 +308,25 @@ export function ensureTask(db: DatabaseSync, task: TaskRef, mode: string): TaskR
 			"INSERT INTO tasks (slug, mode, ref, goal_id, title, branch, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 'new', ?, ?)",
 		)
 		.run(task.slug, mode, task.id, goal?.id ?? null, task.id, task.branch, ts, ts).lastInsertRowid;
-	return { id: Number(id), ref: task.id, slug: task.slug, mode, status: "new", round: 0, goal_id: goal?.id ?? null };
+	return {
+		id: Number(id),
+		ref: task.id,
+		slug: task.slug,
+		mode,
+		status: "new",
+		round: 0,
+		goal_id: goal?.id ?? null,
+		spec: null,
+		pr_number: null,
+		worktree: null,
+	};
 }
 
 /**
- * When the store knows this branch, the EVF-Author and EVF-Review sessions must be runs evf launched: an implementer
- * (or ui or simplifier) seat for the author and a verifier seat for the review. Returns the refusal, or null.
+ * For a task that `evf drive` drove (it has a run of role `evf`, which only the drive loop records), the EVF-Author and
+ * EVF-Review sessions must be runs evf launched: an implementer (or ui or simplifier) seat for the author and a verifier
+ * seat for the review. A task row alone does not count: `evf launch` or `evf task new` by hand creates one too, and an
+ * ordinary PR ships as before. Returns the refusal, or null.
  */
 export function sessionsRecorded(
 	root: string,
@@ -317,7 +338,9 @@ export function sessionsRecorded(
 	const db = openWorkDb(root, { readOnly: true });
 	try {
 		const t = db
-			.prepare("SELECT id, ref FROM tasks WHERE branch = ? AND status <> 'abandoned' ORDER BY id DESC LIMIT 1")
+			.prepare(
+				"SELECT t.id, t.ref FROM tasks t WHERE t.branch = ? AND t.status <> 'abandoned' AND EXISTS (SELECT 1 FROM runs r WHERE r.task_id = t.id AND r.role = 'evf') ORDER BY t.id DESC LIMIT 1",
+			)
 			.get(branch) as { id: number; ref: string } | undefined;
 		if (!t) return null;
 		const roles = (session: string) =>

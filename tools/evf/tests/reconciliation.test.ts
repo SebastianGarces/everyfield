@@ -298,6 +298,7 @@ test("INV-workflow-routing: Next server paths stay with implementor and presenta
 });
 
 import { ship, listShipped, prOpen, checkPr } from "../ship.ts";
+import { ensureTask, openWorkDb } from "../db.ts";
 import { withShipQueue } from "../ship-queue.ts";
 import { awaitLoad, loadLimit } from "../load.ts";
 import { availableParallelism } from "node:os";
@@ -2838,6 +2839,36 @@ test("INV-plan-progress: explorer renders a newly planned package without writin
 		assert.match(unknown.stderr, /Progress IDs differ from active\/retired DAG IDs/);
 	} finally {
 		rmSync(output, { force: true });
+		f.close();
+	}
+});
+
+test("OPS-59-ship: a work-store row for the branch does not stop an ordinary PR; a driven task ships only with the sessions evf launched", () => {
+	const f = mergeFixture();
+	const db = openWorkDb(f.root);
+	try {
+		const state = f.getState();
+		state.pr.headRefName = f.taskRef.branch;
+		f.setState(state);
+		const t = ensureTask(db, f.taskRef, "implement");
+		const insertRun = (stage: string, role: string, session: string | null) =>
+			db
+				.prepare(
+					"INSERT INTO runs (task_id, stage, role, round, session_id, status, started_at) VALUES (?, ?, ?, 0, ?, 'passed', ?)",
+				)
+				.run(t.id, stage, role, session, new Date().toISOString());
+		assert.throws(
+			() => ship(f.root, f.taskRef),
+			/fixture merge barrier/,
+			"a task row alone (evf check) changes nothing",
+		);
+		insertRun("pr", "evf", null);
+		assert.throws(() => ship(f.root, f.taskRef), /no implementer session/, "a driven task needs launched sessions");
+		insertRun("implement", "implementer", AUTHOR.session);
+		insertRun("verify", "verifier", VERIFIER.session);
+		assert.throws(() => ship(f.root, f.taskRef), /fixture merge barrier/, "and ships with them");
+	} finally {
+		db.close();
 		f.close();
 	}
 });
