@@ -139,7 +139,10 @@ for (const [name, engine] of ENGINES) {
 				const column = document.getElementById("wiki-scroll");
 				column.scrollTop = (column.scrollHeight - column.clientHeight) / 2;
 			});
-			await page.getByText(/^[1-9]\d?% read$/).waitFor();
+			// The open already shows a small share from the top of the article. Wait for the scrolled share.
+			await page.waitForFunction(() =>
+				[...document.querySelectorAll("span")].some((el) => /^([3-9]\d)% read$/.test(el.textContent ?? "")),
+			);
 			const partial = await page.getByText(/^\d+% read$/).textContent();
 			await page.reload();
 			await hydrated(page);
