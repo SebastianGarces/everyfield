@@ -12,7 +12,7 @@ import { displayTitle } from "./rows.ts";
 // at most one live link. Opening a link reads only; an explicit answer sets the canonical RSVP and closes the link.
 
 const TOKEN_DAYS = 7;
-export const rsvpTokenDigest = (token: string) => createHash("sha256").update(token).rsvpTokenDigest("hex");
+export const rsvpTokenDigest = (token: string) => createHash("sha256").update(token).digest("hex");
 
 /**
  * Mints the guest's RSVP token inside the caller's write: the invitation send or guest transaction that holds the
