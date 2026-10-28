@@ -34,8 +34,6 @@ import {
 	type SearchResult,
 	type WriteResult,
 } from "./actions.ts";
-import { fractionText, pdfFilename, PHASE_NAME, snippetParts, type SourceRow } from "./model.ts";
-
 import {
 	ARTICLE_FIXED,
 	BELOW_WIDE_ONLY,
@@ -46,6 +44,7 @@ import {
 	RAIL_STICKY,
 	RAIL_TOC_PAD,
 } from "./layout.ts";
+import { fractionText, pdfFilename, PHASE_NAME, snippetParts, type SourceRow } from "./model.ts";
 const Chrome = createContext<{ openSearch: () => void; openGuide: () => void; guideOpen: boolean } | null>(null);
 
 export function useWikiChrome() {
