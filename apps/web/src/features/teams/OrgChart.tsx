@@ -115,7 +115,6 @@ export function OrgChart({ nodes, onAdd }: { nodes: readonly ChartNode[]; onAdd?
 	const [archived, setArchived] = useState(false);
 	const shown = archived ? nodes : nodes.filter((n) => !n.archived);
 	const hasArchived = nodes.some((n) => n.archived);
-	const archivedLeadership = nodes.find((n) => n.archived && n.templateKey === "leadership");
 	const t = tree(shown);
 	return (
 		<section aria-labelledby="org-chart-title" className="flex flex-col gap-5">
@@ -141,28 +140,13 @@ export function OrgChart({ nodes, onAdd }: { nodes: readonly ChartNode[]; onAdd?
 				<>
 					{!t.root ? (
 						<p className="rounded-md bg-surface-2 px-4 py-3 text-sm text-text-2">
-							{archivedLeadership ? (
-								<>
-									The Leadership ministry is archived, so the chart has no root.{" "}
-									<IntentLink
-										href={`/ministries/${archivedLeadership.id}`}
-										className="font-medium text-ink underline underline-offset-4 hover:no-underline"
-									>
-										Open Leadership to restore it
-									</IntentLink>{" "}
-									and put every ministry under it.
-								</>
-							) : (
-								<>
-									There is no Leadership ministry, so the chart has no root. Add Leadership from the templates to put
-									every ministry under it.
-									{onAdd ? (
-										<Button variant="ghost" size="sm" className="ml-2" onClick={onAdd}>
-											Set up ministries
-										</Button>
-									) : null}
-								</>
-							)}
+							There is no Leadership ministry, so the chart has no root. Add Leadership from the templates to put every
+							ministry under it.
+							{onAdd ? (
+								<Button variant="ghost" size="sm" className="ml-2" onClick={onAdd}>
+									Set up ministries
+								</Button>
+							) : null}
 						</p>
 					) : null}
 					{/* Wide charts pan sideways inside this box; the page itself never scrolls sideways. */}
