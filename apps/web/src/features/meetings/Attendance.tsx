@@ -64,7 +64,7 @@ type PresenceAnswer = Extract<Awaited<ReturnType<typeof setPresence>>, { status:
  * A trigger held by a save in flight or unknown (C68). It stays focusable, so focus can return to it when its dialog
  * closes, but it starts nothing; it looks like a disabled button.
  */
-const HELD = "aria-disabled:cursor-not-allowed aria-disabled:opacity-45 aria-disabled:active:translate-y-0";
+export const HELD = "aria-disabled:cursor-not-allowed aria-disabled:opacity-45 aria-disabled:active:translate-y-0";
 
 /**
  * Presence saves, one save lane per person (components/save useRowLanes, C68): marking people at the door never waits
@@ -132,9 +132,12 @@ export function AttendanceCard({
 	canWrite,
 	lane,
 	blocked,
+	headerFinalize,
 	onSettle,
 	onPrefetch,
 }: {
+	/** The page header already offers Finalize attendance; the card leaves its own button out. */
+	headerFinalize?: boolean;
 	meeting: Detail;
 	attendance: Attendance | null;
 	analytics: Analytics | null;
@@ -227,9 +230,9 @@ export function AttendanceCard({
 						>
 							Correct attendance
 						</Button>
-					) : open ? (
+					) : open && !headerFinalize ? (
 						<Button
-							variant="primary"
+							variant="secondary"
 							size="sm"
 							icon={CheckListIcon}
 							aria-disabled={held || undefined}
@@ -709,11 +712,14 @@ export function EvaluationCard({
 	finalized,
 	canWrite,
 	lane,
+	headerRecord,
 	onRecord,
 	onCorrect,
 	onHistory,
 	onPrefetchHistory,
 }: {
+	/** The page header already offers Record evaluation; the card leaves its own button out. */
+	headerRecord?: boolean;
 	evaluation: ShownEvaluation | null;
 	analytics: Analytics | null;
 	finalized: boolean;
@@ -814,16 +820,18 @@ export function EvaluationCard({
 			) : canWrite ? (
 				<div className="flex flex-wrap items-center justify-between gap-3">
 					<p className="text-md text-text-2">Score the meeting while it is fresh. It completes the evaluation task.</p>
-					<Button
-						variant="primary"
-						size="sm"
-						icon={StarIcon}
-						onClick={() => !held && onRecord()}
-						aria-disabled={held || undefined}
-						className={HELD}
-					>
-						Record evaluation
-					</Button>
+					{headerRecord ? null : (
+						<Button
+							variant="secondary"
+							size="sm"
+							icon={StarIcon}
+							onClick={() => !held && onRecord()}
+							aria-disabled={held || undefined}
+							className={HELD}
+						>
+							Record evaluation
+						</Button>
+					)}
 				</div>
 			) : (
 				<p className="text-md text-text-3">Nobody has evaluated this meeting yet.</p>

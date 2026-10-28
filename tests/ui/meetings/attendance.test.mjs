@@ -34,7 +34,8 @@ for (const [name, engine] of ENGINES) {
 				await page.getByText("Attendance is final. To change it", { exact: false }).waitFor();
 
 				await page.setViewportSize({ width: 1440, height: 900 });
-				await page.goto(`${BASE}/meetings/${meetingId}`);
+				// Attendance and the evaluation are in the Results tab; a meeting with cards still to record opens on Guests.
+				await page.goto(`${BASE}/meetings/${meetingId}?tab=results`);
 				await hydrated(page);
 				const attendance = page.getByRole("region", { name: "Attendance" });
 				await attendance.getByText("Final", { exact: true }).waitFor();

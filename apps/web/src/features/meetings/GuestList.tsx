@@ -12,6 +12,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import {
 	Button,
+	buttonVariants,
 	Card,
 	CardHeader,
 	CardHeading,
@@ -35,7 +36,7 @@ import {
 } from "@everyfield/ui/controls";
 import { instant } from "@everyfield/contracts/common";
 import { Avatar, DataTable, StatusBadge, type Column } from "@everyfield/ui/display";
-import { startTransition, useState } from "react";
+import { startTransition, useEffect, useRef, useState } from "react";
 import { NoticeInDialog, RecordDialog, RowNotices, SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
 import {
 	addAttendeeNote,
@@ -120,7 +121,13 @@ export function GuestList({
 	onRemoved,
 	onCard,
 	onStale,
+	request,
+	invitesHref,
 }: {
+	/** The page header asks for the add form or for the first card still to record; each new `n` is one request. */
+	request?: { kind: "add" | "cards"; n: number };
+	/** Send invites as a link beside the filter, when the header's main action is another one. */
+	invitesHref?: string;
 	meeting: Detail;
 	guests: GuestRow[] | null;
 	cards: CardEntry[] | null;
@@ -144,6 +151,20 @@ export function GuestList({
 	const vision = meeting.type === "vision_meeting";
 	const counts = rsvpCounts(shown);
 	const cardOf = new Map((cards ?? []).map((c) => [c.personId, c]));
+	const table = useRef<HTMLDivElement>(null);
+	const seen = useRef(request?.n);
+	useEffect(() => {
+		if (!request || seen.current === request.n) return;
+		seen.current = request.n;
+		if (request.kind === "add") {
+			if (canWrite && lane.wait === null) lane.open({ kind: "add", draft: EMPTY_ADD });
+			return;
+		}
+		// The first attended guest with no card: their row menu holds the card action.
+		const target = shown.find((g) => g.presence === "attended" && !isPending(g) && !cardOf.has(g.person.personId));
+		table.current?.querySelector<HTMLElement>(`[data-guest-menu="${target?.id}"]`)?.focus();
+		// eslint-disable-next-line react-hooks/exhaustive-deps -- one run for each request
+	}, [request?.n]);
 	const marker = attendance?.viewerCanMarkAttendance === true;
 	const final = attendance?.finalized != null;
 	const classOf = new Map((attendance?.items ?? []).map((a) => [a.person.personId, a.classification]));
@@ -435,7 +456,12 @@ export function GuestList({
 							isPending(g) ? null : (
 								<Menu>
 									<MenuTrigger asChild>
-										<IconButton icon={MoreHorizontalIcon} label={`Actions for ${g.person.displayName}`} size="sm" />
+										<IconButton
+											icon={MoreHorizontalIcon}
+											label={`Actions for ${g.person.displayName}`}
+											size="sm"
+											data-guest-menu={g.id}
+										/>
 									</MenuTrigger>
 									<MenuContent align="end">
 										<MenuLabel>Attendance</MenuLabel>
@@ -540,20 +566,27 @@ export function GuestList({
 				<CardHeading>
 					<CardTitle id="guests-title">Guest list</CardTitle>
 				</CardHeading>
-				{guests && guests.length ? (
-					<SegmentedControl
-						label="Show guests"
-						size="sm"
-						value={filter}
-						onValueChange={setFilter}
-						options={[
-							{ value: "all", label: "All", count: shown.length },
-							{ value: "confirmed", label: "Yes", count: counts.confirmed },
-							{ value: "pending", label: "Pending", count: counts.pending },
-							{ value: "declined", label: "No", count: counts.declined },
-						]}
-					/>
-				) : null}
+				<div className="flex flex-wrap items-center gap-3">
+					{invitesHref ? (
+						<IntentLink href={invitesHref} className={buttonVariants({ variant: "secondary", size: "sm" })}>
+							Send invites
+						</IntentLink>
+					) : null}
+					{guests && guests.length ? (
+						<SegmentedControl
+							label="Show guests"
+							size="sm"
+							value={filter}
+							onValueChange={setFilter}
+							options={[
+								{ value: "all", label: "All", count: shown.length },
+								{ value: "confirmed", label: "Yes", count: counts.confirmed },
+								{ value: "pending", label: "Pending", count: counts.pending },
+								{ value: "declined", label: "No", count: counts.declined },
+							]}
+						/>
+					) : null}
+				</div>
 			</CardHeader>
 			<SaveNotice {...lane.noticeProps} dialogOpen={form !== null} className="mb-3" />
 			<RowNotices lanes={presence.lanes} className="mb-3" />
@@ -562,24 +595,26 @@ export function GuestList({
 					Nothing was changed. Reload the page in a moment.
 				</StatePanel>
 			) : (
-				<DataTable
-					caption="Guests"
-					columns={columns}
-					state={{ status: "ready", data: rows }}
-					rowId={(g) => g.id}
-					rowLabel={(g) => g.person.displayName}
-					minWidth={vision ? 760 : 640}
-					empty={{
-						icon: UserMultipleIcon,
-						title: filter === "all" ? "No guests yet" : `No guests with ${RSVP_LABEL[filter]}`,
-						text:
-							filter === "all"
-								? canWrite
-									? "Add the people you invite. Their answers show here."
-									: "When an Owner or Admin adds guests, they appear here."
-								: "Choose All to see everyone.",
-					}}
-				/>
+				<div ref={table}>
+					<DataTable
+						caption="Guests"
+						columns={columns}
+						state={{ status: "ready", data: rows }}
+						rowId={(g) => g.id}
+						rowLabel={(g) => g.person.displayName}
+						minWidth={vision ? 760 : 640}
+						empty={{
+							icon: UserMultipleIcon,
+							title: filter === "all" ? "No guests yet" : `No guests with ${RSVP_LABEL[filter]}`,
+							text:
+								filter === "all"
+									? canWrite
+										? "Add the people you invite. Their answers show here."
+										: "When an Owner or Admin adds guests, they appear here."
+									: "Choose All to see everyone.",
+						}}
+					/>
+				</div>
 			)}
 			{canWrite && guests ? (
 				<div className="mt-4 flex items-center justify-between gap-3">
