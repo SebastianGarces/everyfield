@@ -2,7 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { parseSource, sourceInput } from "./model.ts";
-import { editorContext, organizationNames, plantContext, runSearch, wikiActor, wikiMount } from "./server.ts";
+import {
+	editorContext,
+	logSearchLost,
+	organizationNames,
+	plantContext,
+	runSearch,
+	wikiActor,
+	wikiMount,
+} from "./server.ts";
 
 // Browser writes for the wiki screens. The producer checks the session again and parses every input.
 // Opening the guide or searching does not record a view.
@@ -126,7 +134,10 @@ export async function searchWiki(
 	sourceRaw: string | null,
 ): Promise<SearchResult> {
 	const actor = await wikiActor();
-	if (actor === "down") return { status: "lost" };
+	if (actor === "down") {
+		logSearchLost("actor-down");
+		return { status: "lost" };
+	}
 	if (!actor) return { status: "denied" };
 	const result = await runSearch(actor, query, phase, page, parseSource(sourceRaw ?? undefined));
 	if (result === "lost" || result === "denied") return { status: result };
