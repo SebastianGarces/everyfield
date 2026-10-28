@@ -17,7 +17,7 @@ import { Icon } from "@everyfield/ui/foundations";
 import { useEffect, useState } from "react";
 import { DialogNotice, SaveButton, type SaveIntent } from "../../components/save/parts.tsx";
 import { importTemplates, templateCatalog } from "./actions.ts";
-import { NEW_SETUP, plural, reopened, type Catalog, type Outcome, type SetupForm } from "./model.ts";
+import { NEW_SETUP, plural, type Catalog, type Outcome, type SetupForm } from "./model.ts";
 
 // Set up ministries from the ten templates (REQ-TEAM-003). Nothing is created until the person reviews the exact
 // ministries and roles and confirms. Choosing nothing, closing or going back creates nothing. A template that is
@@ -57,8 +57,7 @@ export function SetupDialog({
 	const [wasOpen, setWasOpen] = useState(open);
 	if (open !== wasOpen) {
 		setWasOpen(open);
-		const fresh = reopened(wasOpen, form);
-		if (fresh) setF(fresh);
+		if (form) setF(form);
 	}
 	useEffect(() => {
 		if (!open || catalog?.status === "ok") return;

@@ -217,8 +217,3 @@ export function planTeamEdit(
 /** `chosen` is null until the person changes a choice: then the default applies (nothing, or the `into` template). */
 export type SetupForm = { chosen: Record<string, string[]> | null; step: "choose" | "review"; problem?: string };
 export const NEW_SETUP: SetupForm = { chosen: null, step: "choose" };
-
-/** The form the setup dialog restarts from when it goes from closed to open; null while it stays as it was. */
-export function reopened(wasOpen: boolean, form: SetupForm | null): SetupForm | null {
-	return form !== null && !wasOpen ? form : null;
-}
