@@ -59,7 +59,10 @@ evidence on Sonnet 5.5 medium. Every seat has the advisor and the update prompt 
 
 The hooks in `.claude/settings.json` route to `bin/evf hook <event>`. They do nothing unless `EVF_RUN` is
 set, so an ordinary session in the repository is untouched. In a seat, session start writes the session id
-on the run and injects `evf refocus` (the goal chain, also after a compaction), the path guard denies an
+on the run and injects `evf refocus` (the goal chain, the ask, the spec and the proof rule, also after a
+compaction). Claude Code cuts hook context at 8,000 characters and 200 lines, so refocus fits itself under
+that: the Done criteria and Non-goals always appear, and any cut is named in a SHORTENED line at the top
+that points to `evf task spec <task> --show`, which prints the stored ask and spec in full. The path guard denies an
 Edit or Write outside `EVF_WORKTREE` (symlinks and `~` resolved), stop and session end are recorded and a
 seat that exits without closing its stage is marked aborted. A session end with reason `clear` or `resume`
 keeps the run open, because the seat continues in the same pane. If Herdr fails before the agent is up,
@@ -87,7 +90,8 @@ process is alive (pid file under `evf/drive/`). If a drive dies inside its own p
 next drive aborts that run without a round and performs the stage again; a PR GitHub already merged is
 recorded, not shipped twice. Jonah polls `evf status --json`.
 
-`evf task new` records the verbatim ask, `evf task spec` the spec with its hash, `evf proof add` one
+`evf task new` records the verbatim ask, `evf task spec` the spec with its hash (`tools/evf/spec.ts` reads its
+sections; the Done list starts at a Done header such as `Done when:` or `## Done criteria`), `evf proof add` one
 proof row per Done criterion bound to the worktree head, `evf check` the author checks as an event when
 the store knows the task, and `evf ask planner` forks the planner's session in plan mode for a question.
 A verify run closes passed only when every numbered Done criterion has a `met` or `n/a` proof at the

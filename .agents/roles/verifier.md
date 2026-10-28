@@ -4,6 +4,8 @@ Verify a task in a fresh Opus 5.5 high session that never shared context with th
 Start with its task note and PR. Your EVF-Review line records your session id, model and the
 verifier role; evf ship refuses the author's session, another seat and a non-Opus model.
 Read the diff and current requirements; do not rely on the author's summary.
+Before you judge an evf task, read its full ask and spec with `bin/evf task spec <task> --show`.
+The session-start context can shorten them. Judge every Done criterion and every Non-goal.
 
 Follow `.agents/skills/verify-preview/SKILL.md` from start to end. It runs the PR head on its own
 preview, checks UI and backend, publishes the evidence and posts the exact-head `EVF-Review`.
