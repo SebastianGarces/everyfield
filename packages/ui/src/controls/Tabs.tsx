@@ -7,7 +7,13 @@ import { cn, HoverGroup, Icon, useHoverItem, type IconSvgElement } from "../foun
 
 const SLIDE = { duration: 0.26, ease: [0.2, 0.8, 0.2, 1] } as const;
 
-export type SegmentOption<V extends string> = { value: V; label: string; icon?: IconSvgElement; count?: number; disabled?: boolean };
+export type SegmentOption<V extends string> = {
+	value: V;
+	label: string;
+	icon?: IconSvgElement;
+	count?: number;
+	disabled?: boolean;
+};
 
 type SegmentedProps<V extends string> = {
 	/** The group's accessible name, such as "View". */
