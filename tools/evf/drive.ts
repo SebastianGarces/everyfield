@@ -383,6 +383,8 @@ const pickOf = (db: DatabaseSync, taskId: number): Pick | null => {
 
 /** Sebastian's pick, in his words, recorded as an approval of gate `pick` so the merge seat can start. */
 export function taskPick(root: string, task: TaskRef, idea: number, ownerApproval: string): number {
+	if (process.env.EVF_RUN)
+		fail("The pick is Sebastian's, recorded by Jonah or a human shell: a seat cannot run evf task pick.");
 	if (!Number.isInteger(idea) || idea < 1 || idea > IDEAS) fail(`Pick an idea from 1 to ${IDEAS}.`);
 	if (ownerApproval.trim().split(/\s+/).filter(Boolean).length < 2)
 		fail('Quote Sebastian\'s pick: --owner-approval "<his words>".');

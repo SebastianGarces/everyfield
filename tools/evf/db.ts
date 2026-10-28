@@ -299,7 +299,7 @@ export function missionFor(db: DatabaseSync, pkg: string): { id: number; title: 
 export function findTask(db: DatabaseSync, task: TaskRef): TaskRow | undefined {
 	return db
 		.prepare(
-			"SELECT id, ref, slug, mode, status, round, goal_id, spec, pr_number, worktree FROM tasks WHERE ref = ? AND status NOT IN ('merged', 'abandoned') ORDER BY id DESC LIMIT 1",
+			"SELECT id, ref, slug, mode, status, round, goal_id, spec, pr_number, worktree FROM tasks WHERE ref = ? AND status NOT IN ('merged', 'abandoned', 'done') ORDER BY id DESC LIMIT 1",
 		)
 		.get(task.id) as TaskRow | undefined;
 }

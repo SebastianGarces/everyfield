@@ -190,6 +190,16 @@ test("OPS-60-prototype: plan with angles, three blind idea seats in their own wo
 		assert.ok(f.herdrCalls().some((c) => c[0] === "notification" && /ready to pick/.test(c[2] ?? "")));
 		assert.equal(cli(f.root, {}, undefined, "drive", "OPS-1").status, 0, "drive exits while the pick is pending");
 		assert.match(cli(f.root, {}, undefined, "task", "pick", "OPS-1", "2").stderr, /Quote Sebastian/);
+		const compareRun = f.runs().find((r) => r.stage === "compare")!;
+		const seatPick = cli(
+			f.root,
+			{ EVF_RUN: String(compareRun.id), EVF_ROLE: "comparer" },
+			undefined,
+			...["task", "pick", "OPS-1", "2", "--owner-approval", "Sebastian likes two"],
+		);
+		assert.equal(seatPick.status, 1);
+		assert.match(seatPick.stderr, /a seat cannot run evf task pick/);
+		assert.equal(f.tasks()[0]!.status, "awaiting_pick", "a seat's pick records nothing");
 		assert.match(
 			cli(f.root, {}, undefined, "task", "handoff", "OPS-1", "--file", f.file("h.md", HANDOFF)).stderr,
 			/no pick yet/,
@@ -236,6 +246,26 @@ test("OPS-60-prototype: plan with angles, three blind idea seats in their own wo
 		assert.match(impl!.spec!, /Approach: idea 2 proved the porch/);
 		assert.equal(f.nextOf().stage, "implement", "the implement task takes over the ref with the handoff as its spec");
 		assert.equal(JSON.parse(cli(f.root, {}, undefined, "status", "--json").stdout).health.open_tasks, 1);
+
+		// After the implement task merges, the finished prototype stays closed: the ref is free for a new task.
+		f.db.prepare("UPDATE tasks SET status = 'merged' WHERE id = ?").run(impl!.id);
+		assert.equal(f.nextOf().stage, "plan", "no open task for the ref, so a fresh one would plan");
+		const again = cli(
+			f.root,
+			{},
+			undefined,
+			"task",
+			"new",
+			"OPS-1",
+			"--mode",
+			"implement",
+			"--ask-file",
+			f.file("b3.md", "y"),
+		);
+		assert.equal(again.status, 0, again.stderr);
+		assert.equal(f.tasks().length, 3, "a new task row, not the done prototype row");
+		assert.equal(f.tasks().at(-1)!.mode, "implement");
+		assert.match(cli(f.root, {}, undefined, "refocus", "OPS-1").stdout, /Task: OPS-1 \(new, round 0 of 3\)/);
 	} finally {
 		f.db.close();
 		f.close();
@@ -262,6 +292,24 @@ test("OPS-60-blind: the read guard confines an idea seat to its worktree and lea
 		);
 		assert.match(read({ EVF_BLIND: "1" }, { path: "../ops-1-idea2" }, "Grep").stdout, /deny/);
 		assert.equal(read({ EVF_BLIND: "1" }, { pattern: "x" }, "Grep").stdout, "", "a search of the cwd stays inside");
+		assert.match(read({ EVF_BLIND: "1" }, { path: "~/anything" }, "Glob").stdout, /deny/, "~ is the home directory");
+		assert.match(
+			read({ EVF_BLIND: "1" }, { pattern: `${join(f.root, ".worktrees/ops-1-idea2")}/**` }, "Glob").stdout,
+			/deny.*ops-1-idea2 is outside/,
+			"an absolute pattern is judged by its fixed prefix",
+		);
+		assert.match(read({ EVF_BLIND: "1" }, { pattern: "../ops-1-idea2/*" }, "Glob").stdout, /deny/);
+		assert.match(read({ EVF_BLIND: "1" }, { pattern: "~/x/**/*.ts" }, "Glob").stdout, /deny/);
+		assert.equal(
+			read({ EVF_BLIND: "1" }, { pattern: "src/**/*.ts" }, "Glob").stdout,
+			"",
+			"a relative pattern stays inside",
+		);
+		assert.equal(
+			read({ EVF_BLIND: "1" }, { pattern: "a..b/*" }, "Glob").stdout,
+			"",
+			"dots inside a name are not a parent step",
+		);
 		assert.equal(
 			read({}, { file_path: join(f.root, ".worktrees/ops-1-idea2/IDEA.md") }).stdout,
 			"",

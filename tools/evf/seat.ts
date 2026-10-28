@@ -29,7 +29,7 @@ const MAX_LINES = 40;
 export function refocusText(db: DatabaseSync, task: TaskRef): string {
 	const t = db
 		.prepare(
-			"SELECT id, title, ask, spec, status, round, goal_id FROM tasks WHERE ref = ? AND status NOT IN ('merged', 'abandoned') ORDER BY id DESC LIMIT 1",
+			"SELECT id, title, ask, spec, status, round, goal_id FROM tasks WHERE ref = ? AND status NOT IN ('merged', 'abandoned', 'done') ORDER BY id DESC LIMIT 1",
 		)
 		.get(task.id) as Row | undefined;
 	const project = db.prepare("SELECT body FROM goals WHERE key = 'project'").get() as Row | undefined;
@@ -260,8 +260,18 @@ function readGuard(input: HookInput): number {
 	if (process.env.EVF_BLIND !== "1" || !worktree) return 0;
 	const target = input.tool_input?.file_path ?? input.tool_input?.path;
 	const cwd = input.cwd ?? process.cwd();
-	const absolute = resolve(cwd, typeof target === "string" && target ? target : ".");
-	if (inside(absolute, worktree)) return 0;
-	deny(`This idea seat reads only its own worktree ${worktree}; ${absolute} is outside it.`);
+	const absolute = resolve(cwd, typeof target === "string" && target ? expandHome(target) : ".");
+	if (!inside(absolute, worktree)) {
+		deny(`This idea seat reads only its own worktree ${worktree}; ${absolute} is outside it.`);
+		return 0;
+	}
+	// A Glob or Grep pattern can leave the search path on its own (absolute, ~ or ..): judge its fixed prefix too.
+	const pattern = input.tool_input?.pattern;
+	if (typeof pattern === "string" && (/^[~/]/.test(pattern) || /(^|\/)\.\.(\/|$)/.test(pattern))) {
+		const prefix = expandHome(pattern).split(/[*?[{]/)[0]!;
+		const where = resolve(absolute, prefix);
+		if (!inside(where, worktree))
+			deny(`This idea seat reads only its own worktree ${worktree}; ${where} is outside it.`);
+	}
 	return 0;
 }
