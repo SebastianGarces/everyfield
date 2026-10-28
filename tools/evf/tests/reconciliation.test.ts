@@ -901,7 +901,13 @@ test("BUG-c048ea5-folder-path: maintenance refuses an existing folder without a 
 				/Maintenance owning paths must stay in documentation and workflow tooling/,
 			);
 		}
-		for (const path of ["docs/tooling/", "AGENTS.md", "everyfield-feature-review.html", "design/handoff/screens.md"]) {
+		for (const path of [
+			"docs/tooling/",
+			"tools/evf-tui/",
+			"AGENTS.md",
+			"everyfield-feature-review.html",
+			"design/handoff/screens.md",
+		]) {
 			f.cfg.maintenanceTasks[task.id].owningPaths = [path];
 			writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
 			f.commit();
