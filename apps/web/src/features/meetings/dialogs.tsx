@@ -1,7 +1,7 @@
 "use client";
 
 import { Alert02Icon, Cancel01Icon } from "@hugeicons/core-free-icons";
-import { Checkbox, Field, Radio, RadioGroup, SearchInput, Spinner, Textarea } from "@everyfield/ui/controls";
+import { Checkbox, Field, IconButton, Radio, RadioGroup, SearchInput, Spinner, Textarea } from "@everyfield/ui/controls";
 import { Icon } from "@everyfield/ui/foundations";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import type { PersonHit } from "@everyfield/domain/people";
@@ -268,14 +268,14 @@ export function PeoplePicker({
 								className="flex min-h-8 items-center gap-1 rounded-full bg-surface-2 py-0.5 pr-1 pl-3 text-sm text-ink"
 							>
 								{p.name}
-								<button
-									type="button"
-									aria-label={`Remove ${p.name}`}
-									className="grid size-7 place-items-center rounded-full text-text-2 hover:bg-surface-3 hover:text-ink focus-visible:shadow-[0_0_0_2px_var(--ef-focus)] focus-visible:outline-none"
+								<IconButton
+									icon={Cancel01Icon}
+									label={`Remove ${p.name}`}
+									variant="soft"
+									size="sm"
+									className="size-7 rounded-full bg-transparent"
 									onClick={() => toggle(p, false)}
-								>
-									<Icon icon={Cancel01Icon} size={16} />
-								</button>
+								/>
 							</li>
 						))}
 					</ul>

@@ -248,7 +248,7 @@ export function GuestList({
 								: `${added.length} guests are on the guest list.`,
 						tone: "success",
 					});
-				toast({ message: `${added.length} added. ${left.length} not added.`, tone: "success" });
+				toast({ message: `${added.length} added. ${left.length} not added.`, tone: "info" });
 				lane.open({ kind: "add", draft: { ...draft, people: left, notAdded: left.map((p) => p.name) } });
 			},
 		});

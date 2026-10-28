@@ -120,7 +120,7 @@ for (const [name, engine] of ENGINES) {
 			await dialog.getByText("Chosen (3)").waitFor();
 			await dialog.getByRole("button", { name: `Remove ${p1}` }).waitFor();
 
-			// The second person's save is lost both times: the others are added and the form keeps only that person.
+			// The third person's save is lost both times: the others are added and the form keeps only that person.
 			let lost = 0;
 			await context.route("**/*", async (route) => {
 				const r = route.request();

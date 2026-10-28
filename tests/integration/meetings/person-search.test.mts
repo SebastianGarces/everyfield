@@ -60,7 +60,10 @@ test("AC:TARGET-MTG-011 a query word matches the start of a name word or the ema
 	assert.deepEqual(await search("example"), []);
 	assert.deepEqual(await search("test"), []);
 	assert.deepEqual(await search("reyes"), ["Daniel Reyes"]);
-	assert.deepEqual(await search("jose.n"), []);
+	assert.deepEqual(await search("jose.n"), ["José Núñez-Pérez"]);
+	assert.deepEqual(await search("maria@"), ["Maria Santos"]);
+	assert.deepEqual(await search("maria@example.test"), ["Maria Santos"]);
+	assert.deepEqual(await search("@example.test"), []);
 	assert.deepEqual(await search("n"), ["José Núñez-Pérez", "Sara Nunez"]);
 	assert.deepEqual(await search("   "), []);
 });
@@ -100,5 +103,5 @@ test("INV-access the search keeps the live access check, returns at most 8 and s
 		searchPeople(tx, { session: outsider.session, selected: { kind: "plant", id: plant.id } }, "s"),
 	);
 	assert.equal(refused.status, "refused");
-	void member;
+	assert.deepEqual(await search("ros", member), ["Rosa Bennett"]);
 });
