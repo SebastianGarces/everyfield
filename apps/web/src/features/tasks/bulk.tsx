@@ -55,12 +55,11 @@ export function BulkBar({
 	const hint = useId();
 	const reasonId = useId();
 	const mixed = actions.kind === "mixed";
-	const reason =
-		actions.kind === "mixed"
-			? `${actions.settled} closed ${actions.settled === 1 ? "task is" : "tasks are"} selected. Bulk changes apply to open tasks.`
-			: actions.kind === "settled"
-				? "Closed tasks reopen one at a time, from the task's menu or panel."
-				: null;
+	const reason = mixed
+		? `${actions.settled} closed ${actions.settled === 1 ? "task is" : "tasks are"} selected. Bulk changes apply to open tasks.`
+		: actions.kind === "settled"
+			? "Closed tasks reopen one at a time, from the task's menu or panel."
+			: null;
 	// A save in flight and a closed task in the selection both disable the actions; each says why.
 	const why = wait ? hint : mixed ? reasonId : undefined;
 	return (

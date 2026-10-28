@@ -94,10 +94,8 @@ export const SORT_LABEL: Record<(typeof SORTS)[number], string> = {
 	created: "Date added",
 };
 
-/** Why a task panel has no first history page. */
-export type HistoryProblem = "unrecorded" | "failed";
 /** A refusal as "unavailable" means no status change is recorded; any other miss is a failed read. */
-export const historyProblem = (r: Exclude<Outcome<unknown>, { status: "ok" }>): HistoryProblem =>
+export const historyProblem = (r: Exclude<Outcome<unknown>, { status: "ok" }>): "unrecorded" | "failed" =>
 	r.status === "refused" && r.code === "unavailable" ? "unrecorded" : "failed";
 
 export const isSettled = (s: Status) => s === "complete" || s === "no_longer_needed";
