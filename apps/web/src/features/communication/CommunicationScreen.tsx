@@ -345,7 +345,9 @@ function Compose({
 		const now = new Date();
 		return { min: localStamp(now), max: localStamp(new Date(now.getTime() + WINDOW_MS)) };
 	});
-	const [form, setForm] = useState<DraftForm>(() => (opening ? formFrom(opening.draft, opening.people) : blankForm(meetingId)));
+	const [form, setForm] = useState<DraftForm>(() =>
+		opening ? formFrom(opening.draft, opening.people) : blankForm(meetingId),
+	);
 	const [issues, setIssues] = useState<Issues>({});
 	const [status, setStatus] = useState<string | null>(null);
 	const [pending, setPending] = useState<string | null>(null);
