@@ -50,7 +50,10 @@ export function MeetingStatusBadge({
  */
 export function RsvpBar({ yes, other, className }: { yes: number; other: number; className?: string }) {
 	return (
-		<span aria-hidden="true" className={cn("flex h-1.5 w-full max-w-[160px] gap-[3px] overflow-hidden rounded-pill", className)}>
+		<span
+			aria-hidden="true"
+			className={cn("flex h-1.5 w-full max-w-[160px] gap-[3px] overflow-hidden rounded-pill", className)}
+		>
 			{yes + other === 0 ? <span className="flex-1 bg-surface-3" /> : null}
 			{yes ? <span className="bg-green-500" style={{ flex: yes }} /> : null}
 			{other ? <span className="bg-surface-3" style={{ flex: other }} /> : null}
