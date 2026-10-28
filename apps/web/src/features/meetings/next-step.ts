@@ -4,7 +4,6 @@ import type { MeetingStatus } from "./model.ts";
 // the answer. The table in the WP-020/ui spec is the contract; tests/integration/meetings/next-step.test.mts runs every row.
 
 export type Primary = "add-guest" | "send-invites" | "check-in" | "finalize" | "cards" | "evaluation";
-export type Secondary = "check-in" | "finalize";
 export type TabId = "guests" | "kit" | "results";
 
 type NextStepInput = {
@@ -25,14 +24,13 @@ type NextStepInput = {
 export type NextStep = {
 	primary: Primary | null;
 	/** Header buttons next to the primary, at most two. */
-	secondary: Secondary[];
+	secondary: ("check-in" | "finalize")[];
 	/** Send invites as a link in the Guests tab toolbar: the primary is something else and invites are still open. */
 	toolbarInvites: boolean;
 };
 
 export function nextStep(i: NextStepInput): NextStep {
 	if (i.status === "cancelled") return { primary: null, secondary: [], toolbarInvites: false };
-	const checkIn = i.checkIn;
 	if (i.final) {
 		const primary: Primary | null =
 			!i.canWrite || !i.vision ? null : i.attendedWithoutCard > 0 ? "cards" : i.evaluationSaved ? null : "evaluation";
@@ -41,20 +39,20 @@ export function nextStep(i: NextStepInput): NextStep {
 	if (i.status === "planning" || i.status === "ready") {
 		return {
 			primary: i.canWrite ? (i.guestCount === 0 ? "add-guest" : "send-invites") : null,
-			secondary: checkIn ? ["check-in"] : [],
+			secondary: i.checkIn ? ["check-in"] : [],
 			toolbarInvites: false,
 		};
 	}
 	if (i.status === "in_progress") {
 		return {
-			primary: checkIn ? "check-in" : null,
+			primary: i.checkIn ? "check-in" : null,
 			secondary: i.canWrite && i.canSettle ? ["finalize"] : [],
 			toolbarInvites: i.canWrite,
 		};
 	}
 	// completed: a practice marked held is completed too
 	const finalize = i.canWrite && i.canSettle;
-	return { primary: finalize ? "finalize" : null, secondary: checkIn ? ["check-in"] : [], toolbarInvites: false };
+	return { primary: finalize ? "finalize" : null, secondary: i.checkIn ? ["check-in"] : [], toolbarInvites: false };
 }
 
 /** The tab a primary action works in. With no action: Results once the meeting is over, Guests otherwise. */
