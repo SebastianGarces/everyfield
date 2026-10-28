@@ -148,7 +148,9 @@ export function RoleSetupDialog({
 											disabled={left === 0}
 											onCheckedChange={(v) => toggleTeam(t.key, v === true)}
 											label={t.key === teamKey ? `${t.name} (this ministry's template)` : t.name}
-											description={left === 0 ? "This ministry has all of its roles." : `${plural(left, "role")} to add`}
+											description={
+												left === 0 ? "This ministry has all of its roles." : `${plural(left, "role")} to add`
+											}
 										/>
 										{open ? (
 											<fieldset className="mb-2 ml-8 flex flex-col">
