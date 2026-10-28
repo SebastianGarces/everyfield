@@ -212,9 +212,6 @@ export function seedProgress(
 				if (e.commit) entries.push({ pkg, ref: pkg, commit: e.commit, stage: "done", acknowledged: true, p });
 		}
 	}
-	const missionFor = db.prepare(
-		"SELECT id FROM goals WHERE kind = 'mission' AND EXISTS (SELECT 1 FROM json_each(goals.packages) WHERE value = ?)",
-	);
 	const insertTask = db.prepare(
 		`INSERT INTO tasks (slug, mode, ref, goal_id, title, ask, status, pr_number, merge_commit, created_at, updated_at)
 		 VALUES (?, 'implement', ?, ?, ?, ?, 'merged', ?, ?, ?, ?)
@@ -230,7 +227,7 @@ export function seedProgress(
 		for (const x of entries) {
 			const evidence = (x.p.evidence ?? []).find((e) => e.commit === x.commit);
 			const pr = /PR #(\d+)/.exec(evidence?.note ?? "")?.[1];
-			const goal = missionFor.get(x.pkg) as { id: number } | undefined;
+			const goal = missionFor(db, x.pkg);
 			const at = x.p.updated_at ?? now();
 			const inserted = insertTask.run(
 				slugOf(x.ref),
@@ -279,6 +276,16 @@ export type TaskRow = {
 };
 
 /** The open task row for a ref (one per ref until it merges), created as `new` when none exists. */
+/** The mission goal that owns a package, if the goals are synced. */
+export function missionFor(db: DatabaseSync, pkg: string): { id: number; title: string } | undefined {
+	if (!pkg) return undefined;
+	return db
+		.prepare(
+			"SELECT id, title FROM goals WHERE kind = 'mission' AND EXISTS (SELECT 1 FROM json_each(goals.packages) WHERE value = ?)",
+		)
+		.get(pkg) as { id: number; title: string } | undefined;
+}
+
 export function ensureTask(db: DatabaseSync, task: TaskRef, mode: string): TaskRow {
 	const open = db
 		.prepare(
@@ -287,13 +294,7 @@ export function ensureTask(db: DatabaseSync, task: TaskRef, mode: string): TaskR
 		.get(task.id) as TaskRow | undefined;
 	if (open) return open;
 	const ts = now();
-	const goal = task.wp
-		? (db
-				.prepare(
-					"SELECT id FROM goals WHERE kind = 'mission' AND EXISTS (SELECT 1 FROM json_each(goals.packages) WHERE value = ?)",
-				)
-				.get(task.wp) as { id: number } | undefined)
-		: undefined;
+	const goal = missionFor(db, task.wp);
 	const id = db
 		.prepare(
 			"INSERT INTO tasks (slug, mode, ref, goal_id, title, branch, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 'new', ?, ?)",

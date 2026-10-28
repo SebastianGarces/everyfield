@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync } from "node:fs";
+import { chmodSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fixture, source } from "./fixtures.ts";
@@ -15,6 +16,30 @@ const cli = (cwd: string, env: Record<string, string>, input: unknown, ...args: 
 		env: { ...process.env, EVF_RUN: "", EVF_WORKTREE: "", EVF_SESSION: "", HERDR_PANE_ID: "", ...env },
 		input: input === undefined ? "" : JSON.stringify(input),
 	});
+
+/** A Herdr on the fixture's PATH that records its calls and fails where herdr-state.json says so. */
+function fakeHerdr(root: string) {
+	const calls = join(root, "herdr-calls.json"),
+		state = join(root, "herdr-state.json");
+	writeFileSync(calls, "[]");
+	writeFileSync(state, "{}");
+	writeFileSync(
+		join(root, "fake-bin/herdr"),
+		`#!${process.execPath}\nconst fs=require("node:fs");const a=process.argv.slice(2);\n` +
+			`const calls=JSON.parse(fs.readFileSync(${JSON.stringify(calls)},"utf8"));calls.push(a);fs.writeFileSync(${JSON.stringify(calls)},JSON.stringify(calls));\n` +
+			`const st=JSON.parse(fs.readFileSync(${JSON.stringify(state)},"utf8"));const die=m=>{process.stderr.write(m);process.exit(1)};\n` +
+			`let r={};if(a[0]==="workspace"&&a[1]==="create"){if(st.createFails)die("fixture: no herdr server");r={workspace:{workspace_id:"w9"},tab:"w9:t1",root_pane:{pane_id:"w9:p1"}};}\n` +
+			`else if(a[0]==="agent"&&a[1]==="start"){if(st.startFails)die("fixture: agent did not become idle");r={agent:{name:a[2]}};}\n` +
+			`else if(a[0]==="pane"&&a[1]==="read")process.stdout.write(st.screen||"");\n` +
+			`else if(a[0]==="agent"&&a[1]==="wait")r={agent:{agent_status:"idle"}};\n` +
+			`if(a[0]!=="pane")process.stdout.write(JSON.stringify({result:r}));\n`,
+	);
+	chmodSync(join(root, "fake-bin/herdr"), 0o755);
+	return {
+		calls: () => JSON.parse(readFileSync(calls, "utf8")) as string[][],
+		setState: (s: object) => writeFileSync(state, JSON.stringify(s)),
+	};
+}
 
 function seatFixture() {
 	const f = fixture(),
@@ -48,7 +73,13 @@ function seatFixture() {
 		EVF_WORKTREE: worktree,
 		EVF_SESSION: SESSION,
 	};
-	return { ...f, task, worktree, db, taskId: row.id, run: Number(run), events, env };
+	const runs = () =>
+		db
+			.prepare(
+				"SELECT id, stage, role, status, session_id, herdr_agent, herdr_pane, summary FROM runs WHERE task_id = ? ORDER BY id",
+			)
+			.all(row.id) as Array<Record<string, unknown>>;
+	return { ...f, task, worktree, db, taskId: row.id, run: Number(run), events, runs, env, herdr: fakeHerdr(f.root) };
 }
 
 test("OPS-58-launch: a dry run prints the worktree, workspace, agent and store steps and writes nothing", () => {
@@ -74,6 +105,97 @@ test("OPS-58-launch: a dry run prints the worktree, workspace, agent and store s
 			cli(f.root, {}, undefined, "launch", "OPS-1", "--role", "cook", "--dry-run").stderr,
 			/--role must be one of planner, implementer/,
 		);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-58-launch: a real launch records the run, passes EVF_RUN to the workspace and starts the agent; the trust dialog is answered once", () => {
+	const f = seatFixture();
+	try {
+		writeFileSync(join(f.root, "prompt.txt"), "Begin.\n");
+		const out = cli(f.root, {}, undefined, "launch", "OPS-1", "--role", "implementer", "--prompt-file", "prompt.txt");
+		assert.equal(out.status, 0, out.stderr);
+		const printed = JSON.parse(out.stdout) as Record<string, unknown>;
+		const run = f.runs().at(-1)!;
+		assert.equal(printed.run, run.id);
+		assert.equal(printed.workspace, "w9");
+		assert.deepEqual(
+			[run.stage, run.role, run.status, run.herdr_agent, run.herdr_pane],
+			["implement", "implementer", "started", "implementer-ops-1", "w9:p1"],
+		);
+		assert.match(String(run.session_id), /^[0-9a-f-]{36}$/);
+		const calls = f.herdr.calls();
+		const create = calls.find((c) => c[0] === "workspace")!,
+			start = calls.find((c) => c[0] === "agent" && c[1] === "start")!;
+		assert.ok(create.includes(`EVF_RUN=${run.id}`), "the seat's environment names its run");
+		assert.ok(create.some((arg) => /^EVF_WORKTREE=.*\.worktrees\/ops-1$/.test(arg)));
+		assert.deepEqual(start.slice(2, 7), ["implementer-ops-1", "--kind", "claude", "--pane", "w9:p1"]);
+		assert.ok(start.includes(String(run.session_id)), "Claude Code starts with the session id evf chose");
+		assert.deepEqual(calls.at(-1), ["agent", "prompt", "implementer-ops-1", "Begin."]);
+		const task = f.db.prepare("SELECT status, herdr_workspace_id FROM tasks WHERE id = ?").get(f.taskId) as Record<
+			string,
+			unknown
+		>;
+		assert.deepEqual([task.status, task.herdr_workspace_id], ["active", "w9"]);
+		const events = f.db
+			.prepare("SELECT type FROM events WHERE run_id = ? ORDER BY id")
+			.all(run.id)
+			.map((e) => (e as { type: string }).type);
+		assert.deepEqual(events, ["stage_start", "prompt_sent"]);
+
+		// A fresh worktree may sit at Claude Code's folder-trust dialog: evf accepts it and the seat reaches idle alone.
+		f.herdr.setState({ startFails: true, screen: "Do you trust the files in this folder?\n> Yes, proceed" });
+		const trusted = cli(f.root, {}, undefined, "launch", "OPS-1", "--role", "verifier");
+		assert.equal(trusted.status, 0, trusted.stderr);
+		const after = f.herdr.calls().slice(calls.length);
+		assert.deepEqual(
+			after.filter((c) => c[0] === "pane" || c[1] === "wait" || c[1] === "rename").map((c) => c.slice(0, 3)),
+			[
+				["pane", "read", "w9:p1"],
+				["pane", "send-keys", "w9:p1"],
+				["agent", "wait", "w9:p1"],
+				["agent", "rename", "w9:p1"],
+			],
+		);
+		assert.deepEqual([f.runs().at(-1)!.status, f.runs().at(-1)!.herdr_agent], ["started", "verifier-ops-1"]);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-58-launch: every Herdr failure before the agent is up aborts the run, so the store never lists a seat that does not exist", () => {
+	const f = seatFixture();
+	try {
+		const launch = (env: Record<string, string> = {}) =>
+			cli(f.root, env, undefined, "launch", "OPS-1", "--role", "implementer");
+		const last = () => f.runs().at(-1)!;
+		f.herdr.setState({ startFails: true, screen: "claude: command not found" });
+		const noStart = launch();
+		assert.equal(noStart.status, 1);
+		assert.match(
+			noStart.stderr,
+			/herdr agent start failed in workspace w9 pane w9:p1: fixture: agent did not become idle/,
+		);
+		assert.equal(last().status, "aborted");
+		assert.match(String(last().summary), /^launch failed: herdr agent start failed/);
+
+		f.herdr.setState({ createFails: true });
+		const noWorkspace = launch();
+		assert.equal(noWorkspace.status, 1);
+		assert.match(noWorkspace.stderr, /herdr workspace create failed: fixture: no herdr server/);
+		assert.equal(last().status, "aborted");
+		assert.match(String(last().summary), /^launch failed: herdr workspace create failed/);
+		assert.ok(!f.herdr.calls().slice(-1)[0]!.includes("start"), "no agent start without a workspace");
+
+		// git stays reachable; herdr is not on this PATH (evf never finds it under /usr/bin).
+		const noHerdr = launch({ PATH: "/usr/bin:/bin" });
+		assert.equal(noHerdr.status, 1);
+		assert.match(noHerdr.stderr, /herdr workspace create failed: spawnSync herdr ENOENT/);
+		assert.equal(last().status, "aborted");
+		assert.equal(f.runs().filter((r) => r.status === "started").length, 1, "only the fixture's own run is live");
 	} finally {
 		f.db.close();
 		f.close();
@@ -184,8 +306,20 @@ test("OPS-58-hooks: the path guard denies an edit outside the seat's worktree an
 		};
 		assert.equal(denied.hookSpecificOutput.permissionDecision, "deny");
 		assert.match(denied.hookSpecificOutput.permissionDecisionReason, /only inside its worktree/);
-		assert.equal(edit("../../evf.config.json").status, 0);
-		assert.match(edit("../../evf.config.json").stdout, /deny/);
+		const relativeOut = edit("../../evf.config.json");
+		assert.equal(relativeOut.status, 0, relativeOut.stderr);
+		assert.match(relativeOut.stdout, /deny/);
+		symlinkSync(join(f.root, "outside/not-yet.ts"), join(f.worktree, "dangling-link"));
+		assert.match(edit(join(f.worktree, "dangling-link")).stdout, /deny/, "a dangling symlink resolves to its target");
+		mkdirSync(join(f.worktree, "src"), { recursive: true });
+		symlinkSync(join(f.root, "evf.config.json"), join(f.worktree, "src/config-link"));
+		assert.match(edit("src/config-link").stdout, /deny/, "a symlink to an existing file outside is denied");
+		const home = edit("~/evf-seat-guard-probe.ts");
+		assert.match(home.stdout, /deny/, "~ is the home directory, not a folder in the worktree");
+		assert.match(
+			home.stdout,
+			new RegExp(join(homedir(), "evf-seat-guard-probe.ts").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+		);
 		const unguarded = cli(
 			f.root,
 			{ EVF_RUN: f.env.EVF_RUN },
@@ -199,15 +333,26 @@ test("OPS-58-hooks: the path guard denies an edit outside the seat's worktree an
 		assert.equal(stop.status, 0, stop.stderr);
 		assert.equal(stop.stdout, "");
 		assert.equal(f.events("stop").length, 1);
-		const end = cli(f.root, f.env, { session_id: SESSION, reason: "exit" }, "hook", "session-end");
+		const status = () =>
+			f.db.prepare("SELECT status, ended_at, session_id FROM runs WHERE id = ?").get(f.run) as {
+				status: string;
+				ended_at: string | null;
+				session_id: string;
+			};
+		for (const reason of ["clear", "resume"]) {
+			const kept = cli(f.root, f.env, { session_id: SESSION, reason }, "hook", "session-end");
+			assert.equal(kept.status, 0, kept.stderr);
+			assert.equal(status().status, "started", `${reason} keeps the seat's run open`);
+			assert.match(f.events("session_end").at(-1)!.payload, /"aborted":false/);
+		}
+		const next = "55555555-5555-4555-8555-555555555555";
+		cli(f.root, f.env, { session_id: next, source: "clear" }, "hook", "session-start");
+		assert.equal(status().session_id, next, "the session after /clear is recorded on the same run");
+		const end = cli(f.root, f.env, { session_id: next, reason: "exit" }, "hook", "session-end");
 		assert.equal(end.status, 0, end.stderr);
-		const run = f.db.prepare("SELECT status, ended_at FROM runs WHERE id = ?").get(f.run) as {
-			status: string;
-			ended_at: string | null;
-		};
-		assert.equal(run.status, "aborted", "a seat that exits without closing its stage is aborted");
-		assert.ok(run.ended_at);
-		assert.match(f.events("session_end")[0]!.payload, /"aborted":true/);
+		assert.equal(status().status, "aborted", "a seat that exits without closing its stage is aborted");
+		assert.ok(status().ended_at);
+		assert.match(f.events("session_end").at(-1)!.payload, /"aborted":true/);
 	} finally {
 		f.db.close();
 		f.close();

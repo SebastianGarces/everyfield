@@ -391,7 +391,7 @@ function main(argv: string[]): number | Promise<number> {
 			return refocus(root, parseTask(args[0]));
 		case "session":
 			if (args.length) break;
-			return session(root);
+			return session();
 		case "hook": {
 			const event = args.shift();
 			if (!event || args.length) break;

@@ -1,7 +1,8 @@
-import { existsSync, readFileSync, realpathSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, readlinkSync, realpathSync } from "node:fs";
+import { homedir } from "node:os";
 import { basename, dirname, resolve, sep } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
-import { openWorkDb } from "./db.ts";
+import { missionFor, openWorkDb } from "./db.ts";
 import { fail, parseTask, run, type TaskRef } from "./lib.ts";
 
 /**
@@ -33,15 +34,7 @@ export function refocusText(db: DatabaseSync, task: TaskRef): string {
 		.get(task.id) as Row | undefined;
 	const project = db.prepare("SELECT body FROM goals WHERE key = 'project'").get() as Row | undefined;
 	const mission = (
-		t?.goal_id
-			? db.prepare("SELECT title FROM goals WHERE id = ?").get(t.goal_id as number)
-			: task.wp
-				? db
-						.prepare(
-							"SELECT title FROM goals WHERE kind = 'mission' AND EXISTS (SELECT 1 FROM json_each(goals.packages) WHERE value = ?)",
-						)
-						.get(task.wp)
-				: undefined
+		t?.goal_id ? db.prepare("SELECT title FROM goals WHERE id = ?").get(t.goal_id as number) : missionFor(db, task.wp)
 	) as Row | undefined;
 	const stage = t
 		? (db
@@ -92,7 +85,7 @@ export function sessionId(): string | null {
 	}
 }
 
-export function session(_root: string): number {
+export function session(): number {
 	const id = sessionId();
 	if (!id)
 		fail("No Claude Code session id here: EVF_SESSION is unset and this is not a Herdr pane with a detected agent.");
@@ -109,12 +102,24 @@ function readHookInput(): HookInput {
 	}
 }
 
-/** The real path of `path`, resolving the longest existing prefix so a file that does not exist yet still compares. */
+/**
+ * The real path of `path`: symlinks resolved, including a dangling one (its target is where a write would land), and
+ * the longest existing prefix resolved so a file that does not exist yet still compares.
+ */
 function realPath(path: string): string {
 	if (existsSync(path)) return realpathSync(path);
 	const parent = dirname(path);
-	return parent === path ? path : resolve(realPath(parent), basename(path));
+	if (parent === path) return path;
+	const here = resolve(realPath(parent), basename(path));
+	try {
+		if (lstatSync(here).isSymbolicLink()) return realPath(resolve(dirname(here), readlinkSync(here)));
+	} catch {
+		// Not a link: a path that does not exist yet.
+	}
+	return here;
 }
+/** Claude Code expands a leading ~ in tool paths; the guard must see the same file. */
+const expandHome = (path: string) => (path === "~" || path.startsWith("~/") ? homedir() + path.slice(1) : path);
 const inside = (path: string, dir: string) => {
 	const p = realPath(path),
 		d = realPath(dir);
@@ -131,20 +136,19 @@ function record(db: DatabaseSync, taskId: number, runId: number, type: string, p
 	);
 }
 
-function seatRun(
-	db: DatabaseSync,
-	runId: number,
-): { id: number; task_id: number; session_id: string | null; ref: string; role: string; status: string } | null {
+type SeatRun = { id: number; task_id: number; session_id: string | null; ref: string; role: string; status: string };
+function seatRun(db: DatabaseSync, runId: number): SeatRun | null {
 	return (
 		(db
 			.prepare(
 				"SELECT r.id, r.task_id, r.session_id, r.role, r.status, t.ref FROM runs r JOIN tasks t ON t.id = r.task_id WHERE r.id = ?",
 			)
-			.get(runId) as
-			| { id: number; task_id: number; session_id: string | null; ref: string; role: string; status: string }
-			| undefined) ?? null
+			.get(runId) as SeatRun | undefined) ?? null
 	);
 }
+
+/** Claude Code ends a session on /clear and an in-app /resume too; the seat keeps working in the same pane. */
+const SEAT_CONTINUES = new Set(["clear", "resume"]);
 
 const seatRunId = (): number | null => {
 	const id = Number(process.env.EVF_RUN);
@@ -191,12 +195,16 @@ export function hook(root: string, event: string): number {
 			});
 			return 0;
 		}
-		// session-end: a seat that exits without closing its stage is aborted, never silently passed.
-		const ended = db
-			.prepare("UPDATE runs SET status = 'aborted', ended_at = ? WHERE id = ? AND status = 'started'")
-			.run(new Date().toISOString(), runId).changes;
+		// session-end: a seat that exits without closing its stage is aborted, never silently passed. A clear or
+		// resume is a new session in the same seat, so the run stays open and the next SessionStart records its id.
+		const reason = input.reason ?? null;
+		const ended = SEAT_CONTINUES.has(reason ?? "")
+			? 0
+			: db
+					.prepare("UPDATE runs SET status = 'aborted', ended_at = ? WHERE id = ? AND status = 'started'")
+					.run(new Date().toISOString(), runId).changes;
 		record(db, seat.task_id, runId, "session_end", {
-			reason: input.reason ?? null,
+			reason,
 			aborted: ended > 0,
 			summary: `${seat.role}@${seat.ref} session ended${ended ? " before the stage closed" : ""}`,
 		});
@@ -212,7 +220,7 @@ function pathGuard(input: HookInput): number {
 	if (!worktree) return 0;
 	const target = input.tool_input?.file_path ?? input.tool_input?.notebook_path;
 	if (typeof target !== "string" || !target) return 0;
-	const absolute = resolve(input.cwd ?? process.cwd(), target);
+	const absolute = resolve(input.cwd ?? process.cwd(), expandHome(target));
 	if (inside(absolute, worktree)) return 0;
 	console.log(
 		JSON.stringify({

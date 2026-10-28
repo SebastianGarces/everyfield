@@ -60,9 +60,12 @@ evidence on Sonnet 5.5 medium. Every seat has the advisor and the update prompt 
 The hooks in `.claude/settings.json` route to `bin/evf hook <event>`. They do nothing unless `EVF_RUN` is
 set, so an ordinary session in the repository is untouched. In a seat, session start writes the session id
 on the run and injects `evf refocus` (the goal chain, also after a compaction), the path guard denies an
-Edit or Write outside `EVF_WORKTREE`, stop and session end are recorded and a seat that exits without
-closing its stage is marked aborted. `evf session` prints the pane's Claude Code session id from Herdr,
-for the EVF-Author and EVF-Review lines.
+Edit or Write outside `EVF_WORKTREE` (symlinks and `~` resolved), stop and session end are recorded and a
+seat that exits without closing its stage is marked aborted. A session end with reason `clear` or `resume`
+keeps the run open, because the seat continues in the same pane. If Herdr fails before the agent is up,
+the run is aborted at once, so the store never lists a seat that does not exist. The path guard is a rail,
+not a sandbox: it covers the edit tools only, and a seat with shell access can still write elsewhere.
+`evf session` prints the pane's Claude Code session id from Herdr, for the EVF-Author and EVF-Review lines.
 
 ## Ship queue
 

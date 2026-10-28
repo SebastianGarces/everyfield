@@ -37,9 +37,8 @@ function herdr(args: string[]): HerdrResult {
 	}
 }
 const idOf = (value: unknown, key: string): string => {
-	if (typeof value === "string") return value;
-	if (value && typeof value === "object" && typeof (value as Record<string, unknown>)[key] === "string")
-		return (value as Record<string, string>)[key];
+	const id = value && typeof value === "object" ? (value as Record<string, unknown>)[key] : value;
+	if (typeof id === "string") return id;
 	fail(`Herdr returned no ${key}.`);
 };
 const quote = (arg: string) => (/^[\w./:=@-]+$/.test(arg) ? arg : `'${arg.replace(/'/g, "'\\''")}'`);
@@ -200,19 +199,26 @@ export function launch(
 				now,
 			).lastInsertRowid;
 		plan.env.EVF_RUN = String(runId);
-		const ws = herdr(workspaceArgs(plan, task.slug)).result ?? {};
-		const workspace = idOf(ws.workspace, "workspace_id"),
+		// Until the agent is up, any Herdr failure aborts the run, so the store never lists a seat that does not exist.
+		let workspace = "",
+			pane = "";
+		try {
+			const ws = herdr(workspaceArgs(plan, task.slug)).result ?? {};
+			workspace = idOf(ws.workspace, "workspace_id");
 			pane = idOf(ws.root_pane, "pane_id");
-		const started = run("herdr", startArgs(plan, pane));
-		if (started.code !== 0 && !acceptTrustDialog(pane, plan.agent)) {
+			const started = run("herdr", startArgs(plan, pane));
+			if (started.code !== 0 && !acceptTrustDialog(pane, plan.agent))
+				fail(
+					`herdr agent start failed in workspace ${workspace} pane ${pane}: ${(started.stderr || started.stdout).trim()}. Read the pane, then close the workspace or retry.`,
+				);
+		} catch (error) {
+			const reason = error instanceof Error ? error.message : String(error);
 			db.prepare("UPDATE runs SET status = 'aborted', ended_at = ?, summary = ? WHERE id = ?").run(
 				new Date().toISOString(),
-				`agent start failed: ${(started.stderr || started.stdout).trim().slice(0, 500)}`,
+				`launch failed: ${reason.slice(0, 500)}`,
 				runId,
 			);
-			fail(
-				`herdr agent start failed in workspace ${workspace} pane ${pane}: ${(started.stderr || started.stdout).trim()}. Read the pane, then close the workspace or retry.`,
-			);
+			throw error;
 		}
 		db.prepare("UPDATE runs SET herdr_agent = ?, herdr_pane = ? WHERE id = ?").run(plan.agent, pane, runId);
 		db.prepare(
