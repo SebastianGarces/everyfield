@@ -28,7 +28,7 @@ import { awaitLoad } from "./load.ts";
 import { nextId } from "./ids.ts";
 import { dbMigrate, dbSeedProgress, goalsList, goalsSync, status, workDbPath } from "./db.ts";
 import { isRole, launch, ROLES } from "./launch.ts";
-import { hook, refocus, session } from "./seat.ts";
+import { hook, refocus, session, showSpec } from "./seat.ts";
 import { tui } from "./tui.ts";
 import {
 	askPlanner,
@@ -99,13 +99,14 @@ Seats (harness)
   evf launch <task> --role <role> [--idea <n>] [--prompt-file <file>] [--dry-run] [--ignore-load "<reason>"]
         worktree + Herdr workspace + claude --agent <role> with evf's session id; records the run.
         Roles: planner, implementer, ui, simplifier, evidence, verifier, ideator (with --idea), comparer, prototype-merger.
-  evf refocus <task>                                          the goal chain for a seat (40 lines max)
+  evf refocus <task>                                          the goal chain for a seat: ask, spec, proof rule (fits the hook limit; says what it cut)
   evf session                                                 this pane's Claude Code session id, for EVF-Author and EVF-Review
   evf hook <event>                                            Claude Code hook entry (session-start, path-guard, stop, session-end)
 
 Drive (harness)
   evf task new <task> --ask-file <file> [--title <t>]         record the verbatim ask in the work store
   evf task spec <task> --file <file>                          store the spec: Goal, numbered Done criteria, Non-goals
+  evf task spec <task> --show                                 print the stored ask and spec in full
   evf task pick <task> <1|2|3> --owner-approval "<words>"     prototype mode: record Sebastian's pick
   evf task handoff <task> --file <spec>                       prototype mode: end the prototype, create the implement task
   evf next <task>                                             the next stage from the store, as JSON
@@ -287,6 +288,10 @@ function main(argv: string[]): number | Promise<number> {
 				return taskNew(root, parseTask(args[0]), { askFile, title, mode });
 			}
 			if (sub === "spec") {
+				if (args.includes("--show")) {
+					if (args.length !== 2) break;
+					return showSpec(root, parseTask(args.find((a) => a !== "--show")));
+				}
 				const file = option(args, "--file");
 				if (!file || !existsSync(file)) throw new EvfError("Give --file <file> with the spec.");
 				if (args.length !== 1) break;

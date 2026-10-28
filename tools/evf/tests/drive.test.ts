@@ -5,7 +5,8 @@ import { join } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { fixture, source } from "./fixtures.ts";
 import { ensureTask, openWorkDb, sessionsRecorded, syncGoals } from "../db.ts";
-import { doneCriteria, driveOnce, LOOP_CAP, nextStage, RETRY_CAP, runDone } from "../drive.ts";
+import { driveOnce, LOOP_CAP, nextStage, RETRY_CAP, runDone } from "../drive.ts";
+import { doneCriteria } from "../spec.ts";
 import { evfDataDir, parseTask, sleep } from "../lib.ts";
 
 const cli = (cwd: string, env: Record<string, string>, ...args: string[]) =>
@@ -451,6 +452,27 @@ test("OPS-59-retry: three failures in a row that cost no round escalate; a resta
 		f.db.close();
 		f.close();
 	}
+});
+
+test("OPS-64-gate: the proof gate reads the Done list from its header, not from the first line that says Done criteria", () => {
+	const spec = [
+		"Goal: the gate sees every criterion.",
+		"",
+		"Done when:",
+		"1. The context lists every criterion.",
+		"",
+		"2. A test stores a spec with 25+ Done criteria",
+		"   and blank lines between them.",
+		"",
+		"3. The gate needs a proof for each.",
+		"",
+		"Non-goals: no change to ship.",
+	].join("\n");
+	assert.deepEqual(doneCriteria(spec), ["1", "2", "3"], "a criterion that mentions Done criteria starts nothing");
+	assert.deepEqual(doneCriteria(spec.replace("Done when:", "**Done criteria**")), ["1", "2", "3"]);
+	assert.deepEqual(doneCriteria(spec.replace("Done when:", "## Done criteria (every proof of concept)")), ["1", "2", "3"]);
+	assert.deepEqual(doneCriteria("Goal: x\nDone criteria: as follows\n1. a\n\n\n2. b\n## Approach\n1. not this"), ["1", "2"]);
+	assert.deepEqual(doneCriteria("Goal: x\n1. a\n2. b"), [], "no Done header, no criteria");
 });
 
 test("OPS-59-gate: a verify closes passed only with a met or n/a proof per Done criterion at the head; read commands write nothing; one drive per task", () => {
