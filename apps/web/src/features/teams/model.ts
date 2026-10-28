@@ -197,3 +197,19 @@ export function shownValue(key: string, value: unknown): string | null {
 	if (key === "archived") return value === true ? "Yes" : value === false ? "No" : null;
 	return null;
 }
+
+/** What a ministry Edit save does. A reason is not a change: with no field changed, nothing is sent. */
+export type EditPlan = "send" | "close" | "close-and-say";
+export function planTeamEdit(
+	was: Pick<Team, "name" | "icon" | "state"> & { description: string },
+	now: typeof was & { reason: string },
+): EditPlan {
+	const text = (s: string) => s.trim() || null;
+	const same =
+		now.name.trim() === was.name &&
+		text(now.description) === text(was.description) &&
+		now.icon === was.icon &&
+		now.state === was.state;
+	if (!same) return "send";
+	return now.reason.trim() ? "close-and-say" : "close";
+}
