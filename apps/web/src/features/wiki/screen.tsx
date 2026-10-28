@@ -192,7 +192,7 @@ export function WikiScreen({ data, source }: { data: WikiPageData; source: strin
 				header
 			)}
 			{article && article.sources.length && !data.editing ? (
-				<div className={fixed ? SOURCE_BAR_GAP : "mb-6"}>
+				<div className={SOURCE_BAR_GAP}>
 					<SourceBar
 						sources={article.sources}
 						currentId={article.currentSourceId}
