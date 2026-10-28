@@ -77,6 +77,7 @@ import {
 	FIELD_LABEL,
 	HISTORY_KIND,
 	iconKey,
+	NEW_SETUP,
 	people,
 	planTeamEdit,
 	plural,
@@ -87,10 +88,11 @@ import {
 	type Member,
 	type Outcome,
 	type Role,
+	type SetupForm,
 } from "./model.ts";
 import { ChartTree } from "./OrgChart.tsx";
 import { LeaderLine, TeamBadge, TeamIcon } from "./parts.tsx";
-import { NEW_SETUP, SetupDialog, type SetupForm } from "./Setup.tsx";
+import { SetupDialog } from "./Setup.tsx";
 import { apply, today, type Change } from "./page-state.ts";
 import { ResponsibilitiesPanel } from "./responsibilities/Responsibilities.tsx";
 import type { TeamView } from "./server.ts";

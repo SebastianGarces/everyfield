@@ -25,8 +25,6 @@ import { NEW_SETUP, plural, reopened, type Catalog, type Outcome, type SetupForm
 // With `into` the same dialog adds roles to that one ministry: its own template comes first and is preselected, a role
 // it already has cannot be chosen again, and no ministry is created.
 
-export { NEW_SETUP, type SetupForm };
-
 export type SetupInto = {
 	id: string;
 	name: string;

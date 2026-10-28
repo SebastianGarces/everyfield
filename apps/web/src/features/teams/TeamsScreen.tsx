@@ -28,12 +28,12 @@ import { useState } from "react";
 import { NoticeInDialog, SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
 import { createTeam, reloadTeams } from "./actions.ts";
 import { optional, TeamDialog, type TeamForm } from "./dialogs.tsx";
-import { isLeadership, plural, problemText, type Team } from "./model.ts";
+import { isLeadership, NEW_SETUP, plural, problemText, type SetupForm, type Team } from "./model.ts";
 import { OrgChart } from "./OrgChart.tsx";
 import { MinistryCard } from "./parts.tsx";
 import type { TeamView, TeamsView } from "./server.ts";
 import { TeamScreen } from "./TeamScreen.tsx";
-import { NEW_SETUP, SetupDialog, type SetupForm } from "./Setup.tsx";
+import { SetupDialog } from "./Setup.tsx";
 
 export type TeamsTab = "teams" | "chart";
 const NEW_TEAM: TeamForm = { mode: "create", name: "", description: "", icon: "team", state: "forming", reason: "" };
