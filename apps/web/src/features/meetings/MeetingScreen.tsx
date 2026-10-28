@@ -589,7 +589,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 				) : null}
 				{view.own ? <OwnRsvp own={view.own} title={m.displayTitle} lane={ownLane} onChoose={chooseOwn} /> : null}
 				<Stepper steps={steps} />
-				<div className="grid grid-cols-[minmax(0,1fr)_320px] items-start gap-5 max-app-lg:grid-cols-1">
+				<div className="grid grid-cols-[minmax(0,1fr)_320px] items-start gap-5 max-app-md:grid-cols-1">
 					<Tabs value={tab} onValueChange={(v) => selectTab(v as TabId)} className="min-w-0">
 						<TabsList aria-label="Meeting work">
 							<Tab value="guests" count={view.guests ? guestList.length : undefined}>

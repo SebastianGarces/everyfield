@@ -35,6 +35,13 @@ for (const [name, engine] of ENGINES) {
 			assert.ok((await top(steps)) < (await top(tabs)));
 			assert.equal(Math.round((await aside.boundingBox()).width), 320);
 			assert.ok((await aside.boundingBox()).x > (await tabs.boundingBox()).x + (await tabs.boundingBox()).width - 1);
+			// At 1280 px the page keeps two columns, with the 320 px reference column beside the tabs.
+			await page.setViewportSize({ width: 1280, height: 800 });
+			const narrow = await aside.boundingBox();
+			assert.equal(Math.round(narrow.width), 320);
+			assert.ok(narrow.x > (await tabs.boundingBox()).x + (await tabs.boundingBox()).width - 1);
+			await page.setViewportSize({ width: 1440, height: 900 });
+
 			assert.deepEqual(await tabNames(page), ["Guests", "Kit", "Results"]);
 			assert.match(await steps.getByRole("listitem").nth(0).innerText(), /Invite[\s\S]*\d+ invited/);
 			assert.equal(await steps.locator('[aria-current="step"]').count(), 1);

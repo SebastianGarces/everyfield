@@ -14,7 +14,7 @@ export type NextStepInput = {
 	checkIn: boolean;
 	guestCount: number;
 	final: boolean;
-	/** The meeting has started or was held, and is not cancelled or voided (canSettle). */
+	/** The meeting is not cancelled and not voided, so attendance can be settled (canSettle). */
 	canSettle: boolean;
 	/** Attended guests who have no response card (vision meetings only). */
 	attendedWithoutCard: number;
