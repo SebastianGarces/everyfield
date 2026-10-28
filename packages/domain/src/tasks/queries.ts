@@ -369,20 +369,20 @@ export const taskReader = {
 				viewer,
 				sql`SELECT a.id, a.occurred_at, a.before_value->>'status' AS "from",
 					a.after_value->>'status' AS "to", a.actor_id, a.actor_token, a.system_cause,
-					coalesce(a.metadata->>'source','person') AS source, ai.display_name, count(*) OVER () AS total,
+					coalesce(a.metadata->>'source','person') AS source, ai.display_name, count(a.id) OVER () AS total,
 					row_number() OVER (ORDER BY a.occurred_at, a.id) AS ord
-				FROM task t JOIN audit_event a ON a.tenant_id=t.plant_id AND a.subject_id=t.id
+				FROM task t LEFT JOIN audit_event a ON a.tenant_id=t.plant_id AND a.subject_id=t.id AND a.after_value ? 'status'
 				LEFT JOIN LATERAL seat_identity(a.actor_id) ai ON true
-				WHERE t.id=${v.taskId}::uuid AND t.plant_id=${viewer.plantId}::uuid AND a.after_value ? 'status'
+				WHERE t.id=${v.taskId}::uuid AND t.plant_id=${viewer.plantId}::uuid
 				ORDER BY a.occurred_at, a.id LIMIT ${v.limit} OFFSET ${(v.page - 1) * v.limit}`,
 			);
 			const rows = z
 				.array(
 					z.object({
-						id: z.uuid(),
-						occurred_at: z.coerce.date(),
+						id: z.uuid().nullable(),
+						occurred_at: z.coerce.date().nullable(),
 						from: c.taskStatus.nullable(),
-						to: c.taskStatus,
+						to: c.taskStatus.nullable(),
 						actor_id: z.uuid().nullable(),
 						actor_token: z.string().nullable(),
 						system_cause: z.string().nullable(),
@@ -392,12 +392,16 @@ export const taskReader = {
 					}),
 				)
 				.parse(found);
-			// Every task has its creation entry, so no rows on the first page means no such task in this church.
+			// The task row always comes back, so no rows on page 1 means no such task in this church. A readable task with
+			// no status audit row (a seeded or fixture task) comes back as one row without audit columns: an empty history.
 			if (!rows.length && v.page === 1) deny();
 			const total = rows[0]?.total ?? 0;
+			const entries = rows.flatMap((a) =>
+				a.id && a.occurred_at && a.to ? [{ ...a, id: a.id, occurred_at: a.occurred_at, to: a.to }] : [],
+			);
 			return c.statusHistory.parse({
 				taskId: v.taskId,
-				items: rows.map((a) => ({
+				items: entries.map((a) => ({
 					id: a.id,
 					occurredAt: a.occurred_at.toISOString(),
 					from: a.from,
