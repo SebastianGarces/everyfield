@@ -6,6 +6,7 @@ import {
 	ArchiveArrowUpIcon,
 	CrownIcon,
 	Edit02Icon,
+	LayoutGridIcon,
 	MoreHorizontalIcon,
 	UserAdd01Icon,
 	UserGroupIcon,
@@ -88,6 +89,7 @@ import {
 } from "./model.ts";
 import { ChartTree } from "./OrgChart.tsx";
 import { LeaderLine, TeamBadge, TeamIcon } from "./parts.tsx";
+import { NEW_ROLE_SETUP, RoleSetupDialog, type RoleSetupForm } from "./RoleSetup.tsx";
 import { apply, today, type Change } from "./page-state.ts";
 import { ResponsibilitiesPanel } from "./responsibilities/Responsibilities.tsx";
 import type { TeamView } from "./server.ts";
@@ -119,6 +121,7 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 	const teamLane = useSaveIntent<TeamForm>({ explain: problemText });
 	const roleLane = useSaveIntent<RoleForm>({ explain: problemText });
 	const peopleLane = useSaveIntent<PersonForm>({ explain: problemText });
+	const templatesLane = useSaveIntent<RoleSetupForm>({ explain: problemText });
 	const [flow, setFlow] = useState<PersonFlow | null>(null);
 	const [confirm, setConfirm] = useState<Confirm | null>(null);
 	const [tab, setTab] = useState("roles");
@@ -315,6 +318,23 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 		});
 	}
 
+	/** After roles are added from the templates, the roles read again in their own request: their ids are the server's. */
+	function addedFromTemplates(added: { newRoles: number }) {
+		toast({
+			tone: "success",
+			message: added.newRoles
+				? `Added ${plural(added.newRoles, "role")} to ${t.name}.`
+				: "Everything you chose was already here. Nothing was added.",
+		});
+		void stale();
+	}
+	const addRole = {
+		admin: data.admin,
+		disabled: roleLane.wait !== null || templatesLane.wait !== null,
+		onBlank: () => roleLane.open(roleForm(null)),
+		onTemplates: () => templatesLane.open(NEW_ROLE_SETUP),
+	};
+
 	const leaderNote =
 		t.leaderSource === "role_derived"
 			? "From a leadership role"
@@ -350,14 +370,9 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 					Add member
 				</Button>
 			) : (
-				<Button
-					variant="primary"
-					icon={Add01Icon}
-					onClick={() => roleLane.open(roleForm(null))}
-					disabled={roleLane.wait !== null}
-				>
+				<AddRole {...addRole} variant="primary">
 					Add role
-				</Button>
+				</AddRole>
 			)}
 			{admin ? (
 				<Menu>
@@ -422,6 +437,7 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 			<SaveNotice {...teamLane.noticeProps} dialogOpen={teamLane.editing !== null} />
 			<SaveNotice {...roleLane.noticeProps} dialogOpen={roleLane.editing !== null} />
 			<SaveNotice {...peopleLane.noticeProps} dialogOpen={flow !== null} />
+			<SaveNotice {...templatesLane.noticeProps} dialogOpen={templatesLane.editing !== null} />
 
 			<div className="grid grid-cols-[minmax(0,1.9fr)_minmax(280px,1fr)] items-start gap-5 max-app-lg:grid-cols-1">
 				<Tabs value={tab} onValueChange={setTab} className="min-w-0">
@@ -442,7 +458,7 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 							retired={retired}
 							can={can}
 							busy={roleLane.wait !== null || peopleLane.wait !== null}
-							onAdd={() => roleLane.open(roleForm(null))}
+							addRole={addRole}
 							onEdit={(r) => roleLane.open(roleForm(r))}
 							onFill={(r) => setFlow({ kind: "member", role: r })}
 							onRetire={(r) => setConfirm({ kind: "retire", role: r })}
@@ -589,6 +605,18 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 					/>
 				) : null}
 			</NoticeInDialog>
+			{data.admin && can ? (
+				<NoticeInDialog {...templatesLane.noticeProps}>
+					<RoleSetupDialog
+						lane={templatesLane}
+						teamName={t.name}
+						teamKey={t.templateKey}
+						teamId={t.id}
+						here={new Set((view.roles ?? []).flatMap((r) => (r.templateKey ? [r.templateKey] : [])))}
+						onDone={addedFromTemplates}
+					/>
+				</NoticeInDialog>
+			) : null}
 			<ConfirmDialog
 				open={confirm !== null}
 				onOpenChange={(next) => !next && setConfirm(null)}
@@ -715,6 +743,52 @@ function PersonFlowDialog({
 	);
 }
 
+/**
+ * One way to add a role. An Owner or Admin chooses between a blank role and the templates (one extra click); anyone
+ * else who may change the ministry gets the blank role at once (the templates change the church's structure).
+ */
+function AddRole({
+	admin,
+	disabled,
+	onBlank,
+	onTemplates,
+	variant,
+	size,
+	children,
+}: {
+	admin: boolean;
+	disabled: boolean;
+	onBlank: () => void;
+	onTemplates: () => void;
+	variant: "primary" | "ghost";
+	size?: "sm";
+	children: ReactNode;
+}) {
+	if (!admin)
+		return (
+			<Button variant={variant} size={size} icon={Add01Icon} onClick={onBlank} disabled={disabled}>
+				{children}
+			</Button>
+		);
+	return (
+		<Menu>
+			<MenuTrigger asChild>
+				<Button variant={variant} size={size} icon={Add01Icon} disabled={disabled}>
+					{children}
+				</Button>
+			</MenuTrigger>
+			<MenuContent align="end">
+				<MenuItem icon={UserAdd01Icon} onSelect={onBlank}>
+					New blank role
+				</MenuItem>
+				<MenuItem icon={LayoutGridIcon} onSelect={onTemplates}>
+					Set up from templates
+				</MenuItem>
+			</MenuContent>
+		</Menu>
+	);
+}
+
 // Roles ----------------------------------------------------------------------------------------------------------
 
 function RolesCard({
@@ -722,7 +796,7 @@ function RolesCard({
 	retired,
 	can,
 	busy,
-	onAdd,
+	addRole,
 	onEdit,
 	onFill,
 	onRetire,
@@ -732,7 +806,7 @@ function RolesCard({
 	retired: number;
 	can: boolean;
 	busy: boolean;
-	onAdd: () => void;
+	addRole: Omit<Parameters<typeof AddRole>[0], "variant" | "size" | "children">;
 	onEdit: (r: Role) => void;
 	onFill: (r: Role) => void;
 	onRetire: (r: Role) => void;
@@ -740,9 +814,9 @@ function RolesCard({
 }) {
 	const filled = roles?.filter((r) => r.occupantPersonId).length ?? 0;
 	const add = can ? (
-		<Button variant="ghost" size="sm" icon={Add01Icon} onClick={onAdd} disabled={busy}>
+		<AddRole {...addRole} disabled={addRole.disabled || busy} variant="ghost" size="sm">
 			Role
-		</Button>
+		</AddRole>
 	) : null;
 	return (
 		<Card as="section" aria-labelledby="roles-title">
