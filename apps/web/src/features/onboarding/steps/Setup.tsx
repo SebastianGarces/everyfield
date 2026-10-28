@@ -1,8 +1,7 @@
 "use client";
 
-import { Button, Field, Input } from "@everyfield/ui/controls";
+import { Button, Field, IntentLink, Input } from "@everyfield/ui/controls";
 import { cn } from "@everyfield/ui/foundations";
-import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import {
 	DEFAULT_LEAD,
@@ -417,14 +416,16 @@ export function FinishStep({
 			) : null}
 			<Notice code={state.notice?.op === "complete" ? state.notice.code : null} />
 			{done ? (
-				<div className="mx-auto mt-[30px] flex max-w-[820px] flex-wrap items-center justify-between gap-3">
-					<Button variant="ghost" onClick={() => actions.go("team")}>
-						Review answers
-					</Button>
-					<Button variant="primary" asChild>
-						<Link href={DASHBOARD_HREF}>Go to dashboard</Link>
-					</Button>
-					{after}
+				<div className="mx-auto mt-[30px] max-w-[820px]">
+					<div className="flex flex-wrap items-center justify-between gap-3">
+						<Button variant="ghost" onClick={() => actions.go("team")}>
+							Review answers
+						</Button>
+						<Button variant="primary" asChild>
+							<IntentLink href={DASHBOARD_HREF}>Go to dashboard</IntentLink>
+						</Button>
+					</div>
+					{after ? <div className="mt-4 flex justify-end">{after}</div> : null}
 				</div>
 			) : (
 				<StepFooter

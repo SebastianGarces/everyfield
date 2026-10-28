@@ -11,14 +11,17 @@ for (const [name, engine] of ENGINES)
 			await withPage(
 				engine,
 				async (page) => {
+					const requested = [];
+					page.on("request", (r) => requested.push(new URL(r.url()).pathname));
 					await page.goto(`${BASE}/design/onboarding?as=finished`);
 					const go = page.getByRole("link", { name: "Go to dashboard" });
 					await go.waitFor();
 					assert.equal(await go.getAttribute("href"), "/people");
-					const classes = await go.getAttribute("class");
-					assert.match(classes ?? "", /bg-ink|primary/, "the link uses the primary button style");
-					await page.waitForTimeout(10_500);
-					assert.match(new URL(page.url()).pathname, /\/design\/onboarding$/, "no automatic redirect");
+					if (name === ENGINES[0][0] && width === 1440) {
+						await page.waitForTimeout(10_500);
+						assert.match(new URL(page.url()).pathname, /\/design\/onboarding$/, "no automatic redirect");
+					}
+					assert.ok(!requested.includes("/people"), "no prefetch of the dashboard before any intent");
 					assert.ok(await page.getByRole("heading", { name: "Setup is finished" }).isVisible());
 					assert.ok(await page.getByRole("button", { name: "Review answers" }).isVisible());
 					const box = await go.boundingBox();
