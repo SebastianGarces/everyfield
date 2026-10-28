@@ -277,12 +277,7 @@ test("AC:TARGET-TSK-008 INV-bulk-actions: complete and reschedule apply only to 
 	assert.deepEqual(bulkActions(open), enabled, "all open");
 	for (const status of open) assert.deepEqual(bulkActions([status]), enabled, status);
 	assert.deepEqual(bulkActions(settled), { kind: "settled", settled: 2 });
-	for (const status of settled)
-		assert.deepEqual(
-			bulkActions([status]),
-			{ kind: "settled", settled: 1 },
-			status,
-		);
+	for (const status of settled) assert.deepEqual(bulkActions([status]), { kind: "settled", settled: 1 }, status);
 	assert.deepEqual(bulkActions(["complete", "in_progress", "no_longer_needed"]), { kind: "mixed", settled: 2 });
 });
 

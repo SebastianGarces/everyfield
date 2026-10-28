@@ -432,9 +432,7 @@ function History({
 						const r = await loadHistory(taskId, 1);
 						setLoading(false);
 						setRetried(
-							r.status === "ok"
-								? { history: r.value, problem: null }
-								: { history: null, problem: historyProblem(r) },
+							r.status === "ok" ? { history: r.value, problem: null } : { history: null, problem: historyProblem(r) },
 						);
 					}}
 				>
