@@ -4,6 +4,7 @@ import { Alert02Icon, Cancel01Icon } from "@hugeicons/core-free-icons";
 import { Checkbox, Field, Radio, RadioGroup, SearchInput, Spinner, Textarea } from "@everyfield/ui/controls";
 import { Icon } from "@everyfield/ui/foundations";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import type { PersonHit } from "@everyfield/domain/people";
 import { searchPeople } from "./actions.ts";
 import type { Wait } from "../../components/save/model.ts";
 import { RecordDialog } from "../../components/save/parts.tsx";
@@ -73,7 +74,6 @@ export function ReasonDialog({
 }
 
 export type PickedPerson = { id: string; name: string };
-type Hit = { id: string; name: string; detail: string };
 
 /**
  * The search box and its answer, shared by both pickers. It searches only after the person types, so opening a form
@@ -82,9 +82,9 @@ type Hit = { id: string; name: string; detail: string };
 function usePersonSearch() {
 	const [search, setSearch] = useState("");
 	const [query, setQuery] = useState("");
-	const [got, setGot] = useState<{ query: string; value: Outcome<Hit[]> } | null>(null);
+	const [got, setGot] = useState<{ query: string; value: Outcome<PersonHit[]> } | null>(null);
 	const idle = query === "";
-	const result: Outcome<Hit[]> | null = idle ? { status: "ok", value: [] } : got?.query === query ? got.value : null;
+	const result: Outcome<PersonHit[]> | null = idle ? { status: "ok", value: [] } : got?.query === query ? got.value : null;
 	const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
 	useEffect(() => {
 		if (query === "") return;
@@ -133,7 +133,7 @@ const emptyText = (idle: boolean) =>
 	idle ? "Type a name, email or phone." : "No one matches. Try another spelling, or add someone new.";
 
 /** The state of a search that has no list to show yet: still searching, or did not load. Null when results are ready. */
-function SearchState({ result }: { result: Outcome<Hit[]> | null }) {
+function SearchState({ result }: { result: Outcome<PersonHit[]> | null }) {
 	if (result === null)
 		return (
 			<p role="status" className="flex items-center gap-2 px-2 py-3 text-sm text-text-2">

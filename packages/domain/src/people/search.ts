@@ -31,7 +31,7 @@ const FROM = FOLD.map(([from]) => from).join("");
 const TO = FOLD.map(([from, to]) => to.repeat(from.length)).join("");
 const fold = (value: SQL | string) => sql`translate(lower(${value}),${FROM},${TO})`;
 
-export const SEARCH_WORDS = 8;
+const SEARCH_WORDS = 8;
 const PHONE_QUERY = /^[\d\s+\-().]+$/;
 
 /** SQL true when the person (display name, email, phone columns of `person`) matches the query. Empty query: no one. */
