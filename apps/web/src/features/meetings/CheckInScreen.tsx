@@ -431,7 +431,7 @@ function WalkInDialog({
 	onClose: () => void;
 	onSubmit: (input: WalkInInput) => void;
 }) {
-	const [initialMode] = useState<"existing" | "new">(initial && !initial.person ? "new" : "existing");
+	const initialMode = initial && !initial.person ? "new" : "existing";
 	const [mode, setMode] = useState<"existing" | "new">(initialMode);
 	const [input, setInput] = useState<WalkInInput>(initial ?? { person: null, name: "", email: "", phone: "" });
 	const [touched, setTouched] = useState(false);
