@@ -231,7 +231,7 @@ export function SetupDialog({
 						<ul className="flex flex-col gap-3">
 							{selections.map((s) => {
 								const t = teams.find((x) => x.key === s.teamKey)!;
-								const here = present.has(s.teamKey);
+								const here = !into && present.has(s.teamKey);
 								return (
 									<li key={s.teamKey} className="rounded-md bg-surface-2 px-4 py-3">
 										<p className="font-medium text-ink">
@@ -247,7 +247,7 @@ export function SetupDialog({
 												: `Roles: ${t.roles
 														.filter((r) => s.roleKeys.includes(r.key))
 														.map((r) => r.name)
-														.join(", ")}${here && !into ? ". A role it already has is skipped." : ""}`}
+														.join(", ")}${here ? ". A role it already has is skipped." : ""}`}
 										</p>
 									</li>
 								);
