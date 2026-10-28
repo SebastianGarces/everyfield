@@ -379,10 +379,10 @@ export const taskReader = {
 			const rows = z
 				.array(
 					z.object({
-						id: z.uuid().nullable(),
-						occurred_at: z.coerce.date().nullable(),
+						id: z.uuid(),
+						occurred_at: z.coerce.date(),
 						from: c.taskStatus.nullable(),
-						to: c.taskStatus.nullable(),
+						to: c.taskStatus,
 						actor_id: z.uuid().nullable(),
 						actor_token: z.string().nullable(),
 						system_cause: z.string().nullable(),
@@ -391,17 +391,14 @@ export const taskReader = {
 						total: z.coerce.number().int(),
 					}),
 				)
-				.parse(found);
+				.parse(found.filter((a) => a.id !== null));
 			// The task row always comes back: no rows on page 1 means no such task here. A task with no status audit row
 			// comes back as one row with null audit columns, which reads as an empty history.
-			if (!rows.length && v.page === 1) deny();
+			if (!found.length && v.page === 1) deny();
 			const total = rows[0]?.total ?? 0;
-			const entries = rows.flatMap((a) =>
-				a.id && a.occurred_at && a.to ? [{ ...a, id: a.id, occurred_at: a.occurred_at, to: a.to }] : [],
-			);
 			return c.statusHistory.parse({
 				taskId: v.taskId,
-				items: entries.map((a) => ({
+				items: rows.map((a) => ({
 					id: a.id,
 					occurredAt: a.occurred_at.toISOString(),
 					from: a.from,
