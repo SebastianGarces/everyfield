@@ -544,7 +544,6 @@ function CursorSamples() {
 			</div>
 			<div className="mt-5 flex flex-wrap items-start gap-x-8 gap-y-4">
 				<Checkbox label="Disabled checkbox" disabled />
-				<Checkbox label="Disabled checked checkbox" disabled defaultChecked />
 				<div className="min-w-0">
 					<SegmentedControl
 						label="Layout"
