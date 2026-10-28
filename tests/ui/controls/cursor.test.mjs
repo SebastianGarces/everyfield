@@ -6,19 +6,19 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { BASE, ENGINES, withPage } from "../setup.mjs";
 
+const cursorOf = (locator) => locator.evaluate((el) => getComputedStyle(el).cursor);
+
 /** Non-interactive surfaces keep the default cursor. Engines report it as "auto" or "default". */
 async function expectDefault(locator, what) {
-	const value = await locator.first().evaluate((el) => getComputedStyle(el).cursor);
+	const value = await cursorOf(locator.first());
 	assert.ok(["auto", "default"].includes(value), `${what}: cursor is ${value}, expected the default`);
 }
 
 /** Text fields keep the text cursor. WebKit reports it as "auto" for a field, so the check rules out the button cursors. */
 async function expectText(locator, what) {
-	const value = await locator.first().evaluate((el) => getComputedStyle(el).cursor);
+	const value = await cursorOf(locator.first());
 	assert.ok(["text", "auto"].includes(value), `${what}: cursor is ${value}, expected the text cursor`);
 }
-
-const cursorOf = (locator) => locator.evaluate((el) => getComputedStyle(el).cursor);
 
 /** Asserts that `locator` computes `expected`. `what` names the element in the failure message. */
 async function expectCursor(locator, expected, what) {
@@ -28,7 +28,7 @@ async function expectCursor(locator, expected, what) {
 }
 
 for (const [name, engine] of ENGINES) {
-	test(`S2-T29b (${name}): clickable controls show the right cursor`, { timeout: 120_000 }, () =>
+	test(`BUG-S2-T29b (${name}): clickable controls show the right cursor`, { timeout: 120_000 }, () =>
 		withPage(engine, async (page) => {
 			await page.goto(BASE + "/design/controls");
 			await page.locator("html[data-theme]").waitFor({ state: "attached", timeout: 60_000 });
@@ -41,7 +41,7 @@ for (const [name, engine] of ENGINES) {
 			const label = (text) => page.locator("label", { hasText: text });
 			const closeOverlay = async () => {
 				await page.keyboard.press("Escape");
-				await page.waitForTimeout(250);
+				await page.locator('[role="dialog"], [role="menu"], [role="listbox"]').first().waitFor({ state: "detached" });
 			};
 
 			// Buttons: every variant, the link as a button, IconButton.
@@ -105,6 +105,12 @@ for (const [name, engine] of ENGINES) {
 			await expectDefault(page.locator("h1"), "heading level 1");
 			await expectDefault(page.locator("h3", { hasText: "Filter chips" }), 'heading "Filter chips"');
 			await expectDefault(page.locator(".ef-insight"), "InsightCard");
+			await expectDefault(page.locator('section[aria-labelledby="card-core"]'), "Card");
+			await expectDefault(role("region", "Recent activity"), "CardScrollArea");
+			await expectDefault(page.getByText("No vision meetings yet", { exact: true }), "EmptyState title");
+			await expectDefault(page.getByText("We could not load your people", { exact: true }), "StatePanel title");
+			await pointer(page.getByRole("button", { name: "Try again" }).first(), 'StatePanel button "Try again"');
+			await pointer(role("button", "Remove Tag filter"), 'FilterChip remove "Remove Tag filter"');
 
 			// Menu: trigger, item, disabled item, radio items, and a trigger without asChild.
 			await role("button", "More actions for Maria Santos").click();
@@ -182,12 +188,12 @@ for (const [name, engine] of ENGINES) {
 		}),
 	);
 
-	test(`S2-T29b (${name}): the rule reaches raw buttons outside controls (AppShell)`, { timeout: 60_000 }, () =>
+	test(`BUG-S2-T29b (${name}): the rule reaches raw buttons outside controls (AppShell)`, { timeout: 60_000 }, () =>
 		withPage(engine, async (page) => {
 			await page.goto(BASE + "/design/shell/owner");
 			await page.locator("html[data-theme]").waitFor({ state: "attached", timeout: 60_000 });
 			// These buttons carry no cursor class of their own.
-			const cursorClass = await page.locator("[data-product-root] button:not(:disabled)").evaluateAll((els) =>
+			const bareButtons = await page.locator("[data-product-root] button:not(:disabled)").evaluateAll((els) =>
 				els
 					.filter((el) => !/\bcursor-/.test(el.className))
 					.map((el) => ({
@@ -196,10 +202,10 @@ for (const [name, engine] of ENGINES) {
 					})),
 			);
 			assert.ok(
-				cursorClass.length >= 3,
-				`Expected raw shell buttons without a cursor class, found ${cursorClass.length}.`,
+				bareButtons.length >= 3,
+				`Expected raw shell buttons without a cursor class, found ${bareButtons.length}.`,
 			);
-			for (const { name: buttonName, cursor } of cursorClass) {
+			for (const { name: buttonName, cursor } of bareButtons) {
 				assert.equal(cursor, "pointer", `shell button "${buttonName}": cursor`);
 			}
 		}),
