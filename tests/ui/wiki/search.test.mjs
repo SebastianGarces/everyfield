@@ -50,3 +50,19 @@ for (const [name, engine] of ENGINES) {
 		});
 	});
 }
+
+for (const [name, engine] of ENGINES) {
+	test(`BUG-wiki-search-hits: typing a word lists highlighted hits, and a hit opens its article and closes the modal (${name})`, async () => {
+		await withPage(engine, async (page) => {
+			await header(page).click();
+			await dialog(page).getByRole("searchbox", { name: "Search words" }).fill("financial");
+			const hit = dialog(page).getByRole("link", { name: /Financial planning for a plant/ });
+			await hit.waitFor();
+			assert.ok((await dialog(page).locator("mark").count()) > 0);
+			assert.equal(await dialog(page).getByText("Search could not be loaded").count(), 0);
+			await hit.click();
+			await page.waitForURL(/\/wiki\/.+/);
+			await dialog(page).waitFor({ state: "detached" });
+		});
+	});
+}
