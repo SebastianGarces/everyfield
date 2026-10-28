@@ -143,17 +143,13 @@ export function RoleSetupDialog({
 								const left = fresh(t).length;
 								return (
 									<li key={t.key} className="py-1">
-										<div className="flex items-center justify-between gap-3">
-											<Checkbox
-												checked={open}
-												disabled={left === 0}
-												onCheckedChange={(v) => toggleTeam(t.key, v === true)}
-												label={t.key === teamKey ? `${t.name} (this ministry's template)` : t.name}
-												description={
-													left === 0 ? "This ministry has all of its roles." : `${plural(left, "role")} to add`
-												}
-											/>
-										</div>
+										<Checkbox
+											checked={open}
+											disabled={left === 0}
+											onCheckedChange={(v) => toggleTeam(t.key, v === true)}
+											label={t.key === teamKey ? `${t.name} (this ministry's template)` : t.name}
+											description={left === 0 ? "This ministry has all of its roles." : `${plural(left, "role")} to add`}
+										/>
 										{open ? (
 											<fieldset className="mb-2 ml-8 flex flex-col">
 												<legend className="sr-only">Roles from {t.name}</legend>
