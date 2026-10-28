@@ -269,7 +269,8 @@ for (const [name, engine] of ENGINES) {
 			await chooseEveryone(page);
 			await next(page).click();
 			await heading(page, "Write the message").waitFor();
-			const subject = `Schedule check ${name}`;
+			const run = Date.now().toString(36);
+			const subject = `Schedule check ${name} ${run}`;
 			await page.getByLabel("Subject").fill(subject);
 			await page.getByRole("combobox", { name: "Message" }).fill("Hello {{name}}.");
 			await next(page).click();
@@ -304,14 +305,14 @@ for (const [name, engine] of ENGINES) {
 			await chooseEveryone(page);
 			await next(page).click();
 			await heading(page, "Write the message").waitFor();
-			await page.getByLabel("Subject").fill(`Draft row ${name}`);
+			await page.getByLabel("Subject").fill(`Draft row ${name} ${run}`);
 			await page.getByRole("button", { name: "Save draft" }).first().click();
 			await page.getByText("Draft saved.").waitFor();
 			await page.goto(`${BASE}/communication`);
 			await hydrated(page);
-			await page.getByRole("button", { name: new RegExp(`Draft row ${name}`) }).click();
+			await page.getByRole("button", { name: new RegExp(`Draft row ${name} ${run}`) }).click();
 			await page.waitForURL(/compose=[0-9a-f-]{36}&step=write/);
-			assert.equal(await page.getByLabel("Subject").inputValue(), `Draft row ${name}`);
+			assert.equal(await page.getByLabel("Subject").inputValue(), `Draft row ${name} ${run}`);
 		});
 	});
 
