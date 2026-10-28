@@ -77,7 +77,7 @@ export function BulkBar({
 					className="bg-on-ink-soft shadow-[inset_0_0_0_1.5px_var(--ef-on-ink)] data-[state=checked]:bg-on-ink-soft data-[state=indeterminate]:bg-on-ink-soft"
 				/>
 			</label>
-			<span className="flex grow flex-col">
+			<span className="flex min-w-48 flex-1 flex-col">
 				<span className="font-medium" aria-live="polite">
 					{count} selected
 				</span>
@@ -92,14 +92,15 @@ export function BulkBar({
 					</span>
 				) : null}
 			</span>
-			{mixed ? (
-				<Button variant="ghost" size="sm" className={onInk} onClick={onKeepOpen}>
-					Keep only the open ones
-				</Button>
-			) : null}
-			{/* On a phone the actions take their own row, so the labels never wrap. */}
+			{/* One group in every state, in one order: keep-open (mixed only), the actions, then Clear. On a phone the
+			    group takes its own row, so the labels never wrap. */}
 			{actions.kind !== "settled" ? (
-				<div className="flex gap-2 max-app-sm:order-last max-app-sm:grid max-app-sm:basis-full max-app-sm:grid-cols-2">
+				<div className="flex flex-wrap items-center gap-2 max-app-sm:order-last max-app-sm:grid max-app-sm:basis-full max-app-sm:grid-cols-2">
+					{mixed ? (
+						<Button variant="ghost" size="sm" className={`${onInk} max-app-sm:col-span-2`} onClick={onKeepOpen}>
+							Keep only the open ones
+						</Button>
+					) : null}
 					<Button
 						variant="ghost"
 						size="sm"

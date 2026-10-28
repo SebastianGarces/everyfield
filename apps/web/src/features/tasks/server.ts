@@ -5,7 +5,7 @@ import type { Transaction } from "@everyfield/db/client";
 import type { RequestActor } from "@everyfield/domain/access";
 import { taskReader, withTaskWrite, type TaskContext, type TaskReply, type TaskWriter } from "@everyfield/domain/tasks";
 import "server-only";
-import { countRequest, listRequest, pageCount, historyProblem, type Outcome, type TaskQuery } from "./model.ts";
+import { countRequest, listRequest, pageCount, type Outcome, type TaskQuery } from "./model.ts";
 
 // The Tasks screens reach the task core here. Pages and actions share the request's one viewer (D59/D60); every read
 // statement rechecks the live seat itself (C13), and every write rechecks authority inside its own statement (D70).
@@ -86,8 +86,7 @@ export async function loadTask(tx: Transaction, viewer: TaskViewer, taskId: stri
 		status: "ok",
 		value: {
 			task,
-			history: ok(history),
-			historyProblem: historyProblem(history),
+			history,
 			prerequisites: task.prerequisiteIds.length ? ok(prerequisites) : { taskId: task.id, items: [], blocked: false },
 			occurrence: ok(occurrence),
 		},

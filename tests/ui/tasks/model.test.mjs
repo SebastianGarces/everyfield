@@ -261,13 +261,12 @@ test("AC:TARGET-TSK-006 INV-badge-reads: an old badge read never lands on a newe
 test("AC:TARGET-TSK-001 INV-owner-label: an owner shows by name, also the signed-in person, never as You", () => {
 	const you = "a0000000-0000-4000-8000-000000000001";
 	const other = "a0000000-0000-4000-8000-000000000002";
-	assert.equal(ownerLabel({ accountId: you, displayName: "Dana Reyes" }, you), "Dana Reyes");
-	assert.equal(ownerLabel({ accountId: other, displayName: "Aisha Bello" }, you), "Aisha Bello");
-	// A current seat with no name never reads as a former member.
-	assert.equal(ownerLabel({ accountId: you, displayName: "  " }, you), "Unnamed member");
-	// The data cannot tell a former member from another seat's empty name: both read the same.
-	assert.equal(ownerLabel({ accountId: other, displayName: "" }, you), "A former member");
-	assert.equal(ownerLabel(null, you), "Needs owner");
+	assert.equal(ownerLabel({ accountId: you, displayName: "Dana Reyes" }), "Dana Reyes");
+	assert.equal(ownerLabel({ accountId: other, displayName: "Aisha Bello" }), "Aisha Bello");
+	// Every empty name reads the same: the signed-in person, another seat and a former member (REQ-TSK-001).
+	assert.equal(ownerLabel({ accountId: you, displayName: "  " }), "Unnamed member");
+	assert.equal(ownerLabel({ accountId: other, displayName: "" }), "Unnamed member");
+	assert.equal(ownerLabel(null), "Needs owner");
 });
 
 test("AC:TARGET-TSK-008 INV-bulk-actions: complete and reschedule apply only to open tasks", () => {
@@ -286,5 +285,4 @@ test("AC:TARGET-TSK-015 INV-history-read: a task with no recorded change reads d
 	assert.equal(historyProblem({ status: "refused", code: "unavailable" }), "unrecorded");
 	assert.equal(historyProblem({ status: "lost" }), "failed");
 	assert.equal(historyProblem({ status: "refused", code: "access_denied" }), "failed");
-	assert.equal(historyProblem({ status: "ok", value: {} }), null);
 });

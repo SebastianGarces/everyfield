@@ -22,9 +22,8 @@ async function get<T>(params: Record<string, string> | URLSearchParams): Promise
 /** The task panel's read: the task, its first history page, what it waits for and its series' open occurrence. */
 export type Loaded = {
 	task: TaskDetail;
-	history: TaskHistory | null;
-	/** Set when `history` is null: the task has no recorded status change, or the read failed. */
-	historyProblem: HistoryProblem | null;
+	/** The first history page, or why it is missing: no recorded status change, or a failed read. */
+	history: Outcome<TaskHistory>;
 	prerequisites: Pick<Prerequisites, "taskId" | "items" | "blocked"> | null;
 	occurrence: Occurrence | null;
 };

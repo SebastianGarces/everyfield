@@ -304,7 +304,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 	};
 	const warm = (id: string) => {
 		const known = details[id];
-		if (loading.current.has(id) || (known?.status === "ok" && known.history !== null)) return;
+		if (loading.current.has(id) || (known?.status === "ok" && known.history.status === "ok")) return;
 		loading.current.add(id);
 		setDetails((d) => ({ ...d, [id]: { status: "loading" } }));
 		loadTask(id)
@@ -390,20 +390,23 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 			// A status change moves a series' open occurrence; a successor (below) names the new one.
 			const occurrence = moved ? null : cur.occurrence;
 			const history =
-				moved && cur.history && cur.history.next === null
+				moved && cur.history.status === "ok" && cur.history.value.next === null
 					? {
-							...cur.history,
-							items: [
-								...cur.history.items,
-								{
-									id: saved.receiptId as never,
-									occurredAt: new Date().toISOString() as never,
-									from: before.status,
-									to: task.status,
-									actor: { kind: "account" as const, accountId: viewer.accountId as never, displayName: viewer.name },
-									source: "person" as const,
-								},
-							],
+							status: "ok" as const,
+							value: {
+								...cur.history.value,
+								items: [
+									...cur.history.value.items,
+									{
+										id: saved.receiptId as never,
+										occurredAt: new Date().toISOString() as never,
+										from: before.status,
+										to: task.status,
+										actor: { kind: "account" as const, accountId: viewer.accountId as never, displayName: viewer.name },
+										source: "person" as const,
+									},
+								],
+							},
 						}
 					: cur.history;
 			return { ...d, [task.id]: { ...cur, task, history, occurrence } };
@@ -731,7 +734,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 				bulkHeld.current = chosen.map((t) => t.id);
 				for (const t of chosen)
 					if (kind === "complete") setPending({ kind: "status", id: t.id, status: "complete" });
-					else if (!isSettled(t.status)) setPending({ kind: "row", id: t.id, row: after(t, t.revision) });
+					else setPending({ kind: "row", id: t.id, row: after(t, t.revision) });
 			},
 			{
 				what: `The change to ${chosen.length} ${chosen.length === 1 ? "task" : "tasks"}`,

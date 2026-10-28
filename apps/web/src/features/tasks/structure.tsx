@@ -150,7 +150,7 @@ export function Steps({
 								>
 									{s.title}
 								</span>
-								<span className="max-w-[40%] truncate text-sm text-text-3">{ownerLabel(s.assignee, you)}</span>
+								<span className="max-w-[40%] truncate text-sm text-text-3">{ownerLabel(s.assignee)}</span>
 								{admin ? (
 									<IconButton
 										icon={Cancel01Icon}
@@ -212,9 +212,7 @@ function AddStep({
 			),
 		);
 	};
-	const inherited = taskAssignee
-		? `Same as the task (${ownerLabel(taskAssignee, you)})`
-		: "Same as the task (no one yet)";
+	const inherited = taskAssignee ? `Same as the task (${ownerLabel(taskAssignee)})` : "Same as the task (no one yet)";
 	const submit = (e: FormEvent) => {
 		e.preventDefault();
 		setTouched(true);
