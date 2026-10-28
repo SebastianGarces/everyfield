@@ -74,7 +74,7 @@ function Segment<V extends string>({ option, size }: { option: SegmentOption<V>;
 			disabled={option.disabled}
 			{...handlers}
 			className={cn(
-				"relative inline-flex flex-none cursor-pointer items-center gap-1.5 rounded-md font-medium whitespace-nowrap text-text-2 transition-colors duration-150 hover:text-ink disabled:opacity-45 data-[state=on]:text-ink data-[state=on]:shadow-[inset_0_0_0_1px_var(--control-edge,transparent)]",
+				"relative inline-flex flex-none cursor-pointer items-center gap-1.5 rounded-md font-medium whitespace-nowrap text-text-2 transition-colors duration-150 hover:text-ink disabled:cursor-not-allowed disabled:opacity-45 data-[state=on]:text-ink data-[state=on]:shadow-[inset_0_0_0_1px_var(--control-edge,transparent)]",
 				size === "sm" ? "h-[30px] px-3 text-sm" : "h-[34px] px-3.5 text-md",
 			)}
 		>
@@ -148,7 +148,7 @@ export function Tab({
 		<TabsPrimitive.Trigger
 			value={value}
 			className={cn(
-				"relative inline-flex flex-none cursor-pointer items-center gap-2 rounded-t-xs pb-3 text-[15px] font-medium whitespace-nowrap text-text-3 transition-colors duration-150 hover:text-ink disabled:opacity-45 data-[state=active]:text-ink",
+				"relative inline-flex flex-none cursor-pointer items-center gap-2 rounded-t-xs pb-3 text-[15px] font-medium whitespace-nowrap text-text-3 transition-colors duration-150 hover:text-ink disabled:cursor-not-allowed disabled:opacity-45 data-[state=active]:text-ink",
 				className,
 			)}
 			{...props}
