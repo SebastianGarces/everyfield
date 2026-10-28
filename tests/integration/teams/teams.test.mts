@@ -803,26 +803,25 @@ test("AC:TARGET-TEAM-002 one edit keeps an optional reason in the history", asyn
 		ok(await run(teamsWriter.edit, { requestKey: key(), expectedRevision: at, input: { teamId: team.id, ...input } }));
 	};
 	const entries = async () =>
-		ok(await teamsReader.listHistory(db, await viewer(), { teamId: team.id })).entries.filter(
-			(entry) => entry.kind === "edit",
-		);
+		ok(await teamsReader.listHistory(db, await viewer(), { teamId: team.id })).entries;
 	await edit({ name: "Reason desk one", reason: "  Spelling fix  " });
 	await edit({ name: "Reason desk two", reason: "   " });
 	await edit({ name: "Reason desk three" });
 	await edit({ name: "Reason desk three" });
 	const found = await entries();
-	assert.equal(found.length, 3);
+	// The repeated edit changed nothing, so it adds no entry; the team's creation is the oldest.
+	assert.deepEqual(
+		found.map((entry) => entry.kind),
+		["edit", "edit", "edit", "create"],
+	);
 	const [none, blank, withReason] = found;
 	assert.deepEqual([withReason.reason, blank.reason, none.reason], ["Spelling fix", null, null]);
 	assert.deepEqual(
-		found.map((entry) => entry.after.name),
+		found.slice(0, 3).map((entry) => entry.after.name),
 		["Reason desk three", "Reason desk two", "Reason desk one"],
 	);
 	assert.equal(withReason.before.name, "Reason desk");
 	assert.equal(withReason.after.name, "Reason desk one");
-	assert.equal(withReason.reason, "Spelling fix");
-	assert.equal(withReason.kind, "edit");
-	assert.equal(none.reason, null);
 	refused(
 		await run(teamsWriter.edit, {
 			requestKey: key(),

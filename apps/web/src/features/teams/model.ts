@@ -169,7 +169,6 @@ export const HISTORY_KIND: Record<string, string> = {
 	assign: "Role filled",
 	remove: "Left the ministry",
 	retire: "Role retired",
-	noop: "No change",
 };
 export const FIELD_LABEL: Record<string, string> = {
 	name: "Name",

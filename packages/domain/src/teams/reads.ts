@@ -85,6 +85,7 @@ export const teamsReader = {
 						'before', a.before_value, 'after', a.after_value
 					) ORDER BY a.occurred_at DESC, a.id DESC)
 					FROM (SELECT * FROM audit_event WHERE tenant_id = ${viewer.plantId}::uuid AND subject_id = ${input.teamId}::uuid
+							AND kind <> 'noop'
 						ORDER BY occurred_at DESC, id DESC LIMIT 200) a), '[]'::json) AS entries`,
 			);
 			owner(viewer.plantId, found.owner);
