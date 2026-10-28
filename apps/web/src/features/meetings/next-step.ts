@@ -7,7 +7,7 @@ export type Primary = "add-guest" | "send-invites" | "check-in" | "finalize" | "
 export type Secondary = "check-in" | "finalize";
 export type TabId = "guests" | "kit" | "results";
 
-export type NextStepInput = {
+type NextStepInput = {
 	status: MeetingStatus;
 	canWrite: boolean;
 	/** Start check-in by main's rule: a person who can mark attendance, attendance not final, not cancelled, not voided. */
@@ -72,19 +72,19 @@ export function pickTab(raw: string | null, tabs: readonly TabId[], fallback: Ta
 // -------------------------------------------------------------------------------------------------------------
 // The lifecycle stepper: Invite, Check in, Follow up.
 
-export const STEPS = ["invite", "checkin", "followup"] as const;
-export type StepId = (typeof STEPS)[number];
-export const STEP_LABEL: Record<StepId, string> = { invite: "Invite", checkin: "Check in", followup: "Follow up" };
-export type StepState = "done" | "current" | "later";
+const STEPS = ["invite", "checkin", "followup"] as const;
+type StepId = (typeof STEPS)[number];
+const STEP_LABEL: Record<StepId, string> = { invite: "Invite", checkin: "Check in", followup: "Follow up" };
+type StepState = "done" | "current" | "later";
 
 /** Where the meeting is now. Cancelled has no current step. */
-export function currentStep(status: MeetingStatus, final: boolean): StepId | null {
+function currentStep(status: MeetingStatus, final: boolean): StepId | null {
 	if (status === "cancelled") return null;
 	if (final) return "followup";
 	return status === "in_progress" || status === "completed" ? "checkin" : "invite";
 }
 
-export type StepperInput = {
+type StepperInput = {
 	status: MeetingStatus;
 	final: boolean;
 	vision: boolean;
