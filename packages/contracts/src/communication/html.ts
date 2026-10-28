@@ -72,12 +72,10 @@ function rsvpButton(href: string): string {
 	);
 }
 
-export const RSVP_PLACEHOLDER_TEXT = "RSVP button appears here (needs an https app origin)";
-
 /** Preview only: a labeled box where the button goes when the app origin cannot make a link. Never sent. */
 const rsvpPlaceholder = (): string =>
 	`<table data-rsvp-placeholder="" role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0 6px 0;"><tr>` +
-	`<td align="center" style="border:2px dashed #9A9E98;padding:12px 20px;font-family:${FONT};font-size:14px;color:#666A64;">${RSVP_PLACEHOLDER_TEXT}</td></tr></table>`;
+	`<td align="center" style="border:2px dashed #9A9E98;padding:12px 20px;font-family:${FONT};font-size:14px;color:#666A64;">RSVP button appears here (needs an https app origin)</td></tr></table>`;
 
 export type RenderMode = "send" | "preview";
 
