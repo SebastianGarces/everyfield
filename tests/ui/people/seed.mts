@@ -12,7 +12,7 @@ import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { createIdentityService } from "../../../packages/domain/src/identity/index.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
 import { peopleWriter, accountPersonProducer } from "../../../packages/domain/src/people/index.ts";
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { dropSeed, openSeedEnvironment, writeFixture } from "../seed-env.mts";
 
 // The task reminder port of a stage change or retirement. These people hold no dated, assigned task, so a replan
@@ -195,6 +195,50 @@ async function up(origin: string) {
 	await admin.execute(sql`INSERT INTO task(plant_id,title,category,priority,status,created_at,due_kind,due_date,person_id)
 		VALUES (${plant.id},'Call James','follow_up','medium','not_started',clock_timestamp(),'date_only',(current_date - 3)::date,${people["James Okafor"]!.id}),
 		       (${plant.id},'Invite Mia','follow_up','medium','not_started',clock_timestamp(),'undated',NULL,${people["Mia Hall"]!.id})`);
+
+	// A minimal published wiki (WP-034/ui search proof). The starter snapshot is not installed in this schema, so the
+	// seed writes one active release with three global articles, the rows the wiki producer reads.
+	const GLOBAL = "00000000-0000-0000-0000-000000000000";
+	const digest = () => randomBytes(32).toString("hex");
+	const release = randomUUID();
+	const sectionId = randomUUID();
+	await admin.execute(
+		sql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id) VALUES(${sectionId},'section','framework/start',${GLOBAL})`,
+	);
+	await admin.execute(sql`INSERT INTO reference_release(id,release_key,artifact_locator,manifest_hash,state,complete_at,validated_at,approval_locator,approval_hash,chunker_version,embedding_profile,embedding_dimensions,tenant_id,expected_passages)
+		VALUES(${release},${"release-" + release},'memory://ui-seed',${digest()},'validated',clock_timestamp(),clock_timestamp(),'memory://approval',${digest()},'v','profile',1,${GLOBAL},0)`);
+	const articles: [string, string, string, number][] = [
+		[
+			"Financial planning for a plant",
+			"financial-planning",
+			"Build a monthly budget before the first public gathering. Financial discipline protects the planter and the core group.",
+			1,
+		],
+		[
+			"Raising support",
+			"raising-support",
+			"Support raising is a relationship task. Share the vision, ask for a commitment and report back on how each financial gift was used.",
+			2,
+		],
+		[
+			"Choosing a meeting place",
+			"meeting-place",
+			"Visit three venues, compare cost and walk the neighborhood before you sign a lease.",
+			1,
+		],
+	];
+	for (const [position, [title, slug, body, phase]] of articles.entries()) {
+		const id = randomUUID();
+		await admin.execute(
+			sql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id) VALUES(${id},'article',${slug},${GLOBAL})`,
+		);
+		await admin.execute(sql`INSERT INTO article_revision(id,article_id,tenant_id,release_id,revision_number,title,slug,excerpt,body,content_type,phase,position,content_hash,published_at,meaningful,meaningful_sequence,section_id,parent_article_id,related_slugs)
+			VALUES(${randomUUID()},${id},${GLOBAL},${release},1,${title},${slug},${title},${body},'safe_mdx',${phase},${position + 1},${digest()},clock_timestamp(),true,1,${sectionId},NULL,ARRAY[]::text[])`);
+		await admin.execute(sql`INSERT INTO reference_version(id,item_id,release_id,version_number,artifact_path,content_hash,source_credit)
+			VALUES(${randomUUID()},${id},${release},1,${"wiki/" + slug},${digest()},'UI seed')`);
+	}
+	await admin.execute(sql`INSERT INTO reference_activation(id,release_id,activation_number,activated_at,actor_tombstone,reason,expected_prior_number)
+		VALUES(${randomUUID()},${release},1,clock_timestamp(),'ui-seed','ui seed',0)`);
 
 	const fixture = writeFixture("people", env.schema, {
 		origin,
