@@ -801,7 +801,6 @@ const SCROLL =
 
 /** A side column: it scrolls on its own when the layout is fixed, else it sticks below the app bar. */
 const RAIL = `${RAIL_FIXED} ${SCROLL}`;
-const STICKY_RAIL = RAIL_STICKY;
 
 /** The heading nearest the top of the article column (the window below 1280px) is the current one. */
 function useCurrentHeading(ids: string[]): string | undefined {
@@ -928,7 +927,7 @@ export function ArticleColumns({
 					onScroll={(event) => {
 						sidenavTop = event.currentTarget.scrollTop;
 					}}
-					className={fixed ? RAIL : STICKY_RAIL}
+					className={fixed ? RAIL : RAIL_STICKY}
 				>
 					{tree()}
 				</div>
@@ -941,7 +940,7 @@ export function ArticleColumns({
 					<div className={`mb-6 ${BELOW_WIDE_ONLY}`}>{toc}</div>
 					{children}
 				</div>
-				<div className={fixed ? `${RAIL} ${RAIL_TOC_PAD}` : STICKY_RAIL}>{toc}</div>
+				<div className={fixed ? `${RAIL} ${RAIL_TOC_PAD}` : RAIL_STICKY}>{toc}</div>
 			</div>
 		</>
 	);
