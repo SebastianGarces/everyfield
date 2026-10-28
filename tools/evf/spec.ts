@@ -11,7 +11,8 @@ export type SectionKind = "goal" | "done" | "non-goals" | "other";
 export type Section = { kind: SectionKind; title: string; lines: string[] };
 
 const HEADING = /^\s{0,3}#{1,6}\s+(.*)$/;
-const LABEL = /^[*_]{0,2}(goal|done(?: criteria| when)?|non-goals|approach|facts|decisions)\b([^:\n]{0,60}?)[*_]{0,2}\s*(?::|$)/i;
+const LABEL =
+	/^[*_]{0,2}(goal|done(?: criteria| when)?|non-goals|approach|facts|decisions)\b([^:\n]{0,60}?)[*_]{0,2}\s*(?::|$)/i;
 
 const kindOf = (title: string): SectionKind =>
 	/^non-goals/i.test(title) ? "non-goals" : /^done\b/i.test(title) ? "done" : /^goal\b/i.test(title) ? "goal" : "other";
@@ -53,5 +54,12 @@ export function sectionItems(lines: string[]): string[] {
 		if (i < 2 || NUMBERED.test(line) || /^\s*[-*+]\s/.test(line)) items.push([line]);
 		else items.at(-1)!.push(line);
 	});
-	return items.map((item) => item.map((l) => l.trim()).filter(Boolean).join(" ")).filter(Boolean);
+	return items
+		.map((item) =>
+			item
+				.map((l) => l.trim())
+				.filter(Boolean)
+				.join(" "),
+		)
+		.filter(Boolean);
 }

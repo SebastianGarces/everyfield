@@ -305,7 +305,9 @@ export function hook(root: string, event: string): number {
 				shortened: context.includes("\nSHORTENED to fit"),
 				summary: `refocus after ${source}`,
 			});
-			console.log(JSON.stringify({ hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: context } }));
+			console.log(
+				JSON.stringify({ hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: context } }),
+			);
 			return 0;
 		}
 		if (event === "stop") {

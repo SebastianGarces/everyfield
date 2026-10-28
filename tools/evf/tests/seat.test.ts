@@ -216,7 +216,10 @@ test("OPS-58-refocus: the goal chain names project, mission, task, stage, ask an
 		assert.match(out.stdout, /Stage: implement \(implementer seat\)/);
 		assert.match(out.stdout, /Ask:\nMake the doghouse usable\./);
 		assert.match(out.stdout, /2\. The roof keeps rain out\./);
-		assert.match(out.stdout, /\nProof rule: a verify closes passed only when each of the 2 Done criteria \(1, 2\) has a met or n\/a proof/);
+		assert.match(
+			out.stdout,
+			/\nProof rule: a verify closes passed only when each of the 2 Done criteria \(1, 2\) has a met or n\/a proof/,
+		);
 		assert.match(out.stdout, /\nFull ask and spec: bin\/evf task spec OPS-1 --show\.\n/);
 		assert.equal(lines.at(-1), "Is what you are doing now aligned with this? If not, stop and say so.");
 	} finally {
@@ -225,7 +228,12 @@ test("OPS-58-refocus: the goal chain names project, mission, task, stage, ask an
 	}
 });
 
-const NON_GOALS = ["- No product code.", "- No change to ship or merge.", "- No GitHub settings.", "- No other task's spec."];
+const NON_GOALS = [
+	"- No product code.",
+	"- No change to ship or merge.",
+	"- No GitHub settings.",
+	"- No other task's spec.",
+];
 /**
  * A spec shaped like the ones that lost criteria: a "Done when:" header, a criterion that names "Done criteria" in its
  * text, blank lines between criteria, long criteria over several lines and a Non-goals list after them.
@@ -285,7 +293,10 @@ test("OPS-64-context: a 26-criterion spec with blank lines and multi-line criter
 		assert.ok(context.includes(done.trim()), "the Done list and the Non-goals appear verbatim, blank lines included");
 		for (const n of ALL) assert.ok(context.includes(`\n${n}. `), `criterion ${n} is in the seat context`);
 		for (const g of NON_GOALS) assert.ok(context.includes(g), `non-goal "${g}" is in the seat context`);
-		assert.match(context, new RegExp(`Proof rule: .*each of the 26 Done criteria \\(${ALL.join(", ")}\\) has a met or n/a proof`));
+		assert.match(
+			context,
+			new RegExp(`Proof rule: .*each of the 26 Done criteria \\(${ALL.join(", ")}\\) has a met or n/a proof`),
+		);
 		assert.ok(!context.includes("SHORTENED"), "nothing is cut, so nothing says so");
 		assert.match(context, /Full ask and spec: bin\/evf task spec OPS-1 --show\./);
 	} finally {
@@ -301,7 +312,9 @@ test("OPS-64-context: a spec too big for Claude Code's hook limit keeps every cr
 		assert.ok(spec.length > 8000, "the spec alone is over the limit");
 		const context = seatContext(f, spec);
 		assert.deepEqual(
-			numbered(context).filter((n) => ALL.includes(n!)).slice(0, 26),
+			numbered(context)
+				.filter((n) => ALL.includes(n!))
+				.slice(0, 26),
 			ALL,
 			"every criterion, in order, before any other numbered line",
 		);
