@@ -23,8 +23,7 @@ export const systemTemplates: readonly SystemTemplate[] = [
 	{
 		sourceKey: "vision-meeting-invitation",
 		name: "Vision meeting invitation",
-		description:
-			"Invites a guest to a vision meeting with the date, time, place and what to expect.",
+		description: "Invites a guest to a vision meeting with the date, time, place and what to expect.",
 		category: "meeting_invitation",
 		meetingType: "vision_meeting",
 		subject: "You are invited to hear the vision for our new church",
@@ -42,8 +41,7 @@ export const systemTemplates: readonly SystemTemplate[] = [
 	{
 		sourceKey: "vision-meeting-reminder",
 		name: "Vision meeting reminder",
-		description:
-			"Reminds an invited guest of the vision meeting a day or two before it.",
+		description: "Reminds an invited guest of the vision meeting a day or two before it.",
 		category: "meeting_reminder",
 		meetingType: null,
 		subject: "Reminder: our vision meeting is coming up",
@@ -88,8 +86,7 @@ export const systemTemplates: readonly SystemTemplate[] = [
 	{
 		sourceKey: "orientation-invitation",
 		name: "Orientation invitation",
-		description:
-			"Invites a new team member to orientation, the next step toward joining the core group.",
+		description: "Invites a new team member to orientation, the next step toward joining the core group.",
 		category: "meeting_invitation",
 		meetingType: "orientation",
 		subject: "Join us for orientation, your next step with our team",
@@ -107,8 +104,7 @@ export const systemTemplates: readonly SystemTemplate[] = [
 	{
 		sourceKey: "team-meeting-invitation",
 		name: "Team meeting invitation",
-		description:
-			"Invites a team member to a team meeting with the date, time, place and agenda.",
+		description: "Invites a team member to a team meeting with the date, time, place and agenda.",
 		category: "meeting_invitation",
 		meetingType: "team_meeting",
 		subject: "You are invited to our team meeting",
@@ -126,8 +122,7 @@ export const systemTemplates: readonly SystemTemplate[] = [
 	{
 		sourceKey: "general-announcement",
 		name: "General announcement",
-		description:
-			"A starting point for an update to your list, with one clear next step.",
+		description: "A starting point for an update to your list, with one clear next step.",
 		category: "announcement",
 		meetingType: null,
 		subject: "News from our church plant",
