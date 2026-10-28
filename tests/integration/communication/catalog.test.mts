@@ -1,8 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { systemTemplates } from "../../../packages/contracts/src/communication/catalog.ts";
-import { renderBody, sanitizeHtml } from "../../../packages/contracts/src/communication/html.ts";
+import { plainText, renderBody, sanitizeHtml } from "../../../packages/contracts/src/communication/html.ts";
 import { templateDraft } from "../../../packages/contracts/src/communication/values.ts";
+
+const rsvpKeys = new Set([
+	"vision-meeting-invitation",
+	"vision-meeting-reminder",
+	"orientation-invitation",
+	"team-meeting-invitation",
+]);
 
 // Identity of the seven system templates. Copy may change; these may not.
 const pinned = [
@@ -34,7 +41,27 @@ for (const template of systemTemplates) {
 		assert.equal(template.description.split(/[.!?](?:\s|$)/).filter(Boolean).length, 1, "description is one sentence");
 		assert.ok(template.description.endsWith("."));
 		const fields = [...template.bodyHtml.matchAll(/\{\{\s*([a-z0-9_]+)\s*\}\}/gi)].map((m) => m[1]);
-		assert.deepEqual([...new Set(fields)], ["name"], "only the merge field that works today");
+		const hasRsvp = rsvpKeys.has(template.sourceKey);
+		assert.deepEqual([...new Set(fields)], hasRsvp ? ["name", "rsvp_link"] : ["name"], "only name and rsvp_link");
+		assert.equal(template.bodyHtml.split("rsvp_link").length - 1, hasRsvp ? 1 : 0, "rsvp_link appears once or not at all");
+		if (hasRsvp) {
+			assert.equal(template.bodyHtml.split("<p>{{rsvp_link}}</p>").length - 1, 1);
+			assert.ok(
+				template.bodyHtml.indexOf("<strong>Where:</strong>") < template.bodyHtml.indexOf("<p>{{rsvp_link}}</p>"),
+				"the RSVP link follows the When/Where paragraph",
+			);
+		}
+		const text = plainText(renderBody(template.bodyHtml, { name: "Alex" }));
+		const outsideBrackets = text.replace(/\[[^\]]*\]/g, "");
+		assert.ok(!/\bthe link\b|\bthe button\b|\bbelow\b|\bclick/i.test(outsideBrackets), "reads correctly without the RSVP link");
+		for (const sentence of text.split(/(?<=[.!?])\s+/)) {
+			if (/\breply\b/i.test(sentence)) {
+				assert.ok(
+					!/confirm|attend|\bcome\b|\bcoming\b|cannot|plans change|\bseat\b|rsvp/i.test(sentence),
+					`no reply-as-RSVP sentence: ${sentence}`,
+				);
+			}
+		}
 		const rendered = renderBody(template.bodyHtml, { name: "Alex" });
 		assert.ok(rendered.startsWith("<p>Hello Alex,</p>"), "name merges into the greeting");
 		assert.ok(!rendered.includes("{{"), "no merge field is left unresolved");

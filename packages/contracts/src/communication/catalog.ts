@@ -16,7 +16,8 @@ export type SystemTemplate = {
 /**
  * The seven approved system messages. They live in code. A plant fork never changes these bytes.
  *
- * Only `{{name}}` has a merge-field producer today. Meeting details are bracket placeholders the
+ * `{{name}}` and `{{rsvp_link}}` are the merge fields. A guest answers a meeting invitation or reminder on the RSVP page, never by reply.
+ * The four meeting templates carry `{{rsvp_link}}`; it renders nothing when the RSVP link does not apply. Meeting details are bracket placeholders the
  * planter replaces before sending. Subjects hold no merge fields, because nothing merges a subject.
  */
 export const systemTemplates: readonly SystemTemplate[] = [
@@ -32,9 +33,10 @@ export const systemTemplates: readonly SystemTemplate[] = [
 			"<p>Hello {{name}},</p>" +
 			"<p>We are starting a new church, and we would love for you to hear the vision behind it. Please join us for a vision meeting.</p>" +
 			"<p><strong>When:</strong> [Day, date], [Start time] to [End time]<br /><strong>Where:</strong> [Address or meeting link]</p>" +
+			"<p>{{rsvp_link}}</p>" +
 			"<p>What to expect:</p>" +
 			"<ul><li>A short talk on why we are planting this church and who it is for.</li><li>Time to ask questions.</li><li>Ways to pray for the church or take part.</li></ul>" +
-			"<p>You do not need to prepare anything. Come as you are. If you plan to attend, please reply to this email so we can save you a seat. Tell us if you have any questions.</p>" +
+			"<p>You do not need to prepare anything. Come as you are. If you have any questions, reply to this email.</p>" +
 			"<p>We hope to see you there.</p>" +
 			"<p>Warmly,<br />[Your name]</p>",
 	},
@@ -50,7 +52,8 @@ export const systemTemplates: readonly SystemTemplate[] = [
 			"<p>Hello {{name}},</p>" +
 			"<p>This is a friendly reminder about our vision meeting. We are glad you plan to come.</p>" +
 			"<p><strong>When:</strong> [Day, date], [Start time]<br /><strong>Where:</strong> [Address or meeting link]</p>" +
-			"<p>What to expect: a short talk about the vision, time for your questions, and a chance to meet the team. Please arrive a few minutes early so we can start on time. If your plans change, reply to this email and let us know.</p>" +
+			"<p>{{rsvp_link}}</p>" +
+			"<p>What to expect: a short talk about the vision, time for your questions, and a chance to meet the team. Please arrive a few minutes early so we can start on time. If you have any questions, reply to this email.</p>" +
 			"<p>We look forward to seeing you.</p>" +
 			"<p>Warmly,<br />[Your name]</p>",
 	},
@@ -95,9 +98,10 @@ export const systemTemplates: readonly SystemTemplate[] = [
 			"<p>Hello {{name}},</p>" +
 			"<p>Thank you for your interest in serving with our church plant. Orientation is the next step toward joining our core group. We explain how the team works and where you can help.</p>" +
 			"<p><strong>When:</strong> [Day, date], [Start time] to [End time]<br /><strong>Where:</strong> [Address or meeting link]</p>" +
+			"<p>{{rsvp_link}}</p>" +
 			"<p>What to expect:</p>" +
 			"<ul><li>An overview of our mission, values and plans.</li><li>A look at the ways you can serve.</li><li>Time to meet the team and ask questions.</li></ul>" +
-			"<p>You do not need to bring anything. Please reply to this email to confirm that you can come, or to tell us if you cannot.</p>" +
+			"<p>You do not need to bring anything. If you have any questions, reply to this email.</p>" +
 			"<p>We are glad you are here.</p>" +
 			"<p>Warmly,<br />[Your name]</p>",
 	},
@@ -113,9 +117,10 @@ export const systemTemplates: readonly SystemTemplate[] = [
 			"<p>Hello {{name}},</p>" +
 			"<p>Our next team meeting is coming up, and we would like you to be there.</p>" +
 			"<p><strong>When:</strong> [Day, date], [Start time] to [End time]<br /><strong>Where:</strong> [Address or meeting link]</p>" +
+			"<p>{{rsvp_link}}</p>" +
 			"<p>What to expect:</p>" +
 			"<ul><li>A short time of prayer.</li><li>Updates on our progress and what comes next.</li><li>Time to plan together and share who will do what.</li><li>[Add any agenda items you want the team to prepare]</li></ul>" +
-			"<p>Please reply to this email to confirm that you can come. If you cannot, tell us, and we will share the notes with you afterward.</p>" +
+			"<p>If you cannot come, we will share the notes with you afterward. If you have any questions, reply to this email.</p>" +
 			"<p>Thank you for all you do.</p>" +
 			"<p>Warmly,<br />[Your name]</p>",
 	},
