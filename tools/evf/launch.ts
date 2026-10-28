@@ -51,6 +51,7 @@ export type LaunchPlan = {
 	round: number;
 	worktree: string;
 	session: string;
+	/** Herdr agent name `<role>-<slug>-<run id>`; `<run>` until the run row exists. */
 	agent: string;
 	name: string;
 	env: Record<string, string>;
@@ -75,7 +76,7 @@ export function launchPlan(
 		round: opts.round ?? 0,
 		worktree,
 		session,
-		agent: `${role}-${task.slug}`,
+		agent: `${role}-${task.slug}-${opts.run ?? "<run>"}`,
 		name: `${role}@${task.id}`,
 		env: {
 			EVF_TASK: task.id,
@@ -199,6 +200,7 @@ export function launch(
 				now,
 			).lastInsertRowid;
 		plan.env.EVF_RUN = String(runId);
+		plan.agent = `${role}-${task.slug}-${runId}`; // One Herdr agent per run, so round 2 never collides with round 1's seat.
 		// Until the agent is up, any Herdr failure aborts the run, so the store never lists a seat that does not exist.
 		let workspace = "",
 			pane = "";

@@ -94,7 +94,7 @@ test("OPS-58-launch: a dry run prints the worktree, workspace, agent and store s
 		);
 		assert.match(
 			out.stdout,
-			/herdr agent start verifier-ops-1 --kind claude --pane '<root pane>' --timeout 90000 -- --agent verifier --name verifier@OPS-1 --session-id [0-9a-f-]{36} --model claude-opus-5-5 --effort high --permission-mode acceptEdits/,
+			/herdr agent start 'verifier-ops-1-<run>' --kind claude --pane '<root pane>' --timeout 90000 -- --agent verifier --name verifier@OPS-1 --session-id [0-9a-f-]{36} --model claude-opus-5-5 --effort high --permission-mode acceptEdits/,
 		);
 		assert.equal(
 			(f.db.prepare("SELECT COUNT(*) AS n FROM runs").get() as { n: number }).n,
@@ -123,7 +123,8 @@ test("OPS-58-launch: a real launch records the run, passes EVF_RUN to the worksp
 		assert.equal(printed.workspace, "w9");
 		assert.deepEqual(
 			[run.stage, run.role, run.status, run.herdr_agent, run.herdr_pane],
-			["implement", "implementer", "started", "implementer-ops-1", "w9:p1"],
+			["implement", "implementer", "started", `implementer-ops-1-${run.id}`, "w9:p1"],
+			"the Herdr agent name carries the run id, so a later round never collides with this seat",
 		);
 		assert.match(String(run.session_id), /^[0-9a-f-]{36}$/);
 		const calls = f.herdr.calls();
@@ -131,9 +132,9 @@ test("OPS-58-launch: a real launch records the run, passes EVF_RUN to the worksp
 			start = calls.find((c) => c[0] === "agent" && c[1] === "start")!;
 		assert.ok(create.includes(`EVF_RUN=${run.id}`), "the seat's environment names its run");
 		assert.ok(create.some((arg) => /^EVF_WORKTREE=.*\.worktrees\/ops-1$/.test(arg)));
-		assert.deepEqual(start.slice(2, 7), ["implementer-ops-1", "--kind", "claude", "--pane", "w9:p1"]);
+		assert.deepEqual(start.slice(2, 7), [`implementer-ops-1-${run.id}`, "--kind", "claude", "--pane", "w9:p1"]);
 		assert.ok(start.includes(String(run.session_id)), "Claude Code starts with the session id evf chose");
-		assert.deepEqual(calls.at(-1), ["agent", "prompt", "implementer-ops-1", "Begin."]);
+		assert.deepEqual(calls.at(-1), ["agent", "prompt", `implementer-ops-1-${run.id}`, "Begin."]);
 		const task = f.db.prepare("SELECT status, herdr_workspace_id FROM tasks WHERE id = ?").get(f.taskId) as Record<
 			string,
 			unknown
@@ -159,7 +160,8 @@ test("OPS-58-launch: a real launch records the run, passes EVF_RUN to the worksp
 				["agent", "rename", "w9:p1"],
 			],
 		);
-		assert.deepEqual([f.runs().at(-1)!.status, f.runs().at(-1)!.herdr_agent], ["started", "verifier-ops-1"]);
+		const trustedRun = f.runs().at(-1)!;
+		assert.deepEqual([trustedRun.status, trustedRun.herdr_agent], ["started", `verifier-ops-1-${trustedRun.id}`]);
 	} finally {
 		f.db.close();
 		f.close();
@@ -329,10 +331,25 @@ test("OPS-58-hooks: the path guard denies an edit outside the seat's worktree an
 		);
 		assert.equal(unguarded.stdout, "", "no worktree, no guard");
 
-		const stop = cli(f.root, f.env, { session_id: SESSION, stop_hook_active: false }, "hook", "stop");
+		const stop = cli(
+			f.root,
+			{ ...f.env, EVF_STAGE: "implement" },
+			{ session_id: SESSION, stop_hook_active: false },
+			"hook",
+			"stop",
+		);
 		assert.equal(stop.status, 0, stop.stderr);
-		assert.equal(stop.stdout, "");
-		assert.equal(f.events("stop").length, 1);
+		assert.match(JSON.parse(stop.stdout).reason, /still open\. Close it now: bin\/evf run done \d+/);
+		assert.equal(JSON.parse(stop.stdout).decision, "block");
+		const again = cli(
+			f.root,
+			{ ...f.env, EVF_STAGE: "implement" },
+			{ session_id: SESSION, stop_hook_active: true },
+			"hook",
+			"stop",
+		);
+		assert.equal(again.stdout, "", "the block is not repeated while Claude Code is already continuing");
+		assert.equal(f.events("stop").length, 2);
 		const status = () =>
 			f.db.prepare("SELECT status, ended_at, session_id FROM runs WHERE id = ?").get(f.run) as {
 				status: string;
@@ -353,6 +370,14 @@ test("OPS-58-hooks: the path guard denies an edit outside the seat's worktree an
 		assert.equal(status().status, "aborted", "a seat that exits without closing its stage is aborted");
 		assert.ok(status().ended_at);
 		assert.match(f.events("session_end").at(-1)!.payload, /"aborted":true/);
+		const closed = cli(
+			f.root,
+			{ ...f.env, EVF_STAGE: "implement" },
+			{ session_id: next, stop_hook_active: false },
+			"hook",
+			"stop",
+		);
+		assert.equal(closed.stdout, "", "a closed stage never blocks a stop");
 	} finally {
 		f.db.close();
 		f.close();

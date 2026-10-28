@@ -193,6 +193,14 @@ export function hook(root: string, event: string): number {
 				stop_hook_active: input.stop_hook_active === true,
 				summary: `${seat.role}@${seat.ref} ended a turn`,
 			});
+			// A seat does not end its turn with its stage open (Claude Code caps these continuations itself).
+			if (seat.status === "started" && input.stop_hook_active !== true && process.env.EVF_STAGE)
+				console.log(
+					JSON.stringify({
+						decision: "block",
+						reason: `Your ${seat.role} stage for ${seat.ref} is still open. Close it now: bin/evf run done ${runId} --status passed|failed --summary-file <path>. If you are blocked, say why in the summary and use failed.`,
+					}),
+				);
 			return 0;
 		}
 		// session-end: a seat that exits without closing its stage is aborted, never silently passed. A clear or

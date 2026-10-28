@@ -24,6 +24,7 @@ import {
 } from "./lib.ts";
 import { maintenanceScope, requireTaskScope } from "./policy.ts";
 import { checkPrBody } from "./pr-body.ts";
+import { sessionsRecorded } from "./db.ts";
 import { withShipQueue, type QueueTiming } from "./ship-queue.ts";
 import { formatScope, wpScope } from "./scope.ts";
 import { recordProgress, type ShippedRecord } from "./progress.ts";
@@ -79,7 +80,7 @@ function pushBranch(wt: string, cfg: Config, task: TaskRef): void {
 	git(wt, "push", "--quiet", "-u", cfg.remote, `HEAD:refs/heads/${task.branch}`);
 }
 
-function prFor(wt: string, task: TaskRef): { number: number; url: string; state: string } | null {
+export function prFor(wt: string, task: TaskRef): { number: number; url: string; state: string } | null {
 	const r = run("gh", ["pr", "view", task.branch, "--json", "number,url,state"], { cwd: wt });
 	return r.code === 0 ? (JSON.parse(r.stdout) as { number: number; url: string; state: string }) : null;
 }
@@ -206,6 +207,7 @@ export type MergeEvidence = {
 type PullRequest = {
 	number: number;
 	body: string;
+	headRefName?: string;
 	headRefOid: string;
 	baseRefName: string;
 	state: string;
@@ -358,7 +360,7 @@ export function checkPr(
 ): MergeEvidence {
 	const cfg = loadConfig(root);
 	const pr: PullRequest = JSON.parse(
-		gh(root, ["pr", "view", String(number), "--json", "number,body,headRefOid,baseRefName,state,isDraft"]),
+		gh(root, ["pr", "view", String(number), "--json", "number,body,headRefName,headRefOid,baseRefName,state,isDraft"]),
 	);
 	if (pr.state !== "OPEN" || pr.isDraft || pr.baseRefName !== cfg.baseBranch)
 		fail("Shipping requires an open, ready PR targeting main.");
@@ -422,6 +424,8 @@ export function checkPr(
 	const checkedAtMs = Date.now();
 	const dependent = independentReview(author, selected.approval.verifier);
 	if (dependent) fail(dependent);
+	const unrecorded = sessionsRecorded(root, pr.headRefName, author.session, selected.approval.verifier.session);
+	if (unrecorded) fail(unrecorded);
 	const current: PullRequest = JSON.parse(
 		gh(root, ["pr", "view", String(number), "--json", "number,body,headRefOid,baseRefName,state,isDraft"]),
 	);

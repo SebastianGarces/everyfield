@@ -888,6 +888,21 @@
 				}
 			],
 			"risk": "ordinary"
+		},
+		"OPS-59": {
+			"title": "Harness drive loop: evf drive, next, run done, task new and spec, proofs, check, ask planner, loop cap",
+			"owningPaths": ["tools/evf/", "evf.config.json", ".claude/"],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {
