@@ -94,7 +94,7 @@ const reopenMarker = (db: DatabaseSync, taskId: number): number => {
  * Failed or aborted runs since the last passed one, counting only runs after the latest reopen marker.
  * An evf run aborted by a restart is not a failure.
  */
-const trailingFailures = (runs: RunRow[], reopenAfter = 0): number => {
+const trailingFailures = (runs: RunRow[], reopenAfter: number): number => {
 	let n = 0;
 	for (let i = runs.length - 1; i >= 0; i--) {
 		const r = runs[i]!;
@@ -424,9 +424,9 @@ export function taskReopen(root: string, task: TaskRef, reason: string): number 
 		if (!t) fail(`${task.id} has no task row, so there is nothing to reopen.`);
 		if (t.status !== "escalated") fail(`${t.ref} is ${t.status}, not escalated: only an escalated task reopens.`);
 		const status = t.pr_number ? "pr_open" : "active";
-		const afterRun = Number(
-			(db.prepare("SELECT COALESCE(MAX(id), 0) AS m FROM runs WHERE task_id = ?").get(t.id) as { m: number }).m,
-		);
+		const { m: afterRun } = db.prepare("SELECT COALESCE(MAX(id), 0) AS m FROM runs WHERE task_id = ?").get(t.id) as {
+			m: number;
+		};
 		db.prepare("UPDATE tasks SET status = ?, updated_at = ? WHERE id = ?").run(status, now(), t.id);
 		record(db, t.id, null, "reopen", {
 			reason: reason.trim(),
