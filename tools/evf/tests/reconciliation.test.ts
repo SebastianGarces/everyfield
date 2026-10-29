@@ -56,6 +56,7 @@ test("INV-context: load current acceptance and fail when its required input is m
 });
 
 import { fixture } from "./fixtures.ts";
+import { nextStage } from "../drive.ts";
 import { parseTask, evfDataDir, evidenceDir, loadConfig, runtimeDir, independentReview } from "../lib.ts";
 import {
 	feedbackTriage,
@@ -299,7 +300,7 @@ test("INV-workflow-routing: Next server paths stay with implementor and presenta
 
 import { ship, listShipped, prOpen, checkPr } from "../ship.ts";
 import { driveOnce } from "../drive.ts";
-import { ensureTask, openWorkDb } from "../db.ts";
+import { ensureTask, findTask, openWorkDb } from "../db.ts";
 import { withShipQueue } from "../ship-queue.ts";
 import { awaitLoad, loadLimit } from "../load.ts";
 import { availableParallelism } from "node:os";
@@ -2122,8 +2123,28 @@ test("INV-phase7-progress: ship and acknowledgement preserve reviewed milestones
 		state.comments["77"][0].body =
 			`EVF-Review: ${JSON.stringify({ head: sha, verifier: VERIFIER, verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
 		f.setState(state);
+		const store = openWorkDb(f.root);
+		ensureTask(store, task, "implement");
+		store.prepare("UPDATE tasks SET status = 'pr_open', pr_number = 77 WHERE ref = ?").run(task.id);
 		console.log = () => {};
 		assert.equal(ship(f.root, task), 0);
+		// OPS-66: a standalone ship marks the current row merged with the merge commit, once.
+		const shipped = store.prepare("SELECT id, status, merge_commit FROM tasks WHERE ref = ?").all(task.id);
+		assert.equal(shipped.length, 1);
+		assert.equal(shipped[0].status, "merged");
+		assert.equal(shipped[0].merge_commit, f.git("rev-parse", "HEAD"));
+		assert.equal(
+			store.prepare("SELECT COUNT(*) AS n FROM events WHERE task_id = ? AND type = 'merged'").get(shipped[0].id).n,
+			1,
+		);
+		assert.equal(nextStage(task, findTask(store, task), []).stage, "done");
+		const nextOut = spawnSync(process.execPath, [join(source, "tools/evf/main.ts"), "next", task.id], {
+			cwd: f.root,
+			encoding: "utf8",
+			env: { ...process.env, EVF_RUN: "" },
+		});
+		assert.equal(JSON.parse(nextOut.stdout).stage, "done");
+		store.close();
 		const path = join(evfDataDir(f.root), "shipped", `${task.slug}.json`),
 			record = JSON.parse(readFileSync(path, "utf8"));
 		assert.equal(record.verified_head, sha);
@@ -2938,7 +2959,7 @@ test("OPS-67-ship-ack: the drive's ship stage acknowledges a reviewed milestone,
 		log = console.log;
 	try {
 		console.log = () => {};
-		assert.equal(driveOnce(f.root, task, DRIVE_TIMING).stage, "ship");
+		assert.equal(driveOnce(f.root, task, DRIVE_TIMING).stage, "done");
 		const stage = db.prepare("SELECT status FROM runs WHERE stage = 'ship'").get() as { status: string };
 		assert.equal(stage.status, "passed");
 		assert.equal(producerReady(f.root, "WP-001"), true, "dependents verify right away");
@@ -2976,7 +2997,7 @@ test("OPS-67-ship-ack: a record that fails reviewedMilestone stays unacknowledge
 		lines: string[] = [];
 	try {
 		console.log = (...a: unknown[]) => lines.push(a.join(" "));
-		assert.equal(driveOnce(f.root, task, DRIVE_TIMING).stage, "ship");
+		assert.equal(driveOnce(f.root, task, DRIVE_TIMING).stage, "done");
 		const stage = db.prepare("SELECT status FROM runs WHERE stage = 'ship'").get() as { status: string };
 		assert.equal(stage.status, "passed", "the merge is done, so the stage does not fail");
 		assert.equal(shipped().acknowledged, undefined);

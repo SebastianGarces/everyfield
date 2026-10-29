@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, openSync, readFileSync, unlinkSync, writeFileSyn
 import { join } from "node:path";
 import { spawn } from "node:child_process";
 import type { DatabaseSync } from "node:sqlite";
-import { ensureTask, findTask, openWorkDb, type TaskRow } from "./db.ts";
+import { ensureTask, findTask, markMerged, newTaskRow, openWorkDb, record, type TaskRow } from "./db.ts";
 import { ideaWorktree, launch, type Role } from "./launch.ts";
 import {
 	EvfError,
@@ -63,17 +63,6 @@ type RunRow = { id: number; stage: string; role: string; status: string; round: 
 
 const now = () => new Date().toISOString();
 const headline = (text: string, max = 160) => text.split("\n")[0]?.slice(0, max) ?? "";
-const record = (
-	db: DatabaseSync,
-	taskId: number,
-	runId: number | null,
-	type: string,
-	payload: Record<string, unknown>,
-) =>
-	db
-		.prepare("INSERT INTO events (task_id, run_id, ts, type, payload) VALUES (?, ?, ?, ?, ?)")
-		.run(taskId, runId, now(), type, JSON.stringify(payload));
-
 const runsOf = (db: DatabaseSync, taskId: number): RunRow[] =>
 	db
 		.prepare("SELECT id, stage, status, role, round, summary FROM runs WHERE task_id = ? ORDER BY started_at, id")
@@ -317,7 +306,10 @@ export function taskNew(root: string, task: TaskRef, opts: { askFile: string; ti
 	try {
 		const mode = opts.mode ?? "implement";
 		if (!["implement", "prototype"].includes(mode)) fail("--mode must be implement or prototype.");
-		const t = ensureTask(db, task, mode);
+		// The one command that reopens a merged ref: the merged row keeps its status and commit.
+		const prior = findTask(db, task);
+		const reopens = prior?.status === "merged" ? prior : undefined;
+		const t = reopens ? newTaskRow(db, task, mode) : ensureTask(db, task, mode);
 		if (t.mode !== mode)
 			fail(`${t.ref} already has an open ${t.mode} task; finish or abandon it before a ${mode} task.`);
 		db.prepare("UPDATE tasks SET ask = ?, title = ?, updated_at = ? WHERE id = ?").run(
@@ -326,7 +318,10 @@ export function taskNew(root: string, task: TaskRef, opts: { askFile: string; ti
 			now(),
 			t.id,
 		);
-		record(db, t.id, null, "task_new", { summary: `${t.ref}: ${headline(opts.title ?? ask)}` });
+		record(db, t.id, null, "task_new", {
+			summary: `${t.ref}: ${headline(opts.title ?? ask)}`,
+			...(reopens ? { reopens: reopens.id } : {}),
+		});
 		console.log(JSON.stringify({ task: t.ref, id: t.id, status: t.status, mode: t.mode }));
 		return 0;
 	} finally {
@@ -341,6 +336,8 @@ export function taskSpec(root: string, task: TaskRef, file: string): number {
 	const db = openWorkDb(root);
 	try {
 		const t = ensureTask(db, task, "implement");
+		if (t.status === "merged")
+			fail(`${t.ref} is merged. Start a new task with evf task new ${t.ref} --ask-file <file>.`);
 		db.prepare(
 			"UPDATE tasks SET spec = ?, spec_hash = ?, status = CASE WHEN status = 'new' THEN 'specced' ELSE status END, updated_at = ? WHERE id = ?",
 		).run(spec, hash, now(), t.id);
@@ -654,15 +651,6 @@ const DRIVE_TIMING: DriveTiming = {
 };
 
 type Outcome = { status: "passed" | "failed"; summary: string };
-const merged = (db: DatabaseSync, t: TaskRow, runId: number, commit: string | null) => {
-	db.prepare("UPDATE tasks SET status = 'merged', merge_commit = ?, updated_at = ? WHERE id = ?").run(
-		commit,
-		now(),
-		t.id,
-	);
-	record(db, t.id, runId, "merged", { summary: `${t.ref} merged${commit ? ` as ${commit.slice(0, 10)}` : ""}` });
-};
-
 /** The pr stage: push and open the PR from the body the implementer wrote, then remember its number. */
 function prStage(db: DatabaseSync, root: string, task: TaskRef, t: TaskRow, wt: string): Outcome {
 	const body = prBodyPath(root, task);
@@ -711,7 +699,7 @@ function shipStage(db: DatabaseSync, root: string, task: TaskRef, t: TaskRow, ru
 	};
 	const before = view();
 	if (before.state !== "MERGED") ship(root, task);
-	merged(db, t, runId, before.state === "MERGED" ? before.commit : view().commit);
+	markMerged(db, task, before.state === "MERGED" ? before.commit : view().commit, runId);
 	return { status: "passed", summary: before.state === "MERGED" ? "already merged on GitHub" : "shipped" };
 }
 
@@ -885,11 +873,12 @@ export function driveOnce(root: string, task: TaskRef, timing: DriveTiming = DRI
 		const runs = runsOf(db, t.id);
 		const pick = pickOf(db, t.id);
 		const n = nextStage(task, t, runs, !!pick);
-		record(db, t.id, n.run ?? null, "next", {
-			stage: n.stage,
-			round: n.round,
-			summary: `next: ${n.stage} (${n.reason})`,
-		});
+		if (t.status !== "merged")
+			record(db, t.id, n.run ?? null, "next", {
+				stage: n.stage,
+				round: n.round,
+				summary: `next: ${n.stage} (${n.reason})`,
+			});
 		if (n.stage === "escalated" && t.status !== "escalated") escalate(db, t, null, n.reason);
 		if (n.stage === "done" || n.stage === "escalated") return n;
 		if (n.stage === "pick") {
@@ -943,6 +932,9 @@ export function driveOnce(root: string, task: TaskRef, timing: DriveTiming = DRI
 			return n;
 		}
 		evfStage(db, root, task, t, n.stage, timing);
+		// A merge ends the task: the loop stops here and makes no further transition.
+		if (n.stage === "ship" && findTask(db, task)?.status === "merged")
+			return { stage: "done", round: n.round, reason: "merged" };
 		return n;
 	} finally {
 		db.close();

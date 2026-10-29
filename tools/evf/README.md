@@ -93,6 +93,11 @@ process is alive (pid file under `evf/drive/`). If a drive dies inside its own p
 next drive aborts that run without a round and performs the stage again; a PR GitHub already merged is
 recorded, not shipped twice. Jonah polls `evf status --json`.
 
+A merge ends the drive and the task. The drive exits 0 directly after its ship stage closes passed and makes
+no further transition. A standalone `evf ship` writes the same record: the ref's current row becomes `merged`
+with its merge commit and one `merged` event, or one merged row when the store had none, so `evf next` prints
+`done` (reason `merged`). Rewriting a row already merged with that commit changes nothing.
+
 `evf task new` records the verbatim ask, `evf task spec` the spec with its hash (`tools/evf/spec.ts` reads its
 sections; the Done list starts at a Done header such as `Done when:` or `## Done criteria`), `evf proof add` one
 proof row per Done criterion bound to the worktree head, `evf check` the author checks as an event when
@@ -101,6 +106,12 @@ A verify run closes passed only when every numbered Done criterion has a `met` o
 worktree head (guard rail 3). For a driven task (one with an evf run), ship also refuses an EVF-Author
 or EVF-Review session that evf never launched; a task row alone, from `evf check` or a launch by hand,
 changes nothing for an ordinary PR.
+
+A ref has one current row: its latest row that is not `abandoned`, in any status. Every command that starts
+work (`evf drive`, `evf task spec`, `evf launch`, `evf proof add`) uses that row and never inserts a row for a
+merged ref; `evf drive` prints stage `done`, and `evf task spec` and `evf launch` fail. Only `evf task new
+<ref> --ask-file <file>` reopens a merged ref: it inserts one `new` row and its `task_new` event names the
+merged row it reopens (`reopens`).
 
 ## Prototype mode
 

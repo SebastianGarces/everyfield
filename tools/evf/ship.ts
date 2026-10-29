@@ -24,7 +24,7 @@ import {
 } from "./lib.ts";
 import { maintenanceScope, requireTaskScope } from "./policy.ts";
 import { checkPrBody } from "./pr-body.ts";
-import { sessionsRecorded } from "./db.ts";
+import { markMerged, openWorkDb, sessionsRecorded } from "./db.ts";
 import { withShipQueue, type QueueTiming } from "./ship-queue.ts";
 import { formatScope, wpScope } from "./scope.ts";
 import { acknowledgeShipped, recordProgress, type ShippedRecord } from "./progress.ts";
@@ -682,6 +682,12 @@ function afterMerge(
 			`progress: ${task.id} merged but its reviewed-milestone checks failed; the coordinator reviews it with evf shipped.`,
 		);
 
+	const db = openWorkDb(root);
+	try {
+		markMerged(db, task, mergeSha, null);
+	} finally {
+		db.close();
+	}
 	if (task.kind !== "ops") stack(root, task, "down", true);
 	const removed = run("git", ["worktree", "remove", wt], { cwd: root });
 	if (removed.code === 0) {

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
-import { ensureTask, openWorkDb } from "./db.ts";
+import { ensureTask, findTask, openWorkDb, workDbPath } from "./db.ts";
 import {
 	baseRef,
 	fail,
@@ -319,6 +319,15 @@ export function launch(
 	},
 ): number {
 	const timing = { ...LAUNCH_TIMING, ...opts.timing };
+	// A merged ref fails before it gets a worktree or a row, dry run included. Reading never creates the store.
+	if (existsSync(workDbPath(root))) {
+		const known = openWorkDb(root, { readOnly: true });
+		try {
+			if (findTask(known, task)?.status === "merged") fail(`${task.id} is merged.`);
+		} finally {
+			known.close();
+		}
+	}
 	if (opts.dryRun) return launchDryRun(root, task, role, opts);
 	const cfg = loadConfig(root);
 	if (opts.idea && role !== "ideator") fail("--idea is for the ideator role.");

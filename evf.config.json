@@ -985,6 +985,21 @@
 			],
 			"risk": "ordinary"
 		},
+		"OPS-66": {
+			"title": "No ghost task rows after a ship; standalone ship marks the row merged",
+			"owningPaths": ["tools/evf/", "tools/evf-tui/", "evf.config.json"],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
+		},
 		"OPS-67": {
 			"title": "Ship acknowledges the milestone; seats wait for a ready pane shell",
 			"owningPaths": [
@@ -995,6 +1010,7 @@
 				".agents/skills/ship/SKILL.md",
 				"docs/build-agent-workflow.md"
 			],
+
 			"checks": [
 				{
 					"name": "documentation",
