@@ -126,10 +126,17 @@ export function Tabs({ value: controlled, defaultValue = "", onValueChange, ...p
 	);
 }
 
+/**
+ * The bar scrolls sideways only. Its bottom line is an inset shadow and the active underline sits inside the box, so
+ * nothing reaches past the padding box and `overflow-y` can stay hidden without clipping the underline.
+ */
 export function TabsList({ className, ...props }: ComponentPropsWithRef<typeof TabsPrimitive.List>) {
 	return (
 		<TabsPrimitive.List
-			className={cn("-mx-1 flex gap-[26px] overflow-x-auto border-b border-line px-1 pt-1 max-app-sm:gap-5", className)}
+			className={cn(
+				"-mx-1 flex gap-[26px] overflow-x-auto overflow-y-hidden px-1 shadow-[inset_0_-1px_0_var(--ef-line)] pt-1 max-app-sm:gap-5",
+				className,
+			)}
 			{...props}
 		/>
 	);
@@ -160,7 +167,7 @@ export function Tab({
 					layoutId={tabs?.indicator}
 					transition={SLIDE}
 					aria-hidden="true"
-					className="absolute inset-x-0 -bottom-px h-0.5 bg-ink"
+					className="absolute inset-x-0 bottom-0 h-0.5 bg-ink"
 				/>
 			) : null}
 		</TabsPrimitive.Trigger>

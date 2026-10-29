@@ -23,7 +23,13 @@ export const createTeamRequest = z.strictObject({
 		state: teamState.optional(),
 	}),
 });
-export const editTeamRequest = commandEnvelope(teamTarget.extend(teamFacts.shape));
+/** The reason for a change is optional. A blank or whitespace-only reason means a plain edit entry in the history. */
+const editReason = z
+	.string()
+	.max(500)
+	.transform((text) => text.trim() || undefined)
+	.optional();
+export const editTeamRequest = commandEnvelope(teamTarget.extend({ ...teamFacts.shape, reason: editReason }));
 export const correctTeamRequest = commandEnvelope(
 	teamTarget.extend({
 		name: teamName,
