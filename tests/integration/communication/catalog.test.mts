@@ -43,7 +43,11 @@ for (const template of systemTemplates) {
 		const fields = [...template.bodyHtml.matchAll(/\{\{\s*([a-z0-9_]+)\s*\}\}/gi)].map((m) => m[1]);
 		const hasRsvp = rsvpKeys.has(template.sourceKey);
 		assert.deepEqual([...new Set(fields)], hasRsvp ? ["name", "rsvp_link"] : ["name"], "only name and rsvp_link");
-		assert.equal(template.bodyHtml.split("rsvp_link").length - 1, hasRsvp ? 1 : 0, "rsvp_link appears once or not at all");
+		assert.equal(
+			template.bodyHtml.split("rsvp_link").length - 1,
+			hasRsvp ? 1 : 0,
+			"rsvp_link appears once or not at all",
+		);
 		if (hasRsvp) {
 			assert.ok(template.bodyHtml.includes("<p>{{rsvp_link}}</p>"));
 			assert.ok(
@@ -53,7 +57,10 @@ for (const template of systemTemplates) {
 		}
 		const text = plainText(renderBody(template.bodyHtml, { name: "Alex" }));
 		const outsideBrackets = text.replace(/\[[^\]]*\]/g, "");
-		assert.ok(!/\bthe link\b|\bthe button\b|\bbelow\b|\bclick/i.test(outsideBrackets), "reads correctly without the RSVP link");
+		assert.ok(
+			!/\bthe link\b|\bthe button\b|\bbelow\b|\bclick/i.test(outsideBrackets),
+			"reads correctly without the RSVP link",
+		);
 		for (const sentence of text.split(/(?<=[.!?])\s+/)) {
 			if (/repl(y|ies|ied|ying)\b/i.test(sentence)) {
 				assert.ok(
@@ -64,3 +71,15 @@ for (const template of systemTemplates) {
 		}
 	});
 }
+
+test("each meeting template renders exactly one RSVP button with a valid link, and none without one", () => {
+	const href = "https://app.example.test/rsvp/tok_123";
+	for (const template of systemTemplates) {
+		const withLink = renderBody(template.bodyHtml, { name: "Alex", rsvp_link: href });
+		const buttons = withLink.split("Tell us if you can come</a>").length - 1;
+		assert.equal(buttons, rsvpKeys.has(template.sourceKey) ? 1 : 0, `${template.sourceKey}: one button or none`);
+		if (buttons)
+			assert.equal(withLink.split(`href="${href}"`).length - 1, 2, "the button links to the guest's RSVP page");
+		assert.ok(!renderBody(template.bodyHtml, { name: "Alex" }).includes("data-rsvp-button"), "no link, no button");
+	}
+});

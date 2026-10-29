@@ -13,7 +13,15 @@ export type SystemTemplate = {
 	bodyHtml: string;
 };
 
-/** The seven approved system messages. They live in code. A plant fork never changes these bytes. Merge fields: `{{name}}`, `{{rsvp_link}}` (meeting templates only). */
+/**
+ * The seven approved system messages. They live in code. A plant fork never changes these bytes.
+ *
+ * Merge fields: `{{name}}`, and `{{rsvp_link}}` in the four meeting templates. The RSVP delivery code (WP-020/api, packages/domain communication
+ * delivery) produces `{{rsvp_link}}`: one "Tell us if you can come" button, or nothing for a recipient who is not a guest.
+ * A guest answers on the RSVP page, never by reply. Meeting details are bracket placeholders the planter replaces before sending:
+ * [Day, date] = meeting_date, [Start time] and [End time] = meeting_time, [Address or meeting link] = meeting_location.
+ * Subjects hold no merge fields, because nothing merges a subject.
+ */
 export const systemTemplates: readonly SystemTemplate[] = [
 	{
 		sourceKey: "vision-meeting-invitation",
@@ -22,6 +30,7 @@ export const systemTemplates: readonly SystemTemplate[] = [
 		category: "meeting_invitation",
 		meetingType: "vision_meeting",
 		subject: "You are invited to hear the vision for our new church",
+		// [Day, date] = meeting_date, [Start time] and [End time] = meeting_time, [Address or meeting link] = meeting_location.
 		bodyHtml:
 			"<p>Hello {{name}},</p>" +
 			"<p>We are starting a new church, and we would love for you to hear the vision behind it. Please join us for a vision meeting.</p>" +
@@ -40,6 +49,7 @@ export const systemTemplates: readonly SystemTemplate[] = [
 		category: "meeting_reminder",
 		meetingType: null,
 		subject: "Reminder: our vision meeting is coming up",
+		// [Day, date] = meeting_date, [Start time] = meeting_time, [Address or meeting link] = meeting_location.
 		bodyHtml:
 			"<p>Hello {{name}},</p>" +
 			"<p>This is a friendly reminder about our vision meeting. We are glad you plan to come.</p>" +
@@ -81,10 +91,12 @@ export const systemTemplates: readonly SystemTemplate[] = [
 	{
 		sourceKey: "orientation-invitation",
 		name: "Orientation invitation",
-		description: "Invites a new team member to orientation, the next step toward joining the core group.",
+		description:
+			"Invites a new team member to orientation, the next step toward the core group, with a link to tell us if they can come.",
 		category: "meeting_invitation",
 		meetingType: "orientation",
 		subject: "Join us for orientation, your next step with our team",
+		// [Day, date] = meeting_date, [Start time] and [End time] = meeting_time, [Address or meeting link] = meeting_location.
 		bodyHtml:
 			"<p>Hello {{name}},</p>" +
 			"<p>Thank you for your interest in serving with our church plant. Orientation is the next step toward joining our core group. We explain how the team works and where you can help.</p>" +
@@ -99,10 +111,12 @@ export const systemTemplates: readonly SystemTemplate[] = [
 	{
 		sourceKey: "team-meeting-invitation",
 		name: "Team meeting invitation",
-		description: "Invites a team member to a team meeting with the date, time, place and agenda.",
+		description:
+			"Invites a team member to a team meeting with the date, time, place and agenda, and a link to tell us if they can come.",
 		category: "meeting_invitation",
 		meetingType: "team_meeting",
 		subject: "You are invited to our team meeting",
+		// [Day, date] = meeting_date, [Start time] and [End time] = meeting_time, [Address or meeting link] = meeting_location.
 		bodyHtml:
 			"<p>Hello {{name}},</p>" +
 			"<p>Our next team meeting is coming up, and we would like you to be there.</p>" +
