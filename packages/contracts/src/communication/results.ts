@@ -79,6 +79,7 @@ export const recipientResult = z.strictObject({
 export const teamListResult = z.strictObject({
 	teams: z.array(z.strictObject({ id: recordId, name: z.string() })),
 });
+export const churchNameResult = z.strictObject({ churchName: z.string() });
 export const draftListResult = z.strictObject({
 	drafts: z.array(draftResult),
 });

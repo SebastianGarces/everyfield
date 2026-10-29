@@ -188,7 +188,7 @@ for (const [name, engine] of ENGINES) {
 		});
 	});
 
-	test(`AC:CASE-COM-003 (${name}): typing sends at most one preview request per pause`, async () => {
+	test(`AC:CASE-COM-003 (${name}): typing in Write sends no server request, because the preview renders in the browser`, async () => {
 		await withPage(engine, async (page, context) => {
 			await signIn(context, owner());
 			const state = watch(page);
@@ -201,14 +201,13 @@ for (const [name, engine] of ENGINES) {
 			await message.fill("");
 			await message.focus();
 			const before = state.posts;
-			// Forty characters, 20 ms apart: one pause at the end. After the WP-020/api swap this count is 0 (criterion 34).
 			await page.keyboard.type("Forty characters typed without a long stop", { delay: 20 });
-			const during = state.posts - before;
-			assert.ok(during <= 1, `at most one request while typing, got ${during}`);
 			await emailText(page)
 				.getByText(/Forty characters typed/)
 				.waitFor();
-			assert.ok(state.posts - before <= 2, "one request for the pause");
+			// Wait past the render pause, then count: not one request for typing or for the pause.
+			await page.waitForTimeout(600);
+			assert.equal(state.posts - before, 0, "zero server action requests while typing");
 		});
 	});
 
@@ -346,6 +345,75 @@ for (const [name, engine] of ENGINES) {
 			await heading(page, "Write the message").waitFor();
 			await page.getByText("That meeting is not available. The message has no meeting.").waitFor();
 			assert.equal(await page.getByLabel("Subject").inputValue(), "");
+		});
+	});
+
+	test(`AC:CASE-COM-003 (${name}): the handoff fits an orientation and a team meeting, and both failure lines name what is missing`, async () => {
+		const { orientation, team, practice, retired } = fixture("communication");
+		await withPage(engine, async (page, context) => {
+			await signIn(context, owner());
+			const handoff = (id) => open(page, `/communication?meeting=${id}&template=invitation&recipients=guests`);
+			for (const [id, title, template] of [
+				[orientation, /Orientation/, /Orientation invitation/],
+				[team, /Team Meeting/, /Team meeting invitation/],
+			]) {
+				await handoff(id);
+				await heading(page, "Write the message").waitFor();
+				await page.getByText(title).first().waitFor();
+				assert.match(await page.getByLabel("Start from a template").innerText(), template);
+				assert.notEqual(await page.getByLabel("Subject").inputValue(), "");
+				await page.getByText("RSVP button").first().waitFor();
+			}
+			// No invitation template exists for this type: a blank message and the line.
+			await handoff(practice);
+			await heading(page, "Write the message").waitFor();
+			await page
+				.getByText("No invitation template for this meeting type. Write the message, or start from another template.")
+				.waitFor();
+			assert.equal(await page.getByLabel("Subject").inputValue(), "");
+			// A retired meeting opens a blank message without the meeting.
+			await handoff(retired);
+			await heading(page, "Write the message").waitFor();
+			await page.getByText("That meeting is not available. The message has no meeting.").waitFor();
+			assert.equal(await page.getByLabel("Subject").inputValue(), "");
+		});
+	});
+
+	test(`AC:CASE-COM-003 (${name}): a history load error offers Try again, and an empty church sees No messages yet with New message`, async () => {
+		await withPage(engine, async (page, context) => {
+			await signIn(context, owner());
+			let mode = "fail";
+			await page.route("**/communication**", async (route) => {
+				const request = route.request();
+				if (request.method() !== "POST" || !request.headers()["next-action"]) return route.fallback();
+				if (mode === "fail") return route.abort();
+				const response = await route.fetch();
+				// Keep the real action reply shape, with no messages in the list.
+				const body = (await response.text())
+					.split("\n")
+					.map((line) => {
+						const at = line.indexOf(":");
+						try {
+							const value = JSON.parse(line.slice(at + 1));
+							if (value?.value && Array.isArray(value.value.items))
+								return `${line.slice(0, at + 1)}${JSON.stringify({ ...value, value: { ...value.value, items: [], nextCursor: null } })}`;
+						} catch {}
+						return line;
+					})
+					.join("\n");
+				return route.fulfill({ response, body });
+			});
+			await page.goto(`${BASE}/communication`);
+			await hydrated(page);
+			await page
+				.getByRole("alert")
+				.filter({ hasText: /Unable to/ })
+				.first()
+				.waitFor();
+			mode = "empty";
+			await page.getByRole("button", { name: "Try again" }).click();
+			await page.getByText("No messages yet").waitFor();
+			assert.equal((await page.getByRole("button", { name: "New message" }).count()) >= 1, true);
 		});
 	});
 

@@ -1,9 +1,11 @@
 // The merge fields a message may use. One typed list feeds the field rail, the `{{` list, the preview pre-pass and
-// the send check. Keys are exactly the keys delivery fills at send: `name` and, from WP-020/api, `rsvp_link`.
-// A field that delivery does not fill must never appear here, or the preview would differ from the sent email.
+// the send check. Keys come from `mergeKeys` in the contracts, the list delivery fills at send. Adding a key there
+// fails typecheck here until it has a rail entry, so the preview cannot differ from the sent email.
+
+import { mergeKeys, type MergeKey } from "@everyfield/contracts/communication";
 
 export type MergeField = {
-	key: string;
+	key: MergeKey;
 	/** The plain label on the rail. */
 	label: string;
 	/** What the person sees in the preview. */
@@ -12,10 +14,12 @@ export type MergeField = {
 	needsMeeting: boolean;
 };
 
-export const mergeFields: readonly MergeField[] = [
-	{ key: "name", label: "Name", example: "Maria Santos", needsMeeting: false },
-	{ key: "rsvp_link", label: "RSVP button", example: "Tell us if you can come", needsMeeting: true },
-];
+const railEntries: Record<MergeKey, Omit<MergeField, "key">> = {
+	name: { label: "Name", example: "Maria Santos", needsMeeting: false },
+	rsvp_link: { label: "RSVP button", example: "Tell us if you can come", needsMeeting: true },
+};
+
+export const mergeFields: readonly MergeField[] = mergeKeys.map((key) => ({ key, ...railEntries[key] }));
 
 /** Full names, because delivery fills `name` with the display name. */
 export const sampleNames: readonly string[] = [

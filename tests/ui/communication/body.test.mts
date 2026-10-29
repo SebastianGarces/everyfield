@@ -1,4 +1,5 @@
 // Unit tests for the plain-text editor mapping, the field list and the preview pre-pass.
+import { mergeKeys } from "../../../packages/contracts/src/communication/html.ts";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { sanitizeHtml } from "../../../packages/contracts/src/communication/html.ts";
@@ -52,9 +53,8 @@ test("b and i read as bold and italic, u and span keep text and flag it", () => 
 	assert.equal(bodyToTextResult("<p>plain</p>").lossy, false);
 });
 
-test("fields.ts keys are the keys delivery fills", () => {
-	// Delivery fills these two after WP-020/api. A new key here needs a new send-time merge entry first.
-	assert.deepEqual(usableKeys(true).sort(), ["name", "rsvp_link"]);
+test("the field rail lists exactly the contract merge keys that delivery fills", () => {
+	assert.deepEqual(usableKeys(true), [...mergeKeys]);
 	assert.equal(mergeFields.find((f) => f.key === "rsvp_link")?.needsMeeting, true);
 	assert.ok(sampleNames.every((n) => n.includes(" ")));
 });

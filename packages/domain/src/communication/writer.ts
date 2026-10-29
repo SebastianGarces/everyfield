@@ -351,6 +351,7 @@ export const communicationWriter = {
 	get: (tx: Tx, authority: RequestActor, raw: unknown) => readReply(() => getDraft(tx, authority, raw)),
 	getDraft: (tx: Tx, authority: RequestActor, raw: unknown) => readReply(() => getDraft(tx, authority, raw)),
 	listDrafts: (tx: Tx, authority: RequestActor) => readReply(() => listDrafts(tx, authority, "draft")),
+	readChurchName: (tx: Tx, authority: RequestActor) => readReply(() => churchName(tx, authority)),
 	listAudienceTeams: (tx: Tx, authority: RequestActor) => readReply(() => teams(tx, authority)),
 	listTemplates: (tx: Tx, authority: RequestActor) => readReply(() => templates(tx, authority)),
 	getTemplate: (tx: Tx, authority: RequestActor, raw: unknown) => readReply(() => template(tx, authority, raw)),
@@ -992,6 +993,20 @@ async function listDrafts(tx: Tx, authority: RequestActor, state: "draft" | null
 	requireAllowed(raw.allowed);
 	const found = z.object({ rows: z.array(draftRow) }).parse(raw);
 	return c.draftListResult.parse({ drafts: found.rows.map(asDraft) });
+}
+/** The church name for the Messages chrome. Any seat that may read messages may read it. */
+async function churchName(tx: Tx, authority: RequestActor) {
+	const { reader, access } = accessOf(authority);
+	const raw = one(
+		await tx.execute(
+			whenLive(
+				allowed(access, reader, false),
+				sql`SELECT (SELECT name FROM plant WHERE id = ${reader.plantId}::uuid) AS name`,
+			),
+		),
+	) as { allowed: boolean; name: string | null };
+	requireAllowed(raw.allowed);
+	return c.churchNameResult.parse({ churchName: raw.name?.trim() || "Your church" });
 }
 async function teams(tx: Tx, authority: RequestActor) {
 	const { reader, access } = accessOf(authority);
