@@ -2,6 +2,8 @@ import "server-only";
 
 import { z } from "zod";
 
+import { captureAllowed, record } from "./capture.ts";
+
 // Provider adapter for the Messages screens. The domain asks with its idempotency key, not a provider email id.
 // Cancel, reschedule and lookup therefore stay unknown: calling those provider routes with the wrong id could
 // change a different email. A missing id is unknown, never a fabricated acceptance.
@@ -11,7 +13,7 @@ const env = z.object({
 	IDENTITY_ADDRESS_KEY: z.string().regex(/^[a-f0-9]{64}$/),
 	IDENTITY_MAIL_FROM: z.email(),
 	IDENTITY_ORIGIN: z.url(),
-	RESEND_API_KEY: z.string().trim().min(1),
+	RESEND_API_KEY: z.string().trim().min(1).optional(),
 });
 
 const batchBody = z.object({
@@ -89,12 +91,14 @@ function refreshDomains(apiKey: string): void {
 
 /** Start the domain read before the send statements. A known refusal then skips the batch POST. */
 export function anticipateProvider(ready: MailReady): void {
+	if (ready.apiKey === null) return;
 	const domain = fromDomain(ready.keys.from);
 	if (reservedDomain(domain) || resendTestDomain(domain)) return;
 	refreshDomains(ready.apiKey);
 }
 
 function knownRefusal(ready: MailReady): boolean {
+	if (ready.apiKey === null) return false;
 	const domain = fromDomain(ready.keys.from);
 	if (reservedDomain(domain)) return true;
 	if (resendTestDomain(domain)) return false;
@@ -107,34 +111,41 @@ function knownRefusal(ready: MailReady): boolean {
 
 export type MailReady = {
 	keys: { encryptionKey: Uint8Array; addressKey: Uint8Array; from: string; origin: string };
-	apiKey: string;
+	/** The provider key, or null when a development or preview server records sends and delivers none. */
+	apiKey: string | null;
 };
 
 type Outgoing = { to: string; subject: string; html: string; text: string };
 type Batch = { outcome: "ids"; ids: (string | null)[] } | { outcome: "unknown" } | { outcome: "refused" };
 
-/** Null when the server has no mail keys or provider key. The caller sends nothing in that case. */
+/** Null when the server has no mail keys, or no provider key outside a capture environment. The caller sends nothing then. */
 export function mailReady(): MailReady | null {
 	const parsed = env.safeParse({
 		IDENTITY_MAIL_KEY: process.env.IDENTITY_MAIL_KEY,
 		IDENTITY_ADDRESS_KEY: process.env.IDENTITY_ADDRESS_KEY,
 		IDENTITY_MAIL_FROM: process.env.IDENTITY_MAIL_FROM,
 		IDENTITY_ORIGIN: process.env.IDENTITY_ORIGIN,
-		RESEND_API_KEY: process.env.RESEND_API_KEY,
+		RESEND_API_KEY: process.env.RESEND_API_KEY?.trim() || undefined,
 	});
 	if (!parsed.success) return null;
+	const apiKey = parsed.data.RESEND_API_KEY ?? null;
+	if (apiKey === null && !captureAllowed(process.env)) return null;
 	const encryptionKey = Buffer.from(parsed.data.IDENTITY_MAIL_KEY, "hex");
 	const addressKey = Buffer.from(parsed.data.IDENTITY_ADDRESS_KEY, "hex");
 	if (encryptionKey.equals(addressKey)) return null;
 	return {
 		keys: { encryptionKey, addressKey, from: parsed.data.IDENTITY_MAIL_FROM, origin: parsed.data.IDENTITY_ORIGIN },
-		apiKey: parsed.data.RESEND_API_KEY,
+		apiKey,
 	};
 }
 
 export function deliveryTransport(ready: MailReady, request: typeof fetch = fetch) {
 	async function post(key: string, messages: readonly Outgoing[], signal: AbortSignal): Promise<Batch> {
 		if (key.length < 1 || key.length > 256) return { outcome: "refused" };
+		if (ready.apiKey === null) {
+			const ids = await Promise.all(messages.map((message) => record({ from: ready.keys.from, ...message })));
+			return { outcome: "ids", ids };
+		}
 		// Reserved and unverified from-addresses are a confirmed provider refusal. Do not wait for that POST.
 		if (knownRefusal(ready)) return { outcome: "refused" };
 		const response = await request("https://api.resend.com/emails/batch", {
