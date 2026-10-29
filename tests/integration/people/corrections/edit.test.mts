@@ -43,7 +43,7 @@ const ok = (result) => {
 	assert.equal(result.status, "ok", JSON.stringify(result));
 	return result.value;
 };
-const refused = (result, code = "unavailable") => {
+const refused = (result, code) => {
 	assert.equal(result.status, "refused", JSON.stringify(result));
 	assert.equal(result.error.code, code);
 	return result.error;
@@ -53,8 +53,7 @@ const key = () => randomUUID();
 const rows = async (query) => (await admin.execute(query)).rows;
 const one = async (query) => (await rows(query))[0];
 const personRow = (id) =>
-	one(sql`SELECT state,merged_into_person_id,revision::text,display_name,email,stage,commitment_state,household_id
- FROM person WHERE id=${sql.param(id)}`);
+	one(sql`SELECT stage FROM person WHERE id=${sql.param(id)}`);
 
 async function person(name, input = {}) {
 	return ok(

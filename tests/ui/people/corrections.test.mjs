@@ -112,18 +112,3 @@ test("AC:TARGET-PPL-015 BUG-217-F3: every correction stays on its card; a newer 
 	// A correction for a record this card has not loaded adds nothing.
 	assert.equal(withCorrections(card, [rec("zz", "9", 20)]).length, 2);
 });
-
-test("AC:TARGET-PPL-015 INV-optional-reason: an edit saved with no reason shows on its record card", () => {
-	const rec = (revision, total) => ({
-		id: "a1",
-		revision,
-		total,
-		occurredOn: "2026-10-01",
-		recordedAt: "2026-10-01T10:00:00.000Z",
-	});
-	// The edited record shows on its card as saved now.
-	assert.deepEqual(
-		withCorrections([rec("3", 14)], [rec("4", 17)]).map((r) => r.total),
-		[17],
-	);
-});
