@@ -7,7 +7,7 @@ import { run } from "./lib.ts";
  */
 
 /** The TUI workspace label. A test or a scratch workspace overrides it with EVF_TUI_LABEL. */
-export const DEFAULT_TUI_LABEL = "evf TUI";
+const DEFAULT_TUI_LABEL = "evf TUI";
 export const tuiLabel = () => process.env.EVF_TUI_LABEL || DEFAULT_TUI_LABEL;
 /** The stable signal for the TUI pane: a foreground process in it matches this. EVF_TUI_PROCESS overrides it. */
 export const tuiProcess = () => new RegExp(process.env.EVF_TUI_PROCESS || "evf-tui|main\\.ts\\s+tui");
