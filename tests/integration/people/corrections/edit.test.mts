@@ -171,7 +171,8 @@ async function assessed(name) {
 	).assessment;
 	return { p, a };
 }
-const history = async (personId) => ok(await tx((t) => recordCorrections.listRecordCorrections(t, ctx(), { personId }))).items;
+const history = async (personId) =>
+	ok(await tx((t) => recordCorrections.listRecordCorrections(t, ctx(), { personId }))).items;
 const oneEntry = (items, a, reason) => {
 	assert.equal(items.length, 1);
 	const [entry] = items;

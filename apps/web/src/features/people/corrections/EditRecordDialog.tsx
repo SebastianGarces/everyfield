@@ -290,8 +290,8 @@ function SavedNote({ type, reasoned }: { type: RecordType; reasoned: boolean }) 
 				Changes saved
 			</CalloutLabel>
 			<p className="text-sm">
-				The {TYPE_NAME[type]} shows the new values. Its original recorder and date recorded stay, and the stage did
-				not change. The history below keeps the old values{reasoned ? " and your reason" : ""}.
+				The {TYPE_NAME[type]} shows the new values. Its original recorder and date recorded stay, and the stage did not
+				change. The history below keeps the old values{reasoned ? " and your reason" : ""}.
 			</p>
 		</div>
 	);
@@ -472,7 +472,7 @@ function useCorrection(
 				recordId: chosen.record.id,
 				correctedAt: r.value.receipt.at,
 				actor: { kind: "current_account", accountId: props.accountId } as Correction["actor"],
-				reason: input.reason,
+				reason: input.reason ?? null,
 				changes: Object.keys(changes).map((field) => ({
 					field,
 					old: (chosen.record as Record<string, unknown>)[field] ?? null,
@@ -545,11 +545,7 @@ function Frame({
 					</Button>
 				</div>
 				{children}
-				<Field
-					label="Reason for change"
-					optional
-					hint="It stays in this person's history."
-				>
+				<Field label="Reason for change" optional hint="It stays in this person's history.">
 					<Textarea
 						rows={2}
 						maxLength={2000}
@@ -719,8 +715,8 @@ function CommitmentForm(props: FormProps & { chosen: Extract<Chosen, { type: "co
 	return (
 		<Frame props={props} state={state}>
 			<p className="text-sm">
-				{KIND[record.kind]}, signed <LocalDay day={record.occurredOn} />. Here you edit its notes. The card&rsquo;s
-				date and kind are corrected on the card itself, and its witness and document never change.
+				{KIND[record.kind]}, signed <LocalDay day={record.occurredOn} />. Here you edit its notes. The card&rsquo;s date
+				and kind are corrected on the card itself, and its witness and document never change.
 			</p>
 			<Field label="Notes" optional>
 				<Textarea

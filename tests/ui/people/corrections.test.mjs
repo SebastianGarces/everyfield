@@ -124,7 +124,13 @@ test("AC:TARGET-PPL-015 INV-optional-reason: a blank reason is sent as none; its
 	assert.equal(reasonLine(null), null);
 	assert.equal(reasonLine("Typo in the score"), "Reason: Typo in the score");
 	// The edited record shows on its card as saved now, with no reason needed.
-	const rec = (revision, total) => ({ id: "a1", revision, total, occurredOn: "2026-10-01", recordedAt: "2026-10-01T10:00:00.000Z" });
+	const rec = (revision, total) => ({
+		id: "a1",
+		revision,
+		total,
+		occurredOn: "2026-10-01",
+		recordedAt: "2026-10-01T10:00:00.000Z",
+	});
 	assert.deepEqual(
 		withCorrections([rec("3", 14)], [rec("4", 17)]).map((r) => r.total),
 		[17],
