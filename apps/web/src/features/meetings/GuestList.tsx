@@ -36,6 +36,7 @@ import {
 } from "@everyfield/ui/controls";
 import { instant } from "@everyfield/contracts/common";
 import { Avatar, DataTable, StatusBadge, type Column } from "@everyfield/ui/display";
+import { flushSync } from "react-dom";
 import { startTransition, useEffect, useRef, useState } from "react";
 import { NoticeInDialog, RecordDialog, RowNotices, SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
 import {
@@ -163,10 +164,11 @@ export function GuestList({
 		// The first attended guest with no card: their row menu holds the card action.
 		const target = shown.find((g) => g.presence === "attended" && !isPending(g) && !cardOf.has(g.person.personId));
 		// The filter can hide that guest, so show everyone first and focus once the row exists.
-		setFilter("all");
-		requestAnimationFrame(() =>
-			table.current?.querySelector<HTMLElement>(`[data-guest-menu="${target?.id}"]`)?.focus(),
-		);
+		const timer = setTimeout(() => {
+			flushSync(() => setFilter("all"));
+			table.current?.querySelector<HTMLElement>(`[data-guest-menu="${target?.id}"]`)?.focus();
+		});
+		return () => clearTimeout(timer);
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- one run for each request
 	}, [request?.n]);
 	const marker = attendance?.viewerCanMarkAttendance === true;
