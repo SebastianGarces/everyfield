@@ -3,7 +3,7 @@
 //   INV-merge-choices: a merge never drops a known value by default, and the request names only fields taken from
 //     the source, so a field left out keeps the survivor's value.
 //   INV-survivor: without an explicit choice the person with an account stays, otherwise the person added first.
-//   BUG-217-F3: a correction made through Correct a record stays on its record card after a correction to another
+//   BUG-217-F3: an edit made through Edit a record stays on its record card after a correction to another
 //     record; a newer save on the card itself still wins.
 //   INV-correction-patch: a correction sends only the changed fields, a cleared note as null, nothing when nothing
 //     changed, and the shown total is the sum the server computes.
@@ -15,6 +15,8 @@ import {
 	defaultChoices,
 	defaultSurvivor,
 	interviewChanges,
+	reasonLine,
+	reasonOf,
 	sourceChoices,
 	totalOf,
 } from "../../../apps/web/src/features/people/corrections/model.ts";
@@ -91,7 +93,7 @@ test("AC:TARGET-PPL-015 BUG-217-F3: every correction stays on its card; a newer 
 		recordedAt: `${occurredOn}T10:00:00.000Z`,
 	});
 	const card = [rec("a1", "3", 14), rec("a2", "1", 12, "2026-09-01")];
-	// Two corrections made through Correct a record, then a correction to another record type (not in this card).
+	// Two edits made through Edit a record, then a correction to another record type (not in this card).
 	const corrections = [rec("a1", "4", 17), rec("a2", "2", 13, "2026-09-01")];
 	assert.deepEqual(
 		withCorrections(card, corrections).map((r) => [r.id, r.total]),
@@ -111,4 +113,20 @@ test("AC:TARGET-PPL-015 BUG-217-F3: every correction stays on its card; a newer 
 	);
 	// A correction for a record this card has not loaded adds nothing.
 	assert.equal(withCorrections(card, [rec("zz", "9", 20)]).length, 2);
+});
+
+test("AC:TARGET-PPL-015 INV-optional-reason: a blank reason is sent as none; its history entry shows no Reason line and stays on the card", () => {
+	// The reason is optional: blank, whitespace-only and typed text.
+	assert.equal(reasonOf(""), undefined);
+	assert.equal(reasonOf("  \n "), undefined);
+	assert.equal(reasonOf("  Typo in the score "), "Typo in the score");
+	// An edit saved with no reason: who, when and the old to new values stay, with no "Reason:" line.
+	assert.equal(reasonLine(null), null);
+	assert.equal(reasonLine("Typo in the score"), "Reason: Typo in the score");
+	// The edited record shows on its card as saved now, with no reason needed.
+	const rec = (revision, total) => ({ id: "a1", revision, total, occurredOn: "2026-10-01", recordedAt: "2026-10-01T10:00:00.000Z" });
+	assert.deepEqual(
+		withCorrections([rec("3", 14)], [rec("4", 17)]).map((r) => r.total),
+		[17],
+	);
 });

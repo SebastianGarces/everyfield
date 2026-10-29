@@ -5107,7 +5107,8 @@ export const record_correction = pgTable(
 			.default(sql`clock_timestamp()`),
 		before_value: jsonb("before_value").notNull(),
 		after_value: jsonb("after_value").notNull(),
-		reason: text("reason").notNull(),
+		// Optional since WP-015/ui: an edit with no reason is an ordinary entry in the history.
+		reason: text("reason"),
 	},
 	(t): PgTableExtraConfigValue[] => [
 		primaryKey({ name: "record_correction_pkey", columns: [t.id] }),

@@ -333,3 +333,9 @@ export function correctedValueText(v: unknown): string {
 	}
 	return JSON.stringify(v);
 }
+
+/** The reason as the request carries it: trimmed text, or undefined when the field is blank (the reason is optional). */
+export const reasonOf = (text: string): string | undefined => text.trim() || undefined;
+
+/** The history line for a reason, or null when the edit gave none: such an entry shows no "Reason:" line. */
+export const reasonLine = (reason: string | null): string | null => (reason ? `Reason: ${reason}` : null);
