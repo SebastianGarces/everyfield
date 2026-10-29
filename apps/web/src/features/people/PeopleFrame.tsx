@@ -142,7 +142,7 @@ function Frame({ name, settings, seed = null, children }: FrameProps) {
 				key: "guide",
 				label: "Guide",
 				icon: BookOpen02Icon,
-				onSelect: () => wiki?.openGuide(),
+				onSelect: () => wiki?.toggleGuide(),
 				expanded: wiki?.guideOpen,
 			},
 			{

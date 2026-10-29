@@ -46,7 +46,7 @@ import {
 } from "./layout.ts";
 import { fractionText, pdfFilename, PHASE_NAME, snippetParts, type SourceRow } from "./model.ts";
 
-const Chrome = createContext<{ openSearch: () => void; openGuide: () => void; guideOpen: boolean } | null>(null);
+const Chrome = createContext<{ openSearch: () => void; toggleGuide: () => void; guideOpen: boolean } | null>(null);
 
 export function useWikiChrome() {
 	return use(Chrome);
@@ -70,7 +70,7 @@ export function WikiChrome({ children }: { children: ReactNode }) {
 		return () => window.removeEventListener("keydown", onKey);
 	}, [pathname]);
 	return (
-		<Chrome value={{ openSearch: () => setSearch(true), openGuide: () => setGuide(true), guideOpen: guide }}>
+		<Chrome value={{ openSearch: () => setSearch(true), toggleGuide: () => setGuide((open) => !open), guideOpen: guide }}>
 			{children}
 			<SearchDialog open={search} onOpenChange={setSearch} />
 			<GuideSheet open={guide} onOpenChange={setGuide} />
