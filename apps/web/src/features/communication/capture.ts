@@ -11,7 +11,7 @@ import { join } from "node:path";
 
 type Env = Readonly<Record<string, string | undefined>>;
 
-export type Captured = {
+type Captured = {
 	id: string;
 	at: string;
 	from: string;
