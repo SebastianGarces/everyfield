@@ -74,11 +74,10 @@ function tracks(panes: PaneRect[], split: Direction): number {
  * Apply it, read the layout again and ask once more.
  */
 export function nextResize(layout: Layout): Resize | null {
-	const share = (panes: PaneRect[], d: Direction) => tracks(panes, d);
 	for (const s of [...layout.splits].sort((a, b) => b.w * b.h - a.w * a.h)) {
 		const { first, second } = sides(layout, s);
 		if (!first.length || !second.length) continue;
-		const target = share(first, s.direction) / (share(first, s.direction) + share(second, s.direction)),
+		const target = tracks(first, s.direction) / (tracks(first, s.direction) + tracks(second, s.direction)),
 			total = s.direction === "right" ? s.w : s.h,
 			now =
 				s.direction === "right"
