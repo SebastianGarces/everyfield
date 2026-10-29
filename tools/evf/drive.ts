@@ -82,11 +82,23 @@ const unknownTask = (task: TaskRef): TaskRow => ({
 	worktree: null,
 });
 
-/** Failed or aborted runs since the last passed one. An evf run aborted by a restart is not a failure. */
-const trailingFailures = (runs: RunRow[]): number => {
+/** The run id the latest `evf task reopen` marked: only runs after it count as trailing failures. 0 when never reopened. */
+const reopenMarker = (db: DatabaseSync, taskId: number): number => {
+	const row = db
+		.prepare("SELECT payload FROM events WHERE task_id = ? AND type = 'reopen' ORDER BY id DESC LIMIT 1")
+		.get(taskId) as { payload: string } | undefined;
+	return row ? Number((JSON.parse(row.payload) as { after_run?: number }).after_run) || 0 : 0;
+};
+
+/**
+ * Failed or aborted runs since the last passed one, counting only runs after the latest reopen marker.
+ * An evf run aborted by a restart is not a failure.
+ */
+const trailingFailures = (runs: RunRow[], reopenAfter: number): number => {
 	let n = 0;
 	for (let i = runs.length - 1; i >= 0; i--) {
 		const r = runs[i]!;
+		if (r.id <= reopenAfter) break;
 		if (r.status === "passed") break;
 		if (r.status === "started" || (r.role === "evf" && r.status === "aborted")) continue;
 		n++;
@@ -95,11 +107,11 @@ const trailingFailures = (runs: RunRow[]): number => {
 };
 
 /** Prototype mode. Idea seats launch one per transition and run side by side; the pick is Sebastian's, not evf's. */
-function nextPrototype(task: TaskRef, t: TaskRow, runs: RunRow[], picked: boolean): Next {
+function nextPrototype(task: TaskRef, t: TaskRow, runs: RunRow[], picked: boolean, reopenAfter: number): Next {
 	const round = t.round;
 	if (t.status === "done") return { stage: "done", round, reason: "handed off" };
 	if (t.status === "escalated") return { stage: "escalated", round, reason: "escalated" };
-	const failures = trailingFailures(runs);
+	const failures = trailingFailures(runs, reopenAfter);
 	if (failures >= RETRY_CAP)
 		return { stage: "escalated", round, reason: `${failures} failures in a row without a passed stage` };
 	const go = (stage: Stage, reason: string, idea?: number): Next => ({
@@ -138,14 +150,14 @@ function nextPrototype(task: TaskRef, t: TaskRow, runs: RunRow[], picked: boolea
 }
 
 /** Pure: the next stage from the task's closed runs. Rounds are counted when a verify or ci run closes failed. */
-export function nextStage(task: TaskRef, t: TaskRow, runs: RunRow[], picked = false): Next {
+export function nextStage(task: TaskRef, t: TaskRow, runs: RunRow[], picked = false, reopenAfter = 0): Next {
 	const round = t.round;
-	if (t.mode === "prototype") return nextPrototype(task, t, runs, picked);
+	if (t.mode === "prototype") return nextPrototype(task, t, runs, picked, reopenAfter);
 	if (t.status === "merged" || t.status === "done") return { stage: "done", round, reason: t.status };
 	if (t.status === "escalated") return { stage: "escalated", round, reason: `loop cap of ${LOOP_CAP} rounds hit` };
 	const open = runs.find((r) => r.status === "started");
 	if (open) return { stage: "waiting", round, run: open.id, reason: `the ${open.stage} seat is still open` };
-	const failures = trailingFailures(runs);
+	const failures = trailingFailures(runs, reopenAfter);
 	if (failures >= RETRY_CAP)
 		return { stage: "escalated", round, reason: `${failures} failures in a row without a passed stage` };
 	const go = (stage: Stage, reason: string): Next => ({ stage, role: seatOf(stage, task), round, reason });
@@ -182,7 +194,17 @@ export function next(root: string, task: TaskRef): number {
 	const db = openWorkDb(root);
 	try {
 		const t = findTask(db, task) ?? unknownTask(task);
-		console.log(JSON.stringify(nextStage(task, t, t.id ? runsOf(db, t.id) : [], !!(t.id && pickOf(db, t.id)))));
+		console.log(
+			JSON.stringify(
+				nextStage(
+					task,
+					t,
+					t.id ? runsOf(db, t.id) : [],
+					!!(t.id && pickOf(db, t.id)),
+					t.id ? reopenMarker(db, t.id) : 0,
+				),
+			),
+		);
 		return 0;
 	} finally {
 		db.close();
@@ -287,7 +309,7 @@ export function runDone(
 		} else {
 			db.prepare("UPDATE tasks SET updated_at = ? WHERE id = ?").run(now(), r.task_id);
 			if (opts.status === "failed") {
-				const failures = trailingFailures(runsOf(db, r.task_id));
+				const failures = trailingFailures(runsOf(db, r.task_id), reopenMarker(db, r.task_id));
 				if (failures >= RETRY_CAP) escalated = `${failures} failures in a row, last in ${r.stage}. ${first}`;
 			}
 		}
@@ -384,6 +406,37 @@ export function taskPick(root: string, task: TaskRef, idea: number, ownerApprova
 			summary: `Sebastian picked idea ${idea}: ${ownerApproval.trim().slice(0, 120)}`,
 		});
 		console.log(`pick: ${t.ref} idea ${idea}${head ? ` at ${head.slice(0, 10)}` : ""}.`);
+		return 0;
+	} finally {
+		db.close();
+	}
+}
+
+/** The coordinator's answer to an escalation: leave `escalated` and mark the run id after which failures count again. */
+export function taskReopen(root: string, task: TaskRef, reason: string): number {
+	if (process.env.EVF_RUN)
+		fail("A seat cannot reopen its own escalation: the coordinator runs evf task reopen from a human shell.");
+	if (reason.trim().split(/\s+/).filter(Boolean).length < 2)
+		fail('Give the cause in two words or more: --reason "<words>".');
+	const db = openWorkDb(root);
+	try {
+		const t = findTask(db, task);
+		if (!t) fail(`${task.id} has no task row, so there is nothing to reopen.`);
+		if (t.status !== "escalated") fail(`${t.ref} is ${t.status}, not escalated: only an escalated task reopens.`);
+		const status = t.pr_number ? "pr_open" : "active";
+		const { m: afterRun } = db.prepare("SELECT COALESCE(MAX(id), 0) AS m FROM runs WHERE task_id = ?").get(t.id) as {
+			m: number;
+		};
+		db.prepare("UPDATE tasks SET status = ?, updated_at = ? WHERE id = ?").run(status, now(), t.id);
+		record(db, t.id, null, "reopen", {
+			reason: reason.trim(),
+			from: "escalated",
+			to: status,
+			round: t.round,
+			after_run: afterRun,
+			summary: `${t.ref} reopened to ${status}: ${reason.trim()}`,
+		});
+		console.log(`reopen: ${t.ref} is ${status}.`);
 		return 0;
 	} finally {
 		db.close();
@@ -802,7 +855,7 @@ export function driveOnce(root: string, task: TaskRef, timing: DriveTiming = DRI
 		const t = ensureTask(db, task, "implement");
 		const runs = runsOf(db, t.id);
 		const pick = pickOf(db, t.id);
-		const n = nextStage(task, t, runs, !!pick);
+		const n = nextStage(task, t, runs, !!pick, reopenMarker(db, t.id));
 		if (t.status !== "merged")
 			record(db, t.id, n.run ?? null, "next", {
 				stage: n.stage,

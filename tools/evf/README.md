@@ -81,7 +81,13 @@ evf runs pr (from the PR body the implementer wrote to the task's runtime dir), 
 and ship itself and records them as runs of role `evf`. A failed verify or ci costs a round; the fourth
 round sets the task to escalated, records `loop_cap_hit` and `escalation`, shows a Herdr notification
 and launches nothing more. Any other failure costs no round, but three failures in a row without a
-passed stage escalate the same way, so no loop runs unattended forever. A blocked seat is notified every
+passed stage escalate the same way, so no loop runs unattended forever. `evf task reopen <task> --reason
+"<two words or more>"` answers an escalation: it sets an escalated task to `pr_open` (it has a PR) or
+`active` and records a `reopen` event holding the highest run id. Later failure counts start after that
+run, so the task gets three more failures before it escalates again. It resets only the trailing-failure
+count, never the round (a task at the loop cap escalates again on its next failed verify or ci), and
+it edits no run, event, approval or proof. It replaces the hand-written sqlite UPDATE. It refuses a task
+that is not escalated and refuses inside a seat (`EVF_RUN` set). A blocked seat is notified every
 10 minutes until someone answers its pane. Each launch gets its own Herdr agent, `<role>-<slug>-<run>`,
 so a later round never waits on an earlier seat. `evf next <task>` prints the next stage without acting
 and writes nothing; `--once` performs one transition; `--detach` runs the loop in the background with a
