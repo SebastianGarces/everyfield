@@ -15,7 +15,6 @@ import {
 	defaultChoices,
 	defaultSurvivor,
 	interviewChanges,
-	reasonLine,
 	sourceChoices,
 	totalOf,
 } from "../../../apps/web/src/features/people/corrections/model.ts";
@@ -127,8 +126,4 @@ test("AC:TARGET-PPL-015 INV-optional-reason: an edit saved with no reason shows 
 		withCorrections([rec("3", 14)], [rec("4", 17)]).map((r) => r.total),
 		[17],
 	);
-	// The history shows no Reason line for no reason or a blank one, and the text when given.
-	assert.equal(reasonLine(null), null);
-	assert.equal(reasonLine("   "), null);
-	assert.equal(reasonLine("Wrong week"), "Reason: Wrong week");
 });

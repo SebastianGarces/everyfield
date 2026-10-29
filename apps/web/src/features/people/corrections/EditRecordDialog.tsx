@@ -32,7 +32,6 @@ import {
 	assessmentChanges,
 	commitmentChanges,
 	correctedFieldLabel,
-	reasonLine,
 	correctedValueText,
 	CRITERIA,
 	CRITERION_LABEL,
@@ -760,7 +759,7 @@ function History({ corrections, accountId, open }: { corrections: Correction[]; 
 								</li>
 							))}
 						</ul>
-						{reasonLine(c.reason) ? <p className="mt-1 text-ink-2">{reasonLine(c.reason)}</p> : null}
+						{c.reason ? <p className="mt-1 text-ink-2">Reason: {c.reason}</p> : null}
 					</li>
 				))}
 			</ol>

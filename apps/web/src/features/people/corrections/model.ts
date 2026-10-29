@@ -333,7 +333,3 @@ export function correctedValueText(v: unknown): string {
 	}
 	return JSON.stringify(v);
 }
-
-/** The history line for a reason: "Reason: <text>", or nothing when the edit was saved without one. */
-export const reasonLine = (reason: string | null): string | null =>
-	reason?.trim() ? `Reason: ${reason.trim()}` : null;
