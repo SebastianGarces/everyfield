@@ -113,7 +113,7 @@ test("AC:TARGET-PPL-015 BUG-217-F3: every correction stays on its card; a newer 
 	assert.equal(withCorrections(card, [rec("zz", "9", 20)]).length, 2);
 });
 
-test("AC:TARGET-PPL-015 INV-optional-reason: an edit saved with no reason shows on its card and in the history without a Reason line", () => {
+test("AC:TARGET-PPL-015 INV-optional-reason: an edit shows on its card as saved now", () => {
 	const rec = (revision, total) => ({
 		id: "a1",
 		revision,
