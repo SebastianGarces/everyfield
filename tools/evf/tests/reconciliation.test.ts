@@ -2132,7 +2132,10 @@ test("INV-phase7-progress: ship and acknowledgement preserve reviewed milestones
 		assert.equal(shipped.length, 1);
 		assert.equal(shipped[0].status, "merged");
 		assert.equal(shipped[0].merge_commit, f.git("rev-parse", "HEAD"));
-		assert.equal(store.prepare("SELECT COUNT(*) AS n FROM events WHERE task_id = ? AND type = 'merged'").get(shipped[0].id).n, 1);
+		assert.equal(
+			store.prepare("SELECT COUNT(*) AS n FROM events WHERE task_id = ? AND type = 'merged'").get(shipped[0].id).n,
+			1,
+		);
 		assert.equal(nextStage(task, findTask(store, task), []).stage, "done");
 		const nextOut = spawnSync(process.execPath, [join(source, "tools/evf/main.ts"), "next", task.id], {
 			cwd: f.root,

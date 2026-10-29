@@ -366,7 +366,11 @@ export function markMerged(db: DatabaseSync, task: TaskRef, commit: string | nul
 	try {
 		let id = current?.id;
 		if (id)
-			db.prepare("UPDATE tasks SET status = 'merged', merge_commit = ?, updated_at = ? WHERE id = ?").run(commit, ts, id);
+			db.prepare("UPDATE tasks SET status = 'merged', merge_commit = ?, updated_at = ? WHERE id = ?").run(
+				commit,
+				ts,
+				id,
+			);
 		else {
 			const goal = missionFor(db, task.wp);
 			id = Number(

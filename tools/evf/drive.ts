@@ -330,7 +330,8 @@ export function taskNew(root: string, task: TaskRef, opts: { askFile: string; ti
 		const reopens = prior?.status === "merged" ? prior : undefined;
 		const t = reopens ? newTaskRow(db, task, mode) : ensureTask(db, task, mode);
 		// A reopen of an escalated row puts it back to work and resets the failure count for the rows below.
-		const lastRun = (db.prepare("SELECT MAX(id) AS id FROM runs WHERE task_id = ?").get(t.id) as { id: number | null }).id;
+		const lastRun = (db.prepare("SELECT MAX(id) AS id FROM runs WHERE task_id = ?").get(t.id) as { id: number | null })
+			.id;
 		if (t.status === "escalated") {
 			t.status = t.pr_number ? "pr_open" : t.spec ? "specced" : "new";
 			db.prepare("UPDATE tasks SET status = ? WHERE id = ?").run(t.status, t.id);
@@ -362,7 +363,8 @@ export function taskSpec(root: string, task: TaskRef, file: string): number {
 	const db = openWorkDb(root);
 	try {
 		const t = ensureTask(db, task, "implement");
-		if (t.status === "merged") fail(`${t.ref} is merged. Start a new task with evf task new ${t.ref} --ask-file <file>.`);
+		if (t.status === "merged")
+			fail(`${t.ref} is merged. Start a new task with evf task new ${t.ref} --ask-file <file>.`);
 		db.prepare(
 			"UPDATE tasks SET spec = ?, spec_hash = ?, status = CASE WHEN status = 'new' THEN 'specced' ELSE status END, updated_at = ? WHERE id = ?",
 		).run(spec, hash, now(), t.id);

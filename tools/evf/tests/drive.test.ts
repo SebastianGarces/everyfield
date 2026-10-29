@@ -550,7 +550,9 @@ test("OPS-59-gate: a verify closes passed only with a met or n/a proof per Done 
 
 const SHA = "a".repeat(40);
 const rowsOf = (f: ReturnType<typeof driveFixture>) =>
-	f.db.prepare("SELECT id, status, merge_commit FROM tasks WHERE ref = 'OPS-1' ORDER BY id").all()
+	f.db
+		.prepare("SELECT id, status, merge_commit FROM tasks WHERE ref = 'OPS-1' ORDER BY id")
+		.all()
 		.map((r) => ({ ...r })) as Array<{ id: number; status: string; merge_commit: string | null }>;
 
 test("OPS-66-drive: the drive exits at the merge: one merged row, no next event after it, no seat launched", () => {
@@ -569,7 +571,8 @@ test("OPS-66-drive: the drive exits at the merge: one merged row, no next event 
 		const state = f.getState();
 		state.pr = { number: 77, state: "MERGED", mergeCommit: { oid: SHA } };
 		f.setState(state);
-		const launches = () => f.herdr.calls().filter((c) => c[0] === "workspace" || (c[0] === "agent" && c[1] === "start")).length;
+		const launches = () =>
+			f.herdr.calls().filter((c) => c[0] === "workspace" || (c[0] === "agent" && c[1] === "start")).length;
 		const before = launches();
 		const lines: string[] = [];
 		console.log = (l: string) => lines.push(l);
@@ -577,13 +580,17 @@ test("OPS-66-drive: the drive exits at the merge: one merged row, no next event 
 		console.log = log;
 		assert.equal(code, 0, lines.join("\n"));
 		assert.deepEqual(rowsOf(f), [{ id: f.taskId, status: "merged", merge_commit: SHA }]);
-		const types = (f.db.prepare("SELECT type FROM events WHERE task_id = ? ORDER BY id").all(f.taskId) as Array<{ type: string }>).map(
-			(e) => e.type,
-		);
+		const types = (
+			f.db.prepare("SELECT type FROM events WHERE task_id = ? ORDER BY id").all(f.taskId) as Array<{ type: string }>
+		).map((e) => e.type);
 		assert.equal(types.filter((t) => t === "merged").length, 1);
 		assert.equal(types.lastIndexOf("next"), types.indexOf("next"), "one next event, before the ship");
 		assert.ok(types.indexOf("next") < types.indexOf("merged"));
-		assert.deepEqual(types.slice(types.indexOf("merged") + 1), ["stage_end"], "only the ship run closes after the merge");
+		assert.deepEqual(
+			types.slice(types.indexOf("merged") + 1),
+			["stage_end"],
+			"only the ship run closes after the merge",
+		);
 		assert.equal(launches(), before, "no launch after ship");
 	} finally {
 		console.log = log;
@@ -624,10 +631,19 @@ test("OPS-66-current: ensureTask returns the merged row, skipping later abandone
 test("OPS-66-reopen: only evf task new reopens a merged ref; drive, spec and launch leave it alone; next reports done", () => {
 	const f = driveFixture();
 	try {
-		f.db.prepare("UPDATE tasks SET status = 'merged', merge_commit = ?, spec = ? WHERE id = ?").run(SHA, SPEC, f.taskId);
-		assert.deepEqual(JSON.parse(cli(f.root, {}, "next", "OPS-1").stdout), { stage: "done", round: 0, reason: "merged" });
+		f.db
+			.prepare("UPDATE tasks SET status = 'merged', merge_commit = ?, spec = ? WHERE id = ?")
+			.run(SHA, SPEC, f.taskId);
+		assert.deepEqual(JSON.parse(cli(f.root, {}, "next", "OPS-1").stdout), {
+			stage: "done",
+			round: 0,
+			reason: "merged",
+		});
 		const unchanged = () => assert.deepEqual(rowsOf(f), [{ id: f.taskId, status: "merged", merge_commit: SHA }]);
-		for (const args of [["drive", "OPS-1"], ["drive", "OPS-1", "--once"]]) {
+		for (const args of [
+			["drive", "OPS-1"],
+			["drive", "OPS-1", "--once"],
+		]) {
 			const r = cli(f.root, {}, ...args);
 			assert.equal(r.status, 0, r.stderr);
 			assert.match(r.stdout, /drive OPS-1: done \(merged\)/);
