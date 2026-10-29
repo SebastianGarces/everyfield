@@ -156,7 +156,9 @@ test("OPS-58-launch: a real launch records the run, passes EVF_RUN to the worksp
 		assert.equal(trusted.status, 0, trusted.stderr);
 		const after = f.herdr.calls().slice(calls.length);
 		assert.deepEqual(
-			after.filter((c) => (c[0] === "pane" && c[1] !== "process-info") || c[1] === "wait" || c[1] === "rename").map((c) => c.slice(0, 3)),
+			after
+				.filter((c) => (c[0] === "pane" && c[1] !== "process-info") || c[1] === "wait" || c[1] === "rename")
+				.map((c) => c.slice(0, 3)),
 			[
 				["pane", "read", "w9:p1"],
 				["pane", "send-keys", "w9:p1"],
@@ -565,7 +567,10 @@ test("OPS-67-launch: agent_pane_busy retries with backoff and the seat is record
 		const state = JSON.parse(readFileSync(join(f.root, "herdr-state.json"), "utf8")) as { agents: unknown[] };
 		assert.equal(state.agents.length, 1, "exactly one start succeeded");
 		const run = f.runs().at(-1)!;
-		assert.deepEqual([run.status, run.herdr_agent, run.herdr_pane], ["started", `implementer-ops-1-${run.id}`, "w9:p1"]);
+		assert.deepEqual(
+			[run.status, run.herdr_agent, run.herdr_pane],
+			["started", `implementer-ops-1-${run.id}`, "w9:p1"],
+		);
 		const starts = f.db
 			.prepare("SELECT COUNT(*) AS n FROM events WHERE run_id = ? AND type = 'stage_start'")
 			.get(run.id) as { n: number };
@@ -612,7 +617,10 @@ test("OPS-67-launch: a pane that never becomes a shell fails after the wait with
 		assert.equal(startCalls(f).length, 0);
 		const run = f.runs().at(-1)!;
 		assert.equal(run.status, "aborted");
-		assert.match(String(run.summary), /^launch failed: pane w9:p1 in workspace w9 was not an available shell after waiting/);
+		assert.match(
+			String(run.summary),
+			/^launch failed: pane w9:p1 in workspace w9 was not an available shell after waiting/,
+		);
 	} finally {
 		f.db.close();
 		f.close();

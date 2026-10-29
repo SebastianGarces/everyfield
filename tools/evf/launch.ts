@@ -1,7 +1,18 @@
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { ensureTask, openWorkDb } from "./db.ts";
-import { baseRef, fail, git, loadConfig, run, runtimeDir, sleep, worktreePath, type Config, type TaskRef } from "./lib.ts";
+import {
+	baseRef,
+	fail,
+	git,
+	loadConfig,
+	run,
+	runtimeDir,
+	sleep,
+	worktreePath,
+	type Config,
+	type TaskRef,
+} from "./lib.ts";
 import { taskStart } from "./task.ts";
 
 /**
@@ -238,7 +249,7 @@ function paneShellReady(pane: string): { ready: boolean; seen: string } {
 }
 function waitForShell(workspace: string, pane: string, timing: LaunchTiming): void {
 	const started = Date.now();
-	for (let seen = "";;) {
+	for (let seen = ""; ;) {
 		const state = paneShellReady(pane);
 		if (state.ready) return;
 		seen = state.seen;
@@ -270,7 +281,7 @@ function agentPresent(agent: string, pane: string): boolean | null {
  * earlier start did not succeed late, so a seat never starts twice. Any other failure tries the trust dialog once.
  */
 function startSeat(plan: LaunchPlan, workspace: string, pane: string, timing: LaunchTiming): void {
-	for (let attempt = 0;; attempt++) {
+	for (let attempt = 0; ; attempt++) {
 		const started = run("herdr", startArgs(plan, pane));
 		if (started.code === 0) return;
 		const output = (started.stderr || started.stdout).trim();
@@ -288,7 +299,9 @@ function startSeat(plan: LaunchPlan, workspace: string, pane: string, timing: La
 		const present = agentPresent(plan.agent, pane);
 		if (present === true) return; // The earlier start succeeded late: that seat is the one.
 		if (present === null)
-			fail(`herdr agent start was busy in workspace ${workspace} pane ${pane} and Herdr cannot list agents; not retrying.`);
+			fail(
+				`herdr agent start was busy in workspace ${workspace} pane ${pane} and Herdr cannot list agents; not retrying.`,
+			);
 	}
 }
 

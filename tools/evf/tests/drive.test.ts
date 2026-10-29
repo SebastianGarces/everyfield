@@ -632,7 +632,7 @@ test("OPS-67-idle: an idle report before the launch prompt began its turn gets n
 	try {
 		const id = openSeatRun(f, true);
 		scriptedHerdr(f, id, { waits: ["idle", "close"], gets: ["working"] });
-		driveOnce(f.root, f.task, BIG_NUDGE);
+		driveOnce(f.root, f.task, { ...BIG_NUDGE, startGraceMs: 60_000 });
 		const prompts = f.herdr.calls().filter((c) => c[0] === "agent" && c[1] === "prompt");
 		assert.equal(prompts.length, 0, "no nudge prompt in the Herdr log");
 		assert.equal(f.events("nudge").length, 0);
