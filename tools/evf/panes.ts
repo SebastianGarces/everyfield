@@ -10,7 +10,7 @@ import { run } from "./lib.ts";
 
 /** The TUI workspace label. A test or a scratch workspace overrides it with EVF_TUI_LABEL. */
 const DEFAULT_TUI_LABEL = "evf TUI";
-export const tuiLabel = () => process.env.EVF_TUI_LABEL || DEFAULT_TUI_LABEL;
+const tuiLabel = () => process.env.EVF_TUI_LABEL || DEFAULT_TUI_LABEL;
 /** The stable signal for the TUI pane: a foreground process in it matches this. */
 const TUI_PROCESS = /evf-tui|main\.ts\s+tui/;
 
@@ -72,7 +72,8 @@ function tracks(panes: PaneRect[], split: Direction): number {
 /**
  * The next resize that moves a split toward giving every column and row of a side the same size: a side's share of
  * a right split is its column count, of a down split its row count. Equal columns keep every pane wide enough, and the
- * TUI pane is always a full column. The side that holds the TUI pane never gets less than TUI_MIN. Outermost split first. Null when every split is within one cell of its target.
+ * TUI pane is always a full column. The side that holds the TUI pane never gets less than TUI_MIN. Outermost split
+ * first. Null when every split is within one cell of its target.
  * Apply it, read the layout again and ask once more.
  */
 export function nextResize(layout: Layout, tuiId: string): Resize | null {
