@@ -776,7 +776,7 @@ test("OPS-68-pr: a task with a PR reopens to pr_open; a passed run after the reo
 		runDone(f.root, f.insertRun("implement", "implementer", "started"), { status: "passed", summary: "built" });
 		failStage(f, "simplify", "simplifier", 2);
 		assert.equal(f.taskRow().status, "pr_open");
-		assert.notEqual(nextOf(f).stage, "escalated");
+		assert.equal(nextOf(f).stage, "implement");
 	} finally {
 		f.db.close();
 		f.close();
@@ -795,13 +795,14 @@ test("OPS-68-marker: only the latest reopen counts; started and evf-aborted runs
 		const markers = f.events("reopen").map((e) => JSON.parse(e.payload).after_run);
 		assert.equal(markers.length, 2);
 		assert.ok(markers[1] > markers[0]);
-		failStage(f, "implement", "implementer", 2);
+		failStage(f, "implement", "implementer");
 		f.insertRun("simplify", "evf", "aborted");
-		f.insertRun("implement", "implementer", "started");
+		const open = f.insertRun("review", "reviewer", "started");
+		failStage(f, "implement", "implementer");
+		assert.equal(f.taskRow().status, "active", "the aborted and started runs do not count");
+		runDone(f.root, open, { status: "passed", summary: "ok" });
 		assert.equal(f.taskRow().status, "active");
-		const n = nextOf(f);
-		assert.notEqual(n.stage, "escalated");
-		assert.equal(n.stage, "waiting", "the open run is still waited on");
+		assert.notEqual(nextOf(f).stage, "escalated");
 	} finally {
 		f.db.close();
 		f.close();
