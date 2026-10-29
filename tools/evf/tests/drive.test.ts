@@ -686,7 +686,10 @@ const storeCounts = (f: ReturnType<typeof driveFixture>) =>
 	Object.fromEntries(
 		["runs", "events", "approvals", "proofs"].map((t) => [
 			t,
-			f.db.prepare(`SELECT * FROM ${t} ORDER BY id`).all().map((r) => JSON.stringify(r)),
+			f.db
+				.prepare(`SELECT * FROM ${t} ORDER BY id`)
+				.all()
+				.map((r) => JSON.stringify(r)),
 		]),
 	);
 

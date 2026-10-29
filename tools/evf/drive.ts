@@ -196,7 +196,13 @@ export function next(root: string, task: TaskRef): number {
 		const t = findTask(db, task) ?? unknownTask(task);
 		console.log(
 			JSON.stringify(
-				nextStage(task, t, t.id ? runsOf(db, t.id) : [], !!(t.id && pickOf(db, t.id)), t.id ? reopenMarker(db, t.id) : 0),
+				nextStage(
+					task,
+					t,
+					t.id ? runsOf(db, t.id) : [],
+					!!(t.id && pickOf(db, t.id)),
+					t.id ? reopenMarker(db, t.id) : 0,
+				),
 			),
 		);
 		return 0;
@@ -410,7 +416,8 @@ export function taskPick(root: string, task: TaskRef, idea: number, ownerApprova
 export function taskReopen(root: string, task: TaskRef, reason: string): number {
 	if (process.env.EVF_RUN)
 		fail("A seat cannot reopen its own escalation: the coordinator runs evf task reopen from a human shell.");
-	if (reason.trim().split(/\s+/).filter(Boolean).length < 2) fail('Give the cause in two words or more: --reason "<words>".');
+	if (reason.trim().split(/\s+/).filter(Boolean).length < 2)
+		fail('Give the cause in two words or more: --reason "<words>".');
 	const db = openWorkDb(root);
 	try {
 		const t = findTask(db, task);
