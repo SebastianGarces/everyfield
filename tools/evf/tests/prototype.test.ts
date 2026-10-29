@@ -25,7 +25,7 @@ const cli = (cwd: string, env: Record<string, string>, input: unknown, ...args: 
 		},
 		input: input === undefined ? "" : JSON.stringify(input),
 	});
-const TIMING = { waitMs: 2000, nudgeMs: 10, ciWaitMs: 200, ciPollMs: 10 };
+const TIMING = { waitMs: 2000, ciWaitMs: 200, ciPollMs: 10, seatPollMs: 10, startGraceMs: 150 };
 const SPEC =
 	"Goal: a doghouse people like.\nAngle 1: a plain kennel.\nAngle 2: a kennel with a porch.\nAngle 3: a two-room kennel.\nDone criteria:\n1. The dog fits.\n2. One screenshot per idea.\nNon-goals: lighting.";
 const HANDOFF =
@@ -44,6 +44,7 @@ function protoFixture() {
 		`#!${process.execPath}\nconst fs=require("node:fs");const a=process.argv.slice(2);\n` +
 			`const calls=JSON.parse(fs.readFileSync(${JSON.stringify(calls)},"utf8"));calls.push(a);fs.writeFileSync(${JSON.stringify(calls)},JSON.stringify(calls));\n` +
 			`let r={};if(a[0]==="workspace"&&a[1]==="create")r={workspace:"w"+calls.length,tab:"t",root_pane:{pane_id:"p"+calls.length}};\n` +
+			`else if(a[0]==="pane"&&a[1]==="process-info")r={process_info:{shell_pid:7,foreground_process_group_id:7}};\n` +
 			`else if(a[0]==="agent"&&a[1]==="wait")r={agent:{agent_status:"idle"}};\nprocess.stdout.write(JSON.stringify({result:r}));\n`,
 	);
 	chmodSync(join(f.root, "fake-bin/herdr"), 0o755);
