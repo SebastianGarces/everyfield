@@ -72,14 +72,14 @@ for (const template of systemTemplates) {
 	});
 }
 
-test("each meeting template renders exactly one RSVP button with a valid link, and none without one", () => {
-	const href = "https://app.example.test/rsvp/tok_123";
+test("each meeting template links to the guest's RSVP page once, in HTML and plain text", () => {
+	const href = "https://example.test/rsvp/sample-token";
 	for (const template of systemTemplates) {
-		const withLink = renderBody(template.bodyHtml, { name: "Alex", rsvp_link: href });
-		const buttons = withLink.split("Tell us if you can come</a>").length - 1;
-		assert.equal(buttons, rsvpKeys.has(template.sourceKey) ? 1 : 0, `${template.sourceKey}: one button or none`);
-		if (buttons)
-			assert.equal(withLink.split(`href="${href}"`).length - 1, 2, "the button links to the guest's RSVP page");
-		assert.ok(!renderBody(template.bodyHtml, { name: "Alex" }).includes("data-rsvp-button"), "no link, no button");
+		const expected = rsvpKeys.has(template.sourceKey) ? 1 : 0;
+		const html = renderBody(template.bodyHtml, { name: "Alex", rsvp_link: href });
+		assert.equal(html.split(`<a href="${href}"`).length - 1, expected, `${template.sourceKey}: anchors`);
+		assert.equal(plainText(html).includes(href), expected === 1, `${template.sourceKey}: plain-text URL`);
+		const without = plainText(renderBody(template.bodyHtml, { name: "Alex" }));
+		assert.ok(!without.includes("/rsvp/"), `${template.sourceKey}: no RSVP URL without a link`);
 	}
 });
