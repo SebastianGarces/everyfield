@@ -108,8 +108,7 @@ A ref has one current row: its latest row that is not `abandoned`, in any status
 work (`evf drive`, `evf task spec`, `evf launch`, `evf proof add`) uses that row and never inserts a row for a
 merged ref; `evf drive` prints stage `done`, and `evf task spec` and `evf launch` fail. Only `evf task new
 <ref> --ask-file <file>` reopens a merged ref: it inserts one `new` row and its `task_new` event names the
-merged row it reopens (`reopens`). On an open or escalated row it also resets the consecutive-failure count
-(the event records `after_run`; only later failures count), and an escalated row goes back to work.
+merged row it reopens (`reopens`).
 
 ## Prototype mode
 
