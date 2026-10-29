@@ -249,7 +249,7 @@ test("OPS-60-prototype: plan with angles, three blind idea seats in their own wo
 
 		// After the implement task merges, the finished prototype stays closed: the ref is free for a new task.
 		f.db.prepare("UPDATE tasks SET status = 'merged' WHERE id = ?").run(impl!.id);
-		assert.equal(f.nextOf().stage, "plan", "no open task for the ref, so a fresh one would plan");
+		assert.deepEqual(f.nextOf(), { stage: "done", round: 0, reason: "merged" }, "a merge stays done");
 		const again = cli(
 			f.root,
 			{},
@@ -265,6 +265,7 @@ test("OPS-60-prototype: plan with angles, three blind idea seats in their own wo
 		assert.equal(again.status, 0, again.stderr);
 		assert.equal(f.tasks().length, 3, "a new task row, not the done prototype row");
 		assert.equal(f.tasks().at(-1)!.mode, "implement");
+		assert.equal(f.nextOf().stage, "plan", "only the explicit reopen makes the ref plan again");
 		assert.match(cli(f.root, {}, undefined, "refocus", "OPS-1").stdout, /Task: OPS-1 \(new, round 0 of 3\)/);
 	} finally {
 		f.db.close();
