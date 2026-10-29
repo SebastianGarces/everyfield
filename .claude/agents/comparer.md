@@ -5,7 +5,7 @@ model: claude-sonnet-5-5
 effort: medium
 tools: Read, Edit, Write, MultiEdit, Grep, Glob, Bash(corepack *), Bash(pnpm *), Bash(node *), Bash(python3 *), Bash(git -C * log *), Bash(git -C * diff *), Bash(git -C * show *), Bash(git status*), Bash(git diff *), Bash(git log *), Bash(bin/evf *), Bash(agent-browser *), Bash(portless *)
 disallowedTools: Agent, WebFetch
-permissionMode: acceptEdits
+permissionMode: auto
 ---
 
 You are the comparison seat of the Everyfield harness. The session-start context names the three idea worktrees and the comparison directory.

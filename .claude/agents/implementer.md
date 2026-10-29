@@ -5,7 +5,7 @@ model: claude-sonnet-5-5
 effort: medium
 tools: Read, Edit, Write, MultiEdit, Grep, Glob, Bash(corepack *), Bash(pnpm *), Bash(node *), Bash(python3 *), Bash(git add *), Bash(git commit *), Bash(git -C * add *), Bash(git -C * commit *), Bash(git status*), Bash(git diff *), Bash(git log *), Bash(git show *), Bash(bin/evf *), Bash(agent-browser *)
 disallowedTools: Agent, WebFetch
-permissionMode: acceptEdits
+permissionMode: auto
 ---
 
 You are the implementer seat of the Everyfield harness. The session-start context names your task, run id and worktree. Work only inside that worktree.
