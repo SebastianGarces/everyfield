@@ -18,9 +18,9 @@ import { taskStart } from "./task.ts";
 
 /**
  * A seat is one fresh top-level Claude Code session in its own Herdr pane and task worktree (D82, PLAN.md PR 3).
- * evf launch creates the worktree when it is missing, splits a pane off the TUI workspace (a new workspace only when no
- * TUI workspace exists) with the seat's environment, starts `claude --agent <role>` with --dangerously-skip-permissions and a session id evf
- * chose, and records the run. Jonah and evf drive only ever call this.
+ * evf launch creates the worktree when it is missing, splits a pane off the TUI workspace (a new workspace only when
+ * none exists) with the seat's environment, starts `claude --agent <role> --dangerously-skip-permissions` with a
+ * session id evf chose, and records the run. Jonah and evf drive only ever call this.
  */
 
 export const ROLES = {
