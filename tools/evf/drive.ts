@@ -829,7 +829,6 @@ function waitOnSeat(
 				record(db, t.id, runId, "blocked", { summary: `${r.herdr_agent} is blocked on a prompt` });
 				notify(`${task.id} seat blocked`, `${r.herdr_agent} waits on a prompt in its pane.`);
 			}
-			const give = Date.now() + timing.waitMs;
 			for (;;) {
 				sleep(timing.seatPollMs);
 				if (runStatus(db, runId) !== "started") return;
@@ -837,10 +836,6 @@ function waitOnSeat(
 				if (now !== "blocked") {
 					if (now !== "unknown") blockedReported = false;
 					break;
-				}
-				if (Date.now() > give) {
-					runDone(root, runId, { status: "failed", summary: `${r.herdr_agent} stayed blocked on a prompt` });
-					return;
 				}
 			}
 			continue;
