@@ -4,8 +4,8 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "n
 import { join } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { fixture, source } from "./fixtures.ts";
-import { ensureTask, openWorkDb, sessionsRecorded, syncGoals } from "../db.ts";
-import { driveOnce, LOOP_CAP, nextStage, RETRY_CAP, runDone } from "../drive.ts";
+import { ensureTask, findTask, markMerged, openWorkDb, sessionsRecorded, syncGoals } from "../db.ts";
+import { drive, driveOnce, LOOP_CAP, nextStage, RETRY_CAP, runDone } from "../drive.ts";
 import { doneCriteria } from "../spec.ts";
 import { evfDataDir, parseTask, sleep } from "../lib.ts";
 
@@ -542,6 +542,141 @@ test("OPS-59-gate: a verify closes passed only with a met or n/a proof per Done 
 		f.db.prepare("UPDATE tasks SET status = 'escalated' WHERE id = ?").run(f.taskId);
 		assert.equal(cli(f.root, {}, "drive", "OPS-1", "--once").status, 2, "a dead holder's pid file is taken over");
 		assert.equal(existsSync(pidFile), false, "the pid file goes when the loop ends");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+const SHA = "a".repeat(40);
+const rowsOf = (f: ReturnType<typeof driveFixture>) =>
+	f.db.prepare("SELECT id, status, merge_commit FROM tasks WHERE ref = 'OPS-1' ORDER BY id").all()
+		.map((r) => ({ ...r })) as Array<{ id: number; status: string; merge_commit: string | null }>;
+
+test("OPS-66-drive: the drive exits at the merge: one merged row, no next event after it, no seat launched", () => {
+	const f = driveFixture(),
+		log = console.log;
+	try {
+		f.db.prepare("UPDATE tasks SET spec = ?, status = 'pr_open', pr_number = 77 WHERE id = ?").run(SPEC, f.taskId);
+		const head = spawnSync("git", ["-C", f.wt, "rev-parse", "HEAD"], { encoding: "utf8" }).stdout.trim();
+		for (const c of ["1", "2"])
+			f.db
+				.prepare("INSERT INTO proofs (task_id, head_sha, criterion, status, created_at) VALUES (?, ?, ?, 'met', ?)")
+				.run(f.taskId, head, c, new Date().toISOString());
+		runDone(f.root, f.insertRun("verify", "verifier", "started"), { status: "passed", summary: "approved" });
+		runDone(f.root, f.insertRun("ci", "evf", "started"), { status: "passed", summary: "green" });
+		// GitHub reports the PR merged (a restart after the merge): the ship stage records it.
+		const state = f.getState();
+		state.pr = { number: 77, state: "MERGED", mergeCommit: { oid: SHA } };
+		f.setState(state);
+		const launches = () => f.herdr.calls().filter((c) => c[0] === "workspace" || (c[0] === "agent" && c[1] === "start")).length;
+		const before = launches();
+		const lines: string[] = [];
+		console.log = (l: string) => lines.push(l);
+		const code = drive(f.root, f.task, {}, TIMING);
+		console.log = log;
+		assert.equal(code, 0, lines.join("\n"));
+		assert.deepEqual(rowsOf(f), [{ id: f.taskId, status: "merged", merge_commit: SHA }]);
+		const types = (f.db.prepare("SELECT type FROM events WHERE task_id = ? ORDER BY id").all(f.taskId) as Array<{ type: string }>).map(
+			(e) => e.type,
+		);
+		assert.equal(types.filter((t) => t === "merged").length, 1);
+		assert.equal(types.lastIndexOf("next"), types.indexOf("next"), "one next event, before the ship");
+		assert.ok(types.indexOf("next") < types.indexOf("merged"));
+		assert.deepEqual(types.slice(types.indexOf("merged") + 1), ["stage_end"], "only the ship run closes after the merge");
+		assert.equal(launches(), before, "no launch after ship");
+	} finally {
+		console.log = log;
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-66-current: ensureTask returns the merged row, skipping later abandoned ghosts; markMerged is idempotent and inserts when the store has no row", () => {
+	const f = driveFixture();
+	try {
+		f.db.prepare("UPDATE tasks SET status = 'merged', merge_commit = ? WHERE id = ?").run(SHA, f.taskId);
+		f.db
+			.prepare(
+				"INSERT INTO tasks (slug, mode, ref, title, status, created_at, updated_at) VALUES ('ops-1', 'implement', 'OPS-1', 'ghost', 'abandoned', 'x', 'x')",
+			)
+			.run();
+		const got = ensureTask(f.db, f.task, "implement");
+		assert.equal(got.id, f.taskId);
+		assert.equal(got.status, "merged");
+		assert.equal(rowsOf(f).length, 2, "no row inserted");
+		markMerged(f.db, f.task, SHA, null);
+		assert.equal(f.events("merged").length, 0, "an already merged row records nothing");
+
+		const other = parseTask("OPS-2");
+		markMerged(f.db, other, SHA, null);
+		markMerged(f.db, other, SHA, null);
+		const row = findTask(f.db, other)!;
+		assert.equal(row.status, "merged");
+		const events = f.db.prepare("SELECT type FROM events WHERE task_id = ?").all(row.id);
+		assert.equal(events.length, 1, "one row and one merged event for a ref the store did not know");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-66-reopen: only evf task new reopens a merged ref; drive, spec and launch leave it alone; next reports done", () => {
+	const f = driveFixture();
+	try {
+		f.db.prepare("UPDATE tasks SET status = 'merged', merge_commit = ?, spec = ? WHERE id = ?").run(SHA, SPEC, f.taskId);
+		assert.deepEqual(JSON.parse(cli(f.root, {}, "next", "OPS-1").stdout), { stage: "done", round: 0, reason: "merged" });
+		const unchanged = () => assert.deepEqual(rowsOf(f), [{ id: f.taskId, status: "merged", merge_commit: SHA }]);
+		for (const args of [["drive", "OPS-1"], ["drive", "OPS-1", "--once"]]) {
+			const r = cli(f.root, {}, ...args);
+			assert.equal(r.status, 0, r.stderr);
+			assert.match(r.stdout, /drive OPS-1: done \(merged\)/);
+			unchanged();
+		}
+		const spec = cli(f.root, {}, "task", "spec", "OPS-1", "--file", f.file("spec.md", SPEC));
+		assert.notEqual(spec.status, 0);
+		assert.match(spec.stderr, /evf task new/);
+		unchanged();
+		const launch = cli(f.root, {}, "launch", "OPS-1", "--role", "planner", "--dry-run");
+		assert.notEqual(launch.status, 0);
+		assert.match(launch.stderr, /OPS-1 is merged\./);
+		unchanged();
+
+		const made = cli(f.root, {}, "task", "new", "OPS-1", "--ask-file", f.file("ask.md", "Again."));
+		assert.equal(made.status, 0, made.stderr);
+		const rows = rowsOf(f);
+		assert.equal(rows.length, 2);
+		assert.deepEqual(rows[0], { id: f.taskId, status: "merged", merge_commit: SHA });
+		assert.equal(rows[1]!.status, "new");
+		assert.equal(JSON.parse(cli(f.root, {}, "next", "OPS-1").stdout).stage, "plan");
+		const ev = f.db.prepare("SELECT payload FROM events WHERE task_id = ? AND type = 'task_new'").get(rows[1]!.id) as {
+			payload: string;
+		};
+		assert.equal(JSON.parse(ev.payload).reopens, f.taskId);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-66-reset: an explicit reopen resets the consecutive-failure count; later failures escalate again", () => {
+	const f = driveFixture();
+	try {
+		f.db.prepare("UPDATE tasks SET spec = ?, status = 'active' WHERE id = ?").run(SPEC, f.taskId);
+		for (let i = 0; i < RETRY_CAP; i++)
+			runDone(f.root, f.insertRun("implement", "implementer", "started"), { status: "failed", summary: `broke ${i}` });
+		assert.equal(f.taskRow().status, "escalated");
+		assert.equal(JSON.parse(cli(f.root, {}, "next", "OPS-1").stdout).stage, "escalated");
+		const made = cli(f.root, {}, "task", "new", "OPS-1", "--ask-file", f.file("ask.md", "Retry after the gate fix."));
+		assert.equal(made.status, 0, made.stderr);
+		assert.equal(f.taskRow().status, "specced", "the reopen puts the escalated row back to work");
+		assert.equal(JSON.parse(cli(f.root, {}, "next", "OPS-1").stdout).stage, "implement");
+		for (let i = 1; i < RETRY_CAP; i++) {
+			runDone(f.root, f.insertRun("implement", "implementer", "started"), { status: "failed", summary: `again ${i}` });
+			assert.equal(f.taskRow().status, "specced", `${i} failure after the reopen does not escalate`);
+		}
+		runDone(f.root, f.insertRun("implement", "implementer", "started"), { status: "failed", summary: "again 3" });
+		assert.equal(f.taskRow().status, "escalated", "the third failure after the reopen escalates again");
 	} finally {
 		f.db.close();
 		f.close();

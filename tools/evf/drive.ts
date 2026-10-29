@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, openSync, readFileSync, unlinkSync, writeFileSyn
 import { join } from "node:path";
 import { spawn } from "node:child_process";
 import type { DatabaseSync } from "node:sqlite";
-import { ensureTask, findTask, openWorkDb, type TaskRow } from "./db.ts";
+import { ensureTask, findTask, markMerged, newTaskRow, openWorkDb, record, type TaskRow } from "./db.ts";
 import { ideaWorktree, launch, type Role } from "./launch.ts";
 import {
 	EvfError,
@@ -59,25 +59,30 @@ export type Next = {
 	reason: string;
 	run?: number;
 };
-type RunRow = { id: number; stage: string; role: string; status: string; round: number; summary: string | null };
+type RunRow = {
+	id: number;
+	stage: string;
+	role: string;
+	status: string;
+	round: number;
+	summary: string | null;
+	/** The run closed before the latest explicit reopen (`evf task new`); its failure no longer counts. */
+	beforeReopen?: boolean;
+};
 
 const now = () => new Date().toISOString();
 const headline = (text: string, max = 160) => text.split("\n")[0]?.slice(0, max) ?? "";
-const record = (
-	db: DatabaseSync,
-	taskId: number,
-	runId: number | null,
-	type: string,
-	payload: Record<string, unknown>,
-) =>
-	db
-		.prepare("INSERT INTO events (task_id, run_id, ts, type, payload) VALUES (?, ?, ?, ?, ?)")
-		.run(taskId, runId, now(), type, JSON.stringify(payload));
-
-const runsOf = (db: DatabaseSync, taskId: number): RunRow[] =>
-	db
+/** The task's runs, oldest first. `evf task new` on an open row records the last run id it saw (after_run). */
+const runsOf = (db: DatabaseSync, taskId: number): RunRow[] => {
+	const reopen = db
+		.prepare("SELECT payload FROM events WHERE task_id = ? AND type = 'task_new' ORDER BY id DESC LIMIT 1")
+		.get(taskId) as { payload: string } | undefined;
+	const floor = Number((JSON.parse(reopen?.payload ?? "{}") as { after_run?: number }).after_run) || 0;
+	const runs = db
 		.prepare("SELECT id, stage, status, role, round, summary FROM runs WHERE task_id = ? ORDER BY started_at, id")
 		.all(taskId) as RunRow[];
+	return floor ? runs.map((r) => (r.id <= floor ? { ...r, beforeReopen: true } : r)) : runs;
+};
 
 /** A task row for a ref the store does not know yet, so read commands can answer without writing. */
 const unknownTask = (task: TaskRef): TaskRow => ({
@@ -93,12 +98,15 @@ const unknownTask = (task: TaskRef): TaskRow => ({
 	worktree: null,
 });
 
-/** Failed or aborted runs since the last passed one. An evf run aborted by a restart is not a failure. */
+/**
+ * Failed or aborted runs since the last passed one and the latest explicit reopen. An evf run aborted by a restart is
+ * not a failure.
+ */
 const trailingFailures = (runs: RunRow[]): number => {
 	let n = 0;
 	for (let i = runs.length - 1; i >= 0; i--) {
 		const r = runs[i]!;
-		if (r.status === "passed") break;
+		if (r.status === "passed" || r.beforeReopen) break;
 		if (r.status === "started" || (r.role === "evf" && r.status === "aborted")) continue;
 		n++;
 	}
@@ -317,7 +325,16 @@ export function taskNew(root: string, task: TaskRef, opts: { askFile: string; ti
 	try {
 		const mode = opts.mode ?? "implement";
 		if (!["implement", "prototype"].includes(mode)) fail("--mode must be implement or prototype.");
-		const t = ensureTask(db, task, mode);
+		// The one command that reopens a merged ref: the merged row keeps its status and commit.
+		const prior = findTask(db, task);
+		const reopens = prior?.status === "merged" ? prior : undefined;
+		const t = reopens ? newTaskRow(db, task, mode) : ensureTask(db, task, mode);
+		// A reopen of an escalated row puts it back to work and resets the failure count for the rows below.
+		const lastRun = (db.prepare("SELECT MAX(id) AS id FROM runs WHERE task_id = ?").get(t.id) as { id: number | null }).id;
+		if (t.status === "escalated") {
+			t.status = t.pr_number ? "pr_open" : t.spec ? "specced" : "new";
+			db.prepare("UPDATE tasks SET status = ? WHERE id = ?").run(t.status, t.id);
+		}
 		if (t.mode !== mode)
 			fail(`${t.ref} already has an open ${t.mode} task; finish or abandon it before a ${mode} task.`);
 		db.prepare("UPDATE tasks SET ask = ?, title = ?, updated_at = ? WHERE id = ?").run(
@@ -326,7 +343,11 @@ export function taskNew(root: string, task: TaskRef, opts: { askFile: string; ti
 			now(),
 			t.id,
 		);
-		record(db, t.id, null, "task_new", { summary: `${t.ref}: ${headline(opts.title ?? ask)}` });
+		record(db, t.id, null, "task_new", {
+			summary: `${t.ref}: ${headline(opts.title ?? ask)}`,
+			...(reopens ? { reopens: reopens.id } : {}),
+			after_run: lastRun ?? 0,
+		});
 		console.log(JSON.stringify({ task: t.ref, id: t.id, status: t.status, mode: t.mode }));
 		return 0;
 	} finally {
@@ -341,6 +362,7 @@ export function taskSpec(root: string, task: TaskRef, file: string): number {
 	const db = openWorkDb(root);
 	try {
 		const t = ensureTask(db, task, "implement");
+		if (t.status === "merged") fail(`${t.ref} is merged. Start a new task with evf task new ${t.ref} --ask-file <file>.`);
 		db.prepare(
 			"UPDATE tasks SET spec = ?, spec_hash = ?, status = CASE WHEN status = 'new' THEN 'specced' ELSE status END, updated_at = ? WHERE id = ?",
 		).run(spec, hash, now(), t.id);
@@ -641,15 +663,6 @@ const DRIVE_TIMING: DriveTiming = {
 };
 
 type Outcome = { status: "passed" | "failed"; summary: string };
-const merged = (db: DatabaseSync, t: TaskRow, runId: number, commit: string | null) => {
-	db.prepare("UPDATE tasks SET status = 'merged', merge_commit = ?, updated_at = ? WHERE id = ?").run(
-		commit,
-		now(),
-		t.id,
-	);
-	record(db, t.id, runId, "merged", { summary: `${t.ref} merged${commit ? ` as ${commit.slice(0, 10)}` : ""}` });
-};
-
 /** The pr stage: push and open the PR from the body the implementer wrote, then remember its number. */
 function prStage(db: DatabaseSync, root: string, task: TaskRef, t: TaskRow, wt: string): Outcome {
 	const body = prBodyPath(root, task);
@@ -698,7 +711,7 @@ function shipStage(db: DatabaseSync, root: string, task: TaskRef, t: TaskRow, ru
 	};
 	const before = view();
 	if (before.state !== "MERGED") ship(root, task);
-	merged(db, t, runId, before.state === "MERGED" ? before.commit : view().commit);
+	markMerged(db, task, before.state === "MERGED" ? before.commit : view().commit, runId);
 	return { status: "passed", summary: before.state === "MERGED" ? "already merged on GitHub" : "shipped" };
 }
 
@@ -815,11 +828,12 @@ export function driveOnce(root: string, task: TaskRef, timing: DriveTiming = DRI
 		const runs = runsOf(db, t.id);
 		const pick = pickOf(db, t.id);
 		const n = nextStage(task, t, runs, !!pick);
-		record(db, t.id, n.run ?? null, "next", {
-			stage: n.stage,
-			round: n.round,
-			summary: `next: ${n.stage} (${n.reason})`,
-		});
+		if (t.status !== "merged")
+			record(db, t.id, n.run ?? null, "next", {
+				stage: n.stage,
+				round: n.round,
+				summary: `next: ${n.stage} (${n.reason})`,
+			});
 		if (n.stage === "escalated" && t.status !== "escalated") escalate(db, t, null, n.reason);
 		if (n.stage === "done" || n.stage === "escalated") return n;
 		if (n.stage === "pick") {
@@ -873,6 +887,9 @@ export function driveOnce(root: string, task: TaskRef, timing: DriveTiming = DRI
 			return n;
 		}
 		evfStage(db, root, task, t, n.stage, timing);
+		// A merge ends the task: the loop stops here and makes no further transition.
+		if (n.stage === "ship" && findTask(db, task)?.status === "merged")
+			return { stage: "done", round: n.round, reason: "merged" };
 		return n;
 	} finally {
 		db.close();
