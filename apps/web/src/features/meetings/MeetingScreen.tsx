@@ -386,7 +386,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 		attended: attendedCount,
 		cardsIn,
 		evaluationSaved: saved !== null,
-		followUpDone: final && nextStep({ ...stepInput, canWrite: true }).primary === null,
+		followUpDone: final && m.status === "completed" && nextStep({ ...stepInput, canWrite: true }).primary === null,
 	});
 
 	// The tab is in the address (?tab=). The first one follows the primary action's target. A tab change writes the

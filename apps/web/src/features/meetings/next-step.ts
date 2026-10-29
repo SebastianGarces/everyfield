@@ -92,7 +92,7 @@ type StepperInput = {
 	/** Attended guests with a response card. */
 	cardsIn: number;
 	evaluationSaved: boolean;
-	/** The next-step table, asked as a writer, gives no primary action: nothing is left to do. */
+	/** The meeting is completed, attendance is final and the next-step table, asked as a writer, gives no primary action. */
 	followUpDone: boolean;
 };
 

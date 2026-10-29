@@ -140,6 +140,11 @@ test("AC:TARGET-MTG-001 stepper: every meeting state", () => {
 		"done",
 		"Attendance final",
 	]);
+	// Final but not completed: Follow up stays current, since the meeting is not closed.
+	assert.equal(
+		step({ status: "in_progress", final: true, attended: 4, vision: false, followUpDone: false })[2][1],
+		"current",
+	);
 	// Cancelled has no current step and nothing started.
 	assert.deepEqual(
 		step({ status: "cancelled" }).map((s) => s[1]),

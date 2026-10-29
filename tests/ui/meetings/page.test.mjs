@@ -179,6 +179,9 @@ for (const [name, engine] of ENGINES) {
 
 			// Final with a card still to record: the primary opens the Guests tab and focuses that guest's actions.
 			await page.getByRole("button", { name: "Record response cards" }).waitFor();
+			// A filter that hides the attended guest (their RSVP is pending) does not stop the focus move.
+			await page.getByRole("tab", { name: /^Guests/ }).click();
+			await page.getByRole("radio", { name: /^Yes/ }).click();
 			await page.getByRole("tab", { name: "Results" }).click();
 			await page.getByRole("button", { name: "Record response cards" }).click();
 			assert.equal(new URL(page.url()).searchParams.get("tab"), "guests");

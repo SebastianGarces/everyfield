@@ -162,7 +162,11 @@ export function GuestList({
 		}
 		// The first attended guest with no card: their row menu holds the card action.
 		const target = shown.find((g) => g.presence === "attended" && !isPending(g) && !cardOf.has(g.person.personId));
-		table.current?.querySelector<HTMLElement>(`[data-guest-menu="${target?.id}"]`)?.focus();
+		// The filter can hide that guest, so show everyone first and focus once the row exists.
+		setFilter("all");
+		requestAnimationFrame(() =>
+			table.current?.querySelector<HTMLElement>(`[data-guest-menu="${target?.id}"]`)?.focus(),
+		);
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- one run for each request
 	}, [request?.n]);
 	const marker = attendance?.viewerCanMarkAttendance === true;
