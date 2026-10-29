@@ -87,8 +87,11 @@ passed stage escalate the same way, so no loop runs unattended forever. `evf tas
 run, so the task gets three more failures before it escalates again. It resets only the trailing-failure
 count, never the round (a task at the loop cap escalates again on its next failed verify or ci), and
 it edits no run, event, approval or proof. It replaces the hand-written sqlite UPDATE. It refuses a task
-that is not escalated and refuses inside a seat (`EVF_RUN` set). A blocked seat is notified every
-10 minutes until someone answers its pane. Each launch gets its own Herdr agent, `<role>-<slug>-<run>`,
+that is not escalated and refuses inside a seat (`EVF_RUN` set). A blocked seat is notified once per
+blocked episode and polled every few seconds until it leaves `blocked`; an `idle` report before the launch prompt
+began its turn is not a finished turn. `evf launch` waits until the new pane is an available shell (Herdr
+`pane process-info`: `foreground_process_group_id` equals `shell_pid`, 30 s) and retries `agent_pane_busy`
+three times with backoff, never starting a seat twice. Each launch gets its own Herdr agent, `<role>-<slug>-<run>`,
 so a later round never waits on an earlier seat. `evf next <task>` prints the next stage without acting
 and writes nothing; `--once` performs one transition; `--detach` runs the loop in the background with a
 log under the Git common directory. One drive per task: a second `evf drive` refuses while the first
@@ -426,7 +429,7 @@ Internal creation is source-marker keyed in a verified private repo. A lost resp
 
 ## Progress and recovery
 
-Only evf writes canonical progress on ship and coordinator acknowledgement. Read
+Only evf writes canonical progress. Ship acknowledges a milestone that passes the reviewed-milestone checks; `evf shipped --clear <task>` is for records ship left unacknowledged (failed checks, package closures, older records). Read
 [the coordinator workflow](../../docs/build-agent-workflow.md). Retained records preserve CI,
 review, merge and owning-path evidence. Full package closure belongs to integration.
 WP-097's documentary fast-track import remains available with its original owner go-live record.
