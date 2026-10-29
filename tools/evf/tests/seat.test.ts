@@ -204,7 +204,7 @@ test("OPS-58-launch: every Herdr failure before the agent is up aborts the run, 
 	}
 });
 
-test("OPS-58-refocus: the goal chain names project, mission, task, stage, ask and spec, ends with the question and stays under 40 lines", () => {
+test("OPS-58-refocus: the goal chain names project, mission, task, stage, ask and spec and ends with the question", () => {
 	const f = seatFixture();
 	try {
 		const out = cli(f.root, {}, undefined, "refocus", "OPS-1");
@@ -216,15 +216,126 @@ test("OPS-58-refocus: the goal chain names project, mission, task, stage, ask an
 		assert.match(out.stdout, /Stage: implement \(implementer seat\)/);
 		assert.match(out.stdout, /Ask:\nMake the doghouse usable\./);
 		assert.match(out.stdout, /2\. The roof keeps rain out\./);
+		assert.match(
+			out.stdout,
+			/\nProof rule: a verify closes passed only when each of the 2 Done criteria \(1, 2\) has a met or n\/a proof/,
+		);
+		assert.match(out.stdout, /\nFull ask and spec: bin\/evf task spec OPS-1 --show\.\n/);
 		assert.equal(lines.at(-1), "Is what you are doing now aligned with this? If not, stop and say so.");
-		assert.ok(lines.length <= 40, `${lines.length} lines`);
-		f.db
-			.prepare("UPDATE tasks SET spec = ? WHERE id = ?")
-			.run(Array.from({ length: 80 }, (_, i) => `line ${i + 1}`).join("\n"), f.taskId);
-		const long = cli(f.root, {}, undefined, "refocus", "OPS-1").stdout.trimEnd().split("\n");
-		assert.ok(long.length <= 40, `${long.length} lines`);
-		assert.ok(long.includes("line 20") && !long.includes("line 21"), "the spec is cut at 20 lines");
-		assert.equal(long.at(-1), "Is what you are doing now aligned with this? If not, stop and say so.");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+const NON_GOALS = [
+	"- No product code.",
+	"- No change to ship or merge.",
+	"- No GitHub settings.",
+	"- No other task's spec.",
+];
+/**
+ * A spec shaped like the ones that lost criteria: a "Done when:" header, a criterion that names "Done criteria" in its
+ * text, blank lines between criteria, long criteria over several lines and a Non-goals list after them.
+ */
+function bigSpec(criterionWords: number): string {
+	const words = (n: number, tag: string) => Array.from({ length: n }, (_, i) => `${tag}w${i}`).join(" ");
+	const criteria = Array.from({ length: 26 }, (_, i) => {
+		const n = i + 1;
+		const text = n === 4 ? "The tests store a spec with 25+ Done criteria." : `Criterion ${n} holds.`;
+		return n % 3 === 0
+			? `${n}. ${text} ${words(criterionWords, `c${n}a`)}\n   ${words(criterionWords, `c${n}b`)}\n   End of criterion ${n}.`
+			: `${n}. ${text} ${words(criterionWords, `c${n}`)}`;
+	});
+	return [
+		"# OPS-1: a big spec",
+		"",
+		"Goal: every seat sees every criterion.",
+		"",
+		"## Facts",
+		"",
+		...Array.from({ length: 30 }, (_, i) => `- Fact ${i + 1}.`),
+		"",
+		"Done when:",
+		"",
+		criteria.join("\n\n"),
+		"",
+		"## Non-goals",
+		"",
+		...NON_GOALS,
+		"",
+		"## Approach",
+		"",
+		...Array.from({ length: 30 }, (_, i) => `${i + 1}. Step ${i + 1}.`),
+	].join("\n");
+}
+const ALL = Array.from({ length: 26 }, (_, i) => String(i + 1));
+
+/** Start a seat session with `spec` stored and return the context Claude Code receives. */
+function seatContext(f: ReturnType<typeof seatFixture>, spec: string): string {
+	f.db.prepare("UPDATE tasks SET spec = ? WHERE id = ?").run(spec, f.taskId);
+	const start = cli(f.root, f.env, { session_id: SESSION, source: "startup" }, "hook", "session-start");
+	assert.equal(start.status, 0, start.stderr);
+	const context = (JSON.parse(start.stdout) as { hookSpecificOutput: { additionalContext: string } }).hookSpecificOutput
+		.additionalContext;
+	assert.ok(context.length <= 8000, `${context.length} characters: Claude Code would cut the rest`);
+	assert.ok(context.split("\n").length <= 200, `${context.split("\n").length} lines: Claude Code would cut the rest`);
+	return context;
+}
+const numbered = (context: string) => [...context.matchAll(/^\s*(\d+)\. /gm)].map((m) => m[1]);
+
+test("OPS-64-context: a 26-criterion spec with blank lines and multi-line criteria reaches the seat whole, every criterion, non-goal and the proof rule", () => {
+	const f = seatFixture();
+	try {
+		const spec = bigSpec(12);
+		const context = seatContext(f, spec);
+		const done = spec.slice(spec.indexOf("Done when:"), spec.indexOf("## Approach"));
+		assert.ok(context.includes(done.trim()), "the Done list and the Non-goals appear verbatim, blank lines included");
+		for (const n of ALL) assert.ok(context.includes(`\n${n}. `), `criterion ${n} is in the seat context`);
+		for (const g of NON_GOALS) assert.ok(context.includes(g), `non-goal "${g}" is in the seat context`);
+		assert.match(
+			context,
+			new RegExp(`Proof rule: .*each of the 26 Done criteria \\(${ALL.join(", ")}\\) has a met or n/a proof`),
+		);
+		assert.ok(!context.includes("SHORTENED"), "nothing is cut, so nothing says so");
+		assert.match(context, /Full ask and spec: bin\/evf task spec OPS-1 --show\./);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-64-context: a spec too big for Claude Code's hook limit keeps every criterion number and non-goal and says what it cut first", () => {
+	const f = seatFixture();
+	try {
+		const spec = bigSpec(80);
+		assert.ok(spec.length > 8000, "the spec alone is over the limit");
+		const context = seatContext(f, spec);
+		assert.deepEqual(
+			numbered(context)
+				.filter((n) => ALL.includes(n!))
+				.slice(0, 26),
+			ALL,
+			"every criterion, in order, before any other numbered line",
+		);
+		for (const n of ["3", "6", "26"].map(Number))
+			assert.ok(context.includes(`${n}. Criterion ${n} holds.`), `criterion ${n} keeps its opening text`);
+		for (const g of NON_GOALS) assert.ok(context.includes(g), `non-goal "${g}" is in the seat context`);
+		assert.match(context, /each of the 26 Done criteria \(1, 2, .*, 26\) has a met or n\/a proof/);
+		const lines = context.split("\n");
+		const notice = lines.findIndex((l) => l.startsWith("SHORTENED to fit"));
+		assert.ok(notice > 0 && notice < lines.indexOf("Spec:"), "the cut is announced before the spec text");
+		assert.match(lines[notice]!, /spec section "Done when": \d+ of 27 items cut to \d+ characters/);
+		assert.match(lines[notice]!, /spec section "Approach" \(\d+ lines\)/);
+		assert.match(lines[notice]!, /Run bin\/evf task spec OPS-1 --show and read the full ask and spec/);
+		assert.ok(!context.includes("Step 30."), "a section that is left out is named, not partly shown");
+
+		// The command the notice names prints the stored text in full.
+		const show = cli(f.root, {}, undefined, "task", "spec", "OPS-1", "--show");
+		assert.equal(show.status, 0, show.stderr);
+		assert.match(show.stdout, /^OPS-1 \(new\), spec .*, 26 Done criteria: 1, 2, .*, 26\n/);
+		assert.ok(show.stdout.includes(`Ask:\nMake the doghouse usable.\n`));
+		assert.ok(show.stdout.endsWith(`Spec:\n${spec.trim()}\n`), "the spec appears byte for byte");
 	} finally {
 		f.db.close();
 		f.close();
