@@ -59,30 +59,14 @@ export type Next = {
 	reason: string;
 	run?: number;
 };
-type RunRow = {
-	id: number;
-	stage: string;
-	role: string;
-	status: string;
-	round: number;
-	summary: string | null;
-	/** The run closed before the latest explicit reopen (`evf task new`); its failure no longer counts. */
-	beforeReopen?: boolean;
-};
+type RunRow = { id: number; stage: string; role: string; status: string; round: number; summary: string | null };
 
 const now = () => new Date().toISOString();
 const headline = (text: string, max = 160) => text.split("\n")[0]?.slice(0, max) ?? "";
-/** The task's runs, oldest first. `evf task new` on an open row records the last run id it saw (after_run). */
-const runsOf = (db: DatabaseSync, taskId: number): RunRow[] => {
-	const reopen = db
-		.prepare("SELECT payload FROM events WHERE task_id = ? AND type = 'task_new' ORDER BY id DESC LIMIT 1")
-		.get(taskId) as { payload: string } | undefined;
-	const floor = Number((JSON.parse(reopen?.payload ?? "{}") as { after_run?: number }).after_run) || 0;
-	const runs = db
+const runsOf = (db: DatabaseSync, taskId: number): RunRow[] =>
+	db
 		.prepare("SELECT id, stage, status, role, round, summary FROM runs WHERE task_id = ? ORDER BY started_at, id")
 		.all(taskId) as RunRow[];
-	return floor ? runs.map((r) => (r.id <= floor ? { ...r, beforeReopen: true } : r)) : runs;
-};
 
 /** A task row for a ref the store does not know yet, so read commands can answer without writing. */
 const unknownTask = (task: TaskRef): TaskRow => ({
@@ -98,15 +82,12 @@ const unknownTask = (task: TaskRef): TaskRow => ({
 	worktree: null,
 });
 
-/**
- * Failed or aborted runs since the last passed one and the latest explicit reopen. An evf run aborted by a restart is
- * not a failure.
- */
+/** Failed or aborted runs since the last passed one. An evf run aborted by a restart is not a failure. */
 const trailingFailures = (runs: RunRow[]): number => {
 	let n = 0;
 	for (let i = runs.length - 1; i >= 0; i--) {
 		const r = runs[i]!;
-		if (r.status === "passed" || r.beforeReopen) break;
+		if (r.status === "passed") break;
 		if (r.status === "started" || (r.role === "evf" && r.status === "aborted")) continue;
 		n++;
 	}
@@ -329,13 +310,6 @@ export function taskNew(root: string, task: TaskRef, opts: { askFile: string; ti
 		const prior = findTask(db, task);
 		const reopens = prior?.status === "merged" ? prior : undefined;
 		const t = reopens ? newTaskRow(db, task, mode) : ensureTask(db, task, mode);
-		// A reopen of an escalated row puts it back to work and resets the failure count for the rows below.
-		const lastRun = (db.prepare("SELECT MAX(id) AS id FROM runs WHERE task_id = ?").get(t.id) as { id: number | null })
-			.id;
-		if (t.status === "escalated") {
-			t.status = t.pr_number ? "pr_open" : t.spec ? "specced" : "new";
-			db.prepare("UPDATE tasks SET status = ? WHERE id = ?").run(t.status, t.id);
-		}
 		if (t.mode !== mode)
 			fail(`${t.ref} already has an open ${t.mode} task; finish or abandon it before a ${mode} task.`);
 		db.prepare("UPDATE tasks SET ask = ?, title = ?, updated_at = ? WHERE id = ?").run(
@@ -347,7 +321,6 @@ export function taskNew(root: string, task: TaskRef, opts: { askFile: string; ti
 		record(db, t.id, null, "task_new", {
 			summary: `${t.ref}: ${headline(opts.title ?? ask)}`,
 			...(reopens ? { reopens: reopens.id } : {}),
-			after_run: lastRun ?? 0,
 		});
 		console.log(JSON.stringify({ task: t.ref, id: t.id, status: t.status, mode: t.mode }));
 		return 0;

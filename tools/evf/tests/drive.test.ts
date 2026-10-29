@@ -674,27 +674,3 @@ test("OPS-66-reopen: only evf task new reopens a merged ref; drive, spec and lau
 		f.close();
 	}
 });
-
-test("OPS-66-reset: an explicit reopen resets the consecutive-failure count; later failures escalate again", () => {
-	const f = driveFixture();
-	try {
-		f.db.prepare("UPDATE tasks SET spec = ?, status = 'active' WHERE id = ?").run(SPEC, f.taskId);
-		for (let i = 0; i < RETRY_CAP; i++)
-			runDone(f.root, f.insertRun("implement", "implementer", "started"), { status: "failed", summary: `broke ${i}` });
-		assert.equal(f.taskRow().status, "escalated");
-		assert.equal(JSON.parse(cli(f.root, {}, "next", "OPS-1").stdout).stage, "escalated");
-		const made = cli(f.root, {}, "task", "new", "OPS-1", "--ask-file", f.file("ask.md", "Retry after the gate fix."));
-		assert.equal(made.status, 0, made.stderr);
-		assert.equal(f.taskRow().status, "specced", "the reopen puts the escalated row back to work");
-		assert.equal(JSON.parse(cli(f.root, {}, "next", "OPS-1").stdout).stage, "implement");
-		for (let i = 1; i < RETRY_CAP; i++) {
-			runDone(f.root, f.insertRun("implement", "implementer", "started"), { status: "failed", summary: `again ${i}` });
-			assert.equal(f.taskRow().status, "specced", `${i} failure after the reopen does not escalate`);
-		}
-		runDone(f.root, f.insertRun("implement", "implementer", "started"), { status: "failed", summary: "again 3" });
-		assert.equal(f.taskRow().status, "escalated", "the third failure after the reopen escalates again");
-	} finally {
-		f.db.close();
-		f.close();
-	}
-});
