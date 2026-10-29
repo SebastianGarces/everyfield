@@ -70,13 +70,6 @@ export type AudienceSummary = {
 	recipients: { id: string; displayName: string }[];
 	complete: boolean;
 };
-export type Preview = {
-	previewBody: string;
-	previewHtml: string;
-	eligibleEmails: string[];
-	excludedMissingEmail: string[];
-	duplicateAddressesRemoved: number;
-};
 
 export type PageData = {
 	drafts: Draft[];

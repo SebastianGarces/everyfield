@@ -113,12 +113,6 @@ export type MailReady = {
 type Outgoing = { to: string; subject: string; html: string; text: string };
 type Batch = { outcome: "ids"; ids: (string | null)[] } | { outcome: "unknown" } | { outcome: "refused" };
 
-/** The deployment's app origin, or null when it is not configured. */
-export function appOrigin(): string | null {
-	const parsed = z.url().safeParse(process.env.IDENTITY_ORIGIN);
-	return parsed.success ? new URL(parsed.data).origin : null;
-}
-
 /** Null when the server has no mail keys or provider key. The caller sends nothing in that case. */
 export function mailReady(): MailReady | null {
 	const parsed = env.safeParse({
