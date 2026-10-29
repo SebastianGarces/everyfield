@@ -58,9 +58,7 @@ export function formFrom(draft: Draft, templates: readonly Template[], known: re
 			teamIds: [...draft.audience.teamIds],
 			personIds: [...draft.audience.personIds],
 		},
-		people: draft.audience.personIds.map(
-			(id) => byId.get(id) ?? { id, displayName: null, email: null },
-		),
+		people: draft.audience.personIds.map((id) => byId.get(id) ?? { id, displayName: null, email: null }),
 		templateKey: template?.templateId ?? "none",
 		templateId: draft.templateId,
 		templateSource: draft.templateSource,
