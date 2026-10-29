@@ -2,9 +2,9 @@
 
 import {
 	BookOpen01Icon,
+	BookOpen02Icon,
 	Calendar03Icon,
 	File02Icon,
-	InformationCircleIcon,
 	Mail01Icon,
 	Settings02Icon,
 	Task01Icon,
@@ -135,18 +135,16 @@ function Frame({ name, settings, seed = null, children }: FrameProps) {
 	// The rail's Settings opens the dialog over the current page, as the user menu does; /settings is its address.
 	const nav: ShellNav = {
 		main: [PEOPLE, MEETINGS, MESSAGES, TASKS, MINISTRIES, WIKI],
-		pages: [
-			DOCUMENTS,
+		pages: [DOCUMENTS],
+		tools: [
 			{
 				kind: "action",
 				key: "guide",
 				label: "Guide",
-				icon: InformationCircleIcon,
-				onSelect: () => wiki?.openGuide(),
+				icon: BookOpen02Icon,
+				onSelect: () => wiki?.toggleGuide(),
 				expanded: wiki?.guideOpen,
 			},
-		],
-		tools: [
 			{
 				kind: "link",
 				key: "settings",

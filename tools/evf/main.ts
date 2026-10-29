@@ -41,6 +41,7 @@ import {
 	taskHandoff,
 	taskNew,
 	taskPick,
+	taskReopen,
 	taskSpec,
 } from "./drive.ts";
 import { timing } from "./timing.ts";
@@ -108,6 +109,7 @@ Drive (harness)
   evf task spec <task> --file <file>                          store the spec: Goal, numbered Done criteria, Non-goals
   evf task spec <task> --show                                 print the stored ask and spec in full
   evf task pick <task> <1|2|3> --owner-approval "<words>"     prototype mode: record Sebastian's pick
+  evf task reopen <task> --reason "<words>"                   escalated task: back to pr_open or active, failure count restarts
   evf task handoff <task> --file <spec>                       prototype mode: end the prototype, create the implement task
   evf next <task>                                             the next stage from the store, as JSON
   evf drive <task> [--once] [--detach]                        run the stage machine: seats, pr, ci, ship; cap 3 rounds; one per task
@@ -301,6 +303,11 @@ function main(argv: string[]): number | Promise<number> {
 				const words = option(args, "--owner-approval");
 				if (args.length !== 2) break;
 				return taskPick(root, parseTask(args[0]), Number(args[1]), words ?? "");
+			}
+			if (sub === "reopen") {
+				const reason = option(args, "--reason");
+				if (args.length !== 1) break;
+				return taskReopen(root, parseTask(args[0]), reason ?? "");
 			}
 			if (sub === "handoff") {
 				const file = option(args, "--file");
