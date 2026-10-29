@@ -249,14 +249,13 @@ function paneShellReady(pane: string): { ready: boolean; seen: string } {
 }
 function waitForShell(workspace: string, pane: string, timing: LaunchTiming): void {
 	const started = Date.now();
-	for (let seen = ""; ;) {
+	for (;;) {
 		const state = paneShellReady(pane);
 		if (state.ready) return;
-		seen = state.seen;
 		const waited = Date.now() - started;
 		if (waited >= timing.paneReadyMs)
 			fail(
-				`pane ${pane} in workspace ${workspace} was not an available shell after waiting ${Math.round(waited / 100) / 10} s (${seen}).`,
+				`pane ${pane} in workspace ${workspace} was not an available shell after waiting ${Math.round(waited / 100) / 10} s (${state.seen}).`,
 			);
 		sleep(Math.min(timing.paneReadyPollMs, timing.paneReadyMs - waited));
 	}
