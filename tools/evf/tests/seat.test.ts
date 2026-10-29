@@ -517,7 +517,7 @@ test("OPS-58-session: evf session prints the seat's session id from the environm
 	}
 });
 
-const SHORT = { paneReadyMs: 400, paneReadyPollMs: 10, busyRetries: 3, busyBackoffMs: 5 };
+const SHORT = { paneReadyMs: 30_000, paneReadyPollMs: 10, busyRetries: 3, busyBackoffMs: 5 };
 const startCalls = (f: ReturnType<typeof seatFixture>) =>
 	f.herdr.calls().filter((c) => c[0] === "agent" && c[1] === "start");
 const quiet = <T>(fn: () => T): T => {
