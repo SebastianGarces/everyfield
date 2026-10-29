@@ -72,6 +72,7 @@ export type AudienceSummary = {
 };
 export type Preview = {
 	previewBody: string;
+	previewHtml: string;
 	eligibleEmails: string[];
 	excludedMissingEmail: string[];
 	duplicateAddressesRemoved: number;
@@ -109,6 +110,8 @@ export function refusalText(code: string): string {
 			return "That meeting or template is not in this church.";
 		case "invalid_input":
 			return "Check the subject, the message, and that at least one person can receive it.";
+		case "rsvp_needs_meeting":
+			return "This message has an RSVP link. Start it from the meeting, or remove the RSVP line.";
 		case "unavailable":
 			return "Email delivery is not set up on this server. Nothing was sent.";
 		default:

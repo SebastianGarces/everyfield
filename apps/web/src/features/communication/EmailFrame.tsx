@@ -91,8 +91,8 @@ export function PreviewStage({
 	empty?: string;
 }) {
 	const [width, setWidth] = useState<Width>("desktop");
-	const { bodyHtml, name, hasMeeting, origin } = input;
-	const key = JSON.stringify([bodyHtml, name, hasMeeting, origin]);
+	const { bodyHtml, name, hasMeeting, origin, churchName } = input;
+	const key = JSON.stringify([bodyHtml, name, hasMeeting, origin, churchName]);
 	const [done, setDone] = useState<{ key: string; result: PreviewResult } | null>(null);
 	const blank = !bodyHtml.trim();
 	const current = !blank && done?.key === key ? done.result : null;
@@ -102,7 +102,7 @@ export function PreviewStage({
 	useEffect(() => {
 		if (blank) return;
 		let live = true;
-		void renderPreview({ bodyHtml, name, hasMeeting, origin }).then((result) => {
+		void renderPreview({ bodyHtml, name, hasMeeting, origin, churchName }).then((result) => {
 			if (live && result !== null) setDone({ key, result });
 		});
 		return () => {

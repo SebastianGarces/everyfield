@@ -529,7 +529,7 @@ function Detail({
 			<Totals view={view} />
 			{detail.bodyHtml ? (
 				<PreviewStage
-					input={{ bodyHtml: detail.bodyHtml, name: as, hasMeeting: detail.meetingId !== null, origin }}
+					input={{ bodyHtml: detail.bodyHtml, name: as, hasMeeting: detail.meetingId !== null, origin, churchName }}
 					chrome={{ from: churchName, to: as, subject: detail.subject ?? "" }}
 					toolbar={
 						named.length > 1 ? (

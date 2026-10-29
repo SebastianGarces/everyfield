@@ -400,7 +400,7 @@ function Editor({
 					) : null}
 				</div>
 				<PreviewStage
-					input={{ bodyHtml: textToBody(fields.text), name: sample, hasMeeting: invitation, origin }}
+					input={{ bodyHtml: textToBody(fields.text), name: sample, hasMeeting: invitation, origin, churchName }}
 					chrome={{ from: churchName, to: sample, subject: fields.subject }}
 				/>
 			</div>

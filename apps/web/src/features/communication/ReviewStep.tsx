@@ -107,7 +107,7 @@ export function ReviewStep({
 	return (
 		<div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
 			<PreviewStage
-				input={{ bodyHtml: textHtml(form), name, hasMeeting: form.meetingId !== null, origin }}
+				input={{ bodyHtml: textHtml(form), name, hasMeeting: form.meetingId !== null, origin, churchName }}
 				chrome={{ from: churchName, to: name, subject: form.subject }}
 				toolbar={
 					<div className="flex items-center gap-2">
