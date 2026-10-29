@@ -6,7 +6,8 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fixture, source } from "./fixtures.ts";
 import { ensureTask, openWorkDb, syncGoals } from "../db.ts";
-import { parseTask } from "../lib.ts";
+import { EvfError, parseTask } from "../lib.ts";
+import { launch } from "../launch.ts";
 
 const SESSION = "33333333-3333-4333-8333-333333333333";
 const cli = (cwd: string, env: Record<string, string>, input: unknown, ...args: string[]) =>
@@ -29,10 +30,13 @@ function fakeHerdr(root: string) {
 			`const calls=JSON.parse(fs.readFileSync(${JSON.stringify(calls)},"utf8"));calls.push(a);fs.writeFileSync(${JSON.stringify(calls)},JSON.stringify(calls));\n` +
 			`const st=JSON.parse(fs.readFileSync(${JSON.stringify(state)},"utf8"));const die=m=>{process.stderr.write(m);process.exit(1)};\n` +
 			`let r={};if(a[0]==="workspace"&&a[1]==="create"){if(st.createFails)die("fixture: no herdr server");r={workspace:{workspace_id:"w9"},tab:"w9:t1",root_pane:{pane_id:"w9:p1"}};}\n` +
-			`else if(a[0]==="agent"&&a[1]==="start"){if(st.startFails)die("fixture: agent did not become idle");r={agent:{name:a[2]}};}\n` +
+			`const save=()=>fs.writeFileSync(${JSON.stringify(state)},JSON.stringify(st));\n` +
+			`if(a[0]==="agent"&&a[1]==="start"){if(st.startFails)die("fixture: agent did not become idle");if(st.busyStarts>0){st.busyStarts--;save();die(JSON.stringify({error:{code:"agent_pane_busy",message:"agent target pane w9:p1 is not an available shell"}}))}st.agents=[...(st.agents||[]),{name:a[2],pane_id:a[5]}];save();r={agent:{name:a[2]}};}\n` +
+			`else if(a[0]==="agent"&&a[1]==="list")r={agents:st.agents||[]};\n` +
 			`else if(a[0]==="pane"&&a[1]==="read")process.stdout.write(st.screen||"");\n` +
+			`else if(a[0]==="pane"&&a[1]==="process-info"){const busy=st.notReady===true||st.notReady>0;if(typeof st.notReady==="number"&&st.notReady>0){st.notReady--;save()}r={process_info:{shell_pid:7,foreground_process_group_id:busy?99:7}};}\n` +
 			`else if(a[0]==="agent"&&a[1]==="wait")r={agent:{agent_status:"idle"}};\n` +
-			`if(a[0]!=="pane")process.stdout.write(JSON.stringify({result:r}));\n`,
+			`if(a[0]!=="pane"||a[1]==="process-info")process.stdout.write(JSON.stringify({result:r}));\n`,
 	);
 	chmodSync(join(root, "fake-bin/herdr"), 0o755);
 	return {
@@ -152,7 +156,7 @@ test("OPS-58-launch: a real launch records the run, passes EVF_RUN to the worksp
 		assert.equal(trusted.status, 0, trusted.stderr);
 		const after = f.herdr.calls().slice(calls.length);
 		assert.deepEqual(
-			after.filter((c) => c[0] === "pane" || c[1] === "wait" || c[1] === "rename").map((c) => c.slice(0, 3)),
+			after.filter((c) => (c[0] === "pane" && c[1] !== "process-info") || c[1] === "wait" || c[1] === "rename").map((c) => c.slice(0, 3)),
 			[
 				["pane", "read", "w9:p1"],
 				["pane", "send-keys", "w9:p1"],
@@ -505,6 +509,110 @@ test("OPS-58-session: evf session prints the seat's session id from the environm
 		assert.equal(out.status, 0, out.stderr);
 		assert.equal(out.stdout.trim(), SESSION);
 		assert.match(cli(f.root, {}, undefined, "session").stderr, /No Claude Code session id here/);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+const SHORT = { paneReadyMs: 400, paneReadyPollMs: 10, busyRetries: 3, busyBackoffMs: 5 };
+const startCalls = (f: ReturnType<typeof seatFixture>) =>
+	f.herdr.calls().filter((c) => c[0] === "agent" && c[1] === "start");
+const quiet = <T>(fn: () => T): T => {
+	const log = console.log;
+	console.log = () => {};
+	try {
+		return fn();
+	} finally {
+		console.log = log;
+	}
+};
+
+test("OPS-67-launch: launch waits while the new pane is not an available shell, then starts the seat exactly once", () => {
+	const f = seatFixture();
+	try {
+		f.herdr.setState({ notReady: 4 });
+		const before = f.herdr.calls().length;
+		quiet(() => launch(f.root, f.task, "implementer", { timing: SHORT }));
+		const calls = f.herdr.calls().slice(before);
+		const polls = calls.filter((c) => c[1] === "process-info");
+		assert.equal(polls.length, 5, "four busy polls, then the ready one");
+		assert.ok(
+			calls.findIndex((c) => c[1] === "start") > calls.findLastIndex((c) => c[1] === "process-info"),
+			"agent start comes after the last poll",
+		);
+		assert.equal(startCalls(f).length, 1);
+		const run = f.runs().at(-1)!;
+		assert.deepEqual([run.status, run.herdr_pane], ["started", "w9:p1"]);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-67-launch: agent_pane_busy retries with backoff and the seat is recorded once, without a second start", () => {
+	const f = seatFixture();
+	try {
+		f.herdr.setState({ busyStarts: 1 });
+		const before = f.herdr.calls().length;
+		quiet(() => launch(f.root, f.task, "implementer", { timing: SHORT }));
+		const calls = f.herdr.calls().slice(before);
+		assert.equal(calls.filter((c) => c[1] === "start").length, 2, "one busy refusal, one successful start");
+		assert.ok(
+			calls.findIndex((c) => c[1] === "list") < calls.findLastIndex((c) => c[1] === "start"),
+			"the agent list is checked before the retry",
+		);
+		const state = JSON.parse(readFileSync(join(f.root, "herdr-state.json"), "utf8")) as { agents: unknown[] };
+		assert.equal(state.agents.length, 1, "exactly one start succeeded");
+		const run = f.runs().at(-1)!;
+		assert.deepEqual([run.status, run.herdr_agent, run.herdr_pane], ["started", `implementer-ops-1-${run.id}`, "w9:p1"]);
+		const starts = f.db
+			.prepare("SELECT COUNT(*) AS n FROM events WHERE run_id = ? AND type = 'stage_start'")
+			.get(run.id) as { n: number };
+		assert.equal(starts.n, 1);
+
+		// An earlier start that succeeded late is the seat: no second start.
+		const name = `implementer-ops-1-${Number(run.id) + 1}`;
+		f.herdr.setState({ busyStarts: 1, agents: [{ name, pane_id: "w9:p1" }] });
+		const mark = startCalls(f).length;
+		quiet(() => launch(f.root, f.task, "implementer", { timing: SHORT }));
+		assert.equal(startCalls(f).length - mark, 1, "the busy refusal is not followed by a duplicate start");
+		assert.equal(f.runs().at(-1)!.status, "started");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-67-launch: agent_pane_busy that never clears fails the run after the bounded retries", () => {
+	const f = seatFixture();
+	try {
+		f.herdr.setState({ busyStarts: 99 });
+		assert.throws(
+			() => quiet(() => launch(f.root, f.task, "implementer", { timing: SHORT })),
+			(e) => e instanceof EvfError && /stayed busy in workspace w9 pane w9:p1 after 3 retries/.test(e.message),
+		);
+		assert.equal(startCalls(f).length, 4, "the first start and three retries");
+		assert.equal(f.runs().at(-1)!.status, "aborted");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-67-launch: a pane that never becomes a shell fails after the wait without calling agent start", () => {
+	const f = seatFixture();
+	try {
+		f.herdr.setState({ notReady: true });
+		assert.throws(
+			() => quiet(() => launch(f.root, f.task, "implementer", { timing: { ...SHORT, paneReadyMs: 100 } })),
+			(e) =>
+				e instanceof EvfError && /pane w9:p1 in workspace w9 was not an available shell after waiting/.test(e.message),
+		);
+		assert.equal(startCalls(f).length, 0);
+		const run = f.runs().at(-1)!;
+		assert.equal(run.status, "aborted");
+		assert.match(String(run.summary), /^launch failed: pane w9:p1 in workspace w9 was not an available shell after waiting/);
 	} finally {
 		f.db.close();
 		f.close();
