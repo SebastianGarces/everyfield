@@ -1,10 +1,31 @@
-import { BookOpen01Icon } from "@hugeicons/core-free-icons";
+import { ArrowLeft01Icon, ArrowRight01Icon, BookOpen01Icon } from "@hugeicons/core-free-icons";
 import { Button, Card, EmptyState, PageHeader, StatePanel } from "@everyfield/ui/controls";
+import { Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
-import { ArticleTools, ArticleColumns, SourceBar, TocRail, WikiSearchButton } from "./client.tsx";
+import {
+	ArticleColumns,
+	ArticleSession,
+	ArticleTools,
+	ReadStatus,
+	SourceBar,
+	TocRail,
+	WikiSearchButton,
+	FixedFrame,
+} from "./client.tsx";
+import { HEADER_GAP, SOURCE_BAR_GAP } from "./layout.ts";
 import { WikiEditor } from "./editor.tsx";
 import { ArticleFeedback } from "./feedback.tsx";
-import { articleBlocks, articlePath, editPath, humanCredit, percentLabel, PHASE_NAME, type Listed } from "./model.ts";
+import {
+	articleBlocks,
+	articlePath,
+	editPath,
+	humanCredit,
+	percentLabel,
+	PHASE_NAME,
+	stepsAround,
+	type Listed,
+	type Step,
+} from "./model.ts";
 import { ArticleBody } from "./prose.tsx";
 import type { WikiPageData } from "./server.ts";
 
@@ -59,6 +80,29 @@ function ArticleList({ title, articles }: { title: string; articles: Listed[] })
 	);
 }
 
+function StepCard({ step, direction }: { step: Step; direction: "previous" | "next" }) {
+	const next = direction === "next";
+	return (
+		<Link
+			href={step.href}
+			className={`group flex cursor-pointer items-center gap-4 rounded-card bg-surface p-5 shadow-card transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${next ? "flex-row-reverse text-right app-sm:col-start-2" : ""}`}
+		>
+			<Icon
+				icon={next ? ArrowRight01Icon : ArrowLeft01Icon}
+				size={22}
+				className="flex-none text-text-3 group-hover:text-ink"
+			/>
+			<span className="min-w-0">
+				<span className="block text-sm text-text-3">{next ? "Next" : "Previous"}</span>
+				{step.group ? <span className="mt-0.5 block text-sm text-text-2">{step.group}</span> : null}
+				<span className="mt-1 block font-title text-[20px] leading-tight tracking-[-0.02em] text-ink">
+					{step.title}
+				</span>
+			</span>
+		</Link>
+	);
+}
+
 export function WikiScreen({ data, source }: { data: WikiPageData; source: string | null }) {
 	const article = data.article;
 	const headings =
@@ -70,76 +114,85 @@ export function WikiScreen({ data, source }: { data: WikiPageData; source: strin
 	const title = data.editing ? `Edit ${article?.article.title ?? "article"}` : (article?.article.title ?? "Wiki");
 	const phase = article?.article.phase;
 	const credit = article ? humanCredit(article.article.credit) : null;
-	return (
-		<>
-			<PageHeader
-				title={title}
-				size={article ? "default" : "xl"}
-				breadcrumb={
-					article
-						? [
-								{ label: "Wiki", href: "/wiki" },
-								...(phase != null ? [{ label: PHASE_NAME[phase] ?? `Phase ${phase}` }] : []),
-								data.editing
-									? { label: article.article.title, href: articlePath(article.article.slug) }
-									: { label: article.article.title },
-								...(data.editing ? [{ label: "Edit" }] : []),
-							]
-						: undefined
-				}
-				subtitle={
-					data.editing ? (
-						data.editorName ? (
-							`This version belongs to ${data.editorName}`
-						) : (
-							"Organization version"
-						)
-					) : article ? (
-						<>
-							{percentLabel(article.article.observedFraction)}
-							{credit ? ` · ${credit}` : ""}
-							{article.article.updatedLabel ? " · Updated since you read it" : ""}
-						</>
+	const fixed = !data.editing;
+	const header = (
+		<PageHeader
+			className={fixed ? HEADER_GAP : undefined}
+			title={title}
+			size={article ? "default" : "xl"}
+			breadcrumb={
+				article
+					? [
+							{ label: "Wiki", href: "/wiki" },
+							...(phase != null ? [{ label: PHASE_NAME[phase] ?? `Phase ${phase}` }] : []),
+							data.editing
+								? { label: article.article.title, href: articlePath(article.article.slug) }
+								: { label: article.article.title },
+							...(data.editing ? [{ label: "Edit" }] : []),
+						]
+					: undefined
+			}
+			subtitle={
+				data.editing ? (
+					data.editorName ? (
+						`This version belongs to ${data.editorName}`
 					) : (
-						`${data.readCount} of ${data.articleCount} articles read`
+						"Organization version"
 					)
-				}
-				actions={
-					article ? (
-						<>
-							<WikiSearchButton />
-							{data.editing ? (
-								<Button asChild variant="outline">
-									<Link href={articlePath(article.article.slug)}>Back to article</Link>
-								</Button>
-							) : (
-								<>
-									{data.editorName ? (
-										<Button asChild variant="outline">
-											<Link href={editPath(article.article.slug)}>Edit article</Link>
-										</Button>
-									) : null}
-									<ArticleTools
-										articleId={article.article.articleId}
-										slug={article.article.slug}
-										source={source}
-										readingRevision={article.readingRevision}
-										plantId={article.plantId}
-										bookmarked={article.article.bookmarked}
-										observedFraction={article.article.observedFraction}
-										completed={article.article.completed}
-										updated={article.article.updatedLabel}
-									/>
-								</>
-							)}
-						</>
-					) : (
+				) : article ? (
+					<ReadStatus credit={credit} />
+				) : (
+					`${data.readCount} of ${data.articleCount} articles read`
+				)
+			}
+			actions={
+				article ? (
+					<>
 						<WikiSearchButton />
-					)
-				}
-			/>
+						{data.editing ? (
+							<Button asChild variant="outline">
+								<Link href={articlePath(article.article.slug)}>Back to article</Link>
+							</Button>
+						) : (
+							<>
+								{data.editorName ? (
+									<Button asChild variant="outline">
+										<Link href={editPath(article.article.slug)}>Edit article</Link>
+									</Button>
+								) : null}
+								<ArticleTools />
+							</>
+						)}
+					</>
+				) : (
+					<WikiSearchButton />
+				)
+			}
+		/>
+	);
+	const steps = article && !data.editing ? stepsAround(data.tree, article.article.articleId) : null;
+	return (
+		<FixedFrame fixed={fixed}>
+			{article && !data.editing ? (
+				<ArticleSession
+					key={article.article.articleId}
+					articleId={article.article.articleId}
+					slug={article.article.slug}
+					source={source}
+					readingRevision={article.readingRevision}
+					plantId={article.plantId}
+					bookmarked={article.article.bookmarked}
+					observedFraction={article.article.observedFraction}
+					completed={article.article.completed}
+					updated={article.article.updatedLabel}
+				>
+					{header}
+				</ArticleSession>
+			) : (
+				header
+			)}
 			{article && article.sources.length && !data.editing ? (
-				<div className="mb-6">
+				<div className={SOURCE_BAR_GAP}>
 					<SourceBar
 						sources={article.sources}
 						currentId={article.currentSourceId}
@@ -149,6 +202,7 @@ export function WikiScreen({ data, source }: { data: WikiPageData; source: strin
 				</div>
 			) : null}
 			<ArticleColumns
+				fixed={fixed}
 				phases={data.tree.phases}
 				more={data.tree.more}
 				currentId={article?.article.articleId}
@@ -226,44 +280,37 @@ export function WikiScreen({ data, source }: { data: WikiPageData; source: strin
 						</StatePanel>
 					</Card>
 				) : article?.article.body ? (
-					<div id="wiki-article" className="rounded-card bg-surface px-6 py-8 shadow-card max-app-sm:px-4 sm:px-11">
-						<ArticleBody contentType={article.article.contentType} body={article.article.body} />
-						{data.feedback ? <ArticleFeedback articleId={article.article.articleId} vote={data.feedback.vote} /> : null}
-						{article.siblings.length ? (
-							<section className="mx-auto mt-10 max-w-[700px]">
-								<h2 className="mb-3 font-title text-[22px] tracking-[-0.02em] text-ink">In this section</h2>
-								<ul className="flex flex-col gap-1">
-									{article.siblings.map((item) => (
-										<li key={item.articleId}>
-											<Link
-												href={articlePath(item.slug)}
-												className="text-ink underline decoration-green-500 decoration-2 underline-offset-[3px]"
-											>
-												{item.title}
-											</Link>
-										</li>
-									))}
-								</ul>
-							</section>
+					<>
+						<div id="wiki-article" className="rounded-card bg-surface px-6 py-8 shadow-card max-app-sm:px-4 sm:px-11">
+							<ArticleBody contentType={article.article.contentType} body={article.article.body} />
+							{data.feedback ? (
+								<ArticleFeedback articleId={article.article.articleId} vote={data.feedback.vote} />
+							) : null}
+							{article.related.length ? (
+								<section className="mx-auto mt-8 max-w-[700px]">
+									<h2 className="mb-3 font-title text-[22px] tracking-[-0.02em] text-ink">Related</h2>
+									<ul className="flex flex-col gap-1">
+										{article.related.map((item) => (
+											<li key={item.articleId}>
+												<Link
+													href={item.href}
+													className="text-ink underline decoration-green-500 decoration-2 underline-offset-[3px]"
+												>
+													{item.title}
+												</Link>
+											</li>
+										))}
+									</ul>
+								</section>
+							) : null}
+						</div>
+						{steps && (steps.previous || steps.next) ? (
+							<nav aria-label="More articles" className="mt-6 grid gap-4 app-sm:grid-cols-2">
+								{steps.previous ? <StepCard step={steps.previous} direction="previous" /> : null}
+								{steps.next ? <StepCard step={steps.next} direction="next" /> : null}
+							</nav>
 						) : null}
-						{article.related.length ? (
-							<section className="mx-auto mt-8 max-w-[700px]">
-								<h2 className="mb-3 font-title text-[22px] tracking-[-0.02em] text-ink">Related</h2>
-								<ul className="flex flex-col gap-1">
-									{article.related.map((item) => (
-										<li key={item.articleId}>
-											<Link
-												href={item.href}
-												className="text-ink underline decoration-green-500 decoration-2 underline-offset-[3px]"
-											>
-												{item.title}
-											</Link>
-										</li>
-									))}
-								</ul>
-							</section>
-						) : null}
-					</div>
+					</>
 				) : (
 					<>
 						{!data.tree.phases.length && !data.tree.more.length ? (
@@ -280,6 +327,6 @@ export function WikiScreen({ data, source }: { data: WikiPageData; source: strin
 					</>
 				)}
 			</ArticleColumns>
-		</>
+		</FixedFrame>
 	);
 }

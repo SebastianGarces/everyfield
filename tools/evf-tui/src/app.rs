@@ -134,12 +134,22 @@ fn task_needs_you(task: &store::Task) -> bool {
     matches!(task.status.as_str(), "awaiting_pick" | "escalated")
 }
 
-/// One row per running seat under its task, plus one row for every open task with no seat (a gate or a wait).
+/// A merged task with no seat stays on screen this long after its last update, as `merged_24h` counts it.
+const MERGED_VISIBLE_HOURS: i64 = 24;
+
+fn recently_merged(task: &store::Task, now: DateTime<Utc>) -> bool {
+    task.status == "merged"
+        && timefmt::parse(&task.updated_at)
+            .is_some_and(|at| now - at < chrono::Duration::hours(MERGED_VISIBLE_HOURS))
+}
+
+/// One row per running seat under its task, plus one row for every open task with no seat (a gate or a wait)
+/// and for every task that merged in the last day. Merged rows are never open and never need you.
 pub fn build_rows(snap: &store::Snapshot, herdr: &herdr::State, now: DateTime<Utc>) -> Vec<Row> {
     let mut rows = Vec::new();
     for task in &snap.tasks {
         let seats: Vec<&store::Seat> = snap.seats.iter().filter(|s| s.task_id == task.id).collect();
-        if !task.is_open() && seats.is_empty() {
+        if !task.is_open() && seats.is_empty() && !recently_merged(task, now) {
             continue;
         }
         let gate = gate_of(task);
@@ -149,6 +159,7 @@ pub fn build_rows(snap: &store::Snapshot, herdr: &herdr::State, now: DateTime<Ut
                 "awaiting_pick" => "needs pick",
                 "escalated" => "escalated",
                 "pr_open" => "pr open",
+                "merged" => "merged",
                 "new" | "specced" => task.status.as_str(),
                 _ => "no seat",
             };
@@ -193,6 +204,13 @@ pub fn build_rows(snap: &store::Snapshot, herdr: &herdr::State, now: DateTime<Ut
                 .or_else(|| seat.last_event.clone())
                 .unwrap_or_else(|| "started".into());
             let blocked = state == "blocked";
+            let working = state == "working";
+            // The task merged but a seat is still open: its task row says merged, not the seat's Herdr status.
+            let state = if i == 0 && task.status == "merged" {
+                "merged".to_string()
+            } else {
+                state
+            };
             rows.push(Row {
                 task_id: task.id,
                 run_id: Some(seat.run_id),
@@ -209,7 +227,7 @@ pub fn build_rows(snap: &store::Snapshot, herdr: &herdr::State, now: DateTime<Ut
                 gate: gate.clone(),
                 now: format!("{what} · {}", timefmt::ago(at, now)),
                 needs_you: blocked || (i == 0 && task_needs_you(task)),
-                working: state == "working",
+                working,
                 herdr_agent: agent
                     .map(|a| a.name.clone())
                     .or_else(|| seat.herdr_agent.clone()),
@@ -731,9 +749,13 @@ mod tests {
         let rows = build_rows(&snap, &herdr_state(), now());
         assert_eq!(
             rows.len(),
-            2,
-            "merged tasks without seats are hidden: {rows:?}"
+            3,
+            "a task merged within a day shows as merged: {rows:?}"
         );
+        let merged = rows.iter().find(|r| r.task == "WP-300").unwrap();
+        assert_eq!(merged.state, "merged");
+        assert_eq!(merged.gate, "PR #12");
+        assert!(!merged.needs_you && !merged.working && merged.run_id.is_none());
         let seat = rows.iter().find(|r| r.run_id.is_some()).unwrap();
         assert_eq!(seat.task, "WP-101");
         assert_eq!(seat.seat, "implementer@WP-101");
@@ -758,6 +780,31 @@ mod tests {
         let needs = attention(&snap, &rows);
         assert_eq!(needs.len(), 1);
         assert!(needs[0].command.starts_with("evf task pick WP-200"));
+    }
+
+    #[test]
+    fn merged_tasks_show_for_a_day_and_never_count_as_open_or_needing_you() {
+        let store = TempStore::new();
+        let db = store.writer();
+        // The test clock is 2026-10-27T20:15Z.
+        for (slug, status, updated) in [
+            ("wp-310", "merged", "2026-10-27T19:45:00.000Z"),
+            ("wp-311", "merged", "2026-10-25T20:15:00.000Z"),
+        ] {
+            db.execute(
+                "INSERT INTO tasks (slug, mode, ref, status, round, pr_number, created_at, updated_at) VALUES (?1, 'implement', upper(?1), ?2, 0, 7, ?3, ?3)",
+                rusqlite::params![slug, status, updated],
+            )
+            .unwrap();
+        }
+        let snap = store::read(&store::open(&store.path).unwrap()).unwrap();
+        let rows = build_rows(&snap, &herdr_state(), now());
+        assert_eq!(rows.len(), 1, "merged 2 days ago is hidden: {rows:?}");
+        assert_eq!(rows[0].task, "WP-310");
+        assert_eq!(rows[0].state, "merged");
+        assert_eq!(rows[0].gate, "PR #7");
+        let summary = summarize(&rows, &snap);
+        assert_eq!((summary.needs_you, summary.open_tasks), (0, 0));
     }
 
     #[test]

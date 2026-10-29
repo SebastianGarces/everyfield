@@ -6,14 +6,17 @@ import {
 	scheduleAccepted,
 	plainText,
 	renderBody,
+	renderEmailHtml,
 	sanitizeHtml,
 	systemInvitation,
 	systemTemplate,
 	systemTemplates,
+	usesRsvpLink,
 } from "@everyfield/contracts/communication";
 import { z } from "zod";
 import type { RequestActor } from "../access/session.ts";
 import { liveRead } from "../access/session.ts";
+import { meetingOpenSql } from "../meetings/tokens.ts";
 import { audiencePeople, reviewedParts, summarizeAudience } from "./audience.ts";
 import {
 	correctContactLog as correctContactLogCommand,
@@ -192,6 +195,11 @@ async function subjects(
 	if (raw.allowed !== true) deny("access_denied");
 	if (!raw.meeting_ok || !raw.template_ok) deny("invalid_subject");
 }
+/** True when the meeting is in this church, not retired and still open for answers. A null id is never open. */
+function meetingOpen(meetingId: string | null, plantId: string) {
+	return sql`(${meetingId}::uuid IS NOT NULL AND EXISTS (SELECT 1 FROM meeting m WHERE m.id = ${meetingId}::uuid
+		AND m.plant_id = ${plantId}::uuid AND ${meetingOpenSql("m")}))`;
+}
 function storedBody(value: string | null | undefined): string | null {
 	if (value == null) return null;
 	const html = sanitizeHtml(value);
@@ -331,7 +339,8 @@ export const communicationWriter = {
 	async deleteTemplate(tx: Tx, context: CommunicationContext, raw: unknown) {
 		return reply(tx, () => deleteTemplate(tx, context, raw));
 	},
-	readPreview: (tx: Tx, authority: RequestActor, raw: unknown) => readReply(() => preview(tx, authority, raw)),
+	readPreview: (tx: Tx, authority: RequestActor, raw: unknown, previewOrigin?: string) =>
+		readReply(() => preview(tx, authority, raw, previewOrigin)),
 	readAudience: (tx: Tx, authority: RequestActor, raw: unknown) => readReply(() => audience(tx, authority, raw)),
 	readRecipients: (tx: Tx, authority: RequestActor, raw: unknown) => readReply(() => recipients(tx, authority, raw)),
 	readMergeFields: (tx: Tx, authority: RequestActor, raw: unknown) => readReply(() => merge(tx, authority, raw)),
@@ -554,11 +563,13 @@ async function schedule(tx: Tx, context: CommunicationContext, raw: unknown, onl
 				await tx.execute(
 					whenLive(
 						writeBound(cmd.actor, context.session),
-						sql`SELECT ${audiencePeople(cmd.actor.plantId, current.audience)} AS people`,
+						sql`SELECT ${audiencePeople(cmd.actor.plantId, current.audience)} AS people,
+							${meetingOpen(current.meeting_id, cmd.actor.plantId)} AS meeting_open`,
 					),
 				),
-			) as { allowed: boolean; people: unknown };
+			) as { allowed: boolean; people: unknown; meeting_open: boolean };
 			if (peopleRaw.allowed !== true) deny("access_denied");
+			if (usesRsvpLink(current.body_html) && !peopleRaw.meeting_open) deny("rsvp_needs_meeting");
 			const people = peopleRaw.people;
 			const parts = reviewedParts(people);
 			if (!parts.people.length) deny("invalid_input");
@@ -771,7 +782,7 @@ async function deleteTemplate(tx: Tx, context: CommunicationContext, raw: unknow
 	});
 }
 
-async function preview(tx: Tx, authority: RequestActor, request: unknown) {
+async function preview(tx: Tx, authority: RequestActor, request: unknown, previewOrigin?: string) {
 	const input = parse(c.previewRequest, request);
 	const { reader, access } = accessOf(authority);
 	const audience = input.audience ?? emptyAudience;
@@ -781,6 +792,8 @@ async function preview(tx: Tx, authority: RequestActor, request: unknown) {
 				allowed(access, reader, true),
 				sql`SELECT
 					(${input.meetingId ?? null}::uuid IS NULL OR EXISTS (SELECT 1 FROM meeting m WHERE m.id = ${input.meetingId ?? null}::uuid AND m.plant_id = ${reader.plantId}::uuid)) AS meeting_ok,
+					${meetingOpen(input.meetingId ?? null, reader.plantId)} AS meeting_open,
+					(SELECT pl.name FROM plant pl WHERE pl.id = ${reader.plantId}::uuid) AS church_name,
 					(${input.templateId ?? null}::uuid IS NULL OR EXISTS (SELECT 1 FROM message_template t WHERE t.id = ${input.templateId ?? null}::uuid AND t.plant_id = ${reader.plantId}::uuid)) AS template_ok,
 					(${input.communicationId ?? null}::uuid IS NULL OR EXISTS (SELECT 1 FROM communication c WHERE c.id = ${input.communicationId ?? null}::uuid AND c.plant_id = ${reader.plantId}::uuid)) AS known,
 					(SELECT c.subject FROM communication c WHERE c.id = ${input.communicationId ?? null}::uuid AND c.plant_id = ${reader.plantId}::uuid) AS subject,
@@ -793,6 +806,8 @@ async function preview(tx: Tx, authority: RequestActor, request: unknown) {
 	const found = z
 		.object({
 			meeting_ok: z.boolean(),
+			meeting_open: z.boolean(),
+			church_name: z.string().nullable(),
 			template_ok: z.boolean(),
 			known: z.boolean(),
 			subject: z.string().nullable(),
@@ -801,8 +816,11 @@ async function preview(tx: Tx, authority: RequestActor, request: unknown) {
 		})
 		.parse(raw);
 	if (!found.meeting_ok || !found.template_ok || !found.known) deny("invalid_subject");
+	if (usesRsvpLink(input.bodyHtml) && !found.meeting_open) deny("rsvp_needs_meeting");
 	const summary = summarizeAudience(found.people);
-	const previewBody = renderBody(input.bodyHtml, input.merge);
+	// The sample link is built here from the server origin, after the client input is parsed.
+	const merge = previewOrigin ? { ...input.merge, rsvp_link: `${previewOrigin}/rsvp/preview` } : input.merge;
+	const previewBody = renderBody(input.bodyHtml, merge, "preview");
 	const sourceBody = sanitizeHtml(input.bodyHtml);
 	const parts = reviewedParts(found.people);
 	const digest = reviewedDigest(found.subject, sourceBody ? sourceBody : null, parts.people, parts.emails);
@@ -810,6 +828,7 @@ async function preview(tx: Tx, authority: RequestActor, request: unknown) {
 		deny("stale_review", { previewBody, scriptExecution: false, providerCalls: 0 });
 	return c.previewResult.parse({
 		previewBody,
+		previewHtml: renderEmailHtml(input.bodyHtml, merge, { churchName: found.church_name ?? "" }, "preview"),
 		scriptExecution: false,
 		providerCalls: 0,
 		eligibleEmails: summary.eligibleEmails,

@@ -4,6 +4,7 @@ import { basename, dirname, resolve, sep } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { missionFor, openWorkDb } from "./db.ts";
 import { fail, parseTask, run, type TaskRef } from "./lib.ts";
+import { doneCriteria, sectionItems, specSections } from "./spec.ts";
 
 /**
  * What a seat sees and reports. `evf refocus` prints the goal chain (OpenRig's refocus, guard rail 1). `evf session`
@@ -24,14 +25,86 @@ type HookInput = {
 	reason?: string;
 };
 const QUESTION = "Is what you are doing now aligned with this? If not, stop and say so.";
-const MAX_LINES = 40;
+/**
+ * Claude Code (2.1.312) cuts a hook's additionalContext at 8,000 UTF-16 code units and 200 lines, without telling the
+ * seat. The session-start context stays under both, with room to spare, so evf decides what is cut and says so.
+ */
+export const CONTEXT_ROOM = { units: 7600, lines: 180 };
 
-export function refocusText(db: DatabaseSync, task: TaskRef): string {
-	const t = db
+/** The task's open row; with `any`, the latest row in any status. */
+const taskRow = (db: DatabaseSync, task: TaskRef, any = false) =>
+	db
 		.prepare(
-			"SELECT id, title, ask, spec, status, round, goal_id FROM tasks WHERE ref = ? AND status NOT IN ('merged', 'abandoned', 'done') ORDER BY id DESC LIMIT 1",
+			`SELECT id, title, ask, spec, spec_hash, status, round, goal_id FROM tasks WHERE ref = ?${any ? "" : " AND status NOT IN ('merged', 'abandoned', 'done')"} ORDER BY id DESC LIMIT 1`,
 		)
 		.get(task.id) as Row | undefined;
+
+type Block = { label: string; lines: string[]; priority: number; essential: boolean };
+const size = (lines: string[]) => ({ units: lines.reduce((n, l) => n + l.length + 1, 0), lines: lines.length });
+const clip = (line: string, max: number) => (line.length > max ? `${line.slice(0, max - 1)}…` : line);
+
+/**
+ * The ask and spec as blocks in reading order. The Done and Non-goals sections are essential: they always appear,
+ * whole when they fit. The Goal comes next, then the ask, then the other spec sections.
+ */
+function blocks(ask: unknown, spec: unknown): Block[] {
+	const out: Block[] = [];
+	if (typeof ask === "string" && ask.trim())
+		out.push({ label: "the ask", lines: ["Ask:", ...ask.trim().split("\n")], priority: 2, essential: false });
+	if (typeof spec === "string" && spec.trim()) {
+		out.push({ label: "", lines: ["Spec:"], priority: 0, essential: true });
+		for (const s of specSections(spec.trim())) {
+			const essential = s.kind === "done" || s.kind === "non-goals";
+			const label = `spec section "${s.title || s.lines[0]!.slice(0, 40)}"`;
+			out.push({ label, lines: s.lines, priority: essential ? 0 : s.kind === "goal" ? 1 : 3, essential });
+		}
+	}
+	return out;
+}
+
+/**
+ * Fit the blocks into `room`. The essential blocks go in whole; when they do not fit, each item becomes one line and
+ * every item is cut to the longest length that fits. The other blocks go in whole, by priority, or not at all. Returns
+ * the lines to print per block and one note per cut.
+ */
+function fit(all: Block[], room: { units: number; lines: number }): { shown: Map<Block, string[]>; cuts: string[] } {
+	const shown = new Map<Block, string[]>(),
+		cuts: string[] = [];
+	const fits = (lines: string[]) => {
+		const used = size([...[...shown.values()].flat(), ...lines]);
+		return used.units <= room.units && used.lines <= room.lines;
+	};
+	const essential = all.filter((b) => b.essential);
+	if (fits(essential.flatMap((b) => b.lines))) for (const b of essential) shown.set(b, b.lines);
+	else {
+		const items = essential.map((b) => sectionItems(b.lines));
+		let max = Math.max(...items.flat().map((l) => l.length));
+		while (max > 80 && !fits(items.flat().map((l) => clip(l, max)))) max = Math.floor(max * 0.9);
+		essential.forEach((b, i) => {
+			const lines = items[i]!.map((l) => clip(l, max));
+			while (lines.length > 1 && !fits(lines)) lines.pop(); // Only when even 80 characters an item is too much.
+			shown.set(b, lines);
+			const cut = items[i]!.slice(0, lines.length).filter((l) => l.length > max).length,
+				left = items[i]!.length - lines.length;
+			if (cut || left)
+				cuts.push(
+					`${b.label}: ${cut} of ${items[i]!.length} items cut to ${max} characters${left ? `, the last ${left} items left out` : ""}`,
+				);
+		});
+	}
+	for (const b of all.filter((b) => !b.essential).sort((x, y) => x.priority - y.priority)) {
+		if (fits(b.lines)) shown.set(b, b.lines);
+		else cuts.push(`${b.label} (${b.lines.length} lines)`);
+	}
+	return { shown, cuts };
+}
+
+/**
+ * The goal chain a seat reads at session start and after a compaction: project, mission, task, stage, the ask, the
+ * spec and the proof rule. `header` is printed first and counts against Claude Code's limit.
+ */
+export function refocusText(db: DatabaseSync, task: TaskRef, header?: string): string {
+	const t = taskRow(db, task);
 	const project = db.prepare("SELECT body FROM goals WHERE key = 'project'").get() as Row | undefined;
 	const mission = (
 		t?.goal_id ? db.prepare("SELECT title FROM goals WHERE id = ?").get(t.goal_id as number) : missionFor(db, task.wp)
@@ -49,20 +122,69 @@ export function refocusText(db: DatabaseSync, task: TaskRef): string {
 			: `Task: ${task.id} (not in the work store yet)`,
 	);
 	if (stage) lines.push(`Stage: ${stage.stage} (${stage.role} seat)`);
-	const block = (label: string, text: unknown, max: number) => {
-		if (typeof text !== "string" || !text.trim()) return;
-		lines.push(`${label}:`);
-		lines.push(...text.trim().split("\n").slice(0, max));
-	};
-	block("Ask", t?.ask, 8);
-	block("Spec", t?.spec, 20);
-	return [...lines.slice(0, MAX_LINES - 1), QUESTION].join("\n");
+	const head = [...(header ? [header] : []), ...lines];
+	const criteria = doneCriteria(typeof t?.spec === "string" ? t.spec : null);
+	const rule =
+		typeof t?.spec === "string" && t.spec.trim()
+			? [
+					`Proof rule: a verify closes passed only when each of the ${criteria.length} Done criteria (${criteria.join(", ") || "none found: the spec has no numbered Done list evf can read"}) has a met or n/a proof at the head. bin/evf proof show ${task.id} lists the proofs.`,
+				]
+			: [];
+	const all = blocks(t?.ask, t?.spec);
+	const show = `bin/evf task spec ${task.id} --show`;
+	// The closing lines depend on what was cut; reserve room for them and widen the reserve until the whole fits.
+	for (let reserve = 400; ; reserve += 400) {
+		const fixed = size([...head, ...rule, QUESTION]);
+		const { shown, cuts } = fit(all, {
+			units: CONTEXT_ROOM.units - fixed.units - reserve,
+			lines: CONTEXT_ROOM.lines - fixed.lines - 1,
+		});
+		// A cut is announced first, before the text it shortens; a whole context names the command at its end.
+		const body = all.flatMap((b) => shown.get(b) ?? []);
+		const out = cuts.length
+			? [
+					...head,
+					`SHORTENED to fit Claude Code's 8,000-character hook limit. Not shown here: ${cuts.join("; ")}. Run ${show} and read the full ask and spec before you build or judge.`,
+					...body,
+					...rule,
+					QUESTION,
+				]
+			: [...head, ...body, ...rule, `Full ask and spec: ${show}.`, QUESTION];
+		const s = size(out);
+		if ((s.units <= CONTEXT_ROOM.units && s.lines <= CONTEXT_ROOM.lines) || reserve > CONTEXT_ROOM.units)
+			return out.join("\n");
+	}
 }
 
 export function refocus(root: string, task: TaskRef): number {
 	const db = openWorkDb(root);
 	try {
 		console.log(refocusText(db, task));
+		return 0;
+	} finally {
+		db.close();
+	}
+}
+
+/** `evf task spec <task> --show`: the stored ask and spec in full, the text a seat's session context may shorten. */
+export function showSpec(root: string, task: TaskRef): number {
+	const db = openWorkDb(root);
+	try {
+		const t = taskRow(db, task) ?? taskRow(db, task, true);
+		if (!t) fail(`${task.id} is not in the work store.`);
+		if (typeof t.spec !== "string" || !t.spec.trim()) fail(`${task.id} has no stored spec yet.`);
+		const criteria = doneCriteria(t.spec);
+		console.log(
+			[
+				`${task.id} (${t.status}), spec ${String(t.spec_hash ?? "").slice(0, 12)}, ${criteria.length} Done criteria: ${criteria.join(", ")}`,
+				"",
+				"Ask:",
+				typeof t.ask === "string" && t.ask.trim() ? t.ask.trim() : "(no ask stored)",
+				"",
+				"Spec:",
+				t.spec.trim(),
+			].join("\n"),
+		);
 		return 0;
 	} finally {
 		db.close();
@@ -175,17 +297,15 @@ export function hook(root: string, event: string): number {
 				source,
 				summary: `${seat.role}@${seat.ref} session ${source}`,
 			});
-			const chain = refocusText(db, parseTask(seat.ref));
+			const header = `You are the ${seat.role} seat for ${seat.ref} (run ${runId}${process.env.EVF_WORKTREE ? `, worktree ${process.env.EVF_WORKTREE}` : ""}).`;
+			const context = refocusText(db, parseTask(seat.ref), header);
 			record(db, seat.task_id, runId, "refocus", {
 				source,
-				lines: chain.split("\n").length,
+				lines: context.split("\n").length,
 				summary: `refocus after ${source}`,
 			});
-			const header = `You are the ${seat.role} seat for ${seat.ref} (run ${runId}${process.env.EVF_WORKTREE ? `, worktree ${process.env.EVF_WORKTREE}` : ""}).`;
 			console.log(
-				JSON.stringify({
-					hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: `${header}\n${chain}` },
-				}),
+				JSON.stringify({ hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: context } }),
 			);
 			return 0;
 		}

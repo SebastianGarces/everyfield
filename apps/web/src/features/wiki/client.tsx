@@ -1,6 +1,6 @@
 "use client";
 
-import { Bookmark02Icon, Download01Icon, PrinterIcon, Search01Icon } from "@hugeicons/core-free-icons";
+import { Bookmark02Icon, Download01Icon, PrinterIcon, Search01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import {
 	Button,
 	Dialog,
@@ -15,10 +15,10 @@ import {
 	Sheet,
 	StatePanel,
 } from "@everyfield/ui/controls";
-import { Toc, useActiveHeading, WikiSourceBar, type WikiPhase, WikiTree } from "@everyfield/ui/display";
+import { Tag, Toc, WikiSourceBar, type WikiPhase, WikiTree } from "@everyfield/ui/display";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { createContext, use, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { createContext, use, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
 	downloadPdf,
 	loadGuide,
@@ -34,9 +34,19 @@ import {
 	type SearchResult,
 	type WriteResult,
 } from "./actions.ts";
+import {
+	ARTICLE_FIXED,
+	BELOW_WIDE_ONLY,
+	FRAME,
+	GRID,
+	GRID_FIXED,
+	RAIL_FIXED,
+	RAIL_STICKY,
+	RAIL_TOC_PAD,
+} from "./layout.ts";
 import { fractionText, pdfFilename, PHASE_NAME, snippetParts, type SourceRow } from "./model.ts";
 
-const Chrome = createContext<{ openSearch: () => void; openGuide: () => void; guideOpen: boolean } | null>(null);
+const Chrome = createContext<{ openSearch: () => void; toggleGuide: () => void; guideOpen: boolean } | null>(null);
 
 export function useWikiChrome() {
 	return use(Chrome);
@@ -60,7 +70,9 @@ export function WikiChrome({ children }: { children: ReactNode }) {
 		return () => window.removeEventListener("keydown", onKey);
 	}, [pathname]);
 	return (
-		<Chrome value={{ openSearch: () => setSearch(true), openGuide: () => setGuide(true), guideOpen: guide }}>
+		<Chrome
+			value={{ openSearch: () => setSearch(true), toggleGuide: () => setGuide((open) => !open), guideOpen: guide }}
+		>
 			{children}
 			<SearchDialog open={search} onOpenChange={setSearch} />
 			<GuideSheet open={guide} onOpenChange={setGuide} />
@@ -342,9 +354,43 @@ type ArticleProps = {
 	observedFraction: string;
 	completed: boolean;
 	updated: boolean;
+	children: ReactNode;
 };
 
-export function ArticleTools(props: ArticleProps) {
+type Session = {
+	marked: boolean;
+	percent: string;
+	done: boolean;
+	updated: boolean;
+	note: string;
+	busy: "pdf" | "print" | null;
+	toggleBookmark: () => void;
+	pdf: () => void;
+	print: () => void;
+};
+
+const SessionContext = createContext<Session | null>(null);
+
+function useSession(): Session {
+	const session = use(SessionContext);
+	if (!session) throw new Error("Article tools need an ArticleSession.");
+	return session;
+}
+
+/** The scroll container of the article column. Below 1280px it does not scroll and the window does. */
+const ARTICLE_SCROLL_ID = "wiki-scroll";
+
+/** The article column when it is the scroll container (1280px and up), else null and the window scrolls. */
+function scrollColumn(): HTMLElement | null {
+	const column = document.getElementById(ARTICLE_SCROLL_ID);
+	return column && getComputedStyle(column).overflowY !== "visible" ? column : null;
+}
+
+/**
+ * One article's reading state: the open record, scroll progress, the bookmark and the print and PDF writes.
+ * Mount it with the article id as key, so a new article starts from its own state.
+ */
+export function ArticleSession({ children, ...props }: ArticleProps) {
 	const revision = useRef(props.readingRevision);
 	const chain = useRef<Promise<WriteResult | void>>(Promise.resolve());
 	const seen = useRef(Number(props.observedFraction) || 0);
@@ -362,8 +408,9 @@ export function ArticleTools(props: ArticleProps) {
 	const [busy, setBusy] = useState<"pdf" | "print" | null>(null);
 
 	function enqueue(task: (rev: string) => Promise<WriteResult>) {
-		chain.current = chain.current.then(async () => {
-			const result = await task(revision.current);
+		chain.current = chain.current.then(async (): Promise<WriteResult> => {
+			// A thrown write (network failure) must not reject the chain: that would stop every later write.
+			const result = await task(revision.current).catch((): WriteResult => ({ status: "lost" }));
 			if (result.status === "ok") {
 				revision.current = result.revision;
 				setMarked(result.bookmarked);
@@ -393,16 +440,21 @@ export function ArticleTools(props: ArticleProps) {
 			);
 		}
 		const article = document.getElementById("wiki-article");
+		const column = scrollColumn();
 		if (!article) return;
 		let timer = 0;
+		// Progress is the share of the article above the bottom edge of what the reader sees. That edge is the
+		// article column's, or the window’s below 1280px, where the column does not scroll.
 		const measure = () => {
 			const total = article.scrollHeight;
 			if (total <= 0) return;
 			const rect = article.getBoundingClientRect();
-			const visible = Math.min(total, Math.max(0, window.innerHeight - rect.top));
+			const edge = column ? column.getBoundingClientRect().bottom : window.innerHeight;
+			const visible = Math.min(total, Math.max(0, edge - rect.top));
 			const next = Math.min(1, visible / total);
-			if (next <= seen.current + 0.01) return;
-			seen.current = next;
+			const finished = next >= 0.995 && seen.current < 1;
+			if (next <= seen.current + 0.01 && !finished) return;
+			seen.current = finished ? 1 : next;
 			void enqueue((rev) =>
 				saveProgress(
 					{
@@ -411,7 +463,7 @@ export function ArticleTools(props: ArticleProps) {
 						articleId: props.articleId,
 						plantId: props.plantId,
 					},
-					fractionText(next),
+					fractionText(seen.current),
 				),
 			);
 		};
@@ -420,10 +472,11 @@ export function ArticleTools(props: ArticleProps) {
 			timer = window.setTimeout(measure, 500);
 		};
 		measure();
-		window.addEventListener("scroll", onScroll, { passive: true });
+		const target: Element | Window = column ?? window;
+		target.addEventListener("scroll", onScroll, { passive: true });
 		window.addEventListener("resize", onScroll);
 		return () => {
-			window.removeEventListener("scroll", onScroll);
+			target.removeEventListener("scroll", onScroll);
 			window.removeEventListener("resize", onScroll);
 			window.clearTimeout(timer);
 		};
@@ -471,29 +524,64 @@ export function ArticleTools(props: ArticleProps) {
 		setNote(result.status === "denied" ? "You cannot print this article." : "Print could not be prepared. Try again.");
 	}
 
-	const read = done ? "Read" : `${Math.round(Math.min(1, Math.max(0, Number(percent) || 0)) * 100)}% read`;
 	return (
-		<div className="flex flex-col items-end gap-2">
-			<div className="flex flex-wrap items-center gap-2">
-				<IconButton
-					icon={Bookmark02Icon}
-					label={marked ? "Remove bookmark" : "Bookmark"}
-					aria-pressed={marked}
-					onClick={() => void toggleBookmark()}
-				/>
-				<IconButton icon={Download01Icon} label="Download PDF" onClick={() => void pdf()} disabled={busy !== null} />
-				<IconButton icon={PrinterIcon} label="Print" onClick={() => void printArticle()} disabled={busy !== null} />
-			</div>
-			<p className="text-sm text-text-2">
-				{read}
-				{updated ? " · Updated since you read it" : ""}
-			</p>
+		<SessionContext
+			value={{
+				marked,
+				percent,
+				done,
+				updated,
+				note,
+				busy,
+				toggleBookmark: () => void toggleBookmark(),
+				pdf: () => void pdf(),
+				print: () => void printArticle(),
+			}}
+		>
+			{children}
+		</SessionContext>
+	);
+}
+
+/** Bookmark, download and print: one row of equal buttons beside the search field. */
+export function ArticleTools() {
+	const { marked, busy, toggleBookmark, pdf, print } = useSession();
+	return (
+		<>
+			<IconButton
+				icon={Bookmark02Icon}
+				label={marked ? "Remove bookmark" : "Bookmark"}
+				aria-pressed={marked}
+				onClick={toggleBookmark}
+				className="aria-pressed:bg-ink aria-pressed:text-on-ink aria-pressed:shadow-none aria-pressed:hover:bg-ink-2 aria-pressed:[&_svg]:fill-current"
+			/>
+			<IconButton icon={Download01Icon} label="Download PDF" onClick={pdf} disabled={busy !== null} />
+			<IconButton icon={PrinterIcon} label="Print" onClick={print} disabled={busy !== null} />
+		</>
+	);
+}
+
+/** The meta line under the title: read status, the credit, the update flag and the status note. */
+export function ReadStatus({ credit }: { credit: string | null }) {
+	const { percent, done, updated, note } = useSession();
+	const text = `${Math.round(Math.min(1, Math.max(0, Number(percent) || 0)) * 100)}% read`;
+	return (
+		<span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1 align-middle">
+			{done ? (
+				<Tag tone="green" icon={Tick02Icon}>
+					Read
+				</Tag>
+			) : (
+				<span>{text}</span>
+			)}
+			{credit ? <span>· {credit}</span> : null}
+			{updated ? <span>· Updated since you read it</span> : null}
 			{note ? (
-				<p role="status" className="max-w-[280px] text-right text-sm text-text-2">
+				<span role="status" className="basis-full text-sm text-text-2">
 					{note}
-				</p>
+				</span>
 			) : null}
-		</div>
+		</span>
 	);
 }
 
@@ -709,12 +797,52 @@ function OrderList({
 	);
 }
 
+/** Thin scrollbar in theme colors. Each column reserves its gutter so text never shifts when a bar appears. */
+const SCROLL =
+	"overscroll-contain [scrollbar-color:var(--ef-line-2)_transparent] [scrollbar-gutter:stable] [scrollbar-width:thin]";
+
+/** A side column: it scrolls on its own when the layout is fixed, else it sticks below the app bar. */
+const RAIL = `${RAIL_FIXED} ${SCROLL}`;
+
+/** The heading nearest the top of the article column (the window below 1280px) is the current one. */
+function useCurrentHeading(ids: string[]): string | undefined {
+	const [current, setCurrent] = useState<string | undefined>(ids[0]);
+	const key = ids.join("|");
+	useEffect(() => {
+		const list = key ? key.split("|") : [];
+		if (!list.length) return;
+		const column = scrollColumn();
+		const update = () => {
+			// Below 1280px the window scrolls and headings stop under the sticky app bar.
+			const top = column ? column.getBoundingClientRect().top + 24 : 120;
+			let found = list[0];
+			for (const id of list) {
+				const el = document.getElementById(id);
+				if (el && el.getBoundingClientRect().top <= top) found = id;
+			}
+			setCurrent(found);
+		};
+		update();
+		const target: Element | Window = column ?? window;
+		target.addEventListener("scroll", update, { passive: true });
+		return () => target.removeEventListener("scroll", update);
+	}, [key]);
+	return current;
+}
+
 export function TocRail({ items }: { items: { id: string; label: string; level?: 2 | 3 }[] }) {
-	const current = useActiveHeading(items.map((item) => item.id));
+	const current = useCurrentHeading(items.map((item) => item.id));
 	if (!items.length) return null;
 	return <Toc items={items} current={current} />;
 }
 
+/** Where the sidenav was scrolled to. It outlives the page mount, so a click on a link keeps the place. */
+let sidenavTop = 0;
+
+/**
+ * The reading columns. From 1280px up and with `fixed`, the page header above stays put and the sidenav, the article
+ * and the contents list each scroll on their own. Below 1280px the page scrolls as one.
+ */
 export function ArticleColumns({
 	phases,
 	more,
@@ -722,6 +850,7 @@ export function ArticleColumns({
 	toc,
 	children,
 	meter,
+	fixed,
 }: {
 	phases: WikiPhase[];
 	more: { name: string; items: { id: string; title: string; href: string; read?: boolean }[] }[];
@@ -729,10 +858,28 @@ export function ArticleColumns({
 	toc: ReactNode;
 	children: ReactNode;
 	meter: ReactNode;
+	fixed: boolean;
 }) {
 	const pathname = usePathname();
 	const [openPath, setOpenPath] = useState<string | null>(null);
 	const open = openPath === pathname;
+	const side = useRef<HTMLDivElement>(null);
+	// Each article is a new page mount, so the article column starts at its top. The sidenav takes back the place it had
+	// and shows the current link when that link is out of view.
+	useLayoutEffect(() => {
+		const el = side.current;
+		if (!el) return;
+		el.scrollTop = sidenavTop;
+		// Set scrollTop directly: scrollIntoView moves Chromium's focus start point and breaks the first Tab.
+		const current = el.querySelector<HTMLElement>('[aria-current="page"]');
+		if (current) {
+			const box = el.getBoundingClientRect();
+			const link = current.getBoundingClientRect();
+			if (link.top < box.top) el.scrollTop += link.top - box.top;
+			else if (link.bottom > box.bottom) el.scrollTop += link.bottom - box.bottom;
+		}
+		sidenavTop = el.scrollTop;
+	}, []);
 	const tree = () => (
 		<div className="flex flex-col gap-4">
 			{phases.length ? <WikiTree phases={phases} currentId={currentId} linkAs={Link} /> : null}
@@ -765,7 +912,7 @@ export function ArticleColumns({
 	);
 	return (
 		<>
-			<div className="mb-4 app-lg:hidden">
+			<div className={`mb-4 ${BELOW_WIDE_ONLY}`}>
 				<Button variant="secondary" onClick={() => setOpenPath(pathname)}>
 					Articles
 				</Button>
@@ -776,14 +923,54 @@ export function ArticleColumns({
 					<DialogBody>{tree()}</DialogBody>
 				</DialogContent>
 			</Dialog>
-			<div className="grid items-start gap-8 app-lg:grid-cols-[250px_minmax(0,1fr)_220px]">
-				<div className="hidden app-lg:sticky app-lg:top-24 app-lg:block">{tree()}</div>
-				<div className="min-w-0">
-					<div className="mb-6 app-lg:hidden">{toc}</div>
+			<div className={fixed ? GRID_FIXED : GRID}>
+				<div
+					ref={side}
+					onScroll={(event) => {
+						sidenavTop = event.currentTarget.scrollTop;
+					}}
+					className={fixed ? RAIL : RAIL_STICKY}
+				>
+					{tree()}
+				</div>
+				<div
+					id={fixed ? ARTICLE_SCROLL_ID : undefined}
+					tabIndex={fixed ? 0 : undefined}
+					aria-label={fixed ? "Article" : undefined}
+					className={fixed ? `${ARTICLE_FIXED} ${SCROLL}` : "min-w-0"}
+				>
+					<div className={`mb-6 ${BELOW_WIDE_ONLY}`}>{toc}</div>
 					{children}
 				</div>
-				<div className="hidden app-lg:sticky app-lg:top-24 app-lg:block">{toc}</div>
+				<div className={fixed ? `${RAIL} ${RAIL_TOC_PAD}` : RAIL_STICKY}>{toc}</div>
 			</div>
 		</>
+	);
+}
+
+/** The fixed layout fills the space below the app bar and any banner. It reads its own top, so no shell size is fixed here. */
+export function FixedFrame({ fixed, children }: { fixed: boolean; children: ReactNode }) {
+	const frame = useRef<HTMLDivElement>(null);
+	useLayoutEffect(() => {
+		const el = frame.current;
+		if (!el || !fixed) return;
+		const fit = () => {
+			// The shell leaves 96px under the page; the frame's -72px margin leaves 24px.
+			const top = el.getBoundingClientRect().top + window.scrollY;
+			el.style.setProperty("--frame-h", `${Math.max(window.innerHeight - top - 24, 320)}px`);
+		};
+		fit();
+		const watch = new ResizeObserver(fit);
+		watch.observe(document.body);
+		window.addEventListener("resize", fit);
+		return () => {
+			watch.disconnect();
+			window.removeEventListener("resize", fit);
+		};
+	}, [fixed]);
+	return (
+		<div ref={frame} className={fixed ? FRAME : undefined}>
+			{children}
+		</div>
 	);
 }

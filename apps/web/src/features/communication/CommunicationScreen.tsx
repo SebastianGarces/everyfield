@@ -91,6 +91,7 @@ type DraftForm = {
 	baseline: Audience;
 	templateId: string | null;
 	templateSource: string | null;
+	meetingId: string | null;
 	people: PersonRef[];
 };
 type Issues = { subject?: string; body?: string; time?: string; form?: string };
@@ -112,7 +113,7 @@ const copyAudience = (audience: Audience): Audience => ({
 	personIds: [...audience.personIds],
 });
 
-function blankForm(): DraftForm {
+function blankForm(meetingId: string | null = null): DraftForm {
 	const audience = emptyAudience();
 	return {
 		communicationId: null,
@@ -124,6 +125,7 @@ function blankForm(): DraftForm {
 		baseline: copyAudience(audience),
 		templateId: null,
 		templateSource: null,
+		meetingId,
 		people: [],
 	};
 }
@@ -140,6 +142,7 @@ function formFrom(draft: Draft, previous: PersonRef[] = []): DraftForm {
 		baseline: copyAudience(draft.audience),
 		templateId: draft.templateId,
 		templateSource: draft.templateSource,
+		meetingId: draft.meetingId,
 		people: draft.audience.personIds.map(
 			(id) => known.get(id) ?? { id, displayName: "Person on this draft", email: null },
 		),
@@ -204,7 +207,7 @@ function draftPayload(form: DraftForm) {
 		subject: form.subject.trim() ? form.subject.trim() : null,
 		bodyHtml: form.bodyHtml.trim() ? form.bodyHtml : null,
 		audience: form.audience,
-		meetingId: null,
+		meetingId: form.meetingId,
 		templateId: form.templateId,
 		templateSource: form.templateSource,
 	};
@@ -297,6 +300,7 @@ export function CommunicationScreen({
 					setNotices={setNotices}
 					opening={opening}
 					onOpened={() => setOpening(null)}
+					meetingId={meetingId}
 				/>
 			) : tab === "templates" ? (
 				<Templates templates={templates} setTemplates={setTemplates} canWrite={canWrite} />
@@ -317,6 +321,7 @@ function Compose({
 	setNotices,
 	opening,
 	onOpened,
+	meetingId,
 }: {
 	drafts: Draft[];
 	setDrafts: (next: Draft[] | ((rows: Draft[]) => Draft[])) => void;
@@ -327,6 +332,7 @@ function Compose({
 	setNotices: (next: Record<string, Notice> | ((rows: Record<string, Notice>) => Record<string, Notice>)) => void;
 	opening: { draft: Draft; people: PersonRef[] } | null;
 	onOpened: () => void;
+	meetingId: string | null;
 }) {
 	const keys = useKeys();
 	const busy = useRef(false);
@@ -339,7 +345,9 @@ function Compose({
 		const now = new Date();
 		return { min: localStamp(now), max: localStamp(new Date(now.getTime() + WINDOW_MS)) };
 	});
-	const [form, setForm] = useState<DraftForm>(() => (opening ? formFrom(opening.draft, opening.people) : blankForm()));
+	const [form, setForm] = useState<DraftForm>(() =>
+		opening ? formFrom(opening.draft, opening.people) : blankForm(meetingId),
+	);
 	const [issues, setIssues] = useState<Issues>({});
 	const [status, setStatus] = useState<string | null>(null);
 	const [pending, setPending] = useState<string | null>(null);
@@ -395,7 +403,7 @@ function Compose({
 	};
 
 	const openDraft = (draft: Draft | null) => {
-		setForm(draft ? formFrom(draft) : blankForm());
+		setForm(draft ? formFrom(draft) : blankForm(meetingId));
 		setIssues({});
 		setStatus(null);
 		setPreview(null);
@@ -554,6 +562,7 @@ function Compose({
 				bodyHtml: form.bodyHtml,
 				merge: sample ? { name: sample } : {},
 				audience: form.audience,
+				...(form.meetingId ? { meetingId: form.meetingId } : {}),
 				audienceChangedAfterReview:
 					(form.state === "reviewed" || form.state === "scheduled") &&
 					JSON.stringify(form.audience) !== JSON.stringify(form.baseline),
@@ -893,10 +902,12 @@ function Compose({
 							<div className="flex flex-col gap-3">
 								<h3 className="text-sm font-medium text-ink-2">Preview</h3>
 								{preview.previewBody ? (
-									<div
-										className="rounded-md bg-surface-raised px-4 py-3 text-md text-ink shadow-[0_0_0_1px_var(--ef-line-2)] [&_a]:underline [&_ol]:list-decimal [&_ol]:pl-5 [&_p+p]:mt-3 [&_ul]:list-disc [&_ul]:pl-5"
-										// previewBody is the server sanitizer output.
-										dangerouslySetInnerHTML={{ __html: preview.previewBody }}
+									// previewHtml is the exact HTML delivery sends. An empty sandbox runs no script and gives it no app CSS.
+									<iframe
+										title="Email preview"
+										sandbox=""
+										srcDoc={preview.previewHtml}
+										className="h-[520px] w-full rounded-md bg-white shadow-[0_0_0_1px_var(--ef-line-2)]"
 									/>
 								) : (
 									<p className="text-sm text-text-2">The preview is empty. Check the message HTML.</p>
