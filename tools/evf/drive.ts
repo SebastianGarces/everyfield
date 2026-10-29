@@ -864,6 +864,8 @@ function waitOnSeat(
 				sleep(timing.seatPollMs);
 				if (runStatus(db, runId) !== "started") return;
 			} while (agentState(r.herdr_agent) === "blocked");
+			// The prompt is gone: say so, or the last event keeps reading "blocked" for as long as the seat works.
+			record(db, t.id, runId, "unblocked", { summary: `${r.herdr_agent} resumed after a prompt` });
 			continue;
 		}
 		if (state === "idle" && !nudged && !turnSeen) {
