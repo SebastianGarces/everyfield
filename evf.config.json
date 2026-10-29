@@ -1010,7 +1010,6 @@
 				".agents/skills/ship/SKILL.md",
 				"docs/build-agent-workflow.md"
 			],
-
 			"checks": [
 				{
 					"name": "documentation",
