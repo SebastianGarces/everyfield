@@ -111,7 +111,7 @@ test("OPS-58-launch: a dry run prints the worktree, workspace, agent and store s
 		);
 		assert.match(
 			out.stdout,
-			/herdr agent start 'verifier-ops-1-<run>' --kind claude --pane '<root pane>' --timeout 90000 -- --agent verifier --name verifier@OPS-1 --session-id [0-9a-f-]{36} --model claude-opus-5-5 --effort high --permission-mode auto/,
+			/herdr agent start 'verifier-ops-1-<run>' --kind claude --pane '<root pane>' --timeout 90000 -- --agent verifier --name verifier@OPS-1 --session-id [0-9a-f-]{36} --model claude-opus-5-5 --effort high --dangerously-skip-permissions/,
 		);
 		assert.equal(
 			(f.db.prepare("SELECT COUNT(*) AS n FROM runs").get() as { n: number }).n,
@@ -796,11 +796,11 @@ test("OPS-65-cleanup: a fallback seat closes its workspace only when no other pa
 	}
 });
 
-test("OPS-65-auto: every role launches in auto mode through an agent file that says auto; no file sets a bypass", () => {
+test("OPS-65-auto: every role launches with --dangerously-skip-permissions through an agent file that says bypassPermissions; no file sets dontAsk", () => {
 	const read = (path: string) => readFileSync(join(source, path), "utf8");
 	for (const role of Object.keys(ROLES)) {
 		const agent = read(`.claude/agents/${role}.md`);
-		assert.match(agent.split("---")[1]!, /^permissionMode: auto$/m, `${role}.md permissionMode`);
+		assert.match(agent.split("---")[1]!, /^permissionMode: bypassPermissions$/m, `${role}.md permissionMode`);
 	}
 	const f = seatFixture();
 	try {
@@ -808,7 +808,8 @@ test("OPS-65-auto: every role launches in auto mode through an agent file that s
 			const line = cli(f.root, {}, undefined, "launch", "OPS-1", "--role", role, "--dry-run")
 				.stdout.split("\n")
 				.find((l) => l.startsWith("herdr agent start"))!;
-			assert.match(line, / --permission-mode auto$/);
+			assert.match(line, / --dangerously-skip-permissions$/);
+			assert.ok(!line.includes("--permission-mode"));
 		}
 	} finally {
 		f.db.close();
@@ -819,7 +820,7 @@ test("OPS-65-auto: every role launches in auto mode through an agent file that s
 		assert.ok(!read(path).includes("accept" + "Edits"), `${path} still names the old mode`);
 	}
 	for (const path of ["tools/evf/launch.ts", "tools/evf/panes.ts", "tools/evf/drive.ts", ".claude/settings.json", ...agents]) {
-		assert.ok(!new RegExp("bypass" + "Permissions|dont" + "Ask").test(read(path)), `${path} sets a bypass`);
+		assert.ok(!new RegExp("dont" + "Ask").test(read(path)), `${path} sets a bypass`);
 	}
 	const planAnswer = read("tools/evf/drive.ts").match(/"--permission-mode",\s*"plan"/g);
 	assert.equal(planAnswer?.length, 1, "the planner --resume answer path keeps --permission-mode plan");

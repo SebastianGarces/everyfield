@@ -54,14 +54,14 @@ A seat is one fresh top-level Claude Code session in its own Herdr pane and task
 Herdr workspace that runs the evf TUI (label `evf TUI`, found by that label and by the pane that runs the TUI
 process; `EVF_TUI_LABEL` overrides the label for a test or a scratch workspace) and starts
 `claude --agent <role>` in it with the session id evf chose, the role's model and effort and
-`--permission-mode auto`. The pane's shell carries `EVF_TASK`, `EVF_RUN`, `EVF_ROLE`, `EVF_STAGE`,
+`--dangerously-skip-permissions` (the owner's `ccd` alias; a herdr pane loads no shell aliases, so evf passes the flag). The pane's shell carries `EVF_TASK`, `EVF_RUN`, `EVF_ROLE`, `EVF_STAGE`,
 `EVF_WORKTREE` and `EVF_SESSION`. evf records the run and a `stage_start` event in the work store:
 `runs.herdr_pane` is the seat's pane and `tasks.herdr_workspace_id` is the TUI workspace. `--dry-run` prints every
 step. The role files are `.claude/agents/<role>.md`: planner and verifier on Opus 5.5 high, implementer, ui,
 simplifier and evidence on Sonnet 5.5 medium. Every seat has the advisor and the update prompt disabled.
 
-Auto mode keeps the repository's `permissions.deny` and `ask` rules and its hooks in force; a seat never waits on a
-permission prompt for the work it is allowed to do. `bypassPermissions` and `dontAsk` are never used.
+The agent files set `permissionMode: bypassPermissions`. The repository's `permissions.deny` rules and its hooks
+stay in force under the flag; `ask` rules may not prompt. `dontAsk` is never used.
 
 Seats tile as a grid so Sebastian sees them all on one screen. `panes.ts` reads the pane rectangles in cells
 (one cell is 10 x 20 px) and always splits the largest pane along its longer side: `right` when it is at least as

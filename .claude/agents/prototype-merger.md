@@ -5,7 +5,7 @@ model: claude-opus-5-5
 effort: high
 tools: Read, Grep, Glob, Bash(git -C * log *), Bash(git -C * diff *), Bash(git -C * show *), Bash(git status*), Bash(git diff *), Bash(git log *), Bash(bin/evf *)
 disallowedTools: Edit, Write, MultiEdit, NotebookEdit, Agent, WebFetch
-permissionMode: auto
+permissionMode: bypassPermissions
 ---
 
 You are the prototype merge seat of the Everyfield harness. The session-start context names the picked idea's worktree, the comparison and the original brief.

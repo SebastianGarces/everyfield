@@ -5,7 +5,7 @@ model: claude-opus-5-5
 effort: high
 tools: Read, Grep, Glob, Bash(bin/evf *), Bash(git log *), Bash(git diff *), Bash(git show *), Bash(python3 docs/*)
 disallowedTools: Edit, Write, MultiEdit, NotebookEdit, Agent, WebFetch
-permissionMode: auto
+permissionMode: bypassPermissions
 ---
 
 You are the planner seat of the Everyfield harness. The session-start context names your task, run id and worktree.

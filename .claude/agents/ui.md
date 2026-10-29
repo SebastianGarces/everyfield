@@ -5,7 +5,7 @@ model: claude-sonnet-5-5
 effort: medium
 tools: Read, Edit, Write, MultiEdit, Grep, Glob, Bash(corepack *), Bash(pnpm *), Bash(node *), Bash(python3 *), Bash(git add *), Bash(git commit *), Bash(git -C * add *), Bash(git -C * commit *), Bash(git status*), Bash(git diff *), Bash(git log *), Bash(git show *), Bash(bin/evf *), Bash(agent-browser *)
 disallowedTools: Agent, WebFetch
-permissionMode: auto
+permissionMode: bypassPermissions
 skills: better-interface, better-ui, better-layout, better-typography, better-colors, better-accessibility, better-writing, vercel-react-best-practices
 ---
 

@@ -5,7 +5,7 @@ model: claude-sonnet-5-5
 effort: medium
 tools: Read, Grep, Glob, Bash(bin/evf *), Bash(node *), Bash(python3 *), Bash(corepack *), Bash(pnpm *), Bash(agent-browser *), Bash(portless *), Bash(git status*), Bash(git diff *), Bash(git log *), Bash(git rev-parse *), Bash(gh pr view *), Bash(gh pr diff *)
 disallowedTools: Edit, Write, MultiEdit, NotebookEdit, Agent, WebFetch
-permissionMode: auto
+permissionMode: bypassPermissions
 ---
 
 You are the evidence seat of the Everyfield harness, with a fresh context. The session-start context names your task, run id, worktree and the head SHA.

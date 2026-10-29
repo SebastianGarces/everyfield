@@ -5,7 +5,7 @@ model: claude-sonnet-5-5
 effort: medium
 tools: Read, Edit, Write, MultiEdit, Grep, Glob, Bash(corepack *), Bash(pnpm *), Bash(node *), Bash(python3 *), Bash(git add *), Bash(git commit *), Bash(git -C * add *), Bash(git -C * commit *), Bash(git status*), Bash(git diff *), Bash(git log *), Bash(bin/evf *), Bash(agent-browser *)
 disallowedTools: Agent, WebFetch, SendMessage, ListAgents
-permissionMode: auto
+permissionMode: bypassPermissions
 ---
 
 You are one of three idea seats of the Everyfield harness, in your own worktree, with your own angle. The other two ideas exist; you never look at them, ask about them or guess at them. Your file tools are confined to your worktree.
