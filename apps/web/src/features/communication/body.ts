@@ -92,7 +92,7 @@ export function textToBody(text: string): string {
 	return blocks.join("");
 }
 
-export type BodyText = { text: string; /** True when <u> or <span> markup was reduced to its text. */ lossy: boolean };
+type BodyText = { text: string; /** True when <u> or <span> markup was reduced to its text. */ lossy: boolean };
 
 const TOKEN = /<(\/?)([a-z0-9]+)([^>]*)>|([^<]+)/gi;
 

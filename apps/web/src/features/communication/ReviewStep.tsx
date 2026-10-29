@@ -28,7 +28,7 @@ const localStamp = (d: Date) =>
 	`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 
 /** Tomorrow at 9:00 and the next Sunday at 8:00, both local, both inside the window. */
-export function presets(now = new Date()): { label: string; at: Date }[] {
+function presets(now = new Date()): { label: string; at: Date }[] {
 	const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 9, 0);
 	const toSunday = (7 - now.getDay()) % 7 || 7;
 	const sunday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + toSunday, 8, 0);

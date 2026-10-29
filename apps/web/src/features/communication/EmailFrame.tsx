@@ -9,8 +9,8 @@ import { renderPreview, type PreviewInput, type PreviewResult } from "./preview.
 // restyle it. The frame is sized to the document height (no inner scrollbar) and scales down, never crops, when the
 // space is narrower than the chosen width. Links in it do not navigate. The email stays light in dark mode.
 
-export type Width = "desktop" | "phone";
-export const widthPx: Record<Width, number> = { desktop: 600, phone: 375 };
+type Width = "desktop" | "phone";
+const widthPx: Record<Width, number> = { desktop: 600, phone: 375 };
 
 export function EmailFrame({ html, width, label = "Email preview" }: { html: string; width: Width; label?: string }) {
 	const holder = useRef<HTMLDivElement>(null);

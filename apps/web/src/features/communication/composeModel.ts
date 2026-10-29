@@ -4,7 +4,7 @@ import { emptyAudience, type Audience, type Draft, type DraftState, type Templat
 
 // The compose form and what it needs to be saved, checked and shown. Pure, so the step rules are testable.
 
-export type PersonRef = { id: string; displayName: string; email: string | null };
+type PersonRef = { id: string; displayName: string; email: string | null };
 
 export type Form = {
 	communicationId: string | null;
