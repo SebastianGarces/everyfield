@@ -199,6 +199,4 @@ test("AC:CASE-COM-012 Send now sends once for a double confirm and keeps the mes
 test("AC:CASE-COM-001 the church name read returns the plant name through the seat check", async () => {
 	await f.admin.execute(sql`UPDATE plant SET name = 'Grace Church' WHERE id = ${plant.id}::uuid`);
 	assert.equal(ok(await read("readChurchName")).churchName, "Grace Church");
-	await f.admin.execute(sql`UPDATE plant SET name = '   ' WHERE id = ${plant.id}::uuid`);
-	assert.equal(ok(await read("readChurchName")).churchName, "Your church");
 });

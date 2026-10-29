@@ -1006,7 +1006,7 @@ async function churchName(tx: Tx, authority: RequestActor) {
 		),
 	) as { allowed: boolean; name: string | null };
 	requireAllowed(raw.allowed);
-	return c.churchNameResult.parse({ churchName: raw.name?.trim() || "Your church" });
+	return c.churchNameResult.parse({ churchName: raw.name });
 }
 async function teams(tx: Tx, authority: RequestActor) {
 	const { reader, access } = accessOf(authority);
