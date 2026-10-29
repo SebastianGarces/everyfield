@@ -3,25 +3,15 @@ import { sql } from "../../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes } from "node:crypto";
-import { setTimeout as sleep } from "node:timers/promises";
 
 import { migrate } from "../../../../packages/db/src/schema/migrate.ts";
-import { registry } from "../../../../packages/domain/src/people/person-reference-registry/index.ts";
 import {
 	assessments,
-	checkForDuplicates,
-	commitments,
-	interviews,
-	peopleMerge,
-	peopleReader,
-	peopleUnmerge,
 	peopleWriter as people,
-	personFields,
-	readPersonPage,
 	recordCorrections,
 } from "../../../../packages/domain/src/people/index.ts";
 
-// Duplicate review, merge, guarded Unmerge and record corrections through their public operations on a scratch schema.
+// Editing a record with an optional reason, through the public operations on a scratch schema.
 const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
 const localCi =
 	process.env.CI === "true" &&
@@ -45,10 +35,10 @@ let db;
 let today;
 const day = (n) => new Date(Date.parse(today + "T12:00:00Z") - n * 86_400_000).toISOString().slice(0, 10);
 
-const plants = [randomUUID(), randomUUID()],
-	actors = Array.from({ length: 4 }, () => ({ id: randomUUID(), user: randomUUID(), session: randomUUID() }));
-// 0: plant A owner, 1: plant A member, 2: plant B admin, 3: plant A admin.
-const ctx = (who = 0) => ({ session: actors[who].session, selected: { kind: "plant", id: plants[who === 2 ? 1 : 0] } });
+const plant = randomUUID(),
+	actors = Array.from({ length: 2 }, () => ({ id: randomUUID(), user: randomUUID(), session: randomUUID() }));
+// 0: owner who edits, 1: admin who records the assessment.
+const ctx = (who = 0) => ({ session: actors[who].session, selected: { kind: "plant", id: plant } });
 const ok = (result) => {
 	assert.equal(result.status, "ok", JSON.stringify(result));
 	return result.value;
@@ -76,23 +66,6 @@ async function person(name, input = {}) {
 		),
 	).person;
 }
-const review = (sourceId, survivorId, who = 0) =>
-	tx((t) => peopleMerge.getMergeReview(t, ctx(who), { sourceId, survivorId }));
-async function merge(sourceId, survivorId, fieldChoices = {}, who = 0, requestKey = key()) {
-	const r = ok(await review(sourceId, survivorId, who));
-	return tx((t) =>
-		peopleMerge.mergePeople(t, ctx(who), {
-			requestKey,
-			input: { sourceId, survivorId, reviewDigest: r.reviewDigest, fieldChoices },
-		}),
-	);
-}
-const addSkill = (personId, name, who = 3) =>
-	tx((t) => personFields.addSkill(t, ctx(who), { requestKey: key(), input: { personId, name, category: "tech" } }));
-const skillsOf = async (personId) =>
-	(await rows(sql`SELECT name FROM person_skill WHERE person_id=${sql.param(personId)} ORDER BY name`)).map(
-		(r) => r.name,
-	);
 
 before(async () => {
 	await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
@@ -117,15 +90,12 @@ before(async () => {
 			sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${sql.param(a.session)},${sql.param(a.user)},${sql.param(randomUUID())},clock_timestamp()+interval '1 day')`,
 		);
 	}
-	for (const id of plants)
-		await admin.execute(
-			sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${sql.param(id)},'Synthetic','America/Chicago',7,14,1,8,1,1)`,
-		);
-	for (const [i, plant, roleName] of [
-		[0, plants[0], "owner"],
-		[1, plants[0], "member"],
-		[2, plants[1], "admin"],
-		[3, plants[0], "admin"],
+	await admin.execute(
+		sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision) VALUES(${sql.param(plant)},'Synthetic','America/Chicago',7,14,1,8,1,1)`,
+	);
+	for (const [i, roleName] of [
+		[0, "owner"],
+		[1, "admin"],
 	])
 		await admin.execute(
 			sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${sql.param(actors[i].id)},${sql.param(plant)},${sql.param(roleName)},clock_timestamp())`,
@@ -156,7 +126,7 @@ async function assessed(name) {
 	const p = await person(name, { stage: "leader" });
 	const a = ok(
 		await tx((t) =>
-			assessments.createAssessment(t, ctx(3), {
+			assessments.createAssessment(t, ctx(1), {
 				requestKey: key(),
 				input: {
 					personId: p.id,
@@ -188,25 +158,21 @@ const oneEntry = (items, a, reason) => {
 	);
 };
 
-test("AC:TARGET-PPL-015 an edit with a reason keeps the trimmed reason in the history and the stage", async () => {
-	const { p, a } = await assessed("Edit With Reason");
-	ok(await edit(p.id, a, { reason: "  Typed the wrong score  " }));
-	oneEntry(await history(p.id), a, "Typed the wrong score");
-	assert.equal((await personRow(p.id)).stage, "leader");
-});
+const cases = [
+	["a reason is kept trimmed", { reason: "  Typed the wrong score  " }, "Typed the wrong score"],
+	["a blank reason is saved as no reason", { reason: " \n " }, null],
+	["an omitted reason is saved as no reason", {}, null],
+] as const;
+for (const [name, reason, stored] of cases)
+	test(`AC:TARGET-PPL-015 an edit where ${name}`, async () => {
+		const { p, a } = await assessed(name);
+		ok(await edit(p.id, a, reason));
+		oneEntry(await history(p.id), a, stored);
+		assert.equal((await personRow(p.id)).stage, "leader");
+	});
 
-test("AC:TARGET-PPL-015 an edit with a blank reason is saved with no reason", async () => {
-	const { p, a } = await assessed("Edit Blank Reason");
-	ok(await edit(p.id, a, { reason: " \n " }));
-	oneEntry(await history(p.id), a, null);
-	assert.equal((await personRow(p.id)).stage, "leader");
-});
-
-test("AC:TARGET-PPL-015 an edit with no reason is saved with no reason; a reason over 5000 characters is refused", async () => {
-	const { p, a } = await assessed("Edit No Reason");
+test("AC:TARGET-PPL-015 a reason over 5000 characters is refused and nothing is saved", async () => {
+	const { p, a } = await assessed("Edit Long Reason");
 	refused(await edit(p.id, a, { reason: "x".repeat(5001) }), "invalid_input");
 	assert.equal((await history(p.id)).length, 0);
-	ok(await edit(p.id, a, {}));
-	oneEntry(await history(p.id), a, null);
-	assert.equal((await personRow(p.id)).stage, "leader");
 });

@@ -500,7 +500,7 @@ function useCorrection(
 			if (fresh) reset(fresh);
 			return say({
 				text: fresh
-					? "This record changed since you opened it. The form now shows its current values; your reason is kept. Check them, then save again."
+					? `This record changed since you opened it. The form now shows its current values${reason.trim() ? "; your reason is kept" : ""}. Check them, then save again.`
 					: "This record changed or moved to another person since you opened it. Close this and open the person again.",
 			});
 		}
@@ -714,7 +714,7 @@ function CommitmentForm(props: FormProps & { chosen: Extract<Chosen, { type: "co
 		<Frame props={props} state={state}>
 			<p className="text-sm">
 				{KIND[record.kind]}, signed <LocalDay day={record.occurredOn} />. Here you edit its notes. The card&rsquo;s date
-				and kind are corrected on the card itself, and its witness and document never change.
+				and kind change on the card itself, and its witness and document never change.
 			</p>
 			<Field label="Notes" optional>
 				<Textarea
