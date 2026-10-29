@@ -160,8 +160,11 @@ for (const [name, engine] of ENGINES) {
 			// The frame: sandbox, title, no inner scrollbar, cursor pointer, Desktop 600 and Phone 375.
 			const frame = page.locator('iframe[title="Email preview"]');
 			assert.equal(await frame.getAttribute("sandbox"), "allow-same-origin");
-			// The frame gets exactly the renderer's output, with no wrapper of the app's own (criterion 34 seam).
-			assert.match(await frame.getAttribute("srcdoc"), /^<p>Hello .+\. Join us<\/p>$/);
+			// The frame gets the delivery renderer's full document in preview mode (criterion 34).
+			const srcdoc = await frame.getAttribute("srcdoc");
+			assert.match(srcdoc, /^<!DOCTYPE html>/);
+			assert.match(srcdoc, /<p [^>]*>Hello .+\. Join us<\/p>/);
+			assert.doesNotMatch(srcdoc, /\{\{|\}\}/);
 			const wide = await frame.evaluate((el) => el.getBoundingClientRect().width);
 			assert.ok(Math.abs(wide - 600) < 2 || wide < 600, `desktop width ${wide}`);
 			await page.getByRole("radio", { name: "Phone" }).click();
@@ -308,7 +311,9 @@ for (const [name, engine] of ENGINES) {
 			await page.getByLabel("Subject").fill(`Draft row ${name} ${run}`);
 			await page.getByRole("button", { name: "Save draft" }).first().click();
 			await page.getByText("Draft saved.").waitFor();
+			// The save moves the address to the saved draft. Let that transition finish before leaving (WebKit races otherwise).
 			await page.waitForURL(/compose=[0-9a-f-]{36}&step=write/);
+			await page.waitForLoadState("networkidle");
 			await page.goto(`${BASE}/communication`);
 			await hydrated(page);
 			await page.getByRole("button", { name: new RegExp(`Draft row ${name} ${run}`) }).click();
