@@ -434,7 +434,7 @@ export function taskReopen(root: string, task: TaskRef, reason: string): number 
 			to: status,
 			round: t.round,
 			after_run: afterRun,
-			summary: `${t.ref} reopened to ${status}: ${reason.trim().slice(0, 120)}`,
+			summary: `${t.ref} reopened to ${status}: ${reason.trim()}`,
 		});
 		console.log(`reopen: ${t.ref} is ${status}.`);
 		return 0;
