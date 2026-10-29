@@ -100,8 +100,9 @@ by your role, then others when needed. These are verbatim upstream copies pinned
 
 ## Progress and context
 
-Only evf writes `docs/build-progress.json`. Coordinators acknowledge shipped milestones
-through `bin/evf shipped --clear <task>`. Owners update task notes, not progress patches.
+Only evf writes `docs/build-progress.json`. Ship acknowledges a milestone that passes the
+reviewed-milestone checks. Coordinators clear only records ship left unacknowledged, with
+`bin/evf shipped --clear <task>`. Owners update task notes, not progress patches.
 Read `docs/build-agent-workflow.md` for milestone and integration closure.
 Generate the explorer outside the repo with
 `python3 docs/render-build-explorer.py --output /tmp/everyfield-build-explorer.html`.

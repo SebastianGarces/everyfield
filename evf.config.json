@@ -1000,6 +1000,28 @@
 			],
 			"risk": "ordinary"
 		},
+		"OPS-67": {
+			"title": "Ship acknowledges the milestone; seats wait for a ready pane shell",
+			"owningPaths": [
+				"tools/evf/",
+				"evf.config.json",
+				"AGENTS.md",
+				".agents/roles/coordinator.md",
+				".agents/skills/ship/SKILL.md",
+				"docs/build-agent-workflow.md"
+			],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
+		},
 		"OPS-68": {
 			"title": "An explicit reopen resets the trailing-failure count",
 			"owningPaths": ["tools/evf/", "evf.config.json"],

@@ -682,10 +682,21 @@ const checksOf = (wt: string, number: number): { pending: string[]; failed: stri
 	};
 };
 
-export type DriveTiming = { waitMs: number; nudgeMs: number; ciWaitMs: number; ciPollMs: number };
+/**
+ * seatPollMs: how often a blocked seat, or a seat whose first turn has not begun, is looked at again.
+ * startGraceMs: how long after the launch prompt an idle report counts as "the turn has not begun yet".
+ */
+export type DriveTiming = {
+	waitMs: number;
+	ciWaitMs: number;
+	ciPollMs: number;
+	seatPollMs: number;
+	startGraceMs: number;
+};
 const DRIVE_TIMING: DriveTiming = {
 	waitMs: 6 * 60 * 60_000,
-	nudgeMs: 10 * 60_000,
+	seatPollMs: 5_000,
+	startGraceMs: 30_000,
 	ciWaitMs: 40 * 60_000,
 	ciPollMs: 30_000,
 };
@@ -771,7 +782,36 @@ function evfStage(db: DatabaseSync, root: string, task: TaskRef, t: TaskRow, sta
 	runDone(root, runId, outcome);
 }
 
-/** Wait on an open seat. A blocked seat is reported and waited on; an idle seat that left its stage open is nudged once, then aborted. */
+const runStatus = (db: DatabaseSync, runId: number) =>
+	(db.prepare("SELECT status FROM runs WHERE id = ?").get(runId) as { status: string }).status;
+
+/** The agent state in `herdr agent get|wait` output, or "unknown" when Herdr printed none. */
+function parseAgentState(stdout: string): string {
+	try {
+		return String(
+			(JSON.parse(stdout) as { result?: { agent?: { agent_status?: string } } }).result?.agent?.agent_status ??
+				"unknown",
+		);
+	} catch {
+		return "unknown";
+	}
+}
+
+const agentState = (agent: string) => parseAgentState(run("herdr", ["agent", "get", agent]).stdout);
+
+/** When the launch prompt went in, or null for a seat launched without one. */
+function promptSentAt(db: DatabaseSync, runId: number): number | null {
+	const row = db
+		.prepare("SELECT ts FROM events WHERE run_id = ? AND type = 'prompt_sent' ORDER BY id LIMIT 1")
+		.get(runId) as { ts: string } | undefined;
+	return row ? Date.parse(row.ts) : null;
+}
+
+/**
+ * Wait on an open seat. A blocked seat is reported once per episode and polled until it leaves `blocked`; an idle report
+ * before the launch prompt began its turn is not a finished turn; a seat that goes idle after its turn with its stage
+ * open is nudged once, then aborted.
+ */
 function waitOnSeat(
 	db: DatabaseSync,
 	root: string,
@@ -789,6 +829,7 @@ function waitOnSeat(
 		runDone(root, runId, { status: "failed", summary: "no Herdr agent recorded for this run" });
 		return;
 	}
+	let turnSeen = false;
 	for (let nudged = false; ;) {
 		const waited = run("herdr", [
 			"agent",
@@ -803,17 +844,8 @@ function waitOnSeat(
 			"--timeout",
 			String(timing.waitMs),
 		]);
-		const status = (db.prepare("SELECT status FROM runs WHERE id = ?").get(runId) as { status: string }).status;
-		if (status !== "started") return;
-		let state = "unknown";
-		try {
-			state = String(
-				(JSON.parse(waited.stdout) as { result?: { agent?: { agent_status?: string } } }).result?.agent?.agent_status ??
-					"unknown",
-			);
-		} catch {
-			// Herdr printed no JSON: treat as a timeout.
-		}
+		if (runStatus(db, runId) !== "started") return;
+		const state = parseAgentState(waited.stdout);
 		if (waited.code !== 0 && state === "unknown") {
 			runDone(root, runId, {
 				status: "failed",
@@ -824,8 +856,26 @@ function waitOnSeat(
 		if (state === "blocked") {
 			record(db, t.id, runId, "blocked", { summary: `${r.herdr_agent} is blocked on a prompt` });
 			notify(`${task.id} seat blocked`, `${r.herdr_agent} waits on a prompt in its pane.`);
-			sleep(timing.nudgeMs);
+			do {
+				sleep(timing.seatPollMs);
+				if (runStatus(db, runId) !== "started") return;
+			} while (agentState(r.herdr_agent) === "blocked");
 			continue;
+		}
+		if (state === "idle" && !nudged && !turnSeen) {
+			// The launch prompt may not have begun its turn yet: wait for the seat to leave idle before reading idle as finished.
+			const sent = promptSentAt(db, runId);
+			if (sent !== null) {
+				for (let left = sent + timing.startGraceMs; Date.now() < left;) {
+					sleep(timing.seatPollMs);
+					if (runStatus(db, runId) !== "started") return;
+					if (agentState(r.herdr_agent) !== "idle") {
+						turnSeen = true;
+						break;
+					}
+				}
+				if (turnSeen) continue;
+			}
 		}
 		if (!nudged) {
 			nudged = true;

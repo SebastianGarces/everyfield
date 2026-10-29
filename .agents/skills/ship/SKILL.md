@@ -50,7 +50,7 @@ an OPS task with `"route": "design"`: `evf ship` stops after the verifier, then 
 Preserve these PR #13 routes; they never carry an approval. Sensitive work and paid commitments still need their scoped owner approvals.
 
 Only evf writes canonical progress. Ship retains the CI and review references, exact head and
-merge commit. The coordinator acknowledges milestones with `evf shipped --clear <task>`.
+merge commit. Ship acknowledges milestones that pass the reviewed-milestone checks; the coordinator clears the rest with `evf shipped --clear <task>`.
 A merged producer or part unlocks dependents after acknowledgement. Full package closure stays
 with integration, whose verifier names fully exercised packages in `packageClosures` on the review.
 
