@@ -989,7 +989,11 @@
 			"title": "Ship acknowledges the milestone; seats wait for a ready pane shell",
 			"owningPaths": [
 				"tools/evf/",
-				"evf.config.json"
+				"evf.config.json",
+				"AGENTS.md",
+				".agents/roles/coordinator.md",
+				".agents/skills/ship/SKILL.md",
+				"docs/build-agent-workflow.md"
 			],
 			"checks": [
 				{
