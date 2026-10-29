@@ -129,6 +129,21 @@ export function producerReady(root: string, wp: string): boolean {
 		!!git(root, "diff", "--binary", `${milestone.merge_commit}^`, milestone.merge_commit, "--", ...paths)
 	);
 }
+/**
+ * Ship's one path to progress (drive ship stage and standalone `evf ship`): record the milestone and acknowledge it
+ * when reviewedMilestone passes, the end state of `evf shipped --clear`. A failing record stays unacknowledged and
+ * does not throw (the merge is done). Package closures wait for the coordinator. OPS and FB records write nothing.
+ */
+export function acknowledgeShipped(
+	root: string,
+	record: ShippedRecord,
+): "none" | "acknowledged" | "closures" | "unreviewed" {
+	if (record.package_id === null) return "none";
+	if (!reviewedMilestone(root, record)) return "unreviewed"; // Also covers a record with no owning-path diff.
+	const closures = !!record.verification.approval.packageClosures?.length;
+	recordProgress(root, record, !closures);
+	return closures ? "closures" : "acknowledged";
+}
 /** Only evf writes canonical progress. Lock and atomic rename protect concurrent ships/acks. */
 export function recordProgress(root: string, record: ShippedRecord, acknowledged: boolean): boolean {
 	const wp = record.package_id;

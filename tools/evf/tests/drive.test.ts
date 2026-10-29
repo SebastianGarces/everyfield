@@ -15,7 +15,7 @@ const cli = (cwd: string, env: Record<string, string>, ...args: string[]) =>
 		encoding: "utf8",
 		env: { ...process.env, EVF_RUN: "", EVF_WORKTREE: "", EVF_SESSION: "", EVF_ROLE: "", EVF_STAGE: "", ...env },
 	});
-const TIMING = { waitMs: 2000, nudgeMs: 10, ciWaitMs: 200, ciPollMs: 10 };
+const TIMING = { waitMs: 2000, ciWaitMs: 200, ciPollMs: 10, seatPollMs: 10, startGraceMs: 150 };
 
 /** A Herdr that answers at once: every agent is idle unless the test writes another state to herdr-state.json. */
 function fakeHerdr(root: string) {
@@ -28,6 +28,7 @@ function fakeHerdr(root: string) {
 			`const calls=JSON.parse(fs.readFileSync(${JSON.stringify(calls)},"utf8"));calls.push(a);fs.writeFileSync(${JSON.stringify(calls)},JSON.stringify(calls));\n` +
 			`const st=fs.existsSync(${JSON.stringify(state)})?JSON.parse(fs.readFileSync(${JSON.stringify(state)},"utf8")):{};\n` +
 			`let r={};if(a[0]==="workspace"&&a[1]==="create")r={workspace:"w9",tab:"w9:t1",root_pane:{pane_id:"w9:p1"}};\n` +
+			`else if(a[0]==="pane"&&a[1]==="process-info")r={process_info:{shell_pid:7,foreground_process_group_id:7}};\n` +
 			`else if(a[0]==="agent"&&a[1]==="wait")r={agent:{agent_status:st.status||"idle"}};\n` +
 			`else if(a[0]==="agent"&&a[1]==="get")r={agent:{agent_session:{value:st.session||"55555555-5555-4555-8555-555555555555"},agent_status:"idle"}};\n` +
 			`process.stdout.write(JSON.stringify({result:r}));\n`,
@@ -548,6 +549,83 @@ test("OPS-59-gate: a verify closes passed only with a met or n/a proof per Done 
 	}
 });
 
+/** A scripted Herdr for waitOnSeat: `agent wait` and `agent get` answer from queues; "close" makes the seat close its stage. */
+function scriptedHerdr(f: ReturnType<typeof driveFixture>, runId: number, script: { waits: string[]; gets: string[] }) {
+	const calls = join(f.root, "herdr-calls.json"),
+		state = join(f.root, "herdr-script.json"),
+		summary = f.file("script-summary.md", "Done.");
+	writeFileSync(state, JSON.stringify(script));
+	writeFileSync(
+		join(f.root, "fake-bin/herdr"),
+		`#!${process.execPath}\nconst fs=require("node:fs");const a=process.argv.slice(2);\n` +
+			`const calls=JSON.parse(fs.readFileSync(${JSON.stringify(calls)},"utf8"));calls.push(a);fs.writeFileSync(${JSON.stringify(calls)},JSON.stringify(calls));\n` +
+			`const st=JSON.parse(fs.readFileSync(${JSON.stringify(state)},"utf8"));\n` +
+			`const next=k=>{const q=st[k];const v=q.length>1?q.shift():q[0];fs.writeFileSync(${JSON.stringify(state)},JSON.stringify(st));return v};\n` +
+			`let r={};if(a[0]==="agent"&&a[1]==="wait"){let s=next("waits");if(s==="close"){require("node:child_process").spawnSync(process.execPath,[${JSON.stringify(join(source, "tools/evf/main.ts"))},"run","done","${runId}","--status","passed","--summary-file",${JSON.stringify(summary)}],{cwd:${JSON.stringify(f.root)},env:{...process.env,EVF_RUN:"",EVF_WORKTREE:"",EVF_STAGE:""}});s="idle"}r={agent:{agent_status:s}}}\n` +
+			`else if(a[0]==="agent"&&a[1]==="get")r={agent:{agent_status:next("gets")}};\n` +
+			`process.stdout.write(JSON.stringify({result:r}));\n`,
+	);
+	chmodSync(join(f.root, "fake-bin/herdr"), 0o755);
+}
+function openSeatRun(f: ReturnType<typeof driveFixture>, promptSent: boolean) {
+	f.db.prepare("UPDATE tasks SET spec = ? WHERE id = ?").run(SPEC, f.taskId);
+	const id = f.insertRun("implement", "implementer", "started");
+	f.db.prepare("UPDATE runs SET herdr_agent = ?, herdr_pane = 'w9:p1' WHERE id = ?").run(`implementer-ops-1-${id}`, id);
+	if (promptSent)
+		f.db
+			.prepare("INSERT INTO events (task_id, run_id, ts, type, payload) VALUES (?, ?, ?, 'prompt_sent', '{}')")
+			.run(f.taskId, id, new Date().toISOString());
+	return id;
+}
+
+test("OPS-67-blocked: a blocked seat is polled in short intervals, reported once, and the drive goes on when it leaves blocked", () => {
+	const f = driveFixture();
+	try {
+		const id = openSeatRun(f, false);
+		scriptedHerdr(f, id, { waits: ["blocked", "close"], gets: ["blocked", "blocked", "blocked", "working"] });
+		const started = Date.now();
+		driveOnce(f.root, f.task, TIMING);
+		assert.ok(Date.now() - started < 5000, "the drive goes on within a few poll intervals");
+		assert.equal(f.events("blocked").length, 1, "one blocked event for the episode, not one per poll");
+		assert.equal(f.herdr.calls().filter((c) => c[0] === "notification" && c[1] === "show").length, 1);
+		const gets = f.herdr.calls().filter((c) => c[0] === "agent" && c[1] === "get");
+		assert.equal(gets.length, 4, "the state was polled until it left blocked");
+		assert.equal(f.runs()[0]!.status, "passed");
+		assert.equal(f.events("nudge").length, 0);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-67-blocked: a blocked seat whose run closes ends the wait at once", () => {
+	const f = driveFixture();
+	try {
+		const id = openSeatRun(f, false);
+		scriptedHerdr(f, id, { waits: ["blocked"], gets: ["blocked"] });
+		const closer = spawn(
+			process.execPath,
+			[
+				"-e",
+				`setTimeout(() => require("node:child_process").spawnSync(process.execPath, [process.argv[1], "run", "done", process.argv[2], "--status", "failed", "--summary-file", process.argv[3]], { cwd: process.argv[4], env: { ...process.env, EVF_RUN: "", EVF_WORKTREE: "", EVF_STAGE: "" } }), 200)`,
+				join(source, "tools/evf/main.ts"),
+				String(id),
+				f.file("closed.md", "Closed by someone else."),
+				f.root,
+			],
+			{ stdio: "inherit" },
+		);
+		const started = Date.now();
+		driveOnce(f.root, f.task, TIMING);
+		closer.kill();
+		assert.ok(Date.now() - started < 5000);
+		assert.equal(f.events("blocked").length, 1);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
 const SHA = "a".repeat(40);
 const rowsOf = (f: ReturnType<typeof driveFixture>) =>
 	f.db
@@ -622,6 +700,22 @@ test("OPS-66-current: ensureTask returns the merged row, skipping later abandone
 		assert.equal(row.status, "merged");
 		const events = f.db.prepare("SELECT type FROM events WHERE task_id = ?").all(row.id);
 		assert.equal(events.length, 1, "one row and one merged event for a ref the store did not know");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-67-idle: an idle report before the launch prompt began its turn gets no 'Close your stage now' nudge", () => {
+	const f = driveFixture();
+	try {
+		const id = openSeatRun(f, true);
+		scriptedHerdr(f, id, { waits: ["idle", "close"], gets: ["working"] });
+		driveOnce(f.root, f.task, { startGraceMs: 60_000 });
+		const prompts = f.herdr.calls().filter((c) => c[0] === "agent" && c[1] === "prompt");
+		assert.equal(prompts.length, 0, "no nudge prompt in the Herdr log");
+		assert.equal(f.events("nudge").length, 0);
+		assert.equal(f.runs()[0]!.status, "passed");
 	} finally {
 		f.db.close();
 		f.close();
