@@ -38,8 +38,6 @@ import {
 	interviewChanges,
 	LENS_LABEL,
 	LENSES,
-	reasonLine,
-	reasonOf,
 	RATING_LABEL,
 	RATINGS,
 	RESULT_LABEL,
@@ -447,7 +445,7 @@ function useCorrection(
 			recordType: chosen.type,
 			personId: person.id,
 			recordId: chosen.record.id,
-			reason: reasonOf(reason),
+			reason: reason.trim() || undefined,
 			changes,
 		};
 		const rev = chosen.record.revision;
@@ -761,7 +759,7 @@ function History({ corrections, accountId, open }: { corrections: Correction[]; 
 								</li>
 							))}
 						</ul>
-						{reasonLine(c.reason) ? <p className="mt-1 text-ink-2">{reasonLine(c.reason)}</p> : null}
+						{c.reason ? <p className="mt-1 text-ink-2">Reason: {c.reason}</p> : null}
 					</li>
 				))}
 			</ol>

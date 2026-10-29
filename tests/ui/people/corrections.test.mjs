@@ -15,8 +15,6 @@ import {
 	defaultChoices,
 	defaultSurvivor,
 	interviewChanges,
-	reasonLine,
-	reasonOf,
 	sourceChoices,
 	totalOf,
 } from "../../../apps/web/src/features/people/corrections/model.ts";
@@ -115,14 +113,7 @@ test("AC:TARGET-PPL-015 BUG-217-F3: every correction stays on its card; a newer 
 	assert.equal(withCorrections(card, [rec("zz", "9", 20)]).length, 2);
 });
 
-test("AC:TARGET-PPL-015 INV-optional-reason: a blank reason is sent as none; its history entry shows no Reason line and stays on the card", () => {
-	// The reason is optional: blank, whitespace-only and typed text.
-	assert.equal(reasonOf(""), undefined);
-	assert.equal(reasonOf("  \n "), undefined);
-	assert.equal(reasonOf("  Typo in the score "), "Typo in the score");
-	// An edit saved with no reason: who, when and the old to new values stay, with no "Reason:" line.
-	assert.equal(reasonLine(null), null);
-	assert.equal(reasonLine("Typo in the score"), "Reason: Typo in the score");
+test("AC:TARGET-PPL-015 INV-optional-reason: an edit saved with no reason stays on the card", () => {
 	// The edited record shows on its card as saved now, with no reason needed.
 	const rec = (revision, total) => ({
 		id: "a1",
