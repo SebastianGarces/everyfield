@@ -3,7 +3,7 @@
 import { ArrowLeft01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { Button, ConfirmDialog, Field, Select } from "@everyfield/ui/controls";
 import { Icon } from "@everyfield/ui/foundations";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
 	readDraft,
 	readMeetingContext,
@@ -87,7 +87,7 @@ export function Compose({
 }) {
 	const keys = useKeys();
 	const busy = useRef(false);
-	const [form, setFormState] = useState<Form>(blankForm);
+	const [form, setForm] = useState<Form>(blankForm);
 	const [loaded, setLoaded] = useState<Loaded>({ status: "loading" });
 	const [saved, setSaved] = useState(() => JSON.stringify(draftPayload(blankForm())));
 	const [extra, setExtra] = useState<Template[]>([]);
@@ -114,7 +114,6 @@ export function Compose({
 		...extra.filter((t) => !data.templates.some((d) => d.templateId === t.templateId)),
 	];
 	const locked = isLocked(form);
-	const setForm = useCallback((update: (current: Form) => Form) => setFormState(update), []);
 
 	// Open: a new message, the meeting handoff, or a saved draft.
 	useEffect(() => {
@@ -130,7 +129,7 @@ export function Compose({
 				if (!live) return;
 				const next = formFrom(draft, data.templates);
 				heldId.current = draft.communicationId;
-				setFormState(next);
+				setForm(next);
 				setSaved(JSON.stringify(draftPayload(next)));
 				setLoaded({ status: "ready" });
 				return;
@@ -149,7 +148,7 @@ export function Compose({
 			setMeeting(context.value);
 			let next = { ...blankForm(), meetingId: context.value.id };
 			const notesNext: string[] = [];
-			if (handoff.template && context.value.type !== "prelaunch_practice") {
+			if (handoff.template) {
 				const found = await readMeetingTemplate(context.value.type);
 				if (!live) return;
 				if (found.status === "ok") {
@@ -167,10 +166,6 @@ export function Compose({
 						"No invitation template for this meeting type. Write the message, or start from another template.",
 					);
 				}
-			} else if (handoff.template) {
-				notesNext.push(
-					"No invitation template for this meeting type. Write the message, or start from another template.",
-				);
 			}
 			if (handoff.recipients === "guests") {
 				const people = context.value.guests.map((g) => ({ id: g.id, displayName: g.displayName, email: null }));
@@ -181,7 +176,7 @@ export function Compose({
 				};
 			}
 			setNotes(notesNext);
-			setFormState(next);
+			setForm(next);
 			setLoaded({ status: "ready" });
 		};
 		void open();
@@ -256,7 +251,7 @@ export function Compose({
 			revision: draft.revision,
 			state: draft.state,
 		};
-		setFormState(next);
+		setForm(next);
 		setSaved(JSON.stringify(draftPayload(next)));
 		onSaved(draft.communicationId, target);
 		return next;
@@ -310,29 +305,26 @@ export function Compose({
 		}));
 	};
 
-	const finish = (messageId: string, text: string) => onDone(messageId, text);
-
 	const confirm = async () => {
 		if (!plan) return;
 		// Review always works on a saved revision, so the form is what the server holds.
-		const next = form;
-		if (!next.communicationId || !next.revision) throw new Error("Save the message before you send it.");
-		const reviewed = next.state === "reviewed";
+		if (!form.communicationId || !form.revision) throw new Error("Save the message before you send it.");
+		const reviewed = form.state === "reviewed";
 		if (plan.kind === "now") {
 			const result = await sendNow(
 				{ save: keys.take("save"), schedule: keys.take("schedule"), send: keys.take("send") },
-				next.revision,
+				form.revision,
 				reviewed
-					? { kind: "reviewed", communicationId: next.communicationId }
-					: { kind: "draft", input: draftPayload(next) },
+					? { kind: "reviewed", communicationId: form.communicationId }
+					: { kind: "draft", input: draftPayload(form) },
 			);
 			keys.settle("save", result);
 			keys.settle("schedule", result);
 			if (result.status !== "ok") throw new Error(outcomeText(result) ?? "The email was not sent.");
 			if (result.value.report === null) {
 				keys.settle("send", { status: "ok", value: null });
-				setFormState({
-					...next,
+				setForm({
+					...form,
 					communicationId: result.value.communicationId,
 					revision: result.value.revision,
 					state: "scheduled",
@@ -341,26 +333,25 @@ export function Compose({
 				throw new Error(scheduledNotSentText);
 			}
 			keys.settle("send", { status: "ok", value: null });
-			finish(result.value.communicationId, deliveryText(result.value.report));
+			onDone(result.value.communicationId, deliveryText(result.value.report));
 			return;
 		}
 		const instant = plan.at.toISOString();
 		const result = reviewed
-			? await scheduleExisting(keys.take("schedule"), next.revision, next.communicationId, instant)
-			: await scheduleDraft(keys.take("save"), keys.take("schedule"), next.revision, draftPayload(next), instant);
+			? await scheduleExisting(keys.take("schedule"), form.revision, form.communicationId, instant)
+			: await scheduleDraft(keys.take("save"), keys.take("schedule"), form.revision, draftPayload(form), instant);
 		keys.settle("save", result);
 		keys.settle("schedule", result);
 		if (result.status !== "ok") throw new Error(outcomeText(result) ?? "The email was not scheduled.");
-		finish(
+		onDone(
 			result.value.communicationId,
 			`Scheduled for ${formatWhen(result.value.scheduledAt)}. It has not been sent.`,
 		);
 	};
 
-	const count = eligible;
 	const names = summary?.missingEmailExclusions ?? [];
 	const consequences = (when: string) => [
-		`${plural(count, "person gets", "people get")} this email ${when}.`,
+		`${plural(eligible, "person gets", "people get")} this email ${when}.`,
 		...(names.length ? [`${listed(names)} ${names.length === 1 ? "has" : "have"} no email and will be skipped.`] : []),
 		"You cannot unsend it once it leaves.",
 	];
@@ -580,12 +571,12 @@ export function Compose({
 				onOpenChange={(open) => {
 					if (open) return;
 					setPlan(null);
-					if (scheduledId) finish(scheduledId, "Scheduled. It has not been sent.");
+					if (scheduledId) onDone(scheduledId, "Scheduled. It has not been sent.");
 				}}
 				title={
 					plan?.kind === "at"
 						? `Schedule for ${formatWhen(plan.at.toISOString())}?`
-						: `Send to ${plural(count, "person", "people")} now?`
+						: `Send to ${plural(eligible, "person", "people")} now?`
 				}
 				description={`"${form.subject}"`}
 				consequences={consequences(plan?.kind === "at" ? `on ${formatWhen(plan.at.toISOString())}` : "right away")}

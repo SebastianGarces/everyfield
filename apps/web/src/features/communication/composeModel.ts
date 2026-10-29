@@ -4,7 +4,8 @@ import { emptyAudience, type Audience, type Draft, type DraftState, type Templat
 
 // The compose form and what it needs to be saved, checked and shown. Pure, so the step rules are testable.
 
-type PersonRef = { id: string; displayName: string; email: string | null };
+/** A person on the To field. A null name means the draft stored only the id and the audience read has not named them yet. */
+type PersonRef = { id: string; displayName: string | null; email: string | null };
 
 export type Form = {
 	communicationId: string | null;
@@ -58,7 +59,7 @@ export function formFrom(draft: Draft, templates: readonly Template[], known: re
 			personIds: [...draft.audience.personIds],
 		},
 		people: draft.audience.personIds.map(
-			(id) => byId.get(id) ?? { id, displayName: "Person on this message", email: null },
+			(id) => byId.get(id) ?? { id, displayName: null, email: null },
 		),
 		templateKey: template?.templateId ?? "none",
 		templateId: draft.templateId,

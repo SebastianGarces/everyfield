@@ -3,7 +3,7 @@
 import { ComputerIcon, SmartPhone01Icon } from "@hugeicons/core-free-icons";
 import { SegmentedControl, Spinner } from "@everyfield/ui/controls";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { renderPreview, type PreviewInput, type PreviewResult } from "./preview.ts";
+import { renderPreview, type PreviewInput } from "./preview.ts";
 
 // The one place an email shows. The HTML is the exact output of renderPreview, in a sandboxed iframe, so app CSS cannot
 // restyle it. The frame is sized to the document height (no inner scrollbar) and scales down, never crops, when the
@@ -92,24 +92,15 @@ export function PreviewStage({
 }) {
 	const [width, setWidth] = useState<Width>("desktop");
 	const { bodyHtml, name, hasMeeting, origin, churchName } = input;
-	const key = JSON.stringify([bodyHtml, name, hasMeeting, origin, churchName]);
-	const [done, setDone] = useState<{ key: string; result: PreviewResult } | null>(null);
-	const blank = !bodyHtml.trim();
-	const current = !blank && done?.key === key ? done.result : null;
-	const pending = !blank && current === null;
-	const state = blank ? null : (current ?? (done ? done.result : null));
-
+	// One render per 300 ms pause in typing. Rendering itself is pure and runs in the browser.
+	const [settled, setSettled] = useState(input);
 	useEffect(() => {
-		if (blank) return;
-		let live = true;
-		void renderPreview({ bodyHtml, name, hasMeeting, origin, churchName }).then((result) => {
-			if (live && result !== null) setDone({ key, result });
-		});
-		return () => {
-			live = false;
-		};
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [key]);
+		const timer = setTimeout(() => setSettled({ bodyHtml, name, hasMeeting, origin, churchName }), 300);
+		return () => clearTimeout(timer);
+	}, [bodyHtml, name, hasMeeting, origin, churchName]);
+	const blank = !bodyHtml.trim();
+	const pending = !blank && settled.bodyHtml !== bodyHtml;
+	const state = blank ? null : renderPreview(settled);
 
 	return (
 		<section aria-label="Email preview" className="flex min-w-0 flex-col gap-3 rounded-lg bg-surface p-4">

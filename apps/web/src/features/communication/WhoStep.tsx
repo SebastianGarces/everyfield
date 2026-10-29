@@ -233,11 +233,10 @@ function ToField({
 	const [card, setCard] = useState<string | null>(null);
 	const seq = useRef(0);
 	const names = new Map(known.map((person) => [person.id, person.displayName]));
-	const people = form.people.map((person) =>
-		person.displayName === "Person on this message" && names.has(person.id)
-			? { ...person, displayName: names.get(person.id)! }
-			: person,
-	);
+	const people = form.people.map((person) => ({
+		...person,
+		displayName: person.displayName ?? names.get(person.id) ?? "Person on this message",
+	}));
 	const shown = query.trim() ? results : [];
 	const visible = expanded ? people : people.slice(0, MAX_CHIPS);
 

@@ -1,7 +1,6 @@
 import { LockKeyIcon } from "@hugeicons/core-free-icons";
 import { Card, PageHeader, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { CommunicationScreen } from "./CommunicationScreen.tsx";
@@ -44,10 +43,7 @@ export async function CommunicationPage({ searchParams }: { searchParams?: Searc
 	if (searchParams) await searchParams;
 	const g = await gate("/communication", "Messages");
 	if ("blocked" in g) return g.blocked;
-	const head = await headers();
-	const host = head.get("x-forwarded-host") ?? head.get("host") ?? "localhost";
-	const proto = head.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
-	const loaded = await loadCommunicationPage(g.viewer, `${proto}://${host}`);
+	const loaded = await loadCommunicationPage(g.viewer);
 	if (loaded.status !== "ok") {
 		return (
 			<>

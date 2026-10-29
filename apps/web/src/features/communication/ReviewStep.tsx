@@ -85,7 +85,7 @@ export function ReviewStep({
 	const chosen = [
 		...form.audience.groups.map((g) => groupLabel[g as keyof typeof groupLabel] ?? g),
 		...form.audience.teamIds.map((id) => teams.find((t) => t.id === id)?.name ?? "A team"),
-		...form.people.map((p) => p.displayName),
+		...form.people.map((p) => p.displayName ?? "A person"),
 	];
 	const left = summary?.missingEmailExclusions ?? [];
 

@@ -18,30 +18,14 @@ export type PreviewInput = {
 };
 export type PreviewResult = { html: string } | { error: string };
 
-const PAUSE_MS = 300;
-let timer: ReturnType<typeof setTimeout> | null = null;
-let superseded: (() => void) | null = null;
-
-/**
- * The preview HTML for a message. One render per 300 ms pause: a newer call replaces an older one and the older
- * call resolves to `null`.
- */
-export function renderPreview(input: PreviewInput): Promise<PreviewResult | null> {
-	if (timer) clearTimeout(timer);
-	superseded?.();
-	return new Promise((resolve) => {
-		superseded = () => resolve(null);
-		timer = setTimeout(() => {
-			timer = null;
-			superseded = null;
-			const merge: Record<string, string> = { name: input.name };
-			if (input.hasMeeting) merge.rsvp_link = `${input.origin}/rsvp/preview`;
-			const bodyHtml = prepareBody(input.bodyHtml, usableKeys(input.hasMeeting));
-			try {
-				resolve({ html: renderEmailHtml(bodyHtml, merge, { churchName: input.churchName }, "preview") });
-			} catch {
-				resolve({ error: "The preview did not load." });
-			}
-		}, PAUSE_MS);
-	});
+/** The preview HTML for a message. Pure: the same input gives the same result. */
+export function renderPreview(input: PreviewInput): PreviewResult {
+	const merge: Record<string, string> = { name: input.name };
+	if (input.hasMeeting) merge.rsvp_link = `${input.origin}/rsvp/preview`;
+	const bodyHtml = prepareBody(input.bodyHtml, usableKeys(input.hasMeeting));
+	try {
+		return { html: renderEmailHtml(bodyHtml, merge, { churchName: input.churchName }, "preview") };
+	} catch {
+		return { error: "The preview did not load." };
+	}
 }

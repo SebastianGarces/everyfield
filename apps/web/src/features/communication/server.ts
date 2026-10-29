@@ -98,20 +98,17 @@ export async function deliver<T>(
 
 export { deliveryTransport };
 
-/** The church name for the inbox chrome. A failed read falls back to a plain word and never blocks the page. */
+/** The church name for the inbox chrome. A failed statement fails the whole page read. */
 async function churchNameOf(tx: Transaction, viewer: Viewer): Promise<string> {
-	try {
-		const rows = (
-			await tx.execute(sql`SELECT name FROM plant WHERE id = ${viewer.authority.actor.context.owner.id}::uuid LIMIT 1`)
-		).rows as { name?: string }[];
-		return rows[0]?.name?.trim() || "Your church";
-	} catch {
-		return "Your church";
-	}
+	const rows = (
+		await tx.execute(sql`SELECT name FROM plant WHERE id = ${viewer.authority.actor.context.owner.id}::uuid LIMIT 1`)
+	).rows as { name?: string }[];
+	return rows[0]?.name?.trim() || "Your church";
 }
 
 /** Drafts, templates, teams and the church name for the page. A member skips the team read. */
-export function loadCommunicationPage(viewer: Viewer, origin: string): Promise<Outcome<PageData>> {
+export function loadCommunicationPage(viewer: Viewer): Promise<Outcome<PageData>> {
+	const origin = process.env.IDENTITY_ORIGIN ?? "";
 	return read(viewer, async (tx) => {
 		const drafts = await communicationWriter.list(tx, viewer.authority);
 		if (drafts.status !== "ok") return drafts;

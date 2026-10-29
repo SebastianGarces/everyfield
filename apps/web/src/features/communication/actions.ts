@@ -502,6 +502,9 @@ export async function scheduleExisting(
 	});
 }
 
+/** The earliest send time the scheduling window accepts, from now. */
+const EARLIEST_SEND_MS = 60_000;
+
 /**
  * Send now from a draft. It chains the existing commands: save and schedule in one transaction, at the earliest time
  * the window accepts, then hand the new revision to the provider. Each step has its own request key. A send step that
@@ -512,7 +515,7 @@ export async function sendNow(
 	expectedRevision: string | null,
 	target: { kind: "draft"; input: unknown } | { kind: "reviewed"; communicationId: string },
 ): Promise<Outcome<SendNowResult>> {
-	const at = new Date(Date.now() + 60_000).toISOString();
+	const at = new Date(Date.now() + EARLIEST_SEND_MS).toISOString();
 	const scheduled =
 		target.kind === "draft"
 			? await scheduleDraft(keys.save, keys.schedule, expectedRevision, target.input, at)
