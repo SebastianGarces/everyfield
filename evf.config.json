@@ -991,6 +991,7 @@
 				"tools/evf/",
 				"tools/evf-tui/",
 				".claude/agents/",
+				".claude/settings.json",
 				"evf.config.json"
 			],
 			"checks": [
