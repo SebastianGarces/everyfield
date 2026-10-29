@@ -454,15 +454,10 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 			</Button>
 		),
 	);
-	const lead = (
+	const actions = canWrite ? (
 		<>
 			{primary}
 			{secondary}
-		</>
-	);
-	const actions = canWrite ? (
-		<>
-			{lead}
 			<Menu>
 				<MenuTrigger asChild>
 					<Button variant="secondary">
@@ -547,7 +542,10 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 			</Menu>
 		</>
 	) : (
-		lead
+		<>
+			{primary}
+			{secondary}
+		</>
 	);
 
 	return (
