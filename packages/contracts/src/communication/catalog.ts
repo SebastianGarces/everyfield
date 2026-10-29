@@ -19,7 +19,7 @@ export type SystemTemplate = {
  * Merge fields: `{{name}}`, and `{{rsvp_link}}` in the four meeting templates. The RSVP delivery task (WP-020/api) produces
  * `{{rsvp_link}}`: one "Tell us if you can come" link, or nothing for a recipient who is not a guest.
  * A guest answers on the RSVP page, never by reply. Meeting details are bracket placeholders the planter replaces
- * before sending (mapped in each template's comment). Subjects hold no merge fields, because nothing merges a subject.
+ * before sending. Subjects hold no merge fields, because nothing merges a subject.
  */
 export const systemTemplates: readonly SystemTemplate[] = [
 	{
