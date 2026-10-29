@@ -308,6 +308,7 @@ for (const [name, engine] of ENGINES) {
 			await page.getByLabel("Subject").fill(`Draft row ${name} ${run}`);
 			await page.getByRole("button", { name: "Save draft" }).first().click();
 			await page.getByText("Draft saved.").waitFor();
+			await page.waitForURL(/compose=[0-9a-f-]{36}&step=write/);
 			await page.goto(`${BASE}/communication`);
 			await hydrated(page);
 			await page.getByRole("button", { name: new RegExp(`Draft row ${name} ${run}`) }).click();
@@ -359,16 +360,9 @@ for (const [name, engine] of ENGINES) {
 			await page.getByRole("button", { name: "Fork template" }).click();
 			await page.getByText("Template forked. You can edit the church copy.").waitFor();
 			await page.getByRole("button", { name: "Save template" }).waitFor();
-			// Messages that started from the template keep it, so a delete is refused in the dialog with the server's words.
+			// A fresh church copy has no messages, so a delete goes through and the list returns.
 			await page.getByRole("button", { name: "Delete template" }).click();
 			await page.getByRole("alertdialog").getByRole("button", { name: "Delete template" }).click();
-			await page
-				.getByRole("alertdialog")
-				.getByText("This template is used by a message. Archive it instead of deleting it.")
-				.waitFor();
-			await page.getByRole("alertdialog").getByRole("button", { name: "Cancel" }).click();
-			await page.getByRole("button", { name: "Archive template" }).click();
-			await page.getByRole("alertdialog").getByRole("button", { name: "Archive template" }).click();
 			await page.getByRole("heading", { name: "System" }).waitFor();
 		});
 	});
