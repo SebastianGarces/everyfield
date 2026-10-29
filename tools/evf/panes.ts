@@ -11,8 +11,8 @@ import { run } from "./lib.ts";
 /** The TUI workspace label. A test or a scratch workspace overrides it with EVF_TUI_LABEL. */
 const DEFAULT_TUI_LABEL = "evf TUI";
 export const tuiLabel = () => process.env.EVF_TUI_LABEL || DEFAULT_TUI_LABEL;
-/** The stable signal for the TUI pane: a foreground process in it matches this. EVF_TUI_PROCESS overrides it. */
-export const tuiProcess = () => new RegExp(process.env.EVF_TUI_PROCESS || "evf-tui|main\\.ts\\s+tui");
+/** The stable signal for the TUI pane: a foreground process in it matches this. */
+const TUI_PROCESS = /evf-tui|main\.ts\s+tui/;
 
 /** Herdr reports cells. Decision (OPS-65): one cell is 10 x 20 px, so "wider than tall" is judged in pixels. */
 export const CELL_PX = { w: 10, h: 20 } as const;
@@ -125,10 +125,10 @@ function herdrJson(args: string[]): Json | undefined {
 }
 
 /** True when a foreground process in the pane is the evf TUI. */
-export function isTuiPane(pane: string): boolean {
+function isTuiPane(pane: string): boolean {
 	const procs = (herdrJson(["pane", "process-info", "--pane", pane])?.process_info?.foreground_processes ??
 		[]) as Json[];
-	return procs.some((p) => tuiProcess().test(String(p.cmdline ?? "")));
+	return procs.some((p) => TUI_PROCESS.test(String(p.cmdline ?? "")));
 }
 
 /** The workspace labeled for the TUI and the pane in it that runs the TUI process. */
