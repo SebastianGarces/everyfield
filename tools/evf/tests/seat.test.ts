@@ -663,9 +663,21 @@ test("OPS-65-split: with an 'evf TUI' workspace the dry run splits a pane and pr
 
 		// The label is one named value a test can override.
 		f.herdr.setState({ tui: true, tuiLabel: "scratch label" });
-		assert.match(cli(f.root, {}, undefined, "launch", "OPS-1", "--role", "implementer", "--dry-run").stdout, /workspace create/);
 		assert.match(
-			cli(f.root, { EVF_TUI_LABEL: "scratch label" }, undefined, "launch", "OPS-1", "--role", "implementer", "--dry-run").stdout,
+			cli(f.root, {}, undefined, "launch", "OPS-1", "--role", "implementer", "--dry-run").stdout,
+			/workspace create/,
+		);
+		assert.match(
+			cli(
+				f.root,
+				{ EVF_TUI_LABEL: "scratch label" },
+				undefined,
+				"launch",
+				"OPS-1",
+				"--role",
+				"implementer",
+				"--dry-run",
+			).stdout,
 			/pane split/,
 		);
 	} finally {
@@ -683,13 +695,18 @@ test("OPS-65-split: a real launch stores the seat pane and the TUI workspace on 
 				herdr_workspace_id: string;
 			};
 			const event = JSON.parse(
-				(f.db.prepare("SELECT payload FROM events WHERE run_id = ? AND type = 'stage_start'").get(runId) as { payload: string })
-					.payload,
+				(
+					f.db.prepare("SELECT payload FROM events WHERE run_id = ? AND type = 'stage_start'").get(runId) as {
+						payload: string;
+					}
+				).payload,
 			) as { workspace: string; pane: string };
 			return [run.herdr_pane, task.herdr_workspace_id, event.workspace, event.pane];
 		};
 		// No TUI workspace: today's behavior, the new workspace's root pane.
-		let out = JSON.parse(cli(f.root, {}, undefined, "launch", "OPS-1", "--role", "implementer").stdout) as { run: number };
+		let out = JSON.parse(cli(f.root, {}, undefined, "launch", "OPS-1", "--role", "implementer").stdout) as {
+			run: number;
+		};
 		assert.deepEqual(stored(out.run), ["w9:p1", "w9", "w9", "w9:p1"]);
 		assert.equal(pairs(f.herdr.calls(), "workspace", "create").length, 1);
 		assert.equal(pairs(f.herdr.calls(), "pane", "split").length, 0);
@@ -739,7 +756,11 @@ test("OPS-65-cleanup: a finished run closes its own pane after the store update;
 		f.herdr.setState({ tui: true, panes: ["w1:p2", "w1:p3"], watchDb: workDbPath(f.root) });
 		const done = SEAT_CLOSE(f, mine);
 		assert.equal(done.status, 0, done.stderr);
-		assert.deepEqual(pairs(f.herdr.calls(), "pane", "close"), [["pane", "close", "w1:p2"]], "ending one run never closes another's pane");
+		assert.deepEqual(
+			pairs(f.herdr.calls(), "pane", "close"),
+			[["pane", "close", "w1:p2"]],
+			"ending one run never closes another's pane",
+		);
 		assert.deepEqual(f.herdr.state().closeSaw, [["passed"]], "the store already said passed when the pane closed");
 		assert.match(done.stdout, /closed pane w1:p2/);
 
@@ -776,20 +797,36 @@ test("OPS-65-cleanup: a fallback seat closes its workspace only when no other pa
 		const alone = open("w9:p1");
 		f.herdr.setState({});
 		SEAT_CLOSE(f, alone);
-		assert.deepEqual(f.herdr.calls().filter((c) => c[1] === "close"), [["workspace", "close", "w9"]]);
+		assert.deepEqual(
+			f.herdr.calls().filter((c) => c[1] === "close"),
+			[["workspace", "close", "w9"]],
+		);
 
 		const crowded = open("w8:p1");
 		f.herdr.setState({ panes: ["w8:p1", "w8:p2"] });
 		SEAT_CLOSE(f, crowded);
-		assert.deepEqual(pairs(f.herdr.calls(), "pane", "close"), [["pane", "close", "w8:p1"]], "a workspace with another pane keeps living");
+		assert.deepEqual(
+			pairs(f.herdr.calls(), "pane", "close"),
+			[["pane", "close", "w8:p1"]],
+			"a workspace with another pane keeps living",
+		);
 
 		// The session-end hook aborts a run that never closed its stage and closes its pane.
 		const dying = open("w1:p4");
 		f.herdr.setState({ tui: true, panes: ["w1:p4"] });
 		const before = f.herdr.calls().length;
-		cli(f.root, { EVF_RUN: String(dying), EVF_TASK: "OPS-1", EVF_ROLE: "implementer", EVF_WORKTREE: f.worktree }, { session_id: SESSION, reason: "other" }, "hook", "session-end");
+		cli(
+			f.root,
+			{ EVF_RUN: String(dying), EVF_TASK: "OPS-1", EVF_ROLE: "implementer", EVF_WORKTREE: f.worktree },
+			{ session_id: SESSION, reason: "other" },
+			"hook",
+			"session-end",
+		);
 		assert.deepEqual(pairs(f.herdr.calls().slice(before), "pane", "close"), [["pane", "close", "w1:p4"]]);
-		assert.equal((f.db.prepare("SELECT status FROM runs WHERE id = ?").get(dying) as { status: string }).status, "aborted");
+		assert.equal(
+			(f.db.prepare("SELECT status FROM runs WHERE id = ?").get(dying) as { status: string }).status,
+			"aborted",
+		);
 	} finally {
 		f.db.close();
 		f.close();
@@ -819,7 +856,13 @@ test("OPS-65-auto: every role launches with --dangerously-skip-permissions throu
 	for (const path of ["tools/evf/launch.ts", "tools/evf/README.md", "tools/evf/tests/seat.test.ts", ...agents]) {
 		assert.ok(!read(path).includes("accept" + "Edits"), `${path} still names the old mode`);
 	}
-	for (const path of ["tools/evf/launch.ts", "tools/evf/panes.ts", "tools/evf/drive.ts", ".claude/settings.json", ...agents]) {
+	for (const path of [
+		"tools/evf/launch.ts",
+		"tools/evf/panes.ts",
+		"tools/evf/drive.ts",
+		".claude/settings.json",
+		...agents,
+	]) {
 		assert.ok(!new RegExp("dont" + "Ask").test(read(path)), `${path} sets a bypass`);
 	}
 	const planAnswer = read("tools/evf/drive.ts").match(/"--permission-mode",\s*"plan"/g);
@@ -870,8 +913,13 @@ test("OPS-65-settings: deny and ask rules and the hooks are unchanged; the only 
 	assert.ok(added.length >= 1, "the allow list lacks the post-review rule");
 	for (const rule of added)
 		assert.ok(
-			rule.startsWith("Bash(node ") && rule.endsWith(`${script} *)`) && !rule.slice(0, -script.length - 3).includes("**"),
+			rule.startsWith("Bash(node ") &&
+				rule.endsWith(`${script} *)`) &&
+				!rule.slice(0, -script.length - 3).includes("**"),
 			`allow rule ${rule} covers more than post-review.mjs`,
 		);
-	assert.ok(added.some((rule) => rule === `Bash(node ${script} *)`), "the relative form is allowed");
+	assert.ok(
+		added.some((rule) => rule === `Bash(node ${script} *)`),
+		"the relative form is allowed",
+	);
 });

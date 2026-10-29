@@ -214,7 +214,9 @@ export function launchDryRun(
 		tui
 			? `herdr ${splitArgs(plan, splitTarget(tui)).map(quote).join(" ")}`
 			: `herdr ${workspaceArgs(plan, label).map(quote).join(" ")}`,
-		`herdr ${startArgs(plan, tui ? "<new pane>" : "<root pane>").map(quote).join(" ")}`,
+		`herdr ${startArgs(plan, tui ? "<new pane>" : "<root pane>")
+			.map(quote)
+			.join(" ")}`,
 		`# store: run.herdr_agent = ${plan.agent}, run.herdr_pane = ${tui ? "<new pane>" : "<root pane>"}; task.herdr_workspace_id = ${tui ? tui.workspace : "<new workspace>"}; event stage_start`,
 		...(opts.prompt ? [`herdr agent prompt ${plan.agent} ${quote(opts.prompt)}`] : []),
 	];

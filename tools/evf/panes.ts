@@ -50,7 +50,9 @@ export function chooseSplit(panes: PaneRect[], tuiId: string): { pane: string; d
 
 /** Which panes sit on the first side of a split, and which on the second (the first side starts at the rectangle origin). */
 function sides(layout: Layout, s: SplitRect): { first: PaneRect[]; second: PaneRect[] } {
-	const inside = layout.panes.filter((p) => p.x >= s.x && p.y >= s.y && p.x + p.w <= s.x + s.w && p.y + p.h <= s.y + s.h),
+	const inside = layout.panes.filter(
+			(p) => p.x >= s.x && p.y >= s.y && p.x + p.w <= s.x + s.w && p.y + p.h <= s.y + s.h,
+		),
 		edge = s.direction === "right" ? s.x + s.w * s.ratio : s.y + s.h * s.ratio,
 		at = (p: PaneRect) => (s.direction === "right" ? p.x : p.y);
 	return { first: inside.filter((p) => at(p) < edge - 1), second: inside.filter((p) => at(p) >= edge - 1) };
@@ -60,7 +62,9 @@ function sides(layout: Layout, s: SplitRect): { first: PaneRect[]; second: PaneR
 function tracks(panes: PaneRect[], split: Direction): number {
 	const lo = (p: PaneRect) => (split === "right" ? p.y : p.x),
 		len = (p: PaneRect) => (split === "right" ? p.h : p.w);
-	return Math.max(...panes.map((p) => panes.filter((q) => lo(q) <= lo(p) + len(p) / 2 && lo(p) + len(p) / 2 < lo(q) + len(q)).length));
+	return Math.max(
+		...panes.map((p) => panes.filter((q) => lo(q) <= lo(p) + len(p) / 2 && lo(p) + len(p) / 2 < lo(q) + len(q)).length),
+	);
 }
 
 /**
@@ -76,7 +80,10 @@ export function nextResize(layout: Layout): Resize | null {
 		if (!first.length || !second.length) continue;
 		const target = share(first, s.direction) / (share(first, s.direction) + share(second, s.direction)),
 			total = s.direction === "right" ? s.w : s.h,
-			now = s.direction === "right" ? Math.max(...first.map((p) => p.x + p.w)) - s.x : Math.max(...first.map((p) => p.y + p.h)) - s.y;
+			now =
+				s.direction === "right"
+					? Math.max(...first.map((p) => p.x + p.w)) - s.x
+					: Math.max(...first.map((p) => p.y + p.h)) - s.y;
 		if (Math.abs(now - Math.round(total * target)) <= 1) continue;
 		const divider = s.direction === "right" ? s.x + now : s.y + now,
 			delta = target - s.ratio,
@@ -111,7 +118,8 @@ function herdrJson(args: string[]): Json | undefined {
 
 /** True when a foreground process in the pane is the evf TUI. */
 export function isTuiPane(pane: string): boolean {
-	const procs = (herdrJson(["pane", "process-info", "--pane", pane])?.process_info?.foreground_processes ?? []) as Json[];
+	const procs = (herdrJson(["pane", "process-info", "--pane", pane])?.process_info?.foreground_processes ??
+		[]) as Json[];
 	return procs.some((p) => tuiProcess().test(String(p.cmdline ?? "")));
 }
 
@@ -148,7 +156,16 @@ export function rebalance(tuiPane: string): void {
 		const layout = readLayout(tuiPane),
 			step = layout && nextResize(layout);
 		if (!step) return;
-		run("herdr", ["pane", "resize", "--pane", step.pane, "--direction", step.direction, "--amount", String(step.amount)]);
+		run("herdr", [
+			"pane",
+			"resize",
+			"--pane",
+			step.pane,
+			"--direction",
+			step.direction,
+			"--amount",
+			String(step.amount),
+		]);
 	}
 }
 
@@ -159,8 +176,7 @@ export function rebalance(tuiPane: string): void {
  */
 export function closeRunPane(db: DatabaseSync, runId: number): string {
 	const r = db.prepare("SELECT status, herdr_pane FROM runs WHERE id = ?").get(runId) as
-		| { status: string; herdr_pane: string | null }
-		| undefined;
+		{ status: string; herdr_pane: string | null } | undefined;
 	if (!r?.herdr_pane || r.status === "started") return "";
 	const pane = r.herdr_pane;
 	if (isTuiPane(pane)) return `pane ${pane} is the TUI pane: not closed`;

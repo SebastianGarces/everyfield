@@ -1039,13 +1039,7 @@
 		},
 		"OPS-65": {
 			"title": "Seats start in auto mode, as split panes in the TUI workspace",
-			"owningPaths": [
-				"tools/evf/",
-				"tools/evf-tui/",
-				".claude/agents/",
-				".claude/settings.json",
-				"evf.config.json"
-			],
+			"owningPaths": ["tools/evf/", "tools/evf-tui/", ".claude/agents/", ".claude/settings.json", "evf.config.json"],
 			"checks": [
 				{
 					"name": "documentation",

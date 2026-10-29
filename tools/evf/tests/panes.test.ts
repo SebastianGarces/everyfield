@@ -44,7 +44,11 @@ class Tab {
 		walk(this.root, 0, 0, this.cols, this.rows);
 		return { panes, splits };
 	}
-	private path(id: string, n: Node = this.root, trail: Array<{ n: Extract<Node, { dir: Direction }>; side: "a" | "b" }> = []) {
+	private path(
+		id: string,
+		n: Node = this.root,
+		trail: Array<{ n: Extract<Node, { dir: Direction }>; side: "a" | "b" }> = [],
+	) {
 		if (!isSplit(n)) return n.id === id ? trail : undefined;
 		return this.path(id, n.a, [...trail, { n, side: "a" }]) ?? this.path(id, n.b, [...trail, { n, side: "b" }]);
 	}
@@ -72,7 +76,9 @@ class Tab {
 	resize(r: Resize) {
 		const axis: Direction = r.direction === "right" || r.direction === "left" ? "right" : "down",
 			grow = r.direction === "right" || r.direction === "down",
-			trail = this.path(r.pane)!.filter((t) => t.n.dir === axis).reverse(),
+			trail = this.path(r.pane)!
+				.filter((t) => t.n.dir === axis)
+				.reverse(),
 			own = grow ? "a" : "b",
 			hit = trail.find((t) => t.side === own) ?? trail[0]!;
 		hit.n.ratio = Math.min(0.9, Math.max(0.1, hit.n.ratio + (grow ? r.amount : -r.amount)));
@@ -103,7 +109,10 @@ function assertGrid(tab: Tab, label: string) {
 		assert.ok(p.w >= min.cols && p.h >= min.rows, `${label}: ${p.id} is under its minimum (${p.w}x${p.h})`);
 	}
 	// Herdr divides whole cells (512 columns in 3 equal columns is 171, 170, 171), so 2x carries one cell of rounding.
-	assert.ok(Math.max(...areas) <= 2.05 * Math.min(...areas), `${label}: pane areas differ by more than 2x in ${rects(tab)}`);
+	assert.ok(
+		Math.max(...areas) <= 2.05 * Math.min(...areas),
+		`${label}: pane areas differ by more than 2x in ${rects(tab)}`,
+	);
 }
 
 test("OPS-65-layout: 1 to 6 seats on a 5120x1440 px tab tile as a balanced grid, split both ways", () => {
@@ -115,7 +124,15 @@ test("OPS-65-layout: 1 to 6 seats on a 5120x1440 px tab tile as a balanced grid,
 		["TUI:0,0 128x72", "S3:128,0 128x72", "S1:256,0 128x72", "S2:384,0 128x72"],
 		["TUI:0,0 128x72", "S3:128,0 128x36", "S4:128,36 128x36", "S1:256,0 128x72", "S2:384,0 128x72"],
 		["TUI:0,0 128x72", "S3:128,0 128x36", "S4:128,36 128x36", "S1:256,0 128x36", "S5:256,36 128x36", "S2:384,0 128x72"],
-		["TUI:0,0 128x72", "S3:128,0 128x36", "S4:128,36 128x36", "S1:256,0 128x36", "S5:256,36 128x36", "S2:384,0 128x36", "S6:384,36 128x36"],
+		[
+			"TUI:0,0 128x72",
+			"S3:128,0 128x36",
+			"S4:128,36 128x36",
+			"S1:256,0 128x36",
+			"S5:256,36 128x36",
+			"S2:384,0 128x36",
+			"S6:384,36 128x36",
+		],
 	];
 	for (let seats = 1; seats <= 6; seats++) {
 		const pick = chooseSplit(tab.layout().panes, "TUI");
@@ -123,7 +140,8 @@ test("OPS-65-layout: 1 to 6 seats on a 5120x1440 px tab tile as a balanced grid,
 		tab.split(pick.pane, pick.direction);
 		assert.deepEqual(rects(tab), expected[seats - 1], `${seats} seats`);
 		assertGrid(tab, `${seats} seats`);
-		if (seats >= 4) assert.ok(directions.includes("right") && directions.includes("down"), "both split directions appear");
+		if (seats >= 4)
+			assert.ok(directions.includes("right") && directions.includes("down"), "both split directions appear");
 	}
 });
 
@@ -143,7 +161,9 @@ test("OPS-65-layout: closing seat panes rebalances; every close order keeps the 
 		return tab;
 	};
 	const permutations = (xs: string[]): string[][] =>
-		xs.length <= 1 ? [xs] : xs.flatMap((x, i) => permutations([...xs.slice(0, i), ...xs.slice(i + 1)]).map((p) => [x, ...p]));
+		xs.length <= 1
+			? [xs]
+			: xs.flatMap((x, i) => permutations([...xs.slice(0, i), ...xs.slice(i + 1)]).map((p) => [x, ...p]));
 	const seats = ["S1", "S2", "S3", "S4", "S5", "S6"];
 	// Closing one at a time, in every order.
 	for (const order of permutations(seats)) {
