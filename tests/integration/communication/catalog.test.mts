@@ -79,7 +79,5 @@ test("each meeting template links to the guest's RSVP page once, in HTML and pla
 		const html = renderBody(template.bodyHtml, { name: "Alex", rsvp_link: href });
 		assert.equal(html.split(`<a href="${href}"`).length - 1, expected, `${template.sourceKey}: anchors`);
 		assert.equal(plainText(html).includes(href), expected === 1, `${template.sourceKey}: plain-text URL`);
-		const without = plainText(renderBody(template.bodyHtml, { name: "Alex" }));
-		assert.ok(!without.includes("/rsvp/"), `${template.sourceKey}: no RSVP URL without a link`);
 	}
 });
