@@ -227,6 +227,15 @@ for (const [name, engine] of ENGINES) {
 			await switcher.waitFor();
 			await page.getByText(/1 of \d+/).waitFor();
 
+			// At 1440x900, before any scroll, no bar sits over the Send now button.
+			const covered = await page.getByRole("button", { name: /^Send now to \d+/ }).evaluate((button) => {
+				const box = button.getBoundingClientRect();
+				if (box.bottom > innerHeight) return "below the fold";
+				const top = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+				return button.contains(top) ? null : "covered";
+			});
+			assert.notEqual(covered, "covered", "Send now is not under a bar");
+
 			await page.getByRole("button", { name: /^Send now to \d+/ }).click();
 			const dialog = page.getByRole("alertdialog");
 			await dialog.getByText(/^Send to \d+ people now\?$/).waitFor();

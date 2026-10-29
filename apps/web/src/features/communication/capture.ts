@@ -11,7 +11,15 @@ import { join } from "node:path";
 
 type Env = Readonly<Record<string, string | undefined>>;
 
-export type Captured = { id: string; at: string; from: string; to: string; subject: string; html: string; text: string };
+export type Captured = {
+	id: string;
+	at: string;
+	from: string;
+	to: string;
+	subject: string;
+	html: string;
+	text: string;
+};
 
 const folder = join(tmpdir(), "everyfield-dev-outbox");
 

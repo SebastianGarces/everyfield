@@ -40,7 +40,7 @@ async function up() {
 	await admin.execute(sql`INSERT INTO team (id, plant_id, name, state, sort_order)
 		VALUES (${teamId}::uuid, ${people.plant}::uuid, 'Handoff team', 'active', 99)`);
 	await admin.execute(
-		sql`UPDATE meeting SET type = 'team_meeting', team_id = ${teamId}::uuid WHERE id = ${team}::uuid`,
+		sql`UPDATE meeting SET type = 'team_meeting', vision_number = NULL, kit_version = NULL, team_id = ${teamId}::uuid WHERE id = ${team}::uuid`,
 	);
 	const retired = await schedule("vision_meeting");
 	await admin.execute(sql`UPDATE meeting SET retired_at = clock_timestamp() WHERE id = ${retired}::uuid`);

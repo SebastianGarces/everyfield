@@ -528,7 +528,10 @@ export function Compose({
 				/>
 			) : null}
 
-			<div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 border-t border-line bg-[var(--ef-frame)] py-4">
+			<div
+				// Review ends in the Send now button. A sticky bar would sit over it at first paint.
+				className={`flex flex-wrap items-center justify-between gap-3 border-t border-line bg-[var(--ef-frame)] py-4 ${step === "review" ? "" : "sticky bottom-0"}`}
+			>
 				<p id="step-reason" className="text-sm text-text-2" role={reason ? "status" : undefined}>
 					{reason ?? ""}
 				</p>
