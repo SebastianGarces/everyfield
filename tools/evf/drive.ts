@@ -17,6 +17,7 @@ import {
 	worktreePath,
 	type TaskRef,
 } from "./lib.ts";
+import { closeRunPane } from "./panes.ts";
 import { prFor, prOpen, ship } from "./ship.ts";
 import { doneCriteria } from "./spec.ts";
 import { verify } from "./verify.ts";
@@ -304,6 +305,9 @@ export function runDone(
 		}
 		if (escalated) escalate(db, { id: r.task_id, ref: r.ref }, runId, escalated);
 		console.log(`run ${runId} (${r.stage}) closed ${opts.status}${escalated ? `; ${r.ref} escalated` : ""}.`);
+		// Last, after the store update committed: a seat that runs this from its own pane has recorded its result.
+		const closed = closeRunPane(db, runId);
+		if (closed) console.log(closed);
 		return 0;
 	} finally {
 		db.close();

@@ -2,12 +2,14 @@ import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { ensureTask, openWorkDb } from "./db.ts";
 import { baseRef, fail, git, loadConfig, run, runtimeDir, worktreePath, type Config, type TaskRef } from "./lib.ts";
+import { chooseSplit, findTui, readLayout, rebalance, type Direction } from "./panes.ts";
 import { taskStart } from "./task.ts";
 
 /**
  * A seat is one fresh top-level Claude Code session in its own Herdr pane and task worktree (D82, PLAN.md PR 3).
- * evf launch creates the worktree when it is missing, opens a Herdr workspace with the seat's environment, starts
- * `claude --agent <role>` with a session id evf chose, and records the run. Jonah and evf drive only ever call this.
+ * evf launch creates the worktree when it is missing, splits a pane off the TUI workspace (a new workspace only when no
+ * TUI workspace exists) with the seat's environment, starts `claude --agent <role>` in auto mode with a session id evf
+ * chose, and records the run. Jonah and evf drive only ever call this.
  */
 
 export const ROLES = {
@@ -135,11 +137,12 @@ export function launchPlan(
 			"--effort",
 			seat.effort,
 			"--permission-mode",
-			"acceptEdits",
+			"auto",
 		],
 	};
 }
 
+const envArgs = (plan: LaunchPlan) => Object.entries(plan.env).flatMap(([k, v]) => ["--env", `${k}=${v}`]);
 const workspaceArgs = (plan: LaunchPlan, label: string) => [
 	"workspace",
 	"create",
@@ -147,9 +150,25 @@ const workspaceArgs = (plan: LaunchPlan, label: string) => [
 	plan.worktree,
 	"--label",
 	label,
-	...Object.entries(plan.env).flatMap(([k, v]) => ["--env", `${k}=${v}`]),
+	...envArgs(plan),
 	"--no-focus",
 ];
+const splitArgs = (plan: LaunchPlan, target: { pane: string; direction: Direction }) => [
+	"pane",
+	"split",
+	target.pane,
+	"--direction",
+	target.direction,
+	"--cwd",
+	plan.worktree,
+	...envArgs(plan),
+	"--no-focus",
+];
+/** Where a new seat goes inside the TUI workspace: the largest pane along its longer side. */
+function splitTarget(tui: { pane: string }): { pane: string; direction: Direction } {
+	const layout = readLayout(tui.pane);
+	return layout ? chooseSplit(layout.panes, tui.pane) : { pane: tui.pane, direction: "right" };
+}
 const startArgs = (plan: LaunchPlan, pane: string) => [
 	"agent",
 	"start",
@@ -164,7 +183,7 @@ const startArgs = (plan: LaunchPlan, pane: string) => [
 	...plan.claudeArgs,
 ];
 
-/** Print every step without touching Herdr, the store or the worktree. */
+/** Print every step without changing Herdr, the store or the worktree. It only reads Herdr to find the TUI workspace. */
 export function launchDryRun(
 	root: string,
 	task: TaskRef,
@@ -172,7 +191,8 @@ export function launchDryRun(
 	opts: { mode?: string; prompt?: string; idea?: number },
 ): number {
 	const plan = launchPlan(root, task, role, { mode: opts.mode, idea: opts.idea });
-	const label = opts.idea ? `${task.slug}-idea${opts.idea}` : task.slug;
+	const label = opts.idea ? `${task.slug}-idea${opts.idea}` : task.slug,
+		tui = findTui();
 	const lines = [
 		`# evf launch ${task.id} --role ${role}${opts.idea ? ` --idea ${opts.idea}` : ""} (dry run)`,
 		existsSync(plan.worktree)
@@ -181,9 +201,11 @@ export function launchDryRun(
 				? `git worktree add -b ${ideaBranch(task, opts.idea)} ${plan.worktree} ${baseRef(root, loadConfig(root))}`
 				: `bin/evf task start ${task.id} --no-stack`,
 		`# store: ensure task ${task.id} (${plan.mode}); insert run {stage: ${plan.stage}, role: ${role}, model: ${ROLES[role].model}, effort: ${ROLES[role].effort}, session: ${plan.session}}`,
-		`herdr ${workspaceArgs(plan, label).map(quote).join(" ")}`,
-		`herdr ${startArgs(plan, "<root pane>").map(quote).join(" ")}`,
-		`# store: run.herdr_agent = ${plan.agent}, run.herdr_pane = <root pane>; event stage_start`,
+		tui
+			? `herdr ${splitArgs(plan, splitTarget(tui)).map(quote).join(" ")}`
+			: `herdr ${workspaceArgs(plan, label).map(quote).join(" ")}`,
+		`herdr ${startArgs(plan, tui ? "<new pane>" : "<root pane>").map(quote).join(" ")}`,
+		`# store: run.herdr_agent = ${plan.agent}, run.herdr_pane = ${tui ? "<new pane>" : "<root pane>"}; task.herdr_workspace_id = ${tui ? tui.workspace : "<new workspace>"}; event stage_start`,
 		...(opts.prompt ? [`herdr agent prompt ${plan.agent} ${quote(opts.prompt)}`] : []),
 	];
 	console.log(lines.join("\n"));
@@ -248,16 +270,28 @@ export function launch(
 		// Until the agent is up, any Herdr failure aborts the run, so the store never lists a seat that does not exist.
 		let workspace = "",
 			pane = "";
+		const tui = findTui();
 		try {
-			const ws = herdr(workspaceArgs(plan, opts.idea ? `${task.slug}-idea${opts.idea}` : task.slug)).result ?? {};
-			workspace = idOf(ws.workspace, "workspace_id");
-			pane = idOf(ws.root_pane, "pane_id");
+			if (tui) {
+				const made = herdr(splitArgs(plan, splitTarget(tui))).result ?? {};
+				workspace = tui.workspace;
+				pane = idOf(made.pane, "pane_id");
+			} else {
+				const ws = herdr(workspaceArgs(plan, opts.idea ? `${task.slug}-idea${opts.idea}` : task.slug)).result ?? {};
+				workspace = idOf(ws.workspace, "workspace_id");
+				pane = idOf(ws.root_pane, "pane_id");
+			}
 			const started = run("herdr", startArgs(plan, pane));
 			if (started.code !== 0 && !acceptTrustDialog(pane, plan.agent))
 				fail(
-					`herdr agent start failed in workspace ${workspace} pane ${pane}: ${(started.stderr || started.stdout).trim()}. Read the pane, then close the workspace or retry.`,
+					`herdr agent start failed in workspace ${workspace} pane ${pane}: ${(started.stderr || started.stdout).trim()}. ${tui ? "The new pane is closed." : "Read the pane, then close the workspace or retry."}`,
 				);
 		} catch (error) {
+			// A split pane that never ran its agent goes away; the TUI pane and the other seats stay as they are.
+			if (tui && pane && pane !== tui.pane) {
+				run("herdr", ["pane", "close", pane]);
+				rebalance(tui.pane);
+			}
 			const reason = error instanceof Error ? error.message : String(error);
 			db.prepare("UPDATE runs SET status = 'aborted', ended_at = ?, summary = ? WHERE id = ?").run(
 				new Date().toISOString(),
