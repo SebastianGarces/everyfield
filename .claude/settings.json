@@ -10,7 +10,7 @@
 			"Bash(git -C * add *)",
 			"Bash(git -C * commit *)",
 			"Bash(node .agents/skills/verify-preview/scripts/post-review.mjs *)",
-			"Bash(node */.agents/skills/verify-preview/scripts/post-review.mjs *)"
+			"Bash(node /*/.agents/skills/verify-preview/scripts/post-review.mjs *)"
 		],
 		"ask": ["Bash(git push)", "Bash(git push *)"],
 		"deny": [

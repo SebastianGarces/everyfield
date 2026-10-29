@@ -85,7 +85,7 @@ class Tab {
 	}
 	rebalance() {
 		for (let i = 0; i < 16; i++) {
-			const step = nextResize(this.layout());
+			const step = nextResize(this.layout(), "TUI");
 			if (!step) return;
 			this.resize(step);
 		}
@@ -184,4 +184,32 @@ test("OPS-65-layout: closing seat panes rebalances; every close order keeps the 
 	tab.close("S3");
 	tab.rebalance();
 	assertGrid(tab, "S3 closed after an add");
+});
+
+test("OPS-65-layout: on the real 269x51 tab, adding 1 to 4 seats and closing in every order keeps the TUI pane at 120x30 or more", () => {
+	const permutations = (xs: string[]): string[][] =>
+		xs.length <= 1
+			? [xs]
+			: xs.flatMap((x, i) => permutations([...xs.slice(0, i), ...xs.slice(i + 1)]).map((p) => [x, ...p]));
+	const tuiOk = (tab: Tab, label: string) => {
+		const t = tab.layout().panes.find((p) => p.id === "TUI")!;
+		assert.ok(t.w >= TUI_MIN.cols && t.h >= TUI_MIN.rows, `${label}: TUI is ${t.w}x${t.h} in ${rects(tab)}`);
+	};
+	for (let seats = 1; seats <= 4; seats++) {
+		const ids = Array.from({ length: seats }, (_, i) => `S${i + 1}`);
+		for (const order of permutations(ids)) {
+			const tab = new Tab(269, 51);
+			for (let i = 0; i < seats; i++) {
+				tab.add();
+				tab.rebalance();
+				tuiOk(tab, `add ${i + 1}`);
+			}
+			for (const id of order) {
+				tab.close(id);
+				tab.rebalance();
+				tuiOk(tab, `close ${id} in ${order} of ${seats}`);
+			}
+			assert.deepEqual(rects(tab), ["TUI:0,0 269x51"]);
+		}
+	}
 });

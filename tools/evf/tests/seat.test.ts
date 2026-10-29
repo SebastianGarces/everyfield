@@ -783,6 +783,43 @@ test("OPS-65-cleanup: a finished run closes its own pane after the store update;
 	}
 });
 
+test("OPS-65-cleanup: a seat that closes its own pane hands the close and rebalance to a detached process", async () => {
+	const f = seatFixture();
+	try {
+		const id = Number(
+			f.db
+				.prepare(
+					"INSERT INTO runs (task_id, stage, role, round, status, herdr_pane, started_at) VALUES (?, 'implement', 'implementer', 0, 'started', 'w1:p2', ?)",
+				)
+				.run(f.taskId, new Date().toISOString()).lastInsertRowid,
+		);
+		f.herdr.setState({ tui: true, panes: ["w1:p2", "w1:p3"] });
+		writeFileSync(join(f.root, "done.md"), "Done.\n");
+		const done = cli(
+			f.root,
+			{ HERDR_PANE_ID: "w1:p2" },
+			undefined,
+			"run",
+			"done",
+			String(id),
+			"--status",
+			"passed",
+			"--summary-file",
+			"done.md",
+		);
+		assert.match(done.stdout, /closing pane w1:p2 from a detached process/);
+		for (let i = 0; i < 50 && !pairs(f.herdr.calls(), "pane", "close").length; i++)
+			await new Promise((r) => setTimeout(r, 100));
+		assert.deepEqual(pairs(f.herdr.calls(), "pane", "close"), [["pane", "close", "w1:p2"]]);
+		for (let i = 0; i < 50 && !pairs(f.herdr.calls(), "pane", "layout").length; i++)
+			await new Promise((r) => setTimeout(r, 100));
+		assert.ok(pairs(f.herdr.calls(), "pane", "layout").length, "the rebalance read the layout after the close");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
 test("OPS-65-cleanup: a fallback seat closes its workspace only when no other pane lives there; the session-end hook cleans up too", () => {
 	const f = seatFixture();
 	try {
@@ -897,7 +934,16 @@ test("OPS-65-settings: deny and ask rules and the hooks are unchanged; the only 
 		"Read(./apps/web/.env*)",
 		"Read(./packages/**/.env*)",
 	]);
-	assert.deepEqual(Object.keys(settings.hooks), ["SessionStart", "PreToolUse", "Stop", "SessionEnd"]);
+	const hook = (command: string, timeout: number, matcher?: string) => ({
+		...(matcher ? { matcher } : {}),
+		hooks: [{ type: "command", command: `"$CLAUDE_PROJECT_DIR"/bin/evf hook ${command}`, timeout }],
+	});
+	assert.deepEqual(settings.hooks, {
+		SessionStart: [hook("session-start", 15)],
+		PreToolUse: [hook("path-guard", 10, "Edit|Write|MultiEdit|NotebookEdit"), hook("read-guard", 10, "Read|Grep|Glob")],
+		Stop: [hook("stop", 15)],
+		SessionEnd: [hook("session-end", 15)],
+	});
 	const script = ".agents/skills/verify-preview/scripts/post-review.mjs";
 	const existing = new Set([
 		"Bash(cd *)",
@@ -913,7 +959,7 @@ test("OPS-65-settings: deny and ask rules and the hooks are unchanged; the only 
 	assert.ok(added.length >= 1, "the allow list lacks the post-review rule");
 	for (const rule of added)
 		assert.ok(
-			rule.startsWith("Bash(node ") &&
+			(rule.startsWith("Bash(node /") || rule === `Bash(node ${script} *)`) &&
 				rule.endsWith(`${script} *)`) &&
 				!rule.slice(0, -script.length - 3).includes("**"),
 			`allow rule ${rule} covers more than post-review.mjs`,

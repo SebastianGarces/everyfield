@@ -1,4 +1,6 @@
+import { spawn } from "node:child_process";
 import type { DatabaseSync } from "node:sqlite";
+import { fileURLToPath } from "node:url";
 import { run } from "./lib.ts";
 
 /**
@@ -70,20 +72,27 @@ function tracks(panes: PaneRect[], split: Direction): number {
 /**
  * The next resize that moves a split toward giving every column and row of a side the same size: a side's share of
  * a right split is its column count, of a down split its row count. Equal columns keep every pane wide enough, and the
- * TUI pane is always a full column. Outermost split first. Null when every split is within one cell of its target.
+ * TUI pane is always a full column. The side that holds the TUI pane never gets less than TUI_MIN. Outermost split first. Null when every split is within one cell of its target.
  * Apply it, read the layout again and ask once more.
  */
-export function nextResize(layout: Layout): Resize | null {
+export function nextResize(layout: Layout, tuiId: string): Resize | null {
 	for (const s of [...layout.splits].sort((a, b) => b.w * b.h - a.w * a.h)) {
 		const { first, second } = sides(layout, s);
 		if (!first.length || !second.length) continue;
-		const target = tracks(first, s.direction) / (tracks(first, s.direction) + tracks(second, s.direction)),
-			total = s.direction === "right" ? s.w : s.h,
+		const total = s.direction === "right" ? s.w : s.h,
+			min = s.direction === "right" ? TUI_MIN.cols : TUI_MIN.rows,
+			share = tracks(first, s.direction) / (tracks(first, s.direction) + tracks(second, s.direction)),
+			holdsTui = (side: PaneRect[]) => side.some((p) => p.id === tuiId),
+			want = Math.min(
+				holdsTui(second) ? total - min : total,
+				Math.max(holdsTui(first) ? min : 0, Math.round(total * share)),
+			),
+			target = want / total,
 			now =
 				s.direction === "right"
 					? Math.max(...first.map((p) => p.x + p.w)) - s.x
 					: Math.max(...first.map((p) => p.y + p.h)) - s.y;
-		if (Math.abs(now - Math.round(total * target)) <= 1) continue;
+		if (Math.abs(now - want) <= 1) continue;
 		const divider = s.direction === "right" ? s.x + now : s.y + now,
 			delta = target - s.ratio,
 			// Herdr moves the border of the pane on the side named by the direction: the first side's far border to move
@@ -153,7 +162,7 @@ export function readLayout(pane: string): Layout | undefined {
 export function rebalance(tuiPane: string): void {
 	for (let i = 0; i < 16; i++) {
 		const layout = readLayout(tuiPane),
-			step = layout && nextResize(layout);
+			step = layout && nextResize(layout, tuiPane);
 		if (!step) return;
 		run("herdr", [
 			"pane",
@@ -189,11 +198,28 @@ export function closeRunPane(db: DatabaseSync, runId: number): string {
 		siblings = ((herdrJson(["pane", "list", "--workspace", workspace])?.panes ?? []) as Json[]).filter(
 			(p) => p.pane_id !== pane,
 		);
+	const tui = siblings.find((p) => isTuiPane(p.pane_id));
+	// A seat that ends its own stage runs in the pane it closes. Closing the pane may stop this process before the
+	// rebalance, so a detached process closes the pane and rebalances.
+	if (siblings.length && tui && process.env.HERDR_PANE_ID === pane) {
+		const main = fileURLToPath(new URL("./main.ts", import.meta.url));
+		spawn(process.execPath, ["--disable-warning=ExperimentalWarning", main, "pane-finish", pane, tui.pane_id], {
+			detached: true,
+			stdio: "ignore",
+		}).unref();
+		return `closing pane ${pane} from a detached process, then rebalancing`;
+	}
 	const closed = siblings.length
 		? run("herdr", ["pane", "close", pane])
 		: run("herdr", ["workspace", "close", workspace]);
 	if (closed.code !== 0) return `herdr could not close pane ${pane}: ${(closed.stderr || closed.stdout).trim()}`;
-	const tui = siblings.find((p) => isTuiPane(p.pane_id));
 	if (tui) rebalance(tui.pane_id);
 	return `closed pane ${pane}`;
+}
+
+/** The detached half of closeRunPane: close the pane, then rebalance around the TUI pane. */
+export function finishPane(pane: string, tuiPane: string): number {
+	const closed = run("herdr", ["pane", "close", pane]);
+	if (closed.code === 0) rebalance(tuiPane);
+	return closed.code === 0 ? 0 : 1;
 }
