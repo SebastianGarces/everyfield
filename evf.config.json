@@ -987,11 +987,7 @@
 		},
 		"OPS-66": {
 			"title": "No ghost task rows after a ship; standalone ship marks the row merged",
-			"owningPaths": [
-				"tools/evf/",
-				"tools/evf-tui/",
-				"evf.config.json"
-			],
+			"owningPaths": ["tools/evf/", "tools/evf-tui/", "evf.config.json"],
 			"checks": [
 				{
 					"name": "documentation",
