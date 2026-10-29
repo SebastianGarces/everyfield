@@ -517,7 +517,13 @@ export function Compose({
 						)}
 					</MessageEditor>
 					<PreviewStage
-						input={{ bodyHtml: textToBody(form.text), name: previewName, hasMeeting, origin: data.origin, churchName: data.churchName }}
+						input={{
+							bodyHtml: textToBody(form.text),
+							name: previewName,
+							hasMeeting,
+							origin: data.origin,
+							churchName: data.churchName,
+						}}
 						chrome={chrome}
 					/>
 				</div>
