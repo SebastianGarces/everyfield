@@ -29,7 +29,6 @@ export const sampleNames: readonly string[] = [
 	"Isaac Mensah",
 ];
 
-export const knownKeys = (): string[] => mergeFields.map((field) => field.key);
 export const fieldsFor = (hasMeeting: boolean): MergeField[] =>
 	mergeFields.filter((field) => hasMeeting || !field.needsMeeting);
 export const fieldToken = (key: string): string => `{{${key}}}`;
