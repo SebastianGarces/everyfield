@@ -10,6 +10,7 @@ const env = z.object({
 	IDENTITY_MAIL_KEY: z.string().regex(/^[a-f0-9]{64}$/),
 	IDENTITY_ADDRESS_KEY: z.string().regex(/^[a-f0-9]{64}$/),
 	IDENTITY_MAIL_FROM: z.email(),
+	IDENTITY_ORIGIN: z.url(),
 	RESEND_API_KEY: z.string().trim().min(1),
 });
 
@@ -105,12 +106,18 @@ function knownRefusal(ready: MailReady): boolean {
 }
 
 export type MailReady = {
-	keys: { encryptionKey: Uint8Array; addressKey: Uint8Array; from: string };
+	keys: { encryptionKey: Uint8Array; addressKey: Uint8Array; from: string; origin: string };
 	apiKey: string;
 };
 
 type Outgoing = { to: string; subject: string; html: string; text: string };
 type Batch = { outcome: "ids"; ids: (string | null)[] } | { outcome: "unknown" } | { outcome: "refused" };
+
+/** The deployment's app origin, or null when it is not configured. */
+export function appOrigin(): string | null {
+	const parsed = z.url().safeParse(process.env.IDENTITY_ORIGIN);
+	return parsed.success ? new URL(parsed.data).origin : null;
+}
 
 /** Null when the server has no mail keys or provider key. The caller sends nothing in that case. */
 export function mailReady(): MailReady | null {
@@ -118,6 +125,7 @@ export function mailReady(): MailReady | null {
 		IDENTITY_MAIL_KEY: process.env.IDENTITY_MAIL_KEY,
 		IDENTITY_ADDRESS_KEY: process.env.IDENTITY_ADDRESS_KEY,
 		IDENTITY_MAIL_FROM: process.env.IDENTITY_MAIL_FROM,
+		IDENTITY_ORIGIN: process.env.IDENTITY_ORIGIN,
 		RESEND_API_KEY: process.env.RESEND_API_KEY,
 	});
 	if (!parsed.success) return null;
@@ -125,7 +133,7 @@ export function mailReady(): MailReady | null {
 	const addressKey = Buffer.from(parsed.data.IDENTITY_ADDRESS_KEY, "hex");
 	if (encryptionKey.equals(addressKey)) return null;
 	return {
-		keys: { encryptionKey, addressKey, from: parsed.data.IDENTITY_MAIL_FROM },
+		keys: { encryptionKey, addressKey, from: parsed.data.IDENTITY_MAIL_FROM, origin: parsed.data.IDENTITY_ORIGIN },
 		apiKey: parsed.data.RESEND_API_KEY,
 	};
 }

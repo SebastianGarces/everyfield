@@ -14,6 +14,7 @@ export const communicationError = z.discriminatedUnion("code", [
 	defineSafeError("protected_source", {}, "never"),
 	defineSafeError("referenced", {}, "never"),
 	defineSafeError("not_found", {}, "never"),
+	defineSafeError("rsvp_needs_meeting", {}, "never"),
 	defineSafeError("cancel_unconfirmed", { replacementIntents: z.literal(0) }, "never"),
 ]);
 export type CommunicationError = z.infer<typeof communicationError>;
@@ -52,6 +53,7 @@ export const templateResult = z.strictObject({
 });
 export const previewResult = z.strictObject({
 	previewBody: z.string(),
+	previewHtml: z.string(),
 	scriptExecution: z.literal(false),
 	providerCalls: z.literal(0),
 	eligibleEmails: z.array(z.string()),

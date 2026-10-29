@@ -12,6 +12,7 @@ const keys = {
 	encryptionKey: Buffer.alloc(32, 7),
 	addressKey: Buffer.alloc(32, 9),
 	from: "news@example.test",
+	origin: "https://app.example.test",
 };
 const emptyAudience = { groups: [], teamIds: [], personIds: [] };
 const key = () => randomUUID();
