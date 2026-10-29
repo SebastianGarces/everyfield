@@ -16,11 +16,10 @@ export type SystemTemplate = {
 /**
  * The seven approved system messages. They live in code. A plant fork never changes these bytes.
  *
- * Merge fields: `{{name}}`, and `{{rsvp_link}}` in the four meeting templates. The RSVP delivery code (WP-020/api, packages/domain communication
- * delivery) produces `{{rsvp_link}}`: one "Tell us if you can come" button, or nothing for a recipient who is not a guest.
- * A guest answers on the RSVP page, never by reply. Meeting details are bracket placeholders the planter replaces before sending:
- * [Day, date] = meeting_date, [Start time] and [End time] = meeting_time, [Address or meeting link] = meeting_location.
- * Subjects hold no merge fields, because nothing merges a subject.
+ * Merge fields: `{{name}}`, and `{{rsvp_link}}` in the four meeting templates. The RSVP delivery task (WP-020/api) produces
+ * `{{rsvp_link}}`: one "Tell us if you can come" link, or nothing for a recipient who is not a guest.
+ * A guest answers on the RSVP page, never by reply. Meeting details are bracket placeholders the planter replaces
+ * before sending (mapped in each template's comment). Subjects hold no merge fields, because nothing merges a subject.
  */
 export const systemTemplates: readonly SystemTemplate[] = [
 	{
