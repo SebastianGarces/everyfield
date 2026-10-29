@@ -142,12 +142,9 @@ export function acknowledgeShipped(
 	const paths = recordedPathsFor(findPackage(loadDag(root), record.package_id), record.part);
 	if (!git(root, "diff", "--binary", record.base_sha, record.verified_head, "--", ...paths)) return "none";
 	if (!reviewedMilestone(root, record)) return "unreviewed";
-	if (record.verification.approval.packageClosures?.length) {
-		recordProgress(root, record, false);
-		return "closures";
-	}
-	recordProgress(root, record, true);
-	return "acknowledged";
+	const closures = !!record.verification.approval.packageClosures?.length;
+	recordProgress(root, record, !closures);
+	return closures ? "closures" : "acknowledged";
 }
 /** Only evf writes canonical progress. Lock and atomic rename protect concurrent ships/acks. */
 export function recordProgress(root: string, record: ShippedRecord, acknowledged: boolean): boolean {
