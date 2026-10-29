@@ -984,6 +984,26 @@
 				}
 			],
 			"risk": "ordinary"
+		},
+		"OPS-65": {
+			"title": "Seats start in auto mode, as split panes in the TUI workspace",
+			"owningPaths": [
+				"tools/evf/",
+				"tools/evf-tui/",
+				".claude/agents/",
+				"evf.config.json"
+			],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {
