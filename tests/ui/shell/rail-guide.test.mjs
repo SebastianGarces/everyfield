@@ -23,6 +23,15 @@ const rail = (page) =>
 			),
 	);
 
+/** The button's aria-expanded settles on `value`: the sheet closes after its exit transition. */
+async function expanded(button, value) {
+	for (let tries = 0; tries < 50; tries++) {
+		if ((await button.getAttribute("aria-expanded")) === value) return;
+		await new Promise((resolve) => setTimeout(resolve, 100));
+	}
+	assert.equal(await button.getAttribute("aria-expanded"), value);
+}
+
 for (const [name, engine] of ENGINES) {
 	test(`AC:RAIL-GUIDE: Guide is in the bottom rail group above Settings with the book icon (${name})`, async () => {
 		await withPage(engine, async (page, context) => {
@@ -46,9 +55,9 @@ for (const [name, engine] of ENGINES) {
 			const button = page.locator('aside[aria-label="Secondary"] button', { hasText: "Guide" });
 			assert.equal(await button.getAttribute("aria-expanded"), "false");
 			await button.click();
-			assert.equal(await button.getAttribute("aria-expanded"), "true");
+			await expanded(button, "true");
 			await button.click();
-			assert.equal(await button.getAttribute("aria-expanded"), "false");
+			await expanded(button, "false");
 		});
 	});
 }
