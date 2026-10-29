@@ -734,18 +734,18 @@ function evfStage(db: DatabaseSync, root: string, task: TaskRef, t: TaskRow, sta
 const runStatus = (db: DatabaseSync, runId: number) =>
 	(db.prepare("SELECT status FROM runs WHERE id = ?").get(runId) as { status: string }).status;
 
-/** The agent's current Herdr state, or "unknown" when Herdr cannot say. */
-function agentState(agent: string): string {
-	const got = run("herdr", ["agent", "get", agent]);
+/** The agent state in `herdr agent get|wait` output, or "unknown" when Herdr printed none. */
+function parseAgentState(stdout: string): string {
 	try {
 		return String(
-			(JSON.parse(got.stdout) as { result?: { agent?: { agent_status?: string } } }).result?.agent?.agent_status ??
-				"unknown",
+			(JSON.parse(stdout) as { result?: { agent?: { agent_status?: string } } }).result?.agent?.agent_status ?? "unknown",
 		);
 	} catch {
 		return "unknown";
 	}
 }
+
+const agentState = (agent: string) => parseAgentState(run("herdr", ["agent", "get", agent]).stdout);
 
 /** When the launch prompt went in, or null for a seat launched without one. */
 function promptSentAt(db: DatabaseSync, runId: number): number | null {
@@ -777,8 +777,7 @@ function waitOnSeat(
 		runDone(root, runId, { status: "failed", summary: "no Herdr agent recorded for this run" });
 		return;
 	}
-	let turnSeen = false,
-		blockedReported = false;
+	let turnSeen = false;
 	for (let nudged = false; ;) {
 		const waited = run("herdr", [
 			"agent",
@@ -793,17 +792,8 @@ function waitOnSeat(
 			"--timeout",
 			String(timing.waitMs),
 		]);
-		const status = (db.prepare("SELECT status FROM runs WHERE id = ?").get(runId) as { status: string }).status;
-		if (status !== "started") return;
-		let state = "unknown";
-		try {
-			state = String(
-				(JSON.parse(waited.stdout) as { result?: { agent?: { agent_status?: string } } }).result?.agent?.agent_status ??
-					"unknown",
-			);
-		} catch {
-			// Herdr printed no JSON: treat as a timeout.
-		}
+		if (runStatus(db, runId) !== "started") return;
+		const state = parseAgentState(waited.stdout);
 		if (waited.code !== 0 && state === "unknown") {
 			runDone(root, runId, {
 				status: "failed",
@@ -812,23 +802,14 @@ function waitOnSeat(
 			return;
 		}
 		if (state === "blocked") {
-			if (!blockedReported) {
-				blockedReported = true;
-				record(db, t.id, runId, "blocked", { summary: `${r.herdr_agent} is blocked on a prompt` });
-				notify(`${task.id} seat blocked`, `${r.herdr_agent} waits on a prompt in its pane.`);
-			}
-			for (;;) {
+			record(db, t.id, runId, "blocked", { summary: `${r.herdr_agent} is blocked on a prompt` });
+			notify(`${task.id} seat blocked`, `${r.herdr_agent} waits on a prompt in its pane.`);
+			do {
 				sleep(timing.seatPollMs);
 				if (runStatus(db, runId) !== "started") return;
-				const now = agentState(r.herdr_agent);
-				if (now !== "blocked") {
-					if (now !== "unknown") blockedReported = false;
-					break;
-				}
-			}
+			} while (agentState(r.herdr_agent) === "blocked");
 			continue;
 		}
-		blockedReported = false;
 		if (state === "idle" && !nudged && !turnSeen) {
 			// The launch prompt may not have begun its turn yet: wait for the seat to leave idle before reading idle as finished.
 			const sent = promptSentAt(db, runId);

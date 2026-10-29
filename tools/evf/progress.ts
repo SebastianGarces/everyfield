@@ -140,7 +140,7 @@ export function acknowledgeShipped(
 ): "none" | "acknowledged" | "closures" | "unreviewed" {
 	if (record.package_id === null) return "none";
 	const paths = recordedPathsFor(findPackage(loadDag(root), record.package_id), record.part);
-	if (!git(root, "diff", "--binary", record.base_sha, record.verified_head, "--", ...paths)) return "none";
+	if (!git(root, "diff", "--binary", record.base_sha, record.verified_head, "--", ...paths)) return "unreviewed";
 	if (!reviewedMilestone(root, record)) return "unreviewed";
 	const closures = !!record.verification.approval.packageClosures?.length;
 	recordProgress(root, record, !closures);

@@ -7,7 +7,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, cpSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { resolve, join } from "node:path";
+import { dirname, resolve, join } from "node:path";
 import { buildBlocks, renderBlocks } from "../plan.ts";
 import { loadDag, loadRegistry } from "../lib.ts";
 
@@ -2902,7 +2902,7 @@ test("OPS-59-ship: a work-store row for the branch does not stop an ordinary PR;
 });
 
 /** WP-001/OPS-67 ship setup: an approved, green WP task whose merge commit lands on the base ref. */
-function wpShipFixture(mergeBranchOverride?: string) {
+function wpShipFixture(mergeBranchOverride?: string, file = "packages/reference/fixture.txt") {
 	const f = mergeFixture();
 	f.authorize("WP-032");
 	const progressPath = join(f.root, "docs/build-progress.json"),
@@ -2914,9 +2914,9 @@ function wpShipFixture(mergeBranchOverride?: string) {
 	f.git("push", "-q", "origin", "main");
 	const task = parseTask("WP-001"),
 		wt = f.task(task.slug);
-	mkdirSync(join(wt, "packages/reference"), { recursive: true });
-	writeFileSync(join(wt, "packages/reference/fixture.txt"), "Reviewed reference bundle");
-	execFileSync("git", ["-C", wt, "add", "packages/reference/fixture.txt"]);
+	mkdirSync(dirname(join(wt, file)), { recursive: true });
+	writeFileSync(join(wt, file), "Reviewed reference bundle");
+	execFileSync("git", ["-C", wt, "add", file]);
 	execFileSync("git", ["-C", wt, "commit", "-qm", "Reviewed fixture output"]);
 	const sha = execFileSync("git", ["-C", wt, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
 	if (mergeBranchOverride) {
@@ -3005,6 +3005,24 @@ test("OPS-67-ship-ack: a record that fails reviewedMilestone stays unacknowledge
 		const line = lines.filter((l) => l.startsWith("progress:") && l.includes("WP-001") && l.includes("evf shipped"));
 		assert.equal(line.length, 1, lines.join("\n"));
 		assert.ok(!lines.some((l) => /shipped --clear WP-001/.test(l)), "ship does not tell the coordinator to clear it");
+	} finally {
+		console.log = log;
+		db.close();
+		f.close();
+	}
+});
+
+test("OPS-67-ship-ack: a WP record with no owning-path diff stays unacknowledged and names the task", () => {
+	const { f, db, task, shipped } = wpShipFixture(undefined, "outside-owned-paths/note.txt"),
+		log = console.log,
+		lines: string[] = [];
+	try {
+		console.log = (...a: unknown[]) => lines.push(a.join(" "));
+		assert.equal(driveOnce(f.root, task, DRIVE_TIMING).stage, "done");
+		assert.equal(shipped().acknowledged, undefined);
+		assert.equal(producerReady(f.root, "WP-001"), false);
+		const line = lines.filter((l) => l.startsWith("progress:") && l.includes("WP-001") && l.includes("evf shipped"));
+		assert.equal(line.length, 1, lines.join("\n"));
 	} finally {
 		console.log = log;
 		db.close();
