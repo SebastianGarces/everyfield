@@ -17,10 +17,10 @@ import {
 	outcomeText,
 	templateCategories,
 	type MeetingType,
-	type Outcome,
 	type Template,
 	type TemplateCategory,
 } from "./model.ts";
+import { useKeys } from "./useKeys.ts";
 
 // Templates: a list in two groups, and the editor on the Write layout with the same live preview.
 
@@ -55,16 +55,6 @@ function fieldsFrom(template: Template): Fields {
 		subject: template.subject,
 		text: body.text,
 		lossy: body.lossy,
-	};
-}
-
-function useKeys() {
-	const keys = useRef<Record<string, string>>({});
-	return {
-		take: (name: string) => (keys.current[name] ??= crypto.randomUUID()),
-		settle(name: string, result: Outcome<unknown>) {
-			if (result.status !== "lost") keys.current[name] = crypto.randomUUID();
-		},
 	};
 }
 

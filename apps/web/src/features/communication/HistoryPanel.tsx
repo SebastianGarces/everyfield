@@ -41,6 +41,8 @@ import {
 	type ResendReview,
 	type TrackingRow,
 } from "./model.ts";
+import { plural } from "./composeModel.ts";
+import { useKeys } from "./useKeys.ts";
 
 // History is the message hub. A follow-up saves a new reviewed message and leaves the original alone.
 // Times use the clock on this device. The church zone is not on this page.
@@ -94,18 +96,6 @@ function recordLabel(state: Draft["state"]): string {
 	if (state === "draft") return "Draft";
 	if (state === "reviewed") return "Reviewed";
 	return "Scheduled";
-}
-
-function useKeys() {
-	const keys = useRef<Record<string, string>>({});
-	return {
-		take(name: string) {
-			return (keys.current[name] ??= crypto.randomUUID());
-		},
-		settle(name: string, result: Outcome<unknown>) {
-			if (result.status !== "lost") keys.current[name] = crypto.randomUUID();
-		},
-	};
 }
 
 function useHistory(load: (cursor: string | null) => Promise<Outcome<HistoryPage>>) {
@@ -239,8 +229,6 @@ function MessageButton({
 		</button>
 	);
 }
-
-const plural = (n: number, one: string, many: string) => (n === 1 ? `1 ${one}` : `${n} ${many}`);
 
 /** A message that has not gone out has no recipient records yet, so a zero there would mislead. */
 const recipientCount = (n: number, state: HubState) =>

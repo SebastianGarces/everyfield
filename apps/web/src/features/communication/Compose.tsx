@@ -36,11 +36,11 @@ import {
 	templateBinding,
 	type Handoff,
 	type MeetingContext,
-	type Outcome,
 	type PageData,
 	type Step,
 	type Template,
 } from "./model.ts";
+import { useKeys } from "./useKeys.ts";
 import { ReviewStep, type SendPlan } from "./ReviewStep.tsx";
 import { useAudienceSummary, WhoStep } from "./WhoStep.tsx";
 
@@ -52,16 +52,6 @@ const STEPS: { value: Step; label: string }[] = [
 	{ value: "write", label: "Write" },
 	{ value: "review", label: "Review and send" },
 ];
-
-function useKeys() {
-	const keys = useRef<Record<string, string>>({});
-	return {
-		take: (name: string) => (keys.current[name] ??= crypto.randomUUID()),
-		settle(name: string, result: Outcome<unknown>) {
-			if (result.status !== "lost") keys.current[name] = crypto.randomUUID();
-		},
-	};
-}
 
 /** The meeting's own local date and time, as words. The parts are not shifted by the viewer's zone. */
 function meetingWhen(date: string, time: string): string {

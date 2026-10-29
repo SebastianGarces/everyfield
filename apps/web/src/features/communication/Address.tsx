@@ -12,19 +12,10 @@ import {
 } from "@everyfield/ui/controls";
 import { useEffect, useRef, useState } from "react";
 import { readOwnSuppression, restoreOwnSuppression } from "./actions.ts";
-import { outcomeText, restoreText, type Outcome, type SuppressionReport } from "./model.ts";
+import { outcomeText, restoreText, type SuppressionReport } from "./model.ts";
+import { useKeys } from "./useKeys.ts";
 
 type Notice = { text: string; tone: "alert" | "status" };
-
-function useKeys() {
-	const keys = useRef<Record<string, string>>({});
-	return {
-		take: (name: string) => (keys.current[name] ??= crypto.randomUUID()),
-		settle(name: string, result: Outcome<unknown>) {
-			if (result.status !== "lost") keys.current[name] = crypto.randomUUID();
-		},
-	};
-}
 
 export function Address() {
 	const keys = useKeys();
