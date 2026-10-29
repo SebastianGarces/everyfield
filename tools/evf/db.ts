@@ -295,19 +295,37 @@ export function missionFor(db: DatabaseSync, pkg: string): { id: number; title: 
 		.get(pkg) as { id: number; title: string } | undefined;
 }
 
-/** The open task row for a ref (one per ref until it merges), or undefined. Read commands never create one. */
+/**
+ * The current row for a ref: the latest row that is not abandoned, in any other status (merged included). A ref has
+ * one current row, so a merge never leaves a ghost behind. Read commands never create one.
+ */
 export function findTask(db: DatabaseSync, task: TaskRef): TaskRow | undefined {
 	return db
 		.prepare(
-			"SELECT id, ref, slug, mode, status, round, goal_id, spec, pr_number, worktree FROM tasks WHERE ref = ? AND status NOT IN ('merged', 'abandoned', 'done') ORDER BY id DESC LIMIT 1",
+			"SELECT id, ref, slug, mode, status, round, goal_id, spec, pr_number, worktree FROM tasks WHERE ref = ? AND status != 'abandoned' ORDER BY id DESC LIMIT 1",
 		)
 		.get(task.id) as TaskRow | undefined;
 }
 
-/** The open task row, created as `new` when none exists. Only commands that start work call this. */
-export function ensureTask(db: DatabaseSync, task: TaskRef, mode: string): TaskRow {
-	const open = findTask(db, task);
-	if (open) return open;
+/** Append one event to a task's log. */
+export function record(
+	db: DatabaseSync,
+	taskId: number,
+	runId: number | null,
+	type: string,
+	payload: Record<string, unknown>,
+): void {
+	db.prepare("INSERT INTO events (task_id, run_id, ts, type, payload) VALUES (?, ?, ?, ?, ?)").run(
+		taskId,
+		runId,
+		now(),
+		type,
+		JSON.stringify(payload),
+	);
+}
+
+/** Insert a `new` row for a ref. Only `ensureTask` (no current row) and `evf task new` (a reopen) call this. */
+export function newTaskRow(db: DatabaseSync, task: TaskRef, mode: string): TaskRow {
 	const ts = now();
 	const goal = missionFor(db, task.wp);
 	const id = db
@@ -327,6 +345,48 @@ export function ensureTask(db: DatabaseSync, task: TaskRef, mode: string): TaskR
 		pr_number: null,
 		worktree: null,
 	};
+}
+
+/** The current row, created as `new` when the ref has none. A merged row comes back unchanged: it is not reopened. */
+export function ensureTask(db: DatabaseSync, task: TaskRef, mode: string): TaskRow {
+	return findTask(db, task) ?? newTaskRow(db, task, mode);
+}
+
+/**
+ * Record that GitHub merged the ref's PR as `commit`. The current open row becomes merged with one `merged` event; a
+ * ref the store does not know gets one merged row. A row already merged is left alone, so ship and the drive loop
+ * can both call this and leave one event.
+ */
+export function markMerged(db: DatabaseSync, task: TaskRef, commit: string | null, runId: number | null): void {
+	const current = findTask(db, task);
+	if (current?.status === "merged") return;
+	const summary = `${task.id} merged${commit ? ` as ${commit.slice(0, 10)}` : ""}`;
+	const ts = now();
+	db.exec("BEGIN IMMEDIATE");
+	try {
+		let id = current?.id;
+		if (id)
+			db.prepare("UPDATE tasks SET status = 'merged', merge_commit = ?, updated_at = ? WHERE id = ?").run(
+				commit,
+				ts,
+				id,
+			);
+		else {
+			const goal = missionFor(db, task.wp);
+			id = Number(
+				db
+					.prepare(
+						"INSERT INTO tasks (slug, mode, ref, goal_id, title, branch, status, merge_commit, created_at, updated_at) VALUES (?, 'implement', ?, ?, ?, ?, 'merged', ?, ?, ?)",
+					)
+					.run(task.slug, task.id, goal?.id ?? null, task.id, task.branch, commit, ts, ts).lastInsertRowid,
+			);
+		}
+		record(db, id, runId, "merged", { summary });
+		db.exec("COMMIT");
+	} catch (e) {
+		db.exec("ROLLBACK");
+		throw e;
+	}
 }
 
 /**

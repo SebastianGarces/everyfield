@@ -3,8 +3,9 @@
 The DAG defines packages and dependencies. Only evf writes `docs/build-progress.json`.
 Task notes hold progress and blockers. Owners never submit manual progress patches.
 
-1. Review `bin/evf shipped`: the merge commit, exact tested head, required CI and verifier report.
-2. Acknowledge with `bin/evf shipped --clear <task>`. Records remain outside the checkout.
+1. Ship acknowledges every milestone that passes the reviewed-milestone checks. Review
+   `bin/evf shipped` for records ship left unacknowledged: the merge commit, exact tested head, required CI and verifier report.
+2. Acknowledge those with `bin/evf shipped --clear <task>`. Records remain outside the checkout.
    Exact replays do not advance revisions. Acknowledged producer/interface milestones unlock
    dependents, even before the generated progress projection merges.
 3. The home checkout owns the ledger. Only OPS-7 commits it; plan and tooling PRs never do.

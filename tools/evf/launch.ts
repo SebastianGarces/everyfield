@@ -1,7 +1,18 @@
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
-import { ensureTask, openWorkDb } from "./db.ts";
-import { baseRef, fail, git, loadConfig, run, runtimeDir, worktreePath, type Config, type TaskRef } from "./lib.ts";
+import { ensureTask, findTask, openWorkDb, workDbPath } from "./db.ts";
+import {
+	baseRef,
+	fail,
+	git,
+	loadConfig,
+	run,
+	runtimeDir,
+	sleep,
+	worktreePath,
+	type Config,
+	type TaskRef,
+} from "./lib.ts";
 import { chooseSplit, findTui, readLayout, rebalance, type Direction } from "./panes.ts";
 import { taskStart } from "./task.ts";
 
@@ -227,12 +238,117 @@ function acceptTrustDialog(pane: string, agent: string): boolean {
 	return true;
 }
 
+/** Waits around `herdr agent start`. Tests pass short values; production uses LAUNCH_TIMING. */
+export type LaunchTiming = {
+	paneReadyMs: number;
+	paneReadyPollMs: number;
+	busyRetries: number;
+	busyBackoffMs: number;
+};
+export const LAUNCH_TIMING: LaunchTiming = {
+	paneReadyMs: 30_000,
+	paneReadyPollMs: 500,
+	busyRetries: 3,
+	busyBackoffMs: 1_000,
+};
+
+/**
+ * A new pane is an available shell once its shell owns the foreground: `herdr pane process-info` reports
+ * `process_info.foreground_process_group_id` equal to `process_info.shell_pid`. While the shell still starts up
+ * (oh-my-zsh, profile scripts) another process group is in front and `agent start` answers agent_pane_busy.
+ */
+function paneShellReady(pane: string): { ready: boolean; seen: string } {
+	const r = run("herdr", ["pane", "process-info", "--pane", pane]);
+	if (r.code !== 0) return { ready: false, seen: (r.stderr || r.stdout).trim().slice(0, 120) || "no answer" };
+	try {
+		const info = (JSON.parse(r.stdout) as { result?: { process_info?: Record<string, unknown> } }).result?.process_info;
+		const group = info?.foreground_process_group_id,
+			shell = info?.shell_pid;
+		return { ready: typeof shell === "number" && group === shell, seen: `foreground group ${group}, shell ${shell}` };
+	} catch {
+		return { ready: false, seen: "unreadable answer" };
+	}
+}
+function waitForShell(workspace: string, pane: string, timing: LaunchTiming): void {
+	const started = Date.now();
+	for (;;) {
+		const state = paneShellReady(pane);
+		if (state.ready) return;
+		const waited = Date.now() - started;
+		if (waited >= timing.paneReadyMs)
+			fail(
+				`pane ${pane} in workspace ${workspace} was not an available shell after waiting ${Math.round(waited / 100) / 10} s (${state.seen}).`,
+			);
+		sleep(Math.min(timing.paneReadyPollMs, timing.paneReadyMs - waited));
+	}
+}
+
+/** Does an agent named `agent` or any agent in `pane` exist? null when Herdr cannot say. */
+function agentPresent(agent: string, pane: string): boolean | null {
+	const r = run("herdr", ["agent", "list"]);
+	if (r.code !== 0) return null;
+	try {
+		const agents = (JSON.parse(r.stdout) as { result?: { agents?: Array<{ name?: string; pane_id?: string }> } }).result
+			?.agents;
+		if (!Array.isArray(agents)) return null;
+		return agents.some((a) => a.name === agent || a.pane_id === pane);
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Start the seat once. agent_pane_busy retries with growing backoff; before each retry the agent list proves the
+ * earlier start did not succeed late, so a seat never starts twice. Any other failure tries the trust dialog once.
+ */
+function startSeat(plan: LaunchPlan, workspace: string, pane: string, timing: LaunchTiming): void {
+	for (let attempt = 0; ; attempt++) {
+		const started = run("herdr", startArgs(plan, pane));
+		if (started.code === 0) return;
+		const output = (started.stderr || started.stdout).trim();
+		if (!/agent_pane_busy/.test(output)) {
+			if (acceptTrustDialog(pane, plan.agent)) return;
+			fail(
+				`herdr agent start failed in workspace ${workspace} pane ${pane}: ${output}. Read the pane, then close the workspace or retry.`,
+			);
+		}
+		if (attempt >= timing.busyRetries)
+			fail(
+				`herdr agent start stayed busy in workspace ${workspace} pane ${pane} after ${attempt} retries: ${output}. Read the pane, then close the workspace or retry.`,
+			);
+		sleep(timing.busyBackoffMs * 2 ** attempt);
+		const present = agentPresent(plan.agent, pane);
+		if (present === true) return; // The earlier start succeeded late: that seat is the one.
+		if (present === null)
+			fail(
+				`herdr agent start was busy in workspace ${workspace} pane ${pane} and Herdr cannot list agents; not retrying.`,
+			);
+	}
+}
+
 export function launch(
 	root: string,
 	task: TaskRef,
 	role: Role,
-	opts: { mode?: string; prompt?: string; ignoreLoad?: string; dryRun?: boolean; idea?: number },
+	opts: {
+		mode?: string;
+		prompt?: string;
+		ignoreLoad?: string;
+		dryRun?: boolean;
+		idea?: number;
+		timing?: Partial<LaunchTiming>;
+	},
 ): number {
+	const timing = { ...LAUNCH_TIMING, ...opts.timing };
+	// A merged ref fails before it gets a worktree or a row, dry run included. Reading never creates the store.
+	if (existsSync(workDbPath(root))) {
+		const known = openWorkDb(root, { readOnly: true });
+		try {
+			if (findTask(known, task)?.status === "merged") fail(`${task.id} is merged.`);
+		} finally {
+			known.close();
+		}
+	}
 	if (opts.dryRun) return launchDryRun(root, task, role, opts);
 	const cfg = loadConfig(root);
 	if (opts.idea && role !== "ideator") fail("--idea is for the ideator role.");
@@ -281,11 +397,8 @@ export function launch(
 				workspace = idOf(ws.workspace, "workspace_id");
 				pane = idOf(ws.root_pane, "pane_id");
 			}
-			const started = run("herdr", startArgs(plan, pane));
-			if (started.code !== 0 && !acceptTrustDialog(pane, plan.agent))
-				fail(
-					`herdr agent start failed in workspace ${workspace} pane ${pane}: ${(started.stderr || started.stdout).trim()}. ${tui ? "The new pane is closed." : "Read the pane, then close the workspace or retry."}`,
-				);
+			waitForShell(workspace, pane, timing);
+			startSeat(plan, workspace, pane, timing);
 		} catch (error) {
 			// A split pane that never ran its agent goes away; the TUI pane and the other seats stay as they are.
 			if (tui && pane && pane !== tui.pane) {

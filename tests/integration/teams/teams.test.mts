@@ -752,6 +752,86 @@ test("AC:TARGET-TEAM-012 the org chart and its PDF use the same wrapped lines", 
 	assert.equal(Object.hasOwn(exported.nodes[0], "leaderName"), true);
 });
 
+test("AC:TARGET-TEAM-012 an archived Leadership template ministry is never the root of the chart", async () => {
+	// Own the setup: importing the Leadership template again is a no-op when it is already here.
+	ok(await init({ expectedVersion: "2", mode: "import", selections: [{ teamKey: "leadership", roleKeys: [] }] }));
+	const root = (await admin.execute(sql`SELECT id FROM team WHERE plant_id=${P} AND template_key='leadership'`)).rows[0]
+		.id;
+	const archiveRoot = ok(
+		await run(teamsWriter.archive, {
+			requestKey: key(),
+			expectedRevision: await rev("team", root),
+			input: { teamId: root },
+		}),
+	);
+	try {
+		// The data Sebastian saw: only the template Leadership is archived, and a custom "Leadership" is live.
+		const custom = await makeTeam("Leadership");
+		const archivedRoot = ok(await teamsReader.readOrgChart(db, await viewer(), { includeArchived: true })).nodes;
+		assert.equal(archivedRoot.find((node) => node.id === root).parentId, null);
+		assert.equal(archivedRoot.find((node) => node.id === root).archived, true);
+		assert.equal(archivedRoot.find((node) => node.id === custom.id).parentId, null);
+		assert.equal(
+			archivedRoot.some((node) => node.parentId === root),
+			false,
+		);
+		const live = ok(await teamsReader.readOrgChart(db, await viewer(), {}));
+		assert.equal(
+			live.nodes.every((node) => node.parentId === null),
+			true,
+		);
+		const exported = ok(await teamsReader.readOrgChartExport(db, await viewer(), { includeArchived: true }));
+		assert.equal(
+			exported.nodes.some((node) => node.parentId === root),
+			false,
+		);
+	} finally {
+		ok(
+			await run(teamsWriter.restore, {
+				requestKey: key(),
+				expectedRevision: archiveRoot.team.revision,
+				input: { teamId: root },
+			}),
+		);
+	}
+});
+
+test("AC:TARGET-TEAM-002 one edit keeps an optional reason in the history", async () => {
+	const team = await makeTeam("Reason desk");
+	const edit = async (input) => {
+		const at = await rev("team", team.id);
+		ok(await run(teamsWriter.edit, { requestKey: key(), expectedRevision: at, input: { teamId: team.id, ...input } }));
+	};
+	const entries = async () =>
+		ok(await teamsReader.listHistory(db, await viewer(), { teamId: team.id })).entries;
+	await edit({ name: "Reason desk one", reason: "  Spelling fix  " });
+	await edit({ name: "Reason desk two", reason: "   " });
+	await edit({ name: "Reason desk three" });
+	await edit({ name: "Reason desk three" });
+	const found = await entries();
+	// The repeated edit changed nothing, so it adds no entry; the team's creation is the oldest.
+	assert.deepEqual(
+		found.map((entry) => entry.kind),
+		["edit", "edit", "edit", "create"],
+	);
+	const [none, blank, withReason] = found;
+	assert.deepEqual([withReason.reason, blank.reason, none.reason], ["Spelling fix", null, null]);
+	assert.deepEqual(
+		found.slice(0, 3).map((entry) => entry.after.name),
+		["Reason desk three", "Reason desk two", "Reason desk one"],
+	);
+	assert.equal(withReason.before.name, "Reason desk");
+	assert.equal(withReason.after.name, "Reason desk one");
+	refused(
+		await run(teamsWriter.edit, {
+			requestKey: key(),
+			expectedRevision: await rev("team", team.id),
+			input: { teamId: team.id, name: "Too long", reason: "x".repeat(501) },
+		}),
+		"invalid_input",
+	);
+});
+
 test("a roster copy keeps the people it already added", async () => {
 	const team = await makeTeam("Roster desk");
 	const slot = await makeRole(team.id, "Roster role");

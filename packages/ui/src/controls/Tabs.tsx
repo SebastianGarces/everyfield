@@ -7,7 +7,13 @@ import { cn, HoverGroup, Icon, useHoverItem, type IconSvgElement } from "../foun
 
 const SLIDE = { duration: 0.26, ease: [0.2, 0.8, 0.2, 1] } as const;
 
-export type SegmentOption<V extends string> = { value: V; label: string; icon?: IconSvgElement; count?: number };
+export type SegmentOption<V extends string> = {
+	value: V;
+	label: string;
+	icon?: IconSvgElement;
+	count?: number;
+	disabled?: boolean;
+};
 
 type SegmentedProps<V extends string> = {
 	/** The group's accessible name, such as "View". */
@@ -65,9 +71,10 @@ function Segment<V extends string>({ option, size }: { option: SegmentOption<V>;
 	return (
 		<ToggleGroup.Item
 			value={option.value}
+			disabled={option.disabled}
 			{...handlers}
 			className={cn(
-				"relative inline-flex flex-none cursor-pointer items-center gap-1.5 rounded-md font-medium whitespace-nowrap text-text-2 transition-colors duration-150 hover:text-ink data-[state=on]:text-ink data-[state=on]:shadow-[inset_0_0_0_1px_var(--control-edge,transparent)]",
+				"relative inline-flex flex-none cursor-pointer items-center gap-1.5 rounded-md font-medium whitespace-nowrap text-text-2 transition-colors duration-150 hover:text-ink disabled:cursor-not-allowed disabled:opacity-45 data-[state=on]:text-ink data-[state=on]:shadow-[inset_0_0_0_1px_var(--control-edge,transparent)]",
 				size === "sm" ? "h-[30px] px-3 text-sm" : "h-[34px] px-3.5 text-md",
 			)}
 		>
@@ -119,10 +126,17 @@ export function Tabs({ value: controlled, defaultValue = "", onValueChange, ...p
 	);
 }
 
+/**
+ * The bar scrolls sideways only. Its bottom line is an inset shadow and the active underline sits inside the box, so
+ * nothing reaches past the padding box and `overflow-y` can stay hidden without clipping the underline.
+ */
 export function TabsList({ className, ...props }: ComponentPropsWithRef<typeof TabsPrimitive.List>) {
 	return (
 		<TabsPrimitive.List
-			className={cn("-mx-1 flex gap-[26px] overflow-x-auto border-b border-line px-1 pt-1 max-app-sm:gap-5", className)}
+			className={cn(
+				"-mx-1 flex gap-[26px] overflow-x-auto overflow-y-hidden px-1 shadow-[inset_0_-1px_0_var(--ef-line)] pt-1 max-app-sm:gap-5",
+				className,
+			)}
 			{...props}
 		/>
 	);
@@ -141,7 +155,7 @@ export function Tab({
 		<TabsPrimitive.Trigger
 			value={value}
 			className={cn(
-				"relative inline-flex flex-none cursor-pointer items-center gap-2 rounded-t-xs pb-3 text-[15px] font-medium whitespace-nowrap text-text-3 transition-colors duration-150 hover:text-ink data-[state=active]:text-ink",
+				"relative inline-flex flex-none cursor-pointer items-center gap-2 rounded-t-xs pb-3 text-[15px] font-medium whitespace-nowrap text-text-3 transition-colors duration-150 hover:text-ink disabled:cursor-not-allowed disabled:opacity-45 data-[state=active]:text-ink",
 				className,
 			)}
 			{...props}
@@ -153,7 +167,7 @@ export function Tab({
 					layoutId={tabs?.indicator}
 					transition={SLIDE}
 					aria-hidden="true"
-					className="absolute inset-x-0 -bottom-px h-0.5 bg-ink"
+					className="absolute inset-x-0 bottom-0 h-0.5 bg-ink"
 				/>
 			) : null}
 		</TabsPrimitive.Trigger>

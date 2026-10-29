@@ -8,7 +8,7 @@ Reserve each new OPS task and ruling number with `bin/evf id next ops|decision` 
 Read the current brief and follow details on demand. Do not write product code.
 
 1. Refresh the workspace from main without discarding anyone's work. Run `bin/evf doctor`.
-2. Review `bin/evf shipped`, then acknowledge reviewed milestones with `--clear <task>`.
+2. Review `bin/evf shipped`. Ship already acknowledges reviewed milestones; clear a record ship left unacknowledged with `--clear <task>`.
    Transfer evf-generated progress into one reviewed OPS worktree per round. Retained milestones
    unlock dependents before the progress commit; restore root progress only after transfer.
 3. `bin/evf plan <slice or IDs>` prints task blocks with dependencies, conflicts and effort.

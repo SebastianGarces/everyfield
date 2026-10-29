@@ -24,10 +24,10 @@ import {
 } from "./lib.ts";
 import { maintenanceScope, requireTaskScope } from "./policy.ts";
 import { checkPrBody } from "./pr-body.ts";
-import { sessionsRecorded } from "./db.ts";
+import { markMerged, openWorkDb, sessionsRecorded } from "./db.ts";
 import { withShipQueue, type QueueTiming } from "./ship-queue.ts";
 import { formatScope, wpScope } from "./scope.ts";
-import { recordProgress, type ShippedRecord } from "./progress.ts";
+import { acknowledgeShipped, recordProgress, type ShippedRecord } from "./progress.ts";
 import { requireVerifiedHead } from "./verify.ts";
 import { stack } from "./task.ts";
 import { requireFreeMigrationNumbers } from "./migrations.ts";
@@ -666,15 +666,28 @@ function afterMerge(
 	mkdirSync(dir, { recursive: true });
 	writeFileSync(join(dir, `${task.slug}.json`), `${JSON.stringify(record, null, 2)}\n`);
 	git(root, "fetch", "--quiet", cfg.remote, cfg.baseBranch);
-	const recorded = recordProgress(root, record, false);
+	const outcome = acknowledgeShipped(root, record);
+	if (outcome === "acknowledged")
+		writeFileSync(join(dir, `${task.slug}.json`), `${JSON.stringify({ ...record, acknowledged: true }, null, 2)}\n`);
 	console.log(`ship: merged PR #${prNumber} as ${mergeSha.slice(0, 10)}.`);
 	if (task.kind === "fb") onFeedbackShipped(root, task);
-	else if (recorded === false) console.log("ship: merged; no package progress recorded.");
+	else if (outcome === "none") console.log("ship: merged; no package progress recorded.");
+	else if (outcome === "acknowledged") console.log(`progress: recorded and acknowledged automatically for ${task.id}.`);
+	else if (outcome === "closures")
+		console.log(
+			`progress: recorded automatically; package closures wait for the coordinator: evf shipped --clear ${task.id}.`,
+		);
 	else
 		console.log(
-			`progress: recorded automatically; the coordinator reviews and acknowledges with evf shipped --clear ${task.id}.`,
+			`progress: ${task.id} merged but its reviewed-milestone checks failed; the coordinator reviews it with evf shipped.`,
 		);
 
+	const db = openWorkDb(root);
+	try {
+		markMerged(db, task, mergeSha, null);
+	} finally {
+		db.close();
+	}
 	if (task.kind !== "ops") stack(root, task, "down", true);
 	const removed = run("git", ["worktree", "remove", wt], { cwd: root });
 	if (removed.code === 0) {

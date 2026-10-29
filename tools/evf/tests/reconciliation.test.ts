@@ -7,7 +7,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, cpSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { resolve, join } from "node:path";
+import { dirname, resolve, join } from "node:path";
 import { buildBlocks, renderBlocks } from "../plan.ts";
 import { loadDag, loadRegistry } from "../lib.ts";
 
@@ -56,6 +56,7 @@ test("INV-context: load current acceptance and fail when its required input is m
 });
 
 import { fixture } from "./fixtures.ts";
+import { nextStage } from "../drive.ts";
 import { parseTask, evfDataDir, evidenceDir, loadConfig, runtimeDir, independentReview } from "../lib.ts";
 import {
 	feedbackTriage,
@@ -298,7 +299,8 @@ test("INV-workflow-routing: Next server paths stay with implementor and presenta
 });
 
 import { ship, listShipped, prOpen, checkPr } from "../ship.ts";
-import { ensureTask, openWorkDb } from "../db.ts";
+import { driveOnce } from "../drive.ts";
+import { ensureTask, findTask, openWorkDb } from "../db.ts";
 import { withShipQueue } from "../ship-queue.ts";
 import { awaitLoad, loadLimit } from "../load.ts";
 import { availableParallelism } from "node:os";
@@ -2121,8 +2123,28 @@ test("INV-phase7-progress: ship and acknowledgement preserve reviewed milestones
 		state.comments["77"][0].body =
 			`EVF-Review: ${JSON.stringify({ head: sha, verifier: VERIFIER, verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
 		f.setState(state);
+		const store = openWorkDb(f.root);
+		ensureTask(store, task, "implement");
+		store.prepare("UPDATE tasks SET status = 'pr_open', pr_number = 77 WHERE ref = ?").run(task.id);
 		console.log = () => {};
 		assert.equal(ship(f.root, task), 0);
+		// OPS-66: a standalone ship marks the current row merged with the merge commit, once.
+		const shipped = store.prepare("SELECT id, status, merge_commit FROM tasks WHERE ref = ?").all(task.id);
+		assert.equal(shipped.length, 1);
+		assert.equal(shipped[0].status, "merged");
+		assert.equal(shipped[0].merge_commit, f.git("rev-parse", "HEAD"));
+		assert.equal(
+			store.prepare("SELECT COUNT(*) AS n FROM events WHERE task_id = ? AND type = 'merged'").get(shipped[0].id).n,
+			1,
+		);
+		assert.equal(nextStage(task, findTask(store, task), []).stage, "done");
+		const nextOut = spawnSync(process.execPath, [join(source, "tools/evf/main.ts"), "next", task.id], {
+			cwd: f.root,
+			encoding: "utf8",
+			env: { ...process.env, EVF_RUN: "" },
+		});
+		assert.equal(JSON.parse(nextOut.stdout).stage, "done");
+		store.close();
 		const path = join(evfDataDir(f.root), "shipped", `${task.slug}.json`),
 			record = JSON.parse(readFileSync(path, "utf8"));
 		assert.equal(record.verified_head, sha);
@@ -2152,7 +2174,7 @@ test("INV-phase7-progress: ship and acknowledgement preserve reviewed milestones
 		assert.equal(reviewedMilestone(f.root, held), true, "anthropic reviewed xai after the waiver");
 		assert.deepEqual(record.verification.approval.quality, approvedQuality);
 		assert.equal(loadProgress(f.root)["WP-001"].status, "in_progress");
-		assert.equal(producerReady(f.root, "WP-001"), false);
+		assert.equal(producerReady(f.root, "WP-001"), true, "ship acknowledges the reviewed milestone itself");
 		listShipped(f.root, [task.id]);
 		assert.equal(producerReady(f.root, "WP-001"), true);
 		requireImplementation(f.root, "WP-032");
@@ -2649,7 +2671,7 @@ test("BUG-ops15-ship: an outside-path merge succeeds and cleans up without packa
 		const before = readFileSync(join(f.root, "docs/build-progress.json"), "utf8");
 		console.log = (...args) => lines.push(args.join(" "));
 		assert.equal(ship(f.root, task), 0);
-		assert.match(lines.join("\n"), /merged; no package progress recorded/);
+		assert.match(lines.join("\n"), /progress: WP-001 merged but its reviewed-milestone checks failed.*evf shipped/);
 		assert.equal(readFileSync(join(f.root, "docs/build-progress.json"), "utf8"), before);
 		assert.equal(readFileSync(join(runtimeDir(f.root, task), "stopped"), "utf8"), "yes");
 		assert.equal(existsSync(wt), false);
@@ -2874,6 +2896,135 @@ test("OPS-59-ship: a work-store row for the branch does not stop an ordinary PR;
 		insertRun("verify", "verifier", VERIFIER.session);
 		assert.throws(() => ship(f.root, f.taskRef), /fixture merge barrier/, "and ships with them");
 	} finally {
+		db.close();
+		f.close();
+	}
+});
+
+/** WP-001/OPS-67 ship setup: an approved, green WP task whose merge commit lands on the base ref. */
+function wpShipFixture(mergeBranchOverride?: string, file = "packages/reference/fixture.txt") {
+	const f = mergeFixture();
+	f.authorize("WP-032");
+	const progressPath = join(f.root, "docs/build-progress.json"),
+		initial = JSON.parse(readFileSync(progressPath, "utf8"));
+	initial.packages["WP-001"].status = "not_started";
+	writeFileSync(progressPath, JSON.stringify(initial));
+	reconcileProgress(f.root);
+	f.commit();
+	f.git("push", "-q", "origin", "main");
+	const task = parseTask("WP-001"),
+		wt = f.task(task.slug);
+	mkdirSync(dirname(join(wt, file)), { recursive: true });
+	writeFileSync(join(wt, file), "Reviewed reference bundle");
+	execFileSync("git", ["-C", wt, "add", file]);
+	execFileSync("git", ["-C", wt, "commit", "-qm", "Reviewed fixture output"]);
+	const sha = execFileSync("git", ["-C", wt, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+	if (mergeBranchOverride) {
+		f.git("checkout", "-q", "-b", mergeBranchOverride);
+		mkdirSync(join(f.root, "packages/reference"), { recursive: true });
+		writeFileSync(join(f.root, "packages/reference/fixture.txt"), "Different merged bytes");
+		f.git("add", "packages/reference/fixture.txt");
+		f.git("commit", "-qm", "Other bytes");
+		f.git("checkout", "-q", "main");
+	}
+	const state = f.getState();
+	state.allowMerge = true;
+	state.mergeBranch = mergeBranchOverride ?? task.branch;
+	state.pr.headRefOid = sha;
+	state.comments["77"][0].body =
+		`EVF-Review: ${JSON.stringify({ head: sha, verifier: VERIFIER, verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
+	f.setState(state);
+	// The work store knows the seats evf launched, then the drive reaches the ship stage.
+	const db = openWorkDb(f.root),
+		row = ensureTask(db, task, "implement");
+	db.prepare("UPDATE tasks SET spec = ?, pr_number = 77 WHERE id = ?").run(
+		"Goal: g.\nDone criteria:\n1. One.\nNon-goals: none.",
+		row.id,
+	);
+	for (const [stage, role, session] of [
+		["implement", "implementer", AUTHOR.session],
+		["verify", "verifier", VERIFIER.session],
+		["ci", "evf", null],
+	] as const)
+		db.prepare(
+			"INSERT INTO runs (task_id, stage, role, round, session_id, status, started_at) VALUES (?, ?, ?, 0, ?, 'passed', ?)",
+		).run(row.id, stage, role, session, new Date().toISOString());
+	const shipped = () => JSON.parse(readFileSync(join(evfDataDir(f.root), "shipped", `${task.slug}.json`), "utf8"));
+	return { f, db, task, progressPath, shipped };
+}
+const DRIVE_TIMING = { waitMs: 2000, ciWaitMs: 200, ciPollMs: 10, seatPollMs: 10, startGraceMs: 10 };
+
+test("OPS-67-ship-ack: the drive's ship stage acknowledges a reviewed milestone, so producerReady is true without shipped --clear", () => {
+	const { f, db, task, progressPath, shipped } = wpShipFixture(),
+		log = console.log;
+	try {
+		console.log = () => {};
+		assert.equal(driveOnce(f.root, task, DRIVE_TIMING).stage, "done");
+		const stage = db.prepare("SELECT status FROM runs WHERE stage = 'ship'").get() as { status: string };
+		assert.equal(stage.status, "passed");
+		assert.equal(producerReady(f.root, "WP-001"), true, "dependents verify right away");
+		assert.equal(shipped().acknowledged, true);
+		assert.equal(loadProgress(f.root)["WP-001"].milestones[task.id].acknowledged, true);
+
+		// --clear on a record ship already acknowledged changes nothing.
+		const progress = readFileSync(progressPath, "utf8"),
+			record = readFileSync(join(evfDataDir(f.root), "shipped", `${task.slug}.json`), "utf8");
+		listShipped(f.root, [task.id]);
+		assert.equal(readFileSync(progressPath, "utf8"), progress);
+		assert.equal(readFileSync(join(evfDataDir(f.root), "shipped", `${task.slug}.json`), "utf8"), record);
+
+		// --clear still works on an older unacknowledged record.
+		const older = shipped();
+		delete older.acknowledged;
+		writeFileSync(join(evfDataDir(f.root), "shipped", `${task.slug}.json`), JSON.stringify(older));
+		const canonical = JSON.parse(progress);
+		canonical.packages["WP-001"].milestones[task.id].acknowledged = false;
+		writeFileSync(progressPath, JSON.stringify(canonical));
+		assert.equal(producerReady(f.root, "WP-001"), false);
+		listShipped(f.root, [task.id]);
+		assert.equal(producerReady(f.root, "WP-001"), true);
+		assert.equal(shipped().acknowledged, true);
+	} finally {
+		console.log = log;
+		db.close();
+		f.close();
+	}
+});
+
+test("OPS-67-ship-ack: a record that fails reviewedMilestone stays unacknowledged, ship does not throw and names the task", () => {
+	const { f, db, task, shipped } = wpShipFixture("other-bytes"),
+		log = console.log,
+		lines: string[] = [];
+	try {
+		console.log = (...a: unknown[]) => lines.push(a.join(" "));
+		assert.equal(driveOnce(f.root, task, DRIVE_TIMING).stage, "done");
+		const stage = db.prepare("SELECT status FROM runs WHERE stage = 'ship'").get() as { status: string };
+		assert.equal(stage.status, "passed", "the merge is done, so the stage does not fail");
+		assert.equal(shipped().acknowledged, undefined);
+		assert.equal(producerReady(f.root, "WP-001"), false);
+		const line = lines.filter((l) => l.startsWith("progress:") && l.includes("WP-001") && l.includes("evf shipped"));
+		assert.equal(line.length, 1, lines.join("\n"));
+		assert.ok(!lines.some((l) => /shipped --clear WP-001/.test(l)), "ship does not tell the coordinator to clear it");
+	} finally {
+		console.log = log;
+		db.close();
+		f.close();
+	}
+});
+
+test("OPS-67-ship-ack: a WP record with no owning-path diff stays unacknowledged and names the task", () => {
+	const { f, db, task, shipped } = wpShipFixture(undefined, "outside-owned-paths/note.txt"),
+		log = console.log,
+		lines: string[] = [];
+	try {
+		console.log = (...a: unknown[]) => lines.push(a.join(" "));
+		assert.equal(driveOnce(f.root, task, DRIVE_TIMING).stage, "done");
+		assert.equal(shipped().acknowledged, undefined);
+		assert.equal(producerReady(f.root, "WP-001"), false);
+		const line = lines.filter((l) => l.startsWith("progress:") && l.includes("WP-001") && l.includes("evf shipped"));
+		assert.equal(line.length, 1, lines.join("\n"));
+	} finally {
+		console.log = log;
 		db.close();
 		f.close();
 	}

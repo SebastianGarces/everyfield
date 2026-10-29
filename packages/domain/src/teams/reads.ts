@@ -85,6 +85,7 @@ export const teamsReader = {
 						'before', a.before_value, 'after', a.after_value
 					) ORDER BY a.occurred_at DESC, a.id DESC)
 					FROM (SELECT * FROM audit_event WHERE tenant_id = ${viewer.plantId}::uuid AND subject_id = ${input.teamId}::uuid
+							AND kind <> 'noop'
 						ORDER BY occurred_at DESC, id DESC LIMIT 200) a), '[]'::json) AS entries`,
 			);
 			owner(viewer.plantId, found.owner);
@@ -298,8 +299,7 @@ async function chartNodes(db: Reader, viewer: Viewer, includeArchived: boolean) 
 	);
 	const all = chartRow.array().parse(found.nodes);
 	const visible = (includeArchived ? all : all.filter((node) => !node.archived)).slice(0, 200);
-	const root =
-		visible.find((node) => node.templateKey === "leadership" && !node.archived) ??
-		visible.find((node) => node.templateKey === "leadership");
+	// An archived ministry is never a root: only a live Leadership-template ministry is (REQ-TEAM-012).
+	const root = visible.find((node) => node.templateKey === "leadership" && !node.archived);
 	return visible.map((node) => ({ ...node, parentId: root && node.id !== root.id ? root.id : null }));
 }

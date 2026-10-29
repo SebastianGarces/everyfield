@@ -81,14 +81,28 @@ evf runs pr (from the PR body the implementer wrote to the task's runtime dir), 
 and ship itself and records them as runs of role `evf`. A failed verify or ci costs a round; the fourth
 round sets the task to escalated, records `loop_cap_hit` and `escalation`, shows a Herdr notification
 and launches nothing more. Any other failure costs no round, but three failures in a row without a
-passed stage escalate the same way, so no loop runs unattended forever. A blocked seat is notified every
-10 minutes until someone answers its pane. Each launch gets its own Herdr agent, `<role>-<slug>-<run>`,
+passed stage escalate the same way, so no loop runs unattended forever. `evf task reopen <task> --reason
+"<two words or more>"` answers an escalation: it sets an escalated task to `pr_open` (it has a PR) or
+`active` and records a `reopen` event holding the highest run id. Later failure counts start after that
+run, so the task gets three more failures before it escalates again. It resets only the trailing-failure
+count, never the round (a task at the loop cap escalates again on its next failed verify or ci), and
+it edits no run, event, approval or proof. It replaces the hand-written sqlite UPDATE. It refuses a task
+that is not escalated and refuses inside a seat (`EVF_RUN` set). A blocked seat is notified once per
+blocked episode and polled every few seconds until it leaves `blocked`; an `idle` report before the launch prompt
+began its turn is not a finished turn. `evf launch` waits until the new pane is an available shell (Herdr
+`pane process-info`: `foreground_process_group_id` equals `shell_pid`, 30 s) and retries `agent_pane_busy`
+three times with backoff, never starting a seat twice. Each launch gets its own Herdr agent, `<role>-<slug>-<run>`,
 so a later round never waits on an earlier seat. `evf next <task>` prints the next stage without acting
 and writes nothing; `--once` performs one transition; `--detach` runs the loop in the background with a
 log under the Git common directory. One drive per task: a second `evf drive` refuses while the first
 process is alive (pid file under `evf/drive/`). If a drive dies inside its own pr, ci or ship stage, the
 next drive aborts that run without a round and performs the stage again; a PR GitHub already merged is
 recorded, not shipped twice. Jonah polls `evf status --json`.
+
+A merge ends the drive and the task. The drive exits 0 directly after its ship stage closes passed and makes
+no further transition. A standalone `evf ship` writes the same record: the ref's current row becomes `merged`
+with its merge commit and one `merged` event, or one merged row when the store had none, so `evf next` prints
+`done` (reason `merged`). Rewriting a row already merged with that commit changes nothing.
 
 `evf task new` records the verbatim ask, `evf task spec` the spec with its hash (`tools/evf/spec.ts` reads its
 sections; the Done list starts at a Done header such as `Done when:` or `## Done criteria`), `evf proof add` one
@@ -98,6 +112,12 @@ A verify run closes passed only when every numbered Done criterion has a `met` o
 worktree head (guard rail 3). For a driven task (one with an evf run), ship also refuses an EVF-Author
 or EVF-Review session that evf never launched; a task row alone, from `evf check` or a launch by hand,
 changes nothing for an ordinary PR.
+
+A ref has one current row: its latest row that is not `abandoned`, in any status. Every command that starts
+work (`evf drive`, `evf task spec`, `evf launch`, `evf proof add`) uses that row and never inserts a row for a
+merged ref; `evf drive` prints stage `done`, and `evf task spec` and `evf launch` fail. Only `evf task new
+<ref> --ask-file <file>` reopens a merged ref: it inserts one `new` row and its `task_new` event names the
+merged row it reopens (`reopens`).
 
 ## Prototype mode
 
@@ -409,7 +429,7 @@ Internal creation is source-marker keyed in a verified private repo. A lost resp
 
 ## Progress and recovery
 
-Only evf writes canonical progress on ship and coordinator acknowledgement. Read
+Only evf writes canonical progress. Ship acknowledges a milestone that passes the reviewed-milestone checks; `evf shipped --clear <task>` is for records ship left unacknowledged (failed checks, package closures, older records). Read
 [the coordinator workflow](../../docs/build-agent-workflow.md). Retained records preserve CI,
 review, merge and owning-path evidence. Full package closure belongs to integration.
 WP-097's documentary fast-track import remains available with its original owner go-live record.

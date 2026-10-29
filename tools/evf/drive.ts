@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, openSync, readFileSync, unlinkSync, writeFileSyn
 import { join } from "node:path";
 import { spawn } from "node:child_process";
 import type { DatabaseSync } from "node:sqlite";
-import { ensureTask, findTask, openWorkDb, type TaskRow } from "./db.ts";
+import { ensureTask, findTask, markMerged, newTaskRow, openWorkDb, record, type TaskRow } from "./db.ts";
 import { ideaWorktree, launch, type Role } from "./launch.ts";
 import {
 	EvfError,
@@ -64,17 +64,6 @@ type RunRow = { id: number; stage: string; role: string; status: string; round: 
 
 const now = () => new Date().toISOString();
 const headline = (text: string, max = 160) => text.split("\n")[0]?.slice(0, max) ?? "";
-const record = (
-	db: DatabaseSync,
-	taskId: number,
-	runId: number | null,
-	type: string,
-	payload: Record<string, unknown>,
-) =>
-	db
-		.prepare("INSERT INTO events (task_id, run_id, ts, type, payload) VALUES (?, ?, ?, ?, ?)")
-		.run(taskId, runId, now(), type, JSON.stringify(payload));
-
 const runsOf = (db: DatabaseSync, taskId: number): RunRow[] =>
 	db
 		.prepare("SELECT id, stage, status, role, round, summary FROM runs WHERE task_id = ? ORDER BY started_at, id")
@@ -94,11 +83,23 @@ const unknownTask = (task: TaskRef): TaskRow => ({
 	worktree: null,
 });
 
-/** Failed or aborted runs since the last passed one. An evf run aborted by a restart is not a failure. */
-const trailingFailures = (runs: RunRow[]): number => {
+/** The run id the latest `evf task reopen` marked: only runs after it count as trailing failures. 0 when never reopened. */
+const reopenMarker = (db: DatabaseSync, taskId: number): number => {
+	const row = db
+		.prepare("SELECT payload FROM events WHERE task_id = ? AND type = 'reopen' ORDER BY id DESC LIMIT 1")
+		.get(taskId) as { payload: string } | undefined;
+	return row ? Number((JSON.parse(row.payload) as { after_run?: number }).after_run) || 0 : 0;
+};
+
+/**
+ * Failed or aborted runs since the last passed one, counting only runs after the latest reopen marker.
+ * An evf run aborted by a restart is not a failure.
+ */
+const trailingFailures = (runs: RunRow[], reopenAfter: number): number => {
 	let n = 0;
 	for (let i = runs.length - 1; i >= 0; i--) {
 		const r = runs[i]!;
+		if (r.id <= reopenAfter) break;
 		if (r.status === "passed") break;
 		if (r.status === "started" || (r.role === "evf" && r.status === "aborted")) continue;
 		n++;
@@ -107,11 +108,11 @@ const trailingFailures = (runs: RunRow[]): number => {
 };
 
 /** Prototype mode. Idea seats launch one per transition and run side by side; the pick is Sebastian's, not evf's. */
-function nextPrototype(task: TaskRef, t: TaskRow, runs: RunRow[], picked: boolean): Next {
+function nextPrototype(task: TaskRef, t: TaskRow, runs: RunRow[], picked: boolean, reopenAfter: number): Next {
 	const round = t.round;
 	if (t.status === "done") return { stage: "done", round, reason: "handed off" };
 	if (t.status === "escalated") return { stage: "escalated", round, reason: "escalated" };
-	const failures = trailingFailures(runs);
+	const failures = trailingFailures(runs, reopenAfter);
 	if (failures >= RETRY_CAP)
 		return { stage: "escalated", round, reason: `${failures} failures in a row without a passed stage` };
 	const go = (stage: Stage, reason: string, idea?: number): Next => ({
@@ -150,14 +151,14 @@ function nextPrototype(task: TaskRef, t: TaskRow, runs: RunRow[], picked: boolea
 }
 
 /** Pure: the next stage from the task's closed runs. Rounds are counted when a verify or ci run closes failed. */
-export function nextStage(task: TaskRef, t: TaskRow, runs: RunRow[], picked = false): Next {
+export function nextStage(task: TaskRef, t: TaskRow, runs: RunRow[], picked = false, reopenAfter = 0): Next {
 	const round = t.round;
-	if (t.mode === "prototype") return nextPrototype(task, t, runs, picked);
+	if (t.mode === "prototype") return nextPrototype(task, t, runs, picked, reopenAfter);
 	if (t.status === "merged" || t.status === "done") return { stage: "done", round, reason: t.status };
 	if (t.status === "escalated") return { stage: "escalated", round, reason: `loop cap of ${LOOP_CAP} rounds hit` };
 	const open = runs.find((r) => r.status === "started");
 	if (open) return { stage: "waiting", round, run: open.id, reason: `the ${open.stage} seat is still open` };
-	const failures = trailingFailures(runs);
+	const failures = trailingFailures(runs, reopenAfter);
 	if (failures >= RETRY_CAP)
 		return { stage: "escalated", round, reason: `${failures} failures in a row without a passed stage` };
 	const go = (stage: Stage, reason: string): Next => ({ stage, role: seatOf(stage, task), round, reason });
@@ -194,7 +195,17 @@ export function next(root: string, task: TaskRef): number {
 	const db = openWorkDb(root);
 	try {
 		const t = findTask(db, task) ?? unknownTask(task);
-		console.log(JSON.stringify(nextStage(task, t, t.id ? runsOf(db, t.id) : [], !!(t.id && pickOf(db, t.id)))));
+		console.log(
+			JSON.stringify(
+				nextStage(
+					task,
+					t,
+					t.id ? runsOf(db, t.id) : [],
+					!!(t.id && pickOf(db, t.id)),
+					t.id ? reopenMarker(db, t.id) : 0,
+				),
+			),
+		);
 		return 0;
 	} finally {
 		db.close();
@@ -299,7 +310,7 @@ export function runDone(
 		} else {
 			db.prepare("UPDATE tasks SET updated_at = ? WHERE id = ?").run(now(), r.task_id);
 			if (opts.status === "failed") {
-				const failures = trailingFailures(runsOf(db, r.task_id));
+				const failures = trailingFailures(runsOf(db, r.task_id), reopenMarker(db, r.task_id));
 				if (failures >= RETRY_CAP) escalated = `${failures} failures in a row, last in ${r.stage}. ${first}`;
 			}
 		}
@@ -321,7 +332,10 @@ export function taskNew(root: string, task: TaskRef, opts: { askFile: string; ti
 	try {
 		const mode = opts.mode ?? "implement";
 		if (!["implement", "prototype"].includes(mode)) fail("--mode must be implement or prototype.");
-		const t = ensureTask(db, task, mode);
+		// The one command that reopens a merged ref: the merged row keeps its status and commit.
+		const prior = findTask(db, task);
+		const reopens = prior?.status === "merged" ? prior : undefined;
+		const t = reopens ? newTaskRow(db, task, mode) : ensureTask(db, task, mode);
 		if (t.mode !== mode)
 			fail(`${t.ref} already has an open ${t.mode} task; finish or abandon it before a ${mode} task.`);
 		db.prepare("UPDATE tasks SET ask = ?, title = ?, updated_at = ? WHERE id = ?").run(
@@ -330,7 +344,10 @@ export function taskNew(root: string, task: TaskRef, opts: { askFile: string; ti
 			now(),
 			t.id,
 		);
-		record(db, t.id, null, "task_new", { summary: `${t.ref}: ${headline(opts.title ?? ask)}` });
+		record(db, t.id, null, "task_new", {
+			summary: `${t.ref}: ${headline(opts.title ?? ask)}`,
+			...(reopens ? { reopens: reopens.id } : {}),
+		});
 		console.log(JSON.stringify({ task: t.ref, id: t.id, status: t.status, mode: t.mode }));
 		return 0;
 	} finally {
@@ -345,6 +362,8 @@ export function taskSpec(root: string, task: TaskRef, file: string): number {
 	const db = openWorkDb(root);
 	try {
 		const t = ensureTask(db, task, "implement");
+		if (t.status === "merged")
+			fail(`${t.ref} is merged. Start a new task with evf task new ${t.ref} --ask-file <file>.`);
 		db.prepare(
 			"UPDATE tasks SET spec = ?, spec_hash = ?, status = CASE WHEN status = 'new' THEN 'specced' ELSE status END, updated_at = ? WHERE id = ?",
 		).run(spec, hash, now(), t.id);
@@ -391,6 +410,37 @@ export function taskPick(root: string, task: TaskRef, idea: number, ownerApprova
 			summary: `Sebastian picked idea ${idea}: ${ownerApproval.trim().slice(0, 120)}`,
 		});
 		console.log(`pick: ${t.ref} idea ${idea}${head ? ` at ${head.slice(0, 10)}` : ""}.`);
+		return 0;
+	} finally {
+		db.close();
+	}
+}
+
+/** The coordinator's answer to an escalation: leave `escalated` and mark the run id after which failures count again. */
+export function taskReopen(root: string, task: TaskRef, reason: string): number {
+	if (process.env.EVF_RUN)
+		fail("A seat cannot reopen its own escalation: the coordinator runs evf task reopen from a human shell.");
+	if (reason.trim().split(/\s+/).filter(Boolean).length < 2)
+		fail('Give the cause in two words or more: --reason "<words>".');
+	const db = openWorkDb(root);
+	try {
+		const t = findTask(db, task);
+		if (!t) fail(`${task.id} has no task row, so there is nothing to reopen.`);
+		if (t.status !== "escalated") fail(`${t.ref} is ${t.status}, not escalated: only an escalated task reopens.`);
+		const status = t.pr_number ? "pr_open" : "active";
+		const { m: afterRun } = db.prepare("SELECT COALESCE(MAX(id), 0) AS m FROM runs WHERE task_id = ?").get(t.id) as {
+			m: number;
+		};
+		db.prepare("UPDATE tasks SET status = ?, updated_at = ? WHERE id = ?").run(status, now(), t.id);
+		record(db, t.id, null, "reopen", {
+			reason: reason.trim(),
+			from: "escalated",
+			to: status,
+			round: t.round,
+			after_run: afterRun,
+			summary: `${t.ref} reopened to ${status}: ${reason.trim()}`,
+		});
+		console.log(`reopen: ${t.ref} is ${status}.`);
 		return 0;
 	} finally {
 		db.close();
@@ -636,24 +686,26 @@ const checksOf = (wt: string, number: number): { pending: string[]; failed: stri
 	};
 };
 
-export type DriveTiming = { waitMs: number; nudgeMs: number; ciWaitMs: number; ciPollMs: number };
+/**
+ * seatPollMs: how often a blocked seat, or a seat whose first turn has not begun, is looked at again.
+ * startGraceMs: how long after the launch prompt an idle report counts as "the turn has not begun yet".
+ */
+export type DriveTiming = {
+	waitMs: number;
+	ciWaitMs: number;
+	ciPollMs: number;
+	seatPollMs: number;
+	startGraceMs: number;
+};
 const DRIVE_TIMING: DriveTiming = {
 	waitMs: 6 * 60 * 60_000,
-	nudgeMs: 10 * 60_000,
+	seatPollMs: 5_000,
+	startGraceMs: 30_000,
 	ciWaitMs: 40 * 60_000,
 	ciPollMs: 30_000,
 };
 
 type Outcome = { status: "passed" | "failed"; summary: string };
-const merged = (db: DatabaseSync, t: TaskRow, runId: number, commit: string | null) => {
-	db.prepare("UPDATE tasks SET status = 'merged', merge_commit = ?, updated_at = ? WHERE id = ?").run(
-		commit,
-		now(),
-		t.id,
-	);
-	record(db, t.id, runId, "merged", { summary: `${t.ref} merged${commit ? ` as ${commit.slice(0, 10)}` : ""}` });
-};
-
 /** The pr stage: push and open the PR from the body the implementer wrote, then remember its number. */
 function prStage(db: DatabaseSync, root: string, task: TaskRef, t: TaskRow, wt: string): Outcome {
 	const body = prBodyPath(root, task);
@@ -702,7 +754,7 @@ function shipStage(db: DatabaseSync, root: string, task: TaskRef, t: TaskRow, ru
 	};
 	const before = view();
 	if (before.state !== "MERGED") ship(root, task);
-	merged(db, t, runId, before.state === "MERGED" ? before.commit : view().commit);
+	markMerged(db, task, before.state === "MERGED" ? before.commit : view().commit, runId);
 	return { status: "passed", summary: before.state === "MERGED" ? "already merged on GitHub" : "shipped" };
 }
 
@@ -734,7 +786,36 @@ function evfStage(db: DatabaseSync, root: string, task: TaskRef, t: TaskRow, sta
 	runDone(root, runId, outcome);
 }
 
-/** Wait on an open seat. A blocked seat is reported and waited on; an idle seat that left its stage open is nudged once, then aborted. */
+const runStatus = (db: DatabaseSync, runId: number) =>
+	(db.prepare("SELECT status FROM runs WHERE id = ?").get(runId) as { status: string }).status;
+
+/** The agent state in `herdr agent get|wait` output, or "unknown" when Herdr printed none. */
+function parseAgentState(stdout: string): string {
+	try {
+		return String(
+			(JSON.parse(stdout) as { result?: { agent?: { agent_status?: string } } }).result?.agent?.agent_status ??
+				"unknown",
+		);
+	} catch {
+		return "unknown";
+	}
+}
+
+const agentState = (agent: string) => parseAgentState(run("herdr", ["agent", "get", agent]).stdout);
+
+/** When the launch prompt went in, or null for a seat launched without one. */
+function promptSentAt(db: DatabaseSync, runId: number): number | null {
+	const row = db
+		.prepare("SELECT ts FROM events WHERE run_id = ? AND type = 'prompt_sent' ORDER BY id LIMIT 1")
+		.get(runId) as { ts: string } | undefined;
+	return row ? Date.parse(row.ts) : null;
+}
+
+/**
+ * Wait on an open seat. A blocked seat is reported once per episode and polled until it leaves `blocked`; an idle report
+ * before the launch prompt began its turn is not a finished turn; a seat that goes idle after its turn with its stage
+ * open is nudged once, then aborted.
+ */
 function waitOnSeat(
 	db: DatabaseSync,
 	root: string,
@@ -752,6 +833,7 @@ function waitOnSeat(
 		runDone(root, runId, { status: "failed", summary: "no Herdr agent recorded for this run" });
 		return;
 	}
+	let turnSeen = false;
 	for (let nudged = false; ;) {
 		const waited = run("herdr", [
 			"agent",
@@ -766,17 +848,8 @@ function waitOnSeat(
 			"--timeout",
 			String(timing.waitMs),
 		]);
-		const status = (db.prepare("SELECT status FROM runs WHERE id = ?").get(runId) as { status: string }).status;
-		if (status !== "started") return;
-		let state = "unknown";
-		try {
-			state = String(
-				(JSON.parse(waited.stdout) as { result?: { agent?: { agent_status?: string } } }).result?.agent?.agent_status ??
-					"unknown",
-			);
-		} catch {
-			// Herdr printed no JSON: treat as a timeout.
-		}
+		if (runStatus(db, runId) !== "started") return;
+		const state = parseAgentState(waited.stdout);
 		if (waited.code !== 0 && state === "unknown") {
 			runDone(root, runId, {
 				status: "failed",
@@ -787,8 +860,26 @@ function waitOnSeat(
 		if (state === "blocked") {
 			record(db, t.id, runId, "blocked", { summary: `${r.herdr_agent} is blocked on a prompt` });
 			notify(`${task.id} seat blocked`, `${r.herdr_agent} waits on a prompt in its pane.`);
-			sleep(timing.nudgeMs);
+			do {
+				sleep(timing.seatPollMs);
+				if (runStatus(db, runId) !== "started") return;
+			} while (agentState(r.herdr_agent) === "blocked");
 			continue;
+		}
+		if (state === "idle" && !nudged && !turnSeen) {
+			// The launch prompt may not have begun its turn yet: wait for the seat to leave idle before reading idle as finished.
+			const sent = promptSentAt(db, runId);
+			if (sent !== null) {
+				for (let left = sent + timing.startGraceMs; Date.now() < left;) {
+					sleep(timing.seatPollMs);
+					if (runStatus(db, runId) !== "started") return;
+					if (agentState(r.herdr_agent) !== "idle") {
+						turnSeen = true;
+						break;
+					}
+				}
+				if (turnSeen) continue;
+			}
 		}
 		if (!nudged) {
 			nudged = true;
@@ -818,12 +909,13 @@ export function driveOnce(root: string, task: TaskRef, timing: DriveTiming = DRI
 		const t = ensureTask(db, task, "implement");
 		const runs = runsOf(db, t.id);
 		const pick = pickOf(db, t.id);
-		const n = nextStage(task, t, runs, !!pick);
-		record(db, t.id, n.run ?? null, "next", {
-			stage: n.stage,
-			round: n.round,
-			summary: `next: ${n.stage} (${n.reason})`,
-		});
+		const n = nextStage(task, t, runs, !!pick, reopenMarker(db, t.id));
+		if (t.status !== "merged")
+			record(db, t.id, n.run ?? null, "next", {
+				stage: n.stage,
+				round: n.round,
+				summary: `next: ${n.stage} (${n.reason})`,
+			});
 		if (n.stage === "escalated" && t.status !== "escalated") escalate(db, t, null, n.reason);
 		if (n.stage === "done" || n.stage === "escalated") return n;
 		if (n.stage === "pick") {
@@ -877,6 +969,9 @@ export function driveOnce(root: string, task: TaskRef, timing: DriveTiming = DRI
 			return n;
 		}
 		evfStage(db, root, task, t, n.stage, timing);
+		// A merge ends the task: the loop stops here and makes no further transition.
+		if (n.stage === "ship" && findTask(db, task)?.status === "merged")
+			return { stage: "done", round: n.round, reason: "merged" };
 		return n;
 	} finally {
 		db.close();

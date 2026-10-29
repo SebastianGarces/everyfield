@@ -25,7 +25,7 @@ const cli = (cwd: string, env: Record<string, string>, input: unknown, ...args: 
 		},
 		input: input === undefined ? "" : JSON.stringify(input),
 	});
-const TIMING = { waitMs: 2000, nudgeMs: 10, ciWaitMs: 200, ciPollMs: 10 };
+const TIMING = { waitMs: 2000, ciWaitMs: 200, ciPollMs: 10, seatPollMs: 10, startGraceMs: 150 };
 const SPEC =
 	"Goal: a doghouse people like.\nAngle 1: a plain kennel.\nAngle 2: a kennel with a porch.\nAngle 3: a two-room kennel.\nDone criteria:\n1. The dog fits.\n2. One screenshot per idea.\nNon-goals: lighting.";
 const HANDOFF =
@@ -44,6 +44,7 @@ function protoFixture() {
 		`#!${process.execPath}\nconst fs=require("node:fs");const a=process.argv.slice(2);\n` +
 			`const calls=JSON.parse(fs.readFileSync(${JSON.stringify(calls)},"utf8"));calls.push(a);fs.writeFileSync(${JSON.stringify(calls)},JSON.stringify(calls));\n` +
 			`let r={};if(a[0]==="workspace"&&a[1]==="create")r={workspace:"w"+calls.length,tab:"t",root_pane:{pane_id:"p"+calls.length}};\n` +
+			`else if(a[0]==="pane"&&a[1]==="process-info")r={process_info:{shell_pid:7,foreground_process_group_id:7}};\n` +
 			`else if(a[0]==="agent"&&a[1]==="wait")r={agent:{agent_status:"idle"}};\nprocess.stdout.write(JSON.stringify({result:r}));\n`,
 	);
 	chmodSync(join(f.root, "fake-bin/herdr"), 0o755);
@@ -249,7 +250,7 @@ test("OPS-60-prototype: plan with angles, three blind idea seats in their own wo
 
 		// After the implement task merges, the finished prototype stays closed: the ref is free for a new task.
 		f.db.prepare("UPDATE tasks SET status = 'merged' WHERE id = ?").run(impl!.id);
-		assert.equal(f.nextOf().stage, "plan", "no open task for the ref, so a fresh one would plan");
+		assert.deepEqual(f.nextOf(), { stage: "done", round: 0, reason: "merged" }, "a merge stays done");
 		const again = cli(
 			f.root,
 			{},
@@ -265,6 +266,7 @@ test("OPS-60-prototype: plan with angles, three blind idea seats in their own wo
 		assert.equal(again.status, 0, again.stderr);
 		assert.equal(f.tasks().length, 3, "a new task row, not the done prototype row");
 		assert.equal(f.tasks().at(-1)!.mode, "implement");
+		assert.equal(f.nextOf().stage, "plan", "only the explicit reopen makes the ref plan again");
 		assert.match(cli(f.root, {}, undefined, "refocus", "OPS-1").stdout, /Task: OPS-1 \(new, round 0 of 3\)/);
 	} finally {
 		f.db.close();
