@@ -363,13 +363,14 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 	const cardOwners = new Set<string | null>((view.cards ?? []).map((c) => c.personId));
 	const cardsIn = guestList.filter((g) => g.presence === "attended" && cardOwners.has(g.person.personId)).length;
 	const rsvps = rsvpCounts(guestList);
+	const canSettle = m.status !== "cancelled" && !m.occurrence.voidedAt;
 	const stepInput = {
 		status: m.status,
 		canWrite,
-		checkIn: marker && !final && m.status !== "cancelled" && !m.occurrence.voidedAt,
+		checkIn: marker && !final && canSettle,
 		guestCount: guestList.length,
 		final,
-		canSettle: m.status !== "cancelled" && !m.occurrence.voidedAt,
+		canSettle,
 		attendedWithoutCard: vision ? attendedCount - cardsIn : 0,
 		evaluationSaved: saved !== null,
 		vision,
