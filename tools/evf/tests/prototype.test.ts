@@ -25,7 +25,7 @@ const cli = (cwd: string, env: Record<string, string>, input: unknown, ...args: 
 		},
 		input: input === undefined ? "" : JSON.stringify(input),
 	});
-const TIMING = { waitMs: 2000, nudgeMs: 10, ciWaitMs: 200, ciPollMs: 10, seatPollMs: 10, startGraceMs: 150 };
+const TIMING = { waitMs: 2000, ciWaitMs: 200, ciPollMs: 10, seatPollMs: 10, startGraceMs: 150 };
 const SPEC =
 	"Goal: a doghouse people like.\nAngle 1: a plain kennel.\nAngle 2: a kennel with a porch.\nAngle 3: a two-room kennel.\nDone criteria:\n1. The dog fits.\n2. One screenshot per idea.\nNon-goals: lighting.";
 const HANDOFF =

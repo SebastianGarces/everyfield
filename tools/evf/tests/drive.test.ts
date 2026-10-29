@@ -15,7 +15,7 @@ const cli = (cwd: string, env: Record<string, string>, ...args: string[]) =>
 		encoding: "utf8",
 		env: { ...process.env, EVF_RUN: "", EVF_WORKTREE: "", EVF_SESSION: "", EVF_ROLE: "", EVF_STAGE: "", ...env },
 	});
-const TIMING = { waitMs: 2000, nudgeMs: 10, ciWaitMs: 200, ciPollMs: 10, seatPollMs: 10, startGraceMs: 150 };
+const TIMING = { waitMs: 2000, ciWaitMs: 200, ciPollMs: 10, seatPollMs: 10, startGraceMs: 150 };
 
 /** A Herdr that answers at once: every agent is idle unless the test writes another state to herdr-state.json. */
 function fakeHerdr(root: string) {
@@ -577,7 +577,6 @@ function openSeatRun(f: ReturnType<typeof driveFixture>, promptSent: boolean) {
 			.run(f.taskId, id, new Date().toISOString());
 	return id;
 }
-const BIG_NUDGE = { ...TIMING, nudgeMs: 10 * 60_000 };
 
 test("OPS-67-blocked: a blocked seat is polled in short intervals, reported once, and the drive goes on when it leaves blocked", () => {
 	const f = driveFixture();
@@ -585,8 +584,8 @@ test("OPS-67-blocked: a blocked seat is polled in short intervals, reported once
 		const id = openSeatRun(f, false);
 		scriptedHerdr(f, id, { waits: ["blocked", "close"], gets: ["blocked", "blocked", "blocked", "working"] });
 		const started = Date.now();
-		driveOnce(f.root, f.task, BIG_NUDGE);
-		assert.ok(Date.now() - started < 5000, "no nudgeMs sleep: the drive goes on within a few poll intervals");
+		driveOnce(f.root, f.task, TIMING);
+		assert.ok(Date.now() - started < 5000, "the drive goes on within a few poll intervals");
 		assert.equal(f.events("blocked").length, 1, "one blocked event for the episode, not one per poll");
 		assert.equal(f.herdr.calls().filter((c) => c[0] === "notification" && c[1] === "show").length, 1);
 		const gets = f.herdr.calls().filter((c) => c[0] === "agent" && c[1] === "get");
@@ -617,7 +616,7 @@ test("OPS-67-blocked: a blocked seat whose run closes ends the wait at once", ()
 			{ stdio: "inherit" },
 		);
 		const started = Date.now();
-		driveOnce(f.root, f.task, BIG_NUDGE);
+		driveOnce(f.root, f.task, TIMING);
 		closer.kill();
 		assert.ok(Date.now() - started < 5000);
 		assert.equal(f.events("blocked").length, 1);
@@ -712,7 +711,7 @@ test("OPS-67-idle: an idle report before the launch prompt began its turn gets n
 	try {
 		const id = openSeatRun(f, true);
 		scriptedHerdr(f, id, { waits: ["idle", "close"], gets: ["working"] });
-		driveOnce(f.root, f.task, { ...BIG_NUDGE, startGraceMs: 60_000 });
+		driveOnce(f.root, f.task, { startGraceMs: 60_000 });
 		const prompts = f.herdr.calls().filter((c) => c[0] === "agent" && c[1] === "prompt");
 		assert.equal(prompts.length, 0, "no nudge prompt in the Herdr log");
 		assert.equal(f.events("nudge").length, 0);

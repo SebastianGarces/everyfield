@@ -2952,7 +2952,7 @@ function wpShipFixture(mergeBranchOverride?: string, file = "packages/reference/
 	const shipped = () => JSON.parse(readFileSync(join(evfDataDir(f.root), "shipped", `${task.slug}.json`), "utf8"));
 	return { f, db, task, progressPath, shipped };
 }
-const DRIVE_TIMING = { waitMs: 2000, nudgeMs: 10, ciWaitMs: 200, ciPollMs: 10, seatPollMs: 10, startGraceMs: 10 };
+const DRIVE_TIMING = { waitMs: 2000, ciWaitMs: 200, ciPollMs: 10, seatPollMs: 10, startGraceMs: 10 };
 
 test("OPS-67-ship-ack: the drive's ship stage acknowledges a reviewed milestone, so producerReady is true without shipped --clear", () => {
 	const { f, db, task, progressPath, shipped } = wpShipFixture(),

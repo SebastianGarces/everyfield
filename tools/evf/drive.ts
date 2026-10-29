@@ -688,7 +688,6 @@ const checksOf = (wt: string, number: number): { pending: string[]; failed: stri
  */
 export type DriveTiming = {
 	waitMs: number;
-	nudgeMs: number;
 	ciWaitMs: number;
 	ciPollMs: number;
 	seatPollMs: number;
@@ -696,7 +695,6 @@ export type DriveTiming = {
 };
 const DRIVE_TIMING: DriveTiming = {
 	waitMs: 6 * 60 * 60_000,
-	nudgeMs: 10 * 60_000,
 	seatPollMs: 5_000,
 	startGraceMs: 30_000,
 	ciWaitMs: 40 * 60_000,
