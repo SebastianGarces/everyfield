@@ -70,7 +70,9 @@ export function WikiChrome({ children }: { children: ReactNode }) {
 		return () => window.removeEventListener("keydown", onKey);
 	}, [pathname]);
 	return (
-		<Chrome value={{ openSearch: () => setSearch(true), toggleGuide: () => setGuide((open) => !open), guideOpen: guide }}>
+		<Chrome
+			value={{ openSearch: () => setSearch(true), toggleGuide: () => setGuide((open) => !open), guideOpen: guide }}
+		>
 			{children}
 			<SearchDialog open={search} onOpenChange={setSearch} />
 			<GuideSheet open={guide} onOpenChange={setGuide} />
