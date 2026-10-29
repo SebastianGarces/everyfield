@@ -2,7 +2,7 @@
 // sanitizer.
 
 export const audienceGroups = ["core_group", "launch_team", "leaders", "prospects", "all"] as const;
-export type AudienceGroup = (typeof audienceGroups)[number];
+type AudienceGroup = (typeof audienceGroups)[number];
 
 export const groupLabel: Record<AudienceGroup, string> = {
 	core_group: "Core group",
@@ -302,7 +302,7 @@ export const contactOutcomes = [
 	"administrative_completion",
 	"no_longer_needed",
 ] as const;
-export type ContactOutcome = (typeof contactOutcomes)[number];
+type ContactOutcome = (typeof contactOutcomes)[number];
 export const contactLabel: Record<ContactOutcome, string> = {
 	contacted: "Contacted",
 	attempted_no_contact: "Attempt, no contact",

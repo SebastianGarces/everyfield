@@ -16,7 +16,7 @@ export type PreviewInput = {
 	/** The church name in the email header and footer. */
 	churchName: string;
 };
-export type PreviewResult = { html: string } | { error: string };
+type PreviewResult = { html: string } | { error: string };
 
 /** The preview HTML for a message. Pure: the same input gives the same result. */
 export function renderPreview(input: PreviewInput): PreviewResult {
