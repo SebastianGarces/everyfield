@@ -906,7 +906,7 @@ test("OPS-65-auto: every role launches with --dangerously-skip-permissions throu
 	assert.equal(planAnswer?.length, 1, "the planner --resume answer path keeps --permission-mode plan");
 });
 
-test("OPS-65-settings: deny and ask rules and the hooks are unchanged; the only allow addition covers post-review.mjs alone", () => {
+test("OPS-65-settings: deny and ask rules and the hooks are unchanged; the only allow addition targets post-review.mjs (a wildcard cannot anchor the path, so the absolute form also matches extra arguments)", () => {
 	const settings = JSON.parse(readFileSync(join(source, ".claude/settings.json"), "utf8")) as {
 		permissions: { allow: string[]; ask: string[]; deny: string[] };
 		hooks: Record<string, unknown[]>;
@@ -919,6 +919,10 @@ test("OPS-65-settings: deny and ask rules and the hooks are unchanged; the only 
 		"Bash(git push * +*)",
 		"Bash(git push --mirror*)",
 		"Bash(git push * --mirror*)",
+		"Bash(git push * main)",
+		"Bash(git push * main *)",
+		"Bash(git push *:main*)",
+		"Bash(git push *:refs/heads/main*)",
 		"Bash(gh pr merge*)",
 		"Bash(gh pr review*)",
 		"Bash(gh api -X *)",

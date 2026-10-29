@@ -201,7 +201,6 @@ test("OPS-65-layout: on the real 269x51 tab, adding 1 to 4 seats and closing in 
 			const tab = new Tab(269, 51);
 			for (let i = 0; i < seats; i++) {
 				tab.add();
-				tab.rebalance();
 				tuiOk(tab, `add ${i + 1}`);
 			}
 			for (const id of order) {
