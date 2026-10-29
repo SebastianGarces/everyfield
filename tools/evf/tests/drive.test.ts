@@ -769,3 +769,155 @@ test("OPS-66-reopen: only evf task new reopens a merged ref; drive, spec and lau
 		f.close();
 	}
 });
+
+const nextOf = (f: ReturnType<typeof driveFixture>) => JSON.parse(cli(f.root, {}, "next", "OPS-1").stdout);
+const reopen = (f: ReturnType<typeof driveFixture>, reason = "gate fixed upstream", env: Record<string, string> = {}) =>
+	cli(f.root, env, "task", "reopen", "OPS-1", "--reason", reason);
+const failStage = (f: ReturnType<typeof driveFixture>, stage: string, role: string, n = 1) => {
+	for (let i = 0; i < n; i++)
+		runDone(f.root, f.insertRun(stage, role, "started"), { status: "failed", summary: `${stage} broke` });
+};
+const storeCounts = (f: ReturnType<typeof driveFixture>) =>
+	Object.fromEntries(
+		["runs", "events", "approvals", "proofs"].map((t) => [
+			t,
+			f.db
+				.prepare(`SELECT * FROM ${t} ORDER BY id`)
+				.all()
+				.map((r) => JSON.stringify(r)),
+		]),
+	);
+
+test("OPS-68-reopen: three failures escalate, the reopen restarts the count, the sixth failure escalates again, history stays", () => {
+	const f = driveFixture();
+	try {
+		f.db.prepare("UPDATE tasks SET spec = ?, status = 'active' WHERE id = ?").run(SPEC, f.taskId);
+		failStage(f, "evidence", "evidence");
+		failStage(f, "implement", "implementer", 2);
+		assert.equal(f.taskRow().status, "escalated");
+		assert.equal(nextOf(f).stage, "escalated");
+		const before = storeCounts(f);
+		const help = cli(f.root, {}, "help");
+		assert.match(help.stdout, /^ {2}evf task reopen <task> --reason .*$/m);
+
+		const r = reopen(f);
+		assert.equal(r.status, 0, r.stderr);
+		assert.equal(r.stdout.trim(), "reopen: OPS-1 is active.");
+		assert.equal(f.taskRow().status, "active");
+		const ev = f.events("reopen");
+		assert.equal(ev.length, 1);
+		assert.deepEqual(JSON.parse(ev[0]!.payload), {
+			reason: "gate fixed upstream",
+			from: "escalated",
+			to: "active",
+			round: 0,
+			after_run: f.runs().at(-1)!.id,
+			summary: `OPS-1 reopened to active: gate fixed upstream`,
+		});
+		const after = storeCounts(f);
+		for (const t of ["runs", "approvals", "proofs"]) assert.deepEqual(after[t], before[t!], `${t} unchanged`);
+		assert.deepEqual(after.events!.slice(0, before.events!.length), before.events, "old events unchanged");
+		assert.equal(after.events!.length, before.events!.length + 1);
+
+		const n = nextOf(f);
+		assert.equal(n.stage, "implement");
+		assert.doesNotMatch(n.reason, /in a row/);
+		failStage(f, "implement", "implementer", 2);
+		assert.equal(f.taskRow().status, "active");
+		assert.equal(nextOf(f).stage, "implement");
+		assert.equal(driveOnce(f.root, f.task, { ...TIMING, waitMs: 1 }).stage === "escalated", false);
+		failStage(f, "implement", "implementer");
+		assert.equal(f.taskRow().status, "escalated");
+		assert.equal(f.events("escalation").length, 2);
+		assert.equal(nextOf(f).stage, "escalated");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-68-refuse: a task that is not escalated, a short reason and a seat all leave the store unchanged", () => {
+	const f = driveFixture();
+	try {
+		const same = (r: ReturnType<typeof reopen>, msg: RegExp, snap: unknown, row: unknown) => {
+			assert.notEqual(r.status, 0);
+			assert.match(r.stderr, msg);
+			assert.deepEqual(storeCounts(f), snap);
+			assert.deepEqual(f.taskRow(), row);
+		};
+		for (const status of ["new", "pr_open", "merged", "done"]) {
+			f.db.prepare("UPDATE tasks SET status = ? WHERE id = ?").run(status, f.taskId);
+			same(reopen(f), new RegExp(`is ${status}, not escalated`), storeCounts(f), f.taskRow());
+		}
+		f.db.prepare("UPDATE tasks SET status = 'escalated' WHERE id = ?").run(f.taskId);
+		same(reopen(f, "oneword"), /two words or more/, storeCounts(f), f.taskRow());
+		same(reopen(f, "gate fixed", { EVF_RUN: "7" }), /seat cannot reopen/, storeCounts(f), f.taskRow());
+		assert.equal(f.taskRow().status, "escalated");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-68-pr: a task with a PR reopens to pr_open; a passed run after the reopen resets the count", () => {
+	const f = driveFixture();
+	try {
+		f.db.prepare("UPDATE tasks SET spec = ?, status = 'active', pr_number = 5 WHERE id = ?").run(SPEC, f.taskId);
+		failStage(f, "implement", "implementer", 3);
+		assert.equal(f.taskRow().status, "escalated");
+		assert.equal(reopen(f).status, 0);
+		assert.equal(f.taskRow().status, "pr_open");
+		failStage(f, "implement", "implementer", 2);
+		runDone(f.root, f.insertRun("implement", "implementer", "started"), { status: "passed", summary: "built" });
+		failStage(f, "simplify", "simplifier", 2);
+		assert.equal(f.taskRow().status, "pr_open");
+		assert.equal(nextOf(f).stage, "implement");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-68-marker: only the latest reopen counts; started and evf-aborted runs stay uncounted", () => {
+	const f = driveFixture();
+	try {
+		f.db.prepare("UPDATE tasks SET spec = ?, status = 'active' WHERE id = ?").run(SPEC, f.taskId);
+		failStage(f, "implement", "implementer", 3);
+		assert.equal(reopen(f).status, 0);
+		failStage(f, "implement", "implementer", 3);
+		assert.equal(f.taskRow().status, "escalated");
+		assert.equal(reopen(f, "second look").status, 0);
+		const markers = f.events("reopen").map((e) => JSON.parse(e.payload).after_run);
+		assert.equal(markers.length, 2);
+		assert.ok(markers[1] > markers[0]);
+		failStage(f, "implement", "implementer");
+		f.insertRun("simplify", "evf", "aborted");
+		const open = f.insertRun("review", "reviewer", "started");
+		failStage(f, "implement", "implementer");
+		assert.equal(f.taskRow().status, "active", "the aborted and started runs do not count");
+		runDone(f.root, open, { status: "passed", summary: "ok" });
+		assert.equal(f.taskRow().status, "active");
+		assert.notEqual(nextOf(f).stage, "escalated");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-68-prototype: three failed idea runs escalate, the reopen sets active, nextPrototype returns an idea stage", () => {
+	const f = driveFixture();
+	try {
+		f.db.prepare("UPDATE tasks SET spec = ?, mode = 'prototype', status = 'active' WHERE id = ?").run(SPEC, f.taskId);
+		for (let i = 1; i <= RETRY_CAP; i++) failStage(f, `idea${i}`, "ideator");
+		assert.equal(f.taskRow().status, "escalated");
+		assert.equal(nextOf(f).stage, "escalated");
+		assert.equal(reopen(f).status, 0);
+		assert.equal(f.taskRow().status, "active");
+		const n = nextOf(f);
+		assert.equal(n.stage, "idea");
+		assert.equal(n.idea, 1);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
