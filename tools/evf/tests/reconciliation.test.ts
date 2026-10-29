@@ -2671,7 +2671,7 @@ test("BUG-ops15-ship: an outside-path merge succeeds and cleans up without packa
 		const before = readFileSync(join(f.root, "docs/build-progress.json"), "utf8");
 		console.log = (...args) => lines.push(args.join(" "));
 		assert.equal(ship(f.root, task), 0);
-		assert.match(lines.join("\n"), /merged; no package progress recorded/);
+		assert.match(lines.join("\n"), /progress: WP-001 merged but its reviewed-milestone checks failed.*evf shipped/);
 		assert.equal(readFileSync(join(f.root, "docs/build-progress.json"), "utf8"), before);
 		assert.equal(readFileSync(join(runtimeDir(f.root, task), "stopped"), "utf8"), "yes");
 		assert.equal(existsSync(wt), false);

@@ -738,7 +738,8 @@ const runStatus = (db: DatabaseSync, runId: number) =>
 function parseAgentState(stdout: string): string {
 	try {
 		return String(
-			(JSON.parse(stdout) as { result?: { agent?: { agent_status?: string } } }).result?.agent?.agent_status ?? "unknown",
+			(JSON.parse(stdout) as { result?: { agent?: { agent_status?: string } } }).result?.agent?.agent_status ??
+				"unknown",
 		);
 	} catch {
 		return "unknown";
