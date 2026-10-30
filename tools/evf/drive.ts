@@ -823,7 +823,9 @@ export function taskSeats(
 	opts: { model?: string; effort?: string; clear: boolean },
 ): number {
 	if (process.env.EVF_RUN)
-		fail("The seat override is the coordinator's: run evf task seats from the coordinator or a human shell, not from a seat.");
+		fail(
+			"The seat override is the coordinator's: run evf task seats from the coordinator or a human shell, not from a seat.",
+		);
 	const { model, effort, clear } = opts;
 	if (clear && (model !== undefined || effort !== undefined)) fail("Give --clear alone, or --model and --effort.");
 	if (!clear && model === undefined && effort === undefined) fail("Give --model, --effort or --clear.");

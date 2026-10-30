@@ -36,7 +36,8 @@ const obj = (v: unknown): v is Record<string, unknown> => typeof v === "object" 
 function modelProblem(model: string, role: string | null): string | null {
 	if (/fable/i.test(model)) return `names a Fable model (${model}); evf never launches one.`;
 	if (!model.startsWith("claude-")) return `must start with claude- (got ${model}).`;
-	if (role === "verifier" && !model.startsWith("claude-opus-")) return "must be an Opus model: only Opus verifies (D82).";
+	if (role === "verifier" && !model.startsWith("claude-opus-"))
+		return "must be an Opus model: only Opus verifies (D82).";
 	return null;
 }
 

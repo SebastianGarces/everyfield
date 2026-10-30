@@ -38,7 +38,9 @@ function setup() {
 			seat_effort: string | null;
 		};
 	const events = (ref: string) =>
-		db.prepare("SELECT type, payload FROM events WHERE task_id = ? AND type = 'seat_override'").all(row(ref).id) as Array<{
+		db
+			.prepare("SELECT type, payload FROM events WHERE task_id = ? AND type = 'seat_override'")
+			.all(row(ref).id) as Array<{
 			type: string;
 			payload: string;
 		}>;
@@ -86,10 +88,14 @@ test("OPS-81-apply: an override reaches every role of its task only, with a tria
 		);
 		for (const idea of [1, 2, 3])
 			assert.deepEqual(
-				[launchPlan(f.root, parseTask("OPS-82"), "ideator", { idea }).model, launchPlan(f.root, parseTask("OPS-82"), "ideator", { idea }).effort],
+				[
+					launchPlan(f.root, parseTask("OPS-82"), "ideator", { idea }).model,
+					launchPlan(f.root, parseTask("OPS-82"), "ideator", { idea }).effort,
+				],
 				[OPUS, "high"],
 			);
-		for (const round of [0, 1, 2]) assert.equal(launchPlan(f.root, parseTask("OPS-82"), "implementer", { round }).effort, "high");
+		for (const round of [0, 1, 2])
+			assert.equal(launchPlan(f.root, parseTask("OPS-82"), "implementer", { round }).effort, "high");
 		assert.deepEqual(f.resolved("OPS-83"), before.odd, "an odd task in the trial arm keeps its resolution");
 		assert.deepEqual(f.resolved("OPS-84"), before.even, "an even task keeps its resolution");
 		assert.deepEqual(
@@ -119,10 +125,18 @@ test("OPS-81-partial: a partial override keeps the other field's normal resoluti
 	try {
 		assert.equal(f.seats("OPS-83", "--effort", "xhigh").status, 0);
 		assert.deepEqual(f.row("OPS-83").seat_model, null);
-		assert.deepEqual([f.plan("OPS-83", "implementer").model, f.plan("OPS-83", "implementer").effort], [OPUS, "xhigh"], "trial model");
+		assert.deepEqual(
+			[f.plan("OPS-83", "implementer").model, f.plan("OPS-83", "implementer").effort],
+			[OPUS, "xhigh"],
+			"trial model",
+		);
 		assert.deepEqual([f.plan("OPS-83", "simplifier").model, f.plan("OPS-83", "simplifier").effort], [SONNET, "xhigh"]);
 		assert.equal(f.seats("OPS-83", "--model", OPUS).status, 0);
-		assert.deepEqual([f.row("OPS-83").seat_model, f.row("OPS-83").seat_effort], [OPUS, "xhigh"], "--model clears nothing");
+		assert.deepEqual(
+			[f.row("OPS-83").seat_model, f.row("OPS-83").seat_effort],
+			[OPUS, "xhigh"],
+			"--model clears nothing",
+		);
 		assert.equal(f.seats("OPS-83", "--effort", "low").status, 0);
 		assert.deepEqual([f.row("OPS-83").seat_model, f.row("OPS-83").seat_effort], [OPUS, "low"]);
 		const cleared = f.seats("OPS-83", "--clear");
@@ -131,7 +145,11 @@ test("OPS-81-partial: a partial override keeps the other field's normal resoluti
 		const last = JSON.parse(f.events("OPS-83").at(-1)!.payload);
 		assert.deepEqual([last.model, last.effort, last.previous_model, last.previous_effort], [null, null, OPUS, "low"]);
 		assert.equal(f.events("OPS-83").length, 4);
-		assert.deepEqual(resolveSeat(f.cfg, parseTask("OPS-84"), "ui"), { model: SONNET, effort: "medium", stage: "implement" });
+		assert.deepEqual(resolveSeat(f.cfg, parseTask("OPS-84"), "ui"), {
+			model: SONNET,
+			effort: "medium",
+			stage: "implement",
+		});
 	} finally {
 		f.close();
 	}
@@ -195,27 +213,43 @@ test("OPS-81-handoff: the handoff carries the override and a plain prototype giv
 	try {
 		const proto = (ref: string, model: string | null, effort: string | null) => {
 			const task = parseTask(ref);
-			f.db
-				.prepare("DELETE FROM tasks WHERE ref = ?").run(ref);
+			f.db.prepare("DELETE FROM tasks WHERE ref = ?").run(ref);
 			const row = ensureTask(f.db, task, "prototype");
-			f.db.prepare("UPDATE tasks SET ask = 'ask', seat_model = ?, seat_effort = ? WHERE id = ?").run(model, effort, row.id);
-			f.db.prepare(
-				"INSERT INTO approvals (task_id, gate, approver, head_sha, proof_ids, decision, quote, created_at) VALUES (?, 'pick', 'Sebastian', NULL, '[1]', 'approved', 'go', 't')",
-			).run(row.id);
+			f.db
+				.prepare("UPDATE tasks SET ask = 'ask', seat_model = ?, seat_effort = ? WHERE id = ?")
+				.run(model, effort, row.id);
+			f.db
+				.prepare(
+					"INSERT INTO approvals (task_id, gate, approver, head_sha, proof_ids, decision, quote, created_at) VALUES (?, 'pick', 'Sebastian', NULL, '[1]', 'approved', 'go', 't')",
+				)
+				.run(row.id);
 			const file = join(f.root, `${ref}.md`);
 			writeFileSync(file, "Goal: g.\nDone criteria:\n1. One.\nNon-goals: none.\nApproach: a.");
 			return { task, row, file };
 		};
 		const a = proto("OPS-82", OPUS, "high");
 		assert.equal(taskHandoff(f.root, a.task, a.file), 0);
-		const rows = f.db.prepare("SELECT id, mode, status, seat_model, seat_effort FROM tasks WHERE ref = 'OPS-82' ORDER BY id").all() as Array<Record<string, unknown>>;
-		assert.deepEqual(rows.map((r) => [r.mode, r.status, r.seat_model, r.seat_effort]), [["prototype", "done", OPUS, "high"], ["implement", "specced", OPUS, "high"]]);
-		const events = f.db.prepare("SELECT type, payload FROM events WHERE type IN ('handoff', 'spec_set') ORDER BY id").all() as Array<{ type: string; payload: string }>;
-		for (const e of events) assert.deepEqual([JSON.parse(e.payload).seat_model, JSON.parse(e.payload).seat_effort], [OPUS, "high"], e.type);
+		const rows = f.db
+			.prepare("SELECT id, mode, status, seat_model, seat_effort FROM tasks WHERE ref = 'OPS-82' ORDER BY id")
+			.all() as Array<Record<string, unknown>>;
+		assert.deepEqual(
+			rows.map((r) => [r.mode, r.status, r.seat_model, r.seat_effort]),
+			[
+				["prototype", "done", OPUS, "high"],
+				["implement", "specced", OPUS, "high"],
+			],
+		);
+		const events = f.db
+			.prepare("SELECT type, payload FROM events WHERE type IN ('handoff', 'spec_set') ORDER BY id")
+			.all() as Array<{ type: string; payload: string }>;
+		for (const e of events)
+			assert.deepEqual([JSON.parse(e.payload).seat_model, JSON.parse(e.payload).seat_effort], [OPUS, "high"], e.type);
 		assert.equal(f.plan("OPS-82", "implementer").model, OPUS, "launch reads the new implement row");
 		const b = proto("OPS-84", null, null);
 		assert.equal(taskHandoff(f.root, b.task, b.file), 0);
-		const plain = f.db.prepare("SELECT seat_model, seat_effort FROM tasks WHERE ref = 'OPS-84' AND mode = 'implement'").get() as Record<string, unknown>;
+		const plain = f.db
+			.prepare("SELECT seat_model, seat_effort FROM tasks WHERE ref = 'OPS-84' AND mode = 'implement'")
+			.get() as Record<string, unknown>;
 		assert.deepEqual({ ...plain }, { seat_model: null, seat_effort: null });
 	} finally {
 		if (savedRun !== undefined) process.env.EVF_RUN = savedRun;
