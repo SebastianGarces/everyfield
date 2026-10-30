@@ -58,7 +58,7 @@ export function assignmentWriter(reminders: TaskReminders) {
 						${assigneeFacts(plant, v.assigneeIds)} AS owners`);
 					const facts = z.object({ person: z.string().nullable(), owners: z.unknown() }).parse(r.rows[0]);
 					if (facts.person === null) deny("invalid_subject");
-					const assignees = checkAssignees(facts.owners, true);
+					const assignees = checkAssignees(facts.owners, true, "owner_ineligible");
 					const row = newTask(cmd.actor.zone, {
 						title: v.title ?? `Follow up with ${facts.person}`,
 						description: v.description,
@@ -103,6 +103,7 @@ export function assignmentWriter(reminders: TaskReminders) {
 						? checkAssignees(
 								(await tx.execute(sql`SELECT ${assigneeFacts(plant, joining)} AS owners`)).rows[0]?.owners,
 								true,
+								"owner_ineligible",
 							)
 						: [];
 					const next: TaskRow = {

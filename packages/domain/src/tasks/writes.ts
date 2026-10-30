@@ -85,10 +85,15 @@ const assigneeFactRows = z.array(z.object({ id: z.uuid(), name: z.string().nulla
  * Every named assignee must hold a current seat; for a person follow-up each must also be an eligible owner. One
  * failing account refuses the whole write and names that account (REQ-TSK-012). Returns the accounts as assignees.
  */
-export function checkAssignees(facts: unknown, followUp: boolean) {
+export function checkAssignees(
+	facts: unknown,
+	followUp: boolean,
+	/** What an account without a current seat is refused as. A follow-up command calls every such account ineligible. */
+	unseated: "invalid_subject" | "owner_ineligible" = "invalid_subject",
+) {
 	const rows = assigneeFactRows.parse(facts);
 	for (const a of rows) {
-		if (a.name === null) deny("invalid_subject", { accountId: a.id });
+		if (a.name === null) deny(unseated, { accountId: a.id });
 		if (followUp && a.reason !== null) deny("owner_ineligible", { accountId: a.id });
 	}
 	return rows.map((a) => ({ accountId: a.id, displayName: a.name ?? "", seated: true }));

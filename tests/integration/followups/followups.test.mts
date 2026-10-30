@@ -308,8 +308,8 @@ test("AC:TARGET-MTG-021 AC:TARGET-TSK-011 AC:TARGET-TSK-017 AC:TARGET-MTG-020 AC
 	for (let n = 0; n < 2; n++) await finalize(c, empty, at(-30), { followUps: [], evaluation: { assigneeIds: [] } });
 	const evaluation = ok(await read(c.owner, "readObligations", { meetingId: empty, asOf })).items;
 	assert.deepEqual(
-		evaluation.map((o) => [o.kind, o.person, o.owner, o.state, o.measurement]),
-		[["meeting_evaluation", null, null, "open", null]],
+		evaluation.map((o) => [o.kind, o.person, o.owners, o.state, o.measurement]),
+		[["meeting_evaluation", null, [], "open", null]],
 	);
 });
 
@@ -557,7 +557,7 @@ test("AC:TARGET-TSK-012 AC:TARGET-PPL-022 AC:GAP-PPL-022 only a currently eligib
 	// A manual follow-up stays undated: no due date, 48-hour lineage or contact is invented.
 	const manual = ok(await create(c.admin, { assigneeIds: [eligible.id] })).task;
 	assert.deepEqual(
-		[manual.title, manual.due, manual.overdue, manual.managed, manual.assignee.accountId],
+		[manual.title, manual.due, manual.overdue, manual.managed, manual.assignees[0].accountId],
 		["Follow up with Casey", { kind: "undated" }, null, null, eligible.id],
 	);
 	assert.deepEqual(ok(await read(c.owner, "readObligations", { personId: casey })).items, []);
@@ -593,23 +593,23 @@ test("AC:TARGET-TSK-012 AC:TARGET-PPL-022 AC:GAP-PPL-022 only a currently eligib
 			input: { taskId: manual.id, assigneeIds: [demoted.id] },
 		}),
 	).task;
-	assert.equal(moved.assignee.accountId, demoted.id);
+	assert.equal(moved.assignees[0].accountId, demoted.id);
 	await f.admin.execute(sql`UPDATE person SET stage='prospect' WHERE id=${demotedPerson}`);
 	const owners = ok(await read(c.member, "listFollowUpOwners", { personId: casey }));
 	assert.deepEqual(
 		[
 			owners.items.map((d) => [
 				d.taskId,
-				d.owner && [d.owner.accountId, d.owner.eligible, d.owner.reason],
+				d.owners.map((o) => [o.accountId, o.eligible, o.reason]),
 				d.due,
 				d.overdue,
 			]),
 			owners.unassigned,
 			owners.matched,
 		],
-		[[[manual.id, [demoted.id, false, "not_committed"], { kind: "undated" }, null]], 1, 1],
+		[[[manual.id, [[demoted.id, false, "not_committed"]], { kind: "undated" }, null]], 1, 1],
 	);
-	assert.deepEqual(await rows(sql`SELECT assignee_id FROM task WHERE id=${manual.id}`), [{ assignee_id: demoted.id }]);
+	assert.deepEqual(await rows(sql`SELECT account_id FROM task_assignee WHERE task_id=${manual.id}`), [{ account_id: demoted.id }]);
 	const covered = ok(await read(c.owner, "followUpCoverage", { personId: casey }));
 	assert.deepEqual([covered.items[0].coverage, covered.needsOwner, covered.uncovered], ["needs_owner", 1, 0]);
 	refused(await read(c.member, "followUpCoverage", {}), "unavailable");
@@ -623,7 +623,7 @@ test("AC:TARGET-TSK-012 AC:TARGET-PPL-022 AC:GAP-PPL-022 only a currently eligib
 	).task;
 	const tally = ok(await read(c.owner, "listFollowUpOwners", { owner: eligible.id }));
 	assert.deepEqual([tally.matched, tally.owners.map((o) => [o.accountId, o.open])], [2, [[eligible.id, 2]]]);
-	assert.equal(back.assignee.accountId, eligible.id);
+	assert.equal(back.assignees[0].accountId, eligible.id);
 });
 
 test("AC:TARGET-TSK-013 INV-statements handoff moves reviewed open follow-ups or nothing; reads cost one statement", async () => {
@@ -636,9 +636,10 @@ test("AC:TARGET-TSK-013 INV-statements handoff moves reviewed open follow-ups or
 	const bystander = await c.seated("member");
 	const insert = (status, n) =>
 		f.admin
-			.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,person_id,assignee_id,completed_at)
-			SELECT gen_random_uuid(),${c.w.id},'Call Alex '||g,'follow_up','medium',${status},now(),'undated',${alex},${leaving.id},
-				CASE WHEN ${status}='complete' THEN now() END FROM generate_series(1,${n}) g`);
+			.execute(sql`WITH ins AS (INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,person_id,completed_at)
+			SELECT gen_random_uuid(),${c.w.id},'Call Alex '||g,'follow_up','medium',${status},now(),'undated',${alex},
+				CASE WHEN ${status}='complete' THEN now() END FROM generate_series(1,${n}) g RETURNING id)
+			INSERT INTO task_assignee(plant_id,task_id,account_id) SELECT ${c.w.id},id,${leaving.id} FROM ins`);
 	await insert("not_started", 102);
 	await insert("complete", 1);
 	await insert("no_longer_needed", 1);
@@ -661,7 +662,7 @@ test("AC:TARGET-TSK-013 INV-statements handoff moves reviewed open follow-ups or
 	const handoff = (to, chunk, requestKey = key(), from = leaving.id) =>
 		write(c.admin, "executeHandoff", { requestKey, input: { fromAccountId: from, toAccountId: to, items: chunk } });
 	const held = async () =>
-		(await rows(sql`SELECT count(*)::int n FROM task WHERE assignee_id=${leaving.id} AND plant_id=${c.w.id}`))[0].n;
+		(await rows(sql`SELECT count(*)::int n FROM task_assignee WHERE account_id=${leaving.id} AND plant_id=${c.w.id}`))[0].n;
 	// Refusals change nothing: an ineligible recipient, the protected Owner, a stale selection.
 	refused(await handoff(bystander.id, items.slice(0, 100)), "handoff_target_ineligible");
 	refused(await handoff(recipient.id, items.slice(0, 1), key(), c.owner.id), "protected_owner");
@@ -695,7 +696,7 @@ test("AC:TARGET-TSK-013 INV-statements handoff moves reviewed open follow-ups or
 	assert.deepEqual([rest.moved.length, rest.remaining, rest.remainingTotal], [2, [], 0]);
 	// Closed work stays closed and keeps its former owner.
 	assert.deepEqual(
-		await rows(sql`SELECT status FROM task WHERE assignee_id=${leaving.id} AND plant_id=${c.w.id} ORDER BY status`),
+		await rows(sql`SELECT t.status FROM task t JOIN task_assignee a ON a.task_id=t.id WHERE a.account_id=${leaving.id} AND t.plant_id=${c.w.id} ORDER BY t.status`),
 		[{ status: "complete" }, { status: "no_longer_needed" }],
 	);
 
@@ -704,9 +705,10 @@ test("AC:TARGET-TSK-013 INV-statements handoff moves reviewed open follow-ups or
 	const departed = await c.seated("member");
 	await committed(c, departed);
 	await f.admin
-		.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,person_id,assignee_id)
-		SELECT gen_random_uuid(),${c.w.id},'Visit Alex '||g,'follow_up','medium','not_started',now(),'undated',${alex},${departed.id}
-		FROM generate_series(1,2) g`);
+		.execute(sql`WITH ins AS (INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,person_id)
+		SELECT gen_random_uuid(),${c.w.id},'Visit Alex '||g,'follow_up','medium','not_started',now(),'undated',${alex}
+		FROM generate_series(1,2) g RETURNING id)
+		INSERT INTO task_assignee(plant_id,task_id,account_id) SELECT ${c.w.id},id,${departed.id} FROM ins`);
 	await f.admin.execute(sql`UPDATE seat SET ended_at=now() WHERE account_id=${departed.id} AND plant_id=${c.w.id}`);
 	const coverage = ok(await read(c.admin, "followUpCoverage", { personId: alex }));
 	assert.deepEqual(
@@ -715,7 +717,7 @@ test("AC:TARGET-TSK-013 INV-statements handoff moves reviewed open follow-ups or
 	);
 	const waiting = ok(await read(c.admin, "listFollowUpOwners", { owner: "needs_owner", personId: alex })).items;
 	assert.deepEqual(
-		waiting.map((d) => [d.owner?.accountId, d.owner?.eligible, d.owner?.reason]),
+		waiting.flatMap((d) => d.owners.map((o) => [o.accountId, o.eligible, o.reason])),
 		[
 			[departed.id, false, "no_seat"],
 			[departed.id, false, "no_seat"],
@@ -797,8 +799,12 @@ test("AC:TARGET-PPL-007 INV-inactivity: a card warns after the church's inactivi
 async function assigned(c, personId, title, assigneeId) {
 	const id = randomUUID();
 	await f.admin
-		.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,person_id,assignee_id,creator_id)
-		VALUES(${id},${c.w.id},${title},'follow_up','medium','not_started',now(),'undated',${personId},${assigneeId},${c.owner.id})`);
+		.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,person_id,creator_id)
+		VALUES(${id},${c.w.id},${title},'follow_up','medium','not_started',now(),'undated',${personId},${c.owner.id})`);
+	if (assigneeId)
+		await f.admin.execute(
+			sql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES(${c.w.id},${id},${assigneeId})`,
+		);
 	return id;
 }
 
@@ -830,9 +836,9 @@ test("AC:TARGET-TSK-012 AC:TARGET-TSK-013 one owner view: every read names a fol
 	for (const [account, [ok_, reason]] of Object.entries(expected)) {
 		const id = taskOf[account];
 		const views = [
-			owners.find((d) => d.taskId === id).owner,
-			coverage.find((d) => d.taskId === id).owner,
-			list.find((t) => t.id === id).followUpOwner,
+			owners.find((d) => d.taskId === id).owners[0],
+			coverage.find((d) => d.taskId === id).owners[0],
+			list.find((t) => t.id === id).followUpOwners[0],
 		];
 		assert.deepEqual(
 			views.map(shape),
@@ -848,11 +854,11 @@ test("AC:TARGET-TSK-012 AC:TARGET-TSK-013 one owner view: every read names a fol
 	);
 	const plan = ok(await read(c.admin, "planHandoff", { fromAccountId: unlinked.id }));
 	assert.deepEqual(
-		plan.duties.map((d) => shape(d.owner)),
-		[[unlinked.id, false, "no_person"]],
+		plan.duties.map((d) => d.owners.map(shape)),
+		[[[unlinked.id, false, "no_person"]]],
 	);
 	// A Member sees no assignment controls but the same view.
-	assert.equal(list.find((t) => t.id === taskOf[eligible.id]).followUpOwner.eligible, true);
+	assert.equal(list.find((t) => t.id === taskOf[eligible.id]).followUpOwners[0].eligible, true);
 });
 
 test("AC:TARGET-TSK-012 task assignment, create and edit refuse a follow-up owner who cannot own one", async () => {
@@ -898,7 +904,7 @@ test("AC:TARGET-TSK-012 task assignment, create and edit refuse a follow-up owne
 			input: { taskId: task, patch: { assigneeIds: [ready.id] } },
 		}),
 	).task;
-	assert.deepEqual([edited.assignee.accountId, edited.followUpOwner.eligible], [ready.id, true]);
+	assert.deepEqual([edited.assignees[0].accountId, edited.followUpOwners[0].eligible], [ready.id, true]);
 	// The picker's list: purpose committed_follow_up offers only eligible owners.
 	const names = (r) => ok(r).items.map((i) => i.accountId);
 	const all = names(await f.db.transaction((tx) => taskReader.eligibleAssignees(tx, c.owner.actor, {})));

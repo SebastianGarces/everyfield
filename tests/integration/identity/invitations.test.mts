@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { fixture, key, noReminders } from "./invitations-support.mts";
 import { and, eq, isNull, sql } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
+import { assigneesOf, assignedCount, insertTasks } from "../task-assignees.mts";
 let f;
 before(async () => {
 	f = await fixture();
@@ -376,7 +377,7 @@ test("AC:TARGET-IDN-019 INV-removal: exact open-duty handoff retains Person and 
 		a = await f.invitations.accept(s.recipient.session, i.claim),
 		open = key(),
 		closed = key();
-	await f.admin.insert(t.task).values([
+	await insertTasks(f.admin, [
 		{
 			id: open,
 			plant_id: s.w.id,
@@ -416,7 +417,7 @@ test("AC:TARGET-IDN-019 INV-removal: exact open-duty handoff retains Person and 
 		},
 	}, noReminders);
 	assert.deepEqual(result.duties, [{ status: "moved", dutyId: open, recipientAccountId: s.sender.id }]);
-	assert.equal((await f.admin.select().from(t.task).where(eq(t.task.id, open)))[0].assignee_id, s.sender.id);
+	assert.deepEqual(await assigneesOf(f.admin, open), [s.sender.id]);
 	assert.equal((await f.admin.select().from(t.task).where(eq(t.task.id, closed)))[0].status, "complete");
 	assert.equal(
 		(await f.admin.select().from(t.person).where(eq(t.person.id, a.seat.personId)))[0].linked_account_id,
@@ -432,7 +433,7 @@ test("AC:TARGET-IDN-019 INV-removal-review: the review names exactly the duties 
 		open = key(),
 		closed = key(),
 		other = await f.setup();
-	await f.admin.insert(t.task).values([
+	await insertTasks(f.admin, [
 		{
 			id: open,
 			plant_id: s.w.id,
@@ -502,10 +503,10 @@ test("AC:TARGET-IDN-019 INV-removal-linked: a task with a linked obligation is o
 			sql`INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,resolver_version,status,attendance_revision) VALUES(${meeting},${s.w.id},'vision_meeting','Vision night','2026-10-20','18:00','America/Chicago','2026-10-20T23:00:00Z','1','completed',1)`,
 		);
 		await f.admin.execute(
-			sql`INSERT INTO obligation(id,plant_id,meeting_id,kind,origin_at,origin_date,timezone,formula_version,due_date,assignee_id) VALUES(${id},${s.w.id},${meeting},'evaluation','2026-10-20T23:00:00Z','2026-10-20','America/Chicago','1','2026-10-30',${s.recipient.id})`,
+			sql`INSERT INTO obligation(id,plant_id,meeting_id,kind,origin_at,origin_date,timezone,formula_version,due_date) VALUES(${id},${s.w.id},${meeting},'evaluation','2026-10-20T23:00:00Z','2026-10-20','America/Chicago','1','2026-10-30')`,
 		);
 	}
-	await f.admin.insert(t.task).values([
+	await insertTasks(f.admin, [
 		{
 			id: open,
 			plant_id: s.w.id,
@@ -568,7 +569,7 @@ test("AC:TARGET-IDN-019 INV-removal-bound: 101 and 250 open duties are all revie
 			i = await f.invitation(s),
 			a = await f.invitations.accept(s.recipient.session, i.claim),
 			ids = Array.from({ length: n }, () => key());
-		await f.admin.insert(t.task).values(
+		await insertTasks(f.admin, 
 			ids.map((id, k) => ({
 				id,
 				plant_id: s.w.id,
@@ -603,11 +604,11 @@ test("AC:TARGET-IDN-019 INV-removal-bound: 101 and 250 open duties are all revie
 			.set({ revision: "2" })
 			.where(eq(t.task.id, ids[n - 1]));
 		await denied(f.seats.remove(await f.actor(s.sender.session), s.w, command(stale), noReminders), "conflict");
-		assert.equal(await count(t.task, eq(t.task.assignee_id, s.sender.id)), 0);
+		assert.equal(await assignedCount(f.admin, s.sender.id, s.w.id), 0);
 		const fresh = await f.seats.readRemoval(s.sender.session, s.w, target);
 		const result = await f.seats.remove(await f.actor(s.sender.session), s.w, command(fresh), noReminders);
 		assert.equal(result.duties.filter((d) => d.status === "moved").length, n);
-		assert.equal(await count(t.task, and(eq(t.task.plant_id, s.w.id), eq(t.task.assignee_id, s.sender.id))), n);
+		assert.equal(await assignedCount(f.admin, s.sender.id, s.w.id), n);
 	}
 });
 
