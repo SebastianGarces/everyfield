@@ -1391,6 +1391,7 @@ function launchOrLog(
 			idea: launching.idea,
 			mode: launching.mode,
 			timing: launching.launch,
+			driven: true,
 		});
 	} catch (e) {
 		if (e instanceof LaunchLineTooLong) {

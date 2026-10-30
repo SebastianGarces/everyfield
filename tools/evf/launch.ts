@@ -172,7 +172,7 @@ export function launchPlan(
 	root: string,
 	task: TaskRef,
 	role: Role,
-	opts: { mode?: string; round?: number; run?: string; idea?: number },
+	opts: { mode?: string; round?: number; run?: string; idea?: number; driven?: boolean },
 ): LaunchPlan {
 	const cfg = loadConfig(root),
 		seat = resolveSeat(cfg, task, role),
@@ -205,6 +205,9 @@ export function launchPlan(
 			EVF_SESSION: session,
 			...(idea ? { EVF_IDEA: String(idea) } : {}),
 			...(role === "ideator" ? { EVF_BLIND: "1" } : {}),
+			// Only a drive-launched seat carries the promise: the drive watches this run and prompts the seat when it
+			// idles unclosed. A seat from `evf launch` or `evf seat` has no such watcher.
+			...(opts.driven ? { EVF_MONITOR: `evf drive ${task.id}` } : {}),
 			...SEAT_ENV,
 		},
 		pluginDir: seatPluginDir(root, task, opts.run ?? "<run>"),
@@ -502,6 +505,8 @@ export function launch(
 		dryRun?: boolean;
 		idea?: number;
 		timing?: Partial<LaunchTiming>;
+		/** Set by the drive loop only. */
+		driven?: boolean;
 	},
 ): number {
 	const timing = { ...LAUNCH_TIMING, ...opts.timing };
@@ -529,7 +534,12 @@ export function launch(
 		if (taskRow.status === "merged" || taskRow.status === "abandoned") fail(`${task.id} is ${taskRow.status}.`);
 		if (taskRow.status === "escalated")
 			fail(`${task.id} is escalated after ${taskRow.round} rounds. Sebastian decides before another seat starts.`);
-		const plan = launchPlan(root, task, role, { mode: taskRow.mode, round: taskRow.round, idea: opts.idea });
+		const plan = launchPlan(root, task, role, {
+			mode: taskRow.mode,
+			round: taskRow.round,
+			idea: opts.idea,
+			driven: opts.driven,
+		});
 		const event = (type: string, payload: Record<string, unknown>, runId: number): number =>
 			Number(
 				db
