@@ -116,7 +116,7 @@ const emailLayout = z.strictObject({
 	documentClass: z.literal("email"),
 	headerLogo: themeLogo.nullable(),
 	logoMaxWidthPx: z.literal(200),
-	button: z.strictObject({ fill: z.literal("#1F4E79"), text: z.literal("#FFFFFF") }),
+	button: z.strictObject({ fill: hexColor, text: z.enum(["#000000", "#FFFFFF"]) }),
 	footer: z.strictObject({ churchName: z.string().min(1).max(200), address: lines }),
 });
 export const themeLayout = z.discriminatedUnion("documentClass", [

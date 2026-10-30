@@ -22,8 +22,9 @@ type Colors = { primary: HexColor | null; accent: HexColor | null; heading: HexC
 
 const stackOf = (id: string) => (FONTS.find((font) => font.id === id)?.style === "serif" ? SERIF_STACK : SANS_STACK);
 
-function layoutFor(documentClass: DocumentClass, name: string, kit: BrandKitData | null, fill: HexColor): ThemeLayout {
+function layoutFor(documentClass: DocumentClass, name: string, kit: BrandKitData | null, colors: Colors): ThemeLayout {
 	const asset = (slot: keyof BrandKitData["assets"]) => kit?.assets[slot] ?? null;
+	const { fill } = colors;
 	const fillText = textOn(fill);
 	switch (documentClass) {
 		case "formal/legal":
@@ -62,7 +63,7 @@ function layoutFor(documentClass: DocumentClass, name: string, kit: BrandKitData
 				documentClass,
 				headerLogo: asset("full_logo"),
 				logoMaxWidthPx: 200,
-				button: { fill: "#1F4E79", text: "#FFFFFF" },
+				button: { fill: colors.rule, text: textOn(colors.rule) },
 				footer: { churchName: name, address: kit?.address ?? null },
 			};
 	}
@@ -102,6 +103,6 @@ export function resolveDocumentTheme(
 			? { heading: stackOf(headingFont), body: stackOf(bodyFont) }
 			: { heading: headingFont, body: bodyFont },
 		colors: { primary: colors.primary, accent: colors.accent, ink: INK, heading: colors.heading, rule: colors.rule },
-		layout: layoutFor(documentClass, church.name, brand ? kit : null, colors.fill),
+		layout: layoutFor(documentClass, church.name, brand ? kit : null, colors),
 	};
 }

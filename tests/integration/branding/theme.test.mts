@@ -14,11 +14,11 @@ const asset = (name: string) => ({
 });
 // The CASE-BRD-006 kit.
 const kit = (over: Partial<BrandKitData> = {}): BrandKitData => ({
-	primaryColor: "#8B1E3F",
-	accentColor: "#C9A227",
+	primaryColor: "#1F4E79",
+	accentColor: "#D4A017",
 	headingFont: "DM Serif Display",
 	bodyFont: "DM Sans",
-	legalName: "Harvest Point Church Inc.",
+	legalName: "Harvest Point Church",
 	address: "12 Main St, Austin, TX",
 	website: "https://harvestpoint.example",
 	phone: "512-555-0100",
@@ -83,15 +83,15 @@ describe("WP-104/api resolveDocumentTheme", () => {
 	test("AC:CASE-BRD-006 formal/legal: small header logo, primary on rules and headings, neutral body, EIN footer, page numbers", () => {
 		const theme = resolveDocumentTheme(church(kit()), "formal/legal");
 		assert.equal(theme.kind, "church");
-		assert.equal(theme.colors.heading, "#8B1E3F");
-		assert.equal(theme.colors.rule, "#8B1E3F");
+		assert.equal(theme.colors.heading, "#1F4E79");
+		assert.equal(theme.colors.rule, "#1F4E79");
 		assert.equal(theme.colors.ink, ink);
 		assert.equal(theme.layout.documentClass, "formal/legal");
 		if (theme.layout.documentClass !== "formal/legal") return;
 		assert.deepEqual(theme.layout.headerLogo, { fileId: kit().assets.full_logo?.fileId, alt: "Full logo alt" });
 		assert.equal(theme.layout.headerLogoHeightMm, 14);
 		assert.deepEqual(theme.layout.footer, {
-			name: "Harvest Point Church Inc.",
+			name: "Harvest Point Church",
 			address: "12 Main St, Austin, TX",
 			ein: "12-3456789",
 		});
@@ -102,7 +102,7 @@ describe("WP-104/api resolveDocumentTheme", () => {
 
 	test("AC:CASE-BRD-006 outward-facing: large cover logo, both colors, brand fonts, photo, tagline and contact details", () => {
 		const theme = resolveDocumentTheme(church(kit()), "outward-facing");
-		assert.deepEqual([theme.colors.primary, theme.colors.accent], ["#8B1E3F", "#C9A227"]);
+		assert.deepEqual([theme.colors.primary, theme.colors.accent], ["#1F4E79", "#D4A017"]);
 		assert.deepEqual(theme.fonts, { heading: "DM Serif Display", body: "DM Sans" });
 		assert.equal(theme.fallbackUsed, false);
 		if (theme.layout.documentClass !== "outward-facing") throw Error("class");
@@ -123,11 +123,11 @@ describe("WP-104/api resolveDocumentTheme", () => {
 		if (theme.layout.documentClass !== "operational") throw Error("class");
 		assert.equal(theme.layout.mark?.alt, "Mark alt");
 		assert.equal(theme.layout.markHeightMm, 10);
-		assert.deepEqual(theme.layout.tableHeader, { fill: "#C9A227", text: "#000000" });
-		assert.deepEqual(theme.layout.checkbox, { fill: "#C9A227", text: "#000000" });
+		assert.deepEqual(theme.layout.tableHeader, { fill: "#D4A017", text: "#000000" });
+		assert.deepEqual(theme.layout.checkbox, { fill: "#D4A017", text: "#000000" });
 	});
 
-	test("AC:CASE-BRD-006 email: logo at most 200 px, fixed button, web-safe stacks, footer with name and address", () => {
+	test("AC:CASE-BRD-006 email: logo at most 200 px, primary-color button with derived text, web-safe stacks, footer with name and address", () => {
 		const theme = resolveDocumentTheme(church(kit()), "email");
 		assert.equal(theme.fonts.heading, "Georgia, 'Times New Roman', serif");
 		assert.equal(theme.fonts.body, "Arial, Helvetica, sans-serif");
@@ -135,6 +135,12 @@ describe("WP-104/api resolveDocumentTheme", () => {
 		if (theme.layout.documentClass !== "email") throw Error("class");
 		assert.equal(theme.layout.logoMaxWidthPx, 200);
 		assert.deepEqual(theme.layout.button, { fill: "#1F4E79", text: "#FFFFFF" });
+		// The button follows the primary color of any kit, not the example value.
+		for (const [primaryColor, text] of [["#8B1E3F", "#FFFFFF"], ["#F2D74A", "#000000"]] as const) {
+			const other = resolveDocumentTheme(church(kit({ primaryColor })), "email").layout;
+			if (other.documentClass !== "email") throw Error("class");
+			assert.deepEqual(other.button, { fill: primaryColor, text });
+		}
 		assert.deepEqual(theme.layout.footer, { churchName: "Harvest Point", address: "12 Main St, Austin, TX" });
 	});
 
@@ -154,8 +160,8 @@ describe("WP-104/api resolveDocumentTheme", () => {
 		}
 		// A color at 3:1 or more may head a section.
 		assert.equal(
-			resolveDocumentTheme(church(kit({ primaryColor: "#1F4E79" })), "formal/legal").colors.heading,
-			"#1F4E79",
+			resolveDocumentTheme(church(kit({ primaryColor: "#8B1E3F" })), "formal/legal").colors.heading,
+			"#8B1E3F",
 		);
 	});
 
@@ -194,7 +200,8 @@ describe("WP-104/api resolveDocumentTheme", () => {
 	});
 
 	test("AC:CASE-DOC-017-CHURCH the church theme for the CASE-DOC-017 kit", () => {
-		const theme = resolveDocumentTheme(church(kit()), "outward-facing", { useChurchBranding: true });
+		const doc017 = kit({ primaryColor: "#8B1E3F", accentColor: "#C9A227" });
+		const theme = resolveDocumentTheme(church(doc017), "outward-facing", { useChurchBranding: true });
 		assert.equal(theme.kind, "church");
 		assert.deepEqual(
 			[theme.colors.primary, theme.colors.accent, theme.fonts.heading, theme.fallbackUsed],
@@ -204,6 +211,6 @@ describe("WP-104/api resolveDocumentTheme", () => {
 
 	test("an accent that is absent resolves to the primary color", () => {
 		const theme = resolveDocumentTheme(church(kit({ accentColor: null })), "operational");
-		assert.equal(theme.colors.accent, "#8B1E3F");
+		assert.equal(theme.colors.accent, "#1F4E79");
 	});
 });
