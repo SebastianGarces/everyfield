@@ -74,6 +74,22 @@ async function up() {
 		if (r.status !== "ok") throw Error("schedule flow: " + JSON.stringify(r));
 		flow[engine] = r.value.meeting.id;
 	}
+	// S2 F06: per engine two Vision meetings dated after today in their timezone, to finalize and evaluate (the server
+	// defaults the evaluation date; the modal never sends one). One takes a blank note, the other a whitespace-only note.
+	const future: Record<string, string[]> = {};
+	for (const engine of ["chromium", "webkit"]) {
+		future[engine] = [];
+		for (let i = 0; i < 2; i++) {
+			const r = await runtime.transaction((tx) =>
+				meetingsWriter.schedule(tx as never, ctx, {
+					requestKey: randomUUID(),
+					input: { type: "vision_meeting", date, time: "18:30", guests: [] },
+				}),
+			);
+			if (r.status !== "ok") throw Error("schedule future: " + JSON.stringify(r));
+			future[engine]!.push(r.value.meeting.id);
+		}
+	}
 	const o = await runtime.transaction((tx) =>
 		meetingsWriter.schedule(tx as never, ctx, {
 			requestKey: randomUUID(),
@@ -86,6 +102,7 @@ async function up() {
 		links,
 		past,
 		flow,
+		future,
 		orientationId: o.value.meeting.id,
 	});
 	await env.close();

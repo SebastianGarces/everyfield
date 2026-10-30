@@ -48,11 +48,14 @@ export function evaluationIssues(issues: readonly Issue[]): EvaluationIssues {
 	for (const { path } of issues) {
 		const [, field, factor] = path.split(".");
 		const named = FACTORS.find((f) => f.key === factor);
-		if ((field === "scores" || field === "changes") && named) out.scores[named.key] = `Choose a score for ${named.label}.`;
+		if ((field === "scores" || field === "changes") && named)
+			out.scores[named.key] = `Choose a score for ${named.label}.`;
 		else if (field === "notes") out.notes = "Shorten the notes, or leave them empty.";
 		else if (field === "reason") out.reason = "Enter a reason.";
 		else if (field === "evaluatedOn")
-			out.dialog.push("The evaluation date must fall between the meeting date and today. Reload the page and try again.");
+			out.dialog.push(
+				"The evaluation date must fall between the meeting date and today. Reload the page and try again.",
+			);
 		else out.dialog.push("Some details are not valid. Check them and try again.");
 	}
 	return out;

@@ -627,7 +627,10 @@ test("F06 the evaluation modal's payload saves for a finalized Vision meeting da
 	const blank = await meeting("vision_meeting", "2099-01-03T23:00:00Z");
 	ok(await finalize(owner, blank, []));
 	const refusedNote = refused(await record(blank, { scores: all(3), notes: "   " }), "invalid_input");
-	assert.ok(refusedNote.details.issues.some((x) => x.path === "input.notes"), JSON.stringify(refusedNote));
+	assert.ok(
+		refusedNote.details.issues.some((x) => x.path === "input.notes"),
+		JSON.stringify(refusedNote),
+	);
 
 	// A correction with `changes: {}` and a changed note saves; one score change with a reason saves.
 	const noteOnly = ok(await correct(future.id, { changes: {}, notes: "Room was warm", reason: "Fixed the note" }));
@@ -639,13 +642,19 @@ test("F06 the evaluation modal's payload saves for a finalized Vision meeting da
 	// A missing or blank reason is refused on input.reason; an explicit date outside the window is refused.
 	for (const reason of [undefined, "   "]) {
 		const e = refused(await correct(future.id, { changes: { vibeScore: 3 }, reason }), "invalid_input");
-		assert.ok(e.details.issues.some((x) => x.path === "input.reason"), JSON.stringify(e));
+		assert.ok(
+			e.details.issues.some((x) => x.path === "input.reason"),
+			JSON.stringify(e),
+		);
 	}
 	const early = await meeting("vision_meeting", "2099-02-01T23:00:00Z");
 	ok(await finalize(owner, early, []));
 	for (const evaluatedOn of ["2099-01-31", "2099-03-01"]) {
 		const e = refused(await record(early, { scores: all(3), evaluatedOn }), "invalid_input");
-		assert.ok(e.details.issues.some((x) => x.path === "input.evaluatedOn"), JSON.stringify(e));
+		assert.ok(
+			e.details.issues.some((x) => x.path === "input.evaluatedOn"),
+			JSON.stringify(e),
+		);
 	}
 });
 
