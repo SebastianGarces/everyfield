@@ -42,6 +42,8 @@ import {
 	PRESENCE_LABEL,
 	PRESENCE_TONE,
 	problemText,
+	evaluationIssues,
+	type Issue,
 	scoreText,
 	type Analytics,
 	type Attendance,
@@ -937,6 +939,7 @@ export function EvaluationDialog({
 	title,
 	initial,
 	problem,
+	issues,
 	onClose,
 	onSubmit,
 }: {
@@ -946,6 +949,8 @@ export function EvaluationDialog({
 	initial: EvaluationInput | null;
 	/** Why the last save was refused, in words. */
 	problem: string | undefined;
+	/** The named problems of that refusal; each shows on its field. */
+	issues: readonly Issue[];
 	onClose: () => void;
 	onSubmit: (input: EvaluationInput) => void;
 }) {
@@ -957,6 +962,7 @@ export function EvaluationDialog({
 					title={title}
 					initial={initial}
 					problem={problem}
+					issues={issues}
 					onClose={onClose}
 					onSubmit={onSubmit}
 				/>
@@ -970,10 +976,12 @@ function EvaluationForm({
 	title,
 	initial,
 	problem,
+	issues,
 	onClose,
 	onSubmit,
 }: Omit<Parameters<typeof EvaluationDialog>[0], "open">) {
 	const correcting = evaluation !== null;
+	const named = evaluationIssues(issues);
 	const [scores, setScores] = useState<Partial<Scores>>(initial?.scores ?? evaluation?.scores ?? {});
 	const [notes, setNotes] = useState(initial?.notes ?? evaluation?.notes ?? "");
 	const [reason, setReason] = useState(initial?.reason ?? "");
@@ -1015,6 +1023,7 @@ function EvaluationForm({
 					<div ref={first} className="flex flex-col">
 						{FACTORS.map((f) => {
 							const bad = touched && scores[f.key] === undefined;
+							const refusal = named.scores[f.key];
 							return (
 								<div
 									key={f.key}
@@ -1026,9 +1035,9 @@ function EvaluationForm({
 											{f.label}
 										</p>
 										<p className="text-sm text-text-3">{f.hint}</p>
-										{bad ? (
+										{bad || refusal ? (
 											<p className="text-xs font-medium text-magenta-600" role="alert">
-												Choose a score.
+												{refusal ?? "Choose a score."}
 											</p>
 										) : null}
 									</div>
@@ -1048,7 +1057,12 @@ function EvaluationForm({
 							{complete ? scoreText(averageOf(scores as Scores)) : `${8 - missing.length} of 8 scored`}
 						</span>
 					</p>
-					<Field label="Notes" optional hint="What went well, and what to change next time.">
+					<Field
+						label="Notes"
+						optional
+						hint="What went well, and what to change next time."
+						error={named.notes ?? null}
+					>
 						<Textarea value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={5000} rows={3} />
 					</Field>
 					{correcting ? (
@@ -1060,7 +1074,7 @@ function EvaluationForm({
 									? "Change a score or the notes first."
 									: touched && reason.trim() === ""
 										? "Enter a reason."
-										: null
+										: (named.reason ?? null)
 							}
 						>
 							<Textarea
@@ -1072,7 +1086,7 @@ function EvaluationForm({
 							/>
 						</Field>
 					) : null}
-					<Problem text={problem} />
+					<Problem text={issues.length === 0 ? problem : named.dialog.join(" ") || undefined} />
 				</DialogBody>
 				<DialogFooter>
 					<Button variant="secondary" type="button" onClick={onClose}>

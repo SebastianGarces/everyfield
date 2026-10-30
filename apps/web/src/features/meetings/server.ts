@@ -54,7 +54,9 @@ export function outcome<T>(reply: Reply<T>): Outcome<T> {
 		const e = reply.error;
 		return e.code === "ambiguous_local_time"
 			? { status: "refused", code: e.code, choices: e.details.choices }
-			: { status: "refused", code: e.code };
+			: e.code === "invalid_input"
+				? { status: "refused", code: e.code, issues: e.details.issues }
+				: { status: "refused", code: e.code };
 	}
 	return { status: "ok", value: reply.value };
 }

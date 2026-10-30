@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { spawn } from "node:child_process";
 import type { DatabaseSync } from "node:sqlite";
 import { ensureTask, findTask, markMerged, newTaskRow, openWorkDb, record, type TaskRow } from "./db.ts";
-import { ideaWorktree, launch } from "./launch.ts";
+import { ideaWorktree, launch, LaunchAborted, type LaunchTiming } from "./launch.ts";
 import type { Role } from "./seats.ts";
 import {
 	EvfError,
@@ -13,6 +13,7 @@ import {
 	git,
 	gitOk,
 	loadConfig,
+	parseTask,
 	run,
 	runtimeDir,
 	sleep,
@@ -22,7 +23,7 @@ import {
 import { closeRunPane } from "./panes.ts";
 import { prFor, prOpen, ship } from "./ship.ts";
 import { fillRunUsage } from "./usage.ts";
-import { doneCriteria } from "./spec.ts";
+import { coordinatorNotes, doneCriteria } from "./spec.ts";
 import { hasVerifiedHead, verify } from "./verify.ts";
 
 /**
@@ -64,6 +65,8 @@ export type Next = {
 	round: number;
 	reason: string;
 	run?: number;
+	/** Set on `waiting`: the escalation this task earned and holds back until its last open seat closes. */
+	deferred?: string;
 };
 type RunRow = { id: number; stage: string; role: string; status: string; round: number; summary: string | null };
 
@@ -88,13 +91,46 @@ const unknownTask = (task: TaskRef): TaskRow => ({
 	worktree: null,
 });
 
-/** The run id the latest `evf task reopen` marked: only runs after it count as trailing failures. 0 when never reopened. */
-const reopenMarker = (db: DatabaseSync, taskId: number): number => {
+type OwnerEvent = { id: number; type: string; payload: Record<string, unknown> };
+/** The newest event of the task among `types`, with its payload parsed. */
+const latestEvent = (db: DatabaseSync, taskId: number, types: string[]): OwnerEvent | null => {
 	const row = db
-		.prepare("SELECT payload FROM events WHERE task_id = ? AND type = 'reopen' ORDER BY id DESC LIMIT 1")
-		.get(taskId) as { payload: string } | undefined;
-	return row ? Number((JSON.parse(row.payload) as { after_run?: number }).after_run) || 0 : 0;
+		.prepare(
+			`SELECT id, type, payload FROM events WHERE task_id = ? AND type IN (${types.map(() => "?").join(", ")}) ORDER BY id DESC LIMIT 1`,
+		)
+		.get(taskId, ...types) as { id: number; type: string; payload: string } | undefined;
+	return row ? { id: row.id, type: row.type, payload: JSON.parse(row.payload) as Record<string, unknown> } : null;
 };
+
+/**
+ * The run id the latest `evf task reopen` or `evf task compare-passed` marked: only runs after it count as trailing
+ * failures. 0 when the task never had either.
+ */
+const reopenMarker = (db: DatabaseSync, taskId: number): number =>
+	Number(latestEvent(db, taskId, ["reopen", "compare_passed"])?.payload.after_run) || 0;
+
+/** The coordinator's latest `evf task reopen --reason`, which the next seats must read. Null when never reopened. */
+const reopenReasonOf = (db: DatabaseSync, taskId: number): string | null => {
+	const reason = latestEvent(db, taskId, ["reopen"])?.payload.reason;
+	return typeof reason === "string" && reason.trim() ? reason.trim() : null;
+};
+
+/** The owner's choice to compare only the passed ideas: the idea that is missing and why, until a later reopen. */
+export type CompareChoice = { missing: number[]; reason: string };
+const compareChoiceOf = (db: DatabaseSync, taskId: number): CompareChoice | null => {
+	const e = latestEvent(db, taskId, ["reopen", "compare_passed"]);
+	if (e?.type !== "compare_passed") return null;
+	return { missing: (e.payload.missing as number[]) ?? [], reason: String(e.payload.reason ?? "") };
+};
+
+/** The escalation a task earned while a seat still worked, if no escalation or reopen came after it. */
+const deferredEscalation = (db: DatabaseSync, taskId: number): string | null => {
+	const e = latestEvent(db, taskId, ["escalation_deferred", "escalation", "reopen", "compare_passed"]);
+	return e?.type === "escalation_deferred" ? String(e.payload.cause ?? "") || null : null;
+};
+
+/** What `nextStage` needs besides the rows. Each field is read from the events of the store by the caller. */
+export type NextExtras = { reopenReason?: string | null; deferred?: string | null; choice?: CompareChoice | null };
 
 /**
  * Failed or aborted runs since the last passed one, counting only runs after the latest reopen marker.
@@ -127,14 +163,96 @@ const failuresInARow = (runs: RunRow[], marker: number): number =>
 	Math.max(trailingFailures(runs, marker), prFailuresSinceImplement(runs, marker));
 const AUTHOR_CHECKS_FAILED = "author checks failed";
 
+const ideaStage = /^idea\d$/;
+/** The first line of a summary with hex ids, digits and runs of space normalized, so two runs of one blocker compare equal. */
+export const normalizedHeadline = (summary: string | null): string =>
+	headline(summary ?? "", 300)
+		.toLowerCase()
+		.replace(/\b(?=[0-9a-f]*\d)[0-9a-f]{7,40}\b/g, "<hex>")
+		.replace(/\d+/g, "<n>")
+		.replace(/\s+/g, " ")
+		.trim();
+
+/** The trailing failed or aborted runs of one idea after the marker, newest first. A passed run ends the list. */
+const ideaFailures = (runs: RunRow[], idea: number, marker: number): RunRow[] => {
+	const out: RunRow[] = [];
+	const mine = runs.filter((r) => r.stage === `idea${idea}` && r.id > marker);
+	for (let i = mine.length - 1; i >= 0; i--) {
+		const r = mine[i]!;
+		if (r.status === "passed") break;
+		if (r.status !== "started") out.push(r);
+	}
+	return out;
+};
+
+/**
+ * Prototype mode: why the task must stop retrying, or null. An idea that failed twice in a row with the same headline,
+ * an idea out of retries, and the task-wide failure count each stop it. When every other idea passed, the reason names
+ * the owner's choice to compare those.
+ */
+function prototypeStuck(ref: string, runs: RunRow[], marker: number): string | null {
+	const lastOf = (idea: number) => runs.filter((r) => r.stage === `idea${idea}`).at(-1);
+	let because: { idea: number; reason: string } | null = null;
+	for (let i = 1; i <= IDEAS && !because; i++) {
+		const failed = ideaFailures(runs, i, marker);
+		if (
+			failed.length >= 2 &&
+			failed[0]!.status === "failed" &&
+			failed[1]!.status === "failed" &&
+			normalizedHeadline(failed[0]!.summary) &&
+			normalizedHeadline(failed[0]!.summary) === normalizedHeadline(failed[1]!.summary)
+		)
+			because = {
+				idea: i,
+				reason: `idea ${i} failed twice in a row with the same error: ${headline(failed[0]!.summary ?? "")}`,
+			};
+		else if (failed.length >= RETRY_CAP)
+			because = {
+				idea: i,
+				reason: `idea ${i} failed ${failed.length} times in a row (retry cap ${RETRY_CAP}); last: ${headline(failed[0]!.summary ?? failed[0]!.status)}`,
+			};
+	}
+	if (because) {
+		const others = Array.from({ length: IDEAS }, (_, i) => i + 1).filter((i) => i !== because!.idea);
+		if (others.every((i) => lastOf(i)?.status === "passed"))
+			return `${because.reason}. Ideas ${others.join(" and ")} passed: Sebastian can have them compared without idea ${because.idea} with evf task compare-passed ${ref} --owner-approval "<his words>".`;
+		return because.reason;
+	}
+	const failures = trailingFailures(runs, marker);
+	return failures >= RETRY_CAP ? `${failures} failures in a row without a passed stage` : null;
+}
+
+/** The run a held-back escalation waits for: any seat run still open (evf's own stages are not seats). */
+const openSeat = (runs: RunRow[]) => runs.find((r) => r.status === "started" && r.role !== "evf");
+
 /** Prototype mode. Idea seats launch one per transition and run side by side; the pick is Sebastian's, not evf's. */
-function nextPrototype(task: TaskRef, t: TaskRow, runs: RunRow[], picked: boolean, reopenAfter: number): Next {
+function nextPrototype(
+	task: TaskRef,
+	t: TaskRow,
+	runs: RunRow[],
+	picked: boolean,
+	reopenAfter: number,
+	extras: NextExtras,
+): Next {
 	const round = t.round;
 	if (t.status === "done") return { stage: "done", round, reason: "handed off" };
 	if (t.status === "escalated") return { stage: "escalated", round, reason: "escalated" };
-	const failures = trailingFailures(runs, reopenAfter);
-	if (failures >= RETRY_CAP)
-		return { stage: "escalated", round, reason: `${failures} failures in a row without a passed stage` };
+	// An owner's compare-passed choice leaves the missing idea out; no failure before it counts any more.
+	const missing = extras.choice?.missing ?? [];
+	const stuck = prototypeStuck(task.id, runs, reopenAfter) ?? extras.deferred ?? null;
+	if (stuck) {
+		// No new seat starts once the task earned an escalation, and none escalates while a seat still works.
+		const open = openSeat(runs);
+		if (open)
+			return {
+				stage: "waiting",
+				round,
+				run: open.id,
+				reason: `escalation held back until the ${open.stage} seat closes: ${stuck}`,
+				deferred: stuck,
+			};
+		return { stage: "escalated", round, reason: stuck };
+	}
 	const go = (stage: Stage, reason: string, idea?: number): Next => ({
 		stage,
 		role: seatOf(stage, task, t.spec),
@@ -150,17 +268,25 @@ function nextPrototype(task: TaskRef, t: TaskRow, runs: RunRow[], picked: boolea
 		return go("plan", plan ? `plan ${plan.status}, no spec stored` : "no spec yet");
 	}
 	for (let i = 1; i <= IDEAS; i++) {
+		if (missing.includes(i)) continue;
 		const last = lastOf(`idea${i}`);
 		if (!last || last.status === "failed" || last.status === "aborted")
 			return go("idea", `idea ${i} ${last ? last.status : "not started"}`, i);
 	}
-	const openIdea = runs.find((r) => /^idea\d$/.test(r.stage) && r.status === "started");
+	const openIdea = runs.find((r) => ideaStage.test(r.stage) && r.status === "started");
 	if (openIdea) return { stage: "waiting", round, run: openIdea.id, reason: `${openIdea.stage} is still open` };
 	const compare = lastOf("compare");
 	if (compare?.status !== "passed") {
 		if (compare?.status === "started")
 			return { stage: "waiting", round, run: compare.id, reason: "the compare seat is still open" };
-		return go("compare", compare ? `compare ${compare.status}` : "all ideas built");
+		return go(
+			"compare",
+			compare
+				? `compare ${compare.status}`
+				: missing.length
+					? `ideas built; idea ${missing.join(", ")} left out`
+					: "all ideas built",
+		);
 	}
 	if (!picked) return { stage: "pick", round, reason: "waiting for Sebastian's pick: evf task pick" };
 	const merge = lastOf("merge");
@@ -170,18 +296,44 @@ function nextPrototype(task: TaskRef, t: TaskRow, runs: RunRow[], picked: boolea
 	return go("merge", merge ? `merge ${merge.status}` : "idea picked");
 }
 
-/** Pure: the next stage from the task's closed runs. Rounds are counted when a verify or ci run closes failed. */
-export function nextStage(task: TaskRef, t: TaskRow, runs: RunRow[], picked = false, reopenAfter = 0): Next {
+/**
+ * Pure: the next stage from the task's closed runs. Rounds are counted when a verify or ci run closes failed. After
+ * a reopen, the stage's reason names the reopen until a seat has run since, so the old failure never reads as current.
+ */
+export function nextStage(
+	task: TaskRef,
+	t: TaskRow,
+	runs: RunRow[],
+	picked = false,
+	reopenAfter = 0,
+	extras: NextExtras = {},
+): Next {
 	const round = t.round;
-	if (t.mode === "prototype") return nextPrototype(task, t, runs, picked, reopenAfter);
+	if (t.mode === "prototype") return nextPrototype(task, t, runs, picked, reopenAfter, extras);
 	if (t.status === "merged" || t.status === "done") return { stage: "done", round, reason: t.status };
 	if (t.status === "escalated") return { stage: "escalated", round, reason: `loop cap of ${LOOP_CAP} rounds hit` };
 	const open = runs.find((r) => r.status === "started");
-	if (open) return { stage: "waiting", round, run: open.id, reason: `the ${open.stage} seat is still open` };
+	if (open)
+		return {
+			stage: "waiting",
+			round,
+			run: open.id,
+			reason: `the ${open.stage} seat is still open`,
+			...(extras.deferred ? { deferred: extras.deferred } : {}),
+		};
+	// A cap that was reached while another seat still worked: that seat has closed, so the task stops now.
+	if (extras.deferred) return { stage: "escalated", round, reason: extras.deferred };
 	const failures = failuresInARow(runs, reopenAfter);
 	if (failures >= RETRY_CAP)
 		return { stage: "escalated", round, reason: `${failures} failures in a row without a passed stage` };
-	const go = (stage: Stage, reason: string): Next => ({ stage, role: seatOf(stage, task, t.spec), round, reason });
+	const reopened = !!extras.reopenReason && runs.every((r) => r.id <= reopenAfter);
+	const named = (reason: string) => (reopened ? `reopened by the coordinator: ${extras.reopenReason}` : reason);
+	const go = (stage: Stage, reason: string): Next => ({
+		stage,
+		role: seatOf(stage, task, t.spec),
+		round,
+		reason: named(reason),
+	});
 	// An evf run aborted by a restart never happened: the stage before it decides.
 	const last = runs.filter((r) => !(r.role === "evf" && r.status === "aborted")).at(-1);
 	if (!last) return t.spec ? go("implement", "spec stored, no runs yet") : go("plan", "no spec yet");
@@ -220,6 +372,13 @@ export function nextStage(task: TaskRef, t: TaskRow, runs: RunRow[], picked = fa
 	}
 }
 
+/** The owner events a task's next stage depends on, read from the store. */
+const extrasOf = (db: DatabaseSync, taskId: number): NextExtras => ({
+	reopenReason: reopenReasonOf(db, taskId),
+	deferred: deferredEscalation(db, taskId),
+	choice: compareChoiceOf(db, taskId),
+});
+
 export function next(root: string, task: TaskRef): number {
 	const db = openWorkDb(root);
 	try {
@@ -232,6 +391,7 @@ export function next(root: string, task: TaskRef): number {
 					t.id ? runsOf(db, t.id) : [],
 					!!(t.id && pickOf(db, t.id)),
 					t.id ? reopenMarker(db, t.id) : 0,
+					t.id ? extrasOf(db, t.id) : {},
 				),
 			),
 		);
@@ -277,6 +437,25 @@ function provenCriteria(db: DatabaseSync, taskId: number, wt: string, head: stri
 	return new Set([...latest].filter(([, status]) => status === "met" || status === "n/a").map(([c]) => c));
 }
 
+/** Unmet or not met, said on a line that names a Done criterion: "Criterion 9 is unmet", "Done 3 not met". */
+const NAMES_CRITERION = /\b(?:criteri(?:on|a)|done(?: criteri(?:on|a))?)\s*#?\d+/i;
+const SAYS_UNMET = /\b(?:unmet|not\s+met)\b/i;
+export const unmetCriterionLine = (text: string): string | null =>
+	text
+		.split("\n")
+		.map((line) => line.trim())
+		.find((line) => NAMES_CRITERION.test(line) && SAYS_UNMET.test(line)) ?? null;
+
+/** Other seat runs of the task that are open and whose Herdr agent exists: a seat that still works. */
+function seatsStillWorking(db: DatabaseSync, taskId: number, exceptRun: number): string[] {
+	const open = db
+		.prepare(
+			"SELECT herdr_agent FROM runs WHERE task_id = ? AND status = 'started' AND id <> ? AND role <> 'evf' AND herdr_agent IS NOT NULL",
+		)
+		.all(taskId, exceptRun) as Array<{ herdr_agent: string }>;
+	return open.map((o) => o.herdr_agent).filter((agent) => agentExists(agent));
+}
+
 /**
  * Close a stage. A failed verify or ci costs a round; the fourth round escalates and nothing launches again. A verify
  * run closes passed only when every Done criterion has a met or n/a proof at the worktree head or an ancestor of it.
@@ -290,7 +469,7 @@ export function runDone(
 	try {
 		const r = db
 			.prepare(
-				"SELECT r.id, r.task_id, r.stage, r.role, r.status, t.ref, t.round, t.worktree, t.spec FROM runs r JOIN tasks t ON t.id = r.task_id WHERE r.id = ?",
+				"SELECT r.id, r.task_id, r.stage, r.role, r.status, t.ref, t.mode, t.round, t.worktree, t.spec FROM runs r JOIN tasks t ON t.id = r.task_id WHERE r.id = ?",
 			)
 			.get(runId) as
 			| {
@@ -300,6 +479,7 @@ export function runDone(
 					role: string;
 					status: string;
 					ref: string;
+					mode: string;
 					round: number;
 					worktree: string | null;
 					spec: string | null;
@@ -318,6 +498,17 @@ export function runDone(
 			if (missing.length)
 				fail(
 					`Done criteria ${missing.join(", ")} have no met or n/a proof at ${head.slice(0, 10)} or an earlier head it contains. Add them with bin/evf proof add ${r.ref} --criterion <n> --status met|n/a --evidence <url>, or close this verify as failed.`,
+				);
+		}
+		if (ideaStage.test(r.stage) && opts.status === "passed") {
+			const idea = Number(r.stage.slice(4)),
+				ideaFile = join(ideaWorktree(root, loadConfig(root), parseTask(r.ref), idea), "IDEA.md");
+			const unmet =
+				unmetCriterionLine(summary) ??
+				(existsSync(ideaFile) ? unmetCriterionLine(readFileSync(ideaFile, "utf8")) : null);
+			if (unmet)
+				fail(
+					`Idea ${idea} cannot close passed: "${unmet}" names a Done criterion that is not met. Finish that criterion, or close this run as failed.`,
 				);
 		}
 		db.prepare("UPDATE runs SET status = ?, ended_at = ?, summary = ? WHERE id = ?").run(
@@ -361,9 +552,24 @@ export function runDone(
 			if (opts.status === "failed") {
 				const runs = runsOf(db, r.task_id),
 					marker = reopenMarker(db, r.task_id);
-				const failures = failuresInARow(runs, marker);
-				if (failures >= RETRY_CAP) escalated = `${failures} failures in a row, last in ${r.stage}. ${first}`;
+				if (r.mode === "prototype") escalated = prototypeStuck(r.ref, runs, marker) ?? "";
+				else {
+					const failures = failuresInARow(runs, marker);
+					if (failures >= RETRY_CAP) escalated = `${failures} failures in a row, last in ${r.stage}. ${first}`;
+				}
 			}
+		}
+		// A task does not stop while another seat of it works. The escalation waits, recorded, for the last open seat.
+		const pending = escalated ? "" : (deferredEscalation(db, r.task_id) ?? "");
+		if (escalated || pending) {
+			const working = seatsStillWorking(db, r.task_id, runId);
+			if (working.length && escalated) {
+				record(db, r.task_id, runId, "escalation_deferred", {
+					cause: escalated,
+					summary: `${r.ref} escalation held back while ${working.join(", ")} still works: ${escalated.slice(0, 160)}`,
+				});
+				escalated = "";
+			} else if (!working.length) escalated ||= pending;
 		}
 		if (escalated) escalate(db, { id: r.task_id, ref: r.ref }, runId, escalated);
 		console.log(`run ${runId} (${r.stage}) closed ${opts.status}${escalated ? `; ${r.ref} escalated` : ""}.`);
@@ -449,6 +655,11 @@ export function taskPick(root: string, task: TaskRef, idea: number, ownerApprova
 	try {
 		const t = ensureTask(db, task, "prototype");
 		if (t.mode !== "prototype") fail(`${t.ref} is in ${t.mode} mode; only prototype tasks take a pick.`);
+		const choice = compareChoiceOf(db, t.id);
+		if (choice?.missing.includes(idea))
+			fail(
+				`Idea ${idea} is the missing idea (${choice.reason.slice(0, 160)}); it was left out of the comparison. Pick one of the compared ideas.`,
+			);
 		const wt = ideaWorktree(root, loadConfig(root), task, idea);
 		const head = existsSync(wt) ? git(wt, "rev-parse", "HEAD") : null;
 		db.prepare(
@@ -492,6 +703,108 @@ export function taskReopen(root: string, task: TaskRef, reason: string): number 
 			summary: `${t.ref} reopened to ${status}: ${reason.trim()}`,
 		});
 		console.log(`reopen: ${t.ref} is ${status}.`);
+		return 0;
+	} finally {
+		db.close();
+	}
+}
+
+/**
+ * Sebastian's choice to compare only the ideas that passed, after one idea is stuck. The task leaves `escalated`; the
+ * drive then runs compare with the passed ideas. The missing idea cannot be picked. Failures before it count no more.
+ */
+export function taskComparePassed(root: string, task: TaskRef, ownerApproval: string): number {
+	if (process.env.EVF_RUN)
+		fail("The choice is Sebastian's, recorded by Jonah or a human shell: a seat cannot run evf task compare-passed.");
+	if (ownerApproval.trim().split(/\s+/).filter(Boolean).length < 2)
+		fail('Quote Sebastian\'s choice: --owner-approval "<his words>".');
+	const db = openWorkDb(root);
+	try {
+		const t = findTask(db, task);
+		if (!t) fail(`${task.id} has no task row.`);
+		if (t.mode !== "prototype") fail(`${t.ref} is in ${t.mode} mode; only prototype tasks compare ideas.`);
+		if (t.status !== "escalated") fail(`${t.ref} is ${t.status}, not escalated: the choice answers an escalation.`);
+		const runs = runsOf(db, t.id);
+		const last = (i: number) => runs.filter((r) => r.stage === `idea${i}`).at(-1);
+		const all = Array.from({ length: IDEAS }, (_, i) => i + 1);
+		const missing = all.filter((i) => last(i)?.status !== "passed");
+		if (missing.length !== 1)
+			fail(
+				`${t.ref} has ${all.length - missing.length} passed ideas of ${IDEAS}: the choice needs exactly one missing idea and every other idea passed.`,
+			);
+		const idea = missing[0]!,
+			failed = ideaFailures(runs, idea, 0)[0],
+			why = `idea ${idea} ${failed?.status ?? "did not finish"}: ${headline(failed?.summary ?? "no summary", 200)}`;
+		const { m: afterRun } = db.prepare("SELECT COALESCE(MAX(id), 0) AS m FROM runs WHERE task_id = ?").get(t.id) as {
+			m: number;
+		};
+		db.prepare("UPDATE tasks SET status = 'active', updated_at = ? WHERE id = ?").run(now(), t.id);
+		record(db, t.id, null, "compare_passed", {
+			missing: [idea],
+			passed: all.filter((i) => i !== idea),
+			reason: why,
+			quote: ownerApproval.trim(),
+			after_run: afterRun,
+			summary: `${t.ref}: Sebastian chose to compare ideas ${all.filter((i) => i !== idea).join(" and ")} without ${why}`,
+		});
+		console.log(
+			`compare-passed: ${t.ref} compares ideas ${all.filter((i) => i !== idea).join(" and ")}; idea ${idea} is missing.`,
+		);
+		return 0;
+	} finally {
+		db.close();
+	}
+}
+
+/** A stale task row, closed for good: abandoned, with the reason as an `abandon` event. The TUI hides abandoned rows. */
+export function taskAbandon(root: string, task: TaskRef, opts: { id?: number; reason: string }): number {
+	if (process.env.EVF_RUN) fail("A seat cannot abandon a task row: Jonah or a human shell runs evf task abandon.");
+	if (opts.reason.trim().split(/\s+/).filter(Boolean).length < 2)
+		fail('Give the reason in two words or more: --reason "<words>".');
+	const db = openWorkDb(root);
+	try {
+		const rows = db.prepare("SELECT id, ref, slug, status FROM tasks WHERE ref = ? ORDER BY id").all(task.id) as Array<{
+			id: number;
+			ref: string;
+			slug: string;
+			status: string;
+		}>;
+		if (!rows.length) fail(`${task.id} has no task row in the store.`);
+		const row = opts.id ? rows.find((r) => r.id === opts.id) : rows.filter((r) => r.status !== "abandoned").at(-1);
+		if (!row)
+			fail(
+				opts.id
+					? `Store row ${opts.id} is not a row of ${task.id}; its rows are ${rows.map((r) => `${r.id} (${r.status})`).join(", ")}.`
+					: `Every row of ${task.id} is already abandoned.`,
+			);
+		if (row.status === "merged")
+			fail(
+				`Store row ${row.id} of ${task.id} is merged; merged work is not abandoned.${rows.length > 1 ? ` The ref has rows ${rows.map((r) => `${r.id} (${r.status})`).join(", ")}: pick one with --id.` : ""}`,
+			);
+		if (row.status === "abandoned") fail(`Store row ${row.id} of ${task.id} is already abandoned.`);
+		const open = db.prepare("SELECT id FROM runs WHERE task_id = ? AND status = 'started'").all(row.id) as Array<{
+			id: number;
+		}>;
+		if (open.length)
+			fail(
+				`Store row ${row.id} of ${task.id} has a started run (${open.map((o) => o.id).join(", ")}); close or abort it first.`,
+			);
+		const pidFile = join(evfDataDir(root), "drive", `${row.slug}.pid`);
+		const holder = existsSync(pidFile) ? Number(readFileSync(pidFile, "utf8").trim()) : 0;
+		if (holder && holder !== process.pid && alive(holder))
+			fail(`evf drive runs for ${task.id} (pid ${holder}). Stop it first.`);
+		db.prepare("UPDATE tasks SET status = 'abandoned', updated_at = ? WHERE id = ?").run(now(), row.id);
+		record(db, row.id, null, "abandon", {
+			reason: opts.reason.trim(),
+			from: row.status,
+			summary: `${task.id} row ${row.id} abandoned (was ${row.status}): ${opts.reason.trim()}`,
+		});
+		const event = (
+			db.prepare("SELECT MAX(id) AS id FROM events WHERE task_id = ? AND type = 'abandon'").get(row.id) as {
+				id: number;
+			}
+		).id;
+		console.log(`abandon: ${task.id} store row ${row.id} (was ${row.status}) abandoned, event ${event}.`);
 		return 0;
 	} finally {
 		db.close();
@@ -692,7 +1005,29 @@ export function askPlanner(root: string, task: TaskRef, question: string): numbe
 
 const CLOSE = "Close with bin/evf run done $EVF_RUN --status passed|failed --summary-file <path>.";
 /** What a stage prompt may name: the spec, the idea worktrees, the comparison dir, the pick and the PR body path. */
-type PromptContext = { spec: string | null; ideas: string[]; comparison: string; pick: Pick | null; prBody: string };
+type PromptContext = {
+	spec: string | null;
+	ideas: string[];
+	comparison: string;
+	pick: Pick | null;
+	prBody: string;
+	/** The ask's `Coordinator note` paragraphs, which idea and compare seats must read. */
+	notes: string[];
+	/** The coordinator's reopen reason while no seat has passed since the reopen; the prompt carries it verbatim. */
+	reopen: string | null;
+	/** The failed or aborted run of this idea that the seat resumes from. */
+	previous: { id: number; status: string; summary: string } | null;
+	choice: CompareChoice | null;
+};
+const notesOf = (ctx: PromptContext) =>
+	ctx.notes.length
+		? ` Coordinator notes from the ask, read them first: ${ctx.notes.map((n) => `"${n}"`).join(" ")}`
+		: "";
+/** Said first in every prompt after a reopen: the reason replaces the failure summaries that came before it. */
+const reopenOf = (ctx: PromptContext) =>
+	ctx.reopen
+		? `The coordinator reopened this task. Reason, verbatim: "${ctx.reopen}". This is your current instruction; the failure summaries from before the reopen are history, not orders. `
+		: "";
 type Prompt = (task: TaskRef, next: Next, ctx: PromptContext) => string;
 const angleOf = (spec: string | null, idea: number) =>
 	spec
@@ -704,9 +1039,12 @@ const PROTOTYPE_PROMPTS: Record<string, Prompt> = {
 	plan: (task) =>
 		`Plan prototype task ${task.id}: from the brief in your session-start context write the spec with Goal, three lines "Angle 1:", "Angle 2:" and "Angle 3:" naming three distinct approaches worth a proof of concept, numbered Done criteria for what every proof of concept must show, and Non-goals. Store it with bin/evf task spec ${task.id} --file <path>, then close with bin/evf run done $EVF_RUN --status passed --summary-file <path>.`,
 	idea: (task, next, ctx) =>
-		`Build idea ${next.idea} of prototype task ${task.id} in this worktree. Your angle: ${angleOf(ctx.spec, next.idea!)}. The brief and the Done criteria are in your session-start context. Write IDEA.md at the worktree root, commit, and close with bin/evf run done $EVF_RUN --status passed|failed --summary-file <path>.`,
-	compare: (task, _next, ctx) =>
-		`Compare the three ideas of prototype task ${task.id}. Idea worktrees: ${ctx.ideas.join(", ")}. Build the comparison in ${ctx.comparison} (a toggle page for UI work; a compare script plus one diagram per idea for backend work) and write comparison.md there without naming a winner. Record it with bin/evf proof add ${task.id} --criterion comparison --status met --evidence ${ctx.comparison}/comparison.md, then close with bin/evf run done $EVF_RUN --status passed|failed --summary-file <path>.`,
+		`Build idea ${next.idea} of prototype task ${task.id} in this worktree. Your angle: ${angleOf(ctx.spec, next.idea!)}. The brief and the Done criteria are in your session-start context.${notesOf(ctx)}${ctx.previous ? ` This is a rerun: run ${ctx.previous.id} of this idea ended ${ctx.previous.status} with: "${ctx.previous.summary}". Resume in this worktree and its existing IDEA.md. Do not start over: clear that blocker first.` : ""} Write IDEA.md at the worktree root, commit, and close with bin/evf run done $EVF_RUN --status passed|failed --summary-file <path>. A run cannot close passed while its summary or IDEA.md says a Done criterion is unmet: finish the criterion or close failed.`,
+	compare: (task, _next, ctx) => {
+		const left = ctx.choice?.missing ?? [],
+			shown = ctx.ideas.filter((_, i) => !left.includes(i + 1));
+		return `Compare the ${left.length ? "passed ideas" : "three ideas"} of prototype task ${task.id}. Idea worktrees: ${shown.join(", ")}.${left.length ? ` Idea ${left.join(", ")} is missing from this comparison (${ctx.choice!.reason}); Sebastian chose to compare without it. Name the missing idea and why at the top of comparison.md, and do not compare it.` : ""}${notesOf(ctx)} Build the comparison in ${ctx.comparison} (a toggle page for UI work; a compare script plus one diagram per idea for backend work) and write comparison.md there without naming a winner. Record it with bin/evf proof add ${task.id} --criterion comparison --status met --evidence ${ctx.comparison}/comparison.md, then close with bin/evf run done $EVF_RUN --status passed|failed --summary-file <path>.`;
+	},
 	merge: (task, _next, ctx) =>
 		`Sebastian picked idea ${ctx.pick?.idea} of prototype task ${task.id}: "${ctx.pick?.quote}". Its worktree: ${ctx.ideas[(ctx.pick?.idea ?? 1) - 1]}. Comparison: ${ctx.comparison}. Read the brief, the comparison and all three ideas, write the handoff spec (Goal, numbered Done criteria, Non-goals, Approach) and run bin/evf task handoff ${task.id} --file <path>. Close with bin/evf run done $EVF_RUN --status passed|failed --summary-file <path>.`,
 };
@@ -714,7 +1052,7 @@ const STAGE_PROMPTS: Record<string, Prompt> = {
 	plan: (task) =>
 		`Plan task ${task.id}: write the spec (Goal, numbered testable Done criteria, Non-goals) from the ask in your session-start context, store it with bin/evf task spec ${task.id} --file <path>, then close with bin/evf run done $EVF_RUN --status passed --summary-file <path>.`,
 	implement: (task, next, ctx) =>
-		`Implement task ${task.id} in this worktree against the spec in your session-start context.${next.round ? ` Round ${next.round}: ${next.reason}. Read the last verify or ci summary with bin/evf status --json ${task.id} and fix those findings first.` : ""} Before you close: add tests; for UI work read .agents/roles/ui-designer.md and capture 390 and 1440 px screenshots of each UI state you changed, outside the repository, as the capture half of .agents/skills/verify-preview/SKILL.md says; record bin/evf proof add ${task.id} --criterion <n> --status met|unmet|n/a --evidence <url-or-path> for each Done criterion you built or changed in this round. Keep bin/evf verify ${task.id} green, commit, and write the PR body to ${ctx.prBody} following .agents/skills/everyfield-pr/template.md with your EVF-Author line (bin/evf session prints your id). ${CLOSE}`,
+		`Implement task ${task.id} in this worktree against the spec in your session-start context.${next.round && !ctx.reopen ? ` Round ${next.round}: ${next.reason}. Read the last verify or ci summary with bin/evf status --json ${task.id} and fix those findings first.` : ""} Before you close: add tests; for UI work read .agents/roles/ui-designer.md and capture 390 and 1440 px screenshots of each UI state you changed, outside the repository, as the capture half of .agents/skills/verify-preview/SKILL.md says; record bin/evf proof add ${task.id} --criterion <n> --status met|unmet|n/a --evidence <url-or-path> for each Done criterion you built or changed in this round. Keep bin/evf verify ${task.id} green, commit, and write the PR body to ${ctx.prBody} following .agents/skills/everyfield-pr/template.md with your EVF-Author line (bin/evf session prints your id). ${CLOSE}`,
 	simplify: (task, next) =>
 		`Simplify task ${task.id}: read the spec and git diff origin/main...HEAD, remove what the Done criteria do not need, commit. evf runs the author checks at your head in the pr stage.${next.reason.startsWith("pr failed") ? ` evf ran the author checks at the head and they failed (${next.reason}). Fix that first.` : ""} ${CLOSE}`,
 	verify: (task) =>
@@ -742,7 +1080,8 @@ const checksOf = (wt: string, number: number): { pending: string[]; failed: stri
 
 /**
  * seatPollMs: how often a blocked seat, or a seat whose first turn has not begun, is looked at again.
- * startGraceMs: how long after the launch prompt an idle report counts as "the turn has not begun yet".
+ * startGraceMs: how long, counted from the moment the drive starts to watch a seat, an idle report counts as "the turn
+ * has not begun yet". A seat watched late, after other launches, still gets the whole grace.
  */
 export type DriveTiming = {
 	waitMs: number;
@@ -750,6 +1089,8 @@ export type DriveTiming = {
 	ciPollMs: number;
 	seatPollMs: number;
 	startGraceMs: number;
+	/** Waits inside `evf launch`; tests shorten them, production uses LAUNCH_TIMING. */
+	launch?: Partial<LaunchTiming>;
 };
 const DRIVE_TIMING: DriveTiming = {
 	waitMs: 6 * 60 * 60_000,
@@ -920,10 +1261,21 @@ function waitOnSeat(
 		runDone(root, runId, { status: "failed", summary: "no Herdr agent recorded for this run" });
 		return;
 	}
-	const deadline = Date.now() + timing.waitMs;
-	let turnSeen = false;
+	const watchStart = Date.now(),
+		deadline = watchStart + timing.waitMs;
+	let turnSeen = false,
+		waitsLogged = 0;
 	for (let nudged = false; ;) {
 		if (runStatus(db, runId) !== "started") return;
+		// A seat that waits for a free preview slot says so as an event; the drive log repeats it.
+		for (const e of db
+			.prepare("SELECT id, payload FROM events WHERE run_id = ? AND type = 'preview_wait' AND id > ? ORDER BY id")
+			.all(runId, waitsLogged) as Array<{ id: number; payload: string }>) {
+			waitsLogged = e.id;
+			console.log(
+				`${now()} drive ${task.id}: ${r.herdr_agent}: ${(JSON.parse(e.payload) as { summary?: string }).summary}`,
+			);
+		}
 		const sliceStart = Date.now();
 		const waited = run(
 			"herdr",
@@ -976,7 +1328,7 @@ function waitOnSeat(
 			// The launch prompt may not have begun its turn yet: wait for the seat to leave idle before reading idle as finished.
 			const sent = promptSentAt(db, runId);
 			if (sent !== null) {
-				for (let left = sent + timing.startGraceMs; Date.now() < left;) {
+				for (let left = watchStart + timing.startGraceMs; Date.now() < left;) {
 					sleep(timing.seatPollMs);
 					if (runStatus(db, runId) !== "started") return;
 					if (agentState(r.herdr_agent) !== "idle") {
@@ -1007,20 +1359,61 @@ function waitOnSeat(
 	}
 }
 
+/** The failed or aborted run an idea seat resumes from, or null for a first launch. */
+function previousIdeaRun(runs: RunRow[], idea: number | undefined): PromptContext["previous"] {
+	const last = idea ? runs.filter((r) => r.stage === `idea${idea}`).at(-1) : undefined;
+	return last && (last.status === "failed" || last.status === "aborted")
+		? { id: last.id, status: last.status, summary: last.summary ?? "(no summary)" }
+		: null;
+}
+
+/**
+ * Launch a seat. A launch that fails after its run row exists closed that run as aborted with the pane's last lines
+ * (launch retries once by itself), so the drive logs it and goes on to the next transition, where the retry cap
+ * applies. A failure before any run row exists is not a launch result: it stops the drive with its error.
+ */
+function launchOrLog(
+	root: string,
+	task: TaskRef,
+	launching: { role: Role; prompt: string; idea?: number; mode: string; launch?: Partial<LaunchTiming> },
+): void {
+	try {
+		launch(root, task, launching.role, {
+			prompt: launching.prompt,
+			idea: launching.idea,
+			mode: launching.mode,
+			timing: launching.launch,
+		});
+	} catch (e) {
+		if (!(e instanceof LaunchAborted)) throw e;
+		console.log(`${now()} drive ${task.id}: launch of ${launching.role} failed: ${e.message}`);
+	}
+}
+
 /** One transition. Returns the stage it performed or waited on. */
 export function driveOnce(root: string, task: TaskRef, timing: DriveTiming = DRIVE_TIMING): Next {
 	const db = openWorkDb(root);
-	let launching: { role: Role; prompt: string; idea?: number; mode: string; comparison: string } | undefined;
+	let launching:
+		| { role: Role; prompt: string; idea?: number; mode: string; comparison: string; launch?: Partial<LaunchTiming> }
+		| undefined;
 	try {
 		const t = ensureTask(db, task, "implement");
 		const runs = runsOf(db, t.id);
 		const pick = pickOf(db, t.id);
-		const n = nextStage(task, t, runs, !!pick, reopenMarker(db, t.id));
+		const marker = reopenMarker(db, t.id),
+			extras = extrasOf(db, t.id);
+		const n = nextStage(task, t, runs, !!pick, marker, extras);
 		if (t.status !== "merged")
 			record(db, t.id, n.run ?? null, "next", {
 				stage: n.stage,
 				round: n.round,
 				summary: `next: ${n.stage} (${n.reason})`,
+			});
+		// An escalation the task earned while a seat works is held back and recorded, so the TUI says why it stays active.
+		if (n.stage === "waiting" && n.deferred && extras.deferred !== n.deferred)
+			record(db, t.id, n.run ?? null, "escalation_deferred", {
+				cause: n.deferred,
+				summary: `${task.id} escalation held back until ${n.reason.replace(/^escalation held back until /, "")}`,
 			});
 		if (n.stage === "escalated" && t.status !== "escalated") escalate(db, t, null, n.reason);
 		if (n.stage === "done" || n.stage === "escalated") return n;
@@ -1064,14 +1457,20 @@ export function driveOnce(root: string, task: TaskRef, timing: DriveTiming = DRI
 				comparison: join(runtimeDir(root, task), "comparison"),
 				pick,
 				prBody: prBodyPath(root, task),
+				notes: coordinatorNotes((db.prepare("SELECT ask FROM tasks WHERE id = ?").get(t.id) as { ask: string }).ask),
+				// Until a seat passes after the reopen, every prompt carries the coordinator's reason.
+				reopen: runs.some((r) => r.id > marker && r.status === "passed") ? null : (extras.reopenReason ?? null),
+				previous: previousIdeaRun(runs, n.idea),
+				choice: extras.choice ?? null,
 			};
 			const prompts = t.mode === "prototype" ? PROTOTYPE_PROMPTS : STAGE_PROMPTS;
 			launching = {
 				role: n.role,
-				prompt: prompts[n.stage]!(task, n, ctx),
+				prompt: reopenOf(ctx) + prompts[n.stage]!(task, n, ctx),
 				idea: n.idea,
 				mode: t.mode,
 				comparison: ctx.comparison,
+				launch: timing.launch,
 			};
 			return n;
 		}
@@ -1084,7 +1483,7 @@ export function driveOnce(root: string, task: TaskRef, timing: DriveTiming = DRI
 		db.close();
 		if (launching) {
 			mkdirSync(launching.comparison, { recursive: true });
-			launch(root, task, launching.role, { prompt: launching.prompt, idea: launching.idea, mode: launching.mode });
+			launchOrLog(root, task, launching);
 		}
 	}
 }
