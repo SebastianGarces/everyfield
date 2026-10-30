@@ -72,6 +72,7 @@ Each replaced table inherits the union of producer packages from its previous ta
 | `schema_backfill` | The migration runner ledger's backfill sibling (C102). | WP-097 |
 | `schema_migration` | WP-097 installs the migration runner ledger with its physical text primary key. | WP-097 |
 | `settings_preview` | WP-010 settings storage through Drizzle Kit. | WP-010 |
+| `task_assignee` | WP-023 stores the assignee set of a task. The set replaces the single task and obligation assignee columns. | WP-023 |
 | `tenant` | Stable body-free ownership is shared by root and deletion producers; no independent access grant. | WP-004, WP-005, WP-007, WP-010, WP-050, WP-057 |
 | `training_assignment` | WP-019 saved training applicability. | WP-019 |
 | `training_credit` | WP-019 training evidence. Historical completion stays on the person who earned it. | WP-019 |
@@ -175,7 +176,7 @@ This mapping is generated from `replaces`; Fix 2 uses it to align architecture, 
 | `reference_release` | `reference_release` |
 | `reference_section` | `article_revision`, `reference_item`, `reference_version` |
 | `reference_template_version` | `reference_version` |
-| `task` | `task`, `task_assignee` |
+| `task` | `task` |
 | `task_relation` | `task` |
 | `task_status_event` | `audit_event` |
 | `team_membership` | `team_tenure` |
