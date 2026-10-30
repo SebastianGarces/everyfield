@@ -148,8 +148,8 @@ export function requireMaintenancePaths(root: string, wt: string, task: TaskRef)
 
 /**
  * The built-in document-template class (OPS-80). It applies when `mergePolicy.documentTemplates` is absent from
- * evf.config.json; an explicit key replaces it. `evf ship` and `evf approve` read it only through
- * `documentTemplateChanges`.
+ * evf.config.json; an explicit key replaces it. `evf ship`, `evf approve` and the merge read it only through
+ * `templateClass` in merge.ts, from the base branch's config.
  */
 export const DEFAULT_DOCUMENT_TEMPLATES: DocumentTemplatePolicy = {
 	paths: [
@@ -164,19 +164,3 @@ export const DEFAULT_DOCUMENT_TEMPLATES: DocumentTemplatePolicy = {
 	scope:
 		"A PR whose exact-head diff touches a document-template path never merges through evf ship; after the verifier passes it, Sebastian approves it in chat and an agent merges it with evf approve.",
 };
-
-/**
- * The document-template paths (`mergePolicy.documentTemplates.paths`) that the PR changes at `head`. The class
- * uses the whole diff from the merge base with `base`, so splitting a change across commits never leaves it.
- * With `--no-renames` a rename counts both its old and its new path. An entry that ends in `/` matches every
- * path under it; any other entry matches one file. `evf ship` and `evf approve` both decide the class here.
- */
-export function documentTemplateChanges(repo: string, cfg: Config, base: string, head: string): string[] {
-	const entries = (cfg.mergePolicy.documentTemplates ?? DEFAULT_DOCUMENT_TEMPLATES).paths;
-	const changed = git(repo, "diff", "--name-only", "--no-renames", git(repo, "merge-base", base, head), head)
-		.split("\n")
-		.filter(Boolean);
-	return changed.filter((path) =>
-		entries.some((entry) => (entry.endsWith("/") ? path.startsWith(entry) : path === entry)),
-	);
-}

@@ -22,9 +22,10 @@ import {
 	type ReviewParty,
 	type TaskRef,
 } from "./lib.ts";
-import { documentTemplateChanges, maintenanceScope, requireTaskScope } from "./policy.ts";
+import { maintenanceScope, requireTaskScope } from "./policy.ts";
 import { checkPrBody } from "./pr-body.ts";
 import { markMerged, openWorkDb, sessionsRecorded } from "./db.ts";
+import { approveCommand, mergePullRequest, templateClass, templateWhy, type TemplateClass } from "./merge.ts";
 import { withShipQueue, type QueueTiming } from "./ship-queue.ts";
 import { formatScope, wpScope } from "./scope.ts";
 import { acknowledgeShipped, recordProgress, type ShippedRecord } from "./progress.ts";
@@ -465,19 +466,18 @@ export function ship(root: string, task: TaskRef, timing: ShipTiming = SHIP_TIMI
 		cls = task.kind === "fb" ? cachedTriage(root, task.issue!)?.class : undefined;
 	// The PR #13 owner routes keep exact-head review and never merge here; only the merging routes queue and carry.
 	if (design || (task.kind === "fb" && !(cfg.mergePolicy.feedbackVerifierMerge as string[]).includes(cls ?? "")))
-		return ownerRoute(root, cfg, task, wt, pr.number, design, cls, []);
+		return ownerRoute(root, cfg, task, wt, pr.number, design, cls, { paths: [] });
 	// A PR that would merge here but changes a document template waits for Sebastian too (mergePolicy.documentTemplates).
-	git(root, "fetch", "--quiet", cfg.remote, cfg.baseBranch);
-	const templates = documentTemplateChanges(root, cfg, baseRef(root, cfg), git(wt, "rev-parse", "HEAD"));
-	if (templates.length) return ownerRoute(root, cfg, task, wt, pr.number, design, cls, templates);
+	// Doubt about the class holds the PR too (templateClass).
+	const templates = templateClass(root, cfg, git(wt, "rev-parse", "HEAD"));
+	if (templates.doubt || templates.paths.length)
+		return ownerRoute(root, cfg, task, wt, pr.number, design, cls, templates);
 	return withShipQueue(root, task.id, () => queuedMerge(root, cfg, task, wt, pr.number, timing), timing.queue);
 }
 
 /** The one message of a verified document-template PR: up to five matched paths, a count when there are more. */
-function templateWaitMessage(number: number, paths: string[]): string {
-	const shown = paths.slice(0, 5).join(", "),
-		more = paths.length > 5 ? ` (${paths.length} paths in all)` : "";
-	return `evf ship does not merge PR #${number}: it changes document-template paths (${shown})${more}. The verifier passed it. Sebastian approves each document-template PR; after his approval in chat, run: bin/evf approve ${number} --owner-approval "<his words>"`;
+function templateWaitMessage(number: number, templates: TemplateClass): string {
+	return `evf ship does not merge PR #${number}: ${templateWhy(templates)}. The verifier passed it. ${approveCommand(number)}`;
 }
 
 function ownerRoute(
@@ -488,7 +488,7 @@ function ownerRoute(
 	number: number,
 	design: boolean,
 	cls: string | undefined,
-	templates: string[],
+	templates: TemplateClass,
 ): number {
 	git(root, "fetch", "--quiet", cfg.remote, cfg.baseBranch);
 	const sha = git(wt, "rev-parse", "HEAD");
@@ -502,7 +502,7 @@ function ownerRoute(
 			"success",
 			`Verified by ${verifierLabel(verification.approval.verifier)} at ${sha.slice(0, 10)}`,
 		);
-	if (templates.length) {
+	if (templates.doubt || templates.paths.length) {
 		verified();
 		console.log(templateWaitMessage(number, templates));
 		return 0;
@@ -575,7 +575,7 @@ function queuedMerge(root: string, cfg: Config, task: TaskRef, wt: string, numbe
 		gh(wt, ["pr", "comment", String(number), "--body", proof]);
 		console.log(proof);
 	}
-	const merge = run("gh", ["pr", "merge", String(number), "--squash", "--match-head-commit", sha], { cwd: wt });
+	const merge = mergePullRequest({ root, cfg, cwd: wt, number, sha });
 	if (merge.code !== 0)
 		fail(
 			`Merge refused: ${(merge.stderr || merge.stdout).trim()}. A changed head needs fresh CI and verifier approval.`,

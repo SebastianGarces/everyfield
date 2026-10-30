@@ -53,6 +53,11 @@ fix joins the class when its exact-head diff (merge base to head, all commits) t
 status, prints the `evf approve` command and exits 0 without merging. After he approves in chat,
 `evf approve <PR> --owner-approval "<his words>"` merges the exact head once an independent review
 and the verified status hold. It then writes the shipped record and unlocks dependents as `evf ship` does.
+All merges go through one function (`mergePullRequest`, `tools/evf/merge.ts`). On the exact head it merges, it
+holds a document-template class PR without his recorded approval, and treats any doubt about the class as the
+class. It refuses to merge from evf code that differs from the base branch or has uncommitted changes: update the
+home checkout to current main and rerun. The drive runs its ship stage on current base code, so a long drive never
+merges on old rules.
 Preserve these PR #13 routes; they never carry an approval. Sensitive work and paid commitments still need their scoped owner approvals.
 
 Only evf writes canonical progress. Ship retains the CI and review references, exact head and

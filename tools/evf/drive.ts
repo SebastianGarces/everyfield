@@ -5,6 +5,7 @@ import { spawn } from "node:child_process";
 import type { DatabaseSync } from "node:sqlite";
 import { ensureTask, findTask, markMerged, newTaskRow, openWorkDb, record, seatText, type TaskRow } from "./db.ts";
 import { ideaWorktree, launch, LaunchAborted, LaunchLineTooLong, type LaunchTiming } from "./launch.ts";
+import { shipOnCurrentCode } from "./merge.ts";
 import { isOpus, validateOverride, type Role } from "./seats.ts";
 import {
 	EvfError,
@@ -1234,7 +1235,7 @@ function shipStage(db: DatabaseSync, root: string, task: TaskRef, t: TaskRow, ru
 		markMerged(db, task, before.commit, runId);
 		return { status: "passed", summary: "already merged on GitHub" };
 	}
-	ship(root, task);
+	shipOnCurrentCode(root, loadConfig(root), task, () => ship(root, task));
 	const after = view();
 	// A task is merged only when GitHub says so. An owner route (Wiki-style waits, P2/P3, design, document
 	// templates) verifies and returns without a merge: the drive records the wait and stops, with no new round.
