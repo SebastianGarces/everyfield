@@ -577,7 +577,7 @@
     },
     {
       "id": "GAP-REF-003",
-      "requirement": "Eleven document templates retain formats and exact merge manifest",
+      "requirement": "Original eleven document templates remain the base of the growing catalog with the format rule and exact merge manifest",
       "feature_ids": [
         "REF-003"
       ],
@@ -588,7 +588,7 @@
         "WP-036"
       ],
       "status": "future-not-run",
-      "description": "Approved eleven-template package PDF/DOCX/XLSX manifests",
+      "description": "Approved original-template package PDF/XLSX manifests under the current format rule",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -639,7 +639,6 @@
           "source": "templates",
           "formats": [
             "pdf",
-            "docx",
             "xlsx"
           ]
         }
@@ -647,10 +646,10 @@
       "expected": {
         "state": {},
         "result": {
-          "template_count": 11,
-          "format_count": 12,
           "foreign_merge_fields": [],
-          "finance_module_created": false
+          "finance_module_created": false,
+          "base_template_count": 11,
+          "base_format_count": 11
         },
         "event": null
       },
@@ -694,7 +693,6 @@
               "source": "templates",
               "formats": [
                 "pdf",
-                "docx",
                 "xlsx"
               ]
             }
@@ -738,7 +736,6 @@
               "source": "templates",
               "formats": [
                 "pdf",
-                "docx",
                 "xlsx"
               ],
               "fault": "required_source_unavailable"
