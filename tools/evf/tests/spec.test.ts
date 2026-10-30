@@ -36,8 +36,3 @@ Later slices:
 `;
 	assert.deepEqual(doneCriteria(spec), ["1", "2"]);
 });
-
-test("Later slices placed after Done end the Done list", () => {
-	const spec = `Goal: x\nDone when:\n1. A.\nLater slices:\n1. B.\n2. C.\n3. D.\nNon-goals: none.\n`;
-	assert.deepEqual(doneCriteria(spec), ["1"]);
-});
