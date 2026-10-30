@@ -1081,8 +1081,6 @@
 			"title": "Test environment hygiene: no leaked timing volumes, seeds coexist with preview, no git-push ask rule",
 			"owningPaths": [
 				"tools/evf/",
-				"tests/ui/",
-				"tests/workflow/",
 				".agents/skills/verify-preview/",
 				".claude/settings.json",
 				"evf.config.json"
