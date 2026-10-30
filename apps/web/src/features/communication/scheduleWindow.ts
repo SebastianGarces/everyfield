@@ -1,9 +1,9 @@
 /** The scheduling window: now through the next 30 days. Shared by Review and the history detail. */
-export const WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+const WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
 const pad = (n: number) => String(n).padStart(2, "0");
 /** A local `datetime-local` value. */
-export const localStamp = (d: Date) =>
+const localStamp = (d: Date) =>
 	`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 
 export const windowBounds = (now = new Date()) => ({

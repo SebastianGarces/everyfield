@@ -4,13 +4,13 @@ import type { DeliveryReport, Outcome, SendNowResult } from "./model.ts";
 // actions.ts passes the real commands. Nothing here reads the request or the database.
 
 /** The earliest send time the scheduling window accepts, from now. */
-export const EARLIEST_SEND_MS = 60_000;
+const EARLIEST_SEND_MS = 60_000;
 
 /**
  * The send time of the schedule step: the next whole minute at least one minute away. A retry with the same request
  * keys inside that minute asks for the same time, so the saved request replays instead of conflicting.
  */
-export const earliestSendAt = (now: number): string =>
+const earliestSendAt = (now: number): string =>
 	new Date(Math.ceil((now + EARLIEST_SEND_MS) / 60_000) * 60_000).toISOString();
 
 type Scheduled = { communicationId: string; revision: string; scheduledAt: string };
