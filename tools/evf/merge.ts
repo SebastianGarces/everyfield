@@ -49,11 +49,15 @@ export function setLoadedCode(code: ((base: BaseCode) => CodeIdentity | undefine
 	claimed = code ?? undefined;
 }
 
-function baseCode(root: string, cfg: Config): BaseCode | string {
-	if (hasRemote(root, cfg)) {
-		const fetched = run("git", ["-C", root, "fetch", "--quiet", cfg.remote, cfg.baseBranch]);
-		if (fetched.code !== 0) return `git fetch ${cfg.remote} ${cfg.baseBranch} failed: ${fetched.stderr.trim()}`;
-	}
+/** Fetches the base branch; returns why it failed, or undefined. A local-only repository has nothing to fetch. */
+export function fetchBase(root: string, cfg: Config): string | undefined {
+	if (!hasRemote(root, cfg)) return undefined;
+	const fetched = run("git", ["-C", root, "fetch", "--quiet", cfg.remote, cfg.baseBranch]);
+	return fetched.code === 0 ? undefined : `git fetch ${cfg.remote} ${cfg.baseBranch} failed: ${fetched.stderr.trim()}`;
+}
+
+function baseCode(root: string, cfg: Config, fetchError: string | undefined): BaseCode | string {
+	if (fetchError) return fetchError;
 	const ref = baseRef(root, cfg),
 		base = run("git", ["-C", root, "rev-parse", ref]);
 	if (base.code !== 0) return `git rev-parse ${ref} failed: ${base.stderr.trim()}`;
@@ -65,8 +69,8 @@ function baseCode(root: string, cfg: Config): BaseCode | string {
 }
 
 /** The reason this process's evf code may not merge, or undefined when it matches the base branch. */
-export function staleCode(root: string, cfg: Config): string | undefined {
-	const base = baseCode(root, cfg);
+export function staleCode(root: string, cfg: Config, fetchError = fetchBase(root, cfg)): string | undefined {
+	const base = baseCode(root, cfg, fetchError);
 	if (typeof base === "string") return `evf cannot read the ${cfg.baseBranch} code to compare: ${base}`;
 	const code = claimed ? claimed(base) : readAtLoad;
 	const rerun = `Update the home checkout to ${cfg.baseBranch} (git -C ${root} merge --ff-only ${baseRef(root, cfg)}), then rerun the command from it.`;
@@ -86,13 +90,15 @@ export type TemplateClass = { paths: string[]; doubt?: string };
  * Whether the PR at exactly `sha` is in the document-template class, decided from the base branch's config and
  * the whole diff from the merge base. A failed step returns `doubt` with a reason; the caller treats doubt as the class.
  */
-export function templateClass(root: string, cfg: Config, sha: string): TemplateClass {
+export function templateClass(
+	root: string,
+	cfg: Config,
+	sha: string,
+	fetchError = fetchBase(root, cfg),
+): TemplateClass {
 	const doubt = (why: string): TemplateClass => ({ paths: [], doubt: why });
 	if (!/^[0-9a-f]{40}$/.test(sha)) return doubt(`the head to merge is not a full commit sha (${JSON.stringify(sha)})`);
-	if (hasRemote(root, cfg)) {
-		const fetched = run("git", ["-C", root, "fetch", "--quiet", cfg.remote, cfg.baseBranch]);
-		if (fetched.code !== 0) return doubt(`git fetch ${cfg.remote} ${cfg.baseBranch} failed: ${fetched.stderr.trim()}`);
-	}
+	if (fetchError) return doubt(fetchError);
 	const base = baseRef(root, cfg);
 	if (run("git", ["-C", root, "cat-file", "-e", `${sha}^{commit}`]).code !== 0)
 		return doubt(`commit ${sha.slice(0, 10)} is not in the repository`);
@@ -143,9 +149,10 @@ export const approveCommand = (number: number): string =>
 /** Every PR merge in tools/evf. Refusals throw EvfError before gh runs; a gh failure returns its result. */
 export function mergePullRequest(req: MergeRequest): RunResult {
 	const { root, cfg, number, sha, ownerApproval } = req;
-	const stale = staleCode(root, cfg);
+	const fetchError = fetchBase(root, cfg);
+	const stale = staleCode(root, cfg, fetchError);
 	if (stale) fail(`evf does not merge PR #${number}: ${stale}`);
-	const cls = templateClass(root, cfg, sha);
+	const cls = templateClass(root, cfg, sha, fetchError);
 	if (cls.doubt || cls.paths.length) {
 		if (!ownerApproval || ownerApproval.quote.trim().split(/\s+/).filter(Boolean).length < 2)
 			fail(`evf does not merge PR #${number}: ${templateWhy(cls)}. ${approveCommand(number)}`);

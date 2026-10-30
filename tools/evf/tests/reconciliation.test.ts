@@ -3216,7 +3216,7 @@ const capturedLog = <T>(fn: () => T): { value: T; lines: string[] } => {
 };
 
 test("INV-document-templates-ship: a verified WP part that changes a template is verified, never queued or merged, and names the approve command", () => {
-	const { f, db, task, shipped } = wpShipFixture();
+	const { f, db, task } = wpShipFixture();
 	try {
 		templateConfig(f, ["packages/reference/"]);
 		const head = f.getState().pr.headRefOid,
@@ -3246,7 +3246,6 @@ test("INV-document-templates-ship: a verified WP part that changes a template is
 			`evf ship does not merge PR #77: it changes document-template paths (packages/reference/fixture.txt). The verifier passed it. Sebastian approves each document-template PR; after his approval in chat, run: bin/evf approve 77 --owner-approval "<his words>"`,
 		]);
 		assert.equal(existsSync(join(evfDataDir(f.root), "shipped", `${task.slug}.json`)), false, "nothing shipped yet");
-		void shipped;
 	} finally {
 		db.close();
 		f.close();
@@ -3650,7 +3649,7 @@ test("OPS-83-choke-point: only merge.ts calls gh pr merge or the GitHub merge AP
 });
 
 test("OPS-83-375-ship: a WP-036/api-shaped PR with approved review and green CI is verified and held, never merged", () => {
-	const { f, db, task, shipped } = pr375();
+	const { f, db, task } = pr375();
 	try {
 		const head = f.getState().pr.headRefOid;
 		assert.equal(task.id, "WP-036/api");
@@ -3663,7 +3662,6 @@ test("OPS-83-375-ship: a WP-036/api-shaped PR with approved review and green CI 
 		for (const path of PR375_CLASS) assert.match(lines[0], new RegExp(path.replace(/[.]/g, "\\.")));
 		assert.match(lines[0], /bin\/evf approve 77 --owner-approval "<his words>"/);
 		assert.equal(existsSync(join(evfDataDir(f.root), "shipped", `${task.slug}.json`)), false);
-		void shipped;
 	} finally {
 		db.close();
 		f.close();
@@ -3708,12 +3706,13 @@ test("OPS-83-375-approve: his recorded words merge that exact head through the c
 test("OPS-83-choke-point: the class is decided on the sha passed to the merge, from the base config, and needs his words for that head", () => {
 	const { f, db, task } = pr375();
 	try {
-		const cfg = loadConfig(f.root),
-			wt = join(f.root, ".worktrees", task.slug),
+		const wt = join(f.root, ".worktrees", task.slug),
 			sha = f.getState().pr.headRefOid;
-		// The home checkout's own config (uncommitted) cannot narrow the class.
+		// The home checkout's own config (uncommitted) cannot narrow the class, and the loaded cfg carries the narrowed list.
 		f.cfg.mergePolicy.documentTemplates = { ...structuredClone(DEFAULT_DOCUMENT_TEMPLATES), paths: ["nothing/"] };
 		writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+		const cfg = loadConfig(f.root);
+		assert.deepEqual(cfg.mergePolicy.documentTemplates?.paths, ["nothing/"]);
 		const merge = (ownerApproval?: { quote: string; approved_head: string }) =>
 			mergePullRequest({ root: f.root, cfg, cwd: wt, number: 77, sha, ownerApproval });
 		assert.throws(
@@ -3744,6 +3743,16 @@ test("OPS-83-fail-closed: a class that cannot be computed holds the PR and says 
 			"no merge base",
 			(f) => f.git("commit-tree", "HEAD^{tree}", "-m", "orphan"),
 			/git merge-base origin\/main .* failed/,
+		],
+		[
+			"a failed diff",
+			(f, sha) => {
+				// The commit and its parents exist, so cat-file and merge-base succeed; the tree object is gone.
+				const tree = f.git("rev-parse", `${sha}^{tree}`);
+				rmSync(join(f.root, ".git", "objects", tree.slice(0, 2), tree.slice(2)), { force: true });
+				return sha;
+			},
+			/git diff to .* failed/,
 		],
 		[
 			"an unreadable base config",
@@ -3811,7 +3820,7 @@ test("OPS-83-stale-code: evf code that differs from the base branch, or is edite
 				assert.throws(
 					() => ordinary(),
 					(e: Error) =>
-						e.message.includes("1111111111".slice(0, 10)) === (claim === behindCode) &&
+						e.message.includes("1111111111") === (claim === behindCode) &&
 						e.message.includes(`main is at ${base}`) &&
 						e.message.includes(`git -C ${f.root} merge --ff-only origin/main`),
 				);
