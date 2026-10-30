@@ -95,13 +95,19 @@ export const lockedTask = taskRow.extend({
 });
 export type LockedTask = z.infer<typeof lockedTask>;
 
+/**
+ * The account's display name. A scalar lookup, not a lateral join: seat_identity declares the default 1000 rows, and a
+ * lateral join multiplied every task row by it. That put a one-row lock read's cost near 8 million and made Postgres
+ * JIT-compile the statement for 1.7 s (WP-022 F11). A scalar subquery takes the first row, which is the only row.
+ */
+const nameOf = (account: SQL) => sql`(SELECT i.display_name FROM seat_identity(${account}) i LIMIT 1)`;
 const columns = sql`t.id, t.revision::text AS revision, t.title, t.description, t.category, t.priority, t.status,
 	t.created_at, t.completed_at, t.deleted_at, t.assignee_id, t.due_kind, t.due_date::text AS due_date,
 	t.due_time::text AS due_time, t.timezone, t.due_at, t.person_id, t.meeting_id, t.team_id, t.parent_id, t.series_id,
 	t.predecessor_id, t.prerequisite_ids::text[] AS prerequisite_ids,
 	(SELECT count(*)::int FROM task q WHERE q.id=ANY(t.prerequisite_ids) AND q.plant_id=t.plant_id AND q.deleted_at IS NULL
 		AND q.status NOT IN ('complete','no_longer_needed')) AS open_prerequisites,
-	t.occurrence_key, t.obligation_id, o.kind AS obligation_kind, ai.display_name AS assignee_name,
+	t.occurrence_key, t.obligation_id, o.kind AS obligation_kind, ${nameOf(sql`t.assignee_id`)} AS assignee_name,
 	coalesce(p.display_name, m.title, tm.name) AS relation_label, pl.timezone AS plant_zone,
 	(SELECT count(*)::int FROM task k WHERE k.parent_id=t.id AND k.plant_id=t.plant_id AND k.deleted_at IS NULL) AS child_total,
 	(SELECT count(*)::int FROM task k WHERE k.parent_id=t.id AND k.plant_id=t.plant_id AND k.deleted_at IS NULL
@@ -119,10 +125,9 @@ const views = sql`	CASE WHEN t.category='follow_up' AND t.person_id IS NOT NULL 
 const seated = (account: SQL) => sql`EXISTS(SELECT FROM seat s WHERE s.account_id=${account} AND s.plant_id=t.plant_id
 	AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp())`;
 const checklist = sql`(SELECT jsonb_agg(jsonb_build_object('id',k.id,'revision',k.revision::text,'title',k.title,
-	'status',k.status,'assignee_id',k.assignee_id,'assignee_name',ki.display_name,'seated',${seated(sql`k.assignee_id`)})
+	'status',k.status,'assignee_id',k.assignee_id,'assignee_name',${nameOf(sql`k.assignee_id`)},'seated',${seated(sql`k.assignee_id`)})
 	ORDER BY k.created_at,k.id)
-	FROM task k LEFT JOIN LATERAL seat_identity(k.assignee_id) ki ON true
-	WHERE k.parent_id=t.id AND k.plant_id=t.plant_id AND k.deleted_at IS NULL) AS checklist,
+	FROM task k WHERE k.parent_id=t.id AND k.plant_id=t.plant_id AND k.deleted_at IS NULL) AS checklist,
 	(SELECT jsonb_build_object('id',r.id,'frequency',r.interval,'until',r.end_date,'local_time',to_char(r.local_time,'HH24:MI'),
 		'stopped',r.stopped_at IS NOT NULL) FROM recurrence r WHERE r.id=t.series_id AND r.plant_id=t.plant_id) AS rule,
 	EXISTS(SELECT FROM task n WHERE n.predecessor_id=t.id AND n.plant_id=t.plant_id AND n.deleted_at IS NULL)
@@ -131,7 +136,6 @@ const checklist = sql`(SELECT jsonb_agg(jsonb_build_object('id',k.id,'revision',
 	(t.person_id IS NULL OR p.state='live') AND (t.team_id IS NULL OR tm.archived_at IS NULL) AS relation_live`;
 const joins = sql`FROM task t JOIN plant pl ON pl.id=t.plant_id
 	LEFT JOIN obligation o ON o.id=t.obligation_id AND o.plant_id=t.plant_id
-	LEFT JOIN LATERAL seat_identity(t.assignee_id) ai ON true
 	LEFT JOIN person p ON p.id=t.person_id AND p.tenant_id=t.plant_id
 	LEFT JOIN meeting m ON m.id=t.meeting_id AND m.plant_id=t.plant_id
 	LEFT JOIN team tm ON tm.id=t.team_id AND tm.plant_id=t.plant_id`;
