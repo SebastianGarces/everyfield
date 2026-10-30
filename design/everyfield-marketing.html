@@ -814,8 +814,8 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .ha-roll > span { display: block; will-change: transform; }
 .ha-roll > span > i { display: block; font-style: normal; }
 .ha-to { display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--ef-text-3); }
-.ha-draft { position: relative; margin-top: 12px; height: 88px; padding: 11px 13px; border-radius: var(--corner-card); background: var(--ef-surface); box-shadow: inset 0 0 0 1px var(--ef-line); font-size: 13.5px; line-height: 1.5; color: var(--ef-ink-2); overflow: hidden; }
-.ha-draft .ha-caret { height: 15px; vertical-align: -2px; }
+.ha-task { position: relative; margin-top: 12px; height: 88px; padding: 11px 13px; border-radius: var(--corner-card); background: var(--ef-surface); box-shadow: inset 0 0 0 1px var(--ef-line); font-size: 13.5px; line-height: 1.5; color: var(--ef-ink-2); overflow: hidden; }
+.ha-task .ha-caret { height: 15px; vertical-align: -2px; }
 /* OPS-82: the follow-up is a task row (ring, title, assignee), not a message */
 .ha-task { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; align-content: start; }
 .ha-tk-ring { width: 16px; height: 16px; margin-top: 2px; border: 1.6px solid var(--ef-line-strong, #B9C0C8); border-radius: 50%; }
@@ -2943,7 +2943,7 @@ function heroVisual(story) {
    haRender(t) is a pure function of the loop time t (ms). Reduced motion renders t = HA_STILL once. */
 var HA_NAME = "Maria Lopez";
 /* OPS-82: Evry creates a follow-up task for a named person. It never writes the message itself. */
-var HA_DRAFT = "Follow up with Maria Lopez after vision meeting #12";
+var HA_TASK = "Follow up with Maria Lopez after vision meeting #12";
 /* Revision 8 timing table: the one place to tune the hero loop (all values in ms).
    Transitions keep their Revision 7 values: card crossfade, Maria's chip glide and the loop seam.
    In-scene actions run `act` times slower. Each scene then holds its finished state for hold[i] before the next transition.
@@ -2992,7 +2992,7 @@ function heroSlot() {
     '<div class="ha-guests" data-st>' + haSk("", "sk-pill") + haSk("", "sk-pill") + haSlot() + "</div>";
   var c2 = haHead(evryBot("lg", "talking"), "Evry created a follow-up task", "Assigned to Jen Park. You approve it.") +
     '<div class="ha-to" data-st><span>For</span>' + haSlot() + "</div>" +
-    '<div class="ha-draft ha-task" data-st><span class="ha-tk-ring" aria-hidden="true"></span><span class="ha-tk-t"><span class="ha-dtxt"></span><span class="ha-caret"></span></span>' +
+    '<div class="ha-task" data-st><span class="ha-tk-ring" aria-hidden="true"></span><span class="ha-tk-t"><span class="ha-dtxt"></span><span class="ha-caret"></span></span>' +
       '<span class="ha-tk-meta"><span class="ha-av">JP</span>Jen Park · due Tue, Oct 14</span></div>' +
     '<div class="ha-acts" data-st>' + haSk("28%") + '<span class="ha-btn ha-send"><span class="ha-ok"></span><span class="ha-shine"></span><span class="ha-l1">Approve task</span><span class="ha-l2">' + icon("check") + "Added</span></span></div>";
   var c3 = '<div class="ha-who" data-st>' + haSlot() + '<span class="ha-flip"><span class="stage-chip tone-amber">Following up</span><span class="stage-chip tone-green">Committed</span></span></div>' +
@@ -3070,9 +3070,9 @@ function haRender(t) {
   /* Scene 3: Evry creates the follow-up task for Jen, you approve, a check confirms it is added */
   var bot = q(".ha .evry-bot");
   haSet(bot, "mood", t >= haAt(2, 0) && t < haAt(2, 1800) ? "talking" : t >= haAt(2, 2150) && t < HA_SC[2][1] + 200 ? "happy" : "idle");
-  var m = Math.floor(haP(t, haAt(2, 350), haD(1350)) * HA_DRAFT.length);
-  haSet(q(".ha-dtxt"), "text", HA_DRAFT.slice(0, m));
-  haSet(q(".ha-draft .ha-caret"), "visibility", t > haAt(2, 200) && t < haAt(2, 1850) ? "visible" : "hidden");
+  var m = Math.floor(haP(t, haAt(2, 350), haD(1350)) * HA_TASK.length);
+  haSet(q(".ha-dtxt"), "text", HA_TASK.slice(0, m));
+  haSet(q(".ha-task .ha-caret"), "visibility", t > haAt(2, 200) && t < haAt(2, 1850) ? "visible" : "hidden");
   haSet(q(".ha-send"), "transform", "scale(" + (1 - .05 * haBump(t, haAt(2, 1820), haD(220))).toFixed(4) + ")");
   var ok = haOut(haP(t, haAt(2, 1980), haD(320)));
   haSet(q(".ha-ok"), "opacity", ok.toFixed(3));
@@ -3837,8 +3837,8 @@ var TRUST_ICONS = ["book", "compass", "eye", "lock"];
 function trustGrid(items) {
   return '<div class="trust-grid">' + items.map(function (it, i) { return '<div class="trust-item"><span class="ti-icon">' + icon(TRUST_ICONS[i % 4]) + '</span><h3 class="display h3">' + t(it.title) + "</h3><p>" + t(it.body) + "</p></div>"; }).join("") + "</div>";
 }
-function trust(tr) {
-  return '<section class="sec sec-trust" id="trust"><div class="wrap"><div class="sec-head solo"><h2 class="display h2 sh-title">' + t(tr.headline) + "</h2></div>" + trustGrid(tr.items) + "</div></section>";
+function trust(tr, cls) {
+  return '<section class="sec sec-trust' + (cls ? " " + cls : "") + '" id="trust"><div class="wrap"><div class="sec-head solo"><h2 class="display h2 sh-title">' + t(tr.headline) + "</h2></div>" + trustGrid(tr.items) + "</div></section>";
 }
 function cta(c) {
   return '<section class="sec sec-cta" id="cta"><div class="wrap"><div class="cta-box photo" data-photo="lake"><svg class="cta-mark" viewBox="0 0 340 340" aria-hidden="true"><use href="#ef-symbol"/></svg><h2 class="display h1">' + t(c.headline) + '</h2><p class="lead">' + t(c.body) + '</p><div class="btn-row">' + btn(c.cta_primary) + btn(c.cta_secondary, "secondary") + "</div>" +
@@ -4095,9 +4095,11 @@ if (document.fonts && document.fonts.ready) document.fonts.ready.then(function (
 
 /* ---------- Pages ---------- */
 function home(story) {
-  var s = DIR[story].sections, J = DIR.journey.sections;
+  var s = DIR[story].sections, J = DIR.journey.sections, heroOpts = { visual: heroSlot(), cls: "hero-anim", panel: true, photo: "wildflowers" };
+  /* Story B keeps its own hero, features and trust; the merged journey and sending sections replace the chapters it shared with story A. */
+  if (story === "oversight") return hero(s.hero, story, heroOpts) + problem(s.problem) + journeySection() + vision(s.vision) + features(s.features) + sendingSection() + trust(s.trust) + cta(s.cta);
   /* OPS-82: the live order (hero, problem, vision, six cards, journey, Evry, sending, CTA), with the app UI replaced below the vision */
-  return hero(Object.assign({ eyebrow: M82.hero_eyebrow }, s.hero), story, { visual: heroSlot(), cls: "hero-anim", panel: true, photo: "wildflowers" }) + problem(s.problem) + vision(s.vision) +
+  return hero(Object.assign({ eyebrow: M82.hero_eyebrow }, s.hero), story, heroOpts) + problem(s.problem) + vision(s.vision) +
     phSection(Object.assign({}, J.features, { headline: M82.features_headline }), { icons: J.features.icons }) +
     journeySection() + evryCards() + sendingSection() + cta(s.cta);
 }
@@ -4113,7 +4115,7 @@ function pageOversight() {
   var P = COPY.shared.oversight_page;
   return hero(P.hero, "oversight", { visual: '<div class="ov-dash">' + visual(vNetworkDash()) + "</div>", cls: "hero-anim ov-hero", panel: true, photo: "bluebells", hrefs: [hrefFor("access", "network-form"), hrefFor("oversight", "every-plant")] }) +
     problem(P.problem) + ovGets(P.gets) + phSection(P.plants, { id: "plants", icons: P.plants.icons, photos: OV_PH_PHOTOS }) + ovLeaders(P.leaders) +
-    ovPaths(P.paths) + trust(P.trust).replace('class="sec sec-trust"', 'class="sec sec-trust big"') + ovFaq(P.faq) + cta(P.cta);
+    ovPaths(P.paths) + trust(P.trust, "big") + ovFaq(P.faq) + cta(P.cta);
 }
 /* Revision 28: the sending paths. One display sentence ("Sent by" + changing phrase + tail) over one large card. A single timer moves
    both through the states in copy order (a church, a network through a church, a network) and loops. The facts match Revision 26 B. */
