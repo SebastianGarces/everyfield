@@ -6,7 +6,7 @@ import { legible, MIN_BODY, MIN_NONTEXT, textOn } from "./contrast.ts";
 export type RenderClass = Exclude<DocumentClass, "email">;
 
 /** Only embedded families can print. A church font choice maps to one of these. */
-export type DocumentFont = "DM Sans" | "DM Serif Display";
+type DocumentFont = "DM Sans" | "DM Serif Display";
 
 export type ThemeImage = {
 	bytes: Uint8Array;
@@ -49,7 +49,7 @@ export const NEUTRAL_THEME: RenderTheme = {
 const px = (n: number) => +(n * 0.75).toFixed(2);
 
 /** Source tokens: CSS px of design/handoff/tokens.css become pt at 96 dpi. Hashed into the render engine version. */
-export const TOKENS = {
+const TOKENS = {
 	ink: "#181D19",
 	white: "#FFFFFF",
 	muted: "#EDF0F4",

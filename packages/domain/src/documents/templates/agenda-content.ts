@@ -1,4 +1,4 @@
-export type AgendaSegment = { mins: number; name: string; note: string };
+type AgendaSegment = { mins: number; name: string; note: string };
 export type AgendaSpec = {
 	title: string;
 	subject: string;

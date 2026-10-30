@@ -34,7 +34,7 @@ const INDEXED: Record<string, string> = {
 	owner: "Owner of action",
 	due: "Due date of action",
 };
-export function tooltipFor(name: string) {
+function tooltipFor(name: string) {
 	const known = KNOWN[name];
 	if (known) return known;
 	const row = /^(.+)_(\d+)_(\w+)$/.exec(name);

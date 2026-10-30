@@ -17,7 +17,7 @@ import {
 } from "./blocks.tsx";
 import { Doc, LETTER } from "./shell.tsx";
 
-export const AGENDA_SLOT = { w: 150, h: 34 };
+const AGENDA_SLOT = { w: 150, h: 34 };
 
 /** Operational Letter agenda on one page: header, title, purpose, meta panel, run of show, attendees, actions. */
 export function agendaDocument(ctx: Ctx, spec: AgendaSpec) {

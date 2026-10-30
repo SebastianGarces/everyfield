@@ -5,7 +5,7 @@ import { Field, Footer, LogoSlot, SectionHead, T, Title, View, type Ctx } from "
 import { Doc, LETTER } from "./shell.tsx";
 
 /** Fill `{church_name}` and `{pastor_name}`. Without a pastor name the text says "your pastor". */
-export const fillText = (ctx: Ctx, text: string) =>
+const fillText = (ctx: Ctx, text: string) =>
 	text.replaceAll("{church_name}", ctx.church).replaceAll("{pastor_name}", ctx.values.pastor_name ?? "your pastor");
 
 function renderBlock(ctx: Ctx, block: Block, key: number) {

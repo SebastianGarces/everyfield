@@ -1,8 +1,8 @@
 // Structured content for the text-heavy templates. Layout code reads it; it holds no layout. OPS-79 can export the
 // same data to DOCX or feed an editor. `{church_name}` and `{pastor_name}` are the only tokens.
 export type Block = { kind: "p"; text: string } | { kind: "list"; items: string[]; ordered?: boolean };
-export type TextSection = { heading: string; blocks: Block[] };
-export type SignatureSlot = { label: string; name: string; width: number };
+type TextSection = { heading: string; blocks: Block[] };
+type SignatureSlot = { label: string; name: string; width: number };
 
 export type TextDocumentSpec = {
 	id: string;

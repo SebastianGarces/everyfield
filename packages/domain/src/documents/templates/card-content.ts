@@ -1,5 +1,5 @@
 export type CardRow = { name: string; tile?: string; text: string };
-export type CardField = { name: string; label: string };
+type CardField = { name: string; label: string };
 export type CardSpec = {
 	title: string;
 	subject: string;

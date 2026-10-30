@@ -8,7 +8,7 @@ export const hex = (c: string) => {
 	const n = parseInt(m[1]!, 16);
 	return [(n >> 16) & 255, (n >> 8) & 255, n & 255] as const;
 };
-export const toHex = (r: number, g: number, b: number) =>
+const toHex = (r: number, g: number, b: number) =>
 	"#" +
 	[r, g, b]
 		.map((v) =>
@@ -22,7 +22,7 @@ export const ratio = (a: string, b: string) => {
 	const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x) as [number, number];
 	return (hi + 0.05) / (lo + 0.05);
 };
-export const mix = (a: string, b: string, t: number) => {
+const mix = (a: string, b: string, t: number) => {
 	const [r1, g1, b1] = hex(a),
 		[r2, g2, b2] = hex(b);
 	return toHex(r1 + (r2 - r1) * t, g1 + (g2 - g1) * t, b1 + (b2 - b1) * t);
@@ -31,7 +31,7 @@ export const mix = (a: string, b: string, t: number) => {
 export const MIN_BODY = 4.5; // WCAG 1.4.3 normal text
 export const MIN_NONTEXT = 3; // WCAG 1.4.11 borders, checkbox outlines, large text
 
-export type PairRecord = { use: string; fg: string; bg: string; ratio: number; min: number };
+type PairRecord = { use: string; fg: string; bg: string; ratio: number; min: number };
 export class ContrastLog {
 	rows: PairRecord[] = [];
 	/** Record a pair and return the foreground, so it can be used inline. */

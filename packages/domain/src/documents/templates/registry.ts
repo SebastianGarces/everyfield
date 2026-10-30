@@ -17,17 +17,17 @@ import {
 	type TextDocumentSpec,
 } from "./text-content.ts";
 
-export type PageSize = { width: number; height: number };
+type PageSize = { width: number; height: number };
 type Base = { id: string; documentClass: RenderClass; pageCount: number; outline: string[] };
-export type PdfEntry = Base & {
+type PdfEntry = Base & {
 	format: "pdf";
 	pageSize: PageSize;
 	/** Field names a render with no merge values (except the church name) holds, in no set order. */
 	fields: string[];
 	build: (ctx: Ctx) => ReactElement;
 };
-export type XlsxEntry = Base & { format: "xlsx"; pageSize: null; fields: []; budget: "first-year" | "worksheet" };
-export type RegistryEntry = PdfEntry | XlsxEntry;
+type XlsxEntry = Base & { format: "xlsx"; pageSize: null; fields: []; budget: "first-year" | "worksheet" };
+type RegistryEntry = PdfEntry | XlsxEntry;
 
 const range = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
 
@@ -72,7 +72,7 @@ const textEntry = (spec: TextDocumentSpec, documentClass: RenderClass): PdfEntry
 	build: (ctx) => textDocument(ctx, spec),
 });
 
-export const REGISTRY: RegistryEntry[] = [
+const REGISTRY: RegistryEntry[] = [
 	cardEntry("commitment-card", COMMITMENT_CARD),
 	cardEntry("response-card", RESPONSE_CARD),
 	{

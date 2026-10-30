@@ -4,7 +4,7 @@ import { Box, Field, LogoSlot, PhotoSlot, T, Title, View, type Ctx } from "./blo
 import { CARD, Doc } from "./shell.tsx";
 import { type CardRow, type CardSpec } from "../templates/card-content.ts";
 
-export const CARD_SLOT = { w: 150, h: 44 };
+const CARD_SLOT = { w: 150, h: 44 };
 
 const contactLine = (ctx: Ctx) => {
 	const l = ctx.theme.letterhead;

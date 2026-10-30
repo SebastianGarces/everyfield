@@ -19,9 +19,9 @@ export type Ctx = {
 	log: ContrastLog;
 };
 
-export const LEGAL_NOTICE = "Template, not legal advice";
+const LEGAL_NOTICE = "Template, not legal advice";
 
-export const dataUri = (b: Uint8Array, mime: string) => `data:${mime};base64,${Buffer.from(b).toString("base64")}`;
+const dataUri = (b: Uint8Array, mime: string) => `data:${mime};base64,${Buffer.from(b).toString("base64")}`;
 
 type TextOpts = {
 	size?: number;
@@ -52,7 +52,7 @@ export const T = (ctx: Ctx, children: ReactNode, o: TextOpts) => (
 );
 
 /** Small-caps field label above a box. */
-export const Label = (ctx: Ctx, text: string, bg?: string) =>
+const Label = (ctx: Ctx, text: string, bg?: string) =>
 	T(ctx, text, {
 		size: SIZE.xs,
 		weight: 700,
@@ -88,7 +88,7 @@ export const Title = (
 		{text}
 	</H1>
 );
-export const H = (ctx: Ctx, level: 2 | 3, text: string, color: string, bg: string, use: string) => {
+const H = (ctx: Ctx, level: 2 | 3, text: string, color: string, bg: string, use: string) => {
 	const C = level === 2 ? H2 : H3;
 	return (
 		<C
@@ -110,7 +110,7 @@ export const H = (ctx: Ctx, level: 2 | 3, text: string, color: string, bg: strin
 };
 
 /** Inner markup and view box of an SVG logo. Null when the bytes are not an SVG with a view box. */
-export function parseSvg(image: ThemeImage) {
+function parseSvg(image: ThemeImage) {
 	if (image.mediaType !== "image/svg+xml") return null;
 	const source = Buffer.from(image.bytes).toString("utf8");
 	const match = /<svg[^>]*\sviewBox="([\d.\s-]+)"[^>]*>([\s\S]*)<\/svg>/.exec(source);
@@ -290,7 +290,7 @@ export const Box = (ctx: Ctx, name: string, size = 12, tone: "accent" | "ink" = 
 	);
 };
 
-export type Col = { label: string; w: number | "auto"; align?: "left" | "right" | "center" };
+type Col = { label: string; w: number | "auto"; align?: "left" | "right" | "center" };
 const cellStyle: Style = { paddingVertical: 3, paddingHorizontal: SP[2], justifyContent: "center" };
 
 /** A real Forme table (tagged Table, TR, TH, TD). The header fill and text color are parameters. */

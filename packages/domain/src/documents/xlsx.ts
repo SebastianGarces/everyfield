@@ -8,7 +8,7 @@ const xml = (value: string) =>
 type ZipEntry = { name: string; data: Buffer };
 
 /** Stored ZIP entries and a fixed DOS time, so the same inputs give the same bytes. */
-export function zipStored(entries: ZipEntry[]) {
+function zipStored(entries: ZipEntry[]) {
 	const parts: Buffer[] = [];
 	const central: Buffer[] = [];
 	let offset = 0;
@@ -191,14 +191,14 @@ function workbook(sheets: Sheet[], theme: RenderTheme) {
 	]);
 }
 
-export const INCOME_ROWS = [
+const INCOME_ROWS = [
 	"Tithes and offerings",
 	"Sending church support",
 	"Network or denominational support",
 	"Grants",
 	"Other income",
 ] as const;
-export const EXPENSE_ROWS = [
+const EXPENSE_ROWS = [
 	"Pastor and staff pay",
 	"Payroll taxes and benefits",
 	"Rent or facility",
