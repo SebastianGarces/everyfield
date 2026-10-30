@@ -2,7 +2,17 @@
 
 import { Copy01Icon, Home01Icon, Logout01Icon } from "@hugeicons/core-free-icons";
 import type * as people from "@everyfield/contracts/people";
-import { Checkbox, Field, Input, Radio, RadioGroup, SearchInput, Select, Spinner } from "@everyfield/ui/controls";
+import {
+	Button,
+	Checkbox,
+	Field,
+	Input,
+	Radio,
+	RadioGroup,
+	SearchInput,
+	Select,
+	Spinner,
+} from "@everyfield/ui/controls";
 import { useEffect, useRef, useState } from "react";
 import type { z } from "zod";
 import type { Outcome, Wait } from "../../../components/save/model.ts";
@@ -28,7 +38,10 @@ type FormProps<T> = {
 type AddressValue = { [K in keyof Address]: string | null };
 export type StartValue = { name: string } & AddressValue;
 export type EditValue = { name?: string } & AddressValue;
-export type JoinValue = { householdId: string; role: HouseholdRole; household: HouseholdSummary };
+/** The Add to a household dialog sends either a join to a chosen household or a new household with this person as head. */
+export type JoinValue =
+	| { mode: "join"; householdId: string; role: HouseholdRole; household: HouseholdSummary }
+	| ({ mode: "create" } & StartValue);
 export type LeaveValue = { deleteEmpty: boolean };
 
 const ADDRESS: (keyof Address)[] = ["street", "city", "stateProvince", "postalCode", "country"];
@@ -165,8 +178,9 @@ export function EditHouseholdDialog({
 }
 
 /**
- * Add this person to an existing household with a role. A person with no address of their own takes the household's;
- * an address they already have stays (REQ-PPL-009).
+ * Add this person to an existing household with a role, or create a new household with them as its head (REQ-PPL-009).
+ * One dialog, two modes: choosing keeps its search, choice and role while the create form is open. A person with no
+ * address of their own takes the household's when joining; an address they already have stays.
  */
 export function JoinHouseholdDialog({
 	person,
@@ -177,129 +191,210 @@ export function JoinHouseholdDialog({
 	wait,
 }: { person: PlantPerson } & FormProps<JoinValue>) {
 	const first = person.displayName.split(" ")[0] ?? person.displayName;
+	const joined = initial?.mode === "join" ? initial : undefined;
+	const created = initial?.mode === "create" ? initial : undefined;
+	const [mode, setMode] = useState<"choose" | "create">(created ? "create" : "choose");
 	const [search, setSearch] = useState("");
-	const [found, setFound] = useState<Outcome<{ items: HouseholdSummary[]; total: number }> | null>(null);
-	const [choice, setChoice] = useState<string>(initial?.householdId ?? "");
-	const [role, setRole] = useState<HouseholdRole | "">(initial?.role ?? "");
+	const [found, setFound] = useState<{
+		q: string;
+		outcome: Outcome<{ items: HouseholdSummary[]; total: number }>;
+	} | null>(null);
+	const [choice, setChoice] = useState<string>(joined?.householdId ?? "");
+	const [role, setRole] = useState<HouseholdRole | "">(joined?.role ?? "");
 	const [touched, setTouched] = useState(false);
+	const [name, setName] = useState(created?.name ?? defaultName(person));
+	const [address, setAddress] = useState(addressDraft(created ?? person));
+	const [nameTouched, setNameTouched] = useState(false);
 	const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
 	const term = useRef("");
+	const body = useRef<HTMLDivElement>(null);
+	const switched = useRef(false);
 
 	function load(q: string) {
 		term.current = q;
 		findHouseholds(q)
 			.catch(() => ({ status: "lost" }) as const)
-			.then((r) => term.current === q && setFound(r));
+			.then((outcome) => term.current === q && setFound({ q, outcome }));
 	}
 	useEffect(() => {
 		load("");
 		return () => clearTimeout(timer.current);
 	}, []);
+	// Switching mode moves focus to the first field of the new mode: the household name, or the search.
+	useEffect(() => {
+		if (!switched.current) return void (switched.current = true);
+		body.current?.querySelector<HTMLElement>("input")?.focus();
+	}, [mode]);
 
-	const items = found?.status === "ok" ? found.value.items : [];
+	const result = found?.outcome.status === "ok" ? found.outcome.value : null;
+	const items = result?.items ?? [];
 	const chosen = items.find((h) => h.id === choice);
+	// No household exists in the church at all (not a search that found none).
+	const none = result !== null && items.length === 0 && found?.q === "";
+	const missing = name.trim() === "";
+	const creating = mode === "create";
+
+	const createButton = (label: string, variant: "primary" | "secondary" | "ghost" = "secondary") => (
+		<Button type="button" size="sm" variant={variant} onClick={() => setMode("create")}>
+			{label}
+		</Button>
+	);
+
 	return (
 		<RecordDialog
 			icon={Home01Icon}
 			tone="green"
-			title={`Add ${first} to a household`}
+			title={creating ? "Create a household" : `Add ${first} to a household`}
 			description={
-				person.street || person.city
-					? `${first} keeps their own address.`
-					: `${first} has no address yet, so they take the household's address.`
+				creating
+					? `${person.displayName} will be its head. You can add the others next.`
+					: person.street || person.city
+						? `${first} keeps their own address.`
+						: `${first} has no address yet, so they take the household's address.`
 			}
-			action="Add to household"
+			action={creating || none ? "Create household" : "Add to household"}
 			onClose={onClose}
 			problem={problem}
 			wait={wait}
 			onSubmit={() => {
+				if (creating) {
+					setNameTouched(true);
+					if (missing) return false;
+					onSubmit({ mode: "create", name: name.trim(), ...addressValue(address) });
+					return true;
+				}
+				// With no household to choose, the main action opens the create form instead of a join.
+				if (none) {
+					setMode("create");
+					return true;
+				}
 				setTouched(true);
 				if (!chosen || !role) return false;
-				onSubmit({ householdId: chosen.id, role, household: chosen });
+				onSubmit({ mode: "join", householdId: chosen.id, role, household: chosen });
 				return true;
 			}}
 		>
-			<SearchInput
-				aria-label="Search households"
-				placeholder="Search households"
-				value={search}
-				maxLength={255}
-				onChange={(e) => {
-					const q = e.target.value;
-					setSearch(q);
-					clearTimeout(timer.current);
-					timer.current = setTimeout(() => load(q.trim()), 250);
-				}}
-			/>
-			<div className="max-h-[260px] min-h-[120px] overflow-y-auto rounded-md shadow-[0_0_0_1px_var(--ef-line)]">
-				{found === null ? (
-					<div className="flex items-center gap-2.5 px-4 py-4 text-sm text-text-3" role="status">
-						<Spinner size={14} />
-						Loading households…
-					</div>
-				) : found.status !== "ok" ? (
-					<p role="alert" className="px-4 py-4 text-sm text-text-2">
-						Households did not load.{" "}
-						<button
-							type="button"
-							className="cursor-pointer font-medium text-ink underline"
-							onClick={() => load(search.trim())}
+			<div ref={body} className="contents">
+				{creating ? (
+					<>
+						<Field
+							label="Household name"
+							error={nameTouched && missing ? "Name the household, such as Santos household." : null}
 						>
-							Try again
-						</button>
-					</p>
-				) : items.length === 0 ? (
-					<p className="px-4 py-4 text-sm text-text-3">
-						{search.trim() ? "No household has that name." : "Your church has no households yet. Start one instead."}
-					</p>
+							<Input value={name} maxLength={255} onChange={(e) => setName(e.target.value)} />
+						</Field>
+						<AddressFields value={address} onChange={setAddress} />
+						<p className="text-sm text-text-2">{first} will be the head of this household.</p>
+						{found?.outcome.status === "ok" ? (
+							<div>
+								<Button type="button" size="sm" variant="ghost" onClick={() => setMode("choose")}>
+									Back to the list
+								</Button>
+							</div>
+						) : null}
+					</>
 				) : (
-					<RadioGroup
-						aria-label="Household"
-						aria-invalid={(touched && !choice) || undefined}
-						aria-describedby={touched && !choice ? "household-choice-error" : undefined}
-						value={choice}
-						onValueChange={setChoice}
-						className="gap-0 px-4"
-					>
-						{items.map((h) => (
-							<Radio
-								key={h.id}
-								value={h.id}
-								className="border-t border-line first:border-t-0"
-								label={h.name}
-								description={[
-									h.memberCount === 0 ? "No members" : `${h.memberCount} ${h.memberCount === 1 ? "member" : "members"}`,
-									addressLine(h),
-								]
-									.filter(Boolean)
-									.join(" · ")}
-							/>
-						))}
-					</RadioGroup>
+					<>
+						<SearchInput
+							aria-label="Search households"
+							placeholder="Search households"
+							value={search}
+							maxLength={255}
+							onChange={(e) => {
+								const q = e.target.value;
+								setSearch(q);
+								clearTimeout(timer.current);
+								timer.current = setTimeout(() => load(q.trim()), 250);
+							}}
+						/>
+						<div className="max-h-[260px] min-h-[120px] overflow-y-auto rounded-md shadow-[0_0_0_1px_var(--ef-line)]">
+							{found === null ? (
+								<div className="flex items-center gap-2.5 px-4 py-4 text-sm text-text-3" role="status">
+									<Spinner size={14} />
+									Loading households…
+								</div>
+							) : found.outcome.status !== "ok" ? (
+								<p role="alert" className="px-4 py-4 text-sm text-text-2">
+									Households did not load.{" "}
+									<button
+										type="button"
+										className="cursor-pointer font-medium text-ink underline"
+										onClick={() => load(search.trim())}
+									>
+										Try again
+									</button>
+								</p>
+							) : none ? (
+								<div className="flex flex-col items-start gap-3 px-4 py-4">
+									<div>
+										<p className="font-medium text-ink">No households yet</p>
+										<p className="mt-0.5 text-sm text-text-3">
+											Households are shared across your church. Create the first one with {first} in it.
+										</p>
+									</div>
+									{createButton("Create household", "primary")}
+								</div>
+							) : items.length === 0 ? (
+								<div className="flex flex-col items-start gap-3 px-4 py-4">
+									<p className="text-sm text-text-3">No household has that name.</p>
+									{createButton("Create household")}
+								</div>
+							) : (
+								<RadioGroup
+									aria-label="Household"
+									aria-invalid={(touched && !choice) || undefined}
+									aria-describedby={touched && !choice ? "household-choice-error" : undefined}
+									value={choice}
+									onValueChange={setChoice}
+									className="gap-0 px-4"
+								>
+									{items.map((h) => (
+										<Radio
+											key={h.id}
+											value={h.id}
+											className="border-t border-line first:border-t-0"
+											label={h.name}
+											description={[
+												h.memberCount === 0
+													? "No members"
+													: `${h.memberCount} ${h.memberCount === 1 ? "member" : "members"}`,
+												addressLine(h),
+											]
+												.filter(Boolean)
+												.join(" · ")}
+										/>
+									))}
+								</RadioGroup>
+							)}
+						</div>
+						{!none && touched && !choice ? (
+							<p id="household-choice-error" className="text-xs font-medium text-magenta-600">
+								Choose a household.
+							</p>
+						) : null}
+						{result && result.total > items.length ? (
+							<p className="text-xs text-text-3">
+								Showing {items.length} of {result.total}. Search to narrow the list.
+							</p>
+						) : null}
+						{result && items.length > 0 ? <div>{createButton("Create a new household", "ghost")}</div> : null}
+						{none ? null : (
+							<Field
+								label={chosen ? `${first}'s role in ${chosen.name}` : `${first}'s role`}
+								hint="A household role is a fact about the home. It does not record adult or child."
+								error={touched && !role ? "Choose a role." : null}
+							>
+								<Select
+									value={role}
+									placeholder="Choose a role"
+									onValueChange={(r) => setRole(r as HouseholdRole)}
+									options={ROLES.map((r) => ({ value: r, label: ROLE_LABEL[r] }))}
+								/>
+							</Field>
+						)}
+					</>
 				)}
 			</div>
-			{touched && !choice ? (
-				<p id="household-choice-error" className="text-xs font-medium text-magenta-600">
-					Choose a household.
-				</p>
-			) : null}
-			{found?.status === "ok" && found.value.total > items.length ? (
-				<p className="text-xs text-text-3">
-					Showing {items.length} of {found.value.total}. Search to narrow the list.
-				</p>
-			) : null}
-			<Field
-				label={chosen ? `${first}'s role in ${chosen.name}` : `${first}'s role`}
-				hint="A household role is a fact about the home. It does not record adult or child."
-				error={touched && !role ? "Choose a role." : null}
-			>
-				<Select
-					value={role}
-					placeholder="Choose a role"
-					onValueChange={(r) => setRole(r as HouseholdRole)}
-					options={ROLES.map((r) => ({ value: r, label: ROLE_LABEL[r] }))}
-				/>
-			</Field>
 		</RecordDialog>
 	);
 }
