@@ -119,6 +119,38 @@ async function up(origin: string) {
 	if (created.status !== "ok") throw Error("createPlant: " + JSON.stringify(created));
 	const plant = (created.value as { plant: { kind: "plant"; id: string } }).plant;
 
+	// Two churches with no households and one person each, one per browser engine, so the zero-household path
+	// (WP-012/ui F10) never depends on another test's households. The test removes any household it makes.
+	const empty: Record<string, { cookie: string; person: string }> = {};
+	for (const engine of ["chromium", "webkit"]) {
+		const who = await account(`Nora ${engine}`, `empty-${engine}@people-preview.example.test`);
+		const made = await runtime.transaction((tx) =>
+			onboarding.createPlant(
+				tx,
+				{ session: who.sessionId, selected: { kind: "account", id: who.accountId } } as never,
+				{
+					requestKey: randomUUID(),
+					expectedRevision: "1",
+					input: { name: `Empty Church ${engine}`, locality: { city: "Austin" }, confirmed: true },
+				} as never,
+			),
+		);
+		if (made.status !== "ok") throw Error("createPlant empty: " + JSON.stringify(made));
+		const emptyPlant = (made.value as { plant: { kind: "plant"; id: string } }).plant;
+		const pia = await runtime.transaction((tx) =>
+			peopleWriter.createPerson(
+				tx as never,
+				{ session: who.sessionId, selected: emptyPlant } as never,
+				{
+					requestKey: randomUUID(),
+					input: { displayName: "Pia Rivera", stage: "prospect", email: null, source: "other" },
+				} as never,
+			),
+		);
+		if (pia.status !== "ok") throw Error("create Pia: " + JSON.stringify(pia));
+		empty[engine] = { cookie: who.cookie, person: pia.value.person.id };
+	}
+
 	// The Member seat. Seat acceptance belongs to WP-008; the seed writes the accepted seat and links its person.
 	await admin.execute(
 		sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${member.accountId},${plant.id},'member',clock_timestamp())`,

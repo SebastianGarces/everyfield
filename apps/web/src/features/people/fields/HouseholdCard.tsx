@@ -181,6 +181,30 @@ export function HouseholdCard({
 		};
 	}
 
+	/** Starts a household with this person as head. `kind` is the form to reopen if it is refused, with `value` in it. */
+	function startChange(v: StartValue, kind: Kind, value: unknown) {
+		change(
+			{
+				status: "available",
+				// A stand-in until the answer: the card hides household actions while it saves, so this ID is never sent.
+				household: {
+					id: placeholder.id,
+					name: v.name,
+					...addressOf(v),
+					revision: placeholder.revision,
+					memberCount: 1,
+				},
+				members: [{ ...me0, role: "head", ...addressOf(v) }],
+			},
+			{
+				what: v.name,
+				done: "started",
+				form: { kind, value },
+				...membership("household-start", (key, rev) => startHousehold(key, rev, { ...v, headPersonId: person.id })),
+			},
+		);
+	}
+
 	function changeRole(role: HouseholdRole) {
 		if (household?.status !== "available") return;
 		change(
@@ -295,30 +319,7 @@ export function HouseholdCard({
 					<StartHouseholdDialog
 						person={person}
 						{...form<StartValue>("start")}
-						onSubmit={(v) =>
-							change(
-								{
-									status: "available",
-									// A stand-in until the answer: the card hides household actions while it saves, so this ID is never sent.
-									household: {
-										id: placeholder.id,
-										name: v.name,
-										...addressOf(v),
-										revision: placeholder.revision,
-										memberCount: 1,
-									},
-									members: [{ ...me0, role: "head", ...addressOf(v) }],
-								},
-								{
-									what: v.name,
-									done: "started",
-									form: { kind: "start", value: v },
-									...membership("household-start", (key, rev) =>
-										startHousehold(key, rev, { ...v, headPersonId: person.id }),
-									),
-								},
-							)
-						}
+						onSubmit={(v) => startChange(v, "start", v)}
 					/>
 				) : null}
 				{editing?.kind === "join" ? (
@@ -326,22 +327,24 @@ export function HouseholdCard({
 						person={person}
 						{...form<JoinValue>("join")}
 						onSubmit={(v) =>
-							change(
-								// The other members arrive with the answer; until then the card shows this person and "Saving…".
-								{
-									status: "available",
-									household: { ...v.household, memberCount: v.household.memberCount + 1 },
-									members: [{ ...me0, role: v.role, ...addressOf(person) }],
-								},
-								{
-									what: first,
-									done: `added to ${v.household.name}`,
-									form: { kind: "join", value: v },
-									...membership("household-join", (key, rev) =>
-										joinHousehold(key, rev, { householdId: v.householdId, role: v.role, personId: person.id }),
-									),
-								},
-							)
+							v.mode === "create"
+								? startChange(v, "join", v)
+								: change(
+										// The other members arrive with the answer; until then the card shows this person and "Saving…".
+										{
+											status: "available",
+											household: { ...v.household, memberCount: v.household.memberCount + 1 },
+											members: [{ ...me0, role: v.role, ...addressOf(person) }],
+										},
+										{
+											what: first,
+											done: `added to ${v.household.name}`,
+											form: { kind: "join", value: v },
+											...membership("household-join", (key, rev) =>
+												joinHousehold(key, rev, { householdId: v.householdId, role: v.role, personId: person.id }),
+											),
+										},
+									)
 						}
 					/>
 				) : null}
