@@ -251,7 +251,8 @@
 	},
 	"branding/files.readBrandAsset": {
 		"limit": 8,
-		"reason": "The authorizer runs in two transactions around the provider read, so a revoked reader gets nothing. Its largest first run: 2 read, 4 transaction, 2 locked read."
+		"retry": 4,
+		"reason": "The authorizer runs in two transactions around the provider read, so a revoked reader gets nothing. Its largest first run: 2 read, 4 transaction, 2 locked read. A repeated read measured 3 to 4 statements."
 	},
 	"branding/files.uploadBrandAsset": {
 		"limit": 13,

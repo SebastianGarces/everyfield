@@ -28,7 +28,7 @@ const SCALARS = [
 ] as const;
 const col = (name: string) => sql.identifier(name);
 
-/** The statement result `{ ok, current_revision, row, audited }` every kit write reads. */
+/** The statement result `{ ok, current_revision, row }` every kit write reads. */
 const resultRow = z.object({
 	ok: z.boolean().nullable(),
 	current_revision: z.union([z.string(), z.number()]).nullable(),
@@ -69,12 +69,11 @@ const audit = (scope: Scope, changed: SQL, kind: "edit" | "remove") => sql`aud A
 	WHERE EXISTS (SELECT FROM ${changed})
 	RETURNING id)`;
 const tail = sql`SELECT (SELECT ok FROM gate) AS ok, (SELECT revision::text FROM cur) AS current_revision,
-	(SELECT to_jsonb(c) FROM changed c) AS row, (SELECT count(*) FROM aud) AS audited`;
+	(SELECT to_jsonb(c) FROM changed c) AS row`;
 
 /** Why a statement that changed nothing changed nothing. */
-function refuse(result: z.infer<typeof resultRow>, expected: string): never {
+function refuse(result: z.infer<typeof resultRow>): never {
 	if (result.ok !== true) deny("access_denied");
-	if (String(result.current_revision ?? "0") !== expected) deny("conflict");
 	return deny("conflict");
 }
 
@@ -161,7 +160,7 @@ export const brandWriter = {
 					// The revision is right, so the only other reason is a missing or cleared primary color.
 					deny("primary_required");
 				}
-				refuse(result, input.expectedRevision);
+				refuse(result);
 			}
 			return kitFromRow(result.row);
 		});
@@ -235,7 +234,7 @@ export const brandWriter = {
 				${releaseJobs(scope, sql`(cur.${assetColumn(slot)})`, sql`cur, upd`)},
 				${audit(scope, sql`changed`, "edit")}
 				SELECT (SELECT ok FROM gate) AS ok, (SELECT revision::text FROM cur) AS current_revision,
-					(SELECT to_jsonb(c) FROM changed c) AS row, (SELECT count(*) FROM f) AS file_found`,
+					(SELECT to_jsonb(c) FROM changed c) AS row`,
 			);
 			if (!result.row) {
 				if (result.ok !== true) deny("access_denied");
