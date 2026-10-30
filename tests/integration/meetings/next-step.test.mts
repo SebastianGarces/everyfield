@@ -1,9 +1,9 @@
 // The meeting page's next step (WP-020/ui): the primary action, the header's secondary buttons, the tab the page opens
-// on and the lifecycle stepper, for every row of the spec's next-step table. They run in node against the real module
+// for every row of the spec's next-step table. They run in node against the real module
 // the page uses; no browser.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { defaultTab, nextStep, pickTab, stepper } from "../../../apps/web/src/features/meetings/next-step.ts";
+import { defaultTab, nextStep, pickTab } from "../../../apps/web/src/features/meetings/next-step.ts";
 
 const base = {
 	status: "planning",
@@ -72,20 +72,20 @@ test("AC:TARGET-MTG-001 Start check-in is primary only in progress and at most o
 	assert.equal(ask({ status: "planning" }).primary, "send-invites");
 });
 
-test("AC:TARGET-MTG-001 the default tab follows the primary action's target", () => {
+test("AC:TARGET-MTG-001 the default tab follows the meeting state: Results once completed, Guests before", () => {
 	const cases = [
 		[{ guestCount: 0 }, "guests"],
 		[{}, "guests"],
 		[{ status: "in_progress" }, "guests"],
 		[{ status: "completed" }, "results"],
-		[{ status: "completed", final: true, checkIn: false, attendedWithoutCard: 1 }, "guests"],
+		[{ status: "completed", final: true, checkIn: false, attendedWithoutCard: 1 }, "results"],
 		[{ status: "completed", final: true, checkIn: false }, "results"],
 		[{ status: "completed", final: true, checkIn: false, evaluationSaved: true }, "results"],
 		[{ status: "cancelled", checkIn: false }, "guests"],
 	];
 	for (const [input, tab] of cases) {
 		const i = { ...base, ...input };
-		assert.equal(defaultTab(nextStep(i).primary, i.status, i.final), tab, JSON.stringify(input));
+		assert.equal(defaultTab(i.status, i.final), tab, JSON.stringify(input));
 	}
 });
 
@@ -96,61 +96,4 @@ test("AC:TARGET-MTG-001 an unknown or unavailable ?tab= falls back to the defaul
 	assert.equal(pickTab("kit", ["guests", "results"], "results"), "results");
 	assert.equal(pickTab("agenda", vision, "guests"), "guests");
 	assert.equal(pickTab(null, vision, "results"), "results");
-});
-
-const people = { invited: 6, yes: 2, no: 1, pending: 3 };
-const step = (over) =>
-	stepper({
-		status: "planning",
-		final: false,
-		vision: true,
-		guests: people,
-		attended: 0,
-		cardsIn: 0,
-		evaluationSaved: false,
-		followUpDone: false,
-		...over,
-	}).map((s) => [s.id, s.state, s.line]);
-
-test("AC:TARGET-MTG-001 stepper: every meeting state", () => {
-	const invite = "6 invited · 2 yes · 1 no · 3 pending";
-	assert.deepEqual(step({}), [
-		["invite", "current", invite],
-		["checkin", "later", "Not started"],
-		["followup", "later", "Opens when attendance is final"],
-	]);
-	assert.deepEqual(step({ status: "ready" })[0][1], "current");
-	assert.deepEqual(step({ status: "in_progress", attended: 4 }), [
-		["invite", "done", invite],
-		["checkin", "current", "4 attended"],
-		["followup", "later", "Opens when attendance is final"],
-	]);
-	assert.deepEqual(step({ status: "completed", attended: 4 })[1], ["checkin", "current", "4 attended"]);
-	assert.deepEqual(step({ status: "completed", final: true, attended: 4, cardsIn: 3 }), [
-		["invite", "done", invite],
-		["checkin", "done", "4 attended · final"],
-		["followup", "current", "3 of 4 cards · evaluation open"],
-	]);
-	assert.deepEqual(
-		step({ status: "completed", final: true, attended: 4, cardsIn: 4, evaluationSaved: true, followUpDone: true })[2],
-		["followup", "done", "4 of 4 cards · evaluation recorded"],
-	);
-	assert.deepEqual(step({ status: "completed", final: true, attended: 4, vision: false, followUpDone: true })[2], [
-		"followup",
-		"done",
-		"Attendance final",
-	]);
-	// Final but not completed: Follow up stays current, since the meeting is not closed.
-	assert.equal(
-		step({ status: "in_progress", final: true, attended: 4, vision: false, followUpDone: false })[2][1],
-		"current",
-	);
-	// Cancelled has no current step and nothing started.
-	assert.deepEqual(
-		step({ status: "cancelled" }).map((s) => s[1]),
-		["later", "later", "later"],
-	);
-	assert.equal(step({ status: "cancelled" })[1][2], "Not started");
-	// A guest list that did not load says so and does not claim zero.
-	assert.equal(step({ guests: null })[0][2], "Did not load");
 });

@@ -5,6 +5,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { missionFor, openWorkDb } from "./db.ts";
 import { fail, parseTask, run, type TaskRef } from "./lib.ts";
 import { closeRunPane } from "./panes.ts";
+import { fillRunUsage } from "./usage.ts";
 import { doneCriteria, sectionItems, specSections } from "./spec.ts";
 
 /**
@@ -333,6 +334,8 @@ export function hook(root: string, event: string): number {
 			: db
 					.prepare("UPDATE runs SET status = 'aborted', ended_at = ? WHERE id = ? AND status = 'started'")
 					.run(new Date().toISOString(), runId).changes;
+		// The final turns can follow `evf run done`, so a run that already closed refills from the complete transcript.
+		if (!SEAT_CONTINUES.has(reason ?? "")) fillRunUsage(db, runId);
 		record(db, seat.task_id, runId, "session_end", {
 			reason,
 			aborted: ended > 0,

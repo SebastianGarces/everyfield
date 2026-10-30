@@ -833,4 +833,125 @@ for (const [name, engine] of ENGINES) {
 			assert.equal(lines.filter((l) => l.includes(",prospect,")).length, shown, "every exported row is a prospect");
 		});
 	});
+
+	test(`AC:TARGET-PPL-009 F10-create (${name}): with no households, Add to a household leads to creating one, with no reload`, async () => {
+		const mine = seed().empty[name];
+		await onPreview(engine, async (page, context) => {
+			await signIn(context, mine.cookie);
+			const posts = [];
+			const documents = [];
+			await onActions(context, (route) => (posts.push(route.request().postData() ?? ""), route.fallback()));
+			await page.goto(`${BASE}/people/${mine.person}`);
+			await page.getByRole("heading", { level: 1, name: "Pia Rivera" }).waitFor({ timeout: 30_000 });
+			await page.getByRole("button", { name: "Add to a household", exact: true }).click();
+			const dialog = page.getByRole("dialog", { name: "Add Pia to a household" });
+			await dialog.getByText("No households yet", { exact: true }).waitFor({ timeout: 30_000 });
+			assert.equal(await dialog.getByText("Choose a household.").count(), 0);
+			// The footer action opens the create form; it never submits a join.
+			const before = posts.length;
+			await dialog.getByRole("button", { name: "Create household", exact: true }).last().click();
+			const create = page.getByRole("dialog", { name: "Create a household" });
+			await create.getByLabel("Household name").waitFor();
+			assert.equal(await create.getByLabel("Household name").inputValue(), "Rivera household");
+			assert.equal(await create.getByText("Choose a role.").count(), 0);
+			assert.equal((await create.getByText(/will be the head/).count()) > 0, true);
+			assert.equal(await create.getByLabel(/^Street/).count(), 1);
+			assert.equal(await page.getByRole("dialog").count(), 1, "one dialog, not two");
+			assert.equal((await focused(page)).tag, "INPUT", "focus moves to the household name");
+			// An empty name refuses and sends nothing.
+			await create.getByLabel("Household name").fill("");
+			await create.getByRole("button", { name: "Create household", exact: true }).click();
+			await create.getByText("Name the household, such as Santos household.").waitFor();
+			assert.equal(posts.slice(before).filter((b) => b.includes("headPersonId")).length, 0);
+			// Back to the empty state, then create from the button in the list area.
+			await create.getByRole("button", { name: "Back to the list", exact: true }).click();
+			await dialog.getByText("No households yet", { exact: true }).waitFor();
+			assert.equal(await dialog.getByText("Choose a household.").count(), 0);
+			assert.equal(await dialog.getByText("Choose a role.").count(), 0);
+			await dialog.getByRole("button", { name: "Create household", exact: true }).first().click();
+			await create.getByLabel("Household name").waitFor();
+			// The form keeps what was typed while the person looked at the list: the emptied name stays empty.
+			assert.equal(await create.getByLabel("Household name").inputValue(), "");
+			await create.getByLabel("Household name").fill("Rivera household");
+			page.on("request", (r) => r.isNavigationRequest() && documents.push(r.url()));
+			await create.getByRole("button", { name: "Create household", exact: true }).click();
+			await create.waitFor({ state: "detached" });
+			const members = page.getByRole("list", { name: "Members of Rivera household" });
+			await members.waitFor({ timeout: 30_000 });
+			await members.getByText("Head", { exact: true }).waitFor();
+			await page.getByText("Saving…").waitFor({ state: "detached", timeout: 30_000 });
+			assert.equal(posts.filter((b) => b.includes("headPersonId")).length, 1, "one startHousehold POST");
+			assert.equal(posts.filter((b) => b.includes('"role"')).length, 0, "no second write sets a role");
+			assert.deepEqual(documents, [], "no navigation or document request");
+			// Leave the church with no households for the next run.
+			await page.getByRole("button", { name: "Household actions", exact: true }).click();
+			await page.getByRole("menuitem", { name: /^Take .* out$/ }).click();
+			const leave = page.getByRole("dialog");
+			await leave.getByRole("button", { name: "Take out of household", exact: true }).click();
+			await leave.waitFor({ state: "detached" });
+			await page.getByText("Pia is not in a household.").waitFor({ timeout: 30_000 });
+			// The card shows the leave at once; wait for the answer so the write lands before the browser closes.
+			await page.getByText("Saving…").waitFor({ state: "detached", timeout: 30_000 });
+		});
+	});
+
+	test(`AC:TARGET-PPL-009 F10-choose (${name}): with households, an early press asks for a choice, then a chosen household takes the person`, async () => {
+		await withPage(engine, "owner", async (page, context) => {
+			const hh = unique(name);
+			const posts = [];
+			await onActions(context, (route) => (posts.push(route.request().postData() ?? ""), route.fallback()));
+			// A household of its own: another person starts it.
+			const startUrl = await addPerson(page, unique(name));
+			await page
+				.getByRole("button", { name: /^Start a household/ })
+				.first()
+				.click();
+			const start = page.getByRole("dialog");
+			await start.getByLabel("Household name").fill(hh);
+			await start.getByRole("button", { name: "Start household", exact: true }).click();
+			await start.waitFor({ state: "detached" });
+			await page.getByRole("list", { name: `Members of ${hh}` }).waitFor({ timeout: 30_000 });
+			await page.getByText("Saving…").waitFor({ state: "detached", timeout: 30_000 });
+
+			const joinerUrl = await addPerson(page, unique(name));
+			await page.getByRole("button", { name: "Add to a household", exact: true }).click();
+			const dialog = page.getByRole("dialog", { name: /^Add .* to a household$/ });
+			await dialog.getByLabel("Search households").fill(hh);
+			await dialog.getByRole("radio", { name: new RegExp(hh) }).waitFor({ timeout: 30_000 });
+			assert.equal(await dialog.getByText("Choose a household.").count(), 0, "no error on open");
+			assert.equal(await dialog.getByText("Choose a role.").count(), 0, "no error on open");
+			assert.equal(await dialog.getByRole("button", { name: "Create a new household", exact: true }).count(), 1);
+			await dialog.getByRole("button", { name: "Add to household", exact: true }).click();
+			await dialog.getByText("Choose a household.").waitFor();
+			await dialog.getByText("Choose a role.").waitFor();
+			const writes = () => posts.filter((b) => b.includes("personId")).length;
+			assert.equal(writes(), 0);
+			await dialog.getByRole("radio", { name: new RegExp(hh) }).click();
+			await dialog.getByRole("combobox", { name: /role/ }).click();
+			await page.getByRole("option", { name: "Spouse", exact: true }).click();
+			await dialog.getByRole("button", { name: "Add to household", exact: true }).click();
+			await dialog.waitFor({ state: "detached" });
+			await page.getByRole("list", { name: `Members of ${hh}` }).waitFor({ timeout: 30_000 });
+			await page.getByText("Saving…").waitFor({ state: "detached", timeout: 30_000 });
+			assert.equal(writes(), 1, "one joinHousehold POST");
+			assert.equal(
+				await page
+					.getByRole("list", { name: `Members of ${hh}` })
+					.getByText("Spouse", { exact: true })
+					.count(),
+				1,
+			);
+
+			// Clean up: the joiner leaves, then the starter leaves and the empty household goes with them.
+			for (const url of [joinerUrl, startUrl]) {
+				await page.goto(url);
+				await page.getByRole("button", { name: "Household actions", exact: true }).click();
+				await page.getByRole("menuitem", { name: /^Take .* out$/ }).click();
+				const leave = page.getByRole("dialog");
+				await leave.getByRole("button", { name: "Take out of household", exact: true }).click();
+				await leave.waitFor({ state: "detached" });
+				await page.getByText(/is not in a household\./).waitFor({ timeout: 30_000 });
+			}
+		});
+	});
 }

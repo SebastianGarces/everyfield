@@ -237,3 +237,52 @@ fs.writeFileSync(p,JSON.stringify(s));process.stdout.write(typeof result==='stri
 		},
 	};
 }
+
+/** A string that must never reach the store or a report: fixture transcripts carry it in message text and tool results. */
+export const MARKER = "SECRET-MARKER-9f3c";
+
+type Usage = {
+	input?: number;
+	output?: number;
+	read?: number;
+	write?: number;
+	write1h?: number;
+};
+/** One assistant transcript line, as Claude Code writes it: usage under message.usage, text in message.content. */
+export function assistantLine(id: string, model: string, u: Usage, content = `text ${MARKER}`) {
+	return JSON.stringify({
+		type: "assistant",
+		message: {
+			id,
+			model,
+			role: "assistant",
+			content: [{ type: "text", text: content }],
+			usage: {
+				input_tokens: u.input ?? 0,
+				output_tokens: u.output ?? 0,
+				cache_read_input_tokens: u.read ?? 0,
+				cache_creation_input_tokens: u.write ?? 0,
+				...(u.write1h === undefined
+					? {}
+					: {
+							cache_creation: {
+								ephemeral_5m_input_tokens: (u.write ?? 0) - u.write1h,
+								ephemeral_1h_input_tokens: u.write1h,
+							},
+						}),
+			},
+		},
+	});
+}
+export const toolResultLine = () =>
+	JSON.stringify({ type: "user", message: { role: "user", content: [{ type: "tool_result", content: MARKER }] } });
+
+/** Write a session transcript (and optional subagent transcripts) under `<configDir>/projects/<slug>/`. */
+export function writeTranscript(configDir: string, session: string, lines: string[], subagents: string[][] = []) {
+	const dir = join(configDir, "projects", "-fixture-cwd");
+	mkdirSync(join(dir, session, "subagents"), { recursive: true });
+	writeFileSync(join(dir, `${session}.jsonl`), lines.join("\n") + "\n");
+	subagents.forEach((sub, i) =>
+		writeFileSync(join(dir, session, "subagents", `agent-${i}.jsonl`), sub.join("\n") + "\n"),
+	);
+}
