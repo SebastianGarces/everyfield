@@ -30,7 +30,7 @@ export type RecordProps<T> = {
 	onSaved: (receipt: Receipt, fields: EntryFields) => void;
 	/** A refusal because this page's copy of the person is out of date. */
 	onConflict: () => void;
-	/** Every record corrected elsewhere on this page (Correct a record, WP-015): each card shows its own as saved now. */
+	/** Every record corrected elsewhere on this page (Edit a record, WP-015): each card shows its own as saved now. */
 	corrected?: readonly CorrectedRecord[];
 };
 export type CorrectedRecord =

@@ -4,7 +4,7 @@ import { digest, personId, recordId, requestKey, revision } from "../../common/v
 import { commandEnvelope } from "../../common/writes.ts";
 import { criterionRating, interviewResult } from "../assessments/index.ts";
 import { actorAttribution } from "../results.ts";
-import { pageInput, reason, stage } from "../values.ts";
+import { pageInput, stage } from "../values.ts";
 import { inverseConflict, mergeBlocker, referenceKind, referenceTreatment } from "./errors.ts";
 
 export * from "./errors.ts";
@@ -151,7 +151,13 @@ export const commitmentCorrection = z.strictObject({ notes });
 export const recordType = z.enum(["assessment", "interview", "commitment"]);
 // The expected revision is the record's. The Person is the one the corrector reviewed: a record that has since moved to
 // another Person, by merge or Unmerge, refuses the correction.
-const corrected = { personId, recordId, reason };
+// The reason is optional: omitted, empty or whitespace-only all mean no reason (D-6).
+const editReason = z
+	.string()
+	.max(5000)
+	.transform((text) => text.trim() || undefined)
+	.optional();
+const corrected = { personId, recordId, reason: editReason };
 export const correctPersonRecordRequest = commandEnvelope(
 	z.discriminatedUnion("recordType", [
 		z.strictObject({ recordType: z.literal("assessment"), ...corrected, changes: assessmentCorrection }),

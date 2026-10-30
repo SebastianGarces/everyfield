@@ -99,7 +99,7 @@ export function withRecord<R extends { id: string; occurredOn: string; recordedA
 }
 
 /**
- * A card's records with the corrections made elsewhere on the page (Correct a record, WP-015). Each correction shows in
+ * A card's records with the corrections made elsewhere on the page (Edit a record, WP-015). Each correction shows in
  * place of its record only when its revision is newer than the card's copy, so every earlier correction stays and a
  * later save on the card itself still wins. A correction for a record this card has not loaded adds nothing.
  */
