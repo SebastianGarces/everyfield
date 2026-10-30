@@ -41,7 +41,12 @@ export async function GET(request: Request) {
 			return answer(
 				await parsed(
 					c.listContactHistoryRequest,
-					{ personId: p.get("person"), page: Number(p.get("page")), limit: HISTORY_PAGE },
+					{
+						personId: p.get("person"),
+						...(p.get("task") ? { taskId: p.get("task") } : {}),
+						page: Number(p.get("page")),
+						limit: HISTORY_PAGE,
+					},
 					(v) =>
 						read(viewer, async (tx) => outcomeOf(await followUpReader.listContactHistory(tx, viewer.authority, v))),
 				),
@@ -67,7 +72,12 @@ export async function GET(request: Request) {
 			return answer(
 				await parsed(
 					c.readObligationsRequest,
-					{ personId: p.get("person"), page: Number(p.get("page")), limit: PERSON_PAGE },
+					{
+						...(p.get("person") ? { personId: p.get("person") } : {}),
+						...(p.get("meeting") ? { meetingId: p.get("meeting") } : {}),
+						page: Number(p.get("page")),
+						limit: p.get("meeting") ? 100 : PERSON_PAGE,
+					},
 					(v) => read(viewer, async (tx) => outcomeOf(await followUpReader.readObligations(tx, viewer.authority, v))),
 				),
 			);
@@ -93,7 +103,9 @@ export async function GET(request: Request) {
 		case "seats":
 			return answer(
 				await read(viewer, async (tx) => {
-					const r = await taskReader.eligibleAssignees(tx, viewer.authority);
+					const r = await taskReader.eligibleAssignees(tx, viewer.authority, {
+						purpose: p.get("purpose") ?? "any",
+					});
 					return r.status === "ok" ? r : { status: "refused", code: r.error.code };
 				}),
 			);

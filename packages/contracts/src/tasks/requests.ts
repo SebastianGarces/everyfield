@@ -66,6 +66,10 @@ export const statusHistoryRequest = z.strictObject({
 	limit: z.int().min(1).max(100).default(50),
 	page: z.int().min(1).max(100_000).default(1),
 });
+/** Who a picker offers: every seat, or only those who may own a follow-up (REQ-TSK-012). */
+export const eligibleAssigneesRequest = z.strictObject({
+	purpose: z.enum(["any", "committed_follow_up"]).default("any"),
+});
 export const relationOptionsRequest = z.strictObject({
 	kind: z.enum(["person", "meeting", "team"]),
 	search: z.string().trim().max(200).default(""),

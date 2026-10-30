@@ -28,6 +28,9 @@ import {
 import { DeltaChip, StatusBadge } from "@everyfield/ui/display";
 import { useEffect, useRef, useState } from "react";
 import { DialogNotice, SaveNotice, useRowLanes, type RowSave, type SaveIntent } from "../../components/save/parts.tsx";
+import { loadMeetingFollowUps } from "../followups/fetch.ts";
+import { preferredOwner } from "../followups/model.ts";
+import { ownerText } from "../tasks/model.ts";
 import { assigneeOptions } from "../tasks/fetch.ts";
 import { evaluationHistory, previewSettlement, setPresence } from "./actions.ts";
 import {
@@ -313,7 +316,9 @@ function Work({ tasks }: { tasks: Analytics["tasks"] }) {
 // -------------------------------------------------------------------------------------------------------------
 // Finalize and correct
 
-type Seats = Outcome<{ items: { accountId: string; displayName: string; role: string }[] }>;
+type Seat = { accountId: string; displayName: string; role: string };
+/** `items` are every seat (the evaluation owner's seated rule); `followUpItems` only those who may own a follow-up. */
+type Seats = Outcome<{ items: Seat[]; followUpItems: Seat[] }>;
 const NEEDS_OWNER = "none";
 
 /**
@@ -326,9 +331,15 @@ export function useSeats() {
 	function load() {
 		if (asked.current) return;
 		asked.current = true;
-		assigneeOptions().then((r) => {
-			if (r.status !== "ok") asked.current = false;
-			setSeats(r);
+		void Promise.all([assigneeOptions(), assigneeOptions("committed_follow_up")]).then(([all, owners]) => {
+			if (all.status !== "ok" || owners.status !== "ok") asked.current = false;
+			setSeats(
+				all.status !== "ok"
+					? all
+					: owners.status !== "ok"
+						? owners
+						: { status: "ok", value: { items: all.value.items, followUpItems: owners.value.items } },
+			);
 		});
 	}
 	return { seats, load };
@@ -409,7 +420,25 @@ function SettleForm({
 }: Omit<Parameters<typeof SettleDialog>[0], "open">) {
 	const current: string[] = attendedOf(attendance).map((a) => a.person.personId);
 	const [ids, setIds] = useState<string[]>(initial?.attendeeIds ?? current);
-	const [followUp, setFollowUp] = useState(initial?.followUpAssigneeId ?? NEEDS_OWNER);
+	const [followUp, setFollowUpValue] = useState(initial?.followUpAssigneeId ?? NEEDS_OWNER);
+	// Finalize starts at Needs owner: no one is picked for the person. Correct attendance starts at the owner the
+	// meeting's follow-ups already have (D-b), unless the person already chose.
+	const [chose, setChose] = useState(initial?.followUpAssigneeId !== undefined);
+	const setFollowUp = (v: string) => {
+		setChose(true);
+		setFollowUpValue(v);
+	};
+	useEffect(() => {
+		if (mode !== "reconcile" || chose) return;
+		let live = true;
+		void loadMeetingFollowUps(meeting.id).then((r) => {
+			const current = r.status === "ok" ? preferredOwner(r.value.items) : null;
+			if (live && current) setFollowUpValue(current);
+		});
+		return () => {
+			live = false;
+		};
+	}, [mode, meeting.id, chose]);
 	const [evaluation, setEvaluation] = useState(initial?.evaluationAssigneeId ?? NEEDS_OWNER);
 	const [reason, setReason] = useState(initial?.reason ?? "");
 	const listRef = useRef<HTMLFieldSetElement>(null);
@@ -428,13 +457,12 @@ function SettleForm({
 		...guests.filter((g) => g.person.state === "live" || current.includes(g.person.personId)).map((g) => g.person),
 		...attendance.items.filter((a) => !guests.some((g) => g.id === a.guestId)).map((a) => a.person),
 	];
-	const options = [
+	const optionsOf = (list: "items" | "followUpItems") => [
 		{ value: NEEDS_OWNER, label: "Needs owner" },
-		...(seats?.status === "ok" ? seats.value.items.map((s) => ({ value: s.accountId, label: s.displayName })) : []),
+		...(seats?.status === "ok" ? seats.value[list].map((s) => ({ value: s.accountId, label: s.displayName })) : []),
 	];
-	const ownerName = (accountId: string | null) =>
-		(accountId && seats?.status === "ok" && seats.value.items.find((x) => x.accountId === accountId)?.displayName) ||
-		(accountId ? "an owner" : "Needs owner");
+	const followUpOptions = optionsOf("followUpItems");
+	const evaluationOptions = optionsOf("items");
 	// The exact effects of these choices, from the real command run and rolled back on the server (C73). A change of
 	// people or owners asks again after a short pause; an answer for older choices is never shown.
 	const choice = {
@@ -462,7 +490,13 @@ function SettleForm({
 	}, [choiceKey, attempt, mode, attendance.attendanceRevision, unchanged]);
 	const settled = got !== null && got.key === choiceKey && got.attempt === attempt;
 	const effects: Outcome<Finalization> = settled ? got.value : { status: "lost" };
-	const owner = (label: string, value: string, set: (v: string) => void, hint: string) => (
+	const owner = (
+		label: string,
+		value: string,
+		set: (v: string) => void,
+		hint: string,
+		options: { value: string; label: string }[],
+	) => (
 		<Field label={label} hint={hint}>
 			{seats === null ? (
 				<Skeleton className="h-10 rounded-md" />
@@ -567,7 +601,7 @@ function SettleForm({
 							</div>
 						) : (
 							<ul className="mt-1.5 flex list-disc flex-col gap-1 pl-5 text-md text-text-2">
-								{effectLines(effects.value, meeting, name, ownerName, mode).map((line) => (
+								{effectLines(effects.value, meeting, name, mode).map((line) => (
 									<li key={line}>{line}</li>
 								))}
 							</ul>
@@ -579,9 +613,20 @@ function SettleForm({
 								"Follow-up calls go to",
 								followUp,
 								setFollowUp,
-								reconcile ? "Only calls for people you add." : "Or leave it, and assign them later in Tasks.",
+								reconcile
+									? "Only calls for people you add."
+									: "Only people who can own follow-ups. Or leave it, and assign them later in Tasks.",
+								followUpOptions,
 							)}
-							{reconcile ? null : owner("Evaluation task goes to", evaluation, setEvaluation, "Someone who was there.")}
+							{reconcile
+								? null
+								: owner(
+										"Evaluation task goes to",
+										evaluation,
+										setEvaluation,
+										"Someone who was there.",
+										evaluationOptions,
+									)}
 						</div>
 					) : null}
 					{seats && seats.status !== "ok" && vision ? (
@@ -629,13 +674,15 @@ function effectLines(
 	r: Finalization,
 	meeting: Detail,
 	name: Map<string, string>,
-	ownerName: (accountId: string | null) => string,
 	mode: "finalize" | "reconcile",
 ): string[] {
 	if (r.outcome === "noop") return ["Attendance is already final with these people. Nothing changes."];
 	const who = (id: string | null) => (id && name.get(id)) || "someone no longer on the list";
+	// The same words as every other screen: a follow-up's owner with why they cannot own it, when they cannot.
 	const owned = (w: Finalization["work"][number]) =>
-		w.needsOwner ? "Needs owner" : `Owner: ${ownerName(w.assigneeId)}`;
+		w.owner
+			? `Owner: ${w.kind === "first_vision_follow_up" ? ownerText(w.owner) : w.owner.displayName}`
+			: "Needs owner";
 	const due = dateText(plusDays(meeting.localDate, 2));
 	const counts = { first_time: 0, returning: 0, core_group: 0 };
 	for (const c of r.classifications) counts[c.classification]++;

@@ -33,6 +33,7 @@ import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
 import { useState } from "react";
 import type { z } from "zod";
 import { addNote, deleteNote, editNote, loadActivities } from "./actions.ts";
+import { CHANNEL_LABEL } from "../followups/model.ts";
 import { unmergeIntent } from "./corrections/intent.ts";
 import { householdChange } from "./fields/model.ts";
 import { runSave, STAGE_LABEL, type PersonStore } from "./model.ts";
@@ -360,6 +361,12 @@ function Row({
 				<p className="text-[15px] font-medium text-ink">{view.title}</p>
 				{item.kind === "note" ? (
 					<p className="mt-1 whitespace-pre-wrap text-md text-ink-2 [overflow-wrap:anywhere]">{item.body}</p>
+				) : null}
+				{item.kind === "follow_up" && item.channel ? (
+					<p className="mt-1 text-md text-ink-2">{CHANNEL_LABEL[item.channel]}</p>
+				) : null}
+				{item.kind === "follow_up" && item.notes ? (
+					<p className="mt-1 whitespace-pre-wrap text-md text-ink-2 [overflow-wrap:anywhere]">{item.notes}</p>
 				) : null}
 				<p className="mt-1 text-sm text-text-3">
 					{by} · <When at={item.occurredAt} withTime />

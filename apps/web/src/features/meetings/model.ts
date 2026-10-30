@@ -321,6 +321,8 @@ export function problemText(code: string): string {
 			return "Some details are not valid. Check them and try again.";
 		case "invalid_subject":
 			return "That person cannot be chosen here. They may have been retired or merged.";
+		case "owner_ineligible":
+			return "That person cannot own follow-up calls now. They need a seat and a core group, launch team or leader stage. Choose someone else.";
 		case "venue_archived":
 			return "That place is archived. Restore it in Places, or choose another one.";
 		case "wrong_meeting_type":

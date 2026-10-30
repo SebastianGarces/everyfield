@@ -359,7 +359,7 @@ export function activitiesJson(ctx: Context, personId: SQL, input: z.infer<typeo
       UNION ALL
       SELECT id,occurred_at,recorded_at,actor_id,after_revision AS revision,NULL,NULL,NULL,'activity',CASE WHEN metadata ? 'event' THEN 'record' WHEN action='people.stage_changed' THEN 'stage_changed' WHEN coalesce(before_value ? 'membership' OR after_value ? 'membership',false) THEN 'household_changed' ELSE 'activity' END,coalesce(metadata->>'event',action),CASE WHEN action='people.stage_changed' AND NOT coalesce(before_value ? 'stage',false) THEN jsonb_build_object('stage',(SELECT prev.after_value->'stage' FROM audit_event prev WHERE prev.subject_id=h.subject_id AND prev.tenant_id=h.tenant_id AND prev.after_revision<=h.after_revision AND prev.after_value ? 'stage' ORDER BY prev.after_revision DESC,prev.occurred_at DESC,prev.id DESC LIMIT 1)) ELSE before_value END,CASE WHEN action='people.stage_changed' AND NOT coalesce(after_value ? 'stage',false) THEN jsonb_build_object('stage',(SELECT prev.after_value->'stage' FROM audit_event prev WHERE prev.subject_id=h.subject_id AND prev.tenant_id=h.tenant_id AND prev.after_revision<=h.after_revision AND prev.after_value ? 'stage' ORDER BY prev.after_revision DESC,prev.occurred_at DESC,prev.id DESC LIMIT 1)) ELSE after_value END,NULL,NULL,(metadata->>'recordId')::uuid FROM audit_event h WHERE metadata->>'category' IS DISTINCT FROM 'note' AND kind<>'noop' AND tenant_id=${sql.param(ctx.selected.id)} AND subject_id IN (SELECT ${personId} UNION ALL SELECT m.id FROM person m WHERE m.merged_into_person_id=${personId} AND m.tenant_id=${sql.param(ctx.selected.id)}) AND action IN ('people.created','people.updated','people.retired','people.restored','people.stage_changed','people.recorded','people.corrected','people.merged','people.unmerged')
       UNION ALL
-      SELECT id,occurred_at,recorded_at,(SELECT actor_id FROM audit_event WHERE subject_id=contact_outcome.id ORDER BY recorded_at,id LIMIT 1),revision,NULL,NULL,NULL,'follow_up','follow_up',NULL,NULL,NULL,obligation_id,outcome,NULL FROM contact_outcome WHERE plant_id=${sql.param(ctx.selected.id)} AND person_id=${personId} AND voided_at IS NULL
+      SELECT id,occurred_at,recorded_at,(SELECT actor_id FROM audit_event WHERE subject_id=contact_outcome.id ORDER BY recorded_at,id LIMIT 1),revision,notes,NULL,NULL,'follow_up','follow_up',contact_channel,NULL,NULL,obligation_id,outcome,NULL FROM contact_outcome WHERE plant_id=${sql.param(ctx.selected.id)} AND person_id=${personId} AND voided_at IS NULL
     ) x WHERE ${gate} AND category=ANY(${sql.param(input.kinds ?? ["note", "activity", "follow_up"])}) ORDER BY occurred_at,id LIMIT ${sql.param(input.limit + 1)} OFFSET ${sql.param((input.page - 1) * input.limit)}) a)`;
 }
 export function activityFeed(ctx: Context, personId: string, input: z.infer<typeof c.activityRequest>, raw: unknown) {
@@ -422,6 +422,9 @@ export function activityFeed(ctx: Context, personId: string, input: z.infer<type
 				kind: "follow_up",
 				outcome: r.outcome,
 				obligationId: r.obligation_id,
+				// A follow-up entry carries how it happened and its note in the shared body and action columns.
+				channel: r.action ?? null,
+				notes: r.body ?? null,
 			});
 		else items.push({ ...base, kind: "activity", action: actions[r.action ?? ""] });
 	}

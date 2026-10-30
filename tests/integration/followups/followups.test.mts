@@ -11,6 +11,7 @@ import {
 	authorizeTaskReminders,
 	createTaskWriter,
 	ensureMeetingObligations,
+	taskReader,
 	reminderRecipients,
 	withTaskWrite,
 } from "../../../packages/domain/src/tasks/index.ts";
@@ -200,16 +201,18 @@ test("AC:TARGET-MTG-021 AC:TARGET-TSK-011 AC:TARGET-TSK-017 AC:TARGET-MTG-020 AC
 	const at = (h) => ({ at: hours(asOf, h), date: hours(asOf, h).slice(0, 10), zone: "America/Chicago" });
 	// Three meetings with the same origin and local date keep three identities for Alex.
 	const same = at(-72);
+	// One contact finishes all of a Person's open follow-ups it may (D-c), so each contact case has its own Person.
+	const [bea, cy, dee] = [await person(c, "Bea Lopez"), await person(c, "Cy Nakamura"), await person(c, "Dee Foster")];
 	const m = {
 		pending23: await generated(c, alex, "M1", at(-23)),
 		pending48: await generated(c, alex, "M2", at(-48)),
 		admin2h: await generated(c, alex, "M3", same),
-		contact48: await generated(c, alex, "M4", same),
-		contactLate: await generated(c, alex, "M5", same),
+		contact48: await generated(c, bea, "M4", same),
+		contactLate: await generated(c, cy, "M5", same),
 		waived: await generated(c, alex, "M6", same),
 		future: await generated(c, alex, "M7", at(1)),
 		preOrigin: await generated(c, alex, "M8", same),
-		afterAsOf: await generated(c, alex, "M9", same),
+		afterAsOf: await generated(c, dee, "M9", same),
 		checkbox: await generated(c, alex, "M10", same),
 	};
 	assert.equal(new Set(Object.values(m).map((x) => x.obligation.id)).size, 10);
@@ -229,7 +232,7 @@ test("AC:TARGET-MTG-021 AC:TARGET-TSK-011 AC:TARGET-TSK-017 AC:TARGET-MTG-020 AC
 			input: { taskId: m.checkbox.obligation.task.id },
 		}),
 	);
-	const page = ok(await read(c.member, "readObligations", { personId: alex, asOf, limit: 100 }));
+	const page = ok(await read(c.member, "readObligations", { asOf, limit: 100 }));
 	const byMeeting = new Map(page.items.map((o) => [o.meeting.id, o]));
 	const result = Object.fromEntries(
 		Object.entries(m).map(([name, x]) => {
@@ -594,8 +597,17 @@ test("AC:TARGET-TSK-012 AC:TARGET-PPL-022 AC:GAP-PPL-022 only a currently eligib
 	await f.admin.execute(sql`UPDATE person SET stage='prospect' WHERE id=${demotedPerson}`);
 	const owners = ok(await read(c.member, "listFollowUpOwners", { personId: casey }));
 	assert.deepEqual(
-		[owners.items.map((d) => [d.taskId, d.owner, d.due, d.overdue]), owners.unassigned, owners.matched],
-		[[[manual.id, null, { kind: "undated" }, null]], 1, 1],
+		[
+			owners.items.map((d) => [
+				d.taskId,
+				d.owner && [d.owner.accountId, d.owner.eligible, d.owner.reason],
+				d.due,
+				d.overdue,
+			]),
+			owners.unassigned,
+			owners.matched,
+		],
+		[[[manual.id, [demoted.id, false, "not_committed"], { kind: "undated" }, null]], 1, 1],
 	);
 	assert.deepEqual(await rows(sql`SELECT assignee_id FROM task WHERE id=${manual.id}`), [{ assignee_id: demoted.id }]);
 	const covered = ok(await read(c.owner, "followUpCoverage", { personId: casey }));
@@ -703,10 +715,10 @@ test("AC:TARGET-TSK-013 INV-statements handoff moves reviewed open follow-ups or
 	);
 	const waiting = ok(await read(c.admin, "listFollowUpOwners", { owner: "needs_owner", personId: alex })).items;
 	assert.deepEqual(
-		waiting.map((d) => [d.owner, d.formerOwner?.accountId]),
+		waiting.map((d) => [d.owner?.accountId, d.owner?.eligible, d.owner?.reason]),
 		[
-			[null, departed.id],
-			[null, departed.id],
+			[departed.id, false, "no_seat"],
+			[departed.id, false, "no_seat"],
 		],
 	);
 	const gone = ok(await read(c.admin, "planHandoff", { fromAccountId: departed.id }));
@@ -779,4 +791,274 @@ test("AC:TARGET-PPL-007 INV-inactivity: a card warns after the church's inactivi
 		}),
 	);
 	assert.deepEqual(await levels(), { recent: "none", quiet: "warning", silent: "none" });
+});
+
+/** An open follow-up the way an old demotion or an unlinked account leaves it: assigned straight in the table. */
+async function assigned(c, personId, title, assigneeId) {
+	const id = randomUUID();
+	await f.admin
+		.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,person_id,assignee_id,creator_id)
+		VALUES(${id},${c.w.id},${title},'follow_up','medium','not_started',now(),'undated',${personId},${assigneeId},${c.owner.id})`);
+	return id;
+}
+
+test("AC:TARGET-TSK-012 AC:TARGET-TSK-013 one owner view: every read names a follow-up's assignee and why they cannot own it the same way", async () => {
+	const c = await church();
+	const pia = await person(c, "Pia Dalton");
+	const eligible = await c.seated("member");
+	await committed(c, eligible);
+	const unlinked = await c.seated("member");
+	const prospect = await c.seated("member");
+	await person(c, "Prospect owner", { stage: "prospect", linked: prospect.id });
+	const departed = await c.seated("member");
+	await committed(c, departed);
+	await f.admin.execute(sql`UPDATE seat SET ended_at=now() WHERE account_id=${departed.id} AND plant_id=${c.w.id}`);
+	const expected = {
+		[eligible.id]: [true, null],
+		[unlinked.id]: [false, "no_person"],
+		[prospect.id]: [false, "not_committed"],
+		[departed.id]: [false, "no_seat"],
+	};
+	const taskOf = {};
+	for (const a of [eligible, unlinked, prospect, departed])
+		taskOf[a.id] = await assigned(c, pia, "Visit " + a.id.slice(0, 4), a.id);
+	const shape = (o) => o && [o.accountId, o.eligible, o.reason];
+	// The Follow-ups page, the person's Follow-ups, the Tasks list, the handoff preview and coverage all read one view.
+	const owners = ok(await read(c.member, "listFollowUpOwners", { personId: pia })).items;
+	const coverage = ok(await read(c.admin, "followUpCoverage", { personId: pia })).items[0].duties;
+	const list = ok(await f.db.transaction((tx) => taskReader.list(tx, c.admin.actor, {}))).items;
+	for (const [account, [ok_, reason]] of Object.entries(expected)) {
+		const id = taskOf[account];
+		const views = [
+			owners.find((d) => d.taskId === id).owner,
+			coverage.find((d) => d.taskId === id).owner,
+			list.find((t) => t.id === id).followUpOwner,
+		];
+		assert.deepEqual(
+			views.map(shape),
+			views.map(() => [account, ok_, reason]),
+		);
+		assert.deepEqual(new Set(views.map((v) => v.displayName)).size, 1);
+	}
+	// An ineligible assignee still counts as Needs owner everywhere (REQ-TSK-012) and stays a handoff source.
+	assert.equal(ok(await read(c.member, "listFollowUpOwners", { personId: pia, owner: "needs_owner" })).matched, 3);
+	assert.deepEqual(
+		ok(await read(c.admin, "followUpCoverage", { personId: pia })).items.map((r) => [r.coverage]),
+		[["needs_owner"]],
+	);
+	const plan = ok(await read(c.admin, "planHandoff", { fromAccountId: unlinked.id }));
+	assert.deepEqual(
+		plan.duties.map((d) => shape(d.owner)),
+		[[unlinked.id, false, "no_person"]],
+	);
+	// A Member sees no assignment controls but the same view.
+	assert.equal(list.find((t) => t.id === taskOf[eligible.id]).followUpOwner.eligible, true);
+});
+
+test("AC:TARGET-TSK-012 task assignment, create and edit refuse a follow-up owner who cannot own one", async () => {
+	const c = await church();
+	const quinn = await person(c, "Quinn Reed");
+	const unlinked = await c.seated("member");
+	const ready = await c.seated("member");
+	await committed(c, ready);
+	const task = await assigned(c, quinn, "Visit Quinn", null);
+	const [row] = await rows(sql`SELECT revision::text AS r FROM task WHERE id=${task}`);
+	// Task edit on a follow-up with a Person: only an eligible owner.
+	refused(
+		await taskWrite(c.owner, "edit", {
+			requestKey: key(),
+			expectedRevision: row.r,
+			input: { taskId: task, patch: { assigneeId: unlinked.id } },
+		}),
+		"owner_ineligible",
+	);
+	refused(
+		await taskWrite(c.owner, "create", {
+			requestKey: key(),
+			input: {
+				title: "Call Quinn",
+				category: "follow_up",
+				relation: { kind: "person", id: quinn },
+				assigneeId: unlinked.id,
+			},
+		}),
+		"owner_ineligible",
+	);
+	// A general task keeps the seated rule, and an eligible owner is accepted on the follow-up.
+	ok(
+		await taskWrite(c.owner, "create", {
+			requestKey: key(),
+			input: { title: "Order chairs", category: "general", assigneeId: unlinked.id },
+		}),
+	);
+	const edited = ok(
+		await taskWrite(c.owner, "edit", {
+			requestKey: key(),
+			expectedRevision: row.r,
+			input: { taskId: task, patch: { assigneeId: ready.id } },
+		}),
+	).task;
+	assert.deepEqual([edited.assignee.accountId, edited.followUpOwner.eligible], [ready.id, true]);
+	// The picker's list: purpose committed_follow_up offers only eligible owners.
+	const names = (r) => ok(r).items.map((i) => i.accountId);
+	const all = names(await f.db.transaction((tx) => taskReader.eligibleAssignees(tx, c.owner.actor, {})));
+	const eligibleOnly = names(
+		await f.db.transaction((tx) => taskReader.eligibleAssignees(tx, c.owner.actor, { purpose: "committed_follow_up" })),
+	);
+	assert.ok(all.includes(unlinked.id) && all.includes(ready.id));
+	assert.deepEqual(eligibleOnly, [ready.id]);
+});
+
+test("AC:TARGET-MTG-022 AC:TARGET-MTG-021 one follow-up state: a done follow-up takes no outcome; one contact finishes the Person's other follow-ups", async () => {
+	const c = await church();
+	const rae = await person(c, "Rae Kim");
+	const origin = { at: "2026-09-10T15:00:00Z", date: "2026-09-10", zone: "America/Chicago" };
+	// Record then complete, and complete then record.
+	const a = await generated(c, rae, "Vision A", origin);
+	const first = ok(
+		await record(c.owner, onTask(a.obligation.task), "attempted_no_contact", { occurredAt: "2026-09-10T16:00:00Z" }),
+	);
+	assert.equal(first.task.status, "not_started");
+	const [open] = await rows(sql`SELECT status, revision::text AS r FROM task WHERE id=${a.obligation.task.id}`);
+	assert.equal(open.status, "not_started");
+	const done = ok(
+		await taskWrite(c.owner, "complete", {
+			requestKey: key(),
+			expectedRevision: open.r,
+			input: { taskId: a.obligation.task.id },
+		}),
+	).task;
+	// Record after the task is done: refused, nothing written.
+	const before = (await rows(sql`SELECT count(*)::int AS n FROM contact_outcome WHERE person_id=${rae}`))[0].n;
+	refused(
+		await record(c.owner, onTask(done), "contacted", { occurredAt: "2026-09-11T15:00:00Z", completeTask: true }),
+		"conflict",
+	);
+	refused(await record(c.owner, onTask(done), "no_longer_needed"), "conflict");
+	assert.equal((await rows(sql`SELECT count(*)::int AS n FROM contact_outcome WHERE person_id=${rae}`))[0].n, before);
+	// A Person-level contact stays possible for an Owner or Admin.
+	ok(await record(c.owner, { kind: "person", personId: rae }, "contacted", { occurredAt: "2026-09-11T15:00:00Z" }));
+
+	// One contact finishes both of a Person's open follow-ups, with one log entry that names both.
+	const sol = await person(c, "Sol Ortiz");
+	const v1 = await generated(c, sol, "Vision B", {
+		at: "2026-09-12T15:00:00Z",
+		date: "2026-09-12",
+		zone: "America/Chicago",
+	});
+	const manual = ok(
+		await write(c.owner, "createFollowUp", {
+			requestKey: key(),
+			input: { personId: sol, title: "Send Sol the packet" },
+		}),
+	).task;
+	const finished = ok(
+		await record(c.owner, onTask(v1.obligation.task), "contacted", {
+			occurredAt: "2026-09-12T20:00:00Z",
+			channel: "phone",
+			notes: "Left a voicemail and texted.",
+			completeTask: true,
+		}),
+	);
+	assert.equal(finished.task.status, "complete");
+	assert.deepEqual(
+		finished.record.alsoFinished.map((x) => [x.taskId, x.origin.kind]),
+		[[manual.id, "added"]],
+	);
+	const statuses = await rows(sql`SELECT status FROM task WHERE person_id=${sol}`);
+	assert.deepEqual(
+		statuses.map((x) => x.status),
+		["complete", "complete"],
+	);
+	assert.equal((await rows(sql`SELECT count(*)::int AS n FROM contact_outcome WHERE person_id=${sol}`))[0].n, 1);
+	// The log shows one entry that names the other follow-up, and each task panel read finds it.
+	const log = ok(await read(c.owner, "listContactHistory", { personId: sol }));
+	assert.deepEqual(
+		log.items.map((i) => [i.channel, i.notes, i.alsoFinished.length]),
+		[["phone", "Left a voicemail and texted.", 1]],
+	);
+	const onManual = ok(await read(c.owner, "listContactHistory", { personId: sol, taskId: manual.id }));
+	assert.deepEqual(
+		onManual.items.map((i) => i.id),
+		[finished.record.id],
+	);
+	// The Vision duty is measured by that same contact; the manual follow-up has no meeting duty.
+	const duty = ok(await read(c.owner, "readObligations", { personId: sol, asOf: "2026-09-20T00:00:00Z" })).items[0];
+	assert.deepEqual(
+		[duty.state, duty.completion.outcomeId === finished.record.id, duty.contacted, duty.measurement.success],
+		["complete", true, true, true],
+	);
+	// Nothing open is left on the Person's Follow-ups.
+	assert.equal(ok(await read(c.owner, "listFollowUpOwners", { personId: sol })).items.length, 0);
+	// The contact shows in the Person's activity with how it happened and its note.
+	const activity = ok(
+		await f.db.transaction((tx) =>
+			peopleReader.getActivities(tx, new PeopleReadContext(c.owner.actor), { personId: sol, kinds: ["follow_up"] }),
+		),
+	);
+	assert.deepEqual(
+		activity.items.map((i) => [i.outcome, i.channel, i.notes]),
+		[["contacted", "phone", "Left a voicemail and texted."]],
+	);
+});
+
+test("AC:TARGET-MTG-022 a Member's contact finishes only the follow-ups they hold", async () => {
+	const c = await church();
+	const me = c.member;
+	await committed(c, me);
+	const other = await c.seated("member");
+	await committed(c, other);
+	const tia = await person(c, "Tia Marsh");
+	const mine = await assigned(c, tia, "Call Tia", me.id);
+	const mine2 = await assigned(c, tia, "Text Tia", me.id);
+	const theirs = await assigned(c, tia, "Visit Tia", other.id);
+	const [r] = await rows(sql`SELECT revision::text AS r FROM task WHERE id=${mine}`);
+	const saved = ok(
+		await record(me, { kind: "task", taskId: mine, expectedRevision: r.r }, "contacted", {
+			occurredAt: "2026-09-12T20:00:00Z",
+			completeTask: true,
+		}),
+	);
+	assert.deepEqual(
+		saved.record.alsoFinished.map((x) => x.taskId),
+		[mine2],
+	);
+	assert.deepEqual(
+		(await rows(sql`SELECT id, status FROM task WHERE person_id=${tia}`))
+			.map((t) => [t.id === theirs ? "theirs" : "mine", t.status])
+			.sort(),
+		[
+			["mine", "complete"],
+			["mine", "complete"],
+			["theirs", "not_started"],
+		],
+	);
+	// The follow-up they could not finish shows the contact: when and by whom.
+	const left = ok(await read(me, "listFollowUpOwners", { personId: tia })).items;
+	const [recorder] = await rows(sql`SELECT display_name FROM seat_identity(${me.id}::uuid)`);
+	assert.deepEqual(
+		left.map((d) => [d.taskId === theirs, d.contacted?.by ?? "none"]),
+		[[true, recorder.display_name]],
+	);
+	// A correction keeps who the contact also finished.
+	const corrected = ok(
+		await write(c.owner, "correctOutcome", {
+			requestKey: key(),
+			expectedRevision: saved.record.revision,
+			input: {
+				outcomeId: saved.record.id,
+				correction: {
+					kind: "replace",
+					outcome: "contacted",
+					occurredAt: "2026-09-12T20:05:00Z",
+					notes: "Spoke briefly",
+				},
+				reason: "Wrong time",
+			},
+		}),
+	);
+	assert.deepEqual(
+		corrected.record.alsoFinished.map((x) => x.taskId),
+		[mine2],
+	);
 });

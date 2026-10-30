@@ -54,7 +54,8 @@ export const correctOutcomeRequest = commandEnvelope(
 		reason,
 	}),
 );
-export const listContactHistoryRequest = z.strictObject({ personId, ...page });
+// With taskId, only the entries recorded on that follow-up task or finished along with it.
+export const listContactHistoryRequest = z.strictObject({ personId, taskId: recordId.optional(), ...page });
 export const readObligationsRequest = z.strictObject({
 	personId: personId.optional(),
 	meetingId: recordId.optional(),

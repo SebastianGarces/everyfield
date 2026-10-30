@@ -20,6 +20,7 @@ import {
 	ownersOf,
 	type Account,
 	type ContactHistory,
+	type DutyItem,
 	type ObligationItem,
 	type Outcome,
 	type Owners,
@@ -121,13 +122,17 @@ export type CallData = {
 	person: { id: string; label: string; phone: string | null; email: string | null; live: boolean };
 	obligation: ObligationItem | null;
 	recent: ContactHistory | null;
+	/** The Person's other open follow-ups this follow-up's contact would also finish (D-c); empty once it is done. */
+	others: DutyItem[];
+	/** What was recorded on this follow-up, once it is done: its completing record shows with it. */
+	record: ContactHistory | null;
 };
 export type CallRead =
 	{ kind: "call"; call: CallData } | { kind: "not_follow_up"; taskId: string } | { kind: "missing" };
 
 /**
  * The call page in one transaction: the task, its Person, their last few log entries and, for a generated follow-up,
- * its obligation. Four statements. A task that is not a follow-up with a Person says so instead.
+ * its obligation. Four statements, five with the follow-ups a contact also finishes or the record of a done one. A task that is not a follow-up with a Person says so instead.
  */
 export async function loadCall(tx: Transaction, viewer: TaskViewer, taskId: string): Promise<Outcome<CallRead>> {
 	const found = await taskReader.get(tx, viewer.authority, { taskId });
@@ -150,13 +155,23 @@ export async function loadCall(tx: Transaction, viewer: TaskViewer, taskId: stri
 				}
 			: { id: personId, label: task.relation.label, phone: null, email: null, live: false };
 	const recent = okOrNull(await followUpReader.listContactHistory(tx, viewer.authority, { personId, limit: 3 }));
+	const closed = task.status === "complete" || task.status === "no_longer_needed";
+	// A done follow-up shows its completing record; an open one lists the follow-ups its contact also finishes.
+	const record = closed
+		? okOrNull(await followUpReader.listContactHistory(tx, viewer.authority, { personId, taskId: task.id, limit: 5 }))
+		: null;
+	const others = closed
+		? []
+		: (
+				okOrNull(await followUpReader.listFollowUpOwners(tx, viewer.authority, { personId, limit: 100 }))?.items ?? []
+			).filter((d) => d.taskId !== task.id && (viewer.role !== "member" || d.owner?.accountId === viewer.accountId));
 	const managed = task.managed;
 	const obligation = managed
 		? (okOrNull(await followUpReader.readObligations(tx, viewer.authority, { personId, limit: 100 }))?.items.find(
 				(o) => o.id === managed.obligationId,
 			) ?? null)
 		: null;
-	return { status: "ok", value: { kind: "call", call: { task, person, obligation, recent } } };
+	return { status: "ok", value: { kind: "call", call: { task, person, obligation, recent, others, record } } };
 }
 
 export type { FollowUpError };

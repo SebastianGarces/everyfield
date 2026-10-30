@@ -1,0 +1,1 @@
+ALTER FUNCTION seat_identity(uuid) ROWS 1;

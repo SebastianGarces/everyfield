@@ -26,10 +26,11 @@ import {
 import { StatusBadge } from "@everyfield/ui/display";
 import { useEffect, useState } from "react";
 import type { z } from "zod";
-import { dueText } from "../tasks/model.ts";
+import { When } from "../people/parts.tsx";
+import { dueText, ownerText } from "../tasks/model.ts";
 import { assignFollowUp, createFollowUp } from "./actions.ts";
 import { forgetOwners, prefetchOwners, warmOn } from "./fetch.ts";
-import { OUTCOME_LABEL, type Account, type DutyItem, type Outcome } from "./model.ts";
+import { OUTCOME_LABEL, originText, type Account, type DutyItem, type Outcome } from "./model.ts";
 import {
 	DialogNotice,
 	focusFirstProblem,
@@ -54,10 +55,11 @@ export function dutyFrom(task: TaskDetail, previous?: DutyItem): DutyItem {
 		person: task.relation
 			? { id: personId.parse(task.relation.id), label: task.relation.label }
 			: (previous?.person ?? { id: personId.parse(task.id), label: "" }),
-		owner: task.assignee,
-		// The answer names the stored assignee only when it is a current owner; a former owner is not repeated here.
-		formerOwner: task.assignee ? null : (previous?.formerOwner ?? null),
+		// The task's own owner view; a save just checked the assignee, so a plain assignee reads as eligible.
+		owner: task.followUpOwner ?? (task.assignee ? { ...task.assignee, eligible: true, reason: null } : null),
+		origin: previous?.origin ?? { kind: "added", by: null },
 		lastOutcome: previous?.lastOutcome ?? null,
+		contacted: previous?.contacted ?? null,
 	};
 }
 
@@ -83,6 +85,7 @@ export function AssignMenu({
 	duty,
 	lane,
 	canAssign,
+	showOwner = true,
 	onChange,
 	onSaved,
 	onConflict,
@@ -90,6 +93,8 @@ export function AssignMenu({
 	duty: DutyItem;
 	lane: SaveIntent;
 	canAssign: boolean;
+	/** Name an assignee who cannot own follow-ups beside Reassign; false where the screen already names them. */
+	showOwner?: boolean;
 	/** The follow-up as shown: at once when chosen, again from the server's answer, or back on a refusal. */
 	onChange: (duty: DutyItem) => void;
 	/** The server confirmed the change, from `before` to the saved follow-up. Totals update from this, never earlier. */
@@ -98,7 +103,9 @@ export function AssignMenu({
 }) {
 	const [open, setOpen] = useState(false);
 	const owners = useOwners(open);
-	const label = duty.owner ? duty.owner.displayName : "Needs owner";
+	const label = ownerText(duty.owner);
+	// An assignee who cannot own follow-ups shows with why, and the Owner/Admin reassigns from the same place.
+	const ineligible = duty.owner !== null && !duty.owner.eligible;
 	if (!canAssign)
 		return duty.owner ? (
 			<span className="text-sm text-text-2">{label}</span>
@@ -113,7 +120,7 @@ export function AssignMenu({
 		if (lane.wait) return;
 		const before = duty;
 		const chosen = owners?.status === "ok" ? owners.value.find((o) => o.accountId === assigneeId) : undefined;
-		onChange({ ...duty, owner: chosen ?? null });
+		onChange({ ...duty, owner: chosen ? { ...chosen, eligible: true, reason: null } : null });
 		await lane.save({
 			what: `The owner of ${duty.title}`,
 			send: (key) => assignFollowUp(key, duty.revision, { taskId: duty.taskId, assigneeId }),
@@ -130,50 +137,59 @@ export function AssignMenu({
 		});
 	}
 	return (
-		<Menu open={open} onOpenChange={setOpen}>
-			<MenuTrigger asChild>
-				<Button
-					size="sm"
-					variant={duty.owner ? "ghost" : "outline"}
-					icon={duty.owner ? undefined : UserAdd01Icon}
-					disabled={lane.wait !== null}
-					aria-label={duty.owner ? `${label}, owner of ${duty.title}. Change owner` : `Assign ${duty.title}`}
-					{...warmOn(prefetchOwners)}
-					className="max-w-[200px] truncate"
-				>
-					{duty.owner ? label : "Assign"}
-				</Button>
-			</MenuTrigger>
-			<MenuContent align="end" className="min-w-[220px]">
-				<MenuLabel>Give this follow-up to</MenuLabel>
-				{owners === null ? (
-					<div className="flex items-center gap-2 px-3 py-2 text-sm text-text-2" role="status">
-						<Spinner size={16} />
-						Loading owners
-					</div>
-				) : owners.status !== "ok" ? (
-					<p className="px-3 py-2 text-sm text-text-2" role="status">
-						The owners did not load. Close this menu and try again.
-					</p>
-				) : (
-					<MenuRadioGroup value={duty.owner?.accountId ?? NEEDS_OWNER} onValueChange={(v) => void assign(v)}>
-						{owners.value.length === 0 ? (
-							<p className="px-3 py-2 text-sm text-text-2">
-								No one can own follow-ups yet. Owners need a seat and a core group, launch team or leader stage.
-							</p>
-						) : (
-							owners.value.map((o) => (
-								<MenuRadioItem key={o.accountId} value={o.accountId}>
-									{o.displayName}
-								</MenuRadioItem>
-							))
-						)}
-						<MenuSeparator />
-						<MenuRadioItem value={NEEDS_OWNER}>Leave as Needs owner</MenuRadioItem>
-					</MenuRadioGroup>
-				)}
-			</MenuContent>
-		</Menu>
+		<span className="inline-flex flex-wrap items-center justify-end gap-x-2 max-app-sm:justify-start">
+			{ineligible && showOwner ? <span className="text-sm text-text-2">{label}</span> : null}
+			<Menu open={open} onOpenChange={setOpen}>
+				<MenuTrigger asChild>
+					<Button
+						size="sm"
+						variant={duty.owner && !ineligible ? "ghost" : "outline"}
+						icon={duty.owner ? undefined : UserAdd01Icon}
+						disabled={lane.wait !== null}
+						aria-label={
+							ineligible
+								? `Reassign ${duty.title}`
+								: duty.owner
+									? `${label}, owner of ${duty.title}. Change owner`
+									: `Assign ${duty.title}`
+						}
+						{...warmOn(prefetchOwners)}
+						className="max-w-[200px] truncate"
+					>
+						{ineligible ? "Reassign" : duty.owner ? label : "Assign"}
+					</Button>
+				</MenuTrigger>
+				<MenuContent align="end" className="min-w-[220px]">
+					<MenuLabel>Give this follow-up to</MenuLabel>
+					{owners === null ? (
+						<div className="flex items-center gap-2 px-3 py-2 text-sm text-text-2" role="status">
+							<Spinner size={16} />
+							Loading owners
+						</div>
+					) : owners.status !== "ok" ? (
+						<p className="px-3 py-2 text-sm text-text-2" role="status">
+							The owners did not load. Close this menu and try again.
+						</p>
+					) : (
+						<MenuRadioGroup value={duty.owner?.accountId ?? NEEDS_OWNER} onValueChange={(v) => void assign(v)}>
+							{owners.value.length === 0 ? (
+								<p className="px-3 py-2 text-sm text-text-2">
+									No one can own follow-ups yet. Owners need a seat and a core group, launch team or leader stage.
+								</p>
+							) : (
+								owners.value.map((o) => (
+									<MenuRadioItem key={o.accountId} value={o.accountId}>
+										{o.displayName}
+									</MenuRadioItem>
+								))
+							)}
+							<MenuSeparator />
+							<MenuRadioItem value={NEEDS_OWNER}>Leave as Needs owner</MenuRadioItem>
+						</MenuRadioGroup>
+					)}
+				</MenuContent>
+			</Menu>
+		</span>
 	);
 }
 
@@ -193,8 +209,13 @@ export function DutyFacts({ duty }: { duty: DutyItem }) {
 			) : (
 				<span>No due date</span>
 			)}
-			{!duty.owner && duty.formerOwner ? <span>· Was {duty.formerOwner.displayName || "a former owner"}</span> : null}
-			{duty.obligationId ? <span>· After a Vision meeting</span> : null}
+			<span>· {originText(duty.origin)}</span>
+			{duty.contacted ? (
+				<span>
+					· Contacted <When at={duty.contacted.at} />
+					{duty.contacted.by ? ` by ${duty.contacted.by}` : null}
+				</span>
+			) : null}
 			{duty.lastOutcome ? <span>· Last: {OUTCOME_LABEL[duty.lastOutcome].toLowerCase()}</span> : null}
 		</span>
 	);
