@@ -572,7 +572,8 @@
 		"retry": 11
 	},
 	"meetings/core.withMeetingsWrite:meetings.reconcileAttendance": {
-		"limit": 5
+		"limit": 5,
+		"retry": 9
 	},
 	"meetings/core.withMeetingsWrite:meetings.recordEvaluation": {
 		"limit": 5,
