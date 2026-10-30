@@ -5,7 +5,7 @@ import { spawn } from "node:child_process";
 import type { DatabaseSync } from "node:sqlite";
 import { ensureTask, findTask, markMerged, newTaskRow, openWorkDb, record, type TaskRow } from "./db.ts";
 import { ideaWorktree, launch, LaunchAborted, LaunchLineTooLong, type LaunchTiming } from "./launch.ts";
-import type { Role } from "./seats.ts";
+import { isOpus, validateOverride, type Role } from "./seats.ts";
 import {
 	EvfError,
 	evfDataDir,
@@ -89,6 +89,8 @@ const unknownTask = (task: TaskRef): TaskRow => ({
 	spec: null,
 	pr_number: null,
 	worktree: null,
+	seat_model: null,
+	seat_effort: null,
 });
 
 type OwnerEvent = { id: number; type: string; payload: Record<string, unknown> };
@@ -811,6 +813,61 @@ export function taskAbandon(root: string, task: TaskRef, opts: { id?: number; re
 	}
 }
 
+/**
+ * Set, change or clear the seat model and effort of one task row (OPS-81). The row's seats then run on it in every
+ * role and round; a field left out keeps its value. Coordinator and human shells only: a seat cannot raise its own tier.
+ */
+export function taskSeats(
+	root: string,
+	task: TaskRef,
+	opts: { model?: string; effort?: string; clear: boolean },
+): number {
+	if (process.env.EVF_RUN)
+		fail("The seat override is the coordinator's: run evf task seats from the coordinator or a human shell, not from a seat.");
+	const { model, effort, clear } = opts;
+	if (clear && (model !== undefined || effort !== undefined)) fail("Give --clear alone, or --model and --effort.");
+	if (!clear && model === undefined && effort === undefined) fail("Give --model, --effort or --clear.");
+	validateOverride({ model, effort });
+	const db = openWorkDb(root);
+	try {
+		db.exec("BEGIN IMMEDIATE");
+		try {
+			const t = findTask(db, task);
+			if (!t) fail(`${task.id} has no open task row (never created, or abandoned). Create it with evf task new first.`);
+			if (t.status === "merged" || t.status === "done" || t.status === "abandoned")
+				fail(`${t.ref} is ${t.status}; the override belongs to an open row.`);
+			const next = clear
+				? { model: null, effort: null }
+				: { model: model ?? t.seat_model, effort: effort ?? t.seat_effort };
+			const show = (m: string | null, e: string | null) => (m || e ? `${m ?? "default"} ${e ?? "default"}` : "default");
+			const summary = `${t.ref} seats: ${show(next.model, next.effort)} (was ${show(t.seat_model, t.seat_effort)})`;
+			db.prepare("UPDATE tasks SET seat_model = ?, seat_effort = ?, updated_at = ? WHERE id = ?").run(
+				next.model,
+				next.effort,
+				now(),
+				t.id,
+			);
+			record(db, t.id, null, "seat_override", {
+				model: next.model,
+				effort: next.effort,
+				previous_model: t.seat_model,
+				previous_effort: t.seat_effort,
+				summary,
+			});
+			db.exec("COMMIT");
+			console.log(`seats: ${summary}`);
+			if (next.model && !isOpus(next.model))
+				console.log("seats: the verifier keeps its Opus setting; a non-Opus override does not apply to it (D82).");
+		} catch (e) {
+			db.exec("ROLLBACK");
+			throw e;
+		}
+		return 0;
+	} finally {
+		db.close();
+	}
+}
+
 /** The merge seat's handoff becomes the implement task's spec; the prototype task is done and its code discarded. */
 export function taskHandoff(root: string, task: TaskRef, file: string): number {
 	const spec = readFileSync(file, "utf8").trim();
@@ -828,7 +885,7 @@ export function taskHandoff(root: string, task: TaskRef, file: string): number {
 			const implementId = Number(
 				db
 					.prepare(
-						"INSERT INTO tasks (slug, mode, ref, goal_id, title, ask, spec, spec_hash, branch, status, created_at, updated_at) VALUES (?, 'implement', ?, ?, ?, ?, ?, ?, ?, 'specced', ?, ?)",
+						"INSERT INTO tasks (slug, mode, ref, goal_id, title, ask, spec, spec_hash, branch, status, seat_model, seat_effort, created_at, updated_at) VALUES (?, 'implement', ?, ?, ?, ?, ?, ?, ?, 'specced', ?, ?, ?, ?)",
 					)
 					.run(
 						task.slug,
@@ -839,6 +896,8 @@ export function taskHandoff(root: string, task: TaskRef, file: string): number {
 						spec,
 						hash,
 						task.branch,
+						proto.seat_model,
+						proto.seat_effort,
 						now(),
 						now(),
 					).lastInsertRowid,
@@ -846,11 +905,15 @@ export function taskHandoff(root: string, task: TaskRef, file: string): number {
 			record(db, proto.id, Number(process.env.EVF_RUN) || null, "handoff", {
 				implement_task: implementId,
 				hash,
+				seat_model: proto.seat_model,
+				seat_effort: proto.seat_effort,
 				summary: `${proto.ref} handed off to implement task ${implementId}`,
 			});
 			record(db, implementId, null, "spec_set", {
 				hash,
 				from_prototype: proto.id,
+				seat_model: proto.seat_model,
+				seat_effort: proto.seat_effort,
 				summary: `${task.id} spec from the prototype handoff`,
 			});
 			db.exec("COMMIT");

@@ -283,6 +283,8 @@ export type TaskRow = {
 	spec: string | null;
 	pr_number: number | null;
 	worktree: string | null;
+	seat_model: string | null;
+	seat_effort: string | null;
 };
 
 /** The mission goal that owns a package, if the goals are synced. */
@@ -302,9 +304,29 @@ export function missionFor(db: DatabaseSync, pkg: string): { id: number; title: 
 export function findTask(db: DatabaseSync, task: TaskRef): TaskRow | undefined {
 	return db
 		.prepare(
-			"SELECT id, ref, slug, mode, status, round, goal_id, spec, pr_number, worktree FROM tasks WHERE ref = ? AND status != 'abandoned' ORDER BY id DESC LIMIT 1",
+			"SELECT id, ref, slug, mode, status, round, goal_id, spec, pr_number, worktree, seat_model, seat_effort FROM tasks WHERE ref = ? AND status != 'abandoned' ORDER BY id DESC LIMIT 1",
 		)
 		.get(task.id) as TaskRow | undefined;
+}
+
+/**
+ * The seat override of a ref's current row. No store, a store older than schema 4 or no row gives no override. It
+ * opens the store read-only, so a dry run creates nothing.
+ */
+export function seatOverrideOf(root: string, task: TaskRef): { model?: string; effort?: string } {
+	if (!existsSync(workDbPath(root))) return {};
+	const db = openWorkDb(root, { readOnly: true });
+	try {
+		const columns = db.prepare("PRAGMA table_info(tasks)").all() as Array<{ name: string }>;
+		if (!columns.some((c) => c.name === "seat_model")) return {};
+		const row = findTask(db, task);
+		return {
+			...(row?.seat_model ? { model: row.seat_model } : {}),
+			...(row?.seat_effort ? { effort: row.seat_effort } : {}),
+		};
+	} finally {
+		db.close();
+	}
 }
 
 /** Append one event to a task's log. */
@@ -344,6 +366,8 @@ export function newTaskRow(db: DatabaseSync, task: TaskRef, mode: string): TaskR
 		spec: null,
 		pr_number: null,
 		worktree: null,
+		seat_model: null,
+		seat_effort: null,
 	};
 }
 
@@ -480,6 +504,10 @@ const column = (value: unknown, width: number) =>
 		.padEnd(width)
 		.slice(0, width);
 
+/** The override of a task row as one cell: "default" without one, a missing field as "default". */
+export const seatText = (t: Row): string =>
+	t.seat_model || t.seat_effort ? `${t.seat_model ?? "default"} ${t.seat_effort ?? "default"}` : "default";
+
 /** Tasks, seats, recent events and health, from the views only. `task` narrows to one ref and its parts. */
 export function status(root: string, opts: { json: boolean; task?: string }): number {
 	const path = workDbPath(root);
@@ -537,11 +565,11 @@ export function status(root: string, opts: { json: boolean; task?: string }): nu
 	);
 	if (tasks.length) {
 		console.log(
-			`${column("REF", 16)} ${column("MODE", 13)} ${column("STATUS", 10)} ${column("STAGE", 10)} ${column("ROUND", 5)} ${column("PR", 6)} ${column("GOAL", 5)} UPDATED`,
+			`${column("REF", 16)} ${column("MODE", 13)} ${column("STATUS", 10)} ${column("STAGE", 10)} ${column("ROUND", 5)} ${column("PR", 6)} ${column("GOAL", 5)} ${column("SEATS", 26)} UPDATED`,
 		);
 		for (const t of tasks)
 			console.log(
-				`${column(t.ref ?? t.slug, 16)} ${column(t.mode, 13)} ${column(t.status, 10)} ${column(t.stage, 10)} ${column(t.round, 5)} ${column(t.pr_number ? `#${t.pr_number}` : "-", 6)} ${column(t.goal_key, 5)} ${String(t.updated_at ?? "").slice(0, 16)}`,
+				`${column(t.ref ?? t.slug, 16)} ${column(t.mode, 13)} ${column(t.status, 10)} ${column(t.stage, 10)} ${column(t.round, 5)} ${column(t.pr_number ? `#${t.pr_number}` : "-", 6)} ${column(t.goal_key, 5)} ${column(seatText(t), 26)} ${String(t.updated_at ?? "").slice(0, 16)}`,
 			);
 	}
 	if (seats.length) {
