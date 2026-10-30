@@ -4,6 +4,7 @@ import {
 	Alert02Icon,
 	Building03Icon,
 	ChurchIcon,
+	PaintBrush01Icon,
 	Notification01Icon,
 	ShieldUserIcon,
 	UserIcon,
@@ -17,6 +18,7 @@ import { offeredSections, SECTION_LABEL } from "./model";
 import type { SectionKey } from "./port";
 import { useDirtySections, useSettings } from "./store";
 import { AccountSection } from "./sections/AccountSection";
+import { BrandSection } from "./brand/BrandSection";
 import { ChurchSection } from "./sections/ChurchSection";
 import { NotificationsSection } from "./sections/NotificationsSection";
 import { OrganizationSection } from "./sections/OrganizationSection";
@@ -24,6 +26,7 @@ import type { DeletionStatus } from "./port";
 
 const ICON: Record<SectionKey, IconSvgElement> = {
 	church: ChurchIcon,
+	brand: PaintBrush01Icon,
 	organization: Building03Icon,
 	seats: UserMultipleIcon,
 	notifications: Notification01Icon,
@@ -33,6 +36,7 @@ const ICON: Record<SectionKey, IconSvgElement> = {
 
 const DESCRIPTION: Record<SectionKey, string> = {
 	church: "Used in emails, documents and Plant Intelligence.",
+	brand: "Colors, fonts and letterhead for the documents and emails Everyfield makes for your church.",
 	organization: "How your organization appears to the churches you work with.",
 	seats: "People who can sign in to your church.",
 	notifications: "Your choices only. Other seats set their own.",
@@ -218,7 +222,9 @@ export function SettingsDialog({ section, onNavigate, hrefFor, slots = {}, onDel
 									<StatePanel tone="lock" title={`${SECTION_LABEL[current]} is not available to you`} headingLevel="h3">
 										{current === "church" || current === "organization"
 											? "Only an Owner or Admin can change this profile. Ask one of them, or open your own settings."
-											: "This section is not part of your settings."}
+											: current === "brand"
+												? "Only an Owner or Admin of a church can change its brand kit. Ask one of them, or open your own settings."
+												: "This section is not part of your settings."}
 									</StatePanel>
 								</SectionBody>
 							)}
@@ -257,6 +263,8 @@ function SectionContent({
 	switch (section) {
 		case "church":
 			return <ChurchSection onDeletionRequested={onDeletionRequested} />;
+		case "brand":
+			return <BrandSection />;
 		case "organization":
 			return <OrganizationSection />;
 		case "notifications":

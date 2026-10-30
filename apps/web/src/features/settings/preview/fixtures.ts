@@ -1,6 +1,7 @@
 import * as S from "@everyfield/contracts/settings";
 import * as N from "@everyfield/contracts/settings/native";
 import type { z } from "zod";
+import { createFixtureBrand, type BrandFault, type BrandOperation, type PreviewKit } from "../brand/fixtures";
 import type {
 	DeletionPort,
 	DeletionStatus,
@@ -75,8 +76,9 @@ export type Operation =
 	| "requestAccountDeletion"
 	| "requestWorkspaceDeletion"
 	| "getStatus"
-	| "cancel";
-export type Fault = SettingsError["code"] | "offline";
+	| "cancel"
+	| BrandOperation;
+export type Fault = SettingsError["code"] | BrandFault;
 
 type Store = {
 	sections: Map<string, SectionResult>;
@@ -257,7 +259,7 @@ export type FixtureControls = {
 /** A fixture port for one persona. `delay` is the reply time in milliseconds. */
 export function createFixturePort(
 	persona: PreviewPersona,
-	{ delay = 450, now = () => Date.now() }: { delay?: number; now?: () => number } = {},
+	{ delay = 450, now = () => Date.now(), kit = "none" }: { delay?: number; now?: () => number; kit?: PreviewKit } = {},
 ): { port: SettingsPort; controls: FixtureControls } {
 	const store: Store = {
 		sections: initialSections(persona),
@@ -286,8 +288,8 @@ export function createFixturePort(
 							: "never",
 		}),
 	});
-	/** Counts the call, waits, then applies a queued fault. A thrown "offline" fault looks like a lost connection. */
-	async function enter(op: Operation): Promise<{ status: "refused"; error: SettingsError } | null> {
+	/** Counts the call, waits, then takes a queued fault. A thrown "offline" fault looks like a lost connection. */
+	async function tick(op: Operation): Promise<Fault | null> {
 		calls[op] = (calls[op] ?? 0) + 1;
 		listeners.forEach((l) => l());
 		await wait();
@@ -296,7 +298,11 @@ export function createFixturePort(
 		faults.delete(op);
 		listeners.forEach((l) => l());
 		if (fault === "offline") throw new TypeError("Failed to fetch");
-		return refuse(fault);
+		return fault;
+	}
+	async function enter(op: Operation): Promise<{ status: "refused"; error: SettingsError } | null> {
+		const fault = await tick(op);
+		return fault ? refuse(fault as SettingsError["code"]) : null;
 	}
 	const ok = <T>(schema: z.ZodType<T>, value: unknown): Reply<T> => ({ status: "ok", value: schema.parse(value) });
 
@@ -308,6 +314,13 @@ export function createFixturePort(
 	const canAdminPlant = persona === "owner" || persona === "admin";
 
 	const port: SettingsPort = {
+		brand: createFixtureBrand({
+			kit,
+			churchName: "Harvest Point Church",
+			canAdmin: canAdminPlant,
+			tick: (op) => tick(op) as Promise<BrandFault | null>,
+			nextId,
+		}),
 		async getSection(request) {
 			const fault = await enter("getSection");
 			if (fault) return fault;
