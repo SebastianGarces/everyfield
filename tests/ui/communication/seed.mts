@@ -8,7 +8,6 @@
 // `up` reads the People fixture and writes the meeting ids to $COMMUNICATION_UI_FIXTURE (default
 // /tmp/everyfield-communication-ui.json).
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
-import { addressAad, mailAddressHash, sealText } from "../../../packages/domain/src/communication/delivery.ts";
 import { meetingsWriter } from "../../../packages/domain/src/meetings/index.ts";
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -51,23 +50,14 @@ async function up() {
 		VALUES (${reviewed}::uuid, ${people.plant}::uuid, 1, 'reviewed', 'Reviewed follow-up seed',
 		'<p>Hello {{name}}, we missed you.</p>', 'Hello {{name}}, we missed you.',
 		${JSON.stringify({ groups: [], teamIds: [], personIds: [people.people["Sara Nunez"]] })}::jsonb)`);
-	// A message sent before the HTML editor: plain-text body, no stored HTML, one delivered mail row. History shows it in
-	// the current layout with the plain-text line (criterion 4). Nothing is delivered. The record state is the one the app
-	// leaves a sent message in.
+	// A message with a plain-text body and no stored HTML, the shape of a message written before the HTML editor. History
+	// opens it by id (?message=<id>) and shows the plain-text line (criterion 4). It has no mail rows, because the app
+	// cannot make a record without HTML that also has sent mail.
 	const legacy = randomUUID();
 	await admin.execute(sql`INSERT INTO communication (id, plant_id, revision, state, subject, body_text, audience)
-		VALUES (${legacy}::uuid, ${people.plant}::uuid, 1, 'scheduled', 'Legacy thank you seed',
+		VALUES (${legacy}::uuid, ${people.plant}::uuid, 1, 'draft', 'Legacy thank you seed',
 		'Thank you for coming on Sunday.' || chr(10) || 'We hope to see you again.',
 		${JSON.stringify({ groups: [], teamIds: [], personIds: [people.people["Sara Nunez"]] })}::jsonb)`);
-	const sara = people.people["Sara Nunez"] as string;
-	const mailId = randomUUID();
-	const address = "sara@legacy.example.test";
-	await admin.execute(sql`INSERT INTO mail (id, tenant_id, recipient_person_id, recipient_address_encrypted, purpose,
-		logical_key, payload_hash, audience_hash, frozen_payload, state, address_hash, created_at, sent_at, accepted_at)
-		VALUES (${mailId}::uuid, ${people.plant}::uuid, ${sara}::uuid,
-		${sealText(env.mailKey, address, addressAad(people.plant, mailId))}, 'communication',
-		${`communication/${legacy}/${sara}`}, 'payload', 'audience', '{"v":1,"sealed":"x"}'::jsonb, 'sent',
-		${mailAddressHash(env.addressKey, address)}, clock_timestamp(), clock_timestamp(), clock_timestamp())`);
 	const fixture = writeFixture("communication", env.schema, { orientation, practice, team, retired, reviewed, legacy });
 	await env.close();
 	console.log(JSON.stringify({ schema: env.schema, fixture }));
