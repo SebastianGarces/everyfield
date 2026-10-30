@@ -456,7 +456,7 @@ function Detail({
 	const meetingId = detail.meetingId;
 	const named = view.recipients.filter((row) => row.name);
 	const [shownAs, setShownAs] = useState(0);
-	const [sample] = useState(pickSampleName);
+	const [sample] = useState(() => pickSampleName(detail.communicationId));
 	const as = named[Math.min(shownAs, Math.max(0, named.length - 1))]?.name ?? sample;
 	const stateWhen = detail.sentAt
 		? `Sent ${when(detail.sentAt)}`

@@ -354,6 +354,9 @@ for (const [name, engine] of ENGINES) {
 				.click();
 			await page.waitForURL(new RegExp(`compose=${reviewed}&step=review`));
 			await heading(page, "Review and send").waitFor();
+			// A reopened follow-up names its people from the audience read, never "A person".
+			await page.getByText(/1 person · .*Sara Nunez/).waitFor();
+			assert.equal(await page.getByText("A person").count(), 0);
 			await page.getByRole("navigation", { name: "Steps" }).getByRole("button", { name: /Write/ }).click();
 			await page.waitForURL(new RegExp(`compose=${reviewed}&step=write`));
 			await page.getByText("This follow-up keeps the original subject and body.").waitFor();
@@ -464,6 +467,7 @@ for (const [name, engine] of ENGINES) {
 	test(`AC:CASE-COM-007 (${name}): a system template is read-only with Fork, and the editor uses the Write layout`, async () => {
 		await withPage(engine, async (page, context) => {
 			await signIn(context, owner());
+			const seen = watch(page);
 			await open(page, "/communication?view=templates");
 			await page
 				.getByRole("region", { name: "System" })
@@ -471,6 +475,14 @@ for (const [name, engine] of ENGINES) {
 				.click();
 			await page.getByText("System templates stay as they are. Fork the template to change a copy.").waitFor();
 			await page.getByRole("button", { name: "Fork template" }).waitFor();
+			// A reload renders the editor on the server again; the sample name must match, so no hydration error.
+			await page.reload();
+			await hydrated(page);
+			await page.getByRole("button", { name: "Fork template" }).waitFor();
+			assert.deepEqual(
+				seen.logs.filter((log) => /hydrat/i.test(log)),
+				[],
+			);
 			assert.equal(await page.getByLabel("Name").isDisabled(), true);
 			await page.locator('iframe[title="Email preview"]').waitFor();
 			assert.doesNotMatch(await page.locator("main").innerText(), /HTML/);

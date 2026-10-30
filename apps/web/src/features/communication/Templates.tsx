@@ -179,7 +179,7 @@ function Editor({
 	const [status, setStatus] = useState<string | null>(null);
 	const [pending, setPending] = useState<string | null>(null);
 	const [confirm, setConfirm] = useState<null | "archive" | "delete">(null);
-	const [sample] = useState(pickSampleName);
+	const [sample] = useState(() => pickSampleName(template?.templateId ?? "new"));
 	if (missing && !current) {
 		return (
 			<div className="flex flex-col items-start gap-3">

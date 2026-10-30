@@ -104,7 +104,7 @@ export function Compose({
 	const [plan, setPlan] = useState<SendPlan | null>(null);
 	const [leaving, setLeaving] = useState(false);
 	const [scheduledId, setScheduledId] = useState<string | null>(null);
-	const [sample] = useState(() => pickSampleName());
+	const [sample] = useState(() => pickSampleName("compose"));
 	/** The id this form already holds, set the moment a save returns, before the address changes to it. */
 	const heldId = useRef<string | null>(null);
 	const heading = useRef<HTMLHeadingElement>(null);

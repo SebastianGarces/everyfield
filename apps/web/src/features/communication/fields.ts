@@ -36,8 +36,12 @@ export const sampleNames: readonly string[] = [
 export const fieldsFor = (hasMeeting: boolean): MergeField[] =>
 	mergeFields.filter((field) => hasMeeting || !field.needsMeeting);
 export const fieldToken = (key: string): string => `{{${key}}}`;
-export const pickSampleName = (random: () => number = Math.random): string =>
-	sampleNames[Math.floor(random() * sampleNames.length)] ?? sampleNames[0]!;
+/** A sample name chosen from a seed, so the server render and the browser pick the same one. */
+export const pickSampleName = (seed: string): string => {
+	let hash = 0;
+	for (const char of seed) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+	return sampleNames[hash % sampleNames.length] ?? sampleNames[0]!;
+};
 
 // The preview pre-pass. It turns unfinished or unknown fields into readable markers, so a valid body passes through
 // unchanged and the preview equals the sent email.

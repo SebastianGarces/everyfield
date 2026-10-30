@@ -74,10 +74,11 @@ export function ReviewStep({
 	const name = recipients[safe]?.displayName ?? sampleName;
 	const eligible = summary?.eligibleRecipients ?? 0;
 	const template = templates.find((t) => t.templateId === form.templateKey);
+	const known = new Map(recipients.map((r) => [r.id, r.displayName]));
 	const chosen = [
 		...form.audience.groups.map((g) => groupLabel[g as keyof typeof groupLabel] ?? g),
 		...form.audience.teamIds.map((id) => teams.find((t) => t.id === id)?.name ?? "A team"),
-		...form.people.map((p) => p.displayName ?? "A person"),
+		...form.people.map((p) => p.displayName ?? known.get(p.id) ?? "A person"),
 	];
 	const left = summary?.missingEmailExclusions ?? [];
 
