@@ -366,16 +366,7 @@ export function launch(
 				`INSERT INTO runs (task_id, stage, role, model, effort, round, session_id, status, started_at)
 				 VALUES (?, ?, ?, ?, ?, ?, ?, 'started', ?)`,
 			)
-			.run(
-				taskRow.id,
-				plan.stage,
-				role,
-				plan.model,
-				plan.effort,
-				taskRow.round,
-				plan.session,
-				now,
-			).lastInsertRowid;
+			.run(taskRow.id, plan.stage, role, plan.model, plan.effort, taskRow.round, plan.session, now).lastInsertRowid;
 		plan.env.EVF_RUN = String(runId);
 		plan.agent = `${role}${opts.idea ?? ""}-${task.slug}-${runId}`; // One Herdr agent per run, so round 2 never collides with round 1's seat.
 		// Until the agent is up, any Herdr failure aborts the run, so the store never lists a seat that does not exist.
