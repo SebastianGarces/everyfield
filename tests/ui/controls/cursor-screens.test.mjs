@@ -28,8 +28,7 @@ for (const [name, engine] of ENGINES) {
 				assert.equal(await cursorOf(row), "pointer", `guest row "${guests[0]}": cursor`);
 				await holdSaves(page, 4000);
 				await row.click();
-				// The tapped row leaves "Not here yet" at once and waits for the server in the "Here" list.
-				await page.getByRole("radio", { name: /^Here/ }).click();
+				// The tapped row stays where it was and waits for the server.
 				const saving = page.getByRole("button", { name: new RegExp(`^${guests[0]}`) });
 				await saving.and(page.locator('[aria-disabled="true"]')).waitFor();
 				assert.equal(await cursorOf(saving), "not-allowed", `saving guest row "${guests[0]}": cursor`);
