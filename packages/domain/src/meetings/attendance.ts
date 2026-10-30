@@ -74,7 +74,6 @@ const laterRow = guestRow.omit({ display_name: true, person_state: true, rsvp: t
 	meeting_at: date,
 });
 const lockedTasks = z.array(z.object({ obligation_id: z.uuid(), assignee_id: z.uuid().nullable() }));
-const ownerFactsRow = obligationFactsRow.pick({ seats: true, names: true, reasons: true });
 const obligationRow = z.object({
 	id: z.uuid(),
 	kind: z.enum(["follow_up", "evaluation"]),
@@ -576,7 +575,7 @@ async function settle(
 	// What every screen shows for an owner (REQ-TSK-012): the stored assignee with whether they may own the work.
 	// Built once per assignee from the producer facts the lock statement read: a follow-up owner follows REQ-TSK-012,
 	// an evaluation owner needs only a seat.
-	const ownerFacts = ownerFactsRow.parse(f.obligation_facts);
+	const ownerFacts = obligationFactsRow.pick({ seats: true, names: true, reasons: true }).parse(f.obligation_facts);
 	const viewOf = (id: string | null, kind: "follow_up" | "evaluation"): z.infer<typeof followUpOwner> | null => {
 		if (!id) return null;
 		const reason =
