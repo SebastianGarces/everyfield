@@ -15,6 +15,7 @@ import {
 	obligationFactsRow,
 	type TaskReminders,
 } from "../tasks/index.ts";
+import { assigneeList, idsOf, sortPeople } from "../tasks/assignees.ts";
 import { TaskRefusal } from "../tasks/core.ts";
 import {
 	command,
@@ -73,12 +74,12 @@ const laterRow = guestRow.omit({ display_name: true, person_state: true, rsvp: t
 	meeting_zone: z.string(),
 	meeting_at: date,
 });
-const lockedTasks = z.array(z.object({ obligation_id: z.uuid(), assignee_id: z.uuid().nullable() }));
+const lockedTasks = z.array(z.object({ obligation_id: z.uuid(), assignees: assigneeList }));
 const obligationRow = z.object({
 	id: z.uuid(),
 	kind: z.enum(["follow_up", "evaluation"]),
 	person_id: z.uuid().nullable(),
-	assignee_id: z.uuid().nullable(),
+	assignee_ids: z.array(z.uuid()),
 	task_status: z.string().nullable(),
 });
 const factsRow = z.object({
@@ -173,7 +174,8 @@ async function lockAttendance(
 				OR coalesce(pv.actual_occurrence_at, pv.starts_at) > ${here})
 			ORDER BY g.id FOR UPDATE OF g) x) AS later,
 		(SELECT coalesce(json_agg(json_build_object('id', b.id, 'kind', b.kind, 'person_id', b.person_id,
-			'assignee_id', t.assignee_id, 'task_status', t.status)), '[]')
+			'assignee_ids', (SELECT coalesce(array_agg(a.account_id), '{}') FROM task_assignee a WHERE a.task_id = t.id),
+			'task_status', t.status)), '[]')
 			FROM obligation b LEFT JOIN task t ON t.obligation_id = b.id AND t.deleted_at IS NULL
 			WHERE b.meeting_id = m.id AND b.plant_id = m.plant_id AND b.superseded_at IS NULL) AS obligations,
 		${
@@ -185,8 +187,9 @@ async function lockAttendance(
 						sql`ARRAY${subjects}`,
 						// The input's assignees and the owners of the locked duties below, so settle builds each owner view once.
 						sql`ARRAY(SELECT unnest(${sql.param([...settling.assignees])}::uuid[])
-							UNION SELECT t.assignee_id FROM task t JOIN obligation b ON b.id = t.obligation_id
-							WHERE b.plant_id = ${plant} AND t.deleted_at IS NULL AND t.assignee_id IS NOT NULL
+							UNION SELECT ta.account_id FROM task t JOIN obligation b ON b.id = t.obligation_id
+							JOIN task_assignee ta ON ta.task_id = t.id
+							WHERE b.plant_id = ${plant} AND t.deleted_at IS NULL
 							AND (b.meeting_id = ${meeting} OR (b.kind = 'follow_up' AND b.person_id IN ${subjects})))`,
 					)} AS obligation_facts,
 					${managedTasks(
@@ -415,13 +418,13 @@ async function settle(
 		meetingId: string;
 		attendeeIds: readonly string[];
 		expectedRevision: string;
-		followUpAssigneeId: string | null;
-		evaluationAssigneeId: string | null;
+		followUpAssigneeIds: readonly string[];
+		evaluationAssigneeIds: readonly string[];
 		reason: string | null;
 	},
 ) {
 	const f = await lockAttendance(tx, w, input.meetingId, input.attendeeIds, {
-		assignees: [input.followUpAssigneeId, input.evaluationAssigneeId].filter((a) => a !== null),
+		assignees: [...input.followUpAssigneeIds, ...input.evaluationAssigneeIds],
 	});
 	if (f.status === "cancelled" || f.voided) deny("status_transition");
 	const vision = f.type === "vision_meeting";
@@ -569,15 +572,14 @@ async function settle(
 	const known = (id: string) => f.obligations.find((o) => o.id === id);
 	// The real owner of each existing duty: this meeting's duties and the locked follow-up tasks of the People involved,
 	// which include later meetings' follow-ups.
-	const owners = new Map<string, string | null>(f.obligations.map((o) => [o.id, o.assignee_id]));
-	for (const t of lockedTasks.parse(f.tasks ?? [])) owners.set(t.obligation_id, t.assignee_id);
-	const ownerOf = (id: string) => owners.get(id) ?? null;
+	const owners = new Map<string, string[]>(f.obligations.map((o) => [o.id, o.assignee_ids]));
+	for (const t of lockedTasks.parse(f.tasks ?? [])) owners.set(t.obligation_id, idsOf(t.assignees));
+	const ownerOf = (id: string) => owners.get(id) ?? [];
 	// What every screen shows for an owner (REQ-TSK-012): the stored assignee with whether they may own the work.
 	// Built once per assignee from the producer facts the lock statement read: a follow-up owner follows REQ-TSK-012,
 	// an evaluation owner needs only a seat.
 	const ownerFacts = obligationFactsRow.pick({ seats: true, names: true, reasons: true }).parse(f.obligation_facts);
-	const viewOf = (id: string | null, kind: "follow_up" | "evaluation"): z.infer<typeof followUpOwner> | null => {
-		if (!id) return null;
+	const viewOf = (id: string, kind: "follow_up" | "evaluation"): z.infer<typeof followUpOwner> => {
 		const reason =
 			kind === "follow_up" ? (ownerFacts.reasons[id] ?? null) : ownerFacts.seats.includes(id) ? null : "no_seat";
 		return followUpOwner.parse({
@@ -586,6 +588,11 @@ async function settle(
 			eligible: reason === null,
 			reason,
 		});
+	};
+	/** The generated work's owner fields: each assignee's view, and Needs owner when none may own it (D-a). */
+	const ownersOf = (ids: readonly string[], kind: "follow_up" | "evaluation") => {
+		const owners = sortPeople(ids.map((id) => viewOf(id, kind)));
+		return { assigneeIds: owners.map((o) => o.accountId), needsOwner: !owners.some((o) => o.eligible), owners };
 	};
 	if (vision && noop)
 		for (const o of f.obligations)
@@ -597,9 +604,7 @@ async function settle(
 					obligationId: o.id,
 					taskId: null,
 					outcome: "existing",
-					assigneeId: o.assignee_id,
-					needsOwner: o.assignee_id === null,
-					owner: viewOf(o.assignee_id, o.kind),
+					...ownersOf(o.assignee_ids, o.kind),
 				}),
 			);
 	else if (vision) {
@@ -618,14 +623,14 @@ async function settle(
 								.filter((id) => !f.earlier[id] && people.get(id)?.state === "live")
 								.map((personId) => ({
 									personId,
-									assigneeId: obligations.has(personId) ? null : input.followUpAssigneeId,
+									assigneeIds: obligations.has(personId) ? [] : [...input.followUpAssigneeIds],
 								})),
-							evaluation: { assigneeId: evaluation ? null : input.evaluationAssigneeId },
+							evaluation: { assigneeIds: evaluation ? [] : [...input.evaluationAssigneeIds] },
 						},
 						...[...laterWork].map(([meetingId, e]) => ({
 							meetingId,
 							origin: e.origin,
-							followUps: e.personIds.map((personId) => ({ personId, assigneeId: null })),
+							followUps: e.personIds.map((personId) => ({ personId, assigneeIds: [] })),
 							evaluation: null,
 						})),
 					],
@@ -635,16 +640,15 @@ async function settle(
 		);
 		after.push(ensured.after);
 		for (const e of ensured.value) {
-			const assigneeId =
+			const assigneeIds =
 				e.outcome === "existing"
 					? ownerOf(e.obligationId)
 					: e.meetingId !== f.id
-						? null
+						? []
 						: e.kind === "meeting_evaluation"
-							? input.evaluationAssigneeId
-							: input.followUpAssigneeId;
-			const owner = viewOf(assigneeId, e.kind === "meeting_evaluation" ? "evaluation" : "follow_up");
-			work.push(c.generatedWork.parse({ ...e, assigneeId, needsOwner: assigneeId === null, owner }));
+							? input.evaluationAssigneeIds
+							: input.followUpAssigneeIds;
+			work.push(c.generatedWork.parse({ ...e, ...ownersOf(assigneeIds, e.kind === "meeting_evaluation" ? "evaluation" : "follow_up") }));
 		}
 	}
 	if (closing.size && !noop) {
@@ -675,9 +679,8 @@ async function settle(
 						obligationId: t.obligationId,
 						taskId: t.taskId,
 						outcome: "closed",
-						assigneeId: ownerOf(t.obligationId),
+						...ownersOf(ownerOf(t.obligationId), "follow_up"),
 						needsOwner: false,
-						owner: viewOf(ownerOf(t.obligationId), "follow_up"),
 					}),
 				);
 	}
@@ -815,8 +818,8 @@ export function createAttendanceWriter(deps: { reminders: TaskReminders }) {
 							meetingId: i.meetingId,
 							attendeeIds: i.attendeeIds,
 							expectedRevision: input.expectedRevision,
-							followUpAssigneeId: i.followUpAssigneeId,
-							evaluationAssigneeId: "evaluationAssigneeId" in i ? i.evaluationAssigneeId : null,
+							followUpAssigneeIds: i.followUpAssigneeIds,
+							evaluationAssigneeIds: "evaluationAssigneeIds" in i ? i.evaluationAssigneeIds : [],
 							reason: "reason" in i ? i.reason : null,
 						});
 						after = r.after;

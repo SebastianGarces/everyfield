@@ -1,6 +1,6 @@
 import { instant, resolveCalendar, revision, type TimeZone } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/tasks";
-import { and, eq, isNull, sql, type SQLWrapper } from "@everyfield/db/query";
+import { and, eq, isNull, sql, type SQL, type SQLWrapper } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { randomUUID } from "node:crypto";
 import "server-only";
@@ -19,6 +19,7 @@ import {
 	type Tx,
 } from "./core.ts";
 import { lastWrite } from "../operations/writes.ts";
+import { idsOf, setWrites, sortPeople } from "./assignees.ts";
 import { lockOwner, ownerReason } from "./owner.ts";
 import { detailOf, loadTask, type LockedTask, type TaskRow } from "./queries.ts";
 import { successorOf } from "./recurrence.ts";
@@ -30,7 +31,8 @@ export type ReminderSource = {
 	taskId: string;
 	revision: string;
 	title: string;
-	assigneeId: string | null;
+	/** Every account the task is assigned to; each gets its own due and overdue notices. */
+	assigneeIds: string[];
 	due: { kind: "undated" } | { kind: "date_only"; date: string; zone: string } | { kind: "timed"; at: string };
 	open: boolean;
 	/** Created by this write: it has no notices yet, so the sync has nothing to replace or cancel. */
@@ -64,23 +66,46 @@ export const relationColumns = (r: z.infer<typeof c.relation> | null) => ({
 	team_id: r?.kind === "team" ? r.id : null,
 });
 
+/**
+ * The named accounts as one JSON array expression a caller can put in a read it makes anyway: each account's display
+ * name when it holds a current seat in the plant, why it cannot own a follow-up, and a share lock on the seat and the
+ * linked Persons. Locked in account order, so two writes naming the same accounts never wait on each other in a cycle.
+ */
+export const assigneeFacts = (plantId: string, ids: readonly string[]) => sql`(SELECT coalesce(jsonb_agg(
+		jsonb_build_object('id',u.id,'name',u.name,'reason',u.reason,'locked',u.locked) ORDER BY u.id),'[]')
+	FROM (SELECT x.id,
+		(SELECT i.display_name FROM seat s CROSS JOIN LATERAL seat_identity(s.account_id) i
+			WHERE s.account_id=x.id AND s.plant_id=${plantId}::uuid AND s.ended_at IS NULL
+			AND s.accepted_at<=clock_timestamp() FOR SHARE OF s) AS name,
+		${ownerReason(sql`x.id`, sql`${plantId}::uuid`)} AS reason,
+		${lockOwner(sql`x.id`, sql`${plantId}::uuid`)} AS locked
+		FROM unnest(${sql.param([...new Set(ids)].sort())}::uuid[]) AS x(id)) u)`;
+const assigneeFactRows = z.array(z.object({ id: z.uuid(), name: z.string().nullable(), reason: z.string().nullable() }));
+/**
+ * Every named assignee must hold a current seat; for a person follow-up each must also be an eligible owner. One
+ * failing account refuses the whole write and names that account (REQ-TSK-012). Returns the accounts as assignees.
+ */
+export function checkAssignees(facts: unknown, followUp: boolean) {
+	const rows = assigneeFactRows.parse(facts);
+	for (const a of rows) {
+		if (a.name === null) deny("invalid_subject", { accountId: a.id });
+		if (followUp && a.reason !== null) deny("owner_ineligible", { accountId: a.id });
+	}
+	return rows.map((a) => ({ accountId: a.id, displayName: a.name ?? "", seated: true }));
+}
+
 /** Names for references a write is about to store, each checked against the church and its current state. */
 export async function references(
 	tx: Tx,
 	plantId: string,
 	input: {
-		assigneeId?: string | null;
+		assigneeIds?: readonly string[];
 		relation?: z.infer<typeof c.relation> | null;
-		/** The task is a person follow-up: its assignee must be an eligible follow-up owner (REQ-TSK-012). */
+		/** The task is a person follow-up: its assignees must be eligible follow-up owners (REQ-TSK-012). */
 		followUp?: boolean;
 	},
 ) {
-	const r = await tx.execute(sql`SELECT
-		(SELECT i.display_name FROM seat s CROSS JOIN LATERAL seat_identity(s.account_id) i
-			WHERE s.account_id=${input.assigneeId ?? null}::uuid AND s.plant_id=${plantId}::uuid AND s.ended_at IS NULL
-			AND s.accepted_at<=clock_timestamp() FOR SHARE OF s) AS assignee,
-		${ownerReason(sql`${input.assigneeId ?? null}::uuid`, sql`${plantId}::uuid`)} AS reason,
-		${lockOwner(sql`${input.assigneeId ?? null}::uuid`, sql`${plantId}::uuid`)} AS locked,
+	const r = await tx.execute(sql`SELECT ${assigneeFacts(plantId, input.assigneeIds ?? [])} AS assignees,
 		(SELECT display_name FROM person WHERE id=${input.relation?.kind === "person" ? input.relation.id : null}::uuid
 			AND tenant_id=${plantId}::uuid AND plant_id IS NOT NULL AND state='live' FOR SHARE) AS person,
 		(SELECT title FROM meeting WHERE id=${input.relation?.kind === "meeting" ? input.relation.id : null}::uuid
@@ -88,26 +113,19 @@ export async function references(
 		(SELECT name FROM team WHERE id=${input.relation?.kind === "team" ? input.relation.id : null}::uuid
 			AND plant_id=${plantId}::uuid AND archived_at IS NULL FOR SHARE) AS team`);
 	const row = z
-		.object({
-			assignee: z.string().nullable(),
-			reason: z.string().nullable(),
-			person: z.string().nullable(),
-			meeting: z.string().nullable(),
-			team: z.string().nullable(),
-		})
+		.object({ assignees: z.unknown(), person: z.string().nullable(), meeting: z.string().nullable(), team: z.string().nullable() })
 		.parse(r.rows[0]);
-	if (input.assigneeId && row.assignee === null) deny("invalid_subject");
-	if (input.followUp && input.assigneeId && row.reason !== null) deny("owner_ineligible");
+	const assignees = checkAssignees(row.assignees, input.followUp ?? false);
 	const label = input.relation ? row[input.relation.kind] : null;
 	if (input.relation && label === null) deny("invalid_subject");
-	return { assigneeName: row.assignee, relationLabel: label };
+	return { assignees, relationLabel: label };
 }
 
 const OPEN = (s: string) => !(c.settledStatus as readonly string[]).includes(s);
 /** The task columns a reminder reads: a task row, or a light locked read of the task table with the plant's zone. */
 export type ReminderRow = Pick<
 	TaskRow,
-	"id" | "title" | "status" | "assignee_id" | "due_kind" | "due_date" | "due_at" | "deleted_at"
+	"id" | "title" | "status" | "assignees" | "due_kind" | "due_date" | "due_at" | "deleted_at"
 > & { revision: string; plant_zone: string };
 function reminderSource(plantId: string, row: ReminderRow): ReminderSource {
 	return {
@@ -115,7 +133,7 @@ function reminderSource(plantId: string, row: ReminderRow): ReminderSource {
 		taskId: row.id,
 		revision: row.revision,
 		title: row.title,
-		assigneeId: row.assignee_id,
+		assigneeIds: idsOf(row.assignees),
 		due:
 			row.due_kind === "undated"
 				? { kind: "undated" }
@@ -126,7 +144,7 @@ function reminderSource(plantId: string, row: ReminderRow): ReminderSource {
 		created: false,
 	};
 }
-const remindable = (s: ReminderSource) => s.open && s.assigneeId !== null && s.due.kind !== "undated";
+const remindable = (s: ReminderSource) => s.open && s.assigneeIds.length > 0 && s.due.kind !== "undated";
 /** Reminders change only when the task had or now has owed reminders; other writes keep their small budget. */
 export function reminderChange(plantId: string, before: ReminderRow | null, after: ReminderRow) {
 	const prior = before && reminderSource(plantId, before),
@@ -154,7 +172,7 @@ export function syncAll(reminders: TaskReminders, tx: Tx, changes: readonly (Rem
  * Insert new task rows, a parent before its checklist rows. `after` names an earlier write of the same statement that
  * must run first, such as the completion that frees its series' one open slot for the successor.
  */
-export function insertTasks(plantId: string, creatorId: string, rows: readonly TaskRow[], after?: SQLWrapper) {
+export function insertTasks(plantId: string, creatorId: string, rows: readonly TaskRow[], after?: SQLWrapper): SQL[] {
 	const values = rows.map((r) => ({
 		id: r.id,
 		title: r.title,
@@ -163,7 +181,6 @@ export function insertTasks(plantId: string, creatorId: string, rows: readonly T
 		priority: r.priority,
 		status: r.status,
 		created_at: r.created_at.toISOString(),
-		assignee_id: r.assignee_id,
 		due_kind: r.due_kind,
 		due_date: r.due_date,
 		due_time: r.due_time,
@@ -180,18 +197,28 @@ export function insertTasks(plantId: string, creatorId: string, rows: readonly T
 		obligation_id: r.obligation_id,
 		completed_at: r.completed_at?.toISOString() ?? null,
 	}));
-	return sql`INSERT INTO task (id, plant_id, title, description, category, priority, status, creator_id, created_at,
-		assignee_id, due_kind, due_date, due_time, timezone, due_at, resolver_version, person_id, meeting_id, team_id,
+	const members = rows.flatMap((r) => r.assignees.map((a) => ({ task_id: r.id, account_id: a.accountId })));
+	const insert = sql`INSERT INTO task (id, plant_id, title, description, category, priority, status, creator_id, created_at,
+		due_kind, due_date, due_time, timezone, due_at, resolver_version, person_id, meeting_id, team_id,
 		parent_id, series_id, occurrence_key, predecessor_id, obligation_id, completed_at)
 	SELECT r.id, ${plantId}::uuid, r.title, r.description, r.category, r.priority, r.status, ${creatorId}::uuid,
-		r.created_at, r.assignee_id, r.due_kind, r.due_date, r.due_time, r.timezone, r.due_at, r.resolver_version,
+		r.created_at, r.due_kind, r.due_date, r.due_time, r.timezone, r.due_at, r.resolver_version,
 		r.person_id, r.meeting_id, r.team_id, r.parent_id, r.series_id, r.occurrence_key, r.predecessor_id, r.obligation_id,
 		r.completed_at
 	FROM jsonb_to_recordset(${JSON.stringify(values)}::jsonb) AS r(id uuid, title text, description text, category text,
-		priority text, status text, created_at timestamptz, assignee_id uuid, due_kind text, due_date date, due_time time,
+		priority text, status text, created_at timestamptz, due_kind text, due_date date, due_time time,
 		timezone text, due_at timestamptz, resolver_version text, person_id uuid, meeting_id uuid, team_id uuid,
 		parent_id uuid, series_id uuid, occurrence_key text, predecessor_id uuid, obligation_id uuid, completed_at timestamptz)
 	${after ? sql`WHERE EXISTS(SELECT FROM ${after})` : sql``}`;
+	// The members follow the tasks in the same statement; the foreign key is checked when the statement ends.
+	return members.length
+		? [
+				insert,
+				sql`INSERT INTO task_assignee (plant_id, task_id, account_id)
+				SELECT ${plantId}::uuid, m.task_id, m.account_id FROM jsonb_to_recordset(${JSON.stringify(members)}::jsonb)
+				AS m(task_id uuid, account_id uuid) ${after ? sql`WHERE EXISTS(SELECT FROM ${after})` : sql``}`,
+			]
+		: [insert];
 }
 /** The audit rows of newly created tasks. */
 export function auditCreated(cmd: AuditCommand, rows: readonly TaskRow[], source?: z.infer<typeof c.historySource>) {
@@ -219,7 +246,7 @@ export const audited = (r: TaskRow) => ({
 	due_date: r.due_date,
 	due_time: r.due_time,
 	due_at: r.due_at?.toISOString() ?? null,
-	assignee_id: r.assignee_id,
+	assigneeIds: idsOf(r.assignees),
 	person_id: r.person_id,
 	meeting_id: r.meeting_id,
 	team_id: r.team_id,
@@ -245,19 +272,21 @@ export function noop(cmd: AuditCommand, row: TaskRow) {
 export async function current(tx: Tx, cmd: Command, taskId: string, expectedRevision: string, ownDuty: boolean) {
 	const row = await loadTask(tx, cmd.actor.plantId, taskId, true);
 	if (!row || row.deleted_at) deny();
-	if (!administers(cmd.actor) && !(ownDuty && row.assignee_id === cmd.actor.accountId)) deny();
+	if (!administers(cmd.actor) && !(ownDuty && row.assignees.some((a) => a.accountId === cmd.actor.accountId))) deny();
 	if (row.revision !== expectedRevision) deny("conflict");
 	return row;
 }
-export function update(plantId: string, row: TaskRow, next: TaskRow) {
+export function update(plantId: string, row: TaskRow, next: TaskRow): SQL[] {
 	const v = audited(next);
-	return sql`UPDATE task SET title=${v.title}, description=${v.description}, status=${v.status}, priority=${v.priority},
+	const task = sql`UPDATE task SET title=${v.title}, description=${v.description}, status=${v.status}, priority=${v.priority},
 		category=${v.category}, due_kind=${v.due_kind}, due_date=${v.due_date}::date, due_time=${v.due_time}::time,
 		timezone=${next.timezone}, due_at=${v.due_at}::timestamptz,
-		resolver_version=${next.due_kind === "timed" ? "1" : null}, assignee_id=${v.assignee_id}::uuid,
+		resolver_version=${next.due_kind === "timed" ? "1" : null},
 		person_id=${v.person_id}::uuid, meeting_id=${v.meeting_id}::uuid, team_id=${v.team_id}::uuid,
 		completed_at=${v.completed_at}::timestamptz, deleted_at=${v.deleted_at}::timestamptz, revision=revision+1
 		WHERE id=${row.id}::uuid AND plant_id=${plantId}::uuid AND revision=${row.revision}::bigint`;
+	// The task row stays first: a write that follows it, such as a successor, names it with lastWrite.
+	return [task, ...setWrites(plantId, row.id, idsOf(row.assignees), v.assigneeIds)];
 }
 
 /**
@@ -287,7 +316,7 @@ export function setStatus(
 		completed_at: input.status === "complete" ? at : null,
 		revision: bump(row.revision),
 	};
-	cmd.writes.push(update(cmd.actor.plantId, row, next));
+	cmd.writes.push(...update(cmd.actor.plantId, row, next));
 	// A waived generated duty stays closed through edits and deletion; only an explicit reopen clears the waiver.
 	if (row.obligation_id && (input.status === "no_longer_needed" || row.status === "no_longer_needed"))
 		cmd.writes.push(
@@ -326,7 +355,7 @@ export function setStatus(
 	const created = input.status === "complete" ? successorOf(row, at) : null;
 	if (created) {
 		// The successor follows the completion inside the statement: the series has one open task at a time.
-		cmd.writes.push(insertTasks(cmd.actor.plantId, cmd.actor.accountId, created, lastWrite(cmd)));
+		cmd.writes.push(...insertTasks(cmd.actor.plantId, cmd.actor.accountId, created, lastWrite(cmd)));
 		auditCreated(cmd, created, "recurrence");
 	}
 	const successor = created?.[0] ?? null;
@@ -354,7 +383,7 @@ export function changeTo(
 /** A new task row with no completion, deletion, source, series or checklist. */
 export function newTask(
 	zone: TimeZone,
-	fields: Pick<TaskRow, "title" | "category" | "priority" | "status" | "assignee_id" | "assignee_name"> &
+	fields: Pick<TaskRow, "title" | "category" | "priority" | "status" | "assignees"> &
 		Partial<TaskRow>,
 ): TaskRow {
 	const at = new Date();
@@ -412,25 +441,24 @@ export function createTaskWriter(deps: { reminders: TaskReminders }) {
 					const v = input.input;
 					const due = dueColumns(v.due, cmd.actor.zone);
 					const refs =
-						v.assigneeId || v.relation
+						v.assigneeIds.length || v.relation
 							? await references(tx, cmd.actor.plantId, {
 									...v,
 									followUp: v.category === "follow_up" && v.relation?.kind === "person",
 								})
-							: { assigneeName: null, relationLabel: null };
+							: { assignees: [], relationLabel: null };
 					const row = newTask(cmd.actor.zone, {
 						title: v.title,
 						description: v.description,
 						category: v.category,
 						priority: v.priority,
 						status: v.status,
-						assignee_id: v.assigneeId,
-						assignee_name: refs.assigneeName,
+						assignees: refs.assignees,
 						...due,
 						...relationColumns(v.relation),
 						relation_label: refs.relationLabel,
 					});
-					cmd.writes.push(insertTasks(cmd.actor.plantId, cmd.actor.accountId, [row]));
+					cmd.writes.push(...insertTasks(cmd.actor.plantId, cmd.actor.accountId, [row]));
 					auditCreated(cmd, [row]);
 					return {
 						value: mutation(cmd, row, "changed"),
@@ -458,10 +486,13 @@ export function createTaskWriter(deps: { reminders: TaskReminders }) {
 					)
 						deny("protected_source");
 					if (row.parent_id && ((p.due && p.due.kind !== "undated") || p.relation)) deny("invalid_input");
+					// Only accounts joining the set are checked: one that already holds the task stays, whatever its state.
+					const held = idsOf(row.assignees),
+						joining = p.assigneeIds?.filter((id) => !held.includes(id)) ?? [];
 					const refs =
-						(p.assigneeId && p.assigneeId !== row.assignee_id) || p.relation
+						joining.length || p.relation
 							? await references(tx, cmd.actor.plantId, {
-									assigneeId: p.assigneeId,
+									assigneeIds: joining,
 									relation: p.relation,
 									followUp:
 										(p.category ?? row.category) === "follow_up" &&
@@ -476,10 +507,15 @@ export function createTaskWriter(deps: { reminders: TaskReminders }) {
 						...(p.priority !== undefined ? { priority: p.priority } : {}),
 						...(p.category !== undefined ? { category: p.category } : {}),
 						...(p.due !== undefined ? dueColumns(p.due, cmd.actor.zone) : {}),
-						...(p.assigneeId !== undefined
+						...(p.assigneeIds !== undefined
 							? {
-									assignee_id: p.assigneeId,
-									assignee_name: p.assigneeId === row.assignee_id ? row.assignee_name : (refs?.assigneeName ?? null),
+									assignees: sortPeople(
+										p.assigneeIds.map(
+											(id) =>
+												row.assignees.find((a) => a.accountId === id) ??
+												refs?.assignees.find((a) => a.accountId === id) ?? { accountId: id, displayName: "", seated: true },
+										),
+									),
 								}
 							: {}),
 						...(relation ? { ...relation, relation_label: refs?.relationLabel ?? null } : {}),
@@ -487,7 +523,7 @@ export function createTaskWriter(deps: { reminders: TaskReminders }) {
 					const delta = changes(audited(row), audited(next));
 					if (!Object.keys(delta.after).length) return { value: mutation(cmd, noop(cmd, next).row, "noop") };
 					next.revision = bump(row.revision);
-					cmd.writes.push(update(cmd.actor.plantId, row, next));
+					cmd.writes.push(...update(cmd.actor.plantId, row, next));
 					auditRow(cmd, {
 						taskId: row.id,
 						action: "tasks.changed",

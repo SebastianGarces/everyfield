@@ -137,7 +137,7 @@ export function createNotificationService(config: {
  WHEN 'phase_transition' THEN EXISTS(SELECT FROM phases s WHERE s.id=i.source AND s.plant_id=i.owner AND s.kind='movement' AND s.to_phase>s.from_phase AND i.revision=1)
  WHEN 'launch_milestone' THEN EXISTS(SELECT FROM launches s WHERE s.id=i.source AND s.plant_id=i.owner AND s.revision=i.revision)
  WHEN 'article_editor_state' THEN EXISTS(SELECT FROM editors s WHERE s.id=i.source AND s.organization_id=i.owner AND s.revision=i.revision) ELSE false END AS source_live,
- CASE i."sourceKind" WHEN 'task' THEN EXISTS(SELECT FROM tasks s WHERE s.id=i.source AND s.assignee_id=i.recipient AND s.deleted_at IS NULL AND s.status NOT IN ('complete','no_longer_needed'))
+ CASE i."sourceKind" WHEN 'task' THEN EXISTS(SELECT FROM tasks s WHERE s.id=i.source AND EXISTS(SELECT FROM task_assignee ta WHERE ta.task_id=s.id AND ta.account_id=i.recipient) AND s.deleted_at IS NULL AND s.status NOT IN ('complete','no_longer_needed'))
  WHEN 'meeting' THEN EXISTS(SELECT FROM meetings s WHERE s.id=i.source AND s.status NOT IN ('cancelled','completed') AND s.starts_at>clock_timestamp())
  WHEN 'launch_milestone' THEN EXISTS(SELECT FROM launches s WHERE s.id=i.source AND s.completed_at IS NOT NULL AND s.removed_at IS NULL)
  ELSE true END AND (i.category<>'wiki_upstream_review' OR EXISTS(SELECT FROM admins s WHERE s.account_id=i.recipient AND s.organization_id=i.owner)) AS deliverable,
@@ -301,7 +301,9 @@ export function createNotificationService(config: {
 	async function syncTaskReminders(
 		tx: Transaction,
 		inputs: readonly {
-			base: Omit<NoticeInput, "category" | "occurrence" | "eligibleAt" | "recipient"> & { recipient: string | null };
+			base: Omit<NoticeInput, "category" | "occurrence" | "eligibleAt" | "recipient">;
+			/** Every assignee of the task: each gets their own due and overdue notices (REQ-TSK-014). */
+			recipients: readonly string[];
 			due: Parameters<typeof taskReminderTimes>[0];
 			open: boolean;
 			asOf: string;
@@ -312,7 +314,7 @@ export function createNotificationService(config: {
 		const tenant = inputs[0]?.base.owner.id;
 		if (!tenant) return [];
 		if (
-			inputs.some((i) => i.base.owner.id !== tenant || i.base.source.kind !== "task" || (i.open && !i.base.recipient))
+			inputs.some((i) => i.base.owner.id !== tenant || i.base.source.kind !== "task" || (i.open && !i.recipients.length))
 		)
 			throw Error("notification_source_mismatch");
 		const sources = inputs
@@ -323,17 +325,19 @@ export function createNotificationService(config: {
 			.filter((i) => i.open)
 			.flatMap((i) => {
 				const asOf = instant.parse(i.asOf);
-				return taskReminderTimes(i.due)
-					.filter((t) => t.at >= asOf)
-					.map((t) =>
-						noticeInput.parse({
-							...i.base,
-							recipient: i.base.recipient,
-							category: t.slot === "due" ? "task_due" : "task_overdue",
-							occurrence: t.slot,
-							eligibleAt: t.at,
-						}),
-					);
+				return [...i.recipients].sort().flatMap((recipient) =>
+					taskReminderTimes(i.due)
+						.filter((t) => t.at >= asOf)
+						.map((t) =>
+							noticeInput.parse({
+								...i.base,
+								recipient,
+								category: t.slot === "due" ? "task_due" : "task_overdue",
+								occurrence: t.slot,
+								eligibleAt: t.at,
+							}),
+						),
+				);
 			})
 			.map((v) => ({ v, key: `${v.owner.id}/${v.category}/${v.source.id}/${v.source.revision}/${v.occurrence}` }));
 		const src = sql`src AS (SELECT * FROM jsonb_to_recordset(${JSON.stringify(sources)}::jsonb) i(id uuid,revision bigint,preserve boolean)),
@@ -368,7 +372,7 @@ export function createNotificationService(config: {
 	     (SELECT count(*) FROM accounts)+(SELECT count(*) FROM plants)>=0 AS rooted,
 	     EXISTS(SELECT FROM reached r WHERE r.source=i.source AND r.recipient=i.recipient AND r.category=i.category) AS reached,
 	     EXISTS(SELECT FROM tasks s WHERE s.id=i.source AND s.plant_id=${tenant} AND s.revision=i.revision) AS source_live,
-	     EXISTS(SELECT FROM tasks s WHERE s.id=i.source AND s.assignee_id=i.recipient AND s.deleted_at IS NULL AND s.status NOT IN ('complete','no_longer_needed')) AS deliverable,
+	     EXISTS(SELECT FROM tasks s WHERE s.id=i.source AND EXISTS(SELECT FROM task_assignee ta WHERE ta.task_id=s.id AND ta.account_id=i.recipient) AND s.deleted_at IS NULL AND s.status NOT IN ('complete','no_longer_needed')) AS deliverable,
 	     coalesce((SELECT enabled FROM notification_preference p WHERE p.account_id=i.recipient AND p.category=i.category AND p.channel='in_app'),true) AS in_app,
 	     coalesce((SELECT enabled FROM notification_preference p WHERE p.account_id=i.recipient AND p.category=i.category AND p.channel='email'),true) AS email,
 	     (SELECT s.email FROM seats s WHERE s.account_id=i.recipient LIMIT 1) AS address,
