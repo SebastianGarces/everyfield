@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, openSync, readFileSync, unlinkSync, writeFileSyn
 import { join } from "node:path";
 import { spawn } from "node:child_process";
 import type { DatabaseSync } from "node:sqlite";
-import { ensureTask, findTask, markMerged, newTaskRow, openWorkDb, record, type TaskRow } from "./db.ts";
+import { ensureTask, findTask, markMerged, newTaskRow, openWorkDb, record, seatText, type TaskRow } from "./db.ts";
 import { ideaWorktree, launch, LaunchAborted, LaunchLineTooLong, type LaunchTiming } from "./launch.ts";
 import { isOpus, validateOverride, type Role } from "./seats.ts";
 import {
@@ -841,8 +841,7 @@ export function taskSeats(
 			const next = clear
 				? { model: null, effort: null }
 				: { model: model ?? t.seat_model, effort: effort ?? t.seat_effort };
-			const show = (m: string | null, e: string | null) => (m || e ? `${m ?? "default"} ${e ?? "default"}` : "default");
-			const summary = `${t.ref} seats: ${show(next.model, next.effort)} (was ${show(t.seat_model, t.seat_effort)})`;
+			const summary = `${t.ref} seats: ${seatText({ seat_model: next.model, seat_effort: next.effort })} (was ${seatText(t)})`;
 			db.prepare("UPDATE tasks SET seat_model = ?, seat_effort = ?, updated_at = ? WHERE id = ?").run(
 				next.model,
 				next.effort,

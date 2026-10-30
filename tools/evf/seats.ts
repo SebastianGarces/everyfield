@@ -32,11 +32,14 @@ type SeatConfig = Pick<Config, "seats" | "seatTrial">;
 export const isRole = (v: string | undefined): v is Role => !!v && Object.hasOwn(ROLES, v);
 const obj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
+/** True for an Opus model, the only kind that verifies (D82). */
+export const isOpus = (model: string | null | undefined): boolean => !!model && model.startsWith("claude-opus-");
+
 /** Why a model is refused, as the tail of an error sentence, or null. Config and `evf task seats` share this. */
 function modelProblem(model: string, role: string | null): string | null {
 	if (/fable/i.test(model)) return `names a Fable model (${model}); evf never launches one.`;
 	if (!model.startsWith("claude-")) return `must start with claude- (got ${model}).`;
-	if (role === "verifier" && !model.startsWith("claude-opus-"))
+	if (role === "verifier" && !isOpus(model))
 		return "must be an Opus model: only Opus verifies (D82).";
 	return null;
 }
@@ -73,9 +76,6 @@ export function validateOverride(o: SeatSetting): void {
 		if (problem) fail(`--effort ${problem}`);
 	}
 }
-
-/** True when the override model applies to the verifier: only an Opus model does (D82). */
-export const isOpus = (model: string | null | undefined): boolean => !!model && model.startsWith("claude-opus-");
 
 /** Refuse a bad `seats` or `seatTrial` before anything launches. */
 export function validateSeats(cfg: SeatConfig): void {

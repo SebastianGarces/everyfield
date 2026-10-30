@@ -505,7 +505,7 @@ const column = (value: unknown, width: number) =>
 		.slice(0, width);
 
 /** The override of a task row as one cell: "default" without one, a missing field as "default". */
-export const seatText = (t: Row): string =>
+export const seatText = (t: { seat_model?: unknown; seat_effort?: unknown }): string =>
 	t.seat_model || t.seat_effort ? `${t.seat_model ?? "default"} ${t.seat_effort ?? "default"}` : "default";
 
 /** Tasks, seats, recent events and health, from the views only. `task` narrows to one ref and its parts. */
