@@ -208,7 +208,7 @@ Herdr has no prompt flag, and `pane read` shows the prompt only after the fact. 
 the error code, the attempt count and the seconds waited, and the usual one-new-pane retry applies. Each launch gets its own Herdr agent, `<role>-<slug>-<run>`,
 so a later round never waits on an earlier seat. `evf next <task>` prints the next stage without acting
 and writes nothing; `--once` performs one transition; `--detach` runs the loop in the background with a
-log under the Git common directory. One drive per task: a second `evf drive` refuses while the first
+log under the Git common directory; either way the drive needs no `EVF_FOREGROUND=1` (see Foreground checks). One drive per task: a second `evf drive` refuses while the first
 process is alive (pid file under `evf/drive/`). The start grace for a seat whose first turn has not begun (30 s)
 counts from the moment the drive starts to watch that run, not from the launch prompt, so a seat watched late, after
 other launches, still gets all of it. If a drive dies inside its own pr, ci or ship stage, the
