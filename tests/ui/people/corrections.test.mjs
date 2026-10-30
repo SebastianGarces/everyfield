@@ -1,14 +1,17 @@
 // Merge review and record correction rules (WP-015/ui) that a silent break would turn into lost data or a wrong write.
-// They run in node against the real module the screens use; no browser.
+// The model rules run in node against the real module the screens use. The INV-optional-reason flow runs in both
+// browser engines against a seeded preview (UI_BASE_URL and PEOPLE_UI_FIXTURE, see people.test.mjs).
 //   INV-merge-choices: a merge never drops a known value by default, and the request names only fields taken from
 //     the source, so a field left out keeps the survivor's value.
 //   INV-survivor: without an explicit choice the person with an account stays, otherwise the person added first.
-//   BUG-217-F3: a correction made through Correct a record stays on its record card after a correction to another
+//   BUG-217-F3: an edit made through Edit a record stays on its record card after a correction to another
 //     record; a newer save on the card itself still wins.
+//   INV-optional-reason: an edit saved with no reason is an ordinary entry; the history shows no Reason line for it.
 //   INV-correction-patch: a correction sends only the changed fields, a cleared note as null, nothing when nothing
 //     changed, and the shown total is the sum the server computes.
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { BASE, ENGINES, fixture, signIn, withPage } from "../setup.mjs";
 import {
 	assessmentChanges,
 	commitmentChanges,
@@ -91,7 +94,7 @@ test("AC:TARGET-PPL-015 BUG-217-F3: every correction stays on its card; a newer 
 		recordedAt: `${occurredOn}T10:00:00.000Z`,
 	});
 	const card = [rec("a1", "3", 14), rec("a2", "1", 12, "2026-09-01")];
-	// Two corrections made through Correct a record, then a correction to another record type (not in this card).
+	// Two edits made through Edit a record, then a correction to another record type (not in this card).
 	const corrections = [rec("a1", "4", 17), rec("a2", "2", 13, "2026-09-01")];
 	assert.deepEqual(
 		withCorrections(card, corrections).map((r) => [r.id, r.total]),
@@ -112,3 +115,50 @@ test("AC:TARGET-PPL-015 BUG-217-F3: every correction stays on its card; a newer 
 	// A correction for a record this card has not loaded adds nothing.
 	assert.equal(withCorrections(card, [rec("zz", "9", 20)]).length, 2);
 });
+
+for (const [name, engine] of ENGINES) {
+	test(`AC:TARGET-PPL-015 INV-optional-reason (${name}): an edit saved with no reason shows on its card and in the history without a Reason line`, async () => {
+		await withPage(engine, async (page, context) => {
+			await signIn(context, fixture("people").owner.cookie);
+			const person = `Edit ${name} ${Date.now().toString(36)}`;
+			await page.goto(`${BASE}/people`);
+			await page.getByRole("button", { name: "Add person" }).first().click();
+			await page.getByRole("dialog", { name: "Add a person" }).getByLabel("Name").fill(person);
+			await page.getByRole("dialog", { name: "Add a person" }).getByRole("button", { name: "Add person" }).click();
+			await page.getByRole("heading", { level: 1, name: person }).waitFor({ timeout: 30_000 });
+
+			// Record a 4 C's assessment with every criterion passing.
+			await page
+				.getByRole("button", { name: /^Record (a 4 C's assessment for |the 4 C)/ })
+				.first()
+				.click();
+			const record = page.getByRole("dialog");
+			for (const group of await record.getByRole("radiogroup").all()) await group.getByRole("radio").first().click();
+			await record.getByRole("button", { name: "Save assessment", exact: true }).click();
+			await record.waitFor({ state: "detached", timeout: 30_000 });
+
+			// Edit it: one score changes, the reason stays blank.
+			await page.getByRole("button", { name: "More actions" }).click();
+			await page.getByRole("menuitem", { name: "Edit a record", exact: true }).click();
+			const dialog = page.getByRole("dialog");
+			await dialog.getByRole("button", { name: /Edit$/ }).first().click();
+			const reason = dialog.getByLabel("Reason for change");
+			assert.equal(await reason.inputValue(), "");
+			await dialog.getByRole("combobox").first().click();
+			await page.getByRole("option", { selected: false }).first().click();
+			await dialog.getByRole("button", { name: "Save changes", exact: true }).click();
+			await dialog.getByText("Changes saved").waitFor({ timeout: 30_000 });
+
+			// The saved note and the history show the change and no reason.
+			assert.equal(await dialog.getByText("and your reason").count(), 0);
+			assert.equal(await dialog.getByText("Changes to this record (1)").count(), 1);
+			assert.equal(await dialog.getByText(/Reason:/).count(), 0);
+
+			// The list marks the record as edited once.
+			await dialog.getByRole("button", { name: "Edit another record" }).click();
+			await dialog.getByText("Edited once").waitFor();
+			await dialog.getByRole("button", { name: "Close", exact: true }).last().click();
+			await page.getByRole("dialog").waitFor({ state: "detached" });
+		});
+	});
+}
