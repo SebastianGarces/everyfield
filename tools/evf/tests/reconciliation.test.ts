@@ -3492,6 +3492,28 @@ test("INV-document-templates-approve: with review and verified status it records
 	}
 });
 
+test("INV-document-templates-drive-failed-ship: a failed ship on an ordinary PR still moves to a new implement round", () => {
+	const { f, db, task } = wpShipFixture();
+	const log = console.log;
+	try {
+		console.log = () => {};
+		// No approved independent review comment exists, so ship fails as it did before OPS-80.
+		const out = driveOnce(f.root, task, DRIVE_TIMING);
+		assert.notEqual(out.stage, "done");
+		assert.doesNotMatch(out.reason, /waits for Sebastian/);
+		const id = (db.prepare("SELECT id FROM tasks WHERE ref = ?").get(task.id) as { id: number }).id;
+		assert.equal(db.prepare("SELECT status FROM runs WHERE task_id = ? AND stage = 'ship'").get(id)!.status, "failed");
+		assert.equal(
+			db.prepare("SELECT COUNT(*) AS n FROM events WHERE task_id = ? AND type = 'owner_approval_wait'").get(id)!.n,
+			0,
+		);
+	} finally {
+		console.log = log;
+		db.close();
+		f.close();
+	}
+});
+
 test("INV-document-templates-drive: the drive stops at a verified template PR without a merge and records the merge on the next pass", () => {
 	const { f, db, task } = wpShipFixture();
 	const log = console.log;

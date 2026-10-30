@@ -1197,7 +1197,14 @@ function recordLateMerge(db: DatabaseSync, root: string, task: TaskRef, t: TaskR
 }
 
 /** evf runs pr, ci and ship itself and records them as runs of role `evf`. */
-function evfStage(db: DatabaseSync, root: string, task: TaskRef, t: TaskRow, stage: Stage, timing: DriveTiming): void {
+function evfStage(
+	db: DatabaseSync,
+	root: string,
+	task: TaskRef,
+	t: TaskRow,
+	stage: Stage,
+	timing: DriveTiming,
+): Outcome["status"] {
 	const wt = worktreePath(root, loadConfig(root), task);
 	const runId = Number(
 		db
@@ -1222,6 +1229,7 @@ function evfStage(db: DatabaseSync, root: string, task: TaskRef, t: TaskRow, sta
 		outcome = { status: "failed", summary: e.message };
 	}
 	runDone(root, runId, outcome);
+	return outcome.status;
 }
 
 const runStatus = (db: DatabaseSync, runId: number) =>
@@ -1537,12 +1545,13 @@ export function driveOnce(root: string, task: TaskRef, timing: DriveTiming = DRI
 			};
 			return n;
 		}
-		evfStage(db, root, task, t, n.stage, timing);
+		const evfStatus = evfStage(db, root, task, t, n.stage, timing);
 		// A merge ends the task: the loop stops here and makes no further transition.
 		if (n.stage === "ship" && findTask(db, task)?.status === "merged")
 			return { stage: "done", round: n.round, reason: "merged" };
 		// A verified owner route stops here: Sebastian approves, then the next pass records the merge.
-		if (n.stage === "ship")
+		// A failed ship keeps its transition (a new implement round).
+		if (n.stage === "ship" && evfStatus === "passed")
 			return { stage: "done", round: n.round, reason: `PR #${t.pr_number ?? "?"} waits for Sebastian's approval` };
 		return n;
 	} finally {

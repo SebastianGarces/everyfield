@@ -101,9 +101,10 @@ function routeOf(root: string, cfg: Config, pr: Pr): Route {
 		const cls = fb ? cachedTriage(root, Number(fb[1]))?.class : undefined;
 		const merges = !fb || (!!cls && (cfg.mergePolicy.feedbackVerifierMerge as string[]).includes(cls));
 		// A head evf cannot fetch has no diff to read; the PR falls through to the refusals below, before any write.
-		const fetched = run("git", ["-C", root, "fetch", "--quiet", cfg.remote, cfg.baseBranch, pr.headRefName]).code === 0;
+		const fetched =
+			!!task || run("git", ["-C", root, "fetch", "--quiet", cfg.remote, cfg.baseBranch, pr.headRefName]).code === 0;
 		if (merges && fetched) {
-			fetchHead(root, cfg, pr);
+			if (!task) fetchHead(root, cfg, pr);
 			if (documentTemplateChanges(root, cfg, baseRef(root, cfg), pr.headRefOid).length)
 				return { kind: "template", id: ref.id, task: ref };
 		}
