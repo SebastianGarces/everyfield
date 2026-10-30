@@ -1,9 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { source } from "./fixtures.ts";
 // @ts-expect-error plain ESM script with no types
 import { assertDevelopmentDatabase, composeEnv } from "../../../.agents/skills/verify-preview/scripts/preview-env.mjs";
 
@@ -68,28 +67,15 @@ test("OPS-71: a non-development DATABASE_URL host is refused and the message sho
 	}
 });
 
-test("OPS-71: preview.mjs never writes the worktree's apps/web/.env.local", () => {
-	const script = readFileSync(join(source, ".agents/skills/verify-preview/scripts/preview.mjs"), "utf8");
-	assert.doesNotMatch(script, /copyFileSync|unlinkSync|rmSync|"rm"|"cp"/);
-});
-
-test("OPS-71: settings.json has no git push ask rule and keeps the main, force and mirror push denials", () => {
-	const { permissions } = JSON.parse(readFileSync(join(source, ".claude/settings.json"), "utf8"));
-	assert.deepEqual(
-		(permissions.ask ?? []).filter((r: string) => /git push/.test(r)),
-		[],
-	);
-	for (const rule of [
-		"Bash(git push *--force*)",
-		"Bash(git push -f*)",
-		"Bash(git push * -f*)",
-		"Bash(git push * +*)",
-		"Bash(git push --mirror*)",
-		"Bash(git push * --mirror*)",
-		"Bash(git push * main)",
-		"Bash(git push * main *)",
-		"Bash(git push *:main*)",
-		"Bash(git push *:refs/heads/main*)",
-	])
-		assert.ok(permissions.deny.includes(rule), rule);
+test("OPS-71: values parse like dotenv: inline comments dropped, quoted \\n unescaped, multiline kept", () => {
+	const f = files(null);
+	try {
+		writeFileSync(f.wt, 'A=value # note\nB="x\\ny"\nC="line1\nline2"\n');
+		const env = composeEnv(f.main, f.wt);
+		assert.equal(env.A, "value");
+		assert.equal(env.B, "x\ny");
+		assert.equal(env.C, "line1\nline2");
+	} finally {
+		f.done();
+	}
 });

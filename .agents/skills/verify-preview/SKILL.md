@@ -78,8 +78,7 @@ worktree's own `apps/web/.env.local` over it, so a `tests/ui` seed's `IDENTITY_*
 It only reads the worktree's file and never creates, edits or deletes it. It writes the composed env to a
 mode 0600 config outside the repository, prints no value and refuses to start when the composed
 `DATABASE_URL` is not the shared development database.
-The supervisor runs four previews at a
-time. Stop your own old previews first (`portless preview down <id>`). Stop another agent's
+The supervisor runs four previews at a time. Stop your own old previews first (`portless preview down <id>`). Stop another agent's
 preview only when its PR is merged or closed, and say so in your report.
 
 The development database is shared and may be wiped and reseeded at any time:
