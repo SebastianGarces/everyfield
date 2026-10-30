@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { instant } from "../common/time.ts";
-import { accountId, recordId, requestKey, revision } from "../common/values.ts";
+import { recordId, requestKey, revision } from "../common/values.ts";
 import { commandEnvelope } from "../common/writes.ts";
 import {
 	assigneeIds,
