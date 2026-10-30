@@ -337,7 +337,7 @@ try {
 		["GET /documents", "/documents", owner.cookie],
 		["GET /meetings", "/meetings", owner.cookie],
 		["GET /meetings/[meetingId]", `/meetings/${visionMeeting}`, owner.cookie],
-		["GET /meetings/[meetingId]:leadership team meeting", `/meetings/${boardMeeting}`, owner.cookie],
+		["GET /meetings/[meetingId] (leadership team meeting)", `/meetings/${boardMeeting}`, owner.cookie],
 		["GET /meetings/[meetingId]/agenda", `/meetings/${visionMeeting}/agenda`, owner.cookie],
 		["GET /meetings/[meetingId]/agenda:no sections and nobody listed", `/meetings/${emptyMeeting}/agenda`, owner.cookie],
 		["GET /meetings/[meetingId]/agenda:leadership team meeting", `/meetings/${boardMeeting}/agenda`, owner.cookie],

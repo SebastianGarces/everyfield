@@ -6,7 +6,10 @@
 		"limit": 3
 	},
 	"GET /meetings/[meetingId]": {
-		"limit": 12
+		"limit": 10
+	},
+	"GET /meetings/[meetingId] (leadership team meeting)": {
+		"limit": 9
 	},
 	"GET /meetings/[meetingId]/agenda": {
 		"limit": 2
