@@ -1175,6 +1175,29 @@
 				}
 			],
 			"risk": "ordinary"
+		},
+		"OPS-75": {
+			"title": "Background drives run evf test without needing EVF_FOREGROUND=1",
+			"owningPaths": [
+				"tools/evf/",
+				"tools/evf-tui/",
+				".agents/roles/",
+				".agents/skills/",
+				".claude/agents/",
+				"evf.config.json",
+				"docs/build-agent-workflow.md"
+			],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {

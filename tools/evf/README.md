@@ -208,7 +208,7 @@ Herdr has no prompt flag, and `pane read` shows the prompt only after the fact. 
 the error code, the attempt count and the seconds waited, and the usual one-new-pane retry applies. Each launch gets its own Herdr agent, `<role>-<slug>-<run>`,
 so a later round never waits on an earlier seat. `evf next <task>` prints the next stage without acting
 and writes nothing; `--once` performs one transition; `--detach` runs the loop in the background with a
-log under the Git common directory. One drive per task: a second `evf drive` refuses while the first
+log under the Git common directory; either way the drive needs no `EVF_FOREGROUND=1` (see Foreground checks). One drive per task: a second `evf drive` refuses while the first
 process is alive (pid file under `evf/drive/`). The start grace for a seat whose first turn has not begun (30 s)
 counts from the moment the drive starts to watch that run, not from the launch prompt, so a seat watched late, after
 other launches, still gets all of it. If a drive dies inside its own pr, ci or ship stage, the
@@ -470,6 +470,13 @@ OPS-n` and keep waiting in the same turn. This is an explicit promise to wait, n
 For a genuinely monitored job, first register its watcher and then set `EVF_MONITOR` to that
 watcher's name. CI sets it to the GitHub Actions job. Neither variable creates a watcher.
 The same check applies when `task start` starts a stack.
+
+evf passes the promise to the processes it waits on. Its check runner (`verify`, `check` and the
+drive's pr stage) sets `EVF_MONITOR` to `evf verify <task>` for each check child, so a check that
+runs `evf test` or `evf check` does not refuse. A seat that `evf drive` launches carries
+`EVF_MONITOR=evf drive <task>`, because the drive watches that run. A seat from `evf launch` or
+`evf seat` does not. A background drive (`nohup bin/evf drive <task> &` or `--detach`) needs no
+`EVF_FOREGROUND=1`. A top-level call from a shell that no evf process supervises still refuses.
 
 `bin/evf ci-tests` follows the pnpm scripts called by `.github/workflows/ci.yml`, including
 recursive package scripts and package-name filters, and expands Node test globs. `evf test`
