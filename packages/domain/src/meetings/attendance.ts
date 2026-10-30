@@ -860,8 +860,10 @@ export function createAttendanceWriter(deps: { reminders: TaskReminders }) {
 							metadata: { event: "evaluation_recorded" },
 						};
 					if (!e.finalized || e.status === "cancelled") deny("status_transition");
+					// The window binds a date the client sends. The server's own default (today in the meeting's zone) always
+					// saves: finalize accepts a meeting before its local date, so it may be evaluated before it too.
 					const on = i.evaluatedOn ?? e.today;
-					if (on > e.today || on < e.local_date)
+					if (i.evaluatedOn && (on > e.today || on < e.local_date))
 						deny("invalid_input", { issues: [{ path: "input.evaluatedOn", problem: "outside_meeting_to_today" }] });
 					audit.writes.push(sql`UPDATE meeting SET evaluation_scores = ${scoreArray(i.scores)},
 						evaluation_notes = ${i.notes}, evaluated_on = ${on}::date, evaluated_at = ${e.now.toISOString()}::timestamptz,

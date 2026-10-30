@@ -580,6 +580,84 @@ test("AC:TARGET-MTG-014 AC:GAP-MTG-015 AC:TARGET-MTG-015 one evaluation, compute
 	assert.equal(ok(await read(admin2, "getEvaluation", { meetingId: v })).evaluation.notes, null);
 });
 
+// S2 batch 2 F06: the modal never sends `evaluatedOn`, so the server's own default date must always be accepted.
+// Finalize has no date check, so a meeting dated after today in its timezone can be finalized and then evaluated.
+test("BUG-S2-F06 AC:TARGET-MTG-014: the evaluation modal's payload saves for a finalized Vision meeting dated after today", async () => {
+	const all = (n) => ({
+		attendanceScore: n,
+		locationScore: n,
+		logisticsScore: n,
+		agendaScore: n,
+		vibeScore: n,
+		messageScore: n,
+		closeScore: n,
+		nextStepsScore: n,
+	});
+	const record = (meetingId, input) =>
+		write(owner, "recordEvaluation", { requestKey: key(), input: { meetingId, ...input } });
+	const correct = async (meetingId, input) =>
+		write(owner, "correctEvaluation", {
+			requestKey: key(),
+			expectedRevision: ok(await read(owner, "getEvaluation", { meetingId })).evaluation.revision,
+			input: { meetingId, ...input },
+		});
+	const evaluated = async (at, input) => {
+		const id = await meeting("vision_meeting", at);
+		ok(await finalize(owner, id, [await person("Guest")]));
+		return { id, result: await record(id, { scores: { ...all(4), agendaScore: 5 }, ...input }) };
+	};
+
+	// The reproduced case: dated far after today, no evaluatedOn, a note.
+	const future = await evaluated("2099-01-01T23:00:00Z", { notes: "Optional really?" });
+	assert.ok(future.result.status === "ok", JSON.stringify(future.result));
+	const saved = ok(future.result);
+	assert.equal(saved.outcome, "changed");
+	assert.equal(saved.taskCompleted, true);
+	assert.deepEqual(saved.evaluation.scores, { ...all(4), agendaScore: 5 });
+	assert.equal(saved.evaluation.average, 4.1);
+	assert.equal(saved.evaluation.notes, "Optional really?");
+	assert.equal(
+		saved.evaluation.evaluatedOn,
+		(await one(sql`SELECT (clock_timestamp() AT TIME ZONE 'America/Chicago')::date::text AS d`)).d,
+	);
+
+	// A first evaluation with `notes: null` saves, and a whitespace-only note is refused on input.notes.
+	const bare = await evaluated("2099-01-02T23:00:00Z", { notes: null });
+	assert.equal(ok(bare.result).evaluation.notes, null);
+	const blank = await meeting("vision_meeting", "2099-01-03T23:00:00Z");
+	ok(await finalize(owner, blank, []));
+	const refusedNote = refused(await record(blank, { scores: all(3), notes: "   " }), "invalid_input");
+	assert.ok(
+		refusedNote.details.issues.some((x) => x.path === "input.notes"),
+		JSON.stringify(refusedNote),
+	);
+
+	// A correction with `changes: {}` and a changed note saves; one score change with a reason saves.
+	const noteOnly = ok(await correct(future.id, { changes: {}, notes: "Room was warm", reason: "Fixed the note" }));
+	assert.equal(noteOnly.outcome, "changed");
+	assert.equal(noteOnly.evaluation.notes, "Room was warm");
+	const oneScore = ok(await correct(future.id, { changes: { vibeScore: 2 }, reason: "Mis-keyed" }));
+	assert.equal(oneScore.evaluation.scores.vibeScore, 2);
+
+	// A missing or blank reason is refused on input.reason; an explicit date outside the window is refused.
+	for (const reason of [undefined, "   "]) {
+		const e = refused(await correct(future.id, { changes: { vibeScore: 3 }, reason }), "invalid_input");
+		assert.ok(
+			e.details.issues.some((x) => x.path === "input.reason"),
+			JSON.stringify(e),
+		);
+	}
+	const early = await meeting("vision_meeting", "2099-02-01T23:00:00Z");
+	ok(await finalize(owner, early, []));
+	for (const evaluatedOn of ["2099-01-31", "2099-03-01"]) {
+		const e = refused(await record(early, { scores: all(3), evaluatedOn }), "invalid_input");
+		assert.ok(
+			e.details.issues.some((x) => x.path === "input.evaluatedOn"),
+			JSON.stringify(e),
+		);
+	}
+});
+
 test("AC:TARGET-MTG-016 reports count attended Persons and never show unknown as zero", async () => {
 	const w = await f.workspace();
 	await f.admin.execute(sql`UPDATE plant SET timezone='America/Chicago' WHERE id=${w.id}`);

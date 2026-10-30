@@ -27,8 +27,41 @@ export type Finalization = z.infer<typeof c.finalizationResult>;
 /** A server action's answer. "lost" means no answer arrived: the same request key may be sent again. */
 export type Outcome<T> =
 	| { status: "ok"; value: T }
-	| { status: "refused"; code: string; choices?: { instant: string; offsetSeconds: number }[] }
+	| { status: "refused"; code: string; choices?: { instant: string; offsetSeconds: number }[]; issues?: Issue[] }
 	| { status: "lost" };
+
+/** One named problem of a refused request: where it is (`input.reason`) and what is wrong (the server's words). */
+export type Issue = { path: string; problem: string };
+
+/** Where each issue of a refused evaluation or correction shows: under a factor, a field, or in the dialog. */
+export type EvaluationIssues = {
+	scores: Partial<Record<Factor, string>>;
+	notes?: string;
+	reason?: string;
+	/** Problems with no field in the form, each in a sentence. */
+	dialog: string[];
+};
+
+const GENERIC = "Some details are not valid. Check them and try again.";
+
+/** Maps the issues of a refused evaluation or correction onto the form's fields (REQ-MTG-014, REQ-MTG-015). */
+export function evaluationIssues(issues: readonly Issue[]): EvaluationIssues {
+	const out: EvaluationIssues = { scores: {}, dialog: [] };
+	for (const { path } of issues) {
+		const [, field, factor] = path.split(".");
+		const named = FACTORS.find((f) => f.key === factor);
+		if ((field === "scores" || field === "changes") && named)
+			out.scores[named.key] = `Choose a score for ${named.label}.`;
+		else if (field === "notes") out.notes = "Shorten the notes, or leave them empty.";
+		else if (field === "reason") out.reason = "Enter a reason.";
+		else if (field === "evaluatedOn")
+			out.dialog.push(
+				"The evaluation date must fall between the meeting date and today. Reload the page and try again.",
+			);
+		else if (!out.dialog.includes(GENERIC)) out.dialog.push(GENERIC);
+	}
+	return out;
+}
 
 export const TYPES = ["vision_meeting", "orientation", "team_meeting", "prelaunch_practice"] as const;
 /** The types a new meeting can be. Team meetings arrive with teams (WP-017). */

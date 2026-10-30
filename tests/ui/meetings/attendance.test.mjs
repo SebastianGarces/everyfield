@@ -66,3 +66,50 @@ for (const [name, engine] of ENGINES) {
 		);
 	});
 }
+
+// S2 F06: the server defaulted the evaluation date and then refused it for a meeting dated after today. Both note
+// variants the modal can send (blank, and whitespace-only which the client stores as no note) save and show.
+for (const [name, engine] of ENGINES) {
+	for (const [i, note] of ["", "   "].entries()) {
+		test(`BUG-S2-F06 (${name}): a complete evaluation of a future-dated Vision meeting saves with a ${i === 0 ? "blank" : "whitespace-only"} note`, async () => {
+			const id = fixture("meetings").future[name][i];
+			await withPage(
+				engine,
+				async (page, context) => {
+					await signIn(context, fixture("people").owner.cookie);
+					await page.goto(`${BASE}/meetings/${id}`);
+					await hydrated(page);
+					await page.getByRole("button", { name: /^Status/ }).click();
+					await page.getByRole("menuitem", { name: "Start the meeting" }).click();
+					await page.getByRole("link", { name: "Start check-in" }).waitFor();
+					await page.getByRole("button", { name: "Finalize attendance" }).click();
+					await page
+						.getByRole("dialog", { name: "Finalize attendance" })
+						.getByRole("button", { name: "Finalize", exact: true })
+						.click();
+					await page.getByRole("button", { name: "Record evaluation" }).first().click();
+					const form = page.getByRole("dialog", { name: "Evaluate the meeting" });
+					for (const [n, score] of SCORES.entries())
+						await form
+							.getByRole("radiogroup")
+							.nth(n)
+							.getByRole("radio", { name: String(score), exact: true })
+							.click();
+					if (note) await form.getByRole("textbox", { name: /Notes/ }).fill(note);
+					await form.getByRole("button", { name: "Save evaluation" }).click();
+					await page
+						.getByText("The evaluation is saved. Its task is complete.")
+						.filter({ visible: true })
+						.first()
+						.waitFor();
+					await page.reload();
+					await hydrated(page);
+					await page.getByRole("tab", { name: "Results" }).click();
+					const card = page.getByRole("region", { name: "Meeting evaluation" });
+					await card.getByText("4.0", { exact: true }).waitFor();
+				},
+				{ width: 390, height: 844 },
+			);
+		});
+	}
+}
