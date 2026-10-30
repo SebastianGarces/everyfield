@@ -47,6 +47,51 @@ docs/build-progress.json committed on main as merged tasks, once each, with a `l
 it never reads a checkout's working copy of the ledger. `evf status [--json] [<task>]` lists tasks,
 active seats, recent events and the health counters.
 
+## Usage and seat models
+
+`evf usage` reports what each seat run used. Nothing is billed: Sebastian is on a subscription, so every cost
+is an estimate at API list prices, from the one price table in `usage.ts` (per million tokens: input, output,
+cache read, 5-minute cache write, 1-hour cache write). Check that table against the pricing page when a model
+changes. Nothing goes over the network.
+
+**Where the numbers come from.** When a seat run closes (`evf run done`, the session-end hook, a drive abort
+or a failed launch), evf reads the run's Claude Code transcript, `<claude dir>/projects/*/<session id>.jsonl`
+(`$CLAUDE_CONFIG_DIR` or `~/.claude`), plus the session's `subagents/*.jsonl`. It counts each `message.id`
+once, skips `<synthetic>` entries and unparsable lines, and stores only token counts and model names in
+`runs`: `tokens_in` (uncached input), `tokens_out`, `cache_read_tokens`, `cache_write_tokens` and
+`cost_est`. No message text, prompt or tool output enters the store or the report. The session-end hook
+refills a run that already closed, so the final turns count. A missing or unreadable transcript leaves the
+columns null and never fails the close. Only the session id the run holds at close counts: a `/clear` or
+resume that gives the seat a new id leaves the earlier session uncounted. A model missing from the price
+table keeps its tokens and leaves `cost_est` null.
+
+**Backfill.** `evf usage --backfill` fills the five columns of every run with a session id and a readable
+transcript, writes nothing else, prints how many runs it filled and skipped (no session id, no transcript)
+and gives the same rows when run again.
+
+**Report.** `evf usage [--json] [<task>]` prints, per task, tokens and estimated cost by role and model,
+rounds, verify fails and CI fails. Without a task it adds a by-model summary that splits *build* (plan,
+implement, ui and simplify runs in round 0) from *review and rework* (evidence and verify runs in any round,
+and implement, ui and simplify runs in round 1 or later). Prototype stages are their own group. `pr`, `ci` and
+`ship` have no Claude session and no usage. A run with no data counts as "no data", never as zero.
+
+**Config.** `evf.config.json` may set the model and effort of each role; a role without an entry keeps the
+default in `seats.ts`. evf refuses a config before it launches anything when a model contains "fable", does
+not start with `claude-`, an effort is not one of low, medium, high, xhigh or max, a role is unknown, or the
+verifier model is not an Opus model (D82). `seatTrial` applies a model and effort to the named roles on every
+second task: the odd task numbers (OPS-69, WP-021, FB-13), so all seats of one task use one arm in every round.
+`launchPlan`, `evf launch --dry-run` and the `runs` row record the resolved model and effort.
+
+```json
+"seats": { "simplifier": { "effort": "low" } },
+"seatTrial": { "roles": ["implementer", "ui"], "model": "claude-opus-5-5", "effort": "medium" }
+```
+
+To read a trial, run `evf usage` after a few tasks of each arm. In the by-model summary compare the
+`claude-sonnet-5-5` and `claude-opus-5-5` lines: their build cost, their review and rework cost, and in the
+per-task lines the rounds, verify fails and CI fails of odd against even task numbers. evf gives the numbers;
+it states no verdict.
+
 ## Seats
 
 A seat is one fresh top-level Claude Code session in its own Herdr pane and task worktree. `evf launch <task>

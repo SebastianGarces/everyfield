@@ -46,6 +46,7 @@ import {
 	taskSpec,
 } from "./drive.ts";
 import { timing } from "./timing.ts";
+import { usageBackfill, usageReport } from "./usage.ts";
 
 const HELP = `evf: Everyfield v3 workflow CLI
 
@@ -94,6 +95,8 @@ State store (harness)
                                                               tasks from the ledger committed on main
   evf goals sync | list                                       project goal and S-row missions from the plan docs
   evf status [--json] [<task>]                                tasks, seats, recent events and health from the store
+  evf usage [--json] [<task>]                                 tokens and estimated cost by task, role, model and round (list prices; nothing is billed)
+  evf usage --backfill                                        fill the usage columns of runs that have a readable transcript
   evf tui [--dry-run] [--once]                                live screen of every task, seat and event (tools/evf-tui,
                                                               built with cargo when the cached binary is stale)
 
@@ -437,6 +440,16 @@ function main(argv: string[]): number | Promise<number> {
 			const json = flag(args, "--json");
 			if (args.length > 1) break;
 			return status(root, { json, task: args[0] });
+		}
+		case "usage": {
+			const backfill = flag(args, "--backfill"),
+				json = flag(args, "--json");
+			if (backfill) {
+				if (args.length || json) break;
+				return usageBackfill(root);
+			}
+			if (args.length > 1) break;
+			return usageReport(root, { json, task: args[0] });
 		}
 		case "tui": {
 			const dryRun = flag(args, "--dry-run"),

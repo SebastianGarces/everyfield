@@ -14,7 +14,9 @@ import {
 	type TaskRef,
 } from "./lib.ts";
 import { chooseSplit, findTui, readLayout, rebalance, type Direction } from "./panes.ts";
+import { ROLES, resolveSeat, type Role } from "./seats.ts";
 import { taskStart } from "./task.ts";
+import { fillRunUsage } from "./usage.ts";
 
 /**
  * A seat is one fresh top-level Claude Code session in its own Herdr pane and task worktree (D82, PLAN.md PR 3).
@@ -23,17 +25,7 @@ import { taskStart } from "./task.ts";
  * session id evf chose, and records the run. Jonah and evf drive only ever call this.
  */
 
-export const ROLES = {
-	planner: { model: "claude-opus-5-5", effort: "high", stage: "plan" },
-	implementer: { model: "claude-sonnet-5-5", effort: "medium", stage: "implement" },
-	ui: { model: "claude-sonnet-5-5", effort: "medium", stage: "implement" },
-	simplifier: { model: "claude-sonnet-5-5", effort: "medium", stage: "simplify" },
-	verifier: { model: "claude-opus-5-5", effort: "high", stage: "verify" },
-	ideator: { model: "claude-sonnet-5-5", effort: "medium", stage: "idea" },
-	comparer: { model: "claude-sonnet-5-5", effort: "medium", stage: "compare" },
-	"prototype-merger": { model: "claude-opus-5-5", effort: "high", stage: "merge" },
-} as const;
-export type Role = keyof typeof ROLES;
+export { ROLES, type Role };
 export const isRole = (value: string | undefined): value is Role => !!value && value in ROLES;
 
 /**
@@ -96,6 +88,8 @@ export type LaunchPlan = {
 	agent: string;
 	name: string;
 	env: Record<string, string>;
+	model: string;
+	effort: string;
 	claudeArgs: string[];
 };
 
@@ -106,7 +100,7 @@ export function launchPlan(
 	opts: { mode?: string; round?: number; run?: string; idea?: number },
 ): LaunchPlan {
 	const cfg = loadConfig(root),
-		seat = ROLES[role],
+		seat = resolveSeat(cfg, task, role),
 		session = randomUUID(),
 		idea = opts.idea,
 		worktree = idea ? ideaWorktree(root, cfg, task, idea) : worktreePath(root, cfg, task),
@@ -117,6 +111,8 @@ export function launchPlan(
 		role,
 		...(idea ? { idea } : {}),
 		stage,
+		model: seat.model,
+		effort: seat.effort,
 		mode: opts.mode ?? "implement",
 		round: opts.round ?? 0,
 		worktree,
@@ -209,7 +205,7 @@ export function launchDryRun(
 			: opts.idea
 				? `git worktree add -b ${ideaBranch(task, opts.idea)} ${plan.worktree} ${baseRef(root, loadConfig(root))}`
 				: `bin/evf task start ${task.id} --no-stack`,
-		`# store: ensure task ${task.id} (${plan.mode}); insert run {stage: ${plan.stage}, role: ${role}, model: ${ROLES[role].model}, effort: ${ROLES[role].effort}, session: ${plan.session}}`,
+		`# store: ensure task ${task.id} (${plan.mode}); insert run {stage: ${plan.stage}, role: ${role}, model: ${plan.model}, effort: ${plan.effort}, session: ${plan.session}}`,
 		tui
 			? `herdr ${splitArgs(plan, splitTarget(tui)).map(quote).join(" ")}`
 			: `herdr ${workspaceArgs(plan, label).map(quote).join(" ")}`,
@@ -411,6 +407,7 @@ export function launch(
 				`launch failed: ${reason.slice(0, 500)}`,
 				runId,
 			);
+			fillRunUsage(db, runId);
 			throw error;
 		}
 		db.prepare("UPDATE runs SET herdr_agent = ?, herdr_pane = ? WHERE id = ?").run(plan.agent, pane, runId);
