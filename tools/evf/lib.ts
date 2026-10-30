@@ -2,6 +2,8 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { delimiter, dirname, join, resolve, sep } from "node:path";
 
+import { validateSeats, type SeatSetting, type SeatTrial } from "./seats.ts";
+
 export type Argv = string[];
 
 export type CheckDef = {
@@ -32,6 +34,10 @@ export type Config = {
 	maintenanceTasks?: Record<string, MaintenanceScope>;
 	taskRisks?: Record<string, "ordinary" | "sensitive" | "security" | "privacy" | "irreversible">;
 	mergePolicy: MergePolicy;
+	/** OPS-69: model and effort per seat role; a role without an entry keeps the default in seats.ts. */
+	seats?: Partial<Record<string, SeatSetting>>;
+	/** OPS-69: a model and effort for named roles on every second task. */
+	seatTrial?: SeatTrial;
 };
 
 export type MaintenanceScope = {
@@ -243,6 +249,7 @@ export function loadConfig(root: string): Config {
 	if (!existsSync(path)) fail(`Missing ${path}.`);
 	const cfg = readJson<Config>(path);
 	parseMergePolicy(cfg.mergePolicy);
+	validateSeats(cfg);
 	return cfg;
 }
 
@@ -252,6 +259,7 @@ export function committedConfig(checkout: string, rev = "HEAD"): Config {
 	if (shown.code !== 0) fail(`No committed evf.config.json at ${rev} in ${checkout}.`);
 	const cfg = JSON.parse(shown.stdout) as Config;
 	parseMergePolicy(cfg.mergePolicy);
+	validateSeats(cfg);
 	return cfg;
 }
 

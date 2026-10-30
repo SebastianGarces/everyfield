@@ -15,22 +15,25 @@ import type {
 	HistoryPage,
 	MeetingHistory,
 	MessageDetail,
+	MeetingContext,
 	MessageView,
 	NamedRecipient,
 	Outcome,
 	PersonHistory,
-	Preview,
 	Recipient,
 	ReplaceReport,
 	RescheduleReport,
 	ResendReview,
 	RestoreReport,
 	SavedResend,
+	SendNowResult,
 	SuppressionReport,
 	Template,
 	TrackingRow,
 } from "./model.ts";
+import { loadMeeting } from "../meetings/server.ts";
 import { canWrite, communicationViewer, deliver, read, write, type Viewer } from "./server.ts";
+import { chainSendNow } from "./sendNowChain.ts";
 import { anticipateProvider, appOrigin, deliveryTransport, mailReady } from "./mail.ts";
 
 // Server actions for the Messages screens. The actor is the request's seat. The browser cannot send one.
@@ -266,11 +269,6 @@ export async function restoreOwnSuppression(requestKey: string, reason: string):
 	return { status: "ok", value: { suppressionClears: result.value.suppressionClears } };
 }
 
-export async function previewMessage(input: unknown): Promise<Outcome<Preview>> {
-	// The preview shows the RSVP line where the planter put it, with a sample link on the deployment's origin.
-	return look((tx, viewer) => communicationWriter.readPreview(tx, viewer.authority, input, appOrigin() ?? undefined));
-}
-
 export async function resolveAudience(input: unknown): Promise<Outcome<AudienceSummary>> {
 	return look((tx, viewer) => communicationWriter.readAudience(tx, viewer.authority, input));
 }
@@ -501,5 +499,63 @@ export async function scheduleExisting(
 				scheduledAt: value.scheduledAt,
 			},
 		};
+	});
+}
+
+/**
+ * Send now from a draft. It chains the existing commands: save and schedule in one transaction, at the earliest time
+ * the window accepts, then hand the new revision to the provider. Each step has its own request key. A send step that
+ * fails or returns no result leaves the message Scheduled; the result says so and nothing is sent twice.
+ */
+export async function sendNow(
+	keys: { save: string; schedule: string; send: string },
+	expectedRevision: string | null,
+	target: { kind: "draft"; input: unknown } | { kind: "reviewed"; communicationId: string },
+): Promise<Outcome<SendNowResult>> {
+	return chainSendNow({
+		schedule: (at) =>
+			target.kind === "draft"
+				? scheduleDraft(keys.save, keys.schedule, expectedRevision, target.input, at)
+				: scheduleExisting(keys.schedule, expectedRevision ?? "", target.communicationId, at),
+		send: (revision, communicationId) => sendReviewed(keys.send, revision, communicationId),
+	});
+}
+
+/** The meeting a message is attached to: title, time, place and its live guest list. */
+export async function readMeetingContext(meetingId: string): Promise<Outcome<MeetingContext>> {
+	const viewer = await seat();
+	if (!viewer || !canWrite(viewer)) return denied;
+	const page = await loadMeeting(viewer, meetingId);
+	if (page.status === "failed") return { status: "lost" };
+	if (page.status === "missing" || page.meeting.retiredAt) return { status: "refused", code: "not_found" };
+	// A guest list that did not load is a failure, not an empty audience.
+	if (!page.guests) return { status: "lost" };
+	const m = page.meeting;
+	return {
+		status: "ok",
+		value: {
+			id: m.id,
+			type: m.type,
+			title: m.displayTitle,
+			date: m.localDate,
+			time: m.localTime,
+			place: m.venue?.name ?? null,
+			guests: page.guests
+				.filter((g) => g.person.state === "live")
+				.map((g) => ({ id: g.person.personId, displayName: g.person.displayName })),
+		},
+	};
+}
+
+/** The church name and app origin the email preview needs on screens outside the Messages page. */
+export async function readPreviewContext(): Promise<Outcome<{ churchName: string; origin: string }>> {
+	const viewer = await seat();
+	if (!viewer) return denied;
+	const origin = appOrigin();
+	if (origin === null) return { status: "refused", code: "unavailable" };
+	return read(viewer, async (tx) => {
+		const church = await communicationWriter.readChurchName(tx, viewer.authority);
+		if (church.status !== "ok") return church;
+		return { status: "ok", value: { churchName: church.value.churchName, origin } };
 	});
 }

@@ -4,7 +4,8 @@ import { join } from "node:path";
 import { spawn } from "node:child_process";
 import type { DatabaseSync } from "node:sqlite";
 import { ensureTask, findTask, markMerged, newTaskRow, openWorkDb, record, type TaskRow } from "./db.ts";
-import { ideaWorktree, launch, type Role } from "./launch.ts";
+import { ideaWorktree, launch } from "./launch.ts";
+import type { Role } from "./seats.ts";
 import {
 	EvfError,
 	evfDataDir,
@@ -20,6 +21,7 @@ import {
 } from "./lib.ts";
 import { closeRunPane } from "./panes.ts";
 import { prFor, prOpen, ship } from "./ship.ts";
+import { fillRunUsage } from "./usage.ts";
 import { doneCriteria } from "./spec.ts";
 import { hasVerifiedHead, verify } from "./verify.ts";
 
@@ -324,6 +326,7 @@ export function runDone(
 			summary,
 			runId,
 		);
+		fillRunUsage(db, runId);
 		record(db, r.task_id, runId, "stage_end", { stage: r.stage, status: opts.status, summary: headline(summary, 200) });
 		if (r.stage === "verify")
 			db.prepare(
@@ -890,6 +893,7 @@ function abortGoneSeat(db: DatabaseSync, t: TaskRow, runId: number, agent: strin
 		`Herdr has no agent ${agent}; the ${stage} stage launches again`,
 		runId,
 	);
+	fillRunUsage(db, runId);
 	record(db, t.id, runId, "seat_gone", { agent, summary: `${agent} is gone; ${stage} launches again` });
 }
 
@@ -1042,6 +1046,7 @@ export function driveOnce(root: string, task: TaskRef, timing: DriveTiming = DRI
 					"evf drive ended before this stage closed; the stage runs again",
 					open.id,
 				);
+				fillRunUsage(db, open.id);
 				record(db, t.id, open.id, "restart", {
 					stage: open.stage,
 					summary: `${open.stage} restarts after a drive restart`,

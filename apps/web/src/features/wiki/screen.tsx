@@ -10,9 +10,9 @@ import {
 	SourceBar,
 	TocRail,
 	WikiSearchButton,
-	FixedFrame,
 } from "./client.tsx";
-import { HEADER_GAP, SOURCE_BAR_GAP } from "./layout.ts";
+import { FixedFrame } from "../../components/frame/FixedFrame.tsx";
+import { FRAME, HEADER_GAP, SOURCE_BAR_GAP } from "./layout.ts";
 import { WikiEditor } from "./editor.tsx";
 import { ArticleFeedback } from "./feedback.tsx";
 import {
@@ -172,7 +172,7 @@ export function WikiScreen({ data, source }: { data: WikiPageData; source: strin
 	);
 	const steps = article && !data.editing ? stepsAround(data.tree, article.article.articleId) : null;
 	return (
-		<FixedFrame fixed={fixed}>
+		<FixedFrame fixed={fixed} className={FRAME}>
 			{article && !data.editing ? (
 				<ArticleSession
 					key={article.article.articleId}

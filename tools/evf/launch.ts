@@ -14,7 +14,9 @@ import {
 	type TaskRef,
 } from "./lib.ts";
 import { chooseSplit, findTui, readLayout, rebalance, type Direction } from "./panes.ts";
+import { ROLES, resolveSeat, type Role } from "./seats.ts";
 import { taskStart } from "./task.ts";
+import { fillRunUsage } from "./usage.ts";
 
 /**
  * A seat is one fresh top-level Claude Code session in its own Herdr pane and task worktree (D82, PLAN.md PR 3).
@@ -22,19 +24,6 @@ import { taskStart } from "./task.ts";
  * none exists) with the seat's environment, starts `claude --agent <role> --dangerously-skip-permissions` with a
  * session id evf chose, and records the run. Jonah and evf drive only ever call this.
  */
-
-export const ROLES = {
-	planner: { model: "claude-opus-5-5", effort: "high", stage: "plan" },
-	implementer: { model: "claude-sonnet-5-5", effort: "medium", stage: "implement" },
-	ui: { model: "claude-sonnet-5-5", effort: "medium", stage: "implement" },
-	simplifier: { model: "claude-sonnet-5-5", effort: "medium", stage: "simplify" },
-	verifier: { model: "claude-opus-5-5", effort: "high", stage: "verify" },
-	ideator: { model: "claude-sonnet-5-5", effort: "medium", stage: "idea" },
-	comparer: { model: "claude-sonnet-5-5", effort: "medium", stage: "compare" },
-	"prototype-merger": { model: "claude-opus-5-5", effort: "high", stage: "merge" },
-} as const;
-export type Role = keyof typeof ROLES;
-export const isRole = (value: string | undefined): value is Role => !!value && value in ROLES;
 
 /**
  * Every seat gets these: oh-my-zsh's update prompt off (DISABLE_AUTO_UPDATE, it ate the first launch character),
@@ -96,6 +85,8 @@ export type LaunchPlan = {
 	agent: string;
 	name: string;
 	env: Record<string, string>;
+	model: string;
+	effort: string;
 	claudeArgs: string[];
 };
 
@@ -106,7 +97,7 @@ export function launchPlan(
 	opts: { mode?: string; round?: number; run?: string; idea?: number },
 ): LaunchPlan {
 	const cfg = loadConfig(root),
-		seat = ROLES[role],
+		seat = resolveSeat(cfg, task, role),
 		session = randomUUID(),
 		idea = opts.idea,
 		worktree = idea ? ideaWorktree(root, cfg, task, idea) : worktreePath(root, cfg, task),
@@ -117,6 +108,8 @@ export function launchPlan(
 		role,
 		...(idea ? { idea } : {}),
 		stage,
+		model: seat.model,
+		effort: seat.effort,
 		mode: opts.mode ?? "implement",
 		round: opts.round ?? 0,
 		worktree,
@@ -209,7 +202,7 @@ export function launchDryRun(
 			: opts.idea
 				? `git worktree add -b ${ideaBranch(task, opts.idea)} ${plan.worktree} ${baseRef(root, loadConfig(root))}`
 				: `bin/evf task start ${task.id} --no-stack`,
-		`# store: ensure task ${task.id} (${plan.mode}); insert run {stage: ${plan.stage}, role: ${role}, model: ${ROLES[role].model}, effort: ${ROLES[role].effort}, session: ${plan.session}}`,
+		`# store: ensure task ${task.id} (${plan.mode}); insert run {stage: ${plan.stage}, role: ${role}, model: ${plan.model}, effort: ${plan.effort}, session: ${plan.session}}`,
 		tui
 			? `herdr ${splitArgs(plan, splitTarget(tui)).map(quote).join(" ")}`
 			: `herdr ${workspaceArgs(plan, label).map(quote).join(" ")}`,
@@ -371,16 +364,7 @@ export function launch(
 				`INSERT INTO runs (task_id, stage, role, model, effort, round, session_id, status, started_at)
 				 VALUES (?, ?, ?, ?, ?, ?, ?, 'started', ?)`,
 			)
-			.run(
-				taskRow.id,
-				plan.stage,
-				role,
-				ROLES[role].model,
-				ROLES[role].effort,
-				taskRow.round,
-				plan.session,
-				now,
-			).lastInsertRowid;
+			.run(taskRow.id, plan.stage, role, plan.model, plan.effort, taskRow.round, plan.session, now).lastInsertRowid;
 		plan.env.EVF_RUN = String(runId);
 		plan.agent = `${role}${opts.idea ?? ""}-${task.slug}-${runId}`; // One Herdr agent per run, so round 2 never collides with round 1's seat.
 		// Until the agent is up, any Herdr failure aborts the run, so the store never lists a seat that does not exist.
@@ -411,6 +395,7 @@ export function launch(
 				`launch failed: ${reason.slice(0, 500)}`,
 				runId,
 			);
+			fillRunUsage(db, runId);
 			throw error;
 		}
 		db.prepare("UPDATE runs SET herdr_agent = ?, herdr_pane = ? WHERE id = ?").run(plan.agent, pane, runId);
