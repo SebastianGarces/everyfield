@@ -10,7 +10,7 @@ import {
 	originText,
 	ownersOf,
 	pickOutcome,
-	preferredOwner,
+	preferredOwners,
 	totalsAfter,
 	coverageOf,
 	windowAt,
@@ -114,8 +114,9 @@ test("AC:TARGET-TSK-012 AC:TARGET-TSK-013 owner totals follow confirmed assignme
 	const ruth = { accountId: "r", displayName: "Ruth Allen" };
 	const daniel = { accountId: "d", displayName: "Daniel Reyes" };
 	const start = { owners: [{ ...ruth, open: 2 }], formerOwners: [], needsOwner: 1, uncovered: 5 };
+	const view = (who, eligible = true, reason = null) => ({ ...who, eligible, reason });
 	// Needs owner -> Daniel: Daniel appears with one, Needs owner drops to zero.
-	assert.deepEqual(totalsAfter(start, [{ from: null, to: daniel }]), {
+	assert.deepEqual(totalsAfter(start, [{ before: [], after: [view(daniel)] }]), {
 		owners: [
 			{ ...daniel, open: 1 },
 			{ ...ruth, open: 2 },
@@ -125,7 +126,7 @@ test("AC:TARGET-TSK-012 AC:TARGET-TSK-013 owner totals follow confirmed assignme
 		uncovered: 5,
 	});
 	// A first follow-up for a contact with none, left as Needs owner.
-	assert.deepEqual(totalsAfter(start, [{ from: "new", to: null, firstForContact: true }]), {
+	assert.deepEqual(totalsAfter(start, [{ before: "new", after: [], firstForContact: true }]), {
 		...start,
 		needsOwner: 2,
 		uncovered: 4,
@@ -133,28 +134,38 @@ test("AC:TARGET-TSK-012 AC:TARGET-TSK-013 owner totals follow confirmed assignme
 	// Ruth hands both to Daniel: Ruth leaves the tally.
 	assert.deepEqual(
 		totalsAfter(start, [
-			{ from: ruth, to: daniel },
-			{ from: ruth, to: daniel },
+			{ before: [view(ruth)], after: [view(daniel)] },
+			{ before: [view(ruth)], after: [view(daniel)] },
 		]).owners,
 		[{ ...daniel, open: 2 }],
 	);
+	// A follow-up with two owners counts once under each; the totals still count it once (D-a).
+	assert.deepEqual(totalsAfter(start, [{ before: "new", after: [view(ruth), view(daniel)] }]).owners, [
+		{ ...daniel, open: 1 },
+		{ ...ruth, open: 3 },
+	]);
+	// With one eligible and one ineligible owner it is owned, and the ineligible one stays on the handoff tally.
+	const mixed = totalsAfter(start, [{ before: "new", after: [view(daniel), view(ruth, false, "no_seat")] }]);
+	assert.deepEqual([mixed.needsOwner, mixed.formerOwners, mixed.owners.map((o) => o.open)], [1, [{ ...ruth, open: 1 }], [1, 2]]);
 	// A departed account's two follow-ups move to Daniel: they leave Needs owner and the former owner's count.
 	const sam = { accountId: "s", displayName: "Sam Lee" };
 	const left = { owners: [], formerOwners: [{ ...sam, open: 2 }], needsOwner: 2, uncovered: 0 };
 	assert.deepEqual(
 		totalsAfter(left, [
-			{ from: null, to: daniel, former: sam },
-			{ from: null, to: daniel, former: sam },
+			{ before: [view(sam, false, "no_seat")], after: [view(daniel)] },
+			{ before: [view(sam, false, "no_seat")], after: [view(daniel)] },
 		]),
 		{ owners: [{ ...daniel, open: 2 }], formerOwners: [], needsOwner: 0, uncovered: 0 },
 	);
 	assert.equal(coverageOf([]), "uncovered");
 	const ready = { ...ruth, eligible: true, reason: null };
 	const stuck = { ...sam, eligible: false, reason: "no_person" };
-	assert.equal(coverageOf([{ owner: ready }, { owner: null }]), "needs_owner");
-	// An assignee who cannot own follow-ups still counts as Needs owner (REQ-TSK-012).
-	assert.equal(coverageOf([{ owner: ready }, { owner: stuck }]), "needs_owner");
-	assert.equal(coverageOf([{ owner: ready }]), "owned");
+	assert.equal(coverageOf([{ owners: [ready] }, { owners: [] }]), "needs_owner");
+	// A follow-up whose only assignee cannot own follow-ups still counts as Needs owner (D-a, REQ-TSK-012).
+	assert.equal(coverageOf([{ owners: [ready] }, { owners: [stuck] }]), "needs_owner");
+	// One eligible owner is enough, whoever else is on it.
+	assert.equal(coverageOf([{ owners: [ready, stuck] }]), "owned");
+	assert.equal(coverageOf([{ owners: [ready] }]), "owned");
 });
 
 test("AC:TARGET-TSK-012 AC:TARGET-MTG-022 one wording for an owner, an origin and a meeting's preferred follow-up owner", () => {
@@ -173,14 +184,16 @@ test("AC:TARGET-TSK-012 AC:TARGET-MTG-022 one wording for an owner, an origin an
 		"After Vision Meeting #4",
 	);
 	assert.equal(originText({ kind: "added", by: "Ruth Allen" }), "Added by Ruth Allen");
-	// Correct attendance offers the eligible owner holding most of the meeting's open follow-ups; a tie goes to the
-	// newest (the list is newest first); no eligible owner reads Needs owner.
-	const open = (owner) => ({ kind: "first_vision_follow_up", state: "open", owner });
+	// Correct attendance offers the set of eligible owners most of the meeting's open follow-ups have (D-e); a tie goes
+	// to the newest (the list is newest first); no eligible owner reads Needs owner.
+	const open = (...owners) => ({ kind: "first_vision_follow_up", state: "open", owners });
 	const dan = { accountId: "d", displayName: "Daniel Reyes", eligible: true, reason: null };
-	assert.equal(preferredOwner([open(ruth), open(dan), open(dan)]), "d");
-	assert.equal(preferredOwner([open(ruth), open(dan)]), "r");
-	assert.equal(preferredOwner([open(tomas), open(null)]), null);
-	assert.equal(preferredOwner([]), null);
-	assert.equal(preferredOwner([{ ...open(ruth), state: "complete" }]), null);
-	assert.equal(preferredOwner([{ ...open(ruth), kind: "meeting_evaluation" }]), null);
+	assert.deepEqual(preferredOwners([open(ruth), open(dan), open(dan)]), ["d"]);
+	assert.deepEqual(preferredOwners([open(ruth), open(dan)]), ["r"]);
+	assert.deepEqual(preferredOwners([open(ruth, dan), open(ruth, dan), open(dan)]), ["d", "r"]);
+	assert.deepEqual(preferredOwners([open(ruth, tomas)]), ["r"], "an ineligible co-owner is left out");
+	assert.deepEqual(preferredOwners([open(tomas), open()]), []);
+	assert.deepEqual(preferredOwners([]), []);
+	assert.deepEqual(preferredOwners([{ ...open(ruth), state: "complete" }]), []);
+	assert.deepEqual(preferredOwners([{ ...open(ruth), kind: "meeting_evaluation" }]), []);
 });

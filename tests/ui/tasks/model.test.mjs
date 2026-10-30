@@ -165,7 +165,7 @@ test("AC:TARGET-TSK-001 INV-membership: a saved task joins the list only when it
 		priority: "medium",
 		category: "general",
 		due: { kind: "undated" },
-		assignee: { accountId: me, displayName: "Me" },
+		assignees: [{ accountId: me, displayName: "Me" }],
 		relation: null,
 		parentId: null,
 		deleted: false,
@@ -174,11 +174,26 @@ test("AC:TARGET-TSK-001 INV-membership: a saved task joins the list only when it
 	const q = parse("q=order&status=any");
 	assert.equal(matches(q, task(), me), true);
 	assert.equal(
-		matches(q, task({ assignee: { accountId: ruth, displayName: "Ruth" } }), me),
+		matches(q, task({ assignees: [{ accountId: ruth, displayName: "Ruth" }] }), me),
 		false,
 		"Mine excludes Ruth's task",
 	);
-	assert.equal(matches(parse("view=all&q=order"), task({ assignee: null }), me), true);
+	assert.equal(matches(parse("view=all&q=order"), task({ assignees: [] }), me), true);
+	// Mine holds a task with several assignees when I am one of them.
+	assert.equal(
+		matches(
+			q,
+			task({
+				assignees: [
+					{ accountId: ruth, displayName: "Ruth" },
+					{ accountId: me, displayName: "Me" },
+				],
+			}),
+			me,
+		),
+		true,
+		"Mine includes a task I share",
+	);
 	assert.equal(matches(parse("view=all&q=order"), task({ title: "Call James" }), me), false, "search");
 	assert.equal(matches(parse("view=all"), task({ status: "complete" }), me), false, "open statuses by default");
 	assert.equal(matches(parse("view=all&priority=urgent"), task(), me), false, "priority");
@@ -197,17 +212,17 @@ test("AC:TARGET-TSK-001 INV-membership: a saved task joins the list only when it
 
 test("BUG-31d611e R4-2: a refused edit opens again on the newest task with only the person's changes", () => {
 	// Admin A opened the task at revision 4 and changed the title; Admin B saved a description and a new assignee.
-	const seen = { title: "Call Kim", description: "", assigneeId: "a1", due: { kind: "undated", date: "", time: "" } };
+	const seen = { title: "Call Kim", description: "", assigneeIds: ["a1"], due: { kind: "undated", date: "", time: "" } };
 	const mine = { ...seen, title: "Call Kim today" };
-	const latest = { ...seen, description: "She asked for Tuesday.", assigneeId: "b2" };
+	const latest = { ...seen, description: "She asked for Tuesday.", assigneeIds: ["b2"] };
 	assert.deepEqual(rebase(mine, seen, latest), {
 		title: "Call Kim today",
 		description: "She asked for Tuesday.",
-		assigneeId: "b2",
+		assigneeIds: ["b2"],
 		due: { kind: "undated", date: "", time: "" },
 	});
 	// A field both changed keeps the person's value: they see it and may change it before saving again.
-	assert.equal(rebase({ ...mine, assigneeId: "c3" }, seen, latest).assigneeId, "c3");
+	assert.deepEqual(rebase({ ...mine, assigneeIds: ["c3"] }, seen, latest).assigneeIds, ["c3"]);
 });
 
 test("AC:TARGET-TSK-006 INV-blocking: a settled or deleted prerequisite releases its task; a reopened one holds it again", () => {
