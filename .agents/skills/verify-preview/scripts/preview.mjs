@@ -11,7 +11,7 @@ import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileS
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { assertDevelopmentDatabase, composeEnv } from "./preview-env.mjs";
-import { ensurePreviewSlot } from "../../../../scripts/preview-slots.mjs";
+import { ensurePreviewSlot } from "./preview-slots.mjs";
 
 const argv = process.argv.slice(2);
 const flag = (n) => argv.includes(`--${n}`);

@@ -6,7 +6,7 @@
 	"maxAgentsMdLines": 150,
 	"stack": {
 		"usesPaidProviders": false,
-		"up": ["node", "scripts/stack.mjs", "up"],
+		"up": ["node", ".agents/skills/verify-preview/scripts/preview-slots.mjs", "--then", "node", "scripts/stack.mjs", "up"],
 		"status": ["node", "scripts/stack.mjs", "status"],
 		"down": ["node", "scripts/stack.mjs", "down"]
 	},
@@ -1094,7 +1094,7 @@
 		},
 		"OPS-72": {
 			"title": "Drive robustness for seat launch, retries and preview slots",
-			"owningPaths": ["tools/evf/", "tools/evf-tui/", ".agents/roles/", ".agents/skills/", ".claude/agents/", "evf.config.json", "docs/build-agent-workflow.md", "scripts/stack.mjs", "scripts/preview-slots.mjs"],
+			"owningPaths": ["tools/evf/", "tools/evf-tui/", ".agents/roles/", ".agents/skills/", ".claude/agents/", "evf.config.json", "docs/build-agent-workflow.md"],
 			"checks": [
 				{
 					"name": "documentation",

@@ -8,7 +8,7 @@ import { openWorkDb } from "../db.ts";
 import { evfDataDir } from "../lib.ts";
 
 // OPS-72: previews wait for a free slot. A fake `portless` keeps its previews in a JSON file.
-const { ensurePreviewSlot } = (await import(join(source, "scripts/preview-slots.mjs"))) as {
+const { ensurePreviewSlot } = (await import(join(source, ".agents/skills/verify-preview/scripts/preview-slots.mjs"))) as {
 	ensurePreviewSlot: (o: Record<string, unknown>) => Promise<{ reused: boolean }>;
 };
 
@@ -158,24 +158,31 @@ test("OPS-72-slots: expired and failed previews go through gc, and a preview who
 	}
 });
 
-test("OPS-72-slots: scripts/stack.mjs up waits through the same check, then starts the preview; a full pool fails with the message", () => {
+test("OPS-72-slots: the stack command waits through the same check, then runs scripts/stack.mjs; a full pool fails with the message", () => {
 	const f = slotFixture();
 	try {
 		const wt = f.task("wp-005");
 		const others = ["wp-001", "wp-002", "wp-003", "wp-004"].map((s) => f.worktree(s, "active", true).dir);
-		const env = { ...process.env, EVF_PREVIEW_WAIT_MS: "300", EVF_PREVIEW_POLL_MS: "30", PORTLESS_PREVIEW_LIMIT: "4", EVF_RUN: "", EVF_RUNTIME_DIR: "" };
-		const stack = () => spawnSync(process.execPath, [join(source, "scripts/stack.mjs"), "up", "--project", wt], { encoding: "utf8", env });
+		const env = { ...process.env, EVF_PREVIEW_WAIT_MS: "300", EVF_PREVIEW_POLL_MS: "30", PORTLESS_PREVIEW_LIMIT: "4", EVF_RUN: "", EVF_WORKTREE: "" };
+		// The command evf.config.json runs for `evf stack up`, with the real stack script replaced by a marker.
+		const config = JSON.parse(readFileSync(join(source, "evf.config.json"), "utf8")) as { stack: { up: string[] } };
+		assert.deepEqual(config.stack.up.slice(0, 3), ["node", ".agents/skills/verify-preview/scripts/preview-slots.mjs", "--then"]);
+		assert.deepEqual(config.stack.up.slice(3), ["node", "scripts/stack.mjs", "up"]);
+		const up = () =>
+			spawnSync(process.execPath, [join(source, config.stack.up[1]!), "--project", wt, "--then", process.execPath, "-e", 'console.log("stack started")'], {
+				encoding: "utf8",
+				env,
+			});
 		f.set(others.map((d) => f.preview(d)));
-		const full = stack();
+		const full = up();
 		assert.equal(full.status, 1);
 		assert.match(full.stderr, /waiting for a preview slot \(4\/4 in use\)/);
 		assert.match(full.stderr, /No free preview slot after waiting/);
-		assert.equal(f.read().calls.filter((c) => c[1] === "up").length, 0, "no portless up while the pool is full");
+		assert.doesNotMatch(full.stdout, /stack started/, "the stack does not start while the pool is full");
 		f.set(others.slice(0, 2).map((d) => f.preview(d)));
-		const free = stack();
+		const free = up();
 		assert.equal(free.status, 0, free.stderr);
-		assert.equal(JSON.parse(free.stdout).state, "ready");
-		assert.equal(f.read().calls.filter((c) => c[1] === "up").length, 1);
+		assert.match(free.stdout, /stack started/);
 	} finally {
 		f.db.close();
 		f.close();
@@ -184,6 +191,6 @@ test("OPS-72-slots: scripts/stack.mjs up waits through the same check, then star
 
 test("OPS-72-slots: the verify-preview script asks the same check before it runs portless preview up", () => {
 	const text = readFileSync(join(source, ".agents/skills/verify-preview/scripts/preview.mjs"), "utf8");
-	assert.match(text, /import \{ ensurePreviewSlot \} from "\.\.\/\.\.\/\.\.\/\.\.\/scripts\/preview-slots\.mjs"/);
+	assert.match(text, /import \{ ensurePreviewSlot \} from "\.\/preview-slots\.mjs"/);
 	assert.ok(text.indexOf("await ensurePreviewSlot") > 0 && text.indexOf("await ensurePreviewSlot") < text.indexOf('"preview", "up"'));
 });

@@ -1,13 +1,14 @@
-// One slot check for every script that starts a portless preview (scripts/stack.mjs and the verify-preview skill's
-// preview.mjs). Portless allows PORTLESS_PREVIEW_LIMIT live previews (D74 keeps it at 4). Before `portless preview up`,
+// One slot check for every script that starts a portless preview (`evf stack up`, through the stack command in
+// evf.config.json, and the verify-preview skill's preview.mjs). Portless allows PORTLESS_PREVIEW_LIMIT live previews (D74 keeps it at 4). Before `portless preview up`,
 // ensurePreviewSlot releases previews nobody needs, then waits for a free slot instead of failing the seat.
 //
 // It releases only orphans: previews portless reports as expired or failed, previews whose project path is gone, and
 // previews of a task worktree whose task row is merged, done or abandoned with no open run and no live drive. It never
 // stops the main checkout's preview, a review preview, or any task that is still working.
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 export const DEFAULT_LIMIT = 4;
 export const DEFAULT_WAIT_MS = 20 * 60_000;
@@ -163,4 +164,26 @@ export async function ensurePreviewSlot({ project, root, common, ...opts }) {
     }
     await sleep(Math.min(pollMs, waitMs - waited));
   }
+}
+
+// Command line: `node preview-slots.mjs [--project PATH] [--then COMMAND ARGS...]` waits for a slot, then runs the
+// command with the same terminal (evf.config.json wraps `scripts/stack.mjs up` this way). Exit 1 with the message when
+// the wait runs out.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const args = process.argv.slice(2);
+  const thenAt = args.indexOf("--then");
+  const own = thenAt === -1 ? args : args.slice(0, thenAt);
+  const rest = thenAt === -1 ? [] : args.slice(thenAt + 1);
+  const at = own.indexOf("--project");
+  try {
+    const project = realpathSync(resolve(at === -1 ? (process.env.EVF_WORKTREE ?? process.cwd()) : own[at + 1]));
+    const common = spawnSync("git", ["-C", project, "rev-parse", "--path-format=absolute", "--git-common-dir"], {
+      encoding: "utf8",
+    }).stdout.trim();
+    await ensurePreviewSlot({ project, root: dirname(common), common });
+  } catch (error) {
+    console.error(error.message);
+    process.exit(1);
+  }
+  if (rest.length) process.exit(spawnSync(rest[0], rest.slice(1), { stdio: "inherit" }).status ?? 1);
 }
