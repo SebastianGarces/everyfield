@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { chmodSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
-import { fixture, sessionStartJs, source } from "./fixtures.ts";
+import { assistantLine, fixture, sessionStartJs, source, writeTranscript } from "./fixtures.ts";
 import { ensureTask, findTask, markMerged, openWorkDb, sessionsRecorded, syncGoals, workDbPath } from "../db.ts";
 import { drive, driveOnce, LOOP_CAP, nextStage, RETRY_CAP, runDone } from "../drive.ts";
 import { doneCriteria } from "../spec.ts";
@@ -1643,6 +1643,28 @@ test("OPS-72-abandon: a stale row closes with an abandon event; merged rows, ope
 		assert.equal(status(f.taskId), "abandoned");
 		assert.equal(status(merged), "merged");
 	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-69-gone: a seat whose Herdr agent is gone is aborted with the usage of its transcript so far", () => {
+	const f = driveFixture(),
+		saved = process.env.CLAUDE_CONFIG_DIR,
+		claude = join(f.root, "claude-config"),
+		session = "44444444-4444-4444-8444-444444444444";
+	try {
+		process.env.CLAUDE_CONFIG_DIR = claude;
+		const id = openSeatRun(f, false);
+		f.db.prepare("UPDATE runs SET session_id = ? WHERE id = ?").run(session, id);
+		writeTranscript(claude, session, [assistantLine("a", "claude-sonnet-5-5", { input: 100, output: 50, read: 1000 })]);
+		brokenHerdr(f, "gone");
+		driveOnce(f.root, f.task, TIMING);
+		const row = f.db.prepare("SELECT status, tokens_in, tokens_out, cache_read_tokens FROM runs WHERE id = ?").get(id);
+		assert.deepEqual({ ...row }, { status: "aborted", tokens_in: 100, tokens_out: 50, cache_read_tokens: 1000 });
+	} finally {
+		if (saved === undefined) delete process.env.CLAUDE_CONFIG_DIR;
+		else process.env.CLAUDE_CONFIG_DIR = saved;
 		f.db.close();
 		f.close();
 	}

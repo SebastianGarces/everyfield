@@ -1092,6 +1092,21 @@
 			],
 			"risk": "ordinary"
 		},
+		"OPS-69": {
+			"title": "Per-seat token usage and cost, plus per-role model and effort config",
+			"owningPaths": ["tools/evf/", "evf.config.json", "docs/build-agent-workflow.md"],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
+		},
 		"OPS-72": {
 			"title": "Drive robustness for seat launch, retries and preview slots",
 			"owningPaths": [

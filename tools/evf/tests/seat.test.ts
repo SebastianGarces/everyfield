@@ -4,10 +4,11 @@ import { chmodSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from "
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { fixture, sessionStartJs, source } from "./fixtures.ts";
+import { assistantLine, fixture, sessionStartJs, source, writeTranscript } from "./fixtures.ts";
 import { ensureTask, openWorkDb, syncGoals, workDbPath } from "../db.ts";
 import { EvfError, parseTask } from "../lib.ts";
-import { launch, ROLES } from "../launch.ts";
+import { launch } from "../launch.ts";
+import { ROLES } from "../seats.ts";
 
 const SESSION = "33333333-3333-4333-8333-333333333333";
 const cli = (cwd: string, env: Record<string, string>, input: unknown, ...args: string[]) =>
@@ -1165,6 +1166,87 @@ test("OPS-72-ready: a first prompt that starts no turn is sent exactly once more
 		};
 		assert.equal(resent.n, 1);
 		assert.equal(run.status, "started");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-69-hook: the session-end hook fills usage, and refills a run that evf run done already closed, from the complete transcript", () => {
+	const f = seatFixture(),
+		claude = join(f.root, "claude-config");
+	try {
+		const env = { ...f.env, CLAUDE_CONFIG_DIR: claude };
+		const usage = () => ({
+			...(f.db.prepare("SELECT status, tokens_in, tokens_out, cost_est FROM runs WHERE id = ?").get(f.run) as object),
+		});
+		writeTranscript(claude, SESSION, [assistantLine("a", "claude-sonnet-5-5", { input: 10, output: 20 })]);
+		// The stage closed while the transcript held one message.
+		f.db.prepare("UPDATE runs SET status = 'passed', ended_at = ? WHERE id = ?").run(new Date().toISOString(), f.run);
+		assert.equal(usage().tokens_in, null);
+		// The seat's final turns land in the transcript, then the session ends.
+		writeTranscript(claude, SESSION, [
+			assistantLine("a", "claude-sonnet-5-5", { input: 10, output: 20 }),
+			assistantLine("b", "claude-sonnet-5-5", { input: 5, output: 7 }),
+		]);
+		const end = cli(f.root, env, { session_id: SESSION, reason: "exit" }, "hook", "session-end");
+		assert.equal(end.status, 0, end.stderr);
+		assert.deepEqual(usage(), { status: "passed", tokens_in: 15, tokens_out: 27, cost_est: (15 * 2 + 27 * 10) / 1e6 });
+		// A clear keeps the run open and counts nothing yet.
+		f.db
+			.prepare("UPDATE runs SET status = 'started', tokens_in = NULL, tokens_out = NULL, cost_est = NULL WHERE id = ?")
+			.run(f.run);
+		cli(f.root, env, { session_id: SESSION, reason: "clear" }, "hook", "session-end");
+		assert.equal(usage().tokens_in, null);
+		// An aborting end fills too, and a missing transcript leaves null with the usual exit code.
+		cli(f.root, env, { session_id: SESSION, reason: "exit" }, "hook", "session-end");
+		assert.deepEqual([usage().status, usage().tokens_in], ["aborted", 15]);
+		f.db.prepare("UPDATE runs SET status = 'started', tokens_in = NULL WHERE id = ?").run(f.run);
+		const none = cli(
+			f.root,
+			{ ...env, CLAUDE_CONFIG_DIR: join(f.root, "empty") },
+			{ session_id: SESSION, reason: "exit" },
+			"hook",
+			"session-end",
+		);
+		assert.equal(none.status, 0, none.stderr);
+		assert.deepEqual([usage().status, usage().tokens_in], ["aborted", null]);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-69-launch-abort: a launch that fails after the run row exists aborts the run and leaves usage null without a transcript", () => {
+	const f = seatFixture();
+	try {
+		f.herdr.setState({ startFails: true, screen: "claude: command not found" });
+		const out = cli(f.root, {}, undefined, "launch", "OPS-1", "--role", "implementer");
+		assert.notEqual(out.status, 0);
+		const last = f.runs().at(-1)!;
+		assert.equal(last.status, "aborted");
+		assert.match(String(last.summary), /^launch failed/);
+		const usage = f.db.prepare("SELECT tokens_in, cost_est FROM runs WHERE id = ?").get(last.id) as object;
+		assert.deepEqual({ ...usage }, { tokens_in: null, cost_est: null });
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-69-runs-model: the runs row records the resolved model and effort of a seat override", () => {
+	const f = seatFixture();
+	try {
+		const path = join(f.root, "evf.config.json"),
+			cfg = JSON.parse(readFileSync(path, "utf8"));
+		writeFileSync(
+			path,
+			JSON.stringify({ ...cfg, seats: { implementer: { model: "claude-opus-5-5", effort: "high" } } }),
+		);
+		f.herdr.setState({ startFails: true, screen: "claude: command not found" });
+		cli(f.root, {}, undefined, "launch", "OPS-1", "--role", "implementer");
+		const row = f.db.prepare("SELECT model, effort FROM runs WHERE id = (SELECT MAX(id) FROM runs)").get() as object;
+		assert.deepEqual({ ...row }, { model: "claude-opus-5-5", effort: "high" });
 	} finally {
 		f.db.close();
 		f.close();
