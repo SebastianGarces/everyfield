@@ -52,8 +52,8 @@ export class LaunchAborted extends EvfError {}
 /** The typed line is at or over the terminal limit. Retrying cannot shorten it: the drive escalates at once. */
 export class LaunchLineTooLong extends EvfError {}
 /** Herdr's terminal refuses a typed line of this many bytes or more (`agent_start_input_failed`). */
-export const TYPED_LINE_LIMIT = 1024;
-export const PLUGIN_NAME = "evf";
+const TYPED_LINE_LIMIT = 1024;
+const PLUGIN_NAME = "evf";
 export type AgentDefinition = { source: string; markdown: string };
 export function agentDefinition(root: string, role: Role, seat: { model: string; effort: string }): AgentDefinition {
 	const source = `${root}/.claude/agents/${role}.md`;
@@ -86,7 +86,7 @@ const idOf = (value: unknown, key: string): string => {
 	if (typeof id === "string") return id;
 	fail(`Herdr returned no ${key}.`);
 };
-export const quote = (arg: string) => (/^[\w./:=@-]+$/.test(arg) ? arg : `'${arg.replace(/'/g, "'\\''")}'`);
+const quote = (arg: string) => (/^[\w./:=@-]+$/.test(arg) ? arg : `'${arg.replace(/'/g, "'\\''")}'`);
 
 /** Idea seats of prototype mode get their own worktree and branch next to the task's. */
 export const ideaWorktree = (root: string, cfg: Config, task: TaskRef, idea: number) =>
@@ -144,10 +144,10 @@ export const claudeArgs = (plan: LaunchPlan): string[] => [
 	"--dangerously-skip-permissions",
 ];
 /** The exact line Herdr types into the pane's shell for `agent start ... -- <args>`: `claude`, then each quoted argument. */
-export const typedLine = (plan: LaunchPlan): string => ["claude", ...claudeArgs(plan)].map(quote).join(" ");
+const typedLine = (plan: LaunchPlan): string => ["claude", ...claudeArgs(plan)].map(quote).join(" ");
 export const typedLineBytes = (plan: LaunchPlan): number => Buffer.byteLength(typedLine(plan));
 /** Where a run's plugin directory lives: next to the task's other runtime files, outside every worktree. */
-export const seatPluginDir = (root: string, task: TaskRef, run: string | number) =>
+const seatPluginDir = (root: string, task: TaskRef, run: string | number) =>
 	join(runtimeDir(root, task), `seat-${run}`);
 /** Write the run's plugin directory: a manifest and the role file. Each run has its own, so two launches never share a path. */
 function writeSeatPlugin(plan: LaunchPlan): void {
