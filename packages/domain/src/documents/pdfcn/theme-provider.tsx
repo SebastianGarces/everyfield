@@ -1,4 +1,3 @@
-import type { Style } from "@formepdf/react";
 import { isValidElement } from "react";
 import type { DependencyList, ReactNode } from "react";
 
@@ -12,26 +11,6 @@ export interface PdfcnThemeProviderProps {
 	theme?: PdfcnTheme;
 	children: ReactNode;
 }
-
-type PdfStyleInput = Style | PdfStyleInput[] | false | null | undefined;
-
-const mergeStyleInput = (target: Style, input: PdfStyleInput): void => {
-	if (Array.isArray(input)) {
-		for (const item of input) {
-			mergeStyleInput(target, item);
-		}
-	} else if (input) {
-		Object.assign(target, input);
-	}
-};
-
-export const mergePdfStyles = (...inputs: PdfStyleInput[]): Style => {
-	const merged: Style = {};
-	for (const input of inputs) {
-		mergeStyleInput(merged, input);
-	}
-	return merged;
-};
 
 const renderForSerializer = (children: ReactNode, theme: PdfcnTheme): ReactNode => {
 	serializedTheme = theme;
