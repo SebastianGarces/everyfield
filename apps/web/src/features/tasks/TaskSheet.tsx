@@ -419,6 +419,20 @@ function Loading() {
  * entries kept (REQ-MTG-022). Read each time the panel opens, so an outcome recorded on the call screen shows when it
  * is opened again, with no page reload.
  */
+const warmed = new Map<string, { at: number; read: ReturnType<typeof loadContacts> }>();
+/**
+ * Starts the contact read with the task read: the row already names the Person, so the panel need not wait for the task
+ * to come back. The section takes the warmed read once, and only while it is fresh.
+ */
+export function warmContacts(personId: string, taskId: string) {
+	warmed.set(taskId, { at: Date.now(), read: loadContacts(personId, 1, taskId) });
+}
+function readContacts(personId: string, taskId: string) {
+	const hit = warmed.get(taskId);
+	warmed.delete(taskId);
+	return hit && Date.now() - hit.at < 5000 ? hit.read : loadContacts(personId, 1, taskId);
+}
+
 function ContactHistorySection({
 	taskId,
 	personId,
@@ -432,7 +446,7 @@ function ContactHistorySection({
 	const [attempt, setAttempt] = useState(0);
 	useEffect(() => {
 		let live = true;
-		void loadContacts(personId, 1, taskId).then((r) => live && setLog(r));
+		void readContacts(personId, taskId).then((r) => live && setLog(r));
 		return () => {
 			live = false;
 		};

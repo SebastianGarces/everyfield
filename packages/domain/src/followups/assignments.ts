@@ -19,19 +19,15 @@ import {
 	update,
 	type TaskReminders,
 } from "../tasks/writes.ts";
-import { COMMITTED } from "../tasks/owner.ts";
+import { lockOwner, ownerReason } from "../tasks/owner.ts";
 import { answer, followUpTask, OPEN, refuse } from "./core.ts";
 
 /**
- * The display name of `account` when it may own a follow-up now, else null (REQ-TSK-012). The seat and the committed
- * Person are share-locked, so a concurrent demotion or seat removal waits for this write or this write sees it.
+ * The display name of `account` when it may own a follow-up now, else null (REQ-TSK-012). Eligibility is `ownerReason`;
+ * the seat and the committed Person are share-locked too.
  */
-const ownerName = (plantId: string, account: string | null) => sql`(SELECT i.display_name FROM seat s
-	JOIN person e ON e.tenant_id=s.plant_id AND e.linked_account_id=s.account_id AND e.plant_id IS NOT NULL
-		AND e.state='live' AND e.stage IN ${COMMITTED}
-	CROSS JOIN LATERAL seat_identity(s.account_id) i
-	WHERE s.account_id=${account}::uuid AND s.plant_id=${plantId}::uuid AND s.ended_at IS NULL
-		AND s.accepted_at<=clock_timestamp() LIMIT 1 FOR SHARE OF s, e)`;
+const ownerName = (plantId: string, account: string | null) => sql`(SELECT CASE WHEN ${ownerReason(sql`${account}::uuid`, sql`${plantId}::uuid`)} IS NULL
+	THEN (SELECT display_name FROM seat_identity(${account}::uuid)) END WHERE ${lockOwner(sql`${account}::uuid`, sql`${plantId}::uuid`)} >= 0)`;
 const isFollowUp = (t: TaskRow) =>
 	t.category === "follow_up" && t.person_id !== null && t.parent_id === null && t.deleted_at === null;
 const isOpen = (t: TaskRow) => !(tc.settledStatus as readonly string[]).includes(t.status);

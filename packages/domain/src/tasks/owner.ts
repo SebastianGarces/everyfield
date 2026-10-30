@@ -17,6 +17,14 @@ export const ownerReason = (account: SQL, plant: SQL) => sql`(CASE
 	WHEN NOT ${seatOf(account, plant)} THEN 'no_seat'
 	WHEN NOT EXISTS(${linked(account, plant)}) THEN 'no_person'
 	WHEN NOT EXISTS(${linked(account, plant)} AND e.stage IN ${COMMITTED}) THEN 'not_committed' END)`;
+/**
+ * Share-locks the seat and the linked Persons `ownerReason` read, as a number to read beside it. A concurrent seat
+ * removal or demotion then waits for the write that names the owner, or this write sees it.
+ */
+export const lockOwner = (account: SQL, plant: SQL) => sql`((SELECT count(*) FROM (SELECT 1 FROM seat s
+	WHERE s.account_id=${account} AND s.plant_id=${plant} FOR SHARE OF s) a)
+	+ (SELECT count(*) FROM (SELECT 1 FROM person e WHERE e.tenant_id=${plant} AND e.linked_account_id=${account}
+	FOR SHARE OF e) b))`;
 export const eligibleOwner = (account: SQL, plant: SQL) => sql`(${ownerReason(account, plant)} IS NULL)`;
 
 /**

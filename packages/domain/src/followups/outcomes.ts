@@ -149,7 +149,14 @@ const personFacts = z.object({
 	// Where each of the Person's open follow-ups came from, by task: names what one contact finishes.
 	origins: z.record(z.string(), z.unknown()),
 });
-async function factsOf(tx: Tx, plantId: string, accountId: string, personId: string, obligationId: string | null) {
+async function factsOf(
+	tx: Tx,
+	plantId: string,
+	accountId: string,
+	personId: string,
+	obligationId: string | null,
+	finished: readonly string[],
+) {
 	const r = await tx.execute(sql`SELECT (SELECT state='live' AND plant_id IS NOT NULL FROM person
 			WHERE id=${personId}::uuid AND tenant_id=${plantId}::uuid FOR SHARE) AS live,
 		(SELECT max(x.occurred_at) FROM contact_outcome x WHERE x.plant_id=${plantId}::uuid AND x.person_id=${personId}::uuid
@@ -157,7 +164,7 @@ async function factsOf(tx: Tx, plantId: string, accountId: string, personId: str
 		(SELECT display_name FROM seat_identity(${accountId}::uuid)) AS actor_name,
 		(SELECT meeting_id FROM obligation WHERE id=${obligationId}::uuid AND plant_id=${plantId}::uuid) AS meeting_id,
 		(SELECT coalesce(jsonb_object_agg(k.id, ${originJson(sql`k`)}),'{}') FROM task k WHERE k.plant_id=${plantId}::uuid
-			AND k.person_id=${personId}::uuid AND ${followUpTask(sql`k`)} AND k.status IN ${OPEN}) AS origins`);
+			AND k.id=ANY(${sql.param([...finished])}::uuid[])) AS origins`);
 	return personFacts.parse(r.rows[0]);
 }
 
@@ -206,8 +213,24 @@ export function outcomeWriter(reminders: TaskReminders) {
 						plant = cmd.actor.plantId,
 						clock = new Date();
 					let task: LockedTask | null = null;
+					let others: LockedTask[] = [];
 					if (v.target.kind === "task") {
-						task = await loadTask(tx, plant, v.target.taskId, true);
+						// One contact is one outreach (D-c): a contact that finishes the task also finishes the Person's other open
+						// follow-ups the recorder may record on. All of them for an Owner or Admin, their own for a Member. Every
+						// task involved locks in one ID-ordered statement, so two recorders never wait on each other in a cycle;
+						// then one read loads them. A save that finishes nothing else loads only its own task.
+						if (v.outcome === "contacted" && v.completeTask) {
+							const taskId = v.target.taskId;
+							const locked = await tx.execute(sql`SELECT t.id FROM task t WHERE t.plant_id=${plant}::uuid AND (t.id=${taskId}::uuid
+								OR (t.person_id=(SELECT x.person_id FROM task x WHERE x.id=${taskId}::uuid AND x.plant_id=${plant}::uuid)
+									AND ${followUpTask(sql`t`)} AND t.status IN ${OPEN}
+									${administers(cmd.actor) ? sql`` : sql`AND t.assignee_id=${cmd.actor.accountId}::uuid`}))
+								ORDER BY t.id FOR UPDATE OF t`);
+							const ids = z.array(z.object({ id: z.uuid() })).parse(locked.rows).map((r) => r.id);
+							const rows = await lockTasks(tx, plant, sql`t.id=ANY(${sql.param(ids)}::uuid[])`);
+							task = rows.find((r) => r.id === taskId) ?? null;
+							others = rows.filter((r) => r.id !== taskId);
+						} else task = await loadTask(tx, plant, v.target.taskId, true);
 						// A checklist row or a task with no Person has no follow-up outcome.
 						if (!task || task.deleted_at || task.parent_id || !task.person_id) deny();
 						if (!administers(cmd.actor) && task.assignee_id !== cmd.actor.accountId) deny();
@@ -216,20 +239,16 @@ export function outcomeWriter(reminders: TaskReminders) {
 						if (!(OPEN_STATUS as readonly string[]).includes(task.status)) deny("conflict");
 					} else if (!administers(cmd.actor)) deny();
 					const personId = task?.person_id ?? (v.target.kind === "person" ? v.target.personId : "");
-					const facts = await factsOf(tx, plant, cmd.actor.accountId, personId, task?.obligation_id ?? null);
+					const facts = await factsOf(
+						tx,
+						plant,
+						cmd.actor.accountId,
+						personId,
+						task?.obligation_id ?? null,
+						others.map((o) => o.id),
+					);
 					// Every new reference names a current live Person of this church (REQ-PPL-024).
 					if (!facts.live) deny("invalid_subject");
-					// One contact is one outreach (D-c): it also finishes the Person's other open follow-ups the recorder may
-					// record on. All of them for an Owner or Admin, their own for a Member. One locked read, one write.
-					const others =
-						task && v.outcome === "contacted" && v.completeTask
-							? await lockTasks(
-									tx,
-									plant,
-									sql`t.person_id=${personId}::uuid AND ${followUpTask(sql`t`)} AND t.status IN ${OPEN}
-									AND t.id<>${task.id}::uuid ${administers(cmd.actor) ? sql`` : sql`AND t.assignee_id=${cmd.actor.accountId}::uuid`}`,
-								)
-							: [];
 					const row: Stored = {
 						id: randomUUID(),
 						revision: revision.parse("1"),

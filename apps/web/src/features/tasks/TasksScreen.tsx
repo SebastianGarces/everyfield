@@ -120,7 +120,7 @@ import {
 import { Assignee, DoneBox, intentHandlers, MetaLine } from "./parts.tsx";
 import type { StepAssignee } from "./structure.tsx";
 import { TaskDialog, warmAssignees, type Commit, type EditForm } from "./TaskDialog.tsx";
-import { TaskSheet, type DetailState, type PanelEdit } from "./TaskSheet.tsx";
+import { TaskSheet, warmContacts, type DetailState, type PanelEdit } from "./TaskSheet.tsx";
 
 export type Viewer = { accountId: string; role: "owner" | "admin" | "member"; name: string | null };
 type Loaded = {
@@ -307,6 +307,8 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 		if (loading.current.has(id) || (known?.status === "ok" && known.history.status === "ok")) return;
 		loading.current.add(id);
 		setDetails((d) => ({ ...d, [id]: { status: "loading" } }));
+		const row = listed.current.find((r) => r.id === id);
+		if (row?.relation?.kind === "person" && !row.parentId) warmContacts(row.relation.id, id);
 		loadTask(id)
 			.catch(() => lost)
 			.then((r: Outcome<TaskLoad>) => {
@@ -356,7 +358,18 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 
 	/** A confirmed write: the row, the counts and an open panel show the saved task; its history gains the entry. */
 	const confirm = (before: TaskItem | null, saved: Saved, fields = false) => {
-		const task = saved.task;
+		// A write's answer skips the owner and origin reads (they cost a statement each): this screen keeps the ones it
+		// showed. The owner stays only for the same assignee; a new follow-up reads them again.
+		const task = {
+			...saved.task,
+			followUpOwner:
+				before?.followUpOwner && before.followUpOwner.accountId === saved.task.assignee?.accountId
+					? before.followUpOwner
+					: saved.task.followUpOwner,
+			followUpOrigin: saved.task.followUpOrigin ?? before?.followUpOrigin ?? null,
+		};
+		if (!before && task.category === "follow_up" && task.relation?.kind === "person" && !task.followUpOrigin)
+			void refresh(task.id);
 		// A task opened from the address may be outside this list (a closed task in the open list): only its panel changes.
 		// A status change keeps its row in place, struck through; a new or edited task is listed and counted only when it
 		// matches the query (F5), as the server would list it.

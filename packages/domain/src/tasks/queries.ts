@@ -102,16 +102,20 @@ const columns = sql`t.id, t.revision::text AS revision, t.title, t.description, 
 	(SELECT count(*)::int FROM task q WHERE q.id=ANY(t.prerequisite_ids) AND q.plant_id=t.plant_id AND q.deleted_at IS NULL
 		AND q.status NOT IN ('complete','no_longer_needed')) AS open_prerequisites,
 	t.occurrence_key, t.obligation_id, o.kind AS obligation_kind, ai.display_name AS assignee_name,
-	CASE WHEN t.category='follow_up' AND t.person_id IS NOT NULL AND t.parent_id IS NULL AND t.assignee_id IS NOT NULL
-		THEN ${ownerView(sql`t.assignee_id`, sql`t.plant_id`)} END AS follow_up_owner,
-	CASE WHEN t.category='follow_up' AND t.person_id IS NOT NULL AND t.parent_id IS NULL
-		THEN ${originJson(sql`t`)} END AS follow_up_origin,
 	coalesce(p.display_name, m.title, tm.name) AS relation_label, pl.timezone AS plant_zone,
 	(SELECT count(*)::int FROM task k WHERE k.parent_id=t.id AND k.plant_id=t.plant_id AND k.deleted_at IS NULL) AS child_total,
 	(SELECT count(*)::int FROM task k WHERE k.parent_id=t.id AND k.plant_id=t.plant_id AND k.deleted_at IS NULL
 		AND k.status='complete') AS child_complete,
 	(SELECT k.id FROM task k WHERE k.series_id=t.series_id AND k.plant_id=t.plant_id AND k.id<>t.id
 		AND k.deleted_at IS NULL AND k.status NOT IN ('complete','no_longer_needed') LIMIT 1) AS open_successor`;
+/**
+ * A person follow-up's owner view and origin. Only reads carry them: each is another seat_identity call the planner
+ * cannot inline, and a write's answer is merged with what the screen already shows.
+ */
+const views = sql`	CASE WHEN t.category='follow_up' AND t.person_id IS NOT NULL AND t.parent_id IS NULL AND t.assignee_id IS NOT NULL
+		THEN ${ownerView(sql`t.assignee_id`, sql`t.plant_id`)} END AS follow_up_owner,
+	CASE WHEN t.category='follow_up' AND t.person_id IS NOT NULL AND t.parent_id IS NULL
+		THEN ${originJson(sql`t`)} END AS follow_up_origin`;
 const seated = (account: SQL) => sql`EXISTS(SELECT FROM seat s WHERE s.account_id=${account} AND s.plant_id=t.plant_id
 	AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp())`;
 const checklist = sql`(SELECT jsonb_agg(jsonb_build_object('id',k.id,'revision',k.revision::text,'title',k.title,
@@ -158,8 +162,8 @@ export async function loadTasks(tx: Tx, plantId: string, ids: readonly string[])
 export const managedTasks = (plantId: string, obligations: SQL) =>
 	sql`(SELECT coalesce(json_agg(x ORDER BY x.id), '[]') FROM (${taskQuery(plantId, sql`t.obligation_id=ANY(${obligations}) AND t.deleted_at IS NULL`)} ORDER BY t.id FOR UPDATE OF t) x)`;
 export const managedTaskRows = z.array(lockedTask);
-const taskQuery = (plantId: string, which: SQL) =>
-	sql`SELECT ${columns}, ${checklist}, 1 AS ord ${joins} WHERE ${which} AND t.plant_id=${plantId}::uuid`;
+const taskQuery = (plantId: string, which: SQL, withViews = false) =>
+	sql`SELECT ${columns}, ${withViews ? sql`${views}, ` : sql``}${checklist}, 1 AS ord ${joins} WHERE ${which} AND t.plant_id=${plantId}::uuid`;
 
 /**
  * One read statement: the reader's live authority (C13, lock-free per C27) and the rows of `query`, which numbers its
@@ -310,7 +314,7 @@ export const taskReader = {
 			const found = await gated(
 				tx,
 				viewer,
-				sql`SELECT ${columns}, count(*) OVER () AS total, row_number() OVER (ORDER BY ${order}) AS ord ${joins}
+				sql`SELECT ${columns}, ${views}, count(*) OVER () AS total, row_number() OVER (ORDER BY ${order}) AS ord ${joins}
 				WHERE ${scope(viewer, v)} ORDER BY ${order} LIMIT ${v.limit} OFFSET ${(v.page - 1) * v.limit}`,
 			);
 			const rows = z.array(taskRow).parse(found),
@@ -371,7 +375,7 @@ export const taskReader = {
 		return readReply(async () => {
 			const viewer = reader(authority),
 				v = parse(c.getTaskRequest, raw);
-			const [found] = await gated(tx, viewer, taskQuery(viewer.plantId, sql`t.id=${v.taskId}::uuid`));
+			const [found] = await gated(tx, viewer, taskQuery(viewer.plantId, sql`t.id=${v.taskId}::uuid`, true));
 			const row = found && lockedTask.parse(found);
 			if (!row || row.deleted_at) return c.taskResult.parse({ status: "unavailable" });
 			return c.taskResult.parse({ status: "available", task: detailOf(row, v.asOf ?? now()) });

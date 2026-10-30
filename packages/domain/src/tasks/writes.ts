@@ -19,7 +19,7 @@ import {
 	type Tx,
 } from "./core.ts";
 import { lastWrite } from "../operations/writes.ts";
-import { ownerReason } from "./owner.ts";
+import { lockOwner, ownerReason } from "./owner.ts";
 import { detailOf, loadTask, type LockedTask, type TaskRow } from "./queries.ts";
 import { successorOf } from "./recurrence.ts";
 import { structureWriter } from "./structure.ts";
@@ -80,8 +80,7 @@ export async function references(
 			WHERE s.account_id=${input.assigneeId ?? null}::uuid AND s.plant_id=${plantId}::uuid AND s.ended_at IS NULL
 			AND s.accepted_at<=clock_timestamp() FOR SHARE OF s) AS assignee,
 		${ownerReason(sql`${input.assigneeId ?? null}::uuid`, sql`${plantId}::uuid`)} AS reason,
-		(SELECT true FROM person e WHERE e.tenant_id=${plantId}::uuid AND e.linked_account_id=${input.assigneeId ?? null}::uuid
-			LIMIT 1 FOR SHARE OF e) AS locked,
+		${lockOwner(sql`${input.assigneeId ?? null}::uuid`, sql`${plantId}::uuid`)} AS locked,
 		(SELECT display_name FROM person WHERE id=${input.relation?.kind === "person" ? input.relation.id : null}::uuid
 			AND tenant_id=${plantId}::uuid AND plant_id IS NOT NULL AND state='live' FOR SHARE) AS person,
 		(SELECT title FROM meeting WHERE id=${input.relation?.kind === "meeting" ? input.relation.id : null}::uuid

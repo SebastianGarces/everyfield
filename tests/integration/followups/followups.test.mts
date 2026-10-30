@@ -1035,9 +1035,10 @@ test("AC:TARGET-MTG-022 a Member's contact finishes only the follow-ups they hol
 	);
 	// The follow-up they could not finish shows the contact: when and by whom.
 	const left = ok(await read(me, "listFollowUpOwners", { personId: tia })).items;
+	const [recorder] = await rows(sql`SELECT display_name FROM seat_identity(${me.id}::uuid)`);
 	assert.deepEqual(
-		left.map((d) => [d.taskId === theirs, d.contacted?.by === undefined ? "none" : typeof d.contacted.by]),
-		[[true, "string"]],
+		left.map((d) => [d.taskId === theirs, d.contacted?.by ?? "none"]),
+		[[true, recorder.display_name]],
 	);
 	// A correction keeps who the contact also finished.
 	const corrected = ok(
