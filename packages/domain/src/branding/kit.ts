@@ -25,7 +25,7 @@ export const LETTERHEAD_COLUMNS: Record<LetterheadKey, string> = {
 	signerName: "signer_name",
 	signerTitle: "signer_title",
 };
-export type KitRow = Record<string, unknown>;
+type KitRow = Record<string, unknown>;
 
 const text = (value: unknown) => (typeof value === "string" ? value : null);
 

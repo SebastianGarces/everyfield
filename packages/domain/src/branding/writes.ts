@@ -71,12 +71,6 @@ const audit = (scope: Scope, changed: SQL, kind: "edit" | "remove") => sql`aud A
 const tail = sql`SELECT (SELECT ok FROM gate) AS ok, (SELECT revision::text FROM cur) AS current_revision,
 	(SELECT to_jsonb(c) FROM changed c) AS row`;
 
-/** Why a statement that changed nothing changed nothing. */
-function refuse(result: z.infer<typeof resultRow>): never {
-	if (result.ok !== true) deny("access_denied");
-	return deny("conflict");
-}
-
 /** Lets a specific field refuse with its own code instead of the generic `invalid_input`. */
 function parseSettings(raw: unknown) {
 	const patch = (raw as { patch?: Record<string, unknown> } | null)?.patch;
@@ -160,7 +154,8 @@ export const brandWriter = {
 					// The revision is right, so the only other reason is a missing or cleared primary color.
 					deny("primary_required");
 				}
-				refuse(result);
+				if (result.ok !== true) deny("access_denied");
+				deny("conflict");
 			}
 			return kitFromRow(result.row);
 		});
