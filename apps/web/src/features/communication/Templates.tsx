@@ -124,7 +124,9 @@ function TemplateList({
 				<section key={group.title} aria-label={group.title} className="flex flex-col gap-2">
 					<h2 className="font-title text-title-sm tracking-[-0.01em] text-ink">{group.title}</h2>
 					{group.rows.length === 0 ? (
-						<p className="text-sm text-text-3">No {group.title.toLowerCase()} templates.</p>
+						<p className="text-sm text-text-3">
+							{group.title === "System" ? "No system templates." : "No church templates yet."}
+						</p>
 					) : (
 						<ul className="flex flex-col divide-y divide-line rounded-lg bg-surface">
 							{group.rows.map((row) => (
