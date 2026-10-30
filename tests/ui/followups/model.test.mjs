@@ -146,7 +146,10 @@ test("AC:TARGET-TSK-012 AC:TARGET-TSK-013 owner totals follow confirmed assignme
 	]);
 	// With one eligible and one ineligible owner it is owned, and the ineligible one stays on the handoff tally.
 	const mixed = totalsAfter(start, [{ before: "new", after: [view(daniel), view(ruth, false, "no_seat")] }]);
-	assert.deepEqual([mixed.needsOwner, mixed.formerOwners, mixed.owners.map((o) => o.open)], [1, [{ ...ruth, open: 1 }], [1, 2]]);
+	assert.deepEqual(
+		[mixed.needsOwner, mixed.formerOwners, mixed.owners.map((o) => o.open)],
+		[1, [{ ...ruth, open: 1 }], [1, 2]],
+	);
 	// A departed account's two follow-ups move to Daniel: they leave Needs owner and the former owner's count.
 	const sam = { accountId: "s", displayName: "Sam Lee" };
 	const left = { owners: [], formerOwners: [{ ...sam, open: 2 }], needsOwner: 2, uncovered: 0 };

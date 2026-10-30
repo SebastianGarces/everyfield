@@ -212,7 +212,12 @@ test("AC:TARGET-TSK-001 INV-membership: a saved task joins the list only when it
 
 test("BUG-31d611e R4-2: a refused edit opens again on the newest task with only the person's changes", () => {
 	// Admin A opened the task at revision 4 and changed the title; Admin B saved a description and a new assignee.
-	const seen = { title: "Call Kim", description: "", assigneeIds: ["a1"], due: { kind: "undated", date: "", time: "" } };
+	const seen = {
+		title: "Call Kim",
+		description: "",
+		assigneeIds: ["a1"],
+		due: { kind: "undated", date: "", time: "" },
+	};
 	const mine = { ...seen, title: "Call Kim today" };
 	const latest = { ...seen, description: "She asked for Tuesday.", assigneeIds: ["b2"] };
 	assert.deepEqual(rebase(mine, seen, latest), {
