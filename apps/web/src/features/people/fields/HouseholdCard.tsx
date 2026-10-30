@@ -182,7 +182,13 @@ export function HouseholdCard({
 	}
 
 	/** Starts a household with this person as head. `kind` is the form to reopen if it is refused, with `value` in it. */
-	function startChange(v: StartValue, kind: Kind, value: unknown) {
+	function startChange(
+		{ name, street, city, stateProvince, postalCode, country }: StartValue,
+		kind: Kind,
+		value: unknown,
+	) {
+		// Only the household fields go to the server: the join dialog's value also carries its `mode`.
+		const v = { name, street, city, stateProvince, postalCode, country };
 		change(
 			{
 				status: "available",

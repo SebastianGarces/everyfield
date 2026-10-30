@@ -870,7 +870,9 @@ for (const [name, engine] of ENGINES) {
 			assert.equal(await dialog.getByText("Choose a role.").count(), 0);
 			await dialog.getByRole("button", { name: "Create household", exact: true }).first().click();
 			await create.getByLabel("Household name").waitFor();
-			assert.equal(await create.getByLabel("Household name").inputValue(), "Rivera household");
+			// The form keeps what was typed while the person looked at the list: the emptied name stays empty.
+			assert.equal(await create.getByLabel("Household name").inputValue(), "");
+			await create.getByLabel("Household name").fill("Rivera household");
 			page.on("request", (r) => r.isNavigationRequest() && documents.push(r.url()));
 			await create.getByRole("button", { name: "Create household", exact: true }).click();
 			await create.waitFor({ state: "detached" });
@@ -888,6 +890,8 @@ for (const [name, engine] of ENGINES) {
 			await leave.getByRole("button", { name: "Take out of household", exact: true }).click();
 			await leave.waitFor({ state: "detached" });
 			await page.getByText("Pia is not in a household.").waitFor({ timeout: 30_000 });
+			// The card shows the leave at once; wait for the answer so the write lands before the browser closes.
+			await page.getByText("Saving…").waitFor({ state: "detached", timeout: 30_000 });
 		});
 	});
 

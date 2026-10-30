@@ -291,6 +291,7 @@ async function up(origin: string) {
 	const fixture = writeFixture("people", env.schema, {
 		origin,
 		plant: plant.id,
+		empty,
 		owner: { cookie: owner.cookie, accountId: owner.accountId },
 		member: { cookie: member.cookie, accountId: member.accountId },
 		seatless: { cookie: seatless.cookie },
