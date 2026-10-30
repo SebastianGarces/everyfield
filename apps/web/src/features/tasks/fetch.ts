@@ -29,6 +29,8 @@ export function loadBlocking(search: string) {
 export const prerequisiteCandidates = (id: string, search: string) =>
 	get<{ items: Candidate[] }>({ what: "candidates", id, search });
 export const loadHistory = (id: string, page: number) => get<TaskHistory>({ what: "history", id, page: String(page) });
-export const assigneeOptions = () => get<z.infer<typeof c.assigneeOptions>>({ what: "seats" });
+/** The church's seats; with `committed_follow_up`, only those who may own a follow-up (REQ-TSK-012). */
+export const assigneeOptions = (purpose: "any" | "committed_follow_up" = "any") =>
+	get<z.infer<typeof c.assigneeOptions>>({ what: "seats", purpose });
 export const relationOptions = (kind: string, search: string) =>
 	get<z.infer<typeof c.relationOptions>>({ what: "relations", kind, search });

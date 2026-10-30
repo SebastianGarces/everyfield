@@ -1,6 +1,7 @@
 import { instant, revision, timeZone, type Instant } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/followups";
 import * as tc from "@everyfield/contracts/tasks";
+import { followUpOwner } from "@everyfield/contracts/tasks";
 import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
@@ -9,7 +10,9 @@ import { displayTitle } from "../meetings/rows.ts";
 import { meetingType } from "@everyfield/contracts/meetings";
 import { administers, parse, readerOf, type Tx } from "../tasks/core.ts";
 import { dueOf, storedKind } from "../tasks/queries.ts";
-import { COMMITTED, eligibleOwner, followUpTask, gated, now, OPEN, readAnswer, refuse } from "./core.ts";
+import { originJson, originOf } from "../tasks/origin.ts";
+import { COMMITTED, eligibleOwner, ownerView } from "../tasks/owner.ts";
+import { followUpTask, gated, now, OPEN, readAnswer, refuse } from "./core.ts";
 
 const at = (d: Date) => instant.parse(d.toISOString());
 const pageOf = (v: { page: number; limit: number }, total: number) => ({
@@ -22,30 +25,29 @@ function reader(authority: RequestActor, admin = false) {
 	if (admin && !administers(viewer)) refuse("unavailable");
 	return viewer;
 }
-const seated = (account: SQL, plant: SQL) => sql`EXISTS(SELECT FROM seat s WHERE s.account_id=${account}
-	AND s.plant_id=${plant} AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp())`;
-
 /**
- * The church's open follow-up tasks with a live Person, as rows a caller filters further. `owner_id` is the stored
- * assignee only while they are an eligible owner: a demoted or departed assignee reads as Needs owner (REQ-TSK-012).
+ * The church's open follow-up tasks with a live Person, as rows a caller filters further. `owner` is the task's
+ * assignee with whether they may own it (the shared owner view); `owner_id` is the assignee only while eligible, so an
+ * assignee who lost eligibility counts as Needs owner in every tally and filter (REQ-TSK-012) and keeps their name.
  */
-const duties = (plantId: string, where: SQL = sql`true`) => sql`SELECT t.id, t.revision::text AS revision, t.title,
-	t.status, t.due_kind, t.due_date::text AS due_date, t.due_time::text AS due_time, t.timezone, t.due_at, t.obligation_id,
-	t.person_id, p.display_name AS person_label, t.assignee_id, pl.timezone AS plant_zone,
-	CASE WHEN t.assignee_id IS NOT NULL AND ${eligibleOwner(sql`t.assignee_id`, sql`t.plant_id`)} THEN t.assignee_id END AS owner_id,
+const duties = (plantId: string, where: SQL = sql`true`) => sql`SELECT d.*,
+	CASE WHEN (d.owner->>'eligible')='true' THEN d.assignee_id END AS owner_id FROM (SELECT t.id, t.revision::text AS revision,
+	t.title, t.status, t.due_kind, t.due_date::text AS due_date, t.due_time::text AS due_time, t.timezone, t.due_at,
+	t.obligation_id, t.person_id, p.display_name AS person_label, t.assignee_id, pl.timezone AS plant_zone,
+	${ownerView(sql`t.assignee_id`, sql`t.plant_id`)} AS owner, ${originJson(sql`t`)} AS origin,
 	coalesce(t.due_at, ((t.due_date + 1)::timestamp AT TIME ZONE pl.timezone)) AS due_key,
 	(SELECT x.outcome FROM contact_outcome x WHERE x.task_id=t.id AND x.plant_id=t.plant_id AND x.voided_at IS NULL
-		ORDER BY x.occurred_at DESC, x.recorded_at DESC, x.id DESC LIMIT 1) AS last_outcome
+		ORDER BY x.occurred_at DESC, x.recorded_at DESC, x.id DESC LIMIT 1) AS last_outcome,
+	(SELECT jsonb_build_object('at', x.occurred_at, 'by', (SELECT i.display_name FROM audit_event a
+		CROSS JOIN LATERAL seat_identity(a.actor_id) i WHERE a.tenant_id=x.plant_id AND a.subject_id=x.id
+		ORDER BY a.occurred_at, a.id LIMIT 1)) FROM contact_outcome x WHERE x.plant_id=t.plant_id AND x.person_id=t.person_id
+		AND x.voided_at IS NULL AND x.outcome='contacted' AND x.recorded_at>=t.created_at
+		ORDER BY x.occurred_at DESC, x.id DESC LIMIT 1) AS contacted
 	FROM task t JOIN plant pl ON pl.id=t.plant_id
 	JOIN person p ON p.id=t.person_id AND p.tenant_id=t.plant_id AND p.state='live'
-	WHERE t.plant_id=${plantId}::uuid AND ${followUpTask(sql`t`)} AND t.status IN ${OPEN} AND ${where}`;
-/**
- * A duty row as JSON with its current owner's name, and, when the stored assignee can no longer own it, that former
- * owner's name: a handoff starts from them (REQ-TSK-013). Same statement, no extra round trip.
- */
-const dutyJson = (d: SQL) => sql`to_jsonb(${d}) || jsonb_build_object('owner_name',
-	(SELECT display_name FROM seat_identity(${d}.owner_id)), 'former_name', CASE WHEN ${d}.owner_id IS NULL
-	AND ${d}.assignee_id IS NOT NULL THEN (SELECT display_name FROM seat_identity(${d}.assignee_id)) END)`;
+	WHERE t.plant_id=${plantId}::uuid AND ${followUpTask(sql`t`)} AND t.status IN ${OPEN} AND ${where}) d`;
+/** A duty row as JSON, with its owner view and origin. Same statement, no extra round trip. */
+const dutyJson = (d: SQL) => sql`to_jsonb(${d})`;
 const dutyOrder = (d: SQL) => sql`${d}.due_key NULLS LAST, ${d}.id`;
 /** Accounts that still hold open follow-ups they can no longer own, with how many: where a handoff starts. */
 const formerTally = sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('accountId',x.assignee_id,'displayName',
@@ -70,11 +72,10 @@ const dutyRow = z.object({
 	person_id: z.uuid(),
 	person_label: z.string(),
 	plant_zone: timeZone,
-	owner_id: z.uuid().nullable(),
-	owner_name: z.string().nullable(),
-	assignee_id: z.uuid().nullable(),
-	former_name: z.string().nullable(),
+	owner: followUpOwner.nullable(),
+	origin: z.unknown(),
 	last_outcome: c.outcome.nullable(),
+	contacted: z.object({ at: z.coerce.date(), by: z.string().nullable() }).nullable(),
 });
 function dutyOf(raw: unknown, asOf: Instant) {
 	const d = dutyRow.parse(raw);
@@ -88,9 +89,10 @@ function dutyOf(raw: unknown, asOf: Instant) {
 		overdue: due.kind === "undated" ? null : tc.overdueAt(due, d.plant_zone, asOf),
 		obligationId: d.obligation_id,
 		person: { id: d.person_id, label: d.person_label },
-		owner: d.owner_id ? { accountId: d.owner_id, displayName: d.owner_name ?? "" } : null,
-		formerOwner: !d.owner_id && d.assignee_id ? { accountId: d.assignee_id, displayName: d.former_name ?? "" } : null,
+		owner: d.owner,
+		origin: originOf(d.origin),
 		lastOutcome: d.last_outcome,
+		contacted: d.contacted ? { at: at(d.contacted.at), by: d.contacted.by } : null,
 	};
 }
 const tallyRow = z.array(z.object({ accountId: z.uuid(), displayName: z.string(), open: z.int() }));
@@ -110,6 +112,7 @@ const historyRow = z.object({
 	meeting_id: z.uuid().nullable(),
 	supersedes_id: z.uuid().nullable(),
 	voided_at: z.coerce.date().nullable(),
+	also: z.array(z.object({ task_id: z.uuid(), origin: z.unknown() })),
 	corrected: z.boolean(),
 	created: z
 		.object({ actor_id: z.uuid().nullable(), name: z.string().nullable(), reason: z.string().nullable() })
@@ -148,8 +151,7 @@ const obligationRow = z.object({
 	task_revision: revision.nullable(),
 	task_status: tc.taskStatus.nullable(),
 	task_deleted: z.boolean().nullable(),
-	owner_id: z.uuid().nullable(),
-	owner_name: z.string().nullable(),
+	owner: followUpOwner.nullable(),
 	completion: z.object({ id: z.uuid(), outcome: c.outcome, at: z.coerce.date() }).nullable(),
 	contacted: z.boolean(),
 	total: z.coerce.number().int(),
@@ -166,22 +168,28 @@ export const followUpReader = {
 				v = parse(c.listContactHistoryRequest, raw);
 			const plant = sql`${viewer.plantId}::uuid`,
 				person = sql`${v.personId}::uuid`;
+			// With a task: the entries recorded on it, or finished along with it by one contact.
+			const onTask = (x: SQL) =>
+				v.taskId ? sql`AND (${x}.task_id=${v.taskId}::uuid OR ${v.taskId}::uuid=ANY(${x}.also_task_ids))` : sql``;
 			const found = await gated(
 				tx,
 				viewer,
 				sql`SELECT 0::bigint AS ord, NULL::jsonb AS item,
 					(SELECT max(x.occurred_at) FROM contact_outcome x WHERE x.plant_id=${plant} AND x.person_id=${person}
 						AND x.voided_at IS NULL AND x.outcome='contacted') AS last_contact,
-					(SELECT count(*)::int FROM contact_outcome x WHERE x.plant_id=${plant} AND x.person_id=${person}) AS total
+					(SELECT count(*)::int FROM contact_outcome x WHERE x.plant_id=${plant} AND x.person_id=${person}
+						${onTask(sql`x`)}) AS total
 				FROM person p WHERE p.id=${person} AND p.tenant_id=${plant} AND p.plant_id IS NOT NULL
 				UNION ALL (SELECT row_number() OVER (ORDER BY o.occurred_at DESC, o.recorded_at DESC, o.id DESC),
 					to_jsonb(o) || jsonb_build_object('revision', o.revision::text,
 						'corrected', EXISTS(SELECT FROM contact_outcome n WHERE n.supersedes_id=o.id AND n.plant_id=o.plant_id),
 						'created', ${event(sql`o`, sql`true`, sql`a.occurred_at, a.id`)},
 						'ended', CASE WHEN o.voided_at IS NOT NULL THEN ${event(sql`o`, sql`a.kind IN ('supersede','remove')`, sql`a.occurred_at DESC, a.id DESC`)} END,
-						'corrects_reason', CASE WHEN o.supersedes_id IS NOT NULL THEN ${event(sql`o`, sql`true`, sql`a.occurred_at, a.id`)}->>'reason' END),
+						'corrects_reason', CASE WHEN o.supersedes_id IS NOT NULL THEN ${event(sql`o`, sql`true`, sql`a.occurred_at, a.id`)}->>'reason' END,
+						'also', (SELECT coalesce(jsonb_agg(jsonb_build_object('task_id', k.id, 'origin', ${originJson(sql`k`)})
+							ORDER BY k.created_at, k.id),'[]') FROM task k WHERE k.plant_id=o.plant_id AND k.id=ANY(o.also_task_ids))),
 					NULL, NULL
-				FROM contact_outcome o WHERE o.plant_id=${plant} AND o.person_id=${person}
+				FROM contact_outcome o WHERE o.plant_id=${plant} AND o.person_id=${person} ${onTask(sql`o`)}
 				ORDER BY 1 LIMIT ${v.limit} OFFSET ${(v.page - 1) * v.limit})`,
 			);
 			const [head, ...rows] = found;
@@ -205,6 +213,7 @@ export const followUpReader = {
 						notes: r.notes,
 						completedTask: r.completes_task,
 						taskId: r.task_id,
+						alsoFinished: r.also.map((a) => ({ taskId: a.task_id, origin: originOf(a.origin) })),
 						obligationId: r.obligation_id,
 						meetingId: r.meeting_id,
 						actor: actorOf(r.created),
@@ -230,6 +239,8 @@ export const followUpReader = {
 			const viewer = reader(authority),
 				v = parse(c.readObligationsRequest, raw);
 			const asOf = v.asOf ?? now();
+			// An outcome is evidence for the duty it was recorded on and for those one contact finished with it.
+			const evidence = sql`(x.obligation_id=o.id OR (x.person_id=o.person_id AND t.id=ANY(x.also_task_ids)))`;
 			const filters = [
 				v.personId ? sql`o.person_id=${v.personId}::uuid` : null,
 				v.meetingId ? sql`o.meeting_id=${v.meetingId}::uuid` : null,
@@ -246,14 +257,13 @@ export const followUpReader = {
 							WHEN t.deleted_at IS NULL AND t.status='complete' THEN 'complete' ELSE 'open' END AS state,
 						t.id AS task_id, t.revision::text AS task_revision, t.status AS task_status,
 						t.deleted_at IS NOT NULL AS task_deleted,
-						CASE WHEN t.deleted_at IS NULL AND t.assignee_id IS NOT NULL AND CASE WHEN o.kind='follow_up'
-							THEN ${eligibleOwner(sql`t.assignee_id`, sql`o.plant_id`)} ELSE ${seated(sql`t.assignee_id`, sql`o.plant_id`)} END
-							THEN t.assignee_id END AS owner_id,
-						(SELECT display_name FROM seat_identity(t.assignee_id)) AS owner_name,
+						CASE WHEN t.deleted_at IS NULL AND t.assignee_id IS NOT NULL THEN CASE WHEN o.kind='follow_up'
+							THEN ${ownerView(sql`t.assignee_id`, sql`o.plant_id`)}
+							ELSE ${ownerView(sql`t.assignee_id`, sql`o.plant_id`, "seated")} END END AS owner,
 						(SELECT jsonb_build_object('id',x.id,'outcome',x.outcome,'at',x.occurred_at) FROM contact_outcome x
-							WHERE x.plant_id=o.plant_id AND x.obligation_id=o.id AND x.voided_at IS NULL AND x.completes_task
+							WHERE x.plant_id=o.plant_id AND ${evidence} AND x.voided_at IS NULL AND x.completes_task
 							ORDER BY x.occurred_at, x.id LIMIT 1) AS completion,
-						EXISTS(SELECT FROM contact_outcome x WHERE x.plant_id=o.plant_id AND x.obligation_id=o.id
+						EXISTS(SELECT FROM contact_outcome x WHERE x.plant_id=o.plant_id AND ${evidence}
 							AND x.voided_at IS NULL AND x.outcome='contacted') AS contacted
 					FROM obligation o JOIN meeting m ON m.id=o.meeting_id AND m.plant_id=o.plant_id
 					LEFT JOIN person p ON p.id=o.person_id AND p.tenant_id=o.plant_id
@@ -288,7 +298,7 @@ export const followUpReader = {
 						task: r.task_id
 							? { id: r.task_id, revision: r.task_revision, status: r.task_status, deleted: r.task_deleted }
 							: null,
-						owner: r.owner_id ? { accountId: r.owner_id, displayName: r.owner_name ?? "" } : null,
+						owner: r.owner,
 						completion,
 						contacted: r.contacted,
 						measurement:

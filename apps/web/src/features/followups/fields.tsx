@@ -11,9 +11,11 @@ import {
 	OUTCOME_HINT,
 	OUTCOME_LABEL,
 	OUTCOMES,
+	originText,
 	pickOutcome,
 	type Draft,
 	type DraftErrors,
+	type DutyItem,
 	type OutcomeValue,
 } from "./model.ts";
 
@@ -29,6 +31,7 @@ export function OutcomeFields({
 	completable,
 	outcomes = OUTCOMES,
 	personName,
+	alsoFinish = [],
 }: {
 	draft: Draft;
 	onDraft: (d: Draft) => void;
@@ -36,6 +39,8 @@ export function OutcomeFields({
 	completable: boolean;
 	outcomes?: readonly OutcomeValue[];
 	personName: string;
+	/** The Person's other open follow-ups a saved contact with "done" also finishes (D-c), named before the save. */
+	alsoFinish?: readonly Pick<DutyItem, "taskId" | "origin">[];
 }) {
 	const groupLabel = useId();
 	const groupError = useId();
@@ -111,16 +116,25 @@ export function OutcomeFields({
 			) : null}
 
 			{completable && draft.outcome && draft.outcome !== "no_longer_needed" ? (
-				<Checkbox
-					checked={draft.complete}
-					onCheckedChange={(v) => set({ complete: v === true })}
-					label="Mark the follow-up done"
-					description={
-						draft.outcome === "attempted_no_contact"
-							? `Leave it open to try ${personName} again.`
-							: "Done and contact are separate. Only Contacted counts as contact."
-					}
-				/>
+				<div className="flex flex-col gap-2">
+					<Checkbox
+						checked={draft.complete}
+						onCheckedChange={(v) => set({ complete: v === true })}
+						label="Mark the follow-up done"
+						description={
+							draft.outcome === "attempted_no_contact"
+								? `Leave it open to try ${personName} again.`
+								: "Done and contact are separate. Only Contacted counts as contact."
+						}
+					/>
+					{contacted && draft.complete && alsoFinish.length ? (
+						<p className="rounded-md bg-surface px-3.5 py-2.5 text-sm text-text-2">
+							This contact also finishes{" "}
+							{alsoFinish.length === 1 ? "your other follow-up" : `${alsoFinish.length} other follow-ups`} for{" "}
+							{personName}: {alsoFinish.map((d) => originText(d.origin)).join(", ")}.
+						</p>
+					) : null}
+				</div>
 			) : null}
 		</div>
 	);

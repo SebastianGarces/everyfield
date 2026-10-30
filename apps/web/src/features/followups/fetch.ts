@@ -13,8 +13,11 @@ async function get<T>(params: Record<string, string>): Promise<Outcome<T>> {
 	}
 }
 
-export const loadHistory = (person: string, page: number) =>
-	get<ContactHistory>({ what: "history", person, page: String(page) });
+export const loadHistory = (person: string, page: number, task?: string) =>
+	get<ContactHistory>({ what: "history", person, page: String(page), ...(task ? { task } : {}) });
+/** A meeting's follow-ups with their owners: what Correct attendance pre-fills "Follow-up calls go to" from. */
+export const loadMeetingFollowUps = (meeting: string) =>
+	get<ObligationPage>({ what: "obligations", meeting, page: "1" });
 export const loadPersonFollowUps = (person: string) => get<PersonFollowUps>({ what: "person", person });
 export const loadDuties = (person: string, page: number) => get<Owners>({ what: "duties", person, page: String(page) });
 export const loadObligations = (person: string, page: number) =>

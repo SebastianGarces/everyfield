@@ -48,6 +48,7 @@ const retry: Record<Code, string> = {
 	ambiguous_local_time: "never",
 	open_successor: "refresh",
 	dependency_cycle: "refresh",
+	owner_ineligible: "refresh",
 };
 function refused(error: TaskRefusal): TaskReply<never> {
 	return {

@@ -1,5 +1,6 @@
 import * as c from "@everyfield/contracts/meetings";
 import { stage as personStage } from "@everyfield/contracts/people";
+import { followUpOwner } from "@everyfield/contracts/tasks";
 import { sql, type SQL } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
 import "server-only";
@@ -11,6 +12,7 @@ import {
 	ensureMeetingObligations,
 	managedTasks,
 	obligationFacts,
+	obligationFactsRow,
 	type TaskReminders,
 } from "../tasks/index.ts";
 import { TaskRefusal } from "../tasks/core.ts";
@@ -181,7 +183,11 @@ async function lockAttendance(
 						sql`ARRAY(SELECT ${meeting} UNION SELECT s.meeting_id FROM participation s WHERE s.plant_id = ${plant}
 							AND s.person_id IN ${subjects})`,
 						sql`ARRAY${subjects}`,
-						sql`${sql.param([...settling.assignees])}::uuid[]`,
+						// The input's assignees and the owners of the locked duties below, so settle builds each owner view once.
+						sql`ARRAY(SELECT unnest(${sql.param([...settling.assignees])}::uuid[])
+							UNION SELECT t.assignee_id FROM task t JOIN obligation b ON b.id = t.obligation_id
+							WHERE b.plant_id = ${plant} AND t.deleted_at IS NULL AND t.assignee_id IS NOT NULL
+							AND (b.meeting_id = ${meeting} OR (b.kind = 'follow_up' AND b.person_id IN ${subjects})))`,
 					)} AS obligation_facts,
 					${managedTasks(
 						w.plant.id,
@@ -210,7 +216,8 @@ async function generated<T>(body: () => Promise<T>): Promise<T> {
 		return await body();
 	} catch (error) {
 		if (!(error instanceof TaskRefusal)) throw error;
-		if (error.code === "invalid_subject" || error.code === "invalid_input") deny(error.code, {});
+		if (error.code === "invalid_subject" || error.code === "invalid_input" || error.code === "owner_ineligible")
+			deny(error.code, {});
 		deny();
 	}
 }
@@ -565,6 +572,21 @@ async function settle(
 	const owners = new Map<string, string | null>(f.obligations.map((o) => [o.id, o.assignee_id]));
 	for (const t of lockedTasks.parse(f.tasks ?? [])) owners.set(t.obligation_id, t.assignee_id);
 	const ownerOf = (id: string) => owners.get(id) ?? null;
+	// What every screen shows for an owner (REQ-TSK-012): the stored assignee with whether they may own the work.
+	// Built once per assignee from the producer facts the lock statement read: a follow-up owner follows REQ-TSK-012,
+	// an evaluation owner needs only a seat.
+	const ownerFacts = obligationFactsRow.pick({ seats: true, names: true, reasons: true }).parse(f.obligation_facts);
+	const viewOf = (id: string | null, kind: "follow_up" | "evaluation"): z.infer<typeof followUpOwner> | null => {
+		if (!id) return null;
+		const reason =
+			kind === "follow_up" ? (ownerFacts.reasons[id] ?? null) : ownerFacts.seats.includes(id) ? null : "no_seat";
+		return followUpOwner.parse({
+			accountId: id,
+			displayName: ownerFacts.names[id] ?? "",
+			eligible: reason === null,
+			reason,
+		});
+	};
 	if (vision && noop)
 		for (const o of f.obligations)
 			work.push(
@@ -577,6 +599,7 @@ async function settle(
 					outcome: "existing",
 					assigneeId: o.assignee_id,
 					needsOwner: o.assignee_id === null,
+					owner: viewOf(o.assignee_id, o.kind),
 				}),
 			);
 	else if (vision) {
@@ -620,7 +643,8 @@ async function settle(
 						: e.kind === "meeting_evaluation"
 							? input.evaluationAssigneeId
 							: input.followUpAssigneeId;
-			work.push(c.generatedWork.parse({ ...e, assigneeId, needsOwner: assigneeId === null }));
+			const owner = viewOf(assigneeId, e.kind === "meeting_evaluation" ? "evaluation" : "follow_up");
+			work.push(c.generatedWork.parse({ ...e, assigneeId, needsOwner: assigneeId === null, owner }));
 		}
 	}
 	if (closing.size && !noop) {
@@ -653,6 +677,7 @@ async function settle(
 						outcome: "closed",
 						assigneeId: ownerOf(t.obligationId),
 						needsOwner: false,
+						owner: viewOf(ownerOf(t.obligationId), "follow_up"),
 					}),
 				);
 	}

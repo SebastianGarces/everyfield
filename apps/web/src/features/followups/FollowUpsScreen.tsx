@@ -23,6 +23,7 @@ import { HandoffDialog, useHandoff } from "./HandoffDialog.tsx";
 import {
 	COVERAGE_PAGE,
 	coverageOf,
+	moveOf,
 	problemText,
 	totalsAfter,
 	type Coverage,
@@ -127,16 +128,17 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 			all.map((row) => {
 				const duties = row.duties.map((d) =>
 					revisions.has(d.taskId)
-						? { ...d, owner: r.to, formerOwner: null, revision: revisions.get(d.taskId) ?? d.revision }
+						? {
+								...d,
+								owner: { ...r.to, eligible: true, reason: null },
+								revision: revisions.get(d.taskId) ?? d.revision,
+							}
 						: d,
 				);
 				return { ...row, duties, coverage: coverageOf(duties) };
 			}),
 		);
-		const former = plan.from.eligible
-			? null
-			: { accountId: plan.from.accountId, displayName: plan.from.displayName ?? "" };
-		confirmed(r.moved.map((m) => ({ from: byId.get(m.taskId)?.owner ?? null, to: r.to, former })));
+		confirmed(r.moved.map((m) => moveOf(byId.get(m.taskId) ?? { owner: null }, r.to)));
 	});
 	const pageCount = Math.max(1, Math.ceil(coverage.total / COVERAGE_PAGE));
 	return (
@@ -246,9 +248,7 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 														lane={lane}
 														canAssign
 														onChange={change}
-														onSaved={(before, after) =>
-															confirmed([{ from: before.owner, to: after.owner, former: before.formerOwner }])
-														}
+														onSaved={(before, after) => confirmed([moveOf(before, after.owner)])}
 														onConflict={reload}
 													/>
 												</li>

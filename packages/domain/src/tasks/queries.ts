@@ -4,6 +4,8 @@ import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import { liveRead, type RequestActor } from "../access/session.ts";
+import { originJson, originOf } from "./origin.ts";
+import { ownerView, eligibleOwner } from "./owner.ts";
 import { administers, deny, parse, readReply, readerOf, type Reader, type Tx, type Viewer } from "./core.ts";
 
 // Storage keeps the shipped short kind names; the contract names say which duty it is.
@@ -41,6 +43,8 @@ export const taskRow = z.object({
 	obligation_id: z.uuid().nullable(),
 	obligation_kind: storedKind.nullable(),
 	assignee_name: z.string().nullable(),
+	follow_up_owner: c.followUpOwner.nullish(),
+	follow_up_origin: z.unknown().nullish(),
 	relation_label: z.string().nullable(),
 	child_total: z.int(),
 	child_complete: z.int(),
@@ -110,6 +114,14 @@ const columns = sql`t.id, t.revision::text AS revision, t.title, t.description, 
 		AND k.status='complete') AS child_complete,
 	(SELECT k.id FROM task k WHERE k.series_id=t.series_id AND k.plant_id=t.plant_id AND k.id<>t.id
 		AND k.deleted_at IS NULL AND k.status NOT IN ('complete','no_longer_needed') LIMIT 1) AS open_successor`;
+/**
+ * A person follow-up's owner view and origin. Only reads carry them: each is another seat_identity call the planner
+ * cannot inline, and a write's answer is merged with what the screen already shows.
+ */
+const views = sql`	CASE WHEN t.category='follow_up' AND t.person_id IS NOT NULL AND t.parent_id IS NULL AND t.assignee_id IS NOT NULL
+		THEN ${ownerView(sql`t.assignee_id`, sql`t.plant_id`)} END AS follow_up_owner,
+	CASE WHEN t.category='follow_up' AND t.person_id IS NOT NULL AND t.parent_id IS NULL
+		THEN ${originJson(sql`t`)} END AS follow_up_origin`;
 const seated = (account: SQL) => sql`EXISTS(SELECT FROM seat s WHERE s.account_id=${account} AND s.plant_id=t.plant_id
 	AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp())`;
 const checklist = sql`(SELECT jsonb_agg(jsonb_build_object('id',k.id,'revision',k.revision::text,'title',k.title,
@@ -154,8 +166,8 @@ export async function loadTasks(tx: Tx, plantId: string, ids: readonly string[])
 export const managedTasks = (plantId: string, obligations: SQL) =>
 	sql`(SELECT coalesce(json_agg(x ORDER BY x.id), '[]') FROM (${taskQuery(plantId, sql`t.obligation_id=ANY(${obligations}) AND t.deleted_at IS NULL`)} ORDER BY t.id FOR UPDATE OF t) x)`;
 export const managedTaskRows = z.array(lockedTask);
-const taskQuery = (plantId: string, which: SQL) =>
-	sql`SELECT ${columns}, ${checklist}, 1 AS ord ${joins} WHERE ${which} AND t.plant_id=${plantId}::uuid`;
+const taskQuery = (plantId: string, which: SQL, withViews = false) =>
+	sql`SELECT ${columns}, ${withViews ? sql`${views}, ` : sql``}${checklist}, 1 AS ord ${joins} WHERE ${which} AND t.plant_id=${plantId}::uuid`;
 
 /**
  * One read statement: the reader's live authority (C13, lock-free per C27) and the rows of `query`, which numbers its
@@ -183,6 +195,17 @@ export function dueOf(row: Pick<TaskRow, "due_kind" | "due_date" | "due_time" | 
 		offsetSeconds: (Date.parse(`${local}Z`) - at.getTime()) / 1000,
 	});
 }
+/**
+ * A person follow-up's owner view (REQ-TSK-012). A read carries the stored view; a task a write just changed names its
+ * new assignee, whom that write checked, so it reads as eligible.
+ */
+function followUpOwnerOf(row: TaskRow) {
+	if (row.category !== "follow_up" || !row.person_id || row.parent_id || !row.assignee_id) return null;
+	const view = row.follow_up_owner;
+	return view && view.accountId === row.assignee_id
+		? view
+		: { accountId: row.assignee_id, displayName: row.assignee_name ?? "", eligible: true, reason: null };
+}
 export function itemOf(row: TaskRow, asOf: Instant) {
 	const due = dueOf(row);
 	const settled = (c.settledStatus as readonly string[]).includes(row.status);
@@ -196,6 +219,8 @@ export function itemOf(row: TaskRow, asOf: Instant) {
 		due,
 		overdue: due.kind === "undated" ? null : settled ? false : c.overdueAt(due, row.plant_zone, asOf),
 		assignee: row.assignee_id ? { accountId: row.assignee_id, displayName: row.assignee_name ?? "" } : null,
+		followUpOwner: followUpOwnerOf(row),
+		followUpOrigin: row.follow_up_origin ? originOf(row.follow_up_origin) : null,
 		relation: row.person_id
 			? { kind: "person", id: row.person_id, label: row.relation_label ?? "" }
 			: row.meeting_id
@@ -293,7 +318,7 @@ export const taskReader = {
 			const found = await gated(
 				tx,
 				viewer,
-				sql`SELECT ${columns}, count(*) OVER () AS total, row_number() OVER (ORDER BY ${order}) AS ord ${joins}
+				sql`SELECT ${columns}, ${views}, count(*) OVER () AS total, row_number() OVER (ORDER BY ${order}) AS ord ${joins}
 				WHERE ${scope(viewer, v)} ORDER BY ${order} LIMIT ${v.limit} OFFSET ${(v.page - 1) * v.limit}`,
 			);
 			const rows = z.array(taskRow).parse(found),
@@ -354,7 +379,7 @@ export const taskReader = {
 		return readReply(async () => {
 			const viewer = reader(authority),
 				v = parse(c.getTaskRequest, raw);
-			const [found] = await gated(tx, viewer, taskQuery(viewer.plantId, sql`t.id=${v.taskId}::uuid`));
+			const [found] = await gated(tx, viewer, taskQuery(viewer.plantId, sql`t.id=${v.taskId}::uuid`, true));
 			const row = found && lockedTask.parse(found);
 			if (!row || row.deleted_at) return c.taskResult.parse({ status: "unavailable" });
 			return c.taskResult.parse({ status: "available", task: detailOf(row, v.asOf ?? now()) });
@@ -420,17 +445,23 @@ export const taskReader = {
 			});
 		});
 	},
-	/** The church's current accepted seats, who may hold a task. Owner/Admin only. One statement. */
-	async eligibleAssignees(tx: Tx, authority: RequestActor) {
+	/**
+	 * The church's current accepted seats, who may hold a task. With purpose `committed_follow_up` only the seats that may
+	 * own a follow-up (REQ-TSK-012). Owner/Admin only. One statement.
+	 */
+	async eligibleAssignees(tx: Tx, authority: RequestActor, raw: unknown = {}) {
 		return readReply(async () => {
-			const viewer = reader(authority, true);
+			const viewer = reader(authority, true),
+				v = parse(c.eligibleAssigneesRequest, raw);
+			const plant = sql`${viewer.plantId}::uuid`;
 			const found = await gated(
 				tx,
 				viewer,
 				sql`SELECT s.account_id, s.role, i.display_name,
 					row_number() OVER (ORDER BY lower(i.display_name), s.account_id) AS ord FROM seat s
 				CROSS JOIN LATERAL seat_identity(s.account_id) i
-				WHERE s.plant_id=${viewer.plantId}::uuid AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp()
+				WHERE s.plant_id=${plant} AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp()
+				${v.purpose === "committed_follow_up" ? sql`AND ${eligibleOwner(sql`s.account_id`, plant)}` : sql``}
 				ORDER BY lower(i.display_name), s.account_id LIMIT 500`,
 				true,
 			);
