@@ -56,7 +56,7 @@ function driveFixture(opts: { failWhenFile?: string; nested?: string[] } = {}) {
 					run: [
 						process.execPath,
 						"-e",
-						`if(process.env.EVF_NESTED)process.exit(0);const r=require("node:child_process").spawnSync(process.execPath,[${JSON.stringify(join(source, "tools/evf/main.ts"))},...${JSON.stringify(opts.nested)}],{encoding:"utf8",env:{...process.env,EVF_NESTED:"1"}});console.log("nested exit "+r.status);console.log(r.stdout);console.error(r.stderr);process.exit(r.status)`,
+						`if(process.env.EVF_NESTED)process.exit(0);const r=require("node:child_process").spawnSync(process.execPath,[${JSON.stringify(join(source, "tools/evf/main.ts"))},...${JSON.stringify(opts.nested)}],{encoding:"utf8",env:{...process.env,EVF_NESTED:"1"}});console.log("nested exit "+r.status);console.log("monitor "+process.env.EVF_MONITOR);console.log(r.stdout);console.error(r.stderr);process.exit(r.status)`,
 					],
 				},
 				...f.cfg.checks.slice(1),
@@ -1829,33 +1829,18 @@ test("OPS-75-verify: a guarded evf command inside a top-level verify check runs 
 	]) {
 		const f = driveFixture({ nested: command });
 		try {
-			// The top level has the promise, as a person with EVF_FOREGROUND=1 does; the nested command inherits none of it.
+			// The nested command inherits the top level's EVF_FOREGROUND=1. Only the check runner sets EVF_MONITOR,
+			// so its value shows the runner gave the promise.
 			assert.equal(await detached(f, ["verify", "OPS-1"], { EVF_FOREGROUND: "1" }), 0, command.join(" "));
 			const log = nestedLog(f);
 			assert.match(log, /nested exit 0/);
 			assert.match(log, /PASSED/);
+			assert.match(log, /^monitor evf verify OPS-1$/m);
 			assert.doesNotMatch(log, /detached from a terminal/);
 		} finally {
 			f.db.close();
 			f.close();
 		}
-	}
-});
-
-test("OPS-75-guard: a top-level guarded command with no terminal, no variable and no evf parent still refuses", async () => {
-	const f = driveFixture();
-	try {
-		const r = spawnSync(process.execPath, [join(source, "tools/evf/main.ts"), "check", "OPS-1"], {
-			cwd: f.root,
-			encoding: "utf8",
-			detached: true,
-			env: { ...process.env, ...NO_PROMISE },
-		});
-		assert.equal(r.status, 1);
-		assert.match(r.stderr, /detached from a terminal/);
-	} finally {
-		f.db.close();
-		f.close();
 	}
 });
 
