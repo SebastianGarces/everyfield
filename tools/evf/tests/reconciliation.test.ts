@@ -3498,6 +3498,9 @@ test("INV-document-templates-drive-failed-ship: a failed ship on an ordinary PR 
 	try {
 		console.log = () => {};
 		// No approved independent review comment exists, so ship fails as it did before OPS-80.
+		const state = f.getState();
+		state.comments["77"][0].body = "No review yet";
+		f.setState(state);
 		const out = driveOnce(f.root, task, DRIVE_TIMING);
 		assert.notEqual(out.stage, "done");
 		assert.doesNotMatch(out.reason, /waits for Sebastian/);
