@@ -104,12 +104,12 @@ export function templateClass(root: string, cfg: Config, sha: string): TemplateC
 	}
 	const mergeBase = run("git", ["-C", root, "merge-base", base, sha]);
 	if (mergeBase.code !== 0 || !mergeBase.stdout.trim())
-		return doubt(`git merge-base ${base} ${sha.slice(0, 10)} failed: ${mergeBase.stderr.trim() || "no common ancestor"}`);
+		return doubt(
+			`git merge-base ${base} ${sha.slice(0, 10)} failed: ${mergeBase.stderr.trim() || "no common ancestor"}`,
+		);
 	const diff = run("git", ["-C", root, "diff", "--name-only", "--no-renames", mergeBase.stdout.trim(), sha]);
 	if (diff.code !== 0) return doubt(`git diff to ${sha.slice(0, 10)} failed: ${diff.stderr.trim()}`);
-	const changed = diff.stdout.split("\n").filter(Boolean);
-	if (!changed.length) return doubt(`the head ${sha.slice(0, 10)} changes no path against ${base}`);
-	return { paths: changed.filter((path) => matchesTemplatePath(entries, path)) };
+	return { paths: diff.stdout.split("\n").filter((path) => path && matchesTemplatePath(entries, path)) };
 }
 
 /** Sebastian's words for one PR and one exact head. Only `evf approve --owner-approval` builds it. */

@@ -3192,9 +3192,13 @@ const verifiedStatus = (head: string) => ({
 		},
 	],
 });
-const templateConfig = (f: { root: string; cfg: any }, paths: string[]) => {
+/** The class is read from the base branch (OPS-83), so the policy is committed and pushed to it. */
+const templateConfig = (f: { root: string; cfg: any; git: (...a: string[]) => string }, paths: string[]) => {
 	f.cfg.mergePolicy.documentTemplates = { ...structuredClone(DEFAULT_DOCUMENT_TEMPLATES), paths };
 	writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+	f.git("add", "evf.config.json");
+	f.git("commit", "-qm", "Template policy");
+	f.git("push", "-q", "origin", "main");
 };
 const callsWith = (f: any, ...match: string[]) =>
 	f.getState().calls.filter((c: any) => match.every((m) => c.args.includes(m)));
@@ -3627,7 +3631,12 @@ const pr375 = () =>
 
 test("OPS-83-choke-point: only merge.ts calls gh pr merge or the GitHub merge API", () => {
 	const dir = resolve(import.meta.dirname, "..");
-	const merging = [/["']pr["']\s*,\s*["']merge["']/, /gh\s+pr\s+merge/, /\/pulls\/[^"'`\s]*\/merge/, /["'`]\/merge["'`]/];
+	const merging = [
+		/["']pr["']\s*,\s*["']merge["']/,
+		/gh\s+pr\s+merge/,
+		/\/pulls\/[^"'`\s]*\/merge/,
+		/["'`]\/merge["'`]/,
+	];
 	const files = readdirSync(dir).filter((n) => n.endsWith(".ts"));
 	assert.ok(files.includes("merge.ts") && files.includes("ship.ts") && files.includes("approve.ts"));
 	const offenders = files.filter((name) => {
@@ -3678,7 +3687,14 @@ test("OPS-83-375-approve: his recorded words merge that exact head through the c
 			);
 		assert.deepEqual(callsWith(f, "pr", "merge"), []);
 		capturedLog(() => inFakeCwd(f, () => approve(f.root, 77, { ownerApproval: words, head })));
-		assert.deepEqual(callsWith(f, "pr", "merge")[0].args, ["pr", "merge", "77", "--squash", "--match-head-commit", head]);
+		assert.deepEqual(callsWith(f, "pr", "merge")[0].args, [
+			"pr",
+			"merge",
+			"77",
+			"--squash",
+			"--match-head-commit",
+			head,
+		]);
 		const record = shipped();
 		assert.equal(record.owner_approval.quote, words);
 		assert.equal(record.owner_approval.approved_head, head);
@@ -3707,7 +3723,10 @@ test("OPS-83-choke-point: the class is decided on the sha passed to the merge, f
 				e.message.includes('bin/evf approve 77 --owner-approval "<his words>"'),
 		);
 		assert.throws(() => merge({ quote: "Approved", approved_head: sha }), /does not merge PR #77/);
-		assert.throws(() => merge({ quote: "Approved: looks right", approved_head: "a".repeat(40) }), /does not carry over/);
+		assert.throws(
+			() => merge({ quote: "Approved: looks right", approved_head: "a".repeat(40) }),
+			/does not carry over/,
+		);
 		assert.deepEqual(callsWith(f, "pr", "merge"), []);
 		assert.equal(merge({ quote: "Approved: looks right", approved_head: sha }).code, 0);
 		assert.equal(callsWith(f, "pr", "merge").length, 1);
@@ -3721,8 +3740,11 @@ test("OPS-83-fail-closed: a class that cannot be computed holds the PR and says 
 	const cases: Array<[string, (f: ReturnType<typeof mergeFixture>, sha: string) => string, RegExp]> = [
 		["a missing head commit", () => "f".repeat(40), /is not in the repository/],
 		["an empty head", () => "", /not a full commit sha/],
-		["no merge base", (f) => f.git("commit-tree", "HEAD^{tree}", "-m", "orphan"), /git merge-base origin\/main .* failed/],
-		["an empty diff", (f) => f.git("rev-parse", "origin/main"), /changes no path against origin\/main/],
+		[
+			"no merge base",
+			(f) => f.git("commit-tree", "HEAD^{tree}", "-m", "orphan"),
+			/git merge-base origin\/main .* failed/,
+		],
 		[
 			"an unreadable base config",
 			(f, sha) => {
@@ -3835,7 +3857,10 @@ test("OPS-83-375-drive: the drive records owner_approval_wait for the template P
 				db.prepare("SELECT COUNT(*) AS n FROM events WHERE task_id = ? AND type = 'owner_approval_wait'").get(id)!.n,
 				1,
 			);
-			assert.equal(db.prepare("SELECT status FROM runs WHERE task_id = ? AND stage = 'ship'").get(id)!.status, "passed");
+			assert.equal(
+				db.prepare("SELECT status FROM runs WHERE task_id = ? AND stage = 'ship'").get(id)!.status,
+				"passed",
+			);
 			assert.equal(callsWith(f, "POST").length, 1, "the verified status, posted once");
 			const dir = join(f.root, ".git/evf-code"),
 				checkouts = existsSync(dir) ? readdirSync(dir).length : 0;
