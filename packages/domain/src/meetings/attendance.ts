@@ -579,7 +579,8 @@ async function settle(
 	const ownerFacts = ownerFactsRow.parse(f.obligation_facts);
 	const viewOf = (id: string | null, kind: "follow_up" | "evaluation"): z.infer<typeof followUpOwner> | null => {
 		if (!id) return null;
-		const reason = kind === "follow_up" ? (ownerFacts.reasons[id] ?? null) : ownerFacts.seats.includes(id) ? null : "no_seat";
+		const reason =
+			kind === "follow_up" ? (ownerFacts.reasons[id] ?? null) : ownerFacts.seats.includes(id) ? null : "no_seat";
 		return followUpOwner.parse({
 			accountId: id,
 			displayName: ownerFacts.names[id] ?? "",
