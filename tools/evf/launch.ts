@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { ensureTask, findTask, openWorkDb, workDbPath } from "./db.ts";
 import {
 	baseRef,
@@ -39,52 +40,31 @@ export const SEAT_ENV = {
 const START_TIMEOUT_MS = 90_000;
 
 /**
- * The role's agent definition comes from the evf checkout that runs the launch (`<root>/.claude/agents/<role>.md`),
- * handed to Claude Code as `--agents` JSON. A CLI definition outranks the worktree's own `.claude/agents`, so a task
- * branch that removes, renames or edits a role file cannot change the seat its own drive launches.
+ * The role's agent definition comes from the evf checkout that runs the launch (`<root>/.claude/agents/<role>.md`).
+ * It reaches Claude Code as a per-run plugin directory (`--plugin-dir <runtime>/seat-<run>`, agent `evf:<role>`), not
+ * as text on the typed line: Herdr types the command into the pane's shell, and the terminal refuses a line of 1024
+ * bytes or more (OPS-74). A plugin agent is namespaced, so the worktree's own `.claude/agents` never shadows or
+ * replaces it: a task branch that removes, renames or edits a role file cannot change the seat its own drive launches.
+ * (`--agents <file>` would also keep the line short, but Claude Code reads a file there only with `--print`.)
  */
 /** A launch that created its run row and then closed it as aborted. The drive logs it and goes on. */
 export class LaunchAborted extends EvfError {}
-export type AgentDefinition = { source: string; json: string };
-const splitTools = (value: string): string[] => {
-	const out: string[] = [];
-	let depth = 0,
-		current = "";
-	for (const ch of value) {
-		if (ch === "(") depth++;
-		if (ch === ")") depth--;
-		if (ch === "," && depth === 0) {
-			out.push(current.trim());
-			current = "";
-		} else current += ch;
-	}
-	if (current.trim()) out.push(current.trim());
-	return out.filter(Boolean);
-};
-const LIST_KEYS = new Set(["tools", "disallowedTools", "skills"]);
+/** The typed line is at or over the terminal limit. Retrying cannot shorten it: the drive escalates at once. */
+export class LaunchLineTooLong extends EvfError {}
+/** Herdr's terminal refuses a typed line of this many bytes or more (`agent_start_input_failed`). */
+export const TYPED_LINE_LIMIT = 1024;
+export const PLUGIN_NAME = "evf";
+export type AgentDefinition = { source: string; markdown: string };
 export function agentDefinition(root: string, role: Role, seat: { model: string; effort: string }): AgentDefinition {
 	const source = `${root}/.claude/agents/${role}.md`;
 	if (!existsSync(source)) fail(`The driving checkout has no agent definition for ${role}: ${source} is missing.`);
-	const parsed = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/.exec(readFileSync(source, "utf8"));
+	const text = readFileSync(source, "utf8");
+	const parsed = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/.exec(text);
 	if (!parsed) fail(`${source} has no frontmatter.`);
-	const front: Record<string, string> = {};
-	for (const line of parsed[1]!.split("\n")) {
-		const kv = /^([A-Za-z][\w-]*):\s*(.*)$/.exec(line);
-		if (kv) front[kv[1]!] = kv[2]!.trim();
-	}
-	// Every frontmatter key except `name` goes into the definition, so a field added later cannot drop out silently.
-	// Comma lists become arrays and whole numbers become numbers; everything else stays a string.
-	const definition: Record<string, unknown> = { description: role, prompt: parsed[2]!.trim() };
-	for (const [key, value] of Object.entries(front)) {
-		if (key === "name") continue;
-		if (LIST_KEYS.has(key)) {
-			const list = splitTools(value);
-			if (list.length) definition[key] = list;
-		} else definition[key] = /^\d+$/.test(value) ? Number(value) : value;
-	}
-	definition.model ??= seat.model;
-	definition.effort ??= seat.effort;
-	return { source, json: JSON.stringify({ [role]: definition }) };
+	// A role file without its own model or effort gets the seat's, as before.
+	const keys = new Set(parsed[1]!.split("\n").flatMap((l) => /^([A-Za-z][\w-]*):/.exec(l)?.[1] ?? []));
+	const added = [...(keys.has("model") ? [] : [`model: ${seat.model}`]), ...(keys.has("effort") ? [] : [`effort: ${seat.effort}`])];
+	return { source, markdown: `---\n${[parsed[1]!, ...added].join("\n")}\n---\n${parsed[2]!}` };
 }
 const TRUST_PROMPT = /trust this folder|Yes, proceed|trust the files in this folder/i;
 
@@ -103,7 +83,7 @@ const idOf = (value: unknown, key: string): string => {
 	if (typeof id === "string") return id;
 	fail(`Herdr returned no ${key}.`);
 };
-const quote = (arg: string) => (/^[\w./:=@-]+$/.test(arg) ? arg : `'${arg.replace(/'/g, "'\\''")}'`);
+export const quote = (arg: string) => (/^[\w./:=@-]+$/.test(arg) ? arg : `'${arg.replace(/'/g, "'\\''")}'`);
 
 /** Idea seats of prototype mode get their own worktree and branch next to the task's. */
 export const ideaWorktree = (root: string, cfg: Config, task: TaskRef, idea: number) =>
@@ -138,10 +118,52 @@ export type LaunchPlan = {
 	env: Record<string, string>;
 	model: string;
 	effort: string;
-	claudeArgs: string[];
-	/** The file the agent definition in `--agents` was read from. */
+	/** The per-run plugin directory that carries the agent definition; one directory per run, never shared. */
+	pluginDir: string;
+	/** The file the agent definition was read from, and its text as the plugin carries it. */
 	agentSource: string;
+	agentMarkdown: string;
 };
+/** The arguments after `claude`. Everything in them is short: the definition lives in the plugin directory. */
+export const claudeArgs = (plan: LaunchPlan): string[] => [
+	"--plugin-dir",
+	plan.pluginDir,
+	"--agent",
+	`${PLUGIN_NAME}:${plan.role}`,
+	"--name",
+	plan.name,
+	"--session-id",
+	plan.session,
+	"--model",
+	plan.model,
+	"--effort",
+	plan.effort,
+	"--dangerously-skip-permissions",
+];
+/** The exact line Herdr types into the pane's shell for `agent start ... -- <args>`: `claude`, then each quoted argument. */
+export const typedLine = (plan: LaunchPlan): string => ["claude", ...claudeArgs(plan)].map(quote).join(" ");
+export const typedLineBytes = (plan: LaunchPlan): number => Buffer.byteLength(typedLine(plan));
+/** Where a run's plugin directory lives: next to the task's other runtime files, outside every worktree. */
+export const seatPluginDir = (root: string, task: TaskRef, run: string | number) =>
+	join(runtimeDir(root, task), `seat-${run}`);
+/** Write the run's plugin directory: a manifest and the role file. Each run has its own, so two launches never share a path. */
+function writeSeatPlugin(plan: LaunchPlan): void {
+	mkdirSync(join(plan.pluginDir, ".claude-plugin"), { recursive: true });
+	mkdirSync(join(plan.pluginDir, "agents"), { recursive: true });
+	writeFileSync(
+		join(plan.pluginDir, ".claude-plugin/plugin.json"),
+		`${JSON.stringify({ name: PLUGIN_NAME, version: "0.0.0", description: `evf seat definition for run ${plan.env.EVF_RUN}` })}\n`,
+	);
+	writeFileSync(join(plan.pluginDir, "agents", `${plan.role}.md`), plan.agentMarkdown);
+}
+/** Refuse a typed line at or over the terminal limit before any pane exists. */
+export function guardTypedLine(plan: LaunchPlan, limit = TYPED_LINE_LIMIT): void {
+	const bytes = typedLineBytes(plan);
+	if (bytes >= limit)
+		throw new LaunchLineTooLong(
+			`The launch line for ${plan.role} is ${bytes} bytes; the terminal accepts fewer than ${limit}. Retrying cannot help: shorten the plugin path or the seat arguments.`,
+		);
+}
 
 export function launchPlan(
 	root: string,
@@ -182,21 +204,8 @@ export function launchPlan(
 			...(role === "ideator" ? { EVF_BLIND: "1" } : {}),
 			...SEAT_ENV,
 		},
-		claudeArgs: [
-			"--agent",
-			role,
-			"--agents",
-			agent.json,
-			"--name",
-			`${role}${tag}@${task.id}`,
-			"--session-id",
-			session,
-			"--model",
-			seat.model,
-			"--effort",
-			seat.effort,
-			"--dangerously-skip-permissions",
-		],
+		pluginDir: seatPluginDir(root, task, opts.run ?? "<run>"),
+		agentMarkdown: agent.markdown,
 		agentSource: agent.source,
 	};
 }
@@ -239,15 +248,8 @@ const startArgs = (plan: LaunchPlan, pane: string) => [
 	"--timeout",
 	String(START_TIMEOUT_MS),
 	"--",
-	...plan.claudeArgs,
+	...claudeArgs(plan),
 ];
-/** A dry run shows the long `--agents` JSON as a placeholder; the line above it names the source file. */
-const startArgsShown = (plan: LaunchPlan, pane: string) =>
-	startArgs(
-		{ ...plan, claudeArgs: plan.claudeArgs.map((a, i, all) => (all[i - 1] === "--agents" ? "<agents json>" : a)) },
-		pane,
-	);
-
 /** Print every step without changing Herdr, the store or the worktree. It only reads Herdr to find the TUI workspace. */
 export function launchDryRun(
 	root: string,
@@ -269,10 +271,11 @@ export function launchDryRun(
 		tui
 			? `herdr ${splitArgs(plan, splitTarget(tui)).map(quote).join(" ")}`
 			: `herdr ${workspaceArgs(plan, label).map(quote).join(" ")}`,
-		`# agent definition: ${plan.agentSource} (the driving checkout ${root}, not the task worktree)`,
-		`herdr ${startArgsShown(plan, tui ? "<new pane>" : "<root pane>")
+		`# agent definition: ${plan.agentSource} (the driving checkout ${root}, not the task worktree), written to ${plan.pluginDir}/agents/${role}.md`,
+		`herdr ${startArgs(plan, tui ? "<new pane>" : "<root pane>")
 			.map(quote)
 			.join(" ")}`,
+		`# typed line: ${typedLineBytes(plan)} bytes (the terminal accepts fewer than ${TYPED_LINE_LIMIT})`,
 		`# store: run.herdr_agent = ${plan.agent}, run.herdr_pane = ${tui ? "<new pane>" : "<root pane>"}; task.herdr_workspace_id = ${tui ? tui.workspace : "<new workspace>"}; event stage_start`,
 		...(opts.prompt
 			? [
@@ -313,6 +316,8 @@ export type LaunchTiming = {
 	/** How long after the prompt launch waits for a turn to begin before it sends the prompt once more. */
 	turnConfirmMs: number;
 	turnPollMs: number;
+	/** A typed line of this many bytes or more is refused before a pane exists. Herdr's terminal limit; tests lower it. */
+	typedLineLimit: number;
 };
 export const LAUNCH_TIMING: LaunchTiming = {
 	paneReadyMs: 30_000,
@@ -323,12 +328,17 @@ export const LAUNCH_TIMING: LaunchTiming = {
 	sessionPollMs: 250,
 	turnConfirmMs: 15_000,
 	turnPollMs: 500,
+	typedLineLimit: TYPED_LINE_LIMIT,
 };
 
 /**
- * A new pane is an available shell once its shell owns the foreground: `herdr pane process-info` reports
- * `process_info.foreground_process_group_id` equal to `process_info.shell_pid`. While the shell still starts up
- * (oh-my-zsh, profile scripts) another process group is in front and `agent start` answers agent_pane_busy.
+ * A new pane is a shell at its prompt once the shell owns the foreground and runs nothing else: `herdr pane
+ * process-info` reports `foreground_process_group_id` equal to `shell_pid`, and `foreground_processes` lists only the
+ * shell. The group check alone is not enough. While zsh loads oh-my-zsh and the profile scripts it is already the
+ * foreground group, and its subshells (`brew shellenv`, `uname`, `tail`) show up as extra processes of that group
+ * until the line editor starts. A line typed in that window meets the terminal in canonical mode: Herdr answers
+ * `agent_start_input_failed` for a line of 1024 bytes or more (OPS-74). Herdr exposes no direct prompt flag, and
+ * `pane read` shows the prompt only after the fact, so waitForShell asks for the quiet shell on two polls in a row.
  */
 function paneShellReady(pane: string): { ready: boolean; seen: string } {
 	const r = run("herdr", ["pane", "process-info", "--pane", pane]);
@@ -337,16 +347,29 @@ function paneShellReady(pane: string): { ready: boolean; seen: string } {
 		const info = (JSON.parse(r.stdout) as { result?: { process_info?: Record<string, unknown> } }).result?.process_info;
 		const group = info?.foreground_process_group_id,
 			shell = info?.shell_pid;
-		return { ready: typeof shell === "number" && group === shell, seen: `foreground group ${group}, shell ${shell}` };
+		const others = (Array.isArray(info?.foreground_processes) ? (info.foreground_processes as Array<{ pid?: number }>) : [])
+			.filter((p) => p.pid !== shell)
+			.length;
+		return {
+			ready: typeof shell === "number" && group === shell && others === 0,
+			seen: `foreground group ${group}, shell ${shell}, ${others} other process${others === 1 ? "" : "es"}`,
+		};
 	} catch {
 		return { ready: false, seen: "unreadable answer" };
 	}
 }
+/** The pause between the two quiet polls: long enough to catch a subshell that starts next, short against a launch. */
+const QUIET_RECHECK_MS = 100;
 function waitForShell(workspace: string, pane: string, timing: LaunchTiming): void {
 	const started = Date.now();
-	for (;;) {
+	for (let quiet = 0; ; ) {
 		const state = paneShellReady(pane);
-		if (state.ready) return;
+		quiet = state.ready ? quiet + 1 : 0;
+		if (quiet >= 2) return;
+		if (quiet === 1) {
+			sleep(Math.min(QUIET_RECHECK_MS, timing.paneReadyPollMs));
+			continue;
+		}
 		const waited = Date.now() - started;
 		if (waited >= timing.paneReadyMs)
 			fail(
@@ -371,15 +394,19 @@ function agentPresent(agent: string, pane: string): boolean | null {
 }
 
 /**
- * Start the seat once. agent_pane_busy retries with growing backoff; before each retry the agent list proves the
- * earlier start did not succeed late, so a seat never starts twice. Any other failure tries the trust dialog once.
+ * Start the seat once. Two answers mean the shell was not ready for the line: agent_pane_busy (another process owns
+ * the foreground) and agent_start_input_failed (the terminal was still in canonical mode). Both retry in the same
+ * pane with growing backoff; each retry first waits for the quiet shell again, and the agent list proves the earlier
+ * start did not succeed late, so a seat never starts twice. Any other failure tries the trust dialog once.
  */
 function startSeat(plan: LaunchPlan, workspace: string, pane: string, timing: LaunchTiming): void {
+	let waitedMs = 0;
 	for (let attempt = 0; ; attempt++) {
 		const started = run("herdr", startArgs(plan, pane));
 		if (started.code === 0) return;
 		const output = (started.stderr || started.stdout).trim();
-		if (!/agent_pane_busy/.test(output)) {
+		const code = /agent_pane_busy|agent_start_input_failed/.exec(output)?.[0];
+		if (!code) {
 			if (acceptTrustDialog(pane, plan.agent)) return;
 			fail(
 				`herdr agent start failed in workspace ${workspace} pane ${pane}: ${output}. Read the pane, then close the workspace or retry.`,
@@ -387,15 +414,20 @@ function startSeat(plan: LaunchPlan, workspace: string, pane: string, timing: La
 		}
 		if (attempt >= timing.busyRetries)
 			fail(
-				`herdr agent start stayed busy in workspace ${workspace} pane ${pane} after ${attempt} retries: ${output}. Read the pane, then close the workspace or retry.`,
+				`herdr agent start answered ${code} in workspace ${workspace} pane ${pane} on all ${attempt + 1} attempts over ${Math.round(waitedMs / 100) / 10} s of waiting: ${output}. Read the pane, then close the workspace or retry.`,
 			);
-		sleep(timing.busyBackoffMs * 2 ** attempt);
+		const backoff = timing.busyBackoffMs * 2 ** attempt;
+		sleep(backoff);
+		waitedMs += backoff;
 		const present = agentPresent(plan.agent, pane);
 		if (present === true) return; // The earlier start succeeded late: that seat is the one.
 		if (present === null)
 			fail(
-				`herdr agent start was busy in workspace ${workspace} pane ${pane} and Herdr cannot list agents; not retrying.`,
+				`herdr agent start answered ${code} in workspace ${workspace} pane ${pane} and Herdr cannot list agents; not retrying.`,
 			);
+		const before = Date.now();
+		waitForShell(workspace, pane, timing);
+		waitedMs += Date.now() - before;
 	}
 }
 
@@ -501,6 +533,8 @@ export function launch(
 					.prepare("INSERT INTO events (task_id, run_id, ts, type, payload) VALUES (?, ?, ?, ?, ?)")
 					.run(taskRow.id, runId, new Date().toISOString(), type, JSON.stringify(payload)).lastInsertRowid,
 			);
+		// The line is measured before a run row or a pane exists; a nine-digit run id makes the path as long as it can get.
+		guardTypedLine({ ...plan, pluginDir: seatPluginDir(root, task, "999999999") }, timing.typedLineLimit);
 		const now = new Date().toISOString();
 		const runId = db
 			.prepare(
@@ -510,6 +544,8 @@ export function launch(
 			.run(taskRow.id, plan.stage, role, plan.model, plan.effort, taskRow.round, plan.session, now).lastInsertRowid;
 		plan.env.EVF_RUN = String(runId);
 		plan.agent = `${role}${opts.idea ?? ""}-${task.slug}-${runId}`; // One Herdr agent per run, so round 2 never collides with round 1's seat.
+		plan.pluginDir = seatPluginDir(root, task, runId);
+		writeSeatPlugin(plan);
 		const tui = findTui();
 		/**
 		 * One try at a seat: a pane, a ready shell, the agent and, with a prompt to send, the Claude session. A failure
@@ -553,7 +589,6 @@ export function launch(
 		for (let tries = 0; tries < 2 && !placed; tries++) {
 			if (tries) {
 				plan.env.EVF_SESSION = randomUUID();
-				plan.claudeArgs[plan.claudeArgs.indexOf("--session-id") + 1] = plan.env.EVF_SESSION;
 				plan.session = plan.env.EVF_SESSION;
 				db.prepare("UPDATE runs SET session_id = ? WHERE id = ?").run(plan.session, runId);
 				event(
