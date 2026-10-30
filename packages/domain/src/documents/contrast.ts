@@ -1,5 +1,5 @@
 // WCAG 2.x contrast. Every text/background pair in a document goes through `pair()`,
-// so the IDEA.md ratio table is generated from what the page actually uses.
+// so the logged ratios match what the page actually uses.
 export const hex = (c: string) => {
 	const m = /^#?([0-9a-f]{6})$/i.exec(c);
 	if (!m) throw new Error(`not a #rrggbb colour: ${c}`);
@@ -29,11 +29,6 @@ export const mix = (a: string, b: string, t: number) => {
 	const [r1, g1, b1] = hex(a),
 		[r2, g2, b2] = hex(b);
 	return toHex(r1 + (r2 - r1) * t, g1 + (g2 - g1) * t, b1 + (b2 - b1) * t);
-};
-export const gray = (c: string) => {
-	const [r, g, b] = hex(c);
-	const y = 0.299 * r + 0.587 * g + 0.114 * b;
-	return toHex(y, y, y);
 };
 
 export const MIN_BODY = 4.5; // WCAG 1.4.3 normal text

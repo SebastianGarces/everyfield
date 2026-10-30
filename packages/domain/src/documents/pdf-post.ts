@@ -40,7 +40,7 @@ export function tooltipFor(name: string) {
 	const row = /^(.+)_(\d+)_(\w+)$/.exec(name);
 	if (row) return `${title(row[1]!)} ${row[2]}: ${title(row[3]!).toLowerCase()}`;
 	const n = /^(.+)_(\d+)$/.exec(name);
-	if (n) return `${INDEXED[n[1]!] ?? title(n[1]!)} ${n[2]}`.replace(/ (\d+)$/, (_, d) => ` ${d}`);
+	if (n) return `${INDEXED[n[1]!] ?? title(n[1]!)} ${n[2]}`;
 	return title(name);
 }
 const title = (s: string) => s.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());

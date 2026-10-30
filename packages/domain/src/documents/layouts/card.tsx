@@ -9,10 +9,7 @@ export const CARD_SLOT = { w: 150, h: 44 };
 const contactLine = (ctx: Ctx) => {
 	const l = ctx.theme.letterhead;
 	const parts = [l?.phone, l?.email, l?.web].filter(Boolean);
-	if (parts.length)
-		return [ctx.theme.name === "everyfield-neutral" ? "" : (l?.legalName ?? ""), ...parts]
-			.filter(Boolean)
-			.join("  ·  ");
+	if (parts.length) return [ctx.p.brand ? (l?.legalName ?? "") : "", ...parts].filter(Boolean).join("  ·  ");
 	return ctx.values.pastor_name ? `Return this card to ${ctx.values.pastor_name}.` : "";
 };
 
@@ -88,7 +85,7 @@ export function cardDocument(ctx: Ctx, spec: CardSpec) {
 				{Title(ctx, spec.heading, p.ink, p.white, 20, "card title")}
 				{T(ctx, spec.kicker, { size: SIZE.xs - 1, weight: 700, color: p.mutedText, use: "card kicker", caps: true })}
 			</View>
-			{T(ctx, spec.leadIn(ctx.values), {
+			{T(ctx, spec.leadIn, {
 				size: SIZE.xs,
 				color: p.mutedText,
 				use: "card lead-in",

@@ -1,14 +1,15 @@
 // A test fixture formal/legal document. None of the 11 templates is formal/legal, so the notice and the doctrinal
-// slot are proven here, on the same shell and blocks the templates use.
+// slot are proven here, on the same shell and blocks the templates use. The fixture only declares its class (on ctx);
+// the shared Footer prints the notice.
 import { Page } from "@formepdf/react";
-import { T, Title, type Ctx } from "../src/documents/layouts/blocks.tsx";
-import { Doc, DoctrineSlot, LEGAL_NOTICE, LETTER } from "../src/documents/layouts/shell.tsx";
+import { Footer, Title, type Ctx } from "../src/documents/layouts/blocks.tsx";
+import { Doc, DoctrineSlot, LETTER } from "../src/documents/layouts/shell.tsx";
 
 export function legalFixture(ctx: Ctx) {
 	const page = (
-		<Page size={LETTER} margin={40}>
+		<Page size={LETTER} margin={{ top: 40, right: 40, bottom: 56, left: 40 }}>
+			{Footer(ctx, "Harborlight Church  |  Statement of Faith", ctx.p.ink)}
 			{Title(ctx, "Statement of Faith", ctx.p.ink, ctx.p.white, 28)}
-			{T(ctx, LEGAL_NOTICE, { color: ctx.p.ink, use: "legal notice" })}
 			{DoctrineSlot(ctx, "Statement of faith")}
 		</Page>
 	);

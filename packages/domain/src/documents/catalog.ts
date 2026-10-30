@@ -57,13 +57,13 @@ export function templateView(template: CatalogTemplate) {
 			required: field.required,
 			autoFill: field.autoFill ?? null,
 		})),
-		...registryFacts(template.id, template.description),
+		...registryFacts(template.id),
 	};
 }
 
-function registryFacts(id: string, description: string) {
+function registryFacts(id: string) {
 	const entry = entryFor(id);
-	if (!entry) return { documentClass: "operational" as const, pageSize: null, fillable: false, outline: [description] };
+	if (!entry) throw new Error(`Template ${id} is not in the document registry.`);
 	return {
 		documentClass: entry.documentClass,
 		pageSize: entry.pageSize,

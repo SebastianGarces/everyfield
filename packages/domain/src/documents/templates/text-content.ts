@@ -19,8 +19,8 @@ export type TextDocumentSpec = {
 	signOff?: string;
 };
 
-const sign = (kind: "member" | "team"): SignatureSlot[] => [
-	{ label: kind === "member" ? "Name" : "Name", name: "full_name", width: 190 },
+const sign = (): SignatureSlot[] => [
+	{ label: "Name", name: "full_name", width: 190 },
 	{ label: "Signature", name: "signature", width: 200 },
 	{ label: "Date", name: "signed_date", width: 100 },
 ];
@@ -98,7 +98,7 @@ export const MEMBER_EXPECTATIONS: TextDocumentSpec = {
 		},
 	],
 	closing: "By signing, I say that I have read these expectations and that I will do my best to keep them.",
-	signatures: sign("member"),
+	signatures: sign(),
 };
 
 export const LAUNCH_TEAM_COMMITMENT: TextDocumentSpec = {
@@ -162,7 +162,7 @@ export const LAUNCH_TEAM_COMMITMENT: TextDocumentSpec = {
 	],
 	closing:
 		"I make this commitment freely. I understand that I may talk with the pastor at any time if my situation changes.",
-	signatures: sign("team"),
+	signatures: sign(),
 };
 
 export const FOLLOW_UP_LETTER: TextDocumentSpec = {

@@ -99,8 +99,6 @@ export function Doc(ctx: Ctx, title: string, subject: string, pages: ReactNode, 
 	);
 }
 
-export const LEGAL_NOTICE = "Template, not legal advice";
-
 /** A doctrinal section no one has filled in: a visible blank the network completes. */
 export const DoctrineSlot = (ctx: Ctx, title: string) => (
 	<View

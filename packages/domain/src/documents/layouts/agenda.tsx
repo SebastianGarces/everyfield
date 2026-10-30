@@ -98,10 +98,10 @@ export function agendaDocument(ctx: Ctx, spec: AgendaSpec) {
 					marginBottom: SP[4],
 				}}
 			>
-				{metaField("Date", "meeting_date", 112, ctx.values.meeting_date)}
-				{metaField("Time", "meeting_time", 84)}
-				{metaField("Place", "meeting_place", 186)}
-				{metaField("Facilitator", "facilitator", 104, spec.facilitatorFromPastor ? ctx.values.pastor_name : undefined)}
+				{metaField("Date", "meeting_date", 176, ctx.values.meeting_date)}
+				{metaField("Time", "meeting_time", 62)}
+				{metaField("Place", "meeting_place", 106)}
+				{metaField("Facilitator", "facilitator", 142, spec.facilitatorFromPastor ? ctx.values.pastor_name : undefined)}
 			</View>
 			{SectionHead(ctx, 1, "Run of show", "rule", `${total} minutes`)}
 			{DataTable(

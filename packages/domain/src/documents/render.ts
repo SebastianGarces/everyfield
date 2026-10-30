@@ -8,7 +8,13 @@ import { finishForm } from "./pdf-post.ts";
 import { ContrastLog } from "./contrast.ts";
 import type { Ctx } from "./layouts/blocks.tsx";
 import { entryFor, contentSnapshot } from "./templates/registry.ts";
-import { resolveDocumentTheme, makePalette, themeTokensDigest, type DocumentTheme } from "./theme.ts";
+import {
+	resolveDocumentTheme,
+	makePalette,
+	themeTokensDigest,
+	type DocumentClass,
+	type DocumentTheme,
+} from "./theme.ts";
 import { buildBudget } from "./xlsx.ts";
 
 /**
@@ -80,8 +86,13 @@ export async function renderPdfElement(element: unknown): Promise<PdfRender> {
 	return { bytes: finish(done.bytes), pages: laid.layout.pages.length, text, fields: done.fields };
 }
 
-export function renderContext(church: string, values: Record<string, string>, theme: DocumentTheme): Ctx {
-	return { p: makePalette(theme), theme, church, values, log: new ContrastLog() };
+export function renderContext(
+	church: string,
+	values: Record<string, string>,
+	theme: DocumentTheme,
+	documentClass: DocumentClass,
+): Ctx {
+	return { p: makePalette(theme), theme, documentClass, church, values, log: new ContrastLog() };
 }
 
 const valuesOf = (resolved: Extract<ResolvedMerge, { ok: true }>) => {
@@ -102,7 +113,7 @@ export async function renderTemplatePdf(
 	if (Object.values(values).some(unsafe) || unsafe(church)) throw new RenderFailed();
 	const use = theme ?? resolveDocumentTheme({ name: church }, entry.documentClass);
 	try {
-		return await renderPdfElement(entry.build(renderContext(church, values, use)));
+		return await renderPdfElement(entry.build(renderContext(church, values, use, entry.documentClass)));
 	} catch (error) {
 		if (error instanceof RenderFailed) throw error;
 		throw new RenderFailed();

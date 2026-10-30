@@ -150,7 +150,7 @@ export function contentSnapshot() {
 			outline,
 			fields,
 		})),
-		cards: [COMMITMENT_CARD, RESPONSE_CARD].map((c) => ({ ...c, leadIn: c.leadIn({}) })),
+		cards: [COMMITMENT_CARD, RESPONSE_CARD].map((c) => ({ ...c })),
 		agendas: [VISION_AGENDA, BOARD_AGENDA].map((a) => ({ ...a, purpose: a.purpose("{church}") })),
 		checklists: CHECKLIST_TEAMS,
 		texts: [MEMBER_EXPECTATIONS, LAUNCH_TEAM_COMMITMENT, FOLLOW_UP_LETTER],

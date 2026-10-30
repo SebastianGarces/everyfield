@@ -6,7 +6,7 @@ export type CardSpec = {
 	heading: string;
 	kicker: string;
 	neutralTagline: string;
-	leadIn: (values: Record<string, string>) => string;
+	leadIn: string;
 	rows: CardRow[];
 	fields: CardField[];
 };
@@ -19,7 +19,7 @@ export const COMMITMENT_CARD: CardSpec = {
 	heading: "My commitment",
 	kicker: "Core group",
 	neutralTagline: WELCOME,
-	leadIn: () => "Through Launch Sunday, I will:",
+	leadIn: "Through Launch Sunday, I will:",
 	rows: [
 		{ name: "commit_grow", tile: "GROW", text: "Join a weekly group and keep learning with the church plant family." },
 		{ name: "commit_pray", tile: "PRAY", text: "Pray each week for our neighbors and for Launch Sunday." },
@@ -39,7 +39,7 @@ export const RESPONSE_CARD: CardSpec = {
 	heading: "Stay in touch",
 	kicker: "Vision meeting",
 	neutralTagline: WELCOME,
-	leadIn: () => "Thank you for coming. Check each way you would like to be involved:",
+	leadIn: "Thank you for coming. Check each way you would like to be involved:",
 	rows: [
 		{ name: "involve_updates", text: "Send me news about the church plant." },
 		{ name: "involve_group", text: "Invite me to a weekly group." },

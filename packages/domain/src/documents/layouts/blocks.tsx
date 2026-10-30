@@ -6,16 +6,20 @@ import { Checkbox, Fixed, H1, H2, H3, Image, Cell, Row, Svg, Table, Text, TextFi
 import type { Style } from "@formepdf/react";
 import { ContrastLog, MIN_BODY, MIN_NONTEXT } from "../contrast.ts";
 import { PageNumber } from "../pdfcn/page-number.tsx";
-import { FONT, SIZE, SP, type DocumentTheme, type Palette, type ThemeImage } from "../theme.ts";
+import { FONT, SIZE, SP, type DocumentClass, type DocumentTheme, type Palette, type ThemeImage } from "../theme.ts";
 
 export type Ctx = {
 	p: Palette;
 	theme: DocumentTheme;
+	/** The class sets fixed page elements: a formal/legal page always prints the legal notice. */
+	documentClass: DocumentClass;
 	church: string;
 	/** Merge-field values by key. A key with no value is absent. */
 	values: Record<string, string>;
 	log: ContrastLog;
 };
+
+export const LEGAL_NOTICE = "Template, not legal advice";
 
 export const dataUri = (b: Uint8Array, mime: string) => `data:${mime};base64,${Buffer.from(b).toString("base64")}`;
 
@@ -252,7 +256,7 @@ export const Field = (
 			<View
 				style={{
 					width: w,
-					height: h,
+					minHeight: h,
 					borderWidth: 1,
 					borderColor: ctx.p.fieldBorder,
 					justifyContent: "center",
@@ -364,7 +368,7 @@ export const Cellt = (
 	});
 
 /** Letterhead footer: the left text and the pdfcn page number. */
-export const Footer = (ctx: Ctx, left: string, rule: string, notice?: string) => (
+export const Footer = (ctx: Ctx, left: string, rule: string) => (
 	<Fixed position="footer">
 		<View
 			style={{
@@ -378,7 +382,9 @@ export const Footer = (ctx: Ctx, left: string, rule: string, notice?: string) =>
 		>
 			<View style={{ flexGrow: 1 }}>
 				{T(ctx, left, { size: SIZE.xs, color: ctx.p.mutedText, use: "footer text" })}
-				{notice ? T(ctx, notice, { size: SIZE.xs, weight: 700, color: ctx.p.ink, use: "legal notice" }) : null}
+				{ctx.documentClass === "formal/legal"
+					? T(ctx, LEGAL_NOTICE, { size: SIZE.xs, weight: 700, color: ctx.p.ink, use: "legal notice" })
+					: null}
 			</View>
 			<View style={{ width: 90 }}>
 				<PageNumber align="right" size="xs" format="Page {page} of {total}" />

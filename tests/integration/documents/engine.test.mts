@@ -148,7 +148,7 @@ describe("WP-036/api engine", () => {
 		assert.ok(ratio(low.accentLine, "#FFFFFF") >= MIN_NONTEXT);
 		const log = new ContrastLog();
 		for (const entry of pdfs) {
-			const ctx = renderContext(CHURCH, FULL, lowContrastKit());
+			const ctx = renderContext(CHURCH, FULL, lowContrastKit(), entry.documentClass);
 			await renderPdfElement(entry.build(ctx));
 			for (const row of ctx.log.rows) log.rows.push(row);
 		}
@@ -195,13 +195,14 @@ describe("WP-036/api engine", () => {
 	});
 
 	test("DOC-002: no PDF holds a wall-clock date or a random id", async () => {
+		const first = new Map<string, Awaited<ReturnType<typeof renderTemplatePdf>>>();
+		for (const entry of pdfs) first.set(entry.id, await renderTemplatePdf(entry, FULL));
+		await new Promise((resolve) => setTimeout(resolve, 1100));
 		for (const entry of pdfs) {
-			const a = await renderTemplatePdf(entry, FULL);
-			await new Promise((resolve) => setTimeout(resolve, 1100));
+			const a = first.get(entry.id)!;
 			const b = await renderTemplatePdf(entry, FULL);
 			assert.equal(digestOf(a.bytes), digestOf(b.bytes), entry.id);
 			assert.equal(/\/(CreationDate|ModDate)/.test(a.bytes.toString("latin1")), false, `${entry.id} has a date`);
-			break;
 		}
 	});
 
@@ -216,8 +217,8 @@ describe("WP-036/api engine", () => {
 			assert.equal(pkg.dependencies[name], version, name);
 		assert.notEqual(
 			renderEngineVersion(),
-			"10fb2db30c93f4d3c5d3a1a4a1d2d4f9",
-			"differs from the version of the hand-written writer",
+			"3c774b32a5ec4b34f4b891302ff0c03235ab7362a537dca73c2c2c68ad5e1f41",
+			"differs from main's version (the hash of the hand-written writer profile)",
 		);
 	});
 
@@ -311,10 +312,20 @@ describe("WP-036/api engine", () => {
 	});
 
 	test("DOC-020: a formal/legal document always prints the notice, and an unfilled doctrinal slot is a visible blank", async () => {
-		const out = await renderPdfElement(legalFixture(renderContext(CHURCH, NEUTRAL_VALUES, NEUTRAL_THEME)));
+		const out = await renderPdfElement(
+			legalFixture(renderContext(CHURCH, NEUTRAL_VALUES, NEUTRAL_THEME, "formal/legal")),
+		);
 		const text = out.text.flat().join(" ");
 		assert.ok(text.includes("Template, not legal advice"));
 		assert.ok(text.includes("To be completed by the network"));
+		for (const entry of pdfs) {
+			const own = await renderTemplatePdf(entry, FULL);
+			assert.equal(
+				own.text.flat().join(" ").includes("not legal advice"),
+				entry.documentClass === "formal/legal",
+				entry.id,
+			);
+		}
 	});
 
 	test("DOC-015: text-heavy content is structured data that reads without rendering", () => {
