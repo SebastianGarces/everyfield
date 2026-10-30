@@ -1209,7 +1209,7 @@ test("OPS-70-wait: a wait on a seat whose run already closed ends within two sea
 		const elapsed = Date.now() - started;
 		closer.kill();
 		assert.equal(f.runs()[0]!.status, "passed");
-		assert.ok(elapsed < 150 + 2 * seatPollMs + 600, `the drive moved on after ${elapsed} ms`);
+		assert.ok(elapsed < 2 * seatPollMs, `the drive moved on after ${elapsed} ms`);
 	} finally {
 		f.db.close();
 		f.close();

@@ -935,7 +935,7 @@ function waitOnSeat(
 				"--timeout",
 				String(Math.max(1, Math.min(timing.seatPollMs, deadline - sliceStart))),
 			],
-			{ timeoutMs: Math.max(timing.seatPollMs, 1) + 1000 },
+			{ timeoutMs: Math.max(timing.seatPollMs, 1) + 200 },
 		);
 		if (runStatus(db, runId) !== "started") return;
 		const state = parseAgentState(waited.stdout);
