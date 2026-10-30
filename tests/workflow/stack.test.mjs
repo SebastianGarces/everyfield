@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { chmodSync, mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -11,6 +11,7 @@ const script = fileURLToPath(new URL("../../scripts/stack.mjs", import.meta.url)
 // Fake only the external Portless executable. The public CLI and filesystem are real.
 const fake = `#!/usr/bin/env node
 const fs = require('node:fs');
+const path = require('node:path');
 const args = process.argv.slice(2);
 const file = process.env.FAKE_REGISTRY;
 const rows = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : [];
@@ -20,7 +21,13 @@ else if (args[1] === 'up') {
   const project = args[args.indexOf('--project') + 1];
   result = rows.find(p => p.project === project && p.state === 'ready');
   if (!result) {
-    result = {id: String(rows.length + 1), project, head: 'abc', branch: 'task/example', mode: args[args.indexOf('--mode') + 1], state: 'ready', url: 'http://example.localhost:1355'};
+    const id = String(rows.length + 1);
+    result = {id, project, head: 'abc', branch: 'task/example', mode: args[args.indexOf('--mode') + 1], state: 'ready', url: 'http://p' + id + '.localhost:1355'};
+    // Like Portless: the PREVIEW_URL placeholder in the config env becomes this preview's own URL. Record the resolved env.
+    const config = args[args.indexOf('--config') + 1];
+    const env = fs.existsSync(config) ? JSON.parse(fs.readFileSync(config, 'utf8')).env ?? {} : {};
+    const resolved = Object.fromEntries(Object.entries(env).map(([k, v]) => [k, String(v).replaceAll('\${PREVIEW_URL}', result.url)]));
+    fs.writeFileSync(path.join(path.dirname(file), 'env-' + id + '.json'), JSON.stringify(resolved));
     rows.push(result);
   }
 } else if (args[1] === 'down') {
@@ -71,7 +78,7 @@ test("INV-workflow: repeated starts and stops stay confined to the selected work
 			branch: "task/example",
 			mode: "development",
 			state: "ready",
-			url: "http://example.localhost:1355",
+			url: "http://p2.localhost:1355",
 		});
 		assert.equal(JSON.parse(readFileSync(join(runtime, "stack.json"), "utf8")).id, "2");
 		assert.equal(ok("down", a).state, "stopped");
@@ -83,6 +90,49 @@ test("INV-workflow: repeated starts and stops stay confined to the selected work
 				["2", "removed"],
 			],
 		);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+test("OPS-76: each preview resolves IDENTITY_ORIGIN to its own URL, whatever its id, mode or stale env file", () => {
+	const dir = realpathSync(mkdtempSync(join(tmpdir(), "evf-stack-origin-")));
+	try {
+		const bin = join(dir, "bin");
+		mkdirSync(bin);
+		writeFileSync(join(bin, "portless"), fake);
+		chmodSync(join(bin, "portless"), 0o755);
+		const env = {
+			...process.env,
+			PATH: `${bin}:${process.env.PATH}`,
+			FAKE_REGISTRY: join(dir, "registry.json"),
+			EVF_RUNTIME_DIR: join(dir, "runtime"),
+		};
+		const realConfig = fileURLToPath(new URL("../../scripts/preview.json", import.meta.url));
+		const stale = "IDENTITY_ORIGIN=https://stale.localhost\n";
+		let staleFile = "";
+		const urls = new Set();
+		for (const mode of ["development", "production"]) {
+			for (const name of ["one", "two"]) {
+				const project = join(dir, `${mode}-${name}`);
+				mkdirSync(join(project, "scripts"), { recursive: true });
+				copyFileSync(realConfig, join(project, "scripts/preview.json"));
+				if (mode === "development" && name === "one") {
+					mkdirSync(join(project, "apps/web"), { recursive: true });
+					staleFile = join(project, "apps/web/.env.local");
+					writeFileSync(staleFile, stale);
+				}
+				const r = spawnSync(process.execPath, [script, "up", "--project", project, "--mode", mode], { env, encoding: "utf8" });
+				assert.equal(r.status, 0, r.stderr);
+				const preview = JSON.parse(r.stdout);
+				const resolved = JSON.parse(readFileSync(join(dir, `env-${preview.id}.json`), "utf8"));
+				assert.equal(resolved.IDENTITY_ORIGIN, preview.url, `${mode} ${name}`);
+				assert.equal(resolved.NEXT_TELEMETRY_DISABLED, "1");
+				urls.add(preview.url);
+			}
+		}
+		assert.equal(urls.size, 4);
+		assert.equal(readFileSync(staleFile, "utf8"), stale);
 	} finally {
 		rmSync(dir, { recursive: true, force: true });
 	}
