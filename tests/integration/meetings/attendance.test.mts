@@ -900,7 +900,7 @@ const swap = async (c, extra = [c.extra], gone = [c.leaver]) => ({
 });
 
 test("INV-statements: a reconcile that adds, removes, advances and closes sends the same statements at 3 and 50 attendees", async () => {
-	const sent = async (size) => {
+	const statementsFor = async (size) => {
 		const c = await crowd(size);
 		const request = await swap(c);
 		const done = await counted(async () => ok(await write(owner, "reconcileAttendance", request)));
@@ -911,11 +911,10 @@ test("INV-statements: a reconcile that adds, removes, advances and closes sends 
 		assert.ok(done.value.work.some((w) => w.outcome === "closed" && w.personId === c.leaver));
 		return done.statements;
 	};
-	const three = await sent(3);
-	const fifty = await sent(50);
+	const three = await statementsFor(3);
+	const fifty = await statementsFor(50);
 	assert.ok(three > 0, "no statements counted");
 	assert.equal(fifty, three);
-	// Everything of a reconcile is one transaction: the same two runs also send one BEGIN and one COMMIT each.
 });
 
 test("AC:TARGET-MTG-020 AC:TARGET-MTG-012 a 50-attendee reconcile returns the exact result and writes the exact audit rows", async () => {
