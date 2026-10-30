@@ -16,16 +16,42 @@ for (const [name, engine] of ENGINES) {
 				await signIn(context, fixture("people").owner.cookie);
 				await page.goto(`${BASE}/meetings/${meetingId}/check-in`);
 				await hydrated(page);
-				for (const guest of guests) {
-					await page.getByRole("button", { name: new RegExp(`^${guest}`) }).click();
-				}
-				// Each tap shows at once; a row stays busy until the server answers.
-				await page.getByRole("radio", { name: /^Here 2/ }).click();
-				await page.getByRole("button", { name: new RegExp(`^${guests[1]}`), pressed: true }).waitFor();
+				// One list: no tabs and no radio. A tap marks the row in place and a second tap takes it back.
+				assert.equal(await page.getByRole("radio").count(), 0, "check-in has no radio");
+				const rowOf = (guest, pressed) =>
+					page.getByRole("button", { name: new RegExp(`^${guest}`), ...(pressed === undefined ? {} : { pressed }) });
+				const order = () => page.locator("ul button[aria-pressed]").allInnerTexts();
+				const before = await order();
+				await rowOf(guests[0]).click();
+				await rowOf(guests[0], true).waitFor();
 				await page.waitForFunction(() => !document.querySelector('button[aria-busy="true"]'));
+				await rowOf(guests[0]).click();
+				await rowOf(guests[0], false).waitFor();
+				await page.waitForFunction(() => !document.querySelector('button[aria-busy="true"]'));
+				for (const guest of guests) {
+					await rowOf(guest).click();
+					await rowOf(guest, true).waitFor();
+					await page.waitForFunction(() => !document.querySelector('button[aria-busy="true"]'));
+				}
+				assert.equal(
+					await page.locator("ul button[aria-pressed=true]").count(),
+					guests.length,
+					"pressed rows = tapped",
+				);
+				assert.deepEqual(
+					(await order()).map((t) => t.split("\n")[0]),
+					before.map((t) => t.split("\n")[0]),
+					"a tap never reorders the list",
+				);
 				await page.reload();
 				await hydrated(page);
-				await page.getByRole("radio", { name: /^Here 2/ }).waitFor();
+				// The counter reads "N of M" and never says "here".
+				const counter = await page
+					.getByText(new RegExp(`^${guests.length} of \\d+$`))
+					.first()
+					.innerText();
+				assert.doesNotMatch(counter, /here/i);
+				assert.equal(await page.locator("ul button[aria-pressed=true]").count(), guests.length);
 
 				await page.getByRole("button", { name: "Finish check-in" }).click();
 				const review = page.getByRole("dialog", { name: "Finalize attendance" });
