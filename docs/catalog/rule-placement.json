@@ -4521,6 +4521,106 @@
       "requirement": "REQ-MUL-012",
       "operation": "development.recordUnlinkedCompletion",
       "reason": "Explicit behavior added by the coordinator P2 review ruling."
+    },
+    {
+      "requirement": "REQ-BRD-001",
+      "operation": "brand.get",
+      "reason": "Templates plan approved 2026-10-30 (OPS-77): the new requirement names the operations that prove it."
+    },
+    {
+      "requirement": "REQ-BRD-001",
+      "operation": "brand.reset",
+      "reason": "Templates plan approved 2026-10-30 (OPS-77): the new requirement names the operations that prove it."
+    },
+    {
+      "requirement": "REQ-BRD-002",
+      "operation": "brand.uploadAsset",
+      "reason": "Templates plan approved 2026-10-30 (OPS-77): the new requirement names the operations that prove it."
+    },
+    {
+      "requirement": "REQ-BRD-002",
+      "operation": "brand.get",
+      "reason": "Templates plan approved 2026-10-30 (OPS-77): the new requirement names the operations that prove it."
+    },
+    {
+      "requirement": "REQ-BRD-003",
+      "operation": "brand.saveSettings",
+      "reason": "Templates plan approved 2026-10-30 (OPS-77): the new requirement names the operations that prove it."
+    },
+    {
+      "requirement": "REQ-BRD-003",
+      "operation": "brand.suggestColors",
+      "reason": "Templates plan approved 2026-10-30 (OPS-77): the new requirement names the operations that prove it."
+    },
+    {
+      "requirement": "REQ-BRD-004",
+      "operation": "brand.saveSettings",
+      "reason": "Templates plan approved 2026-10-30 (OPS-77): the new requirement names the operations that prove it."
+    },
+    {
+      "requirement": "REQ-BRD-005",
+      "operation": "brand.saveSettings",
+      "reason": "Templates plan approved 2026-10-30 (OPS-77): the new requirement names the operations that prove it."
+    },
+    {
+      "requirement": "REQ-BRD-005",
+      "operation": "brand.uploadAsset",
+      "reason": "Templates plan approved 2026-10-30 (OPS-77): the new requirement names the operations that prove it."
+    },
+    {
+      "requirement": "REQ-BRD-006",
+      "operation": "brand.resolveTheme",
+      "reason": "Templates plan approved 2026-10-30 (OPS-77): the new requirement names the operations that prove it."
+    },
+    {
+      "requirement": "REQ-DOC-017",
+      "operation": "documents.preview",
+      "reason": "Templates plan approved 2026-10-30 (OPS-77): the new requirement names the operations that prove it."
+    },
+    {
+      "requirement": "REQ-DOC-017",
+      "operation": "documents.generate",
+      "reason": "Templates plan approved 2026-10-30 (OPS-77): the new requirement names the operations that prove it."
+    },
+    {
+      "requirement": "REQ-DOC-018",
+      "operation": "documents.templates.list",
+      "reason": "Templates plan approved 2026-10-30 (OPS-77): the new requirement names the operations that prove it."
+    },
+    {
+      "requirement": "REQ-DOC-018",
+      "operation": "documents.templates.get",
+      "reason": "Templates plan approved 2026-10-30 (OPS-77): the new requirement names the operations that prove it."
+    },
+    {
+      "requirement": "REQ-DOC-019",
+      "operation": "documents.preview",
+      "reason": "Templates plan approved 2026-10-30 (OPS-77): the new requirement names the operations that prove it."
+    },
+    {
+      "requirement": "REQ-DOC-019",
+      "operation": "documents.generate",
+      "reason": "Templates plan approved 2026-10-30 (OPS-77): the new requirement names the operations that prove it."
+    },
+    {
+      "requirement": "REQ-DOC-020",
+      "operation": "documents.preview",
+      "reason": "Templates plan approved 2026-10-30 (OPS-77): the new requirement names the operations that prove it."
+    },
+    {
+      "requirement": "REQ-DOC-020",
+      "operation": "documents.generate",
+      "reason": "Templates plan approved 2026-10-30 (OPS-77): the new requirement names the operations that prove it."
+    },
+    {
+      "requirement": "REQ-DOC-021",
+      "operation": "documents.preview",
+      "reason": "Templates plan approved 2026-10-30 (OPS-77): the new requirement names the operations that prove it."
+    },
+    {
+      "requirement": "REQ-DOC-021",
+      "operation": "documents.generate",
+      "reason": "Templates plan approved 2026-10-30 (OPS-77): the new requirement names the operations that prove it."
     }
   ],
   "operation_additions": [
@@ -4773,6 +4873,36 @@
       "id": "development.recordUnlinkedCompletion",
       "requirement": "REQ-MUL-012",
       "reason": "Coordinator P2 review ruling, 2026-10-17 17:41."
+    },
+    {
+      "id": "brand.get",
+      "requirement": "REQ-BRD-001",
+      "reason": "Church brand kit plan, Sebastian approval 2026-10-30 (OPS-77); WP-104 owns the brand kit operations."
+    },
+    {
+      "id": "brand.saveSettings",
+      "requirement": "REQ-BRD-003",
+      "reason": "Church brand kit plan, Sebastian approval 2026-10-30 (OPS-77); WP-104 owns the brand kit operations."
+    },
+    {
+      "id": "brand.uploadAsset",
+      "requirement": "REQ-BRD-002",
+      "reason": "Church brand kit plan, Sebastian approval 2026-10-30 (OPS-77); WP-104 owns the brand kit operations."
+    },
+    {
+      "id": "brand.suggestColors",
+      "requirement": "REQ-BRD-003",
+      "reason": "Church brand kit plan, Sebastian approval 2026-10-30 (OPS-77); WP-104 owns the brand kit operations."
+    },
+    {
+      "id": "brand.reset",
+      "requirement": "REQ-BRD-001",
+      "reason": "Church brand kit plan, Sebastian approval 2026-10-30 (OPS-77); WP-104 owns the brand kit operations."
+    },
+    {
+      "id": "brand.resolveTheme",
+      "requirement": "REQ-BRD-006",
+      "reason": "Church brand kit plan, Sebastian approval 2026-10-30 (OPS-77); WP-104 owns the brand kit operations."
     }
   ],
   "shared_rewrites": {

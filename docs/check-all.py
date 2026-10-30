@@ -24,6 +24,7 @@ CHECKS = [
     ('rule placement', ['docs/catalog/check-rule-placement.py']),
     ('operation references', ['docs/catalog/check-operation-references.py']),
     ('feature projection', ['docs/catalog/project-features.py']),
+    ('document template list', ['docs/catalog/check-document-templates.py']),
     ('acceptance cases', ['docs/acceptance/check.py']),
     ('design handoff', ['design/handoff/export.py', '--check']),
     ('feature review page', ['docs/check-feature-review.py', '--check']),
