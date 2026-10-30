@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { spawn } from "node:child_process";
 import type { DatabaseSync } from "node:sqlite";
 import { ensureTask, findTask, markMerged, newTaskRow, openWorkDb, record, type TaskRow } from "./db.ts";
-import { ideaWorktree, launch, LaunchAborted, type LaunchTiming } from "./launch.ts";
+import { ideaWorktree, launch, LaunchAborted, LaunchLineTooLong, type LaunchTiming } from "./launch.ts";
 import type { Role } from "./seats.ts";
 import {
 	EvfError,
@@ -1091,6 +1091,11 @@ export type DriveTiming = {
 	startGraceMs: number;
 	/** Waits inside `evf launch`; tests shorten them, production uses LAUNCH_TIMING. */
 	launch?: Partial<LaunchTiming>;
+	/**
+	 * The wait after a launch abort before the same stage launches again: this long after the first abort, twice as long
+	 * after the second. The abort that reaches RETRY_CAP escalates at once and does not wait. Unset means no wait.
+	 */
+	abortBackoffMs?: number;
 };
 const DRIVE_TIMING: DriveTiming = {
 	waitMs: 6 * 60 * 60_000,
@@ -1098,6 +1103,7 @@ const DRIVE_TIMING: DriveTiming = {
 	startGraceMs: 30_000,
 	ciWaitMs: 40 * 60_000,
 	ciPollMs: 30_000,
+	abortBackoffMs: 30_000,
 };
 
 type Outcome = { status: "passed" | "failed"; summary: string };
@@ -1369,13 +1375,15 @@ function previousIdeaRun(runs: RunRow[], idea: number | undefined): PromptContex
 
 /**
  * Launch a seat. A launch that fails after its run row exists closed that run as aborted with the pane's last lines
- * (launch retries once by itself), so the drive logs it and goes on to the next transition, where the retry cap
- * applies. A failure before any run row exists is not a launch result: it stops the drive with its error.
+ * (launch retries once by itself), so the drive logs it, waits (abortBackoffMs, doubling) and goes on to the next
+ * transition, where the retry cap applies. A launch line over the terminal limit cannot succeed on a retry: the task
+ * escalates at once with that message. A failure before any run row exists is not a launch result: it stops the drive.
  */
 function launchOrLog(
 	root: string,
 	task: TaskRef,
 	launching: { role: Role; prompt: string; idea?: number; mode: string; launch?: Partial<LaunchTiming> },
+	timing: DriveTiming,
 ): void {
 	try {
 		launch(root, task, launching.role, {
@@ -1385,8 +1393,34 @@ function launchOrLog(
 			timing: launching.launch,
 		});
 	} catch (e) {
+		if (e instanceof LaunchLineTooLong) {
+			console.log(`${now()} drive ${task.id}: launch of ${launching.role} refused: ${e.message}`);
+			const db = openWorkDb(root);
+			try {
+				const t = ensureTask(db, task, launching.mode);
+				if (t.status !== "escalated") escalate(db, t, null, e.message);
+			} finally {
+				db.close();
+			}
+			return;
+		}
 		if (!(e instanceof LaunchAborted)) throw e;
 		console.log(`${now()} drive ${task.id}: launch of ${launching.role} failed: ${e.message}`);
+		const db = openWorkDb(root);
+		let failures = 0;
+		try {
+			const t = ensureTask(db, task, launching.mode);
+			failures = failuresInARow(runsOf(db, t.id), reopenMarker(db, t.id));
+		} finally {
+			db.close();
+		}
+		const wait = (timing.abortBackoffMs ?? 0) * 2 ** Math.max(0, failures - 1);
+		if (failures < RETRY_CAP && wait > 0) {
+			console.log(
+				`${now()} drive ${task.id}: launch abort ${failures} of ${RETRY_CAP}; waiting ${wait / 1000} s before the ${launching.role} launches again`,
+			);
+			sleep(wait);
+		}
 	}
 }
 
@@ -1483,7 +1517,7 @@ export function driveOnce(root: string, task: TaskRef, timing: DriveTiming = DRI
 		db.close();
 		if (launching) {
 			mkdirSync(launching.comparison, { recursive: true });
-			launchOrLog(root, task, launching);
+			launchOrLog(root, task, launching, timing);
 		}
 	}
 }

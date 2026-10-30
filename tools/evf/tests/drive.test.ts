@@ -181,7 +181,7 @@ test("OPS-59-drive: one transition launches the next seat through Herdr with the
 			"workspace with the stage env",
 		);
 		const start = calls.find((c) => c[0] === "agent" && c[1] === "start")!;
-		assert.ok(start.includes("--agent") && start.includes("planner"), start.join(" "));
+		assert.ok(start.includes("--agent") && start.includes("evf:planner"), start.join(" "));
 		const prompt = calls.find((c) => c[0] === "agent" && c[1] === "prompt")!;
 		assert.match(prompt[3]!, /^Plan task OPS-1: write the spec .* bin\/evf run done \$EVF_RUN/);
 
@@ -1665,6 +1665,75 @@ test("OPS-69-gone: a seat whose Herdr agent is gone is aborted with the usage of
 	} finally {
 		if (saved === undefined) delete process.env.CLAUDE_CONFIG_DIR;
 		else process.env.CLAUDE_CONFIG_DIR = saved;
+		f.db.close();
+		f.close();
+	}
+});
+
+// OPS-74: waits between launch aborts, and an over-long launch line that escalates at once.
+test("OPS-74-backoff: three launch aborts in a row wait 1x then 2x the backoff between launches; the third escalates without a wait", () => {
+	const f = driveFixture();
+	try {
+		f.db.prepare("UPDATE tasks SET spec = ?, status = 'active' WHERE id = ?").run(SPEC, f.taskId);
+		f.herdr.setState({ startFails: true, screen: "claude: command not found" });
+		const timing = { ...TIMING, abortBackoffMs: 150, launch: { paneReadyPollMs: 5 } };
+		const lines: string[] = [];
+		const log = console.log;
+		console.log = (line: string) => lines.push(String(line));
+		const took: number[] = [];
+		try {
+			for (let i = 0; i < 3; i++) {
+				const t0 = Date.now();
+				driveOnce(f.root, f.task, timing);
+				took.push(Date.now() - t0);
+			}
+			assert.equal(driveOnce(f.root, f.task, timing).stage, "escalated");
+		} finally {
+			console.log = log;
+		}
+		assert.deepEqual(
+			f.runs().map((r) => r.status),
+			["aborted", "aborted", "aborted"],
+		);
+		const waits = lines.filter((l) => /waiting [\d.]+ s before the implementer launches again/.test(l));
+		assert.equal(waits.length, 2, lines.join("\n"));
+		assert.match(waits[0]!, /launch abort 1 of 3; waiting 0\.15 s/);
+		assert.match(waits[1]!, /launch abort 2 of 3; waiting 0\.3 s/);
+		assert.ok(took[0]! >= 150 && took[1]! >= 300, `waits ran: ${took.join(", ")}`);
+		assert.ok(!lines.some((l) => /launch abort 3/.test(l)), "the third abort waits for nothing");
+		assert.match(f.events("escalation")[0]!.payload, /3 failures in a row without a passed stage/);
+		assert.equal(f.taskRow().status, "escalated");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-74-toolong: a launch line over the limit escalates the task at once with the byte count, without a retry or a run", () => {
+	const f = driveFixture();
+	try {
+		f.db.prepare("UPDATE tasks SET spec = ?, status = 'active' WHERE id = ?").run(SPEC, f.taskId);
+		const lines: string[] = [];
+		const log = console.log;
+		console.log = (line: string) => lines.push(String(line));
+		try {
+			assert.equal(driveOnce(f.root, f.task, { ...TIMING, launch: { typedLineLimit: 100 } }).stage, "implement");
+		} finally {
+			console.log = log;
+		}
+		assert.equal(f.taskRow().status, "escalated", "escalated after one launch, not three");
+		assert.equal(f.runs().length, 0, "no run row, so no failure counted");
+		assert.match(
+			f.events("escalation")[0]!.payload,
+			/launch line for implementer is \d+ bytes; the terminal accepts fewer than 100\./,
+		);
+		assert.ok(
+			lines.some((l) => /launch of implementer refused: .*fewer than 100\./.test(l)),
+			lines.join("\n"),
+		);
+		assert.equal(f.herdr.calls().filter((c) => c[0] === "agent" && c[1] === "start").length, 0);
+		assert.equal(driveOnce(f.root, f.task, TIMING).stage, "escalated");
+	} finally {
 		f.db.close();
 		f.close();
 	}

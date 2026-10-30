@@ -105,7 +105,7 @@ State store (harness)
 
 Seats (harness)
   evf launch <task> --role <role> [--idea <n>] [--prompt-file <file>] [--dry-run] [--ignore-load "<reason>"]
-        worktree + Herdr workspace + claude --agent <role> with evf's session id; records the run.
+        worktree + Herdr workspace + claude --agent evf:<role> with evf's session id; records the run.
         Roles: planner, implementer, ui, simplifier, verifier, ideator (with --idea), comparer, prototype-merger.
   evf refocus <task>                                          the goal chain for a seat: ask, spec, proof rule (fits the hook limit; says what it cut)
   evf session                                                 this pane's Claude Code session id, for EVF-Author and EVF-Review

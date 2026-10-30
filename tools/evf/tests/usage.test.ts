@@ -9,7 +9,7 @@ import { readFileSync } from "node:fs";
 import { assistantLine, fixture, MARKER, source, toolResultLine, writeTranscript } from "./fixtures.ts";
 import { ensureTask, migrate, openWorkDb } from "../db.ts";
 import { runDone } from "../drive.ts";
-import { launchPlan } from "../launch.ts";
+import { claudeArgs, launchPlan } from "../launch.ts";
 import { EvfError, loadConfig, parseTask } from "../lib.ts";
 import { resolveSeat, ROLES } from "../seats.ts";
 import {
@@ -448,13 +448,9 @@ test("OPS-69-config: no seats key keeps the defaults; a role override and the tr
 			writeFileSync(join(f.root, "evf.config.json"), JSON.stringify({ ...cfg, ...extra }));
 		};
 		const seat = (task: string, role: keyof typeof ROLES) => {
-			const p = launchPlan(f.root, parseTask(task), role, {});
-			return [
-				p.model,
-				p.effort,
-				p.claudeArgs[p.claudeArgs.indexOf("--model") + 1],
-				p.claudeArgs[p.claudeArgs.indexOf("--effort") + 1],
-			];
+			const p = launchPlan(f.root, parseTask(task), role, {}),
+				args = claudeArgs(p);
+			return [p.model, p.effort, args[args.indexOf("--model") + 1], args[args.indexOf("--effort") + 1]];
 		};
 		write({});
 		for (const role of Object.keys(ROLES) as Array<keyof typeof ROLES>)
