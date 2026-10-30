@@ -246,7 +246,10 @@ const startArgs = (plan: LaunchPlan, pane: string) => [
 ];
 /** A dry run shows the long `--agents` JSON as a placeholder; the line above it names the source file. */
 const startArgsShown = (plan: LaunchPlan, pane: string) =>
-	startArgs({ ...plan, claudeArgs: plan.claudeArgs.map((a, i, all) => (all[i - 1] === "--agents" ? "<agents json>" : a)) }, pane);
+	startArgs(
+		{ ...plan, claudeArgs: plan.claudeArgs.map((a, i, all) => (all[i - 1] === "--agents" ? "<agents json>" : a)) },
+		pane,
+	);
 
 /** Print every step without changing Herdr, the store or the worktree. It only reads Herdr to find the TUI workspace. */
 export function launchDryRun(
