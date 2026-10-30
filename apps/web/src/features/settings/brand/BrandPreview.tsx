@@ -27,9 +27,9 @@ export function BrandPreview({ churchName, form }: { churchName: string; form: B
 	const [tab, setTab] = useState<DocumentClass>("formal/legal");
 	return (
 		<Tabs value={tab} onValueChange={(next) => setTab(next as DocumentClass)}>
-			<TabsList aria-label="Document class" className="gap-5! max-app-sm:gap-4!">
+			<TabsList aria-label="Document class" className="gap-5! max-app-sm:gap-3!">
 				{CLASSES.map((c) => (
-					<Tab key={c.value} value={c.value} className="text-[14px]!">
+					<Tab key={c.value} value={c.value} className="text-[14px]! max-app-sm:text-[13px]!">
 						{c.label}
 					</Tab>
 				))}
