@@ -1129,6 +1129,29 @@
 				}
 			],
 			"risk": "ordinary"
+		},
+		"OPS-74": {
+			"title": "Seat launch input over the 1024-byte terminal limit after OPS-72",
+			"owningPaths": [
+				"tools/evf/",
+				"tools/evf-tui/",
+				".agents/roles/",
+				".agents/skills/",
+				".claude/agents/",
+				"evf.config.json",
+				"docs/build-agent-workflow.md"
+			],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {

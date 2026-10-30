@@ -98,20 +98,30 @@ A seat is one fresh top-level Claude Code session in its own Herdr pane and task
 --role <role>` creates the worktree when it is missing (the task start rules apply), splits a new pane off the
 Herdr workspace that runs the evf TUI (label `evf TUI`, found by that label and by the pane that runs the TUI
 process; `EVF_TUI_LABEL` overrides the label for a test or a scratch workspace) and starts
-`claude --agent <role>` in it with the session id evf chose, the role's model and effort and
+`claude --plugin-dir <run dir> --agent evf:<role>` in it with the session id evf chose, the role's model and effort and
 `--dangerously-skip-permissions` (the owner's `ccd` alias; a herdr pane loads no shell aliases, so evf passes the flag). The pane's shell carries `EVF_TASK`, `EVF_RUN`, `EVF_ROLE`, `EVF_STAGE`,
 `EVF_WORKTREE` and `EVF_SESSION`. evf records the run and a `stage_start` event in the work store:
 `runs.herdr_pane` is the seat's pane and `tasks.herdr_workspace_id` is the TUI workspace. `--dry-run` prints every
 step. The role files are `.claude/agents/<role>.md`: planner and verifier on Opus 5.5 high, implementer, ui,
 simplifier on Sonnet 5.5 medium. The implementer seat does UI work too and proves its own work; the ui seat is opt-in with the spec line `Seat: ui`. Every seat has the advisor and the update prompt disabled.
 
-The seat's agent definition comes from the evf checkout that runs the launch, never from the task worktree: launch
-reads `<evf root>/.claude/agents/<role>.md` and hands it to Claude Code as `claude --agent <role> --agents <json>`
-(every frontmatter key except `name`, so `skills` and later fields arrive too, plus the prompt body; `tools`,
-`disallowedTools` and `skills` become lists). A definition given
-on the command line outranks the worktree's own `.claude/agents`, so a task branch that deletes, renames or edits a
-role file still drives itself to merge. `evf launch --dry-run` prints which file the definition came from; no copy of a
-role file belongs in `~/.claude/agents/`.
+The seat's agent definition comes from the evf checkout that runs the launch, never from the task worktree. Launch
+reads `<evf root>/.claude/agents/<role>.md` (a missing `model` or `effort` line gets the seat's) and writes it into a
+per-run plugin directory `<runtime>/seat-<run>/` (`.claude-plugin/plugin.json` plus `agents/<role>.md`; `<runtime>` is
+`.git/evf/runtime/<task slug>`, outside every worktree). The seat starts with `claude --plugin-dir <that directory>
+--agent evf:<role> ...`, so the typed line carries a path, not the definition. A plugin agent is namespaced, so a task
+branch that deletes, renames or edits `.claude/agents/<role>.md` cannot shadow or change the seat its own drive
+launches. `--agents <file>` would keep the line short too, but Claude Code reads a file there only with `--print`; a
+seat runs interactive, so launch uses `--plugin-dir`. Plugin agents ignore `permissionMode`; seats already run with
+`--dangerously-skip-permissions`. `evf launch --dry-run` prints the source file, the plugin directory and the byte
+count of the typed line; no copy of a role file belongs in `~/.claude/agents/`.
+
+Herdr types `claude <args>` into the pane's shell, and the terminal refuses a line of 1024 bytes or more
+(`agent_start_input_failed`). Launch measures the exact line (`claude`, then each argument with the shell quoting Herdr
+uses) before it creates a run row or a pane. At 1024 bytes or more it throws `LaunchLineTooLong` naming the role, the
+byte count and the limit; retrying cannot help, so the drive escalates the task at once with that message and does not
+spend the three-failure cap. The line does not depend on the size of a role file; every role stays under 768 bytes in
+a normal checkout (a test grows the role files to 20 KB and compares).
 
 The agent files set `permissionMode: bypassPermissions`. The repository's `permissions.deny` rules and its hooks
 stay in force under the flag; `ask` rules may not prompt. `dontAsk` is never used.
@@ -127,7 +137,9 @@ A launch that fails does not kill the drive. When `herdr agent start` fails or t
 not found`, not only "timed out waiting for agent startup". It then closes the dead pane (or workspace), opens a new
 pane with a new Claude session id and tries once more under the same run. A second failure closes the run as
 `aborted` with the pane excerpt in its summary and throws; `evf drive` logs that line and goes on to its next
-transition, where the three-failures cap applies as usual. A launch with a prompt sends it only after the run's
+transition, where the three-failures cap applies as usual. Between two launch aborts the drive waits 30 s after the
+first and 60 s after the second (`DriveTiming.abortBackoffMs`, doubling) and logs each wait; the abort that reaches the
+cap escalates without a wait. A launch with a prompt sends it only after the run's
 `session_start` event exists (the Claude session-start hook ran; 60 s bound, else the launch fails as above). It
 then confirms that a turn began: the agent left `idle`, or a later event of the run shows activity. If none
 begins within 15 s, launch sends the prompt once more and records `prompt_resent`; it never resends twice.
@@ -186,9 +198,14 @@ status from the store before each slice, so a run that already passed, failed or
 A seat whose Herdr agent no longer exists, while its run is still started, gets its run closed as aborted, and the
 next transition launches that stage again with the same round. A blocked seat is notified once per
 blocked episode and polled every few seconds until it leaves `blocked`; an `idle` report before the launch prompt
-began its turn is not a finished turn. `evf launch` waits until the new pane is an available shell (Herdr
-`pane process-info`: `foreground_process_group_id` equals `shell_pid`, 30 s) and retries `agent_pane_busy`
-three times with backoff, never starting a seat twice. Each launch gets its own Herdr agent, `<role>-<slug>-<run>`,
+began its turn is not a finished turn. `evf launch` waits until the new pane is a shell at its prompt (Herdr
+`pane process-info`: `foreground_process_group_id` equals `shell_pid` and `foreground_processes` lists only the shell,
+on two polls 100 ms apart; 30 s) and retries `agent_pane_busy` and `agent_start_input_failed` three times with
+doubling backoff (1, 2, 4 s) in the same pane. Before each retry it reads the agent list, so a seat never starts
+twice, and waits for the quiet shell again. The group check alone passes while zsh still loads its profile, because
+the shell is already the foreground group then and its subshells (`brew shellenv`, `uname`) belong to that group;
+Herdr has no prompt flag, and `pane read` shows the prompt only after the fact. After the retries launch fails with
+the error code, the attempt count and the seconds waited, and the usual one-new-pane retry applies. Each launch gets its own Herdr agent, `<role>-<slug>-<run>`,
 so a later round never waits on an earlier seat. `evf next <task>` prints the next stage without acting
 and writes nothing; `--once` performs one transition; `--detach` runs the loop in the background with a
 log under the Git common directory. One drive per task: a second `evf drive` refuses while the first
