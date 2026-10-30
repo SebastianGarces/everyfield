@@ -47,33 +47,28 @@ function fakeHerdr(root: string) {
 function driveFixture(opts: { failWhenFile?: string; nested?: string[] } = {}) {
 	const f = fixture(),
 		task = parseTask("OPS-1");
-	// A check that fails while `failWhenFile` exists in the worktree lets a test fail the author checks at one head.
+	// `failWhenFile` makes the first check fail while that file exists in the worktree, to fail the author checks at one head.
 	// `nested` makes the first check run a guarded evf command through main.ts, once: the nested verify sees EVF_NESTED.
-	const checks = opts.nested
-		? [
-				{
-					name: "nested-evf",
+	const first = opts.nested
+		? {
+				name: "nested-evf",
+				run: [
+					process.execPath,
+					"-e",
+					`if(process.env.EVF_NESTED)process.exit(0);const r=require("node:child_process").spawnSync(process.execPath,[${JSON.stringify(join(source, "tools/evf/main.ts"))},...${JSON.stringify(opts.nested)}],{encoding:"utf8",env:{...process.env,EVF_NESTED:"1"}});console.log("nested exit "+r.status);console.log("monitor "+process.env.EVF_MONITOR);console.log(r.stdout);console.error(r.stderr);process.exit(r.status)`,
+				],
+			}
+		: opts.failWhenFile
+			? {
+					name: "fixture-check",
 					run: [
 						process.execPath,
 						"-e",
-						`if(process.env.EVF_NESTED)process.exit(0);const r=require("node:child_process").spawnSync(process.execPath,[${JSON.stringify(join(source, "tools/evf/main.ts"))},...${JSON.stringify(opts.nested)}],{encoding:"utf8",env:{...process.env,EVF_NESTED:"1"}});console.log("nested exit "+r.status);console.log("monitor "+process.env.EVF_MONITOR);console.log(r.stdout);console.error(r.stderr);process.exit(r.status)`,
+						`process.exit(require("node:fs").existsSync(${JSON.stringify(opts.failWhenFile)}) ? 1 : 0)`,
 					],
-				},
-				...f.cfg.checks.slice(1),
-			]
-		: opts.failWhenFile
-			? [
-					{
-						name: "fixture-check",
-						run: [
-							process.execPath,
-							"-e",
-							`process.exit(require("node:fs").existsSync(${JSON.stringify(opts.failWhenFile)}) ? 1 : 0)`,
-						],
-					},
-					...f.cfg.checks.slice(1),
-				]
-			: f.cfg.checks;
+				}
+			: undefined;
+	const checks = first ? [first, ...f.cfg.checks.slice(1)] : f.cfg.checks;
 	f.cfg.maintenanceTasks = { "OPS-1": { title: "Drive", owningPaths: ["tools/evf/"], checks } };
 	writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
 	f.commit();
