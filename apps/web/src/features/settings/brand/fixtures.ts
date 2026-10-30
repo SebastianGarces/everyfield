@@ -21,8 +21,6 @@ const PREVIEW_KITS: readonly PreviewKit[] = ["none", "saved", "pale"];
 export const parsePreviewKit = (value: string | null | undefined): PreviewKit =>
 	(PREVIEW_KITS as readonly string[]).includes(value ?? "") ? (value as PreviewKit) : "none";
 
-const hex = (digits: string) => `#${digits}` as HexColor;
-
 const EMPTY: BrandKitData = {
 	primaryColor: null,
 	accentColor: null,
@@ -37,8 +35,8 @@ const START: Record<PreviewKit, BrandKitData> = {
 	none: EMPTY,
 	saved: {
 		...EMPTY,
-		primaryColor: hex("1F4E79"),
-		accentColor: hex("D4A017"),
+		primaryColor: "#1F4E79" as HexColor,
+		accentColor: "#D4A017" as HexColor,
 		headingFont: "Playfair Display",
 		bodyFont: "Source Sans 3",
 		legalName: "Harvest Point Church, Inc.",
@@ -51,7 +49,7 @@ const START: Record<PreviewKit, BrandKitData> = {
 		signerName: "Daniel Reyes",
 		signerTitle: "Lead pastor",
 	},
-	pale: { ...EMPTY, primaryColor: hex("FFF3B0") },
+	pale: { ...EMPTY, primaryColor: "#FFF3B0" as HexColor },
 };
 
 const kitOf = (data: BrandKitData, revision: string): BrandKit =>

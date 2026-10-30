@@ -143,10 +143,10 @@ function Formal({ theme, layout }: { theme: DocumentTheme; layout: Layout<"forma
 			</div>
 			<div className="mt-4 border-t pt-2" style={{ borderColor: theme.colors.rule }}>
 				<div className="flex items-baseline justify-between gap-3 text-[10px] opacity-80">
-					<span className="min-w-0 truncate">
+					<span className="min-w-0">
 						{footer.name}
 						{footer.address ? ` · ${footer.address}` : ""}
-						{footer.ein ? ` · EIN ${footer.ein}` : ""}
+						{footer.ein ? <span className="whitespace-nowrap">{` · EIN ${footer.ein}`}</span> : null}
 					</span>
 					<span className="flex-none">Page 1 of 1</span>
 				</div>

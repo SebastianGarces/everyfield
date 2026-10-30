@@ -27,9 +27,8 @@ import {
 } from "./model";
 import { useBrand } from "./useBrand";
 
-const hex = (digits: string) => `#${digits}`;
 /** What the color picker shows while the typed color is empty or not `#RRGGBB`. */
-const PICKER_EMPTY = hex("808080");
+const PICKER_EMPTY = "#808080";
 
 const FONT_OPTIONS = FONTS.map((font) => ({ value: font.id, label: font.id }));
 

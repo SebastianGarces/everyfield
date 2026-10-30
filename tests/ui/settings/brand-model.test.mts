@@ -7,6 +7,7 @@
 //   INV-brand-patch: a save sends only changed fields, and a cleared optional field is null.
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { DEFAULT_BODY_FONT, DEFAULT_HEADING_FONT } from "../../../packages/contracts/src/branding/values.ts";
 import { colorView } from "../../../packages/domain/src/branding/color.ts";
 import {
 	colorOf,
@@ -35,8 +36,8 @@ const ORG = {
 const empty = {
 	primaryColor: null,
 	accentColor: null,
-	headingFont: "DM Serif Display",
-	bodyFont: "DM Sans",
+	headingFont: DEFAULT_HEADING_FONT,
+	bodyFont: DEFAULT_BODY_FONT,
 	legalName: null,
 	address: null,
 	website: null,
@@ -157,8 +158,8 @@ test("INV-brand-patch: only changed fields are sent, and a cleared optional fiel
 });
 
 test("the default kit shows DM Serif Display and DM Sans and empty controls", () => {
-	assert.equal(defaults.headingFont, "DM Serif Display");
-	assert.equal(defaults.bodyFont, "DM Sans");
+	assert.equal(defaults.headingFont, DEFAULT_HEADING_FONT);
+	assert.equal(defaults.bodyFont, DEFAULT_BODY_FONT);
 	assert.equal(defaults.primaryColor, "");
 	assert.equal(defaults.accentColor, "");
 });
