@@ -3040,3 +3040,535 @@ test("OPS-67-ship-ack: a WP record with no owning-path diff stays unacknowledged
 		f.close();
 	}
 });
+
+// OPS-80: document-template PRs wait for Sebastian (mergePolicy.documentTemplates).
+import { chmodSync } from "node:fs";
+import { DEFAULT_DOCUMENT_TEMPLATES, documentTemplateChanges } from "../policy.ts";
+
+/** The fake gh mergeCalls into the checkout two levels above its cwd; evf approve runs gh in the caller's cwd. */
+const inFakeCwd = <T>(f: { root: string }, fn: () => T): T => {
+	const cwd = process.cwd(),
+		dir = join(f.root, "fake-bin", "cwd");
+	mkdirSync(dir, { recursive: true });
+	process.chdir(dir);
+	try {
+		return fn();
+	} finally {
+		process.chdir(cwd);
+	}
+};
+const TEMPLATE_ERR = "evf.config.json mergePolicy.documentTemplates";
+test("INV-document-templates-config: an absent key uses the built-in default; an empty list and a duplicate path stop loadConfig with the exact line", () => {
+	const f = fixture();
+	try {
+		const load = (edit: (c: any) => void) => {
+			const cfg = structuredClone(f.cfg);
+			cfg.mergePolicy.documentTemplates = structuredClone(DEFAULT_DOCUMENT_TEMPLATES);
+			edit(cfg);
+			writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(cfg));
+			return () => loadConfig(f.root);
+		};
+		// The key is optional: an absent key loads and the built-in default in policy.ts applies.
+		assert.equal(load((c) => delete c.mergePolicy.documentTemplates)().mergePolicy.documentTemplates, undefined);
+		assert.throws(
+			load((c) => (c.mergePolicy.documentTemplates = "yes")),
+			{ message: `${TEMPLATE_ERR} must be an object with paths, approvedAtUtc, quote and scope.` },
+		);
+		assert.throws(
+			load((c) => (c.mergePolicy.documentTemplates.paths = [])),
+			{
+				message: `${TEMPLATE_ERR}.paths must be a non-empty list of distinct relative paths with no .. part; got [].`,
+			},
+		);
+		assert.throws(
+			load((c) => (c.mergePolicy.documentTemplates.paths = ["a.ts", "a.ts"])),
+			{
+				message: `${TEMPLATE_ERR}.paths must be a non-empty list of distinct relative paths with no .. part; got ["a.ts","a.ts"].`,
+			},
+		);
+		for (const bad of ["/abs.ts", "docs/../x.ts"])
+			assert.throws(
+				load((c) => (c.mergePolicy.documentTemplates.paths = [bad])),
+				new RegExp(`documentTemplates.paths must be a non-empty list.*${bad.replace(/[./]/g, "\\$&")}`),
+			);
+		assert.throws(
+			load((c) => (c.mergePolicy.documentTemplates.approvedAtUtc = "2026-10-30 11:51 EDT")),
+			{ message: `${TEMPLATE_ERR}.approvedAtUtc must be an ISO UTC timestamp; got "2026-10-30 11:51 EDT".` },
+		);
+		for (const field of ["quote", "scope"])
+			assert.throws(
+				load((c) => (c.mergePolicy.documentTemplates[field] = " ")),
+				{ message: `${TEMPLATE_ERR}.${field} must be a non-empty string.` },
+			);
+		const real = DEFAULT_DOCUMENT_TEMPLATES;
+		assert.equal(real.approvedAtUtc, "2026-10-30T15:51:00Z");
+		assert.equal(real.paths.length, 4);
+		assert.match(real.quote, /^This looks good - while we develop all the final versions of all the templates/);
+	} finally {
+		f.close();
+	}
+});
+
+test("INV-document-templates-policy: the class reads the whole head diff, counts both sides of a rename and matches folders by prefix", () => {
+	const f = fixture();
+	try {
+		f.git("checkout", "-q", "-b", "setup");
+		mkdirSync(join(f.root, "packages/domain/src/documents"), { recursive: true });
+		writeFileSync(join(f.root, "packages/domain/src/documents/render.ts"), "export {};\n");
+		writeFileSync(join(f.root, "packages/domain/src/documents-extra.ts"), "export {};\n");
+		f.git("add", "packages");
+		f.git("commit", "-qm", "Template code");
+		f.git("branch", "-f", "main", "setup");
+		f.git("checkout", "-q", "main");
+		const cfg = loadConfig(f.root);
+		const branch = (name: string, ...commits: Array<(() => void) | string>) => {
+			f.git("checkout", "-q", "-b", name, "main");
+			for (const c of commits) {
+				if (typeof c === "string") {
+					mkdirSync(dirname(join(f.root, c)), { recursive: true });
+					writeFileSync(join(f.root, c), `${name}\n`);
+					f.git("add", c);
+				} else c();
+				f.git("commit", "-qm", name);
+			}
+			f.git("checkout", "-q", "main");
+			return documentTemplateChanges(f.root, cfg, "main", name);
+		};
+		// The template change sits in the first commit; later commits touch other files only.
+		assert.deepEqual(branch("split", "docs/reference/document-templates.ts", "tools/a.ts", "tools/b.ts"), [
+			"docs/reference/document-templates.ts",
+		]);
+		// A rename out of the folder counts the old path.
+		assert.deepEqual(
+			branch("renamed", () => f.git("mv", "packages/domain/src/documents/render.ts", "packages/domain/src/render.ts")),
+			["packages/domain/src/documents/render.ts"],
+		);
+		// A rename into the folder counts the new path.
+		assert.deepEqual(
+			branch("renamed-in", () =>
+				f.git("mv", "packages/domain/src/documents-extra.ts", "packages/domain/src/documents/extra.ts"),
+			),
+			["packages/domain/src/documents/extra.ts"],
+		);
+		// A sibling that shares the prefix, a file that only ends alike and a nested template path.
+		assert.deepEqual(
+			branch("sibling", "packages/domain/src/documents-extra.ts", "docs/reference/document-templates.tsx"),
+			[],
+		);
+		assert.deepEqual(branch("nested", "packages/domain/src/documents/deep/x.ts"), [
+			"packages/domain/src/documents/deep/x.ts",
+		]);
+	} finally {
+		f.close();
+	}
+});
+
+/** The PR fields evf approve reads, on top of the ship fixture's PR. */
+function approvable(f: ReturnType<typeof mergeFixture>, branch: string, files: string[], head: string) {
+	f.git("push", "-q", "origin", branch);
+	const s = f.getState();
+	s.pr = {
+		...s.pr,
+		title: "Template PR",
+		headRefName: branch,
+		headRefOid: head,
+		mergeStateStatus: "CLEAN",
+		files: files.map((path) => ({ path })),
+	};
+	f.setState(s);
+}
+const verifiedStatus = (head: string) => ({
+	statuses: [
+		{
+			context: "evf/verify",
+			state: "success",
+			description: `Verified by claude-opus-5-5 (session 22222222) at ${head.slice(0, 10)}`,
+		},
+	],
+});
+const templateConfig = (f: { root: string; cfg: any }, paths: string[]) => {
+	f.cfg.mergePolicy.documentTemplates = { ...structuredClone(DEFAULT_DOCUMENT_TEMPLATES), paths };
+	writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+};
+const callsWith = (f: any, ...match: string[]) =>
+	f.getState().calls.filter((c: any) => match.every((m) => c.args.includes(m)));
+const mergeCalls = (f: any) =>
+	f.getState().calls.filter((c: any) => c.args[0] === "pr" && ["merge", "update-branch"].includes(c.args[1]));
+const capturedLog = <T>(fn: () => T): { value: T; lines: string[] } => {
+	const log = console.log,
+		lines: string[] = [];
+	console.log = (...a: unknown[]) => lines.push(a.join(" "));
+	try {
+		return { value: fn(), lines };
+	} finally {
+		console.log = log;
+	}
+};
+
+test("INV-document-templates-ship: a verified WP part that changes a template is verified, never queued or merged, and names the approve command", () => {
+	const { f, db, task, shipped } = wpShipFixture();
+	try {
+		templateConfig(f, ["packages/reference/"]);
+		const head = f.getState().pr.headRefOid,
+			before = f.getState().calls.length;
+		const { value, lines } = capturedLog(() => ship(f.root, task));
+		assert.equal(value, 0);
+		const calls = f.getState().calls.slice(before);
+		assert.deepEqual(
+			calls.filter((c: any) => c.args.includes("POST")).map((c: any) => c.args),
+			[
+				[
+					"api",
+					"-X",
+					"POST",
+					`repos/test/private/statuses/${head}`,
+					"-f",
+					"state=success",
+					"-f",
+					"context=evf/verify",
+					"-f",
+					`description=Verified by claude-opus-5-5 (session 22222222) at ${head.slice(0, 10)}`,
+				],
+			],
+		);
+		assert.deepEqual(mergeCalls(f), [], "no merge and no update-branch call");
+		assert.deepEqual(lines, [
+			`evf ship does not merge PR #77: it changes document-template paths (packages/reference/fixture.txt). The verifier passed it. Sebastian approves each document-template PR; after his approval in chat, run: bin/evf approve 77 --owner-approval "<his words>"`,
+		]);
+		assert.equal(existsSync(join(evfDataDir(f.root), "shipped", `${task.slug}.json`)), false, "nothing shipped yet");
+		void shipped;
+	} finally {
+		db.close();
+		f.close();
+	}
+});
+
+test("INV-document-templates-ship: an OPS task and a P1 fix join the class; more than five paths show five and a count", () => {
+	for (const kind of ["ops", "fb"] as const) {
+		const f = mergeFixture();
+		const log = console.log;
+		try {
+			let task = f.taskRef,
+				wt = f.wt;
+			if (kind === "fb") {
+				f.authorize("WP-034");
+				f.commit();
+				f.git("push", "-q", "origin", "main");
+				feedbackTriage(f.root, 1, { cls: "p1", reason: "scoped feedback", wp: "WP-034" });
+				task = parseTask("FB-1");
+				wt = f.task(task.slug);
+			}
+			const files = Array.from({ length: 7 }, (_, i) => `docs/reference/document-templates.ts${i ? `-${i}` : ""}`);
+			templateConfig(f, ["docs/reference/document-templates.ts", ...files.slice(1)]);
+			for (const file of files) {
+				mkdirSync(dirname(join(wt, file)), { recursive: true });
+				writeFileSync(join(wt, file), "x");
+			}
+			execFileSync("git", ["-C", wt, "add", "docs"]);
+			execFileSync("git", ["-C", wt, "commit", "-qm", "Templates"]);
+			const sha = execFileSync("git", ["-C", wt, "rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
+				state = f.getState();
+			state.pr.headRefOid = sha;
+			state.comments["77"][0].body =
+				`EVF-Review: ${JSON.stringify({ head: sha, verifier: VERIFIER, verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
+			f.setState(state);
+			const { value, lines } = capturedLog(() => ship(f.root, task));
+			assert.equal(value, 0, kind);
+			assert.deepEqual(mergeCalls(f), [], kind);
+			assert.equal(callsWith(f, "state=success").length, 1, kind);
+			assert.equal(lines.length, 1, kind);
+			assert.match(lines[0], /^evf ship does not merge PR #77: it changes document-template paths \(/);
+			assert.match(lines[0], / \(7 paths in all\)\. /);
+			assert.equal(lines[0].match(/document-templates\.ts/g)!.length, 5, "five paths show");
+		} finally {
+			console.log = log;
+			f.close();
+		}
+	}
+});
+
+test("INV-document-templates-ship: a template PR without an independent review fails like any PR and posts no status", () => {
+	const { f, db, task } = wpShipFixture();
+	try {
+		templateConfig(f, ["packages/reference/"]);
+		const state = f.getState();
+		state.comments["77"] = [];
+		state.calls = [];
+		f.setState(state);
+		assert.throws(() => ship(f.root, task), { message: "Missing verifier approval for the exact PR head." });
+		assert.deepEqual(callsWith(f, "POST"), []);
+		assert.deepEqual(mergeCalls(f), []);
+	} finally {
+		db.close();
+		f.close();
+	}
+});
+
+test("INV-document-templates-unchanged: an ordinary WP part still merges through the queue and evf approve still refuses it", () => {
+	const { f, db, task } = wpShipFixture();
+	try {
+		const head = f.getState().pr.headRefOid;
+		approvable(f as any, task.branch, ["packages/reference/fixture.txt"], head);
+		const s = f.getState();
+		s.calls = [];
+		f.setState(s);
+		assert.throws(
+			() => approve(f.root, 77, { ownerApproval: "Approved for this PR" }),
+			/cannot merge it.*bin\/evf ship/,
+		);
+		assert.deepEqual(approveWrites(f), []);
+		assert.equal(capturedLog(() => ship(f.root, task)).value, 0);
+		const merge = callsWith(f, "pr", "merge");
+		assert.equal(merge.length, 1);
+		assert.deepEqual(merge[0].args, ["pr", "merge", "77", "--squash", "--match-head-commit", head]);
+	} finally {
+		db.close();
+		f.close();
+	}
+});
+
+/** Commit one file in the task worktree and point the fixture PR and its review at the new head. */
+function templateHead(f: ReturnType<typeof mergeFixture>, wt: string, file: string): string {
+	mkdirSync(dirname(join(wt, file)), { recursive: true });
+	writeFileSync(join(wt, file), "x");
+	execFileSync("git", ["-C", wt, "add", file]);
+	execFileSync("git", ["-C", wt, "commit", "-qm", "Template"]);
+	const sha = execFileSync("git", ["-C", wt, "rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
+		state = f.getState();
+	state.pr.headRefOid = sha;
+	state.comments["77"][0].body =
+		`EVF-Review: ${JSON.stringify({ head: sha, verifier: VERIFIER, verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
+	f.setState(state);
+	return sha;
+}
+
+test("INV-document-templates-unchanged: a P2 fix that touches a template keeps its owner route and its approve behavior", () => {
+	const f = mergeFixture();
+	try {
+		f.authorize("WP-034");
+		f.commit();
+		f.git("push", "-q", "origin", "main");
+		feedbackTriage(f.root, 1, { cls: "p2", reason: "scoped feedback", wp: "WP-034" });
+		const task = parseTask("FB-1"),
+			sha = templateHead(f, f.task(task.slug), "docs/reference/document-templates.ts");
+		const { value, lines } = capturedLog(() => ship(f.root, task));
+		assert.equal(value, 0);
+		assert.deepEqual(lines, ["PR #77 is verified and waits for Sebastian's chat approval, then evf approve."]);
+		assert.deepEqual(mergeCalls(f), []);
+		// evf approve keeps the verified route for P2: no after-merge steps, no shipped record.
+		approvable(f, task.branch, ["docs/reference/document-templates.ts"], sha);
+		const s = f.getState();
+		s.commitStatus = verifiedStatus(sha);
+		f.setState(s);
+		assert.throws(() => approve(f.root, 77, { ownerApproval: "Approved for this PR" }), /fixture merge barrier/);
+		assert.equal(existsSync(join(evfDataDir(f.root), "shipped", `${task.slug}.json`)), false);
+	} finally {
+		f.close();
+	}
+});
+
+test("INV-document-templates-unchanged: a design task that touches a template keeps the design route", () => {
+	const f = mergeFixture({ owningPaths: ["design/"], route: "design" });
+	try {
+		const sha = templateHead(f, f.wt, "docs/reference/document-templates.ts");
+		const { value, lines } = capturedLog(() => ship(f.root, f.taskRef));
+		assert.equal(value, 0);
+		assert.deepEqual(lines, [
+			"PR #77 is a verified design task and waits for Sebastian's chat approval, then evf approve.",
+		]);
+		assert.deepEqual(mergeCalls(f), []);
+		assert.equal(callsWith(f, "state=success").length, 1);
+		void sha;
+	} finally {
+		f.close();
+	}
+});
+
+test("INV-document-templates-approve: refuses before any write without an approved review or the verified status, naming evf ship", () => {
+	const { f, db, task } = wpShipFixture();
+	try {
+		templateConfig(f, ["packages/reference/"]);
+		const head = f.getState().pr.headRefOid;
+		approvable(f as any, task.branch, ["packages/reference/fixture.txt"], head);
+		const ask = () => approve(f.root, 77, { ownerApproval: "Approved for this PR", head });
+		// No verified status yet.
+		let s = f.getState();
+		s.calls = [];
+		f.setState(s);
+		assert.throws(ask, {
+			message: `PR #77 needs the verifier to pass it first (bin/evf ship WP-001) at ${head.slice(0, 10)}; a branch update needs a fresh verification.`,
+		});
+		assert.deepEqual(approveWrites(f), []);
+		// No review of the exact head.
+		s = f.getState();
+		s.comments["77"] = [];
+		s.commitStatus = verifiedStatus(head);
+		s.calls = [];
+		f.setState(s);
+		assert.throws(ask, {
+			message: `PR #77 changes document templates and needs the verifier to pass it first (bin/evf ship WP-001) at ${head.slice(0, 10)}: Missing verifier approval for the exact PR head.`,
+		});
+		assert.deepEqual(approveWrites(f), []);
+	} finally {
+		db.close();
+		f.close();
+	}
+});
+
+test("INV-document-templates-approve: with review and verified status it records his words, merges that head and runs the after-merge steps", () => {
+	const { f, db, task, shipped, progressPath } = wpShipFixture();
+	try {
+		templateConfig(f, ["packages/reference/"]);
+		const head = f.getState().pr.headRefOid,
+			wt = join(f.root, ".worktrees", task.slug);
+		approvable(f as any, task.branch, ["packages/reference/fixture.txt"], head);
+		const s = f.getState();
+		s.commitStatus = verifiedStatus(head);
+		s.calls = [];
+		f.setState(s);
+		const words = "Approved: the invoice template looks right";
+		const { value } = capturedLog(() => inFakeCwd(f, () => approve(f.root, 77, { ownerApproval: words, head })));
+		assert.equal(value, 0);
+		const comment = callsWith(f, "pr", "comment")[0];
+		assert.equal(comment.body, `Approved by Sebastian at \`${head.slice(0, 10)}\`:\n\n> ${words}`);
+		const status = callsWith(f, "POST", `repos/test/private/statuses/${head}`);
+		assert.deepEqual(status.at(-1).args.slice(-2), ["-f", `description=Approved by Sebastian at ${head.slice(0, 10)}`]);
+		assert.deepEqual(callsWith(f, "pr", "merge")[0].args, [
+			"pr",
+			"merge",
+			"77",
+			"--squash",
+			"--match-head-commit",
+			head,
+		]);
+		// The shipped record is the one evf ship writes, plus his approval.
+		const record = shipped();
+		assert.deepEqual(Object.keys(record).sort(), [
+			"acknowledged",
+			"base_sha",
+			"evidence",
+			"merge_commit",
+			"owner_approval",
+			"package_completion",
+			"package_id",
+			"part",
+			"pr",
+			"shipped_at",
+			"task",
+			"verification",
+			"verified_head",
+		]);
+		assert.equal(record.task, "WP-001");
+		assert.equal(record.package_id, "WP-001");
+		assert.equal(record.pr, 77);
+		assert.equal(record.verified_head, head);
+		assert.equal(record.verification.head, head);
+		assert.deepEqual(record.verification.approval.verifier, VERIFIER);
+		assert.equal(record.evidence.test, "GitHub required CI and claude-opus-5-5 (session 22222222) approval");
+		assert.equal(
+			record.evidence.note,
+			`WP-001 merged in PR #77 after independent verification at ${head.slice(0, 10)}. https://github.com/test/private/pull/77#issuecomment-1`,
+		);
+		assert.deepEqual(record.owner_approval, {
+			quote: words,
+			approved_head: head,
+			approved_at: record.owner_approval.approved_at,
+		});
+		assert.ok(Number.isFinite(Date.parse(record.owner_approval.approved_at)));
+		assert.equal(record.acknowledged, true);
+		assert.equal(loadProgress(f.root)["WP-001"].milestones[task.id].acknowledged, true);
+		assert.equal(producerReady(f.root, "WP-001"), true, "dependents unlock");
+		const row = db.prepare("SELECT status, merge_commit FROM tasks WHERE ref = ?").get(task.id) as {
+			status: string;
+			merge_commit: string;
+		};
+		assert.equal(row.status, "merged");
+		assert.equal(row.merge_commit, f.git("rev-parse", "HEAD"));
+		assert.equal(existsSync(wt), false, "the task worktree is gone");
+		void progressPath;
+	} finally {
+		db.close();
+		f.close();
+	}
+});
+
+test("INV-document-templates-drive-failed-ship: a failed ship on an ordinary PR still moves to a new implement round", () => {
+	const { f, db, task } = wpShipFixture();
+	const log = console.log;
+	try {
+		console.log = () => {};
+		// No approved independent review comment exists, so ship fails as it did before OPS-80.
+		const state = f.getState();
+		state.comments["77"][0].body = "No review yet";
+		f.setState(state);
+		const out = driveOnce(f.root, task, DRIVE_TIMING);
+		assert.notEqual(out.stage, "done");
+		assert.doesNotMatch(out.reason, /waits for Sebastian/);
+		const id = (db.prepare("SELECT id FROM tasks WHERE ref = ?").get(task.id) as { id: number }).id;
+		assert.equal(db.prepare("SELECT status FROM runs WHERE task_id = ? AND stage = 'ship'").get(id)!.status, "failed");
+		assert.equal(
+			db.prepare("SELECT COUNT(*) AS n FROM events WHERE task_id = ? AND type = 'owner_approval_wait'").get(id)!.n,
+			0,
+		);
+	} finally {
+		console.log = log;
+		db.close();
+		f.close();
+	}
+});
+
+test("INV-document-templates-drive: the drive stops at a verified template PR without a merge and records the merge on the next pass", () => {
+	const { f, db, task } = wpShipFixture();
+	const log = console.log;
+	try {
+		templateConfig(f, ["packages/reference/"]);
+		writeFileSync(
+			join(f.root, "fake-bin/herdr"),
+			`#!${process.execPath}\nrequire("node:fs").appendFileSync(${JSON.stringify(join(f.root, "herdr-calls.jsonl"))},JSON.stringify(process.argv.slice(2))+"\\n");process.stdout.write("{}");\n`,
+		);
+		chmodSync(join(f.root, "fake-bin/herdr"), 0o755);
+		console.log = () => {};
+		const id = (db.prepare("SELECT id FROM tasks WHERE ref = ?").get(task.id) as { id: number }).id;
+		const rounds = () => (db.prepare("SELECT round FROM tasks WHERE id = ?").get(id) as { round: number }).round;
+		const first = driveOnce(f.root, task, DRIVE_TIMING);
+		assert.equal(first.stage, "done");
+		assert.match(first.reason, /^PR #77 waits for Sebastian's approval$/);
+		const row = () => db.prepare("SELECT status FROM tasks WHERE id = ?").get(id) as { status: string };
+		assert.notEqual(row().status, "merged");
+		assert.equal(rounds(), 0, "no new implement round");
+		assert.deepEqual(mergeCalls(f), []);
+		const waits = db
+			.prepare("SELECT payload FROM events WHERE task_id = ? AND type = 'owner_approval_wait'")
+			.all(id) as Array<{ payload: string }>;
+		assert.equal(waits.length, 1);
+		assert.match(JSON.parse(waits[0].payload).summary, /PR #77 .*bin\/evf approve 77 --owner-approval "<his words>"/);
+		const notes = readFileSync(join(f.root, "herdr-calls.jsonl"), "utf8")
+			.trim()
+			.split("\n")
+			.map((l) => JSON.parse(l));
+		assert.equal(notes.filter((c: string[]) => c[0] === "notification").length, 1);
+		assert.equal(db.prepare("SELECT COUNT(*) AS n FROM events WHERE task_id = ? AND type = 'merged'").get(id)!.n, 0);
+
+		// Sebastian approves; GitHub shows the PR merged. The next pass records it and runs no ship.
+		const s = f.getState();
+		s.pr.state = "MERGED";
+		s.pr.mergeCommit = { oid: "c".repeat(40) };
+		s.calls = [];
+		f.setState(s);
+		const second = driveOnce(f.root, task, DRIVE_TIMING);
+		assert.equal(second.stage, "done");
+		assert.equal(row().status, "merged");
+		assert.deepEqual(
+			{ ...(db.prepare("SELECT merge_commit FROM tasks WHERE id = ?").get(id) as object) },
+			{
+				merge_commit: "c".repeat(40),
+			},
+		);
+		assert.deepEqual(callsWith(f, "POST"), [], "ship did not run again");
+		assert.equal(db.prepare("SELECT COUNT(*) AS n FROM runs WHERE task_id = ? AND stage = 'ship'").get(id)!.n, 1);
+	} finally {
+		console.log = log;
+		db.close();
+		f.close();
+	}
+});

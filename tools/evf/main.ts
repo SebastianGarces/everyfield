@@ -88,7 +88,8 @@ Feedback desk (public feedback repo)
 
 Human approval (only after Sebastian approves that PR in chat)
   evf approve <PR> --owner-approval "<his words>" [--head <sha>]
-                          Wiki articles, prototypes, feedback P2/P3: record his approval and squash-merge
+                          Wiki articles, prototypes, feedback P2/P3, design tasks and document-template PRs
+                          (mergePolicy.documentTemplates): record his approval and squash-merge
 
 IDs (coordinator)
   evf id next ops|decision                                    reserve the next OPS-n or Dn on the remote and print it
