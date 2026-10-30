@@ -1671,7 +1671,7 @@ test("AC:TARGET-TSK-003 AC:TARGET-TSK-005 F07b criteria 5 and 6: any assignee ac
 	);
 	// One of the assignees completes the shared task, once, and "My tasks" lists it for each of them.
 	const mine = async (who) =>
-		ok(await read(who, "list", { view: "my", statuses: ["not_started", "in_progress", "blocked"] })).items.map(
+		ok(await read(who, "list", { view: "my", search: "Shared duty", statuses: ["not_started", "in_progress", "blocked"] })).items.map(
 			(t) => t.id,
 		);
 	assert.ok((await mine(member)).includes(shared.id));

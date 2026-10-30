@@ -532,6 +532,43 @@ test("AC:WP011-KNOW-098 named guest and explicit selection share the caller tran
 	assert.equal((await admin.execute(sql`SELECT count(*)::int n FROM person`)).rows[0].n, n);
 });
 
+test("AC:TARGET-PPL-006 F07b criterion 7: assigning a duty to someone already on it keeps them on it", async () => {
+	const leaving = await create("Leaving"),
+		stays = await create("Stays");
+	await admin.execute(sql`UPDATE person SET linked_account_id=${sql.param(actors[1].id)} WHERE id=${sql.param(stays.id)}`);
+	const duty = randomUUID();
+	await admin.execute(
+		sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,person_id) VALUES(${sql.param(duty)},${sql.param(plants[0])},'Visit','follow_up','medium','not_started',clock_timestamp(),'undated',${sql.param(leaving.id)})`,
+	);
+	await admin.execute(
+		sql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES(${sql.param(plants[0])},${sql.param(duty)},${sql.param(actors[1].id)})`,
+	);
+	const review = ok(await tx((t) => read.getStatusWarnings(t, ctx(), { personId: leaving.id }))).reviewRevision;
+	ok(
+		await tx((t) =>
+			write.retirePerson(
+				t,
+				ctx(),
+				{
+					requestKey: randomUUID(),
+					expectedRevision: leaving.revision,
+					input: {
+						personId: leaving.id,
+						reason: "Retire",
+						reviewRevision: review,
+						handoffs: [{ kind: "assign", dutyId: duty, expectedRevision: "1", toPersonId: stays.id }],
+					},
+				},
+				noReminders,
+			),
+		),
+	);
+	assert.deepEqual(
+		(await admin.execute(sql`SELECT account_id FROM task_assignee WHERE task_id=${sql.param(duty)}`)).rows,
+		[{ account_id: actors[1].id }],
+	);
+});
+
 test("AC:TARGET-PPL-006 AC:TARGET-PPL-007 AC:TARGET-PPL-003 stage skip, no-op, complete handoffs, retirement and guarded restore", async () => {
 	let p = await create("Lifecycle");
 	let result = ok(

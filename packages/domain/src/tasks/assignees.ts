@@ -1,5 +1,4 @@
 import { accountId } from "@everyfield/contracts/common";
-import { MAX_ASSIGNEES } from "@everyfield/contracts/tasks";
 import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
@@ -42,7 +41,6 @@ export const assignedTo = (task: string, account: SQL) =>
 export function setWrites(plantId: string, taskId: string, before: readonly string[], ids: readonly string[]): SQL[] {
 	const gone = before.filter((id) => !ids.includes(id)),
 		joined = ids.filter((id) => !before.includes(id));
-	if (ids.length > MAX_ASSIGNEES) throw new RangeError("too many assignees");
 	return [
 		...(gone.length
 			? [

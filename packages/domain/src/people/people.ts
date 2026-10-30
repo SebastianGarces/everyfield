@@ -194,8 +194,8 @@ async function handoff(
 		await tx.execute(
 			sql`WITH v AS (SELECT * FROM jsonb_to_recordset(${JSON.stringify(changes)}::jsonb) v(id uuid,account uuid)),
 				bump AS (UPDATE task t SET revision=t.revision+1 FROM v WHERE t.id=v.id RETURNING 1),
-				gone AS (DELETE FROM task_assignee a USING v WHERE a.task_id=v.id AND (a.account_id=${source}::uuid
-					OR NOT EXISTS (SELECT 1 FROM task_assignee x WHERE x.task_id=v.id AND x.account_id=${source}::uuid)) RETURNING 1),
+				gone AS (DELETE FROM task_assignee a USING v WHERE a.task_id=v.id AND a.account_id IS DISTINCT FROM v.account
+					AND (a.account_id=${source}::uuid OR NOT EXISTS (SELECT 1 FROM task_assignee x WHERE x.task_id=v.id AND x.account_id=${source}::uuid)) RETURNING 1),
 				joined AS (INSERT INTO task_assignee(plant_id,task_id,account_id)
 					SELECT ${ctx.selected.id}::uuid,v.id,v.account FROM v WHERE v.account IS NOT NULL
 					ON CONFLICT DO NOTHING RETURNING 1)
