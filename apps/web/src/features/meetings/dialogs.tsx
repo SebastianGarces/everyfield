@@ -216,8 +216,9 @@ export function PersonPicker({
 }
 
 /**
- * Find several people across searches. Results are checkboxes. A chosen person stays chosen when the search changes or
- * clears, and is listed below with a control to remove them, also when no current result shows them.
+ * Find several people across searches. Results are checkboxes. A chosen person stays checked when the search changes or
+ * clears. The search text and its answer live here, so the caller keeps this mounted while another tab shows. The
+ * chosen people are listed by the caller (ChosenList), also those that no current result shows.
  */
 export function PeoplePicker({
 	label,
@@ -231,7 +232,6 @@ export function PeoplePicker({
 	exclude?: string[];
 }) {
 	const { search, onChange: setSearch, idle, result } = usePersonSearch();
-	const chosenId = useId();
 	const chosen = new Set(value.map((p) => p.id));
 	const found = result?.status === "ok" ? result.value.filter((p) => !exclude.includes(p.id)) : [];
 	const toggle = (p: PickedPerson, on: boolean) =>
@@ -262,33 +262,65 @@ export function PeoplePicker({
 					</div>
 				) : null}
 			</div>
-			<div className="flex h-[88px] flex-col gap-1.5">
-				<p className="text-sm font-medium text-ink-2" id={chosenId}>
-					Chosen ({value.length})
-				</p>
-				{value.length ? (
-					<ul aria-labelledby={chosenId} className="flex flex-wrap content-start gap-1.5 overflow-y-auto">
-						{value.map((p) => (
+		</div>
+	);
+}
+
+export type ChosenChip = { key: string; name: string; isNew: boolean };
+
+/**
+ * Everyone chosen so far, as chips with a control to remove each. The region grows with its chips up to six rows, then
+ * scrolls inside itself; it is never shorter than three rows, so a first chip does not move the controls below.
+ */
+export function ChosenList({
+	chips,
+	onRemove,
+	error,
+	empty,
+}: {
+	chips: ChosenChip[];
+	onRemove: (key: string) => void;
+	error?: string | null;
+	empty: string;
+}) {
+	const id = useId();
+	return (
+		<div className="flex flex-col gap-1.5">
+			<p className="text-sm font-medium text-ink-2" id={id} aria-live="polite">
+				Chosen ({chips.length})
+			</p>
+			<div className="max-h-[236px] min-h-[108px] overflow-y-auto rounded-md">
+				{chips.length ? (
+					<ul aria-labelledby={id} className="flex flex-wrap content-start gap-1.5">
+						{chips.map((c) => (
 							<li
-								key={p.id}
+								key={c.key}
 								className="flex min-h-8 items-center gap-1 rounded-full bg-surface-2 py-0.5 pr-1 pl-3 text-sm text-ink"
 							>
-								{p.name}
+								{c.name}
+								{c.isNew ? (
+									<span className="rounded-pill bg-green-100 px-2 py-px text-xs font-semibold text-green-700">New</span>
+								) : null}
 								<IconButton
 									icon={Cancel01Icon}
-									label={`Remove ${p.name}`}
+									label={`Remove ${c.name}`}
 									variant="soft"
 									size="sm"
 									className="size-7 rounded-full"
-									onClick={() => toggle(p, false)}
+									onClick={() => onRemove(c.key)}
 								/>
 							</li>
 						))}
 					</ul>
 				) : (
-					<p className="text-sm text-text-2">Search, then choose each person to add.</p>
+					<p className="text-sm text-text-2">{empty}</p>
 				)}
 			</div>
+			{error ? (
+				<p className="text-xs font-medium text-magenta-600" role="alert">
+					{error}
+				</p>
+			) : null}
 		</div>
 	);
 }
