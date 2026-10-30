@@ -116,10 +116,7 @@ export function AssigneePicker({
 				emptyText={purpose === "committed_follow_up" ? "No one can own follow-ups yet" : "No matches"}
 				onOpenChange={onOpenChange}
 				onValueChange={(ids) =>
-					onChange(
-						ids,
-						Object.fromEntries(ids.map((accountId) => [accountId, names.get(accountId) ?? ""])),
-					)
+					onChange(ids, Object.fromEntries(ids.map((accountId) => [accountId, names.get(accountId) ?? ""])))
 				}
 			/>
 			{atLimit ? (

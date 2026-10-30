@@ -1,4 +1,4 @@
-import { sameOwner, sessionId, type Owner } from "@everyfield/contracts/common";
+import { accountId as parseAccountId, sameOwner, sessionId, type Owner } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/identity";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { and, asc, eq, getTableColumns, inArray, isNull, notInArray, or, sql } from "@everyfield/db/query";
@@ -347,7 +347,8 @@ export function createSeatService(db: Database) {
 					if (task) {
 						taskMoves.set(task.id, recipient);
 						// D-d: the recipient takes this account's place; when it already holds the task, this account only leaves.
-						const named = (ids: string[]) => ids.map((accountId) => ({ accountId, displayName: "", seated: true }));
+						const named = (ids: string[]) =>
+							ids.map((id) => ({ accountId: parseAccountId.parse(id), displayName: "", seated: true }));
 						replan.push(
 							reminderChange(
 								selected.id,

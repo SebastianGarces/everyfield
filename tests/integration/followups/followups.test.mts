@@ -440,7 +440,10 @@ test("AC:TARGET-COM-011 AC:TARGET-MTG-022 AC:ROLE43-008 contact log: only an eff
 	await committed(c, c.member);
 	refused(await record(c.member, standalone, "attempted_no_contact"), "unavailable");
 	const own = ok(
-		await write(c.owner, "createFollowUp", { requestKey: key(), input: { personId: alex, assigneeIds: [c.member.id] } }),
+		await write(c.owner, "createFollowUp", {
+			requestKey: key(),
+			input: { personId: alex, assigneeIds: [c.member.id] },
+		}),
 	).task;
 	refused(await record(c.member, onTask(admin), "attempted_no_contact"), "unavailable");
 	const mine = ok(await record(c.member, onTask(own), "attempted_no_contact"));
@@ -598,18 +601,15 @@ test("AC:TARGET-TSK-012 AC:TARGET-PPL-022 AC:GAP-PPL-022 only a currently eligib
 	const owners = ok(await read(c.member, "listFollowUpOwners", { personId: casey }));
 	assert.deepEqual(
 		[
-			owners.items.map((d) => [
-				d.taskId,
-				d.owners.map((o) => [o.accountId, o.eligible, o.reason]),
-				d.due,
-				d.overdue,
-			]),
+			owners.items.map((d) => [d.taskId, d.owners.map((o) => [o.accountId, o.eligible, o.reason]), d.due, d.overdue]),
 			owners.unassigned,
 			owners.matched,
 		],
 		[[[manual.id, [[demoted.id, false, "not_committed"]], { kind: "undated" }, null]], 1, 1],
 	);
-	assert.deepEqual(await rows(sql`SELECT account_id FROM task_assignee WHERE task_id=${manual.id}`), [{ account_id: demoted.id }]);
+	assert.deepEqual(await rows(sql`SELECT account_id FROM task_assignee WHERE task_id=${manual.id}`), [
+		{ account_id: demoted.id },
+	]);
 	const covered = ok(await read(c.owner, "followUpCoverage", { personId: casey }));
 	assert.deepEqual([covered.items[0].coverage, covered.needsOwner, covered.uncovered], ["needs_owner", 1, 0]);
 	refused(await read(c.member, "followUpCoverage", {}), "unavailable");
@@ -662,7 +662,9 @@ test("AC:TARGET-TSK-013 INV-statements handoff moves reviewed open follow-ups or
 	const handoff = (to, chunk, requestKey = key(), from = leaving.id) =>
 		write(c.admin, "executeHandoff", { requestKey, input: { fromAccountId: from, toAccountId: to, items: chunk } });
 	const held = async () =>
-		(await rows(sql`SELECT count(*)::int n FROM task_assignee WHERE account_id=${leaving.id} AND plant_id=${c.w.id}`))[0].n;
+		(
+			await rows(sql`SELECT count(*)::int n FROM task_assignee WHERE account_id=${leaving.id} AND plant_id=${c.w.id}`)
+		)[0].n;
 	// Refusals change nothing: an ineligible recipient, the protected Owner, a stale selection.
 	refused(await handoff(bystander.id, items.slice(0, 100)), "handoff_target_ineligible");
 	refused(await handoff(recipient.id, items.slice(0, 1), key(), c.owner.id), "protected_owner");
@@ -696,7 +698,9 @@ test("AC:TARGET-TSK-013 INV-statements handoff moves reviewed open follow-ups or
 	assert.deepEqual([rest.moved.length, rest.remaining, rest.remainingTotal], [2, [], 0]);
 	// Closed work stays closed and keeps its former owner.
 	assert.deepEqual(
-		await rows(sql`SELECT t.status FROM task t JOIN task_assignee a ON a.task_id=t.id WHERE a.account_id=${leaving.id} AND t.plant_id=${c.w.id} ORDER BY t.status`),
+		await rows(
+			sql`SELECT t.status FROM task t JOIN task_assignee a ON a.task_id=t.id WHERE a.account_id=${leaving.id} AND t.plant_id=${c.w.id} ORDER BY t.status`,
+		),
 		[{ status: "complete" }, { status: "no_longer_needed" }],
 	);
 
@@ -1101,7 +1105,9 @@ test("AC:TARGET-TSK-012 F07b criteria 8 and 9: a follow-up is owned while one ow
 		[[true], [true]],
 	);
 	assert.deepEqual(
-		byTask(mixed).owners.map((o) => o.eligible).sort(),
+		byTask(mixed)
+			.owners.map((o) => o.eligible)
+			.sort(),
 		[false, true],
 	);
 	// The tally counts a follow-up once under each eligible owner; Needs owner holds only the one without any.
@@ -1116,7 +1122,9 @@ test("AC:TARGET-TSK-012 F07b criteria 8 and 9: a follow-up is owned while one ow
 	assert.equal(owners.matched, 3, "matched counts each follow-up once");
 	// The owner filter matches a follow-up when the account is one of its owners.
 	assert.deepEqual(
-		ok(await read(c.admin, "listFollowUpOwners", { personId: pia, owner: ready.id })).items.map((d) => d.taskId).sort(),
+		ok(await read(c.admin, "listFollowUpOwners", { personId: pia, owner: ready.id }))
+			.items.map((d) => d.taskId)
+			.sort(),
 		[pair, mixed].sort(),
 	);
 	const coverage = ok(await read(c.admin, "followUpCoverage", { personId: pia }));

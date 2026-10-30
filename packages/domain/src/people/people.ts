@@ -6,7 +6,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import * as c from "@everyfield/contracts/people";
 import type { PeopleWriter, AccountPersonProducer } from "@everyfield/contracts/people";
-import { owner, recordId, revision } from "@everyfield/contracts/common";
+import { accountId, owner, recordId, revision } from "@everyfield/contracts/common";
 import {
 	authorize,
 	deny,
@@ -207,7 +207,7 @@ async function handoff(
 			const kept = held ? row.assignees.filter((a) => a.accountId !== source && a.accountId !== account) : [];
 			return reminderChange(ctx.selected.id, row, {
 				...row,
-				assignees: account ? [...kept, { accountId: account, displayName: "", seated: true }] : kept,
+				assignees: account ? [...kept, { accountId: accountId.parse(account), displayName: "", seated: true }] : kept,
 				revision: revision.parse(String(BigInt(row.revision) + 1n)),
 			});
 		});

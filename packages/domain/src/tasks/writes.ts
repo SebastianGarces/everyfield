@@ -1,4 +1,4 @@
-import { instant, resolveCalendar, revision, type TimeZone } from "@everyfield/contracts/common";
+import { accountId, instant, resolveCalendar, revision, type TimeZone } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/tasks";
 import { and, eq, isNull, sql, type SQL, type SQLWrapper } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
@@ -81,7 +81,7 @@ export const assigneeFacts = (plantId: string, ids: readonly string[]) => sql`(S
 		${lockOwner(sql`x.id`, sql`${plantId}::uuid`)} AS locked
 		FROM unnest(${sql.param([...new Set(ids)].sort())}::uuid[]) AS x(id)) u)`;
 const assigneeFactRows = z.array(
-	z.object({ id: z.uuid(), name: z.string().nullable(), reason: z.string().nullable() }),
+	z.object({ id: accountId, name: z.string().nullable(), reason: z.string().nullable() }),
 );
 /**
  * Every named assignee must hold a current seat; for a person follow-up each must also be an eligible owner. One
