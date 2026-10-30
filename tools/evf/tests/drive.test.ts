@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { chmodSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
-import { fixture, source } from "./fixtures.ts";
-import { ensureTask, findTask, markMerged, openWorkDb, sessionsRecorded, syncGoals } from "../db.ts";
+import { assistantLine, fixture, sessionStartJs, source, writeTranscript } from "./fixtures.ts";
+import { ensureTask, findTask, markMerged, openWorkDb, sessionsRecorded, syncGoals, workDbPath } from "../db.ts";
 import { drive, driveOnce, LOOP_CAP, nextStage, RETRY_CAP, runDone } from "../drive.ts";
 import { doneCriteria } from "../spec.ts";
 import { evfDataDir, evidenceDir, parseTask, runtimeDir, sleep } from "../lib.ts";
@@ -28,10 +28,13 @@ function fakeHerdr(root: string) {
 		`#!${process.execPath}\nconst fs=require("node:fs");const a=process.argv.slice(2);\n` +
 			`const calls=JSON.parse(fs.readFileSync(${JSON.stringify(calls)},"utf8"));calls.push(a);fs.writeFileSync(${JSON.stringify(calls)},JSON.stringify(calls));\n` +
 			`const st=fs.existsSync(${JSON.stringify(state)})?JSON.parse(fs.readFileSync(${JSON.stringify(state)},"utf8")):{};\n` +
+			`if(a[0]==="pane"&&a[1]==="read"){process.stdout.write(st.screen||"");process.exit(0)}\n` +
+			`if(a[0]==="agent"&&a[1]==="start"&&st.startFails){process.stderr.write("fixture: timed out waiting for agent startup");process.exit(1)}\n` +
+			sessionStartJs(workDbPath(root)) +
 			`let r={};if(a[0]==="workspace"&&a[1]==="create")r={workspace:"w9",tab:"w9:t1",root_pane:{pane_id:"w9:p1"}};\n` +
 			`else if(a[0]==="pane"&&a[1]==="process-info")r={process_info:{shell_pid:7,foreground_process_group_id:7}};\n` +
 			`else if(a[0]==="agent"&&a[1]==="wait")r={agent:{agent_status:st.status||"idle"}};\n` +
-			`else if(a[0]==="agent"&&a[1]==="get")r={agent:{agent_session:{value:st.session||"55555555-5555-4555-8555-555555555555"},agent_status:"idle"}};\n` +
+			`else if(a[0]==="agent"&&a[1]==="get")r={agent:{agent_session:{value:st.session||"55555555-5555-4555-8555-555555555555"},agent_status:st.getStatus||(calls.some(c=>c[0]==="agent"&&c[1]==="prompt"&&c[2]===a[2])&&!st.noTurn?"working":"idle")}};\n` +
 			`process.stdout.write(JSON.stringify({result:r}));\n`,
 	);
 	chmodSync(join(root, "fake-bin/herdr"), 0o755);
@@ -41,23 +44,31 @@ function fakeHerdr(root: string) {
 	};
 }
 
-function driveFixture(opts: { failWhenFile?: string } = {}) {
+function driveFixture(opts: { failWhenFile?: string; nested?: string[] } = {}) {
 	const f = fixture(),
 		task = parseTask("OPS-1");
-	// A check that fails while `failWhenFile` exists in the worktree lets a test fail the author checks at one head.
-	const checks = opts.failWhenFile
-		? [
-				{
+	// `failWhenFile` makes the first check fail while that file exists in the worktree, to fail the author checks at one head.
+	// `nested` makes the first check run a guarded evf command through main.ts, once: the nested verify sees EVF_NESTED.
+	const first = opts.nested
+		? {
+				name: "nested-evf",
+				run: [
+					process.execPath,
+					"-e",
+					`if(process.env.EVF_NESTED)process.exit(0);const r=require("node:child_process").spawnSync(process.execPath,[${JSON.stringify(join(source, "tools/evf/main.ts"))},...${JSON.stringify(opts.nested)}],{encoding:"utf8",env:{...process.env,EVF_NESTED:"1"}});console.log("nested exit "+r.status);console.log("monitor "+process.env.EVF_MONITOR);console.log(r.stdout);console.error(r.stderr);process.exit(r.status)`,
+				],
+			}
+		: opts.failWhenFile
+			? {
 					name: "fixture-check",
 					run: [
 						process.execPath,
 						"-e",
 						`process.exit(require("node:fs").existsSync(${JSON.stringify(opts.failWhenFile)}) ? 1 : 0)`,
 					],
-				},
-				...f.cfg.checks.slice(1),
-			]
-		: f.cfg.checks;
+				}
+			: undefined;
+	const checks = first ? [first, ...f.cfg.checks.slice(1)] : f.cfg.checks;
 	f.cfg.maintenanceTasks = { "OPS-1": { title: "Drive", owningPaths: ["tools/evf/"], checks } };
 	writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
 	f.commit();
@@ -178,7 +189,7 @@ test("OPS-59-drive: one transition launches the next seat through Herdr with the
 			"workspace with the stage env",
 		);
 		const start = calls.find((c) => c[0] === "agent" && c[1] === "start")!;
-		assert.ok(start.includes("--agent") && start.includes("planner"), start.join(" "));
+		assert.ok(start.includes("--agent") && start.includes("evf:planner"), start.join(" "));
 		const prompt = calls.find((c) => c[0] === "agent" && c[1] === "prompt")!;
 		assert.match(prompt[3]!, /^Plan task OPS-1: write the spec .* bin\/evf run done \$EVF_RUN/);
 
@@ -866,8 +877,15 @@ test("OPS-68-reopen: three failures escalate, the reopen restarts the count, the
 		assert.equal(f.taskRow().status, "active");
 		assert.equal(nextOf(f).stage, "implement");
 		assert.equal(driveOnce(f.root, f.task, { ...TIMING, waitMs: 1 }).stage === "escalated", false);
+		// The drive launched an implement seat above and its Herdr agent exists: the third failure waits for it.
 		failStage(f, "implement", "implementer");
-		assert.equal(f.taskRow().status, "escalated");
+		assert.equal(f.taskRow().status, "active", "a seat of the task still works");
+		assert.equal(f.events("escalation_deferred").length, 1);
+		runDone(f.root, f.runs().find((r) => r.status === "started")!.id as number, {
+			status: "passed",
+			summary: "Built.",
+		});
+		assert.equal(f.taskRow().status, "escalated", "the last open seat closed");
 		assert.equal(f.events("escalation").length, 2);
 		assert.equal(nextOf(f).stage, "escalated");
 	} finally {
@@ -1302,7 +1320,7 @@ test("OPS-70-flow: fake seats take a task from plan to merged through plan, impl
 		);
 		assert.ok(runs.every((r) => r.status === "passed" && r.round === 0));
 		assert.equal(
-			f.herdr.calls().filter((c) => c[0] === "agent" && c[1] === "start" && /evidence/.test(c.join(" "))).length,
+			f.herdr.calls().filter((c) => c[0] === "agent" && c[1] === "start" && /^evidence/.test(c[2] ?? "")).length,
 			0,
 		);
 		const prompts = f.herdr
@@ -1357,6 +1375,481 @@ test("OPS-70-seats: the implementer allowlist covers the proof commands, the evi
 			/--role must be one of planner, implementer, ui, simplifier, verifier, ideator, comparer, prototype-merger/,
 		);
 		assert.doesNotMatch(cli(f.root, {}, "help").stdout, /evidence stage|evidence seat|→ evidence/);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+// OPS-72: the drive survives a launch that fails, never escalates while a seat works, hands a reopen reason to the next
+// seat, counts the start grace from the start of the wait and closes stale task rows.
+const quietly = <T>(fn: () => T): T => {
+	const log = console.log;
+	console.log = () => {};
+	try {
+		return fn();
+	} finally {
+		console.log = log;
+	}
+};
+
+test("OPS-72-launchfail: a launch that fails twice closes its run with the pane excerpt; the drive logs it, goes on and the retry cap ends it", () => {
+	const f = driveFixture();
+	try {
+		f.db.prepare("UPDATE tasks SET spec = ?, status = 'active' WHERE id = ?").run(SPEC, f.taskId);
+		f.herdr.setState({ startFails: true, screen: "$ claude --agent evidence\nError: agent not found\n" });
+		// One transition: the launch fails, the error does not escape, the run is closed with what the pane showed.
+		const lines: string[] = [];
+		const log = console.log;
+		console.log = (line: string) => lines.push(line);
+		try {
+			assert.equal(driveOnce(f.root, f.task, TIMING).stage, "implement");
+		} finally {
+			console.log = log;
+		}
+		const first = f.runs();
+		assert.equal(first.length, 1);
+		assert.equal(first[0]!.status, "aborted");
+		assert.ok(
+			lines.some((l) => /drive OPS-1: launch of implementer failed: .*Error: agent not found/.test(l)),
+			lines.join("\n"),
+		);
+		const summary = (f.db.prepare("SELECT summary FROM runs WHERE id = ?").get(first[0]!.id) as { summary: string })
+			.summary;
+		assert.match(summary, /timed out waiting for agent startup/);
+		assert.match(summary, /Error: agent not found/);
+		assert.equal(
+			f.herdr.calls().filter((c) => c[0] === "agent" && c[1] === "start").length,
+			2,
+			"one retry inside the launch",
+		);
+
+		// The loop goes on to its next transitions; the retry cap, not an uncaught error, ends it.
+		const code = quietly(() => drive(f.root, f.task, {}, TIMING));
+		assert.equal(code, 2, "escalated, not crashed");
+		assert.equal(f.runs().length, RETRY_CAP);
+		assert.ok(f.runs().every((r) => r.status === "aborted"));
+		assert.ok(f.events("next").length >= RETRY_CAP, "nextStage ran between the failed launches");
+		assert.equal(f.taskRow().status, "escalated");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+/** An open seat run with a Herdr agent the fake Herdr knows. */
+const openAgentRun = (f: ReturnType<typeof driveFixture>, stage: string, role: string) => {
+	const id = f.insertRun(stage, role, "started");
+	f.db.prepare("UPDATE runs SET herdr_agent = ?, herdr_pane = 'w9:p1' WHERE id = ?").run(`${role}-ops-1-${id}`, id);
+	return id;
+};
+
+test("OPS-72-defer: a verify that fails past the loop cap does not escalate while another seat works; the last seat to close does", () => {
+	const f = driveFixture();
+	try {
+		f.db.prepare("UPDATE tasks SET spec = ?, status = 'active', round = ? WHERE id = ?").run(SPEC, LOOP_CAP, f.taskId);
+		const verifyRun = openAgentRun(f, "verify", "verifier");
+		const other = openAgentRun(f, "implement", "implementer");
+		runDone(f.root, verifyRun, { status: "failed", summary: "Findings: the roof leaks." });
+		assert.equal(f.taskRow().round, LOOP_CAP + 1);
+		assert.equal(f.taskRow().status, "active", "the other seat still works");
+		assert.equal(f.events("escalation").length, 0);
+		const held = f.events("escalation_deferred");
+		assert.equal(held.length, 1);
+		assert.match(held[0]!.payload, /loop cap 3 hit after verify failed\. Findings: the roof leaks\./);
+		const n = nextOf(f);
+		assert.deepEqual([n.stage, n.run], ["waiting", other]);
+		assert.match(n.deferred, /loop cap 3 hit after verify failed/);
+
+		runDone(f.root, other, { status: "passed", summary: "Built." });
+		assert.equal(f.taskRow().status, "escalated", "escalated when the last open seat closed");
+		const escalation = f.events("escalation");
+		assert.equal(escalation.length, 1);
+		assert.match(
+			escalation[0]!.payload,
+			/needs Sebastian: loop cap 3 hit after verify failed\. Findings: the roof leaks\./,
+			"with the reason it would have had",
+		);
+		assert.equal(nextOf(f).stage, "escalated");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-72-defer: a seat whose Herdr agent is gone does not hold the escalation back", () => {
+	const f = driveFixture();
+	try {
+		f.db.prepare("UPDATE tasks SET spec = ?, status = 'active', round = ? WHERE id = ?").run(SPEC, LOOP_CAP, f.taskId);
+		const verifyRun = openAgentRun(f, "verify", "verifier");
+		openAgentRun(f, "implement", "implementer");
+		brokenHerdr(f, "gone");
+		runDone(f.root, verifyRun, { status: "failed", summary: "Findings: the roof leaks." });
+		assert.equal(f.taskRow().status, "escalated");
+		assert.equal(f.events("escalation_deferred").length, 0);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-72-defer: three failures in a row wait for the open seat too, and the retry cap's reason survives the seat passing", () => {
+	const f = driveFixture();
+	try {
+		f.db.prepare("UPDATE tasks SET spec = ?, status = 'active' WHERE id = ?").run(SPEC, f.taskId);
+		const other = openAgentRun(f, "simplify", "simplifier");
+		failStage(f, "implement", "implementer", RETRY_CAP);
+		assert.equal(f.taskRow().status, "active");
+		assert.equal(f.events("escalation_deferred").length, 1);
+		runDone(f.root, other, { status: "passed", summary: "Simplified." });
+		assert.equal(f.taskRow().status, "escalated");
+		assert.match(f.events("escalation")[0]!.payload, /3 failures in a row, last in implement/);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-72-reopen: the first seat after a reopen gets the coordinator's reason verbatim, not the old failure summary", () => {
+	const f = driveFixture();
+	try {
+		f.db
+			.prepare("UPDATE tasks SET spec = ?, status = 'escalated', ask = ?, round = 2 WHERE id = ?")
+			.run(SPEC, "Make the doghouse usable.", f.taskId);
+		const old = f.insertRun("implement", "implementer", "failed");
+		const S = "implement failed: the roof leaks in 17 places";
+		f.db.prepare("UPDATE runs SET summary = ? WHERE id = ?").run(S, old);
+		const R = 'start from the spec again; the "gate" moved to CI';
+		const r = reopen(f, R);
+		assert.equal(r.status, 0, r.stderr);
+		const n = nextOf(f);
+		assert.equal(n.stage, "implement");
+		assert.match(n.reason, /reopened by the coordinator/);
+		assert.ok(n.reason.includes(R), n.reason);
+		assert.ok(!n.reason.includes("17 places"), "the reason after a reopen is not the old summary");
+
+		driveOnce(f.root, f.task, TIMING);
+		const prompt = f.herdr.calls().find((c) => c[0] === "agent" && c[1] === "prompt")![3]!;
+		assert.ok(prompt.includes(R), "the prompt carries the reason verbatim");
+		assert.ok(!prompt.includes("17 places"), "and not the pre-reopen summary");
+		assert.doesNotMatch(prompt, /Read the last verify or ci summary/);
+		assert.match(prompt, /^The coordinator reopened this task\./);
+
+		// The session-start context shows it too, and keeps it when it shortens the rest.
+		f.db
+			.prepare("UPDATE tasks SET spec = ? WHERE id = ?")
+			.run(
+				`Goal: g.\nDone criteria:\n${Array.from({ length: 40 }, (_, i) => `${i + 1}. ${"criterion text ".repeat(20)}`).join("\n")}\nNon-goals: none.`,
+				f.taskId,
+			);
+		const ctx = cli(f.root, {}, "refocus", "OPS-1").stdout;
+		assert.match(ctx, /SHORTENED/);
+		assert.ok(ctx.includes(R), "the shortened context keeps the reopen reason");
+
+		// A seat that passed after the reopen ends the reopen reason's hold on the prompts.
+		runDone(f.root, f.runs().at(-1)!.id as number, { status: "passed", summary: "Built." });
+		driveOnce(f.root, f.task, TIMING);
+		const later = f.herdr
+			.calls()
+			.filter((c) => c[0] === "agent" && c[1] === "prompt")
+			.at(-1)![3]!;
+		assert.ok(!later.includes(R));
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-72-grace: the start grace counts from the start of the wait, not from the prompt that went out a minute ago", () => {
+	const f = driveFixture();
+	try {
+		const id = openSeatRun(f, true);
+		f.db
+			.prepare("UPDATE events SET ts = ? WHERE run_id = ? AND type = 'prompt_sent'")
+			.run(new Date(Date.now() - 60_000).toISOString(), id);
+		// The seat reports idle at first, three polls later its turn begins, then it closes its stage.
+		scriptedHerdr(f, id, { waits: ["idle", "close"], gets: ["idle", "idle", "idle", "working"] });
+		driveOnce(f.root, f.task, { ...TIMING, startGraceMs: 600, seatPollMs: 10 });
+		const nudges = f.herdr.calls().filter((c) => c[0] === "agent" && c[1] === "prompt");
+		assert.equal(nudges.length, 0, "no nudge: the grace had not run out");
+		assert.equal(f.events("nudge").length, 0);
+		assert.equal(f.runs()[0]!.status, "passed");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-72-abandon: a stale row closes with an abandon event; merged rows, open runs, live drives and seats are refused", () => {
+	const f = driveFixture();
+	try {
+		const abandon = (extra: string[], env: Record<string, string> = {}) =>
+			cli(f.root, env, "task", "abandon", "OPS-1", ...extra);
+		const status = (id: number) =>
+			(f.db.prepare("SELECT status FROM tasks WHERE id = ?").get(id) as { status: string }).status;
+		assert.match(cli(f.root, {}, "help").stdout, /^ {2}evf task abandon <task> \[--id <store id>\] --reason/m);
+
+		assert.match(abandon(["--reason", "stale"]).stderr, /two words or more/);
+		assert.match(abandon(["--reason", "shipped long ago"], { EVF_RUN: "7" }).stderr, /seat cannot abandon/);
+		assert.equal(status(f.taskId), "new", "refusals change nothing");
+
+		// A second and third row of the same ref, as the leftover rows were.
+		const insert = (st: string, commit: string | null = null) =>
+			Number(
+				f.db
+					.prepare(
+						"INSERT INTO tasks (slug, mode, ref, title, status, merge_commit, created_at, updated_at) VALUES ('ops-1', 'implement', 'OPS-1', 'OPS-1', ?, ?, ?, ?)",
+					)
+					.run(st, commit, new Date().toISOString(), new Date().toISOString()).lastInsertRowid,
+			);
+		const merged = insert("merged", "abc123"),
+			active = insert("active");
+		assert.match(abandon(["--id", String(merged), "--reason", "shipped long ago"]).stderr, /is merged/);
+		assert.match(abandon(["--id", "999", "--reason", "shipped long ago"]).stderr, /not a row of OPS-1/);
+
+		const open = f.db
+			.prepare(
+				"INSERT INTO runs (task_id, stage, role, round, status, started_at) VALUES (?, 'implement', 'implementer', 0, 'started', ?)",
+			)
+			.run(active, new Date().toISOString()).lastInsertRowid;
+		assert.match(abandon(["--id", String(active), "--reason", "shipped long ago"]).stderr, /has a started run/);
+		f.db.prepare("UPDATE runs SET status = 'aborted' WHERE id = ?").run(open);
+
+		const holder = spawn("sleep", ["30"]);
+		const pidFile = join(evfDataDir(f.root), "drive", "ops-1.pid");
+		mkdirSync(join(evfDataDir(f.root), "drive"), { recursive: true });
+		writeFileSync(pidFile, `${holder.pid}\n`);
+		try {
+			assert.match(
+				abandon(["--id", String(active), "--reason", "shipped long ago"]).stderr,
+				/evf drive runs for OPS-1/,
+			);
+		} finally {
+			holder.kill();
+		}
+		assert.equal(status(active), "active");
+		writeFileSync(pidFile, "99999999\n");
+
+		const done = abandon(["--id", String(active), "--reason", "shipped as PR 351 long ago"]);
+		assert.equal(done.status, 0, done.stderr);
+		assert.equal(status(active), "abandoned");
+		assert.equal(status(merged), "merged", "only the chosen row changed");
+		const event = f.db
+			.prepare("SELECT id, task_id, payload FROM events WHERE type = 'abandon' AND task_id = ?")
+			.get(active) as { id: number; payload: string };
+		assert.deepEqual(
+			{ reason: JSON.parse(event.payload).reason, from: JSON.parse(event.payload).from },
+			{ reason: "shipped as PR 351 long ago", from: "active" },
+		);
+		assert.ok(done.stdout.includes(`event ${event.id}`), done.stdout);
+		assert.match(abandon(["--id", String(active), "--reason", "shipped long ago"]).stderr, /already abandoned/);
+
+		// Without --id the current row is the newest open one: here the merged row, which is refused with the choices.
+		const plain = abandon(["--reason", "shipped under another ref"]);
+		assert.match(plain.stderr, /is merged.*pick one with --id/);
+		assert.equal(abandon(["--id", String(f.taskId), "--reason", "shipped under another ref"]).status, 0);
+		assert.equal(status(f.taskId), "abandoned");
+		assert.equal(status(merged), "merged");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-69-gone: a seat whose Herdr agent is gone is aborted with the usage of its transcript so far", () => {
+	const f = driveFixture(),
+		saved = process.env.CLAUDE_CONFIG_DIR,
+		claude = join(f.root, "claude-config"),
+		session = "44444444-4444-4444-8444-444444444444";
+	try {
+		process.env.CLAUDE_CONFIG_DIR = claude;
+		const id = openSeatRun(f, false);
+		f.db.prepare("UPDATE runs SET session_id = ? WHERE id = ?").run(session, id);
+		writeTranscript(claude, session, [assistantLine("a", "claude-sonnet-5-5", { input: 100, output: 50, read: 1000 })]);
+		brokenHerdr(f, "gone");
+		driveOnce(f.root, f.task, TIMING);
+		const row = f.db.prepare("SELECT status, tokens_in, tokens_out, cache_read_tokens FROM runs WHERE id = ?").get(id);
+		assert.deepEqual({ ...row }, { status: "aborted", tokens_in: 100, tokens_out: 50, cache_read_tokens: 1000 });
+	} finally {
+		if (saved === undefined) delete process.env.CLAUDE_CONFIG_DIR;
+		else process.env.CLAUDE_CONFIG_DIR = saved;
+		f.db.close();
+		f.close();
+	}
+});
+
+// OPS-74: waits between launch aborts, and an over-long launch line that escalates at once.
+test("OPS-74-backoff: three launch aborts in a row wait 1x then 2x the backoff between launches; the third escalates without a wait", () => {
+	const f = driveFixture();
+	try {
+		f.db.prepare("UPDATE tasks SET spec = ?, status = 'active' WHERE id = ?").run(SPEC, f.taskId);
+		f.herdr.setState({ startFails: true, screen: "claude: command not found" });
+		const timing = { ...TIMING, abortBackoffMs: 150, launch: { paneReadyPollMs: 5 } };
+		const lines: string[] = [];
+		const log = console.log;
+		console.log = (line: string) => lines.push(String(line));
+		const took: number[] = [];
+		try {
+			for (let i = 0; i < 3; i++) {
+				const t0 = Date.now();
+				driveOnce(f.root, f.task, timing);
+				took.push(Date.now() - t0);
+			}
+			assert.equal(driveOnce(f.root, f.task, timing).stage, "escalated");
+		} finally {
+			console.log = log;
+		}
+		assert.deepEqual(
+			f.runs().map((r) => r.status),
+			["aborted", "aborted", "aborted"],
+		);
+		const waits = lines.filter((l) => /waiting [\d.]+ s before the implementer launches again/.test(l));
+		assert.equal(waits.length, 2, lines.join("\n"));
+		assert.match(waits[0]!, /launch abort 1 of 3; waiting 0\.15 s/);
+		assert.match(waits[1]!, /launch abort 2 of 3; waiting 0\.3 s/);
+		assert.ok(took[0]! >= 150 && took[1]! >= 300, `waits ran: ${took.join(", ")}`);
+		assert.ok(!lines.some((l) => /launch abort 3/.test(l)), "the third abort waits for nothing");
+		assert.match(f.events("escalation")[0]!.payload, /3 failures in a row without a passed stage/);
+		assert.equal(f.taskRow().status, "escalated");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-74-toolong: a launch line over the limit escalates the task at once with the byte count, without a retry or a run", () => {
+	const f = driveFixture();
+	try {
+		f.db.prepare("UPDATE tasks SET spec = ?, status = 'active' WHERE id = ?").run(SPEC, f.taskId);
+		const lines: string[] = [];
+		const log = console.log;
+		console.log = (line: string) => lines.push(String(line));
+		try {
+			assert.equal(driveOnce(f.root, f.task, { ...TIMING, launch: { typedLineLimit: 100 } }).stage, "implement");
+		} finally {
+			console.log = log;
+		}
+		assert.equal(f.taskRow().status, "escalated", "escalated after one launch, not three");
+		assert.equal(f.runs().length, 0, "no run row, so no failure counted");
+		assert.match(
+			f.events("escalation")[0]!.payload,
+			/launch line for implementer is \d+ bytes; the terminal accepts fewer than 100\./,
+		);
+		assert.ok(
+			lines.some((l) => /launch of implementer refused: .*fewer than 100\./.test(l)),
+			lines.join("\n"),
+		);
+		assert.equal(f.herdr.calls().filter((c) => c[0] === "agent" && c[1] === "start").length, 0);
+		assert.equal(driveOnce(f.root, f.task, TIMING).stage, "escalated");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+const NO_PROMISE = { EVF_MONITOR: "", EVF_FOREGROUND: "" };
+
+/** Run a command to its end with no controlling terminal and without either foreground variable. */
+function detached(f: { root: string }, args: string[], env: Record<string, string> = {}): Promise<number | null> {
+	return new Promise((resolve) => {
+		const child = spawn(process.execPath, [join(source, "tools/evf/main.ts"), ...args], {
+			cwd: f.root,
+			detached: true,
+			stdio: "ignore",
+			env: {
+				...process.env,
+				EVF_RUN: "",
+				EVF_WORKTREE: "",
+				EVF_SESSION: "",
+				EVF_ROLE: "",
+				EVF_STAGE: "",
+				...NO_PROMISE,
+				...env,
+			},
+		});
+		child.on("exit", resolve);
+	});
+}
+
+const nestedLog = (f: ReturnType<typeof driveFixture>) =>
+	readFileSync(
+		(
+			JSON.parse(readFileSync(join(evidenceDir(f.root, f.task, head(f), "author-full"), "checks.json"), "utf8")) as {
+				checks: Array<{ log: string }>;
+			}
+		).checks[0]!.log,
+		"utf8",
+	);
+
+test("OPS-75-drive: a drive with no terminal and no foreground variable passes the pr-stage checks that run a guarded evf command", async () => {
+	const f = driveFixture({ nested: ["check", "OPS-1"] });
+	try {
+		withPr(f);
+		runDone(f.root, f.insertRun("simplify", "simplifier", "started"), { status: "passed", summary: "simplified" });
+		assert.equal(nextOf(f).stage, "pr");
+		assert.equal(await detached(f, ["drive", "OPS-1", "--once"]), 0);
+		assert.deepEqual([f.runs().at(-1)!.stage, f.runs().at(-1)!.role, f.runs().at(-1)!.status], ["pr", "evf", "passed"]);
+		assert.equal(f.taskRow().pr_number, 77);
+		const log = nestedLog(f);
+		assert.match(log, /nested exit 0/);
+		assert.doesNotMatch(log, /detached from a terminal/);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-75-detach: evf drive --detach passes the pr-stage checks with neither foreground variable", async () => {
+	const f = driveFixture({ nested: ["check", "OPS-1"] });
+	try {
+		withPr(f);
+		// --detach starts <root>/tools/evf/main.ts; the fixture root has the templates only.
+		symlinkSync(join(source, "tools/evf/main.ts"), join(f.root, "tools/evf/main.ts"));
+		runDone(f.root, f.insertRun("simplify", "simplifier", "started"), { status: "passed", summary: "simplified" });
+		assert.equal(await detached(f, ["drive", "OPS-1", "--once", "--detach"]), 0);
+		for (let i = 0; i < 600 && f.runs().at(-1)?.stage !== "pr"; i++) sleep(100);
+		for (let i = 0; i < 600 && f.runs().at(-1)?.status === "started"; i++) sleep(100);
+		assert.deepEqual([f.runs().at(-1)!.stage, f.runs().at(-1)!.status], ["pr", "passed"]);
+		assert.doesNotMatch(nestedLog(f), /detached from a terminal/);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-75-verify: a guarded evf command inside a top-level verify check runs and logs its own output", async () => {
+	for (const command of [
+		["check", "OPS-1"],
+		["verify", "OPS-1"],
+	]) {
+		const f = driveFixture({ nested: command });
+		try {
+			// The nested command inherits the top level's EVF_FOREGROUND=1. Only the check runner sets EVF_MONITOR,
+			// so its value shows the runner gave the promise.
+			assert.equal(await detached(f, ["verify", "OPS-1"], { EVF_FOREGROUND: "1" }), 0, command.join(" "));
+			const log = nestedLog(f);
+			assert.match(log, /nested exit 0/);
+			assert.match(log, /PASSED/);
+			assert.match(log, /^monitor evf verify OPS-1$/m);
+			assert.doesNotMatch(log, /detached from a terminal/);
+		} finally {
+			f.db.close();
+			f.close();
+		}
+	}
+});
+
+test("OPS-75-seat: a seat the drive launches carries the promise naming the drive; a manual launch does not", () => {
+	const f = driveFixture();
+	try {
+		const ask = f.file("ask.md", "Make the doghouse usable.");
+		assert.equal(cli(f.root, {}, "task", "new", "OPS-1", "--ask-file", ask, "--title", "Usable doghouse").status, 0);
+		const manual = cli(f.root, {}, "launch", "OPS-1", "--role", "planner", "--dry-run");
+		assert.equal(manual.status, 0, manual.stderr);
+		assert.doesNotMatch(manual.stdout, /EVF_MONITOR/);
+		driveOnce(f.root, f.task, TIMING);
+		const create = f.herdr.calls().find((c) => c[0] === "workspace" && c[1] === "create")!;
+		assert.ok(create.includes("EVF_MONITOR=evf drive OPS-1"), create.join(" "));
 	} finally {
 		f.db.close();
 		f.close();

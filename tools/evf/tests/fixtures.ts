@@ -3,6 +3,24 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 export const source = resolve(import.meta.dirname, "../../..");
+/**
+ * Source for a fake Herdr's `agent start` branch: it records the `session_start` event that the Claude session-start
+ * hook writes, for the run whose id ends the agent name. In the fake's state, `noSession` skips it (a Claude that never
+ * reaches its hook) and `sessionDelayMs` records it that many milliseconds later from a detached process.
+ */
+export const sessionStartJs = (dbPath: string, stateVar = "st") => {
+	const insert =
+		`(name)=>{const m=/-(\\d+)$/.exec(name);if(!m)return;const {DatabaseSync}=require("node:sqlite");` +
+		`const d=new DatabaseSync(${JSON.stringify(dbPath)});d.exec("PRAGMA busy_timeout = 5000");` +
+		`const r=d.prepare("SELECT task_id FROM runs WHERE id = ?").get(Number(m[1]));` +
+		`if(r)d.prepare("INSERT INTO events (task_id, run_id, ts, type, payload) VALUES (?, ?, ?, 'session_start', '{}')").run(r.task_id,Number(m[1]),new Date().toISOString());d.close()}`;
+	return (
+		`if(a[0]==="agent"&&a[1]==="start"&&!(${stateVar}&&(${stateVar}.noSession||${stateVar}.startFails||${stateVar}.failStarts>0||${stateVar}.busyStarts>0))){` +
+		`if(${stateVar}&&${stateVar}.sessionDelayMs)require("node:child_process").spawn(process.execPath,["-e","setTimeout(()=>("+${JSON.stringify(insert)}+")(process.argv[1]),"+${stateVar}.sessionDelayMs+")",a[2]],{detached:true,stdio:"ignore"}).unref();` +
+		`else (${insert})(a[2])}\n`
+	);
+};
+
 export function fixture() {
 	// Git starts detached auto-maintenance after commits and pushes. It would write into the fixture while
 	// close() removes it, so every git process this test starts runs with automatic background work off.
@@ -34,6 +52,7 @@ export function fixture() {
 	cpSync(join(source, "README.md"), join(root, "README.md"));
 	cpSync(join(source, ".agents/skills/everyfield-pr"), join(root, ".agents/skills/everyfield-pr"), { recursive: true });
 	cpSync(join(source, "tools/evf/templates"), join(root, "tools/evf/templates"), { recursive: true });
+	cpSync(join(source, ".claude/agents"), join(root, ".claude/agents"), { recursive: true });
 	const dag = JSON.parse(readFileSync(join(root, "docs/plan/dag.json"), "utf8"));
 	const progressPath = join(root, "docs/build-progress.json");
 	const progress = {
@@ -183,6 +202,7 @@ fs.writeFileSync(p,JSON.stringify(s));process.stdout.write(typeof result==='stri
 		".gitignore",
 		".agents/skills/everyfield-pr",
 		"tools/evf/templates",
+		".claude/agents",
 	);
 	git("commit", "-qm", "Disposable context");
 	process.env.PATH = bins + ":" + saved.PATH;
@@ -236,4 +256,53 @@ fs.writeFileSync(p,JSON.stringify(s));process.stdout.write(typeof result==='stri
 			rmSync(root, { recursive: true, force: true });
 		},
 	};
+}
+
+/** A string that must never reach the store or a report: fixture transcripts carry it in message text and tool results. */
+export const MARKER = "SECRET-MARKER-9f3c";
+
+type Usage = {
+	input?: number;
+	output?: number;
+	read?: number;
+	write?: number;
+	write1h?: number;
+};
+/** One assistant transcript line, as Claude Code writes it: usage under message.usage, text in message.content. */
+export function assistantLine(id: string, model: string, u: Usage, content = `text ${MARKER}`) {
+	return JSON.stringify({
+		type: "assistant",
+		message: {
+			id,
+			model,
+			role: "assistant",
+			content: [{ type: "text", text: content }],
+			usage: {
+				input_tokens: u.input ?? 0,
+				output_tokens: u.output ?? 0,
+				cache_read_input_tokens: u.read ?? 0,
+				cache_creation_input_tokens: u.write ?? 0,
+				...(u.write1h === undefined
+					? {}
+					: {
+							cache_creation: {
+								ephemeral_5m_input_tokens: (u.write ?? 0) - u.write1h,
+								ephemeral_1h_input_tokens: u.write1h,
+							},
+						}),
+			},
+		},
+	});
+}
+export const toolResultLine = () =>
+	JSON.stringify({ type: "user", message: { role: "user", content: [{ type: "tool_result", content: MARKER }] } });
+
+/** Write a session transcript (and optional subagent transcripts) under `<configDir>/projects/<slug>/`. */
+export function writeTranscript(configDir: string, session: string, lines: string[], subagents: string[][] = []) {
+	const dir = join(configDir, "projects", "-fixture-cwd");
+	mkdirSync(join(dir, session, "subagents"), { recursive: true });
+	writeFileSync(join(dir, `${session}.jsonl`), lines.join("\n") + "\n");
+	subagents.forEach((sub, i) =>
+		writeFileSync(join(dir, session, "subagents", `agent-${i}.jsonl`), sub.join("\n") + "\n"),
+	);
 }

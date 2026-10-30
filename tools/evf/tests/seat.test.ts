@@ -4,10 +4,11 @@ import { chmodSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from "
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { fixture, source } from "./fixtures.ts";
+import { assistantLine, fixture, sessionStartJs, source, writeTranscript } from "./fixtures.ts";
 import { ensureTask, openWorkDb, syncGoals, workDbPath } from "../db.ts";
 import { EvfError, parseTask } from "../lib.ts";
-import { launch, ROLES } from "../launch.ts";
+import { guardTypedLine, launch, launchPlan, LaunchLineTooLong, typedLineBytes } from "../launch.ts";
+import { ROLES } from "../seats.ts";
 
 const SESSION = "33333333-3333-4333-8333-333333333333";
 const cli = (cwd: string, env: Record<string, string>, input: unknown, ...args: string[]) =>
@@ -33,14 +34,16 @@ function fakeHerdr(root: string) {
 			`const calls=JSON.parse(fs.readFileSync(${JSON.stringify(calls)},"utf8"));calls.push(a);fs.writeFileSync(${JSON.stringify(calls)},JSON.stringify(calls));\n` +
 			`const st=JSON.parse(fs.readFileSync(${JSON.stringify(state)},"utf8"));const die=m=>{process.stderr.write(m);process.exit(1)};\n` +
 			`const save=()=>fs.writeFileSync(${JSON.stringify(state)},JSON.stringify(st));const flag=(a,n)=>a[a.indexOf(n)+1];\n` +
+			sessionStartJs(workDbPath(root)) +
 			`const tuiPane=st.tuiPane||"w1:p1";const allPanes=()=>[...(st.tui?[tuiPane]:[]),...(st.panes||[])];\n` +
 			`let r={};if(a[0]==="workspace"&&a[1]==="create"){if(st.createFails)die("fixture: no herdr server");r={workspace:{workspace_id:"w9"},tab:"w9:t1",root_pane:{pane_id:"w9:p1"}};}\n` +
 			`else if(a[0]==="workspace"&&a[1]==="list")r={workspaces:st.tui?[{label:st.tuiLabel||"evf TUI",workspace_id:"w1"}]:[]};\n` +
 			`else if(a[0]==="workspace"&&a[1]==="close")r={type:"ok"};\n` +
-			`else if(a[0]==="agent"&&a[1]==="start"){if(st.startFails)die("fixture: agent did not become idle");if(st.busyStarts>0){st.busyStarts--;save();die(JSON.stringify({error:{code:"agent_pane_busy",message:"agent target pane w9:p1 is not an available shell"}}))}st.agents=[...(st.agents||[]),{name:a[2],pane_id:a[5]}];save();r={agent:{name:a[2]}};}\n` +
+			`else if(a[0]==="agent"&&a[1]==="start"){const dd=a.indexOf("--");const typed=["claude",...a.slice(dd+1)].map(x=>/^[\\w./:=@-]+$/.test(x)?x:"'"+x.replace(/'/g,"'\\\\''")+"'").join(" ");const tb=Buffer.byteLength(typed);st.typedLines=[...(st.typedLines||[]),tb];save();if(tb>=1024)die(JSON.stringify({error:{code:"agent_start_input_failed",message:"input contains a "+tb+"-byte line but the terminal is in canonical mode with a 1024-byte limit; wait for the shell prompt and retry"}}));if(st.inputFailStarts>0){st.inputFailStarts--;save();die(JSON.stringify({error:{code:"agent_start_input_failed",message:"input contains a 900-byte line but the terminal is in canonical mode with a 1024-byte limit; wait for the shell prompt and retry"}}))}if(st.startFails)die("fixture: agent did not become idle");if(st.failStarts>0){st.failStarts--;save();die("fixture: agent did not become idle")}if(st.busyStarts>0){st.busyStarts--;save();die(JSON.stringify({error:{code:"agent_pane_busy",message:"agent target pane w9:p1 is not an available shell"}}))}st.agents=[...(st.agents||[]),{name:a[2],pane_id:a[5]}];save();r={agent:{name:a[2]}};}\n` +
 			`else if(a[0]==="agent"&&a[1]==="list")r={agents:st.agents||[]};\n` +
+			`else if(a[0]==="agent"&&a[1]==="get")r={agent:{agent_status:st.agentStatus||"working"}};\n` +
 			`else if(a[0]==="pane"&&a[1]==="read")process.stdout.write(st.screen||"");\n` +
-			`else if(a[0]==="pane"&&a[1]==="process-info"){const busy=st.notReady===true||st.notReady>0;if(typeof st.notReady==="number"&&st.notReady>0){st.notReady--;save()}r={process_info:{shell_pid:7,foreground_process_group_id:busy?99:7,foreground_processes:flag(a,"--pane")===tuiPane&&st.tui?[{cmdline:"/x/.git/evf/bin/evf-tui --db /x/work.sqlite"}]:[]}};}\n` +
+			`else if(a[0]==="pane"&&a[1]==="process-info"){const busy=st.notReady===true||st.notReady>0;if(typeof st.notReady==="number"&&st.notReady>0){st.notReady--;save()}const rc=st.rcLoading>0;if(rc){st.rcLoading--;save()}r={process_info:{shell_pid:7,foreground_process_group_id:busy?99:7,foreground_processes:rc?[{pid:7},{pid:8,cmdline:"brew shellenv"}]:flag(a,"--pane")===tuiPane&&st.tui?[{cmdline:"/x/.git/evf/bin/evf-tui --db /x/work.sqlite"}]:[]}};}\n` +
 			`else if(a[0]==="pane"&&a[1]==="list")r={panes:allPanes().map(p=>({pane_id:p,workspace_id:p.split(":")[0],tab_id:p.split(":")[0]+":t1"}))};\n` +
 			`else if(a[0]==="pane"&&a[1]==="layout")r={layout:st.layout||{panes:[{pane_id:tuiPane,rect:{x:0,y:0,width:512,height:72}}],splits:[]}};\n` +
 			`else if(a[0]==="pane"&&a[1]==="split"){if(st.splitFails)die("fixture: split failed");r={pane:{pane_id:st.splitPane||"w1:p2"}};}\n` +
@@ -111,8 +114,13 @@ test("OPS-58-launch: a dry run prints the worktree, workspace, agent and store s
 		);
 		assert.match(
 			out.stdout,
-			/herdr agent start 'verifier-ops-1-<run>' --kind claude --pane '<root pane>' --timeout 90000 -- --agent verifier --name verifier@OPS-1 --session-id [0-9a-f-]{36} --model claude-opus-5-5 --effort high --dangerously-skip-permissions/,
+			/herdr agent start 'verifier-ops-1-<run>' --kind claude --pane '<root pane>' --timeout 90000 -- --plugin-dir '\S+\/runtime\/ops-1\/seat-<run>' --agent evf:verifier --name verifier@OPS-1 --session-id [0-9a-f-]{36} --model claude-opus-5-5 --effort high --dangerously-skip-permissions/,
 		);
+		assert.match(
+			out.stdout,
+			/# agent definition: \S+\/\.claude\/agents\/verifier\.md \(the driving checkout \S+, not the task worktree\), written to \S+\/seat-<run>\/agents\/verifier\.md/,
+		);
+		assert.match(out.stdout, /# typed line: \d+ bytes \(the terminal accepts fewer than 1024\)/);
 		assert.equal(
 			(f.db.prepare("SELECT COUNT(*) AS n FROM runs").get() as { n: number }).n,
 			1,
@@ -151,7 +159,11 @@ test("OPS-58-launch: a real launch records the run, passes EVF_RUN to the worksp
 		assert.ok(create.some((arg) => /^EVF_WORKTREE=.*\.worktrees\/ops-1$/.test(arg)));
 		assert.deepEqual(start.slice(2, 7), [`implementer-ops-1-${run.id}`, "--kind", "claude", "--pane", "w9:p1"]);
 		assert.ok(start.includes(String(run.session_id)), "Claude Code starts with the session id evf chose");
-		assert.deepEqual(calls.at(-1), ["agent", "prompt", `implementer-ops-1-${run.id}`, "Begin."]);
+		assert.deepEqual(
+			pairs(calls, "agent", "prompt"),
+			[["agent", "prompt", `implementer-ops-1-${run.id}`, "Begin."]],
+			"one prompt: the turn began, so nothing is sent again",
+		);
 		const task = f.db.prepare("SELECT status, herdr_workspace_id FROM tasks WHERE id = ?").get(f.taskId) as Record<
 			string,
 			unknown
@@ -161,7 +173,7 @@ test("OPS-58-launch: a real launch records the run, passes EVF_RUN to the worksp
 			.prepare("SELECT type FROM events WHERE run_id = ? ORDER BY id")
 			.all(run.id)
 			.map((e) => (e as { type: string }).type);
-		assert.deepEqual(events, ["stage_start", "prompt_sent"]);
+		assert.deepEqual(events, ["session_start", "stage_start", "prompt_sent"], "the prompt waits for the session");
 
 		// A fresh worktree may sit at Claude Code's folder-trust dialog: evf accepts it and the seat reaches idle alone.
 		f.herdr.setState({ startFails: true, screen: "Do you trust the files in this folder?\n> Yes, proceed" });
@@ -551,7 +563,7 @@ test("OPS-67-launch: launch waits while the new pane is not an available shell, 
 		quiet(() => launch(f.root, f.task, "implementer", { timing: SHORT }));
 		const calls = f.herdr.calls().slice(before);
 		const polls = calls.filter((c) => c[1] === "process-info");
-		assert.equal(polls.length, 5, "four busy polls, then the ready one");
+		assert.equal(polls.length, 6, "four busy polls, then two quiet ones in a row");
 		assert.ok(
 			calls.findIndex((c) => c[1] === "start") > calls.findLastIndex((c) => c[1] === "process-info"),
 			"agent start comes after the last poll",
@@ -608,9 +620,13 @@ test("OPS-67-launch: agent_pane_busy that never clears fails the run after the b
 		f.herdr.setState({ busyStarts: 99 });
 		assert.throws(
 			() => quiet(() => launch(f.root, f.task, "implementer", { timing: SHORT })),
-			(e) => e instanceof EvfError && /stayed busy in workspace w9 pane w9:p1 after 3 retries/.test(e.message),
+			(e) =>
+				e instanceof EvfError &&
+				/answered agent_pane_busy in workspace w9 pane w9:p1 on all 4 attempts over \d+(\.\d)? s of waiting/.test(
+					e.message,
+				),
 		);
-		assert.equal(startCalls(f).length, 4, "the first start and three retries");
+		assert.equal(startCalls(f).length, 8, "the first start and three busy retries, then the same once in a new pane");
 		assert.equal(f.runs().at(-1)!.status, "aborted");
 	} finally {
 		f.db.close();
@@ -733,7 +749,14 @@ test("OPS-65-split: a split pane whose agent never starts is closed; the run abo
 		assert.equal(out.status, 1);
 		assert.equal(f.runs().at(-1)!.status, "aborted");
 		const closes = pairs(f.herdr.calls(), "pane", "close");
-		assert.deepEqual(closes, [["pane", "close", "w1:p2"]], "only the new pane closes");
+		assert.deepEqual(
+			closes,
+			[
+				["pane", "close", "w1:p2"],
+				["pane", "close", "w1:p2"],
+			],
+			"only the new pane closes: after the first try, and after the retry",
+		);
 	} finally {
 		f.db.close();
 		f.close();
@@ -906,12 +929,13 @@ test("OPS-65-auto: every role launches with --dangerously-skip-permissions throu
 	assert.equal(planAnswer?.length, 1, "the planner --resume answer path keeps --permission-mode plan");
 });
 
-test("OPS-65-settings: deny and ask rules and the hooks are unchanged; the only allow addition targets post-review.mjs (a wildcard cannot anchor the path, so the absolute form also matches extra arguments)", () => {
+test("OPS-65-settings: deny rules and the hooks are unchanged, no ask rule remains (OPS-71); the only allow addition targets post-review.mjs (a wildcard cannot anchor the path, so the absolute form also matches extra arguments)", () => {
 	const settings = JSON.parse(readFileSync(join(source, ".claude/settings.json"), "utf8")) as {
 		permissions: { allow: string[]; ask: string[]; deny: string[] };
 		hooks: Record<string, unknown[]>;
 	};
-	assert.deepEqual(settings.permissions.ask, ["Bash(git push)", "Bash(git push *)"]);
+	// OPS-71 removed the git push ask rule; the deny rules below still stop main, force and mirror pushes.
+	assert.equal(settings.permissions.ask, undefined);
 	assert.deepEqual(settings.permissions.deny, [
 		"Bash(git push *--force*)",
 		"Bash(git push -f*)",
@@ -972,4 +996,426 @@ test("OPS-65-settings: deny and ask rules and the hooks are unchanged; the only 
 		added.some((rule) => rule === `Bash(node ${script} *)`),
 		"the relative form is allowed",
 	);
+});
+
+// OPS-72: launch takes the role from the driving checkout, reads the pane on a failed start, retries once and sends the
+// first prompt only to a ready session.
+const TURN = { ...SHORT, sessionReadyMs: 3_000, sessionPollMs: 20, turnConfirmMs: 150, turnPollMs: 20 };
+const startArgsOf = (f: ReturnType<typeof seatFixture>) => startCalls(f).at(-1)!;
+const flagOf = (start: string[], flag: string) => start[start.indexOf(flag) + 1]!;
+/** The definition a launch handed to the seat: the file inside the run's plugin directory. */
+const pluginAgent = (start: string[], role: string) => {
+	const dir = flagOf(start, "--plugin-dir");
+	return {
+		dir,
+		manifest: JSON.parse(readFileSync(join(dir, ".claude-plugin/plugin.json"), "utf8")) as Record<string, unknown>,
+		text: readFileSync(join(dir, "agents", `${role}.md`), "utf8"),
+	};
+};
+
+test("OPS-72-agent: the seat gets the role definition of the driving checkout, whether the worktree has none or a different one", () => {
+	const f = seatFixture();
+	try {
+		const rootText = readFileSync(join(f.root, ".claude/agents/implementer.md"), "utf8");
+		const seen = new Set<string>();
+		const check = (label: string) => {
+			quiet(() => launch(f.root, f.task, "implementer", { timing: TURN }));
+			const start = startArgsOf(f);
+			assert.equal(flagOf(start, "--agent"), "evf:implementer");
+			assert.ok(!start.includes("--agents"), `${label}: no definition on the typed line`);
+			const got = pluginAgent(start, "implementer");
+			assert.equal(got.manifest.name, "evf");
+			assert.equal(got.text, rootText, `${label}: the plugin carries the driving checkout's file, whole`);
+			assert.ok(!got.dir.startsWith(f.worktree), `${label}: the directory is outside the task worktree`);
+			assert.ok(!seen.has(got.dir), `${label}: each run has its own directory`);
+			seen.add(got.dir);
+			// A role file without model or effort gets the seat's; one with them keeps its own.
+			assert.match(got.text, /^model: claude-/m);
+			assert.match(got.text, /^effort: /m);
+		};
+		// The seat fixture's worktree has no .claude/agents at all.
+		check("no worktree file");
+		// A task branch that edits the role file does not change the seat its own drive launches.
+		mkdirSync(join(f.worktree, ".claude/agents"), { recursive: true });
+		writeFileSync(
+			join(f.worktree, ".claude/agents/implementer.md"),
+			"---\nname: implementer\ndescription: branch copy\nmodel: claude-opus-5-5\neffort: high\ntools: Read\n---\nThe branch's own prompt.\n",
+		);
+		check("a different worktree file");
+		const dry = cli(f.root, {}, undefined, "launch", "OPS-1", "--role", "implementer", "--dry-run").stdout;
+		assert.match(dry, /# agent definition: \S+\/\.claude\/agents\/implementer\.md \(the driving checkout/);
+		assert.doesNotMatch(dry, /ops-1\/\.claude\/agents/);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-72-pane: a failed start reports the pane's real error, not only the timeout, in the message and the run summary", () => {
+	const f = seatFixture();
+	try {
+		f.herdr.setState({ startFails: true, screen: "\n  ╭───╮\n$ claude --agent evidence\nError: agent not found\n" });
+		assert.throws(
+			() => quiet(() => launch(f.root, f.task, "implementer", { timing: TURN })),
+			(e) => e instanceof EvfError && /agent start failed/.test(e.message) && /Error: agent not found/.test(e.message),
+		);
+		const run = f.runs().at(-1)!;
+		assert.equal(run.status, "aborted");
+		assert.match(String(run.summary), /^launch failed: .*Error: agent not found/);
+		assert.match(String(run.summary), /claude --agent evidence/, "the last meaningful lines, not the box drawing");
+		assert.doesNotMatch(String(run.summary), /╭/);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-72-retry: a first failed start closes the dead pane and the second pane starts the seat: one run row, a new session id", () => {
+	const f = seatFixture();
+	try {
+		f.herdr.setState({ failStarts: 1, screen: "claude: command not found" });
+		const before = f.runs().length;
+		quiet(() => launch(f.root, f.task, "implementer", { timing: TURN }));
+		const rows = f.runs();
+		assert.equal(rows.length, before + 1, "one run row");
+		const run = rows.at(-1)!;
+		assert.equal(run.status, "started");
+		assert.equal(startCalls(f).length, 2, "two starts: one failed, one succeeded");
+		assert.equal(pairs(f.herdr.calls(), "workspace", "close").length, 1, "the dead workspace closed");
+		assert.equal(pairs(f.herdr.calls(), "workspace", "create").length, 2, "a new pane for the second try");
+		const [first, second] = startCalls(f).map((c) => c[c.indexOf("--session-id") + 1]);
+		assert.notEqual(first, second, "the second try uses a new Claude session id");
+		assert.equal(run.session_id, second);
+		const retry = f.db.prepare("SELECT payload FROM events WHERE run_id = ? AND type = 'launch_retry'").get(run.id) as {
+			payload: string;
+		};
+		assert.match(retry.payload, /command not found/);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-72-retry: two failed starts close the run as aborted with the pane excerpt and throw one error", () => {
+	const f = seatFixture();
+	try {
+		f.herdr.setState({ startFails: true, screen: "Error: agent not found" });
+		assert.throws(
+			() => quiet(() => launch(f.root, f.task, "implementer", { timing: TURN })),
+			(e) => e instanceof EvfError && /Error: agent not found/.test(e.message),
+		);
+		assert.equal(startCalls(f).length, 2, "exactly one retry");
+		const run = f.runs().at(-1)!;
+		assert.equal(run.status, "aborted");
+		assert.match(String(run.summary), /Error: agent not found/);
+		assert.equal(pairs(f.herdr.calls(), "workspace", "close").length, 2, "both dead workspaces closed");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-72-ready: the first prompt waits for the run's session_start event and is never sent before it", () => {
+	const f = seatFixture();
+	try {
+		f.herdr.setState({ sessionDelayMs: 400 });
+		const started = Date.now();
+		quiet(() => launch(f.root, f.task, "implementer", { prompt: "Begin.", timing: TURN }));
+		const run = f.runs().at(-1)!;
+		const types = f.db
+			.prepare("SELECT type FROM events WHERE run_id = ? ORDER BY id")
+			.all(run.id)
+			.map((e) => (e as { type: string }).type);
+		assert.ok(
+			types.indexOf("session_start") >= 0 && types.indexOf("session_start") < types.indexOf("prompt_sent"),
+			types.join(","),
+		);
+		assert.ok(Date.now() - started >= 350, "launch waited for the delayed session");
+		assert.equal(pairs(f.herdr.calls(), "agent", "prompt").length, 1);
+		assert.ok(!types.includes("prompt_resent"), "the turn began, so no resend");
+		// Claude never reaches its hook: the prompt is not sent at all, the launch fails after its retry.
+		f.herdr.setState({ noSession: true, screen: "Welcome to Claude Code" });
+		const mark = pairs(f.herdr.calls(), "agent", "prompt").length;
+		assert.throws(
+			() =>
+				quiet(() =>
+					launch(f.root, f.task, "implementer", { prompt: "Begin.", timing: { ...TURN, sessionReadyMs: 120 } }),
+				),
+			(e) =>
+				e instanceof EvfError && /sent no session_start/.test(e.message) && /Welcome to Claude Code/.test(e.message),
+		);
+		assert.equal(
+			pairs(f.herdr.calls(), "agent", "prompt").length,
+			mark,
+			"no prompt reached a session that was not ready",
+		);
+		assert.equal(f.runs().at(-1)!.status, "aborted");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-72-ready: a first prompt that starts no turn is sent exactly once more and records prompt_resent", () => {
+	const f = seatFixture();
+	try {
+		f.herdr.setState({ agentStatus: "idle" });
+		quiet(() => launch(f.root, f.task, "implementer", { prompt: "Begin.", timing: TURN }));
+		const run = f.runs().at(-1)!;
+		const prompts = pairs(f.herdr.calls(), "agent", "prompt");
+		assert.equal(prompts.length, 2, "the prompt and exactly one resend");
+		assert.deepEqual(prompts[0], prompts[1]);
+		const resent = f.db
+			.prepare("SELECT COUNT(*) AS n FROM events WHERE run_id = ? AND type = 'prompt_resent'")
+			.get(run.id) as {
+			n: number;
+		};
+		assert.equal(resent.n, 1);
+		assert.equal(run.status, "started");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-69-hook: the session-end hook fills usage, and refills a run that evf run done already closed, from the complete transcript", () => {
+	const f = seatFixture(),
+		claude = join(f.root, "claude-config");
+	try {
+		const env = { ...f.env, CLAUDE_CONFIG_DIR: claude };
+		const usage = () => ({
+			...(f.db.prepare("SELECT status, tokens_in, tokens_out, cost_est FROM runs WHERE id = ?").get(f.run) as object),
+		});
+		writeTranscript(claude, SESSION, [assistantLine("a", "claude-sonnet-5-5", { input: 10, output: 20 })]);
+		// The stage closed while the transcript held one message.
+		f.db.prepare("UPDATE runs SET status = 'passed', ended_at = ? WHERE id = ?").run(new Date().toISOString(), f.run);
+		assert.equal(usage().tokens_in, null);
+		// The seat's final turns land in the transcript, then the session ends.
+		writeTranscript(claude, SESSION, [
+			assistantLine("a", "claude-sonnet-5-5", { input: 10, output: 20 }),
+			assistantLine("b", "claude-sonnet-5-5", { input: 5, output: 7 }),
+		]);
+		const end = cli(f.root, env, { session_id: SESSION, reason: "exit" }, "hook", "session-end");
+		assert.equal(end.status, 0, end.stderr);
+		assert.deepEqual(usage(), { status: "passed", tokens_in: 15, tokens_out: 27, cost_est: (15 * 2 + 27 * 10) / 1e6 });
+		// A clear keeps the run open and counts nothing yet.
+		f.db
+			.prepare("UPDATE runs SET status = 'started', tokens_in = NULL, tokens_out = NULL, cost_est = NULL WHERE id = ?")
+			.run(f.run);
+		cli(f.root, env, { session_id: SESSION, reason: "clear" }, "hook", "session-end");
+		assert.equal(usage().tokens_in, null);
+		// An aborting end fills too, and a missing transcript leaves null with the usual exit code.
+		cli(f.root, env, { session_id: SESSION, reason: "exit" }, "hook", "session-end");
+		assert.deepEqual([usage().status, usage().tokens_in], ["aborted", 15]);
+		f.db.prepare("UPDATE runs SET status = 'started', tokens_in = NULL WHERE id = ?").run(f.run);
+		const none = cli(
+			f.root,
+			{ ...env, CLAUDE_CONFIG_DIR: join(f.root, "empty") },
+			{ session_id: SESSION, reason: "exit" },
+			"hook",
+			"session-end",
+		);
+		assert.equal(none.status, 0, none.stderr);
+		assert.deepEqual([usage().status, usage().tokens_in], ["aborted", null]);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-69-launch-abort: a launch that fails after the run row exists aborts the run and leaves usage null without a transcript", () => {
+	const f = seatFixture();
+	try {
+		f.herdr.setState({ startFails: true, screen: "claude: command not found" });
+		const out = cli(f.root, {}, undefined, "launch", "OPS-1", "--role", "implementer");
+		assert.notEqual(out.status, 0);
+		const last = f.runs().at(-1)!;
+		assert.equal(last.status, "aborted");
+		assert.match(String(last.summary), /^launch failed/);
+		const usage = f.db.prepare("SELECT tokens_in, cost_est FROM runs WHERE id = ?").get(last.id) as object;
+		assert.deepEqual({ ...usage }, { tokens_in: null, cost_est: null });
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-69-runs-model: the runs row records the resolved model and effort of a seat override", () => {
+	const f = seatFixture();
+	try {
+		const path = join(f.root, "evf.config.json"),
+			cfg = JSON.parse(readFileSync(path, "utf8"));
+		writeFileSync(
+			path,
+			JSON.stringify({ ...cfg, seats: { implementer: { model: "claude-opus-5-5", effort: "high" } } }),
+		);
+		f.herdr.setState({ startFails: true, screen: "claude: command not found" });
+		cli(f.root, {}, undefined, "launch", "OPS-1", "--role", "implementer");
+		const row = f.db.prepare("SELECT model, effort FROM runs WHERE id = (SELECT MAX(id) FROM runs)").get() as object;
+		assert.deepEqual({ ...row }, { model: "claude-opus-5-5", effort: "high" });
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+// OPS-74: the typed line stays under Herdr's 1024-byte terminal limit whatever the role file holds, and a shell that is
+// not at its prompt yet is waited for, not abandoned.
+const ROLE_NAMES = Object.keys(ROLES) as Array<keyof typeof ROLES>;
+const optsFor = (role: string) => (role === "ideator" ? { idea: 1, timing: TURN } : { timing: TURN });
+
+test("OPS-74-line: every role launches against a Herdr that enforces the 1024-byte limit, from the checkout's real role files", () => {
+	const f = seatFixture();
+	try {
+		for (const role of ROLE_NAMES) {
+			const before = startCalls(f).length;
+			quiet(() => launch(f.root, f.task, role, optsFor(role)));
+			assert.equal(startCalls(f).length - before, 1, `${role}: started at the first try`);
+			const run = f.runs().at(-1)!;
+			assert.equal(run.status, "started", role);
+			assert.ok(String(run.herdr_agent).startsWith(role), role);
+		}
+		const typed = f.herdr.state().typedLines as number[];
+		assert.equal(typed.length, ROLE_NAMES.length);
+		for (const [i, bytes] of typed.entries()) assert.ok(bytes <= 768, `${ROLE_NAMES[i]}: typed line is ${bytes} bytes`);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-74-grow: the typed line does not grow with the role file; an over-long line is refused before any pane exists", () => {
+	const f = seatFixture();
+	try {
+		const lengths = (role: (typeof ROLE_NAMES)[number]) => {
+			const task = parseTask("OPS-1");
+			const plan = launchPlan(f.root, task, role, { idea: role === "ideator" ? 1 : undefined, run: "123" });
+			return typedLineBytes(plan);
+		};
+		const real = ROLE_NAMES.map(lengths);
+		for (const [i, bytes] of real.entries()) assert.ok(bytes <= 768, `${ROLE_NAMES[i]}: ${bytes} bytes`);
+		for (const role of ROLE_NAMES) {
+			const file = join(f.root, `.claude/agents/${role}.md`);
+			writeFileSync(file, `${readFileSync(file, "utf8")}\n${"A long extra paragraph for the role.\n".repeat(600)}`);
+		}
+		assert.ok(readFileSync(join(f.root, ".claude/agents/planner.md"), "utf8").length > 20_000);
+		assert.deepEqual(ROLE_NAMES.map(lengths), real, "the same line lengths with 20 KB role files");
+		quiet(() => launch(f.root, f.task, "planner", { timing: TURN }));
+		assert.equal(startCalls(f).length, 1);
+		const dry = cli(f.root, {}, undefined, "launch", "OPS-1", "--role", "planner", "--dry-run").stdout;
+		const bytes = Number(/# typed line: (\d+) bytes/.exec(dry)![1]);
+		assert.ok(bytes > 0 && bytes <= 768, `dry run shows ${bytes}`);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-74-prompt: agent_start_input_failed twice waits with backoff in the same pane, then starts the seat once", () => {
+	const f = seatFixture();
+	try {
+		f.herdr.setState({ inputFailStarts: 2 });
+		const t0 = Date.now();
+		const timing = { ...SHORT, busyBackoffMs: 40 };
+		quiet(() => launch(f.root, f.task, "implementer", { timing }));
+		const waited = Date.now() - t0;
+		assert.ok(waited >= 40 + 80, `waited ${waited} ms, at least the backoff sum 120`);
+		const calls = f.herdr.calls();
+		assert.equal(startCalls(f).length, 3, "two refusals, one start");
+		assert.equal(pairs(calls, "pane", "split").length + pairs(calls, "workspace", "create").length, 1, "one pane");
+		assert.equal(pairs(calls, "workspace", "close").length + pairs(calls, "pane", "close").length, 0, "no pane closed");
+		assert.equal(f.herdr.state().agents.length, 1, "a started seat");
+		const rows = f.runs();
+		assert.equal(rows.filter((r) => r.status === "started").length, 2, "the fixture's run and one launch run");
+		assert.equal(rows.at(-1)!.status, "started");
+		// The agent list is read before each retry, and the shell is polled again.
+		const idx = calls.map((c, i) => (c[0] === "agent" && c[1] === "start" ? i : -1)).filter((i) => i >= 0);
+		for (const i of idx.slice(1))
+			assert.ok(
+				calls.slice(idx[0], i).some((c) => c[1] === "list"),
+				"list before a retry",
+			);
+		assert.ok(
+			calls.slice(idx[0], idx[1]).filter((c) => c[1] === "process-info").length >= 2,
+			"the shell is checked again before the retry",
+		);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-74-prompt: agent_start_input_failed that never clears fails after the full backoff and names the code, attempts and wait", () => {
+	const f = seatFixture();
+	try {
+		f.herdr.setState({ inputFailStarts: 999 });
+		const timing = { ...SHORT, busyBackoffMs: 20 };
+		const t0 = Date.now();
+		assert.throws(
+			() => quiet(() => launch(f.root, f.task, "implementer", { timing })),
+			(e) =>
+				e instanceof EvfError &&
+				/answered agent_start_input_failed in workspace w9 pane w9:p1 on all 4 attempts over 0\.\d s of waiting/.test(
+					e.message,
+				),
+		);
+		assert.ok(Date.now() - t0 >= 20 + 40 + 80, "the whole backoff 20 + 40 + 80 ms ran");
+		assert.equal(startCalls(f).length, 8, "four attempts, then the same once in a new pane");
+		assert.equal(f.runs().at(-1)!.status, "aborted");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-74-quiet: a shell with a subshell in the foreground group is not ready, though the group id equals the shell pid", () => {
+	const f = seatFixture();
+	try {
+		f.herdr.setState({ rcLoading: 3 });
+		const before = f.herdr.calls().length;
+		quiet(() => launch(f.root, f.task, "implementer", { timing: SHORT }));
+		const calls = f.herdr.calls().slice(before);
+		assert.equal(calls.filter((c) => c[1] === "process-info").length, 5, "three loading polls, then two quiet ones");
+		assert.ok(
+			calls.findIndex((c) => c[1] === "start") > calls.findLastIndex((c) => c[1] === "process-info"),
+			"agent start comes after the quiet polls",
+		);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-74-guard: a line of 1024 bytes or more is refused before any pane or run row exists, with the role, the bytes and the limit", () => {
+	const f = seatFixture();
+	try {
+		// At the real limit: a plan whose plugin path is long enough.
+		const plan = launchPlan(f.root, f.task, "planner", { run: "1" });
+		const longPlan = { ...plan, pluginDir: `/${"d".repeat(900)}` };
+		assert.throws(
+			() => guardTypedLine(longPlan),
+			(e) =>
+				e instanceof LaunchLineTooLong &&
+				/^The launch line for planner is (\d+) bytes; the terminal accepts fewer than 1024\./.test(e.message) &&
+				Number(/is (\d+) bytes/.exec(e.message)![1]) === typedLineBytes(longPlan),
+		);
+		guardTypedLine(plan); // the real line passes
+		// Through launch, with the limit lowered below the real line: no pane, no run row.
+		const panes = f.herdr.calls().length,
+			runs = f.runs().length,
+			bytes = typedLineBytes(plan);
+		assert.throws(
+			() => quiet(() => launch(f.root, f.task, "planner", { timing: { ...TURN, typedLineLimit: bytes } })),
+			(e) =>
+				e instanceof LaunchLineTooLong &&
+				/launch line for planner is \d+ bytes; the terminal accepts fewer than \d+\./.test(e.message),
+		);
+		assert.equal(f.herdr.calls().length, panes, "no herdr call, so no pane");
+		assert.equal(f.runs().length, runs, "no run row");
+		const dry = cli(f.root, {}, undefined, "launch", "OPS-1", "--role", "planner", "--dry-run").stdout;
+		assert.ok(Number(/# typed line: (\d+) bytes/.exec(dry)![1]) > 0);
+	} finally {
+		f.db.close();
+		f.close();
+	}
 });

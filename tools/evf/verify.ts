@@ -103,6 +103,9 @@ export function verify(
 		EVF_ROLE: role,
 		EVF_MODE: mode,
 		EVF_BASE_URL: vars.baseUrl,
+		// The promise holds here: `run` below is spawnSync, so this process waits for every check child. A guarded evf
+		// command inside a check (`evf test`) may therefore run without a terminal. An existing value stays.
+		EVF_MONITOR: process.env.EVF_MONITOR?.trim() || `evf verify ${task.id}`,
 	};
 	const definitions = task.kind === "ops" ? withCiParity(maintenanceScope(wt, task).checks, cfg.checks) : cfg.checks;
 	if (task.kind !== "ops" && cfg.stack?.usesPaidProviders) requireSpend(root);

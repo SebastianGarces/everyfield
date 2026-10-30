@@ -91,7 +91,7 @@ const CHOICES = {
 };
 for (const [name, engine] of ENGINES) {
 	const [[q1, p1], [q2, p2], [q3, p3]] = CHOICES[name];
-	test(`AC:TARGET-MTG-007 AC:TARGET-MTG-011 (${name}): Add guest picks people across searches, adds them with one click and keeps the ones that were not reached`, async () => {
+	test(`AC:TARGET-MTG-007 AC:TARGET-MTG-011 (${name}): Add guest keeps one Chosen list across both tabs, adds everyone with one click and keeps the ones that were not reached`, async () => {
 		const { meetingId } = fixture("meetings");
 		const ids = fixture("people").people;
 		await withPage(engine, async (page, context) => {
@@ -115,30 +115,58 @@ for (const [name, engine] of ENGINES) {
 			assert.equal(await dialog.getByRole("checkbox", { name: new RegExp(p1) }).count(), 0);
 			await pick(q1, p1);
 			await pick(q2, p2);
-			await pick(q3, p3);
 			// The earlier choices stay chosen after the search changed, and each has a remove control.
-			await dialog.getByText("Chosen (3)").waitFor();
+			await dialog.getByText("Chosen (2)").waitFor();
 			await dialog.getByRole("button", { name: `Remove ${p1}` }).waitFor();
 
-			// The third person's save is lost both times: the others are added and the form keeps only that person.
+			// "Someone new" adds each person to the same Chosen list and keeps the dialog open.
+			const [n1, n2] = [`Newcomer ${name} One`, `Newcomer ${name} Two`];
+			await dialog.getByRole("radio", { name: "Someone new" }).click();
+			await dialog.getByText("Chosen (2)").waitFor();
+			const nameField = dialog.getByLabel("Name");
+			// Text typed and not added blocks the submit and is never added for the person.
+			await nameField.fill(n1);
+			await dialog.getByRole("button", { name: "Add 2 guests" }).click();
+			await dialog.getByText("Add this person to the list, or clear the name.").waitFor();
+			await dialog.getByRole("button", { name: "Add to list" }).click();
+			await dialog.getByText("Chosen (3)").waitFor();
+			assert.equal(await nameField.inputValue(), "");
+			await page.waitForFunction(() => document.activeElement?.getAttribute("type") !== "button");
+			await nameField.fill(n2);
+			await nameField.press("Enter");
+			await dialog.getByText("Chosen (4)").waitFor();
+			assert.equal(await dialog.getByText("New", { exact: true }).count(), 2);
+
+			// Back in People: the search and its checked boxes are still there, and more people can be checked.
+			await dialog.getByRole("radio", { name: "Someone in People" }).click();
+			assert.equal(await search.inputValue(), q2);
+			assert.equal(await dialog.getByRole("checkbox", { name: new RegExp(p2) }).isChecked(), true);
+			await search.fill(q1);
+			assert.equal(await dialog.getByRole("checkbox", { name: new RegExp(p1) }).isChecked(), true);
+			await pick(q3, p3);
+			await dialog.getByText("Chosen (5)").waitFor();
+
+			// The third person and the second new person are lost both times: the others are added and the form keeps
+			// only those two, the new one with what was entered.
 			let lost = 0;
 			await context.route("**/*", async (route) => {
 				const r = route.request();
-				if (r.method() === "POST" && r.headers()["next-action"] && (r.postData() ?? "").includes(ids[p3])) {
+				const body = r.postData() ?? "";
+				if (r.method() === "POST" && r.headers()["next-action"] && (body.includes(ids[p3]) || body.includes(n2))) {
 					lost++;
 					return route.abort("failed");
 				}
 				return route.fallback();
 			});
-			await dialog.getByRole("button", { name: "Add 3 guests" }).click();
+			await dialog.getByRole("button", { name: "Add 5 guests" }).click();
 			const again = page.getByRole("dialog", { name: "Add guest" });
-			await again.getByText(`${p3} was not added`, { exact: false }).waitFor();
-			await again.getByText("Chosen (1)").waitFor();
-			assert.equal(lost, 2);
+			await again.getByText(`${p3}, ${n2} were not added`, { exact: false }).waitFor();
+			await again.getByText("Chosen (2)").waitFor();
+			assert.equal(lost, 4);
 			await context.unroute("**/*");
-			for (const person of [p1, p2]) await page.locator("tr", { hasText: person }).waitFor();
-			await again.getByRole("button", { name: "Add guest" }).click();
-			await page.locator("tr", { hasText: p3 }).waitFor();
+			for (const person of [p1, p2, n1]) await page.locator("tr", { hasText: person }).waitFor();
+			await again.getByRole("button", { name: "Add 2 guests" }).click();
+			for (const person of [p3, n2]) await page.locator("tr", { hasText: person }).waitFor();
 			assert.equal(await page.getByRole("dialog", { name: "Add guest" }).count(), 0);
 		});
 	});

@@ -5,7 +5,8 @@ import type { DatabaseSync } from "node:sqlite";
 import { missionFor, openWorkDb } from "./db.ts";
 import { fail, parseTask, run, type TaskRef } from "./lib.ts";
 import { closeRunPane } from "./panes.ts";
-import { doneCriteria, sectionItems, specSections } from "./spec.ts";
+import { fillRunUsage } from "./usage.ts";
+import { coordinatorNotes, doneCriteria, sectionItems, specSections } from "./spec.ts";
 
 /**
  * What a seat sees and reports. `evf refocus` prints the goal chain (OpenRig's refocus, guard rail 1). `evf session`
@@ -50,8 +51,16 @@ const clip = (line: string, max: number) => (line.length > max ? `${line.slice(0
  */
 function blocks(ask: unknown, spec: unknown): Block[] {
 	const out: Block[] = [];
-	if (typeof ask === "string" && ask.trim())
-		out.push({ label: "the ask", lines: ["Ask:", ...ask.trim().split("\n")], priority: 2, essential: false });
+	// The coordinator notes are pinned apart from the ask (see refocusText), so the ask block keeps only the rest.
+	const rest =
+		typeof ask === "string"
+			? ask
+					.split(/\n\s*\n/)
+					.filter((p) => !/^coordinator note\b/i.test(p.trim()))
+					.join("\n\n")
+			: "";
+	if (rest.trim())
+		out.push({ label: "the ask", lines: ["Ask:", ...rest.trim().split("\n")], priority: 2, essential: false });
 	if (typeof spec === "string" && spec.trim()) {
 		out.push({ label: "", lines: ["Spec:"], priority: 0, essential: true });
 		for (const s of specSections(spec.trim())) {
@@ -124,6 +133,22 @@ export function refocusText(db: DatabaseSync, task: TaskRef, header?: string): s
 	);
 	if (stage) lines.push(`Stage: ${stage.stage} (${stage.role} seat)`);
 	const head = [...(header ? [header] : []), ...lines];
+	// Pinned text is never cut: the coordinator's reopen reason and the ask's coordinator notes change what a seat does.
+	const reopen = t
+		? (db
+				.prepare("SELECT payload FROM events WHERE task_id = ? AND type = 'reopen' ORDER BY id DESC LIMIT 1")
+				.get(t.id as number) as { payload: string } | undefined)
+		: undefined;
+	const reopenReason = reopen ? String((JSON.parse(reopen.payload) as { reason?: string }).reason ?? "").trim() : "";
+	const notes = coordinatorNotes(typeof t?.ask === "string" ? t.ask : null);
+	const pinned = [
+		...(reopenReason
+			? [
+					`Reopen reason (the coordinator, verbatim; it is your current instruction over older failure summaries): ${reopenReason}`,
+				]
+			: []),
+		...(notes.length ? ["Coordinator notes from the ask:", ...notes] : []),
+	];
 	const criteria = doneCriteria(typeof t?.spec === "string" ? t.spec : null);
 	const rule =
 		typeof t?.spec === "string" && t.spec.trim()
@@ -135,7 +160,7 @@ export function refocusText(db: DatabaseSync, task: TaskRef, header?: string): s
 	const show = `bin/evf task spec ${task.id} --show`;
 	// The closing lines depend on what was cut; reserve room for them and widen the reserve until the whole fits.
 	for (let reserve = 400; ; reserve += 400) {
-		const fixed = size([...head, ...rule, QUESTION]);
+		const fixed = size([...head, ...pinned, ...rule, QUESTION]);
 		const { shown, cuts } = fit(all, {
 			units: CONTEXT_ROOM.units - fixed.units - reserve,
 			lines: CONTEXT_ROOM.lines - fixed.lines - 1,
@@ -146,11 +171,12 @@ export function refocusText(db: DatabaseSync, task: TaskRef, header?: string): s
 			? [
 					...head,
 					`SHORTENED to fit Claude Code's 8,000-character hook limit. Not shown here: ${cuts.join("; ")}. Run ${show} and read the full ask and spec before you build or judge.`,
+					...pinned,
 					...body,
 					...rule,
 					QUESTION,
 				]
-			: [...head, ...body, ...rule, `Full ask and spec: ${show}.`, QUESTION];
+			: [...head, ...pinned, ...body, ...rule, `Full ask and spec: ${show}.`, QUESTION];
 		const s = size(out);
 		if ((s.units <= CONTEXT_ROOM.units && s.lines <= CONTEXT_ROOM.lines) || reserve > CONTEXT_ROOM.units)
 			return out.join("\n");
@@ -333,6 +359,8 @@ export function hook(root: string, event: string): number {
 			: db
 					.prepare("UPDATE runs SET status = 'aborted', ended_at = ? WHERE id = ? AND status = 'started'")
 					.run(new Date().toISOString(), runId).changes;
+		// The final turns can follow `evf run done`, so a run that already closed refills from the complete transcript.
+		if (!SEAT_CONTINUES.has(reason ?? "")) fillRunUsage(db, runId);
 		record(db, seat.task_id, runId, "session_end", {
 			reason,
 			aborted: ended > 0,

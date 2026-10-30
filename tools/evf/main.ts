@@ -27,7 +27,8 @@ import { migrationsRenumber } from "./migrations.ts";
 import { awaitLoad } from "./load.ts";
 import { nextId } from "./ids.ts";
 import { dbMigrate, dbSeedProgress, goalsList, goalsSync, status, workDbPath } from "./db.ts";
-import { isRole, launch, ROLES } from "./launch.ts";
+import { launch } from "./launch.ts";
+import { isRole, ROLES } from "./seats.ts";
 import { hook, refocus, session, showSpec } from "./seat.ts";
 import { finishPane } from "./panes.ts";
 import { tui } from "./tui.ts";
@@ -39,6 +40,8 @@ import {
 	proofAdd,
 	proofShow,
 	runDone,
+	taskAbandon,
+	taskComparePassed,
 	taskHandoff,
 	taskNew,
 	taskPick,
@@ -46,6 +49,7 @@ import {
 	taskSpec,
 } from "./drive.ts";
 import { timing } from "./timing.ts";
+import { usageBackfill, usageReport } from "./usage.ts";
 
 const HELP = `evf: Everyfield v3 workflow CLI
 
@@ -94,12 +98,14 @@ State store (harness)
                                                               tasks from the ledger committed on main
   evf goals sync | list                                       project goal and S-row missions from the plan docs
   evf status [--json] [<task>]                                tasks, seats, recent events and health from the store
+  evf usage [--json] [<task>]                                 tokens and estimated cost by task, role, model and round (list prices; nothing is billed)
+  evf usage --backfill                                        fill the usage columns of runs that have a readable transcript
   evf tui [--dry-run] [--once]                                live screen of every task, seat and event (tools/evf-tui,
                                                               built with cargo when the cached binary is stale)
 
 Seats (harness)
   evf launch <task> --role <role> [--idea <n>] [--prompt-file <file>] [--dry-run] [--ignore-load "<reason>"]
-        worktree + Herdr workspace + claude --agent <role> with evf's session id; records the run.
+        worktree + Herdr workspace + claude --agent evf:<role> with evf's session id; records the run.
         Roles: planner, implementer, ui, simplifier, verifier, ideator (with --idea), comparer, prototype-merger.
   evf refocus <task>                                          the goal chain for a seat: ask, spec, proof rule (fits the hook limit; says what it cut)
   evf session                                                 this pane's Claude Code session id, for EVF-Author and EVF-Review
@@ -110,7 +116,11 @@ Drive (harness)
   evf task spec <task> --file <file>                          store the spec: Goal, numbered Done criteria, Non-goals
   evf task spec <task> --show                                 print the stored ask and spec in full
   evf task pick <task> <1|2|3> --owner-approval "<words>"     prototype mode: record Sebastian's pick
-  evf task reopen <task> --reason "<words>"                   escalated task: back to pr_open or active, failure count restarts
+  evf task reopen <task> --reason "<words>"                   escalated task: back to pr_open or active, failure count restarts;
+                                                              the reason goes verbatim into the next seat's prompt
+  evf task compare-passed <task> --owner-approval "<words>"   prototype task escalated on one idea while the others passed:
+                                                              compare only the passed ideas (the missing idea cannot be picked)
+  evf task abandon <task> [--id <store id>] --reason "<words>"  close a stale task row (not merged, no started run, no live drive)
   evf task handoff <task> --file <spec>                       prototype mode: end the prototype, create the implement task
   evf next <task>                                             the next stage from the store, as JSON
   evf drive <task> [--once] [--detach]                        run the stage machine: plan, implement, simplify, pr, verify, ci, ship; cap 3 rounds; one per task
@@ -307,6 +317,19 @@ function main(argv: string[]): number | Promise<number> {
 				if (args.length !== 2) break;
 				return taskPick(root, parseTask(args[0]), Number(args[1]), words ?? "");
 			}
+			if (sub === "compare-passed") {
+				const words = option(args, "--owner-approval");
+				if (args.length !== 1) break;
+				return taskComparePassed(root, parseTask(args[0]), words ?? "");
+			}
+			if (sub === "abandon") {
+				const reason = option(args, "--reason"),
+					idArg = option(args, "--id");
+				const id = idArg === undefined ? undefined : Number(idArg);
+				if (id !== undefined && (!Number.isInteger(id) || id <= 0)) throw new EvfError("--id takes a store task id.");
+				if (args.length !== 1) break;
+				return taskAbandon(root, parseTask(args[0]), { id, reason: reason ?? "" });
+			}
 			if (sub === "reopen") {
 				const reason = option(args, "--reason");
 				if (args.length !== 1) break;
@@ -437,6 +460,16 @@ function main(argv: string[]): number | Promise<number> {
 			const json = flag(args, "--json");
 			if (args.length > 1) break;
 			return status(root, { json, task: args[0] });
+		}
+		case "usage": {
+			const backfill = flag(args, "--backfill"),
+				json = flag(args, "--json");
+			if (backfill) {
+				if (args.length || json) break;
+				return usageBackfill(root);
+			}
+			if (args.length > 1) break;
+			return usageReport(root, { json, task: args[0] });
 		}
 		case "tui": {
 			const dryRun = flag(args, "--dry-run"),

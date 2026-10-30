@@ -38,6 +38,10 @@ export function escapeHtml(value: string): string {
 	return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 }
 
+/** The merge keys delivery fills at send. The Messages field rail lists exactly these. */
+export const mergeKeys = ["name", "rsvp_link"] as const;
+export type MergeKey = (typeof mergeKeys)[number];
+
 /** True when a stored body holds the `{{rsvp_link}}` field. Such a message can only be sent from an open meeting. */
 export const usesRsvpLink = (body: string | null | undefined): boolean => /\{\{\s*rsvp_link\s*\}\}/i.test(body ?? "");
 

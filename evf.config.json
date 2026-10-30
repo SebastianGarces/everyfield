@@ -1076,6 +1076,128 @@
 				}
 			],
 			"risk": "ordinary"
+		},
+		"OPS-71": {
+			"title": "Test environment hygiene: no leaked timing volumes, seeds coexist with preview, no git-push ask rule",
+			"owningPaths": ["tools/evf/", ".agents/skills/verify-preview/", ".claude/settings.json", "evf.config.json"],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
+		},
+		"OPS-69": {
+			"title": "Per-seat token usage and cost, plus per-role model and effort config",
+			"owningPaths": ["tools/evf/", "evf.config.json", "docs/build-agent-workflow.md"],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
+		},
+		"OPS-72": {
+			"title": "Drive robustness for seat launch, retries and preview slots",
+			"owningPaths": [
+				"tools/evf/",
+				"tools/evf-tui/",
+				".agents/roles/",
+				".agents/skills/",
+				".claude/agents/",
+				"evf.config.json",
+				"docs/build-agent-workflow.md"
+			],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
+		},
+		"OPS-73": {
+			"title": "Keep UI specs small: planner splits work over about 15 Done criteria",
+			"owningPaths": [
+				"tools/evf/",
+				"tools/evf-tui/",
+				".agents/roles/",
+				".agents/skills/",
+				".claude/agents/",
+				"evf.config.json",
+				"docs/build-agent-workflow.md"
+			],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
+		},
+		"OPS-74": {
+			"title": "Seat launch input over the 1024-byte terminal limit after OPS-72",
+			"owningPaths": [
+				"tools/evf/",
+				"tools/evf-tui/",
+				".agents/roles/",
+				".agents/skills/",
+				".claude/agents/",
+				"evf.config.json",
+				"docs/build-agent-workflow.md"
+			],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
+		},
+		"OPS-75": {
+			"title": "Background drives run evf test without needing EVF_FOREGROUND=1",
+			"owningPaths": [
+				"tools/evf/",
+				"tools/evf-tui/",
+				".agents/roles/",
+				".agents/skills/",
+				".claude/agents/",
+				"evf.config.json",
+				"docs/build-agent-workflow.md"
+			],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {

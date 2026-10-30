@@ -45,17 +45,38 @@ export function MeetingStatusBadge({
 }
 
 /**
- * The yes count against the rest of the guest list as one bar. The counts are written beside it, so the bar is
- * decoration and never the only carrier of the numbers.
+ * Yes, No and Pending as one bar; `other` is a neutral rest when only the yes count is known. Each segment's width is
+ * its share. The counts are written beside it, so the bar is decoration and never the only carrier of the numbers.
  */
-export function RsvpBar({ yes, other, className }: { yes: number; other: number; className?: string }) {
+export function RsvpBar({
+	yes,
+	no = 0,
+	pending = 0,
+	other = 0,
+	size = "sm",
+	className,
+}: {
+	yes: number;
+	no?: number;
+	pending?: number;
+	other?: number;
+	size?: "sm" | "lg";
+	className?: string;
+}) {
+	const total = yes + no + pending + other;
 	return (
 		<span
 			aria-hidden="true"
-			className={cn("flex h-1.5 w-full max-w-[160px] gap-[3px] overflow-hidden rounded-pill", className)}
+			className={cn(
+				"flex w-full gap-[3px] overflow-hidden rounded-pill",
+				size === "lg" ? "h-3.5" : "h-1.5 max-w-[160px]",
+				className,
+			)}
 		>
-			{yes + other === 0 ? <span className="flex-1 bg-surface-3" /> : null}
+			{total === 0 ? <span className="flex-1 bg-surface-3" /> : null}
 			{yes ? <span className="bg-green-500" style={{ flex: yes }} /> : null}
+			{no ? <span className="bg-magenta-500" style={{ flex: no }} /> : null}
+			{pending ? <span className="bg-amber-500" style={{ flex: pending }} /> : null}
 			{other ? <span className="bg-surface-3" style={{ flex: other }} /> : null}
 		</span>
 	);
@@ -90,10 +111,13 @@ export function TabStack({
 	active,
 	panels,
 	className,
+	fit,
 }: {
 	active: string;
 	panels: Record<string, ReactNode>;
 	className?: string;
+	/** Size to the shown panel; the hidden panels take no height (they keep their state). */
+	fit?: boolean;
 }) {
 	const root = useRef<HTMLDivElement>(null);
 	const first = useRef(true);
@@ -111,7 +135,11 @@ export function TabStack({
 					key={key}
 					data-panel={key}
 					inert={key !== active}
-					className={cn("col-start-1 row-start-1 flex min-w-0 flex-col", className, key !== active && "invisible")}
+					className={cn(
+						"col-start-1 row-start-1 flex min-w-0 flex-col",
+						className,
+						key !== active && (fit ? "hidden" : "invisible"),
+					)}
 				>
 					{node}
 				</div>
