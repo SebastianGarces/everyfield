@@ -1344,6 +1344,22 @@
 			],
 			"risk": "ordinary"
 		},
+		"OPS-83": {
+			"title": "Fix evf document-template owner hold (missed #375)",
+			"owningPaths": [
+				"tools/evf/",
+				"evf.config.json",
+				"AGENTS.md",
+				".agents/roles/",
+				".agents/skills/",
+				"docs/build-agent-workflow.md"
+			],
+			"checks": [
+				{ "name": "documentation", "run": ["python3", "docs/check-all.py"] },
+				{ "name": "workflow-regressions", "run": ["bin/evf", "test"] }
+			],
+			"risk": "ordinary"
+		},
 		"OPS-82": {
 			"title": "Landing page prototypes in design/everyfield-marketing.html (less app UI, Opus 5.5 high)",
 			"route": "design",

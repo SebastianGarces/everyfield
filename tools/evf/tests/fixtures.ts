@@ -1,3 +1,4 @@
+import { setLoadedCode } from "../merge.ts";
 import { mkdtempSync, cpSync, mkdirSync, writeFileSync, readFileSync, rmSync, chmodSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -20,6 +21,9 @@ export const sessionStartJs = (dbPath: string, stateVar = "st") => {
 		`else (${insert})(a[2])}\n`
 	);
 };
+
+// Fixture repos hold no evf code of their own. Unless a test claims otherwise, the process runs the base code.
+setLoadedCode((base) => ({ checkout: "fixture", ...base, dirty: false }));
 
 export function fixture() {
 	// Git starts detached auto-maintenance after commits and pushes. It would write into the fixture while
