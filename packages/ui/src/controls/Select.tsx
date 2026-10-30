@@ -18,6 +18,8 @@ type SelectProps = Omit<ComponentPropsWithRef<typeof SelectPrimitive.Root>, "chi
 	"aria-label"?: string;
 	/** Draws the chosen option, for example as a StageChip. Defaults to its label. */
 	renderValue?: (option: SelectOption) => ReactNode;
+	/** Draws each option's label, here and in the trigger, for example in its own typeface. Defaults to the label. */
+	renderOption?: (option: SelectOption) => ReactNode;
 	className?: string;
 };
 
@@ -31,6 +33,7 @@ export function Select({
 	invalid,
 	id,
 	renderValue,
+	renderOption,
 	className,
 	value,
 	defaultValue,
@@ -73,7 +76,7 @@ export function Select({
 				>
 					<SelectPrimitive.Viewport>
 						{options.map((o) => (
-							<SelectItem key={o.value} option={o} />
+							<SelectItem key={o.value} option={o} render={renderOption} />
 						))}
 					</SelectPrimitive.Viewport>
 				</SelectPrimitive.Content>
@@ -82,14 +85,20 @@ export function Select({
 	);
 }
 
-function SelectItem({ option }: { option: SelectOption }) {
+function SelectItem({
+	option,
+	render,
+}: {
+	option: SelectOption;
+	render: ((option: SelectOption) => ReactNode) | undefined;
+}) {
 	return (
 		<SelectPrimitive.Item
 			value={option.value}
 			disabled={option.disabled}
 			className="relative flex h-[38px] cursor-pointer items-center gap-2.5 rounded-md px-2.5 text-md text-ink outline-none select-none data-[disabled]:cursor-not-allowed data-[disabled]:opacity-45 transition-[background-color] duration-150 data-[highlighted]:bg-surface-2"
 		>
-			<SelectPrimitive.ItemText>{option.label}</SelectPrimitive.ItemText>
+			<SelectPrimitive.ItemText>{render ? render(option) : option.label}</SelectPrimitive.ItemText>
 			<SelectPrimitive.ItemIndicator className="ml-auto">
 				<Icon icon={Tick02Icon} size={16} className="text-ink-2" />
 			</SelectPrimitive.ItemIndicator>

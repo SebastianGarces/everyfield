@@ -157,6 +157,11 @@ export function useSettings() {
 	return { port, viewer };
 }
 
+/** The read the server started with the page, for sections with their own read (the brand kit). */
+export function useSeed(): SectionSeed | null {
+	return useStore().seed;
+}
+
 /** Your photo, email, password, own time zone and deletion (SettingsPort.flows). */
 export function useFlows() {
 	return useStore().port.flows;
@@ -246,7 +251,7 @@ export function useSection<S extends SectionResult["section"]>(
 		if (cached && attempt === 0) return;
 		let live = true;
 		// The first load of the page's own section uses the read the server started (a React thenable, so wrapped).
-		const seeded = attempt === 0 && seed && cacheKeyOf(seed.request) === key ? seed.value : null;
+		const seeded = attempt === 0 && seed && "request" in seed && cacheKeyOf(seed.request) === key ? seed.value : null;
 		Promise.resolve(seeded ?? port.getSection(JSON.parse(key) as GetSectionRequest)).then((reply) => {
 			if (!live) return;
 			if (reply.status === "ok") remember(key, reply.value);
