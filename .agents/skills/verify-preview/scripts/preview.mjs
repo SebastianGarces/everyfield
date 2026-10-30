@@ -10,7 +10,7 @@ import { execFileSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
-import { assertDevelopmentDatabase, composeEnv } from "./preview-env.mjs";
+import { assertDevelopmentDatabase, composeEnv, composePreviewEnv } from "./preview-env.mjs";
 import { ensurePreviewSlot } from "./preview-slots.mjs";
 
 const argv = process.argv.slice(2);
@@ -62,7 +62,7 @@ const base = value("config") ? JSON.parse(readFileSync(resolve(value("config")),
   timeoutSeconds: 300,
 };
 // Process env wins over any .env file in the app, so production snapshots and development mode both see it.
-const composed = { ...base, env: { ...env, NEXT_TELEMETRY_DISABLED: "1", CI: "true", PATH: `${dirname(node24)}:${process.env.PATH}`, ...base.env } };
+const composed = { ...base, env: composePreviewEnv(env, { NEXT_TELEMETRY_DISABLED: "1", CI: "true", PATH: `${dirname(node24)}:${process.env.PATH}` }, base.env) };
 mkdirSync(join(common, "evf-evidence"), { recursive: true });
 const config = join(common, "evf-evidence", `verify-preview-${basename(project)}.json`);
 writeFileSync(config, JSON.stringify(composed, null, 2), { mode: 0o600 });
