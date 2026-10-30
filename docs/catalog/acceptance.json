@@ -16925,6 +16925,206 @@
     ]
   },
   {
+    "id": "AC-DOC-017--DOC-017",
+    "shared_gate_id": "AC-DOC-017",
+    "feature_id": "DOC-017",
+    "requirement_ids": [
+      "REQ-DOC-017"
+    ],
+    "case_ids": [
+      "CASE-DOC-017",
+      "CASE-DOC-017-CHURCH"
+    ],
+    "operations": [
+      "documents.preview",
+      "documents.generate"
+    ],
+    "work_packages": [
+      "WP-036",
+      "WP-104"
+    ]
+  },
+  {
+    "id": "AC-DOC-018--DOC-018",
+    "shared_gate_id": "AC-DOC-018",
+    "feature_id": "DOC-018",
+    "requirement_ids": [
+      "REQ-DOC-018"
+    ],
+    "case_ids": [
+      "CASE-DOC-018"
+    ],
+    "operations": [
+      "documents.templates.list",
+      "documents.templates.get"
+    ],
+    "work_packages": [
+      "WP-036"
+    ]
+  },
+  {
+    "id": "AC-DOC-019--DOC-019",
+    "shared_gate_id": "AC-DOC-019",
+    "feature_id": "DOC-019",
+    "requirement_ids": [
+      "REQ-DOC-019"
+    ],
+    "case_ids": [
+      "CASE-DOC-019"
+    ],
+    "operations": [
+      "documents.preview",
+      "documents.generate"
+    ],
+    "work_packages": [
+      "WP-036"
+    ]
+  },
+  {
+    "id": "AC-DOC-020--DOC-020",
+    "shared_gate_id": "AC-DOC-020",
+    "feature_id": "DOC-020",
+    "requirement_ids": [
+      "REQ-DOC-020"
+    ],
+    "case_ids": [
+      "CASE-DOC-020"
+    ],
+    "operations": [
+      "documents.preview",
+      "documents.generate"
+    ],
+    "work_packages": [
+      "WP-036"
+    ]
+  },
+  {
+    "id": "AC-DOC-021--DOC-021",
+    "shared_gate_id": "AC-DOC-021",
+    "feature_id": "DOC-021",
+    "requirement_ids": [
+      "REQ-DOC-021"
+    ],
+    "case_ids": [
+      "CASE-DOC-021"
+    ],
+    "operations": [
+      "documents.preview",
+      "documents.generate"
+    ],
+    "work_packages": [
+      "WP-036"
+    ]
+  },
+  {
+    "id": "AC-BRD-001--BRD-001",
+    "shared_gate_id": "AC-BRD-001",
+    "feature_id": "BRD-001",
+    "requirement_ids": [
+      "REQ-BRD-001"
+    ],
+    "case_ids": [
+      "CASE-BRD-001"
+    ],
+    "operations": [
+      "brand.get",
+      "brand.reset"
+    ],
+    "work_packages": [
+      "WP-104"
+    ]
+  },
+  {
+    "id": "AC-BRD-002--BRD-002",
+    "shared_gate_id": "AC-BRD-002",
+    "feature_id": "BRD-002",
+    "requirement_ids": [
+      "REQ-BRD-002"
+    ],
+    "case_ids": [
+      "CASE-BRD-002"
+    ],
+    "operations": [
+      "brand.uploadAsset",
+      "brand.get"
+    ],
+    "work_packages": [
+      "WP-104"
+    ]
+  },
+  {
+    "id": "AC-BRD-003--BRD-003",
+    "shared_gate_id": "AC-BRD-003",
+    "feature_id": "BRD-003",
+    "requirement_ids": [
+      "REQ-BRD-003"
+    ],
+    "case_ids": [
+      "CASE-BRD-003"
+    ],
+    "operations": [
+      "brand.saveSettings",
+      "brand.suggestColors"
+    ],
+    "work_packages": [
+      "WP-104"
+    ]
+  },
+  {
+    "id": "AC-BRD-004--BRD-004",
+    "shared_gate_id": "AC-BRD-004",
+    "feature_id": "BRD-004",
+    "requirement_ids": [
+      "REQ-BRD-004"
+    ],
+    "case_ids": [
+      "CASE-BRD-004"
+    ],
+    "operations": [
+      "brand.saveSettings"
+    ],
+    "work_packages": [
+      "WP-104"
+    ]
+  },
+  {
+    "id": "AC-BRD-005--BRD-005",
+    "shared_gate_id": "AC-BRD-005",
+    "feature_id": "BRD-005",
+    "requirement_ids": [
+      "REQ-BRD-005"
+    ],
+    "case_ids": [
+      "CASE-BRD-005"
+    ],
+    "operations": [
+      "brand.saveSettings",
+      "brand.uploadAsset"
+    ],
+    "work_packages": [
+      "WP-104"
+    ]
+  },
+  {
+    "id": "AC-BRD-006--BRD-006",
+    "shared_gate_id": "AC-BRD-006",
+    "feature_id": "BRD-006",
+    "requirement_ids": [
+      "REQ-BRD-006"
+    ],
+    "case_ids": [
+      "CASE-BRD-006",
+      "CASE-BRD-006-NEUTRAL",
+      "CASE-BRD-006-SAVED"
+    ],
+    "operations": [
+      "brand.resolveTheme"
+    ],
+    "work_packages": [
+      "WP-104"
+    ]
+  },
+  {
     "id": "AC-PI-043--PI-043",
     "shared_gate_id": "AC-PI-043",
     "feature_id": "PI-043",

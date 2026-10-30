@@ -1,6 +1,6 @@
 # Wiki and Church Documents
 
-WIKI-001–011 and DOC-001–016 define current reading, personal reading state, source editing, safe exports, template generation and native owned writing. Wiki organization editorial rights and Church Documents rights are separate. Plant values/guides/internal writing uses Church Documents; there is no plant Wiki editor or third CMS. Native and Evry use the same current-entitlement resolver; each durable Evry write is exactly reviewed.
+WIKI-001–011, DOC-001–021 and BRD-001–006 define current reading, personal reading state, source editing, safe exports, template generation, template themes and the church brand kit, and native owned writing. Wiki organization editorial rights and Church Documents rights are separate. Plant values/guides/internal writing uses Church Documents; there is no plant Wiki editor or third CMS. Native and Evry use the same current-entitlement resolver; each durable Evry write is exactly reviewed.
 
 ## Article resolution and editing
 
@@ -51,15 +51,15 @@ Before creation the account reads the entire currently published global Wiki, no
 
 | Feature | Template / format and retained output |
 |---|---|
-| DOC-001 | Filterable/contextual library of 11 templates and 12 offered template-format combinations; commitment/vision_meeting/administrative/operational categories, phase and curated Wiki/meeting/team mappings. Unknown retired mapping omits link. |
+| DOC-001 | Filterable/contextual library of the generated document catalog. The catalog grows as templates are added, and `docs/catalog/document-templates.json` names every entry with its class, format and phase. Format rule: budgets are XLSX, emails are HTML mail and every other template is PDF. The Forme engine (@formepdf) renders the PDFs with fillable fields and PDF/UA tagging. Commitment/vision_meeting/administrative/operational categories, phase and curated Wiki/meeting/team mappings. Unknown retired mapping omits link. |
 | DOC-004 | Core Group Commitment Card — PDF; quarter-page GROW/PRAY/GIVE through Launch Sunday, church required, pastor optional. |
 | DOC-005 | Response Card — PDF; quarter-page Vision guest contact/involvement, church. |
 | DOC-006 | Guest Sign-in Sheet — PDF; letter-size real name/contact/inviter, church with optional meeting date/number. |
-| DOC-007 | Vision Meeting Agenda — PDF and DOCX; shared content model, welcome/story/vision/GROW-PRAY-GIVE/next steps. |
-| DOC-008 | Expectations of a Core Group Member — DOCX; presence/GROW-PRAY-GIVE/team participation. |
-| DOC-009 | Launch Team Commitment — DOCX; member commitment approaching Launch Sunday. |
-| DOC-010 | Vision Meeting Follow-up Letter — DOCX; guest thank-you/next-step invitation. |
-| DOC-011 | Board/Elder Meeting Agenda — DOCX; prayer/minutes/financial/ministry/action items. |
+| DOC-007 | Vision Meeting Agenda — PDF; welcome/story/vision/GROW-PRAY-GIVE/next steps. |
+| DOC-008 | Expectations of a Core Group Member — PDF; presence/GROW-PRAY-GIVE/team participation. |
+| DOC-009 | Launch Team Commitment — PDF; member commitment approaching Launch Sunday. |
+| DOC-010 | Vision Meeting Follow-up Letter — PDF; guest thank-you/next-step invitation. |
+| DOC-011 | Board/Elder Meeting Agenda — PDF; prayer/minutes/financial/ministry/action items. |
 | DOC-012 | First-Year Budget — XLSX; 12-month income/expense with live formulas/totals. |
 | DOC-013 | Budget Worksheet — XLSX; monthly/annual planner with live formulas/totals. |
 | DOC-014 | Launch Sunday Checklists — PDF; authoritative checklist content/layout. |
@@ -71,6 +71,40 @@ Render the same approved immutable template content/version and frozen inputs fo
 DOC-003 stores `generated_document` scope, creator attribution, template/content/render-engine versions, safe frozen input provenance, MIME/byte length/hash and object reference/status. Latest 100 authorized history entries and fresh signed downloads return exact saved bytes even if template/contact data changes. An archived/missing template gets saved-name fallback. Pending→ready only after immutable object upload and DB finalization; failed state and resumable compensation/orphan reconciliation expose truthful failure. No ready DB record references missing bytes. Account creator deletion does not delete plant-owned artifacts.
 
 DOC-015 private storage accepts only authorized subject/record references, never caller-chosen keys. Commitment attachment upload permits PDF/JPEG/PNG up to 10 MiB with magic-byte/MIME and bounded decoding checks. Native document import has the separate safe parse below. Keys are unique immutable replacements; `file_object` bind expected owner/purpose/type/hash and pending/ready/failed lifecycle. Signed issuance rechecks current scope/active subject and uses 5-minute TTL; no public bucket fallback. Guessed IDs/revisions/keys and expired/incomplete objects deny. Existing URLs last at most their actual TTL and cannot be instantly recalled. Cleanup only deletes unreferenced objects under a fence, never a concurrently finalized replacement.
+
+## Template themes, classes and copy
+
+The format rule is: budgets are XLSX, emails are HTML mail and every other template is PDF. The Forme engine (@formepdf) renders PDFs with fillable fields and PDF/UA tagging. The named catalog lives in [`document-templates.json`](../catalog/document-templates.json). It holds ids, classes, formats, phases and priority only, with no template content.
+
+| Feature | Rule |
+|---|---|
+| DOC-017 | Themed document rendering with the neutral fallback. Generated PDF and email templates render through a document theme. `resolveDocumentTheme(church, documentClass)` returns the church theme when the church has a brand kit and the document's "use church branding" toggle is on. Otherwise it returns the Everyfield-neutral theme. WP-036 renders the neutral theme and accepts a theme input; the church theme needs the WP-104 brand kit. A theme change applies only to newly generated documents, and saved files keep their exact bytes. |
+| DOC-018 | Document classes. Every template has exactly one document class: formal/legal, outward-facing, operational or email. The class decides how the theme applies. `docs/catalog/document-templates.json` records the class of each template. Policies, bylaws and agreements are formal/legal; the prospectus and letters are outward-facing; budgets, checklists and agendas are operational; every email is class email. |
+| DOC-019 | Legal template notice. Every formal/legal template shows the notice "Template, not legal advice" in the preview and in the saved PDF. Church branding cannot hide or remove the notice. Templates of other classes do not show it. |
+| DOC-020 | Doctrinal sections as network-filled slots. A doctrinal section in a template is an empty slot. Everyfield ships no doctrinal text. The sending network fills the slot for its churches, and a church without a network fills it itself. A slot that no one has filled generates as a visible blank, never as default text. |
+| DOC-021 | Template copy rule. Template text says "church plant" and never a bare "plant". Template text spells the brand "Everyfield". The rule covers every template, notice and email. |
+
+A template renders with the Everyfield-neutral theme when the church has no brand kit, so WP-036 ships without WP-104. The church theme comes from the [church brand kit](#church-brand-kit).
+
+## Church brand kit
+
+A church sets its identity once. Generated documents and the email class then use it, within the limits of each document class. The Church group of Settings holds the page. A church with no kit keeps the neutral theme, so no document waits on the kit.
+
+| Feature | Complete current behavior |
+|---|---|
+| BRD-001 | Brand settings. Each church has one brand kit. Edit it at `/settings/brand`, in the Church group of the Settings dialog. Only the Owner and Admin can open or change it. Controls sit on the left and a live preview sits on the right, with one preview tab per document class (formal/legal, outward-facing, operational and email). Reset to default clears the kit and returns the church to the Everyfield-neutral theme. |
+| BRD-002 | Logo assets. The kit holds a full logo (about 3:1) and a square mark, each with an optional light-on-dark variant. Upload accepts SVG, PNG and WebP, trims empty margin and rasterizes the file. Files use private storage with the `brand_asset` purpose, reusing the avatar upload pattern. Every logo needs alt text. The preview shows each logo on light, dark and brand-color backgrounds. |
+| BRD-003 | Colors and contrast. The kit has a required primary color and an accent color that falls back to the primary color. The page suggests colors from the uploaded logo. A contrast badge shows the WCAG contrast ratio and the text color derived for each brand color. A brand color under 3:1 against its background is never used as text. |
+| BRD-004 | Fonts. Heading and body fonts come from a curated list of open-license fonts. The defaults are DM Serif for headings and DM Sans for body text. Version 1 has no font upload. |
+| BRD-005 | Letterhead details. The kit holds legal name, address, website, phone, email, EIN and tagline. It also holds an optional cover photo and an optional signature block. |
+| BRD-006 | Document theme. `resolveDocumentTheme(church, documentClass)` returns the theme for one document class. Formal/legal: small header logo, primary color only on rules and headings, neutral body text, and a letterhead footer with the EIN and page numbers. Outward-facing: a cover with a large logo, full primary and accent colors, brand fonts, and photo, tagline and contact details. Operational: small mark, accent color on table headers and checkboxes, readable in grayscale. Email: header logo at most 200 px wide, primary-color button with derived text color, web-safe fonts, and a footer with the church name and address. A church with no kit gets the Everyfield-neutral theme: the church name set in type, no Everyfield logo on church documents, and fixed-size slots. Each document has a "use church branding" toggle. A kit change applies only to newly generated documents, and saved files keep their exact bytes (DOC-002 and DOC-003 are unchanged). PDFs are tagged and logos carry alt text. |
+
+Design references from Mobbin. The settings layout follows the Stripe and Bonsai pattern (controls beside a live preview, with a tab per document). The logo background preview follows Mailchimp.
+
+- [Stripe branding settings](https://mobbin.com/screens/0ea51b63-08e4-4fd6-b622-d09f89a487e4)
+- [Bonsai branding](https://mobbin.com/screens/1ae9e1e8-2926-4fba-bedb-4430c3576841)
+- [Deel](https://mobbin.com/screens/a60bceec-975d-4a91-bffd-70cda485c249)
+- [Mailchimp brand kit](https://mobbin.com/screens/fb313398-32d1-4009-b579-ad1a003ec915)
 
 ## Native owned writing
 
@@ -84,4 +118,4 @@ The explicit native **Use for this church** command copies one selected authoriz
 
 ## Proof and ownership
 
-WP-032 freezes safe editor/reference identities; WP-033 supplies approved starter; WP-034/035 close actual source-order/edit/publish→reader/inbox/current-entitlement integration. WP-036/037 close template/native document/save/import/byte recovery, with [schema](../schema/README.md) constraints and [recovery](../architecture/recovery.md) lifecycle. WP-077/078/079/080 adapt the same operations to Evry. Named cases cover every WIKI/DOC feature plus retained WR resolution expectations, reader Updated labels, six-reader boundaries, second generation/rollback, all 12 real format outputs, unsafe/empty import, concurrent save/archive, selected carry-forward and current entitlement after departure. All runtime/SQL/browser/import/restore proof is future and unexecuted.
+WP-032 freezes safe editor/reference identities; WP-033 supplies approved starter; WP-034/035 close actual source-order/edit/publish→reader/inbox/current-entitlement integration. WP-036/037 close template/native document/save/import/byte recovery, and WP-104 adds the church brand kit after WP-036, with [schema](../schema/README.md) constraints and [recovery](../architecture/recovery.md) lifecycle. WP-077/078/079/080 adapt the same operations to Evry. Named cases cover every WIKI/DOC feature plus retained WR resolution expectations, reader Updated labels, six-reader boundaries, second generation/rollback, every offered format output, unsafe/empty import, concurrent save/archive, selected carry-forward and current entitlement after departure. All runtime/SQL/browser/import/restore proof is future and unexecuted.

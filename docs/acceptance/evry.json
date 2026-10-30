@@ -2556,7 +2556,7 @@
         "storage.readAuthorizedObject"
       ],
       "status": "future-not-run",
-      "description": "Approved eleven templates expose PDF/DOCX/XLSX formats and exact merge placeholders. Agenda PDF A and DOCX B have actual different text; native self-owned text and church-owned document distinct. Unbound private upload digest H; core-values designation points to one current authorized document.",
+      "description": "Approved templates expose PDF/XLSX formats and exact merge placeholders. Agenda PDF A and PDF B have actual different text; native self-owned text and church-owned document distinct. Unbound private upload digest H; core-values designation points to one current authorized document.",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2654,11 +2654,10 @@
             {
               "id": "agenda-B",
               "owner": "P",
-              "format": "docx",
+              "format": "pdf",
               "body": "Meet Casey."
             }
           ],
-          "template_count": 11,
           "upload_digest": "H"
         }
       },
@@ -13441,7 +13440,7 @@
         "WP-079"
       ],
       "status": "future-not-run",
-      "description": "Known PDF agenda-A and DOCX agenda-B with distinct body text; spreadsheet supported cells; foreign doc",
+      "description": "Known PDF agenda-A and PDF agenda-B with distinct body text; spreadsheet supported cells; foreign doc",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -13529,7 +13528,7 @@
             },
             {
               "id": "agenda-B",
-              "format": "docx",
+              "format": "pdf",
               "body": "Meet Casey."
             }
           ],
@@ -13564,7 +13563,7 @@
             },
             {
               "id": "agenda-B",
-              "format": "docx",
+              "format": "pdf",
               "body": "Meet Casey."
             }
           ],
@@ -13646,7 +13645,7 @@
                 },
                 {
                   "id": "agenda-B",
-                  "format": "docx",
+                  "format": "pdf",
                   "body": "Meet Casey."
                 }
               ],
@@ -13705,7 +13704,7 @@
                 },
                 {
                   "id": "agenda-B",
-                  "format": "docx",
+                  "format": "pdf",
                   "body": "Meet Casey."
                 }
               ],

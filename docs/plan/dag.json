@@ -96,7 +96,7 @@
       "outputs": [
         "REF-001: Canonical SME Launch Playbook source",
         "REF-002: Approved global Wiki article/section bootstrap",
-        "REF-003: Eleven generated document template catalog",
+        "REF-003: Generated document template catalog",
         "REF-004: Twenty phase/launch checklist templates",
         "REF-005: Ten predefined ministry teams and role/responsibility catalog",
         "REF-006: Seven system communication templates",
@@ -2918,7 +2918,12 @@
         "DOC-012: First-Year Budget",
         "DOC-013: Budget Worksheet",
         "DOC-014: Launch Sunday Checklists",
-        "REF-003: Eleven generated document template catalog"
+        "DOC-017: Themed document rendering with the neutral fallback",
+        "DOC-018: Document classes",
+        "DOC-019: Legal template notice",
+        "DOC-020: Doctrinal sections as network-filled slots",
+        "DOC-021: Template copy rule",
+        "REF-003: Generated document template catalog"
       ],
       "owning_paths": [
         "packages/domain/src/documents/",
@@ -2931,6 +2936,11 @@
       "acceptance_gates": [
         "CASE-DOC-001",
         "CASE-DOC-002",
+        "CASE-DOC-017",
+        "CASE-DOC-018",
+        "CASE-DOC-019",
+        "CASE-DOC-020",
+        "CASE-DOC-021",
         "GAP-REF-003",
         "PROVIDER48-002",
         "REF-CASE-003",
@@ -2944,7 +2954,7 @@
       "spec_paths": [
         "docs/product/knowledge-documents.md"
       ],
-      "integration_rule": "Scope: DOC-001, DOC-002, DOC-003, DOC-004, DOC-005, DOC-006, DOC-007, DOC-008, DOC-009, DOC-010, DOC-011, DOC-012, DOC-013, DOC-014, REF-003.",
+      "integration_rule": "Scope: DOC-001, DOC-002, DOC-003, DOC-004, DOC-005, DOC-006, DOC-007, DOC-008, DOC-009, DOC-010, DOC-011, DOC-012, DOC-013, DOC-014, REF-003, DOC-017, DOC-018, DOC-019, DOC-020, DOC-021. WP-036 renders the Everyfield-neutral theme and accepts a theme input, so WP-104/api can supply the church theme later. Templates render without WP-104. Budgets are XLSX, emails are HTML mail and every other template is PDF from the Forme engine.",
       "goal": "Document template and format contracts.",
       "context_scope": {
         "features": "owned",
@@ -5503,7 +5513,7 @@
         "PPL-023: Internal pipeline transition metrics with known cohorts",
         "REF-001: Canonical SME Launch Playbook source",
         "REF-002: Approved global Wiki article/section bootstrap",
-        "REF-003: Eleven generated document template catalog",
+        "REF-003: Generated document template catalog",
         "REF-004: Twenty phase/launch checklist templates",
         "REF-005: Ten predefined ministry teams and role/responsibility catalog",
         "REF-006: Seven system communication templates",
@@ -5840,7 +5850,7 @@
         "PPL-023: Internal pipeline transition metrics with known cohorts",
         "REF-001: Canonical SME Launch Playbook source",
         "REF-002: Approved global Wiki article/section bootstrap",
-        "REF-003: Eleven generated document template catalog",
+        "REF-003: Generated document template catalog",
         "REF-004: Twenty phase/launch checklist templates",
         "REF-005: Ten predefined ministry teams and role/responsibility catalog",
         "REF-006: Seven system communication templates",
@@ -9053,9 +9063,79 @@
         "kind": "copy-only",
         "ruling": "docs/architecture/decisions.md#2026-10-23-everyfield-brand-spelling-ops-44-wp-103"
       }
+    },
+    {
+      "id": "WP-104",
+      "title": "Church brand kit",
+      "lane": "documents",
+      "domain": "documents",
+      "depends_on": [
+        "WP-004",
+        "WP-010",
+        "WP-036"
+      ],
+      "estimate_engineer_days": 1.5,
+      "inputs": [],
+      "outputs": [
+        "BRD-001: Brand settings",
+        "BRD-002: Logo assets",
+        "BRD-003: Colors and contrast",
+        "BRD-004: Fonts",
+        "BRD-005: Letterhead details",
+        "BRD-006: Document theme",
+        "DOC-017: Themed document rendering with the neutral fallback"
+      ],
+      "owning_paths": [
+        "packages/contracts/src/branding/",
+        "packages/domain/src/branding/",
+        "packages/db/src/schema/",
+        "tests/integration/branding/",
+        "apps/web/src/features/settings/brand/"
+      ],
+      "interfaces": [],
+      "acceptance_gates": [
+        "CASE-BRD-001",
+        "CASE-BRD-002",
+        "CASE-BRD-003",
+        "CASE-BRD-004",
+        "CASE-BRD-005",
+        "CASE-BRD-006",
+        "CASE-BRD-006-NEUTRAL",
+        "CASE-BRD-006-SAVED",
+        "CASE-DOC-017-CHURCH"
+      ],
+      "spec_paths": [
+        "docs/product/knowledge-documents.md"
+      ],
+      "integration_rule": "Scope: BRD-001, BRD-002, BRD-003, BRD-004, BRD-005, BRD-006, DOC-017. Brand changes apply only to newly generated documents, and saved files keep their exact bytes (DOC-002 and DOC-003 are unchanged). WP-036 output works with the Everyfield-neutral theme without WP-104. Themed output needs WP-104/api: `resolveDocumentTheme(church, documentClass)` in packages/contracts and packages/domain src/branding. The api part adds the `brand_asset` file purpose in packages/db/src/schema/ and reuses the avatar upload pattern; the ui part builds /settings/brand in the Church group. Sent-mail theming belongs to the communication packages.",
+      "goal": "Church brand kit.",
+      "context_scope": {
+        "features": "owned",
+        "requirements": "owned_and_features",
+        "cases": "owned_and_features",
+        "operations": "owned_and_features",
+        "schema": "produced",
+        "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
+        "acceptance": "features"
+      },
+      "estimate_factors": {
+        "base_days": 1,
+        "requirement_days": 0.025,
+        "operation_days": 0.015,
+        "case_days": 0.006,
+        "table_days": 0.025
+      },
+      "ui_specialist": "ui-designer",
+      "ui_model": "Opus 5.5",
+      "ui_composition_rule": "Product screens use the shared design foundations, controls and displays.",
+      "ui_depends_on": [
+        "WP-088",
+        "WP-089",
+        "WP-090"
+      ]
     }
   ],
-  "edge_count": 499,
+  "edge_count": 505,
   "topological_merge_order": [
     "WP-097",
     "WP-087",
@@ -9154,7 +9234,8 @@
     "WP-096",
     "WP-057",
     "WP-058",
-    "WP-103"
+    "WP-103",
+    "WP-104"
   ],
   "critical_path": [
     "WP-097",
@@ -9188,7 +9269,7 @@
     "WP-058"
   ],
   "critical_path_unconstrained_days": 89.0,
-  "total_engineer_days": 230.0,
+  "total_engineer_days": 231.5,
   "contract_milestones": {
     "C0": [
       "WP-002"
@@ -9330,7 +9411,8 @@
         "WP-034",
         "WP-035",
         "WP-036",
-        "WP-037"
+        "WP-037",
+        "WP-104"
       ],
       "cumulative_packages": [
         "WP-097",
@@ -9376,7 +9458,8 @@
         "WP-088",
         "WP-089",
         "WP-090",
-        "WP-103"
+        "WP-103",
+        "WP-104"
       ],
       "dependency_closed": true,
       "meaning": "Teams/training/communication/Wiki/documents"
@@ -9439,7 +9522,8 @@
         "WP-100",
         "WP-101",
         "WP-102",
-        "WP-103"
+        "WP-103",
+        "WP-104"
       ],
       "dependency_closed": true,
       "meaning": "ADR-001 stages 1 and 2 after planter S2 and before alpha"
@@ -9523,7 +9607,8 @@
         "WP-100",
         "WP-101",
         "WP-102",
-        "WP-103"
+        "WP-103",
+        "WP-104"
       ],
       "dependency_closed": true,
       "meaning": "Full phases/Plant and Network Intelligence/Launch/operations"
@@ -9648,7 +9733,8 @@
         "WP-100",
         "WP-101",
         "WP-102",
-        "WP-103"
+        "WP-103",
+        "WP-104"
       ],
       "dependency_closed": true,
       "meaning": "All assistant adapters and whole-target integration"
@@ -9764,7 +9850,8 @@
         "WP-100",
         "WP-101",
         "WP-102",
-        "WP-103"
+        "WP-103",
+        "WP-104"
       ],
       "dependency_closed": true,
       "meaning": "Full target release rehearsal"
