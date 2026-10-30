@@ -198,12 +198,17 @@ pub fn build_rows(snap: &store::Snapshot, herdr: &herdr::State, now: DateTime<Ut
                 None => "no pane".into(),
             };
             let at = seat.last_event_at.as_deref().unwrap_or(&seat.started_at);
-            let what = seat
-                .last_summary
-                .clone()
-                .or_else(|| seat.last_event.clone())
-                .unwrap_or_else(|| "started".into());
             let blocked = state == "blocked";
+            // A "blocked on a prompt" event is true only while Herdr says the seat is blocked. Once the prompt is
+            // answered the stale event would keep the row red, so the live status stands in for it.
+            let what = if seat.last_event.as_deref() == Some("blocked") && !blocked {
+                state.clone()
+            } else {
+                seat.last_summary
+                    .clone()
+                    .or_else(|| seat.last_event.clone())
+                    .unwrap_or_else(|| "started".into())
+            };
             let working = state == "working";
             // The task merged but a seat is still open: its task row says merged, not the seat's Herdr status.
             let state = if i == 0 && task.status == "merged" {
@@ -805,6 +810,46 @@ mod tests {
         assert_eq!(rows[0].gate, "PR #7");
         let summary = summarize(&rows, &snap);
         assert_eq!((summary.needs_you, summary.open_tasks), (0, 0));
+    }
+
+    #[test]
+    fn a_blocked_event_shows_only_while_herdr_says_the_seat_is_blocked() {
+        let store = TempStore::new();
+        let (task_id, _) = store.seed();
+        let db = store.writer();
+        db.execute(
+            "INSERT INTO runs (task_id, stage, role, model, effort, round, herdr_agent, session_id, status, started_at) VALUES (?1, 'verify', 'verifier', 'claude-opus-5-5', 'high', 1, 'verifier-wp-102', '22222222-2222-4222-8222-222222222222', 'started', '2026-10-27T20:12:00.000Z')",
+            [task_id],
+        )
+        .unwrap();
+        let run_id = db.last_insert_rowid();
+        db.execute(
+            "INSERT INTO events (task_id, run_id, ts, type, payload) VALUES (?1, ?2, '2026-10-27T20:13:00.000Z', 'blocked', '{\"summary\":\"verifier-wp-102 is blocked on a prompt\"}')",
+            rusqlite::params![task_id, run_id],
+        )
+        .unwrap();
+        let snap = store::read(&store::open(&store.path).unwrap()).unwrap();
+        let row = |state: &herdr::State| {
+            build_rows(&snap, state, now())
+                .into_iter()
+                .find(|r| r.herdr_agent.as_deref() == Some("verifier-wp-102"))
+                .unwrap()
+        };
+        // Herdr still says blocked: the summary and needs_you stay.
+        let blocked = row(&herdr_state());
+        assert!(blocked.now.starts_with("verifier-wp-102 is blocked on a prompt"));
+        assert!(blocked.needs_you);
+        // The prompt is gone and the seat works: no blocked text, no needs_you.
+        let mut state = herdr_state();
+        for a in &mut state.agents {
+            if a.name == "verifier-wp-102" {
+                a.status = "working".into();
+            }
+        }
+        let working = row(&state);
+        assert!(!working.now.contains("blocked"), "{}", working.now);
+        assert!(working.now.starts_with("working"));
+        assert!(!working.needs_you && working.working);
     }
 
     #[test]
