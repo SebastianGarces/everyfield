@@ -17,16 +17,11 @@
     {
       "id": "commitment-card",
       "title": "Core Group Commitment Card",
-<<<<<<< HEAD
       "class": "outward-facing",
-      "format": "pdf",
-=======
-      "class": "operational",
       "editable": false,
       "formats": [
         "pdf"
       ],
->>>>>>> origin/main
       "phase": 1,
       "priority": null,
       "source": "existing",
@@ -35,16 +30,11 @@
     {
       "id": "response-card",
       "title": "Response Card",
-<<<<<<< HEAD
       "class": "outward-facing",
-      "format": "pdf",
-=======
-      "class": "operational",
       "editable": false,
       "formats": [
         "pdf"
       ],
->>>>>>> origin/main
       "phase": 1,
       "priority": null,
       "source": "existing",

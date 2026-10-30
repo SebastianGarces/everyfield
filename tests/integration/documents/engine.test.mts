@@ -87,7 +87,8 @@ describe("WP-036/api engine", () => {
 		for (const row of existing) {
 			const entry = entryFor(row.id)!;
 			assert.equal(entry.documentClass, row.class, row.id);
-			assert.equal(entry.format, row.format, row.id);
+			// The catalog lists Word for the three editable templates (OPS-79). This task offers the first listed format only.
+			assert.equal(entry.format, row.formats[0], row.id);
 		}
 		assert.equal(REGISTRY.filter((e) => e.format === "pdf").length, 9);
 		assert.deepEqual(REGISTRY.filter((e) => e.format === "xlsx").map(ink), ["first-year-budget", "budget-worksheet"]);
