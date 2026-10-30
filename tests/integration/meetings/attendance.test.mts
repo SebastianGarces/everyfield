@@ -490,6 +490,11 @@ test("AC:TARGET-MTG-020 AC:TARGET-MTG-012 AC:TARGET-TSK-017 AC:GAP-PPL-020 AC:CA
 		undone.work.filter((w) => w.meetingId === samLater).map((w) => [w.personId, w.outcome, w.assigneeId, w.needsOwner]),
 		[[sam, "existing", samOwner.id, false]],
 	);
+	// The answer names the closed later duty's owner view from the assignee, not null.
+	assert.deepEqual(
+		undone.work.filter((w) => w.meetingId === samLater).map((w) => w.owner?.accountId),
+		[samOwner.id],
+	);
 	assert.deepEqual(
 		(await work(samLater)).filter((w) => w.kind === "follow_up").map((w) => [w.status, w.assignee_id]),
 		[["no_longer_needed", samOwner.id]],

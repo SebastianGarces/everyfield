@@ -193,6 +193,7 @@ async function lockAttendance(
 						w.plant.id,
 						sql`ARRAY(SELECT b.id FROM obligation b WHERE b.plant_id = ${plant} AND b.kind = 'follow_up'
 							AND b.person_id IN ${subjects})`,
+						true,
 					)} AS tasks`
 				: sql`NULL AS obligation_facts, NULL AS tasks`
 		}
