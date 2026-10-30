@@ -120,6 +120,9 @@ const prFailuresSinceImplement = (runs: RunRow[], reopenAfter: number): number =
 	}
 	return n;
 };
+/** The escalation rule: the larger of the trailing failures and the failed pr runs since the last passed implement. */
+const failuresInARow = (runs: RunRow[], marker: number): number =>
+	Math.max(trailingFailures(runs, marker), prFailuresSinceImplement(runs, marker));
 const AUTHOR_CHECKS_FAILED = "author checks failed";
 
 /** Prototype mode. Idea seats launch one per transition and run side by side; the pick is Sebastian's, not evf's. */
@@ -173,7 +176,7 @@ export function nextStage(task: TaskRef, t: TaskRow, runs: RunRow[], picked = fa
 	if (t.status === "escalated") return { stage: "escalated", round, reason: `loop cap of ${LOOP_CAP} rounds hit` };
 	const open = runs.find((r) => r.status === "started");
 	if (open) return { stage: "waiting", round, run: open.id, reason: `the ${open.stage} seat is still open` };
-	const failures = Math.max(trailingFailures(runs, reopenAfter), prFailuresSinceImplement(runs, reopenAfter));
+	const failures = failuresInARow(runs, reopenAfter);
 	if (failures >= RETRY_CAP)
 		return { stage: "escalated", round, reason: `${failures} failures in a row without a passed stage` };
 	const go = (stage: Stage, reason: string): Next => ({ stage, role: seatOf(stage, task, t.spec), round, reason });
@@ -185,7 +188,6 @@ export function nextStage(task: TaskRef, t: TaskRow, runs: RunRow[], picked = fa
 	// A seat whose pane went away (run aborted) launches the same stage again, with the same round.
 	if (
 		last.status === "aborted" &&
-		last.role !== "evf" &&
 		["plan", "implement", "simplify", "verify"].includes(last.stage)
 	)
 		return again(last.stage as Stage);
@@ -359,7 +361,7 @@ export function runDone(
 			if (opts.status === "failed") {
 				const runs = runsOf(db, r.task_id),
 					marker = reopenMarker(db, r.task_id);
-				const failures = Math.max(trailingFailures(runs, marker), prFailuresSinceImplement(runs, marker));
+				const failures = failuresInARow(runs, marker);
 				if (failures >= RETRY_CAP) escalated = `${failures} failures in a row, last in ${r.stage}. ${first}`;
 			}
 		}
@@ -765,16 +767,7 @@ type Outcome = { status: "passed" | "failed"; summary: string };
 function prStage(db: DatabaseSync, root: string, task: TaskRef, t: TaskRow, wt: string): Outcome {
 	const body = prBodyPath(root, task);
 	if (!existsSync(body)) return { status: "failed", summary: `no PR body at ${body}; the implementer writes it` };
-	// Drive stays in its turn until the checks end, so it may run them without a terminal.
-	const foreground = process.env.EVF_FOREGROUND;
-	process.env.EVF_FOREGROUND = "1";
-	let report;
-	try {
-		report = verify(root, task, "author", "full");
-	} finally {
-		if (foreground === undefined) delete process.env.EVF_FOREGROUND;
-		else process.env.EVF_FOREGROUND = foreground;
-	}
+	const report = verify(root, task, "author", "full");
 	if (!report.passed) {
 		const failed = report.checks.filter((c) => !c.passed).map((c) => `${c.name} (${c.log})`);
 		return {

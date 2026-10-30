@@ -1,4 +1,3 @@
-import { requireForeground } from "./foreground.ts";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { stripVTControlCharacters } from "node:util";
@@ -59,7 +58,6 @@ export function verify(
 	head?: string,
 	ignoreLoad?: string,
 ): CheckReport {
-	requireForeground("verify", "2-15 minutes");
 	const wt =
 		role === "verifier"
 			? git(process.cwd(), "rev-parse", "--show-toplevel")

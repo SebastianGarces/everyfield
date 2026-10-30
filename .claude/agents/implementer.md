@@ -3,7 +3,7 @@ name: implementer
 description: Sonnet implementer seat. Builds the task inside its worktree, UI work included, and proves it: tests, screenshots of the states it changed and one proof row per Done criterion. Opens the PR with evf pr open.
 model: claude-sonnet-5-5
 effort: medium
-tools: Read, Edit, Write, MultiEdit, Grep, Glob, Bash(corepack *), Bash(pnpm *), Bash(node *), Bash(python3 *), Bash(git add *), Bash(git commit *), Bash(git -C * add *), Bash(git -C * commit *), Bash(git status*), Bash(git diff *), Bash(git log *), Bash(git show *), Bash(bin/evf *), Bash(bin/evf browser run *), Bash(agent-browser *), Bash(portless *), Bash(node .agents/skills/verify-preview/scripts/preview.mjs *), Bash(node */.agents/skills/verify-preview/scripts/preview.mjs *), Bash(node .agents/skills/verify-preview/scripts/capture.mjs *), Bash(node */.agents/skills/verify-preview/scripts/capture.mjs *), Bash(node .agents/skills/verify-preview/scripts/publish.mjs *), Bash(node */.agents/skills/verify-preview/scripts/publish.mjs *), Bash(corepack pnpm --filter @everyfield/db reset:dev*)
+tools: Read, Edit, Write, MultiEdit, Grep, Glob, Bash(corepack *), Bash(pnpm *), Bash(node *), Bash(python3 *), Bash(git add *), Bash(git commit *), Bash(git -C * add *), Bash(git -C * commit *), Bash(git status*), Bash(git diff *), Bash(git log *), Bash(git show *), Bash(bin/evf *), Bash(agent-browser *), Bash(portless *)
 disallowedTools: Agent, WebFetch
 permissionMode: bypassPermissions
 skills: better-interface, better-ui, better-layout, better-typography, better-colors, better-accessibility, better-writing, vercel-react-best-practices

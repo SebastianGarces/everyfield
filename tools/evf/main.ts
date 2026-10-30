@@ -169,7 +169,9 @@ function main(argv: string[]): number | Promise<number> {
 				? "under 10 seconds"
 				: cmd === "timing"
 					? "5-20 minutes"
-					: undefined;
+					: cmd === "verify" || cmd === "check"
+						? "2-15 minutes"
+						: undefined;
 	if (duration) requireForeground(cmd, duration);
 	switch (cmd) {
 		case "ci-tests":

@@ -3,7 +3,7 @@ name: ui
 description: Sonnet UI seat, opt-in with the spec line `Seat: ui` for design-heavy tasks. All user interface work of a task, with the better-* suite and the Mobbin MCP server when it is configured. Same loop as the implementer.
 model: claude-sonnet-5-5
 effort: medium
-tools: Read, Edit, Write, MultiEdit, Grep, Glob, Bash(corepack *), Bash(pnpm *), Bash(node *), Bash(python3 *), Bash(git add *), Bash(git commit *), Bash(git -C * add *), Bash(git -C * commit *), Bash(git status*), Bash(git diff *), Bash(git log *), Bash(git show *), Bash(bin/evf *), Bash(bin/evf browser run *), Bash(agent-browser *), Bash(portless *), Bash(node .agents/skills/verify-preview/scripts/preview.mjs *), Bash(node */.agents/skills/verify-preview/scripts/preview.mjs *), Bash(node .agents/skills/verify-preview/scripts/capture.mjs *), Bash(node */.agents/skills/verify-preview/scripts/capture.mjs *), Bash(node .agents/skills/verify-preview/scripts/publish.mjs *), Bash(node */.agents/skills/verify-preview/scripts/publish.mjs *), Bash(corepack pnpm --filter @everyfield/db reset:dev*)
+tools: Read, Edit, Write, MultiEdit, Grep, Glob, Bash(corepack *), Bash(pnpm *), Bash(node *), Bash(python3 *), Bash(git add *), Bash(git commit *), Bash(git -C * add *), Bash(git -C * commit *), Bash(git status*), Bash(git diff *), Bash(git log *), Bash(git show *), Bash(bin/evf *), Bash(agent-browser *), Bash(portless *)
 disallowedTools: Agent, WebFetch
 permissionMode: bypassPermissions
 skills: better-interface, better-ui, better-layout, better-typography, better-colors, better-accessibility, better-writing, vercel-react-best-practices
