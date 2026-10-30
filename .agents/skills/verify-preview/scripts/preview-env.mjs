@@ -15,3 +15,9 @@ export function assertDevelopmentDatabase(env, devHosts) {
   if (!devHosts.length || !devHosts.includes(host))
     throw new Error("Refused: the composed preview env DATABASE_URL is not the shared development database (value not shown).");
 }
+
+/** The env of a composed preview config. Portless replaces ${PREVIEW_URL} with the preview's own URL, so sign-in
+ *  trusts the preview whatever IDENTITY_ORIGIN the env files hold. `configEnv` (an explicit --config's env) wins. */
+export function composePreviewEnv(env, fixed, configEnv = {}) {
+  return { ...env, IDENTITY_ORIGIN: "${PREVIEW_URL}", ...fixed, ...configEnv };
+}

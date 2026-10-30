@@ -1199,6 +1199,33 @@
 			],
 			"risk": "ordinary"
 		},
+		"OPS-76": {
+			"title": "stack:up previews set IDENTITY_ORIGIN to their own preview URL",
+			"owningPaths": [
+				"scripts/stack.mjs",
+				"scripts/preview.json",
+				"tests/workflow/",
+				"tools/evf/",
+				".agents/skills/portless-preview/",
+				".agents/skills/verify-preview/",
+				"evf.config.json"
+			],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "stack-workflow",
+					"run": ["node", "--test", "tests/workflow/stack.test.mjs"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
+		},
 		"OPS-77": {
 			"title": "Register WP-104 Church brand kit and update the document template catalog, DOC ids and scope note",
 			"owningPaths": [
