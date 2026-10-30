@@ -3,6 +3,7 @@ import "server-only";
 import { z } from "zod";
 
 import { captureAllowed, record } from "./capture.ts";
+import { settleCaptured } from "./settle.ts";
 
 // Provider adapter for the Messages screens. The domain asks with its idempotency key, not a provider email id.
 // Cancel, reschedule and lookup therefore stay unknown: calling those provider routes with the wrong id could
@@ -145,11 +146,17 @@ export function mailReady(): MailReady | null {
 	};
 }
 
-export function deliveryTransport(ready: MailReady, request: typeof fetch = fetch) {
+export function deliveryTransport(
+	ready: MailReady,
+	request: typeof fetch = fetch,
+	/** Dev capture only: marks captured messages sent, as the provider callback would. */
+	settle: (ids: readonly string[]) => void = settleCaptured,
+) {
 	async function post(key: string, messages: readonly Outgoing[], signal: AbortSignal): Promise<Batch> {
 		if (key.length < 1 || key.length > 256) return { outcome: "refused" };
 		if (ready.apiKey === null) {
 			const ids = await Promise.all(messages.map((message) => record({ from: ready.keys.from, ...message })));
+			settle(ids);
 			return { outcome: "ids", ids };
 		}
 		// Reserved and unverified from-addresses are a confirmed provider refusal. Do not wait for that POST.

@@ -42,6 +42,7 @@ import {
 	type TrackingRow,
 } from "./model.ts";
 import { plural } from "./composeModel.ts";
+import { insideWindow, windowBounds } from "./scheduleWindow.ts";
 import { useKeys } from "./useKeys.ts";
 
 // History is the message hub. A follow-up saves a new reviewed message and leaves the original alone.
@@ -331,13 +332,7 @@ type ScheduledActions = {
 function ScheduledPanel({ view, actions }: { view: MessageView; actions: ScheduledActions }) {
 	const [when_, setWhen] = useState("");
 	const [error, setError] = useState<string | undefined>();
-	const bounds = useMemo(() => {
-		const pad = (n: number) => String(n).padStart(2, "0");
-		const stamp = (d: Date) =>
-			`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-		const now = new Date();
-		return { min: stamp(now), max: stamp(new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)) };
-	}, []);
+	const bounds = useMemo(() => windowBounds(), []);
 	const busy = actions.pending !== null;
 	const detail = view.detail;
 	return (
@@ -401,12 +396,7 @@ function ScheduledPanel({ view, actions }: { view: MessageView; actions: Schedul
 					disabled={busy && actions.pending !== "reschedule"}
 					onClick={() => {
 						const at = when_ ? new Date(when_) : null;
-						if (
-							!at ||
-							Number.isNaN(at.getTime()) ||
-							at.getTime() < Date.now() - 60_000 ||
-							at.getTime() > Date.now() + 30 * 24 * 60 * 60 * 1000
-						) {
+						if (!at || !insideWindow(at)) {
 							setError("Choose a send time from now through the next 30 days.");
 							return;
 						}
@@ -465,7 +455,7 @@ function Detail({
 	const meetingId = detail.meetingId;
 	const named = view.recipients.filter((row) => row.name);
 	const [shownAs, setShownAs] = useState(0);
-	const as = named[Math.min(shownAs, Math.max(0, named.length - 1))]?.name ?? "Maria Santos";
+	const as = named[Math.min(shownAs, Math.max(0, named.length - 1))]?.name ?? "Friend";
 	const stateWhen = detail.sentAt
 		? `Sent ${when(detail.sentAt)}`
 		: detail.scheduledAt
@@ -1065,7 +1055,7 @@ export function History({
 	onSelected,
 	onCompose,
 	onNew,
-	churchName = "Your church",
+	churchName,
 	origin,
 	banner = null,
 }: {
@@ -1080,14 +1070,13 @@ export function History({
 	onSelected?: (id: string | null) => void;
 	onCompose?: (id: string, step: "write" | "review", replace: boolean) => void;
 	onNew?: () => void;
-	churchName?: string;
-	origin?: string;
+	churchName: string;
+	origin: string;
 	banner?: string | null;
 }) {
 	const [ownSelected, setOwnSelected] = useState<string | null>(null);
 	const openId = selected === undefined ? ownSelected : selected;
 	const choose = onSelected ?? setOwnSelected;
-	const appOrigin = origin ?? (typeof window === "undefined" ? "" : window.location.origin);
 	const [scope, setScope] = useState<Scope>(
 		personId ? { kind: "person", personId } : meetingId ? { kind: "meeting", meetingId } : { kind: "hub" },
 	);
@@ -1231,7 +1220,7 @@ export function History({
 				onCompose={onCompose}
 				onNew={onNew}
 				churchName={churchName}
-				origin={appOrigin}
+				origin={origin}
 				banner={banner}
 				title={
 					scope.kind === "person"

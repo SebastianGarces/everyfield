@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, test } from "node:test";
+import { afterEach, before, test } from "node:test";
 import { captureAllowed, record } from "../../../apps/web/src/features/communication/capture.ts";
 import { readOutbox } from "../../../apps/web/src/features/communication/outbox.ts";
 import { deliveryTransport, mailReady } from "../../../apps/web/src/features/communication/mail.ts";
@@ -16,6 +16,12 @@ const keys = {
 	IDENTITY_ORIGIN: "https://app.everyfield.test",
 };
 const saved = { ...process.env };
+let outbox = "";
+before(async () => {
+	outbox = await mkdtemp(join(tmpdir(), "everyfield-capture-test-"));
+	process.env.EVERYFIELD_DEV_OUTBOX = outbox;
+	saved.EVERYFIELD_DEV_OUTBOX = outbox;
+});
 const setEnv = (values: Record<string, string | undefined>) => {
 	for (const name of ["RESEND_API_KEY", "VERCEL_ENV"]) delete process.env[name];
 	Object.assign(process.env, keys);
@@ -50,7 +56,8 @@ test("AC:CASE-COM-003 a development server records each send and calls no provid
 	const ready = mailReady();
 	assert.ok(ready && ready.apiKey === null);
 	const refuseFetch: typeof fetch = () => Promise.reject(new Error("provider called"));
-	const result = await deliveryTransport(ready, refuseFetch).send(
+	const settled: string[] = [];
+	const result = await deliveryTransport(ready, refuseFetch, (ids) => settled.push(...ids)).send(
 		{
 			key: "k-1",
 			messages: [{ to: "maria@example.test", subject: "Hello", html: "<p>Hi Maria</p>", text: "Hi Maria" }],
@@ -58,7 +65,10 @@ test("AC:CASE-COM-003 a development server records each send and calls no provid
 		AbortSignal.timeout(1_000),
 	);
 	assert.equal(result.outcome, "ids");
-	const [entry] = await readOutbox();
+	// The capture asks for the provider's sent callback for each recorded message.
+	assert.deepEqual(settled, result.outcome === "ids" ? result.ids.filter((id): id is string => id !== null) : []);
+	assert.equal(settled.length, 1);
+	const [entry] = await readOutbox(outbox);
 	assert.ok(entry);
 	assert.equal(entry?.to, "maria@example.test");
 	assert.equal(entry?.html, "<p>Hi Maria</p>");
@@ -73,14 +83,16 @@ test("AC:CASE-COM-003 production sending posts to the provider unchanged", async
 		calls.push(String(url));
 		return Response.json({ data: [{ id: "provider-1" }] });
 	};
-	const before = (await readOutbox()).length;
-	const result = await deliveryTransport(ready!, provider).send(
+	const before = (await readOutbox(outbox)).length;
+	const settled: string[] = [];
+	const result = await deliveryTransport(ready!, provider, (ids) => settled.push(...ids)).send(
 		{ key: "k-2", messages: [{ to: "a@example.test", subject: "S", html: "<p>x</p>", text: "x" }] },
 		AbortSignal.timeout(1_000),
 	);
 	assert.deepEqual(calls, ["https://api.resend.com/emails/batch"]);
 	assert.deepEqual(result, { outcome: "ids", ids: ["provider-1"] });
-	assert.equal((await readOutbox()).length, before);
+	assert.equal((await readOutbox(outbox)).length, before);
+	assert.deepEqual(settled, []);
 });
 
 test("the outbox lists newest first", async () => {

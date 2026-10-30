@@ -1,5 +1,5 @@
 // Messages: history first, the guided compose flow, the true email preview and the meeting handoff. Seed with
-// tests/ui/people/seed.mts, then tests/ui/meetings/seed.mts; set UI_BASE_URL. Both browser engines run.
+// tests/ui/people/seed.mts, then tests/ui/meetings/seed.mts, then tests/ui/communication/seed.mts; set UI_BASE_URL. Both browser engines run.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { BASE, ENGINES, fixture, hydrated, signIn, withPage } from "../setup.mjs";
@@ -104,6 +104,8 @@ for (const [name, engine] of ENGINES) {
 			await page.getByRole("option", { name: /Sara Nunez/ }).waitFor();
 			// The domain never matches: "test" finds nobody.
 			await to.fill("test");
+			// While the search is in flight the list says nothing. The empty line comes with the answer.
+			assert.equal(await page.getByText("No people match.").count(), 0);
 			await page.getByText("No people match.").waitFor();
 			await to.fill("sara");
 			await page.getByRole("option", { name: /Sara Nunez/ }).waitFor();
@@ -330,6 +332,25 @@ for (const [name, engine] of ENGINES) {
 		});
 	});
 
+	test(`AC:CASE-COM-003 AC:CASE-COM-012 (${name}): a Reviewed row opens Review with the subject and body locked`, async () => {
+		const { reviewed } = fixture("communication");
+		await withPage(engine, async (page, context) => {
+			await signIn(context, owner());
+			await open(page, "/communication");
+			await page
+				.getByRole("button", { name: /Reviewed follow-up seed/ })
+				.first()
+				.click();
+			await page.waitForURL(new RegExp(`compose=${reviewed}&step=review`));
+			await heading(page, "Review and send").waitFor();
+			await page.getByRole("navigation", { name: "Steps" }).getByRole("button", { name: /Write/ }).click();
+			await page.waitForURL(new RegExp(`compose=${reviewed}&step=write`));
+			await page.getByText("This follow-up keeps the original subject and body.").waitFor();
+			assert.equal(await page.getByLabel("Subject").isDisabled(), true);
+			assert.equal(await page.getByRole("combobox", { name: "Message" }).isDisabled(), true);
+		});
+	});
+
 	test(`AC:CASE-COM-003 (${name}): the meeting handoff opens Write with the meeting, its invitation and its guests, and names a missing meeting`, async () => {
 		const { meetingId } = fixture("meetings");
 		await withPage(engine, async (page, context) => {
@@ -346,8 +367,11 @@ for (const [name, engine] of ENGINES) {
 			// The live guest list is in To, as person chips, on the Who step.
 			await page.getByRole("navigation", { name: "Steps" }).getByRole("button", { name: /Who/ }).click();
 			await heading(page, "Who is this for?").waitFor();
-			await page.getByRole("button", { name: /^Sara Nunez, details/ }).waitFor();
 			await page.getByRole("button", { name: /^Leo Pratt, details/ }).waitFor();
+			// The hover card of a handoff chip shows the person's email, not a placeholder.
+			await page.getByRole("button", { name: /^Sara Nunez, details/ }).click();
+			await page.getByRole("tooltip").getByText(/@/).waitFor();
+			assert.equal(await page.getByText("Email shown at send").count(), 0);
 
 			const gone = "00000000-0000-4000-8000-000000000000";
 			await open(page, `/communication?meeting=${gone}&template=invitation&recipients=guests`);

@@ -33,7 +33,8 @@ import type {
 } from "./model.ts";
 import { loadMeeting } from "../meetings/server.ts";
 import { canWrite, communicationViewer, deliver, read, write, type Viewer } from "./server.ts";
-import { anticipateProvider, deliveryTransport, mailReady } from "./mail.ts";
+import { chainSendNow } from "./sendNowChain.ts";
+import { anticipateProvider, appOrigin, deliveryTransport, mailReady } from "./mail.ts";
 
 // Server actions for the Messages screens. The actor is the request's seat. The browser cannot send one.
 // A lost write keeps its request key so a retry replays. The caller mints a new key after success or a refusal.
@@ -501,9 +502,6 @@ export async function scheduleExisting(
 	});
 }
 
-/** The earliest send time the scheduling window accepts, from now. */
-const EARLIEST_SEND_MS = 60_000;
-
 /**
  * Send now from a draft. It chains the existing commands: save and schedule in one transaction, at the earliest time
  * the window accepts, then hand the new revision to the provider. Each step has its own request key. A send step that
@@ -514,19 +512,13 @@ export async function sendNow(
 	expectedRevision: string | null,
 	target: { kind: "draft"; input: unknown } | { kind: "reviewed"; communicationId: string },
 ): Promise<Outcome<SendNowResult>> {
-	const at = new Date(Date.now() + EARLIEST_SEND_MS).toISOString();
-	const scheduled =
-		target.kind === "draft"
-			? await scheduleDraft(keys.save, keys.schedule, expectedRevision, target.input, at)
-			: await scheduleExisting(keys.schedule, expectedRevision ?? "", target.communicationId, at);
-	if (scheduled.status !== "ok") return scheduled;
-	const { communicationId, revision, scheduledAt } = scheduled.value;
-	const sent = await sendReviewed(keys.send, revision, communicationId);
-	if (sent.status !== "ok") {
-		const issue = sent.status === "lost" ? "lost" : sent.code;
-		return { status: "ok", value: { communicationId, revision, scheduledAt, report: null, sendIssue: issue } };
-	}
-	return { status: "ok", value: { communicationId, revision, scheduledAt, report: sent.value, sendIssue: null } };
+	return chainSendNow({
+		schedule: (at) =>
+			target.kind === "draft"
+				? scheduleDraft(keys.save, keys.schedule, expectedRevision, target.input, at)
+				: scheduleExisting(keys.schedule, expectedRevision ?? "", target.communicationId, at),
+		send: (revision, communicationId) => sendReviewed(keys.send, revision, communicationId),
+	});
 }
 
 /** The meeting a message is attached to: title, time, place and its live guest list. */
@@ -553,4 +545,17 @@ export async function readMeetingContext(meetingId: string): Promise<Outcome<Mee
 				.map((g) => ({ id: g.person.personId, displayName: g.person.displayName })),
 		},
 	};
+}
+
+/** The church name and app origin the email preview needs on screens outside the Messages page. */
+export async function readPreviewContext(): Promise<Outcome<{ churchName: string; origin: string }>> {
+	const viewer = await seat();
+	if (!viewer) return denied;
+	const origin = appOrigin();
+	if (origin === null) return { status: "refused", code: "unavailable" };
+	return read(viewer, async (tx) => {
+		const church = await communicationWriter.readChurchName(tx, viewer.authority);
+		if (church.status !== "ok") return church;
+		return { status: "ok", value: { churchName: church.value.churchName, origin } };
+	});
 }

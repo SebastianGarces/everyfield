@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
+import { chainSendNow } from "../../../apps/web/src/features/communication/sendNowChain.ts";
 import { addressAad, mailAddressHash, sealText } from "../../../packages/domain/src/communication/delivery.ts";
 
 let f, plant, owner;
@@ -116,7 +117,7 @@ test("AC:CASE-COM-001 history items and detail carry scheduled time, sent time a
 });
 
 // Send now from a draft chains the existing commands: save and schedule in one transaction, then send the new revision
-// with its own request key (the web action in apps/web/src/features/communication/actions.ts).
+// with its own request key (chainSendNow in apps/web/src/features/communication/sendNowChain.ts, run by the web action).
 function carrier(behavior) {
 	const calls = { send: 0 };
 	return {
@@ -136,64 +137,86 @@ function carrier(behavior) {
 		},
 	};
 }
-async function saveAndSchedule(email) {
-	const personId = await person("Chain " + email.slice(0, 6), email);
-	const when = new Date(Date.now() + 60_000).toISOString();
-	const result = await withCommunicationWrite(f.db, owner.actor, async (tx, ctx) => {
-		const saved = await communicationWriter.saveDraft(tx, ctx, {
-			requestKey: randomUUID(),
-			input: {
-				subject: "Send now chain",
-				bodyHtml: "<p>Hello {{name}}.</p>",
-				audience: { groups: [], teamIds: [], personIds: [personId] },
-			},
-		});
-		if (saved.status !== "ok") return saved;
-		return communicationWriter.scheduleReviewed(tx, ctx, {
-			requestKey: randomUUID(),
-			expectedRevision: saved.value.revision,
-			input: { communicationId: saved.value.communicationId, scheduledAt: when },
-		});
+/** The real Send now chain with the real commands: save and schedule one transaction, then send. */
+function chain(personId, transport, keysFor, sendRevision = (revision) => revision) {
+	return chainSendNow({
+		schedule: async (at) => {
+			const result = await withCommunicationWrite(f.db, owner.actor, async (tx, ctx) => {
+				const saved = await communicationWriter.saveDraft(tx, ctx, {
+					requestKey: keysFor.save,
+					input: {
+						subject: "Send now chain",
+						bodyHtml: "<p>Hello {{name}}.</p>",
+						audience: { groups: [], teamIds: [], personIds: [personId] },
+					},
+				});
+				if (saved.status !== "ok") return saved;
+				return communicationWriter.scheduleReviewed(tx, ctx, {
+					requestKey: keysFor.schedule,
+					expectedRevision: saved.value.revision,
+					input: { communicationId: saved.value.communicationId, scheduledAt: at },
+				});
+			});
+			return result.status === "ok" ? result : { status: "refused", code: result.code };
+		},
+		send: async (revision, communicationId) => {
+			const sent = await communicationWriter.sendReviewed(
+				f.db,
+				owner.actor,
+				{ requestKey: keysFor.send, expectedRevision: sendRevision(revision), input: { communicationId } },
+				transport,
+				keys,
+			);
+			if (sent.status !== "ok") return { status: "refused", code: sent.code };
+			const { status, acceptedCount, rejectedCount, unknownCount } = sent.value;
+			return { status: "ok", value: { status, acceptedCount, rejectedCount, unknownCount } };
+		},
 	});
-	return ok(result);
 }
-
-test("AC:CASE-COM-012 Send now sends once for a double confirm and keeps the message scheduled after a refused send", async () => {
-	const first = await saveAndSchedule(`chain-${randomUUID().slice(0, 8)}@example.test`);
-	const accepting = carrier(async () => ({ outcome: "ids", ids: ["prov-chain"] }));
-	const sendKey = randomUUID();
-	const input = {
-		requestKey: sendKey,
-		expectedRevision: first.revision,
-		input: { communicationId: first.communicationId },
-	};
-	const once = ok(await communicationWriter.sendReviewed(f.db, owner.actor, input, accepting, keys));
-	const twice = ok(await communicationWriter.sendReviewed(f.db, owner.actor, input, accepting, keys));
-	assert.equal(accepting.calls.send, 1, "one provider send for a double confirm");
-	assert.equal(once.acceptedCount, 1);
-	assert.equal(twice.providerCalls, 0);
-
-	const second = await saveAndSchedule(`refused-${randomUUID().slice(0, 8)}@example.test`);
-	const refusing = carrier(async () => {
-		throw new Error("provider_down");
-	});
-	// A provider that throws leaves an unknown result, never an acceptance.
-	const outcome = await communicationWriter.sendReviewed(
-		f.db,
-		owner.actor,
-		{ requestKey: randomUUID(), expectedRevision: second.revision, input: { communicationId: second.communicationId } },
-		refusing,
-		keys,
-	);
-	assert.notEqual(outcome.status === "ok" ? outcome.value.acceptedCount : 0, 1);
-	const [row] = (
+const stateOf = async (id) =>
+	(
 		await f.admin.execute(
 			sql`SELECT state, (SELECT count(*)::int FROM mail m WHERE m.logical_key LIKE 'communication/' || c.id::text || '/%' AND m.state = 'accepted') AS accepted
-			FROM communication c WHERE c.id = ${second.communicationId}::uuid`,
+			FROM communication c WHERE c.id = ${id}::uuid`,
 		)
-	).rows;
-	assert.equal(row.state, "scheduled", "the message stays scheduled");
-	assert.equal(row.accepted, 0, "nothing was accepted");
+	).rows[0];
+const newKeys = () => ({ save: randomUUID(), schedule: randomUUID(), send: randomUUID() });
+
+test("AC:CASE-COM-012 the real Send now chain sends once for a double confirm", async () => {
+	const personId = await person("Chain Once", `once-${randomUUID().slice(0, 8)}@example.test`);
+	const transport = carrier(async () => ({ outcome: "ids", ids: ["prov-chain"] }));
+	const requestKeys = newKeys();
+	const once = ok(await chain(personId, transport, requestKeys));
+	const twice = ok(await chain(personId, transport, requestKeys));
+	assert.equal(transport.calls.send, 1, "one provider send for a double confirm");
+	assert.equal(once.sendIssue, null);
+	assert.equal(once.report?.acceptedCount, 1);
+	assert.equal(twice.communicationId, once.communicationId, "the same request keys find the same message");
+	assert.equal((await stateOf(once.communicationId)).accepted, 1);
+});
+
+test("AC:CASE-COM-012 a refused send step leaves the message scheduled and names the issue", async () => {
+	const personId = await person("Chain Refused", `refused-${randomUUID().slice(0, 8)}@example.test`);
+	const transport = carrier(async () => ({ outcome: "ids", ids: ["never"] }));
+	// A stale revision on the send step is refused by the domain before any provider call.
+	const refused = ok(await chain(personId, transport, newKeys(), () => "999999"));
+	assert.equal(refused.report, null);
+	assert.notEqual(refused.sendIssue, null);
+	assert.equal(transport.calls.send, 0, "no provider call after a refused send");
+	const row = await stateOf(refused.communicationId);
+	assert.equal(row.state, "scheduled");
+	assert.equal(row.accepted, 0);
+
+	// A provider that throws leaves an unknown result, never an acceptance, and the message stays scheduled.
+	const personTwo = await person("Chain Down", `down-${randomUUID().slice(0, 8)}@example.test`);
+	const down = carrier(async () => {
+		throw new Error("provider_down");
+	});
+	const unknown = ok(await chain(personTwo, down, newKeys()));
+	assert.notEqual(unknown.report?.acceptedCount, 1);
+	const after = await stateOf(unknown.communicationId);
+	assert.equal(after.state, "scheduled");
+	assert.equal(after.accepted, 0);
 });
 
 test("AC:CASE-COM-001 the church name read returns the plant name through the seat check", async () => {

@@ -88,7 +88,9 @@ export function summarizeAudience(raw: unknown) {
 		eligibleEmails: [...emails].sort(),
 		searchResultLimit: 20,
 		searchLimitTruncatesAudience: false,
-		recipients: named.slice(0, NAMED_CAP).map((row) => ({ id: row.id, displayName: row.displayName })),
+		recipients: named
+			.slice(0, NAMED_CAP)
+			.map((row) => ({ id: row.id, displayName: row.displayName, email: row.email!.trim() })),
 		complete: named.length <= NAMED_CAP,
 	});
 }

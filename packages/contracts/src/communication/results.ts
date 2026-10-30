@@ -69,7 +69,7 @@ export const audienceResult = z.strictObject({
 	searchResultLimit: z.literal(20),
 	searchLimitTruncatesAudience: z.literal(false),
 	/** The reachable people by name, capped at 200. `complete` is false when the cap cut the list. */
-	recipients: z.array(z.strictObject({ id: recordId, displayName: z.string() })).max(200),
+	recipients: z.array(z.strictObject({ id: recordId, displayName: z.string(), email: z.string() })).max(200),
 	complete: z.boolean(),
 });
 export const recipientResult = z.strictObject({

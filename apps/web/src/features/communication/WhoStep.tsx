@@ -220,7 +220,7 @@ function ToField({
 	setForm: (update: (current: Form) => Form) => void;
 	locked: boolean;
 	/** Names the audience read returned, for people saved by id only. */
-	known: { id: string; displayName: string }[];
+	known: { id: string; displayName: string; email: string }[];
 }) {
 	const id = useId();
 	const input = useRef<HTMLInputElement>(null);
@@ -229,15 +229,19 @@ function ToField({
 	const [open, setOpen] = useState(false);
 	const [active, setActive] = useState(0);
 	const [status, setStatus] = useState<string | null>(null);
+	const [answered, setAnswered] = useState("");
 	const [expanded, setExpanded] = useState(false);
 	const [card, setCard] = useState<string | null>(null);
 	const seq = useRef(0);
-	const names = new Map(known.map((person) => [person.id, person.displayName]));
+	const byId = new Map(known.map((person) => [person.id, person]));
 	const people = form.people.map((person) => ({
 		...person,
-		displayName: person.displayName ?? names.get(person.id) ?? "Person on this message",
+		displayName: person.displayName ?? byId.get(person.id)?.displayName ?? "Person on this message",
+		email: person.email ?? byId.get(person.id)?.email ?? null,
 	}));
 	const shown = query.trim() ? results : [];
+	// The search for the typed text has not answered yet. The list says nothing until it does.
+	const searching = query.trim() !== "" && answered !== query.trim();
 	const visible = expanded ? people : people.slice(0, MAX_CHIPS);
 
 	useEffect(() => {
@@ -247,6 +251,7 @@ function ToField({
 		const timer = setTimeout(() => {
 			void searchRecipients(text).then((result) => {
 				if (mine !== seq.current) return;
+				setAnswered(text);
 				if (result.status !== "ok") {
 					setStatus("The search did not load. Try again.");
 					return;
@@ -324,7 +329,7 @@ function ToField({
 									className="cursor-pointer rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ef-focus)]"
 									onClick={(event) => {
 										event.stopPropagation();
-										setCard((c) => (c === person.id ? null : person.id));
+										setCard(person.id);
 									}}
 								>
 									{person.displayName}
@@ -352,7 +357,7 @@ function ToField({
 									className="absolute top-full left-0 z-20 mt-1 flex w-64 flex-col gap-1 rounded-md bg-surface-raised p-3 text-sm shadow-[var(--ef-shadow-pop),0_0_0_1px_var(--ef-line)]"
 								>
 									<span className="font-medium text-ink">{person.displayName}</span>
-									<span className="break-all text-text-2">{person.email ?? "Email shown at send"}</span>
+									<span className="break-all text-text-2">{person.email ?? "Loading email"}</span>
 									<Link
 										href={`/people/${person.id}`}
 										className="w-fit cursor-pointer font-medium text-ink underline underline-offset-[3px]"
@@ -377,7 +382,6 @@ function ToField({
 					) : null}
 					{locked ? null : (
 						<input
-							id={undefined}
 							ref={input}
 							role="combobox"
 							aria-label="Add a person"
@@ -429,7 +433,7 @@ function ToField({
 						})}
 					</ul>
 				) : null}
-				{open && query.trim() && shown.length === 0 && !status ? (
+				{open && query.trim() && shown.length === 0 && !status && !searching ? (
 					<p className="absolute z-20 mt-1 w-full rounded-md bg-surface-raised p-3 text-sm text-text-3 shadow-[0_0_0_1px_var(--ef-line-2)]">
 						No people match.
 					</p>

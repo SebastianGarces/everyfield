@@ -16,16 +16,11 @@ import {
 import { useMemo, useState } from "react";
 import { PreviewStage } from "./EmailFrame.tsx";
 import { textToBody } from "./body.ts";
+import { insideWindow, windowBounds } from "./scheduleWindow.ts";
 import { listed, plural, type Form } from "./composeModel.ts";
 import { groupLabel, type AudienceSummary, type MeetingContext, type Team, type Template } from "./model.ts";
 
 // Review and send: the full-width email with a "Preview as" switcher, and the "Ready to send?" panel.
-
-const WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
-
-const pad = (n: number) => String(n).padStart(2, "0");
-const localStamp = (d: Date) =>
-	`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 
 /** Tomorrow at 9:00 and the next Sunday at 8:00, both local, both inside the window. */
 function presets(now = new Date()): { label: string; at: Date }[] {
@@ -74,10 +69,7 @@ export function ReviewStep({
 	const [picking, setPicking] = useState(false);
 	const [custom, setCustom] = useState("");
 	const [customError, setCustomError] = useState<string | undefined>();
-	const bounds = useMemo(() => {
-		const now = new Date();
-		return { min: localStamp(now), max: localStamp(new Date(now.getTime() + WINDOW_MS)) };
-	}, []);
+	const bounds = useMemo(() => windowBounds(), []);
 	const safe = Math.min(index, Math.max(0, recipients.length - 1));
 	const name = recipients[safe]?.displayName ?? sampleName;
 	const eligible = summary?.eligibleRecipients ?? 0;
@@ -91,12 +83,7 @@ export function ReviewStep({
 
 	const schedulePicked = () => {
 		const at = custom ? new Date(custom) : null;
-		if (
-			!at ||
-			Number.isNaN(at.getTime()) ||
-			at.getTime() < Date.now() - 60_000 ||
-			at.getTime() > Date.now() + WINDOW_MS
-		) {
+		if (!at || !insideWindow(at)) {
 			setCustomError("Choose a send time from now through the next 30 days.");
 			return;
 		}
@@ -107,7 +94,7 @@ export function ReviewStep({
 	return (
 		<div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
 			<PreviewStage
-				input={{ bodyHtml: textHtml(form), name, hasMeeting: form.meetingId !== null, origin, churchName }}
+				input={{ bodyHtml: textToBody(form.text), name, hasMeeting: form.meetingId !== null, origin, churchName }}
 				chrome={{ from: churchName, to: name, subject: form.subject }}
 				toolbar={
 					<div className="flex items-center gap-2">
@@ -246,5 +233,3 @@ function Row({ label, value }: { label: string; value: string }) {
 		</div>
 	);
 }
-
-const textHtml = (form: Form): string => textToBody(form.text);

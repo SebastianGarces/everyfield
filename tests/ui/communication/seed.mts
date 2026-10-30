@@ -44,7 +44,13 @@ async function up() {
 	);
 	const retired = await schedule("vision_meeting");
 	await admin.execute(sql`UPDATE meeting SET retired_at = clock_timestamp() WHERE id = ${retired}::uuid`);
-	const fixture = writeFixture("communication", env.schema, { orientation, practice, team, retired });
+	// A saved follow-up: a Reviewed message. History opens it on Review with the subject and body locked.
+	const reviewed = randomUUID();
+	await admin.execute(sql`INSERT INTO communication (id, plant_id, revision, state, subject, body_html, body_text, audience)
+		VALUES (${reviewed}::uuid, ${people.plant}::uuid, 1, 'reviewed', 'Reviewed follow-up seed',
+		'<p>Hello {{name}}, we missed you.</p>', 'Hello {{name}}, we missed you.',
+		${JSON.stringify({ groups: [], teamIds: [], personIds: [people.people["Sara Nunez"]] })}::jsonb)`);
+	const fixture = writeFixture("communication", env.schema, { orientation, practice, team, retired, reviewed });
 	await env.close();
 	console.log(JSON.stringify({ schema: env.schema, fixture }));
 }

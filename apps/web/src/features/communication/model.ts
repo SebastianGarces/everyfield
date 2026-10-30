@@ -67,7 +67,7 @@ export type AudienceSummary = {
 	eligibleRecipients: number;
 	missingEmailExclusions: string[];
 	duplicateAddressesRemoved: number;
-	recipients: { id: string; displayName: string }[];
+	recipients: { id: string; displayName: string; email: string }[];
 	complete: boolean;
 };
 

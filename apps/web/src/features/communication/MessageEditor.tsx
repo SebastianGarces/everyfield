@@ -180,7 +180,8 @@ export function MessageEditor({
 					))}
 				</ul>
 				<p className="text-xs text-text-3">
-					{hasMeeting ? "" : "The RSVP button appears when the message is for a meeting. "}The subject takes no fields.
+					{hasMeeting ? "" : "The RSVP button appears when the message is for a meeting. "}The subject is the same for
+					everyone.
 				</p>
 			</section>
 		</div>
