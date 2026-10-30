@@ -12,7 +12,7 @@ import {
 	FREQUENCIES,
 	FREQUENCY_LABEL,
 	isSettled,
-	ownerLabel,
+	assigneeNames,
 	PENDING_PREFIX,
 	repeatText,
 	STATUS_LABEL,
@@ -26,7 +26,7 @@ import {
 	type TaskItem,
 } from "./model.ts";
 import { DoneBox } from "./parts.tsx";
-import { warmAssignees } from "./TaskDialog.tsx";
+import { warmAssignees } from "./AssigneePicker.tsx";
 
 // The task panel's structure sections (REQ-TSK-005 to 007): steps, what the task waits for and how it repeats. Each
 // save is one request; the screen shows it at once and confirms or rolls it back.
@@ -92,7 +92,7 @@ const INHERIT = "inherit",
  */
 export function Steps({
 	steps,
-	taskAssignee,
+	taskAssignees,
 	canAdd,
 	admin,
 	you,
@@ -103,7 +103,7 @@ export function Steps({
 	onAdd,
 }: {
 	steps: Step[];
-	taskAssignee: TaskItem["assignee"];
+	taskAssignees: TaskItem["assignees"];
 	canAdd: boolean;
 	admin: boolean;
 	you: string;
@@ -150,7 +150,7 @@ export function Steps({
 								>
 									{s.title}
 								</span>
-								<span className="max-w-[40%] truncate text-sm text-text-3">{ownerLabel(s.assignee)}</span>
+								<span className="max-w-[40%] truncate text-sm text-text-3">{assigneeNames(s.assignees).join(", ") || "Needs owner"}</span>
 								{admin ? (
 									<IconButton
 										icon={Cancel01Icon}
@@ -171,7 +171,7 @@ export function Steps({
 				</p>
 			) : null}
 			{adding ? (
-				<AddStep admin={admin} taskAssignee={taskAssignee} you={you} onAdd={onAdd} onClose={() => setAdding(false)} />
+				<AddStep admin={admin} taskAssignees={taskAssignees} you={you} onAdd={onAdd} onClose={() => setAdding(false)} />
 			) : null}
 		</Section>
 	);
@@ -179,13 +179,13 @@ export function Steps({
 
 function AddStep({
 	admin,
-	taskAssignee,
+	taskAssignees,
 	you,
 	onAdd,
 	onClose,
 }: {
 	admin: boolean;
-	taskAssignee: TaskItem["assignee"];
+	taskAssignees: TaskItem["assignees"];
 	you: string;
 	onAdd: (title: string, assignee: StepAssignee) => void;
 	onClose: () => void;
@@ -212,7 +212,9 @@ function AddStep({
 			),
 		);
 	};
-	const inherited = taskAssignee ? `Same as the task (${ownerLabel(taskAssignee)})` : "Same as the task (no one yet)";
+	const inherited = taskAssignees.length
+		? `Same as the task (${assigneeNames(taskAssignees).join(", ")})`
+		: "Same as the task (no one yet)";
 	const submit = (e: FormEvent) => {
 		e.preventDefault();
 		setTouched(true);

@@ -94,15 +94,15 @@ export async function changeTaskStatus(
 
 // Task structure (WP-025). Each is one command with its own request key; the writer rechecks authority in its statement.
 
-/** Add a step under `parentId`. `assigneeId` undefined takes the task's assignee; only an Owner or Admin may name one. */
+/** Add a step under `parentId`. `assigneeIds` undefined takes the task's assignees; only an Owner or Admin may name them. */
 export async function addStep(
 	requestKey: string,
 	parentRevision: string,
 	parentId: string,
 	title: string,
-	assigneeId?: string | null,
+	assigneeIds?: string[],
 ): Promise<Outcome<Saved>> {
-	const input = { parentId, title, ...(assigneeId !== undefined ? { assigneeId } : {}) };
+	const input = { parentId, title, ...(assigneeIds !== undefined ? { assigneeIds } : {}) };
 	return boundary(async (v) =>
 		savedOf(
 			await write(v, (w, tx, ctx) => w.createSubtask(tx, ctx, { requestKey, expectedRevision: parentRevision, input })),
