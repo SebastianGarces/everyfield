@@ -1,6 +1,6 @@
 {
-  "purpose": "Named generated-document template catalog by id. It holds ids, classes, formats, phases and priority only, with no template content. docs/catalog/check-document-templates.py validates it.",
-  "format_rule": "Budgets are XLSX, class email gets email format (HTML mail) and every other template is PDF from the Forme engine (@formepdf).",
+  "purpose": "Named generated-document template catalog by id. It holds ids, classes, formats, the editable flag, phases and priority only, with no template content. docs/catalog/check-document-templates.py validates it.",
+  "format_rule": "Budgets are XLSX, emails are HTML mail, fixed-layout documents are PDF only, and editable prose documents are edited in the app and exported as PDF and DOCX. The Forme engine (@formepdf) renders PDFs.",
   "classes": [
     "formal/legal",
     "outward-facing",
@@ -18,7 +18,10 @@
       "id": "commitment-card",
       "title": "Core Group Commitment Card",
       "class": "operational",
-      "format": "pdf",
+      "editable": false,
+      "formats": [
+        "pdf"
+      ],
       "phase": 1,
       "priority": null,
       "source": "existing",
@@ -28,7 +31,10 @@
       "id": "response-card",
       "title": "Response Card",
       "class": "operational",
-      "format": "pdf",
+      "editable": false,
+      "formats": [
+        "pdf"
+      ],
       "phase": 1,
       "priority": null,
       "source": "existing",
@@ -38,7 +44,10 @@
       "id": "guest-sign-in-sheet",
       "title": "Guest Sign-in Sheet",
       "class": "operational",
-      "format": "pdf",
+      "editable": false,
+      "formats": [
+        "pdf"
+      ],
       "phase": 1,
       "priority": null,
       "source": "existing",
@@ -48,7 +57,10 @@
       "id": "vision-meeting-agenda",
       "title": "Vision Meeting Agenda",
       "class": "operational",
-      "format": "pdf",
+      "editable": false,
+      "formats": [
+        "pdf"
+      ],
       "phase": 1,
       "priority": null,
       "source": "existing",
@@ -58,7 +70,11 @@
       "id": "member-expectations",
       "title": "Expectations of a Core Group Member",
       "class": "operational",
-      "format": "pdf",
+      "editable": true,
+      "formats": [
+        "pdf",
+        "docx"
+      ],
       "phase": 1,
       "priority": null,
       "source": "existing",
@@ -68,7 +84,11 @@
       "id": "launch-team-commitment",
       "title": "Launch Team Commitment",
       "class": "operational",
-      "format": "pdf",
+      "editable": true,
+      "formats": [
+        "pdf",
+        "docx"
+      ],
       "phase": 2,
       "priority": null,
       "source": "existing",
@@ -78,7 +98,11 @@
       "id": "follow-up-letter",
       "title": "Vision Meeting Follow-up Letter",
       "class": "outward-facing",
-      "format": "pdf",
+      "editable": true,
+      "formats": [
+        "pdf",
+        "docx"
+      ],
       "phase": 1,
       "priority": null,
       "source": "existing",
@@ -88,7 +112,10 @@
       "id": "board-meeting-agenda",
       "title": "Board / Elder Meeting Agenda",
       "class": "operational",
-      "format": "pdf",
+      "editable": false,
+      "formats": [
+        "pdf"
+      ],
       "phase": null,
       "priority": null,
       "source": "existing",
@@ -98,7 +125,10 @@
       "id": "first-year-budget",
       "title": "First-Year Budget",
       "class": "operational",
-      "format": "xlsx",
+      "editable": false,
+      "formats": [
+        "xlsx"
+      ],
       "phase": null,
       "priority": null,
       "source": "existing",
@@ -108,7 +138,10 @@
       "id": "budget-worksheet",
       "title": "Budget Worksheet",
       "class": "operational",
-      "format": "xlsx",
+      "editable": false,
+      "formats": [
+        "xlsx"
+      ],
       "phase": null,
       "priority": null,
       "source": "existing",
@@ -118,7 +151,10 @@
       "id": "launch-sunday-checklists",
       "title": "Launch Sunday Checklists",
       "class": "operational",
-      "format": "pdf",
+      "editable": false,
+      "formats": [
+        "pdf"
+      ],
       "phase": 4,
       "priority": null,
       "source": "existing",
@@ -128,7 +164,10 @@
       "id": "vision-meeting-invitation",
       "title": "Vision Meeting Invitation",
       "class": "email",
-      "format": "email",
+      "editable": false,
+      "formats": [
+        "email"
+      ],
       "phase": null,
       "priority": null,
       "source": "email",
@@ -138,7 +177,10 @@
       "id": "vision-meeting-reminder",
       "title": "Vision Meeting Reminder",
       "class": "email",
-      "format": "email",
+      "editable": false,
+      "formats": [
+        "email"
+      ],
       "phase": null,
       "priority": null,
       "source": "email",
@@ -148,7 +190,10 @@
       "id": "vision-meeting-follow-up-attended",
       "title": "Vision Meeting Follow-Up — Attended",
       "class": "email",
-      "format": "email",
+      "editable": false,
+      "formats": [
+        "email"
+      ],
       "phase": null,
       "priority": null,
       "source": "email",
@@ -158,7 +203,10 @@
       "id": "vision-meeting-follow-up-no-show",
       "title": "Vision Meeting Follow-Up — No Show",
       "class": "email",
-      "format": "email",
+      "editable": false,
+      "formats": [
+        "email"
+      ],
       "phase": null,
       "priority": null,
       "source": "email",
@@ -168,7 +216,10 @@
       "id": "orientation-invitation",
       "title": "Orientation Invitation",
       "class": "email",
-      "format": "email",
+      "editable": false,
+      "formats": [
+        "email"
+      ],
       "phase": null,
       "priority": null,
       "source": "email",
@@ -178,7 +229,10 @@
       "id": "team-meeting-invitation",
       "title": "Team Meeting Invitation",
       "class": "email",
-      "format": "email",
+      "editable": false,
+      "formats": [
+        "email"
+      ],
       "phase": null,
       "priority": null,
       "source": "email",
@@ -188,7 +242,10 @@
       "id": "general-announcement",
       "title": "General Announcement",
       "class": "email",
-      "format": "email",
+      "editable": false,
+      "formats": [
+        "email"
+      ],
       "phase": null,
       "priority": null,
       "source": "email",
@@ -198,7 +255,11 @@
       "id": "church-planting-prospectus",
       "title": "Church Planting Prospectus",
       "class": "outward-facing",
-      "format": "pdf",
+      "editable": true,
+      "formats": [
+        "pdf",
+        "docx"
+      ],
       "phase": null,
       "priority": 3,
       "source": "planned",
@@ -208,7 +269,11 @@
       "id": "partnership-agreement",
       "title": "Partnership Agreement",
       "class": "formal/legal",
-      "format": "pdf",
+      "editable": true,
+      "formats": [
+        "pdf",
+        "docx"
+      ],
       "phase": null,
       "priority": 3,
       "source": "planned",
@@ -218,7 +283,11 @@
       "id": "residency-plan",
       "title": "Residency Plan",
       "class": "operational",
-      "format": "pdf",
+      "editable": true,
+      "formats": [
+        "pdf",
+        "docx"
+      ],
       "phase": null,
       "priority": null,
       "source": "planned",
@@ -228,7 +297,10 @@
       "id": "vision-meeting-kit-checklist",
       "title": "Vision Meeting Kit Checklist",
       "class": "operational",
-      "format": "pdf",
+      "editable": false,
+      "formats": [
+        "pdf"
+      ],
       "phase": null,
       "priority": null,
       "source": "planned",
@@ -238,7 +310,10 @@
       "id": "vision-meeting-self-assessment",
       "title": "Vision Meeting Self-Assessment",
       "class": "operational",
-      "format": "pdf",
+      "editable": false,
+      "formats": [
+        "pdf"
+      ],
       "phase": null,
       "priority": null,
       "source": "planned",
@@ -248,7 +323,10 @@
       "id": "follow-up-interview-questions",
       "title": "Follow Up Interview Questions",
       "class": "operational",
-      "format": "pdf",
+      "editable": false,
+      "formats": [
+        "pdf"
+      ],
       "phase": null,
       "priority": null,
       "source": "planned",
@@ -258,7 +336,10 @@
       "id": "ministry-team-checklists",
       "title": "Ministry Team Checklists",
       "class": "operational",
-      "format": "pdf",
+      "editable": false,
+      "formats": [
+        "pdf"
+      ],
       "phase": null,
       "priority": null,
       "source": "planned",
@@ -268,7 +349,11 @@
       "id": "bylaws",
       "title": "Bylaws",
       "class": "formal/legal",
-      "format": "pdf",
+      "editable": true,
+      "formats": [
+        "pdf",
+        "docx"
+      ],
       "phase": null,
       "priority": 1,
       "source": "named",
@@ -278,7 +363,11 @@
       "id": "board-minutes",
       "title": "Board Minutes",
       "class": "formal/legal",
-      "format": "pdf",
+      "editable": true,
+      "formats": [
+        "pdf",
+        "docx"
+      ],
       "phase": null,
       "priority": 1,
       "source": "named",
@@ -288,7 +377,11 @@
       "id": "conflict-of-interest-policy",
       "title": "Conflict-of-Interest Policy",
       "class": "formal/legal",
-      "format": "pdf",
+      "editable": true,
+      "formats": [
+        "pdf",
+        "docx"
+      ],
       "phase": null,
       "priority": 1,
       "source": "named",
@@ -298,7 +391,11 @@
       "id": "financial-controls-policy",
       "title": "Financial Controls Policy",
       "class": "formal/legal",
-      "format": "pdf",
+      "editable": true,
+      "formats": [
+        "pdf",
+        "docx"
+      ],
       "phase": null,
       "priority": 1,
       "source": "named",
@@ -308,7 +405,11 @@
       "id": "accountable-plan-reimbursement-policy",
       "title": "Accountable-Plan Reimbursement Policy",
       "class": "formal/legal",
-      "format": "pdf",
+      "editable": true,
+      "formats": [
+        "pdf",
+        "docx"
+      ],
       "phase": null,
       "priority": 1,
       "source": "named",
@@ -318,7 +419,11 @@
       "id": "child-protection-policy",
       "title": "Child Protection Policy",
       "class": "formal/legal",
-      "format": "pdf",
+      "editable": true,
+      "formats": [
+        "pdf",
+        "docx"
+      ],
       "phase": null,
       "priority": 2,
       "source": "named",
@@ -328,7 +433,10 @@
       "id": "volunteer-application",
       "title": "Volunteer Application",
       "class": "operational",
-      "format": "pdf",
+      "editable": false,
+      "formats": [
+        "pdf"
+      ],
       "phase": null,
       "priority": 2,
       "source": "named",
@@ -338,7 +446,10 @@
       "id": "background-check-consent",
       "title": "Background-Check Consent",
       "class": "formal/legal",
-      "format": "pdf",
+      "editable": false,
+      "formats": [
+        "pdf"
+      ],
       "phase": null,
       "priority": 2,
       "source": "named",
@@ -348,7 +459,10 @@
       "id": "launch-sunday-run-sheet",
       "title": "Launch Sunday Run Sheet",
       "class": "operational",
-      "format": "pdf",
+      "editable": false,
+      "formats": [
+        "pdf"
+      ],
       "phase": null,
       "priority": 4,
       "source": "named",
@@ -358,7 +472,11 @@
       "id": "monthly-progress-report",
       "title": "Monthly Progress Report",
       "class": "outward-facing",
-      "format": "pdf",
+      "editable": true,
+      "formats": [
+        "pdf",
+        "docx"
+      ],
       "phase": null,
       "priority": 5,
       "source": "named",
@@ -368,7 +486,11 @@
       "id": "prayer-letter",
       "title": "Prayer Letter",
       "class": "outward-facing",
-      "format": "pdf",
+      "editable": true,
+      "formats": [
+        "pdf",
+        "docx"
+      ],
       "phase": null,
       "priority": 5,
       "source": "named",
@@ -378,7 +500,11 @@
       "id": "support-letter",
       "title": "Support Letter",
       "class": "outward-facing",
-      "format": "pdf",
+      "editable": true,
+      "formats": [
+        "pdf",
+        "docx"
+      ],
       "phase": null,
       "priority": 5,
       "source": "named",
@@ -388,7 +514,11 @@
       "id": "group-exemption-rev-proc-2026-8",
       "title": "Rev. Proc. 2026-8 Group-Exemption Template",
       "class": "formal/legal",
-      "format": "pdf",
+      "editable": true,
+      "formats": [
+        "pdf",
+        "docx"
+      ],
       "phase": null,
       "priority": null,
       "source": "named",

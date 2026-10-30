@@ -36,16 +36,40 @@ class DocumentTemplateCheckTests(unittest.TestCase):
         self.assertEqual(self.errors(), [])
 
     def test_non_budget_template_cannot_be_xlsx(self):
-        self.entry('bylaws')['format'] = 'xlsx'
-        self.assertEqual(self.errors(), ["bylaws: format 'xlsx' breaks the rule; expected 'pdf'"])
+        self.entry('bylaws')['formats'] = ['xlsx']
+        self.assertEqual(self.errors(), ["bylaws: formats ['xlsx'] break the rule; expected ['pdf', 'docx']"])
 
     def test_budget_must_be_xlsx(self):
-        self.entry('first-year-budget')['format'] = 'pdf'
-        self.assertEqual(self.errors(), ["first-year-budget: format 'pdf' breaks the rule; expected 'xlsx'"])
+        self.entry('first-year-budget')['formats'] = ['pdf']
+        self.assertEqual(self.errors(), ["first-year-budget: formats ['pdf'] break the rule; expected ['xlsx']"])
 
     def test_email_class_needs_email_format(self):
-        self.entry('general-announcement')['format'] = 'pdf'
-        self.assertEqual(len(self.errors()), 1)
+        self.entry('general-announcement')['formats'] = ['pdf']
+        self.assertEqual(self.errors(), ["general-announcement: formats ['pdf'] break the rule; expected ['email']"])
+
+    def test_missing_editable_fails(self):
+        del self.entry('bylaws')['editable']
+        self.assertEqual(self.errors(), ["bylaws: missing field 'editable'"])
+
+    def test_missing_formats_fails(self):
+        del self.entry('bylaws')['formats']
+        self.assertEqual(self.errors(), ["bylaws: missing field 'formats'"])
+
+    def test_editable_email_fails(self):
+        self.entry('general-announcement')['editable'] = True
+        self.assertEqual(self.errors(), ['general-announcement: editable must be false for an email or a budget'])
+
+    def test_editable_budget_fails(self):
+        self.entry('budget-worksheet')['editable'] = True
+        self.assertEqual(self.errors(), ['budget-worksheet: editable must be false for an email or a budget'])
+
+    def test_editable_entry_needs_pdf_and_docx(self):
+        self.entry('bylaws')['formats'] = ['pdf']
+        self.assertEqual(self.errors(), ["bylaws: formats ['pdf'] break the rule; expected ['pdf', 'docx']"])
+
+    def test_fixed_layout_entry_cannot_offer_docx(self):
+        self.entry('commitment-card')['formats'] = ['pdf', 'docx']
+        self.assertEqual(self.errors(), ["commitment-card: formats ['pdf', 'docx'] break the rule; expected ['pdf']"])
 
     def test_unknown_class_and_duplicate_id_fail(self):
         self.entry('bylaws')['class'] = 'decorative'

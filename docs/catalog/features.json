@@ -4579,7 +4579,7 @@
     "id": "DOC-001",
     "title": "Document template library, filtering and contextual entry points",
     "module": "documents",
-    "behavior": "Filterable/contextual library of the generated document catalog. The catalog grows as templates are added, and `docs/catalog/document-templates.json` names every entry with its class, format and phase. Format rule: budgets are XLSX, emails are HTML mail and every other template is PDF. The Forme engine (@formepdf) renders the PDFs with fillable fields and PDF/UA tagging. Commitment/vision_meeting/administrative/operational categories, phase and curated Wiki/meeting/team mappings. Unknown retired mapping omits link.",
+    "behavior": "Filterable/contextual library of the generated document catalog. The catalog grows as templates are added, and `docs/catalog/document-templates.json` names every entry with its class, format and phase. Format rule: budgets are XLSX, emails are HTML mail, fixed-layout documents are PDF only, and editable prose documents are edited in the app and exported as PDF and DOCX. The Forme engine (@formepdf) renders PDFs with fillable fields and PDF/UA tagging. Commitment/vision_meeting/administrative/operational categories, phase and curated Wiki/meeting/team mappings. Unknown retired mapping omits link.",
     "spec_file": "docs/product/knowledge-documents.md#generated-documents-and-templates",
     "requirement_ids": [
       "REQ-DOC-001",
@@ -4812,13 +4812,14 @@
     "id": "DOC-008",
     "title": "Expectations of a Core Group Member",
     "module": "documents",
-    "behavior": "Expectations of a Core Group Member \u2014 PDF; presence/GROW-PRAY-GIVE/team participation.",
+    "behavior": "Expectations of a Core Group Member \u2014 editable Church Document, exported as PDF and DOCX; presence/GROW-PRAY-GIVE/team participation.",
     "spec_file": "docs/product/knowledge-documents.md#generated-documents-and-templates",
     "requirement_ids": [
       "REQ-DOC-008"
     ],
     "operations": [
-      "documents.generate",
+      "documents.createFromTemplate",
+      "documents.exportNative",
       "documents.preview"
     ],
     "acceptance_ids": [
@@ -4829,7 +4830,8 @@
       "EVRY-ACCOUNT-PRIVATE-DISCOVERY"
     ],
     "work_packages": [
-      "WP-036"
+      "WP-036",
+      "WP-037"
     ],
     "routes": [
       "/documents"
@@ -4839,13 +4841,14 @@
     "id": "DOC-009",
     "title": "Launch Team Commitment",
     "module": "documents",
-    "behavior": "Launch Team Commitment \u2014 PDF; member commitment approaching Launch Sunday.",
+    "behavior": "Launch Team Commitment \u2014 editable Church Document, exported as PDF and DOCX; member commitment approaching Launch Sunday.",
     "spec_file": "docs/product/knowledge-documents.md#generated-documents-and-templates",
     "requirement_ids": [
       "REQ-DOC-009"
     ],
     "operations": [
-      "documents.generate",
+      "documents.createFromTemplate",
+      "documents.exportNative",
       "documents.preview"
     ],
     "acceptance_ids": [
@@ -4856,7 +4859,8 @@
       "EVRY-ACCOUNT-PRIVATE-DISCOVERY"
     ],
     "work_packages": [
-      "WP-036"
+      "WP-036",
+      "WP-037"
     ],
     "routes": [
       "/documents"
@@ -4866,13 +4870,14 @@
     "id": "DOC-010",
     "title": "Vision Meeting Follow-up Letter",
     "module": "documents",
-    "behavior": "Vision Meeting Follow-up Letter \u2014 PDF; guest thank-you/next-step invitation.",
+    "behavior": "Vision Meeting Follow-up Letter \u2014 editable Church Document, exported as PDF and DOCX; guest thank-you/next-step invitation.",
     "spec_file": "docs/product/knowledge-documents.md#generated-documents-and-templates",
     "requirement_ids": [
       "REQ-DOC-010"
     ],
     "operations": [
-      "documents.generate",
+      "documents.createFromTemplate",
+      "documents.exportNative",
       "documents.preview"
     ],
     "acceptance_ids": [
@@ -4883,7 +4888,8 @@
       "EVRY-ACCOUNT-PRIVATE-DISCOVERY"
     ],
     "work_packages": [
-      "WP-036"
+      "WP-036",
+      "WP-037"
     ],
     "routes": [
       "/documents"
@@ -10198,23 +10204,26 @@
     "id": "DOC-019",
     "title": "Legal template notice",
     "module": "documents",
-    "behavior": "Every formal/legal template shows the notice \"Template, not legal advice\" in the preview and in the saved PDF. Church branding cannot hide or remove the notice. Templates of other classes do not show it.",
+    "behavior": "Every formal/legal template shows the notice \"Template, not legal advice\" in the preview and in the saved PDF. Church branding cannot hide or remove the notice. Templates of other classes do not show it. A Church Document made from a formal/legal template keeps the notice too. The notice \"Template, not legal advice\" renders at export, outside the editable body, in both the PDF and the DOCX. No edit removes it. Exports of other classes do not show it.",
     "spec_file": "docs/product/knowledge-documents.md#template-themes-classes-and-copy",
     "requirement_ids": [
       "REQ-DOC-019"
     ],
     "operations": [
-      "documents.preview",
-      "documents.generate"
+      "documents.exportNative",
+      "documents.generate",
+      "documents.preview"
     ],
     "acceptance_ids": [
       "AC-DOC-019--DOC-019"
     ],
     "case_ids": [
-      "CASE-DOC-019"
+      "CASE-DOC-019",
+      "CASE-DOC-019-EDIT"
     ],
     "work_packages": [
-      "WP-036"
+      "WP-036",
+      "WP-037"
     ],
     "routes": []
   },
@@ -10222,23 +10231,26 @@
     "id": "DOC-020",
     "title": "Doctrinal sections as network-filled slots",
     "module": "documents",
-    "behavior": "A doctrinal section in a template is an empty slot. Everyfield ships no doctrinal text. The sending network fills the slot for its churches, and a church without a network fills it itself. A slot that no one has filled generates as a visible blank, never as default text.",
+    "behavior": "A doctrinal section in a template is an empty slot. Everyfield ships no doctrinal text. The sending network fills the slot for its churches, and a church without a network fills it itself. A slot that no one has filled generates as a visible blank, never as default text. In a Church Document, a doctrinal slot is a node that editing can fill but cannot delete. The sending network's current text fills the slot at creation when the network has filled it. An empty slot shows as a marked blank in the editor and exports as a visible blank in the PDF and the DOCX, never as default text.",
     "spec_file": "docs/product/knowledge-documents.md#template-themes-classes-and-copy",
     "requirement_ids": [
       "REQ-DOC-020"
     ],
     "operations": [
-      "documents.preview",
-      "documents.generate"
+      "documents.exportNative",
+      "documents.generate",
+      "documents.preview"
     ],
     "acceptance_ids": [
       "AC-DOC-020--DOC-020"
     ],
     "case_ids": [
-      "CASE-DOC-020"
+      "CASE-DOC-020",
+      "CASE-DOC-020-EDIT"
     ],
     "work_packages": [
-      "WP-036"
+      "WP-036",
+      "WP-037"
     ],
     "routes": []
   },
@@ -10265,6 +10277,56 @@
       "WP-036"
     ],
     "routes": []
+  },
+  {
+    "id": "DOC-022",
+    "title": "Church Documents from editable templates",
+    "module": "documents",
+    "behavior": "An editable template creates one Church Document owned by the church plant, under the DOC-016 owner, revision and archive rules. Revision 1 holds the template text with merge values that resolve once under the DOC-002 limits, so later contact or church data changes do not change the text. The document records the template id, template version, document class and frozen input provenance. It also holds a \"use church branding\" toggle. Only a current Owner or Admin of the church plant creates it. Creation makes no file. Fixed-layout, budget and email templates are refused. Before creation, `documents.preview` shows the pre-filled content as a PDF.",
+    "spec_file": "docs/product/knowledge-documents.md#church-documents-from-editable-templates",
+    "requirement_ids": [
+      "REQ-DOC-022"
+    ],
+    "operations": [
+      "documents.createFromTemplate"
+    ],
+    "acceptance_ids": [
+      "AC-DOC-022--DOC-022"
+    ],
+    "case_ids": [
+      "CASE-DOC-022"
+    ],
+    "work_packages": [
+      "WP-037"
+    ],
+    "routes": [
+      "/documents"
+    ]
+  },
+  {
+    "id": "DOC-023",
+    "title": "Church Document export as PDF and Word",
+    "module": "documents",
+    "behavior": "A user who can read a template-made Church Document exports one revision as a PDF or a DOCX. The PDF comes from the Forme engine with PDF/UA tagging. Both formats use the theme that `resolveDocumentTheme(church, documentClass)` returns, the \"use church branding\" toggle and the Everyfield-neutral fallback. The DOCX carries the theme's logo with alt text, fonts, colors and letterhead footer where Word can show them. Each export saves one `generated_document` under DOC-003. That record holds the document id and revision as frozen provenance. A later download returns the exact saved bytes after later edits, brand kit changes or template changes. The DOC-002 limits apply to the export (8 MiB and 1,000 content blocks), and a render failure is truthful. Only a Church Document made from a template exports, because only these documents carry a document class.",
+    "spec_file": "docs/product/knowledge-documents.md#church-documents-from-editable-templates",
+    "requirement_ids": [
+      "REQ-DOC-023"
+    ],
+    "operations": [
+      "documents.exportNative"
+    ],
+    "acceptance_ids": [
+      "AC-DOC-023--DOC-023"
+    ],
+    "case_ids": [
+      "CASE-DOC-023"
+    ],
+    "work_packages": [
+      "WP-037"
+    ],
+    "routes": [
+      "/documents"
+    ]
   },
   {
     "id": "BRD-001",

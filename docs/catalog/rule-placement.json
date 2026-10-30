@@ -4124,7 +4124,8 @@
     "Interview ID/revision and actual conditional earlier-stage progression receipt; no automatic task": "Interview ID/revision and actual conditional earlier-stage progression outcome; no automatic task",
     "correction receipt no stage replay": "correction outcome, no stage replay",
     "correction receipt with effective lifecycle/acquisition source revision": "correction outcome with effective lifecycle/acquisition source revision",
-    "human correction receipt no advanced-stage demotion": "human correction outcome, no advanced-stage demotion"
+    "human correction receipt no advanced-stage demotion": "human correction outcome, no advanced-stage demotion",
+    "Supported format values: pdf, docx, xlsx.": "Supported format values: pdf, xlsx."
   },
   "added_links": [
     {
@@ -4621,6 +4622,64 @@
       "requirement": "REQ-DOC-021",
       "operation": "documents.generate",
       "reason": "Templates plan approved 2026-10-30 (OPS-77): the new requirement names the operations that prove it."
+    },
+    {
+      "requirement": "REQ-DOC-022",
+      "operation": "documents.createFromTemplate",
+      "reason": "Editable templates plan, Sebastian choice 2026-10-30 (OPS-79): the requirement names the operations that prove it."
+    },
+    {
+      "requirement": "REQ-DOC-023",
+      "operation": "documents.exportNative",
+      "reason": "Editable templates plan, Sebastian choice 2026-10-30 (OPS-79): the requirement names the operations that prove it."
+    },
+    {
+      "requirement": "REQ-DOC-008",
+      "operation": "documents.createFromTemplate",
+      "reason": "Editable templates plan, Sebastian choice 2026-10-30 (OPS-79): the requirement names the operations that prove it."
+    },
+    {
+      "requirement": "REQ-DOC-008",
+      "operation": "documents.exportNative",
+      "reason": "Editable templates plan, Sebastian choice 2026-10-30 (OPS-79): the requirement names the operations that prove it."
+    },
+    {
+      "requirement": "REQ-DOC-009",
+      "operation": "documents.createFromTemplate",
+      "reason": "Editable templates plan, Sebastian choice 2026-10-30 (OPS-79): the requirement names the operations that prove it."
+    },
+    {
+      "requirement": "REQ-DOC-009",
+      "operation": "documents.exportNative",
+      "reason": "Editable templates plan, Sebastian choice 2026-10-30 (OPS-79): the requirement names the operations that prove it."
+    },
+    {
+      "requirement": "REQ-DOC-010",
+      "operation": "documents.createFromTemplate",
+      "reason": "Editable templates plan, Sebastian choice 2026-10-30 (OPS-79): the requirement names the operations that prove it."
+    },
+    {
+      "requirement": "REQ-DOC-010",
+      "operation": "documents.exportNative",
+      "reason": "Editable templates plan, Sebastian choice 2026-10-30 (OPS-79): the requirement names the operations that prove it."
+    },
+    {
+      "requirement": "REQ-DOC-019",
+      "operation": "documents.exportNative",
+      "reason": "Editable templates plan, Sebastian choice 2026-10-30 (OPS-79): the requirement names the operations that prove it."
+    },
+    {
+      "requirement": "REQ-DOC-020",
+      "operation": "documents.exportNative",
+      "reason": "Editable templates plan, Sebastian choice 2026-10-30 (OPS-79): the requirement names the operations that prove it."
+    }
+  ],
+  "rule_additions": [
+    {
+      "requirement": "REQ-DOC-002",
+      "operation": "documents.generate",
+      "rule": "Refuse an editable template. Generate makes files only for fixed-layout and budget templates; an editable template goes through documents.createFromTemplate, then documents.exportNative.",
+      "reason": "Editable templates plan, Sebastian choice 2026-10-30 (OPS-79): editable templates leave the generate path."
     }
   ],
   "operation_additions": [
@@ -4903,6 +4962,16 @@
       "id": "brand.resolveTheme",
       "requirement": "REQ-BRD-006",
       "reason": "Church brand kit plan, Sebastian approval 2026-10-30 (OPS-77); WP-104 owns the brand kit operations."
+    },
+    {
+      "id": "documents.createFromTemplate",
+      "requirement": "REQ-DOC-022",
+      "reason": "Editable templates plan, Sebastian choice 2026-10-30 (OPS-79): WP-037 owns editable template documents and their export."
+    },
+    {
+      "id": "documents.exportNative",
+      "requirement": "REQ-DOC-023",
+      "reason": "Editable templates plan, Sebastian choice 2026-10-30 (OPS-79): WP-037 owns editable template documents and their export."
     }
   ],
   "shared_rewrites": {
