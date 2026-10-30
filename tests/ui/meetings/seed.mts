@@ -58,10 +58,36 @@ async function up() {
 		if (r.status !== "ok") throw Error("schedule past: " + JSON.stringify(r));
 		// Scheduling refuses a past start, so the seed moves the start back as the meeting's own clock would.
 		await admin.execute(sql`UPDATE meeting SET starts_at = clock_timestamp() - interval '2 hours',
-			local_date = (clock_timestamp() - interval '2 hours')::date WHERE id = ${r.value.meeting.id}::uuid`);
+			local_date = ((clock_timestamp() - interval '2 hours') AT TIME ZONE timezone)::date WHERE id = ${r.value.meeting.id}::uuid`);
 		past[engine] = { meetingId: r.value.meeting.id, guests: [...guestNames] };
 	}
-	const fixture = writeFixture("meetings", env.schema, { meetingId, links, past });
+	// WP-020/ui page flow: per engine one Vision meeting with no guests (the page's own flow runs on it) and one
+	// Orientation with guests, which has no Kit tab.
+	const flow: Record<string, string> = {};
+	for (const engine of ["chromium", "webkit"]) {
+		const r = await runtime.transaction((tx) =>
+			meetingsWriter.schedule(tx as never, ctx, {
+				requestKey: randomUUID(),
+				input: { type: "vision_meeting", date, time: "18:30", guests: [] },
+			}),
+		);
+		if (r.status !== "ok") throw Error("schedule flow: " + JSON.stringify(r));
+		flow[engine] = r.value.meeting.id;
+	}
+	const o = await runtime.transaction((tx) =>
+		meetingsWriter.schedule(tx as never, ctx, {
+			requestKey: randomUUID(),
+			input: { type: "orientation", date, time: "18:30", guests },
+		}),
+	);
+	if (o.status !== "ok") throw Error("schedule orientation: " + JSON.stringify(o));
+	const fixture = writeFixture("meetings", env.schema, {
+		meetingId,
+		links,
+		past,
+		flow,
+		orientationId: o.value.meeting.id,
+	});
 	await env.close();
 	console.log(JSON.stringify({ schema: env.schema, fixture }));
 }

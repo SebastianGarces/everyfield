@@ -45,38 +45,17 @@ export function MeetingStatusBadge({
 }
 
 /**
- * Yes, No and Pending as one bar; `other` is a neutral rest when only the yes count is known. Each segment's width is
- * its share. The counts are written beside it, so the bar is decoration and never the only carrier of the numbers.
+ * The yes count against the rest of the guest list as one bar. The counts are written beside it, so the bar is
+ * decoration and never the only carrier of the numbers.
  */
-export function RsvpBar({
-	yes,
-	no = 0,
-	pending = 0,
-	other = 0,
-	size = "sm",
-	className,
-}: {
-	yes: number;
-	no?: number;
-	pending?: number;
-	other?: number;
-	size?: "sm" | "lg";
-	className?: string;
-}) {
-	const total = yes + no + pending + other;
+export function RsvpBar({ yes, other, className }: { yes: number; other: number; className?: string }) {
 	return (
 		<span
 			aria-hidden="true"
-			className={cn(
-				"flex w-full gap-[3px] overflow-hidden rounded-pill",
-				size === "lg" ? "h-3.5" : "h-1.5 max-w-[160px]",
-				className,
-			)}
+			className={cn("flex h-1.5 w-full max-w-[160px] gap-[3px] overflow-hidden rounded-pill", className)}
 		>
-			{total === 0 ? <span className="flex-1 bg-surface-3" /> : null}
+			{yes + other === 0 ? <span className="flex-1 bg-surface-3" /> : null}
 			{yes ? <span className="bg-green-500" style={{ flex: yes }} /> : null}
-			{no ? <span className="bg-magenta-500" style={{ flex: no }} /> : null}
-			{pending ? <span className="bg-amber-500" style={{ flex: pending }} /> : null}
 			{other ? <span className="bg-surface-3" style={{ flex: other }} /> : null}
 		</span>
 	);
