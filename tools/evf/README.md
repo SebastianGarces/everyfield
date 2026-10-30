@@ -50,12 +50,29 @@ active seats, recent events and the health counters.
 ## Seats
 
 A seat is one fresh top-level Claude Code session in its own Herdr pane and task worktree. `evf launch <task>
---role <role>` creates the worktree when it is missing (the task start rules apply), opens a Herdr workspace
-whose shell carries `EVF_TASK`, `EVF_RUN`, `EVF_ROLE`, `EVF_STAGE`, `EVF_WORKTREE` and `EVF_SESSION`, starts
-`claude --agent <role>` with the session id evf chose, the role's model and effort and `acceptEdits`, and
-records the run and a `stage_start` event in the work store. `--dry-run` prints every step. The role files
-are `.claude/agents/<role>.md`: planner and verifier on Opus 5.5 high, implementer, ui, simplifier and
-evidence on Sonnet 5.5 medium. Every seat has the advisor and the update prompt disabled.
+--role <role>` creates the worktree when it is missing (the task start rules apply), splits a new pane off the
+Herdr workspace that runs the evf TUI (label `evf TUI`, found by that label and by the pane that runs the TUI
+process; `EVF_TUI_LABEL` overrides the label for a test or a scratch workspace) and starts
+`claude --agent <role>` in it with the session id evf chose, the role's model and effort and
+`--dangerously-skip-permissions` (the owner's `ccd` alias; a herdr pane loads no shell aliases, so evf passes the flag). The pane's shell carries `EVF_TASK`, `EVF_RUN`, `EVF_ROLE`, `EVF_STAGE`,
+`EVF_WORKTREE` and `EVF_SESSION`. evf records the run and a `stage_start` event in the work store:
+`runs.herdr_pane` is the seat's pane and `tasks.herdr_workspace_id` is the TUI workspace. `--dry-run` prints every
+step. The role files are `.claude/agents/<role>.md`: planner and verifier on Opus 5.5 high, implementer, ui,
+simplifier and evidence on Sonnet 5.5 medium. Every seat has the advisor and the update prompt disabled.
+
+The agent files set `permissionMode: bypassPermissions`. The repository's `permissions.deny` rules and its hooks
+stay in force under the flag; `ask` rules may not prompt. `dontAsk` is never used.
+
+Seats tile as a grid so Sebastian sees them all on one screen. `panes.ts` reads the pane rectangles in cells
+(one cell is 10 x 20 px) and always splits the largest pane along its longer side: `right` when it is at least as
+wide as tall in pixels, otherwise `down`. A split that would leave the TUI pane under 120 x 30 cells is skipped.
+When no workspace has the TUI label, launch falls back to a new workspace named after the task (the root pane is
+the seat). If `agent start` fails in a split pane, that pane is closed and the run is aborted.
+
+When a run reaches a terminal status (`evf run done`, a drive failure path or the session-end hook), evf closes
+that run's pane after the store update, then rebalances the TUI workspace with `herdr pane resize`: every column
+and row gets the same share. evf never closes the TUI pane, a pane the run does not own or a pane another open run
+records. A fallback seat closes its workspace only when the workspace has no other pane.
 
 The hooks in `.claude/settings.json` route to `bin/evf hook <event>`. They do nothing unless `EVF_RUN` is
 set, so an ordinary session in the repository is untouched. In a seat, session start writes the session id
