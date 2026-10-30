@@ -1,6 +1,15 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { chmodSync, copyFileSync, mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import {
+	chmodSync,
+	copyFileSync,
+	mkdtempSync,
+	mkdirSync,
+	readFileSync,
+	realpathSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -122,7 +131,10 @@ test("OPS-76: each preview resolves IDENTITY_ORIGIN to its own URL, whatever its
 					staleFile = join(project, "apps/web/.env.local");
 					writeFileSync(staleFile, stale);
 				}
-				const r = spawnSync(process.execPath, [script, "up", "--project", project, "--mode", mode], { env, encoding: "utf8" });
+				const r = spawnSync(process.execPath, [script, "up", "--project", project, "--mode", mode], {
+					env,
+					encoding: "utf8",
+				});
 				assert.equal(r.status, 0, r.stderr);
 				const preview = JSON.parse(r.stdout);
 				const resolved = JSON.parse(readFileSync(join(dir, `env-${preview.id}.json`), "utf8"));

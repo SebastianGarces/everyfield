@@ -4,7 +4,11 @@ import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 // @ts-expect-error plain ESM script with no types
-import { assertDevelopmentDatabase, composeEnv, composePreviewEnv } from "../../../.agents/skills/verify-preview/scripts/preview-env.mjs";
+import {
+	assertDevelopmentDatabase,
+	composeEnv,
+	composePreviewEnv,
+} from "../../../.agents/skills/verify-preview/scripts/preview-env.mjs";
 
 const DEV = "ep-dev.example.test";
 const MAIN = `# main\nDATABASE_URL="postgres://u:p@${DEV}/db"\nIDENTITY_SECRET=main-secret\nOTHER=main-other\n`;
@@ -90,7 +94,10 @@ test("OPS-76: the composed preview env trusts the preview's own URL whatever the
 		assert.equal(composed.IDENTITY_ORIGIN, "${PREVIEW_URL}");
 		assert.equal(composed.CI, "true");
 		assert.equal(composed.DATABASE_URL, env.DATABASE_URL);
-		assert.equal(composePreviewEnv(env, fixed, { IDENTITY_ORIGIN: "http://explicit.test" }).IDENTITY_ORIGIN, "http://explicit.test");
+		assert.equal(
+			composePreviewEnv(env, fixed, { IDENTITY_ORIGIN: "http://explicit.test" }).IDENTITY_ORIGIN,
+			"http://explicit.test",
+		);
 	} finally {
 		f.done();
 	}
