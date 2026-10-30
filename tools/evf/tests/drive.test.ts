@@ -345,7 +345,7 @@ test("OPS-59-proof: proofs bind to the worktree head, check records an event, an
 			"add",
 			"OPS-1",
 			"--criterion",
-			"1",
+			["1", "2"],
 			"--status",
 			"met",
 			"--evidence",
@@ -624,7 +624,7 @@ test("OPS-67-blocked: a blocked seat is polled in short intervals, reported once
 			.all(id) as Array<{ type: string; payload: string }>;
 		assert.deepEqual(
 			episode.map((e) => e.type),
-			"blocked",
+			["blocked", "unblocked"],
 			"the resumed event follows the blocked one, so the last event no longer says blocked",
 		);
 		assert.match(episode[1]!.payload, /implementer-ops-1-\d+ resumed after a prompt/);
@@ -776,7 +776,7 @@ test("OPS-66-reopen: only evf task new reopens a merged ref; drive, spec and lau
 		});
 		const unchanged = () => assert.deepEqual(rowsOf(f), [{ id: f.taskId, status: "merged", merge_commit: SHA }]);
 		for (const args of [
-			"drive",
+			["drive", "OPS-1"],
 			["drive", "OPS-1", "--once"],
 		]) {
 			const r = cli(f.root, {}, ...args);
