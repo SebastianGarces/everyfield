@@ -221,12 +221,16 @@ export function outcomeWriter(reminders: TaskReminders) {
 						// then one read loads them. A save that finishes nothing else loads only its own task.
 						if (v.outcome === "contacted" && v.completeTask) {
 							const taskId = v.target.taskId;
-							const locked = await tx.execute(sql`SELECT t.id FROM task t WHERE t.plant_id=${plant}::uuid AND (t.id=${taskId}::uuid
+							const locked =
+								await tx.execute(sql`SELECT t.id FROM task t WHERE t.plant_id=${plant}::uuid AND (t.id=${taskId}::uuid
 								OR (t.person_id=(SELECT x.person_id FROM task x WHERE x.id=${taskId}::uuid AND x.plant_id=${plant}::uuid)
 									AND ${followUpTask(sql`t`)} AND t.status IN ${OPEN}
 									${administers(cmd.actor) ? sql`` : sql`AND t.assignee_id=${cmd.actor.accountId}::uuid`}))
 								ORDER BY t.id FOR UPDATE OF t`);
-							const ids = z.array(z.object({ id: z.uuid() })).parse(locked.rows).map((r) => r.id);
+							const ids = z
+								.array(z.object({ id: z.uuid() }))
+								.parse(locked.rows)
+								.map((r) => r.id);
 							const rows = await lockTasks(tx, plant, sql`t.id=ANY(${sql.param(ids)}::uuid[])`);
 							task = rows.find((r) => r.id === taskId) ?? null;
 							others = rows.filter((r) => r.id !== taskId);

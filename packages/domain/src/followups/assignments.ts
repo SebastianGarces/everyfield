@@ -26,7 +26,10 @@ import { answer, followUpTask, OPEN, refuse } from "./core.ts";
  * The display name of `account` when it may own a follow-up now, else null (REQ-TSK-012). Eligibility is `ownerReason`;
  * the seat and the committed Person are share-locked too.
  */
-const ownerName = (plantId: string, account: string | null) => sql`(SELECT CASE WHEN ${ownerReason(sql`${account}::uuid`, sql`${plantId}::uuid`)} IS NULL
+const ownerName = (
+	plantId: string,
+	account: string | null,
+) => sql`(SELECT CASE WHEN ${ownerReason(sql`${account}::uuid`, sql`${plantId}::uuid`)} IS NULL
 	THEN (SELECT display_name FROM seat_identity(${account}::uuid)) END WHERE ${lockOwner(sql`${account}::uuid`, sql`${plantId}::uuid`)} >= 0)`;
 const isFollowUp = (t: TaskRow) =>
 	t.category === "follow_up" && t.person_id !== null && t.parent_id === null && t.deleted_at === null;
