@@ -1805,7 +1805,7 @@
       "checkConstraints": {
         "audit_action": {
           "name": "audit_action",
-          "value": "(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','audit.imported','communication.approved','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','documents.archived','documents.copied','documents.designated','documents.generated','documents.imported','documents.purged','documents.saved','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','execution.cancelled','execution.completed','execution.partial','execution.reconciled','execution.started','feedback.publication_intended','feedback.published','feedback.received','feedback.reconciled','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.credential_reconciled','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.feedback_recorded','intelligence.published','intelligence.requested','intelligence.superseded','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','note_correction','organization.profile_changed','people.corrected','people.created','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','security.access_denied','security.audit_exported','security.audit_inspected','security.bulk_export','security.operator_accessed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed'))"
+          "value": "(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','audit.imported','branding.changed','communication.approved','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','documents.archived','documents.copied','documents.designated','documents.generated','documents.imported','documents.purged','documents.saved','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','execution.cancelled','execution.completed','execution.partial','execution.reconciled','execution.started','feedback.publication_intended','feedback.published','feedback.received','feedback.reconciled','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.credential_reconciled','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.feedback_recorded','intelligence.published','intelligence.requested','intelligence.superseded','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','note_correction','organization.profile_changed','people.corrected','people.created','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','security.access_denied','security.audit_exported','security.audit_inspected','security.bulk_export','security.operator_accessed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed'))"
         },
         "audit_kind": {
           "name": "audit_kind",
@@ -2228,6 +2228,427 @@
       },
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.church_brand_kit": {
+      "name": "church_brand_kit",
+      "schema": "",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "revision": {
+          "name": "revision",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "1"
+        },
+        "primary_color": {
+          "name": "primary_color",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "accent_color": {
+          "name": "accent_color",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "heading_font": {
+          "name": "heading_font",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'DM Serif Display'"
+        },
+        "body_font": {
+          "name": "body_font",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'DM Sans'"
+        },
+        "legal_name": {
+          "name": "legal_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "address": {
+          "name": "address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "website": {
+          "name": "website",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "phone": {
+          "name": "phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ein": {
+          "name": "ein",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tagline": {
+          "name": "tagline",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "signer_name": {
+          "name": "signer_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "signer_title": {
+          "name": "signer_title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "full_logo_object_id": {
+          "name": "full_logo_object_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "full_logo_alt": {
+          "name": "full_logo_alt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "full_logo_dark_object_id": {
+          "name": "full_logo_dark_object_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "full_logo_dark_alt": {
+          "name": "full_logo_dark_alt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "mark_object_id": {
+          "name": "mark_object_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "mark_alt": {
+          "name": "mark_alt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "mark_dark_object_id": {
+          "name": "mark_dark_object_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "mark_dark_alt": {
+          "name": "mark_dark_alt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cover_photo_object_id": {
+          "name": "cover_photo_object_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cover_photo_alt": {
+          "name": "cover_photo_alt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "signature_object_id": {
+          "name": "signature_object_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "signature_alt": {
+          "name": "signature_alt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "church_brand_kit_full_logo_ref": {
+          "name": "church_brand_kit_full_logo_ref",
+          "columns": [
+            {
+              "expression": "full_logo_object_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "church_brand_kit_full_logo_dark_ref": {
+          "name": "church_brand_kit_full_logo_dark_ref",
+          "columns": [
+            {
+              "expression": "full_logo_dark_object_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "church_brand_kit_mark_ref": {
+          "name": "church_brand_kit_mark_ref",
+          "columns": [
+            {
+              "expression": "mark_object_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "church_brand_kit_mark_dark_ref": {
+          "name": "church_brand_kit_mark_dark_ref",
+          "columns": [
+            {
+              "expression": "mark_dark_object_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "church_brand_kit_cover_photo_ref": {
+          "name": "church_brand_kit_cover_photo_ref",
+          "columns": [
+            {
+              "expression": "cover_photo_object_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "church_brand_kit_signature_ref": {
+          "name": "church_brand_kit_signature_ref",
+          "columns": [
+            {
+              "expression": "signature_object_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "church_brand_kit_tenant_fk": {
+          "name": "church_brand_kit_tenant_fk",
+          "tableFrom": "church_brand_kit",
+          "tableTo": "tenant",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "church_brand_kit_full_logo_fk": {
+          "name": "church_brand_kit_full_logo_fk",
+          "tableFrom": "church_brand_kit",
+          "tableTo": "file_object",
+          "columnsFrom": [
+            "full_logo_object_id",
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id",
+            "tenant_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "church_brand_kit_full_logo_dark_fk": {
+          "name": "church_brand_kit_full_logo_dark_fk",
+          "tableFrom": "church_brand_kit",
+          "tableTo": "file_object",
+          "columnsFrom": [
+            "full_logo_dark_object_id",
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id",
+            "tenant_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "church_brand_kit_mark_fk": {
+          "name": "church_brand_kit_mark_fk",
+          "tableFrom": "church_brand_kit",
+          "tableTo": "file_object",
+          "columnsFrom": [
+            "mark_object_id",
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id",
+            "tenant_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "church_brand_kit_mark_dark_fk": {
+          "name": "church_brand_kit_mark_dark_fk",
+          "tableFrom": "church_brand_kit",
+          "tableTo": "file_object",
+          "columnsFrom": [
+            "mark_dark_object_id",
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id",
+            "tenant_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "church_brand_kit_cover_photo_fk": {
+          "name": "church_brand_kit_cover_photo_fk",
+          "tableFrom": "church_brand_kit",
+          "tableTo": "file_object",
+          "columnsFrom": [
+            "cover_photo_object_id",
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id",
+            "tenant_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "church_brand_kit_signature_fk": {
+          "name": "church_brand_kit_signature_fk",
+          "tableFrom": "church_brand_kit",
+          "tableTo": "file_object",
+          "columnsFrom": [
+            "signature_object_id",
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id",
+            "tenant_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "church_brand_kit_pkey": {
+          "name": "church_brand_kit_pkey",
+          "columns": [
+            "tenant_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "church_brand_kit_revision": {
+          "name": "church_brand_kit_revision",
+          "value": "(revision >= 1)"
+        },
+        "church_brand_kit_tenant": {
+          "name": "church_brand_kit_tenant",
+          "value": "(tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid)"
+        },
+        "church_brand_kit_colors": {
+          "name": "church_brand_kit_colors",
+          "value": "((primary_color IS NULL) OR (primary_color ~ '^#[0-9A-F]{6}$'::text)) AND ((accent_color IS NULL) OR (accent_color ~ '^#[0-9A-F]{6}$'::text))"
+        },
+        "church_brand_kit_text": {
+          "name": "church_brand_kit_text",
+          "value": "(char_length(heading_font) <= 60) AND (char_length(body_font) <= 60) AND (char_length(legal_name) <= 200) AND (char_length(address) <= 500) AND (char_length(website) <= 300) AND (char_length(phone) <= 40) AND (char_length(email) <= 200) AND ((ein IS NULL) OR (ein ~ '^[0-9]{2}-[0-9]{7}$'::text)) AND (char_length(tagline) <= 200) AND (char_length(signer_name) <= 120) AND (char_length(signer_title) <= 120)"
+        },
+        "church_brand_kit_full_logo_alt": {
+          "name": "church_brand_kit_full_logo_alt",
+          "value": "((full_logo_object_id IS NULL) = (full_logo_alt IS NULL)) AND ((full_logo_alt IS NULL) OR (char_length(btrim(full_logo_alt)) BETWEEN 1 AND 300))"
+        },
+        "church_brand_kit_full_logo_dark_alt": {
+          "name": "church_brand_kit_full_logo_dark_alt",
+          "value": "((full_logo_dark_object_id IS NULL) = (full_logo_dark_alt IS NULL)) AND ((full_logo_dark_alt IS NULL) OR (char_length(btrim(full_logo_dark_alt)) BETWEEN 1 AND 300))"
+        },
+        "church_brand_kit_mark_alt": {
+          "name": "church_brand_kit_mark_alt",
+          "value": "((mark_object_id IS NULL) = (mark_alt IS NULL)) AND ((mark_alt IS NULL) OR (char_length(btrim(mark_alt)) BETWEEN 1 AND 300))"
+        },
+        "church_brand_kit_mark_dark_alt": {
+          "name": "church_brand_kit_mark_dark_alt",
+          "value": "((mark_dark_object_id IS NULL) = (mark_dark_alt IS NULL)) AND ((mark_dark_alt IS NULL) OR (char_length(btrim(mark_dark_alt)) BETWEEN 1 AND 300))"
+        },
+        "church_brand_kit_cover_photo_alt": {
+          "name": "church_brand_kit_cover_photo_alt",
+          "value": "((cover_photo_object_id IS NULL) = (cover_photo_alt IS NULL)) AND ((cover_photo_alt IS NULL) OR (char_length(btrim(cover_photo_alt)) BETWEEN 1 AND 300))"
+        },
+        "church_brand_kit_signature_alt": {
+          "name": "church_brand_kit_signature_alt",
+          "value": "((signature_object_id IS NULL) = (signature_alt IS NULL)) AND ((signature_alt IS NULL) OR (char_length(btrim(signature_alt)) BETWEEN 1 AND 300))"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.commitment": {
@@ -5872,7 +6293,7 @@
         },
         "file_object_ck_1": {
           "name": "file_object_ck_1",
-          "value": "(purpose = ANY (ARRAY['avatar'::text, 'person_photo'::text, 'commitment'::text, 'generated'::text, 'native_import'::text, 'assistant_staging'::text, 'communication_attachment'::text]))"
+          "value": "(purpose = ANY (ARRAY['avatar'::text, 'person_photo'::text, 'commitment'::text, 'generated'::text, 'native_import'::text, 'assistant_staging'::text, 'communication_attachment'::text, 'brand_asset'::text]))"
         },
         "file_object_ck_2": {
           "name": "file_object_ck_2",

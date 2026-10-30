@@ -46,6 +46,7 @@ const standalone = {
 	"/packages/domain/src/tasks/core.ts": ["withTaskWrite"],
 	"/packages/domain/src/followups/core.ts": ["withFollowUpWrite"],
 	"/packages/domain/src/settings/avatar.ts": ["uploadAvatar"],
+	"/packages/domain/src/branding/files.ts": ["uploadBrandAsset", "readBrandAsset"],
 	"/packages/domain/src/people/fields/index.ts": ["uploadPersonPhoto"],
 	"/packages/domain/src/people/csv/index.ts": ["executeBulkImport"],
 	"/packages/domain/src/people/commitments/index.ts": [
@@ -237,6 +238,8 @@ registerHooks({
 				"/packages/domain/src/teams/responsibilities/reads.ts": { responsibilityReader: "teams" },
 				"/packages/domain/src/documents/reads.ts": { documentsReader: "documents" },
 				"/packages/domain/src/documents/writes.ts": { documentsWriter: "documents" },
+				"/packages/domain/src/branding/reads.ts": { brandReader: "brand" },
+				"/packages/domain/src/branding/writes.ts": { brandWriter: "brand" },
 				"/packages/domain/src/teams/responsibilities/writes.ts": { responsibilityWriter: "teams" },
 				"/packages/domain/src/teams/training/commands.ts": { trainingWriter: "teams" },
 				"/packages/domain/src/teams/training/reads.ts": { trainingReader: "teams" },

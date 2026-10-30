@@ -3278,6 +3278,176 @@
 			},
 			"foreignKeys": {}
 		},
+		"church_brand_kit": {
+			"table": {
+				"name": "church_brand_kit",
+				"domain": "documents",
+				"purpose": "The saved brand kit of one church plant: colors, fonts, letterhead and signature text, and up to six image assets. One row per church plant. Reset deletes the row.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-C-047"],
+				"replaces": [],
+				"producer_work_packages": ["WP-104"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-104"],
+					"rule": "WP-104 stores one brand kit for each church plant. The plant owns the row."
+				},
+				"feature_ids": ["BRD-001", "BRD-002", "BRD-003", "BRD-004", "BRD-005", "BRD-006"],
+				"acceptance_ids": [
+					"AC-BRD-001--BRD-001",
+					"AC-BRD-002--BRD-002",
+					"AC-BRD-003--BRD-003",
+					"AC-BRD-004--BRD-004",
+					"AC-BRD-005--BRD-005"
+				],
+				"future_case_ids": [
+					"CASE-BRD-001",
+					"CASE-BRD-002",
+					"CASE-BRD-003",
+					"CASE-BRD-004",
+					"CASE-BRD-005",
+					"CASE-BRD-006"
+				],
+				"scope": "documents",
+				"invariants": [
+					"Each asset slot points at one ready brand_asset file of the same church plant and carries alt text.",
+					"The primary color, once saved, is never cleared.",
+					"Saving or resetting a kit never changes a generated file."
+				],
+				"revision": "Each save, upload attach and asset removal adds 1. A new row starts at 1. Reset deletes the row, so revision 0 means no kit.",
+				"idempotency": "A save names the expected revision. A stale revision gets a conflict and changes nothing.",
+				"deletion": "Plant purge removes the row with the plant. Reset removes it and queues cleanup of every asset file.",
+				"physical_verified": false
+			},
+			"columns": {
+				"tenant_id": {
+					"note": "Church plant owner. The primary key: at most one kit for each church plant."
+				},
+				"revision": {
+					"note": ""
+				},
+				"primary_color": {
+					"note": "Upper case #RRGGBB. Null only before the first color save."
+				},
+				"accent_color": {
+					"note": "Upper case #RRGGBB. Null means the accent is the primary color."
+				},
+				"heading_font": {
+					"note": "Curated open-license font id, checked in the contract."
+				},
+				"body_font": {
+					"note": "Curated open-license font id, checked in the contract."
+				},
+				"legal_name": {
+					"note": ""
+				},
+				"address": {
+					"note": ""
+				},
+				"website": {
+					"note": "An https URL."
+				},
+				"phone": {
+					"note": ""
+				},
+				"email": {
+					"note": ""
+				},
+				"ein": {
+					"note": "NN-NNNNNNN."
+				},
+				"tagline": {
+					"note": ""
+				},
+				"signer_name": {
+					"note": ""
+				},
+				"signer_title": {
+					"note": ""
+				},
+				"full_logo_object_id": {
+					"note": "Ready brand_asset file of the same church plant, or null."
+				},
+				"full_logo_alt": {
+					"note": "Alt text for the asset. Null exactly when the slot is empty."
+				},
+				"full_logo_dark_object_id": {
+					"note": "Ready brand_asset file of the same church plant, or null."
+				},
+				"full_logo_dark_alt": {
+					"note": "Alt text for the asset. Null exactly when the slot is empty."
+				},
+				"mark_object_id": {
+					"note": "Ready brand_asset file of the same church plant, or null."
+				},
+				"mark_alt": {
+					"note": "Alt text for the asset. Null exactly when the slot is empty."
+				},
+				"mark_dark_object_id": {
+					"note": "Ready brand_asset file of the same church plant, or null."
+				},
+				"mark_dark_alt": {
+					"note": "Alt text for the asset. Null exactly when the slot is empty."
+				},
+				"cover_photo_object_id": {
+					"note": "Ready brand_asset file of the same church plant, or null."
+				},
+				"cover_photo_alt": {
+					"note": "Alt text for the asset. Null exactly when the slot is empty."
+				},
+				"signature_object_id": {
+					"note": "Ready brand_asset file of the same church plant, or null."
+				},
+				"signature_alt": {
+					"note": "Alt text for the asset. Null exactly when the slot is empty."
+				}
+			},
+			"foreignKeys": {
+				"tenant_id->tenant(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Plant purge removes the kit row before the plant."
+					}
+				},
+				"full_logo_object_id,tenant_id->file_object(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "The private file stays while the kit references it. Cleanup deletes only an unreferenced object."
+					}
+				},
+				"full_logo_dark_object_id,tenant_id->file_object(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "The private file stays while the kit references it. Cleanup deletes only an unreferenced object."
+					}
+				},
+				"mark_object_id,tenant_id->file_object(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "The private file stays while the kit references it. Cleanup deletes only an unreferenced object."
+					}
+				},
+				"mark_dark_object_id,tenant_id->file_object(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "The private file stays while the kit references it. Cleanup deletes only an unreferenced object."
+					}
+				},
+				"cover_photo_object_id,tenant_id->file_object(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "The private file stays while the kit references it. Cleanup deletes only an unreferenced object."
+					}
+				},
+				"signature_object_id,tenant_id->file_object(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "The private file stays while the kit references it. Cleanup deletes only an unreferenced object."
+					}
+				}
+			}
+		},
 		"identity_proof": {
 			"table": {
 				"name": "identity_proof",
