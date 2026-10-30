@@ -345,7 +345,7 @@ test("OPS-59-proof: proofs bind to the worktree head, check records an event, an
 			"add",
 			"OPS-1",
 			"--criterion",
-			["1", "2"],
+			"1",
 			"--status",
 			"met",
 			"--evidence",
@@ -522,7 +522,7 @@ test("OPS-59-gate: a verify closes passed only with a met or n/a proof per Done 
 		]);
 		assert.deepEqual(
 			doneCriteria("## Goal\nx\n## Done criteria\n1. a\n2. b\n## Non-goals\n1. not this\n2. nor this\n3. nor this"),
-			"1",
+			["1", "2"],
 			"a heading ends the criteria",
 		);
 		assert.deepEqual(doneCriteria("Goal: x\nDone criteria:\n1. a\n2. b\n**Non-goals**\n1. not this"), ["1", "2"]);
