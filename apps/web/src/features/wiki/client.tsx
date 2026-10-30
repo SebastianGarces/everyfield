@@ -34,16 +34,7 @@ import {
 	type SearchResult,
 	type WriteResult,
 } from "./actions.ts";
-import {
-	ARTICLE_FIXED,
-	BELOW_WIDE_ONLY,
-	FRAME,
-	GRID,
-	GRID_FIXED,
-	RAIL_FIXED,
-	RAIL_STICKY,
-	RAIL_TOC_PAD,
-} from "./layout.ts";
+import { ARTICLE_FIXED, BELOW_WIDE_ONLY, GRID, GRID_FIXED, RAIL_FIXED, RAIL_STICKY, RAIL_TOC_PAD } from "./layout.ts";
 import { fractionText, pdfFilename, PHASE_NAME, snippetParts, type SourceRow } from "./model.ts";
 
 const Chrome = createContext<{ openSearch: () => void; toggleGuide: () => void; guideOpen: boolean } | null>(null);
@@ -945,32 +936,5 @@ export function ArticleColumns({
 				<div className={fixed ? `${RAIL} ${RAIL_TOC_PAD}` : RAIL_STICKY}>{toc}</div>
 			</div>
 		</>
-	);
-}
-
-/** The fixed layout fills the space below the app bar and any banner. It reads its own top, so no shell size is fixed here. */
-export function FixedFrame({ fixed, children }: { fixed: boolean; children: ReactNode }) {
-	const frame = useRef<HTMLDivElement>(null);
-	useLayoutEffect(() => {
-		const el = frame.current;
-		if (!el || !fixed) return;
-		const fit = () => {
-			// The shell leaves 96px under the page; the frame's -72px margin leaves 24px.
-			const top = el.getBoundingClientRect().top + window.scrollY;
-			el.style.setProperty("--frame-h", `${Math.max(window.innerHeight - top - 24, 320)}px`);
-		};
-		fit();
-		const watch = new ResizeObserver(fit);
-		watch.observe(document.body);
-		window.addEventListener("resize", fit);
-		return () => {
-			watch.disconnect();
-			window.removeEventListener("resize", fit);
-		};
-	}, [fixed]);
-	return (
-		<div ref={frame} className={fixed ? FRAME : undefined}>
-			{children}
-		</div>
 	);
 }
