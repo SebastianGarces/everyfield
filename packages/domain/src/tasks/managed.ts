@@ -33,7 +33,7 @@ const existingRow = z.object({
 	person_id: z.uuid().nullable(),
 	task_id: z.uuid().nullable(),
 });
-const factsRow = z.object({
+export const obligationFactsRow = z.object({
 	meetings: z.record(
 		z.string(),
 		z.object({ title: z.string().nullable(), type: meetingType, vision_number: z.number().int().nullable() }),
@@ -90,7 +90,7 @@ export async function ensureMeetingObligations(
 	const assignees = [
 		...new Set(v.meetings.flatMap((m) => [...m.followUps.map((f) => f.assigneeId), m.evaluation?.assigneeId ?? null])),
 	].filter((a) => a !== null);
-	const row = factsRow.parse(
+	const row = obligationFactsRow.parse(
 		facts ??
 			(
 				await tx.execute(

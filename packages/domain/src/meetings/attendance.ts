@@ -12,6 +12,7 @@ import {
 	ensureMeetingObligations,
 	managedTasks,
 	obligationFacts,
+	obligationFactsRow,
 	type TaskReminders,
 } from "../tasks/index.ts";
 import { TaskRefusal } from "../tasks/core.ts";
@@ -73,11 +74,7 @@ const laterRow = guestRow.omit({ display_name: true, person_state: true, rsvp: t
 	meeting_at: date,
 });
 const lockedTasks = z.array(z.object({ obligation_id: z.uuid(), assignee_id: z.uuid().nullable() }));
-const ownerFactsRow = z.object({
-	seats: z.record(z.string(), z.string()),
-	names: z.record(z.string(), z.string()),
-	reasons: z.record(z.string(), z.string().nullable()),
-});
+const ownerFactsRow = obligationFactsRow.pick({ seats: true, names: true, reasons: true });
 const obligationRow = z.object({
 	id: z.uuid(),
 	kind: z.enum(["follow_up", "evaluation"]),
@@ -582,7 +579,7 @@ async function settle(
 	const ownerFacts = ownerFactsRow.parse(f.obligation_facts);
 	const viewOf = (id: string | null, kind: "follow_up" | "evaluation"): z.infer<typeof followUpOwner> | null => {
 		if (!id) return null;
-		const reason = kind === "follow_up" ? (ownerFacts.reasons[id] ?? null) : id in ownerFacts.seats ? null : "no_seat";
+		const reason = kind === "follow_up" ? (ownerFacts.reasons[id] ?? null) : ownerFacts.seats.includes(id) ? null : "no_seat";
 		return followUpOwner.parse({
 			accountId: id,
 			displayName: ownerFacts.names[id] ?? "",
