@@ -39,8 +39,7 @@ export const isOpus = (model: string | null | undefined): boolean => !!model && 
 function modelProblem(model: string, role: string | null): string | null {
 	if (/fable/i.test(model)) return `names a Fable model (${model}); evf never launches one.`;
 	if (!model.startsWith("claude-")) return `must start with claude- (got ${model}).`;
-	if (role === "verifier" && !isOpus(model))
-		return "must be an Opus model: only Opus verifies (D82).";
+	if (role === "verifier" && !isOpus(model)) return "must be an Opus model: only Opus verifies (D82).";
 	return null;
 }
 
