@@ -1,4 +1,5 @@
 import type { ReactElement } from "react";
+import { ATTENDEE_CAP } from "../agenda-meeting.ts";
 import { agendaDocument } from "../layouts/agenda.tsx";
 import type { Ctx } from "../layouts/blocks.tsx";
 import { cardDocument } from "../layouts/card.tsx";
@@ -7,7 +8,7 @@ import { signInDocument, SIGN_IN_ROWS } from "../layouts/sign-in.tsx";
 import { CARD, LETTER } from "../layouts/shell.tsx";
 import { textDocument } from "../layouts/text-doc.tsx";
 import type { RenderClass } from "../theme.ts";
-import { BOARD_AGENDA, VISION_AGENDA, type AgendaSpec } from "./agenda-content.ts";
+import { ACTION_ROWS, BLANK_RUN_ROWS, BOARD_AGENDA, MIN_ATTENDEE_ROWS, VISION_AGENDA, type AgendaSpec } from "./agenda-content.ts";
 import { COMMITMENT_CARD, RESPONSE_CARD, type CardSpec } from "./card-content.ts";
 import { CHECKLIST_TEAMS } from "./checklists-content.ts";
 import {
@@ -49,14 +50,16 @@ const agendaEntry = (id: string, spec: AgendaSpec): PdfEntry => ({
 	pageSize: LETTER,
 	pageCount: 1,
 	outline: ["Run of show", "Attendees", "Follow-up actions"],
+	// The blank sheet. A render from a meeting holds the same meta and action fields; its run of show and attendee
+	// rows come from the meeting, so only the blank rows are listed.
 	fields: [
 		"meeting_date",
 		"meeting_time",
 		"meeting_place",
 		"facilitator",
-		...range(spec.segments.length).flatMap((n) => [`time_${n}`, `lead_${n}`]),
-		...range(spec.attendeeRows * 2).flatMap((n) => [`attendee_${n}_name`, `attendee_${n}_role`, `present_${n}`]),
-		...range(spec.actionRows).flatMap((n) => [`action_${n}`, `owner_${n}`, `due_${n}`, `done_${n}`]),
+		...range(BLANK_RUN_ROWS).flatMap((n) => [`time_${n}`, `segment_${n}`, `lead_${n}`, `notes_${n}`]),
+		...range(MIN_ATTENDEE_ROWS).flatMap((n) => [`attendee_${n}_name`, `attendee_${n}_role`, `present_${n}`]),
+		...range(ACTION_ROWS).flatMap((n) => [`action_${n}`, `owner_${n}`, `due_${n}`, `done_${n}`]),
 	],
 	build: (ctx) => agendaDocument(ctx, spec),
 });
@@ -151,7 +154,13 @@ export function contentSnapshot() {
 			fields,
 		})),
 		cards: [COMMITMENT_CARD, RESPONSE_CARD].map((c) => ({ ...c })),
-		agendas: [VISION_AGENDA, BOARD_AGENDA].map((a) => ({ ...a, purpose: a.purpose("{church}") })),
+		agendas: {
+			blankRunRows: BLANK_RUN_ROWS,
+			minAttendeeRows: MIN_ATTENDEE_ROWS,
+			actionRows: ACTION_ROWS,
+			attendeeCap: ATTENDEE_CAP,
+			specs: [VISION_AGENDA, BOARD_AGENDA].map((a) => ({ ...a, purpose: a.purpose("{church}") })),
+		},
 		checklists: CHECKLIST_TEAMS,
 		texts: [MEMBER_EXPECTATIONS, LAUNCH_TEAM_COMMITMENT, FOLLOW_UP_LETTER],
 	};

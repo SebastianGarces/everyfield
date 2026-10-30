@@ -5,6 +5,8 @@ import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import { liveRead, writeVisibility, type RequestActor } from "../access/session.ts";
+import type { MeetingRead } from "./agenda-meeting.ts";
+import { meetingFactsSql, parseMeeting } from "./meeting-read.ts";
 
 export type Reader = Pick<Database, "execute">;
 type Code = DocumentsError["code"];
@@ -84,7 +86,12 @@ export async function accountOpen(db: Reader, authority: RequestActor) {
 
 export type PlantFacts = { churchName: string | null; pastorName: string | null; launchDate: string | null };
 export type PlantRead =
-	{ open: false } | { open: true; subjectOk: false } | ({ open: true; subjectOk: true } & PlantFacts);
+	| { open: false }
+	| { open: true; subjectOk: false }
+	| ({ open: true; subjectOk: true } & PlantFacts & {
+				/** The live meeting named as the subject, with its agenda and list; null for no meeting or a retired one. */
+				meeting: MeetingRead | null;
+		  });
 
 function asText(value: unknown) {
 	if (typeof value === "string" && value.trim()) return value;
@@ -101,14 +108,15 @@ export async function readPlant(
 	viewer: PlantViewer,
 	subject: { personId: string | null; meetingId: string | null; teamId: string | null },
 ): Promise<PlantRead> {
-	const found = await db.execute(sql`SELECT a.access_live, q.subject_ok, q.church_name, q.pastor_name, q.launch_date
+	const found = await db.execute(sql`SELECT a.access_live, q.subject_ok, q.church_name, q.pastor_name, q.launch_date, q.meeting
 		FROM (SELECT ${liveRead(viewer.access, false)} AND EXISTS(SELECT FROM live_session(${viewer.access.session}::uuid) s
 			WHERE s.registration_state='active' AND s.account_id=${viewer.accountId}::uuid) AS access_live) a
 		LEFT JOIN LATERAL (
 			SELECT g.subject_ok,
 				CASE WHEN g.subject_ok THEN p.name END AS church_name,
 				CASE WHEN g.subject_ok THEN pastor.display_name END AS pastor_name,
-				CASE WHEN g.subject_ok THEN launch.day END AS launch_date
+				CASE WHEN g.subject_ok THEN launch.day END AS launch_date,
+				CASE WHEN g.subject_ok THEN mt.facts END AS meeting
 			FROM (SELECT (
 				(${subject.personId}::uuid IS NULL AND ${subject.meetingId}::uuid IS NULL AND ${subject.teamId}::uuid IS NULL)
 				OR (${subject.personId}::uuid IS NOT NULL AND EXISTS(SELECT FROM person pe
@@ -133,6 +141,7 @@ export async function readPlant(
 				SELECT coalesce(l.target_date, l.actual_date)::text AS day FROM launch l
 				WHERE l.plant_id=${viewer.plantId}::uuid AND l.status<>'postponed'
 			) launch ON g.subject_ok
+			LEFT JOIN LATERAL (${subject.meetingId ? meetingFactsSql(viewer.plantId, subject.meetingId) : sql`SELECT NULL::jsonb AS facts`}) mt ON g.subject_ok
 		) q ON a.access_live`);
 	const row = found.rows[0] as
 		| {
@@ -141,6 +150,7 @@ export async function readPlant(
 				church_name?: unknown;
 				pastor_name?: unknown;
 				launch_date?: unknown;
+				meeting?: unknown;
 		  }
 		| undefined;
 	if (!row || row.access_live !== true) return { open: false };
@@ -151,5 +161,6 @@ export async function readPlant(
 		churchName: asText(row.church_name),
 		pastorName: asText(row.pastor_name),
 		launchDate: asText(row.launch_date),
+		meeting: parseMeeting(row.meeting),
 	};
 }

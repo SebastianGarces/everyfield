@@ -4785,7 +4785,7 @@
     "id": "DOC-007",
     "title": "Vision Meeting Agenda",
     "module": "documents",
-    "behavior": "Vision Meeting Agenda \u2014 PDF; welcome/story/vision/GROW-PRAY-GIVE/next steps.",
+    "behavior": "Vision Meeting Agenda \u2014 PDF; printed from the meeting's own agenda (its sections, minutes and start times in the app's order, its date, time, place and guest list), with blank write-in rows when it has none.",
     "spec_file": "docs/product/knowledge-documents.md#generated-documents-and-templates",
     "requirement_ids": [
       "REQ-DOC-007"
@@ -4899,7 +4899,7 @@
     "id": "DOC-011",
     "title": "Board / Elder Meeting Agenda",
     "module": "documents",
-    "behavior": "Board/Elder Meeting Agenda \u2014 PDF; prayer/minutes/financial/ministry/action items.",
+    "behavior": "Board/Elder Meeting Agenda \u2014 PDF; printed from a leadership team meeting's own agenda the same way, with blank write-in rows when it has none.",
     "spec_file": "docs/product/knowledge-documents.md#generated-documents-and-templates",
     "requirement_ids": [
       "REQ-DOC-011"

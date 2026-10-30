@@ -10,6 +10,7 @@ import {
 	Edit02Icon,
 	Location01Icon,
 	MoreHorizontalIcon,
+	PrinterIcon,
 	Undo02Icon,
 } from "@hugeicons/core-free-icons";
 import { localDate } from "@everyfield/contracts/common";
@@ -457,10 +458,20 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 			</Button>
 		),
 	);
+	// Every seat that can read the meeting prints its agenda: a PDF in a new tab, where the browser prints or saves it.
+	const printAgenda = data.agendaTemplate ? (
+		<Button asChild variant="secondary">
+			<a href={`/meetings/${m.id}/agenda`} target="_blank" rel="noopener noreferrer">
+				<Icon icon={PrinterIcon} size={18} />
+				Print agenda
+			</a>
+		</Button>
+	) : null;
 	const actions = canWrite ? (
 		<>
 			{primary}
 			{secondary}
+			{printAgenda}
 			<Menu>
 				<MenuTrigger asChild>
 					<Button variant="secondary">
@@ -548,6 +559,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 		<>
 			{primary}
 			{secondary}
+			{printAgenda}
 		</>
 	);
 

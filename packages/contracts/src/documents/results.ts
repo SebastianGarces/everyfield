@@ -49,7 +49,7 @@ export const templatePage = z.strictObject({
 	templates: z.array(templateView).max(20),
 });
 
-const fieldSource = z.enum(["override", "church_name", "pastor_name", "launch_date", "absent"]);
+const fieldSource = z.enum(["override", "church_name", "pastor_name", "launch_date", "meeting", "absent"]);
 const resolvedField = z.strictObject({
 	key: z.string().min(1).max(80),
 	label: z.string().min(1).max(200),
@@ -73,6 +73,15 @@ export const previewResult = z.strictObject({
 	artifact: z.string().min(1).nullable(),
 	digest: sha256.nullable(),
 	engineVersion: sha256.nullable(),
+});
+
+/** A meeting's agenda as bytes. localDate is the meeting's own day, for the file name. */
+export const agendaPrintResult = z.strictObject({
+	templateId,
+	plantId: tenantId,
+	localDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+	artifact: z.string().min(1),
+	digest: sha256,
 });
 
 const revisionToken = z.string().regex(/^[0-9]{1,20}$/);

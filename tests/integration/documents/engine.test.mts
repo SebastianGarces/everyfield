@@ -354,12 +354,14 @@ describe("WP-036/api engine", () => {
 		for (const team of ["Kids", "Connections", "Prayer"]) assert.ok(checklists.text[1]!.includes(team), team);
 		const card = await renderTemplatePdf({ id: "commitment-card" }, NEUTRAL_VALUES);
 		for (const line of ["My commitment", "GROW", "PRAY", "GIVE"]) assert.ok(card.text[0]!.includes(line), line);
-		const vision = await renderTemplatePdf({ id: "vision-meeting-agenda" }, FULL);
-		for (const line of ["Welcome and prayer", "Our story", "The vision", "The ask: GROW,", "PRAY, GIVE", "Next steps"])
-			assert.ok(vision.text[0]!.join(" ").includes(line), line);
-		const board = await renderTemplatePdf({ id: "board-meeting-agenda" }, FULL);
-		for (const line of ["Opening prayer", "Approve the", "Financial report", "Ministry updates", "Action items"])
-			assert.ok(board.text[0]!.join(" ").includes(line), line);
+		// An agenda with no meeting is the blank sheet: no invented segment text (WP-036/api, agendas from the meeting).
+		for (const id of ["vision-meeting-agenda", "board-meeting-agenda"]) {
+			const blank = await renderTemplatePdf({ id }, FULL);
+			const text = blank.text[0]!.join(" ");
+			for (const line of ["Run of show", "Attendees", "Follow-up actions"]) assert.ok(text.includes(line), line);
+			for (const gone of ["Welcome and prayer", "Our story", "Opening prayer", "Financial report", "Next steps"])
+				assert.equal(text.includes(gone), false, gone);
+		}
 	});
 
 	test("DOC-012, DOC-013: budgets hold labels, live formulas, a frozen pane and a currency format", async () => {
