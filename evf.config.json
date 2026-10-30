@@ -1054,7 +1054,17 @@
 		},
 		"OPS-70": {
 			"title": "Lean evf pipeline: fold evidence into implementer, verifier spot-checks, fewer guards",
-			"owningPaths": ["tools/evf/", "tools/evf-tui/", "evf.config.json", "AGENTS.md", ".agents/roles/", ".agents/skills/", ".claude/agents/", ".claude/settings.json", "docs/build-agent-workflow.md"],
+			"owningPaths": [
+				"tools/evf/",
+				"tools/evf-tui/",
+				"evf.config.json",
+				"AGENTS.md",
+				".agents/roles/",
+				".agents/skills/",
+				".claude/agents/",
+				".claude/settings.json",
+				"docs/build-agent-workflow.md"
+			],
 			"checks": [
 				{
 					"name": "documentation",
