@@ -103,7 +103,7 @@ const finalize = (c, meetingId, origin, input) =>
 /** A first-time Vision guest's generated follow-up for one meeting. */
 async function generated(c, personId, title, origin) {
 	const m = await meeting(c, title, origin);
-	await finalize(c, m, origin, { followUps: [{ personId, assigneeId: null }], evaluation: null });
+	await finalize(c, m, origin, { followUps: [{ personId, assigneeIds: [] }], evaluation: null });
 	const [o] = ok(await read(c.owner, "readObligations", { meetingId: m })).items;
 	return { meetingId: m, obligation: o };
 }
@@ -271,7 +271,7 @@ test("AC:TARGET-MTG-021 AC:TARGET-TSK-011 AC:TARGET-TSK-017 AC:TARGET-MTG-020 AC
 			input: { taskId: w.task.id },
 		}),
 	);
-	await finalize(c, m.waived.meetingId, same, { followUps: [{ personId: alex, assigneeId: null }], evaluation: null });
+	await finalize(c, m.waived.meetingId, same, { followUps: [{ personId: alex, assigneeIds: [] }], evaluation: null });
 	const [after] = ok(await read(c.owner, "readObligations", { meetingId: m.waived.meetingId, asOf })).items;
 	assert.deepEqual(
 		[after.id, after.state, after.task.deleted, after.waiver !== null, after.measurement.reason],
@@ -305,7 +305,7 @@ test("AC:TARGET-MTG-021 AC:TARGET-TSK-011 AC:TARGET-TSK-017 AC:TARGET-MTG-020 AC
 
 	// A Vision with no attendees and no owner still has its evaluation, shown as Needs owner; a retry adds nothing.
 	const empty = await meeting(c, "Empty Vision", at(-30));
-	for (let n = 0; n < 2; n++) await finalize(c, empty, at(-30), { followUps: [], evaluation: { assigneeId: null } });
+	for (let n = 0; n < 2; n++) await finalize(c, empty, at(-30), { followUps: [], evaluation: { assigneeIds: [] } });
 	const evaluation = ok(await read(c.owner, "readObligations", { meetingId: empty, asOf })).items;
 	assert.deepEqual(
 		evaluation.map((o) => [o.kind, o.person, o.owner, o.state, o.measurement]),
@@ -440,7 +440,7 @@ test("AC:TARGET-COM-011 AC:TARGET-MTG-022 AC:ROLE43-008 contact log: only an eff
 	await committed(c, c.member);
 	refused(await record(c.member, standalone, "attempted_no_contact"), "unavailable");
 	const own = ok(
-		await write(c.owner, "createFollowUp", { requestKey: key(), input: { personId: alex, assigneeId: c.member.id } }),
+		await write(c.owner, "createFollowUp", { requestKey: key(), input: { personId: alex, assigneeIds: [c.member.id] } }),
 	).task;
 	refused(await record(c.member, onTask(admin), "attempted_no_contact"), "unavailable");
 	const mine = ok(await record(c.member, onTask(own), "attempted_no_contact"));
@@ -475,7 +475,7 @@ test("AC:PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE AC:PERSONREF-MEETING-INVITATION-
 	const origin = { at: "2026-10-01T23:00:00Z", date: "2026-10-01", zone: "America/Chicago" };
 	const m = await meeting(c, "Vision", origin);
 	await finalize(c, m, origin, {
-		followUps: [p1, p2].map((personId) => ({ personId, assigneeId: null })),
+		followUps: [p1, p2].map((personId) => ({ personId, assigneeIds: [] })),
 		evaluation: null,
 	});
 	const [o2] = ok(await read(c.owner, "readObligations", { personId: p2 })).items;
@@ -488,7 +488,7 @@ test("AC:PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE AC:PERSONREF-MEETING-INVITATION-
 	await f.admin.execute(sql`UPDATE person SET state='retired', retired_at=now() WHERE id=${p2}`);
 	// Replaying the finalize repeats no first-Vision consequence.
 	await finalize(c, m, origin, {
-		followUps: [p1].map((personId) => ({ personId, assigneeId: null })),
+		followUps: [p1].map((personId) => ({ personId, assigneeIds: [] })),
 		evaluation: null,
 	});
 	const history = ok(await read(c.owner, "listContactHistory", { personId: p2 }));
@@ -552,10 +552,10 @@ test("AC:TARGET-TSK-012 AC:TARGET-PPL-022 AC:GAP-PPL-022 only a currently eligib
 	const create = (who, input) =>
 		write(who, "createFollowUp", { requestKey: key(), input: { personId: casey, ...input } });
 	for (const who of [unlinked, shared, departed])
-		refused(await create(c.owner, { assigneeId: who.id }), "owner_ineligible");
+		refused(await create(c.owner, { assigneeIds: [who.id] }), "owner_ineligible");
 	refused(await create(c.member, {}), "unavailable");
 	// A manual follow-up stays undated: no due date, 48-hour lineage or contact is invented.
-	const manual = ok(await create(c.admin, { assigneeId: eligible.id })).task;
+	const manual = ok(await create(c.admin, { assigneeIds: [eligible.id] })).task;
 	assert.deepEqual(
 		[manual.title, manual.due, manual.overdue, manual.managed, manual.assignee.accountId],
 		["Follow up with Casey", { kind: "undated" }, null, null, eligible.id],
@@ -566,7 +566,7 @@ test("AC:TARGET-TSK-012 AC:TARGET-PPL-022 AC:GAP-PPL-022 only a currently eligib
 	const dated = ok(
 		await create(c.owner, {
 			personId: await person(c, "Dana"),
-			assigneeId: eligible.id,
+			assigneeIds: [eligible.id],
 			due: { kind: "local_date", date: "2099-01-15" },
 		}),
 	).task;
@@ -582,7 +582,7 @@ test("AC:TARGET-TSK-012 AC:TARGET-PPL-022 AC:GAP-PPL-022 only a currently eligib
 		await write(c.owner, "assignFollowUp", {
 			requestKey: key(),
 			expectedRevision: manual.revision,
-			input: { taskId: manual.id, assigneeId: unlinked.id },
+			input: { taskId: manual.id, assigneeIds: [unlinked.id] },
 		}),
 		"owner_ineligible",
 	);
@@ -590,7 +590,7 @@ test("AC:TARGET-TSK-012 AC:TARGET-PPL-022 AC:GAP-PPL-022 only a currently eligib
 		await write(c.owner, "assignFollowUp", {
 			requestKey: key(),
 			expectedRevision: manual.revision,
-			input: { taskId: manual.id, assigneeId: demoted.id },
+			input: { taskId: manual.id, assigneeIds: [demoted.id] },
 		}),
 	).task;
 	assert.equal(moved.assignee.accountId, demoted.id);
@@ -618,7 +618,7 @@ test("AC:TARGET-TSK-012 AC:TARGET-PPL-022 AC:GAP-PPL-022 only a currently eligib
 		await write(c.owner, "assignFollowUp", {
 			requestKey: key(),
 			expectedRevision: moved.revision,
-			input: { taskId: manual.id, assigneeId: eligible.id },
+			input: { taskId: manual.id, assigneeIds: [eligible.id] },
 		}),
 	).task;
 	const tally = ok(await read(c.owner, "listFollowUpOwners", { owner: eligible.id }));
@@ -868,7 +868,7 @@ test("AC:TARGET-TSK-012 task assignment, create and edit refuse a follow-up owne
 		await taskWrite(c.owner, "edit", {
 			requestKey: key(),
 			expectedRevision: row.r,
-			input: { taskId: task, patch: { assigneeId: unlinked.id } },
+			input: { taskId: task, patch: { assigneeIds: [unlinked.id] } },
 		}),
 		"owner_ineligible",
 	);
@@ -879,7 +879,7 @@ test("AC:TARGET-TSK-012 task assignment, create and edit refuse a follow-up owne
 				title: "Call Quinn",
 				category: "follow_up",
 				relation: { kind: "person", id: quinn },
-				assigneeId: unlinked.id,
+				assigneeIds: [unlinked.id],
 			},
 		}),
 		"owner_ineligible",
@@ -888,14 +888,14 @@ test("AC:TARGET-TSK-012 task assignment, create and edit refuse a follow-up owne
 	ok(
 		await taskWrite(c.owner, "create", {
 			requestKey: key(),
-			input: { title: "Order chairs", category: "general", assigneeId: unlinked.id },
+			input: { title: "Order chairs", category: "general", assigneeIds: [unlinked.id] },
 		}),
 	);
 	const edited = ok(
 		await taskWrite(c.owner, "edit", {
 			requestKey: key(),
 			expectedRevision: row.r,
-			input: { taskId: task, patch: { assigneeId: ready.id } },
+			input: { taskId: task, patch: { assigneeIds: [ready.id] } },
 		}),
 	).task;
 	assert.deepEqual([edited.assignee.accountId, edited.followUpOwner.eligible], [ready.id, true]);

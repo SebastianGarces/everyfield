@@ -392,8 +392,8 @@ test("AC:TARGET-MTG-020 AC:TARGET-MTG-012 AC:TARGET-TSK-017 AC:GAP-PPL-020 AC:CA
 
 	// A zero-attendee Vision still owes its evaluation; an assignee needs a current seat.
 	const empty = await meeting("vision_meeting", "2026-10-09T23:00:00Z");
-	refused(await finalize(owner, empty, [], { evaluationAssigneeId: foreign.id }), "invalid_subject");
-	const none = ok(await finalize(owner, empty, [], { evaluationAssigneeId: owner.id }));
+	refused(await finalize(owner, empty, [], { evaluationAssigneeIds: [foreign.id] }), "invalid_subject");
+	const none = ok(await finalize(owner, empty, [], { evaluationAssigneeIds: [owner.id] }));
 	assert.deepEqual(
 		none.work.map((w) => [w.kind, w.needsOwner]),
 		[["meeting_evaluation", false]],
@@ -487,7 +487,7 @@ test("AC:TARGET-MTG-020 AC:TARGET-MTG-012 AC:TARGET-TSK-017 AC:GAP-PPL-020 AC:CA
 	const samLater = await meeting("vision_meeting", "2026-09-13T23:00:00Z"),
 		samEarly = await meeting("vision_meeting", "2026-09-06T23:00:00Z");
 	const samOwner = await eligibleAccount();
-	ok(await finalize(owner, samLater, [sam], { followUpAssigneeId: samOwner.id }));
+	ok(await finalize(owner, samLater, [sam], { followUpAssigneeIds: [samOwner.id] }));
 	ok(await finalize(owner, samEarly, [sam]));
 	const undone = ok(await reconcile(owner, samEarly, []));
 	assert.deepEqual(
@@ -885,8 +885,8 @@ test("AC:TARGET-TSK-012 finalize and Correct attendance refuse a follow-up owner
 	const ivy = await person("Ivy"),
 		jo = await person("Jo");
 	const v = await meeting("vision_meeting", "2026-10-12T23:00:00Z");
-	refused(await finalize(owner, v, [ivy], { followUpAssigneeId: unlinked.id }), "owner_ineligible");
-	const done = ok(await finalize(owner, v, [ivy], { followUpAssigneeId: member.id }));
+	refused(await finalize(owner, v, [ivy], { followUpAssigneeIds: [unlinked.id] }), "owner_ineligible");
+	const done = ok(await finalize(owner, v, [ivy], { followUpAssigneeIds: [member.id] }));
 	const followUp = done.work.find((w) => w.kind === "first_vision_follow_up");
 	assert.deepEqual(
 		[followUp.owner.accountId, followUp.owner.eligible, followUp.owner.reason, typeof followUp.owner.displayName],
@@ -898,20 +898,20 @@ test("AC:TARGET-TSK-012 finalize and Correct attendance refuse a follow-up owner
 		input: { meetingId: v, attendeeIds: [ivy, jo], reason: "Sign-in sheet checked", ...extra },
 	});
 	refused(
-		await write(owner, "reconcileAttendance", await request({ followUpAssigneeId: unlinked.id })()),
+		await write(owner, "reconcileAttendance", await request({ followUpAssigneeIds: [unlinked.id] })()),
 		"owner_ineligible",
 	);
-	const corrected = ok(await write(owner, "reconcileAttendance", await request({ followUpAssigneeId: member.id })()));
+	const corrected = ok(await write(owner, "reconcileAttendance", await request({ followUpAssigneeIds: [member.id] })()));
 	const added = corrected.work.find((w) => w.personId === jo && w.outcome === "created");
 	assert.deepEqual([added.owner.accountId, added.owner.eligible], [member.id, true]);
 	// An ineligible assignee already on an existing duty reads with the reason, not as a different person.
 	await f.admin.execute(sql`UPDATE task SET assignee_id=${unlinked.id} WHERE obligation_id=${followUp.obligationId}`);
-	const again = ok(await write(owner, "reconcileAttendance", await request({ followUpAssigneeId: member.id })()));
+	const again = ok(await write(owner, "reconcileAttendance", await request({ followUpAssigneeIds: [member.id] })()));
 	const kept = again.work.find((w) => w.obligationId === followUp.obligationId);
 	assert.deepEqual([kept.owner.accountId, kept.owner.eligible, kept.owner.reason], [unlinked.id, false, "no_person"]);
 	// The evaluation owner keeps the seated rule: a seat is enough.
 	const empty = await meeting("vision_meeting", "2026-10-13T23:00:00Z");
-	const evaluation = ok(await finalize(owner, empty, [], { evaluationAssigneeId: unlinked.id })).work[0];
+	const evaluation = ok(await finalize(owner, empty, [], { evaluationAssigneeIds: [unlinked.id] })).work[0];
 	assert.deepEqual([evaluation.owner.accountId, evaluation.owner.eligible], [unlinked.id, true]);
 });
 
@@ -947,7 +947,7 @@ const swap = async (c, extra = [c.extra], gone = [c.leaver]) => ({
 	input: {
 		meetingId: c.v,
 		attendeeIds: [...c.ids.filter((id) => !gone.includes(id)), ...extra],
-		followUpAssigneeId: null,
+		followUpAssigneeIds: [],
 		reason: "Sign-in sheet checked",
 	},
 });
@@ -992,11 +992,11 @@ test("AC:TARGET-MTG-020 AC:TARGET-MTG-012 a 50-attendee reconcile returns the ex
 			.filter((id) => !priorOf(id))
 			.map((id) =>
 				id === c.extra
-					? { meetingId: c.v, kind: "first_vision_follow_up", personId: id, obligationId: created.obligationId, taskId: created.taskId, outcome: "created", assigneeId: null, needsOwner: true, owner: null }
-					: { meetingId: c.v, kind: "first_vision_follow_up", personId: id, obligationId: dutyOf(id).obligation_id, taskId: dutyOf(id).task_id, outcome: "existing", assigneeId: null, needsOwner: true, owner: null },
+					? { meetingId: c.v, kind: "first_vision_follow_up", personId: id, obligationId: created.obligationId, taskId: created.taskId, outcome: "created", assigneeIds: [], needsOwner: true, owner: null }
+					: { meetingId: c.v, kind: "first_vision_follow_up", personId: id, obligationId: dutyOf(id).obligation_id, taskId: dutyOf(id).task_id, outcome: "existing", assigneeIds: [], needsOwner: true, owner: null },
 			),
-		{ meetingId: c.v, kind: "meeting_evaluation", personId: null, obligationId: evaluation.obligation_id, taskId: evaluation.task_id, outcome: "existing", assigneeId: null, needsOwner: true, owner: null },
-		{ meetingId: c.v, kind: "first_vision_follow_up", personId: c.leaver, obligationId: dutyOf(c.leaver).obligation_id, taskId: dutyOf(c.leaver).task_id, outcome: "closed", assigneeId: null, needsOwner: false, owner: null },
+		{ meetingId: c.v, kind: "meeting_evaluation", personId: null, obligationId: evaluation.obligation_id, taskId: evaluation.task_id, outcome: "existing", assigneeIds: [], needsOwner: true, owner: null },
+		{ meetingId: c.v, kind: "first_vision_follow_up", personId: c.leaver, obligationId: dutyOf(c.leaver).obligation_id, taskId: dutyOf(c.leaver).task_id, outcome: "closed", assigneeIds: [], needsOwner: false, owner: null },
 	];
 	assert.deepEqual(
 		{ ...result, receiptId: undefined },
@@ -1117,7 +1117,7 @@ test("AC:TARGET-MTG-020 a reconcile that is stale, foreign, too early or not all
 			await write(owner, "reconcileAttendance", {
 				requestKey: key(),
 				expectedRevision: await revision(draft),
-				input: { meetingId: draft, attendeeIds: [c.extra], followUpAssigneeId: null, reason: "Too early" },
+				input: { meetingId: draft, attendeeIds: [c.extra], followUpAssigneeIds: [], reason: "Too early" },
 			}),
 			"status_transition",
 		),
@@ -1134,7 +1134,7 @@ test("AC:TARGET-MTG-020 a reconcile that is stale, foreign, too early or not all
 				await write(owner, "reconcileAttendance", {
 					requestKey: key(),
 					expectedRevision: await revision(id),
-					input: { meetingId: id, attendeeIds: [], followUpAssigneeId: null, reason: "Not allowed" },
+					input: { meetingId: id, attendeeIds: [], followUpAssigneeIds: [], reason: "Not allowed" },
 				}),
 				"status_transition",
 			),

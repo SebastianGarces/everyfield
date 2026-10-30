@@ -44,7 +44,7 @@ async function up() {
 	await admin.execute(sql`UPDATE plant SET timezone='America/Chicago' WHERE id=${plant.id}`);
 
 	// Two finalized Vision meetings, through the generated-work command meeting finalization runs.
-	async function vision(title: string, hoursAgo: number, personId: string, assigneeId: string | null) {
+	async function vision(title: string, hoursAgo: number, personId: string, assigneeIds: [string] | null) {
 		const at = new Date(Date.now() - hoursAgo * 3_600_000);
 		const date = at.toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
 		const origin = { at: at.toISOString(), date, zone: "America/Chicago" };
@@ -88,7 +88,7 @@ async function up() {
 	const created = await runtime.transaction((tx) =>
 		followups.createFollowUp(tx as never, ctx, {
 			requestKey: randomUUID(),
-			input: { personId: people.people["Maria Santos"], assigneeId: member },
+			input: { personId: people.people["Maria Santos"], assigneeIds: [member] },
 		}),
 	);
 	if (created.status !== "ok") throw Error("createFollowUp: " + JSON.stringify(created));

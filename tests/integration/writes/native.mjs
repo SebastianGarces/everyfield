@@ -839,8 +839,8 @@ try {
 				input: {
 					meetingId: recent,
 					attendeeIds: [newcomer],
-					followUpAssigneeId: s.sender.id,
-					evaluationAssigneeId: s.sender.id,
+					followUpAssigneeIds: [s.sender.id],
+					evaluationAssigneeIds: [s.sender.id],
 				},
 			}),
 		),

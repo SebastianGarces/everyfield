@@ -91,7 +91,7 @@ async function put(name, t) {
 		taskId: id,
 		revision: String(t.revision),
 		title: name,
-		assigneeId: t.assignee ? people[t.assignee].id : null,
+		assigneeIds: [t.assignee] ? people[t.assignee].id : null,
 		due: t.due.kind === "date_only" ? { ...t.due, zone } : t.due,
 		open: !t.status || t.status === "not_started",
 		created: t.created ?? false,
