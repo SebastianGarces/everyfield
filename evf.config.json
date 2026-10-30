@@ -630,6 +630,7 @@
 				".agents/skills/ship/SKILL.md",
 				".agents/skills/verify-preview/",
 				".agents/skills/portless-preview/",
+				".agents/skills/verify-preview/scripts/",
 				"docs/architecture/decisions.md",
 				"evf.config.json"
 			],
