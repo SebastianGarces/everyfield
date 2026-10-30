@@ -46,10 +46,10 @@ for (const [name, engine] of ENGINES) {
 				await page.reload();
 				await hydrated(page);
 				// The counter reads "N of M" and never says "here".
-				const counter = await page
-					.getByText(new RegExp(`^${guests.length} of \\d+$`))
-					.first()
-					.innerText();
+				// Read the whole badge, so screen-reader-only text counts too.
+				const badge = page.getByText(new RegExp(`^${guests.length} of \\d+\\s*checked in$`)).first();
+				const counter = await badge.textContent();
+				assert.match(counter, new RegExp(`^${guests.length} of \\d+ checked in$`));
 				assert.doesNotMatch(counter, /here/i);
 				assert.equal(await page.locator("ul button[aria-pressed=true]").count(), guests.length);
 
