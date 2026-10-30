@@ -22,7 +22,7 @@ import {
 	type ReviewParty,
 	type TaskRef,
 } from "./lib.ts";
-import { maintenanceScope, requireTaskScope } from "./policy.ts";
+import { documentTemplateChanges, maintenanceScope, requireTaskScope } from "./policy.ts";
 import { checkPrBody } from "./pr-body.ts";
 import { markMerged, openWorkDb, sessionsRecorded } from "./db.ts";
 import { withShipQueue, type QueueTiming } from "./ship-queue.ts";
@@ -92,8 +92,8 @@ function taskTitle(root: string, wt: string, task: TaskRef): string {
 	return `${pkg.title}${task.part ? ` (${task.part})` : ""}`;
 }
 
-function taskPaths(root: string, wt: string, task: TaskRef): string[] {
-	if (task.kind === "ops") return maintenanceScope(wt, task).owningPaths;
+function taskPaths(root: string, wt: string, task: TaskRef, rev = "HEAD"): string[] {
+	if (task.kind === "ops") return maintenanceScope(wt, task, rev).owningPaths;
 	return task.kind === "fb" ? fbOwningPaths(root, task) : pathsForPart(findPackage(loadDag(root), task.wp), task.part);
 }
 
@@ -465,8 +465,19 @@ export function ship(root: string, task: TaskRef, timing: ShipTiming = SHIP_TIMI
 		cls = task.kind === "fb" ? cachedTriage(root, task.issue!)?.class : undefined;
 	// The PR #13 owner routes keep exact-head review and never merge here; only the merging routes queue and carry.
 	if (design || (task.kind === "fb" && !(cfg.mergePolicy.feedbackVerifierMerge as string[]).includes(cls ?? "")))
-		return ownerRoute(root, cfg, task, wt, pr.number, design, cls);
+		return ownerRoute(root, cfg, task, wt, pr.number, design, cls, []);
+	// A PR that would merge here but changes a document template waits for Sebastian too (mergePolicy.documentTemplates).
+	git(root, "fetch", "--quiet", cfg.remote, cfg.baseBranch);
+	const templates = documentTemplateChanges(root, cfg, baseRef(root, cfg), git(wt, "rev-parse", "HEAD"));
+	if (templates.length) return ownerRoute(root, cfg, task, wt, pr.number, design, cls, templates);
 	return withShipQueue(root, task.id, () => queuedMerge(root, cfg, task, wt, pr.number, timing), timing.queue);
+}
+
+/** The one message of a verified document-template PR: up to five matched paths, a count when there are more. */
+function templateWaitMessage(number: number, paths: string[]): string {
+	const shown = paths.slice(0, 5).join(", "),
+		more = paths.length > 5 ? ` (${paths.length} paths in all)` : "";
+	return `evf ship does not merge PR #${number}: it changes document-template paths (${shown})${more}. The verifier passed it. Sebastian approves each document-template PR; after his approval in chat, run: bin/evf approve ${number} --owner-approval "<his words>"`;
 }
 
 function ownerRoute(
@@ -477,6 +488,7 @@ function ownerRoute(
 	number: number,
 	design: boolean,
 	cls: string | undefined,
+	templates: string[],
 ): number {
 	git(root, "fetch", "--quiet", cfg.remote, cfg.baseBranch);
 	const sha = git(wt, "rev-parse", "HEAD");
@@ -490,6 +502,11 @@ function ownerRoute(
 			"success",
 			`Verified by ${verifierLabel(verification.approval.verifier)} at ${sha.slice(0, 10)}`,
 		);
+	if (templates.length) {
+		verified();
+		console.log(templateWaitMessage(number, templates));
+		return 0;
+	}
 	if (design) {
 		verified();
 		console.log(`PR #${number} is a verified design task and waits for Sebastian's chat approval, then evf approve.`);
@@ -633,7 +650,12 @@ function requireGreenMain(cwd: string, cfg: Config, body: string): void {
 		);
 }
 
-function afterMerge(
+/**
+ * What happens after GitHub merges a task PR: the shipped record, package progress, the work store and cleanup.
+ * `evf ship` and `evf approve` (a document-template PR) share it. `wt` is the task worktree, or the home checkout
+ * when none exists; then `rev` is the merged head that holds an OPS task's registration.
+ */
+export function afterMerge(
 	root: string,
 	cfg: Config,
 	task: TaskRef,
@@ -641,7 +663,9 @@ function afterMerge(
 	prNumber: number,
 	verification: MergeEvidence,
 	baseSha: string,
+	extra: { rev?: string; ownerApproval?: { quote: string; approved_head: string; approved_at: string } } = {},
 ): number {
+	const hasWorktree = wt !== root;
 	const mergeSha = gh(wt, ["pr", "view", String(prNumber), "--json", "mergeCommit", "-q", ".mergeCommit.oid"]);
 	const record = {
 		task: task.id,
@@ -654,8 +678,9 @@ function afterMerge(
 		verified_head: verification.head,
 		base_sha: baseSha,
 		verification,
+		...(extra.ownerApproval ? { owner_approval: extra.ownerApproval } : {}),
 		evidence: {
-			path: taskPaths(root, wt, task)[0] ?? "",
+			path: taskPaths(root, wt, task, extra.rev)[0] ?? "",
 			commit: mergeSha,
 			test: `GitHub required CI and ${verifierLabel(verification.approval.verifier)} approval`,
 			result: "passed",
@@ -687,6 +712,10 @@ function afterMerge(
 		markMerged(db, task, mergeSha, null);
 	} finally {
 		db.close();
+	}
+	if (!hasWorktree) {
+		console.log("cleanup: no task worktree to remove.");
+		return 0;
 	}
 	if (task.kind !== "ops") stack(root, task, "down", true);
 	const removed = run("git", ["worktree", "remove", wt], { cwd: root });

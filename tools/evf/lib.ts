@@ -93,7 +93,13 @@ export type MergePolicy = {
 	ordinary: string;
 	feedbackVerifierMerge: FeedbackBugClass[];
 	feedbackOwnerAfterVerifier: FeedbackBugClass[];
+	documentTemplates: DocumentTemplatePolicy;
 };
+/**
+ * PRs whose exact-head diff touches one of `paths` wait for Sebastian's approval. An entry that ends in `/` matches
+ * every path under it; any other entry matches one file. `quote` and `scope` record his words and the class.
+ */
+export type DocumentTemplatePolicy = { paths: string[]; approvedAtUtc: string; quote: string; scope: string };
 
 export type Package = {
 	id: string;
@@ -248,7 +254,7 @@ export function loadConfig(root: string): Config {
 	const path = join(root, "evf.config.json");
 	if (!existsSync(path)) fail(`Missing ${path}.`);
 	const cfg = readJson<Config>(path);
-	parseMergePolicy(cfg.mergePolicy);
+	parseMergePolicy(cfg.mergePolicy, true);
 	validateSeats(cfg);
 	return cfg;
 }
@@ -258,15 +264,45 @@ export function committedConfig(checkout: string, rev = "HEAD"): Config {
 	const shown = run("git", ["-C", checkout, "show", `${rev}:evf.config.json`]);
 	if (shown.code !== 0) fail(`No committed evf.config.json at ${rev} in ${checkout}.`);
 	const cfg = JSON.parse(shown.stdout) as Config;
-	parseMergePolicy(cfg.mergePolicy);
+	// A branch cut before the document-template class holds no such key. Only the checkout's own config is policy.
+	parseMergePolicy(cfg.mergePolicy, false);
 	validateSeats(cfg);
 	return cfg;
 }
 
-function parseMergePolicy(policy: unknown): asserts policy is MergePolicy {
+const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
+
+function parseDocumentTemplates(value: unknown): void {
+	const key = "evf.config.json mergePolicy.documentTemplates";
+	if (typeof value !== "object" || value === null || Array.isArray(value))
+		fail(`${key} must be an object with paths, approvedAtUtc, quote and scope.`);
+	const t = value as Record<string, unknown>;
+	const paths = t.paths;
+	if (
+		!Array.isArray(paths) ||
+		!paths.length ||
+		paths.some((p) => typeof p !== "string" || !p || p.startsWith("/") || p.split("/").includes("..")) ||
+		new Set(paths).size !== paths.length
+	)
+		fail(
+			`${key}.paths must be a non-empty list of distinct relative paths with no .. part; got ${JSON.stringify(paths)}.`,
+		);
+	if (
+		typeof t.approvedAtUtc !== "string" ||
+		!ISO_UTC.test(t.approvedAtUtc) ||
+		Number.isNaN(Date.parse(t.approvedAtUtc))
+	)
+		fail(`${key}.approvedAtUtc must be an ISO UTC timestamp; got ${JSON.stringify(t.approvedAtUtc)}.`);
+	for (const field of ["quote", "scope"])
+		if (typeof t[field] !== "string" || !(t[field] as string).trim())
+			fail(`${key}.${field} must be a non-empty string.`);
+}
+
+function parseMergePolicy(policy: unknown, requireTemplates: boolean): asserts policy is MergePolicy {
 	if (typeof policy !== "object" || policy === null || Array.isArray(policy))
 		fail("evf.config.json mergePolicy must be an object.");
 	const p = policy as Record<string, unknown>;
+	if (requireTemplates || p.documentTemplates !== undefined) parseDocumentTemplates(p.documentTemplates);
 	const seen = new Set<string>();
 	for (const field of ["feedbackVerifierMerge", "feedbackOwnerAfterVerifier"]) {
 		const v = p[field];

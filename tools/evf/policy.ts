@@ -10,6 +10,7 @@ import {
 	loadConfig,
 	readJson,
 	prerequisitesForPart,
+	type Config,
 	type MaintenanceScope,
 	type Part,
 	type TaskRef,
@@ -142,4 +143,20 @@ export function requireMaintenancePaths(root: string, wt: string, task: TaskRef)
 	const changed = git(wt, "diff", "--name-only", "--no-renames", base, "HEAD").split("\n").filter(Boolean);
 	if (changed.some((p) => !owns(p))) fail("Maintenance candidate changes paths outside its reviewed owning paths.");
 	if (changed.includes(APPROVED_PROTOTYPE)) fail(`${APPROVED_PROTOTYPE} keeps its approved bytes.`);
+}
+
+/**
+ * The document-template paths (`mergePolicy.documentTemplates.paths`) that the PR changes at `head`. The class
+ * uses the whole diff from the merge base with `base`, so splitting a change across commits never leaves it.
+ * With `--no-renames` a rename counts both its old and its new path. An entry that ends in `/` matches every
+ * path under it; any other entry matches one file. `evf ship` and `evf approve` both decide the class here.
+ */
+export function documentTemplateChanges(repo: string, cfg: Config, base: string, head: string): string[] {
+	const entries = cfg.mergePolicy.documentTemplates.paths;
+	const changed = git(repo, "diff", "--name-only", "--no-renames", git(repo, "merge-base", base, head), head)
+		.split("\n")
+		.filter(Boolean);
+	return changed.filter((path) =>
+		entries.some((entry) => (entry.endsWith("/") ? path.startsWith(entry) : path === entry)),
+	);
 }

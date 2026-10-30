@@ -47,6 +47,12 @@ Ordinary builds and P0/P1 feedback fixes use this route. P2/P3 feedback fixes ge
 then wait for Sebastian's chat approval and `evf approve`. Prototypes and Wiki article PRs also
 require his chat approval and `evf approve`; Wiki uses its own Opus review. Design-only PRs use
 an OPS task with `"route": "design"`: `evf ship` stops after the verifier, then he approves.
+Document-template PRs join the same wait. A WP part, an OPS task without the design route or a P0/P1
+fix joins the class when its exact-head diff (merge base to head, all commits) touches a path in
+`mergePolicy.documentTemplates` in `evf.config.json`. `evf ship` verifies it, posts the verified
+status, prints the `evf approve` command and exits 0 without merging. After he approves in chat,
+`evf approve <PR> --owner-approval "<his words>"` merges the exact head once an independent review
+and the verified status hold. It then writes the shipped record and unlocks dependents as `evf ship` does.
 Preserve these PR #13 routes; they never carry an approval. Sensitive work and paid commitments still need their scoped owner approvals.
 
 Only evf writes canonical progress. Ship retains the CI and review references, exact head and

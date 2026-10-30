@@ -1166,9 +1166,34 @@ function shipStage(db: DatabaseSync, root: string, task: TaskRef, t: TaskRow, ru
 		}
 	};
 	const before = view();
-	if (before.state !== "MERGED") ship(root, task);
-	markMerged(db, task, before.state === "MERGED" ? before.commit : view().commit, runId);
-	return { status: "passed", summary: before.state === "MERGED" ? "already merged on GitHub" : "shipped" };
+	if (before.state === "MERGED") {
+		markMerged(db, task, before.commit, runId);
+		return { status: "passed", summary: "already merged on GitHub" };
+	}
+	ship(root, task);
+	const after = view();
+	// A task is merged only when GitHub says so. An owner route (Wiki-style waits, P2/P3, design, document
+	// templates) verifies and returns without a merge: the drive records the wait and stops, with no new round.
+	if (after.state !== "MERGED" && findTask(db, task)?.status !== "merged") {
+		const pr = t.pr_number ?? task.branch;
+		const cause = `PR #${pr} is verified and waits for Sebastian's approval. After his approval in chat, run: bin/evf approve ${pr} --owner-approval "<his words>"`;
+		record(db, t.id, runId, "owner_approval_wait", { pr: t.pr_number, summary: `${task.id}: ${cause}` });
+		notify(`${task.id} waits for Sebastian`, cause);
+		return { status: "passed", summary: "verified; waits for Sebastian's approval (evf approve)" };
+	}
+	markMerged(db, task, after.commit, runId);
+	return { status: "passed", summary: "shipped" };
+}
+
+/** The ship run passed without a merge (an owner route). When GitHub shows the PR merged since, mark the task merged. */
+function recordLateMerge(db: DatabaseSync, root: string, task: TaskRef, t: TaskRow): void {
+	const r = run("gh", ["pr", "view", String(t.pr_number ?? task.branch), "--json", "state,mergeCommit"], { cwd: root });
+	try {
+		const v = JSON.parse(r.stdout) as { state?: string; mergeCommit?: { oid?: string } | null };
+		if (v.state === "MERGED") markMerged(db, task, v.mergeCommit?.oid ?? null, null);
+	} catch {
+		// GitHub is unreadable: the task keeps waiting.
+	}
 }
 
 /** evf runs pr, ci and ship itself and records them as runs of role `evf`. */
@@ -1438,6 +1463,9 @@ export function driveOnce(root: string, task: TaskRef, timing: DriveTiming = DRI
 		const marker = reopenMarker(db, t.id),
 			extras = extrasOf(db, t.id);
 		const n = nextStage(task, t, runs, !!pick, marker, extras);
+		// The owner approved after ship returned: the PR is merged on GitHub now, so record it without shipping again.
+		if (n.stage === "done" && t.status !== "merged" && runs.at(-1)?.stage === "ship")
+			recordLateMerge(db, root, task, t);
 		if (t.status !== "merged")
 			record(db, t.id, n.run ?? null, "next", {
 				stage: n.stage,
@@ -1513,6 +1541,9 @@ export function driveOnce(root: string, task: TaskRef, timing: DriveTiming = DRI
 		// A merge ends the task: the loop stops here and makes no further transition.
 		if (n.stage === "ship" && findTask(db, task)?.status === "merged")
 			return { stage: "done", round: n.round, reason: "merged" };
+		// A verified owner route stops here: Sebastian approves, then the next pass records the merge.
+		if (n.stage === "ship")
+			return { stage: "done", round: n.round, reason: `PR #${t.pr_number ?? "?"} waits for Sebastian's approval` };
 		return n;
 	} finally {
 		db.close();
