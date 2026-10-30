@@ -332,6 +332,17 @@ for (const [name, engine] of ENGINES) {
 		});
 	});
 
+	test(`AC:CASE-COM-003 (${name}): a message with no stored HTML opens in history with the plain-text line and its body`, async () => {
+		const { legacy } = fixture("communication");
+		await withPage(engine, async (page, context) => {
+			await signIn(context, owner());
+			await open(page, `/communication?message=${legacy}`);
+			await page.getByText("This message was saved as plain text.").waitFor();
+			await page.getByText("We hope to see you again.").waitFor();
+			assert.equal(new URL(page.url()).searchParams.get("message"), legacy);
+		});
+	});
+
 	test(`AC:CASE-COM-003 AC:CASE-COM-012 (${name}): a Reviewed row opens Review with the subject and body locked`, async () => {
 		const { reviewed } = fixture("communication");
 		await withPage(engine, async (page, context) => {

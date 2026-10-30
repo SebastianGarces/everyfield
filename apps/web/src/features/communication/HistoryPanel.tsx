@@ -42,6 +42,7 @@ import {
 	type TrackingRow,
 } from "./model.ts";
 import { plural } from "./composeModel.ts";
+import { pickSampleName } from "./fields.ts";
 import { insideWindow, windowBounds } from "./scheduleWindow.ts";
 import { useKeys } from "./useKeys.ts";
 
@@ -455,7 +456,8 @@ function Detail({
 	const meetingId = detail.meetingId;
 	const named = view.recipients.filter((row) => row.name);
 	const [shownAs, setShownAs] = useState(0);
-	const as = named[Math.min(shownAs, Math.max(0, named.length - 1))]?.name ?? "Friend";
+	const [sample] = useState(pickSampleName);
+	const as = named[Math.min(shownAs, Math.max(0, named.length - 1))]?.name ?? sample;
 	const stateWhen = detail.sentAt
 		? `Sent ${when(detail.sentAt)}`
 		: detail.scheduledAt
