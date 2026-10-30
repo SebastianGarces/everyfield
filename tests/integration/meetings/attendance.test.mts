@@ -79,6 +79,8 @@ const classOf = async (meetingId, personId) =>
 	);
 
 let statements = 0;
+/** The text and parameters of every statement sent through the request pool, newest last (planning checks read it). */
+const sent = [];
 async function counted(body) {
 	const start = statements;
 	const value = await body();
@@ -91,6 +93,8 @@ before(async () => {
 		const query = client.query;
 		client.query = function (...args) {
 			statements++;
+			if (typeof args[0] === "object" && typeof args[0]?.text === "string") sent.push({ text: args[0].text, values: args[1] ?? [] });
+			if (sent.length > 400) sent.shift();
 			return Reflect.apply(query, this, args);
 		};
 	});
@@ -856,4 +860,286 @@ test("INV-statements: a finalize preview runs the command once and saves nothing
 		ok(await write(owner, "finalizeAttendance", request)).classifications,
 		ok(preview.value).classifications,
 	);
+});
+
+// WP-022/api F11: the Correct attendance save is one bulk write. A reconcile sends the same statements for any size,
+// and each statement is cheap to plan: the locked fact read once cost 1.7 s of JIT because the task columns' planned
+// cost reached millions (seat_identity's default of 1000 rows, multiplied by a lateral join).
+let crowdNumber = 0;
+/**
+ * A finalized Vision meeting of `size` attended People (every tenth in the core group, the rest prospects), an earlier
+ * Vision that every fifth of them (index 1, 6, 11, ...) attended, and one prospect who is not a guest. Returns the
+ * People by index, the meeting and what a reconcile would add (`extra`) and remove (`leaver`, a prospect with a
+ * first-Vision follow-up).
+ */
+async function crowd(size) {
+	const day = ++crowdNumber;
+	const made = await rows(sql`INSERT INTO person(tenant_id,plant_id,display_name,source,stage,adult_classification,
+		commitment_state,pipeline_position,state,created_at) SELECT ${plant.id},${plant.id},'Crowd ${sql.raw(String(day))} Person '||n,
+		'other',CASE WHEN n % 10 = 0 THEN 'core_group' ELSE 'prospect' END,'unknown','unknown',0,'live',clock_timestamp()
+		FROM generate_series(0,${size - 1}) n RETURNING id, display_name`);
+	const ids = made.sort((a, b) => Number(a.display_name.split(" ").pop()) - Number(b.display_name.split(" ").pop())).map((r) => r.id);
+	const extra = await person(`Crowd ${day} Extra`);
+	const leaver = ids[2];
+	const at = (days) => new Date(Date.UTC(2026, 0, 1) + (day * 10 + days) * 86400_000 + 23 * 3600_000).toISOString();
+	const earlier = await meeting("vision_meeting", at(0));
+	ok(await finalize(owner, earlier, ids.filter((_, i) => i % 5 === 1)));
+	const v = await meeting("vision_meeting", at(5));
+	const first = ok(await finalize(owner, v, ids, { followUpAssigneeId: owner.id, evaluationAssigneeId: owner.id }));
+	return { ids, extra, leaver, earlier, v, first };
+}
+const swap = async (c, extra = [c.extra], gone = [c.leaver]) => ({
+	requestKey: key(),
+	expectedRevision: await revision(c.v),
+	input: {
+		meetingId: c.v,
+		attendeeIds: [...c.ids.filter((id) => !gone.includes(id)), ...extra],
+		followUpAssigneeId: owner.id,
+		reason: "Sign-in sheet checked",
+	},
+});
+
+test("INV-statements: a reconcile that adds, removes, advances and closes sends the same statements at 3 and 50 attendees", async () => {
+	const sent = async (size) => {
+		const c = await crowd(size);
+		const request = await swap(c);
+		const done = await counted(async () => ok(await write(owner, "reconcileAttendance", request)));
+		assert.deepEqual(done.value.added, [c.extra]);
+		assert.deepEqual(done.value.removed, [c.leaver]);
+		assert.deepEqual(done.value.stageChanges, [{ personId: c.extra, from: "prospect", to: "attendee" }]);
+		assert.ok(done.value.work.some((w) => w.outcome === "created" && w.personId === c.extra));
+		assert.ok(done.value.work.some((w) => w.outcome === "closed" && w.personId === c.leaver));
+		return done.statements;
+	};
+	const three = await sent(3);
+	const fifty = await sent(50);
+	assert.ok(three > 0, "no statements counted");
+	assert.equal(fifty, three);
+	// Everything of a reconcile is one transaction: the same two runs also send one BEGIN and one COMMIT each.
+});
+
+test("AC:TARGET-MTG-020 AC:TARGET-MTG-012 a 50-attendee reconcile returns the exact result and writes the exact audit rows", async () => {
+	const c = await crowd(50);
+	const duty = await rows(sql`SELECT b.id AS obligation_id, b.person_id, b.kind, t.id AS task_id, t.assignee_id
+		FROM obligation b JOIN task t ON t.obligation_id=b.id WHERE b.meeting_id=${c.v}`);
+	const dutyOf = (personId) => duty.find((d) => d.person_id === personId);
+	const evaluation = duty.find((d) => d.kind === "evaluation");
+	assert.equal(duty.length, 50 - 10 + 1, "a follow-up for each attendee without an earlier Vision, and the evaluation");
+	const seen = new Set((await rows(sql`SELECT id FROM audit_event WHERE tenant_id=${plant.id}`)).map((r) => r.id));
+	const finalizedAt = new Date((await one(sql`SELECT finalized_at FROM meeting WHERE id=${c.v}`)).finalized_at).toISOString();
+	const request = await swap(c);
+	const result = ok(await write(owner, "reconcileAttendance", request));
+
+	const attendeeIds = request.input.attendeeIds;
+	const priorOf = (id) => (c.ids.indexOf(id) % 5 === 1 ? c.earlier : null);
+	const stageOfIndex = (id) => (c.ids.indexOf(id) % 10 === 0 ? "core_group" : "prospect");
+	const created = result.work.find((w) => w.outcome === "created");
+	assert.ok(created, "the added prospect owes a follow-up");
+	const expectedWork = [
+		...attendeeIds
+			.filter((id) => !priorOf(id))
+			.map((id) =>
+				id === c.extra
+					? { meetingId: c.v, kind: "first_vision_follow_up", personId: id, obligationId: created.obligationId, taskId: created.taskId, outcome: "created", assigneeId: owner.id, needsOwner: false }
+					: { meetingId: c.v, kind: "first_vision_follow_up", personId: id, obligationId: dutyOf(id).obligation_id, taskId: dutyOf(id).task_id, outcome: "existing", assigneeId: owner.id, needsOwner: false },
+			),
+		{ meetingId: c.v, kind: "meeting_evaluation", personId: null, obligationId: evaluation.obligation_id, taskId: evaluation.task_id, outcome: "existing", assigneeId: owner.id, needsOwner: false },
+		{ meetingId: c.v, kind: "first_vision_follow_up", personId: c.leaver, obligationId: dutyOf(c.leaver).obligation_id, taskId: dutyOf(c.leaver).task_id, outcome: "closed", assigneeId: owner.id, needsOwner: false },
+	];
+	assert.deepEqual(
+		{ ...result, receiptId: undefined },
+		{
+			receiptId: undefined,
+			outcome: "changed",
+			meetingId: c.v,
+			attendanceRevision: String(BigInt(request.expectedRevision) + 1n),
+			finalizedAt,
+			attendeeIds,
+			added: [c.extra],
+			removed: [c.leaver],
+			classifications: attendeeIds.map((id) => {
+				const prior = id === c.extra ? null : priorOf(id);
+				return {
+					personId: id,
+					classification: id !== c.extra && stageOfIndex(id) === "core_group" ? "core_group" : prior ? "returning" : "first_time",
+					firstVision: prior === null,
+					priorVisionId: prior,
+				};
+			}),
+			stageChanges: [{ personId: c.extra, from: "prospect", to: "attendee" }],
+			work: expectedWork,
+		},
+	);
+
+	// The audit rows of this one command: the reconcile, the one advance and one row for each created or closed task.
+	const written = (await rows(sql`SELECT id, subject_type, subject_id, action, kind, before_value, after_value,
+		before_revision, after_revision, reason, metadata FROM audit_event WHERE tenant_id=${plant.id}`)).filter(
+		(r) => !seen.has(r.id),
+	);
+	const byAction = (action) => written.filter((r) => r.action === action);
+	const current = c.ids.slice().sort();
+	assert.deepEqual(
+		byAction("meetings.finalized").map(({ id, ...r }) => r),
+		[
+			{
+				subject_type: "meeting",
+				subject_id: c.v,
+				action: "meetings.finalized",
+				kind: "reconcile",
+				before_value: { attendeeIds: current },
+				after_value: { attendeeIds: attendeeIds.slice().sort() },
+				before_revision: null,
+				after_revision: null,
+				reason: "Sign-in sheet checked",
+				metadata: { meetingId: c.v, event: "attendance_reconciled" },
+			},
+		],
+	);
+	assert.equal(byAction("meetings.finalized")[0].id, result.receiptId);
+	assert.deepEqual(
+		byAction("people.stage_changed").map(({ id, ...r }) => r),
+		[
+			{
+				subject_type: "person",
+				subject_id: c.extra,
+				action: "people.stage_changed",
+				kind: "stage_change",
+				before_value: { stage: "prospect" },
+				after_value: { stage: "attendee" },
+				before_revision: "1",
+				after_revision: "2",
+				reason: null,
+				metadata: { cause: "first_actual_vision_attendance", meetingId: c.v },
+			},
+		],
+	);
+	// A created follow-up writes tasks.changed (create); a closed one writes tasks.waived (waive), as on main.
+	assert.deepEqual(
+		byAction("tasks.changed").map((r) => [r.subject_id, r.kind, r.subject_type, r.metadata.source]),
+		[[created.taskId, "create", "task", "generated"]],
+	);
+	assert.deepEqual(
+		byAction("tasks.waived").map((r) => [r.subject_id, r.kind, r.subject_type, r.reason, r.metadata.source]),
+		[[dutyOf(c.leaver).task_id, "waive", "task", "Sign-in sheet checked", "generated"]],
+	);
+	assert.equal(written.length, 1 + 1 + 1 + 1, "no other audit row");
+	const closed = byAction("tasks.waived")[0];
+	assert.equal(closed.after_value.status, "no_longer_needed");
+	// The saved state is the reply's: the added Person attends and advanced, the leaver is absent and their task closed.
+	assert.equal(await stageOf(c.extra), "attendee");
+	assert.equal((await classOf(c.v, c.leaver)).presence, "absent");
+	assert.equal((await one(sql`SELECT status FROM task WHERE id=${dutyOf(c.leaver).task_id}`)).status, "no_longer_needed");
+});
+
+test("AC:TARGET-MTG-020 a reconcile that is stale, foreign, too early or not allowed writes nothing, and a replay writes nothing", async () => {
+	const c = await crowd(3);
+	const snapshot = async () => ({
+		audit: (await one(sql`SELECT count(*)::int n FROM audit_event WHERE tenant_id=${plant.id}`)).n,
+		revision: await revision(c.v),
+		guests: await rows(sql`SELECT person_id, presence, revision::text FROM participation WHERE meeting_id=${c.v} ORDER BY person_id`),
+		tasks: (await one(sql`SELECT count(*)::int n, string_agg(status, ',' ORDER BY id) s FROM task WHERE plant_id=${plant.id}`)),
+	});
+	const nothing = async (body) => {
+		const before = await snapshot();
+		const result = await body();
+		assert.deepEqual(await snapshot(), before);
+		return result;
+	};
+	// A stale expectedRevision.
+	const stale = await swap(c);
+	await nothing(async () =>
+		refused(await write(owner, "reconcileAttendance", { ...stale, expectedRevision: String(BigInt(stale.expectedRevision) - 1n) }), "conflict"),
+	);
+	// A retired Person and a Person of another church cannot be added; both are named.
+	const retired = await person("Retired Rae");
+	await f.admin.execute(sql`UPDATE person SET state='retired' WHERE id=${retired}`);
+	const outsider = await person("Outsider", "prospect", other);
+	const named = await nothing(async () =>
+		refused(await write(owner, "reconcileAttendance", await swap(c, [c.extra, retired, outsider])), "invalid_subject"),
+	);
+	assert.deepEqual(named.details.personIds.sort(), [retired, outsider].sort());
+	// A meeting that is not final, one that is cancelled and one that is voided.
+	const draft = await meeting("vision_meeting", "2026-11-20T23:00:00Z");
+	await nothing(async () =>
+		refused(
+			await write(owner, "reconcileAttendance", {
+				requestKey: key(),
+				expectedRevision: await revision(draft),
+				input: { meetingId: draft, attendeeIds: [c.extra], followUpAssigneeId: null, reason: "Too early" },
+			}),
+			"status_transition",
+		),
+	);
+	const cancelled = await meeting("vision_meeting", "2026-11-21T23:00:00Z");
+	ok(await finalize(owner, cancelled, [c.extra]));
+	await f.admin.execute(sql`UPDATE meeting SET status='cancelled' WHERE id=${cancelled}`);
+	const voided = await meeting("vision_meeting", "2026-11-22T23:00:00Z");
+	ok(await finalize(owner, voided, [c.leaver]));
+	await f.admin.execute(sql`UPDATE meeting SET occurrence_voided_at=clock_timestamp() WHERE id=${voided}`);
+	for (const id of [cancelled, voided])
+		await nothing(async () =>
+			refused(
+				await write(owner, "reconcileAttendance", {
+					requestKey: key(),
+					expectedRevision: await revision(id),
+					input: { meetingId: id, attendeeIds: [], followUpAssigneeId: null, reason: "Not allowed" },
+				}),
+				"status_transition",
+			),
+		);
+	// A Member who does not lead the team meeting.
+	await nothing(async () => refused(await write(member, "reconcileAttendance", await swap(c)), "unavailable"));
+
+	// The same request key replays the first answer and writes nothing more.
+	const first = await swap(c);
+	const done = ok(await write(owner, "reconcileAttendance", first));
+	const after = await snapshot();
+	const again = ok(await write(owner, "reconcileAttendance", first));
+	assert.deepEqual(again, done);
+	assert.deepEqual(await snapshot(), after);
+});
+
+test("INV-locking: two concurrent reconciles at one revision apply once and never deadlock; two concurrent finalizes settle once", async () => {
+	const c = await crowd(50);
+	const other2 = await person("Second extra");
+	const a = await swap(c, [c.extra], [c.leaver]);
+	const b = { ...(await swap(c, [other2], [c.ids[7]])), expectedRevision: a.expectedRevision };
+	const settled = await Promise.all([write(owner, "reconcileAttendance", a), write(owner, "reconcileAttendance", b)]);
+	// A deadlock would surface as required_write_failed, not as the revision conflict of the second lock holder.
+	assert.deepEqual(settled.map((r) => (r.status === "ok" ? "applied" : r.error.code)).sort(), ["applied", "conflict"]);
+	const winner = settled.find((r) => r.status === "ok").value;
+	assert.equal(winner.attendanceRevision, String(BigInt(a.expectedRevision) + 1n));
+	assert.equal(await revision(c.v), winner.attendanceRevision);
+
+	// Fifty attendees finalized twice at once with the same set: one change, then a noop that shows the first result.
+	const people = await rows(sql`INSERT INTO person(tenant_id,plant_id,display_name,source,stage,adult_classification,
+		commitment_state,pipeline_position,state,created_at) SELECT ${plant.id},${plant.id},'Twin '||n,'other','prospect',
+		'unknown','unknown',0,'live',clock_timestamp() FROM generate_series(1,50) n RETURNING id`);
+	const ids = people.map((r) => r.id);
+	const m = await meeting("vision_meeting", "2026-12-05T23:00:00Z");
+	const request = await finalizeRequest(m, ids, { followUpAssigneeId: owner.id, evaluationAssigneeId: owner.id });
+	const [first, second] = await Promise.all([
+		write(owner, "finalizeAttendance", request),
+		finalize(owner, m, ids, { followUpAssigneeId: owner.id, evaluationAssigneeId: owner.id }),
+	]);
+	assert.deepEqual([ok(first).outcome, ok(second).outcome].sort(), ["changed", "noop"]);
+	assert.equal((await work(m)).length, 51);
+});
+
+test("INV-planning: the locked fact read of a settle plans below the JIT threshold", async () => {
+	// Postgres compiles a statement whose planned cost passes jit_above_cost. The settle's fact read once planned at 8.3
+	// million (every task row multiplied by seat_identity's default 1000 rows) and spent 1.7 s compiling 455 functions.
+	const c = await crowd(50);
+	const request = await swap(c);
+	ok(await write(owner, "reconcileAttendance", request));
+	const lock = sent.findLast((q) => q.text.startsWith("SELECT m.id, m.type, m.status") && q.text.includes("obligation_facts"));
+	assert.ok(lock, "the settle's locked fact read was not captured");
+	// EXPLAIN takes no bind parameters: write each one into the text as a literal.
+	const literal = (v) =>
+		v === null ? "NULL" : Array.isArray(v) ? `'{${v.join(",")}}'` : `'${String(v).replaceAll("'", "''")}'`;
+	const text = lock.text.replace(/\$(\d+)/g, (_, n) => literal(lock.values[Number(n) - 1]));
+	const plan = await f.admin.$client.query(`EXPLAIN (FORMAT JSON) ${text}`);
+	const cost = plan.rows[0]["QUERY PLAN"][0].Plan["Total Cost"];
+	const threshold = Number((await f.admin.$client.query("SHOW jit_above_cost")).rows[0].jit_above_cost);
+	assert.ok(cost < threshold, `planned cost ${cost} passes jit_above_cost ${threshold}`);
 });
