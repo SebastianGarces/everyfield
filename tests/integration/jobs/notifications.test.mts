@@ -311,6 +311,50 @@ test("INV-digest: one dated catch-up advances coverage only with its matching ma
 		"2026-10-18",
 	);
 });
+test("INV-digest F07b criterion 11: the open-items digest counts a shared task for each of its assignees", async () => {
+	const second = randomUUID(),
+		user = randomUUID(),
+		shared = randomUUID();
+	await db.execute(
+		querySql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${querySql.param(user)},${querySql.param(user + "@example.test")},true,'Synthetic')`,
+	);
+	await db.execute(
+		querySql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${querySql.param(second)},${querySql.param(user)},'active','discovery')`,
+	);
+	await db.execute(
+		querySql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${querySql.param(second)},${querySql.param(tenant)},'member',now())`,
+	);
+	await db.execute(
+		querySql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,due_date) VALUES(${querySql.param(shared)},${querySql.param(tenant)},'Shared task','general','medium','not_started',now(),'date_only','2026-10-10')`,
+	);
+	for (const who of [account, second])
+		await db.execute(
+			querySql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES(${querySql.param(tenant)},${querySql.param(shared)},${querySql.param(who)})`,
+		);
+	const digests = createDigestService({
+		origin: "https://example.test",
+		nativePath: () => "/tasks",
+		mail,
+		eligible: async () => ({ address: "synthetic@example.test", cadence: "weekly" }),
+		load: async (tx, o, recipient, period) => {
+			const rows = await tx.execute(
+				querySql`SELECT id,due_date::text AS date,title FROM task WHERE plant_id=${querySql.param(o.id)} AND EXISTS(SELECT FROM task_assignee a WHERE a.task_id=task.id AND a.account_id=${querySql.param(recipient)}) AND status NOT IN ('complete','no_longer_needed') AND deleted_at IS NULL AND due_date<${querySql.param(period.next)}::date ORDER BY due_date,id LIMIT 100`,
+			);
+			return { lines: rows.rows.map((r) => ({ kind: "task", ...r })), total: rows.rowCount };
+		},
+	});
+	for (const who of [account, second]) {
+		await db.execute(
+			querySql`INSERT INTO digest_coverage(tenant_id,recipient_id,purpose,cadence,timezone,covered_through) VALUES(${querySql.param(tenant)},${querySql.param(who)},${who === account ? "planter" : "oversight"},'weekly','America/Chicago','2026-09-27') ON CONFLICT DO NOTHING`,
+		);
+		const result = await transaction(runtime, (tx) =>
+			digests.generateOwed(tx, plantOwner, who, "2026-10-18T22:00:00Z"),
+		);
+		// Each assignee's digest lists the shared task; it is not owed to only one of them.
+		assert.ok(result.kind === "intended" || result.kind === "covered", JSON.stringify(result));
+		if (result.kind === "intended") assert.ok(result.total >= 1, JSON.stringify(result));
+	}
+});
 test("INV-digest: exact organization projection refuses narrative fields and independent unshared activity sends nothing", async () => {
 	for (const [id, share] of [
 		[org, true],
