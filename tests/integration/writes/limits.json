@@ -246,13 +246,11 @@
 		"limit": 1
 	},
 	"brand.suggestColors": {
-		"limit": 9,
-		"reason": "Bytes are read back through readAuthorizedObject: one transaction checks the kit reference and the live seat, a second repeats it after the provider read so a revoked reader gets nothing, around the one kit statement. Its largest first run: 3 read, 4 transaction, 2 locked read."
+		"limit": 9
 	},
 	"branding/files.readBrandAsset": {
 		"limit": 8,
-		"retry": 4,
-		"reason": "The authorizer runs in two transactions around the provider read, so a revoked reader gets nothing. Its largest first run: 2 read, 4 transaction, 2 locked read. A repeated read measured 3 to 4 statements."
+		"retry": 4
 	},
 	"branding/files.uploadBrandAsset": {
 		"limit": 13,
