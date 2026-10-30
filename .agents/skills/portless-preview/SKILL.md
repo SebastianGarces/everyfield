@@ -22,7 +22,7 @@ Read the project's `.preview.json`. Commands are argv arrays, not shell strings.
 }
 ```
 
-Adapt commands to the project. Application databases and email services need their own disposable configuration. Optional `setup` requires idempotent `teardown`; both receive `PREVIEW_ID` and `PREVIEW_DATA_DIR`. The SQLite registry does not isolate application data. Development frameworks may load the worktree's `.env` files. An app whose auth trusts one origin sets that origin to `${PREVIEW_URL}` in the preview config `env`; Portless replaces it with the preview's own URL. Everyfield's `scripts/preview.json` sets `IDENTITY_ORIGIN` this way, so sign-in works on any new preview ID without env file edits. A preview started earlier keeps its old env until you run `stack:down` and `stack:up`.
+Adapt commands to the project. Application databases and email services need their own disposable configuration. Optional `setup` requires idempotent `teardown`; both receive `PREVIEW_ID` and `PREVIEW_DATA_DIR`. The SQLite registry does not isolate application data. Development frameworks may load the worktree's `.env` files. An app whose auth trusts one origin sets that origin to `${PREVIEW_URL}` in the preview config `env`; Portless replaces it with the preview's own URL.
 
 ```bash
 portless preview up --project /absolute/worktree --mode development --json
