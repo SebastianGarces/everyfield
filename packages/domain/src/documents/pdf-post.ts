@@ -1,4 +1,4 @@
-import { PDFDict, PDFDocument, PDFName, PDFRef, PDFString } from "pdf-lib";
+import { PDFArray, PDFDict, PDFDocument, PDFName, PDFNumber, PDFRef, PDFString } from "pdf-lib";
 
 /** Tooltip text for a field name. Names follow the layout files: `team_task_n`, `present_n` and plain keys. */
 const KNOWN: Record<string, string> = {
@@ -70,6 +70,7 @@ export async function finishForm(pdf: Uint8Array) {
 		}
 		fields.push({ name, type: sig ? "Sig" : field.constructor.name === "PDFCheckBox" ? "Btn" : "Tx", tooltip });
 	}
+	linkWidgetsToForms(doc);
 	const acro = doc.catalog.lookup(PDFName.of("AcroForm"));
 	if (acro instanceof PDFDict) {
 		const font = embeddedBodyFont(doc);
@@ -99,4 +100,50 @@ function embeddedBodyFont(doc: PDFDocument): PDFRef | null {
 		}
 	}
 	return null;
+}
+
+/**
+ * PDF/UA 7.18.4: a Form tag holds one object reference to its widget annotation. Forme 0.29 tags each field as a
+ * Form element over marked content and leaves the widget unlinked. Both lists are in reading order, so the n-th
+ * Form element and the n-th widget pair up; the pass does nothing when the counts differ.
+ */
+function linkWidgetsToForms(doc: PDFDocument) {
+	const root = doc.catalog.lookup(PDFName.of("StructTreeRoot"));
+	if (!(root instanceof PDFDict)) return;
+	const forms: { ref: PDFRef; dict: PDFDict }[] = [];
+	const walk = (node: unknown) => {
+		if (node instanceof PDFRef) {
+			const target = doc.context.lookup(node);
+			if (target instanceof PDFDict && target.get(PDFName.of("S")) === PDFName.of("Form"))
+				forms.push({ ref: node, dict: target });
+			else walk(target);
+		} else if (node instanceof PDFDict) walk(node.get(PDFName.of("K")));
+		else if (node instanceof PDFArray) for (const child of node.asArray()) walk(child);
+	};
+	walk(root.get(PDFName.of("K")));
+	const widgets: { ref: PDFRef; page: PDFRef; dict: PDFDict }[] = [];
+	for (const page of doc.getPages()) {
+		const annots = page.node.Annots();
+		if (!annots) continue;
+		for (const ref of annots.asArray()) {
+			const dict = doc.context.lookup(ref);
+			if (dict instanceof PDFDict && dict.get(PDFName.of("Subtype")) === PDFName.of("Widget")) {
+				widgets.push({ ref: ref as PDFRef, page: page.ref, dict });
+			}
+		}
+	}
+	const tree = root.lookup(PDFName.of("ParentTree"));
+	const nums = tree instanceof PDFDict ? tree.lookup(PDFName.of("Nums")) : undefined;
+	if (forms.length === 0 || forms.length !== widgets.length || !(nums instanceof PDFArray)) return;
+	let key = 0;
+	for (let i = 0; i < nums.size(); i += 2) key = Math.max(key, (nums.lookup(i, PDFNumber) as PDFNumber).asNumber() + 1);
+	forms.forEach((form, i) => {
+		const widget = widgets[i]!;
+		const objr = doc.context.obj({ Type: "OBJR", Obj: widget.ref, Pg: widget.page });
+		form.dict.set(PDFName.of("K"), doc.context.obj([objr]));
+		widget.dict.set(PDFName.of("StructParent"), PDFNumber.of(key));
+		nums.push(PDFNumber.of(key));
+		nums.push(form.ref);
+		key += 1;
+	});
 }

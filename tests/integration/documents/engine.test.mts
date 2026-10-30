@@ -273,6 +273,21 @@ describe("WP-036/api engine", () => {
 			assert.ok(doc.getTitle()?.includes(CHURCH), entry.id);
 			assert.ok(doc.catalog.get(PDFName.of("MarkInfo")), entry.id);
 			assert.ok(out.bytes.includes("Harborlight Church logo"), `${entry.id} lacks logo alt text`);
+			// PDF/UA 7.18.4: each widget has a StructParent and each Form tag holds one object reference.
+			const widgets = doc
+				.getForm()
+				.getFields()
+				.flatMap((field) => field.acroField.getWidgets());
+			for (const widget of widgets)
+				assert.ok(widget.dict.get(PDFName.of("StructParent")), `${entry.id} widget is not tagged`);
+			let forms = 0;
+			for (const [, obj] of doc.context.enumerateIndirectObjects()) {
+				if (obj instanceof PDFDict && obj.get(PDFName.of("S")) === PDFName.of("Form")) {
+					forms += 1;
+					assert.equal((obj.get(PDFName.of("K")) as PDFArray).size(), 1);
+				}
+			}
+			assert.equal(forms, widgets.length, entry.id);
 		}
 	});
 

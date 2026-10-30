@@ -52,8 +52,8 @@ export function agendaDocument(ctx: Ctx, spec: AgendaSpec) {
 				{ label: "Here", w: 34, align: "center" },
 			],
 			Array.from({ length: spec.attendeeRows }, (_, i) => [
-				Cellfield(`attendee_${offset + i + 1}_name`, 104, 14),
-				Cellfield(`attendee_${offset + i + 1}_role`, 64, 14),
+				Cellfield(`attendee_${offset + i + 1}_name`, 118, 14),
+				Cellfield(`attendee_${offset + i + 1}_role`, 74, 14),
 				<View key="b" style={{ alignItems: "center" }}>
 					{Box(ctx, `present_${offset + i + 1}`, 10, "ink")}
 				</View>,
