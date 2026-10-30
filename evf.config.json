@@ -1212,7 +1212,7 @@
 				"docs/schema/",
 				"docs/dependencies.json",
 				"docs/dependencies.md",
-				"docs/build-progress.json",
+
 				"docs/verification.json",
 				"docs/text-allowlist.json",
 				"docs/plan/dag.json",
