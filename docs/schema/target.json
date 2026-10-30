@@ -9287,8 +9287,6 @@
         "COM-011",
         "DOC-003",
         "DOC-016",
-        "DOC-022",
-        "DOC-023",
         "EVR-004",
         "EVR-011",
         "EVR-012",
@@ -15301,7 +15299,6 @@
       },
       "feature_ids": [
         "DOC-016",
-        "DOC-022",
         "LCH-006",
         "LCH-007",
         "LCH-008"
@@ -15662,7 +15659,6 @@
       },
       "feature_ids": [
         "DOC-016",
-        "DOC-022",
         "LCH-006",
         "LCH-007",
         "LCH-008"
@@ -16354,7 +16350,6 @@
         "DOC-003",
         "DOC-015",
         "DOC-016",
-        "DOC-023",
         "EVR-020",
         "EVR-025",
         "IDN-006",
@@ -16988,8 +16983,7 @@
         "rule": "WP-037 stores one saved catalog render. The plant owns the row. Creator attribution is not ownership."
       },
       "feature_ids": [
-        "DOC-003",
-        "DOC-023"
+        "DOC-003"
       ],
       "acceptance_ids": [
         "AC-DOC-003--DOC-003"
