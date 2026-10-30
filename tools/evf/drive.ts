@@ -836,7 +836,7 @@ export function taskSeats(
 		try {
 			const t = findTask(db, task);
 			if (!t) fail(`${task.id} has no open task row (never created, or abandoned). Create it with evf task new first.`);
-			if (t.status === "merged" || t.status === "done" || t.status === "abandoned")
+			if (t.status === "merged" || t.status === "done")
 				fail(`${t.ref} is ${t.status}; the override belongs to an open row.`);
 			const next = clear
 				? { model: null, effort: null }
