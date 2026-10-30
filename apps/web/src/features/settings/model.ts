@@ -4,6 +4,7 @@ import type { GetSectionRequest, NotificationChoice, SectionKey, SettingsError, 
 
 export const SECTION_ORDER: readonly SectionKey[] = [
 	"church",
+	"brand",
 	"organization",
 	"seats",
 	"notifications",
@@ -13,6 +14,7 @@ export const SECTION_ORDER: readonly SectionKey[] = [
 
 export const SECTION_LABEL: Record<SectionKey, string> = {
 	church: "Church profile",
+	brand: "Brand kit",
 	organization: "Organization profile",
 	seats: "Seats and invitations",
 	notifications: "Notifications",
@@ -21,7 +23,7 @@ export const SECTION_LABEL: Record<SectionKey, string> = {
 };
 
 /** The sections the product dialog shows. Seats and Sharing are pages of their own (/settings/seats, /sharing). */
-export const DIALOG_SECTIONS = ["church", "organization", "notifications", "account"] as const satisfies SectionKey[];
+export const DIALOG_SECTIONS = ["church", "brand", "organization", "notifications", "account"] as const satisfies SectionKey[];
 export type DialogSection = (typeof DIALOG_SECTIONS)[number];
 
 export function dialogSection(value: string | undefined): DialogSection | null {
@@ -35,13 +37,14 @@ export function parseSectionKey(value: string | undefined): SectionKey | null {
 /**
  * The sections this viewer is offered. The server checks authority again on every read and save; this only keeps a
  * section out of the nav when the viewer cannot use it. Church and organization profiles need an Owner or Admin of
- * that exact context; notifications and your account are always yours.
+ * that exact context, and so does the church brand kit; notifications and your account are always yours.
  */
 export function offeredSections(viewer: SettingsViewer, slots: readonly SectionKey[]): SectionKey[] {
 	const admin = viewer.context !== "account" && (viewer.role === "owner" || viewer.role === "admin");
 	return SECTION_ORDER.filter((key) => {
 		switch (key) {
 			case "church":
+			case "brand":
 				return viewer.context === "plant" && admin;
 			case "organization":
 				return viewer.context === "organization" && admin;
@@ -67,13 +70,18 @@ export function sectionAt(pathname: string, viewer: SettingsViewer | null): Dial
 	return dialogSection(/^\/settings\/([a-z]+)$/.exec(pathname)?.[1]);
 }
 
-/** The read a dialog section makes for this viewer; null when the viewer has no such profile. */
+/**
+ * The settings-section read a dialog section makes for this viewer; null when the viewer has no such profile, and for
+ * the brand kit, which has its own read (brand/).
+ */
 export function sectionRequest(viewer: SettingsViewer, section: DialogSection): GetSectionRequest | null {
 	switch (section) {
 		case "church":
 			return viewer.context === "plant" ? { section: "plant", plant: viewer.plant } : null;
 		case "organization":
 			return viewer.context === "organization" ? { section: "organization", organization: viewer.organization } : null;
+		case "brand":
+			return null;
 		case "notifications":
 		case "account":
 			return { section };

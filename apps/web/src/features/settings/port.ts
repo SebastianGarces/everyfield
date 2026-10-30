@@ -1,3 +1,4 @@
+import type * as B from "@everyfield/contracts/branding";
 import type * as S from "@everyfield/contracts/settings";
 import type * as N from "@everyfield/contracts/settings/native";
 import type { z } from "zod";
@@ -15,8 +16,13 @@ export type SavedSection = z.infer<typeof S.savedSectionResult>;
 export type SaveSectionRequest = z.input<typeof S.saveSectionRequest>;
 export type SaveChurchRequest = z.input<typeof S.saveChurchRequest>;
 export type GetSectionRequest = z.input<typeof S.getSectionRequest>;
-/** The section read the server started with the page at that section's address. */
-export type SectionSeed = { request: GetSectionRequest; value: Promise<Reply<SectionResult>> };
+/**
+ * The read the server started with the page at that section's address: a settings section, or the brand kit (which
+ * has its own contract and refusal codes).
+ */
+export type SectionSeed =
+	| { request: GetSectionRequest; value: Promise<Reply<SectionResult>> }
+	| { brand: Promise<BrandReply<BrandView>> };
 /** The exact plant or organization a section belongs to, as the requests take it. */
 export type PlantOwner = { kind: "plant"; id: string };
 export type OrganizationOwner = {
@@ -45,8 +51,17 @@ export type DeletionStatus = N.DeletionStatus;
 export type CredentialOutcome = z.infer<typeof N.credentialOutcome>;
 export type ChangePasswordRequest = z.input<typeof N.changePasswordRequest>;
 
+// The church brand kit (WP-104). Its operations and refusals come from the branding contract.
+export type BrandKit = B.BrandKit;
+export type BrandError = B.BrandError;
+export type BrandReply<T> = B.BrandReply<T>;
+export type SaveBrandRequest = z.input<typeof B.saveSettingsRequest>;
+export type ResetBrandRequest = z.input<typeof B.resetRequest>;
+/** The saved kit and the church name the preview sets in type in the logo slots. */
+export type BrandView = { kit: BrandKit; churchName: string };
+
 /** A section the dialog can show. Seats come from WP-008/ui through the same frame. */
-export type SectionKey = "church" | "organization" | "seats" | "notifications" | "sharing" | "account";
+export type SectionKey = "church" | "brand" | "organization" | "seats" | "notifications" | "sharing" | "account";
 
 /**
  * Who is looking and in which context. The server decides authority again on every call; this only chooses which
@@ -76,6 +91,14 @@ export interface SettingsPort {
 	setPlantTimezone(request: z.input<typeof S.setPlantTimezoneRequest>): Promise<Reply<PlantTimezoneResult>>;
 	/** Your photo, email, password, own time zone and deletion. */
 	flows: FlowPort;
+	/** The church brand kit: read, save one patch, reset. */
+	brand: BrandPort;
+}
+
+export interface BrandPort {
+	get(): Promise<BrandReply<BrandView>>;
+	save(request: SaveBrandRequest): Promise<BrandReply<BrandKit>>;
+	reset(request: ResetBrandRequest): Promise<BrandReply<BrandKit>>;
 }
 
 /** The photo flow. Its bytes need the private bucket (Q2), so a port without one leaves it out. */

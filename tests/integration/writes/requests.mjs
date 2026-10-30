@@ -304,6 +304,7 @@ try {
 		["GET /documents", "/documents", owner.cookie],
 		["GET /meetings", "/meetings", owner.cookie],
 		["GET /settings", "/settings", owner.cookie],
+		["GET /settings/brand", "/settings/brand", owner.cookie],
 		["GET /notifications", "/notifications", owner.cookie],
 		["GET /notifications/read?what=count", "/notifications/read?what=count", owner.cookie],
 		["GET /ministries", "/ministries", owner.cookie],
@@ -455,6 +456,16 @@ try {
 		},
 	]);
 	assert.equal(saved.status, "ok", JSON.stringify(saved));
+	// The brand kit: the first save creates the kit (revision 0), so the request writes one row and its audit row.
+	const brand = await act(
+		"POST settings.brand.saveSettings",
+		"/settings/brand",
+		"apps/web/src/features/settings/brand/actions.ts",
+		"saveBrand",
+		[{ expectedRevision: "0", patch: { primaryColor: "#1F4E79" } }],
+	);
+	assert.equal(brand.status, "ok", JSON.stringify(brand));
+	assert.equal(brand.value.revision, "1");
 
 	// More data than one screen shows: the same pages must send the same statements.
 	for (let i = 0; i < 30; i++) await person(`Grown ${String(i).padStart(2, "0")}`);
