@@ -1246,6 +1246,21 @@
 				}
 			],
 			"risk": "ordinary"
+		},
+		"OPS-80": {
+			"title": "Document-template PRs need Sebastian's owner approval (evf refuses to auto-ship)",
+			"owningPaths": ["tools/evf/", "evf.config.json", "AGENTS.md", ".agents/roles/", ".agents/skills/", "docs/build-agent-workflow.md"],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {
