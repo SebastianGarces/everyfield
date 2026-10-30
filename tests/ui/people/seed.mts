@@ -3,8 +3,8 @@
 // through the identity service, creates a church through the onboarding producer and adds people through the People
 // producer, the same code the screens call.
 //
-//   up:   node --env-file=<home apps/web/.env.local> --conditions=react-server --experimental-transform-types tests/ui/people/seed.mts up <preview-url>
-//   down: node --env-file=<home apps/web/.env.local> --conditions=react-server --experimental-transform-types tests/ui/people/seed.mts down
+//   up:   node --env-file=<home apps/web/.env.local> --conditions=react-server --import tsx tests/ui/people/seed.mts up <preview-url>
+//   down: node --env-file=<home apps/web/.env.local> --conditions=react-server --import tsx tests/ui/people/seed.mts down
 //
 // `up` writes the session cookies and IDs the browser tests need to $PEOPLE_UI_FIXTURE (default
 // /tmp/everyfield-people-ui.json). `down` deletes it and drops the shared schema when no other seed still uses it.
