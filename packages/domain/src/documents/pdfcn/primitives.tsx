@@ -1,12 +1,5 @@
-import {
-	Fixed as FormeFixed,
-	Image as FormeImage,
-	Link as FormeLink,
-	StyleSheet,
-	Text as FormeText,
-	View as FormeView,
-} from "@formepdf/react";
-import type { FixedProps, ImageProps, LinkProps, Style, TextProps, ViewProps } from "@formepdf/react";
+import { StyleSheet, Text as FormeText, View as FormeView } from "@formepdf/react";
+import type { Style, TextProps, ViewProps } from "@formepdf/react";
 
 export type FormeStyleInput = Style | false | null | undefined | readonly FormeStyleInput[];
 
@@ -38,18 +31,6 @@ export const View = ({ style, ...props }: WithStyle<ViewProps>) => (
 
 export const Text = ({ style, ...props }: WithStyle<TextProps>) => (
 	<FormeText {...props} style={mergeFormeStyles(style)} />
-);
-
-export const Link = ({ style, ...props }: WithStyle<LinkProps>) => (
-	<FormeLink {...props} style={mergeFormeStyles(style)} />
-);
-
-export const Image = ({ style, ...props }: WithStyle<ImageProps>) => (
-	<FormeImage {...props} style={mergeFormeStyles(style)} />
-);
-
-export const Fixed = ({ style, ...props }: WithStyle<FixedProps>) => (
-	<FormeFixed {...props} style={mergeFormeStyles(style)} />
 );
 
 export { StyleSheet };
