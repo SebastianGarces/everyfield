@@ -1,1101 +1,1595 @@
 {
-	"baseBranch": "main",
-	"remote": "origin",
-	"worktreeDir": ".worktrees",
-	"statusContext": "evf/verify",
-	"maxAgentsMdLines": 150,
-	"stack": {
-		"usesPaidProviders": false,
-		"up": ["node", "scripts/stack.mjs", "up"],
-		"status": ["node", "scripts/stack.mjs", "status"],
-		"down": ["node", "scripts/stack.mjs", "down"]
-	},
-	"checks": [
-		{
-			"name": "workflow-regressions",
-			"run": ["bin/evf", "test"]
-		},
-		{
-			"name": "documentation",
-			"run": ["python3", "docs/check-all.py"]
-		},
-		{
-			"name": "local-app",
-			"run": ["corepack", "pnpm", "check"]
-		},
-		{
-			"name": "package-unit-tests",
-			"run": ["corepack", "pnpm", "-r", "--if-present", "test:unit"]
-		},
-		{
-			"name": "format",
-			"run": ["corepack", "pnpm", "format:check"]
-		}
-	],
-	"principles": {
-		"repo": "cursor/plugins",
-		"path": "pstack/skills",
-		"prefix": "principle-",
-		"ref": "main",
-		"license": "pstack/LICENSE",
-		"checkEveryDays": 7
-	},
-	"feedback": {
-		"repo": null,
-		"botAuthor": null,
-		"triageAuthors": [],
-		"dailyFixLimit": 3,
-		"internalLabel": "from-feedback",
-		"triageCron": "0 13 * * *",
-		"botAuthorId": null,
-		"triageActorIds": [],
-		"startApprovals": [],
-		"overLimitApprovals": [],
-		"ownerActorIds": [],
-		"promotionApprovals": [],
-		"replyApprovals": {},
-		"publicAreas": [],
-		"publicTemplates": []
-	},
-	"mergePolicy": {
-		"ordinary": "automatic-after-independent-review",
-		"feedbackVerifierMerge": ["p0", "p1"],
-		"feedbackOwnerAfterVerifier": ["p2", "p3"],
-		"feedbackPrototypes": "owner-merge",
-		"humanApproved": "evf-approve-after-owner-chat-approval",
-		"ordinaryApproval": {
-			"sourceMessageId": "Sentinel_ba84c52d1db0819187f0c9dd1a1c0165",
-			"approvedAtUtc": "2026-10-13T23:37:00Z",
-			"scope": "Ordinary build PRs only, after required final-head tests, independent approved review and applicable gates; no app kickoff or external setup authority."
-		},
-		"feedbackApproval": {
-			"approvedAtUtc": "2026-10-16T01:27:45Z",
-			"scope": "P0 and P1 feedback bug fixes merge through the cross-model verifier like ordinary builds. P2 and P3 get the same full verification, then wait for Sebastian's chat approval before an agent merges them with evf approve. Prototypes need Sebastian's approval."
-		},
-		"wikiApproval": {
-			"approvedAtUtc": "2026-10-15T18:52:26Z",
-			"scope": "Wiki article PRs never merge automatically and need no evf/verify; the Wiki workflow's own Opus review is their check. After Sebastian approves a PR in chat, the agent merges it with evf approve."
-		},
-		"sensitive": "owner-escalation-required"
-	},
-	"maintenanceTasks": {
-		"OPS-1": {
-			"title": "Phase 7 follow-ups",
-			"owningPaths": [
-				"AGENTS.md",
-				".agents/skills/verify/",
-				".agents/skills/verify-preview/",
-				".agents/roles/",
-				".github/workflows/fail-forward.yml",
-				".github/scripts/fail-forward.cjs",
-				".github/scripts/fail-forward.test.cjs",
-				".github/scripts/internal-feedback-queue.cjs",
-				".github/scripts/internal-feedback-queue.test.cjs",
-				"docs/plan/release-gates.json",
-				"tools/evf/tests/reconciliation.test.ts"
-			],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				},
-				{
-					"name": "reporter-tests",
-					"run": [
-						"node",
-						"--test",
-						".github/scripts/fail-forward.test.cjs",
-						".github/scripts/internal-feedback-queue.test.cjs"
-					]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-2": {
-			"title": "Record the implementation kickoff",
-			"owningPaths": ["docs/plan/release-gates.json"],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-3": {
-			"title": "evf fixes",
-			"owningPaths": ["tools/evf/", ".github/workflows/pr-body.yml"],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-4": {
-			"title": "Skill provenance and principle refresh",
-			"owningPaths": [
-				"skills-lock.json",
-				".agents/licenses/pstack-LICENSE",
-				".agents/skills/principle-attack-the-premise/",
-				".agents/skills/principle-fix-root-causes/",
-				".agents/skills/principle-make-operations-idempotent/",
-				".agents/skills/principle-migrate-callers-then-delete-legacy-apis/",
-				".agents/skills/principle-test-behavior-not-implementation/",
-				".agents/skills/principle-type-system-discipline/"
-			],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-5": {
-			"title": "Case checker counts",
-			"owningPaths": ["docs/acceptance/"],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-6": {
-			"title": "Tooling follow-ups",
-			"owningPaths": [
-				".agents/skills/everyfield-pr/SKILL.md",
-				"tools/evf/",
-				"docs/acceptance/",
-				".github/workflows/ci.yml"
-			],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-7": {
-			"title": "Transfer generated build progress",
-			"owningPaths": ["docs/build-progress.json"],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-8": {
-			"title": "Browser cleanup, agent-browser and process hygiene",
-			"owningPaths": [
-				"tools/evf/",
-				".agents/skills/verify-preview/",
-				".agents/skills/agent-browser/",
-				".agents/roles/",
-				"skills-lock.json",
-				".gitignore"
-			],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-9": {
-			"title": "evf verify targeting, push guard, build lock and gc safety",
-			"owningPaths": ["tools/evf/", "evf.config.json"],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-10": {
-			"title": "evf foreground checks and CI test coverage",
-			"owningPaths": ["tools/evf/", "evf.config.json", ".github/workflows/ci.yml"],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-11": {
-			"title": "Code quality section in every review",
-			"owningPaths": [
-				"tools/evf/",
-				"evf.config.json",
-				".agents/roles/verifier.md",
-				".agents/skills/verify-preview/",
-				".agents/skills/ship/SKILL.md"
-			],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-14": {
-			"title": "Build plan keeps only features, dependencies and acceptance",
-			"owningPaths": [
-				"docs/plan/",
-				"docs/package-context.py",
-				"tools/evf/tests/reconciliation.test.ts",
-				"evf.config.json"
-			],
-			"checks": [
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				},
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-13": {
-			"title": "Docs: requirements describe the end state",
-			"owningPaths": [
-				"evf.config.json",
-				"everyfield-feature-review.html",
-				"tools/evf/policy.ts",
-				"tools/evf/tests/reconciliation.test.ts",
-				"docs/catalog/",
-				"docs/acceptance/",
-				"docs/product/",
-				"docs/architecture/"
-			],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-12": {
-			"title": "Verification checks budget and smoothness",
-			"owningPaths": ["tools/evf/", "evf.config.json", "AGENTS.md", ".agents/roles/", ".agents/skills/verify-preview/"],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-15": {
-			"title": "Small evf fixes collected today",
-			"owningPaths": [
-				"tools/evf/",
-				".agents/skills/verify-preview/scripts/",
-				"docs/package-context.py",
-				"evf.config.json"
-			],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-16": {
-			"title": "Docs pass: Discovery Wiki access and pending wording fixes",
-			"owningPaths": [
-				"evf.config.json",
-				"everyfield-feature-review.html",
-				"docs/catalog/",
-				"docs/product/",
-				"docs/architecture/"
-			],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-18": {
-			"title": "Let OPS tasks own design/handoff/screens.md",
-			"owningPaths": ["tools/evf/", "evf.config.json"],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-17": {
-			"title": "Apply the S1 plan review",
-			"owningPaths": [
-				"evf.config.json",
-				"everyfield-feature-review.html",
-				"design/handoff/screens.md",
-				"docs/plan/",
-				"docs/catalog/",
-				"docs/acceptance/",
-				"docs/package-context.py",
-				"docs/architecture/",
-				"docs/schema/",
-				".agents/skills/portless-preview/SKILL.md"
-			],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-19": {
-			"title": "Give the progress ledger one committed owner",
-			"owningPaths": ["tools/evf/", "evf.config.json", "docs/build-agent-workflow.md"],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-20": {
-			"title": "Fold contract parts into api parts",
-			"owningPaths": [
-				"tools/evf/",
-				"evf.config.json",
-				"AGENTS.md",
-				".agents/roles/ui-designer.md",
-				"docs/build-agent-workflow.md",
-				"docs/refresh-explorer-plan.py"
-			],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-21": {
-			"title": "Route design-only PRs",
-			"owningPaths": ["tools/evf/", "evf.config.json", ".agents/skills/ship/SKILL.md"],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-22": {
-			"title": "evf reads OPS registrations from the task branch",
-			"owningPaths": ["tools/evf/", ".agents/roles/", "evf.config.json"],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-23": {
-			"title": "Raise the preview limit to four",
-			"owningPaths": [
-				".agents/skills/portless-preview/SKILL.md",
-				".agents/skills/verify-preview/SKILL.md",
-				"docs/architecture/decisions.md",
-				"evf.config.json"
-			],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-24": {
-			"title": "Evidence uploads use their own Tigris key",
-			"owningPaths": [".agents/skills/verify-preview/", "evf.config.json"],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-25": {
-			"title": "Live access check inside every tenant read",
-			"owningPaths": ["docs/architecture/patterns.md", "docs/architecture/decisions.md", "evf.config.json"],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-30": {
-			"title": "Velocity audit proposals in evf and skills",
-			"owningPaths": [
-				"tools/evf/",
-				".agents/skills/ship/SKILL.md",
-				".agents/skills/verify-preview/",
-				".agents/skills/test-standard/SKILL.md",
-				"docs/architecture/decisions.md",
-				"docs/architecture/patterns.md",
-				"evf.config.json"
-			],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-32": {
-			"title": "Each evf fresh-checkout run uses its own temporary worktree",
-			"owningPaths": ["tools/evf/", "evf.config.json"],
-			"checks": [
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-31": {
-			"title": "evf progress accepts a valid EVF-Carry ship",
-			"owningPaths": ["tools/evf/", "evf.config.json"],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-33": {
-			"title": "Evidence publisher never reads .env.prod",
-			"owningPaths": [".agents/skills/verify-preview/", "tools/evf/tests/publish.test.ts", "evf.config.json"],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-34": {
-			"title": "Node.js October 2026 security release in the project",
-			"owningPaths": [
-				".github/workflows/ci.yml",
-				".github/workflows/pr-body.yml",
-				".github/scripts/corepack-install.sh",
-				"evf.config.json"
-			],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-40": {
-			"title": "evf ship queue, CI db matrix and machine load limit",
-			"owningPaths": [
-				"tools/evf/",
-				".github/",
-				".agents/skills/ship/SKILL.md",
-				".agents/skills/verify-preview/",
-				".agents/skills/portless-preview/",
-				"docs/architecture/decisions.md",
-				"evf.config.json"
-			],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-41": {
-			"title": "Wiki CI installs Chromium without apt",
-			"owningPaths": [".github/workflows/ci.yml", "evf.config.json"],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-43": {
-			"title": "Grok Build (xAI) as the second model family in evf",
-			"owningPaths": [
-				"evf.config.json",
-				"tools/evf/",
-				".agents/roles/",
-				".agents/skills/everyfield-pr/",
-				".agents/skills/ship/SKILL.md",
-				".agents/skills/verify-preview/",
-				".agents/skills/wiki-article/SKILL.md"
-			],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-44": {
-			"title": "Everyfield spelling in docs and workflow files, and register WP-103",
-			"owningPaths": [
-				"AGENTS.md",
-				"README.md",
-				"skills-lock.json",
-				"bin/evf",
-				"evf.config.json",
-				"everyfield-feature-review.html",
-				".agents/roles/ui-designer.md",
-				".agents/skills/everyfield-pr/",
-				".agents/skills/verify-preview/SKILL.md",
-				".agents/skills/wiki-article/SKILL.md",
-				"tools/evf/",
-				"docs/START-HERE.md",
-				"docs/architecture/",
-				"docs/product/",
-				"docs/catalog/",
-				"docs/schema/capabilities/a-identity-people-teams-ops.json",
-				"docs/schema/schema-diagram.html",
-				"docs/text-allowlist.json",
-				"docs/check-text.py",
-				"docs/check-all.py",
-				"docs/package-context.py",
-				"docs/render-build-explorer.py",
-				"docs/acceptance/operations.json",
-				"docs/plan/dag.json",
-				"docs/plan/build-plan.md",
-				"docs/plan/context-manifest.json"
-			],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-45": {
-			"title": "Everyfield spelling in the marketing prototype",
-			"route": "design",
-			"owningPaths": ["design/everyfield-marketing.html"],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-46": {
-			"title": "Trim the brand guard kept-path list",
-			"owningPaths": ["docs/text-allowlist.json", "docs/check-text.py", "evf.config.json"],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-52": {
-			"title": "Timing command, quiet timing database, CI shards, push path and ID reservation",
-			"owningPaths": [
-				"evf.config.json",
-				"tools/evf/",
-				".github/",
-				".claude/settings.json",
-				".agents/roles/",
-				".agents/skills/verify-preview/",
-				".agents/skills/portless-preview/",
-				".agents/skills/ship/SKILL.md",
-				"AGENTS.md",
-				"docs/architecture/decisions.md"
-			],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-54": {
-			"title": "Ship waits for every required check to exist and pass",
-			"owningPaths": ["evf.config.json", "tools/evf/"],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-53": {
-			"title": "Quiet-database evf test races Docker",
-			"owningPaths": ["evf.config.json", "tools/evf/"],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-55": {
-			"title": "Let Grok review Grok work until Oct 27",
-			"owningPaths": [
-				"tools/evf/",
-				".agents/skills/verify-preview/",
-				".agents/skills/ship/SKILL.md",
-				".agents/skills/everyfield-pr/SKILL.md"
-			],
-			"checks": [
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-56": {
-			"title": "Independent review by session, model and seat (D82); dormant merge_group trigger",
-			"owningPaths": [
-				"tools/evf/",
-				"evf.config.json",
-				".agents/skills/ship/SKILL.md",
-				".agents/skills/verify-preview/",
-				".agents/skills/everyfield-pr/",
-				".agents/skills/verify/SKILL.md",
-				".agents/roles/",
-				"AGENTS.md",
-				".github/",
-				"docs/architecture/decisions.md"
-			],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				},
-				{
-					"name": "reporter-tests",
-					"run": [
-						"node",
-						"--test",
-						".github/scripts/fail-forward.test.cjs",
-						".github/scripts/internal-feedback-queue.test.cjs"
-					]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-57": {
-			"title": "Harness work store: sqlite under the git common dir, goals sync, progress seed, evf status",
-			"owningPaths": ["tools/evf/", "evf.config.json", ".claude/settings.json", "docs/plan/release-gates.json"],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-58": {
-			"title": "Harness seats: evf launch, role agent files, settings denies and hooks, refocus, session",
-			"owningPaths": ["tools/evf/", "evf.config.json", ".claude/", "AGENTS.md"],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-59": {
-			"title": "Harness drive loop: evf drive, next, run done, task new and spec, proofs, check, ask planner, loop cap",
-			"owningPaths": ["tools/evf/", "evf.config.json", ".claude/"],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-60": {
-			"title": "Harness prototype mode: three blind idea seats, comparison, pick, Opus merge and handoff",
-			"owningPaths": ["tools/evf/", "evf.config.json", ".claude/"],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-61": {
-			"title": "Harness live TUI: Rust evf-tui crate, evf tui builds and runs it",
-			"owningPaths": ["tools/evf/", "tools/evf-tui/", "evf.config.json", ".gitignore"],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-62": {
-			"title": "Policy: tools/evf-tui/ is a maintenance owning path",
-			"owningPaths": ["tools/evf/", "evf.config.json"],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-63": {
-			"title": "Agent rule: clickable elements show cursor-pointer (S2 review task 29a)",
-			"owningPaths": ["AGENTS.md", "evf.config.json"],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-64": {
-			"title": "Seats see the full spec: no silent truncation of Done criteria in session context",
-			"owningPaths": [
-				"tools/evf/",
-				"evf.config.json",
-				".agents/roles/",
-				".agents/skills/verify/",
-				".agents/skills/verify-preview/"
-			],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-66": {
-			"title": "No ghost task rows after a ship; standalone ship marks the row merged",
-			"owningPaths": ["tools/evf/", "tools/evf-tui/", "evf.config.json"],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-67": {
-			"title": "Ship acknowledges the milestone; seats wait for a ready pane shell",
-			"owningPaths": [
-				"tools/evf/",
-				"evf.config.json",
-				"AGENTS.md",
-				".agents/roles/coordinator.md",
-				".agents/skills/ship/SKILL.md",
-				"docs/build-agent-workflow.md"
-			],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-68": {
-			"title": "An explicit reopen resets the trailing-failure count",
-			"owningPaths": ["tools/evf/", "evf.config.json"],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-65": {
-			"title": "Seats start in auto mode, as split panes in the TUI workspace",
-			"owningPaths": ["tools/evf/", "tools/evf-tui/", ".claude/agents/", ".claude/settings.json", "evf.config.json"],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-70": {
-			"title": "Lean evf pipeline: fold evidence into implementer, verifier spot-checks, fewer guards",
-			"owningPaths": [
-				"tools/evf/",
-				"tools/evf-tui/",
-				"evf.config.json",
-				"AGENTS.md",
-				".agents/roles/",
-				".agents/skills/",
-				".claude/agents/",
-				".claude/settings.json",
-				"docs/build-agent-workflow.md"
-			],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		},
-		"OPS-71": {
-			"title": "Test environment hygiene: no leaked timing volumes, seeds coexist with preview, no git-push ask rule",
-			"owningPaths": ["tools/evf/", ".agents/skills/verify-preview/", ".claude/settings.json", "evf.config.json"],
-			"checks": [
-				{
-					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
-				},
-				{
-					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
-				}
-			],
-			"risk": "ordinary"
-		}
-	},
-	"internalFeedback": {
-		"repo": "SebastianGarces/everyfield",
-		"priorities": ["P0", "P1"],
-		"triageCron": "*/5 * * * *"
-	}
+    "baseBranch": "main",
+    "remote": "origin",
+    "worktreeDir": ".worktrees",
+    "statusContext": "evf/verify",
+    "maxAgentsMdLines": 150,
+    "stack": {
+        "usesPaidProviders": false,
+        "up": [
+            "node",
+            "scripts/stack.mjs",
+            "up"
+        ],
+        "status": [
+            "node",
+            "scripts/stack.mjs",
+            "status"
+        ],
+        "down": [
+            "node",
+            "scripts/stack.mjs",
+            "down"
+        ]
+    },
+    "checks": [
+        {
+            "name": "workflow-regressions",
+            "run": [
+                "bin/evf",
+                "test"
+            ]
+        },
+        {
+            "name": "documentation",
+            "run": [
+                "python3",
+                "docs/check-all.py"
+            ]
+        },
+        {
+            "name": "local-app",
+            "run": [
+                "corepack",
+                "pnpm",
+                "check"
+            ]
+        },
+        {
+            "name": "package-unit-tests",
+            "run": [
+                "corepack",
+                "pnpm",
+                "-r",
+                "--if-present",
+                "test:unit"
+            ]
+        },
+        {
+            "name": "format",
+            "run": [
+                "corepack",
+                "pnpm",
+                "format:check"
+            ]
+        }
+    ],
+    "principles": {
+        "repo": "cursor/plugins",
+        "path": "pstack/skills",
+        "prefix": "principle-",
+        "ref": "main",
+        "license": "pstack/LICENSE",
+        "checkEveryDays": 7
+    },
+    "feedback": {
+        "repo": null,
+        "botAuthor": null,
+        "triageAuthors": [],
+        "dailyFixLimit": 3,
+        "internalLabel": "from-feedback",
+        "triageCron": "0 13 * * *",
+        "botAuthorId": null,
+        "triageActorIds": [],
+        "startApprovals": [],
+        "overLimitApprovals": [],
+        "ownerActorIds": [],
+        "promotionApprovals": [],
+        "replyApprovals": {},
+        "publicAreas": [],
+        "publicTemplates": []
+    },
+    "mergePolicy": {
+        "ordinary": "automatic-after-independent-review",
+        "feedbackVerifierMerge": [
+            "p0",
+            "p1"
+        ],
+        "feedbackOwnerAfterVerifier": [
+            "p2",
+            "p3"
+        ],
+        "feedbackPrototypes": "owner-merge",
+        "humanApproved": "evf-approve-after-owner-chat-approval",
+        "ordinaryApproval": {
+            "sourceMessageId": "Sentinel_ba84c52d1db0819187f0c9dd1a1c0165",
+            "approvedAtUtc": "2026-10-13T23:37:00Z",
+            "scope": "Ordinary build PRs only, after required final-head tests, independent approved review and applicable gates; no app kickoff or external setup authority."
+        },
+        "feedbackApproval": {
+            "approvedAtUtc": "2026-10-16T01:27:45Z",
+            "scope": "P0 and P1 feedback bug fixes merge through the cross-model verifier like ordinary builds. P2 and P3 get the same full verification, then wait for Sebastian's chat approval before an agent merges them with evf approve. Prototypes need Sebastian's approval."
+        },
+        "wikiApproval": {
+            "approvedAtUtc": "2026-10-15T18:52:26Z",
+            "scope": "Wiki article PRs never merge automatically and need no evf/verify; the Wiki workflow's own Opus review is their check. After Sebastian approves a PR in chat, the agent merges it with evf approve."
+        },
+        "sensitive": "owner-escalation-required"
+    },
+    "maintenanceTasks": {
+        "OPS-1": {
+            "title": "Phase 7 follow-ups",
+            "owningPaths": [
+                "AGENTS.md",
+                ".agents/skills/verify/",
+                ".agents/skills/verify-preview/",
+                ".agents/roles/",
+                ".github/workflows/fail-forward.yml",
+                ".github/scripts/fail-forward.cjs",
+                ".github/scripts/fail-forward.test.cjs",
+                ".github/scripts/internal-feedback-queue.cjs",
+                ".github/scripts/internal-feedback-queue.test.cjs",
+                "docs/plan/release-gates.json",
+                "tools/evf/tests/reconciliation.test.ts"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                },
+                {
+                    "name": "reporter-tests",
+                    "run": [
+                        "node",
+                        "--test",
+                        ".github/scripts/fail-forward.test.cjs",
+                        ".github/scripts/internal-feedback-queue.test.cjs"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-2": {
+            "title": "Record the implementation kickoff",
+            "owningPaths": [
+                "docs/plan/release-gates.json"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-3": {
+            "title": "evf fixes",
+            "owningPaths": [
+                "tools/evf/",
+                ".github/workflows/pr-body.yml"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-4": {
+            "title": "Skill provenance and principle refresh",
+            "owningPaths": [
+                "skills-lock.json",
+                ".agents/licenses/pstack-LICENSE",
+                ".agents/skills/principle-attack-the-premise/",
+                ".agents/skills/principle-fix-root-causes/",
+                ".agents/skills/principle-make-operations-idempotent/",
+                ".agents/skills/principle-migrate-callers-then-delete-legacy-apis/",
+                ".agents/skills/principle-test-behavior-not-implementation/",
+                ".agents/skills/principle-type-system-discipline/"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-5": {
+            "title": "Case checker counts",
+            "owningPaths": [
+                "docs/acceptance/"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-6": {
+            "title": "Tooling follow-ups",
+            "owningPaths": [
+                ".agents/skills/everyfield-pr/SKILL.md",
+                "tools/evf/",
+                "docs/acceptance/",
+                ".github/workflows/ci.yml"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-7": {
+            "title": "Transfer generated build progress",
+            "owningPaths": [
+                "docs/build-progress.json"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-8": {
+            "title": "Browser cleanup, agent-browser and process hygiene",
+            "owningPaths": [
+                "tools/evf/",
+                ".agents/skills/verify-preview/",
+                ".agents/skills/agent-browser/",
+                ".agents/roles/",
+                "skills-lock.json",
+                ".gitignore"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-9": {
+            "title": "evf verify targeting, push guard, build lock and gc safety",
+            "owningPaths": [
+                "tools/evf/",
+                "evf.config.json"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-10": {
+            "title": "evf foreground checks and CI test coverage",
+            "owningPaths": [
+                "tools/evf/",
+                "evf.config.json",
+                ".github/workflows/ci.yml"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-11": {
+            "title": "Code quality section in every review",
+            "owningPaths": [
+                "tools/evf/",
+                "evf.config.json",
+                ".agents/roles/verifier.md",
+                ".agents/skills/verify-preview/",
+                ".agents/skills/ship/SKILL.md"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-14": {
+            "title": "Build plan keeps only features, dependencies and acceptance",
+            "owningPaths": [
+                "docs/plan/",
+                "docs/package-context.py",
+                "tools/evf/tests/reconciliation.test.ts",
+                "evf.config.json"
+            ],
+            "checks": [
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                },
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-13": {
+            "title": "Docs: requirements describe the end state",
+            "owningPaths": [
+                "evf.config.json",
+                "everyfield-feature-review.html",
+                "tools/evf/policy.ts",
+                "tools/evf/tests/reconciliation.test.ts",
+                "docs/catalog/",
+                "docs/acceptance/",
+                "docs/product/",
+                "docs/architecture/"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-12": {
+            "title": "Verification checks budget and smoothness",
+            "owningPaths": [
+                "tools/evf/",
+                "evf.config.json",
+                "AGENTS.md",
+                ".agents/roles/",
+                ".agents/skills/verify-preview/"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-15": {
+            "title": "Small evf fixes collected today",
+            "owningPaths": [
+                "tools/evf/",
+                ".agents/skills/verify-preview/scripts/",
+                "docs/package-context.py",
+                "evf.config.json"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-16": {
+            "title": "Docs pass: Discovery Wiki access and pending wording fixes",
+            "owningPaths": [
+                "evf.config.json",
+                "everyfield-feature-review.html",
+                "docs/catalog/",
+                "docs/product/",
+                "docs/architecture/"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-18": {
+            "title": "Let OPS tasks own design/handoff/screens.md",
+            "owningPaths": [
+                "tools/evf/",
+                "evf.config.json"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-17": {
+            "title": "Apply the S1 plan review",
+            "owningPaths": [
+                "evf.config.json",
+                "everyfield-feature-review.html",
+                "design/handoff/screens.md",
+                "docs/plan/",
+                "docs/catalog/",
+                "docs/acceptance/",
+                "docs/package-context.py",
+                "docs/architecture/",
+                "docs/schema/",
+                ".agents/skills/portless-preview/SKILL.md"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-19": {
+            "title": "Give the progress ledger one committed owner",
+            "owningPaths": [
+                "tools/evf/",
+                "evf.config.json",
+                "docs/build-agent-workflow.md"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-20": {
+            "title": "Fold contract parts into api parts",
+            "owningPaths": [
+                "tools/evf/",
+                "evf.config.json",
+                "AGENTS.md",
+                ".agents/roles/ui-designer.md",
+                "docs/build-agent-workflow.md",
+                "docs/refresh-explorer-plan.py"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-21": {
+            "title": "Route design-only PRs",
+            "owningPaths": [
+                "tools/evf/",
+                "evf.config.json",
+                ".agents/skills/ship/SKILL.md"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-22": {
+            "title": "evf reads OPS registrations from the task branch",
+            "owningPaths": [
+                "tools/evf/",
+                ".agents/roles/",
+                "evf.config.json"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-23": {
+            "title": "Raise the preview limit to four",
+            "owningPaths": [
+                ".agents/skills/portless-preview/SKILL.md",
+                ".agents/skills/verify-preview/SKILL.md",
+                "docs/architecture/decisions.md",
+                "evf.config.json"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-24": {
+            "title": "Evidence uploads use their own Tigris key",
+            "owningPaths": [
+                ".agents/skills/verify-preview/",
+                "evf.config.json"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-25": {
+            "title": "Live access check inside every tenant read",
+            "owningPaths": [
+                "docs/architecture/patterns.md",
+                "docs/architecture/decisions.md",
+                "evf.config.json"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-30": {
+            "title": "Velocity audit proposals in evf and skills",
+            "owningPaths": [
+                "tools/evf/",
+                ".agents/skills/ship/SKILL.md",
+                ".agents/skills/verify-preview/",
+                ".agents/skills/test-standard/SKILL.md",
+                "docs/architecture/decisions.md",
+                "docs/architecture/patterns.md",
+                "evf.config.json"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-32": {
+            "title": "Each evf fresh-checkout run uses its own temporary worktree",
+            "owningPaths": [
+                "tools/evf/",
+                "evf.config.json"
+            ],
+            "checks": [
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-31": {
+            "title": "evf progress accepts a valid EVF-Carry ship",
+            "owningPaths": [
+                "tools/evf/",
+                "evf.config.json"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-33": {
+            "title": "Evidence publisher never reads .env.prod",
+            "owningPaths": [
+                ".agents/skills/verify-preview/",
+                "tools/evf/tests/publish.test.ts",
+                "evf.config.json"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-34": {
+            "title": "Node.js October 2026 security release in the project",
+            "owningPaths": [
+                ".github/workflows/ci.yml",
+                ".github/workflows/pr-body.yml",
+                ".github/scripts/corepack-install.sh",
+                "evf.config.json"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-40": {
+            "title": "evf ship queue, CI db matrix and machine load limit",
+            "owningPaths": [
+                "tools/evf/",
+                ".github/",
+                ".agents/skills/ship/SKILL.md",
+                ".agents/skills/verify-preview/",
+                ".agents/skills/portless-preview/",
+                "docs/architecture/decisions.md",
+                "evf.config.json"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-41": {
+            "title": "Wiki CI installs Chromium without apt",
+            "owningPaths": [
+                ".github/workflows/ci.yml",
+                "evf.config.json"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-43": {
+            "title": "Grok Build (xAI) as the second model family in evf",
+            "owningPaths": [
+                "evf.config.json",
+                "tools/evf/",
+                ".agents/roles/",
+                ".agents/skills/everyfield-pr/",
+                ".agents/skills/ship/SKILL.md",
+                ".agents/skills/verify-preview/",
+                ".agents/skills/wiki-article/SKILL.md"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-44": {
+            "title": "Everyfield spelling in docs and workflow files, and register WP-103",
+            "owningPaths": [
+                "AGENTS.md",
+                "README.md",
+                "skills-lock.json",
+                "bin/evf",
+                "evf.config.json",
+                "everyfield-feature-review.html",
+                ".agents/roles/ui-designer.md",
+                ".agents/skills/everyfield-pr/",
+                ".agents/skills/verify-preview/SKILL.md",
+                ".agents/skills/wiki-article/SKILL.md",
+                "tools/evf/",
+                "docs/START-HERE.md",
+                "docs/architecture/",
+                "docs/product/",
+                "docs/catalog/",
+                "docs/schema/capabilities/a-identity-people-teams-ops.json",
+                "docs/schema/schema-diagram.html",
+                "docs/text-allowlist.json",
+                "docs/check-text.py",
+                "docs/check-all.py",
+                "docs/package-context.py",
+                "docs/render-build-explorer.py",
+                "docs/acceptance/operations.json",
+                "docs/plan/dag.json",
+                "docs/plan/build-plan.md",
+                "docs/plan/context-manifest.json"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-45": {
+            "title": "Everyfield spelling in the marketing prototype",
+            "route": "design",
+            "owningPaths": [
+                "design/everyfield-marketing.html"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-46": {
+            "title": "Trim the brand guard kept-path list",
+            "owningPaths": [
+                "docs/text-allowlist.json",
+                "docs/check-text.py",
+                "evf.config.json"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-52": {
+            "title": "Timing command, quiet timing database, CI shards, push path and ID reservation",
+            "owningPaths": [
+                "evf.config.json",
+                "tools/evf/",
+                ".github/",
+                ".claude/settings.json",
+                ".agents/roles/",
+                ".agents/skills/verify-preview/",
+                ".agents/skills/portless-preview/",
+                ".agents/skills/ship/SKILL.md",
+                "AGENTS.md",
+                "docs/architecture/decisions.md"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-54": {
+            "title": "Ship waits for every required check to exist and pass",
+            "owningPaths": [
+                "evf.config.json",
+                "tools/evf/"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-53": {
+            "title": "Quiet-database evf test races Docker",
+            "owningPaths": [
+                "evf.config.json",
+                "tools/evf/"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-55": {
+            "title": "Let Grok review Grok work until Oct 27",
+            "owningPaths": [
+                "tools/evf/",
+                ".agents/skills/verify-preview/",
+                ".agents/skills/ship/SKILL.md",
+                ".agents/skills/everyfield-pr/SKILL.md"
+            ],
+            "checks": [
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-56": {
+            "title": "Independent review by session, model and seat (D82); dormant merge_group trigger",
+            "owningPaths": [
+                "tools/evf/",
+                "evf.config.json",
+                ".agents/skills/ship/SKILL.md",
+                ".agents/skills/verify-preview/",
+                ".agents/skills/everyfield-pr/",
+                ".agents/skills/verify/SKILL.md",
+                ".agents/roles/",
+                "AGENTS.md",
+                ".github/",
+                "docs/architecture/decisions.md"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                },
+                {
+                    "name": "reporter-tests",
+                    "run": [
+                        "node",
+                        "--test",
+                        ".github/scripts/fail-forward.test.cjs",
+                        ".github/scripts/internal-feedback-queue.test.cjs"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-57": {
+            "title": "Harness work store: sqlite under the git common dir, goals sync, progress seed, evf status",
+            "owningPaths": [
+                "tools/evf/",
+                "evf.config.json",
+                ".claude/settings.json",
+                "docs/plan/release-gates.json"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-58": {
+            "title": "Harness seats: evf launch, role agent files, settings denies and hooks, refocus, session",
+            "owningPaths": [
+                "tools/evf/",
+                "evf.config.json",
+                ".claude/",
+                "AGENTS.md"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-59": {
+            "title": "Harness drive loop: evf drive, next, run done, task new and spec, proofs, check, ask planner, loop cap",
+            "owningPaths": [
+                "tools/evf/",
+                "evf.config.json",
+                ".claude/"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-60": {
+            "title": "Harness prototype mode: three blind idea seats, comparison, pick, Opus merge and handoff",
+            "owningPaths": [
+                "tools/evf/",
+                "evf.config.json",
+                ".claude/"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-61": {
+            "title": "Harness live TUI: Rust evf-tui crate, evf tui builds and runs it",
+            "owningPaths": [
+                "tools/evf/",
+                "tools/evf-tui/",
+                "evf.config.json",
+                ".gitignore"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-62": {
+            "title": "Policy: tools/evf-tui/ is a maintenance owning path",
+            "owningPaths": [
+                "tools/evf/",
+                "evf.config.json"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-63": {
+            "title": "Agent rule: clickable elements show cursor-pointer (S2 review task 29a)",
+            "owningPaths": [
+                "AGENTS.md",
+                "evf.config.json"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-64": {
+            "title": "Seats see the full spec: no silent truncation of Done criteria in session context",
+            "owningPaths": [
+                "tools/evf/",
+                "evf.config.json",
+                ".agents/roles/",
+                ".agents/skills/verify/",
+                ".agents/skills/verify-preview/"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-66": {
+            "title": "No ghost task rows after a ship; standalone ship marks the row merged",
+            "owningPaths": [
+                "tools/evf/",
+                "tools/evf-tui/",
+                "evf.config.json"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-67": {
+            "title": "Ship acknowledges the milestone; seats wait for a ready pane shell",
+            "owningPaths": [
+                "tools/evf/",
+                "evf.config.json",
+                "AGENTS.md",
+                ".agents/roles/coordinator.md",
+                ".agents/skills/ship/SKILL.md",
+                "docs/build-agent-workflow.md"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-68": {
+            "title": "An explicit reopen resets the trailing-failure count",
+            "owningPaths": [
+                "tools/evf/",
+                "evf.config.json"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-65": {
+            "title": "Seats start in auto mode, as split panes in the TUI workspace",
+            "owningPaths": [
+                "tools/evf/",
+                "tools/evf-tui/",
+                ".claude/agents/",
+                ".claude/settings.json",
+                "evf.config.json"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-70": {
+            "title": "Lean evf pipeline: fold evidence into implementer, verifier spot-checks, fewer guards",
+            "owningPaths": [
+                "tools/evf/",
+                "tools/evf-tui/",
+                "evf.config.json",
+                "AGENTS.md",
+                ".agents/roles/",
+                ".agents/skills/",
+                ".claude/agents/",
+                ".claude/settings.json",
+                "docs/build-agent-workflow.md"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-71": {
+            "title": "Test environment hygiene: no leaked timing volumes, seeds coexist with preview, no git-push ask rule",
+            "owningPaths": [
+                "tools/evf/",
+                ".agents/skills/verify-preview/",
+                ".claude/settings.json",
+                "evf.config.json"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        },
+        "OPS-69": {
+            "title": "Per-seat token usage and cost, plus per-role model and effort config",
+            "owningPaths": [
+                "tools/evf/",
+                "evf.config.json",
+                "docs/build-agent-workflow.md"
+            ],
+            "checks": [
+                {
+                    "name": "documentation",
+                    "run": [
+                        "python3",
+                        "docs/check-all.py"
+                    ]
+                },
+                {
+                    "name": "workflow-regressions",
+                    "run": [
+                        "bin/evf",
+                        "test"
+                    ]
+                }
+            ],
+            "risk": "ordinary"
+        }
+    },
+    "internalFeedback": {
+        "repo": "SebastianGarces/everyfield",
+        "priorities": [
+            "P0",
+            "P1"
+        ],
+        "triageCron": "*/5 * * * *"
+    }
 }
