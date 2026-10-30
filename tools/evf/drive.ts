@@ -935,7 +935,8 @@ function waitOnSeat(
 				"--timeout",
 				String(Math.max(1, Math.min(timing.seatPollMs, deadline - sliceStart))),
 			],
-			{ timeoutMs: Math.max(timing.seatPollMs, 1) + 200 },
+			// A floor keeps a slow runner from killing a wait that is about to answer.
+			{ timeoutMs: Math.max(timing.seatPollMs + 200, 2_000) },
 		);
 		if (runStatus(db, runId) !== "started") return;
 		const state = parseAgentState(waited.stdout);

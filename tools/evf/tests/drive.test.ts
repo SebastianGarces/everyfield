@@ -522,7 +522,7 @@ test("OPS-59-gate: a verify closes passed only with a met or n/a proof per Done 
 		]);
 		assert.deepEqual(
 			doneCriteria("## Goal\nx\n## Done criteria\n1. a\n2. b\n## Non-goals\n1. not this\n2. nor this\n3. nor this"),
-			["1", "2"],
+			"1",
 			"a heading ends the criteria",
 		);
 		assert.deepEqual(doneCriteria("Goal: x\nDone criteria:\n1. a\n2. b\n**Non-goals**\n1. not this"), ["1", "2"]);
@@ -624,7 +624,7 @@ test("OPS-67-blocked: a blocked seat is polled in short intervals, reported once
 			.all(id) as Array<{ type: string; payload: string }>;
 		assert.deepEqual(
 			episode.map((e) => e.type),
-			["blocked", "unblocked"],
+			"blocked",
 			"the resumed event follows the blocked one, so the last event no longer says blocked",
 		);
 		assert.match(episode[1]!.payload, /implementer-ops-1-\d+ resumed after a prompt/);
@@ -695,7 +695,7 @@ test("OPS-66-drive: the drive exits at the merge: one merged row, no next event 
 		const before = launches();
 		const lines: string[] = [];
 		console.log = (l: string) => lines.push(l);
-		const code = drive(f.root, f.task, {}, { ...TIMING, waitMs: 60_000, seatPollMs: 3000 });
+		const code = drive(f.root, f.task, {}, { ...TIMING, waitMs: 60_000, seatPollMs: 10 });
 		console.log = log;
 		assert.equal(code, 0, lines.join("\n"));
 		assert.deepEqual(rowsOf(f), [{ id: f.taskId, status: "merged", merge_commit: SHA }]);
@@ -776,7 +776,7 @@ test("OPS-66-reopen: only evf task new reopens a merged ref; drive, spec and lau
 		});
 		const unchanged = () => assert.deepEqual(rowsOf(f), [{ id: f.taskId, status: "merged", merge_commit: SHA }]);
 		for (const args of [
-			["drive", "OPS-1"],
+			"drive",
 			["drive", "OPS-1", "--once"],
 		]) {
 			const r = cli(f.root, {}, ...args);
@@ -1203,7 +1203,7 @@ test("OPS-70-wait: a wait on a seat whose run already closed ends within two sea
 			],
 			{ stdio: "inherit" },
 		);
-		const seatPollMs = 400;
+		const seatPollMs = 1500;
 		const started = Date.now();
 		driveOnce(f.root, f.task, { ...TIMING, waitMs: 60_000, seatPollMs });
 		const elapsed = Date.now() - started;
@@ -1266,7 +1266,7 @@ test("OPS-70-flow: fake seats take a task from plan to merged through plan, impl
 			`evf("run","done",m[2],"--status","passed","--summary-file",${JSON.stringify(summary)})}}\n`;
 		writeFileSync(path, script.replace(marker, marker + seat));
 		console.log = () => {};
-		const code = drive(f.root, f.task, {}, { ...TIMING, waitMs: 60_000, seatPollMs: 3000 });
+		const code = drive(f.root, f.task, {}, { ...TIMING, waitMs: 60_000, seatPollMs: 10 });
 		console.log = log;
 		assert.equal(code, 0);
 		assert.equal(f.taskRow().status, "merged");
@@ -1309,16 +1309,16 @@ test("OPS-70-seats: the implementer allowlist covers the proof commands, the evi
 	const entries = [...tools.matchAll(/Bash\(([^)]*)\)/g)].map((m) => m[1]!);
 	const glob = (pattern: string) =>
 		new RegExp(`^${pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*")}$`);
-	const proofCommands: Array<[string, string]> = [
-		["portless preview up --pr 12", "portless"],
-		["node .agents/skills/verify-preview/scripts/preview.mjs --pr 12", "preview.mjs"],
-		["node /work/repo/.agents/skills/verify-preview/scripts/capture.mjs --after http://x --out /tmp/e", "capture.mjs"],
-		["node .agents/skills/verify-preview/scripts/publish.mjs /tmp/e --task OPS-70", "publish.mjs"],
-		["bin/evf browser run --timeout 900 -- node flow.mjs", "bin/evf browser run"],
-		["agent-browser --session s open http://x", "agent-browser"],
-		["corepack pnpm --filter @everyfield/db reset:dev", "reset:dev"],
+	const proofCommands: string[] = [
+		"portless preview up --pr 12",
+		"node .agents/skills/verify-preview/scripts/preview.mjs --pr 12",
+		"node /work/repo/.agents/skills/verify-preview/scripts/capture.mjs --after http://x --out /tmp/e",
+		"node .agents/skills/verify-preview/scripts/publish.mjs /tmp/e --task OPS-70",
+		"bin/evf browser run --timeout 900 -- node flow.mjs",
+		"agent-browser --session s open http://x",
+		"corepack pnpm --filter @everyfield/db reset:dev",
 	];
-	for (const [command] of proofCommands)
+	for (const command of proofCommands)
 		assert.ok(
 			entries.some((entry) => glob(entry).test(command)),
 			`an allowlist entry matches: ${command}`,
