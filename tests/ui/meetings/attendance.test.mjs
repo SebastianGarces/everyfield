@@ -71,7 +71,7 @@ for (const [name, engine] of ENGINES) {
 // variants the modal can send (blank, and whitespace-only which the client stores as no note) save and show.
 for (const [name, engine] of ENGINES) {
 	for (const [i, note] of ["", "   "].entries()) {
-		test(`F06 (${name}): a complete evaluation of a future-dated Vision meeting saves with a ${i === 0 ? "blank" : "whitespace-only"} note`, async () => {
+		test(`BUG-S2-F06 (${name}): a complete evaluation of a future-dated Vision meeting saves with a ${i === 0 ? "blank" : "whitespace-only"} note`, async () => {
 			const id = fixture("meetings").future[name][i];
 			await withPage(
 				engine,

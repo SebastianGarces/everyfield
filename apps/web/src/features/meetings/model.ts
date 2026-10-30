@@ -42,6 +42,8 @@ export type EvaluationIssues = {
 	dialog: string[];
 };
 
+const GENERIC = "Some details are not valid. Check them and try again.";
+
 /** Maps the issues of a refused evaluation or correction onto the form's fields (REQ-MTG-014, REQ-MTG-015). */
 export function evaluationIssues(issues: readonly Issue[]): EvaluationIssues {
 	const out: EvaluationIssues = { scores: {}, dialog: [] };
@@ -56,7 +58,7 @@ export function evaluationIssues(issues: readonly Issue[]): EvaluationIssues {
 			out.dialog.push(
 				"The evaluation date must fall between the meeting date and today. Reload the page and try again.",
 			);
-		else out.dialog.push("Some details are not valid. Check them and try again.");
+		else if (!out.dialog.includes(GENERIC)) out.dialog.push(GENERIC);
 	}
 	return out;
 }

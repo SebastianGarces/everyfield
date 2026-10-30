@@ -582,7 +582,7 @@ test("AC:TARGET-MTG-014 AC:GAP-MTG-015 AC:TARGET-MTG-015 one evaluation, compute
 
 // S2 batch 2 F06: the modal never sends `evaluatedOn`, so the server's own default date must always be accepted.
 // Finalize has no date check, so a meeting dated after today in its timezone can be finalized and then evaluated.
-test("F06 the evaluation modal's payload saves for a finalized Vision meeting dated after today", async () => {
+test("BUG-S2-F06 AC:TARGET-MTG-014: the evaluation modal's payload saves for a finalized Vision meeting dated after today", async () => {
 	const all = (n) => ({
 		attendanceScore: n,
 		locationScore: n,
