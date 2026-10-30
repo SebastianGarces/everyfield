@@ -14,3 +14,5 @@ export {
 export type { PrivateStorage, ResourceAuthorizer, FileAuthorization, FilePurpose, FileIdentity } from "./storage.ts";
 export { authStorage } from "./auth-storage.ts";
 export { validateAvatar, validateCommitment, warmCommitmentParser } from "./validate-file.ts";
+export { dominantColors, matchesSignature, processBrandAsset, svgIsSafe } from "./brand-asset.ts";
+export type { BrandAssetMedia, ProcessedAsset } from "./brand-asset.ts";

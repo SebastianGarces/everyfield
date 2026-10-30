@@ -227,6 +227,36 @@
 		"limit": 10,
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 5 locked read, 2 read, 3 write."
 	},
+	"brand.finalizeUpload": {
+		"limit": 1
+	},
+	"brand.get": {
+		"limit": 1
+	},
+	"brand.requestUpload": {
+		"limit": 1
+	},
+	"brand.reset": {
+		"limit": 1
+	},
+	"brand.resolveTheme": {
+		"limit": 1
+	},
+	"brand.saveSettings": {
+		"limit": 1
+	},
+	"brand.suggestColors": {
+		"limit": 9,
+		"reason": "Bytes are read back through readAuthorizedObject: one transaction checks the kit reference and the live seat, a second repeats it after the provider read so a revoked reader gets nothing, around the one kit statement. Its largest first run: 3 read, 4 transaction, 2 locked read."
+	},
+	"branding/files.readBrandAsset": {
+		"limit": 8,
+		"reason": "The authorizer runs in two transactions around the provider read, so a revoked reader gets nothing. Its largest first run: 2 read, 4 transaction, 2 locked read."
+	},
+	"branding/files.uploadBrandAsset": {
+		"limit": 13,
+		"reason": "One statement finds the staged upload and one records the processed bytes, then putPrivateObject claims the file and finalizes it in two transactions so the provider call holds no lock. Its largest first run: 4 read, 3 write, 4 transaction, 2 locked read."
+	},
 	"documents.archive": {
 		"limit": 1
 	},

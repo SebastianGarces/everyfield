@@ -132,7 +132,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-057 | Complete browser, file and native/Evry feature parity | 0 | 0 | 1166 | 4 | 14.5 |
 | WP-058 | Fresh bootstrap and release rehearsal | 12 | 0 | 29 | 0 | 1.5 |
 | WP-103 | Everyfield brand spelling in app copy | 0 | 0 | 0 | 0 | 0.5 |
-| WP-104 | Church brand kit | 7 | 6 | 9 | 0 | 1.5 |
+| WP-104 | Church brand kit | 7 | 6 | 9 | 1 | 1.5 |
 
 ## Package splits
 

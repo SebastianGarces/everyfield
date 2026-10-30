@@ -1548,18 +1548,21 @@
         "BRD-005",
         "BRD-006"
       ],
-      "persists": false,
-      "entities": [],
-      "facts": [],
-      "history": "none",
+      "persists": true,
+      "entities": ["church brand kit"],
+      "facts": [
+        "One kit for each church plant: primary and accent color, heading and body font ids, letterhead and signature text, and up to six asset slots, each with its alt text.",
+        "A revision counts saves. Reset deletes the row, so revision 0 means no kit."
+      ],
+      "history": "append-only events",
       "invariants": [
         "Each church has at most one brand kit; only the Owner and Admin read or change it.",
         "Brand files use private storage with the brand_asset purpose and carry alt text.",
         "A brand color under 3:1 contrast against its background is never used as text.",
         "A kit change applies only to newly generated documents."
       ],
-      "retention": "WP-104 designs the kit and asset tables (D72). This record carries behavior until that package adds its schema.",
-      "current_tables": [],
+      "retention": "Tenant-owned content. Workspace deletion removes the row with the plant; reset removes it and queues cleanup of every asset file.",
+      "current_tables": ["church_brand_kit"],
       "notes": "Sources: knowledge-documents.md, Church brand kit. Reuses the private file upload lifecycle of CAP-C-014."
     }
   ],

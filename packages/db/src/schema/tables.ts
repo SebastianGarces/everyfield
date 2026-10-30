@@ -1279,6 +1279,7 @@ export const file_object = pgTable(
 				"native_import",
 				"assistant_staging",
 				"communication_attachment",
+				"brand_asset",
 			],
 		}).notNull(),
 		opaque_key: text("opaque_key").notNull(),
@@ -1319,7 +1320,7 @@ export const file_object = pgTable(
 		check("file_object_ck_0", sql`(revision >= 1)`),
 		check(
 			"file_object_ck_1",
-			sql`(purpose = ANY (ARRAY['avatar'::text, 'person_photo'::text, 'commitment'::text, 'generated'::text, 'native_import'::text, 'assistant_staging'::text, 'communication_attachment'::text]))`,
+			sql`(purpose = ANY (ARRAY['avatar'::text, 'person_photo'::text, 'commitment'::text, 'generated'::text, 'native_import'::text, 'assistant_staging'::text, 'communication_attachment'::text, 'brand_asset'::text]))`,
 		),
 		check(
 			"file_object_ck_2",
@@ -5010,7 +5011,7 @@ export const audit_event = pgTable(
 		check(
 			"audit_action",
 			sql.raw(
-				"(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','audit.imported','communication.approved','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','documents.archived','documents.copied','documents.designated','documents.generated','documents.imported','documents.purged','documents.saved','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','execution.cancelled','execution.completed','execution.partial','execution.reconciled','execution.started','feedback.publication_intended','feedback.published','feedback.received','feedback.reconciled','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.credential_reconciled','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.feedback_recorded','intelligence.published','intelligence.requested','intelligence.superseded','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','note_correction','organization.profile_changed','people.corrected','people.created','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','security.access_denied','security.audit_exported','security.audit_inspected','security.bulk_export','security.operator_accessed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed'))",
+				"(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','audit.imported','branding.changed','communication.approved','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','documents.archived','documents.copied','documents.designated','documents.generated','documents.imported','documents.purged','documents.saved','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','execution.cancelled','execution.completed','execution.partial','execution.reconciled','execution.started','feedback.publication_intended','feedback.published','feedback.received','feedback.reconciled','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.credential_reconciled','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.feedback_recorded','intelligence.published','intelligence.requested','intelligence.superseded','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','note_correction','organization.profile_changed','people.corrected','people.created','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','security.access_denied','security.audit_exported','security.audit_inspected','security.bulk_export','security.operator_accessed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed'))",
 			),
 		),
 		check(
@@ -5471,5 +5472,133 @@ export const communication = pgTable(
 		index("communication_ref_0").using("btree", table.plant_id.asc().nullsLast()),
 		index("communication_ref_1").using("btree", table.template_id.asc().nullsLast(), table.plant_id.asc().nullsLast()),
 		index("communication_ref_2").using("btree", table.meeting_id.asc().nullsLast()),
+	],
+);
+
+/**
+ * One saved brand kit for a church plant (BRD-001 to BRD-006). Reset deletes the row, so revision 0 means no kit.
+ * Each asset slot names a ready brand_asset file of the same plant and its alt text. The kit stores no toggle: the
+ * document request passes "use church branding".
+ */
+export const church_brand_kit = pgTable(
+	"church_brand_kit",
+	{
+		tenant_id: uuid("tenant_id").notNull(),
+		revision: int64("revision")
+			.notNull()
+			.default(sql`1`),
+		primary_color: text("primary_color"),
+		accent_color: text("accent_color"),
+		heading_font: text("heading_font").notNull().default("DM Serif Display"),
+		body_font: text("body_font").notNull().default("DM Sans"),
+		legal_name: text("legal_name"),
+		address: text("address"),
+		website: text("website"),
+		phone: text("phone"),
+		email: text("email"),
+		ein: text("ein"),
+		tagline: text("tagline"),
+		signer_name: text("signer_name"),
+		signer_title: text("signer_title"),
+		full_logo_object_id: uuid("full_logo_object_id"),
+		full_logo_alt: text("full_logo_alt"),
+		full_logo_dark_object_id: uuid("full_logo_dark_object_id"),
+		full_logo_dark_alt: text("full_logo_dark_alt"),
+		mark_object_id: uuid("mark_object_id"),
+		mark_alt: text("mark_alt"),
+		mark_dark_object_id: uuid("mark_dark_object_id"),
+		mark_dark_alt: text("mark_dark_alt"),
+		cover_photo_object_id: uuid("cover_photo_object_id"),
+		cover_photo_alt: text("cover_photo_alt"),
+		signature_object_id: uuid("signature_object_id"),
+		signature_alt: text("signature_alt"),
+	},
+	(table): PgTableExtraConfigValue[] => [
+		foreignKey({ name: "church_brand_kit_tenant_fk", columns: [table.tenant_id], foreignColumns: [tenant.id] })
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "church_brand_kit_full_logo_fk",
+			columns: [table.full_logo_object_id, table.tenant_id],
+			foreignColumns: [file_object.id, file_object.tenant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "church_brand_kit_full_logo_dark_fk",
+			columns: [table.full_logo_dark_object_id, table.tenant_id],
+			foreignColumns: [file_object.id, file_object.tenant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "church_brand_kit_mark_fk",
+			columns: [table.mark_object_id, table.tenant_id],
+			foreignColumns: [file_object.id, file_object.tenant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "church_brand_kit_mark_dark_fk",
+			columns: [table.mark_dark_object_id, table.tenant_id],
+			foreignColumns: [file_object.id, file_object.tenant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "church_brand_kit_cover_photo_fk",
+			columns: [table.cover_photo_object_id, table.tenant_id],
+			foreignColumns: [file_object.id, file_object.tenant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "church_brand_kit_signature_fk",
+			columns: [table.signature_object_id, table.tenant_id],
+			foreignColumns: [file_object.id, file_object.tenant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		primaryKey({ name: "church_brand_kit_pkey", columns: [table.tenant_id] }),
+		check("church_brand_kit_revision", sql`(revision >= 1)`),
+		check("church_brand_kit_tenant", sql`(tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid)`),
+		check(
+			"church_brand_kit_colors",
+			sql`((primary_color IS NULL) OR (primary_color ~ '^#[0-9A-F]{6}$'::text)) AND ((accent_color IS NULL) OR (accent_color ~ '^#[0-9A-F]{6}$'::text))`,
+		),
+		check(
+			"church_brand_kit_text",
+			sql`(char_length(heading_font) <= 60) AND (char_length(body_font) <= 60) AND (char_length(legal_name) <= 200) AND (char_length(address) <= 500) AND (char_length(website) <= 300) AND (char_length(phone) <= 40) AND (char_length(email) <= 200) AND ((ein IS NULL) OR (ein ~ '^[0-9]{2}-[0-9]{7}$'::text)) AND (char_length(tagline) <= 200) AND (char_length(signer_name) <= 120) AND (char_length(signer_title) <= 120)`,
+		),
+		check(
+			"church_brand_kit_full_logo_alt",
+			sql`((full_logo_object_id IS NULL) = (full_logo_alt IS NULL)) AND ((full_logo_alt IS NULL) OR (char_length(btrim(full_logo_alt)) BETWEEN 1 AND 300))`,
+		),
+		index("church_brand_kit_full_logo_ref").using("btree", table.full_logo_object_id.asc().nullsLast()),
+		check(
+			"church_brand_kit_full_logo_dark_alt",
+			sql`((full_logo_dark_object_id IS NULL) = (full_logo_dark_alt IS NULL)) AND ((full_logo_dark_alt IS NULL) OR (char_length(btrim(full_logo_dark_alt)) BETWEEN 1 AND 300))`,
+		),
+		index("church_brand_kit_full_logo_dark_ref").using("btree", table.full_logo_dark_object_id.asc().nullsLast()),
+		check(
+			"church_brand_kit_mark_alt",
+			sql`((mark_object_id IS NULL) = (mark_alt IS NULL)) AND ((mark_alt IS NULL) OR (char_length(btrim(mark_alt)) BETWEEN 1 AND 300))`,
+		),
+		index("church_brand_kit_mark_ref").using("btree", table.mark_object_id.asc().nullsLast()),
+		check(
+			"church_brand_kit_mark_dark_alt",
+			sql`((mark_dark_object_id IS NULL) = (mark_dark_alt IS NULL)) AND ((mark_dark_alt IS NULL) OR (char_length(btrim(mark_dark_alt)) BETWEEN 1 AND 300))`,
+		),
+		index("church_brand_kit_mark_dark_ref").using("btree", table.mark_dark_object_id.asc().nullsLast()),
+		check(
+			"church_brand_kit_cover_photo_alt",
+			sql`((cover_photo_object_id IS NULL) = (cover_photo_alt IS NULL)) AND ((cover_photo_alt IS NULL) OR (char_length(btrim(cover_photo_alt)) BETWEEN 1 AND 300))`,
+		),
+		index("church_brand_kit_cover_photo_ref").using("btree", table.cover_photo_object_id.asc().nullsLast()),
+		check(
+			"church_brand_kit_signature_alt",
+			sql`((signature_object_id IS NULL) = (signature_alt IS NULL)) AND ((signature_alt IS NULL) OR (char_length(btrim(signature_alt)) BETWEEN 1 AND 300))`,
+		),
+		index("church_brand_kit_signature_ref").using("btree", table.signature_object_id.asc().nullsLast()),
 	],
 );
