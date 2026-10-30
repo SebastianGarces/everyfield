@@ -88,12 +88,12 @@ function draftOf(task: TaskDetail | null, viewer: Viewer): Draft {
 // The church's seats change rarely, so one read serves every dialog and step form on this page; a failed read is
 // forgotten, so the next use tries again. Intent on New task, Edit or a step's Assigned to starts it, so a save never
 // waits behind it (Next runs one action at a time).
-let seats: ReturnType<typeof assigneeOptions> | null = null;
-export const warmAssignees = () =>
-	(seats ??= assigneeOptions()
+const seats: Partial<Record<"any" | "committed_follow_up", ReturnType<typeof assigneeOptions>>> = {};
+export const warmAssignees = (purpose: "any" | "committed_follow_up" = "any") =>
+	(seats[purpose] ??= assigneeOptions(purpose)
 		.catch(() => ({ status: "lost" }) as const)
 		.then((r) => {
-			if (r.status !== "ok") seats = null;
+			if (r.status !== "ok") delete seats[purpose];
 			return r;
 		}));
 
@@ -255,6 +255,8 @@ function Form({
 			due: shownDue,
 			overdue: null,
 			assignee: null,
+			followUpOwner: null,
+			followUpOrigin: null,
 			relation: null,
 			parentId: null,
 			checklist: { total: 0, complete: 0 },
@@ -358,6 +360,7 @@ function Form({
 			<div className="grid grid-cols-2 gap-4 max-app-sm:grid-cols-1">
 				<AssigneeField
 					value={draft.assigneeId}
+					followUp={draft.category === "follow_up" && draft.relation?.kind === "person"}
 					current={task?.assignee ?? null}
 					viewer={viewer}
 					onChange={(assigneeId, assigneeName) => set({ assigneeId, assigneeName })}
@@ -385,30 +388,39 @@ function Form({
 
 function AssigneeField({
 	value,
+	followUp,
 	current,
 	viewer,
 	onChange,
 }: {
 	value: string;
+	/** A follow-up with a person offers only seats that may own one (REQ-TSK-012). */
+	followUp: boolean;
 	current: TaskItem["assignee"];
 	viewer: Viewer;
 	onChange: (v: string, name: string | null) => void;
 }) {
-	const [options, setOptions] = useState<{ value: string; label: string }[] | "failed" | null>(null);
+	// The list read for the kind of task being edited; switching to a follow-up reads the eligible owners again.
+	const [loaded, setLoaded] = useState<{
+		followUp: boolean;
+		options: { value: string; label: string }[] | "failed";
+	} | null>(null);
+	const options = loaded?.followUp === followUp ? loaded.options : null;
 	useEffect(() => {
 		let live = true;
-		warmAssignees().then((r) => {
+		warmAssignees(followUp ? "committed_follow_up" : "any").then((r) => {
 			if (!live) return;
-			if (r.status !== "ok") return setOptions("failed");
-			setOptions(
-				r.value.items.map((s) => ({
+			if (r.status !== "ok") return setLoaded({ followUp, options: "failed" });
+			setLoaded({
+				followUp,
+				options: r.value.items.map((s) => ({
 					value: s.accountId,
 					label: s.accountId === viewer.accountId ? `${s.displayName} (you)` : s.displayName,
 				})),
-			);
+			});
 		});
 		return () => void (live = false);
-	}, [viewer.accountId]);
+	}, [viewer.accountId, followUp]);
 	// Until the seats arrive, the choice shows the known names, so the field never looks empty.
 	const known = [
 		{ value: NOBODY, label: "No one yet" },
@@ -422,7 +434,10 @@ function AssigneeField({
 				]),
 	];
 	if (!known.some((o) => o.value === value) && current?.accountId === value)
-		known.push({ value, label: `${current.displayName || "A former member"} (no longer has a seat)` });
+		known.push({
+			value,
+			label: `${current.displayName || "A former member"} (${followUp ? "can't own follow-ups" : "no longer has a seat"})`,
+		});
 	return (
 		<Field
 			label="Assigned to"

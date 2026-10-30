@@ -827,6 +827,10 @@ try {
 	await f.admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,
 		commitment_state,pipeline_position,state,created_at) VALUES(${newcomer},${s.w.id},${s.w.id},'Newcomer','other',
 		'prospect','unknown','unknown',0,'live',clock_timestamp())`);
+	// A follow-up owner needs a committed Person linked to their account (REQ-TSK-012).
+	await f.admin.execute(sql`INSERT INTO person(tenant_id,plant_id,display_name,source,stage,adult_classification,
+		commitment_state,pipeline_position,state,created_at,linked_account_id) VALUES(${s.w.id},${s.w.id},'Sender Person',
+		'other','core_group','unknown','unknown',0,'live',clock_timestamp(),${s.sender.id})`);
 	const owned = await measure("native.meetings.finalizeAttendance.assigned", () =>
 		withMeetingsWrite(f.db, actor, (tx, ctx) =>
 			createAttendanceWriter({ reminders: taskReminders(planned) }).finalizeAttendance(tx, ctx, {

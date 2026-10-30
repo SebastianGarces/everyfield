@@ -3497,6 +3497,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": false
+        },
+        "also_task_ids": {
+          "name": "also_task_ids",
+          "type": "uuid[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::uuid[]"
         }
       },
       "indexes": {

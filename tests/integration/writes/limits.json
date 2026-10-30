@@ -319,7 +319,7 @@
 		"limit": 3
 	},
 	"followups.recordOutcome": {
-		"limit": 3
+		"limit": 4
 	},
 	"followups/core.withFollowUpWrite": {
 		"limit": 7,

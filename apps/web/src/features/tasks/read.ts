@@ -48,7 +48,9 @@ export async function GET(request: Request) {
 		}
 		case "seats":
 			return answer(
-				await read(viewer, async (tx) => refusalOf(await taskReader.eligibleAssignees(tx, viewer.authority))),
+				await read(viewer, async (tx) =>
+					refusalOf(await taskReader.eligibleAssignees(tx, viewer.authority, { purpose: p.get("purpose") ?? "any" })),
+				),
 			);
 		case "candidates":
 			return answer(
