@@ -72,7 +72,7 @@ const textEntry = (spec: TextDocumentSpec, documentClass: RenderClass): PdfEntry
 	build: (ctx) => textDocument(ctx, spec),
 });
 
-const REGISTRY: RegistryEntry[] = [
+export const REGISTRY: RegistryEntry[] = [
 	cardEntry("commitment-card", COMMITMENT_CARD),
 	cardEntry("response-card", RESPONSE_CARD),
 	{
