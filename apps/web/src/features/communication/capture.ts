@@ -1,7 +1,7 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -11,7 +11,7 @@ import { join } from "node:path";
 
 type Env = Readonly<Record<string, string | undefined>>;
 
-type Captured = {
+export type Captured = {
 	id: string;
 	at: string;
 	from: string;
@@ -21,7 +21,7 @@ type Captured = {
 	text: string;
 };
 
-const folder = join(tmpdir(), "everyfield-dev-outbox");
+export const folder = join(tmpdir(), "everyfield-dev-outbox");
 
 /** True only with no provider key and a Vercel environment that is absent (local), "development" or "preview". */
 export function captureAllowed(env: Env): boolean {
@@ -35,15 +35,4 @@ export async function record(message: Omit<Captured, "id" | "at">, directory = f
 	const entry: Captured = { id, at: new Date().toISOString(), ...message };
 	await writeFile(join(directory, `${id}.json`), JSON.stringify(entry), { flag: "wx" });
 	return id;
-}
-
-/** Newest first. */
-export async function readOutbox(directory = folder): Promise<Captured[]> {
-	const names = await readdir(directory).catch(() => []);
-	const entries = await Promise.all(
-		names
-			.filter((name) => /^capture-[0-9a-f-]{36}\.json$/.test(name))
-			.map(async (name) => JSON.parse(await readFile(join(directory, name), "utf8")) as Captured),
-	);
-	return entries.sort((a, b) => b.at.localeCompare(a.at));
 }

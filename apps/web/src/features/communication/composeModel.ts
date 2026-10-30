@@ -1,5 +1,5 @@
 import { bodyToTextResult, textToBody } from "./body.ts";
-import { fieldProblem, usableKeys } from "./fields.ts";
+import { fieldProblem, fieldProblemText, usableKeys } from "./fields.ts";
 import { emptyAudience, type Audience, type Draft, type DraftState, type Template } from "./model.ts";
 
 // The compose form and what it needs to be saved, checked and shown. Pure, so the step rules are testable.
@@ -95,7 +95,7 @@ export function writeReason(
 	}
 	const problem = fieldProblem(form.text, usableKeys(hasMeeting));
 	if (problem) {
-		const text = `Finish or remove the field ${problem}`;
+		const text = fieldProblemText(problem);
 		return { reason: text, body: text };
 	}
 	// An empty field is named in the footer only. A red error on a fresh form would scold before anyone typed.

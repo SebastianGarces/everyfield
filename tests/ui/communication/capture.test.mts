@@ -5,7 +5,8 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, test } from "node:test";
-import { captureAllowed, readOutbox, record } from "../../../apps/web/src/features/communication/capture.ts";
+import { captureAllowed, record } from "../../../apps/web/src/features/communication/capture.ts";
+import { readOutbox } from "../../../apps/web/src/features/communication/outbox.ts";
 import { deliveryTransport, mailReady } from "../../../apps/web/src/features/communication/mail.ts";
 
 const keys = {

@@ -7,6 +7,7 @@ import { systemTemplates } from "../../../packages/contracts/src/communication/c
 import { bodyToText, bodyToTextResult, textToBody } from "../../../apps/web/src/features/communication/body.ts";
 import {
 	fieldProblem,
+	fieldProblemText,
 	usableKeys,
 	mergeFields,
 	prepareBody,
@@ -65,7 +66,7 @@ test("pre-pass marks unfinished and unknown fields and leaves valid bodies alone
 	assert.equal(prepareBody("<p>Hi {{nmae}}.</p>", keys), `<p>Hi ${unknownMarker("nmae")}.</p>`);
 	const valid = "<p>Hello {{name}}. Join us</p>";
 	assert.equal(prepareBody(valid, keys), valid);
-	assert.equal(prepareBody("<p>{{rsvp_link}}</p>", keys), `<p>${unknownMarker("rsvp_link")}</p>`);
+	assert.equal(prepareBody("<p>{{rsvp_link}}</p>", keys), "<p>[RSVP button needs a meeting]</p>");
 	assert.doesNotMatch(prepareBody("<p>Hello {{na</p>", keys), /[{}]/);
 });
 
@@ -73,4 +74,9 @@ test("field problems name what the person typed", () => {
 	assert.equal(fieldProblem("Hello {{na", ["name"]), "{{na");
 	assert.equal(fieldProblem("Hello {{nmae}}", ["name"]), "{{nmae}}");
 	assert.equal(fieldProblem("Hello {{name}}", ["name"]), null);
+});
+
+test("a meeting-only field without a meeting says it needs a meeting; a typo says to fix it", () => {
+	assert.match(fieldProblemText("{{rsvp_link}}"), /RSVP button needs a meeting/);
+	assert.equal(fieldProblemText("{{nmae}}"), "Finish or remove the field {{nmae}}");
 });

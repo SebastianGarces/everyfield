@@ -31,8 +31,7 @@ import type {
 	Template,
 	TrackingRow,
 } from "./model.ts";
-import { requestDatabase } from "@/server/database";
-import { meetingsReader } from "@everyfield/domain/meetings";
+import { loadMeeting } from "../meetings/server.ts";
 import { canWrite, communicationViewer, deliver, read, write, type Viewer } from "./server.ts";
 import { anticipateProvider, deliveryTransport, mailReady } from "./mail.ts";
 
@@ -534,37 +533,24 @@ export async function sendNow(
 export async function readMeetingContext(meetingId: string): Promise<Outcome<MeetingContext>> {
 	const viewer = await seat();
 	if (!viewer || !canWrite(viewer)) return denied;
-	if (!/^[0-9a-f-]{36}$/i.test(meetingId)) return { status: "refused", code: "not_found" };
-	const db = requestDatabase();
-	if (!db) return { status: "lost" };
-	try {
-		const request = { meetingId };
-		const [meeting, guests] = await Promise.all([
-			meetingsReader.get(db, viewer.authority, request),
-			meetingsReader.listGuests(db, viewer.authority, request),
-		]);
-		if (meeting.status !== "ok" || meeting.value.status !== "available" || meeting.value.meeting.retiredAt)
-			return { status: "refused", code: "not_found" };
-		const m = meeting.value.meeting;
-		return {
-			status: "ok",
-			value: {
-				id: m.id,
-				type: m.type,
-				title: m.displayTitle,
-				date: m.localDate,
-				time: m.localTime,
-				place: m.venue?.name ?? null,
-				guests:
-					guests.status === "ok"
-						? guests.value.guests
-								.filter((g) => g.person.state === "live")
-								.map((g) => ({ id: g.person.personId, displayName: g.person.displayName }))
-						: [],
-			},
-		};
-	} catch (error) {
-		console.error(JSON.stringify({ component: "communication", outcome: "meeting_read_failed", error: String(error) }));
-		return { status: "lost" };
-	}
+	const page = await loadMeeting(viewer, meetingId);
+	if (page.status === "failed") return { status: "lost" };
+	if (page.status === "missing" || page.meeting.retiredAt) return { status: "refused", code: "not_found" };
+	// A guest list that did not load is a failure, not an empty audience.
+	if (!page.guests) return { status: "lost" };
+	const m = page.meeting;
+	return {
+		status: "ok",
+		value: {
+			id: m.id,
+			type: m.type,
+			title: m.displayTitle,
+			date: m.localDate,
+			time: m.localTime,
+			place: m.venue?.name ?? null,
+			guests: page.guests
+				.filter((g) => g.person.state === "live")
+				.map((g) => ({ id: g.person.personId, displayName: g.person.displayName })),
+		},
+	};
 }

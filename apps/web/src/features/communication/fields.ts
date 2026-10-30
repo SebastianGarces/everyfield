@@ -45,6 +45,21 @@ export const pickSampleName = (random: () => number = Math.random): string =>
 export const UNFINISHED_MARKER = "[finish this field]";
 export const unknownMarker = (key: string) => `[unknown field: ${key}]`;
 
+/** A known field that needs a meeting, when the token names one. Without a meeting it is not unknown; it is not available. */
+const meetingOnly = (token: string): MergeField | null => {
+	const key = token.replace(/^\{\{|\}\}$/g, "").trim();
+	return mergeFields.find((field) => field.needsMeeting && field.key === key) ?? null;
+};
+export const needsMeetingMarker = (field: MergeField) => `[${field.label} needs a meeting]`;
+
+/** The text beside a blocking field: names the missing meeting when the field is real, else asks to fix it. */
+export const fieldProblemText = (problem: string): string => {
+	const field = meetingOnly(problem);
+	return field
+		? `The ${field.label} needs a meeting. Attach a meeting or remove ${problem}`
+		: `Finish or remove the field ${problem}`;
+};
+
 const CLOSED = /\{\{([^{}]*)\}\}/g;
 const UNCLOSED = /\{\{(?![^{}]*\}\})[^{}\s<]*/g;
 const SHAPE = /^[a-z0-9_]+$/i;
@@ -57,7 +72,9 @@ export function prepareBody(body: string, keys: readonly string[]): string {
 	return body
 		.replace(CLOSED, (whole, inner: string) => {
 			const key = inner.trim();
-			return SHAPE.test(key) && keys.includes(key) ? whole : unknownMarker(key);
+			if (SHAPE.test(key) && keys.includes(key)) return whole;
+			const field = meetingOnly(whole);
+			return field ? needsMeetingMarker(field) : unknownMarker(key);
 		})
 		.replace(UNCLOSED, UNFINISHED_MARKER);
 }

@@ -7,7 +7,7 @@ import { useRef, useState } from "react";
 import { archiveTemplate, createTemplate, deleteTemplate, forkTemplate, updateTemplate } from "./actions.ts";
 import { bodyToTextResult, textToBody } from "./body.ts";
 import { PreviewStage } from "./EmailFrame.tsx";
-import { fieldProblem, pickSampleName, usableKeys } from "./fields.ts";
+import { fieldProblem, fieldProblemText, pickSampleName, usableKeys } from "./fields.ts";
 import { MessageEditor } from "./MessageEditor.tsx";
 import {
 	categoryLabel,
@@ -226,7 +226,7 @@ function Editor({
 				: fields.subject.trim()
 					? undefined
 					: "Enter a subject.",
-			body: problem ? `Finish or remove the field ${problem}` : fields.text.trim() ? undefined : "Enter the message.",
+			body: problem ? fieldProblemText(problem) : fields.text.trim() ? undefined : "Enter the message.",
 			meetingType: invitation && !fields.meetingType ? "Choose the meeting type for an invitation." : undefined,
 		};
 	};

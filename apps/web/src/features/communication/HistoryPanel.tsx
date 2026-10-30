@@ -488,7 +488,7 @@ function Detail({
 					<dt className="text-text-3">Sender</dt>
 					<dd className="text-ink">{detail.senderName ?? "Not recorded"}</dd>
 					<dt className="text-text-3">Recipients</dt>
-					<dd className="text-ink">{recipientCount(totals.selected, totals.state)}</dd>
+					<dd className="text-ink">{recipientCount(totals.reachable, totals.state)}</dd>
 					<dt className="text-text-3">Delivery</dt>
 					<dd className="text-ink">
 						{hubLabel[totals.state]}. {rateText(totals.delivered, totals.reachable, totals.rate)}

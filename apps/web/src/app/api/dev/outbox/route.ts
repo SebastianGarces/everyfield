@@ -1,4 +1,5 @@
-import { captureAllowed, readOutbox } from "../../../../features/communication/capture";
+import { captureAllowed } from "../../../../features/communication/capture";
+import { readOutbox } from "../../../../features/communication/outbox";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
