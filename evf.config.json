@@ -6,7 +6,7 @@
 	"maxAgentsMdLines": 150,
 	"stack": {
 		"usesPaidProviders": false,
-		"up": ["node", ".agents/skills/verify-preview/scripts/preview-slots.mjs", "--then", "node", "scripts/stack.mjs", "up"],
+		"up": ["node", "scripts/stack.mjs", "up"],
 		"status": ["node", "scripts/stack.mjs", "status"],
 		"down": ["node", "scripts/stack.mjs", "down"]
 	},

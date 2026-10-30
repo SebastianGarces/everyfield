@@ -206,8 +206,8 @@ missing idea and why. `evf task pick` refuses the missing idea.
 
 Portless allows `PORTLESS_PREVIEW_LIMIT` live previews (4, per D74). `evf stack up` and the verify-preview skill's
 `preview.mjs` share one check, `.agents/skills/verify-preview/scripts/preview-slots.mjs`, before `portless preview up`.
-`evf stack up` reaches it because the `stack.up` command in `evf.config.json` runs the check with `--then node
-scripts/stack.mjs up`; `corepack pnpm stack:up` by hand skips it.
+`evf stack up` runs the check from the driving checkout before the configured stack command when that command is
+`scripts/stack.mjs`; `corepack pnpm stack:up` by hand skips it.
 A worktree that already has a live preview reuses it and never waits. When the pool is full, the check first
 releases previews nobody needs: previews portless reports as expired or failed (`portless preview gc --apply`), previews
 whose project path is gone, and previews of a task worktree whose store row is merged, done or abandoned with no

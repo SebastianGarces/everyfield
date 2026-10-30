@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { chmodSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { fixture, source } from "./fixtures.ts";
@@ -158,21 +158,26 @@ test("OPS-72-slots: expired and failed previews go through gc, and a preview who
 	}
 });
 
-test("OPS-72-slots: the stack command waits through the same check, then runs scripts/stack.mjs; a full pool fails with the message", () => {
+test("OPS-72-slots: evf stack up waits for a slot before the portless stack command, and a stub stack command never asks portless", () => {
 	const f = slotFixture();
 	try {
-		const wt = f.task("wp-005");
-		const others = ["wp-001", "wp-002", "wp-003", "wp-004"].map((s) => f.worktree(s, "active", true).dir);
-		const env = { ...process.env, EVF_PREVIEW_WAIT_MS: "300", EVF_PREVIEW_POLL_MS: "30", PORTLESS_PREVIEW_LIMIT: "4", EVF_RUN: "", EVF_WORKTREE: "" };
-		// The command evf.config.json runs for `evf stack up`, with the real stack script replaced by a marker.
-		const config = JSON.parse(readFileSync(join(source, "evf.config.json"), "utf8")) as { stack: { up: string[] } };
-		assert.deepEqual(config.stack.up.slice(0, 3), ["node", ".agents/skills/verify-preview/scripts/preview-slots.mjs", "--then"]);
-		assert.deepEqual(config.stack.up.slice(3), ["node", "scripts/stack.mjs", "up"]);
-		const up = () =>
-			spawnSync(process.execPath, [join(source, config.stack.up[1]!), "--project", wt, "--then", process.execPath, "-e", 'console.log("stack started")'], {
-				encoding: "utf8",
-				env,
-			});
+		f.authorize("WP-001");
+		const wt = f.task("wp-001");
+		const others = ["wp-002", "wp-003", "wp-004", "wp-005"].map((s) => f.worktree(s, "active", true).dir);
+		// The real stack command is scripts/stack.mjs; here it is a script of the fixture that only writes a marker.
+		mkdirSync(join(f.root, "scripts"), { recursive: true });
+		writeFileSync(join(f.root, "scripts/stack.mjs"), 'console.log("stack started")');
+		f.cfg.stack = { usesPaidProviders: false, up: ["node", "scripts/stack.mjs", "up"] };
+		writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+		f.git("add", "evf.config.json", "scripts");
+		f.git("commit", "-qm", "stack");
+		mkdirSync(join(wt, "scripts"), { recursive: true });
+		writeFileSync(join(wt, "scripts/stack.mjs"), 'console.log("stack started")');
+		// evf runs the check from the driving checkout, so the fixture carries a copy of the skill scripts.
+		mkdirSync(join(f.root, ".agents/skills/verify-preview/scripts"), { recursive: true });
+		cpSync(join(source, ".agents/skills/verify-preview/scripts/preview-slots.mjs"), join(f.root, ".agents/skills/verify-preview/scripts/preview-slots.mjs"));
+		const env = { ...process.env, EVF_PREVIEW_WAIT_MS: "300", EVF_PREVIEW_POLL_MS: "30", PORTLESS_PREVIEW_LIMIT: "4", EVF_RUN: "", EVF_MONITOR: "test-runner" };
+		const up = () => spawnSync(process.execPath, [join(source, "tools/evf/main.ts"), "stack", "up", "WP-001"], { cwd: f.root, encoding: "utf8", env });
 		f.set(others.map((d) => f.preview(d)));
 		const full = up();
 		assert.equal(full.status, 1);
@@ -183,6 +188,16 @@ test("OPS-72-slots: the stack command waits through the same check, then runs sc
 		const free = up();
 		assert.equal(free.status, 0, free.stderr);
 		assert.match(free.stdout, /stack started/);
+
+		// A stack command that does not start a portless preview never reaches portless.
+		f.cfg.stack = { usesPaidProviders: false, up: [process.execPath, "-e", 'console.log("stub stack")'] };
+		writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+		f.set(others.map((d) => f.preview(d)));
+		const asked = f.read().calls.length;
+		const stub = up();
+		assert.equal(stub.status, 0, stub.stderr);
+		assert.match(stub.stdout, /stub stack/);
+		assert.equal(f.read().calls.length, asked, "portless was not asked");
 	} finally {
 		f.db.close();
 		f.close();
