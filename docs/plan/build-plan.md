@@ -4,7 +4,7 @@ The approved target has 99 active single-owner packages. WP-086 is retired into 
 
 Start with a [short package brief](context.md). Read detailed requirements and cases on demand. The [DAG](dag.json) owns scope and dependencies; builders choose filenames and internal structures within the owned directories.
 
-Rough scope-based effort is 231.5 engineer-days. The weighted prerequisite lower bound with unconstrained capacity is 89 working days. These are planning estimates, not autonomous-agent throughput or a delivery date. Reviews, real scheduling and external setup add time. Re-estimate after the local runtime and first integrated slice.
+Rough scope-based effort is 232 engineer-days. The weighted prerequisite lower bound with unconstrained capacity is 89 working days. These are planning estimates, not autonomous-agent throughput or a delivery date. Reviews, real scheduling and external setup add time. Re-estimate after the local runtime and first integrated slice.
 
 ## Foundation and shared UI
 
@@ -74,7 +74,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-034 | Wiki browsing/search/progress/bookmarks | 80 | 21 | 88 | 4 | 4 |
 | WP-035 | Wiki feedback/admin/revalidation | 89 | 7 | 88 | 3 | 4 |
 | WP-036 | Document template and format contracts | 27 | 5 | 16 | 3 | 2 |
-| WP-037 | Generated files and native owned documents | 20 | 15 | 25 | 3 | 2 |
+| WP-037 | Generated files and native owned documents | 27 | 17 | 29 | 3 | 2.5 |
 | WP-039 | Check-ins manual signals and corrections | 15 | 11 | 41 | 2 | 2 |
 | WP-045 | Launch plan/readiness/milestones | 18 | 10 | 19 | 7 | 2 |
 | WP-046 | Launch outcomes/events/history | 43 | 11 | 45 | 5 | 3 |
@@ -110,7 +110,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-077 | Evry wiki reads/helper adapters | 0 | 19 | 3 | 0 | 1.5 |
 | WP-078 | Evry wiki draft/propose/execute adapters | 0 | 9 | 0 | 0 | 1.5 |
 | WP-079 | Evry documents reads/helper adapters | 2 | 14 | 7 | 0 | 1.5 |
-| WP-080 | Evry documents draft/propose/execute adapters | 0 | 10 | 4 | 0 | 1.5 |
+| WP-080 | Evry documents draft/propose/execute adapters | 0 | 12 | 4 | 0 | 1.5 |
 | WP-081 | Evry notifications reads/helper adapters | 2 | 8 | 8 | 0 | 1.5 |
 | WP-082 | Evry notifications draft/propose/execute adapters | 2 | 28 | 3 | 0 | 1.5 |
 | WP-083 | Evry platform reads/helper adapters | 0 | 38 | 0 | 0 | 2 |
@@ -125,11 +125,11 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-100 | My residency and consented progress | 2 | 3 | 2 | 0 | 2.5 |
 | WP-101 | Pipeline and development Evry adapters | 1 | 15 | 1 | 0 | 3 |
 | WP-102 | Multiplication privacy, race and parity integration | 17 | 0 | 17 | 0 | 4.5 |
-| WP-056 | Complete cross-feature privacy, concurrency and correction behavior | 0 | 0 | 1166 | 0 | 14.5 |
+| WP-056 | Complete cross-feature privacy, concurrency and correction behavior | 0 | 0 | 1170 | 0 | 14.5 |
 | WP-094 | Core browser, file and native/Evry feature parity | 4 | 0 | 6 | 0 | 1.5 |
 | WP-095 | Knowledge browser, file and native/Evry feature parity | 7 | 0 | 8 | 0 | 1.5 |
 | WP-096 | Intelligence browser, file and native/Evry feature parity | 3 | 0 | 18 | 0 | 1.5 |
-| WP-057 | Complete browser, file and native/Evry feature parity | 0 | 0 | 1166 | 4 | 14.5 |
+| WP-057 | Complete browser, file and native/Evry feature parity | 0 | 0 | 1170 | 4 | 14.5 |
 | WP-058 | Fresh bootstrap and release rehearsal | 12 | 0 | 29 | 0 | 1.5 |
 | WP-103 | Everyfield brand spelling in app copy | 0 | 0 | 0 | 0 | 0.5 |
 | WP-104 | Church brand kit | 7 | 6 | 9 | 1 | 1.5 |

@@ -199,7 +199,7 @@ This mapping is generated from `replaces`; Fix 2 uses it to align architecture, 
 
 ## Coverage
 
-Capability inventories cover 303 feature IDs and 125 persistent capabilities. Coverage proves a documented mapping; it does not establish runtime behavior.
+Capability inventories cover 305 feature IDs and 125 persistent capabilities. Coverage proves a documented mapping; it does not establish runtime behavior.
 
 ## Design rules used
 1. Each table names the capabilities that require it. There is no table for a behavior-only helper or derived dashboard.

@@ -1273,6 +1273,39 @@
 				}
 			],
 			"risk": "ordinary"
+		},
+		"OPS-79": {
+			"title": "Spec change: text-heavy templates generate into editable Church Documents, exported as PDF and Word",
+			"owningPaths": [
+				"evf.config.json",
+				"everyfield-feature-review.html",
+				"docs/START-HERE.md",
+				"docs/architecture/",
+				"docs/product/",
+				"docs/catalog/",
+				"docs/acceptance/",
+				"docs/schema/",
+				"docs/dependencies.json",
+				"docs/dependencies.md",
+				"docs/verification.json",
+				"docs/text-allowlist.json",
+				"docs/check-all.py",
+				"docs/plan/dag.json",
+				"docs/plan/build-plan.md",
+				"docs/plan/context-manifest.json",
+				"design/handoff/screens.md"
+			],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {
