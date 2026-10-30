@@ -36,6 +36,20 @@ writes the shipped record with an `owner_approval` field, acknowledges progress 
 `evf drive` records the wait and stops; a later pass records the merge. The key is optional: when it is
 absent, the built-in default in `tools/evf/policy.ts` applies. A malformed key stops `loadConfig`.
 
+Merge choke point (OPS-83): every PR merge in `tools/evf` goes through `mergePullRequest` in `tools/evf/merge.ts`;
+a test fails when another file calls `gh pr merge` or the merge API. Directly before the merge call, on the exact
+sha passed to `--match-head-commit` (after any `update-branch`), it holds a document-template PR unless the caller
+passes Sebastian's words for that head, which only `evf approve --owner-approval` does. It reads the paths from
+the base branch's `evf.config.json` (the built-in default when the key is absent), never the running checkout's
+copy. Any doubt counts as the class: a failed fetch, merge-base or diff, an unreadable base config or an empty head.
+Stale-code refusal: it also refuses to merge when the git trees of `tools/evf` and `bin/evf` in the checkout the
+process loaded differ from the base branch, or that checkout has uncommitted changes there. The message names both
+commits and the rerun command. A process loads evf once, so without this a rule that lands later never reaches a
+long process (this is how PR #375 merged: the drive that merged it started before OPS-80 landed). The drive runs
+its ship stage on current base code: when its loaded code is behind, it runs `evf ship` as a child from a detached
+checkout of the base commit under `<git common dir>/evf-code/`, created once per commit. After this lands,
+restart live drives; they still run their old code.
+
 Ship never merges on red main. Before it merges, it reads main's latest finished `ci.yml` push run,
 skipping cancelled and skipped runs. When that run failed, only a PR whose body says `Fixes #<n>`
 for the open `P0: CI failed on main` issue may merge. The gate reads the run, not the issue state.

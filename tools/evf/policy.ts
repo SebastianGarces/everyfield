@@ -176,7 +176,9 @@ export function documentTemplateChanges(repo: string, cfg: Config, base: string,
 	const changed = git(repo, "diff", "--name-only", "--no-renames", git(repo, "merge-base", base, head), head)
 		.split("\n")
 		.filter(Boolean);
-	return changed.filter((path) =>
-		entries.some((entry) => (entry.endsWith("/") ? path.startsWith(entry) : path === entry)),
-	);
+	return changed.filter((path) => matchesTemplatePath(entries, path));
 }
+
+/** An entry that ends in `/` matches every path under it; any other entry matches one file. */
+export const matchesTemplatePath = (entries: string[], path: string): boolean =>
+	entries.some((entry) => (entry.endsWith("/") ? path.startsWith(entry) : path === entry));

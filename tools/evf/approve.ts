@@ -13,6 +13,7 @@ import {
 	type TaskRef,
 } from "./lib.ts";
 import { cachedTriage } from "./feedback.ts";
+import { mergePullRequest } from "./merge.ts";
 import { afterMerge, checkPr, type MergeEvidence } from "./ship.ts";
 import { APPROVED_PROTOTYPE, changesOnlyOwnRegistration, documentTemplateChanges } from "./policy.ts";
 
@@ -200,7 +201,14 @@ export function approve(root: string, n: number, opts: { ownerApproval?: string;
 			"-f",
 			`description=Approved by Sebastian at ${head.slice(0, 10)}`,
 		]);
-	gh(["pr", "merge", String(n), "--squash", "--match-head-commit", head]);
+	const merged = mergePullRequest({
+		root,
+		cfg,
+		number: n,
+		sha: head,
+		ownerApproval: { quote: words, approved_head: head },
+	});
+	if (merged.code !== 0) fail(`The merge failed: ${(merged.stderr || merged.stdout).trim()}`);
 	console.log(`Merged PR #${n} (${pr.title}) at ${head.slice(0, 10)} with Sebastian's approval.`);
 	if (route.kind === "template" && evidence) {
 		// The same bookkeeping evf ship runs, so package progress and dependents unlock. A task without a worktree

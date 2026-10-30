@@ -2913,21 +2913,27 @@ test("OPS-59-ship: a work-store row for the branch does not stop an ordinary PR;
 });
 
 /** WP-001/OPS-67 ship setup: an approved, green WP task whose merge commit lands on the base ref. */
-function wpShipFixture(mergeBranchOverride?: string, file = "packages/reference/fixture.txt") {
-	const f = mergeFixture();
-	f.authorize("WP-032");
+function wpShipFixture(
+	mergeBranchOverride?: string,
+	file = "packages/reference/fixture.txt",
+	shape: { task?: string; extraFiles?: string[] } = {},
+) {
+	const f = mergeFixture(),
+		task = parseTask(shape.task ?? "WP-001");
+	f.authorize(shape.task ? task.wp! : "WP-032");
 	const progressPath = join(f.root, "docs/build-progress.json"),
 		initial = JSON.parse(readFileSync(progressPath, "utf8"));
-	initial.packages["WP-001"].status = "not_started";
+	initial.packages[task.wp!].status = "not_started";
 	writeFileSync(progressPath, JSON.stringify(initial));
 	reconcileProgress(f.root);
 	f.commit();
 	f.git("push", "-q", "origin", "main");
-	const task = parseTask("WP-001"),
-		wt = f.task(task.slug);
-	mkdirSync(dirname(join(wt, file)), { recursive: true });
-	writeFileSync(join(wt, file), "Reviewed reference bundle");
-	execFileSync("git", ["-C", wt, "add", file]);
+	const wt = f.task(task.slug);
+	for (const name of [file, ...(shape.extraFiles ?? [])]) {
+		mkdirSync(dirname(join(wt, name)), { recursive: true });
+		writeFileSync(join(wt, name), "Reviewed reference bundle");
+		execFileSync("git", ["-C", wt, "add", name]);
+	}
 	execFileSync("git", ["-C", wt, "commit", "-qm", "Reviewed fixture output"]);
 	const sha = execFileSync("git", ["-C", wt, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
 	if (mergeBranchOverride) {
@@ -3570,5 +3576,277 @@ test("INV-document-templates-drive: the drive stops at a verified template PR wi
 		console.log = log;
 		db.close();
 		f.close();
+	}
+});
+
+// OPS-83: one merge choke point; no document-template merge without Sebastian's approval, whatever evf code runs.
+import { mergePullRequest, setLoadedCode, templateClass, type CodeIdentity } from "../merge.ts";
+
+const currentCode = (base: { commit: string; evfTree: string; binTree: string }): CodeIdentity => ({
+	checkout: "fixture",
+	...base,
+	dirty: false,
+});
+const behindCode = (base: { binTree: string }): CodeIdentity => ({
+	checkout: "/old/checkout",
+	commit: "1".repeat(40),
+	evfTree: "2".repeat(40),
+	binTree: base.binTree,
+	dirty: false,
+});
+const withCode = <T>(claim: Parameters<typeof setLoadedCode>[0], fn: () => T): T => {
+	setLoadedCode(claim);
+	try {
+		return fn();
+	} finally {
+		setLoadedCode(currentCode);
+	}
+};
+
+/** PR #375 (WP-036/api): the engine swap plus rebuilt templates, with files outside the class beside them. */
+const PR375_FILES = [
+	"packages/domain/src/documents/templates/layouts/invoice.tsx",
+	"packages/domain/src/documents/templates/fonts/Inter-Regular.ttf",
+	"packages/domain/src/documents/theme.ts",
+	"docs/catalog/document-templates.json",
+	"pnpm-lock.yaml",
+	"tests/integration/documents/render.test.ts",
+];
+const PR375_CLASS = [
+	"packages/domain/src/documents/templates/registry.ts",
+	"packages/domain/src/documents/templates/layouts/invoice.tsx",
+	"packages/domain/src/documents/templates/fonts/Inter-Regular.ttf",
+	"packages/domain/src/documents/theme.ts",
+	"docs/catalog/document-templates.json",
+];
+const pr375 = () =>
+	wpShipFixture(undefined, "packages/domain/src/documents/templates/registry.ts", {
+		task: "WP-036/api",
+		extraFiles: PR375_FILES,
+	});
+
+test("OPS-83-choke-point: only merge.ts calls gh pr merge or the GitHub merge API", () => {
+	const dir = resolve(import.meta.dirname, "..");
+	const merging = [/["']pr["']\s*,\s*["']merge["']/, /gh\s+pr\s+merge/, /\/pulls\/[^"'`\s]*\/merge/, /["'`]\/merge["'`]/];
+	const files = readdirSync(dir).filter((n) => n.endsWith(".ts"));
+	assert.ok(files.includes("merge.ts") && files.includes("ship.ts") && files.includes("approve.ts"));
+	const offenders = files.filter((name) => {
+		const code = readFileSync(join(dir, name), "utf8")
+			.split("\n")
+			.filter((line) => !/^\s*(\/\/|\/\*|\*)/.test(line))
+			.join("\n");
+		return merging.some((re) => re.test(code));
+	});
+	assert.deepEqual(offenders, ["merge.ts"]);
+});
+
+test("OPS-83-375-ship: a WP-036/api-shaped PR with approved review and green CI is verified and held, never merged", () => {
+	const { f, db, task, shipped } = pr375();
+	try {
+		const head = f.getState().pr.headRefOid;
+		assert.equal(task.id, "WP-036/api");
+		const { value, lines } = capturedLog(() => ship(f.root, task));
+		assert.equal(value, 0);
+		assert.deepEqual(mergeCalls(f), []);
+		assert.equal(callsWith(f, "pr", "merge").length, 0);
+		assert.equal(callsWith(f, "POST", `repos/test/private/statuses/${head}`).length, 1, "the verified status");
+		assert.equal(lines.length, 1);
+		for (const path of PR375_CLASS) assert.match(lines[0], new RegExp(path.replace(/[.]/g, "\\.")));
+		assert.match(lines[0], /bin\/evf approve 77 --owner-approval "<his words>"/);
+		assert.equal(existsSync(join(evfDataDir(f.root), "shipped", `${task.slug}.json`)), false);
+		void shipped;
+	} finally {
+		db.close();
+		f.close();
+	}
+});
+
+test("OPS-83-375-approve: his recorded words merge that exact head through the choke point; another head refuses", () => {
+	const { f, db, task, shipped } = pr375();
+	try {
+		const head = f.getState().pr.headRefOid;
+		approvable(f as any, task.branch, PR375_FILES, head);
+		const s = f.getState();
+		s.commitStatus = verifiedStatus(head);
+		s.calls = [];
+		f.setState(s);
+		const words = "Approved: the eleven templates look right";
+		for (const wrong of ["deadbee", head.slice(0, 7).replace(/^./, head[0] === "0" ? "1" : "0")])
+			assert.throws(
+				() => inFakeCwd(f, () => approve(f.root, 77, { ownerApproval: words, head: wrong })),
+				/His approval does not carry over/,
+			);
+		assert.deepEqual(callsWith(f, "pr", "merge"), []);
+		capturedLog(() => inFakeCwd(f, () => approve(f.root, 77, { ownerApproval: words, head })));
+		assert.deepEqual(callsWith(f, "pr", "merge")[0].args, ["pr", "merge", "77", "--squash", "--match-head-commit", head]);
+		const record = shipped();
+		assert.equal(record.owner_approval.quote, words);
+		assert.equal(record.owner_approval.approved_head, head);
+		assert.equal(record.pr, 77);
+	} finally {
+		db.close();
+		f.close();
+	}
+});
+
+test("OPS-83-choke-point: the class is decided on the sha passed to the merge, from the base config, and needs his words for that head", () => {
+	const { f, db, task } = pr375();
+	try {
+		const cfg = loadConfig(f.root),
+			wt = join(f.root, ".worktrees", task.slug),
+			sha = f.getState().pr.headRefOid;
+		// The home checkout's own config (uncommitted) cannot narrow the class.
+		f.cfg.mergePolicy.documentTemplates = { ...structuredClone(DEFAULT_DOCUMENT_TEMPLATES), paths: ["nothing/"] };
+		writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+		const merge = (ownerApproval?: { quote: string; approved_head: string }) =>
+			mergePullRequest({ root: f.root, cfg, cwd: wt, number: 77, sha, ownerApproval });
+		assert.throws(
+			() => merge(),
+			(e: Error) =>
+				e.message.includes("packages/domain/src/documents/templates/registry.ts") &&
+				e.message.includes('bin/evf approve 77 --owner-approval "<his words>"'),
+		);
+		assert.throws(() => merge({ quote: "Approved", approved_head: sha }), /does not merge PR #77/);
+		assert.throws(() => merge({ quote: "Approved: looks right", approved_head: "a".repeat(40) }), /does not carry over/);
+		assert.deepEqual(callsWith(f, "pr", "merge"), []);
+		assert.equal(merge({ quote: "Approved: looks right", approved_head: sha }).code, 0);
+		assert.equal(callsWith(f, "pr", "merge").length, 1);
+	} finally {
+		db.close();
+		f.close();
+	}
+});
+
+test("OPS-83-fail-closed: a class that cannot be computed holds the PR and says why", () => {
+	const cases: Array<[string, (f: ReturnType<typeof mergeFixture>, sha: string) => string, RegExp]> = [
+		["a missing head commit", () => "f".repeat(40), /is not in the repository/],
+		["an empty head", () => "", /not a full commit sha/],
+		["no merge base", (f) => f.git("commit-tree", "HEAD^{tree}", "-m", "orphan"), /git merge-base origin\/main .* failed/],
+		["an empty diff", (f) => f.git("rev-parse", "origin/main"), /changes no path against origin\/main/],
+		[
+			"an unreadable base config",
+			(f, sha) => {
+				writeFileSync(join(f.root, "evf.config.json"), "{ not json");
+				f.git("commit", "-qam", "Break config");
+				f.git("push", "-q", "origin", "main");
+				return sha;
+			},
+			/origin\/main evf\.config\.json is unreadable/,
+		],
+	];
+	for (const [name, setup, why] of cases) {
+		const { f, db, task } = wpShipFixture();
+		try {
+			const cfg = loadConfig(f.root),
+				wt = join(f.root, ".worktrees", task.slug),
+				sha = setup(f, f.getState().pr.headRefOid);
+			assert.throws(
+				() => mergePullRequest({ root: f.root, cfg, cwd: wt, number: 77, sha }),
+				(e: Error) =>
+					/cannot tell whether it changes document templates/.test(e.message) &&
+					why.test(e.message) &&
+					e.message.includes('bin/evf approve 77 --owner-approval "<his words>"'),
+				name,
+			);
+			assert.deepEqual(callsWith(f, "pr", "merge"), [], name);
+		} finally {
+			db.close();
+			f.close();
+		}
+	}
+});
+
+test("OPS-83-fail-closed: a failed fetch refuses the merge and counts as the class", () => {
+	const { f, db, task } = wpShipFixture();
+	try {
+		const cfg = loadConfig(f.root),
+			wt = join(f.root, ".worktrees", task.slug),
+			sha = f.getState().pr.headRefOid;
+		f.git("remote", "set-url", "origin", "/nonexistent/origin.git");
+		assert.throws(
+			() => mergePullRequest({ root: f.root, cfg, cwd: wt, number: 77, sha }),
+			/git fetch origin main failed/,
+		);
+		assert.match(templateClass(f.root, cfg, sha).doubt!, /git fetch origin main failed/);
+		assert.deepEqual(callsWith(f, "pr", "merge"), []);
+	} finally {
+		db.close();
+		f.close();
+	}
+});
+
+test("OPS-83-stale-code: evf code that differs from the base branch, or is edited, refuses every merge and names the rerun", () => {
+	const { f, db, task } = wpShipFixture();
+	try {
+		const cfg = loadConfig(f.root),
+			wt = join(f.root, ".worktrees", task.slug),
+			sha = f.getState().pr.headRefOid,
+			base = f.git("rev-parse", "origin/main").slice(0, 10);
+		// Ordinary PR, current code: merges.
+		const ordinary = () => mergePullRequest({ root: f.root, cfg, cwd: wt, number: 77, sha });
+		for (const claim of [behindCode, (b: any) => ({ ...currentCode(b), dirty: true })] as const)
+			withCode(claim, () => {
+				assert.throws(
+					() => ordinary(),
+					(e: Error) =>
+						e.message.includes("1111111111".slice(0, 10)) === (claim === behindCode) &&
+						e.message.includes(`main is at ${base}`) &&
+						e.message.includes(`git -C ${f.root} merge --ff-only origin/main`),
+				);
+				assert.throws(() => ship(f.root, task), /does not merge PR #77/);
+			});
+		assert.deepEqual(callsWith(f, "pr", "merge"), []);
+		assert.equal(ordinary().code, 0, "current code still merges an ordinary PR");
+	} finally {
+		db.close();
+		f.close();
+	}
+});
+
+/** The base branch carries a copy of the evf code, so the drive has a current checkout to run ship from. */
+function publishEvfCode(f: ReturnType<typeof mergeFixture>) {
+	const source = resolve(import.meta.dirname, "../../..");
+	cpSync(join(source, "tools/evf"), join(f.root, "tools/evf"), {
+		recursive: true,
+		filter: (path) => !/[\\/](tests|node_modules)([\\/]|$)/.test(path),
+	});
+	mkdirSync(join(f.root, "bin"), { recursive: true });
+	cpSync(join(source, "bin/evf"), join(f.root, "bin/evf"));
+	f.git("add", "tools/evf", "bin/evf");
+	f.git("commit", "-qm", "Publish evf code");
+	f.git("push", "-q", "origin", "main");
+}
+
+test("OPS-83-375-drive: the drive records owner_approval_wait for the template PR on current code and on code that is behind", () => {
+	for (const behind of [false, true]) {
+		const { f, db, task } = pr375(),
+			log = console.log;
+		try {
+			publishEvfCode(f);
+			console.log = () => {};
+			const id = (db.prepare("SELECT id FROM tasks WHERE ref = ?").get(task.id) as { id: number }).id;
+			const out = withCode(behind ? behindCode : currentCode, () => driveOnce(f.root, task, DRIVE_TIMING));
+			assert.equal(out.stage, "done");
+			assert.match(out.reason, /^PR #77 waits for Sebastian's approval$/);
+			assert.deepEqual(mergeCalls(f), []);
+			assert.equal(callsWith(f, "pr", "merge").length, 0);
+			assert.equal(db.prepare("SELECT COUNT(*) AS n FROM events WHERE task_id = ? AND type = 'merged'").get(id)!.n, 0);
+			assert.equal(
+				db.prepare("SELECT COUNT(*) AS n FROM events WHERE task_id = ? AND type = 'owner_approval_wait'").get(id)!.n,
+				1,
+			);
+			assert.equal(db.prepare("SELECT status FROM runs WHERE task_id = ? AND stage = 'ship'").get(id)!.status, "passed");
+			assert.equal(callsWith(f, "POST").length, 1, "the verified status, posted once");
+			const dir = join(f.root, ".git/evf-code"),
+				checkouts = existsSync(dir) ? readdirSync(dir).length : 0;
+			assert.equal(checkouts, behind ? 1 : 0, "behind code ships from one base checkout");
+		} catch (e) {
+			console.log = log;
+			throw e;
+		} finally {
+			console.log = log;
+			db.close();
+			f.close();
+		}
 	}
 });
