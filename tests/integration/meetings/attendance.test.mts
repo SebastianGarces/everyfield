@@ -885,7 +885,7 @@ async function crowd(size) {
 	const earlier = await meeting("vision_meeting", at(0));
 	ok(await finalize(owner, earlier, ids.filter((_, i) => i % 5 === 1)));
 	const v = await meeting("vision_meeting", at(5));
-	const first = ok(await finalize(owner, v, ids, { followUpAssigneeId: owner.id, evaluationAssigneeId: owner.id }));
+	const first = ok(await finalize(owner, v, ids));
 	return { ids, extra, leaver, earlier, v, first };
 }
 const swap = async (c, extra = [c.extra], gone = [c.leaver]) => ({
@@ -894,7 +894,7 @@ const swap = async (c, extra = [c.extra], gone = [c.leaver]) => ({
 	input: {
 		meetingId: c.v,
 		attendeeIds: [...c.ids.filter((id) => !gone.includes(id)), ...extra],
-		followUpAssigneeId: owner.id,
+		followUpAssigneeId: null,
 		reason: "Sign-in sheet checked",
 	},
 });
@@ -940,11 +940,11 @@ test("AC:TARGET-MTG-020 AC:TARGET-MTG-012 a 50-attendee reconcile returns the ex
 			.filter((id) => !priorOf(id))
 			.map((id) =>
 				id === c.extra
-					? { meetingId: c.v, kind: "first_vision_follow_up", personId: id, obligationId: created.obligationId, taskId: created.taskId, outcome: "created", assigneeId: owner.id, needsOwner: false }
-					: { meetingId: c.v, kind: "first_vision_follow_up", personId: id, obligationId: dutyOf(id).obligation_id, taskId: dutyOf(id).task_id, outcome: "existing", assigneeId: owner.id, needsOwner: false },
+					? { meetingId: c.v, kind: "first_vision_follow_up", personId: id, obligationId: created.obligationId, taskId: created.taskId, outcome: "created", assigneeId: null, needsOwner: true }
+					: { meetingId: c.v, kind: "first_vision_follow_up", personId: id, obligationId: dutyOf(id).obligation_id, taskId: dutyOf(id).task_id, outcome: "existing", assigneeId: null, needsOwner: true },
 			),
-		{ meetingId: c.v, kind: "meeting_evaluation", personId: null, obligationId: evaluation.obligation_id, taskId: evaluation.task_id, outcome: "existing", assigneeId: owner.id, needsOwner: false },
-		{ meetingId: c.v, kind: "first_vision_follow_up", personId: c.leaver, obligationId: dutyOf(c.leaver).obligation_id, taskId: dutyOf(c.leaver).task_id, outcome: "closed", assigneeId: owner.id, needsOwner: false },
+		{ meetingId: c.v, kind: "meeting_evaluation", personId: null, obligationId: evaluation.obligation_id, taskId: evaluation.task_id, outcome: "existing", assigneeId: null, needsOwner: true },
+		{ meetingId: c.v, kind: "first_vision_follow_up", personId: c.leaver, obligationId: dutyOf(c.leaver).obligation_id, taskId: dutyOf(c.leaver).task_id, outcome: "closed", assigneeId: null, needsOwner: false },
 	];
 	assert.deepEqual(
 		{ ...result, receiptId: undefined },
@@ -1117,10 +1117,10 @@ test("INV-locking: two concurrent reconciles at one revision apply once and neve
 		'unknown','unknown',0,'live',clock_timestamp() FROM generate_series(1,50) n RETURNING id`);
 	const ids = people.map((r) => r.id);
 	const m = await meeting("vision_meeting", "2026-12-05T23:00:00Z");
-	const request = await finalizeRequest(m, ids, { followUpAssigneeId: owner.id, evaluationAssigneeId: owner.id });
+	const request = await finalizeRequest(m, ids);
 	const [first, second] = await Promise.all([
 		write(owner, "finalizeAttendance", request),
-		finalize(owner, m, ids, { followUpAssigneeId: owner.id, evaluationAssigneeId: owner.id }),
+		finalize(owner, m, ids),
 	]);
 	assert.deepEqual([ok(first).outcome, ok(second).outcome].sort(), ["changed", "noop"]);
 	assert.equal((await work(m)).length, 51);
