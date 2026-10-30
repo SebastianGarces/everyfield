@@ -695,7 +695,7 @@ test("OPS-66-drive: the drive exits at the merge: one merged row, no next event 
 		const before = launches();
 		const lines: string[] = [];
 		console.log = (l: string) => lines.push(l);
-		const code = drive(f.root, f.task, {}, TIMING);
+		const code = drive(f.root, f.task, {}, { ...TIMING, waitMs: 60_000, seatPollMs: 3000 });
 		console.log = log;
 		assert.equal(code, 0, lines.join("\n"));
 		assert.deepEqual(rowsOf(f), [{ id: f.taskId, status: "merged", merge_commit: SHA }]);
@@ -1266,7 +1266,7 @@ test("OPS-70-flow: fake seats take a task from plan to merged through plan, impl
 			`evf("run","done",m[2],"--status","passed","--summary-file",${JSON.stringify(summary)})}}\n`;
 		writeFileSync(path, script.replace(marker, marker + seat));
 		console.log = () => {};
-		const code = drive(f.root, f.task, {}, TIMING);
+		const code = drive(f.root, f.task, {}, { ...TIMING, waitMs: 60_000, seatPollMs: 3000 });
 		console.log = log;
 		assert.equal(code, 0);
 		assert.equal(f.taskRow().status, "merged");
