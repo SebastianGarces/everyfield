@@ -10288,7 +10288,9 @@
     "work_packages": [
       "WP-104"
     ],
-    "routes": []
+    "routes": [
+      "/settings/brand"
+    ]
   },
   {
     "id": "BRD-002",
@@ -10312,7 +10314,9 @@
     "work_packages": [
       "WP-104"
     ],
-    "routes": []
+    "routes": [
+      "/settings/brand"
+    ]
   },
   {
     "id": "BRD-003",
@@ -10336,7 +10340,9 @@
     "work_packages": [
       "WP-104"
     ],
-    "routes": []
+    "routes": [
+      "/settings/brand"
+    ]
   },
   {
     "id": "BRD-004",
@@ -10359,7 +10365,9 @@
     "work_packages": [
       "WP-104"
     ],
-    "routes": []
+    "routes": [
+      "/settings/brand"
+    ]
   },
   {
     "id": "BRD-005",
@@ -10383,7 +10391,9 @@
     "work_packages": [
       "WP-104"
     ],
-    "routes": []
+    "routes": [
+      "/settings/brand"
+    ]
   },
   {
     "id": "BRD-006",

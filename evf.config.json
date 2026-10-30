@@ -1217,7 +1217,8 @@
 				"docs/check-all.py",
 				"docs/plan/dag.json",
 				"docs/plan/build-plan.md",
-				"docs/plan/context-manifest.json"
+				"docs/plan/context-manifest.json",
+				"design/handoff/screens.md"
 			],
 			"checks": [
 				{
