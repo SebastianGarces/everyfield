@@ -17,9 +17,9 @@ import {
 	ToastProvider,
 	useToast,
 } from "@everyfield/ui/controls";
-import { Avatar, StatusBadge } from "@everyfield/ui/display";
+import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { addWalkIn, reloadCheckIn, setPresence, settleAttendance } from "./actions.ts";
 import {
 	DialogNotice,
@@ -56,7 +56,10 @@ export function CheckInScreen({ data, admin }: { data: CheckInData; admin: boole
 function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 	const toast = useToast();
 	const [data, setData] = useState(loaded);
-	const [filter, setFilter] = useState<"waiting" | "here">("waiting");
+	// The saved walk-in to show: scrolled to the middle and held in a soft highlight for a moment. Keyed by guest id,
+	// because two guests can share a name.
+	const [arrived, setArrived] = useState<string | null>(null);
+	const list = useRef<HTMLUListElement>(null);
 	const [search, setSearch] = useState("");
 	const seats = useSeats();
 	// A walk-in and Finish both change who attended, so they share one save lane (C68). Presence taps have one per person.
@@ -92,11 +95,22 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 			: g.presence;
 	};
 	const here = guests.filter((g) => listed(g) === "attended");
-	const waiting = guests.filter((g) => listed(g) !== "attended");
 	const q = search.trim().toLowerCase();
-	const rows = (filter === "here" ? here : waiting)
+	// One list. The order never depends on who is here, so a tap never moves a row.
+	const rows = guests
 		.filter((g) => !q || g.person.displayName.toLowerCase().includes(q))
 		.sort((a, b) => rank(a) - rank(b) || a.person.displayName.localeCompare(b.person.displayName));
+
+	// The effect depends on the guest alone, so a render never restarts the timer or the scroll.
+	useEffect(() => {
+		if (!arrived) return;
+		const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+		list.current
+			?.querySelector(`[data-guest="${CSS.escape(arrived)}"]`)
+			?.scrollIntoView({ block: "center", behavior: calm ? "instant" : "smooth" });
+		const t = setTimeout(() => setArrived(null), 3000);
+		return () => clearTimeout(t);
+	}, [arrived]);
 
 	function submitWalkIn(input: WalkInInput) {
 		const p = input.person;
@@ -111,8 +125,9 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 			presence: "attended",
 			hasCard: false,
 		};
-		const done = () => {
+		const done = (guestId: string) => {
 			setDraft(null);
+			setArrived(guestId);
 			toast({ message: `${pending.person.displayName} is checked in.`, tone: "success" });
 		};
 		const save = {
@@ -122,7 +137,6 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 			refused: () => setDraft(null),
 		};
 		setDraft(pending);
-		setFilter("here");
 		if (p)
 			return void door.save({
 				...save,
@@ -141,7 +155,7 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 						hasCard: a.hasCard,
 					};
 					setData((d) => withAttendees({ ...d, guests: [...d.guests, g] }, value.attendees, value.attendanceRevision));
-					done();
+					done(g.id);
 				},
 			});
 		const body = {
@@ -160,7 +174,7 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 					guests: [...d.guests, g],
 					attendance: d.attendance && { ...d.attendance, items: [...d.attendance.items, attendeeOf(g)] },
 				}));
-				done();
+				done(g.id);
 			},
 		});
 	}
@@ -199,7 +213,7 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 	const doorBusy = door.wait !== null;
 
 	return (
-		<div className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col bg-frame [--control-edge:var(--ef-edge)]">
+		<div className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col bg-frame">
 			<header className="sticky top-0 z-10 flex flex-col gap-3 bg-frame px-4 pt-3 pb-3">
 				<div className="flex items-center justify-between gap-3">
 					<IntentLink
@@ -216,8 +230,10 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 						</p>
 					</div>
 					<StatusBadge status="positive" size="sm">
-						<span className="tabular-nums">{here.length}</span>
-						<span className="sr-only"> here</span>
+						<span className="tabular-nums">
+							{here.length} of {guests.length}
+						</span>
+						<span className="sr-only"> checked in</span>
 					</StatusBadge>
 				</div>
 				{final ? (
@@ -236,47 +252,48 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 					onChange={(e) => setSearch(e.target.value)}
 					className="h-[46px]"
 				/>
-				<SegmentedControl
-					label="Show"
-					value={filter}
-					onValueChange={setFilter}
-					className="flex w-full [&>*]:flex-1 [&>*]:justify-center"
-					options={[
-						{ value: "waiting", label: "Not here yet", count: waiting.length },
-						{ value: "here", label: "Here", count: here.length },
-					]}
-				/>
 			</header>
 
 			<main className="flex flex-1 flex-col px-4 pb-4">
 				<SaveNotice {...door.noticeProps} dialogOpen={door.editing !== null} className="mb-3" />
 				<RowNotices lanes={presence.lanes} className="mb-3" />
-				<h2 className="sr-only">{filter === "here" ? "Here" : "Not here yet"}</h2>
+				<h2 className="sr-only">Guests</h2>
 				{rows.length === 0 ? (
 					<p className="px-1 py-8 text-center text-md text-text-3" aria-live="polite">
 						{q
 							? "No one on the list matches. Add them as a walk-in."
-							: filter === "here"
-								? "Nobody is checked in yet."
-								: guests.length === 0
-									? "The guest list is empty. Add people as they arrive."
-									: "Everyone on the list is here."}
+							: "The guest list is empty. Add people as they arrive."}
 					</p>
 				) : (
-					<ul className="flex flex-col gap-2">
-						{rows.map((g) => (
-							<li key={g.id}>
-								<Row
-									guest={g}
-									disabled={final || isPending(g) || g.person.state !== "live"}
-									state={isPending(g) ? (door.saving ? "saving" : "unknown") : stateOf(g)}
-									onToggle={() =>
-										!isPending(g) && presence.set(g.person, g.presence === "attended" ? "absent" : "attended")
-									}
-								/>
-							</li>
-						))}
-					</ul>
+					<>
+						{final ? null : (
+							<p className="px-1 pb-2 text-sm text-text-2" aria-live="polite">
+								{here.length === 0
+									? "Nobody is here yet. Tap a name when they arrive."
+									: here.length < guests.length
+										? "Tap a name to check them in. Tap again to undo."
+										: `Everyone on the list is here.${admin ? " Finish check-in when you are ready." : ""}`}
+							</p>
+						)}
+						<ul
+							ref={list}
+							className="overflow-hidden rounded-card bg-surface-raised shadow-[inset_0_0_0_1px_var(--ef-line),var(--ef-shadow-raised)]"
+						>
+							{rows.map((g) => (
+								<li key={g.id} className="border-line not-first:border-t">
+									<Row
+										guest={g}
+										highlight={g.id === arrived}
+										disabled={final || isPending(g) || g.person.state !== "live"}
+										state={isPending(g) ? (door.saving ? "saving" : "unknown") : stateOf(g)}
+										onToggle={() =>
+											!isPending(g) && presence.set(g.person, g.presence === "attended" ? "absent" : "attended")
+										}
+									/>
+								</li>
+							))}
+						</ul>
+					</>
 				)}
 			</main>
 
@@ -349,17 +366,20 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 /** Guests who said yes come first, then pending, then no. */
 const rank = (g: GuestRow) => (g.rsvp === "confirmed" ? 0 : g.rsvp === "pending" ? 1 : 2);
 
-/** One guest at the door: a 58px toggle button. Pressed means here. */
+/** One guest at the door: a 56px to-do row with a round check and a status chip. Pressed means here. */
 function Row({
 	guest: g,
 	disabled,
 	state,
+	highlight,
 	onToggle,
 }: {
 	guest: GuestRow;
 	disabled: boolean;
 	/** This row's save: on its way, unknown or being checked again. Undefined when the row takes a tap. */
 	state: RowSave | undefined;
+	/** A walk-in just saved: held in a soft highlight for a moment. */
+	highlight: boolean;
 	onToggle: () => void;
 }) {
 	const here = g.presence === "attended";
@@ -375,31 +395,49 @@ function Row({
 	return (
 		<button
 			type="button"
+			data-guest={g.id}
 			aria-pressed={here}
 			aria-busy={state === "saving" || state === "checking" || undefined}
 			aria-disabled={disabled || saving || undefined}
 			onClick={() => !saving && !disabled && onToggle()}
 			className={cn(
-				"flex min-h-[58px] w-full items-center gap-3 rounded-card px-3.5 py-2 text-left transition-[background-color,box-shadow] duration-150 focus-visible:shadow-[0_0_0_2px_var(--ef-ink)] focus-visible:outline-none",
-				here
-					? "bg-green-50 shadow-edge"
-					: "bg-surface-raised shadow-edge hover:bg-surface-2 aria-disabled:hover:bg-surface-raised",
+				"flex min-h-14 w-full cursor-pointer items-center gap-3.5 px-4 py-2.5 text-left transition-colors duration-150 hover:bg-surface-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus aria-disabled:cursor-not-allowed aria-disabled:hover:bg-transparent motion-reduce:transition-none",
+				highlight && "bg-surface-2",
 			)}
 		>
-			<Avatar name={g.person.displayName} size="sm" decorative />
-			<span className="min-w-0 flex-1">
-				<span className="block truncate font-medium text-ink">{g.person.displayName}</span>
-				{detail ? <span className="block truncate text-xs text-text-3">{detail}</span> : null}
-			</span>
 			<span
 				aria-hidden="true"
 				className={cn(
-					"grid size-8 flex-none place-items-center rounded-full transition-[background-color,box-shadow] duration-150",
-					here ? "bg-green-500 text-ink-fixed" : "shadow-edge-inset",
+					"grid size-6 flex-none place-items-center rounded-full transition-[background-color,box-shadow] duration-150 motion-reduce:transition-none",
+					here
+						? "bg-green-500 text-ink-fixed shadow-[inset_0_0_0_1px_var(--ef-green-700)]"
+						: "bg-surface-raised shadow-[inset_0_0_0_1.5px_var(--ef-text-3)]",
 				)}
 			>
 				{here ? <Icon icon={Tick02Icon} size={16} /> : null}
 			</span>
+			<span className="min-w-0 flex-1">
+				<span className="block truncate font-medium text-ink">{g.person.displayName}</span>
+				{detail ? <span className="block truncate text-sm text-text-3">{detail}</span> : null}
+			</span>
+			<StatusBadge
+				aria-hidden="true"
+				plain
+				size="sm"
+				status="positive"
+				fill={here ? "soft" : "outline"}
+				className="w-[76px] justify-center"
+			>
+				{here ? (
+					// The badge sets text-ink after its soft tone, so the green text sits on an inner span.
+					<span className="inline-flex items-center gap-1 text-green-700">
+						<Icon icon={Tick02Icon} size={16} />
+						Here
+					</span>
+				) : (
+					"Not here"
+				)}
+			</StatusBadge>
 		</button>
 	);
 }
@@ -440,7 +478,7 @@ function WalkInDialog({
 	const emailBad = input.email.trim() !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim());
 	return (
 		<Dialog open onOpenChange={(o) => !o && onClose()}>
-			<DialogContent size="sm" className="[--control-edge:var(--ef-edge)]">
+			<DialogContent size="sm">
 				<form
 					noValidate
 					className="contents"
