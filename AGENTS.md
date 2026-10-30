@@ -52,29 +52,29 @@ number D<n> with `bin/evf id next ops|decision`; never take the next number from
 
 ## Roles and skills
 
-| Specialist | Read |
-|---|---|
+| Specialist               | Read                           |
+| ------------------------ | ------------------------------ |
 | spec-writer, coordinator | `.agents/roles/coordinator.md` |
-| implementor | `.agents/roles/implementor.md` |
-| ui-designer | `.agents/roles/ui-designer.md` |
-| verifier | `.agents/roles/verifier.md` |
+| implementor              | `.agents/roles/implementor.md` |
+| ui-designer              | `.agents/roles/ui-designer.md` |
+| verifier                 | `.agents/roles/verifier.md`    |
 
-| Need | Read |
-|---|---|
-| Product contract | `docs/START-HERE.md` and selected requirement JSON |
-| Task context | `docs/plan/context.md` and `docs/package-context.py` |
-| Architecture | `docs/architecture/README.md` |
-| Regression tests | `.agents/skills/test-standard/SKILL.md` |
-| Local checks | `.agents/skills/verify/SKILL.md` |
-| Verify a PR from the other family | `.agents/skills/verify-preview/SKILL.md` |
-| Merge rules | `.agents/skills/ship/SKILL.md` |
-| PR body standard | `.agents/skills/everyfield-pr/SKILL.md` and its template |
-| PR visual examples | `.agents/skills/pr/SKILL.md` |
-| Debugging | `.agents/skills/debug-with-traces/SKILL.md` |
-| Decisions | `.agents/skills/decisions/SKILL.md` |
-| Previews | `.agents/skills/portless-preview/SKILL.md` |
-| UI quality | better-interface and the better-* suite |
-| Tooling and recovery | `tools/evf/README.md` |
+| Need                              | Read                                                     |
+| --------------------------------- | -------------------------------------------------------- |
+| Product contract                  | `docs/START-HERE.md` and selected requirement JSON       |
+| Task context                      | `docs/plan/context.md` and `docs/package-context.py`     |
+| Architecture                      | `docs/architecture/README.md`                            |
+| Regression tests                  | `.agents/skills/test-standard/SKILL.md`                  |
+| Local checks                      | `.agents/skills/verify/SKILL.md`                         |
+| Verify a PR from the other family | `.agents/skills/verify-preview/SKILL.md`                 |
+| Merge rules                       | `.agents/skills/ship/SKILL.md`                           |
+| PR body standard                  | `.agents/skills/everyfield-pr/SKILL.md` and its template |
+| PR visual examples                | `.agents/skills/pr/SKILL.md`                             |
+| Debugging                         | `.agents/skills/debug-with-traces/SKILL.md`              |
+| Decisions                         | `.agents/skills/decisions/SKILL.md`                      |
+| Previews                          | `.agents/skills/portless-preview/SKILL.md`               |
+| UI quality                        | better-interface and the better-* suite                  |
+| Tooling and recovery              | `tools/evf/README.md`                                    |
 
 ## Principles
 
@@ -106,7 +106,6 @@ by your role, then others when needed. These are verbatim upstream copies pinned
 - `subtract-before-you-add`: Remove dead weight first.
 - `test-behavior-not-implementation`: Call code as users do; assert the exact result.
 - `type-system-discipline`: Illegal states unrepresentable; parse at boundaries.
-
 
 ## Progress and context
 
