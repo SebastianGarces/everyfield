@@ -1094,7 +1094,7 @@
 		},
 		"OPS-72": {
 			"title": "Drive robustness for seat launch, retries and preview slots",
-			"owningPaths": ["tools/evf/", "tools/evf-tui/", ".agents/roles/", ".agents/skills/", ".claude/agents/", "evf.config.json", "docs/build-agent-workflow.md"],
+			"owningPaths": ["tools/evf/", "tools/evf-tui/", ".agents/roles/", ".agents/skills/", ".claude/agents/", "evf.config.json", "docs/build-agent-workflow.md", "scripts/stack.mjs", "scripts/preview-slots.mjs"],
 			"checks": [
 				{
 					"name": "documentation",

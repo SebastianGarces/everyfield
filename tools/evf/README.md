@@ -60,6 +60,13 @@ process; `EVF_TUI_LABEL` overrides the label for a test or a scratch workspace) 
 step. The role files are `.claude/agents/<role>.md`: planner and verifier on Opus 5.5 high, implementer, ui,
 simplifier on Sonnet 5.5 medium. The implementer seat does UI work too and proves its own work; the ui seat is opt-in with the spec line `Seat: ui`. Every seat has the advisor and the update prompt disabled.
 
+The seat's agent definition comes from the evf checkout that runs the launch, never from the task worktree: launch
+reads `<evf root>/.claude/agents/<role>.md` and hands it to Claude Code as `claude --agent <role> --agents <json>`
+(name, description, model, effort, tools, disallowed tools, permission mode and the prompt body). A definition given
+on the command line outranks the worktree's own `.claude/agents`, so a task branch that deletes, renames or edits a
+role file still drives itself to merge. `evf launch --dry-run` prints which file the definition came from; no copy of a
+role file belongs in `~/.claude/agents/`.
+
 The agent files set `permissionMode: bypassPermissions`. The repository's `permissions.deny` rules and its hooks
 stay in force under the flag; `ask` rules may not prompt. `dontAsk` is never used.
 
@@ -67,7 +74,17 @@ Seats tile as a grid so Sebastian sees them all on one screen. `panes.ts` reads 
 (one cell is 10 x 20 px) and always splits the largest pane along its longer side: `right` when it is at least as
 wide as tall in pixels, otherwise `down`. A split that would leave the TUI pane under 120 x 30 cells is skipped.
 When no workspace has the TUI label, launch falls back to a new workspace named after the task (the root pane is
-the seat). If `agent start` fails in a split pane, that pane is closed and the run is aborted.
+the seat.
+
+A launch that fails does not kill the drive. When `herdr agent start` fails or times out, launch reads the pane
+(`herdr pane read --lines 80`) and puts its last meaningful lines in the error, for example `Error: agent "evidence"
+not found`, not only "timed out waiting for agent startup". It then closes the dead pane (or workspace), opens a new
+pane with a new Claude session id and tries once more under the same run. A second failure closes the run as
+`aborted` with the pane excerpt in its summary and throws; `evf drive` logs that line and goes on to its next
+transition, where the three-failures cap applies as usual. A launch with a prompt sends it only after the run's
+`session_start` event exists (the Claude session-start hook ran; 60 s bound, else the launch fails as above). It
+then confirms that a turn began: the agent left `idle`, or a later event of the run shows activity. If none
+begins within 15 s, launch sends the prompt once more and records `prompt_resent`; it never resends twice.
 
 When a run reaches a terminal status (`evf run done`, a drive failure path or the session-end hook), evf closes
 that run's pane after the store update, then rebalances the TUI workspace with `herdr pane resize`: every column
@@ -111,7 +128,14 @@ passed stage escalate the same way, so no loop runs unattended forever. `evf tas
 run, so the task gets three more failures before it escalates again. It resets only the trailing-failure
 count, never the round (a task at the loop cap escalates again on its next failed verify or ci), and
 it edits no run, event, approval or proof. It replaces the hand-written sqlite UPDATE. It refuses a task
-that is not escalated and refuses inside a seat (`EVF_RUN` set). The drive waits on a seat in slices of one seat-poll interval and reads the run
+that is not escalated and refuses inside a seat (`EVF_RUN` set). The reason goes into the prompt of the first
+seat that launches afterwards, for every stage and verbatim, and into `evf refocus`; neither presents the failure
+summary from before the reopen as the current instruction, and the `evf next` reason reads `reopened by the
+coordinator: <reason>` until a seat has run since. The prompts carry the reason until a seat passes after the
+reopen. The loop cap and the three-failure cap never escalate while another seat of the same task still works
+(its run is `started` and its Herdr agent exists). evf records `escalation_deferred` with the reason it would have
+used, the TUI shows the task as active, the drive keeps waiting on that run, and the escalation happens when the
+last open run closes, with that reason. The drive waits on a seat in slices of one seat-poll interval and reads the run
 status from the store before each slice, so a run that already passed, failed or aborted ends the wait at once.
 A seat whose Herdr agent no longer exists, while its run is still started, gets its run closed as aborted, and the
 next transition launches that stage again with the same round. A blocked seat is notified once per
@@ -122,7 +146,9 @@ three times with backoff, never starting a seat twice. Each launch gets its own 
 so a later round never waits on an earlier seat. `evf next <task>` prints the next stage without acting
 and writes nothing; `--once` performs one transition; `--detach` runs the loop in the background with a
 log under the Git common directory. One drive per task: a second `evf drive` refuses while the first
-process is alive (pid file under `evf/drive/`). If a drive dies inside its own pr, ci or ship stage, the
+process is alive (pid file under `evf/drive/`). The start grace for a seat whose first turn has not begun (30 s)
+counts from the moment the drive starts to watch that run, not from the launch prompt, so a seat watched late, after
+other launches, still gets all of it. If a drive dies inside its own pr, ci or ship stage, the
 next drive aborts that run without a round and performs the stage again; a PR GitHub already merged is
 recorded, not shipped twice. Jonah polls `evf status --json`.
 
@@ -159,6 +185,42 @@ compare script plus one diagram per idea for backend), pick (the task waits as `
 and runs `evf task handoff <task> --file <spec>`, which marks the prototype task done and creates the
 implement task for the same package with that spec). Idea branches are left for `evf gc`; the harness
 deletes nothing.
+
+A rerun of an idea resumes. When an idea stage launches again after a failed or aborted run of the same idea, its
+prompt quotes that run's summary and tells the seat to resume in the existing worktree and `IDEA.md` and to clear
+the named blocker first. When the newest two failed runs of one idea have the same first line (hex ids, digits and
+spacing normalized), or one idea fails three times in a row, the task stops retrying: no further seat starts, and it
+escalates with that reason once the seats still working have closed. The idea prompts and the compare prompt carry
+the ask's `Coordinator note` paragraphs, and `evf refocus` pins those paragraphs and the reopen reason so it never
+cuts them. `evf run done --status passed` refuses an idea stage whose summary, or `IDEA.md` at the idea worktree
+root, has a line that names a Done criterion (`criterion 9`, `Done 9`) and says `unmet` or `not met`; the message
+quotes the line and says to finish the criterion or close failed.
+
+When one idea is stuck and every other idea passed, the escalation message names `evf task compare-passed <task>
+--owner-approval "<his words>"`. It needs Sebastian's words, refuses inside a seat (`EVF_RUN` set) and a task that
+is not an escalated prototype with exactly one missing idea. It records a `compare_passed` event, sets the task
+active and the drive runs compare with only the passed ideas; the compare prompt lists their worktrees and names the
+missing idea and why. `evf task pick` refuses the missing idea.
+
+## Preview slots
+
+Portless allows `PORTLESS_PREVIEW_LIMIT` live previews (4, per D74). `evf stack up` (`scripts/stack.mjs`) and the
+verify-preview skill's `preview.mjs` share one check, `scripts/preview-slots.mjs`, before `portless preview up`.
+A worktree that already has a live preview reuses it and never waits. When the pool is full, the check first
+releases previews nobody needs: previews portless reports as expired or failed (`portless preview gc --apply`), previews
+whose project path is gone, and previews of a task worktree whose store row is merged, done or abandoned with no
+`started` run and no live drive. It never stops the main checkout's preview, a review preview or a task that
+works. If the pool is still full it waits and polls (`EVF_PREVIEW_POLL_MS`, 15 s), prints `waiting for a preview slot
+(n/4 in use)` once a minute and, inside a seat, records it as a `preview_wait` run event that the TUI shows and
+the drive log repeats. After `EVF_PREVIEW_WAIT_MS` (20 min) it fails with the wait, the limit and the projects that
+hold the slots.
+
+## Stale task rows
+
+`evf task abandon <task> [--id <store id>] --reason "<two words or more>"` sets a stale row to `abandoned` and records
+an `abandon` event with the reason (it prints the event id). `--id` picks one store row when a ref has several; without
+it the newest open row is used. It refuses a merged row, a row with a `started` run, a task whose drive is alive and
+any call from a seat (`EVF_RUN` set). The TUI already hides abandoned rows.
 
 ## Live TUI
 

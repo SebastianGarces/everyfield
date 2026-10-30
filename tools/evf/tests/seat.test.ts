@@ -4,7 +4,7 @@ import { chmodSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from "
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { fixture, source } from "./fixtures.ts";
+import { fixture, sessionStartJs, source } from "./fixtures.ts";
 import { ensureTask, openWorkDb, syncGoals, workDbPath } from "../db.ts";
 import { EvfError, parseTask } from "../lib.ts";
 import { launch, ROLES } from "../launch.ts";
@@ -33,12 +33,14 @@ function fakeHerdr(root: string) {
 			`const calls=JSON.parse(fs.readFileSync(${JSON.stringify(calls)},"utf8"));calls.push(a);fs.writeFileSync(${JSON.stringify(calls)},JSON.stringify(calls));\n` +
 			`const st=JSON.parse(fs.readFileSync(${JSON.stringify(state)},"utf8"));const die=m=>{process.stderr.write(m);process.exit(1)};\n` +
 			`const save=()=>fs.writeFileSync(${JSON.stringify(state)},JSON.stringify(st));const flag=(a,n)=>a[a.indexOf(n)+1];\n` +
+			sessionStartJs(workDbPath(root)) +
 			`const tuiPane=st.tuiPane||"w1:p1";const allPanes=()=>[...(st.tui?[tuiPane]:[]),...(st.panes||[])];\n` +
 			`let r={};if(a[0]==="workspace"&&a[1]==="create"){if(st.createFails)die("fixture: no herdr server");r={workspace:{workspace_id:"w9"},tab:"w9:t1",root_pane:{pane_id:"w9:p1"}};}\n` +
 			`else if(a[0]==="workspace"&&a[1]==="list")r={workspaces:st.tui?[{label:st.tuiLabel||"evf TUI",workspace_id:"w1"}]:[]};\n` +
 			`else if(a[0]==="workspace"&&a[1]==="close")r={type:"ok"};\n` +
-			`else if(a[0]==="agent"&&a[1]==="start"){if(st.startFails)die("fixture: agent did not become idle");if(st.busyStarts>0){st.busyStarts--;save();die(JSON.stringify({error:{code:"agent_pane_busy",message:"agent target pane w9:p1 is not an available shell"}}))}st.agents=[...(st.agents||[]),{name:a[2],pane_id:a[5]}];save();r={agent:{name:a[2]}};}\n` +
+			`else if(a[0]==="agent"&&a[1]==="start"){if(st.startFails)die("fixture: agent did not become idle");if(st.failStarts>0){st.failStarts--;save();die("fixture: agent did not become idle")}if(st.busyStarts>0){st.busyStarts--;save();die(JSON.stringify({error:{code:"agent_pane_busy",message:"agent target pane w9:p1 is not an available shell"}}))}st.agents=[...(st.agents||[]),{name:a[2],pane_id:a[5]}];save();r={agent:{name:a[2]}};}\n` +
 			`else if(a[0]==="agent"&&a[1]==="list")r={agents:st.agents||[]};\n` +
+			`else if(a[0]==="agent"&&a[1]==="get")r={agent:{agent_status:st.agentStatus||"working"}};\n` +
 			`else if(a[0]==="pane"&&a[1]==="read")process.stdout.write(st.screen||"");\n` +
 			`else if(a[0]==="pane"&&a[1]==="process-info"){const busy=st.notReady===true||st.notReady>0;if(typeof st.notReady==="number"&&st.notReady>0){st.notReady--;save()}r={process_info:{shell_pid:7,foreground_process_group_id:busy?99:7,foreground_processes:flag(a,"--pane")===tuiPane&&st.tui?[{cmdline:"/x/.git/evf/bin/evf-tui --db /x/work.sqlite"}]:[]}};}\n` +
 			`else if(a[0]==="pane"&&a[1]==="list")r={panes:allPanes().map(p=>({pane_id:p,workspace_id:p.split(":")[0],tab_id:p.split(":")[0]+":t1"}))};\n` +
@@ -111,7 +113,11 @@ test("OPS-58-launch: a dry run prints the worktree, workspace, agent and store s
 		);
 		assert.match(
 			out.stdout,
-			/herdr agent start 'verifier-ops-1-<run>' --kind claude --pane '<root pane>' --timeout 90000 -- --agent verifier --name verifier@OPS-1 --session-id [0-9a-f-]{36} --model claude-opus-5-5 --effort high --dangerously-skip-permissions/,
+			/herdr agent start 'verifier-ops-1-<run>' --kind claude --pane '<root pane>' --timeout 90000 -- --agent verifier --agents '<agents json>' --name verifier@OPS-1 --session-id [0-9a-f-]{36} --model claude-opus-5-5 --effort high --dangerously-skip-permissions/,
+		);
+		assert.match(
+			out.stdout,
+			/# agent definition: \S+\/\.claude\/agents\/verifier\.md \(the driving checkout \S+, not the task worktree\)/,
 		);
 		assert.equal(
 			(f.db.prepare("SELECT COUNT(*) AS n FROM runs").get() as { n: number }).n,
@@ -151,7 +157,11 @@ test("OPS-58-launch: a real launch records the run, passes EVF_RUN to the worksp
 		assert.ok(create.some((arg) => /^EVF_WORKTREE=.*\.worktrees\/ops-1$/.test(arg)));
 		assert.deepEqual(start.slice(2, 7), [`implementer-ops-1-${run.id}`, "--kind", "claude", "--pane", "w9:p1"]);
 		assert.ok(start.includes(String(run.session_id)), "Claude Code starts with the session id evf chose");
-		assert.deepEqual(calls.at(-1), ["agent", "prompt", `implementer-ops-1-${run.id}`, "Begin."]);
+		assert.deepEqual(
+			pairs(calls, "agent", "prompt"),
+			[["agent", "prompt", `implementer-ops-1-${run.id}`, "Begin."]],
+			"one prompt: the turn began, so nothing is sent again",
+		);
 		const task = f.db.prepare("SELECT status, herdr_workspace_id FROM tasks WHERE id = ?").get(f.taskId) as Record<
 			string,
 			unknown
@@ -161,7 +171,7 @@ test("OPS-58-launch: a real launch records the run, passes EVF_RUN to the worksp
 			.prepare("SELECT type FROM events WHERE run_id = ? ORDER BY id")
 			.all(run.id)
 			.map((e) => (e as { type: string }).type);
-		assert.deepEqual(events, ["stage_start", "prompt_sent"]);
+		assert.deepEqual(events, ["session_start", "stage_start", "prompt_sent"], "the prompt waits for the session");
 
 		// A fresh worktree may sit at Claude Code's folder-trust dialog: evf accepts it and the seat reaches idle alone.
 		f.herdr.setState({ startFails: true, screen: "Do you trust the files in this folder?\n> Yes, proceed" });
@@ -610,7 +620,7 @@ test("OPS-67-launch: agent_pane_busy that never clears fails the run after the b
 			() => quiet(() => launch(f.root, f.task, "implementer", { timing: SHORT })),
 			(e) => e instanceof EvfError && /stayed busy in workspace w9 pane w9:p1 after 3 retries/.test(e.message),
 		);
-		assert.equal(startCalls(f).length, 4, "the first start and three retries");
+		assert.equal(startCalls(f).length, 8, "the first start and three busy retries, then the same once in a new pane");
 		assert.equal(f.runs().at(-1)!.status, "aborted");
 	} finally {
 		f.db.close();
@@ -733,7 +743,14 @@ test("OPS-65-split: a split pane whose agent never starts is closed; the run abo
 		assert.equal(out.status, 1);
 		assert.equal(f.runs().at(-1)!.status, "aborted");
 		const closes = pairs(f.herdr.calls(), "pane", "close");
-		assert.deepEqual(closes, [["pane", "close", "w1:p2"]], "only the new pane closes");
+		assert.deepEqual(
+			closes,
+			[
+				["pane", "close", "w1:p2"],
+				["pane", "close", "w1:p2"],
+			],
+			"only the new pane closes: after the first try, and after the retry",
+		);
 	} finally {
 		f.db.close();
 		f.close();
@@ -973,4 +990,163 @@ test("OPS-65-settings: deny rules and the hooks are unchanged, no ask rule remai
 		added.some((rule) => rule === `Bash(node ${script} *)`),
 		"the relative form is allowed",
 	);
+});
+
+// OPS-72: launch takes the role from the driving checkout, reads the pane on a failed start, retries once and sends the
+// first prompt only to a ready session.
+const TURN = { ...SHORT, sessionReadyMs: 3_000, sessionPollMs: 20, turnConfirmMs: 150, turnPollMs: 20 };
+const startArgsOf = (f: ReturnType<typeof seatFixture>) => startCalls(f).at(-1)!;
+const agentsJson = (start: string[]) =>
+	JSON.parse(start[start.indexOf("--agents") + 1]!) as Record<string, Record<string, unknown>>;
+const agentFile = (text: string) => {
+	const m = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/.exec(text)!;
+	const front = Object.fromEntries(m[1]!.split("\n").map((l) => [l.slice(0, l.indexOf(":")), l.slice(l.indexOf(":") + 2)]));
+	return { front, body: m[2]!.trim() };
+};
+
+test("OPS-72-agent: the seat gets the role definition of the driving checkout, whether the worktree has none or a different one", () => {
+	const f = seatFixture();
+	try {
+		const root = agentFile(readFileSync(join(f.root, ".claude/agents/implementer.md"), "utf8"));
+		const check = (label: string) => {
+			quiet(() => launch(f.root, f.task, "implementer", { timing: TURN }));
+			const start = startArgsOf(f);
+			assert.equal(start[start.indexOf("--agent") + 1], "implementer");
+			const def = agentsJson(start).implementer!;
+			assert.equal(def.prompt, root.body, `${label}: the prompt body is the root's`);
+			assert.equal(def.model, root.front.model, `${label}: model`);
+			assert.equal(def.effort, root.front.effort, `${label}: effort`);
+			assert.ok(Array.isArray(def.tools) && def.tools.includes("Read") && def.tools.some((t) => /^Bash\(bin\/evf/.test(String(t))), `${label}: tools`);
+			assert.equal((def.tools as string[]).join(", "), root.front.tools, `${label}: the tool list is whole`);
+		};
+		// The seat fixture's worktree has no .claude/agents at all.
+		check("no worktree file");
+		// A task branch that edits the role file does not change the seat its own drive launches.
+		mkdirSync(join(f.worktree, ".claude/agents"), { recursive: true });
+		writeFileSync(
+			join(f.worktree, ".claude/agents/implementer.md"),
+			"---\nname: implementer\ndescription: branch copy\nmodel: claude-opus-5-5\neffort: high\ntools: Read\n---\nThe branch's own prompt.\n",
+		);
+		check("a different worktree file");
+		const dry = cli(f.root, {}, undefined, "launch", "OPS-1", "--role", "implementer", "--dry-run").stdout;
+		assert.match(dry, /# agent definition: \S+\/\.claude\/agents\/implementer\.md \(the driving checkout/);
+		assert.doesNotMatch(dry, /ops-1\/\.claude\/agents/);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-72-pane: a failed start reports the pane's real error, not only the timeout, in the message and the run summary", () => {
+	const f = seatFixture();
+	try {
+		f.herdr.setState({ startFails: true, screen: "\n  ╭───╮\n$ claude --agent evidence\nError: agent not found\n" });
+		assert.throws(
+			() => quiet(() => launch(f.root, f.task, "implementer", { timing: TURN })),
+			(e) => e instanceof EvfError && /agent start failed/.test(e.message) && /Error: agent not found/.test(e.message),
+		);
+		const run = f.runs().at(-1)!;
+		assert.equal(run.status, "aborted");
+		assert.match(String(run.summary), /^launch failed: .*Error: agent not found/);
+		assert.match(String(run.summary), /claude --agent evidence/, "the last meaningful lines, not the box drawing");
+		assert.doesNotMatch(String(run.summary), /╭/);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-72-retry: a first failed start closes the dead pane and the second pane starts the seat: one run row, a new session id", () => {
+	const f = seatFixture();
+	try {
+		f.herdr.setState({ failStarts: 1, screen: "claude: command not found" });
+		const before = f.runs().length;
+		quiet(() => launch(f.root, f.task, "implementer", { timing: TURN }));
+		const rows = f.runs();
+		assert.equal(rows.length, before + 1, "one run row");
+		const run = rows.at(-1)!;
+		assert.equal(run.status, "started");
+		assert.equal(startCalls(f).length, 2, "two starts: one failed, one succeeded");
+		assert.equal(pairs(f.herdr.calls(), "workspace", "close").length, 1, "the dead workspace closed");
+		assert.equal(pairs(f.herdr.calls(), "workspace", "create").length, 2, "a new pane for the second try");
+		const [first, second] = startCalls(f).map((c) => c[c.indexOf("--session-id") + 1]);
+		assert.notEqual(first, second, "the second try uses a new Claude session id");
+		assert.equal(run.session_id, second);
+		const retry = f.db.prepare("SELECT payload FROM events WHERE run_id = ? AND type = 'launch_retry'").get(run.id) as {
+			payload: string;
+		};
+		assert.match(retry.payload, /command not found/);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-72-retry: two failed starts close the run as aborted with the pane excerpt and throw one error", () => {
+	const f = seatFixture();
+	try {
+		f.herdr.setState({ startFails: true, screen: "Error: agent not found" });
+		assert.throws(
+			() => quiet(() => launch(f.root, f.task, "implementer", { timing: TURN })),
+			(e) => e instanceof EvfError && /Error: agent not found/.test(e.message),
+		);
+		assert.equal(startCalls(f).length, 2, "exactly one retry");
+		const run = f.runs().at(-1)!;
+		assert.equal(run.status, "aborted");
+		assert.match(String(run.summary), /Error: agent not found/);
+		assert.equal(pairs(f.herdr.calls(), "workspace", "close").length, 2, "both dead workspaces closed");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-72-ready: the first prompt waits for the run's session_start event and is never sent before it", () => {
+	const f = seatFixture();
+	try {
+		f.herdr.setState({ sessionDelayMs: 400 });
+		const started = Date.now();
+		quiet(() => launch(f.root, f.task, "implementer", { prompt: "Begin.", timing: TURN }));
+		const run = f.runs().at(-1)!;
+		const types = f.db
+			.prepare("SELECT type FROM events WHERE run_id = ? ORDER BY id")
+			.all(run.id)
+			.map((e) => (e as { type: string }).type);
+		assert.ok(types.indexOf("session_start") >= 0 && types.indexOf("session_start") < types.indexOf("prompt_sent"), types.join(","));
+		assert.ok(Date.now() - started >= 350, "launch waited for the delayed session");
+		assert.equal(pairs(f.herdr.calls(), "agent", "prompt").length, 1);
+		assert.ok(!types.includes("prompt_resent"), "the turn began, so no resend");
+		// Claude never reaches its hook: the prompt is not sent at all, the launch fails after its retry.
+		f.herdr.setState({ noSession: true, screen: "Welcome to Claude Code" });
+		const mark = pairs(f.herdr.calls(), "agent", "prompt").length;
+		assert.throws(
+			() => quiet(() => launch(f.root, f.task, "implementer", { prompt: "Begin.", timing: { ...TURN, sessionReadyMs: 120 } })),
+			(e) => e instanceof EvfError && /sent no session_start/.test(e.message) && /Welcome to Claude Code/.test(e.message),
+		);
+		assert.equal(pairs(f.herdr.calls(), "agent", "prompt").length, mark, "no prompt reached a session that was not ready");
+		assert.equal(f.runs().at(-1)!.status, "aborted");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-72-ready: a first prompt that starts no turn is sent exactly once more and records prompt_resent", () => {
+	const f = seatFixture();
+	try {
+		f.herdr.setState({ agentStatus: "idle" });
+		quiet(() => launch(f.root, f.task, "implementer", { prompt: "Begin.", timing: TURN }));
+		const run = f.runs().at(-1)!;
+		const prompts = pairs(f.herdr.calls(), "agent", "prompt");
+		assert.equal(prompts.length, 2, "the prompt and exactly one resend");
+		assert.deepEqual(prompts[0], prompts[1]);
+		const resent = f.db.prepare("SELECT COUNT(*) AS n FROM events WHERE run_id = ? AND type = 'prompt_resent'").get(run.id) as {
+			n: number;
+		};
+		assert.equal(resent.n, 1);
+		assert.equal(run.status, "started");
+	} finally {
+		f.db.close();
+		f.close();
+	}
 });

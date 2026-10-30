@@ -3,6 +3,7 @@ import { mkdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
+import { ensurePreviewSlot } from "./preview-slots.mjs";
 
 const help = `Local preview commands, Node 24 and managed Portless required:
   corepack pnpm stack:up [--mode development|production]
@@ -10,7 +11,8 @@ const help = `Local preview commands, Node 24 and managed Portless required:
   corepack pnpm stack:check
   corepack pnpm stack:down
 Optional --project PATH selects another worktree. Production requires a clean commit.
-Status and check print JSON. Down preserves the worktree. See apps/web/README.md.`;
+Status and check print JSON. Down preserves the worktree. See apps/web/README.md.
+Up waits for a free preview slot when PORTLESS_PREVIEW_LIMIT previews are live (see scripts/preview-slots.mjs).`;
 
 function portless(args) {
 	const result = spawnSync("portless", ["preview", ...args, "--json"], {
@@ -45,6 +47,10 @@ async function main() {
 	let preview = previews[0];
 	if (action === "up") {
 		if (preview && preview.mode !== mode) throw new Error("Stop this worktree's preview before changing mode.");
+		const common = spawnSync("git", ["-C", project, "rev-parse", "--path-format=absolute", "--git-common-dir"], {
+			encoding: "utf8",
+		}).stdout.trim();
+		await ensurePreviewSlot({ project, root: dirname(common), common });
 		preview = portless(["up", "--project", project, "--mode", mode, "--config", join(project, "scripts/preview.json")]);
 	} else if (action === "down" && preview) {
 		portless(["down", preview.id]);

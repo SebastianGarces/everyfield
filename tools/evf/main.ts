@@ -39,6 +39,8 @@ import {
 	proofAdd,
 	proofShow,
 	runDone,
+	taskAbandon,
+	taskComparePassed,
 	taskHandoff,
 	taskNew,
 	taskPick,
@@ -110,7 +112,11 @@ Drive (harness)
   evf task spec <task> --file <file>                          store the spec: Goal, numbered Done criteria, Non-goals
   evf task spec <task> --show                                 print the stored ask and spec in full
   evf task pick <task> <1|2|3> --owner-approval "<words>"     prototype mode: record Sebastian's pick
-  evf task reopen <task> --reason "<words>"                   escalated task: back to pr_open or active, failure count restarts
+  evf task reopen <task> --reason "<words>"                   escalated task: back to pr_open or active, failure count restarts;
+                                                              the reason goes verbatim into the next seat's prompt
+  evf task compare-passed <task> --owner-approval "<words>"   prototype task escalated on one idea while the others passed:
+                                                              compare only the passed ideas (the missing idea cannot be picked)
+  evf task abandon <task> [--id <store id>] --reason "<words>"  close a stale task row (not merged, no started run, no live drive)
   evf task handoff <task> --file <spec>                       prototype mode: end the prototype, create the implement task
   evf next <task>                                             the next stage from the store, as JSON
   evf drive <task> [--once] [--detach]                        run the stage machine: plan, implement, simplify, pr, verify, ci, ship; cap 3 rounds; one per task
@@ -306,6 +312,19 @@ function main(argv: string[]): number | Promise<number> {
 				const words = option(args, "--owner-approval");
 				if (args.length !== 2) break;
 				return taskPick(root, parseTask(args[0]), Number(args[1]), words ?? "");
+			}
+			if (sub === "compare-passed") {
+				const words = option(args, "--owner-approval");
+				if (args.length !== 1) break;
+				return taskComparePassed(root, parseTask(args[0]), words ?? "");
+			}
+			if (sub === "abandon") {
+				const reason = option(args, "--reason"),
+					idArg = option(args, "--id");
+				const id = idArg === undefined ? undefined : Number(idArg);
+				if (id !== undefined && (!Number.isInteger(id) || id <= 0)) throw new EvfError("--id takes a store task id.");
+				if (args.length !== 1) break;
+				return taskAbandon(root, parseTask(args[0]), { id, reason: reason ?? "" });
 			}
 			if (sub === "reopen") {
 				const reason = option(args, "--reason");

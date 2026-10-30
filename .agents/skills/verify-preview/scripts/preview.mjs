@@ -11,6 +11,7 @@ import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileS
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { assertDevelopmentDatabase, composeEnv } from "./preview-env.mjs";
+import { ensurePreviewSlot } from "../../../../scripts/preview-slots.mjs";
 
 const argv = process.argv.slice(2);
 const flag = (n) => argv.includes(`--${n}`);
@@ -67,6 +68,8 @@ const config = join(common, "evf-evidence", `verify-preview-${basename(project)}
 writeFileSync(config, JSON.stringify(composed, null, 2), { mode: 0o600 });
 chmodSync(config, 0o600);
 
+// A full pool makes the seat wait for a slot (and frees orphans first) instead of failing the proof step.
+await ensurePreviewSlot({ project, root, common });
 const up = JSON.parse(execFileSync("portless", ["preview", "up", "--project", project, "--mode", mode, "--config", config, "--json"], { encoding: "utf8", stdio: ["ignore", "pipe", "inherit"], env: { ...process.env, PATH: `${dirname(node24)}:${process.env.PATH}` } }));
 execFileSync("portless", ["preview", "renew", up.id, "--ttl", "7200"], { stdio: "ignore" });
 console.log(JSON.stringify({ id: up.id, url: up.url, head: up.head, mode: up.mode, state: up.state, project }, null, 2));
