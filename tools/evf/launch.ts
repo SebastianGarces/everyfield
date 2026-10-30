@@ -25,7 +25,6 @@ import { fillRunUsage } from "./usage.ts";
  * session id evf chose, and records the run. Jonah and evf drive only ever call this.
  */
 
-export { ROLES, type Role };
 export const isRole = (value: string | undefined): value is Role => !!value && value in ROLES;
 
 /**
@@ -371,8 +370,8 @@ export function launch(
 				taskRow.id,
 				plan.stage,
 				role,
-				ROLES[role].model,
-				ROLES[role].effort,
+				plan.model,
+				plan.effort,
 				taskRow.round,
 				plan.session,
 				now,

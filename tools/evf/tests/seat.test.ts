@@ -7,7 +7,8 @@ import { spawnSync } from "node:child_process";
 import { assistantLine, fixture, source, writeTranscript } from "./fixtures.ts";
 import { ensureTask, openWorkDb, syncGoals, workDbPath } from "../db.ts";
 import { EvfError, parseTask } from "../lib.ts";
-import { launch, ROLES } from "../launch.ts";
+import { launch } from "../launch.ts";
+import { ROLES } from "../seats.ts";
 
 const SESSION = "33333333-3333-4333-8333-333333333333";
 const cli = (cwd: string, env: Record<string, string>, input: unknown, ...args: string[]) =>

@@ -4,7 +4,8 @@ import { join } from "node:path";
 import { spawn } from "node:child_process";
 import type { DatabaseSync } from "node:sqlite";
 import { ensureTask, findTask, markMerged, newTaskRow, openWorkDb, record, type TaskRow } from "./db.ts";
-import { ideaWorktree, launch, type Role } from "./launch.ts";
+import { ideaWorktree, launch } from "./launch.ts";
+import type { Role } from "./seats.ts";
 import {
 	EvfError,
 	evfDataDir,
