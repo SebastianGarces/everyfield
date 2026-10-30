@@ -282,7 +282,9 @@ function Work({ tasks }: { tasks: Analytics["tasks"] }) {
 				<span className="text-ink tabular-nums">
 					{f.total === 0
 						? "None needed"
-						: `${f.complete} of ${f.total - f.closed} done${f.closed ? ` · ${f.closed} closed` : ""}`}
+						: f.total === f.closed
+							? `${f.closed} closed`
+							: `${f.complete} of ${f.total - f.closed} done${f.closed ? ` · ${f.closed} closed` : ""}`}
 				</span>
 			</p>
 			{f.needsOwner ? (
