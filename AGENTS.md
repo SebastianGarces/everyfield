@@ -10,9 +10,13 @@ Current requirements and cases live in `docs/catalog/index.json`. Keep this file
    Register that path with Intent. Edit and commit there, never in the workspace root.
 3. Build inside the owning paths. Use the brief and linked current clauses as the contract.
 4. Include current main, commit, run the task checks and `bin/evf verify <task>`.
-   Open a PR explaining the change, actual verification, evidence, risks and follow-ups.
+   Prove your own work: tests, 390 and 1440 px screenshots of each UI state you changed and one
+   `bin/evf proof add` per Done criterion you built or changed. Open a PR explaining the change,
+   actual verification, proof, risks and follow-ups. The evf stages are plan, implement, simplify,
+   pr, verify, ci, ship; the pr stage reruns the author checks, so a simplifier commit costs no round.
 5. An independent verifier (a fresh Opus 5.5 high session that never shared context with the
-   author, D82) checks the PR head with `verify-preview`, posts the exact-head review and runs `bin/evf ship <task>`.
+   author, D82) reads the full diff, spot-checks the proof with `verify-preview`, posts the exact-head
+   review and runs `bin/evf ship <task>`.
    Ship requires green required GitHub CI, independent approval and a valid PR body.
 
 Use `bin/evf help` for commands. IDs are WP-NNN, WP-NNN/api or /ui,
@@ -21,13 +25,17 @@ number D<n> with `bin/evf id next ops|decision`; never take the next number from
 
 ## Rules
 
-- Follow `.agents/skills/ship/SKILL.md` for merge authority. Never merge your own work,
-  push directly to main or force-push. Preserve the owner approval routes from PR #13.
-- All UI work belongs to `ui-designer` (Sonnet 5.5 medium). Opus 5.5 high plans and verifies.
+- Three guards hold. Everything else is your judgment.
+  1. Never use the production database. Tests and checks use the shared development database.
+  2. Merge only through `bin/evf ship` or `bin/evf approve`. Never push to main or force-push.
+  3. Never read or print secrets: `.env*` files, credentials or connection strings.
+- Follow `.agents/skills/ship/SKILL.md` for merge authority. Preserve the owner approval routes from PR #13.
+- UI work runs in the implementer seat (Sonnet 5.5 medium), which reads `.agents/roles/ui-designer.md`
+  and uses the better-* skills. A design-heavy spec opts into the separate `ui` seat with the line
+  `Seat: ui`. Opus 5.5 high plans and verifies.
 - Use one portless preview per worktree. No Vercel preview deployments.
-- Use the shared development database for behavior checks. It may be wiped and reseeded.
+- The shared development database may be wiped and reseeded. Run the repo seed and preview scripts freely.
   Timing sets run only through `bin/evf timing`, on its own quiet local database (D81).
-  Production is separate. Never print credentials or use production for tests.
 - Follow `docs/architecture/patterns.md` and `docs/architecture/decisions.md` for shared mechanisms
   and durable rulings. Requirements describe end-state behavior.
 - Prove actual behavior. Tooling checks establish tooling behavior, not application acceptance.

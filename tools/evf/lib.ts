@@ -188,7 +188,7 @@ export type RunResult = { code: number; stdout: string; stderr: string };
 export function run(
 	cmd: string,
 	args: Argv,
-	opts: { cwd?: string; env?: NodeJS.ProcessEnv; inherit?: boolean } = {},
+	opts: { cwd?: string; env?: NodeJS.ProcessEnv; inherit?: boolean; timeoutMs?: number } = {},
 ): RunResult {
 	const r = spawnSync(cmd, args, {
 		cwd: opts.cwd,
@@ -199,6 +199,7 @@ export function run(
 		encoding: "utf8",
 		stdio: opts.inherit ? "inherit" : "pipe",
 		maxBuffer: 64 * 1024 * 1024,
+		...(opts.timeoutMs ? { timeout: opts.timeoutMs, killSignal: "SIGKILL" as const } : {}),
 	});
 	if (r.error) return { code: 127, stdout: "", stderr: String(r.error.message) };
 	return { code: r.status ?? 1, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
