@@ -73,8 +73,12 @@ node $S/preview.mjs --main        # before: current origin/main, the same way
 ```
 
 Each prints `{id, url, head}`. Both are production builds of a clean commit with a two-hour lease.
-`preview.mjs` copies `apps/web/.env.local` from the main checkout and refuses to start when its
-`DATABASE_URL` is not the shared development database. The supervisor runs four previews at a
+`preview.mjs` builds the preview env from the main checkout's `apps/web/.env.local` and lays the
+worktree's own `apps/web/.env.local` over it, so a `tests/ui` seed's `IDENTITY_*` values reach the preview.
+It only reads the worktree's file and never creates, edits or deletes it. It writes the composed env to a
+mode 0600 config outside the repository, prints no value and refuses to start when the composed
+`DATABASE_URL` is not the shared development database.
+The supervisor runs four previews at a
 time. Stop your own old previews first (`portless preview down <id>`). Stop another agent's
 preview only when its PR is merged or closed, and say so in your report.
 
