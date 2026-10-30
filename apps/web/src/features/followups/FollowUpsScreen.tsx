@@ -242,7 +242,7 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 									) : (
 										<ul className="flex flex-col gap-1">
 											{r.duties.map((d) => (
-												<li key={d.taskId} className="flex items-center gap-3 max-app-sm:flex-wrap">
+												<li key={d.taskId} className="flex items-start gap-3 max-app-sm:flex-col max-app-sm:gap-1.5">
 													<span className="min-w-0 flex-1">
 														<IntentLink
 															href={`/follow-ups/${d.taskId}`}

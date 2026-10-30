@@ -245,7 +245,7 @@ export function AssignMenu({
 	}
 	const readOnly = !canAssign;
 	return (
-		<span className="inline-flex flex-col items-end gap-1.5 max-app-sm:items-start">
+		<span className="inline-flex flex-col items-end gap-1.5 max-app-sm:items-start max-app-sm:self-stretch">
 			{duty.owners.length ? (
 				<OwnerLines
 					duty={duty}
@@ -275,7 +275,7 @@ export function AssignMenu({
 					}))}
 					label={`Search people to own ${duty.title}`}
 					placeholder={duty.owners.length ? "Change owners" : "Assign"}
-					className="max-w-[240px] min-w-[180px]"
+					className="max-w-[240px] min-w-[180px] max-app-sm:w-full max-app-sm:max-w-none max-app-sm:min-w-0"
 					onChange={(ids, names) => onChange({ ...duty, owners: ownersFor(ids, names) })}
 					onOpenChange={(open) => {
 						if (open) {

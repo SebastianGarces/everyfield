@@ -189,11 +189,13 @@ async function handoff(
 	});
 	if (changes.length) {
 		// D-d: the chosen recipient takes the leaving account's place in each task; one already assigned just stays.
+		// A duty about the Person whose set lacks the leaving account has no place to take: the choice replaces the set.
 		const source = p.linked_account_id;
 		await tx.execute(
 			sql`WITH v AS (SELECT * FROM jsonb_to_recordset(${JSON.stringify(changes)}::jsonb) v(id uuid,account uuid)),
 				bump AS (UPDATE task t SET revision=t.revision+1 FROM v WHERE t.id=v.id RETURNING 1),
-				gone AS (DELETE FROM task_assignee a USING v WHERE a.task_id=v.id AND a.account_id=${source}::uuid RETURNING 1),
+				gone AS (DELETE FROM task_assignee a USING v WHERE a.task_id=v.id AND (a.account_id=${source}::uuid
+					OR NOT EXISTS (SELECT 1 FROM task_assignee x WHERE x.task_id=v.id AND x.account_id=${source}::uuid)) RETURNING 1),
 				joined AS (INSERT INTO task_assignee(plant_id,task_id,account_id)
 					SELECT ${ctx.selected.id}::uuid,v.id,v.account FROM v WHERE v.account IS NOT NULL
 					ON CONFLICT DO NOTHING RETURNING 1)
@@ -201,7 +203,8 @@ async function handoff(
 		);
 		const moved = changes.map(({ id, account }) => {
 			const row = duties.find((duty) => duty.id === id)!;
-			const kept = row.assignees.filter((a) => a.accountId !== source && a.accountId !== account);
+			const held = row.assignees.some((a) => a.accountId === source);
+			const kept = held ? row.assignees.filter((a) => a.accountId !== source && a.accountId !== account) : [];
 			return reminderChange(ctx.selected.id, row, {
 				...row,
 				assignees: account ? [...kept, { accountId: account, displayName: "", seated: true }] : kept,

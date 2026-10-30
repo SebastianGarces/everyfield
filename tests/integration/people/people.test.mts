@@ -629,6 +629,8 @@ test("AC:TARGET-PPL-006 AC:TARGET-PPL-007 AC:TARGET-PPL-003 stage skip, no-op, c
 		),
 	);
 	assert.deepEqual(retired.needsOwner, [duty]);
+	// D-d: the duty is about the Person, not held by the leaving account, so needs_owner clears the whole set.
+	assert.equal((await admin.execute(sql`SELECT 1 FROM task_assignee WHERE task_id=${sql.param(duty)}`)).rows.length, 0);
 	assert.equal(retired.person.lifecycle.state, "retired");
 	assert.deepEqual(
 		(

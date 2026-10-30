@@ -335,7 +335,7 @@ test("INV-digest F07b criterion 11: the open-items digest counts a shared task f
 		origin: "https://example.test",
 		nativePath: () => "/tasks",
 		mail,
-		eligible: async () => ({ address: "synthetic@example.test", cadence: "weekly" }),
+		eligible: async (_tx, _o, recipient) => ({ address: `${recipient}@example.test`, cadence: "weekly" }),
 		load: async (tx, o, recipient, period) => {
 			const rows = await tx.execute(
 				querySql`SELECT id,due_date::text AS date,title FROM task WHERE plant_id=${querySql.param(o.id)} AND EXISTS(SELECT FROM task_assignee a WHERE a.task_id=task.id AND a.account_id=${querySql.param(recipient)}) AND status NOT IN ('complete','no_longer_needed') AND deleted_at IS NULL AND due_date<${querySql.param(period.next)}::date ORDER BY due_date,id LIMIT 100`,
@@ -343,16 +343,20 @@ test("INV-digest F07b criterion 11: the open-items digest counts a shared task f
 			return { lines: rows.rows.map((r) => ({ kind: "task", ...r })), total: rows.rowCount };
 		},
 	});
+	// Earlier tests left coverage for the first account; start both recipients from the same day.
+	await db.execute(
+		querySql`DELETE FROM digest_coverage WHERE recipient_id IN (${querySql.param(account)},${querySql.param(second)})`,
+	);
 	for (const who of [account, second]) {
 		await db.execute(
-			querySql`INSERT INTO digest_coverage(tenant_id,recipient_id,purpose,cadence,timezone,covered_through) VALUES(${querySql.param(tenant)},${querySql.param(who)},${who === account ? "planter" : "oversight"},'weekly','America/Chicago','2026-09-27') ON CONFLICT DO NOTHING`,
+			querySql`INSERT INTO digest_coverage(tenant_id,recipient_id,purpose,cadence,timezone,covered_through) VALUES(${querySql.param(tenant)},${querySql.param(who)},${who === account ? "planter" : "oversight"},'weekly','America/Chicago','2026-10-25')`,
 		);
 		const result = await transaction(runtime, (tx) =>
-			digests.generateOwed(tx, plantOwner, who, "2026-10-18T22:00:00Z"),
+			digests.generateOwed(tx, plantOwner, who, "2026-11-08T22:00:00Z"),
 		);
 		// Each assignee's digest lists the shared task; it is not owed to only one of them.
-		assert.ok(result.kind === "intended" || result.kind === "covered", JSON.stringify(result));
-		if (result.kind === "intended") assert.ok(result.total >= 1, JSON.stringify(result));
+		assert.equal(result.kind, "intended", JSON.stringify(result));
+		assert.ok(result.total >= 1, JSON.stringify(result));
 	}
 });
 test("INV-digest: exact organization projection refuses narrative fields and independent unshared activity sends nothing", async () => {
