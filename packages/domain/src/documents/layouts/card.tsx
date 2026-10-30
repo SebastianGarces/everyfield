@@ -1,7 +1,7 @@
 import { Fixed, Page } from "@formepdf/react";
 import { SIZE, SP } from "../theme.ts";
 import { Box, Field, LogoSlot, PhotoSlot, T, Title, View, type Ctx } from "./blocks.tsx";
-import { CARD, Doc } from "./shell.tsx";
+import { CARD, CARD_MARGIN, Doc } from "./shell.tsx";
 import { type CardRow, type CardSpec } from "../templates/card-content.ts";
 
 const CARD_SLOT = { w: 150, h: 44 };
@@ -16,7 +16,7 @@ const contactLine = (ctx: Ctx) => {
 /** Outward-facing 4.25 x 5.5 in card: primary cover, 4 pt accent bar, rows with the checkbox on the left, then fields. */
 export function cardDocument(ctx: Ctx, spec: CardSpec) {
 	const { p, theme } = ctx;
-	const W = CARD.width - 28;
+	const W = CARD.width - 2 * CARD_MARGIN;
 	const rowCount = spec.rows.length;
 	const rows = spec.rows.map((c: CardRow, i: number) => (
 		<View
@@ -61,7 +61,7 @@ export function cardDocument(ctx: Ctx, spec: CardSpec) {
 	const contact = contactLine(ctx);
 	const second = spec.fields.slice(2);
 	const page = (
-		<Page size={CARD} margin={14}>
+		<Page size={CARD} margin={CARD_MARGIN}>
 			<View style={{ backgroundColor: p.primary, padding: 12, flexDirection: "row", height: 96 }}>
 				<View style={{ flexGrow: 1 }}>
 					{LogoSlot(ctx, CARD_SLOT.w, CARD_SLOT.h, theme.logo, {
@@ -115,5 +115,5 @@ export function cardDocument(ctx: Ctx, spec: CardSpec) {
 			</Fixed>
 		</Page>
 	);
-	return Doc(ctx, `${spec.title}, ${ctx.church}`, spec.subject, page, 14);
+	return Doc(ctx, `${spec.title}, ${ctx.church}`, spec.subject, page, CARD_MARGIN);
 }

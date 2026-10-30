@@ -20,9 +20,8 @@ import {
 	View,
 	type Ctx,
 } from "./blocks.tsx";
-import { Doc, LETTER } from "./shell.tsx";
+import { Doc, LETTER, LETTER_MARGIN } from "./shell.tsx";
 
-const margin = { top: 40, right: 40, bottom: 56, left: 40 };
 
 function teamBlock(ctx: Ctx, team: ChecklistTeam, n: number) {
 	const { p } = ctx;
@@ -68,7 +67,7 @@ export function checklistsDocument(ctx: Ctx) {
 	const foot = `${l?.legalName ?? ctx.church}  |  Launch Sunday checklists${date ? `  |  ${date}` : ""}`;
 	const [first, second] = [CHECKLIST_TEAMS.slice(0, 3), CHECKLIST_TEAMS.slice(3)];
 	const page1 = (
-		<Page size={LETTER} margin={margin}>
+		<Page size={LETTER} margin={LETTER_MARGIN}>
 			{Footer(ctx, foot, p.ink)}
 			<View style={{ flexDirection: "row", alignItems: "center", height: 28 }}>
 				{LogoSlot(ctx, theme.logo ? 150 : 200, 28, theme.logo)}
@@ -108,7 +107,7 @@ export function checklistsDocument(ctx: Ctx) {
 		</Page>
 	);
 	const page2 = (
-		<Page size={LETTER} margin={margin}>
+		<Page size={LETTER} margin={LETTER_MARGIN}>
 			{Footer(ctx, foot, p.ink)}
 			<View
 				style={{

@@ -56,10 +56,9 @@ const TOKENS = {
 	mutedText: "#4D5361",
 	border: "#DEE0E4",
 	fieldBorder: "#666C78",
-	size: { xs: px(12), sm: px(13), base: px(14), lg: px(16), h3: px(18), h2: px(22), cardTitle: px(28), h1: px(40) },
+	size: { xs: px(12), sm: px(13), base: px(14), lg: px(16), h3: px(18), h2: px(22), h1: px(40) },
 	space: { 1: px(4), 2: px(8), 3: px(12), 4: px(16), 5: px(20), 6: px(24), 8: px(32), 10: px(40) },
 	families: { body: "DM Sans", figures: "EF Figures", display: "DM Serif Display" },
-	pageMargin: { letter: 40, card: 14 },
 } as const;
 export const FONT = TOKENS.families;
 export const SIZE = TOKENS.size;
@@ -80,8 +79,6 @@ export type Palette = {
 	primaryText: string;
 	/** Accent as a line on white: clears 3:1. */
 	accentLine: string;
-	/** Accent as text on white: clears 4.5:1. */
-	accentText: string;
 	/** True for any theme but the neutral one. Neutral checkboxes are ink; a brand kit uses its accent line. */
 	brand: boolean;
 };
@@ -102,7 +99,6 @@ export function makePalette(theme: RenderTheme): Palette {
 		onAccent: textOn(theme.accent, ink),
 		primaryText: legible(theme.primary, white, ink, MIN_BODY),
 		accentLine: legible(theme.accent, white, ink, MIN_NONTEXT),
-		accentText: legible(theme.accent, white, ink, MIN_BODY),
 		brand: theme.name !== NEUTRAL_THEME.name,
 	};
 }

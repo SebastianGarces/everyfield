@@ -19,8 +19,6 @@ export const RENDER_PROFILE = {
 	engine: "forme",
 	packages: { "@formepdf/core": "0.29.0", "@formepdf/react": "0.29.0", "pdf-lib": "1.17.1" },
 	layout: 2,
-	zipMethod: 0,
-	dosTime: 0,
 } as const;
 const ARTIFACT_MAX = 8 * 1024 * 1024;
 

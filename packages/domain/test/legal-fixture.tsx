@@ -3,11 +3,11 @@
 // the shared Footer prints the notice.
 import { Page } from "@formepdf/react";
 import { Footer, Title, type Ctx } from "../src/documents/layouts/blocks.tsx";
-import { Doc, DoctrineSlot, LETTER } from "../src/documents/layouts/shell.tsx";
+import { Doc, DoctrineSlot, LETTER, LETTER_MARGIN } from "../src/documents/layouts/shell.tsx";
 
 export function legalFixture(ctx: Ctx) {
 	const page = (
-		<Page size={LETTER} margin={{ top: 40, right: 40, bottom: 56, left: 40 }}>
+		<Page size={LETTER} margin={LETTER_MARGIN}>
 			{Footer(ctx, "Harborlight Church  |  Statement of Faith", ctx.p.ink)}
 			{Title(ctx, "Statement of Faith", ctx.p.ink, ctx.p.white, 28)}
 			{DoctrineSlot(ctx, "Statement of faith")}

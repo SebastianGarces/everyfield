@@ -2,7 +2,7 @@
 // pdfcn Forme base does not emit are rebuilt here from the same tokens: heading tags (the pdfcn Heading renders a
 // plain Text) and table tags (the pdfcn Table is Views). Both feed the PDF structure tree (DOC accessibility).
 import type { ReactNode } from "react";
-import { Checkbox, Fixed, H1, H2, H3, Image, Cell, Row, Svg, Table, Text, TextField, View } from "@formepdf/react";
+import { Checkbox, Fixed, H1, H2, Image, Cell, Row, Svg, Table, Text, TextField, View } from "@formepdf/react";
 import type { Style } from "@formepdf/react";
 import { ContrastLog, MIN_BODY, MIN_NONTEXT } from "../contrast.ts";
 import { PageNumber } from "../pdfcn/page-number.tsx";
@@ -88,14 +88,13 @@ export const Title = (
 		{text}
 	</H1>
 );
-const H = (ctx: Ctx, level: 2 | 3, text: string, color: string, bg: string, use: string) => {
-	const C = level === 2 ? H2 : H3;
+const H = (ctx: Ctx, text: string, color: string, bg: string, use: string) => {
 	return (
-		<C
+		<H2
 			style={{
 				fontFamily: FONT.body,
 				fontWeight: 700,
-				fontSize: level === 2 ? SIZE.lg : SIZE.base,
+				fontSize: SIZE.lg,
 				lineHeight: 1.2,
 				color: ctx.log.pair(use, color, bg),
 				margin: 0,
@@ -105,7 +104,7 @@ const H = (ctx: Ctx, level: 2 | 3, text: string, color: string, bg: string, use:
 			}}
 		>
 			{text}
-		</C>
+		</H2>
 	);
 };
 
@@ -231,7 +230,6 @@ export const SectionHead = (ctx: Ctx, n: number, title: string, mode: "fill" | "
 			<View style={{ flexGrow: 1 }}>
 				{H(
 					ctx,
-					2,
 					title,
 					mode === "fill" ? p.ink : p.primaryText,
 					p.white,

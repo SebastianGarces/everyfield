@@ -1,7 +1,7 @@
 import { Page } from "@formepdf/react";
 import { SIZE, SP } from "../theme.ts";
 import { Cellfield, Cellt, DataTable, Field, Footer, LogoSlot, T, Title, View, type Ctx } from "./blocks.tsx";
-import { Doc, LETTER } from "./shell.tsx";
+import { Doc, LETTER, LETTER_MARGIN } from "./shell.tsx";
 
 export const SIGN_IN_ROWS = 18;
 
@@ -23,7 +23,7 @@ export function signInDocument(ctx: Ctx) {
 		Cellfield(`guest_${i + 1}_invited_by`, 96, 17),
 	]);
 	const page = (
-		<Page size={LETTER} margin={{ top: 40, right: 40, bottom: 56, left: 40 }}>
+		<Page size={LETTER} margin={LETTER_MARGIN}>
 			{Footer(ctx, `${theme.letterhead?.legalName ?? ctx.church}  |  Guest sign-in sheet`, p.ink)}
 			<View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", height: 34 }}>
 				{LogoSlot(ctx, 150, 34, theme.logo)}

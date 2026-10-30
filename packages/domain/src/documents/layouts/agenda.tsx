@@ -15,7 +15,7 @@ import {
 	View,
 	type Ctx,
 } from "./blocks.tsx";
-import { Doc, LETTER } from "./shell.tsx";
+import { Doc, LETTER, LETTER_MARGIN } from "./shell.tsx";
 
 const AGENDA_SLOT = { w: 150, h: 34 };
 
@@ -66,7 +66,7 @@ export function agendaDocument(ctx: Ctx, spec: AgendaSpec) {
 		</View>
 	);
 	const page = (
-		<Page size={LETTER} margin={{ top: 40, right: 40, bottom: 56, left: 40 }}>
+		<Page size={LETTER} margin={LETTER_MARGIN}>
 			{Footer(ctx, foot, p.primary)}
 			<View
 				style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", height: AGENDA_SLOT.h }}

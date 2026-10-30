@@ -2,7 +2,7 @@ import { Page } from "@formepdf/react";
 import { SIZE, SP } from "../theme.ts";
 import type { Block, TextDocumentSpec } from "../templates/text-content.ts";
 import { Field, Footer, LogoSlot, SectionHead, T, Title, View, type Ctx } from "./blocks.tsx";
-import { Doc, LETTER } from "./shell.tsx";
+import { Doc, LETTER, LETTER_MARGIN } from "./shell.tsx";
 
 /** Fill `{church_name}` and `{pastor_name}`. Without a pastor name the text says "your pastor". */
 const fillText = (ctx: Ctx, text: string) =>
@@ -82,7 +82,7 @@ export function textDocument(ctx: Ctx, spec: TextDocumentSpec) {
 		</View>
 	) : null;
 	const page = (
-		<Page size={LETTER} margin={{ top: 40, right: 40, bottom: 56, left: 40 }}>
+		<Page size={LETTER} margin={LETTER_MARGIN}>
 			{Footer(ctx, foot, p.primary)}
 			<View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", height: 34 }}>
 				{LogoSlot(ctx, 150, 34, theme.logo)}
