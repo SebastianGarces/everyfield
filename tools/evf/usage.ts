@@ -13,15 +13,14 @@ export type Tokens = { input: number; output: number; cacheRead: number; cacheWr
 const zero = (): Tokens => ({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cacheWrite1h: 0 });
 
 /**
- * US dollars per million tokens at Anthropic's API list prices. Source: the Opus and Sonnet tier list prices on
- * anthropic.com/pricing. UNVERIFIED for 5.5: written on 2026-10-30 without network access, so a person must check the
- * numbers against the pricing page. Cache write 5m is 1.25 × input, 1h is 2 × input, cache read is 0.1 × input.
+ * US dollars per million tokens at Anthropic's API list prices. Source: https://docs.claude.com/en/docs/about-claude/pricing,
+ * read 2026-10-30. On 5.5, cache read is 0.05 × input, cache write 5m is 1.25 × input and 1h is 2 × input.
  */
-const PRICES_SOURCE = "anthropic.com/pricing (Opus and Sonnet tier list prices), read 2026-10-30, unverified for 5.5";
+const PRICES_SOURCE = "https://docs.claude.com/en/docs/about-claude/pricing, read 2026-10-30";
 type Price = { input: number; output: number; cacheRead: number; cacheWrite5m: number; cacheWrite1h: number };
 export const PRICES: Record<string, Price> = {
-	"claude-opus-5-5": { input: 5, output: 25, cacheRead: 0.5, cacheWrite5m: 6.25, cacheWrite1h: 10 },
-	"claude-sonnet-5-5": { input: 3, output: 15, cacheRead: 0.3, cacheWrite5m: 3.75, cacheWrite1h: 6 },
+	"claude-opus-5-5": { input: 4, output: 20, cacheRead: 0.2, cacheWrite5m: 5, cacheWrite1h: 8 },
+	"claude-sonnet-5-5": { input: 2, output: 10, cacheRead: 0.1, cacheWrite5m: 2.5, cacheWrite1h: 4 },
 };
 
 /** Estimated dollars for one model's tokens, or null when the model has no price. Unsplit cache writes cost the 5m rate. */

@@ -995,7 +995,7 @@ test("OPS-69-hook: the session-end hook fills usage, and refills a run that evf 
 		]);
 		const end = cli(f.root, env, { session_id: SESSION, reason: "exit" }, "hook", "session-end");
 		assert.equal(end.status, 0, end.stderr);
-		assert.deepEqual(usage(), { status: "passed", tokens_in: 15, tokens_out: 27, cost_est: (15 * 3 + 27 * 15) / 1e6 });
+		assert.deepEqual(usage(), { status: "passed", tokens_in: 15, tokens_out: 27, cost_est: (15 * 2 + 27 * 10) / 1e6 });
 		// A clear keeps the run open and counts nothing yet.
 		f.db
 			.prepare("UPDATE runs SET status = 'started', tokens_in = NULL, tokens_out = NULL, cost_est = NULL WHERE id = ?")
@@ -1021,7 +1021,7 @@ test("OPS-69-hook: the session-end hook fills usage, and refills a run that evf 
 	}
 });
 
-test("OPS-69-launch-abort: a launch that fails after the run row exists aborts the run through the usage fill and still throws the launch error", () => {
+test("OPS-69-launch-abort: a launch that fails after the run row exists aborts the run and leaves usage null without a transcript", () => {
 	const f = seatFixture();
 	try {
 		f.herdr.setState({ startFails: true, screen: "claude: command not found" });
@@ -1030,6 +1030,27 @@ test("OPS-69-launch-abort: a launch that fails after the run row exists aborts t
 		const last = f.runs().at(-1)!;
 		assert.equal(last.status, "aborted");
 		assert.match(String(last.summary), /^launch failed/);
+		const usage = f.db.prepare("SELECT tokens_in, cost_est FROM runs WHERE id = ?").get(last.id) as object;
+		assert.deepEqual({ ...usage }, { tokens_in: null, cost_est: null });
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-69-runs-model: the runs row records the resolved model and effort of a seat override", () => {
+	const f = seatFixture();
+	try {
+		const path = join(f.root, "evf.config.json"),
+			cfg = JSON.parse(readFileSync(path, "utf8"));
+		writeFileSync(
+			path,
+			JSON.stringify({ ...cfg, seats: { implementer: { model: "claude-opus-5-5", effort: "high" } } }),
+		);
+		f.herdr.setState({ startFails: true, screen: "claude: command not found" });
+		cli(f.root, {}, undefined, "launch", "OPS-1", "--role", "implementer");
+		const row = f.db.prepare("SELECT model, effort FROM runs WHERE id = (SELECT MAX(id) FROM runs)").get() as object;
+		assert.deepEqual({ ...row }, { model: "claude-opus-5-5", effort: "high" });
 	} finally {
 		f.db.close();
 		f.close();

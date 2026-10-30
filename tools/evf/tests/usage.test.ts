@@ -16,7 +16,6 @@ import {
 	buildUsageReport,
 	costOf,
 	fillRunUsage,
-	PRICES,
 	readSessionUsage,
 	renderUsageReport,
 	usageBackfill,
@@ -117,13 +116,15 @@ test("OPS-69-parser: each message id counts once, subagents and two models count
 
 test("OPS-69-cost: cost sums each model at its own price; unsplit cache writes cost the 5m rate; an unknown model has no cost", () => {
 	const t = { input: 1_000_000, output: 1_000_000, cacheRead: 1_000_000, cacheWrite: 2_000_000, cacheWrite1h: 0 };
-	const o = PRICES[OPUS]!,
-		s = PRICES[SONNET]!;
-	assert.equal(costOf(OPUS, t), o.input + o.output + o.cacheRead + 2 * o.cacheWrite5m);
+	const cents = (n: number | null) => Math.round(n! * 1e6) / 1e6;
+	// Dollar amounts come from the API list prices, not from PRICES.
+	assert.equal(cents(costOf(OPUS, { input: 1_000_000, output: 0, cacheRead: 0, cacheWrite: 0, cacheWrite1h: 0 })), 4);
 	assert.equal(
-		costOf(SONNET, { ...t, cacheWrite1h: 1_000_000 }),
-		s.input + s.output + s.cacheRead + s.cacheWrite5m + s.cacheWrite1h,
+		cents(costOf(SONNET, { input: 0, output: 0, cacheRead: 1_000_000, cacheWrite: 0, cacheWrite1h: 0 })),
+		0.1,
 	);
+	assert.equal(cents(costOf(OPUS, t)), 4 + 20 + 0.2 + 2 * 5);
+	assert.equal(cents(costOf(SONNET, { ...t, cacheWrite1h: 1_000_000 })), 2 + 10 + 0.1 + 2.5 + 4);
 	assert.equal(costOf("claude-mystery-9", t), null);
 	const c = claudeDir(),
 		f = fixture();
@@ -150,8 +151,8 @@ test("OPS-69-cost: cost sums each model at its own price; unsplit cache writes c
 				cost_est: number | null;
 			}),
 		});
-		assert.equal(cost(r1).cost_est, s.input + s.output);
-		assert.equal(cost(r2).cost_est, s.input + s.output + o.input + o.output);
+		assert.equal(cost(r1).cost_est, 12);
+		assert.equal(cost(r2).cost_est, 12 + 24);
 		assert.deepEqual(cost(r3), { tokens_in: 1_000_000, cost_est: null }, "tokens fill, cost stays null");
 		db.close();
 	} finally {
@@ -296,71 +297,105 @@ test("OPS-69-report: per task by role and model, build versus review split, prot
 		const db = reportStore(f);
 		const r = buildUsageReport(db);
 		db.close();
-		const op7 = r.tasks.find((t) => t.task === "OPS-7")!;
-		assert.deepEqual([op7.rounds, op7.verify_fails, op7.ci_fails], [1, 1, 0]);
-		assert.deepEqual(
-			op7.by_role_model.map((g) => [
-				g.role,
-				g.model,
-				g.runs,
-				g.runs_with_data,
-				g.no_data,
-				g.input,
-				g.cost_estimate_usd,
-			]),
-			[
-				["implementer", SONNET, 2, 2, 0, 101, 0.375],
-				["planner", OPUS, 1, 1, 0, 1000, 1.5],
-				["verifier", OPUS, 2, 1, 1, 10, 0.5],
+		const agg = (
+			runs: number,
+			withData: number,
+			i: number,
+			o: number,
+			cr: number,
+			cw: number,
+			cost: number | null,
+		) => ({
+			runs,
+			runs_with_data: withData,
+			no_data: runs - withData,
+			input: i,
+			output: o,
+			cache_read: cr,
+			cache_write: cw,
+			cost_estimate_usd: cost,
+			unpriced_runs: 0,
+		});
+		const note = "Costs are estimates at API list prices. Nothing is billed.";
+		const pricesSource = "https://docs.claude.com/en/docs/about-claude/pricing, read 2026-10-30";
+		const sonnet = "claude-sonnet-5-5",
+			opus = "claude-opus-5-5";
+		const op7 = {
+			task: "OPS-7",
+			rounds: 1,
+			verify_fails: 1,
+			ci_fails: 0,
+			by_role_model: [
+				{ role: "implementer", model: sonnet, ...agg(2, 2, 101, 202, 303, 404, 0.375) },
+				{ role: "planner", model: opus, ...agg(1, 1, 1000, 2000, 3000, 4000, 1.5) },
+				{ role: "verifier", model: opus, ...agg(2, 1, 10, 20, 30, 40, 0.5) },
 			],
-		);
-		assert.equal(
-			op7.by_role_model.some((g) => g.role === "evf"),
-			false,
-			"evf stages have no session",
-		);
-		const opus = r.by_model!.find((m) => m.model === OPUS)!;
-		assert.deepEqual([opus.groups.build.input, opus.groups.build.cost_estimate_usd], [1000, 1.5]);
-		assert.deepEqual([opus.groups.review.input, opus.groups.review.runs, opus.groups.review.no_data], [10, 2, 1]);
-		const sonnet = r.by_model!.find((m) => m.model === SONNET)!;
-		assert.deepEqual(
-			[sonnet.groups.build.input, sonnet.groups.review.input, sonnet.groups.prototype.input],
-			[100, 1, 5],
-		);
-		const text = renderUsageReport(r);
-		assert.match(text, /^Usage report\. Costs are estimates at API list prices\. Nothing is billed\./);
-		assert.ok(text.includes("OPS-7: rounds 1, verify fails 1, CI fails 0"));
-		assert.ok(
-			text.includes(
-				`  implementer on ${SONNET}: input 101, output 202, cache read 303, cache write 404, $0.38 estimate (2 runs)`,
-			),
-		);
-		assert.ok(
-			text.includes(
-				`  verifier on ${OPUS}: input 10, output 20, cache read 30, cache write 40, $0.50 estimate (2 runs, 1 with no data)`,
-			),
-		);
-		assert.ok(
-			text.includes(
-				"    build (round 0 plan, implement, ui, simplify): input 1,000, output 2,000, cache read 3,000, cache write 4,000, $1.50 estimate (1 run)",
-			),
-		);
-		assert.ok(text.includes("    prototype: input 5, output 6, cache read 7, cache write 8, $0.06 estimate (1 run)"));
-		// JSON mirrors the data; a single-task report has no by-model summary.
-		const cli = spawnSync(process.execPath, [join(source, "tools/evf/main.ts"), "usage", "--json", "OPS-7"], {
-			cwd: f.root,
-			encoding: "utf8",
-		});
+			total: agg(5, 4, 1111, 2222, 3333, 4444, 2.375),
+		};
+		const op8 = {
+			task: "OPS-8",
+			rounds: 0,
+			verify_fails: 0,
+			ci_fails: 0,
+			by_role_model: [{ role: "ideator", model: sonnet, ...agg(1, 1, 5, 6, 7, 8, 0.0625) }],
+			total: agg(1, 1, 5, 6, 7, 8, 0.0625),
+		};
+		const byModel = [
+			{
+				model: opus,
+				groups: {
+					build: agg(1, 1, 1000, 2000, 3000, 4000, 1.5),
+					review: agg(2, 1, 10, 20, 30, 40, 0.5),
+					prototype: agg(0, 0, 0, 0, 0, 0, null),
+				},
+				total: agg(3, 2, 1010, 2020, 3030, 4040, 2),
+			},
+			{
+				model: sonnet,
+				groups: {
+					build: agg(1, 1, 100, 200, 300, 400, 0.25),
+					review: agg(1, 1, 1, 2, 3, 4, 0.125),
+					prototype: agg(1, 1, 5, 6, 7, 8, 0.0625),
+				},
+				total: agg(3, 3, 106, 208, 310, 412, 0.4375),
+			},
+		];
+		assert.deepEqual(r, { note, prices_source: pricesSource, tasks: [op7, op8], by_model: byModel });
+		const text = [
+			`Usage report. ${note} Prices: ${pricesSource}.`,
+			"",
+			"OPS-7: rounds 1, verify fails 1, CI fails 0",
+			`  implementer on ${sonnet}: input 101, output 202, cache read 303, cache write 404, $0.38 estimate (2 runs)`,
+			`  planner on ${opus}: input 1,000, output 2,000, cache read 3,000, cache write 4,000, $1.50 estimate (1 run)`,
+			`  verifier on ${opus}: input 10, output 20, cache read 30, cache write 40, $0.50 estimate (2 runs, 1 with no data)`,
+			"  total: input 1,111, output 2,222, cache read 3,333, cache write 4,444, $2.38 estimate (5 runs, 1 with no data)",
+			"",
+			"OPS-8: rounds 0, verify fails 0, CI fails 0",
+			`  ideator on ${sonnet}: input 5, output 6, cache read 7, cache write 8, $0.06 estimate (1 run)`,
+			"  total: input 5, output 6, cache read 7, cache write 8, $0.06 estimate (1 run)",
+			"",
+			"By model",
+			`  ${opus}`,
+			"    build (round 0 plan, implement, ui, simplify): input 1,000, output 2,000, cache read 3,000, cache write 4,000, $1.50 estimate (1 run)",
+			"    review and rework (evidence, verify, round 1+ build stages): input 10, output 20, cache read 30, cache write 40, $0.50 estimate (2 runs, 1 with no data)",
+			"    prototype: no data (0 runs)",
+			"    total: input 1,010, output 2,020, cache read 3,030, cache write 4,040, $2.00 estimate (3 runs, 1 with no data)",
+			`  ${sonnet}`,
+			"    build (round 0 plan, implement, ui, simplify): input 100, output 200, cache read 300, cache write 400, $0.25 estimate (1 run)",
+			"    review and rework (evidence, verify, round 1+ build stages): input 1, output 2, cache read 3, cache write 4, $0.13 estimate (1 run)",
+			"    prototype: input 5, output 6, cache read 7, cache write 8, $0.06 estimate (1 run)",
+			"    total: input 106, output 208, cache read 310, cache write 412, $0.44 estimate (3 runs)",
+		].join("\n");
+		assert.equal(renderUsageReport(r), text);
+		const run = (...args: string[]) =>
+			spawnSync(process.execPath, [join(source, "tools/evf/main.ts"), "usage", ...args], {
+				cwd: f.root,
+				encoding: "utf8",
+			});
+		const cli = run("--json", "OPS-7");
 		assert.equal(cli.status, 0, cli.stderr);
-		const json = JSON.parse(cli.stdout);
-		assert.equal(json.by_model, undefined);
-		assert.equal(json.note, "Costs are estimates at API list prices. Nothing is billed.");
-		assert.deepEqual(json.tasks[0], op7);
-		const all = spawnSync(process.execPath, [join(source, "tools/evf/main.ts"), "usage"], {
-			cwd: f.root,
-			encoding: "utf8",
-		});
-		assert.equal(all.stdout.trimEnd(), text);
+		assert.deepEqual(JSON.parse(cli.stdout), { note, prices_source: pricesSource, tasks: [op7] });
+		assert.equal(run().stdout.trimEnd(), text);
 	} finally {
 		f.close();
 	}

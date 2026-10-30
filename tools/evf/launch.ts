@@ -25,8 +25,6 @@ import { fillRunUsage } from "./usage.ts";
  * session id evf chose, and records the run. Jonah and evf drive only ever call this.
  */
 
-export const isRole = (value: string | undefined): value is Role => !!value && value in ROLES;
-
 /**
  * Every seat gets these: oh-my-zsh's update prompt off (DISABLE_AUTO_UPDATE, it ate the first launch character),
  * Claude Code's background updater off (DISABLE_AUTOUPDATER), no advisor (Decision 17), plus the evf ids the hooks read.

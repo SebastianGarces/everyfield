@@ -29,7 +29,7 @@ export type SeatSetting = { model?: string; effort?: string };
 export type SeatTrial = { roles: string[]; model?: string; effort?: string };
 type SeatConfig = Pick<Config, "seats" | "seatTrial">;
 
-const isRoleName = (v: string): v is Role => Object.hasOwn(ROLES, v);
+export const isRole = (v: string | undefined): v is Role => !!v && Object.hasOwn(ROLES, v);
 const obj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
 function checkSetting(field: string, s: unknown, role: string | null): void {
@@ -52,8 +52,7 @@ export function validateSeats(cfg: SeatConfig): void {
 	if (cfg.seats !== undefined) {
 		if (!obj(cfg.seats)) fail("evf.config.json seats must be an object keyed by role.");
 		for (const [role, setting] of Object.entries(cfg.seats)) {
-			if (!isRoleName(role))
-				fail(`evf.config.json seats.${role} is not a role. Roles: ${Object.keys(ROLES).join(", ")}.`);
+			if (!isRole(role)) fail(`evf.config.json seats.${role} is not a role. Roles: ${Object.keys(ROLES).join(", ")}.`);
 			checkSetting(`seats.${role}`, setting, role);
 		}
 	}
@@ -64,7 +63,7 @@ export function validateSeats(cfg: SeatConfig): void {
 	if (!Array.isArray(roles) || !roles.length || roles.some((r) => typeof r !== "string"))
 		fail("evf.config.json seatTrial.roles must be a non-empty list of roles.");
 	for (const role of roles as string[])
-		if (!isRoleName(role))
+		if (!isRole(role))
 			fail(
 				`evf.config.json seatTrial.roles names ${role}, which is not a role. Roles: ${Object.keys(ROLES).join(", ")}.`,
 			);
