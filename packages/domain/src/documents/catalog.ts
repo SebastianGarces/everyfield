@@ -34,9 +34,10 @@ export async function library() {
 	const templates = z
 		.array(templateSchema)
 		.parse(starter.catalogs.documents)
-		.map((template) => {
+		.map((template): CatalogTemplate => {
 			const entry = entryFor(template.id);
-			return entry ? { ...template, formats: [entry.format], pageCount: entry.pageCount } : template;
+			if (!entry) throw new Error(`Template ${template.id} is not in the document registry.`);
+			return { ...template, formats: [entry.format], pageCount: entry.pageCount };
 		});
 	return { version, templates };
 }

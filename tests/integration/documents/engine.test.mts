@@ -35,9 +35,7 @@ import {
 } from "../../../packages/domain/src/documents/render.ts";
 import { legalFixture } from "../../../packages/domain/test/legal-fixture.tsx";
 import {
-	DOCUMENT_CLASSES,
 	NEUTRAL_THEME,
-	resolveDocumentTheme,
 	makePalette,
 } from "../../../packages/domain/src/documents/theme.ts";
 import { contentSnapshot, REGISTRY, entryFor } from "../../../packages/domain/src/documents/templates/registry.ts";
@@ -121,8 +119,6 @@ describe("WP-036/api engine", () => {
 	});
 
 	test("DOC-008: the neutral theme gives every church the church name, ink and green, and no Everyfield mark", async () => {
-		assert.deepEqual(DOCUMENT_CLASSES, ["formal/legal", "outward-facing", "operational"]);
-		for (const cls of DOCUMENT_CLASSES) assert.equal(resolveDocumentTheme({ name: "Any church" }, cls), NEUTRAL_THEME);
 		assert.equal(NEUTRAL_THEME.primary, "#181D19");
 		assert.equal(NEUTRAL_THEME.accent, "#026B40");
 		assert.equal(NEUTRAL_THEME.logo, undefined);

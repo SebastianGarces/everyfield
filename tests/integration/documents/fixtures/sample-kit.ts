@@ -1,7 +1,7 @@
 // The sample brand kit for review renders and tests. A fictional church. It is passed straight to the renderer;
 // WP-104 owns stored kits. The logo paths come from the WP-036/ui prototype.
 import { readFileSync } from "node:fs";
-import type { DocumentTheme, ThemeImage } from "../../../../packages/domain/src/documents/theme.ts";
+import type { RenderTheme, ThemeImage } from "../../../../packages/domain/src/documents/theme.ts";
 
 const paths = JSON.parse(readFileSync(new URL("./logo-paths.json", import.meta.url), "utf8")) as Record<
 	string,
@@ -29,7 +29,7 @@ const photo: ThemeImage = {
 	aspect: 3,
 };
 
-export function sampleKit(primary = "#1F4E6B", accent = "#E3A21A", name = "harborlight-sample"): DocumentTheme {
+export function sampleKit(primary = "#1F4E6B", accent = "#E3A21A", name = "harborlight-sample"): RenderTheme {
 	return {
 		name,
 		primary,

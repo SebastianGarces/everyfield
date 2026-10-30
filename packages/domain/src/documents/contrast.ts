@@ -1,3 +1,5 @@
+import { luminance } from "../branding/color.ts";
+
 // WCAG 2.x contrast. Every text/background pair in a document goes through `pair()`,
 // so the logged ratios match what the page actually uses.
 export const hex = (c: string) => {
@@ -16,11 +18,6 @@ export const toHex = (r: number, g: number, b: number) =>
 		)
 		.join("")
 		.toUpperCase();
-const lin = (v: number) => ((v /= 255) <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
-export const luminance = (c: string) => {
-	const [r, g, b] = hex(c);
-	return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
-};
 export const ratio = (a: string, b: string) => {
 	const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x) as [number, number];
 	return (hi + 0.05) / (lo + 0.05);

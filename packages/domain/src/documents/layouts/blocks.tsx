@@ -6,13 +6,13 @@ import { Checkbox, Fixed, H1, H2, H3, Image, Cell, Row, Svg, Table, Text, TextFi
 import type { Style } from "@formepdf/react";
 import { ContrastLog, MIN_BODY, MIN_NONTEXT } from "../contrast.ts";
 import { PageNumber } from "../pdfcn/page-number.tsx";
-import { FONT, SIZE, SP, type DocumentClass, type DocumentTheme, type Palette, type ThemeImage } from "../theme.ts";
+import { FONT, SIZE, SP, type RenderClass, type RenderTheme, type Palette, type ThemeImage } from "../theme.ts";
 
 export type Ctx = {
 	p: Palette;
-	theme: DocumentTheme;
+	theme: RenderTheme;
 	/** The class sets fixed page elements: a formal/legal page always prints the legal notice. */
-	documentClass: DocumentClass;
+	documentClass: RenderClass;
 	church: string;
 	/** Merge-field values by key. A key with no value is absent. */
 	values: Record<string, string>;
@@ -178,8 +178,9 @@ export const LogoSlot = (
 	);
 };
 
-/** Numbered section header. `fill`: number tile in the accent fill. `rule`: number and title as primary text on white. */
-export const SectionHead = (ctx: Ctx, n: number, title: string, mode: "fill" | "rule", note?: string) => {
+/** Numbered section header. `fill`: number tile in the accent fill. `rule`: number and title as primary text on white.
+ *  `note`: a string prints as a muted note; a node (a field) prints as given. */
+export const SectionHead = (ctx: Ctx, n: number, title: string, mode: "fill" | "rule", note?: ReactNode) => {
 	const { p } = ctx;
 	return (
 		<View
@@ -237,7 +238,9 @@ export const SectionHead = (ctx: Ctx, n: number, title: string, mode: "fill" | "
 					mode === "fill" ? "section heading" : "section heading (primary)",
 				)}
 			</View>
-			{note ? T(ctx, note, { size: SIZE.xs, color: p.mutedText, use: "section note", figures: true }) : null}
+			{typeof note === "string"
+				? T(ctx, note, { size: SIZE.xs, color: p.mutedText, use: "section note", figures: true })
+				: note}
 		</View>
 	);
 };
@@ -407,4 +410,4 @@ export const PhotoSlot = (photo: ThemeImage, w: number, h: number) => {
 	);
 };
 
-export { Image, View, Text };
+export { View };

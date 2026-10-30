@@ -1,9 +1,9 @@
+import type { DocumentClass } from "@everyfield/contracts/branding";
 import { hash } from "../operations/canonical.ts";
 import { legible, MIN_BODY, MIN_NONTEXT, textOn } from "./contrast.ts";
 
-/** The three document classes of docs/catalog/document-templates.json that carry a layout (email has no PDF). */
-export const DOCUMENT_CLASSES = ["formal/legal", "outward-facing", "operational"] as const;
-export type DocumentClass = (typeof DOCUMENT_CLASSES)[number];
+/** The document classes that carry a layout here. Email has no PDF or XLSX. */
+export type RenderClass = Exclude<DocumentClass, "email">;
 
 /** Only embedded families can print. A church font choice maps to one of these. */
 export type DocumentFont = "DM Sans" | "DM Serif Display";
@@ -24,8 +24,8 @@ export type Letterhead = {
 	web?: string;
 };
 
-/** BRD-002 to BRD-005. Only the two colors are required. WP-104 fills the rest from a stored kit. */
-export type DocumentTheme = {
+/** What the renderer paints: colors, fonts and brand images. Only the two colors are required. The branding resolver (`resolveDocumentTheme` in `branding/theme.ts`) picks church or neutral. */
+export type RenderTheme = {
 	name: string;
 	primary: string;
 	accent: string;
@@ -38,20 +38,13 @@ export type DocumentTheme = {
 };
 
 /** The Everyfield-neutral theme: ink in the primary slots and --ef-green-600 as the accent. No logo, no photo. */
-export const NEUTRAL_THEME: DocumentTheme = {
+export const NEUTRAL_THEME: RenderTheme = {
 	name: "everyfield-neutral",
 	primary: "#181D19",
 	accent: "#026B40",
 	headingFont: "DM Serif Display",
 	bodyFont: "DM Sans",
 };
-
-/** Every church gets the neutral theme until WP-104 supplies stored brand kits. */
-// WP-104 reads the church and the class to pick a stored brand kit. Until then both are unused.
-/* eslint-disable-next-line @typescript-eslint/no-unused-vars */
-export function resolveDocumentTheme(_church: { name: string }, _documentClass: DocumentClass): DocumentTheme {
-	return NEUTRAL_THEME;
-}
 
 const px = (n: number) => +(n * 0.75).toFixed(2);
 
@@ -94,7 +87,7 @@ export type Palette = {
 };
 
 /** Text and line colors derive from the two theme colors by WCAG ratio. */
-export function makePalette(theme: DocumentTheme): Palette {
+export function makePalette(theme: RenderTheme): Palette {
 	const { ink, white, muted, mutedText, border, fieldBorder } = TOKENS;
 	return {
 		ink,

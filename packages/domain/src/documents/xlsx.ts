@@ -1,5 +1,5 @@
 import { crc32 } from "node:zlib";
-import type { DocumentTheme } from "./theme.ts";
+import type { RenderTheme } from "./theme.ts";
 import { makePalette } from "./theme.ts";
 
 const xml = (value: string) =>
@@ -79,7 +79,7 @@ type Sheet = { name: string; widths: number[]; freeze: { x: number; y: number };
 
 const argb = (hex: string) => "FF" + hex.replace("#", "").toUpperCase();
 
-function styles(theme: DocumentTheme) {
+function styles(theme: RenderTheme) {
 	const p = makePalette(theme);
 	const font = (extra: string) => `<font>${extra}<sz val="11"/><name val="DM Sans"/></font>`;
 	const fonts = [
@@ -150,7 +150,7 @@ function sheetXml(sheet: Sheet) {
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><sheetViews><sheetView workbookViewId="0" showGridLines="0">${pane}</sheetView></sheetViews><sheetFormatPr defaultRowHeight="20"/><cols>${cols}</cols><sheetData>${rows}</sheetData><pageMargins left="0.5" right="0.5" top="0.5" bottom="0.5" header="0.3" footer="0.3"/><pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>`;
 }
 
-function workbook(sheets: Sheet[], theme: DocumentTheme) {
+function workbook(sheets: Sheet[], theme: RenderTheme) {
 	const n = sheets.length;
 	const names = sheets.map((s, i) => `<sheet name="${xml(s.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join("");
 	const rels = [
@@ -341,6 +341,6 @@ function worksheet(church: string): Sheet[] {
 }
 
 /** A budget workbook in stored ZIP form. Totals are live formulas. The same inputs give the same bytes. */
-export function buildBudget(kind: "first-year" | "worksheet", church: string, theme: DocumentTheme) {
+export function buildBudget(kind: "first-year" | "worksheet", church: string, theme: RenderTheme) {
 	return workbook(kind === "first-year" ? firstYear(church) : worksheet(church), theme);
 }

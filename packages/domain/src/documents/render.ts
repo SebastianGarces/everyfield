@@ -9,11 +9,11 @@ import { ContrastLog } from "./contrast.ts";
 import type { Ctx } from "./layouts/blocks.tsx";
 import { entryFor, contentSnapshot } from "./templates/registry.ts";
 import {
-	resolveDocumentTheme,
+	NEUTRAL_THEME,
 	makePalette,
 	themeTokensDigest,
-	type DocumentClass,
-	type DocumentTheme,
+	type RenderClass,
+	type RenderTheme,
 } from "./theme.ts";
 import { buildBudget } from "./xlsx.ts";
 
@@ -89,8 +89,8 @@ export async function renderPdfElement(element: unknown): Promise<PdfRender> {
 export function renderContext(
 	church: string,
 	values: Record<string, string>,
-	theme: DocumentTheme,
-	documentClass: DocumentClass,
+	theme: RenderTheme,
+	documentClass: RenderClass,
 ): Ctx {
 	return { p: makePalette(theme), theme, documentClass, church, values, log: new ContrastLog() };
 }
@@ -101,17 +101,17 @@ const valuesOf = (resolved: Extract<ResolvedMerge, { ok: true }>) => {
 	return values;
 };
 
-/** A template's PDF with its layout details. The theme is an input; the default is the church's resolved theme. */
+/** A template's PDF with its layout details. The theme is an input; the default is the Everyfield-neutral theme. */
 export async function renderTemplatePdf(
 	template: Pick<CatalogTemplate, "id">,
 	values: Record<string, string>,
-	theme?: DocumentTheme,
+	theme?: RenderTheme,
 ) {
 	const entry = entryFor(template.id);
 	if (!entry || entry.format !== "pdf") throw new RenderFailed();
 	const church = values.church_name ?? "";
 	if (Object.values(values).some(unsafe) || unsafe(church)) throw new RenderFailed();
-	const use = theme ?? resolveDocumentTheme({ name: church }, entry.documentClass);
+	const use = theme ?? NEUTRAL_THEME;
 	try {
 		return await renderPdfElement(entry.build(renderContext(church, values, use, entry.documentClass)));
 	} catch (error) {
@@ -125,7 +125,7 @@ export async function renderPreview(
 	template: CatalogTemplate,
 	format: "pdf" | "docx" | "xlsx",
 	resolved: Extract<ResolvedMerge, { ok: true }>,
-	theme?: DocumentTheme,
+	theme?: RenderTheme,
 ) {
 	if (!resolved.complete) return null;
 	const entry = entryFor(template.id);
@@ -134,7 +134,7 @@ export async function renderPreview(
 	if (Object.values(values).some(unsafe)) throw new RenderFailed();
 	if (entry.format === "pdf") return (await renderTemplatePdf(template, values, theme)).bytes;
 	const church = values.church_name ?? "";
-	const use = theme ?? resolveDocumentTheme({ name: church }, entry.documentClass);
+	const use = theme ?? NEUTRAL_THEME;
 	return finish(buildBudget(entry.budget, church, use));
 }
 

@@ -6,7 +6,7 @@ import { checklistsDocument } from "../layouts/checklists.tsx";
 import { signInDocument, SIGN_IN_ROWS } from "../layouts/sign-in.tsx";
 import { CARD, LETTER } from "../layouts/shell.tsx";
 import { textDocument } from "../layouts/text-doc.tsx";
-import type { DocumentClass } from "../theme.ts";
+import type { RenderClass } from "../theme.ts";
 import { BOARD_AGENDA, VISION_AGENDA, type AgendaSpec } from "./agenda-content.ts";
 import { COMMITMENT_CARD, RESPONSE_CARD, type CardSpec } from "./card-content.ts";
 import { CHECKLIST_TEAMS } from "./checklists-content.ts";
@@ -18,7 +18,7 @@ import {
 } from "./text-content.ts";
 
 export type PageSize = { width: number; height: number };
-type Base = { id: string; documentClass: DocumentClass; pageCount: number; outline: string[] };
+type Base = { id: string; documentClass: RenderClass; pageCount: number; outline: string[] };
 export type PdfEntry = Base & {
 	format: "pdf";
 	pageSize: PageSize;
@@ -61,7 +61,7 @@ const agendaEntry = (id: string, spec: AgendaSpec): PdfEntry => ({
 	build: (ctx) => agendaDocument(ctx, spec),
 });
 
-const textEntry = (spec: TextDocumentSpec, documentClass: DocumentClass): PdfEntry => ({
+const textEntry = (spec: TextDocumentSpec, documentClass: RenderClass): PdfEntry => ({
 	id: spec.id,
 	format: "pdf",
 	documentClass,

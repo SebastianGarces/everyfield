@@ -6,7 +6,7 @@ import {
 	CHECKLIST_TITLE,
 	type ChecklistTeam,
 } from "../templates/checklists-content.ts";
-import { Box, Cellfield, Cellt, DataTable, Field, Footer, H, LogoSlot, T, Title, View, type Ctx } from "./blocks.tsx";
+import { Box, Cellfield, Cellt, DataTable, Field, Footer, LogoSlot, SectionHead, T, Title, View, type Ctx } from "./blocks.tsx";
 import { Doc, LETTER } from "./shell.tsx";
 
 const margin = { top: 40, right: 40, bottom: 56, left: 40 };
@@ -23,42 +23,16 @@ function teamBlock(ctx: Ctx, team: ChecklistTeam, n: number) {
 	]);
 	return (
 		<View key={team.id} wrap={false} style={{ marginTop: SP[4] }}>
-			<View
-				style={{
-					flexDirection: "row",
-					alignItems: "center",
-					borderBottomWidth: 1.5,
-					borderColor: p.ink,
-					paddingBottom: 3,
-					marginBottom: SP[2],
-				}}
-			>
-				<View
-					style={{
-						backgroundColor: p.accent,
-						width: 20,
-						height: 20,
-						alignItems: "center",
-						justifyContent: "center",
-						marginRight: SP[2],
-					}}
-				>
-					{T(ctx, String(n), {
-						size: SIZE.sm,
-						weight: 700,
-						color: p.onAccent,
-						bg: p.accent,
-						use: "section number on accent tile",
-						figures: true,
-						style: { lineHeight: 1 },
-					})}
-				</View>
-				<View style={{ flexGrow: 1 }}>{H(ctx, 2, team.name, p.ink, p.white, "section heading")}</View>
+			{SectionHead(
+				ctx,
+				n,
+				team.name,
+				"fill",
 				<View style={{ flexDirection: "row", alignItems: "center", gap: SP[2] }}>
 					{T(ctx, "Team lead", { size: SIZE.xs, weight: 700, color: p.mutedText, use: "team lead label", caps: true })}
-					<TeamLead id={team.id} />
-				</View>
-			</View>
+					<TextField name={`${team.id}_lead`} width={130} height={16} fontSize={SIZE.sm} />
+				</View>,
+			)}
 			{DataTable(
 				ctx,
 				[
@@ -73,10 +47,6 @@ function teamBlock(ctx: Ctx, team: ChecklistTeam, n: number) {
 		</View>
 	);
 }
-const TeamLead = ({ id }: { id: string }) => (
-	<TextField name={`${id}_lead`} width={130} height={16} fontSize={SIZE.sm} />
-);
-
 /** Two Letter pages: the title block and three teams, then a running header and three teams. */
 export function checklistsDocument(ctx: Ctx) {
 	const { p, theme } = ctx;
