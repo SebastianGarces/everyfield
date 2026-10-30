@@ -17,8 +17,7 @@ const zero = (): Tokens => ({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0, 
  * anthropic.com/pricing. UNVERIFIED for 5.5: written on 2026-10-30 without network access, so a person must check the
  * numbers against the pricing page. Cache write 5m is 1.25 × input, 1h is 2 × input, cache read is 0.1 × input.
  */
-const PRICES_SOURCE =
-	"anthropic.com/pricing (Opus and Sonnet tier list prices), read 2026-10-30, unverified for 5.5";
+const PRICES_SOURCE = "anthropic.com/pricing (Opus and Sonnet tier list prices), read 2026-10-30, unverified for 5.5";
 type Price = { input: number; output: number; cacheRead: number; cacheWrite5m: number; cacheWrite1h: number };
 export const PRICES: Record<string, Price> = {
 	"claude-opus-5-5": { input: 5, output: 25, cacheRead: 0.5, cacheWrite5m: 6.25, cacheWrite1h: 10 },
