@@ -21,8 +21,7 @@ export type GetSectionRequest = z.input<typeof S.getSectionRequest>;
  * has its own contract and refusal codes).
  */
 export type SectionSeed =
-	| { request: GetSectionRequest; value: Promise<Reply<SectionResult>> }
-	| { brand: Promise<BrandReply<BrandView>> };
+	{ request: GetSectionRequest; value: Promise<Reply<SectionResult>> } | { brand: Promise<BrandReply<BrandView>> };
 /** The exact plant or organization a section belongs to, as the requests take it. */
 export type PlantOwner = { kind: "plant"; id: string };
 export type OrganizationOwner = {

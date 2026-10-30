@@ -23,7 +23,13 @@ export const SECTION_LABEL: Record<SectionKey, string> = {
 };
 
 /** The sections the product dialog shows. Seats and Sharing are pages of their own (/settings/seats, /sharing). */
-export const DIALOG_SECTIONS = ["church", "brand", "organization", "notifications", "account"] as const satisfies SectionKey[];
+export const DIALOG_SECTIONS = [
+	"church",
+	"brand",
+	"organization",
+	"notifications",
+	"account",
+] as const satisfies SectionKey[];
 export type DialogSection = (typeof DIALOG_SECTIONS)[number];
 
 export function dialogSection(value: string | undefined): DialogSection | null {

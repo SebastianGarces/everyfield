@@ -259,11 +259,7 @@ export type FixtureControls = {
 /** A fixture port for one persona. `delay` is the reply time in milliseconds. */
 export function createFixturePort(
 	persona: PreviewPersona,
-	{
-		delay = 450,
-		now = () => Date.now(),
-		kit = "none",
-	}: { delay?: number; now?: () => number; kit?: PreviewKit } = {},
+	{ delay = 450, now = () => Date.now(), kit = "none" }: { delay?: number; now?: () => number; kit?: PreviewKit } = {},
 ): { port: SettingsPort; controls: FixtureControls } {
 	const store: Store = {
 		sections: initialSections(persona),

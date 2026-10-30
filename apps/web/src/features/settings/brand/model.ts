@@ -94,7 +94,10 @@ export function patchOf(form: BrandForm, saved: BrandForm): SaveBrandRequest["pa
 export function draftKit(form: BrandForm): BrandKitData {
 	const color = (value: string) => (isHex(value) ? hexColor.parse(value) : null);
 	const letterhead = Object.fromEntries(
-		LETTERHEAD_KEYS.map((key) => [key, letterheadError(key, form[key]) || form[key].trim() === "" ? null : form[key].trim()]),
+		LETTERHEAD_KEYS.map((key) => [
+			key,
+			letterheadError(key, form[key]) || form[key].trim() === "" ? null : form[key].trim(),
+		]),
 	) as Record<LetterheadKey, never>;
 	return {
 		primaryColor: color(form.primaryColor),
@@ -147,7 +150,8 @@ export const BRAND_ERROR_TEXT: Record<BrandError["code"], string> = {
 	invalid_input: "Some values are not valid. Check the fields marked in red.",
 	access_denied: "You no longer have access to the brand kit. Ask an Owner or Admin of your church.",
 	unavailable: "The brand kit is not available right now. Try again.",
-	conflict: "Someone else saved the brand kit after you opened it. Load the latest version, then make your change again.",
+	conflict:
+		"Someone else saved the brand kit after you opened it. Load the latest version, then make your change again.",
 	primary_required: "Choose a primary color before you save.",
 	unsupported_font: "That font is not in the list. Choose another font.",
 	invalid_ein: "The EIN is not valid. The kit is unchanged. Use the format 12-3456789.",

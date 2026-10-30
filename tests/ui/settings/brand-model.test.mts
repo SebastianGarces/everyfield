@@ -27,7 +27,11 @@ import {
 } from "../../../apps/web/src/features/settings/model.ts";
 
 const PLANT = { kind: "plant", id: "00000000-0000-4000-8000-000000000001" } as const;
-const ORG = { kind: "organization", id: "00000000-0000-4000-8000-000000000002", organizationKind: "sending_church" } as const;
+const ORG = {
+	kind: "organization",
+	id: "00000000-0000-4000-8000-000000000002",
+	organizationKind: "sending_church",
+} as const;
 const empty = {
 	primaryColor: null,
 	accentColor: null,
@@ -77,7 +81,10 @@ test("a /settings/brand address opens the brand section and makes no settings-se
 });
 
 test("CASE-BRD-005: the EIN, website and email follow the contract and show on their own field", () => {
-	const errors = validate({ ...full, ein: "123456789", website: "http://example.org", email: "nope" }, { required: true });
+	const errors = validate(
+		{ ...full, ein: "123456789", website: "http://example.org", email: "nope" },
+		{ required: true },
+	);
 	assert.equal(errors.ein, "Use the format 12-3456789.");
 	assert.ok(errors.website?.includes("https://"));
 	assert.equal(errors.email, "Enter a full email address.");
@@ -87,7 +94,10 @@ test("CASE-BRD-005: the EIN, website and email follow the contract and show on t
 });
 
 test("a color must be #RRGGBB; a missing primary color shows only when Save was pressed", () => {
-	assert.equal(validate({ ...defaults, primaryColor: "#12" }, { required: false }).primaryColor, "Use the form #RRGGBB.");
+	assert.equal(
+		validate({ ...defaults, primaryColor: "#12" }, { required: false }).primaryColor,
+		"Use the form #RRGGBB.",
+	);
 	assert.equal(validate({ ...defaults, accentColor: "red" }, { required: false }).accentColor, "Use the form #RRGGBB.");
 	assert.equal(validate(defaults, { required: false }).primaryColor, undefined);
 	assert.equal(validate(defaults, { required: true }).primaryColor, "Choose a primary color.");

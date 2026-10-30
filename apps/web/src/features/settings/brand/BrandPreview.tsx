@@ -106,7 +106,11 @@ function Lines({ widths }: { widths: number[] }) {
 	return (
 		<div className="flex flex-col gap-[5px]" aria-hidden="true">
 			{widths.map((w, i) => (
-				<span key={i} className="block h-[5px] rounded-pill opacity-20" style={{ width: `${w}%`, background: "currentColor" }} />
+				<span
+					key={i}
+					className="block h-[5px] rounded-pill opacity-20"
+					style={{ width: `${w}%`, background: "currentColor" }}
+				/>
 			))}
 		</div>
 	);
@@ -163,7 +167,10 @@ function Outward({ theme, layout }: { theme: DocumentTheme; layout: Layout<"outw
 				<LogoSlot theme={theme} height={layout.coverLogoHeightMm * PX_PER_MM} width={200} size={20} />
 			</div>
 			<div className="mt-4 px-6 py-6" style={{ background: band, color: textOn(band) }}>
-				<h4 className="text-[22px] leading-tight" style={{ fontFamily: familyOf(theme.fonts.heading), fontWeight: 400 }}>
+				<h4
+					className="text-[22px] leading-tight"
+					style={{ fontFamily: familyOf(theme.fonts.heading), fontWeight: 400 }}
+				>
 					Welcome to {theme.churchName}
 				</h4>
 				<p className="mt-1.5">Spring newcomer guide</p>
@@ -179,7 +186,11 @@ function Outward({ theme, layout }: { theme: DocumentTheme; layout: Layout<"outw
 				)}
 				<Lines widths={[100, 92, 96]} />
 				<div className="mt-auto flex flex-col gap-0.5 text-[10px] opacity-80">
-					{details.length > 0 ? details.map((d) => <span key={d}>{d}</span>) : <span>Address, website, phone and email</span>}
+					{details.length > 0 ? (
+						details.map((d) => <span key={d}>{d}</span>)
+					) : (
+						<span>Address, website, phone and email</span>
+					)}
 				</div>
 			</div>
 		</div>

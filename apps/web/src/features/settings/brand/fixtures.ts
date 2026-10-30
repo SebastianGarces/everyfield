@@ -89,7 +89,12 @@ export function createFixtureBrand({
 	let revision = kit === "none" ? "0" : "1";
 	const refuse = (code: BrandError["code"]): BrandReply<never> => ({
 		status: "refused",
-		error: brandError.parse({ code, details: {}, correlationId: nextId(), retry: code === "conflict" ? "refresh" : "never" }),
+		error: brandError.parse({
+			code,
+			details: {},
+			correlationId: nextId(),
+			retry: code === "conflict" ? "refresh" : "never",
+		}),
 	});
 	const gate = async (op: BrandOperation) => {
 		const fault = await tick(op);
@@ -106,7 +111,8 @@ export function createFixtureBrand({
 			const refused = await gate("saveBrand");
 			if (refused) return refused;
 			const parsed = saveSettingsRequest.safeParse(raw);
-			if (!parsed.success) return refuse(parsed.error.issues.some((i) => i.path[1] === "ein") ? "invalid_ein" : "invalid_input");
+			if (!parsed.success)
+				return refuse(parsed.error.issues.some((i) => i.path[1] === "ein") ? "invalid_ein" : "invalid_input");
 			if (parsed.data.expectedRevision !== revision) return refuse("conflict");
 			const next = { ...data };
 			for (const [key, value] of Object.entries(parsed.data.patch))

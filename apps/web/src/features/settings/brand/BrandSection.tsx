@@ -184,11 +184,7 @@ function BrandEditor({
 							</Group>
 
 							<Group title="Fonts">
-								<FontField
-									label="Heading font"
-									value={draft.headingFont}
-									onChange={(v) => set("headingFont", v)}
-								/>
+								<FontField label="Heading font" value={draft.headingFont} onChange={(v) => set("headingFont", v)} />
 								<FontField label="Body font" value={draft.bodyFont} onChange={(v) => set("bodyFont", v)} />
 							</Group>
 
