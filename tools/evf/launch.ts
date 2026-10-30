@@ -231,8 +231,6 @@ function splitTarget(tui: { pane: string }): { pane: string; direction: Directio
 	const layout = readLayout(tui.pane);
 	return layout ? chooseSplit(layout.panes, tui.pane) : { pane: tui.pane, direction: "right" };
 }
-/** The long `--agents` JSON is shown as a placeholder in a dry run; the line above it names the source file. */
-const shownArgs = (args: string[]) => args.map((a, i) => (args[i - 1] === "--agents" ? "<agents json>" : a));
 const startArgs = (plan: LaunchPlan, pane: string) => [
 	"agent",
 	"start",
@@ -246,11 +244,9 @@ const startArgs = (plan: LaunchPlan, pane: string) => [
 	"--",
 	...plan.claudeArgs,
 ];
-const startArgsShown = (plan: LaunchPlan, pane: string) => {
-	const args = startArgs(plan, pane),
-		at = args.indexOf("--");
-	return [...args.slice(0, at + 1), ...shownArgs(args.slice(at + 1))];
-};
+/** A dry run shows the long `--agents` JSON as a placeholder; the line above it names the source file. */
+const startArgsShown = (plan: LaunchPlan, pane: string) =>
+	startArgs({ ...plan, claudeArgs: plan.claudeArgs.map((a, i, all) => (all[i - 1] === "--agents" ? "<agents json>" : a)) }, pane);
 
 /** Print every step without changing Herdr, the store or the worktree. It only reads Herdr to find the TUI workspace. */
 export function launchDryRun(
