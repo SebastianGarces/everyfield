@@ -576,7 +576,8 @@ async function settle(
 	const views = new Map<string, z.infer<typeof followUpOwner> | null>(f.obligations.map((o) => [o.id, o.owner]));
 	for (const t of lockedTasks.parse(f.tasks ?? []))
 		if (t.follow_up_owner) views.set(t.obligation_id, t.follow_up_owner);
-	const seatNames = z.object({ seats: z.record(z.string(), z.string()) }).safeParse(f.obligation_facts).data?.seats ?? {};
+	const seatNames =
+		z.object({ seats: z.record(z.string(), z.string()) }).safeParse(f.obligation_facts).data?.seats ?? {};
 	const viewOf = (id: string | null) =>
 		id ? { accountId: id, displayName: seatNames[id] ?? "", eligible: true, reason: null } : null;
 	if (vision && noop)

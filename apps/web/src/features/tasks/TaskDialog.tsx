@@ -399,19 +399,24 @@ function AssigneeField({
 	viewer: Viewer;
 	onChange: (v: string, name: string | null) => void;
 }) {
-	const [options, setOptions] = useState<{ value: string; label: string }[] | "failed" | null>(null);
+	// The list read for the kind of task being edited; switching to a follow-up reads the eligible owners again.
+	const [loaded, setLoaded] = useState<{
+		followUp: boolean;
+		options: { value: string; label: string }[] | "failed";
+	} | null>(null);
+	const options = loaded?.followUp === followUp ? loaded.options : null;
 	useEffect(() => {
 		let live = true;
-		setOptions(null);
 		warmAssignees(followUp ? "committed_follow_up" : "any").then((r) => {
 			if (!live) return;
-			if (r.status !== "ok") return setOptions("failed");
-			setOptions(
-				r.value.items.map((s) => ({
+			if (r.status !== "ok") return setLoaded({ followUp, options: "failed" });
+			setLoaded({
+				followUp,
+				options: r.value.items.map((s) => ({
 					value: s.accountId,
 					label: s.accountId === viewer.accountId ? `${s.displayName} (you)` : s.displayName,
 				})),
-			);
+			});
 		});
 		return () => void (live = false);
 	}, [viewer.accountId, followUp]);

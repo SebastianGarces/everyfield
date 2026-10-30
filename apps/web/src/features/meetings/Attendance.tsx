@@ -421,22 +421,22 @@ function SettleForm({
 	const [followUp, setFollowUpValue] = useState(initial?.followUpAssigneeId ?? NEEDS_OWNER);
 	// Finalize starts at Needs owner: no one is picked for the person. Correct attendance starts at the owner the
 	// meeting's follow-ups already have (D-b), unless the person already chose.
-	const chose = useRef(initial?.followUpAssigneeId !== undefined);
+	const [chose, setChose] = useState(initial?.followUpAssigneeId !== undefined);
 	const setFollowUp = (v: string) => {
-		chose.current = true;
+		setChose(true);
 		setFollowUpValue(v);
 	};
 	useEffect(() => {
-		if (mode !== "reconcile" || chose.current) return;
+		if (mode !== "reconcile" || chose) return;
 		let live = true;
 		void loadMeetingFollowUps(meeting.id).then((r) => {
 			const current = r.status === "ok" ? preferredOwner(r.value.items) : null;
-			if (live && current && !chose.current) setFollowUpValue(current);
+			if (live && current) setFollowUpValue(current);
 		});
 		return () => {
 			live = false;
 		};
-	}, [mode, meeting.id]);
+	}, [mode, meeting.id, chose]);
 	const [evaluation, setEvaluation] = useState(initial?.evaluationAssigneeId ?? NEEDS_OWNER);
 	const [reason, setReason] = useState(initial?.reason ?? "");
 	const listRef = useRef<HTMLFieldSetElement>(null);

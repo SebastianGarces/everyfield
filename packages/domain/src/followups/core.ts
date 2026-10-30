@@ -91,7 +91,9 @@ export const followUpTask = (t: SQL) =>
  * Where task `t` came from, as JSON: the meeting whose duty generated it, else who added it. Two follow-ups for one
  * person read differently on every screen.
  */
-export const originJson = (t: SQL) => sql`(SELECT jsonb_build_object('meeting_id', m.id, 'title', m.title, 'type', m.type,
+export const originJson = (
+	t: SQL,
+) => sql`(SELECT jsonb_build_object('meeting_id', m.id, 'title', m.title, 'type', m.type,
 	'vision_number', m.vision_number, 'by', (SELECT display_name FROM seat_identity(${t}.creator_id)))
 	FROM (SELECT 1) one LEFT JOIN obligation ob ON ob.id=${t}.obligation_id AND ob.plant_id=${t}.plant_id
 	LEFT JOIN meeting m ON m.id=ob.meeting_id AND m.plant_id=ob.plant_id)`;

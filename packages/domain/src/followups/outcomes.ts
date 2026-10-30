@@ -220,14 +220,15 @@ export function outcomeWriter(reminders: TaskReminders) {
 					if (!facts.live) deny("invalid_subject");
 					// One contact is one outreach (D-c): it also finishes the Person's other open follow-ups the recorder may
 					// record on. All of them for an Owner or Admin, their own for a Member. One locked read, one write.
-					const others = task && v.outcome === "contacted" && v.completeTask
-						? await lockTasks(
-								tx,
-								plant,
-								sql`t.person_id=${personId}::uuid AND ${followUpTask(sql`t`)} AND t.status IN ${OPEN}
+					const others =
+						task && v.outcome === "contacted" && v.completeTask
+							? await lockTasks(
+									tx,
+									plant,
+									sql`t.person_id=${personId}::uuid AND ${followUpTask(sql`t`)} AND t.status IN ${OPEN}
 									AND t.id<>${task.id}::uuid ${administers(cmd.actor) ? sql`` : sql`AND t.assignee_id=${cmd.actor.accountId}::uuid`}`,
-							)
-						: [];
+								)
+							: [];
 					const row: Stored = {
 						id: randomUUID(),
 						revision: revision.parse("1"),
@@ -262,7 +263,8 @@ export function outcomeWriter(reminders: TaskReminders) {
 						changed = r.row;
 						changes = r.changes;
 					}
-					for (const other of others) changes = [...changes, ...setStatus(tx, cmd, other, { status: "complete" }).changes];
+					for (const other of others)
+						changes = [...changes, ...setStatus(tx, cmd, other, { status: "complete" }).changes];
 					return {
 						value: c.outcomeMutation.parse({
 							receiptId: cmd.id,
