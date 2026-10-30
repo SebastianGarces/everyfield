@@ -374,7 +374,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 	// planning or ready is shown as its own fact, not as a change of status.
 	const checkInStarted = attendedCount > 0 && !final && (m.status === "planning" || m.status === "ready");
 	const canSettle = m.status !== "cancelled" && !m.occurrence.voidedAt;
-	const stepInput = {
+	const next = nextStep({
 		status: m.status,
 		canWrite,
 		checkIn: marker && !final && canSettle,
@@ -384,8 +384,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 		attendedWithoutCard: vision ? attendedCount - cardsIn : 0,
 		evaluationSaved: saved !== null,
 		vision,
-	};
-	const next = nextStep(stepInput);
+	});
 
 	// The tab is in the address (?tab=). The first one follows the meeting's state. A tab change writes the
 	// address with replaceState and asks the server for nothing.
