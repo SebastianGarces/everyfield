@@ -55,11 +55,12 @@ function baseCode(root: string, cfg: Config): BaseCode | string {
 		if (fetched.code !== 0) return `git fetch ${cfg.remote} ${cfg.baseBranch} failed: ${fetched.stderr.trim()}`;
 	}
 	const ref = baseRef(root, cfg),
-		ids = run("git", ["-C", root, "rev-parse", ref, `${ref}:tools/evf`, `${ref}:bin/evf`]);
-	// A base without tools/evf has no evf code to compare; the empty trees never equal a running process's.
-	const base = run("git", ["-C", root, "rev-parse", ref]);
+		base = run("git", ["-C", root, "rev-parse", ref]);
 	if (base.code !== 0) return `git rev-parse ${ref} failed: ${base.stderr.trim()}`;
-	const [commit, evfTree = "", binTree = ""] = ids.code === 0 ? ids.stdout.trim().split("\n") : [base.stdout.trim()];
+	// A base without tools/evf has no evf code to compare; the empty trees never equal a running process's.
+	const trees = run("git", ["-C", root, "rev-parse", `${ref}:tools/evf`, `${ref}:bin/evf`]);
+	const [evfTree = "", binTree = ""] = trees.code === 0 ? trees.stdout.trim().split("\n") : [];
+	const commit = base.stdout.trim();
 	return { commit, evfTree, binTree };
 }
 
@@ -126,15 +127,18 @@ export type MergeRequest = {
 	ownerApproval?: OwnerApproval;
 };
 
-/** The paths a template hold names, up to five, and the command that records the approval. */
-export function templateHold(number: number, paths: string[], doubt?: string): string {
+/** Why a PR is held as a template PR: up to five matched paths, a count when there are more, or the doubt. */
+export function templateWhy({ paths, doubt }: TemplateClass): string {
 	const shown = paths.slice(0, 5).join(", "),
-		more = paths.length > 5 ? ` (${paths.length} paths in all)` : "",
-		why = doubt
-			? `evf cannot tell whether it changes document templates (${doubt}), so it holds it as if it did`
-			: `it changes document-template paths (${shown})${more}`;
-	return `evf does not merge PR #${number}: ${why}. Sebastian approves each document-template PR; after his approval in chat, run: bin/evf approve ${number} --owner-approval "<his words>"`;
+		more = paths.length > 5 ? ` (${paths.length} paths in all)` : "";
+	return doubt
+		? `evf cannot tell whether it changes document templates (${doubt}), so it holds it as if it did`
+		: `it changes document-template paths (${shown})${more}`;
 }
+
+/** The command that records Sebastian's approval for a held PR. */
+export const approveCommand = (number: number): string =>
+	`Sebastian approves each document-template PR; after his approval in chat, run: bin/evf approve ${number} --owner-approval "<his words>"`;
 
 /** Every PR merge in tools/evf. Refusals throw EvfError before gh runs; a gh failure returns its result. */
 export function mergePullRequest(req: MergeRequest): RunResult {
@@ -144,7 +148,7 @@ export function mergePullRequest(req: MergeRequest): RunResult {
 	const cls = templateClass(root, cfg, sha);
 	if (cls.doubt || cls.paths.length) {
 		if (!ownerApproval || ownerApproval.quote.trim().split(/\s+/).filter(Boolean).length < 2)
-			fail(templateHold(number, cls.paths, cls.doubt));
+			fail(`evf does not merge PR #${number}: ${templateWhy(cls)}. ${approveCommand(number)}`);
 		if (ownerApproval.approved_head !== sha)
 			fail(
 				`evf does not merge PR #${number}: Sebastian approved ${ownerApproval.approved_head.slice(0, 10)}, not ${sha.slice(0, 10)}. His approval does not carry over to a new head.`,

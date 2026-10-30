@@ -25,7 +25,7 @@ import {
 import { maintenanceScope, requireTaskScope } from "./policy.ts";
 import { checkPrBody } from "./pr-body.ts";
 import { markMerged, openWorkDb, sessionsRecorded } from "./db.ts";
-import { mergePullRequest, templateClass, type TemplateClass } from "./merge.ts";
+import { approveCommand, mergePullRequest, templateClass, templateWhy, type TemplateClass } from "./merge.ts";
 import { withShipQueue, type QueueTiming } from "./ship-queue.ts";
 import { formatScope, wpScope } from "./scope.ts";
 import { acknowledgeShipped, recordProgress, type ShippedRecord } from "./progress.ts";
@@ -476,13 +476,8 @@ export function ship(root: string, task: TaskRef, timing: ShipTiming = SHIP_TIMI
 }
 
 /** The one message of a verified document-template PR: up to five matched paths, a count when there are more. */
-function templateWaitMessage(number: number, { paths, doubt }: TemplateClass): string {
-	const shown = paths.slice(0, 5).join(", "),
-		more = paths.length > 5 ? ` (${paths.length} paths in all)` : "",
-		why = doubt
-			? `evf cannot tell whether it changes document templates (${doubt}), so it holds it as if it did`
-			: `it changes document-template paths (${shown})${more}`;
-	return `evf ship does not merge PR #${number}: ${why}. The verifier passed it. Sebastian approves each document-template PR; after his approval in chat, run: bin/evf approve ${number} --owner-approval "<his words>"`;
+function templateWaitMessage(number: number, templates: TemplateClass): string {
+	return `evf ship does not merge PR #${number}: ${templateWhy(templates)}. The verifier passed it. ${approveCommand(number)}`;
 }
 
 function ownerRoute(
