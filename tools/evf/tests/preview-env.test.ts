@@ -75,7 +75,10 @@ test("OPS-71: preview.mjs never writes the worktree's apps/web/.env.local", () =
 
 test("OPS-71: settings.json has no git push ask rule and keeps the main, force and mirror push denials", () => {
 	const { permissions } = JSON.parse(readFileSync(join(source, ".claude/settings.json"), "utf8"));
-	assert.deepEqual((permissions.ask ?? []).filter((r: string) => /git push/.test(r)), []);
+	assert.deepEqual(
+		(permissions.ask ?? []).filter((r: string) => /git push/.test(r)),
+		[],
+	);
 	for (const rule of [
 		"Bash(git push *--force*)",
 		"Bash(git push -f*)",
