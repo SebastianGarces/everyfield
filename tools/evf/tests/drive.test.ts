@@ -587,6 +587,15 @@ test("OPS-67-blocked: a blocked seat is polled in short intervals, reported once
 		driveOnce(f.root, f.task, TIMING);
 		assert.ok(Date.now() - started < 5000, "the drive goes on within a few poll intervals");
 		assert.equal(f.events("blocked").length, 1, "one blocked event for the episode, not one per poll");
+		const episode = f.db
+			.prepare("SELECT type, payload FROM events WHERE run_id = ? AND type IN ('blocked', 'unblocked') ORDER BY id")
+			.all(id) as Array<{ type: string; payload: string }>;
+		assert.deepEqual(
+			episode.map((e) => e.type),
+			["blocked", "unblocked"],
+			"the resumed event follows the blocked one, so the last event no longer says blocked",
+		);
+		assert.match(episode[1]!.payload, /implementer-ops-1-\d+ resumed after a prompt/);
 		assert.equal(f.herdr.calls().filter((c) => c[0] === "notification" && c[1] === "show").length, 1);
 		const gets = f.herdr.calls().filter((c) => c[0] === "agent" && c[1] === "get");
 		assert.equal(gets.length, 4, "the state was polled until it left blocked");
