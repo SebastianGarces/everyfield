@@ -64,8 +64,7 @@ function baseCode(root: string, cfg: Config, fetchError: string | undefined): Ba
 	// A base without tools/evf has no evf code to compare; the empty trees never equal a running process's.
 	const trees = run("git", ["-C", root, "rev-parse", `${ref}:tools/evf`, `${ref}:bin/evf`]);
 	const [evfTree = "", binTree = ""] = trees.code === 0 ? trees.stdout.trim().split("\n") : [];
-	const commit = base.stdout.trim();
-	return { commit, evfTree, binTree };
+	return { commit: base.stdout.trim(), evfTree, binTree };
 }
 
 /** The reason this process's evf code may not merge, or undefined when it matches the base branch. */
