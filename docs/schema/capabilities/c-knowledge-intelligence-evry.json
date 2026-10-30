@@ -365,7 +365,7 @@
       ],
       "facts": [
         "Eleven original stable template identities form the preserved base of a growing catalog: saved display names, immutable approved content/version/hash, category, phase and curated Wiki/meeting/team context mappings.",
-        "One offered format per template under the format rule: budgets XLSX, emails HTML mail and every other template PDF. The original commitment card, response card, sign-in sheet, Vision agenda, core member expectations, launch-team commitment, follow-up letter, board/elder agenda and launch checklists are PDF; the first-year budget and budget worksheet are XLSX.",
+        "Offered formats per template under the format rule: budgets XLSX, emails HTML mail, fixed-layout documents PDF only, and editable prose documents edited in the app and exported as PDF and DOCX. The original commitment card, response card, sign-in sheet, Vision agenda, board/elder agenda and launch checklists are PDF; the first-year budget and budget worksheet are XLSX; core member expectations, launch-team commitment and the follow-up letter are editable and export as PDF and DOCX.",
         "Closed merge-field definitions, required/default rules, approved rendering profile, shared content layout and spreadsheet cell/formula definitions."
       ],
       "history": "immutable versions",
@@ -403,7 +403,8 @@
       "id": "CAP-C-013",
       "name": "Saved generated-document bytes and reproducible provenance",
       "feature_ids": [
-        "DOC-003"
+        "DOC-003",
+        "DOC-023"
       ],
       "persists": true,
       "entities": [
@@ -413,7 +414,8 @@
       "facts": [
         "Immutable account or plant scope, creator/minimal attribution, saved template name/version/content hash, renderer version and frozen authorized merge input provenance.",
         "Offered format, safe download filename, MIME, byte length/hash, immutable object reference, generated instant and pending/ready/failed state.",
-        "Failure/resume/compensation identity ties an incomplete generation to its exact upload and command receipt."
+        "Failure/resume/compensation identity ties an incomplete generation to its exact upload and command receipt.",
+        "A template-made Church Document export names its source document and revision as frozen provenance; later edits, brand kit changes and template changes never alter saved bytes."
       ],
       "history": "append-only events",
       "invariants": [
@@ -468,7 +470,8 @@
       "id": "CAP-C-015",
       "name": "Native owned text, values designation and archive revisions",
       "feature_ids": [
-        "DOC-016"
+        "DOC-016",
+        "DOC-022"
       ],
       "persists": true,
       "entities": [
@@ -478,7 +481,8 @@
       "facts": [
         "Exactly one immutable owner, account or plant; title, document kind/core_values designation, current ready revision and archive state.",
         "Sanitized native text/headings/lists/tables/links, content hash, revision number, author attribution and expected-current-revision.",
-        "Attributable save/edit/correction/archive history and prior selected revisions referenced by assessments."
+        "Attributable save/edit/correction/archive history and prior selected revisions referenced by assessments.",
+        "A document made from an editable template records its template id, template version, document class, frozen input provenance and the \"use church branding\" toggle; revision 1 holds the merged template text."
       ],
       "history": "immutable versions",
       "invariants": [

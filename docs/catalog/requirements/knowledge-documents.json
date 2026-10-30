@@ -6,7 +6,7 @@
       "feature_ids": [
         "DOC-001"
       ],
-      "text": "Filterable/contextual library of the generated document catalog. The catalog grows as templates are added, and `docs/catalog/document-templates.json` names every entry with its class, format and phase. Format rule: budgets are XLSX, emails are HTML mail and every other template is PDF. The Forme engine (@formepdf) renders the PDFs with fillable fields and PDF/UA tagging. Commitment/vision_meeting/administrative/operational categories, phase and curated Wiki/meeting/team mappings. Unknown retired mapping omits link.",
+      "text": "Filterable/contextual library of the generated document catalog. The catalog grows as templates are added, and `docs/catalog/document-templates.json` names every entry with its class, format and phase. Format rule: budgets are XLSX, emails are HTML mail, fixed-layout documents are PDF only, and editable prose documents are edited in the app and exported as PDF and DOCX. The Forme engine (@formepdf) renders PDFs with fillable fields and PDF/UA tagging. Commitment/vision_meeting/administrative/operational categories, phase and curated Wiki/meeting/team mappings. Unknown retired mapping omits link.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
         "documents.templates.list",
@@ -66,7 +66,7 @@
         },
         {
           "operation": "documents.generate",
-          "rule": "Supported format values: pdf, docx, xlsx."
+          "rule": "Supported format values: pdf, xlsx."
         },
         {
           "operation": "documents.generate",
@@ -87,6 +87,10 @@
         {
           "operation": "documents.resolveContext",
           "rule": "Visible information for plant_owner|plant_admin|plant_member: template id, template version, plant id, merge fields, missing fields, source references, completeness."
+        },
+        {
+          "operation": "documents.generate",
+          "rule": "Refuse an editable template. Generate makes files only for fixed-layout and budget templates; an editable template goes through documents.createFromTemplate, then documents.exportNative."
         }
       ]
     },
@@ -231,10 +235,12 @@
       "feature_ids": [
         "DOC-008"
       ],
-      "text": "Expectations of a Core Group Member — PDF; presence/GROW-PRAY-GIVE/team participation.",
+      "text": "Expectations of a Core Group Member — editable Church Document, exported as PDF and DOCX; presence/GROW-PRAY-GIVE/team participation.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
-        "documents.preview"
+        "documents.preview",
+        "documents.createFromTemplate",
+        "documents.exportNative"
       ],
       "acceptance_ids": [
         "AC-DOC-008--DOC-008"
@@ -244,7 +250,8 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-036"
+        "WP-036",
+        "WP-037"
       ],
       "title": "Expectations of a Core Group Member"
     },
@@ -253,10 +260,12 @@
       "feature_ids": [
         "DOC-009"
       ],
-      "text": "Launch Team Commitment — PDF; member commitment approaching Launch Sunday.",
+      "text": "Launch Team Commitment — editable Church Document, exported as PDF and DOCX; member commitment approaching Launch Sunday.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
-        "documents.preview"
+        "documents.preview",
+        "documents.createFromTemplate",
+        "documents.exportNative"
       ],
       "acceptance_ids": [
         "AC-DOC-009--DOC-009"
@@ -266,7 +275,8 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-036"
+        "WP-036",
+        "WP-037"
       ],
       "title": "Launch Team Commitment"
     },
@@ -275,10 +285,12 @@
       "feature_ids": [
         "DOC-010"
       ],
-      "text": "Vision Meeting Follow-up Letter — PDF; guest thank-you/next-step invitation.",
+      "text": "Vision Meeting Follow-up Letter — editable Church Document, exported as PDF and DOCX; guest thank-you/next-step invitation.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
-        "documents.preview"
+        "documents.preview",
+        "documents.createFromTemplate",
+        "documents.exportNative"
       ],
       "acceptance_ids": [
         "AC-DOC-010--DOC-010"
@@ -288,7 +300,8 @@
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-036"
+        "WP-036",
+        "WP-037"
       ],
       "title": "Vision Meeting Follow-up Letter"
     },
@@ -552,21 +565,24 @@
       "feature_ids": [
         "DOC-019"
       ],
-      "text": "Every formal/legal template shows the notice \"Template, not legal advice\" in the preview and in the saved PDF. Church branding cannot hide or remove the notice. Templates of other classes do not show it.",
+      "text": "Every formal/legal template shows the notice \"Template, not legal advice\" in the preview and in the saved PDF. Church branding cannot hide or remove the notice. Templates of other classes do not show it. A Church Document made from a formal/legal template keeps the notice too. The notice \"Template, not legal advice\" renders at export, outside the editable body, in both the PDF and the DOCX. No edit removes it. Exports of other classes do not show it.",
       "spec": "docs/product/knowledge-documents.md#template-themes-classes-and-copy",
       "operations": [
         "documents.preview",
-        "documents.generate"
+        "documents.generate",
+        "documents.exportNative"
       ],
       "acceptance_ids": [
         "AC-DOC-019--DOC-019"
       ],
       "case_ids": [
-        "CASE-DOC-019"
+        "CASE-DOC-019",
+        "CASE-DOC-019-EDIT"
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-036"
+        "WP-036",
+        "WP-037"
       ],
       "title": "Legal template notice"
     },
@@ -575,21 +591,24 @@
       "feature_ids": [
         "DOC-020"
       ],
-      "text": "A doctrinal section in a template is an empty slot. Everyfield ships no doctrinal text. The sending network fills the slot for its churches, and a church without a network fills it itself. A slot that no one has filled generates as a visible blank, never as default text.",
+      "text": "A doctrinal section in a template is an empty slot. Everyfield ships no doctrinal text. The sending network fills the slot for its churches, and a church without a network fills it itself. A slot that no one has filled generates as a visible blank, never as default text. In a Church Document, a doctrinal slot is a node that editing can fill but cannot delete. The sending network's current text fills the slot at creation when the network has filled it. An empty slot shows as a marked blank in the editor and exports as a visible blank in the PDF and the DOCX, never as default text.",
       "spec": "docs/product/knowledge-documents.md#template-themes-classes-and-copy",
       "operations": [
         "documents.preview",
-        "documents.generate"
+        "documents.generate",
+        "documents.exportNative"
       ],
       "acceptance_ids": [
         "AC-DOC-020--DOC-020"
       ],
       "case_ids": [
-        "CASE-DOC-020"
+        "CASE-DOC-020",
+        "CASE-DOC-020-EDIT"
       ],
       "shared_contract_ids": [],
       "work_packages": [
-        "WP-036"
+        "WP-036",
+        "WP-037"
       ],
       "title": "Doctrinal sections as network-filled slots"
     },
@@ -615,6 +634,50 @@
         "WP-036"
       ],
       "title": "Template copy rule"
+    },
+    {
+      "id": "REQ-DOC-022",
+      "feature_ids": [
+        "DOC-022"
+      ],
+      "text": "An editable template creates one Church Document owned by the church plant, under the DOC-016 owner, revision and archive rules. Revision 1 holds the template text with merge values that resolve once under the DOC-002 limits, so later contact or church data changes do not change the text. The document records the template id, template version, document class and frozen input provenance. It also holds a \"use church branding\" toggle. Only a current Owner or Admin of the church plant creates it. Creation makes no file. Fixed-layout, budget and email templates are refused. Before creation, `documents.preview` shows the pre-filled content as a PDF.",
+      "spec": "docs/product/knowledge-documents.md#church-documents-from-editable-templates",
+      "operations": [
+        "documents.createFromTemplate"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-022--DOC-022"
+      ],
+      "case_ids": [
+        "CASE-DOC-022"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-037"
+      ],
+      "title": "Church Documents from editable templates"
+    },
+    {
+      "id": "REQ-DOC-023",
+      "feature_ids": [
+        "DOC-023"
+      ],
+      "text": "A user who can read a template-made Church Document exports one revision as a PDF or a DOCX. The PDF comes from the Forme engine with PDF/UA tagging. Both formats use the theme that `resolveDocumentTheme(church, documentClass)` returns, the \"use church branding\" toggle and the Everyfield-neutral fallback. The DOCX carries the theme's logo with alt text, fonts, colors and letterhead footer where Word can show them. Each export saves one `generated_document` under DOC-003. That record holds the document id and revision as frozen provenance. A later download returns the exact saved bytes after later edits, brand kit changes or template changes. The DOC-002 limits apply to the export (8 MiB and 1,000 content blocks), and a render failure is truthful. Only a Church Document made from a template exports, because only these documents carry a document class.",
+      "spec": "docs/product/knowledge-documents.md#church-documents-from-editable-templates",
+      "operations": [
+        "documents.exportNative"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-023--DOC-023"
+      ],
+      "case_ids": [
+        "CASE-DOC-023"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-037"
+      ],
+      "title": "Church Document export as PDF and Word"
     },
     {
       "id": "REQ-BRD-001",
