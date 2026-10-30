@@ -1198,6 +1198,38 @@
 				}
 			],
 			"risk": "ordinary"
+		},
+		"OPS-77": {
+			"title": "Register WP-104 Church brand kit and update the document template catalog, DOC ids and scope note",
+			"owningPaths": [
+				"evf.config.json",
+				"everyfield-feature-review.html",
+				"docs/START-HERE.md",
+				"docs/architecture/",
+				"docs/product/",
+				"docs/catalog/",
+				"docs/acceptance/",
+				"docs/schema/",
+				"docs/dependencies.json",
+				"docs/dependencies.md",
+				"docs/build-progress.json",
+				"docs/verification.json",
+				"docs/text-allowlist.json",
+				"docs/plan/dag.json",
+				"docs/plan/build-plan.md",
+				"docs/plan/context-manifest.json"
+			],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {
