@@ -59,7 +59,7 @@ for (const [name, engine] of ENGINES) {
 			await aside.evaluate((el) => (el.dataset.keep = "same"));
 			await page.getByRole("radio", { name: /^Pending/ }).click();
 			const requests = [];
-			page.on("request", (r) => r.resourceType() !== "image" && requests.push(r.url()));
+			page.on("request", (r) => !["image", "font"].includes(r.resourceType()) && requests.push(r.url()));
 			await page.getByRole("tab", { name: "Results" }).click();
 			assert.equal(new URL(page.url()).searchParams.get("tab"), "results");
 			await page.getByRole("tab", { name: "Kit" }).click();

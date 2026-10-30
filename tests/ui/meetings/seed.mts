@@ -58,7 +58,7 @@ async function up() {
 		if (r.status !== "ok") throw Error("schedule past: " + JSON.stringify(r));
 		// Scheduling refuses a past start, so the seed moves the start back as the meeting's own clock would.
 		await admin.execute(sql`UPDATE meeting SET starts_at = clock_timestamp() - interval '2 hours',
-			local_date = (clock_timestamp() - interval '2 hours')::date WHERE id = ${r.value.meeting.id}::uuid`);
+			local_date = ((clock_timestamp() - interval '2 hours') AT TIME ZONE timezone)::date WHERE id = ${r.value.meeting.id}::uuid`);
 		past[engine] = { meetingId: r.value.meeting.id, guests: [...guestNames] };
 	}
 	// WP-020/ui page flow: per engine one Vision meeting with no guests (the page's own flow runs on it) and one
