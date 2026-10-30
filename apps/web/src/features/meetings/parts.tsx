@@ -111,10 +111,13 @@ export function TabStack({
 	active,
 	panels,
 	className,
+	fit,
 }: {
 	active: string;
 	panels: Record<string, ReactNode>;
 	className?: string;
+	/** Size to the shown panel; the hidden panels take no height (they keep their state). */
+	fit?: boolean;
 }) {
 	const root = useRef<HTMLDivElement>(null);
 	const first = useRef(true);
@@ -132,7 +135,7 @@ export function TabStack({
 					key={key}
 					data-panel={key}
 					inert={key !== active}
-					className={cn("col-start-1 row-start-1 flex min-w-0 flex-col", className, key !== active && "invisible")}
+					className={cn("col-start-1 row-start-1 flex min-w-0 flex-col", className, key !== active && (fit ? "hidden" : "invisible"))}
 				>
 					{node}
 				</div>

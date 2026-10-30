@@ -128,6 +128,28 @@ for (const [name, engine] of ENGINES) {
 		});
 	});
 
+	test(`AC:TARGET-MTG-009 (${name}): a lost answer to a change shows on the one-line RSVP, with Check again`, async () => {
+		const { state } = fixture("meetings");
+		await withPage(engine, async (page, context) => {
+			await signIn(context, fixture("people").owner.cookie);
+			await openMeeting(page, state[name].ready);
+			// The viewer may have answered in an earlier test: answer once, so the page shows the one-line state.
+			const answered = page.getByRole("region", { name: "Your RSVP" });
+			if (!(await answered.count())) await page.getByRole("button", { name: "Yes, I'll come" }).click();
+			await answered.waitFor();
+			const coming = (await answered.innerText()).includes("You're coming.");
+			// The browser never hears back from the change, twice: the answer is unknown, never silently put back.
+			await page.route(`**/meetings/${state[name].ready}*`, (route) =>
+				route.request().method() === "POST" ? route.abort("connectionreset") : route.continue(),
+			);
+			await page.getByRole("button", { name: "Change" }).click();
+			await page.getByRole("button", { name: coming ? "Can't make it" : "Yes, I'll come" }).click();
+			await page.getByRole("button", { name: "Check again" }).waitFor();
+			assert.equal(await page.getByRole("region", { name: "Your RSVP" }).count(), 1);
+			assert.equal(await page.getByRole("button", { name: "Change" }).isDisabled(), true);
+		});
+	});
+
 	test(`AC:TARGET-MTG-013 (${name}): the Kit tab fills the page height and the checklist scrolls inside the card`, async () => {
 		const { kit } = fixture("meetings");
 		const noPageScroll = (page) =>

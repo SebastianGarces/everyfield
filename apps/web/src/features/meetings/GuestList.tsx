@@ -847,7 +847,7 @@ function AddGuestForm({
 				return true;
 			}}
 		>
-			<div ref={root} className="flex flex-col gap-5">
+			<div ref={root} className="flex flex-col gap-5 max-app-sm:gap-4">
 				<SegmentedControl
 					label="Who"
 					value={mode}
@@ -859,7 +859,8 @@ function AddGuestForm({
 				/>
 				<TabStack
 					active={mode}
-					className="gap-5"
+					fit
+					className="gap-5 max-app-sm:gap-3"
 					panels={{
 						existing: (
 							<Field label="Guests">
@@ -914,8 +915,11 @@ function AddGuestForm({
 									</Field>
 								</div>
 								<p className="text-sm text-text-2">
-									They join People as a prospect from this meeting. If they are already in People, choose them instead,
-									so you do not make a duplicate.
+									<span className="max-app-sm:hidden">
+										They join People as a prospect from this meeting. If they are already in People, choose them
+										instead, so you do not make a duplicate.
+									</span>
+									<span className="app-sm:hidden">Already in People? Choose them there, not here.</span>
 								</p>
 								<div>
 									<Button type="button" variant="secondary" size="sm" icon={Add01Icon} onClick={addToList}>

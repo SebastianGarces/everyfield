@@ -1030,9 +1030,12 @@ function OwnRsvp({
 	const answer = own.rsvp;
 	// Once answered, the banner shrinks to one line with the answer and a way to change it.
 	const [changing, setChanging] = useState(false);
+	const notice = <SaveNotice {...lane.noticeProps} dialogOpen={false} />;
 	if (answer !== "pending" && !changing)
 		return (
-			<p
+			<div className="flex flex-col gap-2">
+				{notice}
+				<p
 				aria-label="Your RSVP"
 				role="region"
 				aria-live="polite"
@@ -1044,11 +1047,12 @@ function OwnRsvp({
 						Change
 					</Button>
 				) : null}
-			</p>
+				</p>
+			</div>
 		);
 	return (
 		<Card variant="callout" tone="green" as="section" aria-labelledby="own-rsvp">
-			<SaveNotice {...lane.noticeProps} dialogOpen={false} />
+			{notice}
 			<div className="flex flex-wrap items-center justify-between gap-4">
 				<div>
 					<h2 id="own-rsvp" className="font-semibold text-ink">
