@@ -6,6 +6,13 @@ import type { DeliveryReport, Outcome, SendNowResult } from "./model.ts";
 /** The earliest send time the scheduling window accepts, from now. */
 export const EARLIEST_SEND_MS = 60_000;
 
+/**
+ * The send time of the schedule step: the next whole minute at least one minute away. A retry with the same request
+ * keys inside that minute asks for the same time, so the saved request replays instead of conflicting.
+ */
+export const earliestSendAt = (now: number): string =>
+	new Date(Math.ceil((now + EARLIEST_SEND_MS) / 60_000) * 60_000).toISOString();
+
 type Scheduled = { communicationId: string; revision: string; scheduledAt: string };
 
 export type SendNowSteps = {
@@ -20,7 +27,7 @@ export type SendNowSteps = {
  * leaves the message Scheduled; the result says so with `sendIssue` and nothing is sent twice.
  */
 export async function chainSendNow(steps: SendNowSteps, now = Date.now()): Promise<Outcome<SendNowResult>> {
-	const scheduled = await steps.schedule(new Date(now + EARLIEST_SEND_MS).toISOString());
+	const scheduled = await steps.schedule(earliestSendAt(now));
 	if (scheduled.status !== "ok") return scheduled;
 	const { communicationId, revision, scheduledAt } = scheduled.value;
 	const sent = await steps.send(revision, communicationId);

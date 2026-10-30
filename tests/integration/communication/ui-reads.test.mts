@@ -138,40 +138,43 @@ function carrier(behavior) {
 	};
 }
 /** The real Send now chain with the real commands: save and schedule one transaction, then send. */
-function chain(personId, transport, keysFor, sendRevision = (revision) => revision) {
-	return chainSendNow({
-		schedule: async (at) => {
-			const result = await withCommunicationWrite(f.db, owner.actor, async (tx, ctx) => {
-				const saved = await communicationWriter.saveDraft(tx, ctx, {
-					requestKey: keysFor.save,
-					input: {
-						subject: "Send now chain",
-						bodyHtml: "<p>Hello {{name}}.</p>",
-						audience: { groups: [], teamIds: [], personIds: [personId] },
-					},
+function chain(personId, transport, keysFor, sendRevision = (revision) => revision, now = Date.now()) {
+	return chainSendNow(
+		{
+			schedule: async (at) => {
+				const result = await withCommunicationWrite(f.db, owner.actor, async (tx, ctx) => {
+					const saved = await communicationWriter.saveDraft(tx, ctx, {
+						requestKey: keysFor.save,
+						input: {
+							subject: "Send now chain",
+							bodyHtml: "<p>Hello {{name}}.</p>",
+							audience: { groups: [], teamIds: [], personIds: [personId] },
+						},
+					});
+					if (saved.status !== "ok") return saved;
+					return communicationWriter.scheduleReviewed(tx, ctx, {
+						requestKey: keysFor.schedule,
+						expectedRevision: saved.value.revision,
+						input: { communicationId: saved.value.communicationId, scheduledAt: at },
+					});
 				});
-				if (saved.status !== "ok") return saved;
-				return communicationWriter.scheduleReviewed(tx, ctx, {
-					requestKey: keysFor.schedule,
-					expectedRevision: saved.value.revision,
-					input: { communicationId: saved.value.communicationId, scheduledAt: at },
-				});
-			});
-			return result.status === "ok" ? result : { status: "refused", code: result.code };
+				return result.status === "ok" ? result : { status: "refused", code: result.code };
+			},
+			send: async (revision, communicationId) => {
+				const sent = await communicationWriter.sendReviewed(
+					f.db,
+					owner.actor,
+					{ requestKey: keysFor.send, expectedRevision: sendRevision(revision), input: { communicationId } },
+					transport,
+					keys,
+				);
+				if (sent.status !== "ok") return { status: "refused", code: sent.code };
+				const { status, acceptedCount, rejectedCount, unknownCount } = sent.value;
+				return { status: "ok", value: { status, acceptedCount, rejectedCount, unknownCount } };
+			},
 		},
-		send: async (revision, communicationId) => {
-			const sent = await communicationWriter.sendReviewed(
-				f.db,
-				owner.actor,
-				{ requestKey: keysFor.send, expectedRevision: sendRevision(revision), input: { communicationId } },
-				transport,
-				keys,
-			);
-			if (sent.status !== "ok") return { status: "refused", code: sent.code };
-			const { status, acceptedCount, rejectedCount, unknownCount } = sent.value;
-			return { status: "ok", value: { status, acceptedCount, rejectedCount, unknownCount } };
-		},
-	});
+		now,
+	);
 }
 const stateOf = async (id) =>
 	(
@@ -186,8 +189,9 @@ test("AC:CASE-COM-012 the real Send now chain sends once for a double confirm", 
 	const personId = await person("Chain Once", `once-${randomUUID().slice(0, 8)}@example.test`);
 	const transport = carrier(async () => ({ outcome: "ids", ids: ["prov-chain"] }));
 	const requestKeys = newKeys();
-	const once = ok(await chain(personId, transport, requestKeys));
-	const twice = ok(await chain(personId, transport, requestKeys));
+	const now = Date.now();
+	const once = ok(await chain(personId, transport, requestKeys, undefined, now));
+	const twice = ok(await chain(personId, transport, requestKeys, undefined, now));
 	assert.equal(transport.calls.send, 1, "one provider send for a double confirm");
 	assert.equal(once.sendIssue, null);
 	assert.equal(once.report?.acceptedCount, 1);
