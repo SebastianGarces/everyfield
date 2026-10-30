@@ -63,3 +63,14 @@ export function sectionItems(lines: string[]): string[] {
 		)
 		.filter(Boolean);
 }
+
+/**
+ * The paragraphs of a stored ask that start with `Coordinator note`: instructions the coordinator added after the
+ * owner's words. Idea, compare and session-start text keep them whole, because they change what a seat must do.
+ */
+export function coordinatorNotes(ask: string | null | undefined): string[] {
+	return (ask ?? "")
+		.split(/\n\s*\n/)
+		.map((p) => p.trim())
+		.filter((p) => /^coordinator note\b/i.test(p));
+}

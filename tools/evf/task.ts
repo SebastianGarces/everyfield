@@ -47,6 +47,11 @@ function stackCmd(cfg: Config, name: "up" | "down" | "status" | "traces" | "logs
 	return cfg.stack?.[name] ?? null;
 }
 
+/** The shared slot check, next to preview.mjs. The driving checkout's copy runs, never the worktree's. */
+export const PREVIEW_SLOTS_SCRIPT = ".agents/skills/verify-preview/scripts/preview-slots.mjs";
+/** Only the stack command that runs portless (scripts/stack.mjs) waits for a slot. */
+const startsPortlessPreview = (argv: string[]) => argv.some((a) => /(^|\/)scripts\/stack\.mjs$/.test(a));
+
 export function stack(root: string, task: TaskRef, action: "up" | "down" | "status", optional = false): number {
 	if (action === "up") requireForeground("stack up", "1-5 minutes");
 	const cfg = loadConfig(root);
@@ -74,6 +79,15 @@ export function stack(root: string, task: TaskRef, action: "up" | "down" | "stat
 	}
 	const wt = requireWorktree(root, cfg, task);
 	mkdirSync(runtimeDir(root, task), { recursive: true });
+	// A full preview pool makes the stack wait for a free slot (and free orphans first) instead of failing.
+	if (action === "up" && startsPortlessPreview(argv)) {
+		const slot = run(process.execPath, [join(root, PREVIEW_SLOTS_SCRIPT), "--project", wt], {
+			cwd: wt,
+			env: stackEnv(root, task, wt),
+			inherit: true,
+		});
+		if (slot.code !== 0) return slot.code;
+	}
 	const r = run(argv[0], argv.slice(1), { cwd: wt, env: stackEnv(root, task, wt), inherit: true });
 	if (r.code === 0 && action !== "down") {
 		const info = stackInfo(root, task);

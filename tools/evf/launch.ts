@@ -1,8 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { existsSync } from "node:fs";
+import type { DatabaseSync } from "node:sqlite";
+import { existsSync, readFileSync } from "node:fs";
 import { ensureTask, findTask, openWorkDb, workDbPath } from "./db.ts";
 import {
 	baseRef,
+	EvfError,
 	fail,
 	git,
 	loadConfig,
@@ -14,7 +16,7 @@ import {
 	type TaskRef,
 } from "./lib.ts";
 import { chooseSplit, findTui, readLayout, rebalance, type Direction } from "./panes.ts";
-import { ROLES, resolveSeat, type Role } from "./seats.ts";
+import { resolveSeat, type Role } from "./seats.ts";
 import { taskStart } from "./task.ts";
 import { fillRunUsage } from "./usage.ts";
 
@@ -35,6 +37,55 @@ export const SEAT_ENV = {
 	CLAUDE_CODE_DISABLE_ADVISOR_TOOL: "1",
 };
 const START_TIMEOUT_MS = 90_000;
+
+/**
+ * The role's agent definition comes from the evf checkout that runs the launch (`<root>/.claude/agents/<role>.md`),
+ * handed to Claude Code as `--agents` JSON. A CLI definition outranks the worktree's own `.claude/agents`, so a task
+ * branch that removes, renames or edits a role file cannot change the seat its own drive launches.
+ */
+/** A launch that created its run row and then closed it as aborted. The drive logs it and goes on. */
+export class LaunchAborted extends EvfError {}
+export type AgentDefinition = { source: string; json: string };
+const splitTools = (value: string): string[] => {
+	const out: string[] = [];
+	let depth = 0,
+		current = "";
+	for (const ch of value) {
+		if (ch === "(") depth++;
+		if (ch === ")") depth--;
+		if (ch === "," && depth === 0) {
+			out.push(current.trim());
+			current = "";
+		} else current += ch;
+	}
+	if (current.trim()) out.push(current.trim());
+	return out.filter(Boolean);
+};
+const LIST_KEYS = new Set(["tools", "disallowedTools", "skills"]);
+export function agentDefinition(root: string, role: Role, seat: { model: string; effort: string }): AgentDefinition {
+	const source = `${root}/.claude/agents/${role}.md`;
+	if (!existsSync(source)) fail(`The driving checkout has no agent definition for ${role}: ${source} is missing.`);
+	const parsed = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/.exec(readFileSync(source, "utf8"));
+	if (!parsed) fail(`${source} has no frontmatter.`);
+	const front: Record<string, string> = {};
+	for (const line of parsed[1]!.split("\n")) {
+		const kv = /^([A-Za-z][\w-]*):\s*(.*)$/.exec(line);
+		if (kv) front[kv[1]!] = kv[2]!.trim();
+	}
+	// Every frontmatter key except `name` goes into the definition, so a field added later cannot drop out silently.
+	// Comma lists become arrays and whole numbers become numbers; everything else stays a string.
+	const definition: Record<string, unknown> = { description: role, prompt: parsed[2]!.trim() };
+	for (const [key, value] of Object.entries(front)) {
+		if (key === "name") continue;
+		if (LIST_KEYS.has(key)) {
+			const list = splitTools(value);
+			if (list.length) definition[key] = list;
+		} else definition[key] = /^\d+$/.test(value) ? Number(value) : value;
+	}
+	definition.model ??= seat.model;
+	definition.effort ??= seat.effort;
+	return { source, json: JSON.stringify({ [role]: definition }) };
+}
 const TRUST_PROMPT = /trust this folder|Yes, proceed|trust the files in this folder/i;
 
 type HerdrResult = { result?: Record<string, unknown> };
@@ -88,6 +139,8 @@ export type LaunchPlan = {
 	model: string;
 	effort: string;
 	claudeArgs: string[];
+	/** The file the agent definition in `--agents` was read from. */
+	agentSource: string;
 };
 
 export function launchPlan(
@@ -98,6 +151,7 @@ export function launchPlan(
 ): LaunchPlan {
 	const cfg = loadConfig(root),
 		seat = resolveSeat(cfg, task, role),
+		agent = agentDefinition(root, role, seat),
 		session = randomUUID(),
 		idea = opts.idea,
 		worktree = idea ? ideaWorktree(root, cfg, task, idea) : worktreePath(root, cfg, task),
@@ -131,6 +185,8 @@ export function launchPlan(
 		claudeArgs: [
 			"--agent",
 			role,
+			"--agents",
+			agent.json,
 			"--name",
 			`${role}${tag}@${task.id}`,
 			"--session-id",
@@ -141,6 +197,7 @@ export function launchPlan(
 			seat.effort,
 			"--dangerously-skip-permissions",
 		],
+		agentSource: agent.source,
 	};
 }
 
@@ -184,6 +241,12 @@ const startArgs = (plan: LaunchPlan, pane: string) => [
 	"--",
 	...plan.claudeArgs,
 ];
+/** A dry run shows the long `--agents` JSON as a placeholder; the line above it names the source file. */
+const startArgsShown = (plan: LaunchPlan, pane: string) =>
+	startArgs(
+		{ ...plan, claudeArgs: plan.claudeArgs.map((a, i, all) => (all[i - 1] === "--agents" ? "<agents json>" : a)) },
+		pane,
+	);
 
 /** Print every step without changing Herdr, the store or the worktree. It only reads Herdr to find the TUI workspace. */
 export function launchDryRun(
@@ -206,11 +269,18 @@ export function launchDryRun(
 		tui
 			? `herdr ${splitArgs(plan, splitTarget(tui)).map(quote).join(" ")}`
 			: `herdr ${workspaceArgs(plan, label).map(quote).join(" ")}`,
-		`herdr ${startArgs(plan, tui ? "<new pane>" : "<root pane>")
+		`# agent definition: ${plan.agentSource} (the driving checkout ${root}, not the task worktree)`,
+		`herdr ${startArgsShown(plan, tui ? "<new pane>" : "<root pane>")
 			.map(quote)
 			.join(" ")}`,
 		`# store: run.herdr_agent = ${plan.agent}, run.herdr_pane = ${tui ? "<new pane>" : "<root pane>"}; task.herdr_workspace_id = ${tui ? tui.workspace : "<new workspace>"}; event stage_start`,
-		...(opts.prompt ? [`herdr agent prompt ${plan.agent} ${quote(opts.prompt)}`] : []),
+		...(opts.prompt
+			? [
+					"# wait for the run's session_start event, then send the prompt:",
+					`herdr agent prompt ${plan.agent} ${quote(opts.prompt)}`,
+					"# confirm a turn began; if not, send it once more (event prompt_resent)",
+				]
+			: []),
 	];
 	console.log(lines.join("\n"));
 	return 0;
@@ -237,12 +307,22 @@ export type LaunchTiming = {
 	paneReadyPollMs: number;
 	busyRetries: number;
 	busyBackoffMs: number;
+	/** How long launch waits for the run's session_start event (the Claude session-start hook) before the prompt. */
+	sessionReadyMs: number;
+	sessionPollMs: number;
+	/** How long after the prompt launch waits for a turn to begin before it sends the prompt once more. */
+	turnConfirmMs: number;
+	turnPollMs: number;
 };
 export const LAUNCH_TIMING: LaunchTiming = {
 	paneReadyMs: 30_000,
 	paneReadyPollMs: 500,
 	busyRetries: 3,
 	busyBackoffMs: 1_000,
+	sessionReadyMs: 60_000,
+	sessionPollMs: 250,
+	turnConfirmMs: 15_000,
+	turnPollMs: 500,
 };
 
 /**
@@ -319,6 +399,63 @@ function startSeat(plan: LaunchPlan, workspace: string, pane: string, timing: La
 	}
 }
 
+const stripAnsi = (text: string) => text.replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, "");
+/** The last meaningful lines of a pane: what the seat's shell or Claude printed before the start failed. */
+function paneExcerpt(pane: string): string {
+	const r = run("herdr", ["pane", "read", pane, "--source", "recent-unwrapped", "--lines", "80"]);
+	if (r.code !== 0) return "";
+	return stripAnsi(r.stdout)
+		.split("\n")
+		.map((line) => line.trim())
+		.filter((line) => /[\p{L}\p{N}]/u.test(line))
+		.slice(-6)
+		.map((line) => line.slice(0, 160))
+		.join(" | ");
+}
+
+/** The agent state `herdr agent get` reports, or "unknown" when Herdr cannot say. */
+function agentStatus(agent: string): string {
+	const r = run("herdr", ["agent", "get", agent], { timeoutMs: 10_000 });
+	try {
+		return String(
+			(JSON.parse(r.stdout) as { result?: { agent?: { agent_status?: string } } }).result?.agent?.agent_status ??
+				"unknown",
+		);
+	} catch {
+		return "unknown";
+	}
+}
+
+/** Wait for the run's session_start event: the Claude session-start hook ran, so the session reads a prompt. */
+function waitForSession(db: DatabaseSync, runId: number, timing: LaunchTiming): boolean {
+	const started = Date.now();
+	for (;;) {
+		if (db.prepare("SELECT 1 FROM events WHERE run_id = ? AND type = 'session_start'").get(runId)) return true;
+		const waited = Date.now() - started;
+		if (waited >= timing.sessionReadyMs) return false;
+		sleep(Math.min(timing.sessionPollMs, timing.sessionReadyMs - waited));
+	}
+}
+
+/** Events that a seat's start writes by itself; any other event of the run after the prompt shows a turn began. */
+const START_EVENTS = new Set([
+	"stage_start",
+	"session_start",
+	"refocus",
+	"prompt_sent",
+	"prompt_resent",
+	"launch_retry",
+]);
+/** Did the prompt start a turn? The agent left idle, a later event of the run shows activity, or the run closed. */
+function turnBegan(db: DatabaseSync, runId: number, agent: string, afterEvent: number): boolean {
+	if (agentStatus(agent) !== "idle") return true; // working, blocked, done, or a state Herdr cannot name: not a lost prompt.
+	const later = db.prepare("SELECT type FROM events WHERE run_id = ? AND id > ?").all(runId, afterEvent) as Array<{
+		type: string;
+	}>;
+	if (later.some((e) => !START_EVENTS.has(e.type))) return true;
+	return (db.prepare("SELECT status FROM runs WHERE id = ?").get(runId) as { status: string }).status !== "started";
+}
+
 export function launch(
 	root: string,
 	task: TaskRef,
@@ -358,6 +495,12 @@ export function launch(
 		if (taskRow.status === "escalated")
 			fail(`${task.id} is escalated after ${taskRow.round} rounds. Sebastian decides before another seat starts.`);
 		const plan = launchPlan(root, task, role, { mode: taskRow.mode, round: taskRow.round, idea: opts.idea });
+		const event = (type: string, payload: Record<string, unknown>, runId: number): number =>
+			Number(
+				db
+					.prepare("INSERT INTO events (task_id, run_id, ts, type, payload) VALUES (?, ?, ?, ?, ?)")
+					.run(taskRow.id, runId, new Date().toISOString(), type, JSON.stringify(payload)).lastInsertRowid,
+			);
 		const now = new Date().toISOString();
 		const runId = db
 			.prepare(
@@ -367,37 +510,75 @@ export function launch(
 			.run(taskRow.id, plan.stage, role, plan.model, plan.effort, taskRow.round, plan.session, now).lastInsertRowid;
 		plan.env.EVF_RUN = String(runId);
 		plan.agent = `${role}${opts.idea ?? ""}-${task.slug}-${runId}`; // One Herdr agent per run, so round 2 never collides with round 1's seat.
-		// Until the agent is up, any Herdr failure aborts the run, so the store never lists a seat that does not exist.
-		let workspace = "",
-			pane = "";
 		const tui = findTui();
-		try {
-			if (tui) {
-				const made = herdr(splitArgs(plan, splitTarget(tui))).result ?? {};
-				workspace = tui.workspace;
-				pane = idOf(made.pane, "pane_id");
-			} else {
-				const ws = herdr(workspaceArgs(plan, opts.idea ? `${task.slug}-idea${opts.idea}` : task.slug)).result ?? {};
-				workspace = idOf(ws.workspace, "workspace_id");
-				pane = idOf(ws.root_pane, "pane_id");
+		/**
+		 * One try at a seat: a pane, a ready shell, the agent and, with a prompt to send, the Claude session. A failure
+		 * reads the pane so the real error (agent not found, command not found) reaches the message, then closes the
+		 * dead pane. The TUI pane and the other seats stay as they are.
+		 */
+		const attempt = (): { workspace: string; pane: string } => {
+			let workspace = "",
+				pane = "";
+			try {
+				if (tui) {
+					const made = herdr(splitArgs(plan, splitTarget(tui))).result ?? {};
+					workspace = tui.workspace;
+					pane = idOf(made.pane, "pane_id");
+				} else {
+					const ws = herdr(workspaceArgs(plan, opts.idea ? `${task.slug}-idea${opts.idea}` : task.slug)).result ?? {};
+					workspace = idOf(ws.workspace, "workspace_id");
+					pane = idOf(ws.root_pane, "pane_id");
+				}
+				waitForShell(workspace, pane, timing);
+				startSeat(plan, workspace, pane, timing);
+				if (opts.prompt && !waitForSession(db, runId, timing))
+					fail(
+						`The Claude session in pane ${pane} sent no session_start within ${Math.round(timing.sessionReadyMs / 100) / 10} s, so it cannot read a prompt.`,
+					);
+				return { workspace, pane };
+			} catch (error) {
+				const excerpt = pane ? paneExcerpt(pane) : "";
+				if (tui && pane && pane !== tui.pane) {
+					run("herdr", ["pane", "close", pane]);
+					rebalance(tui.pane);
+				} else if (!tui && workspace) run("herdr", ["workspace", "close", workspace]);
+				const reason = error instanceof Error ? error.message : String(error);
+				throw new EvfError(excerpt ? `${reason} The pane shows: ${excerpt}` : reason);
 			}
-			waitForShell(workspace, pane, timing);
-			startSeat(plan, workspace, pane, timing);
-		} catch (error) {
-			// A split pane that never ran its agent goes away; the TUI pane and the other seats stay as they are.
-			if (tui && pane && pane !== tui.pane) {
-				run("herdr", ["pane", "close", pane]);
-				rebalance(tui.pane);
+		};
+		// Until the agent is up, any Herdr failure ends the attempt. The first failure closes the dead pane and tries a
+		// new one with a new session id; a second failure aborts the run, so the store never lists a seat that does not exist.
+		let placed: { workspace: string; pane: string } | undefined,
+			failure = "";
+		for (let tries = 0; tries < 2 && !placed; tries++) {
+			if (tries) {
+				plan.env.EVF_SESSION = randomUUID();
+				plan.claudeArgs[plan.claudeArgs.indexOf("--session-id") + 1] = plan.env.EVF_SESSION;
+				plan.session = plan.env.EVF_SESSION;
+				db.prepare("UPDATE runs SET session_id = ? WHERE id = ?").run(plan.session, runId);
+				event(
+					"launch_retry",
+					{ reason: failure.slice(0, 400), summary: `launch of ${plan.name} failed, trying a new pane` },
+					runId,
+				);
+				console.log(`launch: ${failure} Trying a new pane once.`);
 			}
-			const reason = error instanceof Error ? error.message : String(error);
+			try {
+				placed = attempt();
+			} catch (error) {
+				failure = error instanceof Error ? error.message : String(error);
+			}
+		}
+		if (!placed) {
 			db.prepare("UPDATE runs SET status = 'aborted', ended_at = ?, summary = ? WHERE id = ?").run(
 				new Date().toISOString(),
-				`launch failed: ${reason.slice(0, 500)}`,
+				`launch failed: ${failure.slice(0, 700)}`,
 				runId,
 			);
 			fillRunUsage(db, runId);
-			throw error;
+			throw new LaunchAborted(failure);
 		}
+		const { workspace, pane } = placed;
 		db.prepare("UPDATE runs SET herdr_agent = ?, herdr_pane = ? WHERE id = ?").run(plan.agent, pane, runId);
 		if (opts.idea)
 			db.prepare(
@@ -407,27 +588,30 @@ export function launch(
 			db.prepare(
 				"UPDATE tasks SET status = CASE WHEN status IN ('new', 'specced') THEN 'active' ELSE status END, worktree = ?, branch = ?, herdr_workspace_id = ?, updated_at = ? WHERE id = ?",
 			).run(plan.worktree, task.branch, workspace, new Date().toISOString(), taskRow.id);
-		db.prepare("INSERT INTO events (task_id, run_id, ts, type, payload) VALUES (?, ?, ?, 'stage_start', ?)").run(
-			taskRow.id,
-			runId,
-			new Date().toISOString(),
-			JSON.stringify({
+		event(
+			"stage_start",
+			{
 				role,
 				stage: plan.stage,
 				workspace,
 				pane,
 				session: plan.session,
 				summary: `${plan.name} started in ${workspace}`,
-			}),
+			},
+			runId,
 		);
 		if (opts.prompt) {
 			herdr(["agent", "prompt", plan.agent, opts.prompt]);
-			db.prepare("INSERT INTO events (task_id, run_id, ts, type, payload) VALUES (?, ?, ?, 'prompt_sent', ?)").run(
-				taskRow.id,
-				runId,
-				new Date().toISOString(),
-				JSON.stringify({ summary: opts.prompt.slice(0, 200) }),
-			);
+			const sent = event("prompt_sent", { summary: opts.prompt.slice(0, 200) }, runId);
+			// A prompt that went in before the session was ready, or was swallowed, starts no turn: send it once more.
+			const confirmStart = Date.now();
+			let began = false;
+			while (!(began = turnBegan(db, runId, plan.agent, sent)) && Date.now() - confirmStart < timing.turnConfirmMs)
+				sleep(Math.min(timing.turnPollMs, Math.max(1, timing.turnConfirmMs - (Date.now() - confirmStart))));
+			if (!began) {
+				herdr(["agent", "prompt", plan.agent, opts.prompt]);
+				event("prompt_resent", { summary: `no turn began after the first prompt; sent it again` }, runId);
+			}
 		}
 		console.log(
 			JSON.stringify({
