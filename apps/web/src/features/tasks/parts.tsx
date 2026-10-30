@@ -132,6 +132,8 @@ export function Assignee({ task, you }: { task: Pick<TaskItem, "assignees" | "fo
 		return view && !view.eligible ? ownerText(view) : assigneeNames([a])[0];
 	});
 	const label = own && task.assignees.length === 1 ? "Assigned to you" : `Assigned to ${who.join(", ")}`;
+	const full = names.join(", ");
+	const room = full.length <= 28;
 	return (
 		<span
 			className="inline-flex max-w-[260px] min-w-0 items-center gap-2 max-app-sm:max-w-[120px]"
@@ -139,7 +141,8 @@ export function Assignee({ task, you }: { task: Pick<TaskItem, "assignees" | "fo
 		>
 			<Avatar name={names[0]!} label={label} size="xs" ring={own} />
 			<span className="min-w-0 truncate text-sm text-text-2" aria-hidden="true">
-				<span className="max-app-sm:hidden">{names.join(", ")}</span>
+				{/* The row has room for a few short names; past that it shows the first name and how many more. */}
+				<span className="max-app-sm:hidden">{room ? full : assigneeSummary(task.assignees)}</span>
 				<span className="app-sm:hidden">{assigneeSummary(task.assignees)}</span>
 			</span>
 		</span>

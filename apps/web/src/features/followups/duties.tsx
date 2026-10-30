@@ -89,7 +89,10 @@ function useOwners(active: boolean) {
 	return owners;
 }
 
-/** Each owner in the words every screen uses; Owner/Admin get Reassign for someone who cannot own follow-ups. */
+/**
+ * Each owner in the words every screen uses; Owner/Admin get Reassign for someone who cannot own follow-ups. Where the
+ * picker beside it already names everyone, only the people who cannot own follow-ups get a line, with their warning.
+ */
 function OwnerLines({
 	duty,
 	canReassign,
@@ -107,6 +110,7 @@ function OwnerLines({
 		<ul className="m-0 flex list-none flex-col gap-1 p-0" aria-label={`Owners of ${duty.title}`}>
 			{duty.owners.map((o) => {
 				const ineligible = !o.eligible;
+				if (canReassign && !ineligible) return null;
 				return (
 					<li
 						key={o.accountId}
