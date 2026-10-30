@@ -20,8 +20,8 @@ const authorizer = async (tx, mail) => {
 	const r =
 		await tx.execute(querySql`WITH input AS (SELECT * FROM jsonb_to_recordset(${JSON.stringify(input)}::jsonb) i(id uuid,recipient uuid,notice uuid)),
  accounts AS MATERIALIZED (SELECT a.id FROM account a WHERE a.id IN (SELECT recipient FROM input) AND registration_state='active' FOR SHARE),
- notices AS MATERIALIZED (SELECT n.id,n.source_revision::text AS source_revision,t.revision::text AS current_revision,t.assignee_id,t.status,t.deleted_at FROM notice n JOIN task t ON t.id=n.source_record_id WHERE n.id IN (SELECT notice FROM input) FOR SHARE OF n,t)
- SELECT i.id FROM input i LEFT JOIN notices n ON n.id=i.notice WHERE CASE WHEN n.id IS NOT NULL THEN n.current_revision=n.source_revision AND n.assignee_id=i.recipient AND n.deleted_at IS NULL AND n.status NOT IN ('complete','no_longer_needed') ELSE i.recipient IN (SELECT id FROM accounts) END`);
+ notices AS MATERIALIZED (SELECT n.id,n.source_revision::text AS source_revision,t.revision::text AS current_revision,t.id AS task_id,t.status,t.deleted_at FROM notice n JOIN task t ON t.id=n.source_record_id WHERE n.id IN (SELECT notice FROM input) FOR SHARE OF n,t)
+ SELECT i.id FROM input i LEFT JOIN notices n ON n.id=i.notice WHERE CASE WHEN n.id IS NOT NULL THEN n.current_revision=n.source_revision AND EXISTS(SELECT FROM task_assignee a WHERE a.task_id=n.task_id AND a.account_id=i.recipient) AND n.deleted_at IS NULL AND n.status NOT IN ('complete','no_longer_needed') ELSE i.recipient IN (SELECT id FROM accounts) END`);
 	return new Set(r.rows.map((r) => r.id));
 };
 const mail = createMailService({
@@ -73,7 +73,10 @@ before(async () => {
 		querySql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${querySql.param(account)},${querySql.param(tenant)},'owner',now())`,
 	);
 	await db.execute(
-		querySql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,assignee_id,due_kind,due_date) VALUES(${querySql.param(task)},${querySql.param(tenant)},'Current task','general','medium','not_started',now(),${querySql.param(account)},'date_only','2026-10-19')`,
+		querySql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,due_date) VALUES(${querySql.param(task)},${querySql.param(tenant)},'Current task','general','medium','not_started',now(),'date_only','2026-10-19')`,
+	);
+	await db.execute(
+		querySql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES(${querySql.param(tenant)},${querySql.param(task)},${querySql.param(account)})`,
 	);
 	for (const id of [org, org2])
 		await db.execute(
@@ -271,7 +274,7 @@ test("INV-digest: one dated catch-up advances coverage only with its matching ma
 		},
 		load: async (tx, o, recipient, period) => {
 			const rows = await tx.execute(
-				querySql`SELECT id,due_date::text AS date,title FROM task WHERE plant_id=${querySql.param(o.id)} AND assignee_id=${querySql.param(recipient)} AND status NOT IN ('complete','no_longer_needed') AND deleted_at IS NULL AND due_date<${querySql.param(period.next)}::date ORDER BY due_date,id LIMIT 100`,
+				querySql`SELECT id,due_date::text AS date,title FROM task WHERE plant_id=${querySql.param(o.id)} AND EXISTS(SELECT FROM task_assignee a WHERE a.task_id=task.id AND a.account_id=${querySql.param(recipient)}) AND status NOT IN ('complete','no_longer_needed') AND deleted_at IS NULL AND due_date<${querySql.param(period.next)}::date ORDER BY due_date,id LIMIT 100`,
 			);
 			return { lines: rows.rows.map((r) => ({ kind: "task", ...r })), total: rows.rowCount };
 		},

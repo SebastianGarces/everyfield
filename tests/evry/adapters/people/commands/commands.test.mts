@@ -195,7 +195,7 @@ test("INV-budget: a stage change hands the person's open tasks back as reviewed,
 		assert.equal((await personRow(id)).stage, "attendee");
 		// Each open task was handed back as needing an owner, at the revision the review saw.
 		const handed = await admin.execute(
-			sql`SELECT count(*)::int n FROM task WHERE person_id=${id} AND assignee_id IS NULL AND revision=2`,
+			sql`SELECT count(*)::int n FROM task WHERE person_id=${id} AND NOT EXISTS(SELECT FROM task_assignee a WHERE a.task_id=task.id) AND revision=2`,
 		);
 		assert.equal(handed.rows[0]!.n, taskIds.length);
 		assert.deepEqual(
