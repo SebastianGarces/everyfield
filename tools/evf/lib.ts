@@ -183,12 +183,12 @@ export function sleep(ms: number): void {
 	if (ms > 0) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
-export type RunResult = { code: number; stdout: string; stderr: string };
+export type RunResult = { code: number; stdout: string; stderr: string; timedOut?: boolean };
 
 export function run(
 	cmd: string,
 	args: Argv,
-	opts: { cwd?: string; env?: NodeJS.ProcessEnv; inherit?: boolean } = {},
+	opts: { cwd?: string; env?: NodeJS.ProcessEnv; inherit?: boolean; timeoutMs?: number } = {},
 ): RunResult {
 	const r = spawnSync(cmd, args, {
 		cwd: opts.cwd,
@@ -199,8 +199,15 @@ export function run(
 		encoding: "utf8",
 		stdio: opts.inherit ? "inherit" : "pipe",
 		maxBuffer: 64 * 1024 * 1024,
+		...(opts.timeoutMs ? { timeout: opts.timeoutMs, killSignal: "SIGKILL" as const } : {}),
 	});
-	if (r.error) return { code: 127, stdout: "", stderr: String(r.error.message) };
+	if (r.error)
+		return {
+			code: 127,
+			stdout: "",
+			stderr: String(r.error.message),
+			...((r.error as NodeJS.ErrnoException).code === "ETIMEDOUT" ? { timedOut: true } : {}),
+		};
 	return { code: r.status ?? 1, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
 }
 

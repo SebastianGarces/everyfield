@@ -26,6 +26,14 @@ direct prerequisites are done and owned acceptance cases and case actions pass t
 The verifier's report must explain full coverage. File presence or successful scaffold checks
 never establish application acceptance.
 
+The implement pipeline has the stages plan, implement, simplify, pr, verify, ci, ship and merged. The
+implementer proves its own work (tests, 390 and 1440 px screenshots of each UI state it changed and one
+`bin/evf proof add` per Done criterion it built or changed); UI work runs in its seat unless the spec has the
+line `Seat: ui`. The pr stage reruns the author checks at the current head and opens or updates the PR, so a
+simplifier commit never costs a round. Proof carries forward to later heads of the branch. The verifier reads
+the full diff and spot-checks the proof, re-running a flow only where a proof is unmet, missing or looks wrong.
+`tools/evf/README.md` has the details.
+
 Keep media and traces outside the repository. Generate the explorer outside the checkout;
 it is a read-only progress view. Preserve WP-097's owner-approved fast-track evidence.
 Global kickoff and concrete spending approvals remain separate from milestone readiness.

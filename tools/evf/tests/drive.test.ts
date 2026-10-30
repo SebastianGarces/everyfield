@@ -7,7 +7,8 @@ import { fixture, source } from "./fixtures.ts";
 import { ensureTask, findTask, markMerged, openWorkDb, sessionsRecorded, syncGoals } from "../db.ts";
 import { drive, driveOnce, LOOP_CAP, nextStage, RETRY_CAP, runDone } from "../drive.ts";
 import { doneCriteria } from "../spec.ts";
-import { evfDataDir, parseTask, sleep } from "../lib.ts";
+import { evfDataDir, parseTask, runtimeDir, sleep } from "../lib.ts";
+import { verify } from "../verify.ts";
 
 const cli = (cwd: string, env: Record<string, string>, ...args: string[]) =>
 	spawnSync(process.execPath, [join(source, "tools/evf/main.ts"), ...args], {
@@ -40,10 +41,24 @@ function fakeHerdr(root: string) {
 	};
 }
 
-function driveFixture() {
+function driveFixture(opts: { failWhenFile?: string } = {}) {
 	const f = fixture(),
 		task = parseTask("OPS-1");
-	f.cfg.maintenanceTasks = { "OPS-1": { title: "Drive", owningPaths: ["tools/evf/"], checks: f.cfg.checks } };
+	// A check that fails while `failWhenFile` exists in the worktree lets a test fail the author checks at one head.
+	const checks = opts.failWhenFile
+		? [
+				{
+					name: "fixture-check",
+					run: [
+						process.execPath,
+						"-e",
+						`process.exit(require("node:fs").existsSync(${JSON.stringify(opts.failWhenFile)}) ? 1 : 0)`,
+					],
+				},
+				...f.cfg.checks.slice(1),
+			]
+		: f.cfg.checks;
+	f.cfg.maintenanceTasks = { "OPS-1": { title: "Drive", owningPaths: ["tools/evf/"], checks } };
 	writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
 	f.commit();
 	const wt = f.task("ops-1");
@@ -86,7 +101,7 @@ function driveFixture() {
 const SPEC =
 	"Goal: a usable doghouse.\nDone criteria:\n1. The dog fits.\n2. The roof keeps rain out.\nNon-goals: lighting.";
 
-test("OPS-59-next: the stage machine follows plan, implement, simplify, pr, evidence, verify, ci, ship and loops back on failures", () => {
+test("OPS-59-next: the stage machine follows plan, implement, simplify, pr, verify, ci, ship and loops back on failures", () => {
 	const task = parseTask("WP-005/ui");
 	const t = {
 		id: 1,
@@ -104,15 +119,28 @@ test("OPS-59-next: the stage machine follows plan, implement, simplify, pr, evid
 	const specced = { ...t, spec: SPEC };
 	assert.equal(nextStage(task, specced, []).stage, "implement");
 	assert.equal(nextStage(task, specced, [run("plan", "passed")]).stage, "implement");
-	assert.equal(nextStage(task, specced, [run("plan", "passed")]).role, "ui", "a ui part gets the ui seat");
+	assert.equal(
+		nextStage(task, specced, [run("plan", "passed")]).role,
+		"implementer",
+		"UI work runs in the implementer seat by default",
+	);
+	assert.equal(
+		nextStage(task, { ...specced, spec: `${SPEC}\nSeat: ui` }, [run("plan", "passed")]).role,
+		"ui",
+		"a ui part whose spec has the line Seat: ui gets the ui seat",
+	);
+	assert.equal(
+		nextStage({ ...task, part: "api" }, { ...specced, spec: `${SPEC}\nSeat: ui` }, [run("plan", "passed")]).role,
+		"implementer",
+		"only a ui part can take the ui seat",
+	);
 	assert.equal(nextStage(task, t, [run("plan", "passed")]).stage, "plan", "a plan without a stored spec repeats");
 	assert.deepEqual(nextStage(task, specced, [run("plan", "started")]).stage, "waiting");
 	assert.equal(nextStage(task, specced, [run("implement", "passed")]).stage, "simplify");
 	assert.equal(nextStage(task, specced, [run("implement", "failed")]).stage, "implement");
 	assert.equal(nextStage(task, specced, [run("simplify", "passed")]).stage, "pr");
-	assert.equal(nextStage(task, specced, [run("pr", "passed")]).stage, "evidence");
+	assert.equal(nextStage(task, specced, [run("pr", "passed")]).stage, "verify");
 	assert.equal(nextStage(task, specced, [run("pr", "failed")]).stage, "implement");
-	assert.equal(nextStage(task, specced, [run("evidence", "passed")]).stage, "verify");
 	assert.equal(nextStage(task, specced, [run("verify", "passed")]).stage, "ci");
 	assert.equal(nextStage(task, { ...specced, round: 1 }, [run("verify", "failed")]).stage, "implement");
 	assert.equal(nextStage(task, specced, [run("ci", "passed")]).stage, "ship");
@@ -520,8 +548,12 @@ test("OPS-59-gate: a verify closes passed only with a met or n/a proof per Done 
 		);
 		spawnSync("git", ["-C", f.wt, "commit", "-q", "--allow-empty", "-m", "move the head"]);
 		const later = f.insertRun("verify", "verifier", "started");
-		assert.match(close(later, "passed").stderr, /Done criteria 1, 2 have no met/, "proofs bind to their head");
-		assert.equal(close(later, "failed").status, 0, "a failed verify needs no proofs");
+		assert.equal(close(later, "passed").status, 0, "proof carries forward to a later head of the same branch");
+		assert.equal(
+			close(f.insertRun("verify", "verifier", "started"), "failed").status,
+			0,
+			"a failed verify needs no proofs",
+		);
 
 		const other = parseTask("OPS-2");
 		assert.equal(JSON.parse(cli(f.root, {}, "next", "OPS-2").stdout).stage, "plan");
@@ -800,7 +832,7 @@ test("OPS-68-reopen: three failures escalate, the reopen restarts the count, the
 	const f = driveFixture();
 	try {
 		f.db.prepare("UPDATE tasks SET spec = ?, status = 'active' WHERE id = ?").run(SPEC, f.taskId);
-		failStage(f, "evidence", "evidence");
+		failStage(f, "simplify", "simplifier");
 		failStage(f, "implement", "implementer", 2);
 		assert.equal(f.taskRow().status, "escalated");
 		assert.equal(nextOf(f).stage, "escalated");
@@ -924,6 +956,386 @@ test("OPS-68-prototype: three failed idea runs escalate, the reopen sets active,
 		const n = nextOf(f);
 		assert.equal(n.stage, "idea");
 		assert.equal(n.idea, 1);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+const sh = (cwd: string, ...args: string[]) =>
+	spawnSync("git", ["-C", cwd, ...args], { encoding: "utf8" }).stdout.trim();
+const head = (f: ReturnType<typeof driveFixture>) => sh(f.wt, "rev-parse", "HEAD");
+const commitFile = (f: ReturnType<typeof driveFixture>, name: string) => {
+	writeFileSync(join(f.wt, "tools/evf", name), name);
+	sh(f.wt, "add", "tools/evf");
+	sh(f.wt, "commit", "-qm", `add ${name}`);
+	return head(f);
+};
+const proofAt = (f: ReturnType<typeof driveFixture>, sha: string, criterion: string, status = "met") =>
+	f.db
+		.prepare("INSERT INTO proofs (task_id, head_sha, criterion, status, created_at) VALUES (?, ?, ?, ?, ?)")
+		.run(f.taskId, sha, criterion, status, new Date().toISOString());
+
+const AUTHOR = { session: "11111111-1111-4111-8111-111111111111", model: "claude-sonnet-5-5", role: "implementer" };
+/** The task's PR body from the PR template: every heading, the EVF-Author line and the generated-by line. */
+function prBody() {
+	const template = readFileSync(join(source, ".agents/skills/everyfield-pr/template.md"), "utf8").replace(
+		/<!--[^]*?-->/g,
+		"",
+	);
+	return `${template
+		.split("\n")
+		.filter((line) => line.startsWith("## "))
+		.map((heading) => `${heading}\nConcrete task evidence.`)
+		.join(
+			"\n\n",
+		)}\n\nEVF-Author: ${JSON.stringify(AUTHOR)}\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)`;
+}
+
+/** A remote, the PR body the implementer wrote and a GitHub that already shows the PR merged, so pr, ci and ship run for real. */
+function withPr(f: ReturnType<typeof driveFixture>) {
+	const remote = f.bare(join(f.root, "fake-bin/origin.git"));
+	f.git("remote", "add", "origin", remote);
+	f.git("push", "-q", "origin", "main");
+	mkdirSync(runtimeDir(f.root, f.task), { recursive: true });
+	writeFileSync(join(runtimeDir(f.root, f.task), "pr-body.md"), prBody());
+	const state = f.getState();
+	state.pr = { number: 77, url: "https://github.com/test/private/pull/77", state: "MERGED", mergeCommit: { oid: SHA } };
+	state.requiredChecks = [{ name: "ci", bucket: "pass" }];
+	f.setState(state);
+	f.db.prepare("UPDATE tasks SET spec = ?, status = 'active' WHERE id = ?").run(SPEC, f.taskId);
+	return remote;
+}
+
+test("OPS-70-pr: the pr stage runs the author checks at the head a simplifier committed and opens the PR there, with no round", () => {
+	const f = driveFixture();
+	try {
+		const remote = withPr(f);
+		runDone(f.root, f.insertRun("implement", "implementer", "started"), { status: "passed", summary: "built" });
+		assert.equal(verify(f.root, f.task, "author", "full").passed, true, "the implementer's last verify, at head A");
+		const a = head(f);
+		const b = commitFile(f, "simplified.txt");
+		assert.notEqual(a, b);
+		runDone(f.root, f.insertRun("simplify", "simplifier", "started"), { status: "passed", summary: "simplified" });
+		assert.equal(nextOf(f).stage, "pr");
+
+		const n = driveOnce(f.root, f.task, TIMING);
+		assert.equal(n.stage, "pr");
+		assert.deepEqual([f.runs().at(-1)!.stage, f.runs().at(-1)!.role, f.runs().at(-1)!.status], ["pr", "evf", "passed"]);
+		assert.equal(
+			sh(f.root, "--git-dir", remote, "rev-parse", "refs/heads/task/ops-1"),
+			b,
+			"the PR branch is at the new head",
+		);
+		assert.equal(f.taskRow().pr_number, 77);
+		assert.equal(f.taskRow().round, 0, "the round count does not change");
+		const after = nextOf(f);
+		assert.equal(after.stage, "verify");
+		assert.equal(after.round, 0);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-70-pr: author checks that fail at a simplifier head send the task back to simplify with the failure, no round, no implement run; three in a row escalate", () => {
+	const f = driveFixture({ failWhenFile: "tools/evf/FAIL" });
+	try {
+		withPr(f);
+		runDone(f.root, f.insertRun("implement", "implementer", "started"), { status: "passed", summary: "built" });
+		commitFile(f, "FAIL");
+		runDone(f.root, f.insertRun("simplify", "simplifier", "started"), { status: "passed", summary: "simplified" });
+		driveOnce(f.root, f.task, TIMING);
+		const failed = f.runs().at(-1)!;
+		assert.deepEqual([failed.stage, failed.status], ["pr", "failed"]);
+		const after = nextOf(f);
+		assert.equal(after.stage, "simplify");
+		assert.equal(after.role, "simplifier");
+		assert.equal(after.round, 0);
+		assert.match(after.reason, /author checks failed at [0-9a-f]{10}: fixture-check/);
+		assert.equal(f.taskRow().round, 0);
+
+		driveOnce(f.root, f.task, TIMING);
+		assert.equal(f.runs().at(-1)!.role, "simplifier", "the simplifier launches again");
+		const prompt = f.herdr
+			.calls()
+			.filter((c) => c[0] === "agent" && c[1] === "prompt")
+			.at(-1)![3]!;
+		assert.match(prompt, /^Simplify task OPS-1.*author checks.*failed.*author checks failed at/);
+		assert.equal(f.runs().filter((r) => r.stage === "implement").length, 1, "no implement run starts");
+
+		runDone(f.root, f.runs().at(-1)!.id as number, { status: "passed", summary: "still failing" });
+		driveOnce(f.root, f.task, TIMING);
+		runDone(f.root, f.insertRun("simplify", "simplifier", "started"), { status: "passed", summary: "again" });
+		driveOnce(f.root, f.task, TIMING);
+		assert.equal(
+			f.taskRow().status,
+			"escalated",
+			"three failed pr runs escalate although simplify passed between them",
+		);
+		assert.equal(f.taskRow().round, 0);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-70-route: a pr failure that is not failed author checks goes to implement; an aborted seat launches its own stage again, same round", () => {
+	const task = parseTask("OPS-1");
+	const t = {
+		id: 1,
+		ref: task.id,
+		slug: task.slug,
+		mode: "implement",
+		status: "active",
+		round: 1,
+		goal_id: null,
+		spec: SPEC,
+		pr_number: null,
+	};
+	const run = (stage: string, status: string, summary = "s", role = "x", id = 1) => ({
+		id,
+		stage,
+		role,
+		status,
+		round: 1,
+		summary,
+	});
+	assert.equal(
+		nextStage(task, t, [run("simplify", "passed"), run("pr", "failed", "no PR body at x", "evf", 2)]).stage,
+		"implement",
+	);
+	assert.equal(
+		nextStage(task, t, [run("implement", "passed"), run("pr", "failed", "author checks failed at abc", "evf", 2)])
+			.stage,
+		"implement",
+		"the head came from the implementer, not a simplifier",
+	);
+	for (const stage of ["plan", "implement", "simplify", "verify"])
+		assert.equal(
+			nextStage(task, t, [run(stage, "aborted", "gone", "x")]).stage,
+			stage,
+			`an aborted ${stage} seat launches again`,
+		);
+	assert.equal(nextStage(task, t, [run("verify", "aborted")]).round, 1, "and the round stays");
+});
+
+test("OPS-70-carry: proof carries to a later head; an unmet row, a missing criterion or a head outside the branch refuses the close", () => {
+	const f = driveFixture();
+	try {
+		f.db.prepare("UPDATE tasks SET spec = ?, status = 'active' WHERE id = ?").run(SPEC, f.taskId);
+		const summary = f.file("approved.md", "Approved.");
+		const close = (run: number, status = "passed") =>
+			cli(f.root, {}, "run", "done", String(run), "--status", status, "--summary-file", summary);
+		const a = head(f);
+		proofAt(f, a, "1");
+		proofAt(f, a, "2");
+		const b = commitFile(f, "simplified.txt");
+		const shown = JSON.parse(cli(f.root, {}, "proof", "show", "OPS-1", "--json").stdout);
+		assert.deepEqual(
+			shown.proofs.map((p: { carried: boolean }) => p.carried),
+			[true, true],
+		);
+		assert.match(
+			cli(f.root, {}, "proof", "show", "OPS-1").stdout,
+			/0 at head, 2 total[^]*\(carried from an earlier head\)/,
+		);
+		const ok = close(f.insertRun("verify", "verifier", "started"));
+		assert.equal(ok.status, 0, `(a) proven at A, simplifier commits B, verify closes at B: ${ok.stderr}`);
+
+		// (b) Criterion 2 recorded unmet at B: the latest row wins, and the refusal names it.
+		proofAt(f, b, "2", "unmet");
+		const refused = close(f.insertRun("verify", "verifier", "started"));
+		assert.equal(refused.status, 1);
+		assert.match(refused.stderr, /Done criteria 2 have no met or n\/a proof/);
+		assert.doesNotMatch(refused.stderr, /Done criteria 1/);
+		proofAt(f, b, "2", "n/a");
+		assert.equal(close(f.runs().at(-1)!.id as number).status, 0, "a later met or n/a row at the head repairs it");
+
+		// (c) A proof at a head that is not an ancestor of the current head does not count.
+		sh(f.wt, "checkout", "-q", "-b", "side", a);
+		const side = commitFile(f, "side.txt");
+		sh(f.wt, "checkout", "-q", "task/ops-1");
+		f.db.prepare("DELETE FROM proofs WHERE task_id = ?").run(f.taskId);
+		proofAt(f, a, "1");
+		proofAt(f, side, "2");
+		const stale = close(f.insertRun("verify", "verifier", "started"));
+		assert.equal(stale.status, 1);
+		assert.match(stale.stderr, /Done criteria 2 have no met or n\/a proof/);
+		assert.equal(
+			JSON.parse(cli(f.root, {}, "proof", "show", "OPS-1", "--json").stdout).proofs.find(
+				(p: { head_sha: string }) => p.head_sha === side,
+			).carried,
+			false,
+		);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+/** Herdr whose `agent wait` hangs, or whose agent is gone; everything else answers like fakeHerdr. */
+function brokenHerdr(f: ReturnType<typeof driveFixture>, mode: "hang" | "gone") {
+	const path = join(f.root, "fake-bin/herdr");
+	const script = readFileSync(path, "utf8");
+	const marker = "const a=process.argv.slice(2);\n";
+	const guard =
+		mode === "hang"
+			? `if(a[0]==="agent"&&a[1]==="wait"){setInterval(()=>{},1000);return}\n`
+			: `if(a[0]==="agent"&&(a[1]==="wait"||a[1]==="get")){process.stderr.write("no such agent");process.exit(1)}\n`;
+	writeFileSync(path, script.replace(marker, marker + guard));
+}
+
+test("OPS-70-wait: a wait on a seat whose run already closed ends within two seat-poll intervals, although herdr agent wait hangs", () => {
+	const f = driveFixture();
+	try {
+		const id = openSeatRun(f, false);
+		brokenHerdr(f, "hang");
+		const closer = spawn(
+			process.execPath,
+			[
+				"-e",
+				`setTimeout(() => require("node:child_process").spawnSync(process.execPath, [process.argv[1], "run", "done", process.argv[2], "--status", "passed", "--summary-file", process.argv[3]], { cwd: process.argv[4], env: { ...process.env, EVF_RUN: "", EVF_WORKTREE: "", EVF_STAGE: "" } }), 150)`,
+				join(source, "tools/evf/main.ts"),
+				String(id),
+				f.file("closed.md", "Closed by the seat."),
+				f.root,
+			],
+			{ stdio: "inherit" },
+		);
+		const seatPollMs = 400;
+		const started = Date.now();
+		driveOnce(f.root, f.task, { ...TIMING, waitMs: 60_000, seatPollMs });
+		const elapsed = Date.now() - started;
+		closer.kill();
+		assert.equal(f.runs()[0]!.status, "passed");
+		assert.ok(elapsed < 150 + 2 * seatPollMs + 600, `the drive moved on after ${elapsed} ms`);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-70-gone: a started run whose Herdr agent is gone is aborted, and the next transition launches the stage again with the same round", () => {
+	const f = driveFixture();
+	try {
+		const id = openSeatRun(f, false);
+		f.db.prepare("UPDATE tasks SET round = 1 WHERE id = ?").run(f.taskId);
+		brokenHerdr(f, "gone");
+		driveOnce(f.root, f.task, TIMING);
+		assert.equal(f.runs()[0]!.status, "aborted");
+		assert.equal(f.events("seat_gone").length, 1);
+		assert.equal(f.taskRow().round, 1);
+		const next = nextOf(f);
+		assert.deepEqual([next.stage, next.role, next.round], ["implement", "implementer", 1]);
+		driveOnce(f.root, f.task, TIMING);
+		const runs = f.runs();
+		assert.equal(runs.length, 2);
+		assert.deepEqual(
+			[runs[1]!.stage, runs[1]!.role, runs[1]!.status, runs[1]!.round],
+			["implement", "implementer", "started", 1],
+		);
+		assert.notEqual(runs[1]!.id, id);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-70-flow: fake seats take a task from plan to merged through plan, implement, simplify, pr, verify, ci and ship with no evidence run", () => {
+	const f = driveFixture(),
+		log = console.log;
+	try {
+		const made = cli(f.root, {}, "task", "new", "OPS-1", "--ask-file", f.file("ask.md", "Make the doghouse usable."));
+		assert.equal(made.status, 0, made.stderr);
+		withPr(f);
+		f.db.prepare("UPDATE tasks SET spec = NULL, status = 'new' WHERE id = ?").run(f.taskId);
+		// Every `agent wait` is the seat doing its stage work and closing the run named in the agent name.
+		const main = join(source, "tools/evf/main.ts"),
+			summary = f.file("seat-summary.md", "Done."),
+			spec = f.file("spec.md", SPEC);
+		const path = join(f.root, "fake-bin/herdr");
+		const script = readFileSync(path, "utf8");
+		const marker = "const a=process.argv.slice(2);\n";
+		const seat =
+			`if(a[0]==="agent"&&a[1]==="wait"){const m=/^(planner|implementer|simplifier|verifier)-ops-1-(\\d+)$/.exec(a[2]);if(m){const cp=require("node:child_process");` +
+			`const evf=(...x)=>cp.spawnSync(process.execPath,[${JSON.stringify(main)},...x],{cwd:${JSON.stringify(f.root)},env:{...process.env,EVF_RUN:"",EVF_WORKTREE:"",EVF_STAGE:""}});` +
+			`if(m[1]==="planner")evf("task","spec","OPS-1","--file",${JSON.stringify(spec)});` +
+			`if(m[1]==="implementer")for(const c of["1","2"])evf("proof","add","OPS-1","--criterion",c,"--status","met","--evidence","shot.png");` +
+			`if(m[1]==="simplifier"){const wt=${JSON.stringify(f.wt)};require("node:fs").writeFileSync(wt+"/tools/evf/simplified.txt","x");cp.spawnSync("git",["-C",wt,"add","tools/evf"]);cp.spawnSync("git",["-C",wt,"commit","-qm","simplify"])}` +
+			`evf("run","done",m[2],"--status","passed","--summary-file",${JSON.stringify(summary)})}}\n`;
+		writeFileSync(path, script.replace(marker, marker + seat));
+		console.log = () => {};
+		const code = drive(f.root, f.task, {}, TIMING);
+		console.log = log;
+		assert.equal(code, 0);
+		assert.equal(f.taskRow().status, "merged");
+		const runs = f.runs();
+		assert.deepEqual(
+			runs.map((r) => r.stage),
+			["plan", "implement", "simplify", "pr", "verify", "ci", "ship"],
+		);
+		assert.deepEqual(
+			runs.map((r) => r.role),
+			["planner", "implementer", "simplifier", "evf", "verifier", "evf", "evf"],
+		);
+		assert.ok(runs.every((r) => r.status === "passed" && r.round === 0));
+		assert.equal(
+			f.herdr.calls().filter((c) => c[0] === "agent" && c[1] === "start" && /evidence/.test(c.join(" "))).length,
+			0,
+		);
+		const prompts = f.herdr
+			.calls()
+			.filter((c) => c[0] === "agent" && c[1] === "prompt")
+			.map((c) => c[3]!);
+		assert.match(
+			prompts.find((p) => /^Implement task/.test(p))!,
+			/add tests.*390 and 1440 px.*bin\/evf proof add OPS-1/,
+		);
+		assert.match(
+			prompts.find((p) => /^Verify task/.test(p))!,
+			/full diff.*re-run a flow only where a proof is unmet, missing or looks wrong.*capture it/,
+		);
+	} finally {
+		console.log = log;
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-70-seats: the implementer allowlist covers the proof commands, the evidence seat is gone and launch lists the valid roles", () => {
+	const agent = readFileSync(join(source, ".claude/agents/implementer.md"), "utf8");
+	const tools = /^tools: (.*)$/m.exec(agent)![1]!;
+	const entries = [...tools.matchAll(/Bash\(([^)]*)\)/g)].map((m) => m[1]!);
+	const glob = (pattern: string) =>
+		new RegExp(`^${pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*")}$`);
+	const proofCommands: Array<[string, string]> = [
+		["portless preview up --pr 12", "portless"],
+		["node .agents/skills/verify-preview/scripts/preview.mjs --pr 12", "preview.mjs"],
+		["node /work/repo/.agents/skills/verify-preview/scripts/capture.mjs --after http://x --out /tmp/e", "capture.mjs"],
+		["node .agents/skills/verify-preview/scripts/publish.mjs /tmp/e --task OPS-70", "publish.mjs"],
+		["bin/evf browser run --timeout 900 -- node flow.mjs", "bin/evf browser run"],
+		["agent-browser --session s open http://x", "agent-browser"],
+		["corepack pnpm --filter @everyfield/db reset:dev", "reset:dev"],
+	];
+	for (const [command, key] of proofCommands)
+		assert.ok(
+			entries.some((entry) => glob(entry).test(command) && entry.includes(key)),
+			`an allowlist entry names and matches: ${command}`,
+		);
+	assert.match(agent, /^skills: .*better-interface.*better-ui/m, "the implementer loads the better-* UI skills");
+	assert.match(agent, /\.agents\/roles\/ui-designer\.md/);
+	assert.equal(existsSync(join(source, ".claude/agents/evidence.md")), false);
+
+	const f = driveFixture();
+	try {
+		const r = cli(f.root, {}, "launch", "OPS-1", "--role", "evidence", "--dry-run");
+		assert.notEqual(r.status, 0);
+		assert.match(
+			r.stderr,
+			/--role must be one of planner, implementer, ui, simplifier, verifier, ideator, comparer, prototype-merger/,
+		);
+		assert.doesNotMatch(cli(f.root, {}, "help").stdout, /evidence stage|evidence seat|→ evidence/);
 	} finally {
 		f.db.close();
 		f.close();

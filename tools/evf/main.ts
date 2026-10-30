@@ -100,7 +100,7 @@ State store (harness)
 Seats (harness)
   evf launch <task> --role <role> [--idea <n>] [--prompt-file <file>] [--dry-run] [--ignore-load "<reason>"]
         worktree + Herdr workspace + claude --agent <role> with evf's session id; records the run.
-        Roles: planner, implementer, ui, simplifier, evidence, verifier, ideator (with --idea), comparer, prototype-merger.
+        Roles: planner, implementer, ui, simplifier, verifier, ideator (with --idea), comparer, prototype-merger.
   evf refocus <task>                                          the goal chain for a seat: ask, spec, proof rule (fits the hook limit; says what it cut)
   evf session                                                 this pane's Claude Code session id, for EVF-Author and EVF-Review
   evf hook <event>                                            Claude Code hook entry (session-start, path-guard, stop, session-end)
@@ -113,11 +113,11 @@ Drive (harness)
   evf task reopen <task> --reason "<words>"                   escalated task: back to pr_open or active, failure count restarts
   evf task handoff <task> --file <spec>                       prototype mode: end the prototype, create the implement task
   evf next <task>                                             the next stage from the store, as JSON
-  evf drive <task> [--once] [--detach]                        run the stage machine: seats, pr, ci, ship; cap 3 rounds; one per task
-  evf run done <run> --status passed|failed --summary-file <file>   close a stage (seats call this; a passed verify needs proofs)
+  evf drive <task> [--once] [--detach]                        run the stage machine: plan, implement, simplify, pr, verify, ci, ship; cap 3 rounds; one per task
+  evf run done <run> --status passed|failed --summary-file <file>   close a stage (seats call this; a passed verify needs a met or n/a proof per Done criterion)
   evf check <task> [--ignore-load "<reason>"]                 author checks, recorded as a check_result event
   evf proof add <task> --criterion <n> --status met|unmet|n/a [--evidence <url>] [--notes <text>]
-  evf proof show <task> [--json]                              proof rows, bound to the worktree head
+  evf proof show <task> [--json]                              proof rows; rows from an earlier head of this branch show as carried
   evf ask planner <task> "<question>"                         ask the task's planner (forked session resume)
 
 Upkeep
