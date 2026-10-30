@@ -365,7 +365,7 @@
       ],
       "facts": [
         "Eleven original stable template identities form the preserved base of a growing catalog: saved display names, immutable approved content/version/hash, category, phase and curated Wiki/meeting/team context mappings.",
-        "One offered format per template under the format rule: budgets XLSX, emails HTML mail and every other template PDF. The original commitment card, response card, sign-in sheet, Vision agenda, core member expectations, launch-team commitment, follow-up letter, board/elder agenda and launch checklists are PDF; the first-year budget and budget worksheet are XLSX.",
+        "Offered formats per template under the format rule: budgets XLSX, emails HTML mail, fixed-layout documents PDF only, and editable prose documents edited in the app and exported as PDF and DOCX. The original commitment card, response card, sign-in sheet, Vision agenda, board/elder agenda and launch checklists are PDF; the first-year budget and budget worksheet are XLSX; core member expectations, launch-team commitment and the follow-up letter are editable and export as PDF and DOCX.",
         "Closed merge-field definitions, required/default rules, approved rendering profile, shared content layout and spreadsheet cell/formula definitions."
       ],
       "history": "immutable versions",
@@ -1561,6 +1561,26 @@
       "retention": "WP-104 designs the kit and asset tables (D72). This record carries behavior until that package adds its schema.",
       "current_tables": [],
       "notes": "Sources: knowledge-documents.md, Church brand kit. Reuses the private file upload lifecycle of CAP-C-014."
+    },
+    {
+      "id": "CAP-C-048",
+      "name": "Church Documents from editable templates and their PDF and Word export",
+      "feature_ids": [
+        "DOC-022",
+        "DOC-023"
+      ],
+      "persists": false,
+      "entities": [],
+      "facts": [],
+      "history": "none",
+      "invariants": [
+        "Only a current Owner or Admin of the church plant creates the document; creation makes no file and revision 1 holds merge values that resolve once.",
+        "The document records its template id, template version, document class and frozen input provenance; branding resolves at export, never at creation.",
+        "Each export saves one generated document for one revision, and a later download returns the exact saved bytes."
+      ],
+      "retention": "No additional storage. The Church Document, its revisions and saved exports follow the owned-document and generated-document retention above.",
+      "current_tables": [],
+      "notes": "Sources: knowledge-documents.md, Church Documents from editable templates. Reuses the owned document, revision and generated document records above, so it adds no table of its own."
     }
   ],
   "observations": [

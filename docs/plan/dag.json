@@ -2954,7 +2954,7 @@
       "spec_paths": [
         "docs/product/knowledge-documents.md"
       ],
-      "integration_rule": "Scope: DOC-001, DOC-002, DOC-003, DOC-004, DOC-005, DOC-006, DOC-007, DOC-008, DOC-009, DOC-010, DOC-011, DOC-012, DOC-013, DOC-014, REF-003, DOC-017, DOC-018, DOC-019, DOC-020, DOC-021. WP-036 renders the Everyfield-neutral theme and accepts a theme input, so WP-104/api can supply the church theme later. Templates render without WP-104. Budgets are XLSX, emails are HTML mail and every other template is PDF from the Forme engine.",
+      "integration_rule": "Scope: DOC-001, DOC-002, DOC-003, DOC-004, DOC-005, DOC-006, DOC-007, DOC-008, DOC-009, DOC-010, DOC-011, DOC-012, DOC-013, DOC-014, REF-003, DOC-017, DOC-018, DOC-019, DOC-020, DOC-021. WP-036 renders the Everyfield-neutral theme and accepts a theme input, so WP-104/api can supply the church theme later. Templates render without WP-104. Budgets are XLSX, emails are HTML mail, fixed-layout documents are PDF only, and editable prose documents are edited in the app and exported as PDF and DOCX. The Forme engine renders the PDFs. WP-037 builds the editable template documents and their export.",
       "goal": "Document template and format contracts.",
       "context_scope": {
         "features": "owned",
@@ -2994,13 +2994,15 @@
         "WP-004",
         "WP-031"
       ],
-      "estimate_engineer_days": 2.0,
+      "estimate_engineer_days": 2.5,
       "inputs": [],
       "outputs": [
         "DOC-002: Merge-value generation and exact-byte PDF/DOCX/XLSX previews",
         "DOC-003: Saved generated-document history and fresh signed re-download",
         "DOC-015: Private storage service and uploaded commitment attachments",
-        "DOC-016: Account/plant-owned native documents, parsed text/Word imports and core-values evidence"
+        "DOC-016: Account/plant-owned native documents, parsed text/Word imports and core-values evidence",
+        "DOC-022: Church Documents from editable templates",
+        "DOC-023: Church Document export as PDF and Word"
       ],
       "owning_paths": [
         "packages/domain/src/documents/",
@@ -3026,6 +3028,10 @@
         "CASE-DOC-014",
         "CASE-DOC-015",
         "CASE-DOC-016",
+        "CASE-DOC-019-EDIT",
+        "CASE-DOC-020-EDIT",
+        "CASE-DOC-022",
+        "CASE-DOC-023",
         "PERSONREF-DOCUMENT-COMMITMENT-EVIDENCE-CONFLICT",
         "PERSONREF-DOCUMENT-COMMITMENT-EVIDENCE-MERGE",
         "PERSONREF-DOCUMENT-COMMITMENT-EVIDENCE-RETIRE",
@@ -3039,7 +3045,7 @@
       "spec_paths": [
         "docs/product/knowledge-documents.md"
       ],
-      "integration_rule": "Scope: DOC-002, DOC-003, DOC-015, DOC-016.",
+      "integration_rule": "Scope: DOC-002, DOC-003, DOC-015, DOC-016, DOC-022, DOC-023. WP-037 builds editable template documents and their PDF and DOCX export after WP-036/api. It uses the neutral theme without WP-104 and uses the church theme once WP-104/api ships.",
       "goal": "Generated files and native owned documents.",
       "context_scope": {
         "features": "owned",
@@ -9269,7 +9275,7 @@
     "WP-058"
   ],
   "critical_path_unconstrained_days": 89.0,
-  "total_engineer_days": 231.5,
+  "total_engineer_days": 232.0,
   "contract_milestones": {
     "C0": [
       "WP-002"
