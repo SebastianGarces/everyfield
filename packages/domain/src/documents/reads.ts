@@ -118,7 +118,7 @@ async function contextOf(db: Reader, authority: RequestActor, raw: unknown, with
 	};
 	if (!withArtifact) return c.contextResult.parse(value);
 	try {
-		const bytes = renderPreview(template, input.format, resolved);
+		const bytes = await renderPreview(template, input.format, resolved);
 		return c.previewResult.parse({
 			...value,
 			artifact: bytes ? bytes.toString("base64") : null,

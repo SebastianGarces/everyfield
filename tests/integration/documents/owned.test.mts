@@ -250,7 +250,6 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 		const saved = {};
 		for (const [template, format] of [
 			[card, "pdf"],
-			[agenda, "docx"],
 			[budget, "xlsx"],
 		]) {
 			const preview = ok(await documentsReader.preview(db, owner, { templateId: template.id, format }));
@@ -285,8 +284,35 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 			assert.equal(await countOf("file_object", `WHERE upload_key = 'generated:${P}:make-${format}'`), 1);
 			saved[format] = { made, stored };
 		}
+		// No template offers Word now; the old request is refused with the existing message.
+		const refusal = refused(
+			await documentsWriter.generate(db, owner, { templateId: agenda.id, format: "docx", requestKey: "no-word" }, storage),
+			"invalid_input",
+		);
+		assert.equal(refusal.details.issues[0].problem, "Format is not on this template.");
+		// A DOCX record saved before the Forme renderer keeps its exact bytes and its old renderer version.
+		const legacyBytes = docx("Saved by the hand-written writer");
+		const legacyFile = randomUUID();
+		const legacyKey = `private/${P}/${randomUUID()}`;
+		await admin.execute(sql`
+			INSERT INTO file_object (id, tenant_id, purpose, opaque_key, media_type, max_bytes, byte_count, sha256, state, upload_key, claim_generation)
+			VALUES (${legacyFile}::uuid, ${P}::uuid, 'generated', ${legacyKey},
+				'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 8388608, ${legacyBytes.length},
+				${createHash("sha256").update(legacyBytes).digest("hex")}, 'ready', 'legacy-docx', 0)
+		`);
+		const legacyRow = await admin.execute(sql`
+			INSERT INTO generated_document (tenant_id, template_id, template_version, saved_template_name, renderer_version, format, object_id, inputs, download_name, generated_at)
+			VALUES (${P}::uuid, 'vision-meeting-agenda', ${"ef".repeat(32)}, 'Vision Meeting Agenda', 'hand-written-writer', 'docx', ${legacyFile}::uuid, '[]'::jsonb, 'vision-meeting-agenda.docx', clock_timestamp())
+			RETURNING id
+		`);
+		client.objects.set(legacyKey, legacyBytes);
+		const legacyId = legacyRow.rows[0].id;
+		const legacy = ok(await documentsWriter.download(db, owner, { documentId: legacyId }, storage));
+		assert.equal(legacy.url.includes(legacyKey), true);
+		assert.deepEqual(client.objects.get(legacyKey), legacyBytes);
+		assert.equal(ok(await documentsWriter["history.get"](db, owner, { documentId: legacyId })).format, "docx");
 		const generatedAudits = await countOf("audit_event", `WHERE action = 'documents.generated' AND tenant_id = '${P}'`);
-		assert.equal(generatedAudits, 3);
+		assert.equal(generatedAudits, 2);
 		const conflict = refused(
 			await documentsWriter.generate(
 				db,
@@ -297,7 +323,7 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 			"conflict",
 		);
 		assert.equal(conflict.retry, "refresh");
-		assert.equal(await countOf("audit_event", `WHERE action = 'documents.generated' AND tenant_id = '${P}'`), 3);
+		assert.equal(await countOf("audit_event", `WHERE action = 'documents.generated' AND tenant_id = '${P}'`), 2);
 
 		const member = await authority(1);
 		const memberFile = ok(

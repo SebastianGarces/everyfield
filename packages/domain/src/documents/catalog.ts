@@ -1,5 +1,6 @@
 import { loadStarter, referenceArtifactSha256 } from "@everyfield/reference/playbook";
 import "server-only";
+import { entryFor } from "./templates/registry.ts";
 import { z } from "zod";
 
 const mergeField = z.strictObject({
@@ -26,29 +27,18 @@ const templateSchema = z.strictObject({
 });
 export type CatalogTemplate = z.infer<typeof templateSchema>;
 
-/** The em dash the frozen descriptions use to introduce a heading list. */
-const HEADING_MARK = " \u2014 ";
-
-/**
- * Headings are the clause after the description's em dash, split on commas.
- * Each heading must already appear in the description. No em dash means one block: the description.
- */
-export function outlinePhrases(description: string): string[] {
-	const at = description.indexOf(HEADING_MARK);
-	if (at < 0) return [description];
-	const phrases = description
-		.slice(at + HEADING_MARK.length)
-		.split(",")
-		.map((part) => part.trim().replace(/^and\s+/, ""))
-		.filter((part) => part.length > 0);
-	if (phrases.length === 0 || phrases.some((phrase) => !description.includes(phrase))) return [description];
-	return phrases;
-}
-
 export async function library() {
 	const starter = await loadStarter();
 	const version = await referenceArtifactSha256();
-	return { version, templates: z.array(templateSchema).parse(starter.catalogs.documents) };
+	// The frozen reference row gives identity; the registry gives format, page count and layout facts (WP-036/api).
+	const templates = z
+		.array(templateSchema)
+		.parse(starter.catalogs.documents)
+		.map((template) => {
+			const entry = entryFor(template.id);
+			return entry ? { ...template, formats: [entry.format], pageCount: entry.pageCount } : template;
+		});
+	return { version, templates };
 }
 
 export function templateView(template: CatalogTemplate) {
@@ -67,6 +57,17 @@ export function templateView(template: CatalogTemplate) {
 			required: field.required,
 			autoFill: field.autoFill ?? null,
 		})),
-		outline: outlinePhrases(template.description),
+		...registryFacts(template.id, template.description),
+	};
+}
+
+function registryFacts(id: string, description: string) {
+	const entry = entryFor(id);
+	if (!entry) return { documentClass: "operational" as const, pageSize: null, fillable: false, outline: [description] };
+	return {
+		documentClass: entry.documentClass,
+		pageSize: entry.pageSize,
+		fillable: entry.fields.length > 0,
+		outline: entry.outline,
 	};
 }
