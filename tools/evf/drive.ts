@@ -10,6 +10,7 @@ import {
 	evfDataDir,
 	fail,
 	git,
+	gitOk,
 	loadConfig,
 	run,
 	runtimeDir,
@@ -20,11 +21,12 @@ import {
 import { closeRunPane } from "./panes.ts";
 import { prFor, prOpen, ship } from "./ship.ts";
 import { doneCriteria } from "./spec.ts";
-import { verify } from "./verify.ts";
+import { hasVerifiedHead, verify } from "./verify.ts";
 
 /**
- * The stage machine of implement mode (the GPS of the talk, in code): plan → implement → simplify → pr → evidence →
- * verify → ci → ship → merged. Seats close their stage with `evf run done`; evf runs pr, ci and ship itself.
+ * The stage machine of implement mode (the GPS of the talk, in code): plan → implement → simplify → pr → verify →
+ * ci → ship → merged. Seats close their stage with `evf run done`; evf runs pr, ci and ship itself. The pr stage runs
+ * the author checks at the current head, so a simplifier commit never costs a round.
  * A verify or ci failure costs a round; the fourth round escalates to Sebastian (guard rail 2). Any other failure
  * costs no round, but three failures in a row escalate too, so no loop runs unattended forever. `evf next` reads the
  * store and names the next stage; `evf drive` performs it, waits on the seat through Herdr and repeats. Jonah only
@@ -32,9 +34,9 @@ import { verify } from "./verify.ts";
  */
 
 export const LOOP_CAP = 3;
-/** Failures in a row that cost no round (plan, implement, simplify, pr, evidence, ship, aborted seats) before escalation. */
+/** Failures in a row that cost no round (plan, implement, simplify, pr, ship, aborted seats) before escalation. */
 export const RETRY_CAP = 3;
-export const STAGES = ["plan", "implement", "simplify", "pr", "evidence", "verify", "ci", "ship", "merged"] as const;
+export const STAGES = ["plan", "implement", "simplify", "pr", "verify", "ci", "ship", "merged"] as const;
 /** Prototype mode: plan (angles) → three idea seats → compare → pick (Sebastian) → merge (handoff) → done. */
 export const PROTOTYPE_STAGES = ["plan", "idea", "compare", "pick", "merge"] as const;
 export const IDEAS = 3;
@@ -43,14 +45,15 @@ const SEAT_STAGES: Partial<Record<Stage, Role>> = {
 	plan: "planner",
 	implement: "implementer",
 	simplify: "simplifier",
-	evidence: "evidence",
 	verify: "verifier",
 	idea: "ideator",
 	compare: "comparer",
 	merge: "prototype-merger",
 };
-export const seatOf = (stage: Stage, task: TaskRef): Role | undefined =>
-	stage === "implement" && task.part === "ui" ? "ui" : SEAT_STAGES[stage];
+/** UI work runs in the implementer seat. The separate ui seat is opt-in: the stored spec has the line `Seat: ui`. */
+const wantsUiSeat = (spec: string | null) => !!spec && /^\s*Seat:\s*ui\s*$/im.test(spec);
+export const seatOf = (stage: Stage, task: TaskRef, spec: string | null): Role | undefined =>
+	stage === "implement" && task.part === "ui" && wantsUiSeat(spec) ? "ui" : SEAT_STAGES[stage];
 
 export type Next = {
 	stage: Stage | "waiting" | "escalated" | "done";
@@ -107,6 +110,21 @@ const trailingFailures = (runs: RunRow[], reopenAfter: number): number => {
 	return n;
 };
 
+/** Failed pr runs since the last passed implement run: simplify passes between them, so they reset no count. */
+const prFailuresSinceImplement = (runs: RunRow[], reopenAfter: number): number => {
+	let n = 0;
+	for (let i = runs.length - 1; i >= 0; i--) {
+		const r = runs[i]!;
+		if (r.id <= reopenAfter || (r.stage === "implement" && r.status === "passed")) break;
+		if (r.stage === "pr" && r.status === "failed") n++;
+	}
+	return n;
+};
+/** The escalation rule: the larger of the trailing failures and the failed pr runs since the last passed implement. */
+const failuresInARow = (runs: RunRow[], marker: number): number =>
+	Math.max(trailingFailures(runs, marker), prFailuresSinceImplement(runs, marker));
+const AUTHOR_CHECKS_FAILED = "author checks failed";
+
 /** Prototype mode. Idea seats launch one per transition and run side by side; the pick is Sebastian's, not evf's. */
 function nextPrototype(task: TaskRef, t: TaskRow, runs: RunRow[], picked: boolean, reopenAfter: number): Next {
 	const round = t.round;
@@ -117,7 +135,7 @@ function nextPrototype(task: TaskRef, t: TaskRow, runs: RunRow[], picked: boolea
 		return { stage: "escalated", round, reason: `${failures} failures in a row without a passed stage` };
 	const go = (stage: Stage, reason: string, idea?: number): Next => ({
 		stage,
-		role: seatOf(stage, task),
+		role: seatOf(stage, task, t.spec),
 		...(idea ? { idea } : {}),
 		round,
 		reason,
@@ -158,15 +176,18 @@ export function nextStage(task: TaskRef, t: TaskRow, runs: RunRow[], picked = fa
 	if (t.status === "escalated") return { stage: "escalated", round, reason: `loop cap of ${LOOP_CAP} rounds hit` };
 	const open = runs.find((r) => r.status === "started");
 	if (open) return { stage: "waiting", round, run: open.id, reason: `the ${open.stage} seat is still open` };
-	const failures = trailingFailures(runs, reopenAfter);
+	const failures = failuresInARow(runs, reopenAfter);
 	if (failures >= RETRY_CAP)
 		return { stage: "escalated", round, reason: `${failures} failures in a row without a passed stage` };
-	const go = (stage: Stage, reason: string): Next => ({ stage, role: seatOf(stage, task), round, reason });
+	const go = (stage: Stage, reason: string): Next => ({ stage, role: seatOf(stage, task, t.spec), round, reason });
 	// An evf run aborted by a restart never happened: the stage before it decides.
 	const last = runs.filter((r) => !(r.role === "evf" && r.status === "aborted")).at(-1);
 	if (!last) return t.spec ? go("implement", "spec stored, no runs yet") : go("plan", "no spec yet");
 	const passed = last.status === "passed";
 	const again = (stage: Stage) => go(stage, `${last.stage} ${last.status}: ${last.summary ?? ""}`.trim());
+	// A seat whose pane went away (run aborted) launches the same stage again, with the same round.
+	if (last.status === "aborted" && (Object.keys(SEAT_STAGES) as string[]).includes(last.stage))
+		return again(last.stage as Stage);
 	switch (last.stage as Stage) {
 		case "plan":
 			return passed && t.spec
@@ -176,10 +197,16 @@ export function nextStage(task: TaskRef, t: TaskRow, runs: RunRow[], picked = fa
 			return passed ? go("simplify", "implement passed") : again("implement");
 		case "simplify":
 			return passed ? go("pr", "simplify passed") : again("implement");
-		case "pr":
-			return passed ? go("evidence", "PR open") : again("implement");
-		case "evidence":
-			return passed ? go("verify", "evidence captured") : again("implement");
+		case "pr": {
+			if (passed) return go("verify", "PR open");
+			// The author checks failed at a head the simplifier committed: simplify fixes it, no round, no implement run.
+			const before = runs.filter((r) => r !== last && !(r.role === "evf" && r.status === "aborted")).at(-1);
+			return before?.stage === "simplify" &&
+				before.status === "passed" &&
+				last.summary?.startsWith(AUTHOR_CHECKS_FAILED)
+				? again("simplify")
+				: again("implement");
+		}
 		case "verify":
 			return passed ? go("ci", "verifier approved") : go("implement", `verifier requested changes (round ${round})`);
 		case "ci":
@@ -223,9 +250,34 @@ function escalate(db: DatabaseSync, t: { id: number; ref: string }, runId: numbe
 	notify(`${t.ref} escalated`, cause);
 }
 
+/** Whether `sha` is `head` or one of its ancestors. A sha the worktree does not know is not. */
+const reachable = (wt: string, sha: string, head: string) =>
+	sha === head || gitOk(wt, "merge-base", "--is-ancestor", sha, head);
+
+/**
+ * The criteria whose latest proof counts as proven at `head`. A proof counts when its head is `head` or an ancestor of
+ * it; the latest such row for a criterion must be met or n/a. Proof carries forward across a later commit.
+ */
+function provenCriteria(db: DatabaseSync, taskId: number, wt: string, head: string): Set<string> {
+	const rows = db
+		.prepare("SELECT criterion, status, head_sha FROM proofs WHERE task_id = ? ORDER BY id")
+		.all(taskId) as Array<{
+		criterion: string;
+		status: string;
+		head_sha: string;
+	}>;
+	const counts = new Map<string, boolean>();
+	const latest = new Map<string, string>();
+	for (const p of rows) {
+		if (!counts.has(p.head_sha)) counts.set(p.head_sha, reachable(wt, p.head_sha, head));
+		if (counts.get(p.head_sha)) latest.set(p.criterion, p.status);
+	}
+	return new Set([...latest].filter(([, status]) => status === "met" || status === "n/a").map(([c]) => c));
+}
+
 /**
  * Close a stage. A failed verify or ci costs a round; the fourth round escalates and nothing launches again. A verify
- * run closes passed only when every Done criterion has a met or n/a proof at the worktree head (guard rail 3).
+ * run closes passed only when every Done criterion has a met or n/a proof at the worktree head or an ancestor of it.
  */
 export function runDone(
 	root: string,
@@ -259,17 +311,11 @@ export function runDone(
 		const head = r.worktree && existsSync(r.worktree) ? git(r.worktree, "rev-parse", "HEAD") : null;
 		if (r.stage === "verify" && opts.status === "passed") {
 			if (!head) fail(`${r.ref} has no worktree to read the head from; a verify cannot pass without proofs at a head.`);
-			const proven = new Set(
-				(
-					db
-						.prepare("SELECT criterion FROM proofs WHERE task_id = ? AND head_sha = ? AND status IN ('met', 'n/a')")
-						.all(r.task_id, head) as Array<{ criterion: string }>
-				).map((p) => p.criterion),
-			);
+			const proven = provenCriteria(db, r.task_id, r.worktree!, head);
 			const missing = doneCriteria(r.spec).filter((c) => !proven.has(c));
 			if (missing.length)
 				fail(
-					`Done criteria ${missing.join(", ")} have no met or n/a proof at ${head.slice(0, 10)}. Add them with bin/evf proof add ${r.ref} --criterion <n> --status met|n/a --evidence <url>, or close this verify as failed.`,
+					`Done criteria ${missing.join(", ")} have no met or n/a proof at ${head.slice(0, 10)} or an earlier head it contains. Add them with bin/evf proof add ${r.ref} --criterion <n> --status met|n/a --evidence <url>, or close this verify as failed.`,
 				);
 		}
 		db.prepare("UPDATE runs SET status = ?, ended_at = ?, summary = ? WHERE id = ?").run(
@@ -310,7 +356,9 @@ export function runDone(
 		} else {
 			db.prepare("UPDATE tasks SET updated_at = ? WHERE id = ?").run(now(), r.task_id);
 			if (opts.status === "failed") {
-				const failures = trailingFailures(runsOf(db, r.task_id), reopenMarker(db, r.task_id));
+				const runs = runsOf(db, r.task_id),
+					marker = reopenMarker(db, r.task_id);
+				const failures = failuresInARow(runs, marker);
 				if (failures >= RETRY_CAP) escalated = `${failures} failures in a row, last in ${r.stage}. ${first}`;
 			}
 		}
@@ -544,14 +592,19 @@ export function proofShow(root: string, task: TaskRef, json: boolean): number {
 					.all(t.id) as Array<Record<string, unknown>>)
 			: [];
 		const atHead = rows.filter((p) => p.head_sha === head);
-		if (json) console.log(JSON.stringify({ task: task.id, head, proofs: rows, at_head: atHead }, null, 2));
+		// A row from an earlier head that the current head contains is carried forward; any other row is stale.
+		const marked = rows.map((p) => ({
+			...p,
+			carried: !!head && p.head_sha !== head && reachable(wt, String(p.head_sha), head),
+		}));
+		if (json) console.log(JSON.stringify({ task: task.id, head, proofs: marked, at_head: atHead }, null, 2));
 		else {
 			console.log(
 				`proofs for ${task.id} (head ${head?.slice(0, 10) ?? "no worktree"}): ${atHead.length} at head, ${rows.length} total`,
 			);
-			for (const p of rows)
+			for (const p of marked)
 				console.log(
-					`  ${String(p.head_sha).slice(0, 10)} ${String(p.criterion).padEnd(4)} ${String(p.status).padEnd(5)} ${p.evidence_url ?? "-"} ${p.notes ?? ""}`,
+					`  ${String(p.head_sha).slice(0, 10)} ${String(p.criterion).padEnd(4)} ${String(p.status).padEnd(5)} ${p.evidence_url ?? "-"} ${p.notes ?? ""}${p.carried ? " (carried from an earlier head)" : ""}`,
 				);
 		}
 		return 0;
@@ -658,13 +711,11 @@ const STAGE_PROMPTS: Record<string, Prompt> = {
 	plan: (task) =>
 		`Plan task ${task.id}: write the spec (Goal, numbered testable Done criteria, Non-goals) from the ask in your session-start context, store it with bin/evf task spec ${task.id} --file <path>, then close with bin/evf run done $EVF_RUN --status passed --summary-file <path>.`,
 	implement: (task, next, ctx) =>
-		`Implement task ${task.id} in this worktree against the spec in your session-start context.${next.round ? ` Round ${next.round}: ${next.reason}. Read the last verify or ci summary with bin/evf status --json ${task.id} and fix those findings first.` : ""} Keep bin/evf verify ${task.id} green, commit, and write the PR body to ${ctx.prBody} following .agents/skills/everyfield-pr/template.md with your EVF-Author line (bin/evf session prints your id). ${CLOSE}`,
-	simplify: (task) =>
-		`Simplify task ${task.id}: read the spec and git diff origin/main...HEAD, remove what the Done criteria do not need, keep bin/evf verify ${task.id} green, commit. ${CLOSE}`,
-	evidence: (task) =>
-		`Capture evidence for task ${task.id} at the current head. First read the full spec with bin/evf task spec ${task.id} --show: your session-start context may shorten it. Then record one bin/evf proof add ${task.id} --criterion <n> --status met|unmet|n/a --evidence <url-or-path> per Done criterion. ${CLOSE}`,
+		`Implement task ${task.id} in this worktree against the spec in your session-start context.${next.round ? ` Round ${next.round}: ${next.reason}. Read the last verify or ci summary with bin/evf status --json ${task.id} and fix those findings first.` : ""} Before you close: add tests; for UI work read .agents/roles/ui-designer.md and capture 390 and 1440 px screenshots of each UI state you changed, outside the repository, as the capture half of .agents/skills/verify-preview/SKILL.md says; record bin/evf proof add ${task.id} --criterion <n> --status met|unmet|n/a --evidence <url-or-path> for each Done criterion you built or changed in this round. Keep bin/evf verify ${task.id} green, commit, and write the PR body to ${ctx.prBody} following .agents/skills/everyfield-pr/template.md with your EVF-Author line (bin/evf session prints your id). ${CLOSE}`,
+	simplify: (task, next) =>
+		`Simplify task ${task.id}: read the spec and git diff origin/main...HEAD, remove what the Done criteria do not need, commit. evf runs the author checks at your head in the pr stage.${next.reason.startsWith("pr failed") ? ` evf ran the author checks at the head and they failed (${next.reason}). Fix that first.` : ""} ${CLOSE}`,
 	verify: (task) =>
-		`Verify task ${task.id}: before you judge, read the full ask and spec with bin/evf task spec ${task.id} --show (your session-start context may shorten them), the goal chain and bin/evf proof show ${task.id}; follow verify-preview; post one review with post-review.mjs --session <bin/evf session> --model claude-opus-5-5. Close with bin/evf run done $EVF_RUN --status passed (approved; every Done criterion needs a met or n/a proof at the head) or failed (changes requested) --summary-file <path> listing every finding.`,
+		`Verify task ${task.id}: before you judge, read the full ask and spec with bin/evf task spec ${task.id} --show (your session-start context may shorten them), the goal chain and bin/evf proof show ${task.id}; read the full diff and judge the code. Spot-check the proof: open the evidence in the proof table and re-run a flow only where a proof is unmet, missing or looks wrong. When only a screenshot is missing, capture it and record it with bin/evf proof add instead of requesting changes. Follow verify-preview; post one review with post-review.mjs --session <bin/evf session> --model claude-opus-5-5. Close with bin/evf run done $EVF_RUN --status passed (approved; every Done criterion needs a met or n/a proof at the head or an ancestor of it) or failed (changes requested) --summary-file <path> listing every finding.`,
 };
 
 const prBodyPath = (root: string, task: TaskRef) => join(runtimeDir(root, task), "pr-body.md");
@@ -706,10 +757,22 @@ const DRIVE_TIMING: DriveTiming = {
 };
 
 type Outcome = { status: "passed" | "failed"; summary: string };
-/** The pr stage: push and open the PR from the body the implementer wrote, then remember its number. */
+/**
+ * The pr stage: run the author checks at the current head, then push and open or update the PR from the body the
+ * implementer wrote, and remember its number. A simplifier commit moved the head, so the checks run here, not in a seat.
+ */
 function prStage(db: DatabaseSync, root: string, task: TaskRef, t: TaskRow, wt: string): Outcome {
 	const body = prBodyPath(root, task);
 	if (!existsSync(body)) return { status: "failed", summary: `no PR body at ${body}; the implementer writes it` };
+	// The implementer's own run is the record when the head has not moved; only a new head runs the checks again.
+	const report = hasVerifiedHead(root, task) ? null : verify(root, task, "author", "full");
+	if (report && !report.passed) {
+		const failed = report.checks.filter((c) => !c.passed).map((c) => `${c.name} (${c.log})`);
+		return {
+			status: "failed",
+			summary: `${AUTHOR_CHECKS_FAILED} at ${report.sha.slice(0, 10)}: ${failed.join(", ") || "the tree changed during the run"}`,
+		};
+	}
 	prOpen(root, task, body);
 	const pr = prFor(wt, task);
 	if (pr)
@@ -802,6 +865,15 @@ function parseAgentState(stdout: string): string {
 }
 
 const agentState = (agent: string) => parseAgentState(run("herdr", ["agent", "get", agent]).stdout);
+/** False when Herdr has no such agent: `agent get` fails or names no agent. */
+const agentExists = (agent: string): boolean => {
+	const r = run("herdr", ["agent", "get", agent], { timeoutMs: 10_000 });
+	try {
+		return r.code === 0 && !!(JSON.parse(r.stdout) as { result?: { agent?: unknown } }).result?.agent;
+	} catch {
+		return false;
+	}
+};
 
 /** When the launch prompt went in, or null for a seat launched without one. */
 function promptSentAt(db: DatabaseSync, runId: number): number | null {
@@ -811,10 +883,21 @@ function promptSentAt(db: DatabaseSync, runId: number): number | null {
 	return row ? Date.parse(row.ts) : null;
 }
 
+/** Close the run of a seat whose Herdr agent is gone. The stage launches again with the same round. */
+function abortGoneSeat(db: DatabaseSync, t: TaskRow, runId: number, agent: string, stage: string): void {
+	db.prepare("UPDATE runs SET status = 'aborted', ended_at = ?, summary = ? WHERE id = ? AND status = 'started'").run(
+		now(),
+		`Herdr has no agent ${agent}; the ${stage} stage launches again`,
+		runId,
+	);
+	record(db, t.id, runId, "seat_gone", { agent, summary: `${agent} is gone; ${stage} launches again` });
+}
+
 /**
- * Wait on an open seat. A blocked seat is reported once per episode and polled until it leaves `blocked`; an idle report
- * before the launch prompt began its turn is not a finished turn; a seat that goes idle after its turn with its stage
- * open is nudged once, then aborted.
+ * Wait on an open seat. The wait runs in slices of one seat-poll interval, and the store is read before each slice, so a
+ * run that closed or a seat that is gone never holds the drive. A blocked seat is reported once per episode and polled
+ * until it leaves `blocked`; an idle report before the launch prompt began its turn is not a finished turn; a seat that
+ * goes idle after its turn with its stage open is nudged once, then aborted.
  */
 function waitOnSeat(
 	db: DatabaseSync,
@@ -833,29 +916,46 @@ function waitOnSeat(
 		runDone(root, runId, { status: "failed", summary: "no Herdr agent recorded for this run" });
 		return;
 	}
+	const deadline = Date.now() + timing.waitMs;
 	let turnSeen = false;
 	for (let nudged = false; ;) {
-		const waited = run("herdr", [
-			"agent",
-			"wait",
-			r.herdr_agent,
-			"--until",
-			"idle",
-			"--until",
-			"done",
-			"--until",
-			"blocked",
-			"--timeout",
-			String(timing.waitMs),
-		]);
+		if (runStatus(db, runId) !== "started") return;
+		const sliceStart = Date.now();
+		const waited = run(
+			"herdr",
+			[
+				"agent",
+				"wait",
+				r.herdr_agent,
+				"--until",
+				"idle",
+				"--until",
+				"done",
+				"--until",
+				"blocked",
+				"--timeout",
+				String(Math.max(1, Math.min(timing.seatPollMs, deadline - sliceStart))),
+			],
+			// A floor keeps a slow runner from killing a wait that is about to answer.
+			{ timeoutMs: Math.max(timing.seatPollMs + 200, 2_000) },
+		);
 		if (runStatus(db, runId) !== "started") return;
 		const state = parseAgentState(waited.stdout);
-		if (waited.code !== 0 && state === "unknown") {
-			runDone(root, runId, {
-				status: "failed",
-				summary: `herdr agent wait failed or timed out: ${(waited.stderr || waited.stdout).trim().slice(0, 200)}`,
-			});
-			return;
+		if (!["idle", "done", "blocked"].includes(state)) {
+			if (state === "unknown" && !agentExists(r.herdr_agent)) {
+				abortGoneSeat(db, t, runId, r.herdr_agent, r.stage);
+				return;
+			}
+			if (Date.now() >= deadline) {
+				runDone(root, runId, {
+					status: "failed",
+					summary: `herdr agent wait timed out after ${Math.round(timing.waitMs / 60_000)} min: ${(waited.stderr || waited.stdout).trim().slice(0, 200)}`,
+				});
+				return;
+			}
+			// A slice that ended with the seat still working, or a quick failure: look at the store again after a pause.
+			if (Date.now() - sliceStart < timing.seatPollMs) sleep(timing.seatPollMs - (Date.now() - sliceStart));
+			continue;
 		}
 		if (state === "blocked") {
 			record(db, t.id, runId, "blocked", { summary: `${r.herdr_agent} is blocked on a prompt` });

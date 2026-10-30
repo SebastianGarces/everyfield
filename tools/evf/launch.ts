@@ -28,7 +28,6 @@ export const ROLES = {
 	implementer: { model: "claude-sonnet-5-5", effort: "medium", stage: "implement" },
 	ui: { model: "claude-sonnet-5-5", effort: "medium", stage: "implement" },
 	simplifier: { model: "claude-sonnet-5-5", effort: "medium", stage: "simplify" },
-	evidence: { model: "claude-sonnet-5-5", effort: "medium", stage: "evidence" },
 	verifier: { model: "claude-opus-5-5", effort: "high", stage: "verify" },
 	ideator: { model: "claude-sonnet-5-5", effort: "medium", stage: "idea" },
 	comparer: { model: "claude-sonnet-5-5", effort: "medium", stage: "compare" },

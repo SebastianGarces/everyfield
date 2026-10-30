@@ -1,4 +1,3 @@
-import { requireForeground } from "./foreground.ts";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { stripVTControlCharacters } from "node:util";
@@ -13,6 +12,7 @@ import {
 	gitOk,
 	hasRemote,
 	isClean,
+	EvfError,
 	loadConfig,
 	packageContext,
 	requireWorktree,
@@ -59,7 +59,6 @@ export function verify(
 	head?: string,
 	ignoreLoad?: string,
 ): CheckReport {
-	requireForeground("verify", "2-15 minutes");
 	const wt =
 		role === "verifier"
 			? git(process.cwd(), "rev-parse", "--show-toplevel")
@@ -256,6 +255,17 @@ export function freshCheckoutTypecheck(
 	writeFileSync(log, output);
 	console.error(`evf verify: fresh-checkout-typecheck ${exitCode === 0 ? "passed" : "failed"}.`);
 	return { name: "fresh-checkout-typecheck", command: steps.flat(), exitCode, log, passed: exitCode === 0 };
+}
+
+/** True when the clean head already has a passing full author record. */
+export function hasVerifiedHead(root: string, task: TaskRef): boolean {
+	try {
+		requireVerifiedHead(root, task);
+		return true;
+	} catch (error) {
+		if (error instanceof EvfError) return false;
+		throw error;
+	}
 }
 
 /** Read-only gate shared by PR open and the explicit pre-push check. */
