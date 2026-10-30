@@ -873,7 +873,10 @@ test("OPS-68-reopen: three failures escalate, the reopen restarts the count, the
 		failStage(f, "implement", "implementer");
 		assert.equal(f.taskRow().status, "active", "a seat of the task still works");
 		assert.equal(f.events("escalation_deferred").length, 1);
-		runDone(f.root, f.runs().find((r) => r.status === "started")!.id as number, { status: "passed", summary: "Built." });
+		runDone(f.root, f.runs().find((r) => r.status === "started")!.id as number, {
+			status: "passed",
+			summary: "Built.",
+		});
 		assert.equal(f.taskRow().status, "escalated", "the last open seat closed");
 		assert.equal(f.events("escalation").length, 2);
 		assert.equal(nextOf(f).stage, "escalated");
@@ -1399,11 +1402,19 @@ test("OPS-72-launchfail: a launch that fails twice closes its run with the pane 
 		const first = f.runs();
 		assert.equal(first.length, 1);
 		assert.equal(first[0]!.status, "aborted");
-		assert.ok(lines.some((l) => /drive OPS-1: launch of implementer failed: .*Error: agent not found/.test(l)), lines.join("\n"));
-		const summary = (f.db.prepare("SELECT summary FROM runs WHERE id = ?").get(first[0]!.id) as { summary: string }).summary;
+		assert.ok(
+			lines.some((l) => /drive OPS-1: launch of implementer failed: .*Error: agent not found/.test(l)),
+			lines.join("\n"),
+		);
+		const summary = (f.db.prepare("SELECT summary FROM runs WHERE id = ?").get(first[0]!.id) as { summary: string })
+			.summary;
 		assert.match(summary, /timed out waiting for agent startup/);
 		assert.match(summary, /Error: agent not found/);
-		assert.equal(f.herdr.calls().filter((c) => c[0] === "agent" && c[1] === "start").length, 2, "one retry inside the launch");
+		assert.equal(
+			f.herdr.calls().filter((c) => c[0] === "agent" && c[1] === "start").length,
+			2,
+			"one retry inside the launch",
+		);
 
 		// The loop goes on to its next transitions; the retry cap, not an uncaught error, ends it.
 		const code = quietly(() => drive(f.root, f.task, {}, TIMING));
@@ -1446,7 +1457,11 @@ test("OPS-72-defer: a verify that fails past the loop cap does not escalate whil
 		assert.equal(f.taskRow().status, "escalated", "escalated when the last open seat closed");
 		const escalation = f.events("escalation");
 		assert.equal(escalation.length, 1);
-		assert.match(escalation[0]!.payload, /needs Sebastian: loop cap 3 hit after verify failed\. Findings: the roof leaks\./, "with the reason it would have had");
+		assert.match(
+			escalation[0]!.payload,
+			/needs Sebastian: loop cap 3 hit after verify failed\. Findings: the roof leaks\./,
+			"with the reason it would have had",
+		);
 		assert.equal(nextOf(f).stage, "escalated");
 	} finally {
 		f.db.close();
@@ -1513,10 +1528,12 @@ test("OPS-72-reopen: the first seat after a reopen gets the coordinator's reason
 		assert.match(prompt, /^The coordinator reopened this task\./);
 
 		// The session-start context shows it too, and keeps it when it shortens the rest.
-		f.db.prepare("UPDATE tasks SET spec = ? WHERE id = ?").run(
-			`Goal: g.\nDone criteria:\n${Array.from({ length: 40 }, (_, i) => `${i + 1}. ${"criterion text ".repeat(20)}`).join("\n")}\nNon-goals: none.`,
-			f.taskId,
-		);
+		f.db
+			.prepare("UPDATE tasks SET spec = ? WHERE id = ?")
+			.run(
+				`Goal: g.\nDone criteria:\n${Array.from({ length: 40 }, (_, i) => `${i + 1}. ${"criterion text ".repeat(20)}`).join("\n")}\nNon-goals: none.`,
+				f.taskId,
+			);
 		const ctx = cli(f.root, {}, "refocus", "OPS-1").stdout;
 		assert.match(ctx, /SHORTENED/);
 		assert.ok(ctx.includes(R), "the shortened context keeps the reopen reason");
@@ -1524,7 +1541,10 @@ test("OPS-72-reopen: the first seat after a reopen gets the coordinator's reason
 		// A seat that passed after the reopen ends the reopen reason's hold on the prompts.
 		runDone(f.root, f.runs().at(-1)!.id as number, { status: "passed", summary: "Built." });
 		driveOnce(f.root, f.task, TIMING);
-		const later = f.herdr.calls().filter((c) => c[0] === "agent" && c[1] === "prompt").at(-1)![3]!;
+		const later = f.herdr
+			.calls()
+			.filter((c) => c[0] === "agent" && c[1] === "prompt")
+			.at(-1)![3]!;
 		assert.ok(!later.includes(R));
 	} finally {
 		f.db.close();
@@ -1557,7 +1577,8 @@ test("OPS-72-abandon: a stale row closes with an abandon event; merged rows, ope
 	try {
 		const abandon = (extra: string[], env: Record<string, string> = {}) =>
 			cli(f.root, env, "task", "abandon", "OPS-1", ...extra);
-		const status = (id: number) => (f.db.prepare("SELECT status FROM tasks WHERE id = ?").get(id) as { status: string }).status;
+		const status = (id: number) =>
+			(f.db.prepare("SELECT status FROM tasks WHERE id = ?").get(id) as { status: string }).status;
 		assert.match(cli(f.root, {}, "help").stdout, /^ {2}evf task abandon <task> \[--id <store id>\] --reason/m);
 
 		assert.match(abandon(["--reason", "stale"]).stderr, /two words or more/);
@@ -1579,7 +1600,9 @@ test("OPS-72-abandon: a stale row closes with an abandon event; merged rows, ope
 		assert.match(abandon(["--id", "999", "--reason", "shipped long ago"]).stderr, /not a row of OPS-1/);
 
 		const open = f.db
-			.prepare("INSERT INTO runs (task_id, stage, role, round, status, started_at) VALUES (?, 'implement', 'implementer', 0, 'started', ?)")
+			.prepare(
+				"INSERT INTO runs (task_id, stage, role, round, status, started_at) VALUES (?, 'implement', 'implementer', 0, 'started', ?)",
+			)
 			.run(active, new Date().toISOString()).lastInsertRowid;
 		assert.match(abandon(["--id", String(active), "--reason", "shipped long ago"]).stderr, /has a started run/);
 		f.db.prepare("UPDATE runs SET status = 'aborted' WHERE id = ?").run(open);
@@ -1589,7 +1612,10 @@ test("OPS-72-abandon: a stale row closes with an abandon event; merged rows, ope
 		mkdirSync(join(evfDataDir(f.root), "drive"), { recursive: true });
 		writeFileSync(pidFile, `${holder.pid}\n`);
 		try {
-			assert.match(abandon(["--id", String(active), "--reason", "shipped long ago"]).stderr, /evf drive runs for OPS-1/);
+			assert.match(
+				abandon(["--id", String(active), "--reason", "shipped long ago"]).stderr,
+				/evf drive runs for OPS-1/,
+			);
 		} finally {
 			holder.kill();
 		}

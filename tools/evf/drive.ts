@@ -200,7 +200,10 @@ function prototypeStuck(ref: string, runs: RunRow[], marker: number): string | n
 			normalizedHeadline(failed[0]!.summary) &&
 			normalizedHeadline(failed[0]!.summary) === normalizedHeadline(failed[1]!.summary)
 		)
-			because = { idea: i, reason: `idea ${i} failed twice in a row with the same error: ${headline(failed[0]!.summary ?? "")}` };
+			because = {
+				idea: i,
+				reason: `idea ${i} failed twice in a row with the same error: ${headline(failed[0]!.summary ?? "")}`,
+			};
 		else if (failed.length >= RETRY_CAP)
 			because = {
 				idea: i,
@@ -276,7 +279,11 @@ function nextPrototype(
 			return { stage: "waiting", round, run: compare.id, reason: "the compare seat is still open" };
 		return go(
 			"compare",
-			compare ? `compare ${compare.status}` : missing.length ? `ideas built; idea ${missing.join(", ")} left out` : "all ideas built",
+			compare
+				? `compare ${compare.status}`
+				: missing.length
+					? `ideas built; idea ${missing.join(", ")} left out`
+					: "all ideas built",
 		);
 	}
 	if (!picked) return { stage: "pick", round, reason: "waiting for Sebastian's pick: evf task pick" };
@@ -737,7 +744,9 @@ export function taskComparePassed(root: string, task: TaskRef, ownerApproval: st
 			after_run: afterRun,
 			summary: `${t.ref}: Sebastian chose to compare ideas ${all.filter((i) => i !== idea).join(" and ")} without ${why}`,
 		});
-		console.log(`compare-passed: ${t.ref} compares ideas ${all.filter((i) => i !== idea).join(" and ")}; idea ${idea} is missing.`);
+		console.log(
+			`compare-passed: ${t.ref} compares ideas ${all.filter((i) => i !== idea).join(" and ")}; idea ${idea} is missing.`,
+		);
 		return 0;
 	} finally {
 		db.close();
@@ -746,19 +755,19 @@ export function taskComparePassed(root: string, task: TaskRef, ownerApproval: st
 
 /** A stale task row, closed for good: abandoned, with the reason as an `abandon` event. The TUI hides abandoned rows. */
 export function taskAbandon(root: string, task: TaskRef, opts: { id?: number; reason: string }): number {
-	if (process.env.EVF_RUN)
-		fail("A seat cannot abandon a task row: Jonah or a human shell runs evf task abandon.");
+	if (process.env.EVF_RUN) fail("A seat cannot abandon a task row: Jonah or a human shell runs evf task abandon.");
 	if (opts.reason.trim().split(/\s+/).filter(Boolean).length < 2)
 		fail('Give the reason in two words or more: --reason "<words>".');
 	const db = openWorkDb(root);
 	try {
-		const rows = db
-			.prepare("SELECT id, ref, slug, status FROM tasks WHERE ref = ? ORDER BY id")
-			.all(task.id) as Array<{ id: number; ref: string; slug: string; status: string }>;
+		const rows = db.prepare("SELECT id, ref, slug, status FROM tasks WHERE ref = ? ORDER BY id").all(task.id) as Array<{
+			id: number;
+			ref: string;
+			slug: string;
+			status: string;
+		}>;
 		if (!rows.length) fail(`${task.id} has no task row in the store.`);
-		const row = opts.id
-			? rows.find((r) => r.id === opts.id)
-			: rows.filter((r) => r.status !== "abandoned").at(-1);
+		const row = opts.id ? rows.find((r) => r.id === opts.id) : rows.filter((r) => r.status !== "abandoned").at(-1);
 		if (!row)
 			fail(
 				opts.id
@@ -770,9 +779,13 @@ export function taskAbandon(root: string, task: TaskRef, opts: { id?: number; re
 				`Store row ${row.id} of ${task.id} is merged; merged work is not abandoned.${rows.length > 1 ? ` The ref has rows ${rows.map((r) => `${r.id} (${r.status})`).join(", ")}: pick one with --id.` : ""}`,
 			);
 		if (row.status === "abandoned") fail(`Store row ${row.id} of ${task.id} is already abandoned.`);
-		const open = db.prepare("SELECT id FROM runs WHERE task_id = ? AND status = 'started'").all(row.id) as Array<{ id: number }>;
+		const open = db.prepare("SELECT id FROM runs WHERE task_id = ? AND status = 'started'").all(row.id) as Array<{
+			id: number;
+		}>;
 		if (open.length)
-			fail(`Store row ${row.id} of ${task.id} has a started run (${open.map((o) => o.id).join(", ")}); close or abort it first.`);
+			fail(
+				`Store row ${row.id} of ${task.id} has a started run (${open.map((o) => o.id).join(", ")}); close or abort it first.`,
+			);
 		const pidFile = join(evfDataDir(root), "drive", `${row.slug}.pid`);
 		const holder = existsSync(pidFile) ? Number(readFileSync(pidFile, "utf8").trim()) : 0;
 		if (holder && holder !== process.pid && alive(holder))
@@ -783,7 +796,11 @@ export function taskAbandon(root: string, task: TaskRef, opts: { id?: number; re
 			from: row.status,
 			summary: `${task.id} row ${row.id} abandoned (was ${row.status}): ${opts.reason.trim()}`,
 		});
-		const event = (db.prepare("SELECT MAX(id) AS id FROM events WHERE task_id = ? AND type = 'abandon'").get(row.id) as { id: number }).id;
+		const event = (
+			db.prepare("SELECT MAX(id) AS id FROM events WHERE task_id = ? AND type = 'abandon'").get(row.id) as {
+				id: number;
+			}
+		).id;
 		console.log(`abandon: ${task.id} store row ${row.id} (was ${row.status}) abandoned, event ${event}.`);
 		return 0;
 	} finally {
@@ -1000,7 +1017,9 @@ type PromptContext = {
 	choice: CompareChoice | null;
 };
 const notesOf = (ctx: PromptContext) =>
-	ctx.notes.length ? ` Coordinator notes from the ask, read them first: ${ctx.notes.map((n) => `"${n}"`).join(" ")}` : "";
+	ctx.notes.length
+		? ` Coordinator notes from the ask, read them first: ${ctx.notes.map((n) => `"${n}"`).join(" ")}`
+		: "";
 /** Said first in every prompt after a reopen: the reason replaces the failure summaries that came before it. */
 const reopenOf = (ctx: PromptContext) =>
 	ctx.reopen
@@ -1249,7 +1268,9 @@ function waitOnSeat(
 			.prepare("SELECT id, payload FROM events WHERE run_id = ? AND type = 'preview_wait' AND id > ? ORDER BY id")
 			.all(runId, waitsLogged) as Array<{ id: number; payload: string }>) {
 			waitsLogged = e.id;
-			console.log(`${now()} drive ${task.id}: ${r.herdr_agent}: ${(JSON.parse(e.payload) as { summary?: string }).summary}`);
+			console.log(
+				`${now()} drive ${task.id}: ${r.herdr_agent}: ${(JSON.parse(e.payload) as { summary?: string }).summary}`,
+			);
 		}
 		const sliceStart = Date.now();
 		const waited = run(
@@ -1442,7 +1463,7 @@ export function driveOnce(root: string, task: TaskRef, timing: DriveTiming = DRI
 				prBody: prBodyPath(root, task),
 				notes: coordinatorNotes((db.prepare("SELECT ask FROM tasks WHERE id = ?").get(t.id) as { ask: string }).ask),
 				// Until a seat passes after the reopen, every prompt carries the coordinator's reason.
-				reopen: runs.some((r) => r.id > marker && r.status === "passed") ? null : extras.reopenReason ?? null,
+				reopen: runs.some((r) => r.id > marker && r.status === "passed") ? null : (extras.reopenReason ?? null),
 				previous: previousIdeaRun(runs, n.idea),
 				choice: extras.choice ?? null,
 			};

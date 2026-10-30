@@ -442,7 +442,14 @@ function waitForSession(db: DatabaseSync, runId: number, timing: LaunchTiming): 
 }
 
 /** Events that a seat's start writes by itself; any other event of the run after the prompt shows a turn began. */
-const START_EVENTS = new Set(["stage_start", "session_start", "refocus", "prompt_sent", "prompt_resent", "launch_retry"]);
+const START_EVENTS = new Set([
+	"stage_start",
+	"session_start",
+	"refocus",
+	"prompt_sent",
+	"prompt_resent",
+	"launch_retry",
+]);
 /** Did the prompt start a turn? The agent left idle, a later event of the run shows activity, or the run closed. */
 function turnBegan(db: DatabaseSync, runId: number, agent: string, afterEvent: number): boolean {
 	if (agentStatus(agent) !== "idle") return true; // working, blocked, done, or a state Herdr cannot name: not a lost prompt.
@@ -556,7 +563,11 @@ export function launch(
 				plan.claudeArgs[plan.claudeArgs.indexOf("--session-id") + 1] = plan.env.EVF_SESSION;
 				plan.session = plan.env.EVF_SESSION;
 				db.prepare("UPDATE runs SET session_id = ? WHERE id = ?").run(plan.session, runId);
-				event("launch_retry", { reason: failure.slice(0, 400), summary: `launch of ${plan.name} failed, trying a new pane` }, runId);
+				event(
+					"launch_retry",
+					{ reason: failure.slice(0, 400), summary: `launch of ${plan.name} failed, trying a new pane` },
+					runId,
+				);
 				console.log(`launch: ${failure} Trying a new pane once.`);
 			}
 			try {

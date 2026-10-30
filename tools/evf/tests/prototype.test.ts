@@ -341,7 +341,18 @@ const ASK =
 	"Coordinator note (Oct 30 2026 3:36 AM ET): the preview pool holds four slots; wait for one.\n\nExplore doghouse layouts.\n\nCoordinator note: rebase after OPS-69.";
 function protoTask(ask = "Explore doghouse layouts.") {
 	const f = protoFixture();
-	const made = cli(f.root, {}, undefined, "task", "new", "OPS-1", "--mode", "prototype", "--ask-file", f.file("ask.md", ask));
+	const made = cli(
+		f.root,
+		{},
+		undefined,
+		"task",
+		"new",
+		"OPS-1",
+		"--mode",
+		"prototype",
+		"--ask-file",
+		f.file("ask.md", ask),
+	);
 	assert.equal(made.status, 0, made.stderr);
 	assert.equal(cli(f.root, {}, undefined, "task", "spec", "OPS-1", "--file", f.file("spec.md", SPEC)).status, 0);
 	const taskId = f.tasks()[0]!.id;
@@ -358,19 +369,35 @@ function protoTask(ask = "Explore doghouse layouts.") {
 			payload: string;
 		}>;
 	const status = () => (f.db.prepare("SELECT status FROM tasks WHERE id = ?").get(taskId) as { status: string }).status;
-	const failIdea = (idea: number, summary: string) => runDone(f.root, seed(`idea${idea}`, "ideator", "started"), { status: "failed", summary });
-	const lastPrompt = () => f.herdrCalls().filter((c) => c[1] === "prompt").at(-1)![3]!;
+	const failIdea = (idea: number, summary: string) =>
+		runDone(f.root, seed(`idea${idea}`, "ideator", "started"), { status: "failed", summary });
+	const lastPrompt = () =>
+		f
+			.herdrCalls()
+			.filter((c) => c[1] === "prompt")
+			.at(-1)![3]!;
 	return { ...f, seed, events, status, failIdea, lastPrompt, taskId };
 }
 
 test("OPS-72-resume: an ideator rerun gets the failed run's summary and the order to resume and clear the blocker", () => {
 	const f = protoTask();
 	try {
-		const failed = f.seed("idea1", "ideator", "failed", "Needs: a free preview slot (4/4 in use)\nIDEA.md has the plan; the proof step stopped.");
+		const failed = f.seed(
+			"idea1",
+			"ideator",
+			"failed",
+			"Needs: a free preview slot (4/4 in use)\nIDEA.md has the plan; the proof step stopped.",
+		);
 		assert.equal(driveOnce(f.root, f.task, TIMING).idea, 1);
 		const prompt = f.lastPrompt();
-		assert.ok(prompt.includes(`run ${failed} of this idea ended failed with: "Needs: a free preview slot (4/4 in use)`), prompt);
-		assert.match(prompt, /Resume in this worktree and its existing IDEA\.md\. Do not start over: clear that blocker first\./);
+		assert.ok(
+			prompt.includes(`run ${failed} of this idea ended failed with: "Needs: a free preview slot (4/4 in use)`),
+			prompt,
+		);
+		assert.match(
+			prompt,
+			/Resume in this worktree and its existing IDEA\.md\. Do not start over: clear that blocker first\./,
+		);
 		// A first launch is not a rerun.
 		const second = driveOnce(f.root, f.task, TIMING);
 		assert.equal(second.idea, 2);
@@ -444,21 +471,48 @@ test("OPS-72-compare: with one idea stuck and the others passed, the owner can c
 		const chosen = choose({}, "Compare two and three without the first");
 		assert.equal(chosen.status, 0, chosen.stderr);
 		assert.equal(f.status(), "active");
-		const choice = JSON.parse(f.events("compare_passed")[0]!.payload) as { missing: number[]; passed: number[]; reason: string; quote: string };
-		assert.deepEqual([choice.missing, choice.passed, choice.quote], [[1], [2, 3], "Compare two and three without the first"]);
+		const choice = JSON.parse(f.events("compare_passed")[0]!.payload) as {
+			missing: number[];
+			passed: number[];
+			reason: string;
+			quote: string;
+		};
+		assert.deepEqual(
+			[choice.missing, choice.passed, choice.quote],
+			[[1], [2, 3], "Compare two and three without the first"],
+		);
 		assert.deepEqual([f.nextOf().stage, f.nextOf().role], ["compare", "comparer"]);
 
 		// The compare prompt lists only the passed ideas and names the missing one and why.
 		assert.equal(driveOnce(f.root, f.task, TIMING).stage, "compare");
 		const prompt = f.lastPrompt();
-		assert.match(prompt, /^Compare the passed ideas of prototype task OPS-1\. Idea worktrees: \S*ops-1-idea2, \S*ops-1-idea3\./);
+		assert.match(
+			prompt,
+			/^Compare the passed ideas of prototype task OPS-1\. Idea worktrees: \S*ops-1-idea2, \S*ops-1-idea3\./,
+		);
 		assert.doesNotMatch(prompt.split("Build the comparison")[0]!, /ops-1-idea1/);
-		assert.match(prompt, /Idea 1 is missing from this comparison \(idea 1 failed: Needs: a free preview slot \(run 716\)\)/);
+		assert.match(
+			prompt,
+			/Idea 1 is missing from this comparison \(idea 1 failed: Needs: a free preview slot \(run 716\)\)/,
+		);
 
-		const pickMissing = cli(f.root, {}, undefined, "task", "pick", "OPS-1", "1", "--owner-approval", "Pick the first one");
+		const pickMissing = cli(
+			f.root,
+			{},
+			undefined,
+			"task",
+			"pick",
+			"OPS-1",
+			"1",
+			"--owner-approval",
+			"Pick the first one",
+		);
 		assert.equal(pickMissing.status, 1);
 		assert.match(pickMissing.stderr, /Idea 1 is the missing idea/);
-		assert.equal(cli(f.root, {}, undefined, "task", "pick", "OPS-1", "2", "--owner-approval", "Pick the second").status, 0);
+		assert.equal(
+			cli(f.root, {}, undefined, "task", "pick", "OPS-1", "2", "--owner-approval", "Pick the second").status,
+			0,
+		);
 	} finally {
 		f.db.close();
 		f.close();
@@ -468,7 +522,8 @@ test("OPS-72-compare: with one idea stuck and the others passed, the owner can c
 test("OPS-72-compare: the choice needs exactly one missing idea and an escalated prototype task", () => {
 	const f = protoTask();
 	try {
-		const choose = () => cli(f.root, {}, undefined, "task", "compare-passed", "OPS-1", "--owner-approval", "Compare what passed");
+		const choose = () =>
+			cli(f.root, {}, undefined, "task", "compare-passed", "OPS-1", "--owner-approval", "Compare what passed");
 		assert.match(choose().stderr, /not escalated/);
 		f.seed("idea2", "ideator", "passed", "Built.");
 		f.db.prepare("UPDATE tasks SET status = 'escalated' WHERE id = ?").run(f.taskId);
@@ -494,7 +549,10 @@ test("OPS-72-hold: an idea at its retry cap waits for the idea that still works,
 		assert.deepEqual([n.stage, n.run], ["waiting", other]);
 		runDone(f.root, other, { status: "passed", summary: "Built." });
 		assert.equal(f.status(), "escalated");
-		assert.match(f.events("escalation")[0]!.payload, /idea 1 failed 3 times in a row \(retry cap 3\); last: Blocked by the disk/);
+		assert.match(
+			f.events("escalation")[0]!.payload,
+			/idea 1 failed 3 times in a row \(retry cap 3\); last: Blocked by the disk/,
+		);
 	} finally {
 		f.db.close();
 		f.close();
@@ -536,7 +594,10 @@ test("OPS-72-unmet: an idea seat cannot close passed while its summary or IDEA.m
 			cli(f.root, {}, undefined, "run", "done", String(id), "--status", status, "--summary-file", f.file("s.md", text));
 		const refused = done("passed", "Idea built.\nCriterion 9 is unmet: no live preview, no screenshots");
 		assert.equal(refused.status, 1);
-		assert.match(refused.stderr, /"Criterion 9 is unmet: no live preview, no screenshots" names a Done criterion that is not met/);
+		assert.match(
+			refused.stderr,
+			/"Criterion 9 is unmet: no live preview, no screenshots" names a Done criterion that is not met/,
+		);
 		assert.match(refused.stderr, /Finish that criterion, or close this run as failed/);
 		assert.equal(f.runs().find((r) => r.id === id)!.status, "started", "a refusal closes nothing");
 		assert.match(done("passed", "Done 3 not met yet").stderr, /Done 3 not met yet/);
@@ -552,7 +613,18 @@ test("OPS-72-unmet: an idea seat cannot close passed while its summary or IDEA.m
 		// Every criterion met passes, in the summary and in IDEA.md.
 		const again = f.seed("idea1", "ideator", "started");
 		writeFileSync(join(wt, "IDEA.md"), "# Idea 1\nEvery criterion met.\n");
-		const passed = cli(f.root, {}, undefined, "run", "done", String(again), "--status", "passed", "--summary-file", f.file("t.md", "Every criterion met: 1 and 2."));
+		const passed = cli(
+			f.root,
+			{},
+			undefined,
+			"run",
+			"done",
+			String(again),
+			"--status",
+			"passed",
+			"--summary-file",
+			f.file("t.md", "Every criterion met: 1 and 2."),
+		);
 		assert.equal(passed.status, 0, passed.stderr);
 	} finally {
 		f.db.close();

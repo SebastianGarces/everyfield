@@ -1000,7 +1000,9 @@ const agentsJson = (start: string[]) =>
 	JSON.parse(start[start.indexOf("--agents") + 1]!) as Record<string, Record<string, unknown>>;
 const agentFile = (text: string) => {
 	const m = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/.exec(text)!;
-	const front = Object.fromEntries(m[1]!.split("\n").map((l) => [l.slice(0, l.indexOf(":")), l.slice(l.indexOf(":") + 2)]));
+	const front = Object.fromEntries(
+		m[1]!.split("\n").map((l) => [l.slice(0, l.indexOf(":")), l.slice(l.indexOf(":") + 2)]),
+	);
 	return { front, body: m[2]!.trim() };
 };
 
@@ -1016,7 +1018,12 @@ test("OPS-72-agent: the seat gets the role definition of the driving checkout, w
 			assert.equal(def.prompt, root.body, `${label}: the prompt body is the root's`);
 			assert.equal(def.model, root.front.model, `${label}: model`);
 			assert.equal(def.effort, root.front.effort, `${label}: effort`);
-			assert.ok(Array.isArray(def.tools) && def.tools.includes("Read") && def.tools.some((t) => /^Bash\(bin\/evf/.test(String(t))), `${label}: tools`);
+			assert.ok(
+				Array.isArray(def.tools) &&
+					def.tools.includes("Read") &&
+					def.tools.some((t) => /^Bash\(bin\/evf/.test(String(t))),
+				`${label}: tools`,
+			);
 			assert.equal((def.tools as string[]).join(", "), root.front.tools, `${label}: the tool list is whole`);
 		};
 		// The seat fixture's worktree has no .claude/agents at all.
@@ -1112,7 +1119,10 @@ test("OPS-72-ready: the first prompt waits for the run's session_start event and
 			.prepare("SELECT type FROM events WHERE run_id = ? ORDER BY id")
 			.all(run.id)
 			.map((e) => (e as { type: string }).type);
-		assert.ok(types.indexOf("session_start") >= 0 && types.indexOf("session_start") < types.indexOf("prompt_sent"), types.join(","));
+		assert.ok(
+			types.indexOf("session_start") >= 0 && types.indexOf("session_start") < types.indexOf("prompt_sent"),
+			types.join(","),
+		);
 		assert.ok(Date.now() - started >= 350, "launch waited for the delayed session");
 		assert.equal(pairs(f.herdr.calls(), "agent", "prompt").length, 1);
 		assert.ok(!types.includes("prompt_resent"), "the turn began, so no resend");
@@ -1120,10 +1130,18 @@ test("OPS-72-ready: the first prompt waits for the run's session_start event and
 		f.herdr.setState({ noSession: true, screen: "Welcome to Claude Code" });
 		const mark = pairs(f.herdr.calls(), "agent", "prompt").length;
 		assert.throws(
-			() => quiet(() => launch(f.root, f.task, "implementer", { prompt: "Begin.", timing: { ...TURN, sessionReadyMs: 120 } })),
-			(e) => e instanceof EvfError && /sent no session_start/.test(e.message) && /Welcome to Claude Code/.test(e.message),
+			() =>
+				quiet(() =>
+					launch(f.root, f.task, "implementer", { prompt: "Begin.", timing: { ...TURN, sessionReadyMs: 120 } }),
+				),
+			(e) =>
+				e instanceof EvfError && /sent no session_start/.test(e.message) && /Welcome to Claude Code/.test(e.message),
 		);
-		assert.equal(pairs(f.herdr.calls(), "agent", "prompt").length, mark, "no prompt reached a session that was not ready");
+		assert.equal(
+			pairs(f.herdr.calls(), "agent", "prompt").length,
+			mark,
+			"no prompt reached a session that was not ready",
+		);
 		assert.equal(f.runs().at(-1)!.status, "aborted");
 	} finally {
 		f.db.close();
@@ -1140,7 +1158,9 @@ test("OPS-72-ready: a first prompt that starts no turn is sent exactly once more
 		const prompts = pairs(f.herdr.calls(), "agent", "prompt");
 		assert.equal(prompts.length, 2, "the prompt and exactly one resend");
 		assert.deepEqual(prompts[0], prompts[1]);
-		const resent = f.db.prepare("SELECT COUNT(*) AS n FROM events WHERE run_id = ? AND type = 'prompt_resent'").get(run.id) as {
+		const resent = f.db
+			.prepare("SELECT COUNT(*) AS n FROM events WHERE run_id = ? AND type = 'prompt_resent'")
+			.get(run.id) as {
 			n: number;
 		};
 		assert.equal(resent.n, 1);

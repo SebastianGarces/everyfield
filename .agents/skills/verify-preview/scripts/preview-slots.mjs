@@ -151,17 +151,18 @@ export async function ensurePreviewSlot({ project, root, common, ...opts }) {
     records = previewRecords();
     live = records.filter(isLive);
     if (live.length < limit) return { reused: false, inUse: live.length, limit };
-    const waited = Date.now() - started;
-    if (waited >= waitMs)
-      throw new Error(
-        `No free preview slot after waiting ${formatWait(waited)}: ${live.length}/${limit} previews in use (PORTLESS_PREVIEW_LIMIT ${limit}). Held by: ${live.map((p) => `${p.project} (${p.state})`).join(", ")}. Try again when one finishes.`,
-      );
+    // Say so before anything else, so even a short bound on a loaded machine prints the status once.
     if (Date.now() - announcedAt >= announceMs) {
       announcedAt = Date.now();
       const message = `waiting for a preview slot (${live.length}/${limit} in use)`;
       log(message);
       await recordWaitEvent(common, message, env);
     }
+    const waited = Date.now() - started;
+    if (waited >= waitMs)
+      throw new Error(
+        `No free preview slot after waiting ${formatWait(waited)}: ${live.length}/${limit} previews in use (PORTLESS_PREVIEW_LIMIT ${limit}). Held by: ${live.map((p) => `${p.project} (${p.state})`).join(", ")}. Try again when one finishes.`,
+      );
     await sleep(Math.min(pollMs, waitMs - waited));
   }
 }

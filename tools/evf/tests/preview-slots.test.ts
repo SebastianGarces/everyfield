@@ -8,7 +8,9 @@ import { openWorkDb } from "../db.ts";
 import { evfDataDir } from "../lib.ts";
 
 // OPS-72: previews wait for a free slot. A fake `portless` keeps its previews in a JSON file.
-const { ensurePreviewSlot } = (await import(join(source, ".agents/skills/verify-preview/scripts/preview-slots.mjs"))) as {
+const { ensurePreviewSlot } = (await import(
+	join(source, ".agents/skills/verify-preview/scripts/preview-slots.mjs")
+)) as {
 	ensurePreviewSlot: (o: Record<string, unknown>) => Promise<{ reused: boolean }>;
 };
 
@@ -48,7 +50,9 @@ function slotFixture() {
 		const runId = run
 			? Number(
 					db
-						.prepare("INSERT INTO runs (task_id, stage, role, round, status, started_at) VALUES (?, 'implement', 'implementer', 0, 'started', ?)")
+						.prepare(
+							"INSERT INTO runs (task_id, stage, role, round, status, started_at) VALUES (?, 'implement', 'implementer', 0, 'started', ?)",
+						)
 						.run(id, ts).lastInsertRowid,
 				)
 			: 0;
@@ -58,7 +62,17 @@ function slotFixture() {
 	const common = join(f.root, ".git");
 	const logs: string[] = [];
 	const slot = (project: string, opts: Record<string, unknown> = {}) =>
-		ensurePreviewSlot({ project, root: f.root, common, limit: 4, waitMs: 3000, pollMs: 20, announceMs: 60_000, log: (l: string) => logs.push(l), ...opts });
+		ensurePreviewSlot({
+			project,
+			root: f.root,
+			common,
+			limit: 4,
+			waitMs: 3000,
+			pollMs: 20,
+			announceMs: 60_000,
+			log: (l: string) => logs.push(l),
+			...opts,
+		});
 	return { ...f, db, set, read, worktree, preview, common, logs, slot };
 }
 
@@ -75,7 +89,13 @@ test("OPS-72-slots: a full pool releases only the orphan, then waits for a slot 
 		writeFileSync(join(evfDataDir(f.root), "drive", "wp-003.pid"), `${holder.pid}\n`);
 		try {
 			f.set(
-				[f.preview(f.root, "p-main"), f.preview(live1.dir), f.preview(orphan.dir), f.preview(drive.dir), f.preview(live4.dir)],
+				[
+					f.preview(f.root, "p-main"),
+					f.preview(live1.dir),
+					f.preview(orphan.dir),
+					f.preview(drive.dir),
+					f.preview(live4.dir),
+				],
 				{ dropAfter: { id: "p-wp-004", calls: 6 } },
 			);
 			const env = { ...process.env, EVF_RUN: String(live1.runId) };
@@ -83,10 +103,24 @@ test("OPS-72-slots: a full pool releases only the orphan, then waits for a slot 
 			assert.equal(result.reused, false);
 			const downs = f.read().calls.filter((c) => c[1] === "down");
 			assert.deepEqual(downs, [["preview", "down", "p-wp-002"]], "only the orphan is released");
-			const live = f.read().previews.filter((p) => p.state === "ready").map((p) => p.id);
-			assert.deepEqual(live.sort(), ["p-main", "p-wp-001", "p-wp-003"], "the main checkout, a live task and a live drive stay");
-			assert.ok(f.logs.some((l) => /released previews nobody needs: .*wp-002.*merged with no open run/.test(l)), f.logs.join("\n"));
-			assert.deepEqual(f.logs.filter((l) => /waiting for a preview slot/.test(l)), ["waiting for a preview slot (4/4 in use)"], "announced once");
+			const live = f
+				.read()
+				.previews.filter((p) => p.state === "ready")
+				.map((p) => p.id);
+			assert.deepEqual(
+				live.sort(),
+				["p-main", "p-wp-001", "p-wp-003"],
+				"the main checkout, a live task and a live drive stay",
+			);
+			assert.ok(
+				f.logs.some((l) => /released previews nobody needs: .*wp-002.*merged with no open run/.test(l)),
+				f.logs.join("\n"),
+			);
+			assert.deepEqual(
+				f.logs.filter((l) => /waiting for a preview slot/.test(l)),
+				["waiting for a preview slot (4/4 in use)"],
+				"announced once",
+			);
 			const event = f.db
 				.prepare("SELECT payload FROM events WHERE run_id = ? AND type = 'preview_wait'")
 				.all(live1.runId) as Array<{ payload: string }>;
@@ -108,7 +142,11 @@ test("OPS-72-slots: a project that has a preview reuses it without waiting; a fr
 		f.set(dirs.map((d) => f.preview(d)));
 		const reuse = await f.slot(dirs[0]!);
 		assert.equal(reuse.reused, true);
-		assert.deepEqual(f.read().calls.map((c) => c[1]), ["status"], "one status read, no gc, no down, no wait");
+		assert.deepEqual(
+			f.read().calls.map((c) => c[1]),
+			["status"],
+			"one status read, no gc, no down, no wait",
+		);
 		f.set(dirs.slice(0, 3).map((d) => f.preview(d)));
 		assert.equal((await f.slot(join(f.root, ".worktrees/wp-005"))).reused, false);
 		assert.deepEqual(f.logs, []);
@@ -126,8 +164,9 @@ test("OPS-72-slots: a pool that stays full fails after the bound with the wait, 
 		await assert.rejects(
 			f.slot(join(f.root, ".worktrees/wp-005"), { waitMs: 250 }),
 			(e: Error) =>
-				/No free preview slot after waiting \d+ s: 4\/4 previews in use \(PORTLESS_PREVIEW_LIMIT 4\)\. Held by: /.test(e.message) &&
-				dirs.every((d) => e.message.includes(d)),
+				/No free preview slot after waiting \d+ s: 4\/4 previews in use \(PORTLESS_PREVIEW_LIMIT 4\)\. Held by: /.test(
+					e.message,
+				) && dirs.every((d) => e.message.includes(d)),
 		);
 		assert.equal(f.read().calls.filter((c) => c[1] === "down").length, 0, "nothing live was stopped to make room");
 		assert.ok(f.logs.some((l) => l === "waiting for a preview slot (4/4 in use)"));
@@ -149,7 +188,10 @@ test("OPS-72-slots: expired and failed previews go through gc, and a preview who
 		]);
 		assert.equal((await f.slot(join(f.root, ".worktrees/wp-005"))).reused, false);
 		const calls = f.read().calls.filter((c) => c[1] === "gc" || c[1] === "down");
-		assert.deepEqual(calls, [["preview", "gc", "--apply"], ["preview", "down", "p-wp-gone"]]);
+		assert.deepEqual(calls, [
+			["preview", "gc", "--apply"],
+			["preview", "down", "p-wp-gone"],
+		]);
 		assert.equal(f.read().previews.find((p) => p.id === "p-failed")!.state, "removed");
 		assert.ok(f.logs.some((l) => /wp-gone no longer exists|project .*wp-gone no longer exists/.test(l)));
 	} finally {
@@ -175,9 +217,24 @@ test("OPS-72-slots: evf stack up waits for a slot before the portless stack comm
 		writeFileSync(join(wt, "scripts/stack.mjs"), 'console.log("stack started")');
 		// evf runs the check from the driving checkout, so the fixture carries a copy of the skill scripts.
 		mkdirSync(join(f.root, ".agents/skills/verify-preview/scripts"), { recursive: true });
-		cpSync(join(source, ".agents/skills/verify-preview/scripts/preview-slots.mjs"), join(f.root, ".agents/skills/verify-preview/scripts/preview-slots.mjs"));
-		const env = { ...process.env, EVF_PREVIEW_WAIT_MS: "300", EVF_PREVIEW_POLL_MS: "30", PORTLESS_PREVIEW_LIMIT: "4", EVF_RUN: "", EVF_MONITOR: "test-runner" };
-		const up = () => spawnSync(process.execPath, [join(source, "tools/evf/main.ts"), "stack", "up", "WP-001"], { cwd: f.root, encoding: "utf8", env });
+		cpSync(
+			join(source, ".agents/skills/verify-preview/scripts/preview-slots.mjs"),
+			join(f.root, ".agents/skills/verify-preview/scripts/preview-slots.mjs"),
+		);
+		const env = {
+			...process.env,
+			EVF_PREVIEW_WAIT_MS: "1500",
+			EVF_PREVIEW_POLL_MS: "50",
+			PORTLESS_PREVIEW_LIMIT: "4",
+			EVF_RUN: "",
+			EVF_MONITOR: "test-runner",
+		};
+		const up = () =>
+			spawnSync(process.execPath, [join(source, "tools/evf/main.ts"), "stack", "up", "WP-001"], {
+				cwd: f.root,
+				encoding: "utf8",
+				env,
+			});
 		f.set(others.map((d) => f.preview(d)));
 		const full = up();
 		assert.equal(full.status, 1);
@@ -207,5 +264,8 @@ test("OPS-72-slots: evf stack up waits for a slot before the portless stack comm
 test("OPS-72-slots: the verify-preview script asks the same check before it runs portless preview up", () => {
 	const text = readFileSync(join(source, ".agents/skills/verify-preview/scripts/preview.mjs"), "utf8");
 	assert.match(text, /import \{ ensurePreviewSlot \} from "\.\/preview-slots\.mjs"/);
-	assert.ok(text.indexOf("await ensurePreviewSlot") > 0 && text.indexOf("await ensurePreviewSlot") < text.indexOf('"preview", "up"'));
+	assert.ok(
+		text.indexOf("await ensurePreviewSlot") > 0 &&
+			text.indexOf("await ensurePreviewSlot") < text.indexOf('"preview", "up"'),
+	);
 });
