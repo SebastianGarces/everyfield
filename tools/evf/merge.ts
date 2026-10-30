@@ -50,7 +50,7 @@ export function setLoadedCode(code: ((base: BaseCode) => CodeIdentity | undefine
 }
 
 /** Fetches the base branch; returns why it failed, or undefined. A local-only repository has nothing to fetch. */
-export function fetchBase(root: string, cfg: Config): string | undefined {
+function fetchBase(root: string, cfg: Config): string | undefined {
 	if (!hasRemote(root, cfg)) return undefined;
 	const fetched = run("git", ["-C", root, "fetch", "--quiet", cfg.remote, cfg.baseBranch]);
 	return fetched.code === 0 ? undefined : `git fetch ${cfg.remote} ${cfg.baseBranch} failed: ${fetched.stderr.trim()}`;
@@ -68,7 +68,7 @@ function baseCode(root: string, cfg: Config, fetchError: string | undefined): Ba
 }
 
 /** The reason this process's evf code may not merge, or undefined when it matches the base branch. */
-export function staleCode(root: string, cfg: Config, fetchError = fetchBase(root, cfg)): string | undefined {
+function staleCode(root: string, cfg: Config, fetchError = fetchBase(root, cfg)): string | undefined {
 	const base = baseCode(root, cfg, fetchError);
 	if (typeof base === "string") return `evf cannot read the ${cfg.baseBranch} code to compare: ${base}`;
 	const code = claimed ? claimed(base) : readAtLoad;
@@ -123,9 +123,9 @@ export function templateClass(
 }
 
 /** Sebastian's words for one PR and one exact head. Only `evf approve --owner-approval` builds it. */
-export type OwnerApproval = { quote: string; approved_head: string };
+type OwnerApproval = { quote: string; approved_head: string };
 
-export type MergeRequest = {
+type MergeRequest = {
 	root: string;
 	cfg: Config;
 	/** The checkout gh runs in; absent means the caller's directory. */
@@ -171,7 +171,7 @@ export function mergePullRequest(req: MergeRequest): RunResult {
  * A detached checkout of the base branch's current commit under the Git common dir, created once per commit.
  * The drive runs its ship stage here when its own loaded code is behind.
  */
-export function baseCodeCheckout(root: string, cfg: Config): string {
+function baseCodeCheckout(root: string, cfg: Config): string {
 	const ref = baseRef(root, cfg),
 		sha = run("git", ["-C", root, "rev-parse", `${ref}^{commit}`]).stdout.trim();
 	if (!/^[0-9a-f]{40}$/.test(sha)) fail(`evf cannot read ${ref} to check out its code.`);
