@@ -924,6 +924,8 @@ test("BUG-c048ea5-folder-path: maintenance refuses an existing folder without a 
 			f.commit();
 			assert.equal(taskStart(f.root, task, { allowUnready: false, noStack: true }), 0);
 			assert.equal(f.git("branch", "--list", "--format=%(refname:short)", "task/*"), "task/ops-1");
+			f.git("worktree", "remove", "--force", join(f.root, f.cfg.worktreeDir, task.slug));
+			f.git("branch", "-D", task.branch);
 		}
 	} finally {
 		f.close();
