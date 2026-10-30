@@ -296,12 +296,7 @@ export type SavedResend = {
 	eligibleNames: string[];
 };
 
-const contactOutcomes = [
-	"contacted",
-	"attempted_no_contact",
-	"administrative_completion",
-	"no_longer_needed",
-] as const;
+const contactOutcomes = ["contacted", "attempted_no_contact", "administrative_completion", "no_longer_needed"] as const;
 type ContactOutcome = (typeof contactOutcomes)[number];
 export const contactLabel: Record<ContactOutcome, string> = {
 	contacted: "Contacted",
