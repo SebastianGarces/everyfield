@@ -41,6 +41,8 @@ const factsRow = z.object({
 	existing: z.array(existingRow),
 	people: z.record(z.string(), z.string()),
 	seats: z.record(z.string(), z.string()),
+	// The display name of each named assignee, whether or not the seat is current.
+	names: z.record(z.string(), z.string()),
 	// Why each named assignee cannot own a follow-up, or null when it can (REQ-TSK-012).
 	reasons: z.record(z.string(), z.string().nullable()),
 	zone: timeZone,
@@ -63,6 +65,8 @@ export function obligationFacts(plantId: string, meetings: SQL, people: SQL, ass
 		'seats', (SELECT coalesce(jsonb_object_agg(s.account_id,i.display_name),'{}') FROM seat s
 			CROSS JOIN LATERAL seat_identity(s.account_id) i WHERE s.plant_id=${plantId}::uuid AND s.ended_at IS NULL
 			AND s.accepted_at<=clock_timestamp() AND s.account_id=ANY(${assignees})),
+		'names', (SELECT coalesce(jsonb_object_agg(u.a, coalesce(i.display_name,'')),'{}')
+			FROM unnest(${assignees}) AS u(a) LEFT JOIN LATERAL seat_identity(u.a) i ON true),
 		'reasons', (SELECT coalesce(jsonb_object_agg(u.a, ${ownerReason(sql`u.a`, sql`${plantId}::uuid`)}),'{}')
 			FROM unnest(${assignees}) AS u(a)),
 		'zone', (SELECT timezone FROM plant WHERE id=${plantId}::uuid))`;

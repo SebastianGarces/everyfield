@@ -15,7 +15,6 @@ import {
 	type TaskReminders,
 } from "../tasks/index.ts";
 import { TaskRefusal } from "../tasks/core.ts";
-import { ownerView } from "../tasks/owner.ts";
 import {
 	command,
 	deny,
@@ -73,15 +72,17 @@ const laterRow = guestRow.omit({ display_name: true, person_state: true, rsvp: t
 	meeting_zone: z.string(),
 	meeting_at: date,
 });
-const lockedTasks = z.array(
-	z.object({ obligation_id: z.uuid(), assignee_id: z.uuid().nullable(), follow_up_owner: followUpOwner.nullish() }),
-);
+const lockedTasks = z.array(z.object({ obligation_id: z.uuid(), assignee_id: z.uuid().nullable() }));
+const ownerFactsRow = z.object({
+	seats: z.record(z.string(), z.string()),
+	names: z.record(z.string(), z.string()),
+	reasons: z.record(z.string(), z.string().nullable()),
+});
 const obligationRow = z.object({
 	id: z.uuid(),
 	kind: z.enum(["follow_up", "evaluation"]),
 	person_id: z.uuid().nullable(),
 	assignee_id: z.uuid().nullable(),
-	owner: followUpOwner.nullable(),
 	task_status: z.string().nullable(),
 });
 const factsRow = z.object({
@@ -176,8 +177,7 @@ async function lockAttendance(
 				OR coalesce(pv.actual_occurrence_at, pv.starts_at) > ${here})
 			ORDER BY g.id FOR UPDATE OF g) x) AS later,
 		(SELECT coalesce(json_agg(json_build_object('id', b.id, 'kind', b.kind, 'person_id', b.person_id,
-			'assignee_id', t.assignee_id, 'task_status', t.status, 'owner', CASE WHEN b.kind = 'follow_up'
-				THEN ${ownerView(sql`t.assignee_id`, sql`b.plant_id`)} ELSE ${ownerView(sql`t.assignee_id`, sql`b.plant_id`, "seated")} END)), '[]')
+			'assignee_id', t.assignee_id, 'task_status', t.status)), '[]')
 			FROM obligation b LEFT JOIN task t ON t.obligation_id = b.id AND t.deleted_at IS NULL
 			WHERE b.meeting_id = m.id AND b.plant_id = m.plant_id AND b.superseded_at IS NULL) AS obligations,
 		${
@@ -187,13 +187,16 @@ async function lockAttendance(
 						sql`ARRAY(SELECT ${meeting} UNION SELECT s.meeting_id FROM participation s WHERE s.plant_id = ${plant}
 							AND s.person_id IN ${subjects})`,
 						sql`ARRAY${subjects}`,
-						sql`${sql.param([...settling.assignees])}::uuid[]`,
+						// The input's assignees and the owners of the locked duties below, so settle builds each owner view once.
+						sql`ARRAY(SELECT unnest(${sql.param([...settling.assignees])}::uuid[])
+							UNION SELECT t.assignee_id FROM task t JOIN obligation b ON b.id = t.obligation_id
+							WHERE b.plant_id = ${plant} AND t.deleted_at IS NULL AND t.assignee_id IS NOT NULL
+							AND (b.meeting_id = ${meeting} OR (b.kind = 'follow_up' AND b.person_id IN ${subjects})))`,
 					)} AS obligation_facts,
 					${managedTasks(
 						w.plant.id,
 						sql`ARRAY(SELECT b.id FROM obligation b WHERE b.plant_id = ${plant} AND b.kind = 'follow_up'
 							AND b.person_id IN ${subjects})`,
-						true,
 					)} AS tasks`
 				: sql`NULL AS obligation_facts, NULL AS tasks`
 		}
@@ -574,13 +577,20 @@ async function settle(
 	for (const t of lockedTasks.parse(f.tasks ?? [])) owners.set(t.obligation_id, t.assignee_id);
 	const ownerOf = (id: string) => owners.get(id) ?? null;
 	// What every screen shows for an owner (REQ-TSK-012): the stored assignee with whether they may own the work.
-	const views = new Map<string, z.infer<typeof followUpOwner> | null>(f.obligations.map((o) => [o.id, o.owner]));
-	for (const t of lockedTasks.parse(f.tasks ?? []))
-		if (t.follow_up_owner) views.set(t.obligation_id, t.follow_up_owner);
-	const seatNames =
-		z.object({ seats: z.record(z.string(), z.string()) }).safeParse(f.obligation_facts).data?.seats ?? {};
-	const viewOf = (id: string | null) =>
-		id ? { accountId: id, displayName: seatNames[id] ?? "", eligible: true, reason: null } : null;
+	// Built once per assignee from the producer facts the lock statement read: a follow-up owner follows REQ-TSK-012,
+	// an evaluation owner needs only a seat.
+	const ownerFacts = ownerFactsRow.parse(f.obligation_facts);
+	const viewOf = (id: string | null, kind: "follow_up" | "evaluation"): z.infer<typeof followUpOwner> | null => {
+		if (!id) return null;
+		const reason = kind === "follow_up" ? (ownerFacts.reasons[id] ?? null) : id in ownerFacts.seats ? null : "no_seat";
+		return followUpOwner.parse({
+			accountId: id,
+			displayName: ownerFacts.names[id] ?? "",
+			eligible: reason === null,
+			reason,
+		});
+	};
+	const kindOf = new Map(f.obligations.map((o) => [o.id, o.kind] as const));
 	if (vision && noop)
 		for (const o of f.obligations)
 			work.push(
@@ -593,7 +603,7 @@ async function settle(
 					outcome: "existing",
 					assigneeId: o.assignee_id,
 					needsOwner: o.assignee_id === null,
-					owner: o.owner,
+					owner: viewOf(o.assignee_id, o.kind),
 				}),
 			);
 	else if (vision) {
@@ -637,7 +647,7 @@ async function settle(
 						: e.kind === "meeting_evaluation"
 							? input.evaluationAssigneeId
 							: input.followUpAssigneeId;
-			const owner = e.outcome === "existing" ? (views.get(e.obligationId) ?? null) : viewOf(assigneeId);
+			const owner = viewOf(assigneeId, e.kind === "meeting_evaluation" ? "evaluation" : "follow_up");
 			work.push(c.generatedWork.parse({ ...e, assigneeId, needsOwner: assigneeId === null, owner }));
 		}
 	}
@@ -671,7 +681,7 @@ async function settle(
 						outcome: "closed",
 						assigneeId: ownerOf(t.obligationId),
 						needsOwner: false,
-						owner: views.get(t.obligationId) ?? null,
+						owner: viewOf(ownerOf(t.obligationId), kindOf.get(t.obligationId) ?? "follow_up"),
 					}),
 				);
 	}

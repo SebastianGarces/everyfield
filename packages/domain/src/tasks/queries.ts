@@ -159,8 +159,8 @@ export async function loadTasks(tx: Tx, plantId: string, ids: readonly string[])
  * The live tasks of generated duties, locked in ID order like loadTasks, as one JSON array expression. A caller puts it
  * in its own locked fact read so settling the duties adds no statement; `obligations` is a uuid[] expression.
  */
-export const managedTasks = (plantId: string, obligations: SQL, withViews = false) =>
-	sql`(SELECT coalesce(json_agg(x ORDER BY x.id), '[]') FROM (${taskQuery(plantId, sql`t.obligation_id=ANY(${obligations}) AND t.deleted_at IS NULL`, withViews)} ORDER BY t.id FOR UPDATE OF t) x)`;
+export const managedTasks = (plantId: string, obligations: SQL) =>
+	sql`(SELECT coalesce(json_agg(x ORDER BY x.id), '[]') FROM (${taskQuery(plantId, sql`t.obligation_id=ANY(${obligations}) AND t.deleted_at IS NULL`)} ORDER BY t.id FOR UPDATE OF t) x)`;
 export const managedTaskRows = z.array(lockedTask);
 const taskQuery = (plantId: string, which: SQL, withViews = false) =>
 	sql`SELECT ${columns}, ${withViews ? sql`${views}, ` : sql``}${checklist}, 1 AS ord ${joins} WHERE ${which} AND t.plant_id=${plantId}::uuid`;
