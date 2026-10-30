@@ -23,7 +23,7 @@ export const ROLES = {
 export type Role = keyof typeof ROLES;
 
 /** The levels `claude --effort` accepts. */
-export const EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
+const EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
 
 export type SeatSetting = { model?: string; effort?: string };
 export type SeatTrial = { roles: string[]; model?: string; effort?: string };
@@ -75,7 +75,7 @@ export function validateSeats(cfg: SeatConfig): void {
 const taskNumber = (task: TaskRef): number => Number(/\d+/.exec(task.id)?.[0] ?? 0);
 
 /** True for the tasks that run the trial arm: every second task by its number. */
-export const inTrialArm = (task: TaskRef): boolean => taskNumber(task) % 2 === 1;
+const inTrialArm = (task: TaskRef): boolean => taskNumber(task) % 2 === 1;
 
 /** The model and effort a seat of `role` runs for `task`: the default, then the config override, then the trial arm. */
 export function resolveSeat(
