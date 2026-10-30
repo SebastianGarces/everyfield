@@ -59,6 +59,3 @@ export function scopeOf(authority: RequestActor): Scope {
 	const seat = liveRead(viewer.access, false);
 	return { ...viewer, admin: viewer.access.role === "member" ? sql`false` : seat, seat };
 }
-
-/** An integer-like SQL parameter never reaches a column name: slots come from the closed enum. */
-export const identifier = (name: string) => sql.identifier(name);

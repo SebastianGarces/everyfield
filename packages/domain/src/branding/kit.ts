@@ -68,7 +68,7 @@ export function kitFromRow(row: KitRow | null): BrandKit {
 
 export const assetColumn = (slot: AssetSlot) => sql.identifier(`${slot}_object_id`);
 export const altColumn = (slot: AssetSlot) => sql.identifier(`${slot}_alt`);
-export const SLOT_ID_COLUMNS = ASSET_SLOTS.map((slot) => sql.identifier(`${slot}_object_id`));
+export const SLOT_ID_COLUMNS = ASSET_SLOTS.map(assetColumn);
 
 /** A file id of each slot, one row each, for a queued release (`v.id`). */
 export const slotValues = (row: string) =>
