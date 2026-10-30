@@ -1723,8 +1723,14 @@ test("OPS-74-toolong: a launch line over the limit escalates the task at once wi
 		}
 		assert.equal(f.taskRow().status, "escalated", "escalated after one launch, not three");
 		assert.equal(f.runs().length, 0, "no run row, so no failure counted");
-		assert.match(f.events("escalation")[0]!.payload, /launch line for implementer is \d+ bytes; the terminal accepts fewer than 100\./);
-		assert.ok(lines.some((l) => /launch of implementer refused: .*fewer than 100\./.test(l)), lines.join("\n"));
+		assert.match(
+			f.events("escalation")[0]!.payload,
+			/launch line for implementer is \d+ bytes; the terminal accepts fewer than 100\./,
+		);
+		assert.ok(
+			lines.some((l) => /launch of implementer refused: .*fewer than 100\./.test(l)),
+			lines.join("\n"),
+		);
 		assert.equal(f.herdr.calls().filter((c) => c[0] === "agent" && c[1] === "start").length, 0);
 		assert.equal(driveOnce(f.root, f.task, TIMING).stage, "escalated");
 	} finally {

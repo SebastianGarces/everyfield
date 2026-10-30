@@ -63,7 +63,10 @@ export function agentDefinition(root: string, role: Role, seat: { model: string;
 	if (!parsed) fail(`${source} has no frontmatter.`);
 	// A role file without its own model or effort gets the seat's, as before.
 	const keys = new Set(parsed[1]!.split("\n").flatMap((l) => /^([A-Za-z][\w-]*):/.exec(l)?.[1] ?? []));
-	const added = [...(keys.has("model") ? [] : [`model: ${seat.model}`]), ...(keys.has("effort") ? [] : [`effort: ${seat.effort}`])];
+	const added = [
+		...(keys.has("model") ? [] : [`model: ${seat.model}`]),
+		...(keys.has("effort") ? [] : [`effort: ${seat.effort}`]),
+	];
 	return { source, markdown: `---\n${[parsed[1]!, ...added].join("\n")}\n---\n${parsed[2]!}` };
 }
 const TRUST_PROMPT = /trust this folder|Yes, proceed|trust the files in this folder/i;
@@ -347,9 +350,9 @@ function paneShellReady(pane: string): { ready: boolean; seen: string } {
 		const info = (JSON.parse(r.stdout) as { result?: { process_info?: Record<string, unknown> } }).result?.process_info;
 		const group = info?.foreground_process_group_id,
 			shell = info?.shell_pid;
-		const others = (Array.isArray(info?.foreground_processes) ? (info.foreground_processes as Array<{ pid?: number }>) : [])
-			.filter((p) => p.pid !== shell)
-			.length;
+		const others = (
+			Array.isArray(info?.foreground_processes) ? (info.foreground_processes as Array<{ pid?: number }>) : []
+		).filter((p) => p.pid !== shell).length;
 		return {
 			ready: typeof shell === "number" && group === shell && others === 0,
 			seen: `foreground group ${group}, shell ${shell}, ${others} other process${others === 1 ? "" : "es"}`,
@@ -362,7 +365,7 @@ function paneShellReady(pane: string): { ready: boolean; seen: string } {
 const QUIET_RECHECK_MS = 100;
 function waitForShell(workspace: string, pane: string, timing: LaunchTiming): void {
 	const started = Date.now();
-	for (let quiet = 0; ; ) {
+	for (let quiet = 0; ;) {
 		const state = paneShellReady(pane);
 		quiet = state.ready ? quiet + 1 : 0;
 		if (quiet >= 2) return;

@@ -620,7 +620,11 @@ test("OPS-67-launch: agent_pane_busy that never clears fails the run after the b
 		f.herdr.setState({ busyStarts: 99 });
 		assert.throws(
 			() => quiet(() => launch(f.root, f.task, "implementer", { timing: SHORT })),
-			(e) => e instanceof EvfError && /answered agent_pane_busy in workspace w9 pane w9:p1 on all 4 attempts over \d+(\.\d)? s of waiting/.test(e.message),
+			(e) =>
+				e instanceof EvfError &&
+				/answered agent_pane_busy in workspace w9 pane w9:p1 on all 4 attempts over \d+(\.\d)? s of waiting/.test(
+					e.message,
+				),
 		);
 		assert.equal(startCalls(f).length, 8, "the first start and three busy retries, then the same once in a new pane");
 		assert.equal(f.runs().at(-1)!.status, "aborted");
@@ -1301,7 +1305,6 @@ test("OPS-74-grow: the typed line does not grow with the role file; an over-long
 		const dry = cli(f.root, {}, undefined, "launch", "OPS-1", "--role", "planner", "--dry-run").stdout;
 		const bytes = Number(/# typed line: (\d+) bytes/.exec(dry)![1]);
 		assert.ok(bytes > 0 && bytes <= 768, `dry run shows ${bytes}`);
-
 	} finally {
 		f.db.close();
 		f.close();
@@ -1327,7 +1330,11 @@ test("OPS-74-prompt: agent_start_input_failed twice waits with backoff in the sa
 		assert.equal(rows.at(-1)!.status, "started");
 		// The agent list is read before each retry, and the shell is polled again.
 		const idx = calls.map((c, i) => (c[0] === "agent" && c[1] === "start" ? i : -1)).filter((i) => i >= 0);
-		for (const i of idx.slice(1)) assert.ok(calls.slice(idx[0], i).some((c) => c[1] === "list"), "list before a retry");
+		for (const i of idx.slice(1))
+			assert.ok(
+				calls.slice(idx[0], i).some((c) => c[1] === "list"),
+				"list before a retry",
+			);
 		assert.ok(
 			calls.slice(idx[0], idx[1]).filter((c) => c[1] === "process-info").length >= 2,
 			"the shell is checked again before the retry",
@@ -1348,7 +1355,9 @@ test("OPS-74-prompt: agent_start_input_failed that never clears fails after the 
 			() => quiet(() => launch(f.root, f.task, "implementer", { timing })),
 			(e) =>
 				e instanceof EvfError &&
-				/answered agent_start_input_failed in workspace w9 pane w9:p1 on all 4 attempts over 0\.\d s of waiting/.test(e.message),
+				/answered agent_start_input_failed in workspace w9 pane w9:p1 on all 4 attempts over 0\.\d s of waiting/.test(
+					e.message,
+				),
 		);
 		assert.ok(Date.now() - t0 >= 20 + 40 + 80, "the whole backoff 20 + 40 + 80 ms ran");
 		assert.equal(startCalls(f).length, 8, "four attempts, then the same once in a new pane");
@@ -1397,7 +1406,9 @@ test("OPS-74-guard: a line of 1024 bytes or more is refused before any pane or r
 			bytes = typedLineBytes(plan);
 		assert.throws(
 			() => quiet(() => launch(f.root, f.task, "planner", { timing: { ...TURN, typedLineLimit: bytes } })),
-			(e) => e instanceof LaunchLineTooLong && /launch line for planner is \d+ bytes; the terminal accepts fewer than \d+\./.test(e.message),
+			(e) =>
+				e instanceof LaunchLineTooLong &&
+				/launch line for planner is \d+ bytes; the terminal accepts fewer than \d+\./.test(e.message),
 		);
 		assert.equal(f.herdr.calls().length, panes, "no herdr call, so no pane");
 		assert.equal(f.runs().length, runs, "no run row");
