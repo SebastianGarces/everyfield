@@ -4,7 +4,8 @@
 	"build": ["corepack", "pnpm", "build"],
 	"start": ["corepack", "pnpm", "--filter", "@everyfield/web", "exec", "next", "start", "--hostname", "127.0.0.1"],
 	"env": {
-		"NEXT_TELEMETRY_DISABLED": "1"
+		"NEXT_TELEMETRY_DISABLED": "1",
+		"IDENTITY_ORIGIN": "${PREVIEW_URL}"
 	},
 	"timeoutSeconds": 300
 }
