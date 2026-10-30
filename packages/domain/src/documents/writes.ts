@@ -231,7 +231,7 @@ export const documentsWriter = {
 			if (!resolved.complete) rejectInput("overrides", "A required merge field is empty.");
 			let bytes: Buffer | null;
 			try {
-				bytes = renderPreview(template, input.format, resolved);
+				bytes = await renderPreview(template, input.format, resolved);
 			} catch (error) {
 				if (error instanceof RenderFailed) deny("render_failed");
 				throw error;

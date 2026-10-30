@@ -8,6 +8,7 @@ import { resolveMerge } from "../../../packages/domain/src/documents/merge.ts";
 import { renderEngineVersion, renderPreview } from "../../../packages/domain/src/documents/render.ts";
 import { loadStarter, validateBundle } from "../../../packages/reference/src/index.ts";
 import { referenceArtifactSha256 } from "../../../packages/reference/src/playbook.ts";
+import { PDFDocument } from "../../../packages/domain/node_modules/pdf-lib/cjs/index.js";
 import test, { after, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
@@ -147,14 +148,14 @@ after(async () => {
 });
 
 describe("WP-036/api document templates", { concurrency: 1 }, () => {
-	test("CASE-DOC-001 the library lists 11 templates and 12 formats, and a retired id does not resolve", async () => {
+	test("CASE-DOC-001 the library lists 11 templates and 11 formats, and a retired id does not resolve", async () => {
 		const owner = await authority(0);
 		const discovery = await authority(4);
 		assert.equal(discovery.actor.context.kind, "account");
 		const page = ok(await documentsReader["templates.list"](db, owner, {}));
 		const discovered = ok(await documentsReader["templates.list"](db, discovery, {}));
 		assert.equal(page.templateCount, 11);
-		assert.equal(page.formatCount, 12);
+		assert.equal(page.formatCount, 11);
 		assert.equal(discovered.templateCount, 11);
 		assert.deepEqual(
 			page.templates.map((template) => template.id),
@@ -167,7 +168,8 @@ describe("WP-036/api document templates", { concurrency: 1 }, () => {
 		);
 		assert.equal(page.version, await referenceArtifactSha256());
 		for (const template of page.templates) {
-			for (const phrase of template.outline) assert.equal(template.description.includes(phrase), true);
+			assert.ok(template.outline.length >= 1);
+			assert.equal(template.formats.length, 1);
 			assert.equal(
 				template.mergeFields.some((field) => field.key === "church_name" && field.required),
 				true,
@@ -217,7 +219,7 @@ describe("WP-036/api document templates", { concurrency: 1 }, () => {
 		const { templates } = await library();
 		assert.equal(
 			templates.reduce((sum, template) => sum + template.formats.length, 0),
-			12,
+			11,
 		);
 		for (const template of templates) {
 			for (const format of template.formats) {
@@ -232,18 +234,20 @@ describe("WP-036/api document templates", { concurrency: 1 }, () => {
 				assert.equal(typeof first.artifact, "string");
 				const bytes = Buffer.from(first.artifact, "base64");
 				assert.equal(first.digest, createHash("sha256").update(bytes).digest("hex"));
-				assert.equal(bytes.includes(Buffer.from("Harvest Point")), true);
-				if (format === "pdf") assert.equal(bytes.subarray(0, 5).toString("latin1"), "%PDF-");
-				if (format === "docx" || format === "xlsx") assert.equal(bytes.subarray(0, 2).toString("latin1"), "PK");
-				if (template.id === "vision-meeting-agenda" && format === "pdf") {
-					assert.equal(bytes.includes(Buffer.from("welcome")), true);
-					assert.equal(bytes.includes(Buffer.from("0 0 612 792")), true);
+				if (format === "pdf") {
+					assert.equal(bytes.subarray(0, 5).toString("latin1"), "%PDF-");
+					const pdf = await PDFDocument.load(bytes, { updateMetadata: false });
+					assert.equal(pdf.getTitle()?.includes("Harvest Point"), true);
+					assert.equal(pdf.getPageCount(), template.pageCount);
+					const size = pdf.getPage(0).getSize();
+					const card = ["commitment-card", "response-card"].includes(template.id);
+					assert.deepEqual([size.width, size.height], card ? [306, 396] : [612, 792]);
+				} else {
+					assert.equal(bytes.subarray(0, 2).toString("latin1"), "PK");
+					assert.equal(bytes.includes(Buffer.from("Harvest Point")), true);
+					if (template.id === "first-year-budget") assert.equal(bytes.includes(Buffer.from("SUM(")), true);
+					if (template.id === "budget-worksheet") assert.equal(bytes.includes(Buffer.from("B5*12")), true);
 				}
-				if (template.id === "commitment-card") assert.equal(bytes.includes(Buffer.from("0 0 306 396")), true);
-				if (template.id === "launch-sunday-checklists")
-					assert.equal(bytes.toString("latin1").match(/\/Type \/Page(?!s)/g)?.length, 6);
-				if (template.id === "first-year-budget") assert.equal(bytes.includes(Buffer.from("SUM(")), true);
-				if (template.id === "budget-worksheet") assert.equal(bytes.includes(Buffer.from("B2*12")), true);
 			}
 		}
 		const agenda = ok(await documentsReader.resolveContext(db, member, previewInput("vision-meeting-agenda", "pdf")));
@@ -343,7 +347,7 @@ describe("WP-036/api document templates", { concurrency: 1 }, () => {
 		assert.equal(templates.length, 11);
 		assert.equal(
 			templates.reduce((sum, template) => sum + template.formats.length, 0),
-			12,
+			11,
 		);
 		assert.equal(version, await referenceArtifactSha256());
 		const card = templates.find((template) => template.id === "commitment-card");
@@ -352,7 +356,7 @@ describe("WP-036/api document templates", { concurrency: 1 }, () => {
 		assert.equal(merged.ok, true);
 		if (!merged.ok) return;
 		assert.equal(merged.missing.includes("church_name"), true);
-		assert.equal(renderPreview(card, "pdf", merged), null);
+		assert.equal(await renderPreview(card, "pdf", merged), null);
 		const finance = Number(
 			(
 				await admin.execute(

@@ -28,7 +28,7 @@
 		"typecheck": "tsc --noEmit",
 		"lint": "eslint --max-warnings=0 .",
 		"test": "tsx --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 test/*.test.ts",
-		"test:unit": "node --conditions=react-server --test ../../tests/integration/access/unit.test.mts",
+		"test:unit": "node --conditions=react-server --test ../../tests/integration/access/unit.test.mts && tsx --conditions=react-server --test ../../tests/integration/documents/engine.test.mts",
 		"test:operations": "node --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test ../../tests/integration/operations/*.test.mts",
 		"test:identity": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test ../../tests/integration/identity/*.test.mts",
 		"test:identity:production": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test ../../tests/integration/identity/timing.production.mts",
@@ -48,18 +48,24 @@
 		"migrate": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local scripts/migrate.ts"
 	},
 	"dependencies": {
-		"@everyfield/db": "workspace:*",
-		"zod": "4.6.7",
 		"@everyfield/contracts": "workspace:*",
+		"@everyfield/db": "workspace:*",
 		"@everyfield/reference": "workspace:*",
+		"@formepdf/core": "0.29.0",
+		"@formepdf/react": "0.29.0",
 		"better-auth": "1.7.10",
-		"server-only": "0.0.1"
+		"pdf-lib": "1.17.1",
+		"react": "19.3.1",
+		"server-only": "0.0.1",
+		"zod": "4.6.7"
 	},
 	"devDependencies": {
 		"@types/node": "^24",
-		"typescript": "6.0.3",
+		"@types/react": "19.3.0",
 		"eslint": "^9.39.0",
-		"typescript-eslint": "^8.57.0",
-		"tsx": "^4.21.0"
+		"exceljs": "4.4.0",
+		"tsx": "^4.21.0",
+		"typescript": "6.0.3",
+		"typescript-eslint": "^8.57.0"
 	}
 }

@@ -34,7 +34,13 @@ export const templateView = z.strictObject({
 	pageCount: z.int().min(1).max(20),
 	wikiSlug: z.string().min(1).max(200).nullable(),
 	mergeFields: z.array(mergeField).max(20),
-	outline: z.array(z.string().min(1).max(2000)).min(1).max(20),
+	documentClass: z.enum(["formal/legal", "outward-facing", "operational"]),
+	/** Page size in points: card 306 x 396, Letter 612 x 792. Null for a spreadsheet. */
+	pageSize: z.strictObject({ width: z.int().min(1), height: z.int().min(1) }).nullable(),
+	/** True when the output has fields a person fills in. */
+	fillable: z.boolean(),
+	/** The real section titles of the rebuilt document. */
+	outline: z.array(z.string().min(1).max(200)).min(1).max(20),
 });
 export const templatePage = z.strictObject({
 	version: sha256,
