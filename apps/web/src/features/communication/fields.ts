@@ -50,7 +50,7 @@ const meetingOnly = (token: string): MergeField | null => {
 	const key = token.replace(/^\{\{|\}\}$/g, "").trim();
 	return mergeFields.find((field) => field.needsMeeting && field.key === key) ?? null;
 };
-export const needsMeetingMarker = (field: MergeField) => `[${field.label} needs a meeting]`;
+const needsMeetingMarker = (field: MergeField) => `[${field.label} needs a meeting]`;
 
 /** The text beside a blocking field: names the missing meeting when the field is real, else asks to fix it. */
 export const fieldProblemText = (problem: string): string => {

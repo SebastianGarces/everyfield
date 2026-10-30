@@ -15,7 +15,7 @@ const earliestSendAt = (now: number): string =>
 
 type Scheduled = { communicationId: string; revision: string; scheduledAt: string };
 
-export type SendNowSteps = {
+type SendNowSteps = {
 	/** Save and schedule a draft in one transaction, or schedule a reviewed message. */
 	schedule: (at: string) => Promise<Outcome<Scheduled>>;
 	/** Hand the new revision to the provider. */
