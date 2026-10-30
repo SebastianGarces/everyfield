@@ -74,6 +74,73 @@ async function up() {
 		if (r.status !== "ok") throw Error("schedule flow: " + JSON.stringify(r));
 		flow[engine] = r.value.meeting.id;
 	}
+	// WP-020/ui Kit tab fill height: per engine one Vision meeting with the reviewed kit, and one more that is cancelled.
+	const kit: Record<string, { open: string; cancelled: string }> = {};
+	for (const engine of ["chromium", "webkit"]) {
+		const made: string[] = [];
+		for (const cancel of [false, true]) {
+			const s = await runtime.transaction((tx) =>
+				meetingsWriter.schedule(tx as never, ctx, {
+					requestKey: randomUUID(),
+					input: { type: "vision_meeting", date, time: "18:30", guests: [] },
+				}),
+			);
+			if (s.status !== "ok") throw Error("schedule kit: " + JSON.stringify(s));
+			const k = await runtime.transaction((tx) =>
+				meetingsWriter.populateKit(tx as never, ctx, {
+					requestKey: randomUUID(),
+					expectedRevision: s.value.meeting.revision,
+					input: { meetingId: s.value.meeting.id },
+				}),
+			);
+			if (k.status !== "ok") throw Error("populate kit: " + JSON.stringify(k));
+			if (cancel) {
+				const c = await runtime.transaction((tx) =>
+					meetingsWriter.changeStatus(tx as never, ctx, {
+						requestKey: randomUUID(),
+						expectedRevision: k.value.meeting.revision,
+						input: { meetingId: s.value.meeting.id, to: "cancelled" },
+					}),
+				);
+				if (c.status !== "ok") throw Error("cancel kit: " + JSON.stringify(c));
+			}
+			made.push(s.value.meeting.id);
+		}
+		kit[engine] = { open: made[0]!, cancelled: made[1]! };
+	}
+	// The owner's own Person, so the state meetings show the viewer's invitation banner.
+	const ownerRow = await admin.execute(
+		sql`SELECT id FROM person WHERE linked_account_id = ${people.owner.accountId}::uuid AND state = 'live' LIMIT 1`,
+	);
+	const ownerPerson = ownerRow.rows[0]!.id as string;
+	// WP-020/ui default tab and check-in state: per engine one ready Vision meeting with guests, and one completed.
+	const state: Record<string, { ready: string; completed: string }> = {};
+	for (const engine of ["chromium", "webkit"]) {
+		const made: string[] = [];
+		for (const path of [["ready"], ["in_progress", "completed"]] as const) {
+			const s = await runtime.transaction((tx) =>
+				meetingsWriter.schedule(tx as never, ctx, {
+					requestKey: randomUUID(),
+					input: { type: "vision_meeting", date, time: "18:30", guests: [...guests, ownerPerson] },
+				}),
+			);
+			if (s.status !== "ok") throw Error("schedule state: " + JSON.stringify(s));
+			let revision = s.value.meeting.revision;
+			for (const to of path) {
+				const c = await runtime.transaction((tx) =>
+					meetingsWriter.changeStatus(tx as never, ctx, {
+						requestKey: randomUUID(),
+						expectedRevision: revision,
+						input: { meetingId: s.value.meeting.id, to },
+					}),
+				);
+				if (c.status !== "ok") throw Error(`status ${to}: ` + JSON.stringify(c));
+				revision = c.value.meeting.revision;
+			}
+			made.push(s.value.meeting.id);
+		}
+		state[engine] = { ready: made[0]!, completed: made[1]! };
+	}
 	const o = await runtime.transaction((tx) =>
 		meetingsWriter.schedule(tx as never, ctx, {
 			requestKey: randomUUID(),
@@ -86,6 +153,8 @@ async function up() {
 		links,
 		past,
 		flow,
+		kit,
+		state,
 		orientationId: o.value.meeting.id,
 	});
 	await env.close();
