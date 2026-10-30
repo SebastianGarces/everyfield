@@ -17,7 +17,7 @@
     {
       "id": "commitment-card",
       "title": "Core Group Commitment Card",
-      "class": "operational",
+      "class": "outward-facing",
       "editable": false,
       "formats": [
         "pdf"
@@ -30,7 +30,7 @@
     {
       "id": "response-card",
       "title": "Response Card",
-      "class": "operational",
+      "class": "outward-facing",
       "editable": false,
       "formats": [
         "pdf"
