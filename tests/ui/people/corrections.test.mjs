@@ -137,14 +137,15 @@ for (const [name, engine] of ENGINES) {
 			await record.getByRole("button", { name: "Save assessment", exact: true }).click();
 			await record.waitFor({ state: "detached", timeout: 30_000 });
 
-			// Edit it: one criterion changes, the reason stays blank.
+			// Edit it: one score changes, the reason stays blank.
 			await page.getByRole("button", { name: "More actions" }).click();
 			await page.getByRole("menuitem", { name: "Edit a record", exact: true }).click();
-			const dialog = page.getByRole("dialog", { name: "Edit a record" });
+			const dialog = page.getByRole("dialog");
 			await dialog.getByRole("button", { name: /Edit$/ }).first().click();
 			const reason = dialog.getByLabel("Reason for change");
 			assert.equal(await reason.inputValue(), "");
-			await dialog.getByRole("radiogroup").first().getByRole("radio", { name: "Concern" }).click();
+			await dialog.getByRole("combobox").first().click();
+			await page.getByRole("option", { selected: false }).first().click();
 			await dialog.getByRole("button", { name: "Save changes", exact: true }).click();
 			await dialog.getByText("Changes saved").waitFor({ timeout: 30_000 });
 
@@ -156,7 +157,7 @@ for (const [name, engine] of ENGINES) {
 			// The list marks the record as edited once.
 			await dialog.getByRole("button", { name: "Edit another record" }).click();
 			await dialog.getByText("Edited once").waitFor();
-			await dialog.getByRole("button", { name: "Close", exact: true }).click();
+			await dialog.getByRole("button", { name: "Close", exact: true }).last().click();
 			await page.getByRole("dialog").waitFor({ state: "detached" });
 		});
 	});
