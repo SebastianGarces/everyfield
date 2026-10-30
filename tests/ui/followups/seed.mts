@@ -119,7 +119,7 @@ async function up() {
 		       (${plant.id},'Call Leo back','follow_up','medium','not_started',clock_timestamp(),'undated',${people.people["Leo Pratt"]},${departed})`);
 
 	// An assignee who cannot own follow-ups (REQ-TSK-012, WP-023 F07): Tomas Weaver holds a Member seat but has no
-	// Person linked to his account, so he is not an eligible owner, and he holds an open follow-up for Kim Wu. Every
+	// Person linked to his account, so he is not an eligible owner, and he holds an open follow-up for Ana Lee. Every
 	// screen shows him as "Tomas Weaver · Can't own follow-ups: no linked Person". Assignment refuses him; the seed
 	// writes the task directly, as a demotion or an unlinked Person would have left it.
 	const user = randomUUID();
@@ -132,13 +132,14 @@ async function up() {
 		VALUES(${tomas},${plant.id},'member',clock_timestamp())`);
 	const kim = randomUUID();
 	await admin.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,person_id,assignee_id,creator_id)
-		VALUES (${kim},${plant.id},'Check in with Kim Wu','follow_up','medium','not_started',clock_timestamp(),'undated',${people.people["Kim Wu"]},${tomas},${owner})`);
+		VALUES (${kim},${plant.id},'Check in with Ana Lee','follow_up','medium','not_started',clock_timestamp(),'undated',${people.people["Ana Lee"]},${tomas},${owner})`);
 
 	// One Person with two open follow-ups owned by the Member: a Vision follow-up and one added by hand. One contact
 	// recorded with "done" finishes both (D-c).
 	const noraId = randomUUID();
-	await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,stage,source)
-		VALUES(${noraId},${plant.id},${plant.id},'Nora Finch','attendee','other')`);
+	await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,
+		commitment_state,pipeline_position,state,created_at)
+		VALUES(${noraId},${plant.id},${plant.id},'Nora Finch','other','attendee','unknown','unknown',0,'live',clock_timestamp())`);
 	const noraVision = await vision("Vision meeting #10", 50, noraId, member);
 	const noraManual = randomUUID();
 	await admin.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,person_id,assignee_id,creator_id)

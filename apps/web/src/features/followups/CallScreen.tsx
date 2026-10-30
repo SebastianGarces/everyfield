@@ -128,10 +128,14 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 									{task.overdue ? `Overdue · due ${due}` : `Due ${due}`}
 								</StatusBadge>
 							) : null}
-							{owner ? (
-								<StatusBadge status={owner.eligible ? "measured" : "attention"} size="sm" plain>
+							{owner && owner.eligible ? (
+								<StatusBadge status="measured" size="sm" plain>
 									Assigned to {ownerText(owner)}
 								</StatusBadge>
+							) : owner ? (
+								<span className="text-sm font-medium text-ink [overflow-wrap:anywhere]">
+									Assigned to {ownerText(owner)}
+								</span>
 							) : (
 								<StatusBadge status="attention" size="sm">
 									Needs owner
@@ -141,6 +145,7 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 								<AssignMenu
 									duty={dutyFrom(task)}
 									lane={lane}
+									showOwner={false}
 									canAssign
 									onChange={(d) =>
 										setCall((c) => ({

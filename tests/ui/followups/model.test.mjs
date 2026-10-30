@@ -168,7 +168,10 @@ test("AC:TARGET-TSK-012 AC:TARGET-MTG-022 one wording for an owner, an origin an
 		"Tomas Weaver · Can't own follow-ups: Person not in a core group, launch team or leader stage",
 	);
 	assert.equal(ownerText(null), "Needs owner");
-	assert.equal(originText({ kind: "meeting", meeting: { id: "m", label: "Vision Meeting #4" } }), "After Vision Meeting #4");
+	assert.equal(
+		originText({ kind: "meeting", meeting: { id: "m", label: "Vision Meeting #4" } }),
+		"After Vision Meeting #4",
+	);
 	assert.equal(originText({ kind: "added", by: "Ruth Allen" }), "Added by Ruth Allen");
 	// Correct attendance offers the eligible owner holding most of the meeting's open follow-ups; a tie goes to the
 	// newest (the list is newest first); no eligible owner reads Needs owner.

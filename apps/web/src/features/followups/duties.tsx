@@ -85,6 +85,7 @@ export function AssignMenu({
 	duty,
 	lane,
 	canAssign,
+	showOwner = true,
 	onChange,
 	onSaved,
 	onConflict,
@@ -92,6 +93,8 @@ export function AssignMenu({
 	duty: DutyItem;
 	lane: SaveIntent;
 	canAssign: boolean;
+	/** Name an assignee who cannot own follow-ups beside Reassign; false where the screen already names them. */
+	showOwner?: boolean;
 	/** The follow-up as shown: at once when chosen, again from the server's answer, or back on a refusal. */
 	onChange: (duty: DutyItem) => void;
 	/** The server confirmed the change, from `before` to the saved follow-up. Totals update from this, never earlier. */
@@ -135,7 +138,7 @@ export function AssignMenu({
 	}
 	return (
 		<span className="inline-flex flex-wrap items-center justify-end gap-x-2 max-app-sm:justify-start">
-			{ineligible ? <span className="text-sm text-text-2">{label}</span> : null}
+			{ineligible && showOwner ? <span className="text-sm text-text-2">{label}</span> : null}
 			<Menu open={open} onOpenChange={setOpen}>
 				<MenuTrigger asChild>
 					<Button
