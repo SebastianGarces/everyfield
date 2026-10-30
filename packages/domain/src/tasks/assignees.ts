@@ -4,8 +4,7 @@ import "server-only";
 import { z } from "zod";
 
 /** One assignee of a task as a read returns it. `seated` is whether the account still holds a seat in the church. */
-export const assigneeRow = z.object({ accountId: z.uuid(), displayName: z.string(), seated: z.boolean() });
-export type AssigneeRow = z.infer<typeof assigneeRow>;
+const assigneeRow = z.object({ accountId: z.uuid(), displayName: z.string(), seated: z.boolean() });
 /** Every list of people reads in the same order: display name without case, then account ID (D-b). */
 export const sortPeople = <T extends { accountId: string; displayName: string }>(people: readonly T[]): T[] =>
 	[...people].sort((a, b) => {
