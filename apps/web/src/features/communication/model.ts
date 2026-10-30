@@ -296,7 +296,7 @@ export type SavedResend = {
 	eligibleNames: string[];
 };
 
-export const contactOutcomes = [
+const contactOutcomes = [
 	"contacted",
 	"attempted_no_contact",
 	"administrative_completion",
