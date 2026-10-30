@@ -1207,7 +1207,6 @@
 				"tests/workflow/",
 				"tools/evf/",
 				".agents/skills/portless-preview/",
-				"apps/web/README.md",
 				"evf.config.json",
 				"docs/build-agent-workflow.md"
 			],

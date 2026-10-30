@@ -77,8 +77,10 @@ export function maintenanceScope(checkout: string, task: TaskRef, rev = "HEAD"):
 		"bin/evf",
 		"everyfield-feature-review.html",
 		"design/handoff/screens.md",
+		"scripts/preview.json",
+		"scripts/stack.mjs",
 	];
-	const directories = [".agents/", ".claude/", "docs/", "tools/evf/", "tools/evf-tui/", ".github/"];
+	const directories = [".agents/", ".claude/", "docs/", "tools/evf/", "tools/evf-tui/", "tests/workflow/", ".github/"];
 	if (scope.route === "design") {
 		if (scope.owningPaths.some((path) => !path.startsWith("design/") || path.split("/").includes("..")))
 			fail("A design task owns only design/ paths.");

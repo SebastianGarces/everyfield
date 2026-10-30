@@ -894,6 +894,11 @@ test("BUG-c048ea5-folder-path: maintenance refuses an existing folder without a 
 			"apps/web/src/app/page.tsx",
 			"design/handoff/",
 			"design/handoff/export.py",
+			"apps/web/README.md",
+			"packages/ui/src/index.ts",
+			"scripts/seed.mjs",
+			"scripts/",
+			"tests/ui/",
 		]) {
 			f.cfg.maintenanceTasks[task.id].owningPaths = [path];
 			writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
@@ -906,6 +911,10 @@ test("BUG-c048ea5-folder-path: maintenance refuses an existing folder without a 
 		for (const path of [
 			"docs/tooling/",
 			"tools/evf-tui/",
+			"scripts/preview.json",
+			"scripts/stack.mjs",
+			"tests/workflow/",
+			"tests/workflow/stack.test.mjs",
 			"AGENTS.md",
 			"everyfield-feature-review.html",
 			"design/handoff/screens.md",

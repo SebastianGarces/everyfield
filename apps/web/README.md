@@ -87,10 +87,6 @@ application acceptance. Open the returned URL in a browser and exercise the task
 Use `portless preview logs ID` to investigate a failed start. When called by evf, the
 commands also keep its `EVF_RUNTIME_DIR/stack.json` receipt current and clear it on down.
 
-Each preview sets `IDENTITY_ORIGIN` to its own URL through `scripts/preview.json`
-(`${PREVIEW_URL}`), so sign-in works on any new preview ID without env file edits. A preview
-started before this change keeps its old env until you run `stack:down` and `stack:up`.
-
 The configuration lives in `scripts/preview.json`, so no `evf.config.json` change is
 needed to run these commands. A separate reviewed OPS task wires the up/status/down
 commands and checks into evf after this producer ships. Its stack commands are
