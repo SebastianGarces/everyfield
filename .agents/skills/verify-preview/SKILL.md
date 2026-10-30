@@ -75,6 +75,7 @@ node $S/preview.mjs --main        # before: current origin/main, the same way
 Each prints `{id, url, head}`. Both are production builds of a clean commit with a two-hour lease.
 `preview.mjs` builds the preview env from the main checkout's `apps/web/.env.local` and lays the
 worktree's own `apps/web/.env.local` over it, so a `tests/ui` seed's `IDENTITY_*` values reach the preview.
+`IDENTITY_ORIGIN` is the exception: it is always `${PREVIEW_URL}` unless an explicit `--config` sets it.
 It only reads the worktree's file and never creates, edits or deletes it. It writes the composed env to a
 mode 0600 config outside the repository, prints no value and refuses to start when the composed
 `DATABASE_URL` is not the shared development database.
