@@ -90,35 +90,34 @@ const interviewValues = (r: Interview): InterviewValues => ({
 });
 
 /**
- * Correct a record (REQ-PPL-015, a flow the prototype does not draw). One dialog lists the person's 4 C's
- * assessments, interviews and commitment cards; choosing one opens its values to correct, with a required reason and
- * the corrections already made to it (old value, new value, who and why). Only changed fields are sent. The recorder,
- * the recorded time, the witness and the document never change, and the stage never moves. Each correction is one
+ * Edit a record (REQ-PPL-015, a flow the prototype does not draw). One dialog lists the person's 4 C's
+ * assessments, interviews and commitment cards; choosing one opens its values to edit, with an optional reason and
+ * the changes already made to it (old value, new value, who and why when given). Only changed fields are sent. The
+ * recorder, the recorded time, the witness and the document never change, and the stage never moves. Each edit is one
  * intent with one request key: a retry after a lost answer replays, and a refusal after a lost answer reads the record
- * again before the dialog says whether the correction was saved.
+ * again before the dialog says whether the edit was saved.
  */
-export function CorrectRecordDialog({
+export function EditRecordDialog({
 	person,
 	store,
 	accountId,
 	onClose,
-	onCorrected,
+	onEdited,
 }: {
 	person: PlantPerson;
 	store: PersonStore<PlantPerson, PersonDraft>;
 	accountId: string;
 	onClose: () => void;
-	/** A saved correction: Activity adds its entry. */
-	/** A saved correction: its card shows the record as saved now, and Activity adds its entry when the receipt is known. */
-	onCorrected: (receipt: Receipt | null, corrected: Chosen) => void;
+	/** A saved edit: its card shows the record as saved now, and Activity adds its entry when the receipt is known. */
+	onEdited: (receipt: Receipt | null, corrected: Chosen) => void;
 }) {
 	const [records, setRecords] = useState<Outcome<Records> | null>(null);
 	const [chosen, setChosen] = useState<{ type: RecordType; id: string } | null>(null);
-	const [saved, setSaved] = useState<{ type: RecordType; id: string } | null>(null);
+	const [saved, setSaved] = useState<{ type: RecordType; id: string; reasoned: boolean } | null>(null);
 	const [reason, setReason] = useState("");
 	const [pending, setPending] = useState(false);
 	const seq = useRef(0);
-	// Corrections whose answer was lost. Only a server answer may say what happened, never a failed read.
+	// Edits whose answer was lost. Only a server answer may say what happened, never a failed read.
 	const errors = useStore(store).errors;
 	const uncertain = new Set(
 		Object.entries(errors).flatMap(([k, v]) => (k.startsWith("correct:") && v === "lost" ? [k.slice(8)] : [])),
@@ -160,7 +159,7 @@ export function CorrectRecordDialog({
 				<DialogHeader
 					icon={FileEditIcon}
 					tone="violet"
-					title={current ? `Correct the ${TYPE_NAME[current.type]}` : "Correct a record"}
+					title={current ? `Edit the ${TYPE_NAME[current.type]}` : "Edit a record"}
 					description={
 						current ? (
 							<>
@@ -186,9 +185,9 @@ export function CorrectRecordDialog({
 							<Problem>
 								{records.status === "lost"
 									? uncertain.size
-										? "The records did not load, so this page cannot tell whether your last correction was saved. Try again to see the current values."
+										? "The records did not load, so this page cannot tell whether your last edit was saved. Try again to see the current values."
 										: "The records did not load. Try again in a moment."
-									: "You cannot correct these records. Only Owners and Admins can; your seat may have changed."}
+									: "You cannot edit these records. Only Owners and Admins can; your seat may have changed."}
 							</Problem>
 						</DialogBody>
 						<DialogFooter>
@@ -209,7 +208,7 @@ export function CorrectRecordDialog({
 				) : saved && current ? (
 					<>
 						<DialogBody>
-							<SavedNote type={saved.type} />
+							<SavedNote type={saved.type} reasoned={saved.reasoned} />
 							<History
 								corrections={list.corrections.filter((c) => c.recordId === saved.id)}
 								accountId={accountId}
@@ -218,7 +217,7 @@ export function CorrectRecordDialog({
 						</DialogBody>
 						<DialogFooter>
 							<Button variant="secondary" onClick={back}>
-								Correct another record
+								Edit another record
 							</Button>
 							<Button variant="primary" onClick={onClose}>
 								Done
@@ -226,7 +225,7 @@ export function CorrectRecordDialog({
 						</DialogFooter>
 					</>
 				) : current ? (
-					<CorrectionForm
+					<EditForm
 						key={current.record.id}
 						chosen={current}
 						person={person}
@@ -258,9 +257,9 @@ export function CorrectRecordDialog({
 									corrections: correction ? [correction, ...list.corrections] : list.corrections,
 								},
 							});
-							setSaved({ type: next.type, id: next.record.id });
+							setSaved({ type: next.type, id: next.record.id, reasoned: Boolean(correction?.reason) });
 							setReason("");
-							onCorrected(receipt, next);
+							onEdited(receipt, next);
 						}}
 					/>
 				) : (
@@ -280,30 +279,30 @@ export function CorrectRecordDialog({
 	);
 }
 
-function SavedNote({ type }: { type: RecordType }) {
+function SavedNote({ type, reasoned }: { type: RecordType; reasoned: boolean }) {
 	const ref = useRef<HTMLDivElement>(null);
 	useEffect(() => ref.current?.focus(), []);
 	return (
 		<div ref={ref} tabIndex={-1} role="status" className="flex flex-col gap-2 outline-none">
 			<CalloutLabel tone="green" icon={Tick02Icon}>
-				Correction saved
+				Changes saved
 			</CalloutLabel>
 			<p className="text-sm">
-				The {TYPE_NAME[type]} shows the corrected values. Its original recorder and date recorded stay, and the stage
-				did not change. The history below keeps the old values and your reason.
+				The {TYPE_NAME[type]} shows the new values. Its original recorder and date recorded stay, and the stage did not
+				change. The history below keeps the old values{reasoned ? " and your reason" : ""}.
 			</p>
 		</div>
 	);
 }
 
-/** Every record the person has, grouped by kind. A voided card stays listed but cannot be corrected. */
+/** Every record the person has, grouped by kind. A voided card stays listed but cannot be edited. */
 function RecordList({
 	data,
 	uncertain,
 	onChoose,
 }: {
 	data: Records;
-	/** Records whose last correction got no answer: it may have been saved. */
+	/** Records whose last edit got no answer: it may have been saved. */
 	uncertain: ReadonlySet<string>;
 	onChoose: (type: RecordType, id: string) => void;
 }) {
@@ -337,12 +336,12 @@ function RecordList({
 	if (groups.every((g) => g.rows.length === 0))
 		return (
 			<p className="py-6 text-center text-text-3">
-				No 4 C&rsquo;s assessments, interviews or commitment cards are recorded yet, so there is nothing to correct.
+				No 4 C&rsquo;s assessments, interviews or commitment cards are recorded yet, so there is nothing to edit.
 			</p>
 		);
 	return (
 		<div className="flex flex-col gap-5">
-			<p className="text-sm">Choose the record to correct. Only its values change; who recorded it and when stay.</p>
+			<p className="text-sm">Choose the record to edit. Only its values change; who recorded it and when stay.</p>
 			{groups
 				.filter((g) => g.rows.length)
 				.map((g) => (
@@ -372,16 +371,16 @@ function RecordList({
 												</span>
 												{uncertain.has(r.id) ? (
 													<span className="mt-0.5 block text-sm text-amber-600">
-														Your last correction got no answer and may be saved. Open it to check the values.
+														Your last edit got no answer and may be saved. Open it to check the values.
 													</span>
 												) : null}
 											</span>
 											{n ? (
 												<StatusBadge status="unknown" size="sm">
-													{n === 1 ? "Corrected once" : `Corrected ${n} times`}
+													{n === 1 ? "Edited once" : `Edited ${n} times`}
 												</StatusBadge>
 											) : null}
-											{r.voided ? null : <span className="text-sm font-medium text-ink-2">Correct</span>}
+											{r.voided ? null : <span className="text-sm font-medium text-ink-2">Edit</span>}
 										</button>
 									</li>
 								);
@@ -411,7 +410,7 @@ type FormProps = {
 	onSaved: (next: Chosen, correction: Correction | null, receipt: Receipt | null) => void;
 };
 
-function CorrectionForm(props: FormProps) {
+function EditForm(props: FormProps) {
 	const { chosen } = props;
 	if (chosen.type === "assessment") return <AssessmentForm {...props} chosen={chosen} />;
 	if (chosen.type === "interview") return <InterviewForm {...props} chosen={chosen} />;
@@ -420,7 +419,7 @@ function CorrectionForm(props: FormProps) {
 
 /**
  * The save shared by the three forms. `changes` is what differs from the record; `apply` is the record with the
- * changes, as the server holds it after a saved correction.
+ * changes, as the server holds it after a saved edit.
  */
 function useCorrection(
 	props: FormProps,
@@ -431,7 +430,6 @@ function useCorrection(
 	const { chosen, person, store, reason } = props;
 	const [problem, setProblem] = useState<{ n: number; text: string; tone?: "info" } | null>(null);
 	const say = (p: { text: string; tone?: "info" }) => setProblem((old) => ({ ...p, n: (old?.n ?? 0) + 1 }));
-	const [touched, setTouched] = useState(false);
 	const [pending, setPending] = useState(false);
 	const lost = useRef(false);
 	const slot = `correct:${chosen.record.id}`;
@@ -442,14 +440,12 @@ function useCorrection(
 
 	async function save(event: React.FormEvent) {
 		event.preventDefault();
-		setTouched(true);
 		if (!Object.keys(changes).length) return say({ text: "Change at least one value first. Nothing was sent." });
-		if (!reason.trim()) return;
 		const input = {
 			recordType: chosen.type,
 			personId: person.id,
 			recordId: chosen.record.id,
-			reason: reason.trim(),
+			reason: reason.trim() || undefined,
 			changes,
 		};
 		const rev = chosen.record.revision;
@@ -474,7 +470,7 @@ function useCorrection(
 				recordId: chosen.record.id,
 				correctedAt: r.value.receipt.at,
 				actor: { kind: "current_account", accountId: props.accountId } as Correction["actor"],
-				reason: input.reason,
+				reason: input.reason ?? null,
 				changes: Object.keys(changes).map((field) => ({
 					field,
 					old: (chosen.record as Record<string, unknown>)[field] ?? null,
@@ -491,7 +487,7 @@ function useCorrection(
 			});
 		}
 		if (r.code === "conflict") {
-			// The record changed since the form opened, perhaps by this correction's own earlier attempt.
+			// The record changed since the form opened, perhaps by this edit's own earlier attempt.
 			const fresh = await props.reload();
 			busy(false);
 			const draft = apply();
@@ -504,7 +500,7 @@ function useCorrection(
 			if (fresh) reset(fresh);
 			return say({
 				text: fresh
-					? "This record changed since you opened it. The form now shows its current values; your reason is kept. Check them, then save again."
+					? `This record changed since you opened it. The form now shows its current values${reason.trim() ? "; your reason is kept" : ""}. Check them, then save again.`
 					: "This record changed or moved to another person since you opened it. Close this and open the person again.",
 			});
 		}
@@ -514,11 +510,11 @@ function useCorrection(
 				r.code === "invalid_input"
 					? "Some values are not valid. A date cannot be later than today in your church's time zone."
 					: r.code === "invalid_subject"
-						? "This card was voided, so it cannot be corrected. It stays in the history."
-						: "You cannot correct this record. Only Owners and Admins can; your seat may have changed.",
+						? "This card was voided, so it cannot be edited. It stays in the history."
+						: "You cannot edit this record. Only Owners and Admins can; your seat may have changed.",
 		});
 	}
-	return { save, problem, touched, pending };
+	return { save, problem, pending };
 }
 
 function Frame({
@@ -547,11 +543,7 @@ function Frame({
 					</Button>
 				</div>
 				{children}
-				<Field
-					label="Reason for the correction"
-					hint="Your reason is saved in this person's history."
-					error={state.touched && !reason.trim() ? "Give a reason." : null}
-				>
+				<Field label="Reason for change" optional hint="It stays in this person's history.">
 					<Textarea
 						rows={2}
 						maxLength={2000}
@@ -576,7 +568,7 @@ function Frame({
 					Back
 				</Button>
 				<Button variant="primary" type="submit" loading={state.pending}>
-					Save correction
+					Save changes
 				</Button>
 			</DialogFooter>
 		</form>
@@ -693,7 +685,7 @@ function InterviewForm(props: FormProps & { chosen: Extract<Chosen, { type: "int
 					onValueChange={(v) => setDraft({ ...draft, result: v as InterviewValues["result"] })}
 				/>
 			</Field>
-			<p className="-mt-3 text-xs text-text-3">Correcting the result never changes the stage.</p>
+			<p className="-mt-3 text-xs text-text-3">Editing the result never changes the stage.</p>
 			<Field label="Next steps" optional>
 				<Textarea
 					rows={2}
@@ -721,8 +713,8 @@ function CommitmentForm(props: FormProps & { chosen: Extract<Chosen, { type: "co
 	return (
 		<Frame props={props} state={state}>
 			<p className="text-sm">
-				{KIND[record.kind]}, signed <LocalDay day={record.occurredOn} />. Here you correct its notes. The card&rsquo;s
-				date and kind are corrected on the card itself, and its witness and document never change.
+				{KIND[record.kind]}, signed <LocalDay day={record.occurredOn} />. Here you edit its notes. The card&rsquo;s date
+				and kind change on the card itself, and its witness and document never change.
 			</p>
 			<Field label="Notes" optional>
 				<Textarea
@@ -737,13 +729,13 @@ function CommitmentForm(props: FormProps & { chosen: Extract<Chosen, { type: "co
 	);
 }
 
-/** The corrections already made to one record: old value, new value, who and why, latest first. */
+/** The changes already made to one record: old value, new value, who and why when given, latest first. */
 function History({ corrections, accountId, open }: { corrections: Correction[]; accountId: string; open?: boolean }) {
 	if (!corrections.length) return null;
 	return (
 		<details open={open} className="group rounded-md bg-surface px-4 py-3">
 			<summary className="cursor-pointer text-sm font-semibold text-ink">
-				Corrections to this record ({corrections.length})
+				Changes to this record ({corrections.length})
 			</summary>
 			<ol className="mt-2 flex flex-col">
 				{corrections.map((c) => (
