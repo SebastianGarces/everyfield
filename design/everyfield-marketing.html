@@ -24,14 +24,11 @@
     EvryBot                                 from design/everyfield-ui.html (round-buffalo)
 
   The home hero animation is built (heroSlot, haRender). EFHero.seek(ms) renders one loop time for review.
-  The week chapter (#week) and the Plant Intelligence chapter (#intelligence) share one engine (chapterSection, cxRender).
-  The week chapter pins to scroll. Plant Intelligence (Revision 10) is an auto-advancing tab list (autoSection, cxAutoGo); Revision 11 dividers fill left to right.
-  Revision 19: the sending churches and networks section (#sending) is a third chapter on the same engine: the auto list, mirrored (panel left, list right).
-  EFChapters.seek(id, step, ms) renders one panel frame for review.
+  The week chapter on #/planters (chapterSection, cxRender) pins to scroll. EFChapters.seek(id, step, ms) renders one panel frame for review.
   OPS-82 (Sebastian's picks, Oct 30 2026): home and /oversight follow the live order and copy, without app UI below the vision
   section. Home merges the week and intelligence sections into one EvryBot path (journeySection), Evry is three cards (evryCards)
   and the sending section is a 2x2 grid of frosted cards (sendingSection). The sending-church sections never show Evry.
-  Its copy is COPY.shared.ops82 and shared.oversight_page. The week and intelligence chapter engines still serve #/planters.
+  Its copy is COPY.shared.ops82 and shared.oversight_page.
 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -244,8 +241,6 @@
 .ef .cell-sub { font-size: 12px; color: var(--ef-text-3); margin-top: 2px; }
 .ef .callout { display: flex; gap: 10px; align-items: flex-start; background: var(--ef-surface-raised); border-radius: var(--corner-card); padding: 12px 14px; font-size: 13px; color: var(--ef-ink-2); box-shadow: 0 0 0 1px var(--ef-line) inset; margin-top: 14px; }
 .ef .lens { background: var(--ef-surface-raised); border-radius: var(--corner-card); padding: 13px 14px; box-shadow: 0 0 0 1px var(--ef-line) inset; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-.ef .lens-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.ef .lens-name { font-weight: 600; font-size: 13px; }
 .ef .lens-note { font-size: 12px; color: var(--ef-text-3); line-height: 1.35; }
 
 /* =====================================================================
@@ -391,13 +386,6 @@
 .lens-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
 .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
 .sign-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 14px; }
-.share-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 0; border-top: 1px solid var(--ef-line); font-size: 13.5px; }
-.share-row:first-child { border-top: 0; }
-.sw { width: 36px; height: 22px; border-radius: var(--corner-pill); background: var(--ef-surface-2); position: relative; flex: none; box-shadow: 0 0 0 1px var(--ef-line) inset; }
-.sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
-.sw[data-on] { background: var(--ef-green-500); }
-.sw[data-on]::after { left: 17px; }
-.sw[data-lock] { opacity: .6; }
 
 /* =====================================================================
    Marketing site. Reads only --mk-* tokens, so one body class restyles it.
@@ -926,7 +914,6 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .cx-bg { position: absolute; inset: 0; z-index: -1; opacity: 0; will-change: opacity; }
 .cx-card { position: relative; grid-area: 1 / 1; width: min(400px, calc(100% - 48px)); padding: 18px 20px 20px; border-radius: var(--corner-card); background: #FFFFFF; opacity: 0;
   box-shadow: 0 0 0 1px rgba(24, 29, 25, .05), 0 1px 2px rgba(24, 29, 25, .05), 0 26px 50px -26px rgba(24, 29, 25, .4); will-change: transform, opacity; }
-.cx-card.insight { background: var(--g-base); padding: 22px 24px; }
 .cx-card [data-st], .cx-card .cx-st { will-change: transform, opacity; }
 .cx-h { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
 .cx-h .card-icon { width: 36px; height: 36px; }
@@ -940,14 +927,10 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .cx-rows .num { font-size: 17px; margin-left: auto; font-variant-numeric: tabular-nums; }
 .cx .ha-meter { height: 8px; margin-top: 5px; }
 .cx-ins { margin-top: 14px; font-size: 13px; font-weight: 600; opacity: 0; will-change: transform, opacity; }
-.cx-hl { position: absolute; inset: 2px -10px; border-radius: var(--corner-card); background: var(--ef-surface-2); opacity: 0; z-index: -1; }
 .cx-card .list-row { position: relative; isolation: isolate; }
 .cx-cur { position: absolute; left: 0; top: 0; z-index: 8; width: 22px; height: 22px; margin: -3px 0 0 -5px; opacity: 0; pointer-events: none; transform-origin: 5px 3px; will-change: transform, opacity; }
 .cx-cur svg { position: relative; z-index: 1; width: 22px; height: 22px; fill: #181D19; stroke: #FFFFFF; stroke-width: 1.4; filter: drop-shadow(0 2px 3px rgba(24, 29, 25, .35)); }
 .cx-ripple { position: absolute; left: -9px; top: -11px; width: 28px; height: 28px; border-radius: 50%; background: rgba(24, 29, 25, .18); opacity: 0; }
-.cx-swap { display: inline-grid; min-width: 0; }
-.cx-swap > * { grid-area: 1 / 1; min-width: 0; will-change: transform, opacity; }
-.cx-swap > :last-child { opacity: 0; }
 /* Revision 4 week steps: a small square icon before each title, on the step's photo crop (deeper overlay, cream icon) */
 .cx-tl { display: flex; align-items: flex-start; gap: 14px; }
 .cx-tl h3 { margin-top: 0; min-width: 0; }
@@ -978,7 +961,6 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .cx-l2 { display: block; font-size: 11.5px; font-weight: 500; color: var(--ef-text-3); margin-top: 1px; }
 .cx .ha-li.cx-fu { height: 50px; }
 .cx-fu .grow { min-width: 0; }
-.cx-fu .cx-swap { display: grid; }
 .cx-who { height: 26px; font-size: 12px; padding: 0 9px 0 3px; opacity: 0; will-change: transform, opacity; }
 .cx-who .ha-av { width: 20px; height: 20px; font-size: 8.5px; background: var(--ef-amber-100); color: var(--ef-amber-600); }
 .cx-draft { margin: 0 0 8px 32px; padding: 10px 12px; border-radius: var(--corner-card); background: var(--ef-surface); box-shadow: inset 0 0 0 1px var(--ef-line); font-size: 12.5px; line-height: 1.45; color: var(--ef-ink-2); opacity: 0; transform-origin: 50% 0; will-change: transform, opacity; }
@@ -990,7 +972,6 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .cx-shell, .cx-shade { position: absolute; inset: 0; z-index: -1; border-radius: var(--corner-card); pointer-events: none; }
 .cx-shell { background: #FFFFFF; will-change: clip-path; }
 .cx-shade { box-shadow: 0 0 0 1px rgba(24, 29, 25, .05), 0 1px 2px rgba(24, 29, 25, .05), 0 26px 50px -26px rgba(24, 29, 25, .4); transform-origin: 50% 0; will-change: transform; }
-.cx-dn .ha-acts .cx-swap { font-size: 12.5px; }
 /* Core team and launch team */
 .cx-team { margin-top: 12px; }
 .cx-team:first-of-type { margin-top: 0; }
@@ -1000,47 +981,14 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .cx-sublab + .list-row { border-top: 0; padding-top: 8px; }
 .cx-card .list-row .ha-av { width: 30px; height: 30px; font-size: 10.5px; flex: none; }
 .cx-fly { position: absolute; left: 0; top: 0; z-index: 7; opacity: 0; pointer-events: none; will-change: transform, opacity; }
-/* Plant Intelligence: focus */
-.cx-rt { position: relative; height: 8px; margin-top: 16px; border-radius: var(--corner-pill); background: rgba(24, 29, 25, .12); }
-.cx-rf { position: absolute; inset: 0 auto 0 0; width: 84.2%; border-radius: var(--corner-pill); background: #181D19; will-change: clip-path; }
-.cx-rm { position: absolute; top: -5px; bottom: -5px; right: 0; width: 2px; border-radius: 2px; background: #181D19; }
-.cx-rl { position: relative; height: 16px; margin-top: 8px; font-size: 12px; color: var(--on-3); }
-.cx-rl span { position: absolute; right: 0; white-space: nowrap; }
-.cx-flip2 { display: grid; margin-top: 10px; }
-.cx-flip2 > * { grid-area: 1 / 1; will-change: transform, opacity; }
-.cx-fact { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-top: 1px solid rgba(24, 29, 25, .1); font-size: 13px; color: var(--on-2); opacity: 0; will-change: transform, opacity; }
-.cx-fact:first-child { border-top: 0; }
-.cx-fact b { color: var(--on); font-weight: 600; }
-/* Plant Intelligence: facts */
-.cx-ringrow { display: flex; align-items: center; gap: 14px; padding: 4px 0 10px; }
 .cx-ring { width: 64px; height: 64px; flex: none; transform: rotate(-90deg); }
-.cx-ring circle { fill: none; stroke-width: 7; }
-.cx-ring .bg { stroke: var(--ef-surface-2); }
-.cx-ring .fg { stroke: var(--ef-amber-500); stroke-linecap: round; stroke-dasharray: 169.65; stroke-dashoffset: 169.65; }
-.cx-pct { font-size: 30px; line-height: 1; }
-.cx-pct.num { font-family: var(--mk-font-display); } /* 30px: Display; beats .ef .num (Text) */
 .cx-names { display: flex; flex-wrap: nowrap; gap: 6px; height: 30px; margin-top: 10px; overflow: hidden; }
 .cx-names .ha-chip { height: 28px; font-size: 12px; padding: 0 10px 0 4px; opacity: 0; will-change: transform, opacity; }
 .cx-names .ha-av { width: 20px; height: 20px; font-size: 9px; }
-/* Plant Intelligence: Evry */
-.cx-card.evry-panel { box-shadow: 0 0 0 1px rgba(24, 29, 25, .05), 0 26px 50px -26px rgba(24, 29, 25, .4); padding: 16px; gap: 10px; }
+/* Typed text in the week panels */
 .cx-tw { position: relative; display: block; }
 .cx-tw .cx-ghost { visibility: hidden; }
 .cx-tw .cx-typed { position: absolute; inset: 0; }
-.cx-card .bubble { font-size: 13px; }
-.cx-a, .cx-rvw { opacity: 0; will-change: transform, opacity; }
-.cx-card .review-card .rc-line { font-size: 12.5px; }
-/* Plant Intelligence: sharing */
-.cx-card .share-row { font-size: 13px; padding: 10px 0; position: relative; isolation: isolate; }
-.cx-sw { position: relative; width: 36px; height: 22px; flex: none; border-radius: var(--corner-pill); background: var(--ef-surface-2); box-shadow: 0 0 0 1px var(--ef-line) inset; overflow: hidden; }
-.cx-sw b { position: absolute; inset: 0; border-radius: var(--corner-pill); background: var(--ef-green-500); opacity: 0; }
-.cx-sw i { position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #FFFFFF; box-shadow: 0 1px 2px rgba(0, 0, 0, .2); will-change: transform; }
-.cx-sw[data-on] b { opacity: 1; }
-.cx-sw[data-on] i { transform: translateX(14px); }
-.cx-sw[data-lock] { opacity: .6; }
-.cx-prev { margin-top: 12px; padding: 12px 14px; border-radius: var(--corner-card); background: var(--ef-surface-2); }
-.cx-prev .row { margin-top: 6px; font-size: 13px; font-weight: 600; }
-.cx-prev .cx-swap { justify-items: end; }
 /* Mobile and tablet: panel above each step, no sticky */
 .cx-mob { display: none; }
 @media (max-width: 900px) {
@@ -1058,114 +1006,11 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 }
 @media (max-width: 640px) {
   .cx-card { padding: 16px 16px 18px; }
-  .cx-card.insight { padding: 18px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .cx-txt, .cx-num b { transition: none !important; }
   .cx-step:not(.on) .cx-txt { opacity: 1; }
   .cx-step.cx-rv .cx-txt > * { opacity: 1; transform: none; transition: none !important; }
-}
-/* Revision 10: Plant Intelligence (.cx-auto) is a compact list of tabs that advances by itself.
-   The panel is not sticky. Revision 11: a horizontal divider runs under each step; the active one fills left to right (scaleX, driven by cxFrame).
-   The week chapter does not use .cx-auto and keeps the pinned scroll layout above. */
-.cx-auto .cx-head { position: static; z-index: auto; padding-bottom: 0; border-bottom: 0; margin-bottom: clamp(28px, 3vw, 44px); max-width: 640px; }
-.cx-auto .cx-head::before, .cx-auto .cx-head::after { display: none; }
-.cx-auto .cx-grid { align-items: center; }
-.cx-auto .cx-steps { display: grid; gap: 0; }
-.cx-auto .cx-step { padding: 0; border-top: 0; }
-.cx-tab { position: relative; display: block; width: 100%; padding: 15px 0 17px; border: 0; border-radius: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
-.cx-tab:focus-visible { outline: 2px solid #181D19; outline-offset: 2px; }
-.cx-tab > .cx-txt, .cx-tab .cx-txt > * { display: block; }
-.cx-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; overflow: hidden; }
-.cx-bar::before { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: var(--mk-line); }
-.cx-bar i { position: absolute; inset: 0; border-radius: 2px; background: var(--mk-text); transform: scaleX(0); transform-origin: 0 50%; will-change: transform; }
-/* Revision 17: no number and label row; each step starts with its title. */
-.cx-auto .cx-step .h3 { margin-top: 0; font-size: var(--cx-h3); }
-.cx-auto .cx-p { margin-top: 8px; color: var(--mk-text-2); max-width: 46ch; }
-.cx-auto .cx-tab:hover .cx-txt { opacity: 1; }
-.cx-auto .cx-vis { position: relative; top: auto; height: 560px; min-height: 0; }
-/* Revision 17: without the label row the list is shorter; more padding on desktop keeps it close to the 560 px panel. */
-@media (min-width: 901px) { .cx-auto .cx-tab { padding: 31px 0 33px; } }
-@media (max-width: 900px) {
-  .cx-auto .cx-right { display: block; grid-column: 1 / -1; }
-  .cx-auto .cx-step:not(.on) .cx-txt { opacity: .32; }
-  .cx-auto .cx-vis { height: auto; min-height: 0; padding: 44px 16px 28px; border-radius: var(--corner-media); grid-template-columns: minmax(0, 1fr); }
-  .cx-auto .cx-card { width: min(400px, 100%); }
-}
-@media (prefers-reduced-motion: reduce) { .cx-auto .cx-step:not(.on) .cx-txt { opacity: .32; } }
-/* Revision 19: sending churches and networks (#sending). The same auto list, mirrored: the panel is on the left and the title, list,
-   privacy line and link are on the right (desktop). Mobile keeps the Plant Intelligence order: title and list, then the panel.
-   Panels rebuild parts of the dashboard Network Intelligence page: scope switch and areas, phase pipeline, lenses, top network finding. */
-@media (min-width: 901px) {
-  .cx-mirror .cx-left { grid-column: 8 / span 5; grid-row: 1; order: 2; }
-  .cx-mirror .cx-right { grid-column: 1 / span 6; grid-row: 1; order: 1; }
-  .cx-mirror .cx-tab { padding: 14px 0 16px; }
-}
-.cx-mirror .cx-left .cx-head { margin-bottom: clamp(14px, 1.6vw, 22px); }
-/* Revision 21: a small square arrow link after the title text. The h2 runs inline, so the link sits on the title's last line,
-   centred on that line. It is a link, not product UI, so it has no white ring. */
-.cx-head-link { font-size: var(--mk-fs-h2); line-height: calc(var(--mk-lh-display) + .04); white-space: nowrap; }
-.cx-head-link h2 { display: inline; white-space: normal; }
-.sec-icon-link { display: inline-grid; place-items: center; width: 34px; height: 34px; margin-left: 12px; border-radius: var(--corner-control); background: var(--mk-surface-2); color: rgba(24, 29, 25, .7);
-  vertical-align: middle; position: relative; top: -.08em; transition: background-color .15s var(--mk-ease), color .15s var(--mk-ease); }
-.sec-icon-link:hover { background: #EAE7E0; color: var(--mk-ink); }
-.sec-icon-link:focus-visible { outline: 2px solid #181D19; outline-offset: 2px; }
-.sec-icon-link svg.i { width: 18px; height: 18px; stroke-width: 1.8; }
-/* Scope switch, counts and areas */
-.sd-scope { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
-.sd-chip { position: relative; display: inline-grid; height: 30px; border-radius: var(--corner-pill); background: var(--ef-surface); box-shadow: inset 0 0 0 1px var(--ef-line-2); font-size: 12.5px; font-weight: 500; color: var(--ef-ink-2); white-space: nowrap; will-change: transform; }
-.sd-chip > span { grid-area: 1 / 1; display: inline-flex; align-items: center; gap: 6px; padding: 0 11px; border-radius: var(--corner-pill); }
-.sd-chip b { font-weight: 600; color: var(--ef-ink); font-variant-numeric: tabular-nums; }
-.sd-chip .sd-on { background: #181D19; color: #F6F0E9; opacity: 0; will-change: opacity; }
-.sd-chip .sd-on b { color: #F6F0E9; }
-.sd-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.sd-stat { padding: 10px 12px 11px; border-radius: var(--corner-card); background: var(--ef-surface-raised); box-shadow: inset 0 0 0 1px var(--ef-line); min-width: 0; }
-.sd-stat .num { display: block; font-family: var(--mk-font-display); font-size: 26px; font-weight: 400; line-height: 1; letter-spacing: var(--mk-tracking-display); font-variant-numeric: tabular-nums; }
-.sd-stat small { display: block; margin-top: 6px; font-size: 11.5px; line-height: 1.25; color: var(--ef-text-3); }
-.sd-areas { margin-top: 12px; }
-.sd-th, .sd-area { display: grid; grid-template-columns: minmax(0, 1fr) 44px 78px; align-items: center; gap: 8px; }
-.sd-th { padding-bottom: 6px; font-size: 11.5px; color: var(--ef-text-3); }
-.sd-th > :nth-child(2), .sd-th > :nth-child(3), .sd-area > :nth-child(2), .sd-area > :nth-child(3) { text-align: right; justify-self: end; }
-.sd-area { position: relative; isolation: isolate; padding: 7px 0; border-top: 1px solid var(--ef-line); font-size: 13px; will-change: opacity; }
-.sd-area > b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sd-area > span:nth-child(2) { font-variant-numeric: tabular-nums; color: var(--ef-text-2); }
-/* Phase pipeline */
-.sd-pl { position: relative; isolation: isolate; display: grid; grid-template-columns: 92px minmax(0, 1fr) 16px 40px; align-items: center; gap: 10px; height: 34px; font-size: 12.5px; }
-.sd-pl > b { font-weight: 600; white-space: nowrap; }
-.sd-track { position: relative; height: 14px; border-radius: var(--corner-pill); background: var(--ef-surface-2); overflow: hidden; }
-.sd-track i { position: absolute; inset: 0; border-radius: var(--corner-pill); background: color-mix(in srgb, var(--ef-violet-500) 62%, #FFFFFF); transform: scaleX(0); transform-origin: 0 50%; will-change: transform; }
-.sd-pl .num { font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
-.sd-pl .wk { font-size: 11.5px; color: var(--ef-text-3); text-align: right; white-space: nowrap; opacity: 0; will-change: opacity; }
-.sd-sum { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; padding: 11px 14px; border-radius: var(--corner-card); background: var(--ef-surface-2); font-size: 13px; font-weight: 600; }
-.sd-sum .num { font-family: var(--mk-font-text); font-size: 22px; font-weight: 400; letter-spacing: var(--mk-tracking-display); line-height: 1; font-variant-numeric: tabular-nums; }
-/* Lenses */
-.sd-lenses { display: grid; gap: 8px; }
-.sd-lens .lens-head { justify-content: flex-start; }
-.sd-lens .lens-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sd-li { width: 28px; height: 28px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--tint); color: var(--tone); }
-.sd-li svg { width: 15px; height: 15px; }
-.sd-open { width: 28px; height: 28px; flex: none; border-radius: var(--corner-card); display: grid; place-items: center; background: var(--ef-surface-2); color: var(--ef-ink-2); will-change: transform; }
-.sd-open svg { width: 14px; height: 14px; transform: rotate(-45deg); }
-.sd-dist { display: flex; gap: 2px; height: 8px; border-radius: var(--corner-pill); overflow: hidden; clip-path: inset(0 100% 0 0); will-change: clip-path; }
-.sd-dist span { min-width: 0; }
-.sd-leg { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11.5px; color: var(--ef-text-3); }
-.sd-leg span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
-.sd-leg span::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--dot); }
-.sd-sheet { position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 6; padding: 12px 14px 6px; border-radius: var(--corner-card); background: #FFFFFF; opacity: 0; will-change: transform, opacity;
-  box-shadow: 0 0 0 1px var(--ef-line), 0 22px 44px -20px rgba(24, 29, 25, .5); }
-.sd-sh { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-bottom: 6px; font-size: 13px; font-weight: 600; }
-.sd-pr { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--ef-line); opacity: 0; will-change: transform, opacity; }
-.sd-pr .grow { min-width: 0; }
-.sd-pr .list-title { font-size: 13px; }
-.sd-pr .list-sub { font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-@media (max-width: 640px) {
-  .sd-pl { grid-template-columns: 84px minmax(0, 1fr) 14px 36px; gap: 8px; }
-  .sd-th, .sd-area { grid-template-columns: minmax(0, 1fr) 38px 70px; }
-  .sd-stat { padding: 9px 10px 10px; }
-  .sd-stat .num { font-family: var(--mk-font-text); font-size: 22px; }
-  .cx-card[data-k="top"] .insight-top, .cx-card[data-k="help"] .insight-top { flex-wrap: wrap; row-gap: 6px; }
-  .cx-card[data-k="top"] .insight-pill, .cx-card[data-k="help"] .insight-pill { white-space: nowrap; }
-  .cx-card[data-k="top"] .insight-metric .num { font-size: 44px; }
 }
 
 /* Chart parts used by the Vision meetings card */
@@ -1293,61 +1138,13 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .ovd-chip.on b { color: var(--ef-on-ink); }
 .ovd-grid .insight { min-height: 0; }
 .ovd-grid .insight-metric .unit { max-width: 220px; }
-/* Revision 25: the rest of /oversight. The chapter, auto list and rail use the home engines and styles; only their panel content is new. */
-.cx-card .ov-acts { margin-top: 14px; }
-.cx-card .ov-acts .cx-swap { font-size: 12.5px; min-width: 0; }
-.cx-card .ov-plist .list-row { padding: 10px 0; }
-.cx-card .ov-plist .card-icon, .cx-card .ov-row .card-icon { width: 32px; height: 32px; }
-.cx-card .ov-plist .card-icon svg, .cx-card .ov-row .card-icon svg { width: 15px; height: 15px; }
-.cx-card .ov-st { justify-items: end; }
-.cx-card .ov-rows { margin-top: 12px; }
-.cx-card[data-k="invite"], .cx-card[data-k="senders"], .cx-card[data-k="plants"], .cx-card[data-k="help"] { min-width: 0; }
-/* Revision 26: plants grouped by sending church (#every-plant step 3). */
-.ov-grps { display: grid; gap: 8px; }
-.ov-grp { position: relative; isolation: isolate; padding: 10px 12px 11px; border-radius: var(--corner-card); box-shadow: inset 0 0 0 1px var(--ef-line); will-change: transform, opacity; }
-.ov-grp .cx-hl { inset: 0; border-radius: var(--corner-card); background: var(--ef-green-50); box-shadow: inset 0 0 0 1.5px rgba(3, 125, 76, .3); }
-.ov-gh { display: flex; align-items: center; gap: 10px; }
-.cx-card .ov-gh .card-icon { width: 30px; height: 30px; }
-.cx-card .ov-gh .card-icon svg { width: 14px; height: 14px; }
-.ov-gh .grow { min-width: 0; }
-.ov-gh .list-title { font-size: 13.5px; }
-.ov-gh .list-sub { font-size: 11.5px; margin-top: 1px; }
-.ov-gn { font-size: 12px; color: var(--ef-text-2); white-space: nowrap; }
-.ov-gn b { font-family: var(--mk-font-text); font-size: 18px; font-weight: 400; letter-spacing: var(--mk-tracking-display); color: var(--ef-ink); font-variant-numeric: tabular-nums; margin-right: 3px; }
+/* Plants grouped by sending church (the sending-paths card). */
 .ov-gp { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
 .ov-pc { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 9px 0 8px; border-radius: var(--corner-pill); background: var(--ef-surface-2); font-size: 11.5px; font-weight: 500; color: var(--ef-ink-2); white-space: nowrap; will-change: opacity; }
 .ov-pc i { width: 6px; height: 6px; border-radius: 50%; background: var(--ef-green-500); }
 .ov-pc i[data-ph="0"], .ov-pc i[data-ph="1"] { background: var(--ef-blue-500); }
-.ov-gs { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; font-size: 12px; color: var(--ef-text-3); }
-/* Revision 26: the rail market card (card 03), a small by-area table with one row highlighted. */
-.ef .ovv-mk { display: grid; gap: 2px; margin-top: 12px; }
-.ef .ovv-mr { display: grid; grid-template-columns: minmax(0, 1fr) 64px 16px; align-items: center; gap: 10px; padding: 6px 8px; margin: 0 -8px; border-radius: var(--corner-card); font-size: 13px; font-weight: 500; }
-.ef .ovv-mr > span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ef .ovv-mr.on { background: var(--ef-green-50); box-shadow: inset 0 0 0 1px rgba(3, 125, 76, .22); }
-.ef .ovv-bar { height: 6px; border-radius: var(--corner-pill); background: var(--ef-surface-2); overflow: hidden; }
-.ef .ovv-bar i { display: block; height: 100%; border-radius: var(--corner-pill); background: #B9C0BB; }
-.ef .ovv-mr.on .ovv-bar i { background: var(--ef-green-500); }
-.ef .ovv-mr b { font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
-.ov-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--ef-line); will-change: transform, opacity; }
-.ov-row:first-child { border-top: 0; }
-.ov-row .grow { min-width: 0; }
-.ov-row .list-title { font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ov-when { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font-size: 12.5px; white-space: nowrap; }
 .ov-when span { font-size: 11.5px; color: var(--ef-text-3); }
-.cx-card[data-k="help"] .insight-metric .unit { max-width: 150px; }
-.ov-bl { display: inline-flex; align-items: center; gap: 6px; }
-.ov-bl svg { width: 15px; height: 15px; }
-.ef .ovv-seg { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: 14px; }
-.ef .ovv-seg span { height: 8px; border-radius: var(--corner-pill); background: var(--ef-surface-2); }
-.ef .ovv-seg span[data-state="done"] { background: var(--ef-ink); }
-.ef .ovv-seg span[data-state="current"] { background: var(--ef-green-500); }
-.ef .ovv-wk { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; margin-top: 12px; font-size: 12px; color: var(--ef-text-2); }
-.ef .ovv-wk b { display: block; font-size: 14px; color: var(--ef-ink); font-weight: 600; }
-.ef .ovv-sh { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; font-weight: 500; }
-.ef .ovv-help { margin-top: 12px; font-size: 15px; line-height: 1.3; }
-.ef .ovv-acts { display: flex; gap: 6px; margin-top: 12px; }
-.ef .ovv-acts .btn { height: 32px; padding: 0 12px; font-size: 12.5px; }
-.ef .ovv-acts .btn svg { width: 14px; height: 14px; }
 .ovp-line { max-width: 720px; margin: clamp(24px, 3vw, 36px) auto 0; text-align: center; font-size: clamp(17px, 1.3vw, 19px); line-height: 1.55; color: var(--mk-text-2); text-wrap: pretty; }
 /* Revision 28: the sending paths (#sending-paths). One display sentence over one large card. A single timer changes both.
    Revision 31: the phrase roll is option C (Revision 26, commit 0df4700) again. The phrases stack in .ovs-rl, which moves up one line;
@@ -1623,8 +1420,6 @@ body.pbar-hidden { padding-bottom: 0; }
 :root { --ui-ring-w: 6px; --ui-ring-a: .25; --ui-ring: 0 0 0 var(--ui-ring-w) rgba(255, 255, 255, var(--ui-ring-a)); }
 .ha-shadow { box-shadow: var(--ui-ring), 0 0 0 1px rgba(1, 80, 47, .06), 0 1px 2px rgba(1, 80, 47, .08), 0 24px 48px -24px rgba(1, 80, 47, .45); }
 .cx-card { box-shadow: var(--ui-ring), 0 0 0 1px rgba(24, 29, 25, .05), 0 1px 2px rgba(24, 29, 25, .05), 0 26px 50px -26px rgba(24, 29, 25, .4); }
-.cx-card.evry-panel { box-shadow: var(--ui-ring), 0 0 0 1px rgba(24, 29, 25, .05), 0 26px 50px -26px rgba(24, 29, 25, .4); }
-.cx-card.insight { box-shadow: var(--ui-ring), 0 18px 36px -24px rgba(24, 29, 25, .55); }
 /* The follow-up card has no shadow of its own: the ring sits on its white shell. The shell's bottom edge (set per frame) moves up
    instead of a bottom clip, so the ring follows the visible edge of the card. */
 .cx-shell { box-shadow: var(--ui-ring); }
@@ -1740,8 +1535,7 @@ body.pbar-hidden .ev-tog, body.shot .ev-tog { display: none !important; }
 .ovg-grid h3 { margin-top: 18px; font-size: clamp(19px, 1.5vw, 22px); }
 .ovg-grid p { margin-top: 8px; font-size: 15px; line-height: 1.5; color: var(--mk-text-2); }
 /* /oversight: Raise the next planters. Full-bleed wheat, h1 type, four brand-green stops. A shade from the top and the bottom keeps cream text at 4.5:1. */
-.ldr { padding: clamp(96px, 11vw, 168px) 0; --photo-shade: .3; }
-.ldr { --ldr-shade: linear-gradient(180deg, rgba(24, 29, 25, .7), rgba(24, 29, 25, .64) 38%, rgba(24, 29, 25, .2) 53%, rgba(24, 29, 25, .32) 62%, rgba(24, 29, 25, .8)); }
+.ldr { padding: clamp(96px, 11vw, 168px) 0; --photo-shade: .3; --ldr-shade: linear-gradient(180deg, rgba(24, 29, 25, .7), rgba(24, 29, 25, .64) 38%, rgba(24, 29, 25, .2) 53%, rgba(24, 29, 25, .32) 62%, rgba(24, 29, 25, .8)); }
 @media (max-width: 900px) { .ldr { --ldr-shade: linear-gradient(180deg, rgba(24, 29, 25, .68), rgba(24, 29, 25, .58) 28%, rgba(24, 29, 25, .28) 34%, rgba(24, 29, 25, .32) 43%, rgba(24, 29, 25, .7) 49%, rgba(24, 29, 25, .82)); } }
 .ldr.photo::before { background-image: var(--ldr-shade), var(--photo-src); background-size: 100% 100%, cover; background-position: 0 0, var(--photo-pos, 50% 50%); }
 .ldr.photo:not(.seen)::before { background-image: var(--ldr-shade); }
@@ -1913,33 +1707,6 @@ body.pbar-hidden .ev-tog, body.shot .ev-tog { display: none !important; }
         }
       ]
     },
-    "intelligence": {
-      "note": "Revision 17 (2026-10-09): the home Plant Intelligence section title. R4 (2026-10-15): the lead line and the four steps move here from the prototype's draft; the Evry step leads with setting up a vision meeting in one approval.",
-      "title": "Know what needs you most.",
-      "lead": "Plant Intelligence reads your plant through lenses such as emerging leadership and generosity.",
-      "steps": [
-        {
-          "panel": "focus",
-          "title": "One focus each week.",
-          "body": "Plant Intelligence reads your records and names the one thing to do first."
-        },
-        {
-          "panel": "facts",
-          "title": "Every finding shows its facts.",
-          "body": "Each finding links to the records it used, so you can check it."
-        },
-        {
-          "panel": "readiness",
-          "title": "Ready for the next phase?",
-          "body": "See which benchmarks for your phase are met and which are still open. You decide when to move on."
-        },
-        {
-          "panel": "share",
-          "title": "You see it first.",
-          "body": "Each concern comes to you before anyone else. Your sending church sees a short summary, and only what you share. Your weekly check-in is for you alone."
-        }
-      ]
-    },
     "trust_page": {
       "eyebrow": "Privacy and trust",
       "headline": "Who sees what in Everyfield.",
@@ -1958,30 +1725,6 @@ body.pbar-hidden .ev-tog, body.shot .ev-tog { display: none !important; }
         ]
       }
     },
-    "sending": {
-      "note": "Revision 19 (2026-10-09): the home section for sending churches and networks, used by both stories. It replaces the Revision 18 audience section. An auto-advancing list like Plant Intelligence, mirrored: panel on the left, list on the right.",
-      "title": "Stay close to the plant you sent.",
-      "steps": [
-        {
-          "title": "Every plant, by state or metro area.",
-          "body": "Switch between all your plants, one state or one metro area, and every number follows."
-        },
-        {
-          "title": "Your pipeline, phase by phase.",
-          "body": "See how many plants are in each phase, and how long plants usually stay there."
-        },
-        {
-          "title": "Lenses across every plant.",
-          "body": "Each lens shows how your plants are doing in one area, such as emerging leadership or vision casting. Open a lens to see the plants behind it."
-        },
-        {
-          "title": "The pattern that matters most.",
-          "body": "Network Intelligence names what many of your plants have in common, with the facts behind it."
-        }
-      ],
-      "link": "Learn more about the oversight view",
-      "body": "Sending churches and networks see each plant's phase, launch date and the findings it shares, without asking the planter for a report."
-    },
     "oversight_page": {
       "note": "Revision 24 (2026-10-10): the /oversight page hero and problem section. Home story B keeps directions.oversight.sections. Revision 25 fills the rest of the page.",
       "hero": {
@@ -1995,56 +1738,8 @@ body.pbar-hidden .ev-tog, body.shot .ev-tog { display: none !important; }
         "headline": "You usually hear about a struggling church plant when it is already late.",
         "body": "Today the plan lives in conversations between the planter and their coach. There's no shared record, and no signal when a church plant starts to drift. See whether each church plant that shares with you is moving toward launch, without asking for a report."
       },
-      "note_r25": "Revision 25 (2026-10-10): the rest of /oversight. chapter is a pinned stacking chapter like shared.week; intelligence is the auto list of the home network section (same panels); plants is a pinned rail like the home phases; paths and privacy are centered sections; cta closes the page.",
       "note_r28": "Revision 28 (2026-10-10): paths is one section, with no review options and no sent= in the hash. The sentence (lead, changing phrase, tail) sits over one large card. One timer moves both through states in order: a church, a network through a church, a network.",
       "note_r27": "Revision 27 (2026-10-10): hero subhead drops the sharing clause. Sending-side UI (hero dashboard, network panels) has no planter tabs and no Evry, and uses plain facts in place of sharing labels.",
-      "note_r26": "Revision 26 (2026-10-10): chapter is now an auto list like intelligence (panel right, list left) and drops the sharing step. plants item 3 is the market card. paths holds three review options a, b and c, switched by sent= in the hash (default a). faq replaces the privacy section; the footer Coaches link opens the item with id coaches (#faq-coaches).",
-      "chapter": {
-        "title": "All your plants, in one place.",
-        "steps": [
-          {
-            "panel": "invite",
-            "title": "Invite your plants.",
-            "body": "Send an invite. The planter connects their plant in a few clicks."
-          },
-          {
-            "panel": "plants",
-            "title": "Every plant, in launch order.",
-            "body": "See each plant's phase, launch date and status at a glance."
-          },
-          {
-            "panel": "digest",
-            "title": "A daily digest by email.",
-            "body": "On days with activity, you get one email with counts and dates from the plants that share it. It never includes names or notes."
-          },
-          {
-            "panel": "help",
-            "title": "Help where it matters.",
-            "body": "See where a plant could use help, and offer it."
-          }
-        ]
-      },
-      "intelligence": {
-        "title": "See the patterns across your plants.",
-        "steps": [
-          {
-            "title": "Every plant, by state or metro area.",
-            "body": "Switch between all your plants, one state or one metro area, and every number follows."
-          },
-          {
-            "title": "Plants, phase by phase.",
-            "body": "See how many plants are in each phase, and how long plants usually stay there."
-          },
-          {
-            "title": "Lenses across every plant.",
-            "body": "Each lens shows how your plants are doing in one area, such as emerging leadership or vision casting. Open a lens to see the plants behind it."
-          },
-          {
-            "title": "The pattern that matters most.",
-            "body": "Network Intelligence names what many of your plants have in common, with the facts behind it."
-          }
-        ]
-      },
       "plants": {
         "headline": "Each church plant, up close.",
         "items": [
@@ -2171,6 +1866,12 @@ body.pbar-hidden .ev-tog, body.shot .ev-tog { display: none !important; }
       },
       "leaders": {
         "headline": "Raise the next planters.",
+        "icons": [
+          "route",
+          "flag",
+          "users",
+          "book"
+        ],
         "lead": "See every future planter in your church or network, from the first conversation to the day you send them.",
         "steps": [
           {
@@ -2247,13 +1948,7 @@ body.pbar-hidden .ev-tog, body.shot .ev-tog { display: none !important; }
             ]
           }
         ]
-      },
-      "leaders_icons": [
-        "route",
-        "flag",
-        "users",
-        "book"
-      ]
+      }
     },
     "access_page": {
       "note": "E2 (2026-10-14): copy for /access, approved by Sebastian on 2026-10-14. Field labels match the prototype. The hero subhead and form headings reuse approved copy. privacy_note is a new line under each submit button. outcomes maps the submitAccessRequest results: received (also shown for the honeypot and for duplicates, by coordinator ruling), duplicate (unused; never render it, because it reveals an earlier request), rate_limited_email, rate_limited_ip, invalid, unavailable (contact fallback) and offline. {max} is a template value. Each field value is an object: label, optional, help, error and placeholder. submitting is the button text while a request is sent.",
@@ -2556,7 +2251,7 @@ body.pbar-hidden .ev-tog, body.shot .ev-tog { display: none !important; }
       }
     },
     "ops82": {
-      "note": "OPS-82 merge (Sebastian's picks, Oct 30 2026): copy this prototype adds or changes on home. The journey section merges shared.week and shared.intelligence into one path of six stops; EvryBot speaks one line at each stop. Evry creates tasks for people and never writes to the congregation. The sending section never shows Evry (Revision 27). #/planters keeps the copy above.",
+      "note": "OPS-82 merge (Sebastian's picks, Oct 30 2026): copy this prototype adds or changes on home. The journey section adds two Plant Intelligence stops to the four shared.week steps, one path of six stops; EvryBot speaks one line at each stop. Evry creates tasks for people and never writes to the congregation. The sending section never shows Evry (Revision 27). #/planters keeps the copy above.",
       "hero_eyebrow": "Church planting software",
       "features_headline": "Everything a church plant needs, in the order you need it.",
       "journey": {
@@ -2576,7 +2271,16 @@ body.pbar-hidden .ev-tog, body.shot .ev-tog { display: none !important; }
           "compass",
           "flag"
         ],
-        "facts_line": "Each finding links to the records it used.",
+        "steps": [
+          {
+            "title": "One focus each week.",
+            "body": "Plant Intelligence reads your records and names the one thing to do first. Each finding links to the records it used."
+          },
+          {
+            "title": "Ready for the next phase?",
+            "body": "See which benchmarks for your phase are met and which are still open. You decide when to move on."
+          }
+        ],
         "see_first": "You see it first. Each concern comes to you before anyone else, and your sending church sees only what you share."
       },
       "evry": {
@@ -2602,6 +2306,7 @@ body.pbar-hidden .ev-tog, body.shot .ev-tog { display: none !important; }
       },
       "sending": {
         "title": "Stay close to the church plants you send.",
+        "link": "Learn more about the oversight view",
         "body": "Sending churches and networks see each church plant's phase, launch date and the findings it shares, without asking the planter for a report.",
         "points": [
           [
@@ -3470,22 +3175,12 @@ function cxCur() { return '<span class="cx-cur" aria-hidden="true"><i class="cx-
 function cxHead(lead, title, sub, right) { return '<div class="cx-h" data-st>' + lead + '<div class="grow"><div class="ha-title">' + title + '</div><div class="ha-sub">' + sub + "</div></div>" + (right || "") + "</div>"; }
 function cxIcon(tone, name) { return '<span class="card-icon ' + tone + '">' + icon(name) + "</span>"; }
 function cxBtn(cls, a, b) { return '<span class="ha-btn cx-sm ' + cls + '"><span class="ha-ok"></span><span class="ha-shine"></span><span class="ha-l1">' + a + '</span><span class="ha-l2">' + icon("check") + b + "</span></span>"; }
-function cxSwap(a, b, cls) { return '<span class="cx-swap' + (cls ? " " + cls : "") + '"><span>' + a + "</span><span>" + b + "</span></span>"; }
 var CX_PEOPLE = [["tone-ink", "Prospect", 82, 58, "var(--ef-text-3)"], ["tone-blue", "Attendee", 41, 41, "var(--ef-blue-500)"], ["tone-amber", "Following up", 23, 23, "var(--ef-amber-500)"], ["tone-violet", "Interviewed", 14, 14, "var(--ef-violet-500)"], ["tone-green", "Core group", 34, 34, "var(--ef-green-500)"]];
 var CX_TYPES = ["Vision meeting", "Training", "Orientation", "Service run", "Vision meeting"];
 var CX_GUESTS = [["KW", "Kim Wu", "TO", "Tom"], ["JO", "James Okafor", "TO", "Tom"], ["SN", "Sara Nunez", "AN", "Ana"]];
 var CX_SAYS = "3 new guests came to your vision meeting. I made a follow-up task for each one.";
 var CX_TEAMS = [["tone-green", "Core team", "var(--ef-green-500)", 12], ["tone-violet", "Launch team", "var(--ef-violet-500)", 28]];
 var CX_SIGNS = [["MS", "Maria Santos", "Signed a core team commitment"], ["DP", "Daniel Park", "Joined the launch team"]];
-var CX_Q = "Set up vision meeting #13 for Sun Oct 26 and invite our new prospects.";
-var CX_A = "Ready for your review: Sun Oct 26 at the Reyes home, the 90-minute agenda, 23 prospects as guests and the invitation email.";
-/* Revision 19 sending panels: sample network data from the dashboard Network Intelligence page (14 plants). */
-var SD_SCOPES = [["All plants", 14, 11, 5], ["Texas", 12, 10, 5], ["Greater Austin", 5, 4, 2]];
-var SD_AREAS = [["Greater Austin", 5, "positive", "Strong"], ["Greater San Antonio", 3, "attention", "Watch"], ["Dallas\u2013Fort Worth", 3, "positive", "Strong"], ["Greater Houston", 1, "unknown", "Too few"], ["Greater Oklahoma City", 2, "positive", "Strong"]];
-var SD_PIPE = [["Discovery", 1, "6 wk"], ["Core group", 4, "31 wk"], ["Launch team", 3, "15 wk"], ["Training", 2, "9 wk"], ["Pre-launch", 2, "11 wk"], ["Launch Sunday", 0, ""], ["Post-launch", 2, ""]];
-var SD_LENSES = [["Emerging leadership", "compass", "tone-magenta", "risk", "Concern", [5, 2, 4]], ["Vision casting", "sparkle", "tone-green", "positive", "Strong", [8, 3, 0]], ["Core group cohesion", "users", "tone-amber", "attention", "Watch", [5, 3, 3]]];
-var SD_LENS_PLANTS = [["Eastside Commons", "Training · Greater Austin", "2 leader roles open"], ["Deep Ellum Collective", "Pre-launch · Dallas\u2013Fort Worth", "3 leader roles open"], ["Lakewood Church Dallas", "Pre-launch · Dallas\u2013Fort Worth", "Worship leader open"]];
-var SD_DOTS = ["var(--ef-green-500)", "var(--ef-amber-500)", "var(--ef-magenta-500)"];
 function cxTw(cls, text) { return '<span class="cx-tw"><span class="cx-ghost">' + text + '</span><span class="cx-typed ' + cls + '"></span></span>'; }
 /* Panel markup. Elements with data-st stagger in with the card. Targets for the cursor carry cx-t0 / cx-t1. */
 var CX_MARK = {
@@ -3521,142 +3216,16 @@ var CX_MARK = {
       '<div class="cx-sublab" data-st>To record</div>' +
       CX_SIGNS.map(function (r, k) { return '<div class="list-row" data-st><span class="ha-av" data-p="src' + k + '">' + r[0] + '</span><div class="grow"><div class="list-title">' + r[1] + '</div><div class="list-sub">' + r[2] + "</div></div>" + cxBtn("cx-t" + k, "Record", "Recorded") + "</div>"; }).join("") +
       CX_SIGNS.map(function (r, k) { return '<span class="ha-chip cx-fly" data-p="fly' + k + '"><span class="ha-av">' + r[0] + "</span>" + r[1] + "</span>"; }).join("");
-  },
-  focus: function () {
-    var facts = [["Last vision meeting", "#11, 16 days ago"], ["New guests at #11", "9"], ["Next", "#12, Sun Oct 12"]];
-    return '<div class="insight-top" data-st><span class="insight-pill">' + icon("compass") + 'Focus this week</span><span class="insight-count">Plant Intelligence</span></div>' +
-      '<div class="insight-metric" data-st><span class="num"><span data-n="days">0</span> d</span><span class="unit">since the last vision meeting</span></div>' +
-      '<div data-st><div class="cx-rt"><span class="cx-rf"></span><span class="cx-rm"></span></div><div class="cx-rl"><span>Next: #12, Sun Oct 12</span></div></div>' +
-      '<div class="insight-title" data-st>Hold your next vision meeting this week</div>' +
-      '<div class="cx-flip2" data-st><div class="insight-text" style="margin-top:0">Vision meeting #12 is set for Sun Oct 12. Invite the 9 guests from #11.</div><div class="cx-facts">' +
-      facts.map(function (f) { return '<div class="cx-fact"><span>' + f[0] + "</span><b>" + f[1] + "</b></div>"; }).join("") + "</div></div>" +
-      '<div class="insight-footer" data-st><span class="btn cx-t0" data-variant="light">See the facts ' + icon("arrow") + '</span><span class="btn" data-variant="glass">Why this?</span></div>';
-  },
-  facts: function () {
-    var kv = [["New guests, last 2 vision meetings", "24", ""], ["Contacted within 48 hours", "17", ""], ["No contact yet", "7", '<span class="badge" data-size="sm" data-status="risk">Open</span>']];
-    var names = [["JO", "James Okafor"], ["KW", "Kim Wu"], ["SN", "Sara Nunez"]];
-    return cxHead(cxIcon("tone-amber", "alert"), "Follow-up is slipping", "The facts this finding used") +
-      '<div class="cx-ringrow" data-st><svg class="cx-ring" viewBox="0 0 64 64" aria-hidden="true"><circle class="bg" cx="32" cy="32" r="27"/><circle class="fg" cx="32" cy="32" r="27"/></svg><div><div class="num cx-pct"><span data-n="pct">0</span>%</div><div class="faint t-sm">of new guests contacted within 48 hours</div></div></div>' +
-      kv.map(function (r, i) { return '<div class="kv' + (i === 2 ? " cx-t0" : "") + '" data-st style="position:relative;isolation:isolate">' + (i === 2 ? '<span class="cx-hl"></span>' : "") + '<span class="k">' + r[0] + '</span><span class="row">' + r[2] + '<span class="v" data-n="kv">' + r[1] + "</span></span></div>"; }).join("") +
-      '<div class="cx-names" data-st>' + names.map(function (n) { return '<span class="ha-chip"><span class="ha-av">' + n[0] + "</span>" + n[1] + "</span>"; }).join("") + '<span class="ha-chip" style="padding-left:10px">4 more</span></div>';
-  },
-  evry: function () {
-    return '<div class="ep-head" data-st>' + evryBot("lg", "idle", true) + '<div class="grow"><div class="ep-name">Evry</div><div class="t-xs faint">Prepares the work. You approve every change.</div></div></div>' +
-      '<div class="bubble me" data-st>' + cxTw("cx-q", CX_Q) + "</div>" +
-      '<div class="bubble ai cx-a">' + cxTw("cx-ans", CX_A) + "</div>" +
-      '<div class="review-card cx-rvw"><div class="rc-head">' + icon("edit") + 'Review 4 changes<span class="grow"></span><span style="font-weight:500">Set up vision meeting</span></div>' +
-      '<div class="rc-body"><div class="rc-line">' + icon("calendar") + "<span>Create <b>Vision meeting #13</b> on <b>Sun Oct 26</b> at the <b>Reyes home</b></span></div><div class=\"rc-line faint\">" + icon("more") + "<span>The agenda, 23 guests and the invitation email</span></div></div>" +
-      '<div class="rc-foot">' + cxBtn("cx-t0", "Approve", "Approved") + '<span class="btn" data-variant="ghost">Edit</span></div></div>';
-  },
-  scope: function () {
-    return cxHead(cxIcon("tone-teal", "network"), "Austin Sending Network", "Network Intelligence") +
-      '<div class="sd-scope" data-st>' + SD_SCOPES.map(function (c, i) { var l = c[0] + " <b>" + c[1] + "</b>"; return '<span class="sd-chip' + (i ? " cx-t" + (i - 1) : "") + '"><span>' + l + '</span><span class="sd-on">' + l + "</span></span>"; }).join("") + "</div>" +
-      '<div class="sd-stats" data-st>' + ["Plants", "With findings", "Launching in 12 months"].map(function (l) { return '<div class="sd-stat"><span class="num" data-n="sd">0</span><small>' + l + "</small></div>"; }).join("") + "</div>" +
-      '<div class="sd-areas" data-st><div class="sd-th"><span>By area</span><span>Plants</span><span>Momentum</span></div>' +
-      SD_AREAS.map(function (a, i) { return '<div class="sd-area"><b>' + a[0] + "</b><span>" + a[1] + '</span><span><span class="badge" data-size="sm" data-status="' + a[2] + '">' + a[3] + "</span></span>" + (i ? "" : '<span class="cx-hl"></span>') + "</div>"; }).join("") + "</div>";
-  },
-  pipe: function () {
-    return cxHead(cxIcon("tone-violet", "calendar"), "Phase pipeline", "Plants in each phase, and typical weeks in it") +
-      '<div data-st>' + SD_PIPE.map(function (r, i) { return '<div class="sd-pl' + (i === 1 ? " cx-t0" : "") + '">' + (i === 1 ? '<span class="cx-hl"></span>' : "") + "<b>" + r[0] + '</b><span class="sd-track"><i></i></span><span class="num" data-n="pl">0</span><span class="wk">' + (r[1] ? r[2] : "none") + "</span></div>"; }).join("") + "</div>" +
-      '<div class="sd-sum" data-st><span>Launches in the next 12 months</span><span class="num" data-n="sum">0</span></div>';
-  },
-  lens: function () {
-    return cxHead(cxIcon("tone-amber", "eye"), "Network lenses", "Across 11 plants with findings") +
-      '<div class="sd-lenses">' + SD_LENSES.map(function (l, i) {
-        var n = l[5];
-        return '<div class="lens sd-lens" data-st><div class="lens-head"><span class="sd-li ' + l[2] + '">' + icon(l[1]) + '</span><span class="lens-name">' + l[0] + '</span><span class="badge" data-size="sm" data-status="' + l[3] + '">' + l[4] + "</span>" + (i ? "" : '<span class="sd-open cx-t0">' + icon("arrow") + "</span>") + "</div>" +
-          '<div class="sd-dist">' + n.map(function (v, k) { return v ? '<span style="flex:' + v + ";background:" + SD_DOTS[k] + '"></span>' : ""; }).join("") + "</div>" +
-          '<div class="sd-leg">' + ["Strong", "Watch", "Concern"].map(function (w, k) { return '<span style="--dot:' + SD_DOTS[k] + '">' + n[k] + " " + w + "</span>"; }).join("") + "</div></div>";
-      }).join("") + "</div>" +
-      '<div class="sd-sheet"><div class="sd-sh"><span>Emerging leadership</span><span class="badge" data-size="sm" data-status="risk">4 at Concern</span></div>' +
-      SD_LENS_PLANTS.map(function (r) { return '<div class="sd-pr"><div class="grow"><div class="list-title">' + r[0] + '</div><div class="list-sub">' + r[1] + '</div></div><span class="t-xs faint">' + r[2] + "</span></div>"; }).join("") + "</div>";
-  },
-  top: function () {
-    return '<div class="insight-top" data-st><span class="insight-pill">' + icon("sparkle") + 'Top network finding</span><span class="insight-count">From 11 of 14 plants</span></div>' +
-      '<div class="insight-metric" data-st><span class="num"><span data-n="top">0</span> of 6</span><span class="unit">plants within a year of launch have a Concern on Emerging leadership</span></div>' +
-      '<div class="insight-title" data-st>Emerging leadership is the most common gap before launch</div>' +
-      '<div class="insight-text" data-st>It is the lens most often at Watch or Concern for plants in Training and Pre-launch.</div>' +
-      '<div class="insight-footer" data-st><span class="btn cx-t0" data-variant="light">See the plants ' + icon("arrow") + "</span></div>";
-  },
-  share: function () {
-    var rows = [["Phase and launch date", 1, 0], ["Plant Intelligence findings", 0, 0], ["People and contact details", 0, 1], ["Private weekly check-in", 0, 1]];
-    return cxHead(cxIcon("tone-violet", "eye"), "Sharing with Grace Church", "You choose what leaves your plant") +
-      rows.map(function (r, i) { return '<div class="share-row" data-st>' + (i === 1 ? '<span class="cx-hl"></span>' : "") + "<span>" + r[0] + (r[2] ? ' <span class="faint t-xs">Never shared</span>' : "") + '</span><span class="cx-sw' + (i === 1 ? " cx-t0" : "") + '"' + (r[1] ? " data-on" : "") + (r[2] ? " data-lock" : "") + "><b></b><i></i></span></div>"; }).join("") +
-      '<div class="cx-prev" data-st><div class="t-xs faint">What Grace Church sees</div><div class="row between"><span>Harvest Point · Phase 1</span>' +
-      cxSwap('<span class="badge" data-size="sm" data-status="unknown">Findings not shared</span>', '<span class="badge" data-size="sm" data-status="positive">On track</span>') + "</div></div>";
-  },
-  /* Revision 25 /oversight chapter panels (play once and hold). Sample data from the dashboard mockup pages Network and Network · Plant view. */
-  invite: function () {
-    var plant = function (cls, ic, tone, name, sub, badge) { return '<div class="list-row ' + cls + '"' + (cls ? "" : " data-st") + '><span class="card-icon ' + tone + '">' + icon(ic) + '</span><div class="grow"><div class="list-title">' + name + '</div><div class="list-sub">' + sub + "</div></div>" + badge + "</div>"; };
-    return cxHead(cxIcon("tone-teal", "network"), "Invite a plant", "Austin Sending Network") +
-      '<div data-st><span class="ha-lab">Planter\'s email</span><div class="cx-in cx-t0"><span class="cx-fr"></span>' + cxTw("ov-mail", OV_MAIL) + "</div></div>" +
-      '<div class="ha-acts ov-acts" data-st>' + cxSwap('<span class="faint">The planter connects in a few clicks.</span>', '<span class="faint">Invite sent to Priya Shah</span>', "ov-fs") + cxBtn("cx-t1", "Send invite", "Invite sent") + "</div>" +
-      '<div class="cx-sublab" data-st>Your plants</div>' +
-      '<div class="ov-plist">' + plant("", "pin", "tone-green", "Harvest Point Church", "Hyde Park, Austin", '<span class="badge" data-size="sm" data-status="positive">Connected</span>') +
-      plant("ov-new", "pin", "tone-blue", "Eastside Commons", "Priya Shah · East Austin", cxSwap('<span class="badge" data-size="sm" data-status="unknown">Invited</span>', '<span class="badge" data-size="sm" data-status="positive">Connected</span>', "ov-st")) + "</div>";
-  },
-  plants: function () {
-    return cxHead(cxIcon("tone-teal", "network"), "Plants", "Austin Sending Network · in launch order") +
-      '<div class="sd-scope" data-st>' + OV_AREAS.map(function (c, i) { var l = c[0] + " <b>" + c[1] + "</b>"; return '<span class="sd-chip' + (i === 1 ? " cx-t0" : "") + '"><span>' + l + '</span><span class="sd-on">' + l + "</span></span>"; }).join("") + "</div>" +
-      '<div class="ov-rows">' + OV_ROWS.map(function (r) {
-        return '<div class="ov-row"><span class="card-icon ' + r[2] + '">' + icon("pin") + '</span><div class="grow"><div class="list-title">' + r[0] + '</div><div class="list-sub">' + r[3] + (r[4] ? " · " + r[4] + " adults" : "") + '</div></div><div class="ov-when"><b>' + r[5] + "</b><span>" + r[6] + "</span></div></div>";
-      }).join("") + "</div>";
-  },
-  /* Revision 26: plants grouped by sending church (dashboard mockup page Network, sending churches). */
-  senders: function () {
-    return cxHead(cxIcon("tone-teal", "network"), "Sending churches", "Austin Sending Network · 3 churches, 5 plants") +
-      '<div class="ov-grps">' + OV_GROUPS.map(function (g, k) {
-        return '<div class="ov-grp' + (k === 0 ? " cx-t0" : "") + '"><span class="cx-hl"></span><div class="ov-gh"><span class="card-icon ' + g[1] + '">' + icon("heart") + '</span><div class="grow"><div class="list-title">' + g[0] + '</div><div class="list-sub">' + g[2] + '</div></div><span class="ov-gn"><b data-n="g">0</b> plant' + (g[3].length > 1 ? "s" : "") + "</span></div>" +
-          '<div class="ov-gp">' + g[3].map(function (p) { return '<span class="ov-pc"><i data-ph="' + p[1] + '"></i>' + p[0] + "</span>"; }).join("") + "</div>" +
-          '<div class="ov-gs"><span>' + g[4] + '</span><span class="badge" data-size="sm" data-status="' + g[5][0] + '">' + g[5][1] + "</span></div></div>";
-      }).join("") + "</div>";
-  },
-  help: function () {
-    return '<div class="insight-top" data-st><span class="insight-pill">' + icon("compass") + 'Where help could matter</span><span class="insight-count">Eastside Commons</span></div>' +
-      '<div class="insight-metric" data-st><span class="num"><span data-n="days">0</span></span><span class="unit">days to launch Sunday</span></div>' +
-      '<div class="insight-title" data-st>Two leader roles are open, 205 days before launch</div>' +
-      '<div class="insight-text" data-st>Kids and Production have no leader yet. From Ministry teams and findings.</div>' +
-      '<div class="insight-footer" data-st><span class="btn cx-t0" data-variant="light">' + cxSwap('<span class="ov-bl">Offer help ' + icon("arrow") + "</span>", '<span class="ov-bl">' + icon("check") + "Help offered</span>", "ov-off") + '</span><span class="btn" data-variant="glass">Later</span></div>';
   }
 };
-var OV_MAIL = "priya@eastsidecommons.org";
-/* Revision 26 sending churches: name, icon tone, place, plants [name, phase], summary, badge. */
-var OV_GROUPS = [
-  ["Grace Church", "tone-blue", "Hyde Park, Austin", [["Harvest Point Church", 1], ["Eastside Commons", 3]], "Next launch Mar 14, 2027", ["positive", "On track"]],
-  ["Redeemer Dallas", "tone-violet", "Uptown, Dallas", [["Deep Ellum Collective", 4], ["Oak Cliff Church", 2]], "Next launch Jan 24, 2027", ["positive", "On track"]],
-  ["Alamo City Church", "tone-amber", "San Antonio", [["Alamo Heights Church", 2]], "Kids leader role open", ["attention", "Could use help"]]
-];
-var OV_AREAS = [["All", 14], ["Austin", 5], ["San Antonio", 3]];
-/* Plants in launch order: name, area, icon tone, phase, committed adults, launch, findings. Rows outside Austin dim when Austin is selected. */
-var OV_ROWS = [
-  ["Deep Ellum Collective", 0, "tone-teal", "4 · Pre-launch", "61", "Jan 24, 2027", "3 findings"],
-  ["Harvest Point Church", 1, "tone-green", "1 · Core group", "34", "Mar 14, 2027", "1 finding"],
-  ["Eastside Commons", 1, "tone-blue", "3 · Training", "46", "May 2, 2027", "4 findings"],
-  ["Alamo Heights Church", 0, "tone-amber", "2 · Launch team", "28", "Sep 2027", "2 findings"]
-];
-/* L: loop length. still: the frame for reduced motion. cur: cursor path [ms, target]. clicks: press times.
-   end (Revision 17, Plant Intelligence panels only): the time the last motion finishes; the panel plays once to it and holds. still = end there. */
+/* L: loop length. still: the frame for reduced motion. cur: cursor path [ms, target]. clicks: press times. */
 var CX_SCN = {
   people: { L: 6400, still: 4200, cur: [[0, "rest"], [700, "rest"], [1500, ".cx-t0"], [2500, ".cx-t0"], [3300, "rest"]], clicks: [2000] },
   meet: { L: 7200, still: 5600, cur: [[0, "rest"], [400, "rest"], [1000, ".cx-t0"], [2300, ".cx-t0"], [3100, ".cx-t1"], [3700, ".cx-t1"], [4500, "rest"]], clicks: [1100, 3300] },
   follow: { L: 7900, still: 6200, cur: [[0, "mid"], [2500, "mid"], [3200, ".cx-t0"], [3950, ".cx-t0"], [4700, "mid"]], clicks: [3600] },
   teams: { L: 7600, still: 6000, cur: [[0, "rest"], [700, "rest"], [1400, ".cx-t0"], [2100, ".cx-t0"], [2900, ".cx-t1"], [3800, ".cx-t1"], [4600, "rest"]], clicks: [1700, 3300] },
-  focus: { L: 6800, still: 3700, end: 3700, cur: [[0, "rest"], [1100, "rest"], [1900, ".cx-t0"], [2900, ".cx-t0"], [3700, "rest"]], clicks: [2400] },
-  facts: { L: 6600, still: 3600, end: 3600, cur: [[0, "rest"], [1000, "rest"], [1800, ".cx-t0"], [2800, ".cx-t0"], [3600, "rest"]], clicks: [2300] },
-  evry: { L: 8400, still: 6400, end: 6400, cur: [[0, "rest"], [3900, "rest"], [4700, ".cx-t0"], [5600, ".cx-t0"], [6400, "rest"]], clicks: [5100] },
-  share: { L: 6600, still: 3500, end: 3500, cur: [[0, "rest"], [900, "rest"], [1700, ".cx-t0"], [2700, ".cx-t0"], [3500, "rest"]], clicks: [2200] },
-  /* Revision 19 sending panels (auto list): L only times the cursor fade, which the end hold never reaches. */
-  scope: { L: 5000, still: 3800, end: 3800, cur: [[0, "rest"], [900, "rest"], [1500, ".cx-t0"], [1950, ".cx-t0"], [2550, ".cx-t1"], [3150, ".cx-t1"], [3800, "rest"]], clicks: [1700, 2900] },
-  pipe: { L: 4200, still: 3000, end: 3000, cur: [[0, "rest"], [1700, "rest"], [2400, ".cx-t0"]], clicks: [] },
-  lens: { L: 4700, still: 3500, end: 3500, cur: [[0, "rest"], [1200, "rest"], [1900, ".cx-t0"], [2600, ".cx-t0"], [3400, "rest"]], clicks: [2300] },
-  top: { L: 4800, still: 3600, end: 3600, cur: [[0, "rest"], [1300, "rest"], [2000, ".cx-t0"], [2800, ".cx-t0"], [3600, "rest"]], clicks: [2400] },
-  /* Revision 25 /oversight chapter panels. once: the stacking chapter plays the panel once to end and holds (no loop). */
-  invite: { L: 7000, still: 5600, end: 5600, once: true, cur: [[0, "rest"], [500, "rest"], [1100, ".cx-t0"], [2800, ".cx-t0"], [3400, ".cx-t1"], [4000, ".cx-t1"], [4700, "rest"]], clicks: [1250, 3600] },
-  senders: { L: 5000, still: 3400, end: 3400, cur: [[0, "rest"], [1300, "rest"], [2000, ".cx-t0"], [2700, ".cx-t0"], [3400, "rest"]], clicks: [2250] },
-  plants: { L: 5600, still: 3400, end: 3400, once: true, cur: [[0, "rest"], [1100, "rest"], [1800, ".cx-t0"], [2600, ".cx-t0"], [3400, "rest"]], clicks: [2100] },
-  help: { L: 5600, still: 3600, end: 3600, once: true, cur: [[0, "rest"], [1300, "rest"], [2000, ".cx-t0"], [2800, ".cx-t0"], [3600, "rest"]], clicks: [2400] }
 };
-/* Week copy comes from shared.week in marketing-copy.json (Revision 4). The Plant Intelligence copy is still draft. */
+/* Week copy comes from shared.week in marketing-copy.json (Revision 4). */
 var WK = COPY.shared.week;
 /* Revision 13: week panel and icon colours in step order are blue, orange, green, lilac. Step content keeps its order; the copy JSON tone fields are not used here. */
 var WK_TONES = ["field-sky", "field-sky", "field-sky", "field-sky"];
@@ -3671,26 +3240,13 @@ function cxTitle(title, words) {
   return ok ? out + t(title.slice(at)) : t(title);
 }
 var CX_DEFS = {
-  week: { title: WK.title, final: true, words: WK_WORDS, steps: WK.steps.map(function (s, i) { return [s.panel, WK_TONES[i] || s.tone, s.icon, s.title, s.body]; }) },
-  /* R4: the Plant Intelligence lead line and steps come from shared.intelligence in marketing-copy.json. */
-  intelligence: { title: COPY.shared.intelligence.title, lead: COPY.shared.intelligence.lead, auto: true, steps: COPY.shared.intelligence.steps.map(function (s, i) {
-    return [s.panel, ["mesh:sky", "plain", "plain", "plain"][i], ["Focus", "Facts", "Evry", "Sharing"][i], s.title, s.body]; }) },
-  /* Revision 19: copy from shared.sending in marketing-copy.json. Its photo crops differ from the Plant Intelligence crops above. */
-  sending: { title: COPY.shared.sending.title, auto: true, mirror: true, link: COPY.shared.sending.link, steps: ["scope", "pipe", "lens", "top"].map(function (k, i) {
-    var st = COPY.shared.sending.steps[i]; return [k, ["meadow", "meadow", "meadow", "mesh:sage"][i], "", st.title, st.body]; }) },
-  /* Revision 25 /oversight: the home network auto list with the same panels and step length (shared.oversight_page.intelligence). */
-  /* Revision 26: the pinned chapter is now an auto list (panel right, list left) without the sharing step. Its photo crops
-     differ from the network list below it. */
-  "every-plant": { title: COPY.shared.oversight_page.chapter.title, auto: true, steps: COPY.shared.oversight_page.chapter.steps.map(function (s, i) { return [s.panel, ["field-sky", "field-sky", "field-sky", "mesh:sky"][i], "", s.title, s.body]; }) },
-  "network-intelligence": { title: COPY.shared.oversight_page.intelligence.title, auto: true, mirror: true, steps: ["scope", "pipe", "lens", "top"].map(function (k, i) {
-    var st = COPY.shared.oversight_page.intelligence.steps[i]; return [k, ["plain", "plain", "plain", "mesh:sage"][i], "", st.title, st.body]; }) }
+  week: { title: WK.title, final: true, words: WK_WORDS, steps: WK.steps.map(function (s, i) { return [s.panel, WK_TONES[i] || s.tone, s.icon, s.title, s.body]; }) }
 };
 /* Round 4: a step background is a photo crop, or "mesh:<tone>" when the step's card is a colorful InsightCard (gradient, not photo). */
 function cxBg(s, extra) { var m = /^mesh:(.+)/.exec(s[1]); return '<span class="cx-bg ' + (m ? 'mesh" data-mesh="' + m[1] : 'photo" data-photo="' + s[1]) + '"' + (extra || "") + "></span>"; }
-function cxCard(kind) { return '<div class="cx-card' + (kind === "focus" ? ' insight mesh" data-mesh="field' : kind === "top" ? ' insight mesh" data-mesh="sky' : kind === "help" ? ' insight mesh" data-mesh="rose' : kind === "evry" ? " evry-panel" : "") + '" data-k="' + kind + '">' + CX_MARK[kind]() + cxCur() + "</div>"; }
+function cxCard(kind) { return '<div class="cx-card" data-k="' + kind + '">' + CX_MARK[kind]() + cxCur() + "</div>"; }
 function chapterSection(id, cls) {
   var d = CX_DEFS[id];
-  if (d.auto) return autoSection(id, cls, d);
   return '<section class="sec cx ' + cls + '" id="' + id + '" data-cx="' + id + '"><div class="wrap"><div class="cx-grid"><div class="cx-left">' +
     '<div class="cx-head"><h2 class="display h2' + (d.words ? ' cx-ttl">' + cxTitle(d.title, d.words) : '">' + t(d.title)) + "</h2></div>" +
     '<ol class="cx-steps">' + d.steps.map(function (s, i) {
@@ -3701,24 +3257,7 @@ function chapterSection(id, cls) {
     '<div class="cx-right"><div class="cx-vis ef" aria-hidden="true">' + d.steps.map(function (s) { return cxBg(s); }).join("") +
     d.steps.map(function (s) { return cxCard(s[0]); }).join("") + "</div></div></div></div></section>";
 }
-/* Revision 10: the auto-advancing list (Plant Intelligence). Same panels and cards; steps are tabs, the panel is the tab panel. */
-/* Revision 19: d.mirror puts the heading in the list column (right on desktop). Revision 21: d.link adds a small square arrow link
-   after the title text, kept on one line with the last word (it replaces the Revision 20 "Learn more" button under the list). */
-function autoSection(id, cls, d) {
-  var head = '<div class="cx-head' + (d.link ? " cx-head-link" : "") + '"><h2 class="display h2" id="' + id + '-title">' + t(d.title) + "</h2>" +
-    (d.link ? '<a class="sec-icon-link" href="' + hrefFor("oversight", "") + '" aria-label="' + t(d.link) + '">' + icon("arrowUpRight") + "</a>" : "") +
-    (d.lead ? '<p class="sh-text" style="margin-top:16px;max-width:600px">' + t(d.lead) + "</p>" : "") + "</div>";
-  return '<section class="sec cx cx-auto' + (d.mirror ? " cx-mirror" : "") + " " + cls + '" id="' + id + '" data-cx="' + id + '"><div class="wrap">' + (d.mirror ? "" : head) +
-    '<div class="cx-grid"><div class="cx-left">' + (d.mirror ? head : "") + '<ol class="cx-steps" role="tablist" aria-orientation="vertical" aria-labelledby="' + id + '-title">' + d.steps.map(function (s, i) {
-      return '<li class="cx-step' + (i === 0 ? " on" : "") + '" data-i="' + i + '" role="presentation"><button type="button" class="cx-tab" role="tab" id="' + id + "-tab-" + i + '" aria-controls="' + id + '-panel" aria-selected="' + (i === 0) + '" tabindex="' + (i === 0 ? 0 : -1) + '">' +
-        '<span class="cx-bar" aria-hidden="true"><i></i></span><span class="cx-txt"><span class="display h3">' + t(s[3]) + '</span><span class="cx-p">' + t(s[4]) + "</span></span></button></li>";
-    }).join("") + "</ol></div>" +
-    '<div class="cx-right"><div class="cx-vis ef" role="tabpanel" id="' + id + '-panel" aria-labelledby="' + id + '-tab-0">' + d.steps.map(function (s) { return cxBg(s, ' aria-hidden="true"'); }).join("") +
-    d.steps.map(function (s) { return cxCard(s[0]).replace('<div class="cx-card', '<div aria-hidden="true" class="cx-card'); }).join("") + "</div></div></div></div></section>";
-}
 function weekChapter() { return chapterSection("week", "sec-week"); }
-function intelligenceChapter() { return chapterSection("intelligence", "sec-intelligence"); }
-function sendingChapter() { return chapterSection("sending", "sec-sending"); }
 
 /* ---------- Panel renderers ---------- */
 var cxRst = function (t, a) { return 1 - haSine(haP(t, a, 450)); };
@@ -3737,7 +3276,6 @@ function cxDone(inst, sel, t, at, R) {
 }
 function cxPop(el, t, at, R) { var p = haP(t, at, 380); haTO(el, 0, 0, .7 + .3 * haBack(p), haClamp(p * 2.5) * R); }
 function cxRise(el, t, at, R) { var p = haOut(haP(t, at, 420)); haTO(el, 0, (1 - p) * 8, 1, p * R); }
-function cxFlip(sw, p) { var k = sw && sw.children; if (!k) return; haTO(k[0], 0, -7 * p, 1, 1 - p); haTO(k[1], 0, 7 * (1 - p), 1, p); }
 function cxN(el, v) { haSet(el, "text", String(Math.round(v))); }
 function cxType(el, s, p) { haSet(el, "text", s.slice(0, Math.floor(p * s.length))); }
 function cxHl(el, t, a, b, R) { haSet(el, "opacity", (haOut(haP(t, a, 250)) * (1 - haSine(haP(t, b, 300))) * (R === undefined ? 1 : R)).toFixed(3)); }
@@ -3802,106 +3340,6 @@ var CX_RENDER = {
       var o = haOut(haP(t, at + 200, 200)) * (1 - haSine(haP(t, land - 50, 250)));
       haTO(c, x0 + (x1 - x0) * m, y0 + (y1 - y0) * m - 18 * Math.sin(Math.PI * m), 1 + .06 * Math.sin(Math.PI * m), o);
     });
-  },
-  focus: function (I, t) {
-    var R = cxRst(t, 6200), d = 16 * haOut(haP(t, 300, 1200)) * R;
-    cxN(cxQ(I, '[data-n="days"]'), d);
-    haSet(cxQ(I, ".cx-rf"), "clipPath", "inset(0 " + ((1 - d / 16) * 100).toFixed(2) + "% 0 0 round 99px)");
-    cxPress(cxQ(I, ".cx-t0"), t, 2400);
-    var s = haOut(haP(t, 2550, 380)) * R, f = cxQ(I, ".cx-flip2").children;
-    haTO(f[0], 0, -6 * s, 1, 1 - s);
-    cxQA(I, ".cx-fact").forEach(function (el, k) { cxRise(el, t, 2640 + k * 75, R); });
-  },
-  facts: function (I, t) {
-    var R = cxRst(t, 6000), p = haOut(haP(t, 300, 1100)) * R;
-    haSet(cxQ(I, ".cx-ring .fg"), "strokeDashoffset", (169.65 * (1 - .71 * p)).toFixed(2));
-    cxN(cxQ(I, '[data-n="pct"]'), 71 * p);
-    cxQA(I, '[data-n="kv"]').forEach(function (el, k) { if (k < 3) cxN(el, [24, 17, 7][k] * haOut(haP(t, 300 + k * 90, 900)) * R); });
-    cxHl(cxQ(I, ".cx-hl"), t, 1650, 5800, R);
-    cxQA(I, ".cx-names .ha-chip").forEach(function (c, k) { cxPop(c, t, 2500 + k * 120, R); });
-  },
-  evry: function (I, t) {
-    var R = cxRst(t, 7800);
-    cxType(cxQ(I, ".cx-q"), CX_Q, haP(t, 450, 1300));
-    cxRise(cxQ(I, ".cx-a"), t, 1950, R);
-    cxType(cxQ(I, ".cx-ans"), CX_A, haP(t, 2150, 1500));
-    cxRise(cxQ(I, ".cx-rvw"), t, 3750, R);
-    cxDone(I, ".cx-t0", t, 5100, R);
-    haSet(cxQ(I, ".evry-bot"), "mood", t >= 2050 && t < 3700 ? "talking" : t >= 5300 && t < 6400 ? "happy" : "idle");
-  },
-  share: function (I, t) {
-    var R = cxRst(t, 6000), on = haP(t, 2300, 380) * R, sw = cxQ(I, ".cx-t0");
-    haSet(sw.querySelector("b"), "opacity", haOut(on).toFixed(3));
-    haSet(sw.querySelector("i"), "transform", "translate3d(" + (14 * haBack(on)).toFixed(2) + "px,0,0)");
-    cxPress(sw, t, 2200, .08);
-    cxHl(cxQ(I, ".cx-hl"), t, 1550, 3000);
-    cxFlip(cxQ(I, ".cx-prev .cx-swap"), haOut(haP(t, 2600, 380)) * R);
-  },
-  /* Revision 19 sending panels. Each plays once to its CX_SCN end and holds there, so no loop reset. */
-  scope: function (I, t) {
-    /* Counts rise, then the scope moves All plants -> Texas -> Greater Austin and every number follows. */
-    var a = haOut(haP(t, 300, 900)), q1 = haInOut(haP(t, 1800, 600)), q2 = haInOut(haP(t, 3000, 600)), S = SD_SCOPES;
-    cxQA(I, '[data-n="sd"]').forEach(function (n, k) { cxN(n, S[0][k + 1] * a + (S[1][k + 1] - S[0][k + 1]) * q1 + (S[2][k + 1] - S[1][k + 1]) * q2); });
-    var p1 = haOut(haP(t, 1750, 300)), p2 = haOut(haP(t, 2950, 300)), on = [1 - p1, p1 - p2, p2];
-    cxQA(I, ".sd-chip").forEach(function (c, k) { haSet(c.querySelector(".sd-on"), "opacity", on[k].toFixed(3)); });
-    cxPress(cxQ(I, ".cx-t0"), t, 1700, .06); cxPress(cxQ(I, ".cx-t1"), t, 2900, .06);
-    var d1 = haOut(haP(t, 1850, 400)), d2 = haOut(haP(t, 3050, 400));
-    cxQA(I, ".sd-area").forEach(function (r, k) { haSet(r, "opacity", (1 - .72 * (k === 4 ? d1 : k ? d2 : 0)).toFixed(3)); });
-    cxHl(cxQ(I, ".sd-area .cx-hl"), t, 3050, 1e9);
-  },
-  pipe: function (I, t) {
-    var bars = cxQA(I, ".sd-track i"), wk = cxQA(I, ".sd-pl .wk");
-    cxQA(I, '[data-n="pl"]').forEach(function (n, k) {
-      var p = haOut(haP(t, 300 + k * 120, 650)), v = SD_PIPE[k][1];
-      cxN(n, v * p);
-      haSet(bars[k], "transform", "scaleX(" + (v / 4 * p).toFixed(4) + ")");
-      haSet(wk[k], "opacity", haOut(haP(t, 900 + k * 120, 400)).toFixed(3));
-    });
-    cxN(cxQ(I, '[data-n="sum"]'), 5 * haOut(haP(t, 1900, 800)));
-    cxHl(cxQ(I, ".sd-pl .cx-hl"), t, 2450, 1e9);
-  },
-  lens: function (I, t) {
-    cxQA(I, ".sd-dist").forEach(function (d, k) { haSet(d, "clipPath", "inset(0 " + ((1 - haInOut(haP(t, 350 + k * 250, 700))) * 100).toFixed(2) + "% 0 0 round 99px)"); });
-    cxPress(cxQ(I, ".cx-t0"), t, 2300, .1);
-    var sh = haOut(haP(t, 2450, 420));
-    haTO(cxQ(I, ".sd-sheet"), 0, (1 - sh) * 16, 1, sh);
-    cxQA(I, ".sd-pr").forEach(function (r, k) { cxRise(r, t, 2650 + k * 110, 1); });
-  },
-  top: function (I, t) {
-    cxN(cxQ(I, '[data-n="top"]'), 4 * haOut(haP(t, 300, 800)));
-    cxPress(cxQ(I, ".cx-t0"), t, 2400);
-  },
-  /* Revision 25 /oversight chapter panels. Each plays once to its CX_SCN end and holds there, so no loop reset. */
-  invite: function (I, t) {
-    /* The email is typed, the invite is sent, then the new plant rises into the list and turns Connected. */
-    cxPress(cxQ(I, ".cx-t0"), t, 1250, .03);
-    cxHl(cxQ(I, ".cx-t0 .cx-fr"), t, 1300, 2800);
-    cxType(cxQ(I, ".ov-mail"), OV_MAIL, haP(t, 1450, 1200));
-    cxDone(I, ".cx-t1", t, 3600, 1);
-    cxFlip(cxQ(I, ".ov-fs"), haOut(haP(t, 3800, 380)));
-    cxRise(cxQ(I, ".ov-new"), t, 4100, 1);
-    cxFlip(cxQ(I, ".ov-st"), haOut(haP(t, 5000, 380)));
-    cxPop(cxQ(I, ".ov-st > :last-child"), t, 5000, 1);
-  },
-  senders: function (I, t) {
-    /* Churches rise in order and their plant counts count up, then Grace Church is selected. */
-    cxQA(I, ".ov-grp").forEach(function (g, k) { cxRise(g, t, 250 + k * 160, 1); });
-    cxQA(I, '[data-n="g"]').forEach(function (n, k) { cxN(n, OV_GROUPS[k][3].length * haOut(haP(t, 450 + k * 160, 700))); });
-    cxQA(I, ".ov-pc").forEach(function (c, k) { haSet(c, "opacity", haOut(haP(t, 800 + k * 70, 360)).toFixed(3)); });
-    cxPress(cxQ(I, ".cx-t0"), t, 2250, .03);
-    cxHl(cxQ(I, ".cx-t0 .cx-hl"), t, 2250, 1e9);
-  },
-  plants: function (I, t) {
-    /* Rows settle in launch order, then Austin is selected and the rows outside it dim. */
-    cxQA(I, ".ov-row").forEach(function (r, k) { var p = haOut(haP(t, 300 + k * 110, 480)); haTO(r, 0, (1 - p) * 12, 1, p * (1 - .66 * (OV_ROWS[k][1] ? 0 : haOut(haP(t, 2250, 400))))); });
-    var p = haOut(haP(t, 2150, 300));
-    cxQA(I, ".sd-chip").forEach(function (c, k) { haSet(c.querySelector(".sd-on"), "opacity", (k === 0 ? 1 - p : k === 1 ? p : 0).toFixed(3)); });
-    cxPress(cxQ(I, ".cx-t0"), t, 2100, .06);
-  },
-  help: function (I, t) {
-    cxN(cxQ(I, '[data-n="days"]'), 205 * haOut(haP(t, 300, 1100)));
-    cxPress(cxQ(I, ".cx-t0"), t, 2400);
-    cxFlip(cxQ(I, ".ov-off"), haOut(haP(t, 2550, 380)));
   }
 };
 /* Cursor: glides between cached target points with the hero's in-out curve, presses, and leaves a short ripple. */
@@ -3936,7 +3374,7 @@ function cxMeasure(I) {
 }
 
 /* ---------- Engine ---------- */
-var CX = { list: [], raf: 0, last: 0, paused: false, lock: false, io: null, aio: null, ro: null, rio: null, ticking: false };
+var CX = { list: [], raf: 0, last: 0, paused: false, lock: false, io: null, ro: null, rio: null, ticking: false };
 function cxInst(el) { return { el: el, kind: el.dataset.k, q: {}, qa: {}, pos: null, t: 0, since: 1e6, on: false, st: Array.prototype.slice.call(el.querySelectorAll("[data-st]")) }; }
 function cxStill(I) { return CX_SCN[I.kind].still; }
 /* Panel crossfade, with the hero's curves: old card out 250 ms sine (6 px up), new card in after 150 ms, 380 ms ease-out (8 px lift), children 75 ms apart. */
@@ -3967,7 +3405,6 @@ function cxSetActive(ch, k) {
   ch.prev = ch.active; ch.active = k;
   ch.steps.forEach(function (s, i) { s.classList.toggle("on", i === k); s.classList.toggle("cx-past", i < k); });
   ch.words.forEach(function (w, i) { w.classList.toggle("on", i === k); });
-  if (ch.auto) cxTabs(ch);
   var I = ch.insts[k];
   if (REDUCED.matches) { ch.since = 1e6; I.t = cxStill(I); cxRender(ch); return; }
   ch.since = 0; I.t = 0;
@@ -3991,7 +3428,7 @@ function cxScroll(jump) {
   CX.ticking = false;
   if (CX.lock) return;
   CX.list.forEach(function (ch) {
-    if (ch.auto || !ch.desk) return;
+    if (!ch.desk) return;
     /* Revision 11: a step becomes the target when the previous step's title reaches 28 px below the sticky heading (clear of its 20 px fade),
        so the outgoing title never slides under the heading. The line stays above 0.6 of the viewport, so the new title is in view. */
     var hb = ch.head.getBoundingClientRect().bottom, cap = window.innerHeight * .6, k = 0;
@@ -4017,15 +3454,14 @@ function cxFrame(now) {
     if (!ch.root.isConnected) return;
     if (ch.on && ch.desk) {
       any = true;
-      if (ch.auto && !ch.kbd) { ch.prog += dt; if (ch.prog >= cxDur(ch)) cxAutoGo(ch, (ch.active + 1) % ch.steps.length); }
       var I = ch.insts[ch.active];
-      ch.since += dt; I.t = ch.auto || CX_SCN[I.kind].once ? Math.min(I.t + dt, CX_SCN[I.kind].end) : (I.t + dt) % CX_SCN[I.kind].L;
-      cxRender(ch); if (ch.auto) cxBars(ch);
+      ch.since += dt; I.t = (I.t + dt) % CX_SCN[I.kind].L;
+      cxRender(ch);
     }
     ch.mobs.forEach(function (M) {
       if (!M.on || ch.desk) return;
       any = true;
-      M.since += dt; M.t = CX_SCN[M.kind].once ? Math.min(M.t + dt, CX_SCN[M.kind].end) : (M.t + dt) % CX_SCN[M.kind].L;
+      M.since += dt; M.t = (M.t + dt) % CX_SCN[M.kind].L;
       cxRenderMob(M);
     });
   });
@@ -4072,7 +3508,6 @@ function cxMeasureAll() {
   CX.list.forEach(function (ch) { ch.desk = !!ch.vis.offsetParent; });
   CX.list.forEach(function (ch) {
     ch.insts.concat(ch.mobs).forEach(cxMeasure);
-    if (ch.auto) return;
     var ol = ch.steps[0].parentNode, right = ch.vis.closest(".cx-right"), grid = ch.vis.closest(".cx-grid");
     var desk = ch.desk, x = Math.max(0, ch.vis.offsetHeight - ch.head.offsetHeight);
     ol.style.paddingBottom = "";
@@ -4087,56 +3522,21 @@ function cxMeasureAll() {
 function cxPaintAll() {
   CX.list.forEach(function (ch) {
     if (REDUCED.matches) { ch.since = 1e6; ch.insts[ch.active].t = cxStill(ch.insts[ch.active]); ch.mobs.forEach(function (M) { M.since = 1e6; M.t = cxStill(M); }); }
-    cxRender(ch); ch.mobs.forEach(cxRenderMob); if (ch.auto) cxBars(ch);
-  });
-}
-/* Revision 17 auto list. When a step becomes active its panel plays once from the start to its CX_SCN end and holds that frame.
-   Panel lengths: focus 3700 ms, facts 3600 ms, evry 6400 ms, share 3500 ms. Every step lasts the longest (6400 ms) plus a 1200 ms hold: 7600 ms.
-   Revision 19: each auto list gets its own step length, its longest panel plus CX_AUTO_HOLD (sending: scope 3800, pipe 3000, lens 3500, top 3600 ms, so 5000 ms).
-   Revision 11: no pause on hover (a pointer resting over the section while the wheel scrolls stalled the progress).
-   Progress runs while any part of the section is on screen, holds only when it is fully off screen or a tab has keyboard focus, and then resumes where it stopped.
-   Reduced motion: no advance and no fill; the active line is full and clicks switch steps. */
-var CX_AUTO_HOLD = 1200;
-function cxDur(ch) { return ch.dur; }
-function cxBars(ch) {
-  var p = REDUCED.matches ? 1 : haClamp(ch.prog / cxDur(ch));
-  ch.bars.forEach(function (b, i) { haSet(b, "transform", "scaleX(" + (i === ch.active ? p : 0).toFixed(4) + ")"); });
-}
-function cxTabs(ch) {
-  ch.tabs.forEach(function (b, i) { b.setAttribute("aria-selected", String(i === ch.active)); b.tabIndex = i === ch.active ? 0 : -1; });
-  ch.vis.setAttribute("aria-labelledby", ch.tabs[ch.active].id);
-}
-/* A click on the active step restarts its panel too. */
-function cxAutoGo(ch, k) { ch.prog = 0; if (k === ch.active && !REDUCED.matches) ch.insts[k].t = 0; cxSetActive(ch, k); cxRender(ch); cxBars(ch); cxKick(); }
-function cxAutoBind(ch) {
-  var root = ch.root; root.__auto = ch;
-  if (root.__bound) return;
-  root.__bound = true;
-  var cur = function () { return root.__auto; };
-  root.addEventListener("focusin", function (e) { var c = cur(); c.kbd = !!(e.target.matches && e.target.matches(":focus-visible")); });
-  root.addEventListener("focusout", function (e) { if (!root.contains(e.relatedTarget)) { cur().kbd = false; cxKick(); } });
-  root.addEventListener("click", function (e) { var b = e.target.closest && e.target.closest(".cx-tab"); if (b) cxAutoGo(cur(), cur().tabs.indexOf(b)); });
-  root.addEventListener("keydown", function (e) {
-    var c = cur(), i = c.tabs.indexOf(e.target), n = c.tabs.length, k = -1; if (i < 0) return;
-    if (e.key === "ArrowDown" || e.key === "ArrowRight") k = (i + 1) % n; else if (e.key === "ArrowUp" || e.key === "ArrowLeft") k = (i + n - 1) % n; else if (e.key === "Home") k = 0; else if (e.key === "End") k = n - 1;
-    if (k < 0) return;
-    e.preventDefault(); cxAutoGo(c, k); c.tabs[k].focus(); c.kbd = true;
+    cxRender(ch); ch.mobs.forEach(cxRenderMob);
   });
 }
 function cxInit() {
   if (CX.raf) cancelAnimationFrame(CX.raf);
   CX.list.forEach(function (ch) { clearTimeout(ch.tm); });
   CX.raf = 0; CX.lock = false;
-  [CX.io, CX.aio, CX.ro, CX.rio].forEach(function (o) { if (o) o.disconnect(); });
+  [CX.io, CX.ro, CX.rio].forEach(function (o) { if (o) o.disconnect(); });
   CX.list = Array.prototype.map.call(document.querySelectorAll("#view .cx"), function (root) {
     var vis = root.querySelector(".cx-vis");
     return { root: root, id: root.id, vis: vis, head: root.querySelector(".cx-head"), steps: Array.prototype.slice.call(root.querySelectorAll(".cx-step")), bgs: Array.prototype.slice.call(vis.querySelectorAll(".cx-bg")),
       insts: Array.prototype.map.call(vis.querySelectorAll(".cx-card"), cxInst), mobs: Array.prototype.map.call(root.querySelectorAll(".cx-mob .cx-card"), cxInst),
       active: 0, prev: -1, since: 1e6, on: false, seen: false, target: 0, at: 0, tm: 0, desk: false, stack: false, lock: [], lead: 0, listH: 0,
-      auto: root.classList.contains("cx-auto"), prog: 0, kbd: false,
-      bars: Array.prototype.slice.call(root.querySelectorAll(".cx-bar i")), words: Array.prototype.slice.call(root.querySelectorAll(".cx-ttl .cx-w")), tabs: Array.prototype.slice.call(root.querySelectorAll(".cx-tab")) };
+      words: Array.prototype.slice.call(root.querySelectorAll(".cx-ttl .cx-w")) };
   });
-  CX.list.forEach(function (ch) { if (ch.auto) { ch.dur = Math.max.apply(null, ch.insts.map(function (I) { return CX_SCN[I.kind].end || 0; })) + CX_AUTO_HOLD; cxAutoBind(ch); } });
   if (!CX.list.length) return;
   cxMeasureAll();
   CX.list.forEach(function (ch) { ch.insts.concat(ch.mobs).forEach(function (I) { I.t = REDUCED.matches ? cxStill(I) : 0; }); });
@@ -4153,18 +3553,16 @@ function cxInit() {
         var I = e.target.__cx;
         if (I) { if (e.isIntersecting && !I.on && !REDUCED.matches) { I.since = 0; I.t = 0; } I.on = e.isIntersecting; return; }
         var ch = e.target.__ch; if (!ch) return;
-        if (e.isIntersecting && !ch.seen && !REDUCED.matches) { ch.seen = true; ch.since = 0; ch.insts[ch.active].t = 0; ch.prog = 0; }
+        if (e.isIntersecting && !ch.seen && !REDUCED.matches) { ch.seen = true; ch.since = 0; ch.insts[ch.active].t = 0; }
         if (e.isIntersecting && !ch.on) ch.at = performance.now();
         ch.on = e.isIntersecting;
-        if (!ch.auto) cxGo(ch);
+        cxGo(ch);
       });
       cxKick();
     };
     CX.io = new IntersectionObserver(onIO, { threshold: 0.12 });
-    /* Revision 11: the auto list counts as on screen while any part of it shows, so the edges of the viewport do not stall it. */
-    CX.aio = new IntersectionObserver(onIO, { threshold: 0 });
     CX.list.forEach(function (ch) {
-      var tgt = ch.auto ? ch.root : ch.vis; tgt.__ch = ch; (ch.auto ? CX.aio : CX.io).observe(tgt);
+      ch.vis.__ch = ch; CX.io.observe(ch.vis);
       ch.mobs.forEach(function (M) { M.el.__cx = M; CX.io.observe(M.el); });
     });
   } else CX.list.forEach(function (ch) { ch.on = true; ch.mobs.forEach(function (M) { M.on = true; }); });
@@ -4326,7 +3724,7 @@ function phSection(f, opts) {
   return '<section class="sec sec-features ph-sec" id="' + (opts.id || "features") + '"><div class="phc-pin"><div class="phc-frame">' +
     '<div class="wrap"><div class="sec-head solo"><h2 class="display h2 sh-title" id="ph-title">' + t(f.headline) + "</h2></div>" + track + "</div>" +
     '<div class="phc-rail" role="region" aria-roledescription="carousel" aria-labelledby="ph-title"><ol class="phc-list">' + f.items.map(function (x, i) {
-      return '<li class="phc-card" tabindex="0" aria-label="' + phNum(i) + " · " + t(x.label) + '"><div class="phc-art ' + phArt((opts.photos || PH_PHOTOS)[i]) + '"><span class="phc-num" aria-hidden="true">' + phNum(i) + '</span>' + (opts.icons ? '<span class="tl-ic phc-ic" aria-hidden="true">' + icon(opts.icons[i]) + "</span>" : '<div class="phc-vig ef" aria-hidden="true">' + (opts.vig || phVig)(i) + "</div>") + "</div>" +
+      return '<li class="phc-card" tabindex="0" aria-label="' + phNum(i) + " · " + t(x.label) + '"><div class="phc-art ' + phArt((opts.photos || PH_PHOTOS)[i]) + '"><span class="phc-num" aria-hidden="true">' + phNum(i) + '</span>' + (opts.icons ? '<span class="tl-ic phc-ic" aria-hidden="true">' + icon(opts.icons[i]) + "</span>" : '<div class="phc-vig ef" aria-hidden="true">' + phVig(i) + "</div>") + "</div>" +
         '<div class="phc-txt">' + phTag(i, x) + '<h3 class="display h3">' + t(x.title) + "</h3><p>" + t(x.short || x.body) + "</p></div></li>";
     }).join("") + "</ol></div></div></div></section>";
 }
@@ -4532,9 +3930,8 @@ function pathTxt(steps, cls) {
 }
 /* Home: "Reach, gather, follow up, commit." The four week steps, then two Plant Intelligence steps, on one path. #intelligence lands here too. */
 function journeySection() {
-  var W = COPY.shared.week, N = COPY.shared.intelligence, J = M82.journey;
-  var focus = { title: N.steps[0].title, body: N.steps[0].body + " " + J.facts_line };
-  var steps = pathSteps(W.steps.concat([focus, N.steps[2]]), J.icons, J.says);
+  var W = COPY.shared.week, J = M82.journey;
+  var steps = pathSteps(W.steps.concat(J.steps), J.icons, J.says);
   return '<section class="sec pth-sec sec-week" id="week" aria-labelledby="week-title"><span id="intelligence"></span><div class="wrap">' +
     '<div class="pth-head"><h2 class="display h2" id="week-title">' + t(W.title) + "</h2></div>" +
     pathBand(steps, true, W.title, "field-sky") + pathTxt(steps, "jrn-cards") +
@@ -4554,22 +3951,17 @@ function evryCards() {
     }).join("") + "</ul>" +
     '<p class="tl-limits">' + icon("heart") + "<span>" + t(DIR.journey.sections.evry.limits) + "</span></p></div></section>";
 }
-function evTog(b, d) {
-  var art = b.closest(".tl-art"), p = EV_PHOTOS[(EV_PHOTOS.indexOf(art.dataset.photo) + d + EV_PHOTOS.length) % EV_PHOTOS.length];
+function evTog(b) {
+  var art = b.closest(".tl-art"), p = EV_PHOTOS[(EV_PHOTOS.indexOf(art.dataset.photo) + 1) % EV_PHOTOS.length];
   art.dataset.photo = p; art.classList.add("seen");
   b.firstChild.textContent = p; b.setAttribute("aria-label", evTogLabel(p));
 }
-document.addEventListener("click", function (e) { var b = e.target.closest(".ev-tog"); if (b) evTog(b, e.shiftKey ? -1 : 1); });
-document.addEventListener("keydown", function (e) {
-  var b = e.target.closest && e.target.closest(".ev-tog");
-  var d = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
-  if (b && d) { e.preventDefault(); evTog(b, d); }
-});
+document.addEventListener("click", function (e) { var b = e.target.closest(".ev-tog"); if (b) evTog(b); });
 /* Home: sending churches and networks. The meadow photo, cream text, a 2×2 grid of frosted cards. No Evry. */
 function sendingSection() {
   var X = M82.sending;
   return '<section class="sec sec-send photo photo-text" data-photo="meadow" id="sending" aria-labelledby="sending-title"><div class="wrap sd-grid">' +
-    '<div class="sd-copy"><h2 class="display h2" id="sending-title">' + t(X.title) + "</h2><p>" + t(X.body) + '</p><a class="sd-link" href="' + hrefFor("oversight", "") + '">' + t(COPY.shared.sending.link) + icon("arrow") + "</a></div>" +
+    '<div class="sd-copy"><h2 class="display h2" id="sending-title">' + t(X.title) + "</h2><p>" + t(X.body) + '</p><a class="sd-link" href="' + hrefFor("oversight", "") + '">' + t(X.link) + icon("arrow") + "</a></div>" +
     '<ul class="sd-tiles">' + X.points.map(function (p) { return '<li><span class="tl-ic" aria-hidden="true">' + icon(p[0]) + '</span><h3 class="tl-t">' + t(p[1]) + "</h3><p>" + t(p[2]) + "</p></li>"; }).join("") + "</ul>" +
     "</div></section>";
 }
@@ -4582,8 +3974,8 @@ function ovGets(g) {
       }).join("") + "</ul></div>";
     }).join("") + "</div></div></section>";
 }
-function ovLeaders(L, icons) {
-  var steps = pathSteps(L.steps, icons);
+function ovLeaders(L) {
+  var steps = pathSteps(L.steps, L.icons);
   return '<section class="sec ldr photo photo-text" data-photo="wheat" id="leaders" aria-labelledby="leaders-title"><div class="wrap">' +
     '<div class="ldr-head"><h2 class="display h1" id="leaders-title">' + t(L.headline) + "</h2><p>" + t(L.lead) + "</p></div>" +
     pathBand(steps, false, L.headline) + pathTxt(steps) + "</div></section>";
@@ -4717,43 +4109,11 @@ function pagePlanters() {
 }
 /* Revision 24: the /oversight frame. Hero and problem in the home style; the rest of the page is filled in Revision 25.
    Copy from shared.oversight_page (home story B keeps directions.oversight.sections). */
-/* Revision 25: the rest of /oversight, on the home engines: the mirrored auto list (#network-intelligence), the pinned rail of six cards
-   (#plants, phSection with its own vignettes) and the closing CTA. Revision 26: the auto list #every-plant (panel right) replaces the
-   stacking chapter and an FAQ replaces the privacy section. Revision 28: the sending paths are one section (ovPaths). */
 function pageOversight() {
   var P = COPY.shared.oversight_page;
   return hero(P.hero, "oversight", { visual: '<div class="ov-dash">' + visual(vNetworkDash()) + "</div>", cls: "hero-anim ov-hero", panel: true, photo: "bluebells", hrefs: [hrefFor("access", "network-form"), hrefFor("oversight", "every-plant")] }) +
-    problem(P.problem) + ovGets(P.gets) + phSection(P.plants, { id: "plants", icons: P.plants.icons, photos: OV_PH_PHOTOS }) + ovLeaders(P.leaders, P.leaders_icons) +
+    problem(P.problem) + ovGets(P.gets) + phSection(P.plants, { id: "plants", icons: P.plants.icons, photos: OV_PH_PHOTOS }) + ovLeaders(P.leaders) +
     ovPaths(P.paths) + trust(P.trust).replace('class="sec sec-trust"', 'class="sec sec-trust big"') + ovFaq(P.faq) + cta(P.cta);
-}
-/* Rail vignettes from the dashboard mockup page Network · Plant view (Eastside Commons). Only the top of each shows above the card text. */
-function ovVig(i) {
-  var b = "";
-  if (i === 0) {
-    b = pvHead("calendar", "tone-blue", "Phases", "Eastside Commons", '<span class="pv-k">3 · Training</span>') +
-      '<div class="ovv-seg">' + [1, 1, 1, 2, 0, 0, 0].map(function (s) { return '<span data-state="' + (s === 1 ? "done" : s === 2 ? "current" : "") + '"></span>'; }).join("") + "</div>" +
-      '<div class="ovv-wk">' + [["Discovery", "10 wk"], ["Core group", "34 wk"], ["Launch team", "18 wk"], ["Training", "6 wk so far"]].map(function (r) { return "<span><b>" + r[1] + "</b>" + r[0] + "</span>"; }).join("") + "</div>";
-  } else if (i === 1) {
-    b = pvHead("calendar", "tone-green", "Launch Sunday", "Sunday, May 2, 2027") +
-      '<div class="pv-stat"><span class="num">205</span><span class="pv-s">days to go</span></div>' +
-      '<div class="pv-mt"><div class="row between"><span class="pv-it">Milestones done</span><span class="pv-k">3 of 9</span></div><div class="meter-hatch"><span style="width:calc(33.3% - 4px);background:var(--ef-green-500)"></span></div></div>';
-  } else if (i === 2) {
-    b = pvHead("pin", "tone-teal", "By market", "Texas · 14 plants", '<span class="pv-k">Plants</span>') + '<div class="ovv-mk">' +
-      [["Greater Austin", 5], ["Dallas–Fort Worth", 3], ["Greater San Antonio", 3], ["Greater Houston", 2]].map(function (r, k) {
-        return '<div class="ovv-mr' + (k ? "" : " on") + '"><span>' + r[0] + '</span><span class="ovv-bar"><i style="width:' + (r[1] / 5 * 100) + '%"></i></span><b>' + r[1] + "</b></div>"; }).join("") + "</div>";
-  } else if (i === 3) {
-    b = pvHead("users", "tone-blue", "People", "Committed adults") +
-      '<div class="pv-stat"><span class="num">46</span><span class="delta" data-dir="up">5 in 28 days</span></div>' +
-      '<div class="pv-in"><span class="card-icon tone-green">' + icon("calendar") + '</span><div class="grow"><div class="pv-it">13 days between vision meetings</div><div class="pv-s">On average</div></div></div>';
-  } else if (i === 4) {
-    b = pvHead("users", "tone-violet", "Ministry teams", "Leader roles filled", '<span class="pv-k">9 of 11</span>') + '<div class="pv-b">' +
-      ["Kids", "Production"].map(function (r) { return '<div class="ovv-sh"><span>' + r + '</span><span class="badge" data-size="sm" data-status="risk">Leader open</span></div>'; }).join("") + "</div>";
-  } else {
-    b = pvHead("compass", "tone-amber", "Where help could matter", "Eastside Commons") +
-      '<div class="pv-it ovv-help">Two leader roles are open, 205 days before launch</div>' +
-      '<div class="ovv-acts"><span class="btn" data-variant="primary" data-size="sm">Offer help ' + icon("arrow") + '</span><span class="btn" data-variant="ghost" data-size="sm">Later</span></div>';
-  }
-  return '<div class="pv">' + b + "</div>";
 }
 /* Revision 28: the sending paths. One display sentence ("Sent by" + changing phrase + tail) over one large card. A single timer moves
    both through the states in copy order (a church, a network through a church, a network) and loops. The facts match Revision 26 B. */
