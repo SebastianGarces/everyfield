@@ -364,13 +364,13 @@
         "template context mapping"
       ],
       "facts": [
-        "Eleven stable template identities, saved display names, immutable approved content/version/hash, category, phase and curated Wiki/meeting/team context mappings.",
-        "Twelve offered format combinations: commitment card PDF, response card PDF, sign-in sheet PDF, Vision agenda PDF and DOCX, core member expectations DOCX, launch-team commitment DOCX, follow-up letter DOCX, board/elder agenda DOCX, first-year budget XLSX, budget worksheet XLSX and launch checklists PDF.",
+        "Eleven original stable template identities form the preserved base of a growing catalog: saved display names, immutable approved content/version/hash, category, phase and curated Wiki/meeting/team context mappings.",
+        "One offered format per template under the format rule: budgets XLSX, emails HTML mail and every other template PDF. The original commitment card, response card, sign-in sheet, Vision agenda, core member expectations, launch-team commitment, follow-up letter, board/elder agenda and launch checklists are PDF; the first-year budget and budget worksheet are XLSX.",
         "Closed merge-field definitions, required/default rules, approved rendering profile, shared content layout and spreadsheet cell/formula definitions."
       ],
       "history": "immutable versions",
       "invariants": [
-        "Format must belong to the selected immutable template; eleven templates and seven communication templates have distinct identities.",
+        "Format must belong to the selected immutable template; original templates and seven communication templates have distinct identities.",
         "Exact original approved template content and live XLSX formulas are preserved; retired unknown mappings supply no invented link."
       ],
       "retention": "Keep immutable approved source versions, release manifests and activation history needed by current and historical consumers. Global rollback does not restore deleted tenant/personal data or departed-source rights. No additional time-based source expiry is specified.",
@@ -1513,6 +1513,54 @@
         "feedback_publication"
       ],
       "notes": "Reuses inventory A dashboard/current scope and operations feedback facts plus inventory B inbox/preference/read-state facts. No table or stored field is introduced for each source helper."
+    },
+    {
+      "id": "CAP-C-046",
+      "name": "Document themes, classes, legal notice, doctrinal slots and copy rule",
+      "feature_ids": [
+        "DOC-017",
+        "DOC-018",
+        "DOC-019",
+        "DOC-020",
+        "DOC-021"
+      ],
+      "persists": false,
+      "entities": [],
+      "facts": [],
+      "history": "none",
+      "invariants": [
+        "A template renders with the Everyfield-neutral theme unless a church theme is supplied.",
+        "Every template has exactly one document class; formal/legal templates show the legal notice.",
+        "Everyfield ships no doctrinal text; an unfilled slot renders as a visible blank."
+      ],
+      "retention": "No additional storage. Saved generated documents keep their exact bytes.",
+      "current_tables": [],
+      "notes": "Sources: knowledge-documents.md, Template themes, classes and copy. The template list is docs/catalog/document-templates.json."
+    },
+    {
+      "id": "CAP-C-047",
+      "name": "Church brand kit and resolved document theme",
+      "feature_ids": [
+        "BRD-001",
+        "BRD-002",
+        "BRD-003",
+        "BRD-004",
+        "BRD-005",
+        "BRD-006"
+      ],
+      "persists": false,
+      "entities": [],
+      "facts": [],
+      "history": "none",
+      "invariants": [
+        "Each church has at most one brand kit; only the Owner and Admin read or change it.",
+        "Brand files use private storage with the brand_asset purpose and carry alt text.",
+        "A brand color under 3:1 contrast against its background is never used as text.",
+        "A kit change applies only to newly generated documents."
+      ],
+      "retention": "WP-104 designs the kit and asset tables (D72). This record carries behavior until that package adds its schema.",
+      "current_tables": [],
+      "notes": "Sources: knowledge-documents.md, Church brand kit. Reuses the private file upload lifecycle of CAP-C-014."
     }
   ],
   "observations": [

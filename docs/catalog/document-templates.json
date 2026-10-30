@@ -1,0 +1,398 @@
+{
+  "purpose": "Named generated-document template catalog by id. It holds ids, classes, formats, phases and priority only, with no template content. docs/catalog/check-document-templates.py validates it.",
+  "format_rule": "Budgets are XLSX, class email gets email format (HTML mail) and every other template is PDF from the Forme engine (@formepdf).",
+  "classes": [
+    "formal/legal",
+    "outward-facing",
+    "operational",
+    "email"
+  ],
+  "maya_list": {
+    "stated_total": 51,
+    "named_here": 38,
+    "not_yet_named": 13,
+    "note": "Maya's full list is not in the repo, so this file registers only the templates the ask or a repo file names. The ask counts 11 + 7 + 7 + 33 = 58, which does not equal 51; the difference is open. Phases are null until a repo source states them. Priority 1 to 5 follows Maya's order; null means \"then the rest\"."
+  },
+  "templates": [
+    {
+      "id": "commitment-card",
+      "title": "Core Group Commitment Card",
+      "class": "operational",
+      "format": "pdf",
+      "phase": 1,
+      "priority": null,
+      "source": "existing",
+      "ref": "docs/reference/document-templates.ts#commitment-card"
+    },
+    {
+      "id": "response-card",
+      "title": "Response Card",
+      "class": "operational",
+      "format": "pdf",
+      "phase": 1,
+      "priority": null,
+      "source": "existing",
+      "ref": "docs/reference/document-templates.ts#response-card"
+    },
+    {
+      "id": "guest-sign-in-sheet",
+      "title": "Guest Sign-in Sheet",
+      "class": "operational",
+      "format": "pdf",
+      "phase": 1,
+      "priority": null,
+      "source": "existing",
+      "ref": "docs/reference/document-templates.ts#guest-sign-in-sheet"
+    },
+    {
+      "id": "vision-meeting-agenda",
+      "title": "Vision Meeting Agenda",
+      "class": "operational",
+      "format": "pdf",
+      "phase": 1,
+      "priority": null,
+      "source": "existing",
+      "ref": "docs/reference/document-templates.ts#vision-meeting-agenda"
+    },
+    {
+      "id": "member-expectations",
+      "title": "Expectations of a Core Group Member",
+      "class": "operational",
+      "format": "pdf",
+      "phase": 1,
+      "priority": null,
+      "source": "existing",
+      "ref": "docs/reference/document-templates.ts#member-expectations"
+    },
+    {
+      "id": "launch-team-commitment",
+      "title": "Launch Team Commitment",
+      "class": "operational",
+      "format": "pdf",
+      "phase": 2,
+      "priority": null,
+      "source": "existing",
+      "ref": "docs/reference/document-templates.ts#launch-team-commitment"
+    },
+    {
+      "id": "follow-up-letter",
+      "title": "Vision Meeting Follow-up Letter",
+      "class": "outward-facing",
+      "format": "pdf",
+      "phase": 1,
+      "priority": null,
+      "source": "existing",
+      "ref": "docs/reference/document-templates.ts#follow-up-letter"
+    },
+    {
+      "id": "board-meeting-agenda",
+      "title": "Board / Elder Meeting Agenda",
+      "class": "operational",
+      "format": "pdf",
+      "phase": null,
+      "priority": null,
+      "source": "existing",
+      "ref": "docs/reference/document-templates.ts#board-meeting-agenda"
+    },
+    {
+      "id": "first-year-budget",
+      "title": "First-Year Budget",
+      "class": "operational",
+      "format": "xlsx",
+      "phase": null,
+      "priority": null,
+      "source": "existing",
+      "ref": "docs/reference/document-templates.ts#first-year-budget"
+    },
+    {
+      "id": "budget-worksheet",
+      "title": "Budget Worksheet",
+      "class": "operational",
+      "format": "xlsx",
+      "phase": null,
+      "priority": null,
+      "source": "existing",
+      "ref": "docs/reference/document-templates.ts#budget-worksheet"
+    },
+    {
+      "id": "launch-sunday-checklists",
+      "title": "Launch Sunday Checklists",
+      "class": "operational",
+      "format": "pdf",
+      "phase": 4,
+      "priority": null,
+      "source": "existing",
+      "ref": "docs/reference/document-templates.ts#launch-sunday-checklists"
+    },
+    {
+      "id": "vision-meeting-invitation",
+      "title": "Vision Meeting Invitation",
+      "class": "email",
+      "format": "email",
+      "phase": null,
+      "priority": null,
+      "source": "email",
+      "ref": "docs/reference/communication-system-templates.ts#Vision Meeting Invitation"
+    },
+    {
+      "id": "vision-meeting-reminder",
+      "title": "Vision Meeting Reminder",
+      "class": "email",
+      "format": "email",
+      "phase": null,
+      "priority": null,
+      "source": "email",
+      "ref": "docs/reference/communication-system-templates.ts#Vision Meeting Reminder"
+    },
+    {
+      "id": "vision-meeting-follow-up-attended",
+      "title": "Vision Meeting Follow-Up — Attended",
+      "class": "email",
+      "format": "email",
+      "phase": null,
+      "priority": null,
+      "source": "email",
+      "ref": "docs/reference/communication-system-templates.ts#Vision Meeting Follow-Up — Attended"
+    },
+    {
+      "id": "vision-meeting-follow-up-no-show",
+      "title": "Vision Meeting Follow-Up — No Show",
+      "class": "email",
+      "format": "email",
+      "phase": null,
+      "priority": null,
+      "source": "email",
+      "ref": "docs/reference/communication-system-templates.ts#Vision Meeting Follow-Up — No Show"
+    },
+    {
+      "id": "orientation-invitation",
+      "title": "Orientation Invitation",
+      "class": "email",
+      "format": "email",
+      "phase": null,
+      "priority": null,
+      "source": "email",
+      "ref": "docs/reference/communication-system-templates.ts#Orientation Invitation"
+    },
+    {
+      "id": "team-meeting-invitation",
+      "title": "Team Meeting Invitation",
+      "class": "email",
+      "format": "email",
+      "phase": null,
+      "priority": null,
+      "source": "email",
+      "ref": "docs/reference/communication-system-templates.ts#Team Meeting Invitation"
+    },
+    {
+      "id": "general-announcement",
+      "title": "General Announcement",
+      "class": "email",
+      "format": "email",
+      "phase": null,
+      "priority": null,
+      "source": "email",
+      "ref": "docs/reference/communication-system-templates.ts#General Announcement"
+    },
+    {
+      "id": "church-planting-prospectus",
+      "title": "Church Planting Prospectus",
+      "class": "outward-facing",
+      "format": "pdf",
+      "phase": null,
+      "priority": 3,
+      "source": "planned",
+      "ref": "docs/product/adr-001-multiplication-pathway.md (DOC catalog item 5)"
+    },
+    {
+      "id": "partnership-agreement",
+      "title": "Partnership Agreement",
+      "class": "formal/legal",
+      "format": "pdf",
+      "phase": null,
+      "priority": 3,
+      "source": "planned",
+      "ref": "docs/product/adr-001-multiplication-pathway.md (DOC catalog item 5; section 7)"
+    },
+    {
+      "id": "residency-plan",
+      "title": "Residency Plan",
+      "class": "operational",
+      "format": "pdf",
+      "phase": null,
+      "priority": null,
+      "source": "planned",
+      "ref": "docs/product/adr-001-multiplication-pathway.md (DOC catalog item 5)"
+    },
+    {
+      "id": "vision-meeting-kit-checklist",
+      "title": "Vision Meeting Kit Checklist",
+      "class": "operational",
+      "format": "pdf",
+      "phase": null,
+      "priority": null,
+      "source": "planned",
+      "ref": "docs/reference/article-checklist.md#T.2"
+    },
+    {
+      "id": "vision-meeting-self-assessment",
+      "title": "Vision Meeting Self-Assessment",
+      "class": "operational",
+      "format": "pdf",
+      "phase": null,
+      "priority": null,
+      "source": "planned",
+      "ref": "docs/reference/article-checklist.md#T.6"
+    },
+    {
+      "id": "follow-up-interview-questions",
+      "title": "Follow Up Interview Questions",
+      "class": "operational",
+      "format": "pdf",
+      "phase": null,
+      "priority": null,
+      "source": "planned",
+      "ref": "docs/reference/article-checklist.md#T.7"
+    },
+    {
+      "id": "ministry-team-checklists",
+      "title": "Ministry Team Checklists",
+      "class": "operational",
+      "format": "pdf",
+      "phase": null,
+      "priority": null,
+      "source": "planned",
+      "ref": "docs/reference/article-checklist.md#T.9"
+    },
+    {
+      "id": "bylaws",
+      "title": "Bylaws",
+      "class": "formal/legal",
+      "format": "pdf",
+      "phase": null,
+      "priority": 1,
+      "source": "named",
+      "ref": "Sebastian ask 2026-10-30 (Maya priority order)"
+    },
+    {
+      "id": "board-minutes",
+      "title": "Board Minutes",
+      "class": "formal/legal",
+      "format": "pdf",
+      "phase": null,
+      "priority": 1,
+      "source": "named",
+      "ref": "Sebastian ask 2026-10-30 (Maya priority order)"
+    },
+    {
+      "id": "conflict-of-interest-policy",
+      "title": "Conflict-of-Interest Policy",
+      "class": "formal/legal",
+      "format": "pdf",
+      "phase": null,
+      "priority": 1,
+      "source": "named",
+      "ref": "Sebastian ask 2026-10-30 (Maya priority order)"
+    },
+    {
+      "id": "financial-controls-policy",
+      "title": "Financial Controls Policy",
+      "class": "formal/legal",
+      "format": "pdf",
+      "phase": null,
+      "priority": 1,
+      "source": "named",
+      "ref": "Sebastian ask 2026-10-30 (Maya priority order)"
+    },
+    {
+      "id": "accountable-plan-reimbursement-policy",
+      "title": "Accountable-Plan Reimbursement Policy",
+      "class": "formal/legal",
+      "format": "pdf",
+      "phase": null,
+      "priority": 1,
+      "source": "named",
+      "ref": "Sebastian ask 2026-10-30 (Maya priority order)"
+    },
+    {
+      "id": "child-protection-policy",
+      "title": "Child Protection Policy",
+      "class": "formal/legal",
+      "format": "pdf",
+      "phase": null,
+      "priority": 2,
+      "source": "named",
+      "ref": "Sebastian ask 2026-10-30 (Maya priority order)"
+    },
+    {
+      "id": "volunteer-application",
+      "title": "Volunteer Application",
+      "class": "operational",
+      "format": "pdf",
+      "phase": null,
+      "priority": 2,
+      "source": "named",
+      "ref": "Sebastian ask 2026-10-30 (Maya priority order)"
+    },
+    {
+      "id": "background-check-consent",
+      "title": "Background-Check Consent",
+      "class": "formal/legal",
+      "format": "pdf",
+      "phase": null,
+      "priority": 2,
+      "source": "named",
+      "ref": "Sebastian ask 2026-10-30 (Maya priority order)"
+    },
+    {
+      "id": "launch-sunday-run-sheet",
+      "title": "Launch Sunday Run Sheet",
+      "class": "operational",
+      "format": "pdf",
+      "phase": null,
+      "priority": 4,
+      "source": "named",
+      "ref": "Sebastian ask 2026-10-30 (Maya priority order)"
+    },
+    {
+      "id": "monthly-progress-report",
+      "title": "Monthly Progress Report",
+      "class": "outward-facing",
+      "format": "pdf",
+      "phase": null,
+      "priority": 5,
+      "source": "named",
+      "ref": "Sebastian ask 2026-10-30 (Maya priority order)"
+    },
+    {
+      "id": "prayer-letter",
+      "title": "Prayer Letter",
+      "class": "outward-facing",
+      "format": "pdf",
+      "phase": null,
+      "priority": 5,
+      "source": "named",
+      "ref": "Sebastian ask 2026-10-30 (Maya priority order)"
+    },
+    {
+      "id": "support-letter",
+      "title": "Support Letter",
+      "class": "outward-facing",
+      "format": "pdf",
+      "phase": null,
+      "priority": 5,
+      "source": "named",
+      "ref": "Sebastian ask 2026-10-30 (Maya priority order)"
+    },
+    {
+      "id": "group-exemption-rev-proc-2026-8",
+      "title": "Rev. Proc. 2026-8 Group-Exemption Template",
+      "class": "formal/legal",
+      "format": "pdf",
+      "phase": null,
+      "priority": null,
+      "source": "named",
+      "ref": "Sebastian ask 2026-10-30 (Maya priority order)"
+    }
+  ]
+}
