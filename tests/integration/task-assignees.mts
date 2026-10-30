@@ -1,10 +1,5 @@
 import { and, eq, sql } from "../../packages/db/src/query.ts";
 import * as t from "../../packages/db/src/schema/tables.ts";
-
-type Admin = {
-	insert: (table: never) => { values: (v: never) => PromiseLike<unknown> };
-	select: (...a: never[]) => never;
-};
 type Row = Record<string, unknown> & {
 	id?: string;
 	plant_id: string;

@@ -73,17 +73,20 @@ export function AssigneePicker({
 	const you = (accountId: string, name: string) => (accountId === viewerId ? `${name} (you)` : name);
 	const eligible = new Set((people ?? []).map((p) => p.accountId));
 	// Until the list arrives, the choice shows the names the record already has, so the field never looks empty.
+	const names = new Map<string, string>();
 	const options = [
-		...(people ?? held.filter((h) => !h.warning)).map((p) => ({
-			value: p.accountId,
-			label: you(p.accountId, p.displayName.trim() || "Unnamed member"),
-		})),
+		...(people ?? held.filter((h) => !h.warning)).map((p) => {
+			const name = p.displayName.trim() || "Unnamed member";
+			names.set(p.accountId, name);
+			return { value: p.accountId, label: you(p.accountId, name) };
+		}),
 		...held
 			.filter((h) => (people ? !eligible.has(h.accountId) : Boolean(h.warning)))
-			.map((h) => ({
-				value: h.accountId,
-				label: `${h.displayName.trim() || "A former member"} · ${h.warning ?? "no longer has a seat"}`,
-			})),
+			.map((h) => {
+				const name = h.displayName.trim() || "A former member";
+				names.set(h.accountId, name);
+				return { value: h.accountId, label: `${name} · ${h.warning ?? "no longer has a seat"}` };
+			}),
 	];
 	const atLimit = value.length >= MAX_ASSIGNEES;
 	const shown = options.map((o) => ({ ...o, disabled: atLimit && !value.includes(o.value) }));
@@ -115,12 +118,7 @@ export function AssigneePicker({
 				onValueChange={(ids) =>
 					onChange(
 						ids,
-						Object.fromEntries(
-							ids.map((accountId) => {
-								const o = options.find((x) => x.value === accountId);
-								return [accountId, (o?.label ?? "").replace(/ \(you\)$/, "").replace(/ · .*$/, "")];
-							}),
-						),
+						Object.fromEntries(ids.map((accountId) => [accountId, names.get(accountId) ?? ""])),
 					)
 				}
 			/>

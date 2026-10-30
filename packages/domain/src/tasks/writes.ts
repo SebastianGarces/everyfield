@@ -511,6 +511,8 @@ export function createTaskWriter(deps: { reminders: TaskReminders }) {
 										row.parent_id === null,
 								})
 							: null;
+					// Every named ID is held already or in `joining`, which `references` returns whole or refuses.
+					const known = new Map([...row.assignees, ...(refs?.assignees ?? [])].map((a) => [a.accountId, a]));
 					const next: TaskRow = {
 						...row,
 						...(p.title !== undefined ? { title: p.title } : {}),
@@ -519,19 +521,7 @@ export function createTaskWriter(deps: { reminders: TaskReminders }) {
 						...(p.category !== undefined ? { category: p.category } : {}),
 						...(p.due !== undefined ? dueColumns(p.due, cmd.actor.zone) : {}),
 						...(p.assigneeIds !== undefined
-							? {
-									assignees: sortPeople(
-										p.assigneeIds.map(
-											(id) =>
-												row.assignees.find((a) => a.accountId === id) ??
-												refs?.assignees.find((a) => a.accountId === id) ?? {
-													accountId: id,
-													displayName: "",
-													seated: true,
-												},
-										),
-									),
-								}
+							? { assignees: sortPeople(p.assigneeIds.map((id) => known.get(id)!)) }
 							: {}),
 						...(relation ? { ...relation, relation_label: refs?.relationLabel ?? null } : {}),
 					};

@@ -1,10 +1,11 @@
+import { accountId } from "@everyfield/contracts/common";
 import { MAX_ASSIGNEES } from "@everyfield/contracts/tasks";
 import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 
 /** One assignee of a task as a read returns it. `seated` is whether the account still holds a seat in the church. */
-const assigneeRow = z.object({ accountId: z.uuid(), displayName: z.string(), seated: z.boolean() });
+const assigneeRow = z.object({ accountId, displayName: z.string(), seated: z.boolean() });
 /** Every list of people reads in the same order: display name without case, then account ID (D-b). */
 export const sortPeople = <T extends { accountId: string; displayName: string }>(people: readonly T[]): T[] =>
 	[...people].sort((a, b) => {

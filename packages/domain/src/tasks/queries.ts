@@ -195,8 +195,8 @@ function followUpOwnersOf(row: TaskRow) {
 	return sortPeople(
 		row.assignees.map(
 			(a) =>
-				views.get(a.accountId as never) ?? {
-					accountId: a.accountId as never,
+				views.get(a.accountId) ?? {
+					accountId: a.accountId,
 					displayName: a.displayName,
 					eligible: true,
 					reason: null,
@@ -205,7 +205,7 @@ function followUpOwnersOf(row: TaskRow) {
 	);
 }
 const peopleOf = (a: { accountId: string; displayName: string }) => ({
-	accountId: a.accountId as never,
+	accountId: a.accountId,
 	displayName: a.displayName,
 });
 export function itemOf(row: TaskRow, asOf: Instant) {

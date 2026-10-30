@@ -1129,7 +1129,10 @@ test("AC:TARGET-TSK-012 F07b criteria 8 and 9: a follow-up is owned while one ow
 	);
 	// The handoff preview starts from the account and lists both of its follow-ups.
 	assert.equal(ok(await read(c.admin, "planHandoff", { fromAccountId: stuck.id })).total, 2);
-	assert.ok(only);
+	assert.deepEqual(
+		byTask(only).owners.map((o) => [o.accountId, o.eligible]),
+		[[stuck.id, false]],
+	);
 });
 
 test("AC:TARGET-TSK-012 F07b criterion 3: assigning a list refuses the whole write when one account cannot own", async () => {
