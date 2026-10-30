@@ -133,6 +133,16 @@ before(async () => {
 	member = await seated(plant, "member");
 	foreign = await seated(other, "owner");
 });
+
+/** An account that may own follow-ups: a seat and a committed Person linked to it (REQ-TSK-012). */
+async function eligibleAccount() {
+	const a = await f.account();
+	await f.seat(a, plant, "member");
+	await f.admin.execute(
+		sql`UPDATE person SET linked_account_id=${a.id} WHERE id=${await person("Owner " + a.id.slice(0, 4), "core_group")}`,
+	);
+	return a;
+}
 after(() => f?.close());
 
 // D69 (R3-6): finalize writes attendance, progression and generated work with set-based statements, so 500 attendees
@@ -472,16 +482,17 @@ test("AC:TARGET-MTG-020 AC:TARGET-MTG-012 AC:TARGET-TSK-017 AC:GAP-PPL-020 AC:CA
 	const sam = await person("Sam");
 	const samLater = await meeting("vision_meeting", "2026-09-13T23:00:00Z"),
 		samEarly = await meeting("vision_meeting", "2026-09-06T23:00:00Z");
-	ok(await finalize(owner, samLater, [sam], { followUpAssigneeId: member.id }));
+	const samOwner = await eligibleAccount();
+	ok(await finalize(owner, samLater, [sam], { followUpAssigneeId: samOwner.id }));
 	ok(await finalize(owner, samEarly, [sam]));
 	const undone = ok(await reconcile(owner, samEarly, []));
 	assert.deepEqual(
 		undone.work.filter((w) => w.meetingId === samLater).map((w) => [w.personId, w.outcome, w.assigneeId, w.needsOwner]),
-		[[sam, "existing", member.id, false]],
+		[[sam, "existing", samOwner.id, false]],
 	);
 	assert.deepEqual(
 		(await work(samLater)).filter((w) => w.kind === "follow_up").map((w) => [w.status, w.assignee_id]),
-		[["no_longer_needed", member.id]],
+		[["no_longer_needed", samOwner.id]],
 	);
 });
 
@@ -778,4 +789,41 @@ test("INV-statements: a finalize preview runs the command once and saves nothing
 		ok(await write(owner, "finalizeAttendance", request)).classifications,
 		ok(preview.value).classifications,
 	);
+});
+
+test("AC:TARGET-TSK-012 finalize and Correct attendance refuse a follow-up owner who cannot own one; the result names the owner the same way", async () => {
+	const unlinked = await f.account();
+	await f.seat(unlinked, plant, "member");
+	const member = await eligibleAccount();
+	const ivy = await person("Ivy"),
+		jo = await person("Jo");
+	const v = await meeting("vision_meeting", "2026-10-12T23:00:00Z");
+	refused(await finalize(owner, v, [ivy], { followUpAssigneeId: unlinked.id }), "owner_ineligible");
+	const done = ok(await finalize(owner, v, [ivy], { followUpAssigneeId: member.id }));
+	const followUp = done.work.find((w) => w.kind === "first_vision_follow_up");
+	assert.deepEqual(
+		[followUp.owner.accountId, followUp.owner.eligible, followUp.owner.reason, typeof followUp.owner.displayName],
+		[member.id, true, null, "string"],
+	);
+	const request = (extra) => async () => ({
+		requestKey: key(),
+		expectedRevision: await revision(v),
+		input: { meetingId: v, attendeeIds: [ivy, jo], reason: "Sign-in sheet checked", ...extra },
+	});
+	refused(
+		await write(owner, "reconcileAttendance", await request({ followUpAssigneeId: unlinked.id })()),
+		"owner_ineligible",
+	);
+	const corrected = ok(await write(owner, "reconcileAttendance", await request({ followUpAssigneeId: member.id })()));
+	const added = corrected.work.find((w) => w.personId === jo && w.outcome === "created");
+	assert.deepEqual([added.owner.accountId, added.owner.eligible], [member.id, true]);
+	// An ineligible assignee already on an existing duty reads with the reason, not as a different person.
+	await f.admin.execute(sql`UPDATE task SET assignee_id=${unlinked.id} WHERE obligation_id=${followUp.obligationId}`);
+	const again = ok(await write(owner, "reconcileAttendance", await request({ followUpAssigneeId: member.id })()));
+	const kept = again.work.find((w) => w.obligationId === followUp.obligationId);
+	assert.deepEqual([kept.owner.accountId, kept.owner.eligible, kept.owner.reason], [unlinked.id, false, "no_person"]);
+	// The evaluation owner keeps the seated rule: a seat is enough.
+	const empty = await meeting("vision_meeting", "2026-10-13T23:00:00Z");
+	const evaluation = ok(await finalize(owner, empty, [], { evaluationAssigneeId: unlinked.id })).work[0];
+	assert.deepEqual([evaluation.owner.accountId, evaluation.owner.eligible], [unlinked.id, true]);
 });

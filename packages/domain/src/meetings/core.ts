@@ -45,7 +45,7 @@ function refused(error: Refusal): MeetingsReply<never> {
 			code: error.code,
 			details: error.details,
 			correlationId: randomUUID(),
-			retry: error.code === "conflict" ? "refresh" : error.code === "required_write_failed" ? "same_request" : "never",
+			retry: error.code === "conflict" || error.code === "owner_ineligible" ? "refresh" : error.code === "required_write_failed" ? "same_request" : "never",
 		}),
 	};
 }

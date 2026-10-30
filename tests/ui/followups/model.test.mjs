@@ -7,13 +7,16 @@ import {
 	emptyDraft,
 	keepSelection,
 	outcomeInput,
+	originText,
 	ownersOf,
 	pickOutcome,
+	preferredOwner,
 	totalsAfter,
 	coverageOf,
 	windowAt,
 	withOutcome,
 } from "../../../apps/web/src/features/followups/model.ts";
+import { ownerText } from "../../../apps/web/src/features/tasks/model.ts";
 
 const now = new Date("2026-10-21T15:00:00.000Z");
 
@@ -146,6 +149,35 @@ test("AC:TARGET-TSK-012 AC:TARGET-TSK-013 owner totals follow confirmed assignme
 		{ owners: [{ ...daniel, open: 2 }], formerOwners: [], needsOwner: 0, uncovered: 0 },
 	);
 	assert.equal(coverageOf([]), "uncovered");
-	assert.equal(coverageOf([{ owner: ruth }, { owner: null }]), "needs_owner");
-	assert.equal(coverageOf([{ owner: ruth }]), "owned");
+	const ready = { ...ruth, eligible: true, reason: null };
+	const stuck = { ...sam, eligible: false, reason: "no_person" };
+	assert.equal(coverageOf([{ owner: ready }, { owner: null }]), "needs_owner");
+	// An assignee who cannot own follow-ups still counts as Needs owner (REQ-TSK-012).
+	assert.equal(coverageOf([{ owner: ready }, { owner: stuck }]), "needs_owner");
+	assert.equal(coverageOf([{ owner: ready }]), "owned");
+});
+
+test("AC:TARGET-TSK-012 AC:TARGET-MTG-022 one wording for an owner, an origin and a meeting's preferred follow-up owner", () => {
+	const ruth = { accountId: "r", displayName: "Ruth Allen", eligible: true, reason: null };
+	const tomas = { accountId: "t", displayName: "Tomas Weaver", eligible: false, reason: "no_person" };
+	assert.equal(ownerText(ruth), "Ruth Allen");
+	assert.equal(ownerText(tomas), "Tomas Weaver · Can't own follow-ups: no linked Person");
+	assert.equal(ownerText({ ...tomas, reason: "no_seat" }), "Tomas Weaver · Can't own follow-ups: no current seat");
+	assert.equal(
+		ownerText({ ...tomas, reason: "not_committed" }),
+		"Tomas Weaver · Can't own follow-ups: Person not in a core group, launch team or leader stage",
+	);
+	assert.equal(ownerText(null), "Needs owner");
+	assert.equal(originText({ kind: "meeting", meeting: { id: "m", label: "Vision Meeting #4" } }), "After Vision Meeting #4");
+	assert.equal(originText({ kind: "added", by: "Ruth Allen" }), "Added by Ruth Allen");
+	// Correct attendance offers the eligible owner holding most of the meeting's open follow-ups; a tie goes to the
+	// newest (the list is newest first); no eligible owner reads Needs owner.
+	const open = (owner) => ({ kind: "first_vision_follow_up", state: "open", owner });
+	const dan = { accountId: "d", displayName: "Daniel Reyes", eligible: true, reason: null };
+	assert.equal(preferredOwner([open(ruth), open(dan), open(dan)]), "d");
+	assert.equal(preferredOwner([open(ruth), open(dan)]), "r");
+	assert.equal(preferredOwner([open(tomas), open(null)]), null);
+	assert.equal(preferredOwner([]), null);
+	assert.equal(preferredOwner([{ ...open(ruth), state: "complete" }]), null);
+	assert.equal(preferredOwner([{ ...open(ruth), kind: "meeting_evaluation" }]), null);
 });

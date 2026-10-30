@@ -118,9 +118,37 @@ async function up() {
 		VALUES (${plant.id},'Visit Eli','follow_up','medium','not_started',clock_timestamp(),'undated',${people.people["Eli Park"]},${departed}),
 		       (${plant.id},'Call Leo back','follow_up','medium','not_started',clock_timestamp(),'undated',${people.people["Leo Pratt"]},${departed})`);
 
+	// An assignee who cannot own follow-ups (REQ-TSK-012, WP-023 F07): Tomas Weaver holds a Member seat but has no
+	// Person linked to his account, so he is not an eligible owner, and he holds an open follow-up for Kim Wu. Every
+	// screen shows him as "Tomas Weaver · Can't own follow-ups: no linked Person". Assignment refuses him; the seed
+	// writes the task directly, as a demotion or an unlinked Person would have left it.
+	const user = randomUUID();
+	const tomas = randomUUID();
+	await admin.execute(sql`INSERT INTO auth_user(id,name,email,email_verified)
+		VALUES(${user},'Tomas Weaver','tomas@followups-preview.example.test',true)`);
+	await admin.execute(sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind)
+		VALUES(${tomas},${user},'active','discovery')`);
+	await admin.execute(sql`INSERT INTO seat(account_id,plant_id,role,accepted_at)
+		VALUES(${tomas},${plant.id},'member',clock_timestamp())`);
+	const kim = randomUUID();
+	await admin.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,person_id,assignee_id,creator_id)
+		VALUES (${kim},${plant.id},'Check in with Kim Wu','follow_up','medium','not_started',clock_timestamp(),'undated',${people.people["Kim Wu"]},${tomas},${owner})`);
+
+	// One Person with two open follow-ups owned by the Member: a Vision follow-up and one added by hand. One contact
+	// recorded with "done" finishes both (D-c).
+	const noraId = randomUUID();
+	await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,stage,source)
+		VALUES(${noraId},${plant.id},${plant.id},'Nora Finch','attendee','other')`);
+	const noraVision = await vision("Vision meeting #10", 50, noraId, member);
+	const noraManual = randomUUID();
+	await admin.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,person_id,assignee_id,creator_id)
+		VALUES (${noraManual},${plant.id},'Send Nora the welcome packet','follow_up','medium','not_started',clock_timestamp(),'undated',${noraId},${member},${owner})`);
+
 	const fixture = writeFixture("followups", env.schema, {
 		departed,
-		tasks: { sara, leo, maria: (created.value as { task: { id: string } }).task.id },
+		ineligible: { accountId: tomas, name: "Tomas Weaver" },
+		nora: { personId: noraId, vision: noraVision, manual: noraManual },
+		tasks: { sara, leo, kim, maria: (created.value as { task: { id: string } }).task.id },
 	});
 	await env.close();
 	console.log(JSON.stringify({ schema: env.schema, fixture }));

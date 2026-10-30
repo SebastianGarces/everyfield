@@ -2,6 +2,7 @@ import { z } from "zod";
 import { instant, localDate } from "../common/time.ts";
 import { accountId, operationId, personId, recordId, requestKey, revision } from "../common/values.ts";
 import { stage } from "../people/values.ts";
+import { followUpOwner } from "../tasks/values.ts";
 import { meetingId, meetingType, presence, rsvp } from "./values.ts";
 
 // Attendance, finalization, evaluation and analytics (WP-022). The server derives the church, actor, meeting type,
@@ -182,6 +183,8 @@ export const generatedWork = z.strictObject({
 	assigneeId: accountId.nullable(),
 	/** No current owner: the task shows Needs owner. */
 	needsOwner: z.boolean(),
+	/** The assignee as every screen shows them, with whether they may own it; null without an assignee. */
+	owner: followUpOwner.nullable(),
 });
 export const finalizationResult = z.strictObject({
 	...receipt,

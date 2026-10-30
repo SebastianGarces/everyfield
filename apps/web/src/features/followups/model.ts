@@ -16,6 +16,41 @@ export type Owners = z.infer<typeof c.followUpOwners>;
 export type HandoffPlan = z.infer<typeof c.handoffPlan>;
 export type HandoffResult = z.infer<typeof c.handoffResult>;
 export type Account = HandoffPlan["recipients"][number];
+export type FollowUpOrigin = z.infer<typeof c.followUpOrigin>;
+
+/** Where a follow-up came from, in words: "After Vision Meeting #4" or "Added by Ruth Allen". */
+export const originText = (o: FollowUpOrigin): string =>
+	o.kind === "meeting" ? `After ${o.meeting.label}` : o.by ? `Added by ${o.by}` : "Added by hand";
+/** Whether a follow-up counts as Needs owner: no assignee, or one who cannot own follow-ups now (REQ-TSK-012). */
+export const needsOwner = (d: Pick<DutyItem, "owner">) => !d.owner || !d.owner.eligible;
+
+/**
+ * The totals move for one follow-up that changes hands: it leaves its eligible owner, or Needs owner (also when its
+ * stored assignee can no longer own it, who then also leaves the handoff tally), and goes to `to`.
+ */
+export const moveOf = (before: Pick<DutyItem, "owner">, to: Account | null) => ({
+	from: before.owner?.eligible ? before.owner : null,
+	to,
+	former: before.owner && !before.owner.eligible ? before.owner : null,
+});
+
+/**
+ * Who Correct attendance offers for "Follow-up calls go to" (D-b): the eligible owner who holds most of a meeting's
+ * follow-ups; a tie goes to the owner of the most recent follow-up (the list is newest first). None when no follow-up
+ * has an eligible owner, so it reads Needs owner only then.
+ */
+export function preferredOwner(items: readonly Pick<ObligationItem, "kind" | "state" | "owner">[]): string | null {
+	const held = new Map<string, number>();
+	const order: string[] = [];
+	for (const o of items) {
+		if (o.kind !== "first_vision_follow_up" || o.state !== "open" || !o.owner?.eligible) continue;
+		if (!held.has(o.owner.accountId)) order.push(o.owner.accountId);
+		held.set(o.owner.accountId, (held.get(o.owner.accountId) ?? 0) + 1);
+	}
+	let best: string | null = null;
+	for (const id of order) if (best === null || (held.get(id) ?? 0) > (held.get(best) ?? 0)) best = id;
+	return best;
+}
 
 /** A server answer, or none: `lost` means the reply never arrived, so the save may or may not have happened. */
 export type Outcome<T> = { status: "ok"; value: T } | { status: "refused"; code: string } | { status: "lost" };
@@ -286,4 +321,4 @@ export function totalsAfter(t: Totals, moves: readonly Move[]): Totals {
 }
 /** A contact's coverage from its open follow-ups: none is "uncovered", any without an owner is "needs_owner". */
 export const coverageOf = (duties: readonly Pick<DutyItem, "owner">[]): "owned" | "needs_owner" | "uncovered" =>
-	duties.length === 0 ? "uncovered" : duties.some((d) => !d.owner) ? "needs_owner" : "owned";
+	duties.length === 0 ? "uncovered" : duties.some(needsOwner) ? "needs_owner" : "owned";

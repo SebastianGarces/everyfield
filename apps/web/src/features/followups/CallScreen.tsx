@@ -13,7 +13,8 @@ import {
 import { Avatar, StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { useRef, useState, useSyncExternalStore } from "react";
-import { dueText } from "../tasks/model.ts";
+import { dueText, ownerText } from "../tasks/model.ts";
+import { AssignMenu, dutyFrom } from "./duties.tsx";
 import { recordOutcome } from "./actions.ts";
 import { loadCall } from "./fetch.ts";
 import { OutcomeFields } from "./fields.tsx";
@@ -28,7 +29,7 @@ import {
 	type DraftErrors,
 	type OutcomeMutation,
 } from "./model.ts";
-import { EntryFacts, LastContact, OutcomeBadge } from "./parts.tsx";
+import { ContactEntries, EntryFacts, LastContact, OutcomeBadge } from "./parts.tsx";
 import { focusFirstProblem, SaveButton, SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
 import type { CallData } from "./server.ts";
 
@@ -51,9 +52,7 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 	const open = OPEN.has(task.status);
 	const mine = task.assignee?.accountId === accountId;
 	const canAct = (admin || mine) && person.live;
-	// After a refusal or an unknown result the form stays, with the person's answers and the notice, even when a reload
-	// shows the follow-up was finished in the meantime (C58 rules 5 and 6).
-	const held = lane.notice !== null;
+	const owner = task.followUpOwner ?? (task.assignee ? { ...task.assignee, eligible: true, reason: null } : null);
 	const now = useNow();
 	const left48 =
 		now !== null && obligation?.kind === "first_vision_follow_up" && open ? windowAt(obligation.origin.at, now) : null;
@@ -80,6 +79,10 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 				setCall((c) => ({
 					...c,
 					task: value.task ?? c.task,
+					// A finished follow-up has no one left to finish with it, and its record is the entry just saved.
+					others: value.task && !OPEN.has(value.task.status) ? [] : c.others,
+					record:
+						value.task && !OPEN.has(value.task.status) && c.recent ? { ...c.recent, items: [value.record] } : c.record,
 					recent: c.recent
 						? {
 								...c.recent,
@@ -125,15 +128,37 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 									{task.overdue ? `Overdue · due ${due}` : `Due ${due}`}
 								</StatusBadge>
 							) : null}
-							{task.assignee ? (
-								<StatusBadge status="measured" size="sm" plain>
-									{mine ? "Assigned to you" : `Assigned to ${task.assignee.displayName}`}
+							{owner ? (
+								<StatusBadge status={owner.eligible ? "measured" : "attention"} size="sm" plain>
+									Assigned to {ownerText(owner)}
 								</StatusBadge>
 							) : (
 								<StatusBadge status="attention" size="sm">
 									Needs owner
 								</StatusBadge>
 							)}
+							{admin && open && owner && !owner.eligible ? (
+								<AssignMenu
+									duty={dutyFrom(task)}
+									lane={lane}
+									canAssign
+									onChange={(d) =>
+										setCall((c) => ({
+											...c,
+											task: {
+												...c.task,
+												revision: d.revision,
+												assignee: d.owner ? { accountId: d.owner.accountId, displayName: d.owner.displayName } : null,
+												followUpOwner: d.owner,
+											},
+										}))
+									}
+									onConflict={async () => {
+										const fresh = await loadCall(task.id);
+										if (fresh.status === "ok" && fresh.value.kind === "call") setCall(fresh.value.call);
+									}}
+								/>
+							) : null}
 						</div>
 					</div>
 				</div>
@@ -199,19 +224,13 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 				</Card>
 			) : null}
 
-			{canAct && (open || held) ? (
+			{canAct && open ? (
 				<Card className="gap-4">
 					<CardHeader>
 						<CardHeading>
 							<CardTitle size="sm">{saved ? "Record another try" : "How did it go?"}</CardTitle>
 						</CardHeading>
 					</CardHeader>
-					{open ? null : (
-						<p className="text-sm text-text-2">
-							This follow-up was finished in the meantime. Your answers are kept: save them as an extra entry, or leave
-							this page.
-						</p>
-					)}
 					<form
 						noValidate
 						className="flex flex-col gap-5"
@@ -226,7 +245,8 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 							onDraft={setDraft}
 							errors={errors}
 							completable={open}
-							outcomes={open ? OUTCOMES : OUTCOMES.filter((o) => o !== "no_longer_needed")}
+							alsoFinish={call.others}
+							outcomes={OUTCOMES}
 							personName={person.label.split(" ")[0] || person.label}
 						/>
 						<div ref={notice} tabIndex={-1} className="outline-none">
@@ -240,7 +260,7 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 					</form>
 				</Card>
 			) : !saved ? (
-				<Card>
+				<Card className="gap-3">
 					<p className="text-sm text-text-2">
 						{!person.live
 							? `${person.label} is no longer active. Their history stays, and new outcomes cannot be recorded.`
@@ -250,6 +270,9 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 									: "This follow-up is done."
 								: "Only the follow-up's owner, an Owner or an Admin can record what happened."}
 					</p>
+					{!open && call.record?.items.length ? (
+						<ContactEntries items={call.record.items} accountId={accountId} />
+					) : null}
 				</Card>
 			) : null}
 

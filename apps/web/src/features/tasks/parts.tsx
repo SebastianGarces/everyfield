@@ -14,7 +14,16 @@ import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
 import type { PointerEvent, ReactNode } from "react";
 import type { Wait } from "../../components/save/model.ts";
 import { When } from "../people/parts.tsx";
-import { blockedText, dueText, isSettled, PRIORITY_LABEL, STATUS_LABEL, type Status, type TaskItem } from "./model.ts";
+import {
+	blockedText,
+	dueText,
+	isSettled,
+	ownerText,
+	PRIORITY_LABEL,
+	STATUS_LABEL,
+	type Status,
+	type TaskItem,
+} from "./model.ts";
 
 // Small pieces the task row and the task panel share.
 
@@ -101,7 +110,7 @@ export function DueLine({ task, year }: { task: Pick<TaskItem, "due" | "overdue"
 }
 
 /** The assignee's initials, or "Needs owner" for a task no one holds (REQ-TSK-017). */
-export function Assignee({ task, you }: { task: Pick<TaskItem, "assignee">; you: string }) {
+export function Assignee({ task, you }: { task: Pick<TaskItem, "assignee" | "followUpOwner">; you: string }) {
 	// On a phone the badge moves under the title (MetaLine), so the title keeps its width.
 	if (!task.assignee)
 		return (
@@ -111,7 +120,9 @@ export function Assignee({ task, you }: { task: Pick<TaskItem, "assignee">; you:
 		);
 	const name = task.assignee.displayName || "Former member";
 	const own = task.assignee.accountId === you;
-	return <Avatar name={name} label={own ? `Assigned to you` : `Assigned to ${name}`} size="xs" ring={own} />;
+	// A follow-up's assignee who cannot own follow-ups says so in the same words as every other screen.
+	const who = task.followUpOwner && !task.followUpOwner.eligible ? ownerText(task.followUpOwner) : name;
+	return <Avatar name={name} label={own ? `Assigned to you` : `Assigned to ${who}`} size="xs" ring={own} />;
 }
 
 /** The facts under a task title: due, status, priority, link, steps and completion. */
@@ -121,6 +132,12 @@ export function MetaLine({ task, year }: { task: TaskItem; year: number }) {
 		parts.push(
 			<StatusBadge key="owner" status="attention" size="sm" className="app-sm:hidden">
 				Needs owner
+			</StatusBadge>,
+		);
+	if (task.followUpOwner && !task.followUpOwner.eligible && !isSettled(task.status))
+		parts.push(
+			<StatusBadge key="ineligible" status="attention" size="sm">
+				{ownerText(task.followUpOwner)}
 			</StatusBadge>,
 		);
 	if (task.status === "complete" && task.completedAt)

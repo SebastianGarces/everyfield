@@ -1,8 +1,11 @@
-import { correlationId, instant } from "@everyfield/contracts/common";
+import { correlationId, instant, recordId } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/followups";
 import type { Database } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
+import { meetingType } from "@everyfield/contracts/meetings";
 import { randomUUID } from "node:crypto";
+import { z } from "zod";
+import { displayTitle } from "../meetings/rows.ts";
 import "server-only";
 import { boundWrite, liveRead, type RequestActor } from "../access/session.ts";
 import { auditSavepoint, declareWrite, nativeWrite, WriteUnavailable } from "../operations/writes.ts";
@@ -80,18 +83,37 @@ export async function gated(tx: Tx, viewer: Reader, query: SQL, admin = false) {
 	return r.rows.filter((row) => row.ord !== null);
 }
 
-export const COMMITTED = sql`('core_group','launch_team','leader')`;
-/**
- * Whether `account` may own a follow-up in `plant` now (REQ-TSK-012): a current accepted seat and a live Person of
- * the church in a committed stage linked to that exact account. A shared email or an unlinked contact never owns one.
- */
-export const eligibleOwner = (account: SQL, plant: SQL) => sql`(EXISTS(SELECT FROM seat s WHERE s.account_id=${account}
-	AND s.plant_id=${plant} AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp())
-	AND EXISTS(SELECT FROM person e WHERE e.tenant_id=${plant} AND e.plant_id IS NOT NULL AND e.state='live'
-	AND e.linked_account_id=${account} AND e.stage IN ${COMMITTED}))`;
+export { COMMITTED, eligibleOwner, ownerView } from "../tasks/owner.ts";
 /** A live top-level person follow-up task: what assignment, coverage and handoff act on. */
 export const followUpTask = (t: SQL) =>
 	sql`${t}.category='follow_up' AND ${t}.person_id IS NOT NULL AND ${t}.parent_id IS NULL AND ${t}.deleted_at IS NULL`;
+/**
+ * Where task `t` came from, as JSON: the meeting whose duty generated it, else who added it. Two follow-ups for one
+ * person read differently on every screen.
+ */
+export const originJson = (t: SQL) => sql`(SELECT jsonb_build_object('meeting_id', m.id, 'title', m.title, 'type', m.type,
+	'vision_number', m.vision_number, 'by', (SELECT display_name FROM seat_identity(${t}.creator_id)))
+	FROM (SELECT 1) one LEFT JOIN obligation ob ON ob.id=${t}.obligation_id AND ob.plant_id=${t}.plant_id
+	LEFT JOIN meeting m ON m.id=ob.meeting_id AND m.plant_id=ob.plant_id)`;
+const originRow = z.object({
+	meeting_id: z.uuid().nullable(),
+	title: z.string().nullable(),
+	type: meetingType.nullable(),
+	vision_number: z.int().nullable(),
+	by: z.string().nullable(),
+});
+export function originOf(raw: unknown): c.FollowUpOrigin {
+	const o = originRow.parse(raw);
+	return o.meeting_id && o.type
+		? {
+				kind: "meeting",
+				meeting: {
+					id: recordId.parse(o.meeting_id),
+					label: displayTitle({ title: o.title, type: o.type, vision_number: o.vision_number }),
+				},
+			}
+		: { kind: "added", by: o.by };
+}
 export const OPEN = sql`('not_started','in_progress','blocked')`;
 
 export const now = () => instant.parse(new Date().toISOString());

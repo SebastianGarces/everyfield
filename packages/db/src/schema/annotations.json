@@ -7278,6 +7278,9 @@
 				},
 				"completes_task": {
 					"note": "The person completed the outcome's task with this outcome. A first-Vision follow-up's 48-hour measure uses the earliest effective completing outcome; a correction keeps the flag."
+				},
+				"also_task_ids": {
+					"note": "The person's other open follow-up tasks this one contact finished (REQ-MTG-022). Each keeps this entry as its completion evidence for the 48-hour measure; the log shows one entry. No foreign key: an array of same-church task IDs checked by the writer."
 				}
 			},
 			"foreignKeys": {

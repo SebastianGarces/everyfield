@@ -14,16 +14,20 @@ import {
 } from "@everyfield/ui/controls";
 import { KeyValue, KeyValueList, StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
-import { useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import type { Wait } from "../../components/save/model.ts";
 import { When } from "../people/parts.tsx";
 import type { StatusAction } from "./actions.ts";
 import { loadHistory, type Loaded } from "./fetch.ts";
+import { loadHistory as loadContacts } from "../followups/fetch.ts";
+import { ContactEntries } from "../followups/parts.tsx";
+import type { ContactHistory, Outcome as ReadOutcome } from "../followups/model.ts";
 import {
 	blockedText,
 	CATEGORY_LABEL,
 	isSettled,
 	ownerLabel,
+	ownerText,
 	PRIORITY_LABEL,
 	problemText,
 	shownSteps,
@@ -272,7 +276,14 @@ export function TaskSheet({
 							k="Assigned to"
 							value={
 								task.assignee ? (
-									ownerLabel(task.assignee)
+									<span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+										{task.followUpOwner ? ownerText(task.followUpOwner) : ownerLabel(task.assignee)}
+										{admin && !isSettled(task.status) && task.followUpOwner && !task.followUpOwner.eligible ? (
+											<Button variant="outline" size="sm" onClick={onEdit}>
+												Reassign
+											</Button>
+										) : null}
+									</span>
 								) : (
 									<StatusBadge status="attention" size="sm">
 										Needs owner
@@ -358,6 +369,14 @@ export function TaskSheet({
 									/>
 								</>
 							)}
+							{task.relation?.kind === "person" && !task.parentId ? (
+								<ContactHistorySection
+									key={`${detail.id}-${task.status}`}
+									taskId={detail.id}
+									personId={task.relation.id}
+									accountId={viewer.accountId}
+								/>
+							) : null}
 							{loaded ? <History key={detail.id} taskId={detail.id} first={loaded.history} /> : null}
 						</>
 					) : state?.status === "failed" ? (
@@ -392,6 +411,59 @@ function Loading() {
 			<Skeleton className="h-4 w-1/2" />
 			<Skeleton className="h-4 w-2/3" />
 		</div>
+	);
+}
+
+/**
+ * What was recorded on a follow-up, newest first: the outcome, how, the note, who and when, with corrected and withdrawn
+ * entries kept (REQ-MTG-022). Read each time the panel opens, so an outcome recorded on the call screen shows when it
+ * is opened again, with no page reload.
+ */
+function ContactHistorySection({
+	taskId,
+	personId,
+	accountId,
+}: {
+	taskId: string;
+	personId: string;
+	accountId: string;
+}) {
+	const [log, setLog] = useState<ReadOutcome<ContactHistory> | null>(null);
+	const [attempt, setAttempt] = useState(0);
+	useEffect(() => {
+		let live = true;
+		void loadContacts(personId, 1, taskId).then((r) => live && setLog(r));
+		return () => {
+			live = false;
+		};
+	}, [taskId, personId, attempt]);
+	return (
+		<Section title="What happened">
+			{log === null ? (
+				<p role="status" className="text-sm text-text-3">
+					Loading what was recorded
+				</p>
+			) : log.status !== "ok" ? (
+				<>
+					<p className="text-sm text-text-3">What was recorded did not load.</p>
+					<Button
+						variant="ghost"
+						size="sm"
+						className="self-start"
+						onClick={() => {
+							setLog(null);
+							setAttempt((n) => n + 1);
+						}}
+					>
+						Try again
+					</Button>
+				</>
+			) : log.value.items.length === 0 ? (
+				<p className="text-sm text-text-3">Nothing is recorded for this follow-up yet.</p>
+			) : (
+				<ContactEntries items={log.value.items} accountId={accountId} />
+			)}
+		</Section>
 	);
 }
 

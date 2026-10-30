@@ -71,7 +71,7 @@
   "as_of": "2026-10-17",
   "implementation_authorized": false,
   "table_count": 96,
-  "column_count": 1098,
+  "column_count": 1099,
   "foreign_key_count": 341,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
@@ -12783,6 +12783,13 @@
           "type": "boolean",
           "nullable": false,
           "default": false
+        },
+        {
+          "note": "The person's other open follow-up tasks this one contact finished (REQ-MTG-022). Each keeps this entry as its completion evidence for the 48-hour measure; the log shows one entry. No foreign key: an array of same-church task IDs checked by the writer.",
+          "name": "also_task_ids",
+          "type": "uuid[]",
+          "nullable": false,
+          "default": "'{}'::uuid[]"
         }
       ],
       "primary_key": [

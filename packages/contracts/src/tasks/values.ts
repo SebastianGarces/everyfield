@@ -8,7 +8,7 @@ import {
 	type Instant,
 	type TimeZone,
 } from "../common/time.ts";
-import { recordId } from "../common/values.ts";
+import { accountId, recordId } from "../common/values.ts";
 
 export const taskStatus = z.enum(["not_started", "in_progress", "blocked", "complete", "no_longer_needed"]);
 export const settledStatus = ["complete", "no_longer_needed"] as const;
@@ -25,6 +25,16 @@ export const category = z.enum([
 	"recurring",
 	"general",
 ]);
+/** Why an assignee cannot own a follow-up now (REQ-TSK-012): no current seat, no linked Person, or a Person outside the committed stages. */
+export const ownerReason = z.enum(["no_seat", "no_person", "not_committed"]);
+/** A follow-up's owner view: the task's assignee and whether they may own it. The one value every screen shows. */
+export const followUpOwner = z.strictObject({
+	accountId,
+	displayName: z.string(),
+	eligible: z.boolean(),
+	reason: ownerReason.nullable(),
+});
+export type FollowUpOwner = z.infer<typeof followUpOwner>;
 export const obligationKind = z.enum(["first_vision_follow_up", "meeting_evaluation"]);
 // A bounded title. Whitespace-only titles are refused rather than saved empty.
 export const title = z.string().trim().min(1).max(500);

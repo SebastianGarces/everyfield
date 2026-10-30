@@ -4,6 +4,7 @@ import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import { liveRead, type RequestActor } from "../access/session.ts";
+import { ownerView, eligibleOwner } from "./owner.ts";
 import { administers, deny, parse, readReply, readerOf, type Reader, type Tx, type Viewer } from "./core.ts";
 
 // Storage keeps the shipped short kind names; the contract names say which duty it is.
@@ -41,6 +42,7 @@ export const taskRow = z.object({
 	obligation_id: z.uuid().nullable(),
 	obligation_kind: storedKind.nullable(),
 	assignee_name: z.string().nullable(),
+	follow_up_owner: c.followUpOwner.nullish(),
 	relation_label: z.string().nullable(),
 	child_total: z.int(),
 	child_complete: z.int(),
@@ -98,6 +100,8 @@ const columns = sql`t.id, t.revision::text AS revision, t.title, t.description, 
 	(SELECT count(*)::int FROM task q WHERE q.id=ANY(t.prerequisite_ids) AND q.plant_id=t.plant_id AND q.deleted_at IS NULL
 		AND q.status NOT IN ('complete','no_longer_needed')) AS open_prerequisites,
 	t.occurrence_key, t.obligation_id, o.kind AS obligation_kind, ai.display_name AS assignee_name,
+	CASE WHEN t.category='follow_up' AND t.person_id IS NOT NULL AND t.parent_id IS NULL AND t.assignee_id IS NOT NULL
+		THEN ${ownerView(sql`t.assignee_id`, sql`t.plant_id`)} END AS follow_up_owner,
 	coalesce(p.display_name, m.title, tm.name) AS relation_label, pl.timezone AS plant_zone,
 	(SELECT count(*)::int FROM task k WHERE k.parent_id=t.id AND k.plant_id=t.plant_id AND k.deleted_at IS NULL) AS child_total,
 	(SELECT count(*)::int FROM task k WHERE k.parent_id=t.id AND k.plant_id=t.plant_id AND k.deleted_at IS NULL
@@ -179,6 +183,17 @@ export function dueOf(row: Pick<TaskRow, "due_kind" | "due_date" | "due_time" | 
 		offsetSeconds: (Date.parse(`${local}Z`) - at.getTime()) / 1000,
 	});
 }
+/**
+ * A person follow-up's owner view (REQ-TSK-012). A read carries the stored view; a task a write just changed names its
+ * new assignee, whom that write checked, so it reads as eligible.
+ */
+function followUpOwnerOf(row: TaskRow) {
+	if (row.category !== "follow_up" || !row.person_id || row.parent_id || !row.assignee_id) return null;
+	const view = row.follow_up_owner;
+	return view && view.accountId === row.assignee_id
+		? view
+		: { accountId: row.assignee_id, displayName: row.assignee_name ?? "", eligible: true, reason: null };
+}
 export function itemOf(row: TaskRow, asOf: Instant) {
 	const due = dueOf(row);
 	const settled = (c.settledStatus as readonly string[]).includes(row.status);
@@ -192,6 +207,7 @@ export function itemOf(row: TaskRow, asOf: Instant) {
 		due,
 		overdue: due.kind === "undated" ? null : settled ? false : c.overdueAt(due, row.plant_zone, asOf),
 		assignee: row.assignee_id ? { accountId: row.assignee_id, displayName: row.assignee_name ?? "" } : null,
+		followUpOwner: followUpOwnerOf(row),
 		relation: row.person_id
 			? { kind: "person", id: row.person_id, label: row.relation_label ?? "" }
 			: row.meeting_id
@@ -416,17 +432,23 @@ export const taskReader = {
 			});
 		});
 	},
-	/** The church's current accepted seats, who may hold a task. Owner/Admin only. One statement. */
-	async eligibleAssignees(tx: Tx, authority: RequestActor) {
+	/**
+	 * The church's current accepted seats, who may hold a task. With purpose `committed_follow_up` only the seats that may
+	 * own a follow-up (REQ-TSK-012). Owner/Admin only. One statement.
+	 */
+	async eligibleAssignees(tx: Tx, authority: RequestActor, raw: unknown = {}) {
 		return readReply(async () => {
-			const viewer = reader(authority, true);
+			const viewer = reader(authority, true),
+				v = parse(c.eligibleAssigneesRequest, raw);
+			const plant = sql`${viewer.plantId}::uuid`;
 			const found = await gated(
 				tx,
 				viewer,
 				sql`SELECT s.account_id, s.role, i.display_name,
 					row_number() OVER (ORDER BY lower(i.display_name), s.account_id) AS ord FROM seat s
 				CROSS JOIN LATERAL seat_identity(s.account_id) i
-				WHERE s.plant_id=${viewer.plantId}::uuid AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp()
+				WHERE s.plant_id=${plant} AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp()
+				${v.purpose === "committed_follow_up" ? sql`AND ${eligibleOwner(sql`s.account_id`, plant)}` : sql``}
 				ORDER BY lower(i.display_name), s.account_id LIMIT 500`,
 				true,
 			);

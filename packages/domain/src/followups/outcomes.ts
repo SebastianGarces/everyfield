@@ -14,10 +14,11 @@ import {
 	type TaskContext,
 	type Tx,
 } from "../tasks/core.ts";
-import { loadTask, type LockedTask } from "../tasks/queries.ts";
+import { loadTask, lockTasks, type LockedTask } from "../tasks/queries.ts";
 import { mutation, setStatus, syncAll, type TaskReminders } from "../tasks/writes.ts";
-import { answer, refuse } from "./core.ts";
+import { answer, followUpTask, OPEN, originJson, originOf, refuse } from "./core.ts";
 
+const OPEN_STATUS = ["not_started", "in_progress", "blocked"] as const;
 const isCompleting = (o: c.Outcome) => (c.completing as readonly string[]).includes(o);
 const at = (d: Date | string) => instant.parse(new Date(d).toISOString());
 type Stored = {
@@ -35,6 +36,7 @@ type Stored = {
 	supersedes_id: string | null;
 	voided_at: Date | null;
 	completes_task: boolean;
+	also_task_ids: string[];
 };
 type Who = { accountId: string; displayName: string | null };
 /** One contact-log entry as the contract shows it. */
@@ -42,6 +44,8 @@ function itemOf(
 	r: Stored,
 	actor: Who | null,
 	extra: {
+		/** The other follow-ups this one contact finished, named by where they came from. */
+		also?: Record<string, c.FollowUpOrigin>;
 		corrected?: boolean;
 		corrects?: { id: string; reason: string | null } | null;
 		voided?: Who & { reason: string };
@@ -63,6 +67,10 @@ function itemOf(
 		notes: r.notes,
 		completedTask: r.completes_task,
 		taskId: r.task_id,
+		alsoFinished: r.also_task_ids.map((taskId) => ({
+			taskId,
+			origin: extra.also?.[taskId] ?? ({ kind: "added", by: null } as const),
+		})),
 		obligationId: r.obligation_id,
 		meetingId: r.meeting_id,
 		actor: who(actor),
@@ -107,16 +115,17 @@ const audited = (r: Stored) => ({
 	outcome: r.outcome,
 	occurred_at: at(r.occurred_at),
 	completes_task: r.completes_task,
+	also_task_ids: r.also_task_ids,
 	task_id: r.task_id,
 	person_id: r.person_id,
 });
 const insertOutcome = (plantId: string, r: Stored) =>
 	sql`INSERT INTO contact_outcome (id, plant_id, person_id, task_id, obligation_id, meeting_id, outcome, occurred_at,
-		recorded_at, contact_channel, notes, supersedes_id, completes_task)
+		recorded_at, contact_channel, notes, supersedes_id, completes_task, also_task_ids)
 	VALUES (${r.id}::uuid, ${plantId}::uuid, ${r.person_id}::uuid, ${r.task_id}::uuid, ${r.obligation_id}::uuid,
 		${r.meeting_id}::uuid, ${r.outcome}, ${r.occurred_at.toISOString()}::timestamptz,
 		${r.recorded_at.toISOString()}::timestamptz, ${r.contact_channel}, ${r.notes}, ${r.supersedes_id}::uuid,
-		${r.completes_task})`;
+		${r.completes_task}, ${sql.param(r.also_task_ids)}::uuid[])`;
 // Contact freshness changes: affected assessments are out of date (REQ-MTG-022).
 const staleAssessments = (plantId: string) =>
 	sql`UPDATE plant SET material_revision=material_revision+1 WHERE id=${plantId}::uuid`;
@@ -136,6 +145,8 @@ const personFacts = z.object({
 	last_contact: z.coerce.date().nullable(),
 	actor_name: z.string().nullable(),
 	meeting_id: z.uuid().nullable(),
+	// Where each of the Person's open follow-ups came from, by task: names what one contact finishes.
+	origins: z.record(z.string(), z.unknown()),
 });
 async function factsOf(tx: Tx, plantId: string, accountId: string, personId: string, obligationId: string | null) {
 	const r = await tx.execute(sql`SELECT (SELECT state='live' AND plant_id IS NOT NULL FROM person
@@ -143,7 +154,9 @@ async function factsOf(tx: Tx, plantId: string, accountId: string, personId: str
 		(SELECT max(x.occurred_at) FROM contact_outcome x WHERE x.plant_id=${plantId}::uuid AND x.person_id=${personId}::uuid
 			AND x.voided_at IS NULL AND x.outcome='contacted') AS last_contact,
 		(SELECT display_name FROM seat_identity(${accountId}::uuid)) AS actor_name,
-		(SELECT meeting_id FROM obligation WHERE id=${obligationId}::uuid AND plant_id=${plantId}::uuid) AS meeting_id`);
+		(SELECT meeting_id FROM obligation WHERE id=${obligationId}::uuid AND plant_id=${plantId}::uuid) AS meeting_id,
+		(SELECT coalesce(jsonb_object_agg(k.id, ${originJson(sql`k`)}),'{}') FROM task k WHERE k.plant_id=${plantId}::uuid
+			AND k.person_id=${personId}::uuid AND ${followUpTask(sql`k`)} AND k.status IN ${OPEN}) AS origins`);
 	return personFacts.parse(r.rows[0]);
 }
 
@@ -163,10 +176,12 @@ const correctionFacts = z.object({
 		supersedes_id: z.uuid().nullable(),
 		voided_at: z.coerce.date().nullable(),
 		completes_task: z.boolean(),
+		also_task_ids: z.array(z.uuid()),
 	}),
 	author_id: z.uuid().nullable(),
 	author_name: z.string().nullable(),
 	corrects_reason: z.string().nullable(),
+	origins: z.record(z.string(), z.unknown()),
 	task_assignee: z.uuid().nullable(),
 	task_live: z.boolean().nullable(),
 	person_live: z.boolean().nullable(),
@@ -196,12 +211,23 @@ export function outcomeWriter(reminders: TaskReminders) {
 						if (!task || task.deleted_at || task.parent_id || !task.person_id) deny();
 						if (!administers(cmd.actor) && task.assignee_id !== cmd.actor.accountId) deny();
 						if (task.revision !== v.target.expectedRevision) deny("conflict");
-						if (v.outcome === "no_longer_needed" && task.status === "complete") deny("conflict");
+						// A closed follow-up takes no new outcome: its completing record is already the answer.
+						if (!(OPEN_STATUS as readonly string[]).includes(task.status)) deny("conflict");
 					} else if (!administers(cmd.actor)) deny();
 					const personId = task?.person_id ?? (v.target.kind === "person" ? v.target.personId : "");
 					const facts = await factsOf(tx, plant, cmd.actor.accountId, personId, task?.obligation_id ?? null);
 					// Every new reference names a current live Person of this church (REQ-PPL-024).
 					if (!facts.live) deny("invalid_subject");
+					// One contact is one outreach (D-c): it also finishes the Person's other open follow-ups the recorder may
+					// record on. All of them for an Owner or Admin, their own for a Member. One locked read, one write.
+					const others = task && v.outcome === "contacted" && v.completeTask
+						? await lockTasks(
+								tx,
+								plant,
+								sql`t.person_id=${personId}::uuid AND ${followUpTask(sql`t`)} AND t.status IN ${OPEN}
+									AND t.id<>${task.id}::uuid ${administers(cmd.actor) ? sql`` : sql`AND t.assignee_id=${cmd.actor.accountId}::uuid`}`,
+							)
+						: [];
 					const row: Stored = {
 						id: randomUUID(),
 						revision: revision.parse("1"),
@@ -217,6 +243,7 @@ export function outcomeWriter(reminders: TaskReminders) {
 						supersedes_id: null,
 						voided_at: null,
 						completes_task: v.completeTask && isCompleting(v.outcome),
+						also_task_ids: others.map((o) => o.id),
 					};
 					cmd.writes.push(insertOutcome(plant, row));
 					if (row.outcome === "contacted") cmd.writes.push(staleAssessments(plant));
@@ -235,10 +262,15 @@ export function outcomeWriter(reminders: TaskReminders) {
 						changed = r.row;
 						changes = r.changes;
 					}
+					for (const other of others) changes = [...changes, ...setStatus(tx, cmd, other, { status: "complete" }).changes];
 					return {
 						value: c.outcomeMutation.parse({
 							receiptId: cmd.id,
-							record: itemOf(row, { accountId: cmd.actor.accountId, displayName: facts.actor_name }, {}),
+							record: itemOf(
+								row,
+								{ accountId: cmd.actor.accountId, displayName: facts.actor_name },
+								{ also: Object.fromEntries(row.also_task_ids.map((id) => [id, originOf(facts.origins[id])])) },
+							),
 							previous: null,
 							task: changed ? mutation(cmd, changed, "changed").task : null,
 							lastConfirmedContactAt: latest(facts.last_contact, row.outcome === "contacted" ? row.occurred_at : null),
@@ -268,6 +300,8 @@ export function outcomeWriter(reminders: TaskReminders) {
 							WHERE a.tenant_id=o.plant_id AND a.subject_id=o.id ORDER BY a.occurred_at, a.id LIMIT 1) AS author_name,
 						(SELECT a.reason FROM audit_event a WHERE a.tenant_id=o.plant_id AND a.subject_id=o.id
 							ORDER BY a.occurred_at, a.id LIMIT 1) AS corrects_reason,
+						(SELECT coalesce(jsonb_object_agg(k.id, ${originJson(sql`k`)}),'{}') FROM task k
+							WHERE k.plant_id=o.plant_id AND k.id=ANY(o.also_task_ids)) AS origins,
 						t.assignee_id AS task_assignee, t.deleted_at IS NULL AND t.parent_id IS NULL AS task_live,
 						p.state='live' AS person_live,
 						(SELECT max(x.occurred_at) FROM contact_outcome x WHERE x.plant_id=o.plant_id AND x.person_id=o.person_id
@@ -337,7 +371,9 @@ export function outcomeWriter(reminders: TaskReminders) {
 						reason: v.reason,
 					});
 					if (old.outcome === "contacted" || next?.outcome === "contacted") cmd.writes.push(staleAssessments(plant));
+					const also = Object.fromEntries(old.also_task_ids.map((id) => [id, originOf(f.origins[id])]));
 					const withdrawn = itemOf(voided, author, {
+						also,
 						corrected: next !== null,
 						corrects,
 						voided: { ...me, reason: v.reason },
@@ -345,7 +381,7 @@ export function outcomeWriter(reminders: TaskReminders) {
 					return {
 						value: c.outcomeMutation.parse({
 							receiptId: cmd.id,
-							record: next ? itemOf(next, me, { corrects: { id: old.id, reason: v.reason } }) : withdrawn,
+							record: next ? itemOf(next, me, { also, corrects: { id: old.id, reason: v.reason } }) : withdrawn,
 							previous: next ? withdrawn : null,
 							task: null,
 							lastConfirmedContactAt: latest(f.others_contact, next?.outcome === "contacted" ? next.occurred_at : null),

@@ -7,6 +7,7 @@ import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import { displayTitle } from "../meetings/rows.ts";
+import { COMMITTED } from "./owner.ts";
 import { auditRow, deny, parse, type AuditCommand, type Tx } from "./core.ts";
 import { managedTaskRows, managedTasks, storageKind, storedKind, type TaskRow } from "./queries.ts";
 import { audited, insertTasks, newTask, reminderChange, setStatus, syncAll, type TaskReminders } from "./writes.ts";
@@ -40,6 +41,8 @@ const factsRow = z.object({
 	existing: z.array(existingRow),
 	people: z.record(z.string(), z.string()),
 	seats: z.record(z.string(), z.string()),
+	// The named assignees whose linked Person is in a committed stage: who may own a follow-up (REQ-TSK-012).
+	committed: z.array(z.string()),
 	zone: timeZone,
 });
 const asArray = (ids: readonly string[]) => sql`${sql.param([...ids])}::uuid[]`;
@@ -60,6 +63,8 @@ export function obligationFacts(plantId: string, meetings: SQL, people: SQL, ass
 		'seats', (SELECT coalesce(jsonb_object_agg(s.account_id,i.display_name),'{}') FROM seat s
 			CROSS JOIN LATERAL seat_identity(s.account_id) i WHERE s.plant_id=${plantId}::uuid AND s.ended_at IS NULL
 			AND s.accepted_at<=clock_timestamp() AND s.account_id=ANY(${assignees})),
+		'committed', (SELECT coalesce(jsonb_agg(DISTINCT e.linked_account_id),'[]') FROM person e WHERE e.tenant_id=${plantId}::uuid
+			AND e.plant_id IS NOT NULL AND e.state='live' AND e.stage IN ${COMMITTED} AND e.linked_account_id=ANY(${assignees})),
 		'zone', (SELECT timezone FROM plant WHERE id=${plantId}::uuid))`;
 }
 
@@ -96,6 +101,9 @@ export async function ensureMeetingObligations(
 	);
 	// An assignee must hold a current seat; an invalid choice refuses instead of silently becoming Needs owner.
 	if (assignees.some((a) => !(a in row.seats))) deny("invalid_subject");
+	// A follow-up owner must also be a committed Person's account; an evaluation keeps the seated rule.
+	if (v.meetings.some((m) => m.followUps.some((f) => f.assigneeId && !row.committed.includes(f.assigneeId))))
+		deny("owner_ineligible");
 	const at = new Date();
 	const results = [];
 	const created: TaskRow[] = [];

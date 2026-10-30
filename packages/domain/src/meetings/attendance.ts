@@ -1,5 +1,6 @@
 import * as c from "@everyfield/contracts/meetings";
 import { stage as personStage } from "@everyfield/contracts/people";
+import { followUpOwner } from "@everyfield/contracts/tasks";
 import { sql, type SQL } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
 import "server-only";
@@ -14,6 +15,7 @@ import {
 	type TaskReminders,
 } from "../tasks/index.ts";
 import { TaskRefusal } from "../tasks/core.ts";
+import { ownerView } from "../tasks/owner.ts";
 import {
 	command,
 	deny,
@@ -71,12 +73,15 @@ const laterRow = guestRow.omit({ display_name: true, person_state: true, rsvp: t
 	meeting_zone: z.string(),
 	meeting_at: date,
 });
-const lockedTasks = z.array(z.object({ obligation_id: z.uuid(), assignee_id: z.uuid().nullable() }));
+const lockedTasks = z.array(
+	z.object({ obligation_id: z.uuid(), assignee_id: z.uuid().nullable(), follow_up_owner: followUpOwner.nullish() }),
+);
 const obligationRow = z.object({
 	id: z.uuid(),
 	kind: z.enum(["follow_up", "evaluation"]),
 	person_id: z.uuid().nullable(),
 	assignee_id: z.uuid().nullable(),
+	owner: followUpOwner.nullable(),
 	task_status: z.string().nullable(),
 });
 const factsRow = z.object({
@@ -171,7 +176,8 @@ async function lockAttendance(
 				OR coalesce(pv.actual_occurrence_at, pv.starts_at) > ${here})
 			ORDER BY g.id FOR UPDATE OF g) x) AS later,
 		(SELECT coalesce(json_agg(json_build_object('id', b.id, 'kind', b.kind, 'person_id', b.person_id,
-			'assignee_id', t.assignee_id, 'task_status', t.status)), '[]')
+			'assignee_id', t.assignee_id, 'task_status', t.status, 'owner', CASE WHEN b.kind = 'follow_up'
+				THEN ${ownerView(sql`t.assignee_id`, sql`b.plant_id`)} ELSE ${ownerView(sql`t.assignee_id`, sql`b.plant_id`, "seated")} END)), '[]')
 			FROM obligation b LEFT JOIN task t ON t.obligation_id = b.id AND t.deleted_at IS NULL
 			WHERE b.meeting_id = m.id AND b.plant_id = m.plant_id AND b.superseded_at IS NULL) AS obligations,
 		${
@@ -210,7 +216,8 @@ async function generated<T>(body: () => Promise<T>): Promise<T> {
 		return await body();
 	} catch (error) {
 		if (!(error instanceof TaskRefusal)) throw error;
-		if (error.code === "invalid_subject" || error.code === "invalid_input") deny(error.code, {});
+		if (error.code === "invalid_subject" || error.code === "invalid_input" || error.code === "owner_ineligible")
+			deny(error.code, {});
 		deny();
 	}
 }
@@ -565,6 +572,13 @@ async function settle(
 	const owners = new Map<string, string | null>(f.obligations.map((o) => [o.id, o.assignee_id]));
 	for (const t of lockedTasks.parse(f.tasks ?? [])) owners.set(t.obligation_id, t.assignee_id);
 	const ownerOf = (id: string) => owners.get(id) ?? null;
+	// What every screen shows for an owner (REQ-TSK-012): the stored assignee with whether they may own the work.
+	const views = new Map<string, z.infer<typeof followUpOwner> | null>(f.obligations.map((o) => [o.id, o.owner]));
+	for (const t of lockedTasks.parse(f.tasks ?? []))
+		if (t.follow_up_owner) views.set(t.obligation_id, t.follow_up_owner);
+	const seatNames = z.object({ seats: z.record(z.string(), z.string()) }).safeParse(f.obligation_facts).data?.seats ?? {};
+	const viewOf = (id: string | null) =>
+		id ? { accountId: id, displayName: seatNames[id] ?? "", eligible: true, reason: null } : null;
 	if (vision && noop)
 		for (const o of f.obligations)
 			work.push(
@@ -577,6 +591,7 @@ async function settle(
 					outcome: "existing",
 					assigneeId: o.assignee_id,
 					needsOwner: o.assignee_id === null,
+					owner: o.owner,
 				}),
 			);
 	else if (vision) {
@@ -620,7 +635,8 @@ async function settle(
 						: e.kind === "meeting_evaluation"
 							? input.evaluationAssigneeId
 							: input.followUpAssigneeId;
-			work.push(c.generatedWork.parse({ ...e, assigneeId, needsOwner: assigneeId === null }));
+			const owner = e.outcome === "existing" ? (views.get(e.obligationId) ?? null) : viewOf(assigneeId);
+			work.push(c.generatedWork.parse({ ...e, assigneeId, needsOwner: assigneeId === null, owner }));
 		}
 	}
 	if (closing.size && !noop) {
@@ -653,6 +669,7 @@ async function settle(
 						outcome: "closed",
 						assigneeId: ownerOf(t.obligationId),
 						needsOwner: false,
+						owner: views.get(t.obligationId) ?? null,
 					}),
 				);
 	}

@@ -1179,6 +1179,11 @@ function TaskRow({
 				<MetaLine task={task} year={year} />
 			</div>
 			<Assignee task={task} you={you} />
+			{admin && !settled && task.followUpOwner && !task.followUpOwner.eligible ? (
+				<Button variant="outline" size="sm" onClick={onEdit}>
+					Reassign
+				</Button>
+			) : null}
 			{canAct ? (
 				<Menu>
 					<MenuTrigger asChild>

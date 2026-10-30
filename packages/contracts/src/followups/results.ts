@@ -3,7 +3,7 @@ import { instant, localDate } from "../common/time.ts";
 import { accountId, defineSafeError, operationId, personId, recordId, revision } from "../common/values.ts";
 import { stage } from "../people/values.ts";
 import { taskDetail, taskError } from "../tasks/results.ts";
-import { due, obligationKind, taskStatus } from "../tasks/values.ts";
+import { due, followUpOwner, obligationKind, taskStatus } from "../tasks/values.ts";
 import { channel, measurement, obligationState, outcome } from "./values.ts";
 
 const count = z.int().min(0);
@@ -14,6 +14,12 @@ const actor = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("former_account") }),
 ]);
 
+/** Where a follow-up came from: a meeting's generated duty or a person who added it. Tells two for one person apart. */
+export const followUpOrigin = z.discriminatedUnion("kind", [
+	z.strictObject({ kind: z.literal("meeting"), meeting: z.strictObject({ id: recordId, label: z.string() }) }),
+	z.strictObject({ kind: z.literal("added"), by: z.string().nullable() }),
+]);
+export type FollowUpOrigin = z.infer<typeof followUpOrigin>;
 // One recorded outcome as the contact log shows it: a human outcome, never a delivered email.
 export const outcomeItem = z.strictObject({
 	id: recordId,
@@ -27,6 +33,8 @@ export const outcomeItem = z.strictObject({
 	// The person completed the task with this outcome; contacted can also be recorded without completing it.
 	completedTask: z.boolean(),
 	taskId: recordId.nullable(),
+	// The person's other open follow-ups this one contact finished (a contact finishes all it may, REQ-MTG-022).
+	alsoFinished: z.array(z.strictObject({ taskId: recordId, origin: followUpOrigin })).max(100),
 	obligationId: recordId.nullable(),
 	meetingId: recordId.nullable(),
 	actor,
@@ -66,8 +74,8 @@ export const obligationItem = z.strictObject({
 	state: obligationState,
 	waiver: z.strictObject({ at: instant, reason: z.string().nullable() }).nullable(),
 	task: z.strictObject({ id: recordId, revision, status: taskStatus, deleted: z.boolean() }).nullable(),
-	// The current eligible owner; null is Needs owner, also when a stored assignee lost eligibility.
-	owner: account.nullable(),
+	// The task's assignee with whether they may own it; null is Needs owner. An ineligible assignee still counts as Needs owner.
+	owner: followUpOwner.nullable(),
 	// The earliest effective typed outcome that completed the task, when the task is complete.
 	completion: z.strictObject({ outcomeId: recordId, outcome, occurredAt: instant }).nullable(),
 	// An effective contacted outcome exists for this obligation. Task completion and contact are separate facts.
@@ -92,11 +100,15 @@ export const dutyItem = z.strictObject({
 	overdue: z.boolean().nullable(),
 	obligationId: recordId.nullable(),
 	person: z.strictObject({ id: personId, label: z.string() }),
-	owner: account.nullable(),
-	// The stored assignee when they can no longer own it (demoted or departed); null otherwise. A handoff starts here.
-	formerOwner: account.nullable(),
+	// The task's assignee with whether they may own it (REQ-TSK-012); null is Needs owner. Ineligible reads as Needs owner.
+	owner: followUpOwner.nullable(),
+	// Where the follow-up came from, so two for one person can be told apart.
+	origin: followUpOrigin,
 	// The latest effective outcome recorded on the task, if any.
 	lastOutcome: outcome.nullable(),
+	// The latest effective contact with this person since the follow-up began, by whoever recorded it. A follow-up the
+	// recorder could not finish shows it, so nobody calls twice.
+	contacted: z.strictObject({ at: instant, by: z.string().nullable() }).nullable(),
 });
 const ownerTally = z.array(account.extend({ open: count })).max(500);
 export const followUpCoverage = z.strictObject({
@@ -154,8 +166,6 @@ export const followUpError = z.discriminatedUnion("code", [
 	...taskError.options,
 	// The occurrence is after the server's current time.
 	defineSafeError("future_occurrence", {}, "never"),
-	// The chosen owner is not a current eligible follow-up owner in this church.
-	defineSafeError("owner_ineligible", {}, "refresh"),
 	defineSafeError("handoff_target_ineligible", {}, "refresh"),
 	defineSafeError("protected_owner", {}, "never"),
 ]);
