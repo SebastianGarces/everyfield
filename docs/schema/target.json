@@ -31432,7 +31432,7 @@
           "note": "",
           "name": "reason",
           "type": "text",
-          "nullable": false
+          "nullable": true
         }
       ],
       "primary_key": [

@@ -40,10 +40,11 @@ import {
 	useToast,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
-import { Icon } from "@everyfield/ui/foundations";
+import { cn, Icon } from "@everyfield/ui/foundations";
 import { useRouter, useSearchParams } from "next/navigation";
 import { averageOf } from "@everyfield/contracts/meetings";
 import { useOptimistic, useState, useTransition } from "react";
+import { FixedFrame } from "../../components/frame/FixedFrame.tsx";
 import type { Wait } from "../../components/save/model.ts";
 import {
 	NoticeInDialog,
@@ -90,6 +91,7 @@ import {
 	CARD_RESPONSES,
 	problemText,
 	rsvpCounts,
+	RSVP_LABEL,
 	STATUS_ACTION,
 	STATUS_LABEL,
 	TYPE_LABEL,
@@ -100,13 +102,19 @@ import {
 	type Issue,
 	type Scores,
 } from "./model.ts";
-import { MeetingStatusBadge } from "./parts.tsx";
-import { defaultTab, nextStep, pickTab, stepper, type Primary, type TabId } from "./next-step.ts";
-import { Stepper } from "./Stepper.tsx";
+import { MeetingStatusBadge, RsvpBar } from "./parts.tsx";
+import { defaultTab, nextStep, pickTab, type Primary, type TabId } from "./next-step.ts";
 import { deleteFromList } from "./deletions.ts";
 import { applyChange, withAttendees, type Change, type GuestRow, type PageView } from "./page-state.ts";
 import { PlanMeetingDialog } from "./PlanMeetingDialog.tsx";
 import type { MeetingPageData } from "./server.ts";
+
+// Width-gated classes for the Kit tab's fill height. Tailwind reads class names as literals, so each is spelled out.
+const FILL_FRAME = "app-md:-mb-[72px] app-md:flex app-md:h-[var(--frame-h,calc(100dvh-420px))] app-md:flex-col";
+const FILL_GRID = "app-md:min-h-0 app-md:flex-1 app-md:grid-rows-[minmax(0,1fr)] app-md:items-stretch";
+const FILL_COLUMN = "app-md:flex app-md:min-h-0 app-md:flex-col";
+const FILL_PANEL = "app-md:flex app-md:min-h-0 app-md:flex-1 app-md:flex-col";
+const FILL_ASIDE = "app-md:-mx-1 app-md:min-h-0 app-md:overflow-y-auto app-md:px-1 app-md:pb-1";
 
 type Reason = "void" | "restore" | "not_held";
 /** The meeting's open form, with what was entered when a refusal opens it again. */
@@ -363,14 +371,16 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 
 	const moves = (statusTransitions[m.status] ?? []).filter((to) => !(practice && to === "completed"));
 	const held = m.occurrence.heldAt !== null;
-	// The next step (next-step.ts): one primary action, at most two secondary buttons, and the tab the page opens on.
+	// The next step (next-step.ts): one primary action and at most two secondary buttons.
 	const guestList = view.guests ?? [];
 	const attendedCount = guestList.filter((g) => g.presence === "attended").length;
 	const cardOwners = new Set<string | null>((view.cards ?? []).map((c) => c.personId));
 	const cardsIn = guestList.filter((g) => g.presence === "attended" && cardOwners.has(g.person.personId)).length;
-	const rsvps = rsvpCounts(guestList);
+	// Check-in has its own page and moves no status (F04 decision): attendance marked while the meeting is still
+	// planning or ready is shown as its own fact, not as a change of status.
+	const checkInStarted = attendedCount > 0 && !final && (m.status === "planning" || m.status === "ready");
 	const canSettle = m.status !== "cancelled" && !m.occurrence.voidedAt;
-	const stepInput = {
+	const next = nextStep({
 		status: m.status,
 		canWrite,
 		checkIn: marker && !final && canSettle,
@@ -380,28 +390,15 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 		attendedWithoutCard: vision ? attendedCount - cardsIn : 0,
 		evaluationSaved: saved !== null,
 		vision,
-	};
-	const next = nextStep(stepInput);
-	const steps = stepper({
-		status: m.status,
-		final,
-		vision,
-		guests: view.guests
-			? { invited: guestList.length, yes: rsvps.confirmed, no: rsvps.declined, pending: rsvps.pending }
-			: null,
-		attended: attendedCount,
-		cardsIn,
-		evaluationSaved: saved !== null,
-		followUpDone: final && m.status === "completed" && nextStep({ ...stepInput, canWrite: true }).primary === null,
 	});
 
-	// The tab is in the address (?tab=). The first one follows the primary action's target. A tab change writes the
+	// The tab is in the address (?tab=). The first one follows the meeting's state. A tab change writes the
 	// address with replaceState and asks the server for nothing.
 	const tabs: TabId[] = vision ? ["guests", "kit", "results"] : ["guests", "results"];
 	const search = useSearchParams();
-	const [tab, setTab] = useState<TabId>(() =>
-		pickTab(search.get("tab"), tabs, defaultTab(next.primary, m.status, final)),
-	);
+	const [tab, setTab] = useState<TabId>(() => pickTab(search.get("tab"), tabs, defaultTab(m.status, final)));
+	// The Kit tab fills the height below its own top, where the two columns show (F02): the checklist scrolls in its card.
+	const fill = vision && tab === "kit";
 	function selectTab(to: TabId) {
 		setTab(to);
 		const url = new URL(window.location.href);
@@ -562,6 +559,11 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 					<span className="inline-flex flex-wrap items-center gap-3">
 						{m.displayTitle}
 						<MeetingStatusBadge status={m.status} className="font-sans tracking-normal" />
+						{checkInStarted ? (
+							<StatusBadge status="attention" fill="soft" className="font-sans tracking-normal">
+								Check-in started · {attendedCount} attended
+							</StatusBadge>
+						) : null}
 						{m.occurrence.voidedAt ? (
 							<StatusBadge status="risk" fill="soft" className="font-sans tracking-normal">
 								Voided
@@ -592,115 +594,133 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 						<p className="font-semibold text-ink">This meeting is cancelled. Reopen it from the Status menu.</p>
 					</Card>
 				) : null}
-				{view.own ? <OwnRsvp own={view.own} title={m.displayTitle} lane={ownLane} onChoose={chooseOwn} /> : null}
-				<Stepper steps={steps} />
-				<div className="grid grid-cols-[minmax(0,1fr)_320px] items-start gap-5 max-app-md:grid-cols-1">
-					<Tabs value={tab} onValueChange={(v) => selectTab(v as TabId)} className="min-w-0">
-						<TabsList aria-label="Meeting work">
-							<Tab value="guests" count={view.guests ? guestList.length : undefined}>
-								Guests
-							</Tab>
-							{vision ? <Tab value="kit">Kit</Tab> : null}
-							<Tab value="results">Results</Tab>
-						</TabsList>
-						{/* Every panel stays mounted: a tab switch keeps the guest filter and any open form. */}
-						<TabsPanel value="guests" forceMount className="data-[state=inactive]:hidden">
-							<GuestList
-								meeting={m}
-								guests={view.guests && presence.shown(view.guests)}
-								cards={view.cards}
-								attendance={view.attendance}
-								presence={presence}
-								canMark={marker && !final && m.status !== "cancelled"}
-								canWrite={canWrite}
-								project={project}
-								request={request}
-								invitesHref={next.toolbarInvites ? inviteHref : undefined}
-								onGuest={(g) =>
-									setData((d) => ({
-										...d,
-										guests: d.guests?.some((x) => x.id === g.id)
-											? d.guests.map((x) => (x.id === g.id ? g : x))
-											: [...(d.guests ?? []), g],
-									}))
-								}
-								onRemoved={(id) => setData((d) => ({ ...d, guests: d.guests?.filter((g) => g.id !== id) ?? null }))}
-								onCard={(personId, card) =>
-									setData((d) => ({
-										...d,
-										cards: [...(d.cards ?? []).filter((c) => c.personId !== personId), ...(card ? [card] : [])],
-									}))
-								}
-								onStale={stale}
-							/>
-						</TabsPanel>
-						{vision ? (
-							<TabsPanel value="kit" forceMount className="data-[state=inactive]:hidden">
-								<KitCard
+				{view.own && !final && m.status !== "completed" ? (
+					<OwnRsvp own={view.own} title={m.displayTitle} lane={ownLane} onChoose={chooseOwn} />
+				) : null}
+				<FixedFrame fixed={fill} className={FILL_FRAME}>
+					<div
+						className={cn(
+							"grid grid-cols-[minmax(0,1fr)_320px] items-start gap-5 max-app-md:grid-cols-1",
+							fill && FILL_GRID,
+						)}
+					>
+						<Tabs
+							value={tab}
+							onValueChange={(v) => selectTab(v as TabId)}
+							className={cn("min-w-0", fill && FILL_COLUMN)}
+						>
+							<TabsList aria-label="Meeting work">
+								<Tab value="guests" count={view.guests ? guestList.length : undefined}>
+									Guests
+								</Tab>
+								{vision ? <Tab value="kit">Kit</Tab> : null}
+								<Tab value="results">Results</Tab>
+							</TabsList>
+							{/* Every panel stays mounted: a tab switch keeps the guest filter and any open form. */}
+							<TabsPanel value="guests" forceMount className="flex flex-col gap-5 data-[state=inactive]:hidden">
+								<RsvpSummary guests={view.guests} attended={attendedCount} started={checkInStarted} />
+								<GuestList
 									meeting={m}
-									kit={data.kit}
+									guests={view.guests && presence.shown(view.guests)}
+									cards={view.cards}
+									attendance={view.attendance}
+									presence={presence}
+									canMark={marker && !final && m.status !== "cancelled"}
 									canWrite={canWrite}
-									onKit={(kit) => setData((d) => ({ ...d, kit: d.kit ? { ...d.kit, ...kit } : null }))}
-									onMeeting={setMeeting}
+									project={project}
+									request={request}
+									invitesHref={next.toolbarInvites ? inviteHref : undefined}
+									onGuest={(g) =>
+										setData((d) => ({
+											...d,
+											guests: d.guests?.some((x) => x.id === g.id)
+												? d.guests.map((x) => (x.id === g.id ? g : x))
+												: [...(d.guests ?? []), g],
+										}))
+									}
+									onRemoved={(id) => setData((d) => ({ ...d, guests: d.guests?.filter((g) => g.id !== id) ?? null }))}
+									onCard={(personId, card) =>
+										setData((d) => ({
+											...d,
+											cards: [...(d.cards ?? []).filter((c) => c.personId !== personId), ...(card ? [card] : [])],
+										}))
+									}
 									onStale={stale}
 								/>
 							</TabsPanel>
-						) : null}
-						<TabsPanel value="results" forceMount className="flex flex-col gap-5 data-[state=inactive]:hidden">
-							<AttendanceCard
-								meeting={m}
-								attendance={view.attendance && { ...view.attendance, items: presence.shown(view.attendance.items) }}
-								analytics={data.analytics}
-								canWrite={canWrite}
-								lane={settleLane}
-								blocked={presence.busy}
-								headerFinalize={next.primary === "finalize" || next.secondary.includes("finalize")}
-								onSettle={(mode) =>
-									settleLane.wait === null && !presence.busy && settleLane.open({ mode, input: null })
-								}
-								onPrefetch={seats.load}
-							/>
-							{vision ? <CardsSummary guests={view.guests} cards={view.cards} /> : null}
 							{vision ? (
-								<EvaluationCard
-									evaluation={shownEvaluation}
+								<TabsPanel value="kit" forceMount className={cn("data-[state=inactive]:hidden", fill && FILL_PANEL)}>
+									<KitCard
+										fill={fill}
+										meeting={m}
+										kit={data.kit}
+										canWrite={canWrite}
+										onKit={(kit) => setData((d) => ({ ...d, kit: d.kit ? { ...d.kit, ...kit } : null }))}
+										onMeeting={setMeeting}
+										onStale={stale}
+									/>
+								</TabsPanel>
+							) : null}
+							<TabsPanel value="results" forceMount className="flex flex-col gap-5 data-[state=inactive]:hidden">
+								<AttendanceCard
+									meeting={m}
+									attendance={view.attendance && { ...view.attendance, items: presence.shown(view.attendance.items) }}
 									analytics={data.analytics}
-									finalized={final}
 									canWrite={canWrite}
-									lane={evaluationLane}
-									headerRecord={next.primary === "evaluation"}
-									onRecord={() => evaluationLane.wait === null && evaluationLane.open({ input: null })}
-									onCorrect={() => evaluationLane.wait === null && evaluationLane.open({ input: null })}
-									onHistory={() => {
-										if (saved) history.load(saved.revision);
-										setHistoryOpen(true);
-									}}
-									onPrefetchHistory={() => saved && history.load(saved.revision)}
+									lane={settleLane}
+									blocked={presence.busy}
+									headerFinalize={next.primary === "finalize" || next.secondary.includes("finalize")}
+									onSettle={(mode) =>
+										settleLane.wait === null && !presence.busy && settleLane.open({ mode, input: null })
+									}
+									onPrefetch={seats.load}
 								/>
-							) : null}
-							{final ? (
-								<p className="text-md text-text-2">
-									The follow-up work from this meeting is in{" "}
-									<IntentLink href="/tasks" className="font-medium text-ink underline underline-offset-4">
-										Tasks
-									</IntentLink>
-									.
-								</p>
-							) : null}
-						</TabsPanel>
-					</Tabs>
-					<aside aria-label="Agenda and notes" className="flex min-w-0 flex-col gap-5">
-						<AgendaCard
-							meeting={m}
-							canWrite={canWrite}
-							project={project}
-							onSaved={(agenda) =>
-								setData((d) => ({ ...d, meeting: { ...d.meeting, agenda, revision: agenda.revision } }))
-							}
-						/>
-						<NotesCard notes={m.notes} />
-					</aside>
-				</div>
+								{vision ? <CardsSummary guests={view.guests} cards={view.cards} /> : null}
+								{vision ? (
+									<EvaluationCard
+										evaluation={shownEvaluation}
+										analytics={data.analytics}
+										finalized={final}
+										canWrite={canWrite}
+										lane={evaluationLane}
+										headerRecord={next.primary === "evaluation"}
+										onRecord={() => evaluationLane.wait === null && evaluationLane.open({ input: null })}
+										onCorrect={() => evaluationLane.wait === null && evaluationLane.open({ input: null })}
+										onHistory={() => {
+											if (saved) history.load(saved.revision);
+											setHistoryOpen(true);
+										}}
+										onPrefetchHistory={() => saved && history.load(saved.revision)}
+									/>
+								) : null}
+								{final ? (
+									<p className="text-md text-text-2">
+										The follow-up work from this meeting is in{" "}
+										<IntentLink href="/tasks" className="font-medium text-ink underline underline-offset-4">
+											Tasks
+										</IntentLink>
+										.
+									</p>
+								) : null}
+							</TabsPanel>
+						</Tabs>
+						<aside
+							aria-label="Agenda and notes"
+							tabIndex={fill ? 0 : undefined}
+							className={cn("flex min-w-0 flex-col gap-5", fill && FILL_ASIDE)}
+						>
+							<AgendaCard
+								meeting={m}
+								canWrite={canWrite}
+								project={project}
+								onSaved={(agenda) =>
+									setData((d) => ({ ...d, meeting: { ...d.meeting, agenda, revision: agenda.revision } }))
+								}
+							/>
+							<NotesCard notes={m.notes} />
+						</aside>
+					</div>
+				</FixedFrame>
 			</div>
 
 			{saved ? (
@@ -868,6 +888,49 @@ function OccurrenceDialog({
 }
 
 /**
+ * Yes, No and Pending for this meeting, from the guest list. While check-in is under way before the meeting is marked
+ * started, the attended count shows here too.
+ */
+function RsvpSummary({ guests, attended, started }: { guests: GuestRow[] | null; attended: number; started: boolean }) {
+	const c = rsvpCounts(guests ?? []);
+	const total = guests?.length ?? 0;
+	return (
+		<Card as="section" aria-labelledby="rsvps-title">
+			<CardHeader className="mb-3.5">
+				<CardHeading>
+					<CardTitle id="rsvps-title">RSVPs</CardTitle>
+					<CardDescription>
+						{guests ? `${total} invited${started ? ` · ${attended} attended so far` : ""}` : "Did not load"}
+					</CardDescription>
+				</CardHeading>
+			</CardHeader>
+			<p className="flex items-end gap-3">
+				<span className="font-display text-[40px] leading-none tracking-[-0.02em] text-ink tabular-nums">
+					{c.confirmed}
+				</span>
+				<span className="pb-1.5 text-text-2">said yes</span>
+			</p>
+			<RsvpBar yes={c.confirmed} no={c.declined} pending={c.pending} size="lg" className="mt-[18px]" />
+			<dl className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm">
+				{(
+					[
+						["confirmed", "bg-green-500"],
+						["declined", "bg-magenta-500"],
+						["pending", "bg-amber-500"],
+					] as const
+				).map(([k, dot]) => (
+					<div key={k} className="flex items-center gap-1.5">
+						<span aria-hidden="true" className={`size-2 rounded-full ${dot}`} />
+						<dt className="text-text-2">{RSVP_LABEL[k]}</dt>
+						<dd className="font-semibold text-ink tabular-nums">{c[k]}</dd>
+					</div>
+				))}
+			</dl>
+		</Card>
+	);
+}
+
+/**
  * Response cards (REQ-MTG-013): attended guests are the base; an attended guest without a card is unknown, never a
  * no. Cards from guests who were not recorded as attending are counted apart.
  */
@@ -972,9 +1035,31 @@ function OwnRsvp({
 	onChoose: (rsvp: "confirmed" | "declined") => void;
 }) {
 	const answer = own.rsvp;
+	// Once answered, the banner shrinks to one line with the answer and a way to change it.
+	const [changing, setChanging] = useState(false);
+	const notice = <SaveNotice {...lane.noticeProps} dialogOpen={false} />;
+	if (answer !== "pending" && !changing)
+		return (
+			<div className="flex flex-col gap-2">
+				{notice}
+				<p
+					aria-label="Your RSVP"
+					role="region"
+					aria-live="polite"
+					className="flex flex-wrap items-center gap-x-3 text-md text-text-2"
+				>
+					{answer === "confirmed" ? "You're coming." : "You can't make it."}
+					{own.responseAllowed ? (
+						<Button variant="ghost" size="sm" disabled={lane.wait !== null} onClick={() => setChanging(true)}>
+							Change
+						</Button>
+					) : null}
+				</p>
+			</div>
+		);
 	return (
 		<Card variant="callout" tone="green" as="section" aria-labelledby="own-rsvp">
-			<SaveNotice {...lane.noticeProps} dialogOpen={false} />
+			{notice}
 			<div className="flex flex-wrap items-center justify-between gap-4">
 				<div>
 					<h2 id="own-rsvp" className="font-semibold text-ink">
@@ -992,7 +1077,10 @@ function OwnRsvp({
 							variant={answer === "confirmed" ? "primary" : "secondary"}
 							aria-pressed={answer === "confirmed"}
 							disabled={lane.wait !== null}
-							onClick={() => onChoose("confirmed")}
+							onClick={() => {
+								setChanging(false);
+								onChoose("confirmed");
+							}}
 						>
 							Yes, I&apos;ll come
 						</Button>
@@ -1000,7 +1088,10 @@ function OwnRsvp({
 							variant={answer === "declined" ? "primary" : "secondary"}
 							aria-pressed={answer === "declined"}
 							disabled={lane.wait !== null}
-							onClick={() => onChoose("declined")}
+							onClick={() => {
+								setChanging(false);
+								onChoose("declined");
+							}}
 						>
 							Can&apos;t make it
 						</Button>

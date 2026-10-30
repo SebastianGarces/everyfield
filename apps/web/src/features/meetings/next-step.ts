@@ -55,68 +55,12 @@ export function nextStep(i: NextStepInput): NextStep {
 	return { primary: finalize ? "finalize" : null, secondary: i.checkIn ? ["check-in"] : [], toolbarInvites: false };
 }
 
-/** The tab a primary action works in. With no action: Results once the meeting is over, Guests otherwise. */
-export function defaultTab(primary: Primary | null, status: MeetingStatus, final: boolean): TabId {
-	if (primary === "finalize" || primary === "evaluation") return "results";
-	if (primary) return "guests";
+/** The tab the page opens on: Results once the meeting is completed (follow-ups start there), Guests before that. */
+export function defaultTab(status: MeetingStatus, final: boolean): TabId {
 	return final || status === "completed" ? "results" : "guests";
 }
 
 /** The tab in the address when it names a tab this meeting has; otherwise the default. */
 export function pickTab(raw: string | null, tabs: readonly TabId[], fallback: TabId): TabId {
 	return tabs.find((t) => t === raw) ?? fallback;
-}
-
-// -------------------------------------------------------------------------------------------------------------
-// The lifecycle stepper: Invite, Check in, Follow up.
-
-const STEPS = ["invite", "checkin", "followup"] as const;
-type StepId = (typeof STEPS)[number];
-const STEP_LABEL: Record<StepId, string> = { invite: "Invite", checkin: "Check in", followup: "Follow up" };
-type StepState = "done" | "current" | "later";
-
-/** Where the meeting is now. Cancelled has no current step. */
-function currentStep(status: MeetingStatus, final: boolean): StepId | null {
-	if (status === "cancelled") return null;
-	if (final) return "followup";
-	return status === "in_progress" || status === "completed" ? "checkin" : "invite";
-}
-
-type StepperInput = {
-	status: MeetingStatus;
-	final: boolean;
-	vision: boolean;
-	/** The guest list, or null when it did not load. */
-	guests: { invited: number; yes: number; no: number; pending: number } | null;
-	attended: number;
-	/** Attended guests with a response card. */
-	cardsIn: number;
-	evaluationSaved: boolean;
-	/** The meeting is completed, attendance is final and the next-step table, asked as a writer, gives no primary action. */
-	followUpDone: boolean;
-};
-
-export type Step = { id: StepId; label: string; state: StepState; line: string };
-
-export function stepper(i: StepperInput): Step[] {
-	const now = currentStep(i.status, i.final);
-	const stateOf = (id: StepId): StepState => {
-		if (now === null) return "later";
-		if (id === "followup" && now === "followup" && i.followUpDone) return "done";
-		const d = STEPS.indexOf(id) - STEPS.indexOf(now);
-		return d < 0 ? "done" : d === 0 ? "current" : "later";
-	};
-	const started = i.status === "in_progress" || i.status === "completed" || i.final;
-	const lines: Record<StepId, string> = {
-		invite: i.guests
-			? `${i.guests.invited} invited · ${i.guests.yes} yes · ${i.guests.no} no · ${i.guests.pending} pending`
-			: "Did not load",
-		checkin: started ? `${i.attended} attended${i.final ? " · final" : ""}` : "Not started",
-		followup: !i.final
-			? "Opens when attendance is final"
-			: i.vision
-				? `${i.cardsIn} of ${i.attended} cards · evaluation ${i.evaluationSaved ? "recorded" : "open"}`
-				: "Attendance final",
-	};
-	return STEPS.map((id) => ({ id, label: STEP_LABEL[id], state: stateOf(id), line: lines[id] }));
 }
