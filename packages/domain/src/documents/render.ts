@@ -8,13 +8,7 @@ import { finishForm } from "./pdf-post.ts";
 import { ContrastLog } from "./contrast.ts";
 import type { Ctx } from "./layouts/blocks.tsx";
 import { entryFor, contentSnapshot } from "./templates/registry.ts";
-import {
-	NEUTRAL_THEME,
-	makePalette,
-	themeTokensDigest,
-	type RenderClass,
-	type RenderTheme,
-} from "./theme.ts";
+import { NEUTRAL_THEME, makePalette, themeTokensDigest, type RenderClass, type RenderTheme } from "./theme.ts";
 import { buildBudget } from "./xlsx.ts";
 
 /**
@@ -24,7 +18,7 @@ import { buildBudget } from "./xlsx.ts";
 export const RENDER_PROFILE = {
 	engine: "forme",
 	packages: { "@formepdf/core": "0.29.0", "@formepdf/react": "0.29.0", "pdf-lib": "1.17.1" },
-	layout: 1,
+	layout: 2,
 	zipMethod: 0,
 	dosTime: 0,
 } as const;

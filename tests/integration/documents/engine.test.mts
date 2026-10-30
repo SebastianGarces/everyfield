@@ -34,10 +34,7 @@ import {
 	renderTemplatePdf,
 } from "../../../packages/domain/src/documents/render.ts";
 import { legalFixture } from "../../../packages/domain/test/legal-fixture.tsx";
-import {
-	NEUTRAL_THEME,
-	makePalette,
-} from "../../../packages/domain/src/documents/theme.ts";
+import { NEUTRAL_THEME, makePalette } from "../../../packages/domain/src/documents/theme.ts";
 import { contentSnapshot, REGISTRY, entryFor } from "../../../packages/domain/src/documents/templates/registry.ts";
 import {
 	FOLLOW_UP_LETTER,

@@ -6,7 +6,20 @@ import {
 	CHECKLIST_TITLE,
 	type ChecklistTeam,
 } from "../templates/checklists-content.ts";
-import { Box, Cellfield, Cellt, DataTable, Field, Footer, LogoSlot, SectionHead, T, Title, View, type Ctx } from "./blocks.tsx";
+import {
+	Box,
+	Cellfield,
+	Cellt,
+	DataTable,
+	Field,
+	Footer,
+	LogoSlot,
+	SectionHead,
+	T,
+	Title,
+	View,
+	type Ctx,
+} from "./blocks.tsx";
 import { Doc, LETTER } from "./shell.tsx";
 
 const margin = { top: 40, right: 40, bottom: 56, left: 40 };
