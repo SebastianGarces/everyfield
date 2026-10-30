@@ -6,30 +6,62 @@
 	"maxAgentsMdLines": 150,
 	"stack": {
 		"usesPaidProviders": false,
-		"up": ["node", "scripts/stack.mjs", "up"],
-		"status": ["node", "scripts/stack.mjs", "status"],
-		"down": ["node", "scripts/stack.mjs", "down"]
+		"up": [
+			"node",
+			"scripts/stack.mjs",
+			"up"
+		],
+		"status": [
+			"node",
+			"scripts/stack.mjs",
+			"status"
+		],
+		"down": [
+			"node",
+			"scripts/stack.mjs",
+			"down"
+		]
 	},
 	"checks": [
 		{
 			"name": "workflow-regressions",
-			"run": ["bin/evf", "test"]
+			"run": [
+				"bin/evf",
+				"test"
+			]
 		},
 		{
 			"name": "documentation",
-			"run": ["python3", "docs/check-all.py"]
+			"run": [
+				"python3",
+				"docs/check-all.py"
+			]
 		},
 		{
 			"name": "local-app",
-			"run": ["corepack", "pnpm", "check"]
+			"run": [
+				"corepack",
+				"pnpm",
+				"check"
+			]
 		},
 		{
 			"name": "package-unit-tests",
-			"run": ["corepack", "pnpm", "-r", "--if-present", "test:unit"]
+			"run": [
+				"corepack",
+				"pnpm",
+				"-r",
+				"--if-present",
+				"test:unit"
+			]
 		},
 		{
 			"name": "format",
-			"run": ["corepack", "pnpm", "format:check"]
+			"run": [
+				"corepack",
+				"pnpm",
+				"format:check"
+			]
 		}
 	],
 	"principles": {
@@ -59,8 +91,14 @@
 	},
 	"mergePolicy": {
 		"ordinary": "automatic-after-independent-review",
-		"feedbackVerifierMerge": ["p0", "p1"],
-		"feedbackOwnerAfterVerifier": ["p2", "p3"],
+		"feedbackVerifierMerge": [
+			"p0",
+			"p1"
+		],
+		"feedbackOwnerAfterVerifier": [
+			"p2",
+			"p3"
+		],
 		"feedbackPrototypes": "owner-merge",
 		"humanApproved": "evf-approve-after-owner-chat-approval",
 		"ordinaryApproval": {
@@ -97,11 +135,17 @@
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				},
 				{
 					"name": "reporter-tests",
@@ -117,30 +161,47 @@
 		},
 		"OPS-2": {
 			"title": "Record the implementation kickoff",
-			"owningPaths": ["docs/plan/release-gates.json"],
+			"owningPaths": [
+				"docs/plan/release-gates.json"
+			],
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
 		},
 		"OPS-3": {
 			"title": "evf fixes",
-			"owningPaths": ["tools/evf/", ".github/workflows/pr-body.yml"],
+			"owningPaths": [
+				"tools/evf/",
+				".github/workflows/pr-body.yml"
+			],
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
@@ -160,26 +221,40 @@
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
 		},
 		"OPS-5": {
 			"title": "Case checker counts",
-			"owningPaths": ["docs/acceptance/"],
+			"owningPaths": [
+				"docs/acceptance/"
+			],
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
@@ -195,26 +270,40 @@
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
 		},
 		"OPS-7": {
 			"title": "Transfer generated build progress",
-			"owningPaths": ["docs/build-progress.json"],
+			"owningPaths": [
+				"docs/build-progress.json"
+			],
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
@@ -232,41 +321,66 @@
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
 		},
 		"OPS-9": {
 			"title": "evf verify targeting, push guard, build lock and gc safety",
-			"owningPaths": ["tools/evf/", "evf.config.json"],
+			"owningPaths": [
+				"tools/evf/",
+				"evf.config.json"
+			],
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
 		},
 		"OPS-10": {
 			"title": "evf foreground checks and CI test coverage",
-			"owningPaths": ["tools/evf/", "evf.config.json", ".github/workflows/ci.yml"],
+			"owningPaths": [
+				"tools/evf/",
+				"evf.config.json",
+				".github/workflows/ci.yml"
+			],
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
@@ -283,11 +397,17 @@
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
@@ -303,11 +423,17 @@
 			"checks": [
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				},
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				}
 			],
 			"risk": "ordinary"
@@ -327,26 +453,44 @@
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
 		},
 		"OPS-12": {
 			"title": "Verification checks budget and smoothness",
-			"owningPaths": ["tools/evf/", "evf.config.json", "AGENTS.md", ".agents/roles/", ".agents/skills/verify-preview/"],
+			"owningPaths": [
+				"tools/evf/",
+				"evf.config.json",
+				"AGENTS.md",
+				".agents/roles/",
+				".agents/skills/verify-preview/"
+			],
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
@@ -362,11 +506,17 @@
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
@@ -383,26 +533,41 @@
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
 		},
 		"OPS-18": {
 			"title": "Let OPS tasks own design/handoff/screens.md",
-			"owningPaths": ["tools/evf/", "evf.config.json"],
+			"owningPaths": [
+				"tools/evf/",
+				"evf.config.json"
+			],
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
@@ -424,26 +589,42 @@
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
 		},
 		"OPS-19": {
 			"title": "Give the progress ledger one committed owner",
-			"owningPaths": ["tools/evf/", "evf.config.json", "docs/build-agent-workflow.md"],
+			"owningPaths": [
+				"tools/evf/",
+				"evf.config.json",
+				"docs/build-agent-workflow.md"
+			],
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
@@ -461,41 +642,67 @@
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
 		},
 		"OPS-21": {
 			"title": "Route design-only PRs",
-			"owningPaths": ["tools/evf/", "evf.config.json", ".agents/skills/ship/SKILL.md"],
+			"owningPaths": [
+				"tools/evf/",
+				"evf.config.json",
+				".agents/skills/ship/SKILL.md"
+			],
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
 		},
 		"OPS-22": {
 			"title": "evf reads OPS registrations from the task branch",
-			"owningPaths": ["tools/evf/", ".agents/roles/", "evf.config.json"],
+			"owningPaths": [
+				"tools/evf/",
+				".agents/roles/",
+				"evf.config.json"
+			],
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
@@ -511,29 +718,45 @@
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				}
 			],
 			"risk": "ordinary"
 		},
 		"OPS-24": {
 			"title": "Evidence uploads use their own Tigris key",
-			"owningPaths": [".agents/skills/verify-preview/", "evf.config.json"],
+			"owningPaths": [
+				".agents/skills/verify-preview/",
+				"evf.config.json"
+			],
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				}
 			],
 			"risk": "ordinary"
 		},
 		"OPS-25": {
 			"title": "Live access check inside every tenant read",
-			"owningPaths": ["docs/architecture/patterns.md", "docs/architecture/decisions.md", "evf.config.json"],
+			"owningPaths": [
+				"docs/architecture/patterns.md",
+				"docs/architecture/decisions.md",
+				"evf.config.json"
+			],
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				}
 			],
 			"risk": "ordinary"
@@ -552,52 +775,83 @@
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
 		},
 		"OPS-32": {
 			"title": "Each evf fresh-checkout run uses its own temporary worktree",
-			"owningPaths": ["tools/evf/", "evf.config.json"],
+			"owningPaths": [
+				"tools/evf/",
+				"evf.config.json"
+			],
 			"checks": [
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
 		},
 		"OPS-31": {
 			"title": "evf progress accepts a valid EVF-Carry ship",
-			"owningPaths": ["tools/evf/", "evf.config.json"],
+			"owningPaths": [
+				"tools/evf/",
+				"evf.config.json"
+			],
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
 		},
 		"OPS-33": {
 			"title": "Evidence publisher never reads .env.prod",
-			"owningPaths": [".agents/skills/verify-preview/", "tools/evf/tests/publish.test.ts", "evf.config.json"],
+			"owningPaths": [
+				".agents/skills/verify-preview/",
+				"tools/evf/tests/publish.test.ts",
+				"evf.config.json"
+			],
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
@@ -613,11 +867,17 @@
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
@@ -636,26 +896,41 @@
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
 		},
 		"OPS-41": {
 			"title": "Wiki CI installs Chromium without apt",
-			"owningPaths": [".github/workflows/ci.yml", "evf.config.json"],
+			"owningPaths": [
+				".github/workflows/ci.yml",
+				"evf.config.json"
+			],
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
@@ -674,11 +949,17 @@
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
@@ -716,11 +997,17 @@
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
@@ -728,26 +1015,41 @@
 		"OPS-45": {
 			"title": "Everyfield spelling in the marketing prototype",
 			"route": "design",
-			"owningPaths": ["design/everyfield-marketing.html"],
+			"owningPaths": [
+				"design/everyfield-marketing.html"
+			],
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				}
 			],
 			"risk": "ordinary"
 		},
 		"OPS-46": {
 			"title": "Trim the brand guard kept-path list",
-			"owningPaths": ["docs/text-allowlist.json", "docs/check-text.py", "evf.config.json"],
+			"owningPaths": [
+				"docs/text-allowlist.json",
+				"docs/check-text.py",
+				"evf.config.json"
+			],
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
@@ -769,41 +1071,65 @@
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
 		},
 		"OPS-54": {
 			"title": "Ship waits for every required check to exist and pass",
-			"owningPaths": ["evf.config.json", "tools/evf/"],
+			"owningPaths": [
+				"evf.config.json",
+				"tools/evf/"
+			],
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
 		},
 		"OPS-53": {
 			"title": "Quiet-database evf test races Docker",
-			"owningPaths": ["evf.config.json", "tools/evf/"],
+			"owningPaths": [
+				"evf.config.json",
+				"tools/evf/"
+			],
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
@@ -819,7 +1145,10 @@
 			"checks": [
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
@@ -841,11 +1170,17 @@
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				},
 				{
 					"name": "reporter-tests",
@@ -861,105 +1196,176 @@
 		},
 		"OPS-57": {
 			"title": "Harness work store: sqlite under the git common dir, goals sync, progress seed, evf status",
-			"owningPaths": ["tools/evf/", "evf.config.json", ".claude/settings.json", "docs/plan/release-gates.json"],
+			"owningPaths": [
+				"tools/evf/",
+				"evf.config.json",
+				".claude/settings.json",
+				"docs/plan/release-gates.json"
+			],
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
 		},
 		"OPS-58": {
 			"title": "Harness seats: evf launch, role agent files, settings denies and hooks, refocus, session",
-			"owningPaths": ["tools/evf/", "evf.config.json", ".claude/", "AGENTS.md"],
+			"owningPaths": [
+				"tools/evf/",
+				"evf.config.json",
+				".claude/",
+				"AGENTS.md"
+			],
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
 		},
 		"OPS-59": {
 			"title": "Harness drive loop: evf drive, next, run done, task new and spec, proofs, check, ask planner, loop cap",
-			"owningPaths": ["tools/evf/", "evf.config.json", ".claude/"],
+			"owningPaths": [
+				"tools/evf/",
+				"evf.config.json",
+				".claude/"
+			],
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
 		},
 		"OPS-60": {
 			"title": "Harness prototype mode: three blind idea seats, comparison, pick, Opus merge and handoff",
-			"owningPaths": ["tools/evf/", "evf.config.json", ".claude/"],
+			"owningPaths": [
+				"tools/evf/",
+				"evf.config.json",
+				".claude/"
+			],
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
 		},
 		"OPS-61": {
 			"title": "Harness live TUI: Rust evf-tui crate, evf tui builds and runs it",
-			"owningPaths": ["tools/evf/", "tools/evf-tui/", "evf.config.json", ".gitignore"],
+			"owningPaths": [
+				"tools/evf/",
+				"tools/evf-tui/",
+				"evf.config.json",
+				".gitignore"
+			],
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
 		},
 		"OPS-62": {
 			"title": "Policy: tools/evf-tui/ is a maintenance owning path",
-			"owningPaths": ["tools/evf/", "evf.config.json"],
+			"owningPaths": [
+				"tools/evf/",
+				"evf.config.json"
+			],
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
 		},
 		"OPS-63": {
 			"title": "Agent rule: clickable elements show cursor-pointer (S2 review task 29a)",
-			"owningPaths": ["AGENTS.md", "evf.config.json"],
+			"owningPaths": [
+				"AGENTS.md",
+				"evf.config.json"
+			],
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
@@ -976,26 +1382,42 @@
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
 		},
 		"OPS-66": {
 			"title": "No ghost task rows after a ship; standalone ship marks the row merged",
-			"owningPaths": ["tools/evf/", "tools/evf-tui/", "evf.config.json"],
+			"owningPaths": [
+				"tools/evf/",
+				"tools/evf-tui/",
+				"evf.config.json"
+			],
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
@@ -1013,41 +1435,68 @@
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
 		},
 		"OPS-68": {
 			"title": "An explicit reopen resets the trailing-failure count",
-			"owningPaths": ["tools/evf/", "evf.config.json"],
+			"owningPaths": [
+				"tools/evf/",
+				"evf.config.json"
+			],
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
 		},
 		"OPS-65": {
 			"title": "Seats start in auto mode, as split panes in the TUI workspace",
-			"owningPaths": ["tools/evf/", "tools/evf-tui/", ".claude/agents/", ".claude/settings.json", "evf.config.json"],
+			"owningPaths": [
+				"tools/evf/",
+				"tools/evf-tui/",
+				".claude/agents/",
+				".claude/settings.json",
+				"evf.config.json"
+			],
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
@@ -1068,41 +1517,68 @@
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
 		},
 		"OPS-71": {
 			"title": "Test environment hygiene: no leaked timing volumes, seeds coexist with preview, no git-push ask rule",
-			"owningPaths": ["tools/evf/", ".agents/skills/verify-preview/", ".claude/settings.json", "evf.config.json"],
+			"owningPaths": [
+				"tools/evf/",
+				".agents/skills/verify-preview/",
+				".claude/settings.json",
+				"evf.config.json"
+			],
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
 		},
 		"OPS-69": {
 			"title": "Per-seat token usage and cost, plus per-role model and effort config",
-			"owningPaths": ["tools/evf/", "evf.config.json", "docs/build-agent-workflow.md"],
+			"owningPaths": [
+				"tools/evf/",
+				"evf.config.json",
+				"docs/build-agent-workflow.md"
+			],
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
@@ -1121,11 +1597,17 @@
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
@@ -1144,11 +1626,17 @@
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
@@ -1167,11 +1655,17 @@
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
@@ -1190,11 +1684,55 @@
 			"checks": [
 				{
 					"name": "documentation",
-					"run": ["python3", "docs/check-all.py"]
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
 				},
 				{
 					"name": "workflow-regressions",
-					"run": ["bin/evf", "test"]
+					"run": [
+						"bin/evf",
+						"test"
+					]
+				}
+			],
+			"risk": "ordinary"
+		},
+		"OPS-76": {
+			"title": "stack:up previews set IDENTITY_ORIGIN to their own preview URL",
+			"owningPaths": [
+				"scripts/stack.mjs",
+				"scripts/preview.json",
+				"tests/workflow/",
+				"tools/evf/",
+				".agents/skills/portless-preview/",
+				"apps/web/README.md",
+				"evf.config.json",
+				"docs/build-agent-workflow.md"
+			],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": [
+						"python3",
+						"docs/check-all.py"
+					]
+				},
+				{
+					"name": "stack-workflow",
+					"run": [
+						"node",
+						"--test",
+						"tests/workflow/stack.test.mjs"
+					]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": [
+						"bin/evf",
+						"test"
+					]
 				}
 			],
 			"risk": "ordinary"
@@ -1202,7 +1740,10 @@
 	},
 	"internalFeedback": {
 		"repo": "SebastianGarces/everyfield",
-		"priorities": ["P0", "P1"],
+		"priorities": [
+			"P0",
+			"P1"
+		],
 		"triageCron": "*/5 * * * *"
 	}
 }
