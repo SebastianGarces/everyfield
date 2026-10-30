@@ -12,7 +12,6 @@
 			"Bash(node .agents/skills/verify-preview/scripts/post-review.mjs *)",
 			"Bash(node /*/.agents/skills/verify-preview/scripts/post-review.mjs *)"
 		],
-		"ask": ["Bash(git push)", "Bash(git push *)"],
 		"deny": [
 			"Bash(git push *--force*)",
 			"Bash(git push -f*)",

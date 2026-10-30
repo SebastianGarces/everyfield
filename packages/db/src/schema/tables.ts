@@ -5111,7 +5111,8 @@ export const record_correction = pgTable(
 			.default(sql`clock_timestamp()`),
 		before_value: jsonb("before_value").notNull(),
 		after_value: jsonb("after_value").notNull(),
-		reason: text("reason").notNull(),
+		// An edit may have no reason.
+		reason: text("reason"),
 	},
 	(t): PgTableExtraConfigValue[] => [
 		primaryKey({ name: "record_correction_pkey", columns: [t.id] }),
