@@ -4,6 +4,7 @@ import { basename, dirname, resolve, sep } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { missionFor, openWorkDb } from "./db.ts";
 import { fail, parseTask, run, type TaskRef } from "./lib.ts";
+import { closeRunPane } from "./panes.ts";
 import { doneCriteria, sectionItems, specSections } from "./spec.ts";
 
 /**
@@ -337,6 +338,7 @@ export function hook(root: string, event: string): number {
 			aborted: ended > 0,
 			summary: `${seat.role}@${seat.ref} session ended${ended ? " before the stage closed" : ""}`,
 		});
+		if (ended) closeRunPane(db, runId);
 		return 0;
 	} finally {
 		db.close();

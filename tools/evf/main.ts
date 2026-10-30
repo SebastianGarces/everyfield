@@ -29,6 +29,7 @@ import { nextId } from "./ids.ts";
 import { dbMigrate, dbSeedProgress, goalsList, goalsSync, status, workDbPath } from "./db.ts";
 import { isRole, launch, ROLES } from "./launch.ts";
 import { hook, refocus, session, showSpec } from "./seat.ts";
+import { finishPane } from "./panes.ts";
 import { tui } from "./tui.ts";
 import {
 	askPlanner,
@@ -484,6 +485,9 @@ function main(argv: string[]): number | Promise<number> {
 			if (args.length !== 1) break;
 			return drive(root, parseTask(args[0]), { once, detach });
 		}
+		case "pane-finish": // internal: the detached close and rebalance of closeRunPane
+			if (args.length !== 2) break;
+			return finishPane(args[0]!, args[1]!);
 		case "run": {
 			const sub = args.shift(),
 				id = Number(args.shift()),

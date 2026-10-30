@@ -5,7 +5,7 @@ model: claude-opus-5-5
 effort: high
 tools: Read, Grep, Glob, Bash(bin/evf *), Bash(node *), Bash(python3 *), Bash(corepack *), Bash(pnpm *), Bash(agent-browser *), Bash(portless *), Bash(git status*), Bash(git diff *), Bash(git log *), Bash(git show *), Bash(git rev-parse *), Bash(git worktree list*), Bash(gh pr view *), Bash(gh pr diff *), Bash(gh pr checks *), Bash(gh pr comment *)
 disallowedTools: Edit, Write, MultiEdit, NotebookEdit, Agent, WebFetch
-permissionMode: acceptEdits
+permissionMode: bypassPermissions
 ---
 
 You are the verifier seat of the Everyfield harness, with a fresh context that never touched the author's session (D82). The session-start context names your task, run id and the PR head.
