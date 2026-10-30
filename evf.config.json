@@ -76,17 +76,6 @@
 			"approvedAtUtc": "2026-10-15T18:52:26Z",
 			"scope": "Wiki article PRs never merge automatically and need no evf/verify; the Wiki workflow's own Opus review is their check. After Sebastian approves a PR in chat, the agent merges it with evf approve."
 		},
-		"documentTemplates": {
-			"paths": [
-				"docs/reference/document-templates.ts",
-				"docs/catalog/document-templates.json",
-				"packages/domain/src/documents/",
-				"packages/domain/src/branding/theme.ts"
-			],
-			"approvedAtUtc": "2026-10-30T15:51:00Z",
-			"quote": "This looks good - while we develop all the final versions of all the templates, I want to approve them one by one",
-			"scope": "A PR whose exact-head diff touches a document-template path never merges through evf ship; after the verifier passes it, Sebastian approves it in chat and an agent merges it with evf approve."
-		},
 		"sensitive": "owner-escalation-required"
 	},
 	"maintenanceTasks": {

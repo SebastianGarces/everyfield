@@ -33,8 +33,8 @@ checks, posts the `evf/verify` status and prints the `evf approve` command; it n
 or merges, and exits 0. `evf approve <PR> --owner-approval "<his words>"` merges it after Sebastian approves
 in chat, only with an independent review of the exact head and the verified status on it. Then it
 writes the shipped record with an `owner_approval` field, acknowledges progress and removes the worktree.
-`evf drive` records the wait and stops; a later pass records the merge. A missing or malformed
-`mergePolicy.documentTemplates` key stops `loadConfig`.
+`evf drive` records the wait and stops; a later pass records the merge. The key is optional: when it is
+absent, the built-in default in `tools/evf/policy.ts` applies. A malformed key stops `loadConfig`.
 
 Ship never merges on red main. Before it merges, it reads main's latest finished `ci.yml` push run,
 skipping cancelled and skipped runs. When that run failed, only a PR whose body says `Fixes #<n>`

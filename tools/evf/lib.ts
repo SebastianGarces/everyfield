@@ -93,7 +93,8 @@ export type MergePolicy = {
 	ordinary: string;
 	feedbackVerifierMerge: FeedbackBugClass[];
 	feedbackOwnerAfterVerifier: FeedbackBugClass[];
-	documentTemplates: DocumentTemplatePolicy;
+	/** Optional: when absent, `DEFAULT_DOCUMENT_TEMPLATES` in policy.ts applies. */
+	documentTemplates?: DocumentTemplatePolicy;
 };
 /**
  * PRs whose exact-head diff touches one of `paths` wait for Sebastian's approval. An entry that ends in `/` matches
@@ -254,7 +255,7 @@ export function loadConfig(root: string): Config {
 	const path = join(root, "evf.config.json");
 	if (!existsSync(path)) fail(`Missing ${path}.`);
 	const cfg = readJson<Config>(path);
-	parseMergePolicy(cfg.mergePolicy, true);
+	parseMergePolicy(cfg.mergePolicy);
 	validateSeats(cfg);
 	return cfg;
 }
@@ -264,8 +265,7 @@ export function committedConfig(checkout: string, rev = "HEAD"): Config {
 	const shown = run("git", ["-C", checkout, "show", `${rev}:evf.config.json`]);
 	if (shown.code !== 0) fail(`No committed evf.config.json at ${rev} in ${checkout}.`);
 	const cfg = JSON.parse(shown.stdout) as Config;
-	// A branch cut before the document-template class holds no such key. Only the checkout's own config is policy.
-	parseMergePolicy(cfg.mergePolicy, false);
+	parseMergePolicy(cfg.mergePolicy);
 	validateSeats(cfg);
 	return cfg;
 }
@@ -298,11 +298,11 @@ function parseDocumentTemplates(value: unknown): void {
 			fail(`${key}.${field} must be a non-empty string.`);
 }
 
-function parseMergePolicy(policy: unknown, requireTemplates: boolean): asserts policy is MergePolicy {
+function parseMergePolicy(policy: unknown): asserts policy is MergePolicy {
 	if (typeof policy !== "object" || policy === null || Array.isArray(policy))
 		fail("evf.config.json mergePolicy must be an object.");
 	const p = policy as Record<string, unknown>;
-	if (requireTemplates || p.documentTemplates !== undefined) parseDocumentTemplates(p.documentTemplates);
+	if (p.documentTemplates !== undefined) parseDocumentTemplates(p.documentTemplates);
 	const seen = new Set<string>();
 	for (const field of ["feedbackVerifierMerge", "feedbackOwnerAfterVerifier"]) {
 		const v = p[field];

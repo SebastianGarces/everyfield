@@ -3043,7 +3043,7 @@ test("OPS-67-ship-ack: a WP record with no owning-path diff stays unacknowledged
 
 // OPS-80: document-template PRs wait for Sebastian (mergePolicy.documentTemplates).
 import { chmodSync } from "node:fs";
-import { documentTemplateChanges } from "../policy.ts";
+import { DEFAULT_DOCUMENT_TEMPLATES, documentTemplateChanges } from "../policy.ts";
 
 /** The fake gh mergeCalls into the checkout two levels above its cwd; evf approve runs gh in the caller's cwd. */
 const inFakeCwd = <T>(f: { root: string }, fn: () => T): T => {
@@ -3058,17 +3058,20 @@ const inFakeCwd = <T>(f: { root: string }, fn: () => T): T => {
 	}
 };
 const TEMPLATE_ERR = "evf.config.json mergePolicy.documentTemplates";
-test("INV-document-templates-config: a missing key, an empty list and a duplicate path stop loadConfig with the exact line", () => {
+test("INV-document-templates-config: an absent key uses the built-in default; an empty list and a duplicate path stop loadConfig with the exact line", () => {
 	const f = fixture();
 	try {
 		const load = (edit: (c: any) => void) => {
 			const cfg = structuredClone(f.cfg);
+			cfg.mergePolicy.documentTemplates = structuredClone(DEFAULT_DOCUMENT_TEMPLATES);
 			edit(cfg);
 			writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(cfg));
 			return () => loadConfig(f.root);
 		};
+		// The key is optional: an absent key loads and the built-in default in policy.ts applies.
+		assert.equal(load((c) => delete c.mergePolicy.documentTemplates)().mergePolicy.documentTemplates, undefined);
 		assert.throws(
-			load((c) => delete c.mergePolicy.documentTemplates),
+			load((c) => (c.mergePolicy.documentTemplates = "yes")),
 			{ message: `${TEMPLATE_ERR} must be an object with paths, approvedAtUtc, quote and scope.` },
 		);
 		assert.throws(
@@ -3097,7 +3100,7 @@ test("INV-document-templates-config: a missing key, an empty list and a duplicat
 				load((c) => (c.mergePolicy.documentTemplates[field] = " ")),
 				{ message: `${TEMPLATE_ERR}.${field} must be a non-empty string.` },
 			);
-		const real = JSON.parse(readFileSync(join(source, "evf.config.json"), "utf8")).mergePolicy.documentTemplates;
+		const real = DEFAULT_DOCUMENT_TEMPLATES;
 		assert.equal(real.approvedAtUtc, "2026-10-30T15:51:00Z");
 		assert.equal(real.paths.length, 4);
 		assert.match(real.quote, /^This looks good - while we develop all the final versions of all the templates/);
@@ -3184,7 +3187,7 @@ const verifiedStatus = (head: string) => ({
 	],
 });
 const templateConfig = (f: { root: string; cfg: any }, paths: string[]) => {
-	f.cfg.mergePolicy.documentTemplates.paths = paths;
+	f.cfg.mergePolicy.documentTemplates = { ...structuredClone(DEFAULT_DOCUMENT_TEMPLATES), paths };
 	writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
 };
 const callsWith = (f: any, ...match: string[]) =>
