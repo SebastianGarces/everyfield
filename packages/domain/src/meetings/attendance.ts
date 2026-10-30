@@ -590,7 +590,6 @@ async function settle(
 			reason,
 		});
 	};
-	const kindOf = new Map(f.obligations.map((o) => [o.id, o.kind] as const));
 	if (vision && noop)
 		for (const o of f.obligations)
 			work.push(
@@ -681,7 +680,7 @@ async function settle(
 						outcome: "closed",
 						assigneeId: ownerOf(t.obligationId),
 						needsOwner: false,
-						owner: viewOf(ownerOf(t.obligationId), kindOf.get(t.obligationId) ?? "follow_up"),
+						owner: viewOf(ownerOf(t.obligationId), "follow_up"),
 					}),
 				);
 	}

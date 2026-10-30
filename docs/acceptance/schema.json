@@ -2459,7 +2459,7 @@
         "WP-036"
       ],
       "status": "future-not-run",
-      "description": "eleven-document-template-ids-formats-merge-contract",
+      "description": "preserved-base-document-template-ids-formats-merge-contract",
       "given": {
         "P": {
           "fixture_type": "plant",
@@ -2492,10 +2492,6 @@
           "fixture_type": "fixture",
           "value": "ff3c2f781ca9624ce689bc6b902ee4337da89c41574b5d421675cd6edda99dab"
         },
-        "entry_count": {
-          "fixture_type": "fixture",
-          "value": 11
-        },
         "examples": {
           "fixture_type": "fixture",
           "value": [
@@ -2511,6 +2507,10 @@
         "tenant_modified_generated_copy": {
           "fixture_type": "fixture",
           "value": true
+        },
+        "preserved_base_entry_count": {
+          "fixture_type": "fixture",
+          "value": 11
         }
       },
       "actor": {
@@ -2527,20 +2527,19 @@
         "arguments": {
           "subject": "P",
           "catalog_sha256": "ff3c2f781ca9624ce689bc6b902ee4337da89c41574b5d421675cd6edda99dab",
-          "entry_count": 11,
           "examples": [
             "commitment-card",
             "response-card",
             "guest-sign-in-sheet"
           ],
           "required_merge_field": "church_name",
-          "tenant_modified_generated_copy": true
+          "tenant_modified_generated_copy": true,
+          "preserved_base_entry_count": 11
         }
       },
       "expected": {
         "state": {},
         "result": {
-          "template_count": 11,
           "PDF_ids": [
             "commitment-card",
             "response-card",
@@ -2548,7 +2547,8 @@
           ],
           "required_field": "church_name",
           "missing_required_field_generates_bytes": false,
-          "tenant_edited_document_overwritten": false
+          "tenant_edited_document_overwritten": false,
+          "preserved_base_template_count": 11
         },
         "event": null
       },
@@ -3175,7 +3175,7 @@
         "plant_geography",
         "task"
       ],
-      "description": "Two plants, two sending churches, one network and two accounts; exercise each owner-bound reference with valid and foreign parent IDs, invalid org kind and alternate-owner double shape. Ownership controls cover every child\u2192parent ownership variant, including exact organization assessment\u2192job and same-plant merge inverse receipt; foreign scope kind/ID rejects even with an existing parent ID. Task due controls cover task.due_kind=undated with all due fields null; task.due_kind=date_only; task.due_kind=timed with due_date/due_time/due_at and confirmed timezone and chosen DST occurrence. Reject mixed/null shapes, mismatched wall/instant/zone and foreign or nested child Task parents. Profile controls use the adopted plant and organization columns plus immutable effective plant_geography rows for locality; valid nullable field clears and malformed/oversize request controls follow their requirement boundaries; request controls reject unknown object keys and forged immutable fields. Assistant account-context controls use active explicit no-seat Discovery with conversation.tenant_id=conversation.owner_id; reject foreign account, mixed account/plant/org tuple and platform/affiliation context. Child-task controls reject due/zone/date/time/instant, recurrence series/occurrence/predecessor and contact/outcome-hook values while accepting an undated unhooked same-plant child with nullable eligible assignee.",
+      "description": "Two plants, two sending churches, one network and two accounts; exercise each owner-bound reference with valid and foreign parent IDs, invalid org kind and alternate-owner double shape. Ownership controls cover every child→parent ownership variant, including exact organization assessment→job and same-plant merge inverse receipt; foreign scope kind/ID rejects even with an existing parent ID. Task due controls cover task.due_kind=undated with all due fields null; task.due_kind=date_only; task.due_kind=timed with due_date/due_time/due_at and confirmed timezone and chosen DST occurrence. Reject mixed/null shapes, mismatched wall/instant/zone and foreign or nested child Task parents. Profile controls use the adopted plant and organization columns plus immutable effective plant_geography rows for locality; valid nullable field clears and malformed/oversize request controls follow their requirement boundaries; request controls reject unknown object keys and forged immutable fields. Assistant account-context controls use active explicit no-seat Discovery with conversation.tenant_id=conversation.owner_id; reject foreign account, mixed account/plant/org tuple and platform/affiliation context. Child-task controls reject due/zone/date/time/instant, recurrence series/occurrence/predecessor and contact/outcome-hook values while accepting an undated unhooked same-plant child with nullable eligible assignee.",
       "given": {
         "P": {
           "fixture_type": "plant",
