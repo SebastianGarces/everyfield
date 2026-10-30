@@ -135,7 +135,11 @@ export function TabStack({
 					key={key}
 					data-panel={key}
 					inert={key !== active}
-					className={cn("col-start-1 row-start-1 flex min-w-0 flex-col", className, key !== active && (fit ? "hidden" : "invisible"))}
+					className={cn(
+						"col-start-1 row-start-1 flex min-w-0 flex-col",
+						className,
+						key !== active && (fit ? "hidden" : "invisible"),
+					)}
 				>
 					{node}
 				</div>

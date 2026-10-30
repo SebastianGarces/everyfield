@@ -1036,17 +1036,17 @@ function OwnRsvp({
 			<div className="flex flex-col gap-2">
 				{notice}
 				<p
-				aria-label="Your RSVP"
-				role="region"
-				aria-live="polite"
-				className="flex flex-wrap items-center gap-x-3 text-md text-text-2"
-			>
-				{answer === "confirmed" ? "You're coming." : "You can't make it."}
-				{own.responseAllowed ? (
-					<Button variant="ghost" size="sm" disabled={lane.wait !== null} onClick={() => setChanging(true)}>
-						Change
-					</Button>
-				) : null}
+					aria-label="Your RSVP"
+					role="region"
+					aria-live="polite"
+					className="flex flex-wrap items-center gap-x-3 text-md text-text-2"
+				>
+					{answer === "confirmed" ? "You're coming." : "You can't make it."}
+					{own.responseAllowed ? (
+						<Button variant="ghost" size="sm" disabled={lane.wait !== null} onClick={() => setChanging(true)}>
+							Change
+						</Button>
+					) : null}
 				</p>
 			</div>
 		);
