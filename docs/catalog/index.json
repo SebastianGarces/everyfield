@@ -38,9 +38,9 @@
     "docs/acceptance/teams-training.json"
   ],
   "counts": {
-    "active_features": 292,
-    "active_acceptance_bundles": 737,
-    "requirements": 513,
+    "active_features": 303,
+    "active_acceptance_bundles": 748,
+    "requirements": 524,
     "future_cases": 1103
   },
   "implementation_tests_run": 0,

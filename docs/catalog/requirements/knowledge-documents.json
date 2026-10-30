@@ -6,7 +6,7 @@
       "feature_ids": [
         "DOC-001"
       ],
-      "text": "Filterable/contextual library of 11 templates and 12 offered template-format combinations; commitment/vision_meeting/administrative/operational categories, phase and curated Wiki/meeting/team mappings. Unknown retired mapping omits link.",
+      "text": "Filterable/contextual library of the generated document catalog. The catalog grows as templates are added, and `docs/catalog/document-templates.json` names every entry with its class, format and phase. Format rule: budgets are XLSX, emails are HTML mail and every other template is PDF. The Forme engine (@formepdf) renders the PDFs with fillable fields and PDF/UA tagging. Commitment/vision_meeting/administrative/operational categories, phase and curated Wiki/meeting/team mappings. Unknown retired mapping omits link.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
         "documents.templates.list",
@@ -209,7 +209,7 @@
       "feature_ids": [
         "DOC-007"
       ],
-      "text": "Vision Meeting Agenda — PDF and DOCX; shared content model, welcome/story/vision/GROW-PRAY-GIVE/next steps.",
+      "text": "Vision Meeting Agenda — PDF; welcome/story/vision/GROW-PRAY-GIVE/next steps.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
         "documents.preview"
@@ -231,7 +231,7 @@
       "feature_ids": [
         "DOC-008"
       ],
-      "text": "Expectations of a Core Group Member — DOCX; presence/GROW-PRAY-GIVE/team participation.",
+      "text": "Expectations of a Core Group Member — PDF; presence/GROW-PRAY-GIVE/team participation.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
         "documents.preview"
@@ -253,7 +253,7 @@
       "feature_ids": [
         "DOC-009"
       ],
-      "text": "Launch Team Commitment — DOCX; member commitment approaching Launch Sunday.",
+      "text": "Launch Team Commitment — PDF; member commitment approaching Launch Sunday.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
         "documents.preview"
@@ -275,7 +275,7 @@
       "feature_ids": [
         "DOC-010"
       ],
-      "text": "Vision Meeting Follow-up Letter — DOCX; guest thank-you/next-step invitation.",
+      "text": "Vision Meeting Follow-up Letter — PDF; guest thank-you/next-step invitation.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
         "documents.preview"
@@ -297,7 +297,7 @@
       "feature_ids": [
         "DOC-011"
       ],
-      "text": "Board/Elder Meeting Agenda — DOCX; prayer/minutes/financial/ministry/action items.",
+      "text": "Board/Elder Meeting Agenda — PDF; prayer/minutes/financial/ministry/action items.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
         "documents.preview"
@@ -498,6 +498,261 @@
           "rule": "sanitized text/headings/lists/links only; no raw HTML/script/remote execution"
         }
       ]
+    },
+    {
+      "id": "REQ-DOC-017",
+      "feature_ids": [
+        "DOC-017"
+      ],
+      "text": "Generated PDF and email templates render through a document theme. `resolveDocumentTheme(church, documentClass)` returns the church theme when the church has a brand kit and the document's \"use church branding\" toggle is on. Otherwise it returns the Everyfield-neutral theme. WP-036 renders the neutral theme and accepts a theme input; the church theme needs the WP-104 brand kit. A theme change applies only to newly generated documents, and saved files keep their exact bytes.",
+      "spec": "docs/product/knowledge-documents.md#template-themes-classes-and-copy",
+      "operations": [
+        "documents.preview",
+        "documents.generate"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-017--DOC-017"
+      ],
+      "case_ids": [
+        "CASE-DOC-017",
+        "CASE-DOC-017-CHURCH"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-036",
+        "WP-104"
+      ],
+      "title": "Themed document rendering with the neutral fallback"
+    },
+    {
+      "id": "REQ-DOC-018",
+      "feature_ids": [
+        "DOC-018"
+      ],
+      "text": "Every template has exactly one document class: formal/legal, outward-facing, operational or email. The class decides how the theme applies. `docs/catalog/document-templates.json` records the class of each template. Policies, bylaws and agreements are formal/legal; the prospectus and letters are outward-facing; budgets, checklists and agendas are operational; every email is class email.",
+      "spec": "docs/product/knowledge-documents.md#template-themes-classes-and-copy",
+      "operations": [
+        "documents.templates.list",
+        "documents.templates.get"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-018--DOC-018"
+      ],
+      "case_ids": [
+        "CASE-DOC-018"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-036"
+      ],
+      "title": "Document classes"
+    },
+    {
+      "id": "REQ-DOC-019",
+      "feature_ids": [
+        "DOC-019"
+      ],
+      "text": "Every formal/legal template shows the notice \"Template, not legal advice\" in the preview and in the saved PDF. Church branding cannot hide or remove the notice. Templates of other classes do not show it.",
+      "spec": "docs/product/knowledge-documents.md#template-themes-classes-and-copy",
+      "operations": [
+        "documents.preview",
+        "documents.generate"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-019--DOC-019"
+      ],
+      "case_ids": [
+        "CASE-DOC-019"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-036"
+      ],
+      "title": "Legal template notice"
+    },
+    {
+      "id": "REQ-DOC-020",
+      "feature_ids": [
+        "DOC-020"
+      ],
+      "text": "A doctrinal section in a template is an empty slot. Everyfield ships no doctrinal text. The sending network fills the slot for its churches, and a church without a network fills it itself. A slot that no one has filled generates as a visible blank, never as default text.",
+      "spec": "docs/product/knowledge-documents.md#template-themes-classes-and-copy",
+      "operations": [
+        "documents.preview",
+        "documents.generate"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-020--DOC-020"
+      ],
+      "case_ids": [
+        "CASE-DOC-020"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-036"
+      ],
+      "title": "Doctrinal sections as network-filled slots"
+    },
+    {
+      "id": "REQ-DOC-021",
+      "feature_ids": [
+        "DOC-021"
+      ],
+      "text": "Template text says \"church plant\" and never a bare \"plant\". Template text spells the brand \"Everyfield\". The rule covers every template, notice and email.",
+      "spec": "docs/product/knowledge-documents.md#template-themes-classes-and-copy",
+      "operations": [
+        "documents.preview",
+        "documents.generate"
+      ],
+      "acceptance_ids": [
+        "AC-DOC-021--DOC-021"
+      ],
+      "case_ids": [
+        "CASE-DOC-021"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-036"
+      ],
+      "title": "Template copy rule"
+    },
+    {
+      "id": "REQ-BRD-001",
+      "feature_ids": [
+        "BRD-001"
+      ],
+      "text": "Each church has one brand kit. Edit it at `/settings/brand`, in the Church group of the Settings dialog. Only the Owner and Admin can open or change it. Controls sit on the left and a live preview sits on the right, with one preview tab per document class (formal/legal, outward-facing, operational and email). Reset to default clears the kit and returns the church to the Everyfield-neutral theme.",
+      "spec": "docs/product/knowledge-documents.md#church-brand-kit",
+      "operations": [
+        "brand.get",
+        "brand.reset"
+      ],
+      "acceptance_ids": [
+        "AC-BRD-001--BRD-001"
+      ],
+      "case_ids": [
+        "CASE-BRD-001"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-104"
+      ],
+      "title": "Brand settings"
+    },
+    {
+      "id": "REQ-BRD-002",
+      "feature_ids": [
+        "BRD-002"
+      ],
+      "text": "The kit holds a full logo (about 3:1) and a square mark, each with an optional light-on-dark variant. Upload accepts SVG, PNG and WebP, trims empty margin and rasterizes the file. Files use private storage with the `brand_asset` purpose, reusing the avatar upload pattern. Every logo needs alt text. The preview shows each logo on light, dark and brand-color backgrounds.",
+      "spec": "docs/product/knowledge-documents.md#church-brand-kit",
+      "operations": [
+        "brand.uploadAsset",
+        "brand.get"
+      ],
+      "acceptance_ids": [
+        "AC-BRD-002--BRD-002"
+      ],
+      "case_ids": [
+        "CASE-BRD-002"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-104"
+      ],
+      "title": "Logo assets"
+    },
+    {
+      "id": "REQ-BRD-003",
+      "feature_ids": [
+        "BRD-003"
+      ],
+      "text": "The kit has a required primary color and an accent color that falls back to the primary color. The page suggests colors from the uploaded logo. A contrast badge shows the WCAG contrast ratio and the text color derived for each brand color. A brand color under 3:1 against its background is never used as text.",
+      "spec": "docs/product/knowledge-documents.md#church-brand-kit",
+      "operations": [
+        "brand.saveSettings",
+        "brand.suggestColors"
+      ],
+      "acceptance_ids": [
+        "AC-BRD-003--BRD-003"
+      ],
+      "case_ids": [
+        "CASE-BRD-003"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-104"
+      ],
+      "title": "Colors and contrast"
+    },
+    {
+      "id": "REQ-BRD-004",
+      "feature_ids": [
+        "BRD-004"
+      ],
+      "text": "Heading and body fonts come from a curated list of open-license fonts. The defaults are DM Serif for headings and DM Sans for body text. Version 1 has no font upload.",
+      "spec": "docs/product/knowledge-documents.md#church-brand-kit",
+      "operations": [
+        "brand.saveSettings"
+      ],
+      "acceptance_ids": [
+        "AC-BRD-004--BRD-004"
+      ],
+      "case_ids": [
+        "CASE-BRD-004"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-104"
+      ],
+      "title": "Fonts"
+    },
+    {
+      "id": "REQ-BRD-005",
+      "feature_ids": [
+        "BRD-005"
+      ],
+      "text": "The kit holds legal name, address, website, phone, email, EIN and tagline. It also holds an optional cover photo and an optional signature block.",
+      "spec": "docs/product/knowledge-documents.md#church-brand-kit",
+      "operations": [
+        "brand.saveSettings",
+        "brand.uploadAsset"
+      ],
+      "acceptance_ids": [
+        "AC-BRD-005--BRD-005"
+      ],
+      "case_ids": [
+        "CASE-BRD-005"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-104"
+      ],
+      "title": "Letterhead details"
+    },
+    {
+      "id": "REQ-BRD-006",
+      "feature_ids": [
+        "BRD-006"
+      ],
+      "text": "`resolveDocumentTheme(church, documentClass)` returns the theme for one document class. Formal/legal: small header logo, primary color only on rules and headings, neutral body text, and a letterhead footer with the EIN and page numbers. Outward-facing: a cover with a large logo, full primary and accent colors, brand fonts, and photo, tagline and contact details. Operational: small mark, accent color on table headers and checkboxes, readable in grayscale. Email: header logo at most 200 px wide, primary-color button with derived text color, web-safe fonts, and a footer with the church name and address. A church with no kit gets the Everyfield-neutral theme: the church name set in type, no Everyfield logo on church documents, and fixed-size slots. Each document has a \"use church branding\" toggle. A kit change applies only to newly generated documents, and saved files keep their exact bytes (DOC-002 and DOC-003 are unchanged). PDFs are tagged and logos carry alt text.",
+      "spec": "docs/product/knowledge-documents.md#church-brand-kit",
+      "operations": [
+        "brand.resolveTheme"
+      ],
+      "acceptance_ids": [
+        "AC-BRD-006--BRD-006"
+      ],
+      "case_ids": [
+        "CASE-BRD-006",
+        "CASE-BRD-006-NEUTRAL",
+        "CASE-BRD-006-SAVED"
+      ],
+      "shared_contract_ids": [],
+      "work_packages": [
+        "WP-104"
+      ],
+      "title": "Document theme"
     },
     {
       "id": "REQ-KNOW-015",

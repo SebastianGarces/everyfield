@@ -59,6 +59,7 @@ Settings is a dialog over the current page, not a page. Each section has its own
 | `#/settings/notifications` | Notifications per category and channel | `/settings/notifications` | WP-030 |
 | `#/settings/sharing` | Sharing and privacy for organizations | `/settings/sharing` | WP-007 |
 | `#/settings/account` | Your account | `/settings/account` | WP-005, WP-010 |
+| `#/settings/brand` | Church brand kit: logos, colors, fonts, letterhead and live document preview. Owner and Admin only | `/settings/brand` | WP-104 |
 
 Closing Settings returns to the page underneath. Unsaved changes ask before they are discarded.
 
@@ -133,6 +134,7 @@ Each prototype screen or flow and the features it serves. Feature IDs are in [`d
 | Network plants and one plant, with the phase journey (`#/network`, `#/network/plant`) | IDN-022, IDN-023, PI-030, PI-031 | WP-007, WP-030, WP-038, WP-044, WP-046, WP-047 | designed |
 | Network Intelligence (`#/network/intelligence`) | PI-043, PI-044 | WP-002, WP-004, WP-007, WP-010, WP-032, WP-041, WP-042, WP-043, WP-044, WP-047, WP-058, WP-073, WP-074, WP-093, WP-096 | designed |
 | Settings dialog: church, seats, sharing, account | IDN-010, IDN-011, IDN-017, IDN-019, IDN-022, IDN-006 to IDN-008 | WP-004, WP-005, WP-006, WP-007, WP-008, WP-010, WP-017, WP-030, WP-039 | designed |
+| Church brand kit (`#/settings/brand`) | BRD-001 to BRD-005 | WP-104 | not designed |
 | Evry panel | EVR-005, EVR-010, EVR-012 | WP-051, WP-053 | designed |
 | Guide panel | WIKI-008 | WP-034 | designed |
 | Feedback dialog | ADM-001 | WP-049 | designed |
