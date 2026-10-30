@@ -45,6 +45,7 @@ import {
 	taskHandoff,
 	taskNew,
 	taskPick,
+	taskSeats,
 	taskReopen,
 	taskSpec,
 } from "./drive.ts";
@@ -117,6 +118,9 @@ Drive (harness)
   evf task spec <task> --file <file>                          store the spec: Goal, numbered Done criteria, Non-goals
   evf task spec <task> --show                                 print the stored ask and spec in full
   evf task pick <task> <1|2|3> --owner-approval "<words>"     prototype mode: record Sebastian's pick
+  evf task seats <task> [--model <m>] [--effort <e>] | --clear
+                                                              coordinator only: run every seat of this task on one model and effort
+                                                              (wins over config seats and seatTrial; a non-Opus model leaves the verifier on Opus)
   evf task reopen <task> --reason "<words>"                   escalated task: back to pr_open or active, failure count restarts;
                                                               the reason goes verbatim into the next seat's prompt
   evf task compare-passed <task> --owner-approval "<words>"   prototype task escalated on one idea while the others passed:
@@ -317,6 +321,13 @@ function main(argv: string[]): number | Promise<number> {
 				const words = option(args, "--owner-approval");
 				if (args.length !== 2) break;
 				return taskPick(root, parseTask(args[0]), Number(args[1]), words ?? "");
+			}
+			if (sub === "seats") {
+				const model = option(args, "--model"),
+					effort = option(args, "--effort"),
+					clear = flag(args, "--clear");
+				if (args.length !== 1) break;
+				return taskSeats(root, parseTask(args[0]), { model, effort, clear });
 			}
 			if (sub === "compare-passed") {
 				const words = option(args, "--owner-approval");

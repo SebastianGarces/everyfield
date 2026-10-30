@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { ensureTask, findTask, openWorkDb, workDbPath } from "./db.ts";
+import { ensureTask, findTask, openWorkDb, seatOverrideOf, workDbPath } from "./db.ts";
 import {
 	baseRef,
 	EvfError,
@@ -175,7 +175,7 @@ export function launchPlan(
 	opts: { mode?: string; round?: number; run?: string; idea?: number; driven?: boolean },
 ): LaunchPlan {
 	const cfg = loadConfig(root),
-		seat = resolveSeat(cfg, task, role),
+		seat = resolveSeat(cfg, task, role, seatOverrideOf(root, task)),
 		agent = agentDefinition(root, role, seat),
 		session = randomUUID(),
 		idea = opts.idea,
