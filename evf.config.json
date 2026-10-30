@@ -1343,6 +1343,18 @@
 				}
 			],
 			"risk": "ordinary"
+		},
+		"OPS-82": {
+			"title": "Landing page prototypes in design/everyfield-marketing.html (less app UI, Opus 5.5 high)",
+			"route": "design",
+			"owningPaths": ["design/everyfield-marketing.html", "design/marketing-styles.css", "design/marketing-copy.json"],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				}
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {
