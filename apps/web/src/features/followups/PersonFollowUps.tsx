@@ -242,7 +242,11 @@ function FollowUpsCard({
 											</StatusBadge>
 										) : null}
 									</span>
-									{o.owner ? <span className="text-sm text-text-2">Owner: {ownerText(o.owner)}</span> : null}
+									{o.owners.map((owner) => (
+										<span key={owner.accountId} className="text-sm text-text-2">
+											Owner: {ownerText(owner)}
+										</span>
+									))}
 									{o.completion ? (
 										<span className="text-sm text-text-2">
 											Done: {OUTCOME_LABEL[o.completion.outcome]} <When at={o.completion.occurredAt} withTime />

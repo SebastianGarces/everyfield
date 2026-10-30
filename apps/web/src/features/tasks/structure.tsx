@@ -150,7 +150,9 @@ export function Steps({
 								>
 									{s.title}
 								</span>
-								<span className="max-w-[40%] truncate text-sm text-text-3">{assigneeNames(s.assignees).join(", ") || "Needs owner"}</span>
+								<span className="max-w-[40%] truncate text-sm text-text-3">
+									{assigneeNames(s.assignees).join(", ") || "Needs owner"}
+								</span>
 								{admin ? (
 									<IconButton
 										icon={Cancel01Icon}

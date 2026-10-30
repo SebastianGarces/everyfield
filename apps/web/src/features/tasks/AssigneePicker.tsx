@@ -55,9 +55,10 @@ export function AssigneePicker({
 	onOpenChange?: (open: boolean) => void;
 	className?: string;
 }) {
-	const [loaded, setLoaded] = useState<
-		{ purpose: Purpose; options: { accountId: string; displayName: string }[] | "failed" } | null
-	>(null);
+	const [loaded, setLoaded] = useState<{
+		purpose: Purpose;
+		options: { accountId: string; displayName: string }[] | "failed";
+	} | null>(null);
 	const [attempt, setAttempt] = useState(0);
 	useEffect(() => {
 		let live = true;
@@ -97,11 +98,18 @@ export function AssigneePicker({
 				placeholder={placeholder}
 				searchLabel={label}
 				loading={!people && !failed && options.length === 0}
-				error={failed ? { message: "The list of people did not load.", onRetry: () => {
-					forgetAssignees();
-					setLoaded(null);
-					setAttempt((n) => n + 1);
-				} } : undefined}
+				error={
+					failed
+						? {
+								message: "The list of people did not load.",
+								onRetry: () => {
+									forgetAssignees();
+									setLoaded(null);
+									setAttempt((n) => n + 1);
+								},
+							}
+						: undefined
+				}
 				emptyText={purpose === "committed_follow_up" ? "No one can own follow-ups yet" : "No matches"}
 				onOpenChange={onOpenChange}
 				onValueChange={(ids) =>

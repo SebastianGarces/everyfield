@@ -13,7 +13,7 @@ import {
 import { Avatar, StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { useRef, useState, useSyncExternalStore } from "react";
-import { dueText, ownerText } from "../tasks/model.ts";
+import { dueText, lacksOwner, ownerText } from "../tasks/model.ts";
 import { AssignMenu, dutyFrom } from "./duties.tsx";
 import { recordOutcome } from "./actions.ts";
 import { loadCall } from "./fetch.ts";
@@ -50,9 +50,11 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 	const done = useRef<HTMLHeadingElement>(null);
 	const { task, person, obligation } = call;
 	const open = OPEN.has(task.status);
-	const mine = task.assignee?.accountId === accountId;
+	const mine = task.assignees.some((a) => a.accountId === accountId);
 	const canAct = (admin || mine) && person.live;
-	const owner = task.followUpOwner ?? (task.assignee ? { ...task.assignee, eligible: true, reason: null } : null);
+	const owners = task.followUpOwners.length
+		? task.followUpOwners
+		: task.assignees.map((a) => ({ ...a, eligible: true, reason: null }));
 	const now = useNow();
 	const left48 =
 		now !== null && obligation?.kind === "first_vision_follow_up" && open ? windowAt(obligation.origin.at, now) : null;
@@ -128,20 +130,23 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 									{task.overdue ? `Overdue · due ${due}` : `Due ${due}`}
 								</StatusBadge>
 							) : null}
-							{owner && owner.eligible ? (
-								<StatusBadge status="measured" size="sm" plain>
-									Assigned to {ownerText(owner)}
-								</StatusBadge>
-							) : owner ? (
-								<span className="text-sm font-medium text-ink [overflow-wrap:anywhere]">
-									Assigned to {ownerText(owner)}
-								</span>
-							) : (
+							{owners.map((owner) =>
+								owner.eligible ? (
+									<StatusBadge key={owner.accountId} status="measured" size="sm" plain>
+										Assigned to {ownerText(owner)}
+									</StatusBadge>
+								) : (
+									<span key={owner.accountId} className="text-sm font-medium text-ink [overflow-wrap:anywhere]">
+										Assigned to {ownerText(owner)}
+									</span>
+								),
+							)}
+							{lacksOwner(owners) ? (
 								<StatusBadge status="attention" size="sm">
 									Needs owner
 								</StatusBadge>
-							)}
-							{admin && open && owner && !owner.eligible ? (
+							) : null}
+							{admin && open && owners.some((o) => !o.eligible) ? (
 								<AssignMenu
 									duty={dutyFrom(task)}
 									lane={lane}
@@ -153,8 +158,8 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 											task: {
 												...c.task,
 												revision: d.revision,
-												assignee: d.owner ? { accountId: d.owner.accountId, displayName: d.owner.displayName } : null,
-												followUpOwner: d.owner,
+												assignees: d.owners.map((o) => ({ accountId: o.accountId, displayName: o.displayName })),
+												followUpOwners: d.owners,
 											},
 										}))
 									}

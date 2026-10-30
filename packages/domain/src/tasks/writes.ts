@@ -80,7 +80,9 @@ export const assigneeFacts = (plantId: string, ids: readonly string[]) => sql`(S
 		${ownerReason(sql`x.id`, sql`${plantId}::uuid`)} AS reason,
 		${lockOwner(sql`x.id`, sql`${plantId}::uuid`)} AS locked
 		FROM unnest(${sql.param([...new Set(ids)].sort())}::uuid[]) AS x(id)) u)`;
-const assigneeFactRows = z.array(z.object({ id: z.uuid(), name: z.string().nullable(), reason: z.string().nullable() }));
+const assigneeFactRows = z.array(
+	z.object({ id: z.uuid(), name: z.string().nullable(), reason: z.string().nullable() }),
+);
 /**
  * Every named assignee must hold a current seat; for a person follow-up each must also be an eligible owner. One
  * failing account refuses the whole write and names that account (REQ-TSK-012). Returns the accounts as assignees.
@@ -118,7 +120,12 @@ export async function references(
 		(SELECT name FROM team WHERE id=${input.relation?.kind === "team" ? input.relation.id : null}::uuid
 			AND plant_id=${plantId}::uuid AND archived_at IS NULL FOR SHARE) AS team`);
 	const row = z
-		.object({ assignees: z.unknown(), person: z.string().nullable(), meeting: z.string().nullable(), team: z.string().nullable() })
+		.object({
+			assignees: z.unknown(),
+			person: z.string().nullable(),
+			meeting: z.string().nullable(),
+			team: z.string().nullable(),
+		})
 		.parse(r.rows[0]);
 	const assignees = checkAssignees(row.assignees, input.followUp ?? false);
 	const label = input.relation ? row[input.relation.kind] : null;
@@ -388,8 +395,7 @@ export function changeTo(
 /** A new task row with no completion, deletion, source, series or checklist. */
 export function newTask(
 	zone: TimeZone,
-	fields: Pick<TaskRow, "title" | "category" | "priority" | "status" | "assignees"> &
-		Partial<TaskRow>,
+	fields: Pick<TaskRow, "title" | "category" | "priority" | "status" | "assignees"> & Partial<TaskRow>,
 ): TaskRow {
 	const at = new Date();
 	return {
@@ -518,7 +524,11 @@ export function createTaskWriter(deps: { reminders: TaskReminders }) {
 										p.assigneeIds.map(
 											(id) =>
 												row.assignees.find((a) => a.accountId === id) ??
-												refs?.assignees.find((a) => a.accountId === id) ?? { accountId: id, displayName: "", seated: true },
+												refs?.assignees.find((a) => a.accountId === id) ?? {
+													accountId: id,
+													displayName: "",
+													seated: true,
+												},
 										),
 									),
 								}

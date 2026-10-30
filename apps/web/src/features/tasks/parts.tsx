@@ -133,7 +133,10 @@ export function Assignee({ task, you }: { task: Pick<TaskItem, "assignees" | "fo
 	});
 	const label = own && task.assignees.length === 1 ? "Assigned to you" : `Assigned to ${who.join(", ")}`;
 	return (
-		<span className="inline-flex max-w-[260px] min-w-0 items-center gap-2 max-app-sm:max-w-[120px]" title={who.join(", ")}>
+		<span
+			className="inline-flex max-w-[260px] min-w-0 items-center gap-2 max-app-sm:max-w-[120px]"
+			title={who.join(", ")}
+		>
 			<Avatar name={names[0]!} label={label} size="xs" ring={own} />
 			<span className="min-w-0 truncate text-sm text-text-2" aria-hidden="true">
 				<span className="max-app-sm:hidden">{names.join(", ")}</span>

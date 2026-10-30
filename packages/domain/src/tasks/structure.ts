@@ -273,7 +273,8 @@ export function structureWriter(reminders: TaskReminders) {
 				const input = parse(c.bulkCompleteRequest, raw);
 				return command(tx, context, "tasks.bulkComplete", input, async (cmd) =>
 					bulk(tx, cmd, input.items, (row) => {
-						if (!administers(cmd.actor) && !row.assignees.some((a) => a.accountId === cmd.actor.accountId)) return "unauthorized";
+						if (!administers(cmd.actor) && !row.assignees.some((a) => a.accountId === cmd.actor.accountId))
+							return "unauthorized";
 						if (row.status === "no_longer_needed") return "closed";
 						if (row.status === "complete") return "noop";
 						const r = setStatus(tx, cmd, row, { status: "complete", source: "bulk" });

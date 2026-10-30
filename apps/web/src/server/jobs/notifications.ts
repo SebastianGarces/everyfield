@@ -314,7 +314,9 @@ export function createNotificationService(config: {
 		const tenant = inputs[0]?.base.owner.id;
 		if (!tenant) return [];
 		if (
-			inputs.some((i) => i.base.owner.id !== tenant || i.base.source.kind !== "task" || (i.open && !i.recipients.length))
+			inputs.some(
+				(i) => i.base.owner.id !== tenant || i.base.source.kind !== "task" || (i.open && !i.recipients.length),
+			)
 		)
 			throw Error("notification_source_mismatch");
 		const sources = inputs

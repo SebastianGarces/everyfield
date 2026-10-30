@@ -88,7 +88,9 @@ export async function ensureMeetingObligations(
 	const v = parse(ensureMeetingObligationsInput, raw),
 		plant = cmd.actor.plantId;
 	const assignees = [
-		...new Set(v.meetings.flatMap((m) => [...m.followUps.flatMap((f) => f.assigneeIds), ...(m.evaluation?.assigneeIds ?? [])])),
+		...new Set(
+			v.meetings.flatMap((m) => [...m.followUps.flatMap((f) => f.assigneeIds), ...(m.evaluation?.assigneeIds ?? [])]),
+		),
 	];
 	const row = obligationFactsRow.parse(
 		facts ??

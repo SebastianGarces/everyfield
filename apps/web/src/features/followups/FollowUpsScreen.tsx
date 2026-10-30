@@ -130,7 +130,11 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 					revisions.has(d.taskId)
 						? {
 								...d,
-								owner: { ...r.to, eligible: true, reason: null },
+								// D-d: the recipient takes the source's place; when it already holds the follow-up, the source leaves.
+								owners: [
+									...d.owners.filter((o) => o.accountId !== plan.from.accountId && o.accountId !== r.to.accountId),
+									{ ...r.to, eligible: true, reason: null },
+								],
 								revision: revisions.get(d.taskId) ?? d.revision,
 							}
 						: d,
@@ -138,7 +142,15 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 				return { ...row, duties, coverage: coverageOf(duties) };
 			}),
 		);
-		confirmed(r.moved.map((m) => moveOf(byId.get(m.taskId) ?? { owner: null }, r.to)));
+		confirmed(
+			r.moved.map((m) => {
+				const before = byId.get(m.taskId) ?? { owners: [] };
+				return moveOf(before, [
+					...before.owners.filter((o) => o.accountId !== plan.from.accountId && o.accountId !== r.to.accountId),
+					{ ...r.to, eligible: true, reason: null },
+				]);
+			}),
+		);
 	});
 	const pageCount = Math.max(1, Math.ceil(coverage.total / COVERAGE_PAGE));
 	return (
@@ -248,7 +260,7 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 														lane={lane}
 														canAssign
 														onChange={change}
-														onSaved={(before, after) => confirmed([moveOf(before, after.owner)])}
+														onSaved={(before, after) => confirmed([moveOf(before, after.owners)])}
 														onConflict={reload}
 													/>
 												</li>
@@ -337,7 +349,7 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 					onCreated={(d) => {
 						const first = rows.find((r) => r.person.id === d.person.id)?.duties.length === 0;
 						change(d);
-						confirmed([{ from: "new", to: d.owner, firstForContact: first }]);
+						confirmed([{ before: "new", after: d.owners, firstForContact: first }]);
 					}}
 				/>
 			) : null}

@@ -52,7 +52,13 @@ export const taskDetail = taskItem.extend({
 	description: z.string().nullable(),
 	checklistItems: z
 		.array(
-			z.strictObject({ id: recordId, revision, title: z.string(), status: taskStatus, assignees: z.array(assignee).max(MAX_ASSIGNEES) }),
+			z.strictObject({
+				id: recordId,
+				revision,
+				title: z.string(),
+				status: taskStatus,
+				assignees: z.array(assignee).max(MAX_ASSIGNEES),
+			}),
 		)
 		.max(500),
 	prerequisiteIds: z.array(recordId).max(50),

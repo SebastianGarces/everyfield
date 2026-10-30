@@ -648,7 +648,12 @@ async function settle(
 						: e.kind === "meeting_evaluation"
 							? input.evaluationAssigneeIds
 							: input.followUpAssigneeIds;
-			work.push(c.generatedWork.parse({ ...e, ...ownersOf(assigneeIds, e.kind === "meeting_evaluation" ? "evaluation" : "follow_up") }));
+			work.push(
+				c.generatedWork.parse({
+					...e,
+					...ownersOf(assigneeIds, e.kind === "meeting_evaluation" ? "evaluation" : "follow_up"),
+				}),
+			);
 		}
 	}
 	if (closing.size && !noop) {
