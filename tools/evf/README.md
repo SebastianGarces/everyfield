@@ -25,6 +25,17 @@ base do not overlap, and required CI passes on H. Ship posts the proof as an `EV
 before it merges and keeps it in the shipped record. Any other change refuses as before.
 Design tasks, P2/P3 feedback and every `evf approve` route keep exact-head review.
 
+Document-template class: a WP part, an OPS task without the design route or a P0/P1 fix joins it when
+its exact-head diff touches a path in `mergePolicy.documentTemplates` in `evf.config.json`. The diff runs
+from the merge base with main to the head (`git diff --name-only --no-renames`), so splitting commits or
+renaming a file out of a template folder does not leave the class. `evf ship` runs the usual review and CI
+checks, posts the `evf/verify` status and prints the `evf approve` command; it never queues, updates the branch
+or merges, and exits 0. `evf approve <PR> --owner-approval "<his words>"` merges it after Sebastian approves
+in chat, only with an independent review of the exact head and the verified status on it. Then it
+writes the shipped record with an `owner_approval` field, acknowledges progress and removes the worktree.
+`evf drive` records the wait and stops; a later pass records the merge. The key is optional: when it is
+absent, the built-in default in `tools/evf/policy.ts` applies. A malformed key stops `loadConfig`.
+
 Ship never merges on red main. Before it merges, it reads main's latest finished `ci.yml` push run,
 skipping cancelled and skipped runs. When that run failed, only a PR whose body says `Fixes #<n>`
 for the open `P0: CI failed on main` issue may merge. The gate reads the run, not the issue state.

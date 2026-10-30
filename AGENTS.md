@@ -19,6 +19,8 @@ Current requirements and cases live in `docs/catalog/index.json`. Keep this file
    review and runs `bin/evf ship <task>`.
    Ship requires green required GitHub CI, independent approval and a valid PR body.
 
+A PR that changes a path in `mergePolicy.documentTemplates` waits for Sebastian: `evf ship` stops after the verifier, `evf approve` merges.
+
 Use `bin/evf help` for commands. IDs are WP-NNN, WP-NNN/api or /ui,
 FB-<n> for feedback and OPS-<n> for tooling maintenance. Reserve a new OPS-<n> or ruling
 number D<n> with `bin/evf id next ops|decision`; never take the next number from main.
