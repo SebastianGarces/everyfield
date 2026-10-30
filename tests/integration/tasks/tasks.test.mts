@@ -166,6 +166,10 @@ before(async () => {
 	};
 	owner = await seated(plant, "owner");
 	member = await seated(plant, "member");
+	// A follow-up owner needs a committed Person linked to their account (REQ-TSK-012).
+	await f.admin.execute(sql`INSERT INTO person(tenant_id,plant_id,display_name,source,stage,adult_classification,
+		commitment_state,pipeline_position,state,created_at,linked_account_id) VALUES(${plant.id},${plant.id},'Member Person',
+		'other','core_group','unknown','unknown',0,'live',clock_timestamp(),${member.id})`);
 	admin2 = await seated(plant, "admin");
 	foreign = await seated(other, "owner");
 });

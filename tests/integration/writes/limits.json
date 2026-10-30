@@ -35,6 +35,9 @@
 	"GET /settings": {
 		"limit": 2
 	},
+	"GET /settings/brand": {
+		"limit": 3
+	},
 	"GET /signin (signed out)": {
 		"limit": 0
 	},
@@ -99,6 +102,9 @@
 	},
 	"POST settings.saveSection (account)": {
 		"limit": 5
+	},
+	"POST settings.brand.saveSettings": {
+		"limit": 2
 	},
 	"POST tasks.createTask": {
 		"limit": 5
@@ -227,6 +233,35 @@
 		"limit": 10,
 		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 5 locked read, 2 read, 3 write."
 	},
+	"brand.finalizeUpload": {
+		"limit": 1
+	},
+	"brand.get": {
+		"limit": 1
+	},
+	"brand.requestUpload": {
+		"limit": 1
+	},
+	"brand.reset": {
+		"limit": 1
+	},
+	"brand.resolveTheme": {
+		"limit": 1
+	},
+	"brand.saveSettings": {
+		"limit": 1
+	},
+	"brand.suggestColors": {
+		"limit": 9
+	},
+	"branding/files.readBrandAsset": {
+		"limit": 8,
+		"retry": 4
+	},
+	"branding/files.uploadBrandAsset": {
+		"limit": 13,
+		"reason": "One statement finds the staged upload and one records the processed bytes, then putPrivateObject claims the file and finalizes it in two transactions so the provider call holds no lock. Its largest first run: 4 read, 3 write, 4 transaction, 2 locked read."
+	},
 	"documents.archive": {
 		"limit": 1
 	},
@@ -290,7 +325,7 @@
 		"limit": 3
 	},
 	"followups.recordOutcome": {
-		"limit": 3
+		"limit": 4
 	},
 	"followups/core.withFollowUpWrite": {
 		"limit": 7,

@@ -39,6 +39,13 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `audit_event(subject_id)` | `record(id)` | no_action | D70 audit subject or original-command correlation may name an authorized bilateral endpoint or retained identity; pair/source checks and current authority remain mandatory. Operator projections omit protected history and retry content. |
 | `auth_account(user_id)` | `auth_user(id)` | restrict |  |
 | `auth_session(user_id)` | `auth_user(id)` | restrict |  |
+| `church_brand_kit(cover_photo_object_id, tenant_id)` | `file_object(id, tenant_id)` | restrict |  |
+| `church_brand_kit(full_logo_dark_object_id, tenant_id)` | `file_object(id, tenant_id)` | restrict |  |
+| `church_brand_kit(full_logo_object_id, tenant_id)` | `file_object(id, tenant_id)` | restrict |  |
+| `church_brand_kit(mark_dark_object_id, tenant_id)` | `file_object(id, tenant_id)` | restrict |  |
+| `church_brand_kit(mark_object_id, tenant_id)` | `file_object(id, tenant_id)` | restrict |  |
+| `church_brand_kit(signature_object_id, tenant_id)` | `file_object(id, tenant_id)` | restrict |  |
+| `church_brand_kit(tenant_id)` | `tenant(id)` | restrict |  |
 | `commitment(plant_id)` | `plant(id)` | restrict |  |
 | `commitment(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `commitment(witness_person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |

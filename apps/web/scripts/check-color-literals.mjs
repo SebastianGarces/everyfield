@@ -20,6 +20,9 @@ const FN =
 const ALLOWED = {
 	"app/layout.tsx": "the theme-color meta tag (Next viewport metadata) takes a literal colour",
 	"app/apple-icon.tsx": "next/og renders the icon without the page's CSS, so it cannot read a variable",
+	"features/settings/brand/BrandSection.tsx": "the native color input needs a hex value while the typed color is empty",
+	"features/settings/brand/fixtures.ts":
+		"the design-preview fixture holds a church's saved brand colors, which are data, not design colors",
 };
 
 const walk = (dir) =>

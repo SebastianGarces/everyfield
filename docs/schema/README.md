@@ -2,7 +2,7 @@
 
 [target.json](target.json) is generated from the Drizzle declarations in [tables.ts](../../packages/db/src/schema/tables.ts). Those declarations own modeled structure; reviewed custom migrations and supplemental catalog expectations own triggers, functions and privileges. Applied SQL remains immutable.
 
-The schema has 96 tables, 1098 columns, 341 declared FKs and 27 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
+The schema has 97 tables, 1126 columns, 348 declared FKs and 27 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
 
 Run documentation/tooling checks from the repository root:
 
@@ -38,6 +38,7 @@ Each replaced table inherits the union of producer packages from its previous ta
 
 | New table | Ownership basis and ruling | Producers |
 |---|---|---|
+| `church_brand_kit` | WP-104 stores one brand kit for each church plant. The plant owns the row. | WP-104 |
 | `commitment_change` | WP-014 commitment lifecycle storage through Drizzle Kit (C100). | WP-014 |
 | `communication` | WP-027 composition storage through Drizzle Kit (C100). | WP-027 |
 | `conversation` | WP-051 Evry conversation storage through Drizzle Kit. | WP-051 |
@@ -198,7 +199,7 @@ This mapping is generated from `replaces`; Fix 2 uses it to align architecture, 
 
 ## Coverage
 
-Capability inventories cover 305 feature IDs and 124 persistent capabilities. Coverage proves a documented mapping; it does not establish runtime behavior.
+Capability inventories cover 305 feature IDs and 125 persistent capabilities. Coverage proves a documented mapping; it does not establish runtime behavior.
 
 ## Design rules used
 1. Each table names the capabilities that require it. There is no table for a behavior-only helper or derived dashboard.

@@ -2665,6 +2665,7 @@
       ],
       "consumer_table_names": [
         "admission_attempt",
+        "church_brand_kit",
         "commitment_change",
         "communication",
         "conversation",
@@ -26232,6 +26233,7 @@
         "auth_session",
         "auth_user",
         "auth_verification",
+        "church_brand_kit",
         "commitment",
         "commitment_change",
         "communication",
@@ -32341,6 +32343,7 @@
         "auth_session",
         "auth_user",
         "auth_verification",
+        "church_brand_kit",
         "commitment",
         "commitment_change",
         "communication",
@@ -42193,7 +42196,9 @@
         "WP-089",
         "WP-090"
       ],
-      "producer_table_names": [],
+      "producer_table_names": [
+        "church_brand_kit"
+      ],
       "consumer_table_names": [],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
       "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."

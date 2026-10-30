@@ -19,6 +19,7 @@ import {
 	type Tx,
 } from "./core.ts";
 import { lastWrite } from "../operations/writes.ts";
+import { lockOwner, ownerReason } from "./owner.ts";
 import { detailOf, loadTask, type LockedTask, type TaskRow } from "./queries.ts";
 import { successorOf } from "./recurrence.ts";
 import { structureWriter } from "./structure.ts";
@@ -67,12 +68,19 @@ export const relationColumns = (r: z.infer<typeof c.relation> | null) => ({
 export async function references(
 	tx: Tx,
 	plantId: string,
-	input: { assigneeId?: string | null; relation?: z.infer<typeof c.relation> | null },
+	input: {
+		assigneeId?: string | null;
+		relation?: z.infer<typeof c.relation> | null;
+		/** The task is a person follow-up: its assignee must be an eligible follow-up owner (REQ-TSK-012). */
+		followUp?: boolean;
+	},
 ) {
 	const r = await tx.execute(sql`SELECT
 		(SELECT i.display_name FROM seat s CROSS JOIN LATERAL seat_identity(s.account_id) i
 			WHERE s.account_id=${input.assigneeId ?? null}::uuid AND s.plant_id=${plantId}::uuid AND s.ended_at IS NULL
 			AND s.accepted_at<=clock_timestamp() FOR SHARE OF s) AS assignee,
+		${ownerReason(sql`${input.assigneeId ?? null}::uuid`, sql`${plantId}::uuid`)} AS reason,
+		${lockOwner(sql`${input.assigneeId ?? null}::uuid`, sql`${plantId}::uuid`)} AS locked,
 		(SELECT display_name FROM person WHERE id=${input.relation?.kind === "person" ? input.relation.id : null}::uuid
 			AND tenant_id=${plantId}::uuid AND plant_id IS NOT NULL AND state='live' FOR SHARE) AS person,
 		(SELECT title FROM meeting WHERE id=${input.relation?.kind === "meeting" ? input.relation.id : null}::uuid
@@ -82,12 +90,14 @@ export async function references(
 	const row = z
 		.object({
 			assignee: z.string().nullable(),
+			reason: z.string().nullable(),
 			person: z.string().nullable(),
 			meeting: z.string().nullable(),
 			team: z.string().nullable(),
 		})
 		.parse(r.rows[0]);
 	if (input.assigneeId && row.assignee === null) deny("invalid_subject");
+	if (input.followUp && input.assigneeId && row.reason !== null) deny("owner_ineligible");
 	const label = input.relation ? row[input.relation.kind] : null;
 	if (input.relation && label === null) deny("invalid_subject");
 	return { assigneeName: row.assignee, relationLabel: label };
@@ -403,7 +413,10 @@ export function createTaskWriter(deps: { reminders: TaskReminders }) {
 					const due = dueColumns(v.due, cmd.actor.zone);
 					const refs =
 						v.assigneeId || v.relation
-							? await references(tx, cmd.actor.plantId, v)
+							? await references(tx, cmd.actor.plantId, {
+									...v,
+									followUp: v.category === "follow_up" && v.relation?.kind === "person",
+								})
 							: { assigneeName: null, relationLabel: null };
 					const row = newTask(cmd.actor.zone, {
 						title: v.title,
@@ -450,6 +463,10 @@ export function createTaskWriter(deps: { reminders: TaskReminders }) {
 							? await references(tx, cmd.actor.plantId, {
 									assigneeId: p.assigneeId,
 									relation: p.relation,
+									followUp:
+										(p.category ?? row.category) === "follow_up" &&
+										(p.relation === undefined ? row.person_id !== null : p.relation?.kind === "person") &&
+										row.parent_id === null,
 								})
 							: null;
 					const next: TaskRow = {

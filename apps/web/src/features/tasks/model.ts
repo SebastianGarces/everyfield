@@ -105,6 +105,24 @@ export function ownerLabel(owner: { displayName: string } | null): string {
 	return owner ? owner.displayName.trim() || "Unnamed member" : "Needs owner";
 }
 
+/** An owner view of a follow-up's assignee (REQ-TSK-012): the name and whether they may own follow-ups. */
+export type FollowUpOwner = c.FollowUpOwner;
+const OWNER_REASON_TEXT: Record<NonNullable<FollowUpOwner["reason"]>, string> = {
+	no_seat: "no current seat",
+	no_person: "no linked Person",
+	not_committed: "Person not in a core group, launch team or leader stage",
+};
+/**
+ * The follow-up owner in the words every screen uses: the name, and for someone who cannot own follow-ups, why. The
+ * one wording of the one value, so the Tasks list, task panel, Follow-ups page, call screen, person card and Correct
+ * attendance all read the same.
+ */
+export function ownerText(owner: Pick<FollowUpOwner, "displayName" | "eligible" | "reason"> | null): string {
+	if (!owner) return "Needs owner";
+	const name = ownerLabel(owner);
+	return owner.eligible || !owner.reason ? name : `${name} · Can't own follow-ups: ${OWNER_REASON_TEXT[owner.reason]}`;
+}
+
 /** What the bulk bar offers for the selected tasks' current statuses (REQ-TSK-008: only open tasks complete or move). */
 export type BulkActions = { kind: "open" | "settled" | "mixed"; settled: number };
 
