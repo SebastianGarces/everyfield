@@ -13,6 +13,7 @@ import { Avatar, StatusBadge, type Status as Tone } from "@everyfield/ui/display
 import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
 import type { PointerEvent, ReactNode } from "react";
 import type { Wait } from "../../components/save/model.ts";
+import { originText } from "../followups/model.ts";
 import { When } from "../people/parts.tsx";
 import {
 	blockedText,
@@ -140,6 +141,8 @@ export function MetaLine({ task, year }: { task: TaskItem; year: number }) {
 				{ownerText(task.followUpOwner)}
 			</StatusBadge>,
 		);
+	if (task.followUpOrigin && !isSettled(task.status))
+		parts.push(<span key="origin">{originText(task.followUpOrigin)}</span>);
 	if (task.status === "complete" && task.completedAt)
 		parts.push(
 			<span key="done">

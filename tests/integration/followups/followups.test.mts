@@ -1039,7 +1039,7 @@ test("AC:TARGET-MTG-022 a Member's contact finishes only the follow-ups they hol
 		left.map((d) => [d.taskId === theirs, d.contacted?.by === undefined ? "none" : typeof d.contacted.by]),
 		[[true, "string"]],
 	);
-	// A withdrawn contact no longer counts as the finishing evidence, and a correction keeps who it also finished.
+	// A correction keeps who the contact also finished.
 	const corrected = ok(
 		await write(c.owner, "correctOutcome", {
 			requestKey: key(),

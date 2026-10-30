@@ -4,6 +4,7 @@ import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import { liveRead, type RequestActor } from "../access/session.ts";
+import { originJson, originOf } from "./origin.ts";
 import { ownerView, eligibleOwner } from "./owner.ts";
 import { administers, deny, parse, readReply, readerOf, type Reader, type Tx, type Viewer } from "./core.ts";
 
@@ -43,6 +44,7 @@ export const taskRow = z.object({
 	obligation_kind: storedKind.nullable(),
 	assignee_name: z.string().nullable(),
 	follow_up_owner: c.followUpOwner.nullish(),
+	follow_up_origin: z.unknown().nullish(),
 	relation_label: z.string().nullable(),
 	child_total: z.int(),
 	child_complete: z.int(),
@@ -102,6 +104,8 @@ const columns = sql`t.id, t.revision::text AS revision, t.title, t.description, 
 	t.occurrence_key, t.obligation_id, o.kind AS obligation_kind, ai.display_name AS assignee_name,
 	CASE WHEN t.category='follow_up' AND t.person_id IS NOT NULL AND t.parent_id IS NULL AND t.assignee_id IS NOT NULL
 		THEN ${ownerView(sql`t.assignee_id`, sql`t.plant_id`)} END AS follow_up_owner,
+	CASE WHEN t.category='follow_up' AND t.person_id IS NOT NULL AND t.parent_id IS NULL
+		THEN ${originJson(sql`t`)} END AS follow_up_origin,
 	coalesce(p.display_name, m.title, tm.name) AS relation_label, pl.timezone AS plant_zone,
 	(SELECT count(*)::int FROM task k WHERE k.parent_id=t.id AND k.plant_id=t.plant_id AND k.deleted_at IS NULL) AS child_total,
 	(SELECT count(*)::int FROM task k WHERE k.parent_id=t.id AND k.plant_id=t.plant_id AND k.deleted_at IS NULL
@@ -208,6 +212,7 @@ export function itemOf(row: TaskRow, asOf: Instant) {
 		overdue: due.kind === "undated" ? null : settled ? false : c.overdueAt(due, row.plant_zone, asOf),
 		assignee: row.assignee_id ? { accountId: row.assignee_id, displayName: row.assignee_name ?? "" } : null,
 		followUpOwner: followUpOwnerOf(row),
+		followUpOrigin: row.follow_up_origin ? originOf(row.follow_up_origin) : null,
 		relation: row.person_id
 			? { kind: "person", id: row.person_id, label: row.relation_label ?? "" }
 			: row.meeting_id

@@ -24,6 +24,7 @@ for (const [name, engine] of ENGINES) {
 			const tasksRow = row(title);
 			await tasksRow.waitFor();
 			assert.ok((await text(tasksRow)).includes(INELIGIBLE), "Tasks list row");
+			assert.ok((await text(tasksRow)).includes("Added by Daniel Reyes"), "Tasks list origin");
 			await tasksRow.getByRole("button", { name: "Reassign" }).waitFor();
 			await tasksRow.getByRole("button", { name: title, exact: true }).click();
 			const panel = page.getByRole("dialog");
@@ -68,6 +69,27 @@ for (const [name, engine] of ENGINES) {
 			assert.ok((await text(sara)).includes("Ruth Allen"));
 			assert.ok((await text(sara)).includes("After Vision meeting #12"), "origin of a meeting follow-up");
 			assert.equal((await text(sara)).includes("Can't own follow-ups"), false);
+
+			// The same eligible follow-up on the Tasks list, the task panel and the person's card.
+			const saraTitle = "Follow up with Sara Nunez";
+			await page.goto(`${BASE}/tasks?view=all`);
+			await hydrated(page);
+			const saraRow = row(saraTitle);
+			await saraRow.waitFor();
+			assert.ok((await text(saraRow)).includes("After Vision meeting #12"), "Tasks list origin");
+			assert.equal((await text(saraRow)).includes("Can't own follow-ups"), false, "Tasks list row");
+			assert.equal(await saraRow.getByRole("button", { name: "Reassign" }).count(), 0);
+			await saraRow.getByRole("button", { name: saraTitle, exact: true }).click();
+			const saraPanel = page.getByRole("dialog");
+			await saraPanel.getByText("Assigned to").waitFor();
+			assert.ok((await text(saraPanel)).includes("Assigned to Ruth Allen"), "task panel");
+			assert.equal((await text(saraPanel)).includes("Can't own follow-ups"), false, "task panel");
+			await page.keyboard.press("Escape");
+			await page.goto(`${BASE}/people/${people().people["Sara Nunez"]}`);
+			await hydrated(page);
+			const saraCard = page.getByRole("region", { name: "Follow-ups" });
+			assert.ok((await text(saraCard)).includes("Ruth Allen"), "person Follow-ups card");
+			assert.equal((await text(saraCard)).includes("Can't own follow-ups"), false, "person Follow-ups card");
 		});
 	});
 }

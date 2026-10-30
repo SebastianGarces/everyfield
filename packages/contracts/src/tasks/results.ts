@@ -1,7 +1,16 @@
 import { z } from "zod";
 import { instant, localDateTime } from "../common/time.ts";
 import { accountId, defineSafeError, operationId, recordId, revision, role, safeError } from "../common/values.ts";
-import { category, due, followUpOwner, obligationKind, priority, recurrenceRule, taskStatus } from "./values.ts";
+import {
+	category,
+	due,
+	followUpOrigin,
+	followUpOwner,
+	obligationKind,
+	priority,
+	recurrenceRule,
+	taskStatus,
+} from "./values.ts";
 
 const count = z.int().min(0);
 const assignee = z.strictObject({ accountId, displayName: z.string() });
@@ -18,6 +27,8 @@ export const taskItem = z.strictObject({
 	assignee: assignee.nullable(),
 	// A person follow-up's assignee with whether they may own it (REQ-TSK-012); null on any other task.
 	followUpOwner: followUpOwner.nullable(),
+	// Where an open person follow-up came from, so two for one person read differently; null on any other task.
+	followUpOrigin: followUpOrigin.nullable(),
 	relation: z.strictObject({ kind: z.enum(["person", "meeting", "team"]), id: recordId, label: z.string() }).nullable(),
 	parentId: recordId.nullable(),
 	checklist: z.strictObject({ total: count, complete: count }),

@@ -35,6 +35,12 @@ export const followUpOwner = z.strictObject({
 	reason: ownerReason.nullable(),
 });
 export type FollowUpOwner = z.infer<typeof followUpOwner>;
+/** Where a follow-up came from: a meeting's generated duty or a person who added it. Tells two for one person apart. */
+export const followUpOrigin = z.discriminatedUnion("kind", [
+	z.strictObject({ kind: z.literal("meeting"), meeting: z.strictObject({ id: recordId, label: z.string() }) }),
+	z.strictObject({ kind: z.literal("added"), by: z.string().nullable() }),
+]);
+export type FollowUpOrigin = z.infer<typeof followUpOrigin>;
 export const obligationKind = z.enum(["first_vision_follow_up", "meeting_evaluation"]);
 // A bounded title. Whitespace-only titles are refused rather than saved empty.
 export const title = z.string().trim().min(1).max(500);

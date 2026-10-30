@@ -19,7 +19,7 @@ import {
 	type Tx,
 } from "./core.ts";
 import { lastWrite } from "../operations/writes.ts";
-import { COMMITTED } from "./owner.ts";
+import { ownerReason } from "./owner.ts";
 import { detailOf, loadTask, type LockedTask, type TaskRow } from "./queries.ts";
 import { successorOf } from "./recurrence.ts";
 import { structureWriter } from "./structure.ts";
@@ -79,8 +79,9 @@ export async function references(
 		(SELECT i.display_name FROM seat s CROSS JOIN LATERAL seat_identity(s.account_id) i
 			WHERE s.account_id=${input.assigneeId ?? null}::uuid AND s.plant_id=${plantId}::uuid AND s.ended_at IS NULL
 			AND s.accepted_at<=clock_timestamp() FOR SHARE OF s) AS assignee,
-		(SELECT true FROM person e WHERE e.tenant_id=${plantId}::uuid AND e.plant_id IS NOT NULL AND e.state='live'
-			AND e.linked_account_id=${input.assigneeId ?? null}::uuid AND e.stage IN ${COMMITTED} LIMIT 1 FOR SHARE OF e) AS committed,
+		${ownerReason(sql`${input.assigneeId ?? null}::uuid`, sql`${plantId}::uuid`)} AS reason,
+		(SELECT true FROM person e WHERE e.tenant_id=${plantId}::uuid AND e.linked_account_id=${input.assigneeId ?? null}::uuid
+			LIMIT 1 FOR SHARE OF e) AS locked,
 		(SELECT display_name FROM person WHERE id=${input.relation?.kind === "person" ? input.relation.id : null}::uuid
 			AND tenant_id=${plantId}::uuid AND plant_id IS NOT NULL AND state='live' FOR SHARE) AS person,
 		(SELECT title FROM meeting WHERE id=${input.relation?.kind === "meeting" ? input.relation.id : null}::uuid
@@ -90,14 +91,14 @@ export async function references(
 	const row = z
 		.object({
 			assignee: z.string().nullable(),
-			committed: z.boolean().nullable(),
+			reason: z.string().nullable(),
 			person: z.string().nullable(),
 			meeting: z.string().nullable(),
 			team: z.string().nullable(),
 		})
 		.parse(r.rows[0]);
 	if (input.assigneeId && row.assignee === null) deny("invalid_subject");
-	if (input.followUp && input.assigneeId && !row.committed) deny("owner_ineligible");
+	if (input.followUp && input.assigneeId && row.reason !== null) deny("owner_ineligible");
 	const label = input.relation ? row[input.relation.kind] : null;
 	if (input.relation && label === null) deny("invalid_subject");
 	return { assigneeName: row.assignee, relationLabel: label };

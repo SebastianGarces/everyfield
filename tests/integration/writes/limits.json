@@ -290,8 +290,7 @@
 		"limit": 3
 	},
 	"followups.recordOutcome": {
-		"limit": 4,
-		"reason": "A contact recorded with done also finishes the person's other open follow-ups (D-c), which takes one locked read of those tasks, one statement for any number of them. Its largest first run: 3 locked read, 1 write."
+		"limit": 4
 	},
 	"followups/core.withFollowUpWrite": {
 		"limit": 7,

@@ -3,7 +3,7 @@ import { instant, localDate } from "../common/time.ts";
 import { accountId, defineSafeError, operationId, personId, recordId, revision } from "../common/values.ts";
 import { stage } from "../people/values.ts";
 import { taskDetail, taskError } from "../tasks/results.ts";
-import { due, followUpOwner, obligationKind, taskStatus } from "../tasks/values.ts";
+import { due, followUpOrigin, followUpOwner, obligationKind, taskStatus } from "../tasks/values.ts";
 import { channel, measurement, obligationState, outcome } from "./values.ts";
 
 const count = z.int().min(0);
@@ -14,12 +14,6 @@ const actor = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("former_account") }),
 ]);
 
-/** Where a follow-up came from: a meeting's generated duty or a person who added it. Tells two for one person apart. */
-export const followUpOrigin = z.discriminatedUnion("kind", [
-	z.strictObject({ kind: z.literal("meeting"), meeting: z.strictObject({ id: recordId, label: z.string() }) }),
-	z.strictObject({ kind: z.literal("added"), by: z.string().nullable() }),
-]);
-export type FollowUpOrigin = z.infer<typeof followUpOrigin>;
 // One recorded outcome as the contact log shows it: a human outcome, never a delivered email.
 export const outcomeItem = z.strictObject({
 	id: recordId,
@@ -170,3 +164,4 @@ export const followUpError = z.discriminatedUnion("code", [
 	defineSafeError("protected_owner", {}, "never"),
 ]);
 export type FollowUpError = z.infer<typeof followUpError>;
+export { followUpOrigin, type FollowUpOrigin } from "../tasks/values.ts";

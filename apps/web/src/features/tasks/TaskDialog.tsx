@@ -256,6 +256,7 @@ function Form({
 			overdue: null,
 			assignee: null,
 			followUpOwner: null,
+			followUpOrigin: null,
 			relation: null,
 			parentId: null,
 			checklist: { total: 0, complete: 0 },
