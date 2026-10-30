@@ -28,6 +28,10 @@
   The week chapter pins to scroll. Plant Intelligence (Revision 10) is an auto-advancing tab list (autoSection, cxAutoGo); Revision 11 dividers fill left to right.
   Revision 19: the sending churches and networks section (#sending) is a third chapter on the same engine: the auto list, mirrored (panel left, list right).
   EFChapters.seek(id, step, ms) renders one panel frame for review.
+  OPS-82 (Sebastian's picks, Oct 30 2026): home and /oversight follow the live order and copy, without app UI below the vision
+  section. Home merges the week and intelligence sections into one EvryBot path (journeySection), Evry is three cards (evryCards)
+  and the sending section is a 2x2 grid of frosted cards (sendingSection). The sending-church sections never show Evry.
+  Its copy is COPY.shared.ops82 and shared.oversight_page. The week and intelligence chapter engines still serve #/planters.
 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -686,6 +690,7 @@ svg.i { width: 18px; height: 18px; flex: none; }
 .field label small { font-weight: 400; color: var(--mk-text-3); }
 .field input, .field select, .field textarea { font: inherit; font-size: 15.5px; color: var(--mk-text); background: var(--mk-canvas); border: 1px solid var(--mk-line-strong); border-radius: var(--corner-card); padding: 12px 14px; width: 100%; }
 .field textarea { min-height: 96px; resize: vertical; }
+.field select { cursor: pointer; }
 .field input:focus, .field select:focus, .field textarea:focus { outline: 2px solid var(--mk-link); outline-offset: 1px; }
 .form-msg { display: none; padding: 12px 14px; border-radius: var(--corner-card); background: var(--mk-surface-2); font-size: 14.5px; }
 .form-msg.show { display: block; }
@@ -823,6 +828,13 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .ha-to { display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--ef-text-3); }
 .ha-draft { position: relative; margin-top: 12px; height: 88px; padding: 11px 13px; border-radius: var(--corner-card); background: var(--ef-surface); box-shadow: inset 0 0 0 1px var(--ef-line); font-size: 13.5px; line-height: 1.5; color: var(--ef-ink-2); overflow: hidden; }
 .ha-draft .ha-caret { height: 15px; vertical-align: -2px; }
+/* OPS-82: the follow-up is a task row (ring, title, assignee), not a message */
+.ha-task { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; align-content: start; }
+.ha-tk-ring { width: 16px; height: 16px; margin-top: 2px; border: 1.6px solid var(--ef-line-strong, #B9C0C8); border-radius: 50%; }
+.ha-tk-t { font-weight: 600; color: var(--ef-ink, #181D19); }
+.ha-tk-meta { grid-column: 2; display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ef-text-3); }
+.ha-tk-meta .ha-av { width: 18px; height: 18px; font-size: 8.5px; }
+.hero-anim .hero-panel .eyebrow { color: var(--mk-eyebrow); }
 .ha-acts { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; }
 .ha-who { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
 .ha-flip { display: inline-grid; }
@@ -1501,6 +1513,7 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
 .pbar .seg button:hover { color: #fff; background: rgba(255,255,255,.06); }
 .pbar .seg button[aria-pressed="true"] { background: #EEF0F4; color: #111318; }
 .pbar .seg button:disabled { cursor: not-allowed; opacity: .38; }
+.pbar select:disabled { cursor: not-allowed; opacity: .5; }
 .pbar .seg button:disabled[aria-pressed="true"] { opacity: .7; }
 .pbar .seg button b { font-weight: 700; margin-right: 4px; }
 .pbar button:focus-visible, .pbar select:focus-visible { outline: 2px solid #6CF2B4; outline-offset: 2px; }
@@ -1619,6 +1632,150 @@ body.pbar-hidden { padding-bottom: 0; }
 .visual > .app-frame, .visual > .evry-panel { box-shadow: var(--ui-ring), var(--mk-shadow-media); }
 .visual > .ef > .card { box-shadow: var(--ui-ring), var(--ef-shadow-card); }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; animation: none !important; } }
+
+/* ---------- OPS-82: the merged landing page (Sebastian's picks, Oct 30 2026) ----------
+   Less app UI below the vision section. Large icons on the same photos and field gradients.
+   .tl-ic   the frosted icon box (idea 1): phase cards, Evry cards, the sending cards and "Each church plant, up close."
+   .pth     a dotted path of large icon stops on a photo (idea 3). On home EvryBot walks it and says one line at each stop.
+   .ovg     /oversight: two labelled rows of four icon tiles on one photo (idea 3).
+   .ldr     /oversight: "Raise the next planters.", a full-bleed photo with a path of four brand-green stops (idea 3). */
+:root { --photo-wheat: image-set(url("assets/photos/wheat-2400.avif") type("image/avif"), url("assets/photos/wheat-2400.jpg") type("image/jpeg")); }
+@media (max-width: 900px) { :root { --photo-wheat: image-set(url("assets/photos/wheat-1200.avif") type("image/avif"), url("assets/photos/wheat-1200.jpg") type("image/jpeg")); } }
+[data-photo="wheat"] { --photo-src: var(--photo-wheat); --photo-pos: 50% 62%; }
+[data-photo="field"] { --photo-src: var(--photo-field); --photo-pos: 50% 70%; }
+
+/* The frosted icon box: cream icon on a blurred ink square over a photo */
+.tl-ic { width: 72px; height: 72px; flex: none; display: grid; place-items: center; border-radius: var(--corner-control); color: #F6F0E9;
+  background: rgba(24, 29, 25, .4); box-shadow: inset 0 0 0 1px rgba(246, 240, 233, .42); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+.tl-ic svg { width: 34px; height: 34px; stroke-width: 1.5; }
+.phc-ic { position: absolute; left: 18px; bottom: 18px; }
+.tl-t { margin: 0; font-family: var(--mk-font-text); font-weight: 400; font-size: clamp(19px, 1.45vw, 22px); line-height: 1.2; letter-spacing: var(--mk-tracking-display); text-wrap: balance; }
+
+/* Home: the journey. One photo band with six stops, then the six cards in two rows of three. */
+.pth-head { margin-bottom: clamp(28px, 4vw, 48px); }
+.pth-head .h2 { max-width: 18ch; }
+.ovg .pth-head .h2 { max-width: 32ch; }
+.pth-head .sh-text, .evx-head .sh-text { margin-top: 18px; max-width: 640px; font-size: clamp(17px, 1.3vw, 19px); line-height: 1.55; color: var(--mk-text-2); text-wrap: pretty; }
+.pth-band { --ic: clamp(46px, 6vw, 92px); --lo: 72%; --hi: 60%; position: relative; height: clamp(340px, 32vw, 460px); }
+.pth-line { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.pth-line path { fill: none; stroke-linecap: round; }
+.pth-line .trail { stroke: rgba(246, 240, 233, .78); stroke-width: 3; stroke-dasharray: .1 12; }
+.pth-line .walked { stroke: #F6F0E9; stroke-width: 4; }
+.pth-stops { list-style: none; margin: 0; padding: 0; }
+.pth-stop { position: absolute; left: var(--x); top: var(--lo); transform: translate(-50%, -50%); }
+.pth-stop:nth-child(even) { top: var(--hi); }
+.pth-ic { position: relative; width: var(--ic); height: var(--ic); display: grid; place-items: center; padding: 0; border: 0; cursor: pointer;
+  background: rgba(252, 251, 248, .92); color: #181D19; box-shadow: 0 18px 36px -18px rgba(24, 29, 25, .7);
+  transition: transform .4s cubic-bezier(.3, 1.4, .5, 1), background-color .25s; }
+.pth-ic svg { width: 44%; height: 44%; stroke-width: 1.4; }
+.pth-ic:hover { transform: translateY(-3px); }
+.pth-ic[aria-pressed="true"] { background: #1AF197; transform: scale(1.08); }
+.pth-ic .pth-n { position: absolute; left: 6px; top: 4px; font-size: 11px; font-weight: 600; letter-spacing: .06em; color: rgba(24, 29, 25, .62); }
+.pth-walker { position: absolute; left: 0; top: 0; z-index: 2; pointer-events: none; will-change: transform; }
+.pth-walker .evry-bot { --s: clamp(44px, 4.2vw, 62px); }
+.pth-walker.hop .evry-bot { animation: pthHop var(--hop, .9s) cubic-bezier(.4, 0, .4, 1); }
+@keyframes pthHop { 0%, 100% { translate: 0 0; } 45% { translate: 0 -16px; } }
+.pth-say { position: absolute; bottom: calc(100% + 12px); left: var(--bx, 0px); width: max-content; max-width: min(320px, calc(100vw - 64px)); padding: 11px 15px;
+  background: #FCFBF8; color: #181D19; font-size: 15px; line-height: 1.4; box-shadow: 0 16px 32px -18px rgba(24, 29, 25, .65); transition: opacity .25s, transform .25s; }
+.pth-say::after { content: ""; position: absolute; top: 100%; left: var(--tx, 20px); margin-left: -7px; border: 7px solid transparent; border-top-color: #FCFBF8; }
+.pth-say.swap { opacity: 0; transform: translateY(4px); }
+.pth-ctl { position: absolute; right: 12px; bottom: 12px; z-index: 3; display: grid; place-items: center; width: 40px; height: 40px; border: 0; padding: 0; cursor: pointer;
+  background: rgba(24, 29, 25, .42); color: #F6F0E9; }
+.pth-ctl:hover { background: rgba(24, 29, 25, .6); }
+.pth-ctl svg { width: 16px; height: 16px; }
+.pth-txt { list-style: none; margin: 28px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--mk-gutter); }
+.pth-txt li { padding-top: 18px; border-top: 2px solid var(--mk-line-strong); transition: border-color .3s; }
+.pth-txt h3 { font-size: clamp(20px, 1.6vw, 24px); }
+.pth-txt p { margin-top: 8px; font-size: 15.5px; line-height: 1.5; color: var(--mk-text-2); }
+.jrn-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.jrn-cards li { position: relative; padding: 22px 24px 26px; background: var(--mk-surface); border-top: 0; box-shadow: var(--mk-shadow-card), inset 0 3px 0 transparent; cursor: pointer; transition: box-shadow .3s; }
+.jrn-cards li:hover { box-shadow: var(--mk-shadow-card), inset 0 3px 0 var(--mk-line-strong); }
+.jrn-cards li.on { box-shadow: var(--mk-shadow-card), inset 0 3px 0 #181D19; }
+.jrn-n { display: block; margin-bottom: 10px; font-size: 12px; font-weight: 600; letter-spacing: .06em; color: var(--mk-text-3, #6B7069); }
+.jrn-cards li.on .jrn-n { color: #026B40; }
+.jrn-note { display: flex; align-items: flex-start; gap: 10px; margin: 22px 0 0; font-size: clamp(16px, 1.2vw, 17px); line-height: 1.5; color: var(--mk-text-2); }
+.jrn-note b { font-weight: 600; color: var(--mk-text); }
+.jrn-note svg { flex: none; width: 18px; height: 18px; margin-top: 3px; color: #181D19; }
+
+/* Home: Evry. Headline over subhead, three photo cards with the frosted icon, the limits line. */
+.evx-head { max-width: 880px; margin-bottom: clamp(28px, 4vw, 48px); }
+.tl-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--mk-gutter); }
+.tl { display: flex; flex-direction: column; min-width: 0; background: var(--mk-surface); border: var(--mk-border-card); border-radius: var(--corner-card); box-shadow: var(--mk-shadow-card); }
+.tl-art { position: relative; height: clamp(176px, 15vw, 220px); margin: 8px 8px 0; padding: 18px; border-radius: var(--corner-media); display: flex; align-items: flex-end; }
+.tl-txt { padding: 18px 20px 22px; }
+.tl-txt p { margin-top: 8px; font-size: 15.5px; line-height: 1.5; color: var(--mk-text-2); text-wrap: pretty; }
+.tl-limits { display: flex; align-items: flex-start; gap: 12px; margin: var(--mk-gutter) 0 0; padding: 14px 16px; background: var(--mk-surface-2); font-size: clamp(16px, 1.2vw, 18px); line-height: 1.5; color: var(--mk-text-2); }
+.tl-limits svg { flex: none; width: 20px; height: 20px; margin-top: 3px; color: #181D19; }
+/* Prototype only: step a card through every site photo. Hidden with the prototype controls and in captures. */
+.ev-tog { position: absolute; top: 12px; right: 12px; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 10px 0 12px; border: 0; border-radius: var(--corner-pill); cursor: pointer;
+  font: 600 12.5px/1 var(--mk-font-text); background: rgba(17, 19, 24, .78); color: #EEF0F4; }
+.ev-tog:hover { background: rgba(17, 19, 24, .92); }
+.ev-tog svg { width: 14px; height: 14px; }
+body.pbar-hidden .ev-tog, body.shot .ev-tog { display: none !important; }
+
+/* Home: sending. Full-width photo, cream text, a 2×2 grid of frosted cards (idea 1). No Evry. */
+.sec-send { color: #F6F0E9; }
+.sd-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: var(--mk-gutter); align-items: center; }
+.sd-copy { grid-column: 1 / span 5; min-width: 0; }
+.sd-copy p { margin-top: 20px; max-width: 46ch; font-size: var(--mk-fs-lead); line-height: 1.55; color: rgba(246, 240, 233, .92); text-wrap: pretty; }
+.sd-link { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin-top: 18px; font-size: 16px; font-weight: 600; color: #F6F0E9; cursor: pointer; white-space: nowrap;
+  text-decoration: underline; text-decoration-color: rgba(246, 240, 233, .45); text-underline-offset: 4px; transition: text-decoration-color .15s; }
+.sd-link:hover { text-decoration-color: #F6F0E9; }
+.sd-link svg { width: 17px; height: 17px; flex: none; transition: transform .15s; }
+.sd-link:hover svg { transform: translateX(2px); }
+.sd-tiles { grid-column: 7 / span 6; min-width: 0; list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--mk-gutter); }
+.sd-tiles li { padding: 22px 22px 24px; background: rgba(24, 29, 25, .26); box-shadow: inset 0 0 0 1px rgba(246, 240, 233, .26); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+.sd-tiles .tl-ic { width: 56px; height: 56px; } .sd-tiles .tl-ic svg { width: 28px; height: 28px; }
+.sd-tiles .tl-t { margin-top: 18px; color: #F6F0E9; }
+.sd-tiles p { margin-top: 6px; font-size: 15px; line-height: 1.5; color: rgba(246, 240, 233, .9); }
+
+/* /oversight: the merged section, two rows of four large-icon tiles on one photo */
+.ovg-grid, .ldr .pth-txt { list-style: none; margin: 0; padding: 0; }
+.big-ic { display: grid; place-items: center; width: 60px; height: 60px; flex: none; background: #D6FBE3; color: #026B40; }
+.big-ic svg { width: 28px; height: 28px; stroke-width: 1.4; }
+.ovg-band { padding: clamp(20px, 3vw, 44px); display: grid; gap: clamp(24px, 3vw, 40px); }
+.ovg-lab { display: inline-block; margin-bottom: 14px; padding: 7px 10px 6px; background: rgba(252, 251, 248, .94); font-size: var(--mk-fs-eyebrow); font-weight: 600; letter-spacing: var(--mk-tracking-eyebrow); text-transform: uppercase; color: #181D19; }
+.ovg-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--mk-gutter); }
+.ovg-grid li { padding: 24px 22px 26px; background: rgba(252, 251, 248, .94); color: #181D19; }
+.ovg-grid h3 { margin-top: 18px; font-size: clamp(19px, 1.5vw, 22px); }
+.ovg-grid p { margin-top: 8px; font-size: 15px; line-height: 1.5; color: var(--mk-text-2); }
+/* /oversight: Raise the next planters. Full-bleed wheat, h1 type, four brand-green stops. A shade from the top and the bottom keeps cream text at 4.5:1. */
+.ldr { padding: clamp(96px, 11vw, 168px) 0; --photo-shade: .3; }
+.ldr { --ldr-shade: linear-gradient(180deg, rgba(24, 29, 25, .7), rgba(24, 29, 25, .64) 38%, rgba(24, 29, 25, .2) 53%, rgba(24, 29, 25, .32) 62%, rgba(24, 29, 25, .8)); }
+@media (max-width: 900px) { .ldr { --ldr-shade: linear-gradient(180deg, rgba(24, 29, 25, .68), rgba(24, 29, 25, .58) 28%, rgba(24, 29, 25, .28) 34%, rgba(24, 29, 25, .32) 43%, rgba(24, 29, 25, .7) 49%, rgba(24, 29, 25, .82)); } }
+.ldr.photo::before { background-image: var(--ldr-shade), var(--photo-src); background-size: 100% 100%, cover; background-position: 0 0, var(--photo-pos, 50% 50%); }
+.ldr.photo:not(.seen)::before { background-image: var(--ldr-shade); }
+.ldr-head { max-width: 760px; }
+.ldr-head .h1 { font-size: clamp(44px, 5.4vw, 88px); color: var(--on); }
+.ldr-head p { margin-top: 22px; font-size: clamp(18px, 1.5vw, 22px); line-height: 1.5; color: var(--on-2); }
+.ldr .pth-band { --ic: clamp(64px, 7.2vw, 108px); --lo: 70%; --hi: 52%; height: clamp(240px, 22vw, 320px); margin-top: clamp(24px, 3vw, 40px); }
+.ldr .pth-ic { cursor: default; background: #1AF197; }
+.ldr .pth-ic:hover { transform: none; }
+.ldr .pth-line .trail { stroke: rgba(246, 240, 233, .9); stroke-width: 4; }
+.ldr .pth-txt li { border-top-color: rgba(246, 240, 233, .5); }
+.ldr .pth-txt h3 { color: var(--on); }
+.ldr .pth-txt p { color: var(--on); }
+.sec-trust.big .trust-item .ti-icon { width: 60px; height: 60px; }
+.sec-trust.big .trust-item .ti-icon svg { width: 28px; height: 28px; stroke-width: 1.4; }
+@media (max-width: 1100px) { .ovg-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .tl-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 900px) {
+  .pth-band { --lo: 78%; --hi: 64%; }
+  .pth-say { font-size: 14px; padding: 9px 12px; max-width: 250px; }
+  .pth-ctl { width: 44px; height: 44px; }
+  .pth-txt, .jrn-cards { grid-template-columns: 1fr; gap: 0; }
+  .pth-txt li { padding: 16px 0; }
+  .jrn-cards { gap: 12px; }
+  .jrn-cards li { padding: 18px 20px 20px; }
+  .sd-copy, .sd-tiles { grid-column: 1 / -1; } .sd-tiles { margin-top: 12px; }
+  .ldr .pth-band { --lo: 70%; --hi: 46%; height: 220px; }
+}
+@media (max-width: 600px) { .tl-grid { grid-template-columns: minmax(0, 1fr); } .tl-art { height: 168px; } }
+@media (max-width: 560px) { .ovg-grid { grid-template-columns: 1fr; } .phc-ic { width: 60px; height: 60px; } .phc-ic svg { width: 28px; height: 28px; } }
+@media (max-width: 520px) { .sd-tiles { grid-template-columns: minmax(0, 1fr); } }
+@media (prefers-reduced-motion: reduce) {
+  .pth-ic, .pth-say { transition: none !important; }
+  .pth-walker.hop .evry-bot { animation: none; }
+}
 </style>
 </head>
 <body class="mk-signal">
@@ -1738,33 +1895,33 @@ body.pbar-hidden { padding-bottom: 0; }
           "tone": "sky",
           "icon": "calendar",
           "title": "Run every gathering from one place.",
-          "body": "Plan vision meetings, trainings, orientations and service runs. See who came to each one."
+          "body": "Plan vision meetings, trainings, orientations and service runs. Send each invitation from an email template, and see who came."
         },
         {
           "panel": "follow",
-          "tone": "dawn",
+          "tone": "sage",
           "icon": "task",
-          "title": "No new guest slips through.",
+          "title": "Every new guest gets followed up.",
           "body": "Three new guests came to your vision meeting. Evry prepares a follow-up task for each one, and adds them to your week when you approve. You and your team reach out."
         },
         {
           "panel": "teams",
-          "tone": "lilac",
+          "tone": "rose",
           "icon": "heart",
-          "title": "Grow your core team and your launch team.",
-          "body": "Record each commitment and watch both teams grow as you get closer to launch."
+          "title": "Grow your core group and your launch team.",
+          "body": "Record each commitment and watch both grow as you get closer to launch."
         }
       ]
     },
     "intelligence": {
       "note": "Revision 17 (2026-10-09): the home Plant Intelligence section title. R4 (2026-10-15): the lead line and the four steps move here from the prototype's draft; the Evry step leads with setting up a vision meeting in one approval.",
-      "title": "Know your next step, and why.",
-      "lead": "The why ties each step back to the launch plan.",
+      "title": "Know what needs you most.",
+      "lead": "Plant Intelligence reads your plant through lenses such as emerging leadership and generosity.",
       "steps": [
         {
           "panel": "focus",
           "title": "One focus each week.",
-          "body": "Plant Intelligence reads your records and names the one thing that needs you most this week."
+          "body": "Plant Intelligence reads your records and names the one thing to do first."
         },
         {
           "panel": "facts",
@@ -1772,14 +1929,14 @@ body.pbar-hidden { padding-bottom: 0; }
           "body": "Each finding links to the records it used, so you can check it."
         },
         {
-          "panel": "evry",
-          "title": "A vision meeting in one approval.",
-          "body": "Ask Evry to set up a vision meeting. It prepares the meeting, the 90-minute agenda, the guest list and the invitation email. Nothing is saved or sent until you approve."
+          "panel": "readiness",
+          "title": "Ready for the next phase?",
+          "body": "See which benchmarks for your phase are met and which are still open. You decide when to move on."
         },
         {
           "panel": "share",
           "title": "You see it first.",
-          "body": "Each concern comes to you before anyone else. Your sending church sees a short summary, and only what you share."
+          "body": "Each concern comes to you before anyone else. Your sending church sees a short summary, and only what you share. Your weekly check-in is for you alone."
         }
       ]
     },
@@ -1803,7 +1960,7 @@ body.pbar-hidden { padding-bottom: 0; }
     },
     "sending": {
       "note": "Revision 19 (2026-10-09): the home section for sending churches and networks, used by both stories. It replaces the Revision 18 audience section. An auto-advancing list like Plant Intelligence, mirrored: panel on the left, list on the right.",
-      "title": "See every plant you send.",
+      "title": "Stay close to the plant you sent.",
       "steps": [
         {
           "title": "Every plant, by state or metro area.",
@@ -1822,26 +1979,28 @@ body.pbar-hidden { padding-bottom: 0; }
           "body": "Network Intelligence names what many of your plants have in common, with the facts behind it."
         }
       ],
-      "link": "Learn more about the oversight view"
+      "link": "Learn more about the oversight view",
+      "body": "Sending churches and networks see each plant's phase, launch date and the findings it shares, without asking the planter for a report."
     },
     "oversight_page": {
       "note": "Revision 24 (2026-10-10): the /oversight page hero and problem section. Home story B keeps directions.oversight.sections. Revision 25 fills the rest of the page.",
       "hero": {
-        "headline": "See every plant you send.",
-        "subhead": "Whether one church or a whole network sent them, see how each plant is doing and where your network needs help.",
-        "cta_primary": "Request early access",
-        "cta_secondary": "See how it works"
+        "headline": "See every church plant you send.",
+        "subhead": "Whether you are one sending church or a whole network, see how each church plant is doing on the way to launch.",
+        "cta_primary": "Talk to us about your network",
+        "cta_secondary": "See how it works",
+        "note": "Tell us about your network, and we will set up a short call."
       },
       "problem": {
-        "headline": "You usually hear about a struggling plant when it is already late.",
-        "body": "Reports come once a quarter, and each planter writes them a different way. A plant can go a month without a vision meeting before anyone notices. See whether each plant that shares with you is moving toward launch, without asking for a report."
+        "headline": "You usually hear about a struggling church plant when it is already late.",
+        "body": "Today the plan lives in conversations between the planter and their coach. There's no shared record, and no signal when a church plant starts to drift. See whether each church plant that shares with you is moving toward launch, without asking for a report."
       },
       "note_r25": "Revision 25 (2026-10-10): the rest of /oversight. chapter is a pinned stacking chapter like shared.week; intelligence is the auto list of the home network section (same panels); plants is a pinned rail like the home phases; paths and privacy are centered sections; cta closes the page.",
       "note_r28": "Revision 28 (2026-10-10): paths is one section, with no review options and no sent= in the hash. The sentence (lead, changing phrase, tail) sits over one large card. One timer moves both through states in order: a church, a network through a church, a network.",
       "note_r27": "Revision 27 (2026-10-10): hero subhead drops the sharing clause. Sending-side UI (hero dashboard, network panels) has no planter tabs and no Evry, and uses plain facts in place of sharing labels.",
       "note_r26": "Revision 26 (2026-10-10): chapter is now an auto list like intelligence (panel right, list left) and drops the sharing step. plants item 3 is the market card. paths holds three review options a, b and c, switched by sent= in the hash (default a). faq replaces the privacy section; the footer Coaches link opens the item with id coaches (#faq-coaches).",
       "chapter": {
-        "title": "Every plant you send, in one place.",
+        "title": "All your plants, in one place.",
         "steps": [
           {
             "panel": "invite",
@@ -1850,13 +2009,13 @@ body.pbar-hidden { padding-bottom: 0; }
           },
           {
             "panel": "plants",
-            "title": "See every plant on one page.",
-            "body": "Phase, core group, launch date and findings for each plant, in launch order."
+            "title": "Every plant, in launch order.",
+            "body": "See each plant's phase, launch date and status at a glance."
           },
           {
-            "panel": "senders",
-            "title": "Each sending church, side by side.",
-            "body": "A network sees how each of its sending churches and their plants are doing."
+            "panel": "digest",
+            "title": "A daily digest by email.",
+            "body": "On days with activity, you get one email with counts and dates from the plants that share it. It never includes names or notes."
           },
           {
             "panel": "help",
@@ -1866,14 +2025,14 @@ body.pbar-hidden { padding-bottom: 0; }
         ]
       },
       "intelligence": {
-        "title": "Know where your network needs help.",
+        "title": "See the patterns across your plants.",
         "steps": [
           {
             "title": "Every plant, by state or metro area.",
             "body": "Switch between all your plants, one state or one metro area, and every number follows."
           },
           {
-            "title": "Your pipeline, phase by phase.",
+            "title": "Plants, phase by phase.",
             "body": "See how many plants are in each phase, and how long plants usually stay there."
           },
           {
@@ -1887,27 +2046,27 @@ body.pbar-hidden { padding-bottom: 0; }
         ]
       },
       "plants": {
-        "headline": "Each plant, up close.",
+        "headline": "Each church plant, up close.",
         "items": [
           {
             "label": "Phases",
-            "title": "Where the plant is on the way to launch.",
-            "short": "Weeks in each phase so far. The planter sets the phase, and a plant never moves on by itself."
+            "title": "Where the church plant is on the way to launch.",
+            "short": "Weeks in each phase so far. The planter sets the phase, and a church plant never moves on by itself."
           },
           {
             "label": "Launch Sunday",
-            "title": "The days left before launch Sunday.",
+            "title": "The days left before Launch Sunday.",
             "short": "A countdown to the launch date, with milestones and prep tasks done."
           },
           {
-            "label": "By market",
-            "title": "See how plants do in every market.",
-            "short": "Compare plants by state and metro area: launch readiness, momentum and the most common gap."
+            "label": "Status",
+            "title": "One status for each church plant.",
+            "short": "Each church plant shows On track, Watch, Launch readiness or Limited visibility. A church plant that does not share shows Limited visibility, never On track."
           },
           {
             "label": "People and meetings",
             "title": "Committed adults and meeting rhythm.",
-            "short": "How many adults have committed, and how often the plant holds a vision meeting."
+            "short": "How many adults have committed, and how often the church plant holds a vision meeting."
           },
           {
             "label": "Ministry teams",
@@ -1915,29 +2074,37 @@ body.pbar-hidden { padding-bottom: 0; }
             "short": "How many teams have a leader, and which leader roles are still open."
           },
           {
-            "label": "Where help could matter",
-            "title": "A clear place to help.",
-            "short": "When the facts point to a need, the plant view names it, so you can offer help."
+            "label": "Tasks",
+            "title": "Open and overdue tasks.",
+            "short": "How many launch tasks are open, and how many are past due."
           }
+        ],
+        "icons": [
+          "route",
+          "calendar",
+          "flag",
+          "users",
+          "heart",
+          "task"
         ]
       },
       "paths": {
         "lead": "Sent by",
-        "tail": "Seen in one place.",
+        "tail": "Seen together.",
         "states": [
           {
             "phrase": "a church",
-            "title": "A church sees its plants.",
-            "body": "Grace Church sees each plant it sends, with phase and launch date, on one page."
+            "title": "A church sees its church plants.",
+            "body": "Grace Church sees each church plant it sends, with its phase and launch date."
           },
           {
             "phrase": "a network through a church",
-            "title": "A network sees every plant, by sending church.",
-            "body": "The Austin Sending Network sees all its plants, grouped by the church that sends each one."
+            "title": "A network sees every church plant, by sending church.",
+            "body": "The Austin Sending Network sees all its church plants, grouped by the church that sends each one."
           },
           {
             "phrase": "a network",
-            "title": "A network can send a plant directly.",
+            "title": "A network can send a church plant directly.",
             "body": "Mueller Hope Church has no sending church yet. The network can assign one at any time."
           }
         ],
@@ -1947,64 +2114,146 @@ body.pbar-hidden { padding-bottom: 0; }
         "headline": "Questions from sending churches and networks.",
         "items": [
           {
-            "id": "who",
-            "q": "Who on our side uses Everyfield?",
-            "a": "Sending churches and networks use the same tools. A network also sees each of its sending churches and their plants."
+            "id": "finding",
+            "q": "What is a finding?",
+            "a": "A finding is one thing Plant Intelligence noticed in a church plant's records, with the facts it used. You see only the findings a church plant shares."
           },
           {
-            "id": "planters",
-            "q": "Do our planters need to use Everyfield?",
-            "a": "Yes. Each planter runs their plant in Everyfield, and you invite them to connect their plant to your church or network."
-          },
-          {
-            "id": "see",
-            "q": "What can we see for each plant?",
-            "a": "Phase, launch date, core group size, gathering rhythm, ministry roles filled and findings, as counts and summaries the plant shares with you."
-          },
-          {
-            "id": "people",
-            "q": "Can we see the people in a plant?",
-            "a": "No. You see counts and summaries. Names and personal details stay with the plant."
-          },
-          {
-            "id": "intelligence",
-            "q": "What is Network Intelligence?",
-            "a": "It reads the findings your plants share and shows patterns across your network: lenses, the phase pipeline and the gap most plants have in common. A pattern needs at least two plants."
-          },
-          {
-            "id": "markets",
-            "q": "Can we compare plants by state or metro area?",
-            "a": "Yes. Switch between all plants, one state or one metro area, and every number follows."
-          },
-          {
-            "id": "sent-by-church",
-            "q": "Our plant was sent by a church in our network. Who sees it?",
-            "a": "Both the sending church and the network see it."
-          },
-          {
-            "id": "sent-by-network",
-            "q": "A planter came to our network directly. Can we add a sending church later?",
-            "a": "Yes. A network can send a plant on its own and assign a sending church at any time."
+            "id": "patterns",
+            "q": "How does Network Intelligence find a pattern?",
+            "a": "It reads the findings your church plants share. A pattern needs at least two church plants, and a church plant that does not share counts as unknown, not as zero."
           },
           {
             "id": "phase",
-            "q": "Does Everyfield move a plant to the next phase or rate the planter?",
+            "q": "Does Everyfield move a church plant to the next phase or rate the planter?",
             "a": "No. The planter sets the phase. Everyfield does not change it or grade the planter."
+          },
+          {
+            "id": "cost",
+            "q": "What does Everyfield cost?",
+            "a": "Discernment is free, always. People still discerning a call to church planting can sign up for free. When a church is created it uses a seat, usually paid by the sending church or network. We share pricing directly with early-access groups."
           },
           {
             "id": "start",
             "q": "How do we get started?",
             "a": "Everyfield is in early access. Request access for your church or network, and we will be in touch.",
-            "link": "Request access"
+            "link": "Request early access"
           }
         ]
       },
       "cta": {
-        "headline": "Bring Everyfield to your network.",
-        "body": "We are working with a small group of networks and sending churches during early access.",
+        "headline": "Bring Everyfield to the church plants you send.",
+        "body": "We're inviting a small group of networks and sending churches during early access.",
         "cta_primary": "Talk to us about your network",
-        "cta_secondary": "Request early access as a planter"
-      }
+        "cta_secondary": "Request early access as a planter",
+        "note": "We will set up a short call to learn about the church plants you send."
+      },
+      "trust": {
+        "headline": "Why you can trust these numbers.",
+        "items": [
+          {
+            "title": "Planters run their church plant here.",
+            "body": "People, meetings, tasks and teams live in Everyfield, so your view follows the work as it happens. No one fills in a report."
+          },
+          {
+            "title": "The planter chooses what to share.",
+            "body": "Each church plant picks what your church or network can see, and can change it at any time. Your view changes at once."
+          },
+          {
+            "title": "The planter sees each concern first.",
+            "body": "A concern reaches you after the planter opens it, or after 72 hours."
+          },
+          {
+            "title": "Totals, not private records.",
+            "body": "You see totals and summaries. People records, contact details and notes stay with the church plant."
+          }
+        ]
+      },
+      "leaders": {
+        "headline": "Raise the next planters.",
+        "lead": "See every future planter in your church or network, from the first conversation to the day you send them.",
+        "steps": [
+          {
+            "title": "Every future planter, in one place.",
+            "body": "Move each person from potential leader to apprentice, resident and commissioned, using your own stage names."
+          },
+          {
+            "title": "Set a goal and watch it grow.",
+            "body": "Choose how many leaders you want to raise this year and see where each one is today."
+          },
+          {
+            "title": "Every leadership conversation counts.",
+            "body": "Log who met with whom, and see the conversations by month or quarter."
+          },
+          {
+            "title": "Run your apprenticeships and residencies.",
+            "body": "Give each program its stages, milestones and reading list. Residents mark their progress, and the director confirms it."
+          }
+        ]
+      },
+      "gets": {
+        "note": "OPS-82: one section replaces chapter (All your plants, in one place) and intelligence (See the patterns across your plants). Same eight facts, no app UI, no Evry. Headline and lead from Sebastian's picks (decision 6).",
+        "headline": "See how your church plants are doing, one by one and all together.",
+        "lead": "One view for your sending church or network, from the first invite to Launch Sunday.",
+        "groups": [
+          {
+            "label": "In one place",
+            "items": [
+              [
+                "link",
+                "Invite your church plants.",
+                "Send an invite. The planter connects their church plant in a few clicks."
+              ],
+              [
+                "route",
+                "Every church plant, in launch order.",
+                "See each church plant's phase, launch date and status at a glance."
+              ],
+              [
+                "calendar",
+                "A daily digest by email.",
+                "On days with activity, you get one email with counts and dates from the church plants that share it. It never includes names or notes."
+              ],
+              [
+                "heart",
+                "Help where it matters.",
+                "See where a church plant could use help, and offer it."
+              ]
+            ]
+          },
+          {
+            "label": "Across them",
+            "items": [
+              [
+                "pin",
+                "Every church plant, by state or metro area.",
+                "Switch between all your church plants, one state or one metro area, and every number follows."
+              ],
+              [
+                "flag",
+                "Church plants, phase by phase.",
+                "See how many church plants are in each phase, and how long they usually stay there."
+              ],
+              [
+                "eye",
+                "Lenses across every church plant.",
+                "Each lens shows how your church plants are doing in one area, such as emerging leadership or vision casting. Open a lens to see the church plants behind it."
+              ],
+              [
+                "sparkle",
+                "The pattern that matters most.",
+                "Network Intelligence names what many of your church plants have in common, with the facts behind it."
+              ]
+            ]
+          }
+        ]
+      },
+      "leaders_icons": [
+        "route",
+        "flag",
+        "users",
+        "book"
+      ]
     },
     "access_page": {
       "note": "E2 (2026-10-14): copy for /access, approved by Sebastian on 2026-10-14. Field labels match the prototype. The hero subhead and form headings reuse approved copy. privacy_note is a new line under each submit button. outcomes maps the submitAccessRequest results: received (also shown for the honeypot and for duplicates, by coordinator ruling), duplicate (unused; never render it, because it reveals an earlier request), rate_limited_email, rate_limited_ip, invalid, unavailable (contact fallback) and offline. {max} is a template value. Each field value is an object: label, optional, help, error and placeholder. submitting is the button text while a request is sent.",
@@ -2305,6 +2554,78 @@ body.pbar-hidden { padding-bottom: 0; }
       "links": {
         "privacy": "privacy policy"
       }
+    },
+    "ops82": {
+      "note": "OPS-82 merge (Sebastian's picks, Oct 30 2026): copy this prototype adds or changes on home. The journey section merges shared.week and shared.intelligence into one path of six stops; EvryBot speaks one line at each stop. Evry creates tasks for people and never writes to the congregation. The sending section never shows Evry (Revision 27). #/planters keeps the copy above.",
+      "hero_eyebrow": "Church planting software",
+      "features_headline": "Everything a church plant needs, in the order you need it.",
+      "journey": {
+        "says": [
+          "Maria Lopez filled in your interest form. Now she is on your list.",
+          "Vision meeting #12 is on Sunday. Maria checked in as a new guest.",
+          "I made a follow-up task for Maria and assigned it to Jen Park, due Tuesday. You approve it first.",
+          "Maria signed her commitment card. Your core group is now 35.",
+          "This week's focus: hold your next vision meeting.",
+          "4 of 6 benchmarks are met. You decide when to move on."
+        ],
+        "icons": [
+          "users",
+          "calendar",
+          "task",
+          "heart",
+          "compass",
+          "flag"
+        ],
+        "facts_line": "Each finding links to the records it used.",
+        "see_first": "You see it first. Each concern comes to you before anyone else, and your sending church sees only what you share."
+      },
+      "evry": {
+        "headline": "Anything in Everyfield, Evry can do for you",
+        "subhead": "Set up a meeting, build the launch list, assign follow-ups, plan a training. If you can do it in Everyfield, you can ask Evry.",
+        "cards": [
+          [
+            "chat",
+            "You ask.",
+            "In plain words, for anything in the app."
+          ],
+          [
+            "sparkle",
+            "Evry prepares it.",
+            "Meetings, tasks, lists, plans, all set up for you to review."
+          ],
+          [
+            "check",
+            "You approve.",
+            "Nothing changes until you say so."
+          ]
+        ]
+      },
+      "sending": {
+        "title": "Stay close to the church plants you send.",
+        "body": "Sending churches and networks see each church plant's phase, launch date and the findings it shares, without asking the planter for a report.",
+        "points": [
+          [
+            "route",
+            "Phase",
+            "Where each church plant is on the way to launch."
+          ],
+          [
+            "calendar",
+            "Launch date",
+            "The days left before Launch Sunday."
+          ],
+          [
+            "eye",
+            "Shared findings",
+            "Only what the planter chooses to share."
+          ],
+          [
+            "task",
+            "No reports",
+            "The view follows the work as it happens."
+          ]
+        ]
+      }
     }
   },
   "directions": [
@@ -2314,8 +2635,8 @@ body.pbar-hidden { padding-bottom: 0; }
       "angle": "The planter's journey through the seven church phases. The planter is the hero. Sending churches and networks appear as the people who walk beside the planter.",
       "sections": {
         "hero": {
-          "headline": "From calling to launch Sunday.",
-          "subhead": "Everyfield connects the launch plan to this week's work: the people to reach, the gatherings to hold and the next step for your plant.",
+          "headline": "From calling to Launch Sunday.",
+          "subhead": "Everyfield connects the launch plan to this week's work: the people to reach, the gatherings to hold and the tasks that move your church plant toward launch.",
           "cta_primary": "Request early access",
           "cta_secondary": "See how it works"
         },
@@ -2333,7 +2654,7 @@ body.pbar-hidden { padding-bottom: 0; }
         "vision": {
           "note": "R4 (2026-10-15) and R6 (2026-10-17): the home section from the homepage-design handoff \"Connect the vision to this week\" and Instagram ad 13-a, merged with the Monday overview (Sebastian chose R6 variant B). Four levels: Launch Sunday, the current phase with its benchmark, one launch milestone and this week's tasks, each with the goal it serves; then a \"Monday morning\" label leads to the overview. Everyfield stores no vision statement.",
           "headline": "The vision, down to this week.",
-          "body": "Launch Sunday sets the date. Each phase has its benchmarks, and the launch milestones lead up to the day. Everyfield keeps them in one place with this week's tasks, so you open Monday knowing what to do and why.",
+          "body": "Launch Sunday sets the date. Each phase has its benchmarks, and the launch milestones lead up to the day. Everyfield lines them up with this week's tasks, so you open Monday knowing what to do and why.",
           "bridge": "Monday morning"
         },
         "features": {
@@ -2342,37 +2663,41 @@ body.pbar-hidden { padding-bottom: 0; }
             {
               "label": "Discovery",
               "title": "Start with clear guidance",
-              "body": "Everyfield opens the guidance for the phase you are in, so you read what matters now."
+              "short": "Everyfield opens the library articles for your phase and suggests the tasks that go with them."
             },
             {
               "label": "Core group",
               "title": "Grow a committed core group",
-              "body": "Track each person from first visit to signed commitment. Record interviews against the five considerations and the 4 Cs. When you close a vision meeting's attendance, Everyfield creates the follow-up tasks.",
-              "short": "Track each person from first visit to signed commitment."
+              "short": "Interview each person, then record their commitment."
             },
             {
               "label": "Launch team",
               "title": "Set the date and fill the roles",
-              "body": "Set launch day. See which of the eight ministry areas still has no leader, and who on your core group has the skills for it.",
-              "short": "See which of the eight ministry areas still has no leader."
+              "short": "See which of your ministries still need a leader."
             },
             {
               "label": "Training",
               "title": "Train every team",
-              "body": "Plan training meetings for each ministry team and see who has finished."
+              "short": "Plan training meetings for each ministry team and see who has finished."
             },
             {
               "label": "Pre-launch",
               "title": "Finish the launch list",
-              "body": "Work through launch milestones and their tasks. Send email to your people and print documents that already carry your church's details.",
-              "short": "Work through launch milestones and their tasks."
+              "short": "Work through nine launch milestones and their 23 tasks. Print the budget and the Launch Sunday checklists with your church's details filled in."
             },
             {
               "label": "Launch and after",
               "title": "Launch, then keep going",
-              "body": "Record Launch Sunday and its outcome. Keep follow-up running when Sunday becomes a weekly rhythm.",
               "short": "Record Launch Sunday and its outcome."
             }
+          ],
+          "icons": [
+            "compass",
+            "users",
+            "flag",
+            "book",
+            "task",
+            "rocket"
           ]
         },
         "audiences": {
@@ -2418,17 +2743,17 @@ body.pbar-hidden { padding-bottom: 0; }
         "evry": {
           "eyebrow": "Evry, the assistant inside Everyfield",
           "headline": "Evry prepares the work. You approve it.",
-          "body": "Ask Evry to set up the next vision meeting. In one review it shows the meeting, the default 90-minute agenda, the guest list of prospects and the invitation email. Nothing is saved or sent until you approve the exact change on screen.",
+          "body": "Evry is the assistant inside Everyfield. Ask it to set up your next vision meeting, and it prepares the meeting, the 90-minute agenda and the guest list. Nothing is saved until you approve.",
           "example": {
-            "ask": "Set up vision meeting #13 for Sun Oct 26 and invite our new prospects.",
-            "answer": "Ready for your review: Sun Oct 26 at the Reyes home, the 90-minute agenda, 23 prospects as guests and the invitation email.",
+            "ask": "Set up vision meeting #12 for Sun, Oct 25 and invite the 9 guests from #11.",
+            "answer": "Ready for your review: Sun, Oct 25 at the Reyes home, the 90-minute agenda and 9 guests.",
             "review": "Review 4 changes · Set up vision meeting · Approve or Edit"
           },
-          "limits": "Evry does not write prayers, give counsel, judge a person's readiness or change your phase. It never reads your private check-in."
+          "limits": "Evry does not write prayers, give spiritual counsel or judge whether a person is ready. It changes your phase only after you decide and approve."
         },
         "cta": {
-          "headline": "Connect the vision to this week.",
-          "body": "Everyfield is in early access for church planters and the churches and networks that send them.",
+          "headline": "Bring your church plant into Everyfield.",
+          "body": "Everyfield is in early access. Tell us about your church plant, and we will be in touch.",
           "cta_primary": "Request early access",
           "cta_secondary": "Talk to us about your network"
         },
@@ -2810,25 +3135,25 @@ var NET_PLANTS = [
   ["Deep Ellum Collective", "Dallas, TX", "tone-teal", "4 · Pre-launch", "61", "Jan 24, 2027", "3 findings"]
 ];
 function vNetworkDash() {
-  var stats = [["Plants", "14", "In 2 states"], ["Launching in 12 months", "5", "Next: Deep Ellum, Jan 24"], ["Committed adults", "412", "Across 14 plants"], ["Needs attention", "3", "Need a look this month", 1]];
+  var stats = [["Church plants", "14", "In 2 states"], ["Launching in 12 months", "5", "Next: Deep Ellum, Jan 24"], ["Committed adults", "412", "Across 14 church plants"], ["Needs attention", "3", "Need a look this month", 1]];
   var areas = [["All", 14], ["Austin", 5], ["San Antonio", 3], ["Dallas–Fort Worth", 3], ["Houston", 1], ["Oklahoma City", 2]];
-  var plants = '<div class="card ovd-plants"><div class="card-header"><div class="grow"><div class="card-title">Plants</div><div class="card-description">In order of launch date.</div></div></div>' +
+  var plants = '<div class="card ovd-plants"><div class="card-header"><div class="grow"><div class="card-title">Church plants</div><div class="card-description">In order of launch date.</div></div></div>' +
     '<div class="ovd-areas"><span class="ovd-lab">Area</span>' + areas.map(function (a, i) { return '<span class="ovd-chip' + (i ? "" : " on") + '">' + a[0] + " <b>" + a[1] + "</b></span>"; }).join("") + "</div>" +
-    '<table><thead><tr><th>Plant</th><th>Phase</th><th class="hide-sm">Core group</th><th class="hide-sm">Launch</th><th class="hide-sm">Findings</th></tr></thead><tbody>' +
+    '<table><thead><tr><th>Church plant</th><th>Phase</th><th class="hide-sm">Core group</th><th class="hide-sm">Launch</th><th class="hide-sm">Findings</th></tr></thead><tbody>' +
     NET_PLANTS.map(function (p) {
       return '<tr><td><div class="row" style="gap:10px"><span class="card-icon ' + p[2] + ' hide-sm" style="width:34px;height:34px">' + icon("pin") + '</span><div><div class="cell-title">' + p[0] + '</div><div class="cell-sub">' + p[1] + "</div></div></div></td>" +
         '<td><span class="tag">' + p[3] + '</span></td><td class="hide-sm">' + p[4] + '</td><td class="hide-sm" style="white-space:nowrap">' + p[5] + '</td><td class="hide-sm">' + (p[6] ? '<span class="badge" data-size="sm" data-status="measured">' + p[6] + "</span>" : '<span class="faint">—</span>') + "</td></tr>";
     }).join("") + "</tbody></table></div>";
-  var finding = '<div class="insight mesh" data-mesh="sky"><div class="insight-top"><span class="insight-pill">' + icon("sparkle") + 'Top network finding</span><span class="insight-count">From 11 of 14 plants</span></div>' +
-    '<div class="insight-metric"><span class="num">4 of 6</span><span class="unit">plants within a year of launch have a Concern on Emerging leadership</span></div>' +
+  var finding = '<div class="insight mesh" data-mesh="sky"><div class="insight-top"><span class="insight-pill">' + icon("sparkle") + 'Top network finding</span><span class="insight-count">From 11 of 14 church plants</span></div>' +
+    '<div class="insight-metric"><span class="num">4 of 6</span><span class="unit">church plants within a year of launch have a Concern on Emerging leadership</span></div>' +
     '<div class="insight-title">Emerging leadership is the most common gap before launch</div>' +
-    '<div class="insight-text">It is the lens most often at Watch or Concern across plants in Training and Pre-launch. Both plants that have already launched had their leader roles filled before Training.</div>' +
-    '<div class="insight-footer"><span class="btn" data-variant="light">See the plants ' + icon("arrow") + "</span></div></div>";
-  return frame("Network", 'Austin Sending Network<span class="badge ovd-badge hide-sm" data-status="measured">Network view</span>', "14 plants in Texas and Oklahoma, in launch order.",
-    '<div class="ovd-tabs"><span class="on">Plants</span><span>Network Intelligence</span></div>' +
+    '<div class="insight-text">It is the lens most often at Watch or Concern across church plants in Training and Pre-launch. Both church plants that have already launched had their leader roles filled before Training.</div>' +
+    '<div class="insight-footer"><span class="btn" data-variant="light">See the church plants ' + icon("arrow") + "</span></div></div>";
+  return frame("Network", 'Austin Sending Network<span class="badge ovd-badge hide-sm" data-status="measured">Network view</span>', "14 church plants in Texas and Oklahoma, in launch order.",
+    '<div class="ovd-tabs"><span class="on">Church plants</span><span>Network Intelligence</span></div>' +
     '<div class="stat-grid ovd-stats">' + stats.map(function (s) { return '<div class="card"><div class="stat-label">' + s[0] + '</div><div class="stat-value"' + (s[3] ? ' style="color:var(--ef-amber-display)"' : "") + ">" + s[1] + '</div><div class="faint t-sm">' + s[2] + "</div></div>"; }).join("") + "</div>" +
     '<div class="ovd-grid">' + plants + finding + "</div>",
-    '<span class="btn hide-sm" data-variant="primary">' + icon("users") + "Invite a plant</span>", "", { avatar: "JM" });
+    '<span class="btn hide-sm" data-variant="primary">' + icon("users") + "Invite a church plant</span>", "", { avatar: "JM" });
 }
 function vEvry(ex) {
   var parts = ex.review.split(" · ");
@@ -2841,7 +3166,7 @@ function vEvry(ex) {
   }
   if (n > 3) lines += '<div class="rc-line faint">' + icon("more") + "<span>" + (n - 3) + " more follow-ups in this change</span></div>";
   var btns = (parts[2] || "Approve or Edit").split(" or ");
-  return '<div class="ef evry-panel"><div class="ep-head">' + evryBot("lg", "idle", true) + '<div class="grow"><div class="ep-name">Evry</div><div class="t-xs faint">Reads and drafts. You approve every change.</div></div></div>' +
+  return '<div class="ef evry-panel"><div class="ep-head">' + evryBot("lg", "idle", true) + '<div class="grow"><div class="ep-name">Evry</div><div class="t-xs faint">Prepares the work. You approve every change.</div></div></div>' +
     '<div class="bubble me">' + t(ex.ask) + '</div><div class="bubble ai">' + t(ex.answer) + "</div>" +
     '<div class="review-card"><div class="rc-head">' + icon("edit") + esc(parts[0]) + '<span class="grow"></span><span style="font-weight:500">' + esc(action) + '</span></div><div class="rc-body">' + lines + '</div><div class="rc-foot"><span class="btn" data-variant="primary">' + esc(btns[0]) + '</span><span class="btn" data-variant="ghost">' + esc(btns[1] || "Edit") + "</span></div></div></div>";
 }
@@ -2912,7 +3237,8 @@ function heroVisual(story) {
    from a hidden slot in each card to the next, so the loop reads as one story.
    haRender(t) is a pure function of the loop time t (ms). Reduced motion renders t = HA_STILL once. */
 var HA_NAME = "Maria Lopez";
-var HA_DRAFT = "Hi Maria, it was good to have you at the vision meeting. Could we get coffee this week?";
+/* OPS-82: Evry creates a follow-up task for a named person. It never writes the message itself. */
+var HA_DRAFT = "Follow up with Maria Lopez after vision meeting #12";
 /* Revision 8 timing table: the one place to tune the hero loop (all values in ms).
    Transitions keep their Revision 7 values: card crossfade, Maria's chip glide and the loop seam.
    In-scene actions run `act` times slower. Each scene then holds its finished state for hold[i] before the next transition.
@@ -2959,12 +3285,13 @@ function heroSlot() {
     '<div class="ha-kv" data-st><span>Host home</span><span class="v">' + icon("pin") + "Hyde Park</span></div>" +
     '<div class="ha-kv" data-st><span>Guests</span><span class="v">' + haRoll(8, 9, "guests") + "</span></div>" +
     '<div class="ha-guests" data-st>' + haSk("", "sk-pill") + haSk("", "sk-pill") + haSlot() + "</div>";
-  var c2 = haHead(evryBot("lg", "talking"), "Evry drafted a follow-up", "Due today. You approve it.") +
-    '<div class="ha-to" data-st><span>To</span>' + haSlot() + "</div>" +
-    '<div class="ha-draft" data-st><span class="ha-dtxt"></span><span class="ha-caret"></span></div>' +
-    '<div class="ha-acts" data-st>' + haSk("28%") + '<span class="ha-btn ha-send"><span class="ha-ok"></span><span class="ha-shine"></span><span class="ha-l1">Approve and send</span><span class="ha-l2">' + icon("check") + "Sent</span></span></div>";
+  var c2 = haHead(evryBot("lg", "talking"), "Evry created a follow-up task", "Assigned to Jen Park. You approve it.") +
+    '<div class="ha-to" data-st><span>For</span>' + haSlot() + "</div>" +
+    '<div class="ha-draft ha-task" data-st><span class="ha-tk-ring" aria-hidden="true"></span><span class="ha-tk-t"><span class="ha-dtxt"></span><span class="ha-caret"></span></span>' +
+      '<span class="ha-tk-meta"><span class="ha-av">JP</span>Jen Park · due Tue, Oct 14</span></div>' +
+    '<div class="ha-acts" data-st>' + haSk("28%") + '<span class="ha-btn ha-send"><span class="ha-ok"></span><span class="ha-shine"></span><span class="ha-l1">Approve task</span><span class="ha-l2">' + icon("check") + "Added</span></span></div>";
   var c3 = '<div class="ha-who" data-st>' + haSlot() + '<span class="ha-flip"><span class="stage-chip tone-amber">Following up</span><span class="stage-chip tone-green">Committed</span></span></div>' +
-    [["Vision meeting #12", "Attended"], ["Follow-up from Evry", "Sent"], ["Commitment card", "Signed"]].map(function (r) {
+    [["Vision meeting #12", "Attended"], ["Jen's follow-up task", "Done"], ["Commitment card", "Signed"]].map(function (r) {
       return '<div class="ha-li" data-st><span class="ha-check">' + icon("check") + '</span><span class="grow">' + r[0] + '</span><span class="faint">' + r[1] + "</span></div>";
     }).join("") + '<div data-st>' + haSkRow("52%") + "</div>";
   var rows = [["tone-blue", "Attendee", "41", "var(--ef-blue-500)"], ["tone-amber", "Following up", haRoll(23, 22, "follow"), "var(--ef-amber-500)"], ["tone-green", "Core group", haRoll(34, 35, "core"), "var(--ef-green-500)"]];
@@ -2974,7 +3301,7 @@ function heroSlot() {
         '<span class="num">' + r[2] + '</span></div><div class="ha-meter"><span style="background:' + r[3] + '"></span></div></div>';
     }).join("") + "</div>";
   return '<div class="ha">' +
-    '<div class="ha-stage ef" role="img" aria-label="Example: Maria Lopez is added, comes to a vision meeting, gets a follow-up that Evry drafted and you approved, commits, and joins the core group.">' +
+    '<div class="ha-stage ef" role="img" aria-label="Example: Maria Lopez is added and comes to a vision meeting. Evry creates a follow-up task for Jen Park, and you approve it. Maria commits and joins the core group.">' +
     '<div aria-hidden="true" style="display:contents"><div class="ha-shadow"></div><div class="ha-shell"></div>' +
     haCard(0, c0) + haCard(1, c1) + haCard(2, c2) + haCard(3, c3) + haCard(4, c4) + haChip(true) + "</div></div>" +
     '<button type="button" class="ha-pause" aria-label="Pause animation"></button></div>';
@@ -3035,7 +3362,7 @@ function haRender(t) {
   haSet(q(".ha-add"), "transform", "scale(" + (1 - .05 * haBump(t, haAt(0, 1250), haD(200))).toFixed(4) + ")");
   /* Scene 2: guest count rolls when Maria joins */
   haRoll2("guests", haInOut(haP(t, haAt(1, 0), haD(380))));
-  /* Scene 3: Evry drafts, you approve, a check confirms it is sent */
+  /* Scene 3: Evry creates the follow-up task for Jen, you approve, a check confirms it is added */
   var bot = q(".ha .evry-bot");
   haSet(bot, "mood", t >= haAt(2, 0) && t < haAt(2, 1800) ? "talking" : t >= haAt(2, 2150) && t < HA_SC[2][1] + 200 ? "happy" : "idle");
   var m = Math.floor(haP(t, haAt(2, 350), haD(1350)) * HA_DRAFT.length);
@@ -3214,7 +3541,7 @@ var CX_MARK = {
       '<div class="cx-names" data-st>' + names.map(function (n) { return '<span class="ha-chip"><span class="ha-av">' + n[0] + "</span>" + n[1] + "</span>"; }).join("") + '<span class="ha-chip" style="padding-left:10px">4 more</span></div>';
   },
   evry: function () {
-    return '<div class="ep-head" data-st>' + evryBot("lg", "idle", true) + '<div class="grow"><div class="ep-name">Evry</div><div class="t-xs faint">Reads and drafts. You approve every change.</div></div></div>' +
+    return '<div class="ep-head" data-st>' + evryBot("lg", "idle", true) + '<div class="grow"><div class="ep-name">Evry</div><div class="t-xs faint">Prepares the work. You approve every change.</div></div></div>' +
       '<div class="bubble me" data-st>' + cxTw("cx-q", CX_Q) + "</div>" +
       '<div class="bubble ai cx-a">' + cxTw("cx-ans", CX_A) + "</div>" +
       '<div class="review-card cx-rvw"><div class="rc-head">' + icon("edit") + 'Review 4 changes<span class="grow"></span><span style="font-weight:500">Set up vision meeting</span></div>' +
@@ -3999,7 +4326,7 @@ function phSection(f, opts) {
   return '<section class="sec sec-features ph-sec" id="' + (opts.id || "features") + '"><div class="phc-pin"><div class="phc-frame">' +
     '<div class="wrap"><div class="sec-head solo"><h2 class="display h2 sh-title" id="ph-title">' + t(f.headline) + "</h2></div>" + track + "</div>" +
     '<div class="phc-rail" role="region" aria-roledescription="carousel" aria-labelledby="ph-title"><ol class="phc-list">' + f.items.map(function (x, i) {
-      return '<li class="phc-card" tabindex="0" aria-label="' + phNum(i) + " · " + t(x.label) + '"><div class="phc-art ' + phArt((opts.photos || PH_PHOTOS)[i]) + '"><span class="phc-num" aria-hidden="true">' + phNum(i) + '</span><div class="phc-vig ef" aria-hidden="true">' + (opts.vig || phVig)(i) + "</div></div>" +
+      return '<li class="phc-card" tabindex="0" aria-label="' + phNum(i) + " · " + t(x.label) + '"><div class="phc-art ' + phArt((opts.photos || PH_PHOTOS)[i]) + '"><span class="phc-num" aria-hidden="true">' + phNum(i) + '</span>' + (opts.icons ? '<span class="tl-ic phc-ic" aria-hidden="true">' + icon(opts.icons[i]) + "</span>" : '<div class="phc-vig ef" aria-hidden="true">' + (opts.vig || phVig)(i) + "</div>") + "</div>" +
         '<div class="phc-txt">' + phTag(i, x) + '<h3 class="display h3">' + t(x.title) + "</h3><p>" + t(x.short || x.body) + "</p></div></li>";
     }).join("") + "</ol></div></div></div></section>";
 }
@@ -4174,10 +4501,213 @@ document.addEventListener("pointermove", function (e) {
   });
 });
 
+/* ---------- OPS-82: the merged sections (Sebastian's picks, Oct 30 2026) ----------
+   Copy: COPY.shared.ops82 (home) and COPY.shared.oversight_page (/oversight).
+   pathBand: a dotted path of large icon stops on a photo. With walk, EvryBot eases along the path from stop to stop and says one
+   line at each stop. Auto-advance pauses on hover, focus and the pause button. Reduced motion shows one still frame.
+   evryCards: three photo cards. Each card has a prototype-only button that steps it through every site photo (EV_PHOTOS). */
+var M82 = COPY.shared.ops82;
+ICON.pause = '<path d="M9 6v12M15 6v12"/>';
+ICON.play = '<path d="M8 5.5v13l10-6.5z"/>';
+ICON.chat = '<path d="M5 5h14a1.5 1.5 0 0 1 1.5 1.5V15a1.5 1.5 0 0 1-1.5 1.5h-8.5L6 20v-3.5H5A1.5 1.5 0 0 1 3.5 15V6.5A1.5 1.5 0 0 1 5 5z"/>';
+function pathSteps(steps, icons, says) { return steps.map(function (s, i) { return { icon: icons[i], title: s.title, body: s.body, say: says && says[i] }; }); }
+function pathBand(steps, walk, label, bg) {
+  var n = steps.length;
+  return '<div class="pth-band' + (bg ? ' photo" data-photo="' + bg : "") + '" data-pth' + (walk ? " data-walk" : "") + ">" +
+    '<svg class="pth-line" aria-hidden="true"><path class="trail"/>' + (walk ? '<path class="walked" pathLength="100"/>' : "") + "</svg>" +
+    '<ol class="pth-stops" aria-label="' + t(label) + '">' + steps.map(function (s, i) {
+      var inner = '<span class="pth-n" aria-hidden="true">' + phNum(i) + "</span>" + icon(s.icon);
+      return '<li class="pth-stop" style="--x:' + (100 / n * (i + .5)).toFixed(3) + '%">' + (walk ?
+        '<button type="button" class="pth-ic" data-i="' + i + '" data-say="' + t(s.say) + '" aria-pressed="' + (i === 0) + '" aria-label="' + t(s.title) + '">' + inner + "</button>" :
+        '<span class="pth-ic" aria-hidden="true">' + inner + "</span>") + "</li>";
+    }).join("") + "</ol>" +
+    (walk ? '<div class="pth-walker" aria-hidden="true"><p class="pth-say"></p>' + evryBot("lg", "idle") + "</div>" +
+      '<button type="button" class="pth-ctl" aria-label="Pause the guide">' + icon("pause") + "</button>" : "") + "</div>";
+}
+function pathTxt(steps, cls) {
+  return '<ol class="pth-txt' + (cls ? " " + cls : "") + '">' + steps.map(function (s, i) {
+    return "<li" + (cls ? ' data-i="' + i + '"' + (i ? "" : ' class="on"') : "") + ">" + (cls ? '<span class="jrn-n" aria-hidden="true">' + phNum(i) + "</span>" : "") +
+      '<h3 class="display h3">' + t(s.title) + "</h3><p>" + t(s.body) + "</p></li>";
+  }).join("") + "</ol>";
+}
+/* Home: "Reach, gather, follow up, commit." The four week steps, then two Plant Intelligence steps, on one path. #intelligence lands here too. */
+function journeySection() {
+  var W = COPY.shared.week, N = COPY.shared.intelligence, J = M82.journey;
+  var focus = { title: N.steps[0].title, body: N.steps[0].body + " " + J.facts_line };
+  var steps = pathSteps(W.steps.concat([focus, N.steps[2]]), J.icons, J.says);
+  return '<section class="sec pth-sec sec-week" id="week" aria-labelledby="week-title"><span id="intelligence"></span><div class="wrap">' +
+    '<div class="pth-head"><h2 class="display h2" id="week-title">' + t(W.title) + "</h2></div>" +
+    pathBand(steps, true, W.title, "field-sky") + pathTxt(steps, "jrn-cards") +
+    '<p class="jrn-note">' + icon("lock") + "<span>" + t(J.see_first).replace(/^[^.]+\./, "<b>$&</b>") + "</span></p></div></section>";
+}
+var EV_PHOTOS = ["blossom", "bluebells", "field", "lake", "lilies", "lupins", "marigolds", "meadow", "plain", "poppies", "reeds", "swirl", "wheat", "wildflowers"];
+var EV_START = ["reeds", "field", "plain"];
+function evTogLabel(p) { return "Photo: " + p + ". Show the next photo"; }
+function evryCards() {
+  var E = M82.evry;
+  return '<section class="sec evx" id="evry" aria-labelledby="evry-title"><div class="wrap">' +
+    '<div class="evx-head"><h2 class="display h2" id="evry-title">' + t(E.headline) + '</h2><p class="sh-text">' + t(E.subhead) + "</p></div>" +
+    '<ul class="tl-grid">' + E.cards.map(function (c, i) {
+      return '<li class="tl"><div class="tl-art photo" data-photo="' + EV_START[i] + '"><span class="tl-ic" aria-hidden="true">' + icon(c[0]) + "</span>" +
+        '<button type="button" class="ev-tog" aria-label="' + evTogLabel(EV_START[i]) + '"><span>' + EV_START[i] + "</span>" + icon("arrow") + "</button></div>" +
+        '<div class="tl-txt"><h3 class="tl-t">' + t(c[1]) + "</h3><p>" + t(c[2]) + "</p></div></li>";
+    }).join("") + "</ul>" +
+    '<p class="tl-limits">' + icon("heart") + "<span>" + t(DIR.journey.sections.evry.limits) + "</span></p></div></section>";
+}
+function evTog(b, d) {
+  var art = b.closest(".tl-art"), p = EV_PHOTOS[(EV_PHOTOS.indexOf(art.dataset.photo) + d + EV_PHOTOS.length) % EV_PHOTOS.length];
+  art.dataset.photo = p; art.classList.add("seen");
+  b.firstChild.textContent = p; b.setAttribute("aria-label", evTogLabel(p));
+}
+document.addEventListener("click", function (e) { var b = e.target.closest(".ev-tog"); if (b) evTog(b, e.shiftKey ? -1 : 1); });
+document.addEventListener("keydown", function (e) {
+  var b = e.target.closest && e.target.closest(".ev-tog");
+  var d = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+  if (b && d) { e.preventDefault(); evTog(b, d); }
+});
+/* Home: sending churches and networks. The meadow photo, cream text, a 2×2 grid of frosted cards. No Evry. */
+function sendingSection() {
+  var X = M82.sending;
+  return '<section class="sec sec-send photo photo-text" data-photo="meadow" id="sending" aria-labelledby="sending-title"><div class="wrap sd-grid">' +
+    '<div class="sd-copy"><h2 class="display h2" id="sending-title">' + t(X.title) + "</h2><p>" + t(X.body) + '</p><a class="sd-link" href="' + hrefFor("oversight", "") + '">' + t(COPY.shared.sending.link) + icon("arrow") + "</a></div>" +
+    '<ul class="sd-tiles">' + X.points.map(function (p) { return '<li><span class="tl-ic" aria-hidden="true">' + icon(p[0]) + '</span><h3 class="tl-t">' + t(p[1]) + "</h3><p>" + t(p[2]) + "</p></li>"; }).join("") + "</ul>" +
+    "</div></section>";
+}
+function ovGets(g) {
+  return '<section class="sec ovg" id="every-plant" aria-labelledby="every-plant-title"><div class="wrap">' +
+    '<div class="pth-head"><h2 class="display h2" id="every-plant-title">' + t(g.headline) + '</h2><p class="sh-text">' + t(g.lead) + "</p></div>" +
+    '<div class="ovg-band photo" data-photo="field-sky">' + g.groups.map(function (gr) {
+      return '<div><span class="ovg-lab">' + t(gr.label) + '</span><ul class="ovg-grid">' + gr.items.map(function (x) {
+        return '<li><span class="big-ic" aria-hidden="true">' + icon(x[0]) + '</span><h3 class="display h3">' + t(x[1]) + "</h3><p>" + t(x[2]) + "</p></li>";
+      }).join("") + "</ul></div>";
+    }).join("") + "</div></div></section>";
+}
+function ovLeaders(L, icons) {
+  var steps = pathSteps(L.steps, icons);
+  return '<section class="sec ldr photo photo-text" data-photo="wheat" id="leaders" aria-labelledby="leaders-title"><div class="wrap">' +
+    '<div class="ldr-head"><h2 class="display h1" id="leaders-title">' + t(L.headline) + "</h2><p>" + t(L.lead) + "</p></div>" +
+    pathBand(steps, false, L.headline) + pathTxt(steps) + "</div></section>";
+}
+
+var PTH = { list: [], io: null, ro: null };
+var PTH_STEP = 4200;
+function pthRunning(P) { return P.walk && P.vis && !P.hover && !P.focus && !P.user && !document.hidden && !REDUCED.matches; }
+function pthSched(P) { clearTimeout(P.tm); P.tm = 0; if (pthRunning(P)) P.tm = setTimeout(function () { pthGo(P, (P.k + 1) % P.n); pthSched(P); }, PTH_STEP); }
+/* One smooth curve through the stop centres; P.at[k] is the length along it at stop k, so the walker can ease from any stop to any other. */
+function pthLayout(P) {
+  var b = P.band.getBoundingClientRect(), W = b.width, H = b.height;
+  P.c = P.icons.map(function (ic) { return { x: ic.offsetParent.offsetLeft, y: ic.offsetParent.offsetTop, s: ic.offsetWidth }; });
+  var pts = [{ x: -20, y: P.c[0].y + 18 }].concat(P.c, [{ x: W + 20, y: P.c[P.n - 1].y - 18 }]);
+  var seg = function (a, z) { var m = (z.x - a.x) / 2; return " C" + (a.x + m) + "," + a.y + " " + (z.x - m) + "," + z.y + " " + z.x + "," + z.y; };
+  var d = "M" + pts[0].x + "," + pts[0].y;
+  P.at = [];
+  for (var i = 1; i < pts.length; i++) {
+    d += seg(pts[i - 1], pts[i]);
+    if (P.walker && i <= P.n) { P.trail.setAttribute("d", d); P.at.push(P.trail.getTotalLength()); }
+  }
+  P.svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+  P.svg.querySelectorAll("path").forEach(function (p) { p.setAttribute("d", d); });
+  if (P.walker) P.len = P.trail.getTotalLength();
+}
+/* The walker rides above the line at length L; the walked line ends under it. */
+function pthPut(P, L) {
+  var p = P.trail.getPointAtLength(L), bs = P.bot.offsetWidth;
+  P.wx = p.x - bs / 2; P.wy = p.y - P.c[0].s / 2 - bs - 8; P.L = L;
+  P.walker.style.transform = "translate(" + P.wx.toFixed(1) + "px," + P.wy.toFixed(1) + "px)";
+  P.walked.style.strokeDasharray = "100 100";
+  P.walked.style.strokeDashoffset = (100 - L / P.len * 100).toFixed(2);
+}
+/* The bubble sits over the walker and stays inside the band; its tail points at the walker. */
+function pthBubble(P) {
+  var bs = P.bot.offsetWidth, W = P.band.clientWidth, bw = P.say.offsetWidth, x = P.wx;
+  var L = Math.max(10, Math.min(W - bw - 10, x + bs / 2 - bw / 2));
+  P.say.style.setProperty("--bx", (L - x).toFixed(1) + "px");
+  P.say.style.setProperty("--tx", Math.max(16, Math.min(bw - 16, x + bs / 2 - L)).toFixed(1) + "px");
+}
+function pthArrive(P, k, quiet) {
+  P.say.textContent = P.btns[k].dataset.say; pthBubble(P); P.say.classList.remove("swap");
+  if (quiet || REDUCED.matches) return;
+  P.bot.dataset.mood = "talking"; clearTimeout(P.mt);
+  P.mt = setTimeout(function () { P.bot.dataset.mood = /task/.test(P.say.textContent) ? "happy" : "idle"; P.mt = setTimeout(function () { P.bot.dataset.mood = "idle"; }, 1600); }, 1300);
+}
+function pthWalk(P, k) {
+  cancelAnimationFrame(P.raf);
+  var from = P.L, to = P.at[k], dist = Math.abs(to - from);
+  if (dist < 1 || REDUCED.matches) { pthPut(P, to); pthArrive(P, k); return; }
+  var dur = Math.min(1700, Math.max(700, dist * 2.2)), t0 = performance.now();
+  P.say.classList.add("swap"); P.bot.dataset.mood = "idle";
+  P.walker.style.setProperty("--hop", dur + "ms"); P.walker.classList.remove("hop"); void P.walker.offsetWidth; P.walker.classList.add("hop");
+  P.raf = requestAnimationFrame(function frame(now) {
+    var u = Math.min(1, (now - t0) / dur), e = u < .5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
+    pthPut(P, from + (to - from) * e);
+    if (u < 1) P.raf = requestAnimationFrame(frame); else pthArrive(P, k);
+  });
+}
+function pthGo(P, k, quiet) {
+  P.k = k;
+  P.btns.forEach(function (b, i) { b.setAttribute("aria-pressed", String(i === k)); });
+  P.txt.forEach(function (li, i) { li.classList.toggle("on", i === k); });
+  if (!P.walker) return;
+  if (quiet) { cancelAnimationFrame(P.raf); pthPut(P, P.at[k]); pthArrive(P, k, true); return; }
+  pthWalk(P, k);
+}
+function pthCtl(P) {
+  if (!P.ctl) return;
+  P.ctl.innerHTML = icon(P.user ? "play" : "pause");
+  P.ctl.setAttribute("aria-label", P.user ? "Play the guide" : "Pause the guide");
+}
+function pthInit(root) {
+  PTH.list.forEach(function (P) { clearTimeout(P.tm); clearTimeout(P.mt); cancelAnimationFrame(P.raf); });
+  PTH.list = [];
+  if (PTH.io) PTH.io.disconnect(); if (PTH.ro) PTH.ro.disconnect();
+  root.querySelectorAll("[data-pth]").forEach(function (band) {
+    var P = { band: band, sec: band.closest("section"), k: 0, tm: 0, raf: 0, vis: false, hover: false, focus: false, user: false, walk: band.hasAttribute("data-walk") };
+    P.icons = Array.prototype.slice.call(band.querySelectorAll(".pth-ic")); P.n = P.icons.length;
+    P.btns = P.walk ? P.icons : []; P.txt = P.walk ? Array.prototype.slice.call(P.sec.querySelectorAll(".pth-txt li")) : [];
+    P.svg = band.querySelector(".pth-line"); P.trail = band.querySelector(".trail"); P.walked = band.querySelector(".walked");
+    P.walker = band.querySelector(".pth-walker"); P.say = band.querySelector(".pth-say"); P.bot = P.walker && P.walker.querySelector(".evry-bot"); P.ctl = band.querySelector(".pth-ctl");
+    pthLayout(P);
+    if (P.walk) {
+      pthGo(P, 0, true);
+      if (REDUCED.matches) P.ctl.hidden = true;
+      var pick = function (i) { P.user = true; pthCtl(P); pthGo(P, i); pthSched(P); };
+      P.btns.forEach(function (b, i) {
+        b.addEventListener("click", function () { pick(i); });
+        b.addEventListener("keydown", function (e) {
+          var d = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
+          if (!d) return; e.preventDefault(); var j = (i + d + P.n) % P.n; P.btns[j].focus(); pick(j);
+        });
+      });
+      P.txt.forEach(function (li, i) { li.addEventListener("click", function () { pick(i); }); });
+      P.ctl.addEventListener("click", function () { P.user = !P.user; pthCtl(P); if (!P.user) { P.hover = false; pthGo(P, (P.k + 1) % P.n); } pthSched(P); });
+      P.sec.addEventListener("mouseenter", function () { P.hover = true; pthSched(P); });
+      P.sec.addEventListener("mouseleave", function () { P.hover = false; pthSched(P); });
+      P.sec.addEventListener("focusin", function () { P.focus = true; pthSched(P); });
+      P.sec.addEventListener("focusout", function (e) { if (!P.sec.contains(e.relatedTarget)) { P.focus = false; pthSched(P); } });
+    }
+    PTH.list.push(P);
+  });
+  if (!PTH.list.length) return;
+  if ("IntersectionObserver" in window) {
+    PTH.io = new IntersectionObserver(function (es) { es.forEach(function (e) { PTH.list.forEach(function (P) { if (P.band === e.target) { P.vis = e.isIntersecting; pthSched(P); } }); }); }, { threshold: .45 });
+    PTH.list.forEach(function (P) { if (P.walk) PTH.io.observe(P.band); });
+  }
+  if ("ResizeObserver" in window) {
+    PTH.ro = new ResizeObserver(function () { PTH.list.forEach(pthRelayout); });
+    PTH.list.forEach(function (P) { PTH.ro.observe(P.band); });
+  }
+}
+function pthRelayout(P) { pthLayout(P); if (P.walker) { cancelAnimationFrame(P.raf); pthPut(P, P.at[P.k]); pthBubble(P); P.say.classList.remove("swap"); } }
+document.addEventListener("visibilitychange", function () { PTH.list.forEach(pthSched); });
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { PTH.list.forEach(pthRelayout); });
+
 /* ---------- Pages ---------- */
 function home(story) {
-  var s = DIR[story].sections;
-  return hero(s.hero, story, { visual: heroSlot(), cls: "hero-anim", panel: true, photo: "wildflowers" }) + problem(s.problem) + weekChapter() + vision(s.vision) + features(s.features) + intelligenceChapter() + sendingChapter() + (s.trust ? trust(s.trust) : "") + cta(s.cta);
+  var s = DIR[story].sections, J = DIR.journey.sections;
+  /* OPS-82: the live order (hero, problem, vision, six cards, journey, Evry, sending, CTA), with the app UI replaced below the vision */
+  return hero(Object.assign({ eyebrow: M82.hero_eyebrow }, s.hero), story, { visual: heroSlot(), cls: "hero-anim", panel: true, photo: "wildflowers" }) + problem(s.problem) + vision(s.vision) +
+    phSection(Object.assign({}, J.features, { headline: M82.features_headline }), { icons: J.features.icons }) +
+    journeySection() + evryCards() + sendingSection() + cta(s.cta);
 }
 function pagePlanters() {
   var s = DIR.journey.sections;
@@ -4193,8 +4723,8 @@ function pagePlanters() {
 function pageOversight() {
   var P = COPY.shared.oversight_page;
   return hero(P.hero, "oversight", { visual: '<div class="ov-dash">' + visual(vNetworkDash()) + "</div>", cls: "hero-anim ov-hero", panel: true, photo: "bluebells", hrefs: [hrefFor("access", "network-form"), hrefFor("oversight", "every-plant")] }) +
-    problem(P.problem) + chapterSection("every-plant", "sec-ov-plants") + chapterSection("network-intelligence", "sec-ov-intelligence") +
-    phSection(P.plants, { id: "plants", vig: ovVig, photos: OV_PH_PHOTOS }) + ovPaths(P.paths) + ovFaq(P.faq) + cta(P.cta);
+    problem(P.problem) + ovGets(P.gets) + phSection(P.plants, { id: "plants", icons: P.plants.icons, photos: OV_PH_PHOTOS }) + ovLeaders(P.leaders, P.leaders_icons) +
+    ovPaths(P.paths) + trust(P.trust).replace('class="sec sec-trust"', 'class="sec sec-trust big"') + ovFaq(P.faq) + cta(P.cta);
 }
 /* Rail vignettes from the dashboard mockup page Network · Plant view (Eastside Commons). Only the top of each shows above the card text. */
 function ovVig(i) {
@@ -4232,15 +4762,15 @@ var OVS_TONES = ["reeds", "lupins", "swirl"];
 function ovsBy(ic, names) { return '<span class="ovs-by">' + icon(ic) + "<span>Sent by " + names.map(function (n) { return "<b>" + n + "</b>"; }).join('<span class="ovs-dot"> · </span>') + "</span></span>"; }
 var OVS_B = [
   function () {
-    return cxHead(cxIcon("tone-blue", "heart"), "Grace Church", "Your plants · in launch order") +
+    return cxHead(cxIcon("tone-blue", "heart"), "Grace Church", "Your church plants · in launch order") +
       [["Harvest Point Church", "Hyde Park, Austin", "1 · Core group", "Mar 14, 2027"], ["Eastside Commons", "East Austin · with Austin Sending Network", "3 · Training", "May 2, 2027"]].map(function (r) {
         return '<div class="list-row"><span class="card-icon tone-green">' + icon("pin") + '</span><div class="grow"><div class="list-title">' + r[0] + '</div><div class="list-sub">' + r[1] + '</div></div><div class="ov-when"><b>' + r[3] + "</b><span>" + r[2] + "</span></div></div>";
       }).join("");
   },
   function () {
-    return cxHead(cxIcon("tone-teal", "network"), "Austin Sending Network", "Plants by sending church") +
+    return cxHead(cxIcon("tone-teal", "network"), "Austin Sending Network", "Church plants by sending church") +
       [["Grace Church", [["Harvest Point Church", 1], ["Eastside Commons", 3]]], ["Redeemer Dallas", [["Deep Ellum Collective", 4], ["Oak Cliff Church", 2]]]].map(function (g) {
-        return '<div class="ovs-g"><div class="row between"><span class="ovs-gt">' + g[0] + '</span><span class="ovs-gc">' + g[1].length + " plant" + (g[1].length > 1 ? "s" : "") + '</span></div><div class="ov-gp">' +
+        return '<div class="ovs-g"><div class="row between"><span class="ovs-gt">' + g[0] + '</span><span class="ovs-gc">' + g[1].length + " church plant" + (g[1].length > 1 ? "s" : "") + '</span></div><div class="ov-gp">' +
           g[1].map(function (p) { return '<span class="ov-pc"><i data-ph="' + p[1] + '"></i>' + p[0] + "</span>"; }).join("") + "</div></div>";
       }).join("");
   },
@@ -4468,8 +4998,10 @@ function render(scrollMode) {
     var target = document.getElementById(state.at);
     if (target && target.classList.contains("faq-i")) faqSet(target, true);
     if (target) setTimeout(function () { target.scrollIntoView({ behavior: "smooth", block: "start" }); }, 30);
+    /* Web fonts re-wrap the text sections above the target; land again once they are in */
+    if (target && document.fonts) document.fonts.ready.then(function () { setTimeout(function () { target.scrollIntoView({ behavior: "smooth", block: "start" }); }, 60); });
   }
-  if (needView) { photoInit(v); setupMotion(); seedBots(); haInit(); cxInit(); phInit(); ovsInit(); visionPlay(v); }
+  if (needView) { photoInit(v); setupMotion(); seedBots(); haInit(); cxInit(); phInit(); ovsInit(); visionPlay(v); pthInit(v); }
   last = { page: state.page, story: state.story };
 }
 function setState(over, push) {
