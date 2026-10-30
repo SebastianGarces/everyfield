@@ -1,12 +1,26 @@
-import { baseRef, committedConfig, fail, git, loadConfig, parseTask, run, type Config } from "./lib.ts";
+import { existsSync } from "node:fs";
+import {
+	baseRef,
+	committedConfig,
+	EvfError,
+	fail,
+	git,
+	loadConfig,
+	parseTask,
+	run,
+	worktreePath,
+	type Config,
+	type TaskRef,
+} from "./lib.ts";
 import { cachedTriage } from "./feedback.ts";
-import { checkPr } from "./ship.ts";
-import { APPROVED_PROTOTYPE, changesOnlyOwnRegistration } from "./policy.ts";
+import { afterMerge, checkPr, type MergeEvidence } from "./ship.ts";
+import { APPROVED_PROTOTYPE, changesOnlyOwnRegistration, documentTemplateChanges } from "./policy.ts";
 
 /**
  * Human-approved merge for the PRs that never merge automatically: Wiki articles, prototypes, and
  * the verifier-passed P2/P3 feedback fixes (mergePolicy.feedbackOwnerAfterVerifier) and design tasks
- * (maintenanceTasks route "design"). Every other PR refuses before any write. Sebastian approves in chat;
+ * (maintenanceTasks route "design"), and the document-template PRs (mergePolicy.documentTemplates) that would
+ * otherwise merge through evf ship. Every other PR refuses before any write. Sebastian approves in chat;
  * the agent runs this with his words. Agents never run it without that approval for this PR.
  * It records the approval on the PR, binds it to the exact head commit, and squash-merges.
  * When main is protected, it also posts the evf/verify status for that head.
@@ -24,7 +38,8 @@ type Pr = {
 	mergeStateStatus: string;
 	files: Array<{ path: string }>;
 };
-type Route = { kind: "wiki" | "prototype" } | { kind: "verified"; id: string };
+type Route =
+	{ kind: "wiki" | "prototype" } | { kind: "verified"; id: string } | { kind: "template"; id: string; task: TaskRef };
 
 function gh(args: string[]): string {
 	const r = run("gh", args);
@@ -79,6 +94,21 @@ function routeOf(root: string, cfg: Config, pr: Pr): Route {
 			);
 		return { kind: "wiki" };
 	}
+	// The document-template class: a PR evf ship would otherwise merge, whose exact-head diff touches a template path.
+	const taskBranch = /^task\/(wp-\d{3}(?:-(?:contract|api|ui))?|ops-[1-9]\d*|fb-\d+)$/.exec(pr.headRefName)?.[1];
+	if (taskBranch) {
+		const ref = parseTask(taskBranch.replace(/^(wp-\d{3})-(\w+)$/, "$1/$2").replace(/^wp-/, "WP-"));
+		const cls = fb ? cachedTriage(root, Number(fb[1]))?.class : undefined;
+		const merges = !fb || (!!cls && (cfg.mergePolicy.feedbackVerifierMerge as string[]).includes(cls));
+		// A head evf cannot fetch has no diff to read; the PR falls through to the refusals below, before any write.
+		const fetched =
+			!!task || run("git", ["-C", root, "fetch", "--quiet", cfg.remote, cfg.baseBranch, pr.headRefName]).code === 0;
+		if (merges && fetched) {
+			if (!task) fetchHead(root, cfg, pr);
+			if (documentTemplateChanges(root, cfg, baseRef(root, cfg), pr.headRefOid).length)
+				return { kind: "template", id: ref.id, task: ref };
+		}
+	}
 	if (!fb)
 		fail(
 			`PR #${pr.number} (${pr.headRefName}) is not a Wiki article, prototype, P2/P3 feedback fix or design task, so evf approve cannot merge it. Ordinary builds and other OPS tasks merge through the verifier: bin/evf ship <task>.`,
@@ -111,7 +141,7 @@ export function approve(root: string, n: number, opts: { ownerApproval?: string;
 	const route = routeOf(root, cfg, pr);
 	const head = pr.headRefOid;
 	const again =
-		route.kind === "verified"
+		route.kind === "verified" || route.kind === "template"
 			? `have the verifier pass the new head (bin/evf ship ${route.id}), then ask Sebastian to approve it`
 			: "ask Sebastian to approve the new head";
 	if (opts.head && !head.startsWith(opts.head))
@@ -125,8 +155,19 @@ export function approve(root: string, n: number, opts: { ownerApproval?: string;
 		);
 
 	const repo = gh(["repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"]);
-	if (route.kind === "verified") {
-		checkPr(root, n, head);
+	let evidence: MergeEvidence | undefined,
+		baseSha = "";
+	if (route.kind === "verified" || route.kind === "template") {
+		try {
+			evidence = checkPr(root, n, head);
+		} catch (e) {
+			// A template PR waits for the verifier's pass first; name the command that gives it.
+			if (route.kind === "template" && e instanceof EvfError)
+				fail(
+					`PR #${n} changes document templates and needs the verifier to pass it first (bin/evf ship ${route.id}) at ${head.slice(0, 10)}: ${e.message}`,
+				);
+			throw e;
+		}
 		const status = JSON.parse(gh(["api", `repos/${repo}/commits/${head}/status`])) as {
 			statuses: Array<{ context: string; state: string; description: string | null }>;
 		};
@@ -135,6 +176,7 @@ export function approve(root: string, n: number, opts: { ownerApproval?: string;
 			fail(
 				`PR #${n} needs the verifier to pass it first (bin/evf ship ${route.id}) at ${head.slice(0, 10)}; a branch update needs a fresh verification.`,
 			);
+		baseSha = git(root, "merge-base", head, baseRef(root, cfg));
 	}
 	gh([
 		"pr",
@@ -160,5 +202,15 @@ export function approve(root: string, n: number, opts: { ownerApproval?: string;
 		]);
 	gh(["pr", "merge", String(n), "--squash", "--match-head-commit", head]);
 	console.log(`Merged PR #${n} (${pr.title}) at ${head.slice(0, 10)} with Sebastian's approval.`);
+	if (route.kind === "template" && evidence) {
+		// The same bookkeeping evf ship runs, so package progress and dependents unlock. A task without a worktree
+		// reads its registration from the merged head in the home checkout.
+		const path = worktreePath(root, cfg, route.task),
+			hasWorktree = existsSync(path);
+		return afterMerge(root, cfg, route.task, hasWorktree ? path : root, n, evidence, baseSha, {
+			...(hasWorktree ? {} : { rev: head }),
+			ownerApproval: { quote: words, approved_head: head, approved_at: new Date().toISOString() },
+		});
+	}
 	return 0;
 }
