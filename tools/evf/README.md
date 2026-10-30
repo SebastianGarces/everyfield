@@ -98,6 +98,25 @@ second task: the odd task numbers (OPS-69, WP-021, FB-13), so all seats of one t
 "seatTrial": { "roles": ["implementer", "ui"], "model": "claude-opus-5-5", "effort": "medium" }
 ```
 
+**Per-task override.** The coordinator or a human shell can run one task on its own model and effort:
+
+```
+evf task seats OPS-82 --model claude-opus-5-5 --effort high   # set, or change either field
+evf task seats OPS-82 --effort xhigh                          # change one field; the other stays
+evf task seats OPS-82 --clear                                 # back to the global resolution
+```
+
+The override lives in `tasks.seat_model` and `tasks.seat_effort` of that task row (schema 4), not in config. It
+wins over `seats` and `seatTrial` for every role, every round and all three idea seats of that row; a field you
+leave out keeps its normal order (`seatTrial`, then `seats`, then the defaults). Config `seats` and `seatTrial`
+stay global and every other task resolves as before. A model gets the config checks: it starts with `claude-`,
+never names Fable, and the effort is one of the list above. A seat cannot set it: the command refuses when
+`EVF_RUN` is set. It also refuses a ref with no open row and a merged, done or abandoned row. A later `evf task
+new` that reopens a merged ref starts without an override. `evf task handoff` copies the override from the
+prototype row to the implement row it creates. A non-Opus override model does not apply to the verifier: the
+verifier keeps its Opus model and effort (D82), and the command prints one line that says so. Each call records a
+`seat_override` event with the new and previous values. `evf status` shows the override per task, or "default".
+
 To read a trial, run `evf usage` after a few tasks of each arm. In the by-model summary compare the
 `claude-sonnet-5-5` and `claude-opus-5-5` lines: their build cost, their review and rework cost, and in the
 per-task lines the rounds, verify fails and CI fails of odd against even task numbers. evf gives the numbers;
