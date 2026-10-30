@@ -1,13 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { fixture, source } from "./fixtures.ts";
 import { ensureTask, findTask, markMerged, openWorkDb, sessionsRecorded, syncGoals } from "../db.ts";
 import { drive, driveOnce, LOOP_CAP, nextStage, RETRY_CAP, runDone } from "../drive.ts";
 import { doneCriteria } from "../spec.ts";
-import { evfDataDir, parseTask, runtimeDir, sleep } from "../lib.ts";
+import { evfDataDir, evidenceDir, parseTask, runtimeDir, sleep } from "../lib.ts";
 import { verify } from "../verify.ts";
 
 const cli = (cwd: string, env: Record<string, string>, ...args: string[]) =>
@@ -1032,6 +1032,27 @@ test("OPS-70-pr: the pr stage runs the author checks at the head a simplifier co
 		const after = nextOf(f);
 		assert.equal(after.stage, "verify");
 		assert.equal(after.round, 0);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-70-pr: the pr stage at a head that already has a passing author record does not rerun the checks", () => {
+	const f = driveFixture();
+	try {
+		withPr(f);
+		runDone(f.root, f.insertRun("implement", "implementer", "started"), { status: "passed", summary: "built" });
+		assert.equal(verify(f.root, f.task, "author", "full").passed, true);
+		const record = join(evidenceDir(f.root, f.task, head(f), "author-full"), "checks.json");
+		const before = statSync(record).mtimeMs;
+		runDone(f.root, f.insertRun("simplify", "simplifier", "started"), {
+			status: "passed",
+			summary: "nothing to remove",
+		});
+		driveOnce(f.root, f.task, TIMING);
+		assert.equal(f.runs().at(-1)!.status, "passed");
+		assert.equal(statSync(record).mtimeMs, before, "the record was not rewritten");
 	} finally {
 		f.db.close();
 		f.close();

@@ -21,7 +21,7 @@ import {
 import { closeRunPane } from "./panes.ts";
 import { prFor, prOpen, ship } from "./ship.ts";
 import { doneCriteria } from "./spec.ts";
-import { verify } from "./verify.ts";
+import { hasVerifiedHead, verify } from "./verify.ts";
 
 /**
  * The stage machine of implement mode (the GPS of the talk, in code): plan → implement → simplify → pr → verify →
@@ -186,7 +186,7 @@ export function nextStage(task: TaskRef, t: TaskRow, runs: RunRow[], picked = fa
 	const passed = last.status === "passed";
 	const again = (stage: Stage) => go(stage, `${last.stage} ${last.status}: ${last.summary ?? ""}`.trim());
 	// A seat whose pane went away (run aborted) launches the same stage again, with the same round.
-	if (last.status === "aborted" && ["plan", "implement", "simplify", "verify"].includes(last.stage))
+	if (last.status === "aborted" && (Object.keys(SEAT_STAGES) as string[]).includes(last.stage))
 		return again(last.stage as Stage);
 	switch (last.stage as Stage) {
 		case "plan":
@@ -713,7 +713,7 @@ const STAGE_PROMPTS: Record<string, Prompt> = {
 	implement: (task, next, ctx) =>
 		`Implement task ${task.id} in this worktree against the spec in your session-start context.${next.round ? ` Round ${next.round}: ${next.reason}. Read the last verify or ci summary with bin/evf status --json ${task.id} and fix those findings first.` : ""} Before you close: add tests; for UI work read .agents/roles/ui-designer.md and capture 390 and 1440 px screenshots of each UI state you changed, outside the repository, as the capture half of .agents/skills/verify-preview/SKILL.md says; record bin/evf proof add ${task.id} --criterion <n> --status met|unmet|n/a --evidence <url-or-path> for each Done criterion you built or changed in this round. Keep bin/evf verify ${task.id} green, commit, and write the PR body to ${ctx.prBody} following .agents/skills/everyfield-pr/template.md with your EVF-Author line (bin/evf session prints your id). ${CLOSE}`,
 	simplify: (task, next) =>
-		`Simplify task ${task.id}: read the spec and git diff origin/main...HEAD, remove what the Done criteria do not need, keep bin/evf verify ${task.id} green, commit.${next.reason.startsWith("pr failed") ? ` evf ran the author checks at the head and they failed (${next.reason}). Fix that first.` : ""} ${CLOSE}`,
+		`Simplify task ${task.id}: read the spec and git diff origin/main...HEAD, remove what the Done criteria do not need, commit. evf runs the author checks at your head in the pr stage.${next.reason.startsWith("pr failed") ? ` evf ran the author checks at the head and they failed (${next.reason}). Fix that first.` : ""} ${CLOSE}`,
 	verify: (task) =>
 		`Verify task ${task.id}: before you judge, read the full ask and spec with bin/evf task spec ${task.id} --show (your session-start context may shorten them), the goal chain and bin/evf proof show ${task.id}; read the full diff and judge the code. Spot-check the proof: open the evidence in the proof table and re-run a flow only where a proof is unmet, missing or looks wrong. When only a screenshot is missing, capture it and record it with bin/evf proof add instead of requesting changes. Follow verify-preview; post one review with post-review.mjs --session <bin/evf session> --model claude-opus-5-5. Close with bin/evf run done $EVF_RUN --status passed (approved; every Done criterion needs a met or n/a proof at the head or an ancestor of it) or failed (changes requested) --summary-file <path> listing every finding.`,
 };
@@ -764,8 +764,9 @@ type Outcome = { status: "passed" | "failed"; summary: string };
 function prStage(db: DatabaseSync, root: string, task: TaskRef, t: TaskRow, wt: string): Outcome {
 	const body = prBodyPath(root, task);
 	if (!existsSync(body)) return { status: "failed", summary: `no PR body at ${body}; the implementer writes it` };
-	const report = verify(root, task, "author", "full");
-	if (!report.passed) {
+	// The implementer's own run is the record when the head has not moved; only a new head runs the checks again.
+	const report = hasVerifiedHead(root, task) ? null : verify(root, task, "author", "full");
+	if (report && !report.passed) {
 		const failed = report.checks.filter((c) => !c.passed).map((c) => `${c.name} (${c.log})`);
 		return {
 			status: "failed",
