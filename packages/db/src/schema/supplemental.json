@@ -3168,7 +3168,7 @@
 		},
 		{
 			"arguments": "subject uuid",
-			"definition": "CREATE OR REPLACE FUNCTION <schema>.seat_identity(subject uuid)\n RETURNS TABLE(display_name text, created_at timestamp with time zone)\n LANGUAGE sql\n SECURITY DEFINER\n ROWS 1\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\n SELECT u.name,u.created_at FROM account a JOIN auth_user u ON u.id=a.auth_user_id WHERE a.id=subject\n$function$\n",
+			"definition": "CREATE OR REPLACE FUNCTION <schema>.seat_identity(subject uuid)\n RETURNS TABLE(display_name text, created_at timestamp with time zone)\n LANGUAGE sql\n SECURITY DEFINER ROWS 1\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\n SELECT u.name,u.created_at FROM account a JOIN auth_user u ON u.id=a.auth_user_id WHERE a.id=subject\n$function$\n",
 			"name": "seat_identity"
 		},
 		{
