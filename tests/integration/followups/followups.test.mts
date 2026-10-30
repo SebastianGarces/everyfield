@@ -1068,3 +1068,155 @@ test("AC:TARGET-MTG-022 a Member's contact finishes only the follow-ups they hol
 		[mine2],
 	);
 });
+
+// ---------------------------------------------------------------------------------------------------------------
+// WP-023 F07b: a follow-up has one or more owners.
+
+/** An open follow-up held by every account in `ids`, written straight into the tables. */
+async function sharedBy(c, personId, title, ids) {
+	const id = await assigned(c, personId, title, ids[0] ?? null);
+	for (const account of ids.slice(1))
+		await f.admin.execute(
+			sql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES(${c.w.id},${id},${account})`,
+		);
+	return id;
+}
+
+test("AC:TARGET-TSK-012 F07b criteria 8 and 9: a follow-up is owned while one owner is eligible, and counts once under each", async () => {
+	const c = await church();
+	const pia = await person(c, "Pia Hart");
+	const ready = await c.seated("member");
+	await committed(c, ready);
+	const second = await c.seated("member");
+	await committed(c, second);
+	const stuck = await c.seated("member"); // a seat and no linked Person
+	const pair = await sharedBy(c, pia, "Visit Pia", [ready.id, second.id]);
+	const mixed = await sharedBy(c, pia, "Call Pia", [ready.id, stuck.id]);
+	const only = await sharedBy(c, pia, "Text Pia", [stuck.id]);
+	const owners = ok(await read(c.admin, "listFollowUpOwners", { personId: pia }));
+	const byTask = (id) => owners.items.find((d) => d.taskId === id);
+	// Two eligible owners; one eligible and one not; only an ineligible one.
+	assert.deepEqual(
+		byTask(pair).owners.map((o) => [o.eligible]),
+		[[true], [true]],
+	);
+	assert.deepEqual(
+		byTask(mixed).owners.map((o) => o.eligible).sort(),
+		[false, true],
+	);
+	// The tally counts a follow-up once under each eligible owner; Needs owner holds only the one without any.
+	assert.deepEqual(
+		owners.owners.map((o) => [o.accountId, o.open]).sort(),
+		[
+			[ready.id, 2],
+			[second.id, 1],
+		].sort(),
+	);
+	assert.equal(owners.unassigned, 1);
+	assert.equal(owners.matched, 3, "matched counts each follow-up once");
+	// The owner filter matches a follow-up when the account is one of its owners.
+	assert.deepEqual(
+		ok(await read(c.admin, "listFollowUpOwners", { personId: pia, owner: ready.id })).items.map((d) => d.taskId).sort(),
+		[pair, mixed].sort(),
+	);
+	const coverage = ok(await read(c.admin, "followUpCoverage", { personId: pia }));
+	assert.equal(coverage.needsOwner, 1);
+	assert.equal(coverage.items[0].coverage, "needs_owner");
+	// An ineligible owner stays on the handoff tally whether or not a co-owner is eligible.
+	assert.deepEqual(
+		coverage.formerOwners.map((o) => [o.accountId, o.open]),
+		[[stuck.id, 2]],
+	);
+	// The handoff preview starts from the account and lists both of its follow-ups.
+	assert.equal(ok(await read(c.admin, "planHandoff", { fromAccountId: stuck.id })).total, 2);
+	assert.ok(only);
+});
+
+test("AC:TARGET-TSK-012 F07b criterion 3: assigning a list refuses the whole write when one account cannot own", async () => {
+	const c = await church();
+	const pia = await person(c, "Pia Hart");
+	const ready = await c.seated("member");
+	await committed(c, ready);
+	const stuck = await c.seated("member");
+	const id = await sharedBy(c, pia, "Visit Pia", []);
+	const [r] = await rows(sql`SELECT revision::text AS r FROM task WHERE id=${id}`);
+	const held = () => rows(sql`SELECT account_id FROM task_assignee WHERE task_id=${id}`);
+	const error = refused(
+		await write(c.admin, "assignFollowUp", {
+			requestKey: key(),
+			expectedRevision: r.r,
+			input: { taskId: id, assigneeIds: [ready.id, stuck.id] },
+		}),
+		"owner_ineligible",
+	);
+	assert.equal(error.details.accountId, stuck.id);
+	assert.deepEqual(await held(), []);
+	const two = await c.seated("member");
+	await committed(c, two);
+	const done = ok(
+		await write(c.admin, "assignFollowUp", {
+			requestKey: key(),
+			expectedRevision: r.r,
+			input: { taskId: id, assigneeIds: [ready.id, two.id] },
+		}),
+	).task;
+	assert.equal(done.assignees.length, 2);
+	// Create takes a list too, and checks every account.
+	refused(
+		await write(c.admin, "createFollowUp", {
+			requestKey: key(),
+			input: { personId: pia, assigneeIds: [ready.id, stuck.id] },
+		}),
+		"owner_ineligible",
+	);
+});
+
+test("AC:TARGET-TSK-013 F07b criteria 5 and 7: a handoff swaps only the leaving owner, and a contact finishes only the follow-ups the Member holds", async () => {
+	const c = await church();
+	const pia = await person(c, "Pia Hart");
+	const leaving = await c.seated("member");
+	const leavingPerson = await committed(c, leaving);
+	const keeper = await c.seated("member");
+	await committed(c, keeper);
+	const recipient = await c.seated("member");
+	await committed(c, recipient);
+	const alone = await sharedBy(c, pia, "Visit Pia", [leaving.id]);
+	const withKeeper = await sharedBy(c, pia, "Call Pia", [leaving.id, keeper.id]);
+	const alreadyThere = await sharedBy(c, pia, "Text Pia", [leaving.id, recipient.id]);
+	await f.admin.execute(sql`UPDATE person SET stage='prospect' WHERE id=${leavingPerson}`);
+	const plan = ok(await read(c.admin, "planHandoff", { fromAccountId: leaving.id }));
+	assert.equal(plan.total, 3);
+	ok(
+		await write(c.admin, "executeHandoff", {
+			requestKey: key(),
+			input: {
+				fromAccountId: leaving.id,
+				toAccountId: recipient.id,
+				items: plan.duties.map((d) => ({ taskId: d.taskId, expectedRevision: d.revision })),
+			},
+		}),
+	);
+	const held = async (id) =>
+		(await rows(sql`SELECT account_id FROM task_assignee WHERE task_id=${id}`)).map((r) => r.account_id).sort();
+	// D-d: the recipient takes the leaving account's place; a co-owner stays; one already there is not doubled.
+	assert.deepEqual(await held(alone), [recipient.id]);
+	assert.deepEqual(await held(withKeeper), [keeper.id, recipient.id].sort());
+	assert.deepEqual(await held(alreadyThere), [recipient.id]);
+	// A Member's contact with "done" finishes only the follow-ups they are an owner of.
+	const tia = await person(c, "Tia Marsh");
+	const mine = await sharedBy(c, tia, "Call Tia", [recipient.id, keeper.id]);
+	const theirs = await sharedBy(c, tia, "Visit Tia", [keeper.id]);
+	const [r] = await rows(sql`SELECT revision::text AS r FROM task WHERE id=${mine}`);
+	ok(
+		await record(
+			{ ...recipient, actor: await f.actor(recipient.session) },
+			{ kind: "task", taskId: mine, expectedRevision: r.r },
+			"contacted",
+			{ occurredAt: "2026-09-12T20:00:00Z", completeTask: true },
+		),
+	);
+	assert.deepEqual(
+		(await rows(sql`SELECT id, status FROM task WHERE id IN (${mine},${theirs}) ORDER BY title`)).map((t) => t.status),
+		["complete", "not_started"],
+	);
+});

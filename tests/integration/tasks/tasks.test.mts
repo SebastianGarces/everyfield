@@ -1541,3 +1541,209 @@ test("AC:TARGET-TSK-008 bulk changes report each task, commit all valid tasks or
 	assert.deepEqual((await get(owner, later.id)).due, { kind: "local_date", date: "2026-11-01" });
 	assert.deepEqual((await get(owner, others.id)).due, { kind: "undated" });
 });
+
+// ---------------------------------------------------------------------------------------------------------------
+// WP-023 F07b: a task has one or more assignees.
+
+test("AC:TARGET-TSK-002 F07b criteria 2 to 4: a list of assignees is checked as a whole, kept as a set and audited", async () => {
+	const assigneeIds = async (id) =>
+		(await rows(sql`SELECT account_id FROM task_assignee WHERE task_id=${id} ORDER BY account_id`)).map(
+			(r) => r.account_id,
+		);
+	// One account that cannot hold the task refuses the whole write, names it and creates nothing.
+	const before = (await rows(sql`SELECT count(*)::int n FROM task`))[0].n;
+	const bad = refused(
+		await write(owner, "create", {
+			requestKey: randomUUID(),
+			input: { title: "Mixed", assigneeIds: [member.id, foreign.id] },
+		}),
+		"invalid_subject",
+	);
+	assert.equal(bad.details.accountId, foreign.id);
+	assert.equal((await rows(sql`SELECT count(*)::int n FROM task`))[0].n, before);
+	// A repeated ID collapses to one; more than ten distinct accounts are refused.
+	const t = await create(owner, { title: "Pair", assigneeIds: [member.id, admin2.id, member.id] });
+	assert.deepEqual(
+		t.assignees.map((a) => a.accountId).sort(),
+		[member.id, admin2.id].sort(),
+	);
+	assert.deepEqual(await assigneeIds(t.id), [member.id, admin2.id].sort());
+	refused(
+		await write(owner, "create", {
+			requestKey: randomUUID(),
+			input: { title: "Crowd", assigneeIds: Array.from({ length: 11 }, () => randomUUID()) },
+		}),
+		"invalid_input",
+	);
+	// The list reads by display name, then account ID.
+	const names = t.assignees.map((a) => a.displayName.toLowerCase());
+	assert.deepEqual(names, [...names].sort());
+	// An edit with the list omitted leaves the set; one bad account in a list changes nothing.
+	const same = ok(
+		await write(owner, "edit", {
+			requestKey: randomUUID(),
+			expectedRevision: t.revision,
+			input: { taskId: t.id, patch: { title: "Pair, renamed" } },
+		}),
+	).task;
+	assert.equal(same.assignees.length, 2);
+	refused(
+		await write(owner, "edit", {
+			requestKey: randomUUID(),
+			expectedRevision: same.revision,
+			input: { taskId: t.id, patch: { assigneeIds: [admin2.id, foreign.id] } },
+		}),
+		"invalid_subject",
+	);
+	assert.deepEqual(await assigneeIds(t.id), [member.id, admin2.id].sort());
+	// A change to the set bumps the revision once and writes one audit row with the set before and after.
+	const trimmed = ok(
+		await write(owner, "edit", {
+			requestKey: randomUUID(),
+			expectedRevision: same.revision,
+			input: { taskId: t.id, patch: { assigneeIds: [admin2.id] } },
+		}),
+	).task;
+	assert.equal(BigInt(trimmed.revision) - BigInt(same.revision), 1n);
+	const audit = await rows(
+		sql`SELECT before_value, after_value FROM audit_event WHERE subject_id=${t.id} AND after_revision=${trimmed.revision}::bigint`,
+	);
+	assert.equal(audit.length, 1);
+	assert.deepEqual(audit[0].before_value.assigneeIds, [member.id, admin2.id].sort());
+	assert.deepEqual(audit[0].after_value.assigneeIds, [admin2.id]);
+	// An empty list clears the set: Needs owner.
+	const cleared = ok(
+		await write(owner, "edit", {
+			requestKey: randomUUID(),
+			expectedRevision: trimmed.revision,
+			input: { taskId: t.id, patch: { assigneeIds: [] } },
+		}),
+	).task;
+	assert.deepEqual([cleared.assignees, await assigneeIds(t.id)], [[], []]);
+});
+
+test("AC:TARGET-TSK-003 AC:TARGET-TSK-005 F07b criteria 5 and 6: any assignee acts, a Member adds nobody, children and successors keep the set", async () => {
+	const shared = await create(owner, { title: "Shared duty", assigneeIds: [member.id, admin2.id] });
+	// Another Member is not an assignee and cannot complete it; one of the assignees can.
+	const stranger = await (async () => {
+		const a = await f.account();
+		await f.seat(a, plant, "member");
+		return { ...a, actor: await f.actor(a.session) };
+	})();
+	refused(
+		await write(stranger, "complete", {
+			requestKey: randomUUID(),
+			expectedRevision: shared.revision,
+			input: { taskId: shared.id },
+		}),
+		"unavailable",
+	);
+	// A Member cannot name other accounts on a step; the step inherits the parent's whole set.
+	refused(
+		await write(member, "createSubtask", {
+			requestKey: randomUUID(),
+			expectedRevision: shared.revision,
+			input: { parentId: shared.id, title: "Mine", assigneeIds: [owner.id] },
+		}),
+		"access_denied",
+	);
+	const step = await subtask(member, shared, "Check the list");
+	assert.deepEqual(
+		step.assignees.map((a) => a.accountId).sort(),
+		[member.id, admin2.id].sort(),
+	);
+	// The next occurrence of a recurring task copies the set.
+	const weekly = await recurring({
+		title: "Weekly set-up",
+		assigneeIds: [member.id, admin2.id],
+		due: { kind: "local_date", date: "2099-03-01" },
+	});
+	const next = ok(
+		await write(member, "completeOccurrence", {
+			requestKey: randomUUID(),
+			expectedRevision: weekly.revision,
+			input: { taskId: weekly.id },
+		}),
+	).successor;
+	assert.deepEqual(
+		next.assignees.map((a) => a.accountId).sort(),
+		[member.id, admin2.id].sort(),
+	);
+	// One of the assignees completes the shared task, once, and "My tasks" lists it for each of them.
+	const mine = async (who) =>
+		ok(await read(who, "list", { view: "my", statuses: ["not_started", "in_progress", "blocked"] })).items.map(
+			(t) => t.id,
+		);
+	assert.ok((await mine(member)).includes(shared.id));
+	assert.ok((await mine(admin2)).includes(shared.id));
+	assert.equal((await mine(stranger)).includes(shared.id), false);
+	assert.equal(
+		ok(
+			await write(member, "complete", {
+				requestKey: randomUUID(),
+				expectedRevision: shared.revision,
+				input: { taskId: shared.id },
+			}),
+		).task.status,
+		"complete",
+	);
+});
+
+test("INV-statements F07b criterion 10: a page read sends the same statements for one assignee or three", async () => {
+	const third = await (async () => {
+		const a = await f.account();
+		await f.seat(a, plant, "member");
+		return a;
+	})();
+	const one = await create(owner, { title: "Solo", assigneeIds: [member.id] });
+	const three = await create(owner, { title: "Trio", assigneeIds: [member.id, admin2.id, third.id] });
+	assert.equal(three.assignees.length, 3);
+	const each = async (id) => [
+		await counted(() => read(owner, "list", { search: id === one.id ? "Solo" : "Trio" })),
+		await counted(() => read(owner, "get", { taskId: id })),
+		await counted(() => read(owner, "listSubtasks", { parentId: id })),
+	];
+	assert.deepEqual(await each(three.id), await each(one.id));
+});
+
+test("AC:TARGET-TSK-014 F07b criterion 11: each assignee gets their own reminders, and removing one withdraws only theirs", async () => {
+	const notices = (task) =>
+		rows(sql`SELECT n.recipient_id, n.purpose, n.cancelled_at IS NOT NULL cancelled FROM notice n
+			WHERE n.source_record_id=${task} ORDER BY n.recipient_id, n.eligible_at`);
+	const live = async (task) => (await notices(task)).filter((n) => !n.cancelled).map((n) => n.recipient_id);
+	const t = await create(owner, {
+		title: "Set up the room",
+		assigneeIds: [member.id, admin2.id],
+		due: { kind: "local_date", date: "2099-01-15" },
+	});
+	// A due and an overdue reminder each.
+	const both = [member.id, admin2.id].sort().flatMap((id) => [id, id]);
+	assert.deepEqual(await live(t.id), both);
+	const trimmed = ok(
+		await write(owner, "edit", {
+			requestKey: randomUUID(),
+			expectedRevision: t.revision,
+			input: { taskId: t.id, patch: { assigneeIds: [admin2.id] } },
+		}),
+	).task;
+	assert.deepEqual(await live(t.id), [admin2.id, admin2.id]);
+	// A stale reminder never reaches the removed assignee.
+	const stale = await rows(
+		sql`SELECT m.id, m.recipient_account_id recipient, m.notice_id notice FROM mail m JOIN notice n ON n.id=m.notice_id
+			WHERE n.source_record_id=${t.id}`,
+	);
+	const allowed = await f.db.transaction((tx) => authorizeTaskReminders(tx, stale));
+	assert.deepEqual(
+		[...new Set(stale.filter((m) => allowed.has(m.id)).map((m) => m.recipient))],
+		[admin2.id],
+	);
+	// Adding one plans theirs.
+	ok(
+		await write(owner, "edit", {
+			requestKey: randomUUID(),
+			expectedRevision: trimmed.revision,
+			input: { taskId: t.id, patch: { assigneeIds: [admin2.id, member.id] } },
+		}),
+	);
+	assert.deepEqual(await live(t.id), both);
+});
