@@ -8,16 +8,18 @@ import re
 ROOT = Path(__file__).resolve().parents[2]
 CLASSES = {'formal/legal', 'outward-facing', 'operational', 'email'}
 SOURCES = {'existing', 'email', 'planned', 'named'}
-FIELDS = {'id', 'title', 'class', 'format', 'phase', 'priority', 'source', 'ref'}
+FIELDS = {'id', 'title', 'class', 'editable', 'formats', 'phase', 'priority', 'source', 'ref'}
 EXISTING_IDS = re.compile(r'^    id: "([^"]+)",$', re.M)
 EMAIL_NAMES = re.compile(r'^    name: "([^"]+)",$', re.M)
 
 
-def expected_format(entry):
-    """Budgets are XLSX, class email is HTML mail and every other template is PDF."""
+def expected_formats(entry):
+    """Email is HTML mail, a budget is XLSX, an editable entry is PDF and DOCX and the rest are PDF."""
     if entry.get('class') == 'email':
-        return 'email'
-    return 'xlsx' if 'budget' in str(entry.get('id')) else 'pdf'
+        return ['email']
+    if 'budget' in str(entry.get('id')):
+        return ['xlsx']
+    return ['pdf', 'docx'] if entry.get('editable') is True else ['pdf']
 
 
 def check(root):
@@ -26,15 +28,22 @@ def check(root):
     templates = catalog['templates']
     for entry in templates:
         name = entry.get('id', '<missing id>')
-        if set(entry) != FIELDS:
-            errors.append(f'{name}: fields differ from {sorted(FIELDS)}')
+        for field in sorted(FIELDS - set(entry)):
+            errors.append(f'{name}: missing field {field!r}')
+        for field in sorted(set(entry) - FIELDS):
+            errors.append(f'{name}: unknown field {field!r}')
         if name in seen:
             errors.append(f'{name}: duplicate id')
         seen.add(name)
         if entry.get('class') not in CLASSES:
             errors.append(f'{name}: class {entry.get("class")!r} is not one of {sorted(CLASSES)}')
-        if entry.get('format') != expected_format(entry):
-            errors.append(f'{name}: format {entry.get("format")!r} breaks the rule; expected {expected_format(entry)!r}')
+        editable = entry.get('editable')
+        if 'editable' in entry and not isinstance(editable, bool):
+            errors.append(f'{name}: editable {editable!r} must be true or false')
+        elif editable and (entry.get('class') == 'email' or 'budget' in str(entry.get('id'))):
+            errors.append(f'{name}: editable must be false for an email or a budget')
+        elif 'editable' in entry and 'formats' in entry and entry['formats'] != expected_formats(entry):
+            errors.append(f'{name}: formats {entry["formats"]!r} break the rule; expected {expected_formats(entry)!r}')
         if entry.get('source') not in SOURCES:
             errors.append(f'{name}: source {entry.get("source")!r} is not one of {sorted(SOURCES)}')
         priority, phase = entry.get('priority'), entry.get('phase')
@@ -66,7 +75,7 @@ def main():
     if errors:
         print('\n'.join('FAIL: ' + e for e in errors))
         return 1
-    print(f'PASS: {count} named templates follow the format, class, priority and source rules; existing ids match docs/reference/')
+    print(f'PASS: {count} named templates follow the format, editable, class, priority and source rules; existing ids match docs/reference/')
     return 0
 
 

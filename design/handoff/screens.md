@@ -156,6 +156,7 @@ These flows have requirements but no drawing. Do not wait for a drawing. The own
 | Church workspace deletion by the Owner and its cancellation | IDN-026 (REQ-IDN-032) | WP-007, WP-010 | not designed |
 | Personal timezone for the private check-in | IDN-010, IDN-011 (REQ-IDN-033) | WP-010, WP-039 | not designed |
 | Native document writing and Word import | DOC-016 | WP-037, WP-079, WP-080 | not designed |
+| Church Documents from editable templates and their PDF and Word export | DOC-022, DOC-023 | WP-037 | not designed |
 | Your own feedback and its status | ADM-001, ADM-002 (REQ-KNOW-029) | WP-049 | not designed |
 | Discovery without a plant | IDN-016, ADM-004 (REQ-ADM-004) | WP-007, WP-009, WP-048 | not designed |
 | Wiki source order in Settings | WIKI-001 (REQ-KNOW-191) | WP-034, WP-035 | not designed; see the [README](README.md#not-designed-yet) |

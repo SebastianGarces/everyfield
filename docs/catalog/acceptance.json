@@ -3789,11 +3789,13 @@
       "EVRY-FAMILY-DOCUMENTS"
     ],
     "operations": [
-      "documents.generate",
+      "documents.createFromTemplate",
+      "documents.exportNative",
       "documents.preview"
     ],
     "work_packages": [
-      "WP-036"
+      "WP-036",
+      "WP-037"
     ]
   },
   {
@@ -3809,11 +3811,13 @@
       "EVRY-FAMILY-DOCUMENTS"
     ],
     "operations": [
-      "documents.generate",
+      "documents.createFromTemplate",
+      "documents.exportNative",
       "documents.preview"
     ],
     "work_packages": [
-      "WP-036"
+      "WP-036",
+      "WP-037"
     ]
   },
   {
@@ -3829,11 +3833,13 @@
       "EVRY-FAMILY-DOCUMENTS"
     ],
     "operations": [
-      "documents.generate",
+      "documents.createFromTemplate",
+      "documents.exportNative",
       "documents.preview"
     ],
     "work_packages": [
-      "WP-036"
+      "WP-036",
+      "WP-037"
     ]
   },
   {
@@ -16970,14 +16976,17 @@
       "REQ-DOC-019"
     ],
     "case_ids": [
-      "CASE-DOC-019"
+      "CASE-DOC-019",
+      "CASE-DOC-019-EDIT"
     ],
     "operations": [
       "documents.preview",
-      "documents.generate"
+      "documents.generate",
+      "documents.exportNative"
     ],
     "work_packages": [
-      "WP-036"
+      "WP-036",
+      "WP-037"
     ]
   },
   {
@@ -16988,14 +16997,17 @@
       "REQ-DOC-020"
     ],
     "case_ids": [
-      "CASE-DOC-020"
+      "CASE-DOC-020",
+      "CASE-DOC-020-EDIT"
     ],
     "operations": [
       "documents.preview",
-      "documents.generate"
+      "documents.generate",
+      "documents.exportNative"
     ],
     "work_packages": [
-      "WP-036"
+      "WP-036",
+      "WP-037"
     ]
   },
   {
@@ -17014,6 +17026,40 @@
     ],
     "work_packages": [
       "WP-036"
+    ]
+  },
+  {
+    "id": "AC-DOC-022--DOC-022",
+    "shared_gate_id": "AC-DOC-022",
+    "feature_id": "DOC-022",
+    "requirement_ids": [
+      "REQ-DOC-022"
+    ],
+    "case_ids": [
+      "CASE-DOC-022"
+    ],
+    "operations": [
+      "documents.createFromTemplate"
+    ],
+    "work_packages": [
+      "WP-037"
+    ]
+  },
+  {
+    "id": "AC-DOC-023--DOC-023",
+    "shared_gate_id": "AC-DOC-023",
+    "feature_id": "DOC-023",
+    "requirement_ids": [
+      "REQ-DOC-023"
+    ],
+    "case_ids": [
+      "CASE-DOC-023"
+    ],
+    "operations": [
+      "documents.exportNative"
+    ],
+    "work_packages": [
+      "WP-037"
     ]
   },
   {
