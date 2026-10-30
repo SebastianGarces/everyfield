@@ -2,7 +2,7 @@
 // sanitizer.
 
 export const audienceGroups = ["core_group", "launch_team", "leaders", "prospects", "all"] as const;
-export type AudienceGroup = (typeof audienceGroups)[number];
+type AudienceGroup = (typeof audienceGroups)[number];
 
 export const groupLabel: Record<AudienceGroup, string> = {
 	core_group: "Core group",
@@ -61,30 +61,26 @@ export type Template = {
 };
 
 export type Team = { id: string; name: string };
-export type Recipient = { id: string; displayName: string; email: string };
+export type Recipient = { id: string; displayName: string; email: string | null };
 export type AudienceSummary = {
 	resolvedDistinctPeople: number;
 	eligibleRecipients: number;
 	missingEmailExclusions: string[];
 	duplicateAddressesRemoved: number;
-};
-export type Preview = {
-	previewBody: string;
-	previewHtml: string;
-	eligibleEmails: string[];
-	excludedMissingEmail: string[];
-	duplicateAddressesRemoved: number;
+	recipients: { id: string; displayName: string; email: string }[];
+	complete: boolean;
 };
 
-export type PageData = { drafts: Draft[]; templates: Template[]; teams: Team[] };
+export type PageData = {
+	drafts: Draft[];
+	templates: Template[];
+	teams: Team[];
+	churchName: string;
+	/** The app origin, for the RSVP preview link. */
+	origin: string;
+};
 
 export type Outcome<T> = { status: "ok"; value: T } | { status: "refused"; code: string } | { status: "lost" };
-
-export const stateLabel: Record<DraftState, string> = {
-	draft: "Draft",
-	reviewed: "Reviewed",
-	scheduled: "Scheduled",
-};
 
 /** What the person can do about a refusal. The code stays the server's word. */
 export function refusalText(code: string): string {
@@ -208,6 +204,9 @@ export type HistoryItem = {
 	rate: number | null;
 	reachable: number;
 	delivered: number;
+	scheduledAt: string | null;
+	sentAt: string | null;
+	senderName: string | null;
 };
 
 export type HistoryPage = {
@@ -260,6 +259,9 @@ export type MessageDetail = {
 	bodyHtml: string | null;
 	bodyText: string | null;
 	meetingId: string | null;
+	scheduledAt: string | null;
+	sentAt: string | null;
+	senderName: string | null;
 	deliveryAddress: string | null;
 	currentPersonAddress: string | null;
 	deliveryStatus: string | null;
@@ -294,13 +296,7 @@ export type SavedResend = {
 	eligibleNames: string[];
 };
 
-export const contactOutcomes = [
-	"contacted",
-	"attempted_no_contact",
-	"administrative_completion",
-	"no_longer_needed",
-] as const;
-export type ContactOutcome = (typeof contactOutcomes)[number];
+type ContactOutcome = "contacted" | "attempted_no_contact" | "administrative_completion" | "no_longer_needed";
 export const contactLabel: Record<ContactOutcome, string> = {
 	contacted: "Contacted",
 	attempted_no_contact: "Attempt, no contact",
@@ -331,4 +327,75 @@ export function rateText(delivered: number, reachable: number, rate: number | nu
 	if (rate === null || reachable === 0) return "No reachable recipients, so there is no delivery rate.";
 	const percent = new Intl.NumberFormat(undefined, { style: "percent", maximumFractionDigits: 1 }).format(rate);
 	return `${delivered} delivered of ${reachable} reachable (${percent}).`;
+}
+
+export type MeetingContext = {
+	id: string;
+	type: MeetingType | "prelaunch_practice";
+	title: string;
+	date: string;
+	time: string;
+	place: string | null;
+	guests: { id: string; displayName: string }[];
+};
+
+/** What one Send now did. `report` is null when the email was saved and scheduled but the send step did not finish. */
+export type SendNowResult = {
+	communicationId: string;
+	revision: string;
+	scheduledAt: string;
+	report: DeliveryReport | null;
+	sendIssue: string | null;
+};
+
+export const scheduledNotSentText =
+	"The email is saved and scheduled, but it was not sent. Open it from Messages to send it again.";
+
+/** The Messages address. Every state the page can show is one of these. */
+export type Route =
+	| { kind: "history"; message: string | null; meeting: string | null; person: string | null }
+	| { kind: "compose"; id: string | "new"; step: Step; handoff: Handoff | null }
+	| { kind: "templates"; template: string | "new" | null }
+	| { kind: "address" };
+export const steps = ["who", "write", "review"] as const;
+export type Step = (typeof steps)[number];
+export type Handoff = { meeting: string; template: string | null; recipients: "guests" | null };
+
+type Query = Record<string, string | null | undefined>;
+
+/** Reads the address. Unknown values fall back to the history list. */
+export function parseRoute(q: Query): Route {
+	const step = steps.find((value) => value === q.step) ?? "who";
+	if (q.compose) return { kind: "compose", id: q.compose, step, handoff: null };
+	if (q.meeting && q.template) {
+		return {
+			kind: "compose",
+			id: "new",
+			step: "write",
+			handoff: { meeting: q.meeting, template: q.template, recipients: q.recipients === "guests" ? "guests" : null },
+		};
+	}
+	if (q.view === "templates") return { kind: "templates", template: q.template ?? null };
+	if (q.view === "address") return { kind: "address" };
+	return { kind: "history", message: q.message ?? null, meeting: q.meeting ?? null, person: q.person ?? null };
+}
+
+/** The address for a route. It round-trips with parseRoute. */
+export function routeHref(route: Route): string {
+	const params = new URLSearchParams();
+	if (route.kind === "compose") {
+		params.set("compose", route.id);
+		params.set("step", route.step);
+	} else if (route.kind === "templates") {
+		params.set("view", "templates");
+		if (route.template) params.set("template", route.template);
+	} else if (route.kind === "address") {
+		params.set("view", "address");
+	} else {
+		if (route.message) params.set("message", route.message);
+		if (route.meeting) params.set("meeting", route.meeting);
+		if (route.person) params.set("person", route.person);
+	}
+	const text = params.toString();
+	return text ? `/communication?${text}` : "/communication";
 }

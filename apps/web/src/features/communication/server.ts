@@ -9,7 +9,7 @@ import {
 } from "@everyfield/domain/communication";
 import "server-only";
 import type { Outcome, PageData } from "./model.ts";
-import { deliveryTransport, mailReady, type MailReady } from "./mail.ts";
+import { appOrigin, deliveryTransport, mailReady, type MailReady } from "./mail.ts";
 
 // The Messages screens reach the communication writer here. Reads recheck the live seat. Writes recheck authority
 // inside the write statement. A member may read drafts and templates. Audience, preview and writes need an Owner or Admin.
@@ -97,21 +97,36 @@ export async function deliver<T>(
 
 export { deliveryTransport };
 
-/** Drafts, templates and teams for the page. Three statements for an Owner or Admin. A member skips the team read. */
+/** Drafts, templates, teams and the church name for the page. A member skips the team read. */
 export function loadCommunicationPage(viewer: Viewer): Promise<Outcome<PageData>> {
+	// The sample RSVP link needs the configured origin. Without it the page says so instead of linking nowhere.
+	const origin = appOrigin();
+	if (origin === null) return Promise.resolve({ status: "refused", code: "unavailable" });
 	return read(viewer, async (tx) => {
 		const drafts = await communicationWriter.list(tx, viewer.authority);
 		if (drafts.status !== "ok") return drafts;
 		const templates = await communicationWriter.listTemplates(tx, viewer.authority);
 		if (templates.status !== "ok") return templates;
+		const church = await communicationWriter.readChurchName(tx, viewer.authority);
+		if (church.status !== "ok") return church;
+		const churchName = church.value.churchName;
 		if (!canWrite(viewer)) {
-			return { status: "ok", value: { drafts: drafts.value.drafts, templates: templates.value.templates, teams: [] } };
+			return {
+				status: "ok",
+				value: { drafts: drafts.value.drafts, templates: templates.value.templates, teams: [], churchName, origin },
+			};
 		}
 		const teams = await communicationWriter.listAudienceTeams(tx, viewer.authority);
 		if (teams.status !== "ok") return teams;
 		return {
 			status: "ok",
-			value: { drafts: drafts.value.drafts, templates: templates.value.templates, teams: teams.value.teams },
+			value: {
+				drafts: drafts.value.drafts,
+				templates: templates.value.templates,
+				teams: teams.value.teams,
+				churchName,
+				origin,
+			},
 		};
 	});
 }

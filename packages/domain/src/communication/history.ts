@@ -129,6 +129,14 @@ function reachableSql(plantId: string) {
 		WHERE ${mailOn(plantId)} AND p.state = 'live' AND p.email IS NOT NULL AND btrim(p.email) <> ''
 			AND NOT EXISTS (SELECT 1 FROM suppression s WHERE s.address_hash = m.address_hash AND s.cleared_at IS NULL))`;
 }
+function sentAtSql(plantId: string) {
+	return stamp(
+		sql`(SELECT min(coalesce(m.sent_at, m.accepted_at, m.delivered_at)) FROM mail m WHERE ${mailOn(plantId)})`,
+	);
+}
+function senderSql() {
+	return sql`(SELECT p.display_name FROM person p WHERE p.linked_account_id = c.author_id AND p.tenant_id = c.plant_id AND p.state = 'live' ORDER BY p.id LIMIT 1)`;
+}
 function deliveredSql(plantId: string) {
 	return sql`(SELECT count(*)::int FROM mail m WHERE ${mailOn(plantId)} AND m.delivered_at IS NOT NULL)`;
 }
@@ -142,6 +150,9 @@ const rawItem = z.object({
 	hubState: z.enum(HUB),
 	reachable: z.number().int(),
 	delivered: z.number().int(),
+	scheduledAt: z.string().nullable(),
+	sentAt: z.string().nullable(),
+	senderName: z.string().nullable(),
 });
 const rawPage = z.object({ asOf: z.string(), items: z.array(rawItem) });
 
@@ -159,6 +170,9 @@ function pageValue(limit: number, payload: z.infer<typeof rawPage>) {
 		rate: row.reachable > 0 ? row.delivered / row.reachable : null,
 		reachable: row.reachable,
 		delivered: row.delivered,
+		scheduledAt: row.scheduledAt,
+		sentAt: row.sentAt,
+		senderName: row.senderName,
 	}));
 	const reachable = items.reduce((sum, row) => sum + row.reachable, 0);
 	const delivered = items.reduce((sum, row) => sum + row.delivered, 0);
@@ -197,7 +211,10 @@ function itemsJson(
 					c.created_at AS sort_at,
 					${stateSql} AS "hubState",
 					${reachableSql(plantId)} AS reachable,
-					${deliveredSql(plantId)} AS delivered
+					${deliveredSql(plantId)} AS delivered,
+					${stamp(sql`c.scheduled_at`)} AS "scheduledAt",
+					${sentAtSql(plantId)} AS "sentAt",
+					${senderSql()} AS "senderName"
 				FROM communication c
 				WHERE c.plant_id = ${plantId}::uuid
 					AND ${extra}
@@ -437,6 +454,9 @@ const detailShape = z.object({
 	bodyHtml: z.string().nullable(),
 	bodyText: z.string().nullable(),
 	meetingId: z.uuid().nullable(),
+	scheduledAt: z.string().nullable(),
+	sentAt: z.string().nullable(),
+	senderName: z.string().nullable(),
 	recipients: z.array(
 		z.object({
 			personId: z.uuid().nullable(),
@@ -463,6 +483,7 @@ export async function getDetail(tx: Tx, authority: RequestActor, request: unknow
 					CASE WHEN c.id IS NULL THEN NULL ELSE jsonb_build_object(
 						'id', c.id, 'revision', c.revision::text, 'state', c.state, 'subject', c.subject,
 						'bodyHtml', c.body_html, 'bodyText', c.body_text, 'meetingId', c.meeting_id,
+						'scheduledAt', ${stamp(sql`c.scheduled_at`)}, 'sentAt', ${sentAtSql(reader.plantId)}, 'senderName', ${senderSql()},
 						'recipients', coalesce((
 							SELECT jsonb_agg(jsonb_build_object(
 								'personId', m.recipient_person_id, 'mailId', m.id,
@@ -507,6 +528,9 @@ export async function getDetail(tx: Tx, authority: RequestActor, request: unknow
 		bodyHtml: row.bodyHtml,
 		bodyText: row.bodyText,
 		meetingId: row.meetingId,
+		scheduledAt: row.scheduledAt,
+		sentAt: row.sentAt,
+		senderName: row.senderName,
 		deliveryAddress: first?.deliveryAddress ?? null,
 		currentPersonAddress: first?.currentPersonAddress ?? null,
 		deliveryStatus: first?.deliveryStatus ?? null,

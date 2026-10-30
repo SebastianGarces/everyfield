@@ -9,6 +9,7 @@ import {
 	renderTransactional,
 	scheduleAccepted,
 	usesRsvpLink,
+	type MergeKey,
 } from "@everyfield/contracts/communication";
 import type { RequestActor } from "../access/session.ts";
 import { audiencePeople, reviewedParts } from "./audience.ts";
@@ -334,7 +335,10 @@ async function prepare(
 		const id = randomUUID();
 		// Each recipient gets their own message. The raw token lives only in this message and the provider call.
 		const token = canLink && guests.has(person.id) ? newRsvpToken() : null;
-		const merge = { name: person.displayName, rsvp_link: token ? `${keys.origin}/rsvp/${token}` : "" };
+		const merge: Record<MergeKey, string> = {
+			name: person.displayName,
+			rsvp_link: token ? `${keys.origin}/rsvp/${token}` : "",
+		};
 		const html = renderEmailHtml(found.body_html!, merge, { churchName: found.church_name ?? "" });
 		const text = plainText(renderBody(found.body_html!, merge)) || found.subject!;
 		const payloadHash = hash({

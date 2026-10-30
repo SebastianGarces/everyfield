@@ -68,6 +68,8 @@ export function audiencePeople(plantId: string, audience: AudienceInput): SQL {
 	), '[]'::jsonb)`;
 }
 
+const NAMED_CAP = 200;
+
 export function summarizeAudience(raw: unknown) {
 	const rows = z.array(personRow).parse(raw ?? []);
 	const missing = rows
@@ -75,6 +77,7 @@ export function summarizeAudience(raw: unknown) {
 		.map((row) => row.displayName)
 		.sort((a, b) => a.localeCompare(b));
 	const withEmail = rows.filter((row) => row.email?.trim());
+	const named = [...withEmail].sort((a, b) => a.displayName.localeCompare(b.displayName) || a.id.localeCompare(b.id));
 	const emails = new Set(withEmail.map((row) => row.email!.trim().toLowerCase()));
 	const occurrences = withEmail.reduce((sum, row) => sum + row.n, 0);
 	return audienceResult.parse({
@@ -85,6 +88,10 @@ export function summarizeAudience(raw: unknown) {
 		eligibleEmails: [...emails].sort(),
 		searchResultLimit: 20,
 		searchLimitTruncatesAudience: false,
+		recipients: named
+			.slice(0, NAMED_CAP)
+			.map((row) => ({ id: row.id, displayName: row.displayName, email: row.email!.trim() })),
+		complete: named.length <= NAMED_CAP,
 	});
 }
 
