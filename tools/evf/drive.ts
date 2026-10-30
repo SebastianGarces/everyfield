@@ -186,10 +186,7 @@ export function nextStage(task: TaskRef, t: TaskRow, runs: RunRow[], picked = fa
 	const passed = last.status === "passed";
 	const again = (stage: Stage) => go(stage, `${last.stage} ${last.status}: ${last.summary ?? ""}`.trim());
 	// A seat whose pane went away (run aborted) launches the same stage again, with the same round.
-	if (
-		last.status === "aborted" &&
-		["plan", "implement", "simplify", "verify"].includes(last.stage)
-	)
+	if (last.status === "aborted" && ["plan", "implement", "simplify", "verify"].includes(last.stage))
 		return again(last.stage as Stage);
 	switch (last.stage as Stage) {
 		case "plan":
