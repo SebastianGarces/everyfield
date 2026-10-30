@@ -906,12 +906,13 @@ test("OPS-65-auto: every role launches with --dangerously-skip-permissions throu
 	assert.equal(planAnswer?.length, 1, "the planner --resume answer path keeps --permission-mode plan");
 });
 
-test("OPS-65-settings: deny and ask rules and the hooks are unchanged; the only allow addition targets post-review.mjs (a wildcard cannot anchor the path, so the absolute form also matches extra arguments)", () => {
+test("OPS-65-settings: deny rules and the hooks are unchanged, no ask rule remains (OPS-71); the only allow addition targets post-review.mjs (a wildcard cannot anchor the path, so the absolute form also matches extra arguments)", () => {
 	const settings = JSON.parse(readFileSync(join(source, ".claude/settings.json"), "utf8")) as {
 		permissions: { allow: string[]; ask: string[]; deny: string[] };
 		hooks: Record<string, unknown[]>;
 	};
-	assert.deepEqual(settings.permissions.ask, ["Bash(git push)", "Bash(git push *)"]);
+	// OPS-71 removed the git push ask rule; the deny rules below still stop main, force and mirror pushes.
+	assert.equal(settings.permissions.ask, undefined);
 	assert.deepEqual(settings.permissions.deny, [
 		"Bash(git push *--force*)",
 		"Bash(git push -f*)",
