@@ -9,8 +9,8 @@ import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const DEFAULT_LIMIT = 4;
-export const DEFAULT_WAIT_MS = 20 * 60_000;
+const DEFAULT_LIMIT = 4;
+const DEFAULT_WAIT_MS = 20 * 60_000;
 const DEAD_STATES = new Set(["removed", "failed", "expired"]);
 const FINISHED_TASK = new Set(["merged", "done", "abandoned"]);
 
@@ -21,14 +21,14 @@ const portless = (args) => {
 };
 
 /** Every preview record portless knows, including removed ones. */
-export function previewRecords() {
+function previewRecords() {
   const r = portless(["status", "--json"]);
   if (r.status !== 0) throw new Error(`portless preview status failed: ${(r.stderr || r.stdout).trim().slice(0, 200)}`);
   const records = JSON.parse(r.stdout);
   if (!Array.isArray(records)) throw new Error("Portless status must return an array.");
   return records;
 }
-export const isLive = (preview) => !DEAD_STATES.has(preview.state);
+const isLive = (preview) => !DEAD_STATES.has(preview.state);
 
 const alive = (pid) => {
   try {
@@ -56,7 +56,7 @@ async function openStore(common, readOnly = true) {
  * Why a live preview is an orphan nobody needs, or null when it must stay. `root` is the main checkout, `common` the
  * shared Git directory.
  */
-export function orphanReason(preview, { root, common, store }) {
+function orphanReason(preview, { root, common, store }) {
   const project = preview.project;
   if (!existsSync(project)) return `its project ${project} no longer exists`;
   const dir = dirname(project);
