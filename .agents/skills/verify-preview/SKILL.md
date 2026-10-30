@@ -5,8 +5,13 @@ description: "Apply when you verify a PR as the independent Opus verifier. Run t
 
 # Verify on a preview
 
-You prove the change works on a running copy of the exact PR head. The author's summary is not
-evidence. Scripts are in `scripts/` next to this file. They need Node 22+, `gh`, `portless`, the
+You prove the change works. The author's summary is not evidence, but the author's proof is: read the
+diff in full and judge the code (D66), read `bin/evf proof show <task>` and open each proof's evidence.
+Spot-check. Re-run a flow on a preview of the exact PR head only where a proof is unmet, missing or looks
+wrong. When only a screenshot is missing, capture it (step 3) and record it with `bin/evf proof add`
+instead of requesting changes. Proof from an earlier head of the branch carries forward. You own the
+approve or `changes_requested` verdict. The Experience section may use the author's recorded
+measurements; re-measure where they look wrong or missing. Scripts are in `scripts/` next to this file. They need Node 22+, `gh`, `portless`, the
 local env files of the main checkout and, for `publish.mjs`, the evidence env file (step 5). Every command below runs from any checkout of this repo.
 
 ```bash

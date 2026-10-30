@@ -58,7 +58,7 @@ process; `EVF_TUI_LABEL` overrides the label for a test or a scratch workspace) 
 `EVF_WORKTREE` and `EVF_SESSION`. evf records the run and a `stage_start` event in the work store:
 `runs.herdr_pane` is the seat's pane and `tasks.herdr_workspace_id` is the TUI workspace. `--dry-run` prints every
 step. The role files are `.claude/agents/<role>.md`: planner and verifier on Opus 5.5 high, implementer, ui,
-simplifier and evidence on Sonnet 5.5 medium. Every seat has the advisor and the update prompt disabled.
+simplifier on Sonnet 5.5 medium. The implementer seat does UI work too and proves its own work; the ui seat is opt-in with the spec line `Seat: ui`. Every seat has the advisor and the update prompt disabled.
 
 The agent files set `permissionMode: bypassPermissions`. The repository's `permissions.deny` rules and its hooks
 stay in force under the flag; `ask` rules may not prompt. `dontAsk` is never used.
@@ -90,12 +90,19 @@ not a sandbox: it covers the edit tools only, and a seat with shell access can s
 ## Drive loop
 
 `evf drive <task>` runs implement mode as a stage machine kept in the work store: plan → implement →
-simplify → pr → evidence → verify → ci → ship → merged. Seat stages launch a fresh session through
+simplify → pr → verify → ci → ship → merged. Seat stages launch a fresh session through
 `evf launch` with a stage prompt, wait on it through Herdr and expect it to close with
 `evf run done <run> --status passed|failed --summary-file <file>`; the Stop hook blocks a seat that
 tries to end its turn with the stage open, and a seat that goes idle twice without closing is aborted.
-evf runs pr (from the PR body the implementer wrote to the task's runtime dir), ci (polls the PR checks)
-and ship itself and records them as runs of role `evf`. A failed verify or ci costs a round; the fourth
+evf runs pr, ci and ship itself and records them as runs of role `evf`. The pr stage runs the author checks
+(`evf verify <task>`) at the current head, then opens or updates the PR from the body the implementer wrote to
+the task's runtime dir. A simplifier commit therefore never costs a round: when the checks fail at a head that
+followed a passed simplify, the next stage is simplify with the failure in its prompt, and no implement run starts.
+The implementer proves its own work before it closes: tests, 390 and 1440 px screenshots of each UI state it
+changed and one `evf proof add` per Done criterion it built or changed. evf adds no gate on that close; the
+verifier covers a missing proof. UI work runs in the implementer seat unless the spec has the line `Seat: ui`.
+The verifier reads the full diff, reads the proof table and re-runs a flow only where a proof is unmet,
+missing or looks wrong; it captures a missing screenshot itself. A failed verify or ci costs a round; the fourth
 round sets the task to escalated, records `loop_cap_hit` and `escalation`, shows a Herdr notification
 and launches nothing more. Any other failure costs no round, but three failures in a row without a
 passed stage escalate the same way, so no loop runs unattended forever. `evf task reopen <task> --reason
@@ -104,7 +111,10 @@ passed stage escalate the same way, so no loop runs unattended forever. `evf tas
 run, so the task gets three more failures before it escalates again. It resets only the trailing-failure
 count, never the round (a task at the loop cap escalates again on its next failed verify or ci), and
 it edits no run, event, approval or proof. It replaces the hand-written sqlite UPDATE. It refuses a task
-that is not escalated and refuses inside a seat (`EVF_RUN` set). A blocked seat is notified once per
+that is not escalated and refuses inside a seat (`EVF_RUN` set). The drive waits on a seat in slices of one seat-poll interval and reads the run
+status from the store before each slice, so a run that already passed, failed or aborted ends the wait at once.
+A seat whose Herdr agent no longer exists, while its run is still started, gets its run closed as aborted, and the
+next transition launches that stage again with the same round. A blocked seat is notified once per
 blocked episode and polled every few seconds until it leaves `blocked`; an `idle` report before the launch prompt
 began its turn is not a finished turn. `evf launch` waits until the new pane is an available shell (Herdr
 `pane process-info`: `foreground_process_group_id` equals `shell_pid`, 30 s) and retries `agent_pane_busy`
@@ -125,8 +135,9 @@ with its merge commit and one `merged` event, or one merged row when the store h
 sections; the Done list starts at a Done header such as `Done when:` or `## Done criteria`), `evf proof add` one
 proof row per Done criterion bound to the worktree head, `evf check` the author checks as an event when
 the store knows the task, and `evf ask planner` forks the planner's session in plan mode for a question.
-A verify run closes passed only when every numbered Done criterion has a `met` or `n/a` proof at the
-worktree head (guard rail 3). For a driven task (one with an evf run), ship also refuses an EVF-Author
+A verify run closes passed only when the latest proof row of every numbered Done criterion is `met` or `n/a`
+and that row's head is the worktree head or one of its ancestors. Proof carries forward across a later commit; a
+row at a head outside the branch history does not count, and `evf proof show` marks carried rows. For a driven task (one with an evf run), ship also refuses an EVF-Author
 or EVF-Review session that evf never launched; a task row alone, from `evf check` or a launch by hand,
 changes nothing for an ordinary PR.
 
