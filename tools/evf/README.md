@@ -471,6 +471,13 @@ For a genuinely monitored job, first register its watcher and then set `EVF_MONI
 watcher's name. CI sets it to the GitHub Actions job. Neither variable creates a watcher.
 The same check applies when `task start` starts a stack.
 
+evf passes the promise to the processes it waits on. Its check runner (`verify`, `check` and the
+drive's pr stage) sets `EVF_MONITOR` to `evf verify <task>` for each check child, so a check that
+runs `evf test` or `evf check` does not refuse. A seat that `evf drive` launches carries
+`EVF_MONITOR=evf drive <task>`, because the drive watches that run. A seat from `evf launch` or
+`evf seat` does not. A background drive (`nohup bin/evf drive <task> &` or `--detach`) needs no
+`EVF_FOREGROUND=1`. A top-level call from a shell that no evf process supervises still refuses.
+
 `bin/evf ci-tests` follows the pnpm scripts called by `.github/workflows/ci.yml`, including
 recursive package scripts and package-name filters, and expands Node test globs. `evf test`
 runs it before the tooling regressions. A new `.test.mts` file under `tests/integration` or

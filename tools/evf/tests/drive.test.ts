@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { chmodSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { assistantLine, fixture, sessionStartJs, source, writeTranscript } from "./fixtures.ts";
@@ -44,23 +44,36 @@ function fakeHerdr(root: string) {
 	};
 }
 
-function driveFixture(opts: { failWhenFile?: string } = {}) {
+function driveFixture(opts: { failWhenFile?: string; nested?: string[] } = {}) {
 	const f = fixture(),
 		task = parseTask("OPS-1");
 	// A check that fails while `failWhenFile` exists in the worktree lets a test fail the author checks at one head.
-	const checks = opts.failWhenFile
+	// `nested` makes the first check run a guarded evf command through main.ts, once: the nested verify sees EVF_NESTED.
+	const checks = opts.nested
 		? [
 				{
-					name: "fixture-check",
+					name: "nested-evf",
 					run: [
 						process.execPath,
 						"-e",
-						`process.exit(require("node:fs").existsSync(${JSON.stringify(opts.failWhenFile)}) ? 1 : 0)`,
+						`if(process.env.EVF_NESTED)process.exit(0);const r=require("node:child_process").spawnSync(process.execPath,[${JSON.stringify(join(source, "tools/evf/main.ts"))},...${JSON.stringify(opts.nested)}],{encoding:"utf8",env:{...process.env,EVF_NESTED:"1"}});console.log("nested exit "+r.status);console.log(r.stdout);console.error(r.stderr);process.exit(r.status)`,
 					],
 				},
 				...f.cfg.checks.slice(1),
 			]
-		: f.cfg.checks;
+		: opts.failWhenFile
+			? [
+					{
+						name: "fixture-check",
+						run: [
+							process.execPath,
+							"-e",
+							`process.exit(require("node:fs").existsSync(${JSON.stringify(opts.failWhenFile)}) ? 1 : 0)`,
+						],
+					},
+					...f.cfg.checks.slice(1),
+				]
+			: f.cfg.checks;
 	f.cfg.maintenanceTasks = { "OPS-1": { title: "Drive", owningPaths: ["tools/evf/"], checks } };
 	writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
 	f.commit();
@@ -1733,6 +1746,130 @@ test("OPS-74-toolong: a launch line over the limit escalates the task at once wi
 		);
 		assert.equal(f.herdr.calls().filter((c) => c[0] === "agent" && c[1] === "start").length, 0);
 		assert.equal(driveOnce(f.root, f.task, TIMING).stage, "escalated");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+const NO_PROMISE = { EVF_MONITOR: "", EVF_FOREGROUND: "" };
+
+/** Run a command to its end with no controlling terminal and without either foreground variable. */
+function detached(f: { root: string }, args: string[], env: Record<string, string> = {}): Promise<number | null> {
+	return new Promise((resolve) => {
+		const child = spawn(process.execPath, [join(source, "tools/evf/main.ts"), ...args], {
+			cwd: f.root,
+			detached: true,
+			stdio: "ignore",
+			env: {
+				...process.env,
+				EVF_RUN: "",
+				EVF_WORKTREE: "",
+				EVF_SESSION: "",
+				EVF_ROLE: "",
+				EVF_STAGE: "",
+				...NO_PROMISE,
+				...env,
+			},
+		});
+		child.on("exit", resolve);
+	});
+}
+
+const nestedLog = (f: ReturnType<typeof driveFixture>) =>
+	readFileSync(
+		(
+			JSON.parse(readFileSync(join(evidenceDir(f.root, f.task, head(f), "author-full"), "checks.json"), "utf8")) as {
+				checks: Array<{ log: string }>;
+			}
+		).checks[0]!.log,
+		"utf8",
+	);
+
+test("OPS-75-drive: a drive with no terminal and no foreground variable passes the pr-stage checks that run a guarded evf command", async () => {
+	const f = driveFixture({ nested: ["check", "OPS-1"] });
+	try {
+		withPr(f);
+		runDone(f.root, f.insertRun("simplify", "simplifier", "started"), { status: "passed", summary: "simplified" });
+		assert.equal(nextOf(f).stage, "pr");
+		assert.equal(await detached(f, ["drive", "OPS-1", "--once"]), 0);
+		assert.deepEqual([f.runs().at(-1)!.stage, f.runs().at(-1)!.role, f.runs().at(-1)!.status], ["pr", "evf", "passed"]);
+		assert.equal(f.taskRow().pr_number, 77);
+		const log = nestedLog(f);
+		assert.match(log, /nested exit 0/);
+		assert.doesNotMatch(log, /detached from a terminal/);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-75-detach: evf drive --detach passes the pr-stage checks with neither foreground variable", async () => {
+	const f = driveFixture({ nested: ["check", "OPS-1"] });
+	try {
+		withPr(f);
+		// --detach starts <root>/tools/evf/main.ts; the fixture root has the templates only.
+		symlinkSync(join(source, "tools/evf/main.ts"), join(f.root, "tools/evf/main.ts"));
+		runDone(f.root, f.insertRun("simplify", "simplifier", "started"), { status: "passed", summary: "simplified" });
+		assert.equal(await detached(f, ["drive", "OPS-1", "--once", "--detach"]), 0);
+		for (let i = 0; i < 600 && f.runs().at(-1)?.stage !== "pr"; i++) sleep(100);
+		for (let i = 0; i < 600 && f.runs().at(-1)?.status === "started"; i++) sleep(100);
+		assert.deepEqual([f.runs().at(-1)!.stage, f.runs().at(-1)!.status], ["pr", "passed"]);
+		assert.doesNotMatch(nestedLog(f), /detached from a terminal/);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-75-verify: a guarded evf command inside a top-level verify check runs and logs its own output", async () => {
+	for (const command of [
+		["check", "OPS-1"],
+		["verify", "OPS-1"],
+	]) {
+		const f = driveFixture({ nested: command });
+		try {
+			// The top level has the promise, as a person with EVF_FOREGROUND=1 does; the nested command inherits none of it.
+			assert.equal(await detached(f, ["verify", "OPS-1"], { EVF_FOREGROUND: "1" }), 0, command.join(" "));
+			const log = nestedLog(f);
+			assert.match(log, /nested exit 0/);
+			assert.match(log, /PASSED/);
+			assert.doesNotMatch(log, /detached from a terminal/);
+		} finally {
+			f.db.close();
+			f.close();
+		}
+	}
+});
+
+test("OPS-75-guard: a top-level guarded command with no terminal, no variable and no evf parent still refuses", async () => {
+	const f = driveFixture();
+	try {
+		const r = spawnSync(process.execPath, [join(source, "tools/evf/main.ts"), "check", "OPS-1"], {
+			cwd: f.root,
+			encoding: "utf8",
+			detached: true,
+			env: { ...process.env, ...NO_PROMISE },
+		});
+		assert.equal(r.status, 1);
+		assert.match(r.stderr, /detached from a terminal/);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-75-seat: a seat the drive launches carries the promise naming the drive; a manual launch does not", () => {
+	const f = driveFixture();
+	try {
+		const ask = f.file("ask.md", "Make the doghouse usable.");
+		assert.equal(cli(f.root, {}, "task", "new", "OPS-1", "--ask-file", ask, "--title", "Usable doghouse").status, 0);
+		const manual = cli(f.root, {}, "launch", "OPS-1", "--role", "planner", "--dry-run");
+		assert.equal(manual.status, 0, manual.stderr);
+		assert.doesNotMatch(manual.stdout, /EVF_MONITOR/);
+		driveOnce(f.root, f.task, TIMING);
+		const create = f.herdr.calls().find((c) => c[0] === "workspace" && c[1] === "create")!;
+		assert.ok(create.includes("EVF_MONITOR=evf drive OPS-1"), create.join(" "));
 	} finally {
 		f.db.close();
 		f.close();
