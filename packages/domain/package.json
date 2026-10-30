@@ -20,7 +20,9 @@
 		"./communication": "./src/communication/index.ts",
 		"./wiki": "./src/wiki/index.ts",
 		"./documents": "./src/documents/index.ts",
-		"./branding": "./src/branding/index.ts"
+		"./branding": "./src/branding/index.ts",
+		"./branding/theme": "./src/branding/theme.ts",
+		"./branding/color": "./src/branding/color.ts"
 	},
 	"scripts": {
 		"typecheck": "tsc --noEmit",

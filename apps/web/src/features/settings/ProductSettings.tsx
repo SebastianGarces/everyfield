@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { loadPage } from "../identity/api";
+import { getBrand, resetBrand, saveBrand } from "./brand/actions";
 import {
 	changePassword,
 	getSection,
@@ -35,6 +36,7 @@ const PORT: SettingsPort = {
 	saveChurch,
 	previewPlantTimezone,
 	setPlantTimezone,
+	brand: { get: getBrand, save: saveBrand, reset: resetBrand },
 	flows: { requestEmailChange, changePassword, previewPersonalTimezone, setPersonalTimezone, requestAccountDeletion },
 };
 const hrefFor = (key: SectionKey) => `/settings/${key}`;

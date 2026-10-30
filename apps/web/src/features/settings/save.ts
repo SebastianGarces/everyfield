@@ -2,12 +2,12 @@
 
 import { useRef, useState } from "react";
 import { errorReference, errorText, sameValue } from "./model";
-import { newRequestKey, type Reply, type SettingsError } from "./port";
+import { newRequestKey, type BrandError, type Reply, type SettingsError } from "./port";
 
 /** The reference of a write whose reply never arrived: it may have been applied. */
 export const OFFLINE_REFERENCE = "EF-OFFLINE";
 
-export type Refusal = { message: string; reference: string; code: SettingsError["code"] };
+export type Refusal = { message: string; reference: string; code: SettingsError["code"] | BrandError["code"] };
 
 export type Outcome<T> = { ok: true; value: T } | { ok: false; refusal: Refusal };
 
