@@ -291,6 +291,10 @@ works. If the pool is still full it waits and polls (`EVF_PREVIEW_POLL_MS`, 15 s
 the drive log repeats. After `EVF_PREVIEW_WAIT_MS` (20 min) it fails with the wait, the limit and the projects that
 hold the slots.
 
+`scripts/preview.json` sets `IDENTITY_ORIGIN` to `${PREVIEW_URL}`, so each `corepack pnpm stack:up` preview trusts its own
+URL and sign-in works on any new preview id without env file edits. The verify-preview launcher does the same. A preview
+started before this change keeps its old env until you run `stack:down` and `stack:up`.
+
 ## Stale task rows
 
 `evf task abandon <task> [--id <store id>] --reason "<two words or more>"` sets a stale row to `abandoned` and records
