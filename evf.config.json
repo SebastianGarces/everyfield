@@ -1076,6 +1076,21 @@
 				}
 			],
 			"risk": "ordinary"
+		},
+		"OPS-71": {
+			"title": "Test environment hygiene: no leaked timing volumes, seeds coexist with preview, no git-push ask rule",
+			"owningPaths": ["tools/evf/", ".agents/skills/verify-preview/", ".claude/settings.json", "evf.config.json"],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "workflow-regressions",
+					"run": ["bin/evf", "test"]
+				}
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {
