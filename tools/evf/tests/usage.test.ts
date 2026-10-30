@@ -59,7 +59,7 @@ test("OPS-69-migration: 003 adds the cache columns and keeps every row of a vers
 		db.exec(
 			"INSERT INTO runs (task_id, stage, role, session_id, tokens_in, tokens_out, cost_est, started_at) VALUES (1, 'plan', 'planner', 's', 7, 8, 1.5, 'x')",
 		);
-		assert.deepEqual(migrate(db).applied, ["003-usage-columns.sql"]);
+		assert.deepEqual(migrate(db).applied, ["003-usage-columns.sql", "004-task-seat-override.sql"]);
 		assert.deepEqual(
 			{
 				...db
