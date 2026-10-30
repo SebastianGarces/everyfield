@@ -18,6 +18,7 @@ import type { RequestActor } from "../access/session.ts";
 import { liveRead } from "../access/session.ts";
 import { meetingOpenSql } from "../meetings/tokens.ts";
 import { audiencePeople, reviewedParts, summarizeAudience } from "./audience.ts";
+import { personMatches } from "./search.ts";
 import {
 	correctContactLog as correctContactLogCommand,
 	executeResend as executeResendCommand,
@@ -350,6 +351,7 @@ export const communicationWriter = {
 	get: (tx: Tx, authority: RequestActor, raw: unknown) => readReply(() => getDraft(tx, authority, raw)),
 	getDraft: (tx: Tx, authority: RequestActor, raw: unknown) => readReply(() => getDraft(tx, authority, raw)),
 	listDrafts: (tx: Tx, authority: RequestActor) => readReply(() => listDrafts(tx, authority, "draft")),
+	readChurchName: (tx: Tx, authority: RequestActor) => readReply(() => churchName(tx, authority)),
 	listAudienceTeams: (tx: Tx, authority: RequestActor) => readReply(() => teams(tx, authority)),
 	listTemplates: (tx: Tx, authority: RequestActor) => readReply(() => templates(tx, authority)),
 	getTemplate: (tx: Tx, authority: RequestActor, raw: unknown) => readReply(() => template(tx, authority, raw)),
@@ -850,18 +852,16 @@ async function audience(tx: Tx, authority: RequestActor, request: unknown) {
 async function recipients(tx: Tx, authority: RequestActor, request: unknown) {
 	const input = parse(c.searchRecipientsRequest, request);
 	const { reader, access } = accessOf(authority);
-	const like = `%${input.query.replace(/[\\%_]/g, (char) => `\\${char}`)}%`;
 	const raw = one(
 		await tx.execute(
 			whenLive(
 				allowed(access, reader, true),
 				sql`SELECT coalesce((
-					SELECT jsonb_agg(jsonb_build_object('id', id, 'displayName', display_name, 'email', email))
+					SELECT jsonb_agg(jsonb_build_object('id', id, 'displayName', display_name, 'email', nullif(btrim(email), '')))
 					FROM (
 						SELECT id, display_name, email FROM person
 						WHERE plant_id = ${reader.plantId}::uuid AND tenant_id = ${reader.plantId}::uuid AND state = 'live'
-						AND email IS NOT NULL AND btrim(email) <> ''
-						AND (display_name ILIKE ${like} ESCAPE '\\' OR email ILIKE ${like} ESCAPE '\\')
+						AND ${personMatches(input.query)}
 						ORDER BY display_name, id LIMIT 20
 					) found
 				), '[]'::jsonb) AS people`,
@@ -870,7 +870,7 @@ async function recipients(tx: Tx, authority: RequestActor, request: unknown) {
 	) as { allowed: boolean };
 	requireAllowed(raw.allowed);
 	const found = z
-		.object({ people: z.array(z.object({ id: z.uuid(), displayName: z.string(), email: z.string() })) })
+		.object({ people: z.array(z.object({ id: z.uuid(), displayName: z.string(), email: z.string().nullable() })) })
 		.parse(raw);
 	return c.recipientResult.parse({ people: found.people, limit: 20 });
 }
@@ -993,6 +993,20 @@ async function listDrafts(tx: Tx, authority: RequestActor, state: "draft" | null
 	requireAllowed(raw.allowed);
 	const found = z.object({ rows: z.array(draftRow) }).parse(raw);
 	return c.draftListResult.parse({ drafts: found.rows.map(asDraft) });
+}
+/** The church name for the Messages chrome. Any seat that may read messages may read it. */
+async function churchName(tx: Tx, authority: RequestActor) {
+	const { reader, access } = accessOf(authority);
+	const raw = one(
+		await tx.execute(
+			whenLive(
+				allowed(access, reader, false),
+				sql`SELECT (SELECT name FROM plant WHERE id = ${reader.plantId}::uuid) AS name`,
+			),
+		),
+	) as { allowed: boolean; name: string | null };
+	requireAllowed(raw.allowed);
+	return c.churchNameResult.parse({ churchName: raw.name });
 }
 async function teams(tx: Tx, authority: RequestActor) {
 	const { reader, access } = accessOf(authority);
