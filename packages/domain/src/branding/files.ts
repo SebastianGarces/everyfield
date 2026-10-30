@@ -20,7 +20,7 @@ import { SLOT_ID_COLUMNS, stagedUpload } from "./kit.ts";
  * Reads asset bytes only while the kit references the file now. The settings read needs an Owner or Admin seat; the
  * theme read accepts any active seat. Both check the live session and seat in the same statement as the reference.
  */
-function brandAssetReader(scope: Scope, mode: "settings" | "theme"): ResourceAuthorizer {
+export function brandAssetReader(scope: Scope, mode: "settings" | "theme"): ResourceAuthorizer {
 	return async (tx, file, intent) => {
 		if (intent !== "read" || file.tenant_id !== scope.plantId || file.purpose !== "brand_asset") return null;
 		const live = mode === "settings" ? scope.admin : scope.seat;
