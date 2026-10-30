@@ -3,7 +3,7 @@
  * (which text a seat must see), so the two never disagree about what the Done list is.
  *
  * A section starts at a Markdown heading or at an unindented label line: Goal, Done (criteria, when), Non-goals,
- * Approach, Facts or Decisions, plain ("Done when:"), bold ("**Non-goals**") or with text after the colon
+ * Approach, Facts, Decisions or Later slices, plain ("Done when:"), bold ("**Non-goals**") or with text after the colon
  * ("Non-goals: lighting."). Blank lines never end a section. Text before the first section is one "other" section.
  */
 
@@ -12,7 +12,7 @@ export type Section = { kind: SectionKind; title: string; lines: string[] };
 
 const HEADING = /^\s{0,3}#{1,6}\s+(.*)$/;
 const LABEL =
-	/^[*_]{0,2}(goal|done(?: criteria| when)?|non-goals|approach|facts|decisions)\b([^:\n]{0,60}?)[*_]{0,2}\s*(?::|$)/i;
+	/^[*_]{0,2}(goal|done(?: criteria| when)?|non-goals|approach|facts|decisions|later slices)\b([^:\n]{0,60}?)[*_]{0,2}\s*(?::|$)/i;
 
 const kindOf = (title: string): SectionKind =>
 	/^non-goals/i.test(title) ? "non-goals" : /^done\b/i.test(title) ? "done" : /^goal\b/i.test(title) ? "goal" : "other";
