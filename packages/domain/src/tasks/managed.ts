@@ -40,7 +40,7 @@ const factsRow = z.object({
 	),
 	existing: z.array(existingRow),
 	people: z.record(z.string(), z.string()),
-	seats: z.record(z.string(), z.string()),
+	seats: z.array(z.string()),
 	// The display name of each named assignee, whether or not the seat is current.
 	names: z.record(z.string(), z.string()),
 	// Why each named assignee cannot own a follow-up, or null when it can (REQ-TSK-012).
@@ -62,8 +62,8 @@ export function obligationFacts(plantId: string, meetings: SQL, people: SQL, ass
 			FROM obligation o WHERE o.plant_id=${plantId}::uuid AND o.meeting_id=ANY(${meetings})),
 		'people', (SELECT coalesce(jsonb_object_agg(id,display_name),'{}') FROM person WHERE tenant_id=${plantId}::uuid
 			AND plant_id IS NOT NULL AND state='live' AND id=ANY(${people})),
-		'seats', (SELECT coalesce(jsonb_object_agg(s.account_id,i.display_name),'{}') FROM seat s
-			CROSS JOIN LATERAL seat_identity(s.account_id) i WHERE s.plant_id=${plantId}::uuid AND s.ended_at IS NULL
+		'seats', (SELECT coalesce(jsonb_agg(s.account_id),'[]') FROM seat s
+			WHERE s.plant_id=${plantId}::uuid AND s.ended_at IS NULL
 			AND s.accepted_at<=clock_timestamp() AND s.account_id=ANY(${assignees})),
 		'names', (SELECT coalesce(jsonb_object_agg(u.a, coalesce(i.display_name,'')),'{}')
 			FROM unnest(${assignees}) AS u(a) LEFT JOIN LATERAL seat_identity(u.a) i ON true),
@@ -104,7 +104,7 @@ export async function ensureMeetingObligations(
 			).rows[0]?.facts,
 	);
 	// An assignee must hold a current seat; an invalid choice refuses instead of silently becoming Needs owner.
-	if (assignees.some((a) => !(a in row.seats))) deny("invalid_subject");
+	if (assignees.some((a) => !row.seats.includes(a))) deny("invalid_subject");
 	// A follow-up owner must also be a committed Person's account; an evaluation keeps the seated rule.
 	if (v.meetings.some((m) => m.followUps.some((f) => f.assigneeId && row.reasons[f.assigneeId] !== null)))
 		deny("owner_ineligible");
@@ -165,7 +165,7 @@ export async function ensureMeetingObligations(
 					status: "not_started",
 					created_at: at,
 					assignee_id: w.assigneeId,
-					assignee_name: w.assigneeId ? row.seats[w.assigneeId]! : null,
+					assignee_name: w.assigneeId ? row.names[w.assigneeId]! : null,
 					due_kind: "date_only",
 					due_date: due,
 					person_id: w.personId,
