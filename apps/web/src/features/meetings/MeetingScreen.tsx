@@ -99,6 +99,7 @@ import {
 	type Detail,
 	type MeetingStatus,
 	type Outcome,
+	type Issue,
 	type Scores,
 } from "./model.ts";
 import { MeetingStatusBadge, RsvpBar } from "./parts.tsx";
@@ -288,6 +289,8 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 	const saved = data.evaluation?.status === "available" ? data.evaluation.evaluation : null;
 	// What the person asked for, shown while its save is on its way or unknown; the answer replaces it.
 	const [draft, setDraft] = useState<ShownEvaluation | null>(null);
+	/** The named problems of the last refused evaluation, shown on the form's fields. */
+	const [issues, setIssues] = useState<Issue[]>([]);
 	const shownEvaluation = evaluationLane.wait !== null && draft ? draft : saved;
 	function submitEvaluation(input: EvaluationInput) {
 		const scores = { ...saved?.scores, ...input.scores } as Scores;
@@ -305,15 +308,18 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 		void evaluationLane.save({
 			what: before ? "The corrected evaluation" : "The evaluation",
 			form: { input },
-			send: (key) =>
-				before
+			send: async (key) => {
+				const r = await (before
 					? correctEvaluation(key, before.revision, {
 							meetingId: m.id,
 							changes: changed,
 							...(input.notes !== (before.notes ?? "") ? { notes: input.notes || null } : {}),
 							reason: input.reason,
 						})
-					: recordEvaluation(key, { meetingId: m.id, scores: input.scores, notes: input.notes || null }),
+					: recordEvaluation(key, { meetingId: m.id, scores: input.scores, notes: input.notes || null }));
+				setIssues(r.status === "refused" ? (r.issues ?? []) : []);
+				return r;
+			},
 			ok: (value) => {
 				setDraft(null);
 				const e = value.evaluation;
@@ -753,6 +759,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 								title={m.displayTitle}
 								initial={evaluationLane.editing.input}
 								problem={evaluationLane.problem}
+								issues={evaluationLane.editing.problem ? issues : []}
 								onClose={evaluationLane.close}
 								onSubmit={submitEvaluation}
 							/>
