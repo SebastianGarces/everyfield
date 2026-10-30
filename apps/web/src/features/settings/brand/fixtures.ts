@@ -17,7 +17,7 @@ import type { BrandError, BrandKit, BrandPort, BrandReply } from "../port";
 // design review only; the server's own rules live in packages/domain.
 
 export type PreviewKit = "none" | "saved" | "pale";
-export const PREVIEW_KITS: readonly PreviewKit[] = ["none", "saved", "pale"];
+const PREVIEW_KITS: readonly PreviewKit[] = ["none", "saved", "pale"];
 export const parsePreviewKit = (value: string | null | undefined): PreviewKit =>
 	(PREVIEW_KITS as readonly string[]).includes(value ?? "") ? (value as PreviewKit) : "none";
 

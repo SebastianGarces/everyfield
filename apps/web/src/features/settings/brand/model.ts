@@ -91,7 +91,7 @@ export function patchOf(form: BrandForm, saved: BrandForm): SaveBrandRequest["pa
 }
 
 /** The draft as the saved-kit shape the theme resolver reads. A value that would not save is left out. */
-export function draftKit(form: BrandForm): BrandKitData {
+function draftKit(form: BrandForm): BrandKitData {
 	const color = (value: string) => (isHex(value) ? hexColor.parse(value) : null);
 	const letterhead = Object.fromEntries(
 		LETTERHEAD_KEYS.map((key) => [
