@@ -16,7 +16,8 @@ import {
 } from "../tasks/core.ts";
 import { loadTask, lockTasks, type LockedTask } from "../tasks/queries.ts";
 import { mutation, setStatus, syncAll, type TaskReminders } from "../tasks/writes.ts";
-import { answer, followUpTask, OPEN, originJson, originOf, refuse } from "./core.ts";
+import { originJson, originOf } from "../tasks/origin.ts";
+import { answer, followUpTask, OPEN, refuse } from "./core.ts";
 
 const OPEN_STATUS = ["not_started", "in_progress", "blocked"] as const;
 const isCompleting = (o: c.Outcome) => (c.completing as readonly string[]).includes(o);

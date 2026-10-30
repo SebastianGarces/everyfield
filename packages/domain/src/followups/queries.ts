@@ -10,19 +10,9 @@ import { displayTitle } from "../meetings/rows.ts";
 import { meetingType } from "@everyfield/contracts/meetings";
 import { administers, parse, readerOf, type Tx } from "../tasks/core.ts";
 import { dueOf, storedKind } from "../tasks/queries.ts";
-import {
-	COMMITTED,
-	eligibleOwner,
-	followUpTask,
-	gated,
-	now,
-	OPEN,
-	originJson,
-	originOf,
-	ownerView,
-	readAnswer,
-	refuse,
-} from "./core.ts";
+import { originJson, originOf } from "../tasks/origin.ts";
+import { COMMITTED, eligibleOwner, ownerView } from "../tasks/owner.ts";
+import { followUpTask, gated, now, OPEN, readAnswer, refuse } from "./core.ts";
 
 const at = (d: Date) => instant.parse(d.toISOString());
 const pageOf = (v: { page: number; limit: number }, total: number) => ({

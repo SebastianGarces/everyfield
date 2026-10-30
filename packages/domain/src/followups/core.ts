@@ -80,11 +80,9 @@ export async function gated(tx: Tx, viewer: Reader, query: SQL, admin = false) {
 	return r.rows.filter((row) => row.ord !== null);
 }
 
-export { COMMITTED, eligibleOwner, ownerView } from "../tasks/owner.ts";
 /** A live top-level person follow-up task: what assignment, coverage and handoff act on. */
 export const followUpTask = (t: SQL) =>
 	sql`${t}.category='follow_up' AND ${t}.person_id IS NOT NULL AND ${t}.parent_id IS NULL AND ${t}.deleted_at IS NULL`;
-export { originJson, originOf } from "../tasks/origin.ts";
 export const OPEN = sql`('not_started','in_progress','blocked')`;
 
 export const now = () => instant.parse(new Date().toISOString());

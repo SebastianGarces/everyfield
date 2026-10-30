@@ -19,7 +19,8 @@ import {
 	update,
 	type TaskReminders,
 } from "../tasks/writes.ts";
-import { answer, COMMITTED, followUpTask, OPEN, refuse } from "./core.ts";
+import { COMMITTED } from "../tasks/owner.ts";
+import { answer, followUpTask, OPEN, refuse } from "./core.ts";
 
 /**
  * The display name of `account` when it may own a follow-up now, else null (REQ-TSK-012). The seat and the committed
