@@ -13,9 +13,9 @@ import {
 	type TaskRef,
 } from "./lib.ts";
 import { cachedTriage } from "./feedback.ts";
-import { mergePullRequest } from "./merge.ts";
+import { mergePullRequest, templateClass } from "./merge.ts";
 import { afterMerge, checkPr, type MergeEvidence } from "./ship.ts";
-import { APPROVED_PROTOTYPE, changesOnlyOwnRegistration, documentTemplateChanges } from "./policy.ts";
+import { APPROVED_PROTOTYPE, changesOnlyOwnRegistration } from "./policy.ts";
 
 /**
  * Human-approved merge for the PRs that never merge automatically: Wiki articles, prototypes, and
@@ -106,8 +106,9 @@ function routeOf(root: string, cfg: Config, pr: Pr): Route {
 			!!task || run("git", ["-C", root, "fetch", "--quiet", cfg.remote, cfg.baseBranch, pr.headRefName]).code === 0;
 		if (merges && fetched) {
 			if (!task) fetchHead(root, cfg, pr);
-			if (documentTemplateChanges(root, cfg, baseRef(root, cfg), pr.headRefOid).length)
-				return { kind: "template", id: ref.id, task: ref };
+			// Doubt about the class is the class, as in the merge: the held PR must stay approvable.
+			const held = templateClass(root, cfg, pr.headRefOid);
+			if (held.doubt || held.paths.length) return { kind: "template", id: ref.id, task: ref };
 		}
 	}
 	if (!fb)

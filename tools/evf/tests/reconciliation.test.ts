@@ -3049,7 +3049,7 @@ test("OPS-67-ship-ack: a WP record with no owning-path diff stays unacknowledged
 
 // OPS-80: document-template PRs wait for Sebastian (mergePolicy.documentTemplates).
 import { chmodSync } from "node:fs";
-import { DEFAULT_DOCUMENT_TEMPLATES, documentTemplateChanges } from "../policy.ts";
+import { DEFAULT_DOCUMENT_TEMPLATES } from "../policy.ts";
 
 /** The fake gh mergeCalls into the checkout two levels above its cwd; evf approve runs gh in the caller's cwd. */
 const inFakeCwd = <T>(f: { root: string }, fn: () => T): T => {
@@ -3138,7 +3138,7 @@ test("INV-document-templates-policy: the class reads the whole head diff, counts
 				f.git("commit", "-qm", name);
 			}
 			f.git("checkout", "-q", "main");
-			return documentTemplateChanges(f.root, cfg, "main", name);
+			return templateClass(f.root, cfg, f.git("rev-parse", name).trim()).paths;
 		};
 		// The template change sits in the first commit; later commits touch other files only.
 		assert.deepEqual(branch("split", "docs/reference/document-templates.ts", "tools/a.ts", "tools/b.ts"), [
@@ -3636,7 +3636,9 @@ test("OPS-83-choke-point: only merge.ts calls gh pr merge or the GitHub merge AP
 		/\/pulls\/[^"'`\s]*\/merge/,
 		/["'`]\/merge["'`]/,
 	];
-	const files = readdirSync(dir).filter((n) => n.endsWith(".ts"));
+	const files = (readdirSync(dir, { recursive: true }) as string[]).filter(
+		(n) => n.endsWith(".ts") && !/(^|[\\/])(tests|node_modules)([\\/]|$)/.test(n),
+	);
 	assert.ok(files.includes("merge.ts") && files.includes("ship.ts") && files.includes("approve.ts"));
 	const offenders = files.filter((name) => {
 		const code = readFileSync(join(dir, name), "utf8")
@@ -3697,6 +3699,31 @@ test("OPS-83-375-approve: his recorded words merge that exact head through the c
 		assert.equal(record.owner_approval.quote, words);
 		assert.equal(record.owner_approval.approved_head, head);
 		assert.equal(record.pr, 77);
+	} finally {
+		db.close();
+		f.close();
+	}
+});
+
+test("OPS-83-375-approve: ship holds and approve releases from one class, even when the home config differs from the base", () => {
+	const { f, db, task, shipped } = pr375();
+	try {
+		const head = f.getState().pr.headRefOid;
+		// The home checkout's uncommitted config narrows the list; the base branch keeps the default.
+		f.cfg.mergePolicy.documentTemplates = { ...structuredClone(DEFAULT_DOCUMENT_TEMPLATES), paths: ["nothing/"] };
+		writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg));
+		const { lines } = capturedLog(() => ship(f.root, task));
+		assert.match(lines[0], /bin\/evf approve 77 --owner-approval/);
+		approvable(f as any, task.branch, PR375_FILES, head);
+		const s = f.getState();
+		s.commitStatus = verifiedStatus(head);
+		s.calls = [];
+		f.setState(s);
+		capturedLog(() =>
+			inFakeCwd(f, () => approve(f.root, 77, { ownerApproval: "Approved: these templates look right", head })),
+		);
+		assert.equal(callsWith(f, "pr", "merge").length, 1);
+		assert.equal(shipped().owner_approval.approved_head, head);
 	} finally {
 		db.close();
 		f.close();
@@ -3815,7 +3842,8 @@ test("OPS-83-stale-code: evf code that differs from the base branch, or is edite
 			base = f.git("rev-parse", "origin/main").slice(0, 10);
 		// Ordinary PR, current code: merges.
 		const ordinary = () => mergePullRequest({ root: f.root, cfg, cwd: wt, number: 77, sha });
-		for (const claim of [behindCode, (b: any) => ({ ...currentCode(b), dirty: true })] as const)
+		const binOnly = (b: any) => ({ ...currentCode(b), binTree: "3".repeat(40) });
+		for (const claim of [behindCode, binOnly, (b: any) => ({ ...currentCode(b), dirty: true })] as const)
 			withCode(claim, () => {
 				assert.throws(
 					() => ordinary(),

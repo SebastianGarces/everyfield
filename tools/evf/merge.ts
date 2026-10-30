@@ -13,7 +13,7 @@ import {
 	type RunResult,
 	type TaskRef,
 } from "./lib.ts";
-import { DEFAULT_DOCUMENT_TEMPLATES, matchesTemplatePath } from "./policy.ts";
+import { DEFAULT_DOCUMENT_TEMPLATES } from "./policy.ts";
 
 /**
  * The one place evf merges a pull request (OPS-83). `evf ship` and `evf approve` both call `mergePullRequest`;
@@ -87,7 +87,8 @@ export type TemplateClass = { paths: string[]; doubt?: string };
 
 /**
  * Whether the PR at exactly `sha` is in the document-template class, decided from the base branch's config and
- * the whole diff from the merge base. A failed step returns `doubt` with a reason; the caller treats doubt as the class.
+ * the whole diff from the merge base, so splitting a change across commits never leaves it. `evf ship`, `evf approve`
+ * and the merge all decide the class here. A failed step returns `doubt` with a reason; the caller treats doubt as the class.
  */
 export function templateClass(
 	root: string,
@@ -115,7 +116,10 @@ export function templateClass(
 		);
 	const diff = run("git", ["-C", root, "diff", "--name-only", "--no-renames", mergeBase.stdout.trim(), sha]);
 	if (diff.code !== 0) return doubt(`git diff to ${sha.slice(0, 10)} failed: ${diff.stderr.trim()}`);
-	return { paths: diff.stdout.split("\n").filter((path) => path && matchesTemplatePath(entries, path)) };
+	// An entry that ends in `/` matches every path under it; any other entry matches one file. --no-renames counts both sides of a rename.
+	const matches = (path: string) =>
+		entries.some((entry) => (entry.endsWith("/") ? path.startsWith(entry) : path === entry));
+	return { paths: diff.stdout.split("\n").filter((path) => path && matches(path)) };
 }
 
 /** Sebastian's words for one PR and one exact head. Only `evf approve --owner-approval` builds it. */
