@@ -53,7 +53,6 @@ const task = randomUUID();
 function base(revision = "1") {
 	return {
 		owner: plantOwner,
-		recipient: account,
 		source: { kind: "task", id: task, revision },
 		title: "Task due",
 		text: "An open task is due.",
@@ -90,6 +89,7 @@ test("INV-notification: resync replay retains due intents and changed source can
 			notifications.syncTaskReminders(tx, [
 				{
 					base: base(),
+					recipients: [account],
 					due: { kind: "date_only", date: "2026-10-19", zone: "America/Chicago" },
 					open: true,
 					asOf: "2026-10-18T12:00:00Z",
@@ -104,6 +104,7 @@ test("INV-notification: resync replay retains due intents and changed source can
 			notifications.syncTaskReminders(tx, [
 				{
 					base: base(),
+					recipients: [account],
 					due: { kind: "date_only", date: "2026-10-19", zone: "America/Chicago" },
 					open: true,
 					asOf: "2026-10-19T14:00:00Z",
@@ -123,6 +124,7 @@ test("INV-notification: resync replay retains due intents and changed source can
 			await notifications.syncTaskReminders(tx, [
 				{
 					base: base("2"),
+					recipients: [account],
 					due: { kind: "undated" },
 					open: false,
 					asOf: "2026-10-18T12:00:00Z",
@@ -146,6 +148,7 @@ test("INV-notification: resync replay retains due intents and changed source can
 		transaction(runtime, (tx) =>
 			notifications.enqueue(tx, {
 				...base(),
+				recipient: account,
 				category: "task_due",
 				occurrence: "due",
 				eligibleAt: "2026-10-19T14:00:00Z",

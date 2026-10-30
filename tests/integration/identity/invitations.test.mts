@@ -554,13 +554,11 @@ test("AC:TARGET-IDN-019 INV-removal-linked: a task with a linked obligation is o
 		noReminders,
 	);
 	assert.deepEqual(result.duties, [{ status: "moved", dutyId: open, recipientAccountId: s.sender.id }]);
-	const owner = async (table, id) =>
-		(await f.admin.select().from(table).where(eq(table.id, id)))[0];
-	assert.equal((await owner(t.task, open)).assignee_id, s.sender.id);
-	assert.equal((await owner(t.obligation, linked)).assignee_id, s.sender.id);
-	const kept = await owner(t.task, closed);
-	assert.deepEqual([kept.status, kept.assignee_id], ["complete", s.recipient.id]);
-	assert.equal((await owner(t.obligation, settled)).assignee_id, s.recipient.id);
+	// The task carries the owner; the obligation keeps no second one.
+	assert.deepEqual(await assigneesOf(f.admin, open), [s.sender.id]);
+	const [kept] = await f.admin.select().from(t.task).where(eq(t.task.id, closed));
+	assert.equal(kept.status, "complete");
+	assert.deepEqual(await assigneesOf(f.admin, closed), [s.recipient.id]);
 });
 
 test("AC:TARGET-IDN-019 INV-removal-bound: 101 and 250 open duties are all reviewed, a stale one refuses, and one call hands them all over", async () => {
