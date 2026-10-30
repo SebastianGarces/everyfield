@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { spawn } from "node:child_process";
 import type { DatabaseSync } from "node:sqlite";
 import { ensureTask, findTask, markMerged, newTaskRow, openWorkDb, record, type TaskRow } from "./db.ts";
-import { ideaWorktree, launch, type LaunchTiming } from "./launch.ts";
+import { ideaWorktree, launch, LaunchAborted, type LaunchTiming } from "./launch.ts";
 import type { Role } from "./seats.ts";
 import {
 	EvfError,
@@ -1377,15 +1377,6 @@ function launchOrLog(
 	task: TaskRef,
 	launching: { role: Role; prompt: string; idea?: number; mode: string; launch?: Partial<LaunchTiming> },
 ): void {
-	const count = () => {
-		const db = openWorkDb(root, { readOnly: true });
-		try {
-			return (db.prepare("SELECT COUNT(*) AS n FROM runs").get() as { n: number }).n;
-		} finally {
-			db.close();
-		}
-	};
-	const before = count();
 	try {
 		launch(root, task, launching.role, {
 			prompt: launching.prompt,
@@ -1394,7 +1385,7 @@ function launchOrLog(
 			timing: launching.launch,
 		});
 	} catch (e) {
-		if (!(e instanceof EvfError) || count() === before) throw e;
+		if (!(e instanceof LaunchAborted)) throw e;
 		console.log(`${now()} drive ${task.id}: launch of ${launching.role} failed: ${e.message}`);
 	}
 }

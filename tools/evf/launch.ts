@@ -43,6 +43,8 @@ const START_TIMEOUT_MS = 90_000;
  * handed to Claude Code as `--agents` JSON. A CLI definition outranks the worktree's own `.claude/agents`, so a task
  * branch that removes, renames or edits a role file cannot change the seat its own drive launches.
  */
+/** A launch that created its run row and then closed it as aborted. The drive logs it and goes on. */
+export class LaunchAborted extends EvfError {}
 export type AgentDefinition = { source: string; json: string };
 const splitTools = (value: string): string[] => {
 	const out: string[] = [];
@@ -59,6 +61,7 @@ const splitTools = (value: string): string[] => {
 	if (current.trim()) out.push(current.trim());
 	return out.filter(Boolean);
 };
+const LIST_KEYS = new Set(["tools", "disallowedTools", "skills"]);
 export function agentDefinition(root: string, role: Role, seat: { model: string; effort: string }): AgentDefinition {
 	const source = `${root}/.claude/agents/${role}.md`;
 	if (!existsSync(source)) fail(`The driving checkout has no agent definition for ${role}: ${source} is missing.`);
@@ -69,17 +72,18 @@ export function agentDefinition(root: string, role: Role, seat: { model: string;
 		const kv = /^([A-Za-z][\w-]*):\s*(.*)$/.exec(line);
 		if (kv) front[kv[1]!] = kv[2]!.trim();
 	}
-	const tools = splitTools(front.tools ?? ""),
-		denied = splitTools(front.disallowedTools ?? "");
-	const definition = {
-		description: front.description ?? role,
-		prompt: parsed[2]!.trim(),
-		...(tools.length ? { tools } : {}),
-		...(denied.length ? { disallowedTools: denied } : {}),
-		model: front.model ?? seat.model,
-		effort: front.effort ?? seat.effort,
-		...(front.permissionMode ? { permissionMode: front.permissionMode } : {}),
-	};
+	// Every frontmatter key except `name` goes into the definition, so a field added later cannot drop out silently.
+	// Comma lists become arrays and whole numbers become numbers; everything else stays a string.
+	const definition: Record<string, unknown> = { description: role, prompt: parsed[2]!.trim() };
+	for (const [key, value] of Object.entries(front)) {
+		if (key === "name") continue;
+		if (LIST_KEYS.has(key)) {
+			const list = splitTools(value);
+			if (list.length) definition[key] = list;
+		} else definition[key] = /^\d+$/.test(value) ? Number(value) : value;
+	}
+	definition.model ??= seat.model;
+	definition.effort ??= seat.effort;
 	return { source, json: JSON.stringify({ [role]: definition }) };
 }
 const TRUST_PROMPT = /trust this folder|Yes, proceed|trust the files in this folder/i;
@@ -572,7 +576,7 @@ export function launch(
 				runId,
 			);
 			fillRunUsage(db, runId);
-			throw new EvfError(failure);
+			throw new LaunchAborted(failure);
 		}
 		const { workspace, pane } = placed;
 		db.prepare("UPDATE runs SET herdr_agent = ?, herdr_pane = ? WHERE id = ?").run(plan.agent, pane, runId);

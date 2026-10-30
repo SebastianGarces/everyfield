@@ -49,7 +49,7 @@ function stackCmd(cfg: Config, name: "up" | "down" | "status" | "traces" | "logs
 
 /** The shared slot check, next to preview.mjs. The driving checkout's copy runs, never the worktree's. */
 export const PREVIEW_SLOTS_SCRIPT = ".agents/skills/verify-preview/scripts/preview-slots.mjs";
-/** Only the stack command that starts a portless preview waits for a slot; a stub stack command in a test never does. */
+/** Only the stack command that runs portless (scripts/stack.mjs) waits for a slot. */
 const startsPortlessPreview = (argv: string[]) => argv.some((a) => /(^|\/)scripts\/stack\.mjs$/.test(a));
 
 export function stack(root: string, task: TaskRef, action: "up" | "down" | "status", optional = false): number {

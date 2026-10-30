@@ -107,7 +107,8 @@ simplifier on Sonnet 5.5 medium. The implementer seat does UI work too and prove
 
 The seat's agent definition comes from the evf checkout that runs the launch, never from the task worktree: launch
 reads `<evf root>/.claude/agents/<role>.md` and hands it to Claude Code as `claude --agent <role> --agents <json>`
-(name, description, model, effort, tools, disallowed tools, permission mode and the prompt body). A definition given
+(every frontmatter key except `name`, so `skills` and later fields arrive too, plus the prompt body; `tools`,
+`disallowedTools` and `skills` become lists). A definition given
 on the command line outranks the worktree's own `.claude/agents`, so a task branch that deletes, renames or edits a
 role file still drives itself to merge. `evf launch --dry-run` prints which file the definition came from; no copy of a
 role file belongs in `~/.claude/agents/`.

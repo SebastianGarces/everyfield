@@ -1026,6 +1026,15 @@ test("OPS-72-agent: the seat gets the role definition of the driving checkout, w
 				`${label}: tools`,
 			);
 			assert.equal((def.tools as string[]).join(", "), root.front.tools, `${label}: the tool list is whole`);
+			// Every frontmatter key of the root file reaches the definition, so a dropped field fails here.
+			for (const [key, value] of Object.entries(root.front)) {
+				if (key === "name") continue;
+				const got = def[key];
+				assert.ok(got !== undefined, `${label}: frontmatter key ${key} is in the definition`);
+				if (["tools", "disallowedTools", "skills"].includes(key))
+					assert.equal((got as string[]).join(", "), value, `${label}: ${key}`);
+				else assert.equal(String(got), value, `${label}: ${key}`);
+			}
 		};
 		// The seat fixture's worktree has no .claude/agents at all.
 		check("no worktree file");
