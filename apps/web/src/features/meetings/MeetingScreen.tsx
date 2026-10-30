@@ -33,11 +33,15 @@ import {
 	MenuSeparator,
 	MenuTrigger,
 	PageHeader,
+	Tab,
+	Tabs,
+	TabsList,
+	TabsPanel,
 	useToast,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { Icon } from "@everyfield/ui/foundations";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { averageOf } from "@everyfield/contracts/meetings";
 import { useOptimistic, useState, useTransition } from "react";
 import type { Wait } from "../../components/save/model.ts";
@@ -62,6 +66,7 @@ import {
 import {
 	AttendanceCard,
 	attendanceAfter,
+	HELD,
 	EvaluationCard,
 	EvaluationDialog,
 	HistoryDialog,
@@ -84,7 +89,6 @@ import {
 	CARD_LABEL,
 	CARD_RESPONSES,
 	problemText,
-	RSVP_LABEL,
 	rsvpCounts,
 	STATUS_ACTION,
 	STATUS_LABEL,
@@ -95,7 +99,9 @@ import {
 	type Outcome,
 	type Scores,
 } from "./model.ts";
-import { MeetingStatusBadge, RsvpBar } from "./parts.tsx";
+import { MeetingStatusBadge } from "./parts.tsx";
+import { defaultTab, nextStep, pickTab, stepper, type Primary, type TabId } from "./next-step.ts";
+import { Stepper } from "./Stepper.tsx";
 import { deleteFromList } from "./deletions.ts";
 import { applyChange, withAttendees, type Change, type GuestRow, type PageView } from "./page-state.ts";
 import { PlanMeetingDialog } from "./PlanMeetingDialog.tsx";
@@ -351,15 +357,107 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 
 	const moves = (statusTransitions[m.status] ?? []).filter((to) => !(practice && to === "completed"));
 	const held = m.occurrence.heldAt !== null;
-	const checkIn =
-		marker && !final && m.status !== "cancelled" && !m.occurrence.voidedAt ? (
-			<IntentLink href={`/meetings/${m.id}/check-in`} className={buttonVariants({ variant: "primary" })}>
+	// The next step (next-step.ts): one primary action, at most two secondary buttons, and the tab the page opens on.
+	const guestList = view.guests ?? [];
+	const attendedCount = guestList.filter((g) => g.presence === "attended").length;
+	const cardOwners = new Set<string | null>((view.cards ?? []).map((c) => c.personId));
+	const cardsIn = guestList.filter((g) => g.presence === "attended" && cardOwners.has(g.person.personId)).length;
+	const rsvps = rsvpCounts(guestList);
+	const canSettle = m.status !== "cancelled" && !m.occurrence.voidedAt;
+	const stepInput = {
+		status: m.status,
+		canWrite,
+		checkIn: marker && !final && canSettle,
+		guestCount: guestList.length,
+		final,
+		canSettle,
+		attendedWithoutCard: vision ? attendedCount - cardsIn : 0,
+		evaluationSaved: saved !== null,
+		vision,
+	};
+	const next = nextStep(stepInput);
+	const steps = stepper({
+		status: m.status,
+		final,
+		vision,
+		guests: view.guests
+			? { invited: guestList.length, yes: rsvps.confirmed, no: rsvps.declined, pending: rsvps.pending }
+			: null,
+		attended: attendedCount,
+		cardsIn,
+		evaluationSaved: saved !== null,
+		followUpDone: final && m.status === "completed" && nextStep({ ...stepInput, canWrite: true }).primary === null,
+	});
+
+	// The tab is in the address (?tab=). The first one follows the primary action's target. A tab change writes the
+	// address with replaceState and asks the server for nothing.
+	const tabs: TabId[] = vision ? ["guests", "kit", "results"] : ["guests", "results"];
+	const search = useSearchParams();
+	const [tab, setTab] = useState<TabId>(() =>
+		pickTab(search.get("tab"), tabs, defaultTab(next.primary, m.status, final)),
+	);
+	function selectTab(to: TabId) {
+		setTab(to);
+		const url = new URL(window.location.href);
+		url.searchParams.set("tab", to);
+		window.history.replaceState(window.history.state, "", url);
+	}
+	const [request, setRequest] = useState<{ kind: "add" | "cards"; n: number }>({ kind: "add", n: 0 });
+	function runPrimary(p: Primary) {
+		if (p === "add-guest" || p === "cards") {
+			selectTab("guests");
+			setRequest((r) => ({ kind: p === "cards" ? "cards" : "add", n: r.n + 1 }));
+		} else if (p === "finalize") {
+			if (settleLane.wait === null && !presence.busy) settleLane.open({ mode: "finalize", input: null });
+		} else if (p === "evaluation") {
+			selectTab("results");
+			if (evaluationLane.wait === null) evaluationLane.open({ input: null });
+		}
+	}
+	// Finalizing waits for presence saves and for its own save (C68); the button says so instead of ignoring a click.
+	const waiting = settleLane.wait !== null || presence.busy;
+	const inviteHref = `/communication?meeting=${m.id}&template=invitation&recipients=guests`;
+	const checkInHref = `/meetings/${m.id}/check-in`;
+	const primary = next.primary ? (
+		next.primary === "send-invites" || next.primary === "check-in" ? (
+			<IntentLink
+				href={next.primary === "check-in" ? checkInHref : inviteHref}
+				className={buttonVariants({ variant: "primary" })}
+			>
+				{PRIMARY_LABEL[next.primary]}
+			</IntentLink>
+		) : (
+			<Button
+				variant="primary"
+				aria-disabled={waiting && next.primary === "finalize" ? true : undefined}
+				className={HELD}
+				onClick={() => runPrimary(next.primary!)}
+			>
+				{PRIMARY_LABEL[next.primary]}
+			</Button>
+		)
+	) : null;
+	const secondary = next.secondary.map((s) =>
+		s === "check-in" ? (
+			<IntentLink key={s} href={checkInHref} className={buttonVariants({ variant: "secondary" })}>
 				Start check-in
 			</IntentLink>
-		) : null;
+		) : (
+			<Button
+				key={s}
+				variant="secondary"
+				aria-disabled={waiting ? true : undefined}
+				className={HELD}
+				onClick={() => runPrimary("finalize")}
+			>
+				Finalize attendance
+			</Button>
+		),
+	);
 	const actions = canWrite ? (
 		<>
-			{checkIn}
+			{primary}
+			{secondary}
 			<Menu>
 				<MenuTrigger asChild>
 					<Button variant="secondary">
@@ -444,7 +542,10 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 			</Menu>
 		</>
 	) : (
-		checkIn
+		<>
+			{primary}
+			{secondary}
+		</>
 	);
 
 	return (
@@ -480,41 +581,109 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 
 			<SaveNotice {...meetingLane.noticeProps} dialogOpen={meetingLane.editing !== null || editing} />
 			<div className="flex flex-col gap-5">
+				{m.status === "cancelled" ? (
+					<Card as="section" aria-label="Cancelled">
+						<p className="font-semibold text-ink">This meeting is cancelled. Reopen it from the Status menu.</p>
+					</Card>
+				) : null}
 				{view.own ? <OwnRsvp own={view.own} title={m.displayTitle} lane={ownLane} onChoose={chooseOwn} /> : null}
-				<div
-					className={
-						vision
-							? "grid grid-cols-[1fr_1fr_1.1fr] items-stretch gap-5 max-app-lg:grid-cols-2 max-app-md:grid-cols-1"
-							: "grid grid-cols-2 items-stretch gap-5 max-app-md:grid-cols-1"
-					}
-				>
-					<RsvpSummary guests={view.guests} />
-					{vision ? (
-						<KitCard
-							meeting={m}
-							kit={data.kit}
-							canWrite={canWrite}
-							onKit={(kit) => setData((d) => ({ ...d, kit: d.kit ? { ...d.kit, ...kit } : null }))}
-							onMeeting={setMeeting}
-							onStale={stale}
-						/>
-					) : (
-						<NotesCard notes={m.notes} />
-					)}
-					{vision ? <CardsSummary guests={view.guests} cards={view.cards} /> : null}
-				</div>
-				<div className="grid grid-cols-[1fr_1.6fr] items-start gap-5 max-app-lg:grid-cols-1">
-					<div className="flex min-w-0 flex-col gap-5">
-						<AttendanceCard
-							meeting={m}
-							attendance={view.attendance && { ...view.attendance, items: presence.shown(view.attendance.items) }}
-							analytics={data.analytics}
-							canWrite={canWrite}
-							lane={settleLane}
-							blocked={presence.busy}
-							onSettle={(mode) => settleLane.wait === null && !presence.busy && settleLane.open({ mode, input: null })}
-							onPrefetch={seats.load}
-						/>
+				<Stepper steps={steps} />
+				<div className="grid grid-cols-[minmax(0,1fr)_320px] items-start gap-5 max-app-md:grid-cols-1">
+					<Tabs value={tab} onValueChange={(v) => selectTab(v as TabId)} className="min-w-0">
+						<TabsList aria-label="Meeting work">
+							<Tab value="guests" count={view.guests ? guestList.length : undefined}>
+								Guests
+							</Tab>
+							{vision ? <Tab value="kit">Kit</Tab> : null}
+							<Tab value="results">Results</Tab>
+						</TabsList>
+						{/* Every panel stays mounted: a tab switch keeps the guest filter and any open form. */}
+						<TabsPanel value="guests" forceMount className="data-[state=inactive]:hidden">
+							<GuestList
+								meeting={m}
+								guests={view.guests && presence.shown(view.guests)}
+								cards={view.cards}
+								attendance={view.attendance}
+								presence={presence}
+								canMark={marker && !final && m.status !== "cancelled"}
+								canWrite={canWrite}
+								project={project}
+								request={request}
+								invitesHref={next.toolbarInvites ? inviteHref : undefined}
+								onGuest={(g) =>
+									setData((d) => ({
+										...d,
+										guests: d.guests?.some((x) => x.id === g.id)
+											? d.guests.map((x) => (x.id === g.id ? g : x))
+											: [...(d.guests ?? []), g],
+									}))
+								}
+								onRemoved={(id) => setData((d) => ({ ...d, guests: d.guests?.filter((g) => g.id !== id) ?? null }))}
+								onCard={(personId, card) =>
+									setData((d) => ({
+										...d,
+										cards: [...(d.cards ?? []).filter((c) => c.personId !== personId), ...(card ? [card] : [])],
+									}))
+								}
+								onStale={stale}
+							/>
+						</TabsPanel>
+						{vision ? (
+							<TabsPanel value="kit" forceMount className="data-[state=inactive]:hidden">
+								<KitCard
+									meeting={m}
+									kit={data.kit}
+									canWrite={canWrite}
+									onKit={(kit) => setData((d) => ({ ...d, kit: d.kit ? { ...d.kit, ...kit } : null }))}
+									onMeeting={setMeeting}
+									onStale={stale}
+								/>
+							</TabsPanel>
+						) : null}
+						<TabsPanel value="results" forceMount className="flex flex-col gap-5 data-[state=inactive]:hidden">
+							<AttendanceCard
+								meeting={m}
+								attendance={view.attendance && { ...view.attendance, items: presence.shown(view.attendance.items) }}
+								analytics={data.analytics}
+								canWrite={canWrite}
+								lane={settleLane}
+								blocked={presence.busy}
+								headerFinalize={next.primary === "finalize" || next.secondary.includes("finalize")}
+								onSettle={(mode) =>
+									settleLane.wait === null && !presence.busy && settleLane.open({ mode, input: null })
+								}
+								onPrefetch={seats.load}
+							/>
+							{vision ? <CardsSummary guests={view.guests} cards={view.cards} /> : null}
+							{vision ? (
+								<EvaluationCard
+									evaluation={shownEvaluation}
+									analytics={data.analytics}
+									finalized={final}
+									canWrite={canWrite}
+									lane={evaluationLane}
+									headerRecord={next.primary === "evaluation"}
+									onRecord={() => evaluationLane.wait === null && evaluationLane.open({ input: null })}
+									onCorrect={() => evaluationLane.wait === null && evaluationLane.open({ input: null })}
+									onHistory={() => {
+										if (saved) history.load(saved.revision);
+										setHistoryOpen(true);
+									}}
+									onPrefetchHistory={() => saved && history.load(saved.revision)}
+								/>
+							) : null}
+							{final ? (
+								<p className="text-md text-text-2">
+									The follow-up work from this meeting is in{" "}
+									<IntentLink href="/tasks" className="font-medium text-ink underline underline-offset-4">
+										Tasks
+									</IntentLink>
+									.
+								</p>
+							) : null}
+						</TabsPanel>
+					</Tabs>
+					<aside aria-label="Agenda and notes" className="flex min-w-0 flex-col gap-5">
 						<AgendaCard
 							meeting={m}
 							canWrite={canWrite}
@@ -523,51 +692,9 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 								setData((d) => ({ ...d, meeting: { ...d.meeting, agenda, revision: agenda.revision } }))
 							}
 						/>
-						{vision ? <NotesCard notes={m.notes} hideEmpty /> : null}
-					</div>
-					<GuestList
-						meeting={m}
-						guests={view.guests && presence.shown(view.guests)}
-						cards={view.cards}
-						attendance={view.attendance}
-						presence={presence}
-						canMark={marker && !final && m.status !== "cancelled"}
-						canWrite={canWrite}
-						project={project}
-						onGuest={(g) =>
-							setData((d) => ({
-								...d,
-								guests: d.guests?.some((x) => x.id === g.id)
-									? d.guests.map((x) => (x.id === g.id ? g : x))
-									: [...(d.guests ?? []), g],
-							}))
-						}
-						onRemoved={(id) => setData((d) => ({ ...d, guests: d.guests?.filter((g) => g.id !== id) ?? null }))}
-						onCard={(personId, card) =>
-							setData((d) => ({
-								...d,
-								cards: [...(d.cards ?? []).filter((c) => c.personId !== personId), ...(card ? [card] : [])],
-							}))
-						}
-						onStale={stale}
-					/>
+						<NotesCard notes={m.notes} />
+					</aside>
 				</div>
-				{vision ? (
-					<EvaluationCard
-						evaluation={shownEvaluation}
-						analytics={data.analytics}
-						finalized={final}
-						canWrite={canWrite}
-						lane={evaluationLane}
-						onRecord={() => evaluationLane.wait === null && evaluationLane.open({ input: null })}
-						onCorrect={() => evaluationLane.wait === null && evaluationLane.open({ input: null })}
-						onHistory={() => {
-							if (saved) history.load(saved.revision);
-							setHistoryOpen(true);
-						}}
-						onPrefetchHistory={() => saved && history.load(saved.revision)}
-					/>
-				) : null}
 			</div>
 
 			{saved ? (
@@ -681,6 +808,15 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 	);
 }
 
+const PRIMARY_LABEL: Record<Primary, string> = {
+	"add-guest": "Add guest",
+	"send-invites": "Send invites",
+	"check-in": "Start check-in",
+	finalize: "Finalize attendance",
+	cards: "Record response cards",
+	evaluation: "Record evaluation",
+};
+
 const REASON_WHAT: Record<Reason, string> = {
 	void: "Voiding this occurrence",
 	restore: "Restoring this occurrence",
@@ -721,44 +857,6 @@ function OccurrenceDialog({
 			}
 			onSubmit={(why) => props.onSubmit(reason, why)}
 		/>
-	);
-}
-
-/** Yes, No and Pending for this meeting, from the guest list. */
-function RsvpSummary({ guests }: { guests: GuestRow[] | null }) {
-	const c = rsvpCounts(guests ?? []);
-	const total = guests?.length ?? 0;
-	return (
-		<Card as="section" aria-labelledby="rsvps-title">
-			<CardHeader className="mb-3.5">
-				<CardHeading>
-					<CardTitle id="rsvps-title">RSVPs</CardTitle>
-					<CardDescription>{guests ? `${total} invited` : "Did not load"}</CardDescription>
-				</CardHeading>
-			</CardHeader>
-			<p className="flex items-end gap-3">
-				<span className="font-display text-[40px] leading-none tracking-[-0.02em] text-ink tabular-nums">
-					{c.confirmed}
-				</span>
-				<span className="pb-1.5 text-text-2">said yes</span>
-			</p>
-			<RsvpBar yes={c.confirmed} no={c.declined} pending={c.pending} size="lg" className="mt-[18px]" />
-			<dl className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm">
-				{(
-					[
-						["confirmed", "bg-green-500"],
-						["declined", "bg-magenta-500"],
-						["pending", "bg-amber-500"],
-					] as const
-				).map(([k, dot]) => (
-					<div key={k} className="flex items-center gap-1.5">
-						<span aria-hidden="true" className={`size-2 rounded-full ${dot}`} />
-						<dt className="text-text-2">{RSVP_LABEL[k]}</dt>
-						<dd className="font-semibold text-ink tabular-nums">{c[k]}</dd>
-					</div>
-				))}
-			</dl>
-		</Card>
 	);
 }
 
@@ -809,8 +907,7 @@ function CardsSummary({ guests, cards }: { guests: GuestRow[] | null; cards: Mee
 	);
 }
 
-function NotesCard({ notes, hideEmpty }: { notes: string | null; hideEmpty?: boolean }) {
-	if (!notes && hideEmpty) return null;
+function NotesCard({ notes }: { notes: string | null }) {
 	return (
 		<Card as="section" aria-labelledby="notes-title">
 			<CardHeader className="mb-3">
