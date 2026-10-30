@@ -22,7 +22,6 @@ import {
 } from "./blocks.tsx";
 import { Doc, LETTER, LETTER_MARGIN } from "./shell.tsx";
 
-
 function teamBlock(ctx: Ctx, team: ChecklistTeam, n: number) {
 	const { p } = ctx;
 	const rows = team.tasks.map((task, i) => [
