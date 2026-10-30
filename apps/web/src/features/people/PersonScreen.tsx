@@ -50,7 +50,7 @@ import { SkillsCard } from "./fields/SkillsCard.tsx";
 import { TagsField } from "./fields/TagsField.tsx";
 import type { PersonRecords } from "./assessments/model.ts";
 import { RecordsSection, type CorrectedRecord } from "./assessments/RecordsSection.tsx";
-import { CorrectRecordDialog } from "./corrections/CorrectRecordDialog.tsx";
+import { EditRecordDialog } from "./corrections/EditRecordDialog.tsx";
 import { DuplicateHints } from "./corrections/DuplicateHints.tsx";
 import { recordsIntent } from "./corrections/intent.ts";
 import type { DuplicateHints as Hints } from "./corrections/server.ts";
@@ -192,7 +192,7 @@ export function PersonScreen({
 		setStale(false);
 	}
 
-	/** Every record Correct a record saved on this page, the newest per record, so each card shows its corrected values. */
+	/** Every record Edit a record saved on this page, the newest per record, so each card shows its edited values. */
 	const [corrected, setCorrected] = useState<CorrectedRecord[]>([]);
 	const busy = state.pending !== null;
 	const lifecycle = p.lifecycle;
@@ -258,11 +258,11 @@ export function PersonScreen({
 									<MenuItem icon={Edit02Icon} onSelect={() => setOpen("profile")}>
 										Edit profile
 									</MenuItem>
+									<MenuItem icon={FileEditIcon} onSelect={() => setOpen("correct")} {...recordsIntent(p.id)}>
+										Edit a record
+									</MenuItem>
 									<MenuItem icon={UserIcon} onSelect={() => setOpen("classify")}>
 										{p.adultClassification === "unknown" ? "Record adult or child" : "Correct adult or child"}
-									</MenuItem>
-									<MenuItem icon={FileEditIcon} onSelect={() => setOpen("correct")} {...recordsIntent(p.id)}>
-										Correct a record
 									</MenuItem>
 									<MenuSeparator />
 									<MenuItem icon={Delete02Icon} danger onSelect={() => setOpen("retire")}>
@@ -557,12 +557,12 @@ export function PersonScreen({
 						<RestoreDialog open onOpenChange={toggle("restore")} store={store} onSaved={saved} onConflict={reload} />
 					) : null}
 					{open === "correct" ? (
-						<CorrectRecordDialog
+						<EditRecordDialog
 							person={p}
 							store={store}
 							accountId={accountId}
 							onClose={close}
-							onCorrected={(receipt, next) => {
+							onEdited={(receipt, next) => {
 								setCorrected((all) => [...all.filter((c) => c.record.id !== next.record.id), next]);
 								if (receipt)
 									saved(receipt, {
