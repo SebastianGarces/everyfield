@@ -1,3 +1,4 @@
+import { dateText, timeText } from "@everyfield/contracts/common";
 import type * as c from "@everyfield/contracts/meetings";
 import type { Status } from "@everyfield/ui/display";
 import type { z } from "zod";
@@ -72,16 +73,6 @@ export const TYPE_LABEL: Record<MeetingType, string> = {
 	team_meeting: "Team meeting",
 	prelaunch_practice: "Pre-launch practice",
 };
-/** The title a meeting shows without its own title, as the producer builds it ("Vision Meeting #12"). */
-const DEFAULT_TITLE: Record<MeetingType, string> = {
-	vision_meeting: "Vision Meeting",
-	orientation: "Orientation",
-	team_meeting: "Team Meeting",
-	prelaunch_practice: "Pre-launch Practice",
-};
-export const defaultTitle = (m: { type: MeetingType; visionNumber: number | null }) =>
-	DEFAULT_TITLE[m.type] + (m.visionNumber ? ` #${m.visionNumber}` : "");
-
 /** Short labels for filters. */
 export const TYPE_SHORT: Record<MeetingType, string> = {
 	vision_meeting: "Vision",
@@ -234,27 +225,12 @@ export const pageCount = (total: number) => Math.max(1, Math.ceil(total / PAGE_S
 // Dates. A meeting's date and time are the church's wall clock (localDate, localTime in its zone). They are formatted
 // from those strings, never through the browser's zone, so the server and the browser print the same words.
 
-const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const LONG_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 function parts(localDate: string) {
 	const [y, m, d] = localDate.split("-").map(Number) as [number, number, number];
 	return { y, m, d, weekday: new Date(Date.UTC(y, m - 1, d)).getUTCDay() };
-}
-
-/** "6:30 pm" from "18:30". */
-export function timeText(localTime: string): string {
-	const [h, min] = localTime.split(":").map(Number) as [number, number];
-	const suffix = h < 12 ? "am" : "pm";
-	const hour = h % 12 === 0 ? 12 : h % 12;
-	return `${hour}:${String(min).padStart(2, "0")} ${suffix}`;
-}
-
-/** "Sun Oct 12" (with the year when it differs from `thisYear`). */
-export function dateText(localDate: string, thisYear?: number): string {
-	const { y, m, d, weekday } = parts(localDate);
-	return `${DAYS[weekday]} ${MONTHS[m - 1]} ${d}${thisYear !== undefined && y !== thisYear ? `, ${y}` : ""}`;
 }
 
 /** "Sunday, Oct 12". */
@@ -275,21 +251,6 @@ export function untilText(startsAt: string, now: string): string {
 	if (days === 1) return "tomorrow";
 	if (days < 14) return `in ${days} days`;
 	return `in ${Math.round(days / 7)} weeks`;
-}
-
-/** Minutes after a wall-clock time: "18:30" + 25 is "18:55". Wraps past midnight. */
-export function addMinutes(localTime: string, minutes: number): string {
-	const [h, m] = localTime.split(":").map(Number) as [number, number];
-	const total = (((h * 60 + m + minutes) % 1440) + 1440) % 1440;
-	return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
-}
-
-/** "1 h 30 min", "45 min". */
-export function durationText(minutes: number): string {
-	if (minutes < 60) return `${minutes} min`;
-	const h = Math.floor(minutes / 60);
-	const rest = minutes % 60;
-	return rest ? `${h} h ${rest} min` : `${h} h`;
 }
 
 /** The offset a fold choice carries, in words: "1:30 am (CDT)" style hints are zone-specific, so show UTC offsets. */

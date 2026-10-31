@@ -1,5 +1,7 @@
 "use client";
 
+import { defaultTitle, timeText } from "@everyfield/contracts/common";
+
 import { CalendarAdd01Icon, Edit02Icon } from "@hugeicons/core-free-icons";
 import {
 	Button,
@@ -18,11 +20,9 @@ import {
 import { useEffect, useState } from "react";
 import { editMeeting, listVenues, scheduleMeeting } from "./actions.ts";
 import {
-	defaultTitle,
 	NEW_TYPES,
 	offsetText,
 	problemText,
-	timeText,
 	TYPE_LABEL,
 	type Detail,
 	type MeetingType,

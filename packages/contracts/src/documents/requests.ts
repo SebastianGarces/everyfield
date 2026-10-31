@@ -17,6 +17,8 @@ export const contextualTemplatesRequest = z.strictObject({
 	meetingId: recordId.optional(),
 	teamId: recordId.optional(),
 });
+/** The agenda of one meeting, as a PDF. The template follows from the meeting. */
+export const printAgendaRequest = z.strictObject({ meetingId: recordId });
 const contextInput = {
 	templateId,
 	format: documentFormat,

@@ -55,11 +55,11 @@ Before creation the account reads the entire currently published global Wiki, no
 | DOC-004 | Core Group Commitment Card — PDF; quarter-page GROW/PRAY/GIVE through Launch Sunday, church required, pastor optional. |
 | DOC-005 | Response Card — PDF; quarter-page Vision guest contact/involvement, church. |
 | DOC-006 | Guest Sign-in Sheet — PDF; letter-size real name/contact/inviter, church with optional meeting date/number. |
-| DOC-007 | Vision Meeting Agenda — PDF; welcome/story/vision/GROW-PRAY-GIVE/next steps. |
+| DOC-007 | Vision Meeting Agenda — PDF; printed from the meeting's own agenda (its sections, minutes and start times in the app's order, its date, time, place and guest list), with blank write-in rows when it has none. |
 | DOC-008 | Expectations of a Core Group Member — editable Church Document, exported as PDF and DOCX; presence/GROW-PRAY-GIVE/team participation. |
 | DOC-009 | Launch Team Commitment — editable Church Document, exported as PDF and DOCX; member commitment approaching Launch Sunday. |
 | DOC-010 | Vision Meeting Follow-up Letter — editable Church Document, exported as PDF and DOCX; guest thank-you/next-step invitation. |
-| DOC-011 | Board/Elder Meeting Agenda — PDF; prayer/minutes/financial/ministry/action items. |
+| DOC-011 | Board/Elder Meeting Agenda — PDF; printed from a leadership team meeting's own agenda the same way, with blank write-in rows when it has none. |
 | DOC-012 | First-Year Budget — XLSX; 12-month income/expense with live formulas/totals. |
 | DOC-013 | Budget Worksheet — XLSX; monthly/annual planner with live formulas/totals. |
 | DOC-014 | Launch Sunday Checklists — PDF; authoritative checklist content/layout. |
