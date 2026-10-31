@@ -2657,8 +2657,6 @@ var ICON = {
   scale: '<path d="M12 4v16M6 20h12M5 8h14M7 8l-3 6a3 3 0 0 0 6 0zM17 8l-3 6a3 3 0 0 0 6 0z"/>',
   pin: '<path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0 1 13 0c0 5-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/>',
   network: '<circle cx="12" cy="5.5" r="2.3"/><circle cx="5.5" cy="18" r="2.3"/><circle cx="18.5" cy="18" r="2.3"/><path d="M10.9 7.6l-4.3 8.2M13.1 7.6l4.3 8.2M7.9 18h8.2"/>',
-  pause: '<path d="M9 6v12M15 6v12"/>',
-  play: '<path d="M8 5.5v13l10-6.5z"/>',
   chat: '<path d="M5 5h14a1.5 1.5 0 0 1 1.5 1.5V15a1.5 1.5 0 0 1-1.5 1.5h-8.5L6 20v-3.5H5A1.5 1.5 0 0 1 3.5 15V6.5A1.5 1.5 0 0 1 5 5z"/>'
 };
 function icon(name, cls) {
@@ -3923,13 +3921,12 @@ function journeySection() {
     pathBand(steps, true, W.title, "field-sky") + pathTxt(steps, "jrn-cards") +
     '<p class="jrn-note">' + icon("lock") + "<span>" + t(J.see_first).replace(/^[^.]+\./, "<b>$&</b>") + "</span></p></div></section>";
 }
-var EV_PHOTOS = ["swirl", "lupins", "marigolds"];
 function evryCards() {
-  var E = M82.evry;
+  var E = M82.evry, photos = ["swirl", "lupins", "marigolds"];
   return '<section class="sec evx" id="evry" aria-labelledby="evry-title"><div class="wrap">' +
     '<div class="evx-head"><h2 class="display h2" id="evry-title">' + t(E.headline) + '</h2><p class="sh-text">' + t(E.subhead) + "</p></div>" +
     '<ul class="tl-grid">' + E.cards.map(function (c, i) {
-      return '<li class="tl"><div class="tl-art photo" data-photo="' + EV_PHOTOS[i] + '"><span class="tl-ic" aria-hidden="true">' + icon(c[0]) + "</span></div>" +
+      return '<li class="tl"><div class="tl-art photo" data-photo="' + photos[i] + '"><span class="tl-ic" aria-hidden="true">' + icon(c[0]) + "</span></div>" +
         '<div class="tl-txt"><h3 class="tl-t">' + t(c[1]) + "</h3><p>" + t(c[2]) + "</p></div></li>";
     }).join("") + "</ul>" +
     '<p class="tl-limits">' + icon("heart") + "<span>" + t(DIR.journey.sections.evry.limits) + "</span></p></div></section>";
