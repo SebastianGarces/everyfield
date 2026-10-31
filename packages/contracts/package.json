@@ -26,9 +26,9 @@
 		"./wiki": "./src/wiki/index.ts"
 	},
 	"scripts": {
-		"test:unit": "node --test ../../tests/contracts/common/*.test.mts && node --test src/identity/*.test.mts src/branding/*.test.mts",
+		"test:unit": "node --test ../../tests/contracts/common/*.test.mts ../../tests/contracts/wiki/*.test.mts && node --test src/identity/*.test.mts src/branding/*.test.mts",
 		"typecheck": "tsc --noEmit",
-		"lint": "cd ../.. && packages/contracts/node_modules/.bin/eslint --config packages/contracts/eslint.config.mjs --max-warnings=0 packages/contracts tests/contracts/common"
+		"lint": "cd ../.. && packages/contracts/node_modules/.bin/eslint --config packages/contracts/eslint.config.mjs --max-warnings=0 packages/contracts tests/contracts/common tests/contracts/wiki"
 	},
 	"dependencies": {
 		"sanitize-html": "2.17.3",

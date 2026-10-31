@@ -107,10 +107,20 @@ async function main() {
 		if (!row) throw new Error(`Unknown seed article: ${input}`);
 		return { row, seed: true };
 	}
+	// Seed articles that still hold an ASCII-art diagram until OPS-97 migrates them. The list can only shrink.
+	const listed = await readJson(resolve(root, "tools/wiki/ascii-allowlist.json"));
+	if (!object(listed) || !Array.isArray(listed.slugs))
+		throw new Error("tools/wiki/ascii-allowlist.json needs a slugs array");
+	const allowlist = new Set(listed.slugs.map(String));
 	async function lint(row: ObjectRow, seed: boolean, label: string) {
 		const { inspect } = await import("./mdx.ts");
-		const result = await inspect(typeof row.content === "string" ? row.content : "", known, seed);
+		const slug = String(row.slug);
+		const result = await inspect(typeof row.content === "string" ? row.content : "", known, seed, slug);
 		result.errors.unshift(...shape(row, articles, sections, seed));
+		// Only seed rows read the allowlist; a draft with ASCII art always fails.
+		const allowed = seed && allowlist.has(slug);
+		if (allowed && !result.ascii.length) result.errors.push(`remove ${slug} from the allowlist`);
+		(allowed ? result.warnings : result.errors).push(...result.ascii);
 		if (
 			typeof row.read_time_minutes === "number" &&
 			Math.abs(row.read_time_minutes - Math.round(result.words / 200)) > 1
@@ -128,6 +138,12 @@ async function main() {
 		if (!flags.has("--seed") && !positionals.length) throw new Error("Provide draft files or --seed");
 		let failed = 0,
 			count = 0;
+		if (flags.has("--seed"))
+			for (const slug of allowlist)
+				if (!known.has(slug)) {
+					console.log(`FAIL tools/wiki/ascii-allowlist.json\n  ERROR remove ${slug} from the allowlist`);
+					failed++;
+				}
 		for (const item of flags.has("--seed")
 			? articles.map((row) => ({ row, seed: true }))
 			: await Promise.all(positionals.map(load))) {

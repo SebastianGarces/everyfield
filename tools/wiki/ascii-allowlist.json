@@ -1,0 +1,14 @@
+{
+	"why": "Seed articles that still draw a diagram in ASCII art. OPS-97 migrates each to a ```diagram block and removes its slug. bin/wiki lint --seed reports a listed slug as a warning, and a listed slug that no longer offends as an error, so this list only shrinks.",
+	"slugs": [
+		"administrative/financial/disbursements-and-approvals",
+		"core-group/building-your-core-group/the-core-group-funnel",
+		"core-group/commitment/the-three-key-documents",
+		"discovery/the-worship-walk-work-witness-model",
+		"frameworks/8-critical-success-factors-overview",
+		"frameworks/the-ministry-funnel",
+		"getting-started/launch-process-goals",
+		"post-launch/the-guest-assimilation-journey",
+		"training/boot-camp-overview"
+	]
+}
