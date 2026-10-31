@@ -4130,6 +4130,11 @@
   },
   "added_links": [
     {
+      "requirement": "REQ-DOC-022",
+      "operation": "documents.setBranding",
+      "reason": "Editable templates plan, Sebastian choice 2026-10-30 (OPS-79): the requirement names the operations that prove it."
+    },
+    {
       "requirement": "REQ-COM-011",
       "operation": "communication.correctContactLog",
       "reason": "Attach the preserved operation rules to their matching requirement."
@@ -4684,6 +4689,11 @@
     }
   ],
   "operation_additions": [
+    {
+      "id": "documents.setBranding",
+      "reason": "Owner ruling 2026-10-30 (OPS-79): edit in the app and export both PDF and Word. REQ-DOC-022 holds a use church branding toggle that needs its own audited write.",
+      "requirement": "REQ-DOC-022"
+    },
     {
       "id": "marketing.exportAccessRequests",
       "requirement": "REQ-ADM-006",

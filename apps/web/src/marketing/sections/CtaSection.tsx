@@ -26,7 +26,7 @@ export function CtaSection({ c, href }: { c: Cta; href?: { primary?: string; sec
 						className="absolute inset-0 -z-1 max-mk-cx:[--pos:50%_61%]! max-mk-cx:[--shade:.2]! max-mk-cx:[--zoom:1.9]!"
 					/>
 					<Mark className="size-[clamp(44px,4.4vw,64px)] text-cream" />
-					<Display as="h2" size="h2" className="max-w-[18ch]">
+					<Display as="h2" size="h1" className="max-w-[18ch]">
 						{c.headline}
 					</Display>
 					<p className="mx-auto max-w-[58ch] text-mk-lead text-mk-cream-90">{c.body}</p>

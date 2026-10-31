@@ -102,6 +102,7 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `document(current_revision_id, tenant_id)` | `document_revision(id, tenant_id)` | restrict |  |
 | `document(copied_from_revision_id)` | `document_revision(id)` | restrict | Explicit account-to-plant copy may cite a differently owned source; validate source rights and immutable hash without transferring ownership. |
 | `document(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
+| `document_revision(author_account_id)` | `account(id)` | set_null |  |
 | `document_revision(tenant_id)` | `tenant(id)` | restrict |  |
 | `document_revision(document_id, tenant_id)` | `document(id, tenant_id)` | restrict |  |
 | `document_revision(import_object_id, tenant_id)` | `file_object(id, tenant_id)` | restrict |  |
@@ -115,6 +116,8 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `generated_document(creator_account_id)` | `account(id)` | set_null |  |
 | `generated_document(object_id, tenant_id)` | `file_object(id, tenant_id)` | restrict |  |
 | `generated_document(id, tenant_id)` | `record(id, tenant_id)` | restrict |  |
+| `generated_document(source_document_id, tenant_id)` | `document(id, tenant_id)` | restrict |  |
+| `generated_document(source_revision_id, tenant_id)` | `document_revision(id, tenant_id)` | restrict |  |
 | `household(plant_id)` | `plant(id)` | restrict |  |
 | `household(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `identity_proof(account_id)` | `account(id)` | restrict |  |

@@ -643,7 +643,8 @@
       "text": "An editable template creates one Church Document owned by the church plant, under the DOC-016 owner, revision and archive rules. Revision 1 holds the template text with merge values that resolve once under the DOC-002 limits, so later contact or church data changes do not change the text. The document records the template id, template version, document class and frozen input provenance. It also holds a \"use church branding\" toggle. Only a current Owner or Admin of the church plant creates it. Creation makes no file. Fixed-layout, budget and email templates are refused. Before creation, `documents.preview` shows the pre-filled content as a PDF.",
       "spec": "docs/product/knowledge-documents.md#church-documents-from-editable-templates",
       "operations": [
-        "documents.createFromTemplate"
+        "documents.createFromTemplate",
+        "documents.setBranding"
       ],
       "acceptance_ids": [
         "AC-DOC-022--DOC-022"

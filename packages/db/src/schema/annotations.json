@@ -10162,7 +10162,17 @@
 				"download_name": { "note": "" },
 				"generated_at": { "note": "" },
 				"request_key": { "note": "Repeat of the same key returns this row." },
-				"revision": { "note": "" }
+				"revision": { "note": "" },
+				"source_document_id": {
+					"note": "Church Document exports only. The document this export was made from, frozen with the row."
+				},
+				"source_revision_id": { "note": "Church Document exports only. The exact revision that was exported." },
+				"theme_kind": {
+					"note": "Church Document exports only. church or everyfield-neutral: the theme that painted the saved bytes."
+				},
+				"theme_primary": {
+					"note": "Church Document exports only. Primary color of a church theme at export time. Null for the neutral theme."
+				}
 			},
 			"foreignKeys": {
 				"tenant_id->tenant(id)": {
@@ -10188,6 +10198,18 @@
 						"action": "restrict",
 						"policy": "The record binding stays with the generated row."
 					}
+				},
+				"source_document_id,tenant_id->document(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "A Church Document stays while a saved export names it. Plant purge removes the exports first."
+					}
+				},
+				"source_revision_id,tenant_id->document_revision(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "The exported revision stays while a saved export names it. Plant purge removes the exports first."
+					}
 				}
 			}
 		},
@@ -10197,7 +10219,13 @@
 				"domain": "documents",
 				"purpose": "Account or plant owned native writing with explicit values or Launch-summary designation. Exactly one account, plant or organization owns this row. Only account or plant tenants; launch_summary requires plant. A deferred kind trigger enforces this.",
 				"library_owned": false,
-				"jsonb_keys": {},
+				"jsonb_keys": {
+					"input_provenance": [
+						"key: template merge field id",
+						"value: frozen text used in revision 1, or null when no source had a value",
+						"source: override, church_name, pastor_name or absent"
+					]
+				},
 				"capabilities": ["CAP-B-026", "CAP-C-015", "CAP-C-016"],
 				"replaces": ["owned_documents", "launch"],
 				"producer_work_packages": ["WP-004", "WP-036", "WP-045", "WP-046"],
@@ -10335,6 +10363,21 @@
 				},
 				"revision": {
 					"note": ""
+				},
+				"template_id": {
+					"note": "Church Documents only. Editable template id frozen at creation. Null for a plain native document."
+				},
+				"template_version": {
+					"note": "Church Documents only. Whole-number version of the authored template that made revision 1."
+				},
+				"document_class": {
+					"note": "Church Documents only. formal/legal, outward-facing or operational, copied from the template. It picks the export theme layout and whether the legal notice prints."
+				},
+				"use_church_branding": {
+					"note": "Church Documents only. True: export uses the church theme when the church has a brand kit. False: Everyfield-neutral theme. Changing it makes no revision."
+				},
+				"input_provenance": {
+					"note": "Church Documents only. Frozen merge values of revision 1. Each entry has key, value and source."
 				}
 			},
 			"foreignKeys": {
@@ -10515,6 +10558,9 @@
 				},
 				"recorded_at": {
 					"note": ""
+				},
+				"author_account_id": {
+					"note": "Attribution of a Church Document revision. Account deletion nulls it. Null for earlier native revisions."
 				}
 			},
 			"foreignKeys": {
@@ -10540,6 +10586,12 @@
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+					}
+				},
+				"author_account_id->account(id)": {
+					"deletion": {
+						"action": "set_null",
+						"policy": "Clear revision attribution when the account row is removed. The plant keeps the revision."
 					}
 				}
 			}
