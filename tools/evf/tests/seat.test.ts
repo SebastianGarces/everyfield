@@ -114,7 +114,7 @@ test("OPS-58-launch: a dry run prints the worktree, workspace, agent and store s
 		);
 		assert.match(
 			out.stdout,
-			/herdr agent start 'verifier-ops-1-<run>' --kind claude --pane '<root pane>' --timeout 90000 -- --plugin-dir '\S+\/runtime\/ops-1\/seat-<run>' --agent evf:verifier --name verifier@OPS-1 --session-id [0-9a-f-]{36} --model claude-opus-5-5 --effort high --dangerously-skip-permissions/,
+			/herdr agent start 'verifier-ops-1-<run>' --kind claude --pane '<root pane>' --timeout 90000 -- --plugin-dir '\S+\/runtime\/ops-1\/seat-<run>' --agent evf:verifier --name verifier@OPS-1 --session-id [0-9a-f-]{36} --model claude-opus-5-5 --effort medium --dangerously-skip-permissions/,
 		);
 		assert.match(
 			out.stdout,
@@ -1013,6 +1013,12 @@ const pluginAgent = (start: string[], role: string) => {
 	};
 };
 
+/** The model and effort lines of an agent file's frontmatter. */
+const frontLines = (text: string) => {
+	const front = /^---\n([\s\S]*?)\n---/.exec(text)![1]!.split("\n");
+	return { model: front.filter((l) => /^model:/.test(l)), effort: front.filter((l) => /^effort:/.test(l)) };
+};
+
 test("OPS-72-agent: the seat gets the role definition of the driving checkout, whether the worktree has none or a different one", () => {
 	const f = seatFixture();
 	try {
@@ -1029,9 +1035,8 @@ test("OPS-72-agent: the seat gets the role definition of the driving checkout, w
 			assert.ok(!got.dir.startsWith(f.worktree), `${label}: the directory is outside the task worktree`);
 			assert.ok(!seen.has(got.dir), `${label}: each run has its own directory`);
 			seen.add(got.dir);
-			// A role file without model or effort gets the seat's; one with them keeps its own.
-			assert.match(got.text, /^model: claude-/m);
-			assert.match(got.text, /^effort: /m);
+			// The driving checkout's implementer file already names the seat's model and effort, so it arrives unchanged.
+			assert.deepEqual(frontLines(got.text), { model: ["model: claude-sonnet-5-5"], effort: ["effort: medium"] });
 		};
 		// The seat fixture's worktree has no .claude/agents at all.
 		check("no worktree file");
@@ -1045,6 +1050,75 @@ test("OPS-72-agent: the seat gets the role definition of the driving checkout, w
 		const dry = cli(f.root, {}, undefined, "launch", "OPS-1", "--role", "implementer", "--dry-run").stdout;
 		assert.match(dry, /# agent definition: \S+\/\.claude\/agents\/implementer\.md \(the driving checkout/);
 		assert.doesNotMatch(dry, /ops-1\/\.claude\/agents/);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+const OPUS_ROLES = ["planner", "verifier", "prototype-merger"] as const;
+
+test("OPS-99-default: planner, verifier and prototype-merger dry runs resolve to Opus 5.5 medium without an override", () => {
+	const f = seatFixture();
+	try {
+		const cfg = JSON.parse(readFileSync(join(f.root, "evf.config.json"), "utf8"));
+		assert.ok(!("seats" in cfg) && !("seatTrial" in cfg), "the fixture config has no seat override");
+		for (const role of OPUS_ROLES) {
+			const out = cli(f.root, {}, undefined, "launch", "OPS-1", "--role", role, "--dry-run");
+			assert.equal(out.status, 0, out.stderr);
+			assert.match(out.stdout, /model: claude-opus-5-5, effort: medium/, role);
+			assert.match(out.stdout, /--model claude-opus-5-5 --effort medium /, role);
+		}
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-99-agent: the plugin agent file carries exactly the resolved model and effort, whatever the role file says", () => {
+	const f = seatFixture();
+	try {
+		const roleFile = join(f.root, ".claude/agents/verifier.md");
+		const body = "name: verifier\ndescription: fixture\ntools: Read\n---\nThe prompt.\n";
+		const written = () => {
+			quiet(() => launch(f.root, f.task, "verifier", { timing: TURN }));
+			const got = pluginAgent(startArgsOf(f), "verifier");
+			assert.match(got.text, /\nThe prompt\.\n$/);
+			return frontLines(got.text);
+		};
+		const resolved = { model: ["model: claude-opus-5-5"], effort: ["effort: medium"] };
+		writeFileSync(roleFile, `---\n${body}`);
+		assert.deepEqual(written(), resolved, "a role file without model or effort lines");
+		writeFileSync(roleFile, `---\nmodel: claude-opus-4-1\neffort: high\neffort: xhigh\n${body}`);
+		assert.deepEqual(written(), resolved, "a role file with different and repeated lines");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-99-override: a per-task effort override reaches the dry run and the plugin agent file; clear returns medium", () => {
+	const f = seatFixture();
+	try {
+		const check = (effort: string) => {
+			for (const role of OPUS_ROLES) {
+				const dry = cli(f.root, {}, undefined, "launch", "OPS-1", "--role", role, "--dry-run");
+				assert.equal(dry.status, 0, dry.stderr);
+				assert.match(dry.stdout, new RegExp(`model: claude-opus-5-5, effort: ${effort}\\b`), role);
+				quiet(() => launch(f.root, f.task, role, { timing: TURN }));
+				assert.deepEqual(
+					frontLines(pluginAgent(startArgsOf(f), role).text),
+					{ model: ["model: claude-opus-5-5"], effort: [`effort: ${effort}`] },
+					`${role} at ${effort}`,
+				);
+			}
+		};
+		const set = cli(f.root, {}, undefined, "task", "seats", "OPS-1", "--effort", "high");
+		assert.equal(set.status, 0, set.stderr);
+		check("high");
+		const clear = cli(f.root, {}, undefined, "task", "seats", "OPS-1", "--clear");
+		assert.equal(clear.status, 0, clear.stderr);
+		check("medium");
 	} finally {
 		f.db.close();
 		f.close();

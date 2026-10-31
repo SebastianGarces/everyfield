@@ -2,7 +2,7 @@
 name: prototype-merger
 description: Opus merge seat of prototype mode. Takes the idea Sebastian picked, writes the handoff that becomes the implement task's spec, and discards the prototype code.
 model: claude-opus-5-5
-effort: high
+effort: medium
 tools: Read, Grep, Glob, Bash(git -C * log *), Bash(git -C * diff *), Bash(git -C * show *), Bash(git status*), Bash(git diff *), Bash(git log *), Bash(bin/evf *)
 disallowedTools: Edit, Write, MultiEdit, NotebookEdit, Agent, WebFetch
 permissionMode: bypassPermissions
