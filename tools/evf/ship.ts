@@ -24,8 +24,7 @@ import {
 } from "./lib.ts";
 import { maintenanceScope, requireTaskScope } from "./policy.ts";
 import { checkPrBody, followUpsOfBranch } from "./pr-body.ts";
-import { followUpsOfTask, withPartial } from "./db.ts";
-import { markMerged, openWorkDb, sessionsRecorded } from "./db.ts";
+import { followUpsOfTask, markMerged, openWorkDb, sessionsRecorded, withPartial } from "./db.ts";
 import { approveCommand, mergePullRequest, templateClass, templateWhy, type TemplateClass } from "./merge.ts";
 import { withShipQueue, type QueueTiming } from "./ship-queue.ts";
 import { formatScope, wpScope } from "./scope.ts";

@@ -1313,11 +1313,8 @@ function shipStage(db: DatabaseSync, root: string, task: TaskRef, t: TaskRow, ru
 	if (after.state !== "MERGED" && findTask(db, task)?.status !== "merged") {
 		const pr = t.pr_number ?? task.branch;
 		const partial = partialLine(followUpsOf(db, t.id));
-		const cause = `${partial ? `${partial}\n` : ""}PR #${pr} is verified and waits for Sebastian's approval. After his approval in chat, run: bin/evf approve ${pr} --owner-approval "<his words>"`;
-		record(db, t.id, runId, "owner_approval_wait", {
-			pr: t.pr_number,
-			summary: `${partial ? `${partial} ` : ""}${task.id}: PR #${pr} is verified and waits for Sebastian's approval. After his approval in chat, run: bin/evf approve ${pr} --owner-approval "<his words>"`,
-		});
+		const cause = `${partial ? `${partial} ` : ""}PR #${pr} is verified and waits for Sebastian's approval. After his approval in chat, run: bin/evf approve ${pr} --owner-approval "<his words>"`;
+		record(db, t.id, runId, "owner_approval_wait", { pr: t.pr_number, summary: `${task.id}: ${cause}` });
 		notify(`${task.id} waits for Sebastian`, cause);
 		return { status: "passed", summary: "verified; waits for Sebastian's approval (evf approve)" };
 	}
