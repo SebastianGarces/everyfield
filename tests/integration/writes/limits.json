@@ -1067,8 +1067,7 @@
 	},
 	"people.createPerson": {
 		"limit": 6,
-		"retry": 4,
-		"reason": "A create with a birth date reads the plant-local date for the adult or child value (REQ-PPL-026), one more statement on the established path. Measured: 2 transaction, 1 locked read, 2 read, 1 write."
+		"retry": 4
 	},
 	"people.createTag": {
 		"limit": 5,
