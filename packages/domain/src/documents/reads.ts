@@ -13,7 +13,7 @@ import {
 	type Reader,
 } from "./access.ts";
 import { library, templateView, type CatalogTemplate } from "./catalog.ts";
-import { AGENDA_TEMPLATE, agendaKindOf, agendaMeetingOf, type AgendaKind, type MeetingRead } from "./agenda-meeting.ts";
+import { AGENDA_TEMPLATE, agendaKindOf, agendaMeetingOf, dateText, type AgendaKind, type MeetingRead } from "./agenda-meeting.ts";
 import { readAgendaKind } from "./meeting-read.ts";
 import { cleanOverrides, resolveMerge, type ResolvedMerge } from "./merge.ts";
 import { RenderFailed, digestOf, renderEngineVersion, renderPreview } from "./render.ts";
@@ -163,10 +163,10 @@ function resolved(
 	row: OpenRead,
 ) {
 	// The meeting's date fills meeting_date for any template named with a live meeting.
-	const dated = row.meeting ? agendaMeetingOf(row.meeting, new Date().getUTCFullYear()) : undefined;
+	const meetingDate = row.meeting ? dateText(row.meeting.localDate, new Date().getUTCFullYear()) : undefined;
 	const merge = resolveMerge(
 		template,
-		{ churchName: row.churchName, pastorName: row.pastorName, launchDate: row.launchDate, meetingDate: dated?.date },
+		{ churchName: row.churchName, pastorName: row.pastorName, launchDate: row.launchDate, meetingDate },
 		overrides,
 	);
 	if (!merge.ok) rejectInput(merge.path, merge.problem);

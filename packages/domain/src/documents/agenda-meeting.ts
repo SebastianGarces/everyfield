@@ -85,7 +85,7 @@ export function displayTitle(m: Pick<MeetingRead, "title" | "type" | "visionNumb
 export function agendaMeetingOf(m: MeetingRead, thisYear: number): AgendaMeeting {
 	// Each section starts when the one before it ends, counted from the meeting's start (the Agenda card's rule).
 	const starts: string[] = [];
-	m.agenda.forEach((s, i) => starts.push(i === 0 ? m.localTime : addMinutes(starts[i - 1]!, m.agenda[i - 1]!.minutes)));
+	m.agenda.forEach((_, i) => starts.push(i === 0 ? m.localTime : addMinutes(starts[i - 1]!, m.agenda[i - 1]!.minutes)));
 	return {
 		title: displayTitle(m),
 		date: dateText(m.localDate, thisYear),
