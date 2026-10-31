@@ -91,7 +91,7 @@ export function patchOf(form: BrandForm, saved: BrandForm): SaveBrandRequest["pa
 }
 
 /** The draft as the saved-kit shape the theme resolver reads. A value that would not save is left out. */
-function draftKit(form: BrandForm): BrandKitData {
+function draftKit(form: BrandForm, assets: BrandKitData["assets"]): BrandKitData {
 	const color = (value: string) => (isHex(value) ? hexColor.parse(value) : null);
 	const letterhead = Object.fromEntries(
 		LETTERHEAD_KEYS.map((key) => [
@@ -105,13 +105,29 @@ function draftKit(form: BrandForm): BrandKitData {
 		headingFont: form.headingFont,
 		bodyFont: form.bodyFont,
 		...letterhead,
-		assets: { full_logo: null, full_logo_dark: null, mark: null, mark_dark: null, cover_photo: null, signature: null },
+		assets,
 	};
 }
 
-/** The preview's theme: the same function the server resolves with, over the unsaved draft. */
-export const themeOf = (churchName: string, form: BrandForm, documentClass: DocumentClass) =>
-	resolveDocumentTheme({ name: churchName, kit: draftKit(form) }, documentClass);
+/**
+ * The preview's theme: the same function the server resolves with, over the unsaved draft and the stored assets. The
+ * assets are the kit's own references (an upload or removal saves at once), so the layout places them, not this file.
+ */
+export const themeOf = (
+	churchName: string,
+	form: BrandForm,
+	documentClass: DocumentClass,
+	assets: BrandKitData["assets"] = NO_ASSETS,
+) => resolveDocumentTheme({ name: churchName, kit: draftKit(form, assets) }, documentClass);
+
+export const NO_ASSETS: BrandKitData["assets"] = {
+	full_logo: null,
+	full_logo_dark: null,
+	mark: null,
+	mark_dark: null,
+	cover_photo: null,
+	signature: null,
+};
 
 /** The WCAG view of a typed color, or null while it is empty or not `#RRGGBB`. Same function as the server's. */
 export const colorOf = (value: string) => (isHex(value) ? colorView(hexColor.parse(value)) : null);
@@ -124,7 +140,7 @@ export const textColorName = (textColor: string) => (textColor.endsWith("FFFFFF"
  * optimistically). The revision stays until the server confirms. Contrast comes from the server's own function.
  */
 export function optimisticKit(kit: BrandKit, form: BrandForm): BrandKit {
-	const data = draftKit(form);
+	const data = draftKit(form, kit.assets);
 	const primary = data.primaryColor;
 	return {
 		...data,
@@ -156,6 +172,6 @@ export const BRAND_ERROR_TEXT: Record<BrandError["code"], string> = {
 	unsupported_font: "That font is not in the list. Choose another font.",
 	invalid_ein: "The EIN is not valid. The kit is unchanged. Use the format 12-3456789.",
 	alt_text_required: "Add a description for the image.",
-	unsupported_media_type: "That file type is not supported.",
-	invalid_file: "That file could not be used.",
+	unsupported_media_type: "That file type is not supported. Use an SVG, PNG or WebP image.",
+	invalid_file: "That file could not be read as an image. Try another file.",
 };

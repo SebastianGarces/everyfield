@@ -1,9 +1,9 @@
 "use client";
 
-import type { DocumentClass, DocumentTheme } from "@everyfield/contracts/branding";
+import type { BrandKitData, DocumentClass, DocumentTheme } from "@everyfield/contracts/branding";
 import { textOn } from "@everyfield/domain/branding/color";
 import { Tab, Tabs, TabsList, TabsPanel } from "@everyfield/ui/controls";
-import { useState, type CSSProperties, type ReactNode } from "react";
+import { createContext, use, useState, type CSSProperties, type ReactNode } from "react";
 import { familyOf } from "./fonts";
 import { themeOf, type BrandForm } from "./model";
 
@@ -23,23 +23,38 @@ const CLASSES: { value: DocumentClass; label: string }[] = [
 const PX_PER_MM = 1.7;
 const PAPER = "white";
 
-export function BrandPreview({ churchName, form }: { churchName: string; form: BrandForm }) {
+/** The route that serves a stored asset to this screen (port.brand.assetSrc). */
+const AssetSrc = createContext<(fileId: string) => string>(() => "");
+
+export function BrandPreview({
+	churchName,
+	form,
+	assets,
+	assetSrc,
+}: {
+	churchName: string;
+	form: BrandForm;
+	assets: BrandKitData["assets"];
+	assetSrc: (fileId: string) => string;
+}) {
 	const [tab, setTab] = useState<DocumentClass>("formal/legal");
 	return (
-		<Tabs value={tab} onValueChange={(next) => setTab(next as DocumentClass)}>
-			<TabsList aria-label="Document class" className="gap-5! max-app-sm:gap-3!">
+		<AssetSrc value={assetSrc}>
+			<Tabs value={tab} onValueChange={(next) => setTab(next as DocumentClass)}>
+				<TabsList aria-label="Document class" className="gap-5! max-app-sm:gap-3!">
+					{CLASSES.map((c) => (
+						<Tab key={c.value} value={c.value} className="text-[14px]! max-app-sm:text-[13px]!">
+							{c.label}
+						</Tab>
+					))}
+				</TabsList>
 				{CLASSES.map((c) => (
-					<Tab key={c.value} value={c.value} className="text-[14px]! max-app-sm:text-[13px]!">
-						{c.label}
-					</Tab>
+					<TabsPanel key={c.value} value={c.value} className="pt-4">
+						<Sheet theme={themeOf(churchName, form, c.value, assets)} />
+					</TabsPanel>
 				))}
-			</TabsList>
-			{CLASSES.map((c) => (
-				<TabsPanel key={c.value} value={c.value} className="pt-4">
-					<Sheet theme={themeOf(churchName, form, c.value)} />
-				</TabsPanel>
-			))}
-		</Tabs>
+			</Tabs>
+		</AssetSrc>
 	);
 }
 
@@ -73,23 +88,35 @@ const heading = (theme: DocumentTheme): CSSProperties => ({
 	fontWeight: 400,
 });
 
+type Image = { fileId: string; alt: string };
+
 /**
- * A logo slot: fixed height (and width or max width), the church name set in type. A file the church uploads takes the
- * slot in the next slice. No Everyfield logo is ever drawn.
+ * A logo slot: fixed height (and width or max width). The church's uploaded image fills it when the theme places one
+ * there; otherwise the church name is set in type. No Everyfield logo is ever drawn.
  */
 function LogoSlot({
 	theme,
+	image,
 	height,
 	width,
 	maxWidth,
 	size,
 }: {
 	theme: DocumentTheme;
+	image: Image | null;
 	height: number;
 	width?: number;
 	maxWidth?: number;
 	size: number;
 }) {
+	const src = use(AssetSrc);
+	if (image)
+		return (
+			<div data-slot="logo" data-image="" className="flex items-center" style={{ height, width, maxWidth }}>
+				{/* eslint-disable-next-line @next/next/no-img-element -- the authenticated asset route */}
+				<img src={src(image.fileId)} alt={image.alt} className="max-h-full max-w-full object-contain object-left" />
+			</div>
+		);
 	return (
 		<div
 			data-slot="logo"
@@ -118,9 +145,16 @@ function Lines({ widths }: { widths: number[] }) {
 
 function Formal({ theme, layout }: { theme: DocumentTheme; layout: Layout<"formal/legal"> }) {
 	const { footer, signature } = layout;
+	const src = use(AssetSrc);
 	return (
 		<div className="flex min-h-[420px] flex-col px-6 pt-5 pb-4" style={{ fontSize: 11 }}>
-			<LogoSlot theme={theme} height={layout.headerLogoHeightMm * PX_PER_MM} width={150} size={13} />
+			<LogoSlot
+				theme={theme}
+				image={layout.headerLogo}
+				height={layout.headerLogoHeightMm * PX_PER_MM}
+				width={150}
+				size={13}
+			/>
 			<div className="mt-2 h-0.5" style={{ background: theme.colors.rule }} />
 			<h4 className="mt-5 text-[19px] leading-tight" style={heading(theme)}>
 				Letter of agreement
@@ -136,7 +170,20 @@ function Formal({ theme, layout }: { theme: DocumentTheme; layout: Layout<"forma
 			</div>
 			<div className="mt-auto pt-6">
 				<p className="text-[10px] opacity-60">Signed</p>
-				<p className="mt-4 border-t pt-1 font-medium" style={{ borderColor: theme.colors.ink }}>
+				{signature.image ? (
+					<div data-slot="signature" className="mt-1 flex h-10 items-end">
+						{/* eslint-disable-next-line @next/next/no-img-element -- the authenticated asset route */}
+						<img
+							src={src(signature.image.fileId)}
+							alt={signature.image.alt}
+							className="max-h-full max-w-[160px] object-contain object-left"
+						/>
+					</div>
+				) : null}
+				<p
+					className={`${signature.image ? "mt-1" : "mt-4"} border-t pt-1 font-medium`}
+					style={{ borderColor: theme.colors.ink }}
+				>
 					{signature.name ?? "Signer name"}
 					<span className="ml-1.5 font-normal opacity-70">{signature.title ?? "Title"}</span>
 				</p>
@@ -156,6 +203,7 @@ function Formal({ theme, layout }: { theme: DocumentTheme; layout: Layout<"forma
 }
 
 function Outward({ theme, layout }: { theme: DocumentTheme; layout: Layout<"outward-facing"> }) {
+	const src = use(AssetSrc);
 	// The cover band is the primary color, or the neutral rule color in the neutral theme. Text on it is derived.
 	const band = theme.colors.rule;
 	const stripe = theme.colors.accent ?? theme.colors.rule;
@@ -164,7 +212,13 @@ function Outward({ theme, layout }: { theme: DocumentTheme; layout: Layout<"outw
 	return (
 		<div className="flex min-h-[420px] flex-col" style={{ fontSize: 11 }}>
 			<div className="px-6 pt-5">
-				<LogoSlot theme={theme} height={layout.coverLogoHeightMm * PX_PER_MM} width={200} size={20} />
+				<LogoSlot
+					theme={theme}
+					image={layout.coverLogo}
+					height={layout.coverLogoHeightMm * PX_PER_MM}
+					width={200}
+					size={20}
+				/>
 			</div>
 			<div className="mt-4 px-6 py-6" style={{ background: band, color: textOn(band) }}>
 				<h4
@@ -175,6 +229,12 @@ function Outward({ theme, layout }: { theme: DocumentTheme; layout: Layout<"outw
 				</h4>
 				<p className="mt-1.5">Spring newcomer guide</p>
 			</div>
+			{layout.coverPhoto ? (
+				<div data-slot="cover-photo" className="h-24 overflow-hidden">
+					{/* eslint-disable-next-line @next/next/no-img-element -- the authenticated asset route */}
+					<img src={src(layout.coverPhoto.fileId)} alt={layout.coverPhoto.alt} className="size-full object-cover" />
+				</div>
+			) : null}
 			<div className="h-1.5" style={{ background: stripe }} />
 			<div className="flex flex-1 flex-col gap-3 px-6 pt-4 pb-5">
 				{layout.tagline ? (
@@ -203,7 +263,7 @@ function Operational({ theme, layout }: { theme: DocumentTheme; layout: Layout<"
 	return (
 		<div className="flex min-h-[420px] flex-col px-6 pt-5 pb-4" style={{ fontSize: 11 }}>
 			<div className="flex items-center gap-3">
-				<LogoSlot theme={theme} height={layout.markHeightMm * PX_PER_MM} width={84} size={9} />
+				<LogoSlot theme={theme} image={layout.mark} height={layout.markHeightMm * PX_PER_MM} width={84} size={9} />
 				<h4 className="text-[17px] leading-tight" style={heading(theme)}>
 					Sunday checklist
 				</h4>
@@ -244,7 +304,7 @@ function Email({ theme, layout }: { theme: DocumentTheme; layout: Layout<"email"
 	const { button, footer } = layout;
 	return (
 		<div className="flex min-h-[420px] flex-col px-6 pt-5 pb-4" style={{ fontSize: 12 }}>
-			<LogoSlot theme={theme} height={36} maxWidth={layout.logoMaxWidthPx} size={15} />
+			<LogoSlot theme={theme} image={layout.headerLogo} height={36} maxWidth={layout.logoMaxWidthPx} size={15} />
 			<div className="mt-1 h-px" style={{ background: theme.colors.rule }} />
 			<h4 className="mt-5 text-[18px] leading-tight" style={heading(theme)}>
 				See you this Sunday

@@ -9,6 +9,7 @@ import { spawn } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { createServer as httpServer } from "node:http";
+import { crc32, deflateSync } from "node:zlib";
 import { createServer } from "node:net";
 import { fileURLToPath } from "node:url";
 import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
@@ -237,11 +238,24 @@ try {
 	for (const m of [visionMeeting, boardMeeting]) await guest(m, maria.id);
 	for (const name of ["Ada", "Ben"]) await guest(visionMeeting, (await person(`${name} Guest`)).id);
 
-	// A private bucket on this machine: it answers the privacy check (GetBucketAcl) and records every call it gets.
-	// Signing an upload URL needs no other bucket call.
+	// A private bucket on this machine: it answers the privacy check (GetBucketAcl), keeps the objects a brand asset
+	// upload puts and records every call it gets. Signing an upload URL needs no other bucket call.
 	const bucketCalls = [];
-	bucket = httpServer((request, response) => {
+	const objects = new Map();
+	bucket = httpServer(async (request, response) => {
 		bucketCalls.push(`${request.method} ${request.url}`);
+		const key = new URL(request.url, "http://bucket").pathname;
+		if (request.method === "PUT") {
+			const chunks = [];
+			for await (const chunk of request) chunks.push(chunk);
+			objects.set(key, Buffer.concat(chunks));
+			response.setHeader("etag", '"census"');
+			return response.end();
+		}
+		if (request.method === "GET" && objects.has(key)) {
+			response.setHeader("content-length", objects.get(key).length);
+			return response.end(objects.get(key));
+		}
 		response.setHeader("content-type", "application/xml");
 		response.end(
 			'<?xml version="1.0" encoding="UTF-8"?><AccessControlPolicy><Owner><ID>census</ID></Owner><AccessControlList>' +
@@ -510,6 +524,90 @@ try {
 	);
 	assert.equal(brand.status, "ok", JSON.stringify(brand));
 	assert.equal(brand.value.revision, "1");
+
+	// Brand assets (WP-104/ui slice 2): the upload request, the byte upload, finalize, the asset GET, suggest colors and
+	// the removal of a slot. A 60 x 40 PNG whose 30 x 20 green logo has transparent margin. Each is one request.
+	const brandActions = "apps/web/src/features/settings/brand/actions.ts";
+	const chunk = (type, data) => {
+		const body = Buffer.concat([Buffer.from(type), data]);
+		const out = Buffer.alloc(body.length + 8);
+		out.writeUInt32BE(data.length, 0);
+		body.copy(out, 4);
+		out.writeUInt32BE(crc32(body), body.length + 4);
+		return out;
+	};
+	const header = Buffer.alloc(13);
+	header.writeUInt32BE(60, 0);
+	header.writeUInt32BE(40, 4);
+	header.set([8, 6, 0, 0, 0], 8);
+	const pixels = Buffer.alloc(40 * (1 + 60 * 4));
+	for (let y = 10; y < 30; y++)
+		for (let x = 15; x < 45; x++) pixels.set([0x2e, 0x7d, 0x32, 0xff], y * (1 + 60 * 4) + 1 + x * 4);
+	const logo = Buffer.concat([
+		Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+		chunk("IHDR", header),
+		chunk("IDAT", deflateSync(pixels)),
+		chunk("IEND", Buffer.alloc(0)),
+	]);
+	const asset = (name, method, id, cookie, body) =>
+		fetch(`${origin}/api/brand/assets/${id}`, {
+			method,
+			headers: {
+				...(name ? { "x-evf-request": name } : {}),
+				cookie,
+				origin,
+				...(body ? { "content-type": "image/png" } : {}),
+			},
+			body,
+		});
+	const ticket = await act("POST settings.brand.requestUpload", "/settings/brand", brandActions, "requestAssetUpload", [
+		{ slot: "full_logo", mediaType: "image/png", byteLength: logo.length, altText: "Harvest Point logo" },
+	]);
+	assert.equal(ticket.status, "ok", JSON.stringify(ticket));
+	const stored = await asset("PUT /api/brand/assets/[id]", "PUT", ticket.value.uploadId, owner.cookie, logo);
+	assert.equal(stored.status, 204, await stored.text());
+	const finalized = await act(
+		"POST settings.brand.finalizeUpload",
+		"/settings/brand",
+		brandActions,
+		"finalizeAssetUpload",
+		[{ uploadId: ticket.value.uploadId, slot: "full_logo", altText: "Harvest Point logo", expectedRevision: "1" }],
+	);
+	assert.equal(finalized.status, "ok", JSON.stringify(finalized));
+	assert.equal(finalized.value.revision, "2");
+	const fileId = finalized.value.assets.full_logo.fileId;
+	const served = await asset("GET /api/brand/assets/[id]", "GET", fileId, owner.cookie);
+	assert.equal(served.status, 200);
+	assert.equal(served.headers.get("cache-control"), "private, no-cache");
+	assert.equal(served.headers.get("x-content-type-options"), "nosniff");
+	assert.equal((await served.arrayBuffer()).byteLength > 0, true);
+	const suggested = await act("POST settings.brand.suggestColors", "/settings/brand", brandActions, "suggestColors", [
+		{ assetKind: "full_logo" },
+	]);
+	assert.equal(suggested.status, "ok", JSON.stringify(suggested));
+	assert.equal(suggested.value.suggestedPrimary, "#2E7D32");
+	// A Member gets nothing from any of them (setup requests, no budget).
+	for (const [action, args] of [
+		["requestAssetUpload", [{ slot: "mark", mediaType: "image/png", byteLength: logo.length, altText: "x" }]],
+		["finalizeAssetUpload", [{ uploadId: ticket.value.uploadId, slot: "mark", altText: "x", expectedRevision: "2" }]],
+		["suggestColors", [{ assetKind: "full_logo" }]],
+		["saveBrand", [{ expectedRevision: "2", patch: { assets: { full_logo: null } } }]],
+	]) {
+		const refused = await act(null, "/settings/brand", brandActions, action, args, member.cookie);
+		assert.deepEqual([refused.status, refused.error?.code], ["refused", "access_denied"], action);
+	}
+	assert.equal((await asset(null, "PUT", ticket.value.uploadId, member.cookie, logo)).status, 403);
+	for (const cookie of [member.cookie, ""]) assert.equal((await asset(null, "GET", fileId, cookie)).status, 404);
+	const removed = await act(
+		"POST settings.brand.removeAsset",
+		"/settings/brand",
+		"apps/web/src/features/settings/brand/actions.ts",
+		"saveBrand",
+		[{ expectedRevision: "2", patch: { assets: { full_logo: null } } }],
+	);
+	assert.equal(removed.status, "ok", JSON.stringify(removed));
+	assert.equal(removed.value.assets.full_logo, null);
+	assert.equal((await asset(null, "GET", fileId, owner.cookie)).status, 404, "a removed file is not served");
 
 	// More data than one screen shows: the same pages must send the same statements.
 	for (let i = 0; i < 30; i++) await person(`Grown ${String(i).padStart(2, "0")}`);

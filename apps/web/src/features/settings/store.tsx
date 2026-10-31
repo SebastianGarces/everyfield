@@ -3,6 +3,7 @@
 import type { Loadable } from "@everyfield/ui/display";
 import { createContext, use, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { begin, discard, edit, emptyBook, finish, isDirty, isSaving, rebase, same, visible, type Book } from "./drafts";
+import { ASSET_FLOW, hasPicks, releaseAll } from "./brand/picks";
 import { errorReference, errorText } from "./model";
 import type { Refusal } from "./save";
 import type { GetSectionRequest, SectionKey, SectionResult, SectionSeed, SettingsPort, SettingsViewer } from "./port";
@@ -103,12 +104,15 @@ export function SettingsProvider({
 		},
 		[commit, observe],
 	);
+	const [flows, setFlows] = useState<Record<string, unknown>>({});
 	const clearDrafts = useCallback(() => {
 		let next = bookRef.current;
 		for (const key of Object.keys(next.edits) as SectionKey[]) next = discard(next, key);
 		commit(next);
-	}, [commit]);
-	const [flows, setFlows] = useState<Record<string, unknown>>({});
+		// Files picked for the brand kit and not yet uploaded are drafts too (REQ-IDN-010).
+		releaseAll(flows[ASSET_FLOW]);
+		setFlows((all) => (ASSET_FLOW in all ? { ...all, [ASSET_FLOW]: { picks: {}, notes: {} } } : all));
+	}, [commit, flows]);
 	const setFlow = useCallback(
 		(key: string, update: (prev: unknown) => unknown) => setFlows((all) => ({ ...all, [key]: update(all[key]) })),
 		[],
@@ -137,7 +141,7 @@ export function SettingsProvider({
 	);
 
 	// A reload or tab close with unsaved drafts asks the browser to confirm.
-	const anyDirty = dirtyKeys(book, servers).length > 0;
+	const anyDirty = dirtyKeys(book, servers, flows).length > 0;
 	useEffect(() => {
 		if (!anyDirty) return;
 		const warn = (e: BeforeUnloadEvent) => e.preventDefault();
@@ -148,8 +152,14 @@ export function SettingsProvider({
 	return <Store value={value}>{children}</Store>;
 }
 
-function dirtyKeys(book: Book<SectionKey, Refusal>, servers: Partial<Record<SectionKey, unknown>>): SectionKey[] {
-	return (Object.keys(book.edits) as SectionKey[]).filter((key) => isDirty(book, key, servers[key]));
+function dirtyKeys(
+	book: Book<SectionKey, Refusal>,
+	servers: Partial<Record<SectionKey, unknown>>,
+	flows: Record<string, unknown>,
+): SectionKey[] {
+	const keys = (Object.keys(book.edits) as SectionKey[]).filter((key) => isDirty(book, key, servers[key]));
+	// A picked file or typed alt text that is not yet uploaded leaves Brand kit unsaved.
+	return hasPicks(flows[ASSET_FLOW]) && !keys.includes("brand") ? [...keys, "brand"] : keys;
 }
 
 export function useSettings() {
@@ -169,8 +179,8 @@ export function useFlows() {
 
 /** The sections whose visible value differs from the server value. */
 export function useDirtySections(): { keys: SectionKey[]; clear: () => void } {
-	const { book, servers, clearDrafts } = useStore();
-	return { keys: dirtyKeys(book, servers), clear: clearDrafts };
+	const { book, servers, flows, clearDrafts } = useStore();
+	return { keys: dirtyKeys(book, servers, flows), clear: clearDrafts };
 }
 
 /**

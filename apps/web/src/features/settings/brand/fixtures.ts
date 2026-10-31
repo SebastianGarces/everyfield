@@ -5,7 +5,12 @@ import {
 	LETTERHEAD_KEYS,
 	brandError,
 	brandKit,
+	finalizeUploadRequest,
 	saveSettingsRequest,
+	suggestColorsRequest,
+	suggestedColors,
+	uploadRequest,
+	uploadTicket,
 	type BrandKitData,
 	type HexColor,
 } from "@everyfield/contracts/branding";
@@ -64,7 +69,11 @@ const kitOf = (data: BrandKitData, revision: string): BrandKit =>
 	});
 
 export type BrandFault = BrandError["code"] | "offline";
-export type BrandOperation = "getBrand" | "saveBrand" | "resetBrand";
+export type BrandOperation =
+	"getBrand" | "saveBrand" | "resetBrand" | "requestUpload" | "uploadBytes" | "finalizeUpload" | "suggestColors";
+
+/** The colors the fixture suggests for any logo: the dominant color first, as the server's function returns them. */
+const SUGGESTION = ["#2E7D32", "#8BC34A", "#1B5E20"] as const;
 
 /**
  * `tick(op)` counts the call, waits and applies a queued fault: it returns the refusal code or null, and throws
@@ -85,11 +94,14 @@ export function createFixtureBrand({
 }): BrandPort {
 	let data = START[kit];
 	let revision = kit === "none" ? "0" : "1";
+	// Staged uploads by id, and the object URL of each stored file (the fixture's "served asset").
+	const staged = new Map<string, { slot: string; byteLength: number }>();
+	const served = new Map<string, string>();
 	const refuse = (code: BrandError["code"]): BrandReply<never> => ({
 		status: "refused",
 		error: brandError.parse({
 			code,
-			details: {},
+			details: code === "invalid_input" ? { issues: [] } : {},
 			correlationId: nextId(),
 			retry: code === "conflict" ? "refresh" : "never",
 		}),
@@ -112,14 +124,71 @@ export function createFixtureBrand({
 			if (!parsed.success)
 				return refuse(parsed.error.issues.some((i) => i.path[1] === "ein") ? "invalid_ein" : "invalid_input");
 			if (parsed.data.expectedRevision !== revision) return refuse("conflict");
-			const next = { ...data };
+			const next = { ...data, assets: { ...data.assets } };
 			for (const [key, value] of Object.entries(parsed.data.patch))
 				if (key !== "assets" && value !== undefined) Object.assign(next, { [key]: value });
+			for (const slot of Object.keys(parsed.data.patch.assets ?? {}) as (keyof BrandKitData["assets"])[])
+				next.assets[slot] = null;
 			if (!next.primaryColor) return refuse("primary_required");
 			data = next;
 			revision = String(BigInt(revision) + 1n);
 			return { status: "ok", value: kitOf(data, revision) };
 		},
+		async requestUpload(raw) {
+			const refused = await gate("requestUpload");
+			if (refused) return refused;
+			const given = (raw ?? {}) as Record<string, unknown>;
+			if (typeof given.altText !== "string" || !given.altText.trim()) return refuse("alt_text_required");
+			const parsed = uploadRequest.safeParse(raw);
+			if (!parsed.success)
+				return refuse(
+					parsed.error.issues.some((i) => i.path[0] === "mediaType") ? "unsupported_media_type" : "invalid_input",
+				);
+			const uploadId = nextId();
+			staged.set(uploadId, { slot: parsed.data.slot, byteLength: parsed.data.byteLength });
+			return {
+				status: "ok",
+				value: uploadTicket.parse({ uploadId, expiresAt: new Date(Date.now() + 15 * 60_000).toISOString() }),
+			};
+		},
+		async uploadBytes(uploadId, file) {
+			const refused = await gate("uploadBytes");
+			if (refused) return refused;
+			const request = staged.get(uploadId);
+			if (!request || request.byteLength !== file.size) return refuse("invalid_file");
+			served.set(uploadId, URL.createObjectURL(file));
+			return { status: "ok", value: null };
+		},
+		async finalizeUpload(raw) {
+			const refused = await gate("finalizeUpload");
+			if (refused) return refused;
+			const given = (raw ?? {}) as Record<string, unknown>;
+			if (typeof given.altText !== "string" || !given.altText.trim()) return refuse("alt_text_required");
+			const parsed = finalizeUploadRequest.safeParse(raw);
+			if (!parsed.success) return refuse("invalid_input");
+			const { uploadId, slot, altText, expectedRevision } = parsed.data;
+			if (expectedRevision !== revision) return refuse("conflict");
+			if (!served.has(uploadId) || staged.get(uploadId)?.slot !== slot) return refuse("unavailable");
+			data = { ...data, assets: { ...data.assets, [slot]: { fileId: uploadId, alt: altText } } };
+			revision = String(BigInt(revision) + 1n);
+			return { status: "ok", value: kitOf(data, revision) };
+		},
+		async suggestColors(raw) {
+			const refused = await gate("suggestColors");
+			if (refused) return refused;
+			const parsed = suggestColorsRequest.safeParse(raw);
+			if (!parsed.success) return refuse("invalid_input");
+			if (!data.assets[parsed.data.assetKind]) return refuse("unavailable");
+			return {
+				status: "ok",
+				value: suggestedColors.parse({
+					suggestedPrimary: SUGGESTION[0],
+					palette: SUGGESTION,
+					suggestedFrom: parsed.data.assetKind,
+				}),
+			};
+		},
+		assetSrc: (fileId) => served.get(fileId) ?? "",
 		async reset(raw) {
 			const refused = await gate("resetBrand");
 			if (refused) return refused;

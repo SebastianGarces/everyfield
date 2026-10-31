@@ -9,6 +9,7 @@ import type { BrandError, BrandView } from "../port";
 import { OFFLINE_REFERENCE, type Refusal } from "../save";
 import { SaveError, SaveFooter, SectionBody } from "../SettingsDialog";
 import { useDraft, useSettings } from "../store";
+import { AssetsGroup } from "./AssetsGroup";
 import { BrandPreview } from "./BrandPreview";
 import { familyOf } from "./fonts";
 import {
@@ -25,6 +26,7 @@ import {
 	validate,
 	type BrandForm,
 } from "./model";
+import { useAssets } from "./useAssets";
 import { useBrand } from "./useBrand";
 
 /** What the color picker shows while the typed color is empty or not `#RRGGBB`. */
@@ -93,7 +95,10 @@ function BrandEditor({
 	const { draft, setDraft, dirty, saving, refusal, save: runSave } = useDraft<BrandForm>("brand", saved);
 	const [showErrors, setShowErrors] = useState(false);
 	const [confirmingReset, setConfirmingReset] = useState(false);
+	const [pickedHint, setPickedHint] = useState(false);
 	const set = <K extends keyof BrandForm>(key: K, value: BrandForm[K]) => setDraft({ ...draft, [key]: value });
+	const assets = useAssets({ port: port.brand, kit, setKit, reload });
+	const picked = Object.keys(assets.picks).length > 0;
 
 	// Field errors: the contract's rules, plus the field a refusal names. A refusal clears with the next edit.
 	const errors = {
@@ -106,6 +111,8 @@ function BrandEditor({
 	// One brand.saveSettings with the expected revision. The screen shows the kit as saved at once; the reply confirms
 	// it, or the kit goes back to what the server holds and the refusal says why.
 	const save = () => {
+		// A picked file is not part of Save: it uploads from its own slot. Say so instead of saving nothing.
+		if (!dirty && picked) return setPickedHint(true);
 		setShowErrors(true);
 		if (blocked) return;
 		void runSave(async (sent) => {
@@ -152,7 +159,8 @@ function BrandEditor({
 			</Button>
 		) : undefined;
 
-	const neutral = themeOf(churchName, draft, "formal/legal").kind === "everyfield-neutral";
+	const theme = themeOf(churchName, draft, "formal/legal", kit.assets);
+	const neutral = theme.kind === "everyfield-neutral";
 
 	return (
 		<>
@@ -163,6 +171,17 @@ function BrandEditor({
 							<p className="text-sm text-text-3">
 								Brand changes apply only to newly generated documents. Documents you already saved do not change.
 							</p>
+
+							<AssetsGroup
+								kit={kit}
+								port={port.brand}
+								assets={assets}
+								primary={colorOf(draft.primaryColor)?.hex ?? null}
+								neutralInk={theme.colors.ink}
+								accent={draft.accentColor}
+								onUsePrimary={(color) => set("primaryColor", color)}
+								onUseAccent={(color) => set("accentColor", color)}
+							/>
 
 							<Group title="Colors">
 								<ColorField
@@ -221,7 +240,7 @@ function BrandEditor({
 
 						<div className="flex min-w-0 flex-col gap-3 pt-4 @[680px]:sticky @[680px]:top-0">
 							<h3 className="font-medium text-ink">Preview</h3>
-							<BrandPreview churchName={churchName} form={draft} />
+							<BrandPreview churchName={churchName} form={draft} assets={kit.assets} assetSrc={port.brand.assetSrc} />
 							<p className="text-sm text-text-3" aria-live="polite">
 								{neutral
 									? "Documents use the Everyfield-neutral theme until a primary color is saved."
@@ -233,12 +252,14 @@ function BrandEditor({
 			</SectionBody>
 			<SaveFooter
 				section="brand"
-				dirty={dirty}
+				dirty={dirty || picked}
 				saving={saving}
 				onSave={save}
 				error={
 					refusal ? (
 						<SaveError message={refusal.message} reference={refusal.reference} action={loadLatest} />
+					) : pickedHint && picked && !dirty ? (
+						<SaveError message="Choose Upload on the image, or Cancel it, before you close. Save does not upload images." />
 					) : showErrors && blocked ? (
 						<SaveError message="Some values need a change before you can save. They are marked in red." />
 					) : undefined
