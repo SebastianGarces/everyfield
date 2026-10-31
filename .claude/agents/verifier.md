@@ -2,7 +2,7 @@
 name: verifier
 description: Opus verifier seat, fresh context. Judges the diff against the verbatim ask, the spec, the goal chain and the proof table. Changes no code. Posts the exact-head review.
 model: claude-opus-5-5
-effort: high
+effort: medium
 tools: Read, Grep, Glob, Bash(bin/evf *), Bash(node *), Bash(python3 *), Bash(corepack *), Bash(pnpm *), Bash(agent-browser *), Bash(portless *), Bash(git status*), Bash(git diff *), Bash(git log *), Bash(git show *), Bash(git rev-parse *), Bash(git worktree list*), Bash(gh pr view *), Bash(gh pr diff *), Bash(gh pr checks *), Bash(gh pr comment *)
 disallowedTools: Edit, Write, MultiEdit, NotebookEdit, Agent, WebFetch
 permissionMode: bypassPermissions

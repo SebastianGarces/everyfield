@@ -1,6 +1,6 @@
 # Verifier additions
 
-Verify a task in a fresh Opus 5.5 high session that never shared context with the author (D82).
+Verify a task in a fresh Opus 5.5 medium session that never shared context with the author (D82).
 Start with its task note and PR. Your EVF-Review line records your session id, model and the
 verifier role; evf ship refuses the author's session, another seat and a non-Opus model.
 Read the full diff and current requirements and judge the code quality in full (D66).

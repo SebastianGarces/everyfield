@@ -195,7 +195,7 @@ test("OPS-81-verifier: a non-Opus override leaves the verifier on Opus; an Opus 
 		const set = f.seats("OPS-82", "--model", SONNET, "--effort", "low");
 		assert.equal(set.status, 0, set.stderr);
 		assert.equal(set.stdout.split("\n").filter((l) => /verifier keeps its Opus setting/.test(l)).length, 1);
-		assert.deepEqual([f.plan("OPS-82", "verifier").model, f.plan("OPS-82", "verifier").effort], [OPUS, "high"]);
+		assert.deepEqual([f.plan("OPS-82", "verifier").model, f.plan("OPS-82", "verifier").effort], [OPUS, "medium"]);
 		assert.deepEqual([f.plan("OPS-82", "planner").model, f.plan("OPS-82", "planner").effort], [SONNET, "low"]);
 		assert.deepEqual([f.plan("OPS-82", "implementer").model, f.plan("OPS-82", "implementer").effort], [SONNET, "low"]);
 		const opus = f.seats("OPS-82", "--model", "claude-opus-5-5", "--effort", "max");
