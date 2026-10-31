@@ -37,7 +37,7 @@ export function renderEngineVersion() {
 	return engineVersionOf(contentSnapshot());
 }
 
-function unsafe(value: string) {
+export function unsafe(value: string) {
 	if (value.includes("\0")) return true;
 	for (let i = 0; i < value.length; i++) {
 		const code = value.charCodeAt(i);

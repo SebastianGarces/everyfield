@@ -1,52 +1,9 @@
-import { crc32 } from "node:zlib";
 import type { RenderTheme } from "./theme.ts";
 import { makePalette } from "./theme.ts";
+import { zip } from "./zip.ts";
 
 const xml = (value: string) =>
 	value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
-
-type ZipEntry = { name: string; data: Buffer };
-
-/** Stored ZIP entries and a fixed DOS time, so the same inputs give the same bytes. */
-function zipStored(entries: ZipEntry[]) {
-	const parts: Buffer[] = [];
-	const central: Buffer[] = [];
-	let offset = 0;
-	for (const entry of entries) {
-		const name = Buffer.from(entry.name, "utf8");
-		const crc = crc32(entry.data) >>> 0;
-		const local = Buffer.alloc(30 + name.length);
-		local.writeUInt32LE(0x04034b50, 0);
-		local.writeUInt16LE(20, 4);
-		local.writeUInt16LE(0, 8);
-		local.writeUInt32LE(crc, 14);
-		local.writeUInt32LE(entry.data.length, 18);
-		local.writeUInt32LE(entry.data.length, 22);
-		local.writeUInt16LE(name.length, 26);
-		name.copy(local, 30);
-		parts.push(local, entry.data);
-		const row = Buffer.alloc(46 + name.length);
-		row.writeUInt32LE(0x02014b50, 0);
-		row.writeUInt16LE(20, 4);
-		row.writeUInt16LE(20, 6);
-		row.writeUInt32LE(crc, 16);
-		row.writeUInt32LE(entry.data.length, 20);
-		row.writeUInt32LE(entry.data.length, 24);
-		row.writeUInt16LE(name.length, 28);
-		row.writeUInt32LE(offset, 42);
-		name.copy(row, 46);
-		central.push(row);
-		offset += local.length + entry.data.length;
-	}
-	const directory = Buffer.concat(central);
-	const end = Buffer.alloc(22);
-	end.writeUInt32LE(0x06054b50, 0);
-	end.writeUInt16LE(entries.length, 8);
-	end.writeUInt16LE(entries.length, 10);
-	end.writeUInt32LE(directory.length, 12);
-	end.writeUInt32LE(offset, 16);
-	return Buffer.concat([...parts, directory, end]);
-}
 
 function column(index: number) {
 	let value = index;
@@ -161,7 +118,7 @@ function workbook(sheets: Sheet[], theme: RenderTheme) {
 		`<Relationship Id="rId${n + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>`,
 	].join("");
 	const head = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
-	return zipStored([
+	const entries = [
 		{
 			name: "[Content_Types].xml",
 			data: Buffer.from(
@@ -188,7 +145,8 @@ function workbook(sheets: Sheet[], theme: RenderTheme) {
 		},
 		...sheets.map((sheet, i) => ({ name: `xl/worksheets/sheet${i + 1}.xml`, data: Buffer.from(sheetXml(sheet)) })),
 		{ name: "xl/styles.xml", data: Buffer.from(styles(theme)) },
-	]);
+	];
+	return zip(entries.map((entry) => ({ ...entry, store: true })));
 }
 
 const INCOME_ROWS = [
