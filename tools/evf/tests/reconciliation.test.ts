@@ -1326,7 +1326,10 @@ test("INV-phase7-ship: ship and the review poster accept an independent Opus ver
 	const f = mergeFixture();
 	try {
 		const valid = f.getState();
-		writeFileSync(join(f.root, "fake-bin/review.md"), "## Ask coverage\n\n| Deliverable | Status |\n| --- | --- |\n| The parser | delivered |\n\n## Code quality\nApproved.\n\n## Experience\nNot applicable.\n");
+		writeFileSync(
+			join(f.root, "fake-bin/review.md"),
+			"## Ask coverage\n\n| Deliverable | Status |\n| --- | --- |\n| The parser | delivered |\n\n## Code quality\nApproved.\n\n## Experience\nNot applicable.\n",
+		);
 		const cases = [
 			{ name: "independent Opus verifier", verifier: VERIFIER, ships: true, reason: /fixture merge barrier/ },
 			{

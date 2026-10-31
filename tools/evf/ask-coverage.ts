@@ -19,7 +19,8 @@ const plain = (text: string) => text.replace(/[`*_]/g, "").trim();
 /** The coverage rows of a report, or the reason the table is not acceptable. */
 export function parseAskCoverage(report: string): { rows: CoverageRow[] } | { error: string } {
 	const at = report.search(HEADING);
-	if (at < 0) return { error: "the report needs an Ask coverage section: one row for each deliverable in the verbatim ask" };
+	if (at < 0)
+		return { error: "the report needs an Ask coverage section: one row for each deliverable in the verbatim ask" };
 	const before = report.slice(0, at).split("\n");
 	if (before.some((l) => l.trim().startsWith("|")))
 		return { error: "the Ask coverage section must come before the first criterion or check table" };

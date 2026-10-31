@@ -4,7 +4,15 @@ import { join } from "node:path";
 import { spawn } from "node:child_process";
 import type { DatabaseSync } from "node:sqlite";
 import { ensureTask, findTask, markMerged, newTaskRow, openWorkDb, record, seatText, type TaskRow } from "./db.ts";
-import { fileFollowUps, followUpsOf, partialLine, reserveFollowUpIds, unfiledMessage, unfiledSlices, waitsFor } from "./followups.ts";
+import {
+	fileFollowUps,
+	followUpsOf,
+	partialLine,
+	reserveFollowUpIds,
+	unfiledMessage,
+	unfiledSlices,
+	waitsFor,
+} from "./followups.ts";
 import { ideaWorktree, launch, LaunchAborted, LaunchLineTooLong, type LaunchTiming } from "./launch.ts";
 import { shipOnCurrentCode } from "./merge.ts";
 import { isOpus, validateOverride, type Role } from "./seats.ts";
@@ -413,7 +421,8 @@ const extrasOf = (db: DatabaseSync, taskId: number): NextExtras => ({
 	unfiled: unfiledSlices(
 		db,
 		taskId,
-		(db.prepare("SELECT spec FROM tasks WHERE id = ?").get(taskId) as { spec: string | null } | undefined)?.spec ?? null,
+		(db.prepare("SELECT spec FROM tasks WHERE id = ?").get(taskId) as { spec: string | null } | undefined)?.spec ??
+			null,
 	),
 	waitsFor: waitsFor(db, taskId),
 });
@@ -1684,8 +1693,7 @@ export function driveOnce(root: string, task: TaskRef, timing: DriveTiming = DRI
 			return { stage: "done", round: n.round, reason: "merged" };
 		// A verified owner route stops here: Sebastian approves, then the next pass records the merge.
 		// A failed ship keeps its transition (a new implement round).
-		if (n.stage === "ship" && evfStatus === "passed")
-		{
+		if (n.stage === "ship" && evfStatus === "passed") {
 			const partial = partialLine(followUpsOf(db, t.id));
 			return {
 				stage: "done",

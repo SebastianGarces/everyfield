@@ -404,9 +404,7 @@ function main(argv: string[]): number | Promise<number> {
 				if (file) {
 					if (!existsSync(file)) throw new EvfError("The PR body file does not exist.");
 					body = readFileSync(file, "utf8");
-					const task = taskRef
-						? parseTask(taskRef)
-						: taskOfBranch(git(here, "rev-parse", "--abbrev-ref", "HEAD"));
+					const task = taskRef ? parseTask(taskRef) : taskOfBranch(git(here, "rev-parse", "--abbrev-ref", "HEAD"));
 					followUps = task ? followUpsOfTask(root, task) : [];
 				} else {
 					if (selected !== undefined)

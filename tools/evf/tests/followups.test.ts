@@ -50,7 +50,14 @@ const rows = (root: string, where = "1 = 1") => {
 	try {
 		return db
 			.prepare(`SELECT id, ref, status, title, ask, parent_task_id FROM tasks WHERE ${where} ORDER BY id`)
-			.all() as Array<{ id: number; ref: string; status: string; title: string; ask: string; parent_task_id: number | null }>;
+			.all() as Array<{
+			id: number;
+			ref: string;
+			status: string;
+			title: string;
+			ask: string;
+			parent_task_id: number | null;
+		}>;
 	} finally {
 		db.close();
 	}
@@ -112,10 +119,16 @@ test("OPS-86-file: storing a spec files queued rows linked to the parent, a WP p
 		const lines = storeSpec(f.root, "WP-097", specWith(["Slice two: /oversight.", "Slice three: footer."]));
 		assert.deepEqual(
 			lines.filter((l) => l.startsWith("follow-up:")),
-			["follow-up: WP-097 slice 2 queued Slice two: /oversight.", "follow-up: WP-097 slice 3 queued Slice three: footer."],
+			[
+				"follow-up: WP-097 slice 2 queued Slice two: /oversight.",
+				"follow-up: WP-097 slice 3 queued Slice three: footer.",
+			],
 		);
 		const [parent, two, three] = rows(f.root);
-		assert.deepEqual([two!.status, three!.status, two!.parent_task_id, three!.ref], ["queued", "queued", parent!.id, "WP-097"]);
+		assert.deepEqual(
+			[two!.status, three!.status, two!.parent_task_id, three!.ref],
+			["queued", "queued", parent!.id, "WP-097"],
+		);
 		assert.equal(
 			two!.ask,
 			"Slice two: /oversight.\n\nParent task WP-097, verbatim ask:\nPort the marketing page: home and /oversight.",
@@ -174,7 +187,9 @@ test("OPS-86-gate: a spec with unfiled slices cannot pass plan or start implemen
 		// A spec stored before this change: slices in the text, no rows.
 		db.prepare("UPDATE tasks SET spec = ? WHERE id = ?").run(specWith(["Two: /oversight."]), row.id);
 		const stage = db
-			.prepare("INSERT INTO runs (task_id, stage, role, status, started_at) VALUES (?, 'plan', 'planner', 'started', 't')")
+			.prepare(
+				"INSERT INTO runs (task_id, stage, role, status, started_at) VALUES (?, 'plan', 'planner', 'started', 't')",
+			)
 			.run(row.id).lastInsertRowid;
 		const unfiled = unfiledSlices(db, row.id, specWith(["Two: /oversight."]));
 		assert.deepEqual(unfiled, ["Two: /oversight."]);
@@ -200,10 +215,15 @@ test("OPS-86-gate: a spec with unfiled slices cannot pass plan or start implemen
 		const again = openWorkDb(f.root);
 		const filedNow = unfiledSlices(again, row.id, specWith(["Two: /oversight."]));
 		assert.deepEqual(filedNow, []);
-		assert.equal(nextStage(task, { ...row, spec: specWith(["Two: /oversight."]) }, passed, false, 0, { unfiled: filedNow }).stage, "implement");
+		assert.equal(
+			nextStage(task, { ...row, spec: specWith(["Two: /oversight."]) }, passed, false, 0, { unfiled: filedNow }).stage,
+			"implement",
+		);
 		// With the rows filed, a plan run closes passed.
 		const second = again
-			.prepare("INSERT INTO runs (task_id, stage, role, status, started_at) VALUES (?, 'plan', 'planner', 'started', 'u')")
+			.prepare(
+				"INSERT INTO runs (task_id, stage, role, status, started_at) VALUES (?, 'plan', 'planner', 'started', 'u')",
+			)
 			.run(row.id).lastInsertRowid;
 		again.close();
 		runDone(f.root, Number(second), { status: "passed", summary: "planned" });
@@ -259,14 +279,20 @@ test("OPS-86-ops: OPS slices get distinct reserved ids; a failed reservation sto
 			["follow-up: OPS-13 queued First.", "follow-up: OPS-14 queued Second."],
 		);
 		assert.ok(f.remoteRef("refs/evf/ids/OPS-13") && f.remoteRef("refs/evf/ids/OPS-14"));
-		assert.deepEqual(rows(f.root, "status = 'queued'").map((r) => r.ref), ["OPS-13", "OPS-14"]);
+		assert.deepEqual(
+			rows(f.root, "status = 'queued'").map((r) => r.ref),
+			["OPS-13", "OPS-14"],
+		);
 
 		// A repeat reserves nothing.
 		storeSpec(f.root, "OPS-5", specWith(["First.", "Second."]));
 		assert.ok(!f.remoteRef("refs/evf/ids/OPS-15"));
 
 		// A queued OPS row is the ref's only row, so it is found, and nothing starts it.
-		assert.throws(() => requireStartable(f.root, parseTask("OPS-13"), "implementer"), /OPS-13 is queued.*waits for OPS-5/);
+		assert.throws(
+			() => requireStartable(f.root, parseTask("OPS-13"), "implementer"),
+			/OPS-13 is queued.*waits for OPS-5/,
+		);
 		assert.throws(
 			() => taskStart(f.root, parseTask("OPS-13"), { allowUnready: false, noStack: true }),
 			/OPS-13 is queued/,
@@ -291,7 +317,10 @@ test("OPS-86-ops: OPS slices get distinct reserved ids; a failed reservation sto
 
 const AUTHOR = { session: "11111111-1111-4111-8111-111111111111", model: "claude-sonnet-5-5", role: "implementer" };
 function prBody(summary: string) {
-	const template = readFileSync(join(source, ".agents/skills/everyfield-pr/template.md"), "utf8").replace(/<!--[^]*?-->/g, "");
+	const template = readFileSync(join(source, ".agents/skills/everyfield-pr/template.md"), "utf8").replace(
+		/<!--[^]*?-->/g,
+		"",
+	);
 	const headings = template.split("\n").filter((l) => l.startsWith("## "));
 	return (
 		headings.map((h) => `${h}\n${h === "## Summary" ? summary : "Concrete task evidence."}`).join("\n\n") +
@@ -319,7 +348,8 @@ test("OPS-86-body: an ordinary body for a task with follow-ups needs a Partial: 
 });
 
 test("OPS-86-coverage: the Ask coverage table parses, and approval needs no missing row and filed deferrals", () => {
-	const table = (rows: string) => `## Ask coverage\n\n| Deliverable | Status |\n| --- | --- |\n${rows}\n\n## Criteria\n\n| n | status |\n| - | - |\n| 1 | met |\n`;
+	const table = (rows: string) =>
+		`## Ask coverage\n\n| Deliverable | Status |\n| --- | --- |\n${rows}\n\n## Criteria\n\n| n | status |\n| - | - |\n| 1 | met |\n`;
 	const ok = parseAskCoverage(table("| home route | delivered |\n| /oversight | deferred OPS-13 |"));
 	assert.deepEqual("rows" in ok && ok.rows, [
 		{ deliverable: "home route", status: "delivered" },
@@ -329,10 +359,20 @@ test("OPS-86-coverage: the Ask coverage table parses, and approval needs no miss
 	assert.match(approvalBlock("rows" in ok ? ok.rows : [], ["OPS-99"])!, /OPS-13/);
 	const missing = parseAskCoverage(table("| /oversight | missing |"));
 	assert.match(approvalBlock("rows" in missing ? missing.rows : [], [])!, /missing deliverables.*\/oversight/);
-	assert.match(("error" in parseAskCoverage("## Code quality\nx") && (parseAskCoverage("## Code quality\nx") as { error: string }).error) || "", /Ask coverage/);
+	assert.match(
+		("error" in parseAskCoverage("## Code quality\nx") &&
+			(parseAskCoverage("## Code quality\nx") as { error: string }).error) ||
+			"",
+		/Ask coverage/,
+	);
 	const late = parseAskCoverage(`| a | b |\n| - | - |\n| 1 | met |\n\n${table("| x | delivered |")}`);
 	assert.match(("error" in late && late.error) || "", /before the first criterion or check table/);
-	assert.match(("error" in parseAskCoverage(table("| x | maybe |")) && (parseAskCoverage(table("| x | maybe |")) as { error: string }).error) || "", /maybe/);
+	assert.match(
+		("error" in parseAskCoverage(table("| x | maybe |")) &&
+			(parseAskCoverage(table("| x | maybe |")) as { error: string }).error) ||
+			"",
+		/maybe/,
+	);
 });
 
 test("OPS-86-poster: post-review.mjs refuses a report without coverage, a missing row and an unfiled deferral", () => {
@@ -341,9 +381,13 @@ test("OPS-86-poster: post-review.mjs refuses a report without coverage, a missin
 		// A copy of the poster and the evf code it imports, so it reads this fixture's store, not the real one.
 		cpSync(join(source, "tools/evf"), join(f.root, "tools/evf"), { recursive: true });
 		mkdirSync(join(f.root, ".agents/skills/verify-preview"), { recursive: true });
-		cpSync(join(source, ".agents/skills/verify-preview/scripts"), join(f.root, ".agents/skills/verify-preview/scripts"), {
-			recursive: true,
-		});
+		cpSync(
+			join(source, ".agents/skills/verify-preview/scripts"),
+			join(f.root, ".agents/skills/verify-preview/scripts"),
+			{
+				recursive: true,
+			},
+		);
 		newTask(f.root, "WP-097", "Ask.");
 		storeSpec(f.root, "WP-097", specWith(["Two."]));
 		const head = "c".repeat(40);
@@ -368,7 +412,10 @@ test("OPS-86-poster: post-review.mjs refuses a report without coverage, a missin
 					...["--pr", "9", "--report", file, "--head", head, "--verdict", "approved"],
 					...["--session", "22222222-2222-4222-8222-222222222222", "--model", "claude-opus-5-5"],
 					...["--experience-verdict", "approved", "--budget", "met", "--quality-verdict", "approved"],
-					...["--principles", "laziness-protocol,minimize-reader-load,subtract-before-you-add,test-behavior-not-implementation"],
+					...[
+						"--principles",
+						"laziness-protocol,minimize-reader-load,subtract-before-you-add,test-behavior-not-implementation",
+					],
 					"--dry-run",
 				],
 				{ cwd: f.root, encoding: "utf8" },

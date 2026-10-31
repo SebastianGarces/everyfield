@@ -11,7 +11,14 @@ import { laterSlices } from "./spec.ts";
  */
 
 type Row = Record<string, unknown>;
-export type LinkedRow = { id: number; ref: string; status: string; title: string; ask: string; parent_task_id: number | null };
+export type LinkedRow = {
+	id: number;
+	ref: string;
+	status: string;
+	title: string;
+	ask: string;
+	parent_task_id: number | null;
+};
 const now = () => new Date().toISOString();
 const headline = (text: string, max = 100) => text.split("\n")[0]!.slice(0, max);
 const COLUMNS = "id, ref, status, title, ask, parent_task_id";
@@ -37,9 +44,7 @@ export function labelOf(db: DatabaseSync, row: LinkedRow): string {
 	if (!row.parent_task_id || root.ref !== row.ref) return row.ref;
 	const n = (
 		db
-			.prepare(
-				"SELECT COUNT(*) AS n FROM tasks WHERE ref = ? AND status != 'abandoned' AND id >= ? AND id <= ?",
-			)
+			.prepare("SELECT COUNT(*) AS n FROM tasks WHERE ref = ? AND status != 'abandoned' AND id >= ? AND id <= ?")
 			.get(row.ref, root.id, row.id) as { n: number }
 	).n;
 	return `${row.ref} slice ${n}`;
@@ -147,7 +152,12 @@ export function fileFollowUps(db: DatabaseSync, parent: Parent, spec: string, id
 }
 
 /** The OPS ids a spec needs: one for each slice that has no row yet, when the parent is an OPS task. */
-export function reserveFollowUpIds(root: string, db: DatabaseSync, parent: { id: number; ref: string }, spec: string): string[] {
+export function reserveFollowUpIds(
+	root: string,
+	db: DatabaseSync,
+	parent: { id: number; ref: string },
+	spec: string,
+): string[] {
 	if (parseTask(parent.ref).kind !== "ops") return [];
 	const missing = unfiledSlices(db, parent.id, spec).length; // id 0: a ref without a row has no follow-ups yet
 	if (!missing) return [];
@@ -167,7 +177,13 @@ function recordEvent(db: DatabaseSync, taskId: number, type: string, payload: Ro
 
 function release(db: DatabaseSync, row: LinkedRow, dep: LinkedRow, runId: number | null): void {
 	db.prepare("UPDATE tasks SET status = 'new', updated_at = ? WHERE id = ?").run(now(), row.id);
-	recordEvent(db, row.id, "follow_up_released", { summary: `${labelOf(db, row)} can start: ${labelOf(db, dep)} merged` }, runId);
+	recordEvent(
+		db,
+		row.id,
+		"follow_up_released",
+		{ summary: `${labelOf(db, row)} can start: ${labelOf(db, dep)} merged` },
+		runId,
+	);
 }
 
 /** A row merged: the queued follow-up that depends on it becomes `new`. The slice after that stays queued. */

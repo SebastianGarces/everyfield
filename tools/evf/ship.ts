@@ -523,7 +523,9 @@ function ownerRoute(
 	if (!(cfg.mergePolicy.feedbackOwnerAfterVerifier as string[]).includes(cls))
 		fail("This feedback class requires the owner approval route.");
 	verified();
-	console.log(withPartial(root, task, `PR #${number} is verified and waits for Sebastian's chat approval, then evf approve.`));
+	console.log(
+		withPartial(root, task, `PR #${number} is verified and waits for Sebastian's chat approval, then evf approve.`),
+	);
 	return 0;
 }
 

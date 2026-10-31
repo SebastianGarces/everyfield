@@ -1,7 +1,15 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { followUpsOf, partialLine, type FollowUp, releaseDependents, unfiledMessage, unfiledSlices, waitsFor } from "./followups.ts";
+import {
+	followUpsOf,
+	partialLine,
+	type FollowUp,
+	releaseDependents,
+	unfiledMessage,
+	unfiledSlices,
+	waitsFor,
+} from "./followups.ts";
 import { baseRef, evfDataDir, fail, git, loadConfig, parseTask, sleep, type TaskRef } from "./lib.ts";
 
 /**
@@ -322,7 +330,9 @@ export function requireStartable(root: string, task: TaskRef, role?: string): vo
 		const row = findTask(db, task);
 		if (!row) return;
 		if (row.status === "queued")
-			fail(`${task.id} is queued: it waits for ${waitsFor(db, row.id) ?? "its parent"} to merge. Nothing starts it before that.`);
+			fail(
+				`${task.id} is queued: it waits for ${waitsFor(db, row.id) ?? "its parent"} to merge. Nothing starts it before that.`,
+			);
 		if (role === "implementer" || role === "ui") {
 			const unfiled = unfiledSlices(db, row.id, row.spec);
 			if (unfiled.length) fail(unfiledMessage(task.id, unfiled));
