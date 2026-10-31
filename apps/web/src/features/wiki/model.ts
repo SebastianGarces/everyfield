@@ -1,11 +1,4 @@
-import {
-	closesFence,
-	isDiagramInfo,
-	openFence,
-	parseDiagram,
-	type Diagram,
-	type WikiArticle,
-} from "@everyfield/contracts/wiki";
+import { fenceAt, fenceContent, type Diagram, type WikiArticle } from "@everyfield/contracts/wiki";
 import { z } from "zod";
 
 // View models for the wiki screens. The producer is the authority for entitlement.
@@ -238,28 +231,17 @@ function cells(line: string): string[] {
 		.filter((cell) => cell.length > 0 && !/^:?-+:?$/.test(cell));
 }
 
-/** A fenced block: a diagram when its `diagram` source parses, otherwise code that shows the source as written. */
-function fenceBlock(info: string, text: string): Block {
-	if (isDiagramInfo(info)) {
-		const parsed = parseDiagram(info, text);
-		if (parsed.ok) return { kind: "diagram", diagram: parsed.diagram };
-	}
-	return { kind: "code", text };
-}
-
 /** The published markdown subset: headings, paragraphs, lists, tables, quotes, callouts and fenced blocks. */
 export function markdownBlocks(body: string): Block[] {
 	const blocks: Block[] = [];
 	const lines = body.split(/\n/);
 	let index = 0;
 	while (index < lines.length) {
-		const fence = openFence(lines[index] ?? "");
+		const fence = fenceAt(lines, index);
 		if (fence) {
-			// Fence lines are never markdown. An unterminated fence runs to the end of the body.
-			let close = index + 1;
-			while (close < lines.length && !closesFence(lines[close] ?? "", fence)) close += 1;
-			blocks.push(fenceBlock(fence.info, lines.slice(index + 1, close).join("\n")));
-			index = close + 1;
+			// Fence lines are never markdown.
+			blocks.push(fenceContent(fence));
+			index = fence.end;
 			continue;
 		}
 		const trimmed = (lines[index] ?? "").trim();

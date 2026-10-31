@@ -38,25 +38,8 @@ export type DiagramError = { readonly line: number; readonly message: string };
 export type DiagramResult =
 	{ readonly ok: true; readonly diagram: Diagram } | { readonly ok: false; readonly errors: NonEmpty<DiagramError> };
 
-/** An opening code fence: up to three spaces, then three or more backticks or tildes, then the info string. */
-export type Fence = { readonly marker: string; readonly info: string };
-
 const OPEN = /^ {0,3}(`{3,}|~{3,})(.*)$/;
-
-export function openFence(line: string): Fence | null {
-	const match = OPEN.exec(line);
-	if (!match?.[1]) return null;
-	const marker = match[1];
-	const info = (match[2] ?? "").trim();
-	if (marker.startsWith("`") && info.includes("`")) return null;
-	return { marker, info };
-}
-
-/** The closing fence: the same character, at least as long, and nothing after it but spaces. */
-export function closesFence(line: string, fence: Fence): boolean {
-	const match = /^ {0,3}(`{3,}|~{3,})\s*$/.exec(line);
-	return !!match?.[1] && match[1][0] === fence.marker[0] && match[1].length >= fence.marker.length;
-}
+const CLOSE = /^ {0,3}(`{3,}|~{3,})\s*$/;
 
 /** A fence whose info string starts with the word `diagram`. */
 export function isDiagramInfo(info: string): boolean {
@@ -73,24 +56,45 @@ export type FencedBlock = {
 	readonly end: number;
 };
 
-/** Every fenced block in `text`. An unterminated fence runs to the end. */
+/**
+ * The fenced block that opens at `lines[start]`, or null. A fence is up to three spaces, then three or more backticks
+ * or tildes, then the info string. It closes on the same character, at least as long, with nothing after it but
+ * spaces. An unterminated fence runs to the end.
+ */
+export function fenceAt(lines: readonly string[], start: number): FencedBlock | null {
+	const open = OPEN.exec(lines[start] ?? "");
+	const marker = open?.[1];
+	if (!marker) return null;
+	const info = (open[2] ?? "").trim();
+	if (marker.startsWith("`") && info.includes("`")) return null;
+	const closes = (line: string) => {
+		const close = CLOSE.exec(line)?.[1];
+		return !!close && close[0] === marker[0] && close.length >= marker.length;
+	};
+	let close = start + 1;
+	while (close < lines.length && !closes(lines[close] ?? "")) close += 1;
+	const body = lines.slice(start + 1, close).join("\n");
+	return { info, body, start, end: Math.min(close + 1, lines.length) };
+}
+
+/** Every fenced block in `text`. */
 export function fencedBlocks(text: string): FencedBlock[] {
 	const lines = text.split("\n");
 	const blocks: FencedBlock[] = [];
-	for (let index = 0; index < lines.length; index += 1) {
-		const fence = openFence(lines[index] ?? "");
-		if (!fence) continue;
-		let close = index + 1;
-		while (close < lines.length && !closesFence(lines[close] ?? "", fence)) close += 1;
-		blocks.push({
-			info: fence.info,
-			body: lines.slice(index + 1, close).join("\n"),
-			start: index,
-			end: Math.min(close + 1, lines.length),
-		});
-		index = close;
+	for (let index = 0; index < lines.length;) {
+		const block = fenceAt(lines, index);
+		if (block) blocks.push(block);
+		index = block ? block.end : index + 1;
 	}
 	return blocks;
+}
+
+/** A fence as readers see it: a diagram when its `diagram` source parses, otherwise code that shows the source. */
+export function fenceContent(
+	block: FencedBlock,
+): { readonly kind: "diagram"; readonly diagram: Diagram } | { readonly kind: "code"; readonly text: string } {
+	const parsed = isDiagramInfo(block.info) ? parseDiagram(block.info, block.body) : null;
+	return parsed?.ok ? { kind: "diagram", diagram: parsed.diagram } : { kind: "code", text: block.body };
 }
 
 const NOUN: Record<DiagramType, [string, string]> = {

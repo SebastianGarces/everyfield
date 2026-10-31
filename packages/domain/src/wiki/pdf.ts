@@ -1,12 +1,5 @@
 import "server-only";
-import {
-	closesFence,
-	isDiagramInfo,
-	openFence,
-	parseDiagram,
-	type Diagram,
-	type HierarchyNode,
-} from "@everyfield/contracts/wiki";
+import { fenceAt, fenceContent, type Diagram, type HierarchyNode } from "@everyfield/contracts/wiki";
 
 export type PdfRenderMeta = { filename: string; source: string };
 export type PdfRenderer = (title: string, body: string, meta?: PdfRenderMeta) => Uint8Array;
@@ -59,15 +52,11 @@ export function articleBlocks(body: string): Block[] {
 	};
 	while (index < lines.length) {
 		const line = lines[index] ?? "";
-		const fence = openFence(line);
+		const fence = fenceAt(lines, index);
 		if (fence) {
 			// A fence is never markdown. A diagram that does not parse prints its source, like any code.
-			let close = index + 1;
-			while (close < lines.length && !closesFence(lines[close] ?? "", fence)) close += 1;
-			const text = lines.slice(index + 1, close).join("\n");
-			const parsed = isDiagramInfo(fence.info) ? parseDiagram(fence.info, text) : null;
-			blocks.push(parsed?.ok ? { kind: "diagram", diagram: parsed.diagram } : { kind: "code", text });
-			index = close + 1;
+			blocks.push(fenceContent(fence));
+			index = fence.end;
 			continue;
 		}
 		const trimmed = line.trim();
@@ -135,7 +124,7 @@ export function articleBlocks(body: string): Block[] {
 type Line = { text: string; code?: true };
 
 /** A diagram as text: its title, the type name, one line per node, then the loop. Flow steps end with "->". */
-export function diagramText(diagram: Diagram): string[] {
+function diagramText(diagram: Diagram): string[] {
 	const node = (n: { label: string; detail?: string; note?: string }) =>
 		`${n.label}${n.detail ? ` - ${n.detail}` : ""}${n.note ? ` (${n.note})` : ""}`;
 	const lines = [diagram.title, `${diagram.type[0]!.toUpperCase()}${diagram.type.slice(1)} diagram`];

@@ -1,4 +1,5 @@
 import { Prose, WikiDiagram } from "@everyfield/ui/display";
+import { diagramSummary } from "@everyfield/contracts/wiki";
 import { HEADING_STOP } from "./layout.ts";
 import { articleBlocks, inlineParts, type Inline } from "./model.ts";
 
@@ -93,7 +94,8 @@ export function ArticleBody({ contentType, body }: { contentType: string; body: 
 							<code>{block.text}</code>
 						</pre>
 					);
-				if (block.kind === "diagram") return <WikiDiagram key={index} diagram={block.diagram} />;
+				if (block.kind === "diagram")
+					return <WikiDiagram key={index} diagram={block.diagram} summary={diagramSummary(block.diagram)} />;
 				if (block.kind === "callout")
 					return (
 						<aside key={index} role="note" className="my-5 rounded-card bg-surface-2 px-5 py-4">

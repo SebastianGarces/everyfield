@@ -4,7 +4,7 @@ import { cn } from "../foundations";
 /**
  * WikiDiagram (WP-034): a diagram block from a Wiki article, drawn as cards with real text. The shape is structural, so
  * the parsed contracts `Diagram` fits it and this package needs no contracts import. The figure is named by its title
- * and a text alternative (type, node count, loop). The nodes are a list in source order: `<ol>` for flow, stages, cycle
+ * and the caller's `summary`, the text alternative (type, node count, loop). The nodes are a list in source order: `<ol>` for flow, stages, cycle
  * and timeline, nested `<ul>` for hierarchy. Arrows, rails and rings are decoration and hidden from assistive tech.
  * Layouts follow the figure's own width (container queries): flow, cycle and timeline turn vertical when narrow.
  */
@@ -20,30 +20,18 @@ export type WikiDiagramData =
 	| { readonly type: "stages" | "timeline"; readonly title: string; readonly nodes: readonly WikiDiagramNode[] }
 	| { readonly type: "hierarchy"; readonly title: string; readonly nodes: readonly WikiDiagramTreeNode[] };
 
-const NOUN = {
-	flow: ["step", "steps"],
-	stages: ["stage", "stages"],
-	cycle: ["step", "steps"],
-	hierarchy: ["item", "items"],
-	timeline: ["milestone", "milestones"],
-} as const;
-
-function total(nodes: readonly (WikiDiagramNode | WikiDiagramTreeNode)[]): number {
-	return nodes.reduce((sum, node) => sum + 1 + ("children" in node ? total(node.children) : 0), 0);
-}
-
-function summary(diagram: WikiDiagramData): string {
-	const n = total(diagram.nodes);
-	const [one, many] = NOUN[diagram.type];
-	const name = diagram.type[0]!.toUpperCase() + diagram.type.slice(1);
-	const loop = "loop" in diagram && diagram.loop ? `. Repeats: ${diagram.loop}` : "";
-	return `${name} diagram, ${n} ${n === 1 ? one : many}${loop}`;
-}
-
 /** Overrides for the article prose around the figure: its list bullets, paddings and paragraph gaps. */
 const RESET = "m-0! list-none! p-0! [&>li]:my-0!";
 
-export function WikiDiagram({ diagram, className }: { diagram: WikiDiagramData; className?: string }) {
+export function WikiDiagram({
+	diagram,
+	summary,
+	className,
+}: {
+	diagram: WikiDiagramData;
+	summary: string;
+	className?: string;
+}) {
 	const id = useId();
 	const loop = "loop" in diagram && diagram.loop ? diagram.loop : null;
 	return (
@@ -59,7 +47,7 @@ export function WikiDiagram({ diagram, className }: { diagram: WikiDiagramData; 
 				{diagram.title}
 			</figcaption>
 			<span id={`${id}-alt`} className="sr-only">
-				{summary(diagram)}
+				{summary}
 			</span>
 			{diagram.type === "flow" ? <Flow nodes={diagram.nodes} loop={loop} /> : null}
 			{diagram.type === "stages" ? <Stages nodes={diagram.nodes} /> : null}
@@ -182,19 +170,26 @@ function Flow({ nodes, loop }: { nodes: readonly WikiDiagramNode[]; loop: string
 	);
 }
 
+/** The return path of a vertical loop: a rail on the left. `wideHidden` drops it in a wide figure. */
+function SideRail({ wideHidden }: { wideHidden: boolean }) {
+	return (
+		<span
+			aria-hidden="true"
+			className={cn(
+				"pointer-events-none absolute top-6 bottom-6 left-0 w-4 rounded-l-lg border-y-[1.75px] border-l-[1.75px] border-text-3",
+				wideHidden && "@xl:hidden",
+			)}
+		>
+			<span className="absolute -top-[5.5px] right-0 size-0 border-y-[4.5px] border-l-[7px] border-y-transparent border-l-text-3" />
+		</span>
+	);
+}
+
 /** The return path of a loop: a rail on the left in the vertical form, a bracket under the row when across. */
 function ReturnRail({ across }: { across: boolean }) {
 	return (
 		<>
-			<span
-				aria-hidden="true"
-				className={cn(
-					"pointer-events-none absolute top-6 bottom-6 left-0 w-4 rounded-l-lg border-y-[1.75px] border-l-[1.75px] border-text-3",
-					across && "@xl:hidden",
-				)}
-			>
-				<span className="absolute -top-[5.5px] right-0 size-0 border-y-[4.5px] border-l-[7px] border-y-transparent border-l-text-3" />
-			</span>
+			<SideRail wideHidden={across} />
 			{across ? (
 				<span
 					aria-hidden="true"
@@ -341,15 +336,7 @@ function Cycle({ nodes }: { nodes: readonly WikiDiagramNode[] }) {
 					</svg>
 				</span>
 			) : null}
-			<span
-				aria-hidden="true"
-				className={cn(
-					"pointer-events-none absolute top-6 bottom-6 left-0 w-4 rounded-l-lg border-y-[1.75px] border-l-[1.75px] border-text-3",
-					ring && "@xl:hidden",
-				)}
-			>
-				<span className="absolute -top-[5.5px] right-0 size-0 border-y-[4.5px] border-l-[7px] border-y-transparent border-l-text-3" />
-			</span>
+			<SideRail wideHidden={!!ring} />
 		</div>
 	);
 }
