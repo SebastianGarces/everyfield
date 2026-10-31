@@ -1,6 +1,6 @@
 "use client";
 
-import { BlockEditor, type BlockEditorHandle, type BlockRow } from "@/components/BlockEditor";
+import { BlockEditor, type BlockRow } from "@/components/BlockEditor";
 import { Download01Icon, File02Icon } from "@hugeicons/core-free-icons";
 import type { ChurchBlock, ChurchList, ChurchPage } from "@everyfield/contracts/documents";
 import { Button, Card, ConfirmDialog, EmptyState, PageHeader, Switch } from "@everyfield/ui/controls";
@@ -25,7 +25,6 @@ import {
 	plantTime,
 	rowsFromBody,
 	sameBody,
-	type ChurchClass,
 } from "./church-model.ts";
 
 // Church Documents: the list on /documents and the page of one document. The editor is the block editor the Wiki
@@ -147,12 +146,12 @@ export function ChurchDocumentView({ initial, canEdit }: { initial: ChurchPage; 
 	const [fieldError, setFieldError] = useState<string | null>(null);
 	const [brandNote, setBrandNote] = useState<string | null>(null);
 	const [exportNote, setExportNote] = useState<string | null>(null);
+	const [openNote, setOpenNote] = useState<string | null>(null);
 	const [exporting, setExporting] = useState<string | null>(null);
 	const [downloadLink, setDownloadLink] = useState<{ id: string; url: string } | null>(null);
 	const [leaveTo, setLeaveTo] = useState<string | null>(null);
 	const [saving, startSave] = useTransition();
 	const [openingRevision, setOpeningRevision] = useState<number | null>(null);
-	const editor = useRef<BlockEditorHandle>(null);
 	const exportKeys = useRef(new Map<string, string>());
 	const bypass = useRef(false);
 
@@ -232,10 +231,11 @@ export function ChurchDocumentView({ initial, canEdit }: { initial: ChurchPage; 
 			return;
 		}
 		setOpeningRevision(number);
+		setOpenNote(null);
 		const result = await readChurchRevision(doc.id, number);
 		setOpeningRevision(null);
 		if (result.status !== "ok") {
-			setExportNote("That revision did not open. Try again.");
+			setOpenNote("That revision did not open. Try again.");
 			return;
 		}
 		setOpened({ number: result.value.number, body: result.value.body });
@@ -264,7 +264,8 @@ export function ChurchDocumentView({ initial, canEdit }: { initial: ChurchPage; 
 		const result = await exportChurchDocument(doc.id, onScreen, format, key);
 		setExporting(null);
 		if (result.status !== "ok") {
-			exportKeys.current.delete(slot);
+			// A refusal ends the attempt. A lost reply keeps the key, so a retry cannot make a second export.
+			if (result.status === "refused") exportKeys.current.delete(slot);
 			setExportNote(
 				churchProblem(
 					result.status === "refused" ? result : "lost",
@@ -304,7 +305,7 @@ export function ChurchDocumentView({ initial, canEdit }: { initial: ChurchPage; 
 				breadcrumb={[{ label: "Documents", href: "/documents" }, { label: doc.title }]}
 				subtitle={
 					<span className="flex flex-wrap items-center gap-2">
-						<Tag>{CLASS_LABEL[doc.documentClass as ChurchClass]}</Tag>
+						<Tag>{CLASS_LABEL[doc.documentClass]}</Tag>
 						<span>From {page.templateName}</span>
 						<span>Revision {doc.revision}</span>
 					</span>
@@ -331,7 +332,6 @@ export function ChurchDocumentView({ initial, canEdit }: { initial: ChurchPage; 
 							<div className="flex flex-wrap items-center justify-between gap-2">
 								<p className="text-sm font-medium text-ink">
 									Revision {opened.number} (read only)
-									{opened.number === current ? "" : ". A newer revision exists."}
 								</p>
 								<Button variant="secondary" onClick={() => setOpened(null)}>
 									Back to revision {doc.revision}
@@ -347,7 +347,6 @@ export function ChurchDocumentView({ initial, canEdit }: { initial: ChurchPage; 
 								onSubmit={(event) => event.preventDefault()}
 							>
 								<BlockEditor
-									ref={editor}
 									rows={rows}
 									onChange={(next) => {
 										setRows(next);
@@ -460,6 +459,11 @@ export function ChurchDocumentView({ initial, canEdit }: { initial: ChurchPage; 
 					</Card>
 					<Card className="gap-3">
 						<h2 className="font-title text-title-sm tracking-[-0.02em] text-ink">Revision history</h2>
+						{openNote ? (
+							<p role="status" className="text-sm font-medium text-magenta-600">
+								{openNote}
+							</p>
+						) : null}
 						<ul className="flex flex-col gap-2">
 							{page.revisions.map((revision) => {
 								const shown = revision.number === onScreen;
@@ -467,7 +471,7 @@ export function ChurchDocumentView({ initial, canEdit }: { initial: ChurchPage; 
 									<li
 										key={revision.id}
 										className={cn(
-											"flex flex-wrap items-center justify-between gap-2 rounded-md bg-surface px-3 py-2",
+											"flex items-center justify-between gap-3 rounded-md bg-surface px-3 py-2",
 											shown && "shadow-[0_0_0_2px_var(--ef-ink)]",
 										)}
 									>
@@ -482,9 +486,10 @@ export function ChurchDocumentView({ initial, canEdit }: { initial: ChurchPage; 
 										</div>
 										<Button
 											variant="ghost"
+											className="shrink-0"
 											loading={openingRevision === revision.number}
 											aria-label={`Open revision ${revision.number}`}
-											disabled={shown && (opened ? opened.number === revision.number : true)}
+											disabled={shown}
 											onClick={() => void open(revision.number)}
 										>
 											Open

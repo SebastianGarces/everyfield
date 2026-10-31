@@ -11,9 +11,8 @@ import type { Template } from "./model.ts";
 // Church Documents on the screen: the body as editor rows and back, the checks that run before a save, and the words
 // for each refusal. Pure functions, so the editor and its tests share one definition.
 
-export type ChurchView = ChurchPage;
-export type Slot = ChurchView["slots"][number];
-export type ChurchClass = ChurchView["document"]["documentClass"];
+export type Slot = ChurchPage["slots"][number];
+export type ChurchClass = ChurchPage["document"]["documentClass"];
 
 export const CLASS_LABEL: Record<ChurchClass, string> = {
 	"formal/legal": "Formal and legal",

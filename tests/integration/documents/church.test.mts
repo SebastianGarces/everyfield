@@ -443,7 +443,7 @@ describe("WP-037 Church Documents", { concurrency: 1 }, () => {
 		const before = await counts();
 		const pdf = ok(await exportDoc(MEMBER, doc.id, 1, "pdf", "neutral-pdf-r1"));
 		assert.equal(pdf.format, "pdf");
-		assert.deepEqual(pdf.source, { documentId: doc.id, revisionId: doc.revisionId, revision: 1 });
+		assert.deepEqual(pdf.source, { documentId: doc.id, revisionId: doc.revisionId, revision: 1, title: doc.title });
 		assert.deepEqual(pdf.theme, { kind: "everyfield-neutral", primary: null });
 		assert.equal(pdf.templateId, "bylaws");
 		assert.equal(pdf.templateVersion, "1");
