@@ -1,6 +1,7 @@
 import { requestDatabase } from "@/server/database";
 import { getViewer } from "@/server/request-context";
 import type { MeetingsContext } from "@everyfield/domain/meetings";
+import { documentsReader } from "@everyfield/domain/documents";
 import { attendanceReader, meetingsReader, withMeetingsWrite } from "@everyfield/domain/meetings";
 import type { MeetingsReply } from "@everyfield/contracts/meetings";
 import type { Database, Transaction } from "@everyfield/db/client";
@@ -101,6 +102,22 @@ export async function loadMeetings(viewer: Viewer, query: MeetingsQuery) {
 }
 
 /**
+ * The agenda template that prints from this meeting, or null (REQ-DOC-007). One read beside the page's others. A read
+ * that fails shows no button; the print route answers for itself.
+ */
+async function readAgendaTemplate(viewer: Viewer, meetingId: string) {
+	const db = requestDatabase();
+	if (!db) return null;
+	try {
+		const reply = await documentsReader["templates.contextual"](db, viewer.authority, { meetingId });
+		return reply.status === "ok" ? (reply.value.templates[0]?.id ?? null) : null;
+	} catch (error) {
+		console.error(JSON.stringify({ component: "meetings", outcome: "agenda_template_failed", error: String(error) }));
+		return null;
+	}
+}
+
+/**
  * The meeting page: the meeting, guests, kit, cards and the viewer's own RSVP, read side by side. Only the meeting
  * itself decides found or not found; a part that fails to load shows its own error in place. The card summary is
  * counted from the guests and cards on screen, so a recorded card updates it without another read.
@@ -109,7 +126,7 @@ export async function loadMeeting(viewer: Viewer, meetingId: string) {
 	const request = { meetingId };
 	// The evaluation exists only for a Vision meeting, so it is read right after the meeting, while the other reads run.
 	const meetingRead = read(viewer, (db, a) => meetingsReader.get(db, a, request));
-	const [meeting, guests, kit, cards, own, attendance, analytics, evaluation] = await Promise.all([
+	const [meeting, guests, kit, cards, own, attendance, analytics, evaluation, agendaTemplate] = await Promise.all([
 		meetingRead,
 		read(viewer, (db, a) => meetingsReader.listGuests(db, a, request)),
 		read(viewer, (db, a) => meetingsReader.listKit(db, a, request)),
@@ -123,12 +140,14 @@ export async function loadMeeting(viewer: Viewer, meetingId: string) {
 				? read(viewer, (db, a) => attendanceReader.getEvaluation(db, a, request))
 				: null,
 		),
+		readAgendaTemplate(viewer, meetingId),
 	]);
 	if (meeting.status === "failed") return { status: "failed" } as const;
 	if (meeting.status === "refused" || meeting.value.status === "unavailable") return { status: "missing" } as const;
 	return {
 		status: "found",
 		meeting: meeting.value.meeting,
+		agendaTemplate,
 		guests: value(guests)?.guests ?? null,
 		kit: value(kit),
 		cards: value(cards)?.cards ?? null,

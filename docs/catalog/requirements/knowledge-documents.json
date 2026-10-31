@@ -213,7 +213,7 @@
       "feature_ids": [
         "DOC-007"
       ],
-      "text": "Vision Meeting Agenda — PDF; welcome/story/vision/GROW-PRAY-GIVE/next steps.",
+      "text": "Vision Meeting Agenda — PDF; printed from the meeting's own agenda (its sections, minutes and start times in the app's order, its date, time, place and guest list), with blank write-in rows when it has none.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
         "documents.preview"
@@ -310,7 +310,7 @@
       "feature_ids": [
         "DOC-011"
       ],
-      "text": "Board/Elder Meeting Agenda — PDF; prayer/minutes/financial/ministry/action items.",
+      "text": "Board/Elder Meeting Agenda — PDF; printed from a leadership team meeting's own agenda the same way, with blank write-in rows when it has none.",
       "spec": "docs/product/knowledge-documents.md#generated-documents-and-templates",
       "operations": [
         "documents.preview"

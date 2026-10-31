@@ -711,6 +711,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 							<AgendaCard
 								meeting={m}
 								canWrite={canWrite}
+								printable={data.agendaTemplate !== null}
 								project={project}
 								onSaved={(agenda) =>
 									setData((d) => ({ ...d, meeting: { ...d.meeting, agenda, revision: agenda.revision } }))

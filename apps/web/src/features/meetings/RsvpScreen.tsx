@@ -1,5 +1,7 @@
 "use client";
 
+import { timeText } from "@everyfield/contracts/common";
+
 import { Alert02Icon, Calendar03Icon, Location01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import type * as c from "@everyfield/contracts/meetings";
 import { Button } from "@everyfield/ui/controls";
@@ -7,7 +9,7 @@ import { Icon, LogoMark } from "@everyfield/ui/foundations";
 import { useOptimistic, useState, useTransition, type ReactNode } from "react";
 import type { z } from "zod";
 import { answerRsvp, readRsvpLink } from "./actions.ts";
-import { longDateText, problemText, timeText } from "./model.ts";
+import { longDateText, problemText } from "./model.ts";
 
 type View = z.infer<typeof c.rsvpTokenView>;
 type Open = Extract<View, { meeting: unknown }>;

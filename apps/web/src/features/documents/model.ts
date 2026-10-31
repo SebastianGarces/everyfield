@@ -50,6 +50,7 @@ export const SOURCE_LABEL: Record<Exclude<FieldSource, "absent">, string> = {
 	church_name: "From church",
 	pastor_name: "From pastor",
 	launch_date: "From launch date",
+	meeting: "From meeting",
 	override: "Your text",
 };
 
