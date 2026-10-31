@@ -471,7 +471,14 @@ describe("WP-036/api document templates", { concurrency: 1 }, () => {
 			assert.deepEqual(await offered(owner, none), []);
 		assert.deepEqual(await offered(outsider, vision), []);
 
-		const printed = async (who, meetingId: string) => ok(await documentsReader.printAgenda(db, who, { meetingId }));
+		// The print result carries the artifact only; the digest is of the PDF bytes the route would send.
+		const printed = async (who, meetingId: string) => {
+			const result = ok(await documentsReader.printAgenda(db, who, { meetingId }));
+			return {
+				...result,
+				digest: createHash("sha256").update(Buffer.from(result.artifact, "base64")).digest("hex"),
+			};
+		};
 		const before = await counts();
 		const audit = await countOf("audit_event");
 
