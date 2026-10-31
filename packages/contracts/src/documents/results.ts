@@ -237,6 +237,7 @@ export const churchPage = z.strictObject({
 export type ChurchPage = z.infer<typeof churchPage>;
 export type ChurchList = z.infer<typeof churchList>;
 export type ChurchExport = z.infer<typeof churchExport>;
+export type ChurchRevisionSummary = z.infer<typeof churchRevisionSummary>;
 export const brandingResult = z.strictObject({ documentId: recordId, useChurchBranding: z.boolean() });
 export type ChurchRevisionList = z.infer<typeof churchRevisionList>;
 export type ChurchRevision = z.infer<typeof churchRevision>;

@@ -655,6 +655,10 @@ try {
 		);
 		assert.equal(saved.status, "ok", JSON.stringify(saved));
 		churchRevision = saved.value.document.revision;
+		// A save answers with what it changed: the document and its one new revision, never the page.
+		assert.deepEqual(Object.keys(saved.value).sort(), ["document", "revision"]);
+		assert.equal(saved.value.revision.number, Number(churchRevision));
+		assert.equal(saved.value.revision.id, saved.value.document.revisionId);
 	}
 	for (const [name, path, cookie] of pages) await get(name, path, cookie);
 

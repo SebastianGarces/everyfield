@@ -211,11 +211,12 @@ export function ChurchDocumentView({ initial, canEdit }: { initial: ChurchPage; 
 				});
 				return;
 			}
-			setPage(result.value);
-			setSaved(result.value.document.body);
-			setRows(rowsFromBody(result.value.document.body, result.value.slots));
+			const { document: next, revision } = result.value;
+			setPage((before) => ({ ...before, document: next, revisions: [revision, ...before.revisions] }));
+			setSaved(next.body);
+			setRows(rowsFromBody(next.body, page.slots));
 			setOpened(null);
-			setSaveNote({ tone: "ok", text: `Saved as revision ${result.value.document.revision}.` });
+			setSaveNote({ tone: "ok", text: `Saved as revision ${next.revision}.` });
 		});
 	}
 
@@ -276,8 +277,9 @@ export function ChurchDocumentView({ initial, canEdit }: { initial: ChurchPage; 
 		}
 		exportKeys.current.delete(slot);
 		// The new export appears at the top of the saved exports. A reader's own edits stay as they are.
-		setPage((before) => ({ ...before, exports: result.value.page.exports }));
-		startDownload(result.value.url, result.value.page.exports[0]?.id ?? "");
+		const made = result.value.export;
+		setPage((before) => ({ ...before, exports: [made, ...before.exports] }));
+		startDownload(result.value.url, made.id);
 	}
 
 	/** Open the signed link. A browser that blocks the new tab leaves the link below the buttons. */
