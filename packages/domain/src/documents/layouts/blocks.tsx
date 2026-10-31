@@ -4,6 +4,7 @@
 import type { ReactNode } from "react";
 import { Checkbox, Fixed, H1, H2, Image, Cell, Row, Svg, Table, Text, TextField, View } from "@formepdf/react";
 import type { Style } from "@formepdf/react";
+import type { AgendaMeeting } from "../agenda-meeting.ts";
 import { ContrastLog, MIN_BODY, MIN_NONTEXT } from "../contrast.ts";
 import { PageNumber } from "../pdfcn/page-number.tsx";
 import { FONT, SIZE, SP, type RenderClass, type RenderTheme, type Palette, type ThemeImage } from "../theme.ts";
@@ -17,6 +18,8 @@ export type Ctx = {
 	/** Merge-field values by key. A key with no value is absent. */
 	values: Record<string, string>;
 	log: ContrastLog;
+	/** The meeting an agenda prints from. Absent: the agenda is the blank sheet. */
+	meeting?: AgendaMeeting;
 };
 
 const LEGAL_NOTICE = "Template, not legal advice";
@@ -312,8 +315,8 @@ export const DataTable = (
 					borderColor: o.headRule ?? o.headFill,
 				}}
 			>
-				{cols.map((c) => (
-					<Cell key={c.label} style={cellStyle}>
+				{cols.map((c, ci) => (
+					<Cell key={ci} style={cellStyle}>
 						{T(ctx, c.label, {
 							size: SIZE.xs,
 							weight: 700,

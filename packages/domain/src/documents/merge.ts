@@ -1,13 +1,19 @@
 import { MERGE_BYTES_MAX } from "@everyfield/contracts/documents";
 import type { CatalogTemplate } from "./catalog.ts";
 
-export type FieldSources = { churchName: string | null; pastorName: string | null; launchDate: string | null };
+export type FieldSources = {
+	churchName: string | null;
+	pastorName: string | null;
+	launchDate: string | null;
+	/** The date of the meeting a render is built from, as the meeting screen words it. */
+	meetingDate?: string | null;
+};
 export type ResolvedField = {
 	key: string;
 	label: string;
 	required: boolean;
 	value: string | null;
-	source: "override" | "church_name" | "pastor_name" | "launch_date" | "absent";
+	source: "override" | "church_name" | "pastor_name" | "launch_date" | "meeting" | "absent";
 };
 type Problem = { ok: false; path: string; problem: string };
 export type ResolvedMerge = Problem | { ok: true; fields: ResolvedField[]; missing: string[]; complete: boolean };
@@ -37,6 +43,8 @@ function autoValue(
 		return { value: sources.pastorName.trim(), source: "pastor_name" };
 	if (key === "launch_date" && sources.launchDate?.trim())
 		return { value: sources.launchDate.trim(), source: "launch_date" };
+	if (key === "meeting_date" && sources.meetingDate?.trim())
+		return { value: sources.meetingDate.trim(), source: "meeting" };
 	return null;
 }
 
@@ -63,7 +71,8 @@ export function resolveMerge(
 			});
 			continue;
 		}
-		const filled = autoValue(field.autoFill, sources);
+		// meeting_date has no autoFill in the frozen catalog row; a render from a meeting fills it by key.
+		const filled = autoValue(field.autoFill ?? (field.key === "meeting_date" ? "meeting_date" : undefined), sources);
 		if (filled) {
 			fields.push({
 				key: field.key,
