@@ -14,7 +14,7 @@ import {
 } from "@everyfield/ui/controls";
 import { KeyValue, KeyValueList, StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import type { Wait } from "../../components/save/model.ts";
 import { When } from "../people/parts.tsx";
 import type { StatusAction } from "./actions.ts";
