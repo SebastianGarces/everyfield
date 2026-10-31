@@ -362,8 +362,10 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 	};
 	const open = (id: string) => {
 		warm(id);
-		if (id !== openId) rereadContacts(id);
-		if (id !== openId) leaveForm(id);
+		if (id !== openId) {
+			rereadContacts(id);
+			leaveForm(id);
+		}
 		shownId.current = id;
 		setOpenId(id);
 		address(id);
