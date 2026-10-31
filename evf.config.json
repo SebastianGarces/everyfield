@@ -1408,6 +1408,13 @@
 				{ "name": "workflow-regressions", "run": ["bin/evf", "test"] }
 			],
 			"risk": "ordinary"
+		},
+		"OPS-101": {
+			"title": "Written documents page and WYSIWYG church-document editor prototype in design/everyfield-ui.html (Opus 5.5 medium)",
+			"route": "design",
+			"owningPaths": ["design/everyfield-ui.html"],
+			"checks": [{ "name": "documentation", "run": ["python3", "docs/check-all.py"] }],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {
