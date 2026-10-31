@@ -14,6 +14,7 @@ import {
 	type TaskContext,
 	type Tx,
 } from "../tasks/core.ts";
+import { assignedTo } from "../tasks/assignees.ts";
 import { loadTask, lockTasks, type LockedTask } from "../tasks/queries.ts";
 import { mutation, setStatus, syncAll, type TaskReminders } from "../tasks/writes.ts";
 import { originJson, originOf } from "../tasks/origin.ts";
@@ -190,7 +191,8 @@ const correctionFacts = z.object({
 	author_name: z.string().nullable(),
 	corrects_reason: z.string().nullable(),
 	origins: z.record(z.string(), z.unknown()),
-	task_assignee: z.uuid().nullable(),
+	// Whether the correcting actor is one of the task's assignees.
+	actor_assigned: z.boolean().nullable(),
 	task_live: z.boolean().nullable(),
 	person_live: z.boolean().nullable(),
 	others_contact: z.coerce.date().nullable(),
@@ -225,7 +227,7 @@ export function outcomeWriter(reminders: TaskReminders) {
 								await tx.execute(sql`SELECT t.id FROM task t WHERE t.plant_id=${plant}::uuid AND (t.id=${taskId}::uuid
 								OR (t.person_id=(SELECT x.person_id FROM task x WHERE x.id=${taskId}::uuid AND x.plant_id=${plant}::uuid)
 									AND ${followUpTask(sql`t`)} AND t.status IN ${OPEN}
-									${administers(cmd.actor) ? sql`` : sql`AND t.assignee_id=${cmd.actor.accountId}::uuid`}))
+									${administers(cmd.actor) ? sql`` : sql`AND ${assignedTo("t", sql`${cmd.actor.accountId}::uuid`)}`}))
 								ORDER BY t.id FOR UPDATE OF t`);
 							const ids = z
 								.array(z.object({ id: z.uuid() }))
@@ -237,7 +239,7 @@ export function outcomeWriter(reminders: TaskReminders) {
 						} else task = await loadTask(tx, plant, v.target.taskId, true);
 						// A checklist row or a task with no Person has no follow-up outcome.
 						if (!task || task.deleted_at || task.parent_id || !task.person_id) deny();
-						if (!administers(cmd.actor) && task.assignee_id !== cmd.actor.accountId) deny();
+						if (!administers(cmd.actor) && !task.assignees.some((a) => a.accountId === cmd.actor.accountId)) deny();
 						if (task.revision !== v.target.expectedRevision) deny("conflict");
 						// A closed follow-up takes no new outcome: its completing record is already the answer.
 						if (!(OPEN_STATUS as readonly string[]).includes(task.status)) deny("conflict");
@@ -328,7 +330,8 @@ export function outcomeWriter(reminders: TaskReminders) {
 							ORDER BY a.occurred_at, a.id LIMIT 1) AS corrects_reason,
 						(SELECT coalesce(jsonb_object_agg(k.id, ${originJson(sql`k`)}),'{}') FROM task k
 							WHERE k.plant_id=o.plant_id AND k.id=ANY(o.also_task_ids)) AS origins,
-						t.assignee_id AS task_assignee, t.deleted_at IS NULL AND t.parent_id IS NULL AS task_live,
+						EXISTS(SELECT FROM task_assignee ta WHERE ta.task_id=t.id AND ta.account_id=${cmd.actor.accountId}::uuid) AS actor_assigned,
+						t.deleted_at IS NULL AND t.parent_id IS NULL AS task_live,
 						p.state='live' AS person_live,
 						(SELECT max(x.occurred_at) FROM contact_outcome x WHERE x.plant_id=o.plant_id AND x.person_id=o.person_id
 							AND x.voided_at IS NULL AND x.outcome='contacted' AND x.id<>o.id) AS others_contact,
@@ -345,7 +348,7 @@ export function outcomeWriter(reminders: TaskReminders) {
 					const own =
 						old.task_id !== null &&
 						f.task_live === true &&
-						f.task_assignee === cmd.actor.accountId &&
+						f.actor_assigned === true &&
 						f.author_id === cmd.actor.accountId;
 					if (!administers(cmd.actor) && !own) deny();
 					if (old.voided_at || old.revision !== input.expectedRevision) deny("conflict");

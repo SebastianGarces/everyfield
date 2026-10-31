@@ -62,7 +62,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-019 | Training programs completion revoke/correct | 14 | 10 | 27 | 4 | 2 |
 | WP-024 | Task core | 11 | 22 | 14 | 5 | 2 |
 | WP-022 | Attendance, finalization, evaluation and analytics | 13 | 19 | 15 | 4 | 2 |
-| WP-023 | Follow-up obligation/outcome C2b | 12 | 10 | 17 | 2 | 2 |
+| WP-023 | Follow-up obligation/outcome C2b | 12 | 10 | 17 | 3 | 2 |
 | WP-025 | Task structure | 6 | 12 | 7 | 0 | 1.5 |
 | WP-038 | Phase initial declaration and transitions | 32 | 7 | 23 | 2 | 2.5 |
 | WP-026 | Phase task templates and prompts | 5 | 7 | 5 | 3 | 1.5 |

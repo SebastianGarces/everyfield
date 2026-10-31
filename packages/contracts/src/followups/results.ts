@@ -3,7 +3,7 @@ import { instant, localDate } from "../common/time.ts";
 import { accountId, defineSafeError, operationId, personId, recordId, revision } from "../common/values.ts";
 import { stage } from "../people/values.ts";
 import { taskDetail, taskError } from "../tasks/results.ts";
-import { due, followUpOrigin, followUpOwner, obligationKind, taskStatus } from "../tasks/values.ts";
+import { due, followUpOrigin, followUpOwner, MAX_ASSIGNEES, obligationKind, taskStatus } from "../tasks/values.ts";
 import { channel, measurement, obligationState, outcome } from "./values.ts";
 
 const count = z.int().min(0);
@@ -68,8 +68,8 @@ export const obligationItem = z.strictObject({
 	state: obligationState,
 	waiver: z.strictObject({ at: instant, reason: z.string().nullable() }).nullable(),
 	task: z.strictObject({ id: recordId, revision, status: taskStatus, deleted: z.boolean() }).nullable(),
-	// The task's assignee with whether they may own it; null is Needs owner. An ineligible assignee still counts as Needs owner.
-	owner: followUpOwner.nullable(),
+	// The task's assignees with whether each may own it. Needs owner when none is eligible (D-a).
+	owners: z.array(followUpOwner).max(MAX_ASSIGNEES),
 	// The earliest effective typed outcome that completed the task, when the task is complete.
 	completion: z.strictObject({ outcomeId: recordId, outcome, occurredAt: instant }).nullable(),
 	// An effective contacted outcome exists for this obligation. Task completion and contact are separate facts.
@@ -94,8 +94,8 @@ export const dutyItem = z.strictObject({
 	overdue: z.boolean().nullable(),
 	obligationId: recordId.nullable(),
 	person: z.strictObject({ id: personId, label: z.string() }),
-	// The task's assignee with whether they may own it (REQ-TSK-012); null is Needs owner. Ineligible reads as Needs owner.
-	owner: followUpOwner.nullable(),
+	// The task's assignees with whether each may own it (REQ-TSK-012). Needs owner when none is eligible (D-a).
+	owners: z.array(followUpOwner).max(MAX_ASSIGNEES),
 	// Where the follow-up came from, so two for one person can be told apart.
 	origin: followUpOrigin,
 	// The latest effective outcome recorded on the task, if any.

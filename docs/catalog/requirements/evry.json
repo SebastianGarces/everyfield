@@ -580,7 +580,6 @@
       ],
       "spec": "docs/product/evry.md",
       "status": "current-target-design; future-not-run",
-      "behavior_rules": [],
       "operation_refs": [],
       "title": "Approved actions run once with a matching audit record"
     },
@@ -726,7 +725,6 @@
       ],
       "spec": "docs/product/evry.md",
       "status": "current-target-design; future-not-run",
-      "behavior_rules": [],
       "operation_refs": [
         {
           "operation_id": "evry.readReview",

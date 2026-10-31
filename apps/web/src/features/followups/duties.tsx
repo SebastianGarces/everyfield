@@ -1,7 +1,7 @@
 "use client";
 
-import { Add01Icon, UserAdd01Icon } from "@hugeicons/core-free-icons";
-import { personId } from "@everyfield/contracts/common";
+import { Add01Icon } from "@hugeicons/core-free-icons";
+import { accountId, personId } from "@everyfield/contracts/common";
 import type * as tc from "@everyfield/contracts/tasks";
 import {
 	Button,
@@ -17,20 +17,27 @@ import {
 	MenuLabel,
 	MenuRadioGroup,
 	MenuRadioItem,
-	MenuSeparator,
 	MenuTrigger,
 	SegmentedControl,
-	Select,
 	Spinner,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { z } from "zod";
 import { When } from "../people/parts.tsx";
-import { dueText, ownerText } from "../tasks/model.ts";
+import { AssigneePicker, forgetAssignees } from "../tasks/AssigneePicker.tsx";
+import { dueText, ownerText, ownerWarning } from "../tasks/model.ts";
 import { assignFollowUp, createFollowUp } from "./actions.ts";
 import { forgetOwners, prefetchOwners, warmOn } from "./fetch.ts";
-import { OUTCOME_LABEL, originText, type Account, type DutyItem, type Outcome } from "./model.ts";
+import {
+	needsOwner,
+	OUTCOME_LABEL,
+	originText,
+	type Account,
+	type DutyItem,
+	type Outcome,
+	type Owner,
+} from "./model.ts";
 import {
 	DialogNotice,
 	focusFirstProblem,
@@ -40,10 +47,16 @@ import {
 } from "../../components/save/parts.tsx";
 
 type TaskDetail = z.infer<typeof tc.taskDetail>;
-const NEEDS_OWNER = "needs_owner";
 
-/** A follow-up the server just created or changed, as the assignment lists show it. */
+/**
+ * A follow-up the server just created or changed, as the assignment lists show it. An owner this screen already showed
+ * keeps the view it had (a retained person who cannot own follow-ups still says so); a person a save just checked reads
+ * as eligible.
+ */
 export function dutyFrom(task: TaskDetail, previous?: DutyItem): DutyItem {
+	const shown = task.followUpOwners.length
+		? task.followUpOwners
+		: task.assignees.map((a) => ({ ...a, eligible: true, reason: null }));
 	return {
 		taskId: task.id,
 		revision: task.revision,
@@ -55,8 +68,7 @@ export function dutyFrom(task: TaskDetail, previous?: DutyItem): DutyItem {
 		person: task.relation
 			? { id: personId.parse(task.relation.id), label: task.relation.label }
 			: (previous?.person ?? { id: personId.parse(task.id), label: "" }),
-		// The task's own owner view; a save just checked the assignee, so a plain assignee reads as eligible.
-		owner: task.followUpOwner ?? (task.assignee ? { ...task.assignee, eligible: true, reason: null } : null),
+		owners: shown.map((o) => previous?.owners.find((p) => p.accountId === o.accountId) ?? o),
 		origin: previous?.origin ?? { kind: "added", by: null },
 		lastOutcome: previous?.lastOutcome ?? null,
 		contacted: previous?.contacted ?? null,
@@ -78,8 +90,101 @@ function useOwners(active: boolean) {
 }
 
 /**
- * Who owns a follow-up, and (Owner/Admin) a menu to give it to an eligible owner or leave it as Needs owner
- * (REQ-TSK-012). The list loads on intent. The change shows at once and rolls back when the server refuses it.
+ * Each owner in the words every screen uses; Owner/Admin get Reassign for someone who cannot own follow-ups. Where the
+ * picker beside it already names everyone, only the people who cannot own follow-ups get a line, with their warning.
+ */
+function OwnerLines({
+	duty,
+	canReassign,
+	showOwner,
+	reassign,
+}: {
+	duty: DutyItem;
+	canReassign: boolean;
+	showOwner: boolean;
+	reassign: (from: Owner, to: Account) => void;
+}) {
+	const [open, setOpen] = useState<string | null>(null);
+	const owners = useOwners(open !== null);
+	const others =
+		owners?.status === "ok" ? owners.value.filter((x) => !duty.owners.some((h) => h.accountId === x.accountId)) : [];
+	return (
+		<ul className="m-0 flex list-none flex-col gap-1 p-0" aria-label={`Owners of ${duty.title}`}>
+			{duty.owners.map((o) => {
+				const ineligible = !o.eligible;
+				if (canReassign && !ineligible) return null;
+				return (
+					<li
+						key={o.accountId}
+						className="inline-flex flex-wrap items-center justify-end gap-x-2 max-app-sm:justify-start"
+					>
+						{ineligible ? (
+							showOwner ? (
+								<span className="text-sm text-text-2">{ownerText(o)}</span>
+							) : null
+						) : (
+							<span className="text-sm text-text-2">{ownerText(o)}</span>
+						)}
+						{ineligible && canReassign ? (
+							<Menu open={open === o.accountId} onOpenChange={(next) => setOpen(next ? o.accountId : null)}>
+								<MenuTrigger asChild>
+									<Button
+										size="sm"
+										variant="outline"
+										aria-label={`Reassign ${o.displayName || "this person"} on ${duty.title}`}
+										{...warmOn(prefetchOwners)}
+									>
+										Reassign
+									</Button>
+								</MenuTrigger>
+								<MenuContent align="end" className="min-w-[220px]">
+									<MenuLabel>Give {o.displayName || "this person"}&apos;s place to</MenuLabel>
+									{owners === null ? (
+										<div className="flex items-center gap-2 px-3 py-2 text-sm text-text-2" role="status">
+											<Spinner size={16} />
+											Loading owners
+										</div>
+									) : owners.status !== "ok" ? (
+										<p className="px-3 py-2 text-sm text-text-2" role="status">
+											The owners did not load. Close this menu and try again.
+										</p>
+									) : (
+										<MenuRadioGroup
+											value=""
+											onValueChange={(v) => {
+												const to = owners.value.find((x) => x.accountId === v);
+												setOpen(null);
+												if (to) reassign(o, to);
+											}}
+										>
+											{others.length === 0 ? (
+												<p className="px-3 py-2 text-sm text-text-2">
+													No one else can own follow-ups yet. Owners need a seat and a core group, launch team or leader
+													stage.
+												</p>
+											) : (
+												others.map((x) => (
+													<MenuRadioItem key={x.accountId} value={x.accountId}>
+														{x.displayName}
+													</MenuRadioItem>
+												))
+											)}
+										</MenuRadioGroup>
+									)}
+								</MenuContent>
+							</Menu>
+						) : null}
+					</li>
+				);
+			})}
+		</ul>
+	);
+}
+
+/**
+ * Who owns a follow-up, and (Owner/Admin) a picker to give it to up to ten eligible owners or leave it as Needs owner
+ * (REQ-TSK-012). Reassign replaces only the person it sits beside. The list loads on intent. The change shows at once
+ * and rolls back when the server refuses it.
  */
 export function AssignMenu({
 	duty,
@@ -93,7 +198,7 @@ export function AssignMenu({
 	duty: DutyItem;
 	lane: SaveIntent;
 	canAssign: boolean;
-	/** Name an assignee who cannot own follow-ups beside Reassign; false where the screen already names them. */
+	/** Name an owner who cannot own follow-ups beside Reassign; false where the screen already names them. */
 	showOwner?: boolean;
 	/** The follow-up as shown: at once when chosen, again from the server's answer, or back on a refusal. */
 	onChange: (duty: DutyItem) => void;
@@ -101,29 +206,27 @@ export function AssignMenu({
 	onSaved?: (before: DutyItem, after: DutyItem) => void;
 	onConflict: () => void;
 }) {
-	const [open, setOpen] = useState(false);
-	const owners = useOwners(open);
-	const label = ownerText(duty.owner);
-	// An assignee who cannot own follow-ups shows with why, and the Owner/Admin reassigns from the same place.
-	const ineligible = duty.owner !== null && !duty.owner.eligible;
-	if (!canAssign)
-		return duty.owner ? (
-			<span className="text-sm text-text-2">{label}</span>
-		) : (
-			<StatusBadge status="attention" size="sm">
-				Needs owner
-			</StatusBadge>
+	// The follow-up as it was when the picker opened: what a refusal restores and what "changed" compares with.
+	const opened = useRef(duty);
+	const needs = needsOwner(duty);
+	/** The owner views for a chosen set: people already shown keep their view, new ones read as eligible. */
+	const ownersFor = (ids: string[], names: Record<string, string>): Owner[] =>
+		ids.map(
+			(id) =>
+				duty.owners.find((o) => o.accountId === id) ?? {
+					accountId: accountId.parse(id),
+					displayName: names[id] ?? "",
+					eligible: true,
+					reason: null,
+				},
 		);
-	async function assign(value: string) {
-		const assigneeId = value === NEEDS_OWNER ? null : value;
-		if (assigneeId === (duty.owner?.accountId ?? null)) return;
+	async function save(before: DutyItem, owners: Owner[]) {
 		if (lane.wait) return;
-		const before = duty;
-		const chosen = owners?.status === "ok" ? owners.value.find((o) => o.accountId === assigneeId) : undefined;
-		onChange({ ...duty, owner: chosen ? { ...chosen, eligible: true, reason: null } : null });
+		onChange({ ...duty, owners });
 		await lane.save({
-			what: `The owner of ${duty.title}`,
-			send: (key) => assignFollowUp(key, duty.revision, { taskId: duty.taskId, assigneeId }),
+			what: `The owners of ${duty.title}`,
+			send: (key) =>
+				assignFollowUp(key, before.revision, { taskId: duty.taskId, assigneeIds: owners.map((o) => o.accountId) }),
 			ok: (value) => {
 				const after = dutyFrom(value.task, before);
 				onChange(after);
@@ -131,64 +234,68 @@ export function AssignMenu({
 			},
 			refused: (code) => {
 				onChange(before);
-				if (code === "owner_ineligible") forgetOwners();
+				if (code === "owner_ineligible" || code === "invalid_subject") {
+					forgetOwners();
+					forgetAssignees();
+				}
 				if (code === "conflict") onConflict();
 			},
 		});
 	}
+	const readOnly = !canAssign;
 	return (
-		<span className="inline-flex flex-wrap items-center justify-end gap-x-2 max-app-sm:justify-start">
-			{ineligible && showOwner ? <span className="text-sm text-text-2">{label}</span> : null}
-			<Menu open={open} onOpenChange={setOpen}>
-				<MenuTrigger asChild>
-					<Button
-						size="sm"
-						variant={duty.owner && !ineligible ? "ghost" : "outline"}
-						icon={duty.owner ? undefined : UserAdd01Icon}
-						disabled={lane.wait !== null}
-						aria-label={
-							ineligible
-								? `Reassign ${duty.title}`
-								: duty.owner
-									? `${label}, owner of ${duty.title}. Change owner`
-									: `Assign ${duty.title}`
+		<span className="inline-flex flex-col items-end gap-1.5 max-app-sm:items-stretch max-app-sm:self-stretch">
+			{duty.owners.length ? (
+				<OwnerLines
+					duty={duty}
+					canReassign={canAssign}
+					showOwner={showOwner}
+					reassign={(from, to) =>
+						void save(duty, [
+							...duty.owners.filter((o) => o.accountId !== from.accountId),
+							{ accountId: to.accountId, displayName: to.displayName, eligible: true, reason: null },
+						])
+					}
+				/>
+			) : null}
+			{needs ? (
+				<StatusBadge status="attention" size="sm">
+					Needs owner
+				</StatusBadge>
+			) : null}
+			{readOnly ? null : (
+				<AssigneePicker
+					purpose="committed_follow_up"
+					value={duty.owners.map((o) => o.accountId)}
+					held={duty.owners.map((o) => ({
+						accountId: o.accountId,
+						displayName: o.displayName,
+						warning: ownerWarning(o),
+					}))}
+					label={`Search people to own ${duty.title}`}
+					placeholder={duty.owners.length ? "Change owners" : "Assign"}
+					className="max-w-[240px] min-w-[180px] max-app-sm:w-full max-app-sm:max-w-none max-app-sm:min-w-0"
+					onChange={(ids, names) => onChange({ ...duty, owners: ownersFor(ids, names) })}
+					onOpenChange={(open) => {
+						if (open) {
+							opened.current = duty;
+							return;
 						}
-						{...warmOn(prefetchOwners)}
-						className="max-w-[200px] truncate"
-					>
-						{ineligible ? "Reassign" : duty.owner ? label : "Assign"}
-					</Button>
-				</MenuTrigger>
-				<MenuContent align="end" className="min-w-[220px]">
-					<MenuLabel>Give this follow-up to</MenuLabel>
-					{owners === null ? (
-						<div className="flex items-center gap-2 px-3 py-2 text-sm text-text-2" role="status">
-							<Spinner size={16} />
-							Loading owners
-						</div>
-					) : owners.status !== "ok" ? (
-						<p className="px-3 py-2 text-sm text-text-2" role="status">
-							The owners did not load. Close this menu and try again.
-						</p>
-					) : (
-						<MenuRadioGroup value={duty.owner?.accountId ?? NEEDS_OWNER} onValueChange={(v) => void assign(v)}>
-							{owners.value.length === 0 ? (
-								<p className="px-3 py-2 text-sm text-text-2">
-									No one can own follow-ups yet. Owners need a seat and a core group, launch team or leader stage.
-								</p>
-							) : (
-								owners.value.map((o) => (
-									<MenuRadioItem key={o.accountId} value={o.accountId}>
-										{o.displayName}
-									</MenuRadioItem>
-								))
-							)}
-							<MenuSeparator />
-							<MenuRadioItem value={NEEDS_OWNER}>Leave as Needs owner</MenuRadioItem>
-						</MenuRadioGroup>
-					)}
-				</MenuContent>
-			</Menu>
+						// Closing the list commits the pick session once: a save per toggle would queue behind the last one.
+						const before = opened.current;
+						const same = (a: readonly Owner[], b: readonly Owner[]) =>
+							a
+								.map((o) => o.accountId)
+								.sort()
+								.join() ===
+							b
+								.map((o) => o.accountId)
+								.sort()
+								.join();
+						if (!same(before.owners, duty.owners)) void save(before, duty.owners);
+					}}
+				/>
+			)}
 		</span>
 	);
 }
@@ -221,7 +328,7 @@ export function DutyFacts({ duty }: { duty: DutyItem }) {
 	);
 }
 
-type AddDraft = { title: string; dated: "undated" | "date"; date: string; owner: string };
+type AddDraft = { title: string; dated: "undated" | "date"; date: string; owners: string[] };
 
 /**
  * An explicit follow-up with a Person (REQ-PPL-022, REQ-TSK-012): undated unless a date is chosen, with an eligible owner
@@ -241,7 +348,7 @@ export function AddFollowUpDialog({
 	/** Focus back to the button that opened the dialog (useOpener). */
 	returnFocus?: (e: Event) => void;
 }) {
-	const [draft, setDraft] = useState<AddDraft>({ title: "", dated: "undated", date: "", owner: NEEDS_OWNER });
+	const [draft, setDraft] = useState<AddDraft>({ title: "", dated: "undated", date: "", owners: [] });
 	const [dateError, setDateError] = useState<string | null>(null);
 	const owners = useOwners(true);
 	const set = (patch: Partial<AddDraft>) => setDraft((d) => ({ ...d, ...patch }));
@@ -256,7 +363,7 @@ export function AddFollowUpDialog({
 			personId: person.id,
 			...(draft.title.trim() ? { title: draft.title.trim() } : {}),
 			due: draft.dated === "date" ? { kind: "local_date", date: draft.date } : { kind: "undated" },
-			assigneeId: draft.owner === NEEDS_OWNER ? null : draft.owner,
+			assigneeIds: draft.owners,
 		};
 		await lane.save({
 			what: "The follow-up",
@@ -310,22 +417,20 @@ export function AddFollowUpDialog({
 								) : null}
 							</div>
 							<Field
-								label="Owner"
+								label="Owners"
+								optional
 								hint={
 									owners?.status === "ok" && owners.value.length === 0
 										? "No one can own follow-ups yet. It starts as Needs owner."
-										: "Only people with a seat and a committed stage can own follow-ups."
+										: "Up to 10 people. Only people with a seat and a committed stage can own follow-ups."
 								}
 							>
-								<Select
-									value={draft.owner}
-									onValueChange={(owner) => set({ owner })}
-									options={[
-										{ value: NEEDS_OWNER, label: "Needs owner" },
-										...(owners?.status === "ok"
-											? owners.value.map((o) => ({ value: o.accountId, label: o.displayName }))
-											: []),
-									]}
+								<AssigneePicker
+									purpose="committed_follow_up"
+									value={draft.owners}
+									label="Search people to own this follow-up"
+									placeholder="Needs owner"
+									onChange={(ids) => set({ owners: ids })}
 								/>
 							</Field>
 						</DialogBody>

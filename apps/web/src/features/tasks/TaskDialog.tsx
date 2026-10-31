@@ -6,7 +6,8 @@ import { useEffect, useRef, useState } from "react";
 import { RecordDialog } from "../../components/save/parts.tsx";
 import type { Wait } from "../../components/save/model.ts";
 import { createTask, editTask } from "./actions.ts";
-import { assigneeOptions, relationOptions } from "./fetch.ts";
+import { AssigneePicker } from "./AssigneePicker.tsx";
+import { relationOptions } from "./fetch.ts";
 import {
 	CATEGORIES,
 	CATEGORY_LABEL,
@@ -14,6 +15,7 @@ import {
 	dueDraftOf,
 	dueInputOf,
 	offsetText,
+	ownerWarning,
 	PRIORITIES,
 	PRIORITY_LABEL,
 	previewOverdue,
@@ -41,9 +43,9 @@ export type Draft = {
 	priority: Priority;
 	category: Category;
 	due: DueDraft;
-	assigneeId: string;
-	/** The assignee's name as the form shows it, for the row before the server answers. */
-	assigneeName: string | null;
+	assigneeIds: string[];
+	/** Each chosen assignee's name as the form shows it, for the row before the server answers. */
+	assigneeNames: Record<string, string>;
 	relation: Relation;
 };
 /**
@@ -57,9 +59,14 @@ export type Commit = {
 	draft: Draft;
 };
 export type Choices = Extract<TaskError, { code: "ambiguous_local_time" }>["details"]["choices"];
-const NOBODY = "nobody";
 const RELATION_NAME = { person: "person", meeting: "meeting", team: "team" } as const;
 const RELATION_PLURAL = { person: "people", meeting: "meetings", team: "teams" } as const;
+
+/** The warning a person already on the task earns beside their name, or null when they may still hold it. */
+function heldWarning(accountId: string, owners: TaskItem["followUpOwners"]) {
+	const view = owners.find((o) => o.accountId === accountId);
+	return view ? ownerWarning(view) : null;
+}
 
 function draftOf(task: TaskDetail | null, viewer: Viewer): Draft {
 	if (!task)
@@ -69,8 +76,8 @@ function draftOf(task: TaskDetail | null, viewer: Viewer): Draft {
 			priority: "medium",
 			category: "general",
 			due: { kind: "undated", date: "", time: "" },
-			assigneeId: viewer.accountId,
-			assigneeName: viewer.name,
+			assigneeIds: [viewer.accountId],
+			assigneeNames: { [viewer.accountId]: viewer.name ?? "" },
 			relation: null,
 		};
 	return {
@@ -79,23 +86,11 @@ function draftOf(task: TaskDetail | null, viewer: Viewer): Draft {
 		priority: task.priority,
 		category: task.category,
 		due: dueDraftOf(task.due),
-		assigneeId: task.assignee?.accountId ?? NOBODY,
-		assigneeName: task.assignee?.displayName ?? null,
+		assigneeIds: task.assignees.map((a) => a.accountId),
+		assigneeNames: Object.fromEntries(task.assignees.map((a) => [a.accountId, a.displayName])),
 		relation: task.relation,
 	};
 }
-
-// The church's seats change rarely, so one read serves every dialog and step form on this page; a failed read is
-// forgotten, so the next use tries again. Intent on New task, Edit or a step's Assigned to starts it, so a save never
-// waits behind it (Next runs one action at a time).
-const seats: Partial<Record<"any" | "committed_follow_up", ReturnType<typeof assigneeOptions>>> = {};
-export const warmAssignees = (purpose: "any" | "committed_follow_up" = "any") =>
-	(seats[purpose] ??= assigneeOptions(purpose)
-		.catch(() => ({ status: "lost" }) as const)
-		.then((r) => {
-			if (r.status !== "ok") delete seats[purpose];
-			return r;
-		}));
 
 /**
  * The task form on its card's save lane (C58): the task it was opened on, or null for a new task, and after a refused
@@ -204,7 +199,6 @@ function Form({
 			foldBox.current?.querySelector<HTMLElement>("button")?.focus();
 			return true;
 		}
-		const assigneeId = draft.assigneeId === NOBODY ? null : draft.assigneeId;
 		const relation = draft.relation ? { kind: draft.relation.kind, id: draft.relation.id } : null;
 		const description = draft.description.trim() === "" ? null : draft.description;
 		let send: Commit["send"];
@@ -215,7 +209,7 @@ function Form({
 				priority: draft.priority,
 				category: draft.category,
 				due: due.due,
-				assigneeId,
+				assigneeIds: draft.assigneeIds,
 				relation,
 			};
 			send = (key) => createTask(key, payload);
@@ -226,7 +220,8 @@ function Form({
 			if (draft.priority !== initial.priority) patch.priority = draft.priority;
 			if (draft.category !== initial.category) patch.category = draft.category;
 			if (!sameDue(draft.due, initial.due)) patch.due = due.due;
-			if (draft.assigneeId !== initial.assigneeId) patch.assigneeId = assigneeId;
+			if (JSON.stringify([...draft.assigneeIds].sort()) !== JSON.stringify([...initial.assigneeIds].sort()))
+				patch.assigneeIds = draft.assigneeIds;
 			if (draft.relation?.id !== initial.relation?.id || draft.relation?.kind !== initial.relation?.kind)
 				patch.relation = relation;
 			if (Object.keys(patch).length === 0) {
@@ -254,8 +249,8 @@ function Form({
 			category: draft.category,
 			due: shownDue,
 			overdue: null,
-			assignee: null,
-			followUpOwner: null,
+			assignees: [],
+			followUpOwners: [],
 			followUpOrigin: null,
 			relation: null,
 			parentId: null,
@@ -273,7 +268,11 @@ function Form({
 			category: draft.category,
 			due: shownDue,
 			overdue: task && sameDue(draft.due, initial.due) ? task.overdue : previewOverdue(due.due),
-			assignee: assigneeId ? { accountId: assigneeId as never, displayName: draft.assigneeName ?? "" } : null,
+			assignees: draft.assigneeIds.map((id) => ({
+				accountId: id as never,
+				displayName: draft.assigneeNames[id] ?? task?.assignees.find((a) => a.accountId === id)?.displayName ?? "",
+			})),
+			followUpOwners: task ? task.followUpOwners.filter((o) => draft.assigneeIds.includes(o.accountId)) : [],
 			relation: draft.relation as TaskItem["relation"],
 		};
 		onCommit({ before: task, preview, send, draft });
@@ -359,11 +358,12 @@ function Form({
 			) : null}
 			<div className="grid grid-cols-2 gap-4 max-app-sm:grid-cols-1">
 				<AssigneeField
-					value={draft.assigneeId}
+					value={draft.assigneeIds}
 					followUp={draft.category === "follow_up" && draft.relation?.kind === "person"}
-					current={task?.assignee ?? null}
+					current={task?.assignees ?? []}
+					owners={task?.followUpOwners ?? []}
 					viewer={viewer}
-					onChange={(assigneeId, assigneeName) => set({ assigneeId, assigneeName })}
+					onChange={(assigneeIds, assigneeNames) => set({ assigneeIds, assigneeNames })}
 				/>
 				<Field label="Priority">
 					<Select
@@ -390,71 +390,34 @@ function AssigneeField({
 	value,
 	followUp,
 	current,
+	owners,
 	viewer,
 	onChange,
 }: {
-	value: string;
+	value: string[];
 	/** A follow-up with a person offers only seats that may own one (REQ-TSK-012). */
 	followUp: boolean;
-	current: TaskItem["assignee"];
+	current: TaskItem["assignees"];
+	/** The follow-up owner views of the people already on the task, for their warnings. */
+	owners: TaskItem["followUpOwners"];
 	viewer: Viewer;
-	onChange: (v: string, name: string | null) => void;
+	onChange: (ids: string[], names: Record<string, string>) => void;
 }) {
-	// The list read for the kind of task being edited; switching to a follow-up reads the eligible owners again.
-	const [loaded, setLoaded] = useState<{
-		followUp: boolean;
-		options: { value: string; label: string }[] | "failed";
-	} | null>(null);
-	const options = loaded?.followUp === followUp ? loaded.options : null;
-	useEffect(() => {
-		let live = true;
-		warmAssignees(followUp ? "committed_follow_up" : "any").then((r) => {
-			if (!live) return;
-			if (r.status !== "ok") return setLoaded({ followUp, options: "failed" });
-			setLoaded({
-				followUp,
-				options: r.value.items.map((s) => ({
-					value: s.accountId,
-					label: s.accountId === viewer.accountId ? `${s.displayName} (you)` : s.displayName,
-				})),
-			});
-		});
-		return () => void (live = false);
-	}, [viewer.accountId, followUp]);
-	// Until the seats arrive, the choice shows the known names, so the field never looks empty.
-	const known = [
-		{ value: NOBODY, label: "No one yet" },
-		...(Array.isArray(options)
-			? options
-			: [
-					{ value: viewer.accountId, label: `${viewer.name ?? "You"} (you)` },
-					...(current && current.accountId !== viewer.accountId
-						? [{ value: current.accountId, label: current.displayName || "A former member" }]
-						: []),
-				]),
-	];
-	if (!known.some((o) => o.value === value) && current?.accountId === value)
-		known.push({
-			value,
-			label: `${current.displayName || "A former member"} (${followUp ? "can't own follow-ups" : "no longer has a seat"})`,
-		});
 	return (
 		<Field
 			label="Assigned to"
-			hint={
-				options === "failed"
-					? "The list of people did not load. Close the dialog and open it again."
-					: value === NOBODY
-						? "The task shows Needs owner until someone holds it."
-						: undefined
-			}
+			hint={value.length === 0 ? "The task shows Needs owner until someone holds it." : undefined}
 		>
-			<Select
+			<AssigneePicker
 				value={value}
-				onValueChange={(v) =>
-					onChange(v, v === NOBODY ? null : (known.find((o) => o.value === v)?.label.replace(/ \(.*\)$/, "") ?? null))
-				}
-				options={known}
+				onChange={onChange}
+				purpose={followUp ? "committed_follow_up" : "any"}
+				held={current.map((a) => ({
+					accountId: a.accountId,
+					displayName: a.displayName,
+					warning: heldWarning(a.accountId, owners),
+				}))}
+				viewerId={viewer.accountId}
 			/>
 		</Field>
 	);

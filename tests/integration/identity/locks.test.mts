@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { fixture, key, noReminders } from "./invitations-support.mts";
 import { eq, sql, and } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
+import { assigneesOf, insertTasks } from "../task-assignees.mts";
 import { currentActor, readViewer, RequestActor } from "../../../packages/domain/src/access/index.ts";
 import { owner, sessionId } from "../../../packages/contracts/src/common/index.ts";
 import {
@@ -85,7 +86,8 @@ test("BUG-127: resend during a 250-duty removal completes or safely retries", as
 		.set({ created_at: new Date(Date.now() - 120000) })
 		.where(eq(t.invitation.id, pending.invitation.invitationId));
 	const ids = Array.from({ length: 250 }, () => key());
-	await f.admin.insert(t.task).values(
+	await insertTasks(
+		f.admin,
 		ids.map((id) => ({
 			id,
 			plant_id: s.w.id,
@@ -140,7 +142,8 @@ test("BUG-127: resend during a 250-duty removal completes or safely retries", as
 	const [{ n }] = await f.admin
 		.select({ n: sql`count(*)::int` })
 		.from(t.task)
-		.where(and(eq(t.task.plant_id, s.w.id), eq(t.task.assignee_id, s.sender.id), eq(t.task.revision, "2")));
+		.innerJoin(t.task_assignee, eq(t.task_assignee.task_id, t.task.id))
+		.where(and(eq(t.task.plant_id, s.w.id), eq(t.task_assignee.account_id, s.sender.id), eq(t.task.revision, "2")));
 	assert.equal(n, 250);
 });
 
@@ -193,7 +196,7 @@ test("BUG-127: statement timeout rolls back every handoff and permits exact retr
 		invitation = await f.invitation(s),
 		accepted = await f.invitations.accept(s.recipient.session, invitation.claim),
 		duty = key();
-	await f.admin.insert(t.task).values({
+	await insertTasks(f.admin, [{
 		id: duty,
 		plant_id: s.w.id,
 		title: "Original duty",
@@ -203,7 +206,7 @@ test("BUG-127: statement timeout rolls back every handoff and permits exact retr
 		created_at: new Date(),
 		assignee_id: s.recipient.id,
 		due_kind: "undated",
-	});
+	}]);
 	const command = {
 		requestKey: key(),
 		expectedRevision: "1",
@@ -231,7 +234,7 @@ test("BUG-127: statement timeout rolls back every handoff and permits exact retr
 		await f.admin.execute(sql`DROP FUNCTION stall_receipt()`);
 	}
 	const [task] = await f.admin.select().from(t.task).where(eq(t.task.id, duty));
-	assert.equal(task.assignee_id, s.recipient.id);
+	assert.deepEqual(await assigneesOf(f.admin, duty), [s.recipient.id]);
 	assert.equal(task.revision, "1");
 	assert.equal((await f.seats.readCurrentMembership(s.recipient.session)).status, "active");
 	const [{ n }] = await f.admin

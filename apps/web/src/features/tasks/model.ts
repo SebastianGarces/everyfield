@@ -119,8 +119,23 @@ const OWNER_REASON_TEXT: Record<NonNullable<FollowUpOwner["reason"]>, string> = 
  */
 export function ownerText(owner: Pick<FollowUpOwner, "displayName" | "eligible" | "reason"> | null): string {
 	if (!owner) return "Needs owner";
-	const name = ownerLabel(owner);
-	return owner.eligible || !owner.reason ? name : `${name} · Can't own follow-ups: ${OWNER_REASON_TEXT[owner.reason]}`;
+	const warning = ownerWarning(owner);
+	return warning ? `${ownerLabel(owner)} · ${warning}` : ownerLabel(owner);
+}
+/** Why someone cannot own follow-ups, in the words every screen uses, or null when they can. */
+export function ownerWarning(owner: Pick<FollowUpOwner, "eligible" | "reason">): string | null {
+	return owner.eligible || !owner.reason ? null : `Can't own follow-ups: ${OWNER_REASON_TEXT[owner.reason]}`;
+}
+
+/** Whether a follow-up has an owner who can hold it: nobody, or only people who cannot, reads Needs owner (D-a). */
+export const lacksOwner = (owners: readonly Pick<FollowUpOwner, "eligible">[]) => !owners.some((o) => o.eligible);
+/** Every assignee's name, in the order the server lists them. */
+export const assigneeNames = (people: readonly { displayName: string }[]) =>
+	people.map((p) => p.displayName.trim() || "Former member");
+/** The first name and how many more, for a place with no room for all of them: "Ana Lee +2". */
+export function assigneeSummary(people: readonly { displayName: string }[]) {
+	const [first, ...rest] = assigneeNames(people);
+	return first === undefined ? null : rest.length ? `${first} +${rest.length}` : first;
 }
 
 /** What the bulk bar offers for the selected tasks' current statuses (REQ-TSK-008: only open tasks complete or move). */
@@ -573,7 +588,7 @@ export function shownRows(items: readonly TaskItem[], p: Pending): TaskItem[] {
  */
 export function matches(q: TaskQuery, t: TaskItem, you: string): boolean {
 	if (t.deleted || t.parentId) return false;
-	if (q.view === "my" && t.assignee?.accountId !== you) return false;
+	if (q.view === "my" && !t.assignees.some((a) => a.accountId === you)) return false;
 	if (q.search && !t.title.toLowerCase().includes(q.search.toLowerCase())) return false;
 	if (q.statuses.length && !q.statuses.includes(t.status)) return false;
 	if (q.priorities.length && !q.priorities.includes(t.priority)) return false;
