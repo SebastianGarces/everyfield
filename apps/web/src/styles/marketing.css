@@ -36,10 +36,12 @@
 	--color-mk-photo-base: #3a3529;
 
 	--spacing-page: clamp(16px, 3vw, 40px);
-	/* The space above and below each section: 160 px at every width (Sebastian, Oct 31 2026: "I like 160 way more"; the
-	   OPS-82 prototype grows it to 240 px). The plain side of a full-width photo section takes 1.5 times that, because the
-	   photo edge needs more room than text. */
-	--spacing-section: clamp(160px, 16.667vw, 160px);
+	/* The space above and below each section: 160 px on desktop (Sebastian, Oct 31 2026: "I like 160 way more"; the
+	   OPS-82 prototype grows it to 240 px) and 80 px on phones, 640 px and narrower (Sebastian, Oct 31 2026: "reduce the
+	   section spacing... to maybe half of what it's now, while keeping what we have on desktop"). The phone value is set
+	   once, in the :root block after this theme. The plain side of a full-width photo section takes 1.5 times the token
+	   (240 px, 120 px on phones), because the photo edge needs more room than text. */
+	--spacing-section: 160px;
 	--spacing-section-photo: calc(var(--spacing-section) * 1.5);
 	--container-mk: 1440px;
 
@@ -85,8 +87,12 @@
 	--ease-mk-out: cubic-bezier(0.33, 1, 0.68, 1);
 }
 
-/* The marketing type roles step between scale sizes at the site's breakpoints. */
+/* The marketing type roles step between scale sizes at the site's breakpoints. The section space halves on phones;
+   --spacing-section-photo follows it. */
 :root {
+	@variant max-mk-sm {
+		--spacing-section: 80px;
+	}
 	@variant mk-sm {
 		--text-mk-hero: var(--ef-display-md);
 	}
