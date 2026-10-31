@@ -60,7 +60,8 @@ export function coverageProblems(operations, covered, baseline) {
 		if (!covered.has(op) && !baseline.includes(op))
 			problems.push(`${op} has no eval case in tests/evry/evals/*.cases.json and is not in the baseline`);
 	for (const op of baseline) {
-		if (!known.has(op)) problems.push(`${op} is in the baseline but no adapter exports it: remove it from the baseline`);
+		if (!known.has(op))
+			problems.push(`${op} is in the baseline but no adapter exports it: remove it from the baseline`);
 		else if (covered.has(op)) problems.push(`${op} now has an eval case: remove it from the baseline`);
 	}
 	return problems;
