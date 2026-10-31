@@ -34,7 +34,6 @@ import {
 } from "./scope.ts";
 import { ImportRejected, readImport } from "./unpack.ts";
 
-
 type OwnedRow = {
 	id: string;
 	tenant_id?: string;
