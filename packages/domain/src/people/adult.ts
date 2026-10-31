@@ -1,10 +1,10 @@
 import { sql, type SQL } from "@everyfield/db/query";
 
 /** Full age in years from which a person with a birth date is an adult. */
-export const ADULT_AGE = 18;
+const ADULT_AGE = 18;
 
-export type ManualClassification = "adult" | "child" | "unknown";
-export type AdultSource = "birth_date" | "recorded" | "not_recorded";
+type ManualClassification = "adult" | "child" | "unknown";
+type AdultSource = "birth_date" | "recorded" | "not_recorded";
 
 /**
  * Full age in years on `today`: the year difference, minus one while (month, day) of today is before the birth
