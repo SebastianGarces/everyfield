@@ -4,12 +4,10 @@ import { Icon } from "@/components/Icon";
 import { COPY } from "../copy";
 import { ICONS, type IconName } from "../icons";
 import { Backdrop } from "../photo/Backdrop";
+import { CARD_TITLE } from "../sections/card-title";
 import { StopPath } from "./StopPath";
 
 const O = COPY.shared.oversight_page;
-
-/** A title under 24 px: the text serif, one weight, balanced lines. */
-const CARD_TITLE = "mk-display font-title type-title-sm leading-[1.2] mk-xl:type-title-md";
 
 /** The mint icon tile of the #every-plant tiles and the trust cards: a green icon on a light green square. */
 function MintIcon({ icon }: { icon: IconName }) {

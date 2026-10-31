@@ -5,10 +5,8 @@ import { COPY } from "../copy";
 import { ICONS } from "../icons";
 import { Backdrop } from "../photo/Backdrop";
 import type { PhotoName } from "../photo/photos";
+import { CARD_TITLE } from "../sections/card-title";
 import { FrostIcon } from "../sections/FrostIcon";
-
-/** The title of an icon card: the serif below 24 px, one weight, balanced lines. */
-const CARD_TITLE = "mk-display font-title type-title-sm leading-[1.2] mk-xl:type-title-md";
 
 /* Sebastian's picks (OPS-82 round 3): swirl, lupins, marigolds. */
 const EVRY_PHOTOS: PhotoName[] = ["swirl", "lupins", "marigolds"];

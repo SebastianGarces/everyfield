@@ -4,7 +4,7 @@ import { useTransform } from "motion/react";
 import { createContext, useContext, type ReactNode } from "react";
 import { cn } from "../cn";
 import { EvryBot } from "../kit/EvryBot";
-import { flash, swapIn, swapOut, type Frame } from "./curves";
+import { swapIn, swapOut, type Frame } from "./curves";
 import { DoneButton } from "./DoneButton";
 import { m } from "./m";
 import { MText, usePanelClock, useText, useTo } from "./scene";
@@ -22,7 +22,7 @@ export function FxProvider({ fx, children }: { fx: Registry; children: ReactNode
 	return <FxContext value={fx}>{children}</FxContext>;
 }
 /** The frame function named id in the surrounding registry, bound to n (for a family's own leaves). */
-export function useFx<R>(id: string, n = 0): (t: number) => R {
+function useFx<R>(id: string, n = 0): (t: number) => R {
 	const f = useContext(FxContext)[id];
 	if (!f) throw new Error(`no frame function "${id}" in this panel's registry`);
 	return (t) => f(t, n) as R;
@@ -212,26 +212,6 @@ export function Count({
 			<MText value={text} data-n="" className="col-start-1 row-start-1" />
 		</span>
 	);
-}
-
-const ONE = () => 1;
-/** A short highlight behind a row (fades in at a, out at b). R names the scene's loop reset, if it has one. */
-export function Hl({
-	a,
-	b,
-	R,
-	box = "inset-x-[-10px] inset-y-0.5 bg-surface-2",
-}: {
-	a: number;
-	b: number;
-	R?: string;
-	box?: string;
-}) {
-	const reg = useContext(FxContext);
-	const r = (R ? reg[R] : ONE) as ((t: number, n: number) => number) | undefined;
-	if (!r) throw new Error(`no frame function "${R}" in this panel's registry`);
-	const opacity = useTransform(useT(), (v) => +flash(v, a, b, r(v, 0)).toFixed(3));
-	return <m.span className={cn("absolute -z-1 opacity-0", box)} style={{ opacity }} />;
 }
 
 /** A confirm button that is also a cursor target. R names the scene's loop reset, if it has one. */
