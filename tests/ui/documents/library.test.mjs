@@ -122,12 +122,13 @@ for (const [name, engine] of ENGINES) {
 			const pdf = await PDFDocument.load(await readFile(path), { updateMetadata: false });
 			const fields = pdf.getForm().getFields();
 			assert.ok(fields.length > 0, "the download keeps its form fields");
-			console.log(
-				`field dump (${name}): ${fields.map((f) => `${f.constructor.name}:${f.getName()}`).join(", ")}`,
-			);
+			console.log(`field dump (${name}): ${fields.map((f) => `${f.constructor.name}:${f.getName()}`).join(", ")}`);
 			// A render of a template with no form fields has none: the Excel budgets are not fillable PDFs.
 			await page.goto(`${BASE}/documents`);
-			const budget = page.getByRole("group", { name: "Templates" }).getByRole("button", { name: /Budget/ }).first();
+			const budget = page
+				.getByRole("group", { name: "Templates" })
+				.getByRole("button", { name: /Budget/ })
+				.first();
 			assert.equal(await budget.getByText("Fillable").count(), 0);
 		});
 	});
@@ -148,7 +149,10 @@ for (const [name, engine] of ENGINES) {
 			await save.click();
 			await page.getByText(/Saved Core Group Commitment Card/).waitFor({ timeout: 60_000 });
 			const popup = context.waitForEvent("page");
-			await page.getByRole("button", { name: /^Download Core Group Commitment Card/ }).first().click();
+			await page
+				.getByRole("button", { name: /^Download Core Group Commitment Card/ })
+				.first()
+				.click();
 			const url = (await popup).url();
 			const saved = sha(await (await context.request.get(url)).body());
 			console.log(`sha256 (${name}): preview ${preview} download ${downloaded} saved ${saved}`);
