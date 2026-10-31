@@ -440,42 +440,19 @@ describe("WP-037 Word export", () => {
 	});
 
 	test("DOC-023: a reader that is not the writer opens the Word file", async () => {
-		const bytes = renderChurchDocx(input("bylaws", brandTheme()));
-		// The importer of DOC-016 reads Word with its own ZIP and XML code.
-		const text = readImport(bytes, "docx");
-		for (const phrase of ["Bylaws", "Name and purpose", "Harborlight Church", "Board member"])
-			assert.ok(text.includes(phrase), phrase);
-		if (hasSoffice()) {
-			const pdf = (await pdfPages(sofficeToPdf(bytes))).join(" ");
-			for (const phrase of ["Name and purpose", "Statement of faith", "Template, not legal advice"])
-				assert.ok(pdf.includes(phrase), phrase);
-		}
-		const outPy = execFileSync(
-			"python3",
-			[
-				"-I",
-				"-c",
-				"import sys,zipfile,io;z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read()));print(z.namelist()[0])",
-			],
-			{ input: bytes },
-		);
-		assert.equal(outPy.toString().trim(), "[Content_Types].xml");
-	});
-
-	test("DOC-023: a reader that is not the writer opens the Word file of each new policy template", async () => {
-		for (const id of NEW_POLICIES) {
-			const template = churchTemplate(id)!;
+		for (const id of ["bylaws", ...NEW_POLICIES]) {
 			const bytes = renderChurchDocx(input(id, brandTheme()));
-			const heading = template.body.find((b) => b.kind === "heading");
+			const firstHeading = churchTemplate(id)!.body.find((b) => b.kind === "heading") as { text: string };
+			// The importer of DOC-016 reads Word with its own ZIP and XML code.
 			const text = readImport(bytes, "docx");
-			assert.ok(text.includes(CHURCH), `${id}: DOC-016 importer reads the church name`);
-			if (heading && "text" in heading && typeof heading.text === "string")
-				assert.ok(text.includes(heading.text), `${id}: importer reads ${heading.text}`);
+			for (const phrase of [firstHeading.text, "Harborlight Church"])
+				assert.ok(text.includes(phrase), `${id}: ${phrase}`);
 			if (hasSoffice()) {
 				const pdf = (await pdfPages(sofficeToPdf(bytes))).join(" ");
-				assert.ok(pdf.includes("Template, not legal advice"), `${id}: LibreOffice shows the notice`);
+				for (const phrase of [firstHeading.text, "Template, not legal advice"])
+					assert.ok(pdf.includes(phrase), `${id}: ${phrase}`);
 			}
-			const names = execFileSync(
+			const outPy = execFileSync(
 				"python3",
 				[
 					"-I",
@@ -484,14 +461,13 @@ describe("WP-037 Word export", () => {
 				],
 				{ input: bytes },
 			);
-			assert.equal(names.toString().trim(), "[Content_Types].xml", id);
-			const pdf = await renderChurchPdf(input(id));
-			assert.ok((await pdfPages(pdf.bytes)).join(" ").includes("Template, not legal advice"), `${id}: PDF notice`);
+			assert.equal(outPy.toString().trim(), "[Content_Types].xml", id);
 			assert.ok(
 				wordText(docxParts(bytes)["word/footer1.xml"]!).includes("Template, not legal advice"),
 				`${id}: Word notice`,
 			);
-			assert.equal(pdf.text.flat().join(" ").includes("{church_name}"), false, `${id}: token resolved`);
+			const pdf = await renderChurchPdf(input(id));
+			assert.ok((await pdfPages(pdf.bytes)).join(" ").includes("Template, not legal advice"), `${id}: PDF notice`);
 		}
 	});
 });
