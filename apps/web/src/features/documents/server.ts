@@ -23,11 +23,6 @@ export type DocumentsLoad =
 	| { status: "refused" }
 	| { status: "failed" };
 
-/** The request's active actor, or null when there is no active account. */
-export async function documentActor(): Promise<RequestActor | null> {
-	return (await documentSession())?.actor ?? null;
-}
-
 /** The active actor and the signed-in account's own name, from one viewer read. */
 export async function documentSession() {
 	const viewer = await getViewer();
@@ -55,7 +50,7 @@ export async function readPreview(
 	format: Format,
 	overrides: Record<string, string>,
 ): Promise<PreviewOutcome> {
-	const actor = await documentActor();
+	const actor = (await documentSession())?.actor;
 	const db = requestDatabase();
 	if (!actor || !db) return { status: "lost" };
 	try {
