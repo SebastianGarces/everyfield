@@ -1,13 +1,17 @@
 import type { PDFDocumentProxy } from "pdfjs-dist";
 
 // Draws PDF pages in the browser from the bytes the production renderer made. pdf.js loads on first use, so the
-// library route does not carry it until a thumbnail or a preview needs it.
+// library route does not carry it until a thumbnail or a preview needs it. The legacy build carries the polyfills
+// that browsers without Map.getOrInsertComputed need.
 
-let loaded: Promise<typeof import("pdfjs-dist")> | null = null;
+let loaded: Promise<typeof import("pdfjs-dist/legacy/build/pdf.mjs")> | null = null;
 
 function library() {
-	loaded ??= import("pdfjs-dist").then((pdfjs) => {
-		pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
+	loaded ??= import("pdfjs-dist/legacy/build/pdf.mjs").then((pdfjs) => {
+		pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+			"pdfjs-dist/legacy/build/pdf.worker.min.mjs",
+			import.meta.url,
+		).toString();
 		return pdfjs;
 	});
 	return loaded;
