@@ -143,6 +143,29 @@ async function up(origin: string) {
 	);
 	if (created.status !== "ok") throw Error("createPlant: " + JSON.stringify(created));
 	const plant = (created.value as { plant: { kind: "plant"; id: string } }).plant;
+	// Landing rule accounts (WP-005): an owner whose setup is finished, an owner whose setup is not, and a new account.
+	const churchOf = async (who: { sessionId: string; accountId: string }, name: string) => {
+		const made = await runtime.transaction((tx) =>
+			onboarding.createPlant(
+				tx,
+				{ session: who.sessionId, selected: { kind: "account", id: who.accountId } } as never,
+				{
+					requestKey: randomUUID(),
+					expectedRevision: "1",
+					input: { name, locality: { city: "Austin" }, confirmed: true },
+				} as never,
+			),
+		);
+		if (made.status !== "ok") throw Error("createPlant " + name + ": " + JSON.stringify(made));
+		return (made.value as { plant: { kind: "plant"; id: string } }).plant;
+	};
+	const finished = await account("Fiona Finished", "finished@landing.example.test", "active");
+	const finishedPlant = await churchOf(finished, "Finished Church");
+	await admin.execute(sql`UPDATE plant SET onboarding_completed_at=clock_timestamp() WHERE id=${finishedPlant.id}`);
+	const unfinished = await account("Ulrich Unfinished", "unfinished@landing.example.test", "active");
+	await churchOf(unfinished, "Unfinished Church");
+	const fresh = await account("Nina New", "new@landing.example.test", "pending_domain");
+	const landing = { finished: finished.email, unfinished: unfinished.email, pending: fresh.email };
 	const org = randomUUID();
 	await admin.execute(
 		sql`INSERT INTO organization(id,kind,name,timezone,material_revision) VALUES(${org},'sending_church','Grace Church','America/New_York',1)`,
@@ -189,7 +212,7 @@ async function up(origin: string) {
 		};
 	}
 
-	const fixture = writeFixture("invitation", env.schema, { origin, password: PASSWORD, flows });
+	const fixture = writeFixture("invitation", env.schema, { origin, password: PASSWORD, flows, landing });
 	await env.close();
 	console.log(JSON.stringify({ schema: env.schema, fresh: env.fresh, fixture }));
 }

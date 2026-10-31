@@ -358,6 +358,7 @@ try {
 		["GET /tasks", "/tasks", owner.cookie],
 		["GET /tasks?task=<follow-up>", `/tasks?task=${followUpId}`, owner.cookie],
 		["GET /documents", "/documents", owner.cookie],
+		["GET /home", "/home", owner.cookie],
 		["GET /meetings", "/meetings", owner.cookie],
 		["GET /meetings/[meetingId]", `/meetings/${visionMeeting}`, owner.cookie],
 		["GET /meetings/[meetingId] (leadership team meeting)", `/meetings/${boardMeeting}`, owner.cookie],

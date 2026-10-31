@@ -340,7 +340,7 @@ export function createIdentityService(config: IdentityConfig) {
 								email: v.email,
 								...(path === "request-password-reset"
 									? { redirectTo: `${origin}/reset-password` }
-									: { callbackURL: "/" }),
+									: { callbackURL: "/home" }),
 							});
 							await result.body?.cancel();
 							if (!result.ok) config.diagnostic({ correlationId, outcome: "delivery_failed" });
