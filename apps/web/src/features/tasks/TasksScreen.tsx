@@ -119,7 +119,8 @@ import {
 } from "./model.ts";
 import { Assignee, DoneBox, intentHandlers, MetaLine } from "./parts.tsx";
 import type { StepAssignee } from "./structure.tsx";
-import { TaskDialog, warmAssignees, type Commit, type EditForm } from "./TaskDialog.tsx";
+import { warmAssignees } from "./AssigneePicker.tsx";
+import { TaskDialog, type Commit, type EditForm } from "./TaskDialog.tsx";
 import { TaskSheet, warmContacts, type DetailState, type PanelEdit } from "./TaskSheet.tsx";
 
 export type Viewer = { accountId: string; role: "owner" | "admin" | "member"; name: string | null };
@@ -359,13 +360,12 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 	/** A confirmed write: the row, the counts and an open panel show the saved task; its history gains the entry. */
 	const confirm = (before: TaskItem | null, saved: Saved, fields = false) => {
 		// A write's answer skips the owner and origin reads (they cost a statement each): this screen keeps the ones it
-		// showed. The owner stays only for the same assignee; a new follow-up reads them again.
+		// showed. An owner stays for the same assignee; a new follow-up reads them again.
 		const task = {
 			...saved.task,
-			followUpOwner:
-				before?.followUpOwner && before.followUpOwner.accountId === saved.task.assignee?.accountId
-					? before.followUpOwner
-					: saved.task.followUpOwner,
+			followUpOwners: saved.task.followUpOwners.map(
+				(o) => before?.followUpOwners.find((b) => b.accountId === o.accountId) ?? o,
+			),
 			followUpOrigin: saved.task.followUpOrigin ?? before?.followUpOrigin ?? null,
 		};
 		if (!before && task.category === "follow_up" && task.relation?.kind === "person" && !task.followUpOrigin)
@@ -572,7 +572,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 			revision: step.revision,
 			title: step.title,
 			status: step.status,
-			assignee: step.assignee,
+			assignees: step.assignees,
 		};
 		setDetails((d) => {
 			const c = d[parentId];
@@ -642,20 +642,20 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 	 * not change its task's revision, so several can be added quickly.
 	 */
 	const addStepTo = (parent: TaskItem, title: string, who: StepAssignee) => {
-		const assignee =
+		const assignees =
 			who.kind === "inherit"
-				? parent.assignee
+				? parent.assignees
 				: who.kind === "nobody"
-					? null
-					: { accountId: who.accountId as never, displayName: who.name };
+					? []
+					: [{ accountId: who.accountId as never, displayName: who.name }];
 		const shownStep: Step = {
 			id: (PENDING_PREFIX + crypto.randomUUID()) as never,
 			revision: "0" as never,
 			title,
 			status: "not_started",
-			assignee,
+			assignees,
 		};
-		const holder = who.kind === "inherit" ? undefined : who.kind === "nobody" ? null : who.accountId;
+		const holder = who.kind === "inherit" ? undefined : who.kind === "nobody" ? [] : [who.accountId];
 		run(shownStep.id, () => setPending({ kind: "step", parentId: parent.id, step: shownStep }), {
 			what: `The step “${title}”`,
 			done: "added",
@@ -852,7 +852,8 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 		});
 	};
 	const toggle = (task: TaskItem) => act(task, isSettled(task.status) ? { kind: "reopen" } : { kind: "complete" });
-	const canAct = (task: Pick<TaskItem, "assignee">) => admin || task.assignee?.accountId === viewer.accountId;
+	const canAct = (task: Pick<TaskItem, "assignees">) =>
+		admin || task.assignees.some((a) => a.accountId === viewer.accountId);
 
 	/** Delete, shown at once: the row leaves; a refusal brings it back with the reason. */
 	const remove = (task: TaskItem) => {
@@ -1192,7 +1193,7 @@ function TaskRow({
 				<MetaLine task={task} year={year} />
 			</div>
 			<Assignee task={task} you={you} />
-			{admin && !settled && task.followUpOwner && !task.followUpOwner.eligible ? (
+			{admin && !settled && task.followUpOwners.some((o) => !o.eligible) ? (
 				<Button variant="outline" size="sm" onClick={onEdit}>
 					Reassign
 				</Button>

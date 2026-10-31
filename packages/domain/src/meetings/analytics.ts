@@ -72,9 +72,9 @@ const progressSql = sql`(SELECT json_build_object(
 	'closed', count(*) FILTER (WHERE b.kind = 'follow_up' AND (t.status = 'no_longer_needed' OR t.id IS NULL)),
 	'open', count(*) FILTER (WHERE b.kind = 'follow_up' AND t.status NOT IN ('complete', 'no_longer_needed')),
 	'needs_owner', count(*) FILTER (WHERE b.kind = 'follow_up' AND t.status NOT IN ('complete', 'no_longer_needed')
-		AND t.assignee_id IS NULL),
+		AND NOT EXISTS(SELECT FROM task_assignee ta WHERE ta.task_id = t.id)),
 	'evaluation', (SELECT json_build_object('task_id', et.id, 'status', coalesce(et.status, 'deleted'),
-		'needs_owner', et.assignee_id IS NULL) FROM obligation eb LEFT JOIN task et ON et.obligation_id = eb.id
+		'needs_owner', NOT EXISTS(SELECT FROM task_assignee ta WHERE ta.task_id = et.id)) FROM obligation eb LEFT JOIN task et ON et.obligation_id = eb.id
 		AND et.deleted_at IS NULL WHERE eb.meeting_id = m.id AND eb.kind = 'evaluation' LIMIT 1))
 	FROM obligation b LEFT JOIN task t ON t.obligation_id = b.id AND t.deleted_at IS NULL WHERE b.meeting_id = m.id)`;
 const progressRow = z.object({

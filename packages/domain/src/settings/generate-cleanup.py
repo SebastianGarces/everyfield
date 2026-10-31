@@ -15,7 +15,7 @@ account_owned = {'discovery': 'account_id', 'notification_preference': 'account_
                  'private_week_revision': 'author_id', 'private_week': 'author_id',
                  'private_calendar': 'account_id', 'identity_proof': 'account_id',
                  'settings_preview': 'account_id', 'feedback':'account_id', 'reading':'account_id',
-                 'reader_feedback':'account_id','platform_grant':'account_id','conversation':'owner_id','notice':'recipient_id'}
+                 'reader_feedback':'account_id','platform_grant':'account_id','task_assignee':'account_id','conversation':'owner_id','notice':'recipient_id'}
 # Snapshot/lineage bodies belong to their source operation. The creation operation
 # can be account-scoped while its setup and phase evidence belong to the church.
 extra = {'identity_operation_result': 'operation_id IN (SELECT id FROM operation WHERE tenant_id=s)',
@@ -64,7 +64,7 @@ for name,t in sorted(tables.items()):
     for fk in t.get('foreign_keys',[]):
         if fk['references']['table']!='account' or len(fk['columns'])!=1: continue
         c=fk['columns'][0]
-        if c not in {'actor_id','author_id','creator_id','requested_by','completed_by','confirmed_by','changed_by','card_author_id','staff_account_id','assignee_id','linked_account_id','adopted_by'} or not cols[c].get('nullable',False): continue
+        if c not in {'actor_id','author_id','creator_id','requested_by','completed_by','confirmed_by','changed_by','card_author_id','staff_account_id','linked_account_id','adopted_by'} or not cols[c].get('nullable',False): continue
         if name=='reference_activation': scrub.append(f' UPDATE "{name}" SET "{c}"=NULL,actor_tombstone=\'removed_account\' WHERE "{c}"=s;')
         elif name=='event': scrub.append(f' UPDATE "{name}" SET "{c}"=NULL,system_cause=coalesce(system_cause,\'removed_account\') WHERE "{c}"=s;')
         else: scrub.append(f' UPDATE "{name}" SET "{c}"=NULL WHERE "{c}"=s;')

@@ -6,7 +6,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import * as c from "@everyfield/contracts/people";
 import type { PeopleWriter, AccountPersonProducer } from "@everyfield/contracts/people";
-import { owner, recordId, revision } from "@everyfield/contracts/common";
+import { accountId, owner, recordId, revision } from "@everyfield/contracts/common";
 import {
 	authorize,
 	deny,
@@ -28,6 +28,7 @@ import {
 } from "./core.ts";
 import type { Context, WriteContext, Tx, Person } from "./core.ts";
 import { lockTasks } from "../tasks/queries.ts";
+import { assignedTo } from "../tasks/assignees.ts";
 import { reminderChange, syncAll, type TaskReminders } from "../tasks/writes.ts";
 
 export function appendPerson(
@@ -123,7 +124,7 @@ export async function openDuties(tx: Tx, ctx: Context, p: Person) {
 	return lockTasks(
 		tx,
 		ctx.selected.id,
-		sql`(t.person_id=${p.id}::uuid OR t.assignee_id=${p.linked_account_id}::uuid) AND t.deleted_at IS NULL
+		sql`(t.person_id=${p.id}::uuid OR ${assignedTo("t", sql`${p.linked_account_id}::uuid`)}) AND t.deleted_at IS NULL
  AND t.status NOT IN ('complete','no_longer_needed')`,
 	);
 }
@@ -187,14 +188,26 @@ async function handoff(
 		return { id: duty.id, account: target.linked_account_id };
 	});
 	if (changes.length) {
+		// D-d: the chosen recipient takes the leaving account's place in each task; one already assigned just stays.
+		// A duty about the Person whose set lacks the leaving account has no place to take: the choice replaces the set.
+		const source = p.linked_account_id;
 		await tx.execute(
-			sql`UPDATE task t SET assignee_id=v.account,revision=t.revision+1 FROM jsonb_to_recordset(${JSON.stringify(changes)}::jsonb) v(id uuid,account uuid) WHERE t.id=v.id`,
+			sql`WITH v AS (SELECT * FROM jsonb_to_recordset(${JSON.stringify(changes)}::jsonb) v(id uuid,account uuid)),
+				bump AS (UPDATE task t SET revision=t.revision+1 FROM v WHERE t.id=v.id RETURNING 1),
+				gone AS (DELETE FROM task_assignee a USING v WHERE a.task_id=v.id AND a.account_id IS DISTINCT FROM v.account
+					AND (a.account_id=${source}::uuid OR NOT EXISTS (SELECT 1 FROM task_assignee x WHERE x.task_id=v.id AND x.account_id=${source}::uuid)) RETURNING 1),
+				joined AS (INSERT INTO task_assignee(plant_id,task_id,account_id)
+					SELECT ${ctx.selected.id}::uuid,v.id,v.account FROM v WHERE v.account IS NOT NULL
+					ON CONFLICT DO NOTHING RETURNING 1)
+				SELECT 1`,
 		);
 		const moved = changes.map(({ id, account }) => {
 			const row = duties.find((duty) => duty.id === id)!;
+			const held = row.assignees.some((a) => a.accountId === source);
+			const kept = held ? row.assignees.filter((a) => a.accountId !== source && a.accountId !== account) : [];
 			return reminderChange(ctx.selected.id, row, {
 				...row,
-				assignee_id: account,
+				assignees: account ? [...kept, { accountId: accountId.parse(account), displayName: "", seated: true }] : kept,
 				revision: revision.parse(String(BigInt(row.revision) + 1n)),
 			});
 		});

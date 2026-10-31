@@ -275,15 +275,27 @@ export function TaskSheet({
 							size="sm"
 							k="Assigned to"
 							value={
-								task.assignee ? (
-									<span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
-										{task.followUpOwner ? ownerText(task.followUpOwner) : ownerLabel(task.assignee)}
-										{admin && !isSettled(task.status) && task.followUpOwner && !task.followUpOwner.eligible ? (
-											<Button variant="outline" size="sm" onClick={onEdit}>
-												Reassign
-											</Button>
-										) : null}
-									</span>
+								task.assignees.length ? (
+									<ul className="m-0 flex list-none flex-col gap-1 p-0" aria-label="Assigned to">
+										{task.assignees.map((a) => {
+											const view = task.followUpOwners.find((o) => o.accountId === a.accountId);
+											return (
+												<li key={a.accountId} className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+													{view ? ownerText(view) : ownerLabel(a)}
+													{admin && !isSettled(task.status) && view && !view.eligible ? (
+														<Button
+															variant="outline"
+															size="sm"
+															aria-label={`Reassign ${ownerLabel(a)}`}
+															onClick={onEdit}
+														>
+															Reassign
+														</Button>
+													) : null}
+												</li>
+											);
+										})}
+									</ul>
 								) : (
 									<StatusBadge status="attention" size="sm">
 										Needs owner
@@ -324,8 +336,12 @@ export function TaskSheet({
 							</Section>
 							<Steps
 								steps={shownSteps(detail.checklistItems, detail.id, pending)}
-								taskAssignee={task.assignee}
-								canAdd={!detail.parentId && !detail.deleted && (admin || task.assignee?.accountId === viewer.accountId)}
+								taskAssignees={task.assignees}
+								canAdd={
+									!detail.parentId &&
+									!detail.deleted &&
+									(admin || task.assignees.some((a) => a.accountId === viewer.accountId))
+								}
 								admin={admin}
 								you={viewer.accountId}
 								canTick={canActStep}

@@ -75,7 +75,7 @@ import {
 	SettleDialog,
 	useEvaluationHistory,
 	usePresence,
-	useSeats,
+	warmSeats,
 	type EvaluationEditing,
 	type EvaluationInput,
 	type SettleEditing,
@@ -227,7 +227,6 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 		onSaved: (a) => setData((d) => withAttendees(d, a.attendees, a.attendanceRevision)),
 		onStale: () => stale(),
 	});
-	const seats = useSeats();
 	const final = data.attendance?.finalized != null;
 	// Owners, Admins and the leader of a team meeting mark attendance (C74); the server read says who may.
 	const marker = data.attendance?.viewerCanMarkAttendance === true;
@@ -237,8 +236,8 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 		const body = {
 			meetingId: m.id,
 			attendeeIds: input.attendeeIds,
-			followUpAssigneeId: input.followUpAssigneeId,
-			...(mode === "finalize" ? { evaluationAssigneeId: input.evaluationAssigneeId } : { reason: input.reason }),
+			followUpAssigneeIds: input.followUpAssigneeIds,
+			...(mode === "finalize" ? { evaluationAssigneeIds: input.evaluationAssigneeIds } : { reason: input.reason }),
 		};
 		void settleLane.save({
 			what: "Attendance",
@@ -673,7 +672,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 									onSettle={(mode) =>
 										settleLane.wait === null && !presence.busy && settleLane.open({ mode, input: null })
 									}
-									onPrefetch={seats.load}
+									onPrefetch={warmSeats}
 								/>
 								{vision ? <CardsSummary guests={view.guests} cards={view.cards} /> : null}
 								{vision ? (
@@ -742,8 +741,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 								meeting={m}
 								guests={data.guests}
 								attendance={data.attendance}
-								seats={seats.seats}
-								onSeats={seats.load}
+								onSeats={warmSeats}
 								initial={settleLane.editing.input}
 								problem={settleLane.problem}
 								onClose={settleLane.close}

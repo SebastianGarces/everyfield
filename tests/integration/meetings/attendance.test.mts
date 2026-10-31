@@ -70,7 +70,7 @@ const reconcile = async (who, meetingId, attendeeIds) =>
 		input: { meetingId, attendeeIds, reason: "Sign-in sheet checked" },
 	});
 const work = (meetingId) =>
-	rows(sql`SELECT b.kind, b.person_id, b.waiver_reason AS waiver, t.status, t.assignee_id
+	rows(sql`SELECT b.kind, b.person_id, b.waiver_reason AS waiver, t.status, (SELECT coalesce(array_agg(a.account_id),'{}') FROM task_assignee a WHERE a.task_id=t.id) AS assignee_ids
 		FROM obligation b LEFT JOIN task t ON t.obligation_id=b.id WHERE b.meeting_id=${meetingId} ORDER BY b.kind, b.person_id`);
 const stageOf = async (id) => (await one(sql`SELECT stage FROM person WHERE id=${id}`)).stage;
 const classOf = async (meetingId, personId) =>
@@ -362,11 +362,11 @@ test("AC:TARGET-MTG-020 AC:TARGET-MTG-012 AC:TARGET-TSK-017 AC:GAP-PPL-020 AC:CA
 	assert.equal(await stageOf(casey), "leader");
 	// One follow-up each (a Leader's first Vision too) and one evaluation task, all Needs owner.
 	assert.deepEqual(
-		(await work(v)).map((w) => [w.kind, w.status, w.assignee_id]),
+		(await work(v)).map((w) => [w.kind, w.status, w.assignee_ids]),
 		[
-			["evaluation", "not_started", null],
-			["follow_up", "not_started", null],
-			["follow_up", "not_started", null],
+			["evaluation", "not_started", []],
+			["follow_up", "not_started", []],
+			["follow_up", "not_started", []],
 		],
 	);
 	assert.ok(first.work.every((w) => w.needsOwner));
@@ -392,8 +392,8 @@ test("AC:TARGET-MTG-020 AC:TARGET-MTG-012 AC:TARGET-TSK-017 AC:GAP-PPL-020 AC:CA
 
 	// A zero-attendee Vision still owes its evaluation; an assignee needs a current seat.
 	const empty = await meeting("vision_meeting", "2026-10-09T23:00:00Z");
-	refused(await finalize(owner, empty, [], { evaluationAssigneeId: foreign.id }), "invalid_subject");
-	const none = ok(await finalize(owner, empty, [], { evaluationAssigneeId: owner.id }));
+	refused(await finalize(owner, empty, [], { evaluationAssigneeIds: [foreign.id] }), "invalid_subject");
+	const none = ok(await finalize(owner, empty, [], { evaluationAssigneeIds: [owner.id] }));
 	assert.deepEqual(
 		none.work.map((w) => [w.kind, w.needsOwner]),
 		[["meeting_evaluation", false]],
@@ -474,8 +474,8 @@ test("AC:TARGET-MTG-020 AC:TARGET-MTG-012 AC:TARGET-TSK-017 AC:GAP-PPL-020 AC:CA
 		prior_vision_id: null,
 	});
 	assert.deepEqual(
-		(await work(later)).filter((w) => w.kind === "follow_up").map((w) => [w.person_id, w.status, w.assignee_id]),
-		[[riley, "not_started", null]],
+		(await work(later)).filter((w) => w.kind === "follow_up").map((w) => [w.person_id, w.status, w.assignee_ids]),
+		[[riley, "not_started", []]],
 	);
 	assert.ok(corrected.work.some((w) => w.meetingId === later && w.personId === riley && w.outcome === "created"));
 	// The earlier meeting's open follow-up closes as no longer needed; it is not deleted or completed.
@@ -487,21 +487,21 @@ test("AC:TARGET-MTG-020 AC:TARGET-MTG-012 AC:TARGET-TSK-017 AC:GAP-PPL-020 AC:CA
 	const samLater = await meeting("vision_meeting", "2026-09-13T23:00:00Z"),
 		samEarly = await meeting("vision_meeting", "2026-09-06T23:00:00Z");
 	const samOwner = await eligibleAccount();
-	ok(await finalize(owner, samLater, [sam], { followUpAssigneeId: samOwner.id }));
+	ok(await finalize(owner, samLater, [sam], { followUpAssigneeIds: [samOwner.id] }));
 	ok(await finalize(owner, samEarly, [sam]));
 	const undone = ok(await reconcile(owner, samEarly, []));
 	assert.deepEqual(
-		undone.work.filter((w) => w.meetingId === samLater).map((w) => [w.personId, w.outcome, w.assigneeId, w.needsOwner]),
-		[[sam, "existing", samOwner.id, false]],
+		undone.work.filter((w) => w.meetingId === samLater).map((w) => [w.personId, w.outcome, w.assigneeIds, w.needsOwner]),
+		[[sam, "existing", [samOwner.id], false]],
 	);
 	// The answer names the closed later duty's owner view from the assignee, not null.
 	assert.deepEqual(
-		undone.work.filter((w) => w.meetingId === samLater).map((w) => w.owner?.accountId),
+		undone.work.filter((w) => w.meetingId === samLater).flatMap((w) => w.owners.map((o) => o.accountId)),
 		[samOwner.id],
 	);
 	assert.deepEqual(
-		(await work(samLater)).filter((w) => w.kind === "follow_up").map((w) => [w.status, w.assignee_id]),
-		[["no_longer_needed", samOwner.id]],
+		(await work(samLater)).filter((w) => w.kind === "follow_up").map((w) => [w.status, w.assignee_ids]),
+		[["no_longer_needed", [samOwner.id]]],
 	);
 });
 
@@ -885,11 +885,11 @@ test("AC:TARGET-TSK-012 finalize and Correct attendance refuse a follow-up owner
 	const ivy = await person("Ivy"),
 		jo = await person("Jo");
 	const v = await meeting("vision_meeting", "2026-10-12T23:00:00Z");
-	refused(await finalize(owner, v, [ivy], { followUpAssigneeId: unlinked.id }), "owner_ineligible");
-	const done = ok(await finalize(owner, v, [ivy], { followUpAssigneeId: member.id }));
+	refused(await finalize(owner, v, [ivy], { followUpAssigneeIds: [unlinked.id] }), "owner_ineligible");
+	const done = ok(await finalize(owner, v, [ivy], { followUpAssigneeIds: [member.id] }));
 	const followUp = done.work.find((w) => w.kind === "first_vision_follow_up");
 	assert.deepEqual(
-		[followUp.owner.accountId, followUp.owner.eligible, followUp.owner.reason, typeof followUp.owner.displayName],
+		[followUp.owners[0].accountId, followUp.owners[0].eligible, followUp.owners[0].reason, typeof followUp.owners[0].displayName],
 		[member.id, true, null, "string"],
 	);
 	const request = (extra) => async () => ({
@@ -898,21 +898,22 @@ test("AC:TARGET-TSK-012 finalize and Correct attendance refuse a follow-up owner
 		input: { meetingId: v, attendeeIds: [ivy, jo], reason: "Sign-in sheet checked", ...extra },
 	});
 	refused(
-		await write(owner, "reconcileAttendance", await request({ followUpAssigneeId: unlinked.id })()),
+		await write(owner, "reconcileAttendance", await request({ followUpAssigneeIds: [unlinked.id] })()),
 		"owner_ineligible",
 	);
-	const corrected = ok(await write(owner, "reconcileAttendance", await request({ followUpAssigneeId: member.id })()));
+	const corrected = ok(await write(owner, "reconcileAttendance", await request({ followUpAssigneeIds: [member.id] })()));
 	const added = corrected.work.find((w) => w.personId === jo && w.outcome === "created");
-	assert.deepEqual([added.owner.accountId, added.owner.eligible], [member.id, true]);
+	assert.deepEqual([added.owners[0].accountId, added.owners[0].eligible], [member.id, true]);
 	// An ineligible assignee already on an existing duty reads with the reason, not as a different person.
-	await f.admin.execute(sql`UPDATE task SET assignee_id=${unlinked.id} WHERE obligation_id=${followUp.obligationId}`);
-	const again = ok(await write(owner, "reconcileAttendance", await request({ followUpAssigneeId: member.id })()));
+	await f.admin.execute(sql`WITH d AS (DELETE FROM task_assignee WHERE task_id IN (SELECT id FROM task WHERE obligation_id=${followUp.obligationId}))
+		INSERT INTO task_assignee(plant_id,task_id,account_id) SELECT plant_id,id,${unlinked.id} FROM task WHERE obligation_id=${followUp.obligationId}`);
+	const again = ok(await write(owner, "reconcileAttendance", await request({ followUpAssigneeIds: [member.id] })()));
 	const kept = again.work.find((w) => w.obligationId === followUp.obligationId);
-	assert.deepEqual([kept.owner.accountId, kept.owner.eligible, kept.owner.reason], [unlinked.id, false, "no_person"]);
+	assert.deepEqual([kept.owners[0].accountId, kept.owners[0].eligible, kept.owners[0].reason], [unlinked.id, false, "no_person"]);
 	// The evaluation owner keeps the seated rule: a seat is enough.
 	const empty = await meeting("vision_meeting", "2026-10-13T23:00:00Z");
-	const evaluation = ok(await finalize(owner, empty, [], { evaluationAssigneeId: unlinked.id })).work[0];
-	assert.deepEqual([evaluation.owner.accountId, evaluation.owner.eligible], [unlinked.id, true]);
+	const evaluation = ok(await finalize(owner, empty, [], { evaluationAssigneeIds: [unlinked.id] })).work[0];
+	assert.deepEqual([evaluation.owners[0].accountId, evaluation.owners[0].eligible], [unlinked.id, true]);
 });
 
 // WP-022/api F11: the Correct attendance save is one bulk write. A reconcile sends the same statements for any size,
@@ -947,7 +948,7 @@ const swap = async (c, extra = [c.extra], gone = [c.leaver]) => ({
 	input: {
 		meetingId: c.v,
 		attendeeIds: [...c.ids.filter((id) => !gone.includes(id)), ...extra],
-		followUpAssigneeId: null,
+		followUpAssigneeIds: [],
 		reason: "Sign-in sheet checked",
 	},
 });
@@ -972,7 +973,7 @@ test("INV-statements: a reconcile that adds, removes, advances and closes sends 
 
 test("AC:TARGET-MTG-020 AC:TARGET-MTG-012 a 50-attendee reconcile returns the exact result and writes the exact audit rows", async () => {
 	const c = await crowd(50);
-	const duty = await rows(sql`SELECT b.id AS obligation_id, b.person_id, b.kind, t.id AS task_id, t.assignee_id
+	const duty = await rows(sql`SELECT b.id AS obligation_id, b.person_id, b.kind, t.id AS task_id, (SELECT coalesce(array_agg(a.account_id),'{}') FROM task_assignee a WHERE a.task_id=t.id) AS assignee_ids
 		FROM obligation b JOIN task t ON t.obligation_id=b.id WHERE b.meeting_id=${c.v}`);
 	const dutyOf = (personId) => duty.find((d) => d.person_id === personId);
 	const evaluation = duty.find((d) => d.kind === "evaluation");
@@ -992,11 +993,11 @@ test("AC:TARGET-MTG-020 AC:TARGET-MTG-012 a 50-attendee reconcile returns the ex
 			.filter((id) => !priorOf(id))
 			.map((id) =>
 				id === c.extra
-					? { meetingId: c.v, kind: "first_vision_follow_up", personId: id, obligationId: created.obligationId, taskId: created.taskId, outcome: "created", assigneeId: null, needsOwner: true, owner: null }
-					: { meetingId: c.v, kind: "first_vision_follow_up", personId: id, obligationId: dutyOf(id).obligation_id, taskId: dutyOf(id).task_id, outcome: "existing", assigneeId: null, needsOwner: true, owner: null },
+					? { meetingId: c.v, kind: "first_vision_follow_up", personId: id, obligationId: created.obligationId, taskId: created.taskId, outcome: "created", assigneeIds: [], needsOwner: true, owners: [] }
+					: { meetingId: c.v, kind: "first_vision_follow_up", personId: id, obligationId: dutyOf(id).obligation_id, taskId: dutyOf(id).task_id, outcome: "existing", assigneeIds: [], needsOwner: true, owners: [] },
 			),
-		{ meetingId: c.v, kind: "meeting_evaluation", personId: null, obligationId: evaluation.obligation_id, taskId: evaluation.task_id, outcome: "existing", assigneeId: null, needsOwner: true, owner: null },
-		{ meetingId: c.v, kind: "first_vision_follow_up", personId: c.leaver, obligationId: dutyOf(c.leaver).obligation_id, taskId: dutyOf(c.leaver).task_id, outcome: "closed", assigneeId: null, needsOwner: false, owner: null },
+		{ meetingId: c.v, kind: "meeting_evaluation", personId: null, obligationId: evaluation.obligation_id, taskId: evaluation.task_id, outcome: "existing", assigneeIds: [], needsOwner: true, owners: [] },
+		{ meetingId: c.v, kind: "first_vision_follow_up", personId: c.leaver, obligationId: dutyOf(c.leaver).obligation_id, taskId: dutyOf(c.leaver).task_id, outcome: "closed", assigneeIds: [], needsOwner: false, owners: [] },
 	];
 	assert.deepEqual(
 		{ ...result, receiptId: undefined },
@@ -1117,7 +1118,7 @@ test("AC:TARGET-MTG-020 a reconcile that is stale, foreign, too early or not all
 			await write(owner, "reconcileAttendance", {
 				requestKey: key(),
 				expectedRevision: await revision(draft),
-				input: { meetingId: draft, attendeeIds: [c.extra], followUpAssigneeId: null, reason: "Too early" },
+				input: { meetingId: draft, attendeeIds: [c.extra], followUpAssigneeIds: [], reason: "Too early" },
 			}),
 			"status_transition",
 		),
@@ -1134,7 +1135,7 @@ test("AC:TARGET-MTG-020 a reconcile that is stale, foreign, too early or not all
 				await write(owner, "reconcileAttendance", {
 					requestKey: key(),
 					expectedRevision: await revision(id),
-					input: { meetingId: id, attendeeIds: [], followUpAssigneeId: null, reason: "Not allowed" },
+					input: { meetingId: id, attendeeIds: [], followUpAssigneeIds: [], reason: "Not allowed" },
 				}),
 				"status_transition",
 			),

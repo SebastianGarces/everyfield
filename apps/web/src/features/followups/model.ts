@@ -2,6 +2,7 @@
 // no server code, so the rules run the same in the browser, on the server and in node tests.
 import type * as c from "@everyfield/contracts/followups";
 import type { z } from "zod";
+import { lacksOwner } from "../tasks/model.ts";
 
 export type OutcomeValue = z.infer<typeof c.outcome>;
 export type Channel = z.infer<typeof c.channel>;
@@ -21,35 +22,30 @@ export type FollowUpOrigin = z.infer<typeof c.followUpOrigin>;
 /** Where a follow-up came from, in words: "After Vision Meeting #4" or "Added by Ruth Allen". */
 export const originText = (o: FollowUpOrigin): string =>
 	o.kind === "meeting" ? `After ${o.meeting.label}` : o.by ? `Added by ${o.by}` : "Added by hand";
-/** Whether a follow-up counts as Needs owner: no assignee, or one who cannot own follow-ups now (REQ-TSK-012). */
-export const needsOwner = (d: Pick<DutyItem, "owner">) => !d.owner || !d.owner.eligible;
+/** Whether a follow-up counts as Needs owner: nobody holds it, or nobody who holds it can own it now (D-a, REQ-TSK-012). */
+export const needsOwner = (d: Pick<DutyItem, "owners">) => lacksOwner(d.owners);
+export type Owner = DutyItem["owners"][number];
 
 /**
- * The totals move for one follow-up that changes hands: it leaves its eligible owner, or Needs owner (also when its
- * stored assignee can no longer own it, who then also leaves the handoff tally), and goes to `to`.
+ * Who Correct attendance offers for "Follow-up calls go to" (D-e): the set of eligible owners that most of a meeting's
+ * open follow-ups have; a tie goes to the set of the most recent follow-up (the list is newest first). Empty when no
+ * open follow-up has an eligible owner, so it reads Needs owner only then.
  */
-export const moveOf = (before: Pick<DutyItem, "owner">, to: Account | null) => ({
-	from: before.owner?.eligible ? before.owner : null,
-	to,
-	former: before.owner && !before.owner.eligible ? before.owner : null,
-});
-
-/**
- * Who Correct attendance offers for "Follow-up calls go to" (D-b): the eligible owner who holds most of a meeting's
- * follow-ups; a tie goes to the owner of the most recent follow-up (the list is newest first). None when no follow-up
- * has an eligible owner, so it reads Needs owner only then.
- */
-export function preferredOwner(items: readonly Pick<ObligationItem, "kind" | "state" | "owner">[]): string | null {
-	const held = new Map<string, number>();
-	const order: string[] = [];
+export function preferredOwners(items: readonly Pick<ObligationItem, "kind" | "state" | "owners">[]): string[] {
+	const held = new Map<string, { n: number; ids: string[] }>();
 	for (const o of items) {
-		if (o.kind !== "first_vision_follow_up" || o.state !== "open" || !o.owner?.eligible) continue;
-		if (!held.has(o.owner.accountId)) order.push(o.owner.accountId);
-		held.set(o.owner.accountId, (held.get(o.owner.accountId) ?? 0) + 1);
+		if (o.kind !== "first_vision_follow_up" || o.state !== "open") continue;
+		const ids = o.owners
+			.filter((x) => x.eligible)
+			.map((x) => x.accountId)
+			.sort();
+		if (!ids.length) continue;
+		const key = ids.join(",");
+		held.set(key, { n: (held.get(key)?.n ?? 0) + 1, ids });
 	}
-	let best: string | null = null;
-	for (const id of order) if (best === null || (held.get(id) ?? 0) > (held.get(best) ?? 0)) best = id;
-	return best;
+	let best: { n: number; ids: string[] } | null = null;
+	for (const set of held.values()) if (best === null || set.n > best.n) best = set;
+	return best ? best.ids : [];
 }
 
 /** A server answer, or none: `lost` means the reply never arrived, so the save may or may not have happened. */
@@ -278,17 +274,21 @@ export function problemText(code: string): string {
 /** The Follow-ups page's totals: open follow-ups per current owner, per former owner, without owner, contacts with none. */
 export type Totals = Pick<Coverage, "owners" | "formerOwners" | "needsOwner" | "uncovered">;
 type Move = {
-	from: Account | null | "new";
-	to: Account | null;
-	/** The account still stored on a Needs owner follow-up that can no longer own it (REQ-TSK-013). */
-	former?: Account | null;
+	/** Who held the follow-up before, or "new" for one just created. */
+	before: readonly Owner[] | "new";
+	/** Who holds it now: each eligible owner counts it, and an ineligible one stays on the handoff tally (REQ-TSK-013). */
+	after: readonly Owner[];
 	firstForContact?: boolean;
 };
+/** One follow-up changing hands, for the totals: from `before`'s owners to `after`'s. */
+export const moveOf = (before: Pick<DutyItem, "owners">, after: readonly Owner[]): Move => ({
+	before: before.owners,
+	after,
+});
 /**
- * The totals after follow-ups changed owner, from the server's answers (REQ-TSK-012, REQ-TSK-013): each move takes one
- * open follow-up from `from` (an owner, Needs owner, or "new" for a follow-up just created) and gives it to `to`. A move
- * off a former owner's follow-up also takes it from that former owner. A new follow-up for a contact that had none takes
- * that contact out of "no follow-up".
+ * The totals after follow-ups changed owners, from the server's answers (REQ-TSK-012, REQ-TSK-013, D-a): a follow-up
+ * counts once under each eligible owner, under Needs owner when it has none, and under each ineligible owner on the
+ * handoff tally. A new follow-up for a contact that had none takes that contact out of "no follow-up".
  */
 export function totalsAfter(t: Totals, moves: readonly Move[]): Totals {
 	const tally = (list: Totals["owners"]) => new Map(list.map((o) => [o.accountId, { ...o }]));
@@ -296,16 +296,20 @@ export function totalsAfter(t: Totals, moves: readonly Move[]): Totals {
 	const former = tally(t.formerOwners);
 	let { needsOwner, uncovered } = t;
 	const add = (map: typeof owners, who: Account, n: number) => {
-		const o = map.get(who.accountId) ?? { ...who, open: 0 };
+		const o = map.get(who.accountId) ?? { accountId: who.accountId, displayName: who.displayName, open: 0 };
 		o.open += n;
 		if (o.open > 0) map.set(who.accountId, o);
 		else map.delete(who.accountId);
 	};
-	const give = (who: Account | null, n: number) => (who ? add(owners, who, n) : void (needsOwner += n));
+	const count = (list: readonly Owner[], n: 1 | -1) => {
+		const eligible = list.filter((o) => o.eligible);
+		for (const o of eligible) add(owners, o, n);
+		if (!eligible.length) needsOwner += n;
+		for (const o of list.filter((x) => !x.eligible)) add(former, o, n);
+	};
 	for (const m of moves) {
-		if (m.from !== "new") give(m.from, -1);
-		give(m.to, 1);
-		if (m.former && m.to) add(former, m.former, -1);
+		if (m.before !== "new") count(m.before, -1);
+		count(m.after, 1);
 		if (m.firstForContact) uncovered -= 1;
 	}
 	const sorted = (map: typeof owners) =>
@@ -320,5 +324,5 @@ export function totalsAfter(t: Totals, moves: readonly Move[]): Totals {
 	};
 }
 /** A contact's coverage from its open follow-ups: none is "uncovered", any without an owner is "needs_owner". */
-export const coverageOf = (duties: readonly Pick<DutyItem, "owner">[]): "owned" | "needs_owner" | "uncovered" =>
+export const coverageOf = (duties: readonly Pick<DutyItem, "owners">[]): "owned" | "needs_owner" | "uncovered" =>
 	duties.length === 0 ? "uncovered" : duties.some(needsOwner) ? "needs_owner" : "owned";

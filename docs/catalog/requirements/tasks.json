@@ -62,7 +62,7 @@
       "feature_ids": [
         "TSK-002"
       ],
-      "text": "Full/quick task retains trimmed nonempty bounded title, safe description, state/priority/category, optional LocalDate/time, current same plant assignee, person/meeting/team relation, parent, recurrence and prerequisites. Reject facility relation and malformed/mismatched relation pair; explicit null clears. Generated obligation/evaluation relation/source identity is protected from ordinary edit. Validate current task, graph, series and related subjects; concurrent edits must preserve their invariants; edit+status+prerequisites/history and recorded outcome/intent commit all or none, with no failed response after hidden title change. Soft-delete parent+children coherently; generated obligation/history persists. Parent deletion reviews consequences and cancels live reminders without erasing already performed evidence.",
+      "text": "Full/quick task retains trimmed nonempty bounded title, safe description, state/priority/category, optional LocalDate/time, one or more current same plant assignees (up to ten), person/meeting/team relation, parent, recurrence and prerequisites. Reject facility relation and malformed/mismatched relation pair; explicit null clears. Generated obligation/evaluation relation/source identity is protected from ordinary edit. Validate current task, graph, series and related subjects; concurrent edits must preserve their invariants; edit+status+prerequisites/history and recorded outcome/intent commit all or none, with no failed response after hidden title change. Soft-delete parent+children coherently; generated obligation/history persists. Parent deletion reviews consequences and cancels live reminders without erasing already performed evidence.",
       "spec": "docs/product/tasks.md#req-tsk-002",
       "operations": [
         "tasks.create",
@@ -139,7 +139,7 @@
       "feature_ids": [
         "TSK-003"
       ],
-      "text": "Recheck actual assignee/current authority at execution; Member completes/reopens only own duty, Owner/Admin any current same plant task. Completion records when and by whom, with status history and any successor or outcome, together. Repeating the same request shows the earlier result and adds no history. Reopen clears current completion projection but retains prior history and recomputes current metrics/contact evidence where affected; it does not forge past success or unsend delivery. Recurring older occurrence reopen fails if another open successor exists and names it. Parent completion remains explicit human judgment. Person linked administrative completion never implies contact.",
+      "text": "Recheck actual assignees/current authority at execution; a task has one or more assignees, and a Member completes/reopens only a duty they are one of the assignees of, Owner/Admin any current same plant task. Completion records when and by whom, with status history and any successor or outcome, together. Repeating the same request shows the earlier result and adds no history. Reopen clears current completion projection but retains prior history and recomputes current metrics/contact evidence where affected; it does not forge past success or unsend delivery. Recurring older occurrence reopen fails if another open successor exists and names it. Parent completion remains explicit human judgment. Person linked administrative completion never implies contact.",
       "spec": "docs/product/tasks.md#req-tsk-003",
       "operations": [
         "tasks.complete",
@@ -247,7 +247,7 @@
       "feature_ids": [
         "TSK-005"
       ],
-      "text": "One parent level only: deny nesting/self parent/cycles and turning task with children into child. New child inherits the parent assignee when omitted. Owner/Admin may explicitly choose a currently valid same-plant assignee or null; a Member may create only under their own currently assigned parent and inherits their own assignment, with no other-account or null override. Tick/untick/reopen uses the actual child assignee for Member own-duty. Child tasks have no deadline, recurrence, obligation, completion automation or contact hook; inert template definitions create real child Tasks, and a checklist item's completion is the child task's own status. Subsequent parent edit previews intended child assignment changes rather than silently moving others. Child tick/untick has own completion history/current own-duty policy; parent never auto completes. Parent delete soft deletes children with history. Recurrent successor copy resets every checklist item, clears child due dates and completion facts, and copies no contact/outcome hooks.",
+      "text": "One parent level only: deny nesting/self parent/cycles and turning task with children into child. New child inherits all of the parent's one or more assignees when omitted. Owner/Admin may explicitly choose one or more currently valid same-plant assignees or none; a Member may create only under their own currently assigned parent and inherits the parent's assignees, with no other-account or empty override. Tick/untick/reopen uses the actual child assignees for Member own-duty. Child tasks have no deadline, recurrence, obligation, completion automation or contact hook; inert template definitions create real child Tasks, and a checklist item's completion is the child task's own status. Subsequent parent edit previews intended child assignment changes rather than silently moving others. Child tick/untick has own completion history/current own-duty policy; parent never auto completes. Parent delete soft deletes children with history. Recurrent successor copy resets every checklist item, clears child due dates and completion facts, and copies no contact/outcome hooks.",
       "spec": "docs/product/tasks.md#req-tsk-005",
       "operations": [
         "tasks.listSubtasks",
@@ -619,7 +619,7 @@
       "feature_ids": [
         "TSK-012"
       ],
-      "text": "Eligible owner is actual account linked live same plant committed stage Person(core_group/launch_team/leader) with current seat; shared email/unlinked contact cannot own. Current demotion/access loss resolves stale assignee Needs owner even if stored ID remains. Assignment validates current eligibility at execution, derived labels from stored Person not client name. Manual create+assign may remain undated and has distinct manual origin; no invented due date or 48 h lineage invented. Assignment view shows actionable open tasks, grouped current owners, uncovered contact coverage without claiming urgent task when no explicit duty exists. No lead title-based authorization.",
+      "text": "Eligible owner is actual account linked live same plant committed stage Person(core_group/launch_team/leader) with current seat; shared email/unlinked contact cannot own. Current demotion/access loss of every assignee resolves the task Needs owner even if stored IDs remain; a follow-up with one or more assignees is owned while any one of them is eligible. Assignment validates current eligibility at execution, derived labels from stored Person not client name. Manual create+assign may remain undated and has distinct manual origin; no invented due date or 48 h lineage invented. Assignment view shows actionable open tasks, grouped current owners, uncovered contact coverage without claiming urgent task when no explicit duty exists. No lead title-based authorization.",
       "spec": "docs/product/tasks.md#req-tsk-012",
       "operations": [
         "tasks.followUpCoverage",
@@ -730,7 +730,7 @@
       "feature_ids": [
         "TSK-014"
       ],
-      "text": "Schedule a due notice and the defined overdue notice from REQ-TSK-018; skip settled, deleted, unassigned and undated tasks. Each due and overdue reminder reaches the current assignee at most once. Completing, deleting, reassigning or rescheduling stops the old reminder; a stale reminder never reaches a former owner. A failed send is retried or reconciled, and a scheduled reminder is never reported as delivered.",
+      "text": "Schedule a due notice and the defined overdue notice from REQ-TSK-018; skip settled, deleted, unassigned and undated tasks. Each due and overdue reminder reaches each of the task's one or more current assignees at most once. Completing, deleting, reassigning or rescheduling stops the old reminder; a stale reminder never reaches a former owner. A failed send is retried or reconciled, and a scheduled reminder is never reported as delivered.",
       "spec": "docs/product/tasks.md#req-tsk-014",
       "operations": [
         "notifications.syncTaskReminders",

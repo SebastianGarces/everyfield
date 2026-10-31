@@ -70,9 +70,9 @@
   "contract_status": "Reviewed starting design; builders may change it through a reviewed migration.",
   "as_of": "2026-10-17",
   "implementation_authorized": false,
-  "table_count": 97,
-  "column_count": 1126,
-  "foreign_key_count": 348,
+  "table_count": 98,
+  "column_count": 1128,
+  "foreign_key_count": 349,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
     "date": "YYYY-MM-DD local calendar date, never UTC midnight instant.",
@@ -23985,12 +23985,6 @@
           "nullable": false
         },
         {
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
-          "name": "assignee_id",
-          "type": "uuid",
-          "nullable": true
-        },
-        {
           "note": "",
           "name": "waived_at",
           "type": "timestamptz",
@@ -24101,22 +24095,6 @@
             "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
           },
           "columns": [
-            "assignee_id"
-          ],
-          "references": {
-            "table": "account",
-            "columns": [
-              "id"
-            ]
-          },
-          "on_delete": "restrict"
-        },
-        {
-          "deletion": {
-            "action": "restrict",
-            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-          },
-          "columns": [
             "id",
             "plant_id"
           ],
@@ -24194,21 +24172,6 @@
           "method": "btree",
           "with": {}
         },
-        "obligation_ref_3": {
-          "name": "obligation_ref_3",
-          "isUnique": false,
-          "columns": [
-            {
-              "expression": "assignee_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "obligation_uq_1": {
           "name": "obligation_uq_1",
           "isUnique": true,
@@ -24271,7 +24234,6 @@
           "obligation_fk_0",
           "obligation_fk_1",
           "obligation_fk_2",
-          "obligation_fk_3",
           "obligation_fk_4"
         ],
         "checks": [
@@ -35963,12 +35925,6 @@
           "nullable": false
         },
         {
-          "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
-          "name": "assignee_id",
-          "type": "uuid",
-          "nullable": true
-        },
-        {
           "note": "",
           "name": "due_kind",
           "type": "text",
@@ -36284,22 +36240,6 @@
             "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
           },
           "columns": [
-            "assignee_id"
-          ],
-          "references": {
-            "table": "account",
-            "columns": [
-              "id"
-            ]
-          },
-          "on_delete": "restrict"
-        },
-        {
-          "deletion": {
-            "action": "restrict",
-            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-          },
-          "columns": [
             "person_id",
             "plant_id"
           ],
@@ -36529,21 +36469,6 @@
             },
             {
               "expression": "plant_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "task_ref_2": {
-          "name": "task_ref_2",
-          "isUnique": false,
-          "columns": [
-            {
-              "expression": "assignee_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -36802,7 +36727,6 @@
           "task_fk_12",
           "task_fk_13",
           "task_fk_14",
-          "task_fk_2",
           "task_fk_3",
           "task_fk_4",
           "task_fk_5",
@@ -36826,6 +36750,235 @@
           "task_ck_11",
           "task_timezone_iana"
         ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "task_assignee",
+      "domain": "tasks",
+      "purpose": "One account assigned to one task. A task has one or more assignees; a person follow-up is owned by its task's assignees.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-B-012",
+        "CAP-B-013",
+        "CAP-B-014",
+        "CAP-B-016",
+        "CAP-B-018",
+        "CAP-B-019"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-023"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-023"
+        ],
+        "rule": "WP-023 stores the assignee set of a task. The set replaces the single task and obligation assignee columns."
+      },
+      "feature_ids": [
+        "PHASE-006",
+        "TSK-002",
+        "TSK-003",
+        "TSK-004",
+        "TSK-005",
+        "TSK-007",
+        "TSK-009",
+        "TSK-010",
+        "TSK-012",
+        "TSK-015",
+        "TSK-016"
+      ],
+      "acceptance_ids": [
+        "AC-PHASE-006--PHASE-006",
+        "AC-TSK-002--TSK-002",
+        "AC-TSK-003--TSK-003",
+        "AC-TSK-004--TSK-004",
+        "AC-TSK-005--TSK-005",
+        "AC-TSK-007--TSK-007",
+        "AC-TSK-009--TSK-009",
+        "AC-TSK-010--TSK-010",
+        "AC-TSK-012--TSK-012",
+        "AC-TSK-015--TSK-015",
+        "AC-TSK-016--TSK-016"
+      ],
+      "future_case_ids": [
+        "B03-002",
+        "B03-003",
+        "B03-007",
+        "B03-008",
+        "B03-009",
+        "B03-015",
+        "EVRY-REAL-CHILD-TASK-PARITY",
+        "INH-LAUNCH-02",
+        "LAUNCH46-019",
+        "PHASE-CASE-006",
+        "ROLE43-008",
+        "ROLE43-015",
+        "SCHEMA-001",
+        "SCHEMA-013",
+        "TARGET-MTG-020",
+        "TARGET-MTG-021",
+        "TARGET-MTG-022",
+        "TARGET-TSK-002",
+        "TARGET-TSK-003",
+        "TARGET-TSK-004",
+        "TARGET-TSK-005",
+        "TARGET-TSK-007",
+        "TARGET-TSK-009",
+        "TARGET-TSK-010",
+        "TARGET-TSK-012",
+        "TARGET-TSK-015",
+        "TARGET-TSK-016",
+        "TARGET-TSK-017",
+        "TARGET-TSK-018"
+      ],
+      "scope": "tasks",
+      "invariants": [
+        "One row per task and account; at most ten per task, enforced by the write.",
+        "No task or obligation column keeps a second stored owner."
+      ],
+      "revision": "No mutable revision column; immutable version, history or insert/delete presence follows the capability contract.",
+      "idempotency": "Replay and no-op behavior follow the named native producer and its exact receipt/unique-key contract. Private care remains isolated from shared operation receipts.",
+      "deletion": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "",
+          "name": "plant_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "Real FK with plant_id to task(id, plant_id).",
+          "name": "task_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "Real FK to the assigned account. Eligibility is checked by the write, not stored.",
+          "name": "account_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "When the account joined the task; the history record keeps who added it.",
+          "name": "added_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()"
+        }
+      ],
+      "primary_key": [
+        "task_id",
+        "account_id"
+      ],
+      "unique_keys": [],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+          },
+          "columns": [
+            "plant_id"
+          ],
+          "references": {
+            "table": "plant",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+          },
+          "columns": [
+            "task_id",
+            "plant_id"
+          ],
+          "references": {
+            "table": "task",
+            "columns": [
+              "id",
+              "plant_id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+          },
+          "columns": [
+            "account_id"
+          ],
+          "references": {
+            "table": "account",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "restrict"
+        }
+      ],
+      "checks": [],
+      "indexes": {
+        "task_assignee_ref_0": {
+          "name": "task_assignee_ref_0",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "task_assignee_ref_2": {
+          "name": "task_assignee_ref_2",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "task_assignee_pkey"
+        ],
+        "unique": [],
+        "foreign": [
+          "task_assignee_fk_0",
+          "task_assignee_fk_1",
+          "task_assignee_fk_2"
+        ],
+        "checks": []
       },
       "policies": {},
       "rls": false

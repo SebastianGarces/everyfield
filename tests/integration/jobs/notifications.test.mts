@@ -20,8 +20,8 @@ const authorizer = async (tx, mail) => {
 	const r =
 		await tx.execute(querySql`WITH input AS (SELECT * FROM jsonb_to_recordset(${JSON.stringify(input)}::jsonb) i(id uuid,recipient uuid,notice uuid)),
  accounts AS MATERIALIZED (SELECT a.id FROM account a WHERE a.id IN (SELECT recipient FROM input) AND registration_state='active' FOR SHARE),
- notices AS MATERIALIZED (SELECT n.id,n.source_revision::text AS source_revision,t.revision::text AS current_revision,t.assignee_id,t.status,t.deleted_at FROM notice n JOIN task t ON t.id=n.source_record_id WHERE n.id IN (SELECT notice FROM input) FOR SHARE OF n,t)
- SELECT i.id FROM input i LEFT JOIN notices n ON n.id=i.notice WHERE CASE WHEN n.id IS NOT NULL THEN n.current_revision=n.source_revision AND n.assignee_id=i.recipient AND n.deleted_at IS NULL AND n.status NOT IN ('complete','no_longer_needed') ELSE i.recipient IN (SELECT id FROM accounts) END`);
+ notices AS MATERIALIZED (SELECT n.id,n.source_revision::text AS source_revision,t.revision::text AS current_revision,t.id AS task_id,t.status,t.deleted_at FROM notice n JOIN task t ON t.id=n.source_record_id WHERE n.id IN (SELECT notice FROM input) FOR SHARE OF n,t)
+ SELECT i.id FROM input i LEFT JOIN notices n ON n.id=i.notice WHERE CASE WHEN n.id IS NOT NULL THEN n.current_revision=n.source_revision AND EXISTS(SELECT FROM task_assignee a WHERE a.task_id=n.task_id AND a.account_id=i.recipient) AND n.deleted_at IS NULL AND n.status NOT IN ('complete','no_longer_needed') ELSE i.recipient IN (SELECT id FROM accounts) END`);
 	return new Set(r.rows.map((r) => r.id));
 };
 const mail = createMailService({
@@ -53,7 +53,6 @@ const task = randomUUID();
 function base(revision = "1") {
 	return {
 		owner: plantOwner,
-		recipient: account,
 		source: { kind: "task", id: task, revision },
 		title: "Task due",
 		text: "An open task is due.",
@@ -73,7 +72,10 @@ before(async () => {
 		querySql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${querySql.param(account)},${querySql.param(tenant)},'owner',now())`,
 	);
 	await db.execute(
-		querySql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,assignee_id,due_kind,due_date) VALUES(${querySql.param(task)},${querySql.param(tenant)},'Current task','general','medium','not_started',now(),${querySql.param(account)},'date_only','2026-10-19')`,
+		querySql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,due_date) VALUES(${querySql.param(task)},${querySql.param(tenant)},'Current task','general','medium','not_started',now(),'date_only','2026-10-19')`,
+	);
+	await db.execute(
+		querySql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES(${querySql.param(tenant)},${querySql.param(task)},${querySql.param(account)})`,
 	);
 	for (const id of [org, org2])
 		await db.execute(
@@ -87,6 +89,7 @@ test("INV-notification: resync replay retains due intents and changed source can
 			notifications.syncTaskReminders(tx, [
 				{
 					base: base(),
+					recipients: [account],
 					due: { kind: "date_only", date: "2026-10-19", zone: "America/Chicago" },
 					open: true,
 					asOf: "2026-10-18T12:00:00Z",
@@ -101,6 +104,7 @@ test("INV-notification: resync replay retains due intents and changed source can
 			notifications.syncTaskReminders(tx, [
 				{
 					base: base(),
+					recipients: [account],
 					due: { kind: "date_only", date: "2026-10-19", zone: "America/Chicago" },
 					open: true,
 					asOf: "2026-10-19T14:00:00Z",
@@ -120,6 +124,7 @@ test("INV-notification: resync replay retains due intents and changed source can
 			await notifications.syncTaskReminders(tx, [
 				{
 					base: base("2"),
+					recipients: [account],
 					due: { kind: "undated" },
 					open: false,
 					asOf: "2026-10-18T12:00:00Z",
@@ -143,6 +148,7 @@ test("INV-notification: resync replay retains due intents and changed source can
 		transaction(runtime, (tx) =>
 			notifications.enqueue(tx, {
 				...base(),
+				recipient: account,
 				category: "task_due",
 				occurrence: "due",
 				eligibleAt: "2026-10-19T14:00:00Z",
@@ -271,7 +277,7 @@ test("INV-digest: one dated catch-up advances coverage only with its matching ma
 		},
 		load: async (tx, o, recipient, period) => {
 			const rows = await tx.execute(
-				querySql`SELECT id,due_date::text AS date,title FROM task WHERE plant_id=${querySql.param(o.id)} AND assignee_id=${querySql.param(recipient)} AND status NOT IN ('complete','no_longer_needed') AND deleted_at IS NULL AND due_date<${querySql.param(period.next)}::date ORDER BY due_date,id LIMIT 100`,
+				querySql`SELECT id,due_date::text AS date,title FROM task WHERE plant_id=${querySql.param(o.id)} AND EXISTS(SELECT FROM task_assignee a WHERE a.task_id=task.id AND a.account_id=${querySql.param(recipient)}) AND status NOT IN ('complete','no_longer_needed') AND deleted_at IS NULL AND due_date<${querySql.param(period.next)}::date ORDER BY due_date,id LIMIT 100`,
 			);
 			return { lines: rows.rows.map((r) => ({ kind: "task", ...r })), total: rows.rowCount };
 		},
@@ -304,6 +310,54 @@ test("INV-digest: one dated catch-up advances coverage only with its matching ma
 			.covered_through,
 		"2026-10-18",
 	);
+});
+test("INV-digest F07b criterion 11: the open-items digest counts a shared task for each of its assignees", async () => {
+	const second = randomUUID(),
+		user = randomUUID(),
+		shared = randomUUID();
+	await db.execute(
+		querySql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${querySql.param(user)},${querySql.param(user + "@example.test")},true,'Synthetic')`,
+	);
+	await db.execute(
+		querySql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${querySql.param(second)},${querySql.param(user)},'active','discovery')`,
+	);
+	await db.execute(
+		querySql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${querySql.param(second)},${querySql.param(tenant)},'member',now())`,
+	);
+	await db.execute(
+		querySql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,due_date) VALUES(${querySql.param(shared)},${querySql.param(tenant)},'Shared task','general','medium','not_started',now(),'date_only','2026-10-10')`,
+	);
+	for (const who of [account, second])
+		await db.execute(
+			querySql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES(${querySql.param(tenant)},${querySql.param(shared)},${querySql.param(who)})`,
+		);
+	const digests = createDigestService({
+		origin: "https://example.test",
+		nativePath: () => "/tasks",
+		mail,
+		eligible: async (_tx, _o, recipient) => ({ address: `${recipient}@example.test`, cadence: "weekly" }),
+		load: async (tx, o, recipient, period) => {
+			const rows = await tx.execute(
+				querySql`SELECT id,due_date::text AS date,title FROM task WHERE plant_id=${querySql.param(o.id)} AND EXISTS(SELECT FROM task_assignee a WHERE a.task_id=task.id AND a.account_id=${querySql.param(recipient)}) AND status NOT IN ('complete','no_longer_needed') AND deleted_at IS NULL AND due_date<${querySql.param(period.next)}::date ORDER BY due_date,id LIMIT 100`,
+			);
+			return { lines: rows.rows.map((r) => ({ kind: "task", ...r })), total: rows.rowCount };
+		},
+	});
+	// Earlier tests left coverage for the first account; start both recipients from the same day.
+	await db.execute(
+		querySql`DELETE FROM digest_coverage WHERE recipient_id IN (${querySql.param(account)},${querySql.param(second)})`,
+	);
+	for (const who of [account, second]) {
+		await db.execute(
+			querySql`INSERT INTO digest_coverage(tenant_id,recipient_id,purpose,cadence,timezone,covered_through) VALUES(${querySql.param(tenant)},${querySql.param(who)},${who === account ? "planter" : "oversight"},'weekly','America/Chicago','2026-10-25')`,
+		);
+		const result = await transaction(runtime, (tx) =>
+			digests.generateOwed(tx, plantOwner, who, "2026-11-08T22:00:00Z"),
+		);
+		// Each assignee's digest lists the shared task; it is not owed to only one of them.
+		assert.equal(result.kind, "intended", JSON.stringify(result));
+		assert.ok(result.total >= 1, JSON.stringify(result));
+	}
 });
 test("INV-digest: exact organization projection refuses narrative fields and independent unshared activity sends nothing", async () => {
 	for (const [id, share] of [

@@ -164,7 +164,10 @@ export async function loadCall(tx: Transaction, viewer: TaskViewer, taskId: stri
 		? []
 		: (
 				okOrNull(await followUpReader.listFollowUpOwners(tx, viewer.authority, { personId, limit: 100 }))?.items ?? []
-			).filter((d) => d.taskId !== task.id && (viewer.role !== "member" || d.owner?.accountId === viewer.accountId));
+			).filter(
+				(d) =>
+					d.taskId !== task.id && (viewer.role !== "member" || d.owners.some((o) => o.accountId === viewer.accountId)),
+			);
 	const managed = task.managed;
 	const obligation = managed
 		? (okOrNull(await followUpReader.readObligations(tx, viewer.authority, { personId, limit: 100 }))?.items.find(

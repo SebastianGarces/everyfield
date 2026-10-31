@@ -179,7 +179,6 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `obligation(plant_id)` | `plant(id)` | restrict |  |
 | `obligation(meeting_id, plant_id)` | `meeting(id, plant_id)` | restrict |  |
 | `obligation(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
-| `obligation(assignee_id)` | `account(id)` | restrict |  |
 | `obligation(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `onboarding_setup(account_id)` | `account(id)` | no_action |  |
 | `onboarding_setup(creation_operation_id)` | `audit_event(id)` | no_action | D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access. |
@@ -319,7 +318,6 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `task(import_operation_id)` | `audit_event(id)` | restrict | D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access. |
 | `task(milestone_id, plant_id)` | `launch_milestone(id, plant_id)` | restrict |  |
 | `task(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
-| `task(assignee_id)` | `account(id)` | restrict |  |
 | `task(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `task(meeting_id, plant_id)` | `meeting(id, plant_id)` | restrict |  |
 | `task(team_id, plant_id)` | `team(id, plant_id)` | restrict |  |
@@ -327,6 +325,9 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `task(parent_id, plant_id)` | `task(id, plant_id)` | restrict |  |
 | `task(series_id, plant_id)` | `recurrence(id, plant_id)` | restrict |  |
 | `task(predecessor_id, plant_id)` | `task(id, plant_id)` | restrict |  |
+| `task_assignee(plant_id)` | `plant(id)` | restrict |  |
+| `task_assignee(task_id, plant_id)` | `task(id, plant_id)` | restrict |  |
+| `task_assignee(account_id)` | `account(id)` | restrict |  |
 | `team(plant_id)` | `plant(id)` | restrict |  |
 | `team(template_version_id)` | `reference_version(id)` | restrict |  |
 | `team(leader_person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
