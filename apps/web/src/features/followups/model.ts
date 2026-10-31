@@ -234,6 +234,8 @@ export function ownersOf(plan: Pick<HandoffPlan, "from" | "recipients">): Accoun
 	);
 }
 
+/** Contact log entries per page on the Person page and in the task panel; "Show earlier" reads the next one. */
+export const HISTORY_PAGE = 20;
 /** Contacts per page on the Follow-ups page. */
 export const COVERAGE_PAGE = 24;
 /** The most follow-ups one handoff request may move (REQ-TSK-013). */

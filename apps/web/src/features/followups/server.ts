@@ -17,6 +17,7 @@ import type { TaskDetail } from "../tasks/model.ts";
 import { taskViewer, type TaskViewer } from "../tasks/server.ts";
 import {
 	COVERAGE_PAGE,
+	HISTORY_PAGE,
 	ownersOf,
 	type Account,
 	type ContactHistory,
@@ -74,8 +75,6 @@ export async function readOwners(tx: Transaction, viewer: TaskViewer): Promise<O
 	return plan.status === "ok" ? { status: "ok", value: ownersOf(plan.value) } : plan;
 }
 
-/** Contact log entries per page on the Person page; "Show earlier" reads the next one. */
-export const HISTORY_PAGE = 20;
 /** Open follow-ups and Vision follow-ups per page on the Person page; "Show more" reads the next one. */
 export const PERSON_PAGE = 20;
 const okOrNull = <T>(r: FollowUpReply<T>) => (r.status === "ok" ? r.value : null);

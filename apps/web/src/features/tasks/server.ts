@@ -3,8 +3,10 @@ import { getViewer } from "@/server/request-context";
 import { tasksMount } from "@/server/tasks";
 import type { Transaction } from "@everyfield/db/client";
 import type { RequestActor } from "@everyfield/domain/access";
+import { followUpReader } from "@everyfield/domain/followups";
 import { taskReader, withTaskWrite, type TaskContext, type TaskReply, type TaskWriter } from "@everyfield/domain/tasks";
 import "server-only";
+import { HISTORY_PAGE, type ContactHistory } from "../followups/model.ts";
 import { countRequest, listRequest, pageCount, type Outcome, type TaskQuery } from "./model.ts";
 
 // The Tasks screens reach the task core here. Pages and actions share the request's one viewer (D59/D60); every read
@@ -67,7 +69,9 @@ export const reader = {
 
 /**
  * One open task for its panel, read in one transaction: the task and its first history page (two statements), plus
- * the tasks it waits for when it has any and its series' open occurrence when it repeats (one statement each).
+ * the tasks it waits for when it has any, its series' open occurrence when it repeats and, for a follow-up (a person
+ * relation and no parent), the first page of its contact history (one statement each). The history is read on every
+ * open, so an outcome recorded on the call screen shows the next time the panel opens (REQ-MTG-022).
  */
 export async function loadTask(tx: Transaction, viewer: TaskViewer, taskId: string) {
 	const found = await reader.get(tx, viewer, taskId);
@@ -81,12 +85,27 @@ export async function loadTask(tx: Transaction, viewer: TaskViewer, taskId: stri
 	const occurrence = task.recurrence
 		? await taskReader.findOpenOccurrence(tx, viewer.authority, { taskId }).then(outcome)
 		: null;
+	// A refused contact read stays its own outcome, so the panel can offer "Try again" without closing.
+	const contacts: Outcome<ContactHistory> | null =
+		task.relation?.kind === "person" && !task.parentId
+			? await followUpReader
+					.listContactHistory(tx, viewer.authority, {
+						personId: task.relation.id,
+						taskId: task.id,
+						limit: HISTORY_PAGE,
+						page: 1,
+					})
+					.then((r): Outcome<ContactHistory> =>
+						r.status === "ok" ? r : { status: "refused", code: r.error.code as never },
+					)
+			: null;
 	const ok = <T>(r: Outcome<T> | null) => (r?.status === "ok" ? r.value : null);
 	return {
 		status: "ok",
 		value: {
 			task,
 			history,
+			contacts,
 			prerequisites: task.prerequisiteIds.length ? ok(prerequisites) : { taskId: task.id, items: [], blocked: false },
 			occurrence: ok(occurrence),
 		},

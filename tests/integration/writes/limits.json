@@ -44,6 +44,9 @@
 	"GET /tasks": {
 		"limit": 5
 	},
+	"GET /tasks?task=<follow-up>": {
+		"limit": 8
+	},
 	"POST notifications.markAllVisibleRead": {
 		"limit": 6
 	},

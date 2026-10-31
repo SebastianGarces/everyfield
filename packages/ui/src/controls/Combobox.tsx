@@ -139,7 +139,7 @@ export function Combobox({
 	...list
 }: ComboboxProps) {
 	const [open, setOpen] = useState(false);
-	const control = useFieldControl({ id, "aria-invalid": invalid });
+	const control = useFieldControl({ id, "aria-invalid": invalid, trigger: true });
 	const labels = options.filter((o) => value.includes(o.value)).map((o) => o.label);
 	return (
 		<Popover
