@@ -150,7 +150,7 @@ step. The role files are `.claude/agents/<role>.md`: planner, verifier and proto
 implementer, ui, simplifier on Sonnet 5.5 medium (D85). The implementer seat does UI work too and proves its own work; the ui seat is opt-in with the spec line `Seat: ui`. Every seat has the advisor and the update prompt disabled.
 
 The seat's agent definition comes from the evf checkout that runs the launch, never from the task worktree. Launch
-reads `<evf root>/.claude/agents/<role>.md` (launch writes the resolved seat model and effort into the plugin agent file, in place of any `model` or `effort` line the role file has) and writes it into a
+reads `<evf root>/.claude/agents/<role>.md`, sets its `model` and `effort` lines to the resolved seat values and writes it into a
 per-run plugin directory `<runtime>/seat-<run>/` (`.claude-plugin/plugin.json` plus `agents/<role>.md`; `<runtime>` is
 `.git/evf/runtime/<task slug>`, outside every worktree). The seat starts with `claude --plugin-dir <that directory>
 --agent evf:<role> ...`, so the typed line carries a path, not the definition. A plugin agent is namespaced, so a task
