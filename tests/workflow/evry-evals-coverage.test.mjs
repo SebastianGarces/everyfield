@@ -14,7 +14,7 @@ const EXPECTED_TODAY = 22;
 
 // An operation is a string in an `operation: "x.y",` property or a factory call such as `readHousehold("x.y")`
 // inside an exported declaration. A union type (`"a" | "b"`) and non-exported helpers add nothing by themselves.
-export function discoverOperations() {
+function discoverOperations() {
 	const found = new Set();
 	const adapters = path("packages/evry/src/adapters/");
 	for (const group of readdirSync(adapters, { withFileTypes: true }).filter((entry) => entry.isDirectory())) {
@@ -37,7 +37,7 @@ export function discoverOperations() {
 	return [...found].sort();
 }
 
-export function coveredOperations() {
+function coveredOperations() {
 	const dir = path("tests/evry/evals/");
 	const covered = new Set();
 	for (const file of readdirSync(dir).filter((f) => f.endsWith(".cases.json"))) {
@@ -53,7 +53,7 @@ export function coveredOperations() {
 	return covered;
 }
 
-export function coverageProblems(operations, covered, baseline) {
+function coverageProblems(operations, covered, baseline) {
 	const problems = [];
 	const known = new Set(operations);
 	for (const op of operations)
