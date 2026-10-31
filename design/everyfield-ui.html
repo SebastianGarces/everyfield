@@ -1105,13 +1105,13 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 .evry-bot .eb-eye:nth-child(1) { left: 31%; }
 .evry-bot .eb-eye:nth-child(2) { left: 56%; }
 .evry-bot .eb-mouth, .evry-bot[data-eb] .eb-face { display: none; }
-.evry-bot .eb-body svg {
-  display: block; width: 100%; height: 100%; overflow: visible; transform-origin: 50% 92%;
-  filter: drop-shadow(0 calc(var(--s) * .05) calc(var(--s) * .06) rgba(1,60,34,.3));
+.evry-bot .eb-body svg { display: block; width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 calc(var(--s) * .05) calc(var(--s) * .06) rgba(1,60,34,.3)); }
+/* float at 40 px and larger (smaller bots would move under a pixel): a slow bob with a little
+   squash at the bottom and stretch at the top. Held bots and happy, which bounces, do not float. */
+.evry-bot[data-eb]:is([data-size="lg"], [data-size="xl"]):not([data-hold], [data-mood="happy"]) .eb-body {
+  transform-origin: 50% 92%; will-change: transform;
   animation: ebFloat var(--eb-float, 3.6s) ease-in-out var(--eb-float-at, 0s) infinite alternate;
 }
-.evry-bot[data-hold] .eb-body svg, .evry-bot[data-mood="happy"] .eb-body svg { animation: none; }
-/* idle float: a slow bob with a little squash at the bottom and stretch at the top */
 @keyframes ebFloat { from { transform: translateY(0) scale(1.012, .988); } to { transform: translateY(-3.5%) scale(.992, 1.008); } }
 .evry-bot .eb-fill { fill: var(--ef-green); }
 .evry-bot .eb-e { fill: #181D19; transform-box: fill-box; transform-origin: center; }
