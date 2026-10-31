@@ -151,7 +151,15 @@ export function near(E: Edges, x: number, y: number): Near {
 }
 
 /** Measures of one drawn eye: proximity, slant in degrees, width factor, bend, margin inside the outline, normal. */
-export type EyeMeasure = { p: number; tilt: number; width: number; bend: number; margin: number; nx: number; ny: number };
+export type EyeMeasure = {
+	p: number;
+	tilt: number;
+	width: number;
+	bend: number;
+	margin: number;
+	nx: number;
+	ny: number;
+};
 
 const CAP = new Float64Array(38);
 

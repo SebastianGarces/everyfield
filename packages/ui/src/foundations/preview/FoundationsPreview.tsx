@@ -16,6 +16,7 @@ import type { ReactNode } from "react";
 import { cn, EvryBot, Icon, Lockup, LogoMark, revealDelay, type EvryBotSize, type EvryMood, type EvryShape } from "..";
 import { InsightCard, InsightPill, InsightTitle, type InsightTone } from "../../controls";
 import { PageHead } from "../../shell/preview/ShellPreview";
+import { EvryCheer } from "./EvryCheer";
 import { HoverDemo } from "./HoverDemo";
 
 /**
@@ -266,10 +267,10 @@ export function FoundationsPreview() {
 					Evry&apos;s character replaces a generic AI icon. It is the brand green with upright ink eyes. Evry has five
 					shapes: triangle, circle, square, pill and hexagon. It holds a shape for a few seconds, then morphs into a
 					different one at random. When idle it floats, blinks at random, looks to the sides, tilts and sways a little
-					between shapes, and sometimes spins once. When it looks toward an edge, its eyes narrow and curve with the body
-					and the body leans a little, so the flat shape turns like a solid. With follow, its eyes follow the pointer.
-					Thinking squints, looks up and morphs faster. Happy shows ^ ^ eyes and bounces. Reduced motion stops all
-					movement and shows one still shape.
+					between shapes, and sometimes spins once. When it looks toward an edge, its eyes narrow and curve with the
+					body and the body leans a little, so the flat shape turns like a solid. With follow, its eyes follow the
+					pointer; click the idle Evry to make it happy. Thinking squints, looks up and morphs faster. Happy shows ^ ^
+					eyes and bounces. Reduced motion stops all movement and shows one still shape.
 				</Note>
 				<div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-5">
 					{MOODS.map(([mood, title, text]) => (
@@ -277,7 +278,7 @@ export function FoundationsPreview() {
 							key={mood}
 							className="flex flex-col items-center gap-3.5 rounded-lg bg-surface px-5 py-[30px] text-center shadow-card"
 						>
-							<EvryBot size="xl" mood={mood} follow={mood === "idle"} />
+							{mood === "idle" ? <EvryCheer /> : <EvryBot size="xl" mood={mood} />}
 							<div>
 								<div className="font-semibold text-text">{title}</div>
 								<div className="mt-2 text-sm text-text-3">{text}</div>

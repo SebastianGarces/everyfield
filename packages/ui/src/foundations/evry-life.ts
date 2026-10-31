@@ -58,7 +58,14 @@ type Move = {
 	a: number;
 	o: number;
 };
-type Look = { u: readonly [number, number]; m: number; t0: number; g0: [number, number]; rigid?: boolean; rest?: boolean };
+type Look = {
+	u: readonly [number, number];
+	m: number;
+	t0: number;
+	g0: [number, number];
+	rigid?: boolean;
+	rest?: boolean;
+};
 type Follow = { vx: number; vy: number; t: number; u: [number, number]; m: number; until: number; rest: boolean };
 type Morph = {
 	from: EvryShape;

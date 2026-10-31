@@ -187,7 +187,9 @@
 	}
 	/* Float at 40px and larger (smaller bots would move under a pixel): a slow bob with a little squash at the bottom and
      stretch at the top. Held bots and happy, which bounces, do not float. */
-	[data-product-root] .evry-bot[data-eb]:is([data-size="lg"], [data-size="xl"]):not([data-hold], [data-mood="happy"]) .eb-body {
+	[data-product-root]
+		.evry-bot[data-eb]:is([data-size="lg"], [data-size="xl"]):not([data-hold], [data-mood="happy"])
+		.eb-body {
 		transform-origin: 50% 92%;
 		will-change: transform;
 		animation: ef-eb-float var(--eb-float, 3.6s) ease-in-out var(--eb-float-at, 0s) infinite alternate;

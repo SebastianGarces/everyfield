@@ -62,7 +62,8 @@ test("INV-convex: every shape and the 0.25, 0.5 and 0.75 blend of each pair is c
 		assert.ok(convex(SHAPES[a].pts), a);
 		for (const b of NAMES) {
 			if (a === b) continue;
-			for (const t of [0.25, 0.5, 0.75]) assert.ok(convex(blend(out, SHAPES[a].pts, SHAPES[b].pts, t)), `${a}→${b} ${t}`);
+			for (const t of [0.25, 0.5, 0.75])
+				assert.ok(convex(blend(out, SHAPES[a].pts, SHAPES[b].pts, t)), `${a}→${b} ${t}`);
 		}
 	}
 });
@@ -118,7 +119,8 @@ test("INV-foreshorten: toward the edge an eye narrows, with p in [0, 1]", () => 
 			assert.ok(lead.p > 0, `${name} (${ux.toFixed(2)}, ${uy.toFixed(2)}): p ${lead.p}`);
 			// Foreshortening runs along the outline normal: a sideways look thins the eye, a straight up or down look only
 			// shortens it.
-			if (Math.abs(ux) > 0.5) assert.ok(lead.width < 1, `${name} (${ux.toFixed(2)}, ${uy.toFixed(2)}): width ${lead.width}`);
+			if (Math.abs(ux) > 0.5)
+				assert.ok(lead.width < 1, `${name} (${ux.toFixed(2)}, ${uy.toFixed(2)}): width ${lead.width}`);
 			else assert.ok(lead.width <= 1 + EPS, `${name} (${ux.toFixed(2)}, ${uy.toFixed(2)}): width ${lead.width}`);
 		}
 	}
