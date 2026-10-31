@@ -38,22 +38,8 @@ export async function postPreview(
 			headers: { accept: "application/json", "content-type": "application/json" },
 			body: JSON.stringify({ templateId, format, overrides }),
 		});
-		const body: unknown = await response.json();
-		if (!body || typeof body !== "object" || !("status" in body)) return { status: "lost" };
-		const status = (body as { status: unknown }).status;
-		if (status === "lost") return { status: "lost" };
-		if (status === "refused") {
-			const code = (body as { code?: unknown }).code;
-			const problem = (body as { problem?: unknown }).problem;
-			if (typeof code !== "string") return { status: "lost" };
-			return typeof problem === "string" ? { status: "refused", code, problem } : { status: "refused", code };
-		}
-		if (status !== "ok") return { status: "lost" };
-		const value = (body as { value?: unknown }).value;
-		if (!value || typeof value !== "object") return { status: "lost" };
-		const artifact = (value as { artifact?: unknown }).artifact;
-		if (typeof artifact !== "string" && artifact !== null) return { status: "lost" };
-		return { status: "ok", value: value as Resolved & { artifact: string | null } };
+		const body = (await response.json()) as PreviewReply | null;
+		return body?.status === "ok" || body?.status === "refused" ? body : { status: "lost" };
 	} catch {
 		return { status: "lost" };
 	}
