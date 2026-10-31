@@ -1,10 +1,12 @@
+import type { adultClassification, adultClassificationSource } from "@everyfield/contracts/people";
 import { sql, type SQL } from "@everyfield/db/query";
+import type { z } from "zod";
 
 /** Full age in years from which a person with a birth date is an adult. */
 const ADULT_AGE = 18;
 
-type ManualClassification = "adult" | "child" | "unknown";
-type AdultSource = "birth_date" | "recorded" | "not_recorded";
+type ManualClassification = z.infer<typeof adultClassification>;
+type AdultSource = z.infer<typeof adultClassificationSource>;
 
 /**
  * Full age in years on `today`: the year difference, minus one while (month, day) of today is before the birth

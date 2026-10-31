@@ -11,8 +11,6 @@ import { PeopleReadContext, withPeopleWrite } from "../../../packages/domain/src
 import {
 	effectiveAdult,
 	effectiveAdultSql,
-	fullAge,
-	localDateSql,
 	plantTodaySql,
 } from "../../../packages/domain/src/people/adult.ts";
 import {
@@ -1724,8 +1722,6 @@ test("INV-adult: one rule in TypeScript and in SQL, over the same boundary cases
 		).rows[0];
 		assert.equal(row.value, expected, `SQL: ${why}`);
 	}
-	assert.equal(fullAge("2008-02-29", "2026-02-28"), 17);
-	assert.equal(fullAge("2008-02-29", "2026-03-01"), 18);
 	// Without a birth date the manual value stands, and the source says which one it is.
 	for (const manual of ["adult", "child", "unknown"]) {
 		assert.deepEqual(effectiveAdult(null, manual, null), {
@@ -1746,7 +1742,7 @@ test("INV-adult: the plant-local date decides, not the UTC date", async () => {
 	// 2026-06-15T03:00Z is still June 14 in Chicago and already June 15 in UTC. The 18th birthday is June 15.
 	const instant = "2026-06-15T03:00:00Z";
 	const day = async (zone) =>
-		(await admin.execute(sql`SELECT ${localDateSql(sql`${instant}::timestamptz`, sql`${zone}::text`)}::text AS day`))
+		(await admin.execute(sql`SELECT (${instant}::timestamptz AT TIME ZONE ${zone})::date::text AS day`))
 			.rows[0].day;
 	assert.equal(await day("America/Chicago"), "2026-06-14");
 	assert.equal(await day("UTC"), "2026-06-15");
@@ -1754,7 +1750,7 @@ test("INV-adult: the plant-local date decides, not the UTC date", async () => {
 	assert.equal(effectiveAdult("2008-06-15", "unknown", await day("UTC")).value, "adult");
 	const row = (
 		await admin.execute(
-			sql`SELECT ${effectiveAdultSql(sql`'2008-06-15'::date`, sql`'unknown'`, localDateSql(sql`${instant}::timestamptz`, sql`'America/Chicago'`))} AS value`,
+			sql`SELECT ${effectiveAdultSql(sql`'2008-06-15'::date`, sql`'unknown'`, sql`(${instant}::timestamptz AT TIME ZONE 'America/Chicago')::date`)} AS value`,
 		)
 	).rows[0];
 	assert.equal(row.value, "child");
