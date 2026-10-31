@@ -141,7 +141,7 @@ export async function suggestFor(port: BrandPort, slot: AssetSlot): Promise<Sugg
 	}
 }
 
-export type SwatchBackground = { name: "Light" | "Dark" | "Brand"; color: string; note?: string };
+type SwatchBackground = { name: "Light" | "Dark" | "Brand"; color: string; note?: string };
 
 const LIGHT = "white";
 const DARK = "var(--color-ink-fixed)";

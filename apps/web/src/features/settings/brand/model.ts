@@ -120,7 +120,7 @@ export const themeOf = (
 	assets: BrandKitData["assets"] = NO_ASSETS,
 ) => resolveDocumentTheme({ name: churchName, kit: draftKit(form, assets) }, documentClass);
 
-export const NO_ASSETS: BrandKitData["assets"] = {
+const NO_ASSETS: BrandKitData["assets"] = {
 	full_logo: null,
 	full_logo_dark: null,
 	mark: null,
