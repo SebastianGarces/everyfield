@@ -72,6 +72,17 @@ for (const [name, engine] of ENGINES) {
 			}),
 		);
 
+		test("a new account's signed-in screen still links to /onboarding", { timeout: 90_000 }, () =>
+			withPage(engine, async (page) => {
+				await signInAs(page, seed().landing.pending);
+				await page.waitForURL(at("/onboarding"), { timeout: 60_000 });
+				await page.goto(BASE + "/signin");
+				const setup = page.getByRole("link", { name: "Set up your church" });
+				await setup.waitFor();
+				assert.equal(await setup.getAttribute("href"), "/onboarding");
+			}),
+		);
+
 		test("a signed-out visitor to /home goes to /signin without a loop", { timeout: 60_000 }, () =>
 			withPage(engine, async (page) => {
 				await page.goto(BASE + "/home");
