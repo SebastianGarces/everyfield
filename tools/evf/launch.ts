@@ -61,13 +61,18 @@ export function agentDefinition(root: string, role: Role, seat: { model: string;
 	const text = readFileSync(source, "utf8");
 	const parsed = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/.exec(text);
 	if (!parsed) fail(`${source} has no frontmatter.`);
-	// A role file without its own model or effort gets the seat's, as before.
-	const keys = new Set(parsed[1]!.split("\n").flatMap((l) => /^([A-Za-z][\w-]*):/.exec(l)?.[1] ?? []));
-	const added = [
-		...(keys.has("model") ? [] : [`model: ${seat.model}`]),
-		...(keys.has("effort") ? [] : [`effort: ${seat.effort}`]),
-	];
-	return { source, markdown: `---\n${[parsed[1]!, ...added].join("\n")}\n---\n${parsed[2]!}` };
+	// The resolved seat model and effort win over the role file's own lines (D85), so the agent runs what launch resolved.
+	const want = { model: `model: ${seat.model}`, effort: `effort: ${seat.effort}` };
+	const seen = new Set<keyof typeof want>();
+	const lines = parsed[1]!.split("\n").flatMap((l) => {
+		const key = /^(model|effort):/.exec(l)?.[1] as keyof typeof want | undefined;
+		if (!key) return [l];
+		if (seen.has(key)) return [];
+		seen.add(key);
+		return [want[key]];
+	});
+	for (const key of ["model", "effort"] as const) if (!seen.has(key)) lines.push(want[key]);
+	return { source, markdown: `---\n${lines.join("\n")}\n---\n${parsed[2]!}` };
 }
 const TRUST_PROMPT = /trust this folder|Yes, proceed|trust the files in this folder/i;
 

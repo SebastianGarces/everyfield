@@ -63,7 +63,7 @@ cannot take headless 390 and 1440 px desktop shots, so WebKit parity stays in `c
 
 Read the task note, the PR body (`gh pr view <n>`) and the diff (`gh pr diff <n>`). Read the
 requirements the task names. Write down the behavior you will check before you run anything.
-You are a fresh Opus 5.5 high session that never shared context with the author (D82). Your session id must differ from the one in the PR's `EVF-Author` line; `post-review.mjs` and `bin/evf ship` refuse the author's session, a non-verifier role and a non-Opus model. Find your session id with `herdr agent get <your agent name>` (field `agent_session.value`).
+You are a fresh Opus 5.5 medium session that never shared context with the author (D82). Your session id must differ from the one in the PR's `EVF-Author` line; `post-review.mjs` and `bin/evf ship` refuse the author's session, a non-verifier role and a non-Opus model. Find your session id with `herdr agent get <your agent name>` (field `agent_session.value`).
 
 ## 2. Start the previews
 
