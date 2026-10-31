@@ -128,7 +128,8 @@
 		"limit": 2
 	},
 	"POST settings.brand.suggestColors": {
-		"limit": 10
+		"limit": 10,
+		"reason": "The action only reads, but budgets.mjs counts every POST as a write. The session lookup, then suggestColors (9) in the domain: the kit and file select and the statements of readAuthorizedObject. The action adds only the session lookup."
 	},
 	"PUT /api/brand/assets/[id]": {
 		"limit": 14,
