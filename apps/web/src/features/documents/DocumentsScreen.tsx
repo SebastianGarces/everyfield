@@ -321,21 +321,28 @@ export function DocumentsScreen({ templates, query, context, canPreview, canEdit
 								const pressed = template.id === selected?.id;
 								const phase = phaseText(template.phase);
 								return (
-									<button
+									<div
 										key={template.id}
-										type="button"
-										aria-pressed={pressed}
-										aria-labelledby={`template-${template.id}-name`}
-										aria-describedby={`template-${template.id}-meta`}
-										onClick={() => select(template.id)}
 										className={cn(
-											"flex min-h-11 cursor-pointer flex-col items-stretch gap-3 rounded-card bg-surface-raised p-3 text-left",
+											"relative flex min-h-11 flex-col gap-3 rounded-card bg-surface-raised p-3 text-left",
 											"transition-shadow duration-150 hover:bg-surface",
 											pressed ? "shadow-[0_0_0_2px_var(--ef-ink)]" : "shadow-[0_0_0_1px_var(--ef-line)]",
-											"focus-visible:shadow-[0_0_0_2px_var(--ef-ink),0_0_0_5px_color-mix(in_srgb,var(--ef-focus)_28%,transparent)] focus-visible:outline-none",
+											"has-[:focus-visible]:shadow-[0_0_0_2px_var(--ef-ink),0_0_0_5px_color-mix(in_srgb,var(--ef-focus)_28%,transparent)]",
 										)}
 									>
-										<Thumbnail template={template} enabled={canPreview} />
+										<button
+											type="button"
+											aria-pressed={pressed}
+											aria-labelledby={`template-${template.id}-name`}
+											aria-describedby={`template-${template.id}-meta`}
+											onClick={() => select(template.id)}
+											className="flex cursor-pointer flex-col items-stretch gap-3 text-left outline-none after:absolute after:inset-0 after:content-['']"
+										>
+											<Thumbnail template={template} enabled={canPreview} />
+											<span id={`template-${template.id}-name`} className="px-2 font-medium text-ink">
+												{template.name}
+											</span>
+										</button>
 										<span className="flex flex-col items-start gap-2 px-2 pb-2">
 											<span id={`template-${template.id}-meta`} className="text-xs text-text-3">
 												{categoryLabel(template.category)}
@@ -347,12 +354,9 @@ export function DocumentsScreen({ templates, query, context, canPreview, canEdit
 												))}
 												{template.fillable ? <Tag tone="green">Fillable</Tag> : null}
 											</span>
-											<span id={`template-${template.id}-name`} className="font-medium text-ink">
-												{template.name}
-											</span>
 											<span className="line-clamp-3 text-sm text-text-2">{template.description}</span>
 										</span>
-									</button>
+									</div>
 								);
 							})}
 						</div>

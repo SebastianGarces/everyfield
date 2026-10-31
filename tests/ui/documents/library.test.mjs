@@ -153,6 +153,10 @@ for (const [name, engine] of ENGINES) {
 			await hydrated(page);
 			const card = page.getByRole("button", { name: "Core Group Commitment Card", exact: true });
 			await card.focus();
+			// WCAG 2.5.3 Label in Name: the button holds only the title, so its name is its visible text.
+			assert.equal(await card.evaluate((el) => el.textContent.trim()), "Core Group Commitment Card");
+			const cursor = await card.evaluate((el) => getComputedStyle(el).cursor);
+			assert.equal(cursor, "pointer");
 			const image = card.getByRole("img", { name: "Page 1 of Core Group Commitment Card" });
 			await image.waitFor({ timeout: 60_000 });
 			assert.equal(await image.getAttribute("alt"), "Page 1 of Core Group Commitment Card");
