@@ -36,10 +36,7 @@ export const pickFile = (file: File): Pick => ({
 	status: "ready",
 });
 
-export function releasePick(pick: Pick | undefined) {
-	if (!pick) return;
-	URL.revokeObjectURL(pick.url);
-}
+export const releasePick = (pick: Pick | undefined) => pick && URL.revokeObjectURL(pick.url);
 
 /** True when at least one file is picked and not yet uploaded: Brand kit is unsaved (REQ-IDN-010). */
 export const hasPicks = (flow: unknown): boolean =>

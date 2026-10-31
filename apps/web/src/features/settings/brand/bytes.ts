@@ -6,11 +6,6 @@ import type { BrandReply } from "../port";
 /** The authenticated delivery route for one stored asset. */
 export const assetSrc = (fileId: string) => `/api/brand/assets/${fileId}`;
 
-const refusedWith = (code: string, correlationId: string): BrandReply<never> => ({
-	status: "refused",
-	error: brandError.parse({ code, details: {}, correlationId, retry: "never" }),
-});
-
 /** Sends the bytes of a staged upload. A refusal body names the code and the reference; anything else is unavailable. */
 export async function uploadBytes(uploadId: string, file: Blob): Promise<BrandReply<null>> {
 	const response = await fetch(`/api/brand/assets/${uploadId}`, {
@@ -23,5 +18,13 @@ export async function uploadBytes(uploadId: string, file: Blob): Promise<BrandRe
 	const code = ["invalid_file", "access_denied", "unavailable"].includes(body?.code ?? "")
 		? body!.code!
 		: "unavailable";
-	return refusedWith(code, body?.correlationId ?? crypto.randomUUID());
+	return {
+		status: "refused",
+		error: brandError.parse({
+			code,
+			details: {},
+			correlationId: body?.correlationId ?? crypto.randomUUID(),
+			retry: "never",
+		}),
+	};
 }
