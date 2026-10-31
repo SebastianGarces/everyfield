@@ -1,5 +1,5 @@
 import { Display } from "@/components/Display";
-import { ACCESS_PATH } from "@/site";
+import { accessFor } from "@/site";
 import type { Copy } from "../copy";
 import { FaqItem } from "./FaqItem";
 
@@ -33,14 +33,14 @@ export function Faq({ f }: { f: FaqCopy }) {
 	);
 }
 
-/** The answer text; the words in `link` become a link to the request page. */
+/** The answer text; the words in `link` become a link to the request page's network form, as in the prototype. */
 function answer(a: string, link?: string) {
 	const i = link ? a.indexOf(link) : -1;
 	if (!link || i < 0) return a;
 	return (
 		<>
 			{a.slice(0, i)}
-			<a href={ACCESS_PATH} className="text-green-600 underline underline-offset-3">
+			<a href={accessFor("network")} className="text-green-600 underline underline-offset-3">
 				{link}
 			</a>
 			{a.slice(i + link.length)}

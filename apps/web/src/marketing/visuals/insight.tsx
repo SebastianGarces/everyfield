@@ -4,8 +4,7 @@ import { cn } from "@/components/cn";
 import { Icon } from "@/components/Icon";
 import { NUM } from "@/components/kit/kit";
 
-// A still InsightCard (gradient surface) for the large product pictures. The animated panels use the same look through
-// panels/parts.tsx with their stagger clock.
+// A still InsightCard (gradient surface) for the large product pictures.
 
 export function Insight({
 	tone,

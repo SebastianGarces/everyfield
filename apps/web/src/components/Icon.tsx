@@ -7,12 +7,23 @@ import { cn } from "./cn";
  * (its `.ef svg.i` rule also won over most smaller per-component sizes, so most panel icons are 18 px). Render icons in Server Components where possible,
  * so the icon data stays out of the client bundle.
  */
-export function Icon({ icon, size = 18, className }: { icon: IconSvgElement; size?: number; className?: string }) {
+export function Icon({
+	icon,
+	size = 18,
+	stroke = 1.7,
+	className,
+}: {
+	icon: IconSvgElement;
+	size?: number;
+	/** The large marketing icons (frosted boxes, journey stops) draw thinner, as in the prototype. */
+	stroke?: number;
+	className?: string;
+}) {
 	return (
 		<HugeiconsIcon
 			icon={icon}
 			size={size}
-			strokeWidth={1.7}
+			strokeWidth={stroke}
 			aria-hidden="true"
 			focusable="false"
 			className={cn("block flex-none", className)}

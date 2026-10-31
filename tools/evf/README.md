@@ -560,8 +560,14 @@ an invalid entry that main or the task branch already carries before it creates 
 The branch may change `evf.config.json` only in its own entry, even when it owns the file; the verifier
 reviews that entry.
 The only design file they may own is `design/handoff/screens.md`, the generated package-owner map.
-An entry with `"route": "design"` is a design task instead: it owns only `design/` paths and never
-changes `design/everyfield-ui.html`, the approved prototype that the app tokens come from. Its
+An entry with `"route": "design"` is a design task instead: it owns only `design/` paths and does not
+change `design/everyfield-ui.html`, the approved prototype that the app tokens come from, with one
+exception. The file may change only when the entry has `"route": "design"`, a valid
+`"prototypeApproval": {"quote": "...", "approvedAt": "2026-10-31T17:07:00Z"}` (Sebastian's verbatim chat
+words and the UTC time, `YYYY-MM-DDTHH:MM[:SS[.fff]]Z`) and an `owningPaths` item equal to
+`"design/everyfield-ui.html"`; a folder item such as `"design/"` does not count. evf reads the entry from
+the commit under check (task branch for `evf verify`, PR head for the verifier and `evf approve`), never
+from the home checkout. Its
 `evf ship` checks CI and the different-family review, posts the verified status and stops.
 Sebastian approves it in chat, then `evf approve` checks that status and the changed files and merges.
 An owning path naming an existing folder must end in `/`; paths without it name exact files.

@@ -21,6 +21,37 @@ import { producerReady } from "./progress.ts";
 /** The approved prototype keeps its bytes: design/handoff/tokens.css, and through it the app, derive from it. */
 export const APPROVED_PROTOTYPE = "design/everyfield-ui.html";
 
+const UTC_TIME = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d{3})?)?Z$/;
+
+/** True for `YYYY-MM-DDTHH:MM[:SS[.fff]]Z` that names a real calendar time. */
+function isUtcTimestamp(value: unknown): boolean {
+	if (typeof value !== "string") return false;
+	const m = UTC_TIME.exec(value);
+	if (!m) return false;
+	const [year, month, day, hour, minute, second] = m.slice(1).map((n) => (n === undefined ? 0 : Number(n)));
+	const d = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
+	return (
+		d.getUTCFullYear() === year &&
+		d.getUTCMonth() === month - 1 &&
+		d.getUTCDate() === day &&
+		hour < 24 &&
+		minute < 60 &&
+		second < 60
+	);
+}
+
+/** The one rule for changing the approved prototype: a design task with Sebastian's recorded approval that owns the exact file. */
+export function mayChangePrototype(scope: MaintenanceScope | undefined): boolean {
+	const a = scope?.prototypeApproval as Record<string, unknown> | undefined;
+	return (
+		scope?.route === "design" &&
+		typeof a?.quote === "string" &&
+		a.quote.trim() !== "" &&
+		isUtcTimestamp(a.approvedAt) &&
+		scope.owningPaths.includes(APPROVED_PROTOTYPE)
+	);
+}
+
 /** Local reviewed source policy is an operator boundary, never inferred from a role flag or severity. */
 export function requireImplementation(root: string, wp: string, part: Part = null): void {
 	const gates = readJson<{ gates: Array<{ id: string; status: string; scope?: string; work_packages: string[] }> }>(
@@ -63,6 +94,15 @@ export function maintenanceScope(checkout: string, task: TaskRef, rev = "HEAD"):
 	for (const path of scope.owningPaths) {
 		if (!path.endsWith("/") && existsSync(join(checkout, path)) && statSync(join(checkout, path)).isDirectory())
 			fail(`Maintenance owning path ${path} is a folder; use ${path}/ to include its files.`);
+	}
+	if (scope.prototypeApproval !== undefined) {
+		if (scope.route !== "design")
+			fail(`${task.id} carries prototypeApproval, which needs the design route ("route": "design").`);
+		const { quote, approvedAt } = scope.prototypeApproval as Record<string, unknown>;
+		if (typeof quote !== "string" || quote.trim() === "")
+			fail(`${task.id} prototypeApproval.quote must be Sebastian's verbatim words, not empty.`);
+		if (!isUtcTimestamp(approvedAt))
+			fail(`${task.id} prototypeApproval.approvedAt must be an ISO 8601 UTC time such as 2026-10-31T17:07:00Z.`);
 	}
 	const ledger = "docs/build-progress.json";
 	if (
@@ -143,7 +183,8 @@ export function requireMaintenancePaths(root: string, wt: string, task: TaskRef)
 			: scope.owningPaths.some((p) => (p.endsWith("/") ? path.startsWith(p) : path === p));
 	const changed = git(wt, "diff", "--name-only", "--no-renames", base, "HEAD").split("\n").filter(Boolean);
 	if (changed.some((p) => !owns(p))) fail("Maintenance candidate changes paths outside its reviewed owning paths.");
-	if (changed.includes(APPROVED_PROTOTYPE)) fail(`${APPROVED_PROTOTYPE} keeps its approved bytes.`);
+	if (changed.includes(APPROVED_PROTOTYPE) && !mayChangePrototype(scope))
+		fail(`${APPROVED_PROTOTYPE} keeps its approved bytes.`);
 }
 
 /**
