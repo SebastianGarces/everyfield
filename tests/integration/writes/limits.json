@@ -1040,7 +1040,8 @@
 	},
 	"people.correctAdultClassification": {
 		"limit": 9,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 4 read, 1 write."
+		"retry": 5,
+		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 4 read, 1 write. The birth_date_decides refusal follows the unlocked first read, so the write reruns the established way: 5 statements."
 	},
 	"people.correctCommitmentLifecycle": {
 		"limit": 6
@@ -1065,8 +1066,9 @@
 		"limit": 6
 	},
 	"people.createPerson": {
-		"limit": 5,
-		"retry": 4
+		"limit": 6,
+		"retry": 4,
+		"reason": "A create with a birth date reads the plant-local date for the adult or child value (REQ-PPL-026), one more statement on the established path. Measured: 2 transaction, 1 locked read, 2 read, 1 write."
 	},
 	"people.createTag": {
 		"limit": 5,
@@ -1117,7 +1119,8 @@
 	},
 	"people.recordAdultClassification": {
 		"limit": 9,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 4 read, 1 write."
+		"retry": 5,
+		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 4 read, 1 write. The birth_date_decides refusal follows the unlocked first read, so the write reruns the established way: 5 statements."
 	},
 	"people.removeFromHousehold": {
 		"limit": 4
