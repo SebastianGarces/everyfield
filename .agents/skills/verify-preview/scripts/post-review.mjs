@@ -5,7 +5,8 @@
 //          --experience-verdict approved|changes_requested --budget met|exceeded|not_applicable
 //          [--experience-exception reports|analytics]
 //          --quality-verdict approved|changes_requested --principles <comma-separated names> [--results <results.json> ...] [--dry-run]
-// Refuses a head that is not the PR's current head, a verifier ship refuses (D82: the author's own session,
+// Refuses a report without an Ask coverage table before its other tables, an approval with a missing row or a
+// deferred row whose label is not a follow-up of the task, a head that is not the PR's current head, a verifier ship refuses (D82: the author's own session,
 // a non-verifier seat or a non-Opus model), and an approval when any results file has a failing verdict.
 // The PR body and the review parties are read by the same code ship uses (tools/evf), so the two never disagree.
 import { execFileSync } from "node:child_process";
@@ -13,7 +14,8 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { independentReview, readParty } from "../../../../tools/evf/lib.ts";
-import { checkPrBody } from "../../../../tools/evf/pr-body.ts";
+import { checkPrBody, followUpsOfBranch } from "../../../../tools/evf/pr-body.ts";
+import { approvalBlock, parseAskCoverage } from "../../../../tools/evf/ask-coverage.ts";
 
 const root = resolve(import.meta.dirname, "../../../..");
 const argv = process.argv.slice(2);
@@ -39,12 +41,13 @@ if (experience.exception && !["reports", "analytics"].includes(experience.except
 if (verdict === "approved" && experience.verdict !== "approved") refuse("approval needs an approved experience review");
 if (!/^[0-9a-f]{40}$/.test(head)) refuse("--head must be the full 40-character SHA you verified");
 
-const view = JSON.parse(execFileSync("gh", ["pr", "view", pr, "--json", "headRefOid,body,url"], { encoding: "utf8" }));
+const view = JSON.parse(execFileSync("gh", ["pr", "view", pr, "--json", "headRefOid,headRefName,body,url"], { encoding: "utf8" }));
 if (view.headRefOid !== head) refuse(`PR head is ${view.headRefOid}, you verified ${head}. Verify the current head.`);
 if (verdict === "approved" && experience.budget === "exceeded" && (!experience.exception || !view.body.split(/\r?\n/).includes(`EVF-Experience-Exception: ${experience.exception}`))) refuse("exceeded budget needs the matching approved reports or analytics exception in the PR body");
+const followUps = followUpsOfBranch(root, view.headRefName);
 let author;
 try {
-	author = checkPrBody(root, view.body).author; // Ship reads the body with the ordinary template too.
+	author = checkPrBody(root, view.body, "ordinary", followUps).author; // Ship reads the body with the ordinary template too.
 } catch (e) {
 	refuse(`the PR body fails the standard ship checks: ${e.message}`);
 }
@@ -58,6 +61,12 @@ for (const file of all("results")) {
 const report = readFileSync(reportFile, "utf8").trim();
 if (!/^## Code quality\s*$/m.test(report)) refuse("the report needs a Code quality section with concrete simplifications and a verdict");
 if (!/^## Experience\s*$/m.test(report)) refuse("the report needs an Experience section with timings, optimistic updates and request counts, or a reason they do not apply");
+const coverage = parseAskCoverage(report);
+if ("error" in coverage) refuse(coverage.error);
+if (verdict === "approved") {
+	const blocked = approvalBlock(coverage.rows, followUps.map((f) => f.label));
+	if (blocked) refuse(blocked);
+}
 if (/^EVF-Review:/m.test(report)) refuse("the report already has an EVF-Review line; this script adds it");
 if (verdict === "approved" && /\b(FAIL|❌)\b|❌/.test(report)) refuse("the report lists a failure; approve only when everything passes");
 

@@ -25,9 +25,13 @@ Read the current brief and follow details on demand. Do not write product code.
    Failures return to an implementor on the same branch and PR.
 6. Read the verifier's actual results and PR state. Use `ship` for automatic and owner routes.
 
-Keep each UI task spec to about 15 Done criteria (a soft limit; evf does not enforce it). File each `## Later slices`
-item of a planner's spec as its own task, in dependency order: `bin/evf task new <ref>` for a package part after the
-previous slice merges, a reserved OPS id for tooling.
+Keep each UI task spec to about 15 Done criteria (a soft limit; evf does not enforce it). evf files each
+`## Later slices` item when the spec is stored: a queued follow-up task linked to its parent, with the slice
+text and the parent's verbatim ask. You do not file them. An OPS parent gets a newly reserved OPS id for each
+slice; add its `maintenanceTasks` entry before its first drive. A WP or FB slice keeps its parent's ref and
+becomes `new` when its parent merges. The drive refuses to start implement while a listed slice has no
+follow-up. Owner-review reports for a partial PR start with the `Partial:` line that names the deferred
+slices and their follow-up labels, as `evf ship` and `evf status` print it.
 
 Intent owns scheduling, dependencies, discussions and watchers. Do not add another scheduler.
 Global kickoff and spending gates still apply. G-WORKFLOW closes after W0 to W5 merge and a task

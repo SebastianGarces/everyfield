@@ -280,6 +280,30 @@ merged ref; `evf drive` prints stage `done`, and `evf task spec` and `evf launch
 <ref> --ask-file <file>` reopens a merged ref: it inserts one `new` row and its `task_new` event names the
 merged row it reopens (`reopens`).
 
+## Later slices (OPS-86)
+
+`evf task spec` files each numbered or bulleted item under `## Later slices` (or a `Later slices:` label) as a
+follow-up row with status `queued`, linked to the storing task through `parent_task_id` (schema 5). The row's `ask`
+is the slice text, then the parent's verbatim ask under a `Parent task <ref>, verbatim ask:` line. An OPS parent
+gets a newly reserved OPS id for each slice (`evf id next ops`); a failed reservation stores neither the spec nor a
+row. A WP or FB parent keeps its ref for each slice. A queued row sharing the parent's ref never hides it: `findTask`
+returns a queued row only when it is the ref's sole row. A follow-up label is its ref (`OPS-123`) or
+`<ref> slice <n>` (`WP-097 slice 2`; the parent is slice 1). Storing the same spec again changes nothing; a changed
+slice updates its queued row and a removed slice abandons it.
+
+A queued row never starts: `evf drive` prints stage `blocked` (exit 2) and `evf task start` and `evf launch` refuse,
+naming the row it waits for. Each slice waits for the slice before it, the first for its parent. `markMerged`
+moves the waiting queued row to `new` with one `follow_up_released` event. When a stored spec lists more slices than
+the task has follow-up rows (a spec stored before OPS-86, or rows abandoned), the next stage is `blocked` instead of
+`implement`, and a plan run cannot close passed; storing the spec again files the rows.
+
+For a task with follow-ups, an ordinary PR body (`evf pr body`, `evf pr open`, the `evf ship` body check) needs a
+first line under `## Summary` that starts with `Partial:` and names every label. `evf pr body --body-file` takes
+the task from `--task <ref>` or the `task/<slug>` branch. `evf ship`, the drive's held-for-approval cause and
+`evf status` (text, and `followUps` in `--json`) start with the same `Partial:` line. `post-review.mjs` refuses a
+report without a `## Ask coverage` table before its other tables, and an approval with a `missing` row or a
+`deferred` label that is not one of the task's follow-ups (`tools/evf/ask-coverage.ts`).
+
 ## Prototype mode
 
 `evf task new <task> --mode prototype --ask-file <brief>` starts prototype mode for a package. Its stages:

@@ -1,7 +1,8 @@
 import { requireForeground } from "./foreground.ts";
 import { checkCiTests } from "./ci-tests.ts";
 import { existsSync, readFileSync } from "node:fs";
-import { checkPrBody, prBodyClass, type PrBodyClass } from "./pr-body.ts";
+import { checkPrBody, followUpsOfBranch, prBodyClass, taskOfBranch, type PrBodyClass } from "./pr-body.ts";
+import type { FollowUp } from "./followups.ts";
 import { renderAc, renderBrief } from "./brief.ts";
 import { browserRun } from "./browser.ts";
 import { doctor, gc } from "./doctor.ts";
@@ -26,7 +27,7 @@ import { requireVerifiedHead, verify } from "./verify.ts";
 import { migrationsRenumber } from "./migrations.ts";
 import { awaitLoad } from "./load.ts";
 import { nextId } from "./ids.ts";
-import { dbMigrate, dbSeedProgress, goalsList, goalsSync, status, workDbPath } from "./db.ts";
+import { followUpsOfTask, dbMigrate, dbSeedProgress, goalsList, goalsSync, status, workDbPath } from "./db.ts";
 import { launch } from "./launch.ts";
 import { isRole, ROLES } from "./seats.ts";
 import { hook, refocus, session, showSpec } from "./seat.ts";
@@ -69,7 +70,7 @@ Task loop (implementor, ui-designer)
   evf migrations renumber <task>                              move new migrations after main's last number
   evf pr open <task> --body-file <file>                       push and open/update the PR
   evf pr check <PR> [--head <sha>]                            read-only Phase 7 merge checks
-  evf pr body <PR> | --body-file <file>                       body-only standard check
+  evf pr body <PR> | --body-file <file> [--task <ref>]        body-only standard check
         [--class ordinary|wiki|prototype]                    local body files only
 
 Verification (verifier)
@@ -392,7 +393,9 @@ function main(argv: string[]): number | Promise<number> {
 			if (sub === "body") {
 				const here = git(process.cwd(), "rev-parse", "--show-toplevel"),
 					file = option(args, "--body-file"),
-					selected = option(args, "--class");
+					selected = option(args, "--class"),
+					taskRef = option(args, "--task");
+				let followUps: FollowUp[] = [];
 				if (selected !== undefined && selected !== "ordinary" && selected !== "wiki" && selected !== "prototype")
 					throw new EvfError("PR body class must be ordinary, wiki or prototype.");
 				let kind: PrBodyClass = selected ?? "ordinary";
@@ -400,6 +403,10 @@ function main(argv: string[]): number | Promise<number> {
 				if (file) {
 					if (!existsSync(file)) throw new EvfError("The PR body file does not exist.");
 					body = readFileSync(file, "utf8");
+					const task = taskRef
+						? parseTask(taskRef)
+						: taskOfBranch(git(here, "rev-parse", "--abbrev-ref", "HEAD"));
+					followUps = task ? followUpsOfTask(root, task) : [];
 				} else {
 					if (selected !== undefined)
 						throw new EvfError(
@@ -416,8 +423,9 @@ function main(argv: string[]): number | Promise<number> {
 						throw new EvfError("Cannot read the PR body from GitHub.");
 					body = pr.body;
 					kind = prBodyClass(pr);
+					followUps = followUpsOfBranch(root, (pr as { headRefName?: string }).headRefName);
 				}
-				const checked = checkPrBody(here, body, kind);
+				const checked = checkPrBody(here, body, kind, followUps);
 				console.log(
 					`PASSED ${checked.kind} PR body standard for ${checked.author.model} (${checked.author.role}): ${checked.sections.join(", ")}`,
 				);

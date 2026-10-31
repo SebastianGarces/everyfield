@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { followUpsOf, partialLine, type FollowUp, releaseDependents, unfiledMessage, unfiledSlices, waitsFor } from "./followups.ts";
 import { baseRef, evfDataDir, fail, git, loadConfig, sleep, type TaskRef } from "./lib.ts";
 
 /**
@@ -299,14 +300,54 @@ export function missionFor(db: DatabaseSync, pkg: string): { id: number; title: 
 
 /**
  * The current row for a ref: the latest row that is not abandoned, in any other status (merged included). A ref has
- * one current row, so a merge never leaves a ghost behind. Read commands never create one.
+ * one current row, so a merge never leaves a ghost behind. A `queued` follow-up (OPS-86) counts only when it is the
+ * ref's sole row, so a slice that shares its parent's ref never hides the parent. Read commands never create one.
  */
 export function findTask(db: DatabaseSync, task: TaskRef): TaskRow | undefined {
 	return db
 		.prepare(
-			"SELECT id, ref, slug, mode, status, round, goal_id, spec, pr_number, worktree, seat_model, seat_effort FROM tasks WHERE ref = ? AND status != 'abandoned' ORDER BY id DESC LIMIT 1",
+			"SELECT id, ref, slug, mode, status, round, goal_id, spec, pr_number, worktree, seat_model, seat_effort FROM tasks WHERE ref = ? AND status != 'abandoned' ORDER BY (status = 'queued'), id DESC LIMIT 1",
 		)
 		.get(task.id) as TaskRow | undefined;
+}
+
+/**
+ * Refuse a task a seat must not start (OPS-86): a queued follow-up, or an implement seat for a task whose spec lists
+ * later slices without follow-ups. Reading only: a store that does not exist yet has neither.
+ */
+export function requireStartable(root: string, task: TaskRef, role?: string): void {
+	if (!existsSync(workDbPath(root))) return;
+	const db = openWorkDb(root, { readOnly: true });
+	try {
+		const row = findTask(db, task);
+		if (!row) return;
+		if (row.status === "queued")
+			fail(`${task.id} is queued: it waits for ${waitsFor(db, row.id) ?? "its parent"} to merge. Nothing starts it before that.`);
+		if (role === "implementer" || role === "ui") {
+			const unfiled = unfiledSlices(db, row.id, row.spec);
+			if (unfiled.length) fail(unfiledMessage(task.id, unfiled));
+		}
+	} finally {
+		db.close();
+	}
+}
+
+/** The follow-ups of a ref's current row, for owner-facing text. No store, no row or no slices give none. */
+export function followUpsOfTask(root: string, task: TaskRef): FollowUp[] {
+	if (!existsSync(workDbPath(root))) return [];
+	const db = openWorkDb(root, { readOnly: true });
+	try {
+		const row = findTask(db, task);
+		return row ? followUpsOf(db, row.id) : [];
+	} finally {
+		db.close();
+	}
+}
+
+/** Owner-review text for a task with follow-ups starts with this line; a task without any gets `text` unchanged. */
+export function withPartial(root: string, task: TaskRef, text: string): string {
+	const line = partialLine(followUpsOfTask(root, task));
+	return line ? `${line}\n${text}` : text;
 }
 
 /**
@@ -384,6 +425,8 @@ export function ensureTask(db: DatabaseSync, task: TaskRef, mode: string): TaskR
 export function markMerged(db: DatabaseSync, task: TaskRef, commit: string | null, runId: number | null): void {
 	const current = findTask(db, task);
 	if (current?.status === "merged") return;
+	// The same merge recorded already: a released follow-up is now the current row and must not take it.
+	if (commit && db.prepare("SELECT 1 FROM tasks WHERE ref = ? AND merge_commit = ?").get(task.id, commit)) return;
 	const summary = `${task.id} merged${commit ? ` as ${commit.slice(0, 10)}` : ""}`;
 	const ts = now();
 	db.exec("BEGIN IMMEDIATE");
@@ -406,6 +449,7 @@ export function markMerged(db: DatabaseSync, task: TaskRef, commit: string | nul
 			);
 		}
 		record(db, id, runId, "merged", { summary });
+		releaseDependents(db, id, runId);
 		db.exec("COMMIT");
 	} catch (e) {
 		db.exec("ROLLBACK");
@@ -539,6 +583,14 @@ export function status(root: string, opts: { json: boolean; task?: string }): nu
 					.all(opts.task, `${opts.task}/%`, opts.task)
 			: db.prepare("SELECT * FROM v_tasks ORDER BY updated_at DESC, id DESC").all()
 	) as Row[];
+	// A task with follow-ups carries their labels, and the owner-facing Partial: line, in every listing (OPS-86).
+	for (const t of tasks) {
+		const labels = followUpsOf(db, t.id as number);
+		if (labels.length) {
+			t.followUps = labels.map((f) => f.label);
+			t.partial = partialLine(labels);
+		}
+	}
 	const seats = db.prepare("SELECT * FROM v_seats ORDER BY started_at, run_id").all() as Row[];
 	const ids = tasks.map((t) => t.id as number);
 	const inIds = ids.length ? `(${ids.join(",")})` : "(NULL)";
@@ -572,6 +624,7 @@ export function status(root: string, opts: { json: boolean; task?: string }): nu
 				`${column(t.ref ?? t.slug, 16)} ${column(t.mode, 13)} ${column(t.status, 10)} ${column(t.stage, 10)} ${column(t.round, 5)} ${column(t.pr_number ? `#${t.pr_number}` : "-", 6)} ${column(t.goal_key, 5)} ${column(seatText(t), 26)} ${String(t.updated_at ?? "").slice(0, 16)}`,
 			);
 	}
+	for (const t of tasks) if (t.partial) console.log(`${t.ref ?? t.slug}: ${t.partial}`);
 	if (seats.length) {
 		console.log("seats:");
 		for (const s of seats)

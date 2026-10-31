@@ -1411,7 +1411,7 @@
 		},
 		"OPS-86": {
 			"title": "evf: later slices get filed, and review checks the ask, not just the spec",
-			"owningPaths": ["tools/evf/", ".agents/roles/", ".claude/agents/planner.md", ".claude/agents/verifier.md", "AGENTS.md", "docs/build-agent-workflow.md"],
+			"owningPaths": ["tools/evf/", ".agents/roles/", ".claude/agents/planner.md", ".claude/agents/verifier.md", ".claude/agents/prototype-merger.md", ".agents/skills/verify-preview/", "AGENTS.md", "docs/build-agent-workflow.md"],
 			"checks": [
 				{ "name": "documentation", "run": ["python3", "docs/check-all.py"] },
 				{ "name": "workflow-regressions", "run": ["bin/evf", "test"] }
