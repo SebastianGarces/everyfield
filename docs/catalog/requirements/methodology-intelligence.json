@@ -368,7 +368,7 @@
       "feature_ids": [
         "PI-002"
       ],
-      "text": "Count each currently active explicitly classified adult once across supported commitments; genuine valid historical first acquisitions drive adjacent 28 day windows and 21/28 day timing independently of current size. Real withdrawal lowers size without erasing acquisition; rejoin/repeat/team move is not new. Correct invalid occurrence evidence through history; partial lower-bound size and timing certainty remain separate.",
+      "text": "Count each currently active effective adult (from the birth date, else the recorded classification) once across supported commitments; genuine valid historical first acquisitions drive adjacent 28 day windows and 21/28 day timing independently of current size. Real withdrawal lowers size without erasing acquisition; rejoin/repeat/team move is not new. Correct invalid occurrence evidence through history; partial lower-bound size and timing certainty remain separate.",
       "spec": "docs/product/methodology-intelligence.md",
       "operations": [
         "intelligence.readFacts",

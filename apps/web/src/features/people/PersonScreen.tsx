@@ -261,9 +261,11 @@ export function PersonScreen({
 									<MenuItem icon={FileEditIcon} onSelect={() => setOpen("correct")} {...recordsIntent(p.id)}>
 										Edit a record
 									</MenuItem>
-									<MenuItem icon={UserIcon} onSelect={() => setOpen("classify")}>
-										{p.adultClassification === "unknown" ? "Record adult or child" : "Correct adult or child"}
-									</MenuItem>
+									{p.birthDate ? null : (
+										<MenuItem icon={UserIcon} onSelect={() => setOpen("classify")}>
+											{p.adultClassification === "unknown" ? "Record adult or child" : "Correct adult or child"}
+										</MenuItem>
+									)}
 									<MenuSeparator />
 									<MenuItem icon={Delete02Icon} danger onSelect={() => setOpen("retire")}>
 										Retire person
@@ -475,7 +477,16 @@ export function PersonScreen({
 									<KeyValue
 										size="sm"
 										k="Adult or child"
-										value={p.adultClassification === "unknown" ? null : CLASSIFICATION_LABEL[p.adultClassification]}
+										value={
+											p.adultClassification === "unknown" ? null : p.adultClassificationSource === "birth_date" ? (
+												<span className="flex items-center gap-2">
+													{CLASSIFICATION_LABEL[p.adultClassification]}
+													<span className="text-text-3">From birth date</span>
+												</span>
+											) : (
+												CLASSIFICATION_LABEL[p.adultClassification]
+											)
+										}
 									/>
 									{records ? null : (
 										<KeyValue
@@ -498,7 +509,8 @@ export function PersonScreen({
 									)}
 								</KeyValueList>
 								<p className="mt-3 text-xs text-text-3">
-									Recorded facts only. The stage alone never counts as a commitment or as adult.
+									Recorded facts only. A birth date sets adult or child. The stage alone never counts as a commitment or
+									as adult.
 								</p>
 							</Card>
 							{p.summaryNotes ? (

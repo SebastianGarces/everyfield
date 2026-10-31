@@ -53,6 +53,9 @@
 	"GET /tasks": {
 		"limit": 5
 	},
+	"GET /tasks?task=<follow-up>": {
+		"limit": 8
+	},
 	"POST notifications.markAllVisibleRead": {
 		"limit": 6
 	},
@@ -114,6 +117,26 @@
 	},
 	"POST settings.brand.saveSettings": {
 		"limit": 2
+	},
+	"POST settings.brand.requestUpload": {
+		"limit": 2
+	},
+	"POST settings.brand.finalizeUpload": {
+		"limit": 2
+	},
+	"POST settings.brand.removeAsset": {
+		"limit": 2
+	},
+	"POST settings.brand.suggestColors": {
+		"limit": 10,
+		"reason": "The action only reads, but budgets.mjs counts every POST as a write. The session lookup, then suggestColors (9) in the domain: the kit and file select and the statements of readAuthorizedObject. The action adds only the session lookup."
+	},
+	"PUT /api/brand/assets/[id]": {
+		"limit": 14,
+		"reason": "The session lookup, then uploadBrandAsset (13): one statement finds the staged upload and one records the processed bytes, then putPrivateObject claims the file and finalizes it in two transactions so the provider call holds no lock. Its largest first run: 5 read, 3 write, 4 transaction, 2 locked read. The route adds only the session lookup."
+	},
+	"GET /api/brand/assets/[id]": {
+		"limit": 9
 	},
 	"POST tasks.createTask": {
 		"limit": 5
@@ -1040,7 +1063,8 @@
 	},
 	"people.correctAdultClassification": {
 		"limit": 9,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 4 read, 1 write."
+		"retry": 5,
+		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 4 read, 1 write. The birth_date_decides refusal follows the unlocked first read, so the write reruns the established way: 5 statements."
 	},
 	"people.correctCommitmentLifecycle": {
 		"limit": 6
@@ -1065,7 +1089,7 @@
 		"limit": 6
 	},
 	"people.createPerson": {
-		"limit": 5,
+		"limit": 6,
 		"retry": 4
 	},
 	"people.createTag": {
@@ -1117,7 +1141,8 @@
 	},
 	"people.recordAdultClassification": {
 		"limit": 9,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 4 read, 1 write."
+		"retry": 5,
+		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 4 read, 1 write. The birth_date_decides refusal follows the unlocked first read, so the write reruns the established way: 5 statements."
 	},
 	"people.removeFromHousehold": {
 		"limit": 4

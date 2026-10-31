@@ -377,6 +377,46 @@ for (const [name, engine] of ENGINES) {
 		});
 	});
 
+	test(`AC:REQ-PPL-026 F15 (${name}): a birth date sets adult or child and hides the manual record; Activity is newest first`, async () => {
+		await withPage(engine, "owner", async (page) => {
+			await addPerson(page, unique(name));
+			const menu = async () => {
+				await page.getByRole("button", { name: "More actions" }).click();
+				const offered = await page.getByRole("menuitem", { name: /^(Record|Correct) adult or child$/ }).count();
+				await page.keyboard.press("Escape");
+				return offered;
+			};
+			// No birth date: the manual record is offered, as before.
+			assert.equal(await menu(), 1);
+			const activity = page.getByRole("list", { name: "Activity, newest first" });
+			await page.getByText("Newest first", { exact: true }).waitFor();
+			assert.match(await activity.getByRole("listitem").first().innerText(), /Added to People/);
+
+			await page.getByRole("button", { name: "Edit profile" }).first().click();
+			const profile = page.getByRole("dialog", { name: "Edit profile" });
+			const thirty = new Date(Date.now() - 30 * 365.25 * 864e5).toISOString().slice(0, 10);
+			await profile.getByLabel("Birth date").fill(thirty);
+			await profile.getByRole("button", { name: "Save changes" }).click();
+			await profile.waitFor({ state: "detached", timeout: 30_000 });
+			// The card shows the derived value and its source at once, and the menu no longer offers the record.
+			await page.getByText("From birth date", { exact: true }).waitFor({ timeout: 30_000 });
+			const card = page
+				.locator("section,div")
+				.filter({ hasText: /^Adult or child/ })
+				.last();
+			assert.match(await card.innerText(), /Adult/);
+			assert.equal(await menu(), 0);
+			// The edit is the newest event, so it is on top of the first page without a reload.
+			assert.match(await activity.getByRole("listitem").first().innerText(), /Details changed/);
+			await page.reload();
+			assert.match(
+				await page.getByRole("list", { name: "Activity, newest first" }).getByRole("listitem").first().innerText(),
+				/Details changed/,
+			);
+			await page.getByText("From birth date", { exact: true }).waitFor();
+		});
+	});
+
 	test(`AC:TARGET-PPL-007 BUG-124-replay (${name}): a replayed reorder shows the column's latest order with its revision`, async () => {
 		await withPage(engine, "owner", async (a, context) => {
 			// The accessible list only: right after a load, WebKit can still hold React's hidden streamed copy of the page
@@ -673,7 +713,7 @@ for (const [name, engine] of ENGINES) {
 				if (!["document", "fetch", "xhr"].includes(r.resourceType())) return;
 				sent.push(r.headers()["next-action"] ? `${r.method()} action` : `${r.method()} ${new URL(r.url()).pathname}`);
 			});
-			const activity = page.getByRole("list", { name: "Activity, oldest first" });
+			const activity = page.getByRole("list", { name: "Activity, newest first" });
 			/** Runs one change and checks it sent exactly one server action and that Activity shows `entry`. */
 			const one = async (what, change, entry) => {
 				sent.length = 0;

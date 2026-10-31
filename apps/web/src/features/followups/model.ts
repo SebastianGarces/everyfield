@@ -1,6 +1,7 @@
 // Pure rules of the follow-up screens (REQ-MTG-021, REQ-MTG-022, REQ-TSK-004, REQ-TSK-012, REQ-TSK-013). No React and
 // no server code, so the rules run the same in the browser, on the server and in node tests.
 import type * as c from "@everyfield/contracts/followups";
+import type { FollowUpReply } from "@everyfield/domain/followups";
 import type { z } from "zod";
 import { lacksOwner } from "../tasks/model.ts";
 
@@ -50,6 +51,10 @@ export function preferredOwners(items: readonly Pick<ObligationItem, "kind" | "s
 
 /** A server answer, or none: `lost` means the reply never arrived, so the save may or may not have happened. */
 export type Outcome<T> = { status: "ok"; value: T } | { status: "refused"; code: string } | { status: "lost" };
+
+/** A domain reply as a server answer: the error keeps only its code. */
+export const outcomeOf = <T>(reply: FollowUpReply<T>): Outcome<T> =>
+	reply.status === "ok" ? reply : { status: "refused", code: reply.error.code };
 
 export const OUTCOMES: readonly OutcomeValue[] = [
 	"contacted",
@@ -234,6 +239,8 @@ export function ownersOf(plan: Pick<HandoffPlan, "from" | "recipients">): Accoun
 	);
 }
 
+/** Contact log entries per page on the Person page and in the task panel; "Show earlier" reads the next one. */
+export const HISTORY_PAGE = 20;
 /** Contacts per page on the Follow-ups page. */
 export const COVERAGE_PAGE = 24;
 /** The most follow-ups one handoff request may move (REQ-TSK-013). */

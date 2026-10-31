@@ -14,7 +14,7 @@ import { fixturePath } from "./setup.mjs";
 
 const ENV_FILE = fileURLToPath(new URL("../../apps/web/.env.local", import.meta.url));
 /** Every seed that writes a fixture. The position gives each seed its own loopback block for admission limits. */
-export const SEEDS = ["people", "invitation", "meetings", "followups", "communication"] as const;
+export const SEEDS = ["people", "invitation", "meetings", "followups", "communication", "settings"] as const;
 export type SeedName = (typeof SEEDS)[number];
 const SCHEMA = /^ui_[a-f0-9]{16}$/;
 const ROLE = /^ui_[a-f0-9]{12}(_auth)?$/;
