@@ -75,6 +75,9 @@ export const setBrandingRequest = z.strictObject({ documentId: recordId, useChur
 export const churchRevisionRequest = z.strictObject({ documentId: recordId, revision: z.int().min(1).max(1_000_000) });
 /** The revision list of one Church Document. An empty request lists saved exports. */
 export const churchHistoryRequest = z.strictObject({ documentId: recordId });
+/** The Church Documents of the church plant that are not archived. */
+export const listChurchRequest = z.strictObject({});
+export const readChurchRequest = z.strictObject({ documentId: recordId });
 export const archiveDocumentRequest = z.strictObject({
 	documentId: recordId,
 	expectedRevision: revisionToken,

@@ -1,6 +1,12 @@
 {
 	"GET /documents": {
-		"limit": 3
+		"limit": 4
+	},
+	"GET /documents/[documentId]": {
+		"limit": 2
+	},
+	"GET /documents/[documentId] (member)": {
+		"limit": 2
 	},
 	"GET /meetings": {
 		"limit": 3
@@ -104,6 +110,9 @@
 	},
 	"POST people.fields.readSkills": {
 		"limit": 4
+	},
+	"POST documents.saveChurchDocument": {
+		"limit": 2
 	},
 	"POST people.updatePerson": {
 		"limit": 3
@@ -295,6 +304,12 @@
 		"reason": "One statement finds the staged upload and one records the processed bytes, then putPrivateObject claims the file and finalizes it in two transactions so the provider call holds no lock. Its largest first run: 4 read, 3 write, 4 transaction, 2 locked read."
 	},
 	"documents.archive": {
+		"limit": 1
+	},
+	"documents.listChurch": {
+		"limit": 1
+	},
+	"documents.readChurch": {
 		"limit": 1
 	},
 	"documents.createFromTemplate": {

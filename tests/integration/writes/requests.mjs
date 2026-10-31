@@ -350,6 +350,16 @@ try {
 		return JSON.parse(line.slice(2));
 	};
 
+	// WP-037/ui: one Church Document, so its page and the list read a fixed number of statements as revisions grow.
+	const docActions = "apps/web/src/features/documents/actions.ts";
+	const churchDoc = await act(null, "/documents", docActions, "createChurchDocument", [
+		"member-expectations",
+		{},
+		randomUUID(),
+	]);
+	assert.equal(churchDoc.status, "ok", JSON.stringify(churchDoc));
+	const churchId = churchDoc.value.id;
+
 	const pages = [
 		["GET /people", "/people", owner.cookie],
 		["GET /people?view=pipeline", "/people?view=pipeline", owner.cookie],
@@ -358,6 +368,8 @@ try {
 		["GET /tasks", "/tasks", owner.cookie],
 		["GET /tasks?task=<follow-up>", `/tasks?task=${followUpId}`, owner.cookie],
 		["GET /documents", "/documents", owner.cookie],
+		["GET /documents/[documentId]", `/documents/${churchId}`, owner.cookie],
+		["GET /documents/[documentId] (member)", `/documents/${churchId}`, member.cookie],
 		["GET /meetings", "/meetings", owner.cookie],
 		["GET /meetings/[meetingId]", `/meetings/${visionMeeting}`, owner.cookie],
 		["GET /meetings/[meetingId] (leadership team meeting)", `/meetings/${boardMeeting}`, owner.cookie],
@@ -630,6 +642,23 @@ try {
 		const who = (await person(`Listed ${String(i).padStart(3, "0")}`)).id;
 		await guest(visionMeeting, who);
 		await guest(boardMeeting, who);
+	}
+	// The Church Document grows: more revisions, each one saved through the screen's own action.
+	let churchRevision = "1";
+	for (let i = 0; i < 6; i++) {
+		const saved = await act(
+			i === 0 ? "POST documents.saveChurchDocument" : null,
+			`/documents/${churchId}`,
+			docActions,
+			"saveChurchDocument",
+			[churchId, churchRevision, [{ kind: "paragraph", text: `Grown text ${i}` }]],
+		);
+		assert.equal(saved.status, "ok", JSON.stringify(saved));
+		churchRevision = saved.value.document.revision;
+		// A save answers with what it changed: the document and its one new revision, never the page.
+		assert.deepEqual(Object.keys(saved.value).sort(), ["document", "revision"]);
+		assert.equal(saved.value.revision.number, Number(churchRevision));
+		assert.equal(saved.value.revision.id, saved.value.document.revisionId);
 	}
 	for (const [name, path, cookie] of pages) await get(name, path, cookie);
 

@@ -443,7 +443,7 @@ describe("WP-037 Church Documents", { concurrency: 1 }, () => {
 		const before = await counts();
 		const pdf = ok(await exportDoc(MEMBER, doc.id, 1, "pdf", "neutral-pdf-r1"));
 		assert.equal(pdf.format, "pdf");
-		assert.deepEqual(pdf.source, { documentId: doc.id, revisionId: doc.revisionId, revision: 1 });
+		assert.deepEqual(pdf.source, { documentId: doc.id, revisionId: doc.revisionId, revision: 1, title: doc.title });
 		assert.deepEqual(pdf.theme, { kind: "everyfield-neutral", primary: null });
 		assert.equal(pdf.templateId, "bylaws");
 		assert.equal(pdf.templateVersion, "1");
@@ -644,6 +644,130 @@ describe("WP-037 Church Documents", { concurrency: 1 }, () => {
 		assert.equal(after.generated, before.generated);
 		assert.equal(after.files, before.files);
 		assert.equal(await countOf("file_object", `WHERE purpose = 'generated' AND state <> 'ready'`), 0);
+	});
+
+	test("AC:CASE-DOC-022 generate refuses an editable template and writes nothing; a fixed layout still generates", async () => {
+		const before = await counts();
+		for (const templateId of ["bylaws", "prayer-letter", "child-protection-policy"])
+			refused(
+				await documentsWriter.generate(
+					db,
+					await authority(OWNER),
+					{ templateId, format: "pdf", requestKey: `generate-${templateId}` },
+					storage,
+				),
+				"template_is_editable",
+			);
+		assert.deepEqual(await counts(), before, "no document, object, record or audit row");
+		const card = ok(
+			await documentsWriter.generate(
+				db,
+				await authority(OWNER),
+				{ templateId: "commitment-card", format: "pdf", requestKey: "generate-card" },
+				storage,
+			),
+		);
+		assert.equal(card.templateId, "commitment-card");
+		assert.equal((await counts()).generated, before.generated + 1);
+	});
+
+	test("AC:CASE-DOC-022 the template list marks the authored editable templates and no fixed one", async () => {
+		const page = ok(await documentsReader["templates.list"](db, await authority(MEMBER), {}));
+		const editable = Object.fromEntries(page.templates.map((template) => [template.id, template.editable]));
+		for (const id of ["member-expectations", "launch-team-commitment", "follow-up-letter"])
+			assert.equal(editable[id], "ready", id);
+		for (const id of ["commitment-card", "response-card", "first-year-budget", "board-meeting-agenda"])
+			assert.equal(editable[id], null, id);
+	});
+
+	test("AC:CASE-DOC-022 AC:CASE-DOC-023 the list and the page read show the plant's own documents to every role, with author names", async () => {
+		await admin.execute(sql`UPDATE auth_user SET name = 'Ada Admin' WHERE id = ${actors[ADMIN].user}::uuid`);
+		const doc = state.doc;
+		const list = ok(await documentsReader.listChurch(db, await authority(MEMBER), {}));
+		const ids = list.documents.map((item) => item.id);
+		assert.ok(ids.includes(doc.id) && ids.includes(state.letter.id));
+		const row = list.documents.find((item) => item.id === doc.id);
+		assert.equal(row.templateId, "bylaws");
+		assert.equal(row.templateName, churchTemplate("bylaws").name);
+		assert.equal(row.documentClass, "formal/legal");
+		assert.equal(
+			String(row.revision),
+			(await rowsOf(sql`SELECT revision::text AS r FROM document WHERE id = ${doc.id}::uuid`))[0].r,
+		);
+		assert.deepEqual(
+			ids,
+			[...list.documents].sort((a, b) => b.editedAt.localeCompare(a.editedAt)).map((item) => item.id),
+			"most recently edited first",
+		);
+		// An archived document leaves the list.
+		await admin.execute(sql`UPDATE document SET archived_at = clock_timestamp() WHERE id = ${state.letter.id}::uuid`);
+		const hidden = ok(await documentsReader.listChurch(db, await authority(MEMBER), {}));
+		assert.equal(
+			hidden.documents.some((item) => item.id === state.letter.id),
+			false,
+		);
+		await admin.execute(sql`UPDATE document SET archived_at = NULL WHERE id = ${state.letter.id}::uuid`);
+		// Another church plant lists only its own documents; an account with no seat is refused.
+		assert.equal(ok(await documentsReader.listChurch(db, await authority(OTHER), {})).documents.length, 0);
+		refused(await documentsReader.listChurch(db, await authority(4), {}), "access_denied");
+
+		const page = ok(await documentsReader.readChurch(db, await authority(MEMBER), { documentId: doc.id }));
+		assert.equal(page.document.id, doc.id);
+		assert.equal(page.templateName, churchTemplate("bylaws").name);
+		assert.deepEqual(page.slots, churchTemplate("bylaws").slots);
+		assert.equal(page.timeZone, "America/Chicago");
+		assert.equal(page.hasBrandKit, true);
+		const numbers = page.revisions.map((revision) => revision.number);
+		assert.deepEqual(
+			numbers,
+			[...numbers].sort((a, b) => b - a),
+			"newest first",
+		);
+		assert.equal(page.revisions[0].number, Number(page.document.revision));
+		assert.equal(page.revisions.at(-1).authorName, "Ada Admin", "revision 1 was made by the Admin");
+		assert.ok(page.exports.length >= 2);
+		assert.ok(page.exports.every((item) => item.creatorName));
+		const times = page.exports.map((item) => item.generatedAt);
+		assert.deepEqual(times, [...times].sort().reverse(), "newest first");
+		const savedPdf = page.exports.find((item) => item.id === state.r2pdf.id);
+		assert.deepEqual([savedPdf.format, savedPdf.revision, savedPdf.theme], ["pdf", 2, "church"]);
+		const history = ok(await documentsWriter["history.list"](db, await authority(MEMBER), { documentId: doc.id }));
+		assert.deepEqual(
+			history.revisions.map((revision) => revision.authorName),
+			page.revisions.map((revision) => revision.authorName).reverse(),
+		);
+		const first = ok(
+			await documentsWriter["history.get"](db, await authority(MEMBER), { documentId: doc.id, revision: 1 }),
+		);
+		assert.equal(first.authorName, "Ada Admin");
+
+		// An author whose account is gone has no name and no id.
+		await admin.execute(
+			sql`UPDATE document_revision SET author_account_id = NULL WHERE document_id = ${doc.id}::uuid AND version_number = 1`,
+		);
+		const gone = ok(await documentsReader.readChurch(db, await authority(MEMBER), { documentId: doc.id }));
+		const goneFirst = gone.revisions.at(-1);
+		assert.deepEqual([goneFirst.authorName, goneFirst.authorAccountId], [null, null]);
+		await admin.execute(
+			sql`UPDATE document_revision SET author_account_id = ${actors[ADMIN].id}::uuid WHERE document_id = ${doc.id}::uuid AND version_number = 1`,
+		);
+	});
+
+	test("INV-tenancy the page read returns nothing for another plant, an unknown id, a plain document or a seatless account", async () => {
+		const plain = ok(
+			await documentsWriter.saveNative(db, await authority(OWNER), {
+				title: "Plain",
+				body: "text",
+				expectedRevision: "0",
+			}),
+		);
+		for (const [who, id] of [
+			[OTHER, state.doc.id],
+			[OWNER, randomUUID()],
+			[OWNER, plain.id],
+		])
+			refused(await documentsReader.readChurch(db, await authority(who), { documentId: id }), "unavailable");
+		refused(await documentsReader.readChurch(db, await authority(4), { documentId: state.doc.id }), "access_denied");
 	});
 
 	test("AC:CASE-DOC-023 a seat that ended cannot export or save, and saved exports pin their document, revision and template", async () => {

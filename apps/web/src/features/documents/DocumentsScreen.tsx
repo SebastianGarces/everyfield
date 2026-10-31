@@ -16,7 +16,11 @@ import {
 import { Tag } from "@everyfield/ui/display";
 import { cn } from "@everyfield/ui/foundations";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { generateDocument, resolveDocument } from "./actions.ts";
+import { useRouter } from "next/navigation";
+import type { ChurchList } from "@everyfield/contracts/documents";
+import { createChurchDocument, generateDocument, resolveDocument } from "./actions.ts";
+import { ChurchDocumentList } from "./church.tsx";
+import { churchProblem, createOffer, type CreateOffer } from "./church-model.ts";
 import { PdfPreview } from "./PdfPreview.tsx";
 import { Thumbnail } from "./Thumbnail.tsx";
 import { RENDER_FAILED, bytesOf, downloadBytes, postPreview } from "./preview-client.ts";
@@ -57,6 +61,8 @@ type Props = {
 	context: Resolved | null;
 	canPreview: boolean;
 	canEdit: boolean;
+	canCreate: boolean;
+	church: ChurchList | null;
 	canStore: boolean;
 	written: "church" | "account" | null;
 };
@@ -69,7 +75,18 @@ function failureText(code: string, problem?: string) {
 	return RENDER_FAILED;
 }
 
-export function DocumentsScreen({ templates, query, context, canPreview, canEdit, canStore, written }: Props) {
+export function DocumentsScreen({
+	templates,
+	query,
+	context,
+	canPreview,
+	canEdit,
+	canCreate,
+	church,
+	canStore,
+	written,
+}: Props) {
+	const router = useRouter();
 	const initial = filterTemplates(templates, query);
 	const [category, setCategory] = useState(query.category);
 	const [wiki, setWiki] = useState(query.wiki);
@@ -89,6 +106,9 @@ export function DocumentsScreen({ templates, query, context, canPreview, canEdit
 	const [previewing, startPreview] = useTransition();
 	const [saving, startSave] = useTransition();
 	const [saveNote, setSaveNote] = useState<string | null>(null);
+	const [creating, startCreate] = useTransition();
+	const [opening, setOpening] = useState(false);
+	const createKeys = useRef(new Map<string, string>());
 	const [savedTick, setSavedTick] = useState(0);
 	const panel = useRef<HTMLDivElement>(null);
 	const autoPreviewed = useRef<string | null>(null);
@@ -216,6 +236,30 @@ export function DocumentsScreen({ templates, query, context, canPreview, canEdit
 			}
 			setSaveNote(`Saved ${result.value.savedTemplateName} for your church.`);
 			setSavedTick((current) => current + 1);
+		});
+	}
+
+	function runCreate() {
+		if (!selected || !ready || selected.editable !== "ready" || !canCreate || creating || opening) return;
+		const template = selected;
+		const key = createKeys.current.get(signature) ?? crypto.randomUUID();
+		createKeys.current.set(signature, key);
+		setSaveNote(null);
+		startCreate(async () => {
+			const result = await createChurchDocument(template.id, overrides, key);
+			if (result.status !== "ok") {
+				if (result.status === "refused" && result.code === "conflict") createKeys.current.delete(signature);
+				setSaveNote(
+					churchProblem(
+						result.status === "refused" ? result : "lost",
+						"The document was not created. Your entries are still here. Try again.",
+					),
+				);
+				return;
+			}
+			// Stay busy until the page opens, so a second click cannot start another attempt.
+			setOpening(true);
+			router.push(`/documents/${result.value.id}`);
 		});
 	}
 
@@ -395,6 +439,9 @@ export function DocumentsScreen({ templates, query, context, canPreview, canEdit
 								onPreview={() => runPreview(false)}
 								onDownload={() => runPreview(true)}
 								onSave={runSave}
+								offer={createOffer(selected, canCreate)}
+								creating={creating || opening}
+								onCreate={runCreate}
 							/>
 						) : (
 							<EmptyState icon={File02Icon} title="Select a template" headingLevel="h2">
@@ -404,6 +451,7 @@ export function DocumentsScreen({ templates, query, context, canPreview, canEdit
 					</Card>
 				</aside>
 			</section>
+			{church ? <ChurchDocumentList list={church} /> : null}
 			<SavedHistory enabled={canPreview} refreshKey={savedTick} />
 			{written ? <NativeDocuments written={written} canEdit={canEdit} canStore={canStore} /> : null}
 		</>
@@ -430,6 +478,9 @@ function TemplatePanel({
 	onPreview,
 	onDownload,
 	onSave,
+	offer,
+	creating,
+	onCreate,
 }: {
 	template: Template;
 	format: Format;
@@ -450,6 +501,9 @@ function TemplatePanel({
 	onPreview: () => void;
 	onDownload: () => void;
 	onSave: () => void;
+	offer: CreateOffer;
+	creating: boolean;
+	onCreate: () => void;
 }) {
 	return (
 		<div className="flex flex-col gap-4">
@@ -469,6 +523,7 @@ function TemplatePanel({
 					<Tag>{FORMAT_LABEL[format]}</Tag>
 				)}
 				{template.fillable ? <Tag tone="green">Fillable</Tag> : null}
+				{template.editable ? <Tag tone="blue">Editable</Tag> : null}
 			</div>
 			{format === "pdf" && template.pageSize ? (
 				<div className="flex flex-col gap-2">
@@ -538,13 +593,24 @@ function TemplatePanel({
 				<Button variant="secondary" icon={Download01Icon} loading={busy} disabled={!ready} onClick={onDownload}>
 					Download {FORMAT_LABEL[format]}
 				</Button>
-				{canPreview ? (
+				{canPreview && offer === "none" ? (
 					<Button variant="primary" loading={saving} disabled={!ready || !canStore} onClick={onSave}>
 						Save for your church
 					</Button>
 				) : null}
+				{canPreview && offer === "create" ? (
+					<Button variant="primary" loading={creating} disabled={!ready} onClick={onCreate}>
+						Create Church Document
+					</Button>
+				) : null}
 			</div>
-			{canPreview && !canStore ? (
+			{canPreview && offer === "owner_only" ? (
+				<p className="text-sm text-text-2">Only an Owner or Admin creates Church Documents.</p>
+			) : null}
+			{canPreview && offer === "not_ready" ? (
+				<p className="text-sm text-text-2">The editable version of this template is not ready yet.</p>
+			) : null}
+			{canPreview && !canStore && offer === "none" ? (
 				<p className="text-sm text-text-2">
 					Saving for your church is not available right now. A preview download stays on this device.
 				</p>

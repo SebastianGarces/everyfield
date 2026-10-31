@@ -108,9 +108,9 @@ export function SavedHistory({ enabled, refreshKey }: Props) {
 								className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-surface px-4 py-3"
 							>
 								<div className="min-w-0">
-									<p className="font-medium text-ink">{entry.savedTemplateName}</p>
+									<p className="font-medium text-ink">{entry.source ? entry.source.title : entry.savedTemplateName}</p>
 									<p className="text-sm text-text-2">
-										<Tag>{FORMAT_LABEL[entry.format]}</Tag>{" "}
+										<Tag>{FORMAT_LABEL[entry.format]}</Tag> {entry.source ? `Revision ${entry.source.revision} · ` : ""}
 										<time dateTime={entry.generatedAt}>{savedWhen(entry.generatedAt)}</time>
 									</p>
 								</div>
@@ -119,7 +119,7 @@ export function SavedHistory({ enabled, refreshKey }: Props) {
 										variant="secondary"
 										icon={Download01Icon}
 										loading={busyId === entry.id}
-										aria-label={`Download ${entry.savedTemplateName}, ${FORMAT_LABEL[entry.format]}`}
+										aria-label={`Download ${entry.source ? entry.source.title : entry.savedTemplateName}, ${FORMAT_LABEL[entry.format]}`}
 										onClick={() => void download(entry)}
 									>
 										Download
