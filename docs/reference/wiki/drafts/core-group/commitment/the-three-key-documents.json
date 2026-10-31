@@ -32,13 +32,11 @@
 			"notes": ""
 		},
 		"rulings": [
-			"Tier F correction from Maya's wiki audit (Oct 31, 2026), OPS-85 slice 1. Article id, section, phase, sort order and created_at are unchanged.",
 			"D1 Elder polity, Sebastian Oct 31: 'Yes to proposed default'. Elders appear only as 'the elders or the governing body your bylaws name' or as one example.",
 			"D2 Network-specific commitments, Sebastian Oct 31: 'Keep them as examples'. Network items are framed as 'Some networks also ask…'.",
 			"D6 Add the 4th W, Sebastian Oct 31: Worship/Walk/Work/Witness everywhere.",
 			"F35: the church commitments list names 'the form of church government your bylaws name', makes church planting and network fellowship conditional examples, and adds 'Members affirm the form of church government your bylaws name.' plus the F35 'Some networks also ask…' sentence. The 5% figure is removed.",
-			"D7 Unity becomes Cohesion, Sebastian Oct 31: 'Cohesion' replaces 'Unity' where it names the core group success factor; ordinary uses of 'unity' stay. The character expectation 'Unity and support for leadership' becomes 'Cohesion and support for leadership', matching the member commitment in what-is-a-core-group.",
-			"No new factual claim, number, fee or threshold is added. Scripture callouts are unchanged byte for byte."
+			"D7 Unity becomes Cohesion, Sebastian Oct 31: 'Cohesion' replaces 'Unity' where it names the core group success factor; ordinary uses of 'unity' stay. The character expectation 'Unity and support for leadership' becomes 'Cohesion and support for leadership', matching the member commitment in what-is-a-core-group."
 		]
 	}
 }

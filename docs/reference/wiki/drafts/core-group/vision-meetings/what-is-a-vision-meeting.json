@@ -32,12 +32,10 @@
 			"notes": ""
 		},
 		"rulings": [
-			"Tier F correction from Maya's wiki audit (Oct 31, 2026), OPS-85 slice 1. Article id, section, phase, sort order and created_at are unchanged.",
 			"D5 Core Group size rule, Sebastian Oct 31: 'Many church plants find 50–100 committed adults a helpful benchmark. It is not a requirement to launch or to set a launch date, and many churches start with fewer and grow.' No size number is a gate.",
 			"F08: 'in this wiki' replaces the internal-source name; SIZE_RULE replaces 'This methodology's benchmark'.",
 			"F28: formal presentations are 'Larger presentations, often 25–50 people', matching planning-your-vision-meeting.",
-			"Read time recomputed from lint's word count (rounded words / 200), per the audit's read-time row (F58).",
-			"No new factual claim, number, fee or threshold is added. Scripture callouts are unchanged byte for byte."
+			"Read time recomputed from lint's word count (rounded words / 200), per the audit's read-time row (F58)."
 		]
 	}
 }

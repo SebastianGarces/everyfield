@@ -33,14 +33,12 @@
 			"notes": ""
 		},
 		"rulings": [
-			"Tier F correction from Maya's wiki audit (Oct 31, 2026), OPS-85 slice 1. Article id, section, phase, sort order and created_at are unchanged.",
 			"D5 Core Group size rule, Sebastian Oct 31: 'Many church plants find 50–100 committed adults a helpful benchmark. It is not a requirement to launch or to set a launch date, and many churches start with fewer and grow.' No size number is a gate.",
 			"F09/F13: the heading is 'Critical Mass: a helpful benchmark' and uses SIZE_RULE plus the audit's sentence about a smaller group. The 'fewer than 50 adults' list becomes what a larger group helps with; the 'undersized Core Group' callout becomes 'Don't measure readiness by headcount alone'.",
 			"F29: 'Stage 1–4' replaces 'Phase 1–4' for growth stages; the last stage is 'The Final Push' toward 'your Core Group goal'.",
 			"D7 Unity becomes Cohesion, Sebastian Oct 31: 'Cohesion' replaces 'Unity' where it names the core group success factor; ordinary uses of 'unity' stay. Applied to the 'Maintaining Cohesion While Growing' section headings; lowercase 'unity' stays.",
 			"Wording choice: 'proven strategies' becomes 'common strategies'.",
-			"Read time recomputed from lint's word count (rounded words / 200), per the audit's read-time row (F58).",
-			"No new factual claim, number, fee or threshold is added. Scripture callouts are unchanged byte for byte."
+			"Read time recomputed from lint's word count (rounded words / 200), per the audit's read-time row (F58)."
 		]
 	}
 }

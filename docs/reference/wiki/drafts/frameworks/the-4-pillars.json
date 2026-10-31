@@ -33,12 +33,10 @@
 			"notes": ""
 		},
 		"rulings": [
-			"Tier F correction from Maya's wiki audit (Oct 31, 2026), OPS-85 slice 1. Article id, section, phase, sort order and created_at are unchanged.",
 			"F27: the Acts 2:42 section now opens with 'Your network may already define your pillars. If it doesn't, Acts 2:42 (LSB) is one common model' and says 'many churches draw four pillars' instead of 'four pillars emerge'. The Acts 2:42 quotations are unchanged. A full merge is deferred because promotion cannot delete an article or add a redirect.",
 			"Wording choice: 'several proven frameworks' becomes 'several other common frameworks' (no evidence for 'proven').",
 			"D7 check: 'Unity fragments', the 'Unity' function row and 'Unity in diversity' are ordinary uses and stay.",
-			"Read time recomputed from lint's word count (rounded words / 200), per the audit's read-time row (F58).",
-			"No new factual claim, number, fee or threshold is added. Scripture callouts are unchanged byte for byte."
+			"Read time recomputed from lint's word count (rounded words / 200), per the audit's read-time row (F58)."
 		]
 	}
 }

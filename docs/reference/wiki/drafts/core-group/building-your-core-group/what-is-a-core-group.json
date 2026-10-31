@@ -33,11 +33,9 @@
 			"notes": ""
 		},
 		"rulings": [
-			"Tier F correction from Maya's wiki audit (Oct 31, 2026), OPS-85 slice 1. Article id, section, phase, sort order and created_at are unchanged.",
 			"D5 Core Group size rule, Sebastian Oct 31: 'Many church plants find 50–100 committed adults a helpful benchmark. It is not a requirement to launch or to set a launch date, and many churches start with fewer and grow.' No size number is a gate.",
 			"F09/F18: SIZE_RULE replaces 'This methodology plans on 50-100'. 'Keep building until you have critical mass' becomes 'until you have the right people for the roles your first services need'.",
-			"D7 Unity becomes Cohesion, Sebastian Oct 31: 'Cohesion' replaces 'Unity' where it names the core group success factor; ordinary uses of 'unity' stay. Applied to the member commitment heading and 'Challenge: Lack of Cohesion'; 'maintaining unity with the Senior Pastor' stays.",
-			"No new factual claim, number, fee or threshold is added. Scripture callouts are unchanged byte for byte."
+			"D7 Unity becomes Cohesion, Sebastian Oct 31: 'Cohesion' replaces 'Unity' where it names the core group success factor; ordinary uses of 'unity' stay. Applied to the member commitment heading and 'Challenge: Lack of Cohesion'; 'maintaining unity with the Senior Pastor' stays."
 		]
 	}
 }

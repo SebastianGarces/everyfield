@@ -32,13 +32,11 @@
 			"notes": ""
 		},
 		"rulings": [
-			"Tier F correction from Maya's wiki audit (Oct 31, 2026), OPS-85 slice 1. Article id, section, phase, sort order and created_at are unchanged.",
 			"D3 Welcome article rename, Sebastian Oct 31: 'Rename it'. Title 'Welcome to the Everyfield Wiki', slug getting-started/welcome-to-the-everyfield-wiki, same id.",
 			"F01: 'this wiki' replaces the internal-source name throughout; 'How to Use This Wiki' replaces the three-goals heading; 'Adapt these principles to your context.' replaces 'The principles are universal.'",
 			"Wording choice: the 'What Is the Everyfield Wiki?' intro is rewritten in original words ('collects practical guidance for church planters'); the callout says 'practical guidance' instead of 'best practices'.",
 			"The old slug has no redirect mechanism in docs/reference/wiki; the PR records the redirect as an open item.",
-			"Read time recomputed from lint's word count (rounded words / 200), per the audit's read-time row (F58).",
-			"No new factual claim, number, fee or threshold is added. Scripture callouts are unchanged byte for byte."
+			"Read time recomputed from lint's word count (rounded words / 200), per the audit's read-time row (F58)."
 		]
 	}
 }

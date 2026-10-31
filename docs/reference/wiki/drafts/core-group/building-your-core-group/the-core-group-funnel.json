@@ -33,12 +33,10 @@
 			"notes": ""
 		},
 		"rulings": [
-			"Tier F correction from Maya's wiki audit (Oct 31, 2026), OPS-85 slice 1. Article id, section, phase, sort order and created_at are unchanged.",
 			"D5 Core Group size rule, Sebastian Oct 31: 'Many church plants find 50–100 committed adults a helpful benchmark. It is not a requirement to launch or to set a launch date, and many churches start with fewer and grow.' No size number is a gate.",
 			"F09: the Core Group stage size line uses SIZE_RULE.",
 			"F47: the funnel metrics are labelled 'illustrative starting targets; set your own'.",
-			"Wording choice: 'leverages' becomes 'draws on' to clear a lint style warning.",
-			"No new factual claim, number, fee or threshold is added. Scripture callouts are unchanged byte for byte."
+			"Wording choice: 'leverages' becomes 'draws on' to clear a lint style warning."
 		]
 	}
 }

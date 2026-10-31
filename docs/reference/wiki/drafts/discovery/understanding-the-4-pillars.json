@@ -33,14 +33,12 @@
 			"notes": ""
 		},
 		"rulings": [
-			"Tier F correction from Maya's wiki audit (Oct 31, 2026), OPS-85 slice 1. Article id, section, phase, sort order and created_at are unchanged.",
 			"D3 Welcome article rename, Sebastian Oct 31: related_article_slugs now names getting-started/welcome-to-the-everyfield-wiki. This draft lints against the live seed only after the welcome draft is promoted.",
 			"F27: adds the open framing 'Your network may already define your pillars. If it doesn't, Acts 2:42 is one common model'. A full merge with frameworks/the-4-pillars is deferred because promotion cannot delete an article or add a redirect.",
 			"F55: related_article_slugs now names frameworks/the-4-pillars (it had no inbound link) in place of frameworks/8-critical-success-factors-overview, which keeps other inbound links.",
 			"F53: excerpt says 'church plant' instead of a bare 'plant'.",
 			"D7 check: 'Unity' in the pillar functions table and 'Unity becomes difficult' are ordinary uses and stay.",
-			"Read time recomputed from lint's word count (rounded words / 200), per the audit's read-time row (F58).",
-			"No new factual claim, number, fee or threshold is added. Scripture callouts are unchanged byte for byte."
+			"Read time recomputed from lint's word count (rounded words / 200), per the audit's read-time row (F58)."
 		]
 	}
 }

@@ -33,10 +33,8 @@
 			"notes": ""
 		},
 		"rulings": [
-			"Tier F correction from Maya's wiki audit (Oct 31, 2026), OPS-85 slice 1. Article id, section, phase, sort order and created_at are unchanged.",
 			"F29 follow-up window: 'Within 24-48 Hours' becomes 'Within 48 Hours', and the personal call and assignment move into that window so every follow-up window reads 'within 48 hours'. Contact entry points to Everyfield.",
-			"F54: 'Core Group meeting' replaces 'Core Group gathering'.",
-			"No new factual claim, number, fee or threshold is added. Scripture callouts are unchanged byte for byte."
+			"F54: 'Core Group meeting' replaces 'Core Group gathering'."
 		]
 	}
 }

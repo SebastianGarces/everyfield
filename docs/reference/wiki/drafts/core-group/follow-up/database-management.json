@@ -32,10 +32,8 @@
 			"notes": ""
 		},
 		"rulings": [
-			"Tier F correction from Maya's wiki audit (Oct 31, 2026), OPS-85 slice 1. Article id, section, phase, sort order and created_at are unchanged.",
 			"F50: opens with 'Track people, interviews and follow-up tasks in Everyfield.' The spreadsheet, contact-manager (ACT!, Goldmine, HubSpot) and church-software options and the sample spreadsheet are removed; a 'Tracking Follow-Up in Everyfield' section names People, meeting guests, follow-up tasks, the contact log, interviews and import. The field list and status table stay.",
-			"Wording choice: one line says a church may later choose church management software for check-in and giving, which Everyfield doesn't handle. No claim of finance, SMS, coaching, background checks or kids check-in.",
-			"No new factual claim, number, fee or threshold is added. Scripture callouts are unchanged byte for byte."
+			"Wording choice: one line says a church may later choose church management software for check-in and giving, which Everyfield doesn't handle. No claim of finance, SMS, coaching, background checks or kids check-in."
 		]
 	}
 }

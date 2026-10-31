@@ -34,13 +34,11 @@
 			"notes": ""
 		},
 		"rulings": [
-			"Tier F correction from Maya's wiki audit (Oct 31, 2026), OPS-85 slice 1. Article id, section, phase, sort order and created_at are unchanged.",
 			"D6 Add the 4th W, Sebastian Oct 31: Worship/Walk/Work/Witness everywhere.",
 			"F54: 'meeting' replaces 'gathering' for Core Group meetings in the body and excerpt; 'special gatherings' stays as a generic use.",
 			"F55: related_article_slugs adds frameworks/meeting-objectives, which had no inbound link.",
 			"Wording choice: 'elevates' becomes 'exalts' to clear a lint style warning.",
-			"Read time recomputed from lint's word count (rounded words / 200), per the audit's read-time row (F58).",
-			"No new factual claim, number, fee or threshold is added. Scripture callouts are unchanged byte for byte."
+			"Read time recomputed from lint's word count (rounded words / 200), per the audit's read-time row (F58)."
 		]
 	}
 }

@@ -33,14 +33,12 @@
 			"notes": ""
 		},
 		"rulings": [
-			"Tier F correction from Maya's wiki audit (Oct 31, 2026), OPS-85 slice 1. Article id, section, phase, sort order and created_at are unchanged.",
 			"D1 Elder polity, Sebastian Oct 31: 'Yes to proposed default'. Elders appear only as 'the elders or the governing body your bylaws name' or as one example.",
 			"D2 Network-specific commitments, Sebastian Oct 31: 'Keep them as examples'. Network items are framed as 'Some networks also ask…'.",
 			"D6 Add the 4th W, Sebastian Oct 31: Worship/Walk/Work/Witness everywhere.",
 			"F35: 'Commitment to Church Government' reads 'Members affirm the form of church government your bylaws name.' The sentence about people who disagree with elder governance is removed. The F35 'Some networks also ask Core Group members to affirm items such as…' sentence introduces the network items, which are now conditional examples; the 5% figure is removed; 'Elder Partnership' becomes 'Partner Oversight'.",
 			"D7 Unity becomes Cohesion, Sebastian Oct 31: 'Cohesion' replaces 'Unity' where it names the core group success factor; ordinary uses of 'unity' stay. Applied to the 'Commitment to Cohesion and Process' heading and the healthy-commitment table row; 'creates unity' and 'Doctrinal unity' stay.",
-			"Read time recomputed from lint's word count (rounded words / 200), per the audit's read-time row (F58).",
-			"No new factual claim, number, fee or threshold is added. Scripture callouts are unchanged byte for byte."
+			"Read time recomputed from lint's word count (rounded words / 200), per the audit's read-time row (F58)."
 		]
 	}
 }

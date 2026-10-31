@@ -34,13 +34,11 @@
 			"notes": ""
 		},
 		"rulings": [
-			"Tier F correction from Maya's wiki audit (Oct 31, 2026), OPS-85 slice 1. Article id, section, phase, sort order and created_at are unchanged.",
 			"D6 Add the 4th W, Sebastian Oct 31: Worship/Walk/Work/Witness everywhere.",
 			"F25: the article's own funnel section is removed; the opening section now says 'The funnel is a common pathway into the church; all four W's grow together in a disciple's life.' and links to frameworks/the-ministry-funnel, which is added to related_article_slugs (F55).",
 			"F20 seed half: the Launch Team training line reads 'Worship — teaching on your worship philosophy' with no Peak Performance reference.",
 			"Wording choice: the heading 'Why This Model Matters' becomes 'Why the 4 W's Matter' to drop internal-method wording (F09); 'Core Group gatherings' becomes 'Core Group meetings' (F54).",
-			"Read time recomputed from lint's word count (rounded words / 200), per the audit's read-time row (F58).",
-			"No new factual claim, number, fee or threshold is added. Scripture callouts are unchanged byte for byte."
+			"Read time recomputed from lint's word count (rounded words / 200), per the audit's read-time row (F58)."
 		]
 	}
 }

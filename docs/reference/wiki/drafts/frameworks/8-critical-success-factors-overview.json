@@ -33,15 +33,13 @@
 			"notes": ""
 		},
 		"rulings": [
-			"Tier F correction from Maya's wiki audit (Oct 31, 2026), OPS-85 slice 1. Article id, section, phase, sort order and created_at are unchanged.",
 			"D3 Welcome article rename, Sebastian Oct 31: related_article_slugs now names getting-started/welcome-to-the-everyfield-wiki. This draft lints against the live seed only after the welcome draft is promoted.",
 			"D5 Core Group size rule, Sebastian Oct 31: 'Many church plants find 50–100 committed adults a helpful benchmark. It is not a requirement to launch or to set a launch date, and many churches start with fewer and grow.' No size number is a gate.",
 			"F12: the Core Group size table is removed and replaced with the audit's text ('A larger group spreads the work across more people…Plan your first ministries around the people you have.'). The factor statement no longer names 50 or 100.",
 			"D7 Unity becomes Cohesion, Sebastian Oct 31: 'Cohesion' replaces 'Unity' where it names the core group success factor; ordinary uses of 'unity' stay. Applied to the factor heading, its body, the diagram and the self-assessment row; 'grow the Core Group in unity and cohesiveness' and 'A unified Core Group' stay.",
 			"F53: 'the church plant' replaces 'the plant'.",
 			"Wording choice: the unsourced 'After observing numerous church plants' becomes 'One common framework names 8 critical success factors that often distinguish…'.",
-			"Read time recomputed from lint's word count (rounded words / 200), per the audit's read-time row (F58).",
-			"No new factual claim, number, fee or threshold is added. Scripture callouts are unchanged byte for byte."
+			"Read time recomputed from lint's word count (rounded words / 200), per the audit's read-time row (F58)."
 		]
 	}
 }
