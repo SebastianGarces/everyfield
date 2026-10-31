@@ -51,7 +51,9 @@ export function PdfPreview({ title, pageSize, bytes }: Props) {
 	useEffect(() => {
 		if (!doc || !canvas.current || width === 0) return;
 		let current = true;
-		drawPage(doc, page, canvas.current, width, window.devicePixelRatio || 1).catch(() => current && setFailed(true));
+		drawPage(doc, page, canvas.current, width, window.devicePixelRatio || 1, () => current).catch(
+			() => current && setFailed(true),
+		);
 		return () => {
 			current = false;
 		};
