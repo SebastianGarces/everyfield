@@ -4,7 +4,16 @@ import { cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fixture, source } from "./fixtures.ts";
-import { findTask, markMerged, migrate, openWorkDb, requireStartable, schemaVersion } from "../db.ts";
+import {
+	findTask,
+	markMerged,
+	migrate,
+	openWorkDb,
+	requireStartable,
+	schemaVersion,
+	status,
+	withPartial,
+} from "../db.ts";
 import { driveOnce, nextStage, runDone, taskNew, taskSpec } from "../drive.ts";
 import { unfiledSlices } from "../followups.ts";
 import { laterSlices } from "../spec.ts";
@@ -428,6 +437,43 @@ test("OPS-86-poster: post-review.mjs refuses a report without coverage, a missin
 		assert.match(post(cov("| /oversight | deferred OPS-99 |")).out, /not follow-ups of this task/);
 		const good = post(cov("| home | delivered |\n| /oversight | deferred WP-097 slice 2 |"));
 		assert.equal(good.code, 0, good.out);
+	} finally {
+		f.close();
+	}
+});
+
+test("OPS-86-owner: owner-review text and evf status start with a Partial: line only for a task with follow-ups", () => {
+	const f = fixture();
+	try {
+		newTask(f.root, "WP-097", "Ask.");
+		newTask(f.root, "WP-098", "Other ask.");
+		storeSpec(f.root, "WP-097", specWith(["Two: /oversight."]));
+		storeSpec(f.root, "WP-098", specWith([]));
+		const wait = "PR #9 is verified and waits for Sebastian's chat approval, then evf approve.";
+		assert.equal(
+			withPartial(f.root, parseTask("WP-097"), wait),
+			`Partial: this PR covers only part of the ask. Deferred: Two: /oversight. (WP-097 slice 2).\n${wait}`,
+		);
+		assert.equal(withPartial(f.root, parseTask("WP-098"), wait), wait);
+
+		const lines: string[] = [];
+		const log = console.log;
+		console.log = (...a: unknown[]) => void lines.push(a.join(" "));
+		try {
+			status(f.root, { json: true, task: "WP-097" });
+			status(f.root, { json: true, task: "WP-098" });
+			status(f.root, { json: false, task: "WP-097" });
+		} finally {
+			console.log = log;
+		}
+		const sliced = JSON.parse(lines[0]!).tasks.find((t: { status: string }) => t.status !== "queued");
+		assert.deepEqual(sliced.followUps, ["WP-097 slice 2"]);
+		assert.match(sliced.partial, /^Partial: /);
+		assert.ok(
+			!("followUps" in JSON.parse(lines[1]!).tasks[0]),
+			"a task without follow-ups prints what it printed before",
+		);
+		assert.ok(lines.slice(2).some((l) => l.startsWith("WP-097: Partial: ")));
 	} finally {
 		f.close();
 	}
