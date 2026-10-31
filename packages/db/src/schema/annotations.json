@@ -6952,9 +6952,6 @@
 				"created_at": {
 					"note": ""
 				},
-				"assignee_id": {
-					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
-				},
 				"due_kind": {
 					"note": ""
 				},
@@ -7041,12 +7038,6 @@
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
 					}
 				},
-				"assignee_id->account(id)": {
-					"deletion": {
-						"action": "restrict",
-						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-					}
-				},
 				"person_id,plant_id->person(id,tenant_id)": {
 					"deletion": {
 						"action": "restrict",
@@ -7123,6 +7114,123 @@
 				},
 				"import_operation_id->audit_event(id)": {
 					"scope_exception": "D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access.",
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+					}
+				}
+			}
+		},
+		"task_assignee": {
+			"table": {
+				"name": "task_assignee",
+				"domain": "tasks",
+				"purpose": "One account assigned to one task. A task has one or more assignees; a person follow-up is owned by its task's assignees.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-B-012", "CAP-B-013", "CAP-B-014", "CAP-B-016", "CAP-B-018", "CAP-B-019"],
+				"replaces": [],
+				"producer_work_packages": ["WP-023"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-023"],
+					"rule": "WP-023 stores the assignee set of a task. The set replaces the single task and obligation assignee columns."
+				},
+				"feature_ids": [
+					"PHASE-006",
+					"TSK-002",
+					"TSK-003",
+					"TSK-004",
+					"TSK-005",
+					"TSK-007",
+					"TSK-009",
+					"TSK-010",
+					"TSK-012",
+					"TSK-015",
+					"TSK-016"
+				],
+				"acceptance_ids": [
+					"AC-PHASE-006--PHASE-006",
+					"AC-TSK-002--TSK-002",
+					"AC-TSK-003--TSK-003",
+					"AC-TSK-004--TSK-004",
+					"AC-TSK-005--TSK-005",
+					"AC-TSK-007--TSK-007",
+					"AC-TSK-009--TSK-009",
+					"AC-TSK-010--TSK-010",
+					"AC-TSK-012--TSK-012",
+					"AC-TSK-015--TSK-015",
+					"AC-TSK-016--TSK-016"
+				],
+				"future_case_ids": [
+					"B03-002",
+					"B03-003",
+					"B03-007",
+					"B03-008",
+					"B03-009",
+					"B03-015",
+					"EVRY-REAL-CHILD-TASK-PARITY",
+					"INH-LAUNCH-02",
+					"LAUNCH46-019",
+					"PHASE-CASE-006",
+					"ROLE43-008",
+					"ROLE43-015",
+					"SCHEMA-001",
+					"SCHEMA-013",
+					"TARGET-MTG-020",
+					"TARGET-MTG-021",
+					"TARGET-MTG-022",
+					"TARGET-TSK-002",
+					"TARGET-TSK-003",
+					"TARGET-TSK-004",
+					"TARGET-TSK-005",
+					"TARGET-TSK-007",
+					"TARGET-TSK-009",
+					"TARGET-TSK-010",
+					"TARGET-TSK-012",
+					"TARGET-TSK-015",
+					"TARGET-TSK-016",
+					"TARGET-TSK-017",
+					"TARGET-TSK-018"
+				],
+				"scope": "tasks",
+				"invariants": [
+					"One row per task and account; at most ten per task, enforced by the write.",
+					"No task or obligation column keeps a second stored owner."
+				],
+				"revision": "No mutable revision column; immutable version, history or insert/delete presence follows the capability contract.",
+				"idempotency": "Replay and no-op behavior follow the named native producer and its exact receipt/unique-key contract. Private care remains isolated from shared operation receipts.",
+				"deletion": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified.",
+				"physical_verified": false
+			},
+			"columns": {
+				"plant_id": {
+					"note": ""
+				},
+				"task_id": {
+					"note": "Real FK with plant_id to task(id, plant_id)."
+				},
+				"account_id": {
+					"note": "Real FK to the assigned account. Eligibility is checked by the write, not stored."
+				},
+				"added_at": {
+					"note": "When the account joined the task; the history record keeps who added it."
+				}
+			},
+			"foreignKeys": {
+				"plant_id->plant(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+					}
+				},
+				"task_id,plant_id->task(id,plant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+					}
+				},
+				"account_id->account(id)": {
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
@@ -7311,9 +7419,6 @@
 				"due_date": {
 					"note": ""
 				},
-				"assignee_id": {
-					"note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply."
-				},
 				"waived_at": {
 					"note": ""
 				},
@@ -7341,12 +7446,6 @@
 					}
 				},
 				"person_id,plant_id->person(id,tenant_id)": {
-					"deletion": {
-						"action": "restrict",
-						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
-					}
-				},
-				"assignee_id->account(id)": {
 					"deletion": {
 						"action": "restrict",
 						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."

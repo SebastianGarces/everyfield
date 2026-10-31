@@ -29,7 +29,7 @@ import {
 	useSaveIntent,
 	type RowSave,
 } from "../../components/save/parts.tsx";
-import { attendanceAfter, settledText, SettleDialog, usePresence, useSeats, type SettleInput } from "./Attendance.tsx";
+import { attendanceAfter, settledText, SettleDialog, usePresence, warmSeats, type SettleInput } from "./Attendance.tsx";
 import { PersonPicker, type PickedPerson } from "./dialogs.tsx";
 import { problemText, RSVP_LABEL, timeText, type Guest } from "./model.ts";
 import { attendeeOf, isPending, PENDING, withAttendees, type GuestRow, type PendingGuest } from "./page-state.ts";
@@ -61,7 +61,6 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 	const [arrived, setArrived] = useState<string | null>(null);
 	const list = useRef<HTMLUListElement>(null);
 	const [search, setSearch] = useState("");
-	const seats = useSeats();
 	// A walk-in and Finish both change who attended, so they share one save lane (C68). Presence taps have one per person.
 	const door = useSaveIntent<DoorForm>({ explain: problemText });
 	// The walk-in row as the person asked for it, shown while its save is on its way or unknown.
@@ -181,7 +180,7 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 
 	function finish() {
 		if (door.wait !== null || presence.busy) return;
-		seats.load();
+		warmSeats();
 		door.open({ kind: "settle", input: null });
 	}
 	function submitSettle(input: SettleInput) {
@@ -194,8 +193,8 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 				settleAttendance("finalize", key, attendance.attendanceRevision, {
 					meetingId: m.id,
 					attendeeIds: input.attendeeIds,
-					followUpAssigneeId: input.followUpAssigneeId,
-					evaluationAssigneeId: input.evaluationAssigneeId,
+					followUpAssigneeIds: input.followUpAssigneeIds,
+					evaluationAssigneeIds: input.evaluationAssigneeIds,
 				}),
 			ok: ({ result }) => {
 				setData((d) => ({ ...d, attendance: d.attendance && attendanceAfter(d.attendance, result) }));
@@ -322,9 +321,9 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 								loading={door.saving && !draft}
 								disabled={doorBusy || presence.busy}
 								onClick={finish}
-								onPointerEnter={seats.load}
-								onFocus={seats.load}
-								onTouchStart={seats.load}
+								onPointerEnter={warmSeats}
+								onFocus={warmSeats}
+								onTouchStart={warmSeats}
 							>
 								Finish check-in
 							</Button>
@@ -350,8 +349,7 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 						meeting={m}
 						guests={data.guests}
 						attendance={data.attendance}
-						seats={seats.seats}
-						onSeats={seats.load}
+						onSeats={warmSeats}
 						initial={door.editing.input}
 						problem={door.problem}
 						onClose={door.close}

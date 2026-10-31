@@ -113,6 +113,8 @@ type ComboboxProps = Omit<ListProps, "onSelect" | "multiple"> & {
 	invalid?: boolean;
 	id?: string;
 	className?: string;
+	/** The list opened or closed. A form that saves once per pick session commits when it closes. */
+	onOpenChange?: (open: boolean) => void;
 };
 
 function toggle(value: string[], v: string, multiple: boolean) {
@@ -133,13 +135,20 @@ export function Combobox({
 	invalid,
 	id,
 	className,
+	onOpenChange,
 	...list
 }: ComboboxProps) {
 	const [open, setOpen] = useState(false);
 	const control = useFieldControl({ id, "aria-invalid": invalid });
 	const labels = options.filter((o) => value.includes(o.value)).map((o) => o.label);
 	return (
-		<Popover open={open} onOpenChange={setOpen}>
+		<Popover
+			open={open}
+			onOpenChange={(next) => {
+				setOpen(next);
+				onOpenChange?.(next);
+			}}
+		>
 			<PopoverTrigger
 				role="combobox"
 				aria-haspopup="listbox"
@@ -166,7 +175,10 @@ export function Combobox({
 					multiple={multiple}
 					onSelect={(v) => {
 						onValueChange(toggle(value, v, multiple));
-						if (!multiple) setOpen(false);
+						if (!multiple) {
+							setOpen(false);
+							onOpenChange?.(false);
+						}
 					}}
 				/>
 			</PopoverContent>
@@ -174,7 +186,7 @@ export function Combobox({
 	);
 }
 
-type FilterChipProps = Omit<ComboboxProps, "placeholder" | "invalid" | "id" | "className"> & {
+type FilterChipProps = Omit<ComboboxProps, "placeholder" | "invalid" | "id" | "className" | "onOpenChange"> & {
 	/** The filter's name ("Stage"). */
 	label: string;
 	icon?: IconSvgElement;

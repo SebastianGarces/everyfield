@@ -63,7 +63,8 @@ export const safeError = z.discriminatedUnion("code", [
 	// Inaccessible and missing records use the same empty-detail refusal.
 	defineSafeError("access_denied", {}, "never"),
 	defineSafeError("unavailable", {}, "never"),
-	defineSafeError("invalid_subject", {}, "never"),
+	// A named account that cannot be assigned says which one.
+	defineSafeError("invalid_subject", { accountId: accountId.optional() }, "never"),
 	defineSafeError("conflict", {}, "refresh"),
 	defineSafeError("temporary", {}, "same_request"),
 	defineSafeError("unknown", {}, "reconcile"),

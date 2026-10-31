@@ -82,8 +82,12 @@ async function mail(communicationId, personId, address, patch = {}) {
 async function task(personId, assigneeId) {
 	const id = randomUUID();
 	await f.admin
-		.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,person_id,assignee_id,completed_at)
-		VALUES(${id},${plant.id},'Call','follow_up','medium','complete',clock_timestamp(),'undated',${personId},${assigneeId},clock_timestamp())`);
+		.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,person_id,completed_at)
+		VALUES(${id},${plant.id},'Call','follow_up','medium','complete',clock_timestamp(),'undated',${personId},clock_timestamp())`);
+	if (assigneeId)
+		await f.admin.execute(
+			sql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES(${plant.id},${id},${assigneeId})`,
+		);
 	return id;
 }
 async function outcome(taskId, personId, name, future = false) {

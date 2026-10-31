@@ -8,6 +8,7 @@ import { z } from "zod";
 import type { RequestActor } from "../access/session.ts";
 import { displayTitle } from "../meetings/rows.ts";
 import { meetingType } from "@everyfield/contracts/meetings";
+import { assignedTo, sortPeople } from "../tasks/assignees.ts";
 import { administers, parse, readerOf, type Tx } from "../tasks/core.ts";
 import { dueOf, storedKind } from "../tasks/queries.ts";
 import { originJson, originOf } from "../tasks/origin.ts";
@@ -26,15 +27,19 @@ function reader(authority: RequestActor, admin = false) {
 	return viewer;
 }
 /**
- * The church's open follow-up tasks with a live Person, as rows a caller filters further. `owner` is the task's
- * assignee with whether they may own it (the shared owner view); `owner_id` is the assignee only while eligible, so an
- * assignee who lost eligibility counts as Needs owner in every tally and filter (REQ-TSK-012) and keeps their name.
+ * The church's open follow-up tasks with a live Person, as rows a caller filters further. `owners` holds each assignee
+ * with whether they may own it (the shared owner view); `assignee_ids` is every assignee and `owner_ids` only the
+ * eligible ones. A follow-up with no eligible assignee needs an owner in every tally and filter (D-a, REQ-TSK-012);
+ * each ineligible assignee keeps its name and warning.
  */
 const duties = (plantId: string, where: SQL = sql`true`) => sql`SELECT d.*,
-	CASE WHEN (d.owner->>'eligible')='true' THEN d.assignee_id END AS owner_id FROM (SELECT t.id, t.revision::text AS revision,
+	(SELECT coalesce(array_agg((o->>'accountId')::uuid),'{}') FROM jsonb_array_elements(d.owners) o) AS assignee_ids,
+	(SELECT coalesce(array_agg((o->>'accountId')::uuid),'{}') FROM jsonb_array_elements(d.owners) o
+		WHERE (o->>'eligible')='true') AS owner_ids FROM (SELECT t.id, t.revision::text AS revision,
 	t.title, t.status, t.due_kind, t.due_date::text AS due_date, t.due_time::text AS due_time, t.timezone, t.due_at,
-	t.obligation_id, t.person_id, p.display_name AS person_label, t.assignee_id, pl.timezone AS plant_zone,
-	${ownerView(sql`t.assignee_id`, sql`t.plant_id`)} AS owner, ${originJson(sql`t`)} AS origin,
+	t.obligation_id, t.person_id, p.display_name AS person_label, pl.timezone AS plant_zone,
+	(SELECT coalesce(jsonb_agg(${ownerView(sql`a.account_id`, sql`t.plant_id`)}),'[]'::jsonb) FROM task_assignee a
+		WHERE a.task_id=t.id) AS owners, ${originJson(sql`t`)} AS origin,
 	coalesce(t.due_at, ((t.due_date + 1)::timestamp AT TIME ZONE pl.timezone)) AS due_key,
 	(SELECT x.outcome FROM contact_outcome x WHERE x.task_id=t.id AND x.plant_id=t.plant_id AND x.voided_at IS NULL
 		ORDER BY x.occurred_at DESC, x.recorded_at DESC, x.id DESC LIMIT 1) AS last_outcome,
@@ -49,15 +54,20 @@ const duties = (plantId: string, where: SQL = sql`true`) => sql`SELECT d.*,
 /** A duty row as JSON, with its owner view and origin. Same statement, no extra round trip. */
 const dutyJson = (d: SQL) => sql`to_jsonb(${d})`;
 const dutyOrder = (d: SQL) => sql`${d}.due_key NULLS LAST, ${d}.id`;
-/** Accounts that still hold open follow-ups they can no longer own, with how many: where a handoff starts. */
-const formerTally = sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('accountId',x.assignee_id,'displayName',
-	coalesce(x.name,''),'open',x.n) ORDER BY lower(x.name), x.assignee_id),'[]') FROM (SELECT d.assignee_id,
-	(SELECT display_name FROM seat_identity(d.assignee_id)) AS name, count(*)::int AS n FROM duty d
-	WHERE d.owner_id IS NULL AND d.assignee_id IS NOT NULL GROUP BY d.assignee_id) x)`;
-const ownerTally = sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('accountId',x.owner_id,'displayName',
-	coalesce(x.name,''),'open',x.n) ORDER BY lower(x.name), x.owner_id),'[]') FROM (SELECT d.owner_id,
-	(SELECT display_name FROM seat_identity(d.owner_id)) AS name, count(*)::int AS n FROM duty d
-	WHERE d.owner_id IS NOT NULL GROUP BY d.owner_id) x)`;
+/**
+ * Accounts that still hold open follow-ups they can no longer own, with how many: where a handoff starts. An
+ * ineligible assignee counts whether or not a co-assignee is eligible (REQ-TSK-013).
+ */
+const formerTally = sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('accountId',x.id,'displayName',
+	coalesce(x.name,''),'open',x.n) ORDER BY lower(x.name), x.id),'[]') FROM (SELECT u.id,
+	(SELECT display_name FROM seat_identity(u.id)) AS name, count(*)::int AS n FROM duty d
+	CROSS JOIN LATERAL (SELECT (o->>'accountId')::uuid AS id FROM jsonb_array_elements(d.owners) o
+		WHERE (o->>'eligible')='false') u GROUP BY u.id) x)`;
+/** Open follow-ups for each eligible assignee: a follow-up counts once under each of them. */
+const ownerTally = sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('accountId',x.id,'displayName',
+	coalesce(x.name,''),'open',x.n) ORDER BY lower(x.name), x.id),'[]') FROM (SELECT u.id,
+	(SELECT display_name FROM seat_identity(u.id)) AS name, count(*)::int AS n FROM duty d
+	CROSS JOIN LATERAL unnest(d.owner_ids) u(id) GROUP BY u.id) x)`;
 const dutyRow = z.object({
 	id: z.uuid(),
 	revision,
@@ -72,7 +82,7 @@ const dutyRow = z.object({
 	person_id: z.uuid(),
 	person_label: z.string(),
 	plant_zone: timeZone,
-	owner: followUpOwner.nullable(),
+	owners: z.array(followUpOwner),
 	origin: z.unknown(),
 	last_outcome: c.outcome.nullable(),
 	contacted: z.object({ at: z.coerce.date(), by: z.string().nullable() }).nullable(),
@@ -89,7 +99,7 @@ function dutyOf(raw: unknown, asOf: Instant) {
 		overdue: due.kind === "undated" ? null : tc.overdueAt(due, d.plant_zone, asOf),
 		obligationId: d.obligation_id,
 		person: { id: d.person_id, label: d.person_label },
-		owner: d.owner,
+		owners: sortPeople(d.owners),
 		origin: originOf(d.origin),
 		lastOutcome: d.last_outcome,
 		contacted: d.contacted ? { at: at(d.contacted.at), by: d.contacted.by } : null,
@@ -151,7 +161,7 @@ const obligationRow = z.object({
 	task_revision: revision.nullable(),
 	task_status: tc.taskStatus.nullable(),
 	task_deleted: z.boolean().nullable(),
-	owner: followUpOwner.nullable(),
+	owners: z.array(followUpOwner),
 	completion: z.object({ id: z.uuid(), outcome: c.outcome, at: z.coerce.date() }).nullable(),
 	contacted: z.boolean(),
 	total: z.coerce.number().int(),
@@ -257,9 +267,10 @@ export const followUpReader = {
 							WHEN t.deleted_at IS NULL AND t.status='complete' THEN 'complete' ELSE 'open' END AS state,
 						t.id AS task_id, t.revision::text AS task_revision, t.status AS task_status,
 						t.deleted_at IS NOT NULL AS task_deleted,
-						CASE WHEN t.deleted_at IS NULL AND t.assignee_id IS NOT NULL THEN CASE WHEN o.kind='follow_up'
-							THEN ${ownerView(sql`t.assignee_id`, sql`o.plant_id`)}
-							ELSE ${ownerView(sql`t.assignee_id`, sql`o.plant_id`, "seated")} END END AS owner,
+						CASE WHEN t.deleted_at IS NULL THEN (SELECT coalesce(jsonb_agg(CASE WHEN o.kind='follow_up'
+							THEN ${ownerView(sql`a.account_id`, sql`o.plant_id`)}
+							ELSE ${ownerView(sql`a.account_id`, sql`o.plant_id`, "seated")} END),'[]'::jsonb)
+							FROM task_assignee a WHERE a.task_id=t.id) ELSE '[]'::jsonb END AS owners,
 						(SELECT jsonb_build_object('id',x.id,'outcome',x.outcome,'at',x.occurred_at) FROM contact_outcome x
 							WHERE x.plant_id=o.plant_id AND ${evidence} AND x.voided_at IS NULL AND x.completes_task
 							ORDER BY x.occurred_at, x.id LIMIT 1) AS completion,
@@ -298,7 +309,7 @@ export const followUpReader = {
 						task: r.task_id
 							? { id: r.task_id, revision: r.task_revision, status: r.task_status, deleted: r.task_deleted }
 							: null,
-						owner: r.owner,
+						owners: sortPeople(r.owners),
 						completion,
 						contacted: r.contacted,
 						measurement:
@@ -330,7 +341,7 @@ export const followUpReader = {
 				sql`WITH duty AS MATERIALIZED (${duties(viewer.plantId, onePerson(sql`t.person_id`))}),
 				people AS MATERIALIZED (SELECT p.id, p.display_name, p.stage,
 					CASE WHEN NOT EXISTS(SELECT FROM duty d WHERE d.person_id=p.id) THEN 'uncovered'
-						WHEN EXISTS(SELECT FROM duty d WHERE d.person_id=p.id AND d.owner_id IS NULL) THEN 'needs_owner'
+						WHEN EXISTS(SELECT FROM duty d WHERE d.person_id=p.id AND cardinality(d.owner_ids)=0) THEN 'needs_owner'
 						ELSE 'owned' END AS coverage
 					FROM person p WHERE p.tenant_id=${plant} AND p.plant_id IS NOT NULL AND p.state='live'
 					AND ${onePerson(sql`p.id`)}
@@ -339,7 +350,7 @@ export const followUpReader = {
 				SELECT 0::bigint AS ord, NULL::uuid AS id, NULL::text AS label, NULL::text AS stage, NULL::text AS coverage,
 					NULL::jsonb AS duties, (SELECT count(*)::int FROM matched) AS total,
 					(SELECT count(*)::int FROM people WHERE coverage='uncovered') AS uncovered,
-					(SELECT count(*)::int FROM duty WHERE owner_id IS NULL) AS needs_owner, ${ownerTally} AS owners,
+					(SELECT count(*)::int FROM duty WHERE cardinality(owner_ids)=0) AS needs_owner, ${ownerTally} AS owners,
 					${formerTally} AS former
 				UNION ALL (SELECT row_number() OVER (ORDER BY array_position(ARRAY['needs_owner','uncovered','owned'], m.coverage),
 					lower(m.display_name), m.id), m.id, m.display_name, m.stage, m.coverage,
@@ -393,15 +404,15 @@ export const followUpReader = {
 				v.owner === undefined
 					? sql`true`
 					: v.owner === "needs_owner"
-						? sql`d.owner_id IS NULL`
-						: sql`d.owner_id=${v.owner}::uuid`;
+						? sql`cardinality(d.owner_ids)=0`
+						: sql`${v.owner}::uuid=ANY(d.assignee_ids)`;
 			const found = await gated(
 				tx,
 				viewer,
 				sql`WITH duty AS MATERIALIZED (${duties(viewer.plantId, person)}),
 				matched AS MATERIALIZED (SELECT * FROM duty d WHERE ${owner})
 				SELECT 0::bigint AS ord, NULL::jsonb AS duty, (SELECT count(*)::int FROM matched) AS matched,
-					(SELECT count(*)::int FROM duty WHERE owner_id IS NULL) AS unassigned, ${ownerTally} AS owners
+					(SELECT count(*)::int FROM duty WHERE cardinality(owner_ids)=0) AS unassigned, ${ownerTally} AS owners
 				UNION ALL (SELECT row_number() OVER (ORDER BY ${dutyOrder(sql`d`)}), ${dutyJson(sql`d`)}, NULL, NULL, NULL
 				FROM matched d ORDER BY 1 LIMIT ${v.limit} OFFSET ${(v.page - 1) * v.limit})`,
 			);
@@ -431,7 +442,7 @@ export const followUpReader = {
 			const found = await gated(
 				tx,
 				viewer,
-				sql`WITH duty AS MATERIALIZED (${duties(viewer.plantId, sql`t.assignee_id=${from}`)})
+				sql`WITH duty AS MATERIALIZED (${duties(viewer.plantId, assignedTo("t", from))})
 				SELECT 0::bigint AS ord, NULL::jsonb AS duty,
 					(SELECT display_name FROM seat_identity(${from})) AS name, ${eligibleOwner(from, plant)} AS eligible,
 					EXISTS(SELECT FROM seat s WHERE s.account_id=${from} AND s.plant_id=${plant} AND s.role='owner'

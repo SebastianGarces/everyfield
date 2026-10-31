@@ -2,7 +2,7 @@ import { z } from "zod";
 import { instant } from "../common/time.ts";
 import { accountId, personId, recordId, requestKey, revision } from "../common/values.ts";
 import { commandEnvelope } from "../common/writes.ts";
-import { description, dueInput, priority, title } from "../tasks/values.ts";
+import { assigneeIds, description, dueInput, priority, title } from "../tasks/values.ts";
 import { channel, notes, outcome, reason } from "./values.ts";
 
 const page = {
@@ -74,13 +74,11 @@ export const createFollowUpRequest = z.strictObject({
 		description: description.nullable().default(null),
 		priority: priority.default("medium"),
 		due: dueInput.default({ kind: "undated" }),
-		assigneeId: accountId.nullable().default(null),
+		assigneeIds: assigneeIds.default([]),
 	}),
 });
-// Null leaves the follow-up as Needs owner.
-export const assignFollowUpRequest = commandEnvelope(
-	z.strictObject({ taskId: recordId, assigneeId: accountId.nullable() }),
-);
+// An empty list leaves the follow-up as Needs owner.
+export const assignFollowUpRequest = commandEnvelope(z.strictObject({ taskId: recordId, assigneeIds }));
 export const followUpCoverageRequest = z.strictObject({
 	personId: personId.optional(),
 	coverage: z.enum(["owned", "needs_owner", "uncovered", "any"]).default("any"),

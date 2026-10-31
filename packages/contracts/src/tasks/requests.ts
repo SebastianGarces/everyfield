@@ -1,8 +1,18 @@
 import { z } from "zod";
 import { instant } from "../common/time.ts";
-import { accountId, recordId, requestKey, revision } from "../common/values.ts";
+import { recordId, requestKey, revision } from "../common/values.ts";
 import { commandEnvelope } from "../common/writes.ts";
-import { category, description, dueInput, priority, recurrenceRule, relation, taskStatus, title } from "./values.ts";
+import {
+	assigneeIds,
+	category,
+	description,
+	dueInput,
+	priority,
+	recurrenceRule,
+	relation,
+	taskStatus,
+	title,
+} from "./values.ts";
 
 // No owner, creator, completion time, obligation or source identity in bodies: the server derives them. A checklist
 // row is created with createSubtaskRequest.
@@ -15,7 +25,7 @@ export const createTaskRequest = z.strictObject({
 		priority: priority.default("medium"),
 		category: category.default("general"),
 		due: dueInput.default({ kind: "undated" }),
-		assigneeId: accountId.nullable().default(null),
+		assigneeIds: assigneeIds.default([]),
 		relation: relation.nullable().default(null),
 	}),
 });
@@ -29,7 +39,8 @@ export const editTaskRequest = commandEnvelope(
 			priority: priority.optional(),
 			category: category.optional(),
 			due: dueInput.optional(),
-			assigneeId: accountId.nullable().optional(),
+			// Omitted leaves the set unchanged; an empty list clears it.
+			assigneeIds: assigneeIds.optional(),
 			relation: relation.nullable().optional(),
 		}),
 	}),
@@ -88,8 +99,8 @@ export const createSubtaskRequest = commandEnvelope(
 	z.strictObject({
 		parentId: recordId,
 		title,
-		// Omitted inherits the parent's assignee. Only an Owner or Admin may name another account or null.
-		assigneeId: accountId.nullable().optional(),
+		// Omitted inherits the parent's assignees. Only an Owner or Admin may name other accounts or an empty list.
+		assigneeIds: assigneeIds.optional(),
 	}),
 );
 export const setSubtaskCompletionRequest = commandEnvelope(

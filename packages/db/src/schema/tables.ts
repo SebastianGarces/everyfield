@@ -2486,7 +2486,6 @@ export const obligation = pgTable(
 		timezone: text("timezone").notNull(),
 		formula_version: text("formula_version").notNull(),
 		due_date: date("due_date", { mode: "string" }).notNull(),
-		assignee_id: uuid("assignee_id"),
 		waived_at: timestamp("waived_at", { withTimezone: true, mode: "date" }),
 		waiver_reason: text("waiver_reason"),
 		superseded_at: timestamp("superseded_at", { withTimezone: true, mode: "date" }),
@@ -2512,9 +2511,6 @@ export const obligation = pgTable(
 		})
 			.onDelete("restrict")
 			.onUpdate("no action"),
-		foreignKey({ name: "obligation_fk_3", columns: [table.assignee_id], foreignColumns: [account.id] })
-			.onDelete("restrict")
-			.onUpdate("no action"),
 		foreignKey({
 			name: "obligation_fk_4",
 			columns: [table.id, table.plant_id],
@@ -2531,7 +2527,6 @@ export const obligation = pgTable(
 		index("obligation_ref_0").using("btree", table.plant_id.asc().nullsLast()),
 		index("obligation_ref_1").using("btree", table.meeting_id.asc().nullsLast(), table.plant_id.asc().nullsLast()),
 		index("obligation_ref_2").using("btree", table.person_id.asc().nullsLast(), table.plant_id.asc().nullsLast()),
-		index("obligation_ref_3").using("btree", table.assignee_id.asc().nullsLast()),
 		uniqueIndex("obligation_uq_1")
 			.using(
 				"btree",
@@ -4269,7 +4264,6 @@ export const task = pgTable(
 		}).notNull(),
 		creator_id: uuid("creator_id"),
 		created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
-		assignee_id: uuid("assignee_id"),
 		due_kind: text("due_kind", { enum: ["undated", "date_only", "timed"] }).notNull(),
 		due_date: date("due_date", { mode: "string" }),
 		due_time: time("due_time"),
@@ -4332,9 +4326,6 @@ export const task = pgTable(
 			columns: [table.id, table.plant_id],
 			foreignColumns: [record.id, record.tenant_id],
 		})
-			.onDelete("restrict")
-			.onUpdate("no action"),
-		foreignKey({ name: "task_fk_2", columns: [table.assignee_id], foreignColumns: [account.id] })
 			.onDelete("restrict")
 			.onUpdate("no action"),
 		foreignKey({
@@ -4418,7 +4409,6 @@ export const task = pgTable(
 		index("task_ref_11").using("btree", table.source_template_id.asc().nullsLast()),
 		index("task_ref_12").using("btree", table.import_operation_id.asc().nullsLast()),
 		index("task_ref_13").using("btree", table.milestone_id.asc().nullsLast(), table.plant_id.asc().nullsLast()),
-		index("task_ref_2").using("btree", table.assignee_id.asc().nullsLast()),
 		index("task_ref_3").using("btree", table.person_id.asc().nullsLast(), table.plant_id.asc().nullsLast()),
 		index("task_ref_4").using("btree", table.meeting_id.asc().nullsLast(), table.plant_id.asc().nullsLast()),
 		index("task_ref_5").using("btree", table.team_id.asc().nullsLast(), table.plant_id.asc().nullsLast()),
@@ -4443,6 +4433,35 @@ export const task = pgTable(
 		uniqueIndex("task_uq_5")
 			.using("btree", table.milestone_id.asc().nullsLast(), table.seed_key.asc().nullsLast())
 			.where(sql`(seed_key IS NOT NULL)`),
+	],
+);
+export const task_assignee = pgTable(
+	"task_assignee",
+	{
+		plant_id: uuid("plant_id").notNull(),
+		task_id: uuid("task_id").notNull(),
+		account_id: uuid("account_id").notNull(),
+		added_at: timestamp("added_at", { withTimezone: true, mode: "date" })
+			.notNull()
+			.default(sql`now()`),
+	},
+	(table): PgTableExtraConfigValue[] => [
+		foreignKey({ name: "task_assignee_fk_0", columns: [table.plant_id], foreignColumns: [plant.id] })
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "task_assignee_fk_1",
+			columns: [table.task_id, table.plant_id],
+			foreignColumns: [task.id, task.plant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({ name: "task_assignee_fk_2", columns: [table.account_id], foreignColumns: [account.id] })
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		primaryKey({ name: "task_assignee_pkey", columns: [table.task_id, table.account_id] }),
+		index("task_assignee_ref_0").using("btree", table.plant_id.asc().nullsLast()),
+		index("task_assignee_ref_2").using("btree", table.account_id.asc().nullsLast(), table.plant_id.asc().nullsLast()),
 	],
 );
 export const team = pgTable(

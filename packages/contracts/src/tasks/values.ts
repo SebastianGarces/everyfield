@@ -27,7 +27,15 @@ export const category = z.enum([
 ]);
 /** Why an assignee cannot own a follow-up now (REQ-TSK-012): no current seat, no linked Person, or a Person outside the committed stages. */
 export const ownerReason = z.enum(["no_seat", "no_person", "not_committed"]);
-/** A follow-up's owner view: the task's assignee and whether they may own it. The one value every screen shows. */
+/** A task has at most ten assignees (D-b). */
+export const MAX_ASSIGNEES = 10;
+/** The accounts a task is assigned to. A repeated ID collapses to one before the limit applies. */
+export const assigneeIds = z
+	.array(accountId)
+	.max(100)
+	.transform((ids) => [...new Set(ids)])
+	.refine((ids) => ids.length <= MAX_ASSIGNEES, "too_many_assignees");
+/** A follow-up's owner view: one of the task's assignees and whether they may own it. The one value every screen shows. */
 export const followUpOwner = z.strictObject({
 	accountId,
 	displayName: z.string(),
