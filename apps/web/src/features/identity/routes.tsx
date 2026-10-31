@@ -36,9 +36,11 @@ export async function HomePage() {
 	if (!viewer || viewer.status === "unauthenticated") redirect("/signin");
 	let plant: PlantSetup = "none";
 	const context = viewer.authority?.actor.context;
-	const db = requestDatabase();
-	if (viewer.status === "active" && context?.kind === "seat" && context.owner.kind === "plant" && db)
+	if (viewer.status === "active" && context?.kind === "seat" && context.owner.kind === "plant") {
+		// getViewer returns a viewer only when the request database is configured, so the database is present here.
+		const db = requestDatabase() as NonNullable<ReturnType<typeof requestDatabase>>;
 		plant = (await readPlantSetupComplete(db, viewer.sessionId, context.owner)) ? "complete" : "incomplete";
+	}
 	redirect(landingFor({ status: viewer.status, plant }));
 }
 

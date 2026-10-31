@@ -49,6 +49,13 @@ for (const [name, engine] of ENGINES) {
 			}),
 		);
 
+		test("a safe returnTo to /documents lands on /documents", { timeout: 90_000 }, () =>
+			withPage(engine, async (page) => {
+				await signInAs(page, seed().landing.finished, "/signin?returnTo=%2Fdocuments");
+				await page.waitForURL(at("/documents"), { timeout: 60_000 });
+			}),
+		);
+
 		test("an unsafe returnTo is ignored and never leaves the origin", { timeout: 180_000 }, async () => {
 			for (const value of ["https://evil.example", "//evil.example", "/\\evil.example", "javascript:alert(1)"]) {
 				await withPage(engine, async (page) => {

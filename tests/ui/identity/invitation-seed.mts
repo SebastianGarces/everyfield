@@ -127,23 +127,6 @@ async function up(origin: string) {
 	const grace = await account("Grace Moreno", "grace@gracechurch.example.test", "active");
 	const noop = async () => {};
 	const onboarding = createOnboardingProducer({ invalidate: noop, notice: noop, enqueue: noop });
-	const created = await runtime.transaction((tx) =>
-		onboarding.createPlant(
-			tx,
-			{
-				session: owner.sessionId,
-				selected: { kind: "account", id: owner.accountId },
-			} as never,
-			{
-				requestKey: randomUUID(),
-				expectedRevision: "1",
-				input: { name: "Harvest Point", locality: { city: "Austin" }, confirmed: true },
-			} as never,
-		),
-	);
-	if (created.status !== "ok") throw Error("createPlant: " + JSON.stringify(created));
-	const plant = (created.value as { plant: { kind: "plant"; id: string } }).plant;
-	// Landing rule accounts (WP-005): an owner whose setup is finished, an owner whose setup is not, and a new account.
 	const churchOf = async (who: { sessionId: string; accountId: string }, name: string) => {
 		const made = await runtime.transaction((tx) =>
 			onboarding.createPlant(
@@ -159,6 +142,8 @@ async function up(origin: string) {
 		if (made.status !== "ok") throw Error("createPlant " + name + ": " + JSON.stringify(made));
 		return (made.value as { plant: { kind: "plant"; id: string } }).plant;
 	};
+	const plant = await churchOf(owner, "Harvest Point");
+	// Landing rule accounts (WP-005): an owner whose setup is finished, an owner whose setup is not, and a new account.
 	const finished = await account("Fiona Finished", "finished@landing.example.test", "active");
 	const finishedPlant = await churchOf(finished, "Finished Church");
 	await admin.execute(sql`UPDATE plant SET onboarding_completed_at=clock_timestamp() WHERE id=${finishedPlant.id}`);
