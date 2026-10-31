@@ -63,6 +63,12 @@ export function templateView(template: CatalogTemplate) {
 	};
 }
 
+/** Whether a template is editable: authored ("ready"), editable with no authored copy ("pending"), or fixed (null). */
+export function editableState(id: string) {
+	if (churchTemplate(id)) return "ready" as const;
+	return (PENDING_EDITABLE as readonly string[]).includes(id) ? ("pending" as const) : null;
+}
+
 function registryFacts(id: string) {
 	const entry = entryFor(id);
 	if (!entry) throw new Error(`Template ${id} is not in the document registry.`);
@@ -71,10 +77,6 @@ function registryFacts(id: string) {
 		pageSize: entry.pageSize,
 		fillable: entry.fields.length > 0,
 		outline: entry.outline,
-		editable: churchTemplate(id)
-			? ("ready" as const)
-			: (PENDING_EDITABLE as readonly string[]).includes(id)
-				? ("pending" as const)
-				: null,
+		editable: editableState(id),
 	};
 }
