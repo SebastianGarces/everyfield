@@ -1,7 +1,6 @@
 "use server";
 
 import { requestDatabase } from "@/server/database";
-import { getViewer } from "@/server/request-context";
 import type {
 	ChurchBlock,
 	ChurchDocument,
@@ -12,7 +11,7 @@ import type {
 import { privateStorage } from "@everyfield/db/schema";
 import { documentsReader, documentsWriter } from "@everyfield/domain/documents";
 import type { Format, OwnedView, Resolved, SavedFile } from "./model.ts";
-import { documentActor } from "./server.ts";
+import { documentSession } from "./server.ts";
 
 // Field fill for the open template. The actor is read again here. The browser cannot name a person, meeting, or
 // team. Preview bytes use their own route.
@@ -36,14 +35,15 @@ function refused(error: DocumentsError): DocumentOutcome<never> {
 async function run<T>(
 	read: (
 		db: NonNullable<ReturnType<typeof requestDatabase>>,
-		actor: NonNullable<Awaited<ReturnType<typeof documentActor>>>,
+		actor: NonNullable<Awaited<ReturnType<typeof documentSession>>>["actor"],
+		author: NonNullable<Awaited<ReturnType<typeof documentSession>>>["author"],
 	) => Promise<DocumentOutcome<T>>,
 ) {
-	const actor = await documentActor();
+	const session = await documentSession();
 	const db = requestDatabase();
-	if (!actor || !db) return { status: "lost" } as const;
+	if (!session || !db) return { status: "lost" } as const;
 	try {
-		return await read(db, actor);
+		return await read(db, session.actor, session.author);
 	} catch (error) {
 		console.error(JSON.stringify({ component: "documents", outcome: "action_failed", error: String(error) }));
 		return { status: "lost" } as const;
@@ -222,12 +222,6 @@ export async function createChurchDocument(
 	});
 }
 
-/** The name the page shows for the person who just wrote: the signed-in account's own name. */
-async function writer() {
-	const viewer = await getViewer();
-	return { id: viewer && "accountId" in viewer ? viewer.accountId : null, name: viewer?.displayName?.trim() || null };
-}
-
 /** What a save changed: the document at its new revision and that one revision's summary. */
 type ChurchSaved = { document: ChurchDocument; revision: ChurchRevisionSummary };
 
@@ -237,11 +231,10 @@ export async function saveChurchDocument(
 	expectedRevision: string,
 	body: ChurchBlock[],
 ): Promise<DocumentOutcome<ChurchSaved>> {
-	return run(async (db, actor) => {
+	return run(async (db, actor, author) => {
 		const saved = await documentsWriter.saveNative(db, actor, { documentId, expectedRevision, body });
 		if (saved.status === "refused") return refused(saved.error);
 		const document = saved.value;
-		const author = await writer();
 		return {
 			status: "ok",
 			value: {
@@ -291,13 +284,12 @@ export async function exportChurchDocument(
 ): Promise<DocumentOutcome<{ url: string; export: ChurchExport }>> {
 	const storage = privateStorage();
 	if (!storage) return storageMissing;
-	return run(async (db, actor) => {
+	return run(async (db, actor, author) => {
 		const made = await documentsWriter.exportNative(db, actor, { documentId, revision, format, requestKey }, storage);
 		if (made.status === "refused") return refused(made.error);
 		const link = await documentsWriter.download(db, actor, { documentId: made.value.id }, storage);
 		if (link.status === "refused") return refused(link.error);
 		const file = made.value;
-		const author = await writer();
 		return {
 			status: "ok",
 			value: {

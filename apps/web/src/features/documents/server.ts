@@ -25,9 +25,20 @@ export type DocumentsLoad =
 
 /** The request's active actor, or null when there is no active account. */
 export async function documentActor(): Promise<RequestActor | null> {
+	return (await documentSession())?.actor ?? null;
+}
+
+/** The active actor and the signed-in account's own name, from one viewer read. */
+export async function documentSession() {
 	const viewer = await getViewer();
 	if (!viewer || viewer.status !== "active") return null;
-	return viewer.authority;
+	return {
+		actor: viewer.authority,
+		author: {
+			id: "accountId" in viewer ? viewer.accountId : null,
+			name: viewer.displayName?.trim() || null,
+		},
+	};
 }
 
 export type PreviewOutcome =
