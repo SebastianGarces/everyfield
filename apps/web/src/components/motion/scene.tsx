@@ -159,3 +159,16 @@ export function useReduced() {
 		() => false,
 	);
 }
+
+const subscribeHidden = (cb: () => void) => {
+	document.addEventListener("visibilitychange", cb);
+	return () => document.removeEventListener("visibilitychange", cb);
+};
+/** Whether the tab is hidden. Timers that advance a scene stop while it is; the server render sees a visible tab. */
+export function useTabHidden() {
+	return useSyncExternalStore(
+		subscribeHidden,
+		() => document.hidden,
+		() => false,
+	);
+}
