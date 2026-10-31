@@ -35,7 +35,7 @@ type Register = (name: string) => (el: HTMLElement | null) => void;
 const TargetContext = createContext<Register | null>(null);
 export const TargetProvider = TargetContext;
 /** A ref callback that registers an element as a named target of the surrounding card's geometry. */
-export function useTarget(name: string | undefined) {
+function useTarget(name: string | undefined) {
 	const register = useContext(TargetContext);
 	if (!name) return undefined;
 	if (!register) throw new Error("useTarget needs a TargetProvider");

@@ -64,7 +64,7 @@ type Geo = {
 	target: (name: string) => (el: HTMLElement | null) => void;
 };
 const GeoContext = createContext<Geo | null>(null);
-export function useGeo() {
+function useGeo() {
 	const g = useContext(GeoContext);
 	if (!g) throw new Error("useGeo needs a PanelCard");
 	return g;

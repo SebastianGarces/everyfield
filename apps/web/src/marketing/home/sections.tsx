@@ -17,7 +17,7 @@ const EVRY_PHOTOS: PhotoName[] = ["swirl", "lupins", "marigolds"];
  * "Anything in Everyfield, Evry can do for you" (OPS-82): the headline over the subhead, three photo cards with the
  * frosted icon (you ask, Evry prepares it, you approve), then the limits line. No chat, no large EvryBot.
  */
-export function EvryCards({ limits }: { limits: string }) {
+export function EvryCards() {
 	const E = COPY.shared.ops82.evry;
 	return (
 		<section id="evry" aria-labelledby="evry-title" className="relative py-section">
@@ -49,7 +49,7 @@ export function EvryCards({ limits }: { limits: string }) {
 				</ul>
 				<p className="mt-4 flex items-start gap-3 bg-cream px-4 py-3.5 type-lg leading-[1.5] text-text-2 mk-xl:type-title-sm">
 					<Icon icon={ICONS.heart} size={20} className="mt-[3px] text-ink" />
-					<span>{limits}</span>
+					<span>{COPY.journey.evry.limits}</span>
 				</p>
 			</div>
 		</section>

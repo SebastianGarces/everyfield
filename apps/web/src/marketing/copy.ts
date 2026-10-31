@@ -32,7 +32,7 @@ const journey = z.object({
 		hero,
 		problem: headBody,
 		vision: headBody.extend({ bridge: text }),
-		features: z.object({ headline: text, items: z.array(railItem).length(6), icons: z.array(icon).length(6) }),
+		features: z.object({ items: z.array(railItem).length(6), icons: z.array(icon).length(6) }),
 		evry: z.object({ limits: text }),
 		cta,
 	}),

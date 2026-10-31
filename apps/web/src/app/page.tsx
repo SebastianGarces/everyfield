@@ -48,7 +48,7 @@ export default function Home() {
 				icons={J.features.icons}
 			/>
 			<JourneySection />
-			<EvryCards limits={J.evry.limits} />
+			<EvryCards />
 			<SendingSection />
 			<CtaSection c={J.cta} href={{ secondary: accessFor("network") }} size="h1" />
 		</Site>

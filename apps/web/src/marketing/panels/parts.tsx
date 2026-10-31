@@ -35,7 +35,7 @@ export function Head({
 		</St>
 	);
 }
-export function PIcon({ tone, icon }: { tone: Tone; icon: IconSvgElement }) {
+function PIcon({ tone, icon }: { tone: Tone; icon: IconSvgElement }) {
 	return <CardIcon tone={tone} icon={icon} size={36} glyph={17} />;
 }
 /** The common panel header with a tinted icon. */

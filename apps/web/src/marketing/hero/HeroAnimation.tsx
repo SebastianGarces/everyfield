@@ -10,8 +10,8 @@ import { ApproveButton, HeroStage, Roll, Typed, TypedName } from "./hero-fx";
 // team member and you approve it; Evry never writes the message. The cards render on the server; hero-fx.tsx runs the
 // clock, the typing, the moving chip and the pause button.
 
-const label = (name: string, first: string, task: HeroDemo["task"]) =>
-	`Example: ${name} is added and comes to a vision meeting. Evry creates a follow-up task for ${task.assignee}, and you approve it. ${first} commits and joins the core group.`;
+const label = (name: string, task: HeroDemo["task"]) =>
+	`Example: ${name} is added and comes to a vision meeting. Evry creates a follow-up task for ${task.assignee}, and you approve it. ${name.split(" ")[0]} commits and joins the core group.`;
 const CARD =
 	"relative col-start-1 row-start-1 w-[min(440px,calc(100%-32px))] px-5 pt-[18px] pb-5 opacity-0 max-mk-sm:w-[calc(100%-24px)] max-mk-sm:px-4 max-mk-sm:pt-4 max-mk-sm:pb-[18px]";
 
@@ -25,7 +25,6 @@ export type HeroDemo = {
 /** following and core: the stage counts before and after the person moves from Following up to Core group. */
 type HeroPerson = {
 	name: string;
-	first: string;
 	initials: string;
 	following: readonly [number, number];
 	core: readonly [number, number];
@@ -35,7 +34,7 @@ export function HeroAnimation({ demo }: { demo: HeroDemo }) {
 	const { meeting, task, person } = demo;
 	return (
 		<HeroStage
-			label={label(person.name, person.first, task)}
+			label={label(person.name, task)}
 			chip={
 				<>
 					<Av>{person.initials}</Av>

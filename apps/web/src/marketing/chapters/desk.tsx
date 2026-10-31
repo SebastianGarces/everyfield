@@ -11,7 +11,7 @@ import { PanelSlotProvider, type PanelSlot } from "./panel-frame";
 // The desktop panel parts of the auto-advancing chapters (AutoList): the panel crossfade, the step backgrounds and the
 // step reveal.
 
-export type Role = "active" | "prev" | "idle";
+type Role = "active" | "prev" | "idle";
 /** The shown step and the one fading out, packed in one number (active * 16 + prev + 1) so it can feed a multi-input
  *  transform. Set in the same call that restarts the switch clock, so a panel's style never waits for a React render
  *  to learn its new role. */

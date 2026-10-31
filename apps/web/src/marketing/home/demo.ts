@@ -15,7 +15,7 @@ export const HERO: HeroDemo = {
 		initials: "JP",
 		due: "due Tue, Oct 14",
 	},
-	person: { name: "Emily Carter", first: "Emily", initials: "EC", following: [23, 22], core: [34, 35] },
+	person: { name: "Emily Carter", initials: "EC", following: [23, 22], core: [34, 35] },
 };
 
 export const MONDAY: MondayDemo = {
