@@ -51,9 +51,14 @@ function unsafe(value: string) {
 }
 
 const unsafeMeeting = (m: AgendaMeeting) =>
-	[m.title, m.date, m.time, m.place ?? "", ...m.sections.map((s) => s.title), ...m.attendees.flatMap((a) => [a.name, a.role ?? ""])].some(
-		unsafe,
-	);
+	[
+		m.title,
+		m.date,
+		m.time,
+		m.place ?? "",
+		...m.sections.map((s) => s.title),
+		...m.attendees.flatMap((a) => [a.name, a.role ?? ""]),
+	].some(unsafe);
 
 function finish(bytes: Uint8Array) {
 	if (bytes.length > ARTIFACT_MAX) throw new RenderFailed();

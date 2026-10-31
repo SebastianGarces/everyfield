@@ -59,7 +59,11 @@ export function parseMeeting(value: unknown): MeetingRead | null {
  * One statement. Whether the viewer's session and seat are live, and the agenda kind of a live meeting in the plant. Reads no agenda and no people, and
  * says nothing about a retired meeting, another plant's meeting or a meeting of a type with no agenda.
  */
-export async function readAgendaKind(db: Reader, viewer: PlantViewer, meetingId: string): Promise<{ open: false } | { open: true; kind: AgendaKind | null }> {
+export async function readAgendaKind(
+	db: Reader,
+	viewer: PlantViewer,
+	meetingId: string,
+): Promise<{ open: false } | { open: true; kind: AgendaKind | null }> {
 	const found = await db.execute(sql`SELECT a.access_live, k.type, k.leadership
 		FROM (SELECT ${liveRead(viewer.access, false)} AND EXISTS(SELECT FROM live_session(${viewer.access.session}::uuid) s
 			WHERE s.registration_state='active' AND s.account_id=${viewer.accountId}::uuid) AS access_live) a

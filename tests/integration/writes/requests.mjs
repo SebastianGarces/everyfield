@@ -204,7 +204,9 @@ try {
 	// Meetings (WP-036/api): a Vision meeting with a venue, 6 sections and 3 guests, an empty one, and a leadership team
 	// meeting with a role holder. The agenda print reads each; they grow with the other data below.
 	const sections = (n) =>
-		JSON.stringify(Array.from({ length: n }, (_, i) => ({ id: `s${i}`, title: `Section ${i + 1}`, minutes: 5 + (i % 4) })));
+		JSON.stringify(
+			Array.from({ length: n }, (_, i) => ({ id: `s${i}`, title: `Section ${i + 1}`, minutes: 5 + (i % 4) })),
+		);
 	const meeting = async (type, { agenda = 0, venue = true, team = null } = {}) => {
 		const id = randomUUID();
 		await admin.execute(
@@ -339,7 +341,11 @@ try {
 		["GET /meetings/[meetingId]", `/meetings/${visionMeeting}`, owner.cookie],
 		["GET /meetings/[meetingId] (leadership team meeting)", `/meetings/${boardMeeting}`, owner.cookie],
 		["GET /meetings/[meetingId]/agenda", `/meetings/${visionMeeting}/agenda`, owner.cookie],
-		["GET /meetings/[meetingId]/agenda:no sections and nobody listed", `/meetings/${emptyMeeting}/agenda`, owner.cookie],
+		[
+			"GET /meetings/[meetingId]/agenda:no sections and nobody listed",
+			`/meetings/${emptyMeeting}/agenda`,
+			owner.cookie,
+		],
 		["GET /meetings/[meetingId]/agenda:leadership team meeting", `/meetings/${boardMeeting}/agenda`, owner.cookie],
 		["GET /settings", "/settings", owner.cookie],
 		["GET /settings/brand", "/settings/brand", owner.cookie],

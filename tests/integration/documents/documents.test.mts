@@ -5,7 +5,11 @@ import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { library } from "../../../packages/domain/src/documents/catalog.ts";
 import { documentsReader } from "../../../packages/domain/src/documents/index.ts";
 import { resolveMerge } from "../../../packages/domain/src/documents/merge.ts";
-import { renderEngineVersion, renderPreview, renderTemplatePdf } from "../../../packages/domain/src/documents/render.ts";
+import {
+	renderEngineVersion,
+	renderPreview,
+	renderTemplatePdf,
+} from "../../../packages/domain/src/documents/render.ts";
 import { agendaMeetingOf } from "../../../packages/domain/src/documents/agenda-meeting.ts";
 import { loadStarter, validateBundle } from "../../../packages/reference/src/index.ts";
 import { referenceArtifactSha256 } from "../../../packages/reference/src/playbook.ts";
@@ -420,7 +424,9 @@ describe("WP-036/api document templates", { concurrency: 1 }, () => {
 		await admin.execute(
 			sql`INSERT INTO team(id,plant_id,name,state,sort_order,template_key) VALUES(${leadership},${P},'Leadership team','active',1,'leadership')`,
 		);
-		await admin.execute(sql`INSERT INTO team(id,plant_id,name,state,sort_order) VALUES(${other},${P},'Worship team','active',2)`);
+		await admin.execute(
+			sql`INSERT INTO team(id,plant_id,name,state,sort_order) VALUES(${other},${P},'Worship team','active',2)`,
+		);
 		const elderRole = id();
 		await admin.execute(
 			sql`INSERT INTO team_role(id,plant_id,team_id,name,leadership,sort_order) VALUES(${elderRole},${P},${leadership},'Elder',true,1)`,
@@ -449,26 +455,22 @@ describe("WP-036/api document templates", { concurrency: 1 }, () => {
 			await guest(vision, pid, rsvp, drop);
 		await admin.execute(sql`UPDATE person SET state='retired' WHERE id=${retiredPerson}`);
 		await guest(board, ada, null);
-		await admin.execute(sql`INSERT INTO team_tenure(plant_id,role_id,person_id,started_on) VALUES(${P},${elderRole},${ada},'2026-01-01')`);
+		await admin.execute(
+			sql`INSERT INTO team_tenure(plant_id,role_id,person_id,started_on) VALUES(${P},${elderRole},${ada},'2026-01-01')`,
+		);
 
 		// Criterion 1: one template for a live Vision meeting and a live leadership team meeting; none for the rest.
 		const offered = async (who, meetingId) =>
-			ok(await documentsReader["templates.contextual"](db, who, { meetingId })).templates.map((template) => template.id);
+			ok(await documentsReader["templates.contextual"](db, who, { meetingId })).templates.map(
+				(template) => template.id,
+			);
 		assert.deepEqual(await offered(owner, vision), ["vision-meeting-agenda"]);
 		assert.deepEqual(await offered(member, vision), ["vision-meeting-agenda"]);
 		assert.deepEqual(await offered(owner, board), ["board-meeting-agenda"]);
-		for (const none of [orientation, worship, retired, foreignMeeting]) assert.deepEqual(await offered(owner, none), []);
+		for (const none of [orientation, worship, retired, foreignMeeting])
+			assert.deepEqual(await offered(owner, none), []);
 		assert.deepEqual(await offered(outsider, vision), []);
 
-		const expected = async (templateId: string, meetingId: string, over: Record<string, string> = {}) => {
-			const row = (
-				await admin.execute(
-					sql`SELECT m.type, m.title, m.vision_number, m.local_date::text AS local_date, to_char(m.local_time,'HH24:MI') AS local_time,
-						m.venue_name, m.venue_address, m.agenda FROM meeting m WHERE m.id=${meetingId}`,
-				)
-			).rows[0];
-			return row;
-		};
 		const printed = async (who, meetingId: string) => ok(await documentsReader.printAgenda(db, who, { meetingId }));
 		const before = await counts();
 		const audit = await countOf("audit_event");
@@ -477,7 +479,11 @@ describe("WP-036/api document templates", { concurrency: 1 }, () => {
 		const render = (id: string, facts) =>
 			renderTemplatePdf(
 				{ id },
-				{ church_name: "Harvest Point", ...(id === "vision-meeting-agenda" ? { pastor_name: "Pastor Ada" } : {}), meeting_date: facts.date },
+				{
+					church_name: "Harvest Point",
+					...(id === "vision-meeting-agenda" ? { pastor_name: "Pastor Ada" } : {}),
+					meeting_date: facts.date,
+				},
 				undefined,
 				facts,
 			);
@@ -508,7 +514,11 @@ describe("WP-036/api document templates", { concurrency: 1 }, () => {
 		const dateField = viaPreview.fields.find((field) => field.key === "meeting_date");
 		assert.deepEqual([dateField.value, dateField.source], [visionFacts.date, "meeting"]);
 		const context = ok(
-			await documentsReader.resolveContext(db, member, previewInput("vision-meeting-agenda", "pdf", { meetingId: vision })),
+			await documentsReader.resolveContext(
+				db,
+				member,
+				previewInput("vision-meeting-agenda", "pdf", { meetingId: vision }),
+			),
 		);
 		assert.equal(context.fields.find((field) => field.key === "meeting_date").source, "meeting");
 		const over = ok(
@@ -519,7 +529,10 @@ describe("WP-036/api document templates", { concurrency: 1 }, () => {
 			),
 		);
 		assert.deepEqual(
-			[over.fields.find((field) => field.key === "meeting_date").value, over.fields.find((field) => field.key === "meeting_date").source],
+			[
+				over.fields.find((field) => field.key === "meeting_date").value,
+				over.fields.find((field) => field.key === "meeting_date").source,
+			],
 			["Nov 11", "override"],
 		);
 		const print = await printed(member, vision);
@@ -545,7 +558,12 @@ describe("WP-036/api document templates", { concurrency: 1 }, () => {
 			},
 			new Date().getUTCFullYear(),
 		);
-		assert.equal(boardPrint.digest, createHash("sha256").update((await render("board-meeting-agenda", boardFacts)).bytes).digest("hex"));
+		assert.equal(
+			boardPrint.digest,
+			createHash("sha256")
+				.update((await render("board-meeting-agenda", boardFacts)).bytes)
+				.digest("hex"),
+		);
 
 		// Refusals leak nothing: wrong kind, retired, another plant's meeting, a meeting of no agenda type.
 		for (const [template, meetingId] of [
@@ -559,7 +577,8 @@ describe("WP-036/api document templates", { concurrency: 1 }, () => {
 			const result = await documentsReader.preview(db, owner, previewInput(template, "pdf", { meetingId }));
 			refused(result, "invalid_subject");
 			const text = JSON.stringify(result);
-			for (const leak of ["Harbor Hall", "Greeting", "Ada Brown", "artifact", "Foreign"]) assert.equal(text.includes(leak), false, leak);
+			for (const leak of ["Harbor Hall", "Greeting", "Ada Brown", "artifact", "Foreign"])
+				assert.equal(text.includes(leak), false, leak);
 		}
 		for (const bad of [retired, orientation, worship, foreignMeeting, id()]) {
 			const result = await documentsReader.printAgenda(db, owner, { meetingId: bad });
@@ -586,16 +605,25 @@ describe("WP-036/api document templates", { concurrency: 1 }, () => {
 			],
 			totalMinutes: 40,
 		};
-		assert.equal(edited.digest, createHash("sha256").update((await render("vision-meeting-agenda", editedFacts)).bytes).digest("hex"));
+		assert.equal(
+			edited.digest,
+			createHash("sha256")
+				.update((await render("vision-meeting-agenda", editedFacts)).bytes)
+				.digest("hex"),
+		);
 		// An agenda that empties prints the blank run of show with the meeting's own header facts.
 		await admin.execute(sql`UPDATE meeting SET agenda='[]'::jsonb WHERE id=${vision}`);
 		const emptied = await printed(owner, vision);
 		assert.equal(
 			emptied.digest,
-			createHash("sha256").update((await render("vision-meeting-agenda", { ...visionFacts, sections: [], totalMinutes: 0 })).bytes).digest("hex"),
+			createHash("sha256")
+				.update((await render("vision-meeting-agenda", { ...visionFacts, sections: [], totalMinutes: 0 })).bytes)
+				.digest("hex"),
 		);
 		// A removed list entry leaves the print at once; so does retiring the meeting.
-		await admin.execute(sql`UPDATE participation SET removed_at=clock_timestamp() WHERE meeting_id=${vision} AND person_id=${ben}`);
+		await admin.execute(
+			sql`UPDATE participation SET removed_at=clock_timestamp() WHERE meeting_id=${vision} AND person_id=${ben}`,
+		);
 		assert.notEqual((await printed(owner, vision)).digest, emptied.digest);
 		await admin.execute(sql`UPDATE meeting SET retired_at=clock_timestamp() WHERE id=${vision}`);
 		refused(await documentsReader.printAgenda(db, owner, { meetingId: vision }), "invalid_subject");
@@ -604,6 +632,5 @@ describe("WP-036/api document templates", { concurrency: 1 }, () => {
 		// Nothing stored: no generated document, audit row, file or document row.
 		assert.deepEqual(await counts(), before);
 		assert.equal(await countOf("audit_event"), audit);
-		void expected;
 	});
 });

@@ -91,7 +91,7 @@ export type PlantRead =
 	| ({ open: true; subjectOk: true } & PlantFacts & {
 				/** The live meeting named as the subject, with its agenda and list; null for no meeting or a retired one. */
 				meeting: MeetingRead | null;
-		  });
+			});
 
 function asText(value: unknown) {
 	if (typeof value === "string" && value.trim()) return value;
@@ -108,7 +108,8 @@ export async function readPlant(
 	viewer: PlantViewer,
 	subject: { personId: string | null; meetingId: string | null; teamId: string | null },
 ): Promise<PlantRead> {
-	const found = await db.execute(sql`SELECT a.access_live, q.subject_ok, q.church_name, q.pastor_name, q.launch_date, q.meeting
+	const found =
+		await db.execute(sql`SELECT a.access_live, q.subject_ok, q.church_name, q.pastor_name, q.launch_date, q.meeting
 		FROM (SELECT ${liveRead(viewer.access, false)} AND EXISTS(SELECT FROM live_session(${viewer.access.session}::uuid) s
 			WHERE s.registration_state='active' AND s.account_id=${viewer.accountId}::uuid) AS access_live) a
 		LEFT JOIN LATERAL (

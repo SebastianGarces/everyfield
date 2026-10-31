@@ -131,10 +131,11 @@ describe("WP-036/api agendas from the meeting", () => {
 			assert.ok(all.includes("40 min"), "total");
 			const order = ["Greeting", "Story", "Prayer"].map((t) => all.indexOf(t));
 			assert.ok(order.every((i) => i >= 0) && order[0]! < order[1]! && order[1]! < order[2]!, `${id}: order`);
-			assert.deepEqual(
-				all.filter((l) => /^\d{1,2}:\d{2} (am|pm)$/.test(l)).slice(1, 4),
-				["6:30 pm", "6:40 pm", "7:05 pm"],
-			);
+			assert.deepEqual(all.filter((l) => /^\d{1,2}:\d{2} (am|pm)$/.test(l)).slice(1, 4), [
+				"6:30 pm",
+				"6:40 pm",
+				"7:05 pm",
+			]);
 			assert.deepEqual(
 				all.filter((l) => /^\d+ min$/.test(l)),
 				["40 min", "10 min", "25 min", "5 min"],
@@ -183,39 +184,74 @@ describe("WP-036/api agendas from the meeting", () => {
 	});
 
 	test("DOC-007: no sections and nobody listed prints 6 blank run rows and 8 blank attendee rows", async () => {
-		const r = await render("board-meeting-agenda", meetingOf({ type: "team_meeting", leadership: true, visionNumber: null, agenda: [], attendees: [], attendeeTotal: 0 }));
+		const r = await render(
+			"board-meeting-agenda",
+			meetingOf({
+				type: "team_meeting",
+				leadership: true,
+				visionNumber: null,
+				agenda: [],
+				attendees: [],
+				attendeeTotal: 0,
+			}),
+		);
 		const all = lines(r);
 		for (const s of ["Team Meeting", "Tue Nov 10", "6:30 pm"]) assert.ok(all.includes(s), s);
 		assert.equal(countOf(r, "time_"), 6);
 		assert.equal(countOf(r, "segment_"), 6);
 		assert.equal(countOf(r, "present_"), 8);
 		assert.equal(r.fields.filter((f) => f.name.endsWith("_name")).length, 8);
-		assert.equal(all.some((l) => l.includes(" min")), false);
+		assert.equal(
+			all.some((l) => l.includes(" min")),
+			false,
+		);
 	});
 
 	test("DOC-002, DOC-007: 40 sections and 100 people paginate with a footer on every page and stay in the limit", async () => {
 		const m = meetingOf({
-			agenda: Array.from({ length: 40 }, (_, i) => ({ title: `Section ${i + 1} ${"long ".repeat(i % 7)}`.trim(), minutes: 5 })),
-			attendees: Array.from({ length: 100 }, (_, i) => ({ name: `Person ${String(i + 1).padStart(3, "0")}`, role: null })),
+			agenda: Array.from({ length: 40 }, (_, i) => ({
+				title: `Section ${i + 1} ${"long ".repeat(i % 7)}`.trim(),
+				minutes: 5,
+			})),
+			attendees: Array.from({ length: 100 }, (_, i) => ({
+				name: `Person ${String(i + 1).padStart(3, "0")}`,
+				role: null,
+			})),
 			attendeeTotal: 100,
 		});
 		const r = await render("vision-meeting-agenda", m);
 		assert.ok(r.pages > 1);
 		assert.ok(r.bytes.length < 8 * 1024 * 1024);
 		r.text.forEach((page, i) => {
-			assert.ok(page.some((l) => l.includes("Vision meeting agenda")), `footer text on page ${i + 1}`);
-			assert.ok(page.some((l) => l.startsWith("Page ")), `page number on page ${i + 1}`);
+			assert.ok(
+				page.some((l) => l.includes("Vision meeting agenda")),
+				`footer text on page ${i + 1}`,
+			);
+			assert.ok(
+				page.some((l) => l.startsWith("Page ")),
+				`page number on page ${i + 1}`,
+			);
 		});
 		const all = lines(r);
-		for (let i = 1; i <= 40; i++) assert.ok(all.some((l) => l.startsWith(`Section ${i}`)), `Section ${i}`);
+		for (let i = 1; i <= 40; i++)
+			assert.ok(
+				all.some((l) => l.startsWith(`Section ${i}`)),
+				`Section ${i}`,
+			);
 		for (const n of ["001", "050", "100"]) assert.ok(all.includes(`Person ${n}`), n);
-		assert.equal(all.some((l) => l.includes("not shown")), false);
+		assert.equal(
+			all.some((l) => l.includes("not shown")),
+			false,
+		);
 	});
 
 	test("DOC-002: more people than the cap prints the cap and the count not shown", async () => {
 		const total = ATTENDEE_CAP + 37;
 		const m = meetingOf({
-			attendees: Array.from({ length: ATTENDEE_CAP }, (_, i) => ({ name: `Person ${String(i + 1).padStart(3, "0")}`, role: null })),
+			attendees: Array.from({ length: ATTENDEE_CAP }, (_, i) => ({
+				name: `Person ${String(i + 1).padStart(3, "0")}`,
+				role: null,
+			})),
 			attendeeTotal: total,
 		});
 		const a = agendaMeetingOf(m, 2026);
@@ -230,7 +266,10 @@ describe("WP-036/api agendas from the meeting", () => {
 		for (const id of IDS) {
 			const neutral = await render(id, meetingOf(), NEUTRAL_THEME);
 			const brand = await render(id, meetingOf(), sampleKit());
-			assert.deepEqual(lines(neutral).filter((l) => /Greeting|Story|Prayer|Ada Brown/.test(l)), lines(brand).filter((l) => /Greeting|Story|Prayer|Ada Brown/.test(l)));
+			assert.deepEqual(
+				lines(neutral).filter((l) => /Greeting|Story|Prayer|Ada Brown/.test(l)),
+				lines(brand).filter((l) => /Greeting|Story|Prayer|Ada Brown/.test(l)),
+			);
 			assert.notDeepEqual(neutral.bytes, brand.bytes);
 			assert.ok(brand.bytes.includes("Harborlight Church logo"));
 			assert.deepEqual(new Set(names(neutral)), new Set(names(brand)));

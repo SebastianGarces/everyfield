@@ -152,12 +152,16 @@ export function agendaDocument(ctx: Ctx, spec: AgendaSpec) {
 			{SectionHead(ctx, 2, "Attendees", "rule", "Tick when present")}
 			{DataTable(ctx, [...half, ...half], attendeeRows, head)}
 			{meeting && meeting.hiddenAttendees > 0
-				? T(ctx, `This list shows the first ${meeting.attendees.length} people. ${meeting.hiddenAttendees} more are not shown.`, {
-						size: SIZE.xs,
-						color: p.mutedText,
-						use: "attendee overflow note",
-						style: { marginTop: SP[1] },
-					})
+				? T(
+						ctx,
+						`This list shows the first ${meeting.attendees.length} people. ${meeting.hiddenAttendees} more are not shown.`,
+						{
+							size: SIZE.xs,
+							color: p.mutedText,
+							use: "attendee overflow note",
+							style: { marginTop: SP[1] },
+						},
+					)
 				: null}
 			<View style={{ height: SP[3] }} />
 			<View wrap={false}>

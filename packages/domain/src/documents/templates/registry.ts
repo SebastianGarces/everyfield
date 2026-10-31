@@ -8,7 +8,14 @@ import { signInDocument, SIGN_IN_ROWS } from "../layouts/sign-in.tsx";
 import { CARD, LETTER } from "../layouts/shell.tsx";
 import { textDocument } from "../layouts/text-doc.tsx";
 import type { RenderClass } from "../theme.ts";
-import { ACTION_ROWS, BLANK_RUN_ROWS, BOARD_AGENDA, MIN_ATTENDEE_ROWS, VISION_AGENDA, type AgendaSpec } from "./agenda-content.ts";
+import {
+	ACTION_ROWS,
+	BLANK_RUN_ROWS,
+	BOARD_AGENDA,
+	MIN_ATTENDEE_ROWS,
+	VISION_AGENDA,
+	type AgendaSpec,
+} from "./agenda-content.ts";
 import { COMMITMENT_CARD, RESPONSE_CARD, type CardSpec } from "./card-content.ts";
 import { CHECKLIST_TEAMS } from "./checklists-content.ts";
 import {

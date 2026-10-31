@@ -11,7 +11,8 @@ import { NextResponse } from "next/server";
 // same: 404 with no bytes. Each request reads the meeting again; nothing is cached.
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
-const missing = () => new Response("Not found", { status: 404, headers: { ...NO_STORE, "Content-Type": "text/plain" } });
+const missing = () =>
+	new Response("Not found", { status: 404, headers: { ...NO_STORE, "Content-Type": "text/plain" } });
 
 export async function agendaRoute(request: Request, context: { params: Promise<{ meetingId: string }> }) {
 	const raw = (await context.params).meetingId;
@@ -41,4 +42,5 @@ export async function agendaRoute(request: Request, context: { params: Promise<{
 		return failed();
 	}
 }
-const failed = () => new Response("The agenda did not print. Try again in a moment.", { status: 503, headers: NO_STORE });
+const failed = () =>
+	new Response("The agenda did not print. Try again in a moment.", { status: 503, headers: NO_STORE });
