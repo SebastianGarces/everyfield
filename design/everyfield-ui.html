@@ -5256,6 +5256,9 @@ const EvryGeo = (() => {
 })();
 const EvryLife = (() => {
   const G = EvryGeo, N = G.N, NAMES = G.NAMES, TAU = 2 * Math.PI, reduce = matchMedia('(prefers-reduced-motion: reduce)');
+  // Read .matches once: Chromium skips a list's change event when script read .matches after the
+  // preference changed, so the loop reads this copy and only the change event updates it.
+  let reduced = reduce.matches;
   const DEBUG = /[?&]evry-debug\b/.test(location.search), log = [];
   const rand = (a, b) => a + Math.random() * (b - a);
   const inOut = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(2 - 2 * t, 3) / 2;
@@ -5358,7 +5361,7 @@ const EvryLife = (() => {
     const mood = st.el.dataset.mood || 'idle', now = performance.now();
     if (mood === st.mood) return;
     st.mood = mood; st.follow = null; st.next = 0;
-    if (reduce.matches) { st.moves = st.look = null; st.gx = st.gy = 0; draw(st, false); return; }
+    if (reduced) { st.moves = st.look = null; st.gx = st.gy = 0; draw(st, false); return; }
     if (mood === 'thinking') { st.moves = null; st.look = think(now, [st.gx, st.gy]); }
     else { st.look = null; st.moves = st.gx || st.gy ? [move([st.gx, st.gy], [0, 0], now, 0, 0)] : null; }
     note(st, 'mood', { to: mood });
@@ -5482,7 +5485,7 @@ const EvryLife = (() => {
   const refresh = () => { live = bots.filter(visible); };
   function tick() {
     raf = timer = 0;
-    if (reduce.matches) return;
+    if (reduced) return;
     const now = performance.now(), odd = ++frame & 1;
     let anim = false, next = Infinity;
     for (let i = 0; i < live.length; i++) {
@@ -5497,17 +5500,17 @@ const EvryLife = (() => {
     if (anim) raf = requestAnimationFrame(tick);
     else if (next < Infinity) timer = setTimeout(tick, Math.max(16, next - now));
   }
-  function wake() { if (reduce.matches || raf) return; clearTimeout(timer); timer = 0; raf = requestAnimationFrame(tick); }
+  function wake() { if (reduced || raf) return; clearTimeout(timer); timer = 0; raf = requestAnimationFrame(tick); }
 
   // Reduced motion: every bot stops and shows one still shape (a circle, or its labelled shape).
   function applyPref() {
     cancelAnimationFrame(raf); clearTimeout(timer); raf = timer = 0;
-    const now = performance.now(), still = reduce.matches;
+    const now = performance.now();
     for (const st of bots) {
       st.morph = st.spin = st.moves = st.follow = null; st.ang = 0; st.gx = st.gy = 0;
-      st.look = st.mood === 'thinking' && !still ? think(now, [0, 0]) : null;
+      st.look = st.mood === 'thinking' && !reduced ? think(now, [0, 0]) : null;
       st.el.removeAttribute('data-blink');
-      if (still || st.el.dataset.shape) setShape(st, st.el.dataset.shape || 'circle');
+      if (reduced || st.el.dataset.shape) setShape(st, st.el.dataset.shape || 'circle');
       arm(st, now); draw(st, true);
     }
     wake();
@@ -5526,11 +5529,11 @@ const EvryLife = (() => {
     bots.forEach(st => { if (st.host === h && h.dataset.open !== 'false') arm(st, now); });
     refresh(); wake();
   }).observe(h, { attributes: true, attributeFilter: ['data-open'] }));
-  reduce.addEventListener('change', applyPref);
+  reduce.addEventListener('change', e => { reduced = e.matches; applyPref(); });
   applyPref();
 
   document.addEventListener('pointermove', e => {
-    if (reduce.matches) return;
+    if (reduced) return;
     const now = performance.now();
     for (const st of bots) {
       if (!st.follows || st.mood !== 'idle' || st.spin || !visible(st)) continue;
