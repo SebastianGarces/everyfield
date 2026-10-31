@@ -1879,7 +1879,13 @@ test("OPS-100-signal: SIGTERM to a real drive blocked in its ship stage aborts t
 		const status = join(f.root, "drive-status.txt");
 		const child = spawn(
 			"sh",
-			["-c", `"$0" --disable-warning=ExperimentalWarning "$1" drive OPS-1; echo $? > "$2"`, process.execPath, join(source, "tools/evf/main.ts"), status],
+			[
+				"-c",
+				`"$0" --disable-warning=ExperimentalWarning "$1" drive OPS-1; echo $? > "$2"`,
+				process.execPath,
+				join(source, "tools/evf/main.ts"),
+				status,
+			],
 			{
 				cwd: f.root,
 				env: { ...process.env, EVF_RUN: "", EVF_WORKTREE: "", EVF_SESSION: "", EVF_ROLE: "", EVF_STAGE: "" },

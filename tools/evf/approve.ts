@@ -212,7 +212,15 @@ export function approve(root: string, n: number, opts: { ownerApproval?: string;
 	});
 	if (merged.code !== 0) fail(`The merge failed: ${(merged.stderr || merged.stdout).trim()}`);
 	console.log(`Merged PR #${n} (${pr.title}) at ${head.slice(0, 10)} with Sebastian's approval.`);
-	const mergeCommit = run("gh", ["pr", "view", String(n), "--json", "mergeCommit", "-q", ".mergeCommit.oid"]).stdout.trim();
+	const mergeCommit = run("gh", [
+		"pr",
+		"view",
+		String(n),
+		"--json",
+		"mergeCommit",
+		"-q",
+		".mergeCommit.oid",
+	]).stdout.trim();
 	markMergedByBranch(root, pr.headRefName, /^[0-9a-f]{40}$/.test(mergeCommit) ? mergeCommit : null);
 	if (route.kind === "template" && evidence) {
 		// The same bookkeeping evf ship runs, so package progress and dependents unlock. A task without a worktree

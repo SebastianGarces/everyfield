@@ -431,7 +431,9 @@ export function markMergedByBranch(root: string, branch: string, commit: string 
 	const db = openWorkDb(root);
 	try {
 		const row = db
-			.prepare("SELECT ref FROM tasks WHERE branch = ? AND status <> 'abandoned' AND ref IS NOT NULL ORDER BY id DESC LIMIT 1")
+			.prepare(
+				"SELECT ref FROM tasks WHERE branch = ? AND status <> 'abandoned' AND ref IS NOT NULL ORDER BY id DESC LIMIT 1",
+			)
 			.get(branch) as { ref: string } | undefined;
 		if (row) markMerged(db, parseTask(row.ref), commit, null);
 	} finally {

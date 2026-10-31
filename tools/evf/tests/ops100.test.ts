@@ -20,8 +20,15 @@ const taskRow = (db: Db, ref: string, status: string, extra: { branch?: string; 
 			.prepare(
 				"INSERT INTO tasks (slug, mode, ref, title, branch, status, created_at, updated_at) VALUES (?, 'implement', ?, ?, ?, ?, ?, ?)",
 			)
-			.run(extra.slug ?? ref.toLowerCase(), ref, ref, extra.branch ?? `task/${ref.toLowerCase()}`, status, iso(0), iso(0))
-			.lastInsertRowid,
+			.run(
+				extra.slug ?? ref.toLowerCase(),
+				ref,
+				ref,
+				extra.branch ?? `task/${ref.toLowerCase()}`,
+				status,
+				iso(0),
+				iso(0),
+			).lastInsertRowid,
 	);
 const runRow = (db: Db, taskId: number, stage: string, role: string, started = iso(60_000)) =>
 	Number(
@@ -171,7 +178,10 @@ test("OPS-100-migration: 005 closes orphan evf runs of merged tasks, adds the th
 		assert.equal((db.prepare("SELECT status FROM runs WHERE id = 11").get() as { status: string }).status, "started");
 		assert.equal((db.prepare("SELECT status FROM runs WHERE id = 12").get() as { status: string }).status, "started");
 		const view = (id: number) => db.prepare("SELECT last_event, merged_at, ref_rows FROM v_tasks WHERE id = ?").get(id);
-		assert.deepEqual({ ...(view(1) as object) }, { last_event: "stage_end", merged_at: view(1) && (view(1) as any).merged_at, ref_rows: 2 });
+		assert.deepEqual(
+			{ ...(view(1) as object) },
+			{ last_event: "stage_end", merged_at: view(1) && (view(1) as any).merged_at, ref_rows: 2 },
+		);
 		assert.ok((view(1) as any).merged_at);
 		assert.deepEqual({ ...(view(3) as object) }, { last_event: "owner_approval_wait", merged_at: null, ref_rows: 1 });
 
@@ -213,7 +223,9 @@ test("OPS-100-orphans: status --json and doctor report an evf run with a dead pi
 		runRow(db, live, "ci", "evf");
 		const pids = join(evfDataDir(f.root), "drive");
 		mkdirSync(pids, { recursive: true });
-		const child = spawnSync(process.execPath, ["-e", "process.stdout.write(String(process.pid))"], { encoding: "utf8" });
+		const child = spawnSync(process.execPath, ["-e", "process.stdout.write(String(process.pid))"], {
+			encoding: "utf8",
+		});
 		writeFileSync(join(pids, "ops-31.pid"), `${child.stdout}\n`); // exited: a dead pid
 		writeFileSync(join(pids, "ops-32.pid"), `${process.pid}\n`); // this test runner: alive
 		assert.deepEqual(

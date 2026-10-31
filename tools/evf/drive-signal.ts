@@ -18,13 +18,17 @@ export function recordDriveStopped(root: string, task: TaskRef, signal: string):
 	try {
 		const row = findTask(db, task);
 		const open = row
-			? (db.prepare("SELECT id, stage FROM runs WHERE task_id = ? AND role = 'evf' AND status = 'started'").all(
-					row.id,
-				) as Array<{ id: number; stage: string }>)
+			? (db
+					.prepare("SELECT id, stage FROM runs WHERE task_id = ? AND role = 'evf' AND status = 'started'")
+					.all(row.id) as Array<{ id: number; stage: string }>)
 			: [];
 		for (const r of open) {
 			const summary = `drive stopped by ${signal} during ${r.stage}`;
-			db.prepare("UPDATE runs SET status = 'aborted', ended_at = ?, summary = ? WHERE id = ?").run(now(), summary, r.id);
+			db.prepare("UPDATE runs SET status = 'aborted', ended_at = ?, summary = ? WHERE id = ?").run(
+				now(),
+				summary,
+				r.id,
+			);
 			record(db, row!.id, r.id, "drive_stopped", { stage: r.stage, signal, summary });
 		}
 	} finally {
