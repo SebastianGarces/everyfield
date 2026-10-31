@@ -341,29 +341,9 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 	};
 	// The task the panel shows, for answers that arrive after a later render.
 	const shownId = useRef(openId);
-	/**
-	 * A follow-up task the panel already holds reads again each time it opens, and only its contact history is taken from
-	 * the answer: an outcome recorded on the call screen since shows in "What happened" with no page reload, and nothing
-	 * on screen blanks.
-	 */
-	const rereadContacts = (id: string) => {
-		const cur = known.current[id];
-		if (cur?.status !== "ok" || !cur.contacts) return;
-		void loadTask(id)
-			.catch(() => lost)
-			.then((r) => {
-				if (r.status !== "ok" || !r.value.contacts) return;
-				const contacts = r.value.contacts;
-				setDetails((d) => {
-					const now = d[id];
-					return now?.status === "ok" ? { ...d, [id]: { ...now, contacts } } : d;
-				});
-			});
-	};
 	const open = (id: string) => {
 		warm(id);
 		if (id !== openId) {
-			rereadContacts(id);
 			leaveForm(id);
 		}
 		shownId.current = id;

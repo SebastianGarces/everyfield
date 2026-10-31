@@ -112,7 +112,7 @@ for (const [name, engine] of ENGINES) {
 				assert.equal(await dialog.locator(`[id="${forId}"]`).evaluate((e) => e === document.activeElement), true);
 				focused++;
 			}
-			assert.ok(focused >= 0);
+			assert.ok(focused > 0, "at least one text label was checked");
 		});
 	});
 }
@@ -157,6 +157,35 @@ for (const [name, engine] of ENGINES.slice(0, 1)) {
 			await hydrated(page);
 			await page.getByRole("dialog").getByText("Left a voicemail about Sunday.").waitFor();
 			assert.equal(await page.evaluate(() => window.__loading), false);
+		});
+	});
+
+	test(`AC:TARGET-MTG-022 (${name}): an outcome saved on the call screen shows in "What happened" after browser back`, async () => {
+		await withPage(engine, async (page, context) => {
+			await signIn(context, people().owner.cookie);
+			const url = `${BASE}/tasks?view=all&status=any&task=${seeded().tasks.sara}`;
+			await page.goto(url);
+			await hydrated(page);
+			const panel = page.getByRole("dialog");
+			const entries = panel
+				.locator("section")
+				.filter({ has: page.getByRole("heading", { name: "What happened" }) })
+				.locator("li");
+			await entries
+				.first()
+				.waitFor({ state: "attached" })
+				.catch(() => {});
+			const before = await entries.count();
+			await panel.getByRole("link", { name: "Record what happened" }).click();
+			await page.getByRole("radio", { name: /Tried, no contact/ }).waitFor();
+			await hydrated(page);
+			await page.getByRole("radio", { name: /Tried, no contact/ }).click();
+			await page.getByRole("button", { name: "Save", exact: true }).click();
+			await page.getByRole("heading", { name: /Saved/ }).waitFor();
+			await page.goBack();
+			await page.getByRole("dialog").waitFor();
+			await page.waitForTimeout(1500);
+			assert.equal(await entries.count(), before + 1, "the new outcome shows after browser back");
 		});
 	});
 }

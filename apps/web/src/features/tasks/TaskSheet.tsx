@@ -387,7 +387,6 @@ export function TaskSheet({
 							)}
 							{task.relation?.kind === "person" && !task.parentId && loaded?.contacts ? (
 								<ContactHistorySection
-									key={detail.id}
 									taskId={detail.id}
 									personId={task.relation.id}
 									first={loaded.contacts}
