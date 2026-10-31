@@ -330,9 +330,7 @@ export function ChurchDocumentView({ initial, canEdit }: { initial: ChurchPage; 
 					{opened ? (
 						<Card className="gap-4">
 							<div className="flex flex-wrap items-center justify-between gap-2">
-								<p className="text-sm font-medium text-ink">
-									Revision {opened.number} (read only)
-								</p>
+								<p className="text-sm font-medium text-ink">Revision {opened.number} (read only)</p>
 								<Button variant="secondary" onClick={() => setOpened(null)}>
 									Back to revision {doc.revision}
 								</Button>
