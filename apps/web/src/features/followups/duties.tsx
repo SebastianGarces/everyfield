@@ -1,7 +1,7 @@
 "use client";
 
 import { Add01Icon } from "@hugeicons/core-free-icons";
-import { personId } from "@everyfield/contracts/common";
+import { accountId, personId } from "@everyfield/contracts/common";
 import type * as tc from "@everyfield/contracts/tasks";
 import {
 	Button,
@@ -106,6 +106,8 @@ function OwnerLines({
 }) {
 	const [open, setOpen] = useState<string | null>(null);
 	const owners = useOwners(open !== null);
+	const others =
+		owners?.status === "ok" ? owners.value.filter((x) => !duty.owners.some((h) => h.accountId === x.accountId)) : [];
 	return (
 		<ul className="m-0 flex list-none flex-col gap-1 p-0" aria-label={`Owners of ${duty.title}`}>
 			{duty.owners.map((o) => {
@@ -155,20 +157,17 @@ function OwnerLines({
 												if (to) reassign(o, to);
 											}}
 										>
-											{owners.value.filter((x) => !duty.owners.some((h) => h.accountId === x.accountId)).length ===
-											0 ? (
+											{others.length === 0 ? (
 												<p className="px-3 py-2 text-sm text-text-2">
 													No one else can own follow-ups yet. Owners need a seat and a core group, launch team or leader
 													stage.
 												</p>
 											) : (
-												owners.value
-													.filter((x) => !duty.owners.some((h) => h.accountId === x.accountId))
-													.map((x) => (
-														<MenuRadioItem key={x.accountId} value={x.accountId}>
-															{x.displayName}
-														</MenuRadioItem>
-													))
+												others.map((x) => (
+													<MenuRadioItem key={x.accountId} value={x.accountId}>
+														{x.displayName}
+													</MenuRadioItem>
+												))
 											)}
 										</MenuRadioGroup>
 									)}
@@ -215,7 +214,7 @@ export function AssignMenu({
 		ids.map(
 			(id) =>
 				duty.owners.find((o) => o.accountId === id) ?? {
-					accountId: id as never,
+					accountId: accountId.parse(id),
 					displayName: names[id] ?? "",
 					eligible: true,
 					reason: null,
@@ -245,7 +244,7 @@ export function AssignMenu({
 	}
 	const readOnly = !canAssign;
 	return (
-		<span className="inline-flex flex-col items-end gap-1.5 max-app-sm:items-start max-app-sm:self-stretch">
+		<span className="inline-flex flex-col items-end gap-1.5 max-app-sm:items-stretch max-app-sm:self-stretch">
 			{duty.owners.length ? (
 				<OwnerLines
 					duty={duty}
