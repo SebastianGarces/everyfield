@@ -1383,7 +1383,8 @@
 				".agents/roles/verifier.md",
 				".agents/roles/coordinator.md",
 				".agents/skills/ship/SKILL.md",
-				".agents/skills/verify-preview/SKILL.md"
+				".agents/skills/verify-preview/SKILL.md",
+				"docs/architecture/decisions.md"
 			],
 			"checks": [
 				{ "name": "documentation", "run": ["python3", "docs/check-all.py"] },

@@ -146,11 +146,11 @@ process; `EVF_TUI_LABEL` overrides the label for a test or a scratch workspace) 
 `--dangerously-skip-permissions` (the owner's `ccd` alias; a herdr pane loads no shell aliases, so evf passes the flag). The pane's shell carries `EVF_TASK`, `EVF_RUN`, `EVF_ROLE`, `EVF_STAGE`,
 `EVF_WORKTREE` and `EVF_SESSION`. evf records the run and a `stage_start` event in the work store:
 `runs.herdr_pane` is the seat's pane and `tasks.herdr_workspace_id` is the TUI workspace. `--dry-run` prints every
-step. The role files are `.claude/agents/<role>.md`: planner and verifier on Opus 5.5 high, implementer, ui,
-simplifier on Sonnet 5.5 medium. The implementer seat does UI work too and proves its own work; the ui seat is opt-in with the spec line `Seat: ui`. Every seat has the advisor and the update prompt disabled.
+step. The role files are `.claude/agents/<role>.md`: planner, verifier and prototype-merger on Opus 5.5 medium,
+implementer, ui, simplifier on Sonnet 5.5 medium (D85). The implementer seat does UI work too and proves its own work; the ui seat is opt-in with the spec line `Seat: ui`. Every seat has the advisor and the update prompt disabled.
 
 The seat's agent definition comes from the evf checkout that runs the launch, never from the task worktree. Launch
-reads `<evf root>/.claude/agents/<role>.md` (a missing `model` or `effort` line gets the seat's) and writes it into a
+reads `<evf root>/.claude/agents/<role>.md` (launch writes the resolved seat model and effort into the plugin agent file, in place of any `model` or `effort` line the role file has) and writes it into a
 per-run plugin directory `<runtime>/seat-<run>/` (`.claude-plugin/plugin.json` plus `agents/<role>.md`; `<runtime>` is
 `.git/evf/runtime/<task slug>`, outside every worktree). The seat starts with `claude --plugin-dir <that directory>
 --agent evf:<role> ...`, so the typed line carries a path, not the definition. A plugin agent is namespaced, so a task

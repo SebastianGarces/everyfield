@@ -14,7 +14,7 @@ Current requirements and cases live in `docs/catalog/index.json`. Keep this file
    `bin/evf proof add` per Done criterion you built or changed. Open a PR explaining the change,
    actual verification, proof, risks and follow-ups. The evf stages are plan, implement, simplify,
    pr, verify, ci, ship; the pr stage reruns the author checks, so a simplifier commit costs no round.
-5. An independent verifier (a fresh Opus 5.5 high session that never shared context with the
+5. An independent verifier (a fresh Opus 5.5 medium session that never shared context with the
    author, D82) reads the full diff, spot-checks the proof with `verify-preview`, posts the exact-head
    review and runs `bin/evf ship <task>`.
    Ship requires green required GitHub CI, independent approval and a valid PR body.
@@ -34,7 +34,7 @@ number D<n> with `bin/evf id next ops|decision`; never take the next number from
 - Follow `.agents/skills/ship/SKILL.md` for merge authority. Preserve the owner approval routes from PR #13.
 - UI work runs in the implementer seat (Sonnet 5.5 medium), which reads `.agents/roles/ui-designer.md`
   and uses the better-* skills. A design-heavy spec opts into the separate `ui` seat with the line
-  `Seat: ui`. Opus 5.5 high plans and verifies.
+  `Seat: ui`. Opus 5.5 medium plans and verifies.
 - Use one portless preview per worktree. No Vercel preview deployments.
 - The shared development database may be wiped and reseeded. Run the repo seed and preview scripts freely.
   Timing sets run only through `bin/evf timing`, on its own quiet local database (D81).

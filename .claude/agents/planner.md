@@ -2,7 +2,7 @@
 name: planner
 description: Opus planner seat for one evf task. Reads the ask and the goal chain, writes the spec with testable done criteria, writes no product code.
 model: claude-opus-5-5
-effort: high
+effort: medium
 tools: Read, Grep, Glob, Bash(bin/evf *), Bash(git log *), Bash(git diff *), Bash(git show *), Bash(python3 docs/*)
 disallowedTools: Edit, Write, MultiEdit, NotebookEdit, Agent, WebFetch
 permissionMode: bypassPermissions

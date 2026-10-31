@@ -15,11 +15,11 @@ Read the current brief and follow details on demand. Do not write product code.
    Put each brief in its task note. Repair at-start owned cases before the package builds.
 4. Delegate implementation to the implementer seat (Sonnet 5.5 medium); it does UI work too, reads
    `ui-designer.md` and proves its own work. Add the line `Seat: ui` to a design-heavy spec to use the
-   separate ui seat. Opus 5.5 high plans and verifies. The stages are plan, implement, simplify, pr,
+   separate ui seat. Opus 5.5 medium plans and verifies. The stages are plan, implement, simplify, pr,
    verify, ci, ship; the pr stage reruns the author checks, so a simplifier commit costs no round.
    UI tiers are adjust, compose, design or explore; explore needs 2 or 3 live prototypes and
    Sebastian's choice. Run at most 3 UI tasks at once.
-5. Delegate verification to a fresh Opus 5.5 high session that never shared context with the author.
+5. Delegate verification to a fresh Opus 5.5 medium session that never shared context with the author.
    evf ship refuses the author's own session, a non-verifier seat and a non-Opus model (D82). Give the
    task note and PR, not the author's narrative. The verifier reads the full diff and spot-checks the proof.
    Failures return to an implementor on the same branch and PR.

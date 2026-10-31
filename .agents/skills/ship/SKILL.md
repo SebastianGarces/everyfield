@@ -10,7 +10,7 @@ Use the PR standard skill and template, then `evf pr open <task> --body-file <fi
 `EVF-Author: {"session":"<your Claude Code session UUID>","model":"<model id>","role":"<seat role>"}`
 line in the body. Never merge your own work, push to main or force-push.
 
-An independent verifier, a fresh Opus 5.5 high session that never shared context with the author,
+An independent verifier, a fresh Opus 5.5 medium session that never shared context with the author,
 exercises the branch's own portless preview and dev database. Tooling tasks need tooling checks, not application screenshots. Record actual scope,
 results and external evidence on the PR, followed by this exact line with the full tested SHA:
 

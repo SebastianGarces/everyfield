@@ -11,14 +11,14 @@ import { fail, type Config, type TaskRef } from "./lib.ts";
  * non-Opus verifier is refused when evf loads it.
  */
 export const ROLES = {
-	planner: { model: "claude-opus-5-5", effort: "high", stage: "plan" },
+	planner: { model: "claude-opus-5-5", effort: "medium", stage: "plan" },
 	implementer: { model: "claude-sonnet-5-5", effort: "medium", stage: "implement" },
 	ui: { model: "claude-sonnet-5-5", effort: "medium", stage: "implement" },
 	simplifier: { model: "claude-sonnet-5-5", effort: "medium", stage: "simplify" },
-	verifier: { model: "claude-opus-5-5", effort: "high", stage: "verify" },
+	verifier: { model: "claude-opus-5-5", effort: "medium", stage: "verify" },
 	ideator: { model: "claude-sonnet-5-5", effort: "medium", stage: "idea" },
 	comparer: { model: "claude-sonnet-5-5", effort: "medium", stage: "compare" },
-	"prototype-merger": { model: "claude-opus-5-5", effort: "high", stage: "merge" },
+	"prototype-merger": { model: "claude-opus-5-5", effort: "medium", stage: "merge" },
 } as const;
 export type Role = keyof typeof ROLES;
 
