@@ -47,7 +47,7 @@ export function agendaMeetingOf(m: MeetingRead, thisYear: number): AgendaMeeting
 		place: m.venueName === null ? null : `${m.venueName}, ${m.venueAddress ?? ""}`,
 		sections: m.agenda.map((s, i) => ({ title: s.title, minutes: s.minutes, start: timeText(starts[i]!) })),
 		totalMinutes: m.agenda.reduce((n, s) => n + s.minutes, 0),
-		attendees: m.attendees.slice(0, ATTENDEE_CAP),
-		hiddenAttendees: Math.max(0, m.attendeeTotal - Math.min(m.attendees.length, ATTENDEE_CAP)),
+		attendees: m.attendees,
+		hiddenAttendees: m.attendeeTotal - m.attendees.length,
 	};
 }
