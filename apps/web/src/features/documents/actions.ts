@@ -229,7 +229,7 @@ async function writer() {
 }
 
 /** What a save changed: the document at its new revision and that one revision's summary. */
-export type ChurchSaved = { document: ChurchDocument; revision: ChurchRevisionSummary };
+type ChurchSaved = { document: ChurchDocument; revision: ChurchRevisionSummary };
 
 /** Save the body as one new revision. The answer holds only what changed, so its size does not grow with the history. */
 export async function saveChurchDocument(

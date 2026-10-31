@@ -11,7 +11,7 @@ import type { Template } from "./model.ts";
 // Church Documents on the screen: the body as editor rows and back, the checks that run before a save, and the words
 // for each refusal. Pure functions, so the editor and its tests share one definition.
 
-export type Slot = ChurchPage["slots"][number];
+type Slot = ChurchPage["slots"][number];
 type ChurchClass = ChurchPage["document"]["documentClass"];
 
 export const CLASS_LABEL: Record<ChurchClass, string> = {

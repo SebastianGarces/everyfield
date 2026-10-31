@@ -169,7 +169,7 @@ export async function loadChurchList(authority: RequestActor) {
 	}
 }
 
-export type ChurchLoad = { status: "ok"; page: ChurchPage } | { status: "not_found" } | { status: "failed" };
+type ChurchLoad = { status: "ok"; page: ChurchPage } | { status: "not_found" } | { status: "failed" };
 
 /** One Church Document's page. Another plant's document, an unknown id and a seatless account all read as not found. */
 export async function loadChurchPage(authority: RequestActor, documentId: string): Promise<ChurchLoad> {
