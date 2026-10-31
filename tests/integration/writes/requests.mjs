@@ -323,10 +323,10 @@ try {
 		assert.equal(found.length, 1, `one server action ${file}#${name} in the build`);
 		return found[0][0];
 	};
-	const get = async (name, path, cookie) => {
+	const get = async (name, path, cookie, status = 200) => {
 		const r = await fetch(origin + path, { headers: { "x-evf-request": name, cookie }, redirect: "manual" });
 		await r.text();
-		assert.equal(r.status, 200, `${name}: HTTP ${r.status}`);
+		assert.equal(r.status, status, `${name}: HTTP ${r.status}`);
 	};
 	// One server action call, as the browser sends it. Answers the action's result from the RSC reply. A null name
 	// sends no x-evf-request header, so the call is setup and has no budget.
@@ -358,7 +358,8 @@ try {
 		["GET /tasks", "/tasks", owner.cookie],
 		["GET /tasks?task=<follow-up>", `/tasks?task=${followUpId}`, owner.cookie],
 		["GET /documents", "/documents", owner.cookie],
-		["GET /home", "/home", owner.cookie],
+		// The landing route answers with a redirect.
+		["GET /home", "/home", owner.cookie, 307],
 		["GET /meetings", "/meetings", owner.cookie],
 		["GET /meetings/[meetingId]", `/meetings/${visionMeeting}`, owner.cookie],
 		["GET /meetings/[meetingId] (leadership team meeting)", `/meetings/${boardMeeting}`, owner.cookie],
@@ -415,7 +416,7 @@ try {
 
 	// Warm every route once (module load, first connections), then read each page with little data.
 	for (const [, path, cookie] of pages) await fetch(origin + path, { headers: { cookie } }).then((r) => r.text());
-	for (const [name, path, cookie] of pages) await get(name, path, cookie);
+	for (const [name, path, cookie, status] of pages) await get(name, path, cookie, status);
 
 	const people = "apps/web/src/features/people/actions.ts";
 	const key = randomUUID();
@@ -632,7 +633,7 @@ try {
 		await guest(visionMeeting, who);
 		await guest(boardMeeting, who);
 	}
-	for (const [name, path, cookie] of pages) await get(name, path, cookie);
+	for (const [name, path, cookie, status] of pages) await get(name, path, cookie, status);
 
 	server.kill("SIGTERM");
 	await exited;
