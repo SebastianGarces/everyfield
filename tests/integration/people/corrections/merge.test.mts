@@ -765,10 +765,10 @@ test("AC:TARGET-PPL-015 AC:CA013 AC:CA021 corrections keep the recorder, recompu
 	assert.deepEqual(
 		feed.filter((x) => /_corrected$/.test(x.action ?? "")).map((x) => [x.action, x.recordId]),
 		[
-			["assessment_corrected", a.id],
+			["commitment_corrected", card.id],
+			["commitment_corrected", card.id],
 			["interview_corrected", i.id],
-			["commitment_corrected", card.id],
-			["commitment_corrected", card.id],
+			["assessment_corrected", a.id],
 		],
 	);
 });

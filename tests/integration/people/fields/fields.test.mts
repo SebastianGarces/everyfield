@@ -261,7 +261,7 @@ test("AC:GAP-PPL-010 AC:TARGET-PPL-010 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RET
 	const activity = ok(await tx((t) => peopleReader.getActivities(t, ctx(), { personId: jamie.id }))).items;
 	assert.deepEqual(
 		activity.map((a) => a.action),
-		["created", "updated", "retired"],
+		["retired", "updated", "created"],
 	);
 
 	// Delete previews the live count, removes every current link and keeps each Person's history.
@@ -559,8 +559,8 @@ test("AC:TARGET-PPL-009 AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE househ
 			.filter((a) => a.household)
 			.map((a) => [a.action, a.household.from?.role ?? null, a.household.to?.name, a.household.to?.role]),
 		[
-			["updated", null, "Rivera household", "child"],
 			["updated", "child", "Rivera household", "other"],
+			["updated", null, "Rivera household", "child"],
 		],
 	);
 	assert.equal((await audit(h.id)).at(-1).action, "people.retired");

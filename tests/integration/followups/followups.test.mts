@@ -346,9 +346,9 @@ test("AC:TARGET-COM-011 AC:TARGET-MTG-022 AC:ROLE43-008 contact log: only an eff
 	assert.deepEqual(
 		activity.items.map((i) => [i.outcome, i.obligationId]),
 		[
-			["contacted", null],
-			["attempted_no_contact", null],
 			["administrative_completion", null],
+			["attempted_no_contact", null],
+			["contacted", null],
 		],
 	);
 	const before = await material();
