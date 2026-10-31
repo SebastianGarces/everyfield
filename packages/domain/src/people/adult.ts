@@ -10,7 +10,7 @@ type AdultSource = "birth_date" | "recorded" | "not_recorded";
  * Full age in years on `today`: the year difference, minus one while (month, day) of today is before the birth
  * (month, day). A Feb 29 birth therefore has its birthday on Mar 1 in a year without a Feb 29. Both are `YYYY-MM-DD`.
  */
-export function fullAge(birthDate: string, today: string): number {
+function fullAge(birthDate: string, today: string): number {
 	const [by, bm, bd] = birthDate.split("-").map(Number) as [number, number, number];
 	const [ty, tm, td] = today.split("-").map(Number) as [number, number, number];
 	return ty - by - (tm < bm || (tm === bm && td < bd) ? 1 : 0);
@@ -30,12 +30,9 @@ export function effectiveAdult(
 	return { value: fullAge(birthDate, today) >= ADULT_AGE ? "adult" : "child", source: "birth_date" };
 }
 
-/** The calendar date at instant `at` in time zone `zone` (a plant's `timezone`). */
-export const localDateSql = (at: SQL, zone: SQL) => sql`((${at}) AT TIME ZONE ${zone})::date`;
-
 /** The plant-local current date of a plant, as one scalar subquery: `plantId` names the plant's ID. */
 export const plantTodaySql = (plantId: SQL) =>
-	sql`(SELECT ${localDateSql(sql`clock_timestamp()`, sql`pl.timezone`)}::text FROM plant pl WHERE pl.id=${plantId})`;
+	sql`(SELECT (clock_timestamp() AT TIME ZONE pl.timezone)::date::text FROM plant pl WHERE pl.id=${plantId})`;
 
 /**
  * `effectiveAdult` in SQL, from the same rule. `birth` is a date, `manual` the stored text and `today` a date
