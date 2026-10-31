@@ -10,7 +10,7 @@ import { evfDataDir } from "../lib.ts";
 const cli = (cwd: string, ...args: string[]) =>
 	spawnSync(process.execPath, [join(source, "tools/evf/main.ts"), ...args], { cwd, encoding: "utf8" });
 const sha = (c: string) => c.repeat(40);
-const LATEST = 5; // migrations in tools/evf/db/migrations
+const LATEST = 6; // migrations in tools/evf/db/migrations
 
 test("OPS-57-store: the work store migrates from empty under the Git common dir, exposes the views and migrates once", () => {
 	const f = fixture();
