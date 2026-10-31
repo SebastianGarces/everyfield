@@ -190,6 +190,7 @@ export function DocumentsScreen({ templates, query, context, canPreview, canEdit
 		setPreview({ kind: "idle" });
 		setSaveNote(null);
 		// Below the desktop width the preview sits under the list, so bring it into view.
+		// 1023px is one under Tailwind's `lg` (1024px), where the layout turns side by side.
 		if (window.matchMedia("(max-width: 1023px)").matches)
 			requestAnimationFrame(() => panel.current?.scrollIntoView({ block: "start" }));
 	}
@@ -452,7 +453,7 @@ function TemplatePanel({
 }) {
 	return (
 		<div className="flex flex-col gap-4">
-			<h2 tabIndex={-1} className="font-title text-title-sm leading-[1.2] tracking-[-0.02em] text-ink text-balance">
+			<h2 className="font-title text-title-sm leading-[1.2] tracking-[-0.02em] text-ink text-balance">
 				{template.name}
 			</h2>
 			<div className="flex flex-wrap items-center gap-2">

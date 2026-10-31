@@ -134,7 +134,19 @@ for (const [name, engine] of ENGINES) {
 			const path = await (await download).path();
 			const pdf = await PDFDocument.load(await readFile(path), { updateMetadata: false });
 			const fields = pdf.getForm().getFields();
-			assert.ok(fields.length > 0, "the download keeps its form fields");
+			assert.deepEqual(
+				fields.map((f) => `${f.constructor.name}:${f.getName()}`).sort(),
+				[
+					"PDFCheckBox:commit_give",
+					"PDFCheckBox:commit_grow",
+					"PDFCheckBox:commit_pray",
+					"PDFSignature:signature",
+					"PDFTextField:contact",
+					"PDFTextField:full_name",
+					"PDFTextField:signed_date",
+				],
+				"the download keeps its form fields",
+			);
 			console.log(`field dump (${name}): ${fields.map((f) => `${f.constructor.name}:${f.getName()}`).join(", ")}`);
 			// A render of a template with no form fields has none: the Excel budgets are not fillable PDFs.
 			await page.goto(`${BASE}/documents`);
