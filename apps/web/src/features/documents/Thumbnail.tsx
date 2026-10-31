@@ -77,7 +77,7 @@ export function Thumbnail({ template, enabled }: { template: Template; enabled: 
 					alt={`Page 1 of ${template.name}`}
 					width={size.width}
 					height={size.height}
-					className="max-h-full max-w-full bg-white object-contain shadow-[0_0_0_1px_var(--ef-line),0_4px_12px_-6px_rgba(0,0,0,0.3)]"
+					className="max-h-full max-w-full bg-white object-contain shadow-[0_0_0_1px_var(--ef-line),0_4px_12px_-6px_color-mix(in_srgb,var(--ef-ink)_30%,transparent)]"
 				/>
 			) : (
 				<Icon icon={pdf ? File02Icon : Table01Icon} size={24} className="text-text-3" />

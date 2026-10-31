@@ -120,7 +120,7 @@ export function PdfPreview({ title, pageSize, bytes }: Props) {
 				aria-describedby={pages > 1 ? "page-keys" : undefined}
 				onKeyDown={onKeyDown}
 				style={{ aspectRatio: `${pageSize.width} / ${pageSize.height}` }}
-				className="relative w-full overflow-hidden bg-white shadow-[0_0_0_1px_var(--ef-line),0_8px_24px_-12px_rgba(0,0,0,0.25)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+				className="relative w-full overflow-hidden bg-white shadow-[0_0_0_1px_var(--ef-line),0_8px_24px_-12px_color-mix(in_srgb,var(--ef-ink)_25%,transparent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
 			>
 				{doc ? null : <Skeleton shape="block" className="absolute inset-0 rounded-none" />}
 				<canvas
