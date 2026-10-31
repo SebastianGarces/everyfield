@@ -144,7 +144,7 @@ describe("WP-037 Church Document templates", () => {
 	});
 
 	test("DOC-019: every printed string says church plant, never a bare plant, and spells Everyfield", async () => {
-		for (const id of ["bylaws", "prayer-letter"]) {
+		for (const id of ["bylaws", "prayer-letter", ...NEW_POLICIES]) {
 			const pdf = (await renderChurchPdf(input(id))).text.flat().join(" ");
 			const docx = wordText(docxParts(renderChurchDocx(input(id)))["word/document.xml"]!);
 			const raw = JSON.stringify(churchTemplate(id));
@@ -153,25 +153,6 @@ describe("WP-037 Church Document templates", () => {
 				assert.equal(bare, null, `${id}: bare plant: ${bare?.[0]}`);
 				assert.equal(/every ?field/i.test(text.replace(/Everyfield/g, "")), false);
 			}
-		}
-	});
-
-	test("DOC-019: the four policy templates say church plant, never a bare plant, and print the notice", async () => {
-		for (const id of NEW_POLICIES) {
-			const pdf = await renderChurchPdf(input(id));
-			const pdfText = pdf.text.flat().join(" ");
-			const docxParts_ = docxParts(renderChurchDocx(input(id)));
-			const docx = wordText(docxParts_["word/document.xml"]!);
-			const raw = JSON.stringify(churchTemplate(id));
-			for (const text of [pdfText, docx, raw]) {
-				const bare = text.replace(/church\s+plant/gi, "").match(/.{0,30}\bplant.{0,30}/i);
-				assert.equal(bare, null, `${id}: bare plant: ${bare?.[0]}`);
-				assert.equal(/every ?field/i.test(text.replace(/Everyfield/g, "")), false);
-			}
-			assert.ok((await pdfPages(pdf.bytes)).join(" ").includes("Template, not legal advice"), `${id}: PDF notice`);
-			assert.ok(wordText(docxParts_["word/footer1.xml"]!).includes("Template, not legal advice"), `${id}: Word notice`);
-			assert.ok(pdfText.includes(CHURCH), `${id}: church name resolved`);
-			assert.equal(pdfText.includes("{church_name}"), false);
 		}
 	});
 
@@ -347,7 +328,7 @@ describe("WP-037 PDF export", () => {
 	});
 
 	test("DOC-002: the same revision and theme give the same PDF and the same Word bytes", async () => {
-		for (const id of ["bylaws", "prayer-letter"]) {
+		for (const id of ["bylaws", "prayer-letter", ...NEW_POLICIES]) {
 			const a = await renderChurchPdf(input(id, brandTheme()));
 			const b = await renderChurchPdf(input(id, brandTheme()));
 			assert.deepEqual(a.bytes, b.bytes);
@@ -479,5 +460,38 @@ describe("WP-037 Word export", () => {
 			{ input: bytes },
 		);
 		assert.equal(outPy.toString().trim(), "[Content_Types].xml");
+	});
+
+	test("DOC-023: a reader that is not the writer opens the Word file of each new policy template", async () => {
+		for (const id of NEW_POLICIES) {
+			const template = churchTemplate(id)!;
+			const bytes = renderChurchDocx(input(id, brandTheme()));
+			const heading = template.body.find((b) => b.kind === "heading");
+			const text = readImport(bytes, "docx");
+			assert.ok(text.includes(CHURCH), `${id}: DOC-016 importer reads the church name`);
+			if (heading && "text" in heading && typeof heading.text === "string")
+				assert.ok(text.includes(heading.text), `${id}: importer reads ${heading.text}`);
+			if (hasSoffice()) {
+				const pdf = (await pdfPages(sofficeToPdf(bytes))).join(" ");
+				assert.ok(pdf.includes("Template, not legal advice"), `${id}: LibreOffice shows the notice`);
+			}
+			const names = execFileSync(
+				"python3",
+				[
+					"-I",
+					"-c",
+					"import sys,zipfile,io;z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read()));print(z.namelist()[0])",
+				],
+				{ input: bytes },
+			);
+			assert.equal(names.toString().trim(), "[Content_Types].xml", id);
+			const pdf = await renderChurchPdf(input(id));
+			assert.ok((await pdfPages(pdf.bytes)).join(" ").includes("Template, not legal advice"), `${id}: PDF notice`);
+			assert.ok(
+				wordText(docxParts(bytes)["word/footer1.xml"]!).includes("Template, not legal advice"),
+				`${id}: Word notice`,
+			);
+			assert.equal(pdf.text.flat().join(" ").includes("{church_name}"), false, `${id}: token resolved`);
+		}
 	});
 });

@@ -298,7 +298,7 @@ export const ACCOUNTABLE_PLAN_BODY: ChurchBlock[] = [
 	{ kind: "heading", text: "An expense outside the plan" },
 	{
 		kind: "paragraph",
-		text: "Money that the church plant pays for an expense outside this plan is taxable pay. This includes an advance that the person does not return in time and a request that comes too late. The treasurer adds the amount to the person's pay and reports it as the tax rules require.",
+		text: "Money that the church plant pays for an expense outside this plan is taxable pay. This includes an advance that the person does not return in time. It also includes a late request that the church plant pays anyway. The treasurer adds the amount to the person's pay and reports it as the tax rules require.",
 	},
 	{ kind: "heading", text: "Changes to this plan" },
 	{
