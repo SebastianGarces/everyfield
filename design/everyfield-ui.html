@@ -5303,17 +5303,15 @@ const EvryLife = (() => {
     el.__eb = st; bots.push(st);
     el.style.setProperty('--eb-float', rand(3, 4.2).toFixed(2) + 's');
     el.style.setProperty('--eb-float-at', (-rand(0, 4)).toFixed(2) + 's');
-    setShape(st, el.dataset.shape || (reduce.matches ? 'circle' : NAMES[Math.floor(Math.random() * NAMES.length)]));
+    setShape(st, el.dataset.shape || NAMES[Math.floor(Math.random() * NAMES.length)]);
     el.setAttribute('data-eb', '');
     new MutationObserver(() => onMood(st)).observe(el, { attributes: true, attributeFilter: ['data-mood'] });
   }
   const visible = st => st.vis && !(st.host && st.host.dataset.open === 'false');
-  const busy = st => st.morph || st.spin || st.moves || st.follow;
 
   function setShape(st, name) {
     const S = G.SHAPES[name];
     st.P.set(S.pts); st.fy = S.fy; st.fk = S.fk; st.oy = S.oy; st.shape = name; st.morph = null; st.ver++;
-    st.el.dataset.ebShape = name;
   }
   function arm(st, now) {
     const d = st.due;
@@ -5327,7 +5325,7 @@ const EvryLife = (() => {
     const S = G.SHAPES[name];
     st.morph = { from: st.shape, A: Float64Array.from(st.P), B: S.pts, f0: [st.fy, st.fk, st.oy], f1: [S.fy, S.fk, S.oy], t0: now, ms, e: 0 };
     note(st, 'morph', { from: st.shape, to: name, ms: Math.round(ms) });
-    st.shape = name; st.el.dataset.ebShape = name;
+    st.shape = name;
   }
   function startSpin(st, ms, now) { st.spin = { t0: now, ms }; note(st, 'spin', { ms: Math.round(ms) }); }
   // One gaze move: a small anticipation the other way, an eased travel past the target, a settle.
@@ -5360,9 +5358,8 @@ const EvryLife = (() => {
     const mood = st.el.dataset.mood || 'idle', now = performance.now();
     if (mood === st.mood) return;
     st.mood = mood; st.follow = null; st.next = 0;
-    st.el.removeAttribute('data-following');
     if (reduce.matches) { st.moves = st.look = null; st.gx = st.gy = 0; draw(st, false); return; }
-    if (mood === 'thinking') { st.moves = null; st.look = think(now, [st.gx, st.gy]); if (st.due.morph - now > 2000) st.due.morph = now + rand(800, 2000); }
+    if (mood === 'thinking') { st.moves = null; st.look = think(now, [st.gx, st.gy]); }
     else { st.look = null; st.moves = st.gx || st.gy ? [move([st.gx, st.gy], [0, 0], now, 0, 0)] : null; }
     note(st, 'mood', { to: mood });
     draw(st, false); wake();
@@ -5379,11 +5376,11 @@ const EvryLife = (() => {
     }
     if (st.mood === 'thinking' && d.morph - now > 2000) d.morph = now + rand(800, 2000);
     if (st.follow && now >= st.follow.until) {
-      st.follow = null; st.el.removeAttribute('data-following');
+      st.follow = null;
       st.moves = [move([st.gx, st.gy], [0, 0], now, reachNow(st, ...unit(st.gx, st.gy)), 0)];
       d.look = Math.max(d.look, now + rand(2500, 5000));
     }
-    if (busy(st)) return;
+    if (st.morph || st.spin || st.moves || st.follow) return;
     if (!st.hold && now >= d.morph) {
       const others = NAMES.filter(n => n !== st.shape), thinking = st.mood === 'thinking', ms = thinking ? rand(450, 600) : rand(600, 1000);
       startMorph(st, others[Math.floor(Math.random() * others.length)], ms, now);
@@ -5449,8 +5446,7 @@ const EvryLife = (() => {
   }
 
   // ---- DOM writes: path d, two gradient attributes and one group transform, each only on change
-  function set(st, node, key, attr, v) { if (st.w[key] !== v) { st.w[key] = v; node.setAttribute(attr, v); } }
-  function attr(st, node, name, v) { if (st.w[name] !== v) { st.w[name] = v; if (v) node.setAttribute(name, v); else node.removeAttribute(name); } }
+  function set(st, node, key, name, v) { if (st.w[key] !== v) { st.w[key] = v; if (v) node.setAttribute(name, v); else node.removeAttribute(name); } }
   function draw(st, body) {
     const ox = 50, oy = st.oy;
     if (body) set(st, st.path, 'd', 'd', G.bodyD(st.P, st.ang, ox, oy));
@@ -5463,8 +5459,8 @@ const EvryLife = (() => {
     const gxn = Math.max(-1, Math.min(1, st.gx / 18)), gyn = Math.max(-1, Math.min(1, st.gy / 18)), still = Math.abs(gxn) + Math.abs(gyn) < .01;
     if (still || Math.abs(gxn - D[6]) + Math.abs(gyn - D[7]) > .05 || D[6] === undefined) {
       D[6] = gxn; D[7] = gyn;
-      attr(st, st.hl, 'gradientTransform', still ? '' : `translate(${(-.09 * gxn).toFixed(3)} ${(-.06 * gyn).toFixed(3)})`);
-      attr(st, st.g, 'transform', still ? '' : `rotate(${(3 * gxn).toFixed(2)} 50 92) translate(50 50) scale(${(1 - .035 * Math.abs(gxn)).toFixed(4)} ${(1 - .02 * Math.abs(gyn)).toFixed(4)}) translate(-50 -50)`);
+      set(st, st.hl, 'hl', 'gradientTransform', still ? '' : `translate(${(-.09 * gxn).toFixed(3)} ${(-.06 * gyn).toFixed(3)})`);
+      set(st, st.g, 'g', 'transform', still ? '' : `rotate(${(3 * gxn).toFixed(2)} 50 92) translate(50 50) scale(${(1 - .035 * Math.abs(gxn)).toFixed(4)} ${(1 - .02 * Math.abs(gyn)).toFixed(4)}) translate(-50 -50)`);
     }
     const sp = specs(st.fy, st.fk, st.mood);
     if (st.mood === 'happy') {
@@ -5510,7 +5506,7 @@ const EvryLife = (() => {
     for (const st of bots) {
       st.morph = st.spin = st.moves = st.follow = null; st.ang = 0; st.gx = st.gy = 0;
       st.look = st.mood === 'thinking' && !still ? think(now, [0, 0]) : null;
-      st.el.removeAttribute('data-following'); st.el.removeAttribute('data-blink');
+      st.el.removeAttribute('data-blink');
       if (still || st.el.dataset.shape) setShape(st, st.el.dataset.shape || 'circle');
       arm(st, now); draw(st, true);
     }
@@ -5541,7 +5537,7 @@ const EvryLife = (() => {
       const r = st.el.getBoundingClientRect(), dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2), d = Math.hypot(dx, dy) || 1;
       if (!st.follow) { st.follow = { vx: 0, vy: 0, t: now }; note(st, 'follow'); }
       Object.assign(st.follow, { u: [dx / d, dy / d], m: Math.min(1, d / 300) * REACH, until: now + 1600, rest: false });
-      st.moves = null; st.next = 0; st.el.setAttribute('data-following', '');
+      st.moves = null; st.next = 0;
     }
     wake();
   }, { passive: true });
