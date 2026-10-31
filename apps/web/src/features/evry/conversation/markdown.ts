@@ -13,15 +13,12 @@ export type Inline =
 	| { kind: "code"; text: string }
 	| { kind: "link"; href: string; external: boolean; children: Inline[] };
 
-export type Block =
-	| { kind: "paragraph"; lines: Inline[][] }
-	| { kind: "list"; ordered: boolean; items: Inline[][] };
+export type Block = { kind: "paragraph"; lines: Inline[][] } | { kind: "list"; ordered: boolean; items: Inline[][] };
 
 /** The address a link may point to, or null: http, https, mailto or app-relative only. */
 export function safeHref(raw: string): { href: string; external: boolean } | null {
 	const href = raw.trim();
 	// Control characters and spaces hide schemes ("java\nscript:").
-	// eslint-disable-next-line no-control-regex
 	if (!href || /[\u0000- \u007f-\u009f]/.test(href)) return null;
 	if (/^https?:\/\/[^/?#]/i.test(href)) return { href, external: true };
 	if (/^mailto:[^\s]+$/i.test(href)) return { href, external: true };

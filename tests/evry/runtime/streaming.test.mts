@@ -36,7 +36,17 @@ const usage = {
 };
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const SENTENCES = ["There are 19 prospects in this church. ", "The list is complete and up to date."];
-const DELTAS = ["There ", "are ", "19 ", "prospects ", "in this ", "church. ", "The list is ", "complete and ", "up to date."];
+const DELTAS = [
+	"There ",
+	"are ",
+	"19 ",
+	"prospects ",
+	"in this ",
+	"church. ",
+	"The list is ",
+	"complete and ",
+	"up to date.",
+];
 const TEXT = DELTAS.join("");
 
 /** A model that writes `deltas` 30 to 60 ms apart, recording when each left the model; optionally ends in an error. */
@@ -57,7 +67,7 @@ function writer(deltas: string[], emitted: number[] = [], opts: { error?: Error;
 							emitted.push(Date.now());
 							await sleep(gap());
 						}
-						if (opts.error) return c.enqueue({ type: "error", error: opts.error }), c.close();
+						if (opts.error) return (c.enqueue({ type: "error", error: opts.error }), c.close());
 						c.enqueue({ type: "text-end", id: "t" });
 						c.enqueue({ type: "finish", finishReason: { unified: "stop", raw: undefined }, usage });
 						c.close();
@@ -80,8 +90,10 @@ async function follow(who: EvryActor, id: string, after = 0, ms = 15_000, seen: 
 	for await (const item of observeRun(db, who, id, after, AbortSignal.timeout(ms))) seen.push({ at: Date.now(), item });
 	return seen;
 }
-const lives = (seen: Seen[]) => seen.filter((s) => "live" in s.item).map((s) => ({ at: s.at, ...(s.item as any).live }));
-const saved = (seen: Seen[]) => seen.filter((s) => "event" in s.item).map((s) => (s.item as any).event as ConversationEvent);
+const lives = (seen: Seen[]) =>
+	seen.filter((s) => "live" in s.item).map((s) => ({ at: s.at, ...(s.item as any).live }));
+const saved = (seen: Seen[]) =>
+	seen.filter((s) => "event" in s.item).map((s) => (s.item as any).event as ConversationEvent);
 const savedText = (events: ConversationEvent[]) =>
 	events
 		.filter((e) => e.kind === "assistant_text")
@@ -150,7 +162,11 @@ test("INV-stream-durable: reconnect mid-stream, a second tab and a reload agree;
 	const before = saved(first).filter((e) => e.sequence <= cursor);
 	const after = saved(again);
 	const sequences = [...before, ...after].map((e) => e.sequence);
-	assert.deepEqual(sequences, [...new Set(sequences)].sort((x, y) => x - y), "no duplicate, in order");
+	assert.deepEqual(
+		sequences,
+		[...new Set(sequences)].sort((x, y) => x - y),
+		"no duplicate, in order",
+	);
 	const everything = await readAll(owner, id);
 	assert.deepEqual(
 		sequences,
@@ -190,7 +206,13 @@ test("INV-stream-access: an observer whose seat ends mid-stream gets no more tex
 	const seen: Seen[] = [];
 	const watching = follow(owner, id, 0, 15_000, seen);
 	for (let n = 0; n < 100 && !seen.length; n++) await sleep(20);
-	const running = work(writer(Array.from({ length: 40 }, (_, n) => `w${n} `), [], { gap: () => 50 }));
+	const running = work(
+		writer(
+			Array.from({ length: 40 }, (_, n) => `w${n} `),
+			[],
+			{ gap: () => 50 },
+		),
+	);
 	for (let n = 0; n < 100 && lives(seen).length < 2; n++) await sleep(20);
 	const endedAt = Date.now();
 	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${owner.accountId}`);
@@ -212,7 +234,13 @@ test("INV-stream-end: Stop keeps the partial text and ends the stream promptly",
 	const seen: Seen[] = [];
 	const watching = follow(owner, id, 0, 15_000, seen);
 	for (let n = 0; n < 100 && !seen.length; n++) await sleep(20);
-	const running = work(writer(Array.from({ length: 60 }, (_, n) => `w${n} `), [], { gap: () => 50 }));
+	const running = work(
+		writer(
+			Array.from({ length: 60 }, (_, n) => `w${n} `),
+			[],
+			{ gap: () => 50 },
+		),
+	);
 	for (let n = 0; n < 100 && lives(seen).length < 3; n++) await sleep(20);
 	const stoppedAt = Date.now();
 	assert.equal((await cancelTurn(db, owner, id)).cancelled, true);

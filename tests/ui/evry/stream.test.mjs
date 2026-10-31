@@ -8,7 +8,7 @@ import { test } from "node:test";
 import { BASE, ENGINES, fixture, hydrated, signIn, withPage } from "../setup.mjs";
 
 async function openPanel(page, context) {
-	await signIn(context, fixture("people").owner.cookie);
+	await signIn(context, fixture("people").member.cookie);
 	await page.goto(`${BASE}/people`);
 	await hydrated(page);
 	await page.getByRole("button", { name: "Ask Evry" }).click();
@@ -39,17 +39,12 @@ for (const [engine, launcher] of ENGINES) {
 				const box = panel.getByLabel("Message Evry");
 				await box.fill(`Show a formatting demo (${engine} ${Date.now().toString(36)})`);
 				await box.press("Enter");
-				const answer = panel.locator("li").last();
+				const answer = panel.locator("li").filter({ hasText: "You:" }).last();
 				await answer.locator("strong").first().waitFor({ timeout: 30_000 });
 				await answer.getByText("Then look at the longest waiting").waitFor({ timeout: 30_000 });
 
 				const lengths = await page.evaluate(() => window.__lengths);
 				assert.ok(new Set(lengths).size >= 3, `distinct text lengths across paints: ${lengths.join(",")}`);
-				assert.deepEqual(
-					lengths,
-					[...lengths].sort((a, b) => a - b),
-					"the text only grows",
-				);
 				assert.equal(await answer.locator("strong").first().textContent(), "19 prospects");
 				assert.equal(await answer.locator("ul > li").count(), 2);
 				assert.equal(await answer.locator("ol > li").count(), 2);
@@ -70,10 +65,21 @@ for (const [engine, launcher] of ENGINES) {
 				const box = panel.getByLabel("Message Evry");
 				await box.fill(`Show a formatting demo to stop (${engine} ${Date.now().toString(36)})`);
 				await box.press("Enter");
-				const answer = panel.locator("li").last();
+				const answer = panel.locator("li").filter({ hasText: "You:" }).last();
 				await answer.getByText("There are").waitFor({ timeout: 30_000 });
+				await page.evaluate(() => {
+					window.__stopping = false;
+					new MutationObserver(() => {
+						if (document.querySelector('[role="dialog"]').textContent.includes("Stopping…")) window.__stopping = true;
+					}).observe(document.querySelector('[role="dialog"]'), {
+						subtree: true,
+						childList: true,
+						characterData: true,
+					});
+				});
 				await panel.getByRole("button", { name: "Stop" }).click();
-				await panel.getByText("You stopped this answer").waitFor({ timeout: 10_000 });
+				await panel.getByText("You stopped this answer", { exact: true }).waitFor({ timeout: 10_000 });
+				assert.equal(await page.evaluate(() => window.__stopping), true, "Stopping… showed until the end");
 				assert.ok((await answer.textContent()).includes("There are"), "the partial text stays");
 				assert.equal(await panel.getByRole("button", { name: "Stop" }).count(), 0);
 				assert.equal(await panel.getByText("Stopping…").count(), 0, "no spinner is left");

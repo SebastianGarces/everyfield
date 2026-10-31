@@ -230,7 +230,8 @@ export function turnsOf(events: readonly ConversationEvent[], live: Readonly<Rec
 		if (!tail) continue;
 		const last = turn.blocks.at(-1);
 		if (last?.kind === "text" && !last.withheld) last.text += tail;
-		else turn.blocks.push({ kind: "text", sequence: (events.at(-1)?.sequence ?? 0) + 0.5, text: tail, withheld: false });
+		else
+			turn.blocks.push({ kind: "text", sequence: (events.at(-1)?.sequence ?? 0) + 0.5, text: tail, withheld: false });
 	}
 	// A withheld text block keeps one notice, however many saved pieces it had.
 	for (const turn of turns.values())
