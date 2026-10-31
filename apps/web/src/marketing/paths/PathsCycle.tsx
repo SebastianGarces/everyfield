@@ -121,7 +121,7 @@ export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, photos 
 								style={{ transition: t }}
 							>
 								<span className="block [transform:translateX(var(--cut,0px))]" style={{ transition: t }}>
-									<span className="absolute top-0 left-0 -z-1 h-[1.14em] w-full bg-green-100" />
+									<span className="absolute top-0 left-0 -z-1 h-[1.14em] w-full bg-mk-mint" />
 									<span
 										className="flex flex-col items-start [transform:translateY(calc(var(--k)*-1.14em))]"
 										style={{ "--k": k, transition: t } as CSSProperties}

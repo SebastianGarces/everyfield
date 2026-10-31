@@ -14,7 +14,7 @@ const CARD_TITLE = "mk-display font-title type-title-sm leading-[1.2] mk-xl:type
 /** The mint icon tile of the #every-plant tiles and the trust cards: a green icon on a light green square. */
 function MintIcon({ icon }: { icon: IconName }) {
 	return (
-		<span aria-hidden="true" className="grid size-[60px] flex-none place-items-center bg-green-100 text-green-600">
+		<span aria-hidden="true" className="grid size-[60px] flex-none place-items-center bg-mk-mint text-green-600">
 			<Icon icon={ICONS[icon]} size={28} stroke={1.4} />
 		</span>
 	);

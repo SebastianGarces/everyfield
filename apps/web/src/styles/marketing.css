@@ -217,6 +217,8 @@
 	--color-mk-ink-62: rgb(from var(--color-ink) r g b / 0.62);
 	--color-mk-canvas-92: rgb(from var(--color-mk-canvas) r g b / 0.92);
 	/* OPS-82 /oversight: the #every-plant tiles on the field photo and the rules under the #leaders stops. */
+	/* The prototype's mint: the icon tiles of #every-plant and #trust, and the sending-paths phrase highlight. */
+	--color-mk-mint: #d6fbe3;
 	--color-mk-canvas-94: rgb(from var(--color-mk-canvas) r g b / 0.94);
 	--color-mk-cream-50: rgb(from var(--color-cream) r g b / 0.5);
 	--color-mk-ink-55: rgb(from var(--color-ink) r g b / 0.55);
