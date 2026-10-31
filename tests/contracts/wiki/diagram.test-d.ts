@@ -12,12 +12,6 @@ export const empty: Diagram = { type: "flow", title: "Nothing", nodes: [] };
 // @ts-expect-error Only hierarchy nodes carry children.
 export const nestedFlow: Diagram = { type: "flow", title: "Steps", nodes: [{ label: "One", children: [] }] };
 
+const root = { label: "A", children: [] };
 // @ts-expect-error A hierarchy has one root.
-export const twoRoots: Diagram = {
-	type: "hierarchy",
-	title: "Tree",
-	nodes: [
-		{ label: "A", children: [] },
-		{ label: "B", children: [] },
-	],
-};
+export const twoRoots: Diagram = { type: "hierarchy", title: "Tree", nodes: [root, root] };
