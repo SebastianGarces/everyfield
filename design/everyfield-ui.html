@@ -1746,7 +1746,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
 .wd-doc .editor-title:focus-visible, .wd-body:focus-visible { outline: 1.5px solid color-mix(in srgb, var(--ef-focus) 55%, transparent); outline-offset: 10px; border-radius: 6px; }
 .wd-body h1, .wd-sheet h1 { font-size: 32px; line-height: 1.15; color: var(--ef-ink); margin: 32px 0 12px; }
 .wd-body > :first-child { margin-top: 0; }
-.wd-body b, .wd-body strong, .wd-sheet b, .wd-sheet strong { font-weight: 600; color: var(--ef-ink); }
+.wd-body b, .wd-body strong, .wd-sheet b, .wd-sheet strong, #wd-confirm-text b { font-weight: 600; color: var(--ef-ink); }
 .wd-body hr, .wd-sheet hr, .wd-rev-preview hr { border: 0; height: 1px; background: var(--ef-line-2); margin: 26px 0; }
 .wd-body[contenteditable="false"] { color: var(--ef-text-2); }
 .wd-slot { margin: 18px 0; padding: 14px 18px 4px; border-radius: var(--corner-card); background: var(--ef-surface-2); box-shadow: 0 0 0 1px var(--ef-line) inset; }
@@ -6242,8 +6242,8 @@ document.addEventListener('keydown', e => {
   const active = () => page.dataset.active === 'true';
   const narrow = () => matchMedia('(max-width: 1023.98px)').matches;
   /* Shortcut text for tooltips and aria-keyshortcuts: Cmd on Apple platforms, Ctrl elsewhere. */
-  const sc = (k, ...m) => MAC ? (m.includes('alt') ? '⌥' : '') + (m.includes('shift') ? '⇧' : '') + '⌘' + k : 'Ctrl+' + (m.includes('alt') ? 'Alt+' : '') + (m.includes('shift') ? 'Shift+' : '') + k;
-  const ks = (k, ...m) => (MAC ? 'Meta' : 'Control') + (m.includes('alt') ? '+Alt' : '') + (m.includes('shift') ? '+Shift' : '') + '+' + k;
+  const sc = (k, m) => MAC ? ({ alt: '⌥', shift: '⇧' }[m] || '') + '⌘' + k : 'Ctrl+' + ({ alt: 'Alt+', shift: 'Shift+' }[m] || '') + k;
+  const ks = (k, m) => (MAC ? 'Meta' : 'Control') + ({ alt: '+Alt', shift: '+Shift' }[m] || '') + '+' + k;
 
   /* ---------- Sample data: Harvest Point Church ---------- */
   const slot = (label, html, tpl) => `<section class="wd-slot" contenteditable="false" data-slot="${esc(label)}"><div class="wd-slot-head"><span class="wd-slot-label">${esc(label)}</span><button type="button" class="wd-slot-lock" contenteditable="false" aria-label="Locked section. The ${esc(tpl)} template keeps this heading and its place. You can edit the text." data-tip="The ${esc(tpl)} template keeps this heading and its place. You can edit the text below it."><i class="hgi-stroke hgi-square-lock-02" aria-hidden="true"></i>Locked</button></div><div class="wd-slot-body" contenteditable="true" role="textbox" aria-multiline="true" aria-label="${esc(label)} text">${html}</div></section>`;
@@ -6298,6 +6298,7 @@ document.addEventListener('keydown', e => {
   let docs = SAMPLE.map(d => ({ ...d })), stash = null, sel = 'faith-2027', filter = 'all', query = '', seq = 0, listScroll = 0;
   const cur = () => docs.find(d => d.id === sel) || null;
   const readOnly = () => !cur() || cur().status === 'archived';
+  const name = d => d.title || 'Untitled document';
 
   /* ---------- List pane ---------- */
   function renderList() {
@@ -6306,12 +6307,12 @@ document.addEventListener('keydown', e => {
     page.querySelectorAll('[data-n]').forEach(n => n.textContent = counts[n.dataset.n]);
     document.querySelectorAll('[data-wd-count]').forEach(n => { n.textContent = docs.length; n.setAttribute('aria-label', docs.length + ' documents'); });
     const qq = query.trim().toLowerCase();
-    const shown = docs.filter(d => (filter === 'all' || d.status === filter) && (d.title || 'Untitled document').toLowerCase().includes(qq));
+    const shown = docs.filter(d => (filter === 'all' || d.status === filter) && name(d).toLowerCase().includes(qq));
     const focused = document.activeElement && document.activeElement.closest && document.activeElement.closest('.wd-row');
     $('wd-rows').innerHTML = GROUPS.map(([st, label]) => {
       const rows = shown.filter(d => d.status === st);
       if (!rows.length) return '';
-      return `<div class="wd-group" role="group" aria-label="${label}"><h3 class="wd-group-h">${label}<span aria-hidden="true">· ${rows.length}</span></h3>${rows.map(d => `<button type="button" class="wd-row" data-id="${d.id}"${d.id === sel ? ' aria-current="true"' : ''}><span class="wd-row-top"><span class="wd-row-title">${esc(d.title || 'Untitled document')}</span><span class="badge" data-size="sm" data-status="${STATUS[d.status][0]}">${STATUS[d.status][1]}</span></span><span class="wd-row-meta">${esc(d.updated)} · ${esc(d.author)}</span>${d.template ? `<span class="wd-row-tpl"><i class="hgi-stroke hgi-file-script" aria-hidden="true"></i>From template: ${esc(d.template)}</span>` : ''}</button>`).join('')}</div>`;
+      return `<div class="wd-group" role="group" aria-label="${label}"><h3 class="wd-group-h">${label}<span aria-hidden="true">· ${rows.length}</span></h3>${rows.map(d => `<button type="button" class="wd-row" data-id="${d.id}"${d.id === sel ? ' aria-current="true"' : ''}><span class="wd-row-top"><span class="wd-row-title">${esc(name(d))}</span><span class="badge" data-size="sm" data-status="${STATUS[d.status][0]}">${STATUS[d.status][1]}</span></span><span class="wd-row-meta">${esc(d.updated)} · ${esc(d.author)}</span>${d.template ? `<span class="wd-row-tpl"><i class="hgi-stroke hgi-file-script" aria-hidden="true"></i>From template: ${esc(d.template)}</span>` : ''}</button>`).join('')}</div>`;
     }).join('');
     const none = !docs.length;
     page.querySelectorAll('[data-wd-tools]').forEach(el => el.hidden = none);
@@ -6386,7 +6387,7 @@ document.addEventListener('keydown', e => {
     setSave('saved'); renderList();
   }
   $('wd-save-btn').addEventListener('click', saveNow);
-  title.addEventListener('input', () => { const d = cur(); d.title = title.textContent.trim(); const t = page.querySelector(`.wd-row[aria-current="true"] .wd-row-title`); if (t) t.textContent = d.title || 'Untitled document'; dirty(); });
+  title.addEventListener('input', () => { const d = cur(); d.title = title.textContent.trim(); const t = page.querySelector(`.wd-row[aria-current="true"] .wd-row-title`); if (t) t.textContent = name(d); dirty(); });
   title.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const f = body.querySelector('p, h1, h2, h3, li, blockquote'); caretTo(f || body, true); } });
 
   /* Status changes confirm first. Designate official names the version it replaces. */
@@ -6395,26 +6396,26 @@ document.addEventListener('keydown', e => {
     const prev = docs.find(x => x !== d && x.status === 'official' && d.template && x.template === d.template);
     confirmBox({
       title: 'Designate as official?',
-      text: `<b style="font-weight:600;color:var(--ef-ink)">${esc(d.title || 'Untitled document')}</b> becomes the official version that members read and print. ` + (prev ? `It replaces <b style="font-weight:600;color:var(--ef-ink)">${esc(prev.title)}</b>, official since ${esc(prev.updated)}. That version moves to Archived and stays in the history.` : 'No official version of this document exists yet.'),
+      text: `<b>${esc(name(d))}</b> becomes the official version that members read and print. ` + (prev ? `It replaces <b>${esc(prev.title)}</b>, official since ${esc(prev.updated)}. That version moves to Archived and stays in the history.` : 'No official version of this document exists yet.'),
       ok: 'Designate official', run: () => {
         if (prev) prev.status = 'archived';
         d.status = 'official'; d.updated = 'Just now'; d.author = ME; d.revs = [['Designated official', ME, 'Just now']].concat(d.revs || []);
-        renderList(); renderDoc(); toast(`${d.title || 'Untitled document'} is now official` + (prev ? `. ${prev.title} moved to Archived.` : '.'));
+        renderList(); renderDoc(); toast(`${name(d)} is now official` + (prev ? `. ${prev.title} moved to Archived.` : '.'));
       }
     }, $('wd-official-btn'));
   });
   $('wd-archive-btn').addEventListener('click', () => {
     const d = cur(); commit();
     confirmBox({
-      title: 'Archive this document?', text: `<b style="font-weight:600;color:var(--ef-ink)">${esc(d.title || 'Untitled document')}</b> moves to Archived. Nobody can edit it until you restore it. Its history stays.`,
+      title: 'Archive this document?', text: `<b>${esc(name(d))}</b> moves to Archived. Nobody can edit it until you restore it. Its history stays.`,
       ok: 'Archive', variant: 'danger', run: () => {
         d.status = 'archived'; d.updated = 'Just now'; d.author = ME;
-        renderList(); renderDoc(); toast(`Archived ${d.title || 'Untitled document'}`, 'Restore', () => restoreDoc(d.id));
+        renderList(); renderDoc(); toast(`Archived ${name(d)}`, 'Restore', () => restoreDoc(d.id));
         $('wd-restore-btn').focus();
       }
     }, $('wd-archive-btn'));
   });
-  function restoreDoc(id) { const d = docs.find(x => x.id === id); if (!d) return; d.status = 'draft'; d.updated = 'Just now'; d.author = ME; renderList(); if (sel === id) renderDoc(); toast(`Restored ${d.title || 'Untitled document'} as a draft`); }
+  function restoreDoc(id) { const d = docs.find(x => x.id === id); if (!d) return; d.status = 'draft'; d.updated = 'Just now'; d.author = ME; renderList(); if (sel === id) renderDoc(); toast(`Restored ${name(d)} as a draft`); }
   $('wd-restore-btn').addEventListener('click', () => { restoreDoc(sel); title.focus(); });
 
   /* ---------- Overlays: confirm, history drawer, print preview ---------- */
@@ -6456,7 +6457,7 @@ document.addEventListener('keydown', e => {
     const d = cur(); commit();
     revs = [{ label: d.status === 'archived' ? 'Archived version' : 'Current version', who: d.author, when: d.updated, html: d.html, current: true }]
       .concat((d.revs || []).map(([label, who, when], i) => ({ label, who, when, html: i === 0 && label === 'Designated official' ? d.html : olderHtml(d.html, i + 1) })));
-    $('wd-history-sub').textContent = (d.title || 'Untitled document') + ' · ' + revs.length + (revs.length === 1 ? ' version' : ' versions');
+    $('wd-history-sub').textContent = name(d) + ' · ' + revs.length + (revs.length === 1 ? ' version' : ' versions');
     $('wd-revs').innerHTML = revs.map((r, i) => `<div role="listitem"><button type="button" class="rev-row wd-rev" data-rev="${i}"${r.current ? ' data-current' : ''}><span class="dot"></span><span><span style="display:block;font-weight:500">${esc(r.label)}</span><span class="faint t-xs">${esc(r.who)} · ${esc(r.when)}</span></span>${r.current ? '<span class="badge" data-size="sm" data-status="positive">Now</span>' : '<span></span>'}</button></div>`).join('');
     $('wd-rev-preview').innerHTML = '<p class="faint t-sm" style="margin:0">Choose a version to read it.</p>';
     openOverlay('wd-history', $('wd-revs').querySelector('button'), $('wd-history-btn'));
@@ -6467,7 +6468,7 @@ document.addEventListener('keydown', e => {
     $('wd-revs').querySelectorAll('[data-rev]').forEach(x => x.toggleAttribute('aria-current', x === b));
     b.setAttribute('aria-current', 'true');
     const can = !r.current && d.status !== 'archived';
-    $('wd-rev-preview').innerHTML = `<div class="row gap-2" style="margin-bottom:12px;flex-wrap:wrap"><div class="grow"><div style="font-weight:600">${esc(r.label)}</div><div class="faint t-xs">${esc(r.who)} · ${esc(r.when)} · read only</div></div><button type="button" class="btn" data-variant="${can ? 'primary' : 'secondary'}" data-size="sm" id="wd-rev-restore"${can ? '' : ' disabled'}><i class="hgi-stroke hgi-refresh"></i>${r.current ? 'This is the current version' : 'Restore this version'}</button></div><h2 style="font-size:24px;margin:0 0 10px">${esc(d.title || 'Untitled document')}</h2><div class="prose">${readOnlyHtml(r.html)}</div>`;
+    $('wd-rev-preview').innerHTML = `<div class="row gap-2" style="margin-bottom:12px;flex-wrap:wrap"><div class="grow"><div style="font-weight:600">${esc(r.label)}</div><div class="faint t-xs">${esc(r.who)} · ${esc(r.when)} · read only</div></div><button type="button" class="btn" data-variant="${can ? 'primary' : 'secondary'}" data-size="sm" id="wd-rev-restore"${can ? '' : ' disabled'}><i class="hgi-stroke hgi-refresh"></i>${r.current ? 'This is the current version' : 'Restore this version'}</button></div><h2 style="font-size:24px;margin:0 0 10px">${esc(name(d))}</h2><div class="prose">${readOnlyHtml(r.html)}</div>`;
     const rb = $('wd-rev-restore');
     if (can) rb.addEventListener('click', () => {
       lastGood = snap(); record(lastGood); body.innerHTML = r.html; ensureBlocks(); settle();
@@ -6485,7 +6486,7 @@ document.addEventListener('keydown', e => {
   }
   function renderSheet() {
     const d = cur();
-    $('wd-sheet-title').textContent = d ? (d.title || 'Untitled document') : '';
+    $('wd-sheet-title').textContent = d ? name(d) : '';
     $('wd-sheet-body').innerHTML = d ? printHtml(d.status === 'archived' ? d.html : body.innerHTML) : '<p>Choose a document to print.</p>';
   }
   function openPrint(e) { commit(); renderSheet(); openOverlay('wd-print', $('wd-print-go'), e.currentTarget); }
@@ -6534,7 +6535,7 @@ document.addEventListener('keydown', e => {
     if (act === 'new-blank' || act === 'new-template') return newDoc(tpl);
     if (act === 'import-txt') return $('wd-file-txt').click();
     if (act === 'import-docx') return $('wd-file-docx').click();
-    if (act === 'export-pdf' || act === 'export-docx') { commit(); const d = cur(); toast(`Exported ${d.title || 'Untitled document'} as ${act === 'export-pdf' ? 'PDF' : 'Word (.docx)'}`); }
+    if (act === 'export-pdf' || act === 'export-docx') { commit(); const d = cur(); toast(`Exported ${name(d)} as ${act === 'export-pdf' ? 'PDF' : 'Word (.docx)'}`); }
   }
   function newDoc(tpl) {
     const d = { id: 'new-' + (++seq), title: tpl || '', status: 'draft', updated: 'Just now', author: ME, template: tpl || null,
@@ -6573,20 +6574,20 @@ document.addEventListener('keydown', e => {
   const pathOf = n => { const p = []; while (n && n !== body) { p.unshift([...n.parentNode.childNodes].indexOf(n)); n = n.parentNode; } return n ? p : null; };
   const nodeAt = p => p.reduce((n, i) => n && n.childNodes[i], body);
   function snap() { const r = range(); return { html: body.innerHTML, sel: r ? [pathOf(r.startContainer), r.startOffset, pathOf(r.endContainer), r.endOffset] : null }; }
+  function setRange(r) { const g = getSelection(); g.removeAllRanges(); g.addRange(r); lastRange = r.cloneRange(); }
   function restoreSel(s) {
     const a = s && nodeAt(s[0]), b = s && nodeAt(s[2]);
     if (!a || !b) return caretTo(body.lastElementChild || body, false);
     const r = document.createRange(); r.setStart(a, Math.min(s[1], a.length ?? a.childNodes.length)); r.setEnd(b, Math.min(s[3], b.length ?? b.childNodes.length));
-    hostOf(a).focus({ preventScroll: true }); const g = getSelection(); g.removeAllRanges(); g.addRange(r); lastRange = r.cloneRange();
+    hostOf(a).focus({ preventScroll: true }); setRange(r);
   }
   function caretTo(el, start) {
     const h = hostOf(el) || body; h.focus({ preventScroll: true });
-    const r = document.createRange(); r.selectNodeContents(el); r.collapse(start);
-    const g = getSelection(); g.removeAllRanges(); g.addRange(r); lastRange = r.cloneRange();
+    const r = document.createRange(); r.selectNodeContents(el); r.collapse(start); setRange(r);
   }
   function focusSel() {
     if (range()) { hostOf(range().startContainer).focus({ preventScroll: true }); return; }
-    if (lastRange && body.contains(lastRange.startContainer)) { hostOf(lastRange.startContainer).focus({ preventScroll: true }); const g = getSelection(); g.removeAllRanges(); g.addRange(lastRange); }
+    if (lastRange && body.contains(lastRange.startContainer)) { hostOf(lastRange.startContainer).focus({ preventScroll: true }); setRange(lastRange); }
     else caretTo(body.lastElementChild || body, false);
   }
   function record(s) { H.undo.push(s || snap()); if (H.undo.length > 200) H.undo.shift(); H.redo = []; lastAt = 0; }
@@ -6655,7 +6656,7 @@ document.addEventListener('keydown', e => {
       first = first || el;
     });
     [...host.children].forEach(el => { const nx = el.nextElementSibling; if (nx && /^(UL|OL)$/.test(el.tagName) && el.tagName === nx.tagName) { nx.prepend(...el.children); el.remove(); } });
-    if (caret[0].isConnected && caret[2].isConnected) { const x = document.createRange(); x.setStart(caret[0], caret[1]); x.setEnd(caret[2], caret[3]); hostOf(caret[0]).focus({ preventScroll: true }); const g = getSelection(); g.removeAllRanges(); g.addRange(x); lastRange = x.cloneRange(); }
+    if (caret[0].isConnected && caret[2].isConnected) { const x = document.createRange(); x.setStart(caret[0], caret[1]); x.setEnd(caret[2], caret[3]); hostOf(caret[0]).focus({ preventScroll: true }); setRange(x); }
     else if (first) caretTo(first, false);
     settle();
   }
@@ -6669,14 +6670,15 @@ document.addEventListener('keydown', e => {
   }
 
   /* ---------- Toolbar ---------- */
+  /* [command, label, icon, key, modifier]: the tooltip and aria-keyshortcuts come from one key. */
   const TOOLS = [
-    ['p', 'Paragraph', 'hgi-paragraph', sc('0', 'alt'), ks('0', 'alt')], ['h1', 'Heading 1', 'hgi-heading-01', sc('1', 'alt'), ks('1', 'alt')], ['h2', 'Heading 2', 'hgi-heading-02', sc('2', 'alt'), ks('2', 'alt')], ['h3', 'Heading 3', 'hgi-heading-03', sc('3', 'alt'), ks('3', 'alt')], '|',
-    ['bold', 'Bold', 'hgi-text-bold', sc('B'), ks('B')], ['italic', 'Italic', 'hgi-text-italic', sc('I'), ks('I')], ['underline', 'Underline', 'hgi-text-underline', sc('U'), ks('U')], ['link', 'Link', 'hgi-link-01', sc('K'), ks('K')], '|',
-    ['ul', 'Bulleted list', 'hgi-left-to-right-list-bullet', sc('8', 'shift'), ks('8', 'shift')], ['ol', 'Numbered list', 'hgi-left-to-right-list-number', sc('7', 'shift'), ks('7', 'shift')], ['quote', 'Quote', 'hgi-quote-down', sc('9', 'shift'), ks('9', 'shift')], ['hr', 'Divider', 'hgi-minus-sign', 'type --- then Enter', ''], '|',
-    ['undo', 'Undo', 'hgi-arrow-turn-backward', sc('Z'), ks('Z')], ['redo', 'Redo', 'hgi-arrow-turn-forward', MAC ? '⇧⌘Z' : 'Ctrl+Y', MAC ? 'Meta+Shift+Z' : 'Control+Y']
+    ['p', 'Paragraph', 'hgi-paragraph', '0', 'alt'], ['h1', 'Heading 1', 'hgi-heading-01', '1', 'alt'], ['h2', 'Heading 2', 'hgi-heading-02', '2', 'alt'], ['h3', 'Heading 3', 'hgi-heading-03', '3', 'alt'], '|',
+    ['bold', 'Bold', 'hgi-text-bold', 'B'], ['italic', 'Italic', 'hgi-text-italic', 'I'], ['underline', 'Underline', 'hgi-text-underline', 'U'], ['link', 'Link', 'hgi-link-01', 'K'], '|',
+    ['ul', 'Bulleted list', 'hgi-left-to-right-list-bullet', '8', 'shift'], ['ol', 'Numbered list', 'hgi-left-to-right-list-number', '7', 'shift'], ['quote', 'Quote', 'hgi-quote-down', '9', 'shift'], ['hr', 'Divider', 'hgi-minus-sign'], '|',
+    ['undo', 'Undo', 'hgi-arrow-turn-backward', 'Z'], ['redo', 'Redo', 'hgi-arrow-turn-forward', ...(MAC ? ['Z', 'shift'] : ['Y'])]
   ];
   const TOGGLES = new Set(['p', 'h1', 'h2', 'h3', 'bold', 'italic', 'underline', 'link', 'ul', 'ol', 'quote']);
-  tb.innerHTML = TOOLS.map((t, i) => t === '|' ? '<span class="tsep" aria-hidden="true"></span>' : `<button type="button" data-cmd="${t[0]}" tabindex="${i ? -1 : 0}" aria-label="${t[1]}" data-tip="${t[1]} (${t[3]})"${t[4] ? ` aria-keyshortcuts="${t[4]}"` : ''}${TOGGLES.has(t[0]) ? ' aria-pressed="false"' : ''}><i class="hgi-stroke ${t[2]}" aria-hidden="true"></i></button>`).join('');
+  tb.innerHTML = TOOLS.map((t, i) => t === '|' ? '<span class="tsep" aria-hidden="true"></span>' : `<button type="button" data-cmd="${t[0]}" tabindex="${i ? -1 : 0}" aria-label="${t[1]}" data-tip="${t[1]} (${t[3] ? sc(t[3], t[4]) : 'type --- then Enter'})"${t[3] ? ` aria-keyshortcuts="${ks(t[3], t[4])}"` : ''}${TOGGLES.has(t[0]) ? ' aria-pressed="false"' : ''}><i class="hgi-stroke ${t[2]}" aria-hidden="true"></i></button>`).join('');
   const tools = () => [...tb.querySelectorAll('button')];
   function rove(b) { tools().forEach(x => x.tabIndex = x === b ? 0 : -1); }
   tb.addEventListener('mousedown', e => { if (e.target.closest('button')) e.preventDefault(); });
@@ -6726,7 +6728,7 @@ document.addEventListener('keydown', e => {
   function closeLink(refocus) {
     const pop = $('wd-linkpop'); if (pop.hidden) return; pop.hidden = true;
     const ctx = linkCtx; linkCtx = null;
-    if (refocus && ctx) { lastRange = ctx.range; hostOf(ctx.range.startContainer).focus({ preventScroll: true }); const g = getSelection(); g.removeAllRanges(); g.addRange(ctx.range); }
+    if (refocus && ctx) { hostOf(ctx.range.startContainer).focus({ preventScroll: true }); setRange(ctx.range); }
     updateToolbar();
   }
   function applyLink() {
