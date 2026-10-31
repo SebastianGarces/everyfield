@@ -93,7 +93,7 @@ export function JourneyPath({
 		bot.current.firstElementChild?.setAttribute("style", `transform:scale(${bot.current.offsetWidth / BOT})`);
 		const g = geo.current;
 		g.c = stops.current.map((s) => {
-			const li = s!.parentElement!;
+			const li = s!.closest("li")!;
 			return { x: li.offsetLeft, y: li.offsetTop, s: s!.offsetWidth };
 		});
 		const pts: Pt[] = [{ x: -20, y: g.c[0]!.y + 18 }, ...g.c, { x: W + 20, y: g.c[n - 1]!.y - 18 }];
@@ -263,25 +263,28 @@ export function JourneyPath({
 								className="absolute top-(--lo) -translate-1/2 even:top-(--hi)"
 								style={{ left: `${((100 / n) * (i + 0.5)).toFixed(3)}%` }}
 							>
-								<button
-									ref={(el) => {
-										stops.current[i] = el;
-									}}
-									type="button"
-									aria-pressed={i === k}
-									aria-label={s.title}
-									onClick={() => pick(i)}
-									onKeyDown={onKey(i)}
-									className="relative grid size-(--ic) cursor-pointer place-items-center border-0 bg-mk-canvas-92 p-0 text-ink shadow-mk-stop transition-[translate,scale,background-color] duration-[400ms,400ms,250ms] ease-[cubic-bezier(.3,1.4,.5,1)] hover:not-aria-pressed:-translate-y-[3px] focus-visible:outline-cream aria-pressed:scale-[1.08] aria-pressed:bg-green-500"
-								>
+								{/* The number sits outside the button, so the button's name is its title alone (label in name). */}
+								<div className="group relative size-(--ic) transition-[translate,scale] duration-400 ease-[cubic-bezier(.3,1.4,.5,1)] hover:not-has-aria-pressed:-translate-y-[3px] has-aria-pressed:scale-[1.08]">
 									<span
 										aria-hidden="true"
-										className="absolute top-1 left-1.5 type-mk-pic-xs font-semibold tracking-[.06em] text-mk-ink-62"
+										className="pointer-events-none absolute top-1 left-1.5 z-1 type-mk-pic-xs font-semibold tracking-[.06em] text-mk-ink-62 group-has-aria-pressed:text-ink"
 									>
 										{num(i)}
 									</span>
-									{s.icon}
-								</button>
+									<button
+										ref={(el) => {
+											stops.current[i] = el;
+										}}
+										type="button"
+										aria-pressed={i === k}
+										aria-label={s.title}
+										onClick={() => pick(i)}
+										onKeyDown={onKey(i)}
+										className="grid size-full cursor-pointer place-items-center border-0 bg-mk-canvas-92 p-0 text-ink shadow-mk-stop transition-colors duration-250 focus-visible:outline-cream aria-pressed:bg-green-500"
+									>
+										{s.icon}
+									</button>
+								</div>
 							</li>
 						))}
 					</ol>
