@@ -285,3 +285,5 @@ export const upstreamReviewResult = z.strictObject({
 	autoAdoptions: z.number().int().nonnegative(),
 	recipientIds: z.array(z.uuid()),
 });
+
+export * from "./diagram.ts";
