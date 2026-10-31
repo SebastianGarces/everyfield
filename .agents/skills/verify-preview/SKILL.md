@@ -244,11 +244,27 @@ The command prints how many objects it deleted. Then check that the old index li
 
 Write `$E/report.md` in this shape. Name what you did not check.
 
+Start with the Ask coverage table, before any criterion or check table. Read the verbatim ask
+(`bin/evf task spec <task> --show`) and list every deliverable it names: routes, pages, sections,
+screens, commands, files and similar named outputs. One row for each. A deliverable is `delivered`
+(you saw it work), `deferred <follow-up label>` (the label is one `evf task spec` printed, such as
+`OPS-123` or `WP-097 slice 2`, and the task has it in the work store) or `missing`. A `missing` row
+is a blocking finding: post `changes_requested`. `post-review.mjs` refuses a report without the
+section, an approval with a `missing` row and a `deferred` label that is not a follow-up of the task.
+
 ```markdown
 ## Verification of <task> at <sha7> (Opus verifier, session <first 8 characters of your session id>)
 
 **Verdict:** approved | changes requested
 **Evidence:** <index link>
+
+## Ask coverage
+
+| Deliverable in the verbatim ask | Status |
+|---|---|
+| <route, page, section, screen, command or file> | delivered / deferred <follow-up label> / missing |
+
+## Checks
 
 | Check | How | Result |
 |---|---|---|

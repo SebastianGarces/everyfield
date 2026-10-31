@@ -2,6 +2,7 @@ import { requireForeground } from "./foreground.ts";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderBrief } from "./brief.ts";
+import { requireStartable } from "./db.ts";
 import { awaitLoad } from "./load.ts";
 import { requireOpsReservation } from "./ids.ts";
 import { maintenanceScope, requireImplementation, requireSpend, requireTaskRisk, requireTaskScope } from "./policy.ts";
@@ -112,6 +113,7 @@ export function taskStart(
 	opts: { allowUnready: boolean; noStack: boolean; uiTier?: string; overLimit?: boolean; ignoreLoad?: string },
 ): number {
 	const cfg = loadConfig(root);
+	requireStartable(root, task);
 	if (opts.allowUnready)
 		fail(
 			"--allow-unready is removed. Use a read-only brief to investigate; implementation requires closed action gates and reviewed producer milestones.",
