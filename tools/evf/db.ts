@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { baseRef, evfDataDir, fail, git, loadConfig, sleep, type TaskRef } from "./lib.ts";
+import { baseRef, evfDataDir, fail, git, loadConfig, parseTask, sleep, type TaskRef } from "./lib.ts";
 
 /**
  * The harness work store (OPS-57): tasks, runs, events, proofs, approvals, goals and learnings in one sqlite file
@@ -406,10 +406,38 @@ export function markMerged(db: DatabaseSync, task: TaskRef, commit: string | nul
 			);
 		}
 		record(db, id, runId, "merged", { summary });
+		// The ship outcome happened, so an open evf run passed; a seat run lost its task and aborted.
+		const close = db.prepare("UPDATE runs SET status = ?, ended_at = ?, summary = ? WHERE id = ?");
+		const open = db.prepare("SELECT id, role FROM runs WHERE task_id = ? AND status = 'started'").all(id) as Array<{
+			id: number;
+			role: string;
+		}>;
+		for (const r of open)
+			if (r.role === "evf") close.run("passed", ts, summary, r.id);
+			else close.run("aborted", ts, "task merged while the seat was open", r.id);
 		db.exec("COMMIT");
 	} catch (e) {
 		db.exec("ROLLBACK");
 		throw e;
+	}
+}
+
+/**
+ * Record a merge evf did not run through ship (`evf approve`). The store row comes from the PR head branch; a branch
+ * with no row (a Wiki article) writes nothing, so approve never invents a task.
+ */
+export function markMergedByBranch(root: string, branch: string, commit: string | null): void {
+	if (!existsSync(workDbPath(root))) return;
+	const db = openWorkDb(root);
+	try {
+		const row = db
+			.prepare(
+				"SELECT ref FROM tasks WHERE branch = ? AND status <> 'abandoned' AND ref IS NOT NULL ORDER BY id DESC LIMIT 1",
+			)
+			.get(branch) as { ref: string } | undefined;
+		if (row) markMerged(db, parseTask(row.ref), commit, null);
+	} finally {
+		db.close();
 	}
 }
 
@@ -508,6 +536,71 @@ const column = (value: unknown, width: number) =>
 export const seatText = (t: { seat_model?: unknown; seat_effort?: unknown }): string =>
 	t.seat_model || t.seat_effort ? `${t.seat_model ?? "default"} ${t.seat_effort ?? "default"}` : "default";
 
+export type OrphanRun = {
+	ref: string;
+	run_id: number;
+	stage: string;
+	age_minutes: number;
+	task_status: string;
+	pr_number: number | null;
+	repair: string;
+};
+
+/**
+ * Started runs of role `evf` that no live drive owns: the drive's pid file is missing or its pid is dead (a SIGKILL
+ * no handler can catch). Each carries one repair that never ships: a ship stage waits for Sebastian's approval or a
+ * reopen; any other stage restarts through the drive's restart recovery, which only aborts the orphan.
+ */
+export function orphanRuns(db: DatabaseSync, root: string): OrphanRun[] {
+	const rows = db
+		.prepare(
+			"SELECT r.id, r.stage, r.started_at, t.ref, t.slug, t.status, t.pr_number FROM runs r JOIN tasks t ON t.id = r.task_id WHERE r.role = 'evf' AND r.status = 'started' ORDER BY r.id",
+		)
+		.all() as Array<{
+		id: number;
+		stage: string;
+		started_at: string;
+		ref: string | null;
+		slug: string;
+		status: string;
+		pr_number: number | null;
+	}>;
+	const live = (slug: string) => {
+		const file = join(evfDataDir(root), "drive", `${slug}.pid`);
+		const pid = existsSync(file) ? Number(readFileSync(file, "utf8").trim()) : 0;
+		if (!pid) return false;
+		try {
+			process.kill(pid, 0);
+			return true;
+		} catch {
+			return false;
+		}
+	};
+	return rows
+		.filter((r) => !live(r.slug))
+		.map((r) => {
+			const ref = r.ref ?? r.slug;
+			const repair =
+				r.status === "merged"
+					? `bin/evf drive ${ref} --once (the late-merge path records the merge and closes the run)`
+					: r.stage === "ship"
+						? `${r.pr_number ? `bin/evf approve ${r.pr_number} --owner-approval "<his words>" once Sebastian approved, or ` : ""}bin/evf task reopen ${ref} --reason "<words>"`
+						: `bin/evf drive ${ref} --once (restart recovery aborts the run; it ships nothing)`;
+			return {
+				ref,
+				run_id: r.id,
+				stage: r.stage,
+				age_minutes: Math.max(0, Math.round((Date.now() - Date.parse(r.started_at)) / 60_000)),
+				task_status: r.status,
+				pr_number: r.pr_number,
+				repair,
+			};
+		});
+}
+
+export const orphanLine = (o: OrphanRun): string =>
+	`orphan evf run ${o.run_id}: ${o.ref} ${o.stage} started ${o.age_minutes} min ago, no live drive. Repair: ${o.repair}`;
+
 /** Tasks, seats, recent events and health, from the views only. `task` narrows to one ref and its parts. */
 export function status(root: string, opts: { json: boolean; task?: string }): number {
 	const path = workDbPath(root);
@@ -526,6 +619,7 @@ export function status(root: string, opts: { json: boolean; task?: string }): nu
 			tasks: [],
 			seats: [],
 			recent: [],
+			orphanRuns: [],
 		};
 		console.log(opts.json ? JSON.stringify(empty, null, 2) : `work store: none at ${path}. Run evf db migrate.`);
 		return 0;
@@ -553,7 +647,17 @@ export function status(root: string, opts: { json: boolean; task?: string }): nu
 				proofs: db.prepare(`SELECT * FROM proofs WHERE task_id IN ${inIds} ORDER BY id`).all() as Row[],
 			}
 		: {};
-	const report = { path: workDbPath(root), schema_version: schemaVersion(db), health, tasks, seats, recent, ...detail };
+	const orphans = orphanRuns(db, root).filter((o) => !opts.task || tasks.some((t) => (t.ref ?? t.slug) === o.ref));
+	const report = {
+		path: workDbPath(root),
+		schema_version: schemaVersion(db),
+		health,
+		tasks,
+		seats,
+		recent,
+		orphanRuns: orphans,
+		...detail,
+	};
 	db.close();
 	if (opts.json) {
 		console.log(JSON.stringify(report, null, 2));
@@ -572,6 +676,7 @@ export function status(root: string, opts: { json: boolean; task?: string }): nu
 				`${column(t.ref ?? t.slug, 16)} ${column(t.mode, 13)} ${column(t.status, 10)} ${column(t.stage, 10)} ${column(t.round, 5)} ${column(t.pr_number ? `#${t.pr_number}` : "-", 6)} ${column(t.goal_key, 5)} ${column(seatText(t), 26)} ${String(t.updated_at ?? "").slice(0, 16)}`,
 			);
 	}
+	for (const o of orphans) console.log(orphanLine(o));
 	if (seats.length) {
 		console.log("seats:");
 		for (const s of seats)
