@@ -15,7 +15,7 @@ import {
 import { cachedTriage } from "./feedback.ts";
 import { mergePullRequest, templateClass } from "./merge.ts";
 import { afterMerge, checkPr, type MergeEvidence } from "./ship.ts";
-import { APPROVED_PROTOTYPE, changesOnlyOwnRegistration } from "./policy.ts";
+import { APPROVED_PROTOTYPE, changesOnlyOwnRegistration, mayChangePrototype } from "./policy.ts";
 
 /**
  * Human-approved merge for the PRs that never merge automatically: Wiki articles, prototypes, and
@@ -78,7 +78,7 @@ function routeOf(root: string, cfg: Config, pr: Pr): Route {
 		const owns = (path: string) =>
 			path === "evf.config.json"
 				? changesOnlyOwnRegistration(root, task, base, pr.headRefOid)
-				: path !== APPROVED_PROTOTYPE &&
+				: (path !== APPROVED_PROTOTYPE || mayChangePrototype(design)) &&
 					design.owningPaths.some((p) => (p.endsWith("/") ? path.startsWith(p) : path === p));
 		const other = pr.files.map((f) => f.path).filter((path) => !owns(path));
 		if (other.length)
