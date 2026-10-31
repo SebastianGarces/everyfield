@@ -1160,7 +1160,7 @@
     "id": "PPL-002",
     "title": "Create, quick-add and edit person profiles",
     "module": "people",
-    "behavior": "Preserve contact, independent address/source/sourceDetails/summary notes and stage fields with server validation after trim. Normal full form names allow bounded 255 character components; reject wholly blank display identity. A minimum named guest may supply one real display name with optional phone/email and no fabricated surname. Quick defaults are prospect, source other (meeting quick-add uses meeting_guest_list), and optional US country default shown/editable. Explicit null clears nullable fields rather than blank\u2192undefined losing the edit. Users cannot set the account link or creator. Every create and edit shows in the person's history. Creating or editing a person does not imply account, adult, commitment, consent or safety clearance. Background-check fields are excluded from every current form/DTO/import/export/tool.",
+    "behavior": "Preserve contact, independent address/source/sourceDetails/summary notes and stage fields with server validation after trim. Normal full form names allow bounded 255 character components; reject wholly blank display identity. A minimum named guest may supply one real display name with optional phone/email and no fabricated surname. Quick defaults are prospect, source other (meeting quick-add uses meeting_guest_list), and optional US country default shown/editable. Explicit null clears nullable fields rather than blank\u2192undefined losing the edit. Users cannot set the account link or creator. Every create and edit shows in the person's history. Creating or editing a person does not imply account, commitment, consent or safety clearance. Background-check fields are excluded from every current form/DTO/import/export/tool.",
     "spec_file": "docs/product/people.md#req-ppl-002",
     "requirement_ids": [
       "REQ-KNOW-056",
@@ -6438,7 +6438,7 @@
     "id": "PI-002",
     "title": "Committed adult growth, first commitments and flat streak",
     "module": "intelligence",
-    "behavior": "Count each currently active explicitly classified adult once across supported commitments; genuine valid historical first acquisitions drive adjacent 28 day windows and 21/28 day timing independently of current size. Real withdrawal lowers size without erasing acquisition; rejoin/repeat/team move is not new. Correct invalid occurrence evidence through history; partial lower-bound size and timing certainty remain separate.",
+    "behavior": "Count each currently active effective adult (from the birth date, else the recorded classification) once across supported commitments; genuine valid historical first acquisitions drive adjacent 28 day windows and 21/28 day timing independently of current size. Real withdrawal lowers size without erasing acquisition; rejoin/repeat/team move is not new. Correct invalid occurrence evidence through history; partial lower-bound size and timing certainty remain separate.",
     "spec_file": "docs/product/methodology-intelligence.md",
     "requirement_ids": [
       "REQ-PI-002"

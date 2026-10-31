@@ -224,13 +224,13 @@ test("AC:TARGET-PPL-007 INV-move-revisions (D68): after reorder, away and back, 
 	);
 });
 
-test("INV-activity-entry: a saved change joins the end, replaces its own entry, and waits for unloaded pages", () => {
+test("INV-activity-entry: a saved change joins the top, replaces its own entry, and stays on top over unloaded pages", () => {
 	const note = { id: "n1", kind: "note", body: "First" };
 	const loaded = (next, items = [note]) => ({ status: "ok", value: { items, next } });
 	const added = { id: "a1", kind: "activity", action: "updated" };
-	assert.deepEqual(withEntry(loaded(null), added).value.items, [note, added]);
+	assert.deepEqual(withEntry(loaded(null), added).value.items, [added, note]);
 	assert.deepEqual(withEntry(loaded(null), { ...note, body: "Edited" }).value.items, [{ ...note, body: "Edited" }]);
-	assert.deepEqual(withEntry(loaded(2), added), loaded(2));
+	assert.deepEqual(withEntry(loaded(2), added), loaded(2, [added, note]));
 	assert.deepEqual(withEntry(loaded(2), { ...note, body: "Edited" }).value.items, [{ ...note, body: "Edited" }]);
 	assert.deepEqual(withEntry({ status: "lost" }, added), { status: "lost" });
 });

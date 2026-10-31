@@ -4,6 +4,7 @@ import type { Database } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
+import { plantTodaySql } from "./adult.ts";
 import { assessmentsJson, assessmentsOf } from "./assessments/index.ts";
 import { adminRead, history } from "./assessments/shared.ts";
 import { commitmentsJson, commitmentsOf } from "./commitments/index.ts";
@@ -84,7 +85,7 @@ export async function readPersonPage(
 }
 
 const personJson = (alias: SQL) =>
-	sql`to_jsonb(${alias})||jsonb_build_object('revision',${alias}.revision::text,'pipeline_position',${alias}.pipeline_position::text)`;
+	sql`to_jsonb(${alias})||jsonb_build_object('revision',${alias}.revision::text,'pipeline_position',${alias}.pipeline_position::text,'plant_today',${plantTodaySql(sql`${alias}.plant_id`)})`;
 /** The Person row with the field columns the page's photo and household read. */
 const pagePerson = personRow.extend({ household_id: z.uuid().nullable(), photo_object_id: z.uuid().nullable() });
 const pageRow = z.object({

@@ -358,10 +358,11 @@ test("AC:TARGET-PPL-025 AC:PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-MERGE A
 			item.fields.householdTo ?? null,
 		]),
 		[
-			[note, "Note", "note", null, null, null],
-			[stageId, "Stage", "stage_changed", "prospect", "attendee", null],
-			[moveId, "updated", "activity", null, null, "Rivera Home (head)"],
+			// Newest first, as the person page reads it.
 			[mergeId, "person_merged", "activity", null, null, null],
+			[moveId, "updated", "activity", null, null, "Rivera Home (head)"],
+			[stageId, "Stage", "stage_changed", "prospect", "attendee", null],
+			[note, "Note", "note", null, null, null],
 		],
 	);
 	assert.equal(feed.rows.find((item) => item.id === note)?.fields.body, undefined);

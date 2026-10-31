@@ -30,6 +30,7 @@ import {
 	editableChanges,
 	fieldKind,
 	fieldLabel,
+	hasBirthDate,
 	isRequired,
 	missingRequired,
 	operationTitle,
@@ -925,6 +926,7 @@ function ReviseForm({
 			?.focus();
 	useEffect(() => focusField(), []);
 	const locked = busy || unknown || checking;
+	const dated = hasBirthDate(review, edits);
 	const submit = (e: FormEvent) => {
 		e.preventDefault();
 		if (locked) return;
@@ -943,14 +945,16 @@ function ReviseForm({
 					const now =
 						review.operation === "people.createPerson" || c.field === "reason"
 							? undefined
-							: `Now: ${valueText(c.field, c.before) ?? "empty"}`;
+							: c.field === "adultClassification" && dated
+								? "Not needed: it comes from the birth date."
+								: `Now: ${valueText(c.field, c.before) ?? "empty"}`;
 					return (
 						<div key={c.field} data-field={c.field}>
 							<Field
 								label={fieldLabel(c.field)}
 								hint={now}
 								error={missing === c.field ? `Enter ${fieldLabel(c.field).toLowerCase()}.` : undefined}
-								optional={!isRequired(c.field)}
+								optional={!isRequired(c.field, dated)}
 							>
 								{kind === "choice" ? (
 									<Select options={CHOICES[c.field]!} value={edits[c.field]} onValueChange={set} disabled={locked} />
