@@ -95,12 +95,12 @@ export function EvryBot({
 					<defs>
 						<path ref={path} id={`${id}p`} d={first.body} />
 						<linearGradient ref={sh} id={`${id}s`} x1="0" y1="0" x2="0" y2="1">
-							<stop offset=".5" stopColor="#013C22" stopOpacity="0" />
-							<stop offset="1" stopColor="#013C22" stopOpacity=".22" />
+							<stop offset=".5" className="eb-s0" />
+							<stop offset="1" className="eb-s1" />
 						</linearGradient>
 						<radialGradient ref={hl} id={`${id}h`} cx=".32" cy=".26" r=".46">
-							<stop offset="0" stopColor="#fff" stopOpacity=".6" />
-							<stop offset="1" stopColor="#fff" stopOpacity="0" />
+							<stop offset="0" className="eb-h0" />
+							<stop offset="1" className="eb-h1" />
 						</radialGradient>
 					</defs>
 					<g ref={g} className="eb-g">

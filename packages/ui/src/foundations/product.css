@@ -197,6 +197,21 @@
 	[data-product-root] .evry-bot .eb-fill {
 		fill: var(--ef-green);
 	}
+	/* The body's shading (deep green, darker toward the base) and its highlight (white, upper left). */
+	[data-product-root] .evry-bot :is(.eb-s0, .eb-s1) {
+		stop-color: #013c22;
+		stop-opacity: 0;
+	}
+	[data-product-root] .evry-bot .eb-s1 {
+		stop-opacity: 0.22;
+	}
+	[data-product-root] .evry-bot :is(.eb-h0, .eb-h1) {
+		stop-color: #fff;
+		stop-opacity: 0;
+	}
+	[data-product-root] .evry-bot .eb-h0 {
+		stop-opacity: 0.6;
+	}
 	[data-product-root] .evry-bot .eb-e {
 		fill: var(--color-ink-fixed);
 		transform-box: fill-box;
