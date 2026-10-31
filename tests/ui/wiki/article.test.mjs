@@ -1,8 +1,8 @@
 // Wiki article layout, Previous/Next and header (WP-034/ui, S2 review tasks 23 to 25). Needs a People-seeded preview:
 // set UI_BASE_URL and PEOPLE_UI_FIXTURE (tests/ui/people/seed.mts). Both browser engines run. The seed writes one
 // Frameworks group. The sidenav lists it by phase, then position: Setting up your website, Team handbook, Volunteer
-// guide (phase 0, reading length), Financial planning for a plant, Choosing a meeting place (phase 1), Raising support
-// (phase 2), Launch checklist 1 to 22 (phase 3). The reading and bookmark tests write the owner's own state, so run the
+// guide (phase 0, reading length), Financial planning for a plant, Choosing a meeting place (phase 1), Raising support,
+// Diagram blocks, Counting Procedures, Partner Organization Coordination (phase 2), Launch checklist 1 to 22 (phase 3). The reading and bookmark tests write the owner's own state, so run the
 // suite once on a freshly seeded preview.
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -109,9 +109,9 @@ for (const [name, engine] of ENGINES) {
 	test(`AC:WIKI-ARTICLE-LAYOUT: a sidenav click keeps the sidenav place and opens the article at its top (${name})`, async () => {
 		await withPage(engine, "/wiki/launch-checklist-1", async (page) => {
 			await page.evaluate(() => (document.getElementById("wiki-scroll").previousElementSibling.scrollTop = 120));
-			await page.getByRole("link", { name: "Launch checklist 9" }).click();
-			await page.waitForURL(/launch-checklist-9$/);
-			await page.locator("h1", { hasText: "Launch checklist 9" }).waitFor();
+			await page.getByRole("link", { name: "Launch checklist 6" }).click();
+			await page.waitForURL(/launch-checklist-6$/);
+			await page.locator("h1", { hasText: "Launch checklist 6" }).waitFor();
 			const place = await page.evaluate(() => {
 				const column = document.getElementById("wiki-scroll");
 				const side = column.previousElementSibling;

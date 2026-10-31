@@ -4,6 +4,15 @@ import { join } from "node:path";
 import { spawn } from "node:child_process";
 import type { DatabaseSync } from "node:sqlite";
 import { ensureTask, findTask, markMerged, newTaskRow, openWorkDb, record, seatText, type TaskRow } from "./db.ts";
+import {
+	fileFollowUps,
+	followUpsOf,
+	partialLine,
+	reserveFollowUpIds,
+	unfiledMessage,
+	unfiledSlices,
+	waitsFor,
+} from "./followups.ts";
 import { ideaWorktree, launch, LaunchAborted, LaunchLineTooLong, type LaunchTiming } from "./launch.ts";
 import { shipOnCurrentCode } from "./merge.ts";
 import { isOpus, validateOverride, type Role } from "./seats.ts";
@@ -60,7 +69,7 @@ export const seatOf = (stage: Stage, task: TaskRef, spec: string | null): Role |
 	stage === "implement" && task.part === "ui" && wantsUiSeat(spec) ? "ui" : SEAT_STAGES[stage];
 
 export type Next = {
-	stage: Stage | "waiting" | "escalated" | "done";
+	stage: Stage | "waiting" | "escalated" | "done" | "blocked";
 	role?: Role;
 	idea?: number;
 	round: number;
@@ -133,7 +142,15 @@ const deferredEscalation = (db: DatabaseSync, taskId: number): string | null => 
 };
 
 /** What `nextStage` needs besides the rows. Each field is read from the events of the store by the caller. */
-export type NextExtras = { reopenReason?: string | null; deferred?: string | null; choice?: CompareChoice | null };
+export type NextExtras = {
+	reopenReason?: string | null;
+	deferred?: string | null;
+	choice?: CompareChoice | null;
+	/** Later slices of the stored spec that have no follow-up row (OPS-86). */
+	unfiled?: string[];
+	/** Set on a queued follow-up: the label of the row it waits for. */
+	waitsFor?: string | null;
+};
 
 /**
  * Failed or aborted runs since the last passed one, counting only runs after the latest reopen marker.
@@ -311,6 +328,27 @@ export function nextStage(
 	reopenAfter = 0,
 	extras: NextExtras = {},
 ): Next {
+	// A queued follow-up never starts a seat. A task whose spec lists slices without follow-ups never starts implement.
+	if (t.status === "queued")
+		return {
+			stage: "blocked",
+			round: t.round,
+			reason: `${task.id} is queued: it waits for ${extras.waitsFor ?? "its parent"} to merge`,
+		};
+	const n = nextStageOf(task, t, runs, picked, reopenAfter, extras);
+	return n.stage === "implement" && extras.unfiled?.length
+		? { stage: "blocked", round: n.round, reason: unfiledMessage(task.id, extras.unfiled) }
+		: n;
+}
+
+function nextStageOf(
+	task: TaskRef,
+	t: TaskRow,
+	runs: RunRow[],
+	picked: boolean,
+	reopenAfter: number,
+	extras: NextExtras,
+): Next {
 	const round = t.round;
 	if (t.mode === "prototype") return nextPrototype(task, t, runs, picked, reopenAfter, extras);
 	if (t.status === "merged" || t.status === "done") return { stage: "done", round, reason: t.status };
@@ -380,6 +418,13 @@ const extrasOf = (db: DatabaseSync, taskId: number): NextExtras => ({
 	reopenReason: reopenReasonOf(db, taskId),
 	deferred: deferredEscalation(db, taskId),
 	choice: compareChoiceOf(db, taskId),
+	unfiled: unfiledSlices(
+		db,
+		taskId,
+		(db.prepare("SELECT spec FROM tasks WHERE id = ?").get(taskId) as { spec: string | null } | undefined)?.spec ??
+			null,
+	),
+	waitsFor: waitsFor(db, taskId),
 });
 
 export function next(root: string, task: TaskRef): number {
@@ -503,6 +548,10 @@ export function runDone(
 					`Done criteria ${missing.join(", ")} have no met or n/a proof at ${head.slice(0, 10)} or an earlier head it contains. Add them with bin/evf proof add ${r.ref} --criterion <n> --status met|n/a --evidence <url>, or close this verify as failed.`,
 				);
 		}
+		if (r.stage === "plan" && opts.status === "passed") {
+			const unfiled = unfiledSlices(db, r.task_id, r.spec);
+			if (unfiled.length) fail(`${unfiledMessage(r.ref, unfiled)} A plan run cannot close passed until they exist.`);
+		}
 		if (ideaStage.test(r.stage) && opts.status === "passed") {
 			const idea = Number(r.stage.slice(4)),
 				ideaFile = join(ideaWorktree(root, loadConfig(root), parseTask(r.ref), idea), "IDEA.md");
@@ -621,14 +670,36 @@ export function taskSpec(root: string, task: TaskRef, file: string): number {
 	const hash = createHash("sha256").update(spec).digest("hex");
 	const db = openWorkDb(root);
 	try {
-		const t = ensureTask(db, task, "implement");
-		if (t.status === "merged")
-			fail(`${t.ref} is merged. Start a new task with evf task new ${t.ref} --ask-file <file>.`);
-		db.prepare(
-			"UPDATE tasks SET spec = ?, spec_hash = ?, status = CASE WHEN status = 'new' THEN 'specced' ELSE status END, updated_at = ? WHERE id = ?",
-		).run(spec, hash, now(), t.id);
-		record(db, t.id, null, "spec_set", { hash, summary: `${t.ref} spec stored (${spec.split("\n").length} lines)` });
+		const known = findTask(db, task);
+		if (known?.status === "merged")
+			fail(`${known.ref} is merged. Start a new task with evf task new ${known.ref} --ask-file <file>.`);
+		// OPS ids are reserved first: one failed reservation stores neither the spec nor a slice row.
+		const ids = reserveFollowUpIds(root, db, { id: known?.id ?? 0, ref: task.id }, spec);
+		const t = known ?? ensureTask(db, task, "implement");
+		const parent = db.prepare("SELECT id, ref, ask, goal_id FROM tasks WHERE id = ?").get(t.id) as {
+			id: number;
+			ref: string;
+			ask: string;
+			goal_id: number | null;
+		};
+		db.exec("BEGIN IMMEDIATE");
+		let filed: string[];
+		try {
+			db.prepare(
+				"UPDATE tasks SET spec = ?, spec_hash = ?, status = CASE WHEN status = 'new' THEN 'specced' ELSE status END, updated_at = ? WHERE id = ?",
+			).run(spec, hash, now(), t.id);
+			record(db, t.id, null, "spec_set", {
+				hash,
+				summary: `${t.ref} spec stored (${spec.split("\n").length} lines)`,
+			});
+			filed = fileFollowUps(db, parent, spec, ids);
+			db.exec("COMMIT");
+		} catch (e) {
+			db.exec("ROLLBACK");
+			throw e;
+		}
 		console.log(`spec: ${t.ref} ${hash.slice(0, 12)}`);
+		for (const line of filed) console.log(`follow-up: ${line}`);
 		return 0;
 	} finally {
 		db.close();
@@ -1241,7 +1312,8 @@ function shipStage(db: DatabaseSync, root: string, task: TaskRef, t: TaskRow, ru
 	// templates) verifies and returns without a merge: the drive records the wait and stops, with no new round.
 	if (after.state !== "MERGED" && findTask(db, task)?.status !== "merged") {
 		const pr = t.pr_number ?? task.branch;
-		const cause = `PR #${pr} is verified and waits for Sebastian's approval. After his approval in chat, run: bin/evf approve ${pr} --owner-approval "<his words>"`;
+		const partial = partialLine(followUpsOf(db, t.id));
+		const cause = `${partial ? `${partial} ` : ""}PR #${pr} is verified and waits for Sebastian's approval. After his approval in chat, run: bin/evf approve ${pr} --owner-approval "<his words>"`;
 		record(db, t.id, runId, "owner_approval_wait", { pr: t.pr_number, summary: `${task.id}: ${cause}` });
 		notify(`${task.id} waits for Sebastian`, cause);
 		return { status: "passed", summary: "verified; waits for Sebastian's approval (evf approve)" };
@@ -1554,7 +1626,7 @@ export function driveOnce(root: string, task: TaskRef, timing: DriveTiming = DRI
 				summary: `${task.id} escalation held back until ${n.reason.replace(/^escalation held back until /, "")}`,
 			});
 		if (n.stage === "escalated" && t.status !== "escalated") escalate(db, t, null, n.reason);
-		if (n.stage === "done" || n.stage === "escalated") return n;
+		if (n.stage === "done" || n.stage === "escalated" || n.stage === "blocked") return n;
 		if (n.stage === "pick") {
 			if (t.status !== "awaiting_pick") {
 				db.prepare("UPDATE tasks SET status = 'awaiting_pick', updated_at = ? WHERE id = ?").run(now(), t.id);
@@ -1618,8 +1690,14 @@ export function driveOnce(root: string, task: TaskRef, timing: DriveTiming = DRI
 			return { stage: "done", round: n.round, reason: "merged" };
 		// A verified owner route stops here: Sebastian approves, then the next pass records the merge.
 		// A failed ship keeps its transition (a new implement round).
-		if (n.stage === "ship" && evfStatus === "passed")
-			return { stage: "done", round: n.round, reason: `PR #${t.pr_number ?? "?"} waits for Sebastian's approval` };
+		if (n.stage === "ship" && evfStatus === "passed") {
+			const partial = partialLine(followUpsOf(db, t.id));
+			return {
+				stage: "done",
+				round: n.round,
+				reason: `${partial ? `${partial} ` : ""}PR #${t.pr_number ?? "?"} waits for Sebastian's approval`,
+			};
+		}
 		return n;
 	} finally {
 		db.close();
@@ -1675,8 +1753,8 @@ export function drive(
 		for (;;) {
 			const n = driveOnce(root, task, timing);
 			console.log(`${now()} drive ${task.id}: ${n.stage} (${n.reason})`);
-			if (n.stage === "done" || n.stage === "escalated" || n.stage === "pick" || opts.once)
-				return n.stage === "escalated" ? 2 : 0;
+			if (n.stage === "done" || n.stage === "escalated" || n.stage === "blocked" || n.stage === "pick" || opts.once)
+				return n.stage === "escalated" || n.stage === "blocked" ? 2 : 0;
 		}
 	} finally {
 		if (existsSync(pidFile) && Number(readFileSync(pidFile, "utf8").trim()) === process.pid) unlinkSync(pidFile);

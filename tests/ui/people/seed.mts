@@ -13,6 +13,7 @@ import { createIdentityService } from "../../../packages/domain/src/identity/ind
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
 import { peopleWriter, accountPersonProducer } from "../../../packages/domain/src/people/index.ts";
 import { randomBytes, randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { dropSeed, openSeedEnvironment, writeFixture } from "../seed-env.mts";
 
 // The task reminder port of a stage change or retirement. These people hold no dated, assigned task, so a replan
@@ -22,6 +23,70 @@ const noReminders = async () => {
 };
 
 const PASSWORD = "People-preview-pass-1";
+
+/** The WP-034/ui fixture article: the five diagram types, a plain fence and a malformed diagram that shows as code. */
+const DIAGRAM_ARTICLE = [
+	"## How a guest becomes a member",
+	"Most guests take the same four steps. The diagram shows them in order.",
+	"```diagram flow",
+	"title: How a guest becomes a member",
+	"loop: Each new guest starts again at the first visit",
+	"- First visit | Greeted at the door and given a welcome card | Week 1",
+	"- Connect card | A personal follow-up within 48 hours",
+	"- Newcomers lunch | Meet the pastor and two team leaders | Month 1",
+	"- Membership class",
+	"```",
+	"## The launch phases",
+	"```diagram stages",
+	"title: Six phases from vision to launch",
+	"- Discovery | Pray, study the community and write the vision",
+	"- Core group | Gather the first committed believers",
+	"- Launch team | Turn the core group into ministry teams",
+	"- Training | Rehearse every Sunday role",
+	"- Pre-launch | Preview services and invitations",
+	"- Launch Sunday | The first public service | Week 0",
+	"```",
+	"## The weekly rhythm",
+	"```diagram cycle",
+	"title: The weekly ministry rhythm",
+	"loop: Every week",
+	"- Plan | Set the order of service",
+	"- Invite | Each member invites one person",
+	"- Gather | Sunday worship",
+	"- Follow up | Call every first-time guest",
+	"```",
+	"## Who leads whom",
+	"```diagram hierarchy",
+	"title: Leadership structure",
+	"- Lead pastor | Vision and preaching",
+	"  - Ministry director | Sunday teams",
+	"    - Team leader | Hospitality",
+	"      - Volunteer | Greeter",
+	"    - Team leader | Kids",
+	"  - Small group coach | Weekday groups",
+	"    - Small group leader",
+	"```",
+	"## The first year",
+	"```diagram timeline",
+	"title: The first year after launch",
+	"- Launch Sunday | The first public service | Week 0",
+	"- First guest follow-up | Every card answered | Week 1",
+	"- Membership class | | Month 2",
+	"- First baptism service | Celebrate new believers | Month 6",
+	"- Anniversary | Share the story of the year | Month 12",
+	"```",
+	"## A plain code block",
+	"```text",
+	"Cash total:        $________",
+	"                   ---------",
+	"- this dash line stays text",
+	"```",
+	"## A broken diagram",
+	"```diagram flow",
+	"title: This block has a fault",
+	"- One | two | three | four",
+	"```",
+].join("\n");
 
 async function up(origin: string) {
 	const env = await openSeedEnvironment(origin);
@@ -273,6 +338,19 @@ async function up(origin: string) {
 	).join("\n\n");
 	articles.unshift(["Setting up your website", "website-setup", long, 0], ["Team handbook", "team-handbook", long, 0]);
 	articles.push(["Volunteer guide", "volunteer-guide", long, 0]);
+	// WP-034/ui diagram blocks: one article with each diagram type, one plain fence and one malformed diagram, and two
+	// real articles from the app's bootstrap corpus whose fences are text (phase 2, after Raising support).
+	articles.push(["Diagram blocks", "diagram-blocks", DIAGRAM_ARTICLE, 2]);
+	const corpus = JSON.parse(
+		readFileSync(new URL("../../../docs/reference/bootstrap/global-seed-payload.json", import.meta.url), "utf8"),
+	) as { articles: { slug: string; title: string; content: string }[] };
+	for (const slug of [
+		"administrative/financial/counting-procedures",
+		"launch-sunday/partner-organization-coordination",
+	]) {
+		const row = corpus.articles.find((article) => article.slug === slug)!;
+		articles.push([row.title, slug, row.content, 2]);
+	}
 	for (let n = 1; n <= 22; n += 1)
 		articles.push([`Launch checklist ${n}`, `launch-checklist-${n}`, `Checklist ${n} for the launch team.`, 3]);
 	for (const [position, [title, slug, body, phase]] of articles.entries()) {

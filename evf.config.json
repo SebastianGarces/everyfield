@@ -1409,6 +1409,24 @@
 			],
 			"risk": "ordinary"
 		},
+		"OPS-86": {
+			"title": "evf: later slices get filed, and review checks the ask, not just the spec",
+			"owningPaths": [
+				"tools/evf/",
+				".agents/roles/",
+				".claude/agents/planner.md",
+				".claude/agents/verifier.md",
+				".claude/agents/prototype-merger.md",
+				".agents/skills/verify-preview/",
+				"AGENTS.md",
+				"docs/build-agent-workflow.md"
+			],
+			"checks": [
+				{ "name": "documentation", "run": ["python3", "docs/check-all.py"] },
+				{ "name": "workflow-regressions", "run": ["bin/evf", "test"] }
+			],
+			"risk": "ordinary"
+		},
 		"OPS-100": {
 			"title": "evf + evf TUI: merged tasks leave active views, held tasks show awaiting owner, one row per ref, explorer by stage",
 			"owningPaths": ["tools/evf/", "tools/evf-tui/", ".agents/roles/coordinator.md"],

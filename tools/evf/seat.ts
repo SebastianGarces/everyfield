@@ -37,7 +37,7 @@ export const CONTEXT_ROOM = { units: 7600, lines: 180 };
 const taskRow = (db: DatabaseSync, task: TaskRef, any = false) =>
 	db
 		.prepare(
-			`SELECT id, title, ask, spec, spec_hash, status, round, goal_id FROM tasks WHERE ref = ?${any ? "" : " AND status NOT IN ('merged', 'abandoned', 'done')"} ORDER BY id DESC LIMIT 1`,
+			`SELECT id, title, ask, spec, spec_hash, status, round, goal_id FROM tasks WHERE ref = ?${any ? "" : " AND status NOT IN ('merged', 'abandoned', 'done')"} ORDER BY (status = 'queued'), id DESC LIMIT 1`,
 		)
 		.get(task.id) as Row | undefined;
 

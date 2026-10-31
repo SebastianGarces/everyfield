@@ -9,6 +9,8 @@
 		"src/**/*.ts",
 		"src/**/*.mts",
 		"../../tests/contracts/common/**/*.ts",
-		"../../tests/contracts/common/**/*.mts"
+		"../../tests/contracts/common/**/*.mts",
+		"../../tests/contracts/wiki/**/*.ts",
+		"../../tests/contracts/wiki/**/*.mts"
 	]
 }
