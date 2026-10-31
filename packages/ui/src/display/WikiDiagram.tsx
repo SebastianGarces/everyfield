@@ -91,7 +91,7 @@ function Text({ node, note = true }: { node: WikiDiagramNode; note?: boolean }) 
 
 function Card({ children, className }: { children: ReactNode; className?: string }) {
 	return (
-		<div className={cn("relative min-w-0 rounded-[10px] bg-surface-raised px-3.5 py-3 shadow-raised", className)}>
+		<div className={cn("relative min-w-0 rounded-md bg-surface-raised px-3.5 py-3 shadow-raised", className)}>
 			{children}
 		</div>
 	);
@@ -291,7 +291,7 @@ function Cycle({ nodes }: { nodes: readonly WikiDiagramNode[] }) {
 			{ring ? (
 				<span
 					aria-hidden="true"
-					className="pointer-events-none absolute inset-x-[16%] inset-y-[14%] hidden rounded-[40px] border-[1.75px] border-dashed border-text-3 @xl:block"
+					className="pointer-events-none absolute inset-x-[16%] inset-y-[14%] hidden rounded-card border-[1.75px] border-dashed border-text-3 @xl:block"
 				/>
 			) : null}
 			<ol
