@@ -5438,14 +5438,9 @@ const EvryLife = (() => {
       d.act = Math.max(d.act, now + rand(2500, 5000));
     }
     if (st.morph || st.spin || st.moves || st.follow || st.bmoves) return;
+    // An idle hold ends only after its first act (below), so no hold between two morphs only blinks.
     const idle = !st.hold && st.mood === 'idle';
-    // Every idle hold gets one act soon after its morph. The next morph waits for it if it must.
-    if (idle && !st.moved && now >= d.act) {
-      const a = fitAct(st, now, pick(ACTS.first), true);
-      startAct(st, a, now); d.morph = Math.max(d.morph, a.end + 250); d.act = a.end + rand(300, 1200);
-      return;
-    }
-    if (!st.hold && now >= d.morph) {
+    if (!st.hold && now >= d.morph && (st.moved || !idle)) {
       const others = NAMES.filter(n => n !== st.shape), thinking = st.mood === 'thinking', ms = thinking ? rand(450, 600) : rand(600, 1000);
       startMorph(st, others[Math.floor(Math.random() * others.length)], ms, now);
       d.morph = now + ms + (thinking ? rand(1000, 1900) : rand(2600, 7700));
@@ -5459,10 +5454,18 @@ const EvryLife = (() => {
       if (d.morph - now > ms + 250) { startSpin(st, ms, now); d.spin = now + rand(20000, 40000); return; }
       d.spin = d.morph + rand(1500, 4000);
     }
-    // More acts while the hold has room; the next morph sets a new first act.
+    // Every idle hold gets one act soon after its morph (after a spin that was due). The next morph
+    // waits for it if it must.
+    if (!st.moved && (now >= d.act || now >= d.morph)) {
+      const a = fitAct(st, now, pick(ACTS.first), true);
+      startAct(st, a, now); d.morph = Math.max(d.morph, a.end + 250); d.act = a.end + rand(300, 1200);
+      return;
+    }
+    // More acts while the hold has room and no spin falls due during them; the next morph sets a
+    // new first act.
     if (now >= d.act) {
       const a = fitAct(st, now, pick(ACTS.later), false);
-      if (a) { startAct(st, a, now); d.act = a.end + rand(300, 1200); } else d.act = d.morph;
+      if (a && a.end < d.spin) { startAct(st, a, now); d.act = a.end + rand(300, 1200); } else d.act = a ? d.spin : d.morph;
     }
   }
 
