@@ -1,7 +1,13 @@
 "use client";
 
 import { Mail01Icon } from "@hugeicons/core-free-icons";
-import { LANDING_ROUTE, ONBOARDING_HOME, normalizedEmail, safeReturn, type SessionResult } from "@everyfield/contracts/identity";
+import {
+	LANDING_ROUTE,
+	ONBOARDING_HOME,
+	normalizedEmail,
+	safeReturn,
+	type SessionResult,
+} from "@everyfield/contracts/identity";
 import { Button, Field, Input } from "@everyfield/ui/controls";
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
@@ -53,7 +59,9 @@ function SignedInState({ session, returnTo }: { session: SignedIn; returnTo: str
 					: "Continue where you left off, or sign out."}
 			</AuthHeading>
 			<Button asChild variant="primary" className="mt-6 w-full">
-				<a href={pending ? ONBOARDING_HOME : (returnTo ?? AFTER_SIGN_IN)}>{pending ? "Set up your church" : "Continue"}</a>
+				<a href={pending ? ONBOARDING_HOME : (returnTo ?? AFTER_SIGN_IN)}>
+					{pending ? "Set up your church" : "Continue"}
+				</a>
 			</Button>
 			<SessionActions className="mt-6" />
 		</>

@@ -14,7 +14,10 @@ async function signInAs(page, email, path = "/signin") {
 	await page.getByLabel("Password", { exact: true }).fill(seed().password);
 	await page.getByRole("button", { name: "Sign in", exact: true }).click();
 }
-const at = (path, search = "") => (url) => url.pathname === path && url.search === search;
+const at =
+	(path, search = "") =>
+	(url) =>
+		url.pathname === path && url.search === search;
 
 for (const [name, engine] of ENGINES) {
 	describe(`sign-in landing (${name})`, () => {
