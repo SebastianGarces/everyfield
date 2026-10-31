@@ -727,7 +727,7 @@ body.shot .rv { opacity: 1; transform: none; transition: none; }
    (.hero-bg.photo: photo, 20% black overlay, grain). 2026-10-20 final pick: fade style, home = wildflowers, /oversight = bluebells.
    It holds the eyebrow, headline, subtext, CTAs, the animation and its step tabs.
    The page canvas around it stays plain. The animation card sits on the green.
-   One person (Maria) goes from first contact to the core group.
+   One person (Emily) goes from first contact to the core group.
    Motion studied on calendly.com (Rive hero, 2026-10-08):
    - scene crossfade about 170 to 250 ms, ease-in-out, old and new overlap, no slide on the panel
    - inner items stagger in about 60 to 90 ms apart, ease-out, and type letter by letter
@@ -1435,9 +1435,6 @@ body.pbar-hidden { padding-bottom: 0; }
    .pth     a dotted path of large icon stops on a photo (idea 3). On home EvryBot walks it and says one line at each stop.
    .ovg     /oversight: two labelled rows of four icon tiles on one photo (idea 3).
    .ldr     /oversight: "Raise the next planters.", a full-bleed photo with a path of four brand-green stops (idea 3). */
-:root { --photo-wheat: image-set(url("assets/photos/wheat-2400.avif") type("image/avif"), url("assets/photos/wheat-2400.jpg") type("image/jpeg")); }
-@media (max-width: 900px) { :root { --photo-wheat: image-set(url("assets/photos/wheat-1200.avif") type("image/avif"), url("assets/photos/wheat-1200.jpg") type("image/jpeg")); } }
-[data-photo="wheat"] { --photo-src: var(--photo-wheat); --photo-pos: 50% 62%; }
 [data-photo="field"] { --photo-src: var(--photo-field); --photo-pos: 50% 70%; }
 
 /* The frosted icon box: cream icon on a blurred ink square over a photo */
@@ -1475,10 +1472,6 @@ body.pbar-hidden { padding-bottom: 0; }
   background: #FCFBF8; color: #181D19; font-size: 15px; line-height: 1.4; box-shadow: 0 16px 32px -18px rgba(24, 29, 25, .65); transition: opacity .25s, transform .25s; }
 .pth-say::after { content: ""; position: absolute; top: 100%; left: var(--tx, 20px); margin-left: -7px; border: 7px solid transparent; border-top-color: #FCFBF8; }
 .pth-say.swap { opacity: 0; transform: translateY(4px); }
-.pth-ctl { position: absolute; right: 12px; bottom: 12px; z-index: 3; display: grid; place-items: center; width: 40px; height: 40px; border: 0; padding: 0; cursor: pointer;
-  background: rgba(24, 29, 25, .42); color: #F6F0E9; }
-.pth-ctl:hover { background: rgba(24, 29, 25, .6); }
-.pth-ctl svg { width: 16px; height: 16px; }
 .pth-txt { list-style: none; margin: 28px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--mk-gutter); }
 .pth-txt li { padding-top: 18px; border-top: 2px solid var(--mk-line-strong); transition: border-color .3s; }
 .pth-txt h3 { font-size: clamp(20px, 1.6vw, 24px); }
@@ -1502,12 +1495,6 @@ body.pbar-hidden { padding-bottom: 0; }
 .tl-txt p { margin-top: 8px; font-size: 15.5px; line-height: 1.5; color: var(--mk-text-2); text-wrap: pretty; }
 .tl-limits { display: flex; align-items: flex-start; gap: 12px; margin: var(--mk-gutter) 0 0; padding: 14px 16px; background: var(--mk-surface-2); font-size: clamp(16px, 1.2vw, 18px); line-height: 1.5; color: var(--mk-text-2); }
 .tl-limits svg { flex: none; width: 20px; height: 20px; margin-top: 3px; color: #181D19; }
-/* Prototype only: step a card through every site photo. Hidden with the prototype controls and in captures. */
-.ev-tog { position: absolute; top: 12px; right: 12px; display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 10px 0 12px; border: 0; border-radius: var(--corner-pill); cursor: pointer;
-  font: 600 12.5px/1 "DM Sans", ui-sans-serif, system-ui, sans-serif; background: rgba(17, 19, 24, .78); color: #EEF0F4; }
-.ev-tog:hover { background: rgba(17, 19, 24, .92); }
-.ev-tog svg { width: 14px; height: 14px; }
-body.pbar-hidden .ev-tog, body.shot .ev-tog { display: none !important; }
 
 /* Home: sending. Full-width photo, cream text, a 2×2 grid of frosted cards (idea 1). No Evry. */
 .sec-send { color: #F6F0E9; }
@@ -1535,7 +1522,7 @@ body.pbar-hidden .ev-tog, body.shot .ev-tog { display: none !important; }
 .ovg-grid li { padding: 24px 22px 26px; background: rgba(252, 251, 248, .94); color: #181D19; }
 .ovg-grid h3 { margin-top: 18px; font-size: clamp(19px, 1.5vw, 22px); }
 .ovg-grid p { margin-top: 8px; font-size: 15px; line-height: 1.5; color: var(--mk-text-2); }
-/* /oversight: Raise the next planters. Full-bleed wheat, h1 type, four brand-green stops. A shade from the top and the bottom keeps cream text at 4.5:1. */
+/* /oversight: Raise the next planters. Full-bleed marigolds, h1 type, four brand-green stops. A shade from the top and the bottom keeps cream text at 4.5:1. */
 .ldr { padding: clamp(96px, 11vw, 168px) 0; --photo-shade: .3; --ldr-shade: linear-gradient(180deg, rgba(24, 29, 25, .7), rgba(24, 29, 25, .64) 38%, rgba(24, 29, 25, .2) 53%, rgba(24, 29, 25, .32) 62%, rgba(24, 29, 25, .8)); }
 @media (max-width: 900px) { .ldr { --ldr-shade: linear-gradient(180deg, rgba(24, 29, 25, .68), rgba(24, 29, 25, .58) 28%, rgba(24, 29, 25, .28) 34%, rgba(24, 29, 25, .32) 43%, rgba(24, 29, 25, .7) 49%, rgba(24, 29, 25, .82)); } }
 .ldr.photo::before { background-image: var(--ldr-shade), var(--photo-src); background-size: 100% 100%, cover; background-position: 0 0, var(--photo-pos, 50% 50%); }
@@ -1556,7 +1543,6 @@ body.pbar-hidden .ev-tog, body.shot .ev-tog { display: none !important; }
 @media (max-width: 900px) {
   .pth-band { --lo: 78%; --hi: 64%; }
   .pth-say { font-size: 14px; padding: 9px 12px; max-width: 250px; }
-  .pth-ctl { width: 44px; height: 44px; }
   .pth-txt, .jrn-cards { grid-template-columns: 1fr; gap: 0; }
   .pth-txt li { padding: 16px 0; }
   .jrn-cards { gap: 12px; }
@@ -2257,10 +2243,10 @@ body.pbar-hidden .ev-tog, body.shot .ev-tog { display: none !important; }
       "features_headline": "Everything a church plant needs, in the order you need it.",
       "journey": {
         "says": [
-          "Maria Lopez filled in your interest form. Now she is on your list.",
-          "Vision meeting #12 is on Sunday. Maria checked in as a new guest.",
-          "I made a follow-up task for Maria and assigned it to Jen Park, due Tuesday. You approve it first.",
-          "Maria signed her commitment card. Your core group is now 35.",
+          "Emily Carter filled in your interest form. Now she is on your list.",
+          "Vision meeting #12 is on Sunday. Emily checked in as a new guest.",
+          "I made a follow-up task for Emily and assigned it to Jen Park, due Tuesday. You approve it first.",
+          "Emily signed her commitment card. Your core group is now 35.",
           "This week's focus: hold your next vision meeting.",
           "4 of 6 benchmarks are met. You decide when to move on."
         ],
@@ -2942,14 +2928,14 @@ function heroVisual(story) {
   return visual(vMondayOverview());
 }
 /* ---------- Revision 2 hero: one person, from first contact to the core group ----------
-   Five cards share one grid cell and crossfade. Maria's chip is one element that glides
+   Five cards share one grid cell and crossfade. Emily's chip is one element that glides
    from a hidden slot in each card to the next, so the loop reads as one story.
    haRender(t) is a pure function of the loop time t (ms). Reduced motion renders t = HA_STILL once. */
-var HA_NAME = "Maria Lopez";
+var HA_NAME = "Emily Carter";
 /* OPS-82: Evry creates a follow-up task for a named person. It never writes the message itself. */
-var HA_TASK = "Follow up with Maria Lopez after vision meeting #12";
+var HA_TASK = "Follow up with Emily Carter after vision meeting #12";
 /* Revision 8 timing table: the one place to tune the hero loop (all values in ms).
-   Transitions keep their Revision 7 values: card crossfade, Maria's chip glide and the loop seam.
+   Transitions keep their Revision 7 values: card crossfade, Emily's chip glide and the loop seam.
    In-scene actions run `act` times slower. Each scene then holds its finished state for hold[i] before the next transition.
    Revision 7 values: act 1, holds 380 / 1420 / 0 / 320 / 1030, loop 13200. */
 var HA_TM = {
@@ -2973,12 +2959,12 @@ var HA_SC = [], HA_A = [], HA_MOVES = [], HA_T = 0, HA_STILL = 0;
     a = b + HA_TM.gap;
   }
   HA_T = HA_SC[4][1] + HA_TM.seam;
-  HA_STILL = HA_A[4] + 1400 * HA_TM.act; /* final frame: Maria in the core group, highlight on */
+  HA_STILL = HA_A[4] + 1400 * HA_TM.act; /* final frame: Emily in the core group, highlight on */
 })();
 /* In-scene time: Revision 7 offset ms from scene i's action start, scaled. haD scales a Revision 7 action duration. */
 function haAt(i, ms) { return HA_A[i] + ms * HA_TM.act; }
 function haD(ms) { return ms * HA_TM.act; }
-function haChip(live) { return '<span class="ha-chip' + (live ? " ha-live" : "") + '">' + (live ? '<span class="ha-ring"></span>' : "") + '<span class="ha-av">ML</span>' + HA_NAME + "</span>"; }
+function haChip(live) { return '<span class="ha-chip' + (live ? " ha-live" : "") + '">' + (live ? '<span class="ha-ring"></span>' : "") + '<span class="ha-av">EC</span>' + HA_NAME + "</span>"; }
 function haSlot() { return '<span class="ha-slot">' + haChip() + "</span>"; }
 function haSk(w, cls) { return '<span class="sk' + (cls ? " " + cls : "") + '"' + (w ? ' style="width:' + w + '"' : "") + "></span>"; }
 function haRoll(a, b, key) { return '<span class="ha-roll" data-roll="' + key + '"><span><i>' + a + "</i><i>" + b + "</i></span></span>"; }
@@ -3010,7 +2996,7 @@ function heroSlot() {
         '<span class="num">' + r[2] + '</span></div><div class="ha-meter"><span style="background:' + r[3] + '"></span></div></div>';
     }).join("") + "</div>";
   return '<div class="ha">' +
-    '<div class="ha-stage ef" role="img" aria-label="Example: Maria Lopez is added and comes to a vision meeting. Evry creates a follow-up task for Jen Park, and you approve it. Maria commits and joins the core group.">' +
+    '<div class="ha-stage ef" role="img" aria-label="Example: Emily Carter is added and comes to a vision meeting. Evry creates a follow-up task for Jen Park, and you approve it. Emily commits and joins the core group.">' +
     '<div aria-hidden="true" style="display:contents"><div class="ha-shadow"></div><div class="ha-shell"></div>' +
     haCard(0, c0) + haCard(1, c1) + haCard(2, c2) + haCard(3, c3) + haCard(4, c4) + haChip(true) + "</div></div>" +
     '<button type="button" class="ha-pause" aria-label="Pause animation"></button></div>';
@@ -3069,7 +3055,7 @@ function haRender(t) {
   haSet(q(".ha-type"), "opacity", (1 - haP(t, haAt(0, 1550), haD(220))).toFixed(3));
   haSet(q(".ha-card[data-scene='0'] .ha-caret"), "visibility", t < haAt(0, 1500) ? "visible" : "hidden");
   haSet(q(".ha-add"), "transform", "scale(" + (1 - .05 * haBump(t, haAt(0, 1250), haD(200))).toFixed(4) + ")");
-  /* Scene 2: guest count rolls when Maria joins */
+  /* Scene 2: guest count rolls when Emily joins */
   haRoll2("guests", haInOut(haP(t, haAt(1, 0), haD(380))));
   /* Scene 3: Evry creates the follow-up task for Jen, you approve, a check confirms it is added */
   var bot = q(".ha .evry-bot");
@@ -3089,7 +3075,7 @@ function haRender(t) {
   var chips = R.querySelectorAll(".ha-flip .stage-chip");
   haTO(chips[0], 0, -7 * fe, 1, 1 - fe);
   haTO(chips[1], 0, 7 * (1 - fe), .85 + .15 * haBack(f), fe);
-  /* Scene 5: bars fill, Maria joins the core group, counts roll, a short highlight */
+  /* Scene 5: bars fill, Emily joins the core group, counts roll, a short highlight */
   var join = haInOut(haP(t, haAt(4, 500), haD(520)));
   [41, 23, 34].forEach(function (v, k) {
     var p = haOut(haP(t, haAt(4, k * 90), haD(650))), val = v / 50 * p + (k === 2 ? join : k === 1 ? -join : 0) / 50;
@@ -3097,7 +3083,7 @@ function haRender(t) {
   });
   haRoll2("follow", join); haRoll2("core", join);
   haSet(q(".ha-hl"), "opacity", (haOut(haP(t, haAt(4, 400), haD(300))) * (1 - haSine(haP(t, HA_SC[4][1] - 1500, haD(600))))).toFixed(3));
-  /* Maria's chip: pops in, then glides between slots with a small lift, fades at the seam */
+  /* Emily's chip: pops in, then glides between slots with a small lift, fades at the seam */
   var live = q(".ha-live"), pos = HA.pos;
   if (live && pos.length === 5) {
     var x = pos[0].x, y = pos[0].y, s = 1, o = 0;
@@ -3906,8 +3892,8 @@ document.addEventListener("pointermove", function (e) {
 /* ---------- OPS-82: the merged sections (Sebastian's picks, Oct 30 2026) ----------
    Copy: COPY.shared.ops82 (home) and COPY.shared.oversight_page (/oversight).
    pathBand: a dotted path of large icon stops on a photo. With walk, EvryBot eases along the path from stop to stop and says one
-   line at each stop. Auto-advance pauses on hover, focus and the pause button. Reduced motion shows one still frame.
-   evryCards: three photo cards. Each card has a prototype-only button that steps it through every site photo (EV_PHOTOS). */
+   line at each stop. Auto-advance pauses on hover and focus. Reduced motion shows one still frame.
+   evryCards: three photo cards on swirl, lupins and marigolds (Sebastian's picks, round 3). */
 var M82 = COPY.shared.ops82;
 function pathSteps(steps, icons, says) { return steps.map(function (s, i) { return { icon: icons[i], title: s.title, body: s.body, say: says && says[i] }; }); }
 function pathBand(steps, walk, label, bg) {
@@ -3920,8 +3906,7 @@ function pathBand(steps, walk, label, bg) {
         '<button type="button" class="pth-ic" data-i="' + i + '" data-say="' + t(s.say) + '" aria-pressed="' + (i === 0) + '" aria-label="' + t(s.title) + '">' + inner + "</button>" :
         '<span class="pth-ic" aria-hidden="true">' + inner + "</span>") + "</li>";
     }).join("") + "</ol>" +
-    (walk ? '<div class="pth-walker" aria-hidden="true"><p class="pth-say"></p>' + evryBot("lg", "idle") + "</div>" +
-      '<button type="button" class="pth-ctl" aria-label="Pause the guide">' + icon("pause") + "</button>" : "") + "</div>";
+    (walk ? '<div class="pth-walker" aria-hidden="true"><p class="pth-say"></p>' + evryBot("lg", "idle") + "</div>" : "") + "</div>";
 }
 function pathTxt(steps, cls) {
   return '<ol class="pth-txt' + (cls ? " " + cls : "") + '">' + steps.map(function (s, i) {
@@ -3938,26 +3923,17 @@ function journeySection() {
     pathBand(steps, true, W.title, "field-sky") + pathTxt(steps, "jrn-cards") +
     '<p class="jrn-note">' + icon("lock") + "<span>" + t(J.see_first).replace(/^[^.]+\./, "<b>$&</b>") + "</span></p></div></section>";
 }
-var EV_PHOTOS = ["blossom", "bluebells", "field", "lake", "lilies", "lupins", "marigolds", "meadow", "plain", "poppies", "reeds", "swirl", "wheat", "wildflowers"];
-var EV_START = ["reeds", "field", "plain"];
-function evTogLabel(p) { return "Photo: " + p + ". Show the next photo"; }
+var EV_PHOTOS = ["swirl", "lupins", "marigolds"];
 function evryCards() {
   var E = M82.evry;
   return '<section class="sec evx" id="evry" aria-labelledby="evry-title"><div class="wrap">' +
     '<div class="evx-head"><h2 class="display h2" id="evry-title">' + t(E.headline) + '</h2><p class="sh-text">' + t(E.subhead) + "</p></div>" +
     '<ul class="tl-grid">' + E.cards.map(function (c, i) {
-      return '<li class="tl"><div class="tl-art photo" data-photo="' + EV_START[i] + '"><span class="tl-ic" aria-hidden="true">' + icon(c[0]) + "</span>" +
-        '<button type="button" class="ev-tog" aria-label="' + evTogLabel(EV_START[i]) + '"><span>' + EV_START[i] + "</span>" + icon("arrow") + "</button></div>" +
+      return '<li class="tl"><div class="tl-art photo" data-photo="' + EV_PHOTOS[i] + '"><span class="tl-ic" aria-hidden="true">' + icon(c[0]) + "</span></div>" +
         '<div class="tl-txt"><h3 class="tl-t">' + t(c[1]) + "</h3><p>" + t(c[2]) + "</p></div></li>";
     }).join("") + "</ul>" +
     '<p class="tl-limits">' + icon("heart") + "<span>" + t(DIR.journey.sections.evry.limits) + "</span></p></div></section>";
 }
-function evTog(b) {
-  var art = b.closest(".tl-art"), p = EV_PHOTOS[(EV_PHOTOS.indexOf(art.dataset.photo) + 1) % EV_PHOTOS.length];
-  art.dataset.photo = p; art.classList.add("seen");
-  b.firstChild.textContent = p; b.setAttribute("aria-label", evTogLabel(p));
-}
-document.addEventListener("click", function (e) { var b = e.target.closest(".ev-tog"); if (b) evTog(b); });
 /* Home: sending churches and networks. The meadow photo, cream text, a 2×2 grid of frosted cards. No Evry. */
 function sendingSection() {
   var X = M82.sending;
@@ -3977,7 +3953,7 @@ function ovGets(g) {
 }
 function ovLeaders(L) {
   var steps = pathSteps(L.steps, L.icons);
-  return '<section class="sec ldr photo photo-text" data-photo="wheat" id="leaders" aria-labelledby="leaders-title"><div class="wrap">' +
+  return '<section class="sec ldr photo photo-text" data-photo="marigolds" id="leaders" aria-labelledby="leaders-title"><div class="wrap">' +
     '<div class="ldr-head"><h2 class="display h1" id="leaders-title">' + t(L.headline) + "</h2><p>" + t(L.lead) + "</p></div>" +
     pathBand(steps, false, L.headline) + pathTxt(steps) + "</div></section>";
 }
@@ -4043,11 +4019,6 @@ function pthGo(P, k, quiet) {
   if (quiet) { cancelAnimationFrame(P.raf); pthPut(P, P.at[k]); pthArrive(P, k, true); return; }
   pthWalk(P, k);
 }
-function pthCtl(P) {
-  if (!P.ctl) return;
-  P.ctl.innerHTML = icon(P.user ? "play" : "pause");
-  P.ctl.setAttribute("aria-label", P.user ? "Play the guide" : "Pause the guide");
-}
 function pthInit(root) {
   PTH.list.forEach(function (P) { clearTimeout(P.tm); clearTimeout(P.mt); cancelAnimationFrame(P.raf); });
   PTH.list = [];
@@ -4056,13 +4027,12 @@ function pthInit(root) {
     var P = { band: band, sec: band.closest("section"), k: 0, tm: 0, raf: 0, vis: false, hover: false, focus: false, user: false };
     P.icons = Array.prototype.slice.call(band.querySelectorAll(".pth-ic")); P.n = P.icons.length;
     P.svg = band.querySelector(".pth-line"); P.trail = band.querySelector(".trail"); P.walked = band.querySelector(".walked");
-    P.walker = band.querySelector(".pth-walker"); P.say = band.querySelector(".pth-say"); P.bot = P.walker && P.walker.querySelector(".evry-bot"); P.ctl = band.querySelector(".pth-ctl");
+    P.walker = band.querySelector(".pth-walker"); P.say = band.querySelector(".pth-say"); P.bot = P.walker && P.walker.querySelector(".evry-bot");
     pthLayout(P);
     if (P.walker) {
       P.btns = P.icons; P.txt = Array.prototype.slice.call(P.sec.querySelectorAll(".pth-txt li"));
       pthGo(P, 0, true);
-      if (REDUCED.matches) P.ctl.hidden = true;
-      var pick = function (i) { P.user = true; pthCtl(P); pthGo(P, i); pthSched(P); };
+      var pick = function (i) { P.user = true; pthGo(P, i); pthSched(P); };
       P.btns.forEach(function (b, i) {
         b.addEventListener("click", function () { pick(i); });
         b.addEventListener("keydown", function (e) {
@@ -4071,7 +4041,6 @@ function pthInit(root) {
         });
       });
       P.txt.forEach(function (li, i) { li.addEventListener("click", function () { pick(i); }); });
-      P.ctl.addEventListener("click", function () { P.user = !P.user; pthCtl(P); if (!P.user) { P.hover = false; pthGo(P, (P.k + 1) % P.n); } pthSched(P); });
       P.sec.addEventListener("mouseenter", function () { P.hover = true; pthSched(P); });
       P.sec.addEventListener("mouseleave", function () { P.hover = false; pthSched(P); });
       P.sec.addEventListener("focusin", function () { P.focus = true; pthSched(P); });
@@ -4420,70 +4389,5 @@ history.replaceState(null, "", hrefFor(state.page, state.at));
 render(state.at ? "at" : null);
 })();
 </script>
-<!-- REVIEW-ONLY: remove before the Next.js port. Owner review 2 (Oct 30): a switcher on /oversight "Raise the next planters." that steps its
-     background through every photo in assets/photos. It floats at the section's top right and stays in view, below the site nav, while the
-     section scrolls. Markup, styles and script all live in this one block; delete it whole. -->
-<script>
-(function () {
-  var PHOTOS = ["blossom", "bluebells", "field", "lake", "lilies", "lupins", "marigolds", "meadow", "plain", "poppies", "reeds", "swirl", "wheat", "wildflowers"];
-  var cur = "wheat";
-  var css = document.createElement("style");
-  css.textContent =
-    "#leaders.ldr { overflow: clip; }" + /* overflow: hidden on .photo would stop position: sticky; clip cuts the same edges */
-    ".ldr-rv-rail { position: absolute; inset: 16px var(--mk-page-pad); z-index: 2; display: flex; justify-content: flex-end; align-items: flex-start; pointer-events: none; }" +
-    ".ldr-rv { position: sticky; top: 88px; pointer-events: auto; display: flex; align-items: center; gap: 4px; padding: 5px; border-radius: 14px;" +
-    " background: rgba(17, 19, 24, .9); color: #EEF0F4; font: 500 12.5px/1 \"DM Sans\", ui-sans-serif, system-ui, sans-serif; letter-spacing: 0;" +
-    " box-shadow: 0 10px 30px -10px rgba(0, 0, 0, .5), 0 0 0 1px rgba(255, 255, 255, .1) inset; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }" +
-    ".ldr-rv .rv-tag { padding: 0 6px 0 8px; color: #8A919E; font-size: 10.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }" +
-    ".ldr-rv button, .ldr-rv select { height: 36px; border: 0; border-radius: 9px; font: inherit; color: inherit; background-color: rgba(255, 255, 255, .08); cursor: pointer; }" +
-    ".ldr-rv button { width: 36px; display: grid; place-items: center; padding: 0; }" +
-    ".ldr-rv button:hover, .ldr-rv select:hover { background-color: rgba(255, 255, 255, .16); }" +
-    ".ldr-rv button svg { width: 16px; height: 16px; }" +
-    ".ldr-rv select { -webkit-appearance: none; appearance: none; padding: 0 28px 0 10px; font-weight: 600;" +
-    " background: rgba(255, 255, 255, .08) url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23B1B7C2' stroke-width='1.5'/%3E%3C/svg%3E\") no-repeat right 10px center; }" +
-    ".ldr-rv select option { color: #111318; background: #fff; }" +
-    ".ldr-rv button:focus-visible, .ldr-rv select:focus-visible { outline: 2px solid #6CF2B4; outline-offset: 2px; }" +
-    ".ldr-rv .rv-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }" +
-    "@media (max-width: 600px) { .ldr-rv .rv-long { display: none; } }" +
-    "body.pbar-hidden .ldr-rv, body.shot .ldr-rv { display: none !important; }";
-  document.head.appendChild(css);
-  var chev = function (d) { return '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="' + d + '" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'; };
-  var MARKUP = '<div class="ldr-rv-rail"><div class="ldr-rv" role="group" aria-label="Review only: background photo for Raise the next planters">' +
-      '<span class="rv-tag" aria-hidden="true">Review<span class="rv-long"> only · Background</span></span>' +
-      '<button type="button" data-rv="-1" aria-label="Previous background photo">' + chev("M10 3.5 5.5 8l4.5 4.5") + "</button>" +
-      '<select aria-label="Background photo">' + PHOTOS.map(function (p) { return '<option value="' + p + '">' + p + "</option>"; }).join("") + "</select>" +
-      '<button type="button" data-rv="1" aria-label="Next background photo">' + chev("M6 3.5 10.5 8 6 12.5") + "</button>" +
-      '<span class="rv-sr" role="status" aria-live="polite"></span></div></div>';
-  function show(sec, p, say) {
-    cur = p;
-    sec.dataset.photo = p; sec.classList.add("seen");
-    sec.querySelector(".ldr-rv select").value = p;
-    if (say) sec.querySelector(".ldr-rv .rv-sr").textContent = "Background: " + p + ", " + (PHOTOS.indexOf(p) + 1) + " of " + PHOTOS.length;
-  }
-  function step(sec, d) { show(sec, PHOTOS[(PHOTOS.indexOf(cur) + d + PHOTOS.length) % PHOTOS.length], true); }
-  function mount() {
-    var sec = document.getElementById("leaders");
-    if (!sec || sec.querySelector(".ldr-rv")) return;
-    sec.insertAdjacentHTML("afterbegin", MARKUP);
-    show(sec, cur, false);
-  }
-  document.addEventListener("click", function (e) {
-    var b = e.target.closest(".ldr-rv button");
-    if (b) step(b.closest("#leaders"), +b.dataset.rv);
-  });
-  document.addEventListener("change", function (e) {
-    if (e.target.matches(".ldr-rv select")) show(e.target.closest("#leaders"), e.target.value, true);
-  });
-  document.addEventListener("keydown", function (e) {
-    var b = e.target.closest && e.target.closest(".ldr-rv button");
-    if (!b) return;
-    var d = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 }[e.key];
-    if (d) { e.preventDefault(); step(b.closest("#leaders"), d); }
-  });
-  mount();
-  new MutationObserver(mount).observe(document.getElementById("view"), { childList: true });
-})();
-</script>
-<!-- /REVIEW-ONLY -->
 </body>
 </html>
