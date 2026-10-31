@@ -601,7 +601,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 				<FixedFrame fixed={fill} className={FILL_FRAME}>
 					<div
 						className={cn(
-							"grid grid-cols-[minmax(0,1fr)_320px] items-start gap-x-5 gap-y-5 app-md:gap-y-6 max-app-md:grid-cols-1",
+							"grid grid-cols-[minmax(0,1fr)_320px] items-start gap-5 app-md:gap-y-6 max-app-md:grid-cols-1",
 							fill && FILL_GRID,
 						)}
 					>
