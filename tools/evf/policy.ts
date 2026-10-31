@@ -42,15 +42,14 @@ function isUtcTimestamp(value: unknown): boolean {
 
 /** The one rule for changing the approved prototype: a design task with Sebastian's recorded approval that owns the exact file. */
 export function mayChangePrototype(scope: MaintenanceScope | undefined): boolean {
-	if (!scope || scope.route !== "design" || !scope.prototypeApproval) return false;
-	if (!validPrototypeApproval(scope.prototypeApproval)) return false;
-	return scope.owningPaths.includes(APPROVED_PROTOTYPE);
-}
-
-function validPrototypeApproval(a: unknown): a is { quote: string; approvedAt: string } {
-	if (!a || typeof a !== "object") return false;
-	const { quote, approvedAt } = a as Record<string, unknown>;
-	return typeof quote === "string" && quote.trim() !== "" && isUtcTimestamp(approvedAt);
+	const a = scope?.prototypeApproval as Record<string, unknown> | undefined;
+	return (
+		scope?.route === "design" &&
+		typeof a?.quote === "string" &&
+		a.quote.trim() !== "" &&
+		isUtcTimestamp(a.approvedAt) &&
+		scope.owningPaths.includes(APPROVED_PROTOTYPE)
+	);
 }
 
 /** Local reviewed source policy is an operator boundary, never inferred from a role flag or severity. */
