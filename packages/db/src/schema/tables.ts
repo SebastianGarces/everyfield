@@ -1108,7 +1108,7 @@ export const document = pgTable(
 			.notNull()
 			.default(sql`gen_random_uuid()`),
 		tenant_id: uuid("tenant_id").notNull(),
-		kind: text("kind", { enum: ["native", "core_values", "launch_summary"] }).notNull(),
+		kind: text("kind", { enum: ["native", "core_values", "launch_summary", "church_document"] }).notNull(),
 		title: text("title").notNull(),
 		current_revision_id: uuid("current_revision_id"),
 		archived_at: timestamp("archived_at", { withTimezone: true, mode: "date" }),
@@ -1117,6 +1117,11 @@ export const document = pgTable(
 		revision: int64("revision")
 			.notNull()
 			.default(sql`1`),
+		template_id: text("template_id"),
+		template_version: integer("template_version"),
+		document_class: text("document_class", { enum: ["formal/legal", "outward-facing", "operational"] }),
+		use_church_branding: boolean("use_church_branding"),
+		input_provenance: jsonb("input_provenance"),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		foreignKey({ name: "document_fk_0", columns: [table.tenant_id], foreignColumns: [tenant.id] })
@@ -1146,8 +1151,15 @@ export const document = pgTable(
 		primaryKey({ name: "document_pkey", columns: [table.id] }),
 		unique("document_uq_0").on(table.id, table.tenant_id),
 		check("document_ck_0", sql`(revision >= 1)`),
-		check("document_ck_1", sql`(kind = ANY (ARRAY['native'::text, 'core_values'::text, 'launch_summary'::text]))`),
+		check(
+			"document_ck_1",
+			sql`(kind = ANY (ARRAY['native'::text, 'core_values'::text, 'launch_summary'::text, 'church_document'::text]))`,
+		),
 		check("document_ck_2", sql`(tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid)`),
+		check(
+			"document_church",
+			sql`((kind = 'church_document') = (template_id IS NOT NULL)) AND ((kind = 'church_document') = (template_version IS NOT NULL)) AND ((kind = 'church_document') = (document_class IS NOT NULL)) AND ((kind = 'church_document') = (use_church_branding IS NOT NULL)) AND ((kind = 'church_document') = (input_provenance IS NOT NULL)) AND ((template_version IS NULL) OR (template_version >= 1)) AND ((input_provenance IS NULL) OR (octet_length(input_provenance::text) <= 65536))`,
+		),
 		index("document_ref_0").using("btree", table.tenant_id.asc().nullsLast()),
 		index("document_ref_1").using(
 			"btree",
@@ -1173,6 +1185,7 @@ export const document_revision = pgTable(
 		import_state: text("import_state", { enum: ["ready", "failed"] }),
 		published_at: timestamp("published_at", { withTimezone: true, mode: "date" }),
 		recorded_at: timestamp("recorded_at", { withTimezone: true, mode: "date" }).notNull(),
+		author_account_id: uuid("author_account_id"),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		foreignKey({ name: "document_revision_fk_0", columns: [table.tenant_id], foreignColumns: [tenant.id] })
@@ -1198,6 +1211,13 @@ export const document_revision = pgTable(
 			foreignColumns: [record.id, record.tenant_id],
 		})
 			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "document_revision_author_fk",
+			columns: [table.author_account_id],
+			foreignColumns: [account.id],
+		})
+			.onDelete("set null")
 			.onUpdate("no action"),
 		primaryKey({ name: "document_revision_pkey", columns: [table.id] }),
 		unique("document_revision_uq_0").on(table.document_id, table.version_number),
@@ -1410,6 +1430,10 @@ export const generated_document = pgTable(
 		revision: int64("revision")
 			.notNull()
 			.default(sql`1`),
+		source_document_id: uuid("source_document_id"),
+		source_revision_id: uuid("source_revision_id"),
+		theme_kind: text("theme_kind", { enum: ["church", "everyfield-neutral"] }),
+		theme_primary: text("theme_primary"),
 	},
 	(table): PgTableExtraConfigValue[] => [
 		foreignKey({ name: "generated_document_fk_0", columns: [table.tenant_id], foreignColumns: [tenant.id] })
@@ -1436,6 +1460,20 @@ export const generated_document = pgTable(
 		})
 			.onDelete("restrict")
 			.onUpdate("no action"),
+		foreignKey({
+			name: "generated_document_source_document_fk",
+			columns: [table.source_document_id, table.tenant_id],
+			foreignColumns: [document.id, document.tenant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "generated_document_source_revision_fk",
+			columns: [table.source_revision_id, table.tenant_id],
+			foreignColumns: [document_revision.id, document_revision.tenant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
 		primaryKey({ name: "generated_document_pkey", columns: [table.id] }),
 		unique("generated_document_uq_0").on(table.id, table.tenant_id),
 		unique("generated_document_uq_1").on(table.object_id),
@@ -1446,6 +1484,10 @@ export const generated_document = pgTable(
 		check("generated_document_ck_1", sql`(format = ANY (ARRAY['pdf'::text, 'docx'::text, 'xlsx'::text]))`),
 		check("generated_document_ck_2", sql`(tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid)`),
 		check("generated_document_ck_3", sql`(octet_length(inputs::text) <= 65536)`),
+		check(
+			"generated_document_source",
+			sql`((source_document_id IS NULL) = (source_revision_id IS NULL)) AND ((source_document_id IS NULL) = (theme_kind IS NULL)) AND ((theme_primary IS NULL) OR (theme_primary ~ '^#[0-9A-F]{6}$'::text))`,
+		),
 		index("generated_document_ref_0").using("btree", table.tenant_id.asc().nullsLast()),
 		index("generated_document_ref_1").using(
 			"btree",
@@ -1455,6 +1497,16 @@ export const generated_document = pgTable(
 		index("generated_document_ref_2").using(
 			"btree",
 			table.object_id.asc().nullsLast(),
+			table.tenant_id.asc().nullsLast(),
+		),
+		index("generated_document_source_ref").using(
+			"btree",
+			table.source_document_id.asc().nullsLast(),
+			table.tenant_id.asc().nullsLast(),
+		),
+		index("generated_document_source_revision_ref").using(
+			"btree",
+			table.source_revision_id.asc().nullsLast(),
 			table.tenant_id.asc().nullsLast(),
 		),
 	],
@@ -5034,7 +5086,7 @@ export const audit_event = pgTable(
 		check(
 			"audit_action",
 			sql.raw(
-				"(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','audit.imported','branding.changed','communication.approved','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','documents.archived','documents.copied','documents.designated','documents.generated','documents.imported','documents.purged','documents.saved','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','execution.cancelled','execution.completed','execution.partial','execution.reconciled','execution.started','feedback.publication_intended','feedback.published','feedback.received','feedback.reconciled','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.credential_reconciled','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.feedback_recorded','intelligence.published','intelligence.requested','intelligence.superseded','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','note_correction','organization.profile_changed','people.corrected','people.created','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','security.access_denied','security.audit_exported','security.audit_inspected','security.bulk_export','security.operator_accessed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed'))",
+				"(action IN ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','audit.imported','branding.changed','communication.approved','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','documents.archived','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','execution.cancelled','execution.completed','execution.partial','execution.reconciled','execution.started','feedback.publication_intended','feedback.published','feedback.received','feedback.reconciled','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.credential_reconciled','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.feedback_recorded','intelligence.published','intelligence.requested','intelligence.superseded','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','note_correction','organization.profile_changed','people.corrected','people.created','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','security.access_denied','security.audit_exported','security.audit_inspected','security.bulk_export','security.operator_accessed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed'))",
 			),
 		),
 		check(
