@@ -81,10 +81,24 @@ const tagsOf = async (bytes: Uint8Array) => {
 	walk(doc.catalog.lookup(PDFName.of("StructTreeRoot")));
 	return { doc, tags };
 };
-const EDITABLE = ["member-expectations", "launch-team-commitment", "follow-up-letter", "bylaws", "prayer-letter"];
+const NEW_POLICIES = [
+	"board-minutes",
+	"conflict-of-interest-policy",
+	"financial-controls-policy",
+	"accountable-plan-reimbursement-policy",
+];
+const EDITABLE = [
+	"member-expectations",
+	"launch-team-commitment",
+	"follow-up-letter",
+	"bylaws",
+	"prayer-letter",
+	...NEW_POLICIES,
+];
 
 describe("WP-037 Church Document templates", () => {
-	test("DOC-022: five authored templates, each with a frame, a class and merge fields", () => {
+	test("DOC-022: nine authored templates, each with a frame, a class and merge fields", () => {
+		assert.equal(CHURCH_TEMPLATES.length, 9);
 		assert.deepEqual(
 			CHURCH_TEMPLATES.map((t) => t.id),
 			EDITABLE,
@@ -139,6 +153,25 @@ describe("WP-037 Church Document templates", () => {
 				assert.equal(bare, null, `${id}: bare plant: ${bare?.[0]}`);
 				assert.equal(/every ?field/i.test(text.replace(/Everyfield/g, "")), false);
 			}
+		}
+	});
+
+	test("DOC-019: the four policy templates say church plant, never a bare plant, and print the notice", async () => {
+		for (const id of NEW_POLICIES) {
+			const pdf = await renderChurchPdf(input(id));
+			const pdfText = pdf.text.flat().join(" ");
+			const docxParts_ = docxParts(renderChurchDocx(input(id)));
+			const docx = wordText(docxParts_["word/document.xml"]!);
+			const raw = JSON.stringify(churchTemplate(id));
+			for (const text of [pdfText, docx, raw]) {
+				const bare = text.replace(/church\s+plant/gi, "").match(/.{0,30}\bplant.{0,30}/i);
+				assert.equal(bare, null, `${id}: bare plant: ${bare?.[0]}`);
+				assert.equal(/every ?field/i.test(text.replace(/Everyfield/g, "")), false);
+			}
+			assert.ok((await pdfPages(pdf.bytes)).join(" ").includes("Template, not legal advice"), `${id}: PDF notice`);
+			assert.ok(wordText(docxParts_["word/footer1.xml"]!).includes("Template, not legal advice"), `${id}: Word notice`);
+			assert.ok(pdfText.includes(CHURCH), `${id}: church name resolved`);
+			assert.equal(pdfText.includes("{church_name}"), false);
 		}
 	});
 

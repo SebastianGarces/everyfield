@@ -2,6 +2,12 @@ import type { ChurchBlock } from "@everyfield/contracts/documents";
 import type { RenderClass } from "../theme.ts";
 import { BYLAWS_BODY, PRAYER_LETTER_BODY } from "./church-content.ts";
 import {
+	ACCOUNTABLE_PLAN_BODY,
+	BOARD_MINUTES_BODY,
+	CONFLICT_OF_INTEREST_BODY,
+	FINANCIAL_CONTROLS_BODY,
+} from "./policy-content.ts";
+import {
 	FOLLOW_UP_LETTER,
 	LAUNCH_TEAM_COMMITMENT,
 	MEMBER_EXPECTATIONS,
@@ -105,6 +111,35 @@ function fromSpec(
 	};
 }
 
+/** A formal/legal document template: numbered headings, no doctrinal slot, the shared merge fields. */
+function policy(
+	id: string,
+	name: string,
+	description: string,
+	kicker: string,
+	subject: string,
+	frame: Frame,
+	body: ChurchBlock[],
+): ChurchTemplate {
+	return {
+		id,
+		version: 1,
+		name,
+		description,
+		documentClass: "formal/legal",
+		style: "document",
+		kicker,
+		title: name,
+		subject,
+		frame,
+		slots: [],
+		mergeFields: MERGE_FIELDS,
+		body,
+	};
+}
+
+const adopt = (closing: string): Frame => ({ kind: "adopt", closing, signers: 3 });
+
 export const CHURCH_TEMPLATES: ChurchTemplate[] = [
 	fromSpec(
 		MEMBER_EXPECTATIONS,
@@ -159,6 +194,49 @@ export const CHURCH_TEMPLATES: ChurchTemplate[] = [
 		mergeFields: MERGE_FIELDS,
 		body: PRAYER_LETTER_BODY,
 	},
+	policy(
+		"board-minutes",
+		"Board Minutes",
+		"A blank record of a board meeting: who came, what the board decided and who does what next.",
+		"Board record",
+		"The minutes of a board meeting of {church_name}",
+		{
+			kind: "sign",
+			closing: "The board of {church_name} approved these minutes on [date of approval].",
+			slots: [
+				{ label: "Secretary", name: "secretary", width: 240 },
+				{ label: "Chair", name: "chair", width: 240 },
+			],
+		},
+		BOARD_MINUTES_BODY,
+	),
+	policy(
+		"conflict-of-interest-policy",
+		"Conflict of Interest Policy",
+		"How the board handles a personal interest in a decision.",
+		"Board policy",
+		"The conflict of interest policy of {church_name}",
+		adopt("The board of {church_name} adopted this policy. Each board member signs and dates below."),
+		CONFLICT_OF_INTEREST_BODY,
+	),
+	policy(
+		"financial-controls-policy",
+		"Financial Controls Policy",
+		"How the church plant counts, deposits, approves and reports its money.",
+		"Board policy",
+		"The financial controls policy of {church_name}",
+		adopt("The board of {church_name} adopted this policy. Each board member signs and dates below."),
+		FINANCIAL_CONTROLS_BODY,
+	),
+	policy(
+		"accountable-plan-reimbursement-policy",
+		"Accountable Plan Reimbursement Policy",
+		"How the church plant repays business expenses so that the repayment is not taxable pay.",
+		"Board policy",
+		"The accountable plan reimbursement policy of {church_name}",
+		adopt("The board of {church_name} adopted this plan. Each board member signs and dates below."),
+		ACCOUNTABLE_PLAN_BODY,
+	),
 ];
 
 export const churchTemplate = (id: string) => CHURCH_TEMPLATES.find((template) => template.id === id);
@@ -171,10 +249,6 @@ export const PENDING_EDITABLE = [
 	"church-planting-prospectus",
 	"partnership-agreement",
 	"residency-plan",
-	"board-minutes",
-	"conflict-of-interest-policy",
-	"financial-controls-policy",
-	"accountable-plan-reimbursement-policy",
 	"child-protection-policy",
 	"monthly-progress-report",
 	"support-letter",
