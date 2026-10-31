@@ -117,12 +117,12 @@ for (const [name, engine] of ENGINES) {
 					route.fulfill({ contentType: "text/html", body: "<main>Signed in destination</main>" }),
 				);
 			await withPage(engine, { "sign-in/email": signedIn("//evil.example/steal") }, async (page, sent) => {
-				await destination(page, "/onboarding");
+				await destination(page, "/home");
 				await page.goto(BASE + "/signin?returnTo=%2F%2Fevil.example%2Fsteal");
 				await page.getByLabel("Email").fill("ana@harvestpoint.org");
 				await page.getByLabel("Password", { exact: true }).fill("a-long-password");
 				await page.getByRole("button", { name: "Sign in", exact: true }).click();
-				await page.waitForURL((url) => url.pathname === "/onboarding" && !url.search);
+				await page.waitForURL((url) => url.pathname === "/home" && !url.search);
 				assert.equal(new URL(page.url()).origin, new URL(BASE).origin, "a protocol-relative echo never leaves");
 				assert.equal(
 					"returnTo" in sent.find((r) => r.path === "sign-in/email").body,

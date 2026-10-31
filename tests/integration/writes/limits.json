@@ -2,6 +2,9 @@
 	"GET /documents": {
 		"limit": 3
 	},
+	"GET /home": {
+		"limit": 2
+	},
 	"GET /meetings": {
 		"limit": 3
 	},
