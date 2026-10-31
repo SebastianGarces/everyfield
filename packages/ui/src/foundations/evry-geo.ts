@@ -74,8 +74,6 @@ export const SHAPES = Object.fromEntries(
 	}),
 ) as Record<EvryShape, ShapeData>;
 
-export const isShape = (v: unknown): v is EvryShape => typeof v === "string" && v in DEF;
-
 export function blend<T extends Float64Array>(out: T, A: ArrayLike<number>, B: ArrayLike<number>, t: number): T {
 	for (let i = 0; i < out.length; i++) out[i] = A[i]! + (B[i]! - A[i]!) * t;
 	return out;
@@ -369,8 +367,8 @@ export function unturn(box: readonly [number, number, number, number], a: number
 // ---- Face layout, shared by the life loop and the server render ----
 
 /** Eye centres before the per-shape offset, and [width, length] per mood, in box units. */
-export const EYE_X = [37.5, 62.5] as const;
-export const EYE_Y = 47.5;
+const EYE_X = [37.5, 62.5] as const;
+const EYE_Y = 47.5;
 export type EyeMood = "idle" | "thinking" | "happy";
 const EYE: Record<"idle" | "thinking", readonly [number, number]> = { idle: [11, 23], thinking: [10.15, 16] };
 /** The smallest distance every eye keeps inside the outline. */
