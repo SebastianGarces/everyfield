@@ -387,7 +387,6 @@ export function TaskSheet({
 							)}
 							{task.relation?.kind === "person" && !task.parentId && loaded?.contacts ? (
 								<ContactHistorySection
-									key={detail.id}
 									taskId={detail.id}
 									personId={task.relation.id}
 									first={loaded.contacts}
@@ -448,8 +447,9 @@ function ContactHistorySection({
 	accountId: string;
 }) {
 	const [loading, setLoading] = useState(false);
-	const [retried, setRetried] = useState<ReadOutcome<ContactHistory> | null>(null);
-	const log = retried ?? first;
+	// A newer first page from the panel replaces the one read here.
+	const [read, setRead] = useState({ from: first, page: first });
+	const log = read.from === first ? read.page : first;
 	return (
 		<Section title="What happened">
 			{log.status !== "ok" ? (
@@ -464,7 +464,7 @@ function ContactHistorySection({
 							setLoading(true);
 							const r = await loadContacts(personId, 1, taskId);
 							setLoading(false);
-							setRetried(r);
+							setRead({ from: first, page: r });
 						}}
 					>
 						Try again
