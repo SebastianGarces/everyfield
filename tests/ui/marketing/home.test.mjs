@@ -3,17 +3,14 @@
 // motion still frame, the Evry card photos and the site text rules. Copy comes from design/marketing-copy.json, so the
 // expected strings here are read from it. Runs on any preview: UI_BASE_URL=<preview url> node --test tests/ui/marketing/
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { BASE, ENGINES, withPage } from "../setup.mjs";
+import { assertSiteRules } from "./site-rules.mjs";
 
 const COPY = JSON.parse(readFileSync(new URL("../../../design/marketing-copy.json", import.meta.url), "utf8"));
 const OPS = COPY.shared.ops82;
 const STOPS = [...COPY.shared.week.steps, ...OPS.journey.steps].map((s) => s.title);
-/** The marketing photos (apps/web/src/marketing/photo/files): the only raster images the page may show. */
-const PHOTOS = readdirSync(new URL("../../../apps/web/src/marketing/photo/files", import.meta.url)).map((f) =>
-	f.replace(/\.jpg$/, ""),
-);
 const ORDER = ["top", "problem", "vision", "features", "week", "evry", "sending", "cta"];
 
 /** Opens / and waits until the journey has hydrated: its first layout shows the walker on stop 1. */
@@ -117,23 +114,7 @@ for (const [name, engine] of ENGINES) {
 				engine,
 				async (page) => {
 					await home(page);
-					const text = await page.evaluate(() =>
-						[
-							document.body.innerText,
-							...[...document.querySelectorAll("[aria-label]")].map((el) => el.getAttribute("aria-label")),
-						].join("\n"),
-					);
-					assert.doesNotMatch(text, /draft/i);
-					assert.doesNotMatch(text, /invitation email/i);
-					assert.doesNotMatch(text, /Maria/);
-					assert.doesNotMatch(text, /\balpha\b/i);
-					const bare = text.replace(/church plants?/gi, "").replace(/Plant Intelligence/g, "");
-					assert.doesNotMatch(bare, /\bplants?\b/i);
-					// Every image is a marketing photo (next/image of photo/files) or the logo: no picture of the app.
-					const srcs = await page.$$eval("img", (imgs) =>
-						imgs.map((i) => decodeURIComponent(i.getAttribute("src") ?? "")),
-					);
-					for (const src of srcs) assert.ok(PHOTOS.includes(/\/media\/([a-z]+)\./.exec(src)?.[1] ?? ""), src);
+					await assertSiteRules(page);
 				},
 				{ width },
 			));

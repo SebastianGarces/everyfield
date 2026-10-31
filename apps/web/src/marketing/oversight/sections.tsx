@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { Display } from "@/components/Display";
 import { Icon } from "@/components/Icon";
 import { COPY } from "../copy";
@@ -18,18 +17,6 @@ function MintIcon({ icon }: { icon: IconName }) {
 	);
 }
 
-/** A headline with one short paragraph under it, left-aligned (the prototype's .pth-head). */
-function Head({ id, headline, lead, wide }: { id: string; headline: string; lead: string; wide?: boolean }) {
-	return (
-		<div className="mb-[clamp(28px,4vw,48px)]">
-			<Display as="h2" size="h2" id={id} className={wide ? "max-w-[32ch]" : "max-w-[18ch]"}>
-				{headline}
-			</Display>
-			<p className="mt-[18px] max-w-[640px] text-mk-lead-sm leading-[1.55] text-pretty text-text-2">{lead}</p>
-		</div>
-	);
-}
-
 /**
  * #every-plant (OPS-82): "See how your church plants are doing, one by one and all together." One band on the field
  * photo holds two labelled rows of four tiles: what a sending church sees in one place, then across its church plants.
@@ -40,7 +27,12 @@ export function EveryPlant() {
 	return (
 		<section id="every-plant" aria-labelledby="every-plant-title" className="relative py-section">
 			<div className="mx-auto max-w-mk px-page">
-				<Head id="every-plant-title" headline={G.headline} lead={G.lead} wide />
+				<div className="mb-[clamp(28px,4vw,48px)]">
+					<Display as="h2" size="h2" id="every-plant-title" className="max-w-[32ch]">
+						{G.headline}
+					</Display>
+					<p className="mt-[18px] max-w-[640px] text-mk-lead-sm leading-[1.55] text-pretty text-text-2">{G.lead}</p>
+				</div>
 				<div className="relative isolate grid gap-[clamp(24px,3vw,40px)] p-[clamp(20px,3vw,44px)]">
 					<Backdrop bg="field" sizes="(max-width: 1440px) 100vw, 1440px" className="absolute inset-0 -z-1" />
 					{G.groups.map((g) => (
@@ -72,9 +64,7 @@ export function EveryPlant() {
  */
 export function Leaders() {
 	const L = O.leaders;
-	const icons: ReactNode[] = L.icons.map((ic) => (
-		<Icon key={ic} icon={ICONS[ic]} size={40} stroke={1.4} className="size-[44%]" />
-	));
+	const icons = L.icons.map((ic) => <Icon key={ic} icon={ICONS[ic]} size={40} stroke={1.4} className="size-[44%]" />);
 	return (
 		<section
 			id="leaders"
