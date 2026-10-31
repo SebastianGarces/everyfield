@@ -1,4 +1,4 @@
-import { inArray, ne, count, and, asc, eq, gt, lte, isNull, or, sql, getTableColumns } from "@everyfield/db/query";
+import { inArray, ne, count, and, asc, eq, gt, lte, isNull, or, sql } from "@everyfield/db/query";
 import type { SQL } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { alias } from "@everyfield/db/columns";
@@ -12,12 +12,14 @@ import {
 	hash,
 	parse,
 	person,
+	personColumns,
 	personRow,
 	project,
 	projectPeople,
 	readReply,
 	type Person,
 } from "./core.ts";
+import { effectiveAdultSql, plantTodaySql } from "./adult.ts";
 import type { RequestActor } from "../access/session.ts";
 import { revision } from "@everyfield/contracts/common";
 import type { Tx, Context } from "./core.ts";
@@ -74,7 +76,11 @@ export function peopleFilters(
 		filters.push(
 			sql`NOT EXISTS(SELECT unnest(${sql.param(input.tags)}::uuid[]) EXCEPT SELECT tag_id FROM person_tag WHERE person_id=${tables.person.id} AND plant_id=${tables.person.plant_id})`,
 		);
-	if (input.adultClassification) filters.push(eq(tables.person.adult_classification, input.adultClassification));
+	// The effective value, as the column shows it: the birth date decides when there is one (REQ-PPL-026).
+	if (input.adultClassification)
+		filters.push(
+			sql`${effectiveAdultSql(sql`${tables.person.birth_date}`, sql`${tables.person.adult_classification}`, plantTodaySql(sql`${tables.person.plant_id}`))}=${input.adultClassification}`,
+		);
 	if (input.commitment !== "any")
 		filters.push(
 			sql`(CASE WHEN EXISTS(SELECT FROM commitment e JOIN plant pl ON pl.id=e.plant_id WHERE e.plant_id=${tables.person.plant_id} AND e.person_id=${tables.person.id} AND e.voided_at IS NULL AND e.signed_on<=(clock_timestamp() AT TIME ZONE pl.timezone)::date) THEN ${tables.person.commitment_state} ELSE 'unknown' END)=${input.commitment}`,
@@ -95,7 +101,7 @@ async function list(tx: Tx, ctx: Context, raw: unknown) {
 	)[0]!;
 	if (!allowed) deny();
 	const result = await tx
-		.select(getTableColumns(tables.person))
+		.select(personColumns)
 		.from(tables.person)
 		.where(and(...filters))
 		.orderBy(
@@ -207,7 +213,7 @@ export const peopleReader: PeopleReader<Tx> = {
 			const column = sql<string>`CASE WHEN ${tables.person.stage} IN ('core_group','launch_team','leader') THEN 'core_group' ELSE ${tables.person.stage} END`;
 			const window = tx
 				.select({
-					...getTableColumns(tables.person),
+					...personColumns,
 					pipeline_column: column.as("pipeline_column"),
 					rank: sql<number>`(row_number() OVER (PARTITION BY ${column} ORDER BY ${tables.person.pipeline_position}, ${tables.person.created_at}, ${tables.person.id}))::int`.as(
 						"rank",
@@ -347,20 +353,20 @@ async function activities(tx: Tx, ctx: Context, p: Person, input: z.infer<typeof
 	return activityFeed(ctx, p.id, input, result.rows[0]?.rows);
 }
 /**
- * One page of a Person's activity as one JSON array, the window's rows plus one that says whether more follow. A scalar
+ * One page of a Person's activity, newest first (time, then ID, descending), as one JSON array, the window's rows plus one that says whether more follow. A scalar
  * subquery: `personId` may name the outer `person`.
  */
 export function activitiesJson(ctx: Context, personId: SQL, input: z.infer<typeof c.activityRequest>, gate: SQL) {
 	return sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('id',a.id,'occurred_at',a.occurred_at,'recorded_at',a.recorded_at,
  'actor_id',a.actor_id,'revision',a.revision::text,'body',a.body,'edited_at',a.edited_at,'removed_at',a.removed_at,'kind',a.kind,
  'action',a.action,'before_value',a.before_value,'after_value',a.after_value,'obligation_id',a.obligation_id,'outcome',a.outcome,
- 'record_id',a.record_id,'actor_exists',EXISTS(SELECT FROM account WHERE id=a.actor_id)) ORDER BY a.occurred_at,a.id),'[]') FROM (SELECT * FROM (
+ 'record_id',a.record_id,'actor_exists',EXISTS(SELECT FROM account WHERE id=a.actor_id)) ORDER BY a.occurred_at DESC,a.id DESC),'[]') FROM (SELECT * FROM (
       SELECT id,occurred_at,recorded_at,author_id AS actor_id,revision,body,edited_at,removed_at,'note' AS category,'note' AS kind,NULL::text AS action,NULL::jsonb AS before_value,NULL::jsonb AS after_value,NULL::uuid AS obligation_id,NULL::text AS outcome,NULL::uuid AS record_id FROM person_note WHERE tenant_id=${sql.param(ctx.selected.id)} AND person_id=${personId}
       UNION ALL
       SELECT id,occurred_at,recorded_at,actor_id,after_revision AS revision,NULL,NULL,NULL,'activity',CASE WHEN metadata ? 'event' THEN 'record' WHEN action='people.stage_changed' THEN 'stage_changed' WHEN coalesce(before_value ? 'membership' OR after_value ? 'membership',false) THEN 'household_changed' ELSE 'activity' END,coalesce(metadata->>'event',action),CASE WHEN action='people.stage_changed' AND NOT coalesce(before_value ? 'stage',false) THEN jsonb_build_object('stage',(SELECT prev.after_value->'stage' FROM audit_event prev WHERE prev.subject_id=h.subject_id AND prev.tenant_id=h.tenant_id AND prev.after_revision<=h.after_revision AND prev.after_value ? 'stage' ORDER BY prev.after_revision DESC,prev.occurred_at DESC,prev.id DESC LIMIT 1)) ELSE before_value END,CASE WHEN action='people.stage_changed' AND NOT coalesce(after_value ? 'stage',false) THEN jsonb_build_object('stage',(SELECT prev.after_value->'stage' FROM audit_event prev WHERE prev.subject_id=h.subject_id AND prev.tenant_id=h.tenant_id AND prev.after_revision<=h.after_revision AND prev.after_value ? 'stage' ORDER BY prev.after_revision DESC,prev.occurred_at DESC,prev.id DESC LIMIT 1)) ELSE after_value END,NULL,NULL,(metadata->>'recordId')::uuid FROM audit_event h WHERE metadata->>'category' IS DISTINCT FROM 'note' AND kind<>'noop' AND tenant_id=${sql.param(ctx.selected.id)} AND subject_id IN (SELECT ${personId} UNION ALL SELECT m.id FROM person m WHERE m.merged_into_person_id=${personId} AND m.tenant_id=${sql.param(ctx.selected.id)}) AND action IN ('people.created','people.updated','people.retired','people.restored','people.stage_changed','people.recorded','people.corrected','people.merged','people.unmerged')
       UNION ALL
       SELECT id,occurred_at,recorded_at,(SELECT actor_id FROM audit_event WHERE subject_id=contact_outcome.id ORDER BY recorded_at,id LIMIT 1),revision,notes,NULL,NULL,'follow_up','follow_up',contact_channel,NULL,NULL,obligation_id,outcome,NULL FROM contact_outcome WHERE plant_id=${sql.param(ctx.selected.id)} AND person_id=${personId} AND voided_at IS NULL
-    ) x WHERE ${gate} AND category=ANY(${sql.param(input.kinds ?? ["note", "activity", "follow_up"])}) ORDER BY occurred_at,id LIMIT ${sql.param(input.limit + 1)} OFFSET ${sql.param((input.page - 1) * input.limit)}) a)`;
+    ) x WHERE ${gate} AND category=ANY(${sql.param(input.kinds ?? ["note", "activity", "follow_up"])}) ORDER BY occurred_at DESC,id DESC LIMIT ${sql.param(input.limit + 1)} OFFSET ${sql.param((input.page - 1) * input.limit)}) a)`;
 }
 export function activityFeed(ctx: Context, personId: string, input: z.infer<typeof c.activityRequest>, raw: unknown) {
 	const found = z.array(z.unknown()).parse(raw);

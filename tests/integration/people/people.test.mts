@@ -9,6 +9,11 @@ import { migrate, migrationArtifact } from "../../../packages/db/src/schema/migr
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { PeopleReadContext, withPeopleWrite } from "../../../packages/domain/src/people/core.ts";
 import {
+	effectiveAdult,
+	effectiveAdultSql,
+	plantTodaySql,
+} from "../../../packages/domain/src/people/adult.ts";
+import {
 	assessments,
 	peopleWriter as write,
 	peopleReader as read,
@@ -347,10 +352,12 @@ test("BUG-110: activity pages retain microseconds across equal timestamp keys", 
 		await admin.execute(
 			sql`INSERT INTO person_note(id,tenant_id,plant_id,person_id,author_id,body,occurred_at,recorded_at) VALUES(${id},${plants[0]},${plants[0]},${p.id},${actors[0].id},'Microsecond note','2026-10-01T12:00:00.654321Z','2026-10-01T12:00:00.654321Z')`,
 		);
+	// Newest first: equal times fall back to the ID, descending.
+	const newest = [...ids].reverse();
 	const first = ok(await tx((t) => read.getActivities(t, ctx(), { personId: p.id, kinds: ["note"], limit: 24 })));
 	assert.deepEqual(
 		first.items.map((a) => a.id),
-		ids.slice(0, 24),
+		newest.slice(0, 24),
 	);
 	assert.equal(first.completeness, "partial");
 	const last = ok(
@@ -358,10 +365,57 @@ test("BUG-110: activity pages retain microseconds across equal timestamp keys", 
 	);
 	assert.deepEqual(
 		last.items.map((a) => a.id),
-		ids.slice(24),
+		newest.slice(24),
 	);
 	assert.equal(last.next, null);
 	assert.equal(last.completeness, "complete");
+});
+
+test("F14: person Activity is newest first and pages continue with older items without gaps or duplicates", async () => {
+	const p = await create("Newest first");
+	const notes = Array.from({ length: 30 }, (_, i) => ({
+		id: randomUUID(),
+		at: new Date(Date.UTC(2026, 9, 1, 12, i)).toISOString(),
+	}));
+	// Written out of order: the read orders by event time, not by insertion.
+	for (const n of [...notes].sort(() => Math.random() - 0.5))
+		await admin.execute(
+			sql`INSERT INTO person_note(id,tenant_id,plant_id,person_id,author_id,body,occurred_at,recorded_at) VALUES(${n.id},${plants[0]},${plants[0]},${p.id},${actors[0].id},'Note',${n.at},${n.at})`,
+		);
+	const feed = async (page) =>
+		ok(await tx((t) => read.getActivities(t, ctx(), { personId: p.id, kinds: ["note"], limit: 24, page })));
+	const first = await feed(1);
+	const second = await feed(first.next);
+	const newest = [...notes].reverse().map((n) => n.id);
+	assert.deepEqual(
+		first.items.map((a) => a.id),
+		newest.slice(0, 24),
+	);
+	assert.equal(first.next, 2);
+	assert.deepEqual(
+		second.items.map((a) => a.id),
+		newest.slice(24),
+	);
+	assert.equal(second.next, null);
+	const all = [...first.items, ...second.items].map((a) => a.id);
+	assert.equal(new Set(all).size, 30);
+	assert.deepEqual(all, newest);
+	// A new edit is the newest event, so the person page's first page shows it on top.
+	const edited = ok(
+		await tx((t) =>
+			write.updatePerson(t, ctx(), {
+				requestKey: randomUUID(),
+				expectedRevision: p.revision,
+				input: { personId: p.id, patch: { phone: "555-0101" } },
+			}),
+		),
+	);
+	const viewer = new PeopleReadContext(await tx((t) => RequestActor.resolve(t, actors[0].session)));
+	const page = (await readPersonPage(db, viewer, { personId: p.id }, 24)).value.activities.value;
+	assert.equal(page.items.length, 24);
+	assert.equal(page.items[0].kind, "activity");
+	assert.equal(page.items[0].action, "updated");
+	assert.equal(edited.person.id, p.id);
 });
 
 test("AC:TARGET-PPL-004 AC:ROLE43-003 exact account links, ambiguous contact selection and concurrent uniqueness", async () => {
@@ -535,7 +589,9 @@ test("AC:WP011-KNOW-098 named guest and explicit selection share the caller tran
 test("AC:TARGET-PPL-006 F07b criterion 7: assigning a duty to someone already on it keeps them on it", async () => {
 	const leaving = await create("Leaving"),
 		stays = await create("Stays");
-	await admin.execute(sql`UPDATE person SET linked_account_id=${sql.param(actors[1].id)} WHERE id=${sql.param(stays.id)}`);
+	await admin.execute(
+		sql`UPDATE person SET linked_account_id=${sql.param(actors[1].id)} WHERE id=${sql.param(stays.id)}`,
+	);
 	const duty = randomUUID();
 	await admin.execute(
 		sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,person_id) VALUES(${sql.param(duty)},${sql.param(plants[0])},'Visit','follow_up','medium','not_started',clock_timestamp(),'undated',${sql.param(leaving.id)})`,
@@ -747,7 +803,7 @@ test("AC:TARGET-PPL-008 original author and exact note revisions preserve occurr
 		const feed = ok(await tx((t) => read.getActivities(t, ctx(), { personId: p.id })));
 		assert.deepEqual(
 			feed.items.map((a) => (a.kind === "activity" ? a.action : a.kind)),
-			["created", kind],
+			[kind, "created"],
 		);
 	};
 	await assertNoteFeed("note");
@@ -1354,8 +1410,8 @@ test("INV-reads: the person page and the status warnings use a fixed number of s
 	assert.deepEqual(
 		page.activities.value.items.map((a) => [a.kind === "activity" ? a.action : a.kind, a.actor.kind]),
 		[
-			["created", "current_account"],
 			["note", "current_account"],
+			["created", "current_account"],
 		],
 	);
 	queries = [];
@@ -1639,4 +1695,219 @@ test("INV-date (RT-3, C88): an assessment runs in the gate's transaction, so a c
 		await changed;
 		await zone("America/New_York");
 	}
+});
+
+// REQ-PPL-026: adult or child comes from the birth date when there is one (Sebastian, Oct 30 2026: "Set adult or child
+// automatically from the birth date"). The 18 threshold and "birth date wins" are Jonah's rule.
+const BOUNDARIES = [
+	// [birth date, plant-local today, expected, why]
+	["2008-06-16", "2026-06-15", "child", "the day before the 18th birthday"],
+	["2008-06-15", "2026-06-15", "adult", "the 18th birthday"],
+	["2008-06-15", "2026-06-16", "adult", "the day after the 18th birthday"],
+	["2008-02-29", "2026-02-28", "child", "a Feb 29 birth date, the day before it turns 18 in a year without Feb 29"],
+	["2008-02-29", "2026-03-01", "adult", "a Feb 29 birth date turns 18 on Mar 1 in a year without Feb 29"],
+	["2008-02-29", "2028-02-29", "adult", "a Feb 29 birth date on Feb 29 of a leap year"],
+	["2012-02-29", "2030-02-28", "child", "17 on the day before an 18th birthday that falls on Mar 1"],
+	["2012-02-29", "2030-03-01", "adult", "18 on Mar 1"],
+	["1996-12-31", "2026-12-30", "adult", "a 29-year-old"],
+	["2026-01-01", "2026-10-30", "child", "an infant"],
+];
+test("INV-adult: one rule in TypeScript and in SQL, over the same boundary cases", async () => {
+	for (const [birth, today, expected, why] of BOUNDARIES) {
+		assert.equal(effectiveAdult(birth, "unknown", today).value, expected, `TypeScript: ${why}`);
+		const row = (
+			await admin.execute(
+				sql`SELECT ${effectiveAdultSql(sql`${birth}::date`, sql`'unknown'`, sql`${today}::date`)} AS value`,
+			)
+		).rows[0];
+		assert.equal(row.value, expected, `SQL: ${why}`);
+	}
+	// Without a birth date the manual value stands, and the source says which one it is.
+	for (const manual of ["adult", "child", "unknown"]) {
+		assert.deepEqual(effectiveAdult(null, manual, null), {
+			value: manual,
+			source: manual === "unknown" ? "not_recorded" : "recorded",
+		});
+		const row = (
+			await admin.execute(
+				sql`SELECT ${effectiveAdultSql(sql`NULL::date`, sql`${manual}::text`, sql`'2026-01-01'::date`)} AS value`,
+			)
+		).rows[0];
+		assert.equal(row.value, manual);
+	}
+	assert.equal(effectiveAdult("2000-01-01", "child", "2026-10-30").source, "birth_date");
+});
+
+test("INV-adult: the plant-local date decides, not the UTC date", async () => {
+	// 2026-06-15T03:00Z is still June 14 in Chicago and already June 15 in UTC. The 18th birthday is June 15.
+	const instant = "2026-06-15T03:00:00Z";
+	const day = async (zone) =>
+		(await admin.execute(sql`SELECT (${instant}::timestamptz AT TIME ZONE ${zone})::date::text AS day`))
+			.rows[0].day;
+	assert.equal(await day("America/Chicago"), "2026-06-14");
+	assert.equal(await day("UTC"), "2026-06-15");
+	assert.equal(effectiveAdult("2008-06-15", "unknown", await day("America/Chicago")).value, "child");
+	assert.equal(effectiveAdult("2008-06-15", "unknown", await day("UTC")).value, "adult");
+	const row = (
+		await admin.execute(
+			sql`SELECT ${effectiveAdultSql(sql`'2008-06-15'::date`, sql`'unknown'`, sql`(${instant}::timestamptz AT TIME ZONE 'America/Chicago')::date`)} AS value`,
+		)
+	).rows[0];
+	assert.equal(row.value, "child");
+	// The read uses the plant's own zone, as plantTodaySql says.
+	const today = (
+		await admin.execute(
+			sql`SELECT ${plantTodaySql(sql`${plants[0]}::uuid`)} AS day, (clock_timestamp() AT TIME ZONE 'America/New_York')::date::text AS expected`,
+		)
+	).rows[0];
+	assert.equal(today.day, today.expected);
+});
+
+/** A date `years` before the plant's current date, moved by `days`, as the plant's calendar says it. */
+async function daysFromBirthday(years, days = 0) {
+	return (
+		await admin.execute(
+			sql`SELECT ((${plantTodaySql(sql`${plants[0]}::uuid`)})::date - make_interval(years => ${years}) + make_interval(days => ${days}))::date::text AS day`,
+		)
+	).rows[0].day;
+}
+const setBirth = async (p, birthDate) =>
+	ok(
+		await tx((t) =>
+			write.updatePerson(t, ctx(), {
+				requestKey: randomUUID(),
+				expectedRevision: p.revision,
+				input: { personId: p.id, patch: { birthDate } },
+			}),
+		),
+	).person;
+const rejected = (result, reason) => {
+	refused(result, "invalid_input");
+	assert.equal(result.error.details.reason, reason);
+};
+
+test("AC:REQ-PPL-026 the birth date decides adult or child and wins over a manual value, and the history stays", async () => {
+	const p0 = await create("Manual then dated");
+	assert.deepEqual([p0.adultClassification, p0.adultClassificationSource], ["unknown", "not_recorded"]);
+	const recorded = ok(
+		await tx((t) =>
+			write.recordAdultClassification(t, ctx(), {
+				requestKey: randomUUID(),
+				expectedRevision: p0.revision,
+				input: { personId: p0.id, classification: "child", occurredOn: "2026-10-01", reason: "Told by a parent" },
+			}),
+		),
+	);
+	assert.equal(recorded.observation.classification, "child");
+	let p = (await tx((t) => read.getPerson(t, ctx(), { personId: p0.id }))).value.person;
+	assert.deepEqual([p.adultClassification, p.adultClassificationSource], ["child", "recorded"]);
+	// Thirty years old by the birth date: the manual "child" no longer applies, at once.
+	p = await setBirth(p, await daysFromBirthday(30));
+	assert.deepEqual([p.adultClassification, p.adultClassificationSource], ["adult", "birth_date"]);
+	const stored = async () =>
+		(await admin.execute(sql`SELECT adult_classification FROM person WHERE id=${p.id}::uuid`)).rows[0]
+			.adult_classification;
+	assert.equal(await stored(), "child", "the manual value stays in the store");
+	const events = async () =>
+		(
+			await admin.execute(
+				sql`SELECT action FROM audit_event WHERE subject_id=${p.id}::uuid AND action IN ('people.recorded','people.corrected')`,
+			)
+		).rows.length;
+	assert.equal(await events(), 1, "the manual history stays");
+	const feed = ok(await tx((t) => read.getActivities(t, ctx(), { personId: p.id })));
+	assert.ok(feed.items.some((a) => a.kind === "activity" && a.action === "classification_recorded"));
+	// A record or correction is refused while a birth date exists.
+	for (const [method, expectedRevision] of [
+		["recordAdultClassification", p.revision],
+		["correctAdultClassification", p.revision],
+	])
+		rejected(
+			await tx((t) =>
+				write[method](t, ctx(), {
+					requestKey: randomUUID(),
+					expectedRevision,
+					input: { personId: p.id, classification: "child", occurredOn: "2026-10-01", reason: "Try" },
+				}),
+			),
+			"birth_date_decides",
+		);
+	// Removing the birth date makes the last recorded value effective again.
+	p = await setBirth(p, null);
+	assert.deepEqual([p.adultClassification, p.adultClassificationSource], ["child", "recorded"]);
+	// A birth date on create, with an adult classification the date contradicts: accepted, and the date wins.
+	const both = await create("Both given", { adultClassification: "child", birthDate: await daysFromBirthday(40) });
+	assert.deepEqual([both.adultClassification, both.adultClassificationSource], ["adult", "birth_date"]);
+});
+
+test("AC:REQ-PPL-026 the 18th birthday turns a child into an adult without an edit, and the list filter agrees with the column", async (t) => {
+	const names = {
+		eve: await create("Birthday Eve Sam", { birthDate: await daysFromBirthday(18, 1) }),
+		day: await create("Birthday Day Sam", { birthDate: await daysFromBirthday(18) }),
+		older: await create("Birthday Older Sam", { birthDate: await daysFromBirthday(30) }),
+		manual: await create("Birthday Manual Sam", { adultClassification: "adult" }),
+		none: await create("Birthday None Sam"),
+	};
+	const expected = { eve: "child", day: "adult", older: "adult", manual: "adult", none: "unknown" };
+	for (const [key, p] of Object.entries(names)) assert.equal(p.adultClassification, expected[key], key);
+	const listed = async (adultClassification) =>
+		ok(
+			await tx((t) =>
+				read.listPeople(t, ctx(), { search: "Birthday", ...(adultClassification ? { adultClassification } : {}) }),
+			),
+		);
+	const column = new Map(
+		(await listed()).items.map((p) => [p.displayName, [p.adultClassification, p.adultClassificationSource]]),
+	);
+	assert.deepEqual(column.get("Birthday Eve Sam"), ["child", "birth_date"]);
+	assert.deepEqual(column.get("Birthday Day Sam"), ["adult", "birth_date"]);
+	assert.deepEqual(column.get("Birthday Manual Sam"), ["adult", "recorded"]);
+	assert.deepEqual(column.get("Birthday None Sam"), ["unknown", "not_recorded"]);
+	for (const value of ["adult", "child", "unknown"]) {
+		const names = (await listed(value)).items.map((p) => p.displayName).sort();
+		assert.deepEqual(
+			names,
+			[...column]
+				.filter(([, [v]]) => v === value)
+				.map(([n]) => n)
+				.sort(),
+			`?adult=${value} agrees with the column`,
+		);
+	}
+	assert.deepEqual(
+		(await listed("child")).items.map((p) => p.displayName),
+		["Birthday Eve Sam"],
+	);
+});
+
+test("AC:REQ-PPL-026 a derived adult is only an input to a count: the commitment rule is unchanged", async () => {
+	const stage = (stage) => ({ stage });
+	const people = {
+		adultNoCommitment: await create("Count Adult No Card", {
+			...stage("core_group"),
+			birthDate: await daysFromBirthday(30),
+		}),
+		adultLaunch: await create("Count Adult Launch", { ...stage("launch_team"), birthDate: await daysFromBirthday(30) }),
+		adultCommitted: await create("Count Adult Card", { ...stage("core_group"), birthDate: await daysFromBirthday(30) }),
+		childCommitted: await create("Count Child Card", { ...stage("core_group"), birthDate: await daysFromBirthday(17) }),
+	};
+	for (const key of ["adultCommitted", "childCommitted"])
+		await admin.execute(
+			sql`INSERT INTO commitment(id,plant_id,person_id,kind,signed_on,recorded_at) VALUES(${randomUUID()},${plants[0]}::uuid,${people[key].id}::uuid,'core_group',(clock_timestamp() AT TIME ZONE 'America/New_York')::date - 1,clock_timestamp())`,
+		);
+	await admin.execute(
+		sql`UPDATE person SET commitment_state='active' WHERE id=ANY(${sql.param([people.adultCommitted.id, people.childCommitted.id])}::uuid[])`,
+	);
+	const items = ok(await tx((t) => read.listPeople(t, ctx(), { search: "Count " }))).items;
+	// The count a reader makes: an effective adult with a currently active commitment.
+	const counted = items.filter((p) => p.adultClassification === "adult" && p.commitment.state === "active");
+	assert.deepEqual(
+		counted.map((p) => p.displayName),
+		["Count Adult Card"],
+	);
+	const byName = Object.fromEntries(items.map((p) => [p.displayName, p]));
+	assert.equal(byName["Count Adult No Card"].adultClassification, "adult");
+	assert.equal(byName["Count Adult No Card"].commitment.state, "unknown");
+	assert.equal(byName["Count Adult Launch"].commitment.state, "unknown");
+	assert.equal(byName["Count Child Card"].adultClassification, "child");
 });
