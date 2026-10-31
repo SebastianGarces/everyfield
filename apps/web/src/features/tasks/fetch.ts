@@ -1,5 +1,6 @@
 import type * as c from "@everyfield/contracts/tasks";
 import type { z } from "zod";
+import type { ContactHistory, Outcome as ReadOutcome } from "../followups/model.ts";
 import type { Candidate, Occurrence, Outcome, Prerequisites, TaskDetail, TaskHistory } from "./model.ts";
 
 // The browser side of read.ts. A network failure or a server error reads as lost, so the screen can offer a retry.
@@ -16,6 +17,8 @@ export type Loaded = {
 	task: TaskDetail;
 	/** The first history page, or why it did not load. */
 	history: Outcome<TaskHistory>;
+	/** A follow-up's first page of contact history, or why it did not load. Null for any other task. */
+	contacts: ReadOutcome<ContactHistory> | null;
 	prerequisites: Pick<Prerequisites, "taskId" | "items" | "blocked"> | null;
 	occurrence: Occurrence | null;
 };

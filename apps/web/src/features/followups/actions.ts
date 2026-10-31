@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import type * as tc from "@everyfield/contracts/tasks";
 import type { z } from "zod";
 import type { HandoffResult, Outcome, OutcomeMutation } from "./model.ts";
@@ -11,13 +12,21 @@ import { taskViewer, write } from "./server.ts";
 // sends the same request key again, and the producer returns the first result instead of acting twice.
 
 type TaskMutation = z.infer<typeof tc.taskMutation>;
+/**
+ * A saved outcome changes "What happened" of the task panel. Dropping the client router cache of /tasks makes a return
+ * to it, by link or browser back, read the page again, so the panel never opens from a page held before the outcome.
+ */
+function staleTasks<T>(result: Outcome<T>): Outcome<T> {
+	if (result.status === "ok") revalidatePath("/tasks");
+	return result;
+}
 const denied = { status: "refused", code: "access_denied" } as const;
 
 /** Records what happened on a follow-up, or (Owner/Admin) a contact with a Person (REQ-MTG-022). */
 export async function recordOutcome(requestKey: string, input: unknown): Promise<Outcome<OutcomeMutation>> {
 	const v = await taskViewer();
 	if (!v) return denied;
-	return write(v, (w, tx, ctx) => w.recordOutcome(tx, ctx, { requestKey, input }));
+	return staleTasks(await write(v, (w, tx, ctx) => w.recordOutcome(tx, ctx, { requestKey, input })));
 }
 
 /** Replaces a recorded outcome with a corrected one, or withdraws it, with a reason (REQ-MTG-022). */
@@ -28,7 +37,7 @@ export async function correctOutcome(
 ): Promise<Outcome<OutcomeMutation>> {
 	const v = await taskViewer();
 	if (!v) return denied;
-	return write(v, (w, tx, ctx) => w.correctOutcome(tx, ctx, { requestKey, expectedRevision, input }));
+	return staleTasks(await write(v, (w, tx, ctx) => w.correctOutcome(tx, ctx, { requestKey, expectedRevision, input })));
 }
 
 /** An explicit follow-up with a Person, undated unless a date is chosen (REQ-PPL-022, REQ-TSK-012). Owner/Admin. */

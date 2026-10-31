@@ -2,7 +2,8 @@ import "server-only";
 import { brandError, type BrandKit, type BrandReply } from "@everyfield/contracts/branding";
 import { eq } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
-import { brandReader, brandWriter } from "@everyfield/domain/branding";
+import { privateStorage } from "@everyfield/db/schema";
+import { brandReader, brandWriter, readBrandAsset, uploadBrandAsset } from "@everyfield/domain/branding";
 import { randomUUID } from "node:crypto";
 import { requestDatabase } from "@/server/database";
 import { getViewer } from "@/server/request-context";
@@ -59,4 +60,26 @@ export function saveBrandKit(raw: unknown): Promise<BrandReply<BrandKit>> {
 
 export function resetBrandKit(raw: unknown): Promise<BrandReply<BrandKit>> {
 	return run("reset_failed", (db, actor) => brandWriter.reset(db, actor, raw));
+}
+
+export function requestBrandUpload(raw: unknown) {
+	return run("request_upload_failed", (db, actor) => brandWriter.requestUpload(db, actor, raw));
+}
+
+export function finalizeBrandUpload(raw: unknown) {
+	return run("finalize_upload_failed", (db, actor) => brandWriter.finalizeUpload(db, actor, raw));
+}
+
+export function suggestBrandColors(raw: unknown) {
+	return run("suggest_failed", (db, actor) => brandReader.suggestColors(db, actor, raw, privateStorage()));
+}
+
+/** The bytes of a staged upload. The domain checks the live Owner or Admin seat, type, size and decodability. */
+export function storeBrandBytes(uploadId: string, bytes: Uint8Array) {
+	return run("upload_bytes_failed", (db, actor) => uploadBrandAsset(db, privateStorage(), actor, { uploadId, bytes }));
+}
+
+/** One stored asset's bytes, only while the kit references the file and the viewer holds an Owner or Admin seat now. */
+export function brandAssetBytes(fileId: string) {
+	return run("read_asset_failed", (db, actor) => readBrandAsset(db, privateStorage(), actor, fileId, "settings"));
 }
