@@ -282,11 +282,11 @@ describe("WP-037 Church Documents", { concurrency: 1 }, () => {
 		assert.deepEqual(await counts(), before);
 		// An account with no seat is refused.
 		const none = await RequestActor.resolve(db, actors[4].session);
-		if (none instanceof RequestActor)
-			refused(
-				await documentsWriter.createFromTemplate(db, none, { templateId: "bylaws", requestKey: "no-seat" }),
-				"access_denied",
-			);
+		assert.ok(none instanceof RequestActor, "an account with no seat still resolves to an actor");
+		refused(
+			await documentsWriter.createFromTemplate(db, none, { templateId: "bylaws", requestKey: "no-seat" }),
+			"access_denied",
+		);
 		assert.deepEqual(await counts(), before);
 	});
 
@@ -652,18 +652,17 @@ describe("WP-037 Church Documents", { concurrency: 1 }, () => {
 			sql`UPDATE seat SET ended_at = clock_timestamp() WHERE account_id = ${actors[ADMIN].id}::uuid AND ended_at IS NULL`,
 		);
 		const stale = await RequestActor.resolve(db, actors[ADMIN].session);
-		if (stale instanceof RequestActor) {
-			refused(
-				await documentsWriter.exportNative(
-					db,
-					stale,
-					{ documentId: doc.id, revision: 1, format: "pdf", requestKey: "ended-seat" },
-					storage,
-				),
-				"access_denied",
-			);
-			refused(await save(ADMIN, doc.id, "4", doc.body), "access_denied");
-		}
+		assert.ok(stale instanceof RequestActor, "an ended seat still resolves to an actor");
+		refused(
+			await documentsWriter.exportNative(
+				db,
+				stale,
+				{ documentId: doc.id, revision: 1, format: "pdf", requestKey: "ended-seat" },
+				storage,
+			),
+			"access_denied",
+		);
+		refused(await save(ADMIN, doc.id, "4", doc.body), "access_denied");
 		await admin.execute(sql`UPDATE seat SET ended_at = NULL WHERE account_id = ${actors[ADMIN].id}::uuid`);
 		// Exports reference their document and revision: the tables cannot drop them from under a record.
 		await assert.rejects(

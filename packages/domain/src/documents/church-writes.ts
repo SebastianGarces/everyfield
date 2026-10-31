@@ -15,6 +15,8 @@ import {
 	ARTIFACT_MAX,
 	MEDIA,
 	gateSql,
+	generatedFrom,
+	historyRows,
 	iso,
 	plantScope,
 	postgresCode,
@@ -399,7 +401,6 @@ export const churchWriter = {
 				document_class: ChurchRow["document_class"] | null;
 				use_church_branding: boolean | null;
 				input_provenance: Provenance | null;
-				archived: boolean | null;
 				revision_id: string | null;
 				body: string | null;
 				recorded_at: Date | string | null;
@@ -409,7 +410,7 @@ export const churchWriter = {
 			}>(
 				db,
 				sql`SELECT g.ok, d.id, d.template_id, d.template_version, d.document_class, d.use_church_branding,
-					d.input_provenance, d.archived_at IS NOT NULL AS archived, r.id AS revision_id, r.body, r.recorded_at,
+					d.input_provenance, r.id AS revision_id, r.body, r.recorded_at,
 					to_jsonb(k) AS kit, gd.id AS prior_id,
 					(gd.source_document_id = ${input.documentId}::uuid AND gd.source_revision_id = r.id AND gd.format = ${input.format}) AS prior_same
 				FROM (SELECT ${gateSql(scope, false)} AS ok) g
@@ -628,53 +629,7 @@ export const churchWriter = {
 
 /** One saved export, as the history lists it. */
 async function exportRecord(db: Database, scope: Scope, id: string) {
-	const found = await rowsOf<{
-		id: string;
-		template_id: string;
-		template_version: string;
-		saved_template_name: string;
-		format: "pdf" | "docx";
-		download_name: string;
-		generated_at: Date | string;
-		creator_account_id: string | null;
-		revision: string;
-		sha256: string;
-		byte_count: string | number;
-		source_document_id: string;
-		source_revision_id: string;
-		source_number: number;
-		theme_kind: "church" | "everyfield-neutral";
-		theme_primary: string | null;
-	}>(
-		db,
-		sql`SELECT gd.id, gd.template_id, gd.template_version, gd.saved_template_name, gd.format, gd.download_name, gd.generated_at,
-			gd.creator_account_id, gd.revision::text AS revision, f.sha256, f.byte_count, gd.source_document_id, gd.source_revision_id,
-			sr.version_number AS source_number, gd.theme_kind, gd.theme_primary
-		FROM generated_document gd
-		JOIN file_object f ON f.id = gd.object_id AND f.tenant_id = gd.tenant_id AND f.state = 'ready'
-		JOIN document_revision sr ON sr.id = gd.source_revision_id AND sr.tenant_id = gd.tenant_id
-		WHERE gd.id = ${id}::uuid AND gd.tenant_id = ${scope.tenantId}::uuid AND ${gateSql(scope, false)}`,
-	);
-	const row = found[0];
+	const [row] = await historyRows(db, scope, id);
 	if (!row) deny("unavailable");
-	return c.generatedDocument.parse({
-		id: row.id,
-		plantId: scope.tenantId,
-		templateId: row.template_id,
-		templateVersion: row.template_version,
-		savedTemplateName: row.saved_template_name,
-		format: row.format,
-		digest: row.sha256,
-		byteCount: Number(row.byte_count),
-		downloadName: row.download_name,
-		generatedAt: iso(row.generated_at),
-		creatorAccountId: row.creator_account_id,
-		revision: row.revision,
-		source: {
-			documentId: row.source_document_id,
-			revisionId: row.source_revision_id,
-			revision: Number(row.source_number),
-		},
-		theme: { kind: row.theme_kind, primary: row.theme_primary },
-	});
+	return generatedFrom(row, scope.tenantId, row.template_id);
 }

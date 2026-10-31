@@ -57,8 +57,6 @@ export const saveChurchRequest = z.strictObject({
 	expectedRevision: revisionToken,
 	body: churchBody,
 });
-/** `documents.saveNative` takes a plain native document (text) or a Church Document (blocks). */
-export const saveRequest = z.union([saveNativeRequest, saveChurchRequest]);
 /** An editable template id, merge values and a request key. The same key returns the same document. */
 export const createFromTemplateRequest = z.strictObject({
 	templateId,

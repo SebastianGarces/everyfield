@@ -1,3 +1,4 @@
+import * as c from "@everyfield/contracts/documents";
 import { sql } from "@everyfield/db/query";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { putPrivateObject, type PrivateStorage, type ResourceAuthorizer } from "@everyfield/db/schema";
@@ -5,6 +6,7 @@ import "server-only";
 import { liveRead } from "../access/session.ts";
 import { deny, type PlantViewer } from "./access.ts";
 
+export const PAGE = 100;
 export const ARTIFACT_MAX = 8 * 1024 * 1024;
 export const MEDIA = {
 	pdf: "application/pdf",
@@ -89,4 +91,69 @@ export async function storeBytes(
 	} catch (error) {
 		return refuseStorage(error);
 	}
+}
+
+/** One generated-document record, as the history and the export calls return it. */
+export function generatedFrom(
+	row: {
+		id: string;
+		template_version: string;
+		saved_template_name: string;
+		format: "pdf" | "docx" | "xlsx";
+		download_name: string;
+		generated_at: Date | string;
+		creator_account_id: string | null;
+		revision: string;
+		sha256: string;
+		byte_count: string | number;
+		source_document_id?: string | null;
+		source_revision_id?: string | null;
+		source_number?: number | string | null;
+		theme_kind?: "church" | "everyfield-neutral" | null;
+		theme_primary?: string | null;
+	},
+	plantId: string,
+	templateId: string,
+) {
+	return c.generatedDocument.parse({
+		id: row.id,
+		plantId,
+		templateId,
+		templateVersion: row.template_version,
+		savedTemplateName: row.saved_template_name,
+		format: row.format,
+		digest: row.sha256,
+		byteCount: Number(row.byte_count),
+		downloadName: row.download_name,
+		generatedAt: iso(row.generated_at),
+		creatorAccountId: row.creator_account_id,
+		revision: row.revision,
+		source: row.source_document_id
+			? { documentId: row.source_document_id, revisionId: row.source_revision_id, revision: Number(row.source_number) }
+			: null,
+		theme: row.theme_kind ? { kind: row.theme_kind, primary: row.theme_primary ?? null } : null,
+	});
+}
+
+export async function historyRows(db: Database, scope: Scope, documentId: string | null) {
+	const found = await rowsOf<
+		Parameters<typeof generatedFrom>[0] & { ok: boolean; template_id: string; present: boolean }
+	>(
+		db,
+		sql`SELECT g.ok, gd.id, gd.template_id, gd.template_version, gd.saved_template_name, gd.format, gd.download_name,
+			gd.generated_at, gd.creator_account_id, gd.revision::text AS revision, f.sha256, f.byte_count,
+			gd.source_document_id, gd.source_revision_id, gd.theme_kind, gd.theme_primary, sr.version_number AS source_number,
+			gd.id IS NOT NULL AS present
+		FROM (SELECT ${gateSql(scope, false)} AS ok) g
+		LEFT JOIN generated_document gd ON g.ok AND gd.tenant_id = ${scope.tenantId}::uuid
+			AND (${documentId}::uuid IS NULL OR gd.id = ${documentId}::uuid)
+		LEFT JOIN file_object f ON f.id = gd.object_id AND f.tenant_id = gd.tenant_id AND f.state = 'ready'
+		LEFT JOIN document_revision sr ON sr.id = gd.source_revision_id AND sr.tenant_id = gd.tenant_id
+		WHERE f.id IS NOT NULL OR gd.id IS NULL
+		ORDER BY gd.generated_at DESC NULLS LAST
+		LIMIT ${PAGE}`,
+	);
+	if (found[0]?.ok !== true && found.length > 0) deny();
+	if (found.length === 0) deny();
+	return found.filter((row) => row.present);
 }
