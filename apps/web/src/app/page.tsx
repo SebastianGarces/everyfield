@@ -44,13 +44,12 @@ export default function Home() {
 				id="features"
 				headline={S.ops82.features_headline}
 				items={J.features.items}
-				vignettes="phases"
 				icons={J.features.icons}
 			/>
 			<JourneySection />
 			<EvryCards />
 			<SendingSection />
-			<CtaSection c={J.cta} href={{ secondary: accessFor("network") }} size="h1" />
+			<CtaSection c={J.cta} href={{ secondary: accessFor("network") }} />
 		</Site>
 	);
 }

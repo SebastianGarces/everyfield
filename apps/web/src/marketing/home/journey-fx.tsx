@@ -4,6 +4,7 @@ import { useInView, useMotionValue } from "motion/react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { EvryBot } from "@/components/kit/EvryBot";
 import { useReduced } from "@/components/motion/scene";
+import { stopCurve, stopLeft, type Pt } from "../sections/stop-curve";
 
 // The journey path (OPS-82 prototype, pthLayout to pthGo). One smooth curve runs through the six stop centres. EvryBot
 // eases along it from stop to stop and says one line at each stop. While the band is on screen it moves on every
@@ -15,7 +16,6 @@ const STEP = 4200;
 const BOT = 40;
 
 export type JourneyStep = { title: string; body: string; say: string; icon: ReactNode };
-type Pt = { x: number; y: number };
 /** Measured path: stop centres and sizes, the length at each stop, the walker's length L and x, and the stop it is on. */
 type Geo = { c: (Pt & { s: number })[]; at: number[]; len: number; L: number; wx: number; k: number };
 
@@ -96,19 +96,13 @@ export function JourneyPath({
 			const li = s!.closest("li")!;
 			return { x: li.offsetLeft, y: li.offsetTop, s: s!.offsetWidth };
 		});
-		const pts: Pt[] = [{ x: -20, y: g.c[0]!.y + 18 }, ...g.c, { x: W + 20, y: g.c[n - 1]!.y - 18 }];
-		let d = `M${pts[0]!.x},${pts[0]!.y}`;
+		const segs = stopCurve(g.c, W);
 		g.at = [];
-		for (let i = 1; i < pts.length; i++) {
-			const a = pts[i - 1]!,
-				z = pts[i]!,
-				m = (z.x - a.x) / 2;
-			d += ` C${a.x + m},${a.y} ${z.x - m},${z.y} ${z.x},${z.y}`;
-			if (i <= n) {
-				T.setAttribute("d", d);
-				g.at.push(T.getTotalLength());
-			}
+		for (let i = 0; i < n; i++) {
+			T.setAttribute("d", segs.slice(0, i + 2).join(""));
+			g.at.push(T.getTotalLength());
 		}
+		const d = segs.join("");
 		svg.current!.setAttribute("viewBox", `0 0 ${W} ${H}`);
 		T.setAttribute("d", d);
 		walked.current!.setAttribute("d", d);
@@ -262,7 +256,7 @@ export function JourneyPath({
 							<li
 								key={s.title}
 								className="absolute top-(--lo) -translate-1/2 even:top-(--hi)"
-								style={{ left: `${((100 / n) * (i + 0.5)).toFixed(3)}%` }}
+								style={{ left: stopLeft(i, n) }}
 							>
 								{/* The number sits outside the button, so the button's name is its title alone (label in name). */}
 								<div className="group relative size-(--ic) transition-[translate,scale] duration-400 ease-[cubic-bezier(.3,1.4,.5,1)] hover:not-has-aria-pressed:-translate-y-[3px] has-aria-pressed:scale-[1.08]">

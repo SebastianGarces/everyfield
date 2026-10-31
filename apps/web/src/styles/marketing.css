@@ -14,8 +14,6 @@
 @source "../../../../packages/ui/src";
 
 /* Data and scripts are not Tailwind sources. */
-@source not "../marketing/scene-data.ts";
-@source not "../marketing/demo-data.ts";
 @source not "../marketing/logo-symbols.ts";
 @source not "../styles";
 @source not "../../scripts";
@@ -38,9 +36,10 @@
 	--color-mk-photo-base: #3a3529;
 
 	--spacing-page: clamp(16px, 3vw, 40px);
-	/* The space above and below each section (OPS-82 prototype): 160 px on phones, 240 px from 1440 px wide. The plain side
-	   of a full-width photo section takes 1.5 times that, because the photo edge needs more room than text. */
-	--spacing-section: clamp(160px, 16.667vw, 240px);
+	/* The space above and below each section: 160 px at every width (Sebastian, Oct 31 2026: "I like 160 way more"; the
+	   OPS-82 prototype grows it to 240 px). The plain side of a full-width photo section takes 1.5 times that, because the
+	   photo edge needs more room than text. */
+	--spacing-section: clamp(160px, 16.667vw, 160px);
 	--spacing-section-photo: calc(var(--spacing-section) * 1.5);
 	--container-mk: 1440px;
 
@@ -181,9 +180,7 @@
 	--color-mk-ink-04: rgb(from var(--color-ink) r g b / 0.04);
 	--color-mk-ink-05: rgb(from var(--color-ink) r g b / 0.05);
 	--color-mk-ink-06: rgb(from var(--color-ink) r g b / 0.06);
-	--color-mk-ink-18: rgb(from var(--color-ink) r g b / 0.18);
 	--color-mk-ink-30: rgb(from var(--color-ink) r g b / 0.3);
-	--color-mk-ink-35: rgb(from var(--color-ink) r g b / 0.35);
 	--color-mk-ink-40: rgb(from var(--color-ink) r g b / 0.4);
 	--color-mk-ink-42: rgb(from var(--color-ink) r g b / 0.42);
 	--color-mk-ink-46: rgb(from var(--color-ink) r g b / 0.46);
@@ -195,7 +192,6 @@
 	--color-mk-green-16: rgb(from var(--color-green-500) r g b / 0.16);
 	--color-mk-green-35: rgb(from var(--color-green-500) r g b / 0.35);
 	--color-mk-green-600-20: rgb(from var(--color-green-600) r g b / 0.2);
-	--color-mk-green-600-30: rgb(from var(--color-green-600) r g b / 0.3);
 	/* Marketing only (the prototype's values). */
 	--color-mk-surface-3: #eae7e0;
 	--color-mk-card-shade: #01502f;
@@ -220,6 +216,9 @@
 	--color-mk-ink-26: rgb(from var(--color-ink) r g b / 0.26);
 	--color-mk-ink-62: rgb(from var(--color-ink) r g b / 0.62);
 	--color-mk-canvas-92: rgb(from var(--color-mk-canvas) r g b / 0.92);
+	/* OPS-82 /oversight: the #every-plant tiles on the field photo and the rules under the #leaders stops. */
+	--color-mk-canvas-94: rgb(from var(--color-mk-canvas) r g b / 0.94);
+	--color-mk-cream-50: rgb(from var(--color-cream) r g b / 0.5);
 	--color-mk-ink-55: rgb(from var(--color-ink) r g b / 0.55);
 	--color-mk-ink-56: rgb(from var(--color-ink) r g b / 0.56);
 	--color-mk-ink-66: rgb(from var(--color-ink) r g b / 0.66);
@@ -241,8 +240,6 @@
 		var(--ui-ring), 0 0 0 1px rgb(from var(--color-mk-card-shade) r g b / 0.06),
 		0 1px 2px rgb(from var(--color-mk-card-shade) r g b / 0.08),
 		0 24px 48px -24px rgb(from var(--color-mk-card-shade) r g b / 0.45);
-	--shadow-mk-vignette: var(--ui-ring), 0 1px 2px var(--color-mk-ink-06), 0 22px 40px -22px var(--color-mk-ink-42);
-	--shadow-mk-insight: var(--ui-ring), 0 18px 36px -24px var(--color-mk-ink-55);
 	--shadow-mk-chip: 0 0 0 1px var(--color-line-2), 0 4px 10px -6px var(--color-mk-ink-30);
 	--shadow-mk-badge: inset 0 0 0 1px var(--color-line), 0 1px 2px var(--color-mk-ink-05);
 	/* The large product pictures (app frames in the proof and /oversight hero) and the field-gradient CTA box. */
@@ -254,13 +251,10 @@
 	--shadow-mk-hero-panel: 0 30px 60px -40px var(--color-mk-ink-50);
 	--shadow-mk-btn-light: 0 8px 18px -10px var(--color-mk-ink-60);
 	--shadow-mk-hairline: 0 1px 2px var(--color-mk-ink-04);
-	--shadow-mk-sheet: 0 0 0 1px var(--color-line), 0 22px 44px -20px var(--color-mk-ink-50);
 	--shadow-mk-input-focus: inset 0 0 0 1.5px var(--color-green-500), 0 0 0 3px var(--color-mk-green-16);
 	--shadow-mk-field-focus: inset 0 0 0 1.5px var(--color-blue-500), 0 0 0 3px var(--color-mk-focus-blue-20);
 	--shadow-mk-green-edge: inset 0 0 0 1px var(--color-mk-green-35);
 	--shadow-mk-chip-on: inset 0 0 0 1px var(--color-mk-green-600-20);
-	--shadow-mk-group-on: inset 0 0 0 1.5px var(--color-mk-green-600-30);
-	--drop-shadow-mk-cursor: 0 2px 3px var(--color-mk-ink-35);
 
 	/* Loops inside the product visuals. Each one pauses while its scene is off screen ([data-idle] below). */
 	--animate-mk-shimmer: mk-shimmer 2.4s ease-in-out infinite;
@@ -474,6 +468,31 @@
 		rgb(from var(--color-ink) r g b / 0.5) 40%,
 		rgb(from var(--color-ink) r g b / 0) 72%
 	);
+}
+
+/* /oversight #leaders (OPS-82 .ldr): a shade from the top and the bottom over the marigolds, so the cream headline, lead
+   and step text keep 4.5:1. The prototype darkens the shade with the photo (brightness .7), so its ink is 70 % ink. */
+@utility mk-leaders-shade {
+	--ld: rgb(from var(--color-ink) calc(r* 0.7) calc(g* 0.7) calc(b* 0.7));
+	background: linear-gradient(
+		180deg,
+		rgb(from var(--ld) r g b / 0.7),
+		rgb(from var(--ld) r g b / 0.64) 38%,
+		rgb(from var(--ld) r g b / 0.2) 53%,
+		rgb(from var(--ld) r g b / 0.32) 62%,
+		rgb(from var(--ld) r g b / 0.8)
+	);
+	@media (width < 901px) {
+		background: linear-gradient(
+			180deg,
+			rgb(from var(--ld) r g b / 0.68),
+			rgb(from var(--ld) r g b / 0.58) 28%,
+			rgb(from var(--ld) r g b / 0.28) 34%,
+			rgb(from var(--ld) r g b / 0.32) 43%,
+			rgb(from var(--ld) r g b / 0.7) 49%,
+			rgb(from var(--ld) r g b / 0.82)
+		);
+	}
 }
 
 /* Diagonal hatch fill for meters and bars. --hatch sets the colour. */

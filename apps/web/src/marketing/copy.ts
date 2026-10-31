@@ -22,7 +22,7 @@ const headBody = z.object({ headline: text, body: text });
 
 const railItem = z.object({ label: text, title: text, short: text });
 const icon = z.enum(Object.keys(ICONS) as [IconName, ...IconName[]]);
-/** [icon, title, body]: an icon card (the Evry cards and the sending cards on home). */
+/** [icon, title, body]: an icon card (the Evry and sending cards on home, the #every-plant tiles on /oversight). */
 const iconCard = z.tuple([icon, text, text]);
 const faqItem = z.object({ id: text, q: text, a: text, link: text.optional() });
 
@@ -107,29 +107,29 @@ const schema = z.object({
 			fineprint: text,
 		}),
 		week: z.object({ title: text, steps: z.array(step).length(4) }),
-		// Caption on the /oversight mockups of the network's data.
-		sample_label: text,
-		// Text that sits inside the product pictures on /oversight.
-		panels: z.object({
-			hero_dash_finding: text,
-			hero_dash_attention_label: text,
-			status_watch: text,
-			mueller_plant: text,
-		}),
 		oversight_page: z.object({
 			hero,
 			problem: headBody,
-			trust: z.object({ headline: text, items: z.array(step).length(4) }),
-			chapter: z.object({ title: text, steps: z.array(step.extend({ panel: text })).length(4) }),
-			intelligence: z.object({ title: text, steps: z.array(step).length(4) }),
-			plants: z.object({ headline: text, items: z.array(railItem).length(6) }),
-			leaders: z.object({ headline: text, lead: text, steps: z.array(step).length(4) }),
+			// #every-plant: two labelled rows of four icon tiles.
+			gets: z.object({
+				headline: text,
+				lead: text,
+				groups: z.array(z.object({ label: text, items: z.array(iconCard).length(4) })).length(2),
+			}),
+			plants: z.object({ headline: text, items: z.array(railItem).length(6), icons: z.array(icon).length(6) }),
+			leaders: z.object({
+				headline: text,
+				lead: text,
+				icons: z.array(icon).length(4),
+				steps: z.array(step).length(4),
+			}),
 			paths: z.object({
 				lead: text,
 				tail: text,
 				line: text,
 				states: z.array(z.object({ phrase: text, title: text, body: text })).length(3),
 			}),
+			trust: z.object({ headline: text, items: z.array(step).length(4) }),
 			faq: z.object({ headline: text, items: z.array(faqItem).min(1) }),
 			cta,
 		}),
