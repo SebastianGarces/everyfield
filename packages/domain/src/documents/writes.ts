@@ -13,7 +13,7 @@ import type { z } from "zod";
 import { type RequestActor } from "../access/session.ts";
 import { deny, parse, plantViewer, readPlant, rejectInput, settle } from "./access.ts";
 import { churchWriter } from "./church-writes.ts";
-import { library } from "./catalog.ts";
+import { editableState, library } from "./catalog.ts";
 import { cleanOverrides, resolveMerge } from "./merge.ts";
 import { RenderFailed, digestOf, renderEngineVersion, renderPreview } from "./render.ts";
 import {
@@ -109,6 +109,8 @@ const generatedWriter = {
 			if (!cleaned.ok) rejectInput(cleaned.path, cleaned.problem);
 			const scope = generateScope(authority);
 			if (!scope) deny();
+			// An editable template makes a Church Document with createFromTemplate. It never saves a file here.
+			if (editableState(input.templateId)) deny("template_is_editable");
 			const loaded = await library();
 			const template = loaded.templates.find((item) => item.id === input.templateId);
 			if (!template) deny();

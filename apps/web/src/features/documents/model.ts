@@ -178,7 +178,7 @@ export function fileName(name: string, format: Format) {
 export type SavedFile = Pick<
 	z.infer<typeof generatedDocument>,
 	"id" | "savedTemplateName" | "format" | "generatedAt" | "downloadName"
->;
+> & { source?: { title: string; revision: number } | null };
 
 export type OwnedView = Pick<z.infer<typeof ownedDocument>, "id" | "kind" | "title" | "body" | "revision" | "archived">;
 

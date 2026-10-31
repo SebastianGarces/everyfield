@@ -6,6 +6,7 @@ import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import type { RequestActor } from "../access/session.ts";
 import { dataFromRow } from "../branding/kit.ts";
+import { authorNameSql } from "./church-reads.ts";
 import { deny, parse, plantViewer, readPlant, rejectInput, settle } from "./access.ts";
 import { exportTheme } from "./church-theme.ts";
 import { renderChurchDocx, renderChurchPdf } from "./church-render.ts";
@@ -401,6 +402,7 @@ export const churchWriter = {
 				document_class: ChurchRow["document_class"] | null;
 				use_church_branding: boolean | null;
 				input_provenance: Provenance | null;
+				title: string | null;
 				revision_id: string | null;
 				body: string | null;
 				recorded_at: Date | string | null;
@@ -410,7 +412,7 @@ export const churchWriter = {
 			}>(
 				db,
 				sql`SELECT g.ok, d.id, d.template_id, d.template_version, d.document_class, d.use_church_branding,
-					d.input_provenance, r.id AS revision_id, r.body, r.recorded_at,
+					d.input_provenance, d.title, r.id AS revision_id, r.body, r.recorded_at,
 					to_jsonb(k) AS kit, gd.id AS prior_id,
 					(gd.source_document_id = ${input.documentId}::uuid AND gd.source_revision_id = r.id AND gd.format = ${input.format}) AS prior_same
 				FROM (SELECT ${gateSql(scope, false)} AS ok) g
@@ -531,7 +533,7 @@ export const churchWriter = {
 						generatedAt: iso(done.generated_at),
 						creatorAccountId: scope.accountId,
 						revision: done.revision,
-						source: { documentId: row.id, revisionId: row.revision_id, revision: input.revision },
+						source: { documentId: row.id, revisionId: row.revision_id, revision: input.revision, title: row.title },
 						theme: { kind: theme.kind, primary: theme.primary },
 					});
 			} catch (error) {
@@ -562,11 +564,13 @@ export const churchWriter = {
 				id: string | null;
 				version_number: number | null;
 				author_account_id: string | null;
+				author_name: string | null;
 				recorded_at: Date | string | null;
 				content_hash: string | null;
 			}>(
 				db,
-				sql`SELECT g.ok, d.id AS document_id, r.id, r.version_number, r.author_account_id, r.recorded_at, r.content_hash
+				sql`SELECT g.ok, d.id AS document_id, r.id, r.version_number, r.author_account_id, r.recorded_at, r.content_hash,
+					${authorNameSql(scope.tenantId, sql`r.author_account_id`)} AS author_name
 				FROM (SELECT ${gateSql(scope, false)} AS ok) g
 				LEFT JOIN document d ON g.ok AND d.id = ${input.documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid
 					AND d.kind = 'church_document'
@@ -583,6 +587,7 @@ export const churchWriter = {
 						id: row.id,
 						number: row.version_number,
 						authorAccountId: row.author_account_id,
+						authorName: row.author_name,
 						recordedAt: iso(row.recorded_at),
 						contentHash: row.content_hash,
 					})),
@@ -599,12 +604,14 @@ export const churchWriter = {
 				id: string | null;
 				version_number: number | null;
 				author_account_id: string | null;
+				author_name: string | null;
 				recorded_at: Date | string | null;
 				content_hash: string | null;
 				body: string | null;
 			}>(
 				db,
-				sql`SELECT g.ok, r.id, r.version_number, r.author_account_id, r.recorded_at, r.content_hash, r.body
+				sql`SELECT g.ok, r.id, r.version_number, r.author_account_id, r.recorded_at, r.content_hash, r.body,
+					${authorNameSql(scope.tenantId, sql`r.author_account_id`)} AS author_name
 				FROM (SELECT ${gateSql(scope, false)} AS ok) g
 				LEFT JOIN document d ON g.ok AND d.id = ${input.documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid
 					AND d.kind = 'church_document'
@@ -618,6 +625,7 @@ export const churchWriter = {
 				id: row.id,
 				number: row.version_number,
 				authorAccountId: row.author_account_id,
+				authorName: row.author_name,
 				recordedAt: iso(row.recorded_at),
 				contentHash: row.content_hash,
 				documentId: input.documentId,

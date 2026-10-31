@@ -1,6 +1,6 @@
 import { requestDatabase } from "@/server/database";
 import { getViewer } from "@/server/request-context";
-import type { DocumentsError } from "@everyfield/contracts/documents";
+import type { ChurchPage, DocumentsError } from "@everyfield/contracts/documents";
 import type { RequestActor } from "@everyfield/domain/access";
 import { privateStorage } from "@everyfield/db/schema";
 import { documentsReader } from "@everyfield/domain/documents";
@@ -148,4 +148,43 @@ export function canEditDocuments(authority: RequestActor) {
 /** Private storage is configured for this process. Generation and import need it. Text save does not. */
 export function canStoreDocuments() {
 	return privateStorage() !== null;
+}
+
+/** An Owner or Admin of the church plant. A Member and an account with no church seat are not. */
+export function canCreateChurchDocuments(authority: RequestActor) {
+	const context = authority.actor.context;
+	return context.kind === "seat" && context.owner.kind === "plant" && context.role !== "member";
+}
+
+/** The church plant's Church Documents for the list. Null when the read fails or the account has no church seat. */
+export async function loadChurchList(authority: RequestActor) {
+	const db = requestDatabase();
+	if (!db || !hasPlantSeat(authority)) return null;
+	try {
+		const reply = await documentsReader.listChurch(db, authority, {});
+		return reply.status === "ok" ? reply.value : null;
+	} catch (error) {
+		console.error(JSON.stringify({ component: "documents", outcome: "church_list_failed", error: String(error) }));
+		return null;
+	}
+}
+
+export type ChurchLoad = { status: "ok"; page: ChurchPage } | { status: "not_found" } | { status: "failed" };
+
+/** One Church Document's page. Another plant's document, an unknown id and a seatless account all read as not found. */
+export async function loadChurchPage(authority: RequestActor, documentId: string): Promise<ChurchLoad> {
+	const db = requestDatabase();
+	if (!db) return { status: "failed" };
+	try {
+		const reply = await documentsReader.readChurch(db, authority, { documentId });
+		if (reply.status === "ok") return { status: "ok", page: reply.value };
+		return reply.error.code === "invalid_input" ||
+			reply.error.code === "unavailable" ||
+			reply.error.code === "access_denied"
+			? { status: "not_found" }
+			: { status: "failed" };
+	} catch (error) {
+		console.error(JSON.stringify({ component: "documents", outcome: "church_page_failed", error: String(error) }));
+		return { status: "failed" };
+	}
 }

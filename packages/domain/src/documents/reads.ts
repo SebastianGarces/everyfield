@@ -13,6 +13,7 @@ import {
 	type PlantRead,
 	type Reader,
 } from "./access.ts";
+import { churchReader } from "./church-reads.ts";
 import { library, templateView, type CatalogTemplate } from "./catalog.ts";
 import { AGENDA_TEMPLATE, agendaKindOf, agendaMeetingOf, type AgendaKind } from "./agenda-meeting.ts";
 import { readAgendaKind, type MeetingRead } from "./meeting-read.ts";
@@ -64,6 +65,7 @@ function matched(templates: CatalogTemplate[], input: Contextual, kind: AgendaKi
 }
 
 export const documentsReader = {
+	...churchReader,
 	async "templates.list"(db: Reader, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const input = parse(c.listTemplatesRequest, raw);

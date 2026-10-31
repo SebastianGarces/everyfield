@@ -1,7 +1,7 @@
 "use server";
 
 import { requestDatabase } from "@/server/database";
-import type { DocumentsError } from "@everyfield/contracts/documents";
+import type { ChurchBlock, ChurchPage, DocumentsError } from "@everyfield/contracts/documents";
 import { privateStorage } from "@everyfield/db/schema";
 import { documentsReader, documentsWriter } from "@everyfield/domain/documents";
 import type { Format, OwnedView, Resolved, SavedFile } from "./model.ts";
@@ -12,12 +12,18 @@ import { documentActor } from "./server.ts";
 
 export type DocumentOutcome<T> =
 	| { status: "ok"; value: T }
-	| { status: "refused"; code: DocumentsError["code"]; problem?: string }
+	| { status: "refused"; code: DocumentsError["code"]; problem?: string; slotIds?: string[] }
 	| { status: "lost" };
 
 function refused(error: DocumentsError): DocumentOutcome<never> {
 	const problem = error.code === "invalid_input" ? error.details.issues[0]?.problem : undefined;
-	return problem ? { status: "refused", code: error.code, problem } : { status: "refused", code: error.code };
+	const slotIds = error.code === "slot_not_deletable" ? error.details.slotIds : undefined;
+	return {
+		status: "refused",
+		code: error.code,
+		...(problem ? { problem } : {}),
+		...(slotIds ? { slotIds } : {}),
+	};
 }
 
 async function run<T>(
@@ -62,13 +68,14 @@ const storageMissing = {
 	problem: "Saving is not available right now.",
 };
 
-function presentSaved(value: SavedFile): SavedFile {
+function presentSaved(value: SavedFile & { source?: { title: string; revision: number } | null }): SavedFile {
 	return {
 		id: value.id,
 		savedTemplateName: value.savedTemplateName,
 		format: value.format,
 		generatedAt: value.generatedAt,
 		downloadName: value.downloadName,
+		source: value.source ? { title: value.source.title, revision: value.source.revision } : null,
 	};
 }
 
@@ -189,5 +196,79 @@ export async function importOwnedDocument(input: {
 		const reply = await documentsWriter.importTextOrWord(db, actor, input, storage);
 		if (reply.status === "refused") return refused(reply.error);
 		return { status: "ok", value: presentOwned(reply.value) };
+	});
+}
+
+// Church Documents. Each action reads the actor again. A write that changes the page answers with the page read again,
+// so the screen updates in place and never refreshes the route.
+
+/** Make a Church Document from an editable template. The same request key makes the same document. */
+export async function createChurchDocument(
+	templateId: string,
+	mergeFields: Record<string, string>,
+	requestKey: string,
+): Promise<DocumentOutcome<{ id: string }>> {
+	return run(async (db, actor) => {
+		const reply = await documentsWriter.createFromTemplate(db, actor, { templateId, mergeFields, requestKey });
+		if (reply.status === "refused") return refused(reply.error);
+		return { status: "ok", value: { id: reply.value.id } };
+	});
+}
+
+/** Save the body as one new revision, then read the page again for the new history. */
+export async function saveChurchDocument(
+	documentId: string,
+	expectedRevision: string,
+	body: ChurchBlock[],
+): Promise<DocumentOutcome<ChurchPage>> {
+	return run(async (db, actor) => {
+		const saved = await documentsWriter.saveNative(db, actor, { documentId, expectedRevision, body });
+		if (saved.status === "refused") return refused(saved.error);
+		const page = await documentsReader.readChurch(db, actor, { documentId });
+		if (page.status === "refused") return refused(page.error);
+		return { status: "ok", value: page.value };
+	});
+}
+
+/** One older revision, exactly as it was saved. */
+export async function readChurchRevision(
+	documentId: string,
+	revision: number,
+): Promise<DocumentOutcome<{ number: number; body: ChurchBlock[] }>> {
+	return run(async (db, actor) => {
+		const reply = await documentsWriter["history.get"](db, actor, { documentId, revision });
+		if (reply.status === "refused") return refused(reply.error);
+		return { status: "ok", value: { number: reply.value.number, body: reply.value.body } };
+	});
+}
+
+export async function setChurchBranding(
+	documentId: string,
+	useChurchBranding: boolean,
+): Promise<DocumentOutcome<{ useChurchBranding: boolean }>> {
+	return run(async (db, actor) => {
+		const reply = await documentsWriter.setBranding(db, actor, { documentId, useChurchBranding });
+		if (reply.status === "refused") return refused(reply.error);
+		return { status: "ok", value: { useChurchBranding: reply.value.useChurchBranding } };
+	});
+}
+
+/** Export one revision, ask for its signed link, and read the saved exports again. */
+export async function exportChurchDocument(
+	documentId: string,
+	revision: number,
+	format: "pdf" | "docx",
+	requestKey: string,
+): Promise<DocumentOutcome<{ url: string; page: ChurchPage }>> {
+	const storage = privateStorage();
+	if (!storage) return storageMissing;
+	return run(async (db, actor) => {
+		const made = await documentsWriter.exportNative(db, actor, { documentId, revision, format, requestKey }, storage);
+		if (made.status === "refused") return refused(made.error);
+		const link = await documentsWriter.download(db, actor, { documentId: made.value.id }, storage);
+		if (link.status === "refused") return refused(link.error);
+		const page = await documentsReader.readChurch(db, actor, { documentId });
+		if (page.status === "refused") return refused(page.error);
+		return { status: "ok", value: { url: link.value.url, page: page.value } };
 	});
 }
