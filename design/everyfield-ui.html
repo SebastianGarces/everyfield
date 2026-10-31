@@ -5182,7 +5182,7 @@ const EvryGeo = (() => {
   // out gets the 19 control points of 6 cubics; m, if given, gets the measures. d0, the rest
   // distance to the outline, is computed when not given. With no outline E the eye stays rigid.
   const CAP = new Float64Array(38);
-  function eye(E, cx, cy, w, l, gx, gy, blink, out, m, d0) {
+  function eye(E, cx, cy, w, l, gx, gy, out, m, d0) {
     let k = 1, nx = 0, ny = 0, bend = 0, p = 0;
     if (E && (gx || gy)) {
       if (d0 === undefined) d0 = near(E, cx, cy).d;
@@ -5193,23 +5193,23 @@ const EvryGeo = (() => {
       const curve = Math.max(0, n.k - 1 / 150) * 1.44, wrap = Math.min(1, Math.max(0, (1 / n.kmax - .6 * l) / l));
       bend = p * wrap * wrap * (3 - 2 * wrap) * Math.min(l * l * curve / 8, .08 * l) * nx;
     }
-    const r = w / 2, a = Math.max(0, l / 2 - r), q = .5523 * r, h = (a + r) * blink, s = 1 - k;
+    const r = w / 2, a = Math.max(0, l / 2 - r), q = .5523 * r, h = a + r, s = 1 - k;
     CAP.set([r, -a, r, -a / 3, r, a / 3, r, a, r, a + q, q, a + r, 0, a + r, -q, a + r, -r, a + q, -r, a, -r, a / 3, -r, -a / 3, -r, -a, -r, -a - q, -q, -a - r, 0, -a - r, q, -a - r, r, -a - q, r, -a]);
     for (let i = 0; i < 38; i += 2) {
-      const y = CAP[i + 1] * blink, x = CAP[i] + (h ? bend * (1 - (y / h) * (y / h)) : 0), dot = nx * x + ny * y;
+      const y = CAP[i + 1], x = CAP[i] + bend * (1 - (y / h) * (y / h)), dot = nx * x + ny * y;
       out[i] = cx + gx + x - s * dot * nx; out[i + 1] = cy + gy + y - s * dot * ny;
     }
     if (m) {
       const vx = s * ny * nx, vy = -1 + s * ny * ny, vl = Math.hypot(vx, vy), mx = bend - s * bend * nx * nx, my = -s * bend * nx * ny;
       m.p = p; m.tilt = Math.atan2(vx, -vy) * 180 / Math.PI; m.width = k / vl; m.bend = Math.abs(mx * vy - my * vx) / vl / (2 * (a + r) * vl);
-      m.margin = margin(E, out, 38); m.nx = nx; m.ny = ny;
+      m.margin = margin(E, out); m.nx = nx; m.ny = ny;
     }
     return out;
   }
   // Smallest distance from the points to the outline, measured inside (negative means outside).
-  function margin(E, P, n) {
+  function margin(E, P) {
     let m = Infinity;
-    for (let i = 0; i < N; i++) for (let j = 0; j < n; j += 2) { const d = E.c[i] - E.nx[i] * P[j] - E.ny[i] * P[j + 1]; if (d < m) m = d; }
+    for (let i = 0; i < N; i++) for (let j = 0; j < P.length; j += 2) { const d = E.c[i] - E.nx[i] * P[j] - E.ny[i] * P[j + 1]; if (d < m) m = d; }
     return m;
   }
   // Widest gaze along (ux, uy) that keeps every eye at least `need` inside the outline.
@@ -5219,7 +5219,7 @@ const EvryGeo = (() => {
     for (let it = 0; it < 9; it++) {
       const g = (lo + hi) / 2;
       let ok = true;
-      for (const [cx, cy, w, l] of specs) if (margin(E, eye(E, cx, cy, w, l, g * ux, g * uy, 1, TMP), 38) < need) { ok = false; break; }
+      for (const [cx, cy, w, l] of specs) if (margin(E, eye(E, cx, cy, w, l, g * ux, g * uy, TMP)) < need) { ok = false; break; }
       if (ok) lo = g; else hi = g;
     }
     return lo;
@@ -5551,7 +5551,7 @@ const EvryLife = (() => {
     }
     const E = (st.gx || st.gy) && !(st.look && st.look.rigid) ? edgesNow(st) : null;
     if (E && st.d0ver !== st.ver) { st.d0ver = st.ver; for (let j = 0; j < 2; j++) st.d0[j] = G.near(E, sp[j][0], sp[j][1]).d; }
-    for (let j = 0; j < 2; j++) { const [cx, cy, w, l] = sp[j]; set(st, st.eyes[j], 'e' + j, 'd', G.eyeD(G.eye(E, cx, cy, w, l, st.gx, st.gy, 1, st.C, null, E ? st.d0[j] : 0), st.ang, ox, oy)); }
+    for (let j = 0; j < 2; j++) { const [cx, cy, w, l] = sp[j]; set(st, st.eyes[j], 'e' + j, 'd', G.eyeD(G.eye(E, cx, cy, w, l, st.gx, st.gy, st.C, null, E ? st.d0[j] : 0), st.ang, ox, oy)); }
   }
   // The body's box in the SVG: the gradients' objectBoundingBox units.
   function bbox(st) {
@@ -5653,7 +5653,7 @@ const EvryLife = (() => {
     morph(el, name, ms) { const st = S(el); st.due.morph = Infinity; startMorph(st, name, ms, performance.now()); wake(); },
     spin(el, ms) { startSpin(S(el), ms || 1100, performance.now()); wake(); },
     glance(el) { const st = S(el); st.moves = glancePlan(st, performance.now()); wake(); return st.moves; },
-    measure(el) { const st = S(el), E = edgesNow(st); return specs(st.fy, st.fk, st.mood).map(([cx, cy, w, l]) => { const m = {}; G.eye(E, cx, cy, w, l, st.gx, st.gy, 1, new Float64Array(38), m); return m; }); },
+    measure(el) { const st = S(el), E = edgesNow(st); return specs(st.fy, st.fk, st.mood).map(([cx, cy, w, l]) => { const m = {}; G.eye(E, cx, cy, w, l, st.gx, st.gy, new Float64Array(38), m); return m; }); },
     state(el) { const st = S(el); return { shape: st.shape, gx: st.gx, gy: st.gy, ang: st.ang, blink: st.el.hasAttribute('data-blink'), morph: !!st.morph, spin: !!st.spin, moves: !!st.moves, follow: !!st.follow, look: !!st.look, visible: visible(st), mood: st.mood, ...pose(st), body: !!st.bmoves }; },
     running: () => !!raf,
   };
