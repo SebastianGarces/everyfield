@@ -67,7 +67,7 @@ export function Thumbnail({ template, enabled }: { template: Template; enabled: 
 	return (
 		<span
 			ref={frame}
-			className="grid h-56 w-full place-items-center overflow-hidden rounded-md bg-surface-2 p-3"
+			className="flex h-56 w-full items-center justify-center overflow-hidden rounded-md bg-surface-2 p-3"
 			data-thumbnail={url ? "ready" : "pending"}
 		>
 			{url && size ? (
@@ -77,7 +77,7 @@ export function Thumbnail({ template, enabled }: { template: Template; enabled: 
 					alt={`Page 1 of ${template.name}`}
 					width={size.width}
 					height={size.height}
-					className="h-full w-auto max-w-full bg-white object-contain shadow-[0_0_0_1px_var(--ef-line),0_4px_12px_-6px_rgba(0,0,0,0.3)]"
+					className="max-h-full max-w-full bg-white object-contain shadow-[0_0_0_1px_var(--ef-line),0_4px_12px_-6px_rgba(0,0,0,0.3)]"
 				/>
 			) : (
 				<Icon icon={pdf ? File02Icon : Table01Icon} size={24} className="text-text-3" />
