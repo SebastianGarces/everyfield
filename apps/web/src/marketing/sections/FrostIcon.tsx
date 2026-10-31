@@ -13,7 +13,15 @@ const SIZE = {
  * The frosted icon box (OPS-82): a cream icon on a blurred, translucent ink square over a photo. It holds no app UI.
  * Decorative: the card around it carries the text.
  */
-export function FrostIcon({ icon, size = "lg", className }: { icon: IconName; size?: keyof typeof SIZE; className?: string }) {
+export function FrostIcon({
+	icon,
+	size = "lg",
+	className,
+}: {
+	icon: IconName;
+	size?: keyof typeof SIZE;
+	className?: string;
+}) {
 	return (
 		<span
 			aria-hidden="true"

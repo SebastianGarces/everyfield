@@ -83,7 +83,6 @@ function Meter({ pct, color, hatch }: { pct: string; color: string; hatch?: bool
 	);
 }
 
-
 /* ---------- /oversight: what a sending church sees, plant by plant ---------- */
 /** Card 2's countdown runs from the demo date (oversight/demo.ts). */
 export function PlantVignette({ i }: { i: number }) {

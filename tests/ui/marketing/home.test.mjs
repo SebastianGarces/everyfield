@@ -11,7 +11,9 @@ const COPY = JSON.parse(readFileSync(new URL("../../../design/marketing-copy.jso
 const OPS = COPY.shared.ops82;
 const STOPS = [...COPY.shared.week.steps, ...OPS.journey.steps].map((s) => s.title);
 /** The marketing photos (apps/web/src/marketing/photo/files): the only raster images the page may show. */
-const PHOTOS = readdirSync(new URL("../../../apps/web/src/marketing/photo/files", import.meta.url)).map((f) => f.replace(/\.jpg$/, ""));
+const PHOTOS = readdirSync(new URL("../../../apps/web/src/marketing/photo/files", import.meta.url)).map((f) =>
+	f.replace(/\.jpg$/, ""),
+);
 const ORDER = ["top", "problem", "vision", "features", "week", "evry", "sending", "cta"];
 
 /** Opens / and waits until the journey has hydrated: its first layout shows the walker on stop 1. */
@@ -33,7 +35,10 @@ for (const [name, engine] of ENGINES) {
 			// The old sections are gone.
 			for (const old of ["Know what needs you most.", "Stay close to the plant you sent."])
 				assert.equal(await page.getByText(old).count(), 0, old);
-			assert.equal(await page.getByRole("link", { name: COPY.directions[0].sections.hero.cta_secondary }).getAttribute("href"), "#vision");
+			assert.equal(
+				await page.getByRole("link", { name: COPY.directions[0].sections.hero.cta_secondary }).getAttribute("href"),
+				"#vision",
+			);
 			// The footer's Plant Intelligence link (/#intelligence) lands on the journey section.
 			await home(page, "#intelligence");
 			const top = await page.locator("#week").evaluate((el) => el.getBoundingClientRect().top);
@@ -96,7 +101,10 @@ for (const [name, engine] of ENGINES) {
 		withPage(engine, async (page) => {
 			await home(page);
 			const cards = page.locator("#evry li");
-			assert.deepEqual(await cards.locator("h3").allInnerTexts(), OPS.evry.cards.map((c) => c[1]));
+			assert.deepEqual(
+				await cards.locator("h3").allInnerTexts(),
+				OPS.evry.cards.map((c) => c[1]),
+			);
 			const photos = await cards.evaluateAll((lis) =>
 				lis.map((li) => decodeURIComponent(li.querySelector("img")?.getAttribute("src") ?? "")),
 			);
@@ -122,7 +130,9 @@ for (const [name, engine] of ENGINES) {
 					const bare = text.replace(/church plants?/gi, "").replace(/Plant Intelligence/g, "");
 					assert.doesNotMatch(bare, /\bplants?\b/i);
 					// Every image is a marketing photo (next/image of photo/files) or the logo: no picture of the app.
-					const srcs = await page.$$eval("img", (imgs) => imgs.map((i) => decodeURIComponent(i.getAttribute("src") ?? "")));
+					const srcs = await page.$$eval("img", (imgs) =>
+						imgs.map((i) => decodeURIComponent(i.getAttribute("src") ?? "")),
+					);
 					for (const src of srcs) assert.ok(PHOTOS.includes(/\/media\/([a-z]+)\./.exec(src)?.[1] ?? ""), src);
 				},
 				{ width },

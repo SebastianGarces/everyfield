@@ -56,28 +56,14 @@ export function DeskPanel({
 }
 /** The active step's background fades in over the previous one (500 ms in-out). Layers use z 0 to 2 (not negative):
  *  axe sorted a negative z-index gradient above the white card and reported false contrast failures. */
-export function DeskBg({
-	bg,
-	sw,
-	sel,
-	i,
-}: {
-	bg: Bg;
-	sw: MotionValue<number>;
-	sel: MotionValue<number>;
-	i: number;
-}) {
+export function DeskBg({ bg, sw, sel, i }: { bg: Bg; sw: MotionValue<number>; sel: MotionValue<number>; i: number }) {
 	const opacity = useTransform([sw, sel], ([s, r]: number[]) => {
 		const k = roleOf(i, r!);
 		return +(k === "active" ? inOut(P(s!, 0, 500)) : k === "prev" ? 1 : 0).toFixed(3);
 	});
 	const zIndex = useTransform(sel, (r) => (r >> 4 === i ? 1 : 0));
 	return (
-		<m.span
-			aria-hidden="true"
-			className="absolute inset-0 opacity-0 will-change-[opacity]"
-			style={{ opacity, zIndex }}
-		>
+		<m.span aria-hidden="true" className="absolute inset-0 opacity-0 will-change-[opacity]" style={{ opacity, zIndex }}>
 			<Backdrop bg={bg} sizes="(max-width: 900px) 100vw, 50vw" className="absolute inset-0" />
 		</m.span>
 	);

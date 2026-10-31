@@ -147,10 +147,10 @@ export function JourneyPath({
 			// The line fades out while the walker moves; the next one fades in on arrival.
 			bubble.current!.setAttribute("data-swap", "");
 			mood.set("idle");
-			bot.current!.animate(
-				[{ translate: "0 0" }, { translate: "0 -16px", offset: 0.45 }, { translate: "0 0" }],
-				{ duration: dur, easing: "cubic-bezier(.4,0,.4,1)" },
-			);
+			bot.current!.animate([{ translate: "0 0" }, { translate: "0 -16px", offset: 0.45 }, { translate: "0 0" }], {
+				duration: dur,
+				easing: "cubic-bezier(.4,0,.4,1)",
+			});
 			const frame = (now: number) => {
 				const u = Math.min(1, (now - t0) / dur);
 				put(from + (to - from) * ease(u));
@@ -175,7 +175,8 @@ export function JourneyPath({
 		go(i);
 	};
 	const onKey = (i: number) => (e: KeyboardEvent<HTMLButtonElement>) => {
-		const step = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
+		const step =
+			e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
 		if (!step) return;
 		e.preventDefault();
 		const j = (i + step + n) % n;

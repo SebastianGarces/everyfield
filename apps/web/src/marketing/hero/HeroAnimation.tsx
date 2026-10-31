@@ -258,14 +258,23 @@ const ATTENDEES = 41;
 const METER = ["bg-blue-500", "bg-amber-500", "bg-green-500"] as const;
 /** One stage: its chip, the person's slot (Core group only), the count, and a meter under them. The core-group row gets
  *  a short highlight. */
-function Row({ k, chip, slot, num, hl }: { k: number; chip: ReactNode; slot?: ReactNode; num: ReactNode; hl?: boolean }) {
+function Row({
+	k,
+	chip,
+	slot,
+	num,
+	hl,
+}: {
+	k: number;
+	chip: ReactNode;
+	slot?: ReactNode;
+	num: ReactNode;
+	hl?: boolean;
+}) {
 	return (
 		<St i={4} k={k + 1} className="relative">
 			{hl ? (
-				<Fade
-					fx="hl"
-					className="absolute -inset-x-2.5 -inset-y-1.5 -z-1 bg-green-50 opacity-0 shadow-mk-green-edge"
-				/>
+				<Fade fx="hl" className="absolute -inset-x-2.5 -inset-y-1.5 -z-1 bg-green-50 opacity-0 shadow-mk-green-edge" />
 			) : null}
 			<div className="flex min-h-[30px] items-center gap-2">
 				<span className="flex-none">{chip}</span>
