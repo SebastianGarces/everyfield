@@ -1,3 +1,4 @@
+import { dateText } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/documents";
 import "server-only";
 import type { RequestActor } from "../access/session.ts";
@@ -13,15 +14,8 @@ import {
 	type Reader,
 } from "./access.ts";
 import { library, templateView, type CatalogTemplate } from "./catalog.ts";
-import {
-	AGENDA_TEMPLATE,
-	agendaKindOf,
-	agendaMeetingOf,
-	dateText,
-	type AgendaKind,
-	type MeetingRead,
-} from "./agenda-meeting.ts";
-import { readAgendaKind } from "./meeting-read.ts";
+import { AGENDA_TEMPLATE, agendaKindOf, agendaMeetingOf, type AgendaKind } from "./agenda-meeting.ts";
+import { readAgendaKind, type MeetingRead } from "./meeting-read.ts";
 import { cleanOverrides, resolveMerge, type ResolvedMerge } from "./merge.ts";
 import { RenderFailed, digestOf, renderEngineVersion, renderPreview } from "./render.ts";
 
@@ -56,17 +50,9 @@ type Contextual = {
 };
 
 function matched(templates: CatalogTemplate[], input: Contextual, kind: AgendaKind | null) {
-	// A meeting offers the one agenda that prints from it, still narrowed by any other filter named with it.
-	if (input.meetingId && !input.teamId) {
-		if (!kind) return [];
-		return templates.filter(
-			(template) =>
-				template.id === AGENDA_TEMPLATE[kind] &&
-				(!input.wikiSlug || template.relatedWikiSlug === input.wikiSlug) &&
-				(!input.category || template.category === input.category) &&
-				(input.phase === undefined || template.phase === input.phase),
-		);
-	}
+	// A meeting offers the one agenda that prints from it.
+	if (input.meetingId && !input.teamId)
+		return kind ? templates.filter((template) => template.id === AGENDA_TEMPLATE[kind]) : [];
 	if (input.meetingId || input.teamId) return [];
 	if (!input.wikiSlug && !input.category && input.phase === undefined) return [];
 	return templates.filter((template) => {

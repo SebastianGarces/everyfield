@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import { liveRead, writeVisibility, type RequestActor } from "../access/session.ts";
-import type { MeetingRead } from "./agenda-meeting.ts";
+import type { MeetingRead } from "./meeting-read.ts";
 import { meetingFactsSql, parseMeeting } from "./meeting-read.ts";
 
 export type Reader = Pick<Database, "execute">;

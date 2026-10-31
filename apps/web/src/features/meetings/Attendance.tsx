@@ -1,5 +1,7 @@
 "use client";
 
+import { dateText } from "@everyfield/contracts/common";
+
 import { CheckListIcon, Clock01Icon, Edit02Icon, StarIcon } from "@hugeicons/core-free-icons";
 import { averageOf } from "@everyfield/contracts/meetings";
 import {
@@ -35,7 +37,6 @@ import { assigneeOptions } from "../tasks/fetch.ts";
 import { evaluationHistory, previewSettlement, setPresence } from "./actions.ts";
 import {
 	CLASSIFICATION_LABEL,
-	dateText,
 	deltaText,
 	FACTORS,
 	peopleText,

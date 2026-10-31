@@ -2,14 +2,9 @@
 import assert from "node:assert/strict";
 import test, { describe } from "node:test";
 import { PDFDocument } from "../../../packages/domain/node_modules/pdf-lib/cjs/index.js";
-import {
-	ATTENDEE_CAP,
-	addMinutes,
-	agendaKindOf,
-	agendaMeetingOf,
-	durationText,
-	type MeetingRead,
-} from "../../../packages/domain/src/documents/agenda-meeting.ts";
+import { ATTENDEE_CAP, agendaKindOf, agendaMeetingOf } from "../../../packages/domain/src/documents/agenda-meeting.ts";
+import type { MeetingRead } from "../../../packages/domain/src/documents/meeting-read.ts";
+import { addMinutes, durationText } from "../../../packages/contracts/src/common/meeting-text.ts";
 import { library } from "../../../packages/domain/src/documents/catalog.ts";
 import { resolveMerge } from "../../../packages/domain/src/documents/merge.ts";
 import { renderTemplatePdf } from "../../../packages/domain/src/documents/render.ts";
@@ -96,6 +91,22 @@ describe("WP-036/api agendas from the meeting", () => {
 			["prelaunch_practice", false],
 		] as const)
 			assert.equal(agendaKindOf({ type, leadership }), null, type);
+	});
+
+	test("the default Vision agenda (6 sections, 8 guests, a venue) prints on one page", async () => {
+		const agenda = [
+			["Welcome and prayer", 10],
+			["Our story", 20],
+			["The vision", 25],
+			["The ask: GROW, PRAY, GIVE", 15],
+			["Questions", 10],
+			["Next steps", 10],
+		].map(([title, minutes]) => ({ title: title as string, minutes: minutes as number }));
+		const attendees = Array.from({ length: 8 }, (_, i) => ({ name: `Guest ${i + 1}`, role: null }));
+		for (const id of IDS) {
+			const r = await render(id, meetingOf({ agenda, attendees, attendeeTotal: 8 }));
+			assert.equal(r.pages, 1, id);
+		}
 	});
 
 	test("DOC-007: with no meeting both agendas are the blank sheet, with no invented segments", async () => {

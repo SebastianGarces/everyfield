@@ -1,7 +1,7 @@
 import { Page } from "@formepdf/react";
 import { SIZE, SP } from "../theme.ts";
 import { BLANK_RUN_ROWS, MIN_ATTENDEE_ROWS, ACTION_ROWS, type AgendaSpec } from "../templates/agenda-content.ts";
-import { durationText } from "../agenda-meeting.ts";
+import { durationText } from "@everyfield/contracts/common";
 import {
 	Box,
 	Cellfield,
@@ -41,8 +41,15 @@ export function agendaDocument(ctx: Ctx, spec: AgendaSpec) {
 	const seg =
 		sections.length > 0
 			? sections.map((s, i) => [
-					<View key="t">
-						{T(ctx, s.start, { size: SIZE.sm, weight: 700, color: p.ink, use: "agenda start time", figures: true })}
+					<View key="t" style={{ flexDirection: "row", alignItems: "center" }}>
+						{T(ctx, s.start, {
+							size: SIZE.sm,
+							weight: 700,
+							color: p.ink,
+							use: "agenda start time",
+							figures: true,
+							style: { marginRight: SP[1] },
+						})}
 						{T(ctx, `${s.minutes} min`, {
 							size: SIZE.xs - 1,
 							color: p.mutedText,
@@ -52,13 +59,13 @@ export function agendaDocument(ctx: Ctx, spec: AgendaSpec) {
 					</View>,
 					Cellt(ctx, s.title, { bold: true, use: "agenda segment" }),
 					Cellfield(`lead_${i + 1}`, 72, 15),
-					Cellfield(`notes_${i + 1}`, 212, 15),
+					Cellfield(`notes_${i + 1}`, 188, 15),
 				])
 			: Array.from({ length: BLANK_RUN_ROWS }, (_, i) => [
-					Cellfield(`time_${i + 1}`, 52, 15),
-					Cellfield(`segment_${i + 1}`, 138, 15),
+					Cellfield(`time_${i + 1}`, 82, 15),
+					Cellfield(`segment_${i + 1}`, 126, 15),
 					Cellfield(`lead_${i + 1}`, 72, 15),
-					Cellfield(`notes_${i + 1}`, 212, 15),
+					Cellfield(`notes_${i + 1}`, 188, 15),
 				]);
 	const people = meeting?.attendees ?? [];
 	const slots = attendeeSlots(people.length);
@@ -140,8 +147,8 @@ export function agendaDocument(ctx: Ctx, spec: AgendaSpec) {
 			{DataTable(
 				ctx,
 				[
-					{ label: "Time", w: 64 },
-					{ label: "Segment", w: 150 },
+					{ label: "Time", w: 96 },
+					{ label: "Segment", w: 140 },
 					{ label: "Lead", w: 84 },
 					{ label: "Notes", w: "auto" },
 				],

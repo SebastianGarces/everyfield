@@ -1,5 +1,7 @@
 "use client";
 
+import { timeText } from "@everyfield/contracts/common";
+
 import { ArrowLeft01Icon, CheckListIcon, Tick02Icon, UserAdd01Icon } from "@hugeicons/core-free-icons";
 import {
 	Button,
@@ -31,7 +33,7 @@ import {
 } from "../../components/save/parts.tsx";
 import { attendanceAfter, settledText, SettleDialog, usePresence, useSeats, type SettleInput } from "./Attendance.tsx";
 import { PersonPicker, type PickedPerson } from "./dialogs.tsx";
-import { problemText, RSVP_LABEL, timeText, type Guest } from "./model.ts";
+import { problemText, RSVP_LABEL, type Guest } from "./model.ts";
 import { attendeeOf, isPending, PENDING, withAttendees, type GuestRow, type PendingGuest } from "./page-state.ts";
 import { Problem, TabStack } from "./parts.tsx";
 import type { CheckInData } from "./server.ts";

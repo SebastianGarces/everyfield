@@ -2,7 +2,7 @@ import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import { liveRead } from "../access/session.ts";
-import { ATTENDEE_CAP, agendaKindOf, type AgendaKind, type MeetingRead } from "./agenda-meeting.ts";
+import { ATTENDEE_CAP, agendaKindOf, type AgendaKind } from "./agenda-meeting.ts";
 import type { PlantViewer, Reader } from "./access.ts";
 
 // The meeting an agenda prints from. The documents domain reads the meeting tables in its own statement, as readPlant
@@ -21,6 +21,8 @@ const meetingRead = z.object({
 	attendees: z.array(z.object({ name: z.string(), role: z.string().nullable() })),
 	attendeeTotal: z.number().int(),
 });
+/** The columns the meeting read returns. Agenda and people arrive as JSON. */
+export type MeetingRead = z.infer<typeof meetingRead>;
 
 /** A live meeting of the plant, with the leadership flag of its team. Shared by the kind check and the full read. */
 const liveMeeting = (plantId: string, meetingId: string) =>
