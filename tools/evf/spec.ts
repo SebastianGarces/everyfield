@@ -74,3 +74,21 @@ export function coordinatorNotes(ask: string | null | undefined): string[] {
 		.map((p) => p.trim())
 		.filter((p) => /^coordinator note\b/i.test(p));
 }
+
+/**
+ * The later slices of a spec: each numbered or bulleted item under a `## Later slices` heading or a `Later slices:`
+ * label is one slice, its text joined from the lines under it. Prose before the first item is not a slice. A spec with
+ * no such section gives an empty list.
+ */
+export function laterSlices(spec: string | null | undefined): string[] {
+	if (!spec) return [];
+	const section = specSections(spec).find((s) => /^later slices\b/i.test(s.title));
+	if (!section) return [];
+	const items: string[][] = [];
+	for (const line of section.lines.slice(1)) {
+		const start = /^\s*(?:\d+[.)]|[-*+])\s+(.*)$/.exec(line);
+		if (start) items.push([start[1]!.trim()]);
+		else if (items.length && line.trim()) items.at(-1)!.push(line.trim());
+	}
+	return items.map((item) => item.join(" ")).filter(Boolean);
+}
