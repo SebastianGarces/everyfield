@@ -2745,7 +2745,7 @@ function coreGroupCard(withRhythm) {
 function needsYouCard() {
   var rows = [
     ["tone-magenta", "alert", "3 follow-ups overdue", "James Okafor is the oldest at 3 days"],
-    ["tone-amber", "task", "2 commitments to record", "Maria Santos signed on Oct 6"],
+    ["tone-amber", "task", "2 commitments to record", "Rachel Mitchell signed on Oct 6"],
     ["tone-blue", "users", "Kids ministry needs a leader", "2 of 6 roles filled"],
     ["tone-ink", "heart", "Reaffirm prayer rhythm", "Last answered 34 days ago"]
   ];
@@ -3168,7 +3168,7 @@ var CX_TYPES = ["Vision meeting", "Training", "Orientation", "Service run", "Vis
 var CX_GUESTS = [["KW", "Kim Wu", "TO", "Tom"], ["JO", "James Okafor", "TO", "Tom"], ["SN", "Sara Nunez", "AN", "Ana"]];
 var CX_SAYS = "3 new guests came to your vision meeting. I made a follow-up task for each one.";
 var CX_TEAMS = [["tone-green", "Core team", "var(--ef-green-500)", 12], ["tone-violet", "Launch team", "var(--ef-violet-500)", 28]];
-var CX_SIGNS = [["MS", "Maria Santos", "Signed a core team commitment"], ["DP", "Daniel Park", "Joined the launch team"]];
+var CX_SIGNS = [["RM", "Rachel Mitchell", "Signed a core team commitment"], ["DP", "Daniel Park", "Joined the launch team"]];
 function cxTw(cls, text) { return '<span class="cx-tw"><span class="cx-ghost">' + text + '</span><span class="cx-typed ' + cls + '"></span></span>'; }
 /* Panel markup. Elements with data-st stagger in with the card. Targets for the cursor carry cx-t0 / cx-t1. */
 var CX_MARK = {
@@ -3189,7 +3189,7 @@ var CX_MARK = {
       '<div class="cx-names cx-guests">' + guests.map(function (n) { return '<span class="ha-chip"><span class="ha-av">' + n[0] + "</span>" + n[1] + "</span>"; }).join("") + '<span class="ha-chip" style="padding-left:10px">10 more</span></div></div>';
   },
   follow: function () {
-    var week = [["Interview David Kim", "Fri Oct 17"], ["Record Maria Santos's commitment", "Signed on Oct 6"]];
+    var week = [["Interview David Kim", "Fri Oct 17"], ["Record Rachel Mitchell's commitment", "Signed on Oct 6"]];
     return '<div class="cx-h" data-st>' + evryBot("lg", "idle") + '<div class="grow"><div class="ha-title">Evry</div><div class="ha-sub">After vision meeting #12</div></div></div>' +
       '<div class="cx-say" data-st>' + cxTw("cx-dt", CX_SAYS) + '<div class="cx-names">' + CX_GUESTS.map(function (n) { return '<span class="ha-chip"><span class="ha-av">' + n[0] + "</span>" + n[1] + "</span>"; }).join("") + "</div></div>" +
       '<div class="ha-acts" data-st><span class="faint">You and your team reach out.</span>' + cxBtn("cx-t0", "Add to my week", "Added") + "</div>" +
