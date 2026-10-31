@@ -92,9 +92,25 @@ export type State = {
 	/** Cancel was asked for and the final status has not arrived yet. */
 	stopping: boolean;
 	sends: readonly Send[];
+	/** Each running turn's whole text as the live stream has delivered it, ahead of its saved events. */
+	live: Readonly<Record<string, string>>;
 };
 
-export const EMPTY: State = { conversation: null, events: [], activeTurnId: null, stopping: false, sends: [] };
+export const EMPTY: State = {
+	conversation: null,
+	events: [],
+	activeTurnId: null,
+	stopping: false,
+	sends: [],
+	live: {},
+};
+
+/** Live text from the stream (turn text from `offset` on). A piece the panel already has adds only what it lacks. */
+export function mergeLive(state: State, turnId: string, offset: number, text: string): State {
+	const have = state.live[turnId] ?? "";
+	if (offset > have.length || offset + text.length <= have.length) return state;
+	return { ...state, live: { ...state.live, [turnId]: have + text.slice(have.length - offset) } };
+}
 
 /** A conversation as the API reads it: its saved events and the state of its active run. */
 export type ReadConversation = {
@@ -130,7 +146,11 @@ export function merge(state: State, incoming: readonly ConversationEvent[]): Sta
 	if (!fresh.length) return state;
 	const events = [...state.events, ...fresh].sort((a, b) => a.sequence - b.sequence);
 	let { activeTurnId, stopping } = state;
+	let live = state.live;
 	for (const e of fresh) {
+		// A turn's end holds its whole saved text: what the stream delivered ahead of it is done.
+		if (e.kind === "status" && e.turnId && e.turnId in live)
+			live = Object.fromEntries(Object.entries(live).filter(([id]) => id !== e.turnId));
 		if (e.kind === "user_message" && e.turnId && !events.some((s) => s.kind === "status" && s.turnId === e.turnId))
 			activeTurnId = e.turnId;
 		if (e.kind === "status" && e.turnId === activeTurnId) {
@@ -140,7 +160,7 @@ export function merge(state: State, incoming: readonly ConversationEvent[]): Sta
 	}
 	const saved = new Set(events.map((e) => e.sequence));
 	const sends = state.sends.filter((s) => s.sequence === null || !saved.has(s.sequence));
-	return { ...state, events, activeTurnId, stopping, sends };
+	return { ...state, events, activeTurnId, stopping, sends, live };
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -161,7 +181,7 @@ export type Turn = {
 	end: TurnEnd | null;
 };
 
-export function turnsOf(events: readonly ConversationEvent[]): Turn[] {
+export function turnsOf(events: readonly ConversationEvent[], live: Readonly<Record<string, string>> = {}): Turn[] {
 	const turns = new Map<string, Turn>();
 	for (const e of events) {
 		const id = e.turnId ?? `event-${e.sequence}`;
@@ -199,6 +219,18 @@ export function turnsOf(events: readonly ConversationEvent[]): Turn[] {
 				turn.end = { state: e.body.state, reason: e.body.reason, error: e.body.error ?? null };
 				break;
 		}
+	}
+	// Text the stream delivered ahead of its saved events: what the saved text lacks of the live text, in the same place.
+	for (const turn of turns.values()) {
+		const streamed = live[turn.id];
+		if (!streamed || turn.end) continue;
+		let saved = 0;
+		for (const e of events) if (e.turnId === turn.id && e.kind === "assistant_text") saved += e.body.text.length;
+		const tail = streamed.slice(saved);
+		if (!tail) continue;
+		const last = turn.blocks.at(-1);
+		if (last?.kind === "text" && !last.withheld) last.text += tail;
+		else turn.blocks.push({ kind: "text", sequence: (events.at(-1)?.sequence ?? 0) + 0.5, text: tail, withheld: false });
 	}
 	// A withheld text block keeps one notice, however many saved pieces it had.
 	for (const turn of turns.values())
