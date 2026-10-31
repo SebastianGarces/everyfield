@@ -12,7 +12,7 @@ import type { Template } from "./model.ts";
 // for each refusal. Pure functions, so the editor and its tests share one definition.
 
 export type Slot = ChurchPage["slots"][number];
-export type ChurchClass = ChurchPage["document"]["documentClass"];
+type ChurchClass = ChurchPage["document"]["documentClass"];
 
 export const CLASS_LABEL: Record<ChurchClass, string> = {
 	"formal/legal": "Formal and legal",
