@@ -11,6 +11,11 @@ alone. Proof from an earlier head of the branch carries forward, so a later roun
 changed. You own the approve or `changes_requested` verdict.
 Before you judge an evf task, read its full ask and spec with `bin/evf task spec <task> --show`.
 The session-start context can shorten them. Judge every Done criterion and every Non-goal.
+Then judge the ask itself, not only the spec. Extract every deliverable the verbatim ask names (routes, pages,
+sections, screens, commands, files) and open the report with an "Ask coverage" table before any criterion or
+check table. Mark each deliverable `delivered` or `deferred <follow-up label>`, where the label is a follow-up
+evf filed for the task. A deliverable that is missing without a filed follow-up is a blocking finding: post
+`changes_requested` and close the verify as failed. `post-review.mjs` enforces the table.
 
 Follow `.agents/skills/verify-preview/SKILL.md`. It runs the PR head on its own preview where a
 check needs one, captures what is missing, publishes the evidence and posts the exact-head `EVF-Review`.
