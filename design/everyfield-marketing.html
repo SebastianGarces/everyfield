@@ -102,7 +102,7 @@
   --mk-hero-extra: 56px; /* Revision 23: the hero panel's extra width on each side of the nav column, on wide screens */
   --mk-gutter: 16px;
   --mk-page-pad: clamp(16px, 3vw, 40px);
-  --mk-section-space: clamp(96px, 10vw, 144px); /* OPS-82 owner review (Oct 30): more space between every section; was clamp(72px, 8vw, 120px) */
+  --mk-section-space: clamp(160px, 16.667vw, 240px); /* OPS-82 owner review 2 (Oct 30): 240px at 1440 wide, 160px on phones; was clamp(96px, 10vw, 144px) */
   --mk-section-space-photo: calc(var(--mk-section-space) * 1.5); /* plain side of a full-width photo section: the photo edge needs more room than text does */
   --mk-measure: 58ch;
 
@@ -4420,5 +4420,75 @@ history.replaceState(null, "", hrefFor(state.page, state.at));
 render(state.at ? "at" : null);
 })();
 </script>
+<!-- REVIEW-ONLY: remove before the Next.js port. Owner review 2 (Oct 30): a switcher on /oversight "Raise the next planters." that steps its
+     background through every photo in assets/photos. It floats at the section's top right and stays in view, below the site nav, while the
+     section scrolls. Markup, styles and script all live in this one block; delete it whole. -->
+<script>
+(function () {
+  var PHOTOS = ["blossom", "bluebells", "field", "lake", "lilies", "lupins", "marigolds", "meadow", "plain", "poppies", "reeds", "swirl", "wheat", "wildflowers"];
+  var cur = "wheat";
+  var css = document.createElement("style");
+  css.textContent =
+    "#leaders.ldr { overflow: clip; }" + /* overflow: hidden on .photo would stop position: sticky; clip cuts the same edges */
+    ".ldr-rv-rail { position: absolute; inset: 16px var(--mk-page-pad); z-index: 2; display: flex; justify-content: flex-end; align-items: flex-start; pointer-events: none; }" +
+    ".ldr-rv { position: sticky; top: 88px; pointer-events: auto; display: flex; align-items: center; gap: 4px; padding: 5px; border-radius: 14px;" +
+    " background: rgba(17, 19, 24, .9); color: #EEF0F4; font: 500 12.5px/1 \"DM Sans\", ui-sans-serif, system-ui, sans-serif; letter-spacing: 0;" +
+    " box-shadow: 0 10px 30px -10px rgba(0, 0, 0, .5), 0 0 0 1px rgba(255, 255, 255, .1) inset; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }" +
+    ".ldr-rv .rv-tag { padding: 0 6px 0 8px; color: #8A919E; font-size: 10.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }" +
+    ".ldr-rv button, .ldr-rv select { height: 36px; border: 0; border-radius: 9px; font: inherit; color: inherit; background-color: rgba(255, 255, 255, .08); cursor: pointer; }" +
+    ".ldr-rv button { width: 36px; display: grid; place-items: center; padding: 0; }" +
+    ".ldr-rv button:hover, .ldr-rv select:hover { background-color: rgba(255, 255, 255, .16); }" +
+    ".ldr-rv button svg { width: 16px; height: 16px; }" +
+    ".ldr-rv select { -webkit-appearance: none; appearance: none; padding: 0 28px 0 10px; font-weight: 600;" +
+    " background: rgba(255, 255, 255, .08) url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23B1B7C2' stroke-width='1.5'/%3E%3C/svg%3E\") no-repeat right 10px center; }" +
+    ".ldr-rv select option { color: #111318; background: #fff; }" +
+    ".ldr-rv .rv-n { min-width: 40px; padding: 0 6px; color: #B1B7C2; font-variant-numeric: tabular-nums; text-align: center; white-space: nowrap; }" +
+    ".ldr-rv button:focus-visible, .ldr-rv select:focus-visible { outline: 2px solid #6CF2B4; outline-offset: 2px; }" +
+    ".ldr-rv .rv-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }" +
+    "@media (max-width: 600px) { .ldr-rv .rv-long, .ldr-rv .rv-n { display: none; } }" +
+    "body.pbar-hidden .ldr-rv, body.shot .ldr-rv { display: none !important; }";
+  document.head.appendChild(css);
+  var chev = function (d) { return '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="' + d + '" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'; };
+  function markup() {
+    return '<div class="ldr-rv-rail"><div class="ldr-rv" role="group" aria-label="Review only: background photo for Raise the next planters">' +
+      '<span class="rv-tag" aria-hidden="true">Review<span class="rv-long"> only · Background</span></span>' +
+      '<button type="button" data-rv="-1" aria-label="Previous background photo">' + chev("M10 3.5 5.5 8l4.5 4.5") + "</button>" +
+      '<select aria-label="Background photo">' + PHOTOS.map(function (p) { return '<option value="' + p + '">' + p + "</option>"; }).join("") + "</select>" +
+      '<button type="button" data-rv="1" aria-label="Next background photo">' + chev("M6 3.5 10.5 8 6 12.5") + "</button>" +
+      '<span class="rv-n" aria-hidden="true"></span><span class="rv-sr" role="status" aria-live="polite"></span></div></div>';
+  }
+  function show(sec, p, say) {
+    cur = p;
+    sec.dataset.photo = p; sec.classList.add("seen");
+    var box = sec.querySelector(".ldr-rv"), i = PHOTOS.indexOf(p);
+    box.querySelector("select").value = p;
+    box.querySelector(".rv-n").textContent = (i + 1) + "/" + PHOTOS.length;
+    if (say) box.querySelector(".rv-sr").textContent = "Background: " + p + ", " + (i + 1) + " of " + PHOTOS.length;
+  }
+  function step(sec, d) { show(sec, PHOTOS[(PHOTOS.indexOf(cur) + d + PHOTOS.length) % PHOTOS.length], true); }
+  function mount() {
+    var sec = document.getElementById("leaders");
+    if (!sec || sec.querySelector(".ldr-rv")) return;
+    sec.insertAdjacentHTML("afterbegin", markup());
+    show(sec, cur, false);
+  }
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest(".ldr-rv button");
+    if (b) step(b.closest("#leaders"), +b.dataset.rv);
+  });
+  document.addEventListener("change", function (e) {
+    if (e.target.matches(".ldr-rv select")) show(e.target.closest("#leaders"), e.target.value, true);
+  });
+  document.addEventListener("keydown", function (e) {
+    var b = e.target.closest && e.target.closest(".ldr-rv button");
+    if (!b) return;
+    var d = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 }[e.key];
+    if (d) { e.preventDefault(); step(b.closest("#leaders"), d); }
+  });
+  mount();
+  new MutationObserver(mount).observe(document.getElementById("view"), { childList: true });
+})();
+</script>
+<!-- /REVIEW-ONLY -->
 </body>
 </html>
