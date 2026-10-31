@@ -1,8 +1,10 @@
-import { Prose } from "@everyfield/ui/display";
+import { Prose, WikiDiagram } from "@everyfield/ui/display";
+import { diagramSummary } from "@everyfield/contracts/wiki";
 import { HEADING_STOP } from "./layout.ts";
 import { articleBlocks, inlineParts, type Inline } from "./model.ts";
 
-// Renders the entitled body as elements. It does not parse MDX and it does not emit raw HTML.
+// Renders the entitled body as elements. It does not parse MDX and it does not emit raw HTML. A code fence shows its
+// text as written; a diagram fence that parses draws as a diagram (WP-034).
 
 function InlineText({ text }: { text: string }) {
 	const parts = inlineParts(text);
@@ -82,6 +84,18 @@ export function ArticleBody({ contentType, body }: { contentType: string; body: 
 							</table>
 						</div>
 					);
+				if (block.kind === "code")
+					return (
+						<pre
+							key={index}
+							tabIndex={0}
+							className="my-5 max-w-full overflow-x-auto rounded-card border border-line bg-surface-2 px-4 py-3.5 font-mono text-[13.5px] leading-[1.6] text-ink"
+						>
+							<code>{block.text}</code>
+						</pre>
+					);
+				if (block.kind === "diagram")
+					return <WikiDiagram key={index} diagram={block.diagram} summary={diagramSummary(block.diagram)} />;
 				if (block.kind === "callout")
 					return (
 						<aside key={index} role="note" className="my-5 rounded-card bg-surface-2 px-5 py-4">

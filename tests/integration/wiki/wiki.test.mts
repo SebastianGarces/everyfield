@@ -1065,6 +1065,95 @@ describe("wiki api", { concurrency: 1 }, () => {
 		},
 	);
 
+	test("WP-034/ui: PDF and print export render diagrams as text and code fences verbatim in Courier", async () => {
+		const id = randomUUID();
+		await item(id, "article", "diagram-export", GLOBAL);
+		const longCode = `  ${"x".repeat(100)}`;
+		await revision({
+			id: randomUUID(),
+			article: id,
+			tenant: GLOBAL,
+			release,
+			title: "Diagram export",
+			slug: "diagram-export",
+			body: [
+				"## Diagrams",
+				"```diagram flow",
+				"title: Guest path",
+				"loop: Each season",
+				"- First visit | Greeted | Week 1",
+				"- Connect card | Follow-up",
+				"- Lunch",
+				"```",
+				"```diagram hierarchy",
+				"title: Leaders",
+				"- Pastor | Vision",
+				"  - Director",
+				"    - Leader | | 4 teams",
+				"```",
+				"```",
+				"Cash total:   $____",
+				"              ---------",
+				"- stays text",
+				longCode,
+				"```",
+				"```diagram flow",
+				"title: Broken",
+				"- A | B | C | D",
+				"```",
+			].join("\n"),
+			phase: 6,
+		});
+		const exported = ok(await plain.exportPdf(db, await actor(people.owner), { articleId: id }));
+		const pdf = Buffer.from(exported.bytes, "base64").toString("latin1");
+		// The text each Tj shows, with the PDF string escapes undone.
+		const shown = [...pdf.matchAll(/\((.*)\) Tj/g)].map((match) => match[1]!.replace(/\\([()\\])/g, "$1"));
+		const start = shown.indexOf("Guest path");
+		assert.deepEqual(shown.slice(start, start + 18), [
+			"Guest path",
+			"Flow diagram",
+			"1. First visit - Greeted (Week 1) ->",
+			"2. Connect card - Follow-up ->",
+			"3. Lunch",
+			"Repeats: Each season",
+			"Leaders",
+			"Hierarchy diagram",
+			"Pastor - Vision",
+			"  Director",
+			"    Leader (4 teams)",
+			"Cash total:   $____",
+			"              ---------",
+			"- stays text",
+			longCode.slice(0, 78),
+			longCode.slice(78),
+			"title: Broken",
+			"- A | B | C | D",
+		]);
+		assert.equal(pdf.includes("/BaseFont /Courier"), true);
+		assert.match(pdf, /\/F2 10 Tf\nT\* \(Cash total: {3}\$____\) Tj/);
+		const html = ok(await plain.printArticle(db, await actor(people.owner), { articleId: id })).html;
+		assert.equal(
+			html.includes(
+				"<figure><figcaption>Guest path</figcaption><ol><li><strong>First visit</strong> - Greeted (Week 1)</li><li><strong>Connect card</strong> - Follow-up</li><li><strong>Lunch</strong></li></ol><p>Repeats: Each season</p></figure>",
+			),
+			true,
+			html,
+		);
+		assert.equal(
+			html.includes(
+				"<figure><figcaption>Leaders</figcaption><ul><li><strong>Pastor</strong> - Vision<ul><li><strong>Director</strong><ul><li><strong>Leader</strong> (4 teams)</li></ul></li></ul></li></ul></figure>",
+			),
+			true,
+			html,
+		);
+		assert.equal(
+			html.includes(`<pre><code>Cash total:   $____\n              ---------\n- stays text\n${longCode}</code></pre>`),
+			true,
+		);
+		assert.equal(html.includes("<pre><code>title: Broken\n- A | B | C | D</code></pre>"), true);
+		assert.equal(html.includes("<li>stays text</li>"), false);
+	});
+
 	test(
 		ac(["CASE-WIKI-011", "SEC-05"]) + " public wiki paths stay sessionless and private reads are not cached",
 		async () => {
