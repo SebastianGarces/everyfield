@@ -121,7 +121,7 @@ import { Assignee, DoneBox, intentHandlers, MetaLine } from "./parts.tsx";
 import type { StepAssignee } from "./structure.tsx";
 import { warmAssignees } from "./AssigneePicker.tsx";
 import { TaskDialog, type Commit, type EditForm } from "./TaskDialog.tsx";
-import { TaskSheet, warmContacts, type DetailState, type PanelEdit } from "./TaskSheet.tsx";
+import { TaskSheet, type DetailState, type PanelEdit } from "./TaskSheet.tsx";
 
 export type Viewer = { accountId: string; role: "owner" | "admin" | "member"; name: string | null };
 type Loaded = {
@@ -308,8 +308,6 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 		if (loading.current.has(id) || (known?.status === "ok" && known.history.status === "ok")) return;
 		loading.current.add(id);
 		setDetails((d) => ({ ...d, [id]: { status: "loading" } }));
-		const row = listed.current.find((r) => r.id === id);
-		if (row?.relation?.kind === "person" && !row.parentId) warmContacts(row.relation.id, id);
 		loadTask(id)
 			.catch(() => lost)
 			.then((r: Outcome<TaskLoad>) => {

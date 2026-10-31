@@ -178,6 +178,12 @@ try {
 	let maria = await person("Maria Santos");
 	maria = await note(maria, "First note");
 	await task("First task");
+	// A follow-up task for a Person (S2 batch 3, F13): its panel read also carries the first page of contact history.
+	const [{ id: followUpId }] = (
+		await admin.execute(
+			sql`INSERT INTO task(plant_id,title,category,priority,status,created_at,due_kind,person_id,creator_id) VALUES(${plant.id},'Follow up with Maria Santos','follow_up','medium','not_started',clock_timestamp(),'undated',${maria.id},${owner.accountId}) RETURNING id`,
+		)
+	).rows;
 	// The owner's own notifications (WP-030/ui), from a task, as the reminder producers write them.
 	const notices = (count) =>
 		admin.execute(sql`INSERT INTO notice(tenant_id,recipient_id,category,purpose,logical_key,source_record_id,source_revision,title,eligible_at,created_at,timezone)
@@ -350,6 +356,7 @@ try {
 		["GET /people (member)", "/people", member.cookie],
 		["GET /people/[personId]", `/people/${maria.id}`, owner.cookie],
 		["GET /tasks", "/tasks", owner.cookie],
+		["GET /tasks?task=<follow-up>", `/tasks?task=${followUpId}`, owner.cookie],
 		["GET /documents", "/documents", owner.cookie],
 		["GET /meetings", "/meetings", owner.cookie],
 		["GET /meetings/[meetingId]", `/meetings/${visionMeeting}`, owner.cookie],

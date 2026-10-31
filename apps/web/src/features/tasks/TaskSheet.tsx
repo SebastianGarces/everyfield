@@ -14,7 +14,7 @@ import {
 } from "@everyfield/ui/controls";
 import { KeyValue, KeyValueList, StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import type { Wait } from "../../components/save/model.ts";
 import { When } from "../people/parts.tsx";
 import type { StatusAction } from "./actions.ts";
@@ -385,11 +385,11 @@ export function TaskSheet({
 									/>
 								</>
 							)}
-							{task.relation?.kind === "person" && !task.parentId ? (
+							{task.relation?.kind === "person" && !task.parentId && loaded?.contacts ? (
 								<ContactHistorySection
-									key={`${detail.id}-${task.status}`}
 									taskId={detail.id}
 									personId={task.relation.id}
+									first={loaded.contacts}
 									accountId={viewer.accountId}
 								/>
 							) : null}
@@ -432,57 +432,39 @@ function Loading() {
 
 /**
  * What was recorded on a follow-up, newest first: the outcome, how, the note, who and when, with corrected and withdrawn
- * entries kept (REQ-MTG-022). Read each time the panel opens, so an outcome recorded on the call screen shows when it
- * is opened again, with no page reload.
+ * entries kept (REQ-MTG-022). The first page comes with the panel's own read, so it paints with the rest of the panel.
+ * A page that did not load is read again on request, so the panel never needs closing.
  */
-const warmed = new Map<string, { at: number; read: ReturnType<typeof loadContacts> }>();
-/**
- * Starts the contact read with the task read: the row already names the Person, so the panel need not wait for the task
- * to come back. The section takes the warmed read once, and only while it is fresh.
- */
-export function warmContacts(personId: string, taskId: string) {
-	warmed.set(taskId, { at: Date.now(), read: loadContacts(personId, 1, taskId) });
-}
-function readContacts(personId: string, taskId: string) {
-	const hit = warmed.get(taskId);
-	warmed.delete(taskId);
-	return hit && Date.now() - hit.at < 5000 ? hit.read : loadContacts(personId, 1, taskId);
-}
-
 function ContactHistorySection({
-	taskId,
 	personId,
+	taskId,
+	first,
 	accountId,
 }: {
-	taskId: string;
 	personId: string;
+	taskId: string;
+	first: ReadOutcome<ContactHistory>;
 	accountId: string;
 }) {
-	const [log, setLog] = useState<ReadOutcome<ContactHistory> | null>(null);
-	const [attempt, setAttempt] = useState(0);
-	useEffect(() => {
-		let live = true;
-		void readContacts(personId, taskId).then((r) => live && setLog(r));
-		return () => {
-			live = false;
-		};
-	}, [taskId, personId, attempt]);
+	const [loading, setLoading] = useState(false);
+	// A newer first page from the panel replaces the one read here.
+	const [read, setRead] = useState({ from: first, page: first });
+	const log = read.from === first ? read.page : first;
 	return (
 		<Section title="What happened">
-			{log === null ? (
-				<p role="status" className="text-sm text-text-3">
-					Loading what was recorded
-				</p>
-			) : log.status !== "ok" ? (
+			{log.status !== "ok" ? (
 				<>
 					<p className="text-sm text-text-3">What was recorded did not load.</p>
 					<Button
 						variant="ghost"
 						size="sm"
 						className="self-start"
-						onClick={() => {
-							setLog(null);
-							setAttempt((n) => n + 1);
+						loading={loading}
+						onClick={async () => {
+							setLoading(true);
+							const r = await loadContacts(personId, 1, taskId);
+							setLoading(false);
+							setRead({ from: first, page: r });
 						}}
 					>
 						Try again
