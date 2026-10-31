@@ -171,10 +171,7 @@ for (const [name, engine] of ENGINES.slice(0, 1)) {
 				.locator("section")
 				.filter({ has: page.getByRole("heading", { name: "What happened" }) })
 				.locator("li");
-			await entries
-				.first()
-				.waitFor({ state: "attached" })
-				.catch(() => {});
+			await page.getByRole("heading", { name: "What happened" }).waitFor();
 			const before = await entries.count();
 			await panel.getByRole("link", { name: "Record what happened" }).click();
 			await page.getByRole("radio", { name: /Tried, no contact/ }).waitFor();

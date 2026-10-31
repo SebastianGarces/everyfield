@@ -49,19 +49,20 @@ type FieldProps = {
  */
 export function Field({ label, hint, error, optional, children, className }: FieldProps) {
 	const id = useId();
+	const labelId = `${id}-label`;
 	const hintId = hint ? `${id}-hint` : undefined;
 	const errorId = error ? `${id}-error` : undefined;
 	return (
 		<FieldContext
 			value={{
 				id,
-				labelId: `${id}-label`,
+				labelId,
 				describedBy: [errorId, hintId].filter(Boolean).join(" ") || undefined,
 				invalid: Boolean(error),
 			}}
 		>
 			<div className={cn("flex min-w-0 flex-col gap-1.5", className)}>
-				<label id={`${id}-label`} htmlFor={id} className="text-sm font-medium text-ink-2">
+				<label id={labelId} htmlFor={id} className="text-sm font-medium text-ink-2">
 					{label}
 					{optional ? <span className="font-normal text-text-3"> · Optional</span> : null}
 				</label>
