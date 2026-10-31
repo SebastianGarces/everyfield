@@ -44,3 +44,6 @@ export async function postPreview(
 		return { status: "lost" };
 	}
 }
+
+/** The one line every render failure shows. */
+export const RENDER_FAILED = "This file did not render. Nothing was saved.";

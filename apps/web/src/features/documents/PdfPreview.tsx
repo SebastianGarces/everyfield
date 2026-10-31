@@ -1,12 +1,12 @@
 "use client";
 
 import { ArrowLeft01Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons";
-import { IconButton } from "@everyfield/ui/controls";
-import { Skeleton } from "@everyfield/ui/controls";
+import { IconButton, Skeleton, StatePanel } from "@everyfield/ui/controls";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { Template } from "./model.ts";
 import { closePdf, drawPage, openPdf } from "./pdf.ts";
+import { RENDER_FAILED } from "./preview-client.ts";
 
 // The preview: each page at its true aspect (Letter 8.5 x 11, card 4.25 x 5.5), drawn from the renderer's bytes.
 // Arrow keys, Page Up and Page Down, Home and End move between pages when the page has focus.
@@ -81,9 +81,9 @@ export function PdfPreview({ title, pageSize, bytes }: Props) {
 
 	if (failed)
 		return (
-			<p role="status" className="rounded-md bg-surface-2 px-4 py-6 text-center text-sm text-text-2">
-				This file did not render. Nothing was saved.
-			</p>
+			<StatePanel tone="error" title="Preview unavailable" headingLevel="h3" className="py-8">
+				{RENDER_FAILED}
+			</StatePanel>
 		);
 
 	return (

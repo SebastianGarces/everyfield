@@ -133,7 +133,7 @@ for (const [name, engine] of ENGINES) {
 		});
 	});
 
-	test(`INV-doc-bytes (${name}): preview, preview download and saved download are the same bytes`, async () => {
+	test(`INV-doc-bytes (${name}): the preview and the preview download are the same bytes (the saved file is AC:CASE-DOC-003)`, async () => {
 		await withPage(engine, async (page, context) => {
 			await openTemplate(page, "commitment-card");
 			const preview = sha(await previewBytes(context, "commitment-card"));
@@ -142,28 +142,6 @@ for (const [name, engine] of ENGINES) {
 			const downloaded = sha(await readFile(await (await download).path()));
 			console.log(`sha256 (${name}): preview ${preview} preview download ${downloaded}`);
 			assert.equal(downloaded, preview, "preview download equals preview bytes");
-			const save = page.getByRole("button", { name: "Save for your church" });
-			if (await save.isDisabled()) {
-				console.log(`saved download skipped (${name}): private storage is off on this preview`);
-				return;
-			}
-			await save.click();
-			const outcome = page.getByRole("status").filter({ hasText: /^(Saved Core Group|This file did not save)/ });
-			await outcome.waitFor({ timeout: 60_000 });
-			if (!(await outcome.textContent()).startsWith("Saved")) {
-				// The saved file's bytes equal the preview's in tests/integration/documents/owned.test.mts (AC:CASE-DOC-003).
-				console.log(`saved download skipped (${name}): this preview's storage refused the save`);
-				return;
-			}
-			const popup = context.waitForEvent("page");
-			await page
-				.getByRole("button", { name: /^Download Core Group Commitment Card/ })
-				.first()
-				.click();
-			const url = (await popup).url();
-			const saved = sha(await (await context.request.get(url)).body());
-			console.log(`sha256 (${name}): preview ${preview} download ${downloaded} saved ${saved}`);
-			assert.equal(saved, preview, "saved download equals preview bytes");
 		});
 	});
 
@@ -178,6 +156,11 @@ for (const [name, engine] of ENGINES) {
 			const image = card.getByRole("img", { name: "Page 1 of Core Group Commitment Card" });
 			await image.waitFor({ timeout: 60_000 });
 			assert.equal(await image.getAttribute("alt"), "Page 1 of Core Group Commitment Card");
+			const box = await image.boundingBox();
+			assert.ok(
+				Math.abs(box.width / box.height - 4.25 / 5.5) < 0.02,
+				`thumbnail keeps the card aspect, got ${box.width}x${box.height}`,
+			);
 		});
 	});
 

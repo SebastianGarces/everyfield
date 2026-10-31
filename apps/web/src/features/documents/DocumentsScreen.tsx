@@ -19,7 +19,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { generateDocument, resolveDocument } from "./actions.ts";
 import { PdfPreview } from "./PdfPreview.tsx";
 import { Thumbnail } from "./Thumbnail.tsx";
-import { bytesOf, downloadBytes, postPreview } from "./preview-client.ts";
+import { RENDER_FAILED, bytesOf, downloadBytes, postPreview } from "./preview-client.ts";
 import {
 	CATEGORIES,
 	FORMAT_LABEL,
@@ -66,7 +66,7 @@ function failureText(code: string, problem?: string) {
 		return "Shorten the fields. Together they must stay under 16 KB.";
 	if (code === "unavailable")
 		return "Preview uses the church name, the pastor, and the launch date. This account has no current church seat.";
-	return "This file did not render. Nothing was saved.";
+	return RENDER_FAILED;
 }
 
 export function DocumentsScreen({ templates, query, context, canPreview, canEdit, canStore, written }: Props) {

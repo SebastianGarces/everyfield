@@ -1,6 +1,7 @@
 "use client";
 
 import { File02Icon, Table01Icon } from "@hugeicons/core-free-icons";
+import { Skeleton } from "@everyfield/ui/controls";
 import { Icon } from "@everyfield/ui/foundations";
 import { useEffect, useRef, useState } from "react";
 import type { Template } from "./model.ts";
@@ -42,6 +43,7 @@ function picture(template: Template) {
 export function Thumbnail({ template, enabled }: { template: Template; enabled: boolean }) {
 	const frame = useRef<HTMLSpanElement>(null);
 	const [url, setUrl] = useState<string | null>(null);
+	const [loading, setLoading] = useState(false);
 	const pdf = template.formats[0] === "pdf" && template.pageSize !== null;
 
 	useEffect(() => {
@@ -52,7 +54,12 @@ export function Thumbnail({ template, enabled }: { template: Template; enabled: 
 			([entry]) => {
 				if (!entry?.isIntersecting) return;
 				observer.disconnect();
-				void picture(template).then((next) => current && setUrl(next));
+				setLoading(true);
+				void picture(template).then((next) => {
+					if (!current) return;
+					setUrl(next);
+					setLoading(false);
+				});
 			},
 			{ rootMargin: "200px" },
 		);
@@ -77,8 +84,10 @@ export function Thumbnail({ template, enabled }: { template: Template; enabled: 
 					alt={`Page 1 of ${template.name}`}
 					width={size.width}
 					height={size.height}
-					className="max-h-full max-w-full bg-white object-contain shadow-[0_0_0_1px_var(--ef-line),0_4px_12px_-6px_color-mix(in_srgb,var(--ef-ink)_30%,transparent)]"
+					className="h-auto max-h-full w-auto max-w-full bg-white shadow-[0_0_0_1px_var(--ef-line),0_4px_12px_-6px_color-mix(in_srgb,var(--ef-ink)_30%,transparent)]"
 				/>
+			) : loading ? (
+				<Skeleton shape="block" className="h-full w-32 rounded-none" />
 			) : (
 				<Icon icon={pdf ? File02Icon : Table01Icon} size={24} className="text-text-3" />
 			)}
