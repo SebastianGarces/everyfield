@@ -98,33 +98,6 @@
         }
       ]
     },
-    "intelligence": {
-      "note": "Revision 17 (2026-10-09): the home Plant Intelligence section title. R4 (2026-10-15): the lead line and the four steps move here from the prototype's draft; the Evry step leads with setting up a vision meeting in one approval.",
-      "title": "Know what needs you most.",
-      "lead": "Plant Intelligence reads your plant through lenses such as emerging leadership and generosity.",
-      "steps": [
-        {
-          "panel": "focus",
-          "title": "One focus each week.",
-          "body": "Plant Intelligence reads your records and names the one thing to do first."
-        },
-        {
-          "panel": "facts",
-          "title": "Every finding shows its facts.",
-          "body": "Each finding links to the records it used, so you can check it."
-        },
-        {
-          "panel": "readiness",
-          "title": "Ready for the next phase?",
-          "body": "See which benchmarks for your phase are met and which are still open. You decide when to move on."
-        },
-        {
-          "panel": "share",
-          "title": "You see it first.",
-          "body": "Each concern comes to you before anyone else. Your sending church sees a short summary, and only what you share. Your weekly check-in is for you alone."
-        }
-      ]
-    },
     "trust_page": {
       "eyebrow": "Privacy and trust",
       "headline": "Who sees what in Everyfield.",
@@ -142,12 +115,6 @@
           }
         ]
       }
-    },
-    "sending": {
-      "note": "Revision 19 (2026-10-09): the home section for sending churches and networks, used by both stories. It replaces the Revision 18 audience section. An auto-advancing list like Plant Intelligence, mirrored: panel on the left, list on the right.",
-      "title": "Stay close to the plant you sent.",
-      "link": "Learn more about the oversight view",
-      "body": "Sending churches and networks see each plant's phase, launch date and the findings it shares, without asking the planter for a report."
     },
     "oversight_page": {
       "note": "Revision 24 (2026-10-10): the /oversight page hero and problem section. Home story B keeps directions.oversight.sections. Revision 25 fills the rest of the page.",
@@ -666,30 +633,93 @@
         "privacy": "privacy policy"
       }
     },
+    "ops82": {
+      "note": "OPS-82 merge (Sebastian's picks, Oct 30 2026): copy this prototype adds or changes on home. The journey section adds two Plant Intelligence stops to the four shared.week steps, one path of six stops; EvryBot speaks one line at each stop. Evry creates tasks for people and never writes to the congregation. The sending section never shows Evry (Revision 27). #/planters keeps the copy above.",
+      "hero_eyebrow": "Church planting software",
+      "features_headline": "Everything a church plant needs, in the order you need it.",
+      "journey": {
+        "says": [
+          "Emily Carter filled in your interest form. Now she is on your list.",
+          "Vision meeting #12 is on Sunday. Emily checked in as a new guest.",
+          "I made a follow-up task for Emily and assigned it to Jen Park, due Tuesday. You approve it first.",
+          "Emily signed her commitment card. Your core group is now 35.",
+          "This week's focus: hold your next vision meeting.",
+          "4 of 6 benchmarks are met. You decide when to move on."
+        ],
+        "icons": [
+          "users",
+          "calendar",
+          "task",
+          "heart",
+          "compass",
+          "flag"
+        ],
+        "steps": [
+          {
+            "title": "One focus each week.",
+            "body": "Plant Intelligence reads your records and names the one thing to do first. Each finding links to the records it used."
+          },
+          {
+            "title": "Ready for the next phase?",
+            "body": "See which benchmarks for your phase are met and which are still open. You decide when to move on."
+          }
+        ],
+        "see_first": "You see it first. Each concern comes to you before anyone else, and your sending church sees only what you share."
+      },
+      "evry": {
+        "headline": "Anything in Everyfield, Evry can do for you",
+        "subhead": "Set up a meeting, build the launch list, assign follow-ups, plan a training. If you can do it in Everyfield, you can ask Evry.",
+        "cards": [
+          [
+            "chat",
+            "You ask.",
+            "In plain words, for anything in the app."
+          ],
+          [
+            "sparkle",
+            "Evry prepares it.",
+            "Meetings, tasks, lists, plans, all set up for you to review."
+          ],
+          [
+            "check",
+            "You approve.",
+            "Nothing changes until you say so."
+          ]
+        ]
+      },
+      "sending": {
+        "title": "Stay close to the church plants you send.",
+        "link": "Learn more about the oversight view",
+        "body": "Sending churches and networks see each church plant's phase, launch date and the findings it shares, without asking the planter for a report.",
+        "points": [
+          [
+            "route",
+            "Phase",
+            "Where each church plant is on the way to launch."
+          ],
+          [
+            "calendar",
+            "Launch date",
+            "The days left before Launch Sunday."
+          ],
+          [
+            "eye",
+            "Shared findings",
+            "Only what the planter chooses to share."
+          ],
+          [
+            "task",
+            "No reports",
+            "The view follows the work as it happens."
+          ]
+        ]
+      }
+    },
     "panels": {
-      "week_follow_says": "3 new guests came to your vision meeting. I drafted a follow-up task for each one.",
-      "week_people_line": "5 people are waiting for an interview.",
-      "intelligence_focus_title": "Ask 4 interviewed people for a commitment this week",
-      "monday_title": "Good morning, Daniel",
-      "monday_sub": "Harvest Point Church \u00b7 Phase 1, Core Group Development \u00b7 Launch Sunday Mar 14, 2027",
-      "monday_core_label": "Core group",
-      "teams_sign_core": "Signed a core group commitment",
-      "launch_team_member": "James Park",
-      "ministry_areas": [
-        "Worship",
-        "Children's",
-        "Assimilation",
-        "Small groups",
-        "Admin and finance",
-        "Facilities",
-        "Promotion",
-        "Technology"
-      ],
       "hero_dash_finding": "New adults have slowed in 3 plants",
       "hero_dash_attention_label": "Watch",
       "status_watch": "Watch",
-      "mueller_plant": "Mueller Hope Church",
-      "share_unshared_status": "Limited visibility"
+      "mueller_plant": "Mueller Hope Church"
     },
     "sample_label": "Sample data"
   },
@@ -755,6 +785,14 @@
               "title": "Launch, then keep going",
               "short": "Record Launch Sunday and its outcome."
             }
+          ],
+          "icons": [
+            "compass",
+            "users",
+            "flag",
+            "book",
+            "task",
+            "rocket"
           ]
         },
         "audiences": {
@@ -798,18 +836,19 @@
           ]
         },
         "evry": {
+          "eyebrow": "Evry, the assistant inside Everyfield",
           "headline": "Evry prepares the work. You approve it.",
-          "body": "Evry is the assistant inside Everyfield. Ask it to set up your next vision meeting, and it prepares the meeting, the 90-minute agenda, the guest list and the invitation email. Nothing is saved or sent until you approve.",
+          "body": "Evry is the assistant inside Everyfield. Ask it to set up your next vision meeting, and it prepares the meeting, the 90-minute agenda and the guest list. Nothing is saved until you approve.",
           "example": {
             "ask": "Set up vision meeting #12 for Sun, Oct 25 and invite the 9 guests from #11.",
-            "answer": "Ready for your review: Sun, Oct 25 at the Reyes home, the 90-minute agenda, 9 guests and the invitation email.",
+            "answer": "Ready for your review: Sun, Oct 25 at the Reyes home, the 90-minute agenda and 9 guests.",
             "review": "Review 4 changes \u00b7 Set up vision meeting \u00b7 Approve or Edit"
           },
           "limits": "Evry does not write prayers, give spiritual counsel or judge whether a person is ready. It changes your phase only after you decide and approve."
         },
         "cta": {
-          "headline": "Bring your plant into Everyfield.",
-          "body": "Everyfield is in early access. Tell us about your plant, and we will be in touch.",
+          "headline": "Bring your church plant into Everyfield.",
+          "body": "Everyfield is in early access. Tell us about your church plant, and we will be in touch.",
           "cta_primary": "Request early access",
           "cta_secondary": "Talk to us about your network"
         },

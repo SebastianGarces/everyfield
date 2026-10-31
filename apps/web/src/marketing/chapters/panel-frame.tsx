@@ -19,14 +19,11 @@ import { PanelClockProvider, useTo, type PanelClock } from "@/components/motion/
 import { SCENES, type PanelKind } from "../scene-data";
 
 /**
- * Where a panel is shown and how its chapter moves it. A desktop panel (chapter or auto list) crossfades with the others
- * in one grid cell, so the chapter hands it a card style. A phone panel of the week chapter is always shown.
+ * How an auto list moves a panel: a desktop panel crossfades with the others in one grid cell, so the list hands it a
+ * card style.
  */
 export type PanelSlot = PanelClock & {
-	place: "vis" | "mob" | "auto";
 	card?: { transform: MotionValue<string>; opacity: MotionValue<number>; visibility: MotionValue<string> };
-	/** Without JavaScript this desktop card is shown (the week chapter's first card, at its still frame). */
-	noScript?: boolean;
 };
 const SlotContext = createContext<PanelSlot | null>(null);
 export function PanelSlotProvider({ slot, children }: { slot: PanelSlot; children: ReactNode }) {
@@ -73,14 +70,10 @@ export function useGeo() {
 	return g;
 }
 
-export type CardVariant =
-	{ kind: "card" } | { kind: "insight"; tone: "field" | "rose" | "sky" } | { kind: "evry" } | { kind: "clip" };
-const INSIGHT_TONE = { field: "g-field", rose: "g-rose", sky: "g-sky" } as const;
+export type CardVariant = { kind: "card" } | { kind: "insight"; tone: "rose" | "sky" };
+const INSIGHT_TONE = { rose: "g-rose", sky: "g-sky" } as const;
 
-/**
- * The white product card a chapter shows (or a gradient InsightCard, the Evry chat, or the follow-up card whose shell
- * grows). It carries the cursor that clicks through the scene.
- */
+/** The white product card a chapter shows (or a gradient InsightCard). It carries the cursor that clicks through the scene. */
 export function PanelCard({
 	kind,
 	variant = { kind: "card" },
@@ -115,7 +108,6 @@ export function PanelCard({
 		return () => ro.disconnect();
 	}, [els, boxes, measured]);
 
-	const v = variant.kind;
 	const style = slot.card ?? undefined;
 	return (
 		<m.div
@@ -123,24 +115,13 @@ export function PanelCard({
 			data-k={kind}
 			className={cn(
 				"relative z-[2] col-start-1 row-start-1 will-change-[transform,opacity]",
-				slot.place === "vis"
-					? "w-[min(400px,calc(100%-48px))] opacity-0"
-					: slot.place === "mob"
-						? "w-[min(400px,100%)]"
-						: "w-[min(400px,calc(100%-48px))] opacity-0 max-mk-cx:w-[min(400px,100%)]",
-				v === "insight"
+				"w-[min(400px,calc(100%-48px))] opacity-0 max-mk-cx:w-[min(400px,100%)]",
+				variant.kind === "insight"
 					? cn(
 							"mk-gsurf flex flex-col px-6 py-[22px] text-[var(--on)] shadow-mk-insight max-mk-sm:p-[18px]",
 							INSIGHT_TONE[variant.tone],
 						)
-					: v === "evry"
-						? "flex flex-col gap-2.5 border border-line bg-white p-4 shadow-mk-panel-flat"
-						: v === "clip"
-							? "bg-transparent px-5 pt-[18px] pb-5 max-mk-sm:px-4 max-mk-sm:pt-4 max-mk-sm:pb-[18px]"
-							: "bg-white px-5 pt-[18px] pb-5 shadow-mk-panel max-mk-sm:px-4 max-mk-sm:pt-4 max-mk-sm:pb-[18px]",
-				// No JavaScript: the inline style keeps the card hidden; the root has no data-js, so this shows it.
-				slot.noScript &&
-					"[html:not([data-js])_&]:visible! [html:not([data-js])_&]:opacity-100! [html:not([data-js])_&]:transform-none!",
+					: "bg-white px-5 pt-[18px] pb-5 shadow-mk-panel max-mk-sm:px-4 max-mk-sm:pt-4 max-mk-sm:pb-[18px]",
 				className,
 			)}
 			style={style}

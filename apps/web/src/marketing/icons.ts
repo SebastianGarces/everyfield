@@ -3,11 +3,13 @@ import {
 	ArrowRight02Icon,
 	ArrowUpRight01Icon,
 	Book02Icon,
+	BubbleChatIcon,
 	Calendar03Icon,
 	Compass01Icon,
 	FavouriteIcon,
 	Flag02Icon,
 	Location01Icon,
+	SquareLock02Icon,
 	MoreHorizontalIcon,
 	PencilEdit02Icon,
 	PlusSignIcon,
@@ -47,6 +49,7 @@ export const ICONS = {
 	rocket: Rocket01Icon,
 	route: Route01Icon,
 	flag: Flag02Icon,
+	chat: BubbleChatIcon,
+	lock: SquareLock02Icon,
 } satisfies Record<string, IconSvgElement>;
 export type IconName = keyof typeof ICONS;
-export const isIconName = (s: string): s is IconName => Object.hasOwn(ICONS, s);

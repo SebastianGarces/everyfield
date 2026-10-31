@@ -8,7 +8,7 @@ import { clamp } from "@/components/motion/curves";
 import { useTicker, useReduced } from "@/components/motion/scene";
 import type { Backdrop as Bg } from "../photo/photos";
 import { SCENES, type PanelKind } from "../scene-data";
-import { DeskBg, DeskPanel, useStepReveal, sel } from "./ScrollChapter";
+import { DeskBg, DeskPanel, useStepReveal, sel } from "./desk";
 
 export type AutoStep = { kind: PanelKind; panel: ReactNode; bg: Bg; title: string; body: string };
 type Props = {
@@ -223,7 +223,7 @@ export function AutoList({ id, head, mirror, steps, tag }: Props) {
 							{tag}
 							{steps.map((st, i) => (
 								<div key={i} aria-hidden="true" className="contents">
-									<DeskPanel sw={c.sw} sel={c.sel} i={i} t={c.t[i]!} since={c.since[i]!} place="auto">
+									<DeskPanel sw={c.sw} sel={c.sel} i={i} t={c.t[i]!} since={c.since[i]!}>
 										{st.panel}
 									</DeskPanel>
 								</div>

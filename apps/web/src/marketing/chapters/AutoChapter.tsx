@@ -7,7 +7,7 @@ import { isPanelKind, type PanelKind } from "../scene-data";
 import { SampleTag } from "../sections/SampleTag";
 import { AutoList, type AutoStep } from "./AutoList";
 
-type Id = "intelligence" | "every-plant" | "leaders" | "network-intelligence";
+type Id = "every-plant" | "leaders" | "network-intelligence";
 type Def = {
 	title: string;
 	lead?: string;
@@ -31,15 +31,8 @@ function named(chapter: string, steps: { panel: string; title: string; body: str
 }
 
 function defs(id: Id): Def {
-	const S = COPY.shared,
-		O = S.oversight_page;
+	const O = COPY.shared.oversight_page;
 	switch (id) {
-		case "intelligence":
-			return {
-				title: S.intelligence.title,
-				lead: S.intelligence.lead,
-				steps: named(id, S.intelligence.steps, ["mesh:sky", "plain", "plain", "plain"]),
-			};
 		case "every-plant":
 			return { title: O.chapter.title, steps: named(id, O.chapter.steps, ["field", "field", "field", "mesh:sky"]) };
 		// The /oversight chapters alternate sides: plants, leaders (mirrored), then Network Intelligence.
@@ -59,8 +52,8 @@ function defs(id: Id): Def {
 }
 
 /**
- * An auto-advancing chapter: Plant Intelligence on home; "All your plants, in one place", the leader pipeline and
- * Network Intelligence on /oversight. The heading and the tab text are rendered here; AutoList runs the tabs and panels.
+ * An auto-advancing chapter on /oversight: "All your plants, in one place", the leader pipeline and Network
+ * Intelligence. The heading and the tab text are rendered here; AutoList runs the tabs and panels.
  * The page passes its panel elements by kind (it imports only its own panels, so each page ships only those).
  */
 export function AutoChapter({ id, panels }: { id: Id; panels: Partial<Record<PanelKind, ReactNode>> }) {
@@ -78,6 +71,6 @@ export function AutoChapter({ id, panels }: { id: Id; panels: Partial<Record<Pan
 		return { ...s, panel: panels[s.kind] };
 	});
 	// Revision 8: the /oversight chapters show the sample Austin Sending Network, so their pictures carry a caption.
-	const tag = id === "intelligence" ? undefined : <SampleTag className="top-3 left-3 max-mk-cx:top-2" />;
+	const tag = <SampleTag className="top-3 left-3 max-mk-cx:top-2" />;
 	return <AutoList id={id} head={head} mirror={d.mirror} steps={steps} tag={tag} />;
 }

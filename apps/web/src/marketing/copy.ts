@@ -2,6 +2,7 @@ import "server-only";
 import { z } from "zod";
 import raw from "../../../../design/marketing-copy.json";
 import { LIVE_PAGES } from "@/site";
+import { ICONS, type IconName } from "./icons";
 
 // design/marketing-copy.json is the copy authority (task E2 owns it). It is parsed here, at build time,
 // so a shape change fails the build instead of rendering a broken page. Only the fields the live pages read are listed.
@@ -20,6 +21,9 @@ const hero = z.object({
 const headBody = z.object({ headline: text, body: text });
 
 const railItem = z.object({ label: text, title: text, short: text });
+const icon = z.enum(Object.keys(ICONS) as [IconName, ...IconName[]]);
+/** [icon, title, body]: an icon card (the Evry cards and the sending cards on home). */
+const iconCard = z.tuple([icon, text, text]);
 const faqItem = z.object({ id: text, q: text, a: text, link: text.optional() });
 
 const journey = z.object({
@@ -28,17 +32,8 @@ const journey = z.object({
 		hero,
 		problem: headBody,
 		vision: headBody.extend({ bridge: text }),
-		features: z.object({ headline: text, items: z.array(railItem).length(6) }),
-		evry: z.object({
-			headline: text,
-			body: text,
-			limits: text,
-			example: z.object({
-				ask: text,
-				answer: text,
-				review: text.refine((s) => s.split(" · ").length === 3, "review needs three parts"),
-			}),
-		}),
+		features: z.object({ headline: text, items: z.array(railItem).length(6), icons: z.array(icon).length(6) }),
+		evry: z.object({ limits: text }),
 		cta,
 	}),
 });
@@ -111,24 +106,11 @@ const schema = z.object({
 			columns: z.array(z.object({ title: text, links: z.array(text) })),
 			fineprint: text,
 		}),
-		week: z.object({ title: text, steps: z.array(step.extend({ panel: text, icon: text })).length(4) }),
-		intelligence: z.object({ title: text, lead: text, steps: z.array(step.extend({ panel: text })).length(4) }),
-		sending: z.object({ title: text, body: text, link: text }),
+		week: z.object({ title: text, steps: z.array(step).length(4) }),
 		// Caption on the /oversight mockups of the network's data.
 		sample_label: text,
-		// Text that sits inside the product pictures on / and /oversight.
+		// Text that sits inside the product pictures on /oversight.
 		panels: z.object({
-			week_follow_says: text,
-			week_people_line: text,
-			intelligence_focus_title: text,
-			monday_title: text,
-			monday_sub: text,
-			monday_core_label: text,
-			teams_sign_core: text,
-			launch_team_member: text,
-			// Sample rows for the phases rail (one per demo seat). No page states how many ministries a church has.
-			ministry_areas: z.array(text).length(8),
-			share_unshared_status: text,
 			hero_dash_finding: text,
 			hero_dash_attention_label: text,
 			status_watch: text,
@@ -154,6 +136,21 @@ const schema = z.object({
 		access_page: accessPage,
 		privacy_page: legalPage,
 		terms_page: legalPage,
+		// Home copy from the OPS-82 prototype (design/everyfield-marketing.html): the hero eyebrow, the phase cards'
+		// headline, the journey path (the four shared.week steps, then these two), the Evry cards and the sending cards.
+		ops82: z.object({
+			hero_eyebrow: text,
+			features_headline: text,
+			journey: z.object({
+				says: z.array(text).length(6),
+				icons: z.array(icon).length(6),
+				steps: z.array(step).length(2),
+				// The note under the cards sets its first sentence in bold.
+				see_first: text.refine((s) => /^[^.]+\. \S/.test(s), "see_first needs a first sentence"),
+			}),
+			evry: z.object({ headline: text, subhead: text, cards: z.array(iconCard).length(3) }),
+			sending: z.object({ title: text, body: text, link: text, points: z.array(iconCard).length(4) }),
+		}),
 	}),
 	directions: z.tuple([journey], z.unknown()),
 });

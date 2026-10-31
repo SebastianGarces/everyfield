@@ -1,15 +1,18 @@
+import { cn } from "@/components/cn";
 import { Display } from "@/components/Display";
 import { Reveal } from "@/components/motion/Reveal";
 import { Backdrop } from "../photo/Backdrop";
 import type { PhotoName } from "../photo/photos";
 import { PinnedRail } from "./PinnedRail";
 import { SampleTag } from "../sections/SampleTag";
-import { PhaseVignette, PlantVignette, type PhaseDemo } from "./vignettes";
+import type { IconName } from "../icons";
+import { FrostIcon } from "../sections/FrostIcon";
+import { PlantVignette } from "./vignettes";
 
 type Item = { label: string; title: string; body?: string; short?: string };
-/** Home shows the phases with its demo data; /oversight shows the plant cards. */
+/** Home shows the phases, each with a frosted icon box (OPS-82); /oversight shows the plant cards with their vignettes. */
 type Props = { headline: string; items: Item[] } & (
-	{ id: "features"; vignettes: "phases"; demo: PhaseDemo } | { id: "plants"; vignettes: "plants" }
+	{ id: "features"; vignettes: "phases"; icons: readonly IconName[] } | { id: "plants"; vignettes: "plants" }
 );
 
 /* Every card shows its own blurred colorful photo with a cream number (Sebastian, R3 review). None repeats a photo used
@@ -30,7 +33,13 @@ export function PhasesRail(props: Props) {
 	const head = (
 		<div className="mx-auto max-w-mk px-page">
 			<Reveal className="mb-[clamp(28px,3.4vw,48px)] grid grid-cols-12 items-end gap-4 max-mk-sm:mb-[26px]">
-				<Display as="h2" size="h2" id="ph-title" className="col-span-9 max-mk-lg:col-span-12">
+				<Display
+					as="h2"
+					size="h2"
+					id="ph-title"
+					// Home: two lines, as in the prototype, where the h2 is larger.
+					className={cn("col-span-9 max-mk-lg:col-span-12", id === "features" && "max-w-[640px]")}
+				>
 					{headline}
 				</Display>
 			</Reveal>
@@ -59,12 +68,19 @@ export function PhasesRail(props: Props) {
 							>
 								{num(i)}
 							</span>
-							<div
-								aria-hidden="true"
-								className="ef-ui absolute inset-x-0 top-28 mx-auto w-[min(calc(100%-28px),292px)]"
-							>
-								{props.vignettes === "phases" ? <PhaseVignette i={i} demo={props.demo} /> : <PlantVignette i={i} />}
-							</div>
+							{props.vignettes === "phases" ? (
+								<FrostIcon
+									icon={props.icons[i]!}
+									className="absolute bottom-[18px] left-[18px] max-[560px]:size-[60px] max-[560px]:[&_svg]:size-7"
+								/>
+							) : (
+								<div
+									aria-hidden="true"
+									className="ef-ui absolute inset-x-0 top-28 mx-auto w-[min(calc(100%-28px),292px)]"
+								>
+									<PlantVignette i={i} />
+								</div>
+							)}
 						</div>
 						<div className="px-[22px] pt-5 pb-[22px]">
 							<span className="flex items-baseline gap-3 type-sm leading-[1.3] font-semibold tracking-[.09em] uppercase">

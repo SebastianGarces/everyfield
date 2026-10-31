@@ -1,40 +1,41 @@
 import type { ReactNode } from "react";
 import { cn } from "@/components/cn";
 import { Icon } from "@/components/Icon";
-import { Av, CardIcon, NUM, StageChip, type Tone } from "@/components/kit/kit";
+import { Av, CardIcon, NUM, StageChip } from "@/components/kit/kit";
 import { Fade, MoodBot, Move, Target, Tf } from "@/components/motion/fx";
 import { ICONS } from "../icons";
-import { ApproveButton, Draft, HeroStage, Roll, TypedName } from "./hero-fx";
+import { ApproveButton, HeroStage, Roll, Typed, TypedName } from "./hero-fx";
 
-// The home hero: one person, from first contact to the core group. Every stage chip is one of the seven people stages
-// (Prospect, Attendee, Following up, Interviewed, Core group, Launch team, Leader); the last card shows all seven. The cards render on the server; hero-fx.tsx runs the
+// The home hero (OPS-82 prototype): one person, from first contact to the core group. Evry creates a follow-up task for a
+// team member and you approve it; Evry never writes the message. The cards render on the server; hero-fx.tsx runs the
 // clock, the typing, the moving chip and the pause button.
 
-const label = (name: string) =>
-	`Example: ${name} is added, comes to a vision meeting, gets a follow-up that Evry drafted and you approved, is interviewed, commits, and joins the core group.`;
+const label = (name: string, first: string, task: HeroDemo["task"]) =>
+	`Example: ${name} is added and comes to a vision meeting. Evry creates a follow-up task for ${task.assignee}, and you approve it. ${first} commits and joins the core group.`;
 const CARD =
 	"relative col-start-1 row-start-1 w-[min(440px,calc(100%-32px))] px-5 pt-[18px] pb-5 opacity-0 max-mk-sm:w-[calc(100%-24px)] max-mk-sm:px-4 max-mk-sm:pt-4 max-mk-sm:pb-[18px]";
 
-/** Card text the page passes (home/demo.ts): the meeting, the person and the core group count. */
+/** Card text the page passes (home/demo.ts): the meeting, the follow-up task and the person. */
 export type HeroDemo = {
 	meeting: { title: string; sub: string };
-	draftSub: string;
-	peopleTitle: string;
+	/** The task Evry creates: its title (typed in), who it is for and when it is due. */
+	task: { title: string; assignee: string; initials: string; due: string };
 	person: HeroPerson;
 };
-/** core and interviewed: the stage counts before and after the person moves from Interviewed to Core group. */
+/** following and core: the stage counts before and after the person moves from Following up to Core group. */
 type HeroPerson = {
 	name: string;
+	first: string;
 	initials: string;
+	following: readonly [number, number];
 	core: readonly [number, number];
-	interviewed: readonly [number, number];
 };
 
 export function HeroAnimation({ demo }: { demo: HeroDemo }) {
-	const { meeting, person } = demo;
+	const { meeting, task, person } = demo;
 	return (
 		<HeroStage
-			label={label(person.name)}
+			label={label(person.name, person.first, task)}
 			chip={
 				<>
 					<Av>{person.initials}</Av>
@@ -100,17 +101,33 @@ export function HeroAnimation({ demo }: { demo: HeroDemo }) {
 				</St>
 			</Move>
 			<Move fx="card" n={2} className={CARD}>
-				<Head i={2} lead={<MoodBot fx="mood" />} title="Evry drafted a follow-up" sub={demo.draftSub} />
+				<Head
+					i={2}
+					lead={<MoodBot fx="mood" />}
+					title="Evry created a follow-up task"
+					sub={`Assigned to ${task.assignee}. You approve it.`}
+				/>
 				<St i={2} k={1} className="flex items-center gap-2.5 type-sm text-text-3">
-					<span>To</span>
+					<span>For</span>
 					<Slot i={2} person={person} />
 				</St>
+				{/* The follow-up is a task row (ring, title, assignee), not a message. */}
 				<St
 					i={2}
 					k={2}
-					className="relative mt-3 h-[88px] overflow-hidden bg-surface px-[13px] py-[11px] type-md leading-[1.5] text-ink-2 shadow-[inset_0_0_0_1px_var(--color-line)]"
+					className="relative mt-3 grid h-[88px] grid-cols-[auto_1fr] content-start gap-x-2.5 gap-y-1.5 overflow-hidden bg-surface px-[13px] py-[11px] text-left type-md leading-[1.5] text-ink-2 shadow-[inset_0_0_0_1px_var(--color-line)]"
 				>
-					<Draft />
+					<span
+						aria-hidden="true"
+						className="mt-0.5 size-4 rounded-full shadow-[inset_0_0_0_1.6px_var(--color-line-2)]"
+					/>
+					<span className="font-semibold text-ink">
+						<Typed text={task.title} />
+					</span>
+					<span className="col-start-2 inline-flex items-center gap-1.5 type-sm text-text-3">
+						<Av small>{task.initials}</Av>
+						{task.assignee} · {task.due}
+					</span>
 				</St>
 				<St i={2} k={3} className="mt-3.5 flex items-center justify-between gap-2.5">
 					<span className="skeleton block h-2" style={{ width: "28%" }} />
@@ -120,20 +137,20 @@ export function HeroAnimation({ demo }: { demo: HeroDemo }) {
 			<Move fx="card" n={3} className={CARD}>
 				<St i={3} k={0} className="mb-3.5 flex items-center justify-between gap-2.5">
 					<Slot i={3} person={person} />
-					{/* Scene 4: the stage flips from Following up to Interviewed. */}
+					{/* Scene 4: the stage flips from Following up to Committed. */}
 					<span className="inline-grid">
 						<Move as="span" fx="flipA" className="col-start-1 row-start-1 justify-self-end">
 							<StageChip tone="amber">Following up</StageChip>
 						</Move>
 						<Move as="span" fx="flipB" className="col-start-1 row-start-1 justify-self-end">
-							<StageChip tone="violet">Interviewed</StageChip>
+							<StageChip tone="green">Committed</StageChip>
 						</Move>
 					</span>
 				</St>
 				{[
 					[meeting.title, "Attended"],
-					["Follow-up from Evry", "Sent"],
-					["Interview", "Done"],
+					[`${task.assignee.split(" ")[0]}'s follow-up task`, "Done"],
+					["Commitment card", "Signed"],
 				].map((r, k) => (
 					<St key={r[0]} i={3} k={k + 1} className="flex h-11 items-center gap-2.5 border-t border-line">
 						<Move
@@ -159,28 +176,23 @@ export function HeroAnimation({ demo }: { demo: HeroDemo }) {
 				<Head
 					i={4}
 					lead={<CardIcon tone="ink" icon={ICONS.users} size={36} glyph={17} />}
-					title={demo.peopleTitle}
+					title="Where people are"
 					sub="Harvest Point · this week"
 				/>
-				<div className="grid gap-1">
-					{BOARD.map(([tone, stage, count], k) => (
-						<Row
-							key={stage}
-							k={k}
-							chip={<StageChip tone={tone}>{stage}</StageChip>}
-							slot={stage === "Core group" ? <Slot i={4} person={person} /> : undefined}
-							num={
-								stage === "Core group" ? (
-									<Roll a={person.core[0]} b={person.core[1]} p="join" />
-								) : stage === "Interviewed" ? (
-									<Roll a={person.interviewed[0]} b={person.interviewed[1]} p="join" />
-								) : (
-									count
-								)
-							}
-							hl={stage === "Core group"}
-						/>
-					))}
+				<div className="grid gap-3">
+					<Row k={0} chip={<StageChip tone="blue">Attendee</StageChip>} num={ATTENDEES} />
+					<Row
+						k={1}
+						chip={<StageChip tone="amber">Following up</StageChip>}
+						num={<Roll a={person.following[0]} b={person.following[1]} p="join" />}
+					/>
+					<Row
+						k={2}
+						chip={<StageChip tone="green">Core group</StageChip>}
+						slot={<Slot i={4} person={person} />}
+						num={<Roll a={person.core[0]} b={person.core[1]} p="join" />}
+						hl
+					/>
 				</div>
 			</Move>
 		</HeroStage>
@@ -228,7 +240,7 @@ function Kv({ k, label, children }: { k: number; label: string; children: ReactN
 	);
 }
 
-/** Maria's chip as the hidden slot in card i that the moving chip flies to. */
+/** The person's chip as the hidden slot in card i that the moving chip flies to. */
 function Slot({ i, person }: { i: number; person: HeroPerson }) {
 	return (
 		<Target name={"s" + i} className="invisible inline-flex">
@@ -240,53 +252,29 @@ function Slot({ i, person }: { i: number; person: HeroPerson }) {
 	);
 }
 
-/** Scene 5: the seven people stages, in order, with the demo church's counts (they match the Monday overview after
- *  the move). Interviewed and Core group roll as the person moves; hero-fx.tsx fills the meters from the same counts. */
-const BOARD: readonly (readonly [Tone, string, number])[] = [
-	["ink", "Prospect", 82],
-	["blue", "Attendee", 41],
-	["amber", "Following up", 23],
-	["violet", "Interviewed", 15],
-	["green", "Core group", 33],
-	["teal", "Launch team", 12],
-	["ink", "Leader", 8],
-];
-const METER = [
-	"bg-text-3",
-	"bg-blue-500",
-	"bg-amber-500",
-	"bg-violet-500",
-	"bg-green-500",
-	"bg-teal-500",
-	"bg-ink",
-] as const;
-/** One stage: its chip, the person's slot (Core group only), a meter and the count. The core-group row gets a short
- *  highlight. */
-function Row({
-	k,
-	chip,
-	slot,
-	num,
-	hl,
-}: {
-	k: number;
-	chip: ReactNode;
-	slot?: ReactNode;
-	num: ReactNode;
-	hl?: boolean;
-}) {
+/** Scene 5: three people stages with the demo church's counts. Following up and Core group roll as the person moves;
+ *  hero-fx.tsx fills the meters (Attendee 41, Following up 23, Core group 34, out of 50). */
+const ATTENDEES = 41;
+const METER = ["bg-blue-500", "bg-amber-500", "bg-green-500"] as const;
+/** One stage: its chip, the person's slot (Core group only), the count, and a meter under them. The core-group row gets
+ *  a short highlight. */
+function Row({ k, chip, slot, num, hl }: { k: number; chip: ReactNode; slot?: ReactNode; num: ReactNode; hl?: boolean }) {
 	return (
-		<St i={4} k={k + 1} className="relative flex min-h-[26px] items-center gap-2">
+		<St i={4} k={k + 1} className="relative">
 			{hl ? (
-				<Fade fx="hl" className="absolute -inset-x-2.5 -inset-y-0.5 -z-1 bg-green-50 opacity-0 shadow-mk-green-edge" />
+				<Fade
+					fx="hl"
+					className="absolute -inset-x-2.5 -inset-y-1.5 -z-1 bg-green-50 opacity-0 shadow-mk-green-edge"
+				/>
 			) : null}
-			{/* A fixed chip column, so the meters start on one edge. */}
-			<span className="w-[104px] flex-none">{chip}</span>
-			{slot}
-			<span className="relative h-1.5 min-w-4 flex-1 overflow-hidden bg-surface-2">
+			<div className="flex min-h-[30px] items-center gap-2">
+				<span className="flex-none">{chip}</span>
+				{slot}
+				<span className={cn(NUM, "ml-auto font-title type-title-sm")}>{num}</span>
+			</div>
+			<span className="relative mt-1.5 block h-2.5 overflow-hidden bg-surface-2">
 				<Tf fx="meter" n={k} className={cn("absolute inset-0", METER[k])} />
 			</span>
-			<span className={cn(NUM, "w-7 flex-none text-right font-title type-title-sm")}>{num}</span>
 		</St>
 	);
 }

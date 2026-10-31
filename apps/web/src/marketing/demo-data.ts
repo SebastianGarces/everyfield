@@ -1,15 +1,6 @@
 // Demo church data of the product visuals (Server Components render it). Values are copied from the prototype
 // (design/everyfield-marketing.html). Names and numbers belong to a demo church, as in the approved design.
 
-export const HA_DRAFT = "Hi Maria, it was good to have you at the vision meeting. Could we get coffee this week?";
-export const CX_PEOPLE = [
-	["tone-ink", "Prospect", 82, 58, "var(--ef-text-3)"],
-	["tone-blue", "Attendee", 41, 41, "var(--ef-blue-500)"],
-	["tone-amber", "Following up", 23, 23, "var(--ef-amber-500)"],
-	["tone-violet", "Interviewed", 14, 14, "var(--ef-violet-500)"],
-	["tone-green", "Core group", 34, 34, "var(--ef-green-500)"],
-] as const;
-export const CX_TYPES = ["Vision meeting", "Training", "Orientation", "Service run", "Vision meeting"] as const;
 export const SD_SCOPES = [
 	["All plants", 14, 11, 5],
 	["Texas", 12, 10, 5],

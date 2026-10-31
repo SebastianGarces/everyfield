@@ -38,7 +38,10 @@
 	--color-mk-photo-base: #3a3529;
 
 	--spacing-page: clamp(16px, 3vw, 40px);
-	--spacing-section: clamp(72px, 8vw, 120px);
+	/* The space above and below each section (OPS-82 prototype): 160 px on phones, 240 px from 1440 px wide. The plain side
+	   of a full-width photo section takes 1.5 times that, because the photo edge needs more room than text. */
+	--spacing-section: clamp(160px, 16.667vw, 240px);
+	--spacing-section-photo: calc(var(--spacing-section) * 1.5);
 	--container-mk: 1440px;
 
 	/* The prototype's breakpoints. Use them as max-* variants: max-mk-nav is 1120 px and narrower. */
@@ -220,6 +223,15 @@
 	/* Cream text and the ink-backed secondary button on photos (the CTA box). */
 	--color-mk-cream-90: rgb(from var(--color-cream) r g b / 0.9);
 	--color-mk-cream-70: rgb(from var(--color-cream) r g b / 0.7);
+	/* OPS-82 home sections: the frosted icon box, the journey path and the sending tiles on a photo. */
+	--color-mk-cream-26: rgb(from var(--color-cream) r g b / 0.26);
+	--color-mk-cream-42: rgb(from var(--color-cream) r g b / 0.42);
+	--color-mk-cream-45: rgb(from var(--color-cream) r g b / 0.45);
+	--color-mk-cream-78: rgb(from var(--color-cream) r g b / 0.78);
+	--color-mk-cream-92: rgb(from var(--color-cream) r g b / 0.92);
+	--color-mk-ink-26: rgb(from var(--color-ink) r g b / 0.26);
+	--color-mk-ink-62: rgb(from var(--color-ink) r g b / 0.62);
+	--color-mk-canvas-92: rgb(from var(--color-mk-canvas) r g b / 0.92);
 	--color-mk-ink-55: rgb(from var(--color-ink) r g b / 0.55);
 	--color-mk-ink-56: rgb(from var(--color-ink) r g b / 0.56);
 	--color-mk-ink-66: rgb(from var(--color-ink) r g b / 0.66);
@@ -234,6 +246,10 @@
 	--shadow-mk-panel:
 		var(--ui-ring), 0 0 0 1px var(--color-mk-ink-05), 0 1px 2px var(--color-mk-ink-05),
 		0 26px 50px -26px var(--color-mk-ink-40);
+	--shadow-mk-frost: inset 0 0 0 1px var(--color-mk-cream-42);
+	--shadow-mk-frost-tile: inset 0 0 0 1px var(--color-mk-cream-26);
+	--shadow-mk-stop: 0 18px 36px -18px rgb(from var(--color-ink) r g b / 0.7);
+	--shadow-mk-say: 0 16px 32px -18px rgb(from var(--color-ink) r g b / 0.65);
 	--shadow-mk-panel-flat: var(--ui-ring), 0 0 0 1px var(--color-mk-ink-05), 0 26px 50px -26px var(--color-mk-ink-40);
 	--shadow-mk-hero-card:
 		var(--ui-ring), 0 0 0 1px rgb(from var(--color-mk-card-shade) r g b / 0.06),
@@ -523,6 +539,15 @@
 		rgba(0, 0, 0, 0.85) calc(var(--a) + var(--d) * 0.9),
 		#000 calc(var(--a) + var(--d))
 	);
+}
+
+/* A full-width photo section carries data-photo-section. Its neighbours take the photo space on the side that touches
+   it (the prototype's --mk-section-space-photo rules). Unlayered, so it wins over each section's py-section. */
+section:has(+ [data-photo-section]) {
+	padding-bottom: var(--spacing-section-photo);
+}
+[data-photo-section] + section {
+	padding-top: var(--spacing-section-photo);
 }
 
 /* A scene that is off screen or paused marks its root with data-idle: its CSS loops stop too. */
