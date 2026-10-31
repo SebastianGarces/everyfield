@@ -2810,6 +2810,138 @@ test("INV-design-route: a design task owns only design/, waits after the verifie
 	}
 });
 
+const PROTOTYPE_APPROVAL = { quote: "Evry is good to go", approvedAt: "2026-10-31T17:07:00Z" };
+
+/** A design task whose branch changes the prototype under the given registration, pushed with its PR at that head. */
+function prototypeFixture(next: Record<string, unknown>) {
+	const f = mergeFixture({ owningPaths: ["design/"], route: "design" });
+	const cfg = JSON.parse(readFileSync(join(f.wt, "evf.config.json"), "utf8"));
+	cfg.maintenanceTasks[f.taskRef.id] = { ...cfg.maintenanceTasks[f.taskRef.id], ...next };
+	writeFileSync(join(f.wt, "evf.config.json"), JSON.stringify(cfg));
+	mkdirSync(join(f.wt, "design"), { recursive: true });
+	writeFileSync(join(f.wt, "design/everyfield-ui.html"), "<!-- changed prototype -->\n");
+	execFileSync("git", ["-C", f.wt, "add", "-A"]);
+	execFileSync("git", ["-C", f.wt, "commit", "-qm", "Change the approved prototype"]);
+	const head = execFileSync("git", ["-C", f.wt, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+	f.git("push", "-q", "origin", f.taskRef.branch);
+	const s = f.getState();
+	s.pr = { ...s.pr, ...approvePr("task/ops-1", { headRefOid: head }), files: [{ path: "design/everyfield-ui.html" }] };
+	s.calls = [];
+	f.setState(s);
+	return { ...f, head };
+}
+
+test("INV-prototype-approval: maintenanceScope refuses a malformed prototypeApproval", () => {
+	const refuse = (next: Record<string, unknown>, message: RegExp) => {
+		const f = mergeFixture({ owningPaths: ["design/"], route: "design" });
+		try {
+			const cfg = JSON.parse(readFileSync(join(f.wt, "evf.config.json"), "utf8"));
+			cfg.maintenanceTasks[f.taskRef.id] = { ...cfg.maintenanceTasks[f.taskRef.id], ...next };
+			writeFileSync(join(f.wt, "evf.config.json"), JSON.stringify(cfg));
+			execFileSync("git", ["-C", f.wt, "commit", "-qam", "Change the registration"]);
+			assert.throws(() => requireTaskScope(f.root, f.wt, f.taskRef), message);
+		} finally {
+			f.close();
+		}
+	};
+	refuse(
+		{ route: undefined, owningPaths: ["tools/evf/"], prototypeApproval: PROTOTYPE_APPROVAL },
+		/prototypeApproval.*needs the design route/,
+	);
+	for (const quote of [undefined, 7, "", "  \n"])
+		refuse({ prototypeApproval: { ...PROTOTYPE_APPROVAL, quote } }, /prototypeApproval\.quote/);
+	for (const approvedAt of [
+		"2026-10-31 1:07 PM ET",
+		"2026-10-31T13:07:00-04:00",
+		"2026-13-01T00:00:00Z",
+		"2026-02-30T00:00:00Z",
+		"",
+		undefined,
+	])
+		refuse({ prototypeApproval: { ...PROTOTYPE_APPROVAL, approvedAt } }, /prototypeApproval\.approvedAt/);
+});
+
+test("INV-prototype-approval: evf verify allows the prototype only for the recorded design-route exception", () => {
+	const approved = ["design/everyfield-ui.html"];
+	for (const [label, next, outcome] of [
+		["a", { owningPaths: approved }, /design\/everyfield-ui.html keeps its approved bytes/],
+		["b", { route: undefined, owningPaths: ["tools/evf/"], prototypeApproval: PROTOTYPE_APPROVAL }, /needs the design route/],
+		["c", { owningPaths: ["design/"], prototypeApproval: PROTOTYPE_APPROVAL }, /design\/everyfield-ui.html keeps its approved bytes/],
+		["d", { owningPaths: approved, prototypeApproval: PROTOTYPE_APPROVAL }, undefined],
+	] as const) {
+		const f = prototypeFixture(next);
+		try {
+			let message = "";
+			try {
+				verify(f.root, f.taskRef, "author", "full");
+			} catch (e) {
+				message = String((e as Error).message);
+			}
+			if (outcome) assert.match(message, outcome, label);
+			else assert.doesNotMatch(message, /keeps its approved bytes|prototypeApproval/, label);
+		} finally {
+			f.close();
+		}
+	}
+});
+
+test("INV-prototype-approval: evf approve reads the entry at the PR head", () => {
+	const ask = (f: ReturnType<typeof prototypeFixture>) => () => approve(f.root, 77, { ownerApproval: "Approved for this PR" });
+	const c = prototypeFixture({ owningPaths: ["design/"], prototypeApproval: PROTOTYPE_APPROVAL });
+	try {
+		assert.throws(ask(c), /outside its owning paths or design\/everyfield-ui.html/);
+	} finally {
+		c.close();
+	}
+	const d = prototypeFixture({ owningPaths: ["design/everyfield-ui.html"], prototypeApproval: PROTOTYPE_APPROVAL });
+	try {
+		assert.throws(ask(d), /Missing verifier approval for the exact PR head/);
+	} finally {
+		d.close();
+	}
+});
+
+test("INV-prototype-approval: an approval only in the home checkout does not allow the change", () => {
+	const f = prototypeFixture({ owningPaths: ["design/everyfield-ui.html"] });
+	try {
+		const path = join(f.root, "evf.config.json");
+		const home = JSON.parse(readFileSync(path, "utf8"));
+		home.maintenanceTasks[f.taskRef.id] = {
+			...home.maintenanceTasks[f.taskRef.id],
+			owningPaths: ["design/everyfield-ui.html"],
+			prototypeApproval: PROTOTYPE_APPROVAL,
+		};
+		writeFileSync(path, JSON.stringify(home));
+		assert.throws(() => verify(f.root, f.taskRef, "author", "full"), /keeps its approved bytes/);
+		assert.throws(
+			() => approve(f.root, 77, { ownerApproval: "Approved for this PR" }),
+			/outside its owning paths or design\/everyfield-ui.html/,
+		);
+	} finally {
+		f.close();
+	}
+});
+
+test("INV-prototype-approval: evf ship verifies the approved prototype task and never merges it", () => {
+	const f = prototypeFixture({ owningPaths: ["design/everyfield-ui.html"], prototypeApproval: PROTOTYPE_APPROVAL });
+	try {
+		const s = f.getState();
+		s.comments["77"] = [
+			{
+				body: `Verified the actual tooling behavior.\n\nEVF-Review: ${JSON.stringify({ head: f.head, verifier: VERIFIER, verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`,
+				html_url: "https://github.com/test/private/pull/77#issuecomment-1",
+			},
+		];
+		f.setState(s);
+		assert.equal(ship(f.root, f.taskRef), 0);
+		const calls = f.getState().calls;
+		assert.deepEqual(calls.filter((c: any) => c.args[0] === "pr" && c.args[1] === "merge"), []);
+		assert.ok(calls.some((c: any) => c.args.some((a: string) => a.endsWith(`statuses/${f.head}`)) && c.args.includes("state=success")));
+	} finally {
+		f.close();
+	}
+});
+
 test("INV-copy-overlap: only WP-103 can bypass unordered ownership for its approved copy change", () => {
 	const f = fixture();
 	try {

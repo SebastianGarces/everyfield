@@ -47,6 +47,11 @@ export type MaintenanceScope = {
 	risk?: "ordinary" | "sensitive" | "security" | "privacy" | "irreversible";
 	/** A design task owns only design/ files and merges after the verifier and Sebastian's approval. */
 	route?: "design";
+	/**
+	 * Sebastian's verbatim chat words approving a change to design/everyfield-ui.html, and the ISO 8601 UTC time
+	 * he said them. Only a design-route entry may carry it.
+	 */
+	prototypeApproval?: { quote: string; approvedAt: string };
 };
 
 /** One side of a review: the Claude Code session that did the work, the model it ran and its seat role. */
