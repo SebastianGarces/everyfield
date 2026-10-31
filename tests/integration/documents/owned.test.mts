@@ -104,7 +104,9 @@ const currentOf = async (documentId) =>
 		)
 	).rows[0];
 const endSeat = (accountId) =>
-	admin.execute(sql`UPDATE seat SET ended_at = clock_timestamp() WHERE account_id = ${accountId}::uuid AND ended_at IS NULL`);
+	admin.execute(
+		sql`UPDATE seat SET ended_at = clock_timestamp() WHERE account_id = ${accountId}::uuid AND ended_at IS NULL`,
+	);
 const restoreSeat = (accountId) =>
 	admin.execute(sql`UPDATE seat SET ended_at = NULL WHERE account_id = ${accountId}::uuid`);
 
@@ -192,11 +194,15 @@ before(async () => {
 	);
 	const team = randomUUID();
 	const role = randomUUID();
-	await admin.execute(sql`INSERT INTO team(id,plant_id,name,state,sort_order) VALUES(${team},${P},'Leadership','active',0)`);
+	await admin.execute(
+		sql`INSERT INTO team(id,plant_id,name,state,sort_order) VALUES(${team},${P},'Leadership','active',0)`,
+	);
 	await admin.execute(
 		sql`INSERT INTO team_role(id,plant_id,team_id,name,leadership,sort_order,template_key) VALUES(${role},${P},${team},'Senior Pastor',true,0,'senior_pastor')`,
 	);
-	await admin.execute(sql`INSERT INTO team_tenure(plant_id,role_id,person_id,started_on) VALUES(${P},${role},${pastor},'2026-01-01')`);
+	await admin.execute(
+		sql`INSERT INTO team_tenure(plant_id,role_id,person_id,started_on) VALUES(${P},${role},${pastor},'2026-01-01')`,
+	);
 	await admin.execute(sql`INSERT INTO launch(plant_id,target_date,status) VALUES(${P},'2026-09-14','scheduled')`);
 	foreignMeeting = randomUUID();
 	await admin.execute(
@@ -220,7 +226,9 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 		const owner = await authority(0);
 		const loaded = await library();
 		const gap = loaded.templates.flatMap((template) =>
-			template.mergeFields.filter((field) => field.required && !field.autoFill).map((field) => `${template.id}:${field.key}`),
+			template.mergeFields
+				.filter((field) => field.required && !field.autoFill)
+				.map((field) => `${template.id}:${field.key}`),
 		);
 		assert.deepEqual(gap, []);
 		const card = loaded.templates.find((template) => template.id === "commitment-card");
@@ -238,11 +246,21 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 			"invalid_subject",
 		);
 		refused(
-			await documentsWriter.generate(db, owner, { templateId: card.id, format: "ppt", requestKey: "bad-format" }, storage),
+			await documentsWriter.generate(
+				db,
+				owner,
+				{ templateId: card.id, format: "ppt", requestKey: "bad-format" },
+				storage,
+			),
 			"invalid_input",
 		);
 		refused(
-			await documentsWriter.generate(db, owner, { templateId: "missing-template", format: "pdf", requestKey: "missing" }, storage),
+			await documentsWriter.generate(
+				db,
+				owner,
+				{ templateId: "missing-template", format: "pdf", requestKey: "missing" },
+				storage,
+			),
 			"unavailable",
 		);
 		assert.equal(await countOf("file_object"), filesBefore);
@@ -286,7 +304,12 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 		}
 		// No template offers Word now; the old request is refused with the existing message.
 		const refusal = refused(
-			await documentsWriter.generate(db, owner, { templateId: agenda.id, format: "docx", requestKey: "no-word" }, storage),
+			await documentsWriter.generate(
+				db,
+				owner,
+				{ templateId: agenda.id, format: "docx", requestKey: "no-word" },
+				storage,
+			),
 			"invalid_input",
 		);
 		assert.equal(refusal.details.issues[0].problem, "Format is not on this template.");
@@ -327,28 +350,57 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 
 		const member = await authority(1);
 		const memberFile = ok(
-			await documentsWriter.generate(db, member, { templateId: card.id, format: "pdf", requestKey: "member-pdf" }, storage),
+			await documentsWriter.generate(
+				db,
+				member,
+				{ templateId: card.id, format: "pdf", requestKey: "member-pdf" },
+				storage,
+			),
 		);
 		assert.equal(memberFile.plantId, P);
 		await endSeat(actors[1].id);
-		refused(await documentsWriter.download(db, await authority(1), { documentId: memberFile.id }, storage), "unavailable");
+		refused(
+			await documentsWriter.download(db, await authority(1), { documentId: memberFile.id }, storage),
+			"unavailable",
+		);
 		await restoreSeat(actors[1].id);
-		const memberDownload = ok(await documentsWriter.download(db, await authority(1), { documentId: memberFile.id }, storage));
+		const memberDownload = ok(
+			await documentsWriter.download(db, await authority(1), { documentId: memberFile.id }, storage),
+		);
 		assert.equal(memberDownload.expiresInSeconds, 300);
-		assert.equal(memberDownload.url.includes( (await fileKey(memberFile.id)).opaque_key ), true);
+		assert.equal(memberDownload.url.includes((await fileKey(memberFile.id)).opaque_key), true);
 
 		const other = await authority(3);
 		const otherFile = ok(
-			await documentsWriter.generate(db, other, { templateId: card.id, format: "pdf", requestKey: "other-pdf" }, storage),
+			await documentsWriter.generate(
+				db,
+				other,
+				{ templateId: card.id, format: "pdf", requestKey: "other-pdf" },
+				storage,
+			),
 		);
 		assert.equal(otherFile.plantId, Q);
 		refused(await documentsWriter.download(db, other, { documentId: saved.pdf.made.id }, storage), "unavailable");
-		refused(await documentsWriter.generate(db, await authority(4), { templateId: card.id, format: "pdf", requestKey: "account" }, storage), "unavailable");
+		refused(
+			await documentsWriter.generate(
+				db,
+				await authority(4),
+				{ templateId: card.id, format: "pdf", requestKey: "account" },
+				storage,
+			),
+			"unavailable",
+		);
 		refused(await documentsWriter.download(db, owner, { documentId: randomUUID() }, storage), "unavailable");
 
 		const listed = ok(await documentsWriter["history.list"](db, owner, {}));
-		assert.equal(listed.entries.some((entry) => entry.id === saved.pdf.made.id), true);
-		assert.equal(listed.entries.every((entry) => entry.plantId === P), true);
+		assert.equal(
+			listed.entries.some((entry) => entry.id === saved.pdf.made.id),
+			true,
+		);
+		assert.equal(
+			listed.entries.every((entry) => entry.plantId === P),
+			true,
+		);
 		const one = ok(await documentsWriter["history.get"](db, owner, { documentId: saved.pdf.made.id }));
 		assert.equal(one.digest, saved.pdf.made.digest);
 		refused(await documentsWriter["history.get"](db, owner, { documentId: randomUUID() }), "unavailable");
@@ -367,7 +419,10 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 		`);
 		const capped = ok(await documentsWriter["history.list"](db, owner, {}));
 		assert.equal(capped.entries.length, 100);
-		assert.equal(await countOf("generated_document", `WHERE tenant_id = '${P}' AND request_key IS NULL`) >= 100, true);
+		assert.equal(
+			(await countOf("generated_document", `WHERE tenant_id = '${P}' AND request_key IS NULL`)) >= 100,
+			true,
+		);
 
 		const expired = randomUUID();
 		const fresh = randomUUID();
@@ -384,7 +439,8 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 		`);
 		const cleaned = ok(await documentsWriter.reconcileOrphans(db, storage));
 		assert.equal(cleaned.purged >= 2, true);
-		const stateOf = async (id) => (await admin.execute(sql`SELECT state FROM file_object WHERE id = ${id}::uuid`)).rows[0].state;
+		const stateOf = async (id) =>
+			(await admin.execute(sql`SELECT state FROM file_object WHERE id = ${id}::uuid`)).rows[0].state;
 		assert.equal(await stateOf(expired), "purged");
 		assert.equal(await stateOf(orphan), "purged");
 		assert.equal(await stateOf(fresh), "pending");
@@ -402,12 +458,28 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 	test("AC:CASE-DOC-016 AC:SCHEMA-008 AC:WIKI52-003 one owner, unsafe imports stay out, and the church copy survives purge", async () => {
 		const owner = await authority(0);
 		const member = await authority(1);
-		refused(await documentsWriter.saveNative(db, member, { title: "No", body: "Member text", expectedRevision: "0" }), "unavailable");
-		refused(await documentsWriter.saveNative(db, owner, { title: "Empty", body: "   ", expectedRevision: "0" }), "invalid_input");
+		refused(
+			await documentsWriter.saveNative(db, member, { title: "No", body: "Member text", expectedRevision: "0" }),
+			"unavailable",
+		);
+		refused(
+			await documentsWriter.saveNative(db, owner, { title: "Empty", body: "   ", expectedRevision: "0" }),
+			"invalid_input",
+		);
 		const race = ok(await documentsWriter.saveNative(db, owner, { title: "Race", body: "one", expectedRevision: "0" }));
 		const pair = await Promise.all([
-			documentsWriter.saveNative(db, owner, { title: "Race", body: "two", documentId: race.id, expectedRevision: race.revision }),
-			documentsWriter.saveNative(db, owner, { title: "Race", body: "three", documentId: race.id, expectedRevision: race.revision }),
+			documentsWriter.saveNative(db, owner, {
+				title: "Race",
+				body: "two",
+				documentId: race.id,
+				expectedRevision: race.revision,
+			}),
+			documentsWriter.saveNative(db, owner, {
+				title: "Race",
+				body: "three",
+				documentId: race.id,
+				expectedRevision: race.revision,
+			}),
 		]);
 		assert.deepEqual(pair.map((item) => item.status).sort(), ["ok", "refused"]);
 		const lost = pair.find((item) => item.status === "refused");
@@ -415,11 +487,21 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 		assert.equal(lost.error.retry, "refresh");
 
 		const values = ok(
-			await documentsWriter.saveNative(db, owner, { title: "Core values", body: "We serve our community.", expectedRevision: "0" }),
+			await documentsWriter.saveNative(db, owner, {
+				title: "Core values",
+				body: "We serve our community.",
+				expectedRevision: "0",
+			}),
 		);
 		const listed = ok(await documentsWriter.listOwned(db, member, {}));
-		assert.equal(listed.documents.some((item) => item.id === values.id), true);
-		assert.equal(listed.documents.some((item) => item.title === "Title only"), false);
+		assert.equal(
+			listed.documents.some((item) => item.id === values.id),
+			true,
+		);
+		assert.equal(
+			listed.documents.some((item) => item.title === "Title only"),
+			false,
+		);
 		const read = ok(await documentsWriter.getAuthorized(db, member, { documentId: values.id }));
 		assert.equal(read.body, "We serve our community.");
 		refused(
@@ -432,48 +514,90 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 			"conflict",
 		);
 
-		const emptyDoc = ok(await documentsWriter.saveNative(db, owner, { title: "Empty shell", body: "temp", expectedRevision: "0" }));
+		const emptyDoc = ok(
+			await documentsWriter.saveNative(db, owner, { title: "Empty shell", body: "temp", expectedRevision: "0" }),
+		);
 		const emptyRevision = randomUUID();
 		await admin.execute(sql`
 			INSERT INTO document_revision (id, tenant_id, document_id, version_number, body, content_hash, recorded_at)
 			VALUES (${emptyRevision}::uuid, ${P}::uuid, ${emptyDoc.id}::uuid, 2, '   ', ${sha("   ")}, clock_timestamp())
 		`);
-		await admin.execute(sql`UPDATE document SET current_revision_id = ${emptyRevision}::uuid WHERE id = ${emptyDoc.id}::uuid`);
+		await admin.execute(
+			sql`UPDATE document SET current_revision_id = ${emptyRevision}::uuid WHERE id = ${emptyDoc.id}::uuid`,
+		);
 		refused(
-			await documentsWriter.designateCoreValues(db, owner, { documentId: emptyDoc.id, expectedRevision: emptyDoc.revision }),
+			await documentsWriter.designateCoreValues(db, owner, {
+				documentId: emptyDoc.id,
+				expectedRevision: emptyDoc.revision,
+			}),
 			"unavailable",
 		);
 		assert.equal((await currentOf(emptyDoc.id)).kind, "native");
-		const failedDoc = ok(await documentsWriter.saveNative(db, owner, { title: "Failed import", body: "kept", expectedRevision: "0" }));
+		const failedDoc = ok(
+			await documentsWriter.saveNative(db, owner, { title: "Failed import", body: "kept", expectedRevision: "0" }),
+		);
 		const failedRevision = randomUUID();
 		await admin.execute(sql`
 			INSERT INTO document_revision (id, tenant_id, document_id, version_number, body, content_hash, import_state, recorded_at)
 			VALUES (${failedRevision}::uuid, ${P}::uuid, ${failedDoc.id}::uuid, 2, 'kept', ${sha("kept")}, 'failed', clock_timestamp())
 		`);
-		await admin.execute(sql`UPDATE document SET current_revision_id = ${failedRevision}::uuid WHERE id = ${failedDoc.id}::uuid`);
+		await admin.execute(
+			sql`UPDATE document SET current_revision_id = ${failedRevision}::uuid WHERE id = ${failedDoc.id}::uuid`,
+		);
 		refused(
-			await documentsWriter.designateCoreValues(db, owner, { documentId: failedDoc.id, expectedRevision: failedDoc.revision }),
+			await documentsWriter.designateCoreValues(db, owner, {
+				documentId: failedDoc.id,
+				expectedRevision: failedDoc.revision,
+			}),
 			"unavailable",
 		);
 
 		const designated = ok(
-			await documentsWriter.designateCoreValues(db, owner, { documentId: values.id, expectedRevision: values.revision }),
+			await documentsWriter.designateCoreValues(db, owner, {
+				documentId: values.id,
+				expectedRevision: values.revision,
+			}),
 		);
 		assert.equal(designated.kind, "core_values");
 		const evidence = ok(await documentsWriter.readCoreValuesEvidence(db, member, {}));
 		assert.equal(evidence.documentId, values.id);
 		assert.equal(evidence.text, "We serve our community.");
-		const archived = ok(await documentsWriter.archive(db, owner, { documentId: values.id, expectedRevision: designated.revision }));
+		const archived = ok(
+			await documentsWriter.archive(db, owner, { documentId: values.id, expectedRevision: designated.revision }),
+		);
 		assert.equal(archived.archived, true);
-		const archivedAudits = await countOf("audit_event", `WHERE action = 'documents.archived' AND subject_id = '${values.id}'`);
-		const again = ok(await documentsWriter.archive(db, owner, { documentId: values.id, expectedRevision: archived.revision }));
+		const archivedAudits = await countOf(
+			"audit_event",
+			`WHERE action = 'documents.archived' AND subject_id = '${values.id}'`,
+		);
+		const again = ok(
+			await documentsWriter.archive(db, owner, { documentId: values.id, expectedRevision: archived.revision }),
+		);
 		assert.equal(again.archived, true);
-		assert.equal(await countOf("audit_event", `WHERE action = 'documents.archived' AND subject_id = '${values.id}'`), archivedAudits);
-		refused(await documentsWriter.archive(db, owner, { documentId: values.id, expectedRevision: designated.revision }), "conflict");
-		assert.deepEqual(ok(await documentsWriter.readCoreValuesEvidence(db, member, {})), { documentId: null, text: null });
-		refused(await documentsWriter.archive(db, member, { documentId: values.id, expectedRevision: archived.revision }), "unavailable");
+		assert.equal(
+			await countOf("audit_event", `WHERE action = 'documents.archived' AND subject_id = '${values.id}'`),
+			archivedAudits,
+		);
+		refused(
+			await documentsWriter.archive(db, owner, { documentId: values.id, expectedRevision: designated.revision }),
+			"conflict",
+		);
+		assert.deepEqual(ok(await documentsWriter.readCoreValuesEvidence(db, member, {})), {
+			documentId: null,
+			text: null,
+		});
+		refused(
+			await documentsWriter.archive(db, member, { documentId: values.id, expectedRevision: archived.revision }),
+			"unavailable",
+		);
 
-		const kept = ok(await documentsWriter.saveNative(db, owner, { title: "Imported", body: "Keep this text.", expectedRevision: "0" }));
+		const kept = ok(
+			await documentsWriter.saveNative(db, owner, {
+				title: "Imported",
+				body: "Keep this text.",
+				expectedRevision: "0",
+			}),
+		);
 		const rejects = [
 			["text", Buffer.from("   ").toString("base64")],
 			["text", Buffer.from("hello\u0000").toString("base64")],
@@ -496,7 +620,14 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 				await documentsWriter.importTextOrWord(
 					db,
 					owner,
-					{ title: "Imported", format, bytes, documentId: kept.id, expectedRevision: kept.revision, requestKey: `bad-${format}-${bytes.length}` },
+					{
+						title: "Imported",
+						format,
+						bytes,
+						documentId: kept.id,
+						expectedRevision: kept.revision,
+						requestKey: `bad-${format}-${bytes.length}`,
+					},
 					storage,
 				),
 				"invalid_input",
@@ -507,7 +638,13 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 			await documentsWriter.importTextOrWord(
 				db,
 				owner,
-				{ title: "From Word", format: "docx", bytes: docx("We serve our community."), expectedRevision: "0", requestKey: "docx-1" },
+				{
+					title: "From Word",
+					format: "docx",
+					bytes: docx("We serve our community."),
+					expectedRevision: "0",
+					requestKey: "docx-1",
+				},
 				storage,
 			),
 		);
@@ -516,7 +653,13 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 			await documentsWriter.importTextOrWord(
 				db,
 				owner,
-				{ title: "From Word", format: "docx", bytes: docx("We serve our community."), expectedRevision: "0", requestKey: "docx-1" },
+				{
+					title: "From Word",
+					format: "docx",
+					bytes: docx("We serve our community."),
+					expectedRevision: "0",
+					requestKey: "docx-1",
+				},
 				storage,
 			),
 		);
@@ -534,7 +677,14 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 			await documentsWriter.importTextOrWord(
 				db,
 				owner,
-				{ title: "From Word", format: "docx", bytes: docx("We serve our community."), documentId: imported.id, expectedRevision: edited.revision, requestKey: "docx-1" },
+				{
+					title: "From Word",
+					format: "docx",
+					bytes: docx("We serve our community."),
+					documentId: imported.id,
+					expectedRevision: edited.revision,
+					requestKey: "docx-1",
+				},
 				storage,
 			),
 			"conflict",
@@ -544,13 +694,26 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 
 		const privateOwner = await authority(4);
 		const secret = ok(
-			await documentsWriter.saveNative(db, privateOwner, { title: "Private", body: "Only for me", expectedRevision: "0" }),
+			await documentsWriter.saveNative(db, privateOwner, {
+				title: "Private",
+				body: "Only for me",
+				expectedRevision: "0",
+			}),
 		);
 		assert.equal(secret.tenantId, actors[4].id);
-		assert.equal(ok(await documentsWriter.listOwned(db, owner, {})).documents.some((item) => item.id === secret.id), false);
+		assert.equal(
+			ok(await documentsWriter.listOwned(db, owner, {})).documents.some((item) => item.id === secret.id),
+			false,
+		);
 		refused(await documentsWriter.read(db, owner, { documentId: secret.id }), "unavailable");
 		const beforeCopy = await countOf("document", `WHERE tenant_id = '${P}'`);
-		refused(await documentsWriter.useForChurch(db, owner, { documentId: secret.id, revisionId: (await currentOf(secret.id)).revision_id }), "unavailable");
+		refused(
+			await documentsWriter.useForChurch(db, owner, {
+				documentId: secret.id,
+				revisionId: (await currentOf(secret.id)).revision_id,
+			}),
+			"unavailable",
+		);
 		assert.equal(await countOf("document", `WHERE tenant_id = '${P}'`), beforeCopy);
 
 		await endSeat(actors[0].id);
@@ -569,11 +732,17 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 		const planted = await authority(0);
 		assert.equal(planted.actor.context.kind, "seat");
 		refused(
-			await documentsWriter.useForChurch(db, member, { documentId: sourceDoc.id, revisionId: sourceRevision.revision_id }),
+			await documentsWriter.useForChurch(db, member, {
+				documentId: sourceDoc.id,
+				revisionId: sourceRevision.revision_id,
+			}),
 			"unavailable",
 		);
 		const copy = ok(
-			await documentsWriter.useForChurch(db, planted, { documentId: sourceDoc.id, revisionId: sourceRevision.revision_id }),
+			await documentsWriter.useForChurch(db, planted, {
+				documentId: sourceDoc.id,
+				revisionId: sourceRevision.revision_id,
+			}),
 		);
 		assert.equal(copy.tenantId, P);
 		assert.equal(copy.body, "We serve our community.");
@@ -589,7 +758,10 @@ describe("WP-037/api generated files and owned documents", { concurrency: 1 }, (
 			}),
 		);
 		await restoreSeat(actors[0].id);
-		assert.equal(ok(await documentsWriter.read(db, await authority(2), { documentId: copy.id })).body, "We serve our community.");
+		assert.equal(
+			ok(await documentsWriter.read(db, await authority(2), { documentId: copy.id })).body,
+			"We serve our community.",
+		);
 
 		const generated = ok(
 			await documentsWriter.generate(

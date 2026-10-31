@@ -36,12 +36,12 @@ export const BOARD_MINUTES_BODY: ChurchBlock[] = [
 	{ kind: "heading", text: "Approval of the last minutes" },
 	{
 		kind: "paragraph",
-		text: "The board read the minutes of the meeting held on [date of the last meeting]. The board [approved them as written, approved them with these changes: describe the changes, or did not approve them].",
+		text: "The board read the minutes of the meeting held on [date of the last meeting]. The board [approved them as written, approved them with changes, or did not approve them].",
 	},
 	{ kind: "heading", text: "Financial report" },
 	{
 		kind: "paragraph",
-		text: "[Name of the person who reported] gave the financial report for [period]. The board [accepted the report or asked for these changes: describe the changes]. Attach the report to these minutes.",
+		text: "[Name of the person who reported] gave the financial report for [period]. The board [accepted the report or asked for changes]. Attach the report to these minutes.",
 	},
 	{ kind: "heading", text: "Conflicts of interest disclosed" },
 	{
@@ -63,7 +63,7 @@ export const BOARD_MINUTES_BODY: ChurchBlock[] = [
 		text: "Write each motion in its own entry. Copy the entry for each additional motion.",
 	},
 	{
-		kind: "numbered_list",
+		kind: "bulleted_list",
 		items: [
 			"Motion: [what the board decided to do]",
 			"Moved by: [name]",
