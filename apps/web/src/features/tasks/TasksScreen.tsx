@@ -343,9 +343,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 	const shownId = useRef(openId);
 	const open = (id: string) => {
 		warm(id);
-		if (id !== openId) {
-			leaveForm(id);
-		}
+		if (id !== openId) leaveForm(id);
 		shownId.current = id;
 		setOpenId(id);
 		address(id);

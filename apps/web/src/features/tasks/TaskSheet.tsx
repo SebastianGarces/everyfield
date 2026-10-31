@@ -433,8 +433,7 @@ function Loading() {
 /**
  * What was recorded on a follow-up, newest first: the outcome, how, the note, who and when, with corrected and withdrawn
  * entries kept (REQ-MTG-022). The first page comes with the panel's own read, so it paints with the rest of the panel.
- * A page that did not load is read again on request, so the panel never needs closing. The screen reads it again in
- * the background each time the panel opens, so an outcome recorded on the call screen shows with no page reload.
+ * A page that did not load is read again on request, so the panel never needs closing.
  */
 function ContactHistorySection({
 	personId,
