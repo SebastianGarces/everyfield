@@ -112,7 +112,7 @@
 		"limit": 4
 	},
 	"POST documents.saveChurchDocument": {
-		"limit": 3
+		"limit": 2
 	},
 	"POST people.updatePerson": {
 		"limit": 3
