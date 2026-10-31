@@ -3,6 +3,7 @@
 use crate::{git, herdr, store, timefmt};
 use chrono::{DateTime, Utc};
 use ratatui::crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
@@ -39,20 +40,86 @@ pub enum Focus {
     Main,
 }
 
+/// The stage a task is in now, as the EXPLORER groups it. The order here is the order on screen.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
+pub enum Group {
+    Queued,
+    Plan,
+    Implement,
+    Simplify,
+    Pr,
+    Verify,
+    Ci,
+    Ship,
+    AwaitingOwner,
+    NeedsPick,
+    Escalated,
+    #[default]
+    Other,
+}
+
+impl Group {
+    pub const ALL: [Group; 12] = [
+        Group::Queued,
+        Group::Plan,
+        Group::Implement,
+        Group::Simplify,
+        Group::Pr,
+        Group::Verify,
+        Group::Ci,
+        Group::Ship,
+        Group::AwaitingOwner,
+        Group::NeedsPick,
+        Group::Escalated,
+        Group::Other,
+    ];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Group::Queued => "queued",
+            Group::Plan => "plan",
+            Group::Implement => "implement",
+            Group::Simplify => "simplify",
+            Group::Pr => "pr",
+            Group::Verify => "verify",
+            Group::Ci => "ci",
+            Group::Ship => "ship",
+            Group::AwaitingOwner => "awaiting owner",
+            Group::NeedsPick => "needs pick",
+            Group::Escalated => "escalated",
+            Group::Other => "other",
+        }
+    }
+}
+
 /// What the explorer selection narrows the table and feed to.
 #[derive(Clone, PartialEq, Eq, Debug, Default)]
 pub enum Scope {
     #[default]
     All,
-    Mode(String),
+    Group(Group),
     Task(i64),
 }
+
+/// Roles that run in a Herdr pane. Any other role (`evf`) is evf itself working a stage and has no pane by design.
+pub const SEAT_ROLES: [&str; 8] = [
+    "planner",
+    "implementer",
+    "ui",
+    "simplifier",
+    "verifier",
+    "ideator",
+    "comparer",
+    "prototype-merger",
+];
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Row {
     pub task_id: i64,
     pub run_id: Option<i64>,
-    pub mode: String,
+    pub group: Group,
+    /// Older rows of the same ref, shown as `+N` after the label.
+    pub extra: usize,
     /// First row of a task group carries the task label; the seats below it leave the column blank.
     pub first: bool,
     pub task: String,
@@ -134,40 +201,117 @@ fn task_needs_you(task: &store::Task) -> bool {
     matches!(task.status.as_str(), "awaiting_pick" | "escalated")
 }
 
-/// A merged task with no seat stays on screen this long after its last update, as `merged_24h` counts it.
+/// A merged task shows in TABLE this long after its `merged` event, as `merged_24h` counts it. The time of the
+/// event, not `updated_at`, which any later store write refreshes.
 const MERGED_VISIBLE_HOURS: i64 = 24;
 
 fn recently_merged(task: &store::Task, now: DateTime<Utc>) -> bool {
     task.status == "merged"
-        && timefmt::parse(&task.updated_at)
+        && task
+            .merged_at
+            .as_deref()
+            .and_then(timefmt::parse)
             .is_some_and(|at| now - at < chrono::Duration::hours(MERGED_VISIBLE_HOURS))
 }
 
+/// One task per ref: the latest row by id that is not abandoned. Older rows of the ref add `+N`, not a row.
+pub fn current_tasks(snap: &store::Snapshot) -> Vec<&store::Task> {
+    let mut latest: HashMap<&str, i64> = HashMap::new();
+    for t in snap.tasks.iter().filter(|t| t.status != "abandoned") {
+        let id = latest.entry(t.label()).or_insert(t.id);
+        *id = (*id).max(t.id);
+    }
+    snap.tasks
+        .iter()
+        .filter(|t| t.status != "abandoned" && latest.get(t.label()) == Some(&t.id))
+        .collect()
+}
+
+fn is_seat_role(role: &str) -> bool {
+    SEAT_ROLES.contains(&role)
+}
+
+/// Verified and waiting on Sebastian: the PR is open, no seat works on it, and the latest event is the drive's
+/// owner-approval wait or a drive stopped inside its ship stage (the coordinator holding the ship).
+fn is_held(task: &store::Task, seats: &[&store::Seat]) -> bool {
+    task.status == "pr_open"
+        && !seats.iter().any(|s| is_seat_role(&s.role))
+        && match task.last_event.as_deref() {
+            Some("owner_approval_wait") => true,
+            Some("drive_stopped") => task.stage.as_deref() == Some("ship"),
+            _ => false,
+        }
+}
+
+fn seats_of<'a>(snap: &'a store::Snapshot, task: &store::Task) -> Vec<&'a store::Seat> {
+    snap.seats.iter().filter(|s| s.task_id == task.id).collect()
+}
+
+/// The EXPLORER group of an open task.
+pub fn group_of(snap: &store::Snapshot, task: &store::Task) -> Group {
+    match task.status.as_str() {
+        "new" | "specced" => return Group::Queued,
+        "awaiting_pick" => return Group::NeedsPick,
+        "escalated" => return Group::Escalated,
+        _ => {}
+    }
+    if is_held(task, &seats_of(snap, task)) {
+        return Group::AwaitingOwner;
+    }
+    match task.stage.as_deref() {
+        Some("plan") => Group::Plan,
+        Some("implement") => Group::Implement,
+        Some("simplify") => Group::Simplify,
+        Some("pr") => Group::Pr,
+        Some("verify") => Group::Verify,
+        Some("ci") => Group::Ci,
+        Some("ship") => Group::Ship,
+        _ => Group::Other,
+    }
+}
+
 /// One row per running seat under its task, plus one row for every open task with no seat (a gate or a wait)
-/// and for every task that merged in the last day. Merged rows are never open and never need you.
+/// and for every task that merged in the last day. Merged rows are never open and never need you. A ref shows
+/// once, as its latest row.
 pub fn build_rows(snap: &store::Snapshot, herdr: &herdr::State, now: DateTime<Utc>) -> Vec<Row> {
     let mut rows = Vec::new();
-    for task in &snap.tasks {
-        let seats: Vec<&store::Seat> = snap.seats.iter().filter(|s| s.task_id == task.id).collect();
-        if !task.is_open() && seats.is_empty() && !recently_merged(task, now) {
+    for task in current_tasks(snap) {
+        let seats = seats_of(snap, task);
+        let merged = recently_merged(task, now);
+        if !task.is_open() && !merged {
             continue;
         }
+        let held = is_held(task, &seats);
+        let group = group_of(snap, task);
+        let extra = (task.ref_rows - 1).max(0) as usize;
         let gate = gate_of(task);
         let proof = format!("{}/{}", task.proofs_met, task.proofs_total);
-        if seats.is_empty() {
-            let state = match task.status.as_str() {
-                "awaiting_pick" => "needs pick",
-                "escalated" => "escalated",
-                "pr_open" => "pr open",
-                "merged" => "merged",
-                "new" | "specced" => task.status.as_str(),
-                _ => "no seat",
+        if merged || seats.is_empty() || held {
+            let state = if merged {
+                "merged"
+            } else if held {
+                "awaiting owner"
+            } else {
+                match task.status.as_str() {
+                    "awaiting_pick" => "needs pick",
+                    "escalated" => "escalated",
+                    "pr_open" => "pr open",
+                    "new" | "specced" => task.status.as_str(),
+                    _ => "no seat",
+                }
             };
-            let at = task.last_event_at.as_deref().unwrap_or(&task.updated_at);
+            let at = if merged {
+                task.merged_at.as_deref()
+            } else {
+                None
+            }
+            .or(task.last_event_at.as_deref())
+            .unwrap_or(&task.updated_at);
             rows.push(Row {
                 task_id: task.id,
                 run_id: None,
-                mode: task.mode.clone(),
+                group,
+                extra,
                 first: true,
                 task: task.label().to_string(),
                 stage: task.stage.clone().unwrap_or_else(|| "-".into()),
@@ -179,7 +323,7 @@ pub fn build_rows(snap: &store::Snapshot, herdr: &herdr::State, now: DateTime<Ut
                 proof,
                 gate,
                 now: format!("{} · {}", task.status, timefmt::ago(at, now)),
-                needs_you: task_needs_you(task),
+                needs_you: !merged && (task_needs_you(task) || held),
                 working: false,
                 herdr_agent: None,
                 workspace: task.herdr_workspace_id.clone(),
@@ -187,15 +331,23 @@ pub fn build_rows(snap: &store::Snapshot, herdr: &herdr::State, now: DateTime<Ut
             continue;
         }
         for (i, seat) in seats.iter().enumerate() {
-            let agent = seat
-                .session_id
-                .as_deref()
-                .and_then(|s| herdr.by_session(s))
-                .or_else(|| seat.herdr_agent.as_deref().and_then(|n| herdr.by_name(n)));
-            let state = match agent {
-                Some(a) => a.status.clone(),
-                None if herdr.error.is_some() && herdr.agents.is_empty() => "herdr?".into(),
-                None => "no pane".into(),
+            // evf runs its own stages: such a run has no session, no pane and no Herdr agent by design.
+            let agent = if is_seat_role(&seat.role) {
+                seat.session_id
+                    .as_deref()
+                    .and_then(|s| herdr.by_session(s))
+                    .or_else(|| seat.herdr_agent.as_deref().and_then(|n| herdr.by_name(n)))
+            } else {
+                None
+            };
+            let state = if !is_seat_role(&seat.role) {
+                format!("{} {}", seat.role, seat.stage)
+            } else {
+                match agent {
+                    Some(a) => a.status.clone(),
+                    None if herdr.error.is_some() && herdr.agents.is_empty() => "herdr?".into(),
+                    None => "no pane".into(),
+                }
             };
             let at = seat.last_event_at.as_deref().unwrap_or(&seat.started_at);
             let blocked = state == "blocked";
@@ -210,16 +362,11 @@ pub fn build_rows(snap: &store::Snapshot, herdr: &herdr::State, now: DateTime<Ut
                     .unwrap_or_else(|| "started".into())
             };
             let working = state == "working";
-            // The task merged but a seat is still open: its task row says merged, not the seat's Herdr status.
-            let state = if i == 0 && task.status == "merged" {
-                "merged".to_string()
-            } else {
-                state
-            };
             rows.push(Row {
                 task_id: task.id,
                 run_id: Some(seat.run_id),
-                mode: task.mode.clone(),
+                group,
+                extra,
                 first: i == 0,
                 task: task.label().to_string(),
                 stage: seat.stage.clone(),
@@ -250,14 +397,14 @@ pub fn summarize(rows: &[Row], snap: &store::Snapshot) -> Summary {
         seats: rows.iter().filter(|r| r.run_id.is_some()).count(),
         working: rows.iter().filter(|r| r.working).count(),
         needs_you: rows.iter().filter(|r| r.needs_you).count(),
-        open_tasks: snap.tasks.iter().filter(|t| t.is_open()).count(),
+        open_tasks: current_tasks(snap).iter().filter(|t| t.is_open()).count(),
     }
 }
 
 /// The human gates and blocked seats, each with the command that clears it.
 pub fn attention(snap: &store::Snapshot, rows: &[Row]) -> Vec<Attention> {
     let mut out = Vec::new();
-    for task in snap.tasks.iter().filter(|t| t.is_open()) {
+    for task in current_tasks(snap).into_iter().filter(|t| t.is_open()) {
         let label = task.label();
         match task.status.as_str() {
             "awaiting_pick" => out.push(Attention {
@@ -268,7 +415,18 @@ pub fn attention(snap: &store::Snapshot, rows: &[Row]) -> Vec<Attention> {
                 what: format!("{label} escalated after {LOOP_CAP} rounds"),
                 command: format!("evf status {label}"),
             }),
-            _ => {}
+            _ => {
+                if group_of(snap, task) == Group::AwaitingOwner {
+                    let pr = task
+                        .pr_number
+                        .map(|n| n.to_string())
+                        .unwrap_or_else(|| "<PR>".into());
+                    out.push(Attention {
+                        what: format!("{label} PR #{pr} waits for Sebastian's approval"),
+                        command: format!("evf approve {pr} --owner-approval \"<his words>\""),
+                    });
+                }
+            }
         }
     }
     for row in rows.iter().filter(|r| r.state == "blocked") {
@@ -299,6 +457,8 @@ pub struct App {
     pub recent_sel: usize,
     pub explorer_sel: usize,
     pub scope: Scope,
+    /// The `queued` group is collapsed by default: its rows hide under `all tasks` until `z` opens it.
+    pub queued_open: bool,
     pub filter: String,
     pub editing_filter: bool,
     pub detail: Option<(store::Detail, u16)>,
@@ -325,6 +485,7 @@ impl App {
             recent_sel: 0,
             explorer_sel: 0,
             scope: Scope::All,
+            queued_open: false,
             filter: String::new(),
             editing_filter: false,
             detail: None,
@@ -380,11 +541,32 @@ impl App {
         fields.iter().any(|f| f.to_lowercase().contains(&needle))
     }
 
-    fn in_scope(&self, task_id: Option<i64>, mode: Option<&str>) -> bool {
+    /// The group of the task a row or event belongs to; an event of an older row follows its ref's current row.
+    fn group_of_task(&self, task_id: Option<i64>) -> Option<Group> {
+        let snap = self.snapshot.as_ref()?;
+        let label = snap.task(task_id?)?.label();
+        let current = current_tasks(snap)
+            .into_iter()
+            .find(|t| t.label() == label)?;
+        Some(group_of(snap, current))
+    }
+
+    fn in_scope(&self, task_id: Option<i64>) -> bool {
         match &self.scope {
             Scope::All => true,
-            Scope::Mode(m) => mode == Some(m.as_str()),
+            Scope::Group(g) => self.group_of_task(task_id) == Some(*g),
             Scope::Task(id) => task_id == Some(*id),
+        }
+    }
+
+    /// Queued tasks that `all tasks` hides while the queued group is collapsed.
+    pub fn queued_hidden(&self) -> usize {
+        match (&self.snapshot, self.queued_open, &self.scope) {
+            (Some(snap), false, Scope::All) => current_tasks(snap)
+                .iter()
+                .filter(|t| t.is_open() && group_of(snap, t) == Group::Queued)
+                .count(),
+            _ => 0,
         }
     }
 
@@ -393,9 +575,15 @@ impl App {
         let Some(snap) = &self.snapshot else {
             return Vec::new();
         };
+        let hide_queued = self.scope == Scope::All && !self.queued_open;
         let mut rows: Vec<Row> = build_rows(snap, &self.herdr, Utc::now())
             .into_iter()
-            .filter(|r| self.in_scope(Some(r.task_id), Some(&r.mode)))
+            .filter(|r| !(hide_queued && r.group == Group::Queued))
+            .filter(|r| match &self.scope {
+                Scope::All => true,
+                Scope::Group(g) => r.group == *g,
+                Scope::Task(id) => r.task_id == *id,
+            })
             .filter(|r| {
                 self.matches(&[
                     &r.task, &r.seat, &r.stage, &r.state, &r.model, &r.gate, &r.now,
@@ -429,10 +617,9 @@ impl App {
         let Some(snap) = &self.snapshot else {
             return Vec::new();
         };
-        let mode_of = |id: Option<i64>| id.and_then(|i| snap.task(i)).map(|t| t.mode.clone());
         snap.recent
             .iter()
-            .filter(|e| self.in_scope(e.task_id, mode_of(e.task_id).as_deref()))
+            .filter(|e| self.in_scope(e.task_id))
             .filter(|e| {
                 self.matches(&[
                     e.task_label(),
@@ -454,21 +641,29 @@ impl App {
         let Some(snap) = &self.snapshot else {
             return items;
         };
-        for mode in ["implement", "prototype", "write-article"] {
-            let tasks: Vec<&store::Task> = snap
-                .tasks
+        let current: Vec<(&store::Task, Group)> = current_tasks(snap)
+            .into_iter()
+            .filter(|t| t.is_open())
+            .map(|t| (t, group_of(snap, t)))
+            .collect();
+        for group in Group::ALL {
+            let tasks: Vec<&store::Task> = current
                 .iter()
-                .filter(|t| t.mode == mode && (t.is_open() || t.active_seats > 0))
+                .filter(|(_, g)| *g == group)
+                .map(|(t, _)| *t)
                 .collect();
             if tasks.is_empty() {
                 continue;
             }
             items.push(ExplorerItem {
-                label: mode.into(),
+                label: group.label().into(),
                 depth: 1,
-                scope: Scope::Mode(mode.into()),
-                count: tasks.iter().map(|t| t.active_seats as usize).sum(),
+                scope: Scope::Group(group),
+                count: tasks.len(),
             });
+            if group == Group::Queued && !self.queued_open {
+                continue;
+            }
             for t in tasks {
                 items.push(ExplorerItem {
                     label: t.label().to_string(),
@@ -661,6 +856,10 @@ impl App {
                 Focus::Explorer => self.focus = Focus::Main,
                 Focus::Main => self.open_detail(),
             },
+            KeyCode::Char('z') => {
+                self.queued_open = !self.queued_open;
+                self.table_sel = 0;
+            }
             KeyCode::Char('t') => self.focus_selected(),
             _ => {}
         }
@@ -696,13 +895,17 @@ impl App {
         out.push('\n');
         let rows = self.rows();
         out.push_str(&format!(
-            "{:<12} {:<9} {:<26} {:<12} {:<6} {:<9} {:<5} {:<5} {:<10} NOW\n",
+            "{:<14} {:<9} {:<26} {:<12} {:<6} {:<14} {:<5} {:<5} {:<10} NOW\n",
             "TASK", "STAGE", "SEAT", "MODEL", "EFFORT", "STATE", "ROUND", "PROOF", "GATE"
         ));
         for r in &rows {
             out.push_str(&format!(
-                "{:<12} {:<9} {:<26} {:<12} {:<6} {:<9} {:<5} {:<5} {:<10} {}\n",
-                if r.first { r.task.as_str() } else { "" },
+                "{:<14} {:<9} {:<26} {:<12} {:<6} {:<14} {:<5} {:<5} {:<10} {}\n",
+                if r.first {
+                    crate::ui::task_cell(&r.task, r.extra)
+                } else {
+                    String::new()
+                },
                 r.stage,
                 r.seat,
                 r.model,
@@ -714,8 +917,23 @@ impl App {
                 r.now
             ));
         }
+        if self.queued_hidden() > 0 {
+            out.push_str(&format!(
+                "queued {} hidden (z opens them)\n",
+                self.queued_hidden()
+            ));
+        }
         for a in self.attention() {
             out.push_str(&format!("needs you: {} -> {}\n", a.what, a.command));
+        }
+        out.push_str("explorer:\n");
+        for item in self.explorer() {
+            out.push_str(&format!(
+                "  {}{} {}\n",
+                "  ".repeat(item.depth as usize - item.depth.min(1) as usize),
+                item.label,
+                item.count
+            ));
         }
         out
     }
@@ -735,6 +953,40 @@ mod tests {
         herdr::parse(crate::herdr::tests::SAMPLE).unwrap()
     }
 
+    fn add_task(db: &rusqlite::Connection, slug: &str, status: &str, pr: Option<i64>) -> i64 {
+        db.execute(
+            "INSERT INTO tasks (slug, mode, ref, status, round, pr_number, created_at, updated_at) VALUES (?1, 'implement', upper(?1), ?2, 0, ?3, '2026-10-27T20:00:00.000Z', '2026-10-27T20:00:00.000Z')",
+            rusqlite::params![slug, status, pr],
+        )
+        .unwrap();
+        db.last_insert_rowid()
+    }
+
+    fn event(db: &rusqlite::Connection, task: i64, run: Option<i64>, kind: &str, ts: &str) {
+        db.execute(
+            "INSERT INTO events (task_id, run_id, ts, type, payload) VALUES (?1, ?2, ?3, ?4, '{}')",
+            rusqlite::params![task, run, ts, kind],
+        )
+        .unwrap();
+    }
+
+    fn run(
+        db: &rusqlite::Connection,
+        task: i64,
+        stage: &str,
+        role: &str,
+        session: Option<&str>,
+        status: &str,
+        started: &str,
+    ) -> i64 {
+        db.execute(
+            "INSERT INTO runs (task_id, stage, role, round, session_id, status, started_at) VALUES (?1, ?2, ?3, 0, ?4, ?5, ?6)",
+            rusqlite::params![task, stage, role, session, status, started],
+        )
+        .unwrap();
+        db.last_insert_rowid()
+    }
+
     #[test]
     fn rows_join_seats_to_herdr_by_session_and_show_gates() {
         let store = TempStore::new();
@@ -750,6 +1002,8 @@ mod tests {
             [],
         )
         .unwrap();
+        let merged_task = db.last_insert_rowid();
+        event(&db, merged_task, None, "merged", "2026-10-27T18:30:00.000Z");
         let snap = store::read(&store::open(&store.path).unwrap()).unwrap();
         let rows = build_rows(&snap, &herdr_state(), now());
         assert_eq!(
@@ -788,28 +1042,358 @@ mod tests {
     }
 
     #[test]
-    fn merged_tasks_show_for_a_day_and_never_count_as_open_or_needing_you() {
+    fn merged_tasks_show_for_a_day_after_the_merge_event_and_never_count_as_open_or_needing_you() {
         let store = TempStore::new();
         let db = store.writer();
-        // The test clock is 2026-10-27T20:15Z.
-        for (slug, status, updated) in [
-            ("wp-310", "merged", "2026-10-27T19:45:00.000Z"),
-            ("wp-311", "merged", "2026-10-25T20:15:00.000Z"),
-        ] {
-            db.execute(
-                "INSERT INTO tasks (slug, mode, ref, status, round, pr_number, created_at, updated_at) VALUES (?1, 'implement', upper(?1), ?2, 0, 7, ?3, ?3)",
-                rusqlite::params![slug, status, updated],
-            )
-            .unwrap();
-        }
+        // The test clock is 2026-10-27T20:15Z. Both rows were updated 15 minutes ago; only the merge time differs.
+        let recent = add_task(&db, "wp-310", "merged", Some(7));
+        event(&db, recent, None, "merged", "2026-10-27T19:15:00.000Z");
+        let old = add_task(&db, "wp-311", "merged", Some(8));
+        event(&db, old, None, "merged", "2026-10-24T20:15:00.000Z");
+        add_task(&db, "wp-312", "merged", Some(9)); // no merged event: unknown time, hidden
         let snap = store::read(&store::open(&store.path).unwrap()).unwrap();
         let rows = build_rows(&snap, &herdr_state(), now());
-        assert_eq!(rows.len(), 1, "merged 2 days ago is hidden: {rows:?}");
+        assert_eq!(rows.len(), 1, "merged 3 days ago is hidden: {rows:?}");
         assert_eq!(rows[0].task, "WP-310");
         assert_eq!(rows[0].state, "merged");
         assert_eq!(rows[0].gate, "PR #7");
+        assert!(!rows[0].needs_you);
         let summary = summarize(&rows, &snap);
         assert_eq!((summary.needs_you, summary.open_tasks), (0, 0));
+    }
+
+    #[test]
+    fn an_evf_run_never_shows_no_pane_and_a_seat_without_a_pane_does() {
+        let store = TempStore::new();
+        let db = store.writer();
+        let ship = add_task(&db, "ops-85", "pr_open", Some(388));
+        run(
+            &db,
+            ship,
+            "ship",
+            "evf",
+            None,
+            "started",
+            "2026-10-27T20:10:00.000Z",
+        );
+        let verify = add_task(&db, "wp-400", "active", None);
+        run(
+            &db,
+            verify,
+            "verify",
+            "verifier",
+            Some("99999999-9999-4999-8999-999999999999"),
+            "started",
+            "2026-10-27T20:10:00.000Z",
+        );
+        let snap = store::read(&store::open(&store.path).unwrap()).unwrap();
+        let rows = build_rows(&snap, &herdr_state(), now());
+        let evf = rows.iter().find(|r| r.task == "OPS-85").unwrap();
+        assert_eq!(evf.state, "evf ship");
+        assert!(!evf.needs_you && !evf.working && evf.herdr_agent.is_none());
+        assert_eq!(
+            crate::ui::state_style_for_test(&evf.state),
+            ratatui::style::Style::new()
+        );
+        let seat = rows.iter().find(|r| r.task == "WP-400").unwrap();
+        assert_eq!(seat.state, "no pane");
+        assert_eq!(
+            crate::ui::state_style_for_test(&seat.state),
+            ratatui::style::Style::new().fg(ratatui::style::Color::Red)
+        );
+        // Herdr down: an evf run still names its stage; the seat reads herdr?.
+        let down = herdr::State {
+            error: Some("herdr down".into()),
+            ..Default::default()
+        };
+        let rows = build_rows(&snap, &down, now());
+        assert_eq!(
+            rows.iter().find(|r| r.task == "OPS-85").unwrap().state,
+            "evf ship"
+        );
+        assert_eq!(
+            rows.iter().find(|r| r.task == "WP-400").unwrap().state,
+            "herdr?"
+        );
+    }
+
+    #[test]
+    fn a_ref_shows_once_as_its_latest_row_with_a_count_of_the_older_ones() {
+        let store = TempStore::new();
+        let db = store.writer();
+        let first = add_task(&db, "wp-097", "merged", Some(386));
+        event(&db, first, None, "merged", "2026-10-26T10:00:00.000Z");
+        let second = add_task(&db, "wp-097", "merged", Some(394));
+        event(&db, second, None, "merged", "2026-10-27T19:00:00.000Z");
+        let third = add_task(&db, "wp-097", "escalated", None);
+        let ghost = add_task(&db, "wp-097", "abandoned", None);
+        assert!(ghost > third);
+        let snap = store::read(&store::open(&store.path).unwrap()).unwrap();
+        let rows = build_rows(&snap, &herdr_state(), now());
+        assert_eq!(rows.len(), 1, "{rows:?}");
+        assert_eq!(rows[0].task_id, third);
+        assert_eq!(rows[0].state, "escalated");
+        assert_eq!(rows[0].extra, 2);
+        assert_eq!(
+            crate::ui::task_cell(&rows[0].task, rows[0].extra),
+            "WP-097 +2"
+        );
+        assert_eq!(summarize(&rows, &snap).open_tasks, 1);
+        // The detail lists the other rows, newest first, with their PR and merge time.
+        let detail = store::detail(&store::open(&store.path).unwrap(), third).unwrap();
+        assert_eq!(
+            detail
+                .older
+                .iter()
+                .map(|o| (o.id, o.status.as_str(), o.pr_number, o.merged_at.is_some()))
+                .collect::<Vec<_>>(),
+            [
+                (second, "merged", Some(394), true),
+                (first, "merged", Some(386), true)
+            ]
+        );
+    }
+
+    #[test]
+    fn a_task_held_for_the_owner_shows_awaiting_owner_and_needs_you() {
+        let store = TempStore::new();
+        let db = store.writer();
+        // Trigger 1: the drive recorded the owner-approval wait.
+        let wait = add_task(&db, "ops-85", "pr_open", Some(388));
+        run(
+            &db,
+            wait,
+            "ship",
+            "evf",
+            None,
+            "passed",
+            "2026-10-27T20:00:00.000Z",
+        );
+        event(
+            &db,
+            wait,
+            None,
+            "owner_approval_wait",
+            "2026-10-27T20:01:00.000Z",
+        );
+        // Trigger 2: the drive stopped inside ship.
+        let held = add_task(&db, "ops-86", "pr_open", Some(389));
+        let r = run(
+            &db,
+            held,
+            "ship",
+            "evf",
+            None,
+            "aborted",
+            "2026-10-27T20:00:00.000Z",
+        );
+        event(
+            &db,
+            held,
+            Some(r),
+            "drive_stopped",
+            "2026-10-27T20:01:00.000Z",
+        );
+        // A drive stopped inside ci, and a PR whose latest event is a passed ci, are not held.
+        let ci = add_task(&db, "ops-87", "pr_open", Some(390));
+        let r = run(
+            &db,
+            ci,
+            "ci",
+            "evf",
+            None,
+            "aborted",
+            "2026-10-27T20:00:00.000Z",
+        );
+        event(
+            &db,
+            ci,
+            Some(r),
+            "drive_stopped",
+            "2026-10-27T20:01:00.000Z",
+        );
+        let passed = add_task(&db, "ops-88", "pr_open", Some(391));
+        let r = run(
+            &db,
+            passed,
+            "ci",
+            "evf",
+            None,
+            "passed",
+            "2026-10-27T20:00:00.000Z",
+        );
+        event(
+            &db,
+            passed,
+            Some(r),
+            "stage_end",
+            "2026-10-27T20:01:00.000Z",
+        );
+        let snap = store::read(&store::open(&store.path).unwrap()).unwrap();
+        let rows = build_rows(&snap, &herdr_state(), now());
+        let row = |t: &str| rows.iter().find(|r| r.task == t).unwrap();
+        for (task, pr) in [("OPS-85", "PR #388"), ("OPS-86", "PR #389")] {
+            assert_eq!(row(task).state, "awaiting owner", "{task}");
+            assert_eq!(row(task).gate, pr);
+            assert!(row(task).needs_you);
+        }
+        assert_eq!(row("OPS-87").state, "pr open");
+        assert_eq!(row("OPS-88").state, "pr open");
+        assert!(!row("OPS-87").needs_you && !row("OPS-88").needs_you);
+        assert_eq!(summarize(&rows, &snap).needs_you, 2);
+        assert_eq!(
+            crate::ui::state_style_for_test("awaiting owner"),
+            ratatui::style::Style::new()
+                .fg(ratatui::style::Color::Yellow)
+                .add_modifier(ratatui::style::Modifier::BOLD)
+        );
+        let needs = attention(&snap, &rows);
+        assert_eq!(needs.len(), 2);
+        assert!(needs
+            .iter()
+            .any(|n| n.command == "evf approve 388 --owner-approval \"<his words>\""));
+        // A verifier seat still working on the PR means it is not held.
+        run(
+            &db,
+            wait,
+            "verify",
+            "verifier",
+            None,
+            "started",
+            "2026-10-27T20:05:00.000Z",
+        );
+        let snap = store::read(&store::open(&store.path).unwrap()).unwrap();
+        let rows = build_rows(&snap, &herdr_state(), now());
+        assert!(rows
+            .iter()
+            .filter(|r| r.task == "OPS-85")
+            .all(|r| r.state != "awaiting owner"));
+    }
+
+    fn loaded(db_path: &std::path::Path) -> App {
+        let mut app = App::new(db_path.to_path_buf(), "/nonexistent/herdr".into());
+        let mut reader = store::Reader::new(db_path.to_path_buf());
+        app.handle(Msg::Store(reader.poll().unwrap()));
+        app.handle(Msg::Herdr(herdr_state()));
+        app
+    }
+
+    #[test]
+    fn the_explorer_groups_current_tasks_by_stage_in_order_and_filters_the_table() {
+        let store = TempStore::new();
+        let db = store.writer();
+        let impl_t = add_task(&db, "wp-501", "active", None);
+        run(
+            &db,
+            impl_t,
+            "implement",
+            "implementer",
+            None,
+            "passed",
+            "2026-10-27T19:00:00.000Z",
+        );
+        let verify_t = add_task(&db, "wp-502", "pr_open", Some(12));
+        run(
+            &db,
+            verify_t,
+            "verify",
+            "verifier",
+            None,
+            "passed",
+            "2026-10-27T19:00:00.000Z",
+        );
+        let held = add_task(&db, "wp-503", "pr_open", Some(13));
+        run(
+            &db,
+            held,
+            "ship",
+            "evf",
+            None,
+            "passed",
+            "2026-10-27T19:00:00.000Z",
+        );
+        event(
+            &db,
+            held,
+            None,
+            "owner_approval_wait",
+            "2026-10-27T19:05:00.000Z",
+        );
+        let queued = add_task(&db, "wp-504", "new", None);
+        add_task(&db, "wp-504", "new", None); // a second row of the same ref adds no task
+        let merged = add_task(&db, "wp-505", "merged", Some(14));
+        event(&db, merged, None, "merged", "2026-10-27T19:30:00.000Z");
+        let mut app = loaded(&store.path);
+        app.queued_open = true;
+        let labels: Vec<(String, usize)> = app
+            .explorer()
+            .into_iter()
+            .filter(|i| i.depth == 1)
+            .map(|i| (i.label, i.count))
+            .collect();
+        assert_eq!(
+            labels,
+            [
+                ("queued".to_string(), 1),
+                ("implement".to_string(), 1),
+                ("verify".to_string(), 1),
+                ("awaiting owner".to_string(), 1)
+            ],
+            "empty groups and merged tasks are absent"
+        );
+        let _ = queued;
+        app.scope = Scope::Group(Group::Verify);
+        assert_eq!(
+            app.rows()
+                .iter()
+                .map(|r| r.task.as_str())
+                .collect::<Vec<_>>(),
+            ["WP-502"]
+        );
+        app.scope = Scope::Group(Group::AwaitingOwner);
+        assert_eq!(app.rows()[0].task, "WP-503");
+        app.scope = Scope::All;
+        // rows() reads the real clock, where the merge of 2026-10-27 is older than a day: only the open tasks show.
+        assert_eq!(app.rows().len(), 4);
+    }
+
+    #[test]
+    fn the_queued_group_is_collapsed_by_default_and_z_toggles_it() {
+        let store = TempStore::new();
+        let db = store.writer();
+        let active = add_task(&db, "wp-601", "active", None);
+        run(
+            &db,
+            active,
+            "implement",
+            "implementer",
+            None,
+            "passed",
+            "2026-10-27T19:00:00.000Z",
+        );
+        for slug in ["ops-86", "ops-87", "ops-88"] {
+            add_task(&db, slug, "new", None);
+        }
+        let mut app = loaded(&store.path);
+        assert!(!app.queued_open, "collapsed by default");
+        assert_eq!(app.rows().len(), 1, "queued rows hide under all tasks");
+        assert_eq!(app.queued_hidden(), 3);
+        let labels = |app: &App| {
+            app.explorer()
+                .into_iter()
+                .map(|i| i.label)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(labels(&app), ["all tasks", "queued", "implement", "WP-601"]);
+        let z = Msg::Input(Event::Key(KeyEvent::from(KeyCode::Char('z'))));
+        app.handle(z);
+        assert!(app.queued_open);
+        assert_eq!(app.rows().len(), 4);
+        assert_eq!(app.queued_hidden(), 0);
+        assert!(labels(&app).contains(&"OPS-86".to_string()));
+        app.handle(Msg::Input(Event::Key(KeyEvent::from(KeyCode::Char('z')))));
+        assert_eq!(app.rows().len(), 1);
+        assert!(app.plain_report().contains("queued 3 hidden"));
     }
 
     #[test]
@@ -837,7 +1421,9 @@ mod tests {
         };
         // Herdr still says blocked: the summary and needs_you stay.
         let blocked = row(&herdr_state());
-        assert!(blocked.now.starts_with("verifier-wp-102 is blocked on a prompt"));
+        assert!(blocked
+            .now
+            .starts_with("verifier-wp-102 is blocked on a prompt"));
         assert!(blocked.needs_you);
         // The prompt is gone and the seat works: no blocked text, no needs_you.
         let mut state = herdr_state();
@@ -926,10 +1512,10 @@ mod tests {
         let items = app.explorer();
         assert_eq!(
             items.iter().map(|i| i.label.as_str()).collect::<Vec<_>>(),
-            ["all tasks", "implement", "WP-101", "prototype", "WP-200"]
+            ["all tasks", "implement", "WP-101", "needs pick", "WP-200"]
         );
         app.handle(press('j'));
-        assert_eq!(app.scope, Scope::Mode("implement".into()));
+        assert_eq!(app.scope, Scope::Group(Group::Implement));
         assert_eq!(app.rows().len(), 1);
         app.handle(press('j'));
         app.handle(press('j'));

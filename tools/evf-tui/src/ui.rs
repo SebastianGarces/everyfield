@@ -48,11 +48,18 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
 fn state_style(state: &str) -> Style {
     match state {
         "working" => GOOD,
-        "blocked" | "escalated" | "needs pick" => WARN.add_modifier(Modifier::BOLD),
-        "idle" | "done" => DIM,
+        "blocked" | "escalated" | "needs pick" | "awaiting owner" => {
+            WARN.add_modifier(Modifier::BOLD)
+        }
+        "idle" | "done" | "merged" => DIM,
         "no pane" | "herdr?" => BAD,
         _ => Style::new(),
     }
+}
+
+#[cfg(test)]
+pub fn state_style_for_test(state: &str) -> Style {
+    state_style(state)
 }
 
 fn draw_header(frame: &mut Frame, area: Rect, app: &App) {
@@ -90,6 +97,11 @@ fn draw_header(frame: &mut Frame, area: Rect, app: &App) {
             format!("herdr {} agents", app.herdr.agents.len()),
             DIM,
         )),
+    }
+    let hidden = app.queued_hidden();
+    if hidden > 0 {
+        spans.push(Span::styled(" · ", DIM));
+        spans.push(Span::styled(format!("queued {hidden} hidden"), WARN));
     }
     if !app.filter.is_empty() || app.editing_filter {
         spans.push(Span::styled(" · /", DIM));
@@ -156,6 +168,15 @@ fn draw_explorer(frame: &mut Frame, area: Rect, app: &App) {
     frame.render_stateful_widget(list, area, &mut state);
 }
 
+/// The task label, with `+N` when N older rows of the same ref sit behind it.
+pub fn task_cell(task: &str, extra: usize) -> String {
+    if extra > 0 {
+        format!("{task} +{extra}")
+    } else {
+        task.to_string()
+    }
+}
+
 fn main_block(title: &str, focused: bool) -> Block<'static> {
     Block::bordered()
         .title(Span::styled(
@@ -206,7 +227,7 @@ fn draw_table(frame: &mut Frame, area: Rect, app: &App) {
             TableRow::new(vec![
                 Cell::from(Span::styled(
                     if r.first {
-                        r.task.clone()
+                        task_cell(&r.task, r.extra)
                     } else {
                         String::new()
                     },
@@ -239,12 +260,12 @@ fn draw_table(frame: &mut Frame, area: Rect, app: &App) {
     let table = Table::new(
         table_rows,
         [
-            Constraint::Length(12),
+            Constraint::Length(14),
             Constraint::Length(9),
             Constraint::Length(26),
             Constraint::Length(12),
             Constraint::Length(6),
-            Constraint::Length(9),
+            Constraint::Length(14),
             Constraint::Length(5),
             Constraint::Length(5),
             Constraint::Length(10),
@@ -431,7 +452,7 @@ fn draw_footer(frame: &mut Frame, area: Rect, app: &App) {
     } else if app.detail.is_some() {
         " j/k scroll · t term · Esc close".to_string()
     } else {
-        " ↑↓/jk move · Tab pane · Enter detail · 1-3 tabs · / filter · t term · ? help · q quit"
+        " ↑↓/jk move · Tab pane · Enter detail · 1-3 tabs · / filter · z queued · t term · ? help · q quit"
             .to_string()
     };
     frame.render_widget(Paragraph::new(text).style(DIM), area);
@@ -521,6 +542,32 @@ fn draw_detail(frame: &mut Frame, area: Rect, app: &App) {
             Span::raw(timefmt::stamp_et(&t.updated_at)),
         ]));
     }
+    if !detail.older.is_empty() {
+        lines.push(Line::default());
+        lines.push(Line::from(Span::styled(
+            format!("OLDER ROWS OF THIS REF ({})", detail.older.len()),
+            Style::new().bold().fg(Color::Blue),
+        )));
+        for o in &detail.older {
+            lines.push(Line::from(vec![
+                Span::raw(format!("  row {:<5} ", o.id)),
+                Span::raw(format!("{:<10} ", o.status)),
+                Span::raw(format!(
+                    "{:<8} ",
+                    o.pr_number
+                        .map(|n| format!("#{n}"))
+                        .unwrap_or_else(|| "-".into())
+                )),
+                Span::styled(
+                    o.merged_at
+                        .as_deref()
+                        .map(|m| format!("merged {}", timefmt::stamp_et(m)))
+                        .unwrap_or_else(|| "not merged".into()),
+                    DIM,
+                ),
+            ]));
+        }
+    }
     lines.push(Line::default());
     lines.push(Line::from(Span::styled(
         "ASK",
@@ -606,6 +653,10 @@ fn draw_help(frame: &mut Frame, area: Rect) {
             "task detail: ask, spec, proof rows (explorer: jump to the table)",
         ),
         ("/", "filter rows by text; Esc clears"),
+        (
+            "z",
+            "open or collapse the queued group (hidden under all tasks while collapsed)",
+        ),
         ("Esc", "clear the filter, then the explorer scope"),
         (
             "t",
