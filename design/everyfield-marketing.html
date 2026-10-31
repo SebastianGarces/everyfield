@@ -102,7 +102,8 @@
   --mk-hero-extra: 56px; /* Revision 23: the hero panel's extra width on each side of the nav column, on wide screens */
   --mk-gutter: 16px;
   --mk-page-pad: clamp(16px, 3vw, 40px);
-  --mk-section-space: clamp(72px, 8vw, 120px);
+  --mk-section-space: clamp(96px, 10vw, 144px); /* OPS-82 owner review (Oct 30): more space between every section; was clamp(72px, 8vw, 120px) */
+  --mk-section-space-photo: calc(var(--mk-section-space) * 1.5); /* plain side of a full-width photo section: the photo edge needs more room than text does */
   --mk-measure: 58ch;
 
   --mk-border-card: 1px solid rgba(24, 29, 25, .06);
@@ -405,6 +406,8 @@ h1, h2, h3, h4 { margin: 0; font-weight: inherit; }
 [id] { scroll-margin-top: 88px; }
 .wrap { max-width: var(--mk-max-width); margin: 0 auto; padding: 0 var(--mk-page-pad); }
 .sec { padding: var(--mk-section-space) 0; position: relative; }
+.sec:has(+ .sec.photo) { padding-bottom: var(--mk-section-space-photo); }
+.sec.photo + .sec { padding-top: var(--mk-section-space-photo); }
 .display { font-family: var(--mk-font-display); font-weight: var(--mk-weight-display); letter-spacing: var(--mk-tracking-display); line-height: var(--mk-lh-display); font-stretch: var(--mk-display-stretch); text-wrap: balance; }
 .h-hero { font-size: var(--mk-fs-hero); }
 .h1 { font-size: var(--mk-fs-h1); }
