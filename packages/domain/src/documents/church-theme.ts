@@ -24,7 +24,7 @@ export const NEUTRAL_EXPORT_THEME: ExportTheme = {
 };
 
 /** Width over height of a PNG or JPEG. Null when the bytes are neither. */
-export function imageAspect(bytes: Uint8Array): number | null {
+function imageAspect(bytes: Uint8Array): number | null {
 	const b = Buffer.from(bytes);
 	if (b.length > 24 && b.readUInt32BE(0) === 0x89504e47) {
 		const w = b.readUInt32BE(16);

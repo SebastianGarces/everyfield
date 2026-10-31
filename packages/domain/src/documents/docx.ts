@@ -25,7 +25,7 @@ const escape = (value: string) =>
 		.replace(/"/g, "&quot;");
 const hex = (color: string) => color.replace("#", "").toUpperCase();
 
-export type DocxInput = {
+type DocxInput = {
 	template: ChurchTemplate;
 	body: readonly ChurchBlock[];
 	church: string;

@@ -45,7 +45,7 @@ export const SLOT_BLANK_NOTE =
 	"Not filled in yet. Your church or its sending network adds this text. It stays blank until then.";
 
 /** How a merge value with no source reads in the text. It is never an invented name. */
-export const blankFor = (key: string) => `[${(MERGE_FIELDS.find((f) => f.key === key)?.label ?? key).toLowerCase()}]`;
+const blankFor = (key: string) => `[${(MERGE_FIELDS.find((f) => f.key === key)?.label ?? key).toLowerCase()}]`;
 
 /** Revision 1 of a Church Document: each `{key}` token replaced once, in one pass. */
 export function resolveTokens(text: string, values: Record<string, string | null>) {

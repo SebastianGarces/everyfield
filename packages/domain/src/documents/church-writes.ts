@@ -90,7 +90,7 @@ function churchFrom(row: ChurchRow, tenantId: string) {
 }
 
 /** The current state of one Church Document, as a reader sees it. One statement. */
-export async function readChurch(db: Database, scope: Scope, documentId: string, admin = false) {
+async function readChurch(db: Database, scope: Scope, documentId: string, admin = false) {
 	const found = await rowsOf<ChurchRow & { ok: boolean }>(
 		db,
 		sql`SELECT g.ok, d.id, d.template_id, d.template_version, d.document_class, d.use_church_branding, d.title,

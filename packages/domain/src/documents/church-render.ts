@@ -5,7 +5,7 @@ import { churchDocument } from "./layouts/church-doc.tsx";
 import { RenderFailed, renderContext, renderPdfElement, unsafe } from "./render.ts";
 import type { ChurchTemplate } from "./templates/church.ts";
 
-export type ChurchRender = {
+type ChurchRender = {
 	template: ChurchTemplate;
 	body: readonly ChurchBlock[];
 	/** The church name and pastor name frozen into the document when it was made. */
