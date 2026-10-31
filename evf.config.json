@@ -1371,6 +1371,15 @@
 				}
 			],
 			"risk": "ordinary"
+		},
+		"OPS-93": {
+			"title": "Approved prototype edits only through an owner-approved design task carrying his quote",
+			"owningPaths": ["tools/evf/", "evf.config.json", "AGENTS.md", "docs/build-agent-workflow.md"],
+			"checks": [
+				{ "name": "documentation", "run": ["python3", "docs/check-all.py"] },
+				{ "name": "workflow-regressions", "run": ["bin/evf", "test"] }
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {
