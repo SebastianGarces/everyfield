@@ -86,24 +86,6 @@ export function PdfPreview({ title, pageSize, bytes }: Props) {
 
 	return (
 		<div className="flex flex-col gap-3">
-			<div
-				ref={frame}
-				tabIndex={pages > 1 ? 0 : undefined}
-				role="group"
-				aria-label={`${title} preview`}
-				aria-describedby={pages > 1 ? "page-keys" : undefined}
-				onKeyDown={onKeyDown}
-				style={{ aspectRatio: `${pageSize.width} / ${pageSize.height}` }}
-				className="relative w-full overflow-hidden bg-white shadow-[0_0_0_1px_var(--ef-line),0_8px_24px_-12px_rgba(0,0,0,0.25)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-			>
-				{doc ? null : <Skeleton shape="block" className="absolute inset-0 rounded-none" />}
-				<canvas
-					ref={canvas}
-					role="img"
-					aria-label={`${title}, page ${page}${pages ? ` of ${pages}` : ""}`}
-					className="block size-full"
-				/>
-			</div>
 			{pages > 1 ? (
 				<div className="flex items-center justify-between gap-3">
 					<IconButton
@@ -128,6 +110,24 @@ export function PdfPreview({ title, pageSize, bytes }: Props) {
 					</span>
 				</div>
 			) : null}
+			<div
+				ref={frame}
+				tabIndex={pages > 1 ? 0 : undefined}
+				role="group"
+				aria-label={`${title} preview`}
+				aria-describedby={pages > 1 ? "page-keys" : undefined}
+				onKeyDown={onKeyDown}
+				style={{ aspectRatio: `${pageSize.width} / ${pageSize.height}` }}
+				className="relative w-full overflow-hidden bg-white shadow-[0_0_0_1px_var(--ef-line),0_8px_24px_-12px_rgba(0,0,0,0.25)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+			>
+				{doc ? null : <Skeleton shape="block" className="absolute inset-0 rounded-none" />}
+				<canvas
+					ref={canvas}
+					role="img"
+					aria-label={`${title}, page ${page}${pages ? ` of ${pages}` : ""}`}
+					className="block size-full"
+				/>
+			</div>
 		</div>
 	);
 }
