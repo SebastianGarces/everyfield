@@ -1435,6 +1435,25 @@
 				{ "name": "workflow-regressions", "run": ["bin/evf", "test"] }
 			],
 			"risk": "ordinary"
+		},
+		"OPS-102": {
+			"title": "Standing rule: every new Evry capability ships with its evals (docs + adapter eval-coverage check)",
+			"owningPaths": [
+				"AGENTS.md",
+				".agents/roles/implementor.md",
+				".agents/roles/verifier.md",
+				".agents/skills/test-standard/",
+				".claude/agents/implementer.md",
+				".claude/agents/planner.md",
+				".claude/agents/verifier.md",
+				"tests/workflow/",
+				".github/workflows/ci.yml"
+			],
+			"checks": [
+				{ "name": "documentation", "run": ["python3", "docs/check-all.py"] },
+				{ "name": "workflow-regressions", "run": ["bin/evf", "test"] }
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {
