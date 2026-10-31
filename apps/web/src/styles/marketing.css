@@ -216,9 +216,9 @@
 	--color-mk-ink-26: rgb(from var(--color-ink) r g b / 0.26);
 	--color-mk-ink-62: rgb(from var(--color-ink) r g b / 0.62);
 	--color-mk-canvas-92: rgb(from var(--color-mk-canvas) r g b / 0.92);
-	/* OPS-82 /oversight: the #every-plant tiles on the field photo and the rules under the #leaders stops. */
 	/* The prototype's mint: the icon tiles of #every-plant and #trust, and the sending-paths phrase highlight. */
 	--color-mk-mint: #d6fbe3;
+	/* OPS-82 /oversight: the #every-plant tiles on the field photo and the rules under the #leaders stops. */
 	--color-mk-canvas-94: rgb(from var(--color-mk-canvas) r g b / 0.94);
 	--color-mk-cream-50: rgb(from var(--color-cream) r g b / 0.5);
 	--color-mk-ink-55: rgb(from var(--color-ink) r g b / 0.55);
@@ -228,15 +228,12 @@
 	--color-mk-danger-ink: #6e1a2e;
 	--color-mk-accent-ink: #111318;
 
-	/* Panel and card shadows. Each one starts with the white ring. */
-	/* Written out: Tailwind inlines theme shadows into their utilities, so one shadow cannot reference another. */
-	--shadow-mk-panel:
-		var(--ui-ring), 0 0 0 1px var(--color-mk-ink-05), 0 1px 2px var(--color-mk-ink-05),
-		0 26px 50px -26px var(--color-mk-ink-40);
 	--shadow-mk-frost: inset 0 0 0 1px var(--color-mk-cream-42);
 	--shadow-mk-frost-tile: inset 0 0 0 1px var(--color-mk-cream-26);
 	--shadow-mk-stop: 0 18px 36px -18px rgb(from var(--color-ink) r g b / 0.7);
 	--shadow-mk-say: 0 16px 32px -18px rgb(from var(--color-ink) r g b / 0.65);
+	/* Panel and card shadows. Each one starts with the white ring. Written out: Tailwind inlines theme shadows into their
+	   utilities, so one shadow cannot reference another. */
 	--shadow-mk-panel-flat: var(--ui-ring), 0 0 0 1px var(--color-mk-ink-05), 0 26px 50px -26px var(--color-mk-ink-40);
 	--shadow-mk-hero-card:
 		var(--ui-ring), 0 0 0 1px rgb(from var(--color-mk-card-shade) r g b / 0.06),

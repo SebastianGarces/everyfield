@@ -3,7 +3,7 @@
 import { useInView, useMotionValue } from "motion/react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { EvryBot } from "@/components/kit/EvryBot";
-import { useReduced } from "@/components/motion/scene";
+import { useReduced, useTabHidden } from "@/components/motion/scene";
 import { stopCurve, stopLeft, type Pt } from "../sections/stop-curve";
 
 // The journey path (OPS-82 prototype, pthLayout to pthGo). One smooth curve runs through the six stop centres. EvryBot
@@ -54,7 +54,7 @@ export function JourneyPath({
 	const [hover, setHover] = useState(false);
 	const [focus, setFocus] = useState(false);
 	const [user, setUser] = useState(false);
-	const [hidden, setHidden] = useState(false);
+	const hidden = useTabHidden();
 	const reduced = useReduced();
 	const vis = useInView(band, { amount: 0.45 });
 	const running = vis && !hover && !focus && !user && !hidden && reduced === false;
@@ -202,13 +202,6 @@ export function JourneyPath({
 
 	// The bubble takes its new line, then finds its place over the walker.
 	useLayoutEffect(place, [say, place]);
-
-	useEffect(() => {
-		const onVis = () => setHidden(document.hidden);
-		onVis();
-		document.addEventListener("visibilitychange", onVis);
-		return () => document.removeEventListener("visibilitychange", onVis);
-	}, []);
 
 	// Auto-advance: each arrival starts a new STEP wait while nothing pauses the band.
 	useEffect(() => {

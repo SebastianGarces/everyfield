@@ -1,6 +1,6 @@
 "use client";
 
-import { useReduced } from "@/components/motion/scene";
+import { useReduced, useTabHidden } from "@/components/motion/scene";
 import { ArrowRight02Icon } from "@hugeicons/core-free-icons";
 import { useInView } from "motion/react";
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
@@ -72,14 +72,7 @@ export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, photos 
 	}, [measure]);
 
 	// A hidden tab stops the timer, as in the prototype; a full step starts again when the tab shows.
-	const [hidden, setHidden] = useState(false);
-	useEffect(() => {
-		const onVis = () => setHidden(document.hidden);
-		onVis();
-		document.addEventListener("visibilitychange", onVis);
-		return () => document.removeEventListener("visibilitychange", onVis);
-	}, []);
-
+	const hidden = useTabHidden();
 	useEffect(() => {
 		if (!seen || paused || reduced || hidden) return;
 		const id = setTimeout(() => setK((c) => (c + 1) % n), STEP);
