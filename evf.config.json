@@ -1417,6 +1417,15 @@
 				{ "name": "workflow-regressions", "run": ["bin/evf", "test"] }
 			],
 			"risk": "ordinary"
+		},
+		"OPS-100": {
+			"title": "evf + evf TUI: merged tasks leave active views, held tasks show awaiting owner, one row per ref, explorer by stage",
+			"owningPaths": ["tools/evf/", "tools/evf-tui/", ".agents/roles/coordinator.md"],
+			"checks": [
+				{ "name": "documentation", "run": ["python3", "docs/check-all.py"] },
+				{ "name": "workflow-regressions", "run": ["bin/evf", "test"] }
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {

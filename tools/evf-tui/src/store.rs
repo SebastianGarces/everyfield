@@ -26,6 +26,12 @@ pub struct Task {
     pub proofs_met: i64,
     pub proofs_total: i64,
     pub last_event_at: Option<String>,
+    /// Type of the task's latest event (v_tasks.last_event, schema 5).
+    pub last_event: Option<String>,
+    /// Time of the task's latest `merged` event, or None (v_tasks.merged_at, schema 5).
+    pub merged_at: Option<String>,
+    /// Non-abandoned rows of the same ref, this one included (v_tasks.ref_rows, schema 5).
+    pub ref_rows: i64,
     pub updated_at: String,
 }
 
@@ -114,12 +120,22 @@ pub struct Proof {
     pub notes: Option<String>,
 }
 
+/// Another non-abandoned row of the same ref, for the detail view.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct OlderRow {
+    pub id: i64,
+    pub status: String,
+    pub pr_number: Option<i64>,
+    pub merged_at: Option<String>,
+}
+
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Detail {
     pub task_id: i64,
     pub ask: String,
     pub spec: Option<String>,
     pub proofs: Vec<Proof>,
+    pub older: Vec<OlderRow>,
 }
 
 pub const RECENT_LIMIT: usize = 200;
@@ -161,6 +177,10 @@ fn task_row(r: &Row) -> rusqlite::Result<Task> {
         proofs_met: r.get("proofs_met")?,
         proofs_total: r.get("proofs_total")?,
         last_event_at: r.get("last_event_at")?,
+        // A store older than schema 5 has no such columns: read them as absent rather than fail the screen.
+        last_event: r.get("last_event").unwrap_or(None),
+        merged_at: r.get("merged_at").unwrap_or(None),
+        ref_rows: r.get("ref_rows").unwrap_or(1),
         updated_at: r.get("updated_at")?,
     })
 }
@@ -277,11 +297,31 @@ pub fn detail(conn: &Connection, task_id: i64) -> Result<Detail> {
             })
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
+    let older = conn
+        .prepare(
+            "SELECT id, status, pr_number, merged_at FROM v_tasks \
+             WHERE COALESCE(ref, slug) = (SELECT COALESCE(ref, slug) FROM tasks WHERE id = ?1) \
+             AND id <> ?1 AND status <> 'abandoned' ORDER BY id DESC",
+        )
+        .and_then(|mut q| {
+            q.query_map([task_id], |r| {
+                Ok(OlderRow {
+                    id: r.get(0)?,
+                    status: r.get(1)?,
+                    pr_number: r.get(2)?,
+                    merged_at: r.get(3)?,
+                })
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()
+        })
+        // A store older than schema 5 has no merged_at: the detail shows no older rows.
+        .unwrap_or_default();
     Ok(Detail {
         task_id,
         ask,
         spec,
         proofs,
+        older,
     })
 }
 
@@ -366,9 +406,12 @@ pub mod tests {
     use super::*;
     use std::sync::atomic::{AtomicU32, Ordering};
 
-    const MIGRATIONS: [&str; 2] = [
+    const MIGRATIONS: [&str; 5] = [
         include_str!("../../evf/db/migrations/001-init.sql"),
         include_str!("../../evf/db/migrations/002-prototype-statuses.sql"),
+        include_str!("../../evf/db/migrations/003-usage-columns.sql"),
+        include_str!("../../evf/db/migrations/004-task-seat-override.sql"),
+        include_str!("../../evf/db/migrations/005-merged-views.sql"),
     ];
 
     static COUNTER: AtomicU32 = AtomicU32::new(0);
@@ -451,7 +494,7 @@ pub mod tests {
         let (task_id, run_id) = store.seed();
         let conn = open(&store.path).unwrap();
         let snap = read(&conn).unwrap();
-        assert_eq!(snap.schema_version, 2);
+        assert_eq!(snap.schema_version, 5);
         assert_eq!(snap.tasks.len(), 1);
         let task = &snap.tasks[0];
         assert_eq!(task.id, task_id);

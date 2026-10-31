@@ -50,6 +50,7 @@ import {
 	taskReopen,
 	taskSpec,
 } from "./drive.ts";
+import { driveWithSignals } from "./drive-signal.ts";
 import { timing } from "./timing.ts";
 import { usageBackfill, usageReport } from "./usage.ts";
 
@@ -538,7 +539,8 @@ function main(argv: string[]): number | Promise<number> {
 			const once = flag(args, "--once"),
 				detach = flag(args, "--detach");
 			if (args.length !== 1) break;
-			return drive(root, parseTask(args[0]), { once, detach });
+			if (detach) return drive(root, parseTask(args[0]), { once, detach });
+			return driveWithSignals(root, parseTask(args[0]), once);
 		}
 		case "pane-finish": // internal: the detached close and rebalance of closeRunPane
 			if (args.length !== 2) break;

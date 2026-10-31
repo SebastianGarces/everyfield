@@ -1,8 +1,8 @@
--- 005-task-follow-ups (OPS-86): a follow-up row for each later slice of a spec. The status `queued` means filed, not
+-- 006-task-follow-ups (OPS-86): a follow-up row for each later slice of a spec. The status `queued` means filed, not
 -- started and not drivable; it moves to `new` when the row it depends on merges. parent_task_id links a follow-up to
 -- the task that stored the spec. NULL means no parent. SQLite cannot change a CHECK in place, so the table is rebuilt
 -- as in 002: new table, copy, drop the views that read it, swap, recreate the indexes and the views. Every existing
--- row keeps its data. v_tasks gains parent_task_id; v_health does not count queued rows as open work.
+-- row keeps its data. v_tasks gains parent_task_id, and ref_rows and v_health leave queued rows out (they are filed, not open work).
 
 CREATE TABLE tasks_new (
 	id INTEGER PRIMARY KEY,
@@ -65,6 +65,9 @@ SELECT
 	(SELECT COUNT(*) FROM proofs p WHERE p.task_id = t.id AND p.status = 'met') AS proofs_met,
 	(SELECT COUNT(*) FROM proofs p WHERE p.task_id = t.id) AS proofs_total,
 	(SELECT MAX(e.ts) FROM events e WHERE e.task_id = t.id) AS last_event_at,
+	(SELECT e.type FROM events e WHERE e.task_id = t.id ORDER BY e.ts DESC, e.id DESC LIMIT 1) AS last_event,
+	(SELECT MAX(e.ts) FROM events e WHERE e.task_id = t.id AND e.type = 'merged') AS merged_at,
+	(SELECT COUNT(*) FROM tasks o WHERE o.status NOT IN ('abandoned', 'queued') AND COALESCE(o.ref, o.slug) = COALESCE(t.ref, t.slug)) AS ref_rows,
 	t.created_at,
 	t.updated_at
 FROM tasks t
@@ -116,6 +119,6 @@ SELECT
 	(SELECT COUNT(*) FROM tasks WHERE status NOT IN ('queued', 'merged', 'done', 'abandoned')) AS open_tasks,
 	(SELECT COUNT(*) FROM tasks WHERE status = 'escalated') AS escalated_tasks,
 	(SELECT COUNT(*) FROM runs WHERE status = 'started') AS active_seats,
-	(SELECT COUNT(*) FROM tasks WHERE status = 'merged' AND updated_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 day')) AS merged_24h,
-	(SELECT COUNT(*) FROM tasks WHERE status = 'merged' AND updated_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-7 days')) AS merged_7d,
-	(SELECT AVG(round) FROM tasks WHERE status = 'merged' AND updated_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-7 days')) AS rounds_per_merge_7d;
+	(SELECT COUNT(*) FROM v_tasks WHERE status = 'merged' AND merged_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 day')) AS merged_24h,
+	(SELECT COUNT(*) FROM v_tasks WHERE status = 'merged' AND merged_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-7 days')) AS merged_7d,
+	(SELECT AVG(round) FROM v_tasks WHERE status = 'merged' AND merged_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-7 days')) AS rounds_per_merge_7d;

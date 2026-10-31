@@ -259,6 +259,23 @@ other launches, still gets all of it. If a drive dies inside its own pr, ci or s
 next drive aborts that run without a round and performs the stage again; a PR GitHub already merged is
 recorded, not shipped twice. Jonah polls `evf status --json`.
 
+**Stopping a drive.** The drive loop runs in a worker thread, so the main thread can answer SIGTERM and SIGINT
+while a stage blocks in a child process. A signal that arrives inside a pr, ci or ship stage closes that `evf` run
+`aborted` with `drive stopped by <SIGNAL> during <stage>` and records one `drive_stopped` event with `{stage, signal}`.
+The drive removes its pid file and ends by the signal, which a shell reads as exit 128 plus the signal number (143 for
+SIGTERM). A signal between stages or inside a seat wait writes no run: only the pid file goes. Stop a drive with
+SIGTERM. SIGKILL cannot be caught and leaves the run `started`; `evf status` and `evf doctor` report it (below).
+
+**Orphaned `evf` runs.** A `started` run of role `evf` whose task has no live drive (the pid file under `evf/drive/`
+is missing or names a dead pid) is orphaned. `evf status` (text, and `--json` under `orphanRuns`) and `evf doctor`
+print one line for each: the ref, the run id, the stage, the age and one repair that never ships. A ship stage is
+repaired with `evf approve <PR>` once Sebastian approved, or `evf task reopen`; any other stage with
+`evf drive <task> --once`, whose restart recovery only aborts the run. A task already merged is repaired through the
+same late-merge path. Migration 005 closes the runs of tasks already merged. `markMerged` (ship, the drive's late
+merge and `evf approve`) closes every open `evf` run of the merged row `passed` with `<ref> merged as <sha10>`, and
+closes a seat run `aborted`. `evf approve` finds the row from the PR head branch and records the merge after the
+squash-merge; a branch with no row (a Wiki article) writes nothing.
+
 A merge ends the drive and the task. The drive exits 0 directly after its ship stage closes passed and makes
 no further transition. A standalone `evf ship` writes the same record: the ref's current row becomes `merged`
 with its merge commit and one `merged` event, or one merged row when the store had none, so `evf next` prints
@@ -363,7 +380,7 @@ any call from a seat (`EVF_RUN` set). The TUI already hides abandoned rows.
 
 `evf tui` opens one read-only screen of the harness: every open task and running seat (task, stage, seat,
 model, effort, Herdr state, round of three, proof rows met, gate, last event), the event feed in Eastern
-Time and the health counters, with an explorer by mode and task on the left. It is the Rust crate in
+Time and the health counters, with an explorer by stage and task on the left. It is the Rust crate in
 `tools/evf-tui/` (ratatui, rusqlite bundled, notify), outside the pnpm workspace. `evf tui` runs
 `cargo build --release` with the target directory under the Git common dir when the cached binary at
 `<git-common-dir>/evf/bin/evf-tui` is missing or older than the crate sources, then starts it with `--db`
@@ -373,7 +390,20 @@ when the file watcher or the 250 ms fallback poll sees `PRAGMA data_version` mov
 `herdr api snapshot` every second and joins agents to runs by the Claude session id, and lists worktrees
 every ten seconds for head SHAs. `t` runs `herdr agent focus <agent>` (the task's workspace as the
 fallback), `Enter` opens the ask, spec and proof rows, `/` filters. It writes nothing: HEALTH names the
-evf command for every human gate (`awaiting_pick`, `escalated`) and every blocked seat.
+evf command for every human gate (`awaiting_pick`, `escalated`, a PR waiting for Sebastian) and every blocked seat.
+
+TABLE shows one row per ref: the latest row by id that is not abandoned, with `+N` after the label for the N other
+rows (the detail lists them with id, status, PR and merge time). The STATE column reads: the Herdr status of a seat
+(`working`, `idle`, `blocked`); `no pane` in red only for a seat role (planner, implementer, ui, simplifier,
+verifier, ideator, comparer, prototype-merger) whose session Herdr does not know; `evf <stage>` in the neutral
+style for a run evf itself works (it has no pane by design); `awaiting owner` in the attention style, with the
+gate `PR #<n>`, for a `pr_open` task with no open seat whose latest event is `owner_approval_wait` or a
+`drive_stopped` at stage `ship` (it counts as needs you); and `merged`, dim, for 24 hours after the `merged` event
+(never `updated_at`), never red and never needs you. The EXPLORER groups those rows by current stage: `queued`
+(status new or specced), `plan`, `implement`, `simplify`, `pr`, `verify`, `ci`, `ship`, `awaiting owner`,
+`needs pick`, `escalated`, `other`; a group shows only with tasks, and merged rows are not in it. `queued` is
+collapsed: `z` opens it, and while it is collapsed `all tasks` hides queued rows and the header says
+`queued N hidden`.
 
 ## Ship queue
 

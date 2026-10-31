@@ -25,6 +25,8 @@ Read the current brief and follow details on demand. Do not write product code.
    Failures return to an implementor on the same branch and PR.
 6. Read the verifier's actual results and PR state. Use `ship` for automatic and owner routes.
 
+Stop a drive with SIGTERM so that it closes its run, because SIGKILL leaves the run for `evf doctor`.
+
 Keep each UI task spec to about 15 Done criteria (a soft limit; evf does not enforce it). evf files each
 `## Later slices` item when the spec is stored: a queued follow-up task linked to its parent, with the slice
 text and the parent's verbatim ask. You do not file them. An OPS parent gets a newly reserved OPS id for each
