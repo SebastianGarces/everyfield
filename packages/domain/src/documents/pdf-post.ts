@@ -37,6 +37,9 @@ const INDEXED: Record<string, string> = {
 function tooltipFor(name: string) {
 	const known = KNOWN[name];
 	if (known) return known;
+	const adopt = /^adopt_(\d+)_(name|role|signature|date)$/.exec(name);
+	if (adopt)
+		return `Board member ${adopt[1]}: ${{ name: "name", role: "role", signature: "sign here", date: "date signed" }[adopt[2] as "name"]}`;
 	const row = /^(.+)_(\d+)_(\w+)$/.exec(name);
 	if (row) return `${title(row[1]!)} ${row[2]}: ${title(row[3]!).toLowerCase()}`;
 	const n = /^(.+)_(\d+)$/.exec(name);

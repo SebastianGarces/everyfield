@@ -71,8 +71,8 @@
   "as_of": "2026-10-17",
   "implementation_authorized": false,
   "table_count": 98,
-  "column_count": 1128,
-  "foreign_key_count": 349,
+  "column_count": 1138,
+  "foreign_key_count": 352,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
     "date": "YYYY-MM-DD local calendar date, never UTC midnight instant.",
@@ -210,7 +210,13 @@
     "document.kind": [
       "native",
       "core_values",
-      "launch_summary"
+      "launch_summary",
+      "church_document"
+    ],
+    "document.document_class": [
+      "formal/legal",
+      "outward-facing",
+      "operational"
     ],
     "document_revision.import_format": [
       "text",
@@ -245,6 +251,10 @@
       "pdf",
       "docx",
       "xlsx"
+    ],
+    "generated_document.theme_kind": [
+      "church",
+      "everyfield-neutral"
     ],
     "identity_proof.purpose": [
       "email_change",
@@ -1303,8 +1313,11 @@
       "deletion.cancelled",
       "deletion.live_purge_completed",
       "documents.archived",
+      "documents.branding_changed",
       "documents.copied",
+      "documents.created_from_template",
       "documents.designated",
+      "documents.exported",
       "documents.generated",
       "documents.imported",
       "documents.purged",
@@ -10790,7 +10803,7 @@
         }
       ],
       "checks": [
-        "action in ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','audit.imported','branding.changed','communication.approved','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','documents.archived','documents.copied','documents.designated','documents.generated','documents.imported','documents.purged','documents.saved','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','execution.cancelled','execution.completed','execution.partial','execution.reconciled','execution.started','feedback.publication_intended','feedback.published','feedback.received','feedback.reconciled','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.credential_reconciled','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.feedback_recorded','intelligence.published','intelligence.requested','intelligence.superseded','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','note_correction','organization.profile_changed','people.corrected','people.created','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','security.access_denied','security.audit_exported','security.audit_inspected','security.bulk_export','security.operator_accessed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed')",
+        "action in ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','audit.imported','branding.changed','communication.approved','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','documents.archived','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','execution.cancelled','execution.completed','execution.partial','execution.reconciled','execution.started','feedback.publication_intended','feedback.published','feedback.received','feedback.reconciled','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.credential_reconciled','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.feedback_recorded','intelligence.published','intelligence.requested','intelligence.superseded','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','note_correction','organization.profile_changed','people.corrected','people.created','people.merged','people.recorded','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','security.access_denied','security.audit_exported','security.audit_inspected','security.bulk_export','security.operator_accessed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed')",
         "num_nonnulls(actor_id,actor_token,system_cause)>=1",
         "kind in ('create','edit','correct','retire','restore','merge','unmerge','stage_change','classification_change','commitment_change','assign','remove','accept','revoke','resend','role_change','leader_change','tick','untick','archive','earn','revoke_credit','offer_answer','publish','hide','read','progress','complete','reopen','waive','supersede','finalize','reconcile','noop','triage','suppress','suppression_clear','preference','model_attempt','tool_attempt','effect_result','mail_member','outcome','declaration','movement')",
         "jsonb_typeof(metadata)='object' AND (metadata->'diff' IS NULL OR (jsonb_typeof(metadata->'diff')='object' AND octet_length(convert_to((metadata->'diff')::text,'UTF8'))<=2048))"
@@ -15767,7 +15780,13 @@
       "domain": "documents",
       "purpose": "Account or plant owned native writing with explicit values or Launch-summary designation. Exactly one account, plant or organization owns this row. Only account or plant tenants; launch_summary requires plant. A deferred kind trigger enforces this.",
       "library_owned": false,
-      "jsonb_keys": {},
+      "jsonb_keys": {
+        "input_provenance": [
+          "key: template merge field id",
+          "value: frozen text used in revision 1, or null when no source had a value",
+          "source: override, church_name, pastor_name or absent"
+        ]
+      },
       "capabilities": [
         "CAP-B-026",
         "CAP-C-015",
@@ -15958,6 +15977,36 @@
           "type": "bigint",
           "nullable": false,
           "default": "1"
+        },
+        {
+          "note": "Church Documents only. Editable template id frozen at creation. Null for a plain native document.",
+          "name": "template_id",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "Church Documents only. Whole-number version of the authored template that made revision 1.",
+          "name": "template_version",
+          "type": "integer",
+          "nullable": true
+        },
+        {
+          "note": "Church Documents only. formal/legal, outward-facing or operational, copied from the template. It picks the export theme layout and whether the legal notice prints.",
+          "name": "document_class",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "Church Documents only. True: export uses the church theme when the church has a brand kit. False: Everyfield-neutral theme. Changing it makes no revision.",
+          "name": "use_church_branding",
+          "type": "boolean",
+          "nullable": true
+        },
+        {
+          "note": "Church Documents only. Frozen merge values of revision 1. Each entry has key, value and source.",
+          "name": "input_provenance",
+          "type": "jsonb",
+          "nullable": true
         }
       ],
       "primary_key": [
@@ -16043,8 +16092,9 @@
         }
       ],
       "checks": [
+        "((kind = 'church_document') = (template_id IS NOT NULL)) AND ((kind = 'church_document') = (template_version IS NOT NULL)) AND ((kind = 'church_document') = (document_class IS NOT NULL)) AND ((kind = 'church_document') = (use_church_branding IS NOT NULL)) AND ((kind = 'church_document') = (input_provenance IS NOT NULL)) AND ((template_version IS NULL) OR (template_version >= 1)) AND ((input_provenance IS NULL) OR (octet_length(input_provenance::text) <= 65536))",
         "(revision >= 1)",
-        "kind in ('native', 'core_values', 'launch_summary')",
+        "kind in ('native', 'core_values', 'launch_summary', 'church_document')",
         "(tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid)"
       ],
       "indexes": {
@@ -16116,7 +16166,8 @@
         "checks": [
           "document_ck_0",
           "document_ck_1",
-          "document_ck_2"
+          "document_ck_2",
+          "document_church"
         ]
       },
       "policies": {},
@@ -16329,6 +16380,12 @@
           "name": "recorded_at",
           "type": "timestamptz",
           "nullable": false
+        },
+        {
+          "note": "Attribution of a Church Document revision. Account deletion nulls it. Null for earlier native revisions.",
+          "name": "author_account_id",
+          "type": "uuid",
+          "nullable": true
         }
       ],
       "primary_key": [
@@ -16349,6 +16406,22 @@
         }
       ],
       "foreign_keys": [
+        {
+          "deletion": {
+            "action": "set_null",
+            "policy": "Clear revision attribution when the account row is removed. The plant keeps the revision."
+          },
+          "columns": [
+            "author_account_id"
+          ],
+          "references": {
+            "table": "account",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "set_null"
+        },
         {
           "deletion": {
             "action": "restrict",
@@ -16496,7 +16569,8 @@
           "document_revision_fk_0",
           "document_revision_fk_1",
           "document_revision_fk_2",
-          "document_revision_fk_3"
+          "document_revision_fk_3",
+          "document_revision_author_fk"
         ],
         "checks": [
           "document_revision_ck_0",
@@ -17582,6 +17656,30 @@
           "type": "bigint",
           "nullable": false,
           "default": "1"
+        },
+        {
+          "note": "Church Document exports only. The document this export was made from, frozen with the row.",
+          "name": "source_document_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "Church Document exports only. The exact revision that was exported.",
+          "name": "source_revision_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "Church Document exports only. church or everyfield-neutral: the theme that painted the saved bytes.",
+          "name": "theme_kind",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "Church Document exports only. Primary color of a church theme at export time. Null for the neutral theme.",
+          "name": "theme_primary",
+          "type": "text",
+          "nullable": true
         }
       ],
       "primary_key": [
@@ -17675,13 +17773,50 @@
             ]
           },
           "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "A Church Document stays while a saved export names it. Plant purge removes the exports first."
+          },
+          "columns": [
+            "source_document_id",
+            "tenant_id"
+          ],
+          "references": {
+            "table": "document",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "The exported revision stays while a saved export names it. Plant purge removes the exports first."
+          },
+          "columns": [
+            "source_revision_id",
+            "tenant_id"
+          ],
+          "references": {
+            "table": "document_revision",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "restrict"
         }
       ],
       "checks": [
         "(revision >= 1)",
         "format in ('pdf', 'docx', 'xlsx')",
         "(tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid)",
-        "(octet_length(inputs::text) <= 65536)"
+        "(octet_length(inputs::text) <= 65536)",
+        "((source_document_id IS NULL) = (source_revision_id IS NULL)) AND ((source_document_id IS NULL) = (theme_kind IS NULL)) AND ((theme_primary IS NULL) OR (theme_primary ~ '^#[0-9A-F]{6}$'::text))"
       ],
       "indexes": {
         "generated_document_uq_2": {
@@ -17762,6 +17897,48 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "generated_document_source_ref": {
+          "name": "generated_document_source_ref",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "source_document_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "generated_document_source_revision_ref": {
+          "name": "generated_document_source_revision_ref",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "source_revision_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "constraint_names": {
@@ -17776,13 +17953,16 @@
           "generated_document_fk_0",
           "generated_document_fk_1",
           "generated_document_fk_2",
-          "generated_document_fk_3"
+          "generated_document_fk_3",
+          "generated_document_source_document_fk",
+          "generated_document_source_revision_fk"
         ],
         "checks": [
           "generated_document_ck_0",
           "generated_document_ck_1",
           "generated_document_ck_2",
-          "generated_document_ck_3"
+          "generated_document_ck_3",
+          "generated_document_source"
         ]
       },
       "policies": {},
