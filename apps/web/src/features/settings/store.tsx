@@ -3,7 +3,7 @@
 import type { Loadable } from "@everyfield/ui/display";
 import { createContext, use, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { begin, discard, edit, emptyBook, finish, isDirty, isSaving, rebase, same, visible, type Book } from "./drafts";
-import { ASSET_FLOW, hasPicks, releaseAll } from "./brand/picks";
+import { ASSET_FLOW, EMPTY_FLOW, hasPicks, releaseAll } from "./brand/picks";
 import { errorReference, errorText } from "./model";
 import type { Refusal } from "./save";
 import type { GetSectionRequest, SectionKey, SectionResult, SectionSeed, SettingsPort, SettingsViewer } from "./port";
@@ -111,7 +111,7 @@ export function SettingsProvider({
 		commit(next);
 		// Files picked for the brand kit and not yet uploaded are drafts too (REQ-IDN-010).
 		releaseAll(flows[ASSET_FLOW]);
-		setFlows((all) => (ASSET_FLOW in all ? { ...all, [ASSET_FLOW]: { picks: {}, notes: {} } } : all));
+		setFlows((all) => (ASSET_FLOW in all ? { ...all, [ASSET_FLOW]: EMPTY_FLOW } : all));
 	}, [commit, flows]);
 	const setFlow = useCallback(
 		(key: string, update: (prev: unknown) => unknown) => setFlows((all) => ({ ...all, [key]: update(all[key]) })),
