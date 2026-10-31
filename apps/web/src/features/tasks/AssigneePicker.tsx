@@ -39,7 +39,6 @@ export function AssigneePicker({
 	viewerId,
 	label = "Search people",
 	placeholder = "No one yet",
-	id,
 	onOpenChange,
 	className,
 }: {
@@ -51,7 +50,6 @@ export function AssigneePicker({
 	viewerId?: string;
 	label?: string;
 	placeholder?: string;
-	id?: string;
 	onOpenChange?: (open: boolean) => void;
 	className?: string;
 }) {
@@ -93,7 +91,6 @@ export function AssigneePicker({
 	return (
 		<div className="flex flex-col gap-1.5" onPointerOver={() => void warmAssignees(purpose)}>
 			<Combobox
-				id={id}
 				multiple
 				className={className}
 				options={shown}

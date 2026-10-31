@@ -418,7 +418,6 @@ function AssigneeField({
 					warning: heldWarning(a.accountId, owners),
 				}))}
 				viewerId={viewer.accountId}
-				label="Search people"
 			/>
 		</Field>
 	);
