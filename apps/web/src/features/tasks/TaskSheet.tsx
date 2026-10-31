@@ -500,7 +500,7 @@ function History({ taskId, first }: { taskId: string; first: Outcome<TaskHistory
 						setLoading(true);
 						const r = await loadHistory(taskId, 1);
 						setLoading(false);
-						setRetried(r);
+						setRead({ from: first, page: r });
 					}}
 				>
 					Try again
