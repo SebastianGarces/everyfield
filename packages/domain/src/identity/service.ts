@@ -1,6 +1,7 @@
 import {
 	identityError,
 	invalidSessionReturn,
+	LANDING_ROUTE,
 	passwordRecoveryRequest,
 	recoverPasswordRequest,
 	registrationOptions,
@@ -340,7 +341,7 @@ export function createIdentityService(config: IdentityConfig) {
 								email: v.email,
 								...(path === "request-password-reset"
 									? { redirectTo: `${origin}/reset-password` }
-									: { callbackURL: "/home" }),
+									: { callbackURL: LANDING_ROUTE }),
 							});
 							await result.body?.cancel();
 							if (!result.ok) config.diagnostic({ correlationId, outcome: "delivery_failed" });
