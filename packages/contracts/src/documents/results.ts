@@ -78,10 +78,8 @@ export const previewResult = z.strictObject({
 /** A meeting's agenda as bytes. localDate is the meeting's own day, for the file name. */
 export const agendaPrintResult = z.strictObject({
 	templateId,
-	plantId: tenantId,
 	localDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 	artifact: z.string().min(1),
-	digest: sha256,
 });
 
 const revisionToken = z.string().regex(/^[0-9]{1,20}$/);

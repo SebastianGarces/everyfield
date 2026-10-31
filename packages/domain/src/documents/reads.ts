@@ -210,9 +210,7 @@ async function printAgenda(db: Reader, authority: RequestActor, raw: unknown) {
 	if (!bytes) deny("render_failed");
 	return c.agendaPrintResult.parse({
 		templateId: template.id,
-		plantId: viewer.plantId,
 		localDate: row.meeting.localDate,
 		artifact: bytes.toString("base64"),
-		digest: digestOf(bytes),
 	});
 }
