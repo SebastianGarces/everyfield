@@ -13,7 +13,7 @@ import {
 	UserMultipleIcon,
 } from "@hugeicons/core-free-icons";
 import type { ReactNode } from "react";
-import { cn, EvryBot, Icon, Lockup, LogoMark, revealDelay, type EvryBotSize, type EvryMood } from "..";
+import { cn, EvryBot, Icon, Lockup, LogoMark, revealDelay, type EvryBotSize, type EvryMood, type EvryShape } from "..";
 import { InsightCard, InsightPill, InsightTitle, type InsightTone } from "../../controls";
 import { PageHead } from "../../shell/preview/ShellPreview";
 import { HoverDemo } from "./HoverDemo";
@@ -261,25 +261,51 @@ export function FoundationsPreview() {
 				</div>
 			</Section>
 
-			<Section index={9} title="Evry character" code="EvryBot size · mood" id="evry">
-				<div className="grid gap-5 app-md:grid-cols-2">
-					<Specimen label="Sizes · xs 18 · sm 24 · md 30 · lg 40 · xl 96">
-						<div className="flex flex-wrap items-end gap-5">
-							{(["xs", "sm", "md", "lg", "xl"] as EvryBotSize[]).map((size, i) => (
-								<EvryBot key={size} size={size} blinkOffset={i / 5} />
-							))}
+			<Section index={9} title="Evry character" code="EvryBot size · mood · follow · shape · hold" id="evry">
+				<Note>
+					Evry&apos;s character replaces a generic AI icon. It is the brand green with upright ink eyes. Evry has five
+					shapes: triangle, circle, square, pill and hexagon. It holds a shape for a few seconds, then morphs into a
+					different one at random. When idle it floats, blinks at random, looks to the sides, tilts and sways a little
+					between shapes, and sometimes spins once. When it looks toward an edge, its eyes narrow and curve with the body
+					and the body leans a little, so the flat shape turns like a solid. With follow, its eyes follow the pointer.
+					Thinking squints, looks up and morphs faster. Happy shows ^ ^ eyes and bounces. Reduced motion stops all
+					movement and shows one still shape.
+				</Note>
+				<div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-5">
+					{MOODS.map(([mood, title, text]) => (
+						<div
+							key={mood}
+							className="flex flex-col items-center gap-3.5 rounded-lg bg-surface px-5 py-[30px] text-center shadow-card"
+						>
+							<EvryBot size="xl" mood={mood} follow={mood === "idle"} />
+							<div>
+								<div className="font-semibold text-text">{title}</div>
+								<div className="mt-2 text-sm text-text-3">{text}</div>
+							</div>
 						</div>
-					</Specimen>
-					<Specimen label="Moods · idle · thinking · talking · happy">
-						<div className="flex flex-wrap items-end gap-6">
-							{(["idle", "thinking", "talking", "happy"] as EvryMood[]).map((mood, i) => (
-								<figure key={mood} className="flex flex-col items-center gap-2">
-									<EvryBot size="lg" mood={mood} blinkOffset={i / 4} />
-									<figcaption className="text-xs text-text-3">{mood}</figcaption>
-								</figure>
-							))}
+					))}
+				</div>
+				<p className="mt-6 text-sm text-text-3">Shapes</p>
+				<div className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(124px,1fr))] gap-5">
+					{SHAPES.map((shape) => (
+						<div
+							key={shape}
+							className="flex flex-col items-center gap-3 rounded-lg bg-surface px-3 py-[22px] text-center shadow-card"
+						>
+							<EvryBot size="xl" shape={shape} hold />
+							<div className="flex items-center justify-center gap-3">
+								<EvryBot size="sm" shape={shape} hold />
+								<span className="font-semibold text-text capitalize">{shape}</span>
+							</div>
 						</div>
-					</Specimen>
+					))}
+				</div>
+				<div className="mt-4 flex flex-wrap items-center gap-6">
+					<span className="text-sm text-text-3">Sizes</span>
+					{(["xs", "sm", "md", "lg"] as EvryBotSize[]).map((size, i) => (
+						<EvryBot key={size} size={size} blinkOffset={i / 4} />
+					))}
+					<span className="text-sm text-text-3">18 · 24 · 30 · 40 · 96</span>
 				</div>
 			</Section>
 
@@ -348,6 +374,13 @@ function LogoChip({ className }: { className: string }) {
 		</span>
 	);
 }
+
+const MOODS: [EvryMood, string, string][] = [
+	["idle", "Idle", "Waiting. Floats, blinks, looks around, tilts and sometimes spins."],
+	["thinking", "Thinking", "Reading records or drafting."],
+	["happy", "Happy", "A change was approved and saved."],
+];
+const SHAPES: EvryShape[] = ["triangle", "circle", "square", "pill", "hexagon"];
 
 const GRADIENTS: [InsightTone, typeof Plant01Icon, string][] = [
 	["field", Plant01Icon, "Default and growth"],

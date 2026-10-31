@@ -1,5 +1,8 @@
 export { cn } from "./cn";
 export { EvryBot, type EvryBotSize, type EvryMood } from "./EvryBot";
+export * as EvryGeo from "./evry-geo";
+export type { EvryShape } from "./evry-geo";
+export { mountEvry, type EvryHandle, type EvryLifeOptions, type EvryNodes } from "./evry-life";
 export { HoverGroup, useHoverItem } from "./HoverGroup";
 export { Icon, type IconSvgElement } from "./Icon";
 export { Lockup, LogoMark, Wordmark } from "./Logo";
