@@ -10,7 +10,7 @@
 		"typecheck": "tsc --noEmit",
 		"share-images": "node scripts/render-share-images.mjs",
 		"mesh-images": "node scripts/render-mesh-images.mjs",
-		"test:unit": "node --conditions=react-server --test ../../tests/integration/platform/unit.test.mts ../../tests/integration/jobs/calendar.test.mts ../../tests/ui/tasks/model.test.mjs ../../tests/ui/teams/model.test.mjs ../../tests/ui/meetings/model.test.mjs ../../tests/ui/communication/body.test.mts ../../tests/ui/communication/capture.test.mts ../../tests/ui/communication/route.test.mts ../../tests/ui/save/record-dialog-focus-lint.test.mjs ../../tests/ui/settings/brand-model.test.mts",
+		"test:unit": "node --conditions=react-server --test ../../tests/integration/platform/unit.test.mts ../../tests/integration/jobs/calendar.test.mts ../../tests/ui/tasks/model.test.mjs ../../tests/ui/teams/model.test.mjs ../../tests/ui/meetings/model.test.mjs ../../tests/ui/communication/body.test.mts ../../tests/ui/communication/capture.test.mts ../../tests/ui/communication/route.test.mts ../../tests/ui/save/record-dialog-focus-lint.test.mjs ../../tests/ui/settings/brand-model.test.mts ../../tests/ui/settings/brand-assets.test.mts",
 		"typecheck:ts7": "tsgo --noEmit",
 		"test:jobs": "node --conditions=react-server --env-file-if-exists=.env.local --test ../../tests/integration/jobs/*.test.mts"
 	},

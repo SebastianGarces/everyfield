@@ -1,11 +1,23 @@
 import { requestIdentity } from "@everyfield/contracts/common";
 import type { Database, Transaction } from "@everyfield/db/client";
-import { and, desc, eq, inArray, isNull, notExists, sql, type SQL, type SQLWrapper } from "@everyfield/db/query";
+import {
+	and,
+	desc,
+	eq,
+	getTableColumns,
+	inArray,
+	isNull,
+	notExists,
+	sql,
+	type SQL,
+	type SQLWrapper,
+} from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { randomUUID } from "node:crypto";
 import { hash } from "../operations/canonical.ts";
 import "server-only";
 import { z } from "zod";
+import { effectiveAdult, plantTodaySql } from "./adult.ts";
 import { readPipelinePerson } from "../access/pipeline.ts";
 import { boundWrite, currentActor, liveRead, RequestActor } from "../access/session.ts";
 import {
@@ -200,7 +212,14 @@ export const personRow = z.object({
 	linked_account_id: z.uuid().nullable(),
 	revision,
 	pipeline_position: z.string().nullable(),
+	/** The plant-local current date, read with the row so the adult or child value needs no statement of its own. */
+	plant_today: z.string().nullable().optional(),
 });
+/** Every Person column and the plant-local current date, for a read that projects the row. */
+export const personColumns = {
+	...getTableColumns(tables.person),
+	plant_today: sql<string | null>`${plantTodaySql(sql`${tables.person.plant_id}`)}`.as("plant_today"),
+};
 export type Person = z.infer<typeof personRow>;
 /** One Person row. A write passes `true` and locks it for update; a read passes its C13 gate and takes no lock. */
 export async function person(
@@ -210,7 +229,7 @@ export async function person(
 	lock: true | SQL,
 ): Promise<Person> {
 	const query = tx
-		.select()
+		.select(personColumns)
 		.from(tables.person)
 		.where(
 			and(
@@ -257,7 +276,8 @@ export async function canReadPerson(tx: Tx, context: Context, p: Person, actor?:
 export async function project(tx: Tx, context: Context, p: Person, gate: SQL) {
 	return (await projectPeople(tx, context, [p], gate))[0]!;
 }
-export async function projectPeople(tx: Tx, context: Context, people: Person[], gate: SQL) {
+export async function projectPeople(tx: Tx, context: Context, rows: Person[], gate: SQL) {
+	const people = await withToday(tx, context, rows);
 	const known = context.selected.kind === "plant" && people.some((p) => p.commitment_state !== "unknown");
 	// Commitment evidence is another row: a native write that answers with it runs in the gate's transaction (C88).
 	if (known) await declareWrite(tx, "established");
@@ -285,6 +305,17 @@ export async function projectPeople(tx: Tx, context: Context, people: Person[], 
 				.orderBy(tables.commitment.person_id, desc(tables.commitment.signed_on), desc(tables.commitment.id))
 		: [];
 	return projectWith(context, people, evidence);
+}
+/** A new or just-updated row has no plant-local date yet; one statement reads it, and only for a person with a birth date. */
+async function withToday(tx: Tx, context: Context, people: Person[]) {
+	if (context.selected.kind !== "plant" || !people.some((p) => p.birth_date && p.plant_today === undefined))
+		return people;
+	await declareWrite(tx, "established");
+	const [{ today }] = (await tx
+		.select({ today: sql<string>`${plantTodaySql(sql`${context.selected.id}::uuid`)}` })
+		.from(tables.plant)
+		.where(eq(tables.plant.id, context.selected.id))) as [{ today: string }];
+	return people.map((p) => ({ ...p, plant_today: p.plant_today ?? today }));
 }
 /** The commitment card a plant Person's projection names: the latest valid one. */
 export type Evidence = {
@@ -340,14 +371,17 @@ export function projectWith(context: Pick<Context, "selected">, people: Person[]
 						occurredOn: e.signed_on,
 						revision: e.revision,
 					};
+		const birthDate = p.birth_date?.toISOString().slice(0, 10) ?? null,
+			adult = effectiveAdult(birthDate, p.adult_classification ?? "unknown", p.plant_today ?? null);
 		return c.plantPerson.parse({
 			...base,
 			stage: p.stage,
 			source: p.source,
 			sourceDetails: p.source_details,
 			summaryNotes: p.notes,
-			adultClassification: p.adult_classification,
-			birthDate: p.birth_date?.toISOString().slice(0, 10) ?? null,
+			adultClassification: adult.value,
+			adultClassificationSource: adult.source,
+			birthDate,
 			commitment,
 		});
 	});
@@ -413,7 +447,7 @@ export function personChanges(before?: Revisioned, after?: Revisioned) {
 		next = new Map(Object.entries(after ?? {}));
 	const changed = new Set(
 		[...prior.keys(), ...next.keys()].filter(
-			(k) => k !== "revision" && JSON.stringify(prior.get(k)) !== JSON.stringify(next.get(k)),
+			(k) => k !== "revision" && k !== "plant_today" && JSON.stringify(prior.get(k)) !== JSON.stringify(next.get(k)),
 		),
 	);
 	return {

@@ -3,7 +3,15 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { loadPage } from "../identity/api";
-import { getBrand, resetBrand, saveBrand } from "./brand/actions";
+import {
+	finalizeAssetUpload,
+	getBrand,
+	requestAssetUpload,
+	resetBrand,
+	saveBrand,
+	suggestColors,
+} from "./brand/actions";
+import { assetSrc, uploadBytes } from "./brand/bytes";
 import {
 	changePassword,
 	getSection,
@@ -36,7 +44,16 @@ const PORT: SettingsPort = {
 	saveChurch,
 	previewPlantTimezone,
 	setPlantTimezone,
-	brand: { get: getBrand, save: saveBrand, reset: resetBrand },
+	brand: {
+		get: getBrand,
+		save: saveBrand,
+		reset: resetBrand,
+		requestUpload: requestAssetUpload,
+		uploadBytes,
+		finalizeUpload: finalizeAssetUpload,
+		suggestColors,
+		assetSrc,
+	},
 	flows: { requestEmailChange, changePassword, previewPersonalTimezone, setPersonalTimezone, requestAccountDeletion },
 };
 const hrefFor = (key: SectionKey) => `/settings/${key}`;

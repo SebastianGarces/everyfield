@@ -76,8 +76,8 @@ const FOLLOW_UP: Record<Extract<Item, { kind: "follow_up" }>["outcome"], string>
 };
 
 /**
- * Activity (REQ-PPL-008): ordinary notes, stage changes, record activity and follow-up history, oldest first, in the
- * server's time-and-ID order. Only a note's author edits or deletes it, with a reason that goes to the history. A
+ * Activity (REQ-PPL-008): ordinary notes, stage changes, record activity and follow-up history, newest first, in the
+ * server's time-and-ID order, descending. Only a note's author edits or deletes it, with a reason that goes to the history. A
  * deleted note keeps a marker of who removed it and when; its words are gone. A saved note shows from its answer.
  */
 export function ActivityCard({
@@ -128,8 +128,14 @@ export function ActivityCard({
 		if (activities.status !== "ok" || !activities.value.next) return;
 		setMore({ loading: true });
 		const r = await loadActivities(person.id, activities.value.next).catch(() => ({ status: "lost" }) as const);
-		if (r.status === "ok")
-			setActivities({ status: "ok", value: { ...r.value, items: [...activities.value.items, ...r.value.items] } });
+		if (r.status === "ok") {
+			// A note saved since the first page shifted the pages by one: skip what is already shown.
+			const shown = new Set(activities.value.items.map((i) => i.id));
+			setActivities({
+				status: "ok",
+				value: { ...r.value, items: [...activities.value.items, ...r.value.items.filter((i) => !shown.has(i.id))] },
+			});
+		}
 		setMore({ loading: false, problem: problemOf(r) });
 	}
 
@@ -163,7 +169,7 @@ export function ActivityCard({
 			<CardHeader>
 				<CardHeading>
 					<CardTitle>Activity</CardTitle>
-					<CardDescription>Oldest first</CardDescription>
+					<CardDescription>Newest first</CardDescription>
 				</CardHeading>
 			</CardHeader>
 			{writing ? (
@@ -208,7 +214,7 @@ export function ActivityCard({
 			) : activities.value.items.length === 0 ? (
 				<p className="py-6 text-center text-text-3">No activity yet.</p>
 			) : (
-				<ol className="flex flex-col" aria-label="Activity, oldest first">
+				<ol className="flex flex-col" aria-label="Activity, newest first">
 					{activities.value.items.map((item) => (
 						<Row
 							key={item.id}
@@ -230,7 +236,7 @@ export function ActivityCard({
 			)}
 			{activities.status === "ok" && activities.value.next ? (
 				<Button variant="ghost" size="sm" className="mt-3 self-center" onClick={loadMore} loading={more.loading}>
-					Show later activity
+					Show older activity
 				</Button>
 			) : null}
 			<FormProblem code={more.problem} />

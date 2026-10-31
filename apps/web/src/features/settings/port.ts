@@ -56,6 +56,11 @@ export type BrandError = B.BrandError;
 export type BrandReply<T> = B.BrandReply<T>;
 export type SaveBrandRequest = z.input<typeof B.saveSettingsRequest>;
 export type ResetBrandRequest = z.input<typeof B.resetRequest>;
+export type RequestBrandUpload = z.input<typeof B.uploadRequest>;
+export type FinalizeBrandUpload = z.input<typeof B.finalizeUploadRequest>;
+export type SuggestBrandColors = z.input<typeof B.suggestColorsRequest>;
+export type BrandUploadTicket = z.infer<typeof B.uploadTicket>;
+export type SuggestedColors = z.infer<typeof B.suggestedColors>;
 /** The saved kit and the church name the preview sets in type in the logo slots. */
 export type BrandView = { kit: BrandKit; churchName: string };
 
@@ -98,6 +103,16 @@ export interface BrandPort {
 	get(): Promise<BrandReply<BrandView>>;
 	save(request: SaveBrandRequest): Promise<BrandReply<BrandKit>>;
 	reset(request: ResetBrandRequest): Promise<BrandReply<BrandKit>>;
+	/** Step 1 of an asset upload: stages a pending file for one slot. */
+	requestUpload(request: RequestBrandUpload): Promise<BrandReply<BrandUploadTicket>>;
+	/** Step 2: sends the picked bytes to the staged upload (the byte route). A refusal is the slot's own message. */
+	uploadBytes(uploadId: string, file: Blob): Promise<BrandReply<null>>;
+	/** Step 3: attaches the processed file to its slot with the alt text; returns the kit at its new revision. */
+	finalizeUpload(request: FinalizeBrandUpload): Promise<BrandReply<BrandKit>>;
+	/** Colors from the ready asset in one slot. Nothing is applied until the person chooses. */
+	suggestColors(request: SuggestBrandColors): Promise<BrandReply<SuggestedColors>>;
+	/** The authenticated delivery route for one stored asset. Never a storage key or bearer URL. */
+	assetSrc(fileId: string): string;
 }
 
 /** The photo flow. Its bytes need the private bucket (Q2), so a port without one leaves it out. */

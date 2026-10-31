@@ -191,7 +191,7 @@ export function EditProfileDialog({
 										options={SOURCES.map((s) => ({ value: s, label: SOURCE_LABEL[s] }))}
 									/>
 								</Field>
-								<Field label="Birth date" optional hint="Never required.">
+								<Field label="Birth date" optional hint="Never required. If you add it, adult or child comes from it.">
 									<Input
 										type="date"
 										value={values.birthDate}
@@ -255,8 +255,9 @@ export function EditProfileDialog({
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// Adult classification (REQ-PPL-002, cohort input). Explicit only: never inferred from a birth date, household or
-// stage. The first explicit answer is recorded; a later one is a correction with a reason, both kept in history.
+// Adult classification (REQ-PPL-026, cohort input). Recorded only for a person with no birth date: a birth date sets
+// adult or child itself, and this dialog is not offered then. Never inferred from a household or stage. The first
+// answer is recorded; a later one is a correction with a reason, both kept in history.
 
 export type ClassifyDraft = { classification: string; occurredOn: string; reason: string };
 
@@ -333,7 +334,8 @@ export function ClassificationDialog({
 					/>
 					<DialogBody className="flex flex-col gap-4">
 						<p>
-							This is recorded as you say it. It is never worked out from a birth date, a household or a stage.
+							This is recorded as you say it. It is never worked out from a household or a stage. A birth date, once
+							added, sets it instead.
 							{correction ? " The earlier answer stays in the history." : ""}
 						</p>
 						<div className="grid grid-cols-2 gap-4 max-app-sm:grid-cols-1">
