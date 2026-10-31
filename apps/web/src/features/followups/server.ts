@@ -18,6 +18,7 @@ import { taskViewer, type TaskViewer } from "../tasks/server.ts";
 import {
 	COVERAGE_PAGE,
 	HISTORY_PAGE,
+	outcomeOf,
 	ownersOf,
 	type Account,
 	type ContactHistory,
@@ -46,9 +47,6 @@ export async function read<T>(viewer: TaskViewer, run: (tx: Transaction) => Prom
 	}
 }
 export const administers = (v: Pick<TaskViewer, "role">) => v.role !== "member";
-
-export const outcomeOf = <T>(reply: FollowUpReply<T>): Outcome<T> =>
-	reply.status === "ok" ? reply : { status: "refused", code: reply.error.code };
 
 let writer: ReturnType<typeof createFollowUpWriter> | undefined;
 type Writer = ReturnType<typeof createFollowUpWriter>;

@@ -6,7 +6,7 @@ import type { RequestActor } from "@everyfield/domain/access";
 import { followUpReader } from "@everyfield/domain/followups";
 import { taskReader, withTaskWrite, type TaskContext, type TaskReply, type TaskWriter } from "@everyfield/domain/tasks";
 import "server-only";
-import { HISTORY_PAGE, type ContactHistory, type Outcome as ReadOutcome } from "../followups/model.ts";
+import { HISTORY_PAGE, outcomeOf } from "../followups/model.ts";
 import { countRequest, listRequest, pageCount, type Outcome, type TaskQuery } from "./model.ts";
 
 // The Tasks screens reach the task core here. Pages and actions share the request's one viewer (D59/D60); every read
@@ -86,7 +86,7 @@ export async function loadTask(tx: Transaction, viewer: TaskViewer, taskId: stri
 		? await taskReader.findOpenOccurrence(tx, viewer.authority, { taskId }).then(outcome)
 		: null;
 	// A refused contact read stays its own outcome, so the panel can offer "Try again" without closing.
-	const contacts: ReadOutcome<ContactHistory> | null =
+	const contacts =
 		task.relation?.kind === "person" && !task.parentId
 			? await followUpReader
 					.listContactHistory(tx, viewer.authority, {
@@ -95,7 +95,7 @@ export async function loadTask(tx: Transaction, viewer: TaskViewer, taskId: stri
 						limit: HISTORY_PAGE,
 						page: 1,
 					})
-					.then((r): ReadOutcome<ContactHistory> => (r.status === "ok" ? r : { status: "refused", code: r.error.code }))
+					.then(outcomeOf)
 			: null;
 	const ok = <T>(r: Outcome<T> | null) => (r?.status === "ok" ? r.value : null);
 	return {

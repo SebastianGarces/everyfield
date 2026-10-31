@@ -4,12 +4,11 @@ import { followUpReader } from "@everyfield/domain/followups";
 import { taskReader } from "@everyfield/domain/tasks";
 import "server-only";
 import type { z } from "zod";
-import { HISTORY_PAGE, type Outcome } from "./model.ts";
+import { HISTORY_PAGE, outcomeOf, type Outcome } from "./model.ts";
 import {
 	COVERAGE_PAGE,
 	PERSON_PAGE,
 	loadCall,
-	outcomeOf,
 	read,
 	readOwners,
 	readPersonFollowUps,

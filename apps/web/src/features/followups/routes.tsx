@@ -9,12 +9,11 @@ import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { CallScreen } from "./CallScreen.tsx";
 import { FollowUpsScreen, type Data, type Filter } from "./FollowUpsScreen.tsx";
-import type { Outcome } from "./model.ts";
+import { outcomeOf, type Outcome } from "./model.ts";
 import {
 	administers,
 	COVERAGE_PAGE,
 	loadCall,
-	outcomeOf,
 	read,
 	readOwners,
 	taskViewer,
