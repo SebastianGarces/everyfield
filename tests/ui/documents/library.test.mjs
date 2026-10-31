@@ -36,6 +36,13 @@ async function openTemplate(page, id) {
 	await page.getByRole("img", { name: /, page 1/ }).waitFor({ timeout: 60_000 });
 }
 
+/** One template card: the title button and the tags and description beside it. */
+const templateCard = (page, name) =>
+	page
+		.getByRole("group", { name: "Templates" })
+		.locator("> div")
+		.filter({ has: page.getByRole("button", { name, exact: true }) });
+
 /** The preview route's bytes for one template, as the browser asks for them. */
 async function previewBytes(context, templateId) {
 	const response = await context.request.post(`${BASE}/documents/preview`, {
@@ -59,6 +66,11 @@ for (const [name, engine] of ENGINES) {
 				const canvas = await page.getByRole("img", { name: /, page 1/ }).boundingBox();
 				assert.ok(Math.abs(frame.width / frame.height - width / height) < 0.01, `${id} frame aspect`);
 				assert.ok(Math.abs(canvas.width / canvas.height - width / height) < 0.01, `${id} canvas aspect`);
+				// A canvas holds the 300 x 150 default until pdf.js has drawn the page.
+				await page.waitForFunction(() => {
+					const c = document.querySelector('canvas[role="img"]');
+					return c && !(c.width === 300 && c.height === 150);
+				});
 				const drawn = await page.getByRole("img", { name: /, page 1/ }).evaluate((c) => [c.width, c.height]);
 				assert.ok(Math.abs(drawn[0] / drawn[1] - width / height) < 0.01, `${id} drawn pixels`);
 			}
@@ -94,8 +106,9 @@ for (const [name, engine] of ENGINES) {
 			const cards = page.getByRole("group", { name: "Templates" }).getByRole("button");
 			await cards.first().waitFor();
 			assert.equal(await cards.count(), 11);
+			// The tags sit beside the button in the same card.
 			const labels = await cards.evaluateAll((nodes) =>
-				nodes.map((n) => [...n.querySelectorAll("span")].map((s) => s.textContent)),
+				nodes.map((n) => [...n.parentElement.querySelectorAll("span")].map((s) => s.textContent)),
 			);
 			const formats = labels.map((l) => (l.includes("PDF") ? "PDF" : l.includes("Excel") ? "Excel" : "other"));
 			assert.equal(formats.filter((f) => f === "PDF").length, 9);
@@ -112,7 +125,7 @@ for (const [name, engine] of ENGINES) {
 	test(`INV-doc-fillable (${name}): Fillable shows in the library and the preview, and a download keeps its fields`, async () => {
 		await withPage(engine, async (page, context) => {
 			await openTemplate(page, "commitment-card");
-			const card = page.getByRole("button", { name: "Core Group Commitment Card" });
+			const card = templateCard(page, "Core Group Commitment Card");
 			await card.getByText("Fillable").waitFor();
 			await page.getByRole("heading", { level: 2, name: "Core Group Commitment Card" }).waitFor();
 			assert.ok((await page.getByText("Fillable", { exact: true }).count()) >= 2, "library and preview labels");
@@ -127,7 +140,8 @@ for (const [name, engine] of ENGINES) {
 			await page.goto(`${BASE}/documents`);
 			const budget = page
 				.getByRole("group", { name: "Templates" })
-				.getByRole("button", { name: /Budget/ })
+				.locator("> div")
+				.filter({ has: page.getByRole("button", { name: /Budget/ }) })
 				.first();
 			assert.equal(await budget.getByText("Fillable").count(), 0);
 		});
