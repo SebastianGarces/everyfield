@@ -1101,9 +1101,9 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 .evry-bot .eb-body { position: absolute; inset: 0; }
 .evry-bot .eb-body:empty { background: radial-gradient(circle at 32% 26%, rgba(255,255,255,.55), rgba(255,255,255,0) 42%), var(--ef-green); border-radius: 50%; box-shadow: 0 calc(var(--s) * .05) calc(var(--s) * .12) rgba(1,60,34,.3); }
 .evry-bot .eb-face { position: absolute; inset: 0; }
-.evry-bot .eb-eye { position: absolute; top: 36%; width: calc(var(--s) * .13); height: calc(var(--s) * .23); border-radius: 99px; background: #181D19; }
-.evry-bot .eb-eye:nth-child(1) { left: 31%; }
-.evry-bot .eb-eye:nth-child(2) { left: 56%; }
+.evry-bot .eb-eye { position: absolute; top: 36%; width: calc(var(--s) * .11); height: calc(var(--s) * .23); border-radius: 99px; background: #181D19; }
+.evry-bot .eb-eye:nth-child(1) { left: 32%; }
+.evry-bot .eb-eye:nth-child(2) { left: 57%; }
 .evry-bot .eb-mouth, .evry-bot[data-eb] .eb-face { display: none; }
 .evry-bot .eb-body svg { display: block; width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 calc(var(--s) * .05) calc(var(--s) * .06) rgba(1,60,34,.3)); }
 /* float at 40 px and larger (smaller bots would move under a pixel): a slow bob with a little
@@ -1120,7 +1120,7 @@ textarea.input { height: auto; min-height: 96px; padding: 12px 14px; resize: ver
 @keyframes ebBlink { 50% { transform: scaleY(.08); } }
 /* happy: ^ ^ eyes with round caps, the whole bot bounces */
 .evry-bot[data-mood="happy"] { animation: ebBounce .9s cubic-bezier(.3,1.6,.5,1) infinite alternate; }
-.evry-bot[data-mood="happy"] .eb-e { fill: none; stroke: #181D19; stroke-width: 5.5; stroke-linecap: round; }
+.evry-bot[data-mood="happy"] .eb-e { fill: none; stroke: #181D19; stroke-width: 4.65; stroke-linecap: round; }
 @keyframes ebBounce { from { translate: 0 0; scale: 1.03 .97; } to { translate: 0 calc(var(--s) * -.08); scale: .98 1.03; } }
 /* thinking: squinted eyes look up (script), a dot orbits at md and larger */
 .evry-bot[data-mood="thinking"]::after {
@@ -1985,9 +1985,9 @@ body[data-role="member"] [data-author-only] { display: none !important; }
   <!-- EVRY CHARACTER -->
   <div class="doc-section">
     <div class="doc-h"><h2>Evry</h2><code>&lt;EvryBot size mood follow&gt;</code></div>
-    <p class="doc-note">Evry's character replaces a generic AI icon. It is the brand green with upright ink eyes. Evry has five shapes: triangle, circle, square, pill and hexagon. It holds a shape for a few seconds, then morphs into a different one at random. When idle it floats, blinks at random, looks to the sides now and then, and sometimes spins once. When it looks toward an edge, its eyes narrow and curve with the body and the body leans a little, so the flat shape turns like a solid. In the panel its eyes follow the pointer. Mood shows what Evry is doing. Thinking squints, looks up and morphs faster. Happy shows ^ ^ eyes and bounces. Reduced motion stops all movement and shows one still shape.</p>
+    <p class="doc-note">Evry's character replaces a generic AI icon. It is the brand green with upright ink eyes. Evry has five shapes: triangle, circle, square, pill and hexagon. It holds a shape for a few seconds, then morphs into a different one at random. When idle it floats, blinks at random, looks to the sides, tilts and sways a little between shapes, and sometimes spins once. When it looks toward an edge, its eyes narrow and curve with the body and the body leans a little, so the flat shape turns like a solid. In the panel its eyes follow the pointer. Mood shows what Evry is doing. Thinking squints, looks up and morphs faster. Happy shows ^ ^ eyes and bounces. Reduced motion stops all movement and shows one still shape.</p>
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
-      <div class="card" style="align-items:center;text-align:center;gap:14px;padding:30px 20px"><span class="evry-bot" data-size="xl" data-mood="idle" data-follow aria-hidden="true"><span class="eb-body"></span><span class="eb-face"><span class="eb-eye"></span><span class="eb-eye"></span><span class="eb-mouth"></span></span></span><div><div style="font-weight:600">Idle</div><div class="faint t-sm mt-2">Waiting. Floats, blinks, looks around and sometimes spins.</div></div></div>
+      <div class="card" style="align-items:center;text-align:center;gap:14px;padding:30px 20px"><span class="evry-bot" data-size="xl" data-mood="idle" data-follow aria-hidden="true"><span class="eb-body"></span><span class="eb-face"><span class="eb-eye"></span><span class="eb-eye"></span><span class="eb-mouth"></span></span></span><div><div style="font-weight:600">Idle</div><div class="faint t-sm mt-2">Waiting. Floats, blinks, looks around, tilts and sometimes spins.</div></div></div>
       <div class="card" style="align-items:center;text-align:center;gap:14px;padding:30px 20px"><span class="evry-bot" data-size="xl" data-mood="thinking" aria-hidden="true"><span class="eb-body"></span><span class="eb-face"><span class="eb-eye"></span><span class="eb-eye"></span><span class="eb-mouth"></span></span></span><div><div style="font-weight:600">Thinking</div><div class="faint t-sm mt-2">Reading records or drafting.</div></div></div>
       <div class="card" style="align-items:center;text-align:center;gap:14px;padding:30px 20px"><span class="evry-bot" data-size="xl" data-mood="happy" aria-hidden="true"><span class="eb-body"></span><span class="eb-face"><span class="eb-eye"></span><span class="eb-eye"></span><span class="eb-mouth"></span></span></span><div><div style="font-weight:600">Happy</div><div class="faint t-sm mt-2">A change was approved and saved.</div></div></div>
     </div>
@@ -5115,8 +5115,9 @@ setTheme((() => { try { return localStorage.getItem('ef-theme') || 'light'; } ca
 
 /* EvryBot life: one inline SVG per bot. The body path morphs at random between five rounded
    shapes. The eye paths narrow, slant and bend near the body's edge when Evry looks around or
-   follows the pointer. Random blinks, glances and spins; mood on panel open. EvryGeo is pure
-   geometry with no DOM, so the app port can unit-test it. Debug log: add ?evry-debug to the URL. */
+   follows the pointer. Random blinks, spins and idle acts (looks, tilts, sways) that fill every
+   hold between two morphs; mood on panel open. EvryGeo is pure geometry with no DOM, so the app
+   port can unit-test it. Debug log: add ?evry-debug to the URL. */
 const EvryGeo = (() => {
   const N = 36, TAU = 2 * Math.PI, DPHI = TAU / N, NX = new Float64Array(N), NY = new Float64Array(N);
   for (let i = 0; i < N; i++) { const a = DPHI * (i + .5) - Math.PI / 2; NX[i] = Math.cos(a); NY[i] = Math.sin(a); }
@@ -5252,7 +5253,14 @@ const EvryGeo = (() => {
     const c = Math.cos(ang), s = Math.sin(ang), P = (x, y) => r1(ox + (x - ox) * c - (y - oy) * s) + ' ' + r1(oy + (x - ox) * s + (y - oy) * c);
     return 'M' + P(cx - hw, cy) + 'A' + r1(hw) + ' ' + r1(hh) + ' ' + r1(ang * 180 / Math.PI) + ' 0 1 ' + P(cx + hw, cy);
   }
-  return { N, NAMES: Object.keys(SHAPES), SHAPES, blend, newEdges, edges, near, eye, margin, reach, bodyD, eyeD, happyD };
+  // A gradientTransform, in objectBoundingBox units of the box [x0, y0, w, h], that turns a gradient
+  // back by angle a (radians) about (cx, cy) in user space: W^-1 R(-a) W, with the matching offset.
+  const f4 = v => Math.round(v * 1e4) / 1e4;
+  function unturn([x0, y0, w, h], a, cx, cy) {
+    const c = Math.cos(a), s = Math.sin(a), dx = x0 - cx, dy = y0 - cy;
+    return `matrix(${f4(c)} ${f4(-s * w / h)} ${f4(s * h / w)} ${f4(c)} ${f4((c * dx + s * dy - dx) / w)} ${f4((c * dy - s * dx - dy) / h)})`;
+  }
+  return { N, NAMES: Object.keys(SHAPES), SHAPES, blend, newEdges, edges, near, eye, margin, reach, bodyD, eyeD, happyD, unturn };
 })();
 const EvryLife = (() => {
   const G = EvryGeo, N = G.N, NAMES = G.NAMES, TAU = 2 * Math.PI, reduce = matchMedia('(prefers-reduced-motion: reduce)');
@@ -5266,8 +5274,11 @@ const EvryLife = (() => {
   const travel = t => 1 - Math.pow(1 - t, 4) * (1 + 4 * t); // eased out: still at both ends, fastest at a quarter
   const unit = (x, y) => { const l = Math.hypot(x, y) || 1; return [x / l, y / l]; };
   // Face layout in the 100-unit box before the per-shape offset: eye centres, [width, length] per mood.
-  const EX = [37.5, 62.5], EY = 47.5, EYE = { idle: [13, 23], thinking: [12, 16], happy: [13, 23] };
+  const EX = [37.5, 62.5], EY = 47.5, EYE = { idle: [11, 23], thinking: [10.15, 16], happy: [11, 23] };
   const MARGIN = 3.5, REACH = .92;
+  // Body pose: a tilt in degrees about a point low in the body (y = PIVOT), so the top leans further
+  // than the base, and a shift in box units. The gaze adds a lean of LEAN degrees at full turn.
+  const DEG = Math.PI / 180, PIVOT = 84, LEAN = 3;
   // Thinking looks up and to the right, at a little under half of its reach, with rigid upright eyes.
   // During a morph it keeps the smaller reach of the two shapes, so its eyes hold still.
   const think = (now, g0) => ({ u: [.55, -.835], m: .45, t0: now, g0, rigid: true });
@@ -5297,9 +5308,10 @@ const EvryLife = (() => {
     body.innerHTML = `<svg viewBox="0 0 100 100" aria-hidden="true" focusable="false"><defs><path id="${id}p"/><linearGradient id="${id}s" x1="0" y1="0" x2="0" y2="1"><stop offset=".5" stop-color="#013C22" stop-opacity="0"/><stop offset="1" stop-color="#013C22" stop-opacity=".22"/></linearGradient><radialGradient id="${id}h" cx=".32" cy=".26" r=".46"><stop offset="0" stop-color="#fff" stop-opacity=".6"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient></defs><g class="eb-g"><use href="#${id}p" class="eb-fill"/><use href="#${id}p" fill="url(#${id}s)"/><use href="#${id}p" fill="url(#${id}h)"/><path class="eb-e"/><path class="eb-e"/></g></svg>`;
     const st = {
       el, id, host: el.parentElement.closest('[data-open]'), hold: el.hasAttribute('data-hold'), follows: el.hasAttribute('data-follow'), vis: false, mood: el.dataset.mood || 'idle',
-      path: body.querySelector('path'), g: body.querySelector('.eb-g'), eyes: body.querySelectorAll('.eb-e'), hl: body.querySelector('radialGradient'),
+      path: body.querySelector('path'), g: body.querySelector('.eb-g'), eyes: body.querySelectorAll('.eb-e'), hl: body.querySelector('radialGradient'), sh: body.querySelector('linearGradient'),
       P: new Float64Array(2 * N), E: G.newEdges(), C: new Float64Array(38), ver: 0, ever: -1, d0: [0, 0], d0ver: -1, rm: [], next: 0,
       shape: '', fy: 0, fk: 1, oy: 50, ang: 0, morph: null, spin: null, moves: null, follow: null, look: null, gx: 0, gy: 0, due: {}, w: {}, drawn: [],
+      B: [0, 0, 0], bmoves: null, moved: false, pose: [0, 0, 0],
       // Bots of 40 px and smaller draw every second frame: 30 fps is enough at that size.
       small: el.dataset.size !== 'xl', active: false,
     };
@@ -5319,7 +5331,7 @@ const EvryLife = (() => {
   function arm(st, now) {
     const d = st.due;
     st.next = 0; d.blink = now + rand(600, 5000); d.unblink = 0; d.dbl = false;
-    d.look = now + rand(3000, 11000); d.spin = now + rand(8000, 30000); d.morph = now + rand(2500, 8000);
+    d.act = now + rand(300, 1500); st.moved = false; d.spin = now + rand(8000, 30000); d.morph = now + rand(2500, 8000);
   }
   function edgesNow(st) { if (st.ever !== st.ver) { G.edges(st.P, st.E); st.ever = st.ver; } return st.E; }
 
@@ -5345,7 +5357,8 @@ const EvryLife = (() => {
     return 1;
   }
   // A look-around: to one side (level or up), then to the other side or straight back to centre.
-  function glancePlan(st, now) {
+  // A short one (one) never looks to the second side.
+  function glancePlan(st, now, one) {
     const side = Math.random() < .5 ? -1 : 1, moves = [];
     let t = now, from = [st.gx, st.gy], rf = st.gx || st.gy ? reachNow(st, ...unit(st.gx, st.gy)) : 0;
     const go = s => {
@@ -5353,17 +5366,58 @@ const EvryLife = (() => {
       moves.push(mv); t = moveEnd(mv) + rand(650, 1100); from = to; rf = r;
     };
     go(side);
-    if (Math.random() < .55) go(-side);
+    if (!one && Math.random() < .55) go(-side);
     moves.push(move(from, [0, 0], t, rf, 0));
     return moves;
   }
+  // Idle acts fill each hold between two morphs, so idle Evry never only blinks. A look turns the
+  // eyes and the body leans after them. A tilt rocks the body to one side, sometimes to the other,
+  // and back. A sway shifts it sideways, often a little up, with a small lean. Body moves use the
+  // gaze's eased profile, a little slower, as a heavier part would. Poses are [tilt, x, y].
+  const ACTS = { first: [['look', .8], ['tilt', .12], ['sway', .08]], later: [['look', .65], ['tilt', .22], ['sway', .13]] };
+  const pick = w => { let r = Math.random(); for (const [k, p] of w) if ((r -= p) < 0) return k; return w[0][0]; };
+  const bmove = (from, to, t0) => ({ from, to, t0, ta: rand(90, 140), tt: rand(400, 540), ts: rand(240, 340), a: rand(.05, .09), o: rand(.05, .1) });
+  function actPlan(st, now, kind, one) {
+    const side = Math.random() < .5 ? -1 : 1, body = [];
+    let eyes = null, t = now, from = [0, 0, 0];
+    const to = (pose, at) => { const mv = bmove(from, pose, Math.max(at, t)); body.push(mv); t = moveEnd(mv); from = pose; };
+    if (kind === 'look') {
+      eyes = glancePlan(st, now, one);
+      for (const mv of eyes) { const s = Math.abs(mv.to[0]) > 2 ? Math.sign(mv.to[0]) : 0; to([s * rand(2.5, 5), 0, mv.to[1] < -4 ? -rand(.6, 1.4) : 0], mv.t0 + rand(50, 110)); }
+    } else if (kind === 'tilt') {
+      to([side * rand(4.5, 8.5), 0, 0], now); t += rand(300, 800);
+      if (!one && Math.random() < .45) { to([-side * rand(3.5, 7), 0, 0], t); t += rand(250, 600); }
+      to([0, 0, 0], t);
+    } else {
+      to([side * rand(3, 4), side * rand(1.5, 2.5), -rand(0, 1.8)], now); t += rand(250, 650);
+      if (!one && Math.random() < .5) { to([-side * rand(3, 4), -side * rand(1.5, 2.5), -rand(0, 1.2)], t); t += rand(200, 500); }
+      to([0, 0, 0], t);
+    }
+    return { kind, eyes, body, end: Math.max(t, eyes ? moveEnd(eyes[eyes.length - 1]) : 0) };
+  }
+  // The full act if it ends before the next morph, else its short form, else none (or, with force,
+  // the short form, and the caller moves the morph back).
+  function fitAct(st, now, kind, force) {
+    const room = st.due.morph - 250;
+    let a = actPlan(st, now, kind);
+    if (a.end > room) a = actPlan(st, now, kind, true);
+    return a.end <= room || force ? a : null;
+  }
+  function startAct(st, a, now) {
+    st.moves = a.eyes; st.bmoves = a.body; st.moved = true;
+    const big = k => Math.max(...a.body.map(m => Math.abs(m.to[k])));
+    note(st, 'act', { act: a.kind, ms: Math.round(a.end - now), tilt: +big(0).toFixed(1), shift: +Math.hypot(big(1), big(2)).toFixed(1), to: a.eyes ? a.eyes.slice(0, -1).map(m => m.to.map(Math.round)) : null });
+  }
+  // Ease the body back to rest from wherever it is (a pointer follow or a mood change cut the act).
+  function settle(st, now) { st.bmoves = st.bmoves || st.B.some(v => v) ? [bmove(st.B.slice(), [0, 0, 0], now)] : null; }
   function onMood(st) {
     const mood = st.el.dataset.mood || 'idle', now = performance.now();
     if (mood === st.mood) return;
-    st.mood = mood; st.follow = null; st.next = 0;
+    st.mood = mood; st.follow = null; st.next = 0; st.moved = false;
     if (reduced) { st.moves = st.look = null; st.gx = st.gy = 0; draw(st, false); return; }
     if (mood === 'thinking') { st.moves = null; st.look = think(now, [st.gx, st.gy]); }
     else { st.look = null; st.moves = st.gx || st.gy ? [move([st.gx, st.gy], [0, 0], now, 0, 0)] : null; }
+    settle(st, now);
     note(st, 'mood', { to: mood });
     draw(st, false); wake();
   }
@@ -5381,26 +5435,34 @@ const EvryLife = (() => {
     if (st.follow && now >= st.follow.until) {
       st.follow = null;
       st.moves = [move([st.gx, st.gy], [0, 0], now, reachNow(st, ...unit(st.gx, st.gy)), 0)];
-      d.look = Math.max(d.look, now + rand(2500, 5000));
+      d.act = Math.max(d.act, now + rand(2500, 5000));
     }
-    if (st.morph || st.spin || st.moves || st.follow) return;
+    if (st.morph || st.spin || st.moves || st.follow || st.bmoves) return;
+    const idle = !st.hold && st.mood === 'idle';
+    // Every idle hold gets one act soon after its morph. The next morph waits for it if it must.
+    if (idle && !st.moved && now >= d.act) {
+      const a = fitAct(st, now, pick(ACTS.first), true);
+      startAct(st, a, now); d.morph = Math.max(d.morph, a.end + 250); d.act = a.end + rand(300, 1200);
+      return;
+    }
     if (!st.hold && now >= d.morph) {
       const others = NAMES.filter(n => n !== st.shape), thinking = st.mood === 'thinking', ms = thinking ? rand(450, 600) : rand(600, 1000);
       startMorph(st, others[Math.floor(Math.random() * others.length)], ms, now);
       d.morph = now + ms + (thinking ? rand(1000, 1900) : rand(2600, 7700));
+      d.act = now + ms + rand(200, 700); st.moved = false;
       return;
     }
-    if (st.hold || st.mood !== 'idle') return;
+    if (!idle) return;
     // A spin or a glance starts only when it ends before the next morph.
     if (now >= d.spin) {
       const ms = rand(900, 1200);
       if (d.morph - now > ms + 250) { startSpin(st, ms, now); d.spin = now + rand(20000, 40000); return; }
       d.spin = d.morph + rand(1500, 4000);
     }
-    if (now >= d.look) {
-      const moves = glancePlan(st, now), end = moveEnd(moves[moves.length - 1]);
-      if (d.morph > end + 250) { st.moves = moves; note(st, 'look', { ms: Math.round(end - now), to: moves.slice(0, -1).map(m => m.to.map(Math.round)) }); d.look = end + rand(3500, 9000); }
-      else d.look = d.morph + rand(1500, 5000);
+    // More acts while the hold has room; the next morph sets a new first act.
+    if (now >= d.act) {
+      const a = fitAct(st, now, pick(ACTS.later), false);
+      if (a) { startAct(st, a, now); d.act = a.end + rand(300, 1200); } else d.act = d.morph;
     }
   }
 
@@ -5430,11 +5492,7 @@ const EvryLife = (() => {
       if (gl > cap) { st.gx *= cap / gl; st.gy *= cap / gl; }
       f.rest = Math.abs(tx - st.gx) < .02 && Math.abs(ty - st.gy) < .02 && Math.abs(f.vx) < .05 && Math.abs(f.vy) < .05;
     } else if (st.moves) {
-      let mv = st.moves[0];
-      while (st.moves.length > 1 && now >= st.moves[1].t0) { st.moves.shift(); mv = st.moves[0]; }
-      const k = now < mv.t0 ? 0 : prof(mv, now - mv.t0);
-      st.gx = mv.from[0] + (mv.to[0] - mv.from[0]) * k; st.gy = mv.from[1] + (mv.to[1] - mv.from[1]) * k;
-      if (st.moves.length === 1 && now >= moveEnd(mv)) st.moves = null;
+      st.moves = advance(st.moves, now, GV); st.gx = GV[0]; st.gy = GV[1];
     } else if (st.look) {
       const L = st.look, t = Math.min(1, (now - L.t0) / 450), e = inOut(t);
       let R = reachNow(st, L.u[0], L.u[1]);
@@ -5442,29 +5500,48 @@ const EvryLife = (() => {
       st.gx = L.g0[0] + (L.u[0] * L.m * R - L.g0[0]) * e; st.gy = L.g0[1] + (L.u[1] * L.m * R - L.g0[1]) * e;
       L.rest = t >= 1 && !st.morph;
     }
+    if (st.bmoves) st.bmoves = advance(st.bmoves, now, st.B);
     draw(st, body);
-    // Between the moves of a look-around the eyes hold still, so the loop can sleep until the next one.
-    const mv = st.moves && (now < moveEnd(st.moves[0]) || (st.moves.length > 1 && now >= st.moves[1].t0));
-    return !!(st.morph || st.spin || mv || (st.follow && !st.follow.rest) || (st.look && !st.look.rest));
+    // Between the moves of a look-around or an act the bot holds still, so the loop can sleep until the next one.
+    const busy = l => l && (now < moveEnd(l[0]) || (l.length > 1 && now >= l[1].t0));
+    return !!(st.morph || st.spin || busy(st.moves) || busy(st.bmoves) || (st.follow && !st.follow.rest) || (st.look && !st.look.rest));
+  }
+  // Run a list of moves: write the position now to out; return the list, or null once the last settled.
+  const GV = [0, 0];
+  function advance(list, now, out) {
+    let mv = list[0];
+    while (list.length > 1 && now >= list[1].t0) { list.shift(); mv = list[0]; }
+    const k = now < mv.t0 ? 0 : prof(mv, now - mv.t0);
+    for (let i = 0; i < out.length; i++) out[i] = mv.from[i] + (mv.to[i] - mv.from[i]) * k;
+    return list.length === 1 && now >= moveEnd(mv) ? null : list;
   }
 
   // ---- DOM writes: path d, two gradient attributes and one group transform, each only on change
   function set(st, node, key, name, v) { if (st.w[key] !== v) { st.w[key] = v; if (v) node.setAttribute(name, v); else node.removeAttribute(name); } }
   function draw(st, body) {
-    const ox = 50, oy = st.oy;
+    const ox = 50, oy = st.oy, B = st.B, D = st.drawn;
     if (body) set(st, st.path, 'd', 'd', G.bodyD(st.P, st.ang, ox, oy));
-    // Fake 3D: during a gaze the body leans a little toward it and narrows as it turns, and the
-    // highlight slides the other way, so the flat shape reads as a turning solid. Rest is untouched.
-    const D = st.drawn;
-    if (D[0] === st.mood && D[1] === st.fy && D[2] === st.fk && D[3] === st.gx && D[4] === st.gy && D[5] === st.ang) return;
-    D[0] = st.mood; D[1] = st.fy; D[2] = st.fk; D[3] = st.gx; D[4] = st.gy; D[5] = st.ang;
-    // The turn updates when it changes by a visible step (0.15 degree of lean) and always at rest.
     const gxn = Math.max(-1, Math.min(1, st.gx / 18)), gyn = Math.max(-1, Math.min(1, st.gy / 18)), still = Math.abs(gxn) + Math.abs(gyn) < .01;
-    if (still || Math.abs(gxn - D[6]) + Math.abs(gyn - D[7]) > .05 || D[6] === undefined) {
-      D[6] = gxn; D[7] = gyn;
-      set(st, st.hl, 'hl', 'gradientTransform', still ? '' : `translate(${(-.09 * gxn).toFixed(3)} ${(-.06 * gyn).toFixed(3)})`);
-      set(st, st.g, 'g', 'transform', still ? '' : `rotate(${(3 * gxn).toFixed(2)} 50 92) translate(50 50) scale(${(1 - .035 * Math.abs(gxn)).toFixed(4)} ${(1 - .02 * Math.abs(gyn)).toFixed(4)}) translate(-50 -50)`);
+    // Fake 3D: during a gaze the body narrows as it turns and the highlight slides the other way, so
+    // the flat shape reads as a turning solid. The turn updates by visible steps and always at rest.
+    if (still || Math.abs(gxn - D[6]) + Math.abs(gyn - D[7]) > .05 || D[6] === undefined) { D[6] = still ? 0 : gxn; D[7] = still ? 0 : gyn; }
+    // Body pose: the tilt (a lean toward the gaze plus the idle act's tilt, in 0.1 degree steps) about
+    // a point low in the body, and the act's shift. The group turns and both gradients turn back by
+    // the same angle about the body's centre, so the highlight, the shading and the drop shadow stay
+    // at the upper left of the body, as in a spin. A tilt frame writes three short attributes, no path.
+    const tilt = Math.round(((still ? 0 : LEAN * gxn) + B[0]) * 10) / 10, ver = tilt ? st.ver : 0;
+    if (D[5] !== tilt || D[8] !== B[1] || D[9] !== B[2] || D[10] !== D[6] || D[11] !== D[7] || D[12] !== ver) {
+      D[5] = tilt; D[8] = B[1]; D[9] = B[2]; D[10] = D[6]; D[11] = D[7]; D[12] = ver;
+      let back = '';
+      if (tilt) { const b = bbox(st); back = G.unturn(b, tilt * DEG, b[0] + b[2] / 2, b[1] + b[3] / 2); }
+      set(st, st.sh, 'sh', 'gradientTransform', back);
+      set(st, st.hl, 'hl', 'gradientTransform', (back + (D[6] || D[7] ? ` translate(${(-.09 * D[6]).toFixed(3)} ${(-.06 * D[7]).toFixed(3)})` : '')).trim());
+      set(st, st.g, 'g', 'transform', ((B[1] || B[2] ? `translate(${B[1].toFixed(2)} ${B[2].toFixed(2)}) ` : '') + (D[6] || D[7] ? `translate(50 50) scale(${(1 - .035 * Math.abs(D[6])).toFixed(4)} ${(1 - .02 * Math.abs(D[7])).toFixed(4)}) translate(-50 -50) ` : '') + (tilt ? `rotate(${tilt} 50 ${PIVOT})` : '')).trim());
+      const h = PIVOT - oy, P = st.pose;
+      P[0] = tilt; P[1] = h * Math.sin(tilt * DEG) + B[1]; P[2] = h * (1 - Math.cos(tilt * DEG)) + B[2];
     }
+    if (D[0] === st.mood && D[1] === st.fy && D[2] === st.fk && D[3] === st.gx && D[4] === st.gy && D[13] === st.ang) return;
+    D[0] = st.mood; D[1] = st.fy; D[2] = st.fk; D[3] = st.gx; D[4] = st.gy; D[13] = st.ang;
     const sp = specs(st.fy, st.fk, st.mood);
     if (st.mood === 'happy') {
       for (let j = 0; j < 2; j++) { const [cx, cy] = sp[j]; set(st, st.eyes[j], 'e' + j, 'd', G.happyD(cx + (j ? -1.5 : 1.5) * st.fk, cy + 2.5 * st.fk, 5.25 * st.fk, 7.25 * st.fk, st.ang, ox, oy)); }
@@ -5474,13 +5551,23 @@ const EvryLife = (() => {
     if (E && st.d0ver !== st.ver) { st.d0ver = st.ver; for (let j = 0; j < 2; j++) st.d0[j] = G.near(E, sp[j][0], sp[j][1]).d; }
     for (let j = 0; j < 2; j++) { const [cx, cy, w, l] = sp[j]; set(st, st.eyes[j], 'e' + j, 'd', G.eyeD(G.eye(E, cx, cy, w, l, st.gx, st.gy, 1, st.C, null, E ? st.d0[j] : 0), st.ang, ox, oy)); }
   }
+  // The body's box in the SVG: the gradients' objectBoundingBox units.
+  function bbox(st) {
+    if (st.bver !== st.ver) {
+      const P = st.P, b = st.bb || (st.bb = [0, 0, 0, 0]);
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      for (let i = 0; i < P.length; i += 2) { if (P[i] < x0) x0 = P[i]; if (P[i] > x1) x1 = P[i]; if (P[i + 1] < y0) y0 = P[i + 1]; if (P[i + 1] > y1) y1 = P[i + 1]; }
+      b[0] = x0; b[1] = y0; b[2] = x1 - x0; b[3] = y1 - y0; st.bver = st.ver;
+    }
+    return st.bb;
+  }
 
   // ---- the shared loop: frames while a visible bot moves, else one timer to the next due action
   let live = [], frame = 0;
   // The next time a bot needs the loop: a due action, the end of a pointer follow, the next glance move.
   function dueOf(st) {
     const d = st.due;
-    return Math.min(d.blink, d.unblink || Infinity, d.morph, st.hold || st.mood !== 'idle' ? Infinity : Math.min(d.look, d.spin), st.follow ? st.follow.until : Infinity, st.moves && st.moves.length > 1 ? st.moves[1].t0 : Infinity);
+    return Math.min(d.blink, d.unblink || Infinity, d.morph, st.hold || st.mood !== 'idle' ? Infinity : Math.min(d.act, d.spin), st.follow ? st.follow.until : Infinity, st.moves && st.moves.length > 1 ? st.moves[1].t0 : Infinity, st.bmoves && st.bmoves.length > 1 ? st.bmoves[1].t0 : Infinity);
   }
   const refresh = () => { live = bots.filter(visible); };
   function tick() {
@@ -5491,7 +5578,7 @@ const EvryLife = (() => {
     for (let i = 0; i < live.length; i++) {
       const st = live[i];
       if (now >= st.next) { plan(st, now); st.next = dueOf(st); }
-      if (st.morph || st.spin || st.moves || st.follow || st.look) {
+      if (st.morph || st.spin || st.moves || st.follow || st.look || st.bmoves) {
         if (!(odd && st.small && st.active)) { st.active = step(st, now); if (!st.active) st.next = dueOf(st); }
         if (st.active) anim = true;
       }
@@ -5507,7 +5594,7 @@ const EvryLife = (() => {
     cancelAnimationFrame(raf); clearTimeout(timer); raf = timer = 0;
     const now = performance.now();
     for (const st of bots) {
-      st.morph = st.spin = st.moves = st.follow = null; st.ang = 0; st.gx = st.gy = 0;
+      st.morph = st.spin = st.moves = st.follow = st.bmoves = null; st.ang = 0; st.gx = st.gy = 0; st.B = [0, 0, 0];
       st.look = st.mood === 'thinking' && !reduced ? think(now, [0, 0]) : null;
       st.el.removeAttribute('data-blink');
       if (reduced || st.el.dataset.shape) setShape(st, st.el.dataset.shape || 'circle');
@@ -5538,7 +5625,7 @@ const EvryLife = (() => {
     for (const st of bots) {
       if (!st.follows || st.mood !== 'idle' || st.spin || !visible(st)) continue;
       const r = st.el.getBoundingClientRect(), dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2), d = Math.hypot(dx, dy) || 1;
-      if (!st.follow) { st.follow = { vx: 0, vy: 0, t: now }; note(st, 'follow'); }
+      if (!st.follow) { st.follow = { vx: 0, vy: 0, t: now }; note(st, 'follow'); if (st.bmoves) settle(st, now); }
       Object.assign(st.follow, { u: [dx / d, dy / d], m: Math.min(1, d / 300) * REACH, until: now + 1600, rest: false });
       st.moves = null; st.next = 0;
     }
@@ -5553,7 +5640,7 @@ const EvryLife = (() => {
     reach: (el, ux, uy) => reachNow(S(el), ux, uy),
     hold(el, fx, fy) {
       const st = S(el), l = Math.hypot(fx, fy);
-      st.due.look = st.due.spin = Infinity; st.moves = st.follow = null;
+      st.due.act = st.due.spin = Infinity; st.moves = st.follow = st.bmoves = null; st.B = [0, 0, 0];
       st.look = l ? { u: [fx / l, fy / l], m: l, t0: -1e9, g0: [0, 0] } : null;
       if (!l) st.gx = st.gy = 0;
       step(st, performance.now()); draw(st, true); wake();
@@ -5563,7 +5650,7 @@ const EvryLife = (() => {
     spin(el, ms) { startSpin(S(el), ms || 1100, performance.now()); wake(); },
     glance(el) { const st = S(el); st.moves = glancePlan(st, performance.now()); wake(); return st.moves; },
     measure(el) { const st = S(el), E = edgesNow(st); return specs(st.fy, st.fk, st.mood).map(([cx, cy, w, l]) => { const m = {}; G.eye(E, cx, cy, w, l, st.gx, st.gy, 1, new Float64Array(38), m); return m; }); },
-    state(el) { const st = S(el); return { shape: st.shape, gx: st.gx, gy: st.gy, ang: st.ang, blink: st.el.hasAttribute('data-blink'), morph: !!st.morph, spin: !!st.spin, moves: !!st.moves, follow: !!st.follow, look: !!st.look, visible: visible(st), mood: st.mood }; },
+    state(el) { const st = S(el); return { shape: st.shape, gx: st.gx, gy: st.gy, ang: st.ang, blink: st.el.hasAttribute('data-blink'), morph: !!st.morph, spin: !!st.spin, moves: !!st.moves, follow: !!st.follow, look: !!st.look, visible: visible(st), mood: st.mood, tilt: st.pose[0], shift: [st.pose[1], st.pose[2]], body: !!st.bmoves }; },
     running: () => !!raf,
   };
 })();
