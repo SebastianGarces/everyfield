@@ -1,9 +1,10 @@
 import type { AssetSlot } from "@everyfield/contracts/branding";
 
 // Files picked in the "Logos and images" group but not yet uploaded. The record in the settings store holds plain data
-// (so the draft book and the nav mark can read it); the File itself waits here under its object URL.
+// (so the draft book and the nav mark can read it); the File rides on its pick.
 
 export type Pick = {
+	file: File;
 	/** The local object URL the slot shows at once (optimistic). */
 	url: string;
 	name: string;
@@ -25,20 +26,18 @@ export type AssetFlow = {
 export const EMPTY_FLOW: AssetFlow = { picks: {}, notes: {} };
 export const ASSET_FLOW = "brand.assets";
 
-const files = new Map<string, File>();
-
-/** Keeps the file and returns the pick for it. */
-export function pickFile(file: File): Pick {
-	const url = URL.createObjectURL(file);
-	files.set(url, file);
-	return { url, name: file.name, size: file.size, alt: "", status: "ready" };
-}
-
-export const fileOf = (pick: Pick) => files.get(pick.url);
+/** The pick for a file, shown at once from a local object URL. */
+export const pickFile = (file: File): Pick => ({
+	file,
+	url: URL.createObjectURL(file),
+	name: file.name,
+	size: file.size,
+	alt: "",
+	status: "ready",
+});
 
 export function releasePick(pick: Pick | undefined) {
 	if (!pick) return;
-	files.delete(pick.url);
 	URL.revokeObjectURL(pick.url);
 }
 

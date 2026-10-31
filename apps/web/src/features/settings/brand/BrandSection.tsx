@@ -26,6 +26,7 @@ import {
 	validate,
 	type BrandForm,
 } from "./model";
+import { hasPicks } from "./picks";
 import { useAssets } from "./useAssets";
 import { useBrand } from "./useBrand";
 
@@ -98,7 +99,7 @@ function BrandEditor({
 	const [pickedHint, setPickedHint] = useState(false);
 	const set = <K extends keyof BrandForm>(key: K, value: BrandForm[K]) => setDraft({ ...draft, [key]: value });
 	const assets = useAssets({ port: port.brand, kit, setKit, reload });
-	const picked = Object.keys(assets.picks).length > 0;
+	const picked = hasPicks({ picks: assets.picks });
 
 	// Field errors: the contract's rules, plus the field a refusal names. A refusal clears with the next edit.
 	const errors = {

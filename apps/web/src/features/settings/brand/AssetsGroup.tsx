@@ -144,6 +144,11 @@ function Slot({
 			)}
 
 			{note ? <NoteLine note={note} onLoadLatest={assets.loadLatest} /> : null}
+			{!pick && stored && !kit.primaryColor ? (
+				<p id={`${slot}-remove-hint`} className="text-sm text-text-3">
+					Save a primary color first. Then you can remove this image. Until then, upload another file to replace it.
+				</p>
+			) : null}
 
 			<div className="flex flex-wrap items-center gap-2">
 				{!busy ? (
@@ -152,7 +157,13 @@ function Slot({
 					</Button>
 				) : null}
 				{!pick && stored ? (
-					<Button size="sm" variant="ghost" onClick={onRemove}>
+					<Button
+						size="sm"
+						variant="ghost"
+						disabled={!kit.primaryColor}
+						aria-describedby={kit.primaryColor ? undefined : `${slot}-remove-hint`}
+						onClick={onRemove}
+					>
 						Remove
 					</Button>
 				) : null}

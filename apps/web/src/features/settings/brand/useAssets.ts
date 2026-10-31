@@ -17,7 +17,7 @@ import {
 	withoutAsset,
 	type UploadOutcome,
 } from "./assets";
-import { ASSET_FLOW, EMPTY_FLOW, fileOf, pickFile, releasePick, type AssetFlow, type Note, type Pick } from "./picks";
+import { ASSET_FLOW, EMPTY_FLOW, pickFile, releasePick, type AssetFlow, type Note, type Pick } from "./picks";
 
 const OFFLINE_NOTE: Note = {
 	message: "Everyfield could not be reached, so this may not have saved. Load the latest version to check.",
@@ -115,13 +115,17 @@ export function useAssets({
 
 	const confirm = async (slot: AssetSlot) => {
 		const pick = latest.current.flow.picks[slot];
-		const file = pick && fileOf(pick);
-		if (!pick || !file || pick.status === "uploading") return;
+		if (!pick || pick.status === "uploading") return;
 		if (altProblem(pick.alt)) return patch(slot, { pick: { ...pick, altError: ALT_REQUIRED } });
 		const sending = { ...pick, altError: undefined, status: "uploading" as const };
 		patch(slot, { pick: sending, note: null });
 		const outcome = await inOrder(() =>
-			uploadAsset(port, { slot, file, altText: pick.alt.trim(), revision: () => latest.current.kit.revision }),
+			uploadAsset(port, {
+				slot,
+				file: pick.file,
+				altText: pick.alt.trim(),
+				revision: () => latest.current.kit.revision,
+			}),
 		);
 		finish(slot, sending, outcome);
 	};

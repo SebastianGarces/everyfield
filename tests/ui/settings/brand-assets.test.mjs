@@ -257,11 +257,38 @@ test("CASE-BRD-002 and CASE-BRD-003 on the real server: upload, replace, remove,
 		assert.equal((await context.request.get(BASE + oldSrc)).status(), 404);
 		assert.equal((await context.request.get(BASE + newSrc)).status(), 200);
 
+		// Criterion 6: with no saved primary color the server refuses a removal, so Remove is off and says why.
+		const markRemove = slot(page, "mark").getByRole("button", { name: "Remove" });
+		assert.equal(await markRemove.isDisabled(), true);
+		await slot(page, "mark")
+			.getByText(/Save a primary color first/)
+			.waitFor();
+		assert.equal(await markRemove.evaluate((el) => getComputedStyle(el).cursor), "not-allowed");
+
+		// Criterion 11: the unsaved primary color survived the uploads. Save sends the new revision and the server
+		// takes it; wait for the reply, not only the optimistic screen.
+		assert.equal(await page.getByRole("textbox", { name: "Primary color", exact: true }).inputValue(), "#2E7D32");
+		const saved = page.waitForResponse((r) => r.request().method() === "POST" && r.url().startsWith(BASE));
+		await page.getByRole("button", { name: "Save", exact: true }).click();
+		await saved;
+		await page.getByText("No unsaved changes.").waitFor();
+		assert.equal(await page.getByText(/Someone else saved/).count(), 0);
+
 		// Criterion 6: Remove asks once, then the slot empties and the preview falls back to the church name.
-		await slot(page, "mark").getByRole("button", { name: "Remove" }).click();
+		await markRemove.waitFor();
+		assert.equal(await markRemove.isDisabled(), false);
+		await markRemove.click();
 		await page.getByRole("alertdialog").waitFor();
 		await shots(page, "07-remove-confirmation");
+		const removed = page.waitForResponse((r) => r.request().method() === "POST" && r.url().startsWith(BASE));
 		await page.getByRole("button", { name: "Remove image" }).click();
+		await slot(page, "mark")
+			.getByText(/No mark yet/)
+			.waitFor();
+		await removed;
+		await page.waitForLoadState("networkidle");
+		// The server accepted it: no refusal message, and the slot is still empty.
+		assert.equal(await page.getByText("Choose a primary color before you save.").count(), 0);
 		await slot(page, "mark")
 			.getByText(/No mark yet/)
 			.waitFor();
@@ -272,14 +299,18 @@ test("CASE-BRD-002 and CASE-BRD-003 on the real server: upload, replace, remove,
 			0,
 		);
 
-		// Criterion 11: the unsaved primary color survives the uploads, and Save sends the new revision.
+		// The stored kit after a reload: the primary color is saved and the mark is gone.
+		await page.reload({ waitUntil: "networkidle" });
+		await page.getByRole("heading", { name: "Logos and images" }).waitFor({ timeout: 60_000 });
+		await hydrated(page);
 		assert.equal(await page.getByRole("textbox", { name: "Primary color", exact: true }).inputValue(), "#2E7D32");
-		await page.getByRole("button", { name: "Save", exact: true }).click();
-		await page.getByText("No unsaved changes.").waitFor();
-		await page
-			.getByText(/Someone else saved/)
-			.waitFor({ state: "detached", timeout: 1000 })
-			.catch(() => {});
+		await slot(page, "mark")
+			.getByText(/No mark yet/)
+			.waitFor();
+		await slot(page, "mark_dark")
+			.getByRole("img", { name: "Harvest Point mark for dark backgrounds" })
+			.first()
+			.waitFor();
 	});
 
 	// Criterion 12: a Member is not offered Brand kit and gets no bytes.

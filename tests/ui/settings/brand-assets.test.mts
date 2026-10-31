@@ -31,6 +31,8 @@ function port(options: { canAdmin?: boolean; fault?: Partial<Record<string, Bran
 	const calls: string[] = [];
 	return {
 		calls,
+		/** Refuse the next call of an operation. */
+		arm: (op: string, fault: BrandFault) => faults.set(op, fault),
 		brand: createFixtureBrand({
 			kit: "saved",
 			churchName: "Harvest Point Church",
@@ -70,36 +72,39 @@ test("upload into an empty slot sends the three steps and returns the kit at the
 	assert.notEqual(p.brand.assetSrc(outcome.kit.assets.full_logo!.fileId), "");
 });
 
-test("replace swaps the image; a refused replace leaves the old image and alt text", async () => {
+test("replace swaps the image and alt text; a refused replace leaves the old image and alt text stored", async () => {
 	const p = port();
-	let kit = await kitOf(p);
-	const first = await uploadAsset(p.brand, {
+	const first = await uploadAsset(p.brand, { slot: "mark", file: logo(), altText: "Old mark", revision: () => "1" });
+	assert.ok(first.ok);
+	if (!first.ok) return;
+	const old = first.kit.assets.mark!;
+
+	p.arm("uploadBytes", "invalid_file");
+	const refused = await uploadAsset(p.brand, {
 		slot: "mark",
 		file: logo(),
-		altText: "Old mark",
-		revision: () => kit.revision,
+		altText: "New mark",
+		revision: () => first.kit.revision,
 	});
-	assert.ok(first.ok);
-	if (first.ok) kit = first.kit;
-	const oldId = kit.assets.mark!.fileId;
-
-	const failing = port({ fault: { uploadBytes: "invalid_file" } });
-	const refused = await uploadAsset(failing.brand, { slot: "mark", file: logo(), altText: "New", revision: () => "1" });
 	assert.ok(!refused.ok && refused.error?.code === "invalid_file");
+	const kept = await kitOf(p);
+	assert.equal(kept.assets.mark?.fileId, old.fileId);
+	assert.equal(kept.assets.mark?.alt, "Old mark");
+	assert.equal(kept.revision, first.kit.revision);
 
 	const second = await uploadAsset(p.brand, {
 		slot: "mark",
 		file: logo(),
 		altText: "New mark",
-		revision: () => kit.revision,
+		revision: () => first.kit.revision,
 	});
 	assert.ok(second.ok);
 	if (!second.ok) return;
-	assert.notEqual(second.kit.assets.mark!.fileId, oldId);
+	assert.notEqual(second.kit.assets.mark!.fileId, old.fileId);
 	assert.equal(second.kit.assets.mark!.alt, "New mark");
 });
 
-test("remove sends one patch with the slot null and empties the slot; a refusal keeps the image", async () => {
+test("a refused removal leaves the image and alt text stored; a kit with no primary color refuses it", async () => {
 	const p = port();
 	let kit = await kitOf(p);
 	const up = await uploadAsset(p.brand, {
@@ -111,13 +116,33 @@ test("remove sends one patch with the slot null and empties the slot; a refusal 
 	assert.ok(up.ok);
 	if (up.ok) kit = up.kit;
 	assert.equal(withoutAsset(kit, "signature").assets.signature, null);
+	assert.equal(kit.assets.signature?.alt, "Signature");
+
+	p.arm("saveBrand", "unavailable");
+	const refused = await removeAsset(p.brand, "signature", kit.revision);
+	assert.ok(!refused.ok && refused.error?.code === "unavailable");
+	const kept = await kitOf(p);
+	assert.equal(kept.assets.signature?.alt, "Signature");
+	assert.equal(kept.assets.signature?.fileId, kit.assets.signature?.fileId);
+	assert.equal(kept.revision, kit.revision);
+
 	const removed = await removeAsset(p.brand, "signature", kit.revision);
 	assert.ok(removed.ok);
 	if (removed.ok) assert.equal(removed.kit.assets.signature, null);
 
-	const refused = port({ fault: { saveBrand: "unavailable" } });
-	const kept = await removeAsset(refused.brand, "signature", "1");
-	assert.ok(!kept.ok && kept.error?.code === "unavailable");
+	// The server needs a saved primary color for any save, a removal included: the screen turns Remove off then.
+	const bare = createFixtureBrand({
+		kit: "none",
+		churchName: "Harvest Point Church",
+		canAdmin: true,
+		tick: async () => null,
+		nextId: randomUUID,
+	});
+	const fetched = await bare.get();
+	const bareKit = fetched.status === "ok" ? fetched.value.kit : assert.fail();
+	assert.equal(bareKit.primaryColor, null);
+	const noPrimary = await removeAsset(bare, "signature", bareKit.revision);
+	assert.ok(!noPrimary.ok && noPrimary.error?.code === "primary_required");
 });
 
 test("alt text is required on the client and the server", async () => {
