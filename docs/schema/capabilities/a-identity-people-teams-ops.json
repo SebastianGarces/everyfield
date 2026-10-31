@@ -585,7 +585,7 @@
         "Stable Person identity, owning plant, real display identity and optional first/last components; names are bounded to 255 characters per component.",
         "Independent nullable email/phone/street/city/region/postal code/country, closed source/source details and profile summary notes.",
         "Current seven-stage recruitment status, recorded creation Instant for deterministic pagination/export and expected mutation revision.",
-        "Explicit adult/child/unknown classification with dated actor/reason correction lineage; date of birth is optional and not proof of classification.",
+        "Adult/child/unknown classification recorded with dated actor/reason correction lineage when there is no date of birth; a date of birth is optional and, when present, decides adult or child at read time (adult at 18 or older on the church-local date) without storing the derived value.",
         "Independently editable contact email, distinct from login mailbox and identity link."
       ],
       "history": "append-only events",

@@ -12,6 +12,8 @@ import { test } from "node:test";
 import {
 	approvable,
 	approvalLeft,
+	isRequired,
+	missingRequired,
 	phaseOf,
 	retryable,
 	reviseInput,
@@ -97,4 +99,28 @@ test("AC:INH-REGRESSION-REVISED-APPROVAL INV-revise: a revision rebuilds the exa
 	const photo = of("people.setPersonPhoto", [change("photo", null, "22222222-2222-4222-8222-222222222222")]);
 	assert.deepEqual(reviseInput(photo), { personId: maria.id, uploadId: "22222222-2222-4222-8222-222222222222" });
 	assert.deepEqual(reviseInput(of("people.removePersonPhoto", [change("photo", "x", null)])), { personId: maria.id });
+});
+
+test("AC:REQ-PPL-026 INV-revise-adult: adult or child is required only until a birth date is entered", () => {
+	const change = (field, before, after) => ({ field, before, after });
+	const create = (changes) => review({ operation: "people.createPerson", review: { target: null, changes } });
+	const base = [change("displayName", null, "Nora Quinn"), change("stage", null, "prospect")];
+	const edits = { displayName: "Nora Quinn", stage: "prospect", source: "other", reason: "Met her" };
+	const with_ = (extra) =>
+		create([...base, change("source", null, "other"), change("reason", null, "Met her"), ...extra]);
+	// Without a birth date, an empty adult or child is still the first thing missing.
+	assert.equal(isRequired("adultClassification"), true);
+	assert.equal(
+		missingRequired(with_([change("adultClassification", null, "unknown")]), { ...edits, adultClassification: "" })
+			?.field,
+		"adultClassification",
+	);
+	// With a birth date (reviewed or typed in the revision) it is not required, and a typed date wins over the reviewed one.
+	assert.equal(isRequired("adultClassification", true), false);
+	const dated = with_([change("birthDate", null, "1990-05-01"), change("adultClassification", null, "unknown")]);
+	assert.equal(missingRequired(dated, { ...edits, birthDate: "1990-05-01", adultClassification: "" }), null);
+	assert.equal(
+		missingRequired(dated, { ...edits, birthDate: "", adultClassification: "" })?.field,
+		"adultClassification",
+	);
 });

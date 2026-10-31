@@ -12,6 +12,7 @@ import {
 	stage,
 	recruitmentSource,
 	adultClassification,
+	adultClassificationSource,
 	currentCommitment,
 	firstAcquisition,
 	noteBody,
@@ -28,7 +29,9 @@ export const plantPerson = z
 		source: recruitmentSource,
 		sourceDetails: z.string().max(5000).nullable(),
 		summaryNotes: z.string().max(5000).nullable(),
+		/** The effective value: derived from the birth date when there is one, else the recorded value. */
 		adultClassification,
+		adultClassificationSource,
 		birthDate: localDate.nullable(),
 		commitment: currentCommitment,
 	})
@@ -250,8 +253,12 @@ type SafeError = (typeof safeError.options)[number];
 type GenericInvalidInput = Extract<SafeError, { shape: { code: z.ZodLiteral<"invalid_input"> } }>;
 export const peopleError = z.discriminatedUnion("code", [
 	// A record's input names its reason where a person can fix one field: a date after today in the church's time zone, or
-	// a document file that is not a readable PDF, JPG or PNG.
-	defineSafeError("invalid_input", { reason: z.enum(["future_date", "unreadable_document"]).optional() }, "never"),
+	// a document file that is not a readable PDF, JPG or PNG, or an adult or child record for a person whose birth date decides it.
+	defineSafeError(
+		"invalid_input",
+		{ reason: z.enum(["future_date", "unreadable_document", "birth_date_decides"]).optional() },
+		"never",
+	),
 	...safeError.options.filter(
 		(o): o is Exclude<SafeError, GenericInvalidInput> => o.shape.code.value !== "invalid_input",
 	),

@@ -252,8 +252,8 @@ test("AC:GAP-PPL-012 AC:TARGET-PPL-012 AC:GAP-PPL-006 AC:PERSONREF-ASSESSMENT-IN
 	assert.deepEqual(
 		(await feed(alex.id)).map((a) => [a.action, a.recordId]),
 		[
-			["assessment_recorded", first.assessment.id],
 			["assessment_recorded", late.assessment.id],
+			["assessment_recorded", first.assessment.id],
 		],
 	);
 	assert.ok(!JSON.stringify(await audits(alex.id)).match(/score|Private lens note/));
@@ -512,11 +512,11 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 commitments: c
 	assert.deepEqual(
 		(await feed(alex.id)).map((a) => [a.action, a.stage ?? null]),
 		[
-			["commitment_recorded", { from: "prospect", to: "core_group" }],
+			["commitment_corrected", null],
+			["commitment_corrected", null],
+			["commitment_corrected", null],
 			["commitment_recorded", null],
-			["commitment_corrected", null],
-			["commitment_corrected", null],
-			["commitment_corrected", null],
+			["commitment_recorded", { from: "prospect", to: "core_group" }],
 		],
 	);
 	// Withdrawal and reactivation show in history too; no audit row holds a note or witness detail.

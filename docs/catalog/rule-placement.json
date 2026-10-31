@@ -4125,7 +4125,8 @@
     "correction receipt no stage replay": "correction outcome, no stage replay",
     "correction receipt with effective lifecycle/acquisition source revision": "correction outcome with effective lifecycle/acquisition source revision",
     "human correction receipt no advanced-stage demotion": "human correction outcome, no advanced-stage demotion",
-    "Supported format values: pdf, docx, xlsx.": "Supported format values: pdf, xlsx."
+    "Supported format values: pdf, docx, xlsx.": "Supported format values: pdf, xlsx.",
+    "adult|child|unknown (default unknown; never inferred)": "adult|child|unknown (default unknown; recorded only; with a birth date, adult or child comes from the birth date)"
   },
   "added_links": [
     {
