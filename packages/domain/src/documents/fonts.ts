@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { FONT } from "./theme.ts";
 
@@ -21,7 +22,7 @@ export function documentFonts() {
 		file,
 		family,
 		fontWeight,
-		src: new Uint8Array(readFileSync(fileURLToPath(new URL(`./fonts/${file}`, import.meta.url)))),
+		src: new Uint8Array(readFileSync(join(dirname(fileURLToPath(import.meta.url)), "fonts", file))),
 	}));
 	return loaded;
 }

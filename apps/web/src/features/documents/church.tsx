@@ -279,15 +279,10 @@ export function ChurchDocumentView({ initial, canEdit }: { initial: ChurchPage; 
 		startDownload(result.value.url, result.value.page.exports[0]?.id ?? "");
 	}
 
+	/** Open the signed link. A browser that blocks the new tab leaves the link below the buttons. */
 	function startDownload(url: string, id: string) {
-		const link = window.document.createElement("a");
-		link.href = url;
-		link.rel = "noopener noreferrer";
-		link.download = "";
-		window.document.body.append(link);
-		link.click();
-		link.remove();
-		setDownloadLink({ id, url });
+		const opened = window.open(url, "_blank", "noopener,noreferrer");
+		setDownloadLink(opened ? null : { id, url });
 	}
 
 	async function downloadAgain(id: string) {
