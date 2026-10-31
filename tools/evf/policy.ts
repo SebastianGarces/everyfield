@@ -103,9 +103,7 @@ export function maintenanceScope(checkout: string, task: TaskRef, rev = "HEAD"):
 		if (typeof quote !== "string" || quote.trim() === "")
 			fail(`${task.id} prototypeApproval.quote must be Sebastian's verbatim words, not empty.`);
 		if (!isUtcTimestamp(approvedAt))
-			fail(
-				`${task.id} prototypeApproval.approvedAt must be an ISO 8601 UTC time such as 2026-10-31T17:07:00Z.`,
-			);
+			fail(`${task.id} prototypeApproval.approvedAt must be an ISO 8601 UTC time such as 2026-10-31T17:07:00Z.`);
 	}
 	const ledger = "docs/build-progress.json";
 	if (
@@ -186,7 +184,8 @@ export function requireMaintenancePaths(root: string, wt: string, task: TaskRef)
 			: scope.owningPaths.some((p) => (p.endsWith("/") ? path.startsWith(p) : path === p));
 	const changed = git(wt, "diff", "--name-only", "--no-renames", base, "HEAD").split("\n").filter(Boolean);
 	if (changed.some((p) => !owns(p))) fail("Maintenance candidate changes paths outside its reviewed owning paths.");
-	if (changed.includes(APPROVED_PROTOTYPE) && !mayChangePrototype(scope)) fail(`${APPROVED_PROTOTYPE} keeps its approved bytes.`);
+	if (changed.includes(APPROVED_PROTOTYPE) && !mayChangePrototype(scope))
+		fail(`${APPROVED_PROTOTYPE} keeps its approved bytes.`);
 }
 
 /**

@@ -2865,8 +2865,16 @@ test("INV-prototype-approval: evf verify allows the prototype only for the recor
 	const approved = ["design/everyfield-ui.html"];
 	for (const [label, next, outcome] of [
 		["a", { owningPaths: approved }, /design\/everyfield-ui.html keeps its approved bytes/],
-		["b", { route: undefined, owningPaths: ["tools/evf/"], prototypeApproval: PROTOTYPE_APPROVAL }, /needs the design route/],
-		["c", { owningPaths: ["design/"], prototypeApproval: PROTOTYPE_APPROVAL }, /design\/everyfield-ui.html keeps its approved bytes/],
+		[
+			"b",
+			{ route: undefined, owningPaths: ["tools/evf/"], prototypeApproval: PROTOTYPE_APPROVAL },
+			/needs the design route/,
+		],
+		[
+			"c",
+			{ owningPaths: ["design/"], prototypeApproval: PROTOTYPE_APPROVAL },
+			/design\/everyfield-ui.html keeps its approved bytes/,
+		],
 		["d", { owningPaths: approved, prototypeApproval: PROTOTYPE_APPROVAL }, undefined],
 	] as const) {
 		const f = prototypeFixture(next);
@@ -2886,7 +2894,8 @@ test("INV-prototype-approval: evf verify allows the prototype only for the recor
 });
 
 test("INV-prototype-approval: evf approve reads the entry at the PR head", () => {
-	const ask = (f: ReturnType<typeof prototypeFixture>) => () => approve(f.root, 77, { ownerApproval: "Approved for this PR" });
+	const ask = (f: ReturnType<typeof prototypeFixture>) => () =>
+		approve(f.root, 77, { ownerApproval: "Approved for this PR" });
 	const c = prototypeFixture({ owningPaths: ["design/"], prototypeApproval: PROTOTYPE_APPROVAL });
 	try {
 		assert.throws(ask(c), /outside its owning paths or design\/everyfield-ui.html/);
@@ -2935,8 +2944,15 @@ test("INV-prototype-approval: evf ship verifies the approved prototype task and 
 		f.setState(s);
 		assert.equal(ship(f.root, f.taskRef), 0);
 		const calls = f.getState().calls;
-		assert.deepEqual(calls.filter((c: any) => c.args[0] === "pr" && c.args[1] === "merge"), []);
-		assert.ok(calls.some((c: any) => c.args.some((a: string) => a.endsWith(`statuses/${f.head}`)) && c.args.includes("state=success")));
+		assert.deepEqual(
+			calls.filter((c: any) => c.args[0] === "pr" && c.args[1] === "merge"),
+			[],
+		);
+		assert.ok(
+			calls.some(
+				(c: any) => c.args.some((a: string) => a.endsWith(`statuses/${f.head}`)) && c.args.includes("state=success"),
+			),
+		);
 	} finally {
 		f.close();
 	}
