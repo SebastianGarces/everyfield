@@ -6,6 +6,7 @@ import {
 	due,
 	followUpOrigin,
 	followUpOwner,
+	MAX_ASSIGNEES,
 	obligationKind,
 	priority,
 	recurrenceRule,
@@ -23,10 +24,10 @@ export const taskItem = z.strictObject({
 	category,
 	due,
 	overdue: z.boolean().nullable(),
-	// Null is Needs owner.
-	assignee: assignee.nullable(),
-	// A person follow-up's assignee with whether they may own it (REQ-TSK-012); null on any other task.
-	followUpOwner: followUpOwner.nullable(),
+	// Ordered by display name, then account ID. An empty list is Needs owner.
+	assignees: z.array(assignee).max(MAX_ASSIGNEES),
+	// A person follow-up's assignees with whether each may own it (REQ-TSK-012); empty on any other task.
+	followUpOwners: z.array(followUpOwner).max(MAX_ASSIGNEES),
 	// Where an open person follow-up came from, so two for one person read differently; null on any other task.
 	followUpOrigin: followUpOrigin.nullable(),
 	relation: z.strictObject({ kind: z.enum(["person", "meeting", "team"]), id: recordId, label: z.string() }).nullable(),
@@ -51,7 +52,13 @@ export const taskDetail = taskItem.extend({
 	description: z.string().nullable(),
 	checklistItems: z
 		.array(
-			z.strictObject({ id: recordId, revision, title: z.string(), status: taskStatus, assignee: assignee.nullable() }),
+			z.strictObject({
+				id: recordId,
+				revision,
+				title: z.string(),
+				status: taskStatus,
+				assignees: z.array(assignee).max(MAX_ASSIGNEES),
+			}),
 		)
 		.max(500),
 	prerequisiteIds: z.array(recordId).max(50),
@@ -117,7 +124,7 @@ export const subtaskPage = z.strictObject({
 				revision,
 				title: z.string(),
 				status: taskStatus,
-				assignee: assignee.nullable(),
+				assignees: z.array(assignee).max(MAX_ASSIGNEES),
 				completedAt: instant.nullable(),
 			}),
 		)
@@ -190,6 +197,6 @@ export const taskError = z.discriminatedUnion("code", [
 	// A prerequisite that already depends on the task, directly or through others.
 	defineSafeError("dependency_cycle", {}, "refresh"),
 	// The chosen follow-up owner is not a current eligible follow-up owner in this church (REQ-TSK-012).
-	defineSafeError("owner_ineligible", {}, "refresh"),
+	defineSafeError("owner_ineligible", { accountId: accountId.optional() }, "refresh"),
 ]);
 export type TaskError = z.infer<typeof taskError>;

@@ -1,10 +1,12 @@
 "use client";
 
+import { dateText } from "@everyfield/contracts/common";
+
 import { Button, Card, CardDescription, CardHeader, CardHeading, CardTitle, Skeleton } from "@everyfield/ui/controls";
 import { KeyValue, KeyValueList } from "@everyfield/ui/display";
 import { useEffect, useState } from "react";
 import { visionReport } from "./actions.ts";
-import { CLASSIFICATION_LABEL, dateText, scoreText, type Classification } from "./model.ts";
+import { CLASSIFICATION_LABEL, scoreText, type Classification } from "./model.ts";
 import type { MeetingsReport } from "./server.ts";
 
 type Got = { status: "loading" } | { status: "failed" } | { status: "ok"; report: MeetingsReport };

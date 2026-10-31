@@ -44,7 +44,7 @@ async function up() {
 	await admin.execute(sql`UPDATE plant SET timezone='America/Chicago' WHERE id=${plant.id}`);
 
 	// Two finalized Vision meetings, through the generated-work command meeting finalization runs.
-	async function vision(title: string, hoursAgo: number, personId: string, assigneeId: string | null) {
+	async function vision(title: string, hoursAgo: number, personId: string, assigneeIds: string[]) {
 		const at = new Date(Date.now() - hoursAgo * 3_600_000);
 		const date = at.toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
 		const origin = { at: at.toISOString(), date, zone: "America/Chicago" };
@@ -64,7 +64,7 @@ async function up() {
 				typeof ensureMeetingObligations
 			>[1];
 			const r = await ensureMeetingObligations(tx, cmd, reminders, {
-				meetings: [{ meetingId, origin, followUps: [{ personId, assigneeId }], evaluation: null }],
+				meetings: [{ meetingId, origin, followUps: [{ personId, assigneeIds }], evaluation: null }],
 			} as never);
 			(cmd as never as { events: unknown[] }).events.unshift({
 				id: (cmd as never as { id: string }).id,
@@ -82,13 +82,13 @@ async function up() {
 			WHERE o.meeting_id=${meetingId} AND t.deleted_at IS NULL`);
 		return task.rows[0]!.id as string;
 	}
-	const sara = await vision("Vision meeting #12", 20, people.people["Sara Nunez"], member);
-	const leo = await vision("Vision meeting #11", 80, people.people["Leo Pratt"], null);
+	const sara = await vision("Vision meeting #12", 20, people.people["Sara Nunez"], [member]);
+	const leo = await vision("Vision meeting #11", 80, people.people["Leo Pratt"], []);
 
 	const created = await runtime.transaction((tx) =>
 		followups.createFollowUp(tx as never, ctx, {
 			requestKey: randomUUID(),
-			input: { personId: people.people["Maria Santos"], assigneeId: member },
+			input: { personId: people.people["Maria Santos"], assigneeIds: [member] },
 		}),
 	);
 	if (created.status !== "ok") throw Error("createFollowUp: " + JSON.stringify(created));
@@ -114,9 +114,11 @@ async function up() {
 	const departed = grace.rows[0]!.id as string;
 	await admin.execute(sql`INSERT INTO seat(account_id,plant_id,role,accepted_at,ended_at)
 		VALUES(${departed},${plant.id},'member',clock_timestamp() - interval '30 days',clock_timestamp())`);
-	await admin.execute(sql`INSERT INTO task(plant_id,title,category,priority,status,created_at,due_kind,person_id,assignee_id)
-		VALUES (${plant.id},'Visit Eli','follow_up','medium','not_started',clock_timestamp(),'undated',${people.people["Eli Park"]},${departed}),
-		       (${plant.id},'Call Leo back','follow_up','medium','not_started',clock_timestamp(),'undated',${people.people["Leo Pratt"]},${departed})`);
+	await admin.execute(sql`WITH ins AS (INSERT INTO task(plant_id,title,category,priority,status,created_at,due_kind,person_id)
+		VALUES (${plant.id},'Visit Eli','follow_up','medium','not_started',clock_timestamp(),'undated',${people.people["Eli Park"]}),
+		       (${plant.id},'Call Leo back','follow_up','medium','not_started',clock_timestamp(),'undated',${people.people["Leo Pratt"]})
+		RETURNING id)
+		INSERT INTO task_assignee(plant_id,task_id,account_id) SELECT ${plant.id},id,${departed} FROM ins`);
 
 	// An assignee who cannot own follow-ups (REQ-TSK-012, WP-023 F07): Tomas Weaver holds a Member seat but has no
 	// Person linked to his account, so he is not an eligible owner, and he holds an open follow-up for Ana Lee. Every
@@ -131,8 +133,9 @@ async function up() {
 	await admin.execute(sql`INSERT INTO seat(account_id,plant_id,role,accepted_at)
 		VALUES(${tomas},${plant.id},'member',clock_timestamp())`);
 	const kim = randomUUID();
-	await admin.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,person_id,assignee_id,creator_id)
-		VALUES (${kim},${plant.id},'Check in with Ana Lee','follow_up','medium','not_started',clock_timestamp(),'undated',${people.people["Ana Lee"]},${tomas},${owner})`);
+	await admin.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,person_id,creator_id)
+		VALUES (${kim},${plant.id},'Check in with Ana Lee','follow_up','medium','not_started',clock_timestamp(),'undated',${people.people["Ana Lee"]},${owner})`);
+	await admin.execute(sql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES (${plant.id},${kim},${tomas})`);
 
 	// One Person with two open follow-ups owned by the Member: a Vision follow-up and one added by hand. One contact
 	// recorded with "done" finishes both (D-c).
@@ -140,10 +143,11 @@ async function up() {
 	await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,
 		commitment_state,pipeline_position,state,created_at)
 		VALUES(${noraId},${plant.id},${plant.id},'Nora Finch','other','attendee','unknown','unknown',0,'live',clock_timestamp())`);
-	const noraVision = await vision("Vision meeting #10", 50, noraId, member);
+	const noraVision = await vision("Vision meeting #10", 50, noraId, [member]);
 	const noraManual = randomUUID();
-	await admin.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,person_id,assignee_id,creator_id)
-		VALUES (${noraManual},${plant.id},'Send Nora the welcome packet','follow_up','medium','not_started',clock_timestamp(),'undated',${noraId},${member},${owner})`);
+	await admin.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,person_id,creator_id)
+		VALUES (${noraManual},${plant.id},'Send Nora the welcome packet','follow_up','medium','not_started',clock_timestamp(),'undated',${noraId},${owner})`);
+	await admin.execute(sql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES (${plant.id},${noraManual},${member})`);
 
 	const fixture = writeFixture("followups", env.schema, {
 		departed,

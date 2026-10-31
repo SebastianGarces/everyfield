@@ -16,6 +16,8 @@ import type { Wait } from "../../components/save/model.ts";
 import { originText } from "../followups/model.ts";
 import { When } from "../people/parts.tsx";
 import {
+	assigneeNames,
+	assigneeSummary,
 	blockedText,
 	dueText,
 	isSettled,
@@ -110,37 +112,59 @@ export function DueLine({ task, year }: { task: Pick<TaskItem, "due" | "overdue"
 	);
 }
 
-/** The assignee's initials, or "Needs owner" for a task no one holds (REQ-TSK-017). */
-export function Assignee({ task, you }: { task: Pick<TaskItem, "assignee" | "followUpOwner">; you: string }) {
+/**
+ * Every assignee's name, or "Needs owner" for a task no one holds (REQ-TSK-017). With no room (a phone) the row shows
+ * the first name and how many more; the full list is in the label and the panel.
+ */
+export function Assignee({ task, you }: { task: Pick<TaskItem, "assignees" | "followUpOwners">; you: string }) {
 	// On a phone the badge moves under the title (MetaLine), so the title keeps its width.
-	if (!task.assignee)
+	if (!task.assignees.length)
 		return (
 			<StatusBadge status="attention" size="sm" className="max-app-sm:hidden">
 				Needs owner
 			</StatusBadge>
 		);
-	const name = task.assignee.displayName || "Former member";
-	const own = task.assignee.accountId === you;
-	// A follow-up's assignee who cannot own follow-ups says so in the same words as every other screen.
-	const who = task.followUpOwner && !task.followUpOwner.eligible ? ownerText(task.followUpOwner) : name;
-	return <Avatar name={name} label={own ? `Assigned to you` : `Assigned to ${who}`} size="xs" ring={own} />;
+	const names = assigneeNames(task.assignees);
+	const own = task.assignees.some((a) => a.accountId === you);
+	// An assignee who cannot own follow-ups says so in the same words as every other screen.
+	const who = task.assignees.map((a) => {
+		const view = task.followUpOwners.find((o) => o.accountId === a.accountId);
+		return view && !view.eligible ? ownerText(view) : assigneeNames([a])[0];
+	});
+	const label = own && task.assignees.length === 1 ? "Assigned to you" : `Assigned to ${who.join(", ")}`;
+	const full = names.join(", ");
+	const room = full.length <= 28;
+	return (
+		<span
+			className="inline-flex max-w-[260px] min-w-0 items-center gap-2 max-app-sm:max-w-[120px]"
+			title={who.join(", ")}
+		>
+			<Avatar name={names[0]!} label={label} size="xs" ring={own} />
+			<span className="min-w-0 truncate text-sm text-text-2" aria-hidden="true">
+				{/* The row has room for a few short names; past that it shows the first name and how many more. */}
+				<span className="max-app-sm:hidden">{room ? full : assigneeSummary(task.assignees)}</span>
+				<span className="app-sm:hidden">{assigneeSummary(task.assignees)}</span>
+			</span>
+		</span>
+	);
 }
 
 /** The facts under a task title: due, status, priority, link, steps and completion. */
 export function MetaLine({ task, year }: { task: TaskItem; year: number }) {
 	const parts: ReactNode[] = [];
-	if (!task.assignee)
+	if (!task.assignees.length)
 		parts.push(
 			<StatusBadge key="owner" status="attention" size="sm" className="app-sm:hidden">
 				Needs owner
 			</StatusBadge>,
 		);
-	if (task.followUpOwner && !task.followUpOwner.eligible && !isSettled(task.status))
-		parts.push(
-			<StatusBadge key="ineligible" status="attention" size="sm">
-				{ownerText(task.followUpOwner)}
-			</StatusBadge>,
-		);
+	if (!isSettled(task.status))
+		for (const o of task.followUpOwners.filter((x) => !x.eligible))
+			parts.push(
+				<StatusBadge key={`ineligible-${o.accountId}`} status="attention" size="sm">
+					{ownerText(o)}
+				</StatusBadge>,
+			);
 	if (task.followUpOrigin && !isSettled(task.status))
 		parts.push(<span key="origin">{originText(task.followUpOrigin)}</span>);
 	if (task.status === "complete" && task.completedAt)

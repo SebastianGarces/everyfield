@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { renderDocumentWithLayout } from "@formepdf/core";
 import { hash } from "../operations/canonical.ts";
+import type { AgendaMeeting } from "./agenda-meeting.ts";
 import type { CatalogTemplate } from "./catalog.ts";
 import { fontDigests } from "./fonts.ts";
 import type { ResolvedMerge } from "./merge.ts";
@@ -18,7 +19,7 @@ import { buildBudget } from "./xlsx.ts";
 export const RENDER_PROFILE = {
 	engine: "forme",
 	packages: { "@formepdf/core": "0.29.0", "@formepdf/react": "0.29.0", "pdf-lib": "1.17.1" },
-	layout: 2,
+	layout: 3,
 } as const;
 const ARTIFACT_MAX = 8 * 1024 * 1024;
 
@@ -48,6 +49,16 @@ function unsafe(value: string) {
 	}
 	return false;
 }
+
+const unsafeMeeting = (m: AgendaMeeting) =>
+	[
+		m.title,
+		m.date,
+		m.time,
+		m.place ?? "",
+		...m.sections.map((s) => s.title),
+		...m.attendees.flatMap((a) => [a.name, a.role ?? ""]),
+	].some(unsafe);
 
 function finish(bytes: Uint8Array) {
 	if (bytes.length > ARTIFACT_MAX) throw new RenderFailed();
@@ -83,8 +94,9 @@ export function renderContext(
 	values: Record<string, string>,
 	theme: RenderTheme,
 	documentClass: RenderClass,
+	meeting?: AgendaMeeting,
 ): Ctx {
-	return { p: makePalette(theme), theme, documentClass, church, values, log: new ContrastLog() };
+	return { p: makePalette(theme), theme, documentClass, church, values, log: new ContrastLog(), meeting };
 }
 
 const valuesOf = (resolved: Extract<ResolvedMerge, { ok: true }>) => {
@@ -98,14 +110,16 @@ export async function renderTemplatePdf(
 	template: Pick<CatalogTemplate, "id">,
 	values: Record<string, string>,
 	theme?: RenderTheme,
+	meeting?: AgendaMeeting,
 ) {
 	const entry = entryFor(template.id);
 	if (!entry || entry.format !== "pdf") throw new RenderFailed();
 	const church = values.church_name ?? "";
-	if (Object.values(values).some(unsafe) || unsafe(church)) throw new RenderFailed();
+	if (Object.values(values).some(unsafe) || unsafe(church) || (meeting && unsafeMeeting(meeting)))
+		throw new RenderFailed();
 	const use = theme ?? NEUTRAL_THEME;
 	try {
-		return await renderPdfElement(entry.build(renderContext(church, values, use, entry.documentClass)));
+		return await renderPdfElement(entry.build(renderContext(church, values, use, entry.documentClass, meeting)));
 	} catch (error) {
 		if (error instanceof RenderFailed) throw error;
 		throw new RenderFailed();
@@ -118,13 +132,14 @@ export async function renderPreview(
 	format: "pdf" | "docx" | "xlsx",
 	resolved: Extract<ResolvedMerge, { ok: true }>,
 	theme?: RenderTheme,
+	meeting?: AgendaMeeting,
 ) {
 	if (!resolved.complete) return null;
 	const entry = entryFor(template.id);
 	if (!entry || entry.format !== format) throw new RenderFailed();
 	const values = valuesOf(resolved);
 	if (Object.values(values).some(unsafe)) throw new RenderFailed();
-	if (entry.format === "pdf") return (await renderTemplatePdf(template, values, theme)).bytes;
+	if (entry.format === "pdf") return (await renderTemplatePdf(template, values, theme, meeting)).bytes;
 	const church = values.church_name ?? "";
 	const use = theme ?? NEUTRAL_THEME;
 	return finish(buildBudget(entry.budget, church, use));

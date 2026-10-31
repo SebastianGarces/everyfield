@@ -161,7 +161,7 @@ export const peopleReader: PeopleReader<Tx> = {
       EXISTS(SELECT FROM interview i WHERE i.person_id=${p.id} AND i.plant_id=${ctx.selected.id}) AS interview,
       (${p.commitment_state === "active"} AND EXISTS(SELECT FROM commitment e WHERE e.plant_id=${ctx.selected.id} AND e.person_id=${p.id} AND e.voided_at IS NULL)) AS committed,
       coalesce((SELECT jsonb_agg(jsonb_build_object('id',t.id,'revision',t.revision::text) ORDER BY t.id) FROM task t
-        WHERE t.plant_id=${ctx.selected.id} AND (t.person_id=${p.id} OR t.assignee_id=${p.linked_account_id}::uuid)
+        WHERE t.plant_id=${ctx.selected.id} AND (t.person_id=${p.id} OR EXISTS(SELECT FROM task_assignee ta WHERE ta.task_id=t.id AND ta.account_id=${p.linked_account_id}::uuid))
         AND t.deleted_at IS NULL AND t.status NOT IN ('complete','no_longer_needed')),'[]'::jsonb) AS duties
       FROM plant pl WHERE pl.id=${ctx.selected.id} AND ${gate}`);
 			if (!result.rows[0]) deny();

@@ -1301,7 +1301,7 @@
       "feature_ids": [
         "NTF-005"
       ],
-      "text": "Each due and one-calendar-day overdue reminder reaches the current assignee at most once. Completing, deleting, reassigning or rescheduling stops the old reminder; a stale reminder never reaches a former owner.",
+      "text": "Each due and one-calendar-day overdue reminder reaches each of the task's one or more current assignees at most once. Completing, deleting, reassigning or rescheduling stops the old reminder; a stale reminder never reaches a former owner.",
       "spec": "docs/product/communications-notifications.md#notification-product",
       "operations": [
         "notifications.syncTaskReminders",

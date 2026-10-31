@@ -27,10 +27,14 @@ const occurrence = z.strictObject({ instant, offsetSeconds: z.int() });
 export const meetingsError = z.discriminatedUnion("code", [
 	error("invalid_input", { issues: z.array(issue).max(50) }, "never"),
 	error("unavailable", {}, "never"),
-	error("invalid_subject", { personIds: z.array(personId).max(500).optional() }, "never"),
+	error(
+		"invalid_subject",
+		{ personIds: z.array(personId).max(500).optional(), accountId: accountId.optional() },
+		"never",
+	),
 	error("conflict", {}, "refresh"),
 	// The chosen follow-up owner is not a current eligible follow-up owner (REQ-TSK-012).
-	error("owner_ineligible", {}, "refresh"),
+	error("owner_ineligible", { accountId: accountId.optional() }, "refresh"),
 	error("venue_archived", {}, "never"),
 	error("wrong_meeting_type", {}, "never"),
 	error("status_transition", {}, "never"),

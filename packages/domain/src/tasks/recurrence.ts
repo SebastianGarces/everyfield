@@ -13,7 +13,7 @@ const localDateOf = (at: Date, zone: TimeZone) =>
  * has a successor, or the next date falls after the inclusive end date. The successor is due one interval after the
  * current due date, or after the completion date when undated, so a late completion may yield an overdue successor.
  * A rule time or a timed predecessor gives a timed successor, resolved automatically: earlier fold, forward over a gap.
- * The successor keeps the task's fields, keeps its assignee only while that account still holds a seat, and gets fresh
+ * The successor keeps the task's fields, keeps each assignee only while that account still holds a seat, and gets fresh
  * copies of the live checklist rows: not started, no completion facts, no due date, no prerequisites.
  */
 export function successorOf(row: LockedTask, at: Date): TaskRow[] | null {
@@ -63,8 +63,7 @@ export function successorOf(row: LockedTask, at: Date): TaskRow[] | null {
 			priority: row.priority,
 			status: "not_started",
 			created_at: at,
-			assignee_id: k.seated ? k.assignee_id : null,
-			assignee_name: k.seated ? k.assignee_name : null,
+			assignees: k.assignees.filter((a) => a.seated),
 			parent_id: id,
 		}),
 	);
@@ -73,8 +72,7 @@ export function successorOf(row: LockedTask, at: Date): TaskRow[] | null {
 		...fresh,
 		...due,
 		id,
-		assignee_id: row.assignee_seated ? row.assignee_id : null,
-		assignee_name: row.assignee_seated ? row.assignee_name : null,
+		assignees: row.assignees.filter((a) => a.seated),
 		...(keep ? {} : { person_id: null, meeting_id: null, team_id: null, relation_label: null }),
 		occurrence_key: String(Number(row.occurrence_key ?? "1") + 1),
 		predecessor_id: row.id,
@@ -84,9 +82,7 @@ export function successorOf(row: LockedTask, at: Date): TaskRow[] | null {
 			revision: k.revision,
 			title: k.title,
 			status: k.status,
-			assignee_id: k.assignee_id,
-			assignee_name: k.assignee_name,
-			seated: true,
+			assignees: k.assignees,
 		})),
 	};
 	return [successor, ...children];

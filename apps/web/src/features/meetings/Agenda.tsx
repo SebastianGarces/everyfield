@@ -1,5 +1,7 @@
 "use client";
 
+import { durationText, sectionStarts, timeText } from "@everyfield/contracts/common";
+
 import {
 	Add01Icon,
 	ArrowDown01Icon,
@@ -7,6 +9,7 @@ import {
 	Delete02Icon,
 	Edit02Icon,
 	Note01Icon,
+	PrinterIcon,
 } from "@hugeicons/core-free-icons";
 import {
 	Button,
@@ -20,22 +23,26 @@ import {
 	IconButton,
 	Input,
 } from "@everyfield/ui/controls";
+import { Icon } from "@everyfield/ui/foundations";
 import { startTransition, useState } from "react";
 import type { Wait } from "../../components/save/model.ts";
 import { NoticeInDialog, RecordDialog, SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
 import { replaceAgenda } from "./actions.ts";
-import { addMinutes, durationText, problemText, timeText, type AgendaSection, type Detail } from "./model.ts";
+import { problemText, type AgendaSection, type Detail } from "./model.ts";
 import type { Change } from "./page-state.ts";
 
 /** The agenda (REQ-MTG-005): sections with their start times from the meeting's start, and the total length. */
 export function AgendaCard({
 	meeting,
 	canWrite,
+	printable,
 	project,
 	onSaved,
 }: {
 	meeting: Detail;
 	canWrite: boolean;
+	/** The meeting has an agenda template: every seat that can read it can print the agenda. */
+	printable: boolean;
 	project: (change: Change) => void;
 	onSaved: (agenda: Detail["agenda"]) => void;
 }) {
@@ -61,10 +68,7 @@ export function AgendaCard({
 	}
 	const { sections, totalMinutes } = meeting.agenda;
 	// Each section starts when the one before it ends, counted from the meeting's start.
-	const starts = sections.reduce<string[]>(
-		(all, s, i) => [...all, i === 0 ? meeting.localTime : addMinutes(all[i - 1]!, sections[i - 1]!.minutes)],
-		[],
-	);
+	const starts = sectionStarts(meeting.localTime, sections);
 	return (
 		<Card as="section" aria-labelledby="agenda-title">
 			<CardHeader>
@@ -72,9 +76,25 @@ export function AgendaCard({
 					<CardTitle id="agenda-title">Agenda</CardTitle>
 					<CardDescription>{sections.length ? durationText(totalMinutes) : "No sections yet"}</CardDescription>
 				</CardHeading>
-				{canWrite ? (
+				{canWrite || printable ? (
 					<CardActions>
-						<IconButton icon={Edit02Icon} label="Edit agenda" size="sm" disabled={lane.wait !== null} onClick={edit} />
+						{printable ? (
+							<Button asChild variant="secondary" size="sm">
+								<a href={`/meetings/${meeting.id}/agenda`} target="_blank" rel="noopener noreferrer">
+									<Icon icon={PrinterIcon} size={16} />
+									Print agenda
+								</a>
+							</Button>
+						) : null}
+						{canWrite ? (
+							<IconButton
+								icon={Edit02Icon}
+								label="Edit agenda"
+								size="sm"
+								disabled={lane.wait !== null}
+								onClick={edit}
+							/>
+						) : null}
 					</CardActions>
 				) : null}
 			</CardHeader>

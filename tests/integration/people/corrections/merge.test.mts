@@ -537,8 +537,12 @@ test("AC:PERSONREF-ACCOUNT-LINK-CONFLICT AC:TARGET-PPL-017 AC:TARGET-PPL-016 mer
 	await blocked(b.id, a.id, ["linked_account_collision"]);
 	await blocked(a.id, c.id, ["linked_source"]);
 	// A current task on the source belongs to a package that has not registered its merge behavior yet.
-	await admin.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,assignee_id,due_kind,person_id)
- VALUES(${sql.param(randomUUID())},${sql.param(plants[0])},'Call','follow_up','medium','not_started',clock_timestamp(),${sql.param(actors[0].id)},'undated',${sql.param(c.id)})`);
+	const duty = randomUUID();
+	await admin.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,person_id)
+ VALUES(${sql.param(duty)},${sql.param(plants[0])},'Call','follow_up','medium','not_started',clock_timestamp(),'undated',${sql.param(c.id)})`);
+	await admin.execute(
+		sql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES(${sql.param(plants[0])},${sql.param(duty)},${sql.param(actors[0].id)})`,
+	);
 	await blocked(c.id, a.id, ["unregistered_reference"], ["task"]);
 	// Same-name duplicate hints stay hints: nobody is merged.
 	const hints = ok(

@@ -21,6 +21,7 @@ import { enqueueJob, queueJobs } from "../../../apps/web/src/server/jobs/queue.t
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { identityAuth } from "../../../packages/domain/src/identity/auth.ts";
 import { currentActor, readViewer } from "../../../packages/domain/src/access/session.ts";
+import { insertTasks } from "../task-assignees.mts";
 const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
 const ci =
 	process.env.CI === "true" &&
@@ -1192,18 +1193,20 @@ test("AC:WP010-IDN-012 exact task preference reaches enqueue and dispatch; churc
 	const { claimDue } = await import("../../../apps/web/src/server/jobs/queue.ts");
 	const f = await plant(),
 		task = randomUUID();
-	await admin.insert(t.task).values({
-		id: task,
-		plant_id: f.p.id,
-		title: "Dispatch task",
-		category: "general",
-		priority: "medium",
-		status: "not_started",
-		assignee_id: f.a.id,
-		created_at: new Date(),
-		due_kind: "date_only",
-		due_date: "2099-01-15",
-	});
+	await insertTasks(admin, [
+		{
+			id: task,
+			plant_id: f.p.id,
+			title: "Dispatch task",
+			category: "general",
+			priority: "medium",
+			status: "not_started",
+			assignee_id: f.a.id,
+			created_at: new Date(),
+			due_kind: "date_only",
+			due_date: "2099-01-15",
+		},
+	]);
 	const sent = [];
 	const sender = createMailService({
 		db,

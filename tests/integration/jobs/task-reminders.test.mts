@@ -79,19 +79,24 @@ async function put(name, t) {
 			: t.due.kind === "date_only"
 				? sql`'date_only',${t.due.date}::date,NULL,NULL,NULL,NULL`
 				: sql`'undated',NULL,NULL,NULL,NULL,NULL`;
-	await db.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,completed_at,assignee_id,
+	await db.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,completed_at,
 		due_kind,due_date,due_time,timezone,due_at,resolver_version,revision)
 		VALUES (${id},${tenant},${name},'general','medium',${t.status ?? "not_started"},now(),
-		${t.status === "complete" ? sql`now()` : null},${t.assignee ? people[t.assignee].id : null},${due},${t.revision})
-		ON CONFLICT (id) DO UPDATE SET status=excluded.status,completed_at=excluded.completed_at,assignee_id=excluded.assignee_id,
+		${t.status === "complete" ? sql`now()` : null},${due},${t.revision})
+		ON CONFLICT (id) DO UPDATE SET status=excluded.status,completed_at=excluded.completed_at,
 		due_kind=excluded.due_kind,due_date=excluded.due_date,due_time=excluded.due_time,timezone=excluded.timezone,
 		due_at=excluded.due_at,resolver_version=excluded.resolver_version,revision=excluded.revision`);
+	// The assignee set is replaced as a whole, like a write does: `assignees` names the set, `assignee` a set of one.
+	const names = t.assignees ?? (t.assignee ? [t.assignee] : []);
+	await db.execute(sql`DELETE FROM task_assignee WHERE task_id=${id}`);
+	for (const name of names)
+		await db.execute(sql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES (${tenant},${id},${people[name].id})`);
 	return {
 		plantId: tenant,
 		taskId: id,
 		revision: String(t.revision),
 		title: name,
-		assigneeId: t.assignee ? people[t.assignee].id : null,
+		assigneeIds: names.map((name) => people[name].id),
 		due: t.due.kind === "date_only" ? { ...t.due, zone } : t.due,
 		open: !t.status || t.status === "not_started",
 		created: t.created ?? false,

@@ -35,7 +35,7 @@ const change = (field: string, before: SQL, after: unknown) =>
  * refuses when the open tasks changed since, so a task is never handed off unreviewed.
  */
 const openTasks = sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('kind','needs_owner','dutyId',t.id,'expectedRevision',t.revision::text) ORDER BY t.id),'[]'::jsonb)
-	FROM task t WHERE t.plant_id=p.plant_id AND (t.person_id=p.id OR t.assignee_id=p.linked_account_id)
+	FROM task t WHERE t.plant_id=p.plant_id AND (t.person_id=p.id OR EXISTS(SELECT FROM task_assignee ta WHERE ta.task_id=t.id AND ta.account_id=p.linked_account_id))
 		AND t.deleted_at IS NULL AND t.status NOT IN ('complete','no_longer_needed'))`;
 const tasksChange = (handoffs: SQL) =>
 	sql`CASE WHEN jsonb_array_length(${handoffs})>0 THEN jsonb_build_array(jsonb_build_object('field','openTasksNeedingOwner','before',NULL,'after',jsonb_array_length(${handoffs}))) ELSE '[]'::jsonb END`;

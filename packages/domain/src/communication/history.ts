@@ -918,7 +918,7 @@ const correctionRead = z.object({
 	occurred_at: z.string(),
 	voided: z.boolean(),
 	author_id: z.uuid().nullable(),
-	task_assignee: z.uuid().nullable(),
+	actor_assigned: z.boolean().nullable(),
 	task_live: z.boolean().nullable(),
 	db_now: z.string(),
 	others_contact: z.string().nullable(),
@@ -949,7 +949,7 @@ export async function correctContactLog(tx: Tx, context: CommunicationContext, r
 							ORDER BY a.occurred_at, a.id
 							LIMIT 1
 						) AS author_id,
-						t.assignee_id AS task_assignee,
+						EXISTS(SELECT FROM task_assignee ta WHERE ta.task_id = t.id AND ta.account_id = ${cmd.actor.accountId}::uuid) AS actor_assigned,
 						(t.id IS NOT NULL AND t.deleted_at IS NULL AND t.parent_id IS NULL) AS task_live,
 						${stamp(sql`clock_timestamp()`)} AS db_now,
 						(
@@ -970,7 +970,7 @@ export async function correctContactLog(tx: Tx, context: CommunicationContext, r
 		const own =
 			old.task_id !== null &&
 			old.task_live === true &&
-			old.task_assignee === cmd.actor.accountId &&
+			old.actor_assigned === true &&
 			old.author_id === cmd.actor.accountId;
 		if (!administers(cmd.actor) && !own) deny("access_denied");
 		if (old.voided || old.revision !== input.expectedRevision) deny("conflict");

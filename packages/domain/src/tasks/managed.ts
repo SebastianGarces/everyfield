@@ -1,4 +1,4 @@
-import { accountId, instant, localDate, personId, recordId, timeZone } from "@everyfield/contracts/common";
+import { instant, localDate, personId, recordId, timeZone } from "@everyfield/contracts/common";
 import { meetingType } from "@everyfield/contracts/meetings";
 import * as c from "@everyfield/contracts/tasks";
 import { sql, type SQL } from "@everyfield/db/query";
@@ -19,8 +19,8 @@ const meetingObligations = z.strictObject({
 	meetingId: recordId,
 	// The captured origin: the actual occurrence instant and the meeting's church-local date and zone.
 	origin: z.strictObject({ at: instant, date: localDate, zone: timeZone }),
-	followUps: z.array(z.strictObject({ personId, assigneeId: accountId.nullable() })).max(500),
-	evaluation: z.strictObject({ assigneeId: accountId.nullable() }).nullable(),
+	followUps: z.array(z.strictObject({ personId, assigneeIds: c.assigneeIds })).max(500),
+	evaluation: z.strictObject({ assigneeIds: c.assigneeIds }).nullable(),
 });
 /** One meeting's duties, or several: a correction of one meeting can owe a follow-up on a later one (REQ-MTG-020). */
 export const ensureMeetingObligationsInput = z
@@ -88,8 +88,10 @@ export async function ensureMeetingObligations(
 	const v = parse(ensureMeetingObligationsInput, raw),
 		plant = cmd.actor.plantId;
 	const assignees = [
-		...new Set(v.meetings.flatMap((m) => [...m.followUps.map((f) => f.assigneeId), m.evaluation?.assigneeId ?? null])),
-	].filter((a) => a !== null);
+		...new Set(
+			v.meetings.flatMap((m) => [...m.followUps.flatMap((f) => f.assigneeIds), ...(m.evaluation?.assigneeIds ?? [])]),
+		),
+	];
 	const row = obligationFactsRow.parse(
 		facts ??
 			(
@@ -104,10 +106,14 @@ export async function ensureMeetingObligations(
 			).rows[0]?.facts,
 	);
 	// An assignee must hold a current seat; an invalid choice refuses instead of silently becoming Needs owner.
-	if (assignees.some((a) => !row.seats.includes(a))) deny("invalid_subject");
+	const unseated = assignees.find((a) => !row.seats.includes(a));
+	if (unseated) deny("invalid_subject", { accountId: unseated });
 	// A follow-up owner must also be a committed Person's account; an evaluation keeps the seated rule.
-	if (v.meetings.some((m) => m.followUps.some((f) => f.assigneeId && row.reasons[f.assigneeId] !== null)))
-		deny("owner_ineligible");
+	for (const m of v.meetings)
+		for (const f of m.followUps) {
+			const bad = f.assigneeIds.find((a) => row.reasons[a] !== null);
+			if (bad) deny("owner_ineligible", { accountId: bad });
+		}
 	const at = new Date();
 	const results = [];
 	const created: TaskRow[] = [];
@@ -125,7 +131,7 @@ export async function ensureMeetingObligations(
 			...m.followUps.map((f) => ({
 				kind: "first_vision_follow_up" as const,
 				personId: f.personId,
-				assigneeId: f.assigneeId,
+				assigneeIds: f.assigneeIds,
 				title: `Follow up with ${row.people[f.personId]}`,
 			})),
 			...(m.evaluation
@@ -133,7 +139,7 @@ export async function ensureMeetingObligations(
 						{
 							kind: "meeting_evaluation" as const,
 							personId: null,
-							assigneeId: m.evaluation.assigneeId,
+							assigneeIds: m.evaluation.assigneeIds,
 							title: `Evaluate ${title}`,
 						},
 					]
@@ -164,8 +170,7 @@ export async function ensureMeetingObligations(
 					priority: "medium",
 					status: "not_started",
 					created_at: at,
-					assignee_id: w.assigneeId,
-					assignee_name: w.assigneeId ? row.names[w.assigneeId]! : null,
+					assignees: w.assigneeIds.map((id) => ({ accountId: id, displayName: row.names[id]!, seated: true })),
 					due_kind: "date_only",
 					due_date: due,
 					person_id: w.personId,
@@ -206,7 +211,7 @@ export async function ensureMeetingObligations(
 					};
 				}),
 			),
-			insertTasks(plant, cmd.actor.accountId, created),
+			...insertTasks(plant, cmd.actor.accountId, created),
 		);
 		for (const t of created)
 			auditRow(cmd, {

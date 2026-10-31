@@ -201,6 +201,41 @@ try {
 		});
 	};
 	await staff("Worship lead");
+	// Meetings (WP-036/api): a Vision meeting with a venue, 6 sections and 3 guests, an empty one, and a leadership team
+	// meeting with a role holder. The agenda print reads each; they grow with the other data below.
+	const sections = (n) =>
+		JSON.stringify(
+			Array.from({ length: n }, (_, i) => ({ id: `s${i}`, title: `Section ${i + 1}`, minutes: 5 + (i % 4) })),
+		);
+	const meeting = async (type, { agenda = 0, venue = true, team = null } = {}) => {
+		const id = randomUUID();
+		await admin.execute(
+			sql`INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,resolver_version,status,attendance_revision,agenda,venue_name,venue_address,team_id)
+				VALUES(${id},${plant.id},${type},NULL,'2026-11-10','18:30','America/Chicago','2026-11-11T00:30:00Z','test','planning',1,${sections(agenda)}::jsonb,
+					${venue ? "Harbor Hall" : null},${venue ? "12 Dock Street" : null},${team})`,
+		);
+		return id;
+	};
+	const guest = (meetingId, personId) =>
+		admin.execute(
+			sql`INSERT INTO participation(plant_id,meeting_id,person_id,roster_member,rsvp,presence) VALUES(${plant.id},${meetingId},${personId},false,'confirmed','absent')`,
+		);
+	const leadership = randomUUID();
+	await admin.execute(
+		sql`INSERT INTO team(id,plant_id,name,state,sort_order,template_key) VALUES(${leadership},${plant.id},'Leadership','active',99,'leadership')`,
+	);
+	const eldersRole = randomUUID();
+	await admin.execute(
+		sql`INSERT INTO team_role(id,plant_id,team_id,name,leadership,sort_order) VALUES(${eldersRole},${plant.id},${leadership},'Elder',true,1)`,
+	);
+	await admin.execute(
+		sql`INSERT INTO team_tenure(plant_id,role_id,person_id,started_on) VALUES(${plant.id},${eldersRole},${maria.id},'2026-01-01')`,
+	);
+	const visionMeeting = await meeting("vision_meeting", { agenda: 6 });
+	const emptyMeeting = await meeting("vision_meeting", { venue: false });
+	const boardMeeting = await meeting("team_meeting", { agenda: 3, team: leadership });
+	for (const m of [visionMeeting, boardMeeting]) await guest(m, maria.id);
+	for (const name of ["Ada", "Ben"]) await guest(visionMeeting, (await person(`${name} Guest`)).id);
 
 	// A private bucket on this machine: it answers the privacy check (GetBucketAcl) and records every call it gets.
 	// Signing an upload URL needs no other bucket call.
@@ -303,6 +338,15 @@ try {
 		["GET /tasks", "/tasks", owner.cookie],
 		["GET /documents", "/documents", owner.cookie],
 		["GET /meetings", "/meetings", owner.cookie],
+		["GET /meetings/[meetingId]", `/meetings/${visionMeeting}`, owner.cookie],
+		["GET /meetings/[meetingId] (leadership team meeting)", `/meetings/${boardMeeting}`, owner.cookie],
+		["GET /meetings/[meetingId]/agenda", `/meetings/${visionMeeting}/agenda`, owner.cookie],
+		[
+			"GET /meetings/[meetingId]/agenda:no sections and nobody listed",
+			`/meetings/${emptyMeeting}/agenda`,
+			owner.cookie,
+		],
+		["GET /meetings/[meetingId]/agenda:leadership team meeting", `/meetings/${boardMeeting}/agenda`, owner.cookie],
 		["GET /settings", "/settings", owner.cookie],
 		["GET /settings/brand", "/settings/brand", owner.cookie],
 		["GET /notifications", "/notifications", owner.cookie],
@@ -474,6 +518,14 @@ try {
 	await notices(80);
 	for (let i = 0; i < 30; i++) await teams(teamsWriter.create, { input: { name: `Grown ministry ${i}` } });
 	for (let i = 0; i < 8; i++) await staff(`Grown role ${i}`);
+	// The same agenda reads at the largest size: 40 sections and 100 people on the list (the page count must not move).
+	for (const m of [visionMeeting, boardMeeting])
+		await admin.execute(sql`UPDATE meeting SET agenda=${sections(40)}::jsonb WHERE id=${m}`);
+	for (let i = 0; i < 100; i++) {
+		const who = (await person(`Listed ${String(i).padStart(3, "0")}`)).id;
+		await guest(visionMeeting, who);
+		await guest(boardMeeting, who);
+	}
 	for (const [name, path, cookie] of pages) await get(name, path, cookie);
 
 	server.kill("SIGTERM");
