@@ -28,7 +28,7 @@
 		"typecheck": "tsc --noEmit",
 		"lint": "eslint --max-warnings=0 .",
 		"test": "tsx --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 test/*.test.ts",
-		"test:unit": "node --conditions=react-server --test ../../tests/integration/access/unit.test.mts && tsx --conditions=react-server --test ../../tests/integration/documents/engine.test.mts",
+		"test:unit": "node --conditions=react-server --test ../../tests/integration/access/unit.test.mts && tsx --conditions=react-server --test ../../tests/integration/documents/engine.test.mts ../../tests/integration/documents/agenda.test.mts",
 		"test:operations": "node --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test ../../tests/integration/operations/*.test.mts",
 		"test:identity": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test ../../tests/integration/identity/*.test.mts",
 		"test:identity:production": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test ../../tests/integration/identity/timing.production.mts",

@@ -5,6 +5,15 @@
 	"GET /meetings": {
 		"limit": 3
 	},
+	"GET /meetings/[meetingId]": {
+		"limit": 10
+	},
+	"GET /meetings/[meetingId] (leadership team meeting)": {
+		"limit": 9
+	},
+	"GET /meetings/[meetingId]/agenda": {
+		"limit": 2
+	},
 	"GET /ministries": {
 		"limit": 3
 	},
@@ -280,6 +289,9 @@
 		"reason": "An import stores the original bytes before the native revision. putPrivateObject claims the object and finalizes it in two transactions so the provider call holds no lock, then one statement writes the revision and its audit. Its largest first run: 4 read, 4 transaction, 2 locked read, 4 write."
 	},
 	"documents.preview": {
+		"limit": 1
+	},
+	"documents.printAgenda": {
 		"limit": 1
 	},
 	"documents.purgeOwnedForDeletion": {
