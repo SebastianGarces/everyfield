@@ -13,7 +13,14 @@ import {
 	type Reader,
 } from "./access.ts";
 import { library, templateView, type CatalogTemplate } from "./catalog.ts";
-import { AGENDA_TEMPLATE, agendaKindOf, agendaMeetingOf, dateText, type AgendaKind, type MeetingRead } from "./agenda-meeting.ts";
+import {
+	AGENDA_TEMPLATE,
+	agendaKindOf,
+	agendaMeetingOf,
+	dateText,
+	type AgendaKind,
+	type MeetingRead,
+} from "./agenda-meeting.ts";
 import { readAgendaKind } from "./meeting-read.ts";
 import { cleanOverrides, resolveMerge, type ResolvedMerge } from "./merge.ts";
 import { RenderFailed, digestOf, renderEngineVersion, renderPreview } from "./render.ts";
