@@ -1,10 +1,20 @@
 import { getViewer } from "@/server/request-context";
-import { Card, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
+import { Button, Card, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ChurchDocumentView } from "./church.tsx";
 import { DocumentsScreen } from "./DocumentsScreen.tsx";
 import { parseQuery } from "./model.ts";
-import { canEditDocuments, canStoreDocuments, loadDocuments, writtenScope } from "./server.ts";
+import {
+	canCreateChurchDocuments,
+	canEditDocuments,
+	canStoreDocuments,
+	loadChurchList,
+	loadChurchPage,
+	loadDocuments,
+	writtenScope,
+} from "./server.ts";
 
 // The documents routes. The files under apps/web/src/app/ only re-export these.
 
@@ -23,7 +33,10 @@ export async function DocumentsPage({ searchParams }: { searchParams: Search }) 
 	const viewer = await getViewer();
 	if (!viewer || viewer.status === "unauthenticated") redirect("/signin?returnTo=%2Fdocuments");
 	if (viewer.status !== "active" || !viewer.authority) return <Unavailable />;
-	const loaded = await loadDocuments(viewer.authority, query);
+	const [loaded, church] = await Promise.all([
+		loadDocuments(viewer.authority, query),
+		loadChurchList(viewer.authority),
+	]);
 	if (loaded.status === "failed") return <Failed />;
 	if (loaded.status === "refused") return <Unavailable />;
 	return (
@@ -33,9 +46,51 @@ export async function DocumentsPage({ searchParams }: { searchParams: Search }) 
 			context={loaded.context}
 			canPreview={loaded.canPreview}
 			canEdit={canEditDocuments(viewer.authority)}
+			canCreate={canCreateChurchDocuments(viewer.authority)}
+			church={church}
 			canStore={canStoreDocuments()}
 			written={writtenScope(viewer.authority)}
 		/>
+	);
+}
+
+export const churchDocumentMetadata: Metadata = { title: "Church Document", robots: { index: false, follow: false } };
+
+/** One Church Document. A document of another church plant, an unknown id and a seatless account read the same. */
+export async function ChurchDocumentPage({ params }: { params: Promise<{ documentId: string }> }) {
+	const { documentId } = await params;
+	const viewer = await getViewer();
+	if (!viewer || viewer.status === "unauthenticated")
+		redirect(`/signin?returnTo=${encodeURIComponent(`/documents/${documentId}`)}`);
+	if (viewer.status !== "active" || !viewer.authority) return <NotFound />;
+	const loaded = await loadChurchPage(viewer.authority, documentId);
+	if (loaded.status === "not_found") return <NotFound />;
+	if (loaded.status === "failed") return <Failed />;
+	return <ChurchDocumentView initial={loaded.page} canEdit={canCreateChurchDocuments(viewer.authority)} />;
+}
+
+function NotFound() {
+	return (
+		<>
+			<PageHeader
+				title="Church Document"
+				breadcrumb={[{ label: "Documents", href: "/documents" }, { label: "Not found" }]}
+			/>
+			<Card>
+				<StatePanel
+					tone="lock"
+					title="We cannot find this document"
+					headingLevel="h2"
+					actions={
+						<Button variant="secondary" asChild>
+							<Link href="/documents">Back to Documents</Link>
+						</Button>
+					}
+				>
+					It may not exist, or it belongs to another church plant.
+				</StatePanel>
+			</Card>
+		</>
 	);
 }
 

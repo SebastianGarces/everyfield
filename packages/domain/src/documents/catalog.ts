@@ -1,5 +1,6 @@
 import { loadStarter, referenceArtifactSha256 } from "@everyfield/reference/playbook";
 import "server-only";
+import { PENDING_EDITABLE, churchTemplate } from "./templates/church.ts";
 import { entryFor } from "./templates/registry.ts";
 import { z } from "zod";
 
@@ -70,5 +71,10 @@ function registryFacts(id: string) {
 		pageSize: entry.pageSize,
 		fillable: entry.fields.length > 0,
 		outline: entry.outline,
+		editable: churchTemplate(id)
+			? ("ready" as const)
+			: (PENDING_EDITABLE as readonly string[]).includes(id)
+				? ("pending" as const)
+				: null,
 	};
 }

@@ -109,6 +109,7 @@ export function generatedFrom(
 		source_document_id?: string | null;
 		source_revision_id?: string | null;
 		source_number?: number | string | null;
+		source_title?: string | null;
 		theme_kind?: "church" | "everyfield-neutral" | null;
 		theme_primary?: string | null;
 	},
@@ -129,7 +130,12 @@ export function generatedFrom(
 		creatorAccountId: row.creator_account_id,
 		revision: row.revision,
 		source: row.source_document_id
-			? { documentId: row.source_document_id, revisionId: row.source_revision_id, revision: Number(row.source_number) }
+			? {
+					documentId: row.source_document_id,
+					revisionId: row.source_revision_id,
+					revision: Number(row.source_number),
+					title: row.source_title,
+				}
 			: null,
 		theme: row.theme_kind ? { kind: row.theme_kind, primary: row.theme_primary ?? null } : null,
 	});
@@ -142,13 +148,14 @@ export async function historyRows(db: Database, scope: Scope, documentId: string
 		db,
 		sql`SELECT g.ok, gd.id, gd.template_id, gd.template_version, gd.saved_template_name, gd.format, gd.download_name,
 			gd.generated_at, gd.creator_account_id, gd.revision::text AS revision, f.sha256, f.byte_count,
-			gd.source_document_id, gd.source_revision_id, gd.theme_kind, gd.theme_primary, sr.version_number AS source_number,
+			gd.source_document_id, gd.source_revision_id, gd.theme_kind, gd.theme_primary, sr.version_number AS source_number, sd.title AS source_title,
 			gd.id IS NOT NULL AS present
 		FROM (SELECT ${gateSql(scope, false)} AS ok) g
 		LEFT JOIN generated_document gd ON g.ok AND gd.tenant_id = ${scope.tenantId}::uuid
 			AND (${documentId}::uuid IS NULL OR gd.id = ${documentId}::uuid)
 		LEFT JOIN file_object f ON f.id = gd.object_id AND f.tenant_id = gd.tenant_id AND f.state = 'ready'
 		LEFT JOIN document_revision sr ON sr.id = gd.source_revision_id AND sr.tenant_id = gd.tenant_id
+		LEFT JOIN document sd ON sd.id = gd.source_document_id AND sd.tenant_id = gd.tenant_id
 		WHERE f.id IS NOT NULL OR gd.id IS NULL
 		ORDER BY gd.generated_at DESC NULLS LAST
 		LIMIT ${PAGE}`,

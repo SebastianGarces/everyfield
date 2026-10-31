@@ -13,6 +13,7 @@ import type { z } from "zod";
 import { type RequestActor } from "../access/session.ts";
 import { deny, parse, plantViewer, readPlant, rejectInput, settle } from "./access.ts";
 import { churchWriter } from "./church-writes.ts";
+import { PENDING_EDITABLE, churchTemplate } from "./templates/church.ts";
 import { library } from "./catalog.ts";
 import { cleanOverrides, resolveMerge } from "./merge.ts";
 import { RenderFailed, digestOf, renderEngineVersion, renderPreview } from "./render.ts";
@@ -75,6 +76,10 @@ function editScope(authority: RequestActor) {
 	return plantScope(viewer);
 }
 
+/** A catalog template that is editable: authored, or editable with no authored copy yet. */
+const isEditable = (id: string) =>
+	churchTemplate(id) !== undefined || (PENDING_EDITABLE as readonly string[]).includes(id);
+
 function generateScope(authority: RequestActor) {
 	const viewer = plantViewer(authority);
 	return viewer ? plantScope(viewer) : null;
@@ -109,6 +114,8 @@ const generatedWriter = {
 			if (!cleaned.ok) rejectInput(cleaned.path, cleaned.problem);
 			const scope = generateScope(authority);
 			if (!scope) deny();
+			// An editable template makes a Church Document with createFromTemplate. It never saves a file here.
+			if (isEditable(input.templateId)) deny("template_is_editable");
 			const loaded = await library();
 			const template = loaded.templates.find((item) => item.id === input.templateId);
 			if (!template) deny();

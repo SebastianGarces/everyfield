@@ -1,6 +1,7 @@
 "use client";
 
-import { Button, ConfirmDialog, Field, Select, Textarea } from "@everyfield/ui/controls";
+import { BlockEditor, type BlockEditorHandle, type BlockKind, type BlockRow } from "@/components/BlockEditor";
+import { Button, ConfirmDialog } from "@everyfield/ui/controls";
 import { useEffect, useRef, useState } from "react";
 import { hideWikiSource, publishWikiArticle, saveWikiDraft, type OrgResult } from "./actions.ts";
 import {
@@ -16,28 +17,18 @@ import {
 
 type Row = { key: string; block: EditorBlock };
 type ArticleState = "published" | "hide" | "draft" | "inherited" | null;
-type Kind = "paragraph" | "heading" | "subheading" | "quote" | "list" | "numbered";
-
-const KINDS: { value: Kind; label: string }[] = [
-	{ value: "paragraph", label: "Paragraph" },
-	{ value: "heading", label: "Heading" },
-	{ value: "subheading", label: "Subheading" },
-	{ value: "quote", label: "Quote" },
-	{ value: "list", label: "List" },
-	{ value: "numbered", label: "Numbered list" },
-];
 
 const EMPTY_TEXT = "Add article text before you save.";
 const LONG_TEXT = "Shorten the article. It is too long to save.";
 
-function kindValue(block: EditorBlock): Kind {
+function kindValue(block: EditorBlock): BlockKind {
 	if (block.kind === "heading") return block.level === 3 ? "subheading" : "heading";
 	if (block.kind === "list") return block.ordered ? "numbered" : "list";
 	if (block.kind === "quote") return "quote";
 	return "paragraph";
 }
 
-function applyKind(block: EditorBlock, value: Kind): EditorBlock {
+function applyKind(block: EditorBlock, value: BlockKind): EditorBlock {
 	const text = block.text;
 	if (value === "heading") return { kind: "heading", level: 2, text };
 	if (value === "subheading") return { kind: "heading", level: 3, text };
@@ -47,11 +38,17 @@ function applyKind(block: EditorBlock, value: Kind): EditorBlock {
 	return { kind: "paragraph", text };
 }
 
-function textLabel(block: EditorBlock): string {
-	if (block.kind === "heading") return block.level === 3 ? "Subheading" : "Heading";
-	if (block.kind === "quote") return "Quote";
-	if (block.kind === "list") return "List items";
-	return "Paragraph";
+/** The shared editor's rows, and back: a row whose kind did not change keeps its block (a level 4 heading stays one). */
+function toRows(rows: Row[]): BlockRow[] {
+	return rows.map((row) => ({ key: row.key, kind: kindValue(row.block), text: row.block.text }));
+}
+function fromRows(next: BlockRow[], current: Row[]): Row[] {
+	return next.map((row) => {
+		const before = current.find((item) => item.key === row.key);
+		if (before && kindValue(before.block) === row.kind)
+			return { key: row.key, block: { ...before.block, text: row.text } };
+		return { key: row.key, block: applyKind(before?.block ?? { kind: "paragraph", text: row.text }, row.kind) };
+	});
 }
 
 function seedRows(body: string | null, contentType: string): Row[] {
@@ -105,26 +102,12 @@ export function WikiEditor({
 	const [hideOpen, setHideOpen] = useState(false);
 	const revisionRef = useRef(initialRevision);
 	const lock = useRef(false);
-	const keyCount = useRef(Math.max(1, rows.length) + 1);
-	const fields = useRef(new Map<string, HTMLTextAreaElement>());
-	const pendingFocus = useRef<string | null>(null);
+	const editor = useRef<BlockEditorHandle>(null);
 	const baseline = baselineBody ? editorBlocksFromBody(baselineContentType, baselineBody) : [];
 	const blocks = rows.map((row) => row.block);
 	const changes = changedSectionLabels(baseline, blocks);
 	const consequences = [...changes, "Finished readers will see Updated since you read it."];
 	const textChanged = articleTextChanged(baseline, blocks);
-
-	useEffect(() => {
-		const key = pendingFocus.current;
-		if (!key) return;
-		pendingFocus.current = null;
-		fields.current.get(key)?.focus();
-	});
-
-	function focusRow(key: string | undefined) {
-		if (!key) return;
-		pendingFocus.current = key;
-	}
 
 	function writeBody(): string {
 		return editorWriteBody(initialBody, initialContentType, blocks);
@@ -180,7 +163,7 @@ export function WikiEditor({
 		setStatus("");
 		if (message === EMPTY_TEXT) {
 			const key = rows[0]?.key;
-			if (key) fields.current.get(key)?.focus();
+			if (key) editor.current?.focus(key);
 		}
 	}
 
@@ -204,40 +187,8 @@ export function WikiEditor({
 		setHideOpen(true);
 	}
 
-	function update(key: string, block: EditorBlock) {
-		setRows((current) => current.map((row) => (row.key === key ? { ...row, block } : row)));
-	}
-
-	function move(index: number, direction: -1 | 1) {
-		const target = index + direction;
-		const row = rows[index];
-		if (!row || !rows[target]) return;
-		setRows((current) => {
-			const next = current.slice();
-			const item = next[index];
-			const other = next[target];
-			if (!item || !other) return current;
-			next[index] = other;
-			next[target] = item;
-			return next;
-		});
-		focusRow(row.key);
-	}
-
-	function remove(key: string) {
-		if (rows.length < 2) return;
-		const index = rows.findIndex((row) => row.key === key);
-		setRows((current) => (current.length < 2 ? current : current.filter((row) => row.key !== key)));
-		focusRow(rows[Math.max(0, index - 1)]?.key);
-	}
-
-	function addParagraph() {
-		const key = `block-${keyCount.current}`;
-		keyCount.current += 1;
-		setRows((current) => [...current, { key, block: { kind: "paragraph", text: "" } }]);
-		focusRow(key);
-	}
-
+	const emptyRow = rows.find((row) => !row.block.text.trim());
+	const emptyError = formError === EMPTY_TEXT && emptyRow ? { key: emptyRow.key, message: formError } : null;
 	const locked = busy !== null || publishOpen || hideOpen;
 	const canHide = revision !== "0" && articleState !== "hide";
 
@@ -257,64 +208,13 @@ export function WikiEditor({
 				aria-label="Organization version"
 				onSubmit={(event) => event.preventDefault()}
 			>
-				<ol className="flex flex-col gap-8">
-					{rows.map((row, index) => (
-						<li key={row.key}>
-							<fieldset className="flex flex-col gap-4" disabled={locked}>
-								<legend className="text-sm font-medium text-ink">Block {index + 1}</legend>
-								<Field label={`Block ${index + 1} type`}>
-									<Select
-										options={KINDS}
-										value={kindValue(row.block)}
-										onValueChange={(value) => update(row.key, applyKind(row.block, value as Kind))}
-									/>
-								</Field>
-								<Field
-									label={textLabel(row.block)}
-									hint={row.block.kind === "list" ? "Put one item on each line." : undefined}
-									error={
-										formError === EMPTY_TEXT &&
-										!row.block.text.trim() &&
-										rows.findIndex((item) => !item.block.text.trim()) === index
-											? formError
-											: undefined
-									}
-								>
-									<Textarea
-										ref={(node) => {
-											if (node) fields.current.set(row.key, node);
-											else fields.current.delete(row.key);
-										}}
-										value={row.block.text}
-										rows={row.block.kind === "paragraph" || row.block.kind === "list" ? 5 : 2}
-										onChange={(event) => update(row.key, { ...row.block, text: event.target.value })}
-									/>
-								</Field>
-								<div className="flex flex-wrap gap-2">
-									<Button type="button" variant="ghost" disabled={index === 0} onClick={() => move(index, -1)}>
-										Move up
-									</Button>
-									<Button
-										type="button"
-										variant="ghost"
-										disabled={index === rows.length - 1}
-										onClick={() => move(index, 1)}
-									>
-										Move down
-									</Button>
-									<Button type="button" variant="ghost" disabled={rows.length < 2} onClick={() => remove(row.key)}>
-										Remove
-									</Button>
-								</div>
-							</fieldset>
-						</li>
-					))}
-				</ol>
-				<div>
-					<Button type="button" variant="outline" disabled={locked} onClick={addParagraph}>
-						Add a paragraph
-					</Button>
-				</div>
+				<BlockEditor
+					ref={editor}
+					rows={toRows(rows)}
+					onChange={(next) => setRows((current) => fromRows(next, current))}
+					disabled={locked}
+					error={emptyError}
+				/>
 				<div className="sticky bottom-0 z-[2] -mx-6 -mb-8 flex flex-col gap-3 rounded-b-card border-t border-line bg-surface px-6 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] max-app-sm:-mx-4 max-app-sm:px-4 sm:-mx-11 sm:px-11">
 					<div role="alert" className="empty:hidden">
 						{formError && formError !== EMPTY_TEXT ? (

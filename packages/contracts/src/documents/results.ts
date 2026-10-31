@@ -16,6 +16,8 @@ export const documentsError = z.discriminatedUnion("code", [
 	error("conflict", {}, "refresh"),
 	error("access_denied", {}, "never"),
 	error("template_not_editable", {}, "never"),
+	/** `documents.generate` on an editable template: a Church Document is made with `createFromTemplate`. */
+	error("template_is_editable", {}, "never"),
 	/** An editable template that has no authored content yet. */
 	error("template_not_authored", {}, "never"),
 	error("slot_not_deletable", { slotIds: z.array(z.string().max(60)).max(20) }, "never"),
@@ -47,6 +49,8 @@ export const templateView = z.strictObject({
 	fillable: z.boolean(),
 	/** The real section titles of the rebuilt document. */
 	outline: z.array(z.string().min(1).max(200)).min(1).max(20),
+	/** `ready`: a Church Document is made from it. `pending`: editable, with no authored copy yet. Null: not editable. */
+	editable: z.enum(["ready", "pending"]).nullable(),
 });
 export const templatePage = z.strictObject({
 	version: sha256,
@@ -108,7 +112,15 @@ export const generatedDocument = z.strictObject({
 	creatorAccountId: z.uuid().nullable(),
 	revision: revisionToken,
 	/** The Church Document revision an export was made from. Null for a generated file. */
-	source: z.strictObject({ documentId: recordId, revisionId: recordId, revision: z.int().min(1) }).nullable(),
+	source: z
+		.strictObject({
+			documentId: recordId,
+			revisionId: recordId,
+			revision: z.int().min(1),
+			/** The document's title now, for the saved-exports list. */
+			title: z.string().min(1).max(200),
+		})
+		.nullable(),
 	/** The theme an export used. Null for a generated file. */
 	theme: z
 		.strictObject({
@@ -175,6 +187,8 @@ export const churchRevisionSummary = z.strictObject({
 	id: recordId,
 	number: z.int().min(1),
 	authorAccountId: z.uuid().nullable(),
+	/** The author's name. Null when the account no longer exists. */
+	authorName: z.string().max(200).nullable(),
 	recordedAt: z.iso.datetime(),
 	contentHash: sha256,
 });
@@ -183,6 +197,46 @@ export const churchRevisionList = z.strictObject({
 	revisions: z.array(churchRevisionSummary).max(1000),
 });
 export const churchRevision = churchRevisionSummary.extend({ documentId: recordId, body: churchBody });
+/** One Church Document in the list: its current revision and when that revision was saved. */
+export const churchListItem = z.strictObject({
+	id: recordId,
+	title: z.string().min(1).max(200),
+	templateId,
+	templateName: z.string().min(1).max(200),
+	documentClass: churchClass,
+	revision: z.int().min(1),
+	editedAt: z.iso.datetime(),
+});
+export const churchList = z.strictObject({
+	/** The church plant's IANA time zone, for the edit times. */
+	timeZone: z.string().min(1).max(80),
+	documents: z.array(churchListItem).max(200),
+});
+/** A saved export of a Church Document, as the document page lists it. */
+export const churchExport = z.strictObject({
+	id: recordId,
+	format: z.enum(["pdf", "docx"]),
+	revision: z.int().min(1),
+	theme: z.enum(["church", "everyfield-neutral"]),
+	creatorName: z.string().max(200).nullable(),
+	generatedAt: z.iso.datetime(),
+	downloadName: z.string().min(1).max(220),
+});
+/** One Church Document with its template facts, history and saved exports. One read, a fixed number of statements. */
+export const churchPage = z.strictObject({
+	document: churchDocument,
+	templateName: z.string().min(1).max(200),
+	slots: z.array(z.strictObject({ id: z.string().min(1).max(60), label: z.string().min(1).max(200) })).max(20),
+	/** The church plant's IANA time zone, for the times on the page. */
+	timeZone: z.string().min(1).max(80),
+	/** True when the church plant has a brand kit. */
+	hasBrandKit: z.boolean(),
+	revisions: z.array(churchRevisionSummary).max(1000),
+	exports: z.array(churchExport).max(100),
+});
+export type ChurchPage = z.infer<typeof churchPage>;
+export type ChurchList = z.infer<typeof churchList>;
+export type ChurchExport = z.infer<typeof churchExport>;
 export const brandingResult = z.strictObject({ documentId: recordId, useChurchBranding: z.boolean() });
 export type ChurchRevisionList = z.infer<typeof churchRevisionList>;
 export type ChurchRevision = z.infer<typeof churchRevision>;
