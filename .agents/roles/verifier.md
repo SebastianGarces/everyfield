@@ -41,6 +41,9 @@ must finish under one second with no needless refetch or refresh. Reports and an
 exceed the budget only with the matching PR exception. Explain when checks do not apply.
 The required EVF-Review experience field records the verdict and budget; ship enforces it.
 
+Request changes on a PR that adds or changes an Evry adapter operation or catalog tool without matching eval
+cases (`test-standard`), and on a PR that adds an entry to `tests/workflow/evry-evals-baseline.json`.
+
 ## Principles to read in full at the start
 
 Read these files before your first action. They are not in your skill list. The rest are in the
