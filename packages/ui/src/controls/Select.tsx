@@ -40,7 +40,7 @@ export function Select({
 	...props
 }: SelectProps) {
 	const container = usePortalContainer();
-	const control = useFieldControl({ id, "aria-invalid": invalid });
+	const control = useFieldControl({ id, "aria-invalid": invalid, trigger: true, "aria-label": props["aria-label"] });
 	const isInvalid = control["aria-invalid"] === true;
 	const current = options.find((o) => o.value === (value ?? defaultValue));
 	return (

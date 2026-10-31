@@ -106,6 +106,25 @@ async function up() {
 		}),
 	);
 	if (contact.status !== "ok") throw Error("recordOutcome: " + JSON.stringify(contact));
+	// An outcome recorded on the follow-up task itself, so its task panel's "What happened" has an entry (S2 batch 3, F13).
+	const onTask = await runtime.transaction((tx) =>
+		followups.recordOutcome(tx as never, ctx, {
+			requestKey: randomUUID(),
+			input: {
+				target: {
+					kind: "task",
+					taskId: (created.value as { task: { id: string } }).task.id,
+					expectedRevision: (created.value as { task: { revision: string } }).task.revision,
+				},
+				outcome: "contacted",
+				occurredAt: "2026-09-02T17:00:00.000Z",
+				channel: "phone",
+				notes: "Left a voicemail about Sunday.",
+				completeTask: false,
+			},
+		} as never),
+	);
+	if (onTask.status !== "ok") throw Error("recordOutcome (task): " + JSON.stringify(onTask));
 
 	// A departed account (REQ-TSK-013): Grace Moreno once held a Member seat here, which has ended, and still holds two
 	// open follow-ups. Seat removal belongs to WP-007; the seed writes the ended seat and the tasks it left behind.
@@ -147,7 +166,9 @@ async function up() {
 	const noraManual = randomUUID();
 	await admin.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,person_id,creator_id)
 		VALUES (${noraManual},${plant.id},'Send Nora the welcome packet','follow_up','medium','not_started',clock_timestamp(),'undated',${noraId},${owner})`);
-	await admin.execute(sql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES (${plant.id},${noraManual},${member})`);
+	await admin.execute(
+		sql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES (${plant.id},${noraManual},${member})`,
+	);
 
 	const fixture = writeFixture("followups", env.schema, {
 		departed,
