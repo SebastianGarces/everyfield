@@ -120,7 +120,6 @@ function policy(
 	subject: string,
 	frame: Frame,
 	body: ChurchBlock[],
-	title = name,
 ): ChurchTemplate {
 	return {
 		id,
@@ -130,7 +129,7 @@ function policy(
 		documentClass: "formal/legal",
 		style: "document",
 		kicker,
-		title,
+		title: name,
 		subject,
 		frame,
 		slots: [],
