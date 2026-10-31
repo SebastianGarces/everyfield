@@ -5525,20 +5525,21 @@ const EvryLife = (() => {
     // Fake 3D: during a gaze the body narrows as it turns and the highlight slides the other way, so
     // the flat shape reads as a turning solid. The turn updates by visible steps and always at rest.
     if (still || Math.abs(gxn - D[6]) + Math.abs(gyn - D[7]) > .05 || D[6] === undefined) { D[6] = still ? 0 : gxn; D[7] = still ? 0 : gyn; }
-    // Body pose: the tilt (a lean toward the gaze plus the idle act's tilt, in 0.1 degree steps) about
-    // a point low in the body, and the act's shift. The group turns and both gradients turn back by
+    // Body pose: the tilt (a lean toward the gaze plus the idle act's tilt, in 0.2 degree steps) about
+    // a point low in the body, and the act's shift (0.05 unit steps). Steps stay under 0.2 px at 96 px
+    // and skip writes while a move settles. The group turns and both gradients turn back by
     // the same angle about the body's centre, so the highlight, the shading and the drop shadow stay
     // at the upper left of the body, as in a spin. A tilt frame writes three short attributes, no path.
-    const tilt = Math.round(((still ? 0 : LEAN * gxn) + B[0]) * 10) / 10, ver = tilt ? st.ver : 0;
-    if (D[5] !== tilt || D[8] !== B[1] || D[9] !== B[2] || D[10] !== D[6] || D[11] !== D[7] || D[12] !== ver) {
-      D[5] = tilt; D[8] = B[1]; D[9] = B[2]; D[10] = D[6]; D[11] = D[7]; D[12] = ver;
+    const tilt = Math.round(((still ? 0 : LEAN * gxn) + B[0]) * 5) / 5, ver = tilt ? st.ver : 0, bx = Math.round(B[1] * 20) / 20, by = Math.round(B[2] * 20) / 20;
+    if (D[5] !== tilt || D[8] !== bx || D[9] !== by || D[10] !== D[6] || D[11] !== D[7] || D[12] !== ver) {
+      D[5] = tilt; D[8] = bx; D[9] = by; D[10] = D[6]; D[11] = D[7]; D[12] = ver;
       let back = '';
       if (tilt) { const b = bbox(st); back = G.unturn(b, tilt * DEG, b[0] + b[2] / 2, b[1] + b[3] / 2); }
       set(st, st.sh, 'sh', 'gradientTransform', back);
       set(st, st.hl, 'hl', 'gradientTransform', (back + (D[6] || D[7] ? ` translate(${(-.09 * D[6]).toFixed(3)} ${(-.06 * D[7]).toFixed(3)})` : '')).trim());
-      set(st, st.g, 'g', 'transform', ((B[1] || B[2] ? `translate(${B[1].toFixed(2)} ${B[2].toFixed(2)}) ` : '') + (D[6] || D[7] ? `translate(50 50) scale(${(1 - .035 * Math.abs(D[6])).toFixed(4)} ${(1 - .02 * Math.abs(D[7])).toFixed(4)}) translate(-50 -50) ` : '') + (tilt ? `rotate(${tilt} 50 ${PIVOT})` : '')).trim());
+      set(st, st.g, 'g', 'transform', ((bx || by ? `translate(${bx} ${by}) ` : '') + (D[6] || D[7] ? `translate(50 50) scale(${(1 - .035 * Math.abs(D[6])).toFixed(4)} ${(1 - .02 * Math.abs(D[7])).toFixed(4)}) translate(-50 -50) ` : '') + (tilt ? `rotate(${tilt} 50 ${PIVOT})` : '')).trim());
       const h = PIVOT - oy, P = st.pose;
-      P[0] = tilt; P[1] = h * Math.sin(tilt * DEG) + B[1]; P[2] = h * (1 - Math.cos(tilt * DEG)) + B[2];
+      P[0] = tilt; P[1] = h * Math.sin(tilt * DEG) + bx; P[2] = h * (1 - Math.cos(tilt * DEG)) + by;
     }
     if (D[0] === st.mood && D[1] === st.fy && D[2] === st.fk && D[3] === st.gx && D[4] === st.gy && D[13] === st.ang) return;
     D[0] = st.mood; D[1] = st.fy; D[2] = st.fk; D[3] = st.gx; D[4] = st.gy; D[13] = st.ang;
