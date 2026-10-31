@@ -13,7 +13,7 @@ const SIGNALS = ["SIGTERM", "SIGINT"] as const;
  * aborted, record one drive_stopped event with the stage and the signal, and drop this process's pid file.
  * A drive between stages or inside a seat wait has no open evf run: only the pid file goes.
  */
-export function recordDriveStopped(root: string, task: TaskRef, signal: string): void {
+function recordDriveStopped(root: string, task: TaskRef, signal: string): void {
 	const db = openWorkDb(root);
 	try {
 		const row = findTask(db, task);

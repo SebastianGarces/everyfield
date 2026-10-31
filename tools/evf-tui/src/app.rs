@@ -1092,13 +1092,13 @@ mod tests {
         assert_eq!(evf.state, "evf ship");
         assert!(!evf.needs_you && !evf.working && evf.herdr_agent.is_none());
         assert_eq!(
-            crate::ui::state_style_for_test(&evf.state),
+            crate::ui::state_style(&evf.state),
             ratatui::style::Style::new()
         );
         let seat = rows.iter().find(|r| r.task == "WP-400").unwrap();
         assert_eq!(seat.state, "no pane");
         assert_eq!(
-            crate::ui::state_style_for_test(&seat.state),
+            crate::ui::state_style(&seat.state),
             ratatui::style::Style::new().fg(ratatui::style::Color::Red)
         );
         // Herdr down: an evf run still names its stage; the seat reads herdr?.
@@ -1242,7 +1242,7 @@ mod tests {
         assert!(!row("OPS-87").needs_you && !row("OPS-88").needs_you);
         assert_eq!(summarize(&rows, &snap).needs_you, 2);
         assert_eq!(
-            crate::ui::state_style_for_test("awaiting owner"),
+            crate::ui::state_style("awaiting owner"),
             ratatui::style::Style::new()
                 .fg(ratatui::style::Color::Yellow)
                 .add_modifier(ratatui::style::Modifier::BOLD)

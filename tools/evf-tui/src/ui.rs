@@ -45,7 +45,7 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
     }
 }
 
-fn state_style(state: &str) -> Style {
+pub(crate) fn state_style(state: &str) -> Style {
     match state {
         "working" => GOOD,
         "blocked" | "escalated" | "needs pick" | "awaiting owner" => {
@@ -55,11 +55,6 @@ fn state_style(state: &str) -> Style {
         "no pane" | "herdr?" => BAD,
         _ => Style::new(),
     }
-}
-
-#[cfg(test)]
-pub fn state_style_for_test(state: &str) -> Style {
-    state_style(state)
 }
 
 fn draw_header(frame: &mut Frame, area: Rect, app: &App) {
