@@ -264,6 +264,7 @@ test("CASE-BRD-002 and CASE-BRD-003 on the real server: upload, replace, remove,
 			.getByText(/Save a primary color first/)
 			.waitFor();
 		assert.equal(await markRemove.evaluate((el) => getComputedStyle(el).cursor), "not-allowed");
+		await shots(page, "07a-remove-needs-primary", slot(page, "mark"));
 
 		// Criterion 11: the unsaved primary color survived the uploads. Save sends the new revision and the server
 		// takes it; wait for the reply, not only the optimistic screen.
