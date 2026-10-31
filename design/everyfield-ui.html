@@ -6248,14 +6248,14 @@ document.addEventListener('keydown', e => {
   /* ---------- Sample data: Harvest Point Church ---------- */
   const slot = (label, html, tpl) => `<section class="wd-slot" contenteditable="false" data-slot="${esc(label)}"><div class="wd-slot-head"><span class="wd-slot-label">${esc(label)}</span><button type="button" class="wd-slot-lock" contenteditable="false" aria-label="Locked section. The ${esc(tpl)} template keeps this heading and its place. You can edit the text." data-tip="The ${esc(tpl)} template keeps this heading and its place. You can edit the text below it."><i class="hgi-stroke hgi-square-lock-02" aria-hidden="true"></i>Locked</button></div><div class="wd-slot-body" contenteditable="true" role="textbox" aria-multiline="true" aria-label="${esc(label)} text">${html}</div></section>`;
   const TEMPLATES = {
-    'Statement of faith': { kind: 'faith', intro: '<p>This statement summarizes what Harvest Point Church believes and teaches. Every member affirms it when they join.</p>', slots: [
+    'Statement of faith': { intro: '<p>This statement summarizes what Harvest Point Church believes and teaches. Every member affirms it when they join.</p>', slots: [
       ['Statement of faith', '<p>We believe in one God, eternally existing in three persons: Father, Son and Holy Spirit.</p><p>We believe the Bible is the inspired Word of God, true and trustworthy in all it teaches.</p>'],
       ['Baptism', '<p>We baptize believers by immersion, as a public sign of new life in Christ.</p>'],
       ['The Lord’s Supper', '<p>We share communion on the first Sunday of each month. All who trust in Christ are welcome at the table.</p>']] },
-    'Core values': { kind: 'values', intro: '<p>These values shape how we decide, spend and serve.</p>', slots: [
+    'Core values': { intro: '<p>These values shape how we decide, spend and serve.</p>', slots: [
       ['Our mission', '<p>To be a church for the people of South Austin who do not yet have one.</p>'],
       ['Core values', '<ul><li><b>Neighbors first.</b> We plan for the people who are not here yet.</li><li><b>Everyone serves.</b> No one only attends.</li><li><b>Open hands.</b> We give away more than we keep.</li></ul>']] },
-    'Membership covenant': { kind: 'covenant', intro: '<p>Members of Harvest Point make these promises to God and to each other.</p>', slots: [
+    'Membership covenant': { intro: '<p>Members of Harvest Point make these promises to God and to each other.</p>', slots: [
       ['Our commitments', '<ul><li>To gather for worship most Sundays.</li><li>To serve on one team.</li><li>To give regularly and joyfully.</li></ul>'],
       ['When we disagree', '<p>We go to the person first, in private, and we listen before we speak.</p>']] }
   };
@@ -6294,7 +6294,6 @@ document.addEventListener('keydown', e => {
   ];
   const STATUS = { official: ['positive', 'Official'], draft: ['attention', 'Draft'], archived: ['unknown', 'Archived'] };
   const GROUPS = [['draft', 'Drafts'], ['official', 'Official'], ['archived', 'Archived']];
-  const kindOf = d => d.template ? TEMPLATES[d.template].kind : d.id;
 
   let docs = SAMPLE.map(d => ({ ...d })), stash = null, sel = 'faith-2027', filter = 'all', query = '', seq = 0, listScroll = 0;
   const cur = () => docs.find(d => d.id === sel) || null;
@@ -6321,7 +6320,7 @@ document.addEventListener('keydown', e => {
     if (focused) { const again = page.querySelector(`.wd-row[data-id="${focused.dataset.id}"]`); if (again) again.focus({ preventScroll: true }); }
     $('wd-choose-title').textContent = none ? 'Your first document opens here' : 'Choose a document';
     $('wd-choose-text').textContent = none ? 'Start a blank document or use a church template, such as your statement of faith.' : 'Select a document on the left to read and edit it, or start a new one.';
-    requestAnimationFrame(() => typeof placeActive === 'function' && placeActive($('wd-filter'), true));
+    requestAnimationFrame(() => placeActive($('wd-filter'), true));
   }
   function setFilter(f) { filter = f; $('wd-filter').querySelectorAll('button').forEach(b => b.setAttribute('aria-selected', b.dataset.filter === f)); renderList(); }
   $('wd-filter').addEventListener('click', e => { const b = e.target.closest('button[data-filter]'); if (b) setFilter(b.dataset.filter); });
@@ -6393,7 +6392,7 @@ document.addEventListener('keydown', e => {
   /* Status changes confirm first. Designate official names the version it replaces. */
   $('wd-official-btn').addEventListener('click', () => {
     const d = cur(); commit();
-    const prev = docs.find(x => x !== d && x.status === 'official' && kindOf(x) === kindOf(d));
+    const prev = docs.find(x => x !== d && x.status === 'official' && d.template && x.template === d.template);
     confirmBox({
       title: 'Designate as official?',
       text: `<b style="font-weight:600;color:var(--ef-ink)">${esc(d.title || 'Untitled document')}</b> becomes the official version that members read and print. ` + (prev ? `It replaces <b style="font-weight:600;color:var(--ef-ink)">${esc(prev.title)}</b>, official since ${esc(prev.updated)}. That version moves to Archived and stays in the history.` : 'No official version of this document exists yet.'),
@@ -6409,13 +6408,13 @@ document.addEventListener('keydown', e => {
     confirmBox({
       title: 'Archive this document?', text: `<b style="font-weight:600;color:var(--ef-ink)">${esc(d.title || 'Untitled document')}</b> moves to Archived. Nobody can edit it until you restore it. Its history stays.`,
       ok: 'Archive', variant: 'danger', run: () => {
-        d.wasOfficial = d.status === 'official'; d.status = 'archived'; d.updated = 'Just now'; d.author = ME;
+        d.status = 'archived'; d.updated = 'Just now'; d.author = ME;
         renderList(); renderDoc(); toast(`Archived ${d.title || 'Untitled document'}`, 'Restore', () => restoreDoc(d.id));
         $('wd-restore-btn').focus();
       }
     }, $('wd-archive-btn'));
   });
-  function restoreDoc(id) { const d = docs.find(x => x.id === id); if (!d) return; d.status = 'draft'; d.updated = 'Just now'; d.author = ME; if (sel === id) { renderList(); renderDoc(); } else renderList(); toast(`Restored ${d.title || 'Untitled document'} as a draft`); }
+  function restoreDoc(id) { const d = docs.find(x => x.id === id); if (!d) return; d.status = 'draft'; d.updated = 'Just now'; d.author = ME; renderList(); if (sel === id) renderDoc(); toast(`Restored ${d.title || 'Untitled document'} as a draft`); }
   $('wd-restore-btn').addEventListener('click', () => { restoreDoc(sel); title.focus(); });
 
   /* ---------- Overlays: confirm, history drawer, print preview ---------- */
@@ -6449,7 +6448,9 @@ document.addEventListener('keydown', e => {
     free.slice(1).reverse().slice(0, n).forEach(el => el.remove());
     return t.innerHTML;
   }
-  const readOnlyHtml = html => { const t = document.createElement('template'); t.innerHTML = html; t.content.querySelectorAll('.wd-slot-lock').forEach(b => b.replaceWith(Object.assign(document.createElement('i'), { className: 'hgi-stroke hgi-square-lock-02 faint' }))); t.content.querySelectorAll('[contenteditable], [role], [aria-multiline], [aria-label]').forEach(el => ['contenteditable', 'role', 'aria-multiline', 'aria-label'].forEach(a => el.removeAttribute(a))); return t.innerHTML; };
+  const EDITING = ['contenteditable', 'role', 'aria-multiline', 'aria-label'];
+  const stripEditing = root => root.querySelectorAll(EDITING.map(a => `[${a}]`).join()).forEach(el => EDITING.forEach(a => el.removeAttribute(a)));
+  const readOnlyHtml = html => { const t = document.createElement('template'); t.innerHTML = html; t.content.querySelectorAll('.wd-slot-lock').forEach(b => b.replaceWith(Object.assign(document.createElement('i'), { className: 'hgi-stroke hgi-square-lock-02 faint' }))); stripEditing(t.content); return t.innerHTML; };
   let revs = [];
   function openHistory() {
     const d = cur(); commit();
@@ -6478,7 +6479,7 @@ document.addEventListener('keydown', e => {
   function printHtml(html) {
     const t = document.createElement('template'); t.innerHTML = html;
     t.content.querySelectorAll('.wd-slot').forEach(s => { const h = document.createElement('h2'); h.textContent = s.dataset.slot; s.replaceWith(h, ...s.querySelector('.wd-slot-body').childNodes); });
-    t.content.querySelectorAll('[contenteditable], [role], [aria-label], [aria-multiline]').forEach(el => ['contenteditable', 'role', 'aria-label', 'aria-multiline'].forEach(a => el.removeAttribute(a)));
+    stripEditing(t.content);
     t.content.querySelectorAll('p').forEach(p => { if (!p.textContent.replace(/[\u200b\s]/g, '')) p.remove(); });
     return t.innerHTML.replace(/\u200b/g, '');
   }
@@ -6876,7 +6877,7 @@ document.addEventListener('keydown', e => {
   function syncProto() {
     const v = !docs.length ? 'empty' : sel ? 'selected' : 'none';
     $('wd-proto').querySelectorAll('button').forEach(b => b.setAttribute('aria-selected', b.dataset.proto === v));
-    requestAnimationFrame(() => typeof placeActive === 'function' && placeActive($('wd-proto'), false));
+    requestAnimationFrame(() => placeActive($('wd-proto'), false));
   }
   function setProto(v) {
     commit();
@@ -6886,8 +6887,6 @@ document.addEventListener('keydown', e => {
     renderList(); renderDoc(); syncProto();
   }
   $('wd-proto').addEventListener('click', e => { const b = e.target.closest('[data-proto]'); if (b) setProto(b.dataset.proto); });
-  /* The design dock's Data preview drives the same states. */
-  document.getElementById('preview-pop')?.addEventListener('click', e => { const b = e.target.closest('[data-pp="data"] button'); if (b) setProto(b.dataset.v === 'empty' || b.dataset.v === 'firstweek' ? 'empty' : 'selected'); });
 
   renderList(); renderDoc(); syncProto();
   window.addEventListener('hashchange', () => { if (!active()) { commit(); closeLink(false); closeMenu(); } else requestAnimationFrame(() => { placeActive($('wd-filter'), true); placeActive($('wd-proto'), true); }); });
