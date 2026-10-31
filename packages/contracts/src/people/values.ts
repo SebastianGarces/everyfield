@@ -28,6 +28,8 @@ export const recruitmentSource = z.enum([
 	"other",
 ]);
 export const adultClassification = z.enum(["adult", "child", "unknown"]);
+/** Where the effective adult or child value comes from: the birth date, a recorded value or nothing yet. */
+export const adultClassificationSource = z.enum(["birth_date", "recorded", "not_recorded"]);
 export const pipelineColumn = z.enum(["prospect", "attendee", "following_up", "interviewed", "core_group"]);
 export const displayName = z.string().trim().min(1).max(255);
 export const shortText = z.string().trim().max(255);

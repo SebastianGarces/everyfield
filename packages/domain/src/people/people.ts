@@ -391,7 +391,7 @@ export async function retire(
 				})
 				.where(eq(tables.person.id, before.id))
 				.returning();
-			after = personRow.parse(updated);
+			after = personRow.parse({ ...updated, plant_today: before.plant_today });
 			if (ctx.selected.kind === "plant") {
 				audit.writes.push(columnsChanged(ctx.selected.id, [before.stage]));
 				audit.writes.push(
@@ -457,7 +457,7 @@ export async function restore(
 					})
 					.where(eq(tables.person.id, before.id))
 					.returning();
-				after = personRow.parse(updated);
+				after = personRow.parse({ ...updated, plant_today: before.plant_today });
 				if (before.pipeline_position !== null) audit.writes.push(columnsChanged(ctx.selected.id, [before.stage]));
 			} catch (error) {
 				// The unique live account/plant index also arbitrates concurrent relinks.
@@ -617,6 +617,8 @@ async function classify(tx: Tx, ctx: WriteContext, raw: unknown, correction: boo
 					const before = await person(tx, ctx, input.input.personId, true);
 					live(before);
 					expected(before, input.expectedRevision);
+					// With a birth date the effective value is derived from it, so no manual value can apply (REQ-PPL-026).
+					if (before.birth_date) deny("invalid_input", { reason: "birth_date_decides" });
 					const now = (
 						await tx
 							.select({

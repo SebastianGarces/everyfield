@@ -381,9 +381,9 @@ export const throughStore =
 		runSave(store, slot, null, send, { fresh: () => key, key: { key, body: "" }, toPerson });
 
 /**
- * Activity after a saved change, without reading it again: an entry with a new ID joins the end of the list (Activity
- * is oldest first), and an entry with a known ID (an edited or deleted note) replaces it in place. While later pages
- * are still unloaded the new entry belongs to them, so the loaded pages stay as they are.
+ * Activity after a saved change, without reading it again: an entry with a new ID joins the top of the list (Activity
+ * is newest first, and a new entry is the newest), and an entry with a known ID (an edited or deleted note) replaces it
+ * in place. The loaded pages are the newest ones, so a new entry belongs on top whether or not older pages are loaded.
  */
 export function withEntry<E extends { id: string }, A extends { items: E[]; next: number | null }>(
 	activities: Outcome<A>,
@@ -393,8 +393,7 @@ export function withEntry<E extends { id: string }, A extends { items: E[]; next
 	const list = activities.value;
 	if (list.items.some((e) => e.id === entry.id))
 		return { status: "ok", value: { ...list, items: list.items.map((e) => (e.id === entry.id ? entry : e)) } };
-	if (list.next !== null) return activities;
-	return { status: "ok", value: { ...list, items: [...list.items, entry] } };
+	return { status: "ok", value: { ...list, items: [entry, ...list.items] } };
 }
 
 /** A column order with one person moved one place up or down. The same order when that move leaves the column. */

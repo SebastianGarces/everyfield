@@ -182,7 +182,16 @@ export const CHOICES: Record<string, { value: string; label: string }[]> = {
 const FIXED = new Set(["photo", "state", "openTasksNeedingOwner"]);
 /** Values that may be empty. A name and a reason are required. */
 const REQUIRED = new Set(["displayName", "reason", "stage", "source", "adultClassification"]);
-export const isRequired = (field: string) => REQUIRED.has(field);
+/** Adult or child is required until a birth date is entered: then it comes from the birth date (REQ-PPL-026). */
+export const isRequired = (field: string, birthDate = false) =>
+	field === "adultClassification" ? !birthDate : REQUIRED.has(field);
+
+/** The review has a birth date, as revised: an edited value wins over the reviewed one. */
+export function hasBirthDate(review: Review, edits: Record<string, string>) {
+	const c = review.review.changes.find((x) => x.field === "birthDate");
+	if (!c) return false;
+	return c.field in edits ? (edits[c.field] ?? "").trim() !== "" : Boolean(c.after);
+}
 
 export const editableChanges = (review: Review) =>
 	review.review.withheld ? [] : review.review.changes.filter((c) => !FIXED.has(c.field));
@@ -219,7 +228,10 @@ export function reviseInput(review: Review, edits: Record<string, string> = {}):
 
 /** The first required value left empty, for the form's own message before anything is sent. */
 export function missingRequired(review: Review, edits: Record<string, string>) {
-	return editableChanges(review).find((c) => isRequired(c.field) && (edits[c.field] ?? "").trim() === "") ?? null;
+	const dated = hasBirthDate(review, edits);
+	return (
+		editableChanges(review).find((c) => isRequired(c.field, dated) && (edits[c.field] ?? "").trim() === "") ?? null
+	);
 }
 
 // ---------------------------------------------------------------------------------------------------------------
