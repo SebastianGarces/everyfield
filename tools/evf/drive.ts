@@ -1293,7 +1293,9 @@ function evfStage(
 		if (!(e instanceof EvfError)) throw e;
 		outcome = { status: "failed", summary: e.message };
 	}
-	runDone(root, runId, outcome);
+	// A merge inside the stage (markMerged) already closed this run as passed; only the stage_end event is left.
+	if (runStatus(db, runId) === "started") runDone(root, runId, outcome);
+	else record(db, t.id, runId, "stage_end", { stage, status: outcome.status, summary: outcome.summary });
 	return outcome.status;
 }
 
