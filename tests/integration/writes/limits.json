@@ -2,6 +2,18 @@
 	"GET /documents": {
 		"limit": 3
 	},
+	"GET /documents/church": {
+		"limit": 2
+	},
+	"GET /documents/church (member)": {
+		"limit": 2
+	},
+	"GET /documents/church/[documentId]": {
+		"limit": 2
+	},
+	"GET /documents/church/[documentId]/file": {
+		"limit": 2
+	},
 	"GET /home": {
 		"limit": 2
 	},
@@ -301,7 +313,10 @@
 		"limit": 1
 	},
 	"documents.createFromTemplate": {
-		"limit": 3
+		"limit": 4
+	},
+	"documents.deleteChurch": {
+		"limit": 1
 	},
 	"documents.designateCoreValues": {
 		"limit": 1

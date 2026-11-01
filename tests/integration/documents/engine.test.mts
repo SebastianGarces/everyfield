@@ -167,7 +167,7 @@ describe("WP-036/api engine", () => {
 				assert.match(name, /^(DMSans|DMSerifDisplay|EFFigures)(-[A-Za-z]+)?$/, `${entry.id}: ${name}`);
 			assert.ok(names.size >= 2, entry.id);
 		}
-		assert.equal(fontDigests().length, 7);
+		assert.equal(fontDigests().length, 9);
 	});
 
 	test("DOC-002: the same inputs give the same SHA-256 in two separate Node processes", () => {

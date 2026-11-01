@@ -22,7 +22,7 @@ export type Ctx = {
 	meeting?: AgendaMeeting;
 };
 
-const LEGAL_NOTICE = "Template, not legal advice";
+export const LEGAL_NOTICE = "Template, not legal advice";
 
 const dataUri = (b: Uint8Array, mime: string) => `data:${mime};base64,${Buffer.from(b).toString("base64")}`;
 
