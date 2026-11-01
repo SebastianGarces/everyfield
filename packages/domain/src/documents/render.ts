@@ -24,8 +24,8 @@ export const RENDER_PROFILE = {
 const ARTIFACT_MAX = 8 * 1024 * 1024;
 
 export class RenderFailed extends Error {
-	constructor() {
-		super("render_failed");
+	constructor(cause?: unknown) {
+		super("render_failed", cause === undefined ? undefined : { cause });
 	}
 }
 
