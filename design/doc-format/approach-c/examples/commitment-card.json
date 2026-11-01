@@ -1,0 +1,521 @@
+{
+	"format": "everyfield.doc",
+	"formatVersion": 1,
+	"kind": "template",
+	"id": "commitment-card",
+	"version": 1,
+	"origin": null,
+	"meta": {
+		"title": "Core Group Commitment Card",
+		"description": "Commitment card: GROW, PRAY, GIVE. Four cards on one letter page; cut on the marks.",
+		"class": "outward-facing"
+	},
+	"page": {
+		"size": "letter",
+		"orientation": "portrait",
+		"margins": {
+			"top": 0,
+			"right": 0,
+			"bottom": 0,
+			"left": 0
+		}
+	},
+	"theme": {
+		"numberHeadings": false
+	},
+	"fields": [
+		{
+			"key": "church_name",
+			"label": "Church name",
+			"source": "church.name",
+			"type": "text"
+		},
+		{
+			"key": "church_tagline",
+			"label": "Tagline",
+			"source": "church.tagline",
+			"default": "A new church plant. You are welcome here.",
+			"type": "text"
+		},
+		{
+			"key": "pastor_name",
+			"label": "Pastor name",
+			"source": "pastor.name",
+			"type": "text"
+		},
+		{
+			"key": "full_name",
+			"label": "Name",
+			"source": null,
+			"type": "text"
+		},
+		{
+			"key": "contact",
+			"label": "Email or phone",
+			"source": null,
+			"type": "text"
+		},
+		{
+			"key": "signature",
+			"label": "Signature",
+			"source": null,
+			"type": "text"
+		},
+		{
+			"key": "signed_date",
+			"label": "Date",
+			"source": null,
+			"type": "date"
+		}
+	],
+	"body": [
+		{
+			"type": "repeat",
+			"attrs": {
+				"across": 2,
+				"down": 2,
+				"gap": 0,
+				"padding": 18,
+				"cutMarks": true
+			},
+			"content": [
+				{
+					"type": "box",
+					"attrs": {
+						"fill": "primary",
+						"padding": 12,
+						"minHeight": 96
+					},
+					"content": [
+						{
+							"type": "logo",
+							"attrs": {
+								"height": 44
+							}
+						},
+						{
+							"type": "paragraph",
+							"attrs": {
+								"size": "small"
+							},
+							"content": [
+								{
+									"type": "field",
+									"attrs": {
+										"key": "church_tagline"
+									}
+								}
+							]
+						}
+					]
+				},
+				{
+					"type": "divider",
+					"attrs": {
+						"weight": "bar",
+						"tone": "accent"
+					}
+				},
+				{
+					"type": "columns",
+					"attrs": {
+						"gap": 8,
+						"align": "bottom"
+					},
+					"content": [
+						{
+							"type": "column",
+							"attrs": {
+								"width": 2
+							},
+							"content": [
+								{
+									"type": "heading",
+									"attrs": {
+										"level": 2
+									},
+									"content": [
+										{
+											"type": "text",
+											"text": "My commitment"
+										}
+									]
+								}
+							]
+						},
+						{
+							"type": "column",
+							"attrs": {
+								"width": 1
+							},
+							"content": [
+								{
+									"type": "paragraph",
+									"attrs": {
+										"align": "right",
+										"size": "small"
+									},
+									"content": [
+										{
+											"type": "text",
+											"text": "Core group",
+											"marks": [
+												{
+													"type": "tone",
+													"attrs": {
+														"tone": "muted"
+													}
+												},
+												{
+													"type": "caps"
+												},
+												{
+													"type": "bold"
+												}
+											]
+										}
+									]
+								}
+							]
+						}
+					]
+				},
+				{
+					"type": "paragraph",
+					"attrs": {
+						"size": "small"
+					},
+					"content": [
+						{
+							"type": "text",
+							"text": "Through Launch Sunday, I will:",
+							"marks": [
+								{
+									"type": "tone",
+									"attrs": {
+										"tone": "muted"
+									}
+								}
+							]
+						}
+					]
+				},
+				{
+					"type": "table",
+					"attrs": {
+						"name": "commit",
+						"columns": [
+							{
+								"key": "box",
+								"width": 2,
+								"align": "center"
+							},
+							{
+								"key": "tile",
+								"width": 5,
+								"align": "center"
+							},
+							{
+								"key": "text",
+								"width": 20
+							}
+						],
+						"headerRows": 0,
+						"rules": "rows",
+						"size": "small"
+					},
+					"content": [
+						{
+							"type": "row",
+							"content": [
+								{
+									"type": "cell",
+									"content": [
+										{
+											"type": "checkbox",
+											"attrs": {
+												"key": "commit_grow"
+											}
+										}
+									]
+								},
+								{
+									"type": "cell",
+									"attrs": {
+										"fill": "accent"
+									},
+									"content": [
+										{
+											"type": "text",
+											"text": "GROW",
+											"marks": [
+												{
+													"type": "caps"
+												},
+												{
+													"type": "bold"
+												}
+											]
+										}
+									]
+								},
+								{
+									"type": "cell",
+									"content": [
+										{
+											"type": "text",
+											"text": "Join a weekly group and keep learning with the church plant family."
+										}
+									]
+								}
+							]
+						},
+						{
+							"type": "row",
+							"content": [
+								{
+									"type": "cell",
+									"content": [
+										{
+											"type": "checkbox",
+											"attrs": {
+												"key": "commit_pray"
+											}
+										}
+									]
+								},
+								{
+									"type": "cell",
+									"attrs": {
+										"fill": "accent"
+									},
+									"content": [
+										{
+											"type": "text",
+											"text": "PRAY",
+											"marks": [
+												{
+													"type": "caps"
+												},
+												{
+													"type": "bold"
+												}
+											]
+										}
+									]
+								},
+								{
+									"type": "cell",
+									"content": [
+										{
+											"type": "text",
+											"text": "Pray each week for our neighbors and for Launch Sunday."
+										}
+									]
+								}
+							]
+						},
+						{
+							"type": "row",
+							"content": [
+								{
+									"type": "cell",
+									"content": [
+										{
+											"type": "checkbox",
+											"attrs": {
+												"key": "commit_give"
+											}
+										}
+									]
+								},
+								{
+									"type": "cell",
+									"attrs": {
+										"fill": "accent"
+									},
+									"content": [
+										{
+											"type": "text",
+											"text": "GIVE",
+											"marks": [
+												{
+													"type": "caps"
+												},
+												{
+													"type": "bold"
+												}
+											]
+										}
+									]
+								},
+								{
+									"type": "cell",
+									"content": [
+										{
+											"type": "text",
+											"text": "Give my time, my gifts and my money toward the launch."
+										}
+									]
+								}
+							]
+						}
+					]
+				},
+				{
+					"type": "columns",
+					"attrs": {
+						"gap": 8
+					},
+					"content": [
+						{
+							"type": "column",
+							"attrs": {
+								"width": 1
+							},
+							"content": [
+								{
+									"type": "paragraph",
+									"attrs": {
+										"size": "small"
+									},
+									"content": [
+										{
+											"type": "field",
+											"attrs": {
+												"key": "full_name",
+												"display": "line"
+											}
+										}
+									]
+								}
+							]
+						},
+						{
+							"type": "column",
+							"attrs": {
+								"width": 1.3
+							},
+							"content": [
+								{
+									"type": "paragraph",
+									"attrs": {
+										"size": "small"
+									},
+									"content": [
+										{
+											"type": "field",
+											"attrs": {
+												"key": "contact",
+												"display": "line"
+											}
+										}
+									]
+								}
+							]
+						}
+					]
+				},
+				{
+					"type": "columns",
+					"attrs": {
+						"gap": 8
+					},
+					"content": [
+						{
+							"type": "column",
+							"attrs": {
+								"width": 2.2
+							},
+							"content": [
+								{
+									"type": "paragraph",
+									"attrs": {
+										"size": "small"
+									},
+									"content": [
+										{
+											"type": "field",
+											"attrs": {
+												"key": "signature",
+												"display": "line"
+											}
+										}
+									]
+								}
+							]
+						},
+						{
+							"type": "column",
+							"attrs": {
+								"width": 1
+							},
+							"content": [
+								{
+									"type": "paragraph",
+									"attrs": {
+										"size": "small"
+									},
+									"content": [
+										{
+											"type": "field",
+											"attrs": {
+												"key": "signed_date",
+												"display": "line"
+											}
+										}
+									]
+								}
+							]
+						}
+					]
+				},
+				{
+					"type": "divider",
+					"attrs": {
+						"weight": "thin",
+						"tone": "primary"
+					}
+				},
+				{
+					"type": "paragraph",
+					"attrs": {
+						"size": "small"
+					},
+					"content": [
+						{
+							"type": "text",
+							"text": "Return this card to ",
+							"marks": [
+								{
+									"type": "tone",
+									"attrs": {
+										"tone": "muted"
+									}
+								}
+							]
+						},
+						{
+							"type": "field",
+							"attrs": {
+								"key": "pastor_name"
+							}
+						},
+						{
+							"type": "text",
+							"text": ".",
+							"marks": [
+								{
+									"type": "tone",
+									"attrs": {
+										"tone": "muted"
+									}
+								}
+							]
+						}
+					]
+				}
+			]
+		}
+	]
+}
