@@ -21,7 +21,6 @@ Hugeicons (`icons.tsx`). Extra changes are listed per file.
 | `primitives/dropdown-menu.tsx` | `components/tiptap-ui-primitive/dropdown-menu/dropdown-menu.tsx` | none |
 | `primitives/toolbar.tsx` | `components/tiptap-ui-primitive/toolbar/toolbar.tsx` | toolbar name "Document formatting" |
 | `primitives/separator.tsx` | `components/tiptap-ui-primitive/separator/separator.tsx` | none |
-| `primitives/spacer.tsx` | `components/tiptap-ui-primitive/spacer/spacer.tsx` | none |
 | `primitives/input.tsx` | `components/tiptap-ui-primitive/input/input.tsx` | none |
 | `ui/mark-button.tsx`, `ui/use-mark.ts` | `components/tiptap-ui/mark-button/` | only bold, italic and underline; shortcut badge is a `kbd` |
 | `ui/undo-redo-button.tsx`, `ui/use-undo-redo.ts` | `components/tiptap-ui/undo-redo-button/` | shortcut badge is a `kbd` |
@@ -30,7 +29,7 @@ Hugeicons (`icons.tsx`). Extra changes are listed per file.
 | `use-composed-ref.ts` | `hooks/use-composed-ref.ts` | none |
 | `use-menu-navigation.ts` | `hooks/use-menu-navigation.ts` | none |
 | `use-mobile.ts` | `hooks/use-mobile.ts` | none |
-| `tiptap-utils.ts` | `lib/tiptap-utils.ts` | two unused lint comments removed |
+| `tiptap-utils.ts` | `lib/tiptap-utils.ts` | only the functions the copied files use |
 
 Full URL of a source file: `https://github.com/ueberdosis/tiptap-ui-components/blob/799929bea4804c73767562b69f8acc2acdb8ac86/apps/web/src/<path>`.
 
