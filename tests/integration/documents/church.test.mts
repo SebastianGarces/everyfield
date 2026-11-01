@@ -12,6 +12,7 @@ import { forkTemplate, templateHash } from "../../../packages/contracts/src/docu
 import { pdfPages, docxParts, wordText } from "./fixtures/readers.mts";
 import { documentFrom, editorContent } from "../../../apps/web/src/features/documents/church/editor/document-json.ts";
 import { editorSchema } from "../../../apps/web/src/features/documents/church/editor/schema.ts";
+import { refusedWith } from "../../../apps/web/src/features/documents/church/refusal.ts";
 import test, { after, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
@@ -354,6 +355,11 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		const before = await counts();
 		refused(await save(MEMBER, doc.id, doc.revision, edited), "access_denied");
 		assert.deepEqual(await counts(), before, "a Member's save writes nothing");
+		assert.equal(
+			refusedWith("access_denied").message,
+			"Only an Owner or Admin of the church plant can do this.",
+			"the save action shows the access message for a Member",
+		);
 		const saved = ok(await save(ADMIN, doc.id, doc.revision, edited));
 		assert.equal(saved.revision, String(Number(doc.revision) + 1));
 		assert.deepEqual(saved.body, edited);

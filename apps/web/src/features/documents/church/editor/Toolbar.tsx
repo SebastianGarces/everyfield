@@ -5,10 +5,7 @@ import {
 	ArrowDown01Icon,
 	ArrowUp01Icon,
 	Delete02Icon,
-	LeftToRightListBulletIcon,
-	LeftToRightListNumberIcon,
 	ParagraphSpacingIcon,
-	QuoteDownIcon,
 	Scissor01Icon,
 	SeparatorHorizontalIcon,
 	Tag01Icon,
@@ -42,6 +39,8 @@ import {
 	DropdownMenuTrigger,
 } from "./tiptap/primitives/dropdown-menu.tsx";
 import { Toolbar, ToolbarGroup, ToolbarSeparator } from "./tiptap/primitives/toolbar.tsx";
+import { BlockquoteButton } from "./tiptap/ui/blockquote-button.tsx";
+import { ListButton } from "./tiptap/ui/list-button.tsx";
 import { LinkPopover } from "./tiptap/ui/link-popover.tsx";
 import { MarkButton } from "./tiptap/ui/mark-button.tsx";
 import { UndoRedoButton } from "./tiptap/ui/undo-redo-button.tsx";
@@ -107,14 +106,8 @@ export function EditorToolbar({ editor }: { editor: Editor }) {
 				up: canMove(state, -1),
 				down: canMove(state, 1),
 				hasBlock: !empty,
-				bullet: e.isActive("bulletList"),
-				ordered: e.isActive("orderedList"),
-				quote: e.isActive("quote"),
 				tag: e.isActive("tag"),
 				canTag: e.can().toggleMark("tag"),
-				canBullet: e.can().toggleBulletList(),
-				canOrdered: e.can().toggleOrderedList(),
-				canQuote: e.can().toggleBlockquote(),
 				styles: Object.fromEntries(TEXT_STYLES.map((t) => [t.style, canSetTextStyle(e, t.style)])),
 			};
 		},
@@ -185,33 +178,9 @@ export function EditorToolbar({ editor }: { editor: Editor }) {
 			</ToolbarGroup>
 			<ToolbarSeparator />
 			<ToolbarGroup>
-				<Action
-					editor={editor}
-					label="Bulleted list"
-					icon={LeftToRightListBulletIcon}
-					shortcutKeys="mod+shift+8"
-					active={s.bullet}
-					disabled={!s.canBullet}
-					run={() => editor.chain().setMeta("closeHistory", true).focus().toggleBulletList().run()}
-				/>
-				<Action
-					editor={editor}
-					label="Numbered list"
-					icon={LeftToRightListNumberIcon}
-					shortcutKeys="mod+shift+7"
-					active={s.ordered}
-					disabled={!s.canOrdered}
-					run={() => editor.chain().setMeta("closeHistory", true).focus().toggleOrderedList().run()}
-				/>
-				<Action
-					editor={editor}
-					label="Quote"
-					icon={QuoteDownIcon}
-					shortcutKeys="mod+shift+b"
-					active={s.quote}
-					disabled={!s.canQuote}
-					run={() => editor.chain().setMeta("closeHistory", true).focus().toggleBlockquote().run()}
-				/>
+				<ListButton editor={editor} type="bulletList" />
+				<ListButton editor={editor} type="orderedList" />
+				<BlockquoteButton editor={editor} />
 			</ToolbarGroup>
 			<ToolbarSeparator />
 			<ToolbarGroup>

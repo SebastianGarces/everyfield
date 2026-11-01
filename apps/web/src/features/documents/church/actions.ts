@@ -6,22 +6,12 @@ import { documentsWriter } from "@everyfield/domain/documents";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { documentActor } from "../server.ts";
+import { refusedWith } from "./refusal.ts";
 
 // New from template and Delete. The actor is read again here; the server refuses a Member, whatever the page showed.
 // A success moves to the next page on the server, so the library is fresh without a client refresh.
 
 export type ChurchActionResult = { status: "refused"; message: string } | { status: "lost" };
-
-const MESSAGES: Record<string, string> = {
-	access_denied: "Only an Owner or Admin of the church plant can do this.",
-	unavailable: "This is not available any more. Reload the page.",
-	conflict: "The document changed after this page opened. Reload the page and try again.",
-	invalid_input: "That request is not valid.",
-};
-const refusedWith = (code: string): ChurchActionResult => ({
-	status: "refused",
-	message: MESSAGES[code] ?? "Something went wrong. Nothing was changed.",
-});
 
 /** Creates a Church Document from a built-in template, then opens its page. The same request key opens the same one. */
 export async function createChurchDocument(templateId: string, requestKey: string): Promise<ChurchActionResult> {
@@ -68,7 +58,7 @@ export async function saveChurchDocument(
 			return {
 				status: "refused",
 				code: reply.error.code,
-				message: refused.status === "refused" ? refused.message : "",
+				message: refused.message,
 			};
 		}
 		return { status: "saved", revision: reply.value.revision };

@@ -142,6 +142,11 @@ test("AC:DOC-EDIT-ACTIONS: every editing action is checked with Undo and Redo on
 		const errors = [];
 		page.on("pageerror", (e) => errors.push(e.message));
 
+		await t.test("criterion 4: the toolbar is complete right after load", async () => {
+			for (const name of ["Bold", "Italic", "Underline", "Link", "Bulleted list", "Numbered list", "Quote"])
+				await button(page, name).waitFor({ timeout: 5_000 });
+		});
+
 		await t.test("criterion 5: typing, Enter, Shift+Enter, copy and paste", async () => {
 			await checked(page, "type text", async () => {
 				await select(page, PURPOSE, -1, -1);
@@ -367,6 +372,8 @@ test("AC:DOC-EDIT-ACTIONS: every editing action is checked with Undo and Redo on
 			// Move up is disabled on the first block, Move down on the last.
 			await page.locator(".ef-block[data-ef-node=columns]").first().click();
 			assert.equal(await button(page, "Move block up").isDisabled(), true, "Move up is disabled on the first block");
+			await page.locator(`${PAPER} > *`).last().click();
+			assert.equal(await button(page, "Move block down").isDisabled(), true, "Move down is disabled on the last block");
 		});
 
 		await t.test("criterion 12: Delete all content, with Undo", async () => {
@@ -448,6 +455,17 @@ test("AC:DOC-EDIT-SAVE: Save and Cmd/Ctrl+S, the status, the header revision, th
 		await page.getByRole("link", { name: "Church documents" }).first().click();
 		assert.match(asked ?? "", /unsaved changes/i);
 		assert.match(page.url(), /\/documents\/church\/[0-9a-f-]{36}$/, "the page stayed");
+
+		// The Back button asks too. Cancel keeps the page; OK leaves it.
+		asked = null;
+		await page.evaluate(() => history.back());
+		await page.waitForTimeout(500);
+		assert.match(asked ?? "", /unsaved changes/i, "Back asks first");
+		assert.match(page.url(), /\/documents\/church\/[0-9a-f-]{36}$/, "Back stayed on the page after Cancel");
+		page.removeAllListeners("dialog");
+		page.on("dialog", (dialog) => dialog.accept());
+		await page.evaluate(() => history.back());
+		await page.waitForURL(/\/documents\/church$/, { timeout: 30_000 });
 	});
 });
 

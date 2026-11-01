@@ -8,6 +8,9 @@ import {
 	TextUnderlineIcon,
 	Undo02Icon,
 	ArrowTurnBackwardIcon,
+	LeftToRightListBulletIcon,
+	LeftToRightListNumberIcon,
+	QuoteDownIcon,
 } from "@hugeicons/core-free-icons";
 import { Icon, type IconSvgElement } from "@everyfield/ui/foundations";
 
@@ -28,3 +31,6 @@ export const TrashIcon = make(Delete02Icon);
 export const CornerDownLeftIcon = make(ArrowTurnBackwardIcon);
 export const Undo2Icon = make(Undo02Icon);
 export const Redo2Icon = make(Redo02Icon);
+export const ListIcon = make(LeftToRightListBulletIcon);
+export const ListOrderedIcon = make(LeftToRightListNumberIcon);
+export const BlockquoteIcon = make(QuoteDownIcon);

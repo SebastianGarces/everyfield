@@ -182,28 +182,8 @@ export function useLinkState(props: { editor: Editor | null; hideWhenUnavailable
 	const canSet = canSetLink(editor);
 	const isActive = isLinkActive(editor);
 
-	const [isVisible, setIsVisible] = React.useState(false);
-
-	React.useEffect(() => {
-		if (!editor) return;
-
-		const handleSelectionUpdate = () => {
-			setIsVisible(
-				shouldShowLinkButton({
-					editor,
-					hideWhenUnavailable,
-				}),
-			);
-		};
-
-		handleSelectionUpdate();
-
-		editor.on("selectionUpdate", handleSelectionUpdate);
-
-		return () => {
-			editor.off("selectionUpdate", handleSelectionUpdate);
-		};
-	}, [editor, hideWhenUnavailable]);
+	// Everyfield change: derive visibility on every render (see use-mark.ts); the effect version hid the button on load.
+	const isVisible = shouldShowLinkButton({ editor, hideWhenUnavailable });
 
 	return {
 		isVisible,

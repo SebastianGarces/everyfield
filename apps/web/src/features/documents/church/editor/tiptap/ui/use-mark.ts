@@ -139,25 +139,11 @@ export function useMark(config: UseMarkConfig) {
 	const { editor: providedEditor, type, hideWhenUnavailable = false, onToggled } = config;
 
 	const { editor } = useTiptapEditor(providedEditor);
-	const [isVisible, setIsVisible] = React.useState<boolean>(true);
 	const canToggle = canToggleMark(editor, type);
 	const isActive = isMarkActive(editor, type);
-
-	React.useEffect(() => {
-		if (!editor) return;
-
-		const handleSelectionUpdate = () => {
-			setIsVisible(shouldShowButton({ editor, type, hideWhenUnavailable }));
-		};
-
-		handleSelectionUpdate();
-
-		editor.on("selectionUpdate", handleSelectionUpdate);
-
-		return () => {
-			editor.off("selectionUpdate", handleSelectionUpdate);
-		};
-	}, [editor, type, hideWhenUnavailable]);
+	// Everyfield change: derive visibility from the editor state on every render. Tiptap's copy set it in an effect
+	// that ran before the view mounted, so Bold, Italic and Underline stayed hidden until the first selection change.
+	const isVisible = shouldShowButton({ editor, type, hideWhenUnavailable });
 
 	const handleMark = React.useCallback(() => {
 		if (!editor) return false;

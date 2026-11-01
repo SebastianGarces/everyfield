@@ -154,3 +154,8 @@ export function sanitizeUrl(inputUrl: string, baseUrl: string, protocols?: Proto
 	}
 	return "#";
 }
+
+export const isNodeInSchema = (nodeName: string, editor: Editor | null): boolean => {
+	if (!editor?.schema) return false;
+	return editor.schema.spec.nodes.get(nodeName) !== undefined;
+};

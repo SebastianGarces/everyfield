@@ -22,7 +22,8 @@ export type Ctx = {
 	meeting?: AgendaMeeting;
 };
 
-export const LEGAL_NOTICE = "Template, not legal advice";
+export { LEGAL_NOTICE } from "@everyfield/contracts/documents";
+import { LEGAL_NOTICE } from "@everyfield/contracts/documents";
 
 const dataUri = (b: Uint8Array, mime: string) => `data:${mime};base64,${Buffer.from(b).toString("base64")}`;
 

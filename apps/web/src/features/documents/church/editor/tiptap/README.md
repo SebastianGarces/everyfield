@@ -22,9 +22,11 @@ Hugeicons (`icons.tsx`). Extra changes are listed per file.
 | `primitives/toolbar.tsx` | `components/tiptap-ui-primitive/toolbar/toolbar.tsx` | toolbar name "Document formatting" |
 | `primitives/separator.tsx` | `components/tiptap-ui-primitive/separator/separator.tsx` | none |
 | `primitives/input.tsx` | `components/tiptap-ui-primitive/input/input.tsx` | none |
-| `ui/mark-button.tsx`, `ui/use-mark.ts` | `components/tiptap-ui/mark-button/` | only bold, italic and underline; shortcut badge is a `kbd` |
+| `ui/mark-button.tsx`, `ui/use-mark.ts` | `components/tiptap-ui/mark-button/` | only bold, italic and underline; shortcut badge is a `kbd`; visibility is derived on each render, not set in an effect |
 | `ui/undo-redo-button.tsx`, `ui/use-undo-redo.ts` | `components/tiptap-ui/undo-redo-button/` | shortcut badge is a `kbd` |
-| `ui/link-popover.tsx`, `ui/use-link-popover.ts` | `components/tiptap-ui/link-popover/` | links must start with `https://`, `http://` or `mailto:` and a refusal shows a message; editing the link under the cursor does not insert its address as text; the card wrapper is a plain `div` |
+| `ui/list-button.tsx`, `ui/use-list.ts` | `components/tiptap-ui/list-button/` | only bullet and ordered lists (the format has no task list); the toggle is one chain so one Undo reverts it; shortcut badge is a `kbd` |
+| `ui/blockquote-button.tsx`, `ui/use-blockquote.ts` | `components/tiptap-ui/blockquote-button/` | the node is `quote`; the toggle is one chain so one Undo reverts it; shortcut badge is a `kbd` |
+| `ui/link-popover.tsx`, `ui/use-link-popover.ts` | `components/tiptap-ui/link-popover/` | links must start with `https://`, `http://` or `mailto:` and a refusal shows a message; editing the link under the cursor does not insert its address as text; visibility is derived on each render, not set in an effect; the card wrapper is a plain `div` |
 | `use-tiptap-editor.ts` | `hooks/use-tiptap-editor.ts` | none |
 | `use-composed-ref.ts` | `hooks/use-composed-ref.ts` | none |
 | `use-menu-navigation.ts` | `hooks/use-menu-navigation.ts` | none |
@@ -33,5 +35,6 @@ Hugeicons (`icons.tsx`). Extra changes are listed per file.
 
 Full URL of a source file: `https://github.com/ueberdosis/tiptap-ui-components/blob/799929bea4804c73767562b69f8acc2acdb8ac86/apps/web/src/<path>`.
 
-Tiptap has no free ready-made component for the text-style menu, the tag label, the block insert menu or the move and
-delete controls. `../Toolbar.tsx` builds those from the same primitives (button, dropdown menu, toolbar).
+Tiptap has no free ready-made component for the combined text-style menu (paragraph styles and headings in one
+menu), the tag label, the block insert menu or the move and delete controls. `../Toolbar.tsx` builds those from the
+same primitives (button, dropdown menu, toolbar). The lists and the quote use Tiptap's ready-made buttons.

@@ -1,7 +1,7 @@
 "use client";
 
 import { Delete02Icon, Edit02Icon, FloppyDiskIcon, Refresh01Icon, ViewIcon } from "@hugeicons/core-free-icons";
-import { pageBox, tileBox, type DocDocument } from "@everyfield/contracts/documents";
+import { LEGAL_NOTICE, pageBox, tileBox, type DocDocument } from "@everyfield/contracts/documents";
 import { Button, ConfirmDialog, Tooltip } from "@everyfield/ui/controls";
 import { Extension } from "@tiptap/core";
 import type { Node as PMNode } from "@tiptap/pm/model";
@@ -23,7 +23,7 @@ import { EditorToolbar } from "./Toolbar.tsx";
 export type SaveStatus =
 	{ kind: "saved" } | { kind: "dirty" } | { kind: "saving" } | { kind: "failed"; reason: string };
 
-const NOTICE = "Template, not legal advice";
+const NOTICE = LEGAL_NOTICE;
 const NOTICE_WHY =
 	"Every formal or legal document prints this notice, in the PDF and the Word file. Editing the document cannot remove it.";
 
@@ -344,10 +344,28 @@ function useLeaveGuard(active: boolean) {
 				event.stopPropagation();
 			}
 		};
+		// The Back button: a sentinel entry with the same address takes the first Back press, which asks before it leaves.
+		let leaving = false;
+		const pushSentinel = () => {
+			if (window.history.state?.efLeaveGuard) return;
+			window.history.pushState({ ...window.history.state, efLeaveGuard: true }, "", window.location.href);
+		};
+		pushSentinel();
+		const onPopState = () => {
+			if (leaving) return;
+			if (window.confirm("You have unsaved changes. Leave this page without saving?")) {
+				leaving = true;
+				window.history.back();
+			} else {
+				window.history.pushState({ ...window.history.state, efLeaveGuard: true }, "", window.location.href);
+			}
+		};
 		window.addEventListener("beforeunload", beforeUnload);
+		window.addEventListener("popstate", onPopState);
 		document.addEventListener("click", onClick, true);
 		return () => {
 			window.removeEventListener("beforeunload", beforeUnload);
+			window.removeEventListener("popstate", onPopState);
 			document.removeEventListener("click", onClick, true);
 		};
 	}, [active]);
