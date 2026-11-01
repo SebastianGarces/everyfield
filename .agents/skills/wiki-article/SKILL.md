@@ -100,9 +100,76 @@ JavaScript expressions, H1s or other components. At least one scripture callout 
 Volatile facts get an important callout asking the reader to confirm the current figure with
 the named agency. Keep external sources in `draft.sources`; body links warn rather than fail.
 
+## Diagrams
+
+Draw a diagram only as a fenced `diagram` block. The app, the PDF export and `bin/wiki render`
+draw it as cards with real text, in light and dark themes and on phones. Never draw ASCII art:
+box-drawing or block characters (U+2500 to U+259F) anywhere in the body are a lint error, and so
+is a plain code block with arrow glyphs, `->`, `-->`, `<-`, `=>` or a line of only `|`, `v` and
+`^`. Arrows in a prose sentence stay allowed. Use plain code blocks only for text a reader copies,
+such as a form, a script or an email.
+
+The info string is `diagram <type>`. The first line is `title: <text>`. An optional
+`loop: <text>` follows, for `flow` and `cycle` only. Then come 1 to 12 node lines
+`- label | detail | note`; detail and note are optional. Limits: title and loop 100 characters,
+label 60, detail 160, note 40. Blank lines are ignored. Any other key, a key after the first node,
+an empty label or a fourth field is an error. Fields are plain text, without links or formatting.
+
+| Type | Use it for | Rules |
+|---|---|---|
+| `flow` | A sequence of steps, one leading to the next | A loop draws a return path |
+| `stages` | Ordered phases, each a distinct period | Numbered cards; no loop |
+| `cycle` | A loop that repeats, such as a weekly rhythm | 2 nodes or more |
+| `hierarchy` | Structure: who leads whom, what contains what | One root; indent children two spaces per level, up to 3 levels |
+| `timeline` | A dated plan | The note is the time label, such as "Week 1" |
+
+````
+```diagram flow
+title: How a guest becomes a member
+loop: Each new guest starts again at the first visit
+- First visit | Greeted at the door | Week 1
+- Connect card | A personal follow-up within 48 hours
+- Newcomers lunch
+```
+
+```diagram stages
+title: From vision to launch
+- Discovery | Pray, study the community and write the vision
+- Core Group | Gather the first committed believers
+- Launch Sunday | The first public service
+```
+
+```diagram cycle
+title: The weekly ministry rhythm
+loop: Every week
+- Plan | Set the order of service
+- Invite | Each member invites one person
+- Gather | Sunday worship
+```
+
+```diagram hierarchy
+title: Leadership structure
+- Senior Pastor | Vision and preaching
+  - Ministry director | Sunday teams
+    - Team leader | Hospitality
+  - Small group coach
+```
+
+```diagram timeline
+title: The first year after launch
+- Launch Sunday | The first public service | Week 0
+- Membership class | | Month 2
+- Anniversary | Share the story of the year | Month 12
+```
+````
+
+`bin/wiki lint` reports each fault of a malformed block with its article line. In the app a block
+that does not parse shows as a plain code block, so fix every diagram error before review.
+
 Lint errors cover only extremes: fewer than 500 or more than 2,500 words, fewer than three or
 more than 14 H2s, fewer than one or more than nine callouts, invalid MDX/row shape, placeholders,
-unknown internal article links and invalid or missing scripture. Warnings cover words outside
+unknown internal article links, invalid or missing scripture, malformed diagram blocks and ASCII-art
+diagrams. Warnings cover words outside
 800–1,600, more than 11 H2s, callouts outside 2–7, AI phrases, external links and read time more
 than one minute away from rounded words divided by 200. These are editorial prompts.
 

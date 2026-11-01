@@ -47,6 +47,8 @@ number D<n> with `bin/evf id next ops|decision`; never take the next number from
 - Every clickable element shows `cursor-pointer`: buttons, links, tabs, menu items, clickable rows, chips,
   labelled checkboxes and radios, icon buttons. `packages/ui` primitives apply it, not call sites.
   Disabled controls keep `cursor-not-allowed`.
+- Every Evry adapter operation or catalog tool you add or change ships with recorded eval cases in
+  `tests/evry/evals/`; the rule is in `.agents/skills/test-standard/SKILL.md`.
 - Put shared workflow enforcement in evf or a skill, never a second host-specific hook.
 - Preserve original reference bytes, unrelated assets and design/everyfield-ui.html (the approved brand prototype).
   The prototype changes only through an owner-approved design task whose `maintenanceTasks` entry carries

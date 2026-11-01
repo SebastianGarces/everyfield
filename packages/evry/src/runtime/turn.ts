@@ -18,6 +18,7 @@ import { LIMITS, type StopReason } from "../context/limits.ts";
 import { allowedWrites, prepareProposal } from "../proposals/store.ts";
 import type { QualifiedModel } from "./model.ts";
 import { appendEvent, loadHistory, loadTurn, savedResult, type RunLease, type Turn } from "./run-store.ts";
+import { liveRoom } from "./live.ts";
 import { meteredModel } from "./spend.ts";
 import { traced, traceTurn, type Claimed } from "./trace.ts";
 
@@ -27,8 +28,6 @@ export type RunDeps = {
 	/** The session's current actor, read again from the database: the fresh authority check before every read. */
 	freshActor(session: string): Promise<EvryActor | null>;
 	now?: () => Date;
-	/** How often streamed text is saved for observers. */
-	flushMs?: number;
 };
 /** succeeded: the turn saved its final state. failed: it saved a failure. lost: it no longer owned the run. */
 /** Stands in for this turn's earlier assistant text once one of its sources is no longer available. */
@@ -96,9 +95,16 @@ async function run(
 	// A paid model reserves and settles each call in the month's spend counter (D77).
 	let meter: ReturnType<typeof meteredModel> | null = null;
 	let firstText = true;
+	// Streamed text goes to this process's observers at once (live.ts) and to the database off the read loop: one save
+	// in flight, each taking all the text that arrived meanwhile, so a slow database never delays the model stream.
+	const room = liveRoom(turn.conversation_id);
+	room.begin(lease.turnId);
+	const saves: { running: Promise<void> | null; failed: { error: unknown } | null } = { running: null, failed: null };
 	const save = async (kind: "assistant_text" | "tool_result", body: Record<string, unknown>) => {
+		// A result is saved after the text before it, so replay keeps the order.
+		if (kind === "tool_result") await drain();
 		const append = () => appendEvent(db, lease, turn.conversation_id, kind, body);
-		// The first saved text is what an observer can first deliver: the end of the time to first token on our side.
+		// The first saved text is what an observer can first read from the database: the end of the time to first token on our side.
 		const first = kind === "assistant_text" && firstText;
 		firstText &&= !first;
 		const sequence = lost
@@ -114,11 +120,28 @@ async function run(
 		}
 		return sequence;
 	};
-	const flush = async () => {
-		if (!pending) return;
-		const delta = pending;
-		pending = "";
-		await save("assistant_text", { text: delta });
+	const kick = () => {
+		saves.running ??= (async () => {
+			// Yield first, so the promise is stored before this loop can finish and clear it.
+			await null;
+			try {
+				while (pending && !lost) {
+					const delta = pending;
+					pending = "";
+					await save("assistant_text", { text: delta });
+				}
+			} catch (error) {
+				saves.failed = { error };
+			} finally {
+				saves.running = null;
+			}
+		})();
+	};
+	/** Waits until every delta received so far is saved; rethrows a failed save. */
+	const drain = async () => {
+		kick();
+		while (saves.running) await saves.running;
+		if (saves.failed) throw saves.failed.error;
 	};
 	const fail = (error: EvryRefusal) => {
 		failure ??= error;
@@ -418,30 +441,28 @@ async function run(
 			onError: () => undefined,
 			telemetry: { functionId: "evry.answer" },
 		});
-		let flushed = Date.now();
 		for await (const part of stream.fullStream) {
+			if (saves.failed) throw saves.failed.error;
 			if (part.type === "text-delta") {
 				text += part.text;
 				pending += part.text;
-				if (Date.now() - flushed >= (deps.flushMs ?? 250)) {
-					flushed = Date.now();
-					await flush();
-				}
+				room.push(part.text);
+				kick();
 			} else if (part.type === "finish-step") {
 				usage.inputTokens += part.usage.inputTokens ?? 0;
 				usage.outputTokens += part.usage.outputTokens ?? 0;
-				await flush();
 			} else if (part.type === "error") {
 				if (!abort.signal.aborted) throw new EvryRefusal("model_unavailable");
 			} else if (part.type === "abort") break;
 		}
-		await flush();
+		await drain();
 	} catch (error) {
 		if (!abort.signal.aborted) fail(error instanceof EvryRefusal ? error : new EvryRefusal("unknown"));
 	} finally {
 		clearTimeout(wall);
+		room.end(lease.turnId);
 	}
 	if (abort.signal.reason === "wall_time" && stop === "completed") stop = "wall_time";
-	await flush().catch(() => undefined);
+	await drain().catch(() => undefined);
 	return finish();
 }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { classifyPublicPreview, invalidSessionReturn, safeReturn } from "@everyfield/contracts/identity";
+import { DASHBOARD_HOME, classifyPublicPreview, invalidSessionReturn, landingFor, safeReturn } from "@everyfield/contracts/identity";
 
 test("INV-identity: safe navigation rejects authority changes and expired-session recovery loops", () => {
   assert.equal(safeReturn("/people?sort=name&filter=active"), "/people?sort=name&filter=active");
@@ -24,4 +24,22 @@ test("INV-identity: preview classification accepts only actual Wiki fetchers and
     ["https://app.example.test/wiki", "Mozilla/5.0 AppleWebKit/537.36 WhatsApp/2"],
     ["invalid", "Twitterbot/1.0"],
   ]) assert.deepEqual(classifyPublicPreview(url!, ua!, "GET"), { kind: "ordinary" });
+});
+
+test("WP-005: landingFor sends a signed-in person to a safe returnTo, else onboarding, else the dashboard home", () => {
+  assert.equal(DASHBOARD_HOME, "/people");
+  const done = { status: "active", plant: "complete" } as const;
+  assert.equal(landingFor({ ...done, returnTo: "/settings/sharing" }), "/settings/sharing");
+  assert.equal(landingFor({ ...done, returnTo: "/documents" }), "/documents");
+  assert.equal(landingFor({ status: "pending_domain", plant: "none", returnTo: "/documents" }), "/documents");
+  assert.equal(landingFor({ status: "pending_domain", plant: "none" }), "/onboarding");
+  assert.equal(landingFor({ status: "active", plant: "incomplete" }), "/onboarding");
+  assert.equal(landingFor({ status: "active", plant: "none" }), "/onboarding");
+  assert.equal(landingFor(done), "/people");
+  assert.equal(landingFor({ ...done, returnTo: null }), "/people");
+  for (const returnTo of ["https://evil.example", "//evil.example", "/\\evil.example", "javascript:alert(1)"]) {
+    assert.equal(landingFor({ ...done, returnTo }), "/people", returnTo);
+    assert.equal(landingFor({ status: "active", plant: "incomplete", returnTo }), "/onboarding", returnTo);
+    assert.equal(landingFor({ status: "pending_domain", plant: "none", returnTo }), "/onboarding", returnTo);
+  }
 });

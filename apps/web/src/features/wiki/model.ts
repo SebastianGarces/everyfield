@@ -1,4 +1,4 @@
-import type { WikiArticle } from "@everyfield/contracts/wiki";
+import { fenceAt, fenceContent, type Diagram, type WikiArticle } from "@everyfield/contracts/wiki";
 import { z } from "zod";
 
 // View models for the wiki screens. The producer is the authority for entitlement.
@@ -204,7 +204,9 @@ export type Block =
 	| { kind: "quote"; text: string }
 	| { kind: "list"; ordered: boolean; items: string[] }
 	| { kind: "table"; rows: string[][] }
-	| { kind: "callout"; label: string; text: string };
+	| { kind: "callout"; label: string; text: string }
+	| { kind: "code"; text: string }
+	| { kind: "diagram"; diagram: Diagram };
 
 function headingId(text: string, used: Map<string, number>): string {
 	const base =
@@ -229,12 +231,19 @@ function cells(line: string): string[] {
 		.filter((cell) => cell.length > 0 && !/^:?-+:?$/.test(cell));
 }
 
-/** The published markdown subset: headings, paragraphs, lists, tables, quotes and callouts. */
+/** The published markdown subset: headings, paragraphs, lists, tables, quotes, callouts and fenced blocks. */
 export function markdownBlocks(body: string): Block[] {
 	const blocks: Block[] = [];
 	const lines = body.split(/\n/);
 	let index = 0;
 	while (index < lines.length) {
+		const fence = fenceAt(lines, index);
+		if (fence) {
+			// Fence lines are never markdown.
+			blocks.push(fenceContent(fence));
+			index = fence.end;
+			continue;
+		}
 		const trimmed = (lines[index] ?? "").trim();
 		if (!trimmed) {
 			index += 1;
@@ -564,6 +573,13 @@ function contractToReader(value: unknown): Block | null {
 	return null;
 }
 
+/** A diagram as plain lines for the editor, which has no diagram block: its title, then each node label. */
+function diagramLines(diagram: Diagram): string[] {
+	const labels = (nodes: readonly { label: string; children?: readonly unknown[] }[]): string[] =>
+		nodes.flatMap((node) => [node.label, ...labels((node.children ?? []) as typeof nodes)]);
+	return [diagram.title, ...labels(diagram.nodes)];
+}
+
 function readerToEditor(block: Block): EditorBlock {
 	if (block.kind === "heading") return { kind: "heading", level: block.level, text: block.text };
 	if (block.kind === "quote") return { kind: "quote", text: block.text };
@@ -571,6 +587,7 @@ function readerToEditor(block: Block): EditorBlock {
 	if (block.kind === "table") return { kind: "paragraph", text: block.rows.map((row) => row.join(" · ")).join("\n") };
 	if (block.kind === "callout")
 		return { kind: "paragraph", text: block.label ? `${block.label}: ${block.text}` : block.text };
+	if (block.kind === "diagram") return { kind: "paragraph", text: diagramLines(block.diagram).join("\n") };
 	return { kind: "paragraph", text: block.text };
 }
 

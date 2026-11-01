@@ -37,6 +37,7 @@ import {
 	type Turn,
 } from "./model.ts";
 import { ReviewCard } from "../review/ReviewCard.tsx";
+import { renderMarkdown } from "./view.ts";
 import { ResultCard } from "./ResultCard.tsx";
 import { useConversation } from "./useConversation.ts";
 
@@ -366,16 +367,16 @@ function TurnView({
 					</span>
 					<div className="flex min-w-0 flex-1 flex-col gap-3 pt-1 leading-[1.55] text-ink-2">
 						<span className="sr-only">Evry: </span>
-						{turn.blocks.map((block) =>
+						{turn.blocks.map((block, index) =>
 							block.kind === "text" ? (
 								block.withheld ? (
 									<p key={block.sequence} className="text-sm text-text-3 italic">
 										This part of the answer used a record that is no longer available.
 									</p>
 								) : (
-									<p key={block.sequence} className="whitespace-pre-wrap">
-										{block.text}
-									</p>
+									<div key={block.sequence} className="flex flex-col gap-3">
+										{renderMarkdown(block.text, active && !turn.end && index === turn.blocks.length - 1)}
+									</div>
 								)
 							) : block.kind === "result" ? (
 								<ResultCard

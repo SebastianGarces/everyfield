@@ -47,6 +47,14 @@ message or partial receipt. Generic input validation gets no regression test.
 - Use contract tests only when something outside our code consumes the shape: Evry tool schemas,
   provider webhooks or the public feedback serializer. Round trip the external boundary.
 - Use Evry evals with recorded fixtures and a scored rubric when model behavior requires them.
+- Every Evry capability ships with its evals. A change that adds or changes an Evry adapter operation under
+  `packages/evry/src/adapters/**` (reads or commands) or a catalog tool adds or updates cases in
+  `tests/evry/evals/*.cases.json`. The cases cover tool selection for natural questions and answer correctness
+  against seeded fixtures. Record them on the real `EVRY_MODEL`; CI replays the recordings with no paid call (D77).
+  A case names its operation with `"operation": "<name>"`. List the added or changed cases in the PR body.
+  `tests/workflow/evry-evals-coverage.test.mjs` fails for an adapter operation with no case that is not in
+  `tests/workflow/evry-evals-baseline.json`. The baseline only shrinks: remove an entry when its cases land,
+  and never add one.
 - Workflow tooling tests use disposable repositories and fake external providers; they establish
   tooling behavior only. Mock providers we cannot run locally; prefer local fakes.
 

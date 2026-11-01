@@ -19,6 +19,30 @@ export function safeReturn(input: string | null | undefined): string | null {
 	}
 }
 
+/** The dashboard home. Change this one value to "/overview" when Overview (WP-048) ships. */
+export const DASHBOARD_HOME = "/people";
+export const ONBOARDING_HOME = "/onboarding";
+/** The landing route every post-sign-in and "home" link points at. The server page applies landingFor. */
+export const LANDING_ROUTE = "/home";
+
+/** Whether the viewer's selected plant has finished setup. "none" means no plant context (D-c). */
+export type PlantSetup = "complete" | "incomplete" | "none";
+
+/**
+ * Where a signed-in person lands: a safe returnTo, else onboarding for a new account, an unfinished plant or a viewer
+ * outside a plant, else the dashboard home. An unsafe returnTo counts as none.
+ */
+export function landingFor(input: {
+	returnTo?: string | null;
+	status: "pending_domain" | "active";
+	plant: PlantSetup;
+}): string {
+	const back = safeReturn(input.returnTo);
+	if (back) return back;
+	if (input.status === "pending_domain" || input.plant !== "complete") return ONBOARDING_HOME;
+	return DASHBOARD_HOME;
+}
+
 export function invalidSessionReturn(returnTo: string | null | undefined): string {
 	const path = safeReturn(returnTo);
 	// Authentication screens stay directly reachable with an expired cookie.

@@ -96,6 +96,8 @@ jobs:
       - run: bin/evf test
       - name: Local stack isolation and reporting
         run: corepack pnpm test:workflow
+      - name: Evry eval coverage
+        run: node --test tests/workflow/evry-evals-coverage.test.mjs
       - name: Failure reporting and internal queue invariants
         run: node --test .github/scripts/*.test.cjs
 

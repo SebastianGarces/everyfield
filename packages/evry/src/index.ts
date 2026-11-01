@@ -17,7 +17,7 @@ export {
 	type ConversationEvent,
 } from "./conversations/store.ts";
 export { CLAIM_SECONDS } from "./runtime/job.ts";
-export { observeConversation } from "./runtime/observe.ts";
+export { observeConversation, observeRun, type LiveText, type Observed } from "./runtime/observe.ts";
 export { selectQualifiedModel, type QualifiedModel } from "./runtime/model.ts";
 export { runTurn, type RunDeps, type RunOutcome } from "./runtime/turn.ts";
 export { flushTraces, type Claimed } from "./runtime/trace.ts";
