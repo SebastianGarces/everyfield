@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'" />
+		<title>Everyfield document format, approach B: prototype</title>
+		<link rel="stylesheet" href="./styles.css" />
+		<script type="module" src="./app.mjs"></script>
+	</head>
+	<body data-tab="edit">
+		<a class="skip" href="#editor">Skip to the editor</a>
+		<header class="top">
+			<div class="brandmark"><span class="dot" aria-hidden="true"></span>Everyfield <span class="sub">Document format B · prototype</span></div>
+			<div class="docbar">
+				<span id="doc-kind" class="kind">Template</span>
+				<label class="sr-only" for="doc-title">Document title</label>
+				<input id="doc-title" class="title-input" type="text" />
+			</div>
+			<div class="actions">
+				<details id="status" class="status">
+					<summary><span id="status-text">Checking</span></summary>
+					<ul id="status-list"></ul>
+				</details>
+				<button id="fork" type="button" class="btn is-primary">Use this template</button>
+				<button id="wipe" type="button" class="btn is-danger" hidden>Wipe document</button>
+				<button id="wipe-cancel" type="button" class="btn" hidden>Keep content</button>
+				<button id="export" type="button" class="btn">Export JSON</button>
+			</div>
+		</header>
+		<nav class="tabs" role="tablist" aria-label="Panels">
+			<button class="tab" role="tab" data-tab="library" aria-selected="false">Library &amp; setup</button>
+			<button class="tab" role="tab" data-tab="edit" aria-selected="true">Edit</button>
+			<button class="tab" role="tab" data-tab="preview" aria-selected="false">Preview</button>
+		</nav>
+		<main class="layout">
+			<aside class="side" aria-label="Library and setup">
+				<section class="panel">
+					<h2>Templates</h2>
+					<ul id="lib-templates" class="lib"></ul>
+				</section>
+				<section class="panel">
+					<div class="panel-head"><h2>Your documents</h2><button id="new-doc" type="button" class="btn-mini">+ Empty document</button></div>
+					<ul id="lib-docs" class="lib"></ul>
+				</section>
+				<section class="panel">
+					<h2>Page setup</h2>
+					<div id="setup"></div>
+				</section>
+				<section class="panel">
+					<h2>Fields</h2>
+					<div id="fields"></div>
+				</section>
+				<section class="panel">
+					<h2>Brand</h2>
+					<label class="check"><input id="brand" type="checkbox" checked /><span>Use the sample church brand kit</span></label>
+					<p class="hint">Off: the neutral Everyfield look. Blocks name roles (primary, accent), never colors.</p>
+				</section>
+			</aside>
+			<section class="work" aria-label="Editor">
+				<div id="banner" class="banner"></div>
+				<div id="toolbar" class="toolbar" role="toolbar" aria-label="Text formatting">
+					<button type="button" class="tb" data-cmd="bold" aria-label="Bold"><strong>B</strong></button>
+					<button type="button" class="tb" data-cmd="italic" aria-label="Italic"><em>I</em></button>
+					<button type="button" class="tb" data-cmd="underline" aria-label="Underline"><u>U</u></button>
+					<select id="tb-field" class="tb-select" aria-label="Insert field"></select>
+					<label class="sr-only" for="tb-value">Text for a prompt, a badge or a link</label>
+					<input id="tb-value" class="tb-input" type="text" placeholder="Prompt, badge or link text" />
+					<button id="tb-prompt" type="button" class="tb">Prompt</button>
+					<button id="tb-badge" type="button" class="tb">Badge</button>
+					<button id="tb-link" type="button" class="tb">Link</button>
+					<button id="tb-page" type="button" class="tb">Page no.</button>
+				</div>
+				<p id="export-note" class="export-note" role="status"></p>
+				<div id="editor" class="editor"></div>
+			</section>
+			<section id="preview-panel" class="preview-panel" aria-label="Print preview">
+				<div class="panel-head"><h2>Print preview</h2><span id="pv-meta" class="hint"></span></div>
+				<div id="preview" class="preview"></div>
+			</section>
+		</main>
+		<div id="measure" class="measure" aria-hidden="true"></div>
+	</body>
+</html>
