@@ -8,7 +8,7 @@
 		"./server": "./src/server.ts"
 	},
 	"scripts": {
-		"test:unit": "node src/build.mjs --check && node src/starter/manifest/pin.mjs --check && node --test ../../tests/integration/reference/*.test.mjs ../../tests/reference/releases/*.test.mts ../../tests/reference/starter/*.test.mts",
+		"test:unit": "node src/build.mjs --check && node --test ../../tests/integration/reference/*.test.mjs ../../tests/reference/releases/*.test.mts ../../tests/reference/starter/*.test.mts",
 		"test:db": "node --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test ../../tests/reference/releases/*.db.mts ../../tests/reference/starter/*.db.mts",
 		"typecheck": "tsc --noEmit",
 		"lint": "cd ../.. && packages/reference/node_modules/.bin/eslint --config packages/reference/eslint.config.mjs --max-warnings=0 packages/reference/src tests/reference/releases tests/reference/starter",

@@ -174,7 +174,7 @@ test("AC:REF-CASE-002 AC:GAP-REF-002 AC:CASE-WIKI-010 AC:SCHEMA-014 approved wik
 	assert.deepEqual(await counts(), {
 		releases: 1,
 		activations: 1,
-		articles: 124,
+		articles: 96,
 		sections: 21,
 		templates: 7,
 		documents: 0,
@@ -203,7 +203,7 @@ test("AC:REF-CASE-002 AC:GAP-REF-002 AC:CASE-WIKI-010 AC:SCHEMA-014 approved wik
 	assert.equal(replay.insertedArticles, 0);
 	assert.equal(replay.activationNumber, "1");
 	assert.equal((await counts())?.activations, 1);
-	assert.equal((await counts())?.articles, 124);
+	assert.equal((await counts())?.articles, 96);
 
 	await assert.rejects(
 		service.installApprovedWiki(publisher, { ...command("R1", "1"), payloadSha256: "0".repeat(64) }),
@@ -217,7 +217,7 @@ test("AC:REF-CASE-002 AC:GAP-REF-002 AC:CASE-WIKI-010 AC:SCHEMA-014 approved wik
 	target.contentSha256 = hash(target.content);
 	const mutated = referenceService(db, { loadSnapshot: async () => changed });
 	await assert.rejects(mutated.installApprovedWiki(publisher, command("R1", "1")), refusal("immutable_conflict"));
-	assert.equal((await counts())?.articles, 124);
+	assert.equal((await counts())?.articles, 96);
 	assert.equal((await counts())?.activations, 1);
 
 	const exported = await service.exportApprovedWiki(publisher);
@@ -225,7 +225,7 @@ test("AC:REF-CASE-002 AC:GAP-REF-002 AC:CASE-WIKI-010 AC:SCHEMA-014 approved wik
 	assert.equal(exported.activationNumber, "1");
 	assert.equal(exported.partialActivation, false);
 	assert.equal(exported.orgAdoptionRequired, false);
-	assert.equal(exported.articles, 124);
+	assert.equal(exported.articles, 96);
 	assert.equal(exported.sections, 21);
 	assert.equal(exported.systemTemplates, 7);
 	assert.equal(exported.passages, 0);
@@ -258,7 +258,7 @@ test("AC:REF-CASE-002 AC:GAP-REF-002 AC:CASE-WIKI-010 AC:SCHEMA-014 approved wik
 		assert.equal(passage.embedding_checksum, vectorHash(localEmbedding(passage.content)));
 		assert.equal(passage.expected_passages, vectors.rows.length);
 	}
-	assert.equal((await counts())?.articles, 124);
+	assert.equal((await counts())?.articles, 96);
 	const r1Passages = await db.execute(
 		sql`SELECT count(*)::int AS n FROM passage p JOIN reference_release r ON r.id = p.release_id WHERE r.release_key = 'R1'`,
 	);

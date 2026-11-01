@@ -200,7 +200,6 @@ reviewed PR head SHA before promotion. The file must still match that commit byt
 ```sh
 bin/wiki promote docs/reference/wiki/drafts/<slug>.json --approved-by Sebastian --pr <n> --reviewed-sha <full-sha>
 bin/wiki check-seed
-node packages/reference/src/starter/manifest/pin.mjs --write   # the app installs the living seed through these pins
 ```
 
 Use Bryan for a tier B approval by Bryan. The command requires passing lint and a passed

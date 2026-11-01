@@ -1,7 +1,6 @@
 import { z } from "zod";
 import type { Starter } from "./starter.ts";
 import { safeMdx } from "./content.ts";
-import type { ApprovedSnapshot } from "./starter/verify/snapshot.ts";
 
 function source(starter: Starter, path: string) {
 	const row = starter.sources.find((s) => s.path === "docs/reference/" + path);
@@ -18,7 +17,7 @@ export function readRubricManifest(starter: Starter, input: unknown) {
 		};
 	return { kind, original: source(starter, "network-rubric-v1.json"), adapter: null };
 }
-export function auditLanguage(starter: Starter, wiki: ApprovedSnapshot) {
+export function auditLanguage(starter: Starter) {
 	const manifest = z
 		.object({
 			derived_copy_drift: z.array(
@@ -27,9 +26,12 @@ export function auditLanguage(starter: Starter, wiki: ApprovedSnapshot) {
 			known_source_limits: z.array(z.string()),
 		})
 		.parse(JSON.parse(source(starter, "manifest.json").body));
-	const slugs = new Set(wiki.articles.map((a) => a.slug));
+	const payload = z
+		.object({ articles: z.array(z.object({ id: z.uuid(), slug: z.string(), content: z.string() })) })
+		.parse(JSON.parse(source(starter, "bootstrap/global-seed-payload.json").body));
+	const slugs = new Set(payload.articles.map((a) => a.slug));
 	return {
-		unsafeArticleIds: wiki.articles.filter((a) => !safeMdx(a.content, slugs)).map((a) => a.id),
+		unsafeArticleIds: payload.articles.filter((a) => !safeMdx(a.content, slugs)).map((a) => a.id),
 		knownDrift: manifest.derived_copy_drift,
 		sourceLimits: manifest.known_source_limits,
 		semanticEvaluation: "not_run",

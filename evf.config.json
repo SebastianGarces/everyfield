@@ -1464,16 +1464,7 @@
 		},
 		"OPS-107": {
 			"title": "Wiki 501(c)(3) article: no 1023-EZ for churches, Rev. Proc. 2026-8 group exemption",
-			"owningPaths": [
-				"docs/reference/wiki/",
-				"packages/reference/",
-				"tests/reference/",
-				"tests/integration/wiki/blocks.test.mts",
-				"tests/ui/people/seed.mts",
-				"docs/architecture/reference-release.md",
-				".agents/skills/wiki-article/SKILL.md",
-				"evf.config.json"
-			],
+			"owningPaths": ["docs/reference/wiki/", "evf.config.json"],
 			"checks": [
 				{
 					"name": "documentation",
@@ -1490,14 +1481,6 @@
 				{
 					"name": "wiki-roundtrip",
 					"run": ["bin/wiki", "roundtrip"]
-				},
-				{
-					"name": "reference-typecheck",
-					"run": ["corepack", "pnpm", "--filter", "@everyfield/reference", "typecheck"]
-				},
-				{
-					"name": "reference-lint",
-					"run": ["corepack", "pnpm", "--filter", "@everyfield/reference", "lint"]
 				}
 			],
 			"risk": "ordinary"

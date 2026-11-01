@@ -7,10 +7,10 @@ import { markdownBlocks } from "../../../apps/web/src/features/wiki/model.ts";
 
 const lines = (...text: string[]) => text.join("\n");
 
-/** The app's global corpus: the living Wiki seed the reference bundle installs. */
+/** The app's global corpus: the bootstrap payload the reference bundle installs. */
 async function appBody(slug: string): Promise<string> {
 	const payload = JSON.parse(
-		await readFile(new URL("../../../docs/reference/wiki/seed.json", import.meta.url), "utf8"),
+		await readFile(new URL("../../../docs/reference/bootstrap/global-seed-payload.json", import.meta.url), "utf8"),
 	) as { articles: { slug: string; content: string }[] };
 	const article = payload.articles.find((row) => row.slug === slug);
 	assert.ok(article, slug);
