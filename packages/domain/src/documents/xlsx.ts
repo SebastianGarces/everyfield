@@ -352,17 +352,14 @@ const cellText = (cell: TableNode["content"] extends (infer R)[] | undefined ? R
  */
 export function buildLedgerWorkbook(doc: EveryfieldDoc, values: Record<string, string>, theme: RenderTheme) {
 	const tables = ledgerTables(doc);
-	if (!tables.length) throw new Error("the document holds no ledger table");
 	const used = new Set<string>();
 	const sheets = tables.map((table, ti): Sheet => {
 		const cols = table.attrs.columns;
 		const letter = (id: string) => column(cols.findIndex((c) => c.id === id) + 1);
 		const numeric = (type: string) => type === "money" || type === "number" || type === "formula";
-		const style = (c: (typeof cols)[number], kind: "item" | "total") => {
-			const money = c.type === "money" || (c.type === "formula" && c.format === "money");
-			if (kind === "total") return S.total;
+		const style = (c: (typeof cols)[number]) => {
 			if (c.type === "money" || c.type === "number") return S.input;
-			return money ? S.money : S.label;
+			return c.type === "formula" && c.format === "money" ? S.money : S.label;
 		};
 		const church = values.church_name ?? "";
 		const rows: Cell[][] = [
@@ -405,10 +402,10 @@ export function buildLedgerWorkbook(doc: EveryfieldDoc, values: Record<string, s
 							return {
 								formula: excelFormula(parseFormula(c.formula ?? "0"), letter, at),
 								uncached: true,
-								style: style(c, "item"),
+								style: style(c),
 							};
 						const v = row.content[ci]?.attrs?.value;
-						return typeof v === "number" ? { value: v, style: style(c, "item") } : blank(style(c, "item"));
+						return typeof v === "number" ? { value: v, style: style(c) } : blank(style(c));
 					}),
 				);
 				return;

@@ -204,7 +204,6 @@ export const churchFile = z.strictObject({
 });
 export const deletedChurch = z.strictObject({ documentId: recordId, deleted: z.literal(true) });
 export type ChurchSummary = z.infer<typeof churchSummary>;
-export type ChurchFile = z.infer<typeof churchFile>;
 export const brandingResult = z.strictObject({ documentId: recordId, useChurchBranding: z.boolean() });
 export type ChurchRevisionList = z.infer<typeof churchRevisionList>;
 export type ChurchRevision = z.infer<typeof churchRevision>;

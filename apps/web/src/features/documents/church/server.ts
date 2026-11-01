@@ -77,7 +77,6 @@ export async function loadChurchDocument(authority: RequestActor, documentId: st
 	}
 }
 
-const FORMATS = new Set(["pdf", "docx", "xlsx"]);
 const NO_STORE = { "Cache-Control": "private, no-store" };
 const gone = (status = 404) => new Response("This document is not available.", { status, headers: NO_STORE });
 
@@ -91,9 +90,7 @@ export async function churchFileRoute(request: Request, { params }: { params: Pr
 	const documentId = id.data;
 	const url = new URL(request.url);
 	const format = url.searchParams.get("format") ?? "pdf";
-	const revisionText = url.searchParams.get("revision");
-	const revision = revisionText === null ? undefined : Number(revisionText);
-	if (!FORMATS.has(format) || (revision !== undefined && !Number.isInteger(revision))) return gone(400);
+	const revision = url.searchParams.get("revision");
 	const actor = await documentActor();
 	const db = requestDatabase();
 	if (!actor || !db) return gone();
@@ -101,7 +98,7 @@ export async function churchFileRoute(request: Request, { params }: { params: Pr
 		const reply = await documentsWriter.readChurchFile(
 			db,
 			actor,
-			{ documentId, format, ...(revision === undefined ? {} : { revision }) },
+			{ documentId, format, ...(revision === null ? {} : { revision: Number(revision) }) },
 			privateStorage(),
 		);
 		if (reply.status !== "ok") return gone(reply.error.code === "invalid_input" ? 400 : 404);

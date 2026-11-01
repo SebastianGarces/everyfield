@@ -117,11 +117,6 @@ function safeJson(text: string): unknown {
 	}
 }
 
-/** A built-in everyfield.doc/1 template. Any other id is unavailable. */
-function templateFor(id: string) {
-	return docTemplateById(id) ?? deny("unavailable");
-}
-
 /** The contact line a card prints: the website without its scheme, the phone and the email. */
 const contactLine = (kit: ReturnType<typeof dataFromRow> | null) =>
 	[kit?.website?.replace(/^https?:\/\//, "").replace(/\/$/, ""), kit?.phone, kit?.email]
@@ -136,7 +131,7 @@ export const churchWriter = {
 			const scope = adminScope(authority);
 			const cleaned = cleanOverrides(input.mergeFields);
 			if (!cleaned.ok) rejectInput(cleaned.path, cleaned.problem);
-			const template = templateFor(input.templateId);
+			const template = docTemplateById(input.templateId) ?? deny("unavailable");
 			const known = new Set(template.fields.filter((f) => f.type !== "list").map((field) => field.key));
 			const foreign = Object.keys(cleaned.values).find((key) => !known.has(key));
 			if (foreign) rejectInput(`mergeFields.${foreign}`, "Unknown merge field.");
