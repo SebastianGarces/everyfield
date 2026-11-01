@@ -7,7 +7,6 @@ import { liveRead } from "../access/session.ts";
 import { deny, type PlantViewer } from "./access.ts";
 
 export const PAGE = 100;
-export const ARTIFACT_MAX = 8 * 1024 * 1024;
 export const MEDIA = {
 	pdf: "application/pdf",
 	docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",

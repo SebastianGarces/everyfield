@@ -15,9 +15,8 @@ import { deny, parse, plantViewer, readPlant, rejectInput, settle } from "./acce
 import { churchWriter } from "./church-writes.ts";
 import { library } from "./catalog.ts";
 import { cleanOverrides, resolveMerge } from "./merge.ts";
-import { RenderFailed, digestOf, renderEngineVersion, renderPreview } from "./render.ts";
+import { ARTIFACT_MAX, RenderFailed, digestOf, renderEngineVersion, renderPreview } from "./render.ts";
 import {
-	ARTIFACT_MAX,
 	MEDIA,
 	PAGE,
 	gateSql,

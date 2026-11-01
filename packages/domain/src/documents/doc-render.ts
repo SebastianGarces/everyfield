@@ -4,7 +4,7 @@ import type { ExportTheme } from "./church-theme.ts";
 import { renderDocDocx } from "./doc-docx.ts";
 import { fieldValues } from "./doc-values.ts";
 import { PROBE_MARK, docElement, needsSplit, type FlowMode } from "./layouts/doc.tsx";
-import { RenderFailed, renderContext, renderPdfElement, unsafe, type PdfRender } from "./render.ts";
+import { ARTIFACT_MAX, RenderFailed, renderContext, renderPdfElement, unsafe, type PdfRender } from "./render.ts";
 import { NEUTRAL_THEME, type RenderTheme } from "./theme.ts";
 import { buildLedgerWorkbook, ledgerTables } from "./xlsx.ts";
 
@@ -62,7 +62,7 @@ export async function renderDocFile(doc: EveryfieldDoc, format: DocFormat, theme
 	try {
 		const bytes =
 			format === "docx" ? renderDocDocx(doc, theme, created) : buildLedgerWorkbook(doc, fieldValues(doc), theme.render);
-		if (bytes.length > 8 * 1024 * 1024) throw new RenderFailed();
+		if (bytes.length > ARTIFACT_MAX) throw new RenderFailed();
 		return bytes;
 	} catch (error) {
 		if (error instanceof RenderFailed) throw error;

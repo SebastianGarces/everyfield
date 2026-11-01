@@ -26,7 +26,7 @@ import type { Style } from "@formepdf/react";
 import { MIN_BODY, MIN_NONTEXT, textOn } from "../contrast.ts";
 import { listValues } from "../doc-values.ts";
 import { SLOT_BLANK_NOTE } from "../templates/church.ts";
-import { FONT, SIZE, SP, type Palette } from "../theme.ts";
+import { FONT, SIZE, SP, tokenColor, type Palette } from "../theme.ts";
 import { Box, Cellfield, Field, LEGAL_NOTICE, LogoSlot, PhotoSlot, type Ctx } from "./blocks.tsx";
 import { Doc } from "./shell.tsx";
 
@@ -50,24 +50,6 @@ const space = (r: R, value: number) => (r.compact ? value / 2 : value);
 
 // ---------------------------------------------------------------- colors
 
-function tokenColor(p: Palette, token: Token): string | null {
-	switch (token) {
-		case "none":
-			return null;
-		case "ink":
-			return p.ink;
-		case "muted-text":
-			return p.mutedText;
-		case "primary":
-			return p.primary;
-		case "accent":
-			return p.accent;
-		case "muted":
-			return p.muted;
-		case "border":
-			return p.border;
-	}
-}
 /** Strong and quiet text on a background: the palette's own tones on white or muted, the legible one on a fill. */
 function inkOn(r: R) {
 	const { p } = r;
@@ -393,7 +375,7 @@ const alignOf = (align: "left" | "center" | "right") =>
 function divider(r: R, node: Extract<BlockNode, { type: "divider" }>, key: number) {
 	const a = attrsOf(node);
 	const color = lineColor(r, a.color) ?? r.p.ink;
-	if (a.color !== "none") r.log.pair(`divider (${a.color})`, color, r.bg, a.weight === "bar" ? 1 : 1);
+	if (a.color !== "none") r.log.pair(`divider (${a.color})`, color, r.bg, 1);
 	if (a.weight === "bar")
 		return <View key={key} style={{ backgroundColor: color, height: 4, marginBottom: space(r, SP[2]) }} />;
 	return (

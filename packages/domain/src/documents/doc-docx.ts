@@ -7,7 +7,6 @@ import type {
 	ParagraphNode,
 	Region,
 	TableNode,
-	Token,
 } from "@everyfield/contracts/documents";
 import { attrsOf, computeTable, pageBox, tileBox } from "@everyfield/contracts/documents";
 import { fieldValues, listValues } from "./doc-values.ts";
@@ -15,7 +14,7 @@ import { HEAD, NS, border, escape, hex, styles, type DocxCtx } from "./docx.ts";
 import { formatNumber } from "./layouts/doc.tsx";
 import { LEGAL_NOTICE } from "./layouts/blocks.tsx";
 import { SLOT_BLANK_NOTE } from "./templates/church.ts";
-import { makePalette, type RenderTheme, type ThemeImage } from "./theme.ts";
+import { makePalette, tokenColor, type RenderTheme, type ThemeImage } from "./theme.ts";
 import { zip, type ZipEntry } from "./zip.ts";
 
 // The Word file of one everyfield.doc/1 document: a tree walker over the same nodes the PDF renderer walks. Prose maps
@@ -44,18 +43,6 @@ type W = DocxCtx & {
 	drawings: { n: number };
 };
 
-const tokenColor = (w: W, token: Token): string | null => {
-	const { p } = w;
-	return {
-		none: null,
-		ink: p.ink,
-		"muted-text": p.mutedText,
-		primary: p.primary,
-		accent: p.accent,
-		muted: p.muted,
-		border: p.border,
-	}[token];
-};
 const onFill = (w: W) =>
 	w.fill && w.fill !== w.p.muted ? (w.fill === w.p.primary ? w.p.onPrimary : w.p.onAccent) : null;
 
@@ -301,8 +288,8 @@ function columns(w: W, node: Extract<BlockNode, { type: "columns" }>) {
 
 function box(w: W, node: Extract<BlockNode, { type: "box" }>) {
 	const a = attrsOf(node);
-	const fill = tokenColor(w, a.fill);
-	const line = a.border === "none" ? null : tokenColor(w, a.border);
+	const fill = tokenColor(w.p, a.fill);
+	const line = a.border === "none" ? null : tokenColor(w.p, a.border);
 	const inner: W = { ...w, fill: fill ?? w.fill, width: w.width - 200 - a.padding * 2 * TW };
 	return grid([w.width], [{ cells: [blocks(inner, node.content ?? [])], shade: [fill] }], {
 		borders: line ? border(line) : NO_BORDERS,
@@ -312,7 +299,7 @@ function box(w: W, node: Extract<BlockNode, { type: "box" }>) {
 
 function divider(w: W, node: Extract<BlockNode, { type: "divider" }>) {
 	const a = attrsOf(node);
-	const color = tokenColor(w, a.color) ?? w.p.ink;
+	const color = tokenColor(w.p, a.color) ?? w.p.ink;
 	const size = a.weight === "hairline" ? 4 : a.weight === "rule" ? 12 : 32;
 	return para(
 		"",
@@ -335,7 +322,7 @@ function table(w: W, node: TableNode) {
 	const anyValue = (node.content ?? []).some((row) =>
 		row.content.some((cell) => typeof cell.attrs?.value === "number"),
 	);
-	const headFill = tokenColor(w, a.headerFill);
+	const headFill = tokenColor(w.p, a.headerFill);
 	const headColor = headFill
 		? headFill === w.p.muted
 			? w.p.ink
