@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { loadStarter } from "../../../packages/reference/src/starter.ts";
 import { validateBundle } from "../../../packages/reference/src/bundle.ts";
 import { hash, vectorHash } from "../../../packages/reference/src/hash.ts";
@@ -13,7 +14,7 @@ import {
 	WikiRefusal,
 } from "../../../packages/reference/src/starter/verify/snapshot.ts";
 
-test("INV-wiki-snapshot: approved bootstrap bytes match the recorded checksums and stay separate from document templates", async () => {
+test("INV-wiki-snapshot: approved living seed bytes match the recorded checksums and stay separate from document templates", async () => {
 	const snapshot = await loadApprovedSnapshot();
 	assert.equal(snapshot.articles.length, approvedWiki.articles);
 	assert.equal(snapshot.sections.length, approvedWiki.sections);
@@ -46,7 +47,7 @@ test("INV-wiki-snapshot: approved bootstrap bytes match the recorded checksums a
 		},
 		[],
 	);
-	const report = validateBundle(bundle, wikiPolicy(bundle, true));
+	const report = validateBundle(bundle, wikiPolicy(snapshot.source, bundle, true));
 	assert.equal(report.ok, true, report.blockers.join(","));
 	assert.equal(bundle.entries.filter((entry) => entry.kind === "article").length, approvedWiki.articles);
 	assert.equal(
@@ -54,6 +55,27 @@ test("INV-wiki-snapshot: approved bootstrap bytes match the recorded checksums a
 		false,
 	);
 	assert.equal(bundle.passages.length, 0);
+});
+
+type SeedFile = { articles: { slug: string; content: string }[] };
+const seedFile = async (path: string): Promise<SeedFile> =>
+	JSON.parse(await readFile(new URL(`../../../${path}`, import.meta.url), "utf8")) as SeedFile;
+
+test("OPS-107: the app installs every article of the living Wiki seed, never the bootstrap copy", async () => {
+	const snapshot = await loadApprovedSnapshot();
+	const living = await seedFile("docs/reference/wiki/seed.json");
+	const bootstrap = await seedFile("docs/reference/bootstrap/global-seed-payload.json");
+	assert.equal(snapshot.articles.length, 124);
+	assert.deepEqual(
+		snapshot.articles.map((article) => [article.slug, article.content]).sort(),
+		living.articles.map((article) => [article.slug, article.content]).sort(),
+	);
+	const slug = "administrative/legal/setting-up-501c3";
+	const installed = snapshot.articles.find((article) => article.slug === slug)?.content;
+	const original = bootstrap.articles.find((article) => article.slug === slug)?.content;
+	assert.ok(original?.includes("Make sure you qualify for Form 1023-EZ"));
+	assert.equal(installed?.includes("Make sure you qualify for Form 1023-EZ"), false);
+	assert.ok(snapshot.articles.some((article) => article.slug === "administrative/legal/getting-your-churchs-ein"));
 });
 
 test("INV-wiki-embedding: an OpenAI key stays unused until EVF_WIKI_EMBEDDINGS=openai", async () => {

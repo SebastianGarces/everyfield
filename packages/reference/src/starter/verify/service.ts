@@ -8,7 +8,8 @@ import { chunkEntries } from "../../bundle.ts";
 import { canonical, hash, stableId, vectorHash } from "../../hash.ts";
 import { referenceService as promoteService, ReferenceRefusal } from "../../server.ts";
 import type { ReferenceAuthority } from "../../server.ts";
-import { approvedWiki } from "../manifest/approved.ts";
+import { approvedSource, approvedWiki } from "../manifest/approved.ts";
+import type { WikiSource } from "../manifest/approved.ts";
 import { resolveWikiEmbedding, type WikiEmbedder, type WikiEmbedFetch } from "./embed.ts";
 import { wikiBundle, wikiEntries, wikiPolicy } from "./generation.ts";
 import { EmbeddingRefusal } from "./openai.ts";
@@ -63,6 +64,8 @@ export interface WikiCaller {
 }
 export interface WikiDependencies {
 	root?: URL;
+	/** The pinned source to install. Defaults to the living seed; a rollback test passes an earlier pin. */
+	source?: WikiSource;
 	loadSnapshot?: () => Promise<ApprovedSnapshot>;
 	embed?: WikiEmbedder;
 	embeddingProfile?: string;
@@ -108,8 +111,8 @@ function parseCaller(input: unknown): WikiCaller {
 	if (!parsed.success) throw new WikiRefusal("access_denied");
 	return parsed.data;
 }
-function requirePins(manifestSha256: string, payloadSha256: string): void {
-	if (manifestSha256 !== approvedWiki.manifestSha256 || payloadSha256 !== approvedWiki.payloadSha256)
+function requirePins(source: WikiSource, manifestSha256: string, payloadSha256: string): void {
+	if (manifestSha256 !== source.manifestSha256 || payloadSha256 !== source.payloadSha256)
 		throw new WikiRefusal("digest_conflict");
 }
 function commandDigest(value: Record<string, string>): string {
@@ -129,6 +132,7 @@ async function authorizeCaller(
 	tx: Transaction,
 	caller: WikiCaller,
 	command: Promotion,
+	source: WikiSource,
 ): Promise<ReferenceAuthority | null> {
 	const selected = await tx.execute(sql`
 		SELECT s.id
@@ -144,16 +148,17 @@ async function authorizeCaller(
 		mode: "operator",
 		review: {
 			commandDigest: hash(canonical(command)),
-			approvalLocator: approvedWiki.version,
-			approvalHash: approvedWiki.payloadSha256,
+			approvalLocator: source.version,
+			approvalHash: source.payloadSha256,
 		},
 	};
 }
 
 export function referenceService(db: Database, deps: WikiDependencies = {}) {
 	const embedding = resolveWikiEmbedding(process.env, deps);
+	const source = deps.source ?? approvedSource;
 	async function snapshot(): Promise<ApprovedSnapshot> {
-		const loaded = deps.loadSnapshot ? await deps.loadSnapshot() : await loadApprovedSnapshot(deps.root);
+		const loaded = deps.loadSnapshot ? await deps.loadSnapshot() : await loadApprovedSnapshot(deps.root, source);
 		checkSnapshot(loaded);
 		return loaded;
 	}
@@ -168,7 +173,7 @@ export function referenceService(db: Database, deps: WikiDependencies = {}) {
 			generationKey: bundle.key,
 			manifestHash: hash(canonical(bundle)),
 			expectedActivation: input.expectedActivation,
-			reason: input.kind === "rollback" ? approvedWiki.rollbackReason : approvedWiki.version,
+			reason: input.kind === "rollback" ? approvedWiki.rollbackReason : source.version,
 			requestKey: input.requestKey,
 		};
 		const parsed = promotion.safeParse(request);
@@ -180,9 +185,9 @@ export function referenceService(db: Database, deps: WikiDependencies = {}) {
 			},
 			policyFor(key: string) {
 				if (key !== bundle.key) throw new WikiRefusal("incomplete_candidate", "policy");
-				return wikiPolicy(bundle, deferDerivatives);
+				return wikiPolicy(source, bundle, deferDerivatives);
 			},
-			authorize: (tx, command) => authorizeCaller(tx, caller, command),
+			authorize: (tx, command) => authorizeCaller(tx, caller, command, source),
 		});
 		try {
 			return await promoter.promote(parsed.data, bundle.key);
@@ -235,7 +240,7 @@ export function referenceService(db: Database, deps: WikiDependencies = {}) {
 		const parsed = installSchema.safeParse(input);
 		if (!parsed.success) throw new WikiRefusal("access_denied");
 		const command = parsed.data;
-		requirePins(command.manifestSha256, command.payloadSha256);
+		requirePins(source, command.manifestSha256, command.payloadSha256);
 		if (command.fault === "required_source_unavailable") throw new WikiRefusal("source_unavailable");
 		if (command.fault === "required_write_before_commit") throw new WikiRefusal("incomplete_candidate");
 		const loaded = await snapshot();
@@ -264,7 +269,7 @@ export function referenceService(db: Database, deps: WikiDependencies = {}) {
 		const parsed = rebuildSchema.safeParse(input);
 		if (!parsed.success) throw new WikiRefusal("access_denied");
 		const command = parsed.data;
-		requirePins(command.manifestSha256, command.payloadSha256);
+		requirePins(source, command.manifestSha256, command.payloadSha256);
 		const loaded = await snapshot();
 		const planned = await planPassages(loaded, command.release);
 		if (!planned.ok) return failedRebuild(planned.reason, planned.usageTokens);

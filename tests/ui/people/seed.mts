@@ -339,10 +339,10 @@ async function up(origin: string) {
 	articles.unshift(["Setting up your website", "website-setup", long, 0], ["Team handbook", "team-handbook", long, 0]);
 	articles.push(["Volunteer guide", "volunteer-guide", long, 0]);
 	// WP-034/ui diagram blocks: one article with each diagram type, one plain fence and one malformed diagram, and two
-	// real articles from the app's bootstrap corpus whose fences are text (phase 2, after Raising support).
+	// real articles from the app's living Wiki seed whose fences are text (phase 2, after Raising support).
 	articles.push(["Diagram blocks", "diagram-blocks", DIAGRAM_ARTICLE, 2]);
 	const corpus = JSON.parse(
-		readFileSync(new URL("../../../docs/reference/bootstrap/global-seed-payload.json", import.meta.url), "utf8"),
+		readFileSync(new URL("../../../docs/reference/wiki/seed.json", import.meta.url), "utf8"),
 	) as { articles: { slug: string; title: string; content: string }[] };
 	for (const slug of [
 		"administrative/financial/counting-procedures",
@@ -361,7 +361,7 @@ async function up(origin: string) {
 		await admin.execute(sql`INSERT INTO article_revision(id,article_id,tenant_id,release_id,revision_number,title,slug,excerpt,body,content_type,phase,position,content_hash,published_at,meaningful,meaningful_sequence,section_id,parent_article_id,related_slugs)
 			VALUES(${randomUUID()},${id},${GLOBAL},${release},1,${title},${slug},${title},${body},'safe_mdx',${phase},${position + 1},${digest()},clock_timestamp(),true,1,${slug.startsWith("launch-checklist-") ? referenceSectionId : sectionId},NULL,ARRAY[]::text[])`);
 		await admin.execute(sql`INSERT INTO reference_version(id,item_id,release_id,version_number,artifact_path,content_hash,source_credit)
-			VALUES(${randomUUID()},${id},${release},1,${"wiki/" + slug},${digest()},${position === 0 ? `docs/reference/bootstrap/global-seed-payload.json@${digest()}` : "UI seed"})`);
+			VALUES(${randomUUID()},${id},${release},1,${"wiki/" + slug},${digest()},${position === 0 ? `docs/reference/wiki/seed.json@${digest()}` : "UI seed"})`);
 	}
 	await admin.execute(sql`INSERT INTO reference_activation(id,release_id,activation_number,activated_at,actor_tombstone,reason,expected_prior_number)
 		VALUES(${randomUUID()},${release},1,clock_timestamp(),'ui-seed','ui seed',0)`);

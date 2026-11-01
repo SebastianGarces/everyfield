@@ -1,6 +1,6 @@
 # Global reference releases
 
-Global references use immutable reviewed generations and atomic activation. The approved starter inventory is checksummed in the [bootstrap manifest](../reference/bootstrap/manifest.json). The [reference inventory](../reference/manifest.json) preserves the original Playbook, rubric and templates. Seven system message templates are distinct from eleven generated-document templates. Original reference bytes remain unchanged.
+Global references use immutable reviewed generations and atomic activation. The app installs the living Wiki seed, checksummed in the [Wiki manifest](../reference/wiki/manifest.json) and pinned in the reference package. The [bootstrap manifest](../reference/bootstrap/manifest.json) stays as its unchanged provenance. The [reference inventory](../reference/manifest.json) preserves the original Playbook, rubric and templates. Seven system message templates are distinct from eleven generated-document templates. Original reference bytes remain unchanged.
 
 Editorial conflict with the authoritative SME rubric/Playbook requires content-owner resolution before activation. Accepted starter inventory does not authorize rewriting methodology. Customer records, private organization content, reader state, credentials and unversioned vectors are excluded from bootstrap. There is no customer migration requirement.
 

@@ -10,6 +10,9 @@ import { loadStarter, verifyCheckout } from "./starter.ts";
 import type { Starter } from "./starter.ts";
 import { hash, canonical, stableId, vectorHash } from "./hash.ts";
 import { safeMdx } from "./content.ts";
+import { wikiRecords } from "./starter/verify/generation.ts";
+import { loadApprovedSnapshot } from "./starter/verify/snapshot.ts";
+import type { ApprovedSnapshot } from "./starter/verify/snapshot.ts";
 
 const article = z.object({
 	id: z.uuid(),
@@ -20,24 +23,15 @@ const article = z.object({
 	status: z.literal("published"),
 	related_article_slugs: z.array(z.string()),
 });
-const section = z.object({ id: z.uuid(), slug: z.string(), parent_section_id: z.uuid().nullable() });
-const message = z.object({
-	name: z.string(),
-	category: z.string(),
-	body: z.string(),
-	subject: z.string(),
-	churchId: z.null(),
-	isSystem: z.literal(true),
-	sourceTemplateId: z.null(),
-});
 // Checkout packaging is an explicit release operation. Pure catalog construction below
 // consumes already reviewed data and does not turn unrelated documentation edits into a unit gate.
 export async function packageCheckout(root: URL, expectedCatalogSha256?: string): Promise<ReferenceEntry[]> {
 	const report = await verifyCheckout(root, expectedCatalogSha256);
 	if (!report.ok) throw Error(report.issues[0]!.code);
-	return packageStarter(await loadStarter());
+	return packageStarter(await loadStarter(), await loadApprovedSnapshot(root));
 }
-export function packageStarter(starter: Starter): ReferenceEntry[] {
+/** Frozen reference sources and catalogs, plus the Wiki rows of the approved living seed. */
+export function packageStarter(starter: Starter, wiki: ApprovedSnapshot): ReferenceEntry[] {
 	const source = (path: string) => {
 		const row = starter.sources.find((s) => s.path === "docs/reference/" + path);
 		if (!row) throw Error("source_unavailable");
@@ -81,28 +75,7 @@ export function packageStarter(starter: Starter): ReferenceEntry[] {
 			{ format: "source" },
 		);
 	}
-	const payload = z
-		.object({
-			articles: z.array(article.passthrough()),
-			sections: z.array(section.passthrough()),
-			templates: z.array(message.passthrough()),
-		})
-		.strict()
-		.parse(JSON.parse(source("bootstrap/global-seed-payload.json").body));
-	for (const a of payload.articles)
-		add("article", a.id, canonical(a), "bootstrap/global-seed-payload.json", {
-			id: a.id,
-			slug: a.slug,
-			sectionId: a.section_id,
-			format: "safe_mdx",
-		});
-	for (const s of payload.sections)
-		add("section", s.id, canonical(s), "bootstrap/global-seed-payload.json", {
-			id: s.id,
-			slug: s.slug,
-			parentId: s.parent_section_id,
-		});
-	for (const t of payload.templates) add("mail_template", t.name, canonical(t), "bootstrap/global-seed-payload.json");
+	for (const row of wikiRecords(wiki)) rows.push({ ...row, revisionId: stableId(row.id + ":" + row.contentHash) });
 	for (const [name, kind, key, path] of [
 		["tasks", "task_template", "key", "task-templates.ts"],
 		["teams", "ministry_template", "teamKey", "ministry-role-templates.ts"],
@@ -138,7 +111,12 @@ export function chunkEntries(
 			return rows;
 		});
 }
-export function planGeneration(starter: Starter, key: string, configuredProfile: ReferenceProfile) {
+export function planGeneration(
+	starter: Starter,
+	wiki: ApprovedSnapshot,
+	key: string,
+	configuredProfile: ReferenceProfile,
+) {
 	profile.parse(configuredProfile);
 	const freezeSource = starter.sources.find((s) => s.path === "docs/reference/discovery-foundations.json");
 	const discovery = z
@@ -147,7 +125,7 @@ export function planGeneration(starter: Starter, key: string, configuredProfile:
 	return {
 		key,
 		profile: configuredProfile,
-		entries: packageStarter(starter).map((e) => ({
+		entries: packageStarter(starter, wiki).map((e) => ({
 			...e,
 			revisionId: stableId(key + ":" + e.id + ":" + e.contentHash),
 		})),

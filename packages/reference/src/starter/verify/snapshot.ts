@@ -2,7 +2,8 @@ import { readFile } from "node:fs/promises";
 import { z } from "zod";
 import { hash } from "../../hash.ts";
 import { safeMdx } from "../../content.ts";
-import { approvedWiki } from "../manifest/approved.ts";
+import { approvedSource, approvedWiki } from "../manifest/approved.ts";
+import type { WikiSource } from "../manifest/approved.ts";
 
 export type WikiErrorCode =
 	| "access_denied"
@@ -26,77 +27,81 @@ export class WikiRefusal extends Error {
 }
 
 const sha = z.string().regex(/^[a-f0-9]{64}$/);
-const manifestSchema = z
-	.object({
-		revision: z.literal(approvedWiki.provenanceRevision),
-		seedPayloadSHA256: z.literal(approvedWiki.payloadSha256),
-		playbookSHA256: z.literal(approvedWiki.playbookSha256),
-		articles: z
-			.array(z.object({ id: z.uuid(), slug: z.string(), sectionId: z.uuid(), contentSHA256: sha }).passthrough())
-			.length(approvedWiki.articles),
-		sections: z
-			.array(z.object({ id: z.uuid(), slug: z.string(), parent: z.uuid().nullable(), recordSHA256: sha }).passthrough())
-			.length(approvedWiki.sections),
-		templates: z
-			.array(z.object({ name: z.string().min(1), sha256: sha }).passthrough())
-			.length(approvedWiki.systemTemplates),
-	})
-	.passthrough();
-const payloadSchema = z
-	.object({
-		articles: z
-			.array(
-				z
-					.object({
-						id: z.uuid(),
-						slug: z.string().min(1),
-						title: z.string().min(1),
-						excerpt: z.string(),
-						content: z.string(),
-						section_id: z.uuid(),
-						phase: z.number().int().min(0).max(6),
-						sort_order: z.number().int(),
-						church_id: z.null(),
-						status: z.literal("published"),
-						content_type: z.string(),
-						related_article_slugs: z.array(z.string()),
-					})
-					.passthrough(),
-			)
-			.length(approvedWiki.articles),
-		sections: z
-			.array(
-				z
-					.object({
-						id: z.uuid(),
-						slug: z.string().min(1),
-						name: z.string().min(1),
-						parent_section_id: z.uuid().nullable(),
-						phase: z.number().int().min(0).max(6),
-						sort_order: z.number().int(),
-						description: z.string().nullable(),
-						icon: z.string().nullable(),
-					})
-					.passthrough(),
-			)
-			.length(approvedWiki.sections),
-		templates: z
-			.array(
-				z
-					.object({
-						name: z.string().min(1),
-						subject: z.string(),
-						body: z.string(),
-						category: z.string(),
-						churchId: z.null(),
-						isSystem: z.literal(true),
-						sourceTemplateId: z.null(),
-					})
-					.passthrough(),
-			)
-			.length(approvedWiki.systemTemplates),
-	})
-	.strict();
+const manifestSchema = (source: WikiSource) =>
+	z
+		.object({
+			revision: z.literal(approvedWiki.provenanceRevision),
+			seedPayloadSHA256: z.literal(source.payloadSha256),
+			playbookSHA256: z.literal(approvedWiki.playbookSha256),
+			articles: z
+				.array(z.object({ id: z.uuid(), slug: z.string(), sectionId: z.uuid(), contentSHA256: sha }).passthrough())
+				.length(source.articles),
+			sections: z
+				.array(
+					z.object({ id: z.uuid(), slug: z.string(), parent: z.uuid().nullable(), recordSHA256: sha }).passthrough(),
+				)
+				.length(source.sections),
+			templates: z
+				.array(z.object({ name: z.string().min(1), sha256: sha }).passthrough())
+				.length(source.systemTemplates),
+		})
+		.passthrough();
+const payloadSchema = (source: WikiSource) =>
+	z
+		.object({
+			articles: z
+				.array(
+					z
+						.object({
+							id: z.uuid(),
+							slug: z.string().min(1),
+							title: z.string().min(1),
+							excerpt: z.string(),
+							content: z.string(),
+							section_id: z.uuid(),
+							phase: z.number().int().min(0).max(6),
+							sort_order: z.number().int(),
+							church_id: z.null(),
+							status: z.literal("published"),
+							content_type: z.string(),
+							related_article_slugs: z.array(z.string()),
+						})
+						.passthrough(),
+				)
+				.length(source.articles),
+			sections: z
+				.array(
+					z
+						.object({
+							id: z.uuid(),
+							slug: z.string().min(1),
+							name: z.string().min(1),
+							parent_section_id: z.uuid().nullable(),
+							phase: z.number().int().min(0).max(6),
+							sort_order: z.number().int(),
+							description: z.string().nullable(),
+							icon: z.string().nullable(),
+						})
+						.passthrough(),
+				)
+				.length(source.sections),
+			templates: z
+				.array(
+					z
+						.object({
+							name: z.string().min(1),
+							subject: z.string(),
+							body: z.string(),
+							category: z.string(),
+							churchId: z.null(),
+							isSystem: z.literal(true),
+							sourceTemplateId: z.null(),
+						})
+						.passthrough(),
+				)
+				.length(source.systemTemplates),
+		})
+		.strict();
 const discoverySchema = z.object({
 	articles: z.array(z.object({ id: z.uuid() }).passthrough()).length(approvedWiki.discoveryArticles),
 });
@@ -130,6 +135,7 @@ export interface ApprovedTemplate {
 	sha256: string;
 }
 export interface ApprovedSnapshot {
+	source: WikiSource;
 	articles: readonly ApprovedArticle[];
 	sections: readonly ApprovedSection[];
 	templates: readonly ApprovedTemplate[];
@@ -158,9 +164,9 @@ export function checkSnapshot(snapshot: ApprovedSnapshot): void {
 	const sections = snapshot.sections;
 	const slugs = new Set(articles.map((article) => article.slug));
 	const sectionIds = new Map(sections.map((section) => [section.id, section.parentId]));
-	if (articles.length !== approvedWiki.articles) throw new WikiRefusal("incomplete_candidate", "article_count");
-	if (sections.length !== approvedWiki.sections) throw new WikiRefusal("incomplete_candidate", "section_count");
-	if (snapshot.templates.length !== approvedWiki.systemTemplates)
+	if (articles.length !== snapshot.source.articles) throw new WikiRefusal("incomplete_candidate", "article_count");
+	if (sections.length !== snapshot.source.sections) throw new WikiRefusal("incomplete_candidate", "section_count");
+	if (snapshot.templates.length !== snapshot.source.systemTemplates)
 		throw new WikiRefusal("incomplete_candidate", "template_count");
 	if (slugs.size !== articles.length) throw new WikiRefusal("incomplete_candidate", "article_slug");
 	if (new Set(sections.map((section) => section.slug)).size !== sections.length)
@@ -194,19 +200,21 @@ export function checkSnapshot(snapshot: ApprovedSnapshot): void {
 		throw new WikiRefusal("incomplete_candidate", "discovery_article");
 }
 
-export async function loadApprovedSnapshot(root = repoRoot()): Promise<ApprovedSnapshot> {
+/** Load the pinned Wiki source. Only `approvedSource` is installed; a test may pass an earlier pin. */
+export async function loadApprovedSnapshot(
+	root = repoRoot(),
+	source: WikiSource = approvedSource,
+): Promise<ApprovedSnapshot> {
 	try {
-		const manifestBytes = await readBytes(root, approvedWiki.manifestPath);
-		const payloadBytes = await readBytes(root, approvedWiki.payloadPath);
+		const manifestBytes = await readBytes(root, source.manifestPath);
+		const payloadBytes = await readBytes(root, source.payloadPath);
 		const playbookBytes = await readBytes(root, approvedWiki.playbookPath);
-		if (hash(manifestBytes) !== approvedWiki.manifestSha256)
-			throw new WikiRefusal("incomplete_candidate", "manifest_hash");
-		if (hash(payloadBytes) !== approvedWiki.payloadSha256)
-			throw new WikiRefusal("incomplete_candidate", "payload_hash");
+		if (hash(manifestBytes) !== source.manifestSha256) throw new WikiRefusal("incomplete_candidate", "manifest_hash");
+		if (hash(payloadBytes) !== source.payloadSha256) throw new WikiRefusal("incomplete_candidate", "payload_hash");
 		if (hash(playbookBytes) !== approvedWiki.playbookSha256)
 			throw new WikiRefusal("incomplete_candidate", "playbook_hash");
-		const manifest = manifestSchema.parse(JSON.parse(manifestBytes.toString("utf8")));
-		const payload = payloadSchema.parse(JSON.parse(payloadBytes.toString("utf8")));
+		const manifest = manifestSchema(source).parse(JSON.parse(manifestBytes.toString("utf8")));
+		const payload = payloadSchema(source).parse(JSON.parse(payloadBytes.toString("utf8")));
 		const discovery = discoverySchema.parse(
 			JSON.parse((await readBytes(root, approvedWiki.discoveryPath)).toString("utf8")),
 		);
@@ -259,7 +267,13 @@ export async function loadApprovedSnapshot(root = repoRoot()): Promise<ApprovedS
 				sha256: recorded,
 			};
 		});
-		const snapshot = { articles, sections, templates, discoveryIds: discovery.articles.map((article) => article.id) };
+		const snapshot = {
+			source,
+			articles,
+			sections,
+			templates,
+			discoveryIds: discovery.articles.map((article) => article.id),
+		};
 		checkSnapshot(snapshot);
 		return snapshot;
 	} catch (error) {
