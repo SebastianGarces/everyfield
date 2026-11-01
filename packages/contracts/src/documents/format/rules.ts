@@ -7,7 +7,6 @@ import type {
 	AnyNode,
 	DocDocument,
 	DocTemplate,
-	FieldDecl,
 	FormatSchema,
 	PageSetup,
 	TableNode,
@@ -685,42 +684,5 @@ export async function forkTemplate(
 		data: values,
 		page: copy.page,
 		body: copy.body,
-	};
-}
-
-const CHURCH_FIELDS: FieldDecl[] = [
-	{
-		key: "church_name",
-		label: "Church name",
-		type: "text",
-		source: "church.name",
-		required: true,
-		sample: "Harbor City Church",
-	},
-	{ key: "pastor_name", label: "Pastor name", type: "text", source: "church.pastor", sample: "Dana Brooks" },
-];
-
-/** A blank document: Letter, standard margins, the two church fields and an empty body. */
-export function blankDocument(id = "untitled"): DocDocument {
-	return {
-		format: "everyfield.doc/1",
-		kind: "document",
-		id,
-		version: 1,
-		title: "Untitled document",
-		class: "operational",
-		exports: ["pdf", "docx"],
-		origin: null,
-		fields: structuredClone(CHURCH_FIELDS),
-		data: {},
-		page: {
-			size: "letter",
-			orientation: "portrait",
-			margin: { top: 40, right: 40, bottom: 56, left: 40 },
-			tile: null,
-			header: null,
-			footer: null,
-		},
-		body: { type: "doc", content: [] },
 	};
 }

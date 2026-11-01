@@ -38,7 +38,6 @@ type DocxInput = {
 };
 
 export type DocxCtx = ReturnType<typeof palette> & { fonts: DocxInput["fonts"] };
-type Ctx = DocxCtx;
 const palette = (theme: RenderTheme) => ({ p: makePalette(theme) });
 
 const run = (text: string, o: { bold?: boolean; caps?: boolean; size?: number; color?: string; font?: string } = {}) =>
@@ -53,7 +52,7 @@ export const border = (color: string, size = 4) =>
 		.join("");
 
 function table(
-	ctx: Ctx,
+	ctx: DocxCtx,
 	columns: { label: string; width: number }[] | null,
 	rows: string[][],
 	o: { rowHeight?: number; caption: string },
@@ -86,7 +85,7 @@ function table(
 	return `<w:tbl><w:tblPr><w:tblW w:w="${TEXT_WIDTH}" w:type="dxa"/><w:tblBorders>${border(ctx.p.fieldBorder)}<w:insideH w:val="single" w:sz="4" w:space="0" w:color="${hex(ctx.p.fieldBorder)}"/><w:insideV w:val="single" w:sz="4" w:space="0" w:color="${hex(ctx.p.fieldBorder)}"/></w:tblBorders><w:tblLayout w:type="fixed"/><w:tblCellMar><w:left w:w="100" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tblCellMar><w:tblLook w:val="0420" w:firstRow="1" w:noHBand="0" w:noVBand="1"/><w:tblCaption w:val="${escape(o.caption)}"/></w:tblPr><w:tblGrid>${grid}</w:tblGrid>${head}${body}</w:tbl>${para("", '<w:spacing w:before="0" w:after="0"/>')}`;
 }
 
-function blocks(ctx: Ctx, template: ChurchTemplate, body: readonly ChurchBlock[], lists: number[]) {
+function blocks(ctx: DocxCtx, template: ChurchTemplate, body: readonly ChurchBlock[], lists: number[]) {
 	const letter = template.style === "letter";
 	const firstHeading = body.findIndex((b) => b.kind === "heading");
 	const out: string[] = [];
@@ -157,7 +156,7 @@ function blocks(ctx: Ctx, template: ChurchTemplate, body: readonly ChurchBlock[]
 	return out.join("");
 }
 
-function frame(ctx: Ctx, input: DocxInput) {
+function frame(ctx: DocxCtx, input: DocxInput) {
 	const { template } = input;
 	const f = template.frame;
 	const fill = (text: string) => text.replaceAll("{church_name}", input.church);
@@ -204,7 +203,7 @@ function logoRun(input: DocxInput) {
 	return `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="1" name="Logo" descr="${alt}" title="${alt}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic><pic:nvPicPr><pic:cNvPr id="1" name="Logo" descr="${alt}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rIdLogo"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
 }
 
-function header(ctx: Ctx, input: DocxInput) {
+function header(ctx: DocxCtx, input: DocxInput) {
 	const logo = logoRun(input);
 	const left = logo ?? run(input.church, { font: ctx.fonts.heading, size: 18, color: ctx.p.ink });
 	return `${HEAD}<w:hdr ${NS}>${para(
@@ -213,7 +212,7 @@ function header(ctx: Ctx, input: DocxInput) {
 	)}</w:hdr>`;
 }
 
-function footer(ctx: Ctx, input: DocxInput) {
+function footer(ctx: DocxCtx, input: DocxInput) {
 	const l = input.theme.letterhead;
 	const text = l?.legalName
 		? [l.legalName, l.address, l.ein ? `EIN ${l.ein}` : ""].filter(Boolean).join("  |  ")
@@ -230,7 +229,7 @@ function footer(ctx: Ctx, input: DocxInput) {
 	)}${notice}</w:ftr>`;
 }
 
-export function styles(ctx: Ctx) {
+export function styles(ctx: DocxCtx) {
 	const { heading, body } = ctx.fonts;
 	const font = (name: string) =>
 		`<w:rFonts w:ascii="${escape(name)}" w:hAnsi="${escape(name)}" w:cs="${escape(name)}"/>`;
@@ -248,7 +247,7 @@ ${style("ListParagraph", "List Paragraph", '<w:spacing w:after="40"/><w:ind w:le
 </w:styles>`;
 }
 
-function numbering(ctx: Ctx, lists: number[]) {
+function numbering(ctx: DocxCtx, lists: number[]) {
 	const abstract = (id: number, fmt: string, text: string, rpr = "", suffix = "tab") =>
 		`<w:abstractNum w:abstractNumId="${id}"><w:multiLevelType w:val="singleLevel"/><w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="${fmt}"/><w:suff w:val="${suffix}"/><w:lvlText w:val="${text}"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr>${rpr ? `<w:rPr>${rpr}</w:rPr>` : ""}</w:lvl></w:abstractNum>`;
 	const heading = `<w:abstractNum w:abstractNumId="2"><w:multiLevelType w:val="singleLevel"/><w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="decimalZero"/><w:suff w:val="space"/><w:lvlText w:val="%1"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="0" w:firstLine="0"/></w:pPr><w:rPr><w:color w:val="${hex(ctx.p.primaryText)}"/></w:rPr></w:lvl></w:abstractNum>`;
@@ -265,7 +264,7 @@ function numbering(ctx: Ctx, lists: number[]) {
 
 /** The Word file for one revision. Same inputs give the same bytes. */
 export function buildDocx(input: DocxInput): Buffer {
-	const ctx: Ctx = { ...palette(input.theme), fonts: input.fonts };
+	const ctx: DocxCtx = { ...palette(input.theme), fonts: input.fonts };
 	const lists: number[] = [];
 	const content = blocks(ctx, input.template, input.body, lists);
 	const title = styled("Title", input.template.title);

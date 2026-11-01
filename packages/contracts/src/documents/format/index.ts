@@ -6,7 +6,6 @@ export * from "./types.ts";
 export { FORMAT_SCHEMA } from "./schema.ts";
 export {
 	attrsOf,
-	blankDocument,
 	computeTable,
 	forkTemplate,
 	pageBox,

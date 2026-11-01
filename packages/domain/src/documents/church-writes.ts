@@ -61,7 +61,6 @@ type ChurchRow = {
 	revision_id: string;
 	body: string;
 	content_hash: string;
-	archived: boolean;
 	input_provenance: Provenance;
 };
 
@@ -71,25 +70,24 @@ function storedDoc(text: string | null) {
 	return parsed.success ? parsed.data : null;
 }
 
-function churchFrom(row: ChurchRow, tenantId: string) {
-	const body = storedDoc(row.body);
-	if (!body) deny("render_failed");
-	return c.churchDocument.parse({
-		id: row.id,
-		tenantId,
-		templateId: row.template_id,
-		templateVersion: Number(row.template_version),
-		formats: docFormats(body),
-		documentClass: row.document_class,
-		useChurchBranding: row.use_church_branding,
-		title: row.title,
-		revision: String(row.revision),
-		revisionId: row.revision_id,
-		body,
-		contentHash: row.content_hash,
-		archived: row.archived,
-		provenance: row.input_provenance,
-	});
+/** One Church Document as the writers return it. The formats follow from the body; a stored row is never deleted here. */
+function churchResult(
+	tenantId: string,
+	d: {
+		id: string;
+		templateId: string;
+		templateVersion: number;
+		documentClass: ChurchRow["document_class"];
+		useChurchBranding: boolean | null;
+		title: string;
+		revision: string;
+		revisionId: string;
+		body: c.DocDocument;
+		contentHash: string;
+		provenance: Provenance;
+	},
+) {
+	return c.churchDocument.parse({ ...d, tenantId, formats: docFormats(d.body), archived: false });
 }
 
 /** The current state of one Church Document, as a reader sees it. One statement. */
@@ -97,7 +95,7 @@ async function readChurch(db: Database, scope: Scope, documentId: string, admin 
 	const found = await rowsOf<ChurchRow & { ok: boolean }>(
 		db,
 		sql`SELECT g.ok, d.id, d.template_id, d.template_version, d.document_class, d.use_church_branding, d.title,
-			d.revision::text AS revision, r.id AS revision_id, r.body, r.content_hash, d.archived_at IS NOT NULL AS archived,
+			d.revision::text AS revision, r.id AS revision_id, r.body, r.content_hash,
 			d.input_provenance
 		FROM (SELECT ${gateSql(scope, admin)} AS ok) g
 		LEFT JOIN document d ON g.ok AND d.id = ${documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid
@@ -105,8 +103,21 @@ async function readChurch(db: Database, scope: Scope, documentId: string, admin 
 		LEFT JOIN document_revision r ON r.id = d.current_revision_id AND r.tenant_id = d.tenant_id`,
 	);
 	if (found[0]?.ok !== true) deny("access_denied");
-	if (!found[0].id) return null;
-	return churchFrom(found[0], scope.tenantId);
+	const row = found[0];
+	if (!row.id) return null;
+	return churchResult(scope.tenantId, {
+		id: row.id,
+		templateId: row.template_id,
+		templateVersion: Number(row.template_version),
+		documentClass: row.document_class,
+		useChurchBranding: row.use_church_branding,
+		title: row.title,
+		revision: String(row.revision),
+		revisionId: row.revision_id,
+		body: storedDoc(row.body) ?? deny("render_failed"),
+		contentHash: row.content_hash,
+		provenance: row.input_provenance,
+	});
 }
 
 function safeJson(text: string): unknown {
@@ -241,12 +252,10 @@ export const churchWriter = {
 				return same;
 			}
 			if (!row.id) deny("unavailable");
-			return c.churchDocument.parse({
+			return churchResult(scope.tenantId, {
 				id: row.id,
-				tenantId: scope.tenantId,
 				templateId: template.id,
 				templateVersion: template.version,
-				formats: docFormats(checked.data),
 				documentClass: template.class,
 				useChurchBranding: true,
 				title: template.title,
@@ -254,7 +263,6 @@ export const churchWriter = {
 				revisionId: revId,
 				body: checked.data,
 				contentHash: hash,
-				archived: false,
 				provenance,
 			});
 		});
@@ -332,12 +340,10 @@ export const churchWriter = {
 		if (!row.found || row.archived) deny("unavailable");
 		if (row.prior_revision === null || BigInt(row.prior_revision) !== BigInt(input.expectedRevision)) deny("conflict");
 		if (!row.stored || !row.next_revision || !row.template_id || !row.input_provenance) deny("conflict");
-		return c.churchDocument.parse({
+		return churchResult(scope.tenantId, {
 			id: row.stored,
-			tenantId: scope.tenantId,
 			templateId: row.template_id,
 			templateVersion: Number(row.template_version),
-			formats: docFormats(input.body),
 			documentClass: input.body.class,
 			useChurchBranding: row.use_church_branding,
 			title: input.body.title,
@@ -345,7 +351,6 @@ export const churchWriter = {
 			revisionId: revId,
 			body: input.body,
 			contentHash: hash,
-			archived: false,
 			provenance: row.input_provenance,
 		});
 	},

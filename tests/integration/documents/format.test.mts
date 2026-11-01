@@ -4,7 +4,6 @@ import { readdirSync, readFileSync } from "node:fs";
 import test from "node:test";
 import {
 	FORMAT_SCHEMA,
-	blankDocument,
 	computeTable,
 	docDocument,
 	docTemplate,
@@ -137,11 +136,12 @@ test("a fork records its template, version and hash, freezes its data and surviv
 	assert.notEqual(await templateHash({ ...template, version: 2 }), doc.origin!.hash);
 });
 
-test("the kind parsers refuse the other kind, and a blank document is valid", () => {
+test("the kind parsers refuse the other kind", async () => {
 	const template = read("examples/guest-sign-in-sheet.json");
 	assert.match(docDocument.safeParse(template).error?.issues[0]?.message ?? "", /takes a document, not a template/);
-	assert.equal(docDocument.safeParse(blankDocument()).success, true);
-	assert.equal(docTemplate.safeParse(blankDocument()).success, false);
+	const doc = await forkTemplate(template, {});
+	assert.equal(docDocument.safeParse(doc).success, true);
+	assert.equal(docTemplate.safeParse(doc).success, false);
 	assert.equal(everyfieldDoc.safeParse([{ kind: "paragraph", text: "old body" }]).success, false);
 });
 
