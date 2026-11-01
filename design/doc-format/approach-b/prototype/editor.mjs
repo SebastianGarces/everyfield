@@ -1,7 +1,7 @@
 // The block editor of the prototype. It edits the format tree directly: each block is a DOM view with a bar of
 // controls; text runs are contenteditable and parse back into inline nodes on each input. No editor library.
 import { computeLedger } from "../format/model.mjs";
-import { blockHTML, esc, inlineHTML, money } from "./render.mjs";
+import { blockHTML, inlineHTML, money } from "./render.mjs";
 
 const el = (tag, attrs = {}, ...children) => {
 	const node = document.createElement(tag);
@@ -847,4 +847,3 @@ export function renderEditor(host, doc, api) {
 	host.scrollTop = scroll;
 }
 
-export { esc };

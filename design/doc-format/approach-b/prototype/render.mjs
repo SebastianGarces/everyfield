@@ -80,9 +80,9 @@ export const money = (n) =>
 	n === null || n === undefined ? "" : (n < 0 ? "−$" : "$") + Math.abs(n).toLocaleString("en-US", { maximumFractionDigits: 2 });
 const FILL_LABEL = { checkbox: "", signature: "Sign here", date: "", text: "", number: "", email: "", phone: "" };
 
-function fillBox(kind, label, value) {
+function fillBox(kind, value) {
 	if (kind === "checkbox") return `<span class="d-check" role="img" aria-label="Check box"></span>`;
-	return `<span class="d-fillbox d-fill-${kind}">${value ? esc(value) : `<span class="d-fill-hint">${FILL_LABEL[kind] ?? ""}</span>`}</span>${label === undefined ? "" : ""}`;
+	return `<span class="d-fillbox d-fill-${kind}">${value ? esc(value) : `<span class="d-fill-hint">${FILL_LABEL[kind] ?? ""}</span>`}</span>`;
 }
 
 function brandHTML(block, doc, ctx) {
@@ -230,7 +230,7 @@ export function blockHTML(block, doc, ctx) {
 			const cells = block.cells
 				.map((cell, i) => {
 					const value = cell.field ? doc.fields.find((f) => f.key === cell.field)?.value : null;
-					return `<div class="d-fill" style="flex-basis:${widths[i]}"><span class="d-fill-label">${esc(cell.label)}</span>${fillBox(cell.kind, cell.label, value)}</div>`;
+					return `<div class="d-fill" style="flex-basis:${widths[i]}"><span class="d-fill-label">${esc(cell.label)}</span>${fillBox(cell.kind, value)}</div>`;
 				})
 				.join("");
 			return `<div class="d-blk d-fillrow">${cells}</div>`;
