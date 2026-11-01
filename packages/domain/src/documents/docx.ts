@@ -6,9 +6,9 @@ import { zip, type ZipEntry } from "./zip.ts";
 // A Word file written straight to Office Open XML. Headings use the Word heading styles, lists use Word numbering and
 // the signature or adoption block is a Word table. The logo carries its alt text in the picture description.
 
-const NS =
+export const NS =
 	'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"';
-const HEAD = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
+export const HEAD = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
 /** US Letter with 0.75 inch margins: the text width in twips. */
 const TEXT_WIDTH = 10080;
 const EMU_PER_PT = 12700;
@@ -16,14 +16,14 @@ const NUM_BULLET = 1;
 const NUM_HEADING = 2;
 const NUM_FIRST_LIST = 10;
 
-const escape = (value: string) =>
+export const escape = (value: string) =>
 	value
 		.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]/g, "")
 		.replace(/&/g, "&amp;")
 		.replace(/</g, "&lt;")
 		.replace(/>/g, "&gt;")
 		.replace(/"/g, "&quot;");
-const hex = (color: string) => color.replace("#", "").toUpperCase();
+export const hex = (color: string) => color.replace("#", "").toUpperCase();
 
 type DocxInput = {
 	template: ChurchTemplate;
@@ -37,7 +37,8 @@ type DocxInput = {
 	created: Date;
 };
 
-type Ctx = ReturnType<typeof palette> & { fonts: DocxInput["fonts"] };
+export type DocxCtx = ReturnType<typeof palette> & { fonts: DocxInput["fonts"] };
+type Ctx = DocxCtx;
 const palette = (theme: RenderTheme) => ({ p: makePalette(theme) });
 
 const run = (text: string, o: { bold?: boolean; caps?: boolean; size?: number; color?: string; font?: string } = {}) =>
@@ -46,7 +47,7 @@ const para = (inner: string, ppr = "") => `<w:p>${ppr ? `<w:pPr>${ppr}</w:pPr>` 
 const styled = (style: string, text: string, extra = "", rpr?: Parameters<typeof run>[1]) =>
 	para(run(text, rpr), `<w:pStyle w:val="${style}"/>${extra}`);
 
-const border = (color: string, size = 4) =>
+export const border = (color: string, size = 4) =>
 	["top", "left", "bottom", "right"]
 		.map((side) => `<w:${side} w:val="single" w:sz="${size}" w:space="0" w:color="${hex(color)}"/>`)
 		.join("");
@@ -229,7 +230,7 @@ function footer(ctx: Ctx, input: DocxInput) {
 	)}${notice}</w:ftr>`;
 }
 
-function styles(ctx: Ctx) {
+export function styles(ctx: Ctx) {
 	const { heading, body } = ctx.fonts;
 	const font = (name: string) =>
 		`<w:rFonts w:ascii="${escape(name)}" w:hAnsi="${escape(name)}" w:cs="${escape(name)}"/>`;

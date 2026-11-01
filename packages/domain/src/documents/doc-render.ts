@@ -1,9 +1,12 @@
 import type { EveryfieldDoc } from "@everyfield/contracts/documents";
 import { renderDocumentWithLayout } from "@formepdf/core";
+import type { ExportTheme } from "./church-theme.ts";
+import { renderDocDocx } from "./doc-docx.ts";
 import { fieldValues } from "./doc-values.ts";
 import { PROBE_MARK, docElement, needsSplit, type FlowMode } from "./layouts/doc.tsx";
 import { RenderFailed, renderContext, renderPdfElement, unsafe, type PdfRender } from "./render.ts";
 import { NEUTRAL_THEME, type RenderTheme } from "./theme.ts";
+import { buildLedgerWorkbook, ledgerTables } from "./xlsx.ts";
 
 type LaidElement = { bookmark?: string; children?: LaidElement[] };
 
@@ -36,6 +39,31 @@ export async function renderDocPdf(doc: EveryfieldDoc, theme: RenderTheme = NEUT
 	try {
 		const mode = needsSplit(doc) ? await splitPoint(context(), doc) : ({ kind: "single" } as const);
 		return await renderPdfElement(docElement(context(), doc, mode));
+	} catch (error) {
+		if (error instanceof RenderFailed) throw error;
+		throw new RenderFailed(error);
+	}
+}
+
+export type DocFormat = "pdf" | "docx" | "xlsx";
+
+/** The formats a document offers: PDF and Word always, Excel when the body holds a ledger table (a budget). */
+export function docFormats(doc: EveryfieldDoc): DocFormat[] {
+	return ledgerTables(doc).length ? ["pdf", "docx", "xlsx"] : ["pdf", "docx"];
+}
+
+/**
+ * The bytes of one document in one format. The preview, every download and the saved export call this function, so
+ * one revision with one theme gives one set of bytes. A format the document does not offer is a failed render.
+ */
+export async function renderDocFile(doc: EveryfieldDoc, format: DocFormat, theme: ExportTheme, created: Date) {
+	if (!docFormats(doc).includes(format)) throw new RenderFailed();
+	if (format === "pdf") return (await renderDocPdf(doc, theme.render)).bytes;
+	try {
+		const bytes =
+			format === "docx" ? renderDocDocx(doc, theme, created) : buildLedgerWorkbook(doc, fieldValues(doc), theme.render);
+		if (bytes.length > 8 * 1024 * 1024) throw new RenderFailed();
+		return bytes;
 	} catch (error) {
 		if (error instanceof RenderFailed) throw error;
 		throw new RenderFailed(error);
