@@ -52,6 +52,7 @@ import {
 } from "./drive.ts";
 import { driveWithSignals } from "./drive-signal.ts";
 import { timing } from "./timing.ts";
+import { qaDown, qaList, qaUp } from "./qa.ts";
 import { usageBackfill, usageReport } from "./usage.ts";
 
 const HELP = `evf: Everyfield v3 workflow CLI
@@ -81,6 +82,12 @@ Verification (verifier)
         database, with the SELECT 1 (and, for saves, write) probe; labels, replaces, passes or fails
   evf pre-push <task>                                        require full exact-head author checks
   evf ship <task>                           report status and squash-merge
+
+QA previews for Nora (engineering lead, on Sebastian's Mac; docs/runbooks/qa-preview.md)
+  evf qa up <branch>        Neon branch off development, migrate, seed, Vercel preview of the branch head;
+                            prints the id and URL. The only sanctioned Vercel preview deployment.
+  evf qa list               open QA previews: id, branch, URL, Neon branch, age
+  evf qa down <id>          remove the alias, the deployment and the Neon branch (a second run is a no-op)
 
 Feedback desk (public feedback repo)
   evf feedback queue [--json]                                 intake, due backlog and recovery
@@ -452,6 +459,13 @@ function main(argv: string[]): number | Promise<number> {
 				throw new EvfError("--timeout takes a number of seconds.");
 			awaitLoad(root, "timing", ignoreLoad);
 			return timing(root, parseTask(args[0]), { setFile, head, timeoutSeconds });
+		}
+		case "qa": {
+			const [sub, arg] = args;
+			if (sub === "up" && arg && args.length === 2) return qaUp(root, arg);
+			if (sub === "list" && args.length === 1) return qaList(root);
+			if (sub === "down" && arg && args.length === 2) return qaDown(root, arg);
+			break;
 		}
 		case "id": {
 			const kind = args[1];

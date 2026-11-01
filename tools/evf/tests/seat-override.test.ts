@@ -65,15 +65,15 @@ test("OPS-81-migration: schema 3 reaches 4, keeps every row and a second run cha
 		"INSERT INTO tasks (slug, mode, ref, title, status, created_at, updated_at) VALUES ('ops-9', 'implement', 'OPS-9', 'kept', 'active', 't', 't')",
 	).run();
 	assert.deepEqual(migrate(db), {
-		version: 6,
-		applied: ["004-task-seat-override.sql", "005-merged-views.sql", "006-task-follow-ups.sql"],
+		version: 7,
+		applied: ["004-task-seat-override.sql", "005-merged-views.sql", "006-task-follow-ups.sql", "007-qa-previews.sql"],
 	});
 	assert.deepEqual(
 		{ ...(db.prepare("SELECT ref, title, status, seat_model, seat_effort FROM tasks").get() as object) },
 		{ ref: "OPS-9", title: "kept", status: "active", seat_model: null, seat_effort: null },
 	);
 	assert.ok("seat_model" in (db.prepare("SELECT * FROM v_tasks").get() as object));
-	assert.deepEqual(migrate(db), { version: 6, applied: [] });
+	assert.deepEqual(migrate(db), { version: 7, applied: [] });
 	db.close();
 });
 

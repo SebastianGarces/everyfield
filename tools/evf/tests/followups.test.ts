@@ -107,7 +107,7 @@ test("OPS-86-store: a store migrated from schema 4 gains queued and parent_task_
 			"INSERT INTO tasks (slug, mode, ref, title, status, seat_model, created_at, updated_at) VALUES ('ops-1', 'implement', 'OPS-1', 'One', 'active', 'm', 't', 't')",
 		);
 		assert.equal(schemaVersion(db), 4);
-		assert.deepEqual(migrate(db).applied, ["005-merged-views.sql", "006-task-follow-ups.sql"]);
+		assert.deepEqual(migrate(db).applied, ["005-merged-views.sql", "006-task-follow-ups.sql", "007-qa-previews.sql"]);
 		const row = db.prepare("SELECT * FROM v_tasks WHERE ref = 'OPS-1'").get() as Record<string, unknown>;
 		assert.equal(row.status, "active");
 		assert.equal(row.seat_model, "m");

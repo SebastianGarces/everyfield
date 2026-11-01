@@ -35,7 +35,8 @@ number D<n> with `bin/evf id next ops|decision`; never take the next number from
 - UI work runs in the implementer seat (Sonnet 5.5 medium), which reads `.agents/roles/ui-designer.md`
   and uses the better-* skills. A design-heavy spec opts into the separate `ui` seat with the line
   `Seat: ui`. Opus 5.5 medium plans and verifies.
-- Use one portless preview per worktree. No Vercel preview deployments.
+- Use one portless preview per worktree. No Vercel preview deployments, except `bin/evf qa` for Nora's QA
+  previews (`docs/runbooks/qa-preview.md`).
 - The shared development database may be wiped and reseeded. Run the repo seed and preview scripts freely.
   Timing sets run only through `bin/evf timing`, on its own quiet local database (D81).
 - Follow `docs/architecture/patterns.md` and `docs/architecture/decisions.md` for shared mechanisms
