@@ -6,6 +6,7 @@ import {
 	cursor,
 	EMPTY,
 	merge,
+	mergeLive,
 	opened,
 	turnsOf,
 	type Conversation,
@@ -24,6 +25,7 @@ import {
 type Action =
 	| { type: "open"; state: State }
 	| { type: "events"; events: readonly ConversationEvent[] }
+	| { type: "live"; turnId: string; offset: number; text: string }
 	| { type: "conversation"; conversation: Conversation }
 	| { type: "send"; send: Send }
 	| { type: "sent"; key: string; patch: Partial<Send> }
@@ -37,6 +39,8 @@ function reduce(state: State, action: Action): State {
 			return action.state;
 		case "events":
 			return merge(state, action.events);
+		case "live":
+			return mergeLive(state, action.turnId, action.offset, action.text);
 		case "conversation":
 			return { ...state, conversation: action.conversation };
 		case "send":
@@ -169,6 +173,15 @@ export function useConversation(open: boolean) {
 		const onEvent = (e: MessageEvent<string>) =>
 			dispatch({ type: "events", events: [JSON.parse(e.data) as ConversationEvent] });
 		for (const kind of KINDS) source.addEventListener(kind, onEvent);
+		// The running turn's text as this server received it, ahead of its saved events.
+		source.addEventListener("live", (e) => {
+			const { turnId, offset, text } = JSON.parse((e as MessageEvent<string>).data) as {
+				turnId: string;
+				offset: number;
+				text: string;
+			};
+			dispatch({ type: "live", turnId, offset, text });
+		});
 		source.onopen = () => setStream("live");
 		// The server ends the stream when no run is active; any run the panel still waits for has no more events.
 		source.addEventListener("idle", () => {
@@ -299,7 +312,7 @@ export function useConversation(open: boolean) {
 		setLoad("ready");
 	};
 
-	const turns = useMemo(() => turnsOf(state.events), [state.events]);
+	const turns = useMemo(() => turnsOf(state.events, state.live), [state.events, state.live]);
 	return {
 		state,
 		turns,
