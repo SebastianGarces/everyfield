@@ -37,7 +37,7 @@ for (const [name, engine] of ENGINES) {
 			for (const old of ["All your plants, in one place.", "See the patterns across your plants.", "Sample data"])
 				assert.equal(await page.getByText(old).count(), 0, old);
 			// No EvryBot, no Evry chat or card anywhere on the page.
-			assert.equal(await page.locator("[data-size][class*='group/eb']").count(), 0);
+			assert.equal(await page.locator("[data-evry-bot]").count(), 0);
 			assert.equal(
 				await page
 					.locator("main")

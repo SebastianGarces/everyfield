@@ -1462,6 +1462,13 @@
 			"checks": [{ "name": "documentation", "run": ["python3", "docs/check-all.py"] }],
 			"risk": "ordinary",
 			"prototypeApproval": { "quote": "OPS-101 looks good", "approvedAt": "2026-11-01T13:16:00Z" }
+		},
+		"OPS-103": {
+			"title": "Doc format approach A: one document and template format for every Everyfield template, with design doc, examples and a self-contained HTML prototype in design/doc-format/approach-a/ (Opus 5.5 medium)",
+			"route": "design",
+			"owningPaths": ["design/doc-format/approach-a/"],
+			"checks": [{ "name": "documentation", "run": ["python3", "docs/check-all.py"] }],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {

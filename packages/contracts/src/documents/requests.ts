@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { personId, recordId } from "../common/values.ts";
-import { churchBody } from "./body.ts";
+import { docDocument } from "./format/index.ts";
 import { MERGE_KEY_MAX, MERGE_VALUE_MAX, documentCategory, documentFormat, templateId } from "./values.ts";
 
 const overrides = z.record(z.string().trim().min(1).max(80), z.string().max(MERGE_VALUE_MAX)).optional();
@@ -51,30 +51,41 @@ export const saveNativeRequest = z.strictObject({
 	documentId: recordId.optional(),
 	expectedRevision: revisionToken,
 });
-/** A Church Document saves its structured body. The title and the frame come from the template. */
+/** A Church Document saves one everyfield.doc/1 document (`kind: "document"`). Any other shape is refused. */
 export const saveChurchRequest = z.strictObject({
 	documentId: recordId,
 	expectedRevision: revisionToken,
-	body: churchBody,
+	body: docDocument,
 });
-/** An editable template id, merge values and a request key. The same key returns the same document. */
+/** A built-in template id, merge values by field key and a request key. The same key returns the same document. */
 export const createFromTemplateRequest = z.strictObject({
 	templateId,
 	mergeFields: overrides,
 	requestKey: z.string().trim().min(1).max(80),
 });
-export const churchFormat = z.enum(["pdf", "docx"]);
 export const exportNativeRequest = z.strictObject({
 	documentId: recordId,
 	/** The revision number to export, from 1. */
 	revision: z.int().min(1).max(1_000_000),
-	format: churchFormat,
+	format: documentFormat,
 	requestKey: z.string().trim().min(1).max(80),
 });
 export const setBrandingRequest = z.strictObject({ documentId: recordId, useChurchBranding: z.boolean() });
 export const churchRevisionRequest = z.strictObject({ documentId: recordId, revision: z.int().min(1).max(1_000_000) });
 /** The revision list of one Church Document. An empty request lists saved exports. */
 export const churchHistoryRequest = z.strictObject({ documentId: recordId });
+/** One Church Document with its current revision. */
+export const readChurchRequest = z.strictObject({ documentId: recordId });
+/** The Church Documents of the church plant. */
+export const listChurchRequest = z.strictObject({});
+/** The bytes of one revision in one format: the preview and every download read this. No revision: the current one. */
+export const churchFileRequest = z.strictObject({
+	documentId: recordId,
+	revision: z.int().min(1).max(1_000_000).optional(),
+	format: documentFormat,
+});
+/** Delete a Church Document from the library. The expected revision guards against a stale page. */
+export const deleteChurchRequest = z.strictObject({ documentId: recordId, expectedRevision: revisionToken });
 export const archiveDocumentRequest = z.strictObject({
 	documentId: recordId,
 	expectedRevision: revisionToken,

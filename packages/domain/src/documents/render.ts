@@ -21,11 +21,13 @@ export const RENDER_PROFILE = {
 	packages: { "@formepdf/core": "0.29.0", "@formepdf/react": "0.29.0", "pdf-lib": "1.17.1" },
 	layout: 3,
 } as const;
-const ARTIFACT_MAX = 8 * 1024 * 1024;
+
+/** The largest file one render may give, in bytes. */
+export const ARTIFACT_MAX = 8 * 1024 * 1024;
 
 export class RenderFailed extends Error {
-	constructor() {
-		super("render_failed");
+	constructor(cause?: unknown) {
+		super("render_failed", cause === undefined ? undefined : { cause });
 	}
 }
 

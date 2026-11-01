@@ -192,7 +192,6 @@
 	--color-mk-ink-46: rgb(from var(--color-ink) r g b / 0.46);
 	--color-mk-ink-50: rgb(from var(--color-ink) r g b / 0.5);
 	--color-mk-ink-60: rgb(from var(--color-ink) r g b / 0.6);
-	--color-mk-white-0: rgb(from var(--color-white) r g b / 0);
 	--color-mk-white-25: rgb(from var(--color-white) r g b / 0.25);
 	--color-mk-white-55: rgb(from var(--color-white) r g b / 0.55);
 	--color-mk-green-16: rgb(from var(--color-green-500) r g b / 0.16);
@@ -204,9 +203,6 @@
 	--color-mk-done-top: #07e38d;
 	--color-mk-done-bottom: #01c278;
 	--color-mk-done-ink: #003e23;
-	--color-mk-bot-shade: #013c22;
-	--color-mk-bot-shade-18: rgb(from var(--color-mk-bot-shade) r g b / 0.18);
-	--color-mk-bot-shade-35: rgb(from var(--color-mk-bot-shade) r g b / 0.35);
 	--color-mk-focus-blue-20: rgb(from var(--color-blue-500) r g b / 0.2);
 	--color-mk-skeleton: #eceff2;
 	--color-mk-skeleton-hi: #f7f8fa;
@@ -265,11 +261,6 @@
 	--animate-mk-shimmer: mk-shimmer 2.4s ease-in-out infinite;
 	/* The typing caret is a 1.5 px stripe at the end of the typed text (a background), so it never moves a box. */
 	--animate-mk-caret: mk-caret 1s steps(1) infinite;
-	--animate-eb-morph: eb-morph 9s ease-in-out infinite;
-	--animate-eb-bounce: eb-bounce 0.9s cubic-bezier(0.3, 1.6, 0.5, 1) infinite alternate;
-	--animate-eb-talk: eb-talk 0.36s ease-in-out infinite alternate;
-	--animate-eb-blink: eb-blink var(--blink, 4.6s) infinite var(--blink-delay, 0s);
-	--animate-eb-blink-now: eb-blink-now 0.18s ease;
 
 	/* The /oversight hero dashboard rises in once on load. */
 	--animate-mk-ov-rise: mk-ov-rise 0.9s cubic-bezier(0.33, 1, 0.68, 1) 0.2s both;
@@ -296,58 +287,90 @@
 			background-size: 0 0;
 		}
 	}
-	@keyframes eb-blink {
-		0%,
-		94%,
-		100% {
-			transform: scaleY(1);
-		}
-		96% {
-			transform: scaleY(0.08);
-		}
+}
+
+/* Evry on the landing pages (components/kit/EvryBot.tsx wraps the @everyfield/ui EvryBot). product.css scopes its
+   .evry-bot rules to the product root, which marketing pages never render, so the kit root carries the same rules. The
+   keyframes (ef-eb-float, ef-eb-blink, ef-eb-bounce, ef-eb-orbit) come from product.css; the reduced-motion rule in the
+   base layer stops them. Keep these rules in step with product.css. */
+@layer components {
+	[data-evry-bot] .evry-bot {
+		--s: 24px;
+		position: relative;
+		display: block;
+		width: var(--s);
+		height: var(--s);
 	}
-	@keyframes eb-blink-now {
-		50% {
-			transform: scaleY(0.08);
-		}
+	[data-evry-bot] .evry-bot[data-size="lg"] {
+		--s: 40px;
 	}
-	@keyframes eb-morph {
-		0%,
-		100% {
-			border-radius: 46% 54% 52% 48% / 50% 46% 54% 50%;
-			transform: rotate(0deg) scale(1);
-		}
-		25% {
-			border-radius: 58% 42% 40% 60% / 48% 58% 42% 52%;
-			transform: rotate(-4deg) scale(1.02, 0.98);
-		}
-		50% {
-			border-radius: 38% 62% 56% 44% / 60% 40% 60% 40%;
-			transform: rotate(3deg) scale(0.98, 1.03);
-		}
-		75% {
-			border-radius: 52% 48% 62% 38% / 44% 56% 44% 56%;
-			transform: rotate(-2deg) scale(1.01);
-		}
+	[data-evry-bot] .eb-body {
+		position: absolute;
+		inset: 0;
 	}
-	@keyframes eb-bounce {
-		from {
-			transform: translateY(0) scale(1.03, 0.97);
-			border-radius: 50% 50% 46% 54% / 56% 56% 44% 44%;
-		}
-		to {
-			transform: translateY(calc(var(--s) * -0.08)) scale(0.98, 1.03);
-			border-radius: 46% 54% 52% 48% / 50% 46% 54% 50%;
-		}
+	[data-evry-bot] .eb-body svg {
+		display: block;
+		width: 100%;
+		height: 100%;
+		overflow: visible;
+		filter: drop-shadow(0 calc(var(--s) * 0.05) calc(var(--s) * 0.06) rgb(1 60 34 / 0.3));
 	}
-	@keyframes eb-talk {
-		from {
-			height: calc(var(--s) * 0.04);
-			width: calc(var(--s) * 0.14);
-		}
-		to {
-			height: calc(var(--s) * 0.12);
-			width: calc(var(--s) * 0.12);
+	/* The float runs at lg only: held bots and happy, which bounces, do not float. */
+	[data-evry-bot] .evry-bot[data-eb][data-size="lg"]:not([data-hold], [data-mood="happy"]) .eb-body {
+		transform-origin: 50% 92%;
+		will-change: transform;
+		animation: ef-eb-float var(--eb-float, 3.6s) ease-in-out var(--eb-float-at, 0s) infinite alternate;
+	}
+	[data-evry-bot] .eb-fill {
+		fill: var(--ef-green);
+	}
+	[data-evry-bot] :is(.eb-s0, .eb-s1) {
+		stop-color: #013c22;
+		stop-opacity: 0;
+	}
+	[data-evry-bot] .eb-s1 {
+		stop-opacity: 0.22;
+	}
+	[data-evry-bot] :is(.eb-h0, .eb-h1) {
+		stop-color: #fff;
+		stop-opacity: 0;
+	}
+	[data-evry-bot] .eb-h0 {
+		stop-opacity: 0.6;
+	}
+	[data-evry-bot] .eb-e {
+		fill: var(--color-ink-fixed);
+		transform-box: fill-box;
+		transform-origin: center;
+	}
+	[data-evry-bot] .evry-bot[data-blink] .eb-e {
+		animation: ef-eb-blink 0.18s ease;
+	}
+	[data-evry-bot] .evry-bot[data-mood="happy"] {
+		animation: ef-eb-bounce 0.9s cubic-bezier(0.3, 1.6, 0.5, 1) infinite alternate;
+	}
+	[data-evry-bot] .evry-bot[data-mood="happy"] .eb-e {
+		fill: none;
+		stroke: var(--color-ink-fixed);
+		stroke-width: 4.65;
+		stroke-linecap: round;
+	}
+	/* Thinking: the dot orbits at lg only. */
+	[data-evry-bot] .evry-bot[data-mood="thinking"][data-size="lg"]::after {
+		content: "";
+		position: absolute;
+		width: calc(var(--s) * 0.16);
+		height: calc(var(--s) * 0.16);
+		border-radius: 50%;
+		background: var(--color-ink-fixed);
+		top: 50%;
+		left: 50%;
+		margin: calc(var(--s) * -0.08);
+		animation: ef-eb-orbit 1.4s linear infinite;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		[data-evry-bot] .evry-bot[data-mood="thinking"]::after {
+			display: none;
 		}
 	}
 }

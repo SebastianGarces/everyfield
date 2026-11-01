@@ -15,9 +15,8 @@ import { deny, parse, plantViewer, readPlant, rejectInput, settle } from "./acce
 import { churchWriter } from "./church-writes.ts";
 import { library } from "./catalog.ts";
 import { cleanOverrides, resolveMerge } from "./merge.ts";
-import { RenderFailed, digestOf, renderEngineVersion, renderPreview } from "./render.ts";
+import { ARTIFACT_MAX, RenderFailed, digestOf, renderEngineVersion, renderPreview } from "./render.ts";
 import {
-	ARTIFACT_MAX,
 	MEDIA,
 	PAGE,
 	gateSql,
@@ -347,6 +346,10 @@ const generatedWriter = {
 	createFromTemplate: churchWriter.createFromTemplate,
 	setBranding: churchWriter.setBranding,
 	exportNative: churchWriter.exportNative,
+	readChurch: churchWriter.readChurch,
+	listChurch: churchWriter.listChurch,
+	readChurchFile: churchWriter.readChurchFile,
+	deleteChurch: churchWriter.deleteChurch,
 
 	async readCoreValuesEvidence(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
@@ -871,7 +874,8 @@ function historyGet(db: Database, authority: RequestActor, raw: unknown) {
 }
 
 /**
- * `documents.saveNative`: a structured body saves a Church Document, a text body saves a plain native document.
+ * `documents.saveNative`: a text body saves a plain native document. Any other body saves a Church Document, whose
+ * parser accepts only an everyfield.doc/1 document and refuses an old block list with invalid_input.
  */
 function saveNative(
 	db: Database,
@@ -880,7 +884,7 @@ function saveNative(
 ): Reply<c.ChurchDocument>;
 function saveNative(db: Database, authority: RequestActor, raw: unknown): Reply<OwnedDocument>;
 function saveNative(db: Database, authority: RequestActor, raw: unknown) {
-	if (typeof raw === "object" && raw !== null && Array.isArray((raw as { body?: unknown }).body))
+	if (typeof raw === "object" && raw !== null && "body" in raw && typeof raw.body !== "string")
 		return settle(() => churchWriter.saveChurch(db, authority, parse(c.saveChurchRequest, raw)));
 	return generatedWriter.saveNative(db, authority, raw);
 }
