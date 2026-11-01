@@ -47,6 +47,12 @@ These accounts exist only on QA Neon branches, behind Vercel Deployment Protecti
 "Harvest Point (QA)". The church has people, a household, three teams, two meetings, tasks, two follow-ups, a written
 document, a draft message and the wiki.
 
+The Neon branch is a copy of the development database, so it also holds the development data of other churches. The
+QA logins see only Harvest Point (QA).
+
+Known gap: the Documents page shows "We could not load documents" on every Vercel deployment. The server bundle does
+not include `packages/reference/src/freeze.json`. Uploads still work, for example a signed commitment card on a person.
+
 ### Email on a QA preview
 
 Every seeded person and login uses a `delivered+<label>@resend.dev` address. Resend accepts mail to these addresses
@@ -56,11 +62,12 @@ request. No cron job is needed, and Vercel does not run cron on previews. Evry t
 ## 3. How a bot gets in: Protection Bypass for Automation
 
 Deployment Protection stays on for every preview. A remote-browser bot gets in with Vercel's Protection Bypass for
-Automation. Sebastian sets it up once, after he approves it in the OPS-106 PR:
+Automation. The project has exactly one bypass secret, made on 2026-11-01 after Sebastian approved it in the OPS-106
+PR. Its note starts with "OPS-106 Nora QA remote-browser bot".
 
-1. In Vercel, open the `everyfield` project, then Settings, then Deployment Protection.
-2. Under "Protection Bypass for Automation", create a secret.
-3. Sebastian copies the secret into Nora's remote-browser secret store himself, under the name
+1. To read it, open the `everyfield` project in Vercel, then Settings, then Deployment Protection, then "Protection
+   Bypass for Automation".
+2. Sebastian copies the secret into Nora's remote-browser secret store himself, under the name
    `VERCEL_AUTOMATION_BYPASS_SECRET`.
 
 The secret never goes into chat, the repository, a PR, a task note or a screenshot. To replace it, Sebastian creates a
