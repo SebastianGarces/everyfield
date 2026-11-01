@@ -1,36 +1,38 @@
 import * as c from "@everyfield/contracts/documents";
-import type { Database, Transaction } from "@everyfield/db/client";
+import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import {
 	createAuthorizedDownload,
 	deleteUnreferencedObject,
-	putPrivateObject,
 	type PrivateStorage,
 	type ResourceAuthorizer,
 } from "@everyfield/db/schema";
 import { createHash, randomUUID } from "node:crypto";
 import "server-only";
-import { liveRead, type RequestActor } from "../access/session.ts";
-import { deny, parse, plantViewer, readPlant, rejectInput, settle, type PlantViewer } from "./access.ts";
+import type { z } from "zod";
+import { type RequestActor } from "../access/session.ts";
+import { deny, parse, plantViewer, readPlant, rejectInput, settle } from "./access.ts";
+import { churchWriter } from "./church-writes.ts";
 import { library } from "./catalog.ts";
 import { cleanOverrides, resolveMerge } from "./merge.ts";
 import { RenderFailed, digestOf, renderEngineVersion, renderPreview } from "./render.ts";
+import {
+	ARTIFACT_MAX,
+	MEDIA,
+	PAGE,
+	gateSql,
+	generatedFrom,
+	historyRows,
+	iso,
+	plantScope,
+	postgresCode,
+	refuseStorage,
+	rowsOf,
+	sameRevision,
+	storeBytes,
+	type Scope,
+} from "./scope.ts";
 import { ImportRejected, readImport } from "./unpack.ts";
-
-const ARTIFACT_MAX = 8 * 1024 * 1024;
-const PAGE = 100;
-const MEDIA = {
-	pdf: "application/pdf",
-	docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-	xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-} as const;
-
-type Scope = {
-	kind: "account" | "plant";
-	tenantId: string;
-	accountId: string;
-	access: Parameters<typeof liveRead>[0];
-};
 
 type OwnedRow = {
 	id: string;
@@ -45,27 +47,8 @@ type OwnedRow = {
 	copied_from_hash: string | null;
 };
 
-function postgresCode(error: unknown) {
-	let current: unknown = error;
-	for (let depth = 0; depth < 4 && current && typeof current === "object"; depth++) {
-		const code = (current as { code?: unknown }).code;
-		if (typeof code === "string" && /^[0-9A-Z]{5}$/.test(code)) return code;
-		current = (current as { cause?: unknown }).cause;
-	}
-	return undefined;
-}
-
 function hashOf(body: string) {
 	return createHash("sha256").update(body, "utf8").digest("hex");
-}
-
-function gateSql(scope: Scope, admin: boolean) {
-	if (!admin || scope.kind === "account") return liveRead(scope.access, false);
-	return sql`${liveRead(scope.access, false)} AND ${scope.access.role ?? ""} <> 'member'`;
-}
-
-function plantScope(viewer: PlantViewer): Scope {
-	return { kind: "plant", tenantId: viewer.plantId, accountId: viewer.accountId, access: viewer.access };
 }
 
 function accountScope(authority: RequestActor): Scope | null {
@@ -118,60 +101,7 @@ function ownedFrom(row: OwnedRow, tenantId: string) {
 	});
 }
 
-function iso(value: unknown) {
-	if (value instanceof Date) return value.toISOString();
-	if (typeof value === "string" && !Number.isNaN(Date.parse(value))) return new Date(value).toISOString();
-	deny();
-}
-
-async function rowsOf<T>(db: Pick<Database, "execute"> | Transaction, query: ReturnType<typeof sql>) {
-	const found = await db.execute(query);
-	return found.rows as T[];
-}
-
-function sameRevision(left: string, right: string) {
-	return BigInt(left) === BigInt(right);
-}
-
-function refuseStorage(error: unknown): never {
-	if (
-		error instanceof Error &&
-		["unavailable", "invalid_file", "private_bucket_required", "invalid_upload_key"].includes(error.message)
-	)
-		deny();
-	throw error;
-}
-
-async function storeBytes(
-	db: Database,
-	storage: PrivateStorage | null,
-	scope: Scope,
-	purpose: "generated" | "native_import",
-	mediaType: string,
-	bytes: Uint8Array,
-	uploadKey: string,
-) {
-	if (!storage) deny();
-	const authorize: ResourceAuthorizer = async (tx, file, intent) => {
-		if (intent !== "put" || file.tenant_id !== scope.tenantId || file.purpose !== purpose) return null;
-		const found = await rowsOf<{ ok: boolean }>(tx, sql`SELECT ${gateSql(scope, purpose === "native_import")} AS ok`);
-		if (found[0]?.ok !== true) return null;
-		return { kind: "account", actorId: scope.accountId };
-	};
-	try {
-		return await putPrivateObject(db, storage, authorize, {
-			tenantId: scope.tenantId,
-			purpose,
-			mediaType,
-			bytes,
-			uploadKey,
-		});
-	} catch (error) {
-		return refuseStorage(error);
-	}
-}
-
-export const documentsWriter = {
+const generatedWriter = {
 	async generate(db: Database, authority: RequestActor, raw: unknown, storage: PrivateStorage | null) {
 		return settle(async () => {
 			const input = parse(c.generateRequest, raw);
@@ -300,6 +230,8 @@ export const documentsWriter = {
 						generatedAt: iso(row.generated_at),
 						creatorAccountId: scope.accountId,
 						revision: row.revision,
+						source: null,
+						theme: null,
 					});
 			} catch (error) {
 				if (postgresCode(error) !== "23505") {
@@ -391,6 +323,7 @@ export const documentsWriter = {
 					d.archived_at IS NOT NULL AS archived, d.copied_from_revision_id, d.copied_from_hash, r.body, r.content_hash
 				FROM (SELECT ${gateSql(scope, false)} AS ok) g
 				LEFT JOIN document d ON g.ok AND d.tenant_id = ${scope.tenantId}::uuid AND d.current_revision_id IS NOT NULL
+					AND d.kind <> 'church_document'
 				LEFT JOIN document_revision r ON r.id = d.current_revision_id AND r.tenant_id = d.tenant_id
 				ORDER BY r.recorded_at DESC NULLS LAST
 				LIMIT ${PAGE}`,
@@ -410,6 +343,10 @@ export const documentsWriter = {
 	async getAuthorized(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(() => readOwned(db, authority, raw));
 	},
+
+	createFromTemplate: churchWriter.createFromTemplate,
+	setBranding: churchWriter.setBranding,
+	exportNative: churchWriter.exportNative,
 
 	async readCoreValuesEvidence(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
@@ -619,59 +556,6 @@ export const documentsWriter = {
 	},
 };
 
-function generatedFrom(
-	row: {
-		id: string;
-		template_version: string;
-		saved_template_name: string;
-		format: "pdf" | "docx" | "xlsx";
-		download_name: string;
-		generated_at: Date | string;
-		creator_account_id: string | null;
-		revision: string;
-		sha256: string;
-		byte_count: string | number;
-	},
-	plantId: string,
-	templateId: string,
-) {
-	return c.generatedDocument.parse({
-		id: row.id,
-		plantId,
-		templateId,
-		templateVersion: row.template_version,
-		savedTemplateName: row.saved_template_name,
-		format: row.format,
-		digest: row.sha256,
-		byteCount: Number(row.byte_count),
-		downloadName: row.download_name,
-		generatedAt: iso(row.generated_at),
-		creatorAccountId: row.creator_account_id,
-		revision: row.revision,
-	});
-}
-
-async function historyRows(db: Database, scope: Scope, documentId: string | null) {
-	const found = await rowsOf<
-		Parameters<typeof generatedFrom>[0] & { ok: boolean; template_id: string; present: boolean }
-	>(
-		db,
-		sql`SELECT g.ok, gd.id, gd.template_id, gd.template_version, gd.saved_template_name, gd.format, gd.download_name,
-			gd.generated_at, gd.creator_account_id, gd.revision::text AS revision, f.sha256, f.byte_count,
-			gd.id IS NOT NULL AS present
-		FROM (SELECT ${gateSql(scope, false)} AS ok) g
-		LEFT JOIN generated_document gd ON g.ok AND gd.tenant_id = ${scope.tenantId}::uuid
-			AND (${documentId}::uuid IS NULL OR gd.id = ${documentId}::uuid)
-		LEFT JOIN file_object f ON f.id = gd.object_id AND f.tenant_id = gd.tenant_id AND f.state = 'ready'
-		WHERE f.id IS NOT NULL OR gd.id IS NULL
-		ORDER BY gd.generated_at DESC NULLS LAST
-		LIMIT ${PAGE}`,
-	);
-	if (found[0]?.ok !== true && found.length > 0) deny();
-	if (found.length === 0) deny();
-	return found.filter((row) => row.present);
-}
-
 async function readOwned(db: Database, authority: RequestActor, raw: unknown) {
 	const input = parse(c.ownedDocumentRequest, raw);
 	const scope = viewScope(authority);
@@ -683,6 +567,7 @@ async function readOwned(db: Database, authority: RequestActor, raw: unknown) {
 		FROM (SELECT ${gateSql(scope, false)} AS ok) g
 		LEFT JOIN document d ON g.ok AND d.id = ${input.documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid
 			AND d.current_revision_id IS NOT NULL
+			AND d.kind <> 'church_document'
 		LEFT JOIN document_revision r ON r.id = d.current_revision_id AND r.tenant_id = d.tenant_id`,
 	);
 	if (!found[0]?.ok || !found[0].id) deny();
@@ -794,7 +679,7 @@ async function appendNative(
 			FROM document d
 			JOIN document_revision r ON r.id = d.current_revision_id AND r.tenant_id = d.tenant_id
 			JOIN gate ON gate.ok
-			WHERE d.id = ${documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid
+			WHERE d.id = ${documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid AND d.kind <> 'church_document'
 		),
 		added AS (
 			INSERT INTO document_revision (
@@ -889,7 +774,7 @@ async function mutateOwned(
 			FROM document d
 			JOIN document_revision r ON r.id = d.current_revision_id AND r.tenant_id = d.tenant_id
 			JOIN gate ON gate.ok
-			WHERE d.id = ${documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid
+			WHERE d.id = ${documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid AND d.kind <> 'church_document'
 		),
 		updated AS (
 			UPDATE document SET
@@ -956,3 +841,53 @@ function decodeImport(value: string) {
 	if (!bytes.length || bytes.length > 10 * 1024 * 1024) rejectInput("bytes", "The file must be 10 MiB or smaller.");
 	return bytes;
 }
+
+type Reply<T> = Promise<c.DocumentsReply<T>>;
+type GeneratedDocument = z.infer<typeof c.generatedDocument>;
+type GeneratedHistory = z.infer<typeof c.generatedHistory>;
+type OwnedDocument = z.infer<typeof c.ownedDocument>;
+
+/**
+ * `documents.history.list` and `documents.history.get`: the revisions of a Church Document when the request names a
+ * document (and a revision), the saved files of the church plant otherwise.
+ */
+function historyList(db: Database, authority: RequestActor, raw: { documentId: string }): Reply<c.ChurchRevisionList>;
+function historyList(db: Database, authority: RequestActor, raw: unknown): Reply<GeneratedHistory>;
+function historyList(db: Database, authority: RequestActor, raw: unknown) {
+	if (typeof raw === "object" && raw !== null && "documentId" in raw)
+		return churchWriter["history.list.church"](db, authority, raw);
+	return generatedWriter["history.list"](db, authority, raw);
+}
+function historyGet(
+	db: Database,
+	authority: RequestActor,
+	raw: { documentId: string; revision: number },
+): Reply<c.ChurchRevision>;
+function historyGet(db: Database, authority: RequestActor, raw: unknown): Reply<GeneratedDocument>;
+function historyGet(db: Database, authority: RequestActor, raw: unknown) {
+	if (typeof raw === "object" && raw !== null && "revision" in raw)
+		return churchWriter["history.get.church"](db, authority, raw);
+	return generatedWriter["history.get"](db, authority, raw);
+}
+
+/**
+ * `documents.saveNative`: a structured body saves a Church Document, a text body saves a plain native document.
+ */
+function saveNative(
+	db: Database,
+	authority: RequestActor,
+	raw: z.input<typeof c.saveChurchRequest>,
+): Reply<c.ChurchDocument>;
+function saveNative(db: Database, authority: RequestActor, raw: unknown): Reply<OwnedDocument>;
+function saveNative(db: Database, authority: RequestActor, raw: unknown) {
+	if (typeof raw === "object" && raw !== null && Array.isArray((raw as { body?: unknown }).body))
+		return settle(() => churchWriter.saveChurch(db, authority, parse(c.saveChurchRequest, raw)));
+	return generatedWriter.saveNative(db, authority, raw);
+}
+
+export const documentsWriter = {
+	...generatedWriter,
+	saveNative,
+	"history.list": historyList,
+	"history.get": historyGet,
+};

@@ -1,9 +1,10 @@
 import type { Database } from "@everyfield/db/client";
 import { streamText, tool, type ModelMessage, type StopCondition, type ToolSet } from "ai";
 import { z } from "zod";
-import { READ_DOMAINS, readCatalog, SELECT_RETURNED_ROWS } from "../catalog/catalog.ts";
+import { readCatalog, SELECT_RETURNED_ROWS } from "../catalog/catalog.ts";
 import { invokeRead } from "../catalog/invoke.ts";
 import { verifyPeople } from "../adapters/people/reads/index.ts";
+import { liveRowKeys } from "../conversations/liveness.ts";
 import type { ReadAdapter, SourceResult } from "../catalog/types.ts";
 import { sameContext, type EvryActor } from "../context/actor.ts";
 import {
@@ -18,6 +19,8 @@ import { LIMITS, type StopReason } from "../context/limits.ts";
 import { allowedWrites, prepareProposal } from "../proposals/store.ts";
 import type { QualifiedModel } from "./model.ts";
 import { appendEvent, loadHistory, loadTurn, savedResult, type RunLease, type Turn } from "./run-store.ts";
+import { liveRoom } from "./live.ts";
+import { readTools } from "./tools.ts";
 import { meteredModel } from "./spend.ts";
 import { traced, traceTurn, type Claimed } from "./trace.ts";
 
@@ -27,8 +30,6 @@ export type RunDeps = {
 	/** The session's current actor, read again from the database: the fresh authority check before every read. */
 	freshActor(session: string): Promise<EvryActor | null>;
 	now?: () => Date;
-	/** How often streamed text is saved for observers. */
-	flushMs?: number;
 };
 /** succeeded: the turn saved its final state. failed: it saved a failure. lost: it no longer owned the run. */
 /** Stands in for this turn's earlier assistant text once one of its sources is no longer available. */
@@ -96,9 +97,16 @@ async function run(
 	// A paid model reserves and settles each call in the month's spend counter (D77).
 	let meter: ReturnType<typeof meteredModel> | null = null;
 	let firstText = true;
+	// Streamed text goes to this process's observers at once (live.ts) and to the database off the read loop: one save
+	// in flight, each taking all the text that arrived meanwhile, so a slow database never delays the model stream.
+	const room = liveRoom(turn.conversation_id);
+	room.begin(lease.turnId);
+	const saves: { running: Promise<void> | null; failed: { error: unknown } | null } = { running: null, failed: null };
 	const save = async (kind: "assistant_text" | "tool_result", body: Record<string, unknown>) => {
+		// A result is saved after the text before it, so replay keeps the order.
+		if (kind === "tool_result") await drain();
 		const append = () => appendEvent(db, lease, turn.conversation_id, kind, body);
-		// The first saved text is what an observer can first deliver: the end of the time to first token on our side.
+		// The first saved text is what an observer can first read from the database: the end of the time to first token on our side.
 		const first = kind === "assistant_text" && firstText;
 		firstText &&= !first;
 		const sequence = lost
@@ -114,11 +122,28 @@ async function run(
 		}
 		return sequence;
 	};
-	const flush = async () => {
-		if (!pending) return;
-		const delta = pending;
-		pending = "";
-		await save("assistant_text", { text: delta });
+	const kick = () => {
+		saves.running ??= (async () => {
+			// Yield first, so the promise is stored before this loop can finish and clear it.
+			await null;
+			try {
+				while (pending && !lost) {
+					const delta = pending;
+					pending = "";
+					await save("assistant_text", { text: delta });
+				}
+			} catch (error) {
+				saves.failed = { error };
+			} finally {
+				saves.running = null;
+			}
+		})();
+	};
+	/** Waits until every delta received so far is saved; rethrows a failed save. */
+	const drain = async () => {
+		kick();
+		while (saves.running) await saves.running;
+		if (saves.failed) throw saves.failed.error;
 	};
 	const fail = (error: EvryRefusal) => {
 		failure ??= error;
@@ -190,21 +215,23 @@ async function run(
 		let current = actor;
 		/** This turn's messages with sources that are no longer available withheld. One read per model call. */
 		const withLiveRows = async (messages: ModelMessage[]) => {
-			const ids = new Set<string>();
+			type Row = { kind: string; id: string };
+			const key = (row: Row) => `${row.kind}:${row.id}`;
+			const rows = new Map<string, Row>();
 			const rowsOf = (part: unknown) => {
 				const value = (part as { output?: { type?: string; value?: { rows?: unknown } } }).output;
-				return value?.type === "json" && Array.isArray(value.value?.rows)
-					? (value.value.rows as { id: string }[])
-					: null;
+				return value?.type === "json" && Array.isArray(value.value?.rows) ? (value.value.rows as Row[]) : null;
 			};
 			for (const m of messages)
-				if (m.role === "tool") for (const part of m.content) for (const row of rowsOf(part) ?? []) ids.add(row.id);
-			if (!ids.size) return messages;
-			// verifyPeople checks live access in its statement, so a source the actor lost since the last tool call drops out.
-			const live = new Set((await verifyPeople(db, current, [...ids])).map((r) => r.id));
+				if (m.role === "tool")
+					for (const part of m.content) for (const row of rowsOf(part) ?? []) rows.set(key(row), row);
+			if (!rows.size) return messages;
+			// One rule per row kind (liveness.ts), one statement, with the live access check in it: a source the actor
+			// lost access to since the last tool call drops out.
+			const live = await liveRowKeys(db, current, [...rows.values()]);
 			// The replay rule (retained.ts): when a source of this turn is withheld, so is this turn's assistant text,
 			// which may quote it. Tool calls and their results stay, so the call/result protocol holds.
-			const withheld = [...ids].some((id) => !live.has(id));
+			const withheld = [...rows.keys()].some((k) => !live.has(k));
 			if (!withheld) return messages;
 			return messages.map((m): ModelMessage => {
 				if (m.role === "assistant")
@@ -219,10 +246,10 @@ async function run(
 				return {
 					...m,
 					content: m.content.map((part) => {
-						const rows = rowsOf(part);
-						if (!rows) return part;
-						const kept = rows.filter((r) => live.has(r.id));
-						if (kept.length === rows.length) return part;
+						const own = rowsOf(part);
+						if (!own) return part;
+						const kept = own.filter((r) => live.has(key(r)));
+						if (kept.length === own.length) return part;
 						const output = (part as { output: { value: Record<string, unknown> } }).output;
 						return {
 							...part,
@@ -233,7 +260,7 @@ async function run(
 									rows: kept,
 									total: null,
 									completeness: "partial",
-									withheldRows: rows.length - kept.length,
+									withheldRows: own.length - kept.length,
 								},
 							},
 						} as typeof part;
@@ -273,21 +300,7 @@ async function run(
 			return sequence === null ? { error: "cancelled" } : forModel(sequence, result);
 		};
 
-		const tools: ToolSet = {};
-		for (const [domain, adapters] of Object.entries(READ_DOMAINS)) {
-			const allowed = (adapters as readonly ReadAdapter<unknown>[]).filter((a) => a.allowed(actor));
-			if (!allowed.length) continue;
-			const options = allowed.map((a) => z.strictObject({ operation: z.literal(a.operation), input: a.input }));
-			tools[`${domain}_read`] = tool({
-				description: `Bounded ${domain} reads: ${allowed.map((a) => `${a.operation} (${a.description})`).join("; ")}`,
-				inputSchema: options.length === 1 ? options[0]! : z.discriminatedUnion("operation", options as never),
-				execute: async (call: { operation: string; input: unknown }) =>
-					read(
-						allowed.find((a) => a.operation === call.operation)!,
-						call.input,
-					),
-			});
-		}
+		const tools: ToolSet = readTools(actor, read);
 		if (catalog.selection.length)
 			tools.select_returned_rows = tool({
 				description:
@@ -418,30 +431,28 @@ async function run(
 			onError: () => undefined,
 			telemetry: { functionId: "evry.answer" },
 		});
-		let flushed = Date.now();
 		for await (const part of stream.fullStream) {
+			if (saves.failed) throw saves.failed.error;
 			if (part.type === "text-delta") {
 				text += part.text;
 				pending += part.text;
-				if (Date.now() - flushed >= (deps.flushMs ?? 250)) {
-					flushed = Date.now();
-					await flush();
-				}
+				room.push(part.text);
+				kick();
 			} else if (part.type === "finish-step") {
 				usage.inputTokens += part.usage.inputTokens ?? 0;
 				usage.outputTokens += part.usage.outputTokens ?? 0;
-				await flush();
 			} else if (part.type === "error") {
 				if (!abort.signal.aborted) throw new EvryRefusal("model_unavailable");
 			} else if (part.type === "abort") break;
 		}
-		await flush();
+		await drain();
 	} catch (error) {
 		if (!abort.signal.aborted) fail(error instanceof EvryRefusal ? error : new EvryRefusal("unknown"));
 	} finally {
 		clearTimeout(wall);
+		room.end(lease.turnId);
 	}
 	if (abort.signal.reason === "wall_time" && stop === "completed") stop = "wall_time";
-	await flush().catch(() => undefined);
+	await drain().catch(() => undefined);
 	return finish();
 }

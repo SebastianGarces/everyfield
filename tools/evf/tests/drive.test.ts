@@ -1855,3 +1855,72 @@ test("OPS-75-seat: a seat the drive launches carries the promise naming the driv
 		f.close();
 	}
 });
+
+test("OPS-100-signal: SIGTERM to a real drive blocked in its ship stage aborts the run, records drive_stopped, removes the pid file and exits 143", async () => {
+	const f = driveFixture();
+	let blocker = 0;
+	try {
+		f.db.prepare("UPDATE tasks SET spec = ?, status = 'pr_open', pr_number = 77 WHERE id = ?").run(SPEC, f.taskId);
+		const head = spawnSync("git", ["-C", f.wt, "rev-parse", "HEAD"], { encoding: "utf8" }).stdout.trim();
+		for (const c of ["1", "2"])
+			f.db
+				.prepare("INSERT INTO proofs (task_id, head_sha, criterion, status, created_at) VALUES (?, ?, ?, 'met', ?)")
+				.run(f.taskId, head, c, new Date().toISOString());
+		runDone(f.root, f.insertRun("verify", "verifier", "started"), { status: "passed", summary: "approved" });
+		runDone(f.root, f.insertRun("ci", "evf", "started"), { status: "passed", summary: "green" });
+		// Every gh call blocks, so the ship stage sits inside spawnSync, which holds Node's event loop.
+		const marker = join(f.root, "gh-blocked.pid");
+		writeFileSync(
+			join(f.root, "fake-bin/gh"),
+			`#!${process.execPath}\nrequire("node:fs").writeFileSync(${JSON.stringify(marker)},String(process.pid));setTimeout(()=>{},60000)\n`,
+		);
+		chmodSync(join(f.root, "fake-bin/gh"), 0o755);
+		// A shell reports how the drive ended: 128 + the signal number when a signal ended it.
+		const status = join(f.root, "drive-status.txt");
+		const child = spawn(
+			"sh",
+			[
+				"-c",
+				`"$0" --disable-warning=ExperimentalWarning "$1" drive OPS-1; echo $? > "$2"`,
+				process.execPath,
+				join(source, "tools/evf/main.ts"),
+				status,
+			],
+			{
+				cwd: f.root,
+				env: { ...process.env, EVF_RUN: "", EVF_WORKTREE: "", EVF_SESSION: "", EVF_ROLE: "", EVF_STAGE: "" },
+				stdio: "ignore",
+			},
+		);
+		const exited = new Promise<void>((resolve) => child.on("exit", () => resolve()));
+		for (let i = 0; i < 400 && !existsSync(marker); i++) await new Promise((r) => setTimeout(r, 25));
+		assert.ok(existsSync(marker), "the ship stage reached gh");
+		blocker = Number(readFileSync(marker, "utf8"));
+		const pidFile = join(evfDataDir(f.root), "drive", "ops-1.pid");
+		const drivePid = Number(readFileSync(pidFile, "utf8"));
+		const started = Date.now();
+		process.kill(drivePid, "SIGTERM");
+		await exited;
+		assert.ok(Date.now() - started < 10_000, "the drive ends at once, not when the blocked stage returns");
+		assert.equal(readFileSync(status, "utf8").trim(), "143");
+		const ship = f.db.prepare("SELECT status, summary FROM runs WHERE task_id = ? AND stage = 'ship'").get(f.taskId);
+		assert.deepEqual({ ...ship }, { status: "aborted", summary: "drive stopped by SIGTERM during ship" });
+		const stopped = f.events("drive_stopped");
+		assert.equal(stopped.length, 1);
+		assert.deepEqual(
+			{ stage: JSON.parse(stopped[0].payload).stage, signal: JSON.parse(stopped[0].payload).signal },
+			{ stage: "ship", signal: "SIGTERM" },
+		);
+		assert.ok(!existsSync(pidFile), "the pid file is gone");
+	} finally {
+		if (blocker) {
+			try {
+				process.kill(blocker);
+			} catch {
+				// Already gone.
+			}
+		}
+		f.db.close();
+		f.close();
+	}
+});

@@ -64,13 +64,16 @@ test("OPS-81-migration: schema 3 reaches 4, keeps every row and a second run cha
 	db.prepare(
 		"INSERT INTO tasks (slug, mode, ref, title, status, created_at, updated_at) VALUES ('ops-9', 'implement', 'OPS-9', 'kept', 'active', 't', 't')",
 	).run();
-	assert.deepEqual(migrate(db), { version: 4, applied: ["004-task-seat-override.sql"] });
+	assert.deepEqual(migrate(db), {
+		version: 6,
+		applied: ["004-task-seat-override.sql", "005-merged-views.sql", "006-task-follow-ups.sql"],
+	});
 	assert.deepEqual(
 		{ ...(db.prepare("SELECT ref, title, status, seat_model, seat_effort FROM tasks").get() as object) },
 		{ ref: "OPS-9", title: "kept", status: "active", seat_model: null, seat_effort: null },
 	);
 	assert.ok("seat_model" in (db.prepare("SELECT * FROM v_tasks").get() as object));
-	assert.deepEqual(migrate(db), { version: 4, applied: [] });
+	assert.deepEqual(migrate(db), { version: 6, applied: [] });
 	db.close();
 });
 
@@ -195,7 +198,7 @@ test("OPS-81-verifier: a non-Opus override leaves the verifier on Opus; an Opus 
 		const set = f.seats("OPS-82", "--model", SONNET, "--effort", "low");
 		assert.equal(set.status, 0, set.stderr);
 		assert.equal(set.stdout.split("\n").filter((l) => /verifier keeps its Opus setting/.test(l)).length, 1);
-		assert.deepEqual([f.plan("OPS-82", "verifier").model, f.plan("OPS-82", "verifier").effort], [OPUS, "high"]);
+		assert.deepEqual([f.plan("OPS-82", "verifier").model, f.plan("OPS-82", "verifier").effort], [OPUS, "medium"]);
 		assert.deepEqual([f.plan("OPS-82", "planner").model, f.plan("OPS-82", "planner").effort], [SONNET, "low"]);
 		assert.deepEqual([f.plan("OPS-82", "implementer").model, f.plan("OPS-82", "implementer").effort], [SONNET, "low"]);
 		const opus = f.seats("OPS-82", "--model", "claude-opus-5-5", "--effort", "max");

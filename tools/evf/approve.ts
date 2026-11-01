@@ -12,10 +12,11 @@ import {
 	type Config,
 	type TaskRef,
 } from "./lib.ts";
+import { markMergedByBranch } from "./db.ts";
 import { cachedTriage } from "./feedback.ts";
 import { mergePullRequest, templateClass } from "./merge.ts";
 import { afterMerge, checkPr, type MergeEvidence } from "./ship.ts";
-import { APPROVED_PROTOTYPE, changesOnlyOwnRegistration } from "./policy.ts";
+import { APPROVED_PROTOTYPE, changesOnlyOwnRegistration, mayChangePrototype } from "./policy.ts";
 
 /**
  * Human-approved merge for the PRs that never merge automatically: Wiki articles, prototypes, and
@@ -78,7 +79,7 @@ function routeOf(root: string, cfg: Config, pr: Pr): Route {
 		const owns = (path: string) =>
 			path === "evf.config.json"
 				? changesOnlyOwnRegistration(root, task, base, pr.headRefOid)
-				: path !== APPROVED_PROTOTYPE &&
+				: (path !== APPROVED_PROTOTYPE || mayChangePrototype(design)) &&
 					design.owningPaths.some((p) => (p.endsWith("/") ? path.startsWith(p) : path === p));
 		const other = pr.files.map((f) => f.path).filter((path) => !owns(path));
 		if (other.length)
@@ -211,6 +212,16 @@ export function approve(root: string, n: number, opts: { ownerApproval?: string;
 	});
 	if (merged.code !== 0) fail(`The merge failed: ${(merged.stderr || merged.stdout).trim()}`);
 	console.log(`Merged PR #${n} (${pr.title}) at ${head.slice(0, 10)} with Sebastian's approval.`);
+	const mergeCommit = run("gh", [
+		"pr",
+		"view",
+		String(n),
+		"--json",
+		"mergeCommit",
+		"-q",
+		".mergeCommit.oid",
+	]).stdout.trim();
+	markMergedByBranch(root, pr.headRefName, /^[0-9a-f]{40}$/.test(mergeCommit) ? mergeCommit : null);
 	if (route.kind === "template" && evidence) {
 		// The same bookkeeping evf ship runs, so package progress and dependents unlock. A task without a worktree
 		// reads its registration from the merged head in the home checkout.

@@ -1,6 +1,6 @@
 # Verifier additions
 
-Verify a task in a fresh Opus 5.5 high session that never shared context with the author (D82).
+Verify a task in a fresh Opus 5.5 medium session that never shared context with the author (D82).
 Start with its task note and PR. Your EVF-Review line records your session id, model and the
 verifier role; evf ship refuses the author's session, another seat and a non-Opus model.
 Read the full diff and current requirements and judge the code quality in full (D66).
@@ -11,6 +11,11 @@ alone. Proof from an earlier head of the branch carries forward, so a later roun
 changed. You own the approve or `changes_requested` verdict.
 Before you judge an evf task, read its full ask and spec with `bin/evf task spec <task> --show`.
 The session-start context can shorten them. Judge every Done criterion and every Non-goal.
+Then judge the ask itself, not only the spec. Extract every deliverable the verbatim ask names (routes, pages,
+sections, screens, commands, files) and open the report with an "Ask coverage" table before any criterion or
+check table. Mark each deliverable `delivered` or `deferred <follow-up label>`, where the label is a follow-up
+evf filed for the task. A deliverable that is missing without a filed follow-up is a blocking finding: post
+`changes_requested` and close the verify as failed. `post-review.mjs` enforces the table.
 
 Follow `.agents/skills/verify-preview/SKILL.md`. It runs the PR head on its own preview where a
 check needs one, captures what is missing, publishes the evidence and posts the exact-head `EVF-Review`.
@@ -40,6 +45,9 @@ changed read and write, optimistic updates and request counts for main actions. 
 must finish under one second with no needless refetch or refresh. Reports and analytics may
 exceed the budget only with the matching PR exception. Explain when checks do not apply.
 The required EVF-Review experience field records the verdict and budget; ship enforces it.
+
+Request changes on a PR that adds or changes an Evry adapter operation or catalog tool without matching eval
+cases (`test-standard`), and on a PR that adds an entry to `tests/workflow/evry-evals-baseline.json`.
 
 ## Principles to read in full at the start
 

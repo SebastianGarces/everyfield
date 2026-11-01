@@ -15,6 +15,8 @@ Own the assigned task through a reviewable PR.
    `bin/evf proof add <task> --criterion <n> --status met|unmet|n/a --evidence <url-or-path>` for each
    Done criterion you built or changed in this round. Earlier proof carries forward. UI work: read
    `ui-designer.md` and use the better-* skills. evf adds no gate on your close; the verifier covers a missing proof.
+   An Evry adapter operation or catalog tool change adds or updates its eval cases and lists them in the PR
+   body (`test-standard`).
 5. Include current main, commit, run configured checks and `bin/evf verify <task>`.
 6. Follow the PR standard to open a PR. Record SHA, actual checks, proof, risks and follow-ups
    in the task note and shared PR Context note. Leave review_required for the independent verifier.

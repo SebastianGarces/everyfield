@@ -2,6 +2,9 @@
 	"GET /documents": {
 		"limit": 3
 	},
+	"GET /home": {
+		"limit": 2
+	},
 	"GET /meetings": {
 		"limit": 3
 	},
@@ -297,15 +300,28 @@
 	"documents.archive": {
 		"limit": 1
 	},
+	"documents.createFromTemplate": {
+		"limit": 3
+	},
 	"documents.designateCoreValues": {
 		"limit": 1
 	},
 	"documents.download": {
 		"limit": 9
 	},
+	"documents.exportNative": {
+		"limit": 22,
+		"reason": "A saved export reads the church theme's logo and stores the bytes before the generated row. readBrandAsset and putPrivateObject each claim and finalize their file in their own transactions so the provider call holds no lock, then one statement inserts the generated row and its audit. Its largest first run: 6 read, 8 transaction, 4 locked read, 4 write."
+	},
 	"documents.generate": {
 		"limit": 15,
 		"reason": "The saved file is stored before the generated row. putPrivateObject claims the object and finalizes it in two transactions so the provider call holds no lock, then one statement inserts the generated row and its audit. Its largest first run: 5 read, 4 transaction, 2 locked read, 4 write."
+	},
+	"documents.history.get": {
+		"limit": 1
+	},
+	"documents.history.list": {
+		"limit": 1
 	},
 	"documents.importTextOrWord": {
 		"limit": 14,
@@ -328,6 +344,9 @@
 		"limit": 1
 	},
 	"documents.saveNative": {
+		"limit": 1
+	},
+	"documents.setBranding": {
 		"limit": 1
 	},
 	"documents.templates.contextual": {

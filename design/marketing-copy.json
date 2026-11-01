@@ -98,33 +98,6 @@
         }
       ]
     },
-    "intelligence": {
-      "note": "Revision 17 (2026-10-09): the home Plant Intelligence section title. R4 (2026-10-15): the lead line and the four steps move here from the prototype's draft; the Evry step leads with setting up a vision meeting in one approval.",
-      "title": "Know what needs you most.",
-      "lead": "Plant Intelligence reads your plant through lenses such as emerging leadership and generosity.",
-      "steps": [
-        {
-          "panel": "focus",
-          "title": "One focus each week.",
-          "body": "Plant Intelligence reads your records and names the one thing to do first."
-        },
-        {
-          "panel": "facts",
-          "title": "Every finding shows its facts.",
-          "body": "Each finding links to the records it used, so you can check it."
-        },
-        {
-          "panel": "readiness",
-          "title": "Ready for the next phase?",
-          "body": "See which benchmarks for your phase are met and which are still open. You decide when to move on."
-        },
-        {
-          "panel": "share",
-          "title": "You see it first.",
-          "body": "Each concern comes to you before anyone else. Your sending church sees a short summary, and only what you share. Your weekly check-in is for you alone."
-        }
-      ]
-    },
     "trust_page": {
       "eyebrow": "Privacy and trust",
       "headline": "Who sees what in Everyfield.",
@@ -143,82 +116,28 @@
         ]
       }
     },
-    "sending": {
-      "note": "Revision 19 (2026-10-09): the home section for sending churches and networks, used by both stories. It replaces the Revision 18 audience section. An auto-advancing list like Plant Intelligence, mirrored: panel on the left, list on the right.",
-      "title": "Stay close to the plant you sent.",
-      "link": "Learn more about the oversight view",
-      "body": "Sending churches and networks see each plant's phase, launch date and the findings it shares, without asking the planter for a report."
-    },
     "oversight_page": {
       "note": "Revision 24 (2026-10-10): the /oversight page hero and problem section. Home story B keeps directions.oversight.sections. Revision 25 fills the rest of the page.",
       "hero": {
-        "headline": "See every plant you send.",
-        "subhead": "Whether you are one sending church or a whole network, see how each plant is doing on the way to launch.",
+        "headline": "See every church plant you send.",
+        "subhead": "Whether you are one sending church or a whole network, see how each church plant is doing on the way to launch.",
         "cta_primary": "Talk to us about your network",
         "cta_secondary": "See how it works",
         "note": "Tell us about your network, and we will set up a short call."
       },
       "problem": {
-        "headline": "You usually hear about a struggling plant when it is already late.",
-        "body": "Today the plan lives in conversations between the planter and their coach. There's no shared record, and no signal when a plant starts to drift. See whether each plant that shares with you is moving toward launch, without asking for a report."
+        "headline": "You usually hear about a struggling church plant when it is already late.",
+        "body": "Today the plan lives in conversations between the planter and their coach. There's no shared record, and no signal when a church plant starts to drift. See whether each church plant that shares with you is moving toward launch, without asking for a report."
       },
-      "note_r25": "Revision 25 (2026-10-10): the rest of /oversight. chapter is a pinned stacking chapter like shared.week; intelligence is the auto list of the home network section (same panels); plants is a pinned rail like the home phases; paths and privacy are centered sections; cta closes the page.",
       "note_r28": "Revision 28 (2026-10-10): paths is one section, with no review options and no sent= in the hash. The sentence (lead, changing phrase, tail) sits over one large card. One timer moves both through states in order: a church, a network through a church, a network.",
       "note_r27": "Revision 27 (2026-10-10): hero subhead drops the sharing clause. Sending-side UI (hero dashboard, network panels) has no planter tabs and no Evry, and uses plain facts in place of sharing labels.",
-      "note_r26": "Revision 26 (2026-10-10): chapter is now an auto list like intelligence (panel right, list left) and drops the sharing step. plants item 3 is the market card. paths holds three review options a, b and c, switched by sent= in the hash (default a). faq replaces the privacy section; the footer Coaches link opens the item with id coaches (#faq-coaches).",
-      "chapter": {
-        "title": "All your plants, in one place.",
-        "steps": [
-          {
-            "panel": "invite",
-            "title": "Invite your plants.",
-            "body": "Send an invite. The planter connects their plant in a few clicks."
-          },
-          {
-            "panel": "plants",
-            "title": "Every plant, in launch order.",
-            "body": "See each plant's phase, launch date and status at a glance."
-          },
-          {
-            "panel": "digest",
-            "title": "A daily digest by email.",
-            "body": "On days with activity, you get one email with counts and dates from the plants that share it. It never includes names or notes."
-          },
-          {
-            "panel": "help",
-            "title": "Help where it matters.",
-            "body": "See where a plant could use help, and offer it."
-          }
-        ]
-      },
-      "intelligence": {
-        "title": "See the patterns across your plants.",
-        "steps": [
-          {
-            "title": "Every plant, by state or metro area.",
-            "body": "Switch between all your plants, one state or one metro area, and every number follows."
-          },
-          {
-            "title": "Plants, phase by phase.",
-            "body": "See how many plants are in each phase, and how long plants usually stay there."
-          },
-          {
-            "title": "Lenses across every plant.",
-            "body": "Each lens shows how your plants are doing in one area, such as emerging leadership or vision casting. Open a lens to see the plants behind it."
-          },
-          {
-            "title": "The pattern that matters most.",
-            "body": "Network Intelligence names what many of your plants have in common, with the facts behind it."
-          }
-        ]
-      },
       "plants": {
-        "headline": "Each plant, up close.",
+        "headline": "Each church plant, up close.",
         "items": [
           {
             "label": "Phases",
-            "title": "Where the plant is on the way to launch.",
-            "short": "Weeks in each phase so far. The planter sets the phase, and a plant never moves on by itself."
+            "title": "Where the church plant is on the way to launch.",
+            "short": "Weeks in each phase so far. The planter sets the phase, and a church plant never moves on by itself."
           },
           {
             "label": "Launch Sunday",
@@ -227,13 +146,13 @@
           },
           {
             "label": "Status",
-            "title": "One status for each plant.",
-            "short": "Each plant shows On track, Watch, Launch readiness or Limited visibility. A plant that does not share shows Limited visibility, never On track."
+            "title": "One status for each church plant.",
+            "short": "Each church plant shows On track, Watch, Launch readiness or Limited visibility. A church plant that does not share shows Limited visibility, never On track."
           },
           {
             "label": "People and meetings",
             "title": "Committed adults and meeting rhythm.",
-            "short": "How many adults have committed, and how often the plant holds a vision meeting."
+            "short": "How many adults have committed, and how often the church plant holds a vision meeting."
           },
           {
             "label": "Ministry teams",
@@ -245,6 +164,14 @@
             "title": "Open and overdue tasks.",
             "short": "How many launch tasks are open, and how many are past due."
           }
+        ],
+        "icons": [
+          "route",
+          "calendar",
+          "flag",
+          "users",
+          "heart",
+          "task"
         ]
       },
       "paths": {
@@ -253,17 +180,17 @@
         "states": [
           {
             "phrase": "a church",
-            "title": "A church sees its plants.",
-            "body": "Grace Church sees each plant it sends, with its phase and launch date."
+            "title": "A church sees its church plants.",
+            "body": "Grace Church sees each church plant it sends, with its phase and launch date."
           },
           {
             "phrase": "a network through a church",
-            "title": "A network sees every plant, by sending church.",
-            "body": "The Austin Sending Network sees all its plants, grouped by the church that sends each one."
+            "title": "A network sees every church plant, by sending church.",
+            "body": "The Austin Sending Network sees all its church plants, grouped by the church that sends each one."
           },
           {
             "phrase": "a network",
-            "title": "A network can send a plant directly.",
+            "title": "A network can send a church plant directly.",
             "body": "Mueller Hope Church has no sending church yet. The network can assign one at any time."
           }
         ],
@@ -275,22 +202,22 @@
           {
             "id": "finding",
             "q": "What is a finding?",
-            "a": "A finding is one thing Plant Intelligence noticed in a plant's records, with the facts it used. You see only the findings a plant shares."
+            "a": "A finding is one thing Plant Intelligence noticed in a church plant's records, with the facts it used. You see only the findings a church plant shares."
           },
           {
             "id": "patterns",
             "q": "How does Network Intelligence find a pattern?",
-            "a": "It reads the findings your plants share. A pattern needs at least two plants, and a plant that does not share counts as unknown, not as zero."
+            "a": "It reads the findings your church plants share. A pattern needs at least two church plants, and a church plant that does not share counts as unknown, not as zero."
           },
           {
             "id": "phase",
-            "q": "Does Everyfield move a plant to the next phase or rate the planter?",
+            "q": "Does Everyfield move a church plant to the next phase or rate the planter?",
             "a": "No. The planter sets the phase. Everyfield does not change it or grade the planter."
           },
           {
             "id": "cost",
             "q": "What does Everyfield cost?",
-            "a": "Discernment is free, always. People still discerning a call to plant can sign up for free. When a church is created it uses a seat, usually paid by the sending church or network. We share pricing directly with early-access groups."
+            "a": "Discernment is free, always. People still discerning a call to church planting can sign up for free. When a church is created it uses a seat, usually paid by the sending church or network. We share pricing directly with early-access groups."
           },
           {
             "id": "start",
@@ -301,22 +228,22 @@
         ]
       },
       "cta": {
-        "headline": "Bring Everyfield to the plants you send.",
+        "headline": "Bring Everyfield to the church plants you send.",
         "body": "We're inviting a small group of networks and sending churches during early access.",
         "cta_primary": "Talk to us about your network",
         "cta_secondary": "Request early access as a planter",
-        "note": "We will set up a short call to learn about the plants you send."
+        "note": "We will set up a short call to learn about the church plants you send."
       },
       "trust": {
         "headline": "Why you can trust these numbers.",
         "items": [
           {
-            "title": "Planters run their plant here.",
+            "title": "Planters run their church plant here.",
             "body": "People, meetings, tasks and teams live in Everyfield, so your view follows the work as it happens. No one fills in a report."
           },
           {
             "title": "The planter chooses what to share.",
-            "body": "Each plant picks what your church or network can see, and can change it at any time. Your view changes at once."
+            "body": "Each church plant picks what your church or network can see, and can change it at any time. Your view changes at once."
           },
           {
             "title": "The planter sees each concern first.",
@@ -324,29 +251,92 @@
           },
           {
             "title": "Totals, not private records.",
-            "body": "You see totals and summaries. People records, contact details and notes stay with the plant."
+            "body": "You see totals and summaries. People records, contact details and notes stay with the church plant."
           }
         ]
       },
       "leaders": {
         "headline": "Raise the next planters.",
-        "lead": "Sending churches and networks can follow each future planter, from potential leader to commissioned.",
+        "icons": [
+          "route",
+          "flag",
+          "users",
+          "book"
+        ],
+        "lead": "See every future planter in your church or network, from the first conversation to the day you send them.",
         "steps": [
           {
-            "title": "A pipeline for future planters.",
-            "body": "Move each person through Potential leader, Apprentice, Resident and Commissioned, and record why. Rename the stages to fit your church."
+            "title": "Every future planter, in one place.",
+            "body": "Move each person from potential leader to apprentice, resident and commissioned, using your own stage names."
           },
           {
-            "title": "Goals you can measure.",
-            "body": "Set how many leaders you want to raise by a target year, and see how many people are at each stage today."
+            "title": "Set a goal and watch it grow.",
+            "body": "Choose how many leaders you want to raise this year and see where each one is today."
           },
           {
-            "title": "Every leadership conversation, on record.",
-            "body": "Log who met with whom and when. Count the conversations by month or quarter."
+            "title": "Every leadership conversation counts.",
+            "body": "Log who met with whom, and see the conversations by month or quarter."
           },
           {
-            "title": "Apprenticeship and residency programs.",
-            "body": "Give each program a director, stages, milestones and a reading list. Residents mark their own milestones done, and the director confirms them."
+            "title": "Run your apprenticeships and residencies.",
+            "body": "Give each program its stages, milestones and reading list. Residents mark their progress, and the director confirms it."
+          }
+        ]
+      },
+      "gets": {
+        "note": "OPS-82: one section replaces chapter (All your plants, in one place) and intelligence (See the patterns across your plants). Same eight facts, no app UI, no Evry. Headline and lead from Sebastian's picks (decision 6).",
+        "headline": "See how your church plants are doing, one by one and all together.",
+        "lead": "One view for your sending church or network, from the first invite to Launch Sunday.",
+        "groups": [
+          {
+            "label": "In one place",
+            "items": [
+              [
+                "link",
+                "Invite your church plants.",
+                "Send an invite. The planter connects their church plant in a few clicks."
+              ],
+              [
+                "route",
+                "Every church plant, in launch order.",
+                "See each church plant's phase, launch date and status at a glance."
+              ],
+              [
+                "calendar",
+                "A daily digest by email.",
+                "On days with activity, you get one email with counts and dates from the church plants that share it. It never includes names or notes."
+              ],
+              [
+                "heart",
+                "Help where it matters.",
+                "See where a church plant could use help, and offer it."
+              ]
+            ]
+          },
+          {
+            "label": "Across them",
+            "items": [
+              [
+                "pin",
+                "Every church plant, by state or metro area.",
+                "Switch between all your church plants, one state or one metro area, and every number follows."
+              ],
+              [
+                "flag",
+                "Church plants, phase by phase.",
+                "See how many church plants are in each phase, and how long they usually stay there."
+              ],
+              [
+                "eye",
+                "Lenses across every church plant.",
+                "Each lens shows how your church plants are doing in one area, such as emerging leadership or vision casting. Open a lens to see the church plants behind it."
+              ],
+              [
+                "sparkle",
+                "The pattern that matters most.",
+                "Network Intelligence names what many of your church plants have in common, with the facts behind it."
+              ]
+            ]
           }
         ]
       }
@@ -666,32 +656,88 @@
         "privacy": "privacy policy"
       }
     },
-    "panels": {
-      "week_follow_says": "3 new guests came to your vision meeting. I drafted a follow-up task for each one.",
-      "week_people_line": "5 people are waiting for an interview.",
-      "intelligence_focus_title": "Ask 4 interviewed people for a commitment this week",
-      "monday_title": "Good morning, Daniel",
-      "monday_sub": "Harvest Point Church \u00b7 Phase 1, Core Group Development \u00b7 Launch Sunday Mar 14, 2027",
-      "monday_core_label": "Core group",
-      "teams_sign_core": "Signed a core group commitment",
-      "launch_team_member": "James Park",
-      "ministry_areas": [
-        "Worship",
-        "Children's",
-        "Assimilation",
-        "Small groups",
-        "Admin and finance",
-        "Facilities",
-        "Promotion",
-        "Technology"
-      ],
-      "hero_dash_finding": "New adults have slowed in 3 plants",
-      "hero_dash_attention_label": "Watch",
-      "status_watch": "Watch",
-      "mueller_plant": "Mueller Hope Church",
-      "share_unshared_status": "Limited visibility"
-    },
-    "sample_label": "Sample data"
+    "ops82": {
+      "note": "OPS-82 merge (Sebastian's picks, Oct 30 2026): copy this prototype adds or changes on home. The journey section adds two Plant Intelligence stops to the four shared.week steps, one path of six stops; EvryBot speaks one line at each stop. Evry creates tasks for people and never writes to the congregation. The sending section never shows Evry (Revision 27). #/planters keeps the copy above.",
+      "hero_eyebrow": "Church planting software",
+      "features_headline": "Everything a church plant needs, in the order you need it.",
+      "journey": {
+        "says": [
+          "Emily Carter filled in your interest form. Now she is on your list.",
+          "Vision meeting #12 is on Sunday. Emily checked in as a new guest.",
+          "I made a follow-up task for Emily and assigned it to Jen Park, due Tuesday. You approve it first.",
+          "Emily signed her commitment card. Your core group is now 35.",
+          "This week's focus: hold your next vision meeting.",
+          "4 of 6 benchmarks are met. You decide when to move on."
+        ],
+        "icons": [
+          "users",
+          "calendar",
+          "task",
+          "heart",
+          "compass",
+          "flag"
+        ],
+        "steps": [
+          {
+            "title": "One focus each week.",
+            "body": "Plant Intelligence reads your records and names the one thing to do first. Each finding links to the records it used."
+          },
+          {
+            "title": "Ready for the next phase?",
+            "body": "See which benchmarks for your phase are met and which are still open. You decide when to move on."
+          }
+        ],
+        "see_first": "You see it first. Each concern comes to you before anyone else, and your sending church sees only what you share."
+      },
+      "evry": {
+        "headline": "Anything in Everyfield, Evry can do for you",
+        "subhead": "Set up a meeting, build the launch list, assign follow-ups, plan a training. If you can do it in Everyfield, you can ask Evry.",
+        "cards": [
+          [
+            "chat",
+            "You ask.",
+            "In plain words, for anything in the app."
+          ],
+          [
+            "sparkle",
+            "Evry prepares it.",
+            "Meetings, tasks, lists, plans, all set up for you to review."
+          ],
+          [
+            "check",
+            "You approve.",
+            "Nothing changes until you say so."
+          ]
+        ]
+      },
+      "sending": {
+        "title": "Stay close to the church plants you send.",
+        "link": "Learn more about the oversight view",
+        "body": "Sending churches and networks see each church plant's phase, launch date and the findings it shares, without asking the planter for a report.",
+        "points": [
+          [
+            "route",
+            "Phase",
+            "Where each church plant is on the way to launch."
+          ],
+          [
+            "calendar",
+            "Launch date",
+            "The days left before Launch Sunday."
+          ],
+          [
+            "eye",
+            "Shared findings",
+            "Only what the planter chooses to share."
+          ],
+          [
+            "task",
+            "No reports",
+            "The view follows the work as it happens."
+          ]
+        ]
+      }
+    }
   },
   "directions": [
     {
@@ -755,6 +801,14 @@
               "title": "Launch, then keep going",
               "short": "Record Launch Sunday and its outcome."
             }
+          ],
+          "icons": [
+            "compass",
+            "users",
+            "flag",
+            "book",
+            "task",
+            "rocket"
           ]
         },
         "audiences": {
@@ -798,18 +852,19 @@
           ]
         },
         "evry": {
+          "eyebrow": "Evry, the assistant inside Everyfield",
           "headline": "Evry prepares the work. You approve it.",
-          "body": "Evry is the assistant inside Everyfield. Ask it to set up your next vision meeting, and it prepares the meeting, the 90-minute agenda, the guest list and the invitation email. Nothing is saved or sent until you approve.",
+          "body": "Evry is the assistant inside Everyfield. Ask it to set up your next vision meeting, and it prepares the meeting, the 90-minute agenda and the guest list. Nothing is saved until you approve.",
           "example": {
             "ask": "Set up vision meeting #12 for Sun, Oct 25 and invite the 9 guests from #11.",
-            "answer": "Ready for your review: Sun, Oct 25 at the Reyes home, the 90-minute agenda, 9 guests and the invitation email.",
+            "answer": "Ready for your review: Sun, Oct 25 at the Reyes home, the 90-minute agenda and 9 guests.",
             "review": "Review 4 changes \u00b7 Set up vision meeting \u00b7 Approve or Edit"
           },
           "limits": "Evry does not write prayers, give spiritual counsel or judge whether a person is ready. It changes your phase only after you decide and approve."
         },
         "cta": {
-          "headline": "Bring your plant into Everyfield.",
-          "body": "Everyfield is in early access. Tell us about your plant, and we will be in touch.",
+          "headline": "Bring your church plant into Everyfield.",
+          "body": "Everyfield is in early access. Tell us about your church plant, and we will be in touch.",
           "cta_primary": "Request early access",
           "cta_secondary": "Talk to us about your network"
         },

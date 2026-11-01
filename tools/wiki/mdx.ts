@@ -2,6 +2,8 @@ import { compile, run } from "@mdx-js/mdx";
 import remarkGfm from "remark-gfm";
 import * as runtime from "react/jsx-runtime";
 import type { Root, RootContent } from "mdast";
+import { fencedBlocks, isDiagramInfo, parseDiagram } from "../../packages/contracts/src/wiki/diagram.ts";
+import type { DiagramError } from "../../packages/contracts/src/wiki/diagram.ts";
 
 export const calloutTypes = ["tip", "insight", "warning", "important", "scripture"];
 const tells = [
@@ -31,7 +33,58 @@ const verse =
 	/^(?:[1-3] )?[A-Z][a-z]+(?: [A-Za-z]+)* \d+:\d+[a-z]?(?:[-–](?:\d+:)?\d+[a-z]?)?(?: \((?:LSB|ESV|KJV|NLT)\))?$/;
 export const scripture = /^\s*\*"((?:[^"]|"(?!\*))+)"\*\s+—\s+([^\n]+?)\s*$/;
 
-export async function inspect(content: string, known: Set<string>, seed = false) {
+// ASCII-art diagrams: box-drawing and block characters anywhere, and arrows or connector lines in a code block.
+const box = /[\u2500-\u259F]/;
+const arrow = /[\u2190-\u21FF\u25B2\u25BC\u25BA\u25C4]|->|<-|=>/;
+const connector = /^[|v^ ]*[|v^][|v^ ]*$/;
+
+/** Article lines (from 1) where the body draws a diagram in text. Prose arrows outside code blocks stay allowed. */
+export function asciiArt(content: string): DiagramError[] {
+	const found: DiagramError[] = [];
+	const fenced = new Set<number>();
+	for (const block of fencedBlocks(content)) {
+		for (let line = block.start; line < block.end; line += 1) fenced.add(line);
+		const lines = block.body.split("\n");
+		const drawn = isDiagramInfo(block.info)
+			? box.test(block.body)
+			: box.test(block.body) || lines.some((line) => arrow.test(line) || connector.test(line));
+		if (drawn)
+			found.push({
+				line: block.start + 1,
+				message: "Code block draws a diagram with box, arrow or connector characters; use a ```diagram block",
+			});
+	}
+	content.split("\n").forEach((line, index) => {
+		if (!fenced.has(index) && box.test(line))
+			found.push({ line: index + 1, message: "Box-drawing character; use a ```diagram block" });
+	});
+	return found.sort((a, b) => a.line - b.line);
+}
+
+/** Each fault of each ```diagram block, at its article line: the fence line plus the parser's body line. */
+export function diagramErrors(content: string): DiagramError[] {
+	return fencedBlocks(content).flatMap((block) => {
+		if (!isDiagramInfo(block.info)) return [];
+		const parsed = parseDiagram(block.info, block.body);
+		return parsed.ok
+			? []
+			: parsed.errors.map((error) => ({ line: block.start + 1 + error.line, message: error.message }));
+	});
+}
+
+/** Marks each fence's code element with its whole info string, so the renderer can tell a diagram block apart. */
+function fenceInfo() {
+	return (tree: Root) => {
+		const visit = (node: Root | RootContent) => {
+			if (node.type === "code" && node.lang)
+				node.data = { ...node.data, hProperties: { "data-info": [node.lang, node.meta].filter(Boolean).join(" ") } };
+			if ("children" in node) for (const child of node.children) visit(child);
+		};
+		visit(tree);
+	};
+}
+
+export async function inspect(content: string, known: Set<string>, seed = false, slug = "article") {
 	const errors: string[] = [],
 		warnings: string[] = [];
 	let h2 = 0,
@@ -75,6 +128,7 @@ export async function inspect(content: string, known: Set<string>, seed = false)
 				outputFormat: "function-body",
 				remarkPlugins: [
 					remarkGfm,
+					fenceInfo,
 					() => (tree: Root) => {
 						walk(tree);
 					},
@@ -95,6 +149,8 @@ export async function inspect(content: string, known: Set<string>, seed = false)
 		} else if (/^https?:\/\//i.test(url)) warnings.push(`External body link: ${url}; keep research in draft.sources`);
 		else if (/^(?:javascript|data|vbscript):/i.test(url)) errors.push(`Unsafe link: ${url}`);
 	}
+	for (const error of diagramErrors(content)) errors.push(`Diagram block at ${slug}:${error.line}: ${error.message}`);
+	const ascii = asciiArt(content).map((error) => `ASCII-art at ${slug}:${error.line}: ${error.message}`);
 	const plain = content.replace(/<[^>]+>/g, "");
 	const words = (plain.match(/[\p{L}\p{N}_]+/gu) || []).length;
 	if (words < 500 || words > 2500) errors.push(`${words} words; allowed 500–2,500`);
@@ -108,7 +164,7 @@ export async function inspect(content: string, known: Set<string>, seed = false)
 		errors.push("Placeholder text remains");
 	const phrases = tells.filter((t) => plain.toLowerCase().includes(t));
 	if (phrases.length) warnings.push(`AI-tell phrases: ${phrases.join(", ")}`);
-	return { code, words, errors, warnings };
+	return { code, words, errors, warnings, ascii };
 }
 
 export async function compiledComponent(code: string) {

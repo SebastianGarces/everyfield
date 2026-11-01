@@ -1,0 +1,21 @@
+[
+	"people.changeStatus",
+	"people.checkForDuplicates",
+	"people.createPerson",
+	"people.deletePerson",
+	"people.exportPeople",
+	"people.generateCsvTemplate",
+	"people.getActivities",
+	"people.getImportReceipt",
+	"people.getPerson",
+	"people.getPersonPhoto",
+	"people.getPersonSkills",
+	"people.getPersonTags",
+	"people.getPipelineData",
+	"people.listPeople",
+	"people.listTags",
+	"people.previewImport",
+	"people.removePersonPhoto",
+	"people.setPersonPhoto",
+	"people.updatePerson"
+]

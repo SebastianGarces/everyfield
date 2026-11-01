@@ -15,19 +15,25 @@ Read the current brief and follow details on demand. Do not write product code.
    Put each brief in its task note. Repair at-start owned cases before the package builds.
 4. Delegate implementation to the implementer seat (Sonnet 5.5 medium); it does UI work too, reads
    `ui-designer.md` and proves its own work. Add the line `Seat: ui` to a design-heavy spec to use the
-   separate ui seat. Opus 5.5 high plans and verifies. The stages are plan, implement, simplify, pr,
+   separate ui seat. Opus 5.5 medium plans and verifies. The stages are plan, implement, simplify, pr,
    verify, ci, ship; the pr stage reruns the author checks, so a simplifier commit costs no round.
    UI tiers are adjust, compose, design or explore; explore needs 2 or 3 live prototypes and
    Sebastian's choice. Run at most 3 UI tasks at once.
-5. Delegate verification to a fresh Opus 5.5 high session that never shared context with the author.
+5. Delegate verification to a fresh Opus 5.5 medium session that never shared context with the author.
    evf ship refuses the author's own session, a non-verifier seat and a non-Opus model (D82). Give the
    task note and PR, not the author's narrative. The verifier reads the full diff and spot-checks the proof.
    Failures return to an implementor on the same branch and PR.
 6. Read the verifier's actual results and PR state. Use `ship` for automatic and owner routes.
 
-Keep each UI task spec to about 15 Done criteria (a soft limit; evf does not enforce it). File each `## Later slices`
-item of a planner's spec as its own task, in dependency order: `bin/evf task new <ref>` for a package part after the
-previous slice merges, a reserved OPS id for tooling.
+Stop a drive with SIGTERM so that it closes its run, because SIGKILL leaves the run for `evf doctor`.
+
+Keep each UI task spec to about 15 Done criteria (a soft limit; evf does not enforce it). evf files each
+`## Later slices` item when the spec is stored: a queued follow-up task linked to its parent, with the slice
+text and the parent's verbatim ask. You do not file them. An OPS parent gets a newly reserved OPS id for each
+slice; add its `maintenanceTasks` entry before its first drive. A WP or FB slice keeps its parent's ref and
+becomes `new` when its parent merges. The drive refuses to start implement while a listed slice has no
+follow-up. Owner-review reports for a partial PR start with the `Partial:` line that names the deferred
+slices and their follow-up labels, as `evf ship` and `evf status` print it.
 
 Intent owns scheduling, dependencies, discussions and watchers. Do not add another scheduler.
 Global kickoff and spending gates still apply. G-WORKFLOW closes after W0 to W5 merge and a task

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { correlationId, recordId, tenantId } from "../common/values.ts";
+import { churchBody } from "./body.ts";
 import { documentCategory, documentFormat, templateId } from "./values.ts";
 
 const issue = z.strictObject({ path: z.string().max(200), problem: z.string().max(200) });
@@ -13,6 +14,11 @@ export const documentsError = z.discriminatedUnion("code", [
 	error("invalid_subject", {}, "never"),
 	error("render_failed", {}, "never"),
 	error("conflict", {}, "refresh"),
+	error("access_denied", {}, "never"),
+	error("template_not_editable", {}, "never"),
+	/** An editable template that has no authored content yet. */
+	error("template_not_authored", {}, "never"),
+	error("slot_not_deletable", { slotIds: z.array(z.string().max(60)).max(20) }, "never"),
 ]);
 export type DocumentsError = z.infer<typeof documentsError>;
 export type DocumentsReply<T> = { status: "ok"; value: T } | { status: "refused"; error: DocumentsError };
@@ -83,11 +89,13 @@ export const agendaPrintResult = z.strictObject({
 });
 
 const revisionToken = z.string().regex(/^[0-9]{1,20}$/);
+/** A catalog template is versioned by the reference artifact hash; a Church Document template by its whole number. */
+const templateVersionToken = z.string().regex(/^([a-f0-9]{64}|[1-9][0-9]{0,5})$/);
 export const generatedDocument = z.strictObject({
 	id: recordId,
 	plantId: tenantId,
 	templateId,
-	templateVersion: sha256,
+	templateVersion: templateVersionToken,
 	savedTemplateName: z.string().min(1).max(200),
 	format: documentFormat,
 	digest: sha256,
@@ -99,6 +107,18 @@ export const generatedDocument = z.strictObject({
 	generatedAt: z.iso.datetime(),
 	creatorAccountId: z.uuid().nullable(),
 	revision: revisionToken,
+	/** The Church Document revision an export was made from. Null for a generated file. */
+	source: z.strictObject({ documentId: recordId, revisionId: recordId, revision: z.int().min(1) }).nullable(),
+	/** The theme an export used. Null for a generated file. */
+	theme: z
+		.strictObject({
+			kind: z.enum(["church", "everyfield-neutral"]),
+			primary: z
+				.string()
+				.regex(/^#[0-9A-F]{6}$/)
+				.nullable(),
+		})
+		.nullable(),
 });
 export const generatedHistory = z.strictObject({
 	entries: z.array(generatedDocument).max(100),
@@ -127,3 +147,43 @@ export const coreValuesEvidence = z.strictObject({
 	documentId: recordId.nullable(),
 	text: z.string().max(2_000_000).nullable(),
 });
+
+const churchClass = z.enum(["formal/legal", "outward-facing", "operational"]);
+/** A Church Document with its current revision. */
+export const churchDocument = z.strictObject({
+	id: recordId,
+	tenantId: tenantId,
+	templateId,
+	templateVersion: z.int().min(1),
+	documentClass: churchClass,
+	useChurchBranding: z.boolean(),
+	title: z.string().min(1).max(200),
+	/** The current revision number, as a decimal string, for the expected-revision check. */
+	revision: revisionToken,
+	revisionId: recordId,
+	body: churchBody,
+	contentHash: sha256,
+	archived: z.boolean(),
+	/** The merge values resolved into revision 1, with where each came from. */
+	provenance: z
+		.array(
+			z.strictObject({ key: z.string().max(80), value: z.string().max(2000).nullable(), source: z.string().max(40) }),
+		)
+		.max(20),
+});
+export const churchRevisionSummary = z.strictObject({
+	id: recordId,
+	number: z.int().min(1),
+	authorAccountId: z.uuid().nullable(),
+	recordedAt: z.iso.datetime(),
+	contentHash: sha256,
+});
+export const churchRevisionList = z.strictObject({
+	documentId: recordId,
+	revisions: z.array(churchRevisionSummary).max(1000),
+});
+export const churchRevision = churchRevisionSummary.extend({ documentId: recordId, body: churchBody });
+export const brandingResult = z.strictObject({ documentId: recordId, useChurchBranding: z.boolean() });
+export type ChurchRevisionList = z.infer<typeof churchRevisionList>;
+export type ChurchRevision = z.infer<typeof churchRevision>;
+export type ChurchDocument = z.infer<typeof churchDocument>;

@@ -6,7 +6,7 @@ import { cardDocument } from "../layouts/card.tsx";
 import { checklistsDocument } from "../layouts/checklists.tsx";
 import { signInDocument, SIGN_IN_ROWS } from "../layouts/sign-in.tsx";
 import { CARD, LETTER } from "../layouts/shell.tsx";
-import { textDocument } from "../layouts/text-doc.tsx";
+import { churchDocument } from "../layouts/church-doc.tsx";
 import type { RenderClass } from "../theme.ts";
 import {
 	ACTION_ROWS,
@@ -18,12 +18,8 @@ import {
 } from "./agenda-content.ts";
 import { COMMITMENT_CARD, RESPONSE_CARD, type CardSpec } from "./card-content.ts";
 import { CHECKLIST_TEAMS } from "./checklists-content.ts";
-import {
-	FOLLOW_UP_LETTER,
-	LAUNCH_TEAM_COMMITMENT,
-	MEMBER_EXPECTATIONS,
-	type TextDocumentSpec,
-} from "./text-content.ts";
+import { CHURCH_TEMPLATES, churchTemplate, resolveBody } from "./church.ts";
+import { FOLLOW_UP_LETTER, LAUNCH_TEAM_COMMITMENT, MEMBER_EXPECTATIONS } from "./text-content.ts";
 
 type PageSize = { width: number; height: number };
 type Base = { id: string; documentClass: RenderClass; pageCount: number; outline: string[] };
@@ -71,16 +67,35 @@ const agendaEntry = (id: string, spec: AgendaSpec): PdfEntry => ({
 	build: (ctx) => agendaDocument(ctx, spec),
 });
 
-const textEntry = (spec: TextDocumentSpec, documentClass: RenderClass): PdfEntry => ({
-	id: spec.id,
-	format: "pdf",
-	documentClass,
-	pageSize: LETTER,
-	pageCount: 1,
-	outline: spec.style === "letter" ? [spec.title] : spec.sections.map((s) => s.heading),
-	fields: spec.style === "letter" ? ["letter_date", "pastor_name"] : spec.signatures.map((s) => s.name),
-	build: (ctx) => textDocument(ctx, spec),
-});
+/**
+ * A text-heavy template's preview. It renders the template's revision 1 through the Church Document render path, so the
+ * preview and the export of an unedited revision 1 show the same page text and outline.
+ */
+const textEntry = (id: string): PdfEntry => {
+	const template = churchTemplate(id);
+	if (!template) throw new Error(`Template ${id} is not a Church Document template.`);
+	const letter = template.style === "letter";
+	return {
+		id,
+		format: "pdf",
+		documentClass: template.documentClass,
+		pageSize: LETTER,
+		pageCount: 1,
+		outline: letter ? [template.title] : template.body.flatMap((b) => (b.kind === "heading" ? [b.text] : [])),
+		fields:
+			template.frame.kind === "letter"
+				? ["letter_date", "pastor_name"]
+				: template.frame.kind === "sign"
+					? template.frame.slots.map((s) => s.name)
+					: [],
+		build: (ctx) =>
+			churchDocument(
+				ctx,
+				template,
+				resolveBody(template.body, { church_name: ctx.church, pastor_name: ctx.values.pastor_name ?? null }),
+			),
+	};
+};
 
 export const REGISTRY: RegistryEntry[] = [
 	cardEntry("commitment-card", COMMITMENT_CARD),
@@ -105,9 +120,9 @@ export const REGISTRY: RegistryEntry[] = [
 		build: signInDocument,
 	},
 	agendaEntry("vision-meeting-agenda", VISION_AGENDA),
-	textEntry(MEMBER_EXPECTATIONS, "operational"),
-	textEntry(LAUNCH_TEAM_COMMITMENT, "operational"),
-	textEntry(FOLLOW_UP_LETTER, "outward-facing"),
+	textEntry("member-expectations"),
+	textEntry("launch-team-commitment"),
+	textEntry("follow-up-letter"),
 	agendaEntry("board-meeting-agenda", BOARD_AGENDA),
 	{
 		id: "first-year-budget",
@@ -170,5 +185,6 @@ export function contentSnapshot() {
 		},
 		checklists: CHECKLIST_TEAMS,
 		texts: [MEMBER_EXPECTATIONS, LAUNCH_TEAM_COMMITMENT, FOLLOW_UP_LETTER],
+		churchTemplates: CHURCH_TEMPLATES,
 	};
 }

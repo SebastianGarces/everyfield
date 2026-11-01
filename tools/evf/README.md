@@ -146,11 +146,11 @@ process; `EVF_TUI_LABEL` overrides the label for a test or a scratch workspace) 
 `--dangerously-skip-permissions` (the owner's `ccd` alias; a herdr pane loads no shell aliases, so evf passes the flag). The pane's shell carries `EVF_TASK`, `EVF_RUN`, `EVF_ROLE`, `EVF_STAGE`,
 `EVF_WORKTREE` and `EVF_SESSION`. evf records the run and a `stage_start` event in the work store:
 `runs.herdr_pane` is the seat's pane and `tasks.herdr_workspace_id` is the TUI workspace. `--dry-run` prints every
-step. The role files are `.claude/agents/<role>.md`: planner and verifier on Opus 5.5 high, implementer, ui,
-simplifier on Sonnet 5.5 medium. The implementer seat does UI work too and proves its own work; the ui seat is opt-in with the spec line `Seat: ui`. Every seat has the advisor and the update prompt disabled.
+step. The role files are `.claude/agents/<role>.md`: planner, verifier and prototype-merger on Opus 5.5 medium,
+implementer, ui, simplifier on Sonnet 5.5 medium (D85). The implementer seat does UI work too and proves its own work; the ui seat is opt-in with the spec line `Seat: ui`. Every seat has the advisor and the update prompt disabled.
 
 The seat's agent definition comes from the evf checkout that runs the launch, never from the task worktree. Launch
-reads `<evf root>/.claude/agents/<role>.md` (a missing `model` or `effort` line gets the seat's) and writes it into a
+reads `<evf root>/.claude/agents/<role>.md`, sets its `model` and `effort` lines to the resolved seat values and writes it into a
 per-run plugin directory `<runtime>/seat-<run>/` (`.claude-plugin/plugin.json` plus `agents/<role>.md`; `<runtime>` is
 `.git/evf/runtime/<task slug>`, outside every worktree). The seat starts with `claude --plugin-dir <that directory>
 --agent evf:<role> ...`, so the typed line carries a path, not the definition. A plugin agent is namespaced, so a task
@@ -259,6 +259,23 @@ other launches, still gets all of it. If a drive dies inside its own pr, ci or s
 next drive aborts that run without a round and performs the stage again; a PR GitHub already merged is
 recorded, not shipped twice. Jonah polls `evf status --json`.
 
+**Stopping a drive.** The drive loop runs in a worker thread, so the main thread can answer SIGTERM and SIGINT
+while a stage blocks in a child process. A signal that arrives inside a pr, ci or ship stage closes that `evf` run
+`aborted` with `drive stopped by <SIGNAL> during <stage>` and records one `drive_stopped` event with `{stage, signal}`.
+The drive removes its pid file and ends by the signal, which a shell reads as exit 128 plus the signal number (143 for
+SIGTERM). A signal between stages or inside a seat wait writes no run: only the pid file goes. Stop a drive with
+SIGTERM. SIGKILL cannot be caught and leaves the run `started`; `evf status` and `evf doctor` report it (below).
+
+**Orphaned `evf` runs.** A `started` run of role `evf` whose task has no live drive (the pid file under `evf/drive/`
+is missing or names a dead pid) is orphaned. `evf status` (text, and `--json` under `orphanRuns`) and `evf doctor`
+print one line for each: the ref, the run id, the stage, the age and one repair that never ships. A ship stage is
+repaired with `evf approve <PR>` once Sebastian approved, or `evf task reopen`; any other stage with
+`evf drive <task> --once`, whose restart recovery only aborts the run. A task already merged is repaired through the
+same late-merge path. Migration 005 closes the runs of tasks already merged. `markMerged` (ship, the drive's late
+merge and `evf approve`) closes every open `evf` run of the merged row `passed` with `<ref> merged as <sha10>`, and
+closes a seat run `aborted`. `evf approve` finds the row from the PR head branch and records the merge after the
+squash-merge; a branch with no row (a Wiki article) writes nothing.
+
 A merge ends the drive and the task. The drive exits 0 directly after its ship stage closes passed and makes
 no further transition. A standalone `evf ship` writes the same record: the ref's current row becomes `merged`
 with its merge commit and one `merged` event, or one merged row when the store had none, so `evf next` prints
@@ -279,6 +296,30 @@ work (`evf drive`, `evf task spec`, `evf launch`, `evf proof add`) uses that row
 merged ref; `evf drive` prints stage `done`, and `evf task spec` and `evf launch` fail. Only `evf task new
 <ref> --ask-file <file>` reopens a merged ref: it inserts one `new` row and its `task_new` event names the
 merged row it reopens (`reopens`).
+
+## Later slices (OPS-86)
+
+`evf task spec` files each numbered or bulleted item under `## Later slices` (or a `Later slices:` label) as a
+follow-up row with status `queued`, linked to the storing task through `parent_task_id` (schema 5). The row's `ask`
+is the slice text, then the parent's verbatim ask under a `Parent task <ref>, verbatim ask:` line. An OPS parent
+gets a newly reserved OPS id for each slice (`evf id next ops`); a failed reservation stores neither the spec nor a
+row. A WP or FB parent keeps its ref for each slice. A queued row sharing the parent's ref never hides it: `findTask`
+returns a queued row only when it is the ref's sole row. A follow-up label is its ref (`OPS-123`) or
+`<ref> slice <n>` (`WP-097 slice 2`; the parent is slice 1). Storing the same spec again changes nothing; a changed
+slice updates its queued row and a removed slice abandons it.
+
+A queued row never starts: `evf drive` prints stage `blocked` (exit 2) and `evf task start` and `evf launch` refuse,
+naming the row it waits for. Each slice waits for the slice before it, the first for its parent. `markMerged`
+moves the waiting queued row to `new` with one `follow_up_released` event. When a stored spec lists more slices than
+the task has follow-up rows (a spec stored before OPS-86, or rows abandoned), the next stage is `blocked` instead of
+`implement`, and a plan run cannot close passed; storing the spec again files the rows.
+
+For a task with follow-ups, an ordinary PR body (`evf pr body`, `evf pr open`, the `evf ship` body check) needs a
+first line under `## Summary` that starts with `Partial:` and names every label. `evf pr body --body-file` takes
+the task from `--task <ref>` or the `task/<slug>` branch. `evf ship`, the drive's held-for-approval cause and
+`evf status` (text, and `followUps` in `--json`) start with the same `Partial:` line. `post-review.mjs` refuses a
+report without a `## Ask coverage` table before its other tables, and an approval with a `missing` row or a
+`deferred` label that is not one of the task's follow-ups (`tools/evf/ask-coverage.ts`).
 
 ## Prototype mode
 
@@ -339,7 +380,7 @@ any call from a seat (`EVF_RUN` set). The TUI already hides abandoned rows.
 
 `evf tui` opens one read-only screen of the harness: every open task and running seat (task, stage, seat,
 model, effort, Herdr state, round of three, proof rows met, gate, last event), the event feed in Eastern
-Time and the health counters, with an explorer by mode and task on the left. It is the Rust crate in
+Time and the health counters, with an explorer by stage and task on the left. It is the Rust crate in
 `tools/evf-tui/` (ratatui, rusqlite bundled, notify), outside the pnpm workspace. `evf tui` runs
 `cargo build --release` with the target directory under the Git common dir when the cached binary at
 `<git-common-dir>/evf/bin/evf-tui` is missing or older than the crate sources, then starts it with `--db`
@@ -349,7 +390,20 @@ when the file watcher or the 250 ms fallback poll sees `PRAGMA data_version` mov
 `herdr api snapshot` every second and joins agents to runs by the Claude session id, and lists worktrees
 every ten seconds for head SHAs. `t` runs `herdr agent focus <agent>` (the task's workspace as the
 fallback), `Enter` opens the ask, spec and proof rows, `/` filters. It writes nothing: HEALTH names the
-evf command for every human gate (`awaiting_pick`, `escalated`) and every blocked seat.
+evf command for every human gate (`awaiting_pick`, `escalated`, a PR waiting for Sebastian) and every blocked seat.
+
+TABLE shows one row per ref: the latest row by id that is not abandoned, with `+N` after the label for the N other
+rows (the detail lists them with id, status, PR and merge time). The STATE column reads: the Herdr status of a seat
+(`working`, `idle`, `blocked`); `no pane` in red only for a seat role (planner, implementer, ui, simplifier,
+verifier, ideator, comparer, prototype-merger) whose session Herdr does not know; `evf <stage>` in the neutral
+style for a run evf itself works (it has no pane by design); `awaiting owner` in the attention style, with the
+gate `PR #<n>`, for a `pr_open` task with no open seat whose latest event is `owner_approval_wait` or a
+`drive_stopped` at stage `ship` (it counts as needs you); and `merged`, dim, for 24 hours after the `merged` event
+(never `updated_at`), never red and never needs you. The EXPLORER groups those rows by current stage: `queued`
+(status new or specced), `plan`, `implement`, `simplify`, `pr`, `verify`, `ci`, `ship`, `awaiting owner`,
+`needs pick`, `escalated`, `other`; a group shows only with tasks, and merged rows are not in it. `queued` is
+collapsed: `z` opens it, and while it is collapsed `all tasks` hides queued rows and the header says
+`queued N hidden`.
 
 ## Ship queue
 
@@ -560,8 +614,14 @@ an invalid entry that main or the task branch already carries before it creates 
 The branch may change `evf.config.json` only in its own entry, even when it owns the file; the verifier
 reviews that entry.
 The only design file they may own is `design/handoff/screens.md`, the generated package-owner map.
-An entry with `"route": "design"` is a design task instead: it owns only `design/` paths and never
-changes `design/everyfield-ui.html`, the approved prototype that the app tokens come from. Its
+An entry with `"route": "design"` is a design task instead: it owns only `design/` paths and does not
+change `design/everyfield-ui.html`, the approved prototype that the app tokens come from, with one
+exception. The file may change only when the entry has `"route": "design"`, a valid
+`"prototypeApproval": {"quote": "...", "approvedAt": "2026-10-31T17:07:00Z"}` (Sebastian's verbatim chat
+words and the UTC time, `YYYY-MM-DDTHH:MM[:SS[.fff]]Z`) and an `owningPaths` item equal to
+`"design/everyfield-ui.html"`; a folder item such as `"design/"` does not count. evf reads the entry from
+the commit under check (task branch for `evf verify`, PR head for the verifier and `evf approve`), never
+from the home checkout. Its
 `evf ship` checks CI and the different-family review, posts the verified status and stops.
 Sebastian approves it in chat, then `evf approve` checks that status and the changed files and merges.
 An owning path naming an existing folder must end in `/`; paths without it name exact files.
