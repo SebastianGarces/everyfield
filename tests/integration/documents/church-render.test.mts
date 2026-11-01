@@ -81,10 +81,24 @@ const tagsOf = async (bytes: Uint8Array) => {
 	walk(doc.catalog.lookup(PDFName.of("StructTreeRoot")));
 	return { doc, tags };
 };
-const EDITABLE = ["member-expectations", "launch-team-commitment", "follow-up-letter", "bylaws", "prayer-letter"];
+const NEW_POLICIES = [
+	"board-minutes",
+	"conflict-of-interest-policy",
+	"financial-controls-policy",
+	"accountable-plan-reimbursement-policy",
+];
+const EDITABLE = [
+	"member-expectations",
+	"launch-team-commitment",
+	"follow-up-letter",
+	"bylaws",
+	"prayer-letter",
+	...NEW_POLICIES,
+];
 
 describe("WP-037 Church Document templates", () => {
-	test("DOC-022: five authored templates, each with a frame, a class and merge fields", () => {
+	test("DOC-022: nine authored templates, each with a frame, a class and merge fields", () => {
+		assert.equal(CHURCH_TEMPLATES.length, 9);
 		assert.deepEqual(
 			CHURCH_TEMPLATES.map((t) => t.id),
 			EDITABLE,
@@ -130,7 +144,7 @@ describe("WP-037 Church Document templates", () => {
 	});
 
 	test("DOC-019: every printed string says church plant, never a bare plant, and spells Everyfield", async () => {
-		for (const id of ["bylaws", "prayer-letter"]) {
+		for (const id of ["bylaws", "prayer-letter", ...NEW_POLICIES]) {
 			const pdf = (await renderChurchPdf(input(id))).text.flat().join(" ");
 			const docx = wordText(docxParts(renderChurchDocx(input(id)))["word/document.xml"]!);
 			const raw = JSON.stringify(churchTemplate(id));
@@ -314,7 +328,7 @@ describe("WP-037 PDF export", () => {
 	});
 
 	test("DOC-002: the same revision and theme give the same PDF and the same Word bytes", async () => {
-		for (const id of ["bylaws", "prayer-letter"]) {
+		for (const id of ["bylaws", "prayer-letter", ...NEW_POLICIES]) {
 			const a = await renderChurchPdf(input(id, brandTheme()));
 			const b = await renderChurchPdf(input(id, brandTheme()));
 			assert.deepEqual(a.bytes, b.bytes);
@@ -426,25 +440,34 @@ describe("WP-037 Word export", () => {
 	});
 
 	test("DOC-023: a reader that is not the writer opens the Word file", async () => {
-		const bytes = renderChurchDocx(input("bylaws", brandTheme()));
-		// The importer of DOC-016 reads Word with its own ZIP and XML code.
-		const text = readImport(bytes, "docx");
-		for (const phrase of ["Bylaws", "Name and purpose", "Harborlight Church", "Board member"])
-			assert.ok(text.includes(phrase), phrase);
-		if (hasSoffice()) {
-			const pdf = (await pdfPages(sofficeToPdf(bytes))).join(" ");
-			for (const phrase of ["Name and purpose", "Statement of faith", "Template, not legal advice"])
-				assert.ok(pdf.includes(phrase), phrase);
+		for (const id of ["bylaws", ...NEW_POLICIES]) {
+			const bytes = renderChurchDocx(input(id, brandTheme()));
+			const firstHeading = churchTemplate(id)!.body.find((b) => b.kind === "heading") as { text: string };
+			// The importer of DOC-016 reads Word with its own ZIP and XML code.
+			const text = readImport(bytes, "docx");
+			for (const phrase of [firstHeading.text, "Harborlight Church"])
+				assert.ok(text.includes(phrase), `${id}: ${phrase}`);
+			if (hasSoffice()) {
+				const pdf = (await pdfPages(sofficeToPdf(bytes))).join(" ");
+				for (const phrase of [firstHeading.text, "Template, not legal advice"])
+					assert.ok(pdf.includes(phrase), `${id}: ${phrase}`);
+			}
+			const outPy = execFileSync(
+				"python3",
+				[
+					"-I",
+					"-c",
+					"import sys,zipfile,io;z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read()));print(z.namelist()[0])",
+				],
+				{ input: bytes },
+			);
+			assert.equal(outPy.toString().trim(), "[Content_Types].xml", id);
+			assert.ok(
+				wordText(docxParts(bytes)["word/footer1.xml"]!).includes("Template, not legal advice"),
+				`${id}: Word notice`,
+			);
+			const pdf = await renderChurchPdf(input(id));
+			assert.ok((await pdfPages(pdf.bytes)).join(" ").includes("Template, not legal advice"), `${id}: PDF notice`);
 		}
-		const outPy = execFileSync(
-			"python3",
-			[
-				"-I",
-				"-c",
-				"import sys,zipfile,io;z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read()));print(z.namelist()[0])",
-			],
-			{ input: bytes },
-		);
-		assert.equal(outPy.toString().trim(), "[Content_Types].xml");
 	});
 });

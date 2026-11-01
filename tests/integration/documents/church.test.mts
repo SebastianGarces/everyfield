@@ -7,7 +7,7 @@ import { documentsReader, documentsWriter } from "../../../packages/domain/src/d
 import { brandReader, brandWriter } from "../../../packages/domain/src/branding/index.ts";
 import { uploadBrandAsset } from "../../../packages/domain/src/branding/files.ts";
 import sharp from "../../../packages/db/node_modules/sharp/dist/index.mjs";
-import { churchTemplate } from "../../../packages/domain/src/documents/templates/church.ts";
+import { churchTemplate, resolveBody } from "../../../packages/domain/src/documents/templates/church.ts";
 import { pdfPages, docxParts, wordText } from "./fixtures/readers.mts";
 import test, { after, before, describe } from "node:test";
 import assert from "node:assert/strict";
@@ -263,6 +263,27 @@ describe("WP-037 Church Documents", { concurrency: 1 }, () => {
 		assert.notEqual(other.id, made.id);
 	});
 
+	test("DOC-022: an Owner and an Admin make each priority-1 policy template with the church name in revision 1", async () => {
+		const ids = [
+			"board-minutes",
+			"conflict-of-interest-policy",
+			"financial-controls-policy",
+			"accountable-plan-reimbursement-policy",
+		];
+		for (const [n, id] of ids.entries()) {
+			const made = ok(await create(n % 2 ? OWNER : ADMIN, id, `policy-${id}`, { church_name: "Harvest Point" }));
+			assert.equal(made.documentClass, "formal/legal");
+			assert.deepEqual(
+				made.body,
+				JSON.parse(
+					JSON.stringify(resolveBody(churchTemplate(id).body, { church_name: "Harvest Point", pastor_name: null })),
+				),
+			);
+			assert.equal(JSON.stringify(made.body).includes("{church_name}"), false);
+			assert.ok(JSON.stringify(made.body).includes("Harvest Point"), `${id} names the church`);
+		}
+	});
+
 	test("AC:CASE-DOC-022 a Member, a fixed layout, a budget, an email and an unwritten template are refused and write nothing", async () => {
 		const before = await counts();
 		refused(await create(MEMBER, "bylaws", "CASE-DOC-022-member", { church_name: "Harvest Point" }), "access_denied");
@@ -275,7 +296,7 @@ describe("WP-037 Church Documents", { concurrency: 1 }, () => {
 		refused(await create(ADMIN, "first-year-budget", "budget"), "template_not_editable");
 		refused(await create(ADMIN, "vision-meeting-invitation", "email"), "template_not_editable");
 		refused(await create(ADMIN, "support-letter", "pending"), "template_not_authored");
-		refused(await create(ADMIN, "board-minutes", "pending-2"), "template_not_authored");
+		refused(await create(ADMIN, "child-protection-policy", "pending-2"), "template_not_authored");
 		refused(await create(ADMIN, "no-such-template", "unknown"), "unavailable");
 		refused(await create(ADMIN, "bylaws", "foreign-field", { surprise: "x" }), "invalid_input");
 		refused(await create(ADMIN, "bylaws", "", {}), "invalid_input");
