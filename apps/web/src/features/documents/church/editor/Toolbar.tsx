@@ -14,6 +14,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { Icon, type IconSvgElement } from "@everyfield/ui/foundations";
 import type { Editor } from "@tiptap/react";
+import { useEffect, useReducer } from "react";
 import { useEditorState } from "@tiptap/react";
 import {
 	canMove,
@@ -94,6 +95,16 @@ function Action({
 }
 
 export function EditorToolbar({ editor }: { editor: Editor }) {
+	// The view mounts after the first render and `editor.isEditable` is false until then. Draw again when it mounts, so
+	// Bold, Italic, Underline and Link show on load, not after the first click.
+	const [, drawAgain] = useReducer((n: number) => n + 1, 0);
+	useEffect(() => {
+		editor.on("mount", drawAgain);
+		if (editor.isEditable) drawAgain();
+		return () => {
+			editor.off("mount", drawAgain);
+		};
+	}, [editor]);
 	const s = useEditorState({
 		editor,
 		selector: ({ editor: e }) => {

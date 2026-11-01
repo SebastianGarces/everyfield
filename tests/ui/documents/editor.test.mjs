@@ -372,7 +372,10 @@ test("AC:DOC-EDIT-ACTIONS: every editing action is checked with Undo and Redo on
 			// Move up is disabled on the first block, Move down on the last.
 			await page.locator(".ef-block[data-ef-node=columns]").first().click();
 			assert.equal(await button(page, "Move block up").isDisabled(), true, "Move up is disabled on the first block");
-			await page.locator(`${PAPER} > *`).last().click();
+			await page.locator(PAPER).evaluate((el) => {
+				const doc = el.editor.state.doc;
+				el.editor.commands.setNodeSelection(doc.content.size - doc.lastChild.nodeSize);
+			});
 			assert.equal(await button(page, "Move block down").isDisabled(), true, "Move down is disabled on the last block");
 		});
 
