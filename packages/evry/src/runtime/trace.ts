@@ -35,14 +35,21 @@ const quietly = <T>(body: () => T): T | undefined => {
 	}
 };
 
-/** Values no log line may show: the keys, their Basic auth form, and the base URL's user info, query and fragment. */
-const hidden = new Set<string>();
+/**
+ * Process-wide like the OpenTelemetry globals, since Next.js may bundle instrumentation apart from the routes that flush:
+ * `hidden` holds the values no log line may show (the keys, their Basic auth form, and the base URL's user info, query
+ * and fragment), `exported` counts the spans handed to the exporter so far, so a flush reports its share.
+ */
+const state = ((globalThis as { [key: symbol]: unknown })[Symbol.for("everyfield.evry.tracing")] ??= {
+	hidden: new Set<string>(),
+	exported: 0,
+}) as { hidden: Set<string>; exported: number };
 
 /** Writes one JSON line with the secrets above masked. Never throws, also when the console itself throws. */
 function log(stream: "log" | "error", line: { event: string } & Metadata) {
 	quietly(() => {
 		let text = JSON.stringify({ component: "evry", ...line });
-		for (const value of hidden) text = text.replaceAll(value, "[redacted]");
+		for (const value of state.hidden) text = text.replaceAll(value, "[redacted]");
 		console[stream](text);
 	});
 }
@@ -75,9 +82,6 @@ const DEFAULT_BASE_URL = "https://cloud.langfuse.com";
 /** Langfuse's rule for an environment name. */
 const ENVIRONMENT = /^(?!langfuse)[a-z0-9_-]+$/;
 
-/** Spans handed to the exporter so far; a flush reports its share. */
-let exported = 0;
-
 /**
  * Logs each failed export. The processor builds its OTLP exporter inside (auth header, compression, batch byte limit),
  * so the wrap goes around that instance and the export itself stays the SDK's own. The SDK versions are pinned, and the
@@ -88,7 +92,7 @@ function watchExports(processor: LangfuseSpanProcessor) {
 	if (!exporter) return;
 	const send = exporter.export.bind(exporter);
 	exporter.export = (spans, done) => {
-		exported += spans.length;
+		state.exported += spans.length;
 		send(spans, (result) => {
 			if (result.code !== ExportResultCode.SUCCESS) {
 				const status = (result.error as { code?: unknown } | undefined)?.code;
@@ -118,10 +122,10 @@ export function registerTracing(env: Record<string, string | undefined> = proces
 	const url = parsed?.protocol === "http:" || parsed?.protocol === "https:" ? parsed : null;
 	const credentials = publicKey && secretKey && Buffer.from(`${publicKey}:${secretKey}`).toString("base64");
 	for (const value of [publicKey, secretKey, credentials, parsed?.username, parsed?.password])
-		if (value) hidden.add(value);
-	for (const value of [parsed?.search, parsed?.hash]) if (value && value.length > 1) hidden.add(value.slice(1));
+		if (value) state.hidden.add(value);
+	for (const value of [parsed?.search, parsed?.hash]) if (value && value.length > 1) state.hidden.add(value.slice(1));
 	const environmentValid = environment === undefined || ENVIRONMENT.test(environment);
-	const state = { baseUrlHost: url?.host ?? null, environment: environment ?? null, environmentValid };
+	const config = { baseUrlHost: url?.host ?? null, environment: environment ?? null, environmentValid };
 	const reason =
 		!publicKey || !secretKey
 			? "missing_keys"
@@ -131,13 +135,13 @@ export function registerTracing(env: Record<string, string | undefined> = proces
 					? "invalid_environment"
 					: undefined;
 	if (reason) {
-		log("error", { event: "tracing_disabled", reason, ...state });
+		log("error", { event: "tracing_disabled", reason, ...config });
 		return false;
 	}
 	const processor = new LangfuseSpanProcessor({ publicKey, secretKey, baseUrl, environment });
 	watchExports(processor);
 	diag.setLogger(diagLogger, DiagLogLevel.WARN);
-	log("log", { event: "tracing_registered", ...state });
+	log("log", { event: "tracing_registered", ...config });
 	if (!context.setGlobalContextManager(new AsyncLocalStorageContextManager().enable()))
 		log("error", { event: "tracing_not_global", which: "setGlobalContextManager" });
 	if (!trace.setGlobalTracerProvider(new TracerProvider({ spanProcessors: [processor] })))
@@ -157,10 +161,14 @@ export async function flushTraces() {
 	};
 	if (!provider.forceFlush) return;
 	const started = performance.now();
-	const before = exported;
+	const before = state.exported;
 	try {
 		await provider.forceFlush();
-		log("log", { event: "traces_flushed", spans: exported - before, ms: Math.round(performance.now() - started) });
+		log("log", {
+			event: "traces_flushed",
+			spans: state.exported - before,
+			ms: Math.round(performance.now() - started),
+		});
 	} catch (error) {
 		log("error", { event: "traces_flush_failed", message: describe(error) });
 	}
