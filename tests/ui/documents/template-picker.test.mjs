@@ -20,17 +20,6 @@ const titles = (dialog) =>
 		.getByRole("button")
 		.evaluateAll((buttons) => buttons.map((b) => b.querySelector("span > span")?.textContent));
 
-/** The titles once they equal `want`, or the last titles after 5 s: the list renders the search a frame later. */
-async function settled(dialog, want, pick = (t) => t) {
-	let last;
-	for (let i = 0; i < 50; i++) {
-		last = pick(await titles(dialog));
-		if (JSON.stringify(last) === JSON.stringify(want)) break;
-		await dialog.page().waitForTimeout(100);
-	}
-	return last;
-}
-
 for (const [name, engine] of ENGINES) {
 	test(`AC:DOC-PICKER-BROWSE (${name}): search and pages over 60 templates`, async () => {
 		await withPage(engine, async (page) => {
@@ -50,16 +39,12 @@ for (const [name, engine] of ENGINES) {
 
 			await dialog.getByRole("button", { name: "Next page" }).click();
 			await dialog.getByText("Showing 11–20 of 60").waitFor({ timeout: 5_000 });
-			assert.equal(
-				await settled(dialog, "Launch Team Covenant", (t) => t[0]),
-				"Launch Team Covenant",
-				"page 2 starts at the 11th",
-			);
+			assert.equal((await titles(dialog))[0], "Launch Team Covenant", "page 2 starts at the 11th");
 
 			const search = dialog.getByRole("searchbox", { name: "Search templates" });
 			await search.fill("policy");
 			const policies = ["Conflict of Interest Policy", "Child Safety Policy"];
-			assert.deepEqual(await settled(dialog, policies, (t) => t.slice(0, 2)), policies);
+			assert.deepEqual((await titles(dialog)).slice(0, 2), policies);
 			assert.equal(
 				await dialog.getByRole("navigation", { name: "Template pages" }).count(),
 				0,
@@ -67,9 +52,9 @@ for (const [name, engine] of ENGINES) {
 			);
 			await search.fill("cut on the marks");
 			const cards = [1, 2, 3, 4, 5].map((n) => `Core Group Commitment Card${n > 1 ? ` ${n}` : ""}`);
-			assert.deepEqual(await settled(dialog, cards), cards);
+			assert.deepEqual(await titles(dialog), cards);
 			await search.fill("formal bylaws");
-			assert.equal(await settled(dialog, 5, (t) => t.length), 5, "category and name words both match");
+			assert.equal((await titles(dialog)).length, 5, "category and name words both match");
 			await search.fill("zzz");
 			await dialog.getByText("No template matches “zzz”.").waitFor({ timeout: 5_000 });
 			await dialog.getByRole("button", { name: "Clear search" }).click();
