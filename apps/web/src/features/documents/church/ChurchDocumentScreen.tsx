@@ -44,7 +44,7 @@ export function ChurchDocumentScreen({ doc, canManage }: { doc: ChurchView; canM
 						</span>
 						<Tag>{CLASS_LABEL[doc.documentClass]}</Tag>
 						<span className="tabular-nums">Revision {doc.revision}</span>
-						{doc.perSheet > 1 ? <span>{doc.perSheet} cards on each sheet</span> : null}
+						{doc.page.perSheet > 1 ? <span>{doc.page.perSheet} cards on each sheet</span> : null}
 					</span>
 				}
 				actions={

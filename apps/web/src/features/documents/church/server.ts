@@ -1,9 +1,9 @@
 import { requestDatabase } from "@/server/database";
 import { recordId } from "@everyfield/contracts/common";
-import { pageBox, type ChurchDocument, type ChurchSummary } from "@everyfield/contracts/documents";
+import { type ChurchDocument, type ChurchSummary } from "@everyfield/contracts/documents";
 import { privateStorage } from "@everyfield/db/schema";
 import type { RequestActor } from "@everyfield/domain/access";
-import { documentsWriter, docTemplateSummaries, type DocTemplateSummary } from "@everyfield/domain/documents";
+import { documentsWriter, docTemplateSummaries, sheetOf, type DocTemplateSummary } from "@everyfield/domain/documents";
 import "server-only";
 import { canEditDocuments, documentActor, hasPlantSeat } from "../server.ts";
 
@@ -18,9 +18,8 @@ export type ChurchView = {
 	documentClass: ChurchDocument["documentClass"];
 	revision: string;
 	formats: ChurchDocument["formats"];
-	/** Cards per sheet for a tiled document, else 1. The preview shows the sheet, not one card. */
-	perSheet: number;
-	page: { width: number; height: number };
+	/** The sheet the preview shows (not one card) and its cards per sheet. */
+	page: { width: number; height: number; perSheet: number };
 };
 export type Load<T> = { status: "ok"; value: T } | { status: "refused" } | { status: "failed" };
 
@@ -55,8 +54,6 @@ export async function loadChurchDocument(authority: RequestActor, documentId: st
 		const reply = await documentsWriter.readChurch(db, authority, { documentId });
 		if (reply.status !== "ok") return { status: "refused" };
 		const d = reply.value;
-		const tile = d.body.page.tile;
-		const page = pageBox(d.body.page) ?? { width: 612, height: 792 };
 		return {
 			status: "ok",
 			value: {
@@ -67,8 +64,7 @@ export async function loadChurchDocument(authority: RequestActor, documentId: st
 				documentClass: d.documentClass,
 				revision: d.revision,
 				formats: d.formats,
-				perSheet: tile ? tile.across * tile.down : 1,
-				page,
+				page: sheetOf(d.body.page),
 			},
 		};
 	} catch (error) {
