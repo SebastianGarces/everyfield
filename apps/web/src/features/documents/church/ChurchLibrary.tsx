@@ -160,7 +160,8 @@ function TemplatePicker({ templates }: { templates: DocTemplateSummary[] }) {
 					New from template
 				</Button>
 			</DialogTrigger>
-			<DialogContent size="lg">
+			{/* One height for every search result, so the centered dialog never moves or shrinks while someone types. */}
+			<DialogContent size="lg" className="h-[min(800px,calc(100dvh-24px))]">
 				<DialogHeader
 					title="New from template"
 					description="Pick a template. Everyfield copies it for your church plant and fills in your church's details."
