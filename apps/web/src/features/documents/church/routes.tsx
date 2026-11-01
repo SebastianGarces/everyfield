@@ -47,7 +47,15 @@ export async function ChurchDocumentPage({ params }: { params: Promise<{ documen
 	const loaded = await loadChurchDocument(authority, id.data);
 	if (loaded.status === "failed") return <Failed />;
 	if (loaded.status === "refused") return <Missing />;
-	return <ChurchDocumentScreen doc={loaded.value} canManage={canManageChurch(authority)} />;
+	// The stored document goes to the browser only for an Owner or Admin, who can edit it. A Member gets the preview.
+	const canManage = canManageChurch(authority);
+	return (
+		<ChurchDocumentScreen
+			doc={loaded.value.view}
+			editable={canManage ? loaded.value.document : null}
+			canManage={canManage}
+		/>
+	);
 }
 
 function Unavailable() {

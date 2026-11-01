@@ -1,6 +1,6 @@
 import { requestDatabase } from "@/server/database";
 import { recordId } from "@everyfield/contracts/common";
-import { type ChurchDocument, type ChurchSummary } from "@everyfield/contracts/documents";
+import { type ChurchDocument, type ChurchSummary, type DocDocument } from "@everyfield/contracts/documents";
 import { privateStorage } from "@everyfield/db/schema";
 import type { RequestActor } from "@everyfield/domain/access";
 import { documentsWriter, docTemplateSummaries, sheetOf, type DocTemplateSummary } from "@everyfield/domain/documents";
@@ -47,7 +47,10 @@ export async function loadLibrary(
 	}
 }
 
-export async function loadChurchDocument(authority: RequestActor, documentId: string): Promise<Load<ChurchView>> {
+export async function loadChurchDocument(
+	authority: RequestActor,
+	documentId: string,
+): Promise<Load<{ view: ChurchView; document: DocDocument }>> {
 	const db = requestDatabase();
 	if (!db) return { status: "failed" };
 	try {
@@ -57,14 +60,17 @@ export async function loadChurchDocument(authority: RequestActor, documentId: st
 		return {
 			status: "ok",
 			value: {
-				id: d.id,
-				title: d.title,
-				templateId: d.templateId,
-				templateVersion: d.templateVersion,
-				documentClass: d.documentClass,
-				revision: d.revision,
-				formats: d.formats,
-				page: sheetOf(d.body.page),
+				view: {
+					id: d.id,
+					title: d.title,
+					templateId: d.templateId,
+					templateVersion: d.templateVersion,
+					documentClass: d.documentClass,
+					revision: d.revision,
+					formats: d.formats,
+					page: sheetOf(d.body.page),
+				},
+				document: d.body,
 			},
 		};
 	} catch (error) {

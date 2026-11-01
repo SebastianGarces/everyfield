@@ -1,15 +1,32 @@
 "use client";
 
 import { Delete02Icon, Download01Icon } from "@hugeicons/core-free-icons";
-import { Button, ConfirmDialog, PageHeader } from "@everyfield/ui/controls";
+import type { DocDocument } from "@everyfield/contracts/documents";
+import { Button, ConfirmDialog, PageHeader, Skeleton } from "@everyfield/ui/controls";
 import { Tag } from "@everyfield/ui/display";
+import dynamic from "next/dynamic";
+import { useState } from "react";
 import { ChurchPdf } from "./ChurchPdf.tsx";
 import { deleteChurchDocument, type ChurchActionResult } from "./actions.ts";
 import { CLASS_LABEL } from "./labels.ts";
 import type { ChurchView } from "./server.ts";
 
 // One Church Document: the real PDF as its preview, and the downloads. The preview and every download read the same
-// file route for the same revision, so the preview is the file Download gives. An Owner or Admin can delete it.
+// file route for the same revision, so the preview is the file Download gives. An Owner or Admin can edit and delete it.
+// The editor is a separate chunk, loaded only when an Owner or Admin opens the page: a Member's page never loads it.
+
+const ChurchEditor = dynamic(() => import("./editor/ChurchEditor.tsx"), {
+	ssr: false,
+	loading: () => (
+		<div aria-busy="true" className="flex flex-col gap-3">
+			<span className="sr-only" role="status">
+				Loading the editor
+			</span>
+			<Skeleton className="h-12 w-full rounded-card" />
+			<Skeleton className="mx-auto aspect-[612/792] w-full max-w-[816px] rounded-none" />
+		</div>
+	),
+});
 
 const DOWNLOADS = [
 	{ format: "pdf", label: "Download PDF" },
@@ -17,12 +34,23 @@ const DOWNLOADS = [
 	{ format: "xlsx", label: "Download Excel" },
 ] as const;
 
-export function ChurchDocumentScreen({ doc, canManage }: { doc: ChurchView; canManage: boolean }) {
-	const file = (format: string, download: boolean) =>
-		`/documents/church/${doc.id}/file?format=${format}&revision=${doc.revision}${download ? "&download=1" : ""}`;
+export function ChurchDocumentScreen({
+	doc,
+	editable,
+	canManage,
+}: {
+	doc: ChurchView;
+	/** The stored document, only for an Owner or Admin. A Member gets null and the read-only page. */
+	editable: DocDocument | null;
+	canManage: boolean;
+}) {
+	// A save moves the revision here, so the header and the downloads follow without a page refresh.
+	const [revision, setRevision] = useState(doc.revision);
+	const file = (format: string, download: boolean, at = revision) =>
+		`/documents/church/${doc.id}/file?format=${format}&revision=${at}${download ? "&download=1" : ""}`;
 
 	async function remove() {
-		const result: ChurchActionResult | undefined = await deleteChurchDocument(doc.id, doc.revision);
+		const result: ChurchActionResult | undefined = await deleteChurchDocument(doc.id, revision);
 		// A success redirects to the library and returns nothing here; a refusal stays in the dialog with its reason.
 		if (result?.status === "refused") throw new Error(result.message);
 		if (result?.status === "lost") throw new Error("The connection dropped. Nothing was deleted.");
@@ -43,7 +71,7 @@ export function ChurchDocumentScreen({ doc, canManage }: { doc: ChurchView; canM
 							from {doc.templateId} v{doc.templateVersion}
 						</span>
 						<Tag>{CLASS_LABEL[doc.documentClass]}</Tag>
-						<span className="tabular-nums">Revision {doc.revision}</span>
+						<span className="tabular-nums">Revision {revision}</span>
 						{doc.page.perSheet > 1 ? <span>{doc.page.perSheet} cards on each sheet</span> : null}
 					</span>
 				}
@@ -77,9 +105,20 @@ export function ChurchDocumentScreen({ doc, canManage }: { doc: ChurchView; canM
 					</>
 				}
 			/>
-			<section aria-label="Preview" className="mx-auto w-full max-w-[880px]">
-				<ChurchPdf key={file("pdf", false)} title={doc.title} src={file("pdf", false)} page={doc.page} />
-			</section>
+			{editable ? (
+				<ChurchEditor
+					docId={doc.id}
+					title={doc.title}
+					document={editable}
+					revision={doc.revision}
+					onRevision={setRevision}
+					previewSrc={(at) => file("pdf", false, at)}
+				/>
+			) : (
+				<section aria-label="Preview" className="mx-auto w-full max-w-[880px]">
+					<ChurchPdf key={file("pdf", false)} title={doc.title} src={file("pdf", false)} page={doc.page} />
+				</section>
+			)}
 		</>
 	);
 }
