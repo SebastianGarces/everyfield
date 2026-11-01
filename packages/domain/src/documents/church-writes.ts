@@ -163,7 +163,8 @@ export const churchWriter = {
 				meetingDate: null,
 			};
 			// The values are frozen now (input provenance): an override wins over the church and the brand kit.
-			const data: Record<string, string> = { ...frozenData(template.fields, sources), ...cleaned.values };
+			const frozen = frozenData(template.fields, sources);
+			const data: Record<string, string> = { ...frozen.data, ...cleaned.values };
 			const required = template.fields.find((f) => f.required && !data[f.key]?.trim());
 			if (required) deny("unavailable");
 			const provenance: Provenance = template.fields
@@ -171,22 +172,15 @@ export const churchWriter = {
 				.map((field) => ({
 					key: field.key,
 					value: data[field.key] ?? null,
-					source: cleaned.values[field.key]
-						? "override"
-						: data[field.key] === undefined
-							? "absent"
-							: (field.source ?? "fallback").slice(0, 40),
+					source: cleaned.values[field.key] ? "override" : (frozen.from[field.key] ?? "absent").slice(0, 40),
 				}));
-			const forked = await c.forkTemplate(template, {
-				id: `doc-${stableId(scope.tenantId, "church-document", input.requestKey)}`,
-				data,
-			});
+			const docId = stableId(scope.tenantId, "church-document", input.requestKey);
+			const forked = await c.forkTemplate(template, { id: `doc-${docId}`, data });
 			const checked = c.docDocument.safeParse(forked);
 			if (!checked.success) rejectInput("mergeFields", "The merge values make the document too large.");
 			const body = JSON.stringify(checked.data);
 			const hash = hashOf(body);
 			const requestHash = hashOf(JSON.stringify([template.id, cleaned.values]));
-			const docId = stableId(scope.tenantId, "church-document", input.requestKey);
 			const revId = stableId(scope.tenantId, "church-document-revision", input.requestKey);
 			let found: { ok: boolean; id: string | null; prior_id: string | null; prior_hash: string | null }[];
 			try {

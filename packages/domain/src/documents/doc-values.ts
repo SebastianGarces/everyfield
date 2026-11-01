@@ -64,17 +64,23 @@ const SOURCE: Record<string, (s: MergeSources) => string | null> = {
 /**
  * The merge values a new document freezes: each field's source, then its fallback (which may name other fields in
  * braces). An empty fallback is a value: the field prints nothing. A field with neither is left out of `data`.
+ * `from` says where each value came from: the source name, or "fallback".
  */
 export function frozenData(fields: readonly FieldDecl[], sources: MergeSources) {
 	const raw: Record<string, string> = {};
+	const from: Record<string, string> = {};
 	for (const field of fields) {
 		const value = field.source ? SOURCE[field.source]?.(sources) : null;
-		if (value?.trim()) raw[field.key] = value.trim();
+		if (field.source && value?.trim()) {
+			raw[field.key] = value.trim();
+			from[field.key] = field.source;
+		}
 	}
 	const data: Record<string, string> = { ...raw };
 	for (const field of fields) {
 		if (raw[field.key] !== undefined || field.fallback === undefined || field.type === "list") continue;
 		data[field.key] = fill(field.fallback, (key) => raw[key] ?? "");
+		from[field.key] = "fallback";
 	}
-	return data;
+	return { data, from };
 }

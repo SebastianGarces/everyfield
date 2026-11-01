@@ -442,3 +442,30 @@ test("WP-036 criterion 6: a wiped fork of the policy still validates and prints 
 	const plain = await renderDocPdf({ ...doc, class: "operational" });
 	assert.deepEqual(await pdfPages(plain.bytes), [""]);
 });
+
+test("WP-036 New from template freezes each field from its source, else its fallback, and says which", async () => {
+	const { frozenData, fieldValues } = await import("../../../packages/domain/src/documents/doc-values.ts");
+	const card = docTemplateById("commitment-card")!;
+	const policy = docTemplateById("conflict-of-interest-policy")!;
+	const sources = {
+		churchName: "Harbor City Church",
+		pastorName: null,
+		tagline: null,
+		legalName: null,
+		contactLine: null,
+		meetingDate: null,
+	};
+	assert.deepEqual(frozenData(policy.fields, sources), {
+		data: { church_name: "Harbor City Church", church_legal_name: "Harbor City Church" },
+		from: { church_name: "church.name", church_legal_name: "fallback" },
+	});
+	const frozen = frozenData(card.fields, { ...sources, tagline: "Come as you are." });
+	assert.deepEqual(frozen, {
+		data: { church_name: "Harbor City Church", church_tagline: "Come as you are.", contact_line: "" },
+		from: { church_name: "church.name", church_tagline: "brand.tagline", contact_line: "fallback" },
+	});
+	// An empty frozen value prints nothing; a template prints its samples.
+	const doc = await forkTemplate(card, { data: frozen.data });
+	assert.equal(fieldValues(doc).contact_line, "");
+	assert.equal(fieldValues(card).contact_line, "harborcity.church  ·  (555) 010-0199");
+});
