@@ -6532,7 +6532,7 @@ document.addEventListener('keydown', e => {
   let lastRange = null, lastGood = null, expected = '', busy = false, lastKind = '', lastAt = 0, saveTimer = 0;
 
   const clean = () => body.innerHTML.replace(/​/g, '');
-  function commit() { const d = cur(); if (!d || readOnly()) return; d.html = clean(); d.title = title.textContent.trim(); if (saveTimer) saveNow(); }
+  function commit() { const d = cur(); if (!d || readOnly()) return; if (saveTimer) return saveNow(); d.html = clean(); d.title = title.textContent.trim(); }
   function renderDoc() {
     const d = cur();
     $('wd-choose').hidden = !!d; docEl.hidden = !d;
@@ -6646,7 +6646,6 @@ document.addEventListener('keydown', e => {
   let onConfirm = null;
   function openOverlay(id, focusEl, back) { openers[id] = back || document.activeElement; $(id).dataset.open = 'true'; requestAnimationFrame(() => requestAnimationFrame(() => (focusEl || $(id).querySelector('[data-close]')).focus())); }
   function closeOverlay(id, keepFocus) { $(id).dataset.open = 'false'; const o = openers[id]; if (!keepFocus && o && o.isConnected) o.focus(); }
-  const isOpen = id => $(id).dataset.open === 'true';
   ['wd-confirm', 'wd-history', 'wd-print'].forEach(id => {
     const m = $(id);
     m.addEventListener('click', e => { if (e.target === m || e.target.closest('[data-close]')) closeOverlay(id); });
@@ -6667,7 +6666,6 @@ document.addEventListener('keydown', e => {
 
   const EDITING = ['contenteditable', 'role', 'aria-multiline', 'aria-label'];
   const stripEditing = root => root.querySelectorAll(EDITING.map(a => `[${a}]`).join()).forEach(el => EDITING.forEach(a => el.removeAttribute(a)));
-  const readOnlyNodes = root => { root.querySelectorAll('.wd-slot-lock').forEach(b => b.replaceWith(Object.assign(document.createElement('i'), { className: 'hgi-stroke hgi-square-lock-02 faint' }))); stripEditing(root); };
 
   /* Changes between two versions, block by block (longest common subsequence), then word by word. */
   const norm = s => s.replace(/[​\s]+/g, ' ').trim();
@@ -6726,14 +6724,15 @@ document.addEventListener('keydown', e => {
   }
   function showRev(i) {
     const r = revs[i], prev = revs[i + 1], d = cur();
-    $('wd-revs').querySelectorAll('[data-rev]').forEach(x => x.toggleAttribute('aria-current', +x.dataset.rev === i));
-    $('wd-revs').querySelector(`[data-rev="${i}"]`).setAttribute('aria-current', 'true');
+    $('wd-revs').querySelectorAll('[data-rev]').forEach(x => +x.dataset.rev === i ? x.setAttribute('aria-current', 'true') : x.removeAttribute('aria-current'));
     const nodes = prev ? diffBlocks(blocksOf(prev.html), blocksOf(r.html)) : blocksOf(r.html);
     const changes = nodes.some(n => n.matches('[data-change]') || n.querySelector('[data-change]'));
     const can = !r.current && d.status !== 'archived';
     const legend = !prev ? 'First version' : changes ? `Changes since ${esc(prev.when)}: <span class="c-added">Added</span><span class="c-changed">Changed</span><span class="c-removed">Removed</span>` : `No text changes since ${esc(prev.when)}`;
     $('wd-rev-preview').innerHTML = `<div class="wd-rev-bar"><div class="grow"><div style="font-weight:600">${esc(r.label)}</div><div class="muted t-xs">${esc(r.who)} · ${esc(r.when)} · Read only</div><div class="wd-legend">${legend}</div></div>${r.current ? '<span class="badge" data-size="sm" data-status="positive">Current version</span>' : `<button type="button" class="btn" data-variant="primary" data-size="sm" id="wd-rev-restore"${can ? '' : ' disabled'}><i class="hgi-stroke hgi-refresh"></i>Restore this version</button>`}</div><div class="wd-sheet wd-rev-sheet"><h1 class="wd-sheet-title">${esc(name(d))}</h1><div class="prose" id="wd-rev-body"></div></div>`;
-    const host = $('wd-rev-body'); host.append(...nodes); readOnlyNodes(host);
+    const host = $('wd-rev-body'); host.append(...nodes);
+    host.querySelectorAll('.wd-slot-lock').forEach(b => b.replaceWith(Object.assign(document.createElement('i'), { className: 'hgi-stroke hgi-square-lock-02 faint' })));
+    stripEditing(host);
     const rb = $('wd-rev-restore');
     if (rb && can) rb.addEventListener('click', () => {
       keepVersion(d, 'Edited the text');
@@ -7372,7 +7371,7 @@ document.addEventListener('keydown', e => {
       if (drag) { endDrag(false); return; }
       if (!$('wd-linkpop').hidden) { e.preventDefault(); closeLink(true); return; }
       if (menuBtn) { e.preventDefault(); closeMenu(true); return; }
-      for (const id of ['wd-confirm', 'wd-print', 'wd-history']) if (isOpen(id)) { closeOverlay(id); return; }
+      for (const id of ['wd-confirm', 'wd-print', 'wd-history']) if ($(id).dataset.open === 'true') { closeOverlay(id); return; }
     }
     if ((MAC ? e.metaKey : e.ctrlKey) && !e.altKey && !e.shiftKey && e.code === 'KeyS' && cur()) { e.preventDefault(); if (!readOnly()) saveNow(); }
   });
