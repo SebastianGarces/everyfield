@@ -146,11 +146,12 @@
 		);
 	}
 
-	/* EvryBot (EvryBot.tsx), ported from the prototype. The eyes stay brand ink on the green body in both themes. */
+	/* EvryBot (EvryBot.tsx), ported from the approved prototype (OPS-84, .evry-bot). One inline SVG: the body path morphs
+     between five shapes and two eye paths narrow and bend near the edge (evry-life.ts writes them). CSS adds the float,
+     the blink, the happy bounce and the thinking dot. The eyes stay brand ink on the green body in both themes, with a
+     fixed round shape and no highlight. */
 	[data-product-root] .evry-bot {
 		--s: 28px;
-		--lx: 0px;
-		--ly: 0px;
 		position: relative;
 		display: inline-block;
 		width: var(--s);
@@ -176,113 +177,80 @@
 	[data-product-root] .evry-bot .eb-body {
 		position: absolute;
 		inset: 0;
-		background: radial-gradient(circle at 30% 26%, rgb(255 255 255 / 0.55), rgb(255 255 255 / 0) 42%), var(--ef-green);
-		border-radius: 46% 54% 52% 48% / 50% 46% 54% 50%;
-		box-shadow:
-			inset 0 calc(var(--s) * -0.08) 0 rgb(10 60 30 / 0.18),
-			0 calc(var(--s) * 0.06) calc(var(--s) * 0.16) -0.05em rgb(10 60 30 / 0.35);
-		animation: ef-eb-morph 9s ease-in-out infinite;
 	}
-	[data-product-root] .evry-bot .eb-face {
-		position: absolute;
-		inset: 0;
-		transform: translate(var(--lx), var(--ly));
-		transition: transform 0.35s cubic-bezier(0.3, 1.4, 0.5, 1);
+	[data-product-root] .evry-bot .eb-body svg {
+		display: block;
+		width: 100%;
+		height: 100%;
+		overflow: visible;
+		filter: drop-shadow(0 calc(var(--s) * 0.05) calc(var(--s) * 0.06) rgb(1 60 34 / 0.3));
 	}
-	[data-product-root] .evry-bot .eb-eye {
-		position: absolute;
-		top: 36%;
-		width: calc(var(--s) * 0.13);
-		height: calc(var(--s) * 0.23);
-		border-radius: 99px;
-		background: var(--color-ink-fixed);
-		transform-origin: 50% 50%;
-		animation: ef-eb-blink var(--blink, 4.6s) infinite;
-		animation-delay: var(--blink-delay, 0s);
+	/* Float at 40px and larger (smaller bots would move under a pixel): a slow bob with a little squash at the bottom and
+     stretch at the top. Held bots and happy, which bounces, do not float. */
+	[data-product-root]
+		.evry-bot[data-eb]:is([data-size="lg"], [data-size="xl"]):not([data-hold], [data-mood="happy"])
+		.eb-body {
+		transform-origin: 50% 92%;
+		will-change: transform;
+		animation: ef-eb-float var(--eb-float, 3.6s) ease-in-out var(--eb-float-at, 0s) infinite alternate;
 	}
-	[data-product-root] .evry-bot .eb-eye:nth-child(1) {
-		left: 31%;
+	[data-product-root] .evry-bot .eb-fill {
+		fill: var(--ef-green);
 	}
-	[data-product-root] .evry-bot .eb-eye:nth-child(2) {
-		left: 56%;
+	/* The body's shading (deep green, darker toward the base) and its highlight (white, upper left). */
+	[data-product-root] .evry-bot :is(.eb-s0, .eb-s1) {
+		stop-color: #013c22;
+		stop-opacity: 0;
 	}
-	[data-product-root] .evry-bot .eb-eye::after {
-		content: "";
-		position: absolute;
-		top: 18%;
-		left: 22%;
-		width: 34%;
-		height: 22%;
-		border-radius: 50%;
-		background: rgb(255 255 255 / 0.85);
+	[data-product-root] .evry-bot .eb-s1 {
+		stop-opacity: 0.22;
 	}
-	[data-product-root] .evry-bot:is([data-size="xs"], [data-size="sm"], [data-mood="happy"]) .eb-eye::after {
-		display: none;
+	[data-product-root] .evry-bot :is(.eb-h0, .eb-h1) {
+		stop-color: #fff;
+		stop-opacity: 0;
 	}
-	[data-product-root] .evry-bot .eb-mouth {
-		position: absolute;
-		left: 50%;
-		top: 66%;
-		width: calc(var(--s) * 0.16);
-		height: calc(var(--s) * 0.05);
-		margin-left: calc(var(--s) * -0.08);
-		border-radius: 99px;
-		background: var(--color-ink-fixed);
-		opacity: 0;
+	[data-product-root] .evry-bot .eb-h0 {
+		stop-opacity: 0.6;
 	}
-	/* Thinking: squint, look up, wobble faster, and an orbiting dot from md up. */
-	[data-product-root] .evry-bot[data-mood="thinking"] {
-		--lx: calc(var(--s) * 0.06);
-		--ly: calc(var(--s) * -0.07);
+	[data-product-root] .evry-bot .eb-e {
+		fill: var(--color-ink-fixed);
+		transform-box: fill-box;
+		transform-origin: center;
 	}
-	[data-product-root] .evry-bot[data-mood="thinking"] .eb-body {
-		animation-duration: 2.4s;
+	/* Blink: the loop sets data-blink; each eye shuts vertically around its own centre. */
+	[data-product-root] .evry-bot[data-blink] .eb-e {
+		animation: ef-eb-blink 0.18s ease;
 	}
-	[data-product-root] .evry-bot[data-mood="thinking"] .eb-eye {
-		height: calc(var(--s) * 0.13);
-		top: 40%;
+	/* Happy: ^ ^ eyes with round caps, the whole bot bounces. */
+	[data-product-root] .evry-bot[data-mood="happy"] {
+		animation: ef-eb-bounce 0.9s cubic-bezier(0.3, 1.6, 0.5, 1) infinite alternate;
 	}
+	[data-product-root] .evry-bot[data-mood="happy"] .eb-e {
+		fill: none;
+		stroke: var(--color-ink-fixed);
+		stroke-width: 4.65;
+		stroke-linecap: round;
+	}
+	/* Thinking: rigid eyes look up and to the right (the loop), a dot orbits at md and larger. */
 	[data-product-root] .evry-bot[data-mood="thinking"]:not([data-size="xs"], [data-size="sm"])::after {
 		content: "";
 		position: absolute;
 		width: calc(var(--s) * 0.16);
 		height: calc(var(--s) * 0.16);
 		border-radius: 50%;
-		background: var(--color-ink-fixed);
+		background: var(--ef-ink);
 		top: 50%;
 		left: 50%;
 		margin: calc(var(--s) * -0.08);
 		animation: ef-eb-orbit 1.4s linear infinite;
 	}
-	/* Happy: ^ ^ eyes and a bounce. */
-	[data-product-root] .evry-bot[data-mood="happy"] .eb-eye {
-		background: transparent;
-		border: calc(var(--s) * 0.055) solid var(--color-ink-fixed);
-		border-bottom: 0;
-		height: calc(var(--s) * 0.1);
-		width: calc(var(--s) * 0.17);
-		top: 40%;
-		border-radius: 99px 99px 0 0;
-		animation: none;
-	}
-	[data-product-root] .evry-bot[data-mood="happy"] .eb-eye:nth-child(1) {
-		left: 27%;
-	}
-	[data-product-root] .evry-bot[data-mood="happy"] .eb-body {
-		animation: ef-eb-bounce 0.9s cubic-bezier(0.3, 1.6, 0.5, 1) infinite alternate;
-	}
-	/* Talking: the mouth moves. */
-	[data-product-root] .evry-bot[data-mood="talking"] .eb-mouth {
-		opacity: 1;
-		animation: ef-eb-talk 0.36s ease-in-out infinite alternate;
-	}
 	@media (prefers-reduced-motion: reduce) {
-		[data-product-root] .evry-bot *,
-		[data-product-root] .evry-bot::after {
+		[data-product-root] .evry-bot,
+		[data-product-root] .evry-bot * {
 			animation: none !important;
 		}
-		[data-product-root] .evry-bot .eb-face {
-			transition: none;
+		[data-product-root] .evry-bot[data-mood="thinking"]::after {
+			display: none;
 		}
 	}
 }
@@ -297,33 +265,27 @@
 		transform: none;
 	}
 }
-@keyframes ef-eb-blink {
-	0%,
-	94%,
-	100% {
-		transform: scaleY(1);
+@keyframes ef-eb-float {
+	from {
+		transform: translateY(0) scale(1.012, 0.988);
 	}
-	96% {
+	to {
+		transform: translateY(-3.5%) scale(0.992, 1.008);
+	}
+}
+@keyframes ef-eb-blink {
+	50% {
 		transform: scaleY(0.08);
 	}
 }
-@keyframes ef-eb-morph {
-	0%,
-	100% {
-		border-radius: 46% 54% 52% 48% / 50% 46% 54% 50%;
-		transform: rotate(0deg) scale(1);
+@keyframes ef-eb-bounce {
+	from {
+		translate: 0 0;
+		scale: 1.03 0.97;
 	}
-	25% {
-		border-radius: 58% 42% 40% 60% / 48% 58% 42% 52%;
-		transform: rotate(-4deg) scale(1.02, 0.98);
-	}
-	50% {
-		border-radius: 38% 62% 56% 44% / 60% 40% 60% 40%;
-		transform: rotate(3deg) scale(0.98, 1.03);
-	}
-	75% {
-		border-radius: 52% 48% 62% 38% / 44% 56% 44% 56%;
-		transform: rotate(-2deg) scale(1.01);
+	to {
+		translate: 0 calc(var(--s) * -0.08);
+		scale: 0.98 1.03;
 	}
 }
 @keyframes ef-eb-orbit {
@@ -332,25 +294,5 @@
 	}
 	to {
 		transform: rotate(360deg) translateX(calc(var(--s) * 0.66)) scale(0.9);
-	}
-}
-@keyframes ef-eb-bounce {
-	from {
-		transform: translateY(0) scale(1.03, 0.97);
-		border-radius: 50% 50% 46% 54% / 56% 56% 44% 44%;
-	}
-	to {
-		transform: translateY(calc(var(--s) * -0.08)) scale(0.98, 1.03);
-		border-radius: 46% 54% 52% 48% / 50% 46% 54% 50%;
-	}
-}
-@keyframes ef-eb-talk {
-	from {
-		height: calc(var(--s) * 0.04);
-		width: calc(var(--s) * 0.14);
-	}
-	to {
-		height: calc(var(--s) * 0.12);
-		width: calc(var(--s) * 0.12);
 	}
 }

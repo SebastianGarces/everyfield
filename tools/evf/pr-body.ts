@@ -1,6 +1,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { fail, readParty, type ReviewParty } from "./lib.ts";
+import { followUpsOfTask } from "./db.ts";
+import { partialLine, type FollowUp } from "./followups.ts";
+import { EvfError, fail, parseTask, readParty, type ReviewParty, type TaskRef } from "./lib.ts";
 
 const TEMPLATES = {
 	ordinary: ".agents/skills/everyfield-pr/template.md",
@@ -47,11 +49,48 @@ function plainLines(lines: string[]): Array<{ text: string; index: number }> {
 	return plain;
 }
 
+/** The task a `task/<slug>` branch belongs to, or undefined for any other branch. */
+export function taskOfBranch(branch: string | undefined): TaskRef | undefined {
+	const slug = /^task\/([\w-]+)$/.exec(branch ?? "")?.[1];
+	if (!slug) return undefined;
+	try {
+		return parseTask(slug.replace(/^(wp-\d{3})-(contract|api|ui)$/, "$1/$2"));
+	} catch (e) {
+		if (e instanceof EvfError) return undefined;
+		throw e;
+	}
+}
+
+/** The follow-ups an ordinary PR body must name for a branch's task (OPS-86). Empty when the branch has none. */
+export const followUpsOfBranch = (root: string, branch: string | undefined): FollowUp[] => {
+	const task = taskOfBranch(branch);
+	return task ? followUpsOfTask(root, task) : [];
+};
+
+/**
+ * A task with follow-ups covers only part of its ask. The first non-empty line under `## Summary` starts with
+ * `Partial:` and names every follow-up label, so a reader of the PR sees the deferred scope first.
+ */
+function requirePartial(lines: string[], summaryAt: number, followUps: FollowUp[]): void {
+	const first = lines
+		.slice(summaryAt + 1)
+		.map((l) => l.trim())
+		.find(Boolean);
+	const labels = followUps.map((f) => f.label);
+	const missing = first?.startsWith("Partial:") ? labels.filter((l) => !first.includes(l)) : labels;
+	if (first?.startsWith("Partial:") && !missing.length) return;
+	fail(
+		`This task has ${labels.length} follow-up${labels.length === 1 ? "" : "s"} (${labels.join(", ")}), so the PR covers only part of the ask. ` +
+			`The first line under ## Summary must start with "Partial:" and name ${first?.startsWith("Partial:") ? `the missing ${missing.join(", ")}` : "each one"}. Write: ${partialLine(followUps)}`,
+	);
+}
+
 /** Each class template owns its required sections. This check has no CI or review dependency. */
 export function checkPrBody(
 	root: string,
 	body: string,
 	kind: PrBodyClass = "ordinary",
+	followUps: FollowUp[] = [],
 ): { kind: PrBodyClass; sections: string[]; author: ReviewParty } {
 	const template = TEMPLATES[kind],
 		path = join(root, template);
@@ -97,6 +136,10 @@ export function checkPrBody(
 			.join("\n")
 			.trim();
 		if (!content) fail(`PR body section has no content: ${heading.text}.`);
+	}
+	if (kind === "ordinary" && followUps.length) {
+		const summary = found.find((l) => l.text === "## Summary");
+		if (summary) requirePartial(lines, summary.index, followUps);
 	}
 	const footer = lines.slice(author.index + 1).filter((line) => line.trim());
 	if (footer.length !== 1 || !/^🤖 Generated with \[[^\]]+\]\(https:\/\/[^)]+\)$/.test(footer[0]))

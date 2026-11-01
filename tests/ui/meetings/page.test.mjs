@@ -150,6 +150,34 @@ for (const [name, engine] of ENGINES) {
 		});
 	});
 
+	test(`AC:TARGET-MTG-001 (${name}): the Agenda card starts level with the active tab's first card`, async () => {
+		const { meetingId, orientationId, kit } = fixture("meetings");
+		await withPage(engine, async (page, context) => {
+			await signIn(context, fixture("people").owner.cookie);
+			const first = { guests: "rsvps-title", kit: "kit-title", results: "attendance-title" };
+			for (const width of [1440, 1024]) {
+				await page.setViewportSize({ width, height: 900 });
+				for (const [id, tabs] of [
+					[meetingId, ["guests", "results"]],
+					[kit[name].open, ["guests", "kit", "results"]],
+					[kit[name].cancelled, ["guests", "kit", "results"]],
+					[orientationId, ["guests", "results"]],
+				]) {
+					for (const tab of tabs) {
+						await openMeeting(page, id, `?tab=${tab}`);
+						const card = page.locator(`section[aria-labelledby=${first[tab]}]`);
+						await card.waitFor();
+						const agenda = page.locator("section[aria-labelledby=agenda-title]");
+						assert.ok(
+							Math.abs((await top(agenda)) - (await top(card))) <= 1,
+							`${tab} at ${width}: agenda ${await top(agenda)}, first card ${await top(card)}`,
+						);
+					}
+				}
+			}
+		});
+	});
+
 	test(`AC:TARGET-MTG-013 (${name}): the Kit tab fills the page height and the checklist scrolls inside the card`, async () => {
 		const { kit } = fixture("meetings");
 		const noPageScroll = (page) =>

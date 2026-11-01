@@ -44,6 +44,10 @@ set `replaces_id` to the existing article id. Tier A/F requires Sebastian; B all
 Sebastian after a stance ruling; C is human-led research only. The independent Opus reviewer
 sets claim-check status to `passed` only after checking sources, scripture and screenshots.
 
+Diagrams are fenced `diagram` blocks, never ASCII art; `.agents/skills/wiki-article/SKILL.md`
+("Diagrams") gives the syntax. Lint fails ASCII-art diagrams, except the seed articles listed in
+`tools/wiki/ascii-allowlist.json`, which warn until OPS-97 migrates them.
+
 Sol drafts, runs `bin/wiki lint`, and creates desktop/mobile previews with `bin/wiki shot`.
 Store previews outside the repository. `bin/wiki pr-images <pr> <png>... --update-body` maintains
 one secret screenshot gist and a marked image block in the PR. Opus reviews and posts a verdict.
