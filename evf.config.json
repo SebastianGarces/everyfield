@@ -1459,7 +1459,8 @@
 			"title": "On-demand QA preview for Nora: one command deploys a chosen branch to a Vercel preview with its own seeded dev-Neon DB branch, every credential and a runbook; never on every PR (Opus 5.5 medium)",
 			"owningPaths": [
 				"tools/evf/",
-				"docs/reference/",
+				"docs/runbooks/",
+				"AGENTS.md",
 				".agents/skills/",
 				".agents/roles/coordinator.md",
 				"scripts/preview.json",

@@ -64,6 +64,7 @@ test("OPS-69-migration: 003 adds the cache columns and keeps every row of a vers
 			"004-task-seat-override.sql",
 			"005-merged-views.sql",
 			"006-task-follow-ups.sql",
+			"007-qa-previews.sql",
 		]);
 		assert.deepEqual(
 			{
