@@ -10,6 +10,7 @@ import {
 	DialogHeader,
 	DialogTrigger,
 	EmptyState,
+	IntentLink,
 	PageHeader,
 	Spinner,
 } from "@everyfield/ui/controls";
@@ -39,7 +40,10 @@ export function ChurchLibrary({ documents, templates, canManage, deleted }: Prop
 				actions={canManage ? <TemplatePicker templates={templates} /> : null}
 			/>
 			{deleted ? (
-				<p role="status" className="mb-4 rounded-md bg-surface-raised px-4 py-3 text-md text-text-2 shadow-[0_0_0_1px_var(--ef-line)]">
+				<p
+					role="status"
+					className="mb-4 rounded-md bg-surface-raised px-4 py-3 text-md text-text-2 shadow-[0_0_0_1px_var(--ef-line)]"
+				>
 					The document was deleted.
 				</p>
 			) : null}
@@ -59,7 +63,7 @@ export function ChurchLibrary({ documents, templates, canManage, deleted }: Prop
 					<ul className="flex flex-col gap-3">
 						{documents.map((doc) => (
 							<li key={doc.id}>
-								<a
+								<IntentLink
 									href={`/documents/church/${doc.id}`}
 									className={cn(
 										"group flex min-h-11 cursor-pointer items-center gap-4 rounded-card bg-surface-raised px-5 py-4",
@@ -80,7 +84,7 @@ export function ChurchLibrary({ documents, templates, canManage, deleted }: Prop
 										size={18}
 										className="text-text-3 transition-transform duration-150 group-hover:translate-x-0.5 max-app-sm:hidden"
 									/>
-								</a>
+								</IntentLink>
 							</li>
 						))}
 					</ul>
@@ -159,12 +163,16 @@ function TemplatePicker({ templates }: { templates: DocTemplateSummary[] }) {
 											{t.description ? <span className="text-sm text-text-2 text-pretty">{t.description}</span> : null}
 											<span className="mt-1 flex flex-wrap items-center gap-2 text-sm text-text-3">
 												<Tag>{CLASS_LABEL[t.documentClass]}</Tag>
-												<span>{paperText(t.page)}</span>
-												<span aria-hidden="true">·</span>
-												<span>{formatList(t.formats)}</span>
+												<span>
+													{paperText(t.page)} · {formatList(t.formats)}
+												</span>
 											</span>
 										</span>
-										{busy ? <Spinner size={18} /> : <Icon icon={ArrowRight01Icon} size={18} className="mt-0.5 text-text-3" />}
+										{busy ? (
+											<Spinner size={18} />
+										) : (
+											<Icon icon={ArrowRight01Icon} size={18} className="mt-0.5 text-text-3" />
+										)}
 									</button>
 								</li>
 							);

@@ -60,15 +60,15 @@ export function ChurchPdf({ title, src, page }: Props) {
 			<p className="sr-only" role="status">
 				{doc ? `${title} preview, ${pages} page${pages === 1 ? "" : "s"}` : "Loading the preview"}
 			</p>
-			{doc
-				? Array.from({ length: pages }, (_, i) => (
-						<PdfPage key={i} doc={doc} number={i + 1} total={pages} width={width} title={title} page={page} />
-					))
-				: (
-						<div style={{ aspectRatio: `${page.width} / ${page.height}` }} className="w-full">
-							<Skeleton shape="block" className="size-full rounded-none" />
-						</div>
-					)}
+			{doc ? (
+				Array.from({ length: pages }, (_, i) => (
+					<PdfPage key={i} doc={doc} number={i + 1} total={pages} width={width} title={title} page={page} />
+				))
+			) : (
+				<div style={{ aspectRatio: `${page.width} / ${page.height}` }} className="w-full">
+					<Skeleton shape="block" className="size-full rounded-none" />
+				</div>
+			)}
 		</div>
 	);
 }
@@ -121,7 +121,12 @@ function PdfPage({
 				className="relative w-full overflow-hidden bg-white shadow-[0_0_0_1px_var(--ef-line),0_8px_24px_-12px_color-mix(in_srgb,var(--ef-ink)_25%,transparent)]"
 			>
 				{drawn ? null : <Skeleton shape="block" className="absolute inset-0 rounded-none" />}
-				<canvas ref={canvas} role="img" aria-label={`${title}, page ${number} of ${total}`} className="block size-full" />
+				<canvas
+					ref={canvas}
+					role="img"
+					aria-label={`${title}, page ${number} of ${total}`}
+					className="block size-full"
+				/>
 			</div>
 			<figcaption className="text-center text-sm text-text-3 tabular-nums">
 				Page {number} of {total}

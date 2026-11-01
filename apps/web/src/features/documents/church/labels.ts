@@ -16,7 +16,13 @@ export function formatList(formats: readonly (keyof typeof FORMAT_LABEL)[]) {
 	return names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}` : (names[0] ?? "");
 }
 
-const SIZES: Record<string, string> = { "612x792": "Letter", "612x1008": "Legal", "595x842": "A4", "396x612": "Half letter", "288x432": "4 x 6 in card" };
+const SIZES: Record<string, string> = {
+	"612x792": "Letter",
+	"612x1008": "Legal",
+	"595x842": "A4",
+	"396x612": "Half letter",
+	"288x432": "4 x 6 in card",
+};
 
 /** "Letter" or "4 cards on one Letter sheet". */
 export function paperText(page: { width: number; height: number; perSheet: number }) {

@@ -6,6 +6,7 @@ import {
 	Card,
 	EmptyState,
 	Field,
+	IntentLink,
 	Input,
 	PageHeader,
 	SearchInput,
@@ -232,7 +233,7 @@ export function DocumentsScreen({ templates, query, context, canPreview, canEdit
 					<>
 						{written === "church" ? (
 							<Button variant="secondary" icon={Folder01Icon} asChild>
-								<a href="/documents/church">Church documents</a>
+								<IntentLink href="/documents/church">Church documents</IntentLink>
 							</Button>
 						) : null}
 						<Button variant="secondary" icon={Clock01Icon} asChild>

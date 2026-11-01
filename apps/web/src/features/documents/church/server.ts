@@ -21,7 +21,10 @@ export type ChurchView = {
 	perSheet: number;
 	page: { width: number; height: number };
 };
-export type LibraryEntry = Pick<ChurchSummary, "id" | "title" | "templateId" | "templateVersion" | "documentClass" | "updatedAt">;
+export type LibraryEntry = Pick<
+	ChurchSummary,
+	"id" | "title" | "templateId" | "templateVersion" | "documentClass" | "updatedAt"
+>;
 
 export type Load<T> = { status: "ok"; value: T } | { status: "refused" } | { status: "failed" };
 
