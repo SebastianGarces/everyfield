@@ -248,8 +248,10 @@ function editable(el, node, opts = {}) {
 		const text = e.clipboardData.getData("text/plain");
 		document.execCommand("insertText", false, opts.singleLine ? text.replace(/\s*\n\s*/g, " ") : text);
 	});
-	el.addEventListener("focusout", () => {
-		if (state.mode === "edit") scheduleReflow(true);
+	el.addEventListener("focusout", (e) => {
+		// Leaving for the toolbar, a menu or a dialog keeps the text element: the action needs its selection.
+		if (e.relatedTarget?.closest?.(".toolbar, .menu, #dialog")) return;
+		if (state.mode === "edit") scheduleReflow();
 	});
 	return el;
 }
@@ -366,36 +368,44 @@ function applyPendingFocus() {
 	if (blk) select(byId.get(blk.dataset.id), null, false);
 }
 
-/** The caret as (editable id, character offset), so a full redraw can put it back. */
+/** The selection as (editable id, start and end character offsets), so a full redraw can put it back. */
 function saveCaret() {
 	const sel = getSelection();
 	if (!sel.rangeCount) return null;
-	const el = sel.anchorNode && (sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement)?.closest("[data-edit-id]");
-	if (!el) return null;
-	const r = document.createRange();
-	r.setStart(el, 0);
-	r.setEnd(sel.anchorNode, sel.anchorOffset);
-	return { id: el.dataset.editId, offset: r.toString().length };
+	const range = sel.getRangeAt(0);
+	const node = range.startContainer;
+	const el = (node.nodeType === 1 ? node : node.parentElement)?.closest("#canvas [data-edit-id]");
+	if (!el || !el.contains(range.endContainer)) return null;
+	const offset = (container, at) => {
+		const r = document.createRange();
+		r.setStart(el, 0);
+		r.setEnd(container, at);
+		return r.toString().length;
+	};
+	return { id: el.dataset.editId, start: offset(range.startContainer, range.startOffset), end: offset(range.endContainer, range.endOffset) };
 }
 function restoreCaret(c) {
 	if (!c) return;
 	const el = document.querySelector(`#canvas [data-edit-id="${c.id}"]`);
 	if (!el) return;
-	el.focus();
-	const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
-	let left = c.offset;
-	let t;
-	while ((t = walker.nextNode())) {
-		if (left <= t.textContent.length) {
-			const r = document.createRange();
-			r.setStart(t, left);
-			r.collapse(true);
-			getSelection().removeAllRanges();
-			getSelection().addRange(r);
-			return;
+	const point = (offset) => {
+		const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+		let left = offset;
+		let t;
+		let last = null;
+		while ((t = walker.nextNode())) {
+			if (left <= t.textContent.length) return [t, left];
+			left -= t.textContent.length;
+			last = t;
 		}
-		left -= t.textContent.length;
-	}
+		return last ? [last, last.textContent.length] : [el, el.childNodes.length];
+	};
+	el.focus({ preventScroll: true });
+	const r = document.createRange();
+	r.setStart(...point(c.start));
+	r.setEnd(...point(c.end));
+	getSelection().removeAllRanges();
+	getSelection().addRange(r);
 }
 
 // ------------------------------------------------------------------ block renderer
@@ -809,23 +819,25 @@ function changed({ soft = false, panel = false } = {}) {
 		updateMirrors();
 		renderValidity();
 		if (state.tab === "json" || panel) renderPanel();
-		scheduleReflow(false);
 	}, 250);
 }
 
 let reflowTimer = 0;
-/** A redraw after typing pauses, only when a page now overflows (or on leaving a block, always), with the caret kept. */
-function scheduleReflow(always) {
+/**
+ * Pages are laid out again only when focus leaves a text block and a page overflows. Never while the user types: a
+ * redraw under the caret loses keystrokes. While typing, an overflowing page shows its extra text below the page edge.
+ */
+function scheduleReflow() {
 	clearTimeout(reflowTimer);
 	reflowTimer = setTimeout(() => {
-		if (state.doc.page.tile) return;
-		const over = [...document.querySelectorAll("#canvas .page-body.flow")].some(overflowing);
-		if (!over && !always) return;
-		if (always && document.activeElement?.closest?.("#canvas [contenteditable='true']")) return;
-		const caret = saveCaret();
+		if (state.doc.page.tile || $("#dialog").open) return;
+		if (![...document.querySelectorAll("#canvas .page-body.flow")].some(overflowing)) return;
+		// Put the selection back only when the user is still in the page text; never pull focus back from elsewhere.
+		const inText = document.activeElement?.closest?.("#canvas [data-edit-id]");
+		const caret = inText ? saveCaret() : null;
 		render();
 		restoreCaret(caret);
-	}, always ? 50 : 700);
+	}, 60);
 }
 
 function updateMirrors() {
@@ -1050,6 +1062,19 @@ function deleteSelected() {
 // ------------------------------------------------------------------ marks and fields
 
 function restoreRange() {
+	// The live selection wins: selectionchange fires late, so the saved range can be a few keystrokes old.
+	const live = getSelection();
+	const liveNode = live.rangeCount ? live.getRangeAt(0).startContainer : null;
+	const liveEl = liveNode && (liveNode.nodeType === 1 ? liveNode : liveNode.parentElement)?.closest("#canvas [contenteditable='true']");
+	if (liveEl) {
+		const range = live.getRangeAt(0).cloneRange();
+		liveEl.focus({ preventScroll: true });
+		live.removeAllRanges();
+		live.addRange(range);
+		state.lastEditable = liveEl;
+		state.lastRange = range;
+		return true;
+	}
 	if (state.lastEditable && !state.lastEditable.isConnected && state.lastCaret) {
 		// A redraw replaced the text element: find it again by its node and put the caret back by offset.
 		restoreCaret(state.lastCaret);
@@ -1198,7 +1223,7 @@ function renderPanel() {
 	for (const b of document.querySelectorAll(".tabs button")) b.setAttribute("aria-selected", String(b.dataset.tab === state.tab));
 	const panel = $("#panel");
 	const scroll = panel.scrollTop;
-	panel.replaceChildren(...({ block: blockPanel, page: pagePanel, fields: fieldsPanel, json: jsonPanel }[state.tab]?.() ?? []));
+	panel.replaceChildren(...({ block: blockPanel, page: pagePanel, fields: fieldsPanel, json: jsonPanel }[state.tab]?.() ?? []).filter(Boolean));
 	panel.scrollTop = scroll;
 }
 

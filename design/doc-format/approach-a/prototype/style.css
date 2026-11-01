@@ -47,7 +47,7 @@ button:disabled, select:disabled { cursor: not-allowed; opacity: 0.5; }
 .control {
 	height: 32px; border: 1px solid var(--ui-line); border-radius: 6px; background: #fff; padding: 0 8px; min-width: 0;
 }
-.title-input { width: 260px; font-weight: 700; }
+.title-input { flex: 1 1 180px; max-width: 320px; font-weight: 700; }
 .btn, .tb {
 	height: 32px; border: 1px solid var(--ui-line); border-radius: 6px; background: #fff; padding: 0 12px; white-space: nowrap;
 }
@@ -59,7 +59,7 @@ button:disabled, select:disabled { cursor: not-allowed; opacity: 0.5; }
 .btn-small { height: 28px; padding: 0 8px; font-size: 13px; }
 .sep { width: 1px; height: 24px; background: var(--ui-line); }
 .tag-icon { background: var(--ui-green); color: #fff; font-size: 11px; font-weight: 700; padding: 1px 4px; text-transform: uppercase; }
-.kind { font-size: 12px; color: var(--ui-muted); background: #f0f1ee; border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+.kind { font-size: 12px; color: var(--ui-muted); background: #f0f1ee; border-radius: 999px; padding: 3px 10px; white-space: nowrap; max-width: 300px; overflow: hidden; text-overflow: ellipsis; }
 .validity { height: 28px; border-radius: 999px; border: 1px solid transparent; padding: 0 10px; font-size: 13px; font-weight: 700; }
 .validity.ok { background: var(--ui-green-soft); color: var(--ui-green); }
 .validity.bad { background: #fbe9ec; color: var(--ui-danger); }
@@ -234,7 +234,7 @@ a { color: var(--primary-text); }
 	.toolbar { flex-wrap: nowrap; overflow-x: auto; }
 	.toolbar > * { flex: none; }
 	.toolbar .spacer { display: none; }
-	.title-input { width: 100%; order: 10; }
+	.title-input { flex: 1 1 100%; max-width: none; order: 10; }
 	body { height: auto; min-height: 100%; }
 }
 .page .p, .page .h, .tbl td, .tbl th { white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -251,3 +251,6 @@ a { color: var(--primary-text); }
 .compact .region-footer .divider { margin: 0 0 3pt; }
 .page-wrap { position: relative; flex: none; }
 .page-label { position: static; display: block; margin-bottom: 4px; }
+.edit .page { overflow: visible; }
+.edit .page-body.flow { overflow: visible; }
+.page-body { min-height: 0; }

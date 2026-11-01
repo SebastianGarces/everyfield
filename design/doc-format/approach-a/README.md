@@ -124,8 +124,8 @@ The prototype vendors no library code (0 bytes). It vendors DM Sans Regular, DM 
 
 | File | Bytes |
 |---|---|
-| `prototype/app.js` | 75,334 |
-| `prototype/style.css` | 17,422 |
+| `prototype/app.js` | 76,676 |
+| `prototype/style.css` | 17,634 |
 | `prototype/index.html` | 4,587 |
 | `format.js` (shared with Node) | 24,919 |
 | `schema.json` (shared with Node) | 9,536 |
