@@ -7,7 +7,8 @@ import { documentsReader, documentsWriter } from "../../../packages/domain/src/d
 import { brandReader, brandWriter } from "../../../packages/domain/src/branding/index.ts";
 import { uploadBrandAsset } from "../../../packages/domain/src/branding/files.ts";
 import sharp from "../../../packages/db/node_modules/sharp/dist/index.mjs";
-import { churchTemplate } from "../../../packages/domain/src/documents/templates/church.ts";
+import { docTemplateById } from "../../../packages/domain/src/documents/doc-templates.ts";
+import { forkTemplate, templateHash } from "../../../packages/contracts/src/documents/format/index.ts";
 import { pdfPages, docxParts, wordText } from "./fixtures/readers.mts";
 import test, { after, before, describe } from "node:test";
 import assert from "node:assert/strict";
@@ -26,8 +27,8 @@ if (
 	throw Error("Only approved shared development or disposable CI endpoint allowed");
 if (!localCi) source.searchParams.set("sslmode", "verify-full");
 
-const schema = "wp037c_" + randomUUID().replaceAll("-", "");
-const roleName = "wp037c_" + randomBytes(8).toString("hex");
+const schema = "wp036c_" + randomUUID().replaceAll("-", "");
+const roleName = "wp036c_" + randomBytes(8).toString("hex");
 const admin = createDatabase({
 	connectionString: source.href,
 	max: 4,
@@ -202,297 +203,237 @@ after(async () => {
 });
 
 const state = {};
+const fileOf = async (who, documentId, format, revision) =>
+	documentsWriter.readChurchFile(
+		db,
+		await authority(who),
+		{ documentId, format, ...(revision ? { revision } : {}) },
+		storage,
+	);
+const bytesFrom = (file) => Buffer.from(file.bytes, "base64");
+const policyText = async (file) => (await pdfPages(bytesFrom(file))).join(" ");
 
-describe("WP-037 Church Documents", { concurrency: 1 }, () => {
-	test("AC:CASE-DOC-022 an Admin creates a bylaws Church Document with the merge values in revision 1", async () => {
-		const before = await counts();
-		const made = ok(await create(ADMIN, "bylaws", "CASE-DOC-022-create", { church_name: "Harvest Point" }));
-		state.doc = made;
-		assert.equal(made.tenantId, P, "owned by the church plant");
-		assert.equal(made.revision, "1");
-		assert.equal(made.templateId, "bylaws");
-		assert.equal(made.templateVersion, 1);
-		assert.equal(made.documentClass, "formal/legal");
-		assert.equal(made.useChurchBranding, true);
-		assert.equal(made.archived, false);
-		const text = JSON.stringify(made.body);
-		assert.ok(text.includes("Harvest Point"), "revision 1 holds the church name");
-		assert.equal(text.includes("{church_name}"), false);
-		assert.deepEqual(
-			made.provenance,
-			[
-				{ key: "church_name", value: "Harvest Point", source: "override" },
-				{ key: "pastor_name", value: "Pastor Ada", source: "pastor_name" },
-			],
-			"frozen input provenance",
-		);
-		const after = await counts();
-		assert.equal(after.documents, before.documents + 1);
-		assert.equal(after.revisions, before.revisions + 1);
-		assert.equal(after.files, before.files, "creation makes no file");
-		assert.equal(after.generated, before.generated, "creation makes no generated_document");
-		const row = (
-			await rowsOf(
-				sql`SELECT d.kind, d.template_id, d.template_version, d.document_class, d.use_church_branding, d.revision::int AS revision, d.input_provenance, r.version_number, r.author_account_id, r.body, r.content_hash FROM document d JOIN document_revision r ON r.id = d.current_revision_id WHERE d.id = ${made.id}::uuid`,
-			)
-		)[0];
-		assert.equal(row.kind, "church_document");
-		assert.equal(row.version_number, 1);
-		assert.equal(row.author_account_id, actors[ADMIN].id);
-		assert.equal(row.content_hash, made.contentHash);
-		assert.equal(sha256(row.body), made.contentHash);
-		assert.deepEqual(JSON.parse(row.body), made.body);
-		assert.equal(
-			await countOf("audit_event", `WHERE action = 'documents.created_from_template' AND subject_id = '${made.id}'`),
-			1,
-		);
-		// A retry with the same request key returns the same document and writes nothing.
-		const again = ok(await create(ADMIN, "bylaws", "CASE-DOC-022-create", { church_name: "Harvest Point" }));
-		assert.deepEqual(again, made);
-		assert.deepEqual(await counts(), after);
-		// The same key with other input is a conflict.
-		refused(await create(ADMIN, "bylaws", "CASE-DOC-022-create", { church_name: "Elsewhere" }), "conflict");
-		refused(await create(ADMIN, "prayer-letter", "CASE-DOC-022-create"), "conflict");
-		assert.deepEqual(await counts(), after);
-		// The owner of the same church plant makes a separate document from the stored plant name.
-		const other = ok(await create(OWNER, "prayer-letter", "owner-letter"));
-		state.letter = other;
-		assert.equal(other.documentClass, "outward-facing");
-		assert.ok(JSON.stringify(other.body).includes("Harvest Point"));
-		assert.equal(other.provenance[0].source, "church_name");
-		assert.notEqual(other.id, made.id);
-	});
-
-	test("AC:CASE-DOC-022 a Member, a fixed layout, a budget, an email and an unwritten template are refused and write nothing", async () => {
-		const before = await counts();
-		refused(await create(MEMBER, "bylaws", "CASE-DOC-022-member", { church_name: "Harvest Point" }), "access_denied");
-		refused(await create(MEMBER, "commitment-card", "member-fixed"), "access_denied");
-		refused(
-			await create(ADMIN, "commitment-card", "CASE-DOC-022-fixed", { church_name: "Harvest Point" }),
-			"template_not_editable",
-		);
-		refused(await create(ADMIN, "vision-meeting-agenda", "agenda"), "template_not_editable");
-		refused(await create(ADMIN, "first-year-budget", "budget"), "template_not_editable");
-		refused(await create(ADMIN, "vision-meeting-invitation", "email"), "template_not_editable");
-		refused(await create(ADMIN, "support-letter", "pending"), "template_not_authored");
-		refused(await create(ADMIN, "board-minutes", "pending-2"), "template_not_authored");
-		refused(await create(ADMIN, "no-such-template", "unknown"), "unavailable");
-		refused(await create(ADMIN, "bylaws", "foreign-field", { surprise: "x" }), "invalid_input");
-		refused(await create(ADMIN, "bylaws", "", {}), "invalid_input");
-		assert.deepEqual(await counts(), before);
-		// An account with no seat is refused.
-		const none = await RequestActor.resolve(db, actors[4].session);
-		assert.ok(none instanceof RequestActor, "an account with no seat still resolves to an actor");
-		refused(
-			await documentsWriter.createFromTemplate(db, none, { templateId: "bylaws", requestKey: "no-seat" }),
-			"access_denied",
-		);
-		assert.deepEqual(await counts(), before);
-	});
-
-	test("AC:CASE-DOC-020-EDIT AC:CASE-DOC-023 edit appends attributed revisions, a stale save conflicts and a dropped slot is refused", async () => {
-		const doc = state.doc;
-		const before = await counts();
-		// A Member cannot save.
-		refused(await save(MEMBER, doc.id, "1", doc.body), "access_denied");
-		assert.deepEqual(await counts(), before);
-		// slot-delete-refused: a body without the statement-of-faith node.
-		const without = doc.body.filter((block) => block.kind !== "slot");
-		const gone = refused(await save(ADMIN, doc.id, "1", without), "slot_not_deletable");
-		assert.deepEqual(gone.details.slotIds, ["statement-of-faith"]);
-		assert.deepEqual(await counts(), before);
-		assert.equal(
-			(await rowsOf(sql`SELECT revision::int AS r FROM document WHERE id = ${doc.id}::uuid`))[0].r,
-			1,
-			"the current revision stays 1",
-		);
-		// A slot id the template does not have is invalid input.
-		refused(
-			await save(ADMIN, doc.id, "1", [...doc.body, { kind: "slot", slotId: "other", text: "" }]),
-			"invalid_input",
-		);
-		// Bodies beyond the limits are invalid input and write nothing.
-		refused(
-			await save(
-				ADMIN,
-				doc.id,
-				"1",
-				Array.from({ length: 1001 }, () => ({ kind: "paragraph", text: "x" })),
-			),
-			"invalid_input",
-		);
-		refused(
-			await save(ADMIN, doc.id, "1", [...doc.body, { kind: "notice", text: "Template, not legal advice" }]),
-			"invalid_input",
-		);
-		refused(await save(ADMIN, doc.id, "1", [...doc.body, { kind: "paragraph", text: "bad\u0000" }]), "invalid_input");
-		assert.deepEqual(await counts(), before);
-		// Revision 2 adds a paragraph and fills the slot.
-		const body2 = doc.body.map((block) => (block.kind === "slot" ? { ...block, text: "Our own words." } : block));
-		body2.push({ kind: "paragraph", text: "The board met on a Tuesday." });
-		const r2 = ok(await save(ADMIN, doc.id, "1", body2));
-		state.r2 = r2;
-		assert.equal(r2.revision, "2");
-		assert.deepEqual(r2.body, body2);
-		// A stale revision gets a conflict and writes nothing.
-		const mid = await counts();
-		const stale = refused(await save(OWNER, doc.id, "1", doc.body), "conflict");
-		assert.equal(stale.retry, "refresh");
-		assert.deepEqual(await counts(), mid);
-		// A save can clear a slot's text again.
-		const r3 = ok(
-			await save(
-				OWNER,
-				doc.id,
-				"2",
-				body2.map((block) => (block.kind === "slot" ? { ...block, text: "" } : block)),
-			),
-		);
-		assert.equal(r3.revision, "3");
-		state.r3 = r3;
-		// The history lists each revision with its number, author and time.
-		const list = ok(await documentsWriter["history.list"](db, await authority(MEMBER), { documentId: doc.id }));
-		assert.deepEqual(
-			list.revisions.map((r) => r.number),
-			[1, 2, 3],
-		);
-		assert.deepEqual(
-			list.revisions.map((r) => r.authorAccountId),
-			[actors[ADMIN].id, actors[ADMIN].id, actors[OWNER].id],
-		);
-		const times = list.revisions.map((r) => Date.parse(r.recordedAt));
-		assert.deepEqual(
-			[...times].sort((a, b) => a - b),
-			times,
-		);
-		assert.ok(times.every((t) => Number.isFinite(t)));
-		// An earlier revision reads back exactly as saved.
-		const one = ok(
-			await documentsWriter["history.get"](db, await authority(MEMBER), { documentId: doc.id, revision: 1 }),
-		);
-		assert.deepEqual(one.body, doc.body);
-		assert.equal(one.contentHash, doc.contentHash);
-		assert.equal(one.authorAccountId, actors[ADMIN].id);
-		const two = ok(
-			await documentsWriter["history.get"](db, await authority(OWNER), { documentId: doc.id, revision: 2 }),
-		);
-		assert.deepEqual(two.body, body2);
-		refused(
-			await documentsWriter["history.get"](db, await authority(OWNER), { documentId: doc.id, revision: 9 }),
-			"unavailable",
-		);
-		refused(await documentsWriter["history.list"](db, await authority(OTHER), { documentId: doc.id }), "unavailable");
-		// The church plant's own saved-file history and plain native documents are unchanged.
-		assert.deepEqual(ok(await documentsWriter["history.list"](db, await authority(OWNER), {})).entries, []);
-		const owned = ok(await documentsWriter.listOwned(db, await authority(OWNER), {}));
-		assert.equal(
-			owned.documents.some((d) => d.id === doc.id),
-			false,
-			"a Church Document is not a plain native document",
-		);
-		refused(
-			await documentsWriter.saveNative(db, await authority(OWNER), {
-				title: "Plain",
-				body: "text",
-				documentId: doc.id,
-				expectedRevision: "3",
-			}),
-			"unavailable",
-		);
-	});
-
-	test("AC:CASE-DOC-022 the branding toggle is one audited write that makes no revision", async () => {
-		const doc = state.doc;
-		const before = await counts();
-		const audits = await countOf("audit_event", `WHERE action = 'documents.branding_changed'`);
-		refused(
-			await documentsWriter.setBranding(db, await authority(MEMBER), { documentId: doc.id, useChurchBranding: false }),
-			"access_denied",
-		);
-		refused(
-			await documentsWriter.setBranding(db, await authority(OTHER), { documentId: doc.id, useChurchBranding: false }),
-			"unavailable",
-		);
-		assert.equal(await countOf("audit_event", `WHERE action = 'documents.branding_changed'`), audits);
-		const off = ok(
-			await documentsWriter.setBranding(db, await authority(ADMIN), { documentId: doc.id, useChurchBranding: false }),
-		);
-		assert.deepEqual(off, { documentId: doc.id, useChurchBranding: false });
-		const row = (
-			await rowsOf(sql`SELECT use_church_branding, revision::int AS revision FROM document WHERE id = ${doc.id}::uuid`)
-		)[0];
-		assert.equal(row.use_church_branding, false);
-		assert.equal(row.revision, 3, "no new revision");
-		const after = await counts();
-		assert.equal(after.revisions, before.revisions);
-		assert.equal(await countOf("audit_event", `WHERE action = 'documents.branding_changed'`), audits + 1);
-		// The change is on the document and not in the body: the next save still succeeds from revision 3.
-		ok(await documentsWriter.setBranding(db, await authority(OWNER), { documentId: doc.id, useChurchBranding: true }));
-		assert.equal(await countOf("audit_event", `WHERE action = 'documents.branding_changed'`), audits + 2);
-		refused(
-			await documentsWriter.setBranding(db, await authority(ADMIN), {
-				documentId: randomUUID(),
-				useChurchBranding: true,
-			}),
-			"unavailable",
-		);
-	});
-
-	test("AC:CASE-DOC-023 a reader exports one named revision as a tagged PDF with the neutral theme when the church has no brand kit", async () => {
-		const doc = state.doc;
-		const before = await counts();
-		const pdf = ok(await exportDoc(MEMBER, doc.id, 1, "pdf", "neutral-pdf-r1"));
-		assert.equal(pdf.format, "pdf");
-		assert.deepEqual(pdf.source, { documentId: doc.id, revisionId: doc.revisionId, revision: 1 });
-		assert.deepEqual(pdf.theme, { kind: "everyfield-neutral", primary: null });
-		assert.equal(pdf.templateId, "bylaws");
-		assert.equal(pdf.templateVersion, "1");
-		assert.equal(pdf.creatorAccountId, actors[MEMBER].id);
-		assert.equal(pdf.plantId, P);
-		const bytes = await bytesOf(pdf);
-		assert.equal(sha256(bytes), pdf.digest);
-		assert.ok(Buffer.from(bytes).subarray(0, 5).toString() === "%PDF-");
-		assert.ok(Buffer.from(bytes).includes("pdfuaid:part"), "PDF/UA identification");
-		const after = await counts();
-		assert.equal(after.generated, before.generated + 1);
-		assert.equal(after.files, before.files + 1);
-		const ready = await rowsOf(
-			sql`SELECT g.source_document_id, g.source_revision_id, f.state FROM generated_document g JOIN file_object f ON f.id = g.object_id WHERE g.id = ${pdf.id}::uuid`,
-		);
-		assert.equal(ready[0].state, "ready");
-		assert.equal(ready[0].source_document_id, doc.id);
-		// A retry with the same key returns the same record and writes nothing.
-		const again = ok(await exportDoc(MEMBER, doc.id, 1, "pdf", "neutral-pdf-r1"));
-		assert.deepEqual(again, pdf);
-		assert.deepEqual(await counts(), after);
-		refused(await exportDoc(MEMBER, doc.id, 2, "pdf", "neutral-pdf-r1"), "conflict");
-		refused(await exportDoc(MEMBER, doc.id, 1, "docx", "neutral-pdf-r1"), "conflict");
-		// A revision that does not exist, a foreign church plant and an unsupported format leave no record.
-		refused(await exportDoc(MEMBER, doc.id, 9, "pdf", "no-revision"), "unavailable");
-		refused(await exportDoc(OTHER, doc.id, 1, "pdf", "foreign"), "unavailable");
-		refused(await exportDoc(MEMBER, doc.id, 1, "xlsx", "bad-format"), "invalid_input");
-		refused(await exportDoc(MEMBER, randomUUID(), 1, "pdf", "no-document"), "unavailable");
-		assert.deepEqual(await counts(), after);
-		const text = (await pdfPages(bytes)).join(" ");
-		assert.ok(text.includes("Template, not legal advice"));
-		assert.ok(text.includes("Harvest Point"));
-		// The account of an Owner and an Admin can read too.
-		ok(await exportDoc(OWNER, doc.id, 1, "pdf", "owner-pdf-r1"));
-		ok(await exportDoc(ADMIN, doc.id, 1, "docx", "admin-docx-r1"));
-	});
-
-	test("AC:CASE-DOC-023 the church theme: a brand kit gives the PDF and the Word file the church colors, letterhead and logo", async () => {
+describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () => {
+	test("AC:CASE-DOC-022 New from template forks the policy, records its origin and freezes the church and brand kit values", async () => {
 		const owner = await authority(OWNER);
-		const kit = ok(
+		ok(
 			await brandWriter.saveSettings(db, owner, {
 				expectedRevision: "0",
 				patch: {
 					primaryColor: "#1F4E79",
 					accentColor: "#C9A227",
-					legalName: "Harvest Point Church",
-					ein: "12-3456789",
-					address: "1 Main Street, Austin, TX 78701",
+					legalName: "Harvest Point Church, Inc.",
+					tagline: "A church for the whole city.",
+					website: "https://harvestpoint.church",
+					phone: "(555) 010-0100",
 				},
+			}),
+		);
+		const before = await counts();
+		const doc = ok(await create(ADMIN, "conflict-of-interest-policy", "wp036-policy"));
+		const template = docTemplateById("conflict-of-interest-policy");
+		assert.equal(doc.templateId, "conflict-of-interest-policy");
+		assert.equal(doc.templateVersion, 1);
+		assert.equal(doc.title, "Conflict of Interest Policy");
+		assert.equal(doc.documentClass, "formal/legal");
+		assert.equal(doc.revision, "1");
+		assert.deepEqual(doc.formats, ["pdf", "docx"]);
+		assert.equal(doc.body.kind, "document");
+		assert.deepEqual(doc.body.origin, {
+			template: "conflict-of-interest-policy",
+			version: 1,
+			hash: await templateHash(template),
+		});
+		assert.deepEqual(doc.body.data, { church_name: "Harvest Point", church_legal_name: "Harvest Point Church, Inc." });
+		assert.deepEqual(doc.body.body, template.body, "the fork copies the template body");
+		assert.deepEqual(doc.provenance, [
+			{ key: "church_name", value: "Harvest Point", source: "church.name" },
+			{ key: "church_legal_name", value: "Harvest Point Church, Inc.", source: "brand.legalName" },
+		]);
+		const after = await counts();
+		assert.deepEqual(after, {
+			...before,
+			documents: before.documents + 1,
+			revisions: before.revisions + 1,
+			audits: before.audits + 1,
+		});
+		// The stored revision is the document, byte for byte.
+		const [row] = await rowsOf(
+			sql`SELECT r.body, r.content_hash FROM document_revision r WHERE r.document_id = ${doc.id}::uuid`,
+		);
+		assert.deepEqual(JSON.parse(row.body), doc.body);
+		assert.equal(row.content_hash, sha(row.body));
+		// The same request key returns the same document and writes once.
+		const again = ok(await create(ADMIN, "conflict-of-interest-policy", "wp036-policy"));
+		assert.deepEqual(again, doc);
+		assert.deepEqual(await counts(), after);
+		refused(await create(ADMIN, "budget-worksheet", "wp036-policy"), "conflict");
+		assert.deepEqual(await counts(), after);
+		state.policy = doc;
+	});
+
+	test("WP-036 the card, the sign-in sheet and the budget fork with their own fields; an unknown template is refused", async () => {
+		const card = ok(await create(OWNER, "commitment-card", "wp036-card"));
+		assert.deepEqual(card.body.data, {
+			church_name: "Harvest Point",
+			church_tagline: "A church for the whole city.",
+			contact_line: "harvestpoint.church  ·  (555) 010-0100",
+		});
+		assert.deepEqual(card.body.page.tile, { across: 2, down: 2, padding: 14, cutMarks: true });
+		const sign = ok(await create(OWNER, "guest-sign-in-sheet", "wp036-sign"));
+		assert.equal(sign.body.origin.template, "guest-sign-in-sheet");
+		const budget = ok(await create(OWNER, "budget-worksheet", "wp036-budget", { church_name: "Harvest Point Church" }));
+		assert.deepEqual(budget.formats, ["pdf", "docx", "xlsx"]);
+		assert.deepEqual(budget.body.data, { church_name: "Harvest Point Church" });
+		assert.equal(budget.provenance[0].source, "override");
+		state.card = card;
+		state.budget = budget;
+		const before = await counts();
+		refused(await create(OWNER, "bylaws", "wp036-old"), "unavailable");
+		refused(await create(OWNER, "not-a-template", "wp036-none"), "unavailable");
+		refused(await create(OWNER, "budget-worksheet", "wp036-foreign", { pastor_name: "X" }), "invalid_input");
+		assert.deepEqual(await counts(), before);
+	});
+
+	test("WP-036 save stores a valid everyfield.doc/1 document and refuses an old block list or a template with no write", async () => {
+		const doc = state.policy;
+		const before = await counts();
+		const oldShape = [{ kind: "paragraph", text: "An old block list." }];
+		const error = refused(await save(ADMIN, doc.id, "1", oldShape), "invalid_input");
+		assert.match(error.details.issues[0].problem, /the file is not a JSON object/);
+		refused(
+			await save(ADMIN, doc.id, "1", { ...doc.body, kind: "template", origin: undefined, data: undefined }),
+			"invalid_input",
+		);
+		const broken = structuredClone(doc.body);
+		broken.body.content.push({ type: "paragraph", content: [{ type: "field", attrs: { key: "pastor_name" } }] });
+		const fault = refused(await save(ADMIN, doc.id, "1", broken), "invalid_input");
+		assert.match(fault.details.issues[0].problem, /the merge field "pastor_name" is not declared in "fields"/);
+		assert.deepEqual(await counts(), before, "a refused save writes nothing");
+
+		const edited = structuredClone(doc.body);
+		edited.title = "Conflict of Interest Policy (2026)";
+		edited.body.content.push({ type: "paragraph", content: [{ type: "text", text: "Adopted on a Tuesday." }] });
+		const saved = ok(await save(ADMIN, doc.id, "1", edited));
+		assert.equal(saved.revision, "2");
+		assert.equal(saved.title, "Conflict of Interest Policy (2026)");
+		assert.deepEqual(saved.body, edited);
+		assert.deepEqual(ok(await documentsWriter.readChurch(db, await authority(MEMBER), { documentId: doc.id })), saved);
+		refused(await save(ADMIN, doc.id, "1", edited), "conflict");
+		assert.deepEqual(await counts(), { ...before, revisions: before.revisions + 1, audits: before.audits + 1 });
+		const one = ok(
+			await documentsWriter["history.get"](db, await authority(MEMBER), { documentId: doc.id, revision: 1 }),
+		);
+		assert.deepEqual(one.body, doc.body);
+		state.policy = saved;
+	});
+
+	test("AC:CASE-DOC-019-EDIT a wiped formal/legal fork saves and its PDF still prints the legal notice", async () => {
+		const doc = state.policy;
+		const wiped = structuredClone(doc.body);
+		wiped.body = { type: "doc", content: [] };
+		wiped.page.header = { pages: "all", content: [] };
+		wiped.page.footer = { pages: "all", content: [] };
+		const saved = ok(await save(OWNER, doc.id, doc.revision, wiped));
+		assert.deepEqual(saved.body.body, { type: "doc", content: [] });
+		const pdf = ok(await fileOf(MEMBER, doc.id, "pdf"));
+		assert.equal(pdf.revision, Number(saved.revision));
+		assert.deepEqual(await pdfPages(bytesFrom(pdf)), ["Template, not legal advice"]);
+		const word = docxParts(bytesFrom(ok(await fileOf(MEMBER, doc.id, "docx"))));
+		assert.equal(wordText(word["word/footer1.xml"]), "Template, not legal advice");
+		// The earlier revision still prints its own text.
+		assert.match(await policyText(ok(await fileOf(MEMBER, doc.id, "pdf", 2))), /Adopted on a Tuesday\./);
+		state.policy = saved;
+	});
+
+	test("AC:CASE-DOC-023 the preview, Download PDF and the saved export of one revision have the same sha256", async () => {
+		const card = state.card;
+		const preview = ok(await fileOf(MEMBER, card.id, "pdf"));
+		const download = ok(await fileOf(OWNER, card.id, "pdf", 1));
+		assert.equal(sha256(bytesFrom(preview)), sha256(bytesFrom(download)));
+		assert.equal(preview.digest, sha256(bytesFrom(preview)));
+		assert.equal(download.downloadName, "commitment-card-revision-1.pdf");
+		assert.equal(download.mediaType, "application/pdf");
+		const pages = await pdfPages(bytesFrom(preview));
+		assert.equal(pages.length, 1, "four cards on one sheet");
+		assert.equal(pages[0].split("My commitment").length - 1, 4);
+		const saved = ok(await exportDoc(MEMBER, card.id, 1, "pdf", "wp036-card-export"));
+		assert.equal(saved.digest, preview.digest, "the saved export is the same bytes");
+		assert.deepEqual(saved.source.revision, 1);
+		assert.equal(saved.savedTemplateName, docTemplateById("commitment-card").title);
+	});
+
+	test("WP-036 a Member reads, previews and downloads every offered format and cannot create, save or delete", async () => {
+		const budget = state.budget;
+		const library = ok(await documentsWriter.listChurch(db, await authority(MEMBER), {}));
+		assert.deepEqual(library.documents.map((d) => d.templateId).sort(), [
+			"budget-worksheet",
+			"commitment-card",
+			"conflict-of-interest-policy",
+			"guest-sign-in-sheet",
+		]);
+		const read = ok(await documentsWriter.readChurch(db, await authority(MEMBER), { documentId: budget.id }));
+		assert.deepEqual(read.formats, ["pdf", "docx", "xlsx"]);
+		for (const format of ["pdf", "docx", "xlsx"]) {
+			const file = ok(await fileOf(MEMBER, budget.id, format));
+			assert.ok(bytesFrom(file).length > 1000, format);
+			assert.equal(file.downloadName, `budget-worksheet-revision-1.${format}`);
+		}
+		refused(await fileOf(MEMBER, state.card.id, "xlsx"), "unavailable");
+		const before = await counts();
+		refused(await create(MEMBER, "budget-worksheet", "wp036-member"), "access_denied");
+		refused(await save(MEMBER, budget.id, "1", budget.body), "access_denied");
+		refused(
+			await documentsWriter.deleteChurch(db, await authority(MEMBER), { documentId: budget.id, expectedRevision: "1" }),
+			"access_denied",
+		);
+		assert.deepEqual(await counts(), before, "nothing is written");
+		// Another church plant's seat cannot see the document at all.
+		refused(await documentsWriter.readChurch(db, await authority(OTHER), { documentId: budget.id }), "unavailable");
+		refused(await fileOf(OTHER, budget.id, "pdf"), "unavailable");
+		assert.deepEqual(ok(await documentsWriter.listChurch(db, await authority(OTHER), {})).documents, []);
+	});
+
+	test("WP-036 an Owner deletes a Church Document with one audited statement and the library drops it", async () => {
+		const sign = (await documentsWriter.listChurch(db, await authority(OWNER), {})).value.documents.find(
+			(d) => d.templateId === "guest-sign-in-sheet",
+		);
+		const before = await counts();
+		const deletes = () =>
+			countOf("audit_event", `WHERE action = 'documents.archived' AND subject_id = '${sign.id}'::uuid`);
+		const deletedBefore = await deletes();
+		refused(
+			await documentsWriter.deleteChurch(db, await authority(OWNER), { documentId: sign.id, expectedRevision: "7" }),
+			"conflict",
+		);
+		assert.equal(await deletes(), deletedBefore);
+		assert.deepEqual(
+			ok(
+				await documentsWriter.deleteChurch(db, await authority(OWNER), { documentId: sign.id, expectedRevision: "1" }),
+			),
+			{ documentId: sign.id, deleted: true },
+		);
+		assert.equal(await deletes(), deletedBefore + 1);
+		assert.deepEqual(await counts(), { ...before, audits: before.audits + 1 });
+		const library = ok(await documentsWriter.listChurch(db, await authority(MEMBER), {}));
+		assert.equal(
+			library.documents.some((d) => d.id === sign.id),
+			false,
+		);
+		refused(await documentsWriter.readChurch(db, await authority(OWNER), { documentId: sign.id }), "unavailable");
+		refused(
+			await documentsWriter.deleteChurch(db, await authority(OWNER), { documentId: sign.id, expectedRevision: "1" }),
+			"unavailable",
+		);
+	});
+
+	test("AC:CASE-DOC-023 the church theme: a brand kit colors the PDF and Word file, and the toggle gives the neutral theme", async () => {
+		const owner = await authority(OWNER);
+		const current = ok(await brandReader.get(db, owner, {}));
+		const kit = ok(
+			await brandWriter.saveSettings(db, owner, {
+				expectedRevision: current.revision,
+				patch: { primaryColor: "#1F4E79", accentColor: "#C9A227" },
 			}),
 		);
 		const ticket = ok(
@@ -512,167 +453,17 @@ describe("WP-037 Church Documents", { concurrency: 1 }, () => {
 				expectedRevision: kit.revision,
 			}),
 		);
-		const doc = state.doc;
-		const r2pdf = ok(await exportDoc(ADMIN, doc.id, 2, "pdf", "CASE-DOC-023-pdf-r2"));
-		state.r2pdf = r2pdf;
-		assert.deepEqual(r2pdf.theme, { kind: "church", primary: "#1F4E79" });
-		assert.deepEqual(r2pdf.source.revision, 2);
-		const r2docx = ok(await exportDoc(ADMIN, doc.id, 2, "docx", "CASE-DOC-023-docx-r2"));
-		state.r2docx = r2docx;
-		assert.deepEqual(r2docx.theme, { kind: "church", primary: "#1F4E79" });
-		assert.equal(r2docx.format, "docx");
-		const pdfBytes = await bytesOf(r2pdf);
-		const docxBytes = await bytesOf(r2docx);
-		// export-docx: a Word file that a reader other than its writer opens, with headings, tables and the logo's alt text.
-		const parts = docxParts(docxBytes);
-		assert.match(parts["word/document.xml"], /<w:pStyle w:val="Heading1"\/>/);
-		assert.ok(parts["word/document.xml"].includes("<w:tbl>"));
-		assert.match(parts["word/header1.xml"], /descr="Harvest Point Church logo"/);
-		assert.ok(parts["word/media/logo.png"]);
-		assert.ok(parts["word/styles.xml"].includes('w:val="1F4E79"'));
-		assert.ok(wordText(parts["word/footer1.xml"]).includes("Harvest Point Church"));
-		assert.ok(wordText(parts["word/footer1.xml"]).includes("EIN 12-3456789"));
-		assert.ok(wordText(parts["word/document.xml"]).includes("The board met on a Tuesday."), "revision 2 text");
-		assert.ok((await pdfPages(pdfBytes)).join(" ").includes("The board met on a Tuesday."));
-		// With the toggle off the same revision exports in the Everyfield-neutral theme.
+		const doc = ok(await create(OWNER, "conflict-of-interest-policy", "wp036-branded"));
+		const pdf = ok(await exportDoc(ADMIN, doc.id, 1, "pdf", "wp036-branded-pdf"));
+		assert.deepEqual(pdf.theme, { kind: "church", primary: "#1F4E79" });
+		const word = docxParts(await bytesOf(ok(await exportDoc(ADMIN, doc.id, 1, "docx", "wp036-branded-docx"))));
+		assert.ok(word["word/styles.xml"].includes('w:val="1F4E79"'));
+		assert.match(word["word/document.xml"], /descr="Harvest Point Church logo"/);
+		assert.ok(Object.keys(word).some((name) => /^word\/media\/image1\.png$/.test(name)));
 		ok(await documentsWriter.setBranding(db, await authority(ADMIN), { documentId: doc.id, useChurchBranding: false }));
-		const plain = ok(await exportDoc(ADMIN, doc.id, 2, "pdf", "toggle-off-pdf-r2"));
+		const plain = ok(await exportDoc(ADMIN, doc.id, 1, "pdf", "wp036-plain-pdf"));
 		assert.deepEqual(plain.theme, { kind: "everyfield-neutral", primary: null });
-		assert.notEqual(plain.digest, r2pdf.digest);
-		ok(await documentsWriter.setBranding(db, await authority(ADMIN), { documentId: doc.id, useChurchBranding: true }));
-	});
-
-	test("AC:CASE-DOC-023 download after an edit and a brand kit change returns the exact saved bytes, and a new export uses the new theme", async () => {
-		const doc = state.doc;
-		const savedPdf = Buffer.from(await bytesOf(state.r2pdf));
-		const savedDocx = Buffer.from(await bytesOf(state.r2docx));
-		// Revision 3 is already saved (clearing the slot). Change the primary color.
-		const owner = await authority(OWNER);
-		const current = ok(await brandReader.get(db, owner, {}));
-		ok(
-			await brandWriter.saveSettings(db, owner, {
-				expectedRevision: current.revision,
-				patch: { primaryColor: "#8B1E3F" },
-			}),
-		);
-		for (const generated of [state.r2pdf, state.r2docx]) {
-			const link = ok(
-				await documentsWriter.download(db, await authority(MEMBER), { documentId: generated.id }, storage),
-			);
-			const file = await stored(generated.id);
-			assert.ok(link.url.includes(file.opaque_key));
-			const bytes = client.objects.get(file.opaque_key);
-			assert.equal(sha256(bytes), generated.digest, "SHA-256 equals the saved value");
-			assert.equal(bytes.length, generated.byteCount, "byte length equals the saved value");
-		}
-		assert.deepEqual(client.objects.get((await stored(state.r2pdf.id)).opaque_key), savedPdf);
-		assert.deepEqual(client.objects.get((await stored(state.r2docx.id)).opaque_key), savedDocx);
-		const r3pdf = ok(await exportDoc(ADMIN, doc.id, 3, "pdf", "CASE-DOC-023-pdf-r3"));
-		assert.deepEqual(r3pdf.theme, { kind: "church", primary: "#8B1E3F" });
-		assert.notEqual(r3pdf.digest, state.r2pdf.digest);
-		// The same revision under the new color also differs from its earlier export.
-		const r2again = ok(await exportDoc(ADMIN, doc.id, 2, "pdf", "r2-after-kit-change"));
-		assert.notEqual(r2again.digest, state.r2pdf.digest);
-		assert.deepEqual(r2again.theme, { kind: "church", primary: "#8B1E3F" });
-		// The record keeps the revision 2 bytes after later edits to the document.
-		const list = ok(await documentsWriter["history.list"](db, await authority(OWNER), {}));
-		const listed = list.entries.find((entry) => entry.id === state.r2pdf.id);
-		assert.deepEqual(listed.source.revision, 2);
-		assert.equal(listed.digest, state.r2pdf.digest);
-		assert.deepEqual(
-			ok(await documentsWriter["history.get"](db, await authority(OWNER), { documentId: state.r2pdf.id })).theme,
-			{ kind: "church", primary: "#1F4E79" },
-		);
-	});
-
-	test("AC:CASE-DOC-019-EDIT AC:CASE-DOC-020-EDIT the notice and the blank slot stay in both exports after the text is deleted", async () => {
-		const doc = state.doc;
-		const empty = state.r3.body.filter((block) => block.kind === "slot");
-		const r4 = ok(await save(OWNER, doc.id, "3", empty));
-		assert.equal(r4.revision, "4");
-		assert.equal(JSON.stringify(r4.body).includes("legal advice"), false, "the notice is not in the body");
-		const pdf = ok(await exportDoc(MEMBER, doc.id, 4, "pdf", "CASE-DOC-019-EDIT-pdf"));
-		const docx = ok(await exportDoc(MEMBER, doc.id, 4, "docx", "CASE-DOC-019-EDIT-docx"));
-		const pdfText = (await pdfPages(await bytesOf(pdf))).join(" ");
-		const parts = docxParts(await bytesOf(docx));
-		assert.ok(pdfText.includes("Template, not legal advice"), "notice in the PDF text");
-		assert.ok(wordText(parts["word/footer1.xml"]).includes("Template, not legal advice"), "notice in the DOCX text");
-		assert.equal(wordText(parts["word/document.xml"]).includes("legal advice"), false, "outside the editable body");
-		// The slot is a visible, marked blank in both, with no default text.
-		for (const text of [pdfText, wordText(parts["word/document.xml"])]) {
-			assert.ok(/statement of faith/i.test(text));
-			assert.ok(text.includes("Not filled in yet"));
-		}
-		const template = churchTemplate("bylaws");
-		assert.deepEqual(
-			template.body.find((b) => b.kind === "slot"),
-			{ kind: "slot", slotId: "statement-of-faith", text: "" },
-		);
-		// Revision 1 shows the same blank.
-		const first = ok(await exportDoc(MEMBER, doc.id, 1, "docx", "CASE-DOC-020-EDIT-docx"));
-		assert.ok(wordText(docxParts(await bytesOf(first))["word/document.xml"]).includes("Not filled in yet"));
-		// An outward-facing export holds no notice.
-		const letter = state.letter;
-		const lpdf = ok(await exportDoc(OWNER, letter.id, 1, "pdf", "CASE-DOC-019-EDIT-letter"));
-		assert.equal((await pdfPages(await bytesOf(lpdf))).join(" ").includes("legal advice"), false);
-		assert.equal(lpdf.theme.kind, "church");
-		const ldocx = ok(await exportDoc(OWNER, letter.id, 1, "docx", "CASE-DOC-019-EDIT-letter-docx"));
-		for (const part of Object.values(docxParts(await bytesOf(ldocx))))
-			assert.equal(part.includes("legal advice"), false);
-	});
-
-	test("AC:CASE-DOC-023 a body over the limits or a failed render leaves no ready record", async () => {
-		const doc = state.letter;
-		const before = await counts();
-		const insertRevision = async (body, number) => {
-			const id = randomUUID();
-			await admin.execute(
-				sql`INSERT INTO document_revision(id,tenant_id,document_id,version_number,body,content_hash,published_at,recorded_at) VALUES(${id}::uuid,${P}::uuid,${doc.id}::uuid,${number},${body},${sha(body)},clock_timestamp(),clock_timestamp())`,
-			);
-		};
-		await insertRevision(JSON.stringify(Array.from({ length: 1001 }, () => ({ kind: "paragraph", text: "x" }))), 2);
-		await insertRevision(JSON.stringify([{ kind: "paragraph", text: "bad\u0000char" }]), 3);
-		await insertRevision("not json", 4);
-		for (const [number, key] of [
-			[2, "too-many"],
-			[3, "nul"],
-			[4, "garbage"],
-		])
-			for (const format of ["pdf", "docx"])
-				refused(await exportDoc(OWNER, doc.id, number, format, `${key}-${format}`), "render_failed");
-		const after = await counts();
-		assert.equal(after.generated, before.generated);
-		assert.equal(after.files, before.files);
-		assert.equal(await countOf("file_object", `WHERE purpose = 'generated' AND state <> 'ready'`), 0);
-	});
-
-	test("AC:CASE-DOC-023 a seat that ended cannot export or save, and saved exports pin their document, revision and template", async () => {
-		const doc = state.doc;
-		await admin.execute(
-			sql`UPDATE seat SET ended_at = clock_timestamp() WHERE account_id = ${actors[ADMIN].id}::uuid AND ended_at IS NULL`,
-		);
-		const stale = await RequestActor.resolve(db, actors[ADMIN].session);
-		assert.ok(stale instanceof RequestActor, "an ended seat still resolves to an actor");
-		refused(
-			await documentsWriter.exportNative(
-				db,
-				stale,
-				{ documentId: doc.id, revision: 1, format: "pdf", requestKey: "ended-seat" },
-				storage,
-			),
-			"access_denied",
-		);
-		refused(await save(ADMIN, doc.id, "4", doc.body), "access_denied");
-		await admin.execute(sql`UPDATE seat SET ended_at = NULL WHERE account_id = ${actors[ADMIN].id}::uuid`);
-		// Exports reference their document and revision: the tables cannot drop them from under a record.
-		await assert.rejects(
-			admin.execute(sql`DELETE FROM document_revision WHERE document_id = ${doc.id}::uuid AND version_number = 2`),
-		);
-		await assert.rejects(
-			admin.execute(
-				sql`UPDATE generated_document SET source_revision_id = NULL, source_document_id = NULL, theme_kind = NULL WHERE source_document_id = ${doc.id}::uuid`,
-			),
-		);
-		await assert.rejects(admin.execute(sql`UPDATE document SET template_id = 'bylaws-2' WHERE id = ${doc.id}::uuid`));
+		assert.notEqual(plain.digest, pdf.digest);
+		assert.equal(ok(await fileOf(MEMBER, doc.id, "pdf")).digest, plain.digest, "the preview follows the toggle");
 	});
 });

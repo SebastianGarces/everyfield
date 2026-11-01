@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { correlationId, recordId, tenantId } from "../common/values.ts";
-import { churchBody } from "./body.ts";
+import { docDocument } from "./format/index.ts";
 import { documentCategory, documentFormat, templateId } from "./values.ts";
 
 const issue = z.strictObject({ path: z.string().max(200), problem: z.string().max(200) });
@@ -15,10 +15,6 @@ export const documentsError = z.discriminatedUnion("code", [
 	error("render_failed", {}, "never"),
 	error("conflict", {}, "refresh"),
 	error("access_denied", {}, "never"),
-	error("template_not_editable", {}, "never"),
-	/** An editable template that has no authored content yet. */
-	error("template_not_authored", {}, "never"),
-	error("slot_not_deletable", { slotIds: z.array(z.string().max(60)).max(20) }, "never"),
 ]);
 export type DocumentsError = z.infer<typeof documentsError>;
 export type DocumentsReply<T> = { status: "ok"; value: T } | { status: "refused"; error: DocumentsError };
@@ -149,19 +145,21 @@ export const coreValuesEvidence = z.strictObject({
 });
 
 const churchClass = z.enum(["formal/legal", "outward-facing", "operational"]);
-/** A Church Document with its current revision. */
+/** A Church Document with its current revision. The body is an everyfield.doc/1 document. */
 export const churchDocument = z.strictObject({
 	id: recordId,
 	tenantId: tenantId,
 	templateId,
 	templateVersion: z.int().min(1),
+	/** The formats the document offers: PDF and Word, and Excel when it holds a ledger table. */
+	formats: z.array(documentFormat).min(1).max(3),
 	documentClass: churchClass,
 	useChurchBranding: z.boolean(),
 	title: z.string().min(1).max(200),
 	/** The current revision number, as a decimal string, for the expected-revision check. */
 	revision: revisionToken,
 	revisionId: recordId,
-	body: churchBody,
+	body: docDocument,
 	contentHash: sha256,
 	archived: z.boolean(),
 	/** The merge values resolved into revision 1, with where each came from. */
@@ -182,7 +180,31 @@ export const churchRevisionList = z.strictObject({
 	documentId: recordId,
 	revisions: z.array(churchRevisionSummary).max(1000),
 });
-export const churchRevision = churchRevisionSummary.extend({ documentId: recordId, body: churchBody });
+export const churchRevision = churchRevisionSummary.extend({ documentId: recordId, body: docDocument });
+/** One entry of the Church Document library. */
+export const churchSummary = z.strictObject({
+	id: recordId,
+	title: z.string().min(1).max(200),
+	templateId,
+	templateVersion: z.int().min(1),
+	documentClass: churchClass,
+	revision: revisionToken,
+	updatedAt: z.iso.datetime(),
+});
+export const churchLibrary = z.strictObject({ documents: z.array(churchSummary).max(200) });
+/** The bytes of one revision in one format, base64. */
+export const churchFile = z.strictObject({
+	documentId: recordId,
+	revision: z.int().min(1),
+	format: documentFormat,
+	mediaType: z.string().min(1).max(120),
+	downloadName: z.string().min(1).max(220),
+	digest: sha256,
+	bytes: z.string().min(1),
+});
+export const deletedChurch = z.strictObject({ documentId: recordId, deleted: z.literal(true) });
+export type ChurchSummary = z.infer<typeof churchSummary>;
+export type ChurchFile = z.infer<typeof churchFile>;
 export const brandingResult = z.strictObject({ documentId: recordId, useChurchBranding: z.boolean() });
 export type ChurchRevisionList = z.infer<typeof churchRevisionList>;
 export type ChurchRevision = z.infer<typeof churchRevision>;
