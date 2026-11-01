@@ -1,0 +1,82 @@
+{
+	"note": "Synthetic fixture for tests/reference/starter/living.db.mts. Every text is written for the fixture. After an edit to seed.json, update the content hashes and seedPayloadSHA256 here.",
+	"revision": "2107df58885c883960422ce7e60719f0adbac0e4",
+	"seedPayloadSHA256": "4c57e937848b3d07c9cd5125be10a308c1320fe36a606402982b021ee0ad5442",
+	"playbookSHA256": "d365dd4992156e674f8e67601239fbf97c173074a3ca7e0bc8010aa725205e7a",
+	"articles": [
+		{
+			"id": "367a6c6b-7ec3-44e7-95fb-253097125e42",
+			"slug": "discovery/is-church-planting-your-calling",
+			"sectionId": "0f3a7e10-0000-4000-8000-000000000003",
+			"contentSHA256": "b9fd3358327eaec3305a008dfce2acd8919b9b4581c3ece6c7bd5cea13aac7fb"
+		},
+		{
+			"id": "eded80bd-e505-4a56-91d6-67b8d071ef73",
+			"slug": "discovery/understanding-the-4-pillars",
+			"sectionId": "0f3a7e10-0000-4000-8000-000000000003",
+			"contentSHA256": "1d7c1e677c88cf1313651b3e39f5af12352fe08b68b3e86be61bb6ad44d3ff71"
+		},
+		{
+			"id": "2bf51c2e-1686-4c4b-b36f-fffe3286c01c",
+			"slug": "discovery/defining-your-church-values",
+			"sectionId": "0f3a7e10-0000-4000-8000-000000000003",
+			"contentSHA256": "1f2107d37d19580c04aaf3b1330a7f096198cfd7efd2430a2116fdc60d923eb9"
+		},
+		{
+			"id": "e4bb0e6f-5019-48d3-a1bd-b7365790e56d",
+			"slug": "discovery/the-worship-walk-work-witness-model",
+			"sectionId": "0f3a7e10-0000-4000-8000-000000000003",
+			"contentSHA256": "a0e96627fa4727ddf234010d7be05787addb74d4561b6c043a89217e1c61154b"
+		},
+		{
+			"id": "af3c750a-dc03-4c1d-a149-c4bfb067ead8",
+			"slug": "discovery/setting-your-initial-goals",
+			"sectionId": "0f3a7e10-0000-4000-8000-000000000003",
+			"contentSHA256": "d4e84a948636bd6b62cf16918eebbddf313907aa5cc0e9c9084b7a0eaf3eca41"
+		},
+		{
+			"id": "5e8e4b82-905a-4110-ac3a-a45cb0155365",
+			"slug": "discovery/finding-a-coach-mentor",
+			"sectionId": "0f3a7e10-0000-4000-8000-000000000003",
+			"contentSHA256": "56854e7d8d4168774c5cc7074629782ad64f46867b88a943b650f1a3b4226b8a"
+		},
+		{
+			"id": "0f3a7e10-0000-4000-8000-000000000101",
+			"slug": "administrative/legal/setting-up-501c3",
+			"sectionId": "0f3a7e10-0000-4000-8000-000000000002",
+			"contentSHA256": "cf06291dffe9f2d215defe2fbcb90c00edb3b054b66a5dd5876ee6f4c66e72ba"
+		},
+		{
+			"id": "0f3a7e10-0000-4000-8000-000000000102",
+			"slug": "administrative/legal/getting-your-churchs-ein",
+			"sectionId": "0f3a7e10-0000-4000-8000-000000000002",
+			"contentSHA256": "1028fa35feaa1078b5e183492df54cfd3f746084939b88749d731f1bbbea20cc"
+		}
+	],
+	"sections": [
+		{
+			"id": "0f3a7e10-0000-4000-8000-000000000001",
+			"slug": "administrative",
+			"parent": null,
+			"recordSHA256": "2c545bf27660c6e26eb90d78cda3c2aadd185d30791cb41eec41b064eaaaac30"
+		},
+		{
+			"id": "0f3a7e10-0000-4000-8000-000000000002",
+			"slug": "administrative/legal",
+			"parent": "0f3a7e10-0000-4000-8000-000000000001",
+			"recordSHA256": "d159172a2bd965a0b217254e4a409c48e74aa73803ecacad697799c5e3760451"
+		},
+		{
+			"id": "0f3a7e10-0000-4000-8000-000000000003",
+			"slug": "discovery",
+			"parent": null,
+			"recordSHA256": "5227d5784af5ba8ac2443c1056378435fac9d29e0914356aa67265479de83022"
+		}
+	],
+	"templates": [
+		{
+			"name": "Fixture Welcome",
+			"sha256": "d5a43b5887e3c367d6c95baa7383c7e78f19804420614cde1d8a25c3d696dc9d"
+		}
+	]
+}

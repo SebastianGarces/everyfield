@@ -1,0 +1,159 @@
+{
+	"articles": [
+		{
+			"id": "367a6c6b-7ec3-44e7-95fb-253097125e42",
+			"slug": "discovery/is-church-planting-your-calling",
+			"title": "Is Church Planting Your Calling?",
+			"excerpt": "Is Church Planting Your Calling? (fixture).",
+			"content": "Fixture text for the discovery article \"Is Church Planting Your Calling?\".\n",
+			"section_id": "0f3a7e10-0000-4000-8000-000000000003",
+			"phase": 0,
+			"sort_order": 1,
+			"church_id": null,
+			"status": "published",
+			"content_type": "guide",
+			"related_article_slugs": []
+		},
+		{
+			"id": "eded80bd-e505-4a56-91d6-67b8d071ef73",
+			"slug": "discovery/understanding-the-4-pillars",
+			"title": "Understanding the 4 Pillars",
+			"excerpt": "Understanding the 4 Pillars (fixture).",
+			"content": "Fixture text for the discovery article \"Understanding the 4 Pillars\".\n",
+			"section_id": "0f3a7e10-0000-4000-8000-000000000003",
+			"phase": 0,
+			"sort_order": 2,
+			"church_id": null,
+			"status": "published",
+			"content_type": "guide",
+			"related_article_slugs": []
+		},
+		{
+			"id": "2bf51c2e-1686-4c4b-b36f-fffe3286c01c",
+			"slug": "discovery/defining-your-church-values",
+			"title": "Defining Your Church Values",
+			"excerpt": "Defining Your Church Values (fixture).",
+			"content": "Fixture text for the discovery article \"Defining Your Church Values\".\n",
+			"section_id": "0f3a7e10-0000-4000-8000-000000000003",
+			"phase": 0,
+			"sort_order": 3,
+			"church_id": null,
+			"status": "published",
+			"content_type": "guide",
+			"related_article_slugs": []
+		},
+		{
+			"id": "e4bb0e6f-5019-48d3-a1bd-b7365790e56d",
+			"slug": "discovery/the-worship-walk-work-witness-model",
+			"title": "The Worship/Walk/Work/Witness Model",
+			"excerpt": "The Worship/Walk/Work/Witness Model (fixture).",
+			"content": "Fixture text for the discovery article \"The Worship/Walk/Work/Witness Model\".\n",
+			"section_id": "0f3a7e10-0000-4000-8000-000000000003",
+			"phase": 0,
+			"sort_order": 4,
+			"church_id": null,
+			"status": "published",
+			"content_type": "guide",
+			"related_article_slugs": []
+		},
+		{
+			"id": "af3c750a-dc03-4c1d-a149-c4bfb067ead8",
+			"slug": "discovery/setting-your-initial-goals",
+			"title": "Setting Your Initial Goals",
+			"excerpt": "Setting Your Initial Goals (fixture).",
+			"content": "Fixture text for the discovery article \"Setting Your Initial Goals\".\n",
+			"section_id": "0f3a7e10-0000-4000-8000-000000000003",
+			"phase": 0,
+			"sort_order": 5,
+			"church_id": null,
+			"status": "published",
+			"content_type": "guide",
+			"related_article_slugs": []
+		},
+		{
+			"id": "5e8e4b82-905a-4110-ac3a-a45cb0155365",
+			"slug": "discovery/finding-a-coach-mentor",
+			"title": "Finding a Coach/Mentor",
+			"excerpt": "Finding a Coach/Mentor (fixture).",
+			"content": "Fixture text for the discovery article \"Finding a Coach/Mentor\".\n",
+			"section_id": "0f3a7e10-0000-4000-8000-000000000003",
+			"phase": 0,
+			"sort_order": 6,
+			"church_id": null,
+			"status": "published",
+			"content_type": "guide",
+			"related_article_slugs": []
+		},
+		{
+			"id": "0f3a7e10-0000-4000-8000-000000000101",
+			"slug": "administrative/legal/setting-up-501c3",
+			"title": "Setting Up a 501(c)(3)",
+			"excerpt": "Setting Up a 501(c)(3) (fixture).",
+			"content": "Fixture text for the WP-033 install tests. It is not the reviewed Wiki article.\n\n## Do Churches Need to Apply?\n\nA church that meets the 501(c)(3) requirements is exempt without filing an application.\n\n## Which Form to File\n\nFile Form 1023 when your church wants a determination letter. Churches are not eligible for Form 1023-EZ.\n\n## Group Exemption\n\nUnder Rev. Proc. 2026-8, a church can join its denomination's group exemption instead of filing its own application.\n\nSee [Getting your church's EIN](/wiki/administrative/legal/getting-your-churchs-ein) first.\n",
+			"section_id": "0f3a7e10-0000-4000-8000-000000000002",
+			"phase": 0,
+			"sort_order": 2,
+			"church_id": null,
+			"status": "published",
+			"content_type": "guide",
+			"related_article_slugs": ["administrative/legal/getting-your-churchs-ein"]
+		},
+		{
+			"id": "0f3a7e10-0000-4000-8000-000000000102",
+			"slug": "administrative/legal/getting-your-churchs-ein",
+			"title": "Getting Your Church's EIN",
+			"excerpt": "Getting Your Church's EIN (fixture).",
+			"content": "Fixture text for the WP-033 install tests. Your church needs an EIN before it opens a bank account.\n",
+			"section_id": "0f3a7e10-0000-4000-8000-000000000002",
+			"phase": 0,
+			"sort_order": 1,
+			"church_id": null,
+			"status": "published",
+			"content_type": "guide",
+			"related_article_slugs": []
+		}
+	],
+	"sections": [
+		{
+			"id": "0f3a7e10-0000-4000-8000-000000000001",
+			"slug": "administrative",
+			"name": "Administrative",
+			"parent_section_id": null,
+			"phase": 0,
+			"sort_order": 1,
+			"description": null,
+			"icon": null
+		},
+		{
+			"id": "0f3a7e10-0000-4000-8000-000000000002",
+			"slug": "administrative/legal",
+			"name": "Legal",
+			"parent_section_id": "0f3a7e10-0000-4000-8000-000000000001",
+			"phase": 0,
+			"sort_order": 1,
+			"description": null,
+			"icon": null
+		},
+		{
+			"id": "0f3a7e10-0000-4000-8000-000000000003",
+			"slug": "discovery",
+			"name": "Discovery",
+			"parent_section_id": null,
+			"phase": 0,
+			"sort_order": 0,
+			"description": null,
+			"icon": null
+		}
+	],
+	"templates": [
+		{
+			"name": "Fixture Welcome",
+			"subject": "Welcome to {{church_name}}",
+			"body": "Hi {{first_name}}, welcome.",
+			"category": "welcome",
+			"churchId": null,
+			"isSystem": true,
+			"sourceTemplateId": null
+		}
+	]
+}

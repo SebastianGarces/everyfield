@@ -1,5 +1,7 @@
 // WP-033: the app installs the living Wiki seed. The old bootstrap generation stays reachable for rollback.
 // Only this test reads the bootstrap payload, to build that old generation (criterion 11).
+// fixtures/living-wiki is a synthetic living seed with a corrected 501(c)(3) article. It proves the install
+// path carries corrected text byte for byte while the real seed waits for the reviewed article (OPS-107).
 import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
 import type { Database } from "../../../packages/db/src/client.ts";
 import { sql } from "../../../packages/db/src/query.ts";
@@ -8,6 +10,7 @@ import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
+import { hash } from "../../../packages/reference/src/hash.ts";
 import { migrate } from "../../../packages/db/src/schema/migrate.ts";
 import { approvedWiki } from "../../../packages/reference/src/starter/manifest/approved.ts";
 import type { WikiSource } from "../../../packages/reference/src/starter/manifest/approved.ts";
@@ -37,13 +40,28 @@ const bootstrapSource: WikiSource = {
 	sections: 21,
 	systemTemplates: 7,
 };
+const fixtureDir = "tests/reference/starter/fixtures/living-wiki";
+const fixtureBytes = (name: string) => readFile(new URL(`../../../${fixtureDir}/${name}`, import.meta.url));
+/** A living-seed pin for the synthetic fixture. The loader checks every hash and count against it. */
+const fixtureSource: WikiSource = {
+	version: "wiki-seed-fixture",
+	manifestPath: `${fixtureDir}/manifest.json`,
+	payloadPath: `${fixtureDir}/seed.json`,
+	manifestSha256: hash(await fixtureBytes("manifest.json")),
+	payloadSha256: hash(await fixtureBytes("seed.json")),
+	articles: 8,
+	sections: 3,
+	systemTemplates: 1,
+};
 const slug = "administrative/legal/setting-up-501c3";
+const einSlug = "administrative/legal/getting-your-churchs-ein";
 const oldAdvice = "Make sure you qualify for Form 1023-EZ";
 // The bootstrap copy offers Form 1023-EZ to a church in these three places.
 const oldOffers = [oldAdvice, "Lower filing fee (currently $275)", "| Form 1023-EZ | 2-4 weeks |"];
 
-/** Fails when a sentence names Form 1023-EZ without saying that a church is not eligible for it. */
-function assertNoEzOffer(body: string) {
+/** Fails unless the article cites Rev. Proc. 2026-8 and no sentence offers Form 1023-EZ to a church. */
+function assertCorrected(body: string) {
+	assert.ok(body.includes("Rev. Proc. 2026-8"));
 	for (const offer of oldOffers) assert.equal(body.includes(offer), false, offer);
 	const mentions = body.split(/(?<=[.!?])\s+|\n+/).filter((sentence) => sentence.includes("1023-EZ"));
 	assert.ok(mentions.length > 0);
@@ -123,26 +141,33 @@ async function activeArticle(db: Database, wanted: string) {
 	return selected.rows[0] as { release_key: string; body: string };
 }
 
-test("WP-033 criterion 10: an empty store gets the living seed's 501(c)(3) article byte for byte", async () => {
+async function installFresh(pin: WikiSource) {
 	const { db, caller } = await emptyStore();
-	const receipt = await referenceService(db).installApprovedWiki(
+	const receipt = await referenceService(db, { source: pin }).installApprovedWiki(
 		caller,
-		command(approvedWiki, "LIVING", "0", "install"),
+		command(pin, "LIVING", "0", "install"),
 	);
 	assert.equal(receipt.activeRelease, "LIVING");
-	assert.equal(receipt.insertedArticles, 124);
-	const stored = await activeArticle(db, slug);
-	assert.equal(stored.body, await seedContent(approvedWiki.payloadPath, slug));
-	assert.ok(stored.body.includes("Rev. Proc. 2026-8"));
-	assertNoEzOffer(stored.body);
-	const ein = await activeArticle(db, "administrative/legal/getting-your-churchs-ein");
-	assert.equal(ein.body, await seedContent(approvedWiki.payloadPath, "administrative/legal/getting-your-churchs-ein"));
+	assert.equal(receipt.insertedArticles, pin.articles);
+	for (const wanted of [slug, einSlug])
+		assert.equal((await activeArticle(db, wanted)).body, await seedContent(pin.payloadPath, wanted), wanted);
+	return (await activeArticle(db, slug)).body;
+}
+
+test("WP-033 criterion 10: an empty store gets a living seed's corrected 501(c)(3) article byte for byte", async () => {
+	assertCorrected(await installFresh(fixtureSource));
 });
 
-test("WP-033 criterion 11: the living generation replaces the bootstrap one, and rollback to it still works and replays", async () => {
+// The real seed gains the Rev. Proc. 2026-8 text when OPS-107 (PR #412) promotes it; then add assertCorrected here.
+test("WP-033 criterion 10: an empty store gets the real living seed's 501(c)(3) and EIN articles byte for byte", async () => {
+	await installFresh(approvedWiki);
+});
+
+/** Bootstrap generation, then the living one, then a rollback and its replay. Returns the living article body and the store export. */
+async function upgradeAndRollBack(pin: WikiSource) {
 	const { db, caller } = await emptyStore();
 	const old = referenceService(db, { source: bootstrapSource });
-	const living = referenceService(db);
+	const living = referenceService(db, { source: pin });
 
 	const first = await old.installApprovedWiki(caller, command(bootstrapSource, "BOOTSTRAP", "0", "install"));
 	assert.equal(first.activationNumber, "1");
@@ -155,19 +180,13 @@ test("WP-033 criterion 11: the living generation replaces the bootstrap one, and
 		(error: unknown) => error instanceof Error && error.message === "digest_conflict",
 	);
 
-	const second = await living.installApprovedWiki(caller, command(approvedWiki, "LIVING", "1", "install"));
+	const second = await living.installApprovedWiki(caller, command(pin, "LIVING", "1", "install"));
 	assert.equal(second.activationNumber, "2");
 	assert.equal(second.activeRelease, "LIVING");
 	const corrected = await activeArticle(db, slug);
 	assert.equal(corrected.release_key, "LIVING");
-	assert.equal(corrected.body, await seedContent(approvedWiki.payloadPath, slug));
+	assert.equal(corrected.body, await seedContent(pin.payloadPath, slug));
 	for (const offer of oldOffers) assert.equal(corrected.body.includes(offer), false, offer);
-	const exported = await living.exportApprovedWiki(caller);
-	assert.equal(exported.articles, 124);
-	assert.equal(exported.sections, 21);
-	assert.equal(exported.systemTemplates, 7);
-	assert.equal(exported.discoveryArticles, 6);
-
 	const rollbackKey = randomUUID();
 	const rollback = await old.installApprovedWiki(
 		caller,
@@ -192,6 +211,21 @@ test("WP-033 criterion 11: the living generation replaces the bootstrap one, and
 			["2", "LIVING"],
 			["3", "BOOTSTRAP"],
 		],
+	);
+	return { body: corrected.body, exported: await living.exportApprovedWiki(caller) };
+}
+
+test("WP-033 criterion 11: a corrected living generation replaces the bootstrap one, and rollback works and replays", async () => {
+	assertCorrected((await upgradeAndRollBack(fixtureSource)).body);
+});
+
+test("WP-033 criterion 11: the real living generation replaces the bootstrap one, and rollback works and replays", async () => {
+	assert.deepEqual([approvedWiki.articles, approvedWiki.sections, approvedWiki.systemTemplates], [124, 21, 7]);
+	const { exported } = await upgradeAndRollBack(approvedWiki);
+	// The store keeps every global item it ever installed. Both seeds share item ids, so the counts stay at the living ones.
+	assert.deepEqual(
+		[exported.articles, exported.sections, exported.systemTemplates, exported.discoveryArticles],
+		[124, 21, 7, 6],
 	);
 });
 
