@@ -57,13 +57,11 @@ test("INV-wiki-snapshot: approved living seed bytes match the recorded checksums
 	assert.equal(bundle.passages.length, 0);
 });
 
-type SeedFile = { articles: { slug: string; content: string }[]; sections: unknown[]; templates: unknown[] };
-const livingSeed = async (): Promise<SeedFile> =>
-	JSON.parse(await readFile(new URL("../../../docs/reference/wiki/seed.json", import.meta.url), "utf8")) as SeedFile;
-
 test("WP-033 criterion 9: the pins and every packaged Wiki row follow the living seed, never the bootstrap payload", async () => {
 	const snapshot = await loadApprovedSnapshot();
-	const living = await livingSeed();
+	const living = JSON.parse(
+		await readFile(new URL("../../../docs/reference/wiki/seed.json", import.meta.url), "utf8"),
+	) as { articles: { slug: string; content: string }[]; sections: unknown[]; templates: unknown[] };
 	assert.equal(approvedSource.payloadPath, "docs/reference/wiki/seed.json");
 	assert.equal(approvedSource.manifestPath, "docs/reference/wiki/manifest.json");
 	assert.deepEqual(
@@ -76,9 +74,8 @@ test("WP-033 criterion 9: the pins and every packaged Wiki row follow the living
 	);
 	assert.ok(snapshot.articles.some((article) => article.slug === "administrative/legal/getting-your-churchs-ein"));
 	const entries = packageStarter(await loadStarter(), snapshot);
-	const sourcePaths = new Set(entries.map((entry) => entry.sourcePath));
 	assert.equal(
-		[...sourcePaths].some((path) => path.startsWith("docs/reference/bootstrap/")),
+		entries.some((entry) => entry.sourcePath.startsWith("docs/reference/bootstrap/")),
 		false,
 	);
 	for (const entry of entries.filter((row) => ["article", "section", "mail_template"].includes(row.kind)))
