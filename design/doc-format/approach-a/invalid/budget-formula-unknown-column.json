@@ -1,0 +1,634 @@
+{
+	"format": "everyfield.doc/1",
+	"kind": "template",
+	"id": "budget-worksheet",
+	"version": 1,
+	"title": "Budget Worksheet",
+	"description": "Monthly amounts by category. The annual amount and the totals add up on their own.",
+	"class": "operational",
+	"exports": [
+		"xlsx",
+		"pdf",
+		"docx"
+	],
+	"fields": [
+		{
+			"key": "church_name",
+			"label": "Church name",
+			"type": "text",
+			"source": "church.name",
+			"required": true,
+			"sample": "Harbor City Church"
+		}
+	],
+	"page": {
+		"size": "letter",
+		"orientation": "portrait",
+		"margin": {
+			"top": 40,
+			"right": 40,
+			"bottom": 48,
+			"left": 40
+		},
+		"tile": null,
+		"header": null,
+		"footer": {
+			"pages": "all",
+			"content": [
+				{
+					"type": "paragraph",
+					"attrs": {
+						"style": "small"
+					},
+					"content": [
+						{
+							"type": "field",
+							"attrs": {
+								"key": "church_name"
+							}
+						},
+						{
+							"type": "text",
+							"text": "  |  Budget worksheet"
+						}
+					]
+				}
+			]
+		}
+	},
+	"body": {
+		"type": "doc",
+		"content": [
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 1
+				},
+				"content": [
+					{
+						"type": "field",
+						"attrs": {
+							"key": "church_name"
+						}
+					},
+					{
+						"type": "text",
+						"text": " Budget Worksheet"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"attrs": {
+					"style": "lead"
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "Enter the monthly amount in each boxed cell. The annual amount is the monthly amount times 12."
+					}
+				]
+			},
+			{
+				"type": "table",
+				"attrs": {
+					"style": "ledger",
+					"header": true,
+					"headerFill": "primary",
+					"zebra": false,
+					"writeInRows": 0,
+					"rowHeight": 0,
+					"sheet": "Budget worksheet",
+					"columns": [
+						{
+							"id": "category",
+							"label": "Category",
+							"type": "text",
+							"width": 0
+						},
+						{
+							"id": "monthly",
+							"label": "Monthly",
+							"type": "money",
+							"width": 110,
+							"align": "right"
+						},
+						{
+							"id": "annual",
+							"label": "Annual",
+							"type": "formula",
+							"formula": "monthy * 12",
+							"format": "money",
+							"width": 110,
+							"align": "right"
+						}
+					]
+				},
+				"content": [
+					{
+						"type": "row",
+						"attrs": {
+							"role": "group",
+							"sign": "add"
+						},
+						"content": [
+							{
+								"type": "cell",
+								"content": [
+									{
+										"type": "text",
+										"text": "Income"
+									}
+								]
+							},
+							{
+								"type": "cell",
+								"content": []
+							},
+							{
+								"type": "cell",
+								"content": []
+							}
+						]
+					},
+					{
+						"type": "row",
+						"content": [
+							{
+								"type": "cell",
+								"content": [
+									{
+										"type": "text",
+										"text": "Tithes and offerings"
+									}
+								]
+							},
+							{
+								"type": "cell",
+								"attrs": {
+									"value": null
+								},
+								"content": []
+							},
+							{
+								"type": "cell",
+								"content": []
+							}
+						]
+					},
+					{
+						"type": "row",
+						"content": [
+							{
+								"type": "cell",
+								"content": [
+									{
+										"type": "text",
+										"text": "Sending church support"
+									}
+								]
+							},
+							{
+								"type": "cell",
+								"attrs": {
+									"value": null
+								},
+								"content": []
+							},
+							{
+								"type": "cell",
+								"content": []
+							}
+						]
+					},
+					{
+						"type": "row",
+						"content": [
+							{
+								"type": "cell",
+								"content": [
+									{
+										"type": "text",
+										"text": "Network or denominational support"
+									}
+								]
+							},
+							{
+								"type": "cell",
+								"attrs": {
+									"value": null
+								},
+								"content": []
+							},
+							{
+								"type": "cell",
+								"content": []
+							}
+						]
+					},
+					{
+						"type": "row",
+						"content": [
+							{
+								"type": "cell",
+								"content": [
+									{
+										"type": "text",
+										"text": "Grants"
+									}
+								]
+							},
+							{
+								"type": "cell",
+								"attrs": {
+									"value": null
+								},
+								"content": []
+							},
+							{
+								"type": "cell",
+								"content": []
+							}
+						]
+					},
+					{
+						"type": "row",
+						"content": [
+							{
+								"type": "cell",
+								"content": [
+									{
+										"type": "text",
+										"text": "Other income"
+									}
+								]
+							},
+							{
+								"type": "cell",
+								"attrs": {
+									"value": null
+								},
+								"content": []
+							},
+							{
+								"type": "cell",
+								"content": []
+							}
+						]
+					},
+					{
+						"type": "row",
+						"attrs": {
+							"role": "subtotal"
+						},
+						"content": [
+							{
+								"type": "cell",
+								"content": [
+									{
+										"type": "text",
+										"text": "Total income"
+									}
+								]
+							},
+							{
+								"type": "cell",
+								"content": []
+							},
+							{
+								"type": "cell",
+								"content": []
+							}
+						]
+					},
+					{
+						"type": "row",
+						"attrs": {
+							"role": "group",
+							"sign": "subtract"
+						},
+						"content": [
+							{
+								"type": "cell",
+								"content": [
+									{
+										"type": "text",
+										"text": "Expenses"
+									}
+								]
+							},
+							{
+								"type": "cell",
+								"content": []
+							},
+							{
+								"type": "cell",
+								"content": []
+							}
+						]
+					},
+					{
+						"type": "row",
+						"content": [
+							{
+								"type": "cell",
+								"content": [
+									{
+										"type": "text",
+										"text": "Pastor and staff pay"
+									}
+								]
+							},
+							{
+								"type": "cell",
+								"attrs": {
+									"value": null
+								},
+								"content": []
+							},
+							{
+								"type": "cell",
+								"content": []
+							}
+						]
+					},
+					{
+						"type": "row",
+						"content": [
+							{
+								"type": "cell",
+								"content": [
+									{
+										"type": "text",
+										"text": "Payroll taxes and benefits"
+									}
+								]
+							},
+							{
+								"type": "cell",
+								"attrs": {
+									"value": null
+								},
+								"content": []
+							},
+							{
+								"type": "cell",
+								"content": []
+							}
+						]
+					},
+					{
+						"type": "row",
+						"content": [
+							{
+								"type": "cell",
+								"content": [
+									{
+										"type": "text",
+										"text": "Rent or facility"
+									}
+								]
+							},
+							{
+								"type": "cell",
+								"attrs": {
+									"value": null
+								},
+								"content": []
+							},
+							{
+								"type": "cell",
+								"content": []
+							}
+						]
+					},
+					{
+						"type": "row",
+						"content": [
+							{
+								"type": "cell",
+								"content": [
+									{
+										"type": "text",
+										"text": "Utilities and internet"
+									}
+								]
+							},
+							{
+								"type": "cell",
+								"attrs": {
+									"value": null
+								},
+								"content": []
+							},
+							{
+								"type": "cell",
+								"content": []
+							}
+						]
+					},
+					{
+						"type": "row",
+						"content": [
+							{
+								"type": "cell",
+								"content": [
+									{
+										"type": "text",
+										"text": "Insurance"
+									}
+								]
+							},
+							{
+								"type": "cell",
+								"attrs": {
+									"value": null
+								},
+								"content": []
+							},
+							{
+								"type": "cell",
+								"content": []
+							}
+						]
+					},
+					{
+						"type": "row",
+						"content": [
+							{
+								"type": "cell",
+								"content": [
+									{
+										"type": "text",
+										"text": "Worship and sound"
+									}
+								]
+							},
+							{
+								"type": "cell",
+								"attrs": {
+									"value": null
+								},
+								"content": []
+							},
+							{
+								"type": "cell",
+								"content": []
+							}
+						]
+					},
+					{
+						"type": "row",
+						"content": [
+							{
+								"type": "cell",
+								"content": [
+									{
+										"type": "text",
+										"text": "Kids ministry"
+									}
+								]
+							},
+							{
+								"type": "cell",
+								"attrs": {
+									"value": null
+								},
+								"content": []
+							},
+							{
+								"type": "cell",
+								"content": []
+							}
+						]
+					},
+					{
+						"type": "row",
+						"content": [
+							{
+								"type": "cell",
+								"content": [
+									{
+										"type": "text",
+										"text": "Outreach and marketing"
+									}
+								]
+							},
+							{
+								"type": "cell",
+								"attrs": {
+									"value": null
+								},
+								"content": []
+							},
+							{
+								"type": "cell",
+								"content": []
+							}
+						]
+					},
+					{
+						"type": "row",
+						"content": [
+							{
+								"type": "cell",
+								"content": [
+									{
+										"type": "text",
+										"text": "Office and supplies"
+									}
+								]
+							},
+							{
+								"type": "cell",
+								"attrs": {
+									"value": null
+								},
+								"content": []
+							},
+							{
+								"type": "cell",
+								"content": []
+							}
+						]
+					},
+					{
+						"type": "row",
+						"content": [
+							{
+								"type": "cell",
+								"content": [
+									{
+										"type": "text",
+										"text": "Giving to the network and missions"
+									}
+								]
+							},
+							{
+								"type": "cell",
+								"attrs": {
+									"value": null
+								},
+								"content": []
+							},
+							{
+								"type": "cell",
+								"content": []
+							}
+						]
+					},
+					{
+						"type": "row",
+						"attrs": {
+							"role": "subtotal"
+						},
+						"content": [
+							{
+								"type": "cell",
+								"content": [
+									{
+										"type": "text",
+										"text": "Total expenses"
+									}
+								]
+							},
+							{
+								"type": "cell",
+								"content": []
+							},
+							{
+								"type": "cell",
+								"content": []
+							}
+						]
+					},
+					{
+						"type": "row",
+						"attrs": {
+							"role": "total"
+						},
+						"content": [
+							{
+								"type": "cell",
+								"content": [
+									{
+										"type": "text",
+										"text": "Net (income minus expenses)"
+									}
+								]
+							},
+							{
+								"type": "cell",
+								"content": []
+							},
+							{
+								"type": "cell",
+								"content": []
+							}
+						]
+					}
+				]
+			}
+		]
+	}
+}
