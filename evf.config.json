@@ -1469,6 +1469,19 @@
 			"owningPaths": ["design/doc-format/approach-a/"],
 			"checks": [{ "name": "documentation", "run": ["python3", "docs/check-all.py"] }],
 			"risk": "ordinary"
+		},
+		"OPS-110": {
+			"title": "Evidence pages show screenshots inline",
+			"owningPaths": [
+				".agents/skills/verify-preview/scripts/publish.mjs",
+				".agents/skills/verify-preview/SKILL.md",
+				"tools/evf/tests/publish.test.ts"
+			],
+			"checks": [
+				{ "name": "documentation", "run": ["python3", "docs/check-all.py"] },
+				{ "name": "workflow-regressions", "run": ["bin/evf", "test"] }
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {

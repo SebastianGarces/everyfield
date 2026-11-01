@@ -190,7 +190,8 @@ A change with both parts gets both. A tooling-only change gets its commands reru
 node $S/publish.mjs "$E" --task <task>
 ```
 
-It writes `index.html` (before and after side by side, videos, checks, all files) and uploads the
+It writes `index.html` (before and after side by side, videos, checks, then one section per folder
+with every image inline and other files as links) and uploads the
 folder to the `everyfield-evidence` Tigris bucket under a random 128-bit prefix. Objects are
 public-read and the bucket refuses listing, so only the link opens them. It prints the index link.
 
