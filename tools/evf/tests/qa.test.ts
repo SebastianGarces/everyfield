@@ -60,7 +60,7 @@ else if (a[0] === "branches" && a[1] === "list") console.log(JSON.stringify(read
 else if (a[0] === "branches" && a[1] === "create") {
 	const name = a[a.indexOf("--name") + 1], branch = { id: "br-" + name, name };
 	write("branches.json", [...read("branches.json"), branch]);
-	console.log(JSON.stringify({ branch, connection_uris: [{ connection_uri: ${JSON.stringify(cs)} }] }));
+	console.log(JSON.stringify({ branch }));
 } else if (a[0] === "branches" && a[1] === "delete") write("branches.json", read("branches.json").filter((b) => b.id !== a[2]));
 else if (a[0] === "connection-string") console.log(a.includes("--pooled") ? ${JSON.stringify(cs.replace("-a1.", "-a1-pooler."))} : ${JSON.stringify(cs)});
 else process.exit(9);`,
