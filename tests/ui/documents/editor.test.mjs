@@ -450,26 +450,50 @@ test("AC:DOC-EDIT-SAVE: Save and Cmd/Ctrl+S, the status, the header revision, th
 		assert.match(await page.locator(PAPER).innerText(), /One\./, "the edits stay after a conflict");
 		await other.close();
 
-		// Leaving with unsaved changes asks first.
-		let asked = null;
+		// Leaving with unsaved changes asks first, in an Everyfield dialog: no browser confirm, alert or prompt.
+		const native = [];
 		page.on("dialog", async (dialog) => {
-			asked = dialog.message();
+			native.push(dialog.type());
 			await dialog.dismiss();
 		});
+		const ask = page.getByRole("dialog", { name: "Leave without saving?" });
 		await page.getByRole("link", { name: "Church documents" }).first().click();
-		assert.match(asked ?? "", /unsaved changes/i);
+		await ask.waitFor();
+		await ask.getByRole("button", { name: "Cancel" }).click();
+		await ask.waitFor({ state: "detached" });
 		assert.match(page.url(), /\/documents\/church\/[0-9a-f-]{36}$/, "the page stayed");
 
-		// The Back button asks too. Cancel keeps the page; OK leaves it.
-		asked = null;
+		// The Back button asks too. Cancel keeps the page; a save that fails keeps it; Leave without saving leaves.
 		await page.evaluate(() => history.back());
-		await page.waitForTimeout(500);
-		assert.match(asked ?? "", /unsaved changes/i, "Back asks first");
+		await ask.waitFor();
+		await ask.getByRole("button", { name: "Cancel" }).click();
+		await ask.waitFor({ state: "detached" });
 		assert.match(page.url(), /\/documents\/church\/[0-9a-f-]{36}$/, "Back stayed on the page after Cancel");
-		page.removeAllListeners("dialog");
-		page.on("dialog", (dialog) => dialog.accept());
 		await page.evaluate(() => history.back());
+		await ask.getByRole("button", { name: "Save and leave" }).click();
+		await ask.waitFor({ state: "detached" });
+		await status.filter({ hasText: "Not saved" }).waitFor();
+		assert.match(page.url(), /\/documents\/church\/[0-9a-f-]{36}$/, "a failed save keeps the page");
+		await page.evaluate(() => history.back());
+		await ask.getByRole("button", { name: "Leave without saving" }).click();
 		await page.waitForURL(/\/documents\/church$/, { timeout: 30_000 });
+		assert.deepEqual(native, [], "no browser dialog opened");
+	});
+});
+
+test("AC:DOC-EDIT-SAVE: Save and leave saves, then follows the link", async () => {
+	await onPage(async (page) => {
+		const path = await fork(page, "Conflict of Interest Policy");
+		await select(page, PURPOSE, -1, -1);
+		await page.keyboard.type(" Saved on the way out.");
+		await page.getByRole("link", { name: "Church documents" }).first().click();
+		const ask = page.getByRole("dialog", { name: "Leave without saving?" });
+		await ask.getByRole("button", { name: "Save and leave" }).click();
+		await page.waitForURL(/\/documents\/church$/, { timeout: 30_000 });
+		await page.goto(`${BASE}${path}`);
+		await page.locator(PAPER).waitFor({ timeout: 60_000 });
+		assert.match(await page.locator(PAPER).innerText(), /Saved on the way out\./);
+		assert.ok(await page.getByText("Revision 2").first().isVisible(), "the save made revision 2");
 	});
 });
 

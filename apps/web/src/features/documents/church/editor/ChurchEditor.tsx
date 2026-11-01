@@ -2,11 +2,20 @@
 
 import { Delete02Icon, Edit02Icon, FloppyDiskIcon, Refresh01Icon, ViewIcon } from "@hugeicons/core-free-icons";
 import { LEGAL_NOTICE, pageBox, tileBox, type DocDocument } from "@everyfield/contracts/documents";
-import { Button, ConfirmDialog, Tooltip } from "@everyfield/ui/controls";
+import {
+	Button,
+	ConfirmDialog,
+	Dialog,
+	DialogContent,
+	DialogFooter,
+	DialogHeader,
+	Tooltip,
+} from "@everyfield/ui/controls";
 import { Extension } from "@tiptap/core";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import { Selection } from "@tiptap/pm/state";
 import { EditorContent, EditorContext, useEditor, useEditorState } from "@tiptap/react";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { saveChurchDocument } from "../actions.ts";
 import { ChurchPdf } from "../ChurchPdf.tsx";
@@ -160,7 +169,7 @@ export default function ChurchEditor({
 		return () => window.removeEventListener("keydown", onKey);
 	}, [save]);
 
-	useLeaveGuard(status.kind !== "saved");
+	const leave = useLeaveGuard(status.kind !== "saved");
 
 	const preview = useCallback(async () => {
 		if (status.kind !== "saved" && !(await save())) return;
@@ -276,6 +285,7 @@ export default function ChurchEditor({
 					</section>
 				) : null}
 			</div>
+			<LeaveDialog request={leave.request} onSave={save} onDone={leave.close} />
 		</EditorContext.Provider>
 	);
 }
@@ -324,8 +334,17 @@ function SaveStatusText({ status, revision, onRetry }: { status: SaveStatus; rev
 	);
 }
 
-/** Asks before the page closes or an in-app link leaves it while the document has changes that are not saved. */
+/** A way out of the page that waits for an answer: `go` leaves, `stay` keeps the page as it was. */
+type LeaveRequest = { go: () => void; stay: () => void };
+
+/**
+ * Asks before an in-app link or the Back button leaves the page while the document has changes that are not saved.
+ * The question is an Everyfield dialog (LeaveDialog), never a browser confirm. Closing or reloading the tab can only
+ * show the browser's own beforeunload prompt.
+ */
 function useLeaveGuard(active: boolean) {
+	const router = useRouter();
+	const [request, setRequest] = useState<LeaveRequest | null>(null);
 	useEffect(() => {
 		if (!active) return;
 		const beforeUnload = (event: BeforeUnloadEvent) => {
@@ -333,31 +352,30 @@ function useLeaveGuard(active: boolean) {
 			event.returnValue = "";
 		};
 		const onClick = (event: MouseEvent) => {
+			if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey) return;
 			const link = (event.target as Element | null)?.closest?.("a[href]");
 			if (!(link instanceof HTMLAnchorElement) || link.hasAttribute("download") || link.target === "_blank") return;
 			const url = new URL(link.href, window.location.href);
 			if (url.origin !== window.location.origin) return;
 			if (url.pathname === window.location.pathname && url.search === window.location.search) return;
-			if (!window.confirm("You have unsaved changes. Leave this page without saving?")) {
-				event.preventDefault();
-				event.stopPropagation();
-			}
+			event.preventDefault();
+			event.stopPropagation();
+			setRequest({ go: () => router.push(`${url.pathname}${url.search}${url.hash}`), stay: () => {} });
 		};
 		// The Back button: a sentinel entry with the same address takes the first Back press, which asks before it leaves.
 		let leaving = false;
-		const pushSentinel = () => {
-			if (window.history.state?.efLeaveGuard) return;
+		const pushSentinel = () =>
 			window.history.pushState({ ...window.history.state, efLeaveGuard: true }, "", window.location.href);
-		};
-		pushSentinel();
+		if (!window.history.state?.efLeaveGuard) pushSentinel();
 		const onPopState = () => {
 			if (leaving) return;
-			if (window.confirm("You have unsaved changes. Leave this page without saving?")) {
-				leaving = true;
-				window.history.back();
-			} else {
-				window.history.pushState({ ...window.history.state, efLeaveGuard: true }, "", window.location.href);
-			}
+			setRequest({
+				go: () => {
+					leaving = true;
+					window.history.back();
+				},
+				stay: pushSentinel,
+			});
 		};
 		window.addEventListener("beforeunload", beforeUnload);
 		window.addEventListener("popstate", onPopState);
@@ -367,5 +385,61 @@ function useLeaveGuard(active: boolean) {
 			window.removeEventListener("popstate", onPopState);
 			document.removeEventListener("click", onClick, true);
 		};
-	}, [active]);
+	}, [active, router]);
+	return { request, close: () => setRequest(null) };
+}
+
+/** Save and leave, Leave without saving, or Cancel. A save that fails keeps the page, with the reason in the status. */
+function LeaveDialog({
+	request,
+	onSave,
+	onDone,
+}: {
+	request: LeaveRequest | null;
+	onSave: () => Promise<boolean>;
+	onDone: () => void;
+}) {
+	const [saving, setSaving] = useState(false);
+	const finish = (leave: boolean) => {
+		if (!request) return;
+		onDone();
+		if (leave) request.go();
+		else request.stay();
+	};
+	return (
+		<Dialog
+			open={request !== null}
+			onOpenChange={(open) => {
+				if (!open && !saving) finish(false);
+			}}
+		>
+			<DialogContent size="md">
+				<DialogHeader
+					title="Leave without saving?"
+					description="This document has changes that are not saved. If you leave now, they are lost."
+					closable={false}
+				/>
+				<DialogFooter>
+					<Button variant="secondary" disabled={saving} onClick={() => finish(false)}>
+						Cancel
+					</Button>
+					<Button variant="danger" disabled={saving} onClick={() => finish(true)}>
+						Leave without saving
+					</Button>
+					<Button
+						variant="primary"
+						loading={saving}
+						onClick={async () => {
+							setSaving(true);
+							const saved = await onSave();
+							setSaving(false);
+							finish(saved);
+						}}
+					>
+						Save and leave
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
+	);
 }
