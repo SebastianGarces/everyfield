@@ -112,7 +112,7 @@ test("OPS-86-store: a store migrated from schema 4 gains queued and parent_task_
 		assert.deepEqual(migrate(db).applied, [
 			"005-merged-views.sql",
 			"006-task-follow-ups.sql",
-			"007-follow-up-links.sql",
+			"008-follow-up-links.sql",
 		]);
 		const row = db.prepare("SELECT * FROM v_tasks WHERE ref = 'OPS-1'").get() as Record<string, unknown>;
 		assert.equal(row.status, "active");
@@ -683,7 +683,7 @@ test("OPS-109-slice: a row linked to slice 1 fills it, a new spec reserves one i
 	}
 });
 
-test("OPS-109-store: migration 7 numbers the filed slices, and a store that applied another migration 7 stops", () => {
+test("OPS-109-store: migration 8 numbers the filed slices on a store that applied another branch's 7, and a store that applied another 8 stops", () => {
 	const db = new DatabaseSync(":memory:");
 	db.exec("CREATE TABLE schema_version (version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TEXT NOT NULL)");
 	const dir = join(source, "tools/evf/db/migrations");
@@ -698,12 +698,14 @@ test("OPS-109-store: migration 7 numbers the filed slices, and a store that appl
 		db.exec(readFileSync(join(dir, `${file}.sql`), "utf8"));
 		db.prepare("INSERT INTO schema_version VALUES (?, ?, 'x')").run(i + 1, file.slice(4));
 	});
+	// OPS-106's open branch applied its migration 7 to the shared store first.
+	db.prepare("INSERT INTO schema_version VALUES (7, 'qa-previews', 'x')").run();
 	const insert = db.prepare(
 		"INSERT INTO tasks (slug, mode, ref, status, parent_task_id, created_at, updated_at) VALUES ('s', 'implement', ?, ?, ?, 't', 't')",
 	);
 	insert.run("WP-097", "active", null);
 	for (const status of ["queued", "abandoned", "queued", "new"]) insert.run("WP-097", status, 1);
-	assert.deepEqual(migrate(db).applied, ["007-follow-up-links.sql"]);
+	assert.deepEqual(migrate(db).applied, ["008-follow-up-links.sql"]);
 	assert.deepEqual(
 		db
 			.prepare("SELECT id, status, slice, linked FROM tasks ORDER BY id")
@@ -721,10 +723,10 @@ test("OPS-109-store: migration 7 numbers the filed slices, and a store that appl
 
 	const other = new DatabaseSync(":memory:");
 	other.exec("CREATE TABLE schema_version (version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TEXT NOT NULL)");
-	other.prepare("INSERT INTO schema_version VALUES (7, 'qa-previews', 'x')").run();
+	other.prepare("INSERT INTO schema_version VALUES (8, 'other-branch', 'x')").run();
 	assert.throws(
 		() => migrate(other),
-		/The work store applied migration 7 as qa-previews, but this evf code numbers 007-follow-up-links\.sql 7\. Renumber the newer migration after the last one on main\./,
+		/The work store applied migration 8 as other-branch, but this evf code numbers 008-follow-up-links\.sql 8\. Renumber the newer migration after the last one on main\./,
 	);
 	other.close();
 });

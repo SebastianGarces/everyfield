@@ -74,9 +74,11 @@ contains the failed one. A late success for an older commit leaves it open.
 The harness keeps its state in one sqlite file, `work.sqlite` under the Git common directory next to
 the ship queue and evidence (`evf db path` prints it). Every worktree shares it. Writers open it in WAL
 mode with a five-second busy timeout, so `evf status` and the TUI read while a hook writes. The schema
-is the numbered SQL in `tools/evf/db/migrations/`; `evf db migrate` (or any writer) applies new files in
-order, one transaction each. The views `v_tasks`, `v_seats`, `v_recent` and `v_health` are the read
-contract: change them with a new migration, never in place.
+is the numbered SQL in `tools/evf/db/migrations/`; `evf db migrate` (or any writer) applies every file the
+store has not recorded, in number order, one transaction each. Numbers may have gaps: an open branch can
+apply its migration 7 to the shared store before another branch's 8 merges, and that 7 still applies
+later. The views `v_tasks`, `v_seats`, `v_recent` and `v_health` are the read contract: change them with
+a new migration, never in place.
 
 `evf goals sync` caches the refocus chain from the plan documents: the project line from
 docs/START-HERE.md and one mission per S-row of the Vertical slices table in docs/plan/build-plan.md.
@@ -108,8 +110,8 @@ transcript, writes nothing else, prints how many runs it filled and skipped (no 
 and gives the same rows when run again.
 
 **Report.** `evf usage [--json] [<task>]` prints, per task, tokens and estimated cost by role and model,
-rounds, verify fails and CI fails. Without a task it adds a by-model summary that splits *build* (plan,
-implement, ui and simplify runs in round 0) from *review and rework* (evidence and verify runs in any round,
+rounds, verify fails and CI fails. Without a task it adds a by-model summary that splits _build_ (plan,
+implement, ui and simplify runs in round 0) from _review and rework_ (evidence and verify runs in any round,
 and implement, ui and simplify runs in round 1 or later). Prototype stages are their own group. `pr`, `ci` and
 `ship` have no Claude session and no usage. A run with no data counts as "no data", never as zero.
 
@@ -324,7 +326,7 @@ slice updates its queued row and a removed slice abandons it.
 `evf task link <task> --follow-up <task2> [--id <row>]` (OPS-109) records an existing row as a follow-up of the
 task's current row, with a `follow_up_linked` event; `--remove` undoes it. It reserves no id and keeps the row's
 status, so the row's label joins `followUpsOf`, the `Partial:` line and the Ask coverage check. `--slice <n>` makes
-the row cover later slice n (schema 7: `tasks.slice` and `tasks.linked`); a link without it covers no slice.
+the row cover later slice n (migration 8: `tasks.slice` and `tasks.linked`); a link without it covers no slice.
 Storing the spec again files only uncovered slices and never edits or abandons a linked row. It refuses a self
 link, a cycle, a row with another parent and an abandoned or merged row. `migrate` stops when two migration files
 share a number or the store applied another migration under this code's number.

@@ -66,9 +66,10 @@ function enableWal(db: DatabaseSync): void {
 }
 
 /**
- * Apply every migration above the stored version, in file order without gaps. Each migration takes the write lock
- * first (BEGIN IMMEDIATE) and reads the version inside it, so two processes opening a fresh store at once apply each
- * migration once: the second one waits on the lock, then sees the version and skips.
+ * Apply every migration the store has not recorded, in number order. Numbers may have gaps: open branches share the
+ * store, so one branch's migration 7 can be applied before another branch's migration 8 lands on main, and the 7 still
+ * applies when it merges later. Each migration takes the write lock first (BEGIN IMMEDIATE) and checks its row inside
+ * it, so two processes opening a fresh store at once apply each migration once: the second one waits, then skips.
  */
 export function migrate(db: DatabaseSync): { version: number; applied: string[] } {
 	db.exec(
@@ -94,20 +95,18 @@ export function migrate(db: DatabaseSync): { version: number; applied: string[] 
 			);
 	}
 	const applied: string[] = [];
-	let version = schemaVersion(db);
+	const has = db.prepare("SELECT 1 FROM schema_version WHERE version = ?");
 	for (const m of files) {
-		if (m.version <= version) continue;
+		if (recorded.has(m.version)) continue;
 		// A migration may rebuild a table other tables reference (the documented twelve-step ALTER), so foreign
 		// keys are off around it and checked afterwards. PRAGMA foreign_keys is a no-op inside a transaction.
 		db.exec("PRAGMA foreign_keys = OFF");
 		db.exec("BEGIN IMMEDIATE");
 		try {
-			version = schemaVersion(db);
-			if (m.version <= version) {
+			if (has.get(m.version)) {
 				db.exec("COMMIT"); // Another process applied it while we waited for the lock.
 				continue;
 			}
-			if (m.version !== version + 1) fail(`Migration ${m.file} skips version ${version + 1}.`);
 			db.exec(readFileSync(join(MIGRATIONS, m.file), "utf8"));
 			db.prepare("INSERT INTO schema_version (version, name, applied_at) VALUES (?, ?, ?)").run(
 				m.version,
@@ -123,10 +122,9 @@ export function migrate(db: DatabaseSync): { version: number; applied: string[] 
 		} finally {
 			db.exec("PRAGMA foreign_keys = ON");
 		}
-		version = m.version;
 		applied.push(m.file);
 	}
-	return { version, applied };
+	return { version: schemaVersion(db), applied };
 }
 
 export function schemaVersion(db: DatabaseSync): number {

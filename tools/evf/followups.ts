@@ -88,7 +88,7 @@ export function unfiledSlices(db: DatabaseSync, taskId: number, spec: string | n
 /** The follow-ups of a task for owner-facing text: label, status and the slice headline. */
 export type FollowUp = { label: string; status: string; title: string };
 export function followUpsOf(db: DatabaseSync, taskId: number): FollowUp[] {
-	// A store older than schema 7, opened read-only, cannot be asked.
+	// A store without migration 8, opened read-only, cannot be asked.
 	const columns = db.prepare("PRAGMA table_info(tasks)").all() as Array<{ name: string }>;
 	if (!columns.some((c) => c.name === "slice")) return [];
 	return linkedRows(db, taskId).map((r) => ({ label: labelOf(db, r), status: r.status, title: r.title }));

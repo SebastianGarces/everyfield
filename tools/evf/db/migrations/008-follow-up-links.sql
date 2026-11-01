@@ -1,4 +1,4 @@
--- 007-follow-up-links (OPS-109): `evf task link` makes an existing row a follow-up of another task. `slice` is the later
+-- 008-follow-up-links (OPS-109): `evf task link` makes an existing row a follow-up of another task. `slice` is the later
 -- slice of the parent's spec that a follow-up covers (1 is the first later slice); NULL means it covers no slice, so a
 -- plain link never fills one. `linked` is 1 for a row that `evf task link` attached and 0 for a row that storing a spec
 -- filed. Storing a spec edits and abandons only filed rows. Every filed row that is not abandoned covers the slice of its
