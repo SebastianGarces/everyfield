@@ -23,7 +23,6 @@ import { EditorToolbar } from "./Toolbar.tsx";
 export type SaveStatus =
 	{ kind: "saved" } | { kind: "dirty" } | { kind: "saving" } | { kind: "failed"; reason: string };
 
-const NOTICE = LEGAL_NOTICE;
 const NOTICE_WHY =
 	"Every formal or legal document prints this notice, in the PDF and the Word file. Editing the document cannot remove it.";
 
@@ -228,7 +227,7 @@ export default function ChurchEditor({
 							description="The body, the header and the footer become empty."
 							consequences={[
 								legal
-									? `The page keeps only "${NOTICE}", which prints on every formal or legal document.`
+									? `The page keeps only "${LEGAL_NOTICE}", which prints on every formal or legal document.`
 									: "The page is empty until you add a block.",
 								"You can bring it all back with Undo until you leave the page.",
 							]}
@@ -248,7 +247,7 @@ export default function ChurchEditor({
 							<EditorContent editor={editor} />
 							{legal ? (
 								<footer className="ef-notice">
-									<span>{NOTICE}</span>
+									<span>{LEGAL_NOTICE}</span>
 									<Tooltip
 										content={<span className="block max-w-[260px] text-pretty whitespace-normal">{NOTICE_WHY}</span>}
 										side="top"

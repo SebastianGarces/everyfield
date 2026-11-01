@@ -6,7 +6,7 @@ import { NodeSelection, Selection, TextSelection, type EditorState, type Transac
 // selected block. Each one is one transaction, so one Undo reverses it. A block inside a list, quote, column or box
 // moves with its top-level parent.
 
-export type BlockRange = { index: number; from: number; to: number; node: PMNode };
+type BlockRange = { index: number; from: number; to: number; node: PMNode };
 
 /** The top-level block that holds the selection, or null when the document has no blocks. */
 export function currentBlock(state: EditorState): BlockRange | null {
@@ -139,11 +139,6 @@ export function deleteAllContent(editor: Editor): boolean {
 	if (state.doc.attrs.footer !== undefined) tr.setDocAttribute("footer", undefined);
 	editor.view.dispatch(tr);
 	return true;
-}
-
-/** Closes the current undo group, so the next change is its own Undo step. */
-export function closeHistory(editor: Editor) {
-	editor.view.dispatch(editor.state.tr.setMeta("closeHistory", true).setMeta("addToHistory", false));
 }
 
 // ---------------------------------------------------------------- text styles
