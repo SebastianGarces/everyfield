@@ -376,6 +376,12 @@ test("AC:DOC-EDIT-ACTIONS: every editing action is checked with Undo and Redo on
 				await page.getByRole("alertdialog").waitFor({ state: "detached" });
 			});
 			assert.ok(before.page.footer, "the policy has a footer to bring back");
+			// The page itself is empty, not only the state: no block is drawn, and Undo draws them all again.
+			assert.equal(await page.locator(`${PAPER} > *`).count(), 0, "no block is on the page");
+			await button(page, "Undo").click();
+			assert.ok((await page.locator(`${PAPER} > *`).count()) > 20, "Undo draws the blocks again");
+			await button(page, "Redo").click();
+			assert.equal(await page.locator(`${PAPER} > *`).count(), 0, "Redo empties the page again");
 			assert.deepEqual(after.body.content ?? [], [], "the body is empty");
 			assert.equal(after.page.header ?? null, null, "the header is empty");
 			assert.equal(after.page.footer ?? null, null, "the footer is empty");

@@ -131,13 +131,26 @@ export function deleteBlock(editor: Editor): boolean {
 	return true;
 }
 
-/** Empties the body, the header and the footer in one step, so one Undo brings all three back. */
+/**
+ * Empties the body, the header and the footer. One Undo brings all three back: the two transactions join one undo event.
+ * They stay apart because ProseMirror cannot redraw a document that loses every child in the same update as an attribute
+ * of the document node (its view finds nothing changed and leaves the old DOM in place).
+ */
 export function deleteAllContent(editor: Editor): boolean {
 	const { state } = editor;
-	const tr = history(state.tr).delete(0, state.doc.content.size);
-	if (state.doc.attrs.header !== undefined) tr.setDocAttribute("header", undefined);
-	if (state.doc.attrs.footer !== undefined) tr.setDocAttribute("footer", undefined);
-	editor.view.dispatch(tr);
+	const first = history(state.tr);
+	const hasBody = state.doc.content.size > 0;
+	if (hasBody) {
+		first.delete(0, state.doc.content.size);
+		editor.view.dispatch(first);
+	}
+	const { header, footer } = editor.state.doc.attrs;
+	if (header === undefined && footer === undefined) return true;
+	// With a body, the second step joins the first one's undo event; without one, it starts its own.
+	const second = hasBody ? editor.state.tr.setMeta("appendedTransaction", first) : history(editor.state.tr);
+	if (header !== undefined) second.setDocAttribute("header", undefined);
+	if (footer !== undefined) second.setDocAttribute("footer", undefined);
+	editor.view.dispatch(second);
 	return true;
 }
 

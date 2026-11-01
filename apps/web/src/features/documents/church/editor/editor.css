@@ -72,8 +72,10 @@
 .ef-paper h2,
 .ef-paper h3 {
 	margin: 0;
+	font-family: var(--font-dm-sans), "DM Sans", system-ui, sans-serif;
 	font-weight: 700;
 	line-height: 1.2;
+	letter-spacing: 0;
 }
 .ef-paper h1 {
 	font-family: var(--font-dm-serif-display), "DM Serif Display", Georgia, serif;
@@ -105,6 +107,8 @@
 }
 .ef-paper .ef-heading-number {
 	flex: none;
+	font-family: var(--font-dm-sans), "DM Sans", system-ui, sans-serif;
+	font-weight: 700;
 	color: var(--paper-accent);
 	font-variant-numeric: tabular-nums;
 	user-select: none;
@@ -113,6 +117,15 @@
 .ef-paper ol {
 	margin: 0 0 8px;
 	padding-left: 24px;
+}
+.ef-paper ul {
+	list-style: disc;
+}
+.ef-paper ol {
+	list-style: decimal;
+}
+.ef-paper li::marker {
+	color: var(--paper-ink);
 }
 .ef-paper li > p {
 	margin-bottom: 2px;
