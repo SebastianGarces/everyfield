@@ -27,9 +27,9 @@ import { createOnboardingProducer } from "../../packages/domain/src/onboarding/i
 import { accountPersonProducer, peopleWriter, personFields } from "../../packages/domain/src/people/index.ts";
 import { createTaskWriter } from "../../packages/domain/src/tasks/index.ts";
 import { teamsWriter } from "../../packages/domain/src/teams/index.ts";
-import { QA_LOGINS, QA_PASSWORD, seedRefusal } from "./qa-guard.ts";
+import { QA_LOGINS, QA_PASSWORD, roleUrl, seedRefusal } from "./qa-guard.ts";
 
-export const CHURCH = "Harvest Point (QA)";
+const CHURCH = "Harvest Point (QA)";
 const ROLES = { runtime: "evf_qa_runtime", auth: "evf_qa_auth" } as const;
 const ORIGIN = "https://qa-seed.everyfield.invalid";
 
@@ -55,9 +55,9 @@ const MESSAGE = "Welcome to Harvest Point";
 type Ctx = { session: string; selected: { kind: "plant"; id: string } };
 type Reply = { status: string; value?: unknown };
 
-function ok<T extends Reply>(what: string, reply: T): NonNullable<T["value"]> & Record<string, never> {
+function ok(what: string, reply: Reply): unknown {
 	if (reply.status !== "ok") throw Error(`${what}: ${JSON.stringify(reply)}`);
-	return reply.value as never;
+	return reply.value;
 }
 
 async function rows(db: Database, query: ReturnType<typeof sql>) {
@@ -66,11 +66,11 @@ async function rows(db: Database, query: ReturnType<typeof sql>) {
 
 /** The two app logins, created or given the supplied password. Names are fixed, so a rerun adds none. */
 async function logins(admin: Database, password: string) {
+	const quoted = `'${password.replaceAll("'", "''")}'`;
 	for (const [name, grant] of [
 		[ROLES.runtime, "everyfield_runtime"],
 		[ROLES.auth, "everyfield_auth"],
 	] as const) {
-		const quoted = `'${password.replaceAll("'", "''")}'`;
 		const exists = await rows(admin, sql`SELECT 1 FROM pg_roles WHERE rolname=${name}`);
 		await admin.execute(
 			sql.raw(
@@ -83,14 +83,9 @@ async function logins(admin: Database, password: string) {
 	}
 }
 
-function roleUrl(source: string, role: string, password: string) {
-	const u = new URL(source);
-	u.username = role;
-	u.password = password;
-	return u.href;
-}
+class SeedRefusal extends Error {}
 
-export async function seed(env: Readonly<Record<string, string | undefined>>): Promise<string> {
+async function seed(env: Readonly<Record<string, string | undefined>>): Promise<string> {
 	const refusal = seedRefusal(env);
 	if (refusal) throw new SeedRefusal(refusal);
 	const password = env.QA_ROLE_PASSWORD;
@@ -110,8 +105,6 @@ export async function seed(env: Readonly<Record<string, string | undefined>>): P
 		await closeDatabase(admin);
 	}
 }
-
-export class SeedRefusal extends Error {}
 
 async function fill(admin: Database, runtime: Database, authDb: Database): Promise<string> {
 	const done: string[] = [];

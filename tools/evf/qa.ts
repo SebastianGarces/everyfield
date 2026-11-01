@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openWorkDb } from "./db.ts";
 import { fail } from "./lib.ts";
-import { devParent, NEON_PROJECT, QA_LOGINS, type NeonBranch, type NeonEndpoint } from "./qa-guard.ts";
+import { devParent, NEON_PROJECT, QA_LOGINS, roleUrl, type NeonBranch, type NeonEndpoint } from "./qa-guard.ts";
 
 /**
  * OPS-106: on-demand QA previews. `evf qa up <branch>` makes a Neon branch off the development branch, migrates and
@@ -17,12 +17,12 @@ import { devParent, NEON_PROJECT, QA_LOGINS, type NeonBranch, type NeonEndpoint 
  * string, key or password: child output reaches the screen only on failure, through `redact`.
  */
 
-export const VERCEL = { orgId: "team_JKEPRxDWACtp9hugEthW215I", projectId: "prj_N6MhFGqi0UW5Iaa6RBDpusMKxMwu" };
+const VERCEL = { orgId: "team_JKEPRxDWACtp9hugEthW215I", projectId: "prj_N6MhFGqi0UW5Iaa6RBDpusMKxMwu" };
 const QA_ID = /^qa-[a-z0-9]+(-[a-z0-9]+)*$/;
-export const aliasHost = (id: string) => `everyfield-${id}.vercel.app`;
+const aliasHost = (id: string) => `everyfield-${id}.vercel.app`;
 
 /** Masks every value evf handed to a child, connection URLs and Neon passwords, in text bound for the screen. */
-export class Redactor {
+class Redactor {
 	private values: string[] = [];
 	add(...values: string[]): void {
 		for (const v of values) if (v.length >= 6) this.values.push(v);
@@ -75,7 +75,7 @@ function neonBranches(redactor: Redactor): NeonBranch[] {
 	return json<NeonBranch[]>(neon(redactor, "branches", "list", "--output", "json"));
 }
 
-export type QaPreview = {
+type QaPreview = {
 	id: string;
 	branch: string;
 	head: string;
@@ -217,20 +217,14 @@ function deployCheckout(
 			],
 			{ cwd: checkout, env: { ...dbEnv, QA_ROLE_PASSWORD: rolePassword } },
 		);
-		const role = (name: string) => {
-			const u = new URL(p.pooled);
-			u.username = name;
-			u.password = rolePassword;
-			return u.href;
-		};
 		const key = () => randomBytes(32).toString("hex");
 		// Per-deployment settings: this preview's database and its own identity keys. Shared credentials (mail,
 		// storage, cron, Langfuse, Evry) come from the Vercel Preview environment.
 		const settings: Record<string, string> = {
 			DATABASE_URL: p.pooled,
 			DATABASE_URL_UNPOOLED: p.direct,
-			IDENTITY_DATABASE_URL: role("evf_qa_runtime"),
-			IDENTITY_AUTH_DATABASE_URL: role("evf_qa_auth"),
+			IDENTITY_DATABASE_URL: roleUrl(p.pooled, "evf_qa_runtime", rolePassword),
+			IDENTITY_AUTH_DATABASE_URL: roleUrl(p.pooled, "evf_qa_auth", rolePassword),
 			IDENTITY_ORIGIN: p.url,
 			IDENTITY_SECRET: key(),
 			IDENTITY_MAIL_KEY: key(),

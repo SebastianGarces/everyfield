@@ -15,6 +15,14 @@ export const QA_LOGINS = {
 	member: "delivered+qa-member@resend.dev",
 } as const;
 
+/** `source` with the login replaced: how the app reaches a QA branch as one of the seed's roles. */
+export function roleUrl(source: string, role: string, password: string): string {
+	const u = new URL(source);
+	u.username = role;
+	u.password = password;
+	return u.href;
+}
+
 const endpointOf = (host: string) => host.split(".")[0]!.replace(/-pooler$/, "");
 
 /** Why the QA seed must not run against this environment, or null when it may. Never echoes a value. */

@@ -6,7 +6,7 @@ import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, s
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { source } from "./fixtures.ts";
-import { DEV_ENDPOINT, devParent, PROD_ENDPOINT, seedRefusal } from "../qa-guard.ts";
+import { DEV_ENDPOINT, PROD_ENDPOINT, seedRefusal } from "../qa-guard.ts";
 import { startQuietDatabase, stopQuietDatabase } from "../timing-stack.ts";
 
 // Sentinels the stubbed CLIs emit or receive. None may reach evf's output, its store or any file it leaves behind.
@@ -129,15 +129,6 @@ function files(dir: string): Array<[string, string]> {
 		.filter((p) => statSync(p).isFile())
 		.map((p) => [p, readFileSync(p).toString("latin1")]);
 }
-
-test("OPS-106: the development parent comes from the ep-autumn-dew endpoint, never production", () => {
-	assert.deepEqual(devParent([DEV, PROD], BRANCHES), { id: "br-dev", name: "development" });
-	assert.match(devParent([PROD], BRANCHES) as string, /No single ep-autumn-dew/);
-	assert.match(
-		devParent([DEV, { ...PROD, branch_id: "br-dev" }], BRANCHES) as string,
-		/serves ep-gentle-dust, the production database/,
-	);
-});
 
 test("OPS-106: evf qa up refuses before it creates anything when the parent is missing or production", () => {
 	for (const [endpoints, reason] of [
