@@ -19,7 +19,7 @@ import { Pagination, Tag } from "@everyfield/ui/display";
 import { Icon, cn } from "@everyfield/ui/foundations";
 import type { ChurchSummary } from "@everyfield/contracts/documents";
 import type { DocTemplateSummary } from "@everyfield/domain/documents";
-import { useDeferredValue, useRef, useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { createChurchDocument, type ChurchActionResult } from "./actions.ts";
 import { CLASS_LABEL, formatList, paperText, updatedText } from "./labels.ts";
 
@@ -118,10 +118,9 @@ function TemplatePicker({ templates }: { templates: DocTemplateSummary[] }) {
 	const [page, setPage] = useState(1);
 	const list = useRef<HTMLDivElement>(null);
 	const searchBox = useRef<HTMLInputElement>(null);
-	const found = matching(templates, useDeferredValue(search));
-	const pageCount = Math.max(1, Math.ceil(found.length / PAGE_SIZE));
-	const current = Math.min(page, pageCount);
-	const shown = found.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
+	const found = matching(templates, search);
+	const pageCount = Math.ceil(found.length / PAGE_SIZE);
+	const shown = found.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 	const [chosen, setChosen] = useState<string | null>(null);
 	const [message, setMessage] = useState<string | null>(null);
 	const [pending, start] = useTransition();
@@ -245,11 +244,11 @@ function TemplatePicker({ templates }: { templates: DocTemplateSummary[] }) {
 				{pageCount > 1 ? (
 					<div className="flex flex-none flex-wrap items-center justify-between gap-3 px-7 pt-4 pb-6 shadow-[0_-1px_0_var(--ef-line)] max-app-sm:px-5 max-app-sm:pb-5">
 						<span className="text-sm text-text-3 tabular-nums">
-							Showing {(current - 1) * PAGE_SIZE + 1}–{(current - 1) * PAGE_SIZE + shown.length} of {found.length}
+							Showing {(page - 1) * PAGE_SIZE + 1}–{(page - 1) * PAGE_SIZE + shown.length} of {found.length}
 						</span>
 						<Pagination
 							label="Template pages"
-							page={current}
+							page={page}
 							pageCount={pageCount}
 							onPageChange={(next) => {
 								setPage(next);
