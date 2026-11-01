@@ -44,6 +44,7 @@ import {
 	taskAbandon,
 	taskComparePassed,
 	taskHandoff,
+	taskLink,
 	taskNew,
 	taskPick,
 	taskSeats,
@@ -128,6 +129,9 @@ Drive (harness)
   evf task compare-passed <task> --owner-approval "<words>"   prototype task escalated on one idea while the others passed:
                                                               compare only the passed ideas (the missing idea cannot be picked)
   evf task abandon <task> [--id <store id>] --reason "<words>"  close a stale task row (not merged, no started run, no live drive)
+  evf task link <task> --follow-up <task2> [--id <store id>] [--slice <n>] [--remove]
+                                                              record an existing row as a follow-up (no new id, status kept);
+                                                              --slice n: the row covers later slice n of the stored spec
   evf task handoff <task> --file <spec>                       prototype mode: end the prototype, create the implement task
   evf next <task>                                             the next stage from the store, as JSON
   evf drive <task> [--once] [--detach]                        run the stage machine: plan, implement, simplify, pr, verify, ci, ship; cap 3 rounds; one per task
@@ -343,6 +347,20 @@ function main(argv: string[]): number | Promise<number> {
 				if (id !== undefined && (!Number.isInteger(id) || id <= 0)) throw new EvfError("--id takes a store task id.");
 				if (args.length !== 1) break;
 				return taskAbandon(root, parseTask(args[0]), { id, reason: reason ?? "" });
+			}
+			if (sub === "link") {
+				const followUp = option(args, "--follow-up"),
+					idArg = option(args, "--id"),
+					sliceArg = option(args, "--slice"),
+					remove = flag(args, "--remove");
+				const id = idArg === undefined ? undefined : Number(idArg),
+					slice = sliceArg === undefined ? undefined : Number(sliceArg);
+				if (id !== undefined && (!Number.isInteger(id) || id <= 0)) throw new EvfError("--id takes a store task id.");
+				if (slice !== undefined && (!Number.isInteger(slice) || slice <= 0))
+					throw new EvfError("--slice takes a later-slice number (1 is the first).");
+				if (remove && slice !== undefined) throw new EvfError("--remove takes no --slice.");
+				if (!followUp || args.length !== 1) break;
+				return taskLink(root, parseTask(args[0]), { followUp: parseTask(followUp), id, slice, remove });
 			}
 			if (sub === "reopen") {
 				const reason = option(args, "--reason");

@@ -7,8 +7,11 @@ import { ensureTask, findTask, markMerged, newTaskRow, openWorkDb, record, seatT
 import {
 	fileFollowUps,
 	followUpsOf,
+	linkFollowUp,
 	partialLine,
 	reserveFollowUpIds,
+	rowsOfRef,
+	unlinkFollowUp,
 	unfiledMessage,
 	unfiledSlices,
 	waitsFor,
@@ -884,6 +887,58 @@ export function taskAbandon(root: string, task: TaskRef, opts: { id?: number; re
 		db.close();
 	}
 }
+
+/**
+ * `evf task link <task> --follow-up <task2>` (OPS-109): record an existing row of task2 as a follow-up of the task's
+ * current row, so followUpsOf, the Partial: line and the Ask coverage check name it. `--slice <n>` makes it the row
+ * for later slice n of the stored spec; `--remove` undoes a link. It reserves no id and keeps the row's status.
+ */
+export function taskLink(
+	root: string,
+	task: TaskRef,
+	opts: { followUp: TaskRef; id?: number; slice?: number; remove: boolean },
+): number {
+	const db = openWorkDb(root);
+	try {
+		const parent = findTask(db, task);
+		if (!parent) fail(`${task.id} has no task row in the store.`);
+		const spec = parent.spec,
+			rows = rowsOfRef(db, opts.followUp.id),
+			list = rows.map((r) => `${r.id} (${r.status})`).join(", ");
+		const candidates = opts.id ? rows.filter((r) => r.id === opts.id) : rows.filter((r) => r.status !== "abandoned");
+		if (!candidates.length)
+			fail(
+				opts.id
+					? `Store row ${opts.id} is not a row of ${opts.followUp.id}${rows.length ? `; its rows are ${list}` : ""}.`
+					: `${opts.followUp.id} has no open task row in the store.`,
+			);
+		if (candidates.length > 1) fail(`${opts.followUp.id} has rows ${list}: pick one with --id.`);
+		const linkParent = { id: parent.id, ref: parent.ref, spec, parent_task_id: parentOf(db, parent.id) };
+		db.exec("BEGIN IMMEDIATE");
+		let summary: string | null;
+		try {
+			summary = opts.remove
+				? unlinkFollowUp(db, linkParent, candidates[0]!)
+				: linkFollowUp(db, linkParent, candidates[0]!, opts.slice ?? null);
+			db.exec("COMMIT");
+		} catch (e) {
+			db.exec("ROLLBACK");
+			throw e;
+		}
+		console.log(
+			summary
+				? `link: ${summary}.`
+				: `link: no change; store row ${candidates[0]!.id} ${opts.remove ? "is no follow-up" : "already is that follow-up"}.`,
+		);
+		return 0;
+	} finally {
+		db.close();
+	}
+}
+
+const parentOf = (db: DatabaseSync, id: number): number | null =>
+	(db.prepare("SELECT parent_task_id FROM tasks WHERE id = ?").get(id) as { parent_task_id: number | null })
+		.parent_task_id;
 
 /**
  * Set, change or clear the seat model and effort of one task row (OPS-81). The row's seats then run on it in every

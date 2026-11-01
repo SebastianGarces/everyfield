@@ -79,6 +79,20 @@ export function migrate(db: DatabaseSync): { version: number; applied: string[] 
 		.filter((m): m is RegExpExecArray => m !== null)
 		.map((m) => ({ file: m[0], version: Number(m[1]), name: m[2] }))
 		.sort((a, b) => a.version - b.version);
+	// Two branches can take the same number. A store that applied the other one must stop here, never skip this one.
+	const recorded = new Map(
+		(db.prepare("SELECT version, name FROM schema_version").all() as Array<{ version: number; name: string }>).map(
+			(r) => [r.version, r.name],
+		),
+	);
+	for (const [i, m] of files.entries()) {
+		if (files[i + 1]?.version === m.version) fail(`Migrations ${m.file} and ${files[i + 1]!.file} share a number.`);
+		const name = recorded.get(m.version);
+		if (name !== undefined && name !== m.name)
+			fail(
+				`The work store applied migration ${m.version} as ${name}, but this evf code numbers ${m.file} ${m.version}. Renumber the newer migration after the last one on main.`,
+			);
+	}
 	const applied: string[] = [];
 	let version = schemaVersion(db);
 	for (const m of files) {
