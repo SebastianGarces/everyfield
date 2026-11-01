@@ -1,9 +1,8 @@
 import { sql, type SQL } from "@everyfield/db/query";
 
-const live = (row: string) =>
-	sql.raw(
-		`EXISTS(SELECT FROM person p WHERE p.id=(${row}->>'id')::uuid AND p.tenant_id=c.tenant_id AND p.plant_id=c.tenant_id AND p.state='live')`,
-	);
+import { rowLive } from "./liveness.ts";
+
+const live = (row: string) => rowLive(sql.raw(row), sql.raw("c.tenant_id"));
 
 /**
  * Saved events as they may be shown or sent to a model now. A result card keeps only rows whose source is still live

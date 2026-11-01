@@ -37,7 +37,12 @@ export type ProjectedError = {
 };
 
 export type Reference = { kind: "person"; id: string };
-export type SourceRow = { kind: "person"; id: string; label: string; fields: Record<string, unknown> };
+export type SourceRow = {
+	kind: "person" | "household" | "tag" | "skill" | "activity" | "file" | "import";
+	id: string;
+	label: string;
+	fields: Record<string, unknown>;
+};
 export type SourceResult = {
 	operation: string;
 	status: "available" | "not_found";

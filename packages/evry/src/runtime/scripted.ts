@@ -110,6 +110,14 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 			];
 		if (result.status === "not_found") return [{ type: "text", text: "I can't find that person in this church." }];
 		const names = rows.map((r) => (r.fields.city ? `${r.label} (${r.fields.city})` : r.label));
+		if (result.operation === "people.listHouseholds") {
+			const count = rows.length;
+			if (!count) return [{ type: "text", text: "No household in this church matches." }];
+			const labels = rows.map((r) => r.label).join(", ");
+			return [
+				{ type: "text", text: `There ${count === 1 ? "is 1 household" : `are ${count} households`}: ${labels}.` },
+			];
+		}
 		if ((/\bwhich\b|\bfind\b/i.test(text) || change) && rows.length > 1)
 			return [{ type: "text", text: `I found ${rows.length} matches: ${names.join(", ")}. Which one do you mean?` }];
 		const more = result.completeness === "partial" ? ` More exist; ask for page ${String(result.next)}.` : "";
@@ -120,6 +128,10 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	if (hasPeople) {
 		const id = /\b([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b/i.exec(text)?.[1];
 		if (id) return [toolCall("people_read", { operation: "people.getPerson", input: { personId: id } })];
+		if (/\bhouseholds?\b/i.test(text) && options.tools?.some((t) => t.name === "peopleOrganization_read"))
+			return [
+				toolCall("peopleOrganization_read", { operation: "people.listHouseholds", input: { limit: pageSize(text) } }),
+			];
 		const name = change?.[1] ?? /\b(?:[Ff]ind|named|called|for)\s+([A-Z][\w'-]+)/.exec(text)?.[1];
 		if (name) return [toolCall("people_read", { operation: "people.listPeople", input: { search: name } })];
 		if (/\bpeople|everyone|members?\b/i.test(text))
