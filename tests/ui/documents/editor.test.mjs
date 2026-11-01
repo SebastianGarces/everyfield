@@ -6,6 +6,7 @@
 //   AC:DOC-EDIT-ACTIONS  criteria 5 to 9 and 10, 12 (Undo and Redo of every action)
 //   AC:DOC-EDIT-SAVE     criterion 11 (Save, status, revision, conflict, leave guard)
 //   AC:DOC-EDIT-PREVIEW  criterion 13 (preview equals Download after an edit; 4 cards per sheet)
+//   AC:DOC-EDIT-MARKS-PDF criterion 7 (bold and italic saved in the editor print in their own faces in the PDF)
 //   AC:DOC-EDIT-LEGAL    criterion 12 (Delete all content keeps only the notice in the PDF and the Word file)
 //   AC:DOC-EDIT-MEMBER   criterion 14 (a Member sees no editing controls)
 //   AC:DOC-EDIT-CHUNKS   criterion 15 (no editor code on the library or the Member page)
@@ -17,7 +18,7 @@ import { PDFDocument } from "../../../packages/domain/node_modules/pdf-lib/cjs/i
 import { docDocument, forkTemplate } from "../../../packages/contracts/src/documents/index.ts";
 import { docTemplateById } from "../../../packages/domain/src/documents/doc-templates.ts";
 import { documentFrom } from "../../../apps/web/src/features/documents/church/editor/document-json.ts";
-import { docxParts, pdfPages, wordText } from "../../integration/documents/fixtures/readers.mts";
+import { docxParts, pdfFontFaces, pdfPages, wordText } from "../../integration/documents/fixtures/readers.mts";
 import { BASE, ENGINES, fixture, hydrated, signIn, withPage } from "../setup.mjs";
 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
@@ -479,6 +480,35 @@ async function files(context, path, revision) {
 		Buffer.from(await (await context.request.get(`${BASE}${path}/file?format=${format}&revision=${revision}`)).body());
 	return { pdf: await get("pdf"), docx: await get("docx") };
 }
+
+// The server bundle once loaded DMSans-Regular for every face, so bold, italic and the serif title printed regular
+// while the PDF still named each face. Each embedded font program must hold the face the PDF names.
+test("AC:DOC-EDIT-MARKS-PDF: bold and italic saved in the editor print in their own faces", async () => {
+	await onPage(async (page, context) => {
+		const path = await fork(page, "Conflict of Interest Policy");
+		await select(page, "The board makes decisions", 0, 9);
+		await button(page, "Bold").click();
+		await select(page, "The board makes decisions", 10, 15);
+		await button(page, "Italic").click();
+		await button(page, "Save").click();
+		await page.getByRole("status").filter({ hasText: "Revision 2" }).waitFor({ timeout: 60_000 });
+		const { pdf } = await files(context, path, 2);
+		const faces = await pdfFontFaces(pdf);
+		for (const face of faces) {
+			const [family, style = "Regular"] = face.baseFont.split("-");
+			assert.equal(
+				face.family.replace(/ 14pt$/, "").replaceAll(" ", ""),
+				family,
+				`${face.baseFont} holds ${face.family}`,
+			);
+			assert.equal(face.style.replaceAll(" ", ""), style, `${face.baseFont} holds the ${face.style} style`);
+		}
+		const names = faces.map((f) => f.baseFont);
+		for (const name of ["DMSans", "DMSans-Bold", "DMSans-Italic", "DMSerifDisplay"])
+			assert.ok(names.includes(name), `the PDF embeds ${name}: ${names}`);
+		assert.ok((await pdfPages(pdf))[0].includes("The board makes decisions"), "the marked words print");
+	});
+});
 
 test("AC:DOC-EDIT-PREVIEW: Preview saves first, equals Download, has one more page and keeps 4 cards", async () => {
 	await onPage(async (page, context) => {
