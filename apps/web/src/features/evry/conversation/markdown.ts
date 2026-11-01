@@ -1,5 +1,5 @@
 // A small, safe markdown subset for Evry's answers (WP-051): paragraphs, line breaks, bold, italic, bulleted and
-// numbered lists, links and inline code. It parses to plain data; markdown.tsx draws React elements. Nothing here
+// numbered lists, links and inline code. It parses to plain data; view.ts draws React elements. Nothing here
 // produces HTML, and a link renders as a link only for http, https, mailto and app-relative addresses.
 //
 // While an answer streams, a marker that is still open at the end never shows as a literal character: it is hidden and

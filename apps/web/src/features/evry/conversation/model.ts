@@ -224,6 +224,8 @@ export function turnsOf(events: readonly ConversationEvent[], live: Readonly<Rec
 	for (const turn of turns.values()) {
 		const streamed = live[turn.id];
 		if (!streamed || turn.end) continue;
+		// A withheld text means a source is gone: the turn's live text is never shown (retained.ts).
+		if (turn.blocks.some((b) => b.kind === "text" && b.withheld)) continue;
 		let saved = 0;
 		for (const e of events) if (e.turnId === turn.id && e.kind === "assistant_text") saved += e.body.text.length;
 		const tail = streamed.slice(saved);

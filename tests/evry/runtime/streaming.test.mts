@@ -24,7 +24,7 @@ import {
 	type Observed,
 } from "../../../packages/evry/src/index.ts";
 import { scriptedModel } from "../../../packages/evry/src/runtime/scripted.ts";
-import { actor, admin, db, setup, sql, teardown, work } from "./support.mts";
+import { actor, admin, db, people, setup, sql, teardown, work } from "./support.mts";
 
 before(setup);
 after(teardown);
@@ -271,4 +271,61 @@ test("INV-stream-end: a provider error mid-stream keeps the text, projects the e
 	assert.equal(savedText(events), DELTAS.slice(0, 4).join(""), "the partial text stays");
 	assert.ok(!JSON.stringify(events).includes("RAW-PROVIDER-DETAIL"));
 	assert.equal(events.filter((e) => e.kind === "status").length, 1);
+});
+
+test("INV-stream-withheld: a source removed mid-turn withholds the turn's live text from a new observer", async () => {
+	const owner = await actor("owner");
+	const id = await ask(owner);
+	// The first call reads Casey; the second streams slowly.
+	const slow = writer(
+		Array.from({ length: 40 }, (_, n) => `secret${n} `),
+		[],
+		{ gap: () => 50 },
+	);
+	const streaming = slow.model.doStream.bind(slow.model);
+	const model = qualified({
+		...slow.model,
+		async doStream(options) {
+			const last = options.prompt.at(-1);
+			if (options.responseFormat?.type !== "json" && last?.role !== "tool")
+				return {
+					stream: new ReadableStream({
+						start(c) {
+							c.enqueue({
+								type: "tool-call",
+								toolCallId: randomUUID(),
+								toolName: "people_read",
+								input: JSON.stringify({ operation: "people.getPerson", input: { personId: people.casey } }),
+							});
+							c.enqueue({ type: "finish", finishReason: { unified: "tool-calls", raw: undefined }, usage });
+							c.close();
+						},
+					}),
+				};
+			return streaming(options);
+		},
+	});
+	const running = work(model);
+	try {
+		let some = false;
+		for (let n = 0; n < 150 && !some; n++) {
+			await sleep(20);
+			some = (await readAll(owner, id)).some((e) => e.kind === "assistant_text");
+		}
+		assert.ok(some, "the turn saved some text");
+		await admin.execute(sql`UPDATE person SET state='retired',retired_at=clock_timestamp() WHERE id=${people.casey}`);
+		const seen: Seen[] = [];
+		const watching = follow(owner, id, 0, 2_500, seen);
+		await sleep(1_200);
+		const texts = saved(seen).filter((e) => e.kind === "assistant_text");
+		assert.ok(texts.length > 0 && texts.every((e) => e.body.withheld === true && e.body.text === ""));
+		assert.equal(lives(seen).length, 0, "no live text of a withheld turn");
+		assert.ok(!JSON.stringify(seen).includes("secret"), "no withheld word reaches the observer");
+		await cancelTurn(db, owner, id);
+		await watching;
+	} finally {
+		await admin.execute(sql`UPDATE person SET state='live',retired_at=NULL WHERE id=${people.casey}`);
+		await cancelTurn(db, owner, id);
+		await running;
+	}
 });

@@ -54,6 +54,8 @@ export async function* observeRun(
 		w?.();
 	};
 	let runTurn: string | null = null;
+	// Turns whose saved text came back withheld (a source was removed): their live text is never sent (retained.ts).
+	const withheld = new Set<string>();
 
 	// The saved events and the access check: one statement per read, with the live rule in it.
 	const poller = (async () => {
@@ -67,6 +69,8 @@ export async function* observeRun(
 				for (const event of page.events) {
 					cursor = event.sequence;
 					queue.push({ event });
+					if (event.kind === "assistant_text" && event.turnId && event.body.withheld === true)
+						withheld.add(event.turnId);
 					if (event.kind === "user_message") submitted = event;
 					else if (event.kind === "assistant_text" && event.turnId && !delivered.has(event.turnId)) {
 						delivered.add(event.turnId);
@@ -95,29 +99,20 @@ export async function* observeRun(
 	// Live text: only after the first access check passed, and only for the turn the conversation is running.
 	const pump = (async () => {
 		const sent = new Map<string, number>();
-		const first = new Set<string>();
 		while (!inner.signal.aborted) {
 			const room = liveRoom(conversationId);
 			const turnId = room.turnId;
-			if (turnId && checkedAt && turnId === runTurn) {
+			if (turnId && checkedAt && turnId === runTurn && !withheld.has(turnId)) {
 				const from = sent.get(turnId) ?? 0;
 				if (room.text.length > from) {
 					sent.set(turnId, room.text.length);
 					queue.push({ live: { turnId, offset: from, text: room.text.slice(from) } });
-					if (!first.has(turnId)) {
-						first.add(turnId);
-						traceDelivery(turnId, new Date(), null);
-					}
 					poke();
 					continue;
 				}
 			}
 			// Wake at the next text, or after a poll in case the first access check or the run id was not in yet.
-			const wait = new AbortController();
-			const timer = setTimeout(() => wait.abort(), pollMs);
-			inner.signal.addEventListener("abort", () => wait.abort(), { once: true });
-			await room.next(wait.signal);
-			clearTimeout(timer);
+			await room.next(AbortSignal.any([inner.signal, AbortSignal.timeout(pollMs)]));
 		}
 	})();
 
@@ -135,6 +130,7 @@ export async function* observeRun(
 					continue;
 				}
 				queue.shift();
+				if ("live" in item && withheld.has(item.live.turnId)) continue;
 				yield item;
 				continue;
 			}
