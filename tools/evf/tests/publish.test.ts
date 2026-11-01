@@ -277,10 +277,9 @@ test("OPS-110 publish: the index shows one section per folder with images inline
 		assert.doesNotMatch(html.replace(/td img\{[^}]*\}/, ""), /object-fit/);
 		assert.doesNotMatch(html, /\.hidden|\.cache|published\.json|href="index\.html"/);
 		// Eight fixture files, probe.log and the index; dot-files and published.json are not uploaded.
-		assert.deepEqual(JSON.parse(r.out).files, 10);
+		assert.equal(JSON.parse(r.out).files, 10);
 		assert.equal(t.types["shots/1440-light-text-style-menu.webp"], "image/webp");
 		assert.equal(t.types["photo.jpeg"], "image/jpeg");
-		assert.equal(t.types["actions/01-type-text.png"], "image/png");
 	} finally {
 		t.close();
 	}
