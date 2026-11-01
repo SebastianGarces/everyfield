@@ -3,15 +3,7 @@
 // cannot say: declared fields, table shape, formulas, unique write-in keys and page fit. Every message is the
 // design module's message, so a file that fails there fails here with the same words.
 import { FORMAT_SCHEMA } from "./schema.ts";
-import type {
-	AnyNode,
-	DocDocument,
-	DocTemplate,
-	FormatSchema,
-	PageSetup,
-	TableNode,
-	ValueSpec,
-} from "./types.ts";
+import type { AnyNode, DocDocument, DocTemplate, FormatSchema, PageSetup, TableNode, ValueSpec } from "./types.ts";
 
 const SLUG = /^[a-z][a-z0-9-]{0,79}$/;
 const KEY = /^[a-z][a-z0-9_]{0,59}$/;
