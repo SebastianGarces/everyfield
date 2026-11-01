@@ -132,3 +132,11 @@ test("AC:UI45-006 INV-page: only a person page offers a reference", () => {
 	assert.deepEqual(pageReferences(`/people/${id}/edit`), []);
 	assert.deepEqual(pageReferences(null), []);
 });
+
+test("INV-turns: live text of a turn with a withheld text is never shown", () => {
+	const [turn] = turnsOf([ask(1), say(2, "x", { withheld: true })], { [T]: "secret words so far" });
+	assert.deepEqual(
+		turn.blocks.map((b) => [b.kind, b.text]),
+		[["text", ""]],
+	);
+});

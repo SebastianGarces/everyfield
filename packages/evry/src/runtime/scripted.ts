@@ -48,10 +48,25 @@ function classify(text: string) {
 	return "application";
 }
 
+const FORMATTING = /\bformatting demo\b/i;
+const FORMATTING_ANSWER = [
+	"There are **19 prospects** in this church, and the *list is complete*.",
+	"",
+	"Here is what I would check next:",
+	"",
+	"- Follow up with people who have no `next step` yet",
+	"- Open the [People page](/people) to review each one",
+	"",
+	"1. Start with the newest prospects",
+	"2. Then look at the longest waiting",
+].join("\n");
+
 function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] {
 	const text = lastUserText(options.prompt);
 	if (options.responseFormat?.type === "json")
 		return [{ type: "text", text: JSON.stringify({ kind: classify(text) }) }];
+	// "Show a formatting demo": an answer with markdown, written slowly enough to watch it grow (local previews and tests).
+	if (FORMATTING.test(text)) return [{ type: "text", text: FORMATTING_ANSWER }];
 	const hasPeople = options.tools?.some((t) => t.name === "people_read") ?? false;
 	const canPropose = options.tools?.some((t) => t.name === "propose_change") ?? false;
 	// "Change Maria's city to Austin": find the person, then propose the change for review.
@@ -140,6 +155,7 @@ export function scriptedModel(): LanguageModelV4 {
 		doGenerate: generate,
 		async doStream(options) {
 			const result = await generate(options);
+			const pace = FORMATTING.test(lastUserText(options.prompt)) ? 45 : 10;
 			const parts: LanguageModelV4StreamPart[] = [{ type: "stream-start", warnings: [] }];
 			for (const c of result.content)
 				if (c.type === "text") {
@@ -156,7 +172,7 @@ export function scriptedModel(): LanguageModelV4 {
 						for (const part of parts) {
 							if (options.abortSignal?.aborted) break;
 							controller.enqueue(part);
-							if (part.type === "text-delta") await new Promise((r) => setTimeout(r, 10));
+							if (part.type === "text-delta") await new Promise((r) => setTimeout(r, pace));
 						}
 						controller.close();
 					},

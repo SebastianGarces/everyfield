@@ -9,4 +9,4 @@ export { createIdentityService } from "./service.ts";
 export { signedSessionToken } from "./session-cookie.ts";
 export type { IdentityConfig, IdentityMail } from "./service.ts";
 
-export { readAccountContact, readAccountContacts } from "./reads.ts";
+export { readAccountContact, readAccountContacts, readPlantSetupComplete } from "./reads.ts";

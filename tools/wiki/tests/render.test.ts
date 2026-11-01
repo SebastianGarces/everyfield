@@ -101,3 +101,70 @@ test("BUG-0d8d60c: preview checklists hang-indent and code scrolls without page 
 		await rm(out, { recursive: true, force: true });
 	}
 });
+
+const ALL_TYPES = [
+	"```diagram flow",
+	"title: Guest path",
+	"loop: Each season",
+	"- First visit | Greeted | Week 1",
+	"- Lunch",
+	"```",
+	"```diagram stages",
+	"title: Phases",
+	"- Discovery",
+	"- Launch",
+	"```",
+	"```diagram cycle",
+	"title: Rhythm",
+	"- Plan",
+	"- Gather",
+	"```",
+	"```diagram hierarchy",
+	"title: Leaders",
+	"- Pastor",
+	"  - Director",
+	"    - Leader",
+	"```",
+	"```diagram timeline",
+	"title: Year one",
+	"- Launch | | Week 0",
+	"- Anniversary | | Month 12",
+	"```",
+	"```text",
+	"Plain code",
+	"```",
+].join("\n");
+
+test("WP-034/ui: bin/wiki render draws each diagram as a figure with its caption and nodes in order, and code as pre", async () => {
+	const out = await mkdtemp(join(tmpdir(), "wiki-render-"));
+	try {
+		const payload = JSON.parse(await readFile(resolve(root, "docs/reference/wiki/seed.json"), "utf8"));
+		const row = { ...payload.articles[0], title: "Diagram preview", slug: "tooling/diagrams", content: ALL_TYPES };
+		const result = await inspect(row.content, new Set(), false, row.slug);
+		assert.deepEqual(
+			result.errors.filter((error) => error.startsWith("Diagram")),
+			[],
+		);
+		const html = await readFile(await render(row, result.code!, "Tooling", root, out), "utf8");
+		const figures = [...html.matchAll(/<figure class="diagram" data-diagram="(\w+)"[^>]*>([\s\S]*?)<\/figure>/g)].map(
+			(match) => ({
+				type: match[1],
+				caption: /<figcaption>(.*?)<\/figcaption>/.exec(match[2]!)?.[1],
+				list: /^<figcaption>.*?<\/figcaption><(ol|ul)>/.exec(match[2]!)?.[1],
+				nodes: [...match[2]!.matchAll(/class="dg-label">(.*?)</g)].map((node) => node[1]),
+			}),
+		);
+		assert.deepEqual(figures, [
+			{ type: "flow", caption: "Guest path", list: "ol", nodes: ["First visit", "Lunch"] },
+			{ type: "stages", caption: "Phases", list: "ol", nodes: ["Discovery", "Launch"] },
+			{ type: "cycle", caption: "Rhythm", list: "ol", nodes: ["Plan", "Gather"] },
+			{ type: "hierarchy", caption: "Leaders", list: "ul", nodes: ["Pastor", "Director", "Leader"] },
+			{ type: "timeline", caption: "Year one", list: "ol", nodes: ["Launch", "Anniversary"] },
+		]);
+		assert.match(html, /<ul><li><div class="dg-card"><span class="dg-label">Pastor<\/span><\/div><ul><li>/);
+		assert.match(html, /<p class="dg-loop">Repeats: Each season<\/p>/);
+		assert.match(html, /<pre><code class="language-text" data-info="text">Plain code\n<\/code><\/pre>/);
+	} finally {
+		await rm(out, { recursive: true, force: true });
+	}
+});

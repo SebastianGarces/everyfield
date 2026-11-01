@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { ensureTask, findTask, openWorkDb, seatOverrideOf, workDbPath } from "./db.ts";
+import { ensureTask, findTask, openWorkDb, requireStartable, seatOverrideOf, workDbPath } from "./db.ts";
 import {
 	baseRef,
 	EvfError,
@@ -524,6 +524,7 @@ export function launch(
 			known.close();
 		}
 	}
+	requireStartable(root, task, role);
 	if (opts.dryRun) return launchDryRun(root, task, role, opts);
 	const cfg = loadConfig(root);
 	if (opts.idea && role !== "ideator") fail("--idea is for the ideator role.");

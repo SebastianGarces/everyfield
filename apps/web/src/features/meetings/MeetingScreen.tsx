@@ -111,9 +111,11 @@ import type { MeetingPageData } from "./server.ts";
 
 // Width-gated classes for the Kit tab's fill height. Tailwind reads class names as literals, so each is spelled out.
 const FILL_FRAME = "app-md:-mb-[72px] app-md:flex app-md:h-[var(--frame-h,calc(100dvh-420px))] app-md:flex-col";
-const FILL_GRID = "app-md:min-h-0 app-md:flex-1 app-md:grid-rows-[minmax(0,1fr)] app-md:items-stretch";
-const FILL_COLUMN = "app-md:flex app-md:min-h-0 app-md:flex-col";
-const FILL_PANEL = "app-md:flex app-md:min-h-0 app-md:flex-1 app-md:flex-col";
+const FILL_GRID = "app-md:min-h-0 app-md:flex-1 app-md:grid-rows-[auto_minmax(0,1fr)] app-md:items-stretch";
+const FILL_PANEL = "app-md:flex app-md:min-h-0 app-md:flex-col";
+// Beside the content the tab bar takes row 1; the panels and the rail share row 2, so the rail starts where the
+// panel's first card starts. The row gap replaces the panel's top padding (pt-6) at that width.
+const PANEL_CELL = "app-md:col-start-1 app-md:row-start-2 app-md:pt-0";
 const FILL_ASIDE = "app-md:-mx-1 app-md:min-h-0 app-md:overflow-y-auto app-md:px-1 app-md:pb-1";
 
 type Reason = "void" | "restore" | "not_held";
@@ -599,16 +601,12 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 				<FixedFrame fixed={fill} className={FILL_FRAME}>
 					<div
 						className={cn(
-							"grid grid-cols-[minmax(0,1fr)_320px] items-start gap-5 max-app-md:grid-cols-1",
+							"grid grid-cols-[minmax(0,1fr)_320px] items-start gap-5 app-md:gap-y-6 max-app-md:grid-cols-1",
 							fill && FILL_GRID,
 						)}
 					>
-						<Tabs
-							value={tab}
-							onValueChange={(v) => selectTab(v as TabId)}
-							className={cn("min-w-0", fill && FILL_COLUMN)}
-						>
-							<TabsList aria-label="Meeting work">
+						<Tabs value={tab} onValueChange={(v) => selectTab(v as TabId)} className="min-w-0 app-md:contents">
+							<TabsList aria-label="Meeting work" className="app-md:col-start-1 app-md:row-start-1">
 								<Tab value="guests" count={view.guests ? guestList.length : undefined}>
 									Guests
 								</Tab>
@@ -616,7 +614,11 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 								<Tab value="results">Results</Tab>
 							</TabsList>
 							{/* Every panel stays mounted: a tab switch keeps the guest filter and any open form. */}
-							<TabsPanel value="guests" forceMount className="flex flex-col gap-5 data-[state=inactive]:hidden">
+							<TabsPanel
+								value="guests"
+								forceMount
+								className={cn("flex flex-col gap-5 data-[state=inactive]:hidden", PANEL_CELL)}
+							>
 								<RsvpSummary guests={view.guests} attended={attendedCount} started={checkInStarted} />
 								<GuestList
 									meeting={m}
@@ -648,7 +650,11 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 								/>
 							</TabsPanel>
 							{vision ? (
-								<TabsPanel value="kit" forceMount className={cn("data-[state=inactive]:hidden", fill && FILL_PANEL)}>
+								<TabsPanel
+									value="kit"
+									forceMount
+									className={cn("data-[state=inactive]:hidden", PANEL_CELL, fill && FILL_PANEL)}
+								>
 									<KitCard
 										fill={fill}
 										meeting={m}
@@ -660,7 +666,11 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 									/>
 								</TabsPanel>
 							) : null}
-							<TabsPanel value="results" forceMount className="flex flex-col gap-5 data-[state=inactive]:hidden">
+							<TabsPanel
+								value="results"
+								forceMount
+								className={cn("flex flex-col gap-5 data-[state=inactive]:hidden", PANEL_CELL)}
+							>
 								<AttendanceCard
 									meeting={m}
 									attendance={view.attendance && { ...view.attendance, items: presence.shown(view.attendance.items) }}
@@ -706,7 +716,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 						<aside
 							aria-label="Agenda and notes"
 							tabIndex={fill ? 0 : undefined}
-							className={cn("flex min-w-0 flex-col gap-5", fill && FILL_ASIDE)}
+							className={cn("flex min-w-0 flex-col gap-5 app-md:col-start-2 app-md:row-start-2", fill && FILL_ASIDE)}
 						>
 							<AgendaCard
 								meeting={m}

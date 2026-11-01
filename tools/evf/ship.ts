@@ -23,8 +23,8 @@ import {
 	type TaskRef,
 } from "./lib.ts";
 import { maintenanceScope, requireTaskScope } from "./policy.ts";
-import { checkPrBody } from "./pr-body.ts";
-import { markMerged, openWorkDb, sessionsRecorded } from "./db.ts";
+import { checkPrBody, followUpsOfBranch } from "./pr-body.ts";
+import { followUpsOfTask, markMerged, openWorkDb, sessionsRecorded, withPartial } from "./db.ts";
 import { approveCommand, mergePullRequest, templateClass, templateWhy, type TemplateClass } from "./merge.ts";
 import { withShipQueue, type QueueTiming } from "./ship-queue.ts";
 import { formatScope, wpScope } from "./scope.ts";
@@ -114,7 +114,7 @@ export function prOpen(root: string, task: TaskRef, bodyFile?: string): number {
 		fail("Write the PR body following the PR standard, then pass --body-file <file>.");
 	const body = readFileSync(bodyFile, "utf8");
 	const proto = isPrototype(root, task);
-	checkPrBody(wt, body, proto ? "prototype" : "ordinary");
+	checkPrBody(wt, body, proto ? "prototype" : "ordinary", followUpsOfTask(root, task));
 	const internal = internalIssueOf(root, task);
 	if (internal && !body.includes(`Closes #${internal}`))
 		fail(`Include Closes #${internal} in the PR body for this feedback task.`);
@@ -367,7 +367,7 @@ export function checkPr(
 		fail("Shipping requires an open, ready PR targeting main.");
 	if (expectedHead && pr.headRefOid !== expectedHead)
 		fail("PR head changed. Verify the new exact head before shipping.");
-	const { author } = checkPrBody(root, pr.body);
+	const { author } = checkPrBody(root, pr.body, "ordinary", followUpsOfBranch(root, pr.headRefName));
 	const repo = nameWithOwner(root);
 	const ci = requiredCi(root, number, requiredCheckNames(root, repo, cfg.baseBranch));
 	if (ci.failed.length) fail(`Required GitHub CI must be green on the exact PR head: ${ci.failed.join(", ")} failed.`);
@@ -504,19 +504,27 @@ function ownerRoute(
 		);
 	if (templates.doubt || templates.paths.length) {
 		verified();
-		console.log(templateWaitMessage(number, templates));
+		console.log(withPartial(root, task, templateWaitMessage(number, templates)));
 		return 0;
 	}
 	if (design) {
 		verified();
-		console.log(`PR #${number} is a verified design task and waits for Sebastian's chat approval, then evf approve.`);
+		console.log(
+			withPartial(
+				root,
+				task,
+				`PR #${number} is a verified design task and waits for Sebastian's chat approval, then evf approve.`,
+			),
+		);
 		return 0;
 	}
 	if (!cls) fail("Feedback must be triaged before shipping.");
 	if (!(cfg.mergePolicy.feedbackOwnerAfterVerifier as string[]).includes(cls))
 		fail("This feedback class requires the owner approval route.");
 	verified();
-	console.log(`PR #${number} is verified and waits for Sebastian's chat approval, then evf approve.`);
+	console.log(
+		withPartial(root, task, `PR #${number} is verified and waits for Sebastian's chat approval, then evf approve.`),
+	);
 	return 0;
 }
 
