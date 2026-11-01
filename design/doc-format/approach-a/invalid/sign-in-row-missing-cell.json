@@ -3,8 +3,7 @@
 	"kind": "template",
 	"id": "guest-sign-in-sheet",
 	"version": 1,
-	"title": "Guest Sign-in Sheet",
-	"description": "A sign-in sheet for a vision meeting, with rows to write in.",
+	"title": "Guest sign-in sheet",
 	"class": "operational",
 	"exports": [
 		"pdf",
@@ -18,14 +17,6 @@
 			"source": "church.name",
 			"required": true,
 			"sample": "Harbor City Church"
-		},
-		{
-			"key": "church_legal_name",
-			"label": "Legal name",
-			"type": "text",
-			"source": "brand.legalName",
-			"fallback": "{church_name}",
-			"sample": "Harbor City Church, Inc."
 		}
 	],
 	"page": {
@@ -39,244 +30,42 @@
 		},
 		"tile": null,
 		"header": null,
-		"footer": {
-			"pages": "all",
-			"content": [
-				{
-					"type": "columns",
-					"content": [
-						{
-							"type": "column",
-							"attrs": {
-								"width": 3
-							},
-							"content": [
-								{
-									"type": "paragraph",
-									"attrs": {
-										"style": "small"
-									},
-									"content": [
-										{
-											"type": "field",
-											"attrs": {
-												"key": "church_legal_name"
-											}
-										},
-										{
-											"type": "text",
-											"text": "  |  Guest sign-in sheet"
-										}
-									]
-								}
-							]
-						},
-						{
-							"type": "column",
-							"attrs": {
-								"width": 1,
-								"align": "right"
-							},
-							"content": [
-								{
-									"type": "paragraph",
-									"attrs": {
-										"style": "small",
-										"align": "right"
-									},
-									"content": [
-										{
-											"type": "pageNumber",
-											"attrs": {
-												"format": "page-of-total"
-											}
-										}
-									]
-								}
-							]
-						}
-					]
-				}
-			]
-		}
+		"footer": null
 	},
 	"body": {
 		"type": "doc",
 		"content": [
 			{
-				"type": "columns",
-				"attrs": {
-					"valign": "center"
-				},
-				"content": [
-					{
-						"type": "column",
-						"attrs": {
-							"width": 1
-						},
-						"content": [
-							{
-								"type": "image",
-								"attrs": {
-									"source": "logo",
-									"width": 150,
-									"height": 34,
-									"align": "left",
-									"alt": "Church logo"
-								}
-							}
-						]
-					},
-					{
-						"type": "column",
-						"attrs": {
-							"width": 1,
-							"align": "right"
-						},
-						"content": [
-							{
-								"type": "paragraph",
-								"attrs": {
-									"style": "kicker",
-									"align": "right"
-								},
-								"content": [
-									{
-										"type": "text",
-										"text": "Vision meeting"
-									}
-								]
-							}
-						]
-					}
-				]
-			},
-			{
-				"type": "divider",
-				"attrs": {
-					"weight": "bar",
-					"color": "accent"
-				}
-			},
-			{
-				"type": "heading",
-				"attrs": {
-					"level": 1
-				},
-				"content": [
-					{
-						"type": "text",
-						"text": "Guest Sign-in Sheet"
-					}
-				]
-			},
-			{
-				"type": "paragraph",
-				"attrs": {
-					"style": "lead"
-				},
-				"content": [
-					{
-						"type": "text",
-						"text": "Welcome to "
-					},
-					{
-						"type": "field",
-						"attrs": {
-							"key": "church_name"
-						}
-					},
-					{
-						"type": "text",
-						"text": ". Please sign in so we can thank you and stay in touch."
-					}
-				]
-			},
-			{
-				"type": "columns",
-				"content": [
-					{
-						"type": "column",
-						"attrs": {
-							"width": 1
-						},
-						"content": [
-							{
-								"type": "writeIn",
-								"attrs": {
-									"label": "Meeting date",
-									"key": "meeting_date",
-									"kind": "date",
-									"width": 170
-								}
-							}
-						]
-					},
-					{
-						"type": "column",
-						"attrs": {
-							"width": 1
-						},
-						"content": [
-							{
-								"type": "writeIn",
-								"attrs": {
-									"label": "Meeting number",
-									"key": "meeting_number",
-									"kind": "text",
-									"width": 110
-								}
-							}
-						]
-					},
-					{
-						"type": "column",
-						"attrs": {
-							"width": 1
-						},
-						"content": []
-					}
-				]
-			},
-			{
 				"type": "table",
 				"attrs": {
-					"style": "grid",
-					"header": true,
-					"headerFill": "accent",
-					"zebra": true,
-					"writeInRows": 18,
-					"rowHeight": 25,
-					"source": null,
 					"columns": [
 						{
 							"id": "n",
-							"label": "#",
+							"label": "n",
 							"type": "index",
-							"width": 26,
-							"align": "center"
+							"width": 0
 						},
 						{
 							"id": "name",
-							"label": "Name",
+							"label": "name",
 							"type": "text",
-							"width": 142
+							"width": 0
 						},
 						{
 							"id": "email",
-							"label": "Email",
+							"label": "email",
 							"type": "text",
-							"width": 162
+							"width": 0
 						},
 						{
 							"id": "phone",
-							"label": "Phone",
+							"label": "phone",
 							"type": "text",
-							"width": 104
+							"width": 0
 						},
 						{
 							"id": "invited_by",
-							"label": "Who invited you?",
+							"label": "invited_by",
 							"type": "text",
 							"width": 0
 						}

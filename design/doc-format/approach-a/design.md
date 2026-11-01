@@ -89,7 +89,7 @@ A mark may appear once on a text node. Marks have no color attribute on purpose.
 
 `node design/doc-format/approach-a/validate.mjs` checks the four examples and the four invalid samples in
 [`invalid/`](invalid/). Each invalid sample must fail with the message in `invalid/expected.json`, for example
-`body.content[5] (table).content[0] (row 1): the row has 4 cells but the table has 5 columns`.
+`body.content[0] (table).content[0] (row 1): the row has 4 cells but the table has 5 columns`.
 
 ## Page setup
 

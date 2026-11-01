@@ -148,7 +148,14 @@ export function computeTable(table) {
 	const cols = table.attrs.columns;
 	const ids = cols.map((c) => c.id);
 	const numericCol = (c) => NUMERIC.has(c.type) || c.type === "formula";
-	const trees = cols.map((c) => (c.type === "formula" ? safeParse(c.formula) : null));
+	const trees = cols.map((c) => {
+		if (c.type !== "formula") return null;
+		try {
+			return parseFormula(c.formula ?? "");
+		} catch {
+			return null;
+		}
+	});
 	const rows = table.content ?? [];
 	const out = [];
 	let groupSign = 1;
@@ -204,14 +211,6 @@ export function computeTable(table) {
 		out.push(cols.map((c, ci) => (numericCol(c) ? all.reduce((s, g) => s + g.sign * g.sum[ci], 0) : null)));
 	}
 	return out;
-}
-
-function safeParse(source) {
-	try {
-		return parseFormula(source ?? "");
-	} catch {
-		return null;
-	}
 }
 
 // ---------------------------------------------------------------- canonical form and hash input
@@ -318,10 +317,6 @@ export function validate(doc, schema) {
 	return { ok: errors.length === 0, errors };
 }
 
-function describe(node) {
-	return node && typeof node === "object" && typeof node.type === "string" ? ` (${node.type})` : "";
-}
-
 function checkNode(node, path, ctx, allowed, deny = []) {
 	const { schema, fail } = ctx;
 	if (!node || typeof node !== "object" || Array.isArray(node)) {
@@ -333,7 +328,7 @@ function checkNode(node, path, ctx, allowed, deny = []) {
 		fail(path, `unknown node type "${node.type}"`);
 		return;
 	}
-	const where = `${path}${describe(node)}`;
+	const where = `${path} (${node.type})`;
 	if (!allowed.includes(spec.group) && !allowed.includes(node.type)) {
 		fail(where, `a ${node.type} node is not allowed here; this place takes ${allowed.join(" or ")}`);
 		return;
