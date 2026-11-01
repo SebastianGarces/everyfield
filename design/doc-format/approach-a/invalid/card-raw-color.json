@@ -1,0 +1,62 @@
+{
+	"format": "everyfield.doc/1",
+	"kind": "template",
+	"id": "commitment-card",
+	"version": 1,
+	"title": "Commitment card",
+	"class": "outward-facing",
+	"exports": [
+		"pdf",
+		"docx"
+	],
+	"fields": [
+		{
+			"key": "church_name",
+			"label": "Church name",
+			"type": "text",
+			"source": "church.name",
+			"required": true,
+			"sample": "Harbor City Church"
+		}
+	],
+	"page": {
+		"size": "letter",
+		"orientation": "portrait",
+		"margin": {
+			"top": 0,
+			"right": 0,
+			"bottom": 0,
+			"left": 0
+		},
+		"tile": {
+			"across": 2,
+			"down": 2,
+			"padding": 14,
+			"cutMarks": true
+		},
+		"header": null,
+		"footer": null
+	},
+	"body": {
+		"type": "doc",
+		"content": [
+			{
+				"type": "box",
+				"attrs": {
+					"fill": "#1E3A8A"
+				},
+				"content": [
+					{
+						"type": "paragraph",
+						"content": [
+							{
+								"type": "text",
+								"text": "I commit to"
+							}
+						]
+					}
+				]
+			}
+		]
+	}
+}

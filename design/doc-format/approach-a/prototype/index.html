@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Everyfield documents · format approach A</title>
+		<link rel="stylesheet" href="./style.css" />
+		<script type="module" src="./app.js"></script>
+	</head>
+	<body>
+		<header class="topbar">
+			<div class="brandmark" aria-hidden="true">EF</div>
+			<label class="sr-only" for="open">Open</label>
+			<select id="open" class="control" aria-label="Open a document"></select>
+			<button id="new-blank" class="btn" type="button">New blank</button>
+			<button id="new-fork" class="btn" type="button">New from template</button>
+			<span id="kind" class="kind"></span>
+			<label class="sr-only" for="title">Title</label>
+			<input id="title" class="control title-input" aria-label="Document title" />
+			<span class="spacer"></span>
+			<button id="validity" class="validity" type="button" aria-live="polite"></button>
+			<button id="clear" class="btn btn-danger" type="button">Delete all content</button>
+			<button id="save" class="btn btn-primary" type="button">Save</button>
+		</header>
+
+		<div class="toolbar" role="toolbar" aria-label="Formatting">
+			<div class="seg" role="group" aria-label="Mode">
+				<button type="button" data-mode="edit" aria-pressed="true">Edit</button>
+				<button type="button" data-mode="preview" aria-pressed="false">Preview</button>
+			</div>
+			<span class="sep"></span>
+			<label class="sr-only" for="blockstyle">Text style</label>
+			<select id="blockstyle" class="control" aria-label="Text style">
+				<option value="">Text style</option>
+				<option value="p:body">Body text</option>
+				<option value="p:lead">Lead</option>
+				<option value="p:small">Small</option>
+				<option value="p:kicker">Kicker</option>
+				<option value="h:1">Title (heading 1)</option>
+				<option value="h:2">Heading 2</option>
+				<option value="h:3">Heading 3</option>
+			</select>
+			<button type="button" class="tb" data-mark="bold" title="Bold (Ctrl or Cmd + B)" aria-label="Bold"><b>B</b></button>
+			<button type="button" class="tb" data-mark="italic" title="Italic (Ctrl or Cmd + I)" aria-label="Italic"><i>I</i></button>
+			<button type="button" class="tb" data-mark="underline" title="Underline (Ctrl or Cmd + U)" aria-label="Underline"><u>U</u></button>
+			<button type="button" class="tb" data-mark="link" title="Link" aria-label="Link">Link</button>
+			<button type="button" class="tb" data-mark="tag" title="Tag: a word on an accent tile" aria-label="Tag"><span class="tag-icon">Tag</span></button>
+			<label class="sr-only" for="insert-field">Insert merge field</label>
+			<select id="insert-field" class="control" aria-label="Insert merge field"></select>
+			<span class="sep"></span>
+			<div class="menu-wrap">
+				<button id="insert-btn" type="button" class="btn btn-primary" aria-haspopup="true" aria-expanded="false">Insert block</button>
+				<div id="insert-menu" class="menu" role="menu" hidden></div>
+			</div>
+			<button type="button" class="tb" id="move-up" title="Move the block up" aria-label="Move the block up">↑</button>
+			<button type="button" class="tb" id="move-down" title="Move the block down" aria-label="Move the block down">↓</button>
+			<button type="button" class="tb" id="delete-block" title="Delete the block" aria-label="Delete the block">Delete</button>
+			<span class="spacer"></span>
+			<div class="seg" role="group" aria-label="Brand">
+				<button type="button" data-brand="neutral" aria-pressed="true">Neutral</button>
+				<button type="button" data-brand="church" aria-pressed="false">Church brand</button>
+			</div>
+		</div>
+
+		<main class="workspace">
+			<section class="canvas-wrap" aria-label="Pages">
+				<div id="preview-banner" class="banner" hidden>Preview. Merge fields show sample data. Every card on the sheet prints.</div>
+				<div id="canvas" class="canvas"></div>
+			</section>
+			<aside class="side" aria-label="Inspector">
+				<div class="tabs" role="tablist">
+					<button type="button" role="tab" data-tab="block" aria-selected="true">Block</button>
+					<button type="button" role="tab" data-tab="page" aria-selected="false">Page</button>
+					<button type="button" role="tab" data-tab="fields" aria-selected="false">Fields</button>
+					<button type="button" role="tab" data-tab="json" aria-selected="false">JSON</button>
+				</div>
+				<div id="panel" class="panel" role="tabpanel"></div>
+			</aside>
+		</main>
+
+		<dialog id="dialog" class="dialog"></dialog>
+		<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+	</body>
+</html>
