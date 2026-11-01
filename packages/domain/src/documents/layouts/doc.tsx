@@ -27,7 +27,8 @@ import { MIN_BODY, MIN_NONTEXT, textOn } from "../contrast.ts";
 import { listValues } from "../doc-values.ts";
 import { SLOT_BLANK_NOTE } from "../templates/church.ts";
 import { FONT, SIZE, SP, tokenColor, type Palette } from "../theme.ts";
-import { Box, Cellfield, Field, LEGAL_NOTICE, LogoSlot, PhotoSlot, type Ctx } from "./blocks.tsx";
+import { LEGAL_NOTICE } from "@everyfield/contracts/documents";
+import { Box, Cellfield, Field, LogoSlot, PhotoSlot, type Ctx } from "./blocks.tsx";
 import { Doc } from "./shell.tsx";
 
 /** The content box under which headings use the compact scale (a card): 5 in. */
