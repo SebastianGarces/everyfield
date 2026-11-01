@@ -154,20 +154,19 @@ type MergeRequest = {
 	ownerApproval?: OwnerApproval;
 };
 
-/** Up to five matched paths, and a count when there are more. */
+/** Up to five matched paths in parentheses, and a count when there are more. */
 const shown = (paths: string[]) =>
-	`${paths.slice(0, 5).join(", ")}${paths.length > 5 ? `, ... (${paths.length} paths in all)` : ""}`;
+	`(${paths.slice(0, 5).join(", ")})${paths.length > 5 ? ` (${paths.length} paths in all)` : ""}`;
 
-/** Why a PR is held as a template PR: up to five matched paths, a count when there are more, or the doubt. */
+/** Why a PR is held as a template PR: the matched paths (shown) or the doubt. */
 export function templateWhy({ paths, doubt }: TemplateClass): string {
-	const more = paths.length > 5 ? ` (${paths.length} paths in all)` : "";
 	return doubt
 		? `evf cannot tell whether it changes document templates (${doubt}), so it holds it as if it did`
-		: `it changes document-template paths (${paths.slice(0, 5).join(", ")})${more}`;
+		: `it changes document-template paths ${shown(paths)}`;
 }
 
 /** Why a task PR is held as Wiki content. */
-export const wikiWhy = ({ paths }: TemplateClass): string => `it changes Wiki content (${shown(paths)})`;
+export const wikiWhy = ({ paths }: TemplateClass): string => `it changes Wiki content ${shown(paths)}`;
 
 /** The command that records Sebastian's approval for a held PR. */
 export const approveCommand = (number: number): string =>

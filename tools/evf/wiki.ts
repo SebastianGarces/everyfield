@@ -60,14 +60,14 @@ function parseDraft(path: string, text: string): DraftRow {
 }
 
 /** The draft at `path` as committed at `rev`. */
-export const draftAt = (repo: string, rev: string, path: string): DraftRow =>
+const draftAt = (repo: string, rev: string, path: string): DraftRow =>
 	parseDraft(path, git(repo, "show", `${rev}:${path}`));
 
 /**
  * `text` with its draft.claim_check values replaced in place, so every other byte of the draft stays. The result
  * must parse to the same draft with only the claim check changed; anything else refuses.
  */
-export function withClaimCheck(path: string, text: string, cc: ClaimCheck): string {
+function withClaimCheck(path: string, text: string, cc: ClaimCheck): string {
 	const start = [...text.matchAll(/(?<!\\)"claim_check"\s*:\s*\{/g)].at(-1);
 	if (!start) fail(`${path} has no claim_check object to edit.`);
 	const open = start.index + start[0].length - 1;

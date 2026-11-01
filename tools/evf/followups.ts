@@ -211,7 +211,7 @@ export function releaseDependents(db: DatabaseSync, mergedId: number, runId: num
 }
 
 /** The task that stores a spec, as `evf task link` reads it. */
-type LinkParent = { id: number; ref: string; spec: string | null; parent_task_id: number | null };
+type LinkParent = { id: number; ref: string; spec: string | null };
 
 /**
  * `evf task link` (OPS-109): make an existing row a follow-up of `parent`, and with `slice` the row that covers that
@@ -226,7 +226,7 @@ export function linkFollowUp(
 ): string | null {
 	const label = labelOf(db, row);
 	if (row.id === parent.id) fail(`${label} cannot be a follow-up of itself.`);
-	for (let up = parent.parent_task_id; up; up = rowById(db, up)?.parent_task_id ?? null)
+	for (let up = rowById(db, parent.id)?.parent_task_id ?? null; up; up = rowById(db, up)?.parent_task_id ?? null)
 		if (up === row.id) fail(`${parent.ref} is already a follow-up of ${label}; the link would make a cycle.`);
 	if (row.status === "abandoned" || row.status === "merged")
 		fail(`Store row ${row.id} (${label}) is ${row.status}; link an open row.`);

@@ -902,8 +902,7 @@ export function taskLink(
 	try {
 		const parent = findTask(db, task);
 		if (!parent) fail(`${task.id} has no task row in the store.`);
-		const spec = parent.spec,
-			rows = rowsOfRef(db, opts.followUp.id),
+		const rows = rowsOfRef(db, opts.followUp.id),
 			list = rows.map((r) => `${r.id} (${r.status})`).join(", ");
 		const candidates = opts.id ? rows.filter((r) => r.id === opts.id) : rows.filter((r) => r.status !== "abandoned");
 		if (!candidates.length)
@@ -913,13 +912,12 @@ export function taskLink(
 					: `${opts.followUp.id} has no open task row in the store.`,
 			);
 		if (candidates.length > 1) fail(`${opts.followUp.id} has rows ${list}: pick one with --id.`);
-		const linkParent = { id: parent.id, ref: parent.ref, spec, parent_task_id: parentOf(db, parent.id) };
 		db.exec("BEGIN IMMEDIATE");
 		let summary: string | null;
 		try {
 			summary = opts.remove
-				? unlinkFollowUp(db, linkParent, candidates[0]!)
-				: linkFollowUp(db, linkParent, candidates[0]!, opts.slice ?? null);
+				? unlinkFollowUp(db, parent, candidates[0]!)
+				: linkFollowUp(db, parent, candidates[0]!, opts.slice ?? null);
 			db.exec("COMMIT");
 		} catch (e) {
 			db.exec("ROLLBACK");
@@ -935,10 +933,6 @@ export function taskLink(
 		db.close();
 	}
 }
-
-const parentOf = (db: DatabaseSync, id: number): number | null =>
-	(db.prepare("SELECT parent_task_id FROM tasks WHERE id = ?").get(id) as { parent_task_id: number | null })
-		.parent_task_id;
 
 /**
  * Set, change or clear the seat model and effort of one task row (OPS-81). The row's seats then run on it in every

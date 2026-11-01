@@ -233,7 +233,7 @@ export function approve(root: string, n: number, opts: { ownerApproval?: string;
 		".mergeCommit.oid",
 	]).stdout.trim();
 	markMergedByBranch(root, pr.headRefName, /^[0-9a-f]{40}$/.test(mergeCommit) ? mergeCommit : null);
-	if ((route.kind === "template" || route.kind === "wiki-task") && evidence) {
+	if (shipRoute && evidence) {
 		// The same bookkeeping evf ship runs, so package progress and dependents unlock. A task without a worktree
 		// reads its registration from the merged head in the home checkout.
 		const path = worktreePath(root, cfg, route.task),
