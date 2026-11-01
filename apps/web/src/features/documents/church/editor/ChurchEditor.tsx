@@ -239,7 +239,7 @@ export default function ChurchEditor({
 				</div>
 				{/* The editor stays in the page while the preview shows, so its content, cursor and undo history stay. */}
 				<div hidden={mode !== "edit"} className="flex flex-col gap-3">
-					<div className="overflow-hidden rounded-card bg-surface-raised shadow-[0_0_0_1px_var(--ef-line)]">
+					<div className="sticky top-[calc(var(--ef-topbar-h)+28px)] z-20 overflow-hidden rounded-card bg-surface-raised shadow-[0_0_0_1px_var(--ef-line)]">
 						{editor ? <EditorToolbar editor={editor} /> : <div className="h-[49px]" />}
 					</div>
 					<div className="ef-sheet" style={sheet}>

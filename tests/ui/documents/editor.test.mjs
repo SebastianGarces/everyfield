@@ -26,6 +26,13 @@ const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const MOD = "ControlOrMeta";
 const LOG = process.env.CHECK_LOG;
 const PAPER = ".ef-paper .ProseMirror";
+const SHOTS = process.env.SHOT_DIR;
+const slug = (text) =>
+	text
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-|-$/g, "");
+let shotCount = 0;
 
 const baseDoc = (id) => forkTemplate(docTemplateById(id), { data: {} });
 const bases = { policy: await baseDoc("conflict-of-interest-policy"), card: await baseDoc("commitment-card") };
@@ -104,6 +111,8 @@ async function checked(page, name, act, { same = false, base = bases.policy } = 
 	const before = await snapshot(page, base);
 	await act();
 	const after = await snapshot(page, base);
+	// Hand-check evidence: SHOT_DIR names a folder outside the repository; one screenshot per action, after the action.
+	if (SHOTS) await page.screenshot({ path: `${SHOTS}/${String(++shotCount).padStart(2, "0")}-${slug(name)}.png` });
 	assert.ok(docDocument.safeParse(after).success, `${name}: the changed document parses with docDocument`);
 	if (!same) assert.notDeepEqual(after, before, `${name}: the action changed the document`);
 	await button(page, "Undo").click();
