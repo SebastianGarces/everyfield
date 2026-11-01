@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Everyfield documents · format approach C prototype</title>
+		<link rel="stylesheet" href="editor.css" />
+		<style id="page-style"></style>
+		<script type="module" src="app.mjs"></script>
+	</head>
+	<body>
+		<div class="app">
+			<aside id="library" class="library" aria-label="Documents">
+				<div class="brandbar">
+					<span class="brand-dot" aria-hidden="true"></span>
+					<span class="brand-name">Everyfield</span>
+					<span class="brand-tag">Format C prototype</span>
+				</div>
+				<label class="lib-select-wrap">
+					<span class="sr-only">Open a template or document</span>
+					<select id="lib-select"></select>
+				</label>
+				<button type="button" id="btn-new" class="btn btn-wide">New blank document</button>
+				<h2 class="lib-h">Templates</h2>
+				<div id="lib-templates" class="lib-list"></div>
+				<h2 class="lib-h">My documents</h2>
+				<div id="lib-documents" class="lib-list"></div>
+			</aside>
+
+			<main class="main">
+				<header class="docbar">
+					<div class="docbar-title">
+						<h1 id="doc-title"></h1>
+						<p id="doc-kind"></p>
+					</div>
+					<div class="docbar-actions">
+						<span id="doc-valid" class="chip"></span>
+						<button type="button" id="btn-fork" class="btn btn-primary">Use this template</button>
+						<button type="button" id="btn-wipe" class="btn" data-needs="edit">Delete all content</button>
+						<div class="seg" role="group" aria-label="Mode">
+							<button type="button" data-mode="edit" aria-pressed="true">Edit</button>
+							<button type="button" data-mode="preview" aria-pressed="false">Preview</button>
+						</div>
+						<button type="button" id="btn-brand" class="btn" aria-pressed="false" title="Show the page with a sample church brand kit">Sample brand</button>
+						<button type="button" id="btn-print" class="btn">Print / PDF</button>
+					</div>
+				</header>
+
+				<div class="toolbar" role="toolbar" aria-label="Editor tools">
+					<div class="tb-group">
+						<button type="button" id="btn-undo" class="tb" title="Undo (Cmd+Z)" aria-label="Undo">↶</button>
+						<button type="button" id="btn-redo" class="tb" title="Redo (Shift+Cmd+Z)" aria-label="Redo">↷</button>
+					</div>
+					<div class="tb-group">
+						<select id="sel-type" aria-label="Block type">
+							<option value="">Block type</option>
+							<option value="paragraph">Paragraph</option>
+							<option value="h0">Title</option>
+							<option value="h1">Heading 1</option>
+							<option value="h2">Heading 2</option>
+							<option value="h3">Heading 3</option>
+							<option value="ul">Bulleted list</option>
+							<option value="ol">Numbered list</option>
+							<option value="quote">Quote</option>
+						</select>
+					</div>
+					<div class="tb-group" aria-label="Text marks">
+						<button type="button" class="tb tb-b" data-mark="bold" data-needs="text" title="Bold (Cmd+B)" aria-label="Bold">B</button>
+						<button type="button" class="tb tb-i" data-mark="italic" data-needs="text" title="Italic (Cmd+I)" aria-label="Italic">I</button>
+						<button type="button" class="tb tb-u" data-mark="underline" data-needs="text" title="Underline (Cmd+U)" aria-label="Underline">U</button>
+						<button type="button" class="tb tb-s" data-mark="strike" data-needs="text" title="Strikethrough" aria-label="Strikethrough">S</button>
+						<button type="button" id="btn-link" class="tb" data-needs="text" title="Link" aria-label="Link">Link</button>
+						<button type="button" id="btn-caps" class="tb" data-needs="text" title="Capitals" aria-label="Capitals">Aa</button>
+						<select id="sel-tone" data-needs="text" aria-label="Text color">
+							<option value="">Color</option>
+							<option value="none">Default</option>
+							<option value="muted">Muted</option>
+							<option value="primary">Primary</option>
+							<option value="accent">Accent</option>
+						</select>
+						<button type="button" id="btn-clear" class="tb" data-needs="text" title="Clear marks" aria-label="Clear marks">Clear</button>
+					</div>
+					<div class="tb-group">
+						<select id="sel-insert" data-needs="edit" aria-label="Insert a block">
+							<option value="">Insert block…</option>
+							<option value="paragraph">Paragraph</option>
+							<option value="title">Title</option>
+							<option value="heading">Heading</option>
+							<option value="ul">Bulleted list</option>
+							<option value="ol">Numbered list</option>
+							<option value="quote">Quote</option>
+							<option value="divider">Divider</option>
+							<option value="pageBreak">Page break</option>
+							<option value="slot">Fill-in section</option>
+							<option value="box">Box</option>
+							<option value="columns">Columns</option>
+							<option value="table">Table</option>
+							<option value="repeat">Repeat (n-up cards)</option>
+							<option value="logo">Logo</option>
+						</select>
+						<select id="sel-field" aria-label="Insert a field"></select>
+						<button type="button" id="btn-check" class="tb" data-needs="text" title="Insert a checkbox" aria-label="Insert a checkbox">☐</button>
+					</div>
+					<div class="tb-group" aria-label="Block">
+						<button type="button" id="btn-up" class="tb" data-needs="block" title="Move block up" aria-label="Move block up">↑</button>
+						<button type="button" id="btn-down" class="tb" data-needs="block" title="Move block down" aria-label="Move block down">↓</button>
+						<button type="button" id="btn-delete" class="tb" data-needs="block" title="Delete block" aria-label="Delete block">Delete</button>
+					</div>
+					<div class="tb-group" id="tb-table" aria-label="Table" hidden>
+						<button type="button" class="tb" data-table="row+" data-needs="table" title="Add a row below">+ Row</button>
+						<button type="button" class="tb" data-table="row-" data-needs="table" title="Remove this row">− Row</button>
+						<button type="button" class="tb" data-table="col+" data-needs="table" title="Add a column to the right">+ Col</button>
+						<button type="button" class="tb" data-table="col-" data-needs="table" title="Remove this column">− Col</button>
+						<button type="button" class="tb" data-table="head+" data-needs="table" title="One more header row">+ Header</button>
+						<button type="button" class="tb" data-table="head-" data-needs="table" title="One less header row">− Header</button>
+					</div>
+				</div>
+
+				<div id="canvas" class="canvas">
+					<div id="sheet-wrap" class="sheet-wrap"><article id="sheet" class="sheet" aria-label="Page"></article></div>
+				</div>
+			</main>
+
+			<aside class="panel" aria-label="Settings">
+				<div class="tabs" role="tablist" aria-label="Panels">
+					<button type="button" role="tab" data-tab="inspect" aria-selected="true">Inspect</button>
+					<button type="button" role="tab" data-tab="page" aria-selected="false">Page</button>
+					<button type="button" role="tab" data-tab="fields" aria-selected="false">Fields</button>
+					<button type="button" role="tab" data-tab="json" aria-selected="false">JSON</button>
+					<button type="button" role="tab" data-tab="check" aria-selected="false">Check</button>
+				</div>
+				<div id="panel-body" class="panel-body" role="tabpanel"></div>
+			</aside>
+		</div>
+		<div id="toast" class="toast" role="status" hidden></div>
+	</body>
+</html>

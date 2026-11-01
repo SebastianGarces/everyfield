@@ -1,0 +1,968 @@
+{
+	"format": "everyfield.doc",
+	"formatVersion": 1,
+	"kind": "template",
+	"id": "guest-sign-in-sheet",
+	"version": 1,
+	"origin": null,
+	"meta": {
+		"title": "Guest Sign-in Sheet",
+		"description": "Sign-in sheet for a vision meeting.",
+		"class": "operational"
+	},
+	"page": {
+		"size": "letter",
+		"orientation": "portrait",
+		"margins": {
+			"top": 40,
+			"right": 40,
+			"bottom": 56,
+			"left": 40
+		},
+		"footer": [
+			{
+				"type": "field",
+				"attrs": {
+					"key": "church_name"
+				}
+			},
+			{
+				"type": "text",
+				"text": "  |  Guest sign-in sheet"
+			}
+		]
+	},
+	"theme": {
+		"numberHeadings": false
+	},
+	"fields": [
+		{
+			"key": "church_name",
+			"label": "Church name",
+			"source": "church.name",
+			"type": "text"
+		},
+		{
+			"key": "meeting_date",
+			"label": "Meeting date",
+			"source": "meeting.date",
+			"type": "date"
+		},
+		{
+			"key": "meeting_number",
+			"label": "Meeting number",
+			"source": "meeting.number",
+			"type": "number"
+		}
+	],
+	"body": [
+		{
+			"type": "columns",
+			"attrs": {
+				"gap": 12,
+				"align": "center"
+			},
+			"content": [
+				{
+					"type": "column",
+					"attrs": {
+						"width": 1
+					},
+					"content": [
+						{
+							"type": "logo",
+							"attrs": {
+								"height": 34
+							}
+						}
+					]
+				},
+				{
+					"type": "column",
+					"attrs": {
+						"width": 1
+					},
+					"content": [
+						{
+							"type": "paragraph",
+							"attrs": {
+								"align": "right",
+								"size": "small"
+							},
+							"content": [
+								{
+									"type": "text",
+									"text": "Vision meeting",
+									"marks": [
+										{
+											"type": "tone",
+											"attrs": {
+												"tone": "muted"
+											}
+										},
+										{
+											"type": "caps"
+										},
+										{
+											"type": "bold"
+										}
+									]
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"type": "divider",
+			"attrs": {
+				"weight": "bar",
+				"tone": "accent"
+			}
+		},
+		{
+			"type": "heading",
+			"attrs": {
+				"level": 0
+			},
+			"content": [
+				{
+					"type": "text",
+					"text": "Guest Sign-in Sheet"
+				}
+			]
+		},
+		{
+			"type": "paragraph",
+			"content": [
+				{
+					"type": "text",
+					"text": "Welcome to ",
+					"marks": [
+						{
+							"type": "tone",
+							"attrs": {
+								"tone": "muted"
+							}
+						}
+					]
+				},
+				{
+					"type": "field",
+					"attrs": {
+						"key": "church_name"
+					}
+				},
+				{
+					"type": "text",
+					"text": ". Please sign in so we can thank you and stay in touch.",
+					"marks": [
+						{
+							"type": "tone",
+							"attrs": {
+								"tone": "muted"
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"type": "paragraph",
+			"content": [
+				{
+					"type": "field",
+					"attrs": {
+						"key": "meeting_date",
+						"display": "line",
+						"width": 170
+					}
+				},
+				{
+					"type": "text",
+					"text": "   "
+				},
+				{
+					"type": "field",
+					"attrs": {
+						"key": "meeting_number",
+						"display": "line",
+						"width": 110
+					}
+				}
+			]
+		},
+		{
+			"type": "table",
+			"attrs": {
+				"name": "guest",
+				"columns": [
+					{
+						"key": "n",
+						"width": 26,
+						"align": "center"
+					},
+					{
+						"key": "name",
+						"width": 142
+					},
+					{
+						"key": "email",
+						"width": 162
+					},
+					{
+						"key": "phone",
+						"width": 104
+					},
+					{
+						"key": "invited_by",
+						"width": 98
+					}
+				],
+				"headerRows": 1,
+				"rules": "grid",
+				"zebra": true,
+				"headerFill": "accent",
+				"minRowHeight": 25,
+				"fillable": true
+			},
+			"content": [
+				{
+					"type": "row",
+					"content": [
+						{
+							"type": "cell",
+							"content": [
+								{
+									"type": "text",
+									"text": "#"
+								}
+							]
+						},
+						{
+							"type": "cell",
+							"content": [
+								{
+									"type": "text",
+									"text": "Name"
+								}
+							]
+						},
+						{
+							"type": "cell",
+							"content": [
+								{
+									"type": "text",
+									"text": "Email"
+								}
+							]
+						},
+						{
+							"type": "cell",
+							"content": [
+								{
+									"type": "text",
+									"text": "Phone"
+								}
+							]
+						},
+						{
+							"type": "cell",
+							"content": [
+								{
+									"type": "text",
+									"text": "Who invited you?"
+								}
+							]
+						}
+					]
+				},
+				{
+					"type": "row",
+					"content": [
+						{
+							"type": "cell",
+							"content": [
+								{
+									"type": "text",
+									"text": "1",
+									"marks": [
+										{
+											"type": "tone",
+											"attrs": {
+												"tone": "muted"
+											}
+										}
+									]
+								}
+							]
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						}
+					]
+				},
+				{
+					"type": "row",
+					"content": [
+						{
+							"type": "cell",
+							"content": [
+								{
+									"type": "text",
+									"text": "2",
+									"marks": [
+										{
+											"type": "tone",
+											"attrs": {
+												"tone": "muted"
+											}
+										}
+									]
+								}
+							]
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						}
+					]
+				},
+				{
+					"type": "row",
+					"content": [
+						{
+							"type": "cell",
+							"content": [
+								{
+									"type": "text",
+									"text": "3",
+									"marks": [
+										{
+											"type": "tone",
+											"attrs": {
+												"tone": "muted"
+											}
+										}
+									]
+								}
+							]
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						}
+					]
+				},
+				{
+					"type": "row",
+					"content": [
+						{
+							"type": "cell",
+							"content": [
+								{
+									"type": "text",
+									"text": "4",
+									"marks": [
+										{
+											"type": "tone",
+											"attrs": {
+												"tone": "muted"
+											}
+										}
+									]
+								}
+							]
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						}
+					]
+				},
+				{
+					"type": "row",
+					"content": [
+						{
+							"type": "cell",
+							"content": [
+								{
+									"type": "text",
+									"text": "5",
+									"marks": [
+										{
+											"type": "tone",
+											"attrs": {
+												"tone": "muted"
+											}
+										}
+									]
+								}
+							]
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						}
+					]
+				},
+				{
+					"type": "row",
+					"content": [
+						{
+							"type": "cell",
+							"content": [
+								{
+									"type": "text",
+									"text": "6",
+									"marks": [
+										{
+											"type": "tone",
+											"attrs": {
+												"tone": "muted"
+											}
+										}
+									]
+								}
+							]
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						}
+					]
+				},
+				{
+					"type": "row",
+					"content": [
+						{
+							"type": "cell",
+							"content": [
+								{
+									"type": "text",
+									"text": "7",
+									"marks": [
+										{
+											"type": "tone",
+											"attrs": {
+												"tone": "muted"
+											}
+										}
+									]
+								}
+							]
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						}
+					]
+				},
+				{
+					"type": "row",
+					"content": [
+						{
+							"type": "cell",
+							"content": [
+								{
+									"type": "text",
+									"text": "8",
+									"marks": [
+										{
+											"type": "tone",
+											"attrs": {
+												"tone": "muted"
+											}
+										}
+									]
+								}
+							]
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						}
+					]
+				},
+				{
+					"type": "row",
+					"content": [
+						{
+							"type": "cell",
+							"content": [
+								{
+									"type": "text",
+									"text": "9",
+									"marks": [
+										{
+											"type": "tone",
+											"attrs": {
+												"tone": "muted"
+											}
+										}
+									]
+								}
+							]
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						}
+					]
+				},
+				{
+					"type": "row",
+					"content": [
+						{
+							"type": "cell",
+							"content": [
+								{
+									"type": "text",
+									"text": "10",
+									"marks": [
+										{
+											"type": "tone",
+											"attrs": {
+												"tone": "muted"
+											}
+										}
+									]
+								}
+							]
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						}
+					]
+				},
+				{
+					"type": "row",
+					"content": [
+						{
+							"type": "cell",
+							"content": [
+								{
+									"type": "text",
+									"text": "11",
+									"marks": [
+										{
+											"type": "tone",
+											"attrs": {
+												"tone": "muted"
+											}
+										}
+									]
+								}
+							]
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						}
+					]
+				},
+				{
+					"type": "row",
+					"content": [
+						{
+							"type": "cell",
+							"content": [
+								{
+									"type": "text",
+									"text": "12",
+									"marks": [
+										{
+											"type": "tone",
+											"attrs": {
+												"tone": "muted"
+											}
+										}
+									]
+								}
+							]
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						}
+					]
+				},
+				{
+					"type": "row",
+					"content": [
+						{
+							"type": "cell",
+							"content": [
+								{
+									"type": "text",
+									"text": "13",
+									"marks": [
+										{
+											"type": "tone",
+											"attrs": {
+												"tone": "muted"
+											}
+										}
+									]
+								}
+							]
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						}
+					]
+				},
+				{
+					"type": "row",
+					"content": [
+						{
+							"type": "cell",
+							"content": [
+								{
+									"type": "text",
+									"text": "14",
+									"marks": [
+										{
+											"type": "tone",
+											"attrs": {
+												"tone": "muted"
+											}
+										}
+									]
+								}
+							]
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						}
+					]
+				},
+				{
+					"type": "row",
+					"content": [
+						{
+							"type": "cell",
+							"content": [
+								{
+									"type": "text",
+									"text": "15",
+									"marks": [
+										{
+											"type": "tone",
+											"attrs": {
+												"tone": "muted"
+											}
+										}
+									]
+								}
+							]
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						}
+					]
+				},
+				{
+					"type": "row",
+					"content": [
+						{
+							"type": "cell",
+							"content": [
+								{
+									"type": "text",
+									"text": "16",
+									"marks": [
+										{
+											"type": "tone",
+											"attrs": {
+												"tone": "muted"
+											}
+										}
+									]
+								}
+							]
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						}
+					]
+				},
+				{
+					"type": "row",
+					"content": [
+						{
+							"type": "cell",
+							"content": [
+								{
+									"type": "text",
+									"text": "17",
+									"marks": [
+										{
+											"type": "tone",
+											"attrs": {
+												"tone": "muted"
+											}
+										}
+									]
+								}
+							]
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						}
+					]
+				},
+				{
+					"type": "row",
+					"content": [
+						{
+							"type": "cell",
+							"content": [
+								{
+									"type": "text",
+									"text": "18",
+									"marks": [
+										{
+											"type": "tone",
+											"attrs": {
+												"tone": "muted"
+											}
+										}
+									]
+								}
+							]
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						},
+						{
+							"type": "cell",
+							"content": []
+						}
+					]
+				}
+			]
+		}
+	]
+}
