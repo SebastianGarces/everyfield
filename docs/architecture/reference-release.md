@@ -2,7 +2,7 @@
 
 Global references use immutable reviewed generations and atomic activation. The app installs the living Wiki seed, checksummed in the [Wiki manifest](../reference/wiki/manifest.json) and pinned in the reference package. The [bootstrap manifest](../reference/bootstrap/manifest.json) stays as its unchanged provenance. The [reference inventory](../reference/manifest.json) preserves the original Playbook, rubric and templates. Seven system message templates are distinct from eleven generated-document templates. Original reference bytes remain unchanged.
 
-An operator activates a newly pinned Wiki version on each database with the reference package's Wiki install command, described in the [Wiki README](../reference/wiki/README.md). A rerun is a no-op once that version is active.
+An operator activates a newly pinned Wiki version on each database with the reference package's [Wiki install command](../../packages/reference/src/starter/verify/cli.ts), whose header gives the development and production usage. A rerun is a no-op once that version is active. After each promotion, rerun the [pin script](../../packages/reference/src/starter/manifest/pin.mjs) with --write and commit the new pins. Its --check run in the unit tests fails on drift.
 
 Editorial conflict with the authoritative SME rubric/Playbook requires content-owner resolution before activation. Accepted starter inventory does not authorize rewriting methodology. Customer records, private organization content, reader state, credentials and unversioned vectors are excluded from bootstrap. There is no customer migration requirement.
 
