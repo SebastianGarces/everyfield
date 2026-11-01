@@ -252,8 +252,8 @@ function deployCheckout(
 	}
 }
 
-const age = (from: string, now = Date.now()) => {
-	const minutes = Math.max(0, Math.floor((now - Date.parse(from)) / 60_000));
+const age = (from: string) => {
+	const minutes = Math.max(0, Math.floor((Date.now() - Date.parse(from)) / 60_000));
 	if (minutes < 60) return `${minutes}m`;
 	const hours = Math.floor(minutes / 60);
 	return hours < 48 ? `${hours}h ${minutes % 60}m` : `${Math.floor(hours / 24)}d ${hours % 24}h`;
