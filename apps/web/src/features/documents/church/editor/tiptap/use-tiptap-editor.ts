@@ -40,5 +40,8 @@ export function useTiptapEditor(providedEditor?: Editor | null): {
 		},
 	});
 
-	return editorState || { editor: null };
+	// Everyfield change: return the editor itself. The state above only subscribes this component to transactions. Its
+	// server snapshot is `{ editor: null }`, which hydration renders first, so buttons that read the editor on render
+	// stayed hidden until the first transaction.
+	return { ...editorState, editor: mainEditor || null };
 }
