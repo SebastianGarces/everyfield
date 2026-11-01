@@ -285,7 +285,7 @@ export function qaDown(root: string, id: string): number {
 		tool(redactor, "vercel", ["remove", row.deployment, "--yes", "--scope", VERCEL.orgId], { allow: NOT_FOUND });
 		removed.push("alias", "deployment");
 	}
-	const branch = neonBranches(redactor).find((b) => b.name === (row?.neon_branch ?? id));
+	const branch = neonBranches(redactor).find((b) => b.name === id);
 	if (branch) {
 		neon(redactor, "branches", "delete", branch.id);
 		removed.push(`Neon branch ${branch.name}`);
