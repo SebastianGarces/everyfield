@@ -56,3 +56,9 @@ After human approval in chat or a PR comment, the coordinator runs
 It requires passing lint, a passed claim check and draft bytes identical to the reviewed commit;
 it updates the seed and manifest release log and deletes the draft. `bin/wiki check-seed`
 checks the result. Commit promotion in the article PR; Sebastian merges after Opus review.
+The app installs the living seed through the pins in `packages/reference/src/starter/manifest/approved.ts`.
+After promotion, run `node packages/reference/src/starter/manifest/pin.mjs --write` and commit the new pins in the same PR.
+After merge, `corepack pnpm --filter @everyfield/reference wiki:install` activates the new version on a database.
+Without flags it writes only the shared development database; `--schema <ui_schema>` targets a `tests/ui` seed schema.
+On production an operator runs it with `--production --operator <account-id>`, using an account that holds `reference_publish`.
+A rerun is a no-op once that version is active.

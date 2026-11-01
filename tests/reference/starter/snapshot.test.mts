@@ -1,9 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { loadStarter } from "../../../packages/reference/src/starter.ts";
-import { validateBundle } from "../../../packages/reference/src/bundle.ts";
+import { packageStarter, validateBundle } from "../../../packages/reference/src/bundle.ts";
 import { hash, vectorHash } from "../../../packages/reference/src/hash.ts";
-import { approvedWiki } from "../../../packages/reference/src/starter/manifest/approved.ts";
+import { approvedSource, approvedWiki } from "../../../packages/reference/src/starter/manifest/approved.ts";
 import { localEmbedding, resolveWikiEmbedding } from "../../../packages/reference/src/starter/verify/embed.ts";
 import { wikiBundle, wikiPolicy } from "../../../packages/reference/src/starter/verify/generation.ts";
 import { EmbeddingRefusal } from "../../../packages/reference/src/starter/verify/openai.ts";
@@ -13,7 +14,7 @@ import {
 	WikiRefusal,
 } from "../../../packages/reference/src/starter/verify/snapshot.ts";
 
-test("INV-wiki-snapshot: approved bootstrap bytes match the recorded checksums and stay separate from document templates", async () => {
+test("INV-wiki-snapshot: approved living seed bytes match the recorded checksums and stay separate from document templates", async () => {
 	const snapshot = await loadApprovedSnapshot();
 	assert.equal(snapshot.articles.length, approvedWiki.articles);
 	assert.equal(snapshot.sections.length, approvedWiki.sections);
@@ -46,7 +47,7 @@ test("INV-wiki-snapshot: approved bootstrap bytes match the recorded checksums a
 		},
 		[],
 	);
-	const report = validateBundle(bundle, wikiPolicy(bundle, true));
+	const report = validateBundle(bundle, wikiPolicy(snapshot.source, bundle, true));
 	assert.equal(report.ok, true, report.blockers.join(","));
 	assert.equal(bundle.entries.filter((entry) => entry.kind === "article").length, approvedWiki.articles);
 	assert.equal(
@@ -54,6 +55,34 @@ test("INV-wiki-snapshot: approved bootstrap bytes match the recorded checksums a
 		false,
 	);
 	assert.equal(bundle.passages.length, 0);
+});
+
+type SeedFile = { articles: { slug: string; content: string }[]; sections: unknown[]; templates: unknown[] };
+const livingSeed = async (): Promise<SeedFile> =>
+	JSON.parse(await readFile(new URL("../../../docs/reference/wiki/seed.json", import.meta.url), "utf8")) as SeedFile;
+
+test("WP-033 criterion 9: the pins and every packaged Wiki row follow the living seed, never the bootstrap payload", async () => {
+	const snapshot = await loadApprovedSnapshot();
+	const living = await livingSeed();
+	assert.equal(approvedSource.payloadPath, "docs/reference/wiki/seed.json");
+	assert.equal(approvedSource.manifestPath, "docs/reference/wiki/manifest.json");
+	assert.deepEqual(
+		[approvedSource.articles, approvedSource.sections, approvedSource.systemTemplates],
+		[living.articles.length, living.sections.length, living.templates.length],
+	);
+	assert.deepEqual(
+		snapshot.articles.map((article) => [article.slug, article.content]).sort(),
+		living.articles.map((article) => [article.slug, article.content]).sort(),
+	);
+	assert.ok(snapshot.articles.some((article) => article.slug === "administrative/legal/getting-your-churchs-ein"));
+	const entries = packageStarter(await loadStarter(), snapshot);
+	const sourcePaths = new Set(entries.map((entry) => entry.sourcePath));
+	assert.equal(
+		[...sourcePaths].some((path) => path.startsWith("docs/reference/bootstrap/")),
+		false,
+	);
+	for (const entry of entries.filter((row) => ["article", "section", "mail_template"].includes(row.kind)))
+		assert.deepEqual([entry.sourcePath, entry.sourceHash], [approvedSource.payloadPath, approvedSource.payloadSha256]);
 });
 
 test("INV-wiki-embedding: an OpenAI key stays unused until EVF_WIKI_EMBEDDINGS=openai", async () => {
