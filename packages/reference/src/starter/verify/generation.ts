@@ -7,14 +7,17 @@ import type {
 } from "@everyfield/contracts/reference";
 import type { ValidationPolicy } from "../../bundle.ts";
 import { canonical, hash, stableId } from "../../hash.ts";
-import { approvedWiki } from "../manifest/approved.ts";
+import type { WikiSource } from "../manifest/approved.ts";
 import type { ApprovedSnapshot } from "./snapshot.ts";
 import { WikiRefusal } from "./snapshot.ts";
 
-export function wikiEntries(snapshot: ApprovedSnapshot, release: string): ReferenceEntry[] {
-	const sourcePath = approvedWiki.payloadPath;
-	const sourceHash = approvedWiki.payloadSha256;
-	const rows: ReferenceEntry[] = [];
+export type WikiRecord = Omit<ReferenceEntry, "revisionId">;
+
+/** The Wiki rows of a snapshot. Each caller sets its own revision id. */
+export function wikiRecords(snapshot: ApprovedSnapshot): WikiRecord[] {
+	const sourcePath = snapshot.source.payloadPath;
+	const sourceHash = snapshot.source.payloadSha256;
+	const rows: WikiRecord[] = [];
 	for (const section of snapshot.sections) {
 		const body = canonical({
 			id: section.id,
@@ -27,7 +30,6 @@ export function wikiEntries(snapshot: ApprovedSnapshot, release: string): Refere
 		const contentHash = hash(body);
 		rows.push({
 			id: section.id,
-			revisionId: stableId(`${release}:${section.id}:${contentHash}`),
 			kind: "section",
 			key: section.id,
 			body,
@@ -56,7 +58,6 @@ export function wikiEntries(snapshot: ApprovedSnapshot, release: string): Refere
 		const contentHash = hash(body);
 		rows.push({
 			id: article.id,
-			revisionId: stableId(`${release}:${article.id}:${contentHash}`),
 			kind: "article",
 			key: article.id,
 			body,
@@ -82,7 +83,6 @@ export function wikiEntries(snapshot: ApprovedSnapshot, release: string): Refere
 		const contentHash = hash(body);
 		rows.push({
 			id,
-			revisionId: stableId(`${release}:${id}:${contentHash}`),
 			kind: "mail_template",
 			key: template.name,
 			body,
@@ -95,6 +95,13 @@ export function wikiEntries(snapshot: ApprovedSnapshot, release: string): Refere
 	return rows.sort((left, right) => left.id.localeCompare(right.id, "en"));
 }
 
+export function wikiEntries(snapshot: ApprovedSnapshot, release: string): ReferenceEntry[] {
+	return wikiRecords(snapshot).map((row) => ({
+		...row,
+		revisionId: stableId(`${release}:${row.id}:${row.contentHash}`),
+	}));
+}
+
 export function wikiBundle(
 	snapshot: ApprovedSnapshot,
 	release: string,
@@ -104,8 +111,8 @@ export function wikiBundle(
 	const parsed = generation.safeParse({
 		version: 1,
 		key: release,
-		sourceManifestSha256: approvedWiki.manifestSha256,
-		catalogSha256: approvedWiki.payloadSha256,
+		sourceManifestSha256: snapshot.source.manifestSha256,
+		catalogSha256: snapshot.source.payloadSha256,
 		profile,
 		discoveryIds: [...snapshot.discoveryIds],
 		entries: wikiEntries(snapshot, release),
@@ -115,11 +122,15 @@ export function wikiBundle(
 	return parsed.data;
 }
 
-export function wikiPolicy(bundle: ReferenceGeneration, deferDerivatives: boolean): ValidationPolicy {
+export function wikiPolicy(
+	source: WikiSource,
+	bundle: ReferenceGeneration,
+	deferDerivatives: boolean,
+): ValidationPolicy {
 	return {
 		identities: {
-			sourceManifestSha256: approvedWiki.manifestSha256,
-			catalogSha256: approvedWiki.payloadSha256,
+			sourceManifestSha256: source.manifestSha256,
+			catalogSha256: source.payloadSha256,
 		},
 		plan: {
 			profile: bundle.profile,
