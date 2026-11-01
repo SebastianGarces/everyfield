@@ -1,0 +1,27 @@
+[
+	{
+		"text": "what households do we have?",
+		"operation": "people.listHouseholds",
+		"noSearch": true,
+		"rubric": {
+			"namesHousehold": "Okafor",
+			"saysCount": "1 household",
+			"notWithheld": "No withheld, unavailable or missing-row wording"
+		}
+	},
+	{
+		"text": "what households do we have across all our people?",
+		"operation": "people.listHouseholds",
+		"noSearch": true
+	},
+	{
+		"text": "show me the Okafor household",
+		"operation": "people.getHousehold",
+		"alsoAccepted": ["people.listHouseholds"]
+	},
+	{
+		"text": "who is in James Okafor's household?",
+		"operation": "people.getHouseholdMembers",
+		"alsoAccepted": ["people.getHousehold"]
+	}
+]
