@@ -146,7 +146,7 @@ function storeAtFour(path: string) {
 	const dir = join(source, "tools/evf/db/migrations");
 	for (const file of readdirSync(dir).sort().slice(0, 4)) {
 		db.exec(readFileSync(join(dir, file), "utf8"));
-		db.prepare("INSERT INTO schema_version VALUES (?, ?, ?)").run(Number(file.slice(0, 3)), file, iso(0));
+		db.prepare("INSERT INTO schema_version VALUES (?, ?, ?)").run(Number(file.slice(0, 3)), file.slice(4, -4), iso(0));
 	}
 	return db;
 }
@@ -172,7 +172,7 @@ test("OPS-100-migration: 005 closes orphan evf runs of merged tasks, adds the th
 		ev.run(1, iso(3 * DAY - 1000), "stage_end");
 		ev.run(3, iso(1000), "owner_approval_wait");
 
-		assert.equal(migrate(db).version, 6);
+		assert.equal(migrate(db).version, 8);
 		const run10 = db.prepare("SELECT status, summary FROM runs WHERE id = 10").get();
 		assert.deepEqual({ ...run10 }, { status: "passed", summary: `WP-097 merged as ${SHA.slice(0, 10)}` });
 		assert.equal((db.prepare("SELECT status FROM runs WHERE id = 11").get() as { status: string }).status, "started");
@@ -186,7 +186,7 @@ test("OPS-100-migration: 005 closes orphan evf runs of merged tasks, adds the th
 		assert.deepEqual({ ...(view(3) as object) }, { last_event: "owner_approval_wait", merged_at: null, ref_rows: 1 });
 
 		const snapshot = JSON.stringify(db.prepare("SELECT * FROM runs ORDER BY id").all());
-		assert.deepEqual(migrate(db), { version: 6, applied: [] });
+		assert.deepEqual(migrate(db), { version: 8, applied: [] });
 		assert.equal(JSON.stringify(db.prepare("SELECT * FROM runs ORDER BY id").all()), snapshot);
 		db.close();
 	} finally {

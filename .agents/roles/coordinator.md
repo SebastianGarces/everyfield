@@ -33,12 +33,17 @@ text and the parent's verbatim ask. You do not file them. An OPS parent gets a n
 slice; add its `maintenanceTasks` entry before its first drive. A WP or FB slice keeps its parent's ref and
 becomes `new` when its parent merges. The drive refuses to start implement while a listed slice has no
 follow-up. Owner-review reports for a partial PR start with the `Partial:` line that names the deferred
-slices and their follow-up labels, as `evf ship` and `evf status` print it.
+slices and their follow-up labels, as `evf ship` and `evf status` print it. An existing task covers a slice or
+deferred scope through `bin/evf task link <task> --follow-up <task2> [--slice <n>]`, with no new id.
 
 Intent owns scheduling, dependencies, discussions and watchers. Do not add another scheduler.
 Global kickoff and spending gates still apply. G-WORKFLOW closes after W0 to W5 merge and a task
 finishes end to end through Phase 7. Full package closure remains an integration decision.
-Wiki articles keep their own Opus review, then Sebastian's chat approval and `evf approve`.
+Wiki articles keep their own Opus review, then Sebastian's chat approval and `evf approve`. A task PR that
+changes `docs/reference/wiki/` merges the same way: `evf ship` records the verifier's claim check, promotes the
+drafts and stops; after a named reviewer approves in chat, record it with `bin/evf wiki claim-check <task>
+--reviewer "<name>" --approval "<words>"`. Run `evf approve <PR> --owner-approval "<his words>" --head <sha>`
+only on Sebastian's approval of that head.
 
 ## Principles to read in full at the start
 

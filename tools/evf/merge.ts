@@ -14,6 +14,7 @@ import {
 	type TaskRef,
 } from "./lib.ts";
 import { DEFAULT_DOCUMENT_TEMPLATES } from "./policy.ts";
+import { WIKI_PREFIX } from "./wiki.ts";
 
 /**
  * The one place evf merges a pull request (OPS-83). `evf ship` and `evf approve` both call `mergePullRequest`;
@@ -24,6 +25,8 @@ import { DEFAULT_DOCUMENT_TEMPLATES } from "./policy.ts";
  * 2. A PR in the document-template class (mergePolicy.documentTemplates, classified on the exact sha being
  *    merged, from the base branch's config) merges only with Sebastian's recorded approval for that head.
  *    Any doubt about the class counts as the class.
+ * 3. A PR whose exact-head diff changes Wiki content (any path under docs/reference/wiki/, OPS-109) merges only with
+ *    his recorded approval for that head too. Doubt holds it under rule 2.
  */
 
 /** The evf code a process runs: the git trees of tools/evf and bin/evf, as they were when the process loaded it. */
@@ -85,6 +88,25 @@ function staleCode(root: string, cfg: Config, fetchError = fetchBase(root, cfg))
 
 export type TemplateClass = { paths: string[]; doubt?: string };
 
+/** The paths the PR at exactly `sha` changes against its merge base with the base branch, or why that is unknown. */
+function changedPaths(root: string, cfg: Config, sha: string, fetchError: string | undefined): TemplateClass {
+	const doubt = (why: string): TemplateClass => ({ paths: [], doubt: why });
+	if (!/^[0-9a-f]{40}$/.test(sha)) return doubt(`the head to merge is not a full commit sha (${JSON.stringify(sha)})`);
+	if (fetchError) return doubt(fetchError);
+	const base = baseRef(root, cfg);
+	if (run("git", ["-C", root, "cat-file", "-e", `${sha}^{commit}`]).code !== 0)
+		return doubt(`commit ${sha.slice(0, 10)} is not in the repository`);
+	const mergeBase = run("git", ["-C", root, "merge-base", base, sha]);
+	if (mergeBase.code !== 0 || !mergeBase.stdout.trim())
+		return doubt(
+			`git merge-base ${base} ${sha.slice(0, 10)} failed: ${mergeBase.stderr.trim() || "no common ancestor"}`,
+		);
+	// --no-renames counts both sides of a rename.
+	const diff = run("git", ["-C", root, "diff", "--name-only", "--no-renames", mergeBase.stdout.trim(), sha]);
+	if (diff.code !== 0) return doubt(`git diff to ${sha.slice(0, 10)} failed: ${diff.stderr.trim()}`);
+	return { paths: diff.stdout.split("\n").filter(Boolean) };
+}
+
 /**
  * Whether the PR at exactly `sha` is in the document-template class, decided from the base branch's config and
  * the whole diff from the merge base, so splitting a change across commits never leaves it. `evf ship`, `evf approve`
@@ -96,30 +118,26 @@ export function templateClass(
 	sha: string,
 	fetchError = fetchBase(root, cfg),
 ): TemplateClass {
-	const doubt = (why: string): TemplateClass => ({ paths: [], doubt: why });
-	if (!/^[0-9a-f]{40}$/.test(sha)) return doubt(`the head to merge is not a full commit sha (${JSON.stringify(sha)})`);
-	if (fetchError) return doubt(fetchError);
+	const changed = changedPaths(root, cfg, sha, fetchError);
+	if (changed.doubt) return changed;
 	const base = baseRef(root, cfg);
-	if (run("git", ["-C", root, "cat-file", "-e", `${sha}^{commit}`]).code !== 0)
-		return doubt(`commit ${sha.slice(0, 10)} is not in the repository`);
 	let entries: string[];
 	try {
 		entries = (committedConfig(root, base).mergePolicy.documentTemplates ?? DEFAULT_DOCUMENT_TEMPLATES).paths;
 	} catch (e) {
 		if (!(e instanceof EvfError) && !(e instanceof SyntaxError)) throw e;
-		return doubt(`the ${base} evf.config.json is unreadable: ${e.message}`);
+		return { paths: [], doubt: `the ${base} evf.config.json is unreadable: ${e.message}` };
 	}
-	const mergeBase = run("git", ["-C", root, "merge-base", base, sha]);
-	if (mergeBase.code !== 0 || !mergeBase.stdout.trim())
-		return doubt(
-			`git merge-base ${base} ${sha.slice(0, 10)} failed: ${mergeBase.stderr.trim() || "no common ancestor"}`,
-		);
-	const diff = run("git", ["-C", root, "diff", "--name-only", "--no-renames", mergeBase.stdout.trim(), sha]);
-	if (diff.code !== 0) return doubt(`git diff to ${sha.slice(0, 10)} failed: ${diff.stderr.trim()}`);
-	// An entry that ends in `/` matches every path under it; any other entry matches one file. --no-renames counts both sides of a rename.
+	// An entry that ends in `/` matches every path under it; any other entry matches one file.
 	const matches = (path: string) =>
 		entries.some((entry) => (entry.endsWith("/") ? path.startsWith(entry) : path === entry));
-	return { paths: diff.stdout.split("\n").filter((path) => path && matches(path)) };
+	return { paths: changed.paths.filter(matches) };
+}
+
+/** The Wiki-content paths (D-a: under docs/reference/wiki/) the PR at exactly `sha` changes, decided as templateClass does. */
+export function wikiClass(root: string, cfg: Config, sha: string, fetchError = fetchBase(root, cfg)): TemplateClass {
+	const changed = changedPaths(root, cfg, sha, fetchError);
+	return changed.doubt ? changed : { paths: changed.paths.filter((path) => path.startsWith(WIKI_PREFIX)) };
 }
 
 /** Sebastian's words for one PR and one exact head. Only `evf approve --owner-approval` builds it. */
@@ -136,18 +154,27 @@ type MergeRequest = {
 	ownerApproval?: OwnerApproval;
 };
 
-/** Why a PR is held as a template PR: up to five matched paths, a count when there are more, or the doubt. */
+/** Up to five matched paths in parentheses, and a count when there are more. */
+const shown = (paths: string[]) =>
+	`(${paths.slice(0, 5).join(", ")})${paths.length > 5 ? ` (${paths.length} paths in all)` : ""}`;
+
+/** Why a PR is held as a template PR: the matched paths (shown) or the doubt. */
 export function templateWhy({ paths, doubt }: TemplateClass): string {
-	const shown = paths.slice(0, 5).join(", "),
-		more = paths.length > 5 ? ` (${paths.length} paths in all)` : "";
 	return doubt
 		? `evf cannot tell whether it changes document templates (${doubt}), so it holds it as if it did`
-		: `it changes document-template paths (${shown})${more}`;
+		: `it changes document-template paths ${shown(paths)}`;
 }
+
+/** Why a task PR is held as Wiki content. */
+export const wikiWhy = ({ paths }: TemplateClass): string => `it changes Wiki content ${shown(paths)}`;
 
 /** The command that records Sebastian's approval for a held PR. */
 export const approveCommand = (number: number): string =>
 	`Sebastian approves each document-template PR; after his approval in chat, run: bin/evf approve ${number} --owner-approval "<his words>"`;
+
+/** The command that records Sebastian's approval for a held Wiki-content task PR, bound to its head. */
+export const wikiApproveCommand = (number: number, head: string): string =>
+	`Sebastian approves each Wiki change; after his approval in chat, run: bin/evf approve ${number} --owner-approval "<his words>" --head ${head}`;
 
 /** Every PR merge in tools/evf. Refusals throw EvfError before gh runs; a gh failure returns its result. */
 export function mergePullRequest(req: MergeRequest): RunResult {
@@ -155,10 +182,17 @@ export function mergePullRequest(req: MergeRequest): RunResult {
 	const fetchError = fetchBase(root, cfg);
 	const stale = staleCode(root, cfg, fetchError);
 	if (stale) fail(`evf does not merge PR #${number}: ${stale}`);
-	const cls = templateClass(root, cfg, sha, fetchError);
-	if (cls.doubt || cls.paths.length) {
+	const cls = templateClass(root, cfg, sha, fetchError),
+		wiki = cls.doubt ? cls : wikiClass(root, cfg, sha, fetchError);
+	const held =
+		cls.doubt || cls.paths.length
+			? `${templateWhy(cls)}. ${approveCommand(number)}`
+			: wiki.paths.length
+				? `${wikiWhy(wiki)}. ${wikiApproveCommand(number, sha)}`
+				: undefined;
+	if (held) {
 		if (!ownerApproval || ownerApproval.quote.trim().split(/\s+/).filter(Boolean).length < 2)
-			fail(`evf does not merge PR #${number}: ${templateWhy(cls)}. ${approveCommand(number)}`);
+			fail(`evf does not merge PR #${number}: ${held}`);
 		if (ownerApproval.approved_head !== sha)
 			fail(
 				`evf does not merge PR #${number}: Sebastian approved ${ownerApproval.approved_head.slice(0, 10)}, not ${sha.slice(0, 10)}. His approval does not carry over to a new head.`,

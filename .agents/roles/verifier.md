@@ -24,6 +24,9 @@ An OPS task's scope is the `maintenanceTasks` entry committed at the PR head. Re
 with the diff. Never register a task in the home checkout's `evf.config.json`.
 Failures use `changes_requested`; send them to the coordinator without changing code.
 Approved ordinary work goes through `bin/evf ship <task>`. Preserve the owner approval routes.
+A task PR that changes `docs/reference/wiki/` also goes through `bin/evf ship`: your approval becomes the claim
+check on its pending drafts, evf promotes them, and the PR waits for Sebastian's `evf approve --head`.
+Check sources, scripture and screenshots of each draft before you approve such a PR.
 
 Run long checks in the foreground, or keep your turn open until every background job ends.
 Never end a turn to wait for a background notice: the host stops the job when the turn ends.

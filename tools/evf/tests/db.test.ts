@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { fixture, source } from "./fixtures.ts";
@@ -10,7 +10,10 @@ import { evfDataDir } from "../lib.ts";
 const cli = (cwd: string, ...args: string[]) =>
 	spawnSync(process.execPath, [join(source, "tools/evf/main.ts"), ...args], { cwd, encoding: "utf8" });
 const sha = (c: string) => c.repeat(40);
-const LATEST = 6; // migrations in tools/evf/db/migrations
+const LATEST = 8; // highest migration number in tools/evf/db/migrations
+// Numbers may have gaps (the shared store applies what it lacks, as D78 does for packages/db), so the store holds
+// one row per migration file, not LATEST rows.
+const FILES = readdirSync(join(source, "tools/evf/db/migrations")).filter((f) => /^\d{3}-.*\.sql$/.test(f)).length;
 
 test("OPS-57-store: the work store migrates from empty under the Git common dir, exposes the views and migrates once", () => {
 	const f = fixture();
@@ -41,7 +44,7 @@ test("OPS-57-store: the work store migrates from empty under the Git common dir,
 		assert.deepEqual(migrate(db), { version: LATEST, applied: [] });
 		db.close();
 		const again = openWorkDb(f.root);
-		assert.equal((again.prepare("SELECT COUNT(*) AS n FROM schema_version").get() as { n: number }).n, LATEST);
+		assert.equal((again.prepare("SELECT COUNT(*) AS n FROM schema_version").get() as { n: number }).n, FILES);
 		again.close();
 		// The CLI resolves the home root through git, which returns the real path of a symlinked temp dir.
 		assert.equal(cli(f.root, "db", "path").stdout.trim(), realpathSync(path));
@@ -79,10 +82,10 @@ test("OPS-57-fresh: several processes open a new store at once and each migratio
 		for (const r of results) assert.equal(r.code, 0, r.err);
 		assert.deepEqual(
 			results.map((r) => r.out),
-			Array(5).fill(String(LATEST)),
+			Array(5).fill(String(FILES)),
 		);
 		const db = openWorkDb(f.root, { readOnly: true });
-		assert.equal((db.prepare("SELECT COUNT(*) AS n FROM schema_version").get() as { n: number }).n, LATEST);
+		assert.equal((db.prepare("SELECT COUNT(*) AS n FROM schema_version").get() as { n: number }).n, FILES);
 		assert.equal((db.prepare("PRAGMA journal_mode").get() as { journal_mode: string }).journal_mode, "wal");
 		db.close();
 	} finally {

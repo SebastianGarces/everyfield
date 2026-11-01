@@ -59,21 +59,26 @@ test("OPS-81-migration: schema 3 reaches 4, keeps every row and a second run cha
 	// Build a schema 3 store with the first three migrations, then add a row.
 	for (const file of dir.slice(0, 3)) {
 		db.exec(readFileSync(join(source, "tools/evf/db/migrations", file), "utf8"));
-		db.prepare("INSERT INTO schema_version VALUES (?, ?, ?)").run(Number(file.slice(0, 3)), file, "t");
+		db.prepare("INSERT INTO schema_version VALUES (?, ?, ?)").run(Number(file.slice(0, 3)), file.slice(4, -4), "t");
 	}
 	db.prepare(
 		"INSERT INTO tasks (slug, mode, ref, title, status, created_at, updated_at) VALUES ('ops-9', 'implement', 'OPS-9', 'kept', 'active', 't', 't')",
 	).run();
 	assert.deepEqual(migrate(db), {
-		version: 6,
-		applied: ["004-task-seat-override.sql", "005-merged-views.sql", "006-task-follow-ups.sql"],
+		version: 8,
+		applied: [
+			"004-task-seat-override.sql",
+			"005-merged-views.sql",
+			"006-task-follow-ups.sql",
+			"008-follow-up-links.sql",
+		],
 	});
 	assert.deepEqual(
 		{ ...(db.prepare("SELECT ref, title, status, seat_model, seat_effort FROM tasks").get() as object) },
 		{ ref: "OPS-9", title: "kept", status: "active", seat_model: null, seat_effort: null },
 	);
 	assert.ok("seat_model" in (db.prepare("SELECT * FROM v_tasks").get() as object));
-	assert.deepEqual(migrate(db), { version: 6, applied: [] });
+	assert.deepEqual(migrate(db), { version: 8, applied: [] });
 	db.close();
 });
 
