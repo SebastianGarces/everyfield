@@ -41,7 +41,6 @@ const state = {
 	savedRange: null,
 	checkReport: null,
 };
-const clone = (v) => JSON.parse(JSON.stringify(v));
 const doc = () => state.entries.get(state.current).doc;
 const getAt = (root, path) => path.reduce((v, k) => v?.[k], root);
 const keyOf = (path) => path.join(".");
@@ -131,7 +130,7 @@ function sliceContent(content, start, end) {
 	let pos = 0;
 	for (const n of splitAt(content, [start, end])) {
 		const len = unitLen(n);
-		if (pos >= start && pos + len <= end && len > 0) out.push(clone(n));
+		if (pos >= start && pos + len <= end && len > 0) out.push(structuredClone(n));
 		pos += len;
 	}
 	return normalize(out);
@@ -1050,7 +1049,7 @@ function liftOut(d, path) {
 		const rest = item.content.slice(j + 1);
 		const before = [...list.content.slice(0, itemIdx), ...(keep.length ? [{ ...item, content: keep }] : [])];
 		const after = list.content.slice(itemIdx + 1);
-		const mk = (items) => ({ type: "list", ...(list.attrs ? { attrs: clone(list.attrs) } : {}), content: items });
+		const mk = (items) => ({ type: "list", ...(list.attrs ? { attrs: structuredClone(list.attrs) } : {}), content: items });
 		const arrPath = listPath.slice(0, -1);
 		const arr = getAt(d, arrPath);
 		arr.splice(listPath.at(-1), 1, ...(before.length ? [mk(before)] : []), para, ...rest, ...(after.length ? [mk(after)] : []));
@@ -1137,7 +1136,7 @@ function splitBlock(leafEl) {
 	mutate((dd) => {
 		const n = getAt(dd, path);
 		n.content = before;
-		const fresh = n.type === "heading" ? P(after) : { type: "paragraph", ...(n.attrs ? { attrs: clone(n.attrs) } : {}), content: after };
+		const fresh = n.type === "heading" ? P(after) : { type: "paragraph", ...(n.attrs ? { attrs: structuredClone(n.attrs) } : {}), content: after };
 		getAt(dd, arrPath).splice(i + 1, 0, fresh);
 	}, next, { path: next, at: 0 });
 }
@@ -1196,7 +1195,7 @@ function indentItem(outdent) {
 			const [item] = list.content.splice(k, 1);
 			let sub = prev.content.at(-1);
 			if (sub?.type !== "list") {
-				sub = { type: "list", ...(list.attrs ? { attrs: clone(list.attrs) } : {}), content: [] };
+				sub = { type: "list", ...(list.attrs ? { attrs: structuredClone(list.attrs) } : {}), content: [] };
 				prev.content.push(sub);
 			}
 			sub.content.push(item);

@@ -479,7 +479,7 @@ export function validate(doc) {
 // sum(above) adds the number and formula cells straight above, up to the first text cell or the header.
 // It is Word's =SUM(ABOVE) and an Excel SUM over the same range, so all three outputs agree.
 
-export function parseFormula(src) {
+function parseFormula(src) {
 	const tokens = [];
 	const re = /\s*(?:(\d+(?:\.\d+)?)|@([a-z][a-z0-9_]*)|([a-z]+)|([-+*/(),]))/gy;
 	let m;
@@ -674,17 +674,15 @@ export function formatNumber(value, format) {
 // ---------------------------------------------------------------------------------------------------------------
 // Fork, wipe and fill
 
-const clone = (v) => JSON.parse(JSON.stringify(v));
-
 /** A document made from a template: a full copy. It never follows later template changes. */
 export function fork(template, id) {
 	if (template.kind !== "template") throw new Error("only a template can be forked into a document");
-	return { ...clone(template), kind: "document", id, version: 1, origin: { template: template.id, version: template.version } };
+	return { ...structuredClone(template), kind: "document", id, version: 1, origin: { template: template.id, version: template.version } };
 }
 
 /** Delete all content. The envelope (title, class, page setup, field list) stays; nothing in the body is locked. */
 export function wipe(doc) {
-	const next = clone(doc);
+	const next = structuredClone(doc);
 	next.body = [];
 	if (next.page.footer) next.page.footer = [];
 	return next;

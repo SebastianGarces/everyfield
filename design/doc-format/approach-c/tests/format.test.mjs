@@ -1,4 +1,4 @@
-// Behavior tests for the approach-C format module. No install: node --test design/doc-format/approach-c/tests/
+// Behavior tests for the approach-C format module. No install: node --test design/doc-format/approach-c/tests/format.test.mjs
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { test } from "node:test";
