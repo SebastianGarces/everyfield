@@ -352,7 +352,7 @@ test("AC:DOC-EDIT-ACTIONS: every editing action is checked with Undo and Redo on
 				await button(page, "Delete block").click();
 			});
 			// Later-slice blocks move and delete as whole blocks.
-			await checked(page, "move a later-slice block down", async () => {
+			await checked(page, "move a later-slice block up", async () => {
 				await page.locator(".ef-block[data-ef-node=table]").click();
 				await button(page, "Move block up").click();
 			});
