@@ -22,6 +22,7 @@ import {
 } from "./feedback.ts";
 import { listShipped, prOpen, ship, checkPr } from "./ship.ts";
 import { approve } from "./approve.ts";
+import { wikiClaimCheck } from "./wiki.ts";
 import { debugCmd, stack, taskStart } from "./task.ts";
 import { requireVerifiedHead, verify } from "./verify.ts";
 import { migrationsRenumber } from "./migrations.ts";
@@ -82,6 +83,10 @@ Verification (verifier)
         database, with the SELECT 1 (and, for saves, write) probe; labels, replaces, passes or fails
   evf pre-push <task>                                        require full exact-head author checks
   evf ship <task>                           report status and squash-merge
+        a task PR that changes docs/reference/wiki/ is held: evf records the verifier's claim check on pending
+        drafts, runs bin/wiki promote, pushes, posts evf/verify and names evf approve with the resulting head
+  evf wiki claim-check <task> --reviewer "<name>" --approval "<words>"
+        a named reviewer's claim check on every pending draft of the task: one commit, pushed
 
 Feedback desk (public feedback repo)
   evf feedback queue [--json]                                 intake, due backlog and recovery
@@ -92,8 +97,9 @@ Feedback desk (public feedback repo)
 
 Human approval (only after Sebastian approves that PR in chat)
   evf approve <PR> --owner-approval "<his words>" [--head <sha>]
-                          Wiki articles, prototypes, feedback P2/P3, design tasks and document-template PRs
-                          (mergePolicy.documentTemplates): record his approval and squash-merge
+                          Wiki articles, prototypes, feedback P2/P3, design tasks, document-template PRs
+                          (mergePolicy.documentTemplates) and Wiki-content task PRs after evf ship promoted
+                          their drafts: record his approval and squash-merge
 
 IDs (coordinator)
   evf id next ops|decision                                    reserve the next OPS-n or Dn on the remote and print it
@@ -258,6 +264,12 @@ function main(argv: string[]): number | Promise<number> {
 			if (!Number.isInteger(n) || n <= 0)
 				throw new EvfError('Give the PR number: evf approve <PR> --owner-approval "<his words>"');
 			return approve(root, n, { ownerApproval: option(args, "--owner-approval"), head: option(args, "--head") });
+		}
+		case "wiki": {
+			const reviewer = option(args, "--reviewer"),
+				approval = option(args, "--approval");
+			if (args[0] !== "claim-check" || args.length !== 2) break;
+			return wikiClaimCheck(root, parseTask(args[1]), { reviewer, approval });
 		}
 		case "principles": {
 			const apply = flag(args, "--apply"),

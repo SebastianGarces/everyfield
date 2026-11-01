@@ -25,7 +25,25 @@ import {
 import { maintenanceScope, requireTaskScope } from "./policy.ts";
 import { checkPrBody, followUpsOfBranch } from "./pr-body.ts";
 import { followUpsOfTask, markMerged, openWorkDb, sessionsRecorded, withPartial } from "./db.ts";
-import { approveCommand, mergePullRequest, templateClass, templateWhy, type TemplateClass } from "./merge.ts";
+import {
+	approveCommand,
+	mergePullRequest,
+	templateClass,
+	templateWhy,
+	wikiApproveCommand,
+	wikiClass,
+	wikiWhy,
+	type TemplateClass,
+} from "./merge.ts";
+import {
+	approvedNotes,
+	commitClaimCheck,
+	promoteDrafts,
+	recordClaimCheck,
+	taskDrafts,
+	wikiCarryProof,
+	type WikiCarry,
+} from "./wiki.ts";
 import { withShipQueue, type QueueTiming } from "./ship-queue.ts";
 import { formatScope, wpScope } from "./scope.ts";
 import { acknowledgeShipped, recordProgress, type ShippedRecord } from "./progress.ts";
@@ -204,6 +222,8 @@ export type MergeEvidence = {
 	checks: RequiredCheck[];
 	checkedAt: string;
 	carry?: CarryProof;
+	/** The claim-check and promotion commits evf added after the reviewed Wiki head (OPS-109). */
+	wikiCarry?: WikiCarry;
 };
 type PullRequest = {
 	number: number;
@@ -351,13 +371,14 @@ function requiredCi(cwd: string, number: number, required: string[]): RequiredCi
 
 /**
  * One unsigned review convention, shared by the verifier and GitHub merge workflow. `carry` lets an approval of
- * an earlier head hold over merge-only commits (carryProof); the owner approval routes never pass it.
+ * an earlier head hold over merge-only commits (carryProof); the owner approval routes never pass it. `wikiCarry`
+ * lets it hold over evf's claim-check and promotion commits only (wikiCarryProof), for a Wiki-content task.
  */
 export function checkPr(
 	root: string,
 	number: number,
 	expectedHead?: string,
-	opts: { carry?: boolean } = {},
+	opts: { carry?: boolean; wikiCarry?: boolean } = {},
 ): MergeEvidence {
 	const cfg = loadConfig(root);
 	const pr: PullRequest = JSON.parse(
@@ -397,17 +418,19 @@ export function checkPr(
 			latest = { approval, url: typeof comment.html_url === "string" ? comment.html_url : "" };
 			if (approval.head === pr.headRefOid) selected = latest;
 		}
-	let carry: CarryProof | undefined;
-	if (!selected && opts.carry && latest?.approval.verdict === "approved") {
+	let carry: CarryProof | undefined, wikiCarry: WikiCarry | undefined;
+	if (!selected && (opts.carry || opts.wikiCarry) && latest?.approval.verdict === "approved") {
 		const approved = latest.approval.head;
 		if (!gitOk(root, "cat-file", "-e", `${approved}^{commit}`))
 			run("git", ["fetch", "--quiet", cfg.remote, approved], { cwd: root });
-		const proof = carryProof(root, approved, pr.headRefOid, baseRef(root, cfg));
+		const proof = (opts.wikiCarry ? wikiCarryProof : carryProof)(root, approved, pr.headRefOid, baseRef(root, cfg));
 		if (typeof proof === "string")
 			fail(
-				`Missing verifier approval for the exact PR head. The approval of ${approved.slice(0, 10)} does not carry: ${proof}.`,
+				`Missing verifier approval for the exact PR head. The approval of ${approved.slice(0, 10)} does not carry: ${proof}.${opts.wikiCarry ? ` Ask the verifier for a new pass at ${pr.headRefOid.slice(0, 10)}.` : ""}`,
 			);
-		[selected, carry] = [latest, proof];
+		selected = latest;
+		if ("merges" in proof) carry = proof;
+		else wikiCarry = proof;
 	}
 	if (!selected?.url || selected.approval.verdict !== "approved") {
 		if (missingFields.length)
@@ -440,6 +463,7 @@ export function checkPr(
 		checks,
 		checkedAt: new Date(checkedAtMs).toISOString(),
 		...(carry ? { carry } : {}),
+		...(wikiCarry ? { wikiCarry } : {}),
 	};
 }
 
@@ -468,8 +492,11 @@ export function ship(root: string, task: TaskRef, timing: ShipTiming = SHIP_TIMI
 	if (design || (task.kind === "fb" && !(cfg.mergePolicy.feedbackVerifierMerge as string[]).includes(cls ?? "")))
 		return ownerRoute(root, cfg, task, wt, pr.number, design, cls, { paths: [] });
 	// A PR that would merge here but changes a document template waits for Sebastian too (mergePolicy.documentTemplates).
-	// Doubt about the class holds the PR too (templateClass).
-	const templates = templateClass(root, cfg, git(wt, "rev-parse", "HEAD"));
+	// Doubt about the class holds the PR too (templateClass). Wiki content waits for him after the claim check and
+	// promotion (OPS-109).
+	const head = git(wt, "rev-parse", "HEAD"),
+		templates = templateClass(root, cfg, head);
+	if (!templates.doubt && wikiClass(root, cfg, head).paths.length) return wikiRoute(root, cfg, task, wt, pr.number);
 	if (templates.doubt || templates.paths.length)
 		return ownerRoute(root, cfg, task, wt, pr.number, design, cls, templates);
 	return withShipQueue(root, task.id, () => queuedMerge(root, cfg, task, wt, pr.number, timing), timing.queue);
@@ -524,6 +551,56 @@ function ownerRoute(
 	verified();
 	console.log(
 		withPartial(root, task, `PR #${number} is verified and waits for Sebastian's chat approval, then evf approve.`),
+	);
+	return 0;
+}
+
+/**
+ * The Wiki-content route (OPS-109). The verifier's checks run on the PR head, with its pass carried over earlier
+ * claim-check and promotion commits. evf then records the verifier's claim check on the pending drafts, promotes every
+ * draft whose claim check passed, pushes those commits, posts evf/verify on the resulting head and stops for
+ * Sebastian's approval. A failed promotion resets the branch to the head it started from, so nothing half-promoted is
+ * pushed. A rerun on the resulting head finds nothing left to do and posts the same status.
+ */
+function wikiRoute(root: string, cfg: Config, task: TaskRef, wt: string, number: number): number {
+	git(root, "fetch", "--quiet", cfg.remote, cfg.baseBranch);
+	const start = git(wt, "rev-parse", "HEAD"),
+		base = baseRef(root, cfg);
+	requireFreeMigrationNumbers(wt, base, task);
+	const verification = checkPr(wt, number, start, { wikiCarry: true }),
+		verifier = verification.approval.verifier;
+	const reviewer = `${verifier.role} ${verifier.model} (session ${verifier.session})`;
+	const words = `independent verifier review of ${verification.approval.head}: ${verification.approvalUrl}`;
+	let claimed: string[] = [],
+		promoted: string[] = [],
+		head = start;
+	try {
+		claimed = recordClaimCheck(wt, base, reviewer, approvedNotes(words));
+		const reviewed = claimed.length ? commitClaimCheck(wt, task, reviewer, claimed) : start;
+		const result = promoteDrafts(root, wt, number, reviewed, taskDrafts(wt, base, "HEAD"));
+		if ("error" in result) fail(`evf ship stopped before pushing anything: ${result.error}`);
+		promoted = result.promoted;
+		if (promoted.length) {
+			git(wt, "add", "--all", "--", "docs/reference/wiki");
+			git(wt, "commit", "--quiet", "-m", `${task.id}: promote ${promoted.length} Wiki drafts`);
+		}
+		head = git(wt, "rev-parse", "HEAD");
+		if (head !== start) pushBranch(wt, cfg, task);
+	} catch (e) {
+		git(wt, "reset", "--quiet", "--hard", start);
+		throw e;
+	}
+	postStatus(wt, cfg, head, "success", `Verified by ${verifierLabel(verifier)} at ${head.slice(0, 10)}`);
+	const steps = [
+		claimed.length ? `claim check recorded on ${claimed.length} draft${claimed.length === 1 ? "" : "s"}` : "",
+		promoted.length ? `${promoted.length} draft${promoted.length === 1 ? "" : "s"} promoted` : "",
+	].filter(Boolean);
+	console.log(
+		withPartial(
+			root,
+			task,
+			`evf ship does not merge PR #${number}: ${wikiWhy(wikiClass(root, cfg, head))}. The verifier passed it${steps.length ? `; ${steps.join(" and ")}` : ""}. ${wikiApproveCommand(number, head)}`,
+		),
 	);
 	return 0;
 }
