@@ -7,7 +7,7 @@ export const esc = (value) =>
 	String(value).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
 /** The sample church brand kit, and the neutral Everyfield fallback when no kit is set. */
-export const BRAND_KIT = {
+const BRAND_KIT = {
 	name: "Grace Harbor Church",
 	legalName: "Grace Harbor Church, Inc.",
 	tagline: "A church for the harbor district. Come as you are.",
@@ -35,7 +35,7 @@ export function onColor(hex) {
 }
 
 /** The value a field shows: its value, or "[label]" in lower case when it is empty. Never an invented name. */
-export function fieldText(doc, key) {
+function fieldText(doc, key) {
 	const field = doc.fields.find((f) => f.key === key);
 	if (!field) return `[${key}]`;
 	return field.value ? field.value : `[${field.label.toLowerCase()}]`;
@@ -145,7 +145,7 @@ function tableHTML(block, doc, ctx) {
 	return `<table class="d-table d-rules-${block.rules ?? "rows"}"><colgroup>${widths.map((w) => `<col style="width:${w}">`).join("")}</colgroup>${head}<tbody>${rows.join("")}</tbody></table>${source}`;
 }
 
-export function ledgerHTML(block) {
+function ledgerHTML(block) {
 	const sums = computeLedger(block);
 	const n = block.periods.count;
 	const label = (i) => block.periods.label.replace("{n}", String(i + 1));

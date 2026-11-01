@@ -17,7 +17,7 @@ const el = (tag, attrs = {}, ...children) => {
 	for (const child of children.flat()) if (child !== null && child !== undefined && child !== false) node.append(child);
 	return node;
 };
-export const newId = (prefix) => `${prefix}-${Math.random().toString(36).slice(2, 8)}`;
+const newId = (prefix) => `${prefix}-${Math.random().toString(36).slice(2, 8)}`;
 
 // ---------- inline parsing
 
@@ -26,7 +26,7 @@ const addMark = (marks, mark) => (marks.some((m) => m.type === mark.type) ? mark
 const MARK_ORDER = ["bold", "italic", "underline", "link"];
 
 /** A contenteditable element back to inline nodes. Adjacent text with the same marks merges into one node. */
-export function parseInline(root) {
+function parseInline(root) {
 	const out = [];
 	const pushText = (text, marks) => {
 		text = text.replace(/ /g, " ").replace(/​/g, "");
@@ -119,7 +119,7 @@ export function format(command, value) {
 // ---------- block factories
 
 const textCell = () => ({ type: "text", content: [] });
-export const BLOCK_MENU = [
+const BLOCK_MENU = [
 	{ label: "Heading", make: () => ({ type: "heading", id: newId("h"), level: 2, content: [] }) },
 	{ label: "Paragraph", make: () => ({ type: "paragraph", id: newId("p"), content: [] }) },
 	{ label: "Bulleted list", make: () => ({ type: "list", id: newId("list"), style: "bullet", items: [{ id: newId("li"), content: [] }] }) },
@@ -321,14 +321,12 @@ export function renderEditor(host, doc, api) {
 		return node;
 	};
 
-	const focusLater = (id) => api.focus(id);
-
 	/** The list a block sits in, its index and the actions that change it. */
 	const actions = (list, index, topLevel) => ({
 		up: index > 0 && (() => ([list[index - 1], list[index]] = [list[index], list[index - 1]], changed(true))),
 		down: index < list.length - 1 && (() => ([list[index], list[index + 1]] = [list[index + 1], list[index]], changed(true))),
 		remove: () => (list.splice(index, 1), changed(true)),
-		insertAfter: (block) => (list.splice(index + 1, 0, block), api.select(block.id), changed(true), focusLater(block.id)),
+		insertAfter: (block) => (list.splice(index + 1, 0, block), api.select(block.id), changed(true), api.focus(block.id)),
 		topLevel,
 	});
 
@@ -377,7 +375,7 @@ export function renderEditor(host, doc, api) {
 		list.forEach((block, i) => wrap.append(blockView(block, actions(list, i, topLevel))));
 		if (!readOnly)
 			wrap.append(
-				insertMenu((block) => (list.push(block), api.select(block.id), changed(true), focusLater(block.id)), topLevel, `+ ${emptyLabel}`),
+				insertMenu((block) => (list.push(block), api.select(block.id), changed(true), api.focus(block.id)), topLevel, `+ ${emptyLabel}`),
 			);
 		return wrap;
 	};
