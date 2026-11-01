@@ -1455,6 +1455,13 @@
 			],
 			"risk": "ordinary"
 		},
+		"OPS-103": {
+			"title": "Doc format approach A: one document and template format for every Everyfield template, with design doc, examples and a self-contained HTML prototype in design/doc-format/approach-a/ (Opus 5.5 medium)",
+			"route": "design",
+			"owningPaths": ["design/doc-format/approach-a/"],
+			"checks": [{ "name": "documentation", "run": ["python3", "docs/check-all.py"] }],
+			"risk": "ordinary"
+		},
 		"OPS-106": {
 			"title": "On-demand QA preview for Nora: one command deploys a chosen branch to a Vercel preview with its own seeded dev-Neon DB branch, every credential and a runbook; never on every PR (Opus 5.5 medium)",
 			"owningPaths": [

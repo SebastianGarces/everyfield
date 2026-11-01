@@ -1,0 +1,289 @@
+{
+	"format": "everyfield.doc/1",
+	"kind": "template",
+	"id": "guest-sign-in-sheet",
+	"version": 1,
+	"title": "Guest Sign-in Sheet",
+	"description": "A sign-in sheet for a vision meeting, with rows to write in.",
+	"class": "operational",
+	"exports": [
+		"pdf",
+		"docx"
+	],
+	"fields": [
+		{
+			"key": "church_name",
+			"label": "Church name",
+			"type": "text",
+			"source": "church.name",
+			"required": true,
+			"sample": "Harbor City Church"
+		},
+		{
+			"key": "church_legal_name",
+			"label": "Legal name",
+			"type": "text",
+			"source": "brand.legalName",
+			"fallback": "{church_name}",
+			"sample": "Harbor City Church, Inc."
+		}
+	],
+	"page": {
+		"size": "letter",
+		"orientation": "portrait",
+		"margin": {
+			"top": 40,
+			"right": 40,
+			"bottom": 56,
+			"left": 40
+		},
+		"tile": null,
+		"header": null,
+		"footer": {
+			"pages": "all",
+			"content": [
+				{
+					"type": "columns",
+					"content": [
+						{
+							"type": "column",
+							"attrs": {
+								"width": 3
+							},
+							"content": [
+								{
+									"type": "paragraph",
+									"attrs": {
+										"style": "small"
+									},
+									"content": [
+										{
+											"type": "field",
+											"attrs": {
+												"key": "church_legal_name"
+											}
+										},
+										{
+											"type": "text",
+											"text": "  |  Guest sign-in sheet"
+										}
+									]
+								}
+							]
+						},
+						{
+							"type": "column",
+							"attrs": {
+								"width": 1,
+								"align": "right"
+							},
+							"content": [
+								{
+									"type": "paragraph",
+									"attrs": {
+										"style": "small",
+										"align": "right"
+									},
+									"content": [
+										{
+											"type": "pageNumber",
+											"attrs": {
+												"format": "page-of-total"
+											}
+										}
+									]
+								}
+							]
+						}
+					]
+				}
+			]
+		}
+	},
+	"body": {
+		"type": "doc",
+		"content": [
+			{
+				"type": "columns",
+				"attrs": {
+					"valign": "center"
+				},
+				"content": [
+					{
+						"type": "column",
+						"attrs": {
+							"width": 1
+						},
+						"content": [
+							{
+								"type": "image",
+								"attrs": {
+									"source": "logo",
+									"width": 150,
+									"height": 34,
+									"align": "left",
+									"alt": "Church logo"
+								}
+							}
+						]
+					},
+					{
+						"type": "column",
+						"attrs": {
+							"width": 1,
+							"align": "right"
+						},
+						"content": [
+							{
+								"type": "paragraph",
+								"attrs": {
+									"style": "kicker",
+									"align": "right"
+								},
+								"content": [
+									{
+										"type": "text",
+										"text": "Vision meeting"
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			{
+				"type": "divider",
+				"attrs": {
+					"weight": "bar",
+					"color": "accent"
+				}
+			},
+			{
+				"type": "heading",
+				"attrs": {
+					"level": 1
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "Guest Sign-in Sheet"
+					}
+				]
+			},
+			{
+				"type": "paragraph",
+				"attrs": {
+					"style": "lead"
+				},
+				"content": [
+					{
+						"type": "text",
+						"text": "Welcome to "
+					},
+					{
+						"type": "field",
+						"attrs": {
+							"key": "church_name"
+						}
+					},
+					{
+						"type": "text",
+						"text": ". Please sign in so we can thank you and stay in touch."
+					}
+				]
+			},
+			{
+				"type": "columns",
+				"content": [
+					{
+						"type": "column",
+						"attrs": {
+							"width": 1
+						},
+						"content": [
+							{
+								"type": "writeIn",
+								"attrs": {
+									"label": "Meeting date",
+									"key": "meeting_date",
+									"kind": "date",
+									"width": 170
+								}
+							}
+						]
+					},
+					{
+						"type": "column",
+						"attrs": {
+							"width": 1
+						},
+						"content": [
+							{
+								"type": "writeIn",
+								"attrs": {
+									"label": "Meeting number",
+									"key": "meeting_number",
+									"kind": "text",
+									"width": 110
+								}
+							}
+						]
+					},
+					{
+						"type": "column",
+						"attrs": {
+							"width": 1
+						},
+						"content": []
+					}
+				]
+			},
+			{
+				"type": "table",
+				"attrs": {
+					"style": "grid",
+					"header": true,
+					"headerFill": "accent",
+					"zebra": true,
+					"writeInRows": 18,
+					"rowHeight": 25,
+					"source": null,
+					"columns": [
+						{
+							"id": "n",
+							"label": "#",
+							"type": "index",
+							"width": 26,
+							"align": "center"
+						},
+						{
+							"id": "name",
+							"label": "Name",
+							"type": "text",
+							"width": 142
+						},
+						{
+							"id": "email",
+							"label": "Email",
+							"type": "text",
+							"width": 162
+						},
+						{
+							"id": "phone",
+							"label": "Phone",
+							"type": "text",
+							"width": 104
+						},
+						{
+							"id": "invited_by",
+							"label": "Who invited you?",
+							"type": "text",
+							"width": 0
+						}
+					]
+				},
+				"content": []
+			}
+		]
+	}
+}
