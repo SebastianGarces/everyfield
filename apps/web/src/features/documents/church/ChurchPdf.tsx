@@ -3,7 +3,7 @@
 import { Skeleton, StatePanel } from "@everyfield/ui/controls";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import { useEffect, useRef, useState } from "react";
-import { closePdf, drawPage, openPdf } from "../pdf.ts";
+import { closePdf, drawPage, openPdf, preparePdf } from "../pdf.ts";
 
 // The preview of a Church Document is its real PDF: the bytes "Download PDF" gives, drawn page by page with page breaks
 // and the card sheet exactly as they print. Pages draw one after another as the reader scrolls toward them. A new
@@ -20,6 +20,7 @@ export function ChurchPdf({ title, src, page }: Props) {
 	useEffect(() => {
 		let cancelled = false;
 		let opened: PDFDocumentProxy | null = null;
+		preparePdf();
 		fetch(src, { cache: "no-store" })
 			.then((response) => (response.ok ? response.arrayBuffer() : Promise.reject(new Error(String(response.status)))))
 			.then((buffer) => openPdf(new Uint8Array(buffer)))

@@ -17,6 +17,11 @@ function library() {
 	return loaded;
 }
 
+/** Starts loading pdf.js now, so it arrives while the PDF bytes download. */
+export function preparePdf() {
+	void library();
+}
+
 /** pdf.js hands the buffer to its worker, so it gets a copy and the caller keeps its bytes. */
 export async function openPdf(bytes: Uint8Array): Promise<PDFDocumentProxy> {
 	const pdfjs = await library();
