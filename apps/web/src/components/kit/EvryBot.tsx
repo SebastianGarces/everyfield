@@ -32,8 +32,7 @@ export function EvryBot({ size, mood, follow, className }: Props) {
 	// render match. React leaves these two properties alone: the package bot's own values for them never change here.
 	useEffect(() => {
 		const bot = ref.current!.querySelector<HTMLElement>(".evry-bot")!;
-		const k = Math.random();
-		bot.style.setProperty("--eb-float", `${(3 + k * 1.2).toFixed(2)}s`);
+		bot.style.setProperty("--eb-float", `${(3 + Math.random() * 1.2).toFixed(2)}s`);
 		bot.style.setProperty("--eb-float-at", `${(-Math.random() * 4).toFixed(2)}s`);
 	}, []);
 
