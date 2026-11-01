@@ -18,7 +18,7 @@ Hugeicons (`icons.tsx`). Extra changes are listed per file.
 | `primitives/button.tsx` | `components/tiptap-ui-primitive/button/button.tsx` | none |
 | `primitives/tooltip.tsx` | `components/tiptap-ui-primitive/tooltip/tooltip.tsx` | none |
 | `primitives/popover.tsx` | `components/tiptap-ui-primitive/popover/popover.tsx` | none |
-| `primitives/dropdown-menu.tsx` | `components/tiptap-ui-primitive/dropdown-menu/dropdown-menu.tsx` | none |
+| `primitives/dropdown-menu.tsx` | `components/tiptap-ui-primitive/dropdown-menu/dropdown-menu.tsx` | only the parts the toolbar uses (no sub, group or radio menus) |
 | `primitives/toolbar.tsx` | `components/tiptap-ui-primitive/toolbar/toolbar.tsx` | toolbar name "Document formatting" |
 | `primitives/separator.tsx` | `components/tiptap-ui-primitive/separator/separator.tsx` | none |
 | `primitives/input.tsx` | `components/tiptap-ui-primitive/input/input.tsx` | none |

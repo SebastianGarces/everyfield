@@ -70,5 +70,3 @@ export const ButtonGroup = React.forwardRef<
 	);
 });
 ButtonGroup.displayName = "ButtonGroup";
-
-export default Button;

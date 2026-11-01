@@ -17,31 +17,7 @@ const DropdownMenuTrigger = React.forwardRef<
 >(({ ...props }, ref) => <DropdownMenuPrimitive.Trigger ref={ref} {...props} />);
 DropdownMenuTrigger.displayName = DropdownMenuPrimitive.Trigger.displayName;
 
-const DropdownMenuGroup = DropdownMenuPrimitive.Group;
-
-const DropdownMenuSub = DropdownMenuPrimitive.Sub;
-
-const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup;
-
 const DropdownMenuItem = DropdownMenuPrimitive.Item;
-
-const DropdownMenuSubTrigger = DropdownMenuPrimitive.SubTrigger;
-
-const DropdownMenuSubContent = React.forwardRef<
-	React.ComponentRef<typeof DropdownMenuPrimitive.SubContent>,
-	React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubContent> & {
-		portal?: boolean | React.ComponentProps<typeof DropdownMenuPortal>;
-	}
->(({ className, portal = true, ...props }, ref) => {
-	const content = <DropdownMenuPrimitive.SubContent ref={ref} className={cn(MENU, className)} {...props} />;
-
-	return portal ? (
-		<DropdownMenuPortal {...(typeof portal === "object" ? portal : {})}>{content}</DropdownMenuPortal>
-	) : (
-		content
-	);
-});
-DropdownMenuSubContent.displayName = DropdownMenuPrimitive.SubContent.displayName;
 
 const DropdownMenuContent = React.forwardRef<
 	React.ComponentRef<typeof DropdownMenuPrimitive.Content>,
@@ -67,15 +43,4 @@ const DropdownMenuContent = React.forwardRef<
 });
 DropdownMenuContent.displayName = DropdownMenuPrimitive.Content.displayName;
 
-export {
-	DropdownMenu,
-	DropdownMenuTrigger,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuGroup,
-	DropdownMenuSub,
-	DropdownMenuPortal,
-	DropdownMenuSubContent,
-	DropdownMenuSubTrigger,
-	DropdownMenuRadioGroup,
-};
+export { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem };

@@ -264,5 +264,3 @@ export const LinkPopover = React.forwardRef<HTMLButtonElement, LinkPopoverProps>
 );
 
 LinkPopover.displayName = "LinkPopover";
-
-export default LinkPopover;
