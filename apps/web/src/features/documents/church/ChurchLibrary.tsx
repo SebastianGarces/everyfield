@@ -117,7 +117,6 @@ function TemplatePicker({ templates }: { templates: DocTemplateSummary[] }) {
 	const [search, setSearch] = useState("");
 	const [page, setPage] = useState(1);
 	const list = useRef<HTMLDivElement>(null);
-	const searchBox = useRef<HTMLInputElement>(null);
 	const found = matching(templates, search);
 	const pageCount = Math.ceil(found.length / PAGE_SIZE);
 	const shown = found.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -168,7 +167,6 @@ function TemplatePicker({ templates }: { templates: DocTemplateSummary[] }) {
 				/>
 				<div className="flex-none px-7 pb-4 max-app-sm:px-5">
 					<SearchInput
-						ref={searchBox}
 						value={search}
 						onChange={(event) => {
 							setSearch(event.target.value);
@@ -181,19 +179,7 @@ function TemplatePicker({ templates }: { templates: DocTemplateSummary[] }) {
 				{/* pt-1 keeps the first card's ring and focus outline inside the scroll area, which clips its edges. */}
 				<DialogBody ref={list} className={cn("pt-1", pageCount > 1 ? "pb-4" : "pb-7")}>
 					{shown.length === 0 ? (
-						<div className="flex flex-col items-start gap-3 py-6">
-							<p className="text-md text-text-2">No template matches “{search.trim()}”.</p>
-							<Button
-								variant="secondary"
-								size="sm"
-								onClick={() => {
-									setSearch("");
-									searchBox.current?.focus();
-								}}
-							>
-								Clear search
-							</Button>
-						</div>
+						<p className="py-6 text-md text-text-2">No template matches “{search.trim()}”.</p>
 					) : null}
 					<ul className="flex flex-col gap-3" aria-label="Templates">
 						{shown.map((t) => {

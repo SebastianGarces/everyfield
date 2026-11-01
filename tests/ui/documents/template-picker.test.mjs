@@ -57,9 +57,7 @@ for (const [name, engine] of ENGINES) {
 			assert.equal((await titles(dialog)).length, 5, "category and name words both match");
 			await search.fill("zzz");
 			await dialog.getByText("No template matches “zzz”.").waitFor({ timeout: 5_000 });
-			await dialog.getByRole("button", { name: "Clear search" }).click();
-			assert.equal(await search.inputValue(), "");
-			assert.ok(await search.evaluate((el) => el === document.activeElement), "Clear search returns focus to the box");
+			await search.fill("");
 			await dialog.getByText("Showing 1–10 of 60").waitFor({ timeout: 5_000 });
 		});
 	});
