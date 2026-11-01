@@ -16,14 +16,14 @@ import {
 } from "@everyfield/ui/controls";
 import { Tag } from "@everyfield/ui/display";
 import { Icon, cn } from "@everyfield/ui/foundations";
+import type { ChurchSummary } from "@everyfield/contracts/documents";
 import type { DocTemplateSummary } from "@everyfield/domain/documents";
 import { useRef, useState, useTransition } from "react";
 import { createChurchDocument, type ChurchActionResult } from "./actions.ts";
 import { CLASS_LABEL, formatList, paperText, updatedText } from "./labels.ts";
-import type { LibraryEntry } from "./server.ts";
 
 type Props = {
-	documents: LibraryEntry[];
+	documents: ChurchSummary[];
 	templates: DocTemplateSummary[];
 	canManage: boolean;
 	deleted: boolean;

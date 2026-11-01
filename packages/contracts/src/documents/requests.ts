@@ -63,12 +63,11 @@ export const createFromTemplateRequest = z.strictObject({
 	mergeFields: overrides,
 	requestKey: z.string().trim().min(1).max(80),
 });
-export const churchFormat = documentFormat;
 export const exportNativeRequest = z.strictObject({
 	documentId: recordId,
 	/** The revision number to export, from 1. */
 	revision: z.int().min(1).max(1_000_000),
-	format: churchFormat,
+	format: documentFormat,
 	requestKey: z.string().trim().min(1).max(80),
 });
 export const setBrandingRequest = z.strictObject({ documentId: recordId, useChurchBranding: z.boolean() });

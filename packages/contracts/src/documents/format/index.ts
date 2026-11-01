@@ -7,15 +7,12 @@ export { FORMAT_SCHEMA } from "./schema.ts";
 export {
 	attrsOf,
 	blankDocument,
-	canonical,
 	computeTable,
 	forkTemplate,
-	formulaRefs,
 	pageBox,
 	parseFormula,
 	templateHash,
 	tileBox,
-	validate,
 	type Formula,
 } from "./rules.ts";
 

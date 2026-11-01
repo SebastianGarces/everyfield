@@ -1,4 +1,5 @@
 import { requestDatabase } from "@/server/database";
+import { recordId } from "@everyfield/contracts/common";
 import { pageBox, type ChurchDocument, type ChurchSummary } from "@everyfield/contracts/documents";
 import { privateStorage } from "@everyfield/db/schema";
 import type { RequestActor } from "@everyfield/domain/access";
@@ -7,7 +8,7 @@ import "server-only";
 import { canEditDocuments, documentActor, hasPlantSeat } from "../server.ts";
 
 // The Church Documents reads. The library is one statement; a document page is one statement. The PDF bytes are a
-// separate request (file-route.ts), so the page never waits for a render.
+// separate request (churchFileRoute), so the page never waits for a render.
 
 export type ChurchView = {
 	id: string;
@@ -21,11 +22,6 @@ export type ChurchView = {
 	perSheet: number;
 	page: { width: number; height: number };
 };
-export type LibraryEntry = Pick<
-	ChurchSummary,
-	"id" | "title" | "templateId" | "templateVersion" | "documentClass" | "updatedAt"
->;
-
 export type Load<T> = { status: "ok"; value: T } | { status: "refused" } | { status: "failed" };
 
 /** An Owner or Admin of the church plant; a Member reads only. */
@@ -33,7 +29,7 @@ export const canManageChurch = (authority: RequestActor) => hasPlantSeat(authori
 
 export async function loadLibrary(
 	authority: RequestActor,
-): Promise<Load<{ documents: LibraryEntry[]; templates: DocTemplateSummary[] }>> {
+): Promise<Load<{ documents: ChurchSummary[]; templates: DocTemplateSummary[] }>> {
 	const db = requestDatabase();
 	if (!db || !hasPlantSeat(authority)) return db ? { status: "refused" } : { status: "failed" };
 	try {
@@ -42,14 +38,7 @@ export async function loadLibrary(
 		return {
 			status: "ok",
 			value: {
-				documents: reply.value.documents.map((d) => ({
-					id: d.id,
-					title: d.title,
-					templateId: d.templateId,
-					templateVersion: d.templateVersion,
-					documentClass: d.documentClass,
-					updatedAt: d.updatedAt,
-				})),
+				documents: reply.value.documents,
 				templates: docTemplateSummaries(),
 			},
 		};
@@ -96,7 +85,10 @@ const gone = (status = 404) => new Response("This document is not available.", {
  * GET /documents/church/{id}/file?format=pdf[&revision=n][&download=1]. The preview and every download call the same
  * domain read, so the preview is the file Download gives. The actor is read again here.
  */
-export async function churchFileResponse(request: Request, documentId: string) {
+export async function churchFileRoute(request: Request, { params }: { params: Promise<{ documentId: string }> }) {
+	const id = recordId.safeParse((await params).documentId);
+	if (!id.success) return gone();
+	const documentId = id.data;
 	const url = new URL(request.url);
 	const format = url.searchParams.get("format") ?? "pdf";
 	const revisionText = url.searchParams.get("revision");

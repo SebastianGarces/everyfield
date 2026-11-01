@@ -14,7 +14,6 @@ import { fieldValues, frozenData, type MergeSources } from "./doc-values.ts";
 import { cleanOverrides } from "./merge.ts";
 import { RenderFailed, digestOf, renderEngineVersion } from "./render.ts";
 import {
-	ARTIFACT_MAX,
 	MEDIA,
 	gateSql,
 	generatedFrom,
@@ -769,7 +768,6 @@ async function renderRevision(
 	);
 	try {
 		const bytes = await renderDocFile(body, format, theme, new Date(row.recorded_at ?? 0));
-		if (bytes.length > ARTIFACT_MAX) deny("render_failed");
 		return { bytes, theme };
 	} catch (error) {
 		if (error instanceof RenderFailed) deny(docFormats(body).includes(format) ? "render_failed" : "unavailable");

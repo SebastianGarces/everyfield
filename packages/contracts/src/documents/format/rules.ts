@@ -127,7 +127,7 @@ export function parseFormula(source: string): Formula {
 }
 
 /** Column ids a formula reads. A sum range expands to every column from first to last, in table order. */
-export function formulaRefs(tree: Formula, columnIds: string[]) {
+function formulaRefs(tree: Formula, columnIds: string[]) {
 	const out: string[] = [];
 	const walk = (n: Formula) => {
 		if (n.op === "col") out.push(n.id);
@@ -251,7 +251,7 @@ export function computeTable(table: TableNode): (number | null)[][] {
 // ---------------------------------------------------------------- canonical form and hash input
 
 /** JSON with sorted keys and no editor-only keys (those that start with "_"). The template hash reads this. */
-export function canonical(value: unknown): string {
+function canonical(value: unknown): string {
 	if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
 	if (isRec(value)) {
 		const keys = Object.keys(value)
