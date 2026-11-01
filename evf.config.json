@@ -1461,6 +1461,29 @@
 			"owningPaths": ["design/doc-format/approach-a/"],
 			"checks": [{ "name": "documentation", "run": ["python3", "docs/check-all.py"] }],
 			"risk": "ordinary"
+		},
+		"OPS-107": {
+			"title": "Wiki 501(c)(3) article: no 1023-EZ for churches, Rev. Proc. 2026-8 group exemption",
+			"owningPaths": ["docs/reference/wiki/", "evf.config.json"],
+			"checks": [
+				{
+					"name": "documentation",
+					"run": ["python3", "docs/check-all.py"]
+				},
+				{
+					"name": "wiki-lint",
+					"run": ["bin/wiki", "lint", "--seed"]
+				},
+				{
+					"name": "wiki-check-seed",
+					"run": ["bin/wiki", "check-seed"]
+				},
+				{
+					"name": "wiki-roundtrip",
+					"run": ["bin/wiki", "roundtrip"]
+				}
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {
