@@ -301,7 +301,10 @@
 		"limit": 1
 	},
 	"documents.createFromTemplate": {
-		"limit": 3
+		"limit": 4
+	},
+	"documents.deleteChurch": {
+		"limit": 1
 	},
 	"documents.designateCoreValues": {
 		"limit": 1
