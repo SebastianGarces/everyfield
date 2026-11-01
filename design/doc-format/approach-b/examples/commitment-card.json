@@ -1,0 +1,301 @@
+{
+	"format": "everyfield.doc",
+	"formatVersion": 1,
+	"kind": "template",
+	"id": "commitment-card",
+	"version": 1,
+	"title": "Core Group Commitment Card",
+	"description": "Commitment card: GROW, PRAY, GIVE. One card design, printed four to a Letter sheet.",
+	"class": "outward-facing",
+	"origin": null,
+	"notices": [],
+	"page": {
+		"size": "card",
+		"orientation": "portrait",
+		"margins": {
+			"top": 14,
+			"right": 14,
+			"bottom": 14,
+			"left": 14
+		},
+		"imposition": {
+			"sheet": "letter",
+			"across": 2,
+			"down": 2,
+			"cutMarks": true
+		}
+	},
+	"fields": [
+		{
+			"key": "church.name",
+			"label": "Church name",
+			"type": "text",
+			"source": "church.name",
+			"value": null,
+			"required": true
+		},
+		{
+			"key": "pastor.name",
+			"label": "Pastor name",
+			"type": "text",
+			"source": "pastor.name",
+			"value": null
+		}
+	],
+	"footer": [
+		{
+			"type": "divider",
+			"id": "card-foot-rule",
+			"weight": "hair",
+			"tone": "primary"
+		},
+		{
+			"type": "brand",
+			"id": "card-contact",
+			"element": "contact"
+		}
+	],
+	"body": [
+		{
+			"type": "box",
+			"id": "card-cover",
+			"tone": "primary",
+			"padding": 12,
+			"minHeight": 96,
+			"blocks": [
+				{
+					"type": "columns",
+					"id": "cover-row",
+					"columns": [
+						{
+							"width": 8,
+							"blocks": [
+								{
+									"type": "brand",
+									"id": "cover-logo",
+									"element": "logo",
+									"width": 150,
+									"height": 44
+								},
+								{
+									"type": "brand",
+									"id": "cover-tagline",
+									"element": "tagline"
+								}
+							]
+						},
+						{
+							"width": 4,
+							"blocks": [
+								{
+									"type": "brand",
+									"id": "cover-photo",
+									"element": "photo",
+									"width": 72,
+									"height": 72,
+									"align": "end"
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"type": "divider",
+			"id": "accent-bar",
+			"weight": "bar",
+			"tone": "accent"
+		},
+		{
+			"type": "columns",
+			"id": "title-row",
+			"valign": "bottom",
+			"columns": [
+				{
+					"width": 8,
+					"blocks": [
+						{
+							"type": "heading",
+							"id": "h-1",
+							"level": 1,
+							"content": [
+								{
+									"type": "text",
+									"text": "My commitment"
+								}
+							]
+						}
+					]
+				},
+				{
+					"width": 4,
+					"blocks": [
+						{
+							"type": "paragraph",
+							"id": "p-2",
+							"variant": "kicker",
+							"align": "end",
+							"content": [
+								{
+									"type": "text",
+									"text": "Core group"
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"type": "paragraph",
+			"id": "p-3",
+			"variant": "note",
+			"content": [
+				{
+					"type": "text",
+					"text": "Through Launch Sunday, I will:"
+				}
+			]
+		},
+		{
+			"type": "table",
+			"id": "commitments",
+			"columns": [
+				{
+					"label": "Check",
+					"width": 1,
+					"align": "center"
+				},
+				{
+					"label": "Commitment",
+					"width": 2
+				},
+				{
+					"label": "What it means",
+					"width": 9
+				}
+			],
+			"header": "none",
+			"rules": "rows",
+			"rows": [
+				{
+					"id": "commit-grow",
+					"cells": [
+						{
+							"type": "fill",
+							"kind": "checkbox"
+						},
+						{
+							"type": "text",
+							"content": [
+								{
+									"type": "badge",
+									"text": "GROW",
+									"tone": "accent"
+								}
+							]
+						},
+						{
+							"type": "text",
+							"content": [
+								{
+									"type": "text",
+									"text": "Join a weekly group and keep learning with the church plant family."
+								}
+							]
+						}
+					]
+				},
+				{
+					"id": "commit-pray",
+					"cells": [
+						{
+							"type": "fill",
+							"kind": "checkbox"
+						},
+						{
+							"type": "text",
+							"content": [
+								{
+									"type": "badge",
+									"text": "PRAY",
+									"tone": "accent"
+								}
+							]
+						},
+						{
+							"type": "text",
+							"content": [
+								{
+									"type": "text",
+									"text": "Pray each week for our neighbors and for Launch Sunday."
+								}
+							]
+						}
+					]
+				},
+				{
+					"id": "commit-give",
+					"cells": [
+						{
+							"type": "fill",
+							"kind": "checkbox"
+						},
+						{
+							"type": "text",
+							"content": [
+								{
+									"type": "badge",
+									"text": "GIVE",
+									"tone": "accent"
+								}
+							]
+						},
+						{
+							"type": "text",
+							"content": [
+								{
+									"type": "text",
+									"text": "Give my time, my gifts and my money toward the launch."
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"type": "fillRow",
+			"id": "who",
+			"cells": [
+				{
+					"label": "Name",
+					"kind": "text",
+					"width": 5
+				},
+				{
+					"label": "Email or phone",
+					"kind": "text",
+					"width": 7
+				}
+			]
+		},
+		{
+			"type": "fillRow",
+			"id": "sign",
+			"cells": [
+				{
+					"label": "Signature",
+					"kind": "signature",
+					"width": 8
+				},
+				{
+					"label": "Date",
+					"kind": "date",
+					"width": 4
+				}
+			]
+		}
+	]
+}

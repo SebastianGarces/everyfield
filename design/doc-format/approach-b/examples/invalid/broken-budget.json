@@ -1,0 +1,467 @@
+{
+	"format": "everyfield.doc",
+	"formatVersion": 1,
+	"kind": "template",
+	"id": "broken-budget",
+	"version": 1,
+	"title": "Broken budget (deliberately invalid)",
+	"description": "A deliberately invalid sample. tools/validate.mjs must reject it.",
+	"class": "operational",
+	"origin": null,
+	"notices": [],
+	"page": {
+		"size": "letter",
+		"orientation": "landscape",
+		"margins": {
+			"top": 36,
+			"right": 36,
+			"bottom": 40,
+			"left": 36
+		},
+		"imposition": null
+	},
+	"fields": [
+		{
+			"key": "church.name",
+			"label": "Church name",
+			"type": "text",
+			"source": "church.name",
+			"value": null,
+			"required": true
+		}
+	],
+	"footer": [
+		{
+			"type": "divider",
+			"id": "footer-rule",
+			"weight": "hair",
+			"tone": "ink"
+		},
+		{
+			"type": "columns",
+			"id": "footer-row",
+			"columns": [
+				{
+					"width": 9,
+					"blocks": [
+						{
+							"type": "paragraph",
+							"id": "footer-text",
+							"variant": "note",
+							"content": [
+								{
+									"type": "field",
+									"key": "church.name"
+								},
+								{
+									"type": "text",
+									"text": "  |  First-Year Budget"
+								}
+							]
+						}
+					]
+				},
+				{
+					"width": 3,
+					"blocks": [
+						{
+							"type": "paragraph",
+							"id": "footer-page",
+							"variant": "note",
+							"align": "end",
+							"content": [
+								{
+									"type": "pageNumber"
+								}
+							]
+						}
+					]
+				}
+			]
+		}
+	],
+	"body": [
+		{
+			"type": "heading",
+			"id": "h-1",
+			"level": 1,
+			"content": [
+				{
+					"type": "field",
+					"key": "church.name"
+				},
+				{
+					"type": "text",
+					"text": " First-Year Budget"
+				},
+				{
+					"type": "field",
+					"key": "church.treasurer"
+				}
+			]
+		},
+		{
+			"type": "paragraph",
+			"id": "p-2",
+			"variant": "note",
+			"content": [
+				{
+					"type": "text",
+					"text": "Enter each amount in a boxed cell. The totals add up on their own."
+				}
+			]
+		},
+		{
+			"type": "ledger",
+			"id": "monthly",
+			"sheet": "Monthly budget",
+			"currency": "USD",
+			"labelColumn": "Category",
+			"periods": {
+				"count": 12,
+				"label": "Month {n}"
+			},
+			"total": {
+				"label": "Year total",
+				"rule": "sum"
+			},
+			"groups": [
+				{
+					"id": "income",
+					"label": "Income",
+					"subtotal": "Total income",
+					"lines": [
+						{
+							"id": "tithes-and-offerings",
+							"label": "Tithes and offerings",
+							"amounts": [
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null
+							]
+						},
+						{
+							"id": "sending-church-support",
+							"label": "Sending church support",
+							"amounts": [
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null
+							]
+						},
+						{
+							"id": "network-or-denominational-support",
+							"label": "Network or denominational support",
+							"amounts": [
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null
+							]
+						},
+						{
+							"id": "grants",
+							"label": "Grants",
+							"amounts": [
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null
+							]
+						},
+						{
+							"id": "other-income",
+							"label": "Other income",
+							"amounts": [
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null
+							]
+						}
+					]
+				},
+				{
+					"id": "expenses",
+					"label": "Expenses",
+					"subtotal": "Total expenses",
+					"lines": [
+						{
+							"id": "pastor-and-staff-pay",
+							"label": "Pastor and staff pay",
+							"amounts": [
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null
+							]
+						},
+						{
+							"id": "payroll-taxes-and-benefits",
+							"label": "Payroll taxes and benefits",
+							"amounts": [
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null
+							]
+						},
+						{
+							"id": "rent-or-facility",
+							"label": "Rent or facility",
+							"amounts": [
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null
+							]
+						},
+						{
+							"id": "utilities-and-internet",
+							"label": "Utilities and internet",
+							"amounts": [
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null
+							]
+						},
+						{
+							"id": "insurance",
+							"label": "Insurance",
+							"amounts": [
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null
+							]
+						},
+						{
+							"id": "worship-and-sound",
+							"label": "Worship and sound",
+							"amounts": [
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null
+							]
+						},
+						{
+							"id": "kids-ministry",
+							"label": "Kids ministry",
+							"amounts": [
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null
+							]
+						},
+						{
+							"id": "outreach-and-marketing",
+							"label": "Outreach and marketing",
+							"amounts": [
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null
+							]
+						},
+						{
+							"id": "office-and-supplies",
+							"label": "Office and supplies",
+							"amounts": [
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null
+							]
+						},
+						{
+							"id": "giving-to-the-network-and-missions",
+							"label": "Giving to the network and missions",
+							"amounts": [
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null,
+								null
+							]
+						}
+					]
+				}
+			],
+			"results": [
+				{
+					"id": "net",
+					"label": "Net (income minus expenses)",
+					"plus": [
+						"income"
+					],
+					"minus": [
+						"costs"
+					]
+				}
+			]
+		},
+		{
+			"type": "pageBreak",
+			"id": "to-summary"
+		},
+		{
+			"type": "heading",
+			"id": "h-3",
+			"level": 1,
+			"content": [
+				{
+					"type": "field",
+					"key": "church.name"
+				},
+				{
+					"type": "text",
+					"text": " Annual Summary"
+				}
+			]
+		},
+		{
+			"type": "paragraph",
+			"id": "p-4",
+			"variant": "note",
+			"content": [
+				{
+					"type": "text",
+					"text": "This sheet reads the Monthly budget sheet. Type amounts there, not here."
+				}
+			]
+		},
+		{
+			"type": "ledgerSummary",
+			"id": "annual",
+			"sheet": "Annual summary",
+			"ledger": "yearly",
+			"show": [
+				"total",
+				"average"
+			]
+		}
+	]
+}
