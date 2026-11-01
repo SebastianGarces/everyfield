@@ -446,6 +446,28 @@ export const HeadingNumbers = Extension.create({
 	},
 });
 
+// ---------------------------------------------------------------- an empty page
+
+/**
+ * ProseMirror cannot redraw a document that loses every child in the same update as an attribute of the document node
+ * (Delete all content and its Redo): it builds a new view of an empty document, finds nothing changed and leaves the old
+ * blocks in the DOM. This plugin removes them, so the page matches the state.
+ */
+export const EmptyDocumentRedraw = Extension.create({
+	name: "emptyDocumentRedraw",
+	addProseMirrorPlugins() {
+		return [
+			new Plugin({
+				view: () => ({
+					update: (view) => {
+						if (view.state.doc.childCount === 0 && view.dom.childElementCount > 0) view.dom.replaceChildren();
+					},
+				}),
+			}),
+		];
+	},
+});
+
 // ---------------------------------------------------------------- the set
 
 /** Every extension of the editor. The headless tests load the same list. */
@@ -481,5 +503,6 @@ export function editorExtensions(values: FieldValues = {}) {
 		EfTag,
 		UndoRedo,
 		HeadingNumbers,
+		EmptyDocumentRedraw,
 	];
 }
