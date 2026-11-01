@@ -1687,6 +1687,290 @@ body[data-role="member"] [data-author-only] { display: none !important; }
 .anatomy { position: relative; }
 .anatomy [data-slot] { outline: 1.5px dashed rgba(47,85,228,.45); outline-offset: 3px; border-radius: 6px; position: relative; }
 .anatomy [data-slot]::after { content: attr(data-slot); position: absolute; top: -12px; right: -4px; background: var(--ef-blue-500); color: #181D19; font: 600 10px/1 var(--ef-font-body); padding: 3px 6px; border-radius: 5px; letter-spacing: .02em; }
+/* ---- Written documents (#/documents/written): list pane and WYSIWYG editor (<WrittenDocuments>) ---- */
+/* Sticky parts take their offset from the app top bar and sit under it in z-order (.topbar is z 20).
+   The script keeps --app-header-height equal to the measured .topbar height; the fallback is the bar's own
+   size (the 60 px pill plus its 22 + 8 px padding). No ancestor of a sticky part sets overflow. */
+.page[data-page="written-documents"] { --app-header-height: calc(var(--ef-topbar-h) + 30px); --wd-sticky-z: 10; --wd-float-z: 15; }
+.page[data-page="written-documents"] [hidden] { display: none !important; }
+.wd-proto { display: flex; align-items: center; gap: 10px 12px; flex-wrap: wrap; margin: -10px 0 18px; }
+.wd-proto-label { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--ef-text-3); }
+.wd-proto .segmented { flex-wrap: wrap; max-width: 100%; }
+.wd-proto .segmented + .wd-proto-label { margin-left: 8px; }
+.wd-layout { display: grid; grid-template-columns: 340px minmax(0,1fr); gap: 20px; align-items: start; }
+.wd-list { padding: 18px 14px 12px; gap: 12px; position: sticky; top: calc(var(--app-header-height) + 6px); z-index: 1; max-height: calc(100vh - var(--app-header-height) - 24px); overflow: auto; }
+.wd-list-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; padding: 0 4px; }
+.wd-list-head .card-title { flex: 1 0 auto; }
+.wd-filter { display: flex; flex-wrap: wrap; width: 100%; }
+.wd-filter button { flex: 1 1 auto; padding: 0 6px; font-size: 13px; justify-content: center; }
+.wd-filter .n { color: var(--ef-text-3); font-variant-numeric: tabular-nums; font-weight: 500; }
+.wd-group-h { display: flex; align-items: center; gap: 6px; margin: 12px 12px 4px; font-family: var(--ef-font-body); font-size: 12px; font-weight: 600; letter-spacing: 0; color: var(--ef-text-3); }
+.wd-row { display: grid; gap: 3px; width: 100%; padding: 10px 12px; border: 0; border-radius: var(--corner-card); background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; transition: background .15s, box-shadow .15s; }
+.wd-row:hover { background: var(--ef-hover); }
+.wd-row[aria-current="true"] { background: var(--ef-surface-raised); box-shadow: 0 0 0 1px var(--ef-line-2) inset, var(--ef-shadow-raised); }
+.wd-row:focus-visible { outline-offset: -2px; }
+.page[data-page="written-documents"] a[href]:not(#wd-body a) { cursor: pointer; }
+.wd-row-top { display: flex; align-items: flex-start; gap: 8px; }
+.wd-row-title { flex: 1; min-width: 0; font-weight: 500; font-size: 15px; line-height: 1.3; color: var(--ef-ink); overflow-wrap: anywhere; }
+.wd-row-meta { font-size: 13px; color: var(--ef-text-3); }
+.wd-row-tpl { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--ef-text-2); }
+.wd-row-tpl i { font-size: 13px; }
+.wd-nomatch { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 28px 12px; text-align: center; color: var(--ef-text-2); }
+.wd-list .empty { padding: 28px 8px 20px; }
+.wd-choose { min-height: 440px; justify-content: center; }
+
+/* Editor: one header row, then the document as a Letter sheet on a neutral canvas. */
+.wd-detail { min-width: 0; }
+.wd-doc { position: relative; }
+.wd-head { display: flex; align-items: center; gap: 10px; min-height: 40px; margin-bottom: 12px; }
+.wd-head .grow { flex: 1; }
+.wd-back { display: none; margin-left: -8px; }
+.wd-save { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-size: 13px; color: var(--ef-text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.wd-save i { font-size: 15px; }
+.wd-save[data-state="offline"] { color: var(--ef-text-2); }
+.wd-save[data-state="offline"] i { color: var(--ef-magenta-500); }
+.wd-head #wd-official-btn[disabled] { opacity: 1; background: var(--ef-surface-2); color: var(--ef-text-2); box-shadow: none; }
+.wd-menu-wrap { position: relative; }
+.wd-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: var(--wd-float-z); min-width: 236px; }
+.wd-menu[data-align="end"] { left: auto; right: 0; }
+.wd-menu .menu-item { width: 100%; border: 0; background: none; font: inherit; color: var(--ef-ink); text-align: left; }
+.wd-menu .menu-item:hover, .wd-menu .menu-item:focus-visible { background: var(--ef-surface-2); }
+.wd-menu .menu-item:focus-visible { outline-offset: -2px; }
+.wd-menu .menu-item .kbd { font-size: 11px; }
+.wd-menu .menu-item[role="menuitemradio"]::after { content: ""; width: 16px; flex: none; }
+.wd-menu .menu-item[role="menuitemradio"][aria-checked="true"]::after { content: "✓"; color: var(--ef-ink); font-weight: 600; text-align: right; }
+.wd-menu [data-narrow-only] { display: none; }
+.wd-export { width: 300px; }
+.wd-export .menu-item.wd-recent { height: auto; min-height: 44px; padding-top: 6px; padding-bottom: 6px; }
+.wd-recent .wd-recent-t { display: grid; flex: 1; min-width: 0; line-height: 1.3; }
+.wd-recent .wd-recent-t span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wd-recent .wd-recent-t span + span { font-size: 12px; color: var(--ef-text-3); }
+.wd-check .switch { width: 36px; height: 22px; margin-left: auto; pointer-events: none; }
+.wd-check .switch::after { top: 3px; left: 3px; width: 16px; height: 16px; }
+.wd-check[aria-checked="true"] .switch { background: var(--ef-green-500); }
+.wd-check[aria-checked="true"] .switch::after { transform: translateX(14px); }
+.wd-archived { margin-bottom: 12px; }
+
+.wd-canvas { padding: 14px clamp(14px, 4%, 48px) 56px; border-radius: var(--corner-card); background: var(--ef-canvas); box-shadow: 0 0 0 1px var(--ef-line) inset; }
+.wd-doc .editor-toolbar { position: sticky; top: calc(var(--app-header-height) + 4px); z-index: var(--wd-sticky-z); width: fit-content; max-width: 100%; margin: 0 auto 14px; flex-wrap: nowrap; }
+.wd-doc .editor-toolbar .tblock { min-width: 132px; justify-content: space-between; color: var(--ef-ink); }
+.wd-doc .editor-toolbar .tblock i { font-size: 14px; }
+.wd-doc [data-tip] { position: relative; }
+.wd-doc [data-tip]::after, .wd-slot-lock::after {
+  content: attr(data-tip); position: absolute; left: 50%; top: calc(100% + 8px); z-index: 6; transform: translate(-50%, -2px);
+  padding: 6px 10px; border-radius: var(--corner-control); background: var(--ef-ink); color: var(--ef-on-ink); box-shadow: var(--ef-shadow-pop);
+  font-family: var(--ef-font-body); font-size: 12px; font-weight: 500; line-height: 1.35; letter-spacing: 0; white-space: nowrap;
+  opacity: 0; pointer-events: none; transition: opacity .12s ease, transform .12s ease;
+}
+.wd-doc [data-tip]:hover::after, .wd-doc [data-tip]:focus-visible::after,
+.wd-slot-lock:hover::after, .wd-slot-lock:focus-visible::after { opacity: 1; transform: translate(-50%, 0); }
+.wd-doc [aria-expanded="true"][data-tip]::after { opacity: 0; }
+.wd-doc .editor-toolbar button[aria-disabled="true"], .wd-kbar button[aria-disabled="true"] { opacity: .4; cursor: not-allowed; background: none; }
+.wd-doc .editor-toolbar button:focus-visible { outline-offset: -2px; }
+.wd-doc .editor-toolbar .wd-menu { min-width: 230px; }
+
+/* The sheet is paper: it keeps the light palette in both themes, in the editor and in print preview. */
+.wd-sheet {
+  --ef-ink: #181D19; --ef-ink-2: #343843; --ef-text-2: #4D5361; --ef-text-3: #666C78; --ef-surface-2: #EDF0F4; --ef-line: rgba(22, 30, 46, .075); --ef-line-2: rgba(22, 30, 46, .13);
+  --ef-green-700: #0B5C38; --ef-green-500: #1AF197;
+  position: relative; width: min(100%, 816px); min-height: 1056px; margin: 0 auto; padding: 64px clamp(24px, 11.7%, 96px) 72px; display: flex; flex-direction: column;
+  background: #FFFFFF; color: var(--ef-ink-2); box-shadow: var(--ef-shadow-raised), 0 0 0 1px rgba(22, 30, 46, .06); border-radius: 3px; color-scheme: light;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+.wd-letterhead { position: relative; display: flex; align-items: center; gap: 14px; padding-bottom: 18px; margin-bottom: 36px; border-bottom: 2px solid var(--ef-ink); }
+.wd-lh-logo { width: 46px; height: 46px; flex: none; display: grid; place-items: center; border-radius: 10px; background: var(--ef-green-700); color: #FFFFFF; font-family: var(--ef-font-title); font-size: 19px; }
+.wd-lh-name { font-family: var(--ef-font-display); font-size: 24px; line-height: 1.1; color: var(--ef-ink); }
+.wd-lh-addr { margin-top: 3px; font-size: 12px; color: var(--ef-text-3); }
+.wd-sheet-title { font-size: 34px; line-height: 1.1; color: var(--ef-ink); margin: 0 0 18px; }
+.wd-sheet .prose { max-width: none; margin: 0; font-size: 15px; }
+.wd-signature { position: relative; margin-top: auto; padding-top: 56px; display: grid; gap: 3px; width: 260px; font-size: 13px; color: var(--ef-text-2); }
+.wd-sig-line { height: 1px; background: var(--ef-ink); margin-bottom: 8px; }
+.wd-sig-name { font-weight: 600; color: var(--ef-ink); font-size: 14px; }
+/* In the editor, letterhead and signature are read-only chrome from Settings: muted, no caret, an edit link. */
+.wd-chrome { user-select: none; -webkit-user-select: none; cursor: default; }
+.wd-chrome-art { display: contents; }
+.wd-paper .wd-letterhead, .wd-paper .wd-signature { color: var(--ef-text-3); }
+.wd-paper .wd-letterhead { border-bottom-color: var(--ef-line-2); }
+.wd-paper .wd-lh-logo { background: #4F7A66; }
+.wd-paper .wd-lh-name, .wd-paper .wd-sig-name { color: var(--ef-text-2); }
+.wd-paper .wd-sig-line { background: var(--ef-line-2); }
+.wd-chrome-edit { position: absolute; right: 0; top: 4px; display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 10px; border-radius: var(--corner-pill); background: var(--ef-surface-2); color: var(--ef-ink-2); font-size: 12px; font-weight: 500; white-space: nowrap; opacity: 0; transition: opacity .15s; }
+.wd-chrome-edit i { font-size: 14px; }
+.wd-signature .wd-chrome-edit { top: auto; bottom: 0; left: calc(100% + 16px); right: auto; }
+.wd-chrome:hover .wd-chrome-edit, .wd-chrome-edit:focus-visible { opacity: 1; }
+.wd-chrome-edit:hover { background: #E2E6EC; color: var(--ef-ink); }
+@media (hover: none) { .wd-chrome-edit { opacity: 1; } }
+.wd-paper .editor-title { font-size: 34px; line-height: 1.12; color: var(--ef-ink); margin: 0 0 18px; min-height: 1.12em; }
+.wd-paper .editor-title:empty::before { content: attr(data-placeholder); color: var(--ef-text-3); }
+.wd-body { min-height: 360px; max-width: none; margin: 0; font-size: 16px; }
+.wd-paper .editor-title:focus-visible, .wd-body:focus-visible { outline: 0; }
+.wd-body h1, .wd-sheet h1 { font-size: 30px; line-height: 1.15; color: var(--ef-ink); margin: 30px 0 12px; }
+.wd-body > :first-child { margin-top: 0; }
+.wd-body b, .wd-body strong, .wd-sheet b, .wd-sheet strong, #wd-confirm-text b { font-weight: 600; color: var(--ef-ink); }
+.wd-body hr, .wd-sheet hr { border: 0; height: 1px; background: var(--ef-line-2); margin: 26px 0; }
+.wd-body[contenteditable="false"] { color: var(--ef-text-2); }
+.wd-slot { margin: 18px 0; padding: 14px 18px 4px; border-radius: var(--corner-card); background: var(--ef-surface-2); box-shadow: 0 0 0 1px var(--ef-line) inset; }
+.wd-body > .wd-slot + p:has(> br:only-child):not(:has(*:not(br))) { margin: 0; line-height: 1.2; }
+.wd-slot:focus-within { box-shadow: 0 0 0 1.5px var(--ef-focus) inset; }
+.wd-slot-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; user-select: none; -webkit-user-select: none; }
+.wd-slot-label { font-family: var(--ef-font-title); font-size: 19px; line-height: 1.3; color: var(--ef-ink); letter-spacing: -0.01em; }
+.wd-slot-lock { position: relative; margin-left: auto; display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 9px; border: 0; border-radius: var(--corner-pill); background: #FFFFFF; box-shadow: 0 0 0 1px var(--ef-line) inset; font: inherit; font-size: 12px; font-weight: 600; color: var(--ef-text-2); cursor: pointer; }
+.wd-slot-lock i { font-size: 13px; }
+.wd-slot-lock::after { left: auto; right: 0; width: 240px; white-space: normal; transform: translateY(-2px); }
+.wd-slot-lock:hover::after, .wd-slot-lock:focus-visible::after { transform: none; }
+.wd-slot-body { outline: 0; min-height: 1.7em; }
+.wd-slot-body > :last-child { margin-bottom: 12px; }
+/* Writing aids on the sheet: the "/" hint, the block grip and its drop line. */
+.wd-hint { position: absolute; z-index: 1; pointer-events: none; font-size: 16px; color: var(--ef-text-3); white-space: nowrap; }
+.wd-grip { position: absolute; z-index: 2; width: 22px; height: 26px; display: grid; place-items: center; border-radius: 6px; color: var(--ef-text-3); cursor: grab; touch-action: none; opacity: 0; transition: opacity .12s, background .12s; }
+.wd-grip[data-show="true"] { opacity: 1; }
+.wd-grip:hover { background: var(--ef-surface-2); color: var(--ef-ink); }
+.wd-grip:active, .wd-doc[data-dragging="true"], .wd-doc[data-dragging="true"] * { cursor: grabbing; }
+.wd-grip i { font-size: 16px; }
+.wd-drop { position: absolute; z-index: 2; height: 2px; border-radius: 2px; background: var(--ef-focus); pointer-events: none; }
+.wd-doc [data-wd-moving] { opacity: .4; }
+
+/* Floating selection toolbar and "/" menu. Both sit under the app top bar in z-order. */
+.wd-bubble { position: absolute; z-index: var(--wd-float-z); display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: var(--corner-card); background: var(--ef-ink); color: var(--ef-on-ink); box-shadow: var(--ef-shadow-pop); }
+.wd-bubble button { width: 32px; height: 32px; border: 0; border-radius: var(--corner-control); background: none; color: inherit; display: grid; place-items: center; cursor: pointer; }
+.wd-bubble button i { font-size: 17px; }
+.wd-bubble button:hover, .wd-bubble button[aria-pressed="true"] { background: var(--ef-on-ink-soft); }
+.wd-bubble button:focus-visible { outline: 2px solid var(--ef-focus); outline-offset: -2px; }
+.wd-bubble .tsep { width: 1px; height: 18px; margin: 0 4px; background: var(--ef-on-ink-soft); }
+.wd-bubble [data-tip]::after { top: auto; bottom: calc(100% + 8px); }
+.wd-slash { position: absolute; z-index: var(--wd-float-z); width: 300px; max-height: 340px; overflow: auto; padding: 6px; }
+.wd-slash-opt { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: var(--corner-control); cursor: pointer; }
+.wd-slash-opt[aria-selected="true"] { background: var(--ef-surface-2); }
+.wd-slash-ic { width: 32px; height: 32px; flex: none; display: grid; place-items: center; border-radius: var(--corner-control); background: var(--ef-surface-raised); box-shadow: 0 0 0 1px var(--ef-line) inset; color: var(--ef-ink-2); }
+.wd-slash-ic i { font-size: 17px; }
+.wd-slash-t { display: grid; flex: 1; min-width: 0; line-height: 1.3; }
+.wd-slash-t b { font-weight: 500; color: var(--ef-ink); font-size: 14px; }
+.wd-slash-t span { font-size: 12px; color: var(--ef-text-3); }
+.wd-slash .kbd { font-size: 11px; flex: none; }
+.wd-slash-none { padding: 10px; font-size: 13px; color: var(--ef-text-3); }
+.wd-linkpop { position: absolute; z-index: var(--wd-float-z); width: min(360px, calc(100% - 24px)); padding: 10px; display: grid; gap: 8px; }
+.wd-linkpop .input { height: 38px; }
+/* Phones: formatting moves to a bar pinned above the on-screen keyboard (--wd-kb follows the visual viewport). */
+.wd-kbar { display: none; }
+.wd-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.wd-toasts { position: fixed; left: 50%; bottom: 76px; z-index: 70; display: grid; gap: 8px; transform: translateX(-50%); width: max-content; max-width: calc(100vw - 32px); }
+.wd-toasts .toast { animation: wdToastIn .22s var(--ef-slide-ease) both; }
+@keyframes wdToastIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* Version history: a right slide-over with a read-only preview of the chosen version and the version list. */
+#wd-history { place-items: stretch end; padding: 12px; }
+.wd-drawer { width: min(1000px, 100%); height: 100%; display: grid; grid-template-columns: minmax(0,1fr) 300px; grid-template-rows: auto minmax(0,1fr); overflow: hidden; background: var(--ef-surface); border-radius: var(--corner-card); box-shadow: var(--ef-shadow-pop), 0 0 0 1px var(--ef-card-edge) inset; transform: translateX(24px); transition: transform .28s var(--ef-slide-ease); }
+#wd-history[data-open="true"] .wd-drawer { transform: none; }
+.wd-drawer-head { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; padding: 16px 18px 14px 24px; border-bottom: 1px solid var(--ef-line); }
+.wd-drawer-head .grow { min-width: 0; }
+.wd-rev-preview { grid-column: 1; grid-row: 2; min-height: 0; overflow: auto; background: var(--ef-canvas); padding: 0 24px 28px; }
+.wd-rev-bar { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 -24px 18px; padding: 12px 24px; background: var(--ef-canvas); border-bottom: 1px solid var(--ef-line); }
+.wd-legend { display: flex; align-items: center; gap: 4px 12px; flex-wrap: wrap; margin-top: 6px; font-size: 12px; color: var(--ef-text-2); }
+.wd-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.wd-legend span::before { content: ""; width: 10px; height: 10px; border-radius: 3px; background: var(--c); }
+.wd-rev-sheet { min-height: 0; padding: 40px clamp(24px, 8%, 64px) 48px; }
+.wd-rev-sheet .prose { font-size: 14px; line-height: 1.6; }
+.wd-rev-sheet .wd-sheet-title { font-size: 28px; }
+.wd-rev-sheet .wd-slot { margin: 14px 0; padding: 10px 14px 2px; }
+.wd-rev-sheet .wd-slot-label { font-size: 16px; }
+.wd-rev-sheet [data-change] { position: relative; }
+.wd-rev-sheet [data-change]::before { content: ""; position: absolute; left: -14px; top: 3px; bottom: 3px; width: 3px; border-radius: 2px; background: var(--c); }
+.wd-rev-sheet [data-change="added"] { background: rgba(26, 241, 151, .16); box-shadow: 0 0 0 4px rgba(26, 241, 151, .16); border-radius: 2px; }
+.wd-rev-sheet [data-change="removed"] { color: #6F7480; text-decoration: line-through; }
+.wd-rev-sheet ins { text-decoration: none; background: rgba(26, 241, 151, .32); border-radius: 2px; padding: 0 1px; }
+.wd-rev-sheet del { color: #A0233F; background: rgba(194, 38, 79, .08); border-radius: 2px; }
+[data-change="added"], .wd-legend .c-added { --c: #12A866; }
+[data-change="changed"], .wd-legend .c-changed { --c: #2F55E4; }
+[data-change="removed"], .wd-legend .c-removed { --c: #C2264F; }
+.wd-revs { grid-column: 2; grid-row: 2; min-height: 0; overflow: auto; padding: 12px 10px; border-left: 1px solid var(--ef-line); }
+.wd-rev { width: 100%; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; padding: 10px 8px; border-radius: var(--corner-control); }
+.wd-rev:hover { background: var(--ef-hover); }
+.wd-rev[aria-current="true"] { background: var(--ef-surface-2); }
+.wd-rev:focus-visible { outline-offset: -2px; }
+#wd-print .wd-print-panel { width: min(940px, 100%); height: 100%; grid-template-columns: minmax(0,1fr); grid-template-rows: auto minmax(0,1fr); }
+.wd-print-head { display: flex; align-items: center; gap: 10px; padding: 14px 18px 14px 26px; border-bottom: 1px solid var(--ef-line); }
+.wd-print-stage { overflow: auto; background: var(--ef-canvas); padding: 28px; }
+#wd-print .wd-sheet { box-shadow: var(--ef-shadow-pop); }
+
+@media (max-width: 1023.98px) {
+  .wd-layout { grid-template-columns: minmax(0,1fr); }
+  .wd-layout[data-pane="list"] .wd-detail, .wd-layout[data-pane="editor"] .wd-list { display: none; }
+  .wd-list { position: static; max-height: none; overflow: visible; }
+  .wd-back { display: inline-flex; }
+  .wd-choose { min-height: 0; }
+  .wd-print-stage { padding: 12px; }
+  #wd-print .wd-sheet { min-height: 0; padding: 28px 22px 26px; }
+  #wd-print .wd-lh-name { font-size: 19px; }
+  .wd-sheet-title { font-size: 26px; }
+  #wd-print, #wd-history { padding: 10px; }
+  .wd-drawer { grid-template-columns: minmax(0,1fr); grid-template-rows: auto auto minmax(0,1fr); }
+  .wd-revs { grid-column: 1; grid-row: 2; max-height: 34vh; border-left: 0; border-bottom: 1px solid var(--ef-line); }
+  .wd-rev-preview { grid-row: 3; padding: 0 12px 20px; }
+  .wd-rev-bar { margin: 0 -12px 12px; padding: 10px 12px; }
+  .wd-rev-sheet { padding: 24px 18px 28px; }
+}
+/* Phones: the list is the first screen; a document opens full screen with Back, a full-bleed sheet,
+   a one-line letterhead, header actions in "…" and formatting above the keyboard. */
+@media (max-width: 768px) {
+  body:has(.page[data-page="written-documents"][data-active="true"] .wd-layout[data-pane="editor"]) .frame { grid-template-columns: minmax(0, 1fr); }
+  body:has(.page[data-page="written-documents"][data-active="true"] .wd-layout[data-pane="editor"]) .rail,
+  body:has(.page[data-page="written-documents"][data-active="true"] .wd-layout[data-pane="editor"]) .doc-dock { display: none; }
+  body:has(.page[data-page="written-documents"][data-active="true"] .wd-layout[data-pane="editor"]) .main { padding: 0 0 72px; }
+  .page[data-page="written-documents"]:has(.wd-layout[data-pane="editor"]) > .page-header,
+  .page[data-page="written-documents"]:has(.wd-layout[data-pane="editor"]) > .wd-proto { display: none; }
+  .wd-head { position: sticky; top: var(--app-header-height); z-index: var(--wd-sticky-z); gap: 8px; margin: 0; padding: 6px 10px 8px 12px; background: var(--ef-frame); box-shadow: 0 1px 0 var(--ef-line); }
+  .wd-back { margin-left: -6px; padding: 0 8px; }
+  .wd-head [data-wide-only] { display: none; }
+  .wd-menu .menu-item[data-narrow-only] { display: flex; }
+  .wd-menu .menu-sep[data-narrow-only] { display: block; }
+  .wd-archived { margin: 10px 12px; }
+  .wd-canvas { padding: 0; border-radius: 0; background: none; box-shadow: none; }
+  .wd-doc .editor-toolbar { display: none; }
+  .wd-paper { width: 100%; min-height: calc(100vh - var(--app-header-height) - 52px); padding: 18px 20px 32px; border-radius: 0; box-shadow: none; }
+  .wd-paper .wd-letterhead { gap: 10px; padding-bottom: 10px; margin-bottom: 20px; border-bottom-width: 1px; }
+  .wd-paper .wd-letterhead .wd-chrome-art { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
+  .wd-paper .wd-lh-logo { width: 24px; height: 24px; border-radius: 6px; font-size: 11px; }
+  .wd-paper .wd-lh-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--ef-font-body); font-size: 13px; font-weight: 600; }
+  .wd-paper .wd-lh-addr { display: none; }
+  .wd-paper .wd-chrome-edit { position: static; flex: none; opacity: 1; }
+  .wd-paper .wd-signature { width: auto; padding-top: 40px; }
+  .wd-paper .wd-signature .wd-chrome-edit { justify-self: start; margin-top: 8px; }
+  .wd-paper .editor-title { font-size: 28px; }
+  .wd-body { min-height: 240px; }
+  .wd-grip, .wd-drop { display: none; }
+  .page[data-page="written-documents"][data-typing="true"]:has(.wd-layout[data-pane="editor"]) .wd-kbar {
+    position: fixed; left: 0; right: 0; bottom: var(--wd-kb, 0px); z-index: var(--wd-sticky-z);
+    display: flex; align-items: center; gap: 2px; padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+    background: var(--ef-surface-raised); box-shadow: 0 -1px 0 var(--ef-line), 0 -6px 18px rgba(22, 30, 46, .08);
+  }
+  .wd-kbar > button { flex: none; width: 36px; height: 40px; border: 0; border-radius: var(--corner-control); background: none; color: var(--ef-ink-2); display: grid; place-items: center; cursor: pointer; font: inherit; }
+  .wd-kbar button i { font-size: 19px; }
+  .wd-kbar > button[aria-pressed="true"], .wd-kbar > button:hover, .wd-kbar .tblock[aria-expanded="true"] { background: var(--ef-surface-2); color: var(--ef-ink); }
+  .wd-kbar .tblock { min-width: 64px; height: 40px; border: 0; border-radius: var(--corner-control); background: none; display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; font: inherit; font-size: 14px; font-weight: 500; color: var(--ef-ink); cursor: pointer; }
+  .wd-kbar .tblock i { font-size: 14px; }
+  .wd-kbar .tsep { width: 1px; height: 22px; margin: 0 2px; flex: none; background: var(--ef-line-2); }
+  .wd-kbar .wd-slash-key { font-size: 18px; font-weight: 500; }
+  .wd-kbar .wd-menu-wrap { position: static; }
+  .wd-kbar .wd-menu { top: auto; bottom: calc(100% + 6px); left: 8px; }
+  .page[data-page="written-documents"][data-typing="true"] .wd-toasts { bottom: calc(var(--wd-kb, 0px) + 68px); }
+  .wd-slash { width: min(300px, calc(100vw - 24px)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .page[data-page="written-documents"] *, .page[data-page="written-documents"] *::before, .page[data-page="written-documents"] *::after { transition: none !important; animation: none !important; }
+}
+@media print {
+  body:has(.page[data-page="written-documents"][data-active="true"]) > :not(.frame),
+  body:has(.page[data-page="written-documents"][data-active="true"]) .frame > :not(.main),
+  body:has(.page[data-page="written-documents"][data-active="true"]) .main > :not(.page[data-page="written-documents"]),
+  .page[data-page="written-documents"] > :not(#wd-print), #wd-print .wd-print-head { display: none !important; }
+  body:has(.page[data-page="written-documents"][data-active="true"]),
+  body:has(.page[data-page="written-documents"][data-active="true"]) .frame,
+  body:has(.page[data-page="written-documents"][data-active="true"]) .main { display: block !important; padding: 0 !important; margin: 0 !important; max-width: none !important; background: #FFFFFF !important; }
+  #wd-print { position: static !important; display: block !important; opacity: 1 !important; padding: 0 !important; background: none !important; backdrop-filter: none !important; }
+  #wd-print .modal-panel { display: block; width: auto; height: auto; overflow: visible; box-shadow: none; transform: none; background: none; border-radius: 0; }
+  #wd-print .wd-print-stage { padding: 0; background: none; overflow: visible; }
+  #wd-print .wd-sheet { width: auto; min-height: 100vh; padding: 0; box-shadow: none; border-radius: 0; }
+}
 </style>
 </head>
 <body>
@@ -3443,6 +3727,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
       <p class="page-sub">Print-ready templates from the Playbook, filled in with your church's details.</p>
     </div>
     <div class="page-actions">
+      <a class="btn" data-variant="secondary" href="#/documents/written"><i class="hgi-stroke hgi-file-edit"></i>Written documents<span class="badge" data-size="sm" data-plain="true" data-wd-count aria-label="9 documents">9</span></a>
       <button class="btn" data-variant="secondary"><i class="hgi-stroke hgi-clock-01"></i>History</button>
     </div>
   </header>
@@ -3488,6 +3773,173 @@ body[data-role="member"] [data-author-only] { display: none !important; }
       </div>
     </div>
   </div>
+</section>
+
+<!-- =================================================================
+     PAGE: WRITTEN DOCUMENTS  (#/documents/written)
+     The church's own documents: a list pane and a WYSIWYG editor.
+     Same two-pane model as Messages in the app (340 px list, detail pane,
+     one pane at a time below 1024 px). The document is a Letter sheet with
+     the letterhead and signature from Settings drawn on it as read-only chrome.
+     The script is at the end of the file.
+     ================================================================= -->
+<section class="page" data-page="written-documents" data-width="wide">
+  <header class="page-header">
+    <div class="titles">
+      <nav class="breadcrumb" aria-label="Breadcrumb"><a href="#/documents">Documents</a><i class="hgi-stroke hgi-arrow-right-01" aria-hidden="true"></i><span aria-current="page">Written documents</span></nav>
+      <h1 class="page-title">Written documents</h1>
+      <p class="page-sub">Your church's statements, covenants and policies. Each one prints on your letterhead.</p>
+    </div>
+  </header>
+
+  <div class="wd-proto">
+    <span class="wd-proto-label"><i class="hgi-stroke hgi-view" aria-hidden="true"></i>Prototype state</span>
+    <div class="segmented" id="wd-proto" role="tablist" aria-label="Prototype state"><button type="button" role="tab" data-proto="empty" aria-selected="false">No documents</button><button type="button" role="tab" data-proto="none" aria-selected="false">None selected</button><button type="button" role="tab" data-proto="selected" aria-selected="true">Document open</button></div>
+    <span class="wd-proto-label"><i class="hgi-stroke hgi-wifi-01" aria-hidden="true"></i>Connection</span>
+    <div class="segmented" id="wd-net" role="tablist" aria-label="Prototype connection"><button type="button" role="tab" data-net="online" aria-selected="true">Online</button><button type="button" role="tab" data-net="offline" aria-selected="false">Offline</button></div>
+  </div>
+
+  <div class="wd-layout" id="wd-layout" data-pane="list">
+    <aside class="card wd-list" aria-label="Written documents">
+      <div class="wd-list-head">
+        <h2 class="card-title sm grow">Documents</h2>
+        <div class="wd-menu-wrap">
+          <button type="button" class="btn" data-variant="primary" data-size="sm" aria-haspopup="menu" aria-expanded="false" aria-controls="wd-new-menu"><i class="hgi-stroke hgi-add-01"></i>New document</button>
+          <div class="popover menu wd-menu" id="wd-new-menu" role="menu" aria-label="New document" data-align="end" data-new-menu hidden></div>
+        </div>
+      </div>
+      <div class="input" data-wd-tools style="height:40px"><i class="hgi-stroke hgi-search-01" aria-hidden="true"></i><input type="search" id="wd-search" placeholder="Search by title" aria-label="Search documents by title" autocomplete="off"></div>
+      <div class="segmented wd-filter" id="wd-filter" role="tablist" aria-label="Filter by status" data-wd-tools><button type="button" role="tab" aria-controls="wd-rows" data-filter="all" aria-selected="true">All <span class="n" data-n="all">0</span></button><button type="button" role="tab" aria-controls="wd-rows" data-filter="official" aria-selected="false">Official <span class="n" data-n="official">0</span></button><button type="button" role="tab" aria-controls="wd-rows" data-filter="draft" aria-selected="false">Draft <span class="n" data-n="draft">0</span></button><button type="button" role="tab" aria-controls="wd-rows" data-filter="archived" aria-selected="false">Archived <span class="n" data-n="archived">0</span></button></div>
+      <div id="wd-rows"></div>
+      <div class="wd-nomatch" id="wd-nomatch" hidden><span>No documents match</span><button type="button" class="btn" data-variant="secondary" data-size="sm" id="wd-clear">Clear</button></div>
+      <div class="empty" id="wd-empty" hidden>
+        <div class="e-art"><i class="hgi-stroke hgi-file-edit"></i></div>
+        <div class="card-title sm">No written documents yet</div>
+        <p class="muted t-sm" style="max-width:260px;margin:0">Write your statement of faith, covenant or policies here. Start blank or from one of your church templates.</p>
+        <div class="wd-menu-wrap" style="margin-top:8px">
+          <button type="button" class="btn" data-variant="primary" data-size="sm" aria-haspopup="menu" aria-expanded="false" aria-controls="wd-new-menu-2"><i class="hgi-stroke hgi-add-01"></i>New document</button>
+          <div class="popover menu wd-menu" id="wd-new-menu-2" role="menu" aria-label="New document" data-new-menu hidden style="left:50%;transform:translateX(-50%)"></div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="wd-detail">
+      <div class="card wd-choose" id="wd-choose">
+        <div class="empty">
+          <div class="e-art"><i class="hgi-stroke hgi-file-02"></i></div>
+          <div class="card-title sm" id="wd-choose-title">Choose a document</div>
+          <p class="muted t-sm" id="wd-choose-text" style="max-width:320px;margin:0">Select a document on the left to read and edit it, or start a new one.</p>
+        </div>
+      </div>
+
+      <article class="wd-doc" id="wd-doc" aria-labelledby="wd-title" hidden>
+        <div class="wd-head">
+          <button type="button" class="btn wd-back" data-variant="ghost" data-size="sm" id="wd-back" aria-label="Back to documents"><i class="hgi-stroke hgi-arrow-left-01"></i>Back</button>
+          <span class="badge" data-size="sm" id="wd-badge" data-status="attention">Draft</span>
+          <span class="wd-save" id="wd-save" role="status" aria-live="polite"></span>
+          <span class="grow"></span>
+          <button type="button" class="btn" data-variant="primary" data-size="sm" id="wd-official-btn" data-wide-only><i class="hgi-stroke hgi-checkmark-badge-01"></i><span>Designate official</span></button>
+          <div class="wd-menu-wrap" data-wide-only>
+            <button type="button" class="btn" data-variant="secondary" data-size="sm" id="wd-export-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="wd-export-menu"><i class="hgi-stroke hgi-file-export"></i>Export<i class="hgi-stroke hgi-arrow-down-01" style="font-size:14px"></i></button>
+            <div class="popover menu wd-menu wd-export" id="wd-export-menu" role="menu" aria-label="Export" data-align="end" hidden>
+              <button type="button" class="menu-item" role="menuitem" tabindex="-1" data-act="export-pdf"><i class="hgi-stroke hgi-pdf-01"></i>PDF</button>
+              <button type="button" class="menu-item" role="menuitem" tabindex="-1" data-act="export-docx"><i class="hgi-stroke hgi-doc-01"></i>Word (.docx)</button>
+              <div class="menu-sep" role="separator"></div>
+              <button type="button" class="menu-item wd-check" role="menuitemcheckbox" tabindex="-1" aria-checked="true" data-act="export-chrome"><span>Include letterhead and signature</span><span class="switch" aria-hidden="true"></span></button>
+              <div class="menu-sep" role="separator"></div>
+              <div class="menu-label" id="wd-recent-label">Recent exports</div>
+              <div role="group" aria-labelledby="wd-recent-label" id="wd-recent"></div>
+            </div>
+          </div>
+          <div class="wd-menu-wrap">
+            <button type="button" class="icon-btn" data-size="sm" id="wd-more-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="wd-more-menu" aria-label="More actions" title="More actions"><i class="hgi-stroke hgi-more-horizontal"></i></button>
+            <div class="popover menu wd-menu" id="wd-more-menu" role="menu" aria-label="More actions" data-align="end" hidden>
+              <button type="button" class="menu-item" role="menuitem" tabindex="-1" data-act="official" data-narrow-only><i class="hgi-stroke hgi-checkmark-badge-01"></i><span>Designate official</span></button>
+              <button type="button" class="menu-item" role="menuitem" tabindex="-1" data-act="export-pdf" data-narrow-only><i class="hgi-stroke hgi-pdf-01"></i>Export as PDF</button>
+              <button type="button" class="menu-item" role="menuitem" tabindex="-1" data-act="export-docx" data-narrow-only><i class="hgi-stroke hgi-doc-01"></i>Export as Word (.docx)</button>
+              <div class="menu-sep" role="separator" data-narrow-only></div>
+              <button type="button" class="menu-item" role="menuitem" tabindex="-1" data-act="history"><i class="hgi-stroke hgi-clock-01"></i>Version history</button>
+              <button type="button" class="menu-item" role="menuitem" tabindex="-1" data-act="print"><i class="hgi-stroke hgi-printer"></i>Print preview</button>
+              <div class="menu-sep" role="separator" data-edit-only></div>
+              <button type="button" class="menu-item" role="menuitem" tabindex="-1" data-act="import-txt" data-edit-only><i class="hgi-stroke hgi-txt-01"></i>Import text (.txt)</button>
+              <button type="button" class="menu-item" role="menuitem" tabindex="-1" data-act="import-docx" data-edit-only><i class="hgi-stroke hgi-file-import"></i>Import Word (.docx)</button>
+              <div class="menu-sep" role="separator"></div>
+              <button type="button" class="menu-item" role="menuitem" tabindex="-1" data-act="duplicate"><i class="hgi-stroke hgi-copy-01"></i>Duplicate</button>
+              <button type="button" class="menu-item" role="menuitem" tabindex="-1" data-act="archive"><i class="hgi-stroke hgi-archive-02"></i>Archive</button>
+              <button type="button" class="menu-item" role="menuitem" tabindex="-1" data-act="restore"><i class="hgi-stroke hgi-refresh"></i>Restore as draft</button>
+            </div>
+          </div>
+        </div>
+        <div class="card wd-archived" data-variant="callout" data-tone="ink" id="wd-archived" hidden><div class="row gap-3" style="align-items:center;flex-wrap:wrap"><span class="callout-label"><span class="ci"><i class="hgi-stroke hgi-archive-02"></i></span></span><p class="callout-text t-sm grow" style="margin:0">This document is archived. It stays in the history. Restore it to edit it again.</p><button type="button" class="btn" data-variant="secondary" data-size="sm" id="wd-restore-btn"><i class="hgi-stroke hgi-refresh"></i>Restore</button></div></div>
+
+        <div class="wd-canvas">
+          <div class="editor-toolbar" id="wd-toolbar" role="toolbar" aria-label="Formatting (Alt+F10)" aria-controls="wd-body"></div>
+          <div class="wd-sheet wd-paper" id="wd-paper">
+            <header class="wd-letterhead wd-chrome" aria-label="Letterhead from Settings, read only">
+              <div class="wd-chrome-art"><span class="wd-lh-logo" aria-hidden="true">HP</span><div><div class="wd-lh-name">Harvest Point Church</div><div class="wd-lh-addr">1420 Riverside Drive, Austin, TX 78704 · (512) 555-0142 · harvestpoint.org</div></div></div>
+              <a class="wd-chrome-edit" href="#/settings/church"><i class="hgi-stroke hgi-settings-02" aria-hidden="true"></i>Edit in Settings</a>
+            </header>
+            <h2 class="editor-title" id="wd-title" contenteditable="plaintext-only" spellcheck="true" aria-label="Document title" data-placeholder="Untitled document"></h2>
+            <div class="editor-body prose wd-body" id="wd-body" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Document text" aria-describedby="wd-help" spellcheck="true"></div>
+            <footer class="wd-signature wd-chrome" aria-label="Signature from Settings, read only">
+              <div class="wd-chrome-art"><div class="wd-sig-line"></div><div class="wd-sig-name">Daniel Reyes</div><div>Lead pastor, Harvest Point Church</div><div>Date: ____________</div></div>
+              <a class="wd-chrome-edit" href="#/settings/church"><i class="hgi-stroke hgi-settings-02" aria-hidden="true"></i>Edit in Settings</a>
+            </footer>
+            <span class="wd-hint" id="wd-hint" aria-hidden="true" hidden>Type / for commands</span>
+            <span class="wd-grip" id="wd-grip" aria-hidden="true" title="Drag to move. Alt+Shift+Up or Down moves with the keyboard."><i class="hgi-stroke hgi-drag-drop-vertical"></i></span>
+            <span class="wd-drop" id="wd-drop" hidden></span>
+          </div>
+        </div>
+        <p class="wd-sr" id="wd-help">Select text for formatting, or press Alt+F10. Type / on an empty line for blocks. Alt+Shift+Up or Down moves a block.</p>
+
+        <div class="wd-bubble" id="wd-bubble" role="toolbar" aria-label="Format selection" aria-controls="wd-body" hidden></div>
+        <div class="popover wd-slash" id="wd-slash" role="listbox" aria-label="Insert block" tabindex="0" hidden></div>
+        <div class="popover wd-linkpop" id="wd-linkpop" role="dialog" aria-label="Link" hidden>
+          <div class="input"><i class="hgi-stroke hgi-link-01" aria-hidden="true"></i><input type="url" id="wd-link-url" placeholder="Paste or type a link" aria-label="Link address"></div>
+          <div class="row gap-2"><span class="faint t-xs grow">Enter to apply · Esc to close</span><button type="button" class="btn" data-variant="ghost" data-size="sm" id="wd-link-remove"><i class="hgi-stroke hgi-unlink-01"></i>Remove</button><button type="button" class="btn" data-variant="primary" data-size="sm" id="wd-link-apply">Apply</button></div>
+        </div>
+        <p class="wd-sr" id="wd-announce" role="status" aria-live="polite"></p>
+        <input type="file" id="wd-file-txt" accept=".txt,text/plain" hidden>
+        <input type="file" id="wd-file-docx" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden>
+      </article>
+    </div>
+  </div>
+
+  <!-- Overlays for this page. They live in the section so print rules and focus stay scoped. -->
+  <div class="modal" id="wd-confirm" data-open="false" role="dialog" aria-modal="true" aria-labelledby="wd-confirm-title" aria-describedby="wd-confirm-text">
+    <div class="modal-panel" data-size="sm"><div class="modal-main"><div class="modal-body">
+      <div class="modal-head"><div class="grow"><h2 id="wd-confirm-title" style="font-size:26px"></h2></div><button type="button" class="icon-btn" data-size="sm" title="Close (Esc)" aria-label="Close" data-close><i class="hgi-stroke hgi-cancel-01"></i></button></div>
+      <p class="muted mt-3" id="wd-confirm-text" style="margin-bottom:0"></p>
+    </div>
+    <div class="modal-foot"><span class="grow"></span><button type="button" class="btn" data-variant="ghost" data-close>Cancel</button><button type="button" class="btn" data-variant="primary" id="wd-confirm-ok"></button></div>
+    </div></div>
+  </div>
+
+  <div class="modal" id="wd-history" data-open="false" role="dialog" aria-modal="true" aria-labelledby="wd-history-title">
+    <aside class="wd-drawer">
+      <div class="wd-drawer-head"><div class="grow"><h2 id="wd-history-title" style="font-size:24px">Version history</h2><p class="muted t-sm" id="wd-history-sub" style="margin:2px 0 0"></p></div><button type="button" class="icon-btn" data-size="sm" title="Close (Esc)" aria-label="Close version history" data-close><i class="hgi-stroke hgi-cancel-01"></i></button></div>
+      <div class="wd-rev-preview" id="wd-rev-preview"></div>
+      <div class="wd-revs" id="wd-revs" role="list" aria-label="Versions"></div>
+    </aside>
+  </div>
+
+  <div class="modal" id="wd-print" data-open="false" role="dialog" aria-modal="true" aria-labelledby="wd-print-title">
+    <div class="modal-panel wd-print-panel">
+      <div class="wd-print-head"><h2 id="wd-print-title" class="grow" style="font-size:22px">Print preview</h2><button type="button" class="btn" data-variant="primary" data-size="sm" id="wd-print-go"><i class="hgi-stroke hgi-printer"></i>Print</button><button type="button" class="icon-btn" data-size="sm" title="Close (Esc)" aria-label="Close print preview" data-close><i class="hgi-stroke hgi-cancel-01"></i></button></div>
+      <div class="wd-print-stage">
+        <div class="wd-sheet" id="wd-sheet">
+          <header class="wd-letterhead"><span class="wd-lh-logo" aria-hidden="true">HP</span><div><div class="wd-lh-name">Harvest Point Church</div><div class="wd-lh-addr">1420 Riverside Drive, Austin, TX 78704 · (512) 555-0142 · harvestpoint.org</div></div></header>
+          <h1 class="wd-sheet-title" id="wd-sheet-title"></h1>
+          <div class="prose" id="wd-sheet-body"></div>
+          <footer class="wd-signature"><div class="wd-sig-line"></div><div class="wd-sig-name">Daniel Reyes</div><div>Lead pastor, Harvest Point Church</div><div>Date: ____________</div></footer>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="wd-toasts" id="wd-toasts" role="status" aria-live="polite"></div>
+  <!-- Phones: the formatting bar above the on-screen keyboard. It sits outside the animated article, so position: fixed holds. -->
+  <div class="wd-kbar" id="wd-kbar" role="toolbar" aria-label="Formatting" aria-controls="wd-body"></div>
 </section>
 
 <!-- =================================================================
@@ -4894,7 +5346,7 @@ body[data-role="member"] [data-author-only] { display: none !important; }
 const DETAIL = {
   'people/maria-santos': ['person', 'people'], 'people/import': ['import', 'people'], 'people/duplicates': ['duplicates', 'people'],
   'ministries/worship': ['ministry', 'ministries'], 'meetings/vision-12': ['meeting', 'meetings'],
-  'help/article': ['help-article', 'help'], 'wiki/edit': ['wiki-edit', 'wiki'], 'network/plant': ['network-plant', 'network'], 'network/intelligence': ['network-intel', 'network'], 'intelligence/attestations': ['attestations', 'intelligence'], 'me/check-in': ['checkin', 'me']
+  'help/article': ['help-article', 'help'], 'wiki/edit': ['wiki-edit', 'wiki'], 'documents/written': ['written-documents', 'documents'], 'network/plant': ['network-plant', 'network'], 'network/intelligence': ['network-intel', 'network'], 'intelligence/attestations': ['attestations', 'intelligence'], 'me/check-in': ['checkin', 'me']
 };
 const STUBS = {};
 const BARE = new Set(['signin', 'onboarding']);            /* full-screen pages without the app shell */
@@ -5941,6 +6393,1010 @@ document.addEventListener('keydown', e => {
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'j') { e.preventDefault(); const p = document.getElementById('evry'); p.dataset.open === 'true' ? closeEvry() : openEvry(); }
   if (e.key === 'Escape') { if (document.getElementById('feedback').dataset.open === 'true') { closeFeedback(); return; } closeEvry(); closeGuide(); closePopovers(); if (document.getElementById('settings').dataset.open === 'true') leaveSettings(); }
 });
+</script>
+<script>
+/* Written documents (#/documents/written). Prototype behaviour only, not app logic: a list pane and a
+   contenteditable editor on a Letter sheet. Formatting comes from a floating selection toolbar, a "/" menu,
+   markdown input rules, shortcuts and one slim sticky toolbar (a bar above the keyboard on phones).
+   Locked doctrinal slots, block drag and Alt+Shift+Up/Down, autosave, export, version history with changes
+   highlighted, and print preview. The app port uses an editor library; the PR for OPS-101 compares the options. */
+(() => {
+  const page = document.querySelector('.page[data-page="written-documents"]');
+  const $ = id => document.getElementById(id);
+  const layout = $('wd-layout'), body = $('wd-body'), title = $('wd-title'), tb = $('wd-toolbar'), bubble = $('wd-bubble'), kbar = $('wd-kbar'), paper = $('wd-paper'), docEl = $('wd-doc'), grip = $('wd-grip');
+  const MAC = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+  const ME = 'Daniel Reyes';
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const active = () => page.dataset.active === 'true';
+  const narrow = () => matchMedia('(max-width: 1023.98px)').matches;
+  const phone = () => matchMedia('(max-width: 768px)').matches;
+  const calm = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+  /* Shortcut text for tooltips and aria-keyshortcuts: Cmd on Apple platforms, Ctrl elsewhere. */
+  const sc = (k, m) => MAC ? ({ alt: '⌥', shift: '⇧' }[m] || '') + '⌘' + k : 'Ctrl+' + ({ alt: 'Alt+', shift: 'Shift+' }[m] || '') + k;
+  const ks = (k, m) => (MAC ? 'Meta' : 'Control') + ({ alt: '+Alt', shift: '+Shift' }[m] || '') + '+' + k;
+
+  /* ---------- Sticky offsets: measured from the app top bar, never hard-coded ---------- */
+  const topbar = document.querySelector('.topbar');
+  const syncHeader = () => page.style.setProperty('--app-header-height', (topbar ? Math.round(topbar.getBoundingClientRect().height) : 0) + 'px');
+  if (topbar && 'ResizeObserver' in window) new ResizeObserver(syncHeader).observe(topbar);
+  syncHeader();
+  const headerH = () => parseFloat(getComputedStyle(page).getPropertyValue('--app-header-height')) || 0;
+  /* Phones: the formatting bar rides on top of the on-screen keyboard. */
+  const vv = window.visualViewport;
+  if (vv) { const kb = () => page.style.setProperty('--wd-kb', Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop)) + 'px'); vv.addEventListener('resize', kb); vv.addEventListener('scroll', kb); }
+
+  /* ---------- Sample data: Harvest Point Church ---------- */
+  const slot = (label, html, tpl) => `<section class="wd-slot" contenteditable="false" data-slot="${esc(label)}"><div class="wd-slot-head"><span class="wd-slot-label">${esc(label)}</span><button type="button" class="wd-slot-lock" contenteditable="false" aria-label="Locked section. The ${esc(tpl)} template keeps this heading and its place. You can edit the text." data-tip="The ${esc(tpl)} template keeps this heading and its place. You can edit the text below it."><i class="hgi-stroke hgi-square-lock-02" aria-hidden="true"></i>Locked</button></div><div class="wd-slot-body" contenteditable="true" role="textbox" aria-multiline="true" aria-label="${esc(label)} text">${html}</div></section>`;
+  const TEMPLATES = {
+    'Statement of faith': { intro: '<p>This statement summarizes what Harvest Point Church believes and teaches. Every member affirms it when they join.</p>', extra: ['Marriage', 'Church leadership', 'Last things'], slots: [
+      ['Statement of faith', '<p>We believe in one God, eternally existing in three persons: Father, Son and Holy Spirit.</p><p>We believe the Bible is the inspired Word of God, true and trustworthy in all it teaches.</p>'],
+      ['Baptism', '<p>We baptize believers by immersion, as a public sign of new life in Christ.</p>'],
+      ['The Lord’s Supper', '<p>We share communion on the first Sunday of each month. All who trust in Christ are welcome at the table.</p>']] },
+    'Core values': { intro: '<p>These values shape how we decide, spend and serve.</p>', extra: ['Our vision'], slots: [
+      ['Our mission', '<p>To be a church for the people of South Austin who do not yet have one.</p>'],
+      ['Core values', '<ul><li><b>Neighbors first.</b> We plan for the people who are not here yet.</li><li><b>Everyone serves.</b> No one only attends.</li><li><b>Open hands.</b> We give away more than we keep.</li></ul>']] },
+    'Membership covenant': { intro: '<p>Members of Harvest Point make these promises to God and to each other.</p>', extra: ['Church discipline'], slots: [
+      ['Our commitments', '<ul><li>To gather for worship most Sundays.</li><li>To serve on one team.</li><li>To give regularly and joyfully.</li></ul>'],
+      ['When we disagree', '<p>We go to the person first, in private, and we listen before we speak.</p>']] }
+  };
+  const fromTemplate = (name, over = {}) => { const t = TEMPLATES[name]; return (over.intro || t.intro) + t.slots.map(([l, h]) => slot(l, over[l] || h, name)).join('') + (over.after || '<p><br></p>'); };
+  const SAMPLE = [
+    { id: 'faith-2027', title: 'Statement of faith (2027 revision)', status: 'draft', updated: 'Oct 30', author: 'Daniel Reyes', template: 'Statement of faith',
+      html: fromTemplate('Statement of faith', {
+        intro: '<p>This statement summarizes what Harvest Point Church believes and teaches. Every member affirms it when they join.</p><h2>Why we are revising it</h2><p>The elders asked for <b>plainer words</b> and a clearer note on baptism. Nothing in what we believe has changed. Read the <a href="https://harvestpoint.org/beliefs">current statement</a> to compare.</p>',
+        'Baptism': '<p>We baptize believers by immersion, as a public sign of new life in Christ. Children are baptized when they can <i>explain the gospel in their own words</i> to an elder.</p><ul><li>Baptisms happen at the river on the second Sunday in May and September.</li><li>Each person shares a short story of faith.</li></ul>',
+        after: '<hr><blockquote>“There is one body and one Spirit, just as you were called to the one hope that belongs to your call.”<cite>Ephesians 4:4</cite></blockquote><h2>How members can respond</h2><p>Read the draft before the members’ meeting on <b>Nov 22</b>. Mark any sentence that is hard to understand, and say why.</p><ol><li>Read it once straight through.</li><li>Read it again with your small group.</li><li>Send your notes to Daniel.</li></ol><h3>What happens after the meeting</h3><p>The elders read every note. They will share a final draft in January, and the members vote on it in February.</p><p>Send comments to Daniel by <b>Nov 15</b>.</p>' }),
+      revs: [['Edited the Baptism section', 'Daniel Reyes', 'Oct 24'], ['Imported from Word (.docx)', 'Ana Lee', 'Oct 12'], ['Started from template: Statement of faith', 'Daniel Reyes', 'Oct 2']],
+      exports: [['Statement of faith (2027 revision).pdf', 'Daniel Reyes', 'Oct 24'], ['Statement of faith (2027 revision).docx', 'Ana Lee', 'Oct 12']] },
+    { id: 'welcome', title: 'Welcome letter for first-time guests', status: 'draft', updated: 'Oct 28', author: 'Ana Lee', template: null,
+      html: '<p>Dear friend,</p><p>Thank you for joining us on Sunday. We hope you felt at home. Harvest Point is a young church, and every new face matters to us.</p><h2>What happens next</h2><ol><li>Someone from our welcome team will call you this week.</li><li>You are invited to lunch with the planting team after the service on Nov 8.</li></ol><p>If you have a question, reply to this letter or write to <a href="mailto:hello@harvestpoint.org">hello@harvestpoint.org</a>.</p><p>With joy,<br>Ana Lee, for the welcome team</p>',
+      revs: [['Saved', 'Ana Lee', 'Oct 26'], ['Edited the text', 'Daniel Reyes', 'Oct 20'], ['Created', 'Ana Lee', 'Oct 18']] },
+    { id: 'volunteers', title: 'Launch Sunday volunteer guide', status: 'draft', updated: 'Oct 22', author: 'Tom Baker', template: null,
+      html: '<p>Launch Sunday is <b>March 14</b>. This guide tells every volunteer where to be and when.</p><h2>Arrival times</h2><ul><li><b>6:30 am</b> Setup crew at Lincoln Elementary</li><li><b>8:00 am</b> Kids team check-in training</li><li><b>9:15 am</b> Greeters at both doors</li></ul><h3>If something goes wrong</h3><p>Find a team lead in a green shirt. Do not move the sound desk.</p>',
+      revs: [['Edited arrival times', 'Tom Baker', 'Oct 20'], ['Edited the text', 'Grace Kim', 'Oct 15'], ['Created', 'Tom Baker', 'Oct 14']] },
+    { id: 'covenant', title: 'Membership covenant', status: 'draft', updated: 'Oct 9', author: 'Daniel Reyes', template: 'Membership covenant',
+      html: fromTemplate('Membership covenant'),
+      revs: [['Edited Our commitments', 'Daniel Reyes', 'Oct 7'], ['Edited the text', 'Chris Pham', 'Oct 3'], ['Started from template: Membership covenant', 'Daniel Reyes', 'Oct 1']] },
+    { id: 'faith', title: 'Statement of faith', status: 'official', updated: 'Mar 3', author: 'Daniel Reyes', template: 'Statement of faith',
+      html: fromTemplate('Statement of faith'),
+      revs: [['Designated official', 'Daniel Reyes', 'Mar 3'], ['Edited the Lord’s Supper section', 'Grace Kim', 'Feb 26'], ['Started from template: Statement of faith', 'Daniel Reyes', 'Feb 2']],
+      exports: [['Statement of faith.pdf', 'Daniel Reyes', 'Mar 3']] },
+    { id: 'values', title: 'Core values', status: 'official', updated: 'Apr 14', author: 'Chris Pham', template: 'Core values',
+      html: fromTemplate('Core values'),
+      revs: [['Designated official', 'Daniel Reyes', 'Apr 14'], ['Edited Core values', 'Chris Pham', 'Apr 10'], ['Started from template: Core values', 'Chris Pham', 'Apr 2']] },
+    { id: 'safety', title: 'Child safety policy', status: 'official', updated: 'Sep 18', author: 'Grace Kim', template: null,
+      html: '<p>Every child at Harvest Point is safe, known and cared for. This policy applies to every event where children are present.</p><h2>Two adults, always</h2><p>Two approved adults are in every room. <b>No adult is ever alone with a child.</b></p><h2>Who can serve</h2><ul><li>Members for at least six months</li><li>A completed background check</li><li>Training each year</li></ul>',
+      revs: [['Designated official', 'Daniel Reyes', 'Sep 18'], ['Edited Who can serve', 'Grace Kim', 'Sep 12'], ['Imported from Word (.docx)', 'Grace Kim', 'Sep 1']],
+      exports: [['Child safety policy.pdf', 'Grace Kim', 'Sep 18']] },
+    { id: 'bylaws', title: 'Interim bylaws', status: 'archived', updated: 'Jan 12', author: 'Chris Pham', template: null,
+      html: '<p>These interim bylaws governed Harvest Point until the church was incorporated.</p><h2>Leadership</h2><p>The planting team acts as the board until elders are installed.</p>',
+      revs: [['Archived', 'Chris Pham', 'Jan 12'], ['Designated official', 'Daniel Reyes', 'Jun 4, 2025'], ['Created', 'Chris Pham', 'May 20, 2025']] },
+    { id: 'faith-2025', title: 'Statement of faith (2025 draft)', status: 'archived', updated: 'Nov 20, 2025', author: 'Daniel Reyes', template: 'Statement of faith',
+      html: fromTemplate('Statement of faith'),
+      revs: [['Archived', 'Daniel Reyes', 'Nov 20, 2025'], ['Edited Baptism', 'Ana Lee', 'Nov 2, 2025'], ['Started from template: Statement of faith', 'Daniel Reyes', 'Oct 28, 2025']] }
+  ];
+  const STATUS = { official: ['positive', 'Official'], draft: ['attention', 'Draft'], archived: ['unknown', 'Archived'] };
+  const GROUPS = [['draft', 'Drafts'], ['official', 'Official'], ['archived', 'Archived']];
+
+  let docs = SAMPLE.map(d => ({ ...d })), stash = null, sel = 'faith-2027', filter = 'all', query = '', seq = 0, listScroll = 0, online = true, withChrome = true;
+  const cur = () => docs.find(d => d.id === sel) || null;
+  const readOnly = () => !cur() || cur().status === 'archived';
+  const name = d => d.title || 'Untitled document';
+  const announce = msg => { const a = $('wd-announce'); a.textContent = ''; requestAnimationFrame(() => a.textContent = msg); };
+
+  /* ---------- List pane ---------- */
+  function renderList() {
+    const counts = { all: docs.length, official: 0, draft: 0, archived: 0 };
+    docs.forEach(d => counts[d.status]++);
+    page.querySelectorAll('[data-n]').forEach(n => n.textContent = counts[n.dataset.n]);
+    document.querySelectorAll('[data-wd-count]').forEach(n => { n.textContent = docs.length; n.setAttribute('aria-label', docs.length + ' documents'); });
+    const qq = query.trim().toLowerCase();
+    const shown = docs.filter(d => (filter === 'all' || d.status === filter) && name(d).toLowerCase().includes(qq));
+    const focused = document.activeElement && document.activeElement.closest && document.activeElement.closest('.wd-row');
+    $('wd-rows').innerHTML = GROUPS.map(([st, label]) => {
+      const rows = shown.filter(d => d.status === st);
+      if (!rows.length) return '';
+      return `<div class="wd-group" role="group" aria-label="${label}"><h3 class="wd-group-h">${label}<span aria-hidden="true">· ${rows.length}</span></h3>${rows.map(d => `<button type="button" class="wd-row" data-id="${d.id}"${d.id === sel ? ' aria-current="true"' : ''}><span class="wd-row-top"><span class="wd-row-title">${esc(name(d))}</span><span class="badge" data-size="sm" data-status="${STATUS[d.status][0]}">${STATUS[d.status][1]}</span></span><span class="wd-row-meta">${esc(d.updated)} · ${esc(d.author)}</span>${d.template ? `<span class="wd-row-tpl"><i class="hgi-stroke hgi-file-script" aria-hidden="true"></i>From template: ${esc(d.template)}</span>` : ''}</button>`).join('')}</div>`;
+    }).join('');
+    const none = !docs.length;
+    page.querySelectorAll('[data-wd-tools]').forEach(el => el.hidden = none);
+    $('wd-empty').hidden = !none;
+    $('wd-nomatch').hidden = none || shown.length > 0;
+    if (focused) { const again = page.querySelector(`.wd-row[data-id="${focused.dataset.id}"]`); if (again) again.focus({ preventScroll: true }); }
+    $('wd-choose-title').textContent = none ? 'Your first document opens here' : 'Choose a document';
+    $('wd-choose-text').textContent = none ? 'Start a blank document or use a church template, such as your statement of faith.' : 'Select a document on the left to read and edit it, or start a new one.';
+    requestAnimationFrame(() => placeActive($('wd-filter'), true));
+  }
+  function setFilter(f) { filter = f; $('wd-filter').querySelectorAll('button').forEach(b => b.setAttribute('aria-selected', b.dataset.filter === f)); renderList(); }
+  $('wd-filter').addEventListener('click', e => { const b = e.target.closest('button[data-filter]'); if (b) setFilter(b.dataset.filter); });
+  $('wd-search').addEventListener('input', e => { query = e.target.value; renderList(); });
+  $('wd-clear').addEventListener('click', () => { query = ''; $('wd-search').value = ''; setFilter('all'); $('wd-search').focus(); });
+  $('wd-rows').addEventListener('click', e => { const r = e.target.closest('.wd-row'); if (r) select(r.dataset.id); });
+
+  function select(id) {
+    commit();
+    sel = id; renderList(); renderDoc(); syncProto();
+    if (id && narrow()) {
+      listScroll = scrollY; layout.dataset.pane = 'editor';
+      scrollTo(0, Math.max(0, docEl.getBoundingClientRect().top + scrollY - headerH() - 8));
+      $('wd-back').focus({ preventScroll: true });
+    }
+  }
+  $('wd-back').addEventListener('click', () => {
+    layout.dataset.pane = 'list';
+    requestAnimationFrame(() => { scrollTo(0, listScroll); const r = page.querySelector('.wd-row[aria-current="true"]'); if (r) r.focus({ preventScroll: true }); });
+  });
+
+  /* ---------- Editor: document load, autosave, actions ---------- */
+  const H = { undo: [], redo: [] };
+  let lastRange = null, lastGood = null, expected = '', busy = false, lastKind = '', lastAt = 0, saveTimer = 0;
+
+  const clean = () => body.innerHTML.replace(/​/g, '');
+  function commit() { const d = cur(); if (!d || readOnly()) return; if (saveTimer) return saveNow(); d.html = clean(); d.title = title.textContent.trim(); }
+  function renderDoc() {
+    const d = cur();
+    $('wd-choose').hidden = !!d; docEl.hidden = !d;
+    closeLink(false); closeSlash(); bubble.hidden = true; showGrip(null);
+    if (!d) return;
+    const ro = d.status === 'archived';
+    title.textContent = d.title; body.innerHTML = d.html; ensureBlocks();
+    title.contentEditable = ro ? 'false' : 'plaintext-only';
+    body.contentEditable = ro ? 'false' : 'true';
+    body.querySelectorAll('.wd-slot-body').forEach(s => s.contentEditable = ro ? 'false' : 'true');
+    body.setAttribute('aria-readonly', ro);
+    expected = sig(); H.undo = []; H.redo = []; lastRange = null; lastGood = snap();
+    const [st, label] = STATUS[d.status], badge = $('wd-badge');
+    badge.dataset.status = st; badge.textContent = label;
+    $('wd-archived').hidden = !ro;
+    const more = $('wd-more-menu');
+    more.querySelector('[data-act="archive"]').hidden = ro;
+    more.querySelector('[data-act="restore"]').hidden = !ro;
+    more.querySelector('[data-act="official"]').hidden = d.status !== 'draft';
+    more.querySelectorAll('[data-edit-only]').forEach(b => b.hidden = ro);
+    const off = $('wd-official-btn');
+    off.disabled = d.status !== 'draft';
+    off.querySelector('span').textContent = d.status === 'official' ? 'Official' : 'Designate official';
+    renderRecent();
+    setSave(online ? 'saved' : 'offline');
+    updateToolbar(); updateHint();
+  }
+  function setSave(state) {
+    const d = cur(), el = $('wd-save');
+    if (!d) return;
+    if (state === 'saving') { if (el.dataset.state !== 'saving') el.innerHTML = '<i class="hgi-stroke hgi-cloud-upload" aria-hidden="true"></i>Saving…'; }
+    else if (state === 'offline') el.innerHTML = '<i class="hgi-stroke hgi-wifi-disconnected-01" aria-hidden="true"></i>Offline, will retry';
+    else el.innerHTML = `<i class="hgi-stroke hgi-cloud-saving-done-01" aria-hidden="true"></i>Saved · ${d.updated === 'Just now' ? 'just now' : esc(d.updated)}`;
+    el.dataset.state = state;
+  }
+  function dirty() { if (readOnly()) return; setSave('saving'); clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 1000); }
+  function saveNow() {
+    clearTimeout(saveTimer); saveTimer = 0;
+    const d = cur(); if (!d || readOnly()) return;
+    d.html = clean(); d.title = title.textContent.trim();
+    if (!online) return setSave('offline');           /* kept on this device; it retries when the connection is back */
+    d.updated = 'Just now'; d.author = ME;
+    setSave('saved'); renderList();
+  }
+  $('wd-net').addEventListener('click', e => {
+    const b = e.target.closest('[data-net]'); if (!b) return;
+    online = b.dataset.net === 'online';
+    $('wd-net').querySelectorAll('button').forEach(x => x.setAttribute('aria-selected', x === b));
+    requestAnimationFrame(() => placeActive($('wd-net'), false));
+    if (!cur() || readOnly()) return;
+    if (!online) { clearTimeout(saveTimer); saveTimer = 0; setSave('offline'); }
+    else { setSave('saving'); clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 700); }
+  });
+  title.addEventListener('input', () => { const d = cur(); d.title = title.textContent.trim(); const t = page.querySelector(`.wd-row[aria-current="true"] .wd-row-title`); if (t) t.textContent = name(d); dirty(); });
+  title.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const f = body.querySelector('p, h1, h2, h3, li, blockquote'); caretTo(f || body, true); } });
+
+  /* Versions: every entry keeps its own text. Restore adds a new version on top; nothing is deleted. */
+  function olderHtml(html, n) {
+    const t = document.createElement('template'); t.innerHTML = html;
+    const free = [...t.content.children].filter(el => !el.matches('.wd-slot, hr'));
+    free.slice(1).reverse().slice(0, n).forEach(el => el.remove());
+    const long = [...t.content.querySelectorAll('p')].filter(x => (x.textContent.match(/[.!?](\s|$)/g) || []).length > 1), p = long[(n - 1) % (long.length || 1)];
+    if (p) { const s = p.textContent.match(/[^.!?]+[.!?]+["”’)]*\s*/g) || []; p.textContent = s.slice(0, -1).join('').trim(); }
+    return t.innerHTML;
+  }
+  function versionsOf(d) {
+    if (!d.versions) d.versions = (d.revs || []).map(([label, who, when], i) => ({ label, who, when, html: i === 0 && label === 'Designated official' ? d.html : olderHtml(d.html, i + 1) }));
+    return d.versions;
+  }
+  const keepVersion = (d, label) => versionsOf(d).unshift({ label: d.lastLabel || label, who: d.author, when: d.updated, html: d.html });
+
+  /* Status changes confirm first. Designate official names the version it replaces. */
+  function designate(back) {
+    const d = cur(); commit();
+    const prev = docs.find(x => x !== d && x.status === 'official' && d.template && x.template === d.template);
+    confirmBox({
+      title: 'Designate as official?',
+      text: `<b>${esc(name(d))}</b> becomes the official version that members read and print. ` + (prev ? `It replaces <b>${esc(prev.title)}</b>, official since ${esc(prev.updated)}. That version moves to Archived and stays in the history.` : 'No official version of this document exists yet.'),
+      ok: 'Designate official', run: () => {
+        if (prev) prev.status = 'archived';
+        keepVersion(d, 'Edited the text'); d.lastLabel = 'Designated official';
+        d.status = 'official'; d.updated = 'Just now'; d.author = ME;
+        renderList(); renderDoc(); toast(`${name(d)} is now official` + (prev ? `. ${prev.title} moved to Archived.` : '.'));
+      }
+    }, back);
+  }
+  function archive(back) {
+    const d = cur(); commit();
+    confirmBox({
+      title: 'Archive this document?', text: `<b>${esc(name(d))}</b> moves to Archived. Nobody can edit it until you restore it. Its history stays.`,
+      ok: 'Archive', variant: 'danger', run: () => {
+        d.status = 'archived'; d.updated = 'Just now'; d.author = ME;
+        renderList(); renderDoc(); toast(`Archived ${name(d)}`, 'Restore', () => restoreDoc(d.id));
+        $('wd-restore-btn').focus();
+      }
+    }, back);
+  }
+  $('wd-official-btn').addEventListener('click', e => designate(e.currentTarget));
+  function restoreDoc(id) { const d = docs.find(x => x.id === id); if (!d) return; d.status = 'draft'; d.updated = 'Just now'; d.author = ME; renderList(); if (sel === id) renderDoc(); toast(`Restored ${name(d)} as a draft`); }
+  $('wd-restore-btn').addEventListener('click', () => { restoreDoc(sel); title.focus(); });
+  function duplicate() {
+    const d = cur(); commit();
+    const copy = { id: 'new-' + (++seq), title: 'Copy of ' + name(d), status: 'draft', updated: 'Just now', author: ME, template: d.template, html: d.html, exports: [],
+      versions: [{ label: 'Duplicated from ' + name(d), who: ME, when: 'Just now', html: d.html }] };
+    docs.unshift(copy); query = ''; $('wd-search').value = ''; if (filter !== 'all' && filter !== 'draft') setFilter('all');
+    select(copy.id); toast(`Duplicated ${name(d)}`); title.focus();
+  }
+
+  /* ---------- Overlays: confirm, version history, print preview ---------- */
+  const openers = {};
+  let onConfirm = null;
+  function openOverlay(id, focusEl, back) { openers[id] = back || document.activeElement; $(id).dataset.open = 'true'; requestAnimationFrame(() => requestAnimationFrame(() => (focusEl || $(id).querySelector('[data-close]')).focus())); }
+  function closeOverlay(id, keepFocus) { $(id).dataset.open = 'false'; const o = openers[id]; if (!keepFocus && o && o.isConnected) o.focus(); }
+  ['wd-confirm', 'wd-history', 'wd-print'].forEach(id => {
+    const m = $(id);
+    m.addEventListener('click', e => { if (e.target === m || e.target.closest('[data-close]')) closeOverlay(id); });
+    m.addEventListener('keydown', e => {          /* keep Tab inside the open overlay */
+      if (e.key !== 'Tab') return;
+      const f = [...m.querySelectorAll('button:not([disabled]), [href], input, [tabindex="0"]')].filter(x => x.offsetParent);
+      if (!f.length) return;
+      if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f[f.length - 1].focus(); }
+      else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { e.preventDefault(); f[0].focus(); }
+    });
+  });
+  function confirmBox(o, back) {
+    $('wd-confirm-title').textContent = o.title; $('wd-confirm-text').innerHTML = o.text;
+    const ok = $('wd-confirm-ok'); ok.textContent = o.ok; ok.dataset.variant = o.variant || 'primary';
+    onConfirm = o.run; openOverlay('wd-confirm', ok, back);
+  }
+  $('wd-confirm-ok').addEventListener('click', () => { closeOverlay('wd-confirm'); const f = onConfirm; onConfirm = null; if (f) f(); });
+
+  const EDITING = ['contenteditable', 'role', 'aria-multiline', 'aria-label'];
+  const stripEditing = root => root.querySelectorAll(EDITING.map(a => `[${a}]`).join()).forEach(el => EDITING.forEach(a => el.removeAttribute(a)));
+
+  /* Changes between two versions, block by block (longest common subsequence), then word by word. */
+  const norm = s => s.replace(/[​\s]+/g, ' ').trim();
+  function lcs(a, b) {
+    const T = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0));
+    for (let i = a.length - 1; i >= 0; i--) for (let j = b.length - 1; j >= 0; j--) T[i][j] = a[i] === b[j] ? T[i + 1][j + 1] + 1 : Math.max(T[i + 1][j], T[i][j + 1]);
+    const out = []; let i = 0, j = 0;
+    while (i < a.length && j < b.length) { if (a[i] === b[j]) { out.push([i, j]); i++; j++; } else if (T[i + 1][j] >= T[i][j + 1]) i++; else j++; }
+    return out;
+  }
+  function wordDiff(a, b) {
+    const A = a.split(/(\s+)/).filter(Boolean), B = b.split(/(\s+)/).filter(Boolean);
+    let out = '', i = 0, j = 0, del = '', ins = '';
+    const flush = () => { if (del.trim()) out += `<del>${esc(del)}</del>`; else out += esc(del); if (ins.trim()) out += `<ins>${esc(ins)}</ins>`; else out += esc(ins); del = ins = ''; };
+    for (const [x, y] of lcs(A, B).concat([[A.length, B.length]])) { while (i < x) del += A[i++]; while (j < y) ins += B[j++]; flush(); if (x < A.length) out += esc(A[x]); i = x + 1; j = y + 1; }
+    return out;
+  }
+  const mark = (el, kind) => { el.dataset.change = kind; return el; };
+  function sameBlock(o, n) {
+    const c = n.cloneNode(true);
+    if (n.matches('.wd-slot')) {
+      const ob = o.querySelector('.wd-slot-body'), nb = n.querySelector('.wd-slot-body');
+      if (norm(ob.textContent) !== norm(nb.textContent)) c.querySelector('.wd-slot-body').replaceChildren(...diffBlocks([...ob.children], [...nb.children]));
+    }
+    return c;
+  }
+  function changedBlock(o, n) {
+    if (/^(UL|OL)$/.test(n.tagName)) { const c = n.cloneNode(false); c.append(...diffBlocks([...o.children], [...n.children])); return c; }
+    const c = n.cloneNode(false); c.innerHTML = wordDiff(norm(o.textContent), norm(n.textContent)); return mark(c, 'changed');
+  }
+  function diffBlocks(olds, news) {
+    const key = el => el.matches('.wd-slot') ? 'S:' + el.dataset.slot : el.tagName + ':' + norm(el.textContent);
+    const out = []; let i = 0, j = 0;
+    const gap = (oi, nj) => {
+      const og = olds.slice(i, oi), ng = news.slice(j, nj);
+      for (let k = 0; k < Math.max(og.length, ng.length); k++) {
+        const o = og[k], n = ng[k];
+        if (o && n && o.tagName === n.tagName && !n.matches('hr, .wd-slot')) out.push(changedBlock(o, n));
+        else { if (o) out.push(mark(o.cloneNode(true), 'removed')); if (n) out.push(mark(n.cloneNode(true), 'added')); }
+      }
+    };
+    for (const [oi, nj] of lcs(olds.map(key), news.map(key))) { gap(oi, nj); out.push(sameBlock(olds[oi], news[nj])); i = oi + 1; j = nj + 1; }
+    gap(olds.length, news.length);
+    return out;
+  }
+  const blocksOf = html => { const t = document.createElement('template'); t.innerHTML = html; return [...t.content.children].filter(el => !(el.tagName === 'P' && !norm(el.textContent))); };
+
+  let revs = [];
+  function openHistory(back) {
+    const d = cur(); commit();
+    revs = [{ label: d.lastLabel || (d.status === 'archived' ? 'Archived version' : 'Current version'), who: d.author, when: d.updated, html: d.html, current: true }].concat(versionsOf(d));
+    $('wd-history-sub').textContent = name(d) + ' · ' + revs.length + (revs.length === 1 ? ' version' : ' versions');
+    $('wd-revs').innerHTML = revs.map((r, i) => `<div role="listitem"><button type="button" class="rev-row wd-rev" data-rev="${i}"${r.current ? ' data-current' : ''}><span class="dot"></span><span><span style="display:block;font-weight:500">${esc(r.label)}</span><span class="faint t-xs">${esc(r.who)} · ${esc(r.when)}</span></span>${r.current ? '<span class="badge" data-size="sm" data-status="positive">Now</span>' : '<span></span>'}</button></div>`).join('');
+    showRev(0);
+    openOverlay('wd-history', $('wd-revs').querySelector('button'), back);
+  }
+  function showRev(i) {
+    const r = revs[i], prev = revs[i + 1], d = cur();
+    $('wd-revs').querySelectorAll('[data-rev]').forEach(x => +x.dataset.rev === i ? x.setAttribute('aria-current', 'true') : x.removeAttribute('aria-current'));
+    const nodes = prev ? diffBlocks(blocksOf(prev.html), blocksOf(r.html)) : blocksOf(r.html);
+    const changes = nodes.some(n => n.matches('[data-change]') || n.querySelector('[data-change]'));
+    const can = !r.current && d.status !== 'archived';
+    const legend = !prev ? 'First version' : changes ? `Changes since ${esc(prev.when)}: <span class="c-added">Added</span><span class="c-changed">Changed</span><span class="c-removed">Removed</span>` : `No text changes since ${esc(prev.when)}`;
+    $('wd-rev-preview').innerHTML = `<div class="wd-rev-bar"><div class="grow"><div style="font-weight:600">${esc(r.label)}</div><div class="muted t-xs">${esc(r.who)} · ${esc(r.when)} · Read only</div><div class="wd-legend">${legend}</div></div>${r.current ? '<span class="badge" data-size="sm" data-status="positive">Current version</span>' : `<button type="button" class="btn" data-variant="primary" data-size="sm" id="wd-rev-restore"${can ? '' : ' disabled'}><i class="hgi-stroke hgi-refresh"></i>Restore this version</button>`}</div><div class="wd-sheet wd-rev-sheet"><h1 class="wd-sheet-title">${esc(name(d))}</h1><div class="prose" id="wd-rev-body"></div></div>`;
+    const host = $('wd-rev-body'); host.append(...nodes);
+    host.querySelectorAll('.wd-slot-lock').forEach(b => b.replaceWith(Object.assign(document.createElement('i'), { className: 'hgi-stroke hgi-square-lock-02 faint' })));
+    stripEditing(host);
+    const rb = $('wd-rev-restore');
+    if (rb && can) rb.addEventListener('click', () => {
+      keepVersion(d, 'Edited the text');
+      d.html = r.html; d.updated = 'Just now'; d.author = ME; d.lastLabel = 'Restored the version from ' + r.when;
+      closeOverlay('wd-history'); renderDoc(); renderList();
+      toast(`Restored the version from ${r.when}. Your previous text is kept as a version.`);
+    });
+  }
+  $('wd-revs').addEventListener('click', e => { const b = e.target.closest('[data-rev]'); if (b) showRev(+b.dataset.rev); });
+
+  function printHtml(html) {
+    const t = document.createElement('template'); t.innerHTML = html;
+    t.content.querySelectorAll('.wd-slot').forEach(s => { const h = document.createElement('h2'); h.textContent = s.dataset.slot; s.replaceWith(h, ...s.querySelector('.wd-slot-body').childNodes); });
+    stripEditing(t.content);
+    t.content.querySelectorAll('p').forEach(p => { if (!p.textContent.replace(/[​\s]/g, '')) p.remove(); });
+    return t.innerHTML.replace(/​/g, '');
+  }
+  function renderSheet() {
+    const d = cur();
+    $('wd-sheet-title').textContent = d ? name(d) : '';
+    $('wd-sheet-body').innerHTML = d ? printHtml(d.status === 'archived' ? d.html : body.innerHTML) : '<p>Choose a document to print.</p>';
+  }
+  function openPrint(back) { commit(); renderSheet(); openOverlay('wd-print', $('wd-print-go'), back); }
+  $('wd-print-go').addEventListener('click', () => window.print());
+  window.addEventListener('beforeprint', () => { if (active()) { commit(); renderSheet(); } });
+
+  /* ---------- Toasts ---------- */
+  function toast(msg, action, fn) {
+    const host = $('wd-toasts'), t = document.createElement('div');
+    t.className = 'toast';
+    t.innerHTML = `<span class="t-icon"><i class="hgi-stroke hgi-tick-02" aria-hidden="true"></i></span><span class="grow">${esc(msg)}</span>` + (action ? `<button type="button" class="btn" data-variant="glass">${esc(action)}</button>` : '');
+    if (action) t.querySelector('button').addEventListener('click', () => { t.remove(); fn(); });
+    host.append(t); while (host.children.length > 2) host.firstElementChild.remove();
+    setTimeout(() => t.remove(), action ? 8000 : 4500);
+  }
+  let blockedAt = 0;
+  function blocked() { if (Date.now() - blockedAt > 2500) toast('Locked sections keep their heading and place. You can edit the text inside them.'); blockedAt = Date.now(); }
+
+  /* ---------- Menus: New document, Export, More (…), Text style ---------- */
+  const NEW_MENU = '<button type="button" class="menu-item" role="menuitem" tabindex="-1" data-act="new-blank"><i class="hgi-stroke hgi-file-add"></i>Blank document</button><div class="menu-sep" role="separator"></div><div class="menu-label" aria-hidden="true">From a template</div>'
+    + Object.keys(TEMPLATES).map(n => `<button type="button" class="menu-item" role="menuitem" tabindex="-1" data-act="new-template" data-template="${esc(n)}" aria-label="From a template: ${esc(n)}"><i class="hgi-stroke hgi-file-script"></i>${esc(n)}</button>`).join('');
+  page.querySelectorAll('[data-new-menu]').forEach(m => m.innerHTML = NEW_MENU);
+  let menuBtn = null;
+  const menuOf = b => $(b.getAttribute('aria-controls'));
+  const items = m => [...m.querySelectorAll('[role^="menuitem"]')].filter(x => x.offsetParent && !x.disabled);
+  function openMenu(b) {
+    closeMenu(); if (b.getAttribute('aria-disabled') === 'true') return;
+    menuBtn = b; b.setAttribute('aria-expanded', 'true'); const m = menuOf(b); m.hidden = false;
+    const list = items(m); (m.querySelector('[aria-checked="true"][role="menuitemradio"]') || list[0]).focus();
+  }
+  function closeMenu(refocus) { if (!menuBtn) return; menuOf(menuBtn).hidden = true; menuBtn.setAttribute('aria-expanded', 'false'); if (refocus) menuBtn.focus(); menuBtn = null; }
+  page.addEventListener('click', e => {
+    const b = e.target.closest('[aria-haspopup="menu"]');
+    if (b) { menuBtn === b ? closeMenu() : openMenu(b); return; }
+    const it = e.target.closest('.wd-menu [data-act]');
+    if (it) {
+      if (it.dataset.act === 'export-chrome') { withChrome = !withChrome; it.setAttribute('aria-checked', withChrome); return; }
+      const style = it.dataset.act === 'style';
+      closeMenu(!style); menuAct(it.dataset.act, it); return;
+    }
+    if (menuBtn && !e.target.closest('.wd-menu')) closeMenu();
+  });
+  document.addEventListener('click', e => { if (menuBtn && !page.contains(e.target)) closeMenu(); if (!$('wd-linkpop').hidden && !e.target.closest('#wd-linkpop, #wd-toolbar, #wd-bubble, #wd-kbar')) closeLink(false); });
+  page.addEventListener('keydown', e => {
+    const m = e.target.closest('.wd-menu'); if (!m) return;
+    const list = items(m), i = list.indexOf(document.activeElement);
+    const n = { ArrowDown: (i + 1) % list.length, ArrowUp: (i - 1 + list.length) % list.length, Home: 0, End: list.length - 1 }[e.key];
+    if (n !== undefined) { e.preventDefault(); e.stopPropagation(); list[n].focus(); }
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeMenu(true); }
+    if (e.key === 'Tab') closeMenu();
+  });
+  function menuAct(act, it) {
+    const more = $('wd-more-btn');
+    if (act === 'new-blank' || act === 'new-template') return newDoc(it.dataset.template);
+    if (act === 'style') return run(it.dataset.cmd, true);
+    if (act === 'import-txt') return $('wd-file-txt').click();
+    if (act === 'import-docx') return $('wd-file-docx').click();
+    if (act === 'export-pdf' || act === 'export-docx') return doExport(act === 'export-pdf');
+    if (act === 'recent') return toast('Downloaded ' + it.dataset.file);
+    if (act === 'history') return openHistory(more);
+    if (act === 'print') return openPrint(more);
+    if (act === 'duplicate') return duplicate();
+    if (act === 'archive') return archive(more);
+    if (act === 'restore') return restoreDoc(sel);
+    if (act === 'official') return designate(more);
+  }
+  function doExport(pdf) {
+    commit(); const d = cur(), file = `${name(d)}.${pdf ? 'pdf' : 'docx'}`;
+    d.exports = [[file, ME, 'Just now']].concat(d.exports || []).slice(0, 3); renderRecent();
+    toast(`Exported ${name(d)} as ${pdf ? 'PDF' : 'Word (.docx)'}, ${withChrome ? 'with' : 'without'} letterhead and signature`);
+  }
+  function renderRecent() {
+    const ex = (cur() && cur().exports) || [];
+    $('wd-recent').innerHTML = ex.length ? ex.map(([f, who, when]) => `<button type="button" class="menu-item wd-recent" role="menuitem" tabindex="-1" data-act="recent" data-file="${esc(f)}"><i class="hgi-stroke ${f.endsWith('.pdf') ? 'hgi-pdf-01' : 'hgi-doc-01'}" aria-hidden="true"></i><span class="wd-recent-t"><span>${esc(f)}</span> <span>${esc(who)} · ${esc(when)}</span></span><i class="hgi-stroke hgi-download-01" aria-hidden="true"></i></button>`).join('') : '<p class="wd-slash-none" style="margin:0">No exports yet</p>';
+  }
+  function newDoc(tpl) {
+    const html = tpl ? fromTemplate(tpl) : '<p><br></p>';
+    const d = { id: 'new-' + (++seq), title: tpl || '', status: 'draft', updated: 'Just now', author: ME, template: tpl || null, html, exports: [],
+      versions: tpl ? [{ label: 'Started from template: ' + tpl, who: ME, when: 'Just now', html }] : [] };
+    docs.unshift(d);
+    query = ''; $('wd-search').value = '';
+    if (filter !== 'all' && filter !== 'draft') setFilter('all');
+    select(d.id);
+    title.focus();
+    const r = document.createRange(); r.selectNodeContents(title); const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+  }
+
+  /* Import: the file picker uses the right accept value. A .txt file is read; Word shows sample content. */
+  const SAMPLE_DOCX = '<h2>Giving and finances</h2><p>Harvest Point keeps <b>two signers</b> on every account. The finance team reports to the members every quarter.</p><ul><li>Gifts are counted by two unrelated people.</li><li>Receipts are sent each January.</li></ul>';
+  function importFile(input, word) {
+    const f = input.files[0]; if (!f) return;
+    const done = html => {
+      focusSel(); lastGood = snap(); record(lastGood);
+      const t = document.createElement('template'); t.innerHTML = html; const first = t.content.firstElementChild;
+      body.append(t.content); ensureBlocks(); settle();
+      if (first) { first.scrollIntoView({ block: 'center', behavior: calm() ? 'auto' : 'smooth' }); caretTo(first, false); }
+      toast('Imported ' + f.name);
+      input.value = '';
+    };
+    if (word) done(SAMPLE_DOCX);
+    else f.text().then(txt => done(txt.trim() ? txt.trim().split(/\n\s*\n/).map(p => `<p>${esc(p).replace(/\n/g, '<br>')}</p>`).join('') : SAMPLE_DOCX));
+  }
+  $('wd-file-txt').addEventListener('change', e => importFile(e.target, false));
+  $('wd-file-docx').addEventListener('change', e => importFile(e.target, true));
+
+  /* ---------- Editor core: selection, history, slots ---------- */
+  document.execCommand('defaultParagraphSeparator', false, 'p');
+  const hostOf = n => n && (n.nodeType === 1 ? n : n.parentElement).closest('.wd-slot-body, #wd-body');
+  const blockOf = n => { const h = hostOf(n); if (n === h) return h; while (n && n.parentNode !== h) n = n.parentNode; return n; };
+  const liOf = n => { const e = n && (n.nodeType === 1 ? n : n.parentElement), li = e && e.closest('li'); return li && hostOf(li) === hostOf(n) ? li : null; };
+  const unitOf = n => liOf(n) || blockOf(n);                /* a list item, or the top-level block in its host */
+  const isEmpty = el => !el.textContent.replace(/​/g, '');
+  const range = () => { const s = getSelection(); return s.rangeCount && body.contains(s.getRangeAt(0).startContainer) ? s.getRangeAt(0) : null; };
+  const editing = () => { const a = document.activeElement; return !!a && (a === body || body.contains(a)); };
+  const pathOf = n => { const p = []; while (n && n !== body) { p.unshift([...n.parentNode.childNodes].indexOf(n)); n = n.parentNode; } return n ? p : null; };
+  const nodeAt = p => p.reduce((n, i) => n && n.childNodes[i], body);
+  function snap() { const r = range(); return { html: body.innerHTML, sel: r ? [pathOf(r.startContainer), r.startOffset, pathOf(r.endContainer), r.endOffset] : null }; }
+  function setRange(r) { const g = getSelection(); g.removeAllRanges(); g.addRange(r); lastRange = r.cloneRange(); }
+  function restoreSel(s) {
+    const a = s && nodeAt(s[0]), b = s && nodeAt(s[2]);
+    if (!a || !b) return caretTo(body.lastElementChild || body, false);
+    const r = document.createRange(); r.setStart(a, Math.min(s[1], a.length ?? a.childNodes.length)); r.setEnd(b, Math.min(s[3], b.length ?? b.childNodes.length));
+    hostOf(a).focus({ preventScroll: true }); setRange(r);
+  }
+  function caretTo(el, start) {
+    const h = hostOf(el) || body; h.focus({ preventScroll: true });
+    const r = document.createRange(); r.selectNodeContents(el); r.collapse(start); setRange(r);
+  }
+  function focusSel() {
+    if (range()) { hostOf(range().startContainer).focus({ preventScroll: true }); return; }
+    if (lastRange && body.contains(lastRange.startContainer)) { hostOf(lastRange.startContainer).focus({ preventScroll: true }); setRange(lastRange); }
+    else caretTo(body.lastElementChild || body, false);
+  }
+  const keepCaret = r => [r.startContainer, r.startOffset, r.endContainer, r.endOffset];
+  function putCaret(c) {
+    if (!c[0].isConnected || !c[2].isConnected) return false;
+    const x = document.createRange(); x.setStart(c[0], c[1]); x.setEnd(c[2], c[3]); hostOf(c[0]).focus({ preventScroll: true }); setRange(x); return true;
+  }
+  function record(s) { H.undo.push(s || snap()); if (H.undo.length > 200) H.undo.shift(); H.redo = []; lastAt = 0; }
+  /* Undo and redo only return to states that passed the slot check, so they set the expected slot list. */
+  function apply(s) { closeSlash(); body.innerHTML = s.html; expected = sig(); restoreSel(s.sel); lastGood = snap(); dirty(); updateToolbar(); }
+  function undo() { if (!H.undo.length) return; H.redo.push(snap()); apply(H.undo.pop()); }
+  function redo() { if (!H.redo.length) return; H.undo.push(snap()); apply(H.redo.pop()); }
+  /* Slots: label, order and count must not change. Any edit that changes them is reverted. */
+  const slots = () => [...body.querySelectorAll('.wd-slot')];
+  const sig = () => slots().map(s => [s.parentNode === body, s.dataset.slot, s.querySelector(':scope > .wd-slot-head .wd-slot-label')?.textContent, !!s.querySelector(':scope > .wd-slot-body')].join(':')).join('|');
+  function crossesSlot(r) {
+    if (!r || r.collapsed) return false;
+    return slots().some(s => { const b = s.querySelector('.wd-slot-body'); return r.intersectsNode(s) && !(b.contains(r.startContainer) && b.contains(r.endContainer)); });
+  }
+  /* Keep a paragraph before, between and after slots so the caret can reach every place. */
+  function ensureBlocks() {
+    const g = getSelection(), an = g.anchorNode, ao = g.anchorOffset;
+    let moved = false;
+    body.querySelectorAll('p').forEach(p => { if (p.querySelector(':scope > :is(p, ul, ol, h1, h2, h3, blockquote, hr, section)')) { p.replaceWith(...p.childNodes); moved = true; } });
+    if (moved && an && an.isConnected && body.contains(an)) { const r = document.createRange(); r.setStart(an, ao); r.collapse(true); g.removeAllRanges(); g.addRange(r); }
+    [...body.childNodes].forEach(n => { if (n.nodeType === 3 && n.data.trim()) { const p = document.createElement('p'); n.replaceWith(p); p.append(n); } });
+    if (!body.firstElementChild) body.innerHTML = '<p><br></p>';
+    slots().forEach(s => {
+      const nx = s.nextElementSibling; if (!nx || nx.matches('.wd-slot')) s.after(Object.assign(document.createElement('p'), { innerHTML: '<br>' }));
+      if (!s.previousElementSibling) s.before(Object.assign(document.createElement('p'), { innerHTML: '<br>' }));
+    });
+  }
+  function settle() {
+    if (sig() !== expected) { body.innerHTML = lastGood.html; restoreSel(lastGood.sel); H.undo.pop(); blocked(); }
+    ensureBlocks(); lastAt = 0; dirty(); updateToolbar(); updateHint();
+  }
+  function exec(cmd, val) {
+    focusSel(); const r = range();
+    if (crossesSlot(r)) return blocked();
+    lastGood = snap(); record(lastGood);
+    busy = true; document.execCommand(cmd, false, val); busy = false;
+    settle();
+  }
+  function blockTag(n) {
+    for (let e = n && (n.nodeType === 1 ? n : n.parentElement); e && e !== body && !e.matches('.wd-slot-body'); e = e.parentElement) {
+      if (e.tagName === 'LI') return e.parentElement.tagName;
+      if (/^(P|H1|H2|H3|BLOCKQUOTE|DIV)$/.test(e.tagName)) return e.tagName === 'DIV' ? 'P' : e.tagName;
+    }
+    return 'P';
+  }
+  const linkAt = n => { const e = n && (n.nodeType === 1 ? n : n.parentElement); const a = e && e.closest('a'); return a && body.contains(a) ? a : null; };
+  /* Block styles are set on the DOM directly, the same way in every engine. A list item that changes
+     style splits its list; the same style again turns the block back into a paragraph (not from the menu). */
+  function setBlock(kind, keep) {
+    focusSel(); const r = range(); if (!r) return; if (crossesSlot(r)) return blocked();
+    if (!keep && blockTag(r.startContainer) === kind && kind !== 'P') kind = 'P';
+    lastGood = snap(); record(lastGood);
+    const host = hostOf(r.startContainer), a = blockOf(r.startContainer), z = blockOf(r.endContainer);
+    const caret = keepCaret(r);
+    const tops = []; for (let n = a === host ? host.firstChild : a; n; n = n.nextSibling) { tops.push(n); if (n === z) break; }
+    const units = tops.flatMap(t => t.nodeType !== 1 ? [] : /^(UL|OL)$/.test(t.tagName) ? [...t.children].filter(li => r.intersectsNode(li) || li.contains(r.startContainer)) : t.matches('hr, .wd-slot') ? [] : [t]);
+    let first = null;
+    units.forEach(u => {
+      const el = document.createElement(kind === 'UL' || kind === 'OL' ? 'li' : kind);
+      el.append(...u.childNodes); if (!el.textContent && !el.querySelector('br')) el.innerHTML = '<br>';
+      const node = el.tagName === 'LI' ? document.createElement(kind) : el; if (node !== el) node.append(el);
+      if (u.tagName === 'LI') {
+        const list = u.parentElement, rest = [...list.children].slice([...list.children].indexOf(u) + 1);
+        if (rest.length) { const tail = document.createElement(list.tagName); tail.append(...rest); list.after(tail); }
+        list.after(node); u.remove(); if (!list.children.length) list.remove();
+      } else u.replaceWith(node);
+      first = first || el;
+    });
+    [...host.children].forEach(el => { const nx = el.nextElementSibling; if (nx && /^(UL|OL)$/.test(el.tagName) && el.tagName === nx.tagName) { nx.prepend(...el.children); el.remove(); } });
+    if (!putCaret(caret) && first) caretTo(first, false);
+    settle();
+  }
+  function divider(from) {
+    focusSel(); const r = range(); if (!r) return; if (crossesSlot(r)) return blocked();
+    lastGood = snap(); record(lastGood);
+    const host = hostOf(r.startContainer), blk = blockOf(r.startContainer), li = liOf(r.startContainer);
+    const hr = document.createElement('hr'), p = Object.assign(document.createElement('p'), { innerHTML: '<br>' });
+    if (from && li && isEmpty(li)) { const list = li.parentElement; li.remove(); if (list.children.length) list.after(hr, p); else list.replaceWith(hr, p); }
+    else if (from) blk.replaceWith(hr, p); else if (blk && blk !== host) blk.after(hr, p); else host.append(hr, p);
+    caretTo(p, true); settle();
+  }
+  /* Reorder: Alt+Shift+Up/Down moves the block (or list item) at the caret past its neighbour. */
+  function moveBlock(dir) {
+    focusSel(); const r = range(); if (!r) return;
+    const unit = unitOf(r.startContainer), host = hostOf(r.startContainer);
+    if (!unit || unit === host || unit.nodeType !== 1) return;
+    const sib = dir < 0 ? unit.previousElementSibling : unit.nextElementSibling;
+    if (!sib) return announce(dir < 0 ? 'Already at the top' : 'Already at the bottom');
+    lastGood = snap(); record(lastGood);
+    const caret = keepCaret(r);
+    if (dir < 0) sib.before(unit); else sib.after(unit);
+    putCaret(caret); settle();
+    unit.scrollIntoView({ block: 'nearest' });
+    announce(dir < 0 ? 'Moved up' : 'Moved down');
+  }
+
+  /* ---------- Toolbars: sticky bar, selection bubble, phone keyboard bar ---------- */
+  /* [command, label, icon, key, modifier]: the tooltip and aria-keyshortcuts come from one key. */
+  const T = {
+    p: ['p', 'Paragraph', 'hgi-paragraph', '0', 'alt'], h1: ['h1', 'Heading 1', 'hgi-heading-01', '1', 'alt'], h2: ['h2', 'Heading 2', 'hgi-heading-02', '2', 'alt'], h3: ['h3', 'Heading 3', 'hgi-heading-03', '3', 'alt'],
+    bold: ['bold', 'Bold', 'hgi-text-bold', 'B'], italic: ['italic', 'Italic', 'hgi-text-italic', 'I'], underline: ['underline', 'Underline', 'hgi-text-underline', 'U'], link: ['link', 'Link', 'hgi-link-01', 'K'],
+    ul: ['ul', 'Bulleted list', 'hgi-left-to-right-list-bullet', '8', 'shift'], ol: ['ol', 'Numbered list', 'hgi-left-to-right-list-number', '7', 'shift'], quote: ['quote', 'Quote', 'hgi-quote-down', '9', 'shift'],
+    undo: ['undo', 'Undo', 'hgi-arrow-turn-backward', 'Z'], redo: ['redo', 'Redo', 'hgi-arrow-turn-forward', ...(MAC ? ['Z', 'shift'] : ['Y'])]
+  };
+  const TOGGLES = new Set(['h1', 'h2', 'h3', 'bold', 'italic', 'underline', 'link', 'ul', 'ol', 'quote']);
+  const STYLE_NAMES = { P: 'Paragraph', H1: 'Heading 1', H2: 'Heading 2', H3: 'Heading 3' };
+  const tool = (k, tab) => { const t = T[k]; return `<button type="button" data-cmd="${t[0]}" tabindex="${tab ? 0 : -1}" aria-label="${t[1]}" data-tip="${t[1]} (${sc(t[3], t[4])})" aria-keyshortcuts="${ks(t[3], t[4])}"${TOGGLES.has(k) ? ' aria-pressed="false"' : ''}><i class="hgi-stroke ${t[2]}" aria-hidden="true"></i></button>`; };
+  const SEP = '<span class="tsep" aria-hidden="true"></span>';
+  const styleMenu = (id, up) => `<div class="wd-menu-wrap"><button type="button" class="tblock" tabindex="${up ? -1 : 0}" aria-haspopup="menu" aria-expanded="false" aria-controls="${id}" aria-label="Text style: Paragraph" data-tip="Text style (${sc('0–3', 'alt')})"><span class="tlabel">Paragraph</span><i class="hgi-stroke hgi-arrow-${up ? 'up' : 'down'}-01" aria-hidden="true"></i></button><div class="popover menu wd-menu" id="${id}" role="menu" aria-label="Text style" hidden>`
+    + ['p', 'h1', 'h2', 'h3'].map(k => `<button type="button" class="menu-item" role="menuitemradio" aria-checked="false" tabindex="-1" data-act="style" data-cmd="${k}" aria-keyshortcuts="${ks(T[k][3], 'alt')}"><i class="hgi-stroke ${T[k][2]}" aria-hidden="true"></i><span class="grow">${T[k][1]}</span><span class="kbd">${sc(T[k][3], 'alt')}</span></button>`).join('')
+    + `<div class="menu-sep" role="separator"></div><button type="button" class="menu-item" role="menuitem" tabindex="-1" data-act="style" data-cmd="hr"><i class="hgi-stroke hgi-minus-sign" aria-hidden="true"></i><span class="grow">Divider</span><span class="kbd">---</span></button></div></div>`;
+  tb.innerHTML = styleMenu('wd-style-menu') + SEP + ['bold', 'italic', 'underline', 'link'].map(k => tool(k)).join('') + SEP + ['ul', 'ol', 'quote'].map(k => tool(k)).join('') + SEP + tool('undo') + tool('redo');
+  bubble.innerHTML = ['bold', 'italic', 'underline', 'link'].map((k, i) => tool(k, !i)).join('') + SEP + ['h1', 'h2', 'h3', 'quote', 'ul'].map(k => tool(k)).join('');
+  kbar.innerHTML = styleMenu('wd-kstyle-menu', true).replace('tabindex="-1" aria-haspopup', 'tabindex="0" aria-haspopup') + SEP + ['bold', 'italic', 'ul', 'ol', 'quote', 'link'].map(k => tool(k)).join('') + SEP
+    + '<button type="button" data-cmd="slash" class="wd-slash-key" tabindex="-1" aria-label="Insert block (type /)">/</button>';
+  const toolBtns = () => page.querySelectorAll('#wd-toolbar button[data-cmd]:not([role^="menuitem"]), #wd-bubble button[data-cmd], #wd-kbar button[data-cmd]:not([role^="menuitem"])');
+  function roving(bar, onEscape) {
+    const list = () => [...bar.querySelectorAll('button:not([role^="menuitem"])')].filter(b => b.offsetParent);
+    const rove = b => list().forEach(x => x.tabIndex = x === b ? 0 : -1);
+    bar.addEventListener('mousedown', e => { if (e.target.closest('button')) e.preventDefault(); });
+    bar.addEventListener('click', e => { const b = e.target.closest('button'); if (!b || b.matches('[role^="menuitem"]')) return; rove(b); if (b.dataset.cmd && b.getAttribute('aria-disabled') !== 'true') run(b.dataset.cmd); });
+    bar.addEventListener('keydown', e => {
+      if (e.target.closest('.wd-menu')) return;
+      const l = list(), i = l.indexOf(document.activeElement);
+      const n = { ArrowRight: (i + 1) % l.length, ArrowLeft: (i - 1 + l.length) % l.length, Home: 0, End: l.length - 1 }[e.key];
+      if (n !== undefined) { e.preventDefault(); rove(l[n]); l[n].focus(); }
+      if (e.key === 'ArrowDown' && document.activeElement.matches('.tblock')) { e.preventDefault(); openMenu(document.activeElement); }
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onEscape(); }
+    });
+  }
+  roving(tb, focusSel); roving(kbar, focusSel);
+  roving(bubble, () => { hushed = true; bubble.hidden = true; focusSel(); });
+  function run(cmd, fromMenu) {
+    if (readOnly()) return;
+    if (cmd === 'undo') return undo(); if (cmd === 'redo') return redo();
+    if (cmd === 'link') return openLink();
+    if (cmd === 'hr') return divider(false);
+    if (cmd === 'slash') return slashFromButton();
+    if (/^(p|h1|h2|h3|ul|ol)$/.test(cmd)) return setBlock(cmd.toUpperCase(), fromMenu);
+    if (cmd === 'quote') return setBlock('BLOCKQUOTE');
+    exec(cmd);
+  }
+  function updateToolbar() {
+    const live = range(); if (live) lastRange = live.cloneRange();
+    const ro = readOnly(), r = lastRange && body.contains(lastRange.startContainer) ? lastRange : null;
+    const tag = r ? blockTag(r.startContainer) : 'P', st = c => !!r && !ro && document.queryCommandState(c);
+    const on = { h1: tag === 'H1', h2: tag === 'H2', h3: tag === 'H3', bold: st('bold'), italic: st('italic'), underline: st('underline'), link: !!(r && linkAt(r.startContainer)), ul: tag === 'UL', ol: tag === 'OL', quote: tag === 'BLOCKQUOTE' };
+    toolBtns().forEach(b => {
+      const c = b.dataset.cmd;
+      if (TOGGLES.has(c)) b.setAttribute('aria-pressed', !ro && !!on[c]);
+      b.setAttribute('aria-disabled', ro || (c === 'undo' && !H.undo.length) || (c === 'redo' && !H.redo.length));
+    });
+    const style = STYLE_NAMES[tag] || 'Paragraph';
+    page.querySelectorAll('.tblock').forEach(b => { b.querySelector('.tlabel').textContent = kbar.contains(b) ? ({ Paragraph: 'Text' }[style] || style.replace('Heading ', 'H')) : style; b.setAttribute('aria-label', 'Text style: ' + style); b.setAttribute('aria-disabled', ro); });
+    page.querySelectorAll('[role="menuitemradio"][data-cmd]').forEach(m => m.setAttribute('aria-checked', !ro && STYLE_NAMES[m.dataset.cmd.toUpperCase()] === STYLE_NAMES[tag]));
+  }
+
+  /* The selection bubble: shown over selected body text, under the app top bar in z-order. */
+  let hushed = false, bubbleFrame = 0;
+  function placeBubble() {
+    if (bubble.contains(document.activeElement)) return;
+    const r = range();
+    if (!r || r.collapsed || !editing() || readOnly() || hushed || drag || phone() || !r.toString().trim()) { bubble.hidden = true; return; }
+    bubble.hidden = false;
+    const rr = r.getBoundingClientRect(), dr = docEl.getBoundingClientRect(), bw = bubble.offsetWidth, bh = bubble.offsetHeight;
+    const floor = Math.max(headerH(), tb.offsetParent ? tb.getBoundingClientRect().bottom : 0) + 6;
+    let top = rr.top - bh - 10; if (top < floor) top = rr.bottom + 10;
+    bubble.style.top = (top - dr.top) + 'px';
+    bubble.style.left = Math.max(8, Math.min(rr.left + rr.width / 2 - bw / 2 - dr.left, dr.width - bw - 8)) + 'px';
+  }
+  const queueBubble = () => { cancelAnimationFrame(bubbleFrame); bubbleFrame = requestAnimationFrame(placeBubble); };
+  window.addEventListener('scroll', () => { if (active() && !bubble.hidden) queueBubble(); }, { passive: true });
+
+  /* "Type / for commands" on the empty line at the caret (and on an empty, unfocused document). */
+  function updateHint() {
+    const h = $('wd-hint'); let blk = null;
+    if (active() && cur() && !readOnly() && !slash) {
+      const r = range();
+      if (r && r.collapsed && editing()) { const u = unitOf(r.startContainer); if (u && u.nodeType === 1 && u !== hostOf(u) && u.tagName === 'P' && isEmpty(u)) blk = u; }
+      else if (!editing() && body.children.length === 1 && body.firstElementChild.tagName === 'P' && isEmpty(body)) blk = body.firstElementChild;
+    }
+    h.hidden = !blk; if (!blk) return;
+    const pr = paper.getBoundingClientRect(), br = blk.getBoundingClientRect(), cs = getComputedStyle(blk);
+    h.style.top = (br.top - pr.top) + 'px'; h.style.left = (br.left - pr.left) + 'px'; h.style.lineHeight = cs.lineHeight; h.style.fontSize = cs.fontSize;
+  }
+
+  /* ---------- "/" menu ---------- */
+  const SLASH = [['p', 'Text', 'Plain paragraph', 'hgi-paragraph', ''], ['h1', 'Heading 1', 'Large section heading', 'hgi-heading-01', '#'], ['h2', 'Heading 2', 'Medium section heading', 'hgi-heading-02', '##'], ['h3', 'Heading 3', 'Small section heading', 'hgi-heading-03', '###'],
+    ['ul', 'Bulleted list', 'A simple list', 'hgi-left-to-right-list-bullet', '-'], ['ol', 'Numbered list', 'A list with numbers', 'hgi-left-to-right-list-number', '1.'], ['quote', 'Quote', 'Scripture or a quotation', 'hgi-quote-down', '>'], ['hr', 'Divider', 'A line between sections', 'hgi-minus-sign', '---']];
+  let slash = null;                                         /* { blk, all, items, idx } while the menu is open */
+  function slashItems(blk) {
+    const d = cur(), inBody = hostOf(blk) === body;
+    const extra = d && d.template && inBody ? (TEMPLATES[d.template].extra || []).filter(l => !slots().some(s => s.dataset.slot === l)) : [];
+    return SLASH.map(([cmd, label, desc, icon, md]) => ({ cmd, label, desc, icon, md }))
+      .concat(extra.map(l => ({ cmd: 'slot', label: 'Doctrinal slot: ' + l, desc: `Locked section from the ${d.template} template`, icon: 'hgi-square-lock-02', md: '', slot: l })));
+  }
+  function openSlash(blk) { slash = { blk, all: slashItems(blk), idx: 0 }; renderSlash(); }
+  function renderSlash() {
+    const q = slash.blk.textContent.replace(/​/g, '').slice(1).trim().toLowerCase();
+    slash.items = slash.all.filter(it => !q || it.label.toLowerCase().includes(q) || it.cmd === q || (it.md && it.md === q) || (it.slot && 'doctrinal slot locked'.includes(q)));
+    if (!slash.items.length && /\s/.test(slash.blk.textContent.slice(1))) return closeSlash();
+    slash.idx = Math.min(slash.idx, Math.max(0, slash.items.length - 1));
+    const m = $('wd-slash');
+    m.innerHTML = slash.items.length ? slash.items.map((it, i) => `<div class="wd-slash-opt" role="option" id="wd-slash-${i}" data-i="${i}" aria-selected="${i === slash.idx}"><span class="wd-slash-ic"><i class="hgi-stroke ${it.icon}" aria-hidden="true"></i></span><span class="wd-slash-t"><b>${esc(it.label)}</b><span>${esc(it.desc)}</span></span>${it.md ? `<span class="kbd" title="Markdown shortcut">${esc(it.md)}</span>` : ''}</div>`).join('') : '<div class="wd-slash-none">No matching blocks</div>';
+    m.hidden = false;
+    if (slash.items.length) body.setAttribute('aria-activedescendant', 'wd-slash-' + slash.idx); else body.removeAttribute('aria-activedescendant');
+    const br = slash.blk.getBoundingClientRect(), dr = docEl.getBoundingClientRect();
+    let top = br.bottom + 6;
+    if (top + m.offsetHeight > innerHeight - 8 && br.top - m.offsetHeight - 6 > headerH()) top = br.top - m.offsetHeight - 6;
+    m.style.top = (top - dr.top) + 'px';
+    m.style.left = Math.max(8, Math.min(br.left - dr.left, dr.width - m.offsetWidth - 8)) + 'px';
+    const o = $('wd-slash-' + slash.idx); if (o) o.scrollIntoView({ block: 'nearest' });
+    updateHint();
+  }
+  function closeSlash() { if (!slash) return; slash = null; $('wd-slash').hidden = true; body.removeAttribute('aria-activedescendant'); updateHint(); }
+  function chooseSlash(i) {
+    const it = slash && slash.items[i], blk = slash && slash.blk; closeSlash(); if (!it || !blk.isConnected) return;
+    record(snap());                                         /* undo gives back the typed "/" */
+    blk.innerHTML = '<br>'; caretTo(blk, true); lastGood = snap();
+    if (it.cmd === 'slot') return insertSlot(blk, it.slot);
+    if (it.cmd === 'hr') return divider(true);
+    run(it.cmd, true);
+  }
+  function insertSlot(blk, label) {
+    const t = document.createElement('template'); t.innerHTML = slot(label, '<p><br></p>', cur().template);
+    const s = t.content.firstElementChild;
+    if (blk.tagName === 'LI') { const list = blk.parentElement; blk.remove(); if (list.children.length) list.after(s); else list.replaceWith(s); } else blk.replaceWith(s);
+    ensureBlocks(); expected = sig();
+    caretTo(s.querySelector('.wd-slot-body p'), true); settle();
+    announce('Added the locked section ' + label);
+  }
+  function slashFromButton() {
+    focusSel(); const r = range(); if (!r) return;
+    let u = unitOf(r.startContainer);
+    if (!u || u === hostOf(r.startContainer) || u.nodeType !== 1 || u.matches('hr, .wd-slot')) return;
+    lastGood = snap(); record(lastGood);
+    if (!isEmpty(u)) { const p = Object.assign(document.createElement('p'), { innerHTML: '<br>' }); (u.tagName === 'LI' ? u.parentElement : u).after(p); u = p; }
+    u.textContent = '/'; const x = document.createRange(); x.setStart(u.firstChild, 1); x.collapse(true); hostOf(u).focus({ preventScroll: true }); setRange(x);
+    settle(); openSlash(u);
+  }
+  const slashMenu = $('wd-slash');
+  slashMenu.addEventListener('mousedown', e => e.preventDefault());
+  slashMenu.addEventListener('click', e => { const o = e.target.closest('[data-i]'); if (o) chooseSlash(+o.dataset.i); });
+  slashMenu.addEventListener('mousemove', e => { const o = e.target.closest('[data-i]'); if (o && slash && +o.dataset.i !== slash.idx) { slash.idx = +o.dataset.i; slashMenu.querySelectorAll('[data-i]').forEach(x => x.setAttribute('aria-selected', x === o)); body.setAttribute('aria-activedescendant', o.id); } });
+
+  /* ---------- Block grip: drag a block by its handle (Alt+Shift+Up/Down from the keyboard) ---------- */
+  let hoverBlk = null, drag = null;
+  const draggable = () => [...body.children].filter(el => !el.matches('.wd-slot')).concat(...[...body.querySelectorAll('.wd-slot-body')].map(sb => [...sb.children]));
+  function showGrip(blk) {
+    hoverBlk = blk || null; grip.dataset.show = blk ? 'true' : 'false'; if (!blk) return;
+    const pr = paper.getBoundingClientRect(), br = blk.getBoundingClientRect(), lh = parseFloat(getComputedStyle(blk).lineHeight) || 24;
+    grip.style.top = (br.top - pr.top + Math.min(lh, br.height) / 2 - 13) + 'px';
+    grip.style.left = (body.getBoundingClientRect().left - pr.left - 30) + 'px';
+  }
+  paper.addEventListener('mousemove', e => {
+    if (drag || readOnly() || phone() || e.target.closest('#wd-grip')) return;
+    let best = null, gap = 28;
+    for (const el of draggable()) { const r = el.getBoundingClientRect(); const d = e.clientY < r.top ? r.top - e.clientY : e.clientY > r.bottom ? e.clientY - r.bottom : 0; if (d < gap) { gap = d; best = el; } if (!d) break; }
+    if (best !== hoverBlk) showGrip(best);
+  });
+  paper.addEventListener('mouseleave', () => { if (!drag) showGrip(null); });
+  grip.addEventListener('pointerdown', e => {
+    if (!hoverBlk || readOnly()) return;
+    e.preventDefault(); grip.setPointerCapture(e.pointerId);
+    drag = { blk: hoverBlk, host: hoverBlk.parentElement, before: undefined };
+    hoverBlk.setAttribute('data-wd-moving', ''); docEl.dataset.dragging = 'true'; bubble.hidden = true; closeSlash();
+  });
+  grip.addEventListener('pointermove', e => {
+    if (!drag) return;
+    const sibs = [...drag.host.children].filter(x => x !== drag.blk);
+    let before = null; for (const s of sibs) { const r = s.getBoundingClientRect(); if (e.clientY < r.top + r.height / 2) { before = s; break; } }
+    drag.before = before;
+    const pr = paper.getBoundingClientRect(), hr = drag.host.getBoundingClientRect(), line = $('wd-drop');
+    const prev = before ? sibs[sibs.indexOf(before) - 1] : sibs[sibs.length - 1];
+    const y = before && prev ? (prev.getBoundingClientRect().bottom + before.getBoundingClientRect().top) / 2 : before ? before.getBoundingClientRect().top - 4 : prev ? prev.getBoundingClientRect().bottom + 4 : hr.top;
+    line.hidden = false; line.style.top = (y - pr.top - 1) + 'px'; line.style.left = (hr.left - pr.left) + 'px'; line.style.width = hr.width + 'px';
+    grip.style.top = (e.clientY - pr.top - 13) + 'px';
+    if (e.clientY < headerH() + 70) scrollBy(0, -14); else if (e.clientY > innerHeight - 50) scrollBy(0, 14);
+  });
+  function endDrag(move) {
+    if (!drag) return; const { blk, host, before } = drag; drag = null;
+    blk.removeAttribute('data-wd-moving'); delete docEl.dataset.dragging; $('wd-drop').hidden = true;
+    if (move && before !== undefined && blk.nextElementSibling !== before) {
+      lastGood = snap(); record(lastGood);
+      if (before) before.before(blk); else host.append(blk);
+      settle(); announce('Moved the block');
+    }
+    showGrip(null);
+  }
+  grip.addEventListener('pointerup', () => endDrag(true));
+  grip.addEventListener('pointercancel', () => endDrag(false));
+
+  /* ---------- Link popover ---------- */
+  let linkCtx = null;
+  function openLink() {
+    focusSel(); const r = range(); if (!r) return; if (crossesSlot(r)) return blocked();
+    const a = linkAt(r.startContainer), card = docEl.getBoundingClientRect();
+    linkCtx = { range: r.cloneRange(), a };
+    $('wd-link-url').value = a ? a.getAttribute('href') : '';
+    $('wd-link-remove').disabled = !a;
+    let rect = (a || r).getBoundingClientRect(); if (!rect.width && !rect.height) rect = blockOf(r.startContainer).getBoundingClientRect?.() || rect;
+    const pop = $('wd-linkpop'); pop.hidden = false; bubble.hidden = true;
+    pop.style.top = (rect.bottom - card.top + 8) + 'px';
+    pop.style.left = Math.max(12, Math.min(rect.left - card.left, card.width - pop.offsetWidth - 12)) + 'px';
+    $('wd-link-url').focus();
+  }
+  function closeLink(refocus) {
+    const pop = $('wd-linkpop'); if (pop.hidden) return; pop.hidden = true;
+    const ctx = linkCtx; linkCtx = null;
+    if (refocus && ctx) { hostOf(ctx.range.startContainer).focus({ preventScroll: true }); setRange(ctx.range); }
+    updateToolbar();
+  }
+  function applyLink() {
+    let url = $('wd-link-url').value.trim(); const ctx = linkCtx;
+    if (!ctx) return; if (!url) return removeLink();
+    if (!/^(https?:|mailto:|tel:|#|\/)/i.test(url)) url = 'https://' + url;
+    closeLink(true); lastGood = snap(); record(lastGood); busy = true;
+    if (ctx.a) ctx.a.setAttribute('href', url);
+    else if (ctx.range.collapsed) document.execCommand('insertHTML', false, `<a href="${esc(url)}">${esc(url.replace(/^(https?:\/\/|mailto:)/, ''))}</a>`);
+    else document.execCommand('createLink', false, url);
+    busy = false; settle();
+  }
+  function removeLink() {
+    const ctx = linkCtx; closeLink(true); if (!ctx || !ctx.a) return;
+    lastGood = snap(); record(lastGood);
+    const r = document.createRange(); r.selectNodeContents(ctx.a); const g = getSelection(); g.removeAllRanges(); g.addRange(r);
+    busy = true; document.execCommand('unlink'); busy = false; g.collapseToEnd(); settle();
+  }
+  $('wd-link-apply').addEventListener('click', applyLink);
+  $('wd-link-remove').addEventListener('click', removeLink);
+  $('wd-link-url').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); applyLink(); } });
+
+  /* ---------- Typing: shortcuts, markdown input rules, slot guards ---------- */
+  const RULES = { '# ': 'h1', '## ': 'h2', '### ': 'h3', '- ': 'ul', '* ': 'ul', '1. ': 'ol', '> ': 'blockquote' };
+  function atEdge(blk, r, start) {
+    const x = document.createRange();
+    if (start) { x.setStart(blk, 0); x.setEnd(r.startContainer, r.startOffset); } else { x.setStart(r.endContainer, r.endOffset); x.setEnd(blk, blk.childNodes.length); }
+    return x.toString() === '';
+  }
+  body.addEventListener('keydown', e => {
+    const mod = MAC ? e.metaKey : e.ctrlKey;
+    showGrip(null);
+    if (slash) {
+      const n = slash.items.length;
+      if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && n) { e.preventDefault(); slash.idx = (slash.idx + (e.key === 'ArrowDown' ? 1 : -1) + n) % n; renderSlash(); return; }
+      if ((e.key === 'Enter' || e.key === 'Tab') && n) { e.preventDefault(); chooseSlash(slash.idx); return; }
+      if (e.key === 'Tab') closeSlash();
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeSlash(); return; }
+    }
+    if (e.key === 'Escape' && !bubble.hidden) { e.preventDefault(); e.stopPropagation(); hushed = true; bubble.hidden = true; return; }
+    if (e.altKey && e.key === 'F10') {
+      e.preventDefault(); placeBubble();
+      const bar = !bubble.hidden ? bubble : phone() ? kbar : tb, b = bar.querySelector('button[tabindex="0"]');
+      if (b) b.focus(); return;
+    }
+    if (e.altKey && e.shiftKey && !mod && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) { e.preventDefault(); if (!readOnly()) moveBlock(e.key === 'ArrowUp' ? -1 : 1); return; }
+    if (mod) {
+      const c = e.code; let cmd;
+      if (!e.altKey && !e.shiftKey) cmd = { KeyB: 'bold', KeyI: 'italic', KeyU: 'underline', KeyK: 'link', KeyZ: 'undo', KeyY: MAC ? undefined : 'redo' }[c];
+      else if (e.shiftKey && !e.altKey) cmd = { KeyZ: 'redo', Digit7: 'ol', Digit8: 'ul', Digit9: 'quote' }[c];
+      else if (e.altKey && !e.shiftKey) cmd = { Digit0: 'p', Digit1: 'h1', Digit2: 'h2', Digit3: 'h3' }[c];
+      if (cmd) { e.preventDefault(); run(cmd); }
+      return;
+    }
+    const r = range(); if (!r) return;
+    if (e.key === 'Enter' && !e.shiftKey && r.collapsed) {
+      const blk = blockOf(r.startContainer);
+      if (blk && blk.nodeType === 1 && blk.tagName === 'P' && blk.textContent === '---') { e.preventDefault(); divider(true); }
+      return;
+    }
+    if (e.key === 'Backspace' || e.key === 'Delete') {
+      if (!r.collapsed) { if (crossesSlot(r)) { e.preventDefault(); blocked(); } return; }
+      if (hostOf(r.startContainer) !== body) return;          /* inside a slot body: its own editing host stops at the edge */
+      const back = e.key === 'Backspace', blk = blockOf(r.startContainer);
+      const near = blk === body ? body.childNodes[r.startOffset + (back ? -1 : 0)] : (back ? blk.previousSibling : blk.nextSibling);
+      if (near && near.nodeType === 1 && near.matches('.wd-slot') && (blk === body || atEdge(blk, r, back))) { e.preventDefault(); blocked(); }
+    }
+  });
+  body.addEventListener('beforeinput', e => {
+    const t = e.inputType;
+    if (t === 'historyUndo' || t === 'historyRedo') { e.preventDefault(); t === 'historyUndo' ? undo() : redo(); return; }
+    if (busy) return;
+    const r = range();
+    const target = e.getTargetRanges ? e.getTargetRanges()[0] : null;
+    let tr = null; if (target) { tr = document.createRange(); tr.setStart(target.startContainer, target.startOffset); tr.setEnd(target.endContainer, target.endOffset); }
+    if (crossesSlot(r) || crossesSlot(tr)) { e.preventDefault(); blocked(); return; }
+    lastGood = snap();
+    const kind = t.startsWith('delete') ? 'del' : 'ins';
+    if (Date.now() - lastAt > 1000 || kind !== lastKind || t === 'insertParagraph') record(lastGood);
+    lastKind = kind; lastAt = Date.now();
+  });
+  body.addEventListener('input', e => {
+    if (busy) return;
+    if (sig() !== expected) { body.innerHTML = lastGood.html; restoreSel(lastGood.sel); blocked(); return; }
+    dropZw();
+    if (e.inputType === 'insertText') markdown(e.data);
+    ensureBlocks(); dirty(); updateToolbar();
+    if (slash) { if (!slash.blk.isConnected || !slash.blk.textContent.replace(/​/g, '').startsWith('/')) closeSlash(); else renderSlash(); }
+    else if (e.inputType === 'insertText' && e.data === '/') { const r = range(), u = r && unitOf(r.startContainer); if (u && u.nodeType === 1 && u !== hostOf(u) && !u.matches('hr, .wd-slot') && u.textContent.replace(/​/g, '') === '/') openSlash(u); }
+    updateHint();
+  });
+  function dropZw() {
+    const g = getSelection(), n = g.anchorNode; if (!n || n.nodeType !== 3 || !n.data.includes('​') || n.data.length < 2) return;
+    const o = g.anchorOffset, before = n.data.slice(0, o).split('​').length - 1;
+    n.data = n.data.replace(/​/g, ''); const c = document.createRange(); c.setStart(n, o - before); c.collapse(true); g.removeAllRanges(); g.addRange(c);
+  }
+  function markdown(data) {
+    const s = getSelection(); if (!s.rangeCount) return; const r = s.getRangeAt(0);
+    if (!r.collapsed || r.startContainer.nodeType !== 3) return;
+    const node = r.startContainer, off = r.startOffset, blk = blockOf(node);
+    if (data === ' ' && blk && blk.nodeType === 1 && blk.tagName === 'P') {
+      const pre = document.createRange(); pre.setStart(blk, 0); pre.setEnd(node, off);
+      const rule = RULES[pre.toString().replace(/\u00a0/g, ' ')];
+      if (!rule) return;
+      record(snap());                                   /* undo gives back the typed characters */
+      pre.deleteContents();
+      const el = document.createElement(rule === 'ul' || rule === 'ol' ? 'li' : rule);
+      el.append(...blk.childNodes); if (!el.textContent) el.innerHTML = '<br>';
+      if (el.tagName === 'LI') { const list = document.createElement(rule); list.append(el); blk.replaceWith(list); } else blk.replaceWith(el);
+      caretTo(el, true); lastAt = 0; lastGood = snap(); return;
+    }
+    if (data === '*') {
+      const t = node.data.slice(0, off);
+      let m = t.match(/\*\*([^*\s](?:[^*]*[^*\s])?)\*\*$/), cmd = 'bold', len = m && m[0].length;
+      if (!m) { m = t.match(/(?:^|[^*])\*([^*\s](?:[^*]*[^*\s])?)\*$/); cmd = 'italic'; len = m && m[1].length + 2; }
+      if (!m) return;
+      record(snap()); busy = true;
+      const x = document.createRange(); x.setStart(node, off - len); x.setEnd(node, off); s.removeAllRanges(); s.addRange(x);
+      document.execCommand('insertText', false, m[1]);
+      const a = s.getRangeAt(0), w = document.createRange(); w.setStart(a.startContainer, a.startOffset - m[1].length); w.setEnd(a.startContainer, a.startOffset);
+      s.removeAllRanges(); s.addRange(w); document.execCommand(cmd);
+      s.collapseToEnd();
+      const an = s.anchorNode, mk = an && (an.nodeType === 1 ? an : an.parentElement).closest(cmd === 'bold' ? 'b, strong' : 'i, em');
+      if (mk && body.contains(mk)) {               /* a zero-width space after the mark keeps new text plain; it is removed on the next keystroke */
+        const zw = document.createTextNode('​'); mk.after(zw);
+        const c = document.createRange(); c.setStart(zw, 1); c.collapse(true); s.removeAllRanges(); s.addRange(c);
+      }
+      busy = false; lastAt = 0; lastGood = snap();
+    }
+  }
+  /* Cut, paste and drag never take a slot with them. Pasted HTML is cleaned to the editor's own tags. */
+  body.addEventListener('cut', e => { if (crossesSlot(range())) { e.preventDefault(); blocked(); } });
+  body.addEventListener('dragstart', e => { if (crossesSlot(range()) || e.target.closest?.('.wd-slot-head')) { e.preventDefault(); blocked(); } });
+  const KEEP = new Set(['P', 'H1', 'H2', 'H3', 'B', 'STRONG', 'I', 'EM', 'U', 'A', 'UL', 'OL', 'LI', 'BLOCKQUOTE', 'HR', 'BR']);
+  function cleanHtml(html) {
+    const t = document.createElement('template'); t.innerHTML = html;
+    t.content.querySelectorAll('script, style, meta, title, .wd-slot-head').forEach(n => n.remove());
+    [...t.content.querySelectorAll('*')].reverse().forEach(el => {
+      if (!KEEP.has(el.tagName)) { el.replaceWith(...el.childNodes); return; }
+      [...el.attributes].forEach(a => { if (!(el.tagName === 'A' && a.name === 'href')) el.removeAttribute(a.name); });
+    });
+    return t.innerHTML;
+  }
+  body.addEventListener('paste', e => {
+    e.preventDefault();
+    if (readOnly()) return; if (crossesSlot(range())) return blocked();
+    const html = e.clipboardData.getData('text/html'), text = e.clipboardData.getData('text/plain');
+    lastGood = snap(); record(lastGood); busy = true;
+    if (html) document.execCommand('insertHTML', false, cleanHtml(html)); else document.execCommand('insertText', false, text);
+    busy = false; settle();
+  });
+  title.addEventListener('paste', e => { e.preventDefault(); document.execCommand('insertText', false, e.clipboardData.getData('text/plain').replace(/\s+/g, ' ')); });
+
+  document.addEventListener('selectionchange', () => {
+    if (!active()) return;
+    const r = range();
+    if (r) { lastRange = r.cloneRange(); updateToolbar(); }
+    if (!r || r.collapsed) hushed = false;
+    if (slash && !(r && slash.blk.contains(r.startContainer))) closeSlash();
+    queueBubble(); updateHint();
+  });
+  /* Phones: the keyboard bar shows while you write (the on-screen keyboard is open). */
+  const writing = el => !!el && (el === title || el === body || body.contains(el) || kbar.contains(el));
+  page.addEventListener('focusin', e => { if (writing(e.target)) page.dataset.typing = 'true'; });
+  page.addEventListener('focusout', () => setTimeout(() => { if (!writing(document.activeElement)) { page.dataset.typing = 'false'; closeSlash(); } queueBubble(); updateHint(); }, 0));
+
+  document.addEventListener('keydown', e => {
+    if (!active()) return;
+    if (e.key === 'Escape') {
+      if (drag) { endDrag(false); return; }
+      if (!$('wd-linkpop').hidden) { e.preventDefault(); closeLink(true); return; }
+      if (menuBtn) { e.preventDefault(); closeMenu(true); return; }
+      for (const id of ['wd-confirm', 'wd-print', 'wd-history']) if ($(id).dataset.open === 'true') { closeOverlay(id); return; }
+    }
+    if ((MAC ? e.metaKey : e.ctrlKey) && !e.altKey && !e.shiftKey && e.code === 'KeyS' && cur()) { e.preventDefault(); if (!readOnly()) saveNow(); }
+  });
+
+  /* ---------- Prototype state switcher: no documents, none selected, document open ---------- */
+  function syncProto() {
+    const v = !docs.length ? 'empty' : sel ? 'selected' : 'none';
+    $('wd-proto').querySelectorAll('button').forEach(b => b.setAttribute('aria-selected', b.dataset.proto === v));
+    requestAnimationFrame(() => placeActive($('wd-proto'), false));
+  }
+  function setProto(v) {
+    commit();
+    if (v === 'empty') { if (!stash) stash = docs; docs = []; sel = null; }
+    else { if (stash) { docs = stash; stash = null; } sel = v === 'selected' ? (sel || 'faith-2027') : null; if (sel && !cur()) sel = docs[0] && docs[0].id; }
+    layout.dataset.pane = v === 'selected' && narrow() ? 'editor' : 'list';
+    renderList(); renderDoc(); syncProto();
+  }
+  $('wd-proto').addEventListener('click', e => { const b = e.target.closest('[data-proto]'); if (b) setProto(b.dataset.proto); });
+
+  renderList(); renderDoc(); syncProto();
+  window.addEventListener('hashchange', () => {
+    if (!active()) { commit(); closeLink(false); closeMenu(); closeSlash(); bubble.hidden = true; }
+    else requestAnimationFrame(() => { syncHeader(); placeActive($('wd-filter'), true); placeActive($('wd-proto'), true); placeActive($('wd-net'), true); updateHint(); });
+  });
+})();
 </script>
 </body>
 </html>
