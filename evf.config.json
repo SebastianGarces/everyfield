@@ -1454,6 +1454,13 @@
 				{ "name": "workflow-regressions", "run": ["bin/evf", "test"] }
 			],
 			"risk": "ordinary"
+		},
+		"OPS-105": {
+			"title": "Doc format approach C: one document and template format for every Everyfield template, with design doc, examples and a self-contained HTML prototype in design/doc-format/approach-c/ (Opus 5.5 medium)",
+			"route": "design",
+			"owningPaths": ["design/doc-format/approach-c/"],
+			"checks": [{ "name": "documentation", "run": ["python3", "docs/check-all.py"] }],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {
