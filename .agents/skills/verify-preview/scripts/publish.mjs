@@ -68,7 +68,7 @@ async function credentials() {
   return env;
 }
 
-const TYPES = { ".png": "image/png", ".jpg": "image/jpeg", ".webm": "video/webm", ".mp4": "video/mp4", ".json": "application/json; charset=utf-8", ".html": "text/html; charset=utf-8", ".md": "text/markdown; charset=utf-8", ".txt": "text/plain; charset=utf-8", ".log": "text/plain; charset=utf-8", ".mjs": "text/plain; charset=utf-8", ".js": "text/plain; charset=utf-8", ".ts": "text/plain; charset=utf-8", ".zip": "application/zip" };
+const TYPES = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp", ".gif": "image/gif", ".webm": "video/webm", ".mp4": "video/mp4", ".json": "application/json; charset=utf-8", ".html": "text/html; charset=utf-8", ".md": "text/markdown; charset=utf-8", ".txt": "text/plain; charset=utf-8", ".log": "text/plain; charset=utf-8", ".mjs": "text/plain; charset=utf-8", ".js": "text/plain; charset=utf-8", ".ts": "text/plain; charset=utf-8", ".zip": "application/zip" };
 const sha256 = (data) => createHash("sha256").update(data).digest("hex");
 const hmac = (key, data) => createHmac("sha256", key).update(data).digest();
 const encode = (s) => encodeURIComponent(s).replace(/[!'()*]/g, (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase());
@@ -124,7 +124,8 @@ for (const f of ["index.html", "published.json"]) {
   if (lstatSync(join(dir, f), { throwIfNoEntry: false })?.isSymbolicLink()) throw new Error(`Refused: ${f} in the evidence folder is a symlink. Delete it; publish.mjs writes this file itself.`);
 }
 
-// A gallery page so the PR comment needs one link: before and after side by side, then every file.
+// A gallery page so the PR comment needs one link: before and after side by side, then every file,
+// one section per folder, with images inline (lazy, uncropped, click opens full size) and other files as links.
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const read = (f) => (existsSync(join(dir, f)) ? JSON.parse(readFileSync(join(dir, f), "utf8")) : null);
 const ui = read("ui-results.json");
@@ -134,12 +135,24 @@ const rows = (ui?.shots ?? []).map((s) => `<tr><td>${esc(s.engine)} ${s.width}px
   ["before", "after"].map((side) => s[side]?.screenshot ? `<td><a href="${esc(s[side].screenshot)}"><img src="${esc(s[side].screenshot)}" loading="lazy"></a></td>` : "<td>none</td>").join("") + "</tr>").join("\n");
 const checks = (backend?.checks ?? []).map((c) => `<tr><td>${c.pass ? "pass" : "FAIL"}</td><td>${esc(c.check)}</td><td><code>${esc(c.detail ?? "")}</code></td></tr>`).join("\n");
 const videos = files.filter((f) => /\.(webm|mp4)$/.test(f)).map((f) => `<figure><video src="${esc(f)}" controls muted width="480"></video><figcaption>${esc(f)}</figcaption></figure>`).join("\n");
+const IMAGE = /\.(png|jpe?g|webp|gif)$/i;
+const url = (f) => esc(f.split("/").map(encodeURIComponent).join("/"));
+const folders = Map.groupBy(files, (f) => (f.includes("/") ? dirname(f) : ""));
+const sections = [...folders.keys()].sort().map((folder) => {
+  const group = folders.get(folder);
+  const images = group.filter((f) => IMAGE.test(f)).map((f) => `<figure><a href="${url(f)}" target="_blank" rel="noopener"><img src="${url(f)}" alt="${esc(f)}" loading="lazy" decoding="async"></a><figcaption>${esc(f)}</figcaption></figure>`);
+  const links = group.filter((f) => !IMAGE.test(f)).map((f) => `<li><a href="${url(f)}">${esc(f)}</a></li>`);
+  return `<section><h3>${esc(folder || "(top level)")}</h3>${images.length ? `<div class="gallery">${images.join("")}</div>` : ""}${links.length ? `<ul class="files">${links.join("")}</ul>` : ""}</section>`;
+}).join("\n");
 writeFileSync(join(dir, "index.html"), `<!doctype html><meta charset="utf-8"><title>${esc(task)} verification evidence</title>
-<style>body{font:14px system-ui;margin:24px}table{border-collapse:collapse}td{border:1px solid #ccc;padding:6px;vertical-align:top}img{width:420px;height:560px;object-fit:cover;object-position:top}</style>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>body{font:14px system-ui;margin:24px}table{border-collapse:collapse}td{border:1px solid #ccc;padding:6px;vertical-align:top}td img{width:420px;height:560px;object-fit:cover;object-position:top}
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(360px,100%),1fr));gap:20px;align-items:start}.gallery figure{margin:0}.gallery img{display:block;max-width:100%;height:auto;border:1px solid #ddd}figcaption{font-size:13px;margin-top:6px;overflow-wrap:anywhere}.files li{overflow-wrap:anywhere}</style>
 <h1>${esc(task)} verification evidence</h1>${results ? `<p>Head <code>${esc(results.after?.head)}</code>${ui ? ` versus main <code>${esc(ui.before.head)}</code>` : ""}. UI: <b>${esc(ui?.verdict ?? "not run")}</b>. Backend: <b>${esc(backend?.verdict ?? "not run")}</b>.</p>` : ""}
 ${checks ? `<table><tr><th>Result</th><th>Check</th><th>Detail</th></tr>${checks}</table>` : ""}
 ${rows ? `<table><tr><th>Shot</th><th>Before (main)</th><th>After (branch)</th></tr>${rows}</table>` : ""}${videos}
-<h2>Files</h2><ul>${files.map((f) => `<li><a href="${esc(f)}">${esc(f)}</a></li>`).join("")}</ul>`);
+<h2>Files</h2>
+${sections}`);
 
 // Refuse to publish any local env value (credentials, tokens, connection strings) found in a text file.
 const secrets = [ENV_FILE, ...DEV_ENV.map((f) => join(root, f))].filter(existsSync)
