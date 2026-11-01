@@ -1,0 +1,523 @@
+{
+	"format": "everyfield.doc",
+	"formatVersion": 1,
+	"kind": "template",
+	"id": "conflict-of-interest-policy",
+	"version": 1,
+	"title": "Conflict of Interest Policy",
+	"description": "How the board handles a personal interest in a decision.",
+	"class": "formal/legal",
+	"origin": null,
+	"notices": [
+		"template-not-legal-advice"
+	],
+	"page": {
+		"size": "letter",
+		"orientation": "portrait",
+		"margins": {
+			"top": 40,
+			"right": 40,
+			"bottom": 56,
+			"left": 40
+		},
+		"imposition": null
+	},
+	"fields": [
+		{
+			"key": "church.name",
+			"label": "Church name",
+			"type": "text",
+			"source": "church.name",
+			"value": null,
+			"required": true
+		}
+	],
+	"header": [
+		{
+			"type": "columns",
+			"id": "masthead",
+			"valign": "middle",
+			"columns": [
+				{
+					"width": 6,
+					"blocks": [
+						{
+							"type": "brand",
+							"id": "masthead-logo",
+							"element": "logo",
+							"width": 150,
+							"height": 34
+						}
+					]
+				},
+				{
+					"width": 6,
+					"blocks": [
+						{
+							"type": "paragraph",
+							"id": "masthead-kicker",
+							"variant": "kicker",
+							"align": "end",
+							"content": [
+								{
+									"type": "text",
+									"text": "Board policy"
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"type": "divider",
+			"id": "masthead-rule",
+			"weight": "rule",
+			"tone": "primary"
+		}
+	],
+	"footer": [
+		{
+			"type": "divider",
+			"id": "footer-rule",
+			"weight": "hair",
+			"tone": "primary"
+		},
+		{
+			"type": "columns",
+			"id": "footer-row",
+			"columns": [
+				{
+					"width": 9,
+					"blocks": [
+						{
+							"type": "paragraph",
+							"id": "footer-text",
+							"variant": "note",
+							"content": [
+								{
+									"type": "field",
+									"key": "church.name"
+								},
+								{
+									"type": "text",
+									"text": "  |  Conflict of Interest Policy"
+								}
+							]
+						}
+					]
+				},
+				{
+					"width": 3,
+					"blocks": [
+						{
+							"type": "paragraph",
+							"id": "footer-page",
+							"variant": "note",
+							"align": "end",
+							"content": [
+								{
+									"type": "pageNumber"
+								}
+							]
+						}
+					]
+				}
+			]
+		}
+	],
+	"body": [
+		{
+			"type": "heading",
+			"id": "h-27",
+			"level": 1,
+			"content": [
+				{
+					"type": "text",
+					"text": "Conflict of Interest Policy"
+				}
+			]
+		},
+		{
+			"type": "paragraph",
+			"id": "p-1",
+			"content": [
+				{
+					"type": "text",
+					"text": "This policy says how the board of "
+				},
+				{
+					"type": "field",
+					"key": "church.name"
+				},
+				{
+					"type": "text",
+					"text": ", a church plant, deals with a personal interest in a decision. Read it with your board and a lawyer in your state. Then change the words to fit your church plant."
+				}
+			]
+		},
+		{
+			"type": "heading",
+			"id": "h-2",
+			"level": 2,
+			"numbered": true,
+			"content": [
+				{
+					"type": "text",
+					"text": "Purpose"
+				}
+			]
+		},
+		{
+			"type": "paragraph",
+			"id": "p-3",
+			"content": [
+				{
+					"type": "text",
+					"text": "The board makes decisions for the whole church plant. This policy keeps those decisions free of private gain. It also protects each board member from the doubt that an undisclosed interest can cause."
+				}
+			]
+		},
+		{
+			"type": "heading",
+			"id": "h-4",
+			"level": 2,
+			"numbered": true,
+			"content": [
+				{
+					"type": "text",
+					"text": "Who this policy covers"
+				}
+			]
+		},
+		{
+			"type": "paragraph",
+			"id": "p-5",
+			"content": [
+				{
+					"type": "text",
+					"text": "This policy covers each board member of "
+				},
+				{
+					"type": "field",
+					"key": "church.name"
+				},
+				{
+					"type": "text",
+					"text": ". The board may also apply it to the pastor, to staff and to any person who can spend the money of the church plant."
+				}
+			]
+		},
+		{
+			"type": "heading",
+			"id": "h-6",
+			"level": 2,
+			"numbered": true,
+			"content": [
+				{
+					"type": "text",
+					"text": "What counts as an interest"
+				}
+			]
+		},
+		{
+			"type": "paragraph",
+			"id": "p-7",
+			"content": [
+				{
+					"type": "text",
+					"text": "A board member has an interest when a decision could help the member, the member's family or a business that the member owns or leads. The help may be money or it may be something else."
+				}
+			]
+		},
+		{
+			"type": "list",
+			"id": "list-8",
+			"style": "bullet",
+			"items": [
+				{
+					"id": "li-9",
+					"content": [
+						{
+							"type": "text",
+							"text": "A financial interest. Examples: a contract, a sale, a rental, a salary or a gift."
+						}
+					]
+				},
+				{
+					"id": "li-10",
+					"content": [
+						{
+							"type": "text",
+							"text": "A personal interest. Examples: a job for a relative, a friendship that could sway the vote or a duty to another organization."
+						}
+					]
+				}
+			]
+		},
+		{
+			"type": "heading",
+			"id": "h-11",
+			"level": 2,
+			"numbered": true,
+			"content": [
+				{
+					"type": "text",
+					"text": "The duty to disclose"
+				}
+			]
+		},
+		{
+			"type": "paragraph",
+			"id": "p-12",
+			"content": [
+				{
+					"type": "text",
+					"text": "A board member who has a personal interest in a decision tells the board and does not vote on it. The member tells the board as soon as the member knows of the interest. The member tells the chair or the secretary in writing, or says it at the meeting."
+				}
+			]
+		},
+		{
+			"type": "heading",
+			"id": "h-13",
+			"level": 2,
+			"numbered": true,
+			"content": [
+				{
+					"type": "text",
+					"text": "How the board decides"
+				}
+			]
+		},
+		{
+			"type": "paragraph",
+			"id": "p-14",
+			"content": [
+				{
+					"type": "text",
+					"text": "The member explains the interest and answers questions. Then the member leaves the room. The other board members decide by a majority vote whether a conflict exists. If they are not sure, they treat the interest as a conflict."
+				}
+			]
+		},
+		{
+			"type": "heading",
+			"id": "h-15",
+			"level": 2,
+			"numbered": true,
+			"content": [
+				{
+					"type": "text",
+					"text": "When a conflict exists"
+				}
+			]
+		},
+		{
+			"type": "list",
+			"id": "list-16",
+			"style": "number",
+			"items": [
+				{
+					"id": "li-17",
+					"content": [
+						{
+							"type": "text",
+							"text": "The conflicted member stays out of the discussion and does not vote."
+						}
+					]
+				},
+				{
+					"id": "li-18",
+					"content": [
+						{
+							"type": "text",
+							"text": "The conflicted member does not try to sway the other members."
+						}
+					]
+				},
+				{
+					"id": "li-19",
+					"content": [
+						{
+							"type": "text",
+							"text": "The other board members compare the choice with at least one other choice, when they can."
+						}
+					]
+				},
+				{
+					"id": "li-20",
+					"content": [
+						{
+							"type": "text",
+							"text": "The board approves the choice only if it is fair to "
+						},
+						{
+							"type": "field",
+							"key": "church.name"
+						},
+						{
+							"type": "text",
+							"text": ". At least "
+						},
+						{
+							"type": "prompt",
+							"text": "number"
+						},
+						{
+							"type": "text",
+							"text": " disinterested board members must vote for it."
+						}
+					]
+				}
+			]
+		},
+		{
+			"type": "heading",
+			"id": "h-21",
+			"level": 2,
+			"numbered": true,
+			"content": [
+				{
+					"type": "text",
+					"text": "Record in the minutes"
+				}
+			]
+		},
+		{
+			"type": "paragraph",
+			"id": "p-22",
+			"content": [
+				{
+					"type": "text",
+					"text": "The secretary writes each disclosure and each decision in the minutes of the meeting. The minutes name the member, state the interest and say who voted. They also say that the member left the room."
+				}
+			]
+		},
+		{
+			"type": "heading",
+			"id": "h-23",
+			"level": 2,
+			"numbered": true,
+			"content": [
+				{
+					"type": "text",
+					"text": "Yearly statement"
+				}
+			]
+		},
+		{
+			"type": "paragraph",
+			"id": "p-24",
+			"content": [
+				{
+					"type": "text",
+					"text": "Each board member signs a written statement once each year, by "
+				},
+				{
+					"type": "prompt",
+					"text": "date"
+				},
+				{
+					"type": "text",
+					"text": ". The statement says that the member has read this policy and lists every interest that the policy covers. A new board member signs one before the first vote. The secretary keeps the statements with the records of the church plant."
+				}
+			]
+		},
+		{
+			"type": "heading",
+			"id": "h-25",
+			"level": 2,
+			"numbered": true,
+			"content": [
+				{
+					"type": "text",
+					"text": "If a member breaks this policy"
+				}
+			]
+		},
+		{
+			"type": "paragraph",
+			"id": "p-26",
+			"content": [
+				{
+					"type": "text",
+					"text": "The board hears the facts and listens to the member. If the board finds that the member broke this policy, it decides what to do. It may reverse the decision, ask the member to step down or remove the member as the bylaws allow."
+				}
+			]
+		},
+		{
+			"type": "spacer",
+			"id": "before-adoption",
+			"size": 12
+		},
+		{
+			"type": "paragraph",
+			"id": "p-28",
+			"variant": "lead",
+			"content": [
+				{
+					"type": "text",
+					"text": "The board of "
+				},
+				{
+					"type": "field",
+					"key": "church.name"
+				},
+				{
+					"type": "text",
+					"text": " adopted this policy. Each board member signs and dates below."
+				}
+			]
+		},
+		{
+			"type": "table",
+			"id": "adoption-signers",
+			"columns": [
+				{
+					"label": "Board member",
+					"width": 4
+				},
+				{
+					"label": "Role",
+					"width": 3
+				},
+				{
+					"label": "Signature",
+					"width": 4
+				},
+				{
+					"label": "Date",
+					"width": 2
+				}
+			],
+			"header": "muted",
+			"rules": "grid",
+			"rowHeight": 30,
+			"repeat": {
+				"count": 3
+			},
+			"rows": [
+				{
+					"id": "signer",
+					"cells": [
+						{
+							"type": "fill",
+							"kind": "text"
+						},
+						{
+							"type": "fill",
+							"kind": "text"
+						},
+						{
+							"type": "fill",
+							"kind": "signature"
+						},
+						{
+							"type": "fill",
+							"kind": "date"
+						}
+					]
+				}
+			]
+		}
+	]
+}

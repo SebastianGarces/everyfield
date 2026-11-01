@@ -1,0 +1,256 @@
+{
+	"format": "everyfield.doc",
+	"formatVersion": 1,
+	"kind": "template",
+	"id": "guest-sign-in-sheet",
+	"version": 1,
+	"title": "Guest Sign-in Sheet",
+	"description": "Sign-in sheet for a vision meeting: 18 numbered rows to fill in by hand.",
+	"class": "operational",
+	"origin": null,
+	"notices": [],
+	"page": {
+		"size": "letter",
+		"orientation": "portrait",
+		"margins": {
+			"top": 40,
+			"right": 40,
+			"bottom": 56,
+			"left": 40
+		},
+		"imposition": null
+	},
+	"fields": [
+		{
+			"key": "church.name",
+			"label": "Church name",
+			"type": "text",
+			"source": "church.name",
+			"value": null,
+			"required": true
+		},
+		{
+			"key": "church.legal_name",
+			"label": "Legal name",
+			"type": "text",
+			"source": "church.legal_name",
+			"value": null
+		},
+		{
+			"key": "meeting.date",
+			"label": "Meeting date",
+			"type": "date",
+			"source": "meeting.date",
+			"value": null
+		},
+		{
+			"key": "meeting.number",
+			"label": "Meeting number",
+			"type": "number",
+			"source": "meeting.number",
+			"value": null
+		}
+	],
+	"footer": [
+		{
+			"type": "divider",
+			"id": "footer-rule",
+			"weight": "hair",
+			"tone": "ink"
+		},
+		{
+			"type": "columns",
+			"id": "footer-row",
+			"columns": [
+				{
+					"width": 9,
+					"blocks": [
+						{
+							"type": "paragraph",
+							"id": "footer-text",
+							"variant": "note",
+							"content": [
+								{
+									"type": "field",
+									"key": "church.legal_name"
+								},
+								{
+									"type": "text",
+									"text": "  |  Guest sign-in sheet"
+								}
+							]
+						}
+					]
+				},
+				{
+					"width": 3,
+					"blocks": [
+						{
+							"type": "paragraph",
+							"id": "footer-page",
+							"variant": "note",
+							"align": "end",
+							"content": [
+								{
+									"type": "pageNumber"
+								}
+							]
+						}
+					]
+				}
+			]
+		}
+	],
+	"body": [
+		{
+			"type": "columns",
+			"id": "masthead",
+			"valign": "middle",
+			"columns": [
+				{
+					"width": 6,
+					"blocks": [
+						{
+							"type": "brand",
+							"id": "masthead-logo",
+							"element": "logo",
+							"width": 150,
+							"height": 34
+						}
+					]
+				},
+				{
+					"width": 6,
+					"blocks": [
+						{
+							"type": "paragraph",
+							"id": "masthead-kicker",
+							"variant": "kicker",
+							"align": "end",
+							"content": [
+								{
+									"type": "text",
+									"text": "Vision meeting"
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"type": "divider",
+			"id": "masthead-bar",
+			"weight": "bar",
+			"tone": "accent"
+		},
+		{
+			"type": "heading",
+			"id": "h-1",
+			"level": 1,
+			"content": [
+				{
+					"type": "text",
+					"text": "Guest Sign-in Sheet"
+				}
+			]
+		},
+		{
+			"type": "paragraph",
+			"id": "p-2",
+			"variant": "lead",
+			"content": [
+				{
+					"type": "text",
+					"text": "Welcome to "
+				},
+				{
+					"type": "field",
+					"key": "church.name"
+				},
+				{
+					"type": "text",
+					"text": ". Please sign in so we can thank you and stay in touch."
+				}
+			]
+		},
+		{
+			"type": "fillRow",
+			"id": "meeting",
+			"cells": [
+				{
+					"label": "Meeting date",
+					"kind": "date",
+					"width": 4,
+					"field": "meeting.date"
+				},
+				{
+					"label": "Meeting number",
+					"kind": "number",
+					"width": 3,
+					"field": "meeting.number"
+				}
+			]
+		},
+		{
+			"type": "table",
+			"id": "guests",
+			"columns": [
+				{
+					"label": "#",
+					"width": 1,
+					"align": "center"
+				},
+				{
+					"label": "Name",
+					"width": 3
+				},
+				{
+					"label": "Email",
+					"width": 3
+				},
+				{
+					"label": "Phone",
+					"width": 2
+				},
+				{
+					"label": "Who invited you?",
+					"width": 3
+				}
+			],
+			"header": "accent",
+			"zebra": true,
+			"rules": "rows",
+			"rowHeight": 25,
+			"repeat": {
+				"count": 18
+			},
+			"rows": [
+				{
+					"id": "guest",
+					"cells": [
+						{
+							"type": "counter"
+						},
+						{
+							"type": "fill",
+							"kind": "text"
+						},
+						{
+							"type": "fill",
+							"kind": "email"
+						},
+						{
+							"type": "fill",
+							"kind": "phone"
+						},
+						{
+							"type": "fill",
+							"kind": "text"
+						}
+					]
+				}
+			]
+		}
+	]
+}
