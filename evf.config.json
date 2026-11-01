@@ -1472,7 +1472,7 @@
 		},
 		"OPS-109": {
 			"title": "Let evf merge wiki PRs from task branches and link follow-up tasks",
-			"owningPaths": ["tools/evf/", "tools/wiki/", ".agents/roles/coordinator.md", ".agents/roles/verifier.md", ".claude/agents/verifier.md"],
+			"owningPaths": ["tools/evf/", ".agents/roles/coordinator.md", ".agents/roles/verifier.md", ".claude/agents/verifier.md"],
 			"checks": [
 				{ "name": "documentation", "run": ["python3", "docs/check-all.py"] },
 				{ "name": "workflow-regressions", "run": ["bin/evf", "test"] }
