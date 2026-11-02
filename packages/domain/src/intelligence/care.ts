@@ -54,9 +54,9 @@ function scopeOf(authority: RequestActor, clock?: Clock): Scope {
 	const viewer = plantViewer(authority);
 	if (!viewer || viewer.access.role === "member") deny("access_denied");
 	return {
-		me: viewer!.accountId,
-		plant: viewer!.plantId,
-		ok: liveRead(viewer!.access, true),
+		me: viewer.accountId,
+		plant: viewer.plantId,
+		ok: liveRead(viewer.access, true),
 		at: clock ? sql`${new Date(clock.now()).toISOString()}::timestamptz` : sql`statement_timestamp()`,
 	};
 }
@@ -162,7 +162,7 @@ async function readWeeks(db: Pick<Database, "execute">, s: Scope, size: number, 
 	const r = pageRow.parse(rows[0]);
 	if (!r.ok) deny("access_denied");
 	if (!r.zone) deny("personal_timezone_confirmation_required");
-	return { zone: r.zone!, revision: r.revision, total: r.total, weeks: r.weeks.map((w) => c.careWeek.parse(w)) };
+	return { zone: r.zone, revision: r.revision, total: r.total, weeks: r.weeks.map((w) => c.careWeek.parse(w)) };
 }
 
 /** One history page of twelve weeks; the first page is the strip. */

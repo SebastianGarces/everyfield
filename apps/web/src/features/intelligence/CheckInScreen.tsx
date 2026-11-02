@@ -126,15 +126,15 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 		}
 		sent.current = null;
 		const confirmed = result.value;
-		setStrip((s) => withResult({ ...s, revision: confirmed.revision }, confirmed));
-		setOlder((o) => (o ? withResult({ ...o, revision: confirmed.revision }, confirmed) : o));
+		setStrip((s) => withResult(s, confirmed));
+		setOlder((o) => (o ? withResult(o, confirmed) : o));
 		setDraft(draftOf(confirmed.week));
 		if (correcting) setTarget(confirmed.week);
 		setStatus(
 			confirmed.outcome === "unchanged"
 				? "Nothing changed, so nothing new was saved."
 				: correcting
-					? `Correction saved. Your earlier answer stays in your history.`
+					? "Correction saved. Your earlier answer stays in your history."
 					: "Check-in saved.",
 		);
 	}

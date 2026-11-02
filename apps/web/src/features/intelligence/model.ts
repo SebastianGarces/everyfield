@@ -37,7 +37,6 @@ export const missingAreas = (draft: Draft) => CARE_AREAS.filter((a) => !draft.an
 export const complete = (draft: Draft): draft is { answers: CareAnswers; note: string } =>
 	missingAreas(draft).length === 0;
 
-const MONTH = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const LONG_MONTH = [
 	"January",
 	"February",
@@ -55,7 +54,7 @@ const LONG_MONTH = [
 /** "Oct 5" for a LocalDate. */
 export function shortDate(day: string) {
 	const [, m, d] = day.split("-").map(Number);
-	return `${MONTH[m! - 1]} ${d}`;
+	return `${LONG_MONTH[m! - 1]!.slice(0, 3)} ${d}`;
 }
 /** "Monday, October 5" for a LocalDate that is a Monday. */
 export function mondayDate(day: string) {
