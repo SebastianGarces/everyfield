@@ -36,11 +36,9 @@ import {
 	type TemplateClass,
 } from "./merge.ts";
 import {
-	approvedNotes,
 	commitClaimCheck,
 	promoteDrafts,
 	recordClaimCheck,
-	taskDrafts,
 	wikiCarryProof,
 	type WikiCarry,
 } from "./wiki.ts";
@@ -575,11 +573,9 @@ function wikiRoute(root: string, cfg: Config, task: TaskRef, wt: string, number:
 		promoted: string[] = [],
 		head = start;
 	try {
-		claimed = recordClaimCheck(wt, base, reviewer, approvedNotes(words));
+		claimed = recordClaimCheck(wt, base, reviewer, words);
 		const reviewed = claimed.length ? commitClaimCheck(wt, task, reviewer, claimed) : start;
-		const result = promoteDrafts(root, wt, number, reviewed, taskDrafts(wt, base, "HEAD"));
-		if ("error" in result) fail(`evf ship stopped before pushing anything: ${result.error}`);
-		promoted = result.promoted;
+		promoted = promoteDrafts(root, wt, base, number, reviewed);
 		if (promoted.length) {
 			git(wt, "add", "--all", "--", "docs/reference/wiki");
 			git(wt, "commit", "--quiet", "-m", `${task.id}: promote ${promoted.length} Wiki drafts`);

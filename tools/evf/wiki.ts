@@ -31,12 +31,6 @@ type ClaimCheck = { status: string; reviewer: string; notes: string };
 type Json = Record<string, unknown>;
 type DraftRow = Json & { id: string; draft: Json & { approver: unknown; claim_check: ClaimCheck } };
 
-/** A UTC time to the second, the form claim-check notes use. */
-const utcNow = () => new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
-
-/** The D-b notes form: `Approved <UTC time>: "<verbatim words>"`. */
-export const approvedNotes = (words: string): string => `Approved ${utcNow()}: "${words}"`;
-
 /** The drafts a branch adds or changes against its merge base with `base`, as they exist at `head`. */
 export function taskDrafts(repo: string, base: string, head: string): string[] {
 	const from = git(repo, "merge-base", base, head);
@@ -96,10 +90,12 @@ function withClaimCheck(path: string, text: string, cc: ClaimCheck): string {
 }
 
 /**
- * Set every pending draft of the branch to passed with `reviewer` and `notes`, in the worktree. Drafts with status
- * passed or failed stay unchanged. Returns the drafts it changed.
+ * Set every pending draft of the branch to passed with `reviewer` and the D-b notes form
+ * `Approved <UTC time>: "<verbatim words>"`, in the worktree. Drafts with status passed or failed stay unchanged.
+ * Returns the drafts it changed.
  */
-export function recordClaimCheck(wt: string, base: string, reviewer: string, notes: string): string[] {
+export function recordClaimCheck(wt: string, base: string, reviewer: string, words: string): string[] {
+	const notes = `Approved ${new Date().toISOString().replace(/\.\d{3}Z$/, "Z")}: "${words}"`;
 	const changed: string[] = [];
 	for (const path of taskDrafts(wt, base, "HEAD")) {
 		const file = join(wt, path),
@@ -131,7 +127,7 @@ export function wikiClaimCheck(root: string, task: TaskRef, opts: { reviewer?: s
 	const cfg = loadConfig(root),
 		wt = requireWorktree(root, cfg, task);
 	if (!isClean(wt)) fail("The task worktree has uncommitted changes. Commit or remove them first.");
-	const changed = recordClaimCheck(wt, baseRef(root, cfg), reviewer, approvedNotes(words));
+	const changed = recordClaimCheck(wt, baseRef(root, cfg), reviewer, words);
 	if (!changed.length) fail(`${task.id} has no pending Wiki drafts, so there is no claim check to record.`);
 	const head = commitClaimCheck(wt, task, reviewer, changed);
 	if (hasRemote(root, cfg)) git(wt, "push", "--quiet", cfg.remote, `HEAD:refs/heads/${task.branch}`);
@@ -152,46 +148,29 @@ function wikiTool(root: string): string {
 }
 
 /**
- * Run `bin/wiki promote` for each draft whose claim check passed, with the claim-check commit as the reviewed sha and
- * the draft's own approver (D-d), then `bin/wiki check-seed`. Returns the promoted drafts, or the wiki tool's error.
+ * Run `bin/wiki promote` for each draft of the branch whose claim check passed, with the claim-check commit as the
+ * reviewed sha and the draft's own approver (D-d), then `bin/wiki check-seed`. Returns the promoted drafts; a wiki
+ * tool failure throws its error.
  */
-export function promoteDrafts(
-	root: string,
-	wt: string,
-	number: number,
-	reviewed: string,
-	drafts: string[],
-): { promoted: string[] } | { error: string } {
+export function promoteDrafts(root: string, wt: string, base: string, number: number, reviewed: string): string[] {
 	const wiki = wikiTool(root),
 		seedDir = ["--seed-dir", join(wt, WIKI_PREFIX)];
+	const stopped = (what: string, r: { stdout: string; stderr: string }) =>
+		fail(`evf ship stopped before pushing anything: ${what} failed: ${(r.stderr || r.stdout).trim()}`);
 	const promoted: string[] = [];
-	for (const path of drafts) {
+	for (const path of taskDrafts(wt, base, "HEAD")) {
 		const row = parseDraft(path, readFileSync(join(wt, path), "utf8"));
 		if (row.draft.claim_check.status !== "passed") continue;
-		const approver = String(row.draft.approver);
-		const r = run(
-			wiki,
-			[
-				"promote",
-				join(wt, path),
-				"--approved-by",
-				approver,
-				"--pr",
-				String(number),
-				"--reviewed-sha",
-				reviewed,
-				...seedDir,
-			],
-			{ cwd: wt },
-		);
-		if (r.code !== 0) return { error: `bin/wiki promote ${path} failed: ${(r.stderr || r.stdout).trim()}` };
+		const args = ["promote", join(wt, path), "--approved-by", String(row.draft.approver), "--pr", String(number)];
+		const r = run(wiki, [...args, "--reviewed-sha", reviewed, ...seedDir], { cwd: wt });
+		if (r.code !== 0) stopped(`bin/wiki promote ${path}`, r);
 		promoted.push(path);
 	}
 	if (promoted.length) {
 		const r = run(wiki, ["check-seed", ...seedDir], { cwd: wt });
-		if (r.code !== 0) return { error: `bin/wiki check-seed failed after promotion: ${(r.stderr || r.stdout).trim()}` };
+		if (r.code !== 0) stopped("bin/wiki check-seed after promotion", r);
 	}
-	return { promoted };
+	return promoted;
 }
 
 /** Why the drafts at `head` still need a step before Sebastian's approval can merge it, or null when none is left. */
