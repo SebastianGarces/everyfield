@@ -14,11 +14,15 @@ import {
 } from "./values.ts";
 
 const count = z.int().min(0);
+/** The characters of a description the list carries for its preview. The preview shows two lines of them. */
+export const DESCRIPTION_EXCERPT = 600;
 const assignee = z.strictObject({ accountId, displayName: z.string() });
 export const taskItem = z.strictObject({
 	id: recordId,
 	revision,
 	title: z.string(),
+	// The start of the canonical description, for the list preview; "" when there is none (REQ-TSK-016).
+	excerpt: z.string().max(DESCRIPTION_EXCERPT),
 	status: taskStatus,
 	priority,
 	category,
@@ -198,5 +202,9 @@ export const taskError = z.discriminatedUnion("code", [
 	defineSafeError("dependency_cycle", {}, "refresh"),
 	// The chosen follow-up owner is not a current eligible follow-up owner in this church (REQ-TSK-012).
 	defineSafeError("owner_ineligible", { accountId: accountId.optional() }, "refresh"),
+	// The checklist catalog changed since the person read it: read the current version and preview again.
+	defineSafeError("stale_catalog", {}, "refresh"),
+	// Another answer to this phase offer committed first: read what it decided.
+	defineSafeError("offer_answered", {}, "refresh"),
 ]);
 export type TaskError = z.infer<typeof taskError>;

@@ -21,6 +21,7 @@ import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { documentsWriter } from "../../../packages/domain/src/documents/index.ts";
 import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { teamsWriter } from "../../../packages/domain/src/teams/index.ts";
+import { CATALOG } from "../../../packages/domain/src/tasks/catalog.ts";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 const web = root + "apps/web/";
@@ -679,6 +680,46 @@ try {
 		const who = (await person(`Listed ${String(i).padStart(3, "0")}`)).id;
 		await guest(visionMeeting, who);
 		await guest(boardMeeting, who);
+	}
+	// Phase checklists (WP-026). The last move offers Phase 2's checklists: the Tasks page with an open offer is its own
+	// variant, read before and after an import grows the list. Accepting answers it; a move back to Phase 1 is declined,
+	// and the move to Phase 2 again offers nothing, so the second "GET /tasks" read shows no offer, as the first did.
+	const tasks = "apps/web/src/features/tasks/actions.ts";
+	const latestMove = async () =>
+		(
+			await admin.execute(sql`SELECT id FROM phase_transition WHERE plant_id=${plant.id} AND kind='movement'
+				ORDER BY occurred_at DESC, id DESC LIMIT 1`)
+		).rows[0].id;
+	const checklist = CATALOG.checklists.find((k) => k.key === "vision-meeting-preparation");
+	await get("GET /tasks (phase offer)", "/tasks", owner.cookie);
+	const imported = await act("POST tasks.importTemplate", "/tasks", tasks, "importTemplate", [
+		randomUUID(),
+		{ catalogVersion: CATALOG.version, checklistKey: checklist.key, itemKeys: checklist.items.map((i) => i.key) },
+	]);
+	assert.equal(imported.status, "ok", JSON.stringify(imported));
+	await get("GET /tasks (phase offer)", "/tasks", owner.cookie);
+	const accepted = await act("POST tasks.acceptPhaseOffer", "/tasks", tasks, "answerOffer", [
+		randomUUID(),
+		{ transitionId: await latestMove(), catalogVersion: CATALOG.version, checklistKeys: ["launch-date-planning"] },
+	]);
+	assert.equal(accepted.status, "ok", JSON.stringify(accepted));
+	for (const [toPhase, answer] of [
+		[1, "POST tasks.declinePhaseOffer"],
+		[2, null],
+	]) {
+		const moved = await act(null, "/intelligence", phases, "movePhase", [
+			randomUUID(),
+			await plantRevision(),
+			toPhase,
+			`Checklist move ${toPhase}`,
+		]);
+		assert.equal(moved.status, "ok", JSON.stringify(moved));
+		if (!answer) continue;
+		const declined = await act(answer, "/tasks", tasks, "answerOffer", [
+			randomUUID(),
+			{ transitionId: await latestMove(), catalogVersion: CATALOG.version, checklistKeys: [] },
+		]);
+		assert.equal(declined.status, "ok", JSON.stringify(declined));
 	}
 	for (const [name, path, cookie, status] of pages) await get(name, path, cookie, status);
 
