@@ -7,6 +7,7 @@ import { verifyPeople } from "../adapters/people/reads/index.ts";
 import { liveRowKeys } from "../conversations/liveness.ts";
 import type { ReadAdapter, SourceResult } from "../catalog/types.ts";
 import { sameContext, type EvryActor } from "../context/actor.ts";
+import { resolveSelf } from "../context/self.ts";
 import {
 	classifyRequest,
 	compileContext,
@@ -174,9 +175,12 @@ async function run(
 
 	try {
 		const session = turn.session_id;
-		const actor = session ? await traced("access check", () => deps.freshActor(session)) : null;
-		if (!session || !actor || actor.accountId !== turn.account_id || actor.owner.id !== turn.tenant_id)
+		const checked = session ? await traced("access check", () => deps.freshActor(session)) : null;
+		if (!session || !checked || checked.accountId !== turn.account_id || checked.owner.id !== turn.tenant_id)
 			throw new EvryRefusal("access_denied");
+		// The user's own person row, read once per turn under current authority. Every later fresh actor keeps it.
+		const selfPersonId = await traced("self row", () => resolveSelf(db, checked));
+		const actor: EvryActor = { ...checked, selfPersonId };
 		if (deps.model.status !== "qualified") throw new EvryRefusal("model_unavailable");
 		if (deps.model.spend) meter = meteredModel(db, deps.model.model, deps.model.spend);
 		const model = meter?.model ?? deps.model.model;
@@ -281,7 +285,7 @@ async function run(
 				fail(new EvryRefusal("access_denied"));
 				return null;
 			}
-			return (current = fresh);
+			return (current = { ...fresh, selfPersonId });
 		};
 		const read = async <I>(adapter: ReadAdapter<I>, input: I) => {
 			const fresh = await admit();
