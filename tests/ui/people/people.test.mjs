@@ -874,6 +874,21 @@ for (const [name, engine] of ENGINES) {
 		});
 	});
 
+	test(`AC:TARGET-PPL-019 BUG-export-names (${name}): a person added by name exports with first_name and last_name filled in`, async () => {
+		await withPage(engine, "owner", async (page) => {
+			const first = `Nora${name}${Date.now().toString(36)}`;
+			await addPerson(page, `${first} Tester`);
+			await page.goto(`${BASE}/people`);
+			await page.getByRole("button", { name: "Export CSV" }).click();
+			const dialog = page.getByRole("dialog", { name: "Export people" });
+			const download = page.waitForEvent("download");
+			await dialog.getByRole("button", { name: "Download CSV" }).click();
+			const text = Buffer.concat(await (await download).createReadStream().toArray()).toString("utf8");
+			const line = text.split("\r\n").find((l) => l.startsWith(`${first},`));
+			assert.ok(line?.startsWith(`${first},Tester,`), line);
+		});
+	});
+
 	test(`AC:TARGET-PPL-009 F10-create (${name}): with no households, Add to a household leads to creating one, with no reload`, async () => {
 		const mine = seed().empty[name];
 		await onPreview(engine, async (page, context) => {
