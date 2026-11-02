@@ -50,10 +50,6 @@ document, a draft message and the wiki.
 The Neon branch is a copy of the development database, so it also holds the development data of other churches. The
 QA logins see only Harvest Point (QA).
 
-Known gap: the Documents page shows "We could not load documents" on every Vercel deployment. The server bundle does
-not include `packages/reference/src/freeze.json`. Uploads still work, for example a signed commitment card on a person.
-WP-032 owns the fix. After WP-032 lands, re-check Documents on a fresh QA preview.
-
 ### Email on a QA preview
 
 Every seeded person and login uses a `delivered+<label>@resend.dev` address. Resend accepts mail to these addresses
