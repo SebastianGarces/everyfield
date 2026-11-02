@@ -17,7 +17,7 @@ export class Refusal extends Error {
 		this.details = details;
 	}
 }
-export function deny(code: Code = "unavailable", details: object = {}): never {
+export function deny(code: Code, details: object = {}): never {
 	throw new Refusal(code, details);
 }
 export async function settle<T>(body: () => Promise<T>): Promise<c.PhasesReply<T>> {
@@ -55,7 +55,7 @@ export function scopeOf(authority: RequestActor): Scope {
 }
 
 /** An instant as the contracts write it. */
-export const iso = (value: SQL) => sql`to_char(${value} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
+const iso = (value: SQL) => sql`to_char(${value} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
 /** One journey row as JSON, with the account that recorded it: `t` is a phase_transition row, `a` its audit row. */
 export const entryJson = (t: SQL, actor: SQL) =>
 	sql`jsonb_build_object('id',${t}.id,'kind',${t}.kind,'fromPhase',${t}.from_phase,'toPhase',${t}.to_phase,

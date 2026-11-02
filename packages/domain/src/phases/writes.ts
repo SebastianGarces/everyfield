@@ -109,9 +109,9 @@ const transitionAnswer = (raw: unknown): c.TransitionResult => {
  * included, also queues one phase-advance notice for each connected organization's current Owners and Admins. A
  * declaration, a backward move, a noop and a replay add nothing, and no move requests an assessment.
  */
-export async function appendConsequences(tx: Transaction, notices: PhaseNotices, advance: PhaseAdvance) {
-	if (advance.toPhase <= advance.fromPhase || !advance.recipients.length) return;
-	await notices(tx, advance);
+async function appendConsequences(tx: Transaction, notices: PhaseNotices, advance: PhaseAdvance) {
+	// The move statement reads recipients only for a forward move, so a backward move has none.
+	if (advance.recipients.length) await notices(tx, advance);
 }
 
 const recipientRow = z.object({

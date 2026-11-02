@@ -29,9 +29,6 @@ export async function phaseViewer(): Promise<PhaseViewer | null> {
 }
 export const administers = (v: Pick<PhaseViewer, "role">) => v.role !== "member";
 
-const outcome = <T>(reply: PhasesReply<T>): Outcome<T> =>
-	reply.status === "ok" ? reply : { status: "refused", error: reply.error };
-
 /**
  * The /intelligence page: the journey (one statement), the catalog and the advisory readiness of every phase (no
  * statement until WP-040 measures criteria). A database failure reads as lost, never as an empty journey.
@@ -58,7 +55,7 @@ export async function write<T>(
 	const mount = phasesMount();
 	if (!mount) return { status: "lost" };
 	try {
-		return outcome(await run(mount.writer, mount.db, viewer.authority));
+		return await run(mount.writer, mount.db, viewer.authority);
 	} catch (error) {
 		console.error(JSON.stringify({ component: "phases", outcome: "write_failed", error: String(error) }));
 		return { status: "lost" };

@@ -1,7 +1,7 @@
 import * as c from "@everyfield/contracts/phases";
 import "server-only";
 
-export type CriterionResults = Partial<Record<c.CriterionKey, c.CriterionStatus>>;
+type CriterionResults = Partial<Record<c.CriterionKey, c.CriterionStatus>>;
 
 /**
  * Advisory readiness for one phase's exit criteria (PHASE-004). The cluster is a conjunction without weights: ready only
@@ -34,8 +34,8 @@ export function readinessOf(phase: c.CatalogPhase, results: CriterionResults): c
 
 /**
  * phases.readReadiness for every phase of the catalog. No criterion has a measured source until WP-040 ships, so every
- * result is Unknown and the read sends no statement; the WP-040 facts replace `results` here.
+ * result is Unknown and the read sends no statement; WP-040 passes its measured facts here.
  */
-export function readReadiness(catalog: c.Catalog, results: CriterionResults = {}): c.Readiness[] {
-	return catalog.phases.map((phase) => readinessOf(phase, results));
+export function readReadiness(catalog: c.Catalog): c.Readiness[] {
+	return catalog.phases.map((phase) => readinessOf(phase, {}));
 }

@@ -70,8 +70,6 @@ export const transitionRequest = z.strictObject({
 	// The reason's own rules (checkReason) run after this shape check, so each problem has its own message.
 	input: z.strictObject({ toPhase: phaseNumber, reason: z.string() }),
 });
-export type DeclareRequest = z.input<typeof declareRequest>;
-export type TransitionRequest = z.input<typeof transitionRequest>;
 
 const actor = z.strictObject({ accountId, displayName: z.string() }).nullable();
 /** One journey entry. Creation and declaration carry no direction; a move always does. Noop receipts are not entries. */
@@ -169,7 +167,6 @@ export const phasesError = z.discriminatedUnion("code", [
 	error("invalid_input", {}, "never"),
 	error("invalid_reason", { problem: reasonProblem }, "never"),
 	error("access_denied", {}, "never"),
-	error("unavailable", {}, "never"),
 	error("idempotency_conflict", {}, "never"),
 	error("already_declared", {}, "refresh"),
 	error("revision_conflict", { state: journeyState }, "refresh"),
