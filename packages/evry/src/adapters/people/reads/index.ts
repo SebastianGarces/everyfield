@@ -100,11 +100,7 @@ export const getPersonPhoto: ReadAdapter<z.infer<typeof personInput>> = {
 		if (reply.status !== "ok") return one("people.getPersonPhoto", [], []);
 		const photo = reply.value;
 		const fields = { photo: photo.status, versionId: photo.status === "available" ? photo.versionId : null };
-		return one(
-			"people.getPersonPhoto",
-			[personRow(actor, input.personId, "Person photo", fields)],
-			["photo bytes"],
-		);
+		return one("people.getPersonPhoto", [personRow(actor, input.personId, "Person photo", fields)], ["photo bytes"]);
 	},
 };
 

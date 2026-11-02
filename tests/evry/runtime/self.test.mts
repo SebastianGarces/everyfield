@@ -26,7 +26,9 @@ test("AC:WP059-001 resolveSelf returns the linked live person in the church, or 
 	await link("owner", people.alexRivera);
 	assert.equal(await resolveSelf(db, owner), people.alexRivera);
 	assert.equal(await resolveSelf(db, member), null, "another member's account is not this row");
-	await admin.execute(sql`UPDATE person SET state='retired',retired_at=clock_timestamp() WHERE id=${people.alexRivera}`);
+	await admin.execute(
+		sql`UPDATE person SET state='retired',retired_at=clock_timestamp() WHERE id=${people.alexRivera}`,
+	);
 	assert.equal(await resolveSelf(db, owner), null, "a retired person is no row");
 	await admin.execute(sql`UPDATE person SET state='live',retired_at=NULL WHERE id=${people.alexRivera}`);
 	const orgOwner = await actor("orgOwner");
@@ -52,14 +54,22 @@ test("AC:WP059-002 AC:WP059-004 only the user's own row carries you; the list an
 
 	const own = await invokeRead(db, owner, getPerson, { personId: people.alexRivera });
 	assert.deepEqual(own.rows, [
-		{ kind: "person", id: people.alexRivera, label: "Alex Rivera", fields: { city: "Chicago", stage: "prospect", you: true } },
+		{
+			kind: "person",
+			id: people.alexRivera,
+			label: "Alex Rivera",
+			fields: { city: "Chicago", stage: "prospect", you: true },
+		},
 	]);
 	const other = await invokeRead(db, owner, getPerson, { personId: people.alexChen });
 	assert.deepEqual(other.rows[0]!.fields, { city: "Evanston", stage: "prospect" });
 
 	const board = await invokeRead(db, owner, getPipelineData, { limit: 100 });
 	const youRows = board.rows.filter((r) => r.fields.you === true);
-	assert.deepEqual(youRows.map((r) => r.id), [people.alexRivera]);
+	assert.deepEqual(
+		youRows.map((r) => r.id),
+		[people.alexRivera],
+	);
 	assert.ok(board.rows.every((r) => r.kind === "person" && (r.id === people.alexRivera || !("you" in r.fields))));
 });
 

@@ -1,0 +1,52 @@
+[
+	{
+		"text": "who should I follow up with?",
+		"operation": "people.getPipelineData",
+		"alsoAccepted": ["people.listPeople"],
+		"expect": "followUp",
+		"rubric": {
+			"notYou": "Does not name Daniel Reyes, the signed-in planter",
+			"namesOther": "Names at least one other person as a candidate"
+		}
+	},
+	{
+		"text": "who do I need to follow up with this week?",
+		"operation": "people.getPipelineData",
+		"alsoAccepted": ["people.listPeople"],
+		"expect": "followUp",
+		"rubric": {
+			"notYou": "Does not name Daniel Reyes, the signed-in planter",
+			"namesOther": "Names at least one other person as a candidate"
+		}
+	},
+	{
+		"text": "who haven't we reached out to in a while?",
+		"operation": "people.getPipelineData",
+		"alsoAccepted": ["people.listPeople"],
+		"expect": "followUp",
+		"rubric": {
+			"notYou": "Does not name Daniel Reyes, the signed-in planter",
+			"namesOther": "Names at least one other person as a candidate"
+		}
+	},
+	{
+		"text": "how many people are in our church?",
+		"operation": "people.listPeople",
+		"alsoAccepted": ["people.getPipelineData"],
+		"expect": "count",
+		"rubric": {
+			"countsYou": "Says 5 people, which includes Daniel Reyes"
+		}
+	},
+	{
+		"text": "who should I follow up with?",
+		"operation": "people.getPipelineData",
+		"alsoAccepted": ["people.listPeople"],
+		"actor": "lena",
+		"expect": "followUp",
+		"rubric": {
+			"notYou": "Does not name Lena Park, the signed-in admin",
+			"namesOther": "Names at least one other person as a candidate"
+		}
+	}
+]
