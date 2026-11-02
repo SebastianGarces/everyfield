@@ -90,8 +90,11 @@ function churchResult(
 	return c.churchDocument.parse({ ...d, tenantId, formats: docFormats(d.body), archived: false });
 }
 
-/** The current state of one Church Document, as a reader sees it. One statement. */
-async function readChurch(db: Database, scope: Scope, documentId: string, admin = false) {
+/**
+ * The current state of one Church Document, as a reader sees it, with the plant's brand kit for the editor. One
+ * statement: the kit joins the same read.
+ */
+async function readChurchWithKit(db: Database, scope: Scope, documentId: string, admin = false) {
 	const found = await rowsOf<ChurchRow & { ok: boolean; kit: Record<string, unknown> | null }>(
 		db,
 		sql`SELECT g.ok, d.id, d.template_id, d.template_version, d.document_class, d.use_church_branding, d.title,
@@ -106,7 +109,7 @@ async function readChurch(db: Database, scope: Scope, documentId: string, admin 
 	if (found[0]?.ok !== true) deny("access_denied");
 	const row = found[0];
 	if (!row.id) return null;
-	const result = churchResult(scope.tenantId, {
+	const doc = churchResult(scope.tenantId, {
 		id: row.id,
 		templateId: row.template_id,
 		templateVersion: Number(row.template_version),
@@ -119,10 +122,12 @@ async function readChurch(db: Database, scope: Scope, documentId: string, admin 
 		contentHash: row.content_hash,
 		provenance: row.input_provenance,
 	});
-	return {
-		...result,
-		brand: documentBrand(row.kit ? dataFromRow(row.kit) : null, row.use_church_branding === true),
-	};
+	return { doc, kit: row.kit ? dataFromRow(row.kit) : null };
+}
+
+/** The current state of one Church Document, as a reader sees it. One statement. */
+async function readChurch(db: Database, scope: Scope, documentId: string, admin = false) {
+	return (await readChurchWithKit(db, scope, documentId, admin))?.doc ?? null;
 }
 
 function safeJson(text: string): unknown {
@@ -536,6 +541,22 @@ export const churchWriter = {
 			const input = parse(c.readChurchRequest, raw);
 			const found = await readChurch(db, readerScope(authority), input.documentId);
 			return found ?? deny("unavailable");
+		});
+	},
+
+	/**
+	 * One Church Document for the editor: the document and what the PDF paints for it (the palette and the brand-kit
+	 * images). An Owner or Admin only. One statement, the same one a read makes.
+	 */
+	async readChurchForEdit(db: Database, authority: RequestActor, raw: unknown) {
+		return settle(async () => {
+			const input = parse(c.readChurchRequest, raw);
+			const found = await readChurchWithKit(db, adminScope(authority), input.documentId);
+			if (!found) return deny("unavailable");
+			return c.churchDocumentView.parse({
+				...found.doc,
+				brand: documentBrand(found.kit, found.doc.useChurchBranding),
+			});
 		});
 	},
 

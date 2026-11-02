@@ -337,7 +337,11 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		// the toolbar does (a tag, a link, a hard break, a page break) and save what comes out.
 		const schema = editorSchema();
 		const json: any = schema.nodeFromJSON(editorContent(doc.body)).toJSON();
-		json.content.push(
+		// The page footer is the last child of the editor's document, so the new blocks go in before it.
+		const body = json.content.at(-1)?.type === "pageFooter" ? json.content.slice(0, -1) : json.content;
+		const tail = json.content.at(-1)?.type === "pageFooter" ? [json.content.at(-1)] : [];
+		json.content = [
+			...body,
 			{ type: "pageBreak" },
 			{
 				type: "paragraph",
@@ -349,7 +353,8 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 					{ type: "text", marks: [{ type: "bold" }, { type: "italic" }], text: "more" },
 				],
 			},
-		);
+			...tail,
+		];
 		schema.nodeFromJSON(json).check();
 		const edited = documentFrom(doc.body, json);
 		const before = await counts();
