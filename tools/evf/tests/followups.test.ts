@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { fixture, source } from "./fixtures.ts";
+import { fixture, migrationsFrom, source } from "./fixtures.ts";
 import {
 	findTask,
 	followUpsOfTask,
@@ -109,12 +109,7 @@ test("OPS-86-store: a store migrated from schema 4 gains queued and parent_task_
 			"INSERT INTO tasks (slug, mode, ref, title, status, seat_model, created_at, updated_at) VALUES ('ops-1', 'implement', 'OPS-1', 'One', 'active', 'm', 't', 't')",
 		);
 		assert.equal(schemaVersion(db), 4);
-		assert.deepEqual(migrate(db).applied, [
-			"005-merged-views.sql",
-			"006-task-follow-ups.sql",
-			"007-qa-previews.sql",
-			"008-follow-up-links.sql",
-		]);
+		assert.deepEqual(migrate(db).applied, migrationsFrom(5));
 		const row = db.prepare("SELECT * FROM v_tasks WHERE ref = 'OPS-1'").get() as Record<string, unknown>;
 		assert.equal(row.status, "active");
 		assert.equal(row.seat_model, "m");
@@ -706,7 +701,7 @@ test("OPS-109-store: migration 8 numbers the filed slices on a store that applie
 	);
 	insert.run("WP-097", "active", null);
 	for (const status of ["queued", "abandoned", "queued", "new"]) insert.run("WP-097", status, 1);
-	assert.deepEqual(migrate(db).applied, ["008-follow-up-links.sql"]);
+	assert.deepEqual(migrate(db).applied, migrationsFrom(8));
 	assert.deepEqual(
 		db
 			.prepare("SELECT id, status, slice, linked FROM tasks ORDER BY id")

@@ -288,6 +288,28 @@ other launches, still gets all of it. If a drive dies inside its own pr, ci or s
 next drive aborts that run without a round and performs the stage again; a PR GitHub already merged is
 recorded, not shipped twice. Jonah polls `evf status --json`.
 
+**Circuit breaker (OPS-115).** The loop cap counts only verify and ci failures, and a passed run resets the
+three-failure count, so neither stops a seat that closes `passed` again and again with nothing changed. When a seat
+closes a plan, implement, simplify or verify run itself with `evf run done`, evf records a progress fingerprint on the
+run: the worktree HEAD (`progress_head`) and a sha256 of the stored spec (`progress_spec`; migration 009). Run B is
+the newest fingerprinted run after the latest reopen marker; run A is the fingerprinted run of B's stage before it.
+When A and B closed with the same status at the same HEAD and spec hash, `evf run done` escalates the task at B's close.
+The cause names the stage, both run ids, the short head and the first summary line of each run; the `escalation`
+event, the Herdr notification, `evf status` and `evf next` show it, so the drive launches no third seat. A new commit
+or a changed spec is progress; uncommitted edits, the PR body and proofs are not. Only runs a seat closed itself
+count: aborted runs, evf's own pr, ci and ship runs, and runs the drive closed for the seat (no Herdr agent, idle
+twice, wait timeout, launch failure) carry no fingerprint, and neither do runs closed before migration 009. Two
+closes with different statuses never trip it; the loop cap and the three-failure cap still apply. Like those caps,
+the breaker records `escalation_deferred` while another seat of the task works and escalates when the last one
+closes. Restart after an outside fix with `evf task reopen <task> --reason "<words>"`: runs before its marker are
+never run A, so the next seat runs. Prototype mode keeps its own same-headline rule.
+
+**Simplify skip.** After a passed implement, evf reads the last passed simplify run after the reopen marker. When
+`git diff --quiet <its progress_head> HEAD` finds no change in the worktree, no simplifier launches: evf records a
+`simplify_skipped` event that names that run and its head, and pr runs next. The PR body and the proofs live outside
+the repository, so a round that changed only those skips simplify. Round 0 and every round with a new commit still
+run it. When the author checks fail in the pr stage after a skip, the task goes back to implement, not to simplify.
+
 **Stopping a drive.** The drive loop runs in a worker thread, so the main thread can answer SIGTERM and SIGINT
 while a stage blocks in a child process. A signal that arrives inside a pr, ci or ship stage closes that `evf` run
 `aborted` with `drive stopped by <SIGNAL> during <stage>` and records one `drive_stopped` event with `{stage, signal}`.
