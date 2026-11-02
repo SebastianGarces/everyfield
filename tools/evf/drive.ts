@@ -17,7 +17,7 @@ import {
 	waitsFor,
 } from "./followups.ts";
 import { ideaWorktree, launch, LaunchAborted, LaunchLineTooLong, type LaunchTiming } from "./launch.ts";
-import { shipOnCurrentCode } from "./merge.ts";
+import { requireCurrentCode, shipOnCurrentCode } from "./merge.ts";
 import { isOpus, validateOverride, type Role } from "./seats.ts";
 import {
 	EvfError,
@@ -1772,6 +1772,9 @@ export function drive(
 	opts: { once?: boolean; detach?: boolean },
 	timing: DriveTiming = DRIVE_TIMING,
 ): number {
+	// A drive on stale evf code would run its stages on old rules, so it refuses before any seat or run row (OPS-111).
+	// Once it runs, a main that moves under it reaches the ship stage through shipOnCurrentCode instead.
+	requireCurrentCode(root, loadConfig(root), `evf drive does not start ${task.id}`);
 	const dir = join(evfDataDir(root), "drive");
 	mkdirSync(dir, { recursive: true });
 	const pidFile = join(dir, `${task.slug}.pid`);

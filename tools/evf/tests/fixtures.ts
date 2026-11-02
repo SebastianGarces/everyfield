@@ -2,6 +2,7 @@ import { setLoadedCode } from "../merge.ts";
 import { mkdtempSync, cpSync, mkdirSync, writeFileSync, readFileSync, rmSync, chmodSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { execFileSync } from "node:child_process";
 export const source = resolve(import.meta.dirname, "../../..");
 /**
@@ -24,6 +25,9 @@ export const sessionStartJs = (dbPath: string, stateVar = "st") => {
 
 // Fixture repos hold no evf code of their own. Unless a test claims otherwise, the process runs the base code.
 setLoadedCode((base) => ({ checkout: "fixture", ...base, dirty: false }));
+// The evf subprocesses a test starts make the same claim through a preload (current-code.ts).
+process.env.NODE_OPTIONS =
+	`${process.env.NODE_OPTIONS ?? ""} --import=${pathToFileURL(join(import.meta.dirname, "current-code.ts")).href}`.trim();
 
 export function fixture() {
 	// Git starts detached auto-maintenance after commits and pushes. It would write into the fixture while

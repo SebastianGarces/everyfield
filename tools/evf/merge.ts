@@ -27,6 +27,10 @@ import { WIKI_PREFIX } from "./wiki.ts";
  *    Any doubt about the class counts as the class.
  * 3. A PR whose exact-head diff changes Wiki content (any path under docs/reference/wiki/, OPS-109) merges only with
  *    his recorded approval for that head too. Doubt holds it under rule 2.
+ * 4. A PR in the owner-path class (mergePolicy.ownerPaths: the landing and marketing site, OPS-111) merges only with his
+ *    recorded approval for that head. It is classified with rule 2's diff and rules, and doubt counts as the class.
+ *
+ * `evf ship` and `evf drive` also refuse at their start on stale code (`requireCurrentCode`), before any GitHub write.
  */
 
 /** The evf code a process runs: the git trees of tools/evf and bin/evf, as they were when the process loaded it. */
@@ -86,11 +90,21 @@ function staleCode(root: string, cfg: Config, fetchError = fetchBase(root, cfg))
 	return undefined;
 }
 
-export type TemplateClass = { paths: string[]; doubt?: string };
+/**
+ * Refuses when the running evf code differs from the base branch: `evf ship` and `evf drive` call it at their start,
+ * before any GitHub write. `refusal` opens the message, for example "evf ship does not merge PR #7".
+ */
+export function requireCurrentCode(root: string, cfg: Config, refusal: string): void {
+	const stale = staleCode(root, cfg);
+	if (stale) fail(`${refusal}: ${stale}`);
+}
+
+/** The matched paths of one class for one exact head, or why evf cannot tell. Doubt counts as the class. */
+export type PathClass = { paths: string[]; doubt?: string };
 
 /** The paths the PR at exactly `sha` changes against its merge base with the base branch, or why that is unknown. */
-function changedPaths(root: string, cfg: Config, sha: string, fetchError: string | undefined): TemplateClass {
-	const doubt = (why: string): TemplateClass => ({ paths: [], doubt: why });
+function changedPaths(root: string, cfg: Config, sha: string, fetchError: string | undefined): PathClass {
+	const doubt = (why: string): PathClass => ({ paths: [], doubt: why });
 	if (!/^[0-9a-f]{40}$/.test(sha)) return doubt(`the head to merge is not a full commit sha (${JSON.stringify(sha)})`);
 	if (fetchError) return doubt(fetchError);
 	const base = baseRef(root, cfg);
@@ -107,35 +121,77 @@ function changedPaths(root: string, cfg: Config, sha: string, fetchError: string
 	return { paths: diff.stdout.split("\n").filter(Boolean) };
 }
 
+type PathPolicyKey = "documentTemplates" | "ownerPaths";
+
 /**
- * Whether the PR at exactly `sha` is in the document-template class, decided from the base branch's config and
- * the whole diff from the merge base, so splitting a change across commits never leaves it. `evf ship`, `evf approve`
- * and the merge all decide the class here. A failed step returns `doubt` with a reason; the caller treats doubt as the class.
+ * Classifies the PR at exactly `sha` by one path policy, read from the base branch's committed config, over the whole
+ * diff from the merge base, so splitting a change across commits never leaves the class. An entry that ends in `/`
+ * matches every path under it; any other entry matches one file. A failed step returns `doubt` with a reason.
  */
-export function templateClass(
+function policyClass(
 	root: string,
 	cfg: Config,
 	sha: string,
-	fetchError = fetchBase(root, cfg),
-): TemplateClass {
+	key: PathPolicyKey,
+	fetchError: string | undefined,
+): PathClass {
 	const changed = changedPaths(root, cfg, sha, fetchError);
 	if (changed.doubt) return changed;
 	const base = baseRef(root, cfg);
 	let entries: string[];
 	try {
-		entries = (committedConfig(root, base).mergePolicy.documentTemplates ?? DEFAULT_DOCUMENT_TEMPLATES).paths;
+		const policy = committedConfig(root, base).mergePolicy;
+		// documentTemplates has a built-in default (OPS-80); ownerPaths has none, so a base without it holds as doubt.
+		const chosen =
+			key === "documentTemplates" ? (policy.documentTemplates ?? DEFAULT_DOCUMENT_TEMPLATES) : policy.ownerPaths;
+		if (!chosen) return { paths: [], doubt: `the ${base} evf.config.json has no mergePolicy.${key}` };
+		entries = chosen.paths;
 	} catch (e) {
 		if (!(e instanceof EvfError) && !(e instanceof SyntaxError)) throw e;
 		return { paths: [], doubt: `the ${base} evf.config.json is unreadable: ${e.message}` };
 	}
-	// An entry that ends in `/` matches every path under it; any other entry matches one file.
 	const matches = (path: string) =>
 		entries.some((entry) => (entry.endsWith("/") ? path.startsWith(entry) : path === entry));
 	return { paths: changed.paths.filter(matches) };
 }
 
+/**
+ * Whether the PR at exactly `sha` is in the document-template class. `evf ship`, `evf approve` and the merge all decide
+ * the class here or through `heldClasses`. The caller treats doubt as the class.
+ */
+export function templateClass(root: string, cfg: Config, sha: string, fetchError = fetchBase(root, cfg)): PathClass {
+	return policyClass(root, cfg, sha, "documentTemplates", fetchError);
+}
+
+/**
+ * Whether the PR at exactly `sha` is in the owner-path class (mergePolicy.ownerPaths, OPS-111): the landing and
+ * marketing site. Same rules as `templateClass`. The caller treats doubt as the class.
+ */
+export function ownerPathClass(root: string, cfg: Config, sha: string, fetchError = fetchBase(root, cfg)): PathClass {
+	return policyClass(root, cfg, sha, "ownerPaths", fetchError);
+}
+
+/** The two classes that hold a PR that would otherwise merge through evf ship, for one exact head. */
+export type HeldClasses = { templates: PathClass; owner: PathClass };
+
+/** `evf ship`, `evf approve` and the merge decide whether a PR is held here, from one fetch. */
+export function heldClasses(root: string, cfg: Config, sha: string, fetchError = fetchBase(root, cfg)): HeldClasses {
+	return {
+		templates: templateClass(root, cfg, sha, fetchError),
+		owner: ownerPathClass(root, cfg, sha, fetchError),
+	};
+}
+
+const inClass = (c: PathClass) => !!c.doubt || c.paths.length > 0;
+/** Whether either class holds the PR. */
+export const isHeld = (h: HeldClasses): boolean => inClass(h.templates) || inClass(h.owner);
+/** Whether the owner-path class holds the PR: its approval must name the exact head. */
+export const ownerHeld = (h: HeldClasses): boolean => inClass(h.owner);
+/** The first doubt of either class. */
+export const heldDoubt = (h: HeldClasses): string | undefined => h.templates.doubt ?? h.owner.doubt;
+
 /** The Wiki-content paths (D-a: under docs/reference/wiki/) the PR at exactly `sha` changes, decided as templateClass does. */
-export function wikiClass(root: string, cfg: Config, sha: string, fetchError = fetchBase(root, cfg)): TemplateClass {
+export function wikiClass(root: string, cfg: Config, sha: string, fetchError = fetchBase(root, cfg)): PathClass {
 	const changed = changedPaths(root, cfg, sha, fetchError);
 	return changed.doubt ? changed : { paths: changed.paths.filter((path) => path.startsWith(WIKI_PREFIX)) };
 }
@@ -158,19 +214,35 @@ type MergeRequest = {
 const shown = (paths: string[]) =>
 	`(${paths.slice(0, 5).join(", ")})${paths.length > 5 ? ` (${paths.length} paths in all)` : ""}`;
 
-/** Why a PR is held as a template PR: the matched paths (shown) or the doubt. */
-export function templateWhy({ paths, doubt }: TemplateClass): string {
-	return doubt
-		? `evf cannot tell whether it changes document templates (${doubt}), so it holds it as if it did`
-		: `it changes document-template paths ${shown(paths)}`;
+/** Why a PR is held: the matched paths of each class (shown) and any doubt, naming each class. */
+export function heldWhy({ templates, owner }: HeldClasses): string {
+	const changes = [
+		templates.paths.length ? `document-template paths ${shown(templates.paths)}` : "",
+		owner.paths.length ? `landing and marketing owner paths ${shown(owner.paths)}` : "",
+	].filter(Boolean);
+	const unsure = [templates.doubt ? "document templates" : "", owner.doubt ? "landing and marketing owner paths" : ""]
+		.filter(Boolean)
+		.join(" or ");
+	const why = [...new Set([templates.doubt, owner.doubt].filter(Boolean))].join("; ");
+	return [
+		changes.length ? `it changes ${changes.join(" and ")}` : "",
+		unsure ? `evf cannot tell whether it changes ${unsure} (${why}), so it holds it as if it did` : "",
+	]
+		.filter(Boolean)
+		.join("; ");
 }
 
 /** Why a task PR is held as Wiki content. */
-export const wikiWhy = ({ paths }: TemplateClass): string => `it changes Wiki content ${shown(paths)}`;
+export const wikiWhy = ({ paths }: PathClass): string => `it changes Wiki content ${shown(paths)}`;
 
-/** The command that records Sebastian's approval for a held PR. */
-export const approveCommand = (number: number): string =>
-	`Sebastian approves each document-template PR; after his approval in chat, run: bin/evf approve ${number} --owner-approval "<his words>"`;
+/**
+ * The command that records Sebastian's approval for a held PR. The owner-path class binds it to the exact head;
+ * the document-template class alone keeps its OPS-80 command.
+ */
+export const heldApproveCommand = (h: HeldClasses, number: number, head: string): string =>
+	ownerHeld(h)
+		? `Sebastian approves each landing and marketing PR for its exact head; after his approval in chat, run: bin/evf approve ${number} --owner-approval "<his words>" --head ${head}`
+		: `Sebastian approves each document-template PR; after his approval in chat, run: bin/evf approve ${number} --owner-approval "<his words>"`;
 
 /** The command that records Sebastian's approval for a held Wiki-content task PR, bound to its head. */
 export const wikiApproveCommand = (number: number, head: string): string =>
@@ -182,14 +254,13 @@ export function mergePullRequest(req: MergeRequest): RunResult {
 	const fetchError = fetchBase(root, cfg);
 	const stale = staleCode(root, cfg, fetchError);
 	if (stale) fail(`evf does not merge PR #${number}: ${stale}`);
-	const cls = templateClass(root, cfg, sha, fetchError),
-		wiki = cls.doubt ? cls : wikiClass(root, cfg, sha, fetchError);
-	const held =
-		cls.doubt || cls.paths.length
-			? `${templateWhy(cls)}. ${approveCommand(number)}`
-			: wiki.paths.length
-				? `${wikiWhy(wiki)}. ${wikiApproveCommand(number, sha)}`
-				: undefined;
+	const classes = heldClasses(root, cfg, sha, fetchError),
+		wiki = heldDoubt(classes) ? undefined : wikiClass(root, cfg, sha, fetchError);
+	const held = isHeld(classes)
+		? `${heldWhy(classes)}. ${heldApproveCommand(classes, number, sha)}`
+		: wiki?.paths.length
+			? `${wikiWhy(wiki)}. ${wikiApproveCommand(number, sha)}`
+			: undefined;
 	if (held) {
 		if (!ownerApproval || ownerApproval.quote.trim().split(/\s+/).filter(Boolean).length < 2)
 			fail(`evf does not merge PR #${number}: ${held}`);

@@ -26,14 +26,17 @@ import { maintenanceScope, requireTaskScope } from "./policy.ts";
 import { checkPrBody, followUpsOfBranch } from "./pr-body.ts";
 import { followUpsOfTask, markMerged, openWorkDb, sessionsRecorded, withPartial } from "./db.ts";
 import {
-	approveCommand,
+	heldApproveCommand,
+	heldClasses,
+	heldDoubt,
+	heldWhy,
+	isHeld,
 	mergePullRequest,
-	templateClass,
-	templateWhy,
+	requireCurrentCode,
 	wikiApproveCommand,
 	wikiClass,
 	wikiWhy,
-	type TemplateClass,
+	type HeldClasses,
 } from "./merge.ts";
 import { commitClaimCheck, promoteDrafts, recordClaimCheck, wikiCarryProof, type WikiCarry } from "./wiki.ts";
 import { withShipQueue, type QueueTiming } from "./ship-queue.ts";
@@ -476,27 +479,28 @@ export function ship(root: string, task: TaskRef, timing: ShipTiming = SHIP_TIMI
 	if (!isClean(wt)) fail("The task worktree must be clean before shipping.");
 	const pr = prFor(wt, task);
 	if (!pr || pr.state !== "OPEN") fail(`No open PR for ${task.branch}.`);
+	// Stale evf code may lack a merge rule, so it refuses before any GitHub write (OPS-111): no status, update or merge.
+	requireCurrentCode(root, cfg, `evf ship does not merge PR #${pr.number}`);
 	if (cfg.mergePolicy.ordinary !== "automatic-after-independent-review")
 		fail("Ordinary automatic merge is not approved.");
 	const design = task.kind === "ops" && maintenanceScope(wt, task).route === "design",
 		cls = task.kind === "fb" ? cachedTriage(root, task.issue!)?.class : undefined;
 	// The PR #13 owner routes keep exact-head review and never merge here; only the merging routes queue and carry.
 	if (design || (task.kind === "fb" && !(cfg.mergePolicy.feedbackVerifierMerge as string[]).includes(cls ?? "")))
-		return ownerRoute(root, cfg, task, wt, pr.number, design, cls, { paths: [] });
-	// A PR that would merge here but changes a document template waits for Sebastian too (mergePolicy.documentTemplates).
-	// Doubt about the class holds the PR too (templateClass). Wiki content waits for him after the claim check and
-	// promotion (OPS-109).
+		return ownerRoute(root, cfg, task, wt, pr.number, design, cls);
+	// A PR that would merge here but changes a document template (mergePolicy.documentTemplates) or the landing and
+	// marketing site (mergePolicy.ownerPaths, OPS-111) waits for Sebastian too. Doubt about either class holds the PR
+	// too (heldClasses). Wiki content waits for him after the claim check and promotion (OPS-109).
 	const head = git(wt, "rev-parse", "HEAD"),
-		templates = templateClass(root, cfg, head);
-	if (!templates.doubt && wikiClass(root, cfg, head).paths.length) return wikiRoute(root, cfg, task, wt, pr.number);
-	if (templates.doubt || templates.paths.length)
-		return ownerRoute(root, cfg, task, wt, pr.number, design, cls, templates);
+		held = heldClasses(root, cfg, head);
+	if (!heldDoubt(held) && wikiClass(root, cfg, head).paths.length) return wikiRoute(root, cfg, task, wt, pr.number);
+	if (isHeld(held)) return ownerRoute(root, cfg, task, wt, pr.number, design, cls, held);
 	return withShipQueue(root, task.id, () => queuedMerge(root, cfg, task, wt, pr.number, timing), timing.queue);
 }
 
-/** The one message of a verified document-template PR: up to five matched paths, a count when there are more. */
-function templateWaitMessage(number: number, templates: TemplateClass): string {
-	return `evf ship does not merge PR #${number}: ${templateWhy(templates)}. The verifier passed it. ${approveCommand(number)}`;
+/** The one message of a verified held PR: up to five matched paths per class, a count when there are more. */
+function heldWaitMessage(number: number, held: HeldClasses, head: string): string {
+	return `evf ship does not merge PR #${number}: ${heldWhy(held)}. The verifier passed it. ${heldApproveCommand(held, number, head)}`;
 }
 
 function ownerRoute(
@@ -507,7 +511,7 @@ function ownerRoute(
 	number: number,
 	design: boolean,
 	cls: string | undefined,
-	templates: TemplateClass,
+	held?: HeldClasses,
 ): number {
 	git(root, "fetch", "--quiet", cfg.remote, cfg.baseBranch);
 	const sha = git(wt, "rev-parse", "HEAD");
@@ -521,9 +525,9 @@ function ownerRoute(
 			"success",
 			`Verified by ${verifierLabel(verification.approval.verifier)} at ${sha.slice(0, 10)}`,
 		);
-	if (templates.doubt || templates.paths.length) {
+	if (held) {
 		verified();
-		console.log(withPartial(root, task, templateWaitMessage(number, templates)));
+		console.log(withPartial(root, task, heldWaitMessage(number, held, sha)));
 		return 0;
 	}
 	if (design) {

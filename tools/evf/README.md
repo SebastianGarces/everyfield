@@ -36,6 +36,19 @@ writes the shipped record with an `owner_approval` field, acknowledges progress 
 `evf drive` records the wait and stops; a later pass records the merge. The key is optional: when it is
 absent, the built-in default in `tools/evf/policy.ts` applies. A malformed key stops `loadConfig`.
 
+Owner-path class (OPS-111): the landing and marketing site, listed in `mergePolicy.ownerPaths` with the same shape
+and matching rules as `documentTemplates`. `heldClasses` in `merge.ts` decides both classes for `evf ship`,
+`evf approve` and the merge. The key has no built-in default: a base config without it holds every PR as doubt.
+The held message names up to five paths per class and the command
+`bin/evf approve <PR> --owner-approval "<his words>" --head <sha>`; `evf approve` refuses an owner-path PR without
+`--head`, without the verifier's `evf/verify` pass on that head, at another head or while the branch is behind.
+
+Stale code (OPS-111): `evf ship` and `evf drive` call `requireCurrentCode` at their start. When the running
+`tools/evf` or `bin/evf` tree differs from the base branch, has uncommitted changes or cannot be read, they refuse
+before any GitHub write, seat or run row, naming both commits and the update command. A drive that is already
+running keeps `shipOnCurrentCode`. Tests claim the code through `setLoadedCode`; evf processes that tests start
+make the same claim through the `tests/current-code.ts` preload.
+
 Wiki content on task branches (OPS-109): the same task PRs join a second held class when the exact-head diff
 changes a path under `docs/reference/wiki/`. `evf ship` runs the verifier checks, then sets each `pending` draft's
 `claim_check` to `passed` with the verifier's seat, model and session as `reviewer` and
