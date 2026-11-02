@@ -223,7 +223,7 @@ export function requireMaintenancePaths(root: string, wt: string, task: TaskRef)
 /**
  * The built-in document-template class (OPS-80). It applies when `mergePolicy.documentTemplates` is absent from
  * evf.config.json; an explicit key replaces it. `evf ship`, `evf approve` and the merge read it only through
- * `templateClass` in merge.ts, from the base branch's config.
+ * `heldClasses` in merge.ts, from the base branch's config.
  */
 export const DEFAULT_DOCUMENT_TEMPLATES: DocumentTemplatePolicy = {
 	paths: [
@@ -237,4 +237,26 @@ export const DEFAULT_DOCUMENT_TEMPLATES: DocumentTemplatePolicy = {
 		"This looks good - while we develop all the final versions of all the templates, I want to approve them one by one",
 	scope:
 		"A PR whose exact-head diff touches a document-template path never merges through evf ship; after the verifier passes it, Sebastian approves it in chat and an agent merges it with evf approve.",
+};
+
+/**
+ * The built-in owner-path class (OPS-111): the landing and marketing site. It applies when `mergePolicy.ownerPaths`
+ * is absent from evf.config.json; an explicit key replaces it. An OPS branch may change evf.config.json only in its own
+ * registration, so the policy lives here, as DEFAULT_DOCUMENT_TEMPLATES does. evf reads it only through `heldClasses`
+ * in merge.ts, from the base branch's config.
+ */
+export const DEFAULT_OWNER_PATHS: DocumentTemplatePolicy = {
+	paths: [
+		"apps/web/src/app/page.tsx",
+		"apps/web/src/app/access/",
+		"apps/web/src/app/oversight/",
+		"apps/web/src/app/privacy/",
+		"apps/web/src/app/terms/",
+		"apps/web/src/marketing/",
+		"apps/web/src/styles/marketing.css",
+	],
+	approvedAtUtc: "2026-11-02T05:18:00Z",
+	quote: "you can make decisions and let me know what those were so I can revert them if I disagree",
+	scope:
+		"The landing and marketing site: the landing page, the access, oversight, privacy and terms pages, the marketing components and the marketing styles. A PR whose exact-head diff touches one of these paths, or whose class evf cannot tell, never merges through evf ship; after the verifier passes it, Sebastian approves it in chat and an agent merges it with evf approve --owner-approval for that exact head.",
 };
