@@ -1,15 +1,7 @@
 import { LangfuseSpanProcessor } from "@langfuse/otel";
 import { propagateAttributes, startObservation } from "@langfuse/tracing";
 import { LangfuseVercelAiSdkIntegration } from "@langfuse/vercel-ai-sdk";
-import {
-	context,
-	diag,
-	DiagLogLevel,
-	type DiagLogger,
-	ProxyTracerProvider,
-	trace,
-	TraceFlags,
-} from "@opentelemetry/api";
+import { context, diag, DiagLogLevel, type DiagLogger, trace, TraceFlags } from "@opentelemetry/api";
 import { AsyncLocalStorageContextManager } from "@opentelemetry/context-async-hooks";
 import { ExportResultCode } from "@opentelemetry/core";
 import { type SpanExporter, TracerProvider } from "@opentelemetry/sdk-trace";
@@ -36,14 +28,16 @@ const quietly = <T>(body: () => T): T | undefined => {
 };
 
 /**
- * Process-wide like the OpenTelemetry globals, since Next.js may bundle instrumentation apart from the routes that flush:
- * `hidden` holds the values no log line may show (the keys, their Basic auth form, and the base URL's user info, query
- * and fragment), `exported` counts the spans handed to the exporter so far, so a flush reports its share.
+ * Process-wide like the OpenTelemetry globals. Next.js bundles instrumentation in its own layer, with its own copy of
+ * this module and of `@opentelemetry/api`, apart from the routes that flush. The route's copy cannot recognize the
+ * registered provider through the global (its `ProxyTracerProvider` is another class), so the provider itself lives
+ * here. `hidden` holds the values no log line may show (the keys, their Basic auth form, and the base URL's user info,
+ * query and fragment), `exported` counts the spans handed to the exporter so far, so a flush reports its share.
  */
 const state = ((globalThis as { [key: symbol]: unknown })[Symbol.for("everyfield.evry.tracing")] ??= {
 	hidden: new Set<string>(),
 	exported: 0,
-}) as { hidden: Set<string>; exported: number };
+}) as { hidden: Set<string>; exported: number; provider?: TracerProvider };
 
 /** Writes one JSON line with the secrets above masked. Never throws, also when the console itself throws. */
 function log(stream: "log" | "error", line: { event: string } & Metadata) {
@@ -144,8 +138,9 @@ export function registerTracing(env: Record<string, string | undefined> = proces
 	log("log", { event: "tracing_registered", ...config });
 	if (!context.setGlobalContextManager(new AsyncLocalStorageContextManager().enable()))
 		log("error", { event: "tracing_not_global", which: "setGlobalContextManager" });
-	if (!trace.setGlobalTracerProvider(new TracerProvider({ spanProcessors: [processor] })))
-		log("error", { event: "tracing_not_global", which: "setGlobalTracerProvider" });
+	const provider = new TracerProvider({ spanProcessors: [processor] });
+	if (trace.setGlobalTracerProvider(provider)) state.provider = provider;
+	else log("error", { event: "tracing_not_global", which: "setGlobalTracerProvider" });
 	registerTelemetry(new LangfuseVercelAiSdkIntegration());
 	return true;
 }
@@ -155,11 +150,8 @@ export function registerTracing(env: Record<string, string | undefined> = proces
  * after(), once the response and the turn are done. Writes nothing when tracing is not registered. Never throws.
  */
 export async function flushTraces() {
-	const global = trace.getTracerProvider();
-	const provider = (global instanceof ProxyTracerProvider ? global.getDelegate() : global) as {
-		forceFlush?: () => Promise<void>;
-	};
-	if (!provider.forceFlush) return;
+	const { provider } = state;
+	if (!provider) return;
 	const started = performance.now();
 	const before = state.exported;
 	try {
