@@ -94,8 +94,13 @@ function staleCode(root: string, cfg: Config, fetchError = fetchBase(root, cfg))
  * Refuses when the running evf code differs from the base branch: `evf ship` and `evf drive` call it at their start,
  * before any GitHub write. `refusal` opens the message, for example "evf ship does not merge PR #7".
  */
-export function requireCurrentCode(root: string, cfg: Config, refusal: string): void {
-	const stale = staleCode(root, cfg);
+export function requireCurrentCode(
+	root: string,
+	cfg: Config,
+	refusal: string,
+	fetchError = fetchBase(root, cfg),
+): void {
+	const stale = staleCode(root, cfg, fetchError);
 	if (stale) fail(`${refusal}: ${stale}`);
 }
 
@@ -121,8 +126,6 @@ function changedPaths(root: string, cfg: Config, sha: string, fetchError: string
 	return { paths: diff.stdout.split("\n").filter(Boolean) };
 }
 
-type PathPolicyKey = "documentTemplates" | "ownerPaths";
-
 /**
  * Classifies the PR at exactly `sha` by one path policy, read from the base branch's committed config, over the whole
  * diff from the merge base, so splitting a change across commits never leaves the class. An entry that ends in `/`
@@ -132,7 +135,7 @@ function policyClass(
 	root: string,
 	cfg: Config,
 	sha: string,
-	key: PathPolicyKey,
+	key: "documentTemplates" | "ownerPaths",
 	fetchError: string | undefined,
 ): PathClass {
 	const changed = changedPaths(root, cfg, sha, fetchError);
@@ -243,8 +246,7 @@ export const wikiApproveCommand = (number: number, head: string): string =>
 export function mergePullRequest(req: MergeRequest): RunResult {
 	const { root, cfg, number, sha, ownerApproval } = req;
 	const fetchError = fetchBase(root, cfg);
-	const stale = staleCode(root, cfg, fetchError);
-	if (stale) fail(`evf does not merge PR #${number}: ${stale}`);
+	requireCurrentCode(root, cfg, `evf does not merge PR #${number}`, fetchError);
 	const classes = heldClasses(root, cfg, sha, fetchError),
 		wiki = heldDoubt(classes) ? undefined : wikiClass(root, cfg, sha, fetchError);
 	const held = isHeld(classes)
