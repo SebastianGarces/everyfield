@@ -270,6 +270,38 @@ test("OPS-114-6: ui-escaped skips other tasks with one line, fails closed withou
 	}
 });
 
+test("OPS-114-6: a stack.json whose preview is gone counts as no running stack", () => {
+	const f = fixture();
+	try {
+		// The stack status stub reports the state the test writes beside stack.json.
+		f.cfg.stack = {
+			usesPaidProviders: false,
+			status: [
+				process.execPath,
+				"-e",
+				"const fs=require('fs');const p=process.env.EVF_RUNTIME_DIR+'/state';console.log(JSON.stringify({state:fs.existsSync(p)?fs.readFileSync(p,'utf8'):'stopped'}))",
+			],
+		};
+		const { wt, task, commit, stackUp } = opsTask(f);
+		const file = "tests/ui/escaped/overlap.test.mjs";
+		commit(file, "// one escaped test\n");
+		const base = f.git("rev-parse", "main");
+		stackUp("https://ops-900.localhost:1355");
+		const gone = { fail: "No running stack for OPS-900. Start it with bin/evf stack up OPS-900, then rerun." };
+		assert.deepEqual(uiEscapedGate(f.root, wt, task, base), gone);
+		assert.throws(
+			() => soak(f.root, task, join(wt, file), () => ({ code: 0, stdout: "", stderr: "" })),
+			/No running stack for OPS-900/,
+		);
+
+		writeFileSync(join(runtimeDir(f.root, task), "state"), "ready");
+		output(() => soak(f.root, task, join(wt, file), () => ({ code: 0, stdout: "", stderr: "" })));
+		assert.deepEqual(uiEscapedGate(f.root, wt, task, base), { baseUrl: "https://ops-900.localhost:1355" });
+	} finally {
+		f.close();
+	}
+});
+
 test("OPS-114-7: a soak records 20 green runs, stops at the first failure, and a changed file needs a new soak", () => {
 	const f = fixture();
 	try {

@@ -4,6 +4,7 @@ import { isAbsolute, join, relative, resolve } from "node:path";
 import { newTaskRow, openWorkDb, record } from "./db.ts";
 import { nextId } from "./ids.ts";
 import {
+	command,
 	evfDataDir,
 	fail,
 	git,
@@ -16,7 +17,7 @@ import {
 	type RunResult,
 	type TaskRef,
 } from "./lib.ts";
-import { stackInfo } from "./task.ts";
+import { stackEnv, stackInfo } from "./task.ts";
 
 /**
  * OPS-114: a bug Sebastian catches becomes a permanent check. `evf escape <PR> --what` files the OPS task that writes
@@ -197,6 +198,24 @@ function readSoak(root: string, task: TaskRef, hash: string): SoakRecord | undef
 const noStack = (task: TaskRef) =>
 	`No running stack for ${task.id}. Start it with bin/evf stack up ${task.id}, then rerun.`;
 
+/**
+ * The URL of the task's stack when it is running. stack.json can outlive its preview (a lease ends, or another seat
+ * frees the slot), so when evf.config.json has a stack status command, the stack must also report `ready` there.
+ */
+function liveStackUrl(root: string, wt: string, task: TaskRef): string | undefined {
+	const url = stackInfo(root, task).url;
+	const status = loadConfig(root).stack?.status;
+	if (!url || !status) return url;
+	const argv = command(status);
+	const r = run(argv[0], argv.slice(1), { cwd: wt, env: stackEnv(root, task, wt) });
+	const last = r.stdout.trim().split("\n").pop() ?? "";
+	try {
+		return r.code === 0 && (JSON.parse(last) as { state?: string }).state === "ready" ? url : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
 /** `file` as a path inside the worktree, refused unless it is one test in tests/ui/escaped/. */
 function escapedFile(wt: string, file: string): string {
 	const rel = relative(wt, isAbsolute(file) ? file : resolve(process.cwd(), file))
@@ -219,7 +238,7 @@ export function soak(
 ): SoakRecord {
 	const wt = requireWorktree(root, loadConfig(root), task);
 	const rel = escapedFile(wt, file);
-	const baseUrl = stackInfo(root, task).url;
+	const baseUrl = liveStackUrl(root, wt, task);
 	if (!baseUrl) fail(noStack(task));
 	const hash = sha256(readFileSync(join(wt, rel)));
 	const path = soakPath(root, task, hash),
@@ -273,7 +292,7 @@ export function uiEscapedGate(root: string, wt: string, task: TaskRef, baseSha: 
 	const ui = task.kind === "wp" && task.part === "ui";
 	if (!ui && !changed.length)
 		return { skip: `${task.id} is not a WP /ui part and changes no file under ${ESCAPED_DIR}.` };
-	const baseUrl = stackInfo(root, task).url;
+	const baseUrl = liveStackUrl(root, wt, task);
 	if (!baseUrl) return { fail: noStack(task) };
 	const unsoaked = changed
 		.filter((path) => ESCAPED_TEST.test(path) && existsSync(join(wt, path)))
