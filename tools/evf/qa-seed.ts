@@ -27,10 +27,9 @@ import { createOnboardingProducer } from "../../packages/domain/src/onboarding/i
 import { accountPersonProducer, peopleWriter, personFields } from "../../packages/domain/src/people/index.ts";
 import { createTaskWriter } from "../../packages/domain/src/tasks/index.ts";
 import { teamsWriter } from "../../packages/domain/src/teams/index.ts";
-import { QA_LOGINS, QA_PASSWORD, roleUrl, seedRefusal } from "./qa-guard.ts";
+import { QA_LOGINS, QA_PASSWORD, QA_ROLES as ROLES, roleUrl, seedRefusal } from "./qa-guard.ts";
 
 const CHURCH = "Harvest Point (QA)";
-const ROLES = { runtime: "evf_qa_runtime", auth: "evf_qa_auth" } as const;
 const ORIGIN = "https://qa-seed.everyfield.invalid";
 
 const address = (label: string) => `delivered+qa-${label}@resend.dev`;

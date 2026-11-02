@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openWorkDb } from "./db.ts";
 import { fail } from "./lib.ts";
-import { devParent, NEON_PROJECT, QA_LOGINS, roleUrl, type NeonBranch, type NeonEndpoint } from "./qa-guard.ts";
+import { devParent, NEON_PROJECT, QA_LOGINS, QA_ROLES, roleUrl, type NeonBranch, type NeonEndpoint } from "./qa-guard.ts";
 
 /**
  * OPS-106: on-demand QA previews. `evf qa up <branch>` makes a Neon branch off the development branch, migrates and
@@ -223,8 +223,8 @@ function deployCheckout(
 		const settings: Record<string, string> = {
 			DATABASE_URL: p.pooled,
 			DATABASE_URL_UNPOOLED: p.direct,
-			IDENTITY_DATABASE_URL: roleUrl(p.pooled, "evf_qa_runtime", rolePassword),
-			IDENTITY_AUTH_DATABASE_URL: roleUrl(p.pooled, "evf_qa_auth", rolePassword),
+			IDENTITY_DATABASE_URL: roleUrl(p.pooled, QA_ROLES.runtime, rolePassword),
+			IDENTITY_AUTH_DATABASE_URL: roleUrl(p.pooled, QA_ROLES.auth, rolePassword),
 			IDENTITY_ORIGIN: p.url,
 			IDENTITY_SECRET: key(),
 			IDENTITY_MAIL_KEY: key(),

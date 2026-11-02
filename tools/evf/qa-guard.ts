@@ -15,6 +15,9 @@ export const QA_LOGINS = {
 	member: "delivered+qa-member@resend.dev",
 } as const;
 
+/** The two app logins the QA seed creates on a QA branch, one for each app database role. */
+export const QA_ROLES = { runtime: "evf_qa_runtime", auth: "evf_qa_auth" } as const;
+
 /** `source` with the login replaced: how the app reaches a QA branch as one of the seed's roles. */
 export function roleUrl(source: string, role: string, password: string): string {
 	const u = new URL(source);
