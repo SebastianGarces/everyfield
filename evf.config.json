@@ -1502,6 +1502,19 @@
 			],
 			"risk": "ordinary"
 		},
+		"OPS-111": {
+			"title": "Owner gate in evf ship for landing and marketing; stale evf code cannot ship",
+			"owningPaths": [
+				"tools/evf/",
+				"evf.config.json",
+				".agents/skills/ship/SKILL.md"
+			],
+			"checks": [
+				{ "name": "documentation", "run": ["python3", "docs/check-all.py"] },
+				{ "name": "workflow-regressions", "run": ["bin/evf", "test"] }
+			],
+			"risk": "ordinary"
+		},
 		"OPS-110": {
 			"title": "Evidence pages show screenshots inline",
 			"owningPaths": [
