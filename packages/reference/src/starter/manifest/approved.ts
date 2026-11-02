@@ -14,11 +14,11 @@ export interface WikiSource {
 // The bootstrap payload stays unchanged as its `derivedFrom` provenance and is never installed.
 // Update after each promotion with `node packages/reference/src/starter/manifest/pin.mjs --write`.
 export const approvedSource = {
-	version: "wiki-seed-271f03b27196",
+	version: "wiki-seed-f38baeb7f295",
 	manifestPath: "docs/reference/wiki/manifest.json",
 	payloadPath: "docs/reference/wiki/seed.json",
-	manifestSha256: "8cbab63c8828c5001ea5e1959855d913004a31397903865ab51acc545bbb5d18",
-	payloadSha256: "271f03b271969b5357bbeeac09dcac61d3f9ef5a5ee9fc74b4a189d5a245f4bd",
+	manifestSha256: "b4e53ea5df2c13eb467bfa3a5c6735ae55fce1910e119012370d4202fee4b1f9",
+	payloadSha256: "f38baeb7f295c6f812e8e50ed4063af21fff179def7f651b3732ca66fc4edf09",
 	articles: 124,
 	sections: 21,
 	systemTemplates: 7,

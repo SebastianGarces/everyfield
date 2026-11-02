@@ -1,7 +1,7 @@
 // WP-033: the app installs the living Wiki seed. The old bootstrap generation stays reachable for rollback.
 // Only this test reads the bootstrap payload, to build that old generation (criterion 11).
 // fixtures/living-wiki is a synthetic living seed with a corrected 501(c)(3) article. It proves the install
-// path carries corrected text byte for byte while the real seed waits for the reviewed article (OPS-107).
+// path carries corrected text byte for byte apart from the real seed's content.
 import { createDatabase, closeDatabase } from "../../../packages/db/src/client.ts";
 import type { Database } from "../../../packages/db/src/client.ts";
 import { sql } from "../../../packages/db/src/query.ts";
@@ -158,9 +158,8 @@ test("WP-033 criterion 10: an empty store gets a living seed's corrected 501(c)(
 	assertCorrected(await installFresh(fixtureSource));
 });
 
-// The real seed gains the Rev. Proc. 2026-8 text when OPS-107 (PR #412) promotes it; then add assertCorrected here.
-test("WP-033 criterion 10: an empty store gets the real living seed's 501(c)(3) and EIN articles byte for byte", async () => {
-	await installFresh(approvedWiki);
+test("WP-033 criterion 10: an empty store gets the real living seed's corrected 501(c)(3) and EIN articles byte for byte", async () => {
+	assertCorrected(await installFresh(approvedWiki));
 });
 
 /** Bootstrap generation, then the living one, then a rollback and its replay. Returns the living article body and the store export. */
@@ -221,7 +220,8 @@ test("WP-033 criterion 11: a corrected living generation replaces the bootstrap 
 
 test("WP-033 criterion 11: the real living generation replaces the bootstrap one, and rollback works and replays", async () => {
 	assert.deepEqual([approvedWiki.articles, approvedWiki.sections, approvedWiki.systemTemplates], [124, 21, 7]);
-	const { exported } = await upgradeAndRollBack(approvedWiki);
+	const { body, exported } = await upgradeAndRollBack(approvedWiki);
+	assertCorrected(body);
 	// The store keeps every global item it ever installed. Both seeds share item ids, so the counts stay at the living ones.
 	assert.deepEqual(
 		[exported.articles, exported.sections, exported.systemTemplates, exported.discoveryArticles],
