@@ -238,7 +238,6 @@ test("OPS-113-poster: post-review.mjs posts body_only with its items and refuses
 			post("body_only", ITEMS, ["--experience-verdict", "changes_requested"]),
 			/body_only needs an approved experience review/,
 		);
-		refused(post("approved", ITEMS), /--body-items goes only with --verdict body_only/);
 
 		const good = post("body_only", ITEMS);
 		assert.equal(good.code, 0, good.out);

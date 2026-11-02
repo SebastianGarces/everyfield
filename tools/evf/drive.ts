@@ -1424,7 +1424,7 @@ type PromptContext = {
 	/** The failed or aborted run of this idea that the seat resumes from. */
 	previous: { id: number; status: string; summary: string } | null;
 	choice: CompareChoice | null;
-	/** The body stage only (OPS-113): the reviewed head and the items of its body_only review, or why evf has none. */
+	/** Set for the body stage only (OPS-113): the reviewed head and the items of its body_only review, or why evf has none. */
 	body?: { head: string; items: BodyItem[] | string };
 };
 const notesOf = (ctx: PromptContext) =>
@@ -1464,11 +1464,11 @@ const STAGE_PROMPTS: Record<string, Prompt> = {
 	simplify: (task, next) =>
 		`Simplify task ${task.id}: read the spec and git diff origin/main...HEAD, remove what the Done criteria do not need, commit. evf runs the author checks at your head in the pr stage.${next.reason.startsWith("pr failed") ? ` evf ran the author checks at the head and they failed (${next.reason}). Fix that first.` : ""} ${CLOSE}`,
 	body: (task, next, ctx) => {
-		const items = ctx.body?.items,
-			at = ctx.body?.head.slice(0, 10) ?? "the reviewed head";
+		const { head, items } = ctx.body!,
+			at = head.slice(0, 10);
 		const list =
-			typeof items === "string" || !items
-				? ` evf could not read the items (${items ?? "no body_only review"}): read the latest EVF-Review line on the PR with gh pr view --comments.`
+			typeof items === "string"
+				? ` evf could not read the items (${items}): read the latest EVF-Review line on the PR with gh pr view --comments.`
 				: ` The items: ${items.map((item, i) => `${i + 1}. ${describeBodyItem(item)}`).join(" ")}`;
 		return `Fix the PR body of task ${task.id} at ${at}. The verifier approved the code and the experience there and posted a body_only review: only the PR body needs these fixes.${list}${next.reason.startsWith("body failed") ? ` evf checked the body after the last body run and it failed (${next.reason}). Fix that first.` : ""} Edit only the PR body file ${ctx.prBody}: each "present" text must appear in it exactly, each "absent" text must not appear, and the body must still pass bin/evf pr body --body-file ${ctx.prBody} --task ${task.id}. Keep the EVF-Author line. Make no commit and change no other file: a commit sends the task to a full verify. When you close passed, evf pushes the body with evf pr open --body-file at the same head, checks it with the evf pr body standard and checks every item. ${CLOSE}`;
 	},
@@ -1999,7 +1999,7 @@ export function driveOnce(root: string, task: TaskRef, timing: DriveTiming = DRI
 			launching = {
 				role: n.role,
 				prompt: reopenOf(ctx) + prompts[n.stage]!(task, n, ctx),
-				...(n.stage === "body" ? { stage: "body" } : {}),
+				stage: n.stage === "body" ? "body" : undefined,
 				idea: n.idea,
 				mode: t.mode,
 				comparison: ctx.comparison,

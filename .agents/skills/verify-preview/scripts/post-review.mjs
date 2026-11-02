@@ -46,7 +46,7 @@ if (verdict === "body_only") {
 	}
 	bodyItems = readBodyItems(parsed);
 	if (typeof bodyItems === "string") refuse(`--body-items: ${bodyItems}`);
-} else if (value("body-items")) refuse("--body-items goes only with --verdict body_only");
+}
 if (!["approved", "changes_requested"].includes(quality.verdict)) refuse("--quality-verdict must be approved or changes_requested");
 if (!quality.principles?.length || quality.principles.some((name) => !name)) refuse("--principles must name the principles checked, separated by commas");
 const requiredPrinciples = ["laziness-protocol", "minimize-reader-load", "subtract-before-you-add", "test-behavior-not-implementation"];
@@ -88,8 +88,7 @@ if (approving) {
 if (/^EVF-Review:/m.test(report)) refuse("the report already has an EVF-Review line; this script adds it");
 if (approving && /\b(FAIL|❌)\b|❌/.test(report)) refuse("the report lists a failure; approve only when everything passes");
 
-const review = bodyItems ? { head, verifier, verdict, body: bodyItems, quality, experience } : { head, verifier, verdict, quality, experience };
-const body = `${report}\n\nEVF-Review: ${JSON.stringify(review)}\n`;
+const body = `${report}\n\nEVF-Review: ${JSON.stringify({ head, verifier, verdict, body: bodyItems, quality, experience })}\n`;
 const file = join(tmpdir(), `evf-review-${pr}-${head.slice(0, 7)}.md`);
 writeFileSync(file, body);
 if (argv.includes("--dry-run")) { console.log(body); process.exit(0); }
