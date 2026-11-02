@@ -689,7 +689,14 @@ test("AC:TARGET-PPL-019 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RETIRE INV-tenancy
 		const directory = [];
 		for (let page = 1; ; page++) {
 			const result = ok(await read(0, (t, c) => peopleReader.listPeople(t, c, { ...filters, page, limit: 100 })));
-			directory.push(...result.items.map((p) => [p.firstName ?? "", p.lastName ?? ""]));
+			// The export names a person with no stored name part by the display name's first word and the rest.
+			directory.push(
+				...result.items.map((p) =>
+					p.firstName === null && p.lastName === null
+						? [p.displayName.trim().split(/\s+/)[0], p.displayName.trim().replace(/^\S+\s*/, "")]
+						: [p.firstName ?? "", p.lastName ?? ""],
+				),
+			);
 			if (!result.next) break;
 		}
 		assert.deepEqual(
@@ -785,6 +792,46 @@ test("AC:TARGET-PPL-019 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RETIRE INV-tenancy
 	} finally {
 		await admin.execute(sql`UPDATE seat SET ended_at=NULL WHERE account_id=${sql.param(actors[0].id)}`);
 	}
+});
+
+test("AC:TARGET-PPL-019 the export derives first_name and last_name from the display name only when no name part is stored, and writes nothing", async () => {
+	const maria = await person("Maria Santos");
+	const mary = await person("Mary Ann  Smith");
+	const grace = await person("Grace");
+	const robert = await person("Bob Lee", { firstName: "Robert", lastName: "Lee" });
+	const uma = await person("Umaya Patel", { firstName: "Umaya" });
+	const formula = await person("=cmd Smith");
+	const exported = ok(await read(0, (t, c) => csv.exportPeople(t, c, {}))).text;
+	const lines = exported.split("\r\n");
+	const cells = (prefix) => {
+		const found = lines.filter((l) => l.startsWith(prefix));
+		assert.equal(found.length, 1, prefix);
+		return found[0].split(",").slice(0, 2);
+	};
+	const mariaLine = lines.find((l) => l.startsWith("Maria,Santos,"));
+	assert.ok(mariaLine?.startsWith("Maria,Santos,,,"), mariaLine);
+	assert.deepEqual(cells("Mary,"), ["Mary", "Ann  Smith"]);
+	assert.deepEqual(cells("Grace,"), ["Grace", ""]);
+	assert.deepEqual(cells("Robert,"), ["Robert", "Lee"]);
+	assert.deepEqual(cells("Umaya,"), ["Umaya", ""]);
+	assert.deepEqual(cells("'=cmd,"), ["'=cmd", "Smith"]);
+	// Criterion 8: nothing is written back.
+	const stored = await rows(
+		sql`SELECT display_name,first_name,last_name FROM person WHERE id IN (${sql.join(
+			[maria, mary, grace, formula].map((p) => sql`${p.id}::uuid`),
+			sql`, `,
+		)})`,
+	);
+	assert.equal(stored.length, 4);
+	for (const r of stored) assert.deepEqual([r.first_name, r.last_name], [null, null], r.display_name);
+	// Criterion 10: the exported file previews as the same display name.
+	const header = lines[0];
+	const p = ok(await preview(header + "\r\n" + mariaLine + "\r\n"));
+	assert.equal(p.rows.length, 1);
+	assert.equal(p.rows[0].status, "valid");
+	assert.equal(JSON.stringify(p.rows[0]).includes("Maria Santos"), true);
+	void robert;
+	void uma;
 });
 
 test("INV-C32 a CSV read takes no session lock: a sign-out never waits for an open preview, receipt or export", async () => {
