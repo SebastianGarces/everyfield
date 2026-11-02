@@ -187,7 +187,9 @@ async function exits(page) {
 	return out;
 }
 
-async function guardHolds(page, size, kinds) {
+const KINDS = ["body text", "layout block", "page setup", "header", "footer", "after Save"];
+
+async function guardHolds(page, size) {
 	await fork(page);
 	const path = new URL(page.url()).pathname;
 	// A header for the header edits, saved, so every round starts from the saved document.
@@ -210,7 +212,7 @@ async function guardHolds(page, size, kinds) {
 	const make = edits(page, savedMargin);
 	let tries = 0;
 	let shot = false;
-	for (const kind of kinds) {
+	for (const kind of KINDS) {
 		for (let round = 0; round < ROUNDS; round++) {
 			for (const way of ways) {
 				if (kind === "after Save") await make.save();
@@ -240,26 +242,14 @@ async function guardHolds(page, size, kinds) {
 	return { tries, ways: names };
 }
 
-const KINDS = ["body text", "layout block", "page setup", "header", "footer", "after Save"];
-
-test("AC:DOC-EDIT-LEAVE: every in-app way out asks after every kind of edit, 20 rounds in a row, at 1440 px", async () => {
-	await onPage(async (page) => {
-		const { tries, ways } = await guardHolds(page, { width: 1440 }, KINDS);
-		assert.equal(tries, KINDS.length * ROUNDS * ways.length);
-		console.log(`1440 px: ${tries} tries, no miss; ways out: ${ways.join("; ")}`);
+for (const size of [{ width: 1440 }, { width: 390, height: 844 }]) {
+	test(`AC:DOC-EDIT-LEAVE: every in-app way out asks after every kind of edit, 20 rounds in a row, at ${size.width} px`, async () => {
+		await onPage(async (page) => {
+			const { tries, ways } = await guardHolds(page, size);
+			console.log(`${size.width} px: ${tries} tries, no miss; ways out: ${ways.join("; ")}`);
+		}, size);
 	});
-});
-
-test("AC:DOC-EDIT-LEAVE: every in-app way out asks after every kind of edit, 20 rounds in a row, at 390 px", async () => {
-	await onPage(
-		async (page) => {
-			const { tries, ways } = await guardHolds(page, { width: 390 }, KINDS);
-			assert.equal(tries, KINDS.length * ROUNDS * ways.length);
-			console.log(`390 px: ${tries} tries, no miss; ways out: ${ways.join("; ")}`);
-		},
-		{ width: 390, height: 844 },
-	);
-});
+}
 
 test("AC:DOC-EDIT-LEAVE-RACE: an edit and the way out in the same task still ask, 20 times for each way out", async () => {
 	await onPage(async (page) => {

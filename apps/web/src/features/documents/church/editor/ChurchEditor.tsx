@@ -115,10 +115,10 @@ export default function ChurchEditor({
 	// Tiptap can build the schema again after the first render; the saved document is read into the current schema
 	// first, because nodes of two schemas are never equal.
 	const isSaved = useCallback((doc: PMNode) => {
-		const saved = savedDoc.current;
+		let saved = savedDoc.current;
 		if (!saved) return true;
-		if (saved.type.schema !== doc.type.schema) savedDoc.current = doc.type.schema.nodeFromJSON(saved.toJSON());
-		return (savedDoc.current as PMNode).eq(doc);
+		if (saved.type.schema !== doc.type.schema) saved = savedDoc.current = doc.type.schema.nodeFromJSON(saved.toJSON());
+		return saved.eq(doc);
 	}, []);
 	// Read when a way out is taken, not from React state: a click straight after an edit can come before React renders.
 	const unsaved = useCallback(
