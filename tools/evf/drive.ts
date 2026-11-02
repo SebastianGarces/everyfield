@@ -212,11 +212,6 @@ const AUTHOR_CHECKS_FAILED = "author checks failed";
 
 /** The implement-mode stages a seat runs, whose seat-closed runs carry a progress fingerprint (OPS-115). */
 const FINGERPRINTED = new Set(["plan", "implement", "simplify", "verify"]);
-/** The spec half of the progress fingerprint: a sha256 of the stored spec, or of "" while none is stored. */
-const specFingerprint = (spec: string | null) =>
-	createHash("sha256")
-		.update(spec ?? "")
-		.digest("hex");
 
 /**
  * The circuit breaker (OPS-115): why the task must stop because a seat stage made no progress, or null. Run B is the
@@ -232,10 +227,6 @@ export function noProgress(ref: string, runs: RunRow[], marker: number): string 
 		return null;
 	return `no progress: ${b.stage} closed ${b.status} twice at ${b.progress_head!.slice(0, 10)} with an unchanged spec (runs ${a.id} and ${b.id}). Run ${a.id}: "${headline(a.summary ?? "")}"; run ${b.id}: "${headline(b.summary ?? "")}". Restart after a fix with evf task reopen ${ref} --reason "<words>".`;
 }
-
-/** The last passed simplify run after the marker and the head it closed at: the simplify skip compares HEAD with it. */
-const lastSimplify = (runs: RunRow[], marker: number) =>
-	runs.filter((r) => r.id > marker && r.stage === "simplify" && r.status === "passed" && r.progress_head).at(-1);
 
 const ideaStage = /^idea\d$/;
 /** The first line of a summary with hex ids, digits and runs of space normalized, so two runs of one blocker compare equal. */
@@ -484,14 +475,14 @@ function nextStageOf(
 }
 
 /**
- * The simplify skip (OPS-115): after a passed implement, the last passed simplify after the marker, when
+ * The simplify skip (OPS-115), read only after a passed implement: the last passed simplify after the marker, when
  * `git diff --quiet <its head> HEAD` finds no change in the worktree. The PR body and the proofs live outside the
  * repository, so a round that changed only those has no diff. Null when simplify must run.
  */
 function simplifySkipOf(runs: RunRow[], marker: number, wt: string | null): SimplifySkip | null {
-	const last = runs.filter((r) => !(r.role === "evf" && r.status === "aborted")).at(-1);
-	if (last?.stage !== "implement" || last.status !== "passed") return null;
-	const simplify = lastSimplify(runs, marker);
+	const simplify = runs
+		.filter((r) => r.id > marker && r.stage === "simplify" && r.status === "passed" && r.progress_head)
+		.at(-1);
 	if (!simplify || !wt || !existsSync(wt)) return null;
 	return gitOk(wt, "diff", "--quiet", simplify.progress_head!, "HEAD")
 		? { run: simplify.id, head: simplify.progress_head! }
@@ -593,7 +584,7 @@ function seatsStillWorking(db: DatabaseSync, taskId: number, exceptRun: number):
  * Close a stage. A failed verify or ci costs a round; the fourth round escalates and nothing launches again. A verify
  * run closes passed only when every Done criterion has a met or n/a proof at the worktree head or an ancestor of it.
  * A seat that closes its own seat stage records the progress fingerprint, and the circuit breaker reads it. The drive
- * passes `closedBy: "evf"` when it closes a run for the seat (no agent, idle twice, wait timeout) or for its own stage.
+ * passes `closedBy: "evf"` when it closes a run for the seat (no agent, idle twice, wait timeout).
  */
 export function runDone(
 	root: string,
@@ -650,8 +641,7 @@ export function runDone(
 					`Idea ${idea} cannot close passed: "${unmet}" names a Done criterion that is not met. Finish that criterion, or close this run as failed.`,
 				);
 		}
-		const fingerprinted =
-			opts.closedBy !== "evf" && r.role !== "evf" && r.mode === "implement" && FINGERPRINTED.has(r.stage) && !!head;
+		const fingerprinted = opts.closedBy !== "evf" && r.mode === "implement" && FINGERPRINTED.has(r.stage) && !!head;
 		db.prepare(
 			"UPDATE runs SET status = ?, ended_at = ?, summary = ?, progress_head = ?, progress_spec = ? WHERE id = ?",
 		).run(
@@ -659,7 +649,11 @@ export function runDone(
 			now(),
 			summary,
 			fingerprinted ? head : null,
-			fingerprinted ? specFingerprint(r.spec) : null,
+			fingerprinted
+				? createHash("sha256")
+						.update(r.spec ?? "")
+						.digest("hex")
+				: null,
 			runId,
 		);
 		fillRunUsage(db, runId);
@@ -1507,7 +1501,7 @@ function evfStage(
 		outcome = { status: "failed", summary: e.message };
 	}
 	// A merge inside the stage (markMerged) already closed this run as passed; only the stage_end event is left.
-	if (runStatus(db, runId) === "started") runDone(root, runId, { ...outcome, closedBy: "evf" });
+	if (runStatus(db, runId) === "started") runDone(root, runId, outcome);
 	else record(db, t.id, runId, "stage_end", { stage, status: outcome.status, summary: outcome.summary });
 	return outcome.status;
 }
