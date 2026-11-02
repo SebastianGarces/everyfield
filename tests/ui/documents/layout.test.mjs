@@ -1059,7 +1059,7 @@ test("AC:DOC-LAYOUT-CARDS: 4 cards per sheet with cut marks, in the editor, the 
 			{ base },
 		);
 		await button(page, "Save").click();
-		await page.getByRole("status").filter({ hasText: "Revision 2" }).waitFor();
+		await page.getByRole("status").filter({ hasText: "Saved" }).waitFor();
 		const off = await revisionOf(page);
 		await checked(
 			page,
@@ -1070,7 +1070,10 @@ test("AC:DOC-LAYOUT-CARDS: 4 cards per sheet with cut marks, in the editor, the 
 			{ base },
 		);
 		await button(page, "Save").click();
-		await page.getByRole("status").filter({ hasText: "Revision 3" }).waitFor();
+		await page
+			.getByRole("status")
+			.filter({ hasText: new RegExp(`Saved.*Revision ${off + 1}`) })
+			.waitFor();
 		const on = await revisionOf(page);
 		await t.test(
 			"the preview and the PDF print 4 cards on one sheet, with trim marks when cut marks are on",
