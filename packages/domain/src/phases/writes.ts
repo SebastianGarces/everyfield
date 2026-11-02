@@ -13,7 +13,7 @@ import { declaration } from "./declaration.ts";
 
 /** A committed forward move and the current Owners and Admins of each connected sending church or network. */
 export type PhaseAdvance = {
-	plant: { id: string; name: string };
+	plantName: string;
 	transitionId: string;
 	fromPhase: c.PhaseNumber;
 	toPhase: c.PhaseNumber;
@@ -102,17 +102,6 @@ const transitionAnswer = (raw: unknown): c.TransitionResult => {
 			: { outcome: "moved", receiptId: r.receiptId, state, entry: entryOf(r.entry) },
 	);
 };
-
-/**
- * phases.appendConsequences (PHASE-005, NTF-009): what a committed move adds in its own transaction. The move's audit
- * row is its one typed phase.changed record (action phase.transitioned), written with the move. A forward move, a skip
- * included, also queues one phase-advance notice for each connected organization's current Owners and Admins. A
- * declaration, a backward move, a noop and a replay add nothing, and no move requests an assessment.
- */
-async function appendConsequences(tx: Transaction, notices: PhaseNotices, advance: PhaseAdvance) {
-	// The move statement reads recipients only for a forward move, so a backward move has none.
-	if (advance.recipients.length) await notices(tx, advance);
-}
 
 const recipientRow = z.object({
 	organizationId: z.uuid(),
@@ -204,11 +193,10 @@ export function createPhaseWriter(config: { notices: PhaseNotices }) {
   CROSS JOIN LATERAL access_account_contact(s.account_id) ac
   WHERE m.kind='movement' AND m.to_phase>m.from_phase)
  SELECT (SELECT ok FROM gate) AS ok,(SELECT v FROM answer) AS result,(SELECT to_jsonb(prior) FROM prior) AS prior,
-  (SELECT row_to_json(m) FROM step m) AS moved,(SELECT name FROM cur) AS plant_name,
+  (SELECT name FROM cur) AS plant_name,
   coalesce((SELECT jsonb_agg(to_jsonb(r)) FROM recipients r),'[]') AS recipients`);
 					const r = outcomeRow
 						.extend({
-							moved: z.unknown().nullable(),
 							plant_name: z.string().nullable(),
 							recipients: z.array(recipientRow),
 						})
@@ -216,16 +204,17 @@ export function createPhaseWriter(config: { notices: PhaseNotices }) {
 					if (r.prior) return transitionAnswer(replay(r.prior, identity));
 					if (!r.result) return null;
 					const answer = transitionAnswer(r.result);
-					if (answer.outcome === "moved") {
-						const m = z.object({ id: z.uuid(), from_phase: c.phaseNumber, to_phase: c.phaseNumber }).parse(r.moved);
-						await appendConsequences(tx, config.notices, {
-							plant: { id: scope.plantId, name: r.plant_name ?? "" },
-							transitionId: m.id,
-							fromPhase: m.from_phase,
-							toPhase: m.to_phase,
+					// phases.appendConsequences (PHASE-005, NTF-009): the audit row above is the move's one phase.changed
+					// record. The statement reads recipients only for a forward move, a skip included, so a backward move,
+					// a noop and a replay queue no notice, and no move requests an assessment.
+					if (answer.outcome === "moved" && r.recipients.length)
+						await config.notices(tx, {
+							plantName: r.plant_name ?? "",
+							transitionId: answer.entry.id,
+							fromPhase: answer.entry.fromPhase!,
+							toPhase: answer.entry.toPhase,
 							recipients: r.recipients,
 						});
-					}
 					return answer;
 				});
 				if (answer) return answer;

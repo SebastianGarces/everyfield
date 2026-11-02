@@ -20,7 +20,7 @@ export function phaseNotices(service: (eligible: Eligible) => Service): PhaseNot
 				return address ? { address } : null;
 			}),
 		);
-		const name = advance.plant.name || "A church you support";
+		const name = advance.plantName || "A church you support";
 		return notifications.enqueueMany(
 			tx,
 			advance.recipients.map((r) => ({
