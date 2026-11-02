@@ -3199,15 +3199,7 @@ test("OPS-67-ship-ack: a WP record with no owning-path diff stays unacknowledged
 });
 
 // OPS-117: a split package (api and ui parts) that shipped as one whole task counts as its producer milestone.
-const quietDrive = (root: string, task: ReturnType<typeof parseTask>) => {
-	const log = console.log;
-	try {
-		console.log = () => {};
-		return driveOnce(root, task, DRIVE_TIMING).stage;
-	} finally {
-		console.log = log;
-	}
-};
+const quietDrive = (root: string, task: ReturnType<typeof parseTask>) => quiet(() => driveOnce(root, task, DRIVE_TIMING).stage);
 const PHASES_API = "packages/domain/src/phases/declare.ts",
 	PHASES_UI = "apps/web/src/features/phases/panel.tsx";
 
@@ -3263,13 +3255,7 @@ test("OPS-117-whole-task: the ledger keeps a whole-task milestone after a later 
 		state.comments["77"][0].body =
 			`EVF-Review: ${JSON.stringify({ head: laterSha, verifier: VERIFIER, verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
 		f.setState(state);
-		const log = console.log;
-		try {
-			console.log = () => {};
-			assert.equal(ship(f.root, task), 0);
-		} finally {
-			console.log = log;
-		}
+		assert.equal(quiet(() => ship(f.root, task)), 0);
 		assert.notEqual(shipped().merge_commit, reviewedMerge, "the retained record is now the maintenance merge");
 		assert.equal(producerReady(f.root, "WP-038"), true, "the ledger milestone still counts");
 
