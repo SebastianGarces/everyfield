@@ -11479,6 +11479,278 @@
 				}
 			}
 		},
+		"private_calendar": {
+			"table": {
+				"name": "private_calendar",
+				"domain": "intelligence",
+				"purpose": "One author's private check-in calendar in one church: the zone and instant where the next Monday week starts, and the revision that serializes saves, corrections and personal timezone changes.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": [],
+				"replaces": ["planter_checkin", "planter_checkin_event"],
+				"producer_work_packages": ["WP-039"],
+				"producer_derivation": {
+					"old_target_tables": ["planter_checkin", "planter_checkin_event"],
+					"additional_producers": ["WP-039"],
+					"rule": "WP-039 stores one calendar per original author account and church plant."
+				},
+				"feature_ids": ["PI-038", "PI-039", "PI-040", "PI-041"],
+				"acceptance_ids": ["AC-PI-038--PI-038", "AC-PI-040--PI-040", "AC-PI-041--PI-041"],
+				"future_case_ids": [
+					"B03-019",
+					"B03-020",
+					"B03-021",
+					"B03-022",
+					"B03-023",
+					"B03-024",
+					"B03-025",
+					"B03-026",
+					"B03-035",
+					"PI-CARE-001",
+					"PI-CARE-003",
+					"SCHEMA-007",
+					"TARGET-IDN-031",
+					"TARGET-IDN-033"
+				],
+				"scope": "private_care",
+				"invariants": [
+					"One row per author account and church plant; the author never changes.",
+					"next_at is a Monday midnight in zone. A personal timezone change moves it to the first strictly future Monday in the new zone.",
+					"No shared audit row, job, notice or projection names a calendar."
+				],
+				"revision": "revision rises by one with each accepted save, correction or timezone change; a write names the revision it read.",
+				"idempotency": "A save or correction keeps its request key on its revision row; a retry with the key replays that row. Private care has no shared audit row or operation receipt.",
+				"deletion": "Account-owned private care. A personal deletion request or a church workspace deletion hides it at once through the lifecycle witness; the purge at the deadline deletes the calendar, its weeks and revisions (settings_purge_content). It never transfers to another account.",
+				"physical_verified": false
+			},
+			"columns": {
+				"author_id": {
+					"note": "The original author account. Frozen."
+				},
+				"plant_id": {
+					"note": "The church plant of the author's Owner or Admin seat. Frozen."
+				},
+				"revision": {
+					"note": "Calendar revision a save, correction or zone change must name."
+				},
+				"zone": {
+					"note": "The IANA zone of the next week to start."
+				},
+				"next_at": {
+					"note": "The instant the next week starts."
+				},
+				"preview_id": {
+					"note": "The personal timezone preview this calendar is bound to, kept private here instead of in settings_preview."
+				},
+				"preview_revision": {
+					"note": "The calendar revision the preview saw."
+				}
+			},
+			"foreignKeys": {
+				"author_id->account(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+					}
+				},
+				"plant_id->plant(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+					}
+				}
+			}
+		},
+		"private_week": {
+			"table": {
+				"name": "private_week",
+				"domain": "intelligence",
+				"purpose": "One Monday week of an author's private calendar, answered or not, with its current answer: four levels and an optional note.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": [],
+				"replaces": ["planter_checkin", "planter_checkin_event"],
+				"producer_work_packages": ["WP-039"],
+				"producer_derivation": {
+					"old_target_tables": ["planter_checkin", "planter_checkin_event"],
+					"additional_producers": ["WP-039"],
+					"rule": "WP-039 materializes weeks in order when a save or zone change finds them due; a missing week has a row with no answer."
+				},
+				"feature_ids": ["PI-038", "PI-039", "PI-040", "PI-041"],
+				"acceptance_ids": ["AC-PI-038--PI-038", "AC-PI-040--PI-040", "AC-PI-041--PI-041"],
+				"future_case_ids": [
+					"B03-019",
+					"B03-020",
+					"B03-021",
+					"B03-022",
+					"B03-023",
+					"B03-024",
+					"B03-025",
+					"B03-026",
+					"B03-035",
+					"PI-CARE-001",
+					"PI-CARE-003",
+					"SCHEMA-007",
+					"TARGET-IDN-031",
+					"TARGET-IDN-033"
+				],
+				"scope": "private_care",
+				"invariants": [
+					"Ordinals run 1, 2, 3 with no gap for each author and church.",
+					"id, author, church, ordinal, zone, start and end never change (immutable_week).",
+					"Either all four levels are set or none is."
+				],
+				"revision": "answer_revision counts the week's answer revisions; private_week_revision keeps each one.",
+				"idempotency": "A save or correction keeps its request key on its revision row; a retry with the key replays that row. Private care has no shared audit row or operation receipt.",
+				"deletion": "Account-owned private care. A personal deletion request or a church workspace deletion hides it at once through the lifecycle witness; the purge at the deadline deletes the calendar, its weeks and revisions (settings_purge_content). It never transfers to another account.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": "Stable week id."
+				},
+				"author_id": {
+					"note": "The original author account. Frozen."
+				},
+				"plant_id": {
+					"note": "The church plant. Frozen."
+				},
+				"ordinal": {
+					"note": "Position in the author's calendar, from 1. Frozen."
+				},
+				"zone": {
+					"note": "The zone the week began in. Frozen."
+				},
+				"starts_on": {
+					"note": "The Monday the week began on in its zone. Frozen."
+				},
+				"ends_on": {
+					"note": "The Sunday it was due to end on in its zone. Frozen."
+				},
+				"starts_at": {
+					"note": "The instant the week began. Frozen."
+				},
+				"spiritual": {
+					"note": "Current answer for Spiritually."
+				},
+				"family": {
+					"note": "Current answer for Marriage and family."
+				},
+				"financial": {
+					"note": "Current answer for Financially."
+				},
+				"pace": {
+					"note": "Current answer for Pace."
+				},
+				"note": {
+					"note": "Optional note for the author, at most 2,000 characters."
+				},
+				"answer_revision": {
+					"note": "Number of answer revisions; 0 while unanswered."
+				},
+				"answered_at": {
+					"note": "When the current answer was saved."
+				}
+			},
+			"foreignKeys": {
+				"author_id,plant_id->private_calendar(author_id,plant_id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "Private care goes with its parent row in the author or church purge. No other table references it."
+					}
+				}
+			}
+		},
+		"private_week_revision": {
+			"table": {
+				"name": "private_week_revision",
+				"domain": "intelligence",
+				"purpose": "Append-only history of one week's answers: each save or correction that changed the answer, with its request key for retries.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": [],
+				"replaces": ["planter_checkin", "planter_checkin_event"],
+				"producer_work_packages": ["WP-039"],
+				"producer_derivation": {
+					"old_target_tables": ["planter_checkin", "planter_checkin_event"],
+					"additional_producers": ["WP-039"],
+					"rule": "WP-039 appends a revision only when a save or correction changes the answer."
+				},
+				"feature_ids": ["PI-038", "PI-039", "PI-040", "PI-041"],
+				"acceptance_ids": ["AC-PI-038--PI-038", "AC-PI-040--PI-040", "AC-PI-041--PI-041"],
+				"future_case_ids": [
+					"B03-019",
+					"B03-020",
+					"B03-021",
+					"B03-022",
+					"B03-023",
+					"B03-024",
+					"B03-025",
+					"B03-026",
+					"B03-035",
+					"PI-CARE-001",
+					"PI-CARE-003",
+					"SCHEMA-007",
+					"TARGET-IDN-031",
+					"TARGET-IDN-033"
+				],
+				"scope": "private_care",
+				"invariants": [
+					"Rows are never updated (immutable_revision); the runtime role cannot delete them.",
+					"One request key per author."
+				],
+				"revision": "No mutable revision column; each row is one immutable revision.",
+				"idempotency": "A save or correction keeps its request key on its revision row; a retry with the key replays that row. Private care has no shared audit row or operation receipt.",
+				"deletion": "Account-owned private care. A personal deletion request or a church workspace deletion hides it at once through the lifecycle witness; the purge at the deadline deletes the calendar, its weeks and revisions (settings_purge_content). It never transfers to another account.",
+				"physical_verified": false
+			},
+			"columns": {
+				"week_id": {
+					"note": "The week."
+				},
+				"author_id": {
+					"note": "The original author account. Frozen."
+				},
+				"revision": {
+					"note": "1 for the first answer, then one more for each change."
+				},
+				"kind": {
+					"note": "save for the open week, correction for an earlier answer."
+				},
+				"spiritual": {
+					"note": "Answer for Spiritually."
+				},
+				"family": {
+					"note": "Answer for Marriage and family."
+				},
+				"financial": {
+					"note": "Answer for Financially."
+				},
+				"pace": {
+					"note": "Answer for Pace."
+				},
+				"note": {
+					"note": "Optional note."
+				},
+				"calendar_revision": {
+					"note": "The calendar revision after this change, for replay."
+				},
+				"request_key": {
+					"note": "The request key of the save or correction."
+				},
+				"recorded_at": {
+					"note": "When the revision was recorded."
+				}
+			},
+			"foreignKeys": {
+				"week_id,author_id->private_week(id,author_id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "Private care goes with its parent row in the author or church purge. No other table references it."
+					}
+				}
+			}
+		},
 		"provider_event": {
 			"table": {
 				"name": "provider_event",
