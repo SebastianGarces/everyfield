@@ -7,6 +7,7 @@ import {
 	mkdirSync,
 	mkdtempSync,
 	readFileSync,
+	rmSync,
 	statSync,
 	symlinkSync,
 	writeFileSync,
@@ -117,6 +118,9 @@ function driveFixture(opts: { failWhenFile?: string; nested?: string[] } = {}) {
 				.run(t.id, stage, role, taskRow().round, session ?? null, status, new Date().toISOString()).lastInsertRowid,
 		);
 	db.prepare("UPDATE tasks SET worktree = ? WHERE id = ?").run(wt, t.id);
+	// The implementer's PR body: an implement run closes passed only with a body that passes evf pr body (OPS-113).
+	mkdirSync(runtimeDir(f.root, task), { recursive: true });
+	writeFileSync(join(runtimeDir(f.root, task), "pr-body.md"), prBody());
 	/** Progress for the circuit breaker (OPS-115): an empty commit moves the worktree HEAD. */
 	const advance = (message = "progress") =>
 		spawnSync("git", ["-C", wt, "commit", "-q", "--allow-empty", "-m", message], { encoding: "utf8" });
@@ -290,7 +294,8 @@ test("OPS-59-drive: one transition launches the next seat through Herdr with the
 		);
 		assert.equal(JSON.parse(cli(f.root, {}, "next", "OPS-1").stdout).stage, "simplify");
 
-		// The pr stage is evf's own run and fails cleanly without a PR body.
+		// The pr stage is evf's own run and fails cleanly without a PR body (removed after implement passed with it).
+		rmSync(join(runtimeDir(f.root, f.task), "pr-body.md"));
 		runDone(f.root, Number((driveOnce(f.root, f.task, TIMING), f.runs().at(-1)!.id)), {
 			status: "passed",
 			summary: "Simplified.",
@@ -2322,6 +2327,307 @@ test("OPS-115-skip: author checks that fail in pr after a skipped simplify send 
 		const after = nextOf(f);
 		assert.equal(after.stage, "implement");
 		assert.match(after.reason, /^pr failed: author checks failed at/);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+// OPS-113: the body-only fix path in the stage machine.
+const VERIFIER = { session: "22222222-2222-4222-8222-222222222222", model: "claude-opus-5-5", role: "verifier" };
+const BODY_ITEMS = [
+	{ present: "The verifier reviewed this head.", why: "How it was verified names an old head." },
+	{ absent: "still to come", why: "The verifier already reviewed the code." },
+];
+const bodyWith = (line: string) => prBody().replace("Concrete task evidence.", `Concrete task evidence. ${line}`);
+const STALE_BODY = bodyWith("The verifier is still to come."),
+	FIXED_BODY = bodyWith("The verifier reviewed this head.");
+
+/** An open PR at a new head with a body_only review on GitHub, proofs at the head and the verify closed body-only. */
+function bodyOnlyAt(f: ReturnType<typeof driveFixture>) {
+	withPr(f);
+	const sha = commitFile(f, "reviewed.txt");
+	const bodyFile = join(runtimeDir(f.root, f.task), "pr-body.md");
+	writeFileSync(bodyFile, STALE_BODY);
+	assert.equal(verify(f.root, f.task, "author", "full").passed, true, "the author checks ran at the head");
+	const state = f.getState();
+	state.pr = {
+		number: 77,
+		url: "https://github.com/test/private/pull/77",
+		state: "OPEN",
+		isDraft: false,
+		headRefName: f.task.branch,
+		headRefOid: sha,
+		baseRefName: "main",
+		body: STALE_BODY,
+		labels: [],
+		files: [],
+	};
+	state.requiredChecks = [
+		{ name: "ci", state: "SUCCESS", bucket: "pass", link: "https://github.com/test/private/actions/runs/1" },
+	];
+	state.comments["77"] = [
+		{
+			body: `EVF-Review: ${JSON.stringify({ head: sha, verifier: VERIFIER, verdict: "body_only", body: BODY_ITEMS, quality: { verdict: "approved", principles: ["laziness-protocol", "minimize-reader-load", "subtract-before-you-add", "test-behavior-not-implementation"] }, experience: { verdict: "approved", budget: "met" } })}`,
+			html_url: "https://github.com/test/private/pull/77#c1",
+		},
+	];
+	f.setState(state);
+	f.db.prepare("UPDATE tasks SET pr_number = 77, status = 'pr_open' WHERE id = ?").run(f.taskId);
+	for (const c of ["1", "2"]) proofAt(f, sha, c);
+	const v = f.insertRun("verify", "verifier", "started", VERIFIER.session);
+	runDone(f.root, v, { status: "body-only", summary: "Code approved; the body names an old head." });
+	return { sha, bodyFile, verifyRun: v };
+}
+const lastPrompt = (f: ReturnType<typeof driveFixture>) =>
+	f.herdr
+		.calls()
+		.filter((c) => c[0] === "agent" && c[1] === "prompt")
+		.at(-1)![3]!;
+
+test("OPS-113-close: --status body-only closes a verify run only, with the passed proof gate, a body_only approval at the head and no round", () => {
+	const f = driveFixture();
+	try {
+		f.db.prepare("UPDATE tasks SET spec = ? WHERE id = ?").run(SPEC, f.taskId);
+		const sha = head(f);
+		for (const [stage, role] of [
+			["implement", "implementer"],
+			["simplify", "simplifier"],
+			["body", "implementer"],
+		] as const) {
+			const id = f.insertRun(stage, role, "started");
+			assert.throws(
+				() => runDone(f.root, id, { status: "body-only", summary: "s" }),
+				new RegExp(`--status body-only closes a verify run only; run ${id} is a ${stage} run`),
+			);
+			assert.equal(f.runs().find((r) => r.id === id)!.status, "started", "the refused close changes nothing");
+		}
+		const v = f.insertRun("verify", "verifier", "started");
+		proofAt(f, sha, "1");
+		assert.throws(
+			() => runDone(f.root, v, { status: "body-only", summary: "body only" }),
+			/Done criteria 2 have no met or n\/a proof at [0-9a-f]{10}/,
+		);
+		proofAt(f, sha, "2", "unmet");
+		assert.throws(
+			() => runDone(f.root, v, { status: "body-only", summary: "body only" }),
+			/Done criteria 2 have no met/,
+		);
+		proofAt(f, sha, "2", "n/a");
+		quietly(() => runDone(f.root, v, { status: "body-only", summary: "Code approved; body items listed." }));
+		assert.equal(f.runs().find((r) => r.id === v)!.status, "passed");
+		const approval = f.db
+			.prepare("SELECT gate, head_sha, decision FROM approvals WHERE task_id = ? ORDER BY id DESC LIMIT 1")
+			.get(f.taskId);
+		assert.deepEqual({ ...approval }, { gate: "verify", head_sha: sha, decision: "body_only" });
+		assert.equal(f.taskRow().round, 0);
+		assert.equal(f.events("round").length, 0);
+		assert.match(f.events("stage_end").at(-1)!.payload, /"status":"body_only"/);
+		// The CLI takes the status and names it in its usage refusal.
+		const summary = f.file("summary.md", "s");
+		assert.match(
+			cli(f.root, {}, "run", "done", String(v), "--status", "bodyonly", "--summary-file", summary).stderr,
+			/passed, failed or body-only/,
+		);
+		const other = f.insertRun("implement", "implementer", "started");
+		assert.match(
+			cli(f.root, {}, "run", "done", String(other), "--status", "body-only", "--summary-file", summary).stderr,
+			/closes a verify run only/,
+		);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-113-body: after a body_only verify the body stage runs in the implementer seat, same round, with each item, the body file and its limits in the prompt", () => {
+	const f = driveFixture();
+	try {
+		const { sha, bodyFile } = bodyOnlyAt(f);
+		const n = nextOf(f);
+		assert.deepEqual([n.stage, n.role, n.round], ["body", "implementer", 0]);
+		assert.match(n.reason, new RegExp(`approved the code at ${sha.slice(0, 10)}`));
+		assert.equal(quietly(() => driveOnce(f.root, f.task, TIMING)).stage, "body");
+		const launched = f.runs().at(-1)!;
+		assert.deepEqual(
+			[launched.stage, launched.role, launched.status, launched.round],
+			["body", "implementer", "started", 0],
+		);
+		const prompt = lastPrompt(f);
+		assert.match(prompt, /^Fix the PR body of task OPS-1 at [0-9a-f]{10}\./);
+		assert.ok(
+			prompt.includes(`1. present "The verifier reviewed this head." (How it was verified names an old head.)`),
+			prompt,
+		);
+		assert.ok(prompt.includes(`2. absent "still to come" (The verifier already reviewed the code.)`), prompt);
+		assert.ok(prompt.includes(`Edit only the PR body file ${bodyFile}`), prompt);
+		assert.match(prompt, /Make no commit and change no other file/);
+		assert.match(prompt, /Close with bin\/evf run done \$EVF_RUN --status passed\|failed --summary-file <path>\.$/);
+		assert.equal(f.runs().filter((r) => r.stage === "verify").length, 1);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-113-check: a passed body seat makes evf push the body at the same head and check it; a pass goes to ci with no verify", () => {
+	const f = driveFixture();
+	try {
+		const { sha, bodyFile } = bodyOnlyAt(f);
+		const run = f.insertRun("body", "implementer", "started");
+		writeFileSync(bodyFile, FIXED_BODY);
+		const lines: string[] = [];
+		const log = console.log;
+		console.log = (l: string) => void lines.push(String(l));
+		try {
+			runDone(f.root, run, { status: "passed", summary: "Body fixed." });
+		} finally {
+			console.log = log;
+		}
+		assert.deepEqual([f.runs().at(-1)!.stage, f.runs().at(-1)!.status], ["body", "passed"]);
+		assert.ok(
+			lines.some((l) => /body check passed/.test(l)),
+			lines.join("\n"),
+		);
+		const state = f.getState();
+		assert.equal(state.pr.body, FIXED_BODY, "evf pr open pushed the body");
+		assert.ok(
+			state.calls.some((c: any) => c.args[0] === "pr" && c.args[1] === "edit" && c.args.includes("--body-file")),
+		);
+		assert.ok(
+			state.calls.some(
+				(c: any) =>
+					c.args[0] === "pr" && c.args[1] === "view" && c.args.includes("body,headRefName,headRefOid,labels,files"),
+			),
+			"the GitHub body was read with the evf pr body code",
+		);
+		assert.equal(head(f), sha);
+		const n = nextOf(f);
+		assert.deepEqual([n.stage, n.round], ["ci", 0]);
+		assert.equal(quietly(() => driveOnce(f.root, f.task, TIMING)).stage, "ci");
+		assert.equal(f.runs().at(-1)!.status, "passed");
+		assert.equal(nextOf(f).stage, "ship");
+		assert.equal(f.runs().filter((r) => r.stage === "verify").length, 1, "no verify run starts");
+		assert.equal(f.taskRow().round, 0);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-113-retry: a failed body check (unmet item or body standard) runs the body stage again with the failure, no round; three in a row escalate", () => {
+	const f = driveFixture();
+	try {
+		const { bodyFile } = bodyOnlyAt(f);
+		const close = (body: string) => {
+			writeFileSync(bodyFile, body);
+			quietly(() =>
+				runDone(f.root, f.insertRun("body", "implementer", "started"), { status: "passed", summary: "Body fixed." }),
+			);
+			return f.runs().at(-1)!;
+		};
+		let r = close(bodyWith("The verifier reviewed this head. It is still to come."));
+		assert.equal(r.status, "failed");
+		const unmet = f.db.prepare("SELECT summary FROM runs WHERE id = ?").get(r.id) as { summary: string };
+		assert.match(unmet.summary, /^body check failed: the PR body does not meet a body item: absent "still to come"/);
+		let n = nextOf(f);
+		assert.deepEqual([n.stage, n.role, n.round], ["body", "implementer", 0]);
+		assert.match(n.reason, /^body failed: body check failed: .*absent "still to come"/);
+		quietly(() => driveOnce(f.root, f.task, TIMING));
+		assert.match(
+			lastPrompt(f),
+			/evf checked the body after the last body run and it failed \(body failed: body check failed: .*still to come/,
+		);
+		quietly(() => runDone(f.root, f.runs().at(-1)!.id, { status: "failed", summary: "aborted for the test" }));
+		assert.equal(f.taskRow().status, "pr_open", "two failures in a row do not escalate yet");
+
+		// The fourth body run fails the body standard; that makes three failures in a row.
+		r = close(FIXED_BODY.replace("## Follow-ups", "## Later"));
+		assert.equal(r.status, "failed");
+		assert.match(
+			(f.db.prepare("SELECT summary FROM runs WHERE id = ?").get(r.id) as { summary: string }).summary,
+			/^body check failed: PR body is missing required sections: ## Follow-ups/,
+		);
+		assert.equal(f.taskRow().status, "escalated");
+		assert.match(f.events("escalation").at(-1)!.payload, /3 failures in a row, last in body/);
+		assert.equal(f.taskRow().round, 0, "no body failure costs a round");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-113-round: a failed verify at a head an earlier verify already closed at costs no round; a new head still does, and the cap stays 3", () => {
+	const f = driveFixture();
+	try {
+		f.db.prepare("UPDATE tasks SET spec = ? WHERE id = ?").run(SPEC, f.taskId);
+		const a = head(f);
+		for (const c of ["1", "2"]) proofAt(f, a, c);
+		const verifyRun = (session: string) => f.insertRun("verify", "verifier", "started", session);
+		quietly(() =>
+			runDone(f.root, verifyRun("66666666-6666-4666-8666-666666666661"), { status: "body-only", summary: "body only" }),
+		);
+		// A second reviewer of the same head requests changes: a duplicate review of an unchanged head, no round.
+		quietly(() =>
+			runDone(f.root, verifyRun("66666666-6666-4666-8666-666666666662"), { status: "failed", summary: "again" }),
+		);
+		assert.equal(f.taskRow().round, 0);
+		assert.equal(f.events("round").length, 0);
+		assert.match(f.events("review_repeat")[0]!.payload, new RegExp(`a head already reviewed; no round`));
+		for (let i = 1; i <= LOOP_CAP; i++) {
+			f.advance();
+			quietly(() =>
+				runDone(f.root, verifyRun(`66666666-6666-4666-8666-66666666667${i}`), {
+					status: "failed",
+					summary: `finding ${i}`,
+				}),
+			);
+			assert.equal(f.taskRow().round, i, "a failed verify at a new head costs a round");
+			assert.notEqual(f.taskRow().status, "escalated");
+		}
+		f.advance();
+		quietly(() =>
+			runDone(f.root, verifyRun("66666666-6666-4666-8666-666666666680"), { status: "failed", summary: "finding 4" }),
+		);
+		assert.equal(f.taskRow().round, LOOP_CAP + 1);
+		assert.equal(f.taskRow().status, "escalated");
+		assert.match(f.events("escalation").at(-1)!.payload, /loop cap 3 hit after verify failed/);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-113-implement: an implement run closes passed only with a PR body that passes the evf pr body check; the refusal names the check", () => {
+	const f = driveFixture();
+	try {
+		f.db.prepare("UPDATE tasks SET spec = ? WHERE id = ?").run(SPEC, f.taskId);
+		const bodyFile = join(runtimeDir(f.root, f.task), "pr-body.md");
+		const id = f.insertRun("implement", "implementer", "started");
+		rmSync(bodyFile);
+		assert.throws(
+			() => runDone(f.root, id, { status: "passed", summary: "built" }),
+			new RegExp(`Implement cannot close passed: no PR body at .*pr-body\\.md`),
+		);
+		writeFileSync(bodyFile, prBody().replace("## Follow-ups", "## Later"));
+		assert.throws(
+			() => runDone(f.root, id, { status: "passed", summary: "built" }),
+			/Implement cannot close passed: the PR body at .* fails the evf pr body check: PR body is missing required sections: ## Follow-ups\./,
+		);
+		writeFileSync(bodyFile, prBody().replace(/\n\n🤖.*$/, ""));
+		assert.throws(
+			() => runDone(f.root, id, { status: "passed", summary: "built" }),
+			/fails the evf pr body check: End the PR body with its attribution line/,
+		);
+		assert.equal(f.runs().find((r) => r.id === id)!.status, "started", "a refused close changes nothing");
+		// A failed implement needs no body.
+		rmSync(bodyFile);
+		quietly(() =>
+			runDone(f.root, f.insertRun("implement", "implementer", "started"), { status: "failed", summary: "blocked" }),
+		);
+		writeFileSync(bodyFile, prBody());
+		quietly(() => runDone(f.root, id, { status: "passed", summary: "built" }));
+		assert.equal(f.runs().find((r) => r.id === id)!.status, "passed");
 	} finally {
 		f.db.close();
 		f.close();

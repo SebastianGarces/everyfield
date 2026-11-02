@@ -320,6 +320,26 @@ The script appends `EVF-Review: {"head":...,"verifier":{"session":...,"model":..
 comment. It refuses a head that is not the PR's current head, a verifier ship refuses (the author's session, a non-verifier seat, a non-Opus model), results captured on
 another head, and an approval when any results file or the report shows a failure. Use
 `--verdict changes_requested` when anything fails, then send the failures to the coordinator.
+
+**Body-only findings (OPS-113).** When the code and the experience are approved and every open finding is a PR
+body fix you can state as an exact text, post `--verdict body_only --body-items "$E/body-items.json"` with the
+approved quality and experience verdicts, and close verify with `bin/evf run done <run> --status body-only`. The
+file is a JSON list; each item has exactly one non-empty `present` (text the body must contain) or `absent` (text
+it must not contain) and a non-empty `why`:
+
+```json
+[{ "present": "Current head `6b97c92`", "why": "How it was verified names an old head." },
+ { "absent": "offers \"Clear search\"", "why": "Owner item 2 describes a removed button." }]
+```
+
+The poster refuses an empty list, a malformed item and an unapproved quality or experience verdict, and runs
+every approval check. The EVF-Review line adds `"verdict":"body_only"` and a `"body"` array. evf's body stage
+(the implementer seat) then edits only the body file at the same head; evf pushes it, checks it with the
+`evf pr body` code and checks each item. A pass goes to ci with no round and no second verify; a commit after
+your review needs a full verify. Ship takes your review as the code approval only while the GitHub body meets
+every item. Any code finding, or a body fix that is not exact text, needs `changes_requested`. A second failed
+review of a head a verify already closed at costs no round. `tools/evf/README.md` (Body-only fix path) lists
+decisions D-a to D-e.
 A new head needs a new verification and a new comment. One exception: do not re-review a head that
 only merges main after your approval. Run `bin/evf ship <task>` once required CI is green on it.
 Ship carries your approval when the merges are clean and touch no PR path, and refuses otherwise.

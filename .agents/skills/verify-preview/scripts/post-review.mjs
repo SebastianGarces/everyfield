@@ -1,20 +1,23 @@
 #!/usr/bin/env node
 // Post the one verification comment: the report followed by the exact-head EVF-Review line.
 // Usage: node post-review.mjs --pr <n> --report <report.md> --session <your Claude Code session UUID> --model <model id>
-//          [--role verifier] --verdict approved|changes_requested --head <40-char sha>
+//          [--role verifier] --verdict approved|changes_requested|body_only [--body-items <items.json>] --head <40-char sha>
 //          --experience-verdict approved|changes_requested --budget met|exceeded|not_applicable
 //          [--experience-exception reports|analytics]
 //          --quality-verdict approved|changes_requested --principles <comma-separated names> [--results <results.json> ...] [--dry-run]
 // Refuses a report without an Ask coverage table before its other tables, an approval with a missing row or a
 // deferred row whose label is not a follow-up of the task, a head that is not the PR's current head, a verifier ship refuses (D82: the author's own session,
 // a non-verifier seat or a non-Opus model), and an approval when any results file has a failing verdict.
+// body_only (OPS-113) approves the code and the experience and lists the PR body fixes in --body-items: a JSON list of
+// {"present": "<exact text>", "why": "<reason>"} or {"absent": "<exact text>", "why": "<reason>"}. evf's body stage
+// fixes the body at the same head and checks each item; ship checks them again on the GitHub body.
 // The PR body and the review parties are read by the same code ship uses (tools/evf), so the two never disagree.
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { independentReview, readParty } from "../../../../tools/evf/lib.ts";
-import { checkPrBody, followUpsOfBranch } from "../../../../tools/evf/pr-body.ts";
+import { checkPrBody, followUpsOfBranch, readBodyItems } from "../../../../tools/evf/pr-body.ts";
 import { approvalBlock, parseAskCoverage } from "../../../../tools/evf/ask-coverage.ts";
 
 const root = resolve(import.meta.dirname, "../../../..");
@@ -28,22 +31,37 @@ const refuse = (why) => { console.error(`Refused: ${why}`); process.exit(1); };
 if (!pr || !reportFile || !head) refuse("usage: --pr <n> --report <file> --session <uuid> --model <id> --verdict <v> --head <sha>");
 const verifier = readParty({ session: value("session"), model: value("model"), role: value("role") ?? "verifier" });
 if (typeof verifier === "string") refuse(`${verifier} (--session, --model, --role; herdr agent get <you> shows your session as agent_session.value)`);
-if (!["approved", "changes_requested"].includes(verdict)) refuse("--verdict must be approved or changes_requested");
+if (!["approved", "changes_requested", "body_only"].includes(verdict)) refuse("--verdict must be approved, changes_requested or body_only");
+// body_only approves the code and the experience, so every approval check below holds for it too.
+const approving = verdict !== "changes_requested";
+let bodyItems;
+if (verdict === "body_only") {
+	const file = value("body-items");
+	if (!file) refuse("body_only needs --body-items <file> with the JSON list of body items");
+	let parsed;
+	try {
+		parsed = JSON.parse(readFileSync(file, "utf8"));
+	} catch (e) {
+		refuse(`--body-items ${file} is not readable JSON: ${e.message}`);
+	}
+	bodyItems = readBodyItems(parsed);
+	if (typeof bodyItems === "string") refuse(`--body-items: ${bodyItems}`);
+} else if (value("body-items")) refuse("--body-items goes only with --verdict body_only");
 if (!["approved", "changes_requested"].includes(quality.verdict)) refuse("--quality-verdict must be approved or changes_requested");
 if (!quality.principles?.length || quality.principles.some((name) => !name)) refuse("--principles must name the principles checked, separated by commas");
 const requiredPrinciples = ["laziness-protocol", "minimize-reader-load", "subtract-before-you-add", "test-behavior-not-implementation"];
 const missingPrinciples = requiredPrinciples.filter((name) => !quality.principles.includes(name));
 if (missingPrinciples.length) refuse(`--principles is missing required names: ${missingPrinciples.join(", ")}`);
-if (verdict === "approved" && quality.verdict !== "approved") refuse("approval needs an approved code quality review");
+if (approving && quality.verdict !== "approved") refuse(`${verdict === "approved" ? "approval" : "body_only"} needs an approved code quality review`);
 if (!["approved", "changes_requested"].includes(experience.verdict)) refuse("--experience-verdict must be approved or changes_requested");
 if (!["met", "exceeded", "not_applicable"].includes(experience.budget)) refuse("--budget must be met, exceeded or not_applicable");
 if (experience.exception && !["reports", "analytics"].includes(experience.exception)) refuse("--experience-exception must be reports or analytics");
-if (verdict === "approved" && experience.verdict !== "approved") refuse("approval needs an approved experience review");
+if (approving && experience.verdict !== "approved") refuse(`${verdict === "approved" ? "approval" : "body_only"} needs an approved experience review`);
 if (!/^[0-9a-f]{40}$/.test(head)) refuse("--head must be the full 40-character SHA you verified");
 
 const view = JSON.parse(execFileSync("gh", ["pr", "view", pr, "--json", "headRefOid,headRefName,body,url"], { encoding: "utf8" }));
 if (view.headRefOid !== head) refuse(`PR head is ${view.headRefOid}, you verified ${head}. Verify the current head.`);
-if (verdict === "approved" && experience.budget === "exceeded" && (!experience.exception || !view.body.split(/\r?\n/).includes(`EVF-Experience-Exception: ${experience.exception}`))) refuse("exceeded budget needs the matching approved reports or analytics exception in the PR body");
+if (approving && experience.budget === "exceeded" && (!experience.exception || !view.body.split(/\r?\n/).includes(`EVF-Experience-Exception: ${experience.exception}`))) refuse("exceeded budget needs the matching approved reports or analytics exception in the PR body");
 const followUps = followUpsOfBranch(root, view.headRefName);
 let author;
 try {
@@ -56,21 +74,22 @@ if (dependent) refuse(dependent);
 for (const file of all("results")) {
   const r = JSON.parse(readFileSync(file, "utf8"));
   if (r.after?.head && r.after.head !== head) refuse(`${file} was captured on ${r.after.head}, not ${head}`);
-  if (verdict === "approved" && r.verdict !== "pass") refuse(`${file} verdict is ${r.verdict}; approval needs every check to pass`);
+  if (approving && r.verdict !== "pass") refuse(`${file} verdict is ${r.verdict}; approval needs every check to pass`);
 }
 const report = readFileSync(reportFile, "utf8").trim();
 if (!/^## Code quality\s*$/m.test(report)) refuse("the report needs a Code quality section with concrete simplifications and a verdict");
 if (!/^## Experience\s*$/m.test(report)) refuse("the report needs an Experience section with timings, optimistic updates and request counts, or a reason they do not apply");
 const coverage = parseAskCoverage(report);
 if ("error" in coverage) refuse(coverage.error);
-if (verdict === "approved") {
+if (approving) {
 	const blocked = approvalBlock(coverage.rows, followUps.map((f) => f.label));
 	if (blocked) refuse(blocked);
 }
 if (/^EVF-Review:/m.test(report)) refuse("the report already has an EVF-Review line; this script adds it");
-if (verdict === "approved" && /\b(FAIL|❌)\b|❌/.test(report)) refuse("the report lists a failure; approve only when everything passes");
+if (approving && /\b(FAIL|❌)\b|❌/.test(report)) refuse("the report lists a failure; approve only when everything passes");
 
-const body = `${report}\n\nEVF-Review: ${JSON.stringify({ head, verifier, verdict, quality, experience })}\n`;
+const review = bodyItems ? { head, verifier, verdict, body: bodyItems, quality, experience } : { head, verifier, verdict, quality, experience };
+const body = `${report}\n\nEVF-Review: ${JSON.stringify(review)}\n`;
 const file = join(tmpdir(), `evf-review-${pr}-${head.slice(0, 7)}.md`);
 writeFileSync(file, body);
 if (argv.includes("--dry-run")) { console.log(body); process.exit(0); }

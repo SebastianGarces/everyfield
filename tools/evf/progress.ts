@@ -97,7 +97,7 @@ export function reviewedMilestone(root: string, record: ShippedRecord): boolean 
 			(v.carry?.approvedHead !== v.approval.head ||
 				v.carry.head !== v.head ||
 				typeof carryProof(root, v.approval.head, v.head, baseRef(root, cfg)) === "string")) ||
-		v.approval.verdict !== "approved" ||
+		v.approval.verdict === "changes_requested" ||
 		!independentRecord(v) ||
 		!v.checks.length ||
 		v.checks.some((c) => c.bucket !== "pass")

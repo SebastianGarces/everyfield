@@ -3,7 +3,17 @@ import { existsSync, mkdirSync, openSync, readFileSync, unlinkSync, writeFileSyn
 import { join } from "node:path";
 import { spawn } from "node:child_process";
 import type { DatabaseSync } from "node:sqlite";
-import { ensureTask, findTask, markMerged, newTaskRow, openWorkDb, record, seatText, type TaskRow } from "./db.ts";
+import {
+	ensureTask,
+	findTask,
+	followUpsOfTask,
+	markMerged,
+	newTaskRow,
+	openWorkDb,
+	record,
+	seatText,
+	type TaskRow,
+} from "./db.ts";
 import {
 	fileFollowUps,
 	followUpsOf,
@@ -34,7 +44,9 @@ import {
 	type TaskRef,
 } from "./lib.ts";
 import { closeRunPane } from "./panes.ts";
-import { prFor, prOpen, ship } from "./ship.ts";
+import { bodyOnlyItems, prFor, prOpen, ship } from "./ship.ts";
+import { checkGithubBody, checkPrBody, describeBodyItem, unmetBodyItem, type BodyItem } from "./pr-body.ts";
+import { isPrototype } from "./feedback.ts";
 import { fillRunUsage } from "./usage.ts";
 import { coordinatorNotes, doneCriteria } from "./spec.ts";
 import { hasVerifiedHead, verify } from "./verify.ts";
@@ -43,6 +55,9 @@ import { hasVerifiedHead, verify } from "./verify.ts";
  * The stage machine of implement mode (the GPS of the talk, in code): plan → implement → simplify → pr → verify →
  * ci → ship → merged. Seats close their stage with `evf run done`; evf runs pr, ci and ship itself. The pr stage runs
  * the author checks at the current head, so a simplifier commit never costs a round.
+ * A verifier that approves the code and the experience but finds only PR body faults closes verify `body-only` (OPS-113):
+ * the body stage (the implementer seat) edits only the PR body at the reviewed head, evf checks it, and ci follows with
+ * no round and no new verify. A head that moved after that review goes to pr and a full verify.
  * Three rules stop a loop that runs unattended. The loop cap: a verify or ci failure costs a round, and the fourth round
  * escalates to Sebastian (guard rail 2). The retry cap: any other failure costs no round, but three failures in a row
  * escalate too. The circuit breaker (OPS-115): a seat stage that a seat closes twice in a row with the same status at
@@ -58,7 +73,7 @@ import { hasVerifiedHead, verify } from "./verify.ts";
 export const LOOP_CAP = 3;
 /** Failures in a row that cost no round (plan, implement, simplify, pr, ship, aborted seats) before escalation. */
 export const RETRY_CAP = 3;
-export const STAGES = ["plan", "implement", "simplify", "pr", "verify", "ci", "ship", "merged"] as const;
+export const STAGES = ["plan", "implement", "simplify", "pr", "verify", "body", "ci", "ship", "merged"] as const;
 /** Prototype mode: plan (angles) → three idea seats → compare → pick (Sebastian) → merge (handoff) → done. */
 export const PROTOTYPE_STAGES = ["plan", "idea", "compare", "pick", "merge"] as const;
 export const IDEAS = 3;
@@ -68,6 +83,7 @@ const SEAT_STAGES: Partial<Record<Stage, Role>> = {
 	implement: "implementer",
 	simplify: "simplifier",
 	verify: "verifier",
+	body: "implementer",
 	idea: "ideator",
 	compare: "comparer",
 	merge: "prototype-merger",
@@ -177,7 +193,11 @@ export type NextExtras = {
 	waitsFor?: string | null;
 	/** Set after a passed implement when the branch has no change since the last passed simplify (OPS-115). */
 	simplifySkip?: SimplifySkip | null;
+	/** Set when the task's latest verify approval is `body_only` (OPS-113): its head and whether HEAD moved since. */
+	bodyOnly?: BodyOnly | null;
 };
+/** The head a `body_only` verify approved, and whether the worktree HEAD is another commit now. */
+export type BodyOnly = { head: string; moved: boolean };
 
 /**
  * Failed or aborted runs since the last passed one, counting only runs after the latest reopen marker.
@@ -432,6 +452,17 @@ function nextStageOf(
 	if (!last) return t.spec ? go("implement", "spec stored, no runs yet") : go("plan", "no spec yet");
 	const passed = last.status === "passed";
 	const again = (stage: Stage) => go(stage, `${last.stage} ${last.status}: ${last.summary ?? ""}`.trim());
+	// After a body_only verify the body stage runs at the reviewed head until its check passes; ci follows with no
+	// new verify. A commit after the review voids that path: pr and a full verify run (OPS-113).
+	const bodyOnly = extras.bodyOnly;
+	if (bodyOnly && (last.stage === "verify" || last.stage === "body")) {
+		const at = bodyOnly.head.slice(0, 10);
+		if (bodyOnly.moved) return go("pr", `the head moved after the body_only review at ${at}: a full verify runs`);
+		if (last.stage === "verify")
+			return go("body", `the verifier approved the code at ${at} and asked only for body fixes`);
+		if (passed) return go("ci", `body check passed at ${at}`);
+		return again("body");
+	}
 	// A seat whose pane went away (run aborted) launches the same stage again, with the same round.
 	if (last.status === "aborted" && (Object.keys(SEAT_STAGES) as string[]).includes(last.stage))
 		return again(last.stage as Stage);
@@ -465,6 +496,9 @@ function nextStageOf(
 		}
 		case "verify":
 			return passed ? go("ci", "verifier approved") : go("implement", `verifier requested changes (round ${round})`);
+		case "body":
+			// A body run without a body_only review in force: only a full verify can approve the head.
+			return go("pr", "body stage without a body_only review");
 		case "ci":
 			return passed ? go("ship", "CI green") : go("implement", `CI failed (round ${round})`);
 		case "ship":
@@ -500,8 +534,23 @@ const extrasOf = (db: DatabaseSync, taskId: number): NextExtras => {
 		unfiled: unfiledSlices(db, taskId, t?.spec ?? null),
 		waitsFor: waitsFor(db, taskId),
 		simplifySkip: simplifySkipOf(runsOf(db, taskId), reopenMarker(db, taskId), t?.worktree ?? null),
+		bodyOnly: bodyOnlyOf(db, taskId, t?.worktree ?? null),
 	};
 };
+
+/** The head of the task's latest verify approval when its decision is `body_only`, else null. */
+const bodyOnlyHead = (db: DatabaseSync, taskId: number): string | null => {
+	const a = db
+		.prepare("SELECT head_sha, decision FROM approvals WHERE task_id = ? AND gate = 'verify' ORDER BY id DESC LIMIT 1")
+		.get(taskId) as { head_sha: string | null; decision: string } | undefined;
+	return a?.decision === "body_only" && a.head_sha ? a.head_sha : null;
+};
+function bodyOnlyOf(db: DatabaseSync, taskId: number, wt: string | null): BodyOnly | null {
+	const head = bodyOnlyHead(db, taskId);
+	if (!head) return null;
+	const current = wt && existsSync(wt) ? git(wt, "rev-parse", "HEAD") : null;
+	return { head, moved: current !== head };
+}
 
 export function next(root: string, task: TaskRef): number {
 	const db = openWorkDb(root);
@@ -581,15 +630,64 @@ function seatsStillWorking(db: DatabaseSync, taskId: number, exceptRun: number):
 }
 
 /**
- * Close a stage. A failed verify or ci costs a round; the fourth round escalates and nothing launches again. A verify
- * run closes passed only when every Done criterion has a met or n/a proof at the worktree head or an ancestor of it.
+ * The body check (OPS-113), run by evf when the body seat closes passed: push the PR body at the same head with
+ * `evf pr open --body-file`, read the GitHub body with the `evf pr body` code and check every item of the body_only
+ * review at the reviewed head. Returns why it fails, or null.
+ */
+function bodyCheck(root: string, task: TaskRef, wt: string | null, reviewed: string | null): string | null {
+	if (!reviewed) return "the task has no body_only verify approval";
+	if (!wt || !existsSync(wt)) return "the task has no worktree";
+	const head = git(wt, "rev-parse", "HEAD");
+	if (head !== reviewed)
+		return `the head moved from the body_only review at ${reviewed.slice(0, 10)} to ${head.slice(0, 10)}; a full verify runs`;
+	try {
+		prOpen(root, task, prBodyPath(root, task));
+		const pr = prFor(wt, task);
+		if (!pr) return `no PR for ${task.branch}`;
+		const github = checkGithubBody(wt, root, pr.number);
+		if (github.headRefOid !== reviewed)
+			return `the PR head is ${github.headRefOid.slice(0, 10)}, not the reviewed head ${reviewed.slice(0, 10)}`;
+		const items = bodyOnlyItems(root, pr.number, reviewed);
+		if (typeof items === "string") return items;
+		const unmet = unmetBodyItem(github.body, items);
+		return unmet ? `the PR body does not meet a body item: ${describeBodyItem(unmet)}` : null;
+	} catch (e) {
+		if (e instanceof EvfError) return e.message;
+		throw e;
+	}
+}
+
+/** Why the implementer's PR body cannot go to verify (OPS-113): it is missing or fails the `evf pr body` check. */
+function implementBodyFault(root: string, task: TaskRef, wt: string | null): string | null {
+	const file = prBodyPath(root, task);
+	if (!existsSync(file)) return `no PR body at ${file}`;
+	try {
+		checkPrBody(
+			wt && existsSync(wt) ? wt : root,
+			readFileSync(file, "utf8"),
+			isPrototype(root, task) ? "prototype" : "ordinary",
+			followUpsOfTask(root, task),
+		);
+		return null;
+	} catch (e) {
+		if (e instanceof EvfError) return `the PR body at ${file} fails the evf pr body check: ${e.message}`;
+		throw e;
+	}
+}
+
+/**
+ * Close a stage. A failed verify or ci costs a round; the fourth round escalates and nothing launches again. A failed
+ * verify at a head an earlier verify of the task already closed at costs no round (OPS-113). A verify run closes
+ * passed or body-only only when every Done criterion has a met or n/a proof at the worktree head or an ancestor of it.
+ * An implement run closes passed only with a PR body that passes the `evf pr body` check. A body run that closes
+ * passed is checked by evf (bodyCheck) and closes failed, with the reason, when the check fails.
  * A seat that closes its own seat stage records the progress fingerprint, and the circuit breaker reads it. The drive
  * passes `closedBy: "evf"` when it closes a run for the seat (no agent, idle twice, wait timeout).
  */
 export function runDone(
 	root: string,
 	runId: number,
-	opts: { status: "passed" | "failed"; summaryFile?: string; summary?: string; closedBy?: "evf" },
+	opts: { status: "passed" | "failed" | "body-only"; summaryFile?: string; summary?: string; closedBy?: "evf" },
 ): number {
 	const db = openWorkDb(root);
 	try {
@@ -613,11 +711,12 @@ export function runDone(
 			| undefined;
 		if (!r) fail(`No run ${runId} in the work store.`);
 		if (r.status !== "started") fail(`Run ${runId} already closed as ${r.status}.`);
-		const summary = opts.summary ?? (opts.summaryFile ? readFileSync(opts.summaryFile, "utf8").trim() : "");
+		let summary = opts.summary ?? (opts.summaryFile ? readFileSync(opts.summaryFile, "utf8").trim() : "");
 		if (!summary) fail("Give --summary-file <file> (or --summary) with what happened in this stage.");
-		const first = headline(summary);
+		if (opts.status === "body-only" && r.stage !== "verify")
+			fail(`--status body-only closes a verify run only; run ${runId} is a ${r.stage} run.`);
 		const head = r.worktree && existsSync(r.worktree) ? git(r.worktree, "rev-parse", "HEAD") : null;
-		if (r.stage === "verify" && opts.status === "passed") {
+		if (r.stage === "verify" && opts.status !== "failed") {
 			if (!head) fail(`${r.ref} has no worktree to read the head from; a verify cannot pass without proofs at a head.`);
 			const proven = provenCriteria(db, r.task_id, r.worktree!, head);
 			const missing = doneCriteria(r.spec).filter((c) => !proven.has(c));
@@ -626,6 +725,24 @@ export function runDone(
 					`Done criteria ${missing.join(", ")} have no met or n/a proof at ${head.slice(0, 10)} or an earlier head it contains. Add them with bin/evf proof add ${r.ref} --criterion <n> --status met|n/a --evidence <url>, or close this verify as failed.`,
 				);
 		}
+		if (r.stage === "implement" && opts.status === "passed") {
+			const fault = implementBodyFault(root, parseTask(r.ref), r.worktree);
+			if (fault)
+				fail(
+					`Implement cannot close passed: ${fault}. Write the PR body there following .agents/skills/everyfield-pr/template.md and check it with bin/evf pr body --body-file <file> --task ${r.ref}.`,
+				);
+		}
+		// The seat's passed close of the body stage is evf's cue to check the body; a failed check fails the run.
+		let status: "passed" | "failed" = opts.status === "failed" ? "failed" : "passed";
+		if (r.stage === "body" && status === "passed") {
+			const fault = bodyCheck(root, parseTask(r.ref), r.worktree, bodyOnlyHead(db, r.task_id));
+			if (fault) {
+				status = "failed";
+				summary = `body check failed: ${fault}\nSeat summary: ${summary}`;
+				console.log(`body check failed: ${fault}`);
+			} else console.log("body check passed: evf pushed the body, the body standard passes and every item is met.");
+		}
+		const first = headline(summary);
 		if (r.stage === "plan" && opts.status === "passed") {
 			const unfiled = unfiledSlices(db, r.task_id, r.spec);
 			if (unfiled.length) fail(`${unfiledMessage(r.ref, unfiled)} A plan run cannot close passed until they exist.`);
@@ -645,7 +762,7 @@ export function runDone(
 		db.prepare(
 			"UPDATE runs SET status = ?, ended_at = ?, summary = ?, progress_head = ?, progress_spec = ? WHERE id = ?",
 		).run(
-			opts.status,
+			status,
 			now(),
 			summary,
 			fingerprinted ? head : null,
@@ -657,7 +774,18 @@ export function runDone(
 			runId,
 		);
 		fillRunUsage(db, runId);
-		record(db, r.task_id, runId, "stage_end", { stage: r.stage, status: opts.status, summary: headline(summary, 200) });
+		record(db, r.task_id, runId, "stage_end", {
+			stage: r.stage,
+			status: opts.status === "body-only" ? "body_only" : status,
+			summary: headline(summary, 200),
+		});
+		// A second review of a head an earlier verify of this task already closed at costs no round (OPS-113).
+		const reviewedBefore =
+			r.stage === "verify" &&
+			!!head &&
+			!!db
+				.prepare("SELECT 1 FROM approvals WHERE task_id = ? AND gate = 'verify' AND head_sha = ? LIMIT 1")
+				.get(r.task_id, head);
 		if (r.stage === "verify")
 			db.prepare(
 				"INSERT INTO approvals (task_id, gate, approver, head_sha, decision, quote, created_at) VALUES (?, 'verify', ?, ?, ?, ?, ?)",
@@ -665,12 +793,12 @@ export function runDone(
 				r.task_id,
 				`${r.role}@${r.ref}`,
 				head,
-				opts.status === "passed" ? "approved" : "changes_requested",
+				opts.status === "body-only" ? "body_only" : status === "passed" ? "approved" : "changes_requested",
 				summary.slice(0, 2000),
 				now(),
 			);
 		let escalated = "";
-		if ((r.stage === "verify" || r.stage === "ci") && opts.status === "failed") {
+		if ((r.stage === "ci" || (r.stage === "verify" && !reviewedBefore)) && status === "failed") {
 			const round = r.round + 1;
 			record(db, r.task_id, runId, "round", {
 				round,
@@ -688,7 +816,12 @@ export function runDone(
 			}
 		} else {
 			db.prepare("UPDATE tasks SET updated_at = ? WHERE id = ?").run(now(), r.task_id);
-			if (opts.status === "failed") {
+			if (reviewedBefore && status === "failed")
+				record(db, r.task_id, runId, "review_repeat", {
+					head,
+					summary: `${r.ref}: verify failed again at ${head!.slice(0, 10)}, a head already reviewed; no round`,
+				});
+			if (status === "failed") {
 				const runs = runsOf(db, r.task_id),
 					marker = reopenMarker(db, r.task_id);
 				if (r.mode === "prototype") escalated = prototypeStuck(r.ref, runs, marker) ?? "";
@@ -713,7 +846,9 @@ export function runDone(
 			} else if (!working.length) escalated ||= pending;
 		}
 		if (escalated) escalate(db, { id: r.task_id, ref: r.ref }, runId, escalated);
-		console.log(`run ${runId} (${r.stage}) closed ${opts.status}${escalated ? `; ${r.ref} escalated` : ""}.`);
+		console.log(
+			`run ${runId} (${r.stage}) closed ${opts.status === "body-only" ? "body-only" : status}${escalated ? `; ${r.ref} escalated` : ""}.`,
+		);
 		// Last, after the store update committed: a seat that runs this from its own pane has recorded its result.
 		const closed = closeRunPane(db, runId);
 		if (closed) console.log(closed);
@@ -1289,6 +1424,8 @@ type PromptContext = {
 	/** The failed or aborted run of this idea that the seat resumes from. */
 	previous: { id: number; status: string; summary: string } | null;
 	choice: CompareChoice | null;
+	/** The body stage only (OPS-113): the reviewed head and the items of its body_only review, or why evf has none. */
+	body?: { head: string; items: BodyItem[] | string };
 };
 const notesOf = (ctx: PromptContext) =>
 	ctx.notes.length
@@ -1326,9 +1463,29 @@ const STAGE_PROMPTS: Record<string, Prompt> = {
 		`Implement task ${task.id} in this worktree against the spec in your session-start context.${next.round && !ctx.reopen ? ` Round ${next.round}: ${next.reason}. Read the last verify or ci summary with bin/evf status --json ${task.id} and fix those findings first.` : ""} Before you close: add tests; for UI work read .agents/roles/ui-designer.md and capture 390 and 1440 px screenshots of each UI state you changed, outside the repository, as the capture half of .agents/skills/verify-preview/SKILL.md says; record bin/evf proof add ${task.id} --criterion <n> --status met|unmet|n/a --evidence <url-or-path> for each Done criterion you built or changed in this round. Keep bin/evf verify ${task.id} green, commit, and write the PR body to ${ctx.prBody} following .agents/skills/everyfield-pr/template.md with your EVF-Author line (bin/evf session prints your id). ${CLOSE}`,
 	simplify: (task, next) =>
 		`Simplify task ${task.id}: read the spec and git diff origin/main...HEAD, remove what the Done criteria do not need, commit. evf runs the author checks at your head in the pr stage.${next.reason.startsWith("pr failed") ? ` evf ran the author checks at the head and they failed (${next.reason}). Fix that first.` : ""} ${CLOSE}`,
+	body: (task, next, ctx) => {
+		const items = ctx.body?.items,
+			at = ctx.body?.head.slice(0, 10) ?? "the reviewed head";
+		const list =
+			typeof items === "string" || !items
+				? ` evf could not read the items (${items ?? "no body_only review"}): read the latest EVF-Review line on the PR with gh pr view --comments.`
+				: ` The items: ${items.map((item, i) => `${i + 1}. ${describeBodyItem(item)}`).join(" ")}`;
+		return `Fix the PR body of task ${task.id} at ${at}. The verifier approved the code and the experience there and posted a body_only review: only the PR body needs these fixes.${list}${next.reason.startsWith("body failed") ? ` evf checked the body after the last body run and it failed (${next.reason}). Fix that first.` : ""} Edit only the PR body file ${ctx.prBody}: each "present" text must appear in it exactly, each "absent" text must not appear, and the body must still pass bin/evf pr body --body-file ${ctx.prBody} --task ${task.id}. Keep the EVF-Author line. Make no commit and change no other file: a commit sends the task to a full verify. When you close passed, evf pushes the body with evf pr open --body-file at the same head, checks it with the evf pr body standard and checks every item. ${CLOSE}`;
+	},
 	verify: (task) =>
-		`Verify task ${task.id}: before you judge, read the full ask and spec with bin/evf task spec ${task.id} --show (your session-start context may shorten them), the goal chain and bin/evf proof show ${task.id}; read the full diff and judge the code. Spot-check the proof: open the evidence in the proof table and re-run a flow only where a proof is unmet, missing or looks wrong. When only a screenshot is missing, capture it and record it with bin/evf proof add instead of requesting changes. Follow verify-preview; post one review with post-review.mjs --session <bin/evf session> --model claude-opus-5-5. Close with bin/evf run done $EVF_RUN --status passed (approved; every Done criterion needs a met or n/a proof at the head or an ancestor of it) or failed (changes requested) --summary-file <path> listing every finding.`,
+		`Verify task ${task.id}: before you judge, read the full ask and spec with bin/evf task spec ${task.id} --show (your session-start context may shorten them), the goal chain and bin/evf proof show ${task.id}; read the full diff and judge the code. Spot-check the proof: open the evidence in the proof table and re-run a flow only where a proof is unmet, missing or looks wrong. When only a screenshot is missing, capture it and record it with bin/evf proof add instead of requesting changes. Follow verify-preview; post one review with post-review.mjs --session <bin/evf session> --model claude-opus-5-5. Close with bin/evf run done $EVF_RUN --status passed (approved; every Done criterion needs a met or n/a proof at the head or an ancestor of it), body-only (code and experience approved, and every open finding is a PR body fix you posted as a present or absent text with --verdict body_only --body-items) or failed (changes requested) --summary-file <path> listing every finding.`,
 };
+
+/** The items of the body_only review at `head` for the body prompt, or why GitHub has none. */
+function bodyItemsOf(root: string, t: TaskRow, head: string): BodyItem[] | string {
+	if (!t.pr_number) return "no PR number recorded";
+	try {
+		return bodyOnlyItems(root, t.pr_number, head);
+	} catch (e) {
+		if (e instanceof EvfError) return e.message;
+		throw e;
+	}
+}
 
 const prBodyPath = (root: string, task: TaskRef) => join(runtimeDir(root, task), "pr-body.md");
 const checksOf = (wt: string, number: number): { pending: string[]; failed: string[]; passed: string[] } => {
@@ -1694,13 +1851,21 @@ function previousIdeaRun(runs: RunRow[], idea: number | undefined): PromptContex
 function launchOrLog(
 	root: string,
 	task: TaskRef,
-	launching: { role: Role; prompt: string; idea?: number; mode: string; launch?: Partial<LaunchTiming> },
+	launching: {
+		role: Role;
+		prompt: string;
+		idea?: number;
+		stage?: string;
+		mode: string;
+		launch?: Partial<LaunchTiming>;
+	},
 	timing: DriveTiming,
 ): void {
 	try {
 		launch(root, task, launching.role, {
 			prompt: launching.prompt,
 			idea: launching.idea,
+			stage: launching.stage,
 			mode: launching.mode,
 			timing: launching.launch,
 			driven: true,
@@ -1741,7 +1906,15 @@ function launchOrLog(
 export function driveOnce(root: string, task: TaskRef, timing: DriveTiming = DRIVE_TIMING): Next {
 	const db = openWorkDb(root);
 	let launching:
-		| { role: Role; prompt: string; idea?: number; mode: string; comparison: string; launch?: Partial<LaunchTiming> }
+		| {
+				role: Role;
+				prompt: string;
+				idea?: number;
+				stage?: string;
+				mode: string;
+				comparison: string;
+				launch?: Partial<LaunchTiming>;
+		  }
 		| undefined;
 	try {
 		const t = ensureTask(db, task, "implement");
@@ -1818,11 +1991,15 @@ export function driveOnce(root: string, task: TaskRef, timing: DriveTiming = DRI
 				reopen: runs.some((r) => r.id > marker && r.status === "passed") ? null : (extras.reopenReason ?? null),
 				previous: previousIdeaRun(runs, n.idea),
 				choice: extras.choice ?? null,
+				...(n.stage === "body" && extras.bodyOnly
+					? { body: { head: extras.bodyOnly.head, items: bodyItemsOf(root, t, extras.bodyOnly.head) } }
+					: {}),
 			};
 			const prompts = t.mode === "prototype" ? PROTOTYPE_PROMPTS : STAGE_PROMPTS;
 			launching = {
 				role: n.role,
 				prompt: reopenOf(ctx) + prompts[n.stage]!(task, n, ctx),
+				...(n.stage === "body" ? { stage: "body" } : {}),
 				idea: n.idea,
 				mode: t.mode,
 				comparison: ctx.comparison,

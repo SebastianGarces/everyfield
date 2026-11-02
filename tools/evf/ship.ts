@@ -23,7 +23,14 @@ import {
 	type TaskRef,
 } from "./lib.ts";
 import { maintenanceScope, requireTaskScope } from "./policy.ts";
-import { checkPrBody, followUpsOfBranch } from "./pr-body.ts";
+import {
+	checkPrBody,
+	describeBodyItem,
+	followUpsOfBranch,
+	readBodyItems,
+	unmetBodyItem,
+	type BodyItem,
+} from "./pr-body.ts";
 import { followUpsOfTask, markMerged, openWorkDb, sessionsRecorded, withPartial } from "./db.ts";
 import {
 	approveCommand,
@@ -180,10 +187,15 @@ const QUALITY_PRINCIPLES = [
 	"subtract-before-you-add",
 	"test-behavior-not-implementation",
 ];
+/**
+ * `body_only` (OPS-113): the verifier approved the code and the experience at `head`; the PR body must still meet each
+ * of `body`. evf checks the items on the GitHub body; the approval stays bound to `head`.
+ */
 export type Approval = {
 	head: string;
 	verifier: ReviewParty;
-	verdict: "approved" | "changes_requested";
+	verdict: "approved" | "changes_requested" | "body_only";
+	body?: BodyItem[];
 	quality: { verdict: "approved" | "changes_requested"; principles: string[] };
 	experience: {
 		verdict: "approved" | "changes_requested";
@@ -239,7 +251,17 @@ function readApproval(input: unknown): Approval | null {
 	if (!("verifier" in input)) return null;
 	const verifier = readParty(input.verifier);
 	if (typeof verifier === "string") return null;
-	if (!("verdict" in input) || (input.verdict !== "approved" && input.verdict !== "changes_requested")) return null;
+	if (
+		!("verdict" in input) ||
+		(input.verdict !== "approved" && input.verdict !== "changes_requested" && input.verdict !== "body_only")
+	)
+		return null;
+	let body: BodyItem[] | undefined;
+	if (input.verdict === "body_only") {
+		const items = readBodyItems("body" in input ? input.body : undefined);
+		if (typeof items === "string") return null;
+		body = items;
+	}
 	if (!("quality" in input) || !input.quality || typeof input.quality !== "object") return null;
 	const quality = input.quality;
 	if (!("verdict" in quality) || (quality.verdict !== "approved" && quality.verdict !== "changes_requested"))
@@ -273,6 +295,7 @@ function readApproval(input: unknown): Approval | null {
 		head: input.head,
 		verifier,
 		verdict: input.verdict,
+		...(body ? { body } : {}),
 		quality: { verdict: quality.verdict, principles },
 		experience: {
 			verdict: experience.verdict,
@@ -361,6 +384,49 @@ function requiredCi(cwd: string, number: number, required: string[]): RequiredCi
 	return ci;
 }
 
+type Review = { approval: Approval; url: string };
+/**
+ * The EVF-Review lines on a PR, oldest first: the latest valid review, the latest valid review at `head` (a later
+ * review at one head replaces an earlier one) and the fields a review at `head` lacks.
+ */
+function reviewsOf(
+	root: string,
+	repo: string,
+	number: number,
+	head: string,
+): { selected?: Review; latest?: Review; missingFields: string[] } {
+	const pages = JSON.parse(gh(root, ["api", `repos/${repo}/issues/${number}/comments`, "--paginate", "--slurp"]));
+	if (!Array.isArray(pages) || pages.some((page) => !Array.isArray(page)))
+		fail("GitHub verifier comments are unreadable.");
+	let selected: Review | undefined, latest: Review | undefined;
+	let missingFields: string[] = [];
+	for (const comment of pages.flat())
+		for (const match of String(comment?.body ?? "").matchAll(/^EVF-Review: (.+)$/gm)) {
+			let value: unknown;
+			try {
+				value = JSON.parse(match[1]);
+			} catch {
+				continue;
+			}
+			if (value && typeof value === "object" && "head" in value && value.head === head) {
+				missingFields = ["quality", "experience"].filter((field) => !(field in value));
+			}
+			const approval = readApproval(value);
+			if (!approval) continue;
+			latest = { approval, url: typeof comment.html_url === "string" ? comment.html_url : "" };
+			if (approval.head === head) selected = latest;
+		}
+	return { selected, latest, missingFields };
+}
+
+/** The body items of the latest review at `head` when it is a `body_only` review, or the reason there are none. */
+export function bodyOnlyItems(root: string, number: number, head: string): BodyItem[] | string {
+	const review = reviewsOf(root, nameWithOwner(root), number, head).selected?.approval;
+	if (review?.verdict !== "body_only" || !review.body)
+		return `the latest verifier review at ${head.slice(0, 10)} on PR #${number} is ${review ? review.verdict : "missing"}, not body_only`;
+	return review.body;
+}
+
 /**
  * One unsigned review convention, shared by the verifier and GitHub merge workflow. `carry` lets an approval of
  * an earlier head hold over merge-only commits (carryProof); the owner approval routes never pass it. `wikiCarry`
@@ -388,30 +454,11 @@ export function checkPr(
 	if (ci.pending.length)
 		fail(`Required GitHub CI must be green on the exact PR head: ${ci.pending.join(", ")} pending.`);
 	const checks = ci.passed;
-	const pages = JSON.parse(gh(root, ["api", `repos/${repo}/issues/${number}/comments`, "--paginate", "--slurp"]));
-	if (!Array.isArray(pages) || pages.some((page) => !Array.isArray(page)))
-		fail("GitHub verifier comments are unreadable.");
-	const comments = pages.flat();
-	let selected: { approval: Approval; url: string } | undefined, latest: typeof selected;
-	let missingFields: string[] = [];
-	for (const comment of comments)
-		for (const match of String(comment?.body ?? "").matchAll(/^EVF-Review: (.+)$/gm)) {
-			let value: unknown;
-			try {
-				value = JSON.parse(match[1]);
-			} catch {
-				continue;
-			}
-			if (value && typeof value === "object" && "head" in value && value.head === pr.headRefOid) {
-				missingFields = ["quality", "experience"].filter((field) => !(field in value));
-			}
-			const approval = readApproval(value);
-			if (!approval) continue;
-			latest = { approval, url: typeof comment.html_url === "string" ? comment.html_url : "" };
-			if (approval.head === pr.headRefOid) selected = latest;
-		}
+	const { selected: exact, latest, missingFields } = reviewsOf(root, repo, number, pr.headRefOid);
+	let selected = exact;
 	let carry: CarryProof | undefined, wikiCarry: WikiCarry | undefined;
-	if (!selected && (opts.carry || opts.wikiCarry) && latest?.approval.verdict === "approved") {
+	// A body_only review is a code approval too (D-e): it carries over merge-only commits like `approved`.
+	if (!selected && (opts.carry || opts.wikiCarry) && latest && latest.approval.verdict !== "changes_requested") {
 		const approved = latest.approval.head;
 		if (!gitOk(root, "cat-file", "-e", `${approved}^{commit}`))
 			run("git", ["fetch", "--quiet", cfg.remote, approved], { cwd: root });
@@ -424,13 +471,19 @@ export function checkPr(
 		if ("merges" in proof) carry = proof;
 		else wikiCarry = proof;
 	}
-	if (!selected?.url || selected.approval.verdict !== "approved") {
+	if (!selected?.url || selected.approval.verdict === "changes_requested") {
 		if (missingFields.length)
 			fail(`Missing ${missingFields.join(" and ")} field in verifier review for the exact PR head.`);
 		fail("Missing verifier approval for the exact PR head.");
 	}
 	if (selected.approval.quality.verdict !== "approved") fail("Code quality must be approved before shipping.");
 	if (selected.approval.experience.verdict !== "approved") fail("Experience must be approved before shipping.");
+	// The body items are read on the body these checks hold; the unchanged-body check below binds them to the merge.
+	const unmet = selected.approval.body && unmetBodyItem(pr.body, selected.approval.body);
+	if (unmet)
+		fail(
+			`The body_only review of ${selected.approval.head.slice(0, 10)} lists a body item the PR body does not meet: ${describeBodyItem(unmet)}. Run the body stage or fix the body with evf pr open --body-file.`,
+		);
 	const experience = selected.approval.experience;
 	if (
 		experience.budget === "exceeded" &&
