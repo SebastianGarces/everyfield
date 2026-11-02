@@ -8,7 +8,7 @@ const config: NextConfig = {
 	outputFileTracingRoot: path.join(import.meta.dirname, "../.."),
 	// The reference loader reads these two files at run time through a computed path, which the tracer cannot see.
 	// A literal `new URL` does not help: in a page chunk Turbopack turns it into a public /_next/static URL (WP-032).
-	// tests/reference/build/server-trace.test.mjs fails the build check when a route that bundles the loader drops them.
+	// tests/reference/server-trace.test.mjs fails the build check when a route that bundles the loader drops them.
 	outputFileTracingIncludes: {
 		"/**": ["../../packages/reference/src/freeze.json", "../../packages/reference/src/artifacts.json"],
 	},

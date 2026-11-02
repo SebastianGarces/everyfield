@@ -58,7 +58,7 @@ jobs:
         env:
           NEXT_TELEMETRY_DISABLED: "1"
       - name: Server traces hold the runtime reference files (WP-032)
-        run: node --test tests/reference/build/server-trace.test.mjs
+        run: node --test tests/reference/server-trace.test.mjs
       - name: Package unit tests (each package's test:unit, no database or network)
         run: corepack pnpm -r --if-present test:unit
 
