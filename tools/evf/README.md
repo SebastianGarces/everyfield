@@ -657,7 +657,8 @@ branch for `task start`, `verify`, `pr open` and `ship`, and the PR head for the
 names the missing entry; commit it there and run `task start` again for the brief. A start refuses
 an invalid entry that main or the task branch already carries before it creates the worktree.
 The branch may change `evf.config.json` only in its own entry, even when it owns the file; the verifier
-reviews that entry.
+reviews that entry. One exception: a task that owns the file may also append checks. Every existing check
+stays first, unchanged and in order, and nothing else outside its entry changes (`onlyAppendsChecks`).
 The only design file they may own is `design/handoff/screens.md`, the generated package-owner map.
 An entry with `"route": "design"` is a design task instead: it owns only `design/` paths and does not
 change `design/everyfield-ui.html`, the approved prototype that the app tokens come from, with one
@@ -725,6 +726,47 @@ TMPDIR, which holds Playwright profiles. It fails when a process survives SIGKIL
 (`--browser-age <minutes>`) with PID, age and tree memory. It reports only; owners close their own.
 `evf verify` reminds the caller to keep the turn open, and warns when a terminal runs it as a
 background job. Agent shells look the same in both modes, so the reminder prints every time.
+
+## Escaped bugs (OPS-114)
+
+A bug that Sebastian catches after review becomes a permanent local check. Everything here runs on this
+machine only. No CI workflow names `tests/ui/escaped` or `ui-escaped`, and no step calls a paid API.
+
+`evf escape <PR> --what "<his words>" [--head <sha>]` files one OPS task with status `new`. It reserves the
+id through `evf id next ops`. The stored ask holds the `--what` text byte for byte, the PR number, the
+escaped head and the Done template: a test in `tests/ui/escaped/` fails on the escaped head and passes on
+the fix (or on main when main never had the bug), the test passes the 20-run soak, and one `evf proof add`
+records each of the two runs. The escaped head is `--head` when given, else the merge commit of a merged
+PR, else the PR's current head. The command prints the `maintenanceTasks` entry to commit on the new
+task's branch (it owns `tests/ui/escaped/` and runs the documentation and workflow-regressions checks).
+It never edits `evf.config.json`. It refuses a missing or empty `--what` and an unknown PR before it
+reserves an id. A second call for the same PR and head files nothing and prints the existing id.
+
+`evf escape soak tests/ui/escaped/<name>.test.mjs [--task <task>]` runs one escaped test 20 times in a row
+against the task's stack, with `UI_BASE_URL` set. The first failed run ends the soak. The record goes to
+`.git/evf/evidence/<task slug>/soak/<sha256 of the file>.json`, with the run log beside it.
+
+The `ui-escaped` check in `evf.config.json` runs `node --test tests/ui/escaped/*.test.mjs` with
+`UI_BASE_URL` set to the task's stack URL. `evf verify` runs it for WP `/ui` parts and for any task that
+changes a file under `tests/ui/escaped/`, OPS tasks included. It skips other tasks with one line that
+gives the reason. It fails without a running stack (the message names `bin/evf stack up <task>`), and it
+fails for a changed escaped test that has no 20-green soak record for its current bytes.
+
+The tests sign in with the people seed of the same preview. Seed the stack before `evf verify`:
+
+```bash
+bin/evf stack up WP-037/ui
+node --env-file=<home apps/web/.env.local> --conditions=react-server --import tsx \
+  tests/ui/people/seed.mts up <stack url>       # writes $PEOPLE_UI_FIXTURE (default /tmp/everyfield-people-ui.json)
+bin/evf escape soak tests/ui/escaped/fixed-overlap.test.mjs --task OPS-114   # only for a new or changed test
+bin/evf verify WP-037/ui                        # ui-escaped runs fixed-overlap.test.mjs on the stack
+```
+
+`fixed-overlap.test.mjs` (#393) checks at 390 and 1440 px, in chromium and webkit, that the fixed or sticky
+app header does not cover the first visible content in `<main>` on each shell nav route and on the first
+deeper page of each. The #393 report came from a full-page screenshot taken after a scroll, which paints
+the sticky header in the middle of the page on every long page. The app had no overlap at load; see the
+OPS-114 PR.
 
 ## Feedback and human ownership
 

@@ -209,11 +209,13 @@ function main(argv: string[]): number | Promise<number> {
 			? "2-5 minutes"
 			: cmd === "pre-push"
 				? "under 10 seconds"
-				: cmd === "timing" || (cmd === "escape" && args[0] === "soak")
+				: cmd === "timing"
 					? "5-20 minutes"
-					: cmd === "verify" || cmd === "check"
-						? "2-15 minutes"
-						: undefined;
+					: cmd === "escape" && args[0] === "soak"
+						? "20-60 minutes (20 runs)"
+						: cmd === "verify" || cmd === "check"
+							? "2-15 minutes"
+							: undefined;
 	if (duration) requireForeground(cmd, duration);
 	switch (cmd) {
 		case "ci-tests":
