@@ -9,6 +9,7 @@ import { declarable, deny, entryJson, entryOf, scopeOf, settle } from "./core.ts
 const historyRow = z.object({
 	ok: z.boolean(),
 	name: z.string().nullable(),
+	timezone: z.string().nullable(),
 	phase: c.phaseNumber.nullable(),
 	revision: z.string().nullable(),
 	declarable: z.boolean().nullable(),
@@ -25,7 +26,7 @@ export const phaseReader = {
 	async readHistory(db: Pick<Database, "execute">, authority: RequestActor) {
 		return settle(async () => {
 			const scope = scopeOf(authority);
-			const { rows } = await db.execute(sql`SELECT g.ok,p.name,p.phase,p.revision::text AS revision,
+			const { rows } = await db.execute(sql`SELECT g.ok,p.name,p.timezone,p.phase,p.revision::text AS revision,
  CASE WHEN p.id IS NOT NULL THEN ${declarable(sql`p.id`)} END AS declarable,
  coalesce((SELECT jsonb_agg(${entryJson(sql`t`, sql`a.actor_id`)} ORDER BY t.occurred_at,t.id)
   FROM phase_transition t LEFT JOIN audit_event a ON a.id=t.operation_id
@@ -36,6 +37,7 @@ export const phaseReader = {
 			return c.historyResult.parse({
 				state: { phase: r.phase, revision: r.revision, declarable: r.declarable },
 				plantName: r.name,
+				timeZone: r.timezone,
 				entries: r.entries.map(entryOf),
 			});
 		});

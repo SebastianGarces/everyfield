@@ -346,12 +346,13 @@
     "packages/db/migrations/meta/0031_snapshot.json": "R1: DB default and migration history stay unchanged permanently.",
     "packages/db/migrations/meta/0032_snapshot.json": "R1: DB default and migration history stay unchanged permanently.",
     "packages/db/migrations/meta/current.json": "R1: DB default and migration history stay unchanged permanently.",
+    "packages/contracts/src/phases/index.ts": "R3: stored phase-history reason stays unchanged permanently.",
     "packages/db/src/schema/tables.ts": "R1: DB default and migration history stay unchanged permanently.",
-    "packages/domain/src/onboarding/setup.ts": "R3: stored phase-history reason stays unchanged permanently.",
     "packages/domain/src/phases/creation-entry/index.ts": "R3: stored phase-history reason stays unchanged permanently.",
     "packages/evry/src/context/compile.ts": "The classify prompt stays unchanged until a paid re-record is approved under G-SPEND.",
     "packages/reference/src/artifacts.json": "R4: frozen reference release; preserve original bytes permanently.",
     "tests/integration/onboarding/onboarding.test.mts": "R3: stored phase-history reason stays unchanged permanently.",
+    "tests/integration/phases/phases.test.mts": "R3: stored phase-history reason stays unchanged permanently.",
     "tests/integration/reference/sources.test.mjs": "R4: frozen reference release; preserve original bytes permanently."
   }
 }

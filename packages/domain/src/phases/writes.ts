@@ -1,7 +1,7 @@
 import { requestIdentity, type RequestIdentity } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/phases";
 import type { Database, Transaction } from "@everyfield/db/client";
-import { sql, type SQL } from "@everyfield/db/query";
+import { sql } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";

@@ -116,6 +116,8 @@ export type JourneyState = z.infer<typeof journeyState>;
 export const historyResult = z.strictObject({
 	state: journeyState,
 	plantName: z.string(),
+	/** The plant's time zone, for the dates of its journey. */
+	timeZone: z.string(),
 	/** Creation, declaration and moves in the order they happened. */
 	entries: z.array(journeyEntry),
 });
