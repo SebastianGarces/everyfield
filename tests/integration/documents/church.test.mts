@@ -372,6 +372,25 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		state.policy = saved;
 	});
 
+	test("WP-036 slice 3: the editor read carries the palette the PDF paints; a Member's call is refused", async () => {
+		const doc = state.policy;
+		const edit = ok(await documentsWriter.readChurchForEdit(db, await authority(ADMIN), { documentId: doc.id }));
+		assert.equal(edit.id, doc.id);
+		assert.equal(edit.brand.palette.themed, true, "the kit has a primary color and the document uses church branding");
+		assert.equal(edit.brand.palette.primary, "#1F4E79");
+		assert.equal(edit.brand.palette.accent, "#C9A227");
+		assert.deepEqual(edit.brand.assets, { logo: null, mark: null, photo: null }, "this kit has no images");
+		const { brand: _brand, ...document } = edit;
+		assert.deepEqual(
+			document,
+			ok(await documentsWriter.readChurch(db, await authority(ADMIN), { documentId: doc.id })),
+		);
+		refused(
+			await documentsWriter.readChurchForEdit(db, await authority(MEMBER), { documentId: doc.id }),
+			"access_denied",
+		);
+	});
+
 	test("AC:CASE-DOC-019-EDIT a wiped formal/legal fork saves and its PDF still prints the legal notice", async () => {
 		const doc = state.policy;
 		const wiped = structuredClone(doc.body);
