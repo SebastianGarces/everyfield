@@ -56,11 +56,12 @@ import { CheckInHeader } from "./Header.tsx";
 export function CheckInScreen({ initial, name }: { initial: CarePage; name: string }) {
 	const [strip, setStrip] = useState(initial);
 	const [older, setOlder] = useState<CarePage | null>(null);
-	const [target, setTarget] = useState<number | null>(null);
+	// The past week being corrected, kept whole so paging the strip never changes which week the form saves.
+	const [target, setTarget] = useState<CareWeek | null>(null);
 	const thisWeek = strip.weeks[0]!;
 	const shown = older ?? strip;
-	const editing = (target === null ? null : shown.weeks.find((w) => w.ordinal === target)) ?? thisWeek;
-	const correcting = editing.ordinal !== thisWeek.ordinal;
+	const editing = target ?? thisWeek;
+	const correcting = target !== null;
 	const [draft, setDraft] = useState<Draft>(() => draftOf(thisWeek));
 	const [pending, setPending] = useState(false);
 	const [status, setStatus] = useState<string | null>(null);
@@ -77,7 +78,7 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 	};
 
 	const choose = (week: CareWeek | null) => {
-		setTarget(week && week.ordinal !== thisWeek.ordinal ? week.ordinal : null);
+		setTarget(week && week.ordinal !== thisWeek.ordinal ? week : null);
 		setDraft(draftOf(week ?? thisWeek));
 		setFailure(null);
 		setIncomplete(false);
@@ -100,12 +101,10 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 			answers = draft.answers,
 			note = draft.note;
 		const before = { strip, older };
-		// Optimistic: the strip shows the new answer at once.
-		const shownBefore = older ?? strip;
-		const optimistic = withAnswer(shownBefore, week, answers, note);
-		if (older) setOlder(optimistic);
-		else setStrip(optimistic);
-		const revision = (older ?? strip).revision;
+		// Optimistic: the strip shows the new answer at once, on whichever page holds the week.
+		setStrip(withAnswer(strip, week, answers, note));
+		if (older) setOlder(withAnswer(older, week, answers, note));
+		const revision = strip.revision;
 		const payload = JSON.stringify({ id: week.id, revision, answers, note });
 		const key = keyFor(payload);
 		let result: Outcome<CareWriteResult>;
@@ -130,6 +129,7 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 		setStrip((s) => withResult({ ...s, revision: confirmed.revision }, confirmed));
 		setOlder((o) => (o ? withResult({ ...o, revision: confirmed.revision }, confirmed) : o));
 		setDraft(draftOf(confirmed.week));
+		if (correcting) setTarget(confirmed.week);
 		setStatus(
 			confirmed.outcome === "unchanged"
 				? "Nothing changed, so nothing new was saved."
@@ -150,7 +150,11 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 		if (page === 1) {
 			setStrip(result.value);
 			setOlder(null);
-		} else setOlder(result.value);
+		} else {
+			// One calendar revision for every page: the newest read wins.
+			setOlder(result.value);
+			setStrip((s) => ({ ...s, revision: result.value.revision }));
+		}
 	}
 
 	const missing = incomplete ? missingAreas(draft) : [];
