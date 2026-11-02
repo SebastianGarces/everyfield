@@ -7,6 +7,7 @@ import { useEditorState } from "@tiptap/react";
 import { useId, useState, type KeyboardEvent, type ReactNode } from "react";
 import { ALIGNS, layoutTargets, setBlockAttrs, setColumnCount, TOKENS, WEIGHTS, type Target } from "./layout.ts";
 import { Button } from "./tiptap/primitives/button.tsx";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./tiptap/primitives/tooltip.tsx";
 import { TOOLBAR } from "./tiptap/styles.ts";
 import { writeInKindLabel } from "./extensions.ts";
 
@@ -32,6 +33,18 @@ export function swatchColor(palette: DocBrand["palette"], token: Token): string 
 		case "border":
 			return palette.border;
 	}
+}
+
+/** A hover and focus tooltip for a control that has no tooltip of its own (an input, a select, a switch). */
+export function Tip({ text, children, className }: { text: string; children: ReactNode; className?: string }) {
+	return (
+		<Tooltip delay={300}>
+			<TooltipTrigger asChild>
+				<div className={className}>{children}</div>
+			</TooltipTrigger>
+			<TooltipContent>{text}</TooltipContent>
+		</Tooltip>
+	);
 }
 
 const keepSelection = (event: { preventDefault: () => void }) => event.preventDefault();
@@ -194,28 +207,30 @@ function HeightField({ editor, target }: { editor: Editor; target: Target }) {
 			<label htmlFor={id} className="text-sm text-text-2">
 				Height (pt)
 			</label>
-			<input
-				id={id}
-				type="number"
-				inputMode="numeric"
-				min={8}
-				max={1440}
-				step={1}
-				value={draft ?? String(current)}
-				aria-invalid={problem ? true : undefined}
-				aria-describedby={problem ? `${id}-problem` : undefined}
-				title="Image height in points, 8 to 1440"
-				className="h-9 w-20 rounded-sm bg-surface px-2 text-md text-ink shadow-[0_0_0_1px_var(--ef-line-2)] outline-none focus-visible:shadow-[0_0_0_2px_var(--ef-focus)] aria-[invalid=true]:shadow-[0_0_0_1px_var(--ef-magenta-500)]"
-				onChange={(event) => {
-					const text = event.target.value;
-					setDraft(text);
-					const next = Number(text);
-					if (text !== "" && Number.isFinite(next) && next >= 8 && next <= 1440) {
-						setBlockAttrs(editor, target.pos, { height: next });
-					}
-				}}
-				onBlur={() => setDraft(null)}
-			/>
+			<Tip text="Image height in points, 8 to 1440">
+				<input
+					id={id}
+					type="number"
+					inputMode="numeric"
+					min={8}
+					max={1440}
+					step={1}
+					value={draft ?? String(current)}
+					aria-invalid={problem ? true : undefined}
+					aria-describedby={problem ? `${id}-problem` : undefined}
+					title="Image height in points, 8 to 1440"
+					className="h-9 w-20 rounded-sm bg-surface px-2 text-md text-ink shadow-[0_0_0_1px_var(--ef-line-2)] outline-none focus-visible:shadow-[0_0_0_2px_var(--ef-focus)] aria-[invalid=true]:shadow-[0_0_0_1px_var(--ef-magenta-500)]"
+					onChange={(event) => {
+						const text = event.target.value;
+						setDraft(text);
+						const next = Number(text);
+						if (text !== "" && Number.isFinite(next) && next >= 8 && next <= 1440) {
+							setBlockAttrs(editor, target.pos, { height: next });
+						}
+					}}
+					onBlur={() => setDraft(null)}
+				/>
+			</Tip>
 			{problem ? (
 				<span id={`${id}-problem`} role="alert" className="text-xs font-medium text-magenta-600">
 					{problem}

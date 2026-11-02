@@ -18,7 +18,7 @@ import {
 	type PageWithoutRegions,
 	type RegionKey,
 } from "./layout.ts";
-import { Segmented } from "./LayoutControls.tsx";
+import { Segmented, Tip } from "./LayoutControls.tsx";
 
 // The page setup panel: paper size, orientation, the four margins, cards per sheet with cut marks, and the header and
 // footer. Each change applies at once as one step of the editor's history, after the format has checked it. A value the
@@ -65,22 +65,24 @@ function Inches({
 	const mine = fault?.field === field ? fault.message : undefined;
 	return (
 		<Field label={label} error={mine} hint={`${min} to ${max} in`}>
-			<Input
-				type="number"
-				inputMode="decimal"
-				step={0.05}
-				min={min}
-				max={max}
-				title={`${label} in inches`}
-				value={draft ?? String(toInches(points))}
-				onChange={(event) => {
-					const text = event.target.value;
-					setDraft(text);
-					const inches = Number(text);
-					if (text.trim() !== "" && Number.isFinite(inches)) onCommit(toPoints(inches));
-				}}
-				onBlur={() => setDraft(null)}
-			/>
+			<Tip text={`${label} in inches`}>
+				<Input
+					type="number"
+					inputMode="decimal"
+					step={0.05}
+					min={min}
+					max={max}
+					title={`${label} in inches`}
+					value={draft ?? String(toInches(points))}
+					onChange={(event) => {
+						const text = event.target.value;
+						setDraft(text);
+						const inches = Number(text);
+						if (text.trim() !== "" && Number.isFinite(inches)) onCommit(toPoints(inches));
+					}}
+					onBlur={() => setDraft(null)}
+				/>
+			</Tip>
 		</Field>
 	);
 }
@@ -147,14 +149,16 @@ export function PageSetupPanel({
 
 	const region = (key: RegionKey, pages: "all" | "first" | "rest" | null) => (
 		<div className="flex min-w-0 flex-col gap-2">
-			<Switch
-				label={key === "header" ? "Header" : "Footer"}
-				checked={pages !== null}
-				onCheckedChange={(on) => {
-					setFault(null);
-					setRegion(editor, key, on);
-				}}
-			/>
+			<Tip text={`Turn the page ${key} on or off`}>
+				<Switch
+					label={key === "header" ? "Header" : "Footer"}
+					checked={pages !== null}
+					onCheckedChange={(on) => {
+						setFault(null);
+						setRegion(editor, key, on);
+					}}
+				/>
+			</Tip>
 			{pages !== null ? (
 				<Segmented
 					label={`${key === "header" ? "Header" : "Footer"} prints on`}
@@ -174,17 +178,21 @@ export function PageSetupPanel({
 		>
 			<div className="flex items-center justify-between gap-3">
 				<h2 className="text-lg font-semibold text-ink">Page setup</h2>
-				<button
-					type="button"
-					className="cursor-pointer rounded-sm px-2 py-1 text-sm font-medium text-ink-2 hover:bg-hover"
-					onClick={onClose}
-				>
-					Close
-				</button>
+				<Tip text="Close page setup">
+					<button
+						type="button"
+						className="cursor-pointer rounded-sm px-2 py-1 text-sm font-medium text-ink-2 hover:bg-hover"
+						onClick={onClose}
+					>
+						Close
+					</button>
+				</Tip>
 			</div>
 			<div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
 				<Field label="Paper size">
-					<Select options={SIZES} value={page.size} onValueChange={setSize} aria-label="Paper size" />
+					<Tip text="Paper size">
+						<Select options={SIZES} value={page.size} onValueChange={setSize} aria-label="Paper size" />
+					</Tip>
 				</Field>
 				<Fieldset legend="Orientation">
 					<Segmented
@@ -259,12 +267,14 @@ export function PageSetupPanel({
 					) : null}
 				</Fieldset>
 				{tile ? (
-					<Switch
-						label="Cut marks"
-						description="Trim marks at the corners of each card."
-						checked={tile.cutMarks}
-						onCheckedChange={(cutMarks) => change("cutMarks", { ...page, tile: { ...tile, cutMarks } })}
-					/>
+					<Tip text="Print trim marks at the corners of each card">
+						<Switch
+							label="Cut marks"
+							description="Trim marks at the corners of each card."
+							checked={tile.cutMarks}
+							onCheckedChange={(cutMarks) => change("cutMarks", { ...page, tile: { ...tile, cutMarks } })}
+						/>
+					</Tip>
 				) : null}
 			</div>
 			<div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2">

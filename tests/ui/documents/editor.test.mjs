@@ -314,15 +314,22 @@ test("AC:DOC-EDIT-ACTIONS: every editing action is checked with Undo and Redo on
 			const body = await top(page);
 			const at = body.findIndex((n) => n.type === "bulletList" && JSON.stringify(n).includes("A financial interest"));
 			assert.equal(body[at + 1]?.type, "pageBreak", "the page break sits right after the list");
-			await checked(page, "page break from inside a column", async () => {
-				await page.locator(".ef-block[data-ef-node=columns]").first().click();
-				await button(page, "Page break").click();
+			// Columns are editable now (slice 3): a column holds no page break, so the button is off while the cursor is in one.
+			await page.locator(PAPER).evaluate((el) => {
+				const ed = el.editor;
+				let target = null;
+				ed.state.doc.descendants((node, pos) => {
+					if (target === null && node.type.name === "column") {
+						node.descendants((child, offset) => {
+							if (target === null && child.isTextblock) target = pos + 1 + offset + 1;
+							return target === null;
+						});
+					}
+					return target === null;
+				});
+				ed.chain().focus().setTextSelection(target).run();
 			});
-			assert.equal(
-				(await kinds(page))[1],
-				"pageBreak",
-				"the page break from a column sits after the whole columns block",
-			);
+			assert.equal(await button(page, "Page break").isDisabled(), true, "no page break inside a column");
 		});
 
 		await t.test("criterion 9: add, move and delete a block", async () => {
@@ -371,7 +378,7 @@ test("AC:DOC-EDIT-ACTIONS: every editing action is checked with Undo and Redo on
 				await page.keyboard.press(`${MOD}+Alt+Backspace`);
 			});
 			// Move up is disabled on the first block, Move down on the last.
-			await page.locator(".ef-block[data-ef-node=columns]").first().click();
+			await page.locator(PAPER).evaluate((el) => el.editor.commands.setNodeSelection(0));
 			assert.equal(await button(page, "Move block up").isDisabled(), true, "Move up is disabled on the first block");
 			await page.locator(PAPER).evaluate((el) => {
 				const doc = el.editor.state.doc;

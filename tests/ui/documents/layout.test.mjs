@@ -18,7 +18,7 @@ import { test } from "node:test";
 import { PDFDocument } from "../../../packages/domain/node_modules/pdf-lib/cjs/index.js";
 import { docDocument, forkTemplate } from "../../../packages/contracts/src/documents/index.ts";
 import { docTemplateById } from "../../../packages/domain/src/documents/doc-templates.ts";
-import { makePalette } from "../../../packages/domain/src/documents/theme.ts";
+import { makePalette, NEUTRAL_THEME } from "../../../packages/domain/src/documents/theme.ts";
 import { documentFrom } from "../../../apps/web/src/features/documents/church/editor/document-json.ts";
 import { docxMedia, docxParts, pdfPages, wordText } from "../../integration/documents/fixtures/readers.mts";
 import { BASE, ENGINES, fixture, hydrated, signIn, withPage } from "../setup.mjs";
@@ -43,6 +43,7 @@ const bases = { policy: await baseDoc("conflict-of-interest-policy"), card: awai
 const PRIMARY = "#1F4E6B";
 const ACCENT = "#D4731A";
 const palette = makePalette({ name: "church", primary: PRIMARY, accent: ACCENT });
+const neutral = makePalette(NEUTRAL_THEME);
 
 const svg = (inner, w = 900, h = 600) =>
 	Buffer.from(
@@ -94,6 +95,7 @@ async function brandKit(page, { colors = true, images = [] } = {}) {
 		await page.getByRole("textbox", { name: "Primary color", exact: true }).fill(PRIMARY);
 		await page.getByRole("textbox", { name: "Accent color · Optional", exact: true }).fill(ACCENT);
 	}
+	if (!colors) return;
 	const saved = page.waitForResponse((r) => r.request().method() === "POST" && r.url().startsWith(BASE));
 	await page.getByRole("button", { name: "Save", exact: true }).click();
 	await saved;
@@ -201,6 +203,23 @@ async function cursorInColumn(page, k) {
 	}, k);
 }
 
+/** Puts the cursor at the end of the last text block of the page header or footer. */
+async function cursorInRegion(page, type) {
+	await page.locator(PAPER).evaluate((el, t) => {
+		const ed = el.editor;
+		let end = null;
+		ed.state.doc.descendants((node, pos) => {
+			if (node.type.name === t)
+				node.descendants((child, offset) => {
+					if (child.isTextblock) end = pos + 1 + offset + 1 + child.content.size;
+				});
+			return end === null;
+		});
+		if (end === null) throw new Error(`no ${t}`);
+		ed.chain().focus().setTextSelection(end).run();
+	}, type);
+}
+
 /** Selects the n-th node of `type` as a block (a divider, an image, a write-in line). */
 async function selectNode(page, type, n = 0) {
 	await page.locator(PAPER).evaluate(
@@ -282,6 +301,27 @@ const nodesOf = (doc, type) => {
 	return found;
 };
 
+/** Adds a primary box and an accent bar and reads the colors the paper paints for them, as [r, g, b]. */
+async function paperColors(page) {
+	await cursorIn(page, "The board makes decisions");
+	await insert(page, "Colored box");
+	await type(page, "Boxed text");
+	await page.getByRole("radiogroup", { name: "Box fill" }).getByRole("radio", { name: "primary", exact: true }).click();
+	await cursorIn(page, "The secretary writes");
+	await insert(page, "Accent bar");
+	return page.locator(PAPER).evaluate((el) => {
+		const rgb = (css) => css.match(/\d+/g).slice(0, 3).map(Number);
+		const box = el.querySelector('[data-ef-node="box"]');
+		const bar = [...el.querySelectorAll('hr[data-line-weight="bar"][data-line-color="accent"]')].at(-1);
+		return {
+			fill: rgb(getComputedStyle(box).backgroundColor),
+			text: rgb(getComputedStyle(box.querySelector("p")).color),
+			bar: rgb(getComputedStyle(bar).backgroundColor),
+		};
+	});
+}
+const hex = (c) => `#${c.map((n) => n.toString(16).padStart(2, "0")).join("")}`.toUpperCase();
+
 // ------------------------------------------------------------------------------------------------ criterion 6, no kit
 
 test("AC:DOC-LAYOUT-MISSING: with no brand kit, Logo, Mark and Photo are disabled with a reason and a link (Chromium)", async () => {
@@ -306,6 +346,10 @@ test("AC:DOC-LAYOUT-MISSING: with no brand kit, Logo, Mark and Photo are disable
 		const link = page.getByRole("menuitem", { name: "Open the brand kit" }).first();
 		assert.equal(await link.getAttribute("href"), "/settings/brand");
 		await page.keyboard.press("Escape");
+		// With no brand kit the document prints in the Everyfield-neutral theme, and the paper paints that theme.
+		const colors = await paperColors(page);
+		assert.equal(hex(colors.fill), neutral.primary, "a primary box paints the neutral primary");
+		assert.equal(hex(colors.bar), neutral.accentLine.toUpperCase(), "an accent bar paints the neutral accent line");
 	});
 });
 
@@ -656,4 +700,512 @@ async function dividerIndexOf(page, attrs) {
 	const at = dividers.findIndex((d) => Object.entries(attrs).every(([k, v]) => d.attrs?.[k] === v));
 	assert.ok(at >= 0, `a divider with ${JSON.stringify(attrs)}`);
 	return at;
+}
+
+// ------------------------------------------------------------------------------------------------ criterion 4, neutral
+
+test("AC:DOC-LAYOUT-COLORS: the paper paints each token as the renderer's palette does (Chromium)", async (t) => {
+	await onPage(async (page) => {
+		await fork(page, "Conflict of Interest Policy");
+		const colors = await paperColors(page);
+		await t.test("a church theme: the brand kit's colors", () => {
+			assert.equal(hex(colors.fill), palette.primary, "a primary box paints the brand primary color");
+			assert.equal(
+				hex(colors.text),
+				palette.onPrimary.toUpperCase(),
+				"text on it is the contrast color the PDF prints",
+			);
+			assert.equal(
+				hex(colors.bar),
+				palette.accentLine.toUpperCase(),
+				"an accent bar paints the PDF's accent line color",
+			);
+		});
+		await t.test("every swatch shows the color its token paints, and no control takes a hex value", async () => {
+			await cursorInside(page, "box", 0);
+			const swatches = await page
+				.getByRole("radiogroup", { name: "Box fill" })
+				.getByRole("radio")
+				.evaluateAll((els) =>
+					els.map((el) => [el.getAttribute("aria-label"), getComputedStyle(el.firstElementChild).backgroundColor]),
+				);
+			assert.deepEqual(
+				swatches.map(([name]) => name),
+				["none", "ink", "muted-text", "primary", "accent", "muted", "border"],
+			);
+			assert.equal(await page.locator('input[type="color"]').count(), 0, "no color picker");
+			assert.equal(await page.getByRole("textbox", { name: /hex|color/i }).count(), 0, "no hex field");
+			const primary = swatches
+				.find(([name]) => name === "primary")[1]
+				.match(/\d+/g)
+				.slice(0, 3)
+				.map(Number);
+			assert.equal(hex(primary), palette.primary);
+		});
+	});
+});
+
+// ------------------------------------------------------------------------------------------------ files
+
+const PDFJS = "../../../packages/db/node_modules/pdfjs-dist/legacy/build/";
+let pdfjs;
+/** pdf.js, loaded once. */
+async function pdfLib() {
+	if (!pdfjs) {
+		globalThis.pdfjsWorker = await import(PDFJS + "pdf.worker.mjs");
+		pdfjs = await import(PDFJS + "pdf.mjs");
+	}
+	return pdfjs;
+}
+/** The text items of one PDF page with their position, and the page's drawing operators. */
+async function pdfPage(bytes, n = 1) {
+	const lib = await pdfLib();
+	const doc = await lib.getDocument({ data: new Uint8Array(bytes) }).promise;
+	const page = await doc.getPage(n);
+	const content = await page.getTextContent();
+	const ops = await page.getOperatorList();
+	const fills = [];
+	ops.fnArray.forEach((fn, i) => {
+		if (fn === lib.OPS.setFillRGBColor) {
+			const args = ops.argsArray[i];
+			fills.push(typeof args[0] === "string" ? args[0].toUpperCase() : hex(args.slice(0, 3).map((x) => Math.round(x))));
+		}
+	});
+	return {
+		pages: doc.numPages,
+		items: content.items.map((i) => ({ text: i.str, x: i.transform[4], y: i.transform[5] })),
+		operators: ops.fnArray.length,
+		fills,
+	};
+}
+
+/** Fetches one file of the open document through the file route, with the owner's session. */
+async function file(page, id, format, revision, { download = false } = {}) {
+	const response = await page
+		.context()
+		.request.get(
+			`${BASE}/documents/church/${id}/file?format=${format}&revision=${revision}${download ? "&download=1" : ""}`,
+		);
+	assert.equal(response.status(), 200, `${format} file`);
+	return Buffer.from(await response.body());
+}
+const revisionOf = async (page) =>
+	Number(
+		(
+			await page
+				.getByRole("status")
+				.filter({ hasText: /Revision \d+/ })
+				.innerText()
+		).match(/Revision (\d+)/)[1],
+	);
+
+test("the brand kit gets a cover photo", async () => {
+	await onPage(async (page) => {
+		await brandKit(page, { colors: false, images: ["cover_photo"] });
+	});
+});
+
+test("AC:DOC-LAYOUT-FILES: one document with everything of this slice, in its PDF and Word file (Chromium)", async (t) => {
+	await onPage(async (page) => {
+		const path = await fork(page, "Conflict of Interest Policy");
+		const id = path.split("/").at(-1);
+		// Build it with the editor's own controls.
+		await cursorIn(page, "The board makes decisions");
+		await insert(page, "2 columns");
+		await type(page, "Column one text");
+		await cursorInColumn(page, 1);
+		await type(page, "Column two text");
+		await cursorIn(page, "The member explains");
+		await insert(page, "Colored box");
+		await type(page, "Primary box text");
+		await page
+			.getByRole("radiogroup", { name: "Box fill" })
+			.getByRole("radio", { name: "primary", exact: true })
+			.click();
+		await cursorIn(page, "The secretary writes");
+		await insert(page, "Accent bar");
+		for (const item of ["Write-in line", "Signature line", "Date line", "Logo", "Mark", "Photo"]) {
+			await cursorIn(page, "The secretary writes");
+			await insert(page, item);
+		}
+		await openSetup(page);
+		await page.getByRole("combobox", { name: "Paper size" }).click();
+		await page.getByRole("option", { name: "Legal" }).click();
+		await radio(page, "Landscape").click();
+		await panel(page).getByRole("switch", { name: "Header" }).click();
+		await cursorInRegion(page, "pageHeader");
+		await type(page, "Policy header ");
+		await insert(page, "Page N");
+		await cursorInRegion(page, "pageFooter");
+		await type(page, "Footer text");
+		await insert(page, "Page N of M");
+		await button(page, "Save").click();
+		await page.getByRole("status").filter({ hasText: "Revision 2" }).waitFor();
+		const revision = await revisionOf(page);
+		const saved = await snapshot(page);
+		assert.ok(docDocument.safeParse(saved).success, "the saved document parses");
+
+		const pdf = await file(page, id, "pdf", revision);
+		const docx = await file(page, id, "docx", revision);
+		const kitFiles = {};
+		const kitSizes = {};
+		for (const source of ["logo", "mark", "photo"]) {
+			const src = await page.locator(`${PAPER} .ef-image[data-source="${source}"] img`).first().getAttribute("src");
+			kitFiles[source] = Buffer.from(await (await page.context().request.get(BASE + src)).body());
+			assert.ok(kitFiles[source].length > 100, `${source}: the brand asset route serves bytes`);
+			kitSizes[source] = await page
+				.locator(`${PAPER} .ef-image[data-source="${source}"] img`)
+				.first()
+				.evaluate((img) => [img.naturalWidth, img.naturalHeight]);
+		}
+
+		await t.test("the preview is the PDF Download gives", async () => {
+			assert.equal(
+				sha(await file(page, id, "pdf", revision)),
+				sha(await file(page, id, "pdf", revision, { download: true })),
+			);
+		});
+		await t.test("the PDF: size, columns, box, bar, fields, images, header, footer and page numbers", async () => {
+			const doc = await PDFDocument.load(pdf);
+			for (const p of doc.getPages()) {
+				const { width, height } = p.getSize();
+				assert.deepEqual([Math.round(width), Math.round(height)], [1008, 612], "Legal, landscape");
+			}
+			const first = await pdfPage(pdf, 1);
+			const left = first.items.find((i) => i.text.includes("Column one text"));
+			const right = first.items.find((i) => i.text.includes("Column two text"));
+			assert.ok(left && right, "both column texts print");
+			assert.ok(right.x > left.x + 100 && Math.abs(right.y - left.y) < 3, "the columns sit side by side");
+			assert.ok(
+				first.fills.includes(palette.primary),
+				`the box fill ${palette.primary} is in the page: ${[...new Set(first.fills)].join(" ")}`,
+			);
+			const allFills = [];
+			for (let n = 1; n <= first.pages; n++) allFills.push(...(await pdfPage(pdf, n)).fills);
+			assert.ok(allFills.includes(palette.accentLine.toUpperCase()), "the accent bar is in the accent line color");
+			// Write-in lines are fillable form fields with unique names.
+			const names = doc
+				.getForm()
+				.getFields()
+				.map((f) => f.getName());
+			assert.equal(new Set(names).size, names.length, "form field names are unique");
+			for (const key of ["name", "signature", "date"])
+				assert.ok(
+					names.some((n) => n.startsWith(key)),
+					`a form field for ${key}`,
+				);
+			// The three images.
+			const sizes = [];
+			for (const [, obj] of doc.context.enumerateIndirectObjects()) {
+				const dict = obj.dict ?? obj;
+				const sub = dict.get?.(doc.context.obj("Subtype"));
+				if (sub?.toString() === "/Image")
+					sizes.push([Number(dict.get(doc.context.obj("Width"))), Number(dict.get(doc.context.obj("Height")))]);
+			}
+			for (const [source, bytes] of Object.entries(kitFiles)) {
+				const png = kitSizes[source];
+				assert.ok(bytes.length > 0);
+				assert.ok(
+					sizes.some(([w, h]) => w === png[0] && h === png[1]),
+					`the PDF holds the ${source} (${png.join("x")}); images: ${JSON.stringify(sizes)}`,
+				);
+			}
+			const pages = await pdfPages(pdf);
+			pages.forEach((text, i) => {
+				assert.match(
+					text,
+					new RegExp(`Policy header Page ${i + 1}\\b`),
+					`page ${i + 1}: the header and its page number`,
+				);
+				assert.match(
+					text,
+					new RegExp(`Footer text\\s*Page ${i + 1} of ${pages.length}`),
+					`page ${i + 1}: the footer and its page number`,
+				);
+			});
+		});
+		await t.test("the Word file: text, images, page size, header, footer and page numbers", async () => {
+			const parts = docxParts(docx);
+			const body = wordText(parts["word/document.xml"]);
+			for (const text of ["Column one text", "Column two text", "Primary box text"])
+				assert.ok(body.includes(text), `Word has ${text}`);
+			assert.match(parts["word/document.xml"], /<w:pgSz[^>]*w:w="20160"[^>]*w:h="12240"/, "Legal landscape page size");
+			assert.match(parts["word/document.xml"], /w:orient="landscape"/);
+			const headers = Object.entries(parts).filter(([name]) => /^word\/header\d*\.xml$/.test(name));
+			const footers = Object.entries(parts).filter(([name]) => /^word\/footer\d*\.xml$/.test(name));
+			assert.ok(
+				headers.some(([, xml]) => wordText(xml).includes("Policy header")),
+				"the header text",
+			);
+			assert.ok(
+				footers.some(([, xml]) => wordText(xml).includes("Footer text")),
+				"the footer text",
+			);
+			assert.ok(
+				headers.some(([, xml]) => /PAGE/.test(xml)),
+				"the header counts pages",
+			);
+			assert.ok(
+				footers.some(([, xml]) => /NUMPAGES/.test(xml)),
+				"the footer counts pages in all",
+			);
+			const media = Object.values(docxMedia(docx));
+			for (const [source, bytes] of Object.entries(kitFiles))
+				assert.ok(media.includes(sha(bytes)), `the Word file embeds the ${source} bytes`);
+		});
+	});
+});
+
+// ------------------------------------------------------------------------------------------------ cards
+
+test("AC:DOC-LAYOUT-CARDS: 4 cards per sheet with cut marks, in the editor, the preview, the PDF and the Word file (Chromium)", async (t) => {
+	await onPage(async (page) => {
+		const path = await fork(page, "Core Group Commitment Card");
+		const id = path.split("/").at(-1);
+		const base = bases.card;
+		await openSetup(page);
+		assert.ok(await page.getByText("4 per sheet").first().isVisible(), "the editor labels the card");
+		await checked(
+			page,
+			"cards per sheet 1",
+			async () => {
+				await radio(page, "1 card per sheet").click();
+			},
+			{ base },
+		);
+		assert.equal(await page.getByText("4 per sheet").count(), 0, "no label with 1 card");
+		await checked(
+			page,
+			"cards per sheet 4",
+			async () => {
+				await radio(page, "4 cards per sheet, 2 across and 2 down").click();
+			},
+			{ base },
+		);
+		assert.equal(
+			await page.locator(".ef-paper").evaluate((el) => getComputedStyle(el).getPropertyValue("--page-w")),
+			"445.33px",
+			"one card at the tile size: 306 pt and its padding",
+		);
+		assert.equal((await snapshot(page, base)).page.tile.across, 2);
+		await checked(
+			page,
+			"cut marks off",
+			async () => {
+				await panel(page).getByRole("switch", { name: "Cut marks" }).click();
+			},
+			{ base },
+		);
+		await button(page, "Save").click();
+		await page.getByRole("status").filter({ hasText: "Revision 2" }).waitFor();
+		const off = await revisionOf(page);
+		await checked(
+			page,
+			"cut marks on",
+			async () => {
+				await panel(page).getByRole("switch", { name: "Cut marks" }).click();
+			},
+			{ base },
+		);
+		await button(page, "Save").click();
+		await page.getByRole("status").filter({ hasText: "Revision 3" }).waitFor();
+		const on = await revisionOf(page);
+		await t.test(
+			"the preview and the PDF print 4 cards on one sheet, with trim marks when cut marks are on",
+			async () => {
+				await button(page, "Preview").click();
+				await page.getByRole("region", { name: "Preview" }).waitFor();
+				const marked = await file(page, id, "pdf", on);
+				const plain = await file(page, id, "pdf", off);
+				assert.equal(
+					sha(marked),
+					sha(await file(page, id, "pdf", on, { download: true })),
+					"preview bytes equal Download bytes",
+				);
+				const [a, b] = [await pdfPage(marked), await pdfPage(plain)];
+				assert.equal(a.pages, 1, "one sheet");
+				assert.equal(a.items.filter((i) => i.text.includes("My commitment")).length, 4, "4 copies of the card");
+				assert.ok(
+					a.operators > b.operators,
+					`trim marks add drawing operators (${a.operators} against ${b.operators})`,
+				);
+				assert.equal(b.items.filter((i) => i.text.includes("My commitment")).length, 4);
+			},
+		);
+		await t.test("the Word file shows the 2 x 2 card table", async () => {
+			const parts = docxParts(await file(page, id, "docx", on));
+			const xml = parts["word/document.xml"];
+			assert.equal(wordText(xml).split("My commitment").length - 1, 4, "4 cards");
+			assert.match(xml, /Card sheet/, "the card sheet table");
+			assert.equal(xml.match(/<w:gridCol /g)?.length >= 2, true, "two columns across");
+		});
+	});
+});
+
+// ------------------------------------------------------------------------------------------------ access and look
+
+/** The accessible name of an element: aria-label, aria-labelledby, a label or its own text. */
+const NAME = `(el) => {
+	const byId = (el.getAttribute("aria-labelledby") ?? "").split(" ").map((id) => document.getElementById(id)?.textContent ?? "").join(" ").trim();
+	const labels = el.labels ? [...el.labels].map((l) => l.textContent).join(" ").trim() : "";
+	return el.getAttribute("aria-label") || byId || labels || el.textContent.trim();
+}`;
+
+test("AC:DOC-LAYOUT-ACCESS: every new control has a name, a tooltip and its cursor; 390 px fits; a Member sees no controls (Chromium)", async (t) => {
+	let docId;
+	await onPage(async (page) => {
+		const path = await fork(page, "Conflict of Interest Policy");
+		docId = path.split("/").at(-1);
+		await cursorIn(page, "The board makes decisions");
+		await insert(page, "2 columns");
+		await cursorInColumn(page, 0);
+		await insert(page, "Colored box");
+		await openSetup(page);
+
+		await t.test("every control in the block settings and the panel has an accessible name", async () => {
+			for (const scope of [page.getByRole("group", { name: "Block settings" }), panel(page)]) {
+				const named = await scope
+					.locator("button, [role=radio], [role=switch], [role=combobox], input")
+					.evaluateAll((els, fn) => els.map((el) => [el.tagName, new Function(`return ${fn}`)()(el)]), NAME);
+				assert.ok(named.length > 5, "the scope holds controls");
+				for (const [tag, name] of named) assert.ok(name && name.length > 0, `a ${tag} has no accessible name`);
+			}
+		});
+
+		await t.test("each control shows its tooltip, and cursor-pointer when it can be pressed", async () => {
+			const settings = page.getByRole("group", { name: "Block settings" });
+			const probes = [
+				[settings.getByRole("radio", { name: "3 columns" }), "3 columns"],
+				[
+					settings.getByRole("radiogroup", { name: "Box fill" }).getByRole("radio", { name: "accent", exact: true }),
+					"accent",
+				],
+				[
+					settings
+						.getByRole("radiogroup", { name: "Box border" })
+						.getByRole("radio", { name: "muted-text", exact: true }),
+					"muted-text",
+				],
+				[button(page, "Page setup"), "Page setup"],
+				[radio(page, "Landscape"), "Landscape"],
+				[panel(page).getByRole("switch", { name: "Header" }), "Turn the page header on or off"],
+				[page.getByLabel("Top margin"), "Top margin in inches"],
+				[page.getByRole("combobox", { name: "Paper size" }), "Paper size"],
+			];
+			for (const [control, text] of probes) {
+				await control.hover();
+				await page.getByRole("tooltip").filter({ hasText: text }).first().waitFor({ timeout: 5_000 });
+				const cursor = await control.evaluate((el) => getComputedStyle(el).cursor);
+				assert.ok(["pointer", "text"].includes(cursor), `${text}: cursor ${cursor}`);
+				await page.mouse.move(0, 0);
+			}
+			for (const control of [
+				settings.getByRole("radio", { name: "3 columns" }),
+				button(page, "Page setup"),
+				radio(page, "Landscape"),
+			])
+				assert.equal(await control.evaluate((el) => getComputedStyle(el).cursor), "pointer");
+		});
+
+		await t.test("keyboard users reach and change every field of the panel", async () => {
+			await page.getByRole("combobox", { name: "Paper size" }).focus();
+			const reached = new Set();
+			for (let i = 0; i < 40; i++) {
+				const name = await page.evaluate(`(${NAME})(document.activeElement)`);
+				const inside = await page.evaluate(() => !!document.activeElement?.closest('[aria-label="Page setup"]'));
+				if (inside) reached.add(name);
+				else if (reached.size > 3) break;
+				await page.keyboard.press("Tab");
+			}
+			for (const name of [
+				"Paper size",
+				"Portrait",
+				"Top margin",
+				"Right margin",
+				"Bottom margin",
+				"Left margin",
+				"1 card per sheet",
+				"Header",
+				"Footer",
+			])
+				assert.ok(
+					[...reached].some((n) => n.startsWith(name)),
+					`Tab reaches ${name}: ${[...reached].join(", ")}`,
+				);
+			// A field changes from the keyboard alone.
+			const before = (await snapshot(page)).page;
+			await page.getByLabel("Top margin").focus();
+			await page.keyboard.press("ControlOrMeta+A");
+			await page.keyboard.type("0.5");
+			assert.equal((await snapshot(page)).page.margin.top, 36);
+			await radio(page, "Portrait").focus();
+			await page.keyboard.press("ArrowRight");
+			assert.equal((await snapshot(page)).page.orientation, "landscape", "the arrow keys change the orientation");
+			assert.notDeepEqual((await snapshot(page)).page, before);
+		});
+
+		await t.test("at 390 px the page setup panel and each block control fit with no sideways scroll", async () => {
+			await page.setViewportSize({ width: 390, height: 844 });
+			const fits = async (what) => {
+				const [scroll, width, wide] = await page.evaluate(() => [
+					document.documentElement.scrollWidth,
+					innerWidth,
+					[...document.querySelectorAll("body *")]
+						.filter(
+							(el) => el.getBoundingClientRect().right > innerWidth + 1 && getComputedStyle(el).position !== "fixed",
+						)
+						.slice(0, 6)
+						.map(
+							(el) =>
+								`${el.tagName.toLowerCase()}.${String(el.className).slice(0, 40)} ${Math.round(el.getBoundingClientRect().right)}`,
+						),
+				]);
+				assert.ok(scroll <= width, `${what}: the page scrolls sideways (${scroll} > ${width}): ${wide.join(" | ")}`);
+			};
+			await fits("page setup open");
+			await page.getByRole("combobox", { name: "Paper size" }).click();
+			await page.getByRole("option", { name: "Custom" }).click();
+			await page.keyboard.press("Escape");
+			await fits("custom size fields");
+			await radio(page, "4 cards per sheet, 2 across and 2 down").click();
+			await fits("cards per sheet with cut marks");
+			await panel(page).getByRole("switch", { name: "Header" }).click();
+			await fits("header pages");
+			await cursorInColumn(page, 0);
+			await fits("box settings");
+			await selectNodeIfAny(page);
+		});
+	});
+	await t.test("a Member reads the document and sees no editing controls", async () => {
+		await onPage(
+			async (page) => {
+				await page.goto(`${BASE}/documents/church/${docId}`);
+				await hydrated(page);
+				await page.getByRole("region", { name: "Preview" }).waitFor({ timeout: 60_000 });
+				assert.equal(await page.getByRole("button", { name: "Page setup" }).count(), 0);
+				assert.equal(await page.getByRole("button", { name: "Insert block" }).count(), 0);
+				assert.equal(await page.locator(".ef-paper").count(), 0);
+				assert.ok(await page.getByRole("link", { name: "Download PDF" }).isVisible());
+			},
+			undefined,
+			"member",
+		);
+	});
+});
+
+/** Selects a divider when the body has one, so the divider settings can be measured too. */
+async function selectNodeIfAny(page) {
+	const has = await page.locator(PAPER).evaluate((el) => {
+		let found = false;
+		el.editor.state.doc.descendants((n) => {
+			if (n.type.name === "divider") found = true;
+			return !found;
+		});
+		return found;
+	});
+	if (has) {
+		await selectNode(page, "divider", 0);
+		const [scroll, width] = await page.evaluate(() => [document.documentElement.scrollWidth, innerWidth]);
+		assert.ok(scroll <= width, "the divider settings fit at 390 px");
+	}
 }
