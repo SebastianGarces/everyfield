@@ -1,11 +1,12 @@
 "use client";
 
-import { Clock01Icon, Download01Icon, File02Icon, Search01Icon } from "@hugeicons/core-free-icons";
+import { Clock01Icon, Download01Icon, File02Icon, Folder01Icon, Search01Icon } from "@hugeicons/core-free-icons";
 import {
 	Button,
 	Card,
 	EmptyState,
 	Field,
+	IntentLink,
 	Input,
 	PageHeader,
 	SearchInput,
@@ -229,11 +230,18 @@ export function DocumentsScreen({ templates, query, context, canPreview, canEdit
 				title="Documents"
 				subtitle="Print-ready templates from the Playbook, filled in with your church's details."
 				actions={
-					<Button variant="secondary" icon={Clock01Icon} asChild>
-						<a href="#saved" data-scroll="instant">
-							History
-						</a>
-					</Button>
+					<>
+						{written === "church" ? (
+							<Button variant="secondary" icon={Folder01Icon} asChild>
+								<IntentLink href="/documents/church">Church documents</IntentLink>
+							</Button>
+						) : null}
+						<Button variant="secondary" icon={Clock01Icon} asChild>
+							<a href="#saved" data-scroll="instant">
+								History
+							</a>
+						</Button>
+					</>
 				}
 			/>
 			<section

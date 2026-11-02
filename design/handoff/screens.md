@@ -30,6 +30,7 @@ All app pages are desktop only and sit inside the app shell (top bar, rail, cont
 | `#/launch` | Launch plan | `/launch` | none | WP-045, WP-046 | live |
 | `#/communication` | Communication | `/communication` | `/communication` | WP-027, WP-029 | live |
 | `#/documents` | Documents (wide) | `/documents` | `/documents` | WP-036, WP-037 | live |
+| `#/documents/written` | Written documents: the church's own statements, covenants and policies in a list pane and a WYSIWYG editor on a Letter sheet with the letterhead and signature from Settings, locked doctrinal slots, a selection toolbar and / menu, autosave, export, version history and print preview (OPS-101 prototype; the app port decides the route) | not decided | none | WP-037 | document open, none selected, no documents, archived, offline, version history, narrow, phone keyboard bar |
 | `#/notifications` | Notifications | `/notifications` | `/notifications` | WP-030 | live |
 | `#/network` | Network plants: portfolio stats, plant directory by area, status by name, no ranking | `/network` | `/oversight`, `/oversight/plants` | WP-047, WP-007 | live |
 | `#/network/plant` | One plant as the network sees it: phase journey, launch, sharing categories, the plant's shared findings | `/network/plants/[plantId]` | `/oversight/plants/[id]` | WP-047, WP-044 | shared, shared but empty, not shared |

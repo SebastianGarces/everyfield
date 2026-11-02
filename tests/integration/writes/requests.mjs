@@ -17,6 +17,8 @@ import { sql } from "../../../packages/db/src/query.ts";
 import { migrate } from "../../../packages/db/src/schema/migrate.ts";
 import { createIdentityService } from "../../../packages/domain/src/identity/index.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
+import { RequestActor } from "../../../packages/domain/src/access/session.ts";
+import { documentsWriter } from "../../../packages/domain/src/documents/index.ts";
 import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { teamsWriter } from "../../../packages/domain/src/teams/index.ts";
 
@@ -152,6 +154,14 @@ try {
 		sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${member.accountId},${plant.id},'member',clock_timestamp())`,
 	);
 	const ctx = { session: owner.sessionId, selected: plant };
+	// WP-036: Church Documents made from a built-in template, through the producer the New from template action calls.
+	const churchDocument = async (templateId) => {
+		const actor = await RequestActor.resolve(runtime, owner.sessionId);
+		const r = await documentsWriter.createFromTemplate(runtime, actor, { templateId, requestKey: randomUUID() });
+		assert.equal(r.status, "ok", JSON.stringify(r));
+		return r.value.id;
+	};
+	const policyDocument = await churchDocument("conflict-of-interest-policy");
 	const person = async (displayName) => {
 		const r = await runtime.transaction((tx) =>
 			peopleWriter.createPerson(tx, ctx, { requestKey: randomUUID(), input: { displayName, stage: "prospect" } }),
@@ -358,6 +368,10 @@ try {
 		["GET /tasks", "/tasks", owner.cookie],
 		["GET /tasks?task=<follow-up>", `/tasks?task=${followUpId}`, owner.cookie],
 		["GET /documents", "/documents", owner.cookie],
+		["GET /documents/church", "/documents/church", owner.cookie],
+		["GET /documents/church (member)", "/documents/church", member.cookie],
+		["GET /documents/church/[documentId]", `/documents/church/${policyDocument}`, owner.cookie],
+		["GET /documents/church/[documentId]/file", `/documents/church/${policyDocument}/file?format=pdf`, member.cookie],
 		// The landing route answers with a redirect.
 		["GET /home", "/home", owner.cookie, 307],
 		["GET /meetings", "/meetings", owner.cookie],
@@ -625,6 +639,8 @@ try {
 	await notices(80);
 	for (let i = 0; i < 30; i++) await teams(teamsWriter.create, { input: { name: `Grown ministry ${i}` } });
 	for (let i = 0; i < 8; i++) await staff(`Grown role ${i}`);
+	for (const id of ["budget-worksheet", "commitment-card", "guest-sign-in-sheet"])
+		for (let i = 0; i < 4; i++) await churchDocument(id);
 	// The same agenda reads at the largest size: 40 sections and 100 people on the list (the page count must not move).
 	for (const m of [visionMeeting, boardMeeting])
 		await admin.execute(sql`UPDATE meeting SET agenda=${sections(40)}::jsonb WHERE id=${m}`);
