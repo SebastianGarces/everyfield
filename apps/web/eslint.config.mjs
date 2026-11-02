@@ -20,6 +20,26 @@ const recordDialogFocus = {
 	},
 };
 
-const config = [...nextVitals, ...nextTs, prettier, recordDialogFocus, { ignores: [".next/**", "next-env.d.ts"] }];
+// Tiptap's free UI components, copied as they are (editor/tiptap/README.md lists each file and its source). They were
+// written before the React compiler rules and set state in effects, read refs while rendering and compose refs by
+// writing to a local. Rewriting them would make later upstream updates hard to compare, so these three rules stay off
+// for that folder only; the Everyfield files around it keep every rule.
+const vendoredTiptap = {
+	files: ["src/features/documents/church/editor/tiptap/**"],
+	rules: {
+		"react-hooks/set-state-in-effect": "off",
+		"react-hooks/refs": "off",
+		"react-hooks/immutability": "off",
+	},
+};
+
+const config = [
+	...nextVitals,
+	...nextTs,
+	prettier,
+	recordDialogFocus,
+	vendoredTiptap,
+	{ ignores: [".next/**", "next-env.d.ts"] },
+];
 
 export default config;
