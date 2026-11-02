@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { DatabaseSync } from "node:sqlite";
 import { readFileSync } from "node:fs";
-import { assistantLine, fixture, MARKER, source, toolResultLine, writeTranscript } from "./fixtures.ts";
+import { assistantLine, fixture, MARKER, migrationsFrom, source, toolResultLine, writeTranscript } from "./fixtures.ts";
 import { ensureTask, migrate, openWorkDb } from "../db.ts";
 import { runDone } from "../drive.ts";
 import { claudeArgs, launchPlan } from "../launch.ts";
@@ -59,14 +59,7 @@ test("OPS-69-migration: 003 adds the cache columns and keeps every row of a vers
 		db.exec(
 			"INSERT INTO runs (task_id, stage, role, session_id, tokens_in, tokens_out, cost_est, started_at) VALUES (1, 'plan', 'planner', 's', 7, 8, 1.5, 'x')",
 		);
-		assert.deepEqual(migrate(db).applied, [
-			"003-usage-columns.sql",
-			"004-task-seat-override.sql",
-			"005-merged-views.sql",
-			"006-task-follow-ups.sql",
-			"007-qa-previews.sql",
-			"008-follow-up-links.sql",
-		]);
+		assert.deepEqual(migrate(db).applied, migrationsFrom(3));
 		assert.deepEqual(
 			{
 				...db

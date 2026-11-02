@@ -1,9 +1,17 @@
 import { setLoadedCode } from "../merge.ts";
-import { mkdtempSync, cpSync, mkdirSync, writeFileSync, readFileSync, rmSync, chmodSync } from "node:fs";
+import { mkdtempSync, cpSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync, chmodSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 export const source = resolve(import.meta.dirname, "../../..");
+/** The work store migration files in number order. A test that migrates a store reads them, so a new one edits no test. */
+export const STORE_MIGRATIONS = readdirSync(join(source, "tools/evf/db/migrations"))
+	.filter((f) => /^\d{3}-.*\.sql$/.test(f))
+	.sort();
+/** The highest work store migration number. */
+export const STORE_LATEST = Number(STORE_MIGRATIONS.at(-1)!.slice(0, 3));
+/** The migration files numbered `n` or higher: what `migrate` applies to a store that has every migration below `n`. */
+export const migrationsFrom = (n: number) => STORE_MIGRATIONS.filter((f) => Number(f.slice(0, 3)) >= n);
 /**
  * Source for a fake Herdr's `agent start` branch: it records the `session_start` event that the Claude session-start
  * hook writes, for the run whose id ends the agent name. In the fake's state, `noSession` skips it (a Claude that never
