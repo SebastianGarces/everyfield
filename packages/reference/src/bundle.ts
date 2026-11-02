@@ -10,7 +10,7 @@ import { loadStarter, verifyCheckout } from "./starter.ts";
 import type { Starter } from "./starter.ts";
 import { hash, canonical, stableId, vectorHash } from "./hash.ts";
 import { safeMdx } from "./content.ts";
-import { wikiRecords } from "./starter/verify/generation.ts";
+import { wikiEntries } from "./starter/verify/generation.ts";
 import { loadApprovedSnapshot } from "./starter/verify/snapshot.ts";
 import type { ApprovedSnapshot } from "./starter/verify/snapshot.ts";
 
@@ -77,7 +77,7 @@ export function packageStarter(starter: Starter, wiki: ApprovedSnapshot): Refere
 			{ format: "source" },
 		);
 	}
-	for (const row of wikiRecords(wiki)) rows.push({ ...row, revisionId: stableId(row.id + ":" + row.contentHash) });
+	rows.push(...wikiEntries(wiki, wiki.source.version));
 	for (const [name, kind, key, path] of [
 		["tasks", "task_template", "key", "task-templates.ts"],
 		["teams", "ministry_template", "teamKey", "ministry-role-templates.ts"],

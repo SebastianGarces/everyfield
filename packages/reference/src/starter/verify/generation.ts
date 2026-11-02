@@ -11,13 +11,10 @@ import type { WikiSource } from "../manifest/approved.ts";
 import type { ApprovedSnapshot } from "./snapshot.ts";
 import { WikiRefusal } from "./snapshot.ts";
 
-export type WikiRecord = Omit<ReferenceEntry, "revisionId">;
-
-/** The Wiki rows of a snapshot. Each caller sets its own revision id. */
-export function wikiRecords(snapshot: ApprovedSnapshot): WikiRecord[] {
+export function wikiEntries(snapshot: ApprovedSnapshot, release: string): ReferenceEntry[] {
 	const sourcePath = snapshot.source.payloadPath;
 	const sourceHash = snapshot.source.payloadSha256;
-	const rows: WikiRecord[] = [];
+	const rows: ReferenceEntry[] = [];
 	for (const section of snapshot.sections) {
 		const body = canonical({
 			id: section.id,
@@ -30,6 +27,7 @@ export function wikiRecords(snapshot: ApprovedSnapshot): WikiRecord[] {
 		const contentHash = hash(body);
 		rows.push({
 			id: section.id,
+			revisionId: stableId(`${release}:${section.id}:${contentHash}`),
 			kind: "section",
 			key: section.id,
 			body,
@@ -58,6 +56,7 @@ export function wikiRecords(snapshot: ApprovedSnapshot): WikiRecord[] {
 		const contentHash = hash(body);
 		rows.push({
 			id: article.id,
+			revisionId: stableId(`${release}:${article.id}:${contentHash}`),
 			kind: "article",
 			key: article.id,
 			body,
@@ -83,6 +82,7 @@ export function wikiRecords(snapshot: ApprovedSnapshot): WikiRecord[] {
 		const contentHash = hash(body);
 		rows.push({
 			id,
+			revisionId: stableId(`${release}:${id}:${contentHash}`),
 			kind: "mail_template",
 			key: template.name,
 			body,
@@ -93,13 +93,6 @@ export function wikiRecords(snapshot: ApprovedSnapshot): WikiRecord[] {
 		});
 	}
 	return rows.sort((left, right) => left.id.localeCompare(right.id, "en"));
-}
-
-export function wikiEntries(snapshot: ApprovedSnapshot, release: string): ReferenceEntry[] {
-	return wikiRecords(snapshot).map((row) => ({
-		...row,
-		revisionId: stableId(`${release}:${row.id}:${row.contentHash}`),
-	}));
 }
 
 export function wikiBundle(
