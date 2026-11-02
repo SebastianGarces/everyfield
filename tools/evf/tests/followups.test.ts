@@ -6,15 +6,17 @@ import { spawnSync } from "node:child_process";
 import { fixture, source } from "./fixtures.ts";
 import {
 	findTask,
+	followUpsOfTask,
 	markMerged,
 	migrate,
+	newTaskRow,
 	openWorkDb,
 	requireStartable,
 	schemaVersion,
 	status,
 	withPartial,
 } from "../db.ts";
-import { driveOnce, nextStage, runDone, taskNew, taskSpec } from "../drive.ts";
+import { driveOnce, next, nextStage, runDone, taskAbandon, taskLink, taskNew, taskSpec } from "../drive.ts";
 import { unfiledSlices } from "../followups.ts";
 import { laterSlices } from "../spec.ts";
 import { checkPrBody } from "../pr-body.ts";
@@ -101,13 +103,17 @@ test("OPS-86-store: a store migrated from schema 4 gains queued and parent_task_
 		db.exec("CREATE TABLE schema_version (version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TEXT NOT NULL)");
 		files.forEach((name, i) => {
 			db.exec(readFileSync(join(source, `tools/evf/db/migrations/${name}.sql`), "utf8"));
-			db.prepare("INSERT INTO schema_version VALUES (?, ?, 'x')").run(i + 1, name);
+			db.prepare("INSERT INTO schema_version VALUES (?, ?, 'x')").run(i + 1, name.slice(4));
 		});
 		db.exec(
 			"INSERT INTO tasks (slug, mode, ref, title, status, seat_model, created_at, updated_at) VALUES ('ops-1', 'implement', 'OPS-1', 'One', 'active', 'm', 't', 't')",
 		);
 		assert.equal(schemaVersion(db), 4);
-		assert.deepEqual(migrate(db).applied, ["005-merged-views.sql", "006-task-follow-ups.sql"]);
+		assert.deepEqual(migrate(db).applied, [
+			"005-merged-views.sql",
+			"006-task-follow-ups.sql",
+			"008-follow-up-links.sql",
+		]);
 		const row = db.prepare("SELECT * FROM v_tasks WHERE ref = 'OPS-1'").get() as Record<string, unknown>;
 		assert.equal(row.status, "active");
 		assert.equal(row.seat_model, "m");
@@ -477,4 +483,250 @@ test("OPS-86-owner: owner-review text and evf status start with a Partial: line 
 	} finally {
 		f.close();
 	}
+});
+
+// OPS-109: evf task link records an existing row as a follow-up, or as the row of one later slice.
+
+/** Run a command and return what it printed. */
+function printed(fn: () => unknown): string[] {
+	const lines: string[] = [];
+	const log = console.log;
+	console.log = (...a: unknown[]) => void lines.push(a.join(" "));
+	try {
+		fn();
+	} finally {
+		console.log = log;
+	}
+	return lines;
+}
+const link = (
+	root: string,
+	ref: string,
+	followUp: string,
+	opts: { id?: number; slice?: number; remove?: boolean } = {},
+) => printed(() => taskLink(root, parseTask(ref), { followUp: parseTask(followUp), remove: false, ...opts }));
+const linkCols = (root: string, ref: string) => {
+	const db = openWorkDb(root);
+	try {
+		return db
+			.prepare("SELECT id, status, parent_task_id, slice, linked FROM tasks WHERE ref = ? ORDER BY id")
+			.all(ref)
+			.map((r) => ({ ...r }));
+	} finally {
+		db.close();
+	}
+};
+
+test("OPS-109-link: an existing WP and OPS row become follow-ups with no new id, keep their status, and repeat as no change", () => {
+	const f = withRemote();
+	try {
+		newTask(f.root, "OPS-7", "Fix the wiki article.");
+		newTask(f.root, "WP-033", "Build the documents page.");
+		newTask(f.root, "OPS-12", "Tooling follow-up.");
+		const parent = rows(f.root, "ref = 'OPS-7'")[0]!;
+		assert.deepEqual(link(f.root, "OPS-7", "WP-033"), [
+			`link: OPS-7: linked WP-033 (store row ${rows(f.root, "ref = 'WP-033'")[0]!.id}) as a follow-up.`,
+		]);
+		link(f.root, "OPS-7", "OPS-12");
+		assert.deepEqual(
+			linkCols(f.root, "WP-033").map((r) => [r.status, r.parent_task_id, r.slice, r.linked]),
+			[["new", parent.id, null, 1]],
+		);
+		assert.equal(count(f.root, "follow_up_linked"), 2);
+		assert.ok(!f.remoteRef("refs/evf/ids/OPS-13"), "no id is reserved");
+		// A repeat changes nothing and writes no event.
+		assert.deepEqual(link(f.root, "OPS-7", "WP-033"), [
+			`link: no change; store row ${rows(f.root, "ref = 'WP-033'")[0]!.id} already is that follow-up.`,
+		]);
+		assert.equal(count(f.root, "follow_up_linked"), 2);
+		// followUpsOf names both, so the Partial: line, the PR body check and evf status include them.
+		assert.deepEqual(
+			followUpsOfTask(f.root, parseTask("OPS-7")).map((x) => x.label),
+			["WP-033", "OPS-12"],
+		);
+		assert.equal(
+			withPartial(f.root, parseTask("OPS-7"), "waits"),
+			"Partial: this PR covers only part of the ask. Deferred: WP-033 (WP-033); OPS-12 (OPS-12).\nwaits",
+		);
+		const fu = followUpsOfTask(f.root, parseTask("OPS-7"));
+		assert.throws(() => checkPrBody(f.root, prBody("Fixed the article."), "ordinary", fu), /Partial:/);
+		assert.equal(checkPrBody(f.root, prBody("Partial: deferred WP-033 and OPS-12."), "ordinary", fu).kind, "ordinary");
+		const json = JSON.parse(printed(() => status(f.root, { json: true, task: "OPS-7" }))[0]!);
+		assert.deepEqual(json.tasks[0].followUps, ["WP-033", "OPS-12"]);
+		// The verifier's Ask coverage defers to the linked labels and passes.
+		const report = parseAskCoverage(
+			"## Ask coverage\n\n| Deliverable | Status |\n| --- | --- |\n| article fix | delivered |\n| documents page | deferred WP-033 |\n| tooling | deferred OPS-12 |\n",
+		);
+		assert.ok("rows" in report);
+		assert.equal(
+			approvalBlock(
+				report.rows,
+				fu.map((x) => x.label),
+			),
+			null,
+		);
+		// --remove undoes the link; a second remove is no change.
+		assert.match(link(f.root, "OPS-7", "OPS-12", { remove: true })[0]!, /^link: OPS-7: unlinked OPS-12/);
+		assert.deepEqual(
+			linkCols(f.root, "OPS-12").map((r) => [r.parent_task_id, r.slice, r.linked]),
+			[[null, null, 0]],
+		);
+		assert.match(link(f.root, "OPS-7", "OPS-12", { remove: true })[0]!, /no change; store row \d+ is no follow-up/);
+		assert.equal(count(f.root, "follow_up_unlinked"), 1);
+		assert.deepEqual(
+			followUpsOfTask(f.root, parseTask("OPS-7")).map((x) => x.label),
+			["WP-033"],
+		);
+	} finally {
+		f.close();
+	}
+});
+
+test("OPS-109-link: refuses a self link, a cycle, a second parent, an abandoned or merged row, and asks for --id", () => {
+	const f = withRemote();
+	try {
+		for (const ref of ["OPS-7", "OPS-12", "WP-033", "WP-034", "WP-035"]) newTask(f.root, ref, `Ask of ${ref}.`);
+		link(f.root, "OPS-7", "OPS-12");
+		const before = count(f.root, "follow_up_linked");
+		assert.throws(() => link(f.root, "OPS-7", "OPS-7"), /OPS-7 cannot be a follow-up of itself/);
+		assert.throws(
+			() => link(f.root, "OPS-12", "OPS-7"),
+			/OPS-12 is already a follow-up of OPS-7; the link would make a cycle/,
+		);
+		link(f.root, "OPS-12", "WP-033");
+		assert.throws(() => link(f.root, "OPS-7", "WP-033"), /is already a follow-up of OPS-12/);
+		const seat = process.env.EVF_RUN;
+		delete process.env.EVF_RUN; // A human shell abandons rows.
+		try {
+			printed(() => taskAbandon(f.root, parseTask("WP-034"), { reason: "stale fixture row" }));
+		} finally {
+			if (seat !== undefined) process.env.EVF_RUN = seat;
+		}
+		const abandoned = rows(f.root, "ref = 'WP-034'")[0]!.id;
+		assert.throws(() => link(f.root, "OPS-7", "WP-034"), /WP-034 has no open task row/);
+		assert.throws(() => link(f.root, "OPS-7", "WP-034", { id: abandoned }), /is abandoned; link an open row/);
+		const db = openWorkDb(f.root);
+		markMerged(db, parseTask("WP-035"), "d".repeat(40), null);
+		newTaskRow(db, parseTask("OPS-12"), "implement");
+		db.close();
+		assert.throws(() => link(f.root, "OPS-7", "WP-035"), /is merged; link an open row/);
+		// OPS-12 now has two open rows: --id picks one.
+		const [first, second] = rows(f.root, "ref = 'OPS-12'");
+		assert.throws(
+			() => link(f.root, "OPS-7", "OPS-12", { remove: true }),
+			new RegExp(`OPS-12 has rows ${first!.id} \\(new\\), ${second!.id} \\(new\\): pick one with --id`),
+		);
+		assert.throws(() => link(f.root, "OPS-7", "OPS-12", { id: 999 }), /Store row 999 is not a row of OPS-12/);
+		assert.equal(count(f.root, "follow_up_linked"), before + 1, "only the WP-033 link under OPS-12 was written");
+		assert.match(link(f.root, "OPS-7", "OPS-12", { id: second!.id })[0]!, /linked OPS-12 \(store row \d+\)/);
+	} finally {
+		f.close();
+	}
+});
+
+test("OPS-109-slice: a row linked to slice 1 fills it, a new spec reserves one id for slice 2, and next is no longer blocked", () => {
+	const f = withRemote();
+	try {
+		const task = parseTask("OPS-5"),
+			spec = specWith(["Docs page.", "Footer."]);
+		newTask(f.root, "OPS-5", "The ask of OPS-5.");
+		newTask(f.root, "OPS-12", "Docs page, already filed.");
+		// The blocked state of a spec stored before its slices had rows (OPS-107 today), and a passed plan.
+		const db = openWorkDb(f.root);
+		const row = findTask(db, task)!;
+		db.prepare("UPDATE tasks SET spec = ? WHERE id = ?").run(spec, row.id);
+		db.prepare(
+			"INSERT INTO runs (task_id, stage, role, status, started_at, ended_at) VALUES (?, 'plan', 'planner', 'passed', 't', 't')",
+		).run(row.id);
+		db.close();
+		const nextOf = () => JSON.parse(printed(() => next(f.root, task))[0]!);
+		assert.equal(nextOf().stage, "blocked");
+		assert.throws(() => requireStartable(f.root, task, "implementer"), /2 later slices with no follow-up/);
+
+		// A plain link never fills a slice.
+		link(f.root, "OPS-5", "OPS-12");
+		assert.match(nextOf().reason, /2 later slices with no follow-up/);
+		assert.throws(() => link(f.root, "OPS-5", "OPS-12", { slice: 3 }), /has 2 later slices, so there is no slice 3/);
+		assert.match(link(f.root, "OPS-5", "OPS-12", { slice: 1 })[0]!, /as a follow-up for later slice 1\.$/);
+		assert.match(nextOf().reason, /1 later slice with no follow-up: "Footer\."/);
+
+		// Storing the spec again files only slice 2: exactly one new OPS id.
+		const lines = storeSpec(f.root, "OPS-5", spec);
+		assert.deepEqual(
+			lines.filter((l) => l.startsWith("follow-up:")),
+			["follow-up: OPS-12 new OPS-12", "follow-up: OPS-13 queued Footer."],
+		);
+		assert.ok(f.remoteRef("refs/evf/ids/OPS-13") && !f.remoteRef("refs/evf/ids/OPS-14"));
+		assert.equal(nextOf().stage, "implement");
+		requireStartable(f.root, task, "implementer");
+		assert.deepEqual(
+			followUpsOfTask(f.root, task).map((x) => x.label),
+			["OPS-12", "OPS-13"],
+		);
+		// A new spec without slices abandons the filed slice 2 and never edits or abandons the linked row.
+		storeSpec(f.root, "OPS-5", specWith([]));
+		assert.deepEqual(
+			linkCols(f.root, "OPS-12").map((r) => [r.status, r.slice, r.linked]),
+			[["new", 1, 1]],
+		);
+		assert.equal(rows(f.root, "ref = 'OPS-13'")[0]!.status, "abandoned");
+		assert.ok(!f.remoteRef("refs/evf/ids/OPS-14"));
+		// A slice that a linked row covers refuses another row.
+		storeSpec(f.root, "OPS-5", spec);
+		newTask(f.root, "OPS-7", "Seven.");
+		assert.throws(
+			() => link(f.root, "OPS-5", "OPS-7", { slice: 1 }),
+			/Slice 1 of OPS-5 already has a follow-up: OPS-12/,
+		);
+	} finally {
+		f.close();
+	}
+});
+
+test("OPS-109-store: migration 8 numbers the filed slices on a store that applied another branch's 7, and a store that applied another 8 stops", () => {
+	const db = new DatabaseSync(":memory:");
+	db.exec("CREATE TABLE schema_version (version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TEXT NOT NULL)");
+	const dir = join(source, "tools/evf/db/migrations");
+	[
+		"001-init",
+		"002-prototype-statuses",
+		"003-usage-columns",
+		"004-task-seat-override",
+		"005-merged-views",
+		"006-task-follow-ups",
+	].forEach((file, i) => {
+		db.exec(readFileSync(join(dir, `${file}.sql`), "utf8"));
+		db.prepare("INSERT INTO schema_version VALUES (?, ?, 'x')").run(i + 1, file.slice(4));
+	});
+	// OPS-106's open branch applied its migration 7 to the shared store first.
+	db.prepare("INSERT INTO schema_version VALUES (7, 'qa-previews', 'x')").run();
+	const insert = db.prepare(
+		"INSERT INTO tasks (slug, mode, ref, status, parent_task_id, created_at, updated_at) VALUES ('s', 'implement', ?, ?, ?, 't', 't')",
+	);
+	insert.run("WP-097", "active", null);
+	for (const status of ["queued", "abandoned", "queued", "new"]) insert.run("WP-097", status, 1);
+	assert.deepEqual(migrate(db).applied, ["008-follow-up-links.sql"]);
+	assert.deepEqual(
+		db
+			.prepare("SELECT id, status, slice, linked FROM tasks ORDER BY id")
+			.all()
+			.map((r) => ({ ...r })),
+		[
+			{ id: 1, status: "active", slice: null, linked: 0 },
+			{ id: 2, status: "queued", slice: 1, linked: 0 },
+			{ id: 3, status: "abandoned", slice: null, linked: 0 },
+			{ id: 4, status: "queued", slice: 2, linked: 0 },
+			{ id: 5, status: "new", slice: 3, linked: 0 },
+		],
+	);
+	db.close();
+
+	const other = new DatabaseSync(":memory:");
+	other.exec("CREATE TABLE schema_version (version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TEXT NOT NULL)");
+	other.prepare("INSERT INTO schema_version VALUES (8, 'other-branch', 'x')").run();
+	assert.throws(
+		() => migrate(other),
+		/The work store applied migration 8 as other-branch, but this evf code numbers 008-follow-up-links\.sql 8\. Renumber the newer migration after the last one on main\./,
+	);
+	other.close();
 });

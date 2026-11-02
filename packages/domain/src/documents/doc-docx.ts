@@ -12,7 +12,7 @@ import { attrsOf, computeTable, pageBox, tileBox } from "@everyfield/contracts/d
 import { fieldValues, listValues } from "./doc-values.ts";
 import { HEAD, NS, border, escape, hex, styles, type DocxCtx } from "./docx.ts";
 import { formatNumber } from "./layouts/doc.tsx";
-import { LEGAL_NOTICE } from "./layouts/blocks.tsx";
+import { LEGAL_NOTICE } from "@everyfield/contracts/documents";
 import { SLOT_BLANK_NOTE } from "./templates/church.ts";
 import { makePalette, tokenColor, type RenderTheme, type ThemeImage } from "./theme.ts";
 import { zip, type ZipEntry } from "./zip.ts";
