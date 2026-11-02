@@ -5,6 +5,7 @@ import { renderBrief } from "./brief.ts";
 import { requireStartable } from "./db.ts";
 import { awaitLoad } from "./load.ts";
 import { requireOpsReservation } from "./ids.ts";
+import { ESCAPED_DIR } from "./escape.ts";
 import { maintenanceScope, requireImplementation, requireSpend, requireTaskRisk, requireTaskScope } from "./policy.ts";
 import { reviewedMilestone } from "./progress.ts";
 import { startFeedbackTask, cachedTriage } from "./feedback.ts";
@@ -56,8 +57,13 @@ const startsPortlessPreview = (argv: string[]) => argv.some((a) => /(^|\/)script
 export function stack(root: string, task: TaskRef, action: "up" | "down" | "status", optional = false): number {
 	if (action === "up") requireForeground("stack up", "1-5 minutes");
 	const cfg = loadConfig(root);
-	if (task.kind === "ops") fail("Maintenance tasks have no application stack.");
-	if (action === "up") {
+	// An OPS task that owns tests/ui/escaped/ runs those tests against a stack of its worktree (OPS-114).
+	if (
+		task.kind === "ops" &&
+		!maintenanceScope(requireWorktree(root, cfg, task), task).owningPaths.includes(ESCAPED_DIR)
+	)
+		fail(`Maintenance tasks have no application stack unless they own ${ESCAPED_DIR}.`);
+	if (action === "up" && task.kind !== "ops") {
 		const wp = task.kind === "wp" ? task.wp : cachedTriage(root, task.issue!)?.wp;
 		if (!wp) fail("No reviewed stack task scope.");
 		requireImplementation(root, wp, task.part);
