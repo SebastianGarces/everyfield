@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { loadStarter } from "../../../packages/reference/src/starter.ts";
 import { packageStarter, validateBundle } from "../../../packages/reference/src/bundle.ts";
 import { hash, vectorHash } from "../../../packages/reference/src/hash.ts";
-import { approvedSource, approvedWiki } from "../../../packages/reference/src/starter/manifest/approved.ts";
+import { approvedWiki } from "../../../packages/reference/src/starter/manifest/approved.ts";
 import { localEmbedding, resolveWikiEmbedding } from "../../../packages/reference/src/starter/verify/embed.ts";
 import { wikiBundle, wikiPolicy } from "../../../packages/reference/src/starter/verify/generation.ts";
 import { EmbeddingRefusal } from "../../../packages/reference/src/starter/verify/openai.ts";
@@ -62,10 +62,10 @@ test("WP-033 criterion 9: the pins and every packaged Wiki row follow the living
 	const living = JSON.parse(
 		await readFile(new URL("../../../docs/reference/wiki/seed.json", import.meta.url), "utf8"),
 	) as { articles: { slug: string; content: string }[]; sections: unknown[]; templates: unknown[] };
-	assert.equal(approvedSource.payloadPath, "docs/reference/wiki/seed.json");
-	assert.equal(approvedSource.manifestPath, "docs/reference/wiki/manifest.json");
+	assert.equal(approvedWiki.payloadPath, "docs/reference/wiki/seed.json");
+	assert.equal(approvedWiki.manifestPath, "docs/reference/wiki/manifest.json");
 	assert.deepEqual(
-		[approvedSource.articles, approvedSource.sections, approvedSource.systemTemplates],
+		[approvedWiki.articles, approvedWiki.sections, approvedWiki.systemTemplates],
 		[living.articles.length, living.sections.length, living.templates.length],
 	);
 	assert.deepEqual(
@@ -79,7 +79,7 @@ test("WP-033 criterion 9: the pins and every packaged Wiki row follow the living
 		false,
 	);
 	for (const entry of entries.filter((row) => ["article", "section", "mail_template"].includes(row.kind)))
-		assert.deepEqual([entry.sourcePath, entry.sourceHash], [approvedSource.payloadPath, approvedSource.payloadSha256]);
+		assert.deepEqual([entry.sourcePath, entry.sourceHash], [approvedWiki.payloadPath, approvedWiki.payloadSha256]);
 });
 
 test("INV-wiki-embedding: an OpenAI key stays unused until EVF_WIKI_EMBEDDINGS=openai", async () => {

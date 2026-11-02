@@ -12,7 +12,7 @@ const manifest = await readFile(new URL(manifestPath, root));
 const payload = await readFile(new URL(payloadPath, root));
 const seed = JSON.parse(payload.toString("utf8"));
 const payloadSha256 = sha(payload);
-const block = `export const approvedSource = {
+const block = `const approvedSource = {
 	version: "wiki-seed-${payloadSha256.slice(0, 12)}",
 	manifestPath: "${manifestPath}",
 	payloadPath: "${payloadPath}",
@@ -23,7 +23,7 @@ const block = `export const approvedSource = {
 	systemTemplates: ${seed.templates.length},
 } as const satisfies WikiSource;`;
 const current = await readFile(file, "utf8");
-const pinned = /export const approvedSource = \{[\s\S]*?\} as const satisfies WikiSource;/;
+const pinned = /const approvedSource = \{[\s\S]*?\} as const satisfies WikiSource;/;
 if (!pinned.test(current)) throw Error("approved.ts has no approvedSource block");
 const next = current.replace(pinned, block);
 if (process.argv.includes("--write")) {

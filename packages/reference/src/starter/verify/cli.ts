@@ -8,7 +8,7 @@ import { parseArgs } from "node:util";
 import { createDatabase, closeDatabase } from "@everyfield/db/client";
 import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
-import { approvedSource, approvedWiki } from "../manifest/approved.ts";
+import { approvedWiki } from "../manifest/approved.ts";
 import { referenceService } from "./service.ts";
 
 const DEVELOPMENT_HOSTS = [
@@ -77,7 +77,7 @@ try {
 			SELECT a.activation_number::text AS number, r.release_key FROM reference_activation a
 			JOIN reference_release r ON r.id = a.release_id ORDER BY a.activation_number DESC LIMIT 1`)
 	).rows[0] as { number: string; release_key: string } | undefined;
-	if (current?.release_key === approvedSource.version) {
+	if (current?.release_key === approvedWiki.version) {
 		console.log(
 			JSON.stringify({ activeRelease: current.release_key, activationNumber: current.number, changed: false }),
 		);
@@ -91,10 +91,10 @@ try {
 		const receipt = await referenceService(db).installApprovedWiki(
 			{ ...operator, sessionId },
 			{
-				release: approvedSource.version,
-				manifestSha256: approvedSource.manifestSha256,
-				payloadSha256: approvedSource.payloadSha256,
-				requestKey: `wiki-install:${approvedSource.version}:${expected}`,
+				release: approvedWiki.version,
+				manifestSha256: approvedWiki.manifestSha256,
+				payloadSha256: approvedWiki.payloadSha256,
+				requestKey: `wiki-install:${approvedWiki.version}:${expected}`,
 				expectedActivation: expected,
 				target: approvedWiki.target,
 				kind: "install",

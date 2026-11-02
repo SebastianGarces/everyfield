@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { z } from "zod";
 import { hash } from "../../hash.ts";
 import { safeMdx } from "../../content.ts";
-import { approvedSource, approvedWiki } from "../manifest/approved.ts";
+import { approvedWiki } from "../manifest/approved.ts";
 import type { WikiSource } from "../manifest/approved.ts";
 
 export type WikiErrorCode =
@@ -188,10 +188,10 @@ export function checkSnapshot(snapshot: ApprovedSnapshot): void {
 		throw new WikiRefusal("incomplete_candidate", "discovery_article");
 }
 
-/** Load the pinned Wiki source. Only `approvedSource` is installed; a test may pass an earlier pin. */
+/** Load the pinned Wiki source. Only `approvedWiki` is installed; a test may pass an earlier pin. */
 export async function loadApprovedSnapshot(
 	root = repoRoot(),
-	source: WikiSource = approvedSource,
+	source: WikiSource = approvedWiki,
 ): Promise<ApprovedSnapshot> {
 	try {
 		const manifestBytes = await readBytes(root, source.manifestPath);

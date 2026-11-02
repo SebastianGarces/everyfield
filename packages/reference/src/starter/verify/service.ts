@@ -8,7 +8,7 @@ import { chunkEntries } from "../../bundle.ts";
 import { canonical, hash, stableId, vectorHash } from "../../hash.ts";
 import { referenceService as promoteService, ReferenceRefusal } from "../../server.ts";
 import type { ReferenceAuthority } from "../../server.ts";
-import { approvedSource, approvedWiki } from "../manifest/approved.ts";
+import { approvedWiki } from "../manifest/approved.ts";
 import type { WikiSource } from "../manifest/approved.ts";
 import { resolveWikiEmbedding, type WikiEmbedder, type WikiEmbedFetch } from "./embed.ts";
 import { wikiBundle, wikiEntries, wikiPolicy } from "./generation.ts";
@@ -156,7 +156,7 @@ async function authorizeCaller(
 
 export function referenceService(db: Database, deps: WikiDependencies = {}) {
 	const embedding = resolveWikiEmbedding(process.env, deps);
-	const source = deps.source ?? approvedSource;
+	const source = deps.source ?? approvedWiki;
 	async function snapshot(): Promise<ApprovedSnapshot> {
 		const loaded = deps.loadSnapshot ? await deps.loadSnapshot() : await loadApprovedSnapshot(deps.root, source);
 		checkSnapshot(loaded);
