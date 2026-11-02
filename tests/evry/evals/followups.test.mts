@@ -210,7 +210,11 @@ test("AC:EVRY-CONTEXT-BOUNDS follow-up requests pick the right read, never sugge
 			failures.push(`${c.text}: called ${ops.join(", ") || "nothing"}`);
 		if (c.expect === "followUp") {
 			const points = {
-				notYou: !new RegExp(me, "i").test(answer),
+				// Naming the user is fine only when Evry says the row is "you"; a line or sentence that names the user as a
+				// candidate fails.
+				notYou: !answer
+					.split(/\n|(?<=[.!?])\s/)
+					.some((part) => new RegExp(me, "i").test(part) && !/\b(you|your|yours)\b/i.test(part)),
 				namesOther: ["Lena", "Daniel", "Maria", "Tom", "Priya"].some((n) => n !== me && answer.includes(n)),
 			};
 			for (const [point, ok] of Object.entries(points))

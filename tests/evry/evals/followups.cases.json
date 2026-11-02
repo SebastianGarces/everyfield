@@ -39,7 +39,7 @@
 		}
 	},
 	{
-		"text": "who should I follow up with?",
+		"text": "who needs a follow-up from me right now?",
 		"operation": "people.getPipelineData",
 		"alsoAccepted": ["people.listPeople"],
 		"actor": "lena",
