@@ -3,6 +3,7 @@
 import {
 	Add01Icon,
 	ArrowDown01Icon,
+	File02Icon,
 	ArrowUp01Icon,
 	Delete02Icon,
 	ParagraphSpacingIcon,
@@ -13,17 +14,24 @@ import {
 	UnfoldMoreIcon,
 } from "@hugeicons/core-free-icons";
 import { Icon, type IconSvgElement } from "@everyfield/ui/foundations";
+import type { DocBrand } from "@everyfield/contracts/documents";
 import type { Editor } from "@tiptap/react";
-import { useEffect, useReducer } from "react";
+import { Fragment, useEffect, useReducer } from "react";
+import { cn } from "@everyfield/ui/foundations";
 import { useEditorState } from "@tiptap/react";
 import {
+	canInsert,
 	canMove,
 	canNumber,
 	canSetTextStyle,
 	currentBlock,
 	deleteBlock,
+	IMAGE_KINDS,
 	INSERT_KINDS,
 	insertBlock,
+	insertPageNumber,
+	regionAt,
+	type ImageKind,
 	isNumbered,
 	moveBlock,
 	setTextStyle,
@@ -94,7 +102,20 @@ function Action({
 	);
 }
 
-export function EditorToolbar({ editor }: { editor: Editor }) {
+const PAGE_NUMBERS = [
+	{ format: "page", label: "Page N" },
+	{ format: "page-of-total", label: "Page N of M" },
+] as const;
+
+export function EditorToolbar({
+	editor,
+	brand,
+	pageSetup,
+}: {
+	editor: Editor;
+	brand: DocBrand;
+	pageSetup: { open: boolean; controls: string; toggle: () => void };
+}) {
 	// The view mounts after the first render and `editor.isEditable` is false until then. Draw again when it mounts, so
 	// Bold, Italic, Underline and Link show on load, not after the first click.
 	const [, drawAgain] = useReducer((n: number) => n + 1, 0);
@@ -120,6 +141,11 @@ export function EditorToolbar({ editor }: { editor: Editor }) {
 				tag: e.isActive("tag"),
 				canTag: e.can().toggleMark("tag"),
 				styles: Object.fromEntries(TEXT_STYLES.map((t) => [t.style, canSetTextStyle(e, t.style)])),
+				region: regionAt(state),
+				insertable: Object.fromEntries(INSERT_KINDS.map((k) => [k.kind, canInsert(state, k.kind)])) as Record<
+					InsertKind,
+					boolean
+				>,
 			};
 		},
 	});
@@ -199,10 +225,23 @@ export function EditorToolbar({ editor }: { editor: Editor }) {
 					editor={editor}
 					label="Divider"
 					icon={SeparatorHorizontalIcon}
+					disabled={!s.insertable.divider}
 					run={() => insertBlock(editor, "divider")}
 				/>
-				<Action editor={editor} label="Spacer" icon={ParagraphSpacingIcon} run={() => insertBlock(editor, "spacer")} />
-				<Action editor={editor} label="Page break" icon={Scissor01Icon} run={() => insertBlock(editor, "pageBreak")} />
+				<Action
+					editor={editor}
+					label="Spacer"
+					icon={ParagraphSpacingIcon}
+					disabled={!s.insertable.spacer}
+					run={() => insertBlock(editor, "spacer")}
+				/>
+				<Action
+					editor={editor}
+					label="Page break"
+					icon={Scissor01Icon}
+					disabled={!s.insertable.pageBreak}
+					run={() => insertBlock(editor, "pageBreak")}
+				/>
 			</ToolbarGroup>
 			<ToolbarSeparator />
 			<ToolbarGroup>
@@ -219,12 +258,60 @@ export function EditorToolbar({ editor }: { editor: Editor }) {
 							<span>Insert</span>
 						</Button>
 					</DropdownMenuTrigger>
-					<DropdownMenuContent portal align="start" aria-label="Insert block">
-						{INSERT_KINDS.map((k: { kind: InsertKind; label: string }) => (
-							<DropdownMenuItem key={k.kind} className={MENU_ITEM} onSelect={() => insertBlock(editor, k.kind)}>
-								{k.label}
-							</DropdownMenuItem>
-						))}
+					<DropdownMenuContent
+						portal
+						align="start"
+						aria-label="Insert block"
+						className="max-h-[min(70vh,520px)] overflow-y-auto"
+					>
+						{INSERT_KINDS.filter((k) => s.insertable[k.kind]).map((k, i, shown) => {
+							const image = k.group === "images" ? (k.kind as ImageKind) : null;
+							const asset = image ? brand.assets[image] : null;
+							const divide = i > 0 && shown[i - 1]?.group !== k.group;
+							return (
+								<Fragment key={k.kind}>
+									{divide ? <div role="separator" className="my-1 h-px bg-line" /> : null}
+									<DropdownMenuItem
+										className={MENU_ITEM}
+										disabled={image !== null && !asset}
+										onSelect={() => insertBlock(editor, k.kind, asset?.alt ?? "")}
+									>
+										{k.label}
+									</DropdownMenuItem>
+									{image && !asset ? (
+										<div className="px-2.5 pb-1.5 text-sm text-text-2">
+											<p>
+												{brand.palette.themed
+													? `Your brand kit has no ${IMAGE_KINDS[image]}.`
+													: "This document uses the Everyfield theme, which prints no church images."}
+											</p>
+											<DropdownMenuItem
+												asChild
+												className={cn(MENU_ITEM, "inline-flex px-0 py-0.5 text-sm font-medium underline")}
+											>
+												<a href="/settings/brand" target="_blank" rel="noreferrer">
+													Open the brand kit
+												</a>
+											</DropdownMenuItem>
+										</div>
+									) : null}
+								</Fragment>
+							);
+						})}
+						{s.region ? (
+							<>
+								<div role="separator" className="my-1 h-px bg-line" />
+								{PAGE_NUMBERS.map((p) => (
+									<DropdownMenuItem
+										key={p.format}
+										className={MENU_ITEM}
+										onSelect={() => insertPageNumber(editor, p.format)}
+									>
+										{p.label}
+									</DropdownMenuItem>
+								))}
+							</>
+						) : null}
 					</DropdownMenuContent>
 				</DropdownMenu>
 				<Action
@@ -251,6 +338,22 @@ export function EditorToolbar({ editor }: { editor: Editor }) {
 					disabled={!s.hasBlock}
 					run={() => deleteBlock(editor)}
 				/>
+			</ToolbarGroup>
+			<ToolbarSeparator />
+			<ToolbarGroup>
+				<Button
+					type="button"
+					data-style="ghost"
+					data-active-state={pageSetup.open ? "on" : "off"}
+					aria-label="Page setup"
+					aria-expanded={pageSetup.open}
+					aria-controls={pageSetup.controls}
+					tooltip="Page setup: paper, margins, cards per sheet, header and footer"
+					onClick={pageSetup.toggle}
+				>
+					{glyph(File02Icon)}
+					<span>Page setup</span>
+				</Button>
 			</ToolbarGroup>
 		</Toolbar>
 	);

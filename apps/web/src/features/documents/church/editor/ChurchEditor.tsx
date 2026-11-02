@@ -1,7 +1,7 @@
 "use client";
 
 import { Delete02Icon, Edit02Icon, FloppyDiskIcon, Refresh01Icon, ViewIcon } from "@hugeicons/core-free-icons";
-import { LEGAL_NOTICE, pageBox, tileBox, type DocDocument } from "@everyfield/contracts/documents";
+import { LEGAL_NOTICE, pageBox, tileBox, type DocBrand, type DocDocument } from "@everyfield/contracts/documents";
 import {
 	Button,
 	ConfirmDialog,
@@ -16,13 +16,16 @@ import type { Node as PMNode } from "@tiptap/pm/model";
 import { Selection } from "@tiptap/pm/state";
 import { EditorContent, EditorContext, useEditor, useEditorState } from "@tiptap/react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties } from "react";
 import { saveChurchDocument } from "../actions.ts";
 import { ChurchPdf } from "../ChurchPdf.tsx";
 import { deleteAllContent, deleteBlock, moveBlock } from "./blocks.ts";
 import { documentFrom, editorContent } from "./document-json.ts";
 import "./editor.css";
 import { editorExtensions, type FieldValues } from "./extensions.ts";
+import { BlockControls } from "./LayoutControls.tsx";
+import { readPage } from "./layout.ts";
+import { PageSetupPanel } from "./PageSetup.tsx";
 import { EditorToolbar } from "./Toolbar.tsx";
 
 // The Church Document editor: the toolbar, the paper page, the save status and the real-PDF preview. The editor holds
@@ -61,6 +64,8 @@ type Props = {
 	docId: string;
 	title: string;
 	document: DocDocument;
+	/** The palette the PDF paints for this document and the brand-kit images it may show. */
+	brand: DocBrand;
 	revision: string;
 	onRevision: (revision: string) => void;
 	previewSrc: (revision: string) => string;
@@ -70,6 +75,7 @@ export default function ChurchEditor({
 	docId,
 	title,
 	document: stored,
+	brand,
 	revision: initialRevision,
 	onRevision,
 	previewSrc,
@@ -82,7 +88,10 @@ export default function ChurchEditor({
 	const savedDoc = useRef<PMNode | null>(null);
 	const inflight = useRef<Promise<boolean> | null>(null);
 
-	const extensions = useMemo(() => [...editorExtensions(fieldValues(stored)), BlockShortcuts], [stored]);
+	const extensions = useMemo(
+		() => [...editorExtensions(fieldValues(stored), brand.assets), BlockShortcuts],
+		[stored, brand.assets],
+	);
 	const editor = useEditor({
 		extensions,
 		content: editorContent(stored),
@@ -180,23 +189,44 @@ export default function ChurchEditor({
 		if (editor) deleteAllContent(editor);
 	}, [editor]);
 
-	const page = stored.page;
+	// The page setup the editor holds now: a change in the Page setup panel reaches the paper at once.
+	const page = useEditorState({
+		editor,
+		selector: ({ editor: e }) => (e ? readPage(e.state) : (stored.page as ReturnType<typeof readPage>)),
+	});
+	const [setupOpen, setSetupOpen] = useState(false);
+	const setupId = useId();
 	const sheet = useMemo(() => {
 		const full = pageBox(page) ?? { width: 612, height: 792 };
-		const cell = page.tile ? tileBox(page) : null;
+		const cell = page.tile ? tileBox(page as DocDocument["page"]) : null;
 		const width = cell ? cell.width : full.width;
 		const height = cell ? cell.height : full.height;
 		const pad = page.tile
 			? { x: page.tile.padding, y: page.tile.padding }
 			: { x: page.margin.left, y: page.margin.top };
 		const px = (n: number) => `${((n * 4) / 3).toFixed(2)}px`;
+		const { palette } = brand;
 		return {
 			"--page-w": px(width + (page.tile ? 2 * page.tile.padding : 0)),
 			"--page-h": px(height + (page.tile ? 2 * page.tile.padding : 0)),
 			"--pad-x": px(pad.x),
 			"--pad-y": px(pad.y),
+			// What each token of the format paints in this document: the PDF's palette.
+			"--tok-ink": palette.ink,
+			"--tok-muted-text": palette.mutedText,
+			"--tok-primary": palette.primary,
+			"--tok-accent": palette.accent,
+			"--tok-accent-line": palette.accentLine,
+			"--tok-muted": palette.muted,
+			"--tok-border": palette.border,
+			"--on-ink": palette.on.ink,
+			"--on-muted-text": palette.on["muted-text"],
+			"--on-primary": palette.on.primary,
+			"--on-accent": palette.on.accent,
+			"--on-muted": palette.on.muted,
+			"--on-border": palette.on.border,
 		} as CSSProperties;
-	}, [page]);
+	}, [page, brand]);
 
 	const empty = useEditorState({ editor, selector: ({ editor: e }) => (e ? e.state.doc.childCount === 0 : true) });
 	const legal = stored.class === "formal/legal";
@@ -248,8 +278,31 @@ export default function ChurchEditor({
 				{/* The editor stays in the page while the preview shows, so its content, cursor and undo history stay. */}
 				<div hidden={mode !== "edit"} className="flex flex-col gap-3">
 					<div className="sticky top-[calc(var(--ef-topbar-h)+28px)] z-20 overflow-hidden rounded-card bg-surface-raised shadow-[0_0_0_1px_var(--ef-line)]">
-						{editor ? <EditorToolbar editor={editor} /> : <div className="h-[49px]" />}
+						{editor ? (
+							<>
+								<EditorToolbar
+									editor={editor}
+									brand={brand}
+									pageSetup={{ open: setupOpen, controls: setupId, toggle: () => setSetupOpen((open) => !open) }}
+								/>
+								<BlockControls editor={editor} palette={brand.palette} />
+							</>
+						) : (
+							<div className="h-[49px]" />
+						)}
 					</div>
+					{setupOpen && editor ? (
+						<PageSetupPanel editor={editor} base={base.current} id={setupId} onClose={() => setSetupOpen(false)} />
+					) : null}
+					{page.tile ? (
+						<p className="text-center text-sm font-medium text-text-2">
+							<span className="rounded-pill bg-green-100 px-2.5 py-1 text-ink">4 per sheet</span>
+							<span className="ml-2">
+								One card shown. The preview and the PDF print 4 on a sheet{page.tile.cutMarks ? ", with cut marks" : ""}
+								.
+							</span>
+						</p>
+					) : null}
 					<div className="ef-sheet" style={sheet}>
 						<div className="ef-paper">
 							{empty && editor ? <p className="ef-empty">This document is empty. Use Insert to add a block.</p> : null}

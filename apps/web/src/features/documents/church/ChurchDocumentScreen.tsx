@@ -1,7 +1,7 @@
 "use client";
 
 import { Delete02Icon, Download01Icon } from "@hugeicons/core-free-icons";
-import type { DocDocument } from "@everyfield/contracts/documents";
+import type { DocBrand, DocDocument } from "@everyfield/contracts/documents";
 import { Button, ConfirmDialog, PageHeader, Skeleton } from "@everyfield/ui/controls";
 import { Tag } from "@everyfield/ui/display";
 import dynamic from "next/dynamic";
@@ -41,7 +41,7 @@ export function ChurchDocumentScreen({
 }: {
 	doc: ChurchView;
 	/** The stored document, only for an Owner or Admin. A Member gets null and the read-only page. */
-	editable: DocDocument | null;
+	editable: { document: DocDocument; brand: DocBrand } | null;
 	canManage: boolean;
 }) {
 	// A save moves the revision here, so the header and the downloads follow without a page refresh.
@@ -109,7 +109,8 @@ export function ChurchDocumentScreen({
 				<ChurchEditor
 					docId={doc.id}
 					title={doc.title}
-					document={editable}
+					document={editable.document}
+					brand={editable.brand}
 					revision={doc.revision}
 					onRevision={setRevision}
 					previewSrc={(at) => file("pdf", false, at)}

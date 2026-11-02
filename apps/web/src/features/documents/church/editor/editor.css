@@ -32,6 +32,8 @@
 	flex-direction: column;
 }
 .ef-paper .ProseMirror {
+	display: flex;
+	flex-direction: column;
 	flex: 1;
 	outline: none;
 	min-height: 120px;
@@ -135,33 +137,39 @@
 	padding-left: 12px;
 	border-left: 3px solid var(--paper-primary);
 }
+/* A divider is drawn as the PDF draws it (layouts/doc.tsx, divider): a 2 pt rule, a 0.5 pt hairline or a 4 pt bar, in the
+   color its token has in this document. The accent on white uses the renderer's line shade, on a fill the accent itself. */
 .ef-paper hr[data-ef-node="divider"] {
 	border: 0;
-	height: 1px;
-	background: var(--paper-ink);
-	margin: 6px 0 12px;
+	height: 2.67px;
+	background: var(--tok-ink);
+	margin: 5.33px 0 16px;
 }
-.ef-paper hr[data-ef-weight="hairline"] {
-	background: var(--paper-line);
-	margin-bottom: 4px;
+.ef-paper hr[data-line-weight="hairline"] {
+	height: 0.67px;
+	margin: 0 0 5.33px;
 }
-.ef-paper hr[data-ef-weight="bar"] {
-	height: 4px;
+.ef-paper hr[data-line-weight="bar"] {
+	height: 5.33px;
+	margin: 0 0 10.67px;
 }
-.ef-paper hr[data-ef-color="primary"] {
-	background: var(--paper-primary);
+.ef-paper hr[data-line-color="muted-text"] {
+	background: var(--tok-muted-text);
 }
-.ef-paper hr[data-ef-color="accent"] {
-	background: var(--paper-accent);
+.ef-paper hr[data-line-color="primary"] {
+	background: var(--tok-primary);
 }
-.ef-paper hr[data-ef-color="muted"] {
-	background: var(--paper-muted);
+.ef-paper hr[data-line-color="accent"] {
+	background: var(--tok-accent-line);
 }
-.ef-paper hr[data-ef-color="border"] {
-	background: var(--paper-line);
+.ef-paper hr[data-line-color="muted"] {
+	background: var(--tok-muted);
 }
-.ef-paper hr[data-ef-color="muted-text"] {
-	background: var(--paper-quiet);
+.ef-paper hr[data-line-color="border"] {
+	background: var(--tok-border);
+}
+.ef-paper [data-ef-node="box"]:not([data-box-fill="none"]) hr[data-line-color="accent"] {
+	background: var(--tok-accent);
 }
 .ef-paper [data-ef-node="spacer"] {
 	position: relative;
@@ -243,9 +251,7 @@
 	user-select: none;
 }
 /* Blocks that later slices edit show read-only: the kind as a label, then the content as it will print. */
-.ef-paper .ef-block,
-.ef-paper [data-ef-node="image"],
-.ef-paper [data-ef-node="writeIn"] {
+.ef-paper .ef-block {
 	position: relative;
 	margin-bottom: 8px;
 	padding: 22px 8px 8px;
@@ -254,9 +260,7 @@
 	background: color-mix(in srgb, var(--paper-muted) 40%, white);
 	cursor: default;
 }
-.ef-paper .ef-block-label,
-.ef-paper [data-ef-node="image"]::before,
-.ef-paper [data-ef-node="writeIn"]::before {
+.ef-paper .ef-block-label {
 	position: absolute;
 	top: 4px;
 	left: 8px;
@@ -267,32 +271,9 @@
 	text-transform: uppercase;
 	color: var(--paper-quiet);
 }
-.ef-paper [data-ef-node="image"]::before {
-	content: "Image";
-}
-.ef-paper [data-ef-node="writeIn"]::before {
-	content: "Write-in line";
-}
-.ef-paper [data-ef-node="writeIn"][data-ef-kind="signature"]::before {
-	content: "Signature line";
-}
-.ef-paper [data-ef-node="writeIn"][data-ef-kind="date"]::before {
-	content: "Date line";
-}
-.ef-paper [data-ef-node="writeIn"] {
-	border-bottom: 0;
-}
 .ef-paper .ef-block-body {
 	pointer-events: none;
 	user-select: none;
-}
-.ef-paper .ef-block-body [data-ef-node="columns"] {
-	display: flex;
-	gap: 12px;
-}
-.ef-paper .ef-block-body [data-ef-node="column"] {
-	flex: 1;
-	min-width: 0;
 }
 .ef-paper .ef-block-body [data-ef-node="row"] {
 	display: flex;
@@ -304,10 +285,6 @@
 	padding: 3px 6px;
 	min-height: 22px;
 	font-size: 13px;
-}
-.ef-paper .ef-block-body [data-ef-node="box"] {
-	padding: 6px;
-	box-shadow: inset 0 0 0 1px var(--paper-line);
 }
 .ef-paper .ef-block-body [data-ef-header] {
 	background: var(--paper-muted);
@@ -337,4 +314,252 @@
 	font-weight: 700;
 	color: var(--paper-ink);
 	user-select: none;
+}
+
+/* ---- columns, box, write-in lines and images (slice 3) ---- */
+/* Columns side by side at the widths the PDF uses: each column takes its share of the width left after the gaps. */
+.ef-paper [data-ef-node="columns"] {
+	display: flex;
+	gap: var(--ef-gap, 16px);
+	align-items: flex-start;
+	margin-bottom: 8px;
+}
+.ef-paper [data-ef-node="columns"][data-valign="center"] {
+	align-items: center;
+}
+.ef-paper [data-ef-node="columns"][data-valign="bottom"] {
+	align-items: flex-end;
+}
+.ef-paper [data-ef-node="column"] {
+	flex: 1 1 0;
+	min-width: 0;
+	min-height: 28px;
+	border-radius: 4px;
+	box-shadow: 0 0 0 1px transparent;
+	transition: box-shadow 120ms;
+}
+.ef-paper [data-ef-node="column"]:focus-within,
+.ef-paper [data-ef-node="columns"]:hover > [data-ef-node="column"] {
+	box-shadow: 0 0 0 1px var(--paper-line);
+}
+.ef-paper [data-ef-node="column"] > :last-child,
+.ef-paper [data-ef-node="box"] > :last-child {
+	margin-bottom: 0;
+}
+/* A box: fill and border are tokens; text on a fill takes the contrast color the PDF prints. */
+.ef-paper [data-ef-node="box"] {
+	box-sizing: border-box;
+	padding: var(--ef-pad, 16px);
+	margin-bottom: 8px;
+	border: 1.33px solid var(--tok-border);
+	border-radius: 0;
+}
+.ef-paper [data-ef-node="box"][data-box-border="none"] {
+	border-color: transparent;
+}
+.ef-paper [data-ef-node="box"][data-box-border="ink"] {
+	border-color: var(--tok-ink);
+}
+.ef-paper [data-ef-node="box"][data-box-border="muted-text"] {
+	border-color: var(--tok-muted-text);
+}
+.ef-paper [data-ef-node="box"][data-box-border="primary"] {
+	border-color: var(--tok-primary);
+}
+.ef-paper [data-ef-node="box"][data-box-border="accent"] {
+	border-color: var(--tok-accent);
+}
+.ef-paper [data-ef-node="box"][data-box-border="muted"] {
+	border-color: var(--tok-muted);
+}
+.ef-paper [data-ef-node="box"]:not([data-box-fill="none"]) {
+	caret-color: var(--on-fill);
+}
+.ef-paper [data-ef-node="box"][data-box-fill="ink"] {
+	background: var(--tok-ink);
+	--on-fill: var(--on-ink);
+}
+.ef-paper [data-ef-node="box"][data-box-fill="muted-text"] {
+	background: var(--tok-muted-text);
+	--on-fill: var(--on-muted-text);
+}
+.ef-paper [data-ef-node="box"][data-box-fill="primary"] {
+	background: var(--tok-primary);
+	--on-fill: var(--on-primary);
+}
+.ef-paper [data-ef-node="box"][data-box-fill="accent"] {
+	background: var(--tok-accent);
+	--on-fill: var(--on-accent);
+}
+.ef-paper [data-ef-node="box"][data-box-fill="muted"] {
+	background: var(--tok-muted);
+	--on-fill: var(--on-muted);
+}
+.ef-paper [data-ef-node="box"][data-box-fill="border"] {
+	background: var(--tok-border);
+	--on-fill: var(--on-border);
+}
+.ef-paper [data-ef-node="box"]:not([data-box-fill="none"]),
+.ef-paper [data-ef-node="box"]:not([data-box-fill="none"]) :is(p, h1, h2, h3, li, blockquote, a) {
+	color: var(--on-fill);
+	--paper-ink: var(--on-fill);
+	--paper-quiet: var(--on-fill);
+}
+/* Write-in, signature and date lines: the label is an input, the line is where the person writes. */
+.ef-paper .ef-writein {
+	position: relative;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 2px 8px;
+	margin-bottom: 8px;
+	padding: 4px 0 0;
+}
+.ef-paper .ef-writein-kind {
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--paper-quiet);
+}
+.ef-paper .ef-writein-label {
+	flex: 1 1 140px;
+	min-width: 0;
+	max-width: 100%;
+	border: 0;
+	border-radius: 3px;
+	background: transparent;
+	padding: 1px 4px;
+	margin-left: -4px;
+	font: inherit;
+	font-size: 12px;
+	font-weight: 700;
+	color: var(--paper-ink);
+	box-shadow: 0 0 0 1px transparent;
+	cursor: text;
+}
+.ef-paper .ef-writein-label:hover {
+	box-shadow: 0 0 0 1px var(--paper-line);
+}
+.ef-paper .ef-writein-label:focus-visible {
+	outline: none;
+	box-shadow: 0 0 0 2px var(--ef-focus, #026b40);
+}
+.ef-paper .ef-writein-label[aria-invalid="true"] {
+	box-shadow: 0 0 0 1px #b4235a;
+}
+.ef-paper .ef-writein-note {
+	flex-basis: 100%;
+	font-size: 11px;
+	font-weight: 600;
+	color: #b4235a;
+}
+.ef-paper .ef-writein-note:empty {
+	display: none;
+}
+.ef-paper .ef-writein-line {
+	flex-basis: 100%;
+	height: 22.67px;
+	border: 1.33px solid #666c78;
+	background: white;
+}
+.ef-paper .ef-writein[data-kind="signature"] .ef-writein-line {
+	height: 32px;
+}
+/* A brand-kit image: a logo or mark fits its box, a photo covers it, as in the PDF. */
+.ef-paper .ef-image {
+	display: flex;
+	margin-bottom: 5.33px;
+	justify-content: flex-start;
+}
+.ef-paper .ef-image[data-align="center"] {
+	justify-content: center;
+}
+.ef-paper .ef-image[data-align="right"] {
+	justify-content: flex-end;
+}
+.ef-paper .ef-image-box {
+	max-width: 100%;
+	overflow: hidden;
+	display: flex;
+	align-items: center;
+}
+.ef-paper .ef-image[data-align="center"] .ef-image-box {
+	justify-content: center;
+}
+.ef-paper .ef-image[data-align="right"] .ef-image-box {
+	justify-content: flex-end;
+}
+.ef-paper .ef-image-box img {
+	display: block;
+	max-width: 100%;
+	max-height: 100%;
+	object-fit: contain;
+}
+.ef-paper .ef-image[data-source="photo"] .ef-image-box img {
+	width: 100%;
+	height: 100%;
+	max-height: none;
+	object-fit: cover;
+}
+.ef-paper .ef-image-empty {
+	justify-content: center;
+	box-shadow: inset 0 0 0 1px var(--paper-line);
+	background: color-mix(in srgb, var(--paper-muted) 40%, white);
+	color: var(--paper-quiet);
+	font-size: 12px;
+	text-align: center;
+}
+/* The header and the footer sit above and below the body on the same paper, with the same text tools. */
+.ef-paper [data-ef-node="pageHeader"],
+.ef-paper [data-ef-node="pageFooter"] {
+	position: relative;
+	border-radius: 4px;
+	box-shadow: inset 0 0 0 1px transparent;
+}
+.ef-paper [data-ef-node="pageHeader"] {
+	margin-bottom: 12px;
+	padding: 18px 0 4px;
+	border-bottom: 1px dashed var(--paper-line);
+}
+.ef-paper [data-ef-node="pageFooter"] {
+	margin-top: auto;
+	padding: 4px 0 0;
+	padding-top: 18px;
+	border-top: 1px dashed var(--paper-line);
+}
+.ef-paper [data-ef-node="pageHeader"]::before,
+.ef-paper [data-ef-node="pageFooter"]::before {
+	position: absolute;
+	top: 2px;
+	left: 0;
+	font-size: 11px;
+	font-weight: 700;
+	line-height: 1;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--paper-quiet);
+	user-select: none;
+}
+.ef-paper [data-ef-node="pageHeader"][data-ef-pages="all"]::before {
+	content: "Header · all pages";
+}
+.ef-paper [data-ef-node="pageHeader"][data-ef-pages="first"]::before {
+	content: "Header · first page";
+}
+.ef-paper [data-ef-node="pageHeader"][data-ef-pages="rest"]::before {
+	content: "Header · other pages";
+}
+.ef-paper [data-ef-node="pageFooter"][data-ef-pages="all"]::before {
+	content: "Footer · all pages";
+}
+.ef-paper [data-ef-node="pageFooter"][data-ef-pages="first"]::before {
+	content: "Footer · first page";
+}
+.ef-paper [data-ef-node="pageFooter"][data-ef-pages="rest"]::before {
+	content: "Footer · other pages";
+}
+.ef-paper [data-ef-node="pageHeader"] > :last-child,
+.ef-paper [data-ef-node="pageFooter"] > :last-child {
+	margin-bottom: 0;
 }

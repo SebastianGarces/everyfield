@@ -52,7 +52,7 @@ export async function ChurchDocumentPage({ params }: { params: Promise<{ documen
 	return (
 		<ChurchDocumentScreen
 			doc={loaded.value.view}
-			editable={canManage ? loaded.value.document : null}
+			editable={canManage ? { document: loaded.value.document, brand: loaded.value.brand } : null}
 			canManage={canManage}
 		/>
 	);
