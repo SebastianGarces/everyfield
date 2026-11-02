@@ -220,14 +220,14 @@ function Signs({ readiness }: { readiness: Readiness }) {
 			<h3 id="signs-heading" className="mb-3 text-sm text-text-3">
 				Signs that Phase {readiness.phase} is wrapping up
 			</h3>
-			<ul className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2.5">
+			<ul className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2.5 max-app-sm:grid-cols-1">
 				{readiness.criteria.map((x) => (
 					<li
 						key={x.key}
 						className="flex flex-col items-start gap-2 rounded-md bg-surface-2 px-3.5 py-3 max-app-sm:flex-row max-app-sm:items-center max-app-sm:justify-between"
 					>
-						<span className="text-sm text-ink-2">{x.label}</span>
-						<StatusBadge size="sm" status={STATUS[x.status].status}>
+						<span className="min-w-0 text-sm text-ink-2">{x.label}</span>
+						<StatusBadge size="sm" status={STATUS[x.status].status} className="shrink-0">
 							{STATUS[x.status].label}
 						</StatusBadge>
 					</li>
