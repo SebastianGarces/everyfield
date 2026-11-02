@@ -443,6 +443,11 @@ function useLeaveGuard(editor: Editor | null, unsaved: () => boolean) {
 		// The Back button: a sentinel entry with the same address takes the first Back press. The edit that makes the
 		// document unsaved pushes it, so it is in place before any Back press. Leaving the sentinel with nothing unsaved
 		// (after a Save) goes on back, so one press still leaves the page.
+		// The Settings dialog opens over the editor with its own history entries (/settings/account). They can sit above
+		// the sentinel, so an edit checks the entry it is on, and Back onto a Settings entry is no way out: the editor is
+		// still there under the dialog.
+		const here = () => window.location.pathname + window.location.search;
+		const home = here();
 		const onSentinel = () => window.history.state?.efLeaveGuard === true;
 		let armed = onSentinel();
 		let leaving = false;
@@ -451,11 +456,12 @@ function useLeaveGuard(editor: Editor | null, unsaved: () => boolean) {
 			armed = true;
 		};
 		const arm = () => {
-			if (!armed && unsaved()) pushSentinel();
+			if (!onSentinel() && unsaved()) pushSentinel();
 		};
 		const onPopState = () => {
-			if (leaving || !armed || onSentinel()) return;
-			armed = false;
+			const left = armed;
+			armed = onSentinel();
+			if (leaving || !left || armed || here() !== home) return;
 			const back = () => {
 				leaving = true;
 				window.history.back();
