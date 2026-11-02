@@ -8,12 +8,15 @@
 	justify-content: center;
 }
 .ef-paper {
-	--paper-ink: #181d19;
-	--paper-quiet: #4d5361;
+	/* The paper's own text inks. A fill changes --paper-ink and --paper-quiet; these two stay. */
+	--paper-text: #181d19;
+	--paper-text-quiet: #4d5361;
+	--paper-ink: var(--paper-text);
+	--paper-quiet: var(--paper-text-quiet);
 	--paper-line: #dee0e4;
 	--paper-muted: #edf0f4;
 	--paper-accent: #026b40;
-	--paper-primary: #181d19;
+	--paper-primary: var(--paper-text);
 	position: relative;
 	box-sizing: border-box;
 	width: min(var(--page-w), 100%);
@@ -415,9 +418,9 @@
 }
 /* A read-only block keeps its light panel on a fill, so it keeps the paper's own text colors. */
 .ef-paper [data-ef-node="box"]:not([data-box-fill="none"]) .ef-block {
-	--on-fill: #181d19;
-	--paper-ink: #181d19;
-	--paper-quiet: #4d5361;
+	--on-fill: var(--paper-text);
+	--paper-ink: var(--paper-text);
+	--paper-quiet: var(--paper-text-quiet);
 	color: var(--paper-ink);
 }
 /* Write-in, signature and date lines: the label is an input, the line is where the person writes. */
@@ -521,7 +524,7 @@
 	justify-content: center;
 	box-shadow: inset 0 0 0 1px var(--paper-line);
 	background: #f6f7f9;
-	color: #4d5361;
+	color: var(--paper-text-quiet);
 	font-size: 12px;
 	text-align: center;
 }

@@ -2,6 +2,7 @@
 
 import { Logout01Icon, ShieldUserIcon, UserIcon, UserMultipleIcon } from "@hugeicons/core-free-icons";
 import { MenuItem, MenuLabel, MenuSeparator, useToast } from "@everyfield/ui/controls";
+import { leavePage } from "../../components/save/leave.ts";
 import { identityApi, loadPage } from "../identity/api";
 import { SECTION_LABEL } from "./model";
 
@@ -37,7 +38,7 @@ export function AccountMenu({ name, detail, onAccount }: { name: string; detail:
 				{SECTION_LABEL.sharing}
 			</MenuItem>
 			<MenuSeparator />
-			<MenuItem icon={Logout01Icon} danger onSelect={signOut}>
+			<MenuItem icon={Logout01Icon} danger onSelect={() => leavePage(() => void signOut())}>
 				Sign out
 			</MenuItem>
 		</>

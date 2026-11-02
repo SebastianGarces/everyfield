@@ -2,7 +2,6 @@ import { requestDatabase } from "@/server/database";
 import { recordId } from "@everyfield/contracts/common";
 import {
 	type ChurchDocument,
-	type ChurchDocumentView,
 	type ChurchSummary,
 	type DocBrand,
 	type DocDocument,
@@ -62,10 +61,11 @@ export async function loadChurchDocument(
 	try {
 		// An Owner or Admin reads the document with its brand (what the PDF paints) in the same statement; a Member reads
 		// the document alone and gets no editor.
-		const edit = canManageChurch(authority);
-		const reply = edit
+		const reply = canManageChurch(authority)
 			? await documentsWriter.readChurchForEdit(db, authority, { documentId })
-			: await documentsWriter.readChurch(db, authority, { documentId });
+			: await documentsWriter
+					.readChurch(db, authority, { documentId })
+					.then((r) => (r.status === "ok" ? { ...r, value: { ...r.value, brand: null } } : r));
 		if (reply.status !== "ok") return { status: "refused" };
 		const d = reply.value;
 		return {
@@ -82,7 +82,7 @@ export async function loadChurchDocument(
 					page: sheetOf(d.body.page),
 				},
 				document: d.body,
-				brand: edit ? (d as ChurchDocumentView).brand : null,
+				brand: d.brand,
 			},
 		};
 	} catch (error) {

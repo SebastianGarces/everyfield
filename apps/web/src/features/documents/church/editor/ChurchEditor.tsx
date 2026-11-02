@@ -17,6 +17,7 @@ import { Selection } from "@tiptap/pm/state";
 import { EditorContent, EditorContext, useEditor, useEditorState } from "@tiptap/react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties } from "react";
+import { holdLeave } from "../../../../components/save/leave.ts";
 import { saveChurchDocument } from "../actions.ts";
 import { ChurchPdf } from "../ChurchPdf.tsx";
 import { deleteAllContent, deleteBlock, moveBlock } from "./blocks.ts";
@@ -409,18 +410,21 @@ function SaveStatusText({ status, revision, onRetry }: { status: SaveStatus; rev
 type LeaveRequest = { go: () => void; stay: () => void };
 
 /**
- * Asks before an in-app link or the Back button leaves the page while the document has changes that are not saved.
- * The question is an Everyfield dialog (LeaveDialog), never a browser confirm. Closing or reloading the tab can only
- * show the browser's own beforeunload prompt. The listeners stay on for the life of the editor and ask `unsaved` at the
- * moment of the click or the Back press, so no edit, however close to the click, gets past them.
+ * Asks before an in-app link, the Back button or a page-wide action such as Sign out (`leavePage`) leaves the page
+ * while the document has changes that are not saved. The question is an Everyfield dialog (LeaveDialog), never a
+ * browser confirm. Closing or reloading the tab can only show the browser's own beforeunload prompt; after the person
+ * chose to leave, it stays quiet. The listeners stay on for the life of the editor and ask `unsaved` at the moment of
+ * the click or the Back press, so no edit, however close to the click, gets past them.
  */
 function useLeaveGuard(editor: Editor | null, unsaved: () => boolean) {
 	const router = useRouter();
 	const [request, setRequest] = useState<LeaveRequest | null>(null);
 	useEffect(() => {
 		if (!editor) return;
+		// The person chose "Leave without saving" for a way out that loads a new page (Sign out): no second question.
+		let released = false;
 		const beforeUnload = (event: BeforeUnloadEvent) => {
-			if (!unsaved()) return;
+			if (released || !unsaved()) return;
 			event.preventDefault();
 			event.returnValue = "";
 		};
@@ -459,11 +463,23 @@ function useLeaveGuard(editor: Editor | null, unsaved: () => boolean) {
 			if (unsaved()) setRequest({ go: back, stay: pushSentinel });
 			else back();
 		};
+		const release = holdLeave((go) => {
+			if (!unsaved()) return false;
+			setRequest({
+				go: () => {
+					released = true;
+					go();
+				},
+				stay: () => {},
+			});
+			return true;
+		});
 		editor.on("update", arm);
 		window.addEventListener("beforeunload", beforeUnload);
 		window.addEventListener("popstate", onPopState);
 		document.addEventListener("click", onClick, true);
 		return () => {
+			release();
 			editor.off("update", arm);
 			window.removeEventListener("beforeunload", beforeUnload);
 			window.removeEventListener("popstate", onPopState);

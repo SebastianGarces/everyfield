@@ -6,6 +6,8 @@
 // Seed People first: tests/ui/people/seed.mts up <preview-url>.
 //   AC:DOC-EDIT-LEAVE        every way out after every kind of edit, 20 rounds, at 1440 px and at 390 px
 //   AC:DOC-EDIT-LEAVE-RACE   an edit and the click in the same task (the guard read React state before, and missed it)
+//   AC:DOC-EDIT-LEAVE-SIGNOUT Sign out asks first, and "Leave without saving" signs out with no browser prompt
+// The sign-out request is answered by the test (page.route), so the shared fixture session stays signed in.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { BASE, ENGINES, fixture, hydrated, signIn, withPage } from "../setup.mjs";
@@ -17,11 +19,19 @@ const PAPER = ".ef-paper .ProseMirror";
 const ROUNDS = 20;
 const DOC_PATH = /\/documents\/church\/[0-9a-f-]{36}$/;
 
+const SIGN_OUT = "**/api/auth/sign-out";
+
 const onPage = (run, size) =>
 	withPage(
 		chromium,
 		async (page, context) => {
 			await signIn(context, fixture("people").owner.cookie);
+			// Sign out must never reach the server before the person answers; a sent request fails the test at once.
+			page.signOuts = 0;
+			await page.route(SIGN_OUT, (route) => {
+				page.signOuts++;
+				return route.fulfill({ status: 200, contentType: "application/json", body: '{"status":"signed_out"}' });
+			});
 			const native = [];
 			page.on("dialog", async (dialog) => {
 				native.push(dialog.type());
@@ -172,18 +182,29 @@ async function exits(page) {
 		};
 	});
 	out.push({ name: "browser Back", take: () => page.evaluate(() => history.back()) });
+	const accountMenu = (item) => async () => {
+		await page.getByRole("button", { name: /account menu/ }).click();
+		await page.getByRole("menuitem", { name: item }).click();
+	};
 	for (const [label, href] of [
 		["Seats and invitations", "/settings/seats"],
 		["Sharing and privacy", "/settings/sharing"],
-	]) {
-		out.push({
-			name: `account menu "${label}" to ${href}`,
-			take: async () => {
-				await page.getByRole("button", { name: /account menu/ }).click();
-				await page.getByRole("menuitem", { name: label }).click();
-			},
-		});
-	}
+	])
+		out.push({ name: `account menu "${label}" to ${href}`, take: accountMenu(label) });
+	out.push({ name: 'account menu "Sign out"', take: accountMenu("Sign out") });
+	// Your account in the Settings dialog has its own Sign out. Cancel leaves the dialog open; Escape closes it.
+	const settings = page.getByRole("dialog", { name: "Your account" });
+	out.push({
+		name: 'Settings "Your account" "Sign out"',
+		take: async () => {
+			await accountMenu("Your account")();
+			await settings.getByRole("button", { name: "Sign out", exact: true }).click();
+		},
+		after: async () => {
+			await page.keyboard.press("Escape");
+			await settings.waitFor({ state: "detached" });
+		},
+	});
 	return out;
 }
 
@@ -230,6 +251,8 @@ async function guardHolds(page, size) {
 				}
 				await ask(page).getByRole("button", { name: "Cancel" }).click();
 				await ask(page).waitFor({ state: "detached" });
+				await way.after?.();
+				assert.equal(page.signOuts, 0, `${kind}, ${way.name}: no sign-out request before the answer`);
 				assert.equal(new URL(page.url()).pathname, path, `${kind}, ${way.name}: Cancel keeps the page`);
 				assert.equal(await json(page), before, `${kind}, ${way.name}: Cancel keeps the edit`);
 				assert.equal(await status(page).innerText(), "Unsaved changes", `${kind}, ${way.name}: still unsaved`);
@@ -278,3 +301,46 @@ test("AC:DOC-EDIT-LEAVE-RACE: an edit and the way out in the same task still ask
 		}
 	});
 });
+
+const SIGN_OUT_FROM = [
+	[
+		"account menu",
+		async (page) => {
+			await page.getByRole("button", { name: /account menu/ }).click();
+			await page.getByRole("menuitem", { name: "Sign out" }).click();
+		},
+	],
+	[
+		"Your account",
+		async (page) => {
+			await page.getByRole("button", { name: /account menu/ }).click();
+			await page.getByRole("menuitem", { name: "Your account" }).click();
+			await page
+				.getByRole("dialog", { name: "Your account" })
+				.getByRole("button", { name: "Sign out", exact: true })
+				.click();
+		},
+	],
+];
+
+for (const size of [{ width: 1440 }, { width: 390, height: 844 }]) {
+	test(`AC:DOC-EDIT-LEAVE-SIGNOUT: Sign out asks first, and "Leave without saving" signs out with no browser prompt, at ${size.width} px`, async () => {
+		for (const [from, open] of SIGN_OUT_FROM) {
+			await onPage(async (page) => {
+				await fork(page);
+				await cursorIn(page, "doc");
+				await page.keyboard.type("x");
+				await open(page);
+				await ask(page).waitFor({ timeout: 5_000 });
+				assert.equal(page.signOuts, 0, `${from}: the session stays until the person answers`);
+				if (SHOTS) {
+					const name = from.toLowerCase().replaceAll(" ", "-");
+					await page.screenshot({ path: `${SHOTS}/sign-out-${name}-${size.width}.png` });
+				}
+				await ask(page).getByRole("button", { name: "Leave without saving" }).click();
+				await page.waitForURL(/\/signin$/, { timeout: 30_000 });
+				assert.equal(page.signOuts, 1, `${from}: one sign-out request after the answer`);
+			}, size);
+		}
+	});
+}
