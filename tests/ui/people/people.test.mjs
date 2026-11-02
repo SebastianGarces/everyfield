@@ -883,7 +883,8 @@ for (const [name, engine] of ENGINES) {
 			const dialog = page.getByRole("dialog", { name: "Export people" });
 			const download = page.waitForEvent("download");
 			await dialog.getByRole("button", { name: "Download CSV" }).click();
-			const text = Buffer.concat(await (await download).createReadStream().toArray()).toString("utf8");
+			await dialog.getByText(/ has \d+ (people|person)\./).waitFor({ timeout: 30_000 });
+			const text = Buffer.concat(await (await (await download).createReadStream()).toArray()).toString("utf8");
 			const line = text.split("\r\n").find((l) => l.startsWith(`${first},`));
 			assert.ok(line?.startsWith(`${first},Tester,`), line);
 		});
