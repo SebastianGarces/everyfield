@@ -86,7 +86,6 @@ export function documentBrand(kit: BrandKitData | null, useChurchBranding: boole
 			border: p.border,
 			primary: p.primary,
 			accent: p.accent,
-			primaryText: p.primaryText,
 			accentLine: p.accentLine,
 			// The renderer's own rule for text on a fill: the palette's ink on white or muted, else the legible one.
 			on: {

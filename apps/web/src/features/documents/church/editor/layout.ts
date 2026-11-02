@@ -89,9 +89,7 @@ export function setColumnCount(editor: Editor, pos: number, count: number): bool
 
 // ---------------------------------------------------------------- page setup
 
-export type Margins = { top: number; right: number; bottom: number; left: number };
-export type PageValues = DocDocument["page"];
-export type PageWithoutRegions = Omit<PageValues, "header" | "footer">;
+export type PageWithoutRegions = Omit<DocDocument["page"], "header" | "footer">;
 
 /** The page setup the editor holds, without the header and the footer (those are the first and last child). */
 export function readPage(state: EditorState): PageWithoutRegions {
@@ -122,19 +120,14 @@ export function setRegion(
 	const paragraph = state.schema.nodes.paragraph;
 	if (!type || !paragraph) return false;
 	const { doc } = state;
-	const present = regionPages(state, key) !== null;
+	const node =
+		regionPages(state, key) === null ? null : ((key === "header" ? doc.firstChild : doc.lastChild) as PMNode);
+	const from = key === "header" ? 0 : doc.content.size - (node?.nodeSize ?? 0);
 	const tr = history(editor);
-	if (on && !present) tr.insert(key === "header" ? 0 : doc.content.size, type.create({ pages }, paragraph.create()));
-	else if (!on && present) {
-		const from = key === "header" ? 0 : doc.content.size - (doc.lastChild as PMNode).nodeSize;
-		const size = key === "header" ? (doc.firstChild as PMNode).nodeSize : (doc.lastChild as PMNode).nodeSize;
-		tr.delete(from, from + size);
-	} else if (on && present) {
-		const from = key === "header" ? 0 : doc.content.size - (doc.lastChild as PMNode).nodeSize;
-		const node = doc.nodeAt(from) as PMNode;
-		if (node.attrs.pages === pages) return false;
-		tr.setNodeMarkup(from, undefined, { ...node.attrs, pages });
-	} else return false;
+	if (on && !node) tr.insert(from, type.create({ pages }, paragraph.create()));
+	else if (!on && node) tr.delete(from, from + node.nodeSize);
+	else if (on && node && node.attrs.pages !== pages) tr.setNodeMarkup(from, undefined, { ...node.attrs, pages });
+	else return false;
 	editor.view.dispatch(tr);
 	return true;
 }

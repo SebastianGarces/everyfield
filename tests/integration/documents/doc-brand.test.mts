@@ -38,7 +38,7 @@ test("WP-036 the brand of a document is the palette the PDF paints, and the kit'
 	const themed = documentBrand(kit(), true);
 	const palette = makePalette({ name: "church", primary: "#1F4E6B", accent: "#D4731A" });
 	assert.equal(themed.palette.themed, true);
-	for (const key of ["ink", "mutedText", "muted", "border", "primary", "accent", "primaryText", "accentLine"] as const)
+	for (const key of ["ink", "mutedText", "muted", "border", "primary", "accent", "accentLine"] as const)
 		assert.equal(themed.palette[key], palette[key], key);
 	assert.equal(themed.palette.on.primary, palette.onPrimary);
 	assert.equal(themed.palette.on.accent, palette.onAccent);

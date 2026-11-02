@@ -160,7 +160,6 @@ export const docBrand = z.strictObject({
 		border: hexColor,
 		primary: hexColor,
 		accent: hexColor,
-		primaryText: hexColor,
 		accentLine: hexColor,
 		/** The text color the PDF prints on a box filled with each token. */
 		on: z.strictObject({

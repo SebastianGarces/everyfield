@@ -16,24 +16,8 @@ import { writeInKindLabel } from "./extensions.ts";
 // painted in the color the PDF prints for this document. No control takes a hex value or opens a color picker.
 
 /** The color a token paints in this document, as the PDF prints it on white. `none` has no color. */
-export function swatchColor(palette: DocBrand["palette"], token: Token): string | null {
-	switch (token) {
-		case "none":
-			return null;
-		case "ink":
-			return palette.ink;
-		case "muted-text":
-			return palette.mutedText;
-		case "primary":
-			return palette.primary;
-		case "accent":
-			return palette.accent;
-		case "muted":
-			return palette.muted;
-		case "border":
-			return palette.border;
-	}
-}
+const swatchColor = (palette: DocBrand["palette"], token: Token) =>
+	token === "none" ? null : palette[token === "muted-text" ? "mutedText" : token];
 
 /** A hover and focus tooltip for a control that has no tooltip of its own (an input, a select, a switch). */
 export function Tip({ text, children, className }: { text: string; children: ReactNode; className?: string }) {
@@ -49,6 +33,17 @@ export function Tip({ text, children, className }: { text: string; children: Rea
 
 const keepSelection = (event: { preventDefault: () => void }) => event.preventDefault();
 
+/** Arrow keys in a radio group: choose the next or previous value and move focus to it. */
+function rove<T>(event: KeyboardEvent, index: number, values: readonly T[], choose: (value: T) => void) {
+	const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
+	if (!step) return;
+	event.preventDefault();
+	const at = (index + step + values.length) % values.length;
+	choose(values[at] as T);
+	const group = (event.currentTarget as HTMLElement).parentElement;
+	requestAnimationFrame(() => (group?.children[at] as HTMLElement | undefined)?.focus());
+}
+
 /** One choice from a short list, as a radio group: arrow keys move and choose, Tab enters and leaves. */
 export function Segmented<T extends string | number>({
 	label,
@@ -61,23 +56,6 @@ export function Segmented<T extends string | number>({
 	options: { value: T; label: string; tooltip?: string }[];
 	onChange: (value: T) => void;
 }) {
-	const move = (event: KeyboardEvent, index: number) => {
-		const step =
-			event.key === "ArrowRight" || event.key === "ArrowDown"
-				? 1
-				: event.key === "ArrowLeft" || event.key === "ArrowUp"
-					? -1
-					: 0;
-		if (!step) return;
-		event.preventDefault();
-		const next = options[(index + step + options.length) % options.length];
-		if (!next) return;
-		onChange(next.value);
-		const group = (event.currentTarget as HTMLElement).parentElement;
-		requestAnimationFrame(() =>
-			(group?.children[(index + step + options.length) % options.length] as HTMLElement | undefined)?.focus(),
-		);
-	};
 	return (
 		<div
 			role="radiogroup"
@@ -96,7 +74,14 @@ export function Segmented<T extends string | number>({
 					data-active-state={option.value === value ? "on" : "off"}
 					className="h-8 min-w-8 px-2.5"
 					onMouseDown={keepSelection}
-					onKeyDown={(event) => move(event, index)}
+					onKeyDown={(event) =>
+						rove(
+							event,
+							index,
+							options.map((o) => o.value),
+							onChange,
+						)
+					}
 					onClick={() => onChange(option.value)}
 				>
 					{option.label}
@@ -118,22 +103,6 @@ export function Swatches({
 	palette: DocBrand["palette"];
 	onChange: (token: Token) => void;
 }) {
-	const move = (event: KeyboardEvent, index: number) => {
-		const step =
-			event.key === "ArrowRight" || event.key === "ArrowDown"
-				? 1
-				: event.key === "ArrowLeft" || event.key === "ArrowUp"
-					? -1
-					: 0;
-		if (!step) return;
-		event.preventDefault();
-		const at = (index + step + TOKENS.length) % TOKENS.length;
-		const next = TOKENS[at];
-		if (!next) return;
-		onChange(next);
-		const group = (event.currentTarget as HTMLElement).parentElement;
-		requestAnimationFrame(() => (group?.children[at] as HTMLElement | undefined)?.focus());
-	};
 	return (
 		<div role="radiogroup" aria-label={label} className="flex items-center gap-1">
 			{TOKENS.map((token, index) => {
@@ -152,7 +121,7 @@ export function Swatches({
 						data-active-state={on ? "on" : "off"}
 						className={cn("!size-8 !min-w-8 !rounded-full !p-0", on && "shadow-[0_0_0_2px_var(--ef-ink)]")}
 						onMouseDown={keepSelection}
-						onKeyDown={(event) => move(event, index)}
+						onKeyDown={(event) => rove(event, index, TOKENS, onChange)}
 						onClick={() => onChange(token)}
 					>
 						<span

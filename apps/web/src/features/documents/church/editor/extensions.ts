@@ -15,6 +15,7 @@ import { DOMSerializer, Fragment, Slice, type Node as PMNode } from "@tiptap/pm/
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import type { DocBrand } from "@everyfield/contracts/documents";
+import { IMAGE_KINDS, regionAt } from "./blocks.ts";
 
 // The Tiptap extensions for everyfield.doc/1. Each node and mark has the name and the attributes of the format
 // (packages/contracts/src/documents/format/schema.ts), so `editor.getJSON()` is the document body and there is no
@@ -450,10 +451,6 @@ export const EfBox = Node.create({
 
 type Assets = DocBrand["assets"];
 
-/** The image of a brand-kit asset, as the PDF scales it: a logo or mark fits its box, a photo covers it. */
-export const imageSrc = (fileId: string) => `/api/brand/assets/${fileId}`;
-export const IMAGE_WORDS = { logo: "logo", mark: "mark", photo: "cover photo" } as const;
-
 export const EfImage = Node.create<{ assets: Assets | null }>({
 	name: "image",
 	group: BLOCKS,
@@ -494,13 +491,13 @@ function imageView(initial: PMNode, assets: Assets | null) {
 		const asset = assets?.[source] ?? null;
 		if (asset) {
 			const img = document.createElement("img");
-			img.src = imageSrc(asset.fileId);
+			img.src = `/api/brand/assets/${asset.fileId}`;
 			img.alt = (node.attrs.alt as string | undefined) || asset.alt;
 			img.draggable = false;
 			box.append(img);
 		} else {
 			box.classList.add("ef-image-empty");
-			box.textContent = `No ${IMAGE_WORDS[source]} in the brand kit`;
+			box.textContent = `No ${IMAGE_KINDS[source]} in the brand kit`;
 		}
 		dom.append(box);
 	};
@@ -760,11 +757,7 @@ export const LayoutRules = Extension.create({
 				},
 				props: {
 					transformPasted: (slice, view) => {
-						const $from = view.state.selection.$from;
-						const inRegion = [...Array(Math.max(0, $from.depth) + 1).keys()].some((d) =>
-							["pageHeader", "pageFooter"].includes($from.node(d).type.name),
-						);
-						if (inRegion) return slice;
+						if (regionAt(view.state)) return slice;
 						const strip = (fragment: Fragment): Fragment => {
 							const nodes: PMNode[] = [];
 							fragment.forEach((child) => {

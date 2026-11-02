@@ -14,7 +14,6 @@ import {
 	setRegion,
 	toInches,
 	toPoints,
-	type Margins,
 	type PageWithoutRegions,
 	type RegionKey,
 } from "./layout.ts";
@@ -133,7 +132,7 @@ export function PageSetupPanel({
 
 	const box = pageBox(page) ?? { width: 612, height: 792 };
 	const tile = page.tile ?? null;
-	const margin: Margins = page.margin;
+	const margin = page.margin;
 
 	const setSize = (size: string) => {
 		const next = { ...page, size } as PageWithoutRegions;
