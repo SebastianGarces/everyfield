@@ -17,18 +17,15 @@ import {
 import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
+import { personRow } from "../../../catalog/person-row.ts";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 
 // The People read tools: each calls the native People read that screens use, under the same domain authority, whose
 // statements carry the lock-free live access check (C13, C27). Only the safe identifying fields a person sees in the
 // list reach the model.
 type PlantPerson = { id: string; displayName: string; city?: string | null; stage: string };
-const row = (p: PlantPerson) => ({
-	kind: "person" as const,
-	id: p.id,
-	label: p.displayName,
-	fields: { city: p.city ?? null, stage: p.stage },
-});
+const row = (actor: EvryActor, p: PlantPerson) =>
+	personRow(actor, p.id, p.displayName, { city: p.city ?? null, stage: p.stage });
 const inPlant = (actor: EvryActor) => actor.owner.kind === "plant" && actor.role !== null;
 const one = (operation: string, rows: SourceRow[], exclusions: string[]): SourceResult => ({
 	operation,
@@ -63,7 +60,7 @@ export const listPeople: ReadAdapter<z.infer<typeof listInput>> = {
 		return {
 			operation: "people.listPeople",
 			status: "available",
-			rows: page.items.map(row),
+			rows: page.items.map((p) => row(actor, p)),
 			total: page.total,
 			page: request.page,
 			next: page.next,
@@ -82,7 +79,7 @@ export const getPerson: ReadAdapter<z.infer<typeof personInput>> = {
 		const reply = await peopleReader.getPerson(tx, new PeopleReadContext(actor.authority), personRequest.parse(input));
 		// A foreign, retired or guessed id reads the same as one that never existed.
 		const found = reply.status === "ok" && reply.value.status === "available" ? reply.value.person : null;
-		return one("people.getPerson", found && "stage" in found ? [row(found)] : [], ["private care"]);
+		return one("people.getPerson", found && "stage" in found ? [row(actor, found)] : [], ["private care"]);
 	},
 };
 
@@ -103,11 +100,7 @@ export const getPersonPhoto: ReadAdapter<z.infer<typeof personInput>> = {
 		if (reply.status !== "ok") return one("people.getPersonPhoto", [], []);
 		const photo = reply.value;
 		const fields = { photo: photo.status, versionId: photo.status === "available" ? photo.versionId : null };
-		return one(
-			"people.getPersonPhoto",
-			[{ kind: "person", id: input.personId, label: "Person photo", fields }],
-			["photo bytes"],
-		);
+		return one("people.getPersonPhoto", [personRow(actor, input.personId, "Person photo", fields)], ["photo bytes"]);
 	},
 };
 
@@ -125,12 +118,9 @@ export const checkForDuplicates: ReadAdapter<z.infer<typeof duplicateCheckReques
 		return {
 			operation: "people.checkForDuplicates",
 			status: "available",
-			rows: items.map((h) => ({
-				kind: "person",
-				id: h.personId,
-				label: h.displayName,
-				fields: { match: h.match, signals: h.signals.join(",") },
-			})),
+			rows: items.map((h) =>
+				personRow(actor, h.personId, h.displayName, { match: h.match, signals: h.signals.join(",") }),
+			),
 			// Hints are bounded; past the bound only the first ones are known, never a false exhaustive total.
 			total: completeness === "complete" ? items.length : null,
 			page: 1,
@@ -169,6 +159,6 @@ export async function verifyPeople(
 		ORDER BY array_position(${sql.param([...ids])}::uuid[], p.id)`);
 	return r.rows.map((raw) => {
 		const p = verifiedRow.parse(raw);
-		return row({ id: p.id, displayName: p.display_name, city: p.city, stage: p.stage });
+		return row(actor, { id: p.id, displayName: p.display_name, city: p.city, stage: p.stage });
 	});
 }
