@@ -92,7 +92,7 @@ export function Segmented<T extends string | number>({
 }
 
 /** A row of swatches, one for each token, each named by its token. */
-export function Swatches({
+function Swatches({
 	label,
 	value,
 	palette,

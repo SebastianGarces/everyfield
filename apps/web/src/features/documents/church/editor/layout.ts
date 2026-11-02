@@ -120,8 +120,8 @@ export function setRegion(
 	const paragraph = state.schema.nodes.paragraph;
 	if (!type || !paragraph) return false;
 	const { doc } = state;
-	const node =
-		regionPages(state, key) === null ? null : ((key === "header" ? doc.firstChild : doc.lastChild) as PMNode);
+	const edge = key === "header" ? doc.firstChild : doc.lastChild;
+	const node = edge?.type === type ? edge : null;
 	const from = key === "header" ? 0 : doc.content.size - (node?.nodeSize ?? 0);
 	const tr = history(editor);
 	if (on && !node) tr.insert(from, type.create({ pages }, paragraph.create()));
@@ -133,7 +133,7 @@ export function setRegion(
 }
 
 /** What the format says about a page setup: each fault of `page`, in the format's words, without the path prefix. */
-export type PageIssue = { path: string; message: string };
+type PageIssue = { path: string; message: string };
 
 /** Checks a page setup against the whole format, with the body and the regions the editor holds now. */
 export function pageIssues(editor: Editor, base: DocDocument, candidate: PageWithoutRegions): PageIssue[] {
@@ -149,9 +149,8 @@ export function pageIssues(editor: Editor, base: DocDocument, candidate: PageWit
 }
 
 /** Applies a page setup as one step. The caller has checked it with `pageIssues`. */
-export function applyPage(editor: Editor, candidate: PageWithoutRegions): boolean {
+export function applyPage(editor: Editor, candidate: PageWithoutRegions) {
 	editor.view.dispatch(history(editor).setDocAttribute("page", candidate));
-	return true;
 }
 
 /** Points per inch: margins and custom sizes show in inches and store points. */

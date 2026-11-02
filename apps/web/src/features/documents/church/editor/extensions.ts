@@ -696,7 +696,7 @@ const KEY_FORMAT = /^[a-z][a-z0-9_]{0,59}$/;
 const keyOf = (node: PMNode) => (typeof node.attrs.key === "string" ? node.attrs.key : "name");
 
 /** The first key from `base` that no other write-in line uses: "name", "name_2", "name_3". */
-export function freeKey(base: string, taken: ReadonlySet<string>) {
+function freeKey(base: string, taken: ReadonlySet<string>) {
 	const root = KEY_FORMAT.test(base) ? base : "line";
 	if (!taken.has(root)) return root;
 	for (let n = 2; ; n++) {

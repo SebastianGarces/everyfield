@@ -10,7 +10,7 @@ import { NodeSelection, Selection, TextSelection, type EditorState, type Transac
 type BlockRange = { index: number; from: number; to: number; node: PMNode };
 
 /** The children of the document that are body blocks: the page header leads and the page footer ends the list. */
-export function bodyRange(doc: PMNode) {
+function bodyRange(doc: PMNode) {
 	const first = doc.firstChild?.type.name === "pageHeader" ? 1 : 0;
 	const footer = doc.lastChild?.type.name === "pageFooter" && doc.childCount > first ? 1 : 0;
 	return { first, end: doc.childCount - footer };
@@ -56,7 +56,7 @@ export type InsertKind =
 	| "logo"
 	| "mark"
 	| "photo";
-export type InsertGroup = "text" | "rules" | "layout" | "lines" | "images";
+type InsertGroup = "text" | "rules" | "layout" | "lines" | "images";
 export const INSERT_KINDS: { kind: InsertKind; label: string; group: InsertGroup }[] = [
 	{ kind: "paragraph", label: "Paragraph", group: "text" },
 	{ kind: "heading", label: "Heading", group: "text" },
@@ -138,7 +138,7 @@ function build(schema: Schema, kind: InsertKind, alt = ""): PMNode {
 const CONTAINER_NAMES = new Set(["doc", "column", "box", "pageHeader", "pageFooter"]);
 
 /** Where Insert puts a block: after the block that holds the selection, inside the innermost column, box, header or footer. */
-export function insertionPoint(state: EditorState): { pos: number; parent: PMNode; index: number } {
+function insertionPoint(state: EditorState): { pos: number; parent: PMNode; index: number } {
 	const { selection, doc } = state;
 	const $from = selection.$from;
 	for (let d = $from.depth; d >= 0; d--) {
