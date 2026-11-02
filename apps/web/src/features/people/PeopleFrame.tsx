@@ -4,6 +4,7 @@ import {
 	BookOpen01Icon,
 	BookOpen02Icon,
 	Calendar03Icon,
+	ChartLineData01Icon,
 	File02Icon,
 	Mail01Icon,
 	Settings02Icon,
@@ -71,6 +72,15 @@ const DOCUMENTS = {
 	icon: File02Icon,
 	prefetch: false,
 } as const;
+// Plant Intelligence (WP-038: the phase journey) is for a plant's Owners and Admins. It loads when chosen.
+const INTELLIGENCE = {
+	kind: "link",
+	key: "intelligence",
+	label: "Plant Intelligence",
+	href: "/intelligence",
+	icon: ChartLineData01Icon,
+	prefetch: false,
+} as const;
 const ROLE: Record<Role, string> = { owner: "Owner", admin: "Admin", member: "Member" };
 
 type FrameProps = {
@@ -135,7 +145,7 @@ function Frame({ name, settings, seed = null, children }: FrameProps) {
 	// The rail's Settings opens the dialog over the current page, as the user menu does; /settings is its address.
 	const nav: ShellNav = {
 		main: [PEOPLE, MEETINGS, MESSAGES, TASKS, MINISTRIES, WIKI],
-		pages: [DOCUMENTS],
+		pages: settings?.context === "plant" && role !== "member" ? [INTELLIGENCE, DOCUMENTS] : [DOCUMENTS],
 		tools: [
 			{
 				kind: "action",

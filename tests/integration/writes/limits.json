@@ -35,6 +35,9 @@
 	"GET /ministries/[teamId]": {
 		"limit": 5
 	},
+	"GET /intelligence": {
+		"limit": 2
+	},
 	"GET /ministries?view=chart": {
 		"limit": 3
 	},
@@ -155,6 +158,12 @@
 	},
 	"POST tasks.createTask": {
 		"limit": 5
+	},
+	"POST phases.declarePhase": {
+		"limit": 2
+	},
+	"POST phases.movePhase": {
+		"limit": 4
 	},
 	"accountPerson.ensureAccountPerson": {
 		"limit": 5
@@ -1026,9 +1035,9 @@
 		"reason": "Provisions a church: gate, request-key read, one statement for the seat lock and the setup and discovery checks, one statement for the plant with its owner seat and creation entry (its recorded time is in the reply), the account's first Person (one write) and one final statement; the producer-level count adds the caller's savepoint. RT-6a brought it from 20; per HTTP request it is 9 (was 13), and the screen's entry reload after it is one statement."
 	},
 	"onboarding.declareJourney": {
-		"limit": 14,
+		"limit": 12,
 		"retry": 9,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 3 read, 7 write."
+		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 2 read, 6 write."
 	},
 	"onboarding/core.withOnboardingWrite": {
 		"limit": 8,
@@ -1697,5 +1706,16 @@
 	},
 	"wiki.emitUpstreamReview": {
 		"limit": 5
+	},
+	"phases.declare": {
+		"limit": 2
+	},
+	"phases.readHistory": {
+		"limit": 1
+	},
+	"phases.transition": {
+		"limit": 8,
+		"retry": 3,
+		"reason": "A forward move with connected sending churches or networks queues their phase-advance notices in the move's transaction through the notification service (NTF-009): BEGIN, the move, the notice source and preference read, the notice insert, the mail read, its authorization, the mail insert and COMMIT. Every other move sends BEGIN, the move and COMMIT."
 	}
 }

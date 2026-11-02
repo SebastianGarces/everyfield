@@ -31,6 +31,7 @@ const factories = {
 	referenceService: "reference",
 	attemptBudget: "identity.budget",
 	createTaskWriter: "tasks",
+	createPhaseWriter: "phases",
 	createFollowUpWriter: "followups",
 	createAttendanceWriter: "meetings",
 	createWikiProducer: "wiki",
@@ -244,6 +245,7 @@ registerHooks({
 				"/packages/domain/src/teams/training/commands.ts": { trainingWriter: "teams" },
 				"/packages/domain/src/teams/training/reads.ts": { trainingReader: "teams" },
 				"/packages/domain/src/teams/roster.ts": { rosterWriter: "meetings" },
+				"/packages/domain/src/phases/reads.ts": { phaseReader: "phases" },
 			};
 			for (const [name, prefix] of Object.entries(objects[path.slice(root.length)] ?? {}))
 				source += `\nglobalThis.__evfWriteCounts.decorate(${JSON.stringify(prefix)},${name});`;

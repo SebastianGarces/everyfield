@@ -391,6 +391,7 @@ try {
 		["GET /ministries", "/ministries", owner.cookie],
 		["GET /ministries?view=chart", "/ministries?view=chart", owner.cookie],
 		["GET /ministries/[teamId]", `/ministries/${ministry.id}`, owner.cookie],
+		["GET /intelligence", "/intelligence", owner.cookie],
 		["GET /signin (signed out)", "/signin", ""],
 	];
 	// RT-6c: no request pays a cold-start cost. Server start checks the bucket's privacy without any request, and opens
@@ -632,7 +633,37 @@ try {
 	assert.equal(removed.value.assets.full_logo, null);
 	assert.equal((await asset(null, "GET", fileId, owner.cookie)).status, 404, "a removed file is not served");
 
+	// The phase journey (WP-038): a declaration, then a backward move with its reason. Each is one write request.
+	const phases = "apps/web/src/features/phases/actions.ts";
+	const plantRevision = async () =>
+		(await admin.execute(sql`SELECT revision::text AS r FROM plant WHERE id=${plant.id}`)).rows[0].r;
+	const declared = await act("POST phases.declarePhase", "/intelligence", phases, "declarePhase", [
+		randomUUID(),
+		await plantRevision(),
+		3,
+	]);
+	assert.equal(declared.status, "ok", JSON.stringify(declared));
+	const movedBack = await act("POST phases.movePhase", "/intelligence", phases, "movePhase", [
+		randomUUID(),
+		declared.value.state.revision,
+		2,
+		"Back to forming the launch team",
+	]);
+	assert.equal(movedBack.status, "ok", JSON.stringify(movedBack));
+
 	// More data than one screen shows: the same pages must send the same statements.
+	for (let i = 0; i < 12; i++)
+		assert.equal(
+			(
+				await act(null, "/intelligence", phases, "movePhase", [
+					randomUUID(),
+					await plantRevision(),
+					i % 2 ? 2 : 1,
+					`Grown move ${i}`,
+				])
+			).status,
+			"ok",
+		);
 	for (let i = 0; i < 30; i++) await person(`Grown ${String(i).padStart(2, "0")}`);
 	for (let i = 0; i < 5; i++) maria = await note(maria, `Grown note ${i}`);
 	for (let i = 0; i < 30; i++) await task(`Grown task ${i}`);

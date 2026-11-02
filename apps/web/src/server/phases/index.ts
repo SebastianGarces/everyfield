@@ -1,0 +1,47 @@
+import type { Database } from "@everyfield/db/client";
+import { authorizePhaseNotices, createPhaseWriter, type PhaseNotices } from "@everyfield/domain/phases";
+import "server-only";
+import { z } from "zod";
+import { database } from "../database";
+import { createMailService } from "../jobs/mail";
+import { createNotificationService } from "../jobs/notifications";
+import { phaseNotices } from "./notices";
+
+// The phases mount (WP-038). A forward move queues its phase-advance notices in the move's transaction through WP-031's
+// notification service; the mail worker dispatches them later.
+
+const env = z.object({
+	IDENTITY_DATABASE_URL: z.string().min(1),
+	IDENTITY_MAIL_KEY: z.string().regex(/^[a-f0-9]{64}$/),
+	IDENTITY_ADDRESS_KEY: z.string().regex(/^[a-f0-9]{64}$/),
+	IDENTITY_MAIL_FROM: z.email(),
+});
+
+let mount: ReturnType<typeof create> | undefined;
+function create(v: z.infer<typeof env>) {
+	const db: Database = database(v.IDENTITY_DATABASE_URL);
+	const mail = createMailService({
+		db,
+		encryptionKey: Buffer.from(v.IDENTITY_MAIL_KEY, "hex"),
+		addressKey: Buffer.from(v.IDENTITY_ADDRESS_KEY, "hex"),
+		from: v.IDENTITY_MAIL_FROM,
+		authorize: authorizePhaseNotices,
+		transport: {
+			async send() {
+				return { kind: "refused", retryable: true };
+			},
+			async lookup() {
+				return { kind: "unknown" };
+			},
+		},
+	});
+	const notices: PhaseNotices = phaseNotices((eligible) => createNotificationService({ mail, eligible }));
+	return { db, writer: createPhaseWriter({ notices }) };
+}
+/** The phase writer and its database, or null when the deployment has no identity and mail configuration. */
+export function phasesMount() {
+	const v = env.safeParse(process.env);
+	if (!v.success) return null;
+	mount ??= create(v.data);
+	return mount;
+}
