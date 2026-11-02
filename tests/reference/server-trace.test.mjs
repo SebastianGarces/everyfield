@@ -36,11 +36,14 @@ function holdsLoader(file) {
 test("every route that bundles the reference loader traces freeze.json and artifacts.json", () => {
 	assert.ok(existsSync(app), `no production build at ${app}: run pnpm build first`);
 	const loaderRoutes = traces(app).filter(({ files }) =>
-		files.some((file) => file.includes(`${path.sep}.next${path.sep}server${path.sep}chunks${path.sep}`) && holdsLoader(file)),
+		files.some(
+			(file) => file.includes(`${path.sep}.next${path.sep}server${path.sep}chunks${path.sep}`) && holdsLoader(file),
+		),
 	);
 	const names = loaderRoutes.map(({ route }) => route);
 	// Guards the detection itself: the Documents page and its PDF route always load the starter catalog.
-	for (const route of DOCUMENT_ROUTES) assert.ok(names.includes(route), `${route} does not bundle the reference loader`);
+	for (const route of DOCUMENT_ROUTES)
+		assert.ok(names.includes(route), `${route} does not bundle the reference loader`);
 
 	const missing = loaderRoutes.flatMap(({ route, files }) =>
 		REQUIRED.filter((need) => !files.includes(path.join(root, need))).map((need) => `${route}: ${need}`),
