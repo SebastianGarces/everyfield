@@ -14,7 +14,7 @@ import {
 } from "./lib.ts";
 import { markMergedByBranch } from "./db.ts";
 import { cachedTriage } from "./feedback.ts";
-import { heldClasses, heldDoubt, inClass, isHeld, mergePullRequest, wikiClass } from "./merge.ts";
+import { heldClasses, isHeld, mergePullRequest, ownerHeld, wikiClass } from "./merge.ts";
 import { unfinishedDrafts } from "./wiki.ts";
 import { afterMerge, checkPr, type MergeEvidence } from "./ship.ts";
 import { APPROVED_PROTOTYPE, changesOnlyOwnRegistration, mayChangePrototype } from "./policy.ts";
@@ -118,12 +118,12 @@ function routeOf(root: string, cfg: Config, pr: Pr): Route {
 			if (!task) fetchHead(root, cfg, pr);
 			// Doubt about a class is the class, as in the merge: the held PR must stay approvable.
 			const held = heldClasses(root, cfg, pr.headRefOid);
-			if (!heldDoubt(held) && wikiClass(root, cfg, pr.headRefOid).paths.length)
+			if (!held.doubt && wikiClass(root, cfg, pr.headRefOid).paths.length)
 				return { kind: "wiki-task", id: ref.id, task: ref };
 			if (isHeld(held)) {
-				const owner = inClass(held.owner);
+				const owner = ownerHeld(held);
 				const what = [
-					inClass(held.templates) ? "document templates" : "",
+					held.doubt || held.templates.length ? "document templates" : "",
 					owner ? "landing and marketing owner paths" : "",
 				]
 					.filter(Boolean)

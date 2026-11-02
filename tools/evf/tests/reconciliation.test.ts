@@ -4753,12 +4753,14 @@ test("OPS-111-class: prefix and exact entries match from the base config; near m
 			return heldClasses(f.root, cfg, f.git("rev-parse", name).trim()).owner;
 		};
 		// A folder entry matches every path under it; a file entry matches that file only.
-		assert.deepEqual(branch("prefix", "apps/web/src/marketing/Hero.tsx", "apps/web/src/app/privacy/sections/a.tsx"), {
-			paths: ["apps/web/src/app/privacy/sections/a.tsx", "apps/web/src/marketing/Hero.tsx"],
-		});
-		assert.deepEqual(branch("exact", "apps/web/src/app/page.tsx", "apps/web/src/styles/marketing.css", "README.md"), {
-			paths: ["apps/web/src/app/page.tsx", "apps/web/src/styles/marketing.css"],
-		});
+		assert.deepEqual(branch("prefix", "apps/web/src/marketing/Hero.tsx", "apps/web/src/app/privacy/sections/a.tsx"), [
+			"apps/web/src/app/privacy/sections/a.tsx",
+			"apps/web/src/marketing/Hero.tsx",
+		]);
+		assert.deepEqual(branch("exact", "apps/web/src/app/page.tsx", "apps/web/src/styles/marketing.css", "README.md"), [
+			"apps/web/src/app/page.tsx",
+			"apps/web/src/styles/marketing.css",
+		]);
 		assert.deepEqual(
 			branch(
 				"near",
@@ -4769,13 +4771,13 @@ test("OPS-111-class: prefix and exact entries match from the base config; near m
 				"apps/web/src/styles/marketing.css.map",
 				"apps/web/src/components/kit/EvryBot.tsx",
 			),
-			{ paths: [] },
+			[],
 		);
 		// The home checkout's own config cannot narrow the class: it is read from the base branch.
 		const narrowed = structuredClone(f.cfg);
 		narrowed.mergePolicy.ownerPaths = { ...structuredClone(DEFAULT_OWNER_PATHS), paths: ["nothing/"] };
 		writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(narrowed));
-		assert.deepEqual(branch("home", "apps/web/src/styles/marketing.css").paths, ["apps/web/src/styles/marketing.css"]);
+		assert.deepEqual(branch("home", "apps/web/src/styles/marketing.css"), ["apps/web/src/styles/marketing.css"]);
 	} finally {
 		f.close();
 	}
@@ -4829,9 +4831,9 @@ test("OPS-111-class: every failed step returns doubt with its reason", () => {
 		try {
 			const cfg = loadConfig(f.root),
 				sha = setup(f, ownerHead(f, f.wt, ["README.md"]));
-			const cls = heldClasses(f.root, cfg, sha).owner;
-			assert.deepEqual(cls.paths, [], name);
-			assert.match(cls.doubt ?? "", why, name);
+			const held = heldClasses(f.root, cfg, sha);
+			assert.deepEqual([held.templates, held.owner], [[], []], name);
+			assert.match(held.doubt ?? "", why, name);
 		} finally {
 			f.close();
 		}

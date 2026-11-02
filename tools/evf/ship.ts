@@ -28,7 +28,6 @@ import { followUpsOfTask, markMerged, openWorkDb, sessionsRecorded, withPartial 
 import {
 	heldApproveCommand,
 	heldClasses,
-	heldDoubt,
 	heldWhy,
 	isHeld,
 	mergePullRequest,
@@ -493,7 +492,7 @@ export function ship(root: string, task: TaskRef, timing: ShipTiming = SHIP_TIMI
 	// too (heldClasses). Wiki content waits for him after the claim check and promotion (OPS-109).
 	const head = git(wt, "rev-parse", "HEAD"),
 		held = heldClasses(root, cfg, head);
-	if (!heldDoubt(held) && wikiClass(root, cfg, head).paths.length) return wikiRoute(root, cfg, task, wt, pr.number);
+	if (!held.doubt && wikiClass(root, cfg, head).paths.length) return wikiRoute(root, cfg, task, wt, pr.number);
 	if (isHeld(held)) return ownerRoute(root, cfg, task, wt, pr.number, design, cls, held);
 	return withShipQueue(root, task.id, () => queuedMerge(root, cfg, task, wt, pr.number, timing), timing.queue);
 }

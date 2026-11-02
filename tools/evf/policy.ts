@@ -190,7 +190,7 @@ export function requireMaintenancePaths(root: string, wt: string, task: TaskRef)
 /**
  * The built-in document-template class (OPS-80). It applies when `mergePolicy.documentTemplates` is absent from
  * evf.config.json; an explicit key replaces it. `evf ship`, `evf approve` and the merge read it only through
- * `templateClass` in merge.ts, from the base branch's config.
+ * `heldClasses` in merge.ts, from the base branch's config.
  */
 export const DEFAULT_DOCUMENT_TEMPLATES: DocumentTemplatePolicy = {
 	paths: [
