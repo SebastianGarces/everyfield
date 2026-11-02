@@ -148,6 +148,11 @@ function edits(page, savedMargin) {
 	};
 }
 
+async function fromAccountMenu(page, item) {
+	await page.getByRole("button", { name: /account menu/ }).click();
+	await page.getByRole("menuitem", { name: item }).click();
+}
+
 /**
  * Every in-app way out: Back, the account menu pages, and each link on the page that goes to another page of the app.
  * The links are read from the page, so a new one is tried too. A link in the closed mobile menu opens the menu first.
@@ -182,10 +187,7 @@ async function exits(page) {
 		};
 	});
 	out.push({ name: "browser Back", take: () => page.evaluate(() => history.back()) });
-	const accountMenu = (item) => async () => {
-		await page.getByRole("button", { name: /account menu/ }).click();
-		await page.getByRole("menuitem", { name: item }).click();
-	};
+	const accountMenu = (item) => () => fromAccountMenu(page, item);
 	for (const [label, href] of [
 		["Seats and invitations", "/settings/seats"],
 		["Sharing and privacy", "/settings/sharing"],
@@ -303,18 +305,11 @@ test("AC:DOC-EDIT-LEAVE-RACE: an edit and the way out in the same task still ask
 });
 
 const SIGN_OUT_FROM = [
-	[
-		"account menu",
-		async (page) => {
-			await page.getByRole("button", { name: /account menu/ }).click();
-			await page.getByRole("menuitem", { name: "Sign out" }).click();
-		},
-	],
+	["account menu", (page) => fromAccountMenu(page, "Sign out")],
 	[
 		"Your account",
 		async (page) => {
-			await page.getByRole("button", { name: /account menu/ }).click();
-			await page.getByRole("menuitem", { name: "Your account" }).click();
+			await fromAccountMenu(page, "Your account");
 			await page
 				.getByRole("dialog", { name: "Your account" })
 				.getByRole("button", { name: "Sign out", exact: true })

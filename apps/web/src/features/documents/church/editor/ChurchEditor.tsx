@@ -406,8 +406,8 @@ function SaveStatusText({ status, revision, onRetry }: { status: SaveStatus; rev
 	);
 }
 
-/** A way out of the page that waits for an answer: `go` leaves, `stay` keeps the page as it was. */
-type LeaveRequest = { go: () => void; stay: () => void };
+/** A way out of the page that waits for an answer: `go` leaves, `stay` (if any) puts back what the way out undid. */
+type LeaveRequest = { go: () => void; stay?: () => void };
 
 /**
  * Asks before an in-app link, the Back button or a page-wide action such as Sign out (`leavePage`) leaves the page
@@ -438,7 +438,7 @@ function useLeaveGuard(editor: Editor | null, unsaved: () => boolean) {
 			if (!unsaved()) return;
 			event.preventDefault();
 			event.stopPropagation();
-			setRequest({ go: () => router.push(`${url.pathname}${url.search}${url.hash}`), stay: () => {} });
+			setRequest({ go: () => router.push(`${url.pathname}${url.search}${url.hash}`) });
 		};
 		// The Back button: a sentinel entry with the same address takes the first Back press. The edit that makes the
 		// document unsaved pushes it, so it is in place before any Back press. Leaving the sentinel with nothing unsaved
@@ -476,7 +476,6 @@ function useLeaveGuard(editor: Editor | null, unsaved: () => boolean) {
 					released = true;
 					go();
 				},
-				stay: () => {},
 			});
 			return true;
 		});
@@ -510,7 +509,7 @@ function LeaveDialog({
 		if (!request) return;
 		onDone();
 		if (leave) request.go();
-		else request.stay();
+		else request.stay?.();
 	};
 	return (
 		<Dialog
