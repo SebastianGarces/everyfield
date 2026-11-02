@@ -10,7 +10,8 @@ export type SourceRow = {
 	kind: "person" | "household" | "tag" | "skill" | "activity" | "file" | "import";
 	id: string;
 	label: string;
-	fields: Record<string, string | null>;
+	/** `you: true` marks the signed-in user's own person row (see person-row.ts); no other row carries it. */
+	fields: Record<string, string | boolean | null>;
 };
 
 /** A bounded, source-bound read result: the rows, the exact total, whether more exist and what was left out. */
