@@ -13,7 +13,8 @@
 //   AC:DOC-LAYOUT-ACCESS    criterion 13 (names, tooltips, cursors, 390 px, a Member)
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { appendFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { appendFileSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { test } from "node:test";
 import { PDFDocument } from "../../../packages/domain/node_modules/pdf-lib/cjs/index.js";
 import { docDocument, forkTemplate } from "../../../packages/contracts/src/documents/index.ts";
@@ -248,7 +249,11 @@ async function checked(page, name, act, { base = bases.policy } = {}) {
 	const before = await snapshot(page, base);
 	await act();
 	const after = await snapshot(page, base);
-	if (SHOTS) await page.screenshot({ path: `${SHOTS}/${String(++shotCount).padStart(2, "0")}-${slug(name)}.png` });
+	if (SHOTS) {
+		const stem = `${String(++shotCount).padStart(2, "0")}-${slug(name)}`;
+		await page.screenshot({ path: `${SHOTS}/${stem}.png` });
+		if (process.env.SHOT_FILES === "1") await fileShots(page, stem);
+	}
 	assert.ok(docDocument.safeParse(after).success, `${name}: the changed document parses with docDocument`);
 	assert.notDeepEqual(after, before, `${name}: the action changed the document`);
 	await button(page, "Undo").click();
@@ -272,6 +277,62 @@ const type = async (page, text) => {
 		text,
 	);
 };
+/**
+ * Hand-check evidence (SHOT_DIR and SHOT_FILES=1): saves the document as it is after the action and writes a picture of
+ * its PDF pages and of its Word pages next to the editor screenshot. The Word file goes through LibreOffice. All files
+ * stay outside the repository.
+ */
+async function fileShots(page, stem) {
+	const id = new URL(page.url()).pathname.split("/").at(-1);
+	await button(page, "Save").click();
+	await page.getByRole("status").filter({ hasText: /Saved/ }).waitFor();
+	const revision = await revisionOf(page);
+	const work = `${SHOTS}/work-${stem}`;
+	mkdirSync(work, { recursive: true });
+	for (const [format, label] of [
+		["pdf", "pdf"],
+		["docx", "word"],
+	]) {
+		const bytes = await file(page, id, format, revision);
+		writeFileSync(`${work}/doc.${format}`, bytes);
+		let pdfPath = `${work}/doc.pdf`;
+		if (format === "docx") {
+			execFileSync(
+				"soffice",
+				[
+					"--headless",
+					`-env:UserInstallation=file://${work}/profile`,
+					"--convert-to",
+					"pdf",
+					"--outdir",
+					`${work}/word`,
+					`${work}/doc.docx`,
+				],
+				{ stdio: "ignore", timeout: 120_000 },
+			);
+			pdfPath = `${work}/word/doc.pdf`;
+		}
+		execFileSync("pdftoppm", ["-png", "-r", "45", pdfPath, `${work}/${label}`]);
+		const pages = readdirSync(work)
+			.filter((f) => f.startsWith(`${label}-`) && f.endsWith(".png"))
+			.sort();
+		const html = `<body style="margin:0;background:#dde1e6;display:flex;gap:8px;padding:8px;align-items:flex-start">${pages
+			.map(
+				(f) =>
+					`<img style="box-shadow:0 0 0 1px #999;background:white" src="data:image/png;base64,${readFileSync(`${work}/${f}`).toString("base64")}">`,
+			)
+			.join("")}</body>`;
+		const sheet = await page.context().newPage();
+		await sheet.setContent(html);
+		const box = await sheet.locator("body").boundingBox();
+		await sheet.setViewportSize({ width: Math.ceil(box.width) + 16, height: Math.ceil(box.height) + 16 });
+		await sheet.screenshot({ path: `${SHOTS}/${stem}-${label}.png`, fullPage: true });
+		await sheet.close();
+	}
+	writeFileSync(`${SHOTS}/${stem}.revision`, String(revision));
+	rmSync(work, { recursive: true, force: true });
+}
+
 const insert = async (page, item) => {
 	await button(page, "Insert block").click();
 	await page.getByRole("menuitem", { name: item, exact: true }).click();
@@ -575,6 +636,7 @@ test("AC:DOC-LAYOUT-ACTIONS: every layout and page setup action is checked with 
 				"true",
 			);
 			await page.getByText("Your brand kit has no cover photo.").waitFor();
+			if (SHOTS) await page.screenshot({ path: `${SHOTS}/image-menu-missing-photo.png` });
 			await page.keyboard.press("Escape");
 			await checked(page, "image height", async () => {
 				await selectNode(page, "image", 0);

@@ -150,7 +150,7 @@ export function Swatches({
 						tabIndex={on ? 0 : -1}
 						data-token={token}
 						data-active-state={on ? "on" : "off"}
-						className={cn("size-8 min-w-8 rounded-full p-0", on && "shadow-[0_0_0_2px_var(--ef-ink)]")}
+						className={cn("!size-8 !min-w-8 !rounded-full !p-0", on && "shadow-[0_0_0_2px_var(--ef-ink)]")}
 						onMouseDown={keepSelection}
 						onKeyDown={(event) => move(event, index)}
 						onClick={() => onChange(token)}

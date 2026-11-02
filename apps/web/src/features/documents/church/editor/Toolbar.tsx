@@ -102,6 +102,14 @@ function Action({
 	);
 }
 
+const GROUP_LABEL = {
+	text: "Text",
+	rules: "Rules and spacing",
+	layout: "Layout",
+	lines: "Lines to fill in",
+	images: "Brand kit images",
+} as const;
+
 const PAGE_NUMBERS = [
 	{ format: "page", label: "Page N" },
 	{ format: "page-of-total", label: "Page N of M" },
@@ -262,7 +270,7 @@ export function EditorToolbar({
 						portal
 						align="start"
 						aria-label="Insert block"
-						className="max-h-[min(70vh,520px)] overflow-y-auto"
+						className="max-h-[min(75vh,560px)] overflow-y-auto"
 					>
 						{INSERT_KINDS.filter((k) => s.insertable[k.kind]).map((k, i, shown) => {
 							const image = k.group === "images" ? (k.kind as ImageKind) : null;
@@ -270,7 +278,14 @@ export function EditorToolbar({
 							const divide = i > 0 && shown[i - 1]?.group !== k.group;
 							return (
 								<Fragment key={k.kind}>
-									{divide ? <div role="separator" className="my-1 h-px bg-line" /> : null}
+									{i === 0 || divide ? (
+										<div
+											role="presentation"
+											className="px-2.5 pt-2 pb-1 text-xs font-semibold tracking-wide text-text-3 uppercase first:pt-1"
+										>
+											{GROUP_LABEL[k.group]}
+										</div>
+									) : null}
 									<DropdownMenuItem
 										className={MENU_ITEM}
 										disabled={image !== null && !asset}
@@ -300,7 +315,12 @@ export function EditorToolbar({
 						})}
 						{s.region ? (
 							<>
-								<div role="separator" className="my-1 h-px bg-line" />
+								<div
+									role="presentation"
+									className="px-2.5 pt-2 pb-1 text-xs font-semibold tracking-wide text-text-3 uppercase"
+								>
+									Page number
+								</div>
 								{PAGE_NUMBERS.map((p) => (
 									<DropdownMenuItem
 										key={p.format}
