@@ -1,7 +1,7 @@
 import { checkPrBody } from "../pr-body.ts";
 import { prImages } from "../../wiki/pr-images.ts";
 import { createHash } from "node:crypto";
-import { packageContext, loadProgress, partsOf } from "../lib.ts";
+import { packageContext, loadProgress, partsOf, findPackage } from "../lib.ts";
 import { feedbackPromote, feedbackIdeas } from "../feedback.ts";
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -3193,6 +3193,119 @@ test("OPS-67-ship-ack: a WP record with no owning-path diff stays unacknowledged
 		assert.equal(line.length, 1, lines.join("\n"));
 	} finally {
 		console.log = log;
+		db.close();
+		f.close();
+	}
+});
+
+// OPS-117: a split package (api and ui parts) that shipped as one whole task counts as its producer milestone.
+const quietDrive = (root: string, task: ReturnType<typeof parseTask>) =>
+	quiet(() => driveOnce(root, task, DRIVE_TIMING).stage);
+const PHASES_API = "packages/domain/src/phases/declare.ts",
+	PHASES_UI = "apps/web/src/features/phases/panel.tsx";
+
+test("OPS-117-whole-task: a reviewed, acknowledged whole-task record of a split package unlocks its dependents", () => {
+	const { f, db, task, shipped } = wpShipFixture(undefined, PHASES_API, { task: "WP-038", extraFiles: [PHASES_UI] });
+	try {
+		assert.deepEqual(partsOf(findPackage(loadDag(f.root), "WP-038")), ["api", "ui"]);
+		assert.equal(quietDrive(f.root, task), "done");
+		assert.equal(shipped().part, null);
+		assert.equal(shipped().acknowledged, true);
+		assert.equal(existsSync(join(evfDataDir(f.root), "shipped", "wp-038-api.json")), false);
+		assert.equal(producerReady(f.root, "WP-038"), true);
+
+		const recordPath = join(evfDataDir(f.root), "shipped", `${task.slug}.json`),
+			good = readFileSync(recordPath, "utf8"),
+			edit = (change: (r: any) => void) => {
+				const r = JSON.parse(good);
+				change(r);
+				writeFileSync(recordPath, JSON.stringify(r));
+			};
+		edit((r) => delete r.acknowledged);
+		assert.equal(producerReady(f.root, "WP-038"), false, "an unacknowledged whole-task record stays refused");
+		edit((r) => (r.verification.approval.verdict = "changes_requested"));
+		assert.equal(producerReady(f.root, "WP-038"), false, "a verdict other than approved stays refused");
+		edit((r) => (r.merge_commit = "a".repeat(40)));
+		assert.equal(producerReady(f.root, "WP-038"), false, "a merge commit off the base branch stays refused");
+		rmSync(recordPath);
+		assert.equal(producerReady(f.root, "WP-038"), false, "no shipped record stays refused");
+		writeFileSync(recordPath, good);
+		assert.equal(producerReady(f.root, "WP-038"), true);
+	} finally {
+		db.close();
+		f.close();
+	}
+});
+
+test("OPS-117-whole-task: the ledger keeps a whole-task milestone after a later maintenance-only record", () => {
+	const { f, db, task, progressPath, shipped } = wpShipFixture(undefined, PHASES_API, { task: "WP-038" });
+	try {
+		assert.equal(quietDrive(f.root, task), "done");
+		const milestone = loadProgress(f.root)["WP-038"].milestones["WP-038"];
+		assert.equal(milestone.acknowledged, true);
+		const reviewedMerge = milestone.merge_commit;
+		// A later reviewed merge of the same task changes only a path outside the owning paths.
+		f.git("push", "-q", "origin", "main");
+		const later = f.task(task.slug);
+		writeFileSync(join(later, "README.md"), "Later reviewed outside-path fix\n");
+		execFileSync("git", ["-C", later, "add", "README.md"]);
+		execFileSync("git", ["-C", later, "commit", "-qm", "Later maintenance"]);
+		const laterSha = f.git("rev-parse", task.branch),
+			state = f.getState();
+		state.pr.headRefOid = laterSha;
+		state.comments["77"][0].body =
+			`EVF-Review: ${JSON.stringify({ head: laterSha, verifier: VERIFIER, verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
+		f.setState(state);
+		assert.equal(
+			quiet(() => ship(f.root, task)),
+			0,
+		);
+		assert.notEqual(shipped().merge_commit, reviewedMerge, "the retained record is now the maintenance merge");
+		assert.equal(producerReady(f.root, "WP-038"), true, "the ledger milestone still counts");
+
+		const progress = readFileSync(progressPath, "utf8"),
+			canonical = JSON.parse(progress);
+		canonical.packages["WP-038"].milestones["WP-038"].acknowledged = false;
+		writeFileSync(progressPath, JSON.stringify(canonical));
+		assert.equal(producerReady(f.root, "WP-038"), false, "an unacknowledged ledger milestone stays refused");
+		canonical.packages["WP-038"].milestones["WP-038"] = { ...milestone, merge_commit: "a".repeat(40) };
+		writeFileSync(progressPath, JSON.stringify(canonical));
+		assert.equal(producerReady(f.root, "WP-038"), false, "an unintegrated ledger milestone stays refused");
+		canonical.packages["WP-038"].milestones["WP-038"] = { ...milestone, task: "WP-038/ui" };
+		writeFileSync(progressPath, JSON.stringify(canonical));
+		assert.equal(producerReady(f.root, "WP-038"), false, "a milestone keyed for another task stays refused");
+		writeFileSync(progressPath, progress);
+		assert.equal(producerReady(f.root, "WP-038"), true);
+	} finally {
+		db.close();
+		f.close();
+	}
+});
+
+test("OPS-117-whole-task: a whole-task record that changed only ui paths does not unlock dependents", () => {
+	const { f, db, task, shipped } = wpShipFixture(undefined, PHASES_UI, { task: "WP-038" });
+	try {
+		assert.equal(quietDrive(f.root, task), "done");
+		assert.equal(shipped().acknowledged, true, "the review itself is valid");
+		assert.equal(loadProgress(f.root)["WP-038"].milestones["WP-038"].acknowledged, true);
+		assert.equal(producerReady(f.root, "WP-038"), false);
+		assert.throws(
+			() => requireImplementation(f.root, "WP-026"),
+			/Prerequisites need reviewed producer\/interface milestones: [^\n]*WP-038/,
+		);
+	} finally {
+		db.close();
+		f.close();
+	}
+});
+
+test("OPS-117-whole-task: a WP-038/api record still unlocks dependents as before", () => {
+	const { f, db, task, shipped } = wpShipFixture(undefined, PHASES_API, { task: "WP-038/api" });
+	try {
+		assert.equal(quietDrive(f.root, task), "done");
+		assert.equal(shipped().acknowledged, true);
+		assert.equal(producerReady(f.root, "WP-038"), true);
+	} finally {
 		db.close();
 		f.close();
 	}
