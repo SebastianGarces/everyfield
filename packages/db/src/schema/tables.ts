@@ -3522,7 +3522,7 @@ export const private_calendar = pgTable(
 			.default(sql`1`),
 		zone: text("zone").notNull(),
 		next_at: timestamp("next_at", { withTimezone: true, mode: "date" }).notNull(),
-		preview_id: uuid("preview_id"),
+		preview_handle: uuid("preview_handle"),
 		preview_revision: int64("preview_revision"),
 	},
 	(table): PgTableExtraConfigValue[] => [
@@ -3536,7 +3536,7 @@ export const private_calendar = pgTable(
 		index("private_calendar_ref_1").using("btree", table.plant_id.asc().nullsLast()),
 		check("private_calendar_ck_0", sql`(revision >= 1)`),
 		check("private_calendar_zone_iana", sql`(zone = ANY (${canonicalZones7}))`),
-		check("private_calendar_preview", sql`((preview_id IS NULL) = (preview_revision IS NULL))`),
+		check("private_calendar_preview", sql`((preview_handle IS NULL) = (preview_revision IS NULL))`),
 	],
 );
 export const private_week = pgTable(

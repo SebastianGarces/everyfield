@@ -11486,15 +11486,15 @@
 				"purpose": "One author's private check-in calendar in one church: the zone and instant where the next Monday week starts, and the revision that serializes saves, corrections and personal timezone changes.",
 				"library_owned": false,
 				"jsonb_keys": {},
-				"capabilities": [],
-				"replaces": ["planter_checkin", "planter_checkin_event"],
+				"capabilities": ["CAP-B-033"],
+				"replaces": [],
 				"producer_work_packages": ["WP-039"],
 				"producer_derivation": {
-					"old_target_tables": ["planter_checkin", "planter_checkin_event"],
+					"old_target_tables": [],
 					"additional_producers": ["WP-039"],
 					"rule": "WP-039 stores one calendar per original author account and church plant."
 				},
-				"feature_ids": ["PI-038", "PI-039", "PI-040", "PI-041"],
+				"feature_ids": ["PI-038", "PI-040", "PI-041"],
 				"acceptance_ids": ["AC-PI-038--PI-038", "AC-PI-040--PI-040", "AC-PI-041--PI-041"],
 				"future_case_ids": [
 					"B03-019",
@@ -11539,7 +11539,7 @@
 				"next_at": {
 					"note": "The instant the next week starts."
 				},
-				"preview_id": {
+				"preview_handle": {
 					"note": "The personal timezone preview this calendar is bound to, kept private here instead of in settings_preview."
 				},
 				"preview_revision": {
@@ -11568,11 +11568,11 @@
 				"purpose": "One Monday week of an author's private calendar, answered or not, with its current answer: four levels and an optional note.",
 				"library_owned": false,
 				"jsonb_keys": {},
-				"capabilities": [],
-				"replaces": ["planter_checkin", "planter_checkin_event"],
+				"capabilities": ["CAP-B-033", "CAP-B-034"],
+				"replaces": [],
 				"producer_work_packages": ["WP-039"],
 				"producer_derivation": {
-					"old_target_tables": ["planter_checkin", "planter_checkin_event"],
+					"old_target_tables": [],
 					"additional_producers": ["WP-039"],
 					"rule": "WP-039 materializes weeks in order when a save or zone change finds them due; a missing week has a row with no answer."
 				},
@@ -11668,11 +11668,11 @@
 				"purpose": "Append-only history of one week's answers: each save or correction that changed the answer, with its request key for retries.",
 				"library_owned": false,
 				"jsonb_keys": {},
-				"capabilities": [],
-				"replaces": ["planter_checkin", "planter_checkin_event"],
+				"capabilities": ["CAP-B-033", "CAP-B-034"],
+				"replaces": [],
 				"producer_work_packages": ["WP-039"],
 				"producer_derivation": {
-					"old_target_tables": ["planter_checkin", "planter_checkin_event"],
+					"old_target_tables": [],
 					"additional_producers": ["WP-039"],
 					"rule": "WP-039 appends a revision only when a save or correction changes the answer."
 				},

@@ -384,14 +384,14 @@ export type PrivateCare = ReturnType<typeof createPrivateCare>;
  */
 export const personalCalendar = {
 	async preview(tx: Transaction, input: { account: string; previewId: string }) {
-		await tx.execute(sql`UPDATE private_calendar SET preview_id=${input.previewId}::uuid,preview_revision=revision
+		await tx.execute(sql`UPDATE private_calendar SET preview_handle=${input.previewId}::uuid,preview_revision=revision
  WHERE author_id=${input.account}::uuid`);
 	},
 	async apply(tx: Transaction, input: { account: string; previewId: string; zone: string; at: string }) {
 		const at = sql`${input.at}::timestamptz`;
 		const { rows } = await tx.execute(sql`WITH cals AS (SELECT k.* FROM private_calendar k
   WHERE k.author_id=${input.account}::uuid FOR UPDATE),
- fit AS (SELECT * FROM cals WHERE preview_id=${input.previewId}::uuid AND preview_revision=revision),
+ fit AS (SELECT * FROM cals WHERE preview_handle=${input.previewId}::uuid AND preview_revision=revision),
  bound AS (SELECT (SELECT count(*) FROM fit)=(SELECT count(*) FROM cals) AS ok),
  due AS (SELECT f.plant_id,f.zone,d.*,(SELECT coalesce(max(w.ordinal),0) FROM private_week w
   WHERE w.author_id=f.author_id AND w.plant_id=f.plant_id) AS top FROM fit f, private_due_weeks(f.zone,f.next_at,${at}) d
@@ -400,7 +400,7 @@ export const personalCalendar = {
   SELECT ${input.account}::uuid,d.plant_id,d.top+d.n,d.zone,d.starts_on,d.starts_on+6,d.starts_at FROM due d RETURNING 1),
  moved AS (UPDATE private_calendar k SET zone=${input.zone},
   next_at=${weekAfter(sql`(date_trunc('week', ${at} AT TIME ZONE ${input.zone}))::date`, sql`${input.zone}`)},
-  revision=k.revision+1,preview_id=NULL,preview_revision=NULL
+  revision=k.revision+1,preview_handle=NULL,preview_revision=NULL
   FROM fit f WHERE k.author_id=f.author_id AND k.plant_id=f.plant_id AND (SELECT ok FROM bound) RETURNING 1)
  SELECT (SELECT ok FROM bound) AS ok`);
 		return z.object({ ok: z.boolean() }).parse(rows[0]).ok;

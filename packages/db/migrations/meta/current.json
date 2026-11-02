@@ -15565,8 +15565,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "preview_id": {
-          "name": "preview_id",
+        "preview_handle": {
+          "name": "preview_handle",
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
@@ -15645,7 +15645,7 @@
         },
         "private_calendar_preview": {
           "name": "private_calendar_preview",
-          "value": "((preview_id IS NULL) = (preview_revision IS NULL))"
+          "value": "((preview_handle IS NULL) = (preview_revision IS NULL))"
         }
       },
       "isRLSEnabled": false
