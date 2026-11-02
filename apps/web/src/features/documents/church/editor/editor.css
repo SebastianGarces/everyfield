@@ -405,6 +405,21 @@
 	--paper-ink: var(--on-fill);
 	--paper-quiet: var(--on-fill);
 }
+/* A field or page number chip on a fill is a tint of the fill's own text color, so its text reads on any fill. */
+.ef-paper
+	[data-ef-node="box"]:not([data-box-fill="none"])
+	:is(span[data-ef-node="field"], span[data-ef-node="pageNumber"]) {
+	background: color-mix(in srgb, var(--on-fill) 14%, transparent);
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--on-fill) 45%, transparent);
+	color: var(--on-fill);
+}
+/* A read-only block keeps its light panel on a fill, so it keeps the paper's own text colors. */
+.ef-paper [data-ef-node="box"]:not([data-box-fill="none"]) .ef-block {
+	--on-fill: #181d19;
+	--paper-ink: #181d19;
+	--paper-quiet: #4d5361;
+	color: var(--paper-ink);
+}
 /* Write-in, signature and date lines: the label is an input, the line is where the person writes. */
 .ef-paper .ef-writein {
 	position: relative;

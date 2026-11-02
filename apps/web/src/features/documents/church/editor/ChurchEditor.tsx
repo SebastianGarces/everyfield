@@ -11,7 +11,7 @@ import {
 	DialogHeader,
 	Tooltip,
 } from "@everyfield/ui/controls";
-import { Extension } from "@tiptap/core";
+import { Extension, type Editor } from "@tiptap/core";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import { Selection } from "@tiptap/pm/state";
 import { EditorContent, EditorContext, useEditor, useEditorState } from "@tiptap/react";
@@ -112,11 +112,24 @@ export default function ChurchEditor({
 	});
 
 	// "Unsaved changes" means the document differs from the last saved one, so Undo back to it reads "Saved" again.
+	// Tiptap can build the schema again after the first render; the saved document is read into the current schema
+	// first, because nodes of two schemas are never equal.
+	const isSaved = useCallback((doc: PMNode) => {
+		const saved = savedDoc.current;
+		if (!saved) return true;
+		if (saved.type.schema !== doc.type.schema) savedDoc.current = doc.type.schema.nodeFromJSON(saved.toJSON());
+		return (savedDoc.current as PMNode).eq(doc);
+	}, []);
+	// Read when a way out is taken, not from React state: a click straight after an edit can come before React renders.
+	const unsaved = useCallback(
+		() => !!editor && (inflight.current !== null || !isSaved(editor.state.doc)),
+		[editor, isSaved],
+	);
 	useEffect(() => {
 		if (!editor) return;
 		savedDoc.current ??= editor.state.doc;
 		const sync = () => {
-			const same = (savedDoc.current as PMNode).eq(editor.state.doc);
+			const same = isSaved(editor.state.doc);
 			setStatus((current) =>
 				current.kind === "saving"
 					? current
@@ -129,7 +142,7 @@ export default function ChurchEditor({
 		};
 		editor.on("update", sync);
 		return () => void editor.off("update", sync);
-	}, [editor]);
+	}, [editor, isSaved]);
 
 	const save = useCallback((): Promise<boolean> => {
 		if (!editor) return Promise.resolve(false);
@@ -178,7 +191,7 @@ export default function ChurchEditor({
 		return () => window.removeEventListener("keydown", onKey);
 	}, [save]);
 
-	const leave = useLeaveGuard(status.kind !== "saved");
+	const leave = useLeaveGuard(editor, unsaved);
 
 	const preview = useCallback(async () => {
 		if (status.kind !== "saved" && !(await save())) return;
@@ -398,14 +411,16 @@ type LeaveRequest = { go: () => void; stay: () => void };
 /**
  * Asks before an in-app link or the Back button leaves the page while the document has changes that are not saved.
  * The question is an Everyfield dialog (LeaveDialog), never a browser confirm. Closing or reloading the tab can only
- * show the browser's own beforeunload prompt.
+ * show the browser's own beforeunload prompt. The listeners stay on for the life of the editor and ask `unsaved` at the
+ * moment of the click or the Back press, so no edit, however close to the click, gets past them.
  */
-function useLeaveGuard(active: boolean) {
+function useLeaveGuard(editor: Editor | null, unsaved: () => boolean) {
 	const router = useRouter();
 	const [request, setRequest] = useState<LeaveRequest | null>(null);
 	useEffect(() => {
-		if (!active) return;
+		if (!editor) return;
 		const beforeUnload = (event: BeforeUnloadEvent) => {
+			if (!unsaved()) return;
 			event.preventDefault();
 			event.returnValue = "";
 		};
@@ -416,34 +431,45 @@ function useLeaveGuard(active: boolean) {
 			const url = new URL(link.href, window.location.href);
 			if (url.origin !== window.location.origin) return;
 			if (url.pathname === window.location.pathname && url.search === window.location.search) return;
+			if (!unsaved()) return;
 			event.preventDefault();
 			event.stopPropagation();
 			setRequest({ go: () => router.push(`${url.pathname}${url.search}${url.hash}`), stay: () => {} });
 		};
-		// The Back button: a sentinel entry with the same address takes the first Back press, which asks before it leaves.
+		// The Back button: a sentinel entry with the same address takes the first Back press. The edit that makes the
+		// document unsaved pushes it, so it is in place before any Back press. Leaving the sentinel with nothing unsaved
+		// (after a Save) goes on back, so one press still leaves the page.
+		const onSentinel = () => window.history.state?.efLeaveGuard === true;
+		let armed = onSentinel();
 		let leaving = false;
-		const pushSentinel = () =>
+		const pushSentinel = () => {
 			window.history.pushState({ ...window.history.state, efLeaveGuard: true }, "", window.location.href);
-		if (!window.history.state?.efLeaveGuard) pushSentinel();
-		const onPopState = () => {
-			if (leaving) return;
-			setRequest({
-				go: () => {
-					leaving = true;
-					window.history.back();
-				},
-				stay: pushSentinel,
-			});
+			armed = true;
 		};
+		const arm = () => {
+			if (!armed && unsaved()) pushSentinel();
+		};
+		const onPopState = () => {
+			if (leaving || !armed || onSentinel()) return;
+			armed = false;
+			const back = () => {
+				leaving = true;
+				window.history.back();
+			};
+			if (unsaved()) setRequest({ go: back, stay: pushSentinel });
+			else back();
+		};
+		editor.on("update", arm);
 		window.addEventListener("beforeunload", beforeUnload);
 		window.addEventListener("popstate", onPopState);
 		document.addEventListener("click", onClick, true);
 		return () => {
+			editor.off("update", arm);
 			window.removeEventListener("beforeunload", beforeUnload);
 			window.removeEventListener("popstate", onPopState);
 			document.removeEventListener("click", onClick, true);
 		};
-	}, [active, router]);
+	}, [editor, unsaved, router]);
 	return { request, close: () => setRequest(null) };
 }
 

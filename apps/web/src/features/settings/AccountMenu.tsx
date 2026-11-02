@@ -2,7 +2,6 @@
 
 import { Logout01Icon, ShieldUserIcon, UserIcon, UserMultipleIcon } from "@hugeicons/core-free-icons";
 import { MenuItem, MenuLabel, MenuSeparator, useToast } from "@everyfield/ui/controls";
-import { useRouter } from "next/navigation";
 import { identityApi, loadPage } from "../identity/api";
 import { SECTION_LABEL } from "./model";
 
@@ -12,7 +11,6 @@ import { SECTION_LABEL } from "./model";
  * Members read them and the pages themselves hide every change a Member may not make.
  */
 export function AccountMenu({ name, detail, onAccount }: { name: string; detail: string; onAccount: () => void }) {
-	const router = useRouter();
 	const toast = useToast();
 
 	async function signOut() {
@@ -32,10 +30,10 @@ export function AccountMenu({ name, detail, onAccount }: { name: string; detail:
 			<MenuItem icon={UserIcon} onSelect={onAccount}>
 				{SECTION_LABEL.account}
 			</MenuItem>
-			<MenuItem icon={UserMultipleIcon} onSelect={() => router.push("/settings/seats")}>
+			<MenuItem icon={UserMultipleIcon} href="/settings/seats">
 				{SECTION_LABEL.seats}
 			</MenuItem>
-			<MenuItem icon={ShieldUserIcon} onSelect={() => router.push("/settings/sharing")}>
+			<MenuItem icon={ShieldUserIcon} href="/settings/sharing">
 				{SECTION_LABEL.sharing}
 			</MenuItem>
 			<MenuSeparator />
