@@ -36,10 +36,23 @@ writes the shipped record with an `owner_approval` field, acknowledges progress 
 `evf drive` records the wait and stops; a later pass records the merge. The key is optional: when it is
 absent, the built-in default in `tools/evf/policy.ts` applies. A malformed key stops `loadConfig`.
 
+Wiki content on task branches (OPS-109): the same task PRs join a second held class when the exact-head diff
+changes a path under `docs/reference/wiki/`. `evf ship` runs the verifier checks, then sets each `pending` draft's
+`claim_check` to `passed` with the verifier's seat, model and session as `reviewer` and
+`Approved <UTC>: "<words>"` as `notes` (one commit), runs the home checkout's `bin/wiki promote` for each passed draft
+(`--reviewed-sha` is that commit, `--approved-by` the draft's `approver`) and `bin/wiki check-seed`, commits the
+result, pushes, posts `evf/verify` on that head and prints `evf approve <PR> ... --head <sha>`. A failed step resets
+the branch to its start and pushes nothing. `evf wiki claim-check <task> --reviewer "<name>" --approval "<words>"`
+records a named reviewer the same way. The review carries to the new head only over those claim checks, the deletion
+of the PR's drafts and the seed and manifest changes promotion makes (`wikiCarryProof` in `tools/evf/wiki.ts`).
+`evf approve` refuses a head with a pending or unpromoted draft and names the missing step. A claim check is never
+an owner approval.
+
 Merge choke point (OPS-83): every PR merge in `tools/evf` goes through `mergePullRequest` in `tools/evf/merge.ts`;
 a test fails when another file calls `gh pr merge` or the merge API. Directly before the merge call, on the exact
 sha passed to `--match-head-commit` (after any `update-branch`), it holds a document-template PR unless the caller
-passes Sebastian's words for that head, which only `evf approve --owner-approval` does. It reads the paths from
+passes Sebastian's words for that head, which only `evf approve --owner-approval` does; it holds a Wiki-content
+PR the same way. It reads the paths from
 the base branch's `evf.config.json` (the built-in default when the key is absent), never the running checkout's
 copy. Any doubt counts as the class: a failed fetch, merge-base or diff, an unreadable base config or an empty head.
 Stale-code refusal: it also refuses to merge when the git trees of `tools/evf` and `bin/evf` in the checkout the
@@ -61,9 +74,11 @@ contains the failed one. A late success for an older commit leaves it open.
 The harness keeps its state in one sqlite file, `work.sqlite` under the Git common directory next to
 the ship queue and evidence (`evf db path` prints it). Every worktree shares it. Writers open it in WAL
 mode with a five-second busy timeout, so `evf status` and the TUI read while a hook writes. The schema
-is the numbered SQL in `tools/evf/db/migrations/`; `evf db migrate` (or any writer) applies new files in
-order, one transaction each. The views `v_tasks`, `v_seats`, `v_recent` and `v_health` are the read
-contract: change them with a new migration, never in place.
+is the numbered SQL in `tools/evf/db/migrations/`; `evf db migrate` (or any writer) applies every file the
+store has not recorded, in number order, one transaction each. Numbers may have gaps: an open branch can
+apply its migration 7 to the shared store before another branch's 8 merges, and that 7 still applies
+later. The views `v_tasks`, `v_seats`, `v_recent` and `v_health` are the read contract: change them with
+a new migration, never in place.
 
 `evf goals sync` caches the refocus chain from the plan documents: the project line from
 docs/START-HERE.md and one mission per S-row of the Vertical slices table in docs/plan/build-plan.md.
@@ -308,11 +323,19 @@ returns a queued row only when it is the ref's sole row. A follow-up label is it
 `<ref> slice <n>` (`WP-097 slice 2`; the parent is slice 1). Storing the same spec again changes nothing; a changed
 slice updates its queued row and a removed slice abandons it.
 
+`evf task link <task> --follow-up <task2> [--id <row>]` (OPS-109) records an existing row as a follow-up of the
+task's current row, with a `follow_up_linked` event; `--remove` undoes it. It reserves no id and keeps the row's
+status, so the row's label joins `followUpsOf`, the `Partial:` line and the Ask coverage check. `--slice <n>` makes
+the row cover later slice n (migration 8: `tasks.slice` and `tasks.linked`); a link without it covers no slice.
+Storing the spec again files only uncovered slices and never edits or abandons a linked row. It refuses a self
+link, a cycle, a row with another parent and an abandoned or merged row. `migrate` stops when two migration files
+share a number or the store applied another migration under this code's number.
+
 A queued row never starts: `evf drive` prints stage `blocked` (exit 2) and `evf task start` and `evf launch` refuse,
 naming the row it waits for. Each slice waits for the slice before it, the first for its parent. `markMerged`
-moves the waiting queued row to `new` with one `follow_up_released` event. When a stored spec lists more slices than
-the task has follow-up rows (a spec stored before OPS-86, or rows abandoned), the next stage is `blocked` instead of
-`implement`, and a plan run cannot close passed; storing the spec again files the rows.
+moves the waiting queued row to `new` with one `follow_up_released` event. When a stored spec lists a slice that
+no follow-up row covers (a spec stored before OPS-86, or rows abandoned), the next stage is `blocked` instead of
+`implement`, and a plan run cannot close passed; storing the spec again or `evf task link --slice` files the rows.
 
 For a task with follow-ups, an ordinary PR body (`evf pr body`, `evf pr open`, the `evf ship` body check) needs a
 first line under `## Summary` that starts with `Partial:` and names every label. `evf pr body --body-file` takes

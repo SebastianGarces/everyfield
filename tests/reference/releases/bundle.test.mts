@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { packageCheckout,packageStarter,validateBundle } from '../../../packages/reference/src/bundle.ts';
 import { editorDocument,importExtractedText } from '../../../packages/contracts/src/reference/editor.ts';
-import { fixture,starter } from './fixtures.mts';
+import { fixture,starter,wiki } from './fixtures.mts';
 
 test('INV-reference-catalog: packaging refuses a changed catalog against its reviewed expectation', async()=>{
   const target=await mkdtemp(join(tmpdir(),'wp032-catalog-'));
@@ -16,7 +16,7 @@ test('INV-reference-catalog: packaging refuses a changed catalog against its rev
     await cp(new URL('../../../docs',import.meta.url),join(target,'docs'),{recursive:true});
     const {verifySources}=await import('../../../packages/reference/verify.mjs');
     const expected=(await verifySources(target)).catalog!.sha256;
-    assert.equal((await packageCheckout(pathToFileURL(target+'/'),expected)).filter(e=>e.kind==='article').length,96);
+    assert.equal((await packageCheckout(pathToFileURL(target+'/'),expected)).filter(e=>e.kind==='article').length,124);
     const index=join(target,'docs/catalog/index.json');
     await writeFile(index,(await readFile(index,'utf8'))+'\n');
     assert.deepEqual(await verifyCheckout(pathToFileURL(target+'/'),expected),{ok:false,issues:[{code:'catalog_digest_mismatch',path:'docs/catalog/index.json'}]});
@@ -28,13 +28,15 @@ test('INV-reference-catalog: packaging refuses a changed catalog against its rev
 });
 
 test('AC:CONTENT50-001 canonical catalogs retain topology, identity and distinct inventories',()=>{
-  const entries=packageStarter(starter);
+  const entries=packageStarter(starter,wiki);
   const counts=Object.fromEntries(['article','section','mail_template','document_template','task_template','ministry_template','launch_inventory','phase','criterion']
     .map(kind=>[kind,entries.filter(e=>e.kind===kind).length]));
-  assert.deepEqual(counts,{article:96,section:21,mail_template:7,document_template:11,task_template:20,ministry_template:10,launch_inventory:9,phase:7,criterion:19});
+  assert.deepEqual(counts,{article:124,section:21,mail_template:7,document_template:11,task_template:20,ministry_template:10,launch_inventory:9,phase:7,criterion:19});
   assert.deepEqual(starter.catalogs.launch.map(row=>Array.isArray(row.tasks)?row.tasks.length:0),[3,3,2,2,3,3,2,3,2]);
-  const {bundle,policy}=fixture();
-  assert.deepEqual(validateBundle(bundle,policy),{ok:true,hashIntegrity:true,editorialApproved:true,manifestHash:"1eb8906a8fb0a4e1adbac2c04b110c1e22931f5bb9830709a9e32e27f3ab0126",blockers:[]});
+  // The Wiki part follows each promoted seed release, so pin determinism rather than one digest.
+  const {bundle,policy,manifestHash}=fixture();
+  assert.equal(fixture().manifestHash,manifestHash);
+  assert.deepEqual(validateBundle(bundle,policy),{ok:true,hashIntegrity:true,editorialApproved:true,manifestHash,blockers:[]});
 });
 
 test('AC:GAP-REF-008 exact source integrity never supplies editorial approval',()=>{
@@ -105,7 +107,7 @@ test('INV-reference-rubrics: plant original and adapter stay distinct from Netwo
   assert.equal(plant.adapter?.path,'docs/reference/plant-operational-adapter-v1.json');
   assert.equal(network.original.path,'docs/reference/network-rubric-v1.json');assert.equal(network.adapter,null);
   assert.throws(()=>readRubricManifest(starter,'other'));
-  const report=auditLanguage(starter);
+  const report=auditLanguage(starter,wiki);
   assert.deepEqual(report.unsafeArticleIds,[]);assert.equal(report.semanticEvaluation,'not_run');assert.equal(report.activationApproved,false);
   assert.deepEqual(report.knownDrift.map(d=>d.id),['REF-DRIFT-C12','REF-DRIFT-PRAYER','REF-DRIFT-EVIDENCE']);
 });

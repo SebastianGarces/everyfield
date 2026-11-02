@@ -53,7 +53,7 @@ test("OPS-69-migration: 003 adds the cache columns and keeps every row of a vers
 			[2, "002-prototype-statuses.sql"],
 		] as const) {
 			db.exec(readFileSync(join(dir, name), "utf8"));
-			db.prepare("INSERT INTO schema_version VALUES (?, ?, 'then')").run(v, name);
+			db.prepare("INSERT INTO schema_version VALUES (?, ?, 'then')").run(v, name.slice(4, -4));
 		}
 		db.exec("INSERT INTO tasks (slug, mode, created_at, updated_at) VALUES ('t', 'implement', 'x', 'x')");
 		db.exec(
@@ -65,6 +65,7 @@ test("OPS-69-migration: 003 adds the cache columns and keeps every row of a vers
 			"005-merged-views.sql",
 			"006-task-follow-ups.sql",
 			"007-qa-previews.sql",
+			"008-follow-up-links.sql",
 		]);
 		assert.deepEqual(
 			{

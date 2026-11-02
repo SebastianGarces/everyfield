@@ -4063,3 +4063,451 @@ test("OPS-83-375-drive: the drive records owner_approval_wait for the template P
 		}
 	}
 });
+
+// OPS-109: Wiki content on task branches waits for Sebastian; evf records the claim check and promotes the drafts.
+import { randomUUID } from "node:crypto";
+import { wikiClaimCheck, wikiCarryProof } from "../wiki.ts";
+
+/**
+ * The home checkout's bin/wiki: the real tools/wiki promote and seed code, with only the MDX lint stubbed, because the
+ * evf CI job installs no Wiki dependencies. Lint itself is proven in tools/wiki/tests.
+ */
+function withWikiTool(f: { root: string }) {
+	mkdirSync(join(f.root, "tools/wiki"), { recursive: true });
+	mkdirSync(join(f.root, "bin"), { recursive: true });
+	for (const file of ["main.ts", "rows.ts", "seed.py", "pr-images.ts", "ascii-allowlist.json"])
+		cpSync(join(source, "tools/wiki", file), join(f.root, "tools/wiki", file));
+	writeFileSync(
+		join(f.root, "tools/wiki/mdx.ts"),
+		"export async function inspect(content: string) {\n\treturn { code: '', words: content.split(/\\s+/).length, errors: [] as string[], warnings: [] as string[], ascii: [] as string[] };\n}\n",
+	);
+	cpSync(join(source, "bin/wiki"), join(f.root, "bin/wiki"));
+	chmodSync(join(f.root, "bin/wiki"), 0o755);
+}
+
+type WikiDraft = { path: string; text: string; id: string };
+/** A new-article draft in the first seed section, written with `indent` (a tab, or two spaces). */
+function wikiDraft(f: { root: string }, name: string, opts: { status?: string; tier?: string; indent?: string } = {}) {
+	const seed = JSON.parse(readFileSync(join(f.root, "docs/reference/wiki/seed.json"), "utf8"));
+	const base = seed.articles[0],
+		section = seed.sections.find((s: { id: string }) => s.id === base.section_id);
+	const status = opts.status ?? "pending";
+	const row = {
+		...base,
+		id: randomUUID(),
+		slug: `${section.slug}/${name}`,
+		title: `Fixture ${name}`,
+		status: "draft",
+		published_at: null,
+		draft: {
+			backlog_id: "fixture",
+			tier: opts.tier ?? "A",
+			closes: [],
+			approver: "Sebastian",
+			replaces_id: null,
+			sources: [],
+			claim_check: { status, reviewer: status === "pending" ? "" : "Earlier reviewer", notes: "" },
+			rulings: [],
+		},
+	};
+	return {
+		path: `docs/reference/wiki/drafts/${row.slug}.json`,
+		text: JSON.stringify(row, null, opts.indent ?? "\t") + "\n",
+		id: row.id,
+	};
+}
+
+/** Commit `drafts` in the task worktree, push the branch and point the PR and an approved review at the new head. */
+function wikiHead(f: ReturnType<typeof mergeFixture>, drafts: WikiDraft[], wt = f.wt): string {
+	for (const d of drafts) {
+		mkdirSync(dirname(join(wt, d.path)), { recursive: true });
+		writeFileSync(join(wt, d.path), d.text);
+	}
+	execFileSync("git", ["-C", wt, "add", "docs"]);
+	execFileSync("git", ["-C", wt, "commit", "-qm", "Wiki drafts"]);
+	const sha = execFileSync("git", ["-C", wt, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+	execFileSync("git", ["-C", wt, "push", "-q", "origin", `HEAD:refs/heads/${parseTaskOfWt(wt)}`]);
+	const state = f.getState();
+	state.pr.headRefOid = sha;
+	state.comments["77"][0].body =
+		`EVF-Review: ${JSON.stringify({ head: sha, verifier: VERIFIER, verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
+	f.setState(state);
+	return sha;
+}
+const parseTaskOfWt = (wt: string) =>
+	execFileSync("git", ["-C", wt, "branch", "--show-current"], { encoding: "utf8" }).trim();
+const wikiFixture = () => {
+	const f = mergeFixture({ owningPaths: ["docs/reference/wiki/"] });
+	withWikiTool(f);
+	return f;
+};
+const at = (wt: string, rev: string, path: string) =>
+	execFileSync("git", ["-C", wt, "show", `${rev}:${path}`], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+/** The task branch on the fixture's origin. */
+const remoteHead = (wt: string) =>
+	execFileSync("git", ["-C", wt, "ls-remote", "origin", "refs/heads/task/ops-1"], { encoding: "utf8" }).split("\t")[0];
+const headOf = (repo: string, ref = "HEAD") =>
+	execFileSync("git", ["-C", repo, "rev-parse", ref], { encoding: "utf8" }).trim();
+/** The draft text with only its three claim_check values replaced, computed by text edits the test can read. */
+const claimed = (d: WikiDraft, indent: string, reviewer: string, notes: string) =>
+	d.text
+		.replace(`${indent.repeat(3)}"status": "pending",`, `${indent.repeat(3)}"status": "passed",`)
+		.replace(`${indent.repeat(3)}"reviewer": "",`, `${indent.repeat(3)}"reviewer": ${JSON.stringify(reviewer)},`)
+		.replace(`${indent.repeat(3)}"notes": ""`, `${indent.repeat(3)}"notes": ${JSON.stringify(notes)}`);
+const NOTES = /^Approved \d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ: "(.+)"$/;
+const notesOf = (wt: string, rev: string, d: WikiDraft) => JSON.parse(at(wt, rev, d.path)).draft.claim_check.notes;
+
+test("OPS-109-gate: the merge refuses a Wiki-content task PR without his approval for that exact head, and evf ship never merges it", () => {
+	const f = wikiFixture();
+	try {
+		const d = wikiDraft(f, "fixture-gate"),
+			head = wikiHead(f, [d]);
+		const cfg = loadConfig(f.root);
+		const refusal = `evf does not merge PR #77: it changes Wiki content (${d.path}). Sebastian approves each Wiki change; after his approval in chat, run: bin/evf approve 77 --owner-approval "<his words>" --head ${head}`;
+		assert.throws(() => mergePullRequest({ root: f.root, cfg, cwd: f.wt, number: 77, sha: head }), {
+			message: refusal,
+		});
+		assert.throws(
+			() =>
+				mergePullRequest({
+					root: f.root,
+					cfg,
+					cwd: f.wt,
+					number: 77,
+					sha: head,
+					ownerApproval: { quote: "Approved this one", approved_head: "a".repeat(40) },
+				}),
+			/Sebastian approved aaaaaaaaaa, not .* His approval does not carry over to a new head/,
+		);
+		const { value, lines } = capturedLog(() => ship(f.root, f.taskRef));
+		assert.equal(value, 0);
+		assert.deepEqual(mergeCalls(f), [], "no merge and no update-branch call");
+		assert.match(lines.at(-1)!, /^evf ship does not merge PR #77: it changes Wiki content \(/);
+		assert.match(lines.at(-1)!, /bin\/evf approve 77 --owner-approval "<his words>" --head [0-9a-f]{40}$/);
+	} finally {
+		f.close();
+	}
+});
+
+test("OPS-109-ship: the verifier's pass records the claim check in one commit, promotes the drafts, pushes and names approve with the new head", () => {
+	const f = wikiFixture();
+	try {
+		const tabs = wikiDraft(f, "fixture-tabs"),
+			spaces = wikiDraft(f, "fixture-spaces", { indent: "  " }),
+			reviewed = wikiHead(f, [tabs, spaces]),
+			before = f.getState().calls.length;
+		const { value, lines } = capturedLog(() => ship(f.root, f.taskRef));
+		assert.equal(value, 0);
+		const promoted = headOf(f.wt),
+			claim = headOf(f.wt, "HEAD~1");
+		assert.equal(headOf(f.wt, "HEAD~2"), reviewed, "two commits: claim check, then promotion");
+		assert.equal(remoteHead(f.wt), promoted, "pushed");
+		// The claim-check commit changes only the claim_check values of the pending drafts.
+		const reviewer = "verifier claude-opus-5-5 (session 22222222-2222-4222-8222-222222222222)";
+		const notes = notesOf(f.wt, claim, tabs);
+		assert.equal(
+			NOTES.exec(notes)![1],
+			`independent verifier review of ${reviewed}: https://github.com/test/private/pull/77#issuecomment-1`,
+		);
+		assert.equal(at(f.wt, claim, tabs.path), claimed(tabs, "\t", reviewer, notes));
+		assert.equal(at(f.wt, claim, spaces.path), claimed(spaces, "  ", reviewer, notesOf(f.wt, claim, spaces)));
+		assert.equal(
+			execFileSync("git", ["-C", f.wt, "diff", "--name-only", reviewed, claim], { encoding: "utf8" }).trim().split("\n")
+				.length,
+			2,
+		);
+		// The promotion commit writes the seed and manifest and deletes the drafts; check-seed passes on that head.
+		assert.deepEqual(
+			execFileSync("git", ["-C", f.wt, "diff", "--name-status", claim, promoted], { encoding: "utf8" })
+				.trim()
+				.split("\n")
+				.sort(),
+			[
+				`D\t${spaces.path}`,
+				`D\t${tabs.path}`,
+				"M\tdocs/reference/wiki/manifest.json",
+				"M\tdocs/reference/wiki/seed.json",
+			].sort(),
+		);
+		const seed = JSON.parse(at(f.wt, promoted, "docs/reference/wiki/seed.json"));
+		for (const d of [tabs, spaces]) {
+			const article = seed.articles.find((a: { id: string }) => a.id === d.id);
+			assert.equal(article.status, "published");
+			assert.equal(article.content, JSON.parse(d.text).content);
+		}
+		const manifest = JSON.parse(at(f.wt, promoted, "docs/reference/wiki/manifest.json"));
+		assert.deepEqual(
+			manifest.releases
+				.slice(-2)
+				.map((r: { id: string; approvedBy: string; pr: number }) => [r.id, r.approvedBy, r.pr])
+				.sort(),
+			[
+				[tabs.id, "Sebastian", 77],
+				[spaces.id, "Sebastian", 77],
+			].sort(),
+		);
+		const check = spawnSync(join(f.root, "bin/wiki"), ["check-seed", "--seed-dir", join(f.wt, "docs/reference/wiki")], {
+			encoding: "utf8",
+		});
+		assert.equal(check.status, 0, check.stderr);
+		const calls = f.getState().calls.slice(before);
+		assert.deepEqual(
+			calls.filter((c: any) => c.args.includes("POST")).map((c: any) => c.args.at(-1)),
+			[`description=Verified by claude-opus-5-5 (session 22222222) at ${promoted.slice(0, 10)}`],
+		);
+		assert.ok(calls.some((c: any) => c.args.includes(`repos/test/private/statuses/${promoted}`)));
+		assert.deepEqual(mergeCalls(f), []);
+		assert.equal(
+			lines.at(-1),
+			`evf ship does not merge PR #77: it changes Wiki content (docs/reference/wiki/manifest.json, docs/reference/wiki/seed.json). The verifier passed it; claim check recorded on 2 drafts and 2 drafts promoted. Sebastian approves each Wiki change; after his approval in chat, run: bin/evf approve 77 --owner-approval "<his words>" --head ${promoted}`,
+		);
+
+		// GitHub shows the pushed head. A rerun carries the review over evf's commits and has nothing left to do.
+		const s = f.getState();
+		s.pr.headRefOid = promoted;
+		s.calls = [];
+		f.setState(s);
+		const again = capturedLog(() => ship(f.root, f.taskRef));
+		assert.equal(headOf(f.wt), promoted);
+		assert.match(again.lines.at(-1)!, /The verifier passed it\. Sebastian approves/);
+		assert.equal(callsWith(f, "POST", `repos/test/private/statuses/${promoted}`).length, 1);
+
+		// evf approve merges that head on his words and runs the after-merge steps of evf ship.
+		approvable(f, "task/ops-1", ["docs/reference/wiki/seed.json", "docs/reference/wiki/manifest.json"], promoted);
+		const t = f.getState();
+		t.commitStatus = verifiedStatus(promoted);
+		t.allowMerge = true;
+		t.mergeBranch = "task/ops-1";
+		t.calls = [];
+		f.setState(t);
+		const words = "The 501c3 article is good to merge";
+		assert.equal(
+			capturedLog(() => inFakeCwd(f, () => approve(f.root, 77, { ownerApproval: words, head: promoted }))).value,
+			0,
+		);
+		assert.deepEqual(callsWith(f, "pr", "merge")[0].args, [
+			"pr",
+			"merge",
+			"77",
+			"--squash",
+			"--match-head-commit",
+			promoted,
+		]);
+		const record = JSON.parse(readFileSync(join(evfDataDir(f.root), "shipped", "ops-1.json"), "utf8"));
+		assert.deepEqual(record.verification.wikiCarry, {
+			approvedHead: reviewed,
+			head: promoted,
+			claimChecked: [],
+			promoted: [spaces.path, tabs.path].sort(),
+		});
+		assert.equal(record.owner_approval.quote, words);
+		assert.equal(record.owner_approval.approved_head, promoted);
+		const db = openWorkDb(f.root);
+		assert.equal(
+			(db.prepare("SELECT status FROM tasks WHERE ref = 'OPS-1'").get() as { status: string }).status,
+			"merged",
+		);
+		db.close();
+	} finally {
+		f.close();
+	}
+});
+
+test("OPS-109-claim-check: Maya's claim check sets every pending draft in one pushed commit and refuses bad input", () => {
+	const f = wikiFixture();
+	try {
+		const pending = wikiDraft(f, "fixture-maya"),
+			failed = wikiDraft(f, "fixture-failed", { status: "failed", indent: "  " }),
+			start = wikiHead(f, [pending, failed]);
+		const maya = (reviewer: string, approval: string) =>
+			capturedLog(() => wikiClaimCheck(f.root, f.taskRef, { reviewer, approval }));
+		assert.throws(
+			() => maya("Maya (Head of Growth)", "yes"),
+			/Quote Maya \(Head of Growth\)'s approval in two words or more/,
+		);
+		assert.throws(() => maya("  ", "Looks right to me"), /Name the reviewer/);
+		writeFileSync(join(f.wt, "scratch.txt"), "x");
+		assert.throws(() => maya("Maya (Head of Growth)", "Looks right to me"), /uncommitted changes/);
+		rmSync(join(f.wt, "scratch.txt"));
+		assert.equal(headOf(f.wt), start);
+
+		const words = 'Both articles look right to me — "ship it"';
+		const { lines } = maya("Maya (Head of Growth)", words);
+		const head = headOf(f.wt);
+		assert.equal(headOf(f.wt, "HEAD~1"), start, "one commit");
+		assert.equal(remoteHead(f.wt), head, "pushed");
+		const notes = notesOf(f.wt, head, pending);
+		assert.equal(NOTES.exec(notes)![1], words);
+		assert.equal(at(f.wt, head, pending.path), claimed(pending, "\t", "Maya (Head of Growth)", notes));
+		assert.equal(at(f.wt, head, failed.path), failed.text, "a failed claim check stays unchanged");
+		assert.deepEqual(lines, [
+			`claim-check: 1 draft passed by Maya (Head of Growth) at ${head.slice(0, 10)}: ${pending.path}`,
+		]);
+		assert.throws(() => maya("Maya (Head of Growth)", words), /OPS-1 has no pending Wiki drafts/);
+		assert.equal(headOf(f.wt), head, "no commit");
+
+		// evf ship carries the verifier's review of the start head over her claim check, then stops at promotion:
+		// the failed draft is not promoted, so approve refuses and names the step.
+		const s = f.getState();
+		s.pr.headRefOid = head;
+		f.setState(s);
+		capturedLog(() => ship(f.root, f.taskRef));
+		const promoted = headOf(f.wt);
+		assert.equal(headOf(f.wt, "HEAD~1"), head, "one promotion commit, no verifier claim check");
+		approvable(f, "task/ops-1", [failed.path], promoted);
+		const t = f.getState();
+		t.commitStatus = verifiedStatus(promoted);
+		t.calls = [];
+		f.setState(t);
+		assert.throws(
+			() => approve(f.root, 77, { ownerApproval: "Approved for this PR", head: promoted }),
+			new RegExp(
+				`PR #77 is not ready for Sebastian's approval at ${promoted.slice(0, 10)}: 1 draft is not promoted \\(${failed.path.replace(/[./]/g, "\\$&")} \\(claim check failed\\)\\)`,
+			),
+		);
+		assert.deepEqual(approveWrites(f), []);
+	} finally {
+		f.close();
+	}
+});
+
+test("OPS-109-approve: a pending draft refuses approve before any write and names the claim-check step", () => {
+	const f = wikiFixture();
+	try {
+		const d = wikiDraft(f, "fixture-pending"),
+			head = wikiHead(f, [d]);
+		approvable(f, "task/ops-1", [d.path], head);
+		const s = f.getState();
+		s.commitStatus = verifiedStatus(head);
+		s.calls = [];
+		f.setState(s);
+		assert.throws(() => approve(f.root, 77, { ownerApproval: "Approved for this PR", head }), {
+			message: `PR #77 is not ready for Sebastian's approval at ${head.slice(0, 10)}: 1 draft has no claim check yet (${d.path}). The verifier records it in bin/evf ship OPS-1, or a named reviewer through bin/evf wiki claim-check OPS-1 --reviewer "<name>" --approval "<words>".`,
+		});
+		assert.deepEqual(approveWrites(f), []);
+	} finally {
+		f.close();
+	}
+});
+
+test("OPS-109-promote-fails: a draft the wiki tool refuses stops ship with its error and pushes nothing", () => {
+	const f = wikiFixture();
+	try {
+		const ok = wikiDraft(f, "fixture-ok"),
+			tierC = wikiDraft(f, "fixture-tier-c", { tier: "C" }),
+			start = wikiHead(f, [ok, tierC]);
+		assert.throws(
+			() => capturedLog(() => ship(f.root, f.taskRef)),
+			/evf ship stopped before pushing anything: bin\/wiki promote \S+fixture-tier-c\.json failed: .*tier C cannot be promoted by this tool/s,
+		);
+		assert.equal(headOf(f.wt), start, "the branch is back at the head it started from");
+		assert.equal(execFileSync("git", ["-C", f.wt, "status", "--porcelain"], { encoding: "utf8" }), "");
+		assert.equal(remoteHead(f.wt), start, "nothing pushed");
+		assert.deepEqual(callsWith(f, "POST"), []);
+	} finally {
+		f.close();
+	}
+});
+
+test("OPS-109-carry: the review carries only over claim checks and promotions of the PR's drafts; any other change needs a new pass", () => {
+	const f = wikiFixture();
+	try {
+		const d = wikiDraft(f, "fixture-carry"),
+			reviewed = wikiHead(f, [d]);
+		capturedLog(() => ship(f.root, f.taskRef));
+		const promoted = headOf(f.wt);
+		const main = headOf(f.root, "origin/main");
+		assert.equal(typeof wikiCarryProof(f.wt, reviewed, promoted, main), "object");
+		const commit = (edit: () => void, base = promoted) => {
+			execFileSync("git", ["-C", f.wt, "reset", "-q", "--hard", base]);
+			edit();
+			execFileSync("git", ["-C", f.wt, "add", "--all"]);
+			execFileSync("git", ["-C", f.wt, "commit", "-qm", "Another change"]);
+			return headOf(f.wt);
+		};
+		const other = commit(() => writeFileSync(join(f.wt, "docs/reference/wiki/backlog.json"), "[]\n"));
+		assert.equal(
+			wikiCarryProof(f.wt, reviewed, other, main),
+			"docs/reference/wiki/backlog.json is not a claim check or promotion of this PR's drafts",
+		);
+		const seedPath = join(f.wt, "docs/reference/wiki/seed.json");
+		const tampered = commit(() => {
+			const seed = JSON.parse(readFileSync(seedPath, "utf8"));
+			seed.articles[0].title = "Changed after review";
+			writeFileSync(seedPath, JSON.stringify(seed, null, 2) + "\n");
+		});
+		assert.equal(
+			wikiCarryProof(f.wt, reviewed, tampered, main),
+			"seed.json changes more than the promoted drafts' articles",
+		);
+		// A draft whose content changes after review, beside its claim check.
+		const row = JSON.parse(d.text);
+		row.title = "Edited after review";
+		row.draft.claim_check = { status: "passed", reviewer: "Someone", notes: "x" };
+		const edited = commit(() => writeFileSync(join(f.wt, d.path), JSON.stringify(row, null, "\t") + "\n"), reviewed);
+		assert.equal(wikiCarryProof(f.wt, reviewed, edited, main), `${d.path} changes more than its claim_check`);
+		// Through evf ship: the PR head with another change asks for a new verifier pass and writes nothing.
+		const s = f.getState();
+		s.pr.headRefOid = other;
+		s.calls = [];
+		f.setState(s);
+		execFileSync("git", ["-C", f.wt, "reset", "-q", "--hard", other]);
+		assert.throws(() => ship(f.root, f.taskRef), {
+			message: `Missing verifier approval for the exact PR head. The approval of ${reviewed.slice(0, 10)} does not carry: docs/reference/wiki/backlog.json is not a claim check or promotion of this PR's drafts. Ask the verifier for a new pass at ${other.slice(0, 10)}.`,
+		});
+		assert.deepEqual(callsWith(f, "POST"), []);
+		assert.equal(headOf(f.wt), other);
+	} finally {
+		f.close();
+	}
+});
+
+test("OPS-109-unchanged: a P2 fix and a design task with Wiki paths keep their routes; a PR without Wiki paths is never held", () => {
+	// A P2 fix that changes a Wiki draft keeps its owner route: verified, no claim check, no promotion.
+	let f = mergeFixture();
+	try {
+		withWikiTool(f);
+		f.authorize("WP-034");
+		f.commit();
+		f.git("push", "-q", "origin", "main");
+		feedbackTriage(f.root, 1, { cls: "p2", reason: "scoped feedback", wp: "WP-034" });
+		const task = parseTask("FB-1"),
+			wt = f.task(task.slug),
+			head = wikiHead(f, [wikiDraft(f, "fixture-p2")], wt);
+		const { lines } = capturedLog(() => ship(f.root, task));
+		assert.deepEqual(lines, ["PR #77 is verified and waits for Sebastian's chat approval, then evf approve."]);
+		assert.equal(headOf(wt), head, "no claim-check or promotion commit");
+	} finally {
+		f.close();
+	}
+	// A design task that changes a Wiki draft keeps the design route.
+	f = mergeFixture({ owningPaths: ["design/"], route: "design" });
+	try {
+		withWikiTool(f);
+		const head = wikiHead(f, [wikiDraft(f, "fixture-design")]);
+		const { lines } = capturedLog(() => ship(f.root, f.taskRef));
+		assert.deepEqual(lines, [
+			"PR #77 is a verified design task and waits for Sebastian's chat approval, then evf approve.",
+		]);
+		assert.equal(headOf(f.wt), head);
+	} finally {
+		f.close();
+	}
+	// An ordinary WP part without Wiki paths merges through the queue, and the merge takes no approval.
+	const { f: g, db, task } = wpShipFixture();
+	try {
+		const head = g.getState().pr.headRefOid;
+		assert.equal(capturedLog(() => ship(g.root, task)).value, 0);
+		assert.deepEqual(callsWith(g, "pr", "merge")[0].args, [
+			"pr",
+			"merge",
+			"77",
+			"--squash",
+			"--match-head-commit",
+			head,
+		]);
+	} finally {
+		db.close();
+		g.close();
+	}
+});

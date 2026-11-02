@@ -817,19 +817,6 @@ test("INV-statements: page reads are one statement and generated work costs the 
 });
 
 test("AC:TARGET-TSK-014 a delivered due reminder is not sent again after the deadline moves", async () => {
-	// Church-local wall time of an instant, as a person enters a deadline.
-	const local = (ms) =>
-		new Intl.DateTimeFormat("sv-SE", {
-			timeZone: "America/Chicago",
-			year: "numeric",
-			month: "2-digit",
-			day: "2-digit",
-			hour: "2-digit",
-			minute: "2-digit",
-			second: "2-digit",
-		})
-			.format(ms)
-			.replace(" ", "T");
 	const dispatch = async () => {
 		for (const claim of await claimDue(f.db, ["mail"], 10)) await mail.dispatch(claim);
 	};
@@ -839,7 +826,7 @@ test("AC:TARGET-TSK-014 a delivered due reminder is not sent again after the dea
 	const t = await create(owner, {
 		title: "Print programs",
 		assigneeIds: [member.id],
-		due: { kind: "resolved_instant", local: local(first) },
+		due: deadline(first),
 	});
 	await wait(first);
 	await dispatch();
@@ -849,7 +836,7 @@ test("AC:TARGET-TSK-014 a delivered due reminder is not sent again after the dea
 		await write(owner, "edit", {
 			requestKey: randomUUID(),
 			expectedRevision: t.revision,
-			input: { taskId: t.id, patch: { due: { kind: "resolved_instant", local: local(second) } } },
+			input: { taskId: t.id, patch: { due: deadline(second) } },
 		}),
 	);
 	await wait(second);
@@ -869,9 +856,11 @@ test("AC:TARGET-TSK-014 a delivered due reminder is not sent again after the dea
 	);
 });
 
-// A plant-local wall time for an instant, as the task form sends a deadline.
-const local = (ms) =>
-	new Intl.DateTimeFormat("sv-SE", {
+// A plant-local deadline for an instant, as the task form sends it. The form sends the chosen offset at a fold
+// (REQ-TSK-018), so the helper always sends the offset of this instant: in the repeated hour after a fall-back the
+// wall time alone is ambiguous and the server refuses it.
+function deadline(ms) {
+	const local = new Intl.DateTimeFormat("sv-SE", {
 		timeZone: "America/Chicago",
 		year: "numeric",
 		month: "2-digit",
@@ -882,6 +871,9 @@ const local = (ms) =>
 	})
 		.format(ms)
 		.replace(" ", "T");
+	const offsetSeconds = (Date.parse(`${local}Z`) - Math.floor(ms / 1000) * 1000) / 1000;
+	return { kind: "resolved_instant", local, offsetSeconds };
+}
 // The mail worker: claim the due mail jobs and send each one through the reminder authorization.
 const dispatch = async () => {
 	for (const claim of await claimDue(f.db, ["mail"], 10)) await mail.dispatch(claim);
@@ -909,7 +901,7 @@ test("AC:TARGET-TSK-014 a duty handed off when its person leaves reminds its new
 		duties.map((d) => ({ kind: "assign", dutyId: d.id, expectedRevision: d.revision, toPersonId: to }));
 	const due = Date.now() + 4000;
 	const dated = (assigneeId, title) =>
-		create(owner, { title, assigneeIds: [assigneeId], due: { kind: "resolved_instant", local: local(due) } });
+		create(owner, { title, assigneeIds: [assigneeId], due: deadline(due) });
 	const [retired, demoted] = [await dated(leaving.id, "Set up chairs"), await dated(moving.id, "Lead worship")];
 	// Retiring a person hands the duty to another member; leaving the core stages does the same.
 	const review = ok(await warnings(leaving.person));
@@ -982,7 +974,7 @@ test("AC:TARGET-TSK-014 AC:TARGET-IDN-019 a duty handed off when a seat is remov
 	const [leaving, taking] = [await seated(), await seated()];
 	const due = Date.now() + 4000;
 	const dated = (title) =>
-		create(owner, { title, assigneeIds: [leaving.id], due: { kind: "resolved_instant", local: local(due) } });
+		create(owner, { title, assigneeIds: [leaving.id], due: deadline(due) });
 	const [handed, unowned] = [await dated("Print bulletins"), await dated("Order supplies")];
 	// Removing the seat hands one duty to another member and leaves the other needing an owner.
 	const review = await f.seats.readRemoval(owner.session, plant, { seatId: leaving.seat });

@@ -1,4 +1,5 @@
 import type { DocumentClass } from "@everyfield/contracts/branding";
+import type { Token } from "@everyfield/contracts/documents";
 import { hash } from "../operations/canonical.ts";
 import { legible, MIN_BODY, MIN_NONTEXT, textOn } from "./contrast.ts";
 
@@ -101,6 +102,26 @@ export function makePalette(theme: RenderTheme): Palette {
 		accentLine: legible(theme.accent, white, ink, MIN_NONTEXT),
 		brand: theme.name !== NEUTRAL_THEME.name,
 	};
+}
+
+/** The color a document token names on this palette; `none` is no color. */
+export function tokenColor(p: Palette, token: Token): string | null {
+	switch (token) {
+		case "none":
+			return null;
+		case "ink":
+			return p.ink;
+		case "muted-text":
+			return p.mutedText;
+		case "primary":
+			return p.primary;
+		case "accent":
+			return p.accent;
+		case "muted":
+			return p.muted;
+		case "border":
+			return p.border;
+	}
 }
 
 /** A stable digest of the theme tokens, hashed into the render engine version. */
