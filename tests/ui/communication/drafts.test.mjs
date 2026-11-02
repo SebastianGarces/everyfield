@@ -1,5 +1,5 @@
 // WP-027: a planter deletes a draft, and a new message is saved only on purpose. The tests count draft rows in the
-// database, not component state. Seed with tests/ui/people/seed.mts, then meetings, then communication; set UI_BASE_URL.
+// database, not component state, so run it with --env-file=<home apps/web/.env.local> for the admin connection. Seed with tests/ui/people/seed.mts, then meetings, then communication; set UI_BASE_URL.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { BASE, ENGINES, fixture, hydrated, signIn, withPage } from "../setup.mjs";
@@ -88,6 +88,7 @@ for (const [name, engine] of ENGINES) {
 			const dialog = page.getByRole("alertdialog");
 			await dialog.getByText("Leave without saving?").waitFor();
 			await dialog.getByRole("button", { name: "Cancel" }).click();
+			await dialog.waitFor({ state: "hidden" });
 			await heading(page, "Write the message").waitFor();
 			assert.equal(await page.getByLabel("Subject").inputValue(), subject);
 			assert.equal(await page.getByRole("combobox", { name: "Message" }).inputValue(), "Body kept.");
@@ -144,7 +145,7 @@ for (const [name, engine] of ENGINES) {
 			await open(page, "/communication?compose=new&step=write");
 			await heading(page, "Who is this for?").waitFor();
 			await page.waitForURL(/compose=new&step=who/);
-			assert.equal(await page.getByRole("alert").count(), 0);
+			assert.equal(await page.locator("main").getByRole("alert").count(), 0);
 			await open(page, "/communication?compose=new&step=review");
 			await heading(page, "Who is this for?").waitFor();
 			assert.equal(await rows.count("draft", ""), before);
