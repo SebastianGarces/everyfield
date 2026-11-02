@@ -161,7 +161,8 @@ test("AC:TARGET-TSK-009 the catalog keeps the 20 reference checklists item by it
 			category: k.category,
 			items: k.items.map((i) => ({
 				key: i.key,
-				title: i.title,
+				// The 2026-10-23 brand ruling: app copy spells Everyfield; the frozen reference keeps its legacy spelling.
+				title: i.title.replace(/everyfield/gi, "Everyfield"),
 				description: i.description ?? null,
 				priority: i.priority ?? k.defaultPriority,
 				offsetDays: i.offsetDays,

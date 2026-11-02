@@ -6,7 +6,8 @@ import type { z } from "zod";
 // offset counts days after the import date or, for a phase offer, the plant-local date of the move. Raise `version`
 // whenever any wording, offset or key changes: an import or offer answer that names an older version is refused, and
 // tasks already created keep their own copy. tests/integration/tasks/templates.test.mts compares this file with the
-// reference item by item.
+// reference item by item. Two titles spell the brand "Everyfield" where the frozen reference keeps its legacy
+// spelling (decisions.md, 2026-10-23 brand spelling).
 
 type Key = z.infer<typeof c.templateKey>;
 export type ChecklistItem = {
@@ -393,7 +394,7 @@ export const CATALOG: Catalog = {
 				},
 				{
 					key: "publish-the-date",
-					title: "Record the launch date in EveryField",
+					title: "Record the launch date in Everyfield",
 					description: "The countdown, the milestones and the oversight announcement all hang off this one date.",
 					priority: "high",
 					offsetDays: 14,
@@ -1133,7 +1134,7 @@ export const CATALOG: Catalog = {
 				},
 				{
 					key: "enter-guests",
-					title: "Enter each guest into EveryField the same day",
+					title: "Enter each guest into Everyfield the same day",
 					description: null,
 					priority: "urgent",
 					offsetDays: 6,
