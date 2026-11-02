@@ -102,8 +102,8 @@ const priorRow = z
 		week_id: z.uuid(),
 		answers: z.unknown(),
 		note: z.string().nullable(),
+		result: z.unknown(),
 	})
-	.extend({ result: z.unknown() })
 	.nullable();
 
 /** A stored answer for this key: the same request replays it; another request with the key is refused. */
@@ -165,6 +165,13 @@ async function readWeeks(db: Pick<Database, "execute">, s: Scope, size: number, 
 	return { zone: r.zone!, revision: r.revision, total: r.total, weeks: r.weeks.map((w) => c.careWeek.parse(w)) };
 }
 
+/** One history page of twelve weeks; the first page is the strip. */
+async function readPage(db: Pick<Database, "execute">, s: Scope, page: number) {
+	const r = await readWeeks(db, s, c.HISTORY_PAGE, page);
+	const pageCount = Math.max(1, Math.ceil(r.total / c.HISTORY_PAGE));
+	return c.carePage.parse({ zone: r.zone, revision: r.revision, page, pageCount, weeks: r.weeks });
+}
+
 const writeRow = z.object({
 	ok: z.boolean().nullable(),
 	zone: z.string().nullable(),
@@ -216,15 +223,7 @@ export function createPrivateCare(config: { clock?: Clock } = {}) {
 		async readHistory(db: Pick<Database, "execute">, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
 				const s = scopeOf(authority, config.clock);
-				const q = parse(c.readHistoryRequest, raw);
-				const r = await readWeeks(db, s, c.HISTORY_PAGE, q.page);
-				return c.carePage.parse({
-					zone: r.zone,
-					revision: r.revision,
-					page: q.page,
-					pageCount: Math.max(1, Math.ceil(r.total / c.HISTORY_PAGE)),
-					weeks: r.weeks,
-				});
+				return readPage(db, s, parse(c.readHistoryRequest, raw).page);
 			});
 		},
 		/** privateCare.readTrends (PI-039): the twelve-week strip, the first history page. It reads; it raises nothing. */
@@ -232,14 +231,7 @@ export function createPrivateCare(config: { clock?: Clock } = {}) {
 			return settle(async () => {
 				const s = scopeOf(authority, config.clock);
 				parse(c.readTrendsRequest, raw);
-				const r = await readWeeks(db, s, c.HISTORY_PAGE, 1);
-				return c.carePage.parse({
-					zone: r.zone,
-					revision: r.revision,
-					page: 1,
-					pageCount: Math.max(1, Math.ceil(r.total / c.HISTORY_PAGE)),
-					weeks: r.weeks,
-				});
+				return readPage(db, s, 1);
 			});
 		},
 

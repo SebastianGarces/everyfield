@@ -3,6 +3,7 @@
 import { ArrowLeft01Icon, ArrowRight01Icon, Edit02Icon, LockKeyIcon } from "@hugeicons/core-free-icons";
 import {
 	CARE_AREAS,
+	careLevel,
 	NOTE_MAX,
 	type CareArea,
 	type CareError,
@@ -33,7 +34,6 @@ import {
 	complete,
 	draftOf,
 	LEVEL_LABEL,
-	LEVELS,
 	missingAreas,
 	mondayDate,
 	refusalText,
@@ -352,7 +352,7 @@ function Question({
 				onValueChange={(v) => onChange(v as CareLevel)}
 				className={cn("flex gap-1.5", missing && "rounded-md shadow-[0_0_0_2px_var(--ef-magenta-500)]")}
 			>
-				{LEVELS.map((level) => (
+				{careLevel.options.map((level) => (
 					<RadioGroup.Item
 						key={level}
 						value={level}

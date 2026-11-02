@@ -8,8 +8,7 @@ import { instant, localDate } from "../common/time.ts";
 
 /** The four areas, in the order the page asks them. */
 export const CARE_AREAS = ["spiritual", "family", "financial", "pace"] as const;
-export const careArea = z.enum(CARE_AREAS);
-export type CareArea = z.infer<typeof careArea>;
+export type CareArea = (typeof CARE_AREAS)[number];
 export const careLevel = z.enum(["steady", "strained", "struggling"]);
 export type CareLevel = z.infer<typeof careLevel>;
 export const NOTE_MAX = 2000;
@@ -40,8 +39,6 @@ export const correctRequest = z.strictObject({
 	expectedRevision: revision,
 	input: z.strictObject({ weekId: recordId, answers: careAnswers, note: noteInput }),
 });
-export type SaveRequest = z.infer<typeof saveRequest>;
-export type CorrectRequest = z.infer<typeof correctRequest>;
 
 /** One earlier or current answer of a week, oldest first. */
 export const careRevision = z.strictObject({
@@ -51,7 +48,6 @@ export const careRevision = z.strictObject({
 	note: z.string().nullable(),
 	recordedAt: instant,
 });
-export type CareRevision = z.infer<typeof careRevision>;
 /**
  * One Monday week of the author's calendar, in the zone it began in. A week that is due but has no row yet has no id;
  * it has no answer either. A week keeps its id, ordinal, zone and dates for good.
@@ -86,7 +82,6 @@ export const carePage = z.strictObject({
 });
 export type CarePage = z.infer<typeof carePage>;
 export const careCurrent = z.strictObject({ zone: z.string().min(1), revision, week: careWeek });
-export type CareCurrent = z.infer<typeof careCurrent>;
 /** A save or correction: the week as it now stands and the calendar revision after it. */
 export const careWriteResult = z.strictObject({
 	outcome: z.enum(["saved", "unchanged"]),

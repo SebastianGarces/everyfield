@@ -1,6 +1,7 @@
 import { instant } from "@everyfield/contracts/common";
 import {
 	CARE_AREAS,
+	noteOf,
 	type CareAnswers,
 	type CareArea,
 	type CareError,
@@ -22,7 +23,6 @@ export const AREA: Record<CareArea, { title: string; question: string; short: st
 	financial: { title: "Financially", question: "How are your personal finances?", short: "Finances" },
 	pace: { title: "Pace", question: "Is your pace of life sustainable?", short: "Pace" },
 };
-export const LEVELS: readonly CareLevel[] = ["steady", "strained", "struggling"];
 export const LEVEL_LABEL: Record<CareLevel, string> = {
 	steady: "Steady",
 	strained: "Strained",
@@ -101,7 +101,7 @@ export function weekNote(week: CareWeek, zone: string): { text: string; tone: "p
 /** The strip with one week shown as the author just answered it, before the server confirms. */
 export function withAnswer(page: CarePage, week: CareWeek, answers: CareAnswers, note: string): CarePage {
 	const answeredAt = instant.parse(new Date().toISOString());
-	const answer = { answers, note: note.trim() || null, revision: (week.answer?.revision ?? 0) + 1, answeredAt };
+	const answer = { answers, note: noteOf(note), revision: (week.answer?.revision ?? 0) + 1, answeredAt };
 	return { ...page, weeks: page.weeks.map((w) => (w.ordinal === week.ordinal ? { ...w, answer } : w)) };
 }
 /** The strip after a confirmed save or correction: the server's week and the calendar revision. */
