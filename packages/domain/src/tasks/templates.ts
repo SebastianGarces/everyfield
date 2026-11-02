@@ -248,8 +248,6 @@ export function createTemplateReader(catalog: Catalog = CATALOG) {
 }
 export type TemplateReader = ReturnType<typeof createTemplateReader>;
 
-/** The importer as an assignee: a current seat in the plant, checked and share-locked in the write's own read. */
-const importerOf = (facts: unknown) => checkAssignees(facts, false);
 /** New top-level task rows for these items, assigned to the importer and due `offsetDays` after `anchor`. */
 function taskRows(
 	cmd: Command,
@@ -324,7 +322,7 @@ export function templateWriter(reminders: TaskReminders, catalog: Catalog = CATA
 		const chosen = input.checklistKeys ?? [];
 		if (chosen.some((key) => !offered.some((k) => k.key === key))) deny("invalid_input");
 		const anchor = localDateAt(offer.transition.occurredAt, cmd.actor.zone);
-		const assignees = input.checklistKeys ? importerOf(offer.importer) : [];
+		const assignees = input.checklistKeys ? checkAssignees(offer.importer, false) : [];
 		const rows = offered
 			.filter((k) => chosen.includes(k.key))
 			.flatMap((k) => taskRows(cmd, k, k.items, anchor, assignees));
@@ -388,7 +386,7 @@ export function templateWriter(reminders: TaskReminders, catalog: Catalog = CATA
 						checklist,
 						items,
 						localDateAt(now(), cmd.actor.zone),
-						importerOf(facts.rows[0]?.importer),
+						checkAssignees(facts.rows[0]?.importer, false),
 					);
 					cmd.writes.push(...insertTasks(cmd.actor.plantId, cmd.actor.accountId, rows));
 					commandRow(cmd, {

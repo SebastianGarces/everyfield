@@ -15,7 +15,7 @@ const TAGS = /<[/!?]?[a-z][^>]*>/gi;
 const LINKS = /\[([^\]\n]*)\]\(((?:[^()\n]|\([^()\n]*\))*)\)/g;
 
 /** Whether a link address may stay a link: http or https with a host, or mailto. Every other scheme loses its link. */
-export function safeLink(raw: string): boolean {
+function safeLink(raw: string): boolean {
 	const href = raw.trim();
 	// Control characters and spaces hide schemes ("java\nscript:").
 	if (!href || /[\u0000- \u007f-\u009f]/.test(href)) return false;
@@ -37,9 +37,4 @@ export function normalizeDescription(raw: string): string {
 		.replace(/[ \t]+$/gm, "")
 		.replace(/\n{3,}/g, "\n\n")
 		.trim();
-}
-
-/** Why a description cannot be saved, or null when it can. The form says this before it sends anything. */
-export function descriptionProblem(raw: string): "too_long" | null {
-	return normalizeDescription(raw).length > MAX_DESCRIPTION ? "too_long" : null;
 }
