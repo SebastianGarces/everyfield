@@ -5,6 +5,7 @@ import { Button, ConfirmDialog, Field, Select } from "@everyfield/ui/controls";
 import { Icon } from "@everyfield/ui/foundations";
 import { useEffect, useRef, useState } from "react";
 import {
+	deleteDraft,
 	readDraft,
 	readMeetingContext,
 	readMeetingTemplate,
@@ -44,8 +45,10 @@ import { useKeys } from "./useKeys.ts";
 import { ReviewStep, type SendPlan } from "./ReviewStep.tsx";
 import { useAudienceSummary, WhoStep } from "./WhoStep.tsx";
 
-// The guided compose flow: Who, Write, Review and send. The address names the step, so Back and reload work. Moving to
-// the next step saves the draft, so Review always works on a saved revision and the draft shows in history.
+// The guided compose flow: Who, Write, Review and send. The address names the step, so Back and reload work. A new
+// message lives in this form until the planter saves it on purpose: Save draft, the move to Review, or a send. That
+// keeps a message the planter started and left from piling up as a "No subject" draft. Review always works on a saved
+// revision. A saved draft can be deleted.
 
 const STEPS: { value: Step; label: string }[] = [
 	{ value: "who", label: "Who" },
@@ -73,6 +76,7 @@ export function Compose({
 	onStep,
 	onSaved,
 	onLeave,
+	onDeleted,
 	onDone,
 }: {
 	data: PageData;
@@ -83,6 +87,8 @@ export function Compose({
 	/** The draft has an id now. The address changes to it by replace. */
 	onSaved: (id: string, step: Step) => void;
 	onLeave: () => void;
+	/** The draft was deleted. The screen drops it from its list and returns to Messages. */
+	onDeleted: (id: string) => void;
 	onDone: (messageId: string, text: string) => void;
 }) {
 	const keys = useKeys();
@@ -103,6 +109,7 @@ export function Compose({
 	const [problem, setProblem] = useState<string | null>(null);
 	const [plan, setPlan] = useState<SendPlan | null>(null);
 	const [leaving, setLeaving] = useState(false);
+	const [deleting, setDeleting] = useState(false);
 	const [scheduledId, setScheduledId] = useState<string | null>(null);
 	const [sample] = useState(() => pickSampleName("compose"));
 	/** The id this form already holds, set the moment a save returns, before the address changes to it. */
@@ -186,6 +193,13 @@ export function Compose({
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [id, handoff?.meeting]);
 
+	// A new message that is not saved lives only in this page. A reload of Write or Review has nothing to show, so it
+	// opens at Who. The meeting handoff opens at Write on purpose.
+	useEffect(() => {
+		if (id === "new" && step !== "who" && !handoff) onStep("who");
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
+
 	// A saved draft that belongs to a meeting shows the meeting's context line.
 	useEffect(() => {
 		if (!form.meetingId || meeting?.id === form.meetingId) return;
@@ -267,7 +281,8 @@ export function Compose({
 			}
 			if (order === current) return;
 			// A save moves the address to the draft and the step in one replace. A locked message has nothing to save.
-			if (locked) onStep(target);
+			// A new message stays in the form until Review needs a saved revision.
+			if (locked || (!form.communicationId && target !== "review")) onStep(target);
 			else await persist(target);
 		});
 
@@ -276,6 +291,18 @@ export function Compose({
 			const next = await persist(step);
 			if (next) setNotes(["Draft saved."]);
 		});
+
+	const canDelete = form.state === "draft" && form.communicationId !== null && form.revision !== null;
+
+	const removeDraft = async () => {
+		if (!form.communicationId || !form.revision) throw new Error("Save the message before you delete it.");
+		const result = await deleteDraft(keys.take("delete"), form.revision, form.communicationId);
+		keys.settle("delete", result);
+		if (result.status !== "ok") {
+			throw new Error(`${outcomeText(result) ?? "The draft was not deleted."} The draft is still in your list.`);
+		}
+		onDeleted(form.communicationId);
+	};
 
 	const applyTemplate = (key: string) => {
 		const template = templates.find((t) => t.templateId === key);
@@ -545,6 +572,11 @@ export function Compose({
 							Back
 						</Button>
 					) : null}
+					{canDelete ? (
+						<Button variant="ghost" onClick={() => setDeleting(true)} disabled={pending !== null}>
+							Delete draft
+						</Button>
+					) : null}
 					{!locked ? (
 						<Button
 							variant="ghost"
@@ -585,6 +617,16 @@ export function Compose({
 				consequences={consequences(plan?.kind === "at" ? `on ${formatWhen(plan.at.toISOString())}` : "right away")}
 				confirmLabel={plan?.kind === "at" ? "Schedule email" : "Send now"}
 				onConfirm={confirm}
+			/>
+			<ConfirmDialog
+				open={deleting}
+				onOpenChange={setDeleting}
+				title="Delete this draft?"
+				description={`"${form.subject.trim() || "No subject"}"`}
+				consequences={["The draft is removed for good.", "You cannot undo this. No email was sent."]}
+				confirmLabel="Delete draft"
+				tone="danger"
+				onConfirm={removeDraft}
 			/>
 			<ConfirmDialog
 				open={leaving}

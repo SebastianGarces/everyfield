@@ -84,6 +84,11 @@ export function CommunicationScreen({ data, canWrite }: { data: PageData; canWri
 					onStep={(step: Step) => go({ ...route, step }, "replace")}
 					onSaved={(id, step) => go({ kind: "compose", id, step, handoff: null }, "replace")}
 					onLeave={() => go({ kind: "history", message: null, meeting: null, person: null })}
+					onDeleted={(id) => {
+						setDrafts((rows) => rows.filter((row) => row.communicationId !== id));
+						setBanner("Draft deleted.");
+						go({ kind: "history", message: null, meeting: null, person: null });
+					}}
 					onDone={(messageId, text) => {
 						setBanner(text);
 						go({ kind: "history", message: messageId, meeting: null, person: null });
