@@ -178,8 +178,7 @@
 		"limit": 2
 	},
 	"POST intelligence.readCheckInHistory": {
-		"limit": 2,
-		"reason": "The action only reads, but budgets.mjs counts every POST as a write: the session lookup and privateCare.readHistory."
+		"limit": 2
 	},
 	"accountPerson.ensureAccountPerson": {
 		"limit": 5
