@@ -38,7 +38,8 @@ absent, the built-in default in `tools/evf/policy.ts` applies. A malformed key s
 
 Owner-path class (OPS-111): the landing and marketing site, listed in `mergePolicy.ownerPaths` with the same shape
 and matching rules as `documentTemplates`. `heldClasses` in `merge.ts` decides both classes for `evf ship`,
-`evf approve` and the merge. The key has no built-in default: a base config without it holds every PR as doubt.
+`evf approve` and the merge. An OPS branch may change `evf.config.json` only in its own registration, so the paths, his words and the scope
+live in `DEFAULT_OWNER_PATHS` in `tools/evf/policy.ts`, which applies when the key is absent, as for templates.
 The held message names up to five paths per class and the command
 `bin/evf approve <PR> --owner-approval "<his words>" --head <sha>`; `evf approve` refuses an owner-path PR without
 `--head`, without the verifier's `evf/verify` pass on that head, at another head or while the branch is behind.

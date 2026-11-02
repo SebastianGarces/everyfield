@@ -102,7 +102,7 @@ export type MergePolicy = {
 	documentTemplates?: DocumentTemplatePolicy;
 	/**
 	 * The landing and marketing pages (OPS-111): PRs whose exact-head diff touches one of `paths` wait for Sebastian's
-	 * approval for that head. No built-in default: a base config without the key holds every PR as doubt.
+	 * approval for that head. Optional: when absent, `DEFAULT_OWNER_PATHS` in policy.ts applies.
 	 */
 	ownerPaths?: OwnerPathPolicy;
 };

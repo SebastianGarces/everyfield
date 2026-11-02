@@ -4515,6 +4515,7 @@ test("OPS-109-unchanged: a P2 fix and a design task with Wiki paths keep their r
 // OPS-111: the landing and marketing site waits for Sebastian (mergePolicy.ownerPaths); stale evf code cannot ship or drive.
 import { drive } from "../drive.ts";
 import { ownerPathClass } from "../merge.ts";
+import { DEFAULT_OWNER_PATHS } from "../policy.ts";
 
 const OWNER_ERR = "evf.config.json mergePolicy.ownerPaths";
 const OWNER_PATHS = [
@@ -4570,14 +4571,16 @@ function baseConfig(f: { root: string; git: (...a: string[]) => string }, text: 
 	f.git("push", "-q", "origin", "base-config:main");
 	f.git("checkout", "-q", "main");
 }
-const withoutOwnerPaths = (cfg: any) => {
+/** A config whose explicit ownerPaths key has an empty path list. */
+const malformedOwnerPaths = (cfg: any) => {
 	const c = structuredClone(cfg);
-	delete c.mergePolicy.ownerPaths;
+	c.mergePolicy.ownerPaths = { ...structuredClone(DEFAULT_OWNER_PATHS), paths: [] };
 	return JSON.stringify(c);
 };
+const MALFORMED_OWNER = `evf.config.json is unreadable: ${OWNER_ERR}.paths must be a non-empty list of distinct relative paths with no .. part; got [].`;
 
-test("OPS-111-config: the real ownerPaths holds the report's seven paths and his words; a malformed key stops loadConfig and names it", () => {
-	const real = JSON.parse(readFileSync(join(source, "evf.config.json"), "utf8")).mergePolicy.ownerPaths;
+test("OPS-111-config: the built-in ownerPaths holds the report's seven paths and his words; a malformed key stops loadConfig and names it", () => {
+	const real = DEFAULT_OWNER_PATHS;
 	assert.deepEqual(real.paths, OWNER_PATHS);
 	assert.equal(real.approvedAtUtc, "2026-11-02T05:18:00Z");
 	assert.equal(real.quote, "you can make decisions and let me know what those were so I can revert them if I disagree");
@@ -4586,10 +4589,13 @@ test("OPS-111-config: the real ownerPaths holds the report's seven paths and his
 	try {
 		const load = (edit: (c: any) => void) => {
 			const cfg = structuredClone(f.cfg);
+			cfg.mergePolicy.ownerPaths = structuredClone(DEFAULT_OWNER_PATHS);
 			edit(cfg);
 			writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(cfg));
 			return () => loadConfig(f.root);
 		};
+		// The key is optional: an absent key loads and the built-in default applies; an explicit key loads as written.
+		assert.equal(load((c) => delete c.mergePolicy.ownerPaths)().mergePolicy.ownerPaths, undefined);
 		assert.deepEqual(load(() => {})().mergePolicy.ownerPaths, real);
 		assert.throws(
 			load((c) => (c.mergePolicy.ownerPaths = ["apps/web/"])),
@@ -4654,7 +4660,7 @@ test("OPS-111-class: prefix and exact entries match from the base config; near m
 		);
 		// The home checkout's own config cannot narrow the class: it is read from the base branch.
 		const narrowed = structuredClone(f.cfg);
-		narrowed.mergePolicy.ownerPaths.paths = ["nothing/"];
+		narrowed.mergePolicy.ownerPaths = { ...structuredClone(DEFAULT_OWNER_PATHS), paths: ["nothing/"] };
 		writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(narrowed));
 		assert.deepEqual(branch("home", "apps/web/src/styles/marketing.css").paths, ["apps/web/src/styles/marketing.css"]);
 	} finally {
@@ -4697,12 +4703,12 @@ test("OPS-111-class: every failed step returns doubt with its reason", () => {
 			/the origin\/main evf\.config\.json is unreadable/,
 		],
 		[
-			"a base config without ownerPaths",
+			"a malformed base ownerPaths",
 			(f, sha) => {
-				baseConfig(f, withoutOwnerPaths(f.cfg));
+				baseConfig(f, malformedOwnerPaths(f.cfg));
 				return sha;
 			},
-			/the origin\/main evf\.config\.json has no mergePolicy\.ownerPaths/,
+			/the origin\/main evf\.config\.json is unreadable: evf\.config\.json mergePolicy\.ownerPaths\.paths must be/,
 		],
 	];
 	for (const [name, setup, why] of cases) {
@@ -4796,12 +4802,12 @@ test("OPS-111-ship: an OPS task and a P1 fix join the class; more than five path
 	}
 });
 
-test("OPS-111-doubt: a base config without ownerPaths or an unreadable one holds an ordinary PR and names the reason", () => {
+test("OPS-111-doubt: a malformed base ownerPaths or an unreadable base config holds an ordinary PR and names the reason", () => {
 	for (const [name, text, why] of [
 		[
-			"no key",
-			(cfg: any) => withoutOwnerPaths(cfg),
-			"evf cannot tell whether it changes landing and marketing owner paths (the origin/main evf.config.json has no mergePolicy.ownerPaths), so it holds it as if it did",
+			"malformed ownerPaths",
+			(cfg: any) => malformedOwnerPaths(cfg),
+			`evf cannot tell whether it changes document templates or landing and marketing owner paths (the origin/main ${MALFORMED_OWNER}), so it holds it as if it did`,
 		],
 		[
 			"unreadable",
@@ -4869,10 +4875,10 @@ test("OPS-111-merge: doubt about the owner class refuses the merge without his w
 		const cfg = loadConfig(f.root),
 			wt = join(f.root, ".worktrees", task.slug),
 			sha = f.getState().pr.headRefOid;
-		baseConfig(f, withoutOwnerPaths(f.cfg));
+		baseConfig(f, malformedOwnerPaths(f.cfg));
 		assert.throws(
 			() => mergePullRequest({ root: f.root, cfg, cwd: wt, number: 77, sha }),
-			(e: Error) => e.message.includes("has no mergePolicy.ownerPaths") && e.message.includes(`--head ${sha}`),
+			(e: Error) => e.message.includes(MALFORMED_OWNER) && e.message.includes(`--head ${sha}`),
 		);
 		assert.deepEqual(callsWith(f, "pr", "merge"), []);
 	} finally {

@@ -54,7 +54,7 @@ status, prints the `evf approve` command and exits 0 without merging. After he a
 `evf approve <PR> --owner-approval "<his words>"` merges the exact head once an independent review
 and the verified status hold. It then writes the shipped record and unlocks dependents as `evf ship` does.
 Landing and marketing PRs (OPS-111) join the same wait in their own owner-path class: the exact-head diff touches a
-path in `mergePolicy.ownerPaths` (the landing page, the access, oversight, privacy and terms pages,
+path in `mergePolicy.ownerPaths` (built-in default in `tools/evf/policy.ts`: the landing page, the access, oversight, privacy and terms pages,
 `apps/web/src/marketing/` and `apps/web/src/styles/marketing.css`). It is classified like the document-template
 class, from the base branch's config, and doubt holds the PR. `evf ship` posts the verified status, names up to five
 matched paths and prints `bin/evf approve <PR> --owner-approval "<his words>" --head <sha>`; approve refuses

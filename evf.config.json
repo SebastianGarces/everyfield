@@ -76,20 +76,6 @@
 			"approvedAtUtc": "2026-10-15T18:52:26Z",
 			"scope": "Wiki article PRs never merge automatically and need no evf/verify; the Wiki workflow's own Opus review is their check. After Sebastian approves a PR in chat, the agent merges it with evf approve."
 		},
-		"ownerPaths": {
-			"paths": [
-				"apps/web/src/app/page.tsx",
-				"apps/web/src/app/access/",
-				"apps/web/src/app/oversight/",
-				"apps/web/src/app/privacy/",
-				"apps/web/src/app/terms/",
-				"apps/web/src/marketing/",
-				"apps/web/src/styles/marketing.css"
-			],
-			"approvedAtUtc": "2026-11-02T05:18:00Z",
-			"quote": "you can make decisions and let me know what those were so I can revert them if I disagree",
-			"scope": "The landing and marketing site: the landing page, the access, oversight, privacy and terms pages, the marketing components and the marketing styles. A PR whose exact-head diff touches one of these paths, or whose class evf cannot tell, never merges through evf ship; after the verifier passes it, Sebastian approves it in chat and an agent merges it with evf approve --owner-approval for that exact head."
-		},
 		"sensitive": "owner-escalation-required"
 	},
 	"maintenanceTasks": {

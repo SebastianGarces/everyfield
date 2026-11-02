@@ -13,7 +13,7 @@ import {
 	type RunResult,
 	type TaskRef,
 } from "./lib.ts";
-import { DEFAULT_DOCUMENT_TEMPLATES } from "./policy.ts";
+import { DEFAULT_DOCUMENT_TEMPLATES, DEFAULT_OWNER_PATHS } from "./policy.ts";
 import { WIKI_PREFIX } from "./wiki.ts";
 
 /**
@@ -140,12 +140,9 @@ function policyClass(
 	const base = baseRef(root, cfg);
 	let entries: string[];
 	try {
-		const policy = committedConfig(root, base).mergePolicy;
-		// documentTemplates has a built-in default (OPS-80); ownerPaths has none, so a base without it holds as doubt.
-		const chosen =
-			key === "documentTemplates" ? (policy.documentTemplates ?? DEFAULT_DOCUMENT_TEMPLATES) : policy.ownerPaths;
-		if (!chosen) return { paths: [], doubt: `the ${base} evf.config.json has no mergePolicy.${key}` };
-		entries = chosen.paths;
+		// An absent key uses the built-in default in policy.ts; an explicit key replaces it.
+		const builtIn = key === "documentTemplates" ? DEFAULT_DOCUMENT_TEMPLATES : DEFAULT_OWNER_PATHS;
+		entries = (committedConfig(root, base).mergePolicy[key] ?? builtIn).paths;
 	} catch (e) {
 		if (!(e instanceof EvfError) && !(e instanceof SyntaxError)) throw e;
 		return { paths: [], doubt: `the ${base} evf.config.json is unreadable: ${e.message}` };
