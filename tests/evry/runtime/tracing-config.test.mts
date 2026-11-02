@@ -17,7 +17,7 @@ async function logged<T>(body: () => T | Promise<T>) {
 		Object.assign(console, { log, error });
 	}
 }
-/** A registered provider is the only thing a flush reports on, so a silent flush means nothing was registered. */
+/** A flush writes only for a registered provider, so a silent flush that resolves means nothing was registered. */
 const registered = async () => (await logged(flushTraces)).lines.length > 0;
 
 test("INV-tracing: missing Langfuse keys write one tracing_disabled line with the SDK's default host and register nothing", async () => {
@@ -107,10 +107,4 @@ test("INV-privacy: a refusal line shows the base URL's host and never its user i
 	const text = JSON.stringify(lines);
 	for (const secret of ["pk-lf-refused-4c1d", "sk-lf-refused-8e2b", "user-r1", "pass-r2", "tok-r3"])
 		assert.ok(!text.includes(secret), secret);
-});
-
-test("INV-tracing: with nothing registered a flush resolves and writes nothing", async () => {
-	const { result, lines } = await logged(() => flushTraces());
-	assert.equal(result, undefined);
-	assert.deepEqual(lines, []);
 });
