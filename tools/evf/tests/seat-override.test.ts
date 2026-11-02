@@ -4,7 +4,7 @@ import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { DatabaseSync } from "node:sqlite";
-import { fixture, source } from "./fixtures.ts";
+import { fixture, migrationsFrom, source, STORE_LATEST } from "./fixtures.ts";
 import { ensureTask, migrate, openWorkDb, workDbPath } from "../db.ts";
 import { taskHandoff } from "../drive.ts";
 import { launchPlan } from "../launch.ts";
@@ -64,22 +64,13 @@ test("OPS-81-migration: schema 3 reaches 4, keeps every row and a second run cha
 	db.prepare(
 		"INSERT INTO tasks (slug, mode, ref, title, status, created_at, updated_at) VALUES ('ops-9', 'implement', 'OPS-9', 'kept', 'active', 't', 't')",
 	).run();
-	assert.deepEqual(migrate(db), {
-		version: 8,
-		applied: [
-			"004-task-seat-override.sql",
-			"005-merged-views.sql",
-			"006-task-follow-ups.sql",
-			"007-qa-previews.sql",
-			"008-follow-up-links.sql",
-		],
-	});
+	assert.deepEqual(migrate(db), { version: STORE_LATEST, applied: migrationsFrom(4) });
 	assert.deepEqual(
 		{ ...(db.prepare("SELECT ref, title, status, seat_model, seat_effort FROM tasks").get() as object) },
 		{ ref: "OPS-9", title: "kept", status: "active", seat_model: null, seat_effort: null },
 	);
 	assert.ok("seat_model" in (db.prepare("SELECT * FROM v_tasks").get() as object));
-	assert.deepEqual(migrate(db), { version: 8, applied: [] });
+	assert.deepEqual(migrate(db), { version: STORE_LATEST, applied: [] });
 	db.close();
 });
 

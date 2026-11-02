@@ -4,7 +4,7 @@ import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { spawnSync } from "node:child_process";
-import { fixture, source } from "./fixtures.ts";
+import { fixture, source, STORE_LATEST } from "./fixtures.ts";
 import { markMerged, migrate, openWorkDb, orphanRuns } from "../db.ts";
 import { approve } from "../approve.ts";
 import { evfDataDir, parseTask } from "../lib.ts";
@@ -172,7 +172,7 @@ test("OPS-100-migration: 005 closes orphan evf runs of merged tasks, adds the th
 		ev.run(1, iso(3 * DAY - 1000), "stage_end");
 		ev.run(3, iso(1000), "owner_approval_wait");
 
-		assert.equal(migrate(db).version, 8);
+		assert.equal(migrate(db).version, STORE_LATEST);
 		const run10 = db.prepare("SELECT status, summary FROM runs WHERE id = 10").get();
 		assert.deepEqual({ ...run10 }, { status: "passed", summary: `WP-097 merged as ${SHA.slice(0, 10)}` });
 		assert.equal((db.prepare("SELECT status FROM runs WHERE id = 11").get() as { status: string }).status, "started");
@@ -186,7 +186,7 @@ test("OPS-100-migration: 005 closes orphan evf runs of merged tasks, adds the th
 		assert.deepEqual({ ...(view(3) as object) }, { last_event: "owner_approval_wait", merged_at: null, ref_rows: 1 });
 
 		const snapshot = JSON.stringify(db.prepare("SELECT * FROM runs ORDER BY id").all());
-		assert.deepEqual(migrate(db), { version: 8, applied: [] });
+		assert.deepEqual(migrate(db), { version: STORE_LATEST, applied: [] });
 		assert.equal(JSON.stringify(db.prepare("SELECT * FROM runs ORDER BY id").all()), snapshot);
 		db.close();
 	} finally {
