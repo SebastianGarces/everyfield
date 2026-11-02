@@ -25,7 +25,7 @@ export const SHORT_NAME: readonly string[] = [
 	"Post-launch",
 ];
 
-export const DIRECTION_LABEL: Record<Direction, string> = {
+const DIRECTION_LABEL: Record<Direction, string> = {
 	forward: "Moved forward",
 	skip_forward: "Skipped ahead",
 	backward: "Moved back",

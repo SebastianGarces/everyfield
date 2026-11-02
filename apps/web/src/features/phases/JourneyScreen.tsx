@@ -166,13 +166,7 @@ export function JourneyScreen({ history, catalog, readiness, viewer }: Props) {
 				/>
 			) : null}
 			{declare !== null ? (
-				<DeclareDialog
-					to={declare}
-					catalog={catalog}
-					onChange={setDeclare}
-					onClose={() => setDeclare(null)}
-					onSubmit={submitDeclare}
-				/>
+				<DeclareDialog to={declare} catalog={catalog} onChange={setDeclare} onSubmit={submitDeclare} />
 			) : null}
 		</>
 	);
@@ -337,7 +331,7 @@ function Phases({ catalog, current }: { catalog: Catalog; current: PhaseNumber }
 	);
 }
 
-const phaseOptions = (catalog: Catalog, current: PhaseNumber) =>
+const phaseOptions = (catalog: Catalog, current?: PhaseNumber) =>
 	catalog.phases.map((p) => ({
 		value: String(p.phase),
 		label: `Phase ${p.phase} · ${p.name}${p.phase === current ? " (current)" : ""}`,
@@ -438,17 +432,15 @@ function DeclareDialog({
 	to,
 	catalog,
 	onChange,
-	onClose,
 	onSubmit,
 }: {
 	to: PhaseNumber;
 	catalog: Catalog;
-	onChange: (to: PhaseNumber) => void;
-	onClose: () => void;
+	onChange: (to: PhaseNumber | null) => void;
 	onSubmit: (to: PhaseNumber) => void;
 }) {
 	return (
-		<Dialog open onOpenChange={(next) => (next ? null : onClose())}>
+		<Dialog open onOpenChange={(next) => (next ? null : onChange(null))}>
 			<DialogContent size="sm">
 				<DialogHeader
 					title="Declare your current phase"
@@ -466,12 +458,12 @@ function DeclareDialog({
 							<Select
 								value={String(to)}
 								onValueChange={(v) => onChange(Number(v) as PhaseNumber)}
-								options={phaseOptions(catalog, -1 as PhaseNumber)}
+								options={phaseOptions(catalog)}
 							/>
 						</Field>
 					</DialogBody>
 					<DialogFooter>
-						<Button type="button" variant="secondary" onClick={onClose}>
+						<Button type="button" variant="secondary" onClick={() => onChange(null)}>
 							Cancel
 						</Button>
 						<Button type="submit" variant="primary">
