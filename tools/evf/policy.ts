@@ -13,7 +13,6 @@ import {
 	type Config,
 	type DocumentTemplatePolicy,
 	type MaintenanceScope,
-	type OwnerPathPolicy,
 	type Part,
 	type TaskRef,
 } from "./lib.ts";
@@ -213,7 +212,7 @@ export const DEFAULT_DOCUMENT_TEMPLATES: DocumentTemplatePolicy = {
  * registration, so the policy lives here, as DEFAULT_DOCUMENT_TEMPLATES does. evf reads it only through `heldClasses`
  * in merge.ts, from the base branch's config.
  */
-export const DEFAULT_OWNER_PATHS: OwnerPathPolicy = {
+export const DEFAULT_OWNER_PATHS: DocumentTemplatePolicy = {
 	paths: [
 		"apps/web/src/app/page.tsx",
 		"apps/web/src/app/access/",

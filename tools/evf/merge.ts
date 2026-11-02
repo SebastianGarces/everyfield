@@ -161,29 +161,23 @@ export function templateClass(root: string, cfg: Config, sha: string, fetchError
 }
 
 /**
- * Whether the PR at exactly `sha` is in the owner-path class (mergePolicy.ownerPaths, OPS-111): the landing and
- * marketing site. Same rules as `templateClass`. The caller treats doubt as the class.
+ * The two classes that hold a PR that would otherwise merge through evf ship, for one exact head: the document
+ * templates and the owner paths (mergePolicy.ownerPaths, OPS-111: the landing and marketing site).
  */
-export function ownerPathClass(root: string, cfg: Config, sha: string, fetchError = fetchBase(root, cfg)): PathClass {
-	return policyClass(root, cfg, sha, "ownerPaths", fetchError);
-}
-
-/** The two classes that hold a PR that would otherwise merge through evf ship, for one exact head. */
 export type HeldClasses = { templates: PathClass; owner: PathClass };
 
 /** `evf ship`, `evf approve` and the merge decide whether a PR is held here, from one fetch. */
 export function heldClasses(root: string, cfg: Config, sha: string, fetchError = fetchBase(root, cfg)): HeldClasses {
 	return {
 		templates: templateClass(root, cfg, sha, fetchError),
-		owner: ownerPathClass(root, cfg, sha, fetchError),
+		owner: policyClass(root, cfg, sha, "ownerPaths", fetchError),
 	};
 }
 
-const inClass = (c: PathClass) => !!c.doubt || c.paths.length > 0;
+/** Whether one class holds the PR: a matched path or doubt. */
+export const inClass = (c: PathClass): boolean => !!c.doubt || c.paths.length > 0;
 /** Whether either class holds the PR. */
 export const isHeld = (h: HeldClasses): boolean => inClass(h.templates) || inClass(h.owner);
-/** Whether the owner-path class holds the PR: its approval must name the exact head. */
-export const ownerHeld = (h: HeldClasses): boolean => inClass(h.owner);
 /** The first doubt of either class. */
 export const heldDoubt = (h: HeldClasses): string | undefined => h.templates.doubt ?? h.owner.doubt;
 
@@ -237,7 +231,7 @@ export const wikiWhy = ({ paths }: PathClass): string => `it changes Wiki conten
  * the document-template class alone keeps its OPS-80 command.
  */
 export const heldApproveCommand = (h: HeldClasses, number: number, head: string): string =>
-	ownerHeld(h)
+	inClass(h.owner)
 		? `Sebastian approves each landing and marketing PR for its exact head; after his approval in chat, run: bin/evf approve ${number} --owner-approval "<his words>" --head ${head}`
 		: `Sebastian approves each document-template PR; after his approval in chat, run: bin/evf approve ${number} --owner-approval "<his words>"`;
 

@@ -104,15 +104,13 @@ export type MergePolicy = {
 	 * The landing and marketing pages (OPS-111): PRs whose exact-head diff touches one of `paths` wait for Sebastian's
 	 * approval for that head. Optional: when absent, `DEFAULT_OWNER_PATHS` in policy.ts applies.
 	 */
-	ownerPaths?: OwnerPathPolicy;
+	ownerPaths?: DocumentTemplatePolicy;
 };
 /**
  * PRs whose exact-head diff touches one of `paths` wait for Sebastian's approval. An entry that ends in `/` matches
  * every path under it; any other entry matches one file. `quote` and `scope` record his words and the class.
  */
 export type DocumentTemplatePolicy = { paths: string[]; approvedAtUtc: string; quote: string; scope: string };
-/** The owner-path class has the document-template shape and matching rules. */
-export type OwnerPathPolicy = DocumentTemplatePolicy;
 
 export type Package = {
 	id: string;

@@ -4514,7 +4514,7 @@ test("OPS-109-unchanged: a P2 fix and a design task with Wiki paths keep their r
 
 // OPS-111: the landing and marketing site waits for Sebastian (mergePolicy.ownerPaths); stale evf code cannot ship or drive.
 import { drive } from "../drive.ts";
-import { ownerPathClass } from "../merge.ts";
+import { heldClasses } from "../merge.ts";
 import { DEFAULT_OWNER_PATHS } from "../policy.ts";
 
 const OWNER_ERR = "evf.config.json mergePolicy.ownerPaths";
@@ -4637,7 +4637,7 @@ test("OPS-111-class: prefix and exact entries match from the base config; near m
 			}
 			f.git("commit", "-qm", name);
 			f.git("checkout", "-q", "main");
-			return ownerPathClass(f.root, cfg, f.git("rev-parse", name).trim());
+			return heldClasses(f.root, cfg, f.git("rev-parse", name).trim()).owner;
 		};
 		// A folder entry matches every path under it; a file entry matches that file only.
 		assert.deepEqual(branch("prefix", "apps/web/src/marketing/Hero.tsx", "apps/web/src/app/privacy/sections/a.tsx"), {
@@ -4716,7 +4716,7 @@ test("OPS-111-class: every failed step returns doubt with its reason", () => {
 		try {
 			const cfg = loadConfig(f.root),
 				sha = setup(f, ownerHead(f, f.wt, ["README.md"]));
-			const cls = ownerPathClass(f.root, cfg, sha);
+			const cls = heldClasses(f.root, cfg, sha).owner;
 			assert.deepEqual(cls.paths, [], name);
 			assert.match(cls.doubt ?? "", why, name);
 		} finally {

@@ -14,7 +14,7 @@ import {
 } from "./lib.ts";
 import { markMergedByBranch } from "./db.ts";
 import { cachedTriage } from "./feedback.ts";
-import { heldClasses, heldDoubt, isHeld, mergePullRequest, ownerHeld, wikiClass } from "./merge.ts";
+import { heldClasses, heldDoubt, inClass, isHeld, mergePullRequest, wikiClass } from "./merge.ts";
 import { unfinishedDrafts } from "./wiki.ts";
 import { afterMerge, checkPr, type MergeEvidence } from "./ship.ts";
 import { APPROVED_PROTOTYPE, changesOnlyOwnRegistration, mayChangePrototype } from "./policy.ts";
@@ -121,9 +121,11 @@ function routeOf(root: string, cfg: Config, pr: Pr): Route {
 			if (!heldDoubt(held) && wikiClass(root, cfg, pr.headRefOid).paths.length)
 				return { kind: "wiki-task", id: ref.id, task: ref };
 			if (isHeld(held)) {
-				const templates = !!held.templates.doubt || held.templates.paths.length > 0,
-					owner = ownerHeld(held);
-				const what = [templates ? "document templates" : "", owner ? "landing and marketing owner paths" : ""]
+				const owner = inClass(held.owner);
+				const what = [
+					inClass(held.templates) ? "document templates" : "",
+					owner ? "landing and marketing owner paths" : "",
+				]
 					.filter(Boolean)
 					.join(" and ");
 				return { kind: "template", id: ref.id, task: ref, what, needsHead: owner };
