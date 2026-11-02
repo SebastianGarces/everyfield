@@ -399,9 +399,9 @@
       }
     ],
     "claim_check": {
-      "status": "pending",
-      "reviewer": "",
-      "notes": ""
+      "status": "passed",
+      "reviewer": "Maya (Head of Growth)",
+      "notes": "Approved 2026-11-02T03:28:28Z: \"#412 at f1d2994a: PASS. I checked all 44 IRS quotes and the 5 that were added or moved, and every one matches irs.gov word for word.\""
     },
     "rulings": []
   }
