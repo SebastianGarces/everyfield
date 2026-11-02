@@ -27,9 +27,9 @@
 		"replaces_id": "a7b24a9a-0807-4ec4-a857-470229d7dae2",
 		"sources": [],
 		"claim_check": {
-			"status": "pending",
-			"reviewer": "",
-			"notes": ""
+			"status": "passed",
+			"reviewer": "Maya (Head of Growth)",
+			"notes": "Approved 2026-11-02T03:28:30Z: \"#388 at 8838898d: PASS. Every claim and fix row I checked holds up, and it has no playbook mention, no bare \"plant\" and no invented stats.\""
 		},
 		"rulings": [
 			"Maya's review, Nov 1: adds 'discovery/mapping-your-target-area' to related_article_slugs. No other change from the published row."

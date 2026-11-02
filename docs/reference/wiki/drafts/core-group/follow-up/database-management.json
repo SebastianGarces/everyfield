@@ -27,9 +27,9 @@
 		"replaces_id": "c0b4bdf5-961c-4bbb-989b-6dae470c98d7",
 		"sources": [],
 		"claim_check": {
-			"status": "pending",
-			"reviewer": "",
-			"notes": ""
+			"status": "passed",
+			"reviewer": "Maya (Head of Growth)",
+			"notes": "Approved 2026-11-02T03:28:30Z: \"#388 at 8838898d: PASS. Every claim and fix row I checked holds up, and it has no playbook mention, no bare \"plant\" and no invented stats.\""
 		},
 		"rulings": [
 			"F50: opens with 'Track people, interviews and follow-up tasks in Everyfield.' The spreadsheet, contact-manager (ACT!, Goldmine, HubSpot) and church-software options and the sample spreadsheet are removed; a 'Tracking Follow-Up in Everyfield' section names People, meeting guests, follow-up tasks, the contact log, interviews and import. The field list and status table stay.",

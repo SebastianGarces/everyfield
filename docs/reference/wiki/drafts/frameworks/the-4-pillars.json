@@ -28,9 +28,9 @@
 		"replaces_id": "4642b9be-89a3-47f5-829a-0636c644f6d6",
 		"sources": [],
 		"claim_check": {
-			"status": "pending",
-			"reviewer": "",
-			"notes": ""
+			"status": "passed",
+			"reviewer": "Maya (Head of Growth)",
+			"notes": "Approved 2026-11-02T03:28:30Z: \"#388 at 8838898d: PASS. Every claim and fix row I checked holds up, and it has no playbook mention, no bare \"plant\" and no invented stats.\""
 		},
 		"rulings": [
 			"F27: the Acts 2:42 section now opens with 'Your network may already define your pillars. If it doesn't, Acts 2:42 (LSB) is one common model' and says 'many churches draw four pillars' instead of 'four pillars emerge'. The Acts 2:42 quotations are unchanged. A full merge is deferred because promotion cannot delete an article or add a redirect.",

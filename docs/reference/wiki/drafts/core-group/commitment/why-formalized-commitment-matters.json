@@ -28,9 +28,9 @@
 		"replaces_id": "07cd0a33-3344-4602-9939-ac46bb4301c0",
 		"sources": [],
 		"claim_check": {
-			"status": "pending",
-			"reviewer": "",
-			"notes": ""
+			"status": "passed",
+			"reviewer": "Maya (Head of Growth)",
+			"notes": "Approved 2026-11-02T03:28:30Z: \"#388 at 8838898d: PASS. Every claim and fix row I checked holds up, and it has no playbook mention, no bare \"plant\" and no invented stats.\""
 		},
 		"rulings": [
 			"F45: the unsourced research claim becomes 'Writing a commitment down often makes it clearer and easier to keep.' 'activates a deeper level of commitment' becomes 'marks a clear moment of decision'."

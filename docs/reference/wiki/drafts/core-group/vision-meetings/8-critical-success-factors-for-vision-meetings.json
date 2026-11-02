@@ -28,9 +28,9 @@
 		"replaces_id": "390b813b-74d2-482a-ad17-b1ce526a6981",
 		"sources": [],
 		"claim_check": {
-			"status": "pending",
-			"reviewer": "",
-			"notes": ""
+			"status": "passed",
+			"reviewer": "Maya (Head of Growth)",
+			"notes": "Approved 2026-11-02T03:28:30Z: \"#388 at 8838898d: PASS. Every claim and fix row I checked holds up, and it has no playbook mention, no bare \"plant\" and no invented stats.\""
 		},
 		"rulings": [
 			"Read time recomputed from lint's word count (rounded words / 200), per the audit's read-time row (F58).",

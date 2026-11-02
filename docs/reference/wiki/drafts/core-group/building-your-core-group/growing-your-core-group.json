@@ -28,9 +28,9 @@
 		"replaces_id": "d1958dc2-fb6e-4335-a76d-9f73cc04f219",
 		"sources": [],
 		"claim_check": {
-			"status": "pending",
-			"reviewer": "",
-			"notes": ""
+			"status": "passed",
+			"reviewer": "Maya (Head of Growth)",
+			"notes": "Approved 2026-11-02T03:28:30Z: \"#388 at 8838898d: PASS. Every claim and fix row I checked holds up, and it has no playbook mention, no bare \"plant\" and no invented stats.\""
 		},
 		"rulings": [
 			"D5 Core Group size rule, Sebastian Oct 31: 'Many church plants find 50–100 committed adults a helpful benchmark. It is not a requirement to launch or to set a launch date, and many churches start with fewer and grow.' No size number is a gate.",

@@ -28,9 +28,9 @@
 		"replaces_id": "69af4fd2-2d3f-488b-8c30-6e69dd28f13f",
 		"sources": [],
 		"claim_check": {
-			"status": "pending",
-			"reviewer": "",
-			"notes": ""
+			"status": "passed",
+			"reviewer": "Maya (Head of Growth)",
+			"notes": "Approved 2026-11-02T03:28:30Z: \"#388 at 8838898d: PASS. Every claim and fix row I checked holds up, and it has no playbook mention, no bare \"plant\" and no invented stats.\""
 		},
 		"rulings": [
 			"F29 follow-up window: 'Within 24-48 Hours' becomes 'Within 48 Hours', and the personal call and assignment move into that window so every follow-up window reads 'within 48 hours'. Contact entry points to Everyfield.",

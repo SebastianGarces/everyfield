@@ -28,9 +28,9 @@
 		"replaces_id": "c35ac668-35b1-411c-b724-e54faa772c5f",
 		"sources": [],
 		"claim_check": {
-			"status": "pending",
-			"reviewer": "",
-			"notes": ""
+			"status": "passed",
+			"reviewer": "Maya (Head of Growth)",
+			"notes": "Approved 2026-11-02T03:28:30Z: \"#388 at 8838898d: PASS. Every claim and fix row I checked holds up, and it has no playbook mention, no bare \"plant\" and no invented stats.\""
 		},
 		"rulings": [
 			"D1 Elder polity, Sebastian Oct 31: 'Yes to proposed default'. Elders appear only as 'the elders or the governing body your bylaws name' or as one example.",
