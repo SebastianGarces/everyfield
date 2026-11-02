@@ -3,14 +3,14 @@ import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
-import { fixture, source } from "./fixtures.ts";
+import { fixture, source, STORE_LATEST } from "./fixtures.ts";
 import { migrate, openWorkDb, seedProgress, syncGoals, workDbPath } from "../db.ts";
 import { evfDataDir } from "../lib.ts";
 
 const cli = (cwd: string, ...args: string[]) =>
 	spawnSync(process.execPath, [join(source, "tools/evf/main.ts"), ...args], { cwd, encoding: "utf8" });
 const sha = (c: string) => c.repeat(40);
-const LATEST = 8; // highest migration number in tools/evf/db/migrations
+const LATEST = STORE_LATEST; // highest migration number in tools/evf/db/migrations
 // Numbers may have gaps (the shared store applies what it lacks, as D78 does for packages/db), so the store holds
 // one row per migration file, not LATEST rows.
 const FILES = readdirSync(join(source, "tools/evf/db/migrations")).filter((f) => /^\d{3}-.*\.sql$/.test(f)).length;

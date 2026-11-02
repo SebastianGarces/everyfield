@@ -43,12 +43,18 @@ import { hasVerifiedHead, verify } from "./verify.ts";
  * The stage machine of implement mode (the GPS of the talk, in code): plan → implement → simplify → pr → verify →
  * ci → ship → merged. Seats close their stage with `evf run done`; evf runs pr, ci and ship itself. The pr stage runs
  * the author checks at the current head, so a simplifier commit never costs a round.
- * A verify or ci failure costs a round; the fourth round escalates to Sebastian (guard rail 2). Any other failure
- * costs no round, but three failures in a row escalate too, so no loop runs unattended forever. `evf next` reads the
- * store and names the next stage; `evf drive` performs it, waits on the seat through Herdr and repeats. Jonah only
- * launches `evf drive --detach` and polls `evf status --json`.
+ * Three rules stop a loop that runs unattended. The loop cap: a verify or ci failure costs a round, and the fourth round
+ * escalates to Sebastian (guard rail 2). The retry cap: any other failure costs no round, but three failures in a row
+ * escalate too. The circuit breaker (OPS-115): a seat stage that a seat closes twice in a row with the same status at
+ * the same progress fingerprint (worktree HEAD and spec hash) escalates at the second close, so no third seat launches.
+ * `evf next` reads the store and names the next stage; `evf drive` performs it, waits on the seat through Herdr and
+ * repeats. Jonah only launches `evf drive --detach` and polls `evf status --json`.
  */
 
+/**
+ * Rounds a task may lose to failed verify and ci runs. It stands beside the retry cap (RETRY_CAP) and the circuit
+ * breaker (`noProgress`: one seat stage closed twice with one status at one fingerprint); any of the three escalates.
+ */
 export const LOOP_CAP = 3;
 /** Failures in a row that cost no round (plan, implement, simplify, pr, ship, aborted seats) before escalation. */
 export const RETRY_CAP = 3;
@@ -80,14 +86,30 @@ export type Next = {
 	run?: number;
 	/** Set on `waiting`: the escalation this task earned and holds back until its last open seat closes. */
 	deferred?: string;
+	/** Set on a `pr` that skips simplify: the passed simplify run whose head HEAD still matches. */
+	skipped?: SimplifySkip;
 };
-type RunRow = { id: number; stage: string; role: string; status: string; round: number; summary: string | null };
+/** A passed simplify run after the reopen marker and its head, when the worktree has no change since that head. */
+export type SimplifySkip = { run: number; head: string };
+type RunRow = {
+	id: number;
+	stage: string;
+	role: string;
+	status: string;
+	round: number;
+	summary: string | null;
+	/** The progress fingerprint a seat recorded when it closed a seat stage itself (OPS-115); absent otherwise. */
+	progress_head?: string | null;
+	progress_spec?: string | null;
+};
 
 const now = () => new Date().toISOString();
 const headline = (text: string, max = 160) => text.split("\n")[0]?.slice(0, max) ?? "";
 const runsOf = (db: DatabaseSync, taskId: number): RunRow[] =>
 	db
-		.prepare("SELECT id, stage, status, role, round, summary FROM runs WHERE task_id = ? ORDER BY started_at, id")
+		.prepare(
+			"SELECT id, stage, status, role, round, summary, progress_head, progress_spec FROM runs WHERE task_id = ? ORDER BY started_at, id",
+		)
 		.all(taskId) as RunRow[];
 
 /** A task row for a ref the store does not know yet, so read commands can answer without writing. */
@@ -153,6 +175,8 @@ export type NextExtras = {
 	unfiled?: string[];
 	/** Set on a queued follow-up: the label of the row it waits for. */
 	waitsFor?: string | null;
+	/** Set after a passed implement when the branch has no change since the last passed simplify (OPS-115). */
+	simplifySkip?: SimplifySkip | null;
 };
 
 /**
@@ -185,6 +209,33 @@ const prFailuresSinceImplement = (runs: RunRow[], reopenAfter: number): number =
 const failuresInARow = (runs: RunRow[], marker: number): number =>
 	Math.max(trailingFailures(runs, marker), prFailuresSinceImplement(runs, marker));
 const AUTHOR_CHECKS_FAILED = "author checks failed";
+
+/** The implement-mode stages a seat runs, whose seat-closed runs carry a progress fingerprint (OPS-115). */
+const FINGERPRINTED = new Set(["plan", "implement", "simplify", "verify"]);
+/** The spec half of the progress fingerprint: a sha256 of the stored spec, or of "" while none is stored. */
+const specFingerprint = (spec: string | null) =>
+	createHash("sha256")
+		.update(spec ?? "")
+		.digest("hex");
+
+/**
+ * The circuit breaker (OPS-115): why the task must stop because a seat stage made no progress, or null. Run B is the
+ * newest run after the marker that a seat closed itself with a fingerprint; run A is the run of B's stage before it
+ * with a fingerprint. A and B closed with the same status at the same HEAD and spec hash means the next seat would
+ * start from exactly where B started, so the task escalates with both summaries.
+ */
+export function noProgress(ref: string, runs: RunRow[], marker: number): string | null {
+	const counted = runs.filter((r) => r.id > marker && r.progress_head && r.progress_spec);
+	const b = counted.at(-1);
+	const a = b && counted.filter((r) => r !== b && r.stage === b.stage).at(-1);
+	if (!a || !b || a.status !== b.status || a.progress_head !== b.progress_head || a.progress_spec !== b.progress_spec)
+		return null;
+	return `no progress: ${b.stage} closed ${b.status} twice at ${b.progress_head!.slice(0, 10)} with an unchanged spec (runs ${a.id} and ${b.id}). Run ${a.id}: "${headline(a.summary ?? "")}"; run ${b.id}: "${headline(b.summary ?? "")}". Restart after a fix with evf task reopen ${ref} --reason "<words>".`;
+}
+
+/** The last passed simplify run after the marker and the head it closed at: the simplify skip compares HEAD with it. */
+const lastSimplify = (runs: RunRow[], marker: number) =>
+	runs.filter((r) => r.id > marker && r.stage === "simplify" && r.status === "passed" && r.progress_head).at(-1);
 
 const ideaStage = /^idea\d$/;
 /** The first line of a summary with hex ids, digits and runs of space normalized, so two runs of one blocker compare equal. */
@@ -355,7 +406,12 @@ function nextStageOf(
 	const round = t.round;
 	if (t.mode === "prototype") return nextPrototype(task, t, runs, picked, reopenAfter, extras);
 	if (t.status === "merged" || t.status === "done") return { stage: "done", round, reason: t.status };
-	if (t.status === "escalated") return { stage: "escalated", round, reason: `loop cap of ${LOOP_CAP} rounds hit` };
+	if (t.status === "escalated")
+		return {
+			stage: "escalated",
+			round,
+			reason: noProgress(task.id, runs, reopenAfter) ?? `loop cap of ${LOOP_CAP} rounds hit`,
+		};
 	const open = runs.find((r) => r.status === "started");
 	if (open)
 		return {
@@ -370,6 +426,8 @@ function nextStageOf(
 	const failures = failuresInARow(runs, reopenAfter);
 	if (failures >= RETRY_CAP)
 		return { stage: "escalated", round, reason: `${failures} failures in a row without a passed stage` };
+	const stuck = noProgress(task.id, runs, reopenAfter);
+	if (stuck) return { stage: "escalated", round, reason: stuck };
 	const reopened = !!extras.reopenReason && runs.every((r) => r.id <= reopenAfter);
 	const named = (reason: string) => (reopened ? `reopened by the coordinator: ${extras.reopenReason}` : reason);
 	const go = (stage: Stage, reason: string): Next => ({
@@ -391,8 +449,17 @@ function nextStageOf(
 			return passed && t.spec
 				? go("implement", "plan passed")
 				: go("plan", `plan ${last.status}${t.spec ? "" : ", no spec stored"}`);
-		case "implement":
-			return passed ? go("simplify", "implement passed") : again("implement");
+		case "implement": {
+			if (!passed) return again("implement");
+			// No commit since the last passed simplify: the simplifier would read the same diff, so pr runs next.
+			const skip = extras.simplifySkip;
+			return skip
+				? {
+						...go("pr", `simplify skipped: no change since simplify run ${skip.run} at ${skip.head.slice(0, 10)}`),
+						skipped: skip,
+					}
+				: go("simplify", "implement passed");
+		}
 		case "simplify":
 			return passed ? go("pr", "simplify passed") : again("implement");
 		case "pr": {
@@ -416,19 +483,34 @@ function nextStageOf(
 	}
 }
 
-/** The owner events a task's next stage depends on, read from the store. */
-const extrasOf = (db: DatabaseSync, taskId: number): NextExtras => ({
-	reopenReason: reopenReasonOf(db, taskId),
-	deferred: deferredEscalation(db, taskId),
-	choice: compareChoiceOf(db, taskId),
-	unfiled: unfiledSlices(
-		db,
-		taskId,
-		(db.prepare("SELECT spec FROM tasks WHERE id = ?").get(taskId) as { spec: string | null } | undefined)?.spec ??
-			null,
-	),
-	waitsFor: waitsFor(db, taskId),
-});
+/**
+ * The simplify skip (OPS-115): after a passed implement, the last passed simplify after the marker, when
+ * `git diff --quiet <its head> HEAD` finds no change in the worktree. The PR body and the proofs live outside the
+ * repository, so a round that changed only those has no diff. Null when simplify must run.
+ */
+function simplifySkipOf(runs: RunRow[], marker: number, wt: string | null): SimplifySkip | null {
+	const last = runs.filter((r) => !(r.role === "evf" && r.status === "aborted")).at(-1);
+	if (last?.stage !== "implement" || last.status !== "passed") return null;
+	const simplify = lastSimplify(runs, marker);
+	if (!simplify || !wt || !existsSync(wt)) return null;
+	return gitOk(wt, "diff", "--quiet", simplify.progress_head!, "HEAD")
+		? { run: simplify.id, head: simplify.progress_head! }
+		: null;
+}
+
+/** The owner events a task's next stage depends on, read from the store, and the simplify skip read from its worktree. */
+const extrasOf = (db: DatabaseSync, taskId: number): NextExtras => {
+	const t = db.prepare("SELECT spec, worktree FROM tasks WHERE id = ?").get(taskId) as
+		{ spec: string | null; worktree: string | null } | undefined;
+	return {
+		reopenReason: reopenReasonOf(db, taskId),
+		deferred: deferredEscalation(db, taskId),
+		choice: compareChoiceOf(db, taskId),
+		unfiled: unfiledSlices(db, taskId, t?.spec ?? null),
+		waitsFor: waitsFor(db, taskId),
+		simplifySkip: simplifySkipOf(runsOf(db, taskId), reopenMarker(db, taskId), t?.worktree ?? null),
+	};
+};
 
 export function next(root: string, task: TaskRef): number {
 	const db = openWorkDb(root);
@@ -510,11 +592,13 @@ function seatsStillWorking(db: DatabaseSync, taskId: number, exceptRun: number):
 /**
  * Close a stage. A failed verify or ci costs a round; the fourth round escalates and nothing launches again. A verify
  * run closes passed only when every Done criterion has a met or n/a proof at the worktree head or an ancestor of it.
+ * A seat that closes its own seat stage records the progress fingerprint, and the circuit breaker reads it. The drive
+ * passes `closedBy: "evf"` when it closes a run for the seat (no agent, idle twice, wait timeout) or for its own stage.
  */
 export function runDone(
 	root: string,
 	runId: number,
-	opts: { status: "passed" | "failed"; summaryFile?: string; summary?: string },
+	opts: { status: "passed" | "failed"; summaryFile?: string; summary?: string; closedBy?: "evf" },
 ): number {
 	const db = openWorkDb(root);
 	try {
@@ -566,10 +650,16 @@ export function runDone(
 					`Idea ${idea} cannot close passed: "${unmet}" names a Done criterion that is not met. Finish that criterion, or close this run as failed.`,
 				);
 		}
-		db.prepare("UPDATE runs SET status = ?, ended_at = ?, summary = ? WHERE id = ?").run(
+		const fingerprinted =
+			opts.closedBy !== "evf" && r.role !== "evf" && r.mode === "implement" && FINGERPRINTED.has(r.stage) && !!head;
+		db.prepare(
+			"UPDATE runs SET status = ?, ended_at = ?, summary = ?, progress_head = ?, progress_spec = ? WHERE id = ?",
+		).run(
 			opts.status,
 			now(),
 			summary,
+			fingerprinted ? head : null,
+			fingerprinted ? specFingerprint(r.spec) : null,
 			runId,
 		);
 		fillRunUsage(db, runId);
@@ -614,6 +704,8 @@ export function runDone(
 				}
 			}
 		}
+		if (!escalated && fingerprinted)
+			escalated = noProgress(r.ref, runsOf(db, r.task_id), reopenMarker(db, r.task_id)) ?? "";
 		// A task does not stop while another seat of it works. The escalation waits, recorded, for the last open seat.
 		const pending = escalated ? "" : (deferredEscalation(db, r.task_id) ?? "");
 		if (escalated || pending) {
@@ -1415,7 +1507,7 @@ function evfStage(
 		outcome = { status: "failed", summary: e.message };
 	}
 	// A merge inside the stage (markMerged) already closed this run as passed; only the stage_end event is left.
-	if (runStatus(db, runId) === "started") runDone(root, runId, outcome);
+	if (runStatus(db, runId) === "started") runDone(root, runId, { ...outcome, closedBy: "evf" });
 	else record(db, t.id, runId, "stage_end", { stage, status: outcome.status, summary: outcome.summary });
 	return outcome.status;
 }
@@ -1485,7 +1577,7 @@ function waitOnSeat(
 		status: string;
 	};
 	if (!r.herdr_agent) {
-		runDone(root, runId, { status: "failed", summary: "no Herdr agent recorded for this run" });
+		runDone(root, runId, { status: "failed", summary: "no Herdr agent recorded for this run", closedBy: "evf" });
 		return;
 	}
 	const watchStart = Date.now(),
@@ -1533,6 +1625,7 @@ function waitOnSeat(
 				runDone(root, runId, {
 					status: "failed",
 					summary: `herdr agent wait timed out after ${Math.round(timing.waitMs / 60_000)} min: ${(waited.stderr || waited.stdout).trim().slice(0, 200)}`,
+					closedBy: "evf",
 				});
 				return;
 			}
@@ -1581,7 +1674,11 @@ function waitOnSeat(
 			]);
 			continue;
 		}
-		runDone(root, runId, { status: "failed", summary: `${r.herdr_agent} went idle twice without closing ${r.stage}` });
+		runDone(root, runId, {
+			status: "failed",
+			summary: `${r.herdr_agent} went idle twice without closing ${r.stage}`,
+			closedBy: "evf",
+		});
 		return;
 	}
 }
@@ -1673,6 +1770,12 @@ export function driveOnce(root: string, task: TaskRef, timing: DriveTiming = DRI
 			record(db, t.id, n.run ?? null, "escalation_deferred", {
 				cause: n.deferred,
 				summary: `${task.id} escalation held back until ${n.reason.replace(/^escalation held back until /, "")}`,
+			});
+		if (n.skipped)
+			record(db, t.id, null, "simplify_skipped", {
+				simplify_run: n.skipped.run,
+				head: n.skipped.head,
+				summary: `${task.id} skips simplify: no change since simplify run ${n.skipped.run} at ${n.skipped.head.slice(0, 10)}`,
 			});
 		if (n.stage === "escalated" && t.status !== "escalated") escalate(db, t, null, n.reason);
 		if (n.stage === "done" || n.stage === "escalated" || n.stage === "blocked") return n;
