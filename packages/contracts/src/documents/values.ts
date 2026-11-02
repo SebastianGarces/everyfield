@@ -9,3 +9,6 @@ export const MERGE_VALUE_MAX = 2000;
 export const MERGE_BYTES_MAX = 16 * 1024;
 /** Keys accepted on one override map before the catalog check. */
 export const MERGE_KEY_MAX = 20;
+
+/** The notice every formal or legal document prints, in the PDF, the Word file and the editor. */
+export const LEGAL_NOTICE = "Template, not legal advice";
