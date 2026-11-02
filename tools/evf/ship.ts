@@ -35,13 +35,7 @@ import {
 	wikiWhy,
 	type TemplateClass,
 } from "./merge.ts";
-import {
-	commitClaimCheck,
-	promoteDrafts,
-	recordClaimCheck,
-	wikiCarryProof,
-	type WikiCarry,
-} from "./wiki.ts";
+import { commitClaimCheck, promoteDrafts, recordClaimCheck, wikiCarryProof, type WikiCarry } from "./wiki.ts";
 import { withShipQueue, type QueueTiming } from "./ship-queue.ts";
 import { formatScope, wpScope } from "./scope.ts";
 import { acknowledgeShipped, recordProgress, type ShippedRecord } from "./progress.ts";
