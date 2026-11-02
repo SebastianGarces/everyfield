@@ -12,9 +12,10 @@ import {
 	EmptyState,
 	IntentLink,
 	PageHeader,
+	SearchInput,
 	Spinner,
 } from "@everyfield/ui/controls";
-import { Tag } from "@everyfield/ui/display";
+import { Pagination, Tag } from "@everyfield/ui/display";
 import { Icon, cn } from "@everyfield/ui/foundations";
 import type { ChurchSummary } from "@everyfield/contracts/documents";
 import type { DocTemplateSummary } from "@everyfield/domain/documents";
@@ -94,9 +95,31 @@ export function ChurchLibrary({ documents, templates, canManage, deleted }: Prop
 	);
 }
 
-/** "New from template": the built-in templates. Choosing one makes the document and opens its page. */
+/** Templates on one page of the picker. */
+const PAGE_SIZE = 10;
+
+/** The templates whose name, description or category holds every word of the search, in their order. */
+function matching(templates: DocTemplateSummary[], search: string) {
+	const words = search.toLowerCase().split(/\s+/).filter(Boolean);
+	if (!words.length) return templates;
+	return templates.filter((t) => {
+		const text = [t.title, t.description ?? "", CLASS_LABEL[t.documentClass]].join(" ").toLowerCase();
+		return words.every((word) => text.includes(word));
+	});
+}
+
+/**
+ * "New from template": the built-in templates. A search over name, description and category and pages of ten keep a
+ * long list easy to browse. Choosing one makes the document and opens its page.
+ */
 function TemplatePicker({ templates }: { templates: DocTemplateSummary[] }) {
 	const [open, setOpen] = useState(false);
+	const [search, setSearch] = useState("");
+	const [page, setPage] = useState(1);
+	const list = useRef<HTMLDivElement>(null);
+	const found = matching(templates, search);
+	const pageCount = Math.ceil(found.length / PAGE_SIZE);
+	const shown = found.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 	const [chosen, setChosen] = useState<string | null>(null);
 	const [message, setMessage] = useState<string | null>(null);
 	const [pending, start] = useTransition();
@@ -127,6 +150,8 @@ function TemplatePicker({ templates }: { templates: DocTemplateSummary[] }) {
 				if (!next) {
 					keys.current.clear();
 					setMessage(null);
+					setSearch("");
+					setPage(1);
 				}
 			}}
 		>
@@ -135,14 +160,30 @@ function TemplatePicker({ templates }: { templates: DocTemplateSummary[] }) {
 					New from template
 				</Button>
 			</DialogTrigger>
-			<DialogContent size="lg">
+			{/* One height for every search result, so the centered dialog never moves or shrinks while someone types. */}
+			<DialogContent size="lg" className="h-[min(800px,calc(100dvh-24px))]">
 				<DialogHeader
 					title="New from template"
 					description="Pick a template. Everyfield copies it for your church plant and fills in your church's details."
 				/>
-				<DialogBody className="pb-7">
+				<div className="flex-none px-7 pb-4 max-app-sm:px-5">
+					<SearchInput
+						value={search}
+						onChange={(event) => {
+							setSearch(event.target.value);
+							setPage(1);
+						}}
+						placeholder="Search templates"
+						aria-label="Search templates"
+					/>
+				</div>
+				{/* pt-1 keeps the first card's ring and focus outline inside the scroll area, which clips its edges. */}
+				<DialogBody ref={list} className={cn("pt-1", pageCount > 1 ? "pb-4" : "pb-7")}>
+					{shown.length === 0 ? (
+						<p className="py-6 text-md text-text-2">No template matches “{search.trim()}”.</p>
+					) : null}
 					<ul className="flex flex-col gap-3" aria-label="Templates">
-						{templates.map((t) => {
+						{shown.map((t) => {
 							const busy = pending && chosen === t.id;
 							return (
 								<li key={t.id}>
@@ -184,6 +225,25 @@ function TemplatePicker({ templates }: { templates: DocTemplateSummary[] }) {
 						</p>
 					) : null}
 				</DialogBody>
+				<p role="status" className="sr-only">
+					{found.length === 1 ? "1 template" : `${found.length} templates`}
+				</p>
+				{pageCount > 1 ? (
+					<div className="flex flex-none flex-wrap items-center justify-between gap-3 px-7 pt-4 pb-6 shadow-[0_-1px_0_var(--ef-line)] max-app-sm:px-5 max-app-sm:pb-5">
+						<span className="text-sm text-text-3 tabular-nums">
+							Showing {(page - 1) * PAGE_SIZE + 1}–{(page - 1) * PAGE_SIZE + shown.length} of {found.length}
+						</span>
+						<Pagination
+							label="Template pages"
+							page={page}
+							pageCount={pageCount}
+							onPageChange={(next) => {
+								setPage(next);
+								list.current?.scrollTo({ top: 0 });
+							}}
+						/>
+					</div>
+				) : null}
 			</DialogContent>
 		</Dialog>
 	);

@@ -90,3 +90,55 @@ export function sofficeToPdf(docx: Uint8Array): Buffer {
 	);
 	return readFileSync(join(dir, "in.pdf"));
 }
+
+/**
+ * Each embedded TrueType font of a PDF: the name the PDF gives it (BaseFont, subset prefix removed) and the family and
+ * style the font program's own `name` table holds. A face that prints the wrong file shows here as a name mismatch.
+ */
+export async function pdfFontFaces(bytes: Uint8Array): Promise<{ baseFont: string; family: string; style: string }[]> {
+	const { PDFDocument, PDFDict, PDFName, PDFRawStream } =
+		await import("../../../../packages/domain/node_modules/pdf-lib/cjs/index.js");
+	const { inflateSync } = await import("node:zlib");
+	const doc = await PDFDocument.load(bytes);
+	const faces: { baseFont: string; family: string; style: string }[] = [];
+	for (const [, obj] of doc.context.enumerateIndirectObjects()) {
+		if (!(obj instanceof PDFDict)) continue;
+		const file = obj.lookup(PDFName.of("FontFile2"));
+		if (!(file instanceof PDFRawStream)) continue;
+		const raw = Buffer.from(file.contents);
+		const font = file.dict.get(PDFName.of("Filter")) ? inflateSync(raw) : raw;
+		const names = nameTable(font);
+		faces.push({
+			baseFont: (obj.get(PDFName.of("FontName")) as InstanceType<typeof PDFName>)
+				.decodeText()
+				.replace(/^[A-Z]{6}\+/, ""),
+			family: names[1] ?? "",
+			style: names[2] ?? "",
+		});
+	}
+	return faces;
+}
+
+/** Name IDs 1 (family) and 2 (subfamily) of a TrueType font, from its Windows or Mac records. */
+function nameTable(font: Buffer): Record<number, string> {
+	const out: Record<number, string> = {};
+	const tables = font.readUInt16BE(4);
+	for (let i = 0; i < tables; i++) {
+		const entry = 12 + i * 16;
+		if (font.toString("latin1", entry, entry + 4) !== "name") continue;
+		const at = font.readUInt32BE(entry + 8);
+		const strings = at + font.readUInt16BE(at + 4);
+		for (let j = 0; j < font.readUInt16BE(at + 2); j++) {
+			const record = at + 6 + j * 12;
+			const platform = font.readUInt16BE(record);
+			const id = font.readUInt16BE(record + 6);
+			if ((id !== 1 && id !== 2) || out[id]) continue;
+			const value = font.subarray(
+				strings + font.readUInt16BE(record + 10),
+				strings + font.readUInt16BE(record + 10) + font.readUInt16BE(record + 8),
+			);
+			out[id] = platform === 1 ? value.toString("latin1") : Buffer.from(value).swap16().toString("utf16le");
+		}
+	}
+	return out;
+}
