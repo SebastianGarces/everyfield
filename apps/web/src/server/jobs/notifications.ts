@@ -134,7 +134,7 @@ export function createNotificationService(config: {
  CASE i."sourceKind" WHEN 'task' THEN EXISTS(SELECT FROM tasks s WHERE s.id=i.source AND s.plant_id=i.owner AND s.revision=i.revision)
  WHEN 'meeting' THEN EXISTS(SELECT FROM meetings s WHERE s.id=i.source AND s.plant_id=i.owner AND s.revision=i.revision)
  WHEN 'affiliation' THEN EXISTS(SELECT FROM affiliations s WHERE s.id=i.source AND i.owner IN(s.plant_id,s.organization_id) AND s.revision=i.revision)
- WHEN 'phase_transition' THEN EXISTS(SELECT FROM phases s WHERE s.id=i.source AND s.plant_id=i.owner AND s.kind='movement' AND s.to_phase>s.from_phase AND i.revision=1)
+ WHEN 'phase_transition' THEN EXISTS(SELECT FROM phases s WHERE s.id=i.source AND (s.plant_id=i.owner OR EXISTS(SELECT FROM affiliation a WHERE a.plant_id=s.plant_id AND a.organization_id=i.owner AND a.ended_at IS NULL)) AND s.kind='movement' AND s.to_phase>s.from_phase AND i.revision=1)
  WHEN 'launch_milestone' THEN EXISTS(SELECT FROM launches s WHERE s.id=i.source AND s.plant_id=i.owner AND s.revision=i.revision)
  WHEN 'article_editor_state' THEN EXISTS(SELECT FROM editors s WHERE s.id=i.source AND s.organization_id=i.owner AND s.revision=i.revision) ELSE false END AS source_live,
  CASE i."sourceKind" WHEN 'task' THEN EXISTS(SELECT FROM tasks s WHERE s.id=i.source AND EXISTS(SELECT FROM task_assignee ta WHERE ta.task_id=s.id AND ta.account_id=i.recipient) AND s.deleted_at IS NULL AND s.status NOT IN ('complete','no_longer_needed'))
@@ -626,7 +626,11 @@ export async function lockSource(tx: Transaction, tenant: string, source: Notice
 				and(
 					and(
 						and(
-							and(eq(tables.phase_transition.id, s.id), eq(tables.phase_transition.plant_id, tenant)),
+							and(
+								eq(tables.phase_transition.id, s.id),
+								// A connected sending church or network owns its own phase-advance notice (NTF-009).
+								sql`(${tables.phase_transition.plant_id}=${tenant} OR EXISTS(SELECT FROM affiliation a WHERE a.plant_id=${tables.phase_transition.plant_id} AND a.organization_id=${tenant} AND a.ended_at IS NULL))`,
+							),
 							eq(tables.phase_transition.kind, "movement"),
 						),
 						gt(tables.phase_transition.to_phase, tables.phase_transition.from_phase),

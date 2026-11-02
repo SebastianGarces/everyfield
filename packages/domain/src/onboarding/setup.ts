@@ -2,7 +2,6 @@ import * as c from "@everyfield/contracts/onboarding";
 import type { OnboardingProducer } from "@everyfield/contracts/onboarding/server";
 import { and, eq, isNull, ne, sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
-import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import {
 	begin,
@@ -20,13 +19,13 @@ import {
 	type Tx,
 } from "./core.ts";
 import { requestWrite } from "../access/session.ts";
+import { declaration } from "../phases/declaration.ts";
 import { pending } from "./creation.ts";
 import { plantReading, readingFrom, foundationArticles, type ReadingRow } from "./reading.ts";
 
 const savedLead = c.leadAnswerResult.shape.lead;
 const savedJourney = c.journeyResult.shape.journey;
 const savedLaunch = c.journeyResult.shape.launch;
-export const declarationReason = "Declared at setup — where this plant already was when it joined EveryField.";
 async function stamp(tx: Tx, plantId: string) {
 	const [clock] = await tx.select({ at: now }).from(t.plant).where(eq(t.plant.id, plantId));
 	return clock!.at.toISOString();
@@ -161,25 +160,12 @@ export const setup: Pick<OnboardingProducer<Tx>, "answerLead" | "declareJourney"
 			const journey = savedJourney.parse({ status: "saved", value: q.input.journey, savedAt: at }),
 				launch = savedLaunch.parse({ status: "saved", value: q.input.launch, savedAt: at });
 			if (q.input.journey.answer === "existing") {
-				const previous = await tx
-					.select({ id: t.phase_transition.id })
-					.from(t.phase_transition)
-					.where(and(eq(t.phase_transition.plant_id, a.plant.id), eq(t.phase_transition.kind, "initial_declaration")));
-				if (previous.length) deny("already_declared");
-				const id = randomUUID();
-				await tx.insert(t.phase_transition).values({
-					id,
-					plant_id: a.plant.id,
-					kind: "initial_declaration",
-					from_phase: a.plant.phase,
-					to_phase: q.input.journey.phase,
-					reason: declarationReason,
-					occurred_at: now,
-					recorded_at: now,
-					operation_id: cx.id,
-				});
-				await tx.update(t.plant).set({ phase: q.input.journey.phase }).where(eq(t.plant.id, a.plant.id));
-				ids.push(await event(tx, cx, id, "phase.declared", "declaration"));
+				// The one declaration writer (phases.declare): an empty `declared` means the slot or an ordinary move is used.
+				const { rows } = await tx.execute(sql`WITH src AS (SELECT id,phase FROM plant WHERE id=${a.plant.id}::uuid),
+ ${declaration(sql`src`, q.input.journey.phase, cx.id)},
+ moved AS (UPDATE plant p SET phase=d.to_phase FROM declared d WHERE p.id=d.plant_id) SELECT d.id FROM declared d`);
+				if (!rows[0]) deny("already_declared");
+				ids.push(await event(tx, cx, z.uuid().parse(rows[0].id), "phase.declared", "declaration"));
 			}
 			const [schedule] = await tx.select().from(t.launch).where(eq(t.launch.plant_id, a.plant.id)).for("update");
 			if (q.input.launch.answer === "planned") {
