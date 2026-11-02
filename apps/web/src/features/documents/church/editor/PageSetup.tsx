@@ -103,7 +103,8 @@ export function PageSetupPanel({
 	onClose,
 }: {
 	editor: Editor;
-	base: DocDocument;
+	/** The stored document the page setup is checked against: read when a value changes, not when the panel draws. */
+	base: () => DocDocument;
 	id: string;
 	onClose: () => void;
 }) {
@@ -121,7 +122,7 @@ export function PageSetupPanel({
 
 	/** Applies `next` when the format accepts it; else shows the format's message at `field` and applies nothing. */
 	const change = (field: string, next: PageWithoutRegions) => {
-		const issues = pageIssues(editor, base, next);
+		const issues = pageIssues(editor, base(), next);
 		if (issues.length > 0) {
 			setFault({ field, message: issues[0]?.message ?? "The format refuses this value." });
 			return;

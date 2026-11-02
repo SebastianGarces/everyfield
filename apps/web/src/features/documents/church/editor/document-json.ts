@@ -18,8 +18,9 @@ const REGIONS = [
  * root node, so a change to it joins that history too. A region the file stores as null stays null in `page`.
  */
 export function editorContent(doc: DocDocument): Json {
-	const { header: _header, footer: _footer, ...setup } = doc.page as Record<string, unknown>;
-	const page: Json = { ...setup };
+	const page: Json = { ...(doc.page as Record<string, unknown>) };
+	delete page.header;
+	delete page.footer;
 	const region = (key: "header" | "footer", type: string) => {
 		const value = (doc.page as Record<string, unknown>)[key] as Region | null | undefined;
 		if (!value) {

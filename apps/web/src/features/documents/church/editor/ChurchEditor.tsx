@@ -292,7 +292,12 @@ export default function ChurchEditor({
 						)}
 					</div>
 					{setupOpen && editor ? (
-						<PageSetupPanel editor={editor} base={base.current} id={setupId} onClose={() => setSetupOpen(false)} />
+						<PageSetupPanel
+							editor={editor}
+							base={() => base.current}
+							id={setupId}
+							onClose={() => setSetupOpen(false)}
+						/>
 					) : null}
 					{page.tile ? (
 						<p className="text-center text-sm font-medium text-text-2">
