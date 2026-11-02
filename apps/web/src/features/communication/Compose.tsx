@@ -35,8 +35,10 @@ import {
 	outcomeText,
 	scheduledNotSentText,
 	templateBinding,
+	type Draft,
 	type Handoff,
 	type MeetingContext,
+	type Outcome,
 	type PageData,
 	type Step,
 	type Template,
@@ -296,7 +298,10 @@ export function Compose({
 
 	const removeDraft = async () => {
 		if (!form.communicationId || !form.revision) throw new Error("Save the message before you delete it.");
-		const result = await deleteDraft(keys.take("delete"), form.revision, form.communicationId);
+		// A request that never reaches the server rejects. Report it as a lost write: the key stays, so a retry replays.
+		const result = await deleteDraft(keys.take("delete"), form.revision, form.communicationId).catch(
+			(): Outcome<Draft> => ({ status: "lost" }),
+		);
 		keys.settle("delete", result);
 		if (result.status !== "ok") {
 			throw new Error(`${outcomeText(result) ?? "The draft was not deleted."} The draft is still in your list.`);

@@ -184,6 +184,18 @@ for (const [name, engine] of ENGINES) {
 			const dialog = page.getByRole("alertdialog");
 			await dialog.getByText(`"${subject}"`).waitFor();
 			await dialog.getByText("The draft is removed for good.").waitFor();
+			// Criterion 9: a failed network request says why and what to do, and the draft stays.
+			await page.route("**/communication**", (route) =>
+				route.request().method() === "POST" && route.request().headers()["next-action"]
+					? route.abort()
+					: route.fallback(),
+			);
+			await dialog.getByRole("button", { name: "Delete draft" }).click();
+			await dialog
+				.getByText("Unable to reach the church records. Try again in a moment. The draft is still in your list.")
+				.waitFor();
+			assert.equal(await rows.count("draft", `${subject} changed`), 1);
+			await page.unroute("**/communication**");
 			await dialog.getByRole("button", { name: "Delete draft" }).click();
 			await dialog.getByText("This record changed. Reload it, then try again.").waitFor();
 			assert.equal(await rows.count("draft", `${subject} changed`), 1);
