@@ -197,7 +197,7 @@ export type NextExtras = {
 	bodyOnly?: BodyOnly | null;
 };
 /** The head a `body_only` verify approved, and whether the worktree HEAD is another commit now. */
-export type BodyOnly = { head: string; moved: boolean };
+type BodyOnly = { head: string; moved: boolean };
 
 /**
  * Failed or aborted runs since the last passed one, counting only runs after the latest reopen marker.

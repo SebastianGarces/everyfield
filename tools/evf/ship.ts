@@ -297,7 +297,7 @@ function readApproval(input: unknown): Approval | null {
 		head: input.head,
 		verifier,
 		verdict: input.verdict,
-		...(body ? { body } : {}),
+		body,
 		quality: { verdict: quality.verdict, principles },
 		experience: {
 			verdict: experience.verdict,
