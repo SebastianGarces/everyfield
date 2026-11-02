@@ -14,15 +14,16 @@ import {
 } from "./lib.ts";
 import { markMergedByBranch } from "./db.ts";
 import { cachedTriage } from "./feedback.ts";
-import { mergePullRequest, templateClass } from "./merge.ts";
+import { mergePullRequest, templateClass, wikiClass } from "./merge.ts";
+import { unfinishedDrafts } from "./wiki.ts";
 import { afterMerge, checkPr, type MergeEvidence } from "./ship.ts";
 import { APPROVED_PROTOTYPE, changesOnlyOwnRegistration, mayChangePrototype } from "./policy.ts";
 
 /**
  * Human-approved merge for the PRs that never merge automatically: Wiki articles, prototypes, and
  * the verifier-passed P2/P3 feedback fixes (mergePolicy.feedbackOwnerAfterVerifier) and design tasks
- * (maintenanceTasks route "design"), and the document-template PRs (mergePolicy.documentTemplates) that would
- * otherwise merge through evf ship. Every other PR refuses before any write. Sebastian approves in chat;
+ * (maintenanceTasks route "design"), and the document-template PRs (mergePolicy.documentTemplates) and Wiki-content
+ * task PRs (OPS-109) that would otherwise merge through evf ship. Every other PR refuses before any write. Sebastian approves in chat;
  * the agent runs this with his words. Agents never run it without that approval for this PR.
  * It records the approval on the PR, binds it to the exact head commit, and squash-merges.
  * When main is protected, it also posts the evf/verify status for that head.
@@ -40,8 +41,11 @@ type Pr = {
 	mergeStateStatus: string;
 	files: Array<{ path: string }>;
 };
+/** `template` and `wiki-task` are task PRs evf ship would merge: they get the verifier checks and evf ship's after-merge steps. */
 type Route =
-	{ kind: "wiki" | "prototype" } | { kind: "verified"; id: string } | { kind: "template"; id: string; task: TaskRef };
+	| { kind: "wiki" | "prototype" }
+	| { kind: "verified"; id: string }
+	| { kind: "template" | "wiki-task"; id: string; task: TaskRef };
 
 function gh(args: string[]): string {
 	const r = run("gh", args);
@@ -109,6 +113,8 @@ function routeOf(root: string, cfg: Config, pr: Pr): Route {
 			if (!task) fetchHead(root, cfg, pr);
 			// Doubt about the class is the class, as in the merge: the held PR must stay approvable.
 			const held = templateClass(root, cfg, pr.headRefOid);
+			if (!held.doubt && wikiClass(root, cfg, pr.headRefOid).paths.length)
+				return { kind: "wiki-task", id: ref.id, task: ref };
 			if (held.doubt || held.paths.length) return { kind: "template", id: ref.id, task: ref };
 		}
 	}
@@ -142,9 +148,10 @@ export function approve(root: string, n: number, opts: { ownerApproval?: string;
 	if (pr.state !== "OPEN") fail(`PR #${n} is ${pr.state.toLowerCase()}.`);
 	if (pr.baseRefName !== cfg.baseBranch) fail(`PR #${n} targets ${pr.baseRefName}, not ${cfg.baseBranch}.`);
 	const route = routeOf(root, cfg, pr);
-	const head = pr.headRefOid;
+	const head = pr.headRefOid,
+		shipRoute = route.kind === "template" || route.kind === "wiki-task";
 	const again =
-		route.kind === "verified" || route.kind === "template"
+		route.kind === "verified" || shipRoute
 			? `have the verifier pass the new head (bin/evf ship ${route.id}), then ask Sebastian to approve it`
 			: "ask Sebastian to approve the new head";
 	if (opts.head && !head.startsWith(opts.head))
@@ -157,17 +164,21 @@ export function approve(root: string, n: number, opts: { ownerApproval?: string;
 			`PR #${n} is behind ${cfg.baseBranch}. Update it (gh pr update-branch ${n}), then ${again}. evf approve merges only the exact head he approved.`,
 		);
 
+	// A Wiki task PR merges only with every draft claim-checked and promoted (OPS-109).
+	const unfinished = route.kind === "wiki-task" && unfinishedDrafts(root, baseRef(root, cfg), head, route.task);
+	if (unfinished) fail(`PR #${n} is not ready for Sebastian's approval at ${head.slice(0, 10)}: ${unfinished}`);
+
 	const repo = gh(["repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"]);
 	let evidence: MergeEvidence | undefined,
 		baseSha = "";
-	if (route.kind === "verified" || route.kind === "template") {
+	if (route.kind === "verified" || shipRoute) {
 		try {
-			evidence = checkPr(root, n, head);
+			evidence = checkPr(root, n, head, { wikiCarry: route.kind === "wiki-task" });
 		} catch (e) {
-			// A template PR waits for the verifier's pass first; name the command that gives it.
-			if (route.kind === "template" && e instanceof EvfError)
+			// A held task PR waits for the verifier's pass first; name the command that gives it.
+			if (shipRoute && e instanceof EvfError)
 				fail(
-					`PR #${n} changes document templates and needs the verifier to pass it first (bin/evf ship ${route.id}) at ${head.slice(0, 10)}: ${e.message}`,
+					`PR #${n} changes ${route.kind === "template" ? "document templates" : "Wiki content"} and needs the verifier to pass it first (bin/evf ship ${route.id}) at ${head.slice(0, 10)}: ${e.message}`,
 				);
 			throw e;
 		}
@@ -222,7 +233,7 @@ export function approve(root: string, n: number, opts: { ownerApproval?: string;
 		".mergeCommit.oid",
 	]).stdout.trim();
 	markMergedByBranch(root, pr.headRefName, /^[0-9a-f]{40}$/.test(mergeCommit) ? mergeCommit : null);
-	if (route.kind === "template" && evidence) {
+	if (shipRoute && evidence) {
 		// The same bookkeeping evf ship runs, so package progress and dependents unlock. A task without a worktree
 		// reads its registration from the merged head in the home checkout.
 		const path = worktreePath(root, cfg, route.task),

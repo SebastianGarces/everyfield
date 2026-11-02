@@ -10,6 +10,9 @@ import sharp from "../../../packages/db/node_modules/sharp/dist/index.mjs";
 import { docTemplateById } from "../../../packages/domain/src/documents/doc-templates.ts";
 import { forkTemplate, templateHash } from "../../../packages/contracts/src/documents/format/index.ts";
 import { pdfPages, docxParts, wordText } from "./fixtures/readers.mts";
+import { documentFrom, editorContent } from "../../../apps/web/src/features/documents/church/editor/document-json.ts";
+import { editorSchema } from "../../../apps/web/src/features/documents/church/editor/schema.ts";
+import { refusedWith } from "../../../apps/web/src/features/documents/church/refusal.ts";
 import test, { after, before, describe } from "node:test";
 import assert from "node:assert/strict";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
@@ -325,6 +328,42 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 			await documentsWriter["history.get"](db, await authority(MEMBER), { documentId: doc.id, revision: 1 }),
 		);
 		assert.deepEqual(one.body, doc.body);
+		state.policy = saved;
+	});
+
+	test("WP-036 slice 2: a body the editor builds saves as one revision; a Member's save writes nothing", async () => {
+		const doc = state.policy;
+		// The editor holds the body in its own schema and builds the stored document with documentFrom. Edit it the way
+		// the toolbar does (a tag, a link, a hard break, a page break) and save what comes out.
+		const schema = editorSchema();
+		const json: any = schema.nodeFromJSON(editorContent(doc.body)).toJSON();
+		json.content.push(
+			{ type: "pageBreak" },
+			{
+				type: "paragraph",
+				content: [
+					{ type: "text", marks: [{ type: "tag" }], text: "GROW" },
+					{ type: "text", text: " and " },
+					{ type: "text", marks: [{ type: "link", attrs: { href: "https://example.com/policy" } }], text: "read" },
+					{ type: "hardBreak" },
+					{ type: "text", marks: [{ type: "bold" }, { type: "italic" }], text: "more" },
+				],
+			},
+		);
+		schema.nodeFromJSON(json).check();
+		const edited = documentFrom(doc.body, json);
+		const before = await counts();
+		refused(await save(MEMBER, doc.id, doc.revision, edited), "access_denied");
+		assert.deepEqual(await counts(), before, "a Member's save writes nothing");
+		assert.equal(
+			refusedWith("access_denied").message,
+			"Only an Owner or Admin of the church plant can do this.",
+			"the save action shows the access message for a Member",
+		);
+		const saved = ok(await save(ADMIN, doc.id, doc.revision, edited));
+		assert.equal(saved.revision, String(Number(doc.revision) + 1));
+		assert.deepEqual(saved.body, edited);
+		assert.deepEqual(await counts(), { ...before, revisions: before.revisions + 1, audits: before.audits + 1 });
 		state.policy = saved;
 	});
 
