@@ -150,7 +150,7 @@ test("AC:REFREL-001 initial install, exact replay and changed immutable hash ref
 	const published = await db.execute(
 		querySql`SELECT count(*)::int AS n FROM article_revision a JOIN reference_activation r ON r.release_id=a.release_id WHERE r.activation_number=1`,
 	);
-	assert.equal(published.rows[0]!.n, 96);
+	assert.equal(published.rows[0]!.n, 124);
 	const mail = await db.execute(querySql`SELECT count(*)::int AS n FROM reference_item WHERE kind='mail_template'`);
 	assert.equal(mail.rows[0]!.n, 7);
 	const sideEffects = await db.execute(
