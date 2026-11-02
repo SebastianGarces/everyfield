@@ -70,6 +70,7 @@ test("OPS-81-migration: schema 3 reaches 4, keeps every row and a second run cha
 			"004-task-seat-override.sql",
 			"005-merged-views.sql",
 			"006-task-follow-ups.sql",
+			"007-qa-previews.sql",
 			"008-follow-up-links.sql",
 		],
 	});
