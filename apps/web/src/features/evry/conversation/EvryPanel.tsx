@@ -46,7 +46,8 @@ import { useConversation } from "./useConversation.ts";
 // same while the person moves between pages. Esc closes it and focus returns to what opened it.
 
 /** The panel and its opener. Cmd+J or Ctrl+J opens and closes it from anywhere in the product frame. */
-export function useEvryPanel({ inPlant }: { inPlant: boolean }) {
+/** The Evry panel and its Cmd+J toggle. `off` closes it and ignores the shortcut (the private check-in page). */
+export function useEvryPanel({ inPlant, off = false }: { inPlant: boolean; off?: boolean }) {
 	const [open, setOpen] = useState(false);
 	const c = useConversation(open);
 	// The latest conversation loads the first time the panel opens; later opens keep what the panel already has.
@@ -56,7 +57,7 @@ export function useEvryPanel({ inPlant }: { inPlant: boolean }) {
 	};
 	const toggle = useRef(() => show(!open));
 	useEffect(() => {
-		toggle.current = () => show(!open);
+		toggle.current = () => (off ? setOpen(false) : show(!open));
 	});
 	useEffect(() => {
 		const onKey = (e: globalThis.KeyboardEvent) => {
@@ -70,7 +71,7 @@ export function useEvryPanel({ inPlant }: { inPlant: boolean }) {
 	}, []);
 	return {
 		open: () => show(true),
-		element: <EvryPanel c={c} open={open} onOpenChange={show} inPlant={inPlant} />,
+		element: off ? null : <EvryPanel c={c} open={open} onOpenChange={show} inPlant={inPlant} />,
 	};
 }
 
