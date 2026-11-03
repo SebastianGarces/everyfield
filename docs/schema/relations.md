@@ -255,6 +255,10 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `plant_geography(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
 | `platform_grant(account_id)` | `account(id)` | restrict |  |
 | `platform_grant(id, account_id)` | `record(id, tenant_id)` | restrict |  |
+| `private_calendar(author_id)` | `account(id)` | restrict |  |
+| `private_calendar(plant_id)` | `plant(id)` | restrict |  |
+| `private_week(author_id, plant_id)` | `private_calendar(author_id, plant_id)` | cascade |  |
+| `private_week_revision(week_id, author_id)` | `private_week(id, author_id)` | cascade |  |
 | `proposal(account_id)` | `account(id)` | no_action |  |
 | `proposal(approved_session_id)` | `auth_session(id)` | set_null |  |
 | `proposal(conversation_id, tenant_id)` | `conversation(id, tenant_id)` | cascade |  |

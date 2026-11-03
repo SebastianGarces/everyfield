@@ -3508,6 +3508,130 @@ export const platform_grant = pgTable(
 			.where(sql`(revoked_at IS NULL)`),
 	],
 );
+// Private weekly check-ins (WP-039). One calendar per author and church, its Monday weeks in the author's personal
+// zone, and the append-only revisions of each week's answer. Only the original author reads them; no other table
+// references them, and the account or church purge removes them (settings_purge_content).
+const careLevels = ["steady", "strained", "struggling"] as const;
+export const private_calendar = pgTable(
+	"private_calendar",
+	{
+		author_id: uuid("author_id").notNull(),
+		plant_id: uuid("plant_id").notNull(),
+		revision: int64("revision")
+			.notNull()
+			.default(sql`1`),
+		zone: text("zone").notNull(),
+		next_at: timestamp("next_at", { withTimezone: true, mode: "date" }).notNull(),
+		preview_handle: uuid("preview_handle"),
+		preview_revision: int64("preview_revision"),
+	},
+	(table): PgTableExtraConfigValue[] => [
+		foreignKey({ name: "private_calendar_fk_0", columns: [table.author_id], foreignColumns: [account.id] })
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({ name: "private_calendar_fk_1", columns: [table.plant_id], foreignColumns: [plant.id] })
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		primaryKey({ name: "private_calendar_pkey", columns: [table.author_id, table.plant_id] }),
+		index("private_calendar_ref_1").using("btree", table.plant_id.asc().nullsLast()),
+		check("private_calendar_ck_0", sql`(revision >= 1)`),
+		check("private_calendar_zone_iana", sql`(zone = ANY (${canonicalZones7}))`),
+		check("private_calendar_preview", sql`((preview_handle IS NULL) = (preview_revision IS NULL))`),
+	],
+);
+export const private_week = pgTable(
+	"private_week",
+	{
+		id: uuid("id")
+			.notNull()
+			.default(sql`gen_random_uuid()`),
+		author_id: uuid("author_id").notNull(),
+		plant_id: uuid("plant_id").notNull(),
+		ordinal: integer("ordinal").notNull(),
+		zone: text("zone").notNull(),
+		starts_on: date("starts_on", { mode: "string" }).notNull(),
+		ends_on: date("ends_on", { mode: "string" }).notNull(),
+		starts_at: timestamp("starts_at", { withTimezone: true, mode: "date" }).notNull(),
+		spiritual: text("spiritual", { enum: careLevels }),
+		family: text("family", { enum: careLevels }),
+		financial: text("financial", { enum: careLevels }),
+		pace: text("pace", { enum: careLevels }),
+		note: text("note"),
+		answer_revision: integer("answer_revision").notNull().default(0),
+		answered_at: timestamp("answered_at", { withTimezone: true, mode: "date" }),
+	},
+	(table): PgTableExtraConfigValue[] => [
+		foreignKey({
+			name: "private_week_fk_0",
+			columns: [table.author_id, table.plant_id],
+			foreignColumns: [private_calendar.author_id, private_calendar.plant_id],
+		})
+			.onDelete("cascade")
+			.onUpdate("no action"),
+		primaryKey({ name: "private_week_pkey", columns: [table.id] }),
+		unique("private_week_uq_0").on(table.author_id, table.plant_id, table.ordinal),
+		unique("private_week_uq_1").on(table.id, table.author_id),
+		check("private_week_ck_0", sql`(ordinal >= 1)`),
+		check("private_week_ck_1", sql`(ends_on = (starts_on + 6))`),
+		check("private_week_ck_2", sql`(EXTRACT(isodow FROM starts_on) = (1)::numeric)`),
+		check(
+			"private_week_answer",
+			sql`((answer_revision = 0) = (spiritual IS NULL)) AND (num_nulls(spiritual, family, financial, pace) = ANY (ARRAY[0, 4])) AND ((answer_revision = 0) = (answered_at IS NULL)) AND ((note IS NULL) OR (spiritual IS NOT NULL))`,
+		),
+		check(
+			"private_week_levels",
+			sql`((spiritual IS NULL) OR ((spiritual = ANY (ARRAY['steady'::text, 'strained'::text, 'struggling'::text])) AND (family = ANY (ARRAY['steady'::text, 'strained'::text, 'struggling'::text])) AND (financial = ANY (ARRAY['steady'::text, 'strained'::text, 'struggling'::text])) AND (pace = ANY (ARRAY['steady'::text, 'strained'::text, 'struggling'::text]))))`,
+		),
+		check("private_week_note", sql`((note IS NULL) OR ((char_length(note) >= 1) AND (char_length(note) <= 2000)))`),
+		check("private_week_ck_3", sql`(answer_revision >= 0)`),
+	],
+);
+export const private_week_revision = pgTable(
+	"private_week_revision",
+	{
+		week_id: uuid("week_id").notNull(),
+		author_id: uuid("author_id").notNull(),
+		revision: integer("revision").notNull(),
+		kind: text("kind", { enum: ["save", "correction"] }).notNull(),
+		spiritual: text("spiritual", { enum: careLevels }).notNull(),
+		family: text("family", { enum: careLevels }).notNull(),
+		financial: text("financial", { enum: careLevels }).notNull(),
+		pace: text("pace", { enum: careLevels }).notNull(),
+		note: text("note"),
+		calendar_revision: int64("calendar_revision").notNull(),
+		request_key: text("request_key").notNull(),
+		recorded_at: timestamp("recorded_at", { withTimezone: true, mode: "date" })
+			.notNull()
+			.default(sql`clock_timestamp()`),
+	},
+	(table): PgTableExtraConfigValue[] => [
+		foreignKey({
+			name: "private_week_revision_fk_0",
+			columns: [table.week_id, table.author_id],
+			foreignColumns: [private_week.id, private_week.author_id],
+		})
+			.onDelete("cascade")
+			.onUpdate("no action"),
+		primaryKey({ name: "private_week_revision_pkey", columns: [table.week_id, table.revision] }),
+		unique("private_week_revision_uq_0").on(table.author_id, table.request_key),
+		index("private_week_revision_ref_0").using(
+			"btree",
+			table.week_id.asc().nullsLast(),
+			table.author_id.asc().nullsLast(),
+		),
+		check("private_week_revision_ck_0", sql`(revision >= 1)`),
+		check("private_week_revision_ck_1", sql`(kind = ANY (ARRAY['save'::text, 'correction'::text]))`),
+		check(
+			"private_week_revision_levels",
+			sql`((spiritual = ANY (ARRAY['steady'::text, 'strained'::text, 'struggling'::text])) AND (family = ANY (ARRAY['steady'::text, 'strained'::text, 'struggling'::text])) AND (financial = ANY (ARRAY['steady'::text, 'strained'::text, 'struggling'::text])) AND (pace = ANY (ARRAY['steady'::text, 'strained'::text, 'struggling'::text])))`,
+		),
+		check(
+			"private_week_revision_note",
+			sql`((note IS NULL) OR ((char_length(note) >= 1) AND (char_length(note) <= 2000)))`,
+		),
+		check("private_week_revision_ck_2", sql`((char_length(request_key) >= 1) AND (char_length(request_key) <= 200))`),
+	],
+);
 export const provider_event = pgTable(
 	"provider_event",
 	{
