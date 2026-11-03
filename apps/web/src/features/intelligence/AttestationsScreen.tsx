@@ -210,6 +210,10 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 		return null;
 	}
 
+	const done = (message: string) => {
+		setDialog(null);
+		toast({ message, tone: "success" });
+	};
 	const reaffirming = page.signals.filter((s) => definitionOf(s.key).reaffirms);
 	const open = dialog?.kind === "answer" ? entryOf(dialog.key) : null;
 
@@ -285,10 +289,7 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 					onRetract={retract}
 					onStillTrue={stillTrue}
 					onReload={reload}
-					onDone={(message) => {
-						setDialog(null);
-						toast({ message, tone: "success" });
-					}}
+					onDone={done}
 				/>
 			) : null}
 			{dialog?.kind === "renew" ? (
@@ -309,10 +310,7 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 					onClose={() => setDialog(null)}
 					onSave={saveCandidate}
 					onReload={reload}
-					onDone={(message) => {
-						setDialog(null);
-						toast({ message, tone: "success" });
-					}}
+					onDone={done}
 				/>
 			) : null}
 		</>

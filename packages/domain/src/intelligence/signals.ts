@@ -210,12 +210,15 @@ const audit = (s: Scope, action: "recorded" | "corrected", from: SQL) =>
 	sql`INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_id,occurred_at,recorded_at,event_key,after_revision,metadata)
   SELECT x.plant_id,${s.me}::uuid,${"attestation." + action},${action === "recorded" ? "create" : "correct"},x.id,${s.at},${s.at},
   'attestation:'||x.id||':'||x.revision,x.revision,jsonb_build_object('key',x.key) FROM ${from} x RETURNING 1`;
-/** The revision row of a manual-signal write, for each attestation row in `from`. */
-const signalRevision = (s: Scope, kind: c.HumanRevision["kind"], key: string, print: string, from: SQL) =>
-	sql`INSERT INTO attestation_revision(plant_id,attestation_id,revision,key,kind,answer,as_of,detail,reference,
-  question_version,author_id,request_key,request_fingerprint,recorded_at)
-  SELECT x.plant_id,x.id,x.revision,x.key,${kind},x.answer,x.as_of,x.statement,x.source_description,
-  ${c.SIGNAL_QUESTION_VERSION},${s.me}::uuid,${key},${print},${s.at} FROM ${from} x RETURNING *`;
+/** The revision row of a write, for each attestation row in `from`: a signal's or a candidate's fields, the others null. */
+const appendRevision = (s: Scope, kind: c.HumanRevision["kind"], key: string, print: string, from: SQL) =>
+	sql`INSERT INTO attestation_revision(plant_id,attestation_id,revision,key,person_id,kind,answer,as_of,detail,reference,
+  period_start,period_end,attendance_continuous,volunteering_continuous,question_version,author_id,request_key,
+  request_fingerprint,recorded_at)
+  SELECT x.plant_id,x.id,x.revision,x.key,x.person_id,${kind},x.answer,x.as_of,x.statement,x.source_description,
+  x.period_start,x.period_end,x.attendance_continuous,x.volunteering_continuous,
+  CASE WHEN x.key='leadership_candidate' THEN ${c.CANDIDATE_QUESTION_VERSION} ELSE ${c.SIGNAL_QUESTION_VERSION} END,
+  ${s.me}::uuid,${key},${print},${s.at} FROM ${from} x RETURNING *`;
 
 const writeRow = z.object({
 	ok: z.boolean().nullable(),
@@ -433,7 +436,7 @@ export function createSignals(config: { clock?: Clock } = {}) {
   statement=${c.textOf(i.detail)},source_description=${c.textOf(i.reference)},revision=a.revision+1
   FROM want w, cur WHERE a.id=cur.id AND a.state='retracted' AND a.revision=${q.expectedRevision}::bigint RETURNING a.*),
  changed AS (SELECT * FROM born UNION ALL SELECT * FROM again),
- rev AS (${signalRevision(s, "answered", q.requestKey, print, sql`changed`)}),
+ rev AS (${appendRevision(s, "answered", q.requestKey, print, sql`changed`)}),
  aud AS (${audit(s, "recorded", sql`changed`)})
  SELECT ${signalClosing(s)}`,
 				);
@@ -473,7 +476,7 @@ export function createSignals(config: { clock?: Clock } = {}) {
   attested_at=${s.at},statement=${detail},source_description=${reference},revision=a.revision+1
   FROM want w, cur WHERE a.id=cur.id AND a.state='answered' AND a.revision=${q.expectedRevision}::bigint
   ${retract ? sql`` : sql`AND a.answer IS DISTINCT FROM ${value}::boolean`} RETURNING a.*),
- rev AS (${signalRevision(s, retract ? "retracted" : "corrected", q.requestKey, print, sql`edited`)}),
+ rev AS (${appendRevision(s, retract ? "retracted" : "corrected", q.requestKey, print, sql`edited`)}),
  aud AS (${audit(s, "corrected", sql`edited`)})
  SELECT ${signalClosing(s)}`,
 				);
@@ -510,7 +513,7 @@ export function createSignals(config: { clock?: Clock } = {}) {
  edited AS (UPDATE attestation a SET as_of=${todayOf(s)},attested_at=${s.at},revision=a.revision+1
   FROM cur WHERE a.id=cur.id AND a.state='answered' AND a.revision=${q.expectedRevision}::bigint
   AND a.answer=${expectedAnswer} AND NOT EXISTS(SELECT FROM prior) AND (SELECT ok FROM gate) RETURNING a.*),
- rev AS (${signalRevision(s, "reaffirmed", q.requestKey, print, sql`edited`)}),
+ rev AS (${appendRevision(s, "reaffirmed", q.requestKey, print, sql`edited`)}),
  aud AS (${audit(s, "recorded", sql`edited`)})
  SELECT ${signalClosing(s)}`,
 				);
@@ -559,11 +562,7 @@ export function createSignals(config: { clock?: Clock } = {}) {
   statement=${statement},revision=a.revision+1
   FROM want w, cur WHERE a.id=cur.id AND a.state='retracted' AND a.revision=${q.expectedRevision}::bigint RETURNING a.*),
  changed AS (SELECT * FROM born UNION ALL SELECT * FROM again),
- rev AS (INSERT INTO attestation_revision(plant_id,attestation_id,revision,key,person_id,kind,as_of,detail,period_start,period_end,
-  attendance_continuous,volunteering_continuous,question_version,author_id,request_key,request_fingerprint,recorded_at)
-  SELECT x.plant_id,x.id,x.revision,x.key,x.person_id,'answered',x.as_of,x.statement,x.period_start,x.period_end,
-  x.attendance_continuous,x.volunteering_continuous,${c.CANDIDATE_QUESTION_VERSION},${s.me}::uuid,${q.requestKey},${print},${s.at}
-  FROM changed x RETURNING *),
+ rev AS (${appendRevision(s, "answered", q.requestKey, print, sql`changed`)}),
  aud AS (${audit(s, "recorded", sql`changed`)})
  SELECT ${closing(s)},
  (SELECT jsonb_build_object('state',cur.state,'revision',cur.revision::text,'answer',NULL::boolean,'same',NULL::boolean) FROM cur) AS cur,
@@ -613,11 +612,7 @@ export function createSignals(config: { clock?: Clock } = {}) {
 			: sql``
 	}
   AND EXISTS(SELECT FROM who) RETURNING a.*),
- rev AS (INSERT INTO attestation_revision(plant_id,attestation_id,revision,key,person_id,kind,as_of,detail,period_start,period_end,
-  attendance_continuous,volunteering_continuous,question_version,author_id,request_key,request_fingerprint,recorded_at)
-  SELECT x.plant_id,x.id,x.revision,x.key,x.person_id,${retract ? "retracted" : "corrected"},x.as_of,x.statement,x.period_start,x.period_end,
-  x.attendance_continuous,x.volunteering_continuous,${c.CANDIDATE_QUESTION_VERSION},${s.me}::uuid,${q.requestKey},${print},${s.at}
-  FROM edited x RETURNING *),
+ rev AS (${appendRevision(s, retract ? "retracted" : "corrected", q.requestKey, print, sql`edited`)}),
  aud AS (${audit(s, "corrected", sql`edited`)})
  SELECT ${closing(s)},
  (SELECT jsonb_build_object('state',cur.state,'revision',cur.revision::text,'answer',NULL::boolean,
