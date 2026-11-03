@@ -318,7 +318,7 @@ test("OPS-106: the QA seed fills a fresh database, and a second run changes no t
 		const env = { DATABASE_URL: db.adminUrl, QA_ROLE_PASSWORD: "qa-role-password-0123" };
 		const first = runSeed(env);
 		assert.equal(first.status, 0, first.stderr);
-		assert.match(first.stdout, /QA seed wrote: .*church.*wiki\./);
+		assert.match(first.stdout, /QA seed wrote: .*church.*wiki, owner timezone, 13 check-in weeks\./);
 		const seeded = await counts();
 		const second = runSeed(env);
 		assert.equal(second.status, 0, second.stderr);

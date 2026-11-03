@@ -1,7 +1,7 @@
 // OPS-106: the QA seed. It fills one QA Neon branch with a test church that Nora can sign in to and exercise every
 // planter flow on: three logins (owner, admin, member), people, a household, teams, meetings, tasks, follow-ups, a
 // document, a draft message and, when the branch has none, a published wiki. It writes through the domain writers,
-// the same code the screens call, except where noted. Every address is delivered+<label>@resend.dev, so a real send
+// the same code the screens call, except where noted. The owner also gets 13 answered past check-in weeks (OPS-125). Every address is delivered+<label>@resend.dev, so a real send
 // reaches no real person.
 //
 // Idempotent: each part first looks for its own rows by a fixed name and is skipped when they are there. A second run
@@ -23,6 +23,7 @@ import { documentsWriter } from "../../packages/domain/src/documents/index.ts";
 import { createFollowUpWriter } from "../../packages/domain/src/followups/index.ts";
 import { createIdentityService } from "../../packages/domain/src/identity/index.ts";
 import { meetingsWriter } from "../../packages/domain/src/meetings/index.ts";
+import { createPrivateCare } from "../../packages/domain/src/intelligence/index.ts";
 import { createOnboardingProducer } from "../../packages/domain/src/onboarding/index.ts";
 import { accountPersonProducer, peopleWriter, personFields } from "../../packages/domain/src/people/index.ts";
 import { createTaskWriter } from "../../packages/domain/src/tasks/index.ts";
@@ -400,9 +401,82 @@ async function fill(admin: Database, runtime: Database, authDb: Database): Promi
 	}
 
 	if (await wiki(admin)) done.push("wiki");
+	done.push(...(await checkIns(admin, runtime, owner, plantId, ctx)));
 
 	if (session) await admin.execute(sql`DELETE FROM auth_session WHERE id=${session}`);
 	return done.length ? `QA seed wrote: ${done.join(", ")}.` : "QA seed: the branch is already complete.";
+}
+
+// The owner's 13 past check-in weeks, oldest first: spiritual, family, financial, pace and an optional note. Pace ends
+// in a run of 3 Strained or Struggling weeks after a Steady one; no other dimension has 3 non-Steady weeks in a row.
+const [S, T, X] = ["steady", "strained", "struggling"] as const;
+const CHECK_INS: [spiritual: string, family: string, financial: string, pace: string, note: string][] = [
+	[S, S, S, S, "First check-in after the core group meeting."],
+	[S, T, S, S, ""],
+	[S, S, T, S, ""],
+	[T, S, S, T, ""],
+	[S, S, S, S, ""],
+	[S, T, S, S, ""],
+	[S, S, T, S, "Budget talk with the sending church went well."],
+	[T, S, S, S, ""],
+	[S, S, S, T, ""],
+	[S, T, S, S, ""],
+	[S, S, T, T, "Launch planning took most evenings."],
+	[T, S, S, X, "Too many nights out. Sleep is short."],
+	[S, T, S, T, "Still busy. Took one evening off."],
+];
+const ZONE = "America/New_York";
+
+/**
+ * The owner's personal timezone, when it has none, and its past check-in weeks, when it has no check-in calendar in the
+ * church. Each week is a save through the private-care writer with the clock set to Wednesday 19:00 of that week, so the
+ * weeks, ordinals, revisions and calendar are the rows a planter's own saves make. The saves share one transaction, so
+ * a failed run leaves no part of the history.
+ */
+async function checkIns(
+	admin: Database,
+	runtime: Database,
+	owner: string,
+	plantId: string,
+	ctx: () => Promise<Ctx>,
+): Promise<string[]> {
+	const done: string[] = [];
+	const zoned = await rows(
+		admin,
+		sql`UPDATE account SET personal_timezone=${ZONE} WHERE id=${owner} AND personal_timezone IS NULL RETURNING 1`,
+	);
+	if (zoned.length) done.push("owner timezone");
+	const calendar = sql`SELECT 1 FROM private_calendar WHERE author_id=${owner} AND plant_id=${plantId}`;
+	if ((await rows(admin, calendar)).length) return done;
+	const n = CHECK_INS.length;
+	const times = (
+		await rows(
+			admin,
+			sql`SELECT to_char(((date_trunc('week', statement_timestamp() AT TIME ZONE a.personal_timezone)
+				- make_interval(weeks => k) + interval '2 days 19 hours') AT TIME ZONE a.personal_timezone) AT TIME ZONE 'UTC',
+				'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS at
+				FROM account a, generate_series(${n}::int, 1, -1) k WHERE a.id=${owner} ORDER BY k DESC`,
+		)
+	).map((r) => r.at as string);
+	let now = "";
+	const care = createPrivateCare({ clock: { now: () => now } });
+	const actor = await RequestActor.resolve(runtime, (await ctx()).session as never);
+	if (!(actor instanceof RequestActor)) throw Error(`check-in actor: ${JSON.stringify(actor)}`);
+	await runtime.transaction(async (tx) => {
+		for (const [index, [spiritual, family, financial, pace, note]] of CHECK_INS.entries()) {
+			now = times[index]!;
+			ok(
+				`check-in week ${index + 1}`,
+				await care.save(tx, actor, {
+					requestKey: randomUUID(),
+					expectedRevision: String(index),
+					input: { answers: { spiritual, family, financial, pace }, note },
+				}),
+			);
+		}
+	});
+	done.push(`${n} check-in weeks`);
+	return done;
 }
 
 /**
