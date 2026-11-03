@@ -47,7 +47,7 @@ If a step fails, the command removes what it made and prints the error with ever
 
 These accounts exist only on QA Neon branches, behind Vercel Deployment Protection. The Owner, Admin and Member land on
 the test church "Harvest Point (QA)". The church has people, a household, three teams, two meetings, tasks, two
-follow-ups, a written document, a draft message, the wiki and one private weekly check-in of the Owner.
+follow-ups, a written document, a draft message, the wiki and the Owner's private check-in history (below).
 
 The last two logins test the overseeing side. The Network Admin is an Admin of the network "Harvest Network (QA)". The
 sending-church director is the Owner of the sending church "Grace Church (QA)". Each organization oversees Harvest
@@ -58,6 +58,17 @@ Point (QA): the church's Owner sent each one a connection request, and the organ
 - `/home` shows "This account is for an organization". The app has no organization home page yet, so this is expected.
 - These logins do not see planter-private data such as check-ins. They see the church only through what the
   connection shares.
+
+### Check-in history on the owner login
+
+Only the owner login has check-in history. Its personal timezone is America/New_York. Weekly check-in
+(`/me/check-in`) shows 13 answered past weeks. The last 3 of them are a run of Strained or Struggling answers in Pace,
+and that run ends last week. This week is open and unanswered, so a normal save also works. You can open and correct
+any past week, as a planter can.
+
+The weeks are relative to the day the preview was made. They do not move forward while the preview stays up, so on a
+preview made two weeks ago the run ends three weeks back. The admin and member logins have no check-in weeks and no
+personal timezone. A preview made before OPS-125 merged has no check-in history.
 
 The Neon branch is a copy of the development database, so it also holds the development data of other churches. The
 QA logins see only Harvest Point (QA).

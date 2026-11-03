@@ -5,7 +5,7 @@ import { createRequire } from "node:module";
 import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
-import { source } from "./fixtures.ts";
+import { runSeed, source, tsxRun } from "./fixtures.ts";
 import { DEV_ENDPOINT, PROD_ENDPOINT, QA_LOGINS, QA_PASSWORD, seedRefusal } from "../qa-guard.ts";
 import { startQuietDatabase, stopQuietDatabase, type QuietDatabase } from "../timing-stack.ts";
 
@@ -257,16 +257,7 @@ test("OPS-106: a failed qa up shows redacted output and removes the Neon branch 
 	}
 });
 
-const seedArgs = ["--conditions=react-server", "tools/evf/qa-seed.ts"];
-const tsx = join(source, "packages/domain/node_modules/.bin/tsx");
-const runSeed = (env: Record<string, string | undefined>, script = seedArgs[1]!) => {
-	const clean: NodeJS.ProcessEnv = { ...process.env, NODE_ENV: undefined, DATABASE_URL: undefined };
-	for (const [k, v] of Object.entries(env)) clean[k] = v;
-	for (const k of Object.keys(clean)) if (clean[k] === undefined) delete clean[k];
-	return spawnSync(tsx, [seedArgs[0]!, script], { cwd: source, encoding: "utf8", env: clean });
-};
-
-test("OPS-106: the QA seed refuses production, the shared development branch, NODE_ENV=production and no URL", () => {
+test("OPS-106: the QA seed refuses production, the shared development branch, NODE_ENV=production and no URL AC:OPS-125-7", () => {
 	const neon = (endpoint: string) =>
 		`postgres://u:${NEON_PASSWORD}@${endpoint}-x1.c-14.us-east-1.aws.neon.tech/neondb?sslmode=require`;
 	assert.match(seedRefusal({ DATABASE_URL: neon(PROD_ENDPOINT).replace("-x1.", "-x1-pooler.") })!, /production/);
@@ -323,7 +314,7 @@ function quiet(tag: string) {
 
 /** What each QA login sees through the domain reads the screens use (fixtures/qa-probe.ts). */
 function probe(env: Record<string, string>) {
-	const r = runSeed(env, "tools/evf/tests/fixtures/qa-probe.ts");
+	const r = tsxRun(["tools/evf/tests/fixtures/qa-probe.ts"], env);
 	assert.equal(r.status, 0, r.stderr);
 	return JSON.parse(r.stdout) as Record<string, any>;
 }
@@ -347,14 +338,22 @@ async function seedFresh() {
 }
 
 const ORGS = { network: "Harvest Network (QA)", sending: "Grace Church (QA)" };
-const CHECK_IN = {
+/** The owner's last seeded check-in week (OPS-125's history), and every note the history carries. */
+const LAST_WEEK = {
 	answers: { spiritual: "steady", family: "strained", financial: "steady", pace: "strained" },
-	note: "QA check-in: a full week before the launch Sunday.",
+	note: "Still busy. Took one evening off.",
 };
+const NOTES = [
+	"First check-in after the core group meeting.",
+	"Budget talk with the sending church went well.",
+	"Launch planning took most evenings.",
+	"Too many nights out. Sleep is short.",
+	LAST_WEEK.note,
+];
 
-test("OPS-106: the QA seed fills a fresh database, and a second run changes no table's row count", async () => {
+test("OPS-106: the QA seed fills a fresh database, and a second run changes no table's row count AC:OPS-125-7", async () => {
 	const { first, second, seeded, after, before, query } = await fresh();
-	assert.match(first, /QA seed wrote: .*church.*wiki\./);
+	assert.match(first, /QA seed wrote: .*church.*wiki, owner timezone, 13 check-in weeks\./);
 	assert.equal(second, "QA seed: the branch is already complete.");
 	assert.deepEqual(after, seeded);
 
@@ -518,33 +517,26 @@ test("OPS-126: the sharing-page reads list Harvest Point (QA) for the network Ad
 	]);
 });
 
-test("OPS-126: the seed writes one check-in for the Owner, who reads it back as his own (AC:OPS-126-5)", async () => {
+test("OPS-126: the seed writes the Owner's check-ins through the private-care writer, and he reads them back as his own (AC:OPS-126-5)", async () => {
 	const { query, seen } = await fresh();
+	// OPS-125's history is the Owner's check-in data: 13 answered past weeks, all his, all in the church.
 	assert.deepEqual(
-		await query(`SELECT u.email, p.name, w.ordinal, w.answer_revision, w.spiritual, w.family, w.financial, w.pace, w.note
-			FROM private_week w JOIN account a ON a.id = w.author_id JOIN auth_user u ON u.id = a.auth_user_id
-			JOIN plant p ON p.id = w.plant_id`),
-		[
-			{
-				email: QA_LOGINS.owner,
-				name: "Harvest Point (QA)",
-				ordinal: 1,
-				answer_revision: 1,
-				...CHECK_IN.answers,
-				note: CHECK_IN.note,
-			},
-		],
+		await query(`SELECT u.email, p.name, count(*)::int AS weeks, max(w.ordinal) AS last FROM private_week w
+			JOIN account a ON a.id = w.author_id JOIN auth_user u ON u.id = a.auth_user_id JOIN plant p ON p.id = w.plant_id
+			WHERE w.answer_revision > 0 GROUP BY 1, 2`),
+		[{ email: QA_LOGINS.owner, name: "Harvest Point (QA)", weeks: 13, last: 13 }],
+	);
+	assert.deepEqual(
+		await query(`SELECT w.spiritual, w.family, w.financial, w.pace, w.note FROM private_week w WHERE w.ordinal = 13`),
+		[{ ...LAST_WEEK.answers, note: LAST_WEEK.note }],
 	);
 	assert.equal(seen.owner.selected.kind, "plant");
 	assert.equal(seen.owner.checkIn.status, "ok");
-	const week = seen.owner.checkIn.value.week;
-	assert.equal(week.current, true);
-	assert.deepEqual(week.answer.answers, CHECK_IN.answers);
-	assert.equal(week.answer.note, CHECK_IN.note);
-	assert.deepEqual(
-		seen.owner.history.value.weeks.map((w: any) => [w.ordinal, w.answer?.note]),
-		[[1, CHECK_IN.note]],
-	);
+	assert.equal(seen.owner.checkIn.value.week.current, true);
+	// Newest first: this week stays open (OPS-125), and last week is the Owner's own answer.
+	const [open, last] = seen.owner.history.value.weeks;
+	assert.deepEqual([open.ordinal, open.current, open.answer], [14, true, null]);
+	assert.deepEqual([last.ordinal, last.answer.answers, last.answer.note], [13, LAST_WEEK.answers, LAST_WEEK.note]);
 });
 
 test("OPS-126: the organization logins read no check-in and no person of the church (AC:OPS-126-6)", async () => {
@@ -559,7 +551,7 @@ test("OPS-126: the organization logins read no check-in and no person of the chu
 		assert.deepEqual(seen[login].care, { current: care, history: care, trends: care });
 		assert.deepEqual(seen[login].people, { list: people, person: people, page: people });
 		const shown = JSON.stringify(seen[login]);
-		for (const part of [CHECK_IN.note, "strained", "Daniel Reyes"])
+		for (const part of [...NOTES, "strained", "struggling", "Daniel Reyes"])
 			assert.ok(!shown.includes(part), `${login}: ${part}`);
 	}
 });
@@ -580,7 +572,7 @@ test("OPS-126: the seed stays idempotent, and a branch seeded before OPS-126 gai
 			script,
 			shown.replaceAll('"../../', `"${source}/`).replace('"./qa-guard.ts"', `"${source}/tools/evf/qa-guard.ts"`),
 		);
-		const r = runSeed(old.env, script);
+		const r = tsxRun([script], old.env);
 		assert.equal(r.status, 0, r.stderr);
 		assert.match(r.stdout, /QA seed wrote: .*church.*wiki\./);
 	} finally {
@@ -609,7 +601,8 @@ test("OPS-126: the seed stays idempotent, and a branch seeded before OPS-126 gai
 	assert.equal(
 		old.seed(),
 		`QA seed wrote: login ${QA_LOGINS.network}, login ${QA_LOGINS.sending}, ${ORGS.network}, ${ORGS.network} admin seat, ` +
-			`connection ${ORGS.network}, ${ORGS.sending}, ${ORGS.sending} owner seat, connection ${ORGS.sending}, check-in.`,
+			`connection ${ORGS.network}, ${ORGS.sending}, ${ORGS.sending} owner seat, connection ${ORGS.sending}, ` +
+			"owner timezone, 13 check-in weeks.",
 	);
 	assert.deepEqual(await church(), beforeChurch);
 	assert.deepEqual(
