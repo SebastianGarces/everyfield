@@ -165,7 +165,7 @@ export function historyTitle(e: HistoryEntry) {
 	if (e.kind === "leader_change" && !e.after?.leaderPersonId) return "Leader removed";
 	return HISTORY_KIND[e.kind] ?? "Changed";
 }
-export const HISTORY_KIND: Record<string, string> = {
+const HISTORY_KIND: Record<string, string> = {
 	create: "Created",
 	edit: "Edited",
 	correct: "Corrected",
