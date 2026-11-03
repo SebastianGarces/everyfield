@@ -457,7 +457,7 @@ export function markMerged(db: DatabaseSync, task: TaskRef, commit: string | nul
 	if (current?.status === "merged") return;
 	// The same merge recorded already: a released follow-up is now the current row and must not take it.
 	if (commit && db.prepare("SELECT 1 FROM tasks WHERE ref = ? AND merge_commit = ?").get(task.id, commit)) return;
-	if (current) return mergeRow(db, current.id, task.id, commit, runId);
+	if (current) return markRowMerged(db, current.id, commit, runId);
 	const goal = missionFor(db, task.wp),
 		ts = now();
 	db.exec("BEGIN IMMEDIATE");
@@ -484,14 +484,7 @@ export function markMerged(db: DatabaseSync, task: TaskRef, commit: string | nul
 export function markRowMerged(db: DatabaseSync, id: number, commit: string | null, runId: number | null): void {
 	const row = taskById(db, id);
 	if (!row || row.status === "merged") return;
-	mergeRow(db, id, row.ref, commit, runId);
-}
-
-const mergedSummary = (ref: string, commit: string | null) =>
-	`${ref} merged${commit ? ` as ${commit.slice(0, 10)}` : ""}`;
-
-function mergeRow(db: DatabaseSync, id: number, ref: string, commit: string | null, runId: number | null): void {
-	const summary = mergedSummary(ref, commit);
+	const summary = mergedSummary(row.ref, commit);
 	const ts = now();
 	db.exec("BEGIN IMMEDIATE");
 	try {
@@ -513,6 +506,9 @@ function mergeRow(db: DatabaseSync, id: number, ref: string, commit: string | nu
 		throw e;
 	}
 }
+
+const mergedSummary = (ref: string, commit: string | null) =>
+	`${ref} merged${commit ? ` as ${commit.slice(0, 10)}` : ""}`;
 
 /**
  * Record a merge evf did not run through ship (`evf approve`). The store row comes from the PR head branch; a branch
