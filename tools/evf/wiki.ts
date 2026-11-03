@@ -166,29 +166,28 @@ export function promoteDrafts(root: string, wt: string, base: string, number: nu
 		seedDir = ["--seed-dir", join(wt, WIKI_PREFIX)];
 	const stopped = (what: string, detail: string) =>
 		fail(`evf ship stopped before pushing anything: ${what} failed: ${detail}`);
-	let remaining = taskDrafts(wt, base, "HEAD").filter(
-		(path) => parseDraft(path, readFileSync(join(wt, path), "utf8")).draft.claim_check.status === "passed",
-	);
+	let remaining = taskDrafts(wt, base, "HEAD")
+		.map((path) => ({ path, draft: parseDraft(path, readFileSync(join(wt, path), "utf8")).draft }))
+		.filter(({ draft }) => draft.claim_check.status === "passed");
 	const promoted: string[] = [];
 	while (remaining.length) {
-		const failed: { path: string; detail: string }[] = [];
-		for (const path of remaining) {
-			const row = parseDraft(path, readFileSync(join(wt, path), "utf8"));
-			const args = ["promote", join(wt, path), "--approved-by", String(row.draft.approver), "--pr", String(number)];
+		const failed: ((typeof remaining)[number] & { detail: string })[] = [];
+		for (const { path, draft } of remaining) {
+			const args = ["promote", join(wt, path), "--approved-by", String(draft.approver), "--pr", String(number)];
 			const watched = [SEED, MANIFEST, path],
 				before = snapshot(wt, watched);
 			const r = run(wiki, [...args, "--reviewed-sha", reviewed, ...seedDir], { cwd: wt });
 			if (r.code === 0) promoted.push(path);
 			else if (before !== snapshot(wt, watched))
 				stopped(`bin/wiki promote ${path}`, `${output(r)}\nIt changed the seed, manifest or draft before it failed.`);
-			else failed.push({ path, detail: output(r) });
+			else failed.push({ path, draft, detail: output(r) });
 		}
 		if (failed.length === remaining.length)
 			stopped(
 				failed.map((d) => `bin/wiki promote ${d.path}`).join(", "),
 				failed.map((d) => `\n${d.path}:\n${d.detail}`).join(""),
 			);
-		remaining = failed.map((d) => d.path);
+		remaining = failed;
 	}
 	if (promoted.length) {
 		const r = run(wiki, ["check-seed", ...seedDir], { cwd: wt });
