@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { createHash, randomInt } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
@@ -685,6 +685,17 @@ const usesBrowser = (root: string, main: string, file: string) =>
 
 type Tree = { path: string; runtime: string };
 
+/**
+ * The tsx CLI a workspace package installed, as the package test scripts run TypeScript tests: Node's own type
+ * stripping refuses syntax such as parameter properties. A tree without tsx runs TypeScript on plain Node.
+ */
+function tsxCli(tree: string): string | undefined {
+	const packages = join(tree, "packages");
+	return ["", ...(existsSync(packages) ? readdirSync(packages).map((p) => join("packages", p)) : [])]
+		.map((dir) => join(tree, dir, "node_modules/tsx/dist/cli.mjs"))
+		.find(existsSync);
+}
+
 /** Run each test file once on the tree; a preview of that exact tree serves the browser tests. */
 async function runTests(
 	root: string,
@@ -717,12 +728,14 @@ async function runTests(
 		}
 		env.UI_BASE_URL = info.url;
 	}
-	const results: FileResult[] = [];
+	const results: FileResult[] = [],
+		tsx = tsxCli(tree.path);
 	try {
 		for (const file of files) {
 			const r = await exec(
 				[
 					process.execPath,
+					...(/\.[cm]?tsx?$/.test(file) && tsx ? [tsx] : []),
 					"--conditions=react-server",
 					`--env-file-if-exists=${join(root, "apps/web/.env.local")}`,
 					"--test",

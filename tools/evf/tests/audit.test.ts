@@ -72,6 +72,11 @@ const MERGES: Record<string, Record<string, string>> = {
 			'import { test } from "node:test";\ntest("AC:PHASE-CASE-001 production only", () => {});\n',
 		"tests/ui/escaped/old-bug.test.mjs":
 			'import { test } from "node:test";\ntest("an escaped bug stays fixed", () => {});\n',
+		// TypeScript tests run on the tsx a workspace package installed, as the package scripts run them. This fake
+		// records its arguments and runs them on Node.
+		"tests/calc/phase.test.mts": 'import { test } from "node:test";\ntest("AC:PHASE-CASE-002 typescript", () => {});\n',
+		"packages/tool/node_modules/tsx/dist/cli.mjs":
+			'import { appendFileSync } from "node:fs";\nimport { spawnSync } from "node:child_process";\nappendFileSync(process.env.TSX_LOG, process.argv.slice(2).join(" ") + "\\n");\nprocess.exit(spawnSync(process.execPath, process.argv.slice(2), { stdio: "inherit" }).status ?? 1);\n',
 	},
 };
 
@@ -222,7 +227,7 @@ test("AC:OPS-116-2 marked tests: WP case IDs, spec markers, the escaped folder, 
 		const ops = targetOf(f.root, db, main, "OPS-901") as Exclude<ReturnType<typeof targetOf>, string>;
 		db.close();
 		// AC:PHASE-CASE-0010 is not PHASE-CASE-001, and a *.production.* file never runs.
-		assert.deepEqual(wp.marked, ["tests/calc/phase.test.mjs"]);
+		assert.deepEqual(wp.marked, ["tests/calc/phase.test.mjs", "tests/calc/phase.test.mts"]);
 		assert.ok(wp.markers.includes("PHASE-CASE-001"));
 		assert.deepEqual(wp.escaped, ["tests/ui/escaped/old-bug.test.mjs"]);
 		assert.deepEqual(ops.markers, ["OPS-901-1", "OPS-901-2"]);
@@ -242,13 +247,22 @@ test("AC:OPS-116-2 marked tests: WP case IDs, spec markers, the escaped folder, 
 		);
 
 		// A run on the WP task runs its marked test and the escaped test, with NODE_ENV=test and no shell database URL.
+		const tsxLog = join(f.root, "fake-bin/tsx.log");
 		const run = f.cli(["--task", "WP-038", "--seed", "1"], {
 			...process.env,
 			DATABASE_URL: "postgres://not-dev.invalid/x",
+			TSX_LOG: tsxLog,
 		});
 		assert.equal(run.code, 0, run.err + run.out);
-		assert.match(run.out, /tests \(2\): tests\/calc\/phase\.test\.mjs, tests\/ui\/escaped\/old-bug\.test\.mjs/);
+		assert.match(
+			run.out,
+			/tests \(3\): tests\/calc\/phase\.test\.mjs, tests\/calc\/phase\.test\.mts, tests\/ui\/escaped\/old-bug\.test\.mjs/,
+		);
 		assert.match(run.out, /outcome killed/);
+		// Main and the mutant each ran the TypeScript file through tsx; the JavaScript files ran on plain Node.
+		const tsxRuns = readFileSync(tsxLog, "utf8").trim().split("\n");
+		assert.equal(tsxRuns.length, 2);
+		assert.ok(tsxRuns.every((l) => l.endsWith(" tests/calc/phase.test.mts")));
 	} finally {
 		f.close();
 	}

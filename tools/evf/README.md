@@ -782,7 +782,8 @@ Candidates come only from lines on current main that the task's merge commit las
 The tests are every test file on main whose text carries `AC:<marker>` for one of the task's markers,
 plus every `tests/ui/escaped/*.test.mjs`. The markers are the package case IDs of a WP task and
 `<task>-<n>` for each Done criterion of the stored spec. Files named `*.production.*` never run. Each
-file runs with `node --test` in the audit worktree, with `NODE_ENV=test` and the home checkout's
+file runs with `node --test` in the audit worktree (a TypeScript file through the `tsx` a workspace package
+installed, as the package test scripts run it), with `NODE_ENV=test` and the home checkout's
 `apps/web/.env.local` (the development database); a `DATABASE_URL` in the shell does not reach it.
 When a selected `tests/ui` file opens a browser (it reads `setup.mjs` or `UI_BASE_URL`), each tree
 gets a production preview through the configured stack, and both engines run because `UI_ENGINE`
