@@ -6,7 +6,6 @@ export default async function* acReporter(source) {
 			yield JSON.stringify({
 				name: event.data.name,
 				file: event.data.file,
-				result:
-					event.type === "test:fail" ? "failed" : event.data.skip || event.data.todo ? "skipped" : "passed",
+				result: event.type === "test:fail" ? "failed" : event.data.skip || event.data.todo ? "skipped" : "passed",
 			}) + "\n";
 }

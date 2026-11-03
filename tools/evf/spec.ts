@@ -139,8 +139,7 @@ export function checkProblems(spec: string, taskRef: string, required: boolean):
 	return checks.flatMap(({ criterion: n, values, check }) => {
 		if (!values.length) return [`criterion ${n} has no Check: line`];
 		if (values.length > 1) return [`criterion ${n} has ${values.length} Check: lines; give one`];
-		if (!check)
-			return [`criterion ${n}: "Check: ${values[0]}" is neither AC:${taskRef}-${n} nor owner — <reason>`];
+		if (!check) return [`criterion ${n}: "Check: ${values[0]}" is neither AC:${taskRef}-${n} nor owner — <reason>`];
 		if (check.kind === "ac" && check.task !== taskRef)
 			return [`criterion ${n}: ${check.marker} names task ${check.task}, not ${taskRef}`];
 		if (check.kind === "ac" && check.n !== n)

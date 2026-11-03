@@ -171,7 +171,10 @@ export function checkPrBody(
 		const summary = found.find((l) => l.text === "## Summary");
 		if (summary) requirePartial(lines, summary.index, followUps);
 	}
-	requireAcVideos(plain.map((l) => l.text), videoMarkers);
+	requireAcVideos(
+		plain.map((l) => l.text),
+		videoMarkers,
+	);
 	const footer = lines.slice(author.index + 1).filter((line) => line.trim());
 	if (footer.length !== 1 || !/^🤖 Generated with \[[^\]]+\]\(https:\/\/[^)]+\)$/.test(footer[0]))
 		fail("End the PR body with its attribution line after EVF-Author.");

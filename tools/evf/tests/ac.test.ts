@@ -87,7 +87,8 @@ function acFixture(ref = "OPS-1") {
 					)
 					.run(t.id, stage, role, new Date().toISOString()).lastInsertRowid,
 			),
-		runStatus: (run: number) => (db.prepare("SELECT status FROM runs WHERE id = ?").get(run) as { status: string }).status,
+		runStatus: (run: number) =>
+			(db.prepare("SELECT status FROM runs WHERE id = ?").get(run) as { status: string }).status,
 		close: (run: number, status: string) =>
 			cli(f.root, "run", "done", String(run), "--status", status, "--summary-file", summary),
 		proofs: () =>
@@ -271,16 +272,26 @@ test("ac run: marked tests run on Chromium and WebKit inside evf browser run aga
 		}
 
 		const rows = new Map(f.proofs().map((p) => [p.criterion, p]));
-		assert.deepEqual([...rows.keys()], ["1", "2", "3", "4", "5"], "one row per AC: criterion; the owner row is not evf's");
+		assert.deepEqual(
+			[...rows.keys()],
+			["1", "2", "3", "4", "5"],
+			"one row per AC: criterion; the owner row is not evf's",
+		);
 		for (const p of rows.values()) {
 			assert.equal(p.written_by, "evf");
 			assert.equal(p.head_sha, head);
 		}
 		assert.equal(rows.get("1")!.status, "met");
-		assert.match(rows.get("1")!.notes!, /"the oversight page lists every escalation AC:WP-005\/ui-1" \(chromium passed, webkit passed\)/);
+		assert.match(
+			rows.get("1")!.notes!,
+			/"the oversight page lists every escalation AC:WP-005\/ui-1" \(chromium passed, webkit passed\)/,
+		);
 		assert.match(rows.get("1")!.notes!, new RegExp(head.slice(0, 10)));
 		assert.deepEqual(
-			rows.get("1")!.evidence_url!.split(" ").map((p) => p.split("/ac/")[1]),
+			rows
+				.get("1")!
+				.evidence_url!.split(" ")
+				.map((p) => p.split("/ac/")[1]),
 			["criterion-1/chromium/flow.webm", "criterion-1/webkit/flow.webm"],
 			"each engine's video is the row's evidence",
 		);
@@ -352,15 +363,19 @@ console.log(JSON.stringify({
 });
 
 test("pr body: an AC: row of the proof table links its video unless only tools/evf/tests tests prove it (AC:OPS-112-9)", () => {
-	const check = (rows: string[], video = new Set<string>()) => () =>
-		checkPrBody(source, prBody([...TABLE, ...rows]), "ordinary", [], video);
+	const check =
+		(rows: string[], video = new Set<string>()) =>
+		() =>
+			checkPrBody(source, prBody([...TABLE, ...rows]), "ordinary", [], video);
 	assert.throws(check(["| 3 | AC:WP-090/ui-3 | met | see the run |"]), /no video link: AC:WP-090\/ui-3\./);
 	assert.throws(
 		check(["| 3 | AC:WP-090/ui-3 | met | [video](/local/flow.webm) |"]),
 		/no video link/,
 		"a local path is not the evidence page",
 	);
-	assert.doesNotThrow(check(["| 3 | AC:WP-090/ui-3 | met | [video](https://e.example/t/p/index.html#criterion-3/webkit/a.webm) |"]));
+	assert.doesNotThrow(
+		check(["| 3 | AC:WP-090/ui-3 | met | [video](https://e.example/t/p/index.html#criterion-3/webkit/a.webm) |"]),
+	);
 	assert.doesNotThrow(check(["| 3 | AC:OPS-9-3 | met | tools/evf/tests/x.test.ts |"]));
 	assert.throws(
 		check(["| 3 | AC:OPS-9-3 | met | tools/evf/tests/x.test.ts |"], new Set(["AC:OPS-9-3"])),
@@ -392,7 +407,8 @@ test("proof add: met and n/a are refused for an AC: criterion; unmet, owner rows
 	const f = acFixture();
 	try {
 		f.setSpec(OPS_SPEC("   Check: owner — taste"));
-		const add = (n: string, status: string) => cli(f.root, "proof", "add", "OPS-1", "--criterion", n, "--status", status);
+		const add = (n: string, status: string) =>
+			cli(f.root, "proof", "add", "OPS-1", "--criterion", n, "--status", status);
 		for (const status of ["met", "n/a"]) {
 			const refused = add("1", status);
 			assert.equal(refused.status, 1);
@@ -431,7 +447,10 @@ test("run done gate: a passed implement runs evf ac run at HEAD and lists each u
 		const refused = f.close(run, "passed");
 		assert.equal(refused.status, 1);
 		assert.match(refused.stderr, /implement cannot close passed: evf ac run found AC: criteria not met at/);
-		assert.match(refused.stderr, /criterion 1 \(AC:OPS-1-1\): evf ac run at [0-9a-f]{10}: unmet; "the first criterion holds AC:OPS-1-1" \(node failed\)/);
+		assert.match(
+			refused.stderr,
+			/criterion 1 \(AC:OPS-1-1\): evf ac run at [0-9a-f]{10}: unmet; "the first criterion holds AC:OPS-1-1" \(node failed\)/,
+		);
 		assert.doesNotMatch(refused.stderr, /criterion 2 \(/);
 		assert.equal(f.runStatus(run), "started", "the run stays open");
 		assert.equal(f.proofs().filter((p) => p.head_sha === f.head()).length, 2, "the gate ran the tests at the new head");
@@ -463,7 +482,10 @@ test("verify gate stays: owner rows still need a met or n/a proof; specs with no
 		const implement = f.insertRun("implement", "implementer");
 		assert.equal(f.close(implement, "passed").status, 0, "an unchecked spec has no answer key gate");
 		assert.equal(f.proofs().length, before, "and evf runs no test for it");
-		assert.match(f.close(f.insertRun("verify", "verifier"), "passed").stderr, /Done criteria 3 have no met or n\/a proof/);
+		assert.match(
+			f.close(f.insertRun("verify", "verifier"), "passed").stderr,
+			/Done criteria 3 have no met or n\/a proof/,
+		);
 	} finally {
 		f.done();
 	}
@@ -489,7 +511,9 @@ test("replay #386: the ask names /oversight, no test carries its marker, and imp
 			].join("\n"),
 		);
 		assert.equal(cli(f.root, "task", "spec", "WP-005/ui", "--file", spec).status, 0);
-		f.commitFiles({ "tests/ui/home.test.mjs": `import test from "node:test";\ntest("the home page loads", () => {});\n` });
+		f.commitFiles({
+			"tests/ui/home.test.mjs": `import test from "node:test";\ntest("the home page loads", () => {});\n`,
+		});
 		assert.equal(
 			cli(f.root, "proof", "add", "WP-005/ui", "--criterion", "1", "--status", "met").status,
 			1,
@@ -561,7 +585,10 @@ test("seat prompts and role texts: plan from the verbatim ask with Check: lines,
 	assert.match(coordinator, /Ask coverage deliverable \(route, page, screen, command, file\)/);
 	assert.match(coordinator, /`Check: AC:<task>-<n>`.*`Check: owner — <reason>`/);
 	assert.match(role(".claude/agents/planner.md"), /one Done criterion for each user action and expected result/);
-	assert.match(role(".agents/roles/implementor.md"), /write the test whose name carries that marker.*Do not `proof add` those rows/);
+	assert.match(
+		role(".agents/roles/implementor.md"),
+		/write the test whose name carries that marker.*Do not `proof add` those rows/,
+	);
 	assert.match(role(".claude/agents/implementer.md"), /do not `proof add` that row/);
 	assert.match(role(".agents/roles/verifier.md"), /You judge the `owner` rows\..*only sees the page load/);
 	assert.match(role(".claude/agents/verifier.md"), /Judge the code, its simplicity and the `owner` rows/);

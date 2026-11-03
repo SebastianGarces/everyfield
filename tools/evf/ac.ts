@@ -29,7 +29,13 @@ import { acCriteria } from "./spec.ts";
 
 export const AC_ENGINES = ["chromium", "webkit"] as const;
 type Engine = "node" | (typeof AC_ENGINES)[number];
-export type AcRow = { criterion: string; marker: string; status: "met" | "unmet"; notes: string; evidence: string | null };
+export type AcRow = {
+	criterion: string;
+	marker: string;
+	status: "met" | "unmet";
+	notes: string;
+	evidence: string | null;
+};
 
 const MAIN = join(import.meta.dirname, "main.ts");
 const REPORTER = pathToFileURL(join(import.meta.dirname, "ac-reporter.mjs")).href;
@@ -158,9 +164,7 @@ function rowOf(criterion: string, marker: string, head: string, runs: Outcome[],
 		};
 	const met = !exits.length && runs.every((r) => r.results.every((t) => t.result === "passed"));
 	const tests = names.map((name) => {
-		const seen = runs.flatMap((r) =>
-			r.results.filter((t) => t.name === name).map((t) => `${r.engine} ${t.result}`),
-		);
+		const seen = runs.flatMap((r) => r.results.filter((t) => t.name === name).map((t) => `${r.engine} ${t.result}`));
 		return `"${name}" (${seen.join(", ")})`;
 	});
 	return {
@@ -221,7 +225,9 @@ export function acRun(root: string, task: TaskRef, opts: { runId?: number | null
 			videos.push(...videosIn(dir));
 		}
 		for (const r of runs.filter((r) => r.code !== 0))
-			console.error(`ac: ${marker} on ${r.engine} exited ${r.code}:\n${r.output.trim().split("\n").slice(-40).join("\n")}`);
+			console.error(
+				`ac: ${marker} on ${r.engine} exited ${r.code}:\n${r.output.trim().split("\n").slice(-40).join("\n")}`,
+			);
 		return rowOf(criterion, marker, head, runs, videos.length ? videos : [...uiFiles, ...toolFiles]);
 	});
 	const store = openWorkDb(root);
@@ -233,7 +239,16 @@ export function acRun(root: string, task: TaskRef, opts: { runId?: number | null
 		store.exec("BEGIN IMMEDIATE");
 		try {
 			for (const row of rows) {
-				insert.run(t.id, opts.runId ?? null, head, row.criterion, row.status, row.evidence, row.notes, new Date().toISOString());
+				insert.run(
+					t.id,
+					opts.runId ?? null,
+					head,
+					row.criterion,
+					row.status,
+					row.evidence,
+					row.notes,
+					new Date().toISOString(),
+				);
 				record(store, t.id, opts.runId ?? null, "proof", {
 					criterion: row.criterion,
 					status: row.status,
@@ -251,7 +266,10 @@ export function acRun(root: string, task: TaskRef, opts: { runId?: number | null
 		store.close();
 	}
 	for (const row of rows) console.log(`ac: criterion ${row.criterion} ${row.status}: ${row.notes}`);
-	if (url) console.log(`ac: videos under ${relative(wt, evidenceDir(root, task, head, "ac")) || "."}; publish them with .agents/skills/verify-preview/scripts/publish.mjs and link each in the PR body proof table.`);
+	if (url)
+		console.log(
+			`ac: videos under ${relative(wt, evidenceDir(root, task, head, "ac")) || "."}; publish them with .agents/skills/verify-preview/scripts/publish.mjs and link each in the PR body proof table.`,
+		);
 	return rows;
 }
 
