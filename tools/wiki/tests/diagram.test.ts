@@ -1,7 +1,7 @@
 // WP-034/ui: lint reports each malformed diagram block at its article line, and the ASCII-art rule holds the seed to a
-// shrinking allowlist of fingerprinted blocks. The expectations come from the seed and the allowlist, not from pinned
-// counts, so a migration that turns a block into a ```diagram block keeps this file green. The render test is in
-// render.test.ts.
+// shrinking allowlist of fingerprinted blocks. The real seed may be main's, #388's promoted seed or OPS-97's, and an
+// article may fail for a reason outside this rule. So expectations come from the seed and the allowlist, and new ASCII
+// art goes into articles with no entry, under fixture entries. The render test is in render.test.ts.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -9,7 +9,7 @@ import { mkdtemp, readFile, rm, writeFile, cp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fencedBlocks } from "../../../packages/contracts/src/wiki/diagram.ts";
-import { asciiArt, blockFingerprint } from "../mdx.ts";
+import { asciiArt, asciiFindings, blockFingerprint } from "../mdx.ts";
 
 type Entry = { slug: string; fingerprint: string };
 type Row = { slug: string; content: string };
@@ -47,16 +47,9 @@ const key = (entry: Entry) => `${entry.slug} ${entry.fingerprint}`;
 /** Allowlist entries that are not one of the original 9: each one is a new allowance and fails the shrink rule. */
 const added = (entries: Entry[]) => entries.filter((entry) => !ORIGINAL.some((pin) => key(pin) === key(entry)));
 
-/** Each ASCII-art finding in the seed, with the fingerprint of its fenced block (null for a finding outside a fence). */
-function findings(seed: Seed) {
-	return seed.articles.flatMap((row) => {
-		const opened = new Map(fencedBlocks(row.content).map((block) => [block.start + 1, block]));
-		return asciiArt(row.content).map((finding) => {
-			const block = opened.get(finding.line);
-			return { slug: row.slug, line: finding.line, fingerprint: block ? blockFingerprint(block) : null };
-		});
-	});
-}
+/** Each ASCII-art finding in the seed, by slug. */
+const findings = (seed: Seed) =>
+	seed.articles.flatMap((row) => asciiFindings(row.content).map((finding) => ({ ...finding, slug: row.slug })));
 
 /** Each entry permits one finding with its slug and fingerprint. Returns the findings left over and the inert entries. */
 function audit(seed: Seed, entries: Entry[]) {
@@ -97,11 +90,12 @@ function edited(seed: Seed, edits: Record<string, (content: string) => string>):
 	return copy;
 }
 
-/** Replace the fenced block that holds the article's first ASCII finding with a valid ```diagram block. */
+/** Replace the article's first ASCII block with a valid ```diagram block. An article already migrated stays as it is. */
 function migrate(content: string) {
+	const finding = asciiArt(content)[0];
+	if (!finding) return content;
 	const lines = content.split("\n");
-	const line = asciiArt(content)[0]!.line;
-	const block = fencedBlocks(content).find((b) => b.start + 1 === line)!;
+	const block = fencedBlocks(content).find((b) => b.start + 1 === finding.line)!;
 	lines.splice(
 		block.start,
 		block.end - block.start,
@@ -114,7 +108,7 @@ function migrate(content: string) {
 	return lines.join("\n");
 }
 
-/** The #388 replay: main's seed with the six #388 articles migrated to ```diagram blocks. */
+/** The #388 replay: the seed with the six #388 articles migrated to ```diagram blocks. */
 const replay = edited(payload, Object.fromEntries(PR388.map((slug) => [slug, migrate])));
 
 const lines = (output: string, prefix: string) =>
@@ -123,11 +117,46 @@ const lines = (output: string, prefix: string) =>
 		.filter((line) => line.startsWith(prefix))
 		.map((line) => line.slice(prefix.length));
 const errors = (output: string) => lines(output, "  ERROR ");
-const warnings = (output: string) => lines(output, "  WARN ");
+const asciiWarnings = (output: string) =>
+	lines(output, "  WARN ").filter((w) => w.startsWith("ASCII-art") || w.startsWith("Inert"));
+const failing = (output: string) => lines(output, "FAIL ").map((line) => line.split(" ")[0]!);
 const inertWarning = (entry: Entry) =>
 	`Inert ASCII allowlist entry ${entry.slug} ${entry.fingerprint}: no ASCII block matches it, so it permits nothing; delete it`;
-const fenceLine = (seed: Seed, entry: Entry) =>
-	findings(seed).find((f) => f.slug === entry.slug && f.fingerprint === entry.fingerprint)!.line;
+const asciiError = (slug: string, line: number) =>
+	`ASCII-art at ${slug}:${line}: Code block draws a diagram with box, arrow or connector characters; use a \`\`\`diagram block`;
+
+/** What the seed fails before a test changes it. #388's promoted seed fails one article for a broken related slug. */
+const baseline = await lintSeed(payload);
+const knownFailures = failing(baseline.output);
+
+/** The run fails only the known articles, so it exits 0 on a seed with none. */
+function assertNoNewFailures(result: { status: number | null; output: string }) {
+	assert.deepEqual(failing(result.output), knownFailures, result.output);
+	assert.equal(result.status, knownFailures.length ? 1 : 0, result.output);
+}
+
+/** Each entry shows one warning on a passing article: its matched block, or its own inert line. No other article warns. */
+function assertEachEntryReported(result: Awaited<ReturnType<typeof lintSeed>>, seed: Seed) {
+	for (const entry of allowlist) {
+		const block = result.block(entry.slug);
+		assert.match(block, /^PASS /, entry.slug);
+		const finding = findings(seed).find((f) => f.slug === entry.slug && f.fingerprint === entry.fingerprint);
+		assert.deepEqual(asciiWarnings(block), [finding ? asciiError(entry.slug, finding.line) : inertWarning(entry)]);
+	}
+	assert.equal(asciiWarnings(result.output).length, allowlist.length, result.output);
+}
+
+// Fixture art for articles with no entry and no ASCII block. `pin` permits `art` and nothing else.
+const art = "```\nA -> B\n```";
+const otherArt = "```\nC -> D\n```";
+const pin = blockFingerprint({ info: "", body: "A -> B" });
+const plain = payload.articles
+	.filter((row) => !asciiArt(row.content).length && !allowlist.some((e) => e.slug === row.slug))
+	.map((row) => row.slug);
+const append =
+	(...parts: string[]) =>
+	(content: string) =>
+		[content, ...parts, ""].join("\n\n");
 
 /** A draft that passes every other lint check. Its body starts with `extra` (line 1 onward). */
 function draft(extra: string, slug = "administrative/financial/diagram-fixture") {
@@ -161,19 +190,18 @@ function draft(extra: string, slug = "administrative/financial/diagram-fixture")
 	};
 }
 
-async function lintDraft(extra: string, slug?: string) {
+/** Draft lint with an allowlist that holds `entries`, to show draft lint never reads it. */
+async function lintDraft(extra: string, slug?: string, entries: Entry[] = []) {
 	const dir = await mkdtemp(join(tmpdir(), "wiki-diagram-"));
 	try {
 		const file = join(dir, "draft.json");
 		await writeFile(file, JSON.stringify(draft(extra, slug)));
-		return wiki("lint", file);
+		await writeFile(join(dir, "allowlist.json"), JSON.stringify({ entries }));
+		return wiki("lint", file, "--allowlist", join(dir, "allowlist.json"));
 	} finally {
 		await rm(dir, { recursive: true, force: true });
 	}
 }
-
-const asciiError = (slug: string, line: number) =>
-	`ASCII-art at ${slug}:${line}: Code block draws a diagram with box, arrow or connector characters; use a \`\`\`diagram block`;
 
 test("WP-034/ui AC:WP-034/ui-6: draft lint reports each malformed diagram block with its article line", async () => {
 	// The fixture body starts on line 1, so the first fence is line 1 and its first body line is line 2.
@@ -217,149 +245,102 @@ test("WP-034/ui AC:WP-034/ui-6: draft lint reports each malformed diagram block 
 });
 
 test("WP-034/ui AC:WP-034/ui-6: a draft with ASCII art fails even when its slug has an allowlist entry", async () => {
-	// Draft lint never reads the allowlist, so even the exact pinned block fails in a draft.
-	const listed = allowlist[0]!;
-	const row = payload.articles.find((r) => r.slug === listed.slug)!;
-	const pinned = fencedBlocks(row.content).find((b) => blockFingerprint(b) === listed.fingerprint)!;
-	for (const art of ["```\nA -> B\n```", "```" + pinned.info + "\n" + pinned.body + "\n```"]) {
-		const drafted = await lintDraft(art, listed.slug);
-		assert.equal(drafted.status, 1, art);
-		assert.deepEqual(
-			errors(drafted.output).filter((line) => line.startsWith("ASCII")),
-			[asciiError(listed.slug, 1)],
-		);
-		assert.ok(!drafted.output.includes("Inert ASCII allowlist entry"), drafted.output);
-	}
+	const slug = ORIGINAL[0]!.slug;
+	const drafted = await lintDraft(art, slug, [{ slug, fingerprint: pin }]);
+	assert.equal(drafted.status, 1, drafted.output);
+	assert.deepEqual(
+		errors(drafted.output).filter((line) => line.startsWith("ASCII")),
+		[asciiError(slug, 1)],
+	);
+	assert.ok(!drafted.output.includes("Inert ASCII allowlist entry"), drafted.output);
 });
 
-test("WP-034/ui AC:WP-034/ui-1: main's seed reports each allowlisted ASCII block as a warning on a passing article", async () => {
-	assert.ok(allowlist.length > 0, "the original allowlist holds entries until OPS-97 removes them");
-	const result = await lintSeed(payload);
-	assert.equal(result.status, 0, result.output);
-	// Every article passes, as it did before the allowlist pinned fingerprints.
-	const count = payload.articles.length;
-	assert.match(result.output, new RegExp(`\\n${count}/${count} articles pass the error checks\\n`));
-	for (const entry of allowlist) {
-		const block = result.block(entry.slug);
-		assert.match(block, /^PASS /, entry.slug);
-		assert.deepEqual(
-			warnings(block).filter((w) => w.startsWith("ASCII-art")),
-			[asciiError(entry.slug, fenceLine(payload, entry))],
-		);
-	}
-	assert.equal(warnings(result.output).filter((w) => w.startsWith("ASCII-art")).length, allowlist.length);
-	assert.ok(!result.output.includes("Inert ASCII allowlist entry"), result.output);
+test("WP-034/ui AC:WP-034/ui-1: the seed reports each allowlisted ASCII block as a warning on a passing article", () => {
+	assert.deepEqual(
+		errors(baseline.output).filter((line) => line.startsWith("ASCII-art")),
+		[],
+	);
+	assert.match(
+		baseline.output,
+		new RegExp(
+			`\\n${payload.articles.length - knownFailures.length}/${payload.articles.length} articles pass the error checks\\n`,
+		),
+	);
+	assertEachEntryReported(baseline, payload);
 });
 
 test("WP-034/ui AC:WP-034/ui-2: the #388 replay passes, each migrated article names its inert entry, and lint exits 0", async () => {
 	const result = await lintSeed(replay);
-	assert.equal(result.status, 0, result.output);
+	assertNoNewFailures(result);
 	assert.ok(!/remove .* from the allowlist/.test(result.output), result.output);
+	assertEachEntryReported(result, replay);
 	for (const slug of PR388) {
 		const block = result.block(slug);
 		assert.match(block, /^PASS /, slug);
-		assert.deepEqual(errors(block), [], slug);
-		const entries = allowlist.filter((e) => e.slug === slug);
-		assert.deepEqual(
-			warnings(block).filter((w) => w.startsWith("ASCII-art") || w.startsWith("Inert")),
-			entries.map(inertWarning),
-		);
-	}
-	for (const entry of allowlist.filter((e) => !PR388.includes(e.slug))) {
-		const block = result.block(entry.slug);
-		assert.match(block, /^PASS /, entry.slug);
-		assert.deepEqual(
-			warnings(block).filter((w) => w.startsWith("ASCII-art") || w.startsWith("Inert")),
-			[asciiError(entry.slug, fenceLine(replay, entry))],
-		);
+		assert.deepEqual(asciiWarnings(block), allowlist.filter((e) => e.slug === slug).map(inertWarning));
 	}
 });
 
 test("WP-034/ui AC:WP-034/ui-4: new ASCII art in an article with a matched or an inert entry fails seed lint", async () => {
-	// Three matched entries outside #388, and two #388 articles whose entries went inert in the replay.
-	const [second, changed, copied] = allowlist.filter((e) => !PR388.includes(e.slug));
-	const [inert, proseSlug] = PR388 as [string, string];
-	const prose = allowlist.find((e) => e.slug === proseSlug)!;
-	const extra = "\n\n```\nA -> B\n```\n";
-	const seed = edited(replay, {
+	const [second, copied, prose, changed] = plain as [string, string, string, string];
+	const seed = edited(payload, {
 		// A second ASCII block beside the pinned one.
-		[second!.slug]: (content) => content + extra,
-		// The pinned block itself edited: its fingerprint changes, so the entry no longer permits it.
-		[changed!.slug]: (content) => {
-			const block = fencedBlocks(content).find((b) => blockFingerprint(b) === changed!.fingerprint)!;
-			const lines = content.split("\n");
-			lines.splice(block.end - 1, 0, "New -> Step");
-			return lines.join("\n");
-		},
+		[second]: append(art, otherArt),
 		// An identical copy of the pinned block: one entry permits one block.
-		[copied!.slug]: (content) => {
-			const block = fencedBlocks(content).find((b) => blockFingerprint(b) === copied!.fingerprint)!;
-			return content + "\n\n" + content.split("\n").slice(block.start, block.end).join("\n") + "\n";
-		},
+		[copied]: append(art, art),
 		// A box-drawing character in prose has no block, so no fingerprint can permit it.
-		[prose!.slug]: (content) => content + "\n\nA box ┌─┐ in prose\n",
-		// New ASCII art in an article whose entry went inert in the migration.
-		[inert]: (content) => content + extra,
+		[prose]: append(art, "A box \u250c\u2500\u2510 in prose"),
+		// The pinned block edited, which is also new art beside an inert entry: no block matches the entry.
+		[changed]: append(otherArt),
 	});
-	const result = await lintSeed(seed);
+	const entries = [...allowlist, ...[second, copied, prose, changed].map((slug) => ({ slug, fingerprint: pin }))];
+	const result = await lintSeed(seed, entries);
 	assert.equal(result.status, 1, result.output);
-	const lastLine = (slug: string) =>
+	const at = (slug: string) =>
 		findings(seed)
 			.filter((f) => f.slug === slug)
-			.at(-1)!.line;
-	const fails = (slug: string, expected: string[]) => {
+			.map((f) => f.line);
+	const asciiErrors = (block: string) => errors(block).filter((e) => e.startsWith("ASCII-art"));
+	// In each article with a matched entry, the pinned block stays a warning and only the new art fails.
+	for (const slug of [second, copied]) {
+		const [pinned, extra] = at(slug) as [number, number];
 		const block = result.block(slug);
 		assert.match(block, /^FAIL /, slug);
-		assert.deepEqual(
-			errors(block).filter((e) => e.startsWith("ASCII-art")),
-			expected,
-			slug,
-		);
-		return block;
-	};
-	// The pinned block stays a warning; only the second block fails.
-	const secondBlock = fails(second!.slug, [asciiError(second!.slug, lastLine(second!.slug))]);
-	assert.deepEqual(
-		warnings(secondBlock).filter((w) => w.startsWith("ASCII-art")),
-		[asciiError(second!.slug, fenceLine(seed, second!))],
-	);
-	const changedBlock = fails(changed!.slug, [asciiError(changed!.slug, fenceLine(payload, changed!))]);
-	assert.ok(warnings(changedBlock).includes(inertWarning(changed!)), changedBlock);
-	fails(copied!.slug, [asciiError(copied!.slug, lastLine(copied!.slug))]);
-	const proseLine = seed.articles.find((r) => r.slug === prose!.slug)!.content.split("\n").length - 1;
-	const proseBlock = result.block(prose!.slug);
-	assert.match(proseBlock, /^FAIL /);
-	assert.deepEqual(errors(proseBlock), [
-		`ASCII-art at ${prose!.slug}:${proseLine}: Box-drawing character; use a \`\`\`diagram block`,
+		assert.deepEqual(asciiErrors(block), [asciiError(slug, extra)]);
+		assert.deepEqual(asciiWarnings(block), [asciiError(slug, pinned)]);
+	}
+	const [boxed, box] = at(prose) as [number, number];
+	assert.match(result.block(prose), /^FAIL /);
+	assert.deepEqual(asciiErrors(result.block(prose)), [
+		`ASCII-art at ${prose}:${box}: Box-drawing character; use a \`\`\`diagram block`,
 	]);
-	const inertBlock = fails(inert, [asciiError(inert, lastLine(inert))]);
-	assert.ok(warnings(inertBlock).includes(inertWarning(allowlist.find((e) => e.slug === inert)!)), inertBlock);
+	assert.deepEqual(asciiWarnings(result.block(prose)), [asciiError(prose, boxed)]);
+	assert.match(result.block(changed), /^FAIL /);
+	assert.deepEqual(asciiErrors(result.block(changed)), [asciiError(changed, at(changed)[0]!)]);
+	assert.deepEqual(asciiWarnings(result.block(changed)), [inertWarning({ slug: changed, fingerprint: pin })]);
 });
 
 test("WP-034/ui AC:WP-034/ui-5: ASCII art in an article with no allowlist entry fails seed lint", async () => {
-	const unlisted = payload.articles.find((row) => !allowlist.some((e) => e.slug === row.slug))!.slug;
-	const seed = edited(payload, { [unlisted]: (content) => content + "\n\n```\nA -> B\n```\n" });
+	const unlisted = plain[0]!;
+	const seed = edited(payload, { [unlisted]: append(art) });
 	const result = await lintSeed(seed);
 	assert.equal(result.status, 1, result.output);
-	const block = result.block(unlisted);
-	assert.match(block, /^FAIL /);
-	const line = findings(seed).find((f) => f.slug === unlisted)!.line;
+	assert.match(result.block(unlisted), /^FAIL /);
 	assert.deepEqual(
-		errors(block).filter((e) => e.startsWith("ASCII-art")),
-		[asciiError(unlisted, line)],
+		errors(result.block(unlisted)).filter((e) => e.startsWith("ASCII-art")),
+		[asciiError(unlisted, findings(seed).find((f) => f.slug === unlisted)!.line)],
 	);
-	assert.match(result.output, new RegExp(`\\n${payload.articles.length - 1}/${payload.articles.length} articles pass`));
+	assert.deepEqual(failing(result.output).sort(), [...knownFailures, unlisted].sort());
 });
 
 test("WP-034/ui AC:WP-034/ui-7: the allowlist only shrinks, and an entry for an unknown slug fails seed lint", async () => {
-	// The guard: each entry in the file is one of the original 9 pinned above.
+	// The guard: each entry in the file is one of the original 9 pinned above, listed once.
 	assert.deepEqual(added(allowlist), []);
+	assert.equal(new Set(allowlist.map(key)).size, allowlist.length);
 	const forged = { slug: ORIGINAL[0]!.slug, fingerprint: "0123456789abcdef" };
 	assert.deepEqual(added([...allowlist, forged]), [forged]);
-	assert.deepEqual(
-		added([...ORIGINAL.slice(1), { slug: "frameworks/new-article", fingerprint: ORIGINAL[0]!.fingerprint }]),
-		[{ slug: "frameworks/new-article", fingerprint: ORIGINAL[0]!.fingerprint }],
-	);
+	const moved = { slug: "frameworks/new-article", fingerprint: ORIGINAL[0]!.fingerprint };
+	assert.deepEqual(added([...ORIGINAL.slice(1), moved]), [moved]);
 	const unknown = { slug: "frameworks/no-such-article", fingerprint: "0123456789abcdef" };
 	const result = await lintSeed(payload, [...allowlist, unknown]);
 	assert.equal(result.status, 1, result.output);
@@ -372,18 +353,19 @@ test("WP-034/ui AC:WP-034/ui-7: the allowlist only shrinks, and an entry for an 
 	const afterReplay = allowlist.filter((e) => !PR388.includes(e.slug));
 	assert.deepEqual(added(afterReplay), []);
 	const replayed = await lintSeed(replay, afterReplay);
-	assert.equal(replayed.status, 0, replayed.output);
+	assertNoNewFailures(replayed);
 	assert.ok(!replayed.output.includes("Inert ASCII allowlist entry"), replayed.output);
 	const migrated = edited(replay, Object.fromEntries(afterReplay.map((e) => [e.slug, migrate])));
-	assert.deepEqual(audit(migrated, []), { unallowed: [], inert: [] });
 	const done = await lintSeed(migrated, []);
-	assert.equal(done.status, 0, done.output);
+	assertNoNewFailures(done);
 	assert.ok(!done.output.includes("ASCII"), done.output);
 });
 
 test("WP-034/ui AC:WP-034/ui-8: each seed ASCII finding matches an entry, and each entry matches one block or is inert", () => {
-	// Main's seed: every entry matches its block.
-	assert.deepEqual(audit(payload, allowlist), { unallowed: [], inert: [] });
+	// The seed as it stands: every finding matches, and lint reports each entry with no block as inert.
+	const current = audit(payload, allowlist);
+	assert.deepEqual(current.unallowed, []);
+	for (const entry of current.inert) assert.ok(baseline.output.includes(inertWarning(entry)), key(entry));
 	// The #388 replay: every remaining finding matches, and exactly the six migrated entries are inert.
 	const replayed = audit(replay, allowlist);
 	assert.deepEqual(replayed.unallowed, []);

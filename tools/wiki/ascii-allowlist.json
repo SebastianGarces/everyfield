@@ -1,5 +1,5 @@
 {
-	"why": "Seed ASCII-art blocks that stay until OPS-97 migrates them to ```diagram blocks. Each entry permits one fenced block: its slug and the first 16 hex digits of the SHA-256 of the block's info string, a newline and its body. bin/wiki lint --seed reports a matched block as a warning. Any other ASCII art in the article is an error, and so is a changed pinned block. An entry that matches no block is inert: it permits nothing and lint warns about it. tools/wiki/tests/diagram.test.ts pins the original entries, so this list only shrinks.",
+	"why": "Seed ASCII-art blocks that stay until OPS-97 migrates them to ```diagram blocks. tools/wiki/README.md explains the entries. This list only shrinks.",
 	"entries": [
 		{ "slug": "administrative/financial/disbursements-and-approvals", "fingerprint": "fa93d37d2db18357" },
 		{ "slug": "core-group/building-your-core-group/the-core-group-funnel", "fingerprint": "430e5f7897e63c55" },

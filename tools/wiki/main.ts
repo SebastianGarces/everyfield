@@ -18,22 +18,6 @@ const help = `Wiki authoring tools (Node 24; install: cd tools/wiki && pnpm inst
   wiki roundtrip
 Seed commands also accept --seed-dir <dir> for disposable proof copies; lint also accepts --allowlist <file>.
 Promotion records human approval given in chat or a PR comment. It does not grant approval.`;
-/** The ASCII allowlist file: a list of { slug, fingerprint } entries, each fingerprint 16 lowercase hex digits. */
-function parseAllowlist(listed: unknown): { slug: string; fingerprint: string }[] {
-	const where = "ascii allowlist";
-	if (!object(listed) || !Array.isArray(listed.entries)) throw new Error(`${where} needs an entries array`);
-	const seen = new Set<string>();
-	return listed.entries.map((entry: unknown) => {
-		if (!object(entry) || typeof entry.slug !== "string" || typeof entry.fingerprint !== "string")
-			throw new Error(`${where}: each entry needs a slug and a fingerprint`);
-		if (!/^[0-9a-f]{16}$/.test(entry.fingerprint))
-			throw new Error(`${where}: ${entry.slug} fingerprint must be 16 lowercase hex digits`);
-		const key = `${entry.slug} ${entry.fingerprint}`;
-		if (seen.has(key)) throw new Error(`${where}: ${key} is listed twice`);
-		seen.add(key);
-		return { slug: entry.slug, fingerprint: entry.fingerprint };
-	});
-}
 const digest = (bytes: Buffer) => createHash("sha256").update(bytes).digest("hex");
 
 async function main() {
@@ -124,8 +108,11 @@ async function main() {
 		return { row, seed: true };
 	}
 	// Seed ASCII-art blocks that stay until OPS-97 migrates them. Each entry permits one block, by slug and fingerprint.
-	const allowlistFile = resolve(String(flags.get("--allowlist") || resolve(root, "tools/wiki/ascii-allowlist.json")));
-	const allowlist = parseAllowlist(await readJson(allowlistFile));
+	const listed = await readJson(
+		resolve(String(flags.get("--allowlist") || resolve(root, "tools/wiki/ascii-allowlist.json"))),
+	);
+	if (!object(listed) || !Array.isArray(listed.entries)) throw new Error("The ASCII allowlist needs an entries array");
+	const allowlist = listed.entries as { slug: string; fingerprint: string }[];
 	async function lint(row: ObjectRow, seed: boolean, label: string) {
 		const { inspect } = await import("./mdx.ts");
 		const slug = String(row.slug);
