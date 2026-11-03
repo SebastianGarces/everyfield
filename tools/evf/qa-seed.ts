@@ -1,8 +1,9 @@
 // OPS-106: the QA seed. It fills one QA Neon branch with a test church that Nora can sign in to and exercise every
 // planter flow on: three logins (owner, admin, member), people, a household, teams, meetings, tasks, follow-ups, a
-// document, a draft message and, when the branch has none, a published wiki. It writes through the domain writers,
-// the same code the screens call, except where noted. The owner also gets 13 answered past check-in weeks (OPS-125).
-// Every address is delivered+<label>@resend.dev, so a real send reaches no real person.
+// document, a draft message and, when the branch has none, a published wiki. OPS-127 adds a sending church and a
+// sending network that share the wiki, their copies of one article and a revised article the owner has read. It writes
+// through the domain writers, the same code the screens call, except where noted. The owner also gets 13 answered past
+// check-in weeks (OPS-125). Every address is delivered+<label>@resend.dev, so a real send reaches no real person.
 //
 // Idempotent: each part first looks for its own rows by a fixed name and is skipped when they are there. A second run
 // on a complete branch signs nobody in and writes nothing.
@@ -32,6 +33,8 @@ import { QA_LOGINS, QA_PASSWORD, QA_ROLES as ROLES, roleUrl, seedRefusal } from 
 
 const CHURCH = "Harvest Point (QA)";
 const ORIGIN = "https://qa-seed.everyfield.invalid";
+const GLOBAL = "00000000-0000-0000-0000-000000000000";
+const digest = () => randomBytes(32).toString("hex");
 
 const address = (label: string) => `delivered+qa-${label}@resend.dev`;
 const PEOPLE: [name: string, stage: string, label: string | null][] = [
@@ -400,7 +403,10 @@ async function fill(admin: Database, runtime: Database, authDb: Database): Promi
 		done.push("message");
 	}
 
-	if (await wiki(admin)) done.push("wiki");
+	const wikiWritten = await wiki(admin);
+	done.push(...(await wikiCases(admin, plantId, owner)));
+	// Before the check-in weeks: the OPS-106 test expects "wiki, owner timezone, 13 check-in weeks.".
+	if (wikiWritten) done.push("wiki");
 	done.push(...(await checkIns(admin, runtime, owner, plantId, ownerSession)));
 
 	if (session) await admin.execute(sql`DELETE FROM auth_session WHERE id=${session}`);
@@ -486,8 +492,6 @@ async function checkIns(
  */
 async function wiki(admin: Database): Promise<boolean> {
 	if ((await rows(admin, sql`SELECT 1 FROM reference_activation LIMIT 1`)).length) return false;
-	const GLOBAL = "00000000-0000-0000-0000-000000000000";
-	const digest = () => randomBytes(32).toString("hex");
 	const release = randomUUID(),
 		section = randomUUID();
 	const corpus = JSON.parse(
@@ -513,6 +517,128 @@ async function wiki(admin: Database): Promise<boolean> {
 			VALUES(${randomUUID()},${release},1,clock_timestamp(),'qa-seed','qa seed',0)`);
 	});
 	return true;
+}
+
+/** OPS-127: the organizations that share the wiki with the test church, each with its copy of article A. */
+const SOURCES = [
+	{ kind: "sending_church", name: "Grace Fellowship (QA)", version: "church version", acceptedDaysAgo: 30 },
+	{ kind: "sending_network", name: "Harvest Network (QA)", version: "network version", acceptedDaysAgo: 20 },
+] as const;
+/** A copy's body in the Wiki editor's document format (safe_nodes). Its line names the source. */
+const copyBody = (version: string, name: string) =>
+	JSON.stringify({
+		format: "everyfield-editor-v1",
+		blocks: [
+			{ type: "paragraph", children: [{ type: "text", text: `This is the ${version} from ${name}.`, marks: [] }] },
+		],
+	});
+
+/** The first line of article B's second revision. The seed finds its own revision by it. */
+const REVISED = "**Revised for QA:** this is the second revision of the article. It changed after you read the first.";
+
+/**
+ * Articles A and B: the first and second published global article in the active release, by position and then slug.
+ * The same rule on a fresh database and on a branch of development, so a rerun finds the same two.
+ */
+async function starterArticles(admin: Database) {
+	const found = await rows(
+		admin,
+		sql`SELECT r.article_id, min(r.position) AS position, min(r.slug) AS slug
+			FROM article_revision r JOIN reference_item i ON i.id = r.section_id
+			WHERE r.tenant_id = ${GLOBAL}::uuid AND r.content_type = 'safe_mdx' AND r.published_at IS NOT NULL
+				AND r.release_id = (SELECT release_id FROM reference_activation ORDER BY activation_number DESC LIMIT 1)
+			GROUP BY r.article_id ORDER BY 2, 3, 1 LIMIT 2`,
+	);
+	if (found.length < 2) throw Error("wiki: the active release has fewer than two published articles");
+	return found.map((row) => row.article_id as string) as [string, string];
+}
+
+/** The newest published global revision of an article in the active release, other than the seed's own revision. */
+async function globalRevision(admin: Database, articleId: string) {
+	return (
+		await rows(
+			admin,
+			sql`SELECT * FROM article_revision
+				WHERE article_id = ${articleId}::uuid AND tenant_id = ${GLOBAL}::uuid AND published_at IS NOT NULL
+					AND release_id = (SELECT release_id FROM reference_activation ORDER BY activation_number DESC LIMIT 1)
+					AND body NOT LIKE ${REVISED + "%"}
+				ORDER BY revision_number DESC LIMIT 1`,
+		)
+	)[0]!;
+}
+
+/**
+ * OPS-127: the reader cases Nora tests. The church and network share the wiki with the test church; each publishes its
+ * own copy of article A, so the church copy wins over the network copy and the global article. Article B gets a second,
+ * meaningful global revision, and the owner has finished the first, so the reader shows "Updated since you read it".
+ * No writer creates organizations or publishes a release, so the seed writes these rows directly. Each part looks for
+ * its own rows first.
+ */
+async function wikiCases(admin: Database, plantId: string, owner: string): Promise<string[]> {
+	const done: string[] = [];
+	const [articleA, articleB] = await starterArticles(admin);
+	const base = await globalRevision(admin, articleA);
+	let copies = false;
+	for (const source of SOURCES) {
+		let orgId = (
+			await rows(admin, sql`SELECT id FROM organization WHERE kind=${source.kind} AND name=${source.name} LIMIT 1`)
+		)[0]?.id as string | undefined;
+		if (!orgId) {
+			orgId = randomUUID();
+			await admin.execute(
+				sql`INSERT INTO organization(id,kind,name,city,timezone,material_revision) VALUES(${orgId},${source.kind},${source.name},'Austin','America/Chicago',1)`,
+			);
+			done.push(`${source.kind.replace("_", " ")} ${source.name}`);
+		}
+		const linked = await rows(
+			admin,
+			sql`SELECT 1 FROM affiliation WHERE plant_id=${plantId} AND organization_id=${orgId} AND ended_at IS NULL`,
+		);
+		if (!linked.length) {
+			await admin.execute(sql`INSERT INTO affiliation(id,plant_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
+				VALUES(${randomUUID()},${plantId},${orgId},clock_timestamp()-(${source.acceptedDaysAgo} || ' days')::interval,false,false,false,false,true,false,false)`);
+			done.push(`affiliation with ${source.name}`);
+		}
+		const copied = await rows(
+			admin,
+			sql`SELECT 1 FROM article_editor_state WHERE organization_id=${orgId} AND article_id=${articleA}`,
+		);
+		if (copied.length) continue;
+		const revisionId = randomUUID();
+		const body = copyBody(source.version, source.name);
+		await admin.transaction(async (tx) => {
+			await tx.execute(sql`INSERT INTO article_revision(id,article_id,tenant_id,release_id,revision_number,upstream_revision_id,title,slug,excerpt,body,content_type,phase,position,content_hash,published_at,meaningful,meaningful_sequence,section_id,parent_article_id,related_slugs)
+				SELECT ${revisionId}::uuid,article_id,${orgId}::uuid,NULL,1,id,${`${String(base.title)} (${source.name})`},slug,excerpt,${body},'safe_nodes',phase,position,${digest()},clock_timestamp(),true,1,section_id,parent_article_id,related_slugs
+				FROM article_revision WHERE id=${base.id as string}::uuid`);
+			await tx.execute(sql`INSERT INTO article_editor_state(id,organization_id,article_id,state,current_revision_id,based_on_upstream_id,revision)
+				VALUES(${randomUUID()},${orgId},${articleA},'published',${revisionId},${base.id as string},1)`);
+		});
+		copies = true;
+	}
+	if (copies) done.push(`wiki copies of ${String(base.title)}`);
+
+	const first = await globalRevision(admin, articleB);
+	const revised = await rows(
+		admin,
+		sql`SELECT 1 FROM article_revision WHERE article_id=${articleB} AND tenant_id=${GLOBAL}::uuid AND release_id=${first.release_id as string}::uuid AND body LIKE ${REVISED + "%"}`,
+	);
+	if (!revised.length) {
+		await admin.execute(sql`INSERT INTO article_revision(id,article_id,tenant_id,release_id,revision_number,upstream_revision_id,title,slug,excerpt,body,content_type,phase,position,content_hash,published_at,meaningful,meaningful_sequence,section_id,parent_article_id,related_slugs)
+			SELECT ${randomUUID()}::uuid,article_id,tenant_id,release_id,
+				(SELECT max(revision_number)+1 FROM article_revision WHERE article_id=${articleB} AND tenant_id=${GLOBAL}::uuid AND release_id=${first.release_id as string}::uuid),
+				NULL,${`${String(first.title)} (revised)`},slug,excerpt,${`${REVISED}\n\n${String(first.body)}`},content_type,phase,position,${digest()},clock_timestamp(),true,
+				(SELECT max(meaningful_sequence)+1 FROM article_revision WHERE article_id=${articleB} AND tenant_id=${GLOBAL}::uuid AND release_id=${first.release_id as string}::uuid),
+				section_id,parent_article_id,related_slugs
+			FROM article_revision WHERE id=${first.id as string}::uuid`);
+		done.push(`wiki revision of ${String(first.title)}`);
+	}
+	// The owner finished the first revision a week ago. Without this reading the reader says nothing about the change.
+	if (!(await rows(admin, sql`SELECT 1 FROM reading WHERE account_id=${owner} AND article_id=${articleB}`)).length) {
+		await admin.execute(sql`INSERT INTO reading(id,account_id,article_id,last_revision_id,plant_context_id,observed_fraction,last_viewed_at,completed_at,completed_revision_id,completed_fraction,policy_version,last_read_meaningful_sequence,bookmarked,revision)
+			VALUES(${randomUUID()},${owner},${articleB},${first.id as string},${plantId},1,clock_timestamp()-interval '7 days',clock_timestamp()-interval '7 days',${first.id as string},1,'wiki-reading-v1',${first.meaningful_sequence as string},false,1)`);
+		done.push("wiki reading");
+	}
+	return done;
 }
 
 if (import.meta.main) {
