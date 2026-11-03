@@ -39,7 +39,7 @@ export async function IntelligencePage() {
 	return <JourneyScreen {...loaded.value} viewer={{ accountId: viewer.accountId, name: viewer.displayName }} />;
 }
 
-function Blocked({
+export function Blocked({
 	title,
 	tone = "lock",
 	children,

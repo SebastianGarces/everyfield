@@ -4,6 +4,7 @@ import { buttonVariants, Card, PageHeader, Skeleton, StatePanel } from "@everyfi
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Blocked as PlantIntelligenceBlocked } from "../phases/routes.tsx";
 import { AttestationsScreen } from "./AttestationsScreen.tsx";
 import { CheckInScreen } from "./CheckInScreen.tsx";
 import { CheckInHeader } from "./Header.tsx";
@@ -70,21 +71,18 @@ function ConfirmZone({ name }: { name: string }) {
 	);
 }
 
-/** A page that cannot show its content: the page header, then one lock or error panel in a card. */
 function Blocked({
-	page = "Weekly check-in",
 	title,
 	tone = "lock",
 	children,
 }: {
-	page?: "Weekly check-in" | "Plant Intelligence";
 	title: string;
 	tone?: "lock" | "error";
 	children: React.ReactNode;
 }) {
 	return (
 		<>
-			<PageHeader size="xl" title={page} />
+			<PageHeader size="xl" title="Weekly check-in" />
 			<Card>
 				<StatePanel tone={tone} icon={tone === "lock" ? LockKeyIcon : undefined} title={title} headingLevel="h2">
 					{children}
@@ -121,17 +119,17 @@ export async function AttestationsPage() {
 		if (!v || v.status === "unauthenticated")
 			redirect(`/signin?returnTo=${encodeURIComponent("/intelligence/attestations")}`);
 		return (
-			<Blocked page="Plant Intelligence" title="Plant Intelligence belongs to a church plant">
+			<PlantIntelligenceBlocked title="Plant Intelligence belongs to a church plant">
 				Your account has no current seat in a church plant, so there is no journey to show here.
-			</Blocked>
+			</PlantIntelligenceBlocked>
 		);
 	}
 	// Attestations are for a plant's Owners and Admins only (signals authority).
 	if (viewer.role === "member")
 		return (
-			<Blocked page="Plant Intelligence" title="Attestations are for Owners and Admins">
+			<PlantIntelligenceBlocked title="Attestations are for Owners and Admins">
 				Your Member seat does not include the church&apos;s attestations. Ask an Owner or Admin if you need them.
-			</Blocked>
+			</PlantIntelligenceBlocked>
 		);
 	const loaded = await loadAttestations(viewer);
 	if (loaded.status !== "ok")

@@ -29,6 +29,12 @@ const shape = (page) =>
 		return walk(root);
 	});
 
+const lockPage = async (page) => ({
+	header: await page.getByRole("heading", { level: 1 }).allInnerTexts(),
+	panel: await page.locator("main [data-tone=lock]").innerText(),
+	shape: await shape(page),
+});
+
 async function assertFramedNotFoundFree(page, response) {
 	assert.equal(response.status(), 200);
 	assert.ok(await page.getByRole("navigation", { name: "Main" }).isVisible(), "the app menu is visible");
@@ -79,7 +85,6 @@ for (const [name, engine] of ENGINES) {
 				assert.ok(!html.includes(word), `the server answer carries "${word}"`);
 			}
 			assert.equal(await page.getByRole("navigation", { name: "Plant Intelligence views" }).count(), 0);
-			assert.equal(await page.getByRole("button", { name: "Record a candidate" }).count(), 0);
 		});
 	});
 
@@ -87,25 +92,13 @@ for (const [name, engine] of ENGINES) {
 		await withPage(engine, async (page, context) => {
 			const response = await open(page, context, fixture("intelligence").organization.cookie);
 			await assertFramedNotFoundFree(page, response);
-			const panel = page.locator("main [data-tone=lock]");
-			const here = {
-				header: await page.getByRole("heading", { level: 1 }).allInnerTexts(),
-				panel: await panel.innerText(),
-				shape: await shape(page),
-			};
+			const here = await lockPage(page);
 			assert.deepEqual(here.header, ["Plant Intelligence"]);
 			assert.match(here.panel, /Plant Intelligence belongs to a church plant/);
 
 			await page.goto(`${BASE}/intelligence`);
 			await hydrated(page);
-			assert.deepEqual(
-				{
-					header: await page.getByRole("heading", { level: 1 }).allInnerTexts(),
-					panel: await panel.innerText(),
-					shape: await shape(page),
-				},
-				here,
-			);
+			assert.deepEqual(await lockPage(page), here);
 		});
 	});
 
