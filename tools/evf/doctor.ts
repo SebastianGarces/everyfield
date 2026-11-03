@@ -3,6 +3,7 @@ import { existsSync, lstatSync, readdirSync, readFileSync, readlinkSync, realpat
 import { join } from "node:path";
 import { evfDataDir, git, hasRemote, isClean, loadConfig, loadDag, readJson, run } from "./lib.ts";
 import { openWorkDb, orphanLine, orphanRuns, workDbPath } from "./db.ts";
+import { auditDoctorLines } from "./audit.ts";
 import { leftoverBrowsers } from "./browser.ts";
 import { type ShippedRecord } from "./progress.ts";
 import { producerReady } from "./progress.ts";
@@ -194,15 +195,16 @@ export function doctor(root: string, browserAgeMinutes = 15): number {
 			`${b.kind} PID ${b.pid} running ${b.ageMinutes} min, ${b.memoryMb} MB; its owner should close it`,
 		]);
 
-	if (existsSync(workDbPath(root))) {
-		const store = openWorkDb(root, { readOnly: true });
-		try {
+	const store = existsSync(workDbPath(root)) ? openWorkDb(root, { readOnly: true }) : null;
+	try {
+		if (store) {
 			const orphans = orphanRuns(store, root);
 			if (!orphans.length) results.push(["PASS", "no orphaned evf run in the work store"]);
 			for (const o of orphans) results.push(["WARN", orphanLine(o)]);
-		} finally {
-			store.close();
 		}
+		for (const line of auditDoctorLines(root, store)) results.push(["WARN", line]);
+	} finally {
+		store?.close();
 	}
 
 	console.log("Workflow readiness checklist:");
