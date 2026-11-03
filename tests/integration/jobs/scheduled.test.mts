@@ -32,7 +32,7 @@ const run = async () => {
 
 before(async () => {
 	await setup();
-	tick = scheduledJobs({ secret, db, storage: null, reminders: noReminders, mail: null });
+	tick = scheduledJobs({ secret, db, storage: null, reminders: noReminders, digests: null, mail: null });
 });
 after(teardown);
 
@@ -62,7 +62,14 @@ test("INV-executor: the runner refuses a call without the exact bearer and runs 
 	const waiting = await ask(owner, "Find Casey");
 	for (const authorization of [undefined, "Bearer wrong", `Bearer ${secret}x`, secret])
 		assert.equal((await call(authorization)).status, 401, String(authorization));
-	const unset = scheduledJobs({ secret: undefined, db, storage: null, reminders: noReminders, mail: null });
+	const unset = scheduledJobs({
+		secret: undefined,
+		db,
+		storage: null,
+		reminders: noReminders,
+		digests: null,
+		mail: null,
+	});
 	assert.equal((await unset(new Request("http://localhost/api/cron/jobs"))).status, 503);
 	assert.equal((await readConversation(db, owner, waiting)).run?.state, "running");
 	assert.equal(await work(), "succeeded");

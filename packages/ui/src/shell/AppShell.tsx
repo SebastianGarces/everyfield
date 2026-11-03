@@ -14,6 +14,8 @@ import { RailTip, ThemeToggle } from "./ThemeToggle";
 export type ShellActions = {
 	onSearch: () => void;
 	onNotifications: () => void;
+	/** Whether the notification drop-down is open: the bell announces it as expanded or collapsed. */
+	notificationsOpen: boolean;
 	/** Absent on a page where Evry is off, such as the private check-in: the button stays, disabled, and says so. */
 	onAskEvry?: () => void;
 };
@@ -143,6 +145,7 @@ function Topbar({
 					<TopIconButton
 						label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"}
 						onClick={actions.onNotifications}
+						expanded={actions.notificationsOpen}
 					>
 						<Icon icon={BellIcon} size={24} />
 						{unread > 0 && (
@@ -220,12 +223,15 @@ function TopIconButton({
 	label,
 	shortcut,
 	onClick,
+	expanded,
 	className,
 	children,
 }: {
 	label: string;
 	shortcut?: string;
 	onClick: () => void;
+	/** Set for a button that opens a dialog, such as the notification drop-down: its open state. */
+	expanded?: boolean;
 	className?: string;
 	children: ReactNode;
 }) {
@@ -235,9 +241,11 @@ function TopIconButton({
 			aria-label={label}
 			title={label}
 			aria-keyshortcuts={shortcut}
+			aria-haspopup={expanded === undefined ? undefined : "dialog"}
+			aria-expanded={expanded}
 			onClick={onClick}
 			className={cn(
-				"relative grid size-11 place-items-center rounded-nav-item text-ink-2 transition-[background-color] hover:bg-surface-2",
+				"relative grid size-11 cursor-pointer place-items-center rounded-nav-item text-ink-2 transition-[background-color] hover:bg-surface-2",
 				className,
 			)}
 		>

@@ -52,6 +52,7 @@ test("AC:CASE-NTF-013 the scheduled runner hands a seat and a residency invitati
 		db: f.db,
 		storage: null,
 		reminders: null,
+		digests: null,
 		mail: (limit, until) => runDueMail(f.db, f.mail, INVITATION_MAIL, limit, until),
 	});
 	try {

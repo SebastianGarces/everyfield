@@ -1,7 +1,7 @@
 import { and, eq, inArray, isNull, sql, type SQLWrapper } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import "server-only";
-import { notificationCategory } from "@everyfield/contracts/settings";
+import { defaultChannelEnabled, notificationCategory } from "@everyfield/contracts/settings";
 import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { z } from "zod";
@@ -184,23 +184,8 @@ export function createMailService(config: {
 						eq(tables.notification_preference.channel, "email"),
 					),
 				);
-			if (choice[0]?.enabled === false) return false;
-		}
-		if (m.purpose === "planter_digest" || m.purpose === "oversight_digest") {
-			const choice = await tx
-				.select({ enabled: tables.notification_preference.enabled })
-				.from(tables.notification_preference)
-				.where(
-					and(
-						and(
-							eq(tables.notification_preference.account_id, sql`${m.recipient_account_id}`),
-							eq(tables.notification_preference.category, m.purpose),
-						),
-						eq(tables.notification_preference.channel, "email"),
-					),
-				);
-			if (choice[0]?.enabled === false) return false;
-		}
+			if (!(choice[0]?.enabled ?? defaultChannelEnabled(preference, "email"))) return false;
+		} else if (m.purpose === "planter_digest" || m.purpose === "oversight_digest") return false;
 		return (await config.authorize(tx, [authority(m)])).has(m.id);
 	}
 	function audit(tx: Transaction, m: z.infer<typeof stored>, key: string, action: string) {

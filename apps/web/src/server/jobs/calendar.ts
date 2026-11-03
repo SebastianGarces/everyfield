@@ -58,5 +58,5 @@ export function owedPeriod(
 		? addCivilDays(localDate.parse(coveredThrough), 1)
 		: addCivilDays(end, config.cadence === "weekly" ? -6 : 0);
 	if (start > end) return null;
-	return { start, end, next: addCivilDays(end, config.cadence === "weekly" ? 7 : 1), zone };
+	return { start, end, next: addCivilDays(end, config.cadence === "weekly" ? 7 : 1), zone, today };
 }
