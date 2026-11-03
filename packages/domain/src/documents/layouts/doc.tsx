@@ -4,7 +4,6 @@ import type {
 	BlockNode,
 	BoxNode,
 	CellNode,
-	ColumnSpec,
 	ColumnsNode,
 	EveryfieldDoc,
 	HeadingNode,
@@ -19,7 +18,7 @@ import type {
 	Token,
 	WriteInNode,
 } from "@everyfield/contracts/documents";
-import { attrsOf, computeTable, pageBox, tileBox } from "@everyfield/contracts/documents";
+import { attrsOf, columnWidths, computeTable, formatNumber, pageBox, tileBox } from "@everyfield/contracts/documents";
 import type { ReactNode } from "react";
 import { Cell, Fixed, H1, H2, H3, Page, PageBreak, Row, Svg, Table, Text, View } from "@formepdf/react";
 import type { Style } from "@formepdf/react";
@@ -519,26 +518,6 @@ function slot(r: R, node: SlotNode, key: number) {
 
 // ---------------------------------------------------------------- tables
 
-const grouped = (n: number) => String(Math.trunc(Math.abs(n))).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-/** `$1,234` for money (cents when the amount has them), `1,234.5` for a number. */
-export function formatNumber(value: number, kind: "money" | "number") {
-	const sign = value < 0 ? "-" : "";
-	const abs = Math.abs(value);
-	const cents = Math.round((abs - Math.trunc(abs)) * 100);
-	const fraction = cents ? `.${String(cents).padStart(2, "0")}` : "";
-	if (kind === "money") return `${sign}$${grouped(abs)}${fraction}`;
-	const decimals = Number.isInteger(abs) ? "" : String(+abs.toFixed(4)).replace(/^\d+/, "");
-	return `${sign}${grouped(abs)}${decimals}`;
-}
-
-/** Column widths in points: fixed widths as given, the rest of the width shared by the columns with width 0. */
-function columnWidths(cols: readonly ColumnSpec[], width: number) {
-	const fixed = cols.reduce((s, c) => s + c.width, 0);
-	const auto = cols.filter((c) => c.width === 0).length;
-	const share = auto ? Math.max(24, (width - fixed) / auto) : 0;
-	return cols.map((c) => +(c.width || share).toFixed(2));
-}
-
 type BuiltRow = { role: RowRole; cells: (CellNode | null)[] };
 
 function table(r: R, node: TableNode, key: number) {
@@ -658,7 +637,9 @@ function table(r: R, node: TableNode, key: number) {
 								} else if (c.type === "check") {
 									if (isItem)
 										inner = (
-											<View style={{ alignItems: alignOf(align) }}>{Box(cr, name(r, `row_${index}_${c.id}`), 12)}</View>
+											<View style={{ alignItems: alignOf(align) }}>
+												{Box(cr, name(r, `row_${index}_${c.id}`), 12, "accent", cell?.attrs?.checked === true)}
+											</View>
 										);
 								} else if (c.type === "number" || c.type === "money") {
 									const value = isItem ? cell?.attrs?.value : numbers[ci];

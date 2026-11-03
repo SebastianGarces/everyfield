@@ -138,6 +138,61 @@ function formulaRefs(tree: Formula, columnIds: string[]) {
 	return out;
 }
 
+export type FormulaDep = {
+	/** The formula column. */
+	column: TableNode["attrs"]["columns"][number];
+	index: number;
+	/** Every column id the formula reads, a sum range expanded. */
+	reads: string[];
+	/** The column index spans of its sum ranges: a column added inside one would join the sum. */
+	spans: [number, number][];
+};
+
+/** What each formula column of a table reads. A formula that does not parse reads nothing. */
+export function formulaDeps(columns: TableNode["attrs"]["columns"]): FormulaDep[] {
+	const ids = columns.map((c) => c.id);
+	const out: FormulaDep[] = [];
+	columns.forEach((column, index) => {
+		if (column.type !== "formula") return;
+		let tree: Formula;
+		try {
+			tree = parseFormula(column.formula ?? "");
+		} catch {
+			return;
+		}
+		const spans: [number, number][] = [];
+		const walk = (n: Formula) => {
+			if (n.op === "sum") {
+				const a = ids.indexOf(n.first);
+				const b = ids.indexOf(n.last);
+				if (a >= 0 && b >= 0) spans.push([Math.min(a, b), Math.max(a, b)]);
+			} else if (n.op === "neg") walk(n.a);
+			else if (n.op !== "num" && n.op !== "col") {
+				walk(n.a);
+				walk(n.b);
+			}
+		};
+		walk(tree);
+		out.push({ column, index, reads: formulaRefs(tree, ids), spans });
+	});
+	return out;
+}
+
+/** The first fault the format finds in one table (its columns, formulas and rows), in its words, or null. */
+export function tableIssue(table: TableNode): string | null {
+	let message: string | null = null;
+	const ctx = {
+		schema: FORMAT_SCHEMA,
+		fail: (_path: string, text: string) => {
+			message ??= text;
+		},
+		fieldRefs: [],
+		ledgers: 0,
+	} as unknown as Ctx;
+	checkTable(table as unknown as Rec, (table.attrs ?? {}) as Rec, "table", ctx);
+	return message;
+}
+
 function evalTree(n: Formula, get: (id: string) => number, columnIds: string[]): number {
 	switch (n.op) {
 		case "num":
@@ -609,6 +664,21 @@ function checkValue(value: unknown, spec: ValueSpec, path: string, ctx: Ctx) {
 			if (!value || typeof value !== "object") fail(path, "must be a node");
 			return; // the body is checked by checkNode.
 	}
+}
+
+/** What the format says about one attribute value of a node type, in its words, or null when the value is fine. */
+export function attrIssue(node: string, attribute: string, value: unknown, schema = FORMAT_SCHEMA): string | null {
+	const spec = schema.nodes[node]?.attrs[attribute];
+	if (!spec) return null;
+	let message: string | null = null;
+	const ctx = {
+		schema,
+		fail: (_path: string, text: string) => {
+			message ??= text;
+		},
+	} as Ctx;
+	checkValue(value, spec, attribute, ctx);
+	return message;
 }
 
 function checkObject(value: unknown, props: Record<string, ValueSpec>, path: string, ctx: Ctx, root = false) {

@@ -1,7 +1,14 @@
 "use client";
 
 import { Delete02Icon, Edit02Icon, FloppyDiskIcon, Refresh01Icon, ViewIcon } from "@hugeicons/core-free-icons";
-import { LEGAL_NOTICE, pageBox, tileBox, type DocBrand, type DocDocument } from "@everyfield/contracts/documents";
+import {
+	LEGAL_NOTICE,
+	pageBox,
+	tileBox,
+	type DocBrand,
+	type DocDocument,
+	type ExportFormat,
+} from "@everyfield/contracts/documents";
 import {
 	Button,
 	ConfirmDialog,
@@ -39,6 +46,18 @@ export type SaveStatus =
 const NOTICE_WHY =
 	"Every formal or legal document prints this notice, in the PDF and the Word file. Editing the document cannot remove it.";
 
+type DocFormat = ExportFormat;
+
+/** How many entries each list field holds: a table that reads one prints those rows and no blank ones. */
+function listCounts(doc: DocDocument): Record<string, number> {
+	const counts: Record<string, number> = {};
+	for (const field of doc.fields) {
+		const raw = doc.data?.[field.key];
+		if (field.type === "list" && Array.isArray(raw)) counts[field.key] = raw.length;
+	}
+	return counts;
+}
+
 function fieldValues(doc: DocDocument): FieldValues {
 	const values: FieldValues = {};
 	for (const field of doc.fields) {
@@ -68,7 +87,8 @@ type Props = {
 	/** The palette the PDF paints for this document and the brand-kit images it may show. */
 	brand: DocBrand;
 	revision: string;
-	onRevision: (revision: string) => void;
+	/** A save moved the revision; `formats` are the downloads its body offers (Excel only with a budget table). */
+	onRevision: (revision: string, formats: DocFormat[]) => void;
 	previewSrc: (revision: string) => string;
 };
 
@@ -90,7 +110,7 @@ export default function ChurchEditor({
 	const inflight = useRef<Promise<boolean> | null>(null);
 
 	const extensions = useMemo(
-		() => [...editorExtensions(fieldValues(stored), brand.assets), BlockShortcuts],
+		() => [...editorExtensions(fieldValues(stored), brand.assets, listCounts(stored)), BlockShortcuts],
 		[stored, brand.assets],
 	);
 	const editor = useEditor({
@@ -158,7 +178,7 @@ export default function ChurchEditor({
 				savedDoc.current = doc;
 				base.current = body;
 				setShownRevision(result.revision);
-				onRevision(result.revision);
+				onRevision(result.revision, body.exports);
 				// Edits typed while the request ran keep the "Unsaved changes" status.
 				setStatus((editor.state.doc.eq(doc) ? { kind: "saved" } : { kind: "dirty" }) satisfies SaveStatus);
 				return true;

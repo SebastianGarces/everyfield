@@ -15,7 +15,9 @@ import { DOMSerializer, Fragment, Slice, type Node as PMNode } from "@tiptap/pm/
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import type { DocBrand } from "@everyfield/contracts/documents";
+import { attrsOfSpec, BLOCKS, px, type Attrs, type Kind } from "./attrs.ts";
 import { IMAGE_KINDS, regionAt } from "./blocks.ts";
+import { EfCell, EfRow, EfTable, EfValueCell, TableRules } from "./table-extension.ts";
 
 // The Tiptap extensions for everyfield.doc/1. Each node and mark has the name and the attributes of the format
 // (packages/contracts/src/documents/format/schema.ts), so `editor.getJSON()` is the document body and there is no
@@ -23,38 +25,8 @@ import { IMAGE_KINDS, regionAt } from "./blocks.ts";
 // document reads back exactly as it was stored. Nodes that later slices edit (columns, box, image, write-in, slot,
 // table and the inline field) load, show, move, delete and save unchanged.
 
-type Kind = "string" | "number" | "boolean" | "json";
-type Attrs = Record<string, unknown>;
-
-/** One format attribute: no default (the format's default applies at render), stored in a `data-ef-*` attribute. */
-function attr(name: string, kind: Kind = "string") {
-	const html = `data-ef-${name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`;
-	return {
-		default: undefined as unknown,
-		parseHTML: (el: HTMLElement) => {
-			const raw = el.getAttribute(html);
-			if (raw === null) return undefined;
-			if (kind === "number") return Number(raw);
-			if (kind === "boolean") return raw === "true";
-			if (kind === "json") return JSON.parse(raw) as unknown;
-			return raw;
-		},
-		renderHTML: (attrs: Attrs) => {
-			const value = attrs[name];
-			if (value === undefined) return {};
-			return {
-				[html]: kind === "json" || kind === "number" || kind === "boolean" ? JSON.stringify(value) : String(value),
-			};
-		},
-	};
-}
-const attrsOfSpec = (spec: Record<string, Kind>) =>
-	Object.fromEntries(Object.entries(spec).map(([name, kind]) => [name, attr(name, kind)]));
-
-const BLOCKS = "block colblock boxblock";
 /** What the page header and footer hold: the blocks a column holds, and columns. A page break cannot sit there. */
 const REGION_BLOCKS = "(colblock | columns)*";
-const px = (pt: number) => `${((pt * 4) / 3).toFixed(2)}px`;
 
 // ---------------------------------------------------------------- prose
 
@@ -331,10 +303,7 @@ function readOnlyView({ node, editor }: { node: PMNode; editor: Editor }) {
 		label.textContent = blockLabel(current);
 		const body = document.createElement("div");
 		body.className = "ef-block-body";
-		// A table's header cells come from its column list, and its blank write-in rows from `writeInRows`.
-		if (current.type.name === "table") body.append(...tableExtras(current, "header"));
 		for (let i = 0; i < current.childCount; i++) body.append(serializer.serializeNode(current.child(i)));
-		if (current.type.name === "table") body.append(...tableExtras(current, "blank"));
 		dom.append(label, body);
 	};
 	draw(node);
@@ -347,38 +316,6 @@ function readOnlyView({ node, editor }: { node: PMNode; editor: Editor }) {
 		},
 		ignoreMutation: () => true,
 	};
-}
-
-function tableExtras(table: PMNode, part: "header" | "blank"): HTMLElement[] {
-	const columns = (table.attrs.columns as { label?: string }[] | undefined) ?? [];
-	const row = (cells: string[], header: boolean) => {
-		const dom = document.createElement("div");
-		dom.setAttribute("data-ef-node", "row");
-		if (header) dom.setAttribute("data-ef-header", "");
-		for (const text of cells) {
-			const cell = document.createElement("div");
-			cell.setAttribute("data-ef-node", "cell");
-			cell.textContent = text;
-			dom.append(cell);
-		}
-		return dom;
-	};
-	if (part === "header")
-		return table.attrs.header === false
-			? []
-			: [
-					row(
-						columns.map((c) => c.label ?? ""),
-						true,
-					),
-				];
-	const blank = typeof table.attrs.writeInRows === "number" ? table.attrs.writeInRows : 0;
-	return Array.from({ length: Math.min(blank, 8) }, () =>
-		row(
-			columns.map(() => ""),
-			false,
-		),
-	);
 }
 
 // ---------------------------------------------------------------- layout blocks
@@ -614,24 +551,6 @@ export const EfSlot = laterNode("slot", {
 	attrs: { label: "string" },
 	atom: true,
 });
-export const EfTable = laterNode("table", {
-	group: BLOCKS,
-	content: "row*",
-	attrs: {
-		columns: "json",
-		style: "string",
-		header: "boolean",
-		headerFill: "string",
-		zebra: "boolean",
-		writeInRows: "number",
-		rowHeight: "number",
-		source: "string",
-		sheet: "string",
-	},
-	atom: true,
-});
-export const EfRow = laterNode("row", { content: "cell+", attrs: { role: "string", sign: "string" } });
-export const EfCell = laterNode("cell", { content: "inline*", attrs: { value: "number", checked: "boolean" } });
 
 // ---------------------------------------------------------------- heading numbers
 
@@ -777,7 +696,12 @@ export const LayoutRules = Extension.create({
 // ---------------------------------------------------------------- the set
 
 /** Every extension of the editor. The headless tests load the same list. */
-export function editorExtensions(values: FieldValues = {}, assets: Assets | null = null) {
+export function editorExtensions(
+	values: FieldValues = {},
+	assets: Assets | null = null,
+	/** How many entries each list field holds: a table that reads one prints those rows and no blank ones. */
+	lists: Record<string, number> = {},
+) {
 	return [
 		EfDocument,
 		Text,
@@ -801,6 +725,7 @@ export function editorExtensions(values: FieldValues = {}, assets: Assets | null
 		EfTable,
 		EfRow,
 		EfCell,
+		EfValueCell,
 		HardBreak,
 		EfField.configure({ values }),
 		EfPageNumber,
@@ -812,5 +737,7 @@ export function editorExtensions(values: FieldValues = {}, assets: Assets | null
 		UndoRedo,
 		HeadingNumbers,
 		LayoutRules,
+		// Last, so its Enter, Backspace and Tab in a table cell come before every other extension's.
+		TableRules.configure({ lists }),
 	];
 }

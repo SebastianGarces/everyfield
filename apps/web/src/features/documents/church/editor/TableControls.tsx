@@ -1,0 +1,384 @@
+"use client";
+
+import { attrIssue, type DocBrand, type TableNode, type Token } from "@everyfield/contracts/documents";
+import type { Editor } from "@tiptap/react";
+import { useEditorState } from "@tiptap/react";
+import { useId, useState, type ReactNode } from "react";
+import { Group, keepSelection, Labeled, Segmented, Swatches, Tip } from "./ControlParts.tsx";
+import { applyTable, newTyping, tableContext, tableFocusKey, typeInto, type TableContext } from "./table-actions.ts";
+import {
+	addCategory,
+	addColumn,
+	addLineItem,
+	addRow,
+	availability,
+	categoryAt,
+	KINDS,
+	labelColumn,
+	removeCategory,
+	removeColumn,
+	removeLineItem,
+	removeRow,
+	setHeaderFill,
+	setKind,
+	setSign,
+	setWriteInRows,
+	setZebra,
+	signAt,
+	type Kind,
+	type Place,
+	type Reason,
+} from "./table-ops.ts";
+import { Button } from "./tiptap/primitives/button.tsx";
+
+// The settings of the table the cursor is in: rows, columns, the kind of a column, blank write-in rows, the header color
+// and striped rows, and for a budget its line items, categories and signs. Every control has a name and a tooltip. A
+// control that cannot work is disabled and says why, in its tooltip and in the line under the controls.
+
+const NO_CELL: Place = { row: null, blank: null, col: null };
+
+/** A button that does one action to the table, or says why it cannot. */
+function Act({
+	label,
+	reason,
+	run,
+	children,
+}: {
+	label: string;
+	reason: Reason;
+	run: () => void;
+	children?: ReactNode;
+}) {
+	return (
+		<Button
+			type="button"
+			data-style="ghost"
+			aria-label={label}
+			tooltip={reason ? `${label}. ${reason}` : label}
+			disabled={reason !== null}
+			className="h-8 px-2.5 shadow-[0_0_0_1px_var(--ef-line)]"
+			onMouseDown={keepSelection}
+			onClick={run}
+		>
+			{children ?? label}
+		</Button>
+	);
+}
+
+function useTableContext(editor: Editor) {
+	return useEditorState({
+		editor,
+		selector: ({ editor: e }) => tableContext(e.state),
+		equalityFn: (a, b) =>
+			a === b ||
+			(!!a &&
+				!!b &&
+				a.pos === b.pos &&
+				a.node === b.node &&
+				a.at.row === b.at.row &&
+				a.at.col === b.at.col &&
+				a.at.blank === b.at.blank),
+	});
+}
+
+/** What a person means by "the current row" for a control: the row of the cursor, else none. */
+const here = (editor: Editor) => tableContext(editor.state);
+
+function run(editor: Editor, make: (context: TableContext) => { table: TableNode; place: Place } | null) {
+	const context = here(editor);
+	if (!context) return;
+	const done = make(context);
+	if (!done) return;
+	const focus = tableFocusKey.getState(editor.state);
+	applyTable(
+		editor,
+		context,
+		done.table,
+		done.place,
+		context.at.blank !== null || focus?.area === "blank" ? "blank" : "head",
+	);
+}
+
+/** The write-in row count: 0 to 200. A count outside it shows the format's message and is not applied. */
+function WriteInField({ editor, context }: { editor: Editor; context: TableContext }) {
+	const id = useId();
+	const [draft, setDraft] = useState<string | null>(null);
+	const [typing] = useState(newTyping);
+	const current = context.table.attrs.writeInRows ?? 0;
+	const problem =
+		draft === null
+			? null
+			: draft.trim() === ""
+				? "Type a number from 0 to 200."
+				: attrIssue("table", "writeInRows", Number(draft));
+	const reason = availability(context.table, context.at).writeIn;
+	return (
+		<span className="flex flex-wrap items-center gap-2">
+			<label htmlFor={id} className="cursor-pointer text-sm text-text-2">
+				Blank rows
+			</label>
+			<Tip text={reason ?? "How many blank rows to write in by hand, 0 to 200"}>
+				<input
+					id={id}
+					type="number"
+					inputMode="numeric"
+					min={0}
+					max={200}
+					step={1}
+					value={draft ?? String(current)}
+					disabled={reason !== null}
+					aria-invalid={problem ? true : undefined}
+					aria-describedby={problem ? `${id}-problem` : undefined}
+					className="h-9 w-20 rounded-sm bg-surface px-2 text-md text-ink shadow-[0_0_0_1px_var(--ef-line-2)] outline-none focus-visible:shadow-[0_0_0_2px_var(--ef-focus)] disabled:cursor-not-allowed disabled:opacity-45 aria-[invalid=true]:shadow-[0_0_0_1px_var(--ef-magenta-500)]"
+					onChange={(event) => {
+						const text = event.target.value;
+						setDraft(text);
+						const count = Number(text);
+						if (text.trim() === "" || attrIssue("table", "writeInRows", count) !== null) return;
+						const live = here(editor);
+						if (!live || live.pos !== context.pos) return;
+						typeInto(editor.view, typing, (tr) =>
+							tr.setNodeMarkup(live.pos, undefined, { ...live.node.attrs, writeInRows: count }),
+						);
+					}}
+					onBlur={() => setDraft(null)}
+				/>
+			</Tip>
+			{problem ? (
+				<span id={`${id}-problem`} role="alert" className="text-xs font-medium text-magenta-600">
+					{problem}
+				</span>
+			) : null}
+		</span>
+	);
+}
+
+export function TableControls({ editor, palette }: { editor: Editor; palette: DocBrand["palette"] }) {
+	const context = useTableContext(editor);
+	const kindId = useId();
+	const zebraId = useId();
+	if (!context) return null;
+	const { table, at } = context;
+	const ledger = table.attrs.style === "ledger";
+	const can = availability(table, at);
+	const column = at.col === null ? null : (table.attrs.columns[at.col] ?? null);
+	const textAt = labelColumn(table);
+
+	// Reasons a control is off because of the table itself, shown under the controls. Where the cursor is stays in tooltips.
+	const reasons = (
+		[
+			["Add row", can.addRowBelow],
+			["Add column", can.addColumnRight],
+			["Remove column", can.removeColumn],
+			["Column kind", can.kind],
+			["Blank rows", can.writeIn],
+			["Remove category", can.removeCategory],
+		] as const
+	)
+		.filter(([, reason]) => reason !== null && !reason.startsWith("Put the cursor"))
+		.filter(([name]) => !(ledger && name === "Add row"));
+	const seen = new Set<string>();
+	const unique = reasons.filter(([, reason]) => !seen.has(reason as string) && seen.add(reason as string));
+
+	const rowAfter = (side: -1 | 1) =>
+		run(editor, ({ table: t, at: place }) => {
+			const index =
+				place.row === null ? (side < 0 ? 0 : (t.content ?? []).length) : side < 0 ? place.row : place.row + 1;
+			return {
+				table: addRow(t, place.row, side),
+				place: { row: index, blank: null, col: Math.max(place.col ?? 0, 0) },
+			};
+		});
+
+	return (
+		<>
+			<Group label="Table">
+				{!ledger ? (
+					<>
+						<Act label="Add row above" reason={can.addRowAbove} run={() => rowAfter(-1)} />
+						<Act label="Add row below" reason={can.addRowBelow} run={() => rowAfter(1)} />
+						<Act
+							label="Remove row"
+							reason={can.removeRow}
+							run={() =>
+								run(editor, ({ table: t, at: place }) => {
+									if (place.row !== null) {
+										const next = removeRow(t, place.row);
+										const left = (next.content ?? []).length;
+										return {
+											table: next,
+											place: { row: left ? Math.min(place.row, left - 1) : null, blank: null, col: place.col },
+										};
+									}
+									return { table: setWriteInRows(t, Math.max(0, (t.attrs.writeInRows ?? 0) - 1)), place: at };
+								})
+							}
+						/>
+					</>
+				) : null}
+				<Act
+					label="Add column left"
+					reason={can.addColumnLeft}
+					run={() =>
+						run(editor, ({ table: t, at: place }) => {
+							const index = place.col ?? 0;
+							return { table: addColumn(t, index), place: { ...place, col: index } };
+						})
+					}
+				/>
+				<Act
+					label="Add column right"
+					reason={can.addColumnRight}
+					run={() =>
+						run(editor, ({ table: t, at: place }) => {
+							const index = place.col === null ? t.attrs.columns.length : place.col + 1;
+							return { table: addColumn(t, index), place: { ...place, col: index } };
+						})
+					}
+				/>
+				<Act
+					label="Remove column"
+					reason={can.removeColumn}
+					run={() =>
+						run(editor, ({ table: t, at: place }) => {
+							if (place.col === null) return null;
+							return {
+								table: removeColumn(t, place.col),
+								place: { ...place, col: Math.min(place.col, t.attrs.columns.length - 2) },
+							};
+						})
+					}
+				/>
+				<Labeled label="Column kind">
+					<Tip text={can.kind ?? "What this column holds"}>
+						<select
+							id={kindId}
+							aria-label="Column kind"
+							value={column ? (column.type === "formula" ? "formula" : column.type) : ""}
+							disabled={can.kind !== null}
+							className="h-9 cursor-pointer rounded-sm bg-surface px-2 text-md text-ink shadow-[0_0_0_1px_var(--ef-line-2)] outline-none focus-visible:shadow-[0_0_0_2px_var(--ef-focus)] disabled:cursor-not-allowed disabled:opacity-45"
+							onMouseDown={(event) => event.stopPropagation()}
+							onChange={(event) => {
+								const kind = event.target.value as Kind;
+								run(editor, ({ table: t, at: place }) =>
+									place.col === null ? null : { table: setKind(t, place.col, kind), place },
+								);
+							}}
+						>
+							{column === null || column.type === "formula" ? (
+								<option value={column ? "formula" : ""} disabled>
+									{column ? "Formula" : "Pick a column"}
+								</option>
+							) : null}
+							{KINDS.map((k) => (
+								<option key={k.kind} value={k.kind}>
+									{k.label}
+								</option>
+							))}
+						</select>
+					</Tip>
+				</Labeled>
+			</Group>
+			{ledger ? (
+				<Group label="Budget">
+					<Act
+						label="Add line item"
+						reason={can.addItem}
+						run={() =>
+							run(editor, ({ table: t, at: place }) => {
+								if (place.row === null) return null;
+								const next = addLineItem(t, place.row);
+								const row = (t.content ?? [])[place.row];
+								const index = row?.attrs?.role === "subtotal" ? place.row : place.row + 1;
+								return { table: next, place: { row: index, blank: null, col: textAt } };
+							})
+						}
+					/>
+					<Act
+						label="Remove line item"
+						reason={can.removeItem}
+						run={() =>
+							run(editor, ({ table: t, at: place }) => {
+								if (place.row === null) return null;
+								const next = removeLineItem(t, place.row);
+								const category = categoryAt(next, Math.max(0, place.row - 1));
+								return {
+									table: next,
+									place: { row: category ? Math.min(place.row, category.end) : null, blank: null, col: textAt },
+								};
+							})
+						}
+					/>
+					<Act
+						label="Add category"
+						reason={can.addCategory}
+						run={() =>
+							run(editor, ({ table: t, at: place }) => {
+								const next = addCategory(t, place.row);
+								const added = (next.content ?? []).findIndex((row, i) => i >= 0 && row !== (t.content ?? [])[i]);
+								return { table: next, place: { row: Math.max(0, added), blank: null, col: textAt } };
+							})
+						}
+					/>
+					<Act
+						label="Remove category"
+						reason={can.removeCategory}
+						run={() =>
+							run(editor, ({ table: t, at: place }) => {
+								if (place.row === null) return null;
+								const category = categoryAt(t, place.row);
+								const next = removeCategory(t, place.row);
+								const row = Math.max(0, Math.min(category?.start ?? 0, (next.content ?? []).length - 1));
+								return { table: next, place: { row, blank: null, col: textAt } };
+							})
+						}
+					/>
+					<Segmented
+						label="Category sign"
+						value={signAt(table, at.row) ?? "add"}
+						options={[
+							{ value: "add", label: "Adds", tooltip: "This category adds to the total" },
+							{ value: "subtract", label: "Subtracts", tooltip: "This category subtracts from the total" },
+						]}
+						onChange={(sign) =>
+							run(editor, ({ table: t, at: place }) =>
+								place.row === null || can.sign !== null ? null : { table: setSign(t, place.row, sign), place },
+							)
+						}
+					/>
+				</Group>
+			) : null}
+			<Group label="Look">
+				{!ledger ? <WriteInField editor={editor} context={context} /> : null}
+				<Labeled label="Header color">
+					<Swatches
+						label="Header color"
+						value={(table.attrs.headerFill as Token | undefined) ?? "muted"}
+						palette={palette}
+						onChange={(fill) => run(editor, ({ table: t, at: place }) => ({ table: setHeaderFill(t, fill), place }))}
+					/>
+				</Labeled>
+				<Tip text="Shade every second row">
+					<label htmlFor={zebraId} className="flex cursor-pointer items-center gap-2 text-sm text-text-2">
+						<input
+							id={zebraId}
+							type="checkbox"
+							className="size-4 cursor-pointer accent-[var(--ef-ink)]"
+							checked={table.attrs.zebra === true}
+							onMouseDown={keepSelection}
+							onChange={(event) =>
+								run(editor, ({ table: t, at: place }) => ({ table: setZebra(t, event.target.checked), place }))
+							}
+						/>
+						Striped rows
+					</label>
+				</Tip>
+			</Group>
+			{unique.length ? (
+				<p role="status" data-table-reasons="" className="basis-full px-1 text-xs text-text-2">
+					{unique.map(([name, reason]) => `${name}: ${reason}`).join(" ")}
+				</p>
+			) : null}
+		</>
+	);
+}
