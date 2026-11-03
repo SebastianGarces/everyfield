@@ -1,7 +1,17 @@
 import type * as c from "@everyfield/contracts/tasks";
 import type { z } from "zod";
 import type { ContactHistory, Outcome as ReadOutcome } from "../followups/model.ts";
-import type { Candidate, Occurrence, Outcome, Prerequisites, TaskDetail, TaskHistory } from "./model.ts";
+import type {
+	Candidate,
+	Occurrence,
+	Outcome,
+	PhaseOffer,
+	Prerequisites,
+	TaskDetail,
+	TaskHistory,
+	TemplateCatalog,
+	TemplatePreview,
+} from "./model.ts";
 
 // The browser side of read.ts. A network failure or a server error reads as lost, so the screen can offer a retry.
 async function get<T>(params: Record<string, string> | URLSearchParams): Promise<Outcome<T>> {
@@ -37,3 +47,10 @@ export const assigneeOptions = (purpose: "any" | "committed_follow_up" = "any") 
 	get<z.infer<typeof c.assigneeOptions>>({ what: "seats", purpose });
 export const relationOptions = (kind: string, search: string) =>
 	get<z.infer<typeof c.relationOptions>>({ what: "relations", kind, search });
+/** The checklist catalog with the church's current phase (Owner and Admin). */
+export const loadTemplates = () => get<TemplateCatalog>({ what: "templates" });
+/** One checklist's tasks, due from today in the church's time zone. Creates nothing. */
+export const loadPreview = (key: string) => get<TemplatePreview>({ what: "preview", key });
+/** The open phase offer, or the one for this move with what its answer decided. */
+export const loadOffer = (transitionId?: string) =>
+	get<PhaseOffer>(transitionId ? { what: "offer", id: transitionId } : { what: "offer" });

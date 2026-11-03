@@ -3,7 +3,7 @@ import { taskReader } from "@everyfield/domain/tasks";
 import "server-only";
 import type { z } from "zod";
 import { parseQuery, type Outcome } from "./model.ts";
-import { loadTask, read, reader, taskViewer, type TaskViewer } from "./server.ts";
+import { loadTask, read, reader, taskViewer, templates, type TaskViewer } from "./server.ts";
 
 // GET /tasks/read: the Tasks screens' reads after the first paint (the open task, more history, the seats, the
 // people, meetings or teams a task may name, the tasks one may wait for, and the list's blocked badges). A GET handler, not a server action, so a read never waits for a save or
@@ -62,6 +62,23 @@ export async function GET(request: Request) {
 			return answer(
 				await parsed(c.relationOptionsRequest, { kind: p.get("kind"), search: p.get("search") ?? "" }, (v) =>
 					read(viewer, async (tx) => refusalOf(await taskReader.relationOptions(tx, viewer.authority, v))),
+				),
+			);
+		// The checklist catalog, one checklist's preview and one phase offer by its move (WP-026). Owner and Admin only.
+		case "templates":
+			return answer(
+				await read(viewer, async (tx) => refusalOf(await templates.listTemplates(tx, viewer.authority, {}))),
+			);
+		case "preview":
+			return answer(
+				await parsed(c.previewTemplateRequest, { checklistKey: p.get("key") }, (v) =>
+					read(viewer, async (tx) => refusalOf(await templates.previewTemplate(tx, viewer.authority, v))),
+				),
+			);
+		case "offer":
+			return answer(
+				await parsed(c.readPhaseOfferRequest, { transitionId: p.get("id") ?? undefined }, (v) =>
+					read(viewer, (tx) => reader.offer(tx, viewer, v.transitionId)),
 				),
 			);
 		default:

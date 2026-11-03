@@ -4,7 +4,14 @@ import { tasksMount } from "@/server/tasks";
 import type { Transaction } from "@everyfield/db/client";
 import type { RequestActor } from "@everyfield/domain/access";
 import { followUpReader } from "@everyfield/domain/followups";
-import { taskReader, withTaskWrite, type TaskContext, type TaskReply, type TaskWriter } from "@everyfield/domain/tasks";
+import {
+	createTemplateReader,
+	taskReader,
+	withTaskWrite,
+	type TaskContext,
+	type TaskReply,
+	type TaskWriter,
+} from "@everyfield/domain/tasks";
 import "server-only";
 import { HISTORY_PAGE, outcomeOf } from "../followups/model.ts";
 import { countRequest, listRequest, pageCount, type Outcome, type TaskQuery } from "./model.ts";
@@ -57,7 +64,12 @@ export async function write<T>(
 	}
 }
 
+/** The fixed Everyfield checklist catalog: browse, preview and the phase offer (WP-026). */
+export const templates = createTemplateReader();
+
 export const reader = {
+	offer: (tx: Transaction, v: TaskViewer, transitionId?: string) =>
+		templates.readPhaseOffer(tx, v.authority, transitionId ? { transitionId } : {}).then(outcome),
 	list: (tx: Transaction, v: TaskViewer, q: TaskQuery) =>
 		taskReader.list(tx, v.authority, listRequest(q)).then(outcome),
 	count: (tx: Transaction, v: TaskViewer, q: TaskQuery) =>
@@ -111,8 +123,9 @@ export async function loadTask(tx: Transaction, viewer: TaskViewer, taskId: stri
 }
 
 /**
- * The Tasks page in one transaction: the list page and its counts, two statements. A page past the end shows the
- * last page instead (D67). A task named in the address opens with its detail and history, two statements more.
+ * The Tasks page in one transaction: the list page and its counts, two statements, and for an Owner or Admin the phase
+ * offer, one statement more and the Wiki's reading list when an offer is open. A page past the end shows the last page
+ * instead (D67). A task named in the address opens with its detail and history, two statements more.
  */
 export async function loadTasksPage(viewer: TaskViewer, query: TaskQuery, open: string | null) {
 	return read(viewer, async (tx) => {
@@ -125,9 +138,17 @@ export async function loadTasksPage(viewer: TaskViewer, query: TaskQuery, open: 
 		const counts = await reader.count(tx, viewer, query);
 		if (counts.status !== "ok") return counts;
 		const opened = open ? await loadTask(tx, viewer, open) : null;
+		// A refused or failed offer read leaves the list as it is: the offer simply does not show.
+		const offer = administers(viewer) ? await reader.offer(tx, viewer) : null;
 		return {
 			status: "ok",
-			value: { query, page: list.value, counts: counts.value, opened: opened?.status === "ok" ? opened.value : null },
+			value: {
+				query,
+				page: list.value,
+				counts: counts.value,
+				opened: opened?.status === "ok" ? opened.value : null,
+				offer: offer?.status === "ok" && offer.value.status === "open" ? offer.value : null,
+			},
 		};
 	});
 }
