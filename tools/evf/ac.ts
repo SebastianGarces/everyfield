@@ -142,25 +142,20 @@ const videosIn = (dir: string): string[] =>
 function rowOf(criterion: string, marker: string, head: string, runs: Outcome[], evidence: string[]): AcRow {
 	const names = [...new Set(runs.flatMap((r) => r.results.map((t) => t.name)))];
 	const exits = runs.filter((r) => r.code !== 0).map((r) => `node --test exited ${r.code} on ${r.engine}`);
-	if (!names.length)
-		return {
-			criterion,
-			marker,
-			status: "unmet",
-			notes: [`no test carries ${marker}`, ...exits].join("; "),
-			evidence: null,
-		};
-	const met = !exits.length && runs.every((r) => r.results.every((t) => t.result === "passed"));
+	const met = names.length > 0 && !exits.length && runs.every((r) => r.results.every((t) => t.result === "passed"));
 	const tests = names.map((name) => {
 		const seen = runs.flatMap((r) => r.results.filter((t) => t.name === name).map((t) => `${r.engine} ${t.result}`));
 		return `"${name}" (${seen.join(", ")})`;
 	});
+	const first = names.length
+		? `evf ac run at ${head.slice(0, 10)}: ${met ? "met" : "unmet"}`
+		: `no test carries ${marker}`;
 	return {
 		criterion,
 		marker,
 		status: met ? "met" : "unmet",
-		notes: [`evf ac run at ${head.slice(0, 10)}: ${met ? "met" : "unmet"}`, ...tests, ...exits].join("; "),
-		evidence: evidence.length ? evidence.join(" ") : null,
+		notes: [first, ...tests, ...exits].join("; "),
+		evidence: names.length && evidence.length ? evidence.join(" ") : null,
 	};
 }
 

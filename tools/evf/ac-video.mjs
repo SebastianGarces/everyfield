@@ -10,21 +10,15 @@ import { pathToFileURL } from "node:url";
 const dir = process.env.EVF_AC_VIDEO_DIR;
 const playwright = join(process.cwd(), "apps/web/node_modules/playwright/index.mjs");
 
-/** Wraps `launch` on the shared BrowserType prototype so Chromium and WebKit browsers both record. */
-export function recordVideo(browserType, videoDir) {
-	const proto = Object.getPrototypeOf(browserType);
-	if (proto.launch.evfVideo) return;
+if (dir && existsSync(playwright)) {
+	// Chromium and WebKit share the BrowserType prototype, so one patch of `launch` makes both record.
+	const proto = Object.getPrototypeOf((await import(pathToFileURL(playwright).href)).chromium);
 	const launch = proto.launch;
-	proto.launch = Object.assign(
-		async function (options) {
-			const browser = await launch.call(this, options);
-			const newContext = browser.newContext.bind(browser);
-			browser.newContext = (opts = {}) =>
-				newContext({ recordVideo: { dir: videoDir, size: opts.viewport ?? { width: 1440, height: 900 } }, ...opts });
-			return browser;
-		},
-		{ evfVideo: true },
-	);
+	proto.launch = async function (options) {
+		const browser = await launch.call(this, options);
+		const newContext = browser.newContext.bind(browser);
+		browser.newContext = (opts = {}) =>
+			newContext({ recordVideo: { dir, size: opts.viewport ?? { width: 1440, height: 900 } }, ...opts });
+		return browser;
+	};
 }
-
-if (dir && existsSync(playwright)) recordVideo((await import(pathToFileURL(playwright).href)).chromium, dir);
