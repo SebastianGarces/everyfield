@@ -77,7 +77,6 @@ export function PhaseOffer({
 			const read = await loadOffer(offer.transition.id);
 			return setCard(read.status === "ok" && read.value.status === "answered" ? read.value : NONE);
 		}
-		// The phase moved again (conflict): this offer no longer applies.
 		const message =
 			r.code === "conflict"
 				? "The church moved to another phase, so this offer no longer applies."
@@ -85,11 +84,11 @@ export function PhaseOffer({
 		// The catalog or the phase changed: show the current offer with the reason, or say why the card went away.
 		if (r.code === "stale_catalog" || r.code === "conflict") {
 			const read = await loadOffer();
-			if (read.status === "ok" && read.value.status !== "open") {
-				toast({ tone: "error", message });
-				return setCard(NONE);
-			}
 			if (read.status === "ok") {
+				if (read.value.status !== "open") {
+					toast({ tone: "error", message });
+					return setCard(NONE);
+				}
 				setChosen(new Set());
 				setCard(read.value);
 			}
