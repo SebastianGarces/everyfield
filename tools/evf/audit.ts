@@ -695,6 +695,9 @@ export function needsPreview(file: string, text: string, escaped: boolean, grep:
 
 type Tree = { path: string; runtime: string };
 
+/** The package scripts run tests/ui and tests/contracts without the react-server condition, the rest with it. */
+const PLAIN_CONDITIONS = /^tests\/(?:ui|contracts)\//;
+
 /**
  * The tsx CLI a workspace package installed, as the package test scripts run TypeScript tests: Node's own type
  * stripping refuses syntax such as parameter properties. A tree without tsx runs TypeScript on plain Node.
@@ -746,7 +749,7 @@ async function runTests(
 				[
 					process.execPath,
 					...(/\.[cm]?tsx?$/.test(file) && tsx ? [tsx] : []),
-					"--conditions=react-server",
+					...(PLAIN_CONDITIONS.test(file) ? [] : ["--conditions=react-server"]),
 					`--env-file-if-exists=${join(root, "apps/web/.env.local")}`,
 					"--test",
 					"--test-concurrency=1",

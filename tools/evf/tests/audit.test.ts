@@ -72,7 +72,7 @@ const MERGES: Record<string, Record<string, string>> = {
 	"WP-038": {
 		"packages/calc/src/phase.mjs": "export const last = (p) => p >= 6;\n",
 		"tests/calc/phase.test.mjs":
-			'import assert from "node:assert/strict";\nimport { test } from "node:test";\nimport { last } from "../../packages/calc/src/phase.mjs";\ntest("AC:PHASE-CASE-001 phase six is last", () => {\n\tassert.equal(last(6), true);\n\tassert.equal(last(5), false);\n\tassert.equal(process.env.NODE_ENV, "test");\n\tassert.equal(process.env.DATABASE_URL, undefined);\n});\n',
+			'import assert from "node:assert/strict";\nimport { test } from "node:test";\nimport { last } from "../../packages/calc/src/phase.mjs";\ntest("AC:PHASE-CASE-001 phase six is last", () => {\n\tassert.equal(last(6), true);\n\tassert.equal(last(5), false);\n\tassert.equal(process.env.NODE_ENV, "test");\n\tassert.equal(process.env.DATABASE_URL, undefined);\n\tassert.ok(process.execArgv.includes("--conditions=react-server"));\n});\n',
 		// The file carries a marker in a comment; its test name does not, so the test never runs (it would fail).
 		"tests/calc/comment.test.mjs":
 			'// AC:PHASE-CASE-001 in a comment\nimport assert from "node:assert/strict";\nimport { test } from "node:test";\ntest("unmarked", () => assert.fail("an unmarked test ran"));\n',
@@ -84,7 +84,7 @@ const MERGES: Record<string, Record<string, string>> = {
 		"tests/calc/db.production.test.mjs":
 			'import { test } from "node:test";\ntest("AC:PHASE-CASE-001 production only", () => {});\n',
 		"tests/ui/escaped/old-bug.test.mjs":
-			'import { test } from "node:test";\ntest("an escaped bug stays fixed", () => {});\n',
+			'import assert from "node:assert/strict";\nimport { test } from "node:test";\n// tests/ui runs without the react-server condition, as pnpm test:ui runs it.\ntest("an escaped bug stays fixed", () => assert.equal(process.execArgv.includes("--conditions=react-server"), false));\n',
 		// TypeScript tests run on the tsx a workspace package installed, as the package scripts run them. This fake
 		// records its arguments and runs them on Node.
 		"tests/calc/phase.test.mts": 'import { test } from "node:test";\ntest("AC:PHASE-CASE-002 typescript", () => {});\n',

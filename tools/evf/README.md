@@ -839,7 +839,8 @@ key, read with `acCriteria`). evf finds the files whose text carries a marker an
 `--test-name-pattern`, so a test whose name carries no marker never runs. A task whose files carry
 markers only in comments has no marked test: the run stops after the baseline and plants nothing.
 Files named `*.production.*` never run. Each file runs with `node --test` in the audit worktree (a
-TypeScript file through the `tsx` a workspace package installed, as the package test scripts run it),
+TypeScript file through the `tsx` a workspace package installed, and outside `tests/ui/` and `tests/contracts/`
+with `--conditions=react-server`, as the package test scripts run them),
 with `NODE_ENV=test` and the home checkout's `apps/web/.env.local` (the development database); a
 `DATABASE_URL` in the shell does not reach it.
 When a selected `tests/ui` file opens a browser (it reads `setup.mjs` or `UI_BASE_URL`) and one of
