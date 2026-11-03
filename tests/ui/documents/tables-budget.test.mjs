@@ -53,14 +53,13 @@ for (const [name, engine] of ENGINES) {
 				const doc = await t.checked("Insert Budget table", () => t.insert("Budget table"));
 				const budget = doc.body.content.find((n) => n.type === "table");
 				assert.equal(budget.attrs.style, "ledger");
-				assert.deepEqual(budget.attrs.columns.map((c) => c.type), ["text", "money"]);
+				assert.deepEqual(
+					budget.attrs.columns.map((c) => c.type),
+					["text", "money"],
+				);
 				assert.deepEqual(roles(budget), ["group", "item", "subtotal", "total"]);
 				assert.deepEqual(labels(budget), ["Category", "Line item", "Category total", "Total"]);
-				assert.equal(
-					JSON.stringify(budget).includes('"value"'),
-					false,
-					"no row holds a typed amount yet",
-				);
+				assert.equal(JSON.stringify(budget).includes('"value"'), false, "no row holds a typed amount yet");
 
 				// Every label edits in place.
 				await t.checked("Edit a label in place", async () => {
@@ -103,9 +102,13 @@ for (const [name, engine] of ENGINES) {
 				// The category sign is its own control: a budget with expenses needs it.
 				await t.cell(5, 0);
 				const sign = page.getByRole("radiogroup", { name: "Category sign" });
-				await t.checked("Category subtracts", () => sign.getByRole("radio", { name: "This category subtracts from the total" }).click());
+				await t.checked("Category subtracts", () =>
+					sign.getByRole("radio", { name: "This category subtracts from the total" }).click(),
+				);
 				assert.equal((await t.table()).content[5].attrs.sign, "subtract");
-				await t.checked("Category adds", () => sign.getByRole("radio", { name: "This category adds to the total" }).click());
+				await t.checked("Category adds", () =>
+					sign.getByRole("radio", { name: "This category adds to the total" }).click(),
+				);
 				assert.notEqual((await t.table()).content[5].attrs?.sign, "subtract");
 
 				await t.cell(6, 0);
@@ -162,7 +165,11 @@ for (const [name, engine] of ENGINES) {
 			const table = await t.table();
 			for (const row of table.content) {
 				const role = row.attrs?.role ?? "item";
-				if (role !== "item") assert.ok(row.content.every((c) => c.attrs?.value === undefined), `a ${role} row holds no typed amount`);
+				if (role !== "item")
+					assert.ok(
+						row.content.every((c) => c.attrs?.value === undefined),
+						`a ${role} row holds no typed amount`,
+					);
 			}
 			// Accepted forms and the refusal of the rest. A blank amount stores null.
 			for (const [typed, stored] of [
@@ -180,7 +187,10 @@ for (const [name, engine] of ENGINES) {
 			await t.amount("Other income").click();
 			for (let i = 0; i < 4; i++) await page.keyboard.press("ArrowRight");
 			await page.keyboard.type("x");
-			assert.match(await page.locator(`${PAPER} .ef-vnote`).filter({ hasText: "not an amount" }).first().innerText(), /"100x" is not an amount/);
+			assert.match(
+				await page.locator(`${PAPER} .ef-vnote`).filter({ hasText: "not an amount" }).first().innerText(),
+				/"100x" is not an amount/,
+			);
 			const row = (await t.table()).content.find((r) => textOf(r.content[0]) === "Other income");
 			assert.equal(row.content[1].attrs.value, 100, "an input that is no amount is not stored");
 

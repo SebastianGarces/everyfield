@@ -35,7 +35,14 @@ for (const [name, engine] of ENGINES) {
 			await t.checked("Remove column", () => t.button("Remove column").click());
 			await t.checked("Edit a header label", () => page.locator(".ef-head-cell").nth(0).fill("Guest"));
 			// 4: each kind of column.
-			for (const [col, value] of [[0, "number"], [1, "money"], [2, "check"], [0, "index"], [1, "text"], [0, "text"]]) {
+			for (const [col, value] of [
+				[0, "number"],
+				[1, "money"],
+				[2, "check"],
+				[0, "index"],
+				[1, "text"],
+				[0, "text"],
+			]) {
 				await page.locator(".ef-head-cell").nth(col).focus();
 				await t.checked(`Kind ${value} on column ${col + 1}`, () => kind(page, value));
 			}
@@ -54,7 +61,12 @@ for (const [name, engine] of ENGINES) {
 			// 7: checklist rows.
 			await t.cell(0, 0);
 			await t.checked("Insert Checklist rows", () => t.insert("Checklist rows"));
-			await t.checked("Tick a checklist box", () => page.getByRole("checkbox", { name: /Done, row 1/ }).last().click());
+			await t.checked("Tick a checklist box", () =>
+				page
+					.getByRole("checkbox", { name: /Done, row 1/ })
+					.last()
+					.click(),
+			);
 			// 8: a budget.
 			await t.checked("Insert Budget table", () => t.insert("Budget table"));
 			const rows = async () => (await t.tables()).find((tb) => tb.attrs.style === "ledger").content;
@@ -68,7 +80,10 @@ for (const [name, engine] of ENGINES) {
 			await t.checked("Add category", () => t.button("Add category").click());
 			await t.cell(await at("Category"), 0, await budget());
 			await t.checked("Category sign", () =>
-				page.getByRole("radiogroup", { name: "Category sign" }).getByRole("radio", { name: "This category subtracts from the total" }).click(),
+				page
+					.getByRole("radiogroup", { name: "Category sign" })
+					.getByRole("radio", { name: "This category subtracts from the total" })
+					.click(),
 			);
 			await t.cell(await at("Category"), 0, await budget());
 			await t.checked("Remove category", () => t.button("Remove category").click());
@@ -83,7 +98,11 @@ for (const [name, engine] of ENGINES) {
 			assert.notDeepEqual(typed, before);
 			await page.keyboard.press(`${MOD}+z`);
 			await t.settle();
-			assert.deepEqual(await t.snap(), before, "Undo with focus in the amount field gives the earlier JSON exactly: one typed amount is one step");
+			assert.deepEqual(
+				await t.snap(),
+				before,
+				"Undo with focus in the amount field gives the earlier JSON exactly: one typed amount is one step",
+			);
 			assert.equal(await field.inputValue(), "$3,000");
 			await page.keyboard.press(`${MOD}+Shift+z`);
 			await t.settle();
@@ -117,7 +136,11 @@ for (const [name, engine] of ENGINES) {
 		});
 		// No package of Tiptap's general table is installed.
 		for (const dir of ["", "apps/web"])
-			assert.equal(existsSync(join(ROOT, dir, "node_modules/@tiptap/extension-table")), false, "@tiptap/extension-table is not installed");
+			assert.equal(
+				existsSync(join(ROOT, dir, "node_modules/@tiptap/extension-table")),
+				false,
+				"@tiptap/extension-table is not installed",
+			);
 	});
 
 	test(`AC:WP-036-14 (${name}): a template's table, loaded and saved with no edit, keeps its stored form and shows no unsaved change`, async () => {
@@ -160,7 +183,12 @@ for (const [name, engine] of ENGINES) {
 				const c = controls.nth(i);
 				const named = await c.evaluate((el) => {
 					const label = el.getAttribute("aria-label") || el.labels?.[0]?.textContent || el.textContent;
-					return { label: (label ?? "").trim(), cursor: getComputedStyle(el).cursor, disabled: el.disabled === true, type: el.type };
+					return {
+						label: (label ?? "").trim(),
+						cursor: getComputedStyle(el).cursor,
+						disabled: el.disabled === true,
+						type: el.type,
+					};
 				});
 				assert.ok(named.label.length > 0, `control ${i + 1} has an accessible name`);
 				const text = ["text", "number"].includes(named.type);
@@ -186,16 +214,37 @@ for (const [name, engine] of ENGINES) {
 					const a = document.activeElement;
 					const inTable = !!a?.closest?.('[data-ef-node="table"]');
 					const sel = document.querySelector(".ef-paper .ProseMirror")?.editor?.state.selection;
-					return { head: a?.classList?.contains("ef-head-cell") ? [...a.parentElement.children].indexOf(a) : null, inTable, cell: sel ? sel.$from.parent.type.name : null, row: sel ? sel.$from.index(1) : null, col: sel ? sel.$from.index(2) : null };
+					return {
+						head: a?.classList?.contains("ef-head-cell") ? [...a.parentElement.children].indexOf(a) : null,
+						inTable,
+						cell: sel ? sel.$from.parent.type.name : null,
+						row: sel ? sel.$from.index(1) : null,
+						col: sel ? sel.$from.index(2) : null,
+					};
 				});
 				stops.push(here);
 				await page.keyboard.press("Tab");
 			}
-			assert.deepEqual(stops.slice(0, 3).map((s) => s.head), [0, 1, 2], "the header labels come first");
+			assert.deepEqual(
+				stops.slice(0, 3).map((s) => s.head),
+				[0, 1, 2],
+				"the header labels come first",
+			);
 			const cells = stops.slice(3, 9).map((s) => [s.cell, s.row, s.col]);
-			assert.deepEqual(cells, [["cell", 0, 0], ["cell", 0, 1], ["cell", 0, 2], ["cell", 1, 0], ["cell", 1, 1], ["cell", 1, 2]]);
+			assert.deepEqual(cells, [
+				["cell", 0, 0],
+				["cell", 0, 1],
+				["cell", 0, 2],
+				["cell", 1, 0],
+				["cell", 1, 1],
+				["cell", 1, 2],
+			]);
 			assert.equal(stops[9].inTable, true, "the blank rows are the last stop in the table");
-			assert.equal(stops.slice(9).some((s) => !s.inTable), true, `Tab leaves the table after its last stop: ${JSON.stringify(stops)}`);
+			assert.equal(
+				stops.slice(9).some((s) => !s.inTable),
+				true,
+				`Tab leaves the table after its last stop: ${JSON.stringify(stops)}`,
+			);
 			// The screen reader's view: a table with column headers, rows and cells.
 			assert.equal(await page.getByRole("table").count(), 1);
 			assert.equal(await page.getByRole("columnheader").count(), 3);
@@ -232,11 +281,18 @@ for (const [name, engine] of ENGINES) {
 				assert.ok(m.inner > m.outer, "the table is wider than its area");
 				assert.equal(m.overflow, "auto", "and scrolls inside it");
 				// Each control fits the screen.
-				const boxes = await page.getByRole("group", { name: "Block settings" }).locator("button, select, input").evaluateAll((els) =>
-					els.map((el) => ({ label: el.getAttribute("aria-label") || el.id, ...el.getBoundingClientRect().toJSON() })),
-				);
+				const boxes = await page
+					.getByRole("group", { name: "Block settings" })
+					.locator("button, select, input")
+					.evaluateAll((els) =>
+						els.map((el) => ({
+							label: el.getAttribute("aria-label") || el.id,
+							...el.getBoundingClientRect().toJSON(),
+						})),
+					);
 				assert.ok(boxes.length > 10);
-				for (const b of boxes) assert.ok(b.left >= 0 && b.right <= 390, `${b.label} fits (${Math.round(b.left)} to ${Math.round(b.right)})`);
+				for (const b of boxes)
+					assert.ok(b.left >= 0 && b.right <= 390, `${b.label} fits (${Math.round(b.left)} to ${Math.round(b.right)})`);
 			},
 			{ size: [390, 844], blank: true },
 		);
@@ -257,11 +313,17 @@ for (const [name, engine] of ENGINES) {
 			for (const label of ["Insert block", "Save", "Add row below", "Add line item", "Delete all content"])
 				assert.equal(await page.getByRole("button", { name: label }).count(), 0, `no ${label}`);
 			assert.equal(await page.locator("input.ef-vinput, input.ef-head-cell").count(), 0, "no field to type in");
-			const pdf = await page.context().request.get(
-				new URL(await page.getByRole("link", { name: "Download PDF" }).getAttribute("href"), url).toString(),
-			);
+			const pdf = await page
+				.context()
+				.request.get(
+					new URL(await page.getByRole("link", { name: "Download PDF" }).getAttribute("href"), url).toString(),
+				);
 			assert.equal(pdf.status(), 200);
-			assert.equal(await page.getByRole("link", { name: "Download Excel" }).count(), 1, "a budget still offers Excel to read");
+			assert.equal(
+				await page.getByRole("link", { name: "Download Excel" }).count(),
+				1,
+				"a budget still offers Excel to read",
+			);
 		});
 	});
 }

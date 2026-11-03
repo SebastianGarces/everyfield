@@ -163,12 +163,37 @@ export function helpers(page, base) {
 	/** The bytes the file route gives for the saved revision. `download` is the Download link, else the preview. */
 	async function file(format, { download = true } = {}) {
 		const { id, revision } = await where();
-		const response = await page.context().request.get(
-			`${BASE}/documents/church/${id}/file?format=${format}&revision=${revision}${download ? "&download=1" : ""}`,
-		);
+		const response = await page
+			.context()
+			.request.get(
+				`${BASE}/documents/church/${id}/file?format=${format}&revision=${revision}${download ? "&download=1" : ""}`,
+			);
 		return { status: response.status(), bytes: new Uint8Array(await response.body()) };
 	}
 	const rowsDom = (n = 0) => page.locator(`${PAPER} [data-ef-node="table"]`).nth(n).locator('[data-ef-node="row"]');
 	const reasons = () => page.locator("[data-table-reasons]");
-	return { amount, computed, typeAmount, where, file, json, snap, body, tables, table, valid, undo, redo, button, settle, checked, insert, deleteAll, save, cell, rowsDom, reasons };
+	return {
+		amount,
+		computed,
+		typeAmount,
+		where,
+		file,
+		json,
+		snap,
+		body,
+		tables,
+		table,
+		valid,
+		undo,
+		redo,
+		button,
+		settle,
+		checked,
+		insert,
+		deleteAll,
+		save,
+		cell,
+		rowsDom,
+		reasons,
+	};
 }

@@ -37,7 +37,15 @@ function excelRows(bytes) {
 		writeFileSync(join(dir, "budget.xlsx"), bytes);
 		execFileSync(
 			"soffice",
-			["--headless", `-env:UserInstallation=file://${dir}/profile`, "--convert-to", "csv", "--outdir", dir, join(dir, "budget.xlsx")],
+			[
+				"--headless",
+				`-env:UserInstallation=file://${dir}/profile`,
+				"--convert-to",
+				"csv",
+				"--outdir",
+				dir,
+				join(dir, "budget.xlsx"),
+			],
 			{ stdio: "ignore", timeout: 120_000 },
 		);
 		return readFileSync(join(dir, "budget.csv"), "utf8")
@@ -131,7 +139,10 @@ for (const [name, engine] of ENGINES) {
 			await page.keyboard.type("Church plant fund");
 			await t.typeAmount("Church plant fund", "250.50");
 			await t.cell(group, 0);
-			await page.getByRole("radiogroup", { name: "Category sign" }).getByRole("radio", { name: "This category subtracts from the total" }).click();
+			await page
+				.getByRole("radiogroup", { name: "Category sign" })
+				.getByRole("radio", { name: "This category subtracts from the total" })
+				.click();
 			// An added column (a note) and a removed one (the formula column).
 			await headFocus(page, 1);
 			await t.button("Add column right").click();
@@ -143,7 +154,10 @@ for (const [name, engine] of ENGINES) {
 			await t.button("Remove column").click();
 			await t.save();
 			const saved = await t.table();
-			assert.deepEqual(saved.attrs.columns.map((c) => c.label), ["Category", "Monthly", "Notes"]);
+			assert.deepEqual(
+				saved.attrs.columns.map((c) => c.label),
+				["Category", "Monthly", "Notes"],
+			);
 			const sheet = excelRows(await downloadExcel(page));
 			assertSheet(sheet, saved, "Harvest Point Budget Worksheet 2027");
 			assert.equal(sheet[2].join(","), "Category,Monthly,Notes");
@@ -182,7 +196,10 @@ for (const [name, engine] of ENGINES) {
 				await page.keyboard.type("Rent");
 				await t.typeAmount("Rent", "900");
 				await t.cell(4, 0);
-				await page.getByRole("radiogroup", { name: "Category sign" }).getByRole("radio", { name: "This category subtracts from the total" }).click();
+				await page
+					.getByRole("radiogroup", { name: "Category sign" })
+					.getByRole("radio", { name: "This category subtracts from the total" })
+					.click();
 				await headFocus(page, 1);
 				await t.button("Add column left").click();
 				await headFocus(page, 1);
@@ -215,8 +232,15 @@ async function budgetDoc(change) {
 function workbook(bytes) {
 	const parts = docxParts(bytes);
 	const styles = parts["xl/styles.xml"];
-	const formats = new Map([...styles.matchAll(/<numFmt numFmtId="(\d+)" formatCode="([^"]*)"/g)].map((m) => [m[1], m[2].replaceAll("&quot;", '"')]));
-	const fills = [...styles.match(/<fills[^>]*>(.*?)<\/fills>/s)[1].matchAll(/<fill>(.*?)<\/fill>/gs)].map((m) => /rgb="FF([0-9A-F]{6})"/.exec(m[1])?.[1] ?? null);
+	const formats = new Map(
+		[...styles.matchAll(/<numFmt numFmtId="(\d+)" formatCode="([^"]*)"/g)].map((m) => [
+			m[1],
+			m[2].replaceAll("&quot;", '"'),
+		]),
+	);
+	const fills = [...styles.match(/<fills[^>]*>(.*?)<\/fills>/s)[1].matchAll(/<fill>(.*?)<\/fill>/gs)].map(
+		(m) => /rgb="FF([0-9A-F]{6})"/.exec(m[1])?.[1] ?? null,
+	);
 	const xfs = [...styles.match(/<cellXfs[^>]*>(.*?)<\/cellXfs>/s)[1].matchAll(/<xf ([^>]*?)\/?>/g)].map((m) => ({
 		numFmt: /numFmtId="(\d+)"/.exec(m[1])[1],
 		fill: /fillId="(\d+)"/.exec(m[1])[1],
@@ -241,17 +265,23 @@ function workbook(bytes) {
 test("AC:WP-036-11: Excel shows cents, no dollar sign on a number column, ticks, the header fill, the stripes and a sheet for each table", async () => {
 	// Rows of the budget worksheet: row 3 is the header, 4 the first group, 5 and 6 the first two line items.
 	const build = async (change) => workbook(renderXlsx(await budgetDoc(change)));
-	const set = (items, values) => items.forEach((r, i) => (r.content[1] = { type: "cell", attrs: { value: values[i] ?? null } }));
+	const set = (items, values) =>
+		items.forEach((r, i) => (r.content[1] = { type: "cell", attrs: { value: values[i] ?? null } }));
 
 	// A money column with cents shows them in its amounts and its totals; one with whole amounts shows none.
 	const cents = await build((t, items) => set(items, [100.55, 200]));
 	assert.match(cents.format("B5"), /^"\$"#,##0\.00/, "an amount with cents shows the cents");
-	assert.match(cents.format("B6"), /^"\$"#,##0\.00/, "the whole amount beside it shows them too: one format for the column");
+	assert.match(
+		cents.format("B6"),
+		/^"\$"#,##0\.00/,
+		"the whole amount beside it shows them too: one format for the column",
+	);
 	assert.match(cents.format("B10"), /^"\$"#,##0\.00/, "the category total shows cents");
 	assert.match(cents.format("B23"), /^"\$"#,##0\.00/, "the grand total shows cents");
 	assert.match(cents.format("C5"), /^"\$"#,##0\.00/, "the formula column of a money column shows cents");
 	const whole = await build((t, items) => set(items, [100, 200]));
-	for (const ref of ["B5", "B10", "B23", "C5"]) assert.match(whole.format(ref), /^"\$"#,##0(;|$)/, `${ref} shows no cents`);
+	for (const ref of ["B5", "B10", "B23", "C5"])
+		assert.match(whole.format(ref), /^"\$"#,##0(;|$)/, `${ref} shows no cents`);
 	assert.doesNotMatch(whole.format("B5"), /0\.00/);
 
 	// A number column shows no dollar sign, in its cells and its totals.
@@ -259,7 +289,8 @@ test("AC:WP-036-11: Excel shows cents, no dollar sign on a number column, ticks,
 		t.attrs.columns[1].type = "number";
 		set(items, [100, 2.5]);
 	});
-	for (const ref of ["B5", "B6", "B10", "B23"]) assert.doesNotMatch(number.format(ref), /\$/, `${ref} shows no dollar sign`);
+	for (const ref of ["B5", "B6", "B10", "B23"])
+		assert.doesNotMatch(number.format(ref), /\$/, `${ref} shows no dollar sign`);
 	assert.match(number.format("B6"), /#,##0\.0/, "a number with decimals keeps them");
 
 	// A ticked check cell shows ticked; an unticked one shows empty.
@@ -337,9 +368,39 @@ async function everything(base) {
 			],
 		},
 		content: [
-			{ type: "row", content: [{ type: "cell" }, text("Chairs"), { type: "cell", attrs: { value: 4 } }, { type: "cell", attrs: { value: 12.5 } }, { type: "cell" }, { type: "cell", attrs: { checked: true } }] },
-			{ type: "row", content: [{ type: "cell" }, text("Tables"), { type: "cell", attrs: { value: 2 } }, { type: "cell", attrs: { value: 80 } }, { type: "cell" }, { type: "cell" }] },
-			{ type: "row", content: [{ type: "cell" }, text("Banner"), { type: "cell", attrs: { value: 1 } }, { type: "cell", attrs: { value: 0.3 } }, { type: "cell" }, { type: "cell", attrs: { checked: true } }] },
+			{
+				type: "row",
+				content: [
+					{ type: "cell" },
+					text("Chairs"),
+					{ type: "cell", attrs: { value: 4 } },
+					{ type: "cell", attrs: { value: 12.5 } },
+					{ type: "cell" },
+					{ type: "cell", attrs: { checked: true } },
+				],
+			},
+			{
+				type: "row",
+				content: [
+					{ type: "cell" },
+					text("Tables"),
+					{ type: "cell", attrs: { value: 2 } },
+					{ type: "cell", attrs: { value: 80 } },
+					{ type: "cell" },
+					{ type: "cell" },
+				],
+			},
+			{
+				type: "row",
+				content: [
+					{ type: "cell" },
+					text("Banner"),
+					{ type: "cell", attrs: { value: 1 } },
+					{ type: "cell", attrs: { value: 0.3 } },
+					{ type: "cell" },
+					{ type: "cell", attrs: { checked: true } },
+				],
+			},
 		],
 	};
 	const checklist = {
@@ -361,7 +422,15 @@ async function everything(base) {
 	const budget = structuredClone((await baseOf("budget-worksheet")).body.content.find((n) => n.type === "table"));
 	budget.content[1].content[1] = { type: "cell", attrs: { value: 3000.5 } };
 	budget.content[2].content[1] = { type: "cell", attrs: { value: 1200 } };
-	const body = { type: "doc", content: [{ type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Supplies" }] }, grid, checklist, budget] };
+	const body = {
+		type: "doc",
+		content: [
+			{ type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Supplies" }] },
+			grid,
+			checklist,
+			budget,
+		],
+	};
 	const doc = { ...base, exports: ["xlsx", "pdf", "docx"], body };
 	return { doc, grid, checklist, budget };
 }
@@ -374,20 +443,25 @@ for (const [name, engine] of ENGINES)
 			async (page, context, t) => {
 				const { doc, grid } = await everything(await baseOf("budget-worksheet"));
 				assert.ok(docDocument.safeParse(doc).success, "the document under test parses");
-				await page.locator(PAPER).evaluate((el, json) => el.editor.commands.setContent(json, { emitUpdate: true }), editorContent(doc));
+				await page
+					.locator(PAPER)
+					.evaluate((el, json) => el.editor.commands.setContent(json, { emitUpdate: true }), editorContent(doc));
 				await t.settle();
 				await t.save();
 				const stored = await t.snap();
 				assert.deepEqual(stored.body, clean(doc.body), "the editor holds the body as built");
 
 				// What the editor shows: header labels, text, amounts, computed numbers and row numbers of the grid.
-				const shown = await page.locator(`${PAPER} [data-ef-node="table"]`).first().evaluate((el) => ({
-					head: [...el.querySelectorAll(".ef-head-cell")].map((i) => i.value),
-					inputs: [...el.querySelectorAll(".ef-vinput")].map((i) => i.value).filter(Boolean),
-					computed: [...el.querySelectorAll(".ef-computed")].map((c) => c.textContent).filter(Boolean),
-					text: [...el.querySelectorAll('[data-ef-cell="text"]')].map((c) => c.textContent).filter(Boolean),
-					blanks: [...el.querySelectorAll(".ef-blank-cell[data-kind='index']")].map((c) => c.textContent),
-				}));
+				const shown = await page
+					.locator(`${PAPER} [data-ef-node="table"]`)
+					.first()
+					.evaluate((el) => ({
+						head: [...el.querySelectorAll(".ef-head-cell")].map((i) => i.value),
+						inputs: [...el.querySelectorAll(".ef-vinput")].map((i) => i.value).filter(Boolean),
+						computed: [...el.querySelectorAll(".ef-computed")].map((c) => c.textContent).filter(Boolean),
+						text: [...el.querySelectorAll('[data-ef-cell="text"]')].map((c) => c.textContent).filter(Boolean),
+						blanks: [...el.querySelectorAll(".ef-blank-cell[data-kind='index']")].map((c) => c.textContent),
+					}));
 				assert.deepEqual(shown.head, ["No.", "Name", "Qty", "Cost", "Total", "Done"]);
 				assert.deepEqual(shown.inputs, ["4", "$12.50", "2", "$80", "1", "$0.30"]);
 				assert.deepEqual(shown.computed.slice(0, 6), ["1", "$50", "2", "$160", "3", "$0.30"]);
@@ -397,9 +471,26 @@ for (const [name, engine] of ENGINES)
 				const pdfBytes = (await t.file("pdf")).bytes;
 				const pdf = (await pdfPages(pdfBytes)).join(" ");
 				const word = wordText(docxParts((await t.file("docx")).bytes)["word/document.xml"]);
-				for (const [label, text] of [["PDF", pdf], ["Word", word]]) {
-					for (const head of shown.head) assert.match(text.toLowerCase(), new RegExp(`\\b${head.toLowerCase().replace(".", "\\.")}`), `${label}: header ${head}`);
-					for (const piece of [...shown.text, ...shown.inputs, ...shown.computed.slice(0, 6), ...shown.blanks, "Pray every day", "Serve once a month", "$3,000.50", "$4,200.50"])
+				for (const [label, text] of [
+					["PDF", pdf],
+					["Word", word],
+				]) {
+					for (const head of shown.head)
+						assert.match(
+							text.toLowerCase(),
+							new RegExp(`\\b${head.toLowerCase().replace(".", "\\.")}`),
+							`${label}: header ${head}`,
+						);
+					for (const piece of [
+						...shown.text,
+						...shown.inputs,
+						...shown.computed.slice(0, 6),
+						...shown.blanks,
+						"Pray every day",
+						"Serve once a month",
+						"$3,000.50",
+						"$4,200.50",
+					])
 						assert.ok(text.includes(piece), `${label} prints "${piece}"`);
 				}
 
@@ -419,7 +510,10 @@ for (const [name, engine] of ENGINES)
 
 				// Blank rows print in both files: the grid has 3 blank rows of fields in the PDF and 3 empty rows in Word.
 				const wordRows = docxParts((await t.file("docx")).bytes)["word/document.xml"].match(/<w:tr[ >]/g) ?? [];
-				assert.ok(wordRows.length >= 1 + 3 + 3 + 2 + 20, `the Word tables hold the typed rows and the blank rows (${wordRows.length})`);
+				assert.ok(
+					wordRows.length >= 1 + 3 + 3 + 2 + 20,
+					`the Word tables hold the typed rows and the blank rows (${wordRows.length})`,
+				);
 
 				// The preview is the file Download gives, byte for byte, for the same revision.
 				assert.equal(sha((await t.file("pdf", { download: false })).bytes), sha(pdfBytes));

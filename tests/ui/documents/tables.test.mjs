@@ -207,7 +207,10 @@ for (const [name, engine] of ENGINES) {
 			await t.checked("Add a column right", () => t.button("Add column right").click());
 			assert.deepEqual(await ids(), ["column_1", "column_4", "column_2", "column_5", "column_3"]);
 			const grown = await t.table();
-			assert.ok(grown.content.every((r) => r.content.length === 5), "each row gains the cell");
+			assert.ok(
+				grown.content.every((r) => r.content.length === 5),
+				"each row gains the cell",
+			);
 			assert.equal(textOf(grown.content[0].content[2]), "mid");
 			assert.deepEqual(
 				grown.attrs.columns.map((c) => [c.type, c.width]),
@@ -218,7 +221,10 @@ for (const [name, engine] of ENGINES) {
 			await t.checked("Remove the current column", () => t.button("Remove column").click());
 			const shrunk = await t.table();
 			assert.deepEqual(await ids(), ["column_1", "column_4", "column_5", "column_3"]);
-			assert.ok(shrunk.content.every((r) => r.content.length === 4), "each row loses the cell");
+			assert.ok(
+				shrunk.content.every((r) => r.content.length === 4),
+				"each row loses the cell",
+			);
 
 			// The header cell edits the label.
 			await t.checked("Edit a header label", async () => {
@@ -228,17 +234,22 @@ for (const [name, engine] of ENGINES) {
 			assert.equal((await t.table()).attrs.columns[1].label, "Phone number");
 
 			// The editor lays the columns out by the PDF's own rule.
-			const measured = await page.locator(`${PAPER} .ef-table-scroll`).first().evaluate((el) => ({
-				width: el.clientWidth,
-				cols: getComputedStyle(el.querySelector(".ef-table-grid")).getPropertyValue("--ef-cols").trim(),
-				cells: [...el.querySelectorAll(".ef-head-cell")].map((c) => c.getBoundingClientRect().width),
-			}));
+			const measured = await page
+				.locator(`${PAPER} .ef-table-scroll`)
+				.first()
+				.evaluate((el) => ({
+					width: el.clientWidth,
+					cols: getComputedStyle(el.querySelector(".ef-table-grid")).getPropertyValue("--ef-cols").trim(),
+					cells: [...el.querySelectorAll(".ef-head-cell")].map((c) => c.getBoundingClientRect().width),
+				}));
 			const expected = columnWidths((await t.table()).attrs.columns, measured.width * 0.75).map((pt) => (pt * 4) / 3);
 			assert.deepEqual(
 				measured.cols.split(" ").map((v) => Math.round(Number.parseFloat(v))),
 				expected.map(Math.round),
 			);
-			measured.cells.forEach((w, i) => assert.ok(Math.abs(w - (expected[i] ?? 0)) < 2, `column ${i + 1} is ${w}px wide`));
+			measured.cells.forEach((w, i) =>
+				assert.ok(Math.abs(w - (expected[i] ?? 0)) < 2, `column ${i + 1} is ${w}px wide`),
+			);
 
 			// 16 columns is the most; the last column cannot be removed.
 			while ((await t.table()).attrs.columns.length < TABLE_LIMITS.columns) {
@@ -284,7 +295,10 @@ for (const [name, engine] of ENGINES) {
 			assert.equal((await cellOf(1)).attrs, undefined);
 			await t.checked("Kind: check box", () => kind("check"));
 			await t.checked("Kind: row number", () => kind("index"));
-			assert.deepEqual((await t.table()).attrs.columns.map((c) => c.type), ["text", "index", "text"]);
+			assert.deepEqual(
+				(await t.table()).attrs.columns.map((c) => c.type),
+				["text", "index", "text"],
+			);
 
 			// A number or money cell takes an amount; a check box ticks with a click and with the keyboard.
 			await t.checked("Kind: money", async () => {
@@ -315,7 +329,11 @@ for (const [name, engine] of ENGINES) {
 			const first = page.locator(`${PAPER} [data-ef-node="row"]`).first().locator('[data-ef-cell="value"]').first();
 			assert.equal((await first.innerText()).trim(), "1");
 			assert.equal(await first.locator("input, button").count(), 0, "a row number takes no input");
-			assert.equal(await page.locator(".ef-blank-cell[data-kind='index']").first().innerText(), "2", "blank rows count on");
+			assert.equal(
+				await page.locator(".ef-blank-cell[data-kind='index']").first().innerText(),
+				"2",
+				"blank rows count on",
+			);
 		});
 	});
 
@@ -359,7 +377,13 @@ for (const [name, engine] of ENGINES) {
 			await count.fill("-1");
 			assert.match(await page.getByRole("alert").filter({ hasText: "-1" }).innerText(), /-1 is outside 0 to 200/);
 			await count.fill("2.5");
-			assert.match(await page.getByRole("alert").filter({ hasText: /whole number/ }).innerText(), /must be a whole number/);
+			assert.match(
+				await page
+					.getByRole("alert")
+					.filter({ hasText: /whole number/ })
+					.innerText(),
+				/must be a whole number/,
+			);
 			assert.equal((await t.table()).attrs.writeInRows, 40);
 			await count.fill("200");
 			assert.equal(await blanks.count(), 200);
@@ -390,9 +414,13 @@ for (const [name, engine] of ENGINES) {
 				return { bg: s.backgroundColor, color: s.color };
 			};
 			for (const token of ["primary", "accent", "ink", "muted-text", "border", "muted", "none"]) {
-				await t.checked(`Header color ${token}`, () => page.getByRole("radio", { name: token, exact: true }).first().click(), {
-					same: token === "muted",
-				});
+				await t.checked(
+					`Header color ${token}`,
+					() => page.getByRole("radio", { name: token, exact: true }).first().click(),
+					{
+						same: token === "muted",
+					},
+				);
 				const fill = tokenColor(palette, token);
 				const seen = await head.evaluate(paint);
 				if (fill) {
@@ -403,12 +431,16 @@ for (const [name, engine] of ENGINES) {
 			await t.checked("Striped rows", () => page.getByLabel("Striped rows").check());
 			assert.equal((await t.table()).attrs.zebra, true);
 			// The PDF stripes every second item row, the blank rows included: typed rows 2 and 4, then blank row 2 (item 6).
-			const striped = await page.locator(`${PAPER} .ef-table [data-role="item"]`).evaluateAll((rows) =>
-				rows.map((r) => getComputedStyle(r).backgroundColor),
-			);
+			const striped = await page
+				.locator(`${PAPER} .ef-table [data-role="item"]`)
+				.evaluateAll((rows) => rows.map((r) => getComputedStyle(r).backgroundColor));
 			assert.equal(striped.length, 9, "four typed rows and five blank rows");
 			striped.forEach((bg, i) =>
-				assert.equal(bg === rgb(palette.muted), (i + 1) % 2 === 0, `row ${i + 1} is ${(i + 1) % 2 === 0 ? "" : "not "}striped`),
+				assert.equal(
+					bg === rgb(palette.muted),
+					(i + 1) % 2 === 0,
+					`row ${i + 1} is ${(i + 1) % 2 === 0 ? "" : "not "}striped`,
+				),
 			);
 			await t.checked("Stripes off", () => page.getByLabel("Striped rows").uncheck());
 			assert.equal((await t.table()).attrs.zebra, false);
