@@ -100,11 +100,14 @@ export type RegionKey = keyof typeof REGION_NODE;
 
 /** Which pages a region prints on, or null when the page has none. */
 export function regionPages(state: EditorState, key: RegionKey): "all" | "first" | "rest" | null {
-	const { doc } = state;
-	const node = key === "header" ? doc.firstChild : doc.lastChild;
-	return node?.type.name === REGION_NODE[key]
-		? ((node.attrs.pages as "all" | "first" | "rest" | undefined) ?? "all")
-		: null;
+	const node = regionNode(state.doc, key);
+	return node ? ((node.attrs.pages as "all" | "first" | "rest" | undefined) ?? "all") : null;
+}
+
+/** The header or the footer node: the first or the last child of the document, or null when the page has none. */
+function regionNode(doc: PMNode, key: RegionKey): PMNode | null {
+	const edge = key === "header" ? doc.firstChild : doc.lastChild;
+	return edge?.type.name === REGION_NODE[key] ? edge : null;
 }
 
 /** Turns the header or the footer on (with one empty paragraph) or off, or sets the pages it prints on. One step. */
@@ -119,8 +122,7 @@ export function setRegion(
 	const paragraph = state.schema.nodes.paragraph;
 	if (!type || !paragraph) return false;
 	const { doc } = state;
-	const edge = key === "header" ? doc.firstChild : doc.lastChild;
-	const node = edge?.type === type ? edge : null;
+	const node = regionNode(doc, key);
 	const from = key === "header" ? 0 : doc.content.size - (node?.nodeSize ?? 0);
 	const tr = history(editor);
 	if (on && !node) tr.insert(from, type.create({ pages }, paragraph.create()));

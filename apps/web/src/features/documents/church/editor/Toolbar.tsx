@@ -13,11 +13,10 @@ import {
 	TextNumberSignIcon,
 	UnfoldMoreIcon,
 } from "@hugeicons/core-free-icons";
-import { Icon, type IconSvgElement } from "@everyfield/ui/foundations";
+import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
 import type { DocBrand } from "@everyfield/contracts/documents";
 import type { Editor } from "@tiptap/react";
 import { Fragment, useEffect, useReducer } from "react";
-import { cn } from "@everyfield/ui/foundations";
 import { useEditorState } from "@tiptap/react";
 import {
 	canInsert,
@@ -109,6 +108,18 @@ const GROUP_LABEL = {
 	lines: "Lines to fill in",
 	images: "Brand kit images",
 } as const;
+
+/** A heading over a group of Insert menu items. */
+function MenuLabel({ children }: { children: string }) {
+	return (
+		<div
+			role="presentation"
+			className="px-2.5 pt-2 pb-1 text-xs font-semibold tracking-wide text-text-3 uppercase first:pt-1"
+		>
+			{children}
+		</div>
+	);
+}
 
 const PAGE_NUMBERS = [
 	{ format: "page", label: "Page N" },
@@ -278,14 +289,7 @@ export function EditorToolbar({
 							const divide = i > 0 && shown[i - 1]?.group !== k.group;
 							return (
 								<Fragment key={k.kind}>
-									{i === 0 || divide ? (
-										<div
-											role="presentation"
-											className="px-2.5 pt-2 pb-1 text-xs font-semibold tracking-wide text-text-3 uppercase first:pt-1"
-										>
-											{GROUP_LABEL[k.group]}
-										</div>
-									) : null}
+									{i === 0 || divide ? <MenuLabel>{GROUP_LABEL[k.group]}</MenuLabel> : null}
 									<DropdownMenuItem
 										className={MENU_ITEM}
 										disabled={image !== null && !asset}
@@ -315,12 +319,7 @@ export function EditorToolbar({
 						})}
 						{s.region ? (
 							<>
-								<div
-									role="presentation"
-									className="px-2.5 pt-2 pb-1 text-xs font-semibold tracking-wide text-text-3 uppercase"
-								>
-									Page number
-								</div>
+								<MenuLabel>Page number</MenuLabel>
 								{PAGE_NUMBERS.map((p) => (
 									<DropdownMenuItem
 										key={p.format}

@@ -166,11 +166,8 @@ function HeightField({ editor, target }: { editor: Editor; target: Target }) {
 	const id = useId();
 	const current = typeof target.node.attrs.height === "number" ? target.node.attrs.height : 34;
 	const [draft, setDraft] = useState<string | null>(null);
-	const number = Number(draft);
-	const problem =
-		draft !== null && (!Number.isFinite(number) || number < 8 || number > 1440)
-			? `${draft || "(empty)"} is outside 8 to 1440`
-			: null;
+	const inRange = (text: string) => text !== "" && Number(text) >= 8 && Number(text) <= 1440;
+	const problem = draft !== null && !inRange(draft) ? `${draft || "(empty)"} is outside 8 to 1440` : null;
 	return (
 		<span className="flex flex-wrap items-center gap-2">
 			<label htmlFor={id} className="text-sm text-text-2">
@@ -191,10 +188,7 @@ function HeightField({ editor, target }: { editor: Editor; target: Target }) {
 					onChange={(event) => {
 						const text = event.target.value;
 						setDraft(text);
-						const next = Number(text);
-						if (text !== "" && Number.isFinite(next) && next >= 8 && next <= 1440) {
-							setBlockAttrs(editor, target.pos, { height: next });
-						}
+						if (inRange(text)) setBlockAttrs(editor, target.pos, { height: Number(text) });
 					}}
 					onBlur={() => setDraft(null)}
 				/>
