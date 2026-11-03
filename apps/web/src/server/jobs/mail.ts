@@ -1,7 +1,7 @@
 import { and, eq, inArray, isNull, sql, type SQLWrapper } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import "server-only";
-import { notificationCategory } from "@everyfield/contracts/settings";
+import { defaultChannelEnabled, notificationCategory } from "@everyfield/contracts/settings";
 import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { z } from "zod";
@@ -199,7 +199,7 @@ export function createMailService(config: {
 						eq(tables.notification_preference.channel, "email"),
 					),
 				);
-			if (choice[0]?.enabled === false) return false;
+			if (!(choice[0]?.enabled ?? defaultChannelEnabled(m.purpose, "email"))) return false;
 		}
 		return (await config.authorize(tx, [authority(m)])).has(m.id);
 	}

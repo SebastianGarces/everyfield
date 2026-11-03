@@ -323,6 +323,16 @@ def runnable_errors(case, example, given, operations, requirement, name):
             errors.append(f'{name}: TARGET write scenarios need a command action or explicit command subcases')
     return errors
 
+def run_errors(root, case, label):
+    """A run case names the test files that run it, and each of them names the case as AC:<case-id>."""
+    tests = case.get('run_by', [])
+    if case.get('status') != 'run':
+        return [f'{label}: run_by needs status run'] if tests else []
+    if not tests:
+        return [f'{label}: a run case names its tests in run_by']
+    return [f'{label}: {path} does not run AC:{case["id"]}' for path in tests
+            if not (root / path).is_file() or f'AC:{case["id"]} ' not in (root / path).read_text()]
+
 def check(root, package=None, report=None):
     index = read(root / 'docs/catalog/index.json')
     schema = read(root / 'docs/acceptance/case.schema.json')
@@ -351,6 +361,7 @@ def check(root, package=None, report=None):
             label = f"{file}:{case.get('id', '<missing-id>')}"
             errors.extend(validate(case, schema, schema['$defs'], label))
             cid = case.get('id')
+            errors.extend(run_errors(root, case, label))
             if cid in cases:
                 errors.append(f'{label}: duplicate case ID')
             cases[cid] = case

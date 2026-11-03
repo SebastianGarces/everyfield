@@ -314,10 +314,6 @@
 	"communication.updateTemplate": {
 		"limit": 2
 	},
-	"digest.generateOwed": {
-		"limit": 10,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 5 locked read, 2 read, 3 write."
-	},
 	"brand.finalizeUpload": {
 		"limit": 1
 	},
