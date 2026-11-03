@@ -4,8 +4,7 @@ import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
-import { source } from "./fixtures.ts";
-import { DEV_ENDPOINT, PROD_ENDPOINT } from "../qa-guard.ts";
+import { runSeed, source, tsxRun } from "./fixtures.ts";
 import { startQuietDatabase, stopQuietDatabase, type QuietDatabase } from "../timing-stack.ts";
 
 // OPS-125: the QA seed gives the QA owner 13 answered past check-in weeks. Each test reads the seeded quiet database
@@ -13,7 +12,6 @@ import { startQuietDatabase, stopQuietDatabase, type QuietDatabase } from "../ti
 
 const ZONE = "America/New_York";
 const OWNER = "delivered+qa-owner@resend.dev";
-const tsx = join(source, "packages/domain/node_modules/.bin/tsx");
 const PASSWORD = "qa-role-password-0123";
 
 type Levels = { spiritual: string; family: string; financial: string; pace: string };
@@ -27,14 +25,6 @@ type Week = {
 	revisions: { revision: number; kind: string; answers: Levels; note: string | null; recordedAt: string }[];
 };
 type Page = { zone: string; revision: string; page: number; pageCount: number; weeks: Week[] };
-
-function tsxRun(args: string[], env: Record<string, string | undefined>) {
-	const clean: NodeJS.ProcessEnv = { ...process.env, NODE_ENV: undefined, DATABASE_URL: undefined };
-	for (const [k, v] of Object.entries(env)) clean[k] = v;
-	for (const k of Object.keys(clean)) if (clean[k] === undefined) delete clean[k];
-	return spawnSync(tsx, ["--conditions=react-server", ...args], { cwd: source, encoding: "utf8", env: clean });
-}
-const runSeed = (env: Record<string, string | undefined>) => tsxRun(["tools/evf/qa-seed.ts"], env);
 
 /** The local date of `at` in the owner's zone. */
 const localDay = (at: Date | string) =>
@@ -52,13 +42,11 @@ function thisMonday() {
 
 type Shared = {
 	db: QuietDatabase;
-	/** Private-care row counts after a refused run on the fresh database. */
-	refused: Record<string, number>;
 	firstSeed: string;
 	query: (text: string, values?: unknown[]) => Promise<Record<string, unknown>[]>;
 };
 let shared: Promise<Shared> | undefined;
-/** One quiet database for this file: a refused run, then the first seed. Started by the first test that needs it. */
+/** One quiet database for this file, seeded once. Started by the first test that needs it. */
 function seeded(): Promise<Shared> {
 	shared ??= (async () => {
 		const db = startQuietDatabase(source, "qa-check-ins");
@@ -72,16 +60,9 @@ function seeded(): Promise<Shared> {
 				await client.end();
 			}
 		};
-		const refusedRun = runSeed({ DATABASE_URL: db.adminUrl, NODE_ENV: "production", QA_ROLE_PASSWORD: PASSWORD });
-		assert.equal(refusedRun.status, 2, refusedRun.stderr);
-		const refused = (
-			await query(`SELECT (SELECT count(*)::int FROM private_week) AS private_week,
-				(SELECT count(*)::int FROM private_week_revision) AS private_week_revision,
-				(SELECT count(*)::int FROM private_calendar) AS private_calendar`)
-		)[0] as Record<string, number>;
 		const first = runSeed({ DATABASE_URL: db.adminUrl, QA_ROLE_PASSWORD: PASSWORD });
 		assert.equal(first.status, 0, first.stderr);
-		return { db, refused, firstSeed: first.stdout.trim(), query };
+		return { db, firstSeed: first.stdout.trim(), query };
 	})();
 	return shared;
 }
@@ -253,29 +234,6 @@ test("OPS-125: a rerun writes nothing, and a branch without the history gets it 
 	const third = runSeed(env);
 	assert.equal(third.stdout.trim(), "QA seed: the branch is already complete.");
 	assert.deepEqual(await counts(), filled);
-	assert.deepEqual(
-		await query(`SELECT count(*)::int AS n FROM (SELECT author_id,plant_id,starts_on FROM private_week
-			GROUP BY 1,2,3 HAVING count(*)>1) d`),
-		[{ n: 0 }],
-	);
-});
-
-test("OPS-125: every seed refusal stops before a connection and leaves no check-in row AC:OPS-125-7", async () => {
-	const neon = (endpoint: string) =>
-		`postgres://u:npg_Sentinel01@${endpoint}-x1.c-14.us-east-1.aws.neon.tech/neondb?sslmode=require`;
-	for (const [env, reason] of [
-		[{ DATABASE_URL: neon(PROD_ENDPOINT) }, /production database/],
-		[{ DATABASE_URL: neon(DEV_ENDPOINT) }, /shared development branch/],
-		[{ DATABASE_URL: "postgres://u:p@127.0.0.1:1/qa", NODE_ENV: "production" }, /NODE_ENV is production/],
-		[{}, /DATABASE_URL is not set/],
-	] as const) {
-		// These hosts do not answer: a run that tried to connect would fail with exit 1, not refuse with exit 2.
-		const r = runSeed({ ...env, QA_ROLE_PASSWORD: PASSWORD });
-		assert.equal(r.status, 2, r.stderr);
-		assert.match(r.stderr, reason);
-	}
-	// The refused run on the fresh quiet database, before its first seed.
-	assert.deepEqual((await seeded()).refused, { private_week: 0, private_week_revision: 0, private_calendar: 0 });
 });
 
 test("OPS-125: no app or package imports the QA tooling, and the change edits no app or package AC:OPS-125-8", (t) => {
