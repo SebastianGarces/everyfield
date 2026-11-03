@@ -17,7 +17,6 @@ import {
 } from "./core.ts";
 import { z } from "zod";
 
-const HUB = ["draft", "scheduled", "sending", "sent", "logged", "cancelled", "failed", "unknown"] as const;
 const one = (result: { rows: unknown[] }) => result.rows[0];
 const asJson = (value: unknown) => (typeof value === "string" ? JSON.parse(value) : value);
 const STAMP = 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"';
@@ -75,7 +74,7 @@ function textOrNull(value: unknown) {
 	return text ? text.slice(0, 200) : null;
 }
 function stateOrNull(value: unknown) {
-	return typeof value === "string" && (HUB as readonly string[]).includes(value) ? value : null;
+	return typeof value === "string" && (c.hubStates as readonly string[]).includes(value) ? value : null;
 }
 function uuidOrNull(value: unknown) {
 	return typeof value === "string" && z.uuid().safeParse(value).success ? value : null;
@@ -108,20 +107,40 @@ function stamp(column: SQL) {
 function mailOn(plantId: string) {
 	return sql`m.tenant_id = ${plantId}::uuid AND m.purpose = 'communication' AND m.logical_key LIKE 'communication/' || c.id::text || '/%'`;
 }
+/**
+ * The state history shows, from the recipient rows only (a scheduled handoff stores the held time on each row; a
+ * send-now handoff stores none). "Scheduled" needs at least one recipient the email service accepted and holds. A
+ * recipient without an answer makes the handoff "Not confirmed", never "Not scheduled": the email service may hold
+ * it. "Not scheduled" is only a handoff the email service refused for everyone. A cancel or time change counts as
+ * done only when no accepted recipient is left open.
+ */
 function hubState(plantId: string) {
 	const on = mailOn(plantId);
+	const any = (where: SQL) => sql`EXISTS (SELECT 1 FROM mail m WHERE ${on} AND ${where})`;
 	return sql`CASE
 		WHEN c.state = 'draft' THEN 'draft'
-		WHEN EXISTS (SELECT 1 FROM mail m WHERE ${on} AND (m.sent_at IS NOT NULL OR m.delivered_at IS NOT NULL OR m.state = 'sent')) THEN 'sent'
-		WHEN EXISTS (SELECT 1 FROM mail m WHERE ${on} AND m.state = 'dispatched' AND m.sent_at IS NULL AND m.delivered_at IS NULL) THEN 'sending'
-		WHEN EXISTS (SELECT 1 FROM mail m WHERE ${on} AND (m.state IN ('refused', 'failed') OR m.bounced_at IS NOT NULL))
-			AND NOT EXISTS (SELECT 1 FROM mail m WHERE ${on} AND m.state NOT IN ('refused', 'failed', 'cancelled') AND m.bounced_at IS NULL) THEN 'failed'
-		WHEN EXISTS (SELECT 1 FROM mail m WHERE ${on} AND m.state = 'cancelled')
-			AND NOT EXISTS (SELECT 1 FROM mail m WHERE ${on} AND m.state <> 'cancelled') THEN 'cancelled'
-		WHEN EXISTS (SELECT 1 FROM mail m WHERE ${on} AND m.state IN ('unknown', 'pending', 'dispatched')) THEN 'unknown'
-		WHEN c.state = 'scheduled' THEN 'scheduled'
+		WHEN ${any(sql`(m.sent_at IS NOT NULL OR m.delivered_at IS NOT NULL OR m.state = 'sent')`)} THEN 'sent'
+		WHEN ${any(sql`m.state = 'dispatched'`)} THEN 'sending'
+		WHEN ${any(sql`m.state = 'cancelled'`)} AND NOT ${any(sql`m.state NOT IN ('cancelled', 'refused', 'failed')`)} THEN 'cancelled'
+		WHEN ${any(sql`m.cancel_requested_at IS NOT NULL AND m.state IN ('accepted', 'unknown')`)} THEN 'cancel_unconfirmed'
+		WHEN ${any(sql`m.state = 'accepted' AND m.scheduled_at IS NOT NULL AND m.scheduled_at IS DISTINCT FROM c.scheduled_at`)} THEN 'time_unconfirmed'
+		WHEN ${any(sql`m.state = 'accepted' AND m.scheduled_at IS NOT NULL`)} THEN 'scheduled'
+		WHEN ${any(sql`m.state = 'accepted'`)} THEN 'sending'
+		WHEN ${any(sql`m.state IN ('unknown', 'pending')`)} THEN 'unknown'
+		WHEN ${any(sql`m.scheduled_at IS NOT NULL`)} THEN 'not_scheduled'
+		WHEN ${any(sql`true`)} THEN 'failed'
+		WHEN c.state = 'scheduled' THEN 'not_scheduled'
 		ELSE 'unknown'
 	END`;
+}
+/** The send time an accepted recipient still holds when it differs from the saved (requested) time. */
+function staleHeldSql(plantId: string) {
+	return sql`(SELECT min(m.scheduled_at) FROM mail m WHERE ${mailOn(plantId)} AND m.state = 'accepted'
+		AND m.scheduled_at IS NOT NULL AND m.scheduled_at IS DISTINCT FROM c.scheduled_at)`;
+}
+/** The time to show: what the email service still holds, else the saved time. */
+function shownTimeSql(plantId: string) {
+	return stamp(sql`coalesce(${staleHeldSql(plantId)}, c.scheduled_at)`);
 }
 function reachableSql(plantId: string) {
 	return sql`(SELECT count(*)::int FROM mail m
@@ -129,9 +148,11 @@ function reachableSql(plantId: string) {
 		WHERE ${mailOn(plantId)} AND p.state = 'live' AND p.email IS NOT NULL AND btrim(p.email) <> ''
 			AND NOT EXISTS (SELECT 1 FROM suppression s WHERE s.address_hash = m.address_hash AND s.cleared_at IS NULL))`;
 }
+/** A held (scheduled) recipient is not sent when the email service accepts it, only when it goes out. */
 function sentAtSql(plantId: string) {
 	return stamp(
-		sql`(SELECT min(coalesce(m.sent_at, m.accepted_at, m.delivered_at)) FROM mail m WHERE ${mailOn(plantId)})`,
+		sql`(SELECT min(coalesce(m.sent_at, m.delivered_at, CASE WHEN m.scheduled_at IS NULL THEN m.accepted_at END))
+			FROM mail m WHERE ${mailOn(plantId)})`,
 	);
 }
 function senderSql() {
@@ -147,7 +168,7 @@ const rawItem = z.object({
 	meetingId: z.uuid().nullable(),
 	createdAt: z.string(),
 	epoch: z.string(),
-	hubState: z.enum(HUB),
+	hubState: z.enum(c.hubStates),
 	reachable: z.number().int(),
 	delivered: z.number().int(),
 	scheduledAt: z.string().nullable(),
@@ -212,7 +233,7 @@ function itemsJson(
 					${stateSql} AS "hubState",
 					${reachableSql(plantId)} AS reachable,
 					${deliveredSql(plantId)} AS delivered,
-					${stamp(sql`c.scheduled_at`)} AS "scheduledAt",
+					${shownTimeSql(plantId)} AS "scheduledAt",
 					${sentAtSql(plantId)} AS "sentAt",
 					${senderSql()} AS "senderName"
 				FROM communication c
@@ -364,7 +385,7 @@ export async function listForPerson(tx: Tx, authority: RequestActor, request: un
 }
 
 const totalsShape = z.object({
-	state: z.enum(HUB),
+	state: z.enum(c.hubStates),
 	selected: z.number().int(),
 	reachable: z.number().int(),
 	attempted: z.number().int(),
@@ -377,6 +398,8 @@ const totalsShape = z.object({
 	failed: z.number().int(),
 	suppressed: z.number().int(),
 	unknown: z.number().int(),
+	cancelled: z.number().int(),
+	cancelOpen: z.number().int(),
 	asOf: z.string(),
 	outcomes: z.array(z.enum(["accepted", "unknown", "rejected"])),
 	sentForAll: z.boolean(),
@@ -419,6 +442,9 @@ export async function getDeliveryTotals(tx: Tx, authority: RequestActor, request
 							SELECT 1 FROM suppression s WHERE s.address_hash = m.address_hash AND s.cleared_at IS NULL)),
 						'unknown', (SELECT count(*)::int FROM mail m WHERE ${on} AND m.state IN ('unknown', 'dispatched')
 							AND m.sent_at IS NULL AND m.delivered_at IS NULL AND m.accepted_at IS NULL),
+						'cancelled', (SELECT count(*)::int FROM mail m WHERE ${on} AND m.state = 'cancelled'),
+						'cancelOpen', (SELECT count(*)::int FROM mail m WHERE ${on} AND m.cancel_requested_at IS NOT NULL
+							AND m.state IN ('accepted', 'unknown', 'dispatched')),
 						'asOf', ${stamp(sql`clock_timestamp()`)},
 						'outcomes', coalesce((
 							SELECT jsonb_agg(w.word ORDER BY w.ord)
@@ -455,6 +481,7 @@ const detailShape = z.object({
 	bodyText: z.string().nullable(),
 	meetingId: z.uuid().nullable(),
 	scheduledAt: z.string().nullable(),
+	requestedAt: z.string().nullable(),
 	sentAt: z.string().nullable(),
 	senderName: z.string().nullable(),
 	recipients: z.array(
@@ -483,7 +510,9 @@ export async function getDetail(tx: Tx, authority: RequestActor, request: unknow
 					CASE WHEN c.id IS NULL THEN NULL ELSE jsonb_build_object(
 						'id', c.id, 'revision', c.revision::text, 'state', c.state, 'subject', c.subject,
 						'bodyHtml', c.body_html, 'bodyText', c.body_text, 'meetingId', c.meeting_id,
-						'scheduledAt', ${stamp(sql`c.scheduled_at`)}, 'sentAt', ${sentAtSql(reader.plantId)}, 'senderName', ${senderSql()},
+						'scheduledAt', ${shownTimeSql(reader.plantId)},
+						'requestedAt', CASE WHEN ${staleHeldSql(reader.plantId)} IS NULL THEN NULL ELSE ${stamp(sql`c.scheduled_at`)} END,
+						'sentAt', ${sentAtSql(reader.plantId)}, 'senderName', ${senderSql()},
 						'recipients', coalesce((
 							SELECT jsonb_agg(jsonb_build_object(
 								'personId', m.recipient_person_id, 'mailId', m.id,
@@ -529,6 +558,7 @@ export async function getDetail(tx: Tx, authority: RequestActor, request: unknow
 		bodyText: row.bodyText,
 		meetingId: row.meetingId,
 		scheduledAt: row.scheduledAt,
+		requestedAt: row.requestedAt,
 		sentAt: row.sentAt,
 		senderName: row.senderName,
 		deliveryAddress: first?.deliveryAddress ?? null,

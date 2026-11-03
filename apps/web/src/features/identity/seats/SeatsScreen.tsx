@@ -205,6 +205,8 @@ function inviteRefused(code: string | null, retryAt: string | null, zone: string
 			return `This address has had 3 invitations in the last 30 days.${retryAt ? ` You can invite it again after ${formatMoment(retryAt, zone)}.` : ""}`;
 		case "invitation_unavailable":
 			return "An invitation to this address is already waiting. Resend it from the list below.";
+		case "address_blocked":
+			return "Invitation not sent: this address is blocked after an earlier bounce.";
 		case "conflict":
 			return `Your ${place} changed since this page loaded. Reload the page, then send again.`;
 		default:

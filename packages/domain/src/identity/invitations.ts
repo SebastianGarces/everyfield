@@ -2,7 +2,7 @@ import { sameOwner, type Owner } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/identity";
 import type { AccountPersonProducer } from "@everyfield/contracts/people";
 import type { Database, Transaction } from "@everyfield/db/client";
-import { and, asc, eq, getTableColumns, gt, isNull, or, sql } from "@everyfield/db/query";
+import { and, asc, eq, getTableColumns, gt, isNull, or, sql, type SQL } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import "server-only";
@@ -27,6 +27,11 @@ export interface InvitationConfig {
 	origin: string;
 	budgetSecret: string;
 	enqueueMail(tx: Transaction, input: InvitationMail, command: d.Command): Promise<string>;
+	/**
+	 * A boolean SQL expression: mail to this address is blocked after an earlier bounce or complaint. The invite's
+	 * budget statement reads it, so a blocked invite reserves and sends nothing at no extra statement.
+	 */
+	addressBlocked(email: string): SQL;
 	people: Pick<AccountPersonProducer<Transaction>, "ensureAccountPerson">;
 }
 const sourceRow = z.object({
@@ -122,16 +127,19 @@ export function createInvitationService(config: InvitationConfig) {
  expired AS (UPDATE invitation SET state='expired',revision=revision+1 FROM clock WHERE tenant_id=${selected.id}::uuid AND recipient_email=${email} AND state='pending' AND created_at<=clock.at-interval '720 hours' RETURNING 1),
  budget AS MATERIALIZED (SELECT count(*)::int AS n,min(reserved_at)+interval '720 hours' AS retry FROM admission_attempt,clock WHERE kind=${kind} AND workspace_key=${selected.id} AND identifier_hash=${h} AND reserved_at>clock.at-interval '720 hours'),
  duplicate AS MATERIALIZED (SELECT EXISTS(SELECT FROM invitation,clock WHERE tenant_id=${selected.id}::uuid AND recipient_email=${email} AND state='pending' AND created_at>clock.at-interval '720 hours') AS found),
- reserved AS (INSERT INTO admission_attempt(kind,identifier_hash,workspace_key,reserved_at,state,expires_at) SELECT ${kind},${h},${selected.id},clock.at,'counted',clock.at+interval '720 hours' FROM clock,budget,duplicate WHERE budget.n<3 AND NOT duplicate.found RETURNING 1)
- SELECT budget.n,budget.retry,duplicate.found,(SELECT count(*)::int FROM reserved) AS reserved FROM budget,duplicate`);
+ blocked AS MATERIALIZED (SELECT ${config.addressBlocked(email)} AS found),
+ reserved AS (INSERT INTO admission_attempt(kind,identifier_hash,workspace_key,reserved_at,state,expires_at) SELECT ${kind},${h},${selected.id},clock.at,'counted',clock.at+interval '720 hours' FROM clock,budget,duplicate,blocked WHERE budget.n<3 AND NOT duplicate.found AND NOT blocked.found RETURNING 1)
+ SELECT budget.n,budget.retry,duplicate.found,blocked.found AS blocked,(SELECT count(*)::int FROM reserved) AS reserved FROM budget,duplicate,blocked`);
 		const row = z
 			.object({
 				n: z.number().int(),
 				retry: z.coerce.date().nullable(),
 				found: z.boolean(),
+				blocked: z.boolean(),
 				reserved: z.number().int(),
 			})
 			.parse(result.rows[0]);
+		if (row.blocked) d.refuse("address_blocked");
 		if (row.n >= 3) d.refuse("invitation_rate_limited", z.date().parse(row.retry).toISOString());
 		if (row.found || row.reserved !== 1) d.refuse();
 	}

@@ -149,6 +149,8 @@ export async function loadMeeting(viewer: Viewer, meetingId: string) {
 		meeting: meeting.value.meeting,
 		agendaTemplate,
 		guests: value(guests)?.guests ?? null,
+		/** Owners and Admins: the first email open per guest Person. Shown apart from RSVP and attendance. */
+		emailOpens: value(guests)?.emailOpens ?? [],
 		kit: value(kit),
 		cards: value(cards)?.cards ?? null,
 		own: value(own),
