@@ -234,7 +234,7 @@ function cut(blocks: Block[]): string {
 				out.push(block);
 				used = whole;
 			} else {
-				const rows = [...block.lines.slice(0, block.head)];
+				const rows = block.lines.slice(0, block.head);
 				for (const row of block.lines.slice(block.head)) {
 					if (length([...used, ...rows, row]) > TABLE_CEILING) break;
 					rows.push(row);
