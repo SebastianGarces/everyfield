@@ -3,7 +3,7 @@ import type { Editor } from "@tiptap/core";
 import { closeHistory } from "@tiptap/pm/history";
 import { Fragment, type Node as PMNode } from "@tiptap/pm/model";
 import { NodeSelection, Selection, type EditorState } from "@tiptap/pm/state";
-import { documentFrom } from "./document-json.ts";
+import { documentFrom, REGION_NODE } from "./document-json.ts";
 
 // Layout actions: the columns count, a block's own settings (box fill and border, divider weight and color, image size
 // and alignment) and the page setup. Each is one transaction, so one Undo reverses it, and each one writes only what the
@@ -96,8 +96,7 @@ export function readPage(state: EditorState): PageWithoutRegions {
 	return state.doc.attrs.page as PageWithoutRegions;
 }
 
-export type RegionKey = "header" | "footer";
-const REGION_NODE = { header: "pageHeader", footer: "pageFooter" } as const;
+export type RegionKey = keyof typeof REGION_NODE;
 
 /** Which pages a region prints on, or null when the page has none. */
 export function regionPages(state: EditorState, key: RegionKey): "all" | "first" | "rest" | null {

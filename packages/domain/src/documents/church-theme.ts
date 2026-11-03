@@ -113,7 +113,7 @@ export async function exportTheme(
 	church: { name: string; kit: BrandKitData | null },
 	documentClass: RenderClass,
 	useChurchBranding: boolean,
-	images: ReadonlySet<ImageSource> = new Set(),
+	images: ReadonlySet<ImageSource>,
 ): Promise<ExportTheme> {
 	const theme = resolveDocumentTheme(church, documentClass as DocumentClass, { useChurchBranding });
 	const kit = church.kit;

@@ -7,10 +7,8 @@ type Json = Record<string, unknown>;
 
 /** A header or footer as the format stores it: which pages it prints on, and its blocks. */
 type Region = { pages: string; content?: unknown[] };
-const REGIONS = [
-	["header", "pageHeader"],
-	["footer", "pageFooter"],
-] as const;
+/** The editor node that holds each region. */
+export const REGION_NODE = { header: "pageHeader", footer: "pageFooter" } as const;
 
 /**
  * The content the editor loads. The header and the footer are the first and the last child of the document, so they
@@ -21,18 +19,24 @@ export function editorContent(doc: DocDocument): Json {
 	const page: Json = { ...(doc.page as Record<string, unknown>) };
 	delete page.header;
 	delete page.footer;
-	const region = (key: "header" | "footer", type: string) => {
+	const region = (key: keyof typeof REGION_NODE) => {
 		const value = (doc.page as Record<string, unknown>)[key] as Region | null | undefined;
 		if (!value) {
 			if (value === null) page[key] = null;
 			return [];
 		}
-		return [{ type, attrs: { pages: value.pages }, ...(value.content?.length ? { content: value.content } : {}) }];
+		return [
+			{
+				type: REGION_NODE[key],
+				attrs: { pages: value.pages },
+				...(value.content?.length ? { content: value.content } : {}),
+			},
+		];
 	};
 	return {
 		type: "doc",
 		attrs: { page },
-		content: [...region("header", "pageHeader"), ...(doc.body.content ?? []), ...region("footer", "pageFooter")],
+		content: [...region("header"), ...(doc.body.content ?? []), ...region("footer")],
 	};
 }
 
@@ -65,7 +69,7 @@ export function documentFrom(base: DocDocument, json: Json): DocDocument {
 	const page: Json = { ...(attrs?.page ?? (base.page as Json)) };
 	const body = [...content];
 	// A region node left in the page becomes the region; with none, the page keeps a stored null or has no key.
-	for (const [key, type] of REGIONS) {
+	for (const [key, type] of Object.entries(REGION_NODE) as [keyof typeof REGION_NODE, string][]) {
 		delete page[key];
 		const at = key === "header" ? 0 : body.length - 1;
 		const node = body[at];
