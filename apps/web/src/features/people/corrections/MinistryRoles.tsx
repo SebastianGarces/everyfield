@@ -19,24 +19,11 @@ import { useOptimistic, useState, useTransition } from "react";
 import type { z } from "zod";
 import { RecordDialog, SaveNotice, useSaveIntent } from "../../../components/save/parts.tsx";
 import { correctTenure } from "../../teams/actions.ts";
+import { roleDateProblems } from "./model.ts";
 import { dayText, problemText } from "../../teams/model.ts";
 
 type Role = z.infer<typeof c.assignmentRow>;
 type Form = { role: Role; startedOn: string; endedOn: string; reason: string; problem?: string };
-
-const DATE = /^\d{4}-\d{2}-\d{2}$/;
-/** What is wrong with the form before anything is sent, by field. Empty when it can save. */
-export function roleDateProblems(f: Pick<Form, "role" | "startedOn" | "endedOn" | "reason">) {
-	const ended = f.role.endedOn !== null;
-	return {
-		...(DATE.test(f.startedOn) ? {} : { startedOn: "Choose a start date." }),
-		...(ended && !DATE.test(f.endedOn) ? { endedOn: "Choose an end date." } : {}),
-		...(ended && DATE.test(f.startedOn) && DATE.test(f.endedOn) && f.endedOn < f.startedOn
-			? { endedOn: "The end date cannot be before the start date." }
-			: {}),
-		...(f.reason.trim() ? {} : { reason: "Say why the dates change. The ministry's history keeps it." }),
-	};
-}
 
 /**
  * The person's ministry roles, now and before (REQ-TEAM-006). An Owner or Admin can correct a role's recorded start or
@@ -151,7 +138,7 @@ function DatesDialog({
 	// A form a refusal opened again shows its problems at once; a new one after its first submit.
 	const [touched, setTouched] = useState(form.problem !== undefined);
 	const ended = f.role.endedOn !== null;
-	const problems: Partial<Record<"startedOn" | "endedOn" | "reason", string>> = touched ? roleDateProblems(f) : {};
+	const problems = touched ? roleDateProblems(f) : {};
 	const set = (patch: Partial<Form>) => setF((x) => ({ ...x, ...patch }));
 	return (
 		<RecordDialog

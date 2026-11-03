@@ -57,7 +57,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-015 | Corrections duplicate resolution and merge | 9 | 10 | 36 | 3 | 2 |
 | WP-032 | Canonical reference/template manifest | 7 | 12 | 15 | 2 | 1.5 |
 | WP-020 | Meetings, venues, list and detail, invitations and RSVP | 29 | 48 | 35 | 5 | 3 |
-| WP-017 | Teams, roster, roles, leader appointments and org chart | 11 | 41 | 26 | 4 | 2.5 |
+| WP-017 | Teams, roster, roles, leader appointments and org chart | 11 | 40 | 26 | 4 | 2.5 |
 | WP-018 | Responsibilities canonical offer | 3 | 7 | 3 | 2 | 1.5 |
 | WP-019 | Training programs completion revoke/correct | 14 | 10 | 27 | 4 | 2 |
 | WP-024 | Task core | 11 | 22 | 14 | 5 | 2 |
@@ -100,7 +100,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-067 | Evry tasks reads/helper adapters | 0 | 21 | 6 | 0 | 1.5 |
 | WP-068 | Evry tasks draft/propose/execute adapters | 1 | 30 | 5 | 0 | 2 |
 | WP-069 | Evry teams reads/helper adapters | 1 | 26 | 12 | 0 | 1.5 |
-| WP-070 | Evry teams draft/propose/execute adapters | 1 | 30 | 8 | 0 | 2 |
+| WP-070 | Evry teams draft/propose/execute adapters | 1 | 29 | 8 | 0 | 2 |
 | WP-071 | Evry communication reads/helper adapters | 1 | 21 | 4 | 0 | 1.5 |
 | WP-072 | Evry communication draft/propose/execute adapters | 1 | 24 | 2 | 0 | 1.5 |
 | WP-073 | Evry intelligence reads/helper adapters | 5 | 45 | 49 | 0 | 2.5 |

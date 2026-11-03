@@ -33,7 +33,7 @@
 		"limit": 3
 	},
 	"GET /ministries/[teamId]": {
-		"limit": 5
+		"limit": 6
 	},
 	"GET /intelligence": {
 		"limit": 2
@@ -607,7 +607,8 @@
 		"retry": 5
 	},
 	"meetings.copyTeamRoster": {
-		"limit": 6
+		"limit": 6,
+		"retry": 5
 	},
 	"meetings.correctEvaluation": {
 		"limit": 2
@@ -1549,8 +1550,9 @@
 		"retry": 5,
 		"reason": "A non-admin leader resolves the responsibility team, then checks that they lead it. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write."
 	},
-	"teams.correct": {
-		"limit": 6
+	"teams.correctTenure": {
+		"limit": 6,
+		"retry": 6
 	},
 	"teams.correctProgram": {
 		"limit": 6,

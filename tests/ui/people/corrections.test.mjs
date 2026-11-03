@@ -18,6 +18,7 @@ import {
 	defaultChoices,
 	defaultSurvivor,
 	interviewChanges,
+	roleDateProblems,
 	sourceChoices,
 	totalOf,
 } from "../../../apps/web/src/features/people/corrections/model.ts";
@@ -162,3 +163,20 @@ for (const [name, engine] of ENGINES) {
 		});
 	});
 }
+
+// WP-017 (REQ-TEAM-006): a role date correction needs a reason, and an ended role's end date cannot come before its
+// start; a role held now has no end date to check.
+test("INV-role-dates: a reason is required and the end is never before the start", () => {
+	const ended = { role: { endedOn: "2026-03-01" }, startedOn: "2026-01-04", endedOn: "2026-03-01", reason: "Typo" };
+	assert.deepEqual(roleDateProblems(ended), {});
+	assert.deepEqual(Object.keys(roleDateProblems({ ...ended, reason: "  " })), ["reason"]);
+	assert.equal(
+		roleDateProblems({ ...ended, endedOn: "2026-01-01" }).endedOn,
+		"The end date cannot be before the start date.",
+	);
+	assert.deepEqual(
+		roleDateProblems({ role: { endedOn: null }, startedOn: "2026-02-01", endedOn: "", reason: "Typo" }),
+		{},
+	);
+	assert.deepEqual(Object.keys(roleDateProblems({ ...ended, startedOn: "" })), ["startedOn"]);
+});

@@ -79,13 +79,21 @@ async function assignLead(
 			.returning();
 	}
 	if (team!.leader_person_id && team!.leader_person_id !== personId) deny("conflict");
-	const tenures = await tx
-		.select()
-		.from(t.team_tenure)
-		.where(
-			and(eq(t.team_tenure.plant_id, plantId), eq(t.team_tenure.role_id, role!.id), isNull(t.team_tenure.ended_on)),
-		)
-		.for("update");
+	// A role created just now has no holder to read.
+	const tenures =
+		selection.kind === "minimal_role"
+			? []
+			: await tx
+					.select()
+					.from(t.team_tenure)
+					.where(
+						and(
+							eq(t.team_tenure.plant_id, plantId),
+							eq(t.team_tenure.role_id, role!.id),
+							isNull(t.team_tenure.ended_on),
+						),
+					)
+					.for("update");
 	if (tenures.some((r) => r.person_id !== personId)) deny("conflict");
 	if (!tenures.length)
 		await tx.insert(t.team_tenure).values({
@@ -113,70 +121,67 @@ async function assignLead(
  * leader the ministry already has stays its leader.
  */
 async function fillSeniorPastor(tx: Tx, plantId: string, personId: string) {
-	let [team] = await tx
-		.select()
-		.from(t.team)
-		.where(and(eq(t.team.plant_id, plantId), eq(t.team.template_key, "leadership"), isNull(t.team.archived_at)))
-		.orderBy(t.team.sort_order, t.team.id)
-		.limit(1)
-		.for("update");
-	team ??= (
-		await tx
-			.insert(t.team)
-			.values({ plant_id: plantId, name: "Leadership", template_key: "leadership", state: "forming", sort_order: 0 })
-			.returning()
-	)[0]!;
-	let [role] = await tx
-		.select()
-		.from(t.team_role)
-		.where(
-			and(
-				eq(t.team_role.team_id, team.id),
-				eq(t.team_role.plant_id, plantId),
-				eq(t.team_role.template_key, "senior_pastor"),
-				isNull(t.team_role.retired_at),
-			),
-		)
-		.orderBy(t.team_role.sort_order, t.team_role.id)
-		.limit(1)
-		.for("update");
-	role ??= (
-		await tx
-			.insert(t.team_role)
-			.values({
-				plant_id: plantId,
-				team_id: team.id,
-				name: "Senior pastor",
-				template_key: "senior_pastor",
-				leadership: true,
-				sort_order: 0,
-			})
-			.returning()
-	)[0]!;
-	const [holder] = await tx
-		.select()
-		.from(t.team_tenure)
-		.where(and(eq(t.team_tenure.plant_id, plantId), eq(t.team_tenure.role_id, role.id), isNull(t.team_tenure.ended_on)))
-		.for("update");
-	if (holder && holder.person_id !== personId) return null;
-	if (!holder)
+	// One locking read: the Leadership template ministry, its Senior pastor role and who holds that role now.
+	const found = await tx.execute(sql`SELECT t.id AS "teamId", t.leader_person_id AS "leaderId", r.id AS "roleId",
+			h.person_id AS "holderId"
+		FROM team t
+		LEFT JOIN LATERAL (SELECT id FROM team_role WHERE team_id = t.id AND plant_id = t.plant_id
+			AND template_key = 'senior_pastor' AND retired_at IS NULL ORDER BY sort_order, id LIMIT 1 FOR UPDATE) r ON true
+		LEFT JOIN LATERAL (SELECT person_id FROM team_tenure WHERE role_id = r.id AND plant_id = t.plant_id
+			AND ended_on IS NULL FOR UPDATE) h ON true
+		WHERE t.plant_id = ${plantId}::uuid AND t.template_key = 'leadership' AND t.archived_at IS NULL
+		ORDER BY t.sort_order, t.id LIMIT 1 FOR UPDATE OF t`);
+	const row = z
+		.object({
+			teamId: z.uuid(),
+			leaderId: z.uuid().nullable(),
+			roleId: z.uuid().nullable(),
+			holderId: z.uuid().nullable(),
+		})
+		.optional()
+		.parse(found.rows[0]);
+	if (row?.holderId && row.holderId !== personId) return null;
+	const teamId =
+		row?.teamId ??
+		(
+			await tx
+				.insert(t.team)
+				.values({ plant_id: plantId, name: "Leadership", template_key: "leadership", state: "forming", sort_order: 0 })
+				.returning({ id: t.team.id })
+		)[0]!.id;
+	const roleId =
+		row?.roleId ??
+		(
+			await tx
+				.insert(t.team_role)
+				.values({
+					plant_id: plantId,
+					team_id: teamId,
+					name: "Senior pastor",
+					template_key: "senior_pastor",
+					leadership: true,
+					sort_order: 0,
+				})
+				.returning({ id: t.team_role.id })
+		)[0]!.id;
+	if (!row?.holderId)
 		await tx.insert(t.team_tenure).values({
 			plant_id: plantId,
-			role_id: role.id,
+			role_id: roleId,
 			person_id: personId,
 			started_on: sql`(clock_timestamp() AT TIME ZONE (SELECT timezone FROM plant WHERE id=${plantId}))::date`,
 		});
-	if (!team.leader_person_id)
+	if (!row?.leaderId)
 		await tx
 			.update(t.team)
 			.set({
 				leader_person_id: personId,
 				leader_source: "role_derived",
-				leader_role_id: role.id,
+				leader_role_id: roleId,
 				revision: sql`${t.team.revision}+1`,
 			})
-			.where(eq(t.team.id, team.id));
-	return { teamId: team.id, roleId: role.id, personId };
+			.where(eq(t.team.id, teamId));
+	return { teamId, roleId, personId };
 }
 export const setup: Pick<OnboardingProducer<Tx>, "answerLead" | "declareJourney" | "complete" | "getResume"> = {
 	async answerLead(tx, ctx, raw) {

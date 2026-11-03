@@ -19,6 +19,9 @@ import {
 	journeyInput,
 	launchInput,
 	leadInput,
+	leadText,
+	skippedFill,
+	DEFAULT_LEAD,
 	basicsInput,
 	needsReload,
 	reload,
@@ -281,4 +284,25 @@ test("INV-onboarding-model: a pending account creates only what it registered fo
 		expectedRevision: "1",
 		input: {},
 	});
+});
+
+// WP-017 (REQ-IDN-014): the Senior pastor fill is off by default, only a Yes carries it, and the finish summary says
+// which role the planter holds and why a fill was skipped.
+test("INV-senior-pastor-fill: off by default, sent only with Yes, and summarized in words", () => {
+	assert.equal(DEFAULT_LEAD.seniorPastor, false);
+	assert.equal(leadInput({ answer: "yes", ...DEFAULT_LEAD }).seniorPastor, false);
+	assert.equal(leadInput({ answer: "yes", ...DEFAULT_LEAD, seniorPastor: true }).seniorPastor, true);
+	for (const answer of ["no", "skip"]) assert.deepEqual(leadInput({ answer }), { answer });
+	const yes = (seniorPastor) => ({
+		answer: "yes",
+		assignment: {},
+		savedAt: "",
+		...(seniorPastor ? { seniorPastor } : {}),
+	});
+	assert.equal(leadText(yes("filled")), "You hold the Senior pastor role");
+	assert.equal(leadText(yes("occupied")), "You hold the lead role");
+	assert.equal(leadText(yes()), "You hold the lead role");
+	assert.equal(skippedFill(yes("filled")), null);
+	assert.match(skippedFill(yes("occupied")), /already holds it/);
+	assert.equal(skippedFill({ answer: "no", savedAt: "" }), null);
 });
