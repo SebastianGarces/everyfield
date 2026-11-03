@@ -348,10 +348,10 @@ export const chromium = new BrowserType("chromium"), webkit = new BrowserType("w
 			`import test from "node:test";
 import { appendFileSync } from "node:fs";
 import { chromium, webkit } from "./apps/web/node_modules/playwright/index.mjs";
-test("probe", async () => {
-	const b = await webkit.launch({});
-	appendFileSync("out.jsonl", JSON.stringify({ small: await b.newContext({ viewport: { width: 390, height: 844 } }), page: await b.newPage(), name: chromium.name() }) + "\\n");
-});`,
+	test("probe", async () => {
+		const b = await webkit.launch({});
+		appendFileSync("out.jsonl", JSON.stringify({ small: await b.newContext({ viewport: { width: 390, height: 844 } }), page: await b.newPage(), name: chromium.name() }) + "\\n");
+	});`,
 		);
 		// Inside a node:test process this names the parent's protocol; the nested run would then skip its files.
 		const { NODE_TEST_CONTEXT: _, ...env } = process.env;
