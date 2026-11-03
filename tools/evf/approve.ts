@@ -12,11 +12,21 @@ import {
 	type Config,
 	type TaskRef,
 } from "./lib.ts";
-import { markMergedByBranch } from "./db.ts";
+import { ensureTask, markMergedByBranch, openWorkDb } from "./db.ts";
 import { cachedTriage } from "./feedback.ts";
-import { heldClasses, isHeld, mergePullRequest, ownerHeld, wikiClass } from "./merge.ts";
+import {
+	commitList,
+	commitsAfter,
+	heldClasses,
+	isHeld,
+	mergePullRequest,
+	ownerApproveCommand,
+	ownerHeld,
+	ownerLine,
+	wikiClass,
+} from "./merge.ts";
 import { unfinishedDrafts } from "./wiki.ts";
-import { afterMerge, checkPr, type MergeEvidence } from "./ship.ts";
+import { afterMerge, checkPr, ship, type MergeEvidence } from "./ship.ts";
 import { APPROVED_PROTOTYPE, changesOnlyOwnRegistration, mayChangePrototype } from "./policy.ts";
 
 /**
@@ -24,7 +34,9 @@ import { APPROVED_PROTOTYPE, changesOnlyOwnRegistration, mayChangePrototype } fr
  * the verifier-passed P2/P3 feedback fixes (mergePolicy.feedbackOwnerAfterVerifier) and design tasks
  * (maintenanceTasks route "design"), and the document-template PRs (mergePolicy.documentTemplates), landing and
  * marketing PRs (mergePolicy.ownerPaths, OPS-111; these need --head) and Wiki-content task PRs (OPS-109) that would
- * otherwise merge through evf ship. Every other PR refuses before any write. Sebastian approves in chat;
+ * otherwise merge through evf ship. An ordinary task PR that evf ship merges gets his recorded approval of one exact head
+ * (`--head`, OPS-121): an EVF-Owner line that every later merge must cover. Every other PR refuses before any write.
+ * Sebastian approves in chat;
  * the agent runs this with his words. Agents never run it without that approval for this PR.
  * It records the approval on the PR, binds it to the exact head commit, and squash-merges.
  * When main is protected, it also posts the evf/verify status for that head.
@@ -50,7 +62,8 @@ type Route =
 	| { kind: "wiki" | "prototype" }
 	| { kind: "verified"; id: string }
 	| { kind: "wiki-task"; id: string; task: TaskRef }
-	| { kind: "template"; id: string; task: TaskRef; what: string; needsHead: boolean };
+	| { kind: "template"; id: string; task: TaskRef; what: string; needsHead: boolean }
+	| { kind: "ordinary"; id: string; task: TaskRef };
 
 function gh(args: string[]): string {
 	const r = run("gh", args);
@@ -130,6 +143,7 @@ function routeOf(root: string, cfg: Config, pr: Pr): Route {
 					.join(" and ");
 				return { kind: "template", id: ref.id, task: ref, what, needsHead: owner };
 			}
+			return { kind: "ordinary", id: ref.id, task: ref };
 		}
 	}
 	if (!fb)
@@ -149,6 +163,41 @@ function routeOf(root: string, cfg: Config, pr: Pr): Route {
 	fail(`${id} is triaged ${cls}, which has no merge route through evf approve.`);
 }
 
+/**
+ * The ordinary route (OPS-121): one EVF-Owner comment for the exact head and an `approvals` row (gate owner). With a
+ * verifier approval and green required CI it merges through evf ship; otherwise it keeps the record and names what
+ * is missing. A behind branch is fine: ship's update is a clean merge of main, which carries his approval.
+ */
+function recordOwnerApproval(root: string, n: number, task: TaskRef, head: string, words: string): number {
+	gh([
+		"pr",
+		"comment",
+		String(n),
+		"--body",
+		`Approved by Sebastian at \`${head.slice(0, 10)}\`:\n\n> ${words.replace(/\n/g, "\n> ")}\n\n${ownerLine({ head, quote: words, at: new Date().toISOString() })}`,
+	]);
+	const db = openWorkDb(root);
+	try {
+		const t = ensureTask(db, task, "implement");
+		db.prepare(
+			"INSERT INTO approvals (task_id, gate, approver, head_sha, decision, quote, created_at) VALUES (?, 'owner', 'Sebastian', ?, 'approved', ?, ?)",
+		).run(t.id, head, words, new Date().toISOString());
+	} finally {
+		db.close();
+	}
+	console.log(`Recorded Sebastian's approval of ${head.slice(0, 10)} on PR #${n}.`);
+	try {
+		checkPr(root, n, head, { carry: true });
+	} catch (e) {
+		if (!(e instanceof EvfError)) throw e;
+		console.log(
+			`evf approve merges nothing yet: ${e.message} The record stays; once that holds, run: bin/evf ship ${task.id}`,
+		);
+		return 0;
+	}
+	return ship(root, task);
+}
+
 export function approve(root: string, n: number, opts: { ownerApproval?: string; head?: string }): number {
 	const words = opts.ownerApproval?.trim() ?? "";
 	if (words.split(/\s+/).filter(Boolean).length < 2)
@@ -164,19 +213,28 @@ export function approve(root: string, n: number, opts: { ownerApproval?: string;
 	const route = routeOf(root, cfg, pr);
 	const head = pr.headRefOid,
 		shipRoute = route.kind === "template" || route.kind === "wiki-task";
+	if (route.kind === "ordinary" && !opts.head)
+		fail(
+			`PR #${n} (${pr.headRefName}) is an ordinary task PR, so evf approve cannot merge it without the head Sebastian approved; it merges through the verifier: bin/evf ship ${route.id}. To record his approval of the current head, run: bin/evf approve ${n} --owner-approval "<his words>" --head ${head}`,
+		);
 	const again =
-		route.kind === "verified" || shipRoute
-			? `have the verifier pass the new head (bin/evf ship ${route.id}), then ask Sebastian to approve it`
-			: "ask Sebastian to approve the new head";
+		route.kind === "ordinary"
+			? ownerApproveCommand(n, head)
+			: route.kind === "verified" || shipRoute
+				? `have the verifier pass the new head (bin/evf ship ${route.id}), then ask Sebastian to approve it`
+				: "ask Sebastian to approve the new head";
 	// Sebastian approves a landing or marketing PR for one exact head, so the command names it (OPS-111).
 	if (route.kind === "template" && route.needsHead && !opts.head)
 		fail(
 			`PR #${n} changes ${route.what}. Name the head Sebastian approved: bin/evf approve ${n} --owner-approval "<his words>" --head ${head}`,
 		);
-	if (opts.head && !head.startsWith(opts.head))
+	if (opts.head && !head.startsWith(opts.head)) {
+		const stale = run("git", ["-C", root, "rev-parse", "--verify", "--quiet", `${opts.head}^{commit}`]).stdout.trim();
 		fail(
-			`PR #${n} head is ${head.slice(0, 10)}, not the ${opts.head} Sebastian approved. His approval does not carry over: ${again}.`,
+			`PR #${n} head is ${head.slice(0, 10)}, not the ${opts.head} Sebastian approved. His approval does not carry over: ${again}.${stale ? `\n${commitList(commitsAfter(root, stale, head))}` : ""}`,
 		);
+	}
+	if (route.kind === "ordinary") return recordOwnerApproval(root, n, route.task, head, words);
 	// Updating the branch would create a head Sebastian never saw, so approve never updates it.
 	if (pr.mergeStateStatus === "BEHIND")
 		fail(

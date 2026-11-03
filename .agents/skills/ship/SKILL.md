@@ -73,6 +73,16 @@ as the class. It refuses to merge from evf code that differs from the base branc
 the home checkout to current main and rerun. `evf ship` and `evf drive` make the same stale-code check at their
 start, so a stale ship posts no status, updates no branch and merges nothing, and a stale drive launches no seat.
 During a drive, its ship stage runs on current base code, so a long drive never merges on old rules.
+Sebastian can also approve an ordinary-route PR (one that `evf ship` merges by itself) for one head (OPS-121).
+After his OK in chat, run `bin/evf approve <PR> --owner-approval "<his words>" --head <current head>`. It posts
+an `EVF-Owner:` line (`{"head":"<40 hex>","quote":"<his words>","at":"<ISO time>"}`) and an `approvals` row (gate
+`owner`), then merges through `evf ship` when the verifier approval and required CI hold. From then on every merge
+needs a head that the latest `EVF-Owner` line covers: the approved head, or a head that the `EVF-Carry` rule
+(`carryProof`) reaches from it. Only a clean merge of main on paths the PR does not change keeps his approval. Any
+other commit voids it, and ship, approve and the drive refuse with "Sebastian's owner approval is void". The
+refusal names the approved head, the carry reason, each later commit (short SHA and subject, oldest first) and the
+`evf approve ... --head <current head>` command. Ask him again; never re-record his old words for a new head.
+The drive's ci stage is green only when every required check passed on the exact PR head, the rule ship uses.
 Preserve these PR #13 routes; they never carry an approval. Sensitive work and paid commitments still need their scoped owner approvals.
 
 Only evf writes canonical progress. Ship retains the CI and review references, exact head and

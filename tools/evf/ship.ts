@@ -40,11 +40,13 @@ import {
 	heldWhy,
 	isHeld,
 	mergePullRequest,
+	ownerCover,
 	requireCurrentCode,
 	wikiApproveCommand,
 	wikiClass,
 	wikiWhy,
 	type HeldClasses,
+	type OwnerCover,
 } from "./merge.ts";
 import { commitClaimCheck, promoteDrafts, recordClaimCheck, wikiCarryProof, type WikiCarry } from "./wiki.ts";
 import { withShipQueue, type QueueTiming } from "./ship-queue.ts";
@@ -73,7 +75,7 @@ function requireRemote(root: string, cfg: Config): void {
 		fail(`No "${cfg.remote}" git remote yet. Create the GitHub repository, add the remote, then retry.`);
 }
 
-function nameWithOwner(cwd: string): string {
+export function nameWithOwner(cwd: string): string {
 	return gh(cwd, ["repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"]);
 }
 
@@ -212,7 +214,7 @@ export type Approval = {
 const verifierLabel = (v: ReviewParty): string => `${v.model} (session ${v.session.slice(0, 8)})`;
 export type RequiredCheck = { name: string; bucket: string; state: string; link: string };
 /** Required CI on one PR head, by name. Only a pass counts; skipped and cancelled checks are failures. */
-type RequiredCi = { passed: RequiredCheck[]; failed: string[]; missing: string[]; pending: string[] };
+export type RequiredCi = { passed: RequiredCheck[]; failed: string[]; missing: string[]; pending: string[] };
 /** Why an approval of `approvedHead` still holds at `head`: only clean merges of main, on paths the PR never changed. */
 export type CarryProof = {
 	approvedHead: string;
@@ -347,7 +349,7 @@ export function carryProof(repo: string, approved: string, head: string, main: s
  * The check names that branch protection and rulesets require on `base`. They come from the rules, never from
  * the checks a head reports so far: a required workflow that has not started yet reports nothing.
  */
-function requiredCheckNames(cwd: string, repo: string, base: string): string[] {
+export function requiredCheckNames(cwd: string, repo: string, base: string): string[] {
 	const names = new Set<string>();
 	const protection = run("gh", ["api", `repos/${repo}/branches/${base}/protection`], { cwd });
 	if (protection.code === 0) {
@@ -367,7 +369,7 @@ function requiredCheckNames(cwd: string, repo: string, base: string): string[] {
 }
 
 /** Matches the checks the PR head reports against the required names. A required name with no check is missing. */
-function requiredCi(cwd: string, number: number, required: string[]): RequiredCi {
+export function requiredCi(cwd: string, number: number, required: string[]): RequiredCi {
 	const r = run("gh", ["pr", "checks", String(number), "--json", "name,state,bucket,link"], { cwd });
 	let reported: RequiredCheck[] = [];
 	try {
@@ -669,6 +671,8 @@ function queuedMerge(root: string, cfg: Config, task: TaskRef, wt: string, numbe
 	let sha = git(wt, "rev-parse", "HEAD");
 	requireFreeMigrationNumbers(wt, baseRef(root, cfg), task);
 	let verification = checkPr(wt, number, sha, { carry: true });
+	// A void owner approval (OPS-121) refuses before the branch update; the merge checks the final head again.
+	ownerCover(root, cfg, wt, number, sha);
 	const body = () => gh(wt, ["pr", "view", String(number), "--json", "body", "--jq", ".body"]);
 	requireGreenMain(wt, cfg, body());
 	for (let round = 1; !gitOk(wt, "merge-base", "--is-ancestor", baseRef(root, cfg), sha); round++) {
@@ -719,7 +723,16 @@ function queuedMerge(root: string, cfg: Config, task: TaskRef, wt: string, numbe
 		fail(
 			`Merge refused: ${(merge.stderr || merge.stdout).trim()}. A changed head needs fresh CI and verifier approval.`,
 		);
-	return afterMerge(root, cfg, task, wt, number, verification, baseSha);
+	return afterMerge(
+		root,
+		cfg,
+		task,
+		wt,
+		number,
+		verification,
+		baseSha,
+		merge.owner ? { ownerApproval: merge.owner } : {},
+	);
 }
 
 /**
@@ -802,7 +815,7 @@ export function afterMerge(
 	prNumber: number,
 	verification: MergeEvidence,
 	baseSha: string,
-	extra: { rev?: string; ownerApproval?: { quote: string; approved_head: string; approved_at: string } } = {},
+	extra: { rev?: string; ownerApproval?: OwnerCover } = {},
 ): number {
 	const hasWorktree = wt !== root;
 	const mergeSha = gh(wt, ["pr", "view", String(prNumber), "--json", "mergeCommit", "-q", ".mergeCommit.oid"]);

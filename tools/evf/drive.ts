@@ -27,7 +27,7 @@ import {
 	waitsFor,
 } from "./followups.ts";
 import { ideaWorktree, launch, LaunchAborted, LaunchLineTooLong, type LaunchTiming } from "./launch.ts";
-import { requireCurrentCode, shipOnCurrentCode } from "./merge.ts";
+import { OWNER_VOID, requireCurrentCode, shipOnCurrentCode } from "./merge.ts";
 import { isOpus, validateOverride, type Role } from "./seats.ts";
 import {
 	EvfError,
@@ -44,7 +44,7 @@ import {
 	type TaskRef,
 } from "./lib.ts";
 import { closeRunPane } from "./panes.ts";
-import { bodyOnlyItems, prFor, prOpen, ship } from "./ship.ts";
+import { bodyOnlyItems, nameWithOwner, prFor, prOpen, requiredCheckNames, requiredCi, ship } from "./ship.ts";
 import { checkGithubBody, checkPrBody, describeBodyItem, unmetBodyItem, type BodyItem } from "./pr-body.ts";
 import { isPrototype } from "./feedback.ts";
 import { fillRunUsage } from "./usage.ts";
@@ -1510,23 +1510,6 @@ function bodyItemsOf(root: string, t: TaskRow, head: string): BodyItem[] | strin
 }
 
 const prBodyPath = (root: string, task: TaskRef) => join(runtimeDir(root, task), "pr-body.md");
-const checksOf = (wt: string, number: number): { pending: string[]; failed: string[]; passed: string[] } => {
-	const r = run("gh", ["pr", "checks", String(number), "--json", "name,bucket"], { cwd: wt });
-	let checks: Array<{ name: string; bucket: string }> = [];
-	try {
-		const parsed = JSON.parse(r.stdout);
-		if (Array.isArray(parsed)) checks = parsed;
-	} catch {
-		// No checks reported yet.
-	}
-	return {
-		pending: checks.filter((c) => c.bucket === "pending").map((c) => c.name),
-		failed: checks
-			.filter((c) => c.bucket === "fail" || c.bucket === "cancel" || c.bucket === "skipping")
-			.map((c) => c.name),
-		passed: checks.filter((c) => c.bucket === "pass").map((c) => c.name),
-	};
-};
 
 /**
  * seatPollMs: how often a blocked seat, or a seat whose first turn has not begun, is looked at again.
@@ -1584,18 +1567,44 @@ function prStage(db: DatabaseSync, root: string, task: TaskRef, t: TaskRow, wt: 
 	return { status: "passed", summary: `PR #${pr?.number ?? "?"} open` };
 }
 
-/** The ci stage: poll the PR checks until they all pass, one fails, or the wait runs out. */
-function ciStage(t: TaskRow, wt: string, timing: DriveTiming): Outcome {
+/** Whether GitHub reports the PR as conflicting with its base: then required checks never start on its head. */
+function conflicting(wt: string, number: number): boolean {
+	const r = run("gh", ["pr", "view", String(number), "--json", "mergeable"], { cwd: wt });
+	try {
+		return (JSON.parse(r.stdout) as { mergeable?: string }).mergeable === "CONFLICTING";
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * The ci stage (OPS-121): the required checks of the base branch, as evf ship reads and matches them, on the exact PR
+ * head. Green only when each passed; a failure ends it at once; missing or pending checks wait, except on a PR that
+ * conflicts with main. A check the rules do not require, such as Vercel, never decides it.
+ */
+function ciStage(root: string, t: TaskRow, wt: string, timing: DriveTiming): Outcome {
 	if (!t.pr_number) return { status: "failed", summary: "no PR number recorded" };
+	const required = requiredCheckNames(wt, nameWithOwner(wt), loadConfig(root).baseBranch);
 	const start = Date.now();
 	for (;;) {
-		const c = checksOf(wt, t.pr_number);
-		if (c.failed.length) return { status: "failed", summary: `CI failed: ${c.failed.join(", ")}` };
-		if (!c.pending.length && c.passed.length) return { status: "passed", summary: `CI green: ${c.passed.join(", ")}` };
+		const ci = requiredCi(wt, t.pr_number, required);
+		if (ci.failed.length)
+			return { status: "failed", summary: `Required CI failed on the PR head: ${ci.failed.join(", ")}` };
+		const waiting = [...ci.missing.map((n) => `${n} missing`), ...ci.pending.map((n) => `${n} pending`)].join(", ");
+		if (!waiting)
+			return {
+				status: "passed",
+				summary: `CI green: required ${[...new Set(ci.passed.map((c) => c.name))].join(", ")} passed`,
+			};
+		if (conflicting(wt, t.pr_number))
+			return {
+				status: "failed",
+				summary: `PR #${t.pr_number} conflicts with main, so required CI never starts on its head: ${waiting}`,
+			};
 		if (Date.now() - start > timing.ciWaitMs)
 			return {
 				status: "failed",
-				summary: `CI still pending after ${Math.round(timing.ciWaitMs / 60_000)} min: ${c.pending.join(", ") || "no checks reported"}`,
+				summary: `Required CI is not green after ${Math.round(timing.ciWaitMs / 60_000)} min: ${waiting}`,
 			};
 		sleep(timing.ciPollMs);
 	}
@@ -1620,7 +1629,15 @@ function shipStage(db: DatabaseSync, root: string, task: TaskRef, t: TaskRow, ru
 		markMerged(db, task, before.commit, runId);
 		return { status: "passed", summary: "already merged on GitHub" };
 	}
-	shipOnCurrentCode(root, loadConfig(root), task, () => ship(root, task));
+	try {
+		shipOnCurrentCode(root, loadConfig(root), task, () => ship(root, task));
+	} catch (e) {
+		// A voided owner approval (OPS-121) waits for Sebastian, like an owner route: no merge and no new round.
+		if (!(e instanceof EvfError) || !e.message.includes(OWNER_VOID)) throw e;
+		record(db, t.id, runId, "owner_approval_wait", { pr: t.pr_number, summary: `${task.id}: ${e.message}` });
+		notify(`${task.id} waits for Sebastian`, e.message);
+		return { status: "passed", summary: `waits for Sebastian's new approval: ${e.message}` };
+	}
 	const after = view();
 	// A task is merged only when GitHub says so. An owner route (Wiki-style waits, P2/P3, design, document
 	// templates) verifies and returns without a merge: the drive records the wait and stops, with no new round.
@@ -1671,7 +1688,7 @@ function evfStage(
 			stage === "pr"
 				? prStage(db, root, task, t, wt)
 				: stage === "ci"
-					? ciStage(t, wt, timing)
+					? ciStage(root, t, wt, timing)
 					: stage === "ship"
 						? shipStage(db, root, task, t, runId)
 						: { status: "failed", summary: `evf cannot run stage ${stage}` };

@@ -115,7 +115,9 @@ Human approval (only after Sebastian approves that PR in chat)
                           Wiki articles, prototypes, feedback P2/P3, design tasks, document-template PRs
                           (mergePolicy.documentTemplates), landing and marketing PRs (mergePolicy.ownerPaths;
                           --head required) and Wiki-content task PRs after evf ship promoted their drafts:
-                          record his approval and squash-merge
+                          record his approval and squash-merge. An ordinary task PR (--head required) gets an
+                          EVF-Owner record for that head; it merges through evf ship once verified, and any later
+                          commit except a clean merge of main voids it
 
 IDs (coordinator)
   evf id next ops|decision                                    reserve the next OPS-n or Dn on the remote and print it
