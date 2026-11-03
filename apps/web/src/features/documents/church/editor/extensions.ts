@@ -10,9 +10,12 @@ import Paragraph from "@tiptap/extension-paragraph";
 import Text from "@tiptap/extension-text";
 import Underline from "@tiptap/extension-underline";
 import { UndoRedo } from "@tiptap/extensions";
-import { DOMSerializer, type Node as PMNode } from "@tiptap/pm/model";
+import { closeHistory } from "@tiptap/pm/history";
+import { DOMSerializer, Fragment, Slice, type Node as PMNode } from "@tiptap/pm/model";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
+import type { DocBrand } from "@everyfield/contracts/documents";
+import { IMAGE_KINDS, regionAt } from "./blocks.ts";
 
 // The Tiptap extensions for everyfield.doc/1. Each node and mark has the name and the attributes of the format
 // (packages/contracts/src/documents/format/schema.ts), so `editor.getJSON()` is the document body and there is no
@@ -49,16 +52,47 @@ const attrsOfSpec = (spec: Record<string, Kind>) =>
 	Object.fromEntries(Object.entries(spec).map(([name, kind]) => [name, attr(name, kind)]));
 
 const BLOCKS = "block colblock boxblock";
+/** What the page header and footer hold: the blocks a column holds, and columns. A page break cannot sit there. */
+const REGION_BLOCKS = "(colblock | columns)*";
+const px = (pt: number) => `${((pt * 4) / 3).toFixed(2)}px`;
 
 // ---------------------------------------------------------------- prose
 
 export const EfDocument = Document.extend({
-	content: "block*",
-	// The header and footer live on the document node so Undo and Redo cover them (Delete all content empties them).
+	// The header and the footer are the first and the last child of the document, so they edit on the paper page above
+	// and below the body, take the same text tools, and share one Undo history with the body and the page setup.
+	content: "pageHeader? block* pageFooter?",
+	// `page` is the page setup of the format (size, orientation, margins, tile) without the header and the footer.
 	addAttributes() {
-		return { header: { default: undefined, rendered: false }, footer: { default: undefined, rendered: false } };
+		return { page: { default: undefined, rendered: false } };
 	},
 });
+
+function regionNode(name: "pageHeader" | "pageFooter") {
+	const tag = name === "pageHeader" ? "header" : "footer";
+	return Node.create({
+		name,
+		content: REGION_BLOCKS,
+		isolating: true,
+		selectable: false,
+		addAttributes() {
+			return attrsOfSpec({ pages: "string" });
+		},
+		parseHTML: () => [{ tag: `${tag}[data-ef-node="${name}"]` }],
+		renderHTML: ({ node, HTMLAttributes }) => [
+			tag,
+			mergeAttributes(HTMLAttributes, {
+				"data-ef-node": name,
+				role: "group",
+				"aria-label": name === "pageHeader" ? "Page header" : "Page footer",
+				"data-ef-pages": String(node.attrs.pages ?? "all"),
+			}),
+			0,
+		],
+	});
+}
+export const EfPageHeader = regionNode("pageHeader");
+export const EfPageFooter = regionNode("pageFooter");
 
 export const EfParagraph = Paragraph.extend({
 	group: BLOCKS,
@@ -165,7 +199,15 @@ export const EfDivider = Node.create({
 		return attrsOfSpec({ weight: "string", color: "string" });
 	},
 	parseHTML: () => [{ tag: 'hr[data-ef-node="divider"]' }],
-	renderHTML: ({ HTMLAttributes }) => ["hr", mergeAttributes(HTMLAttributes, { "data-ef-node": "divider" })],
+	renderHTML: ({ node, HTMLAttributes }) => [
+		"hr",
+		mergeAttributes(HTMLAttributes, {
+			"data-ef-node": "divider",
+			// What the PDF draws when the file leaves the attribute out: a 2 pt rule in ink.
+			"data-line-weight": String(node.attrs.weight ?? "rule"),
+			"data-line-color": String(node.attrs.color ?? "ink"),
+		}),
+	],
 });
 
 export const EfSpacer = Node.create({
@@ -339,32 +381,233 @@ function tableExtras(table: PMNode, part: "header" | "blank"): HTMLElement[] {
 	);
 }
 
-const BLOCK_OR_PROSE = "colblock*";
-export const EfColumns = laterNode("columns", {
+// ---------------------------------------------------------------- layout blocks
+
+/** Columns side by side. Each share of the free width is the column's `width`, as in the PDF (layouts/doc.tsx). */
+export const EfColumns = Node.create({
+	name: "columns",
 	group: "block boxblock",
-	content: "column column+",
-	attrs: { gap: "number", valign: "string" },
-	atom: true,
+	content: "column{2,4}",
+	isolating: true,
+	defining: true,
+	addAttributes() {
+		return attrsOfSpec({ gap: "number", valign: "string" });
+	},
+	parseHTML: () => [{ tag: 'div[data-ef-node="columns"]' }],
+	renderHTML: ({ node, HTMLAttributes }) => [
+		"div",
+		mergeAttributes(HTMLAttributes, {
+			"data-ef-node": "columns",
+			"data-count": String(node.childCount),
+			"data-valign": String(node.attrs.valign ?? "top"),
+			style: `--ef-gap:${px(typeof node.attrs.gap === "number" ? node.attrs.gap : 12)}`,
+		}),
+		0,
+	],
 });
-export const EfColumn = laterNode("column", { content: BLOCK_OR_PROSE, attrs: { width: "number", align: "string" } });
-export const EfBox = laterNode("box", {
+export const EfColumn = Node.create({
+	name: "column",
+	content: "colblock*",
+	isolating: true,
+	addAttributes() {
+		return attrsOfSpec({ width: "number", align: "string" });
+	},
+	parseHTML: () => [{ tag: 'div[data-ef-node="column"]' }],
+	renderHTML: ({ node, HTMLAttributes }) => [
+		"div",
+		mergeAttributes(HTMLAttributes, {
+			"data-ef-node": "column",
+			"aria-label": "Column",
+			role: "group",
+			style: `flex-grow:${typeof node.attrs.width === "number" ? node.attrs.width : 1}`,
+		}),
+		0,
+	],
+});
+/** A box with a fill and a border from the token list. Its padding and keep-together setting load and save as they are. */
+export const EfBox = Node.create({
+	name: "box",
 	group: "block colblock",
 	content: "boxblock*",
-	attrs: { fill: "string", border: "string", padding: "number", keepTogether: "boolean" },
-	atom: true,
+	isolating: true,
+	defining: true,
+	addAttributes() {
+		return attrsOfSpec({ fill: "string", border: "string", padding: "number", keepTogether: "boolean" });
+	},
+	parseHTML: () => [{ tag: 'div[data-ef-node="box"]' }],
+	renderHTML: ({ node, HTMLAttributes }) => [
+		"div",
+		mergeAttributes(HTMLAttributes, {
+			"data-ef-node": "box",
+			role: "group",
+			"aria-label": "Box",
+			"data-box-fill": String(node.attrs.fill ?? "none"),
+			"data-box-border": String(node.attrs.border ?? "border"),
+			style: `--ef-pad:${px(typeof node.attrs.padding === "number" ? node.attrs.padding : 12)}`,
+		}),
+		0,
+	],
 });
-export const EfImage = laterNode("image", {
+
+type Assets = DocBrand["assets"];
+
+export const EfImage = Node.create<{ assets: Assets | null }>({
+	name: "image",
 	group: BLOCKS,
-	attrs: { source: "string", width: "number", height: "number", align: "string", alt: "string" },
 	atom: true,
-	leaf: (node) => [node.attrs.source ?? "logo", node.attrs.alt].filter(Boolean).join(" · "),
+	addOptions: () => ({ assets: null }),
+	addAttributes() {
+		return attrsOfSpec({ source: "string", width: "number", height: "number", align: "string", alt: "string" });
+	},
+	parseHTML: () => [{ tag: 'div[data-ef-node="image"]' }],
+	renderHTML: ({ node, HTMLAttributes }) => [
+		"div",
+		mergeAttributes(HTMLAttributes, { "data-ef-node": "image" }),
+		[node.attrs.source ?? "logo", node.attrs.alt].filter(Boolean).join(" · "),
+	],
+	addNodeView() {
+		const assets = this.options.assets;
+		return ({ node }) => imageView(node, assets);
+	},
 });
-export const EfWriteIn = laterNode("writeIn", {
+
+function imageView(initial: PMNode, assets: Assets | null) {
+	const dom = document.createElement("div");
+	dom.className = "ef-image";
+	dom.setAttribute("data-ef-node", "image");
+	dom.contentEditable = "false";
+	const draw = (node: PMNode) => {
+		const source = (node.attrs.source as keyof Assets | undefined) ?? "logo";
+		const align = (node.attrs.align as string | undefined) ?? "left";
+		const width = typeof node.attrs.width === "number" ? node.attrs.width : 150;
+		const height = typeof node.attrs.height === "number" ? node.attrs.height : 34;
+		dom.dataset.source = source;
+		dom.dataset.align = align;
+		dom.replaceChildren();
+		const box = document.createElement("div");
+		box.className = "ef-image-box";
+		box.style.width = px(width);
+		box.style.height = px(height);
+		const asset = assets?.[source] ?? null;
+		if (asset) {
+			const img = document.createElement("img");
+			img.src = `/api/brand/assets/${asset.fileId}`;
+			img.alt = (node.attrs.alt as string | undefined) || asset.alt;
+			img.draggable = false;
+			box.append(img);
+		} else {
+			box.classList.add("ef-image-empty");
+			box.textContent = `No ${IMAGE_KINDS[source]} in the brand kit`;
+		}
+		dom.append(box);
+	};
+	draw(initial);
+	return {
+		dom,
+		update(next: PMNode) {
+			if (next.type !== initial.type) return false;
+			draw(next);
+			return true;
+		},
+		ignoreMutation: () => true,
+	};
+}
+
+const WRITE_IN_KIND: Record<string, string> = { text: "Write-in line", signature: "Signature line", date: "Date line" };
+export const writeInKindLabel = (kind: unknown) =>
+	WRITE_IN_KIND[typeof kind === "string" ? kind : "text"] ?? "Write-in line";
+
+export const EfWriteIn = Node.create({
+	name: "writeIn",
 	group: BLOCKS,
-	attrs: { label: "string", key: "string", kind: "string", width: "number" },
 	atom: true,
-	leaf: (node) => `${String(node.attrs.label ?? "Name")}`,
+	addAttributes() {
+		return attrsOfSpec({ label: "string", key: "string", kind: "string", width: "number" });
+	},
+	parseHTML: () => [{ tag: 'div[data-ef-node="writeIn"]' }],
+	renderHTML: ({ node, HTMLAttributes }) => [
+		"div",
+		mergeAttributes(HTMLAttributes, { "data-ef-node": "writeIn" }),
+		String(node.attrs.label ?? "Name"),
+	],
+	addNodeView() {
+		return ({ node, editor, getPos }) => writeInView(node, editor, getPos);
+	},
 });
+
+/** One line to write on, with its label as an input: the label commits on Enter or when the field loses focus. */
+function writeInView(initial: PMNode, editor: Editor, getPos: () => number | undefined) {
+	const dom = document.createElement("div");
+	dom.className = "ef-writein";
+	dom.setAttribute("data-ef-node", "writeIn");
+	dom.contentEditable = "false";
+	const kind = document.createElement("span");
+	kind.className = "ef-writein-kind";
+	const input = document.createElement("input");
+	input.type = "text";
+	input.className = "ef-writein-label";
+	input.maxLength = 80;
+	input.title = "Label of this line";
+	const note = document.createElement("span");
+	note.className = "ef-writein-note";
+	note.setAttribute("role", "alert");
+	const line = document.createElement("div");
+	line.className = "ef-writein-line";
+	dom.append(kind, input, note, line);
+	let current = initial;
+	const draw = (node: PMNode) => {
+		current = node;
+		const text = writeInKindLabel(node.attrs.kind);
+		dom.dataset.kind = String(node.attrs.kind ?? "text");
+		kind.textContent = text;
+		input.setAttribute("aria-label", `Label of this ${text.toLowerCase()}`);
+		if (document.activeElement !== input) input.value = String(node.attrs.label ?? "Name");
+		note.textContent = "";
+		input.removeAttribute("aria-invalid");
+	};
+	const commit = () => {
+		const label = input.value.trim();
+		if (label.length === 0) {
+			input.setAttribute("aria-invalid", "true");
+			note.textContent = "A line needs a label.";
+			return;
+		}
+		note.textContent = "";
+		input.removeAttribute("aria-invalid");
+		const pos = getPos();
+		if (pos === undefined || label === (current.attrs.label ?? "Name")) return;
+		const tr = closeHistory(editor.state.tr.setNodeMarkup(pos, undefined, { ...current.attrs, label }));
+		editor.view.dispatch(tr);
+	};
+	input.addEventListener("keydown", (event) => {
+		event.stopPropagation();
+		if (event.key === "Enter") {
+			event.preventDefault();
+			commit();
+			input.blur();
+			editor.view.focus();
+		} else if (event.key === "Escape") {
+			input.value = String(current.attrs.label ?? "Name");
+			note.textContent = "";
+			input.removeAttribute("aria-invalid");
+			input.blur();
+			editor.view.focus();
+		}
+	});
+	input.addEventListener("blur", commit);
+	draw(initial);
+	return {
+		dom,
+		update(next: PMNode) {
+			if (next.type !== initial.type) return false;
+			draw(next);
+			return true;
+		},
+		stopEvent: (event: Event) => event.target === input,
+		ignoreMutation: () => true,
+	};
+}
+
 export const EfSlot = laterNode("slot", {
 	group: BLOCKS,
 	content: "(paragraph | bulletList | orderedList)*",
@@ -446,23 +689,86 @@ export const HeadingNumbers = Extension.create({
 	},
 });
 
-// ---------------------------------------------------------------- an empty page
+// ---------------------------------------------------------------- layout rules
+
+const KEY_FORMAT = /^[a-z][a-z0-9_]{0,59}$/;
+/** The key a write-in line has: the format's default is "name" when the file leaves it out. */
+const keyOf = (node: PMNode) => (typeof node.attrs.key === "string" ? node.attrs.key : "name");
+
+/** The first key from `base` that no other write-in line uses: "name", "name_2", "name_3". */
+function freeKey(base: string, taken: ReadonlySet<string>) {
+	const root = KEY_FORMAT.test(base) ? base : "line";
+	if (!taken.has(root)) return root;
+	for (let n = 2; ; n++) {
+		const suffix = `_${n}`;
+		const candidate = `${root.slice(0, 60 - suffix.length)}${suffix}`;
+		if (!taken.has(candidate)) return candidate;
+	}
+}
+
+const CONTAINERS = ["column", "box", "pageHeader", "pageFooter"];
 
 /**
- * ProseMirror cannot redraw a document that loses every child in the same update as an attribute of the document node
- * (Delete all content and its Redo): it builds a new view of an empty document, finds nothing changed and leaves the old
- * blocks in the DOM. This plugin removes them, so the page matches the state.
+ * Rules that keep the document valid as it changes: a write-in line keeps a key no other line uses (new, copied and
+ * pasted lines included, since PDF form fields need unique names), an empty column, box, header or footer gets an
+ * empty paragraph so the cursor has somewhere to go, and a page number pasted outside the header and the footer is
+ * dropped (it can sit only there).
  */
-export const EmptyDocumentRedraw = Extension.create({
-	name: "emptyDocumentRedraw",
+export const LayoutRules = Extension.create({
+	name: "layoutRules",
 	addProseMirrorPlugins() {
 		return [
 			new Plugin({
-				view: () => ({
-					update: (view) => {
-						if (view.state.doc.childCount === 0 && view.dom.childElementCount > 0) view.dom.replaceChildren();
+				key: new PluginKey("efLayoutRules"),
+				appendTransaction: (transactions, _old, state) => {
+					if (!transactions.some((tr) => tr.docChanged)) return null;
+					const tr = state.tr;
+					// Write-in keys: the first line in document order keeps its key; a later line with the same key gets a free one.
+					const taken = new Set<string>();
+					const renames: { pos: number; node: PMNode }[] = [];
+					state.doc.descendants((node, pos) => {
+						if (node.type.name !== "writeIn") return;
+						const key = keyOf(node);
+						if (taken.has(key)) renames.push({ pos, node });
+						else taken.add(key);
+					});
+					for (const { pos, node } of renames) {
+						const key = freeKey(keyOf(node), taken);
+						taken.add(key);
+						tr.setNodeMarkup(pos, undefined, { ...node.attrs, key });
+					}
+					// Empty containers in the changed ranges.
+					const fills: number[] = [];
+					for (const t of transactions)
+						t.mapping.maps.forEach((map, index) =>
+							map.forEach((_a, _b, start, end) => {
+								const to = t.mapping.slice(index + 1).map(end);
+								const from = t.mapping.slice(index + 1).map(start);
+								state.doc.nodesBetween(Math.max(0, from - 1), Math.min(state.doc.content.size, to + 1), (node, pos) => {
+									if (CONTAINERS.includes(node.type.name) && node.childCount === 0) fills.push(pos);
+								});
+							}),
+						);
+					for (const pos of [...new Set(fills)].sort((a, b) => b - a)) {
+						const paragraph = state.schema.nodes.paragraph;
+						if (paragraph) tr.insert(tr.mapping.map(pos) + 1, paragraph.create());
+					}
+					return tr.docChanged ? tr : null;
+				},
+				props: {
+					transformPasted: (slice, view) => {
+						if (regionAt(view.state)) return slice;
+						const strip = (fragment: Fragment): Fragment => {
+							const nodes: PMNode[] = [];
+							fragment.forEach((child) => {
+								if (child.type.name === "pageNumber") return;
+								nodes.push(child.isLeaf ? child : child.copy(strip(child.content)));
+							});
+							return Fragment.fromArray(nodes);
+						};
+						return new Slice(strip(slice.content), slice.openStart, slice.openEnd);
 					},
-				}),
+				},
 			}),
 		];
 	},
@@ -471,10 +777,12 @@ export const EmptyDocumentRedraw = Extension.create({
 // ---------------------------------------------------------------- the set
 
 /** Every extension of the editor. The headless tests load the same list. */
-export function editorExtensions(values: FieldValues = {}) {
+export function editorExtensions(values: FieldValues = {}, assets: Assets | null = null) {
 	return [
 		EfDocument,
 		Text,
+		EfPageHeader,
+		EfPageFooter,
 		EfParagraph,
 		EfHeading,
 		EfBulletList,
@@ -487,7 +795,7 @@ export function editorExtensions(values: FieldValues = {}) {
 		EfColumns,
 		EfColumn,
 		EfBox,
-		EfImage,
+		EfImage.configure({ assets }),
 		EfWriteIn,
 		EfSlot,
 		EfTable,
@@ -503,6 +811,6 @@ export function editorExtensions(values: FieldValues = {}) {
 		EfTag,
 		UndoRedo,
 		HeadingNumbers,
-		EmptyDocumentRedraw,
+		LayoutRules,
 	];
 }
