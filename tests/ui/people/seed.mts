@@ -14,6 +14,7 @@ import { createOnboardingProducer } from "../../../packages/domain/src/onboardin
 import { peopleWriter, accountPersonProducer } from "../../../packages/domain/src/people/index.ts";
 import { randomBytes, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { GUIDE_ROUTES } from "../../../packages/domain/src/wiki/guides.ts";
 import { dropSeed, openSeedEnvironment, writeFixture } from "../seed-env.mts";
 
 // The task reminder port of a stage change or retirement. These people hold no dated, assigned task, so a replan
@@ -348,6 +349,12 @@ async function up(origin: string) {
 		"administrative/financial/counting-procedures",
 		"launch-sunday/partner-organization-coordination",
 	]) {
+		const row = corpus.articles.find((article) => article.slug === slug)!;
+		articles.push([row.title, slug, row.content, 2]);
+	}
+	// WP-034/api: the real articles every Guide route reads, after the phase 2 ones so the sidenav keeps its first and
+	// last article. The /intelligence Guide holds the phase table, and search for "Phase" meets headings and tables.
+	for (const slug of new Set(GUIDE_ROUTES.map((entry) => entry.slug))) {
 		const row = corpus.articles.find((article) => article.slug === slug)!;
 		articles.push([row.title, slug, row.content, 2]);
 	}
