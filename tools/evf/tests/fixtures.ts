@@ -193,7 +193,7 @@ else if(a[0]==='pr'&&a[1]==='update-branch'){
 else if(a[0]==='pr'&&a[1]==='edit'){if(body&&s.pr)s.pr.body=body;result='';}
 else if(a[0]==='pr'&&a[1]==='create')result='https://github.com/test/private/pull/78';
 else if(a[0]==='gist'&&a[1]==='create')result='https://gist.github.com/fixture-owner/a1b2c3';
-else if(a[0]==='pr'&&a[1]==='comment')result='https://github.com/test/private/pull/'+a[2]+'#comment';
+else if(a[0]==='pr'&&a[1]==='comment'){result='https://github.com/test/private/pull/'+a[2]+'#comment';(s.comments[a[2]]??=[]).push({body,html_url:result});}
 else if(a[0]==='pr'&&a[1]==='merge'){
  if(!s.allowMerge){fs.writeFileSync(p,JSON.stringify(s));process.stderr.write('fixture merge barrier');process.exit(1);}
  const cp=require('node:child_process'),cwd=fs.realpathSync(process.cwd()+'/../..');

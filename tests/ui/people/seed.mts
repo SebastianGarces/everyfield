@@ -14,6 +14,7 @@ import { createOnboardingProducer } from "../../../packages/domain/src/onboardin
 import { peopleWriter, accountPersonProducer } from "../../../packages/domain/src/people/index.ts";
 import { randomBytes, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { GUIDE_ROUTES } from "../../../packages/domain/src/wiki/guides.ts";
 import { dropSeed, openSeedEnvironment, writeFixture } from "../seed-env.mts";
 
 // The task reminder port of a stage change or retirement. These people hold no dated, assigned task, so a replan
@@ -351,15 +352,27 @@ async function up(origin: string) {
 		const row = corpus.articles.find((article) => article.slug === slug)!;
 		articles.push([row.title, slug, row.content, 2]);
 	}
-	for (let n = 1; n <= 22; n += 1)
+	// WP-034/api: the real articles every Guide route reads go in the Reference group between Launch checklist 6 and 7,
+	// so the sidenav keeps its first and last article and the place of checklists 1 to 6. The /intelligence Guide holds
+	// the phase table, and a search for "Phase" meets headings, bold text and tables.
+	const reference = new Set<string>();
+	for (let n = 1; n <= 22; n += 1) {
 		articles.push([`Launch checklist ${n}`, `launch-checklist-${n}`, `Checklist ${n} for the launch team.`, 3]);
+		reference.add(`launch-checklist-${n}`);
+		if (n !== 6) continue;
+		for (const slug of new Set(GUIDE_ROUTES.map((entry) => entry.slug))) {
+			const row = corpus.articles.find((article) => article.slug === slug)!;
+			articles.push([row.title, slug, row.content, 3]);
+			reference.add(slug);
+		}
+	}
 	for (const [position, [title, slug, body, phase]] of articles.entries()) {
 		const id = randomUUID();
 		await admin.execute(
 			sql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id) VALUES(${id},'article',${slug},${GLOBAL})`,
 		);
 		await admin.execute(sql`INSERT INTO article_revision(id,article_id,tenant_id,release_id,revision_number,title,slug,excerpt,body,content_type,phase,position,content_hash,published_at,meaningful,meaningful_sequence,section_id,parent_article_id,related_slugs)
-			VALUES(${randomUUID()},${id},${GLOBAL},${release},1,${title},${slug},${title},${body},'safe_mdx',${phase},${position + 1},${digest()},clock_timestamp(),true,1,${slug.startsWith("launch-checklist-") ? referenceSectionId : sectionId},NULL,ARRAY[]::text[])`);
+			VALUES(${randomUUID()},${id},${GLOBAL},${release},1,${title},${slug},${title},${body},'safe_mdx',${phase},${position + 1},${digest()},clock_timestamp(),true,1,${reference.has(slug) ? referenceSectionId : sectionId},NULL,ARRAY[]::text[])`);
 		await admin.execute(sql`INSERT INTO reference_version(id,item_id,release_id,version_number,artifact_path,content_hash,source_credit)
 			VALUES(${randomUUID()},${id},${release},1,${"wiki/" + slug},${digest()},${position === 0 ? `docs/reference/wiki/seed.json@${digest()}` : "UI seed"})`);
 	}

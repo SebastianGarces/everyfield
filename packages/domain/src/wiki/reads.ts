@@ -41,7 +41,8 @@ import {
 	visibleBodySql,
 	type CorpusAccess,
 } from "./corpus.ts";
-import { guideFor, sectionExcerpt } from "./guides.ts";
+import { sectionExcerpt } from "./excerpt.ts";
+import { guideFor } from "./guides.ts";
 import { pdfFilename, printHtml, type PdfRenderer } from "./pdf.ts";
 import { deny, GLOBAL, meSql, PAGE, parse, pgCode, runRead, selectedOwner } from "./core.ts";
 
@@ -191,6 +192,28 @@ export function bookmarksList(db: Database, authority: RequestActor, raw: unknow
 		return listValue(page.articles, page.nextCursor, page.row);
 	});
 }
+/**
+ * Markdown and MDX as plain words, for search snippets: markup goes, link and image text stays, and every line break,
+ * table cell and list item becomes one space. Each step is [pattern, replacement, flags] for regexp_replace.
+ */
+const PLAIN_TEXT_STEPS: readonly [string, string, string][] = [
+	["^[ \\t]*(```|~~~).*$", "", "gn"],
+	["</?[A-Za-z][^>]*>", " ", "g"],
+	["!?\\[([^]]*)\\]\\([^)]*\\)", "\\1", "g"],
+	["^[ \\t]{0,3}#{1,6}([ \\t]+|$)", "", "gn"],
+	["^[ \\t|:*_-]+$", "", "gn"],
+	["^[ \\t]*(>[ \\t]?)+", "", "gn"],
+	["^[ \\t]*([-*+]|[0-9]+[.)])[ \\t]+", "", "gn"],
+	["[*`~]+|\\m_+|_+\\M", "", "g"],
+	["\\\\([[:punct:]])", "\\1", "g"],
+	["[|[:space:]]+", " ", "g"],
+];
+function plainText(text: SQL): SQL {
+	return sql`btrim(${PLAIN_TEXT_STEPS.reduce(
+		(inner, [pattern, replacement, flags]) => sql`regexp_replace(${inner}, ${pattern}, ${replacement}, ${flags})`,
+		text,
+	)})`;
+}
 export async function search(db: Database, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
 		const input = parse(searchRequest, raw);
@@ -212,8 +235,7 @@ export async function search(db: Database, authority: RequestActor, raw: unknown
 				return tx.execute(sql`WITH ${corpusCtes(access, source)},
 					scored AS (
 						SELECT p.*,
-							ts_rank(v.vector, websearch_to_tsquery('english', ${input.query})) AS text_rank,
-							ts_headline('english', coalesce(p.body, p.excerpt, p.title, ''), websearch_to_tsquery('english', ${input.query}), 'MaxFragments=1, MinWords=5, MaxWords=20') AS snippet
+							ts_rank(v.vector, websearch_to_tsquery('english', ${input.query})) AS text_rank
 						FROM picked p
 						CROSS JOIN LATERAL (
 							SELECT
@@ -231,9 +253,12 @@ export async function search(db: Database, authority: RequestActor, raw: unknown
 						COALESCE((
 							SELECT json_agg(${articleJson()} ORDER BY p.text_rank DESC, p.article_id)
 							FROM (
-								SELECT * FROM scored
-								ORDER BY text_rank DESC, article_id
-								OFFSET ${offset} LIMIT ${PAGE}
+								SELECT s.*, ts_headline('english', ${plainText(sql`coalesce(s.body, s.excerpt, s.title, '')`)}, websearch_to_tsquery('english', ${input.query}), 'MaxFragments=1, MinWords=5, MaxWords=20') AS snippet
+								FROM (
+									SELECT * FROM scored
+									ORDER BY text_rank DESC, article_id
+									OFFSET ${offset} LIMIT ${PAGE}
+								) s
 							) p
 							LEFT JOIN reading rd ON rd.account_id = (SELECT account_id FROM me) AND rd.article_id = p.article_id
 							LEFT JOIN LATERAL (

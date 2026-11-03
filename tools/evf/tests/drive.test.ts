@@ -506,7 +506,8 @@ test("OPS-59-retry: three failures in a row that cost no round escalate; a resta
 		assert.equal(f.taskRow().round, 0, "a restart costs no round");
 		assert.equal(f.events("restart").length, 1);
 		const state = f.getState();
-		state.requiredChecks = [{ name: "ci", bucket: "pass" }];
+		state.requiredChecks = [{ name: "ci", bucket: "pass", link: "https://github.com/test/private/actions/runs/1" }];
+		state.protection = { required_status_checks: { contexts: ["ci"] } };
 		f.setState(state);
 		n = driveOnce(f.root, f.task, TIMING);
 		assert.equal(n.stage, "ci", "the stage before the aborted run decides: ci runs again");
@@ -1040,7 +1041,8 @@ function withPr(f: ReturnType<typeof driveFixture>) {
 	writeFileSync(join(runtimeDir(f.root, f.task), "pr-body.md"), prBody());
 	const state = f.getState();
 	state.pr = { number: 77, url: "https://github.com/test/private/pull/77", state: "OPEN" };
-	state.requiredChecks = [{ name: "ci", bucket: "pass" }];
+	state.requiredChecks = [{ name: "ci", bucket: "pass", link: "https://github.com/test/private/actions/runs/1" }];
+	state.protection = { required_status_checks: { contexts: ["ci"] } };
 	f.setState(state);
 	f.db.prepare("UPDATE tasks SET spec = ?, status = 'active' WHERE id = ?").run(SPEC, f.taskId);
 	return remote;
@@ -2386,6 +2388,7 @@ function bodyOnlyAt(f: ReturnType<typeof driveFixture>) {
 	state.requiredChecks = [
 		{ name: "ci", state: "SUCCESS", bucket: "pass", link: "https://github.com/test/private/actions/runs/1" },
 	];
+	state.protection = { required_status_checks: { contexts: ["ci"] } };
 	state.comments["77"] = [
 		{
 			body: `EVF-Review: ${JSON.stringify({ head: sha, verifier: VERIFIER, verdict: "body_only", body: BODY_ITEMS, quality: { verdict: "approved", principles: ["laziness-protocol", "minimize-reader-load", "subtract-before-you-add", "test-behavior-not-implementation"] }, experience: { verdict: "approved", budget: "met" } })}`,
@@ -2791,7 +2794,8 @@ test("OPS-123-github AC:OPS-123-3: a PR merged on GitHub between stages ends the
 		readyToShip(g);
 		g.db.prepare("DELETE FROM runs WHERE task_id = ? AND stage = 'ci'").run(g.taskId);
 		const s = g.getState();
-		s.requiredChecks = [{ name: "ci", bucket: "pass" }];
+		s.requiredChecks = [{ name: "ci", bucket: "pass", link: "https://github.com/test/private/actions/runs/1" }];
+		s.protection = { required_status_checks: { contexts: ["ci"] } };
 		g.setState(s);
 		// GitHub cannot be read for the PR: the merge check finds nothing and the ci stage runs as before.
 		const gh = join(g.root, "fake-bin/gh"),
