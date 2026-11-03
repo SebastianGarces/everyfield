@@ -324,12 +324,15 @@ def runnable_errors(case, example, given, operations, requirement, name):
     return errors
 
 def run_errors(root, case, label):
-    """A run case names the test files that run it, and each of them names the case as AC:<case-id>."""
+    """A run case names the test files that run it, and each of them names the case as AC:<case-id>.
+    A root without a tests folder (a docs-only copy, as evf's tooling tests use) has no test files to read."""
     tests = case.get('run_by', [])
     if case.get('status') != 'run':
         return [f'{label}: run_by needs status run'] if tests else []
     if not tests:
         return [f'{label}: a run case names its tests in run_by']
+    if not (root / 'tests').is_dir():
+        return []
     return [f'{label}: {path} does not run AC:{case["id"]}' for path in tests
             if not (root / path).is_file() or f'AC:{case["id"]} ' not in (root / path).read_text()]
 
