@@ -200,6 +200,7 @@ function Frame({ name, settings, seed = null, children }: FrameProps) {
 				else later("Search")();
 			}}
 			onNotifications={bell.open}
+			notificationsOpen={bell.expanded}
 			onAskEvry={privatePage ? undefined : evry.open}
 			banner={banner}
 		>
