@@ -5,5 +5,5 @@ export { managedTasks } from "./queries.ts";
 export { taskReader } from "./queries.ts";
 export { authorizeTaskReminders, reminderRecipients, reminderSeats } from "./reminders.ts";
 export { createTaskWriter, type ReminderSource, type TaskReminders, type TaskWriter } from "./writes.ts";
-export { CATALOG, type Catalog } from "./catalog.ts";
-export { createTemplateReader, type TemplateReader } from "./templates.ts";
+export { CATALOG } from "./catalog.ts";
+export { createTemplateReader } from "./templates.ts";

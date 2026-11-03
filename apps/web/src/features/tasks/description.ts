@@ -11,7 +11,7 @@ const plain = (parts: Inline[]): string =>
 	parts.map((p) => (p.kind === "text" || p.kind === "code" ? p.text : plain(p.children))).join("");
 
 /** The description as readable lines, from the same parse the panel draws: each line, each list item, no markup. */
-export function descriptionText(value: string): string {
+function descriptionText(value: string): string {
 	return parseMarkdown(value)
 		.flatMap((block) =>
 			block.kind === "paragraph"

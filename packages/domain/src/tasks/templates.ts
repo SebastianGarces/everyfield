@@ -102,10 +102,10 @@ const summary = (k: Checklist) =>
 		taskCount: k.items.length,
 	});
 /** A checklist's items as the tasks they would create, due `offsetDays` after `anchor`. */
-const preview = (k: Checklist, anchor: LocalDate, items = k.items) =>
+const preview = (k: Checklist, anchor: LocalDate) =>
 	c.checklistPreview.parse({
 		...summary(k),
-		tasks: items.map((i) => ({
+		tasks: k.items.map((i) => ({
 			key: i.key,
 			title: i.title,
 			description: c.normalizeDescription(i.description ?? ""),
@@ -246,7 +246,6 @@ export function createTemplateReader(catalog: Catalog = CATALOG) {
 		},
 	};
 }
-export type TemplateReader = ReturnType<typeof createTemplateReader>;
 
 /** New top-level task rows for these items, assigned to the importer and due `offsetDays` after `anchor`. */
 function taskRows(
@@ -309,6 +308,12 @@ async function lockOffer(tx: Tx, cmd: Command, transitionId: string, importer: b
 
 /** The checklist writes, on the task writer: import, accept and decline. */
 export function templateWriter(reminders: TaskReminders, catalog: Catalog = CATALOG) {
+	const remind = (tx: Tx, cmd: Command, rows: TaskRow[]) =>
+		syncAll(
+			reminders,
+			tx,
+			rows.map((r) => reminderChange(cmd.actor.plantId, null, r)),
+		);
 	/** Accept or decline: the answer settles this move and every older unanswered one, with one audit record. */
 	async function answer(
 		tx: Tx,
@@ -323,13 +328,12 @@ export function templateWriter(reminders: TaskReminders, catalog: Catalog = CATA
 		if (chosen.some((key) => !offered.some((k) => k.key === key))) deny("invalid_input");
 		const anchor = localDateAt(offer.transition.occurredAt, cmd.actor.zone);
 		const assignees = input.checklistKeys ? checkAssignees(offer.importer, false) : [];
-		const rows = offered
-			.filter((k) => chosen.includes(k.key))
-			.flatMap((k) => taskRows(cmd, k, k.items, anchor, assignees));
+		const picked = offered.filter((k) => chosen.includes(k.key));
+		const rows = picked.flatMap((k) => taskRows(cmd, k, k.items, anchor, assignees));
 		const at = new Date();
 		const decided = {
 			answer: chosen.length ? ("accepted" as const) : ("declined" as const),
-			accepted: offered.filter((k) => chosen.includes(k.key)).map((k) => k.key),
+			accepted: picked.map((k) => k.key),
 			declined: offered.filter((k) => !chosen.includes(k.key)).map((k) => k.key),
 		};
 		cmd.writes
@@ -356,11 +360,7 @@ export function templateWriter(reminders: TaskReminders, catalog: Catalog = CATA
 				},
 				created: rows.map((r) => itemOf(r, asOf)),
 			}),
-			after: syncAll(
-				reminders,
-				tx,
-				rows.map((r) => reminderChange(cmd.actor.plantId, null, r)),
-			),
+			after: remind(tx, cmd, rows),
 		};
 	}
 	return {
@@ -404,11 +404,7 @@ export function templateWriter(reminders: TaskReminders, catalog: Catalog = CATA
 							catalogVersion: catalog.version,
 							tasks: rows.map((r) => itemOf(r, asOf)),
 						}),
-						after: syncAll(
-							reminders,
-							tx,
-							rows.map((r) => reminderChange(cmd.actor.plantId, null, r)),
-						),
+						after: remind(tx, cmd, rows),
 					};
 				});
 			});
