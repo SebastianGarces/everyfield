@@ -141,7 +141,10 @@ function WriteInField({ editor, context }: { editor: Editor; context: TableConte
 							tr.setNodeMarkup(live.pos, undefined, { ...live.node.attrs, writeInRows: count }),
 						);
 					}}
-					onBlur={() => setDraft(null)}
+					onBlur={() => {
+						typing.doc = null;
+						setDraft(null);
+					}}
 				/>
 			</Tip>
 			{problem ? (
@@ -176,7 +179,7 @@ export function TableControls({ editor, palette }: { editor: Editor; palette: Do
 		] as const
 	)
 		.filter(([, reason]) => reason !== null && !reason.startsWith("Put the cursor"))
-		.filter(([name]) => !(ledger && name === "Add row"));
+		.filter(([name]) => !(ledger && (name === "Add row" || name === "Blank rows")));
 	const seen = new Set<string>();
 	const unique = reasons.filter(([, reason]) => !seen.has(reason as string) && seen.add(reason as string));
 

@@ -311,7 +311,7 @@ export const setHeaderFill = (t: TableNode, headerFill: TableNode["attrs"]["head
 });
 export const setZebra = (t: TableNode, zebra: boolean): TableNode => ({
 	...t,
-	attrs: { ...t.attrs, zebra: zebra || undefined },
+	attrs: { ...t.attrs, zebra },
 });
 
 // ---------------------------------------------------------------- a budget

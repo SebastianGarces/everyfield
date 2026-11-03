@@ -314,6 +314,8 @@ function valueCellView(
 					);
 				});
 				input.addEventListener("blur", () => {
+					// The next keystroke is a new Undo step.
+					typing.doc = null;
 					setInvalid(null);
 					input.value = amountText();
 				});
@@ -452,6 +454,9 @@ function tableNodeView(
 			input.value = c.label;
 			input.style.textAlign = alignOf(c);
 			input.addEventListener("focus", () => noteFocus(editor.view, getPos(), "head", i));
+			input.addEventListener("blur", () => {
+				typing.doc = null;
+			});
 			input.addEventListener("input", () => {
 				const pos = getPos();
 				const current = pos === undefined ? null : editor.state.doc.nodeAt(pos);

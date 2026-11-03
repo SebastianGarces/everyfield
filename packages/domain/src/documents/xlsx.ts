@@ -382,6 +382,29 @@ export function ledgerTables(doc: EveryfieldDoc): TableNode[] {
 	return out;
 }
 
+/**
+ * The title above each ledger table: the text of the nearest heading before it in the body, merge fields filled in, so a
+ * title edited in the editor is the title of the sheet. A table with no heading above it has none.
+ */
+function sheetTitles(doc: EveryfieldDoc, values: Record<string, string>) {
+	const titles = new Map<TableNode, string>();
+	let last = "";
+	const walk = (nodes: readonly BlockNode[] | undefined) => {
+		for (const node of nodes ?? []) {
+			if (node.type === "heading")
+				last = (node.content ?? [])
+					.map((n) => (n.type === "text" ? n.text : n.type === "field" ? (values[n.attrs.key] ?? "") : ""))
+					.join("")
+					.trim();
+			else if (node.type === "table" && node.attrs.style === "ledger") titles.set(node, last);
+			else if (node.type === "columns") for (const col of node.content) walk(col.content);
+			else if (node.type === "box") walk(node.content);
+		}
+	};
+	walk(doc.body.content);
+	return titles;
+}
+
 /** A column formula as an Excel formula in one sheet row: column ids become letters, sum(a:b) becomes SUM(A5:C5). */
 function excelFormula(tree: Formula, letter: (id: string) => string, row: number): string {
 	switch (tree.op) {
@@ -413,6 +436,7 @@ const cellText = (cell: TableNode["content"] extends (infer R)[] | undefined ? R
  */
 export function buildLedgerWorkbook(doc: EveryfieldDoc, values: Record<string, string>, theme: RenderTheme) {
 	const tables = ledgerTables(doc);
+	const titles = sheetTitles(doc, values);
 	const book = new StyleBook(theme);
 	const p = book.palette;
 	const used = new Set<string>();
@@ -448,7 +472,7 @@ export function buildLedgerWorkbook(doc: EveryfieldDoc, values: Record<string, s
 			);
 		const church = values.church_name ?? "";
 		const rows: Cell[][] = [
-			[text(`${church} ${doc.title}`.trim(), S.title)],
+			[text(titles.get(table) || `${church} ${doc.title}`.trim(), S.title)],
 			[text(a.writeInRows ? "" : "Enter each amount in a boxed cell. The totals add up on their own.", S.note)],
 		];
 		if (a.header) rows.push(cols.map((c) => text(c.label, headStyle(c))));

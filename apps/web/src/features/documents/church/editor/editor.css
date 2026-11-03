@@ -717,11 +717,12 @@
 	font-variant-numeric: tabular-nums;
 	text-align: inherit;
 	color: var(--paper-ink);
-	box-shadow: 0 0 0 1px transparent;
+	/* The amount boxes show as light boxes, as the PDF's fillable fields do. */
+	box-shadow: 0 0 0 1px var(--paper-line);
 	cursor: text;
 }
 .ef-paper .ef-vinput:hover {
-	box-shadow: 0 0 0 1px var(--paper-line);
+	box-shadow: 0 0 0 1px #9aa0ac;
 }
 .ef-paper .ef-vinput:focus-visible {
 	outline: none;
