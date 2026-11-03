@@ -4682,6 +4682,12 @@
   ],
   "rule_additions": [
     {
+      "requirement": "REQ-TEAM-001",
+      "operation": "teams.edit",
+      "rule": "Supported state values: forming, active, paused?.",
+      "reason": "WP-017, 2026-11-02: teams.correct is retired (operation_removals); its state rule stays on Edit details, the only change to a ministry's own details."
+    },
+    {
       "requirement": "REQ-DOC-002",
       "operation": "documents.generate",
       "rule": "Refuse an editable template. Generate makes files only for fixed-layout and budget templates; an editable template goes through documents.createFromTemplate, then documents.exportNative.",
@@ -5001,6 +5007,10 @@
     {
       "id": "evry.recordEffectResult",
       "reason": "S1 plan review, 2026-10-20 (OPS-17): an internal execution step, not a product operation. Executed effects write their audit record with the change (patterns.md); REQ-EVR-013, REQ-EVR-014 and REQ-EVR-018 state the behavior."
+    },
+    {
+      "id": "teams.correct",
+      "reason": "WP-017, 2026-11-02 (spec Done criterion 12): a second path that changed a ministry's own details. Edit details (teams.edit) with an optional reason is the only action that changes a ministry's name, description, icon or state; REQ-TEAM-002 states the behavior and old Corrected history entries still read."
     }
   ]
 }

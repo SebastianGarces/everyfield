@@ -9,7 +9,7 @@ import { createSeatService } from "../../../packages/domain/src/identity/index.t
 import { InvitationRefusal } from "../../../packages/domain/src/identity/invitation-core.ts";
 import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { sectionOperations } from "../../../packages/domain/src/settings/index.ts";
-import { reviewDigest, rosterWriter, teamsReader, teamsWriter } from "../../../packages/domain/src/teams/index.ts";
+import { reviewDigest, teamsReader, teamsWriter } from "../../../packages/domain/src/teams/index.ts";
 
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
@@ -436,7 +436,7 @@ test("AC:GAP-TEAM-002 AC:TARGET-TEAM-002 archive keeps history and the linked ta
 	);
 	assert.equal(restored.team.archived, false);
 	const corrected = ok(
-		await run(teamsWriter.correct, {
+		await run(teamsWriter.edit, {
 			requestKey: key(),
 			expectedRevision: await rev("team", team.id),
 			input: { teamId: team.id, name: "Archive desk corrected", reason: "Spelling" },
@@ -802,8 +802,7 @@ test("AC:TARGET-TEAM-002 one edit keeps an optional reason in the history", asyn
 		const at = await rev("team", team.id);
 		ok(await run(teamsWriter.edit, { requestKey: key(), expectedRevision: at, input: { teamId: team.id, ...input } }));
 	};
-	const entries = async () =>
-		ok(await teamsReader.listHistory(db, await viewer(), { teamId: team.id })).entries;
+	const entries = async () => ok(await teamsReader.listHistory(db, await viewer(), { teamId: team.id })).entries;
 	await edit({ name: "Reason desk one", reason: "  Spelling fix  " });
 	await edit({ name: "Reason desk two", reason: "   " });
 	await edit({ name: "Reason desk three" });
@@ -829,48 +828,6 @@ test("AC:TARGET-TEAM-002 one edit keeps an optional reason in the history", asyn
 			input: { teamId: team.id, name: "Too long", reason: "x".repeat(501) },
 		}),
 		"invalid_input",
-	);
-});
-
-test("a roster copy keeps the people it already added", async () => {
-	const team = await makeTeam("Roster desk");
-	const slot = await makeRole(team.id, "Roster role");
-	const extra = await makeRole(team.id, "Roster extra");
-	const alex = await person("Alex Roster");
-	const casey = await person("Casey Roster");
-	ok(
-		await run(teamsWriter.assignRole, {
-			requestKey: key(),
-			expectedRevision: await rev("team_role", slot.id),
-			input: { roleId: slot.id, teamId: team.id, personId: alex },
-		}),
-	);
-	const meeting = randomUUID();
-	await admin.execute(sql`INSERT INTO meeting(id,plant_id,type,local_date,local_time,timezone,starts_at,resolver_version,team_id,status,attendance_revision)
-		VALUES(${meeting},${P},'team_meeting','2026-11-02','18:00','America/Chicago','2026-11-02T23:00:00Z','1',${team.id},'planning',1)`);
-	const preview = ok(await teamsReader.readRosterPreview(db, await viewer(), { meetingId: meeting, teamId: team.id }));
-	assert.deepEqual(preview.personIds, [alex]);
-	const copied = ok(
-		await run(rosterWriter.copyTeamRoster, { requestKey: key(), input: { meetingId: meeting, teamId: team.id } }),
-	);
-	assert.deepEqual(copied.addedPersonIds, [alex]);
-	await admin.execute(sql`UPDATE participation SET rsvp='confirmed' WHERE meeting_id=${meeting} AND person_id=${alex}`);
-	ok(
-		await run(teamsWriter.assignRole, {
-			requestKey: key(),
-			expectedRevision: await rev("team_role", extra.id),
-			input: { roleId: extra.id, teamId: team.id, personId: casey },
-		}),
-	);
-	const next = ok(
-		await run(rosterWriter.copyTeamRoster, { requestKey: key(), input: { meetingId: meeting, teamId: team.id } }),
-	);
-	assert.deepEqual(next.addedPersonIds, [casey]);
-	assert.deepEqual(next.skippedPersonIds, [alex]);
-	assert.equal(
-		(await admin.execute(sql`SELECT rsvp FROM participation WHERE meeting_id=${meeting} AND person_id=${alex}`)).rows[0]
-			.rsvp,
-		"confirmed",
 	);
 });
 

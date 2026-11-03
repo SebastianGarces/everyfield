@@ -64,7 +64,13 @@ const savedJourney = z.discriminatedUnion("status", [
 ]);
 const leadAssignment = z.strictObject({ teamId: recordId, roleId: recordId, personId });
 const recordedLead = z.discriminatedUnion("answer", [
-	z.strictObject({ answer: z.literal("yes"), assignment: leadAssignment, savedAt: instant }),
+	z.strictObject({
+		answer: z.literal("yes"),
+		assignment: leadAssignment,
+		/** With the fill on: the planter holds the Senior pastor role, or another person held it and kept it. */
+		seniorPastor: z.enum(["filled", "occupied"]).optional(),
+		savedAt: instant,
+	}),
 	z.strictObject({ answer: z.literal("no"), savedAt: instant }),
 	z.strictObject({ answer: z.literal("skip"), savedAt: instant }),
 ]);
