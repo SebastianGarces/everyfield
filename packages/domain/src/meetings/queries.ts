@@ -18,6 +18,19 @@ const guests = (where: SQL) =>
 	sql`(SELECT coalesce(json_agg(x ORDER BY x.person_name, x.id), '[]') FROM (SELECT ${guestColumns}
 		WHERE g.meeting_id = m.id AND g.removed_at IS NULL AND ${where}) x)`;
 
+/** Per Person, the first open of any email sent from this meeting's messages, as the email service reported it. */
+const emailOpens = sql`(SELECT coalesce(json_agg(json_build_object(
+		'personId', o.person_id, 'openedAt', to_char(o.opened_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+	) ORDER BY o.person_id), '[]') FROM (
+		SELECT ml.recipient_person_id AS person_id, min(ml.opened_at) AS opened_at
+		FROM communication cm
+		JOIN mail ml ON ml.tenant_id = cm.plant_id AND ml.purpose = 'communication'
+			AND ml.logical_key LIKE 'communication/' || cm.id::text || '/%'
+		WHERE cm.plant_id = m.plant_id AND cm.meeting_id = m.id
+			AND ml.opened_at IS NOT NULL AND ml.recipient_person_id IS NOT NULL
+		GROUP BY ml.recipient_person_id
+	) o)`;
+
 export const meetingsReader = {
 	/**
 	 * Upcoming, past or all meetings (default all), optionally by type, status and Vision kit readiness. Page numbers in
@@ -116,16 +129,25 @@ export const meetingsReader = {
 			});
 		});
 	},
+	/**
+	 * The guests, and for Owners and Admins the first time each guest opened an email of this meeting (WP-028). An
+	 * open is an email-service notice only: it sets no RSVP or attendance, and a missing open says nothing.
+	 */
 	async listGuests(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (v) => {
 			const i = parse(c.meetingRequest, raw);
-			const { row } = await one(
+			const { row, admin } = await one(
 				db,
 				v,
-				sql`SELECT ${guests(sql`true`)} AS guests FROM meeting m WHERE ${current(v.plantId, i.meetingId)}`,
+				sql`SELECT ${guests(sql`true`)} AS guests, ${emailOpens} AS email_opens
+					FROM meeting m WHERE ${current(v.plantId, i.meetingId)}`,
 			);
 			if (!row) deny();
-			return c.guestList.parse({ meetingId: i.meetingId, guests: z.array(guestRow).parse(row.guests).map(guest) });
+			return c.guestList.parse({
+				meetingId: i.meetingId,
+				guests: z.array(guestRow).parse(row.guests).map(guest),
+				emailOpens: admin ? row.email_opens : [],
+			});
 		});
 	},
 	/** Recorded Vision cards. Notes appear only for Owner/Admin. */

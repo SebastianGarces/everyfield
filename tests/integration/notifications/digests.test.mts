@@ -56,7 +56,15 @@ before(async () => {
 		},
 	});
 	worker = createDigestWorker({ mail, origin: "https://everyfield.test" });
-	tick = scheduledJobs({ secret, db: runtime, storage: null, reminders: null, digests: worker, now: () => clock.at });
+	tick = scheduledJobs({
+		secret,
+		db: runtime,
+		storage: null,
+		reminders: null,
+		digests: worker,
+		mail: null,
+		now: () => clock.at,
+	});
 	counted.db = createDatabase(runtimeSettings);
 	counted.db.$client.on("connect", (client) => {
 		const query = client.query;

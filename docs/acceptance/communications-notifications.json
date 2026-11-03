@@ -1056,7 +1056,7 @@
       "work_packages": [
         "WP-028"
       ],
-      "status": "future-not-run",
+      "status": "run",
       "description": "100-member batch returns positional short response, timeout after acceptance, and crash before local receipt; repeat claim after lease.",
       "given": {
         "P": {
@@ -1327,7 +1327,11 @@
           "replayed_with_new_keys": 0
         },
         "event": null
-      }
+      },
+      "run_by": [
+        "tests/integration/communication/delivery.test.mts",
+        "tests/integration/communication/held.test.mts"
+      ]
     },
     {
       "id": "CASE-COM-006",
@@ -1970,7 +1974,7 @@
         "WP-020",
         "WP-028"
       ],
-      "status": "future-not-run",
+      "status": "run",
       "description": "Scanner GET plus two concurrent confirm/decline POSTs on same seven-day token; expired token; foreign linked IDs.",
       "given": {
         "P": {
@@ -2079,7 +2083,12 @@
           "commitment_writes": 0
         },
         "event": null
-      }
+      },
+      "run_by": [
+        "tests/integration/communication/opens.test.mts",
+        "tests/integration/meetings/meetings.test.mts",
+        "tests/ui/meetings/meetings.test.mjs"
+      ]
     },
     {
       "id": "CASE-COM-012",
@@ -2095,7 +2104,7 @@
         "WP-028",
         "WP-029"
       ],
-      "status": "future-not-run",
+      "status": "run",
       "description": "Incomplete draft reload; schedule at 30 days and beyond; time-only reschedule; content replace while cancellation outcome unknown.",
       "given": {
         "P": {
@@ -2293,6 +2302,14 @@
             "reason": "The original scenario exercises communication.saveDraft and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
         }
+      ],
+      "run_by": [
+        "tests/integration/communication/communication.test.mts",
+        "tests/integration/communication/held.test.mts",
+        "tests/integration/communication/ui-reads.test.mts",
+        "tests/ui/communication/capture.test.mts",
+        "tests/ui/communication/communication.test.mjs",
+        "tests/ui/communication/drafts.test.mjs"
       ]
     },
     {
@@ -3976,7 +3993,7 @@
       "work_packages": [
         "WP-028"
       ],
-      "status": "future-not-run",
+      "status": "run",
       "description": "Self fresh-verified current email restoration with reason, foreign address request, repeat clear and later hard bounce.",
       "given": {
         "P": {
@@ -4077,7 +4094,12 @@
           "new_sends": 0
         },
         "event": null
-      }
+      },
+      "run_by": [
+        "tests/integration/communication/delivery.test.mts",
+        "tests/integration/communication/invitations.test.mts",
+        "tests/integration/communication/restores.test.mts"
+      ]
     },
     {
       "id": "CASE-NTF-012",
@@ -4199,7 +4221,7 @@
       "work_packages": [
         "WP-028"
       ],
-      "status": "future-not-run",
+      "status": "run",
       "description": "Security reset and association purpose mail with optional email preference OFF; transport timeout; log canary token.",
       "given": {
         "P": {
@@ -4309,6 +4331,10 @@
             "reason": "The original scenario exercises mail.sendTransactional and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
         }
+      ],
+      "run_by": [
+        "tests/integration/communication/delivery.test.mts",
+        "tests/integration/communication/invitations.test.mts"
       ]
     },
     {
@@ -4628,7 +4654,7 @@
         "WP-028",
         "WP-029"
       ],
-      "status": "future-not-run",
+      "status": "run",
       "description": "Saved draft rev1; desired send at now+29 days; second desired now+31 days; provider cancellation unknown",
       "given": {
         "P": {
@@ -4981,6 +5007,10 @@
             "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
+      ],
+      "run_by": [
+        "tests/integration/communication/delivery.test.mts",
+        "tests/integration/communication/held.test.mts"
       ]
     },
     {
@@ -7277,7 +7307,7 @@
       "work_packages": [
         "WP-028"
       ],
-      "status": "future-not-run",
+      "status": "run",
       "description": "API schedule at 30 days versus 31 days, batch and DST fold/gap entered localtime.",
       "given": {
         "P": {
@@ -7367,6 +7397,10 @@
             "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
+      ],
+      "run_by": [
+        "tests/integration/communication/delivery.test.mts",
+        "tests/integration/communication/held.test.mts"
       ]
     },
     {
@@ -7386,7 +7420,7 @@
         "WP-028",
         "WP-029"
       ],
-      "status": "future-not-run",
+      "status": "run",
       "description": "Accepted scheduled body/audience frozen; reviewed time-only change and lost update response.",
       "given": {
         "P": {
@@ -7462,6 +7496,10 @@
             "reason": "The original scenario exercises communication.cancelScheduledReviewed and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
         }
+      ],
+      "run_by": [
+        "tests/integration/communication/delivery.test.mts",
+        "tests/integration/communication/held.test.mts"
       ]
     },
     {
@@ -7483,7 +7521,7 @@
         "WP-028",
         "WP-029"
       ],
-      "status": "future-not-run",
+      "status": "run",
       "description": "Accepted batch replacement with canceled, sent and unknown original recipient outcomes.",
       "given": {
         "P": {
@@ -7572,6 +7610,10 @@
             "reason": "The coordinator requires every changed ownership record to be fully ordered, including its existing later-package exceptions. Retained only owners that provide all action operations themselves or through ancestors."
           }
         }
+      ],
+      "run_by": [
+        "tests/integration/communication/delivery.test.mts",
+        "tests/integration/communication/held.test.mts"
       ]
     },
     {
@@ -7719,7 +7761,7 @@
       "work_packages": [
         "WP-028"
       ],
-      "status": "future-not-run",
+      "status": "run",
       "description": "After provider acceptance authority/address/suppression changes before scheduled send.",
       "given": {
         "P": {
@@ -7791,6 +7833,10 @@
             "reason": "The original scenario exercises communication.cancelScheduledReviewed and its current feature effects, not an earlier producer in isolation. Own the runnable end-to-end case where these operations are available."
           }
         }
+      ],
+      "run_by": [
+        "tests/integration/communication/delivery.test.mts",
+        "tests/integration/communication/held.test.mts"
       ]
     },
     {

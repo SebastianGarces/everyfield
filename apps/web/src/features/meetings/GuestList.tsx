@@ -124,9 +124,17 @@ const EMPTY_ADD: AddDraft = {
  * why. A form that fails reopens with what was entered. Before attendance is final, the row menu marks each guest
  * attended, excused or absent (REQ-MTG-010); an attended guest can get a note in their history (REQ-MTG-017).
  */
+/** The open time on the meeting's clock, as the rest of the meeting page shows times. */
+function openedText(iso: string, zone: string | undefined): string {
+	return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: zone }).format(
+		new Date(iso),
+	);
+}
+
 export function GuestList({
 	meeting,
 	guests,
+	emailOpens,
 	cards,
 	attendance,
 	presence,
@@ -146,6 +154,8 @@ export function GuestList({
 	invitesHref?: string;
 	meeting: Detail;
 	guests: GuestRow[] | null;
+	/** When a guest first opened an email of this meeting, from the email service. Never an RSVP or attendance. */
+	emailOpens: readonly { personId: string; openedAt: string }[];
 	cards: CardEntry[] | null;
 	attendance: Attendance | null;
 	presence: ReturnType<typeof usePresence>;
@@ -167,6 +177,7 @@ export function GuestList({
 	const vision = meeting.type === "vision_meeting";
 	const counts = rsvpCounts(shown);
 	const cardOf = new Map((cards ?? []).map((c) => [c.personId, c]));
+	const openedOf = new Map<string | null, string>(emailOpens.map((o) => [o.personId, o.openedAt]));
 	const table = useRef<HTMLDivElement>(null);
 	const seen = useRef(request?.n);
 	useEffect(() => {
@@ -440,6 +451,26 @@ export function GuestList({
 				</div>
 			),
 		},
+		// Opens sit in their own column: an open is not an answer and not attendance, and no open claims nothing.
+		...(openedOf.size > 0
+			? [
+					{
+						key: "email",
+						header: "Email",
+						cell: (g: GuestRow) => {
+							const at = openedOf.get(g.person.personId);
+							return at ? (
+								<div className="flex flex-col items-start">
+									<span className="text-sm text-ink">Email opened</span>
+									<time dateTime={at} className="text-xs text-text-3">
+										{openedText(at, meeting.zone ?? undefined)}
+									</time>
+								</div>
+							) : null;
+						},
+					},
+				]
+			: []),
 		{
 			key: "attendance",
 			header: "Attendance",

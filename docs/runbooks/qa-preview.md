@@ -45,7 +45,28 @@ If a step fails, the command removes what it made and prints the error with ever
 
 These accounts exist only on QA Neon branches, behind Vercel Deployment Protection. Each one lands on the test church
 "Harvest Point (QA)". The church has people, a household, three teams, two meetings, tasks, two follow-ups, a written
-document, a draft message and the wiki.
+document, a draft message and the wiki. It also has a sending church, "Grace Fellowship (QA)", and a sending network,
+"Harvest Network (QA)". Both share the wiki with Harvest Point (QA). Neither one has a login.
+
+### Church, network and revised wiki articles (OPS-127)
+
+The seed gives two wiki articles a known state, so Nora can test what a planter sees. Sign in as the owner and open the
+Wiki.
+
+- **Article A, "First Year Budget Planning".** Grace Fellowship (QA) and Harvest Network (QA) each have a published
+  version of it. The owner sees the church version: the title ends in "(Grace Fellowship (QA))", the line under the
+  title shows the "Church version" tag and the name "Grace Fellowship (QA)", and the body starts with "This is the
+  church version from Grace Fellowship (QA)." The source bar above the article shows "Source Grace Fellowship (QA)".
+  Open it: "Read this article from" lists Grace Fellowship (QA), Harvest Network (QA) and Global. Harvest Network (QA)
+  shows the "Network version" tag and its own title and body. Global shows the Everyfield article with no version tag.
+- **Article B, "Setting Up a Not-for-Profit Corporation".** The article has a second revision. Its title ends in
+  "(revised)" and its body starts with "Revised for QA". The owner finished the first revision a week ago, so the line
+  under the title shows "Read" and "Updated since you read it". The admin and member have not read it, so they see
+  no update note.
+
+The seed picks these two articles as the first and second article by position, then by slug, in the active wiki
+release of the development database. If the development wiki changes, the seed can pick other articles. Its output
+names the two titles ("wiki copies of …" and "wiki revision of …"), so check them when you send the URL to Nora.
 
 ### Check-in history on the owner login
 

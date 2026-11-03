@@ -65,6 +65,10 @@ export function Address() {
 			setTone("status");
 			setStatus(restoreText(result.value));
 			if (result.value.suppressionClears > 0) {
+				// The new restore is the newest entry. The name comes from the next read, so it is not guessed here.
+				void readOwnSuppression().then((fresh) => {
+					if (fresh.status === "ok") setReport(fresh.value);
+				});
 				setReport((current) => (current ? { ...current, active: false } : current));
 				setReason("");
 			}
@@ -79,9 +83,6 @@ export function Address() {
 					<CardDescription>Only the verified email on this account can be restored.</CardDescription>
 				</CardHeading>
 			</CardHeader>
-			<p className="text-sm text-text-2">
-				Older clears are not listed here. This shows whether the address is suppressed now.
-			</p>
 			{loaded ? null : (
 				<p role="status" className="text-md text-ink">
 					Checking this address.
@@ -118,8 +119,33 @@ export function Address() {
 							</Button>
 						</div>
 					) : null}
+					<section aria-labelledby="restores-title" className="flex flex-col gap-3">
+						<h3 id="restores-title" className="text-sm font-medium text-ink-2">
+							Past restores
+						</h3>
+						{report.restores.length === 0 ? (
+							<p className="text-sm text-text-2">This address has not been restored before.</p>
+						) : (
+							<ol className="flex flex-col gap-3">
+								{report.restores.map((restore) => (
+									<li key={restore.at} className="flex flex-col gap-0.5 rounded-md bg-surface px-4 py-3">
+										<p className="text-sm text-text-2">
+											<time dateTime={restore.at}>{restoredOn(restore.at)}</time> · Restored by{" "}
+											{restore.actorName ?? "a person with no name on record"}
+										</p>
+										<p className="text-md text-ink">{restore.reason}</p>
+									</li>
+								))}
+							</ol>
+						)}
+					</section>
 				</div>
 			) : null}
 		</Card>
 	);
+}
+
+/** The date and time on this device's clock. */
+function restoredOn(iso: string): string {
+	return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(iso));
 }

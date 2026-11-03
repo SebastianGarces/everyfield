@@ -71,9 +71,9 @@ function port(behavior) {
 			calls.lookup += 1;
 			return behavior.lookup(providerKey, calls);
 		},
-		async cancel() {
+		async cancel(ids) {
 			calls.cancel += 1;
-			return behavior.cancel ? behavior.cancel() : { outcome: "unknown" };
+			return ids.map(() => (behavior.cancel ? behavior.cancel() : { outcome: "unknown" }));
 		},
 		async reschedule() {
 			calls.reschedule += 1;
@@ -512,7 +512,7 @@ test("AC:DEL58-006 AC:MAIL51-004 AC:MAIL51-005 AC:MAIL51-007 cancel, replace, an
 			return { outcome: "ids", ids: ["prov-drop"] };
 		},
 		cancel() {
-			return { outcome: "cancelled" };
+			return { outcome: "done" };
 		},
 	});
 	ok(await handoff(owner, drop.saved.communicationId, drop.accepted.value.revision, confirmPort));
@@ -549,7 +549,7 @@ test("AC:DEL58-006 AC:MAIL51-004 AC:MAIL51-005 AC:MAIL51-007 cancel, replace, an
 			return { outcome: "ids", ids: ["prov-move"] };
 		},
 	});
-	ok(await handoff(owner, move.saved.communicationId, move.accepted.value.revision, movePort));
+	ok(await handoff(owner, move.saved.communicationId, move.accepted.value.revision, movePort, "handOffScheduled"));
 	const beforeCount = (await rows(sql`SELECT count(*)::int AS n FROM communication WHERE plant_id = ${plant.id}`))[0].n;
 	const moved = ok(
 		await communicationWriter.rescheduleDispatched(
