@@ -15,6 +15,7 @@ import {
 } from "./lib.ts";
 import { DEFAULT_DOCUMENT_TEMPLATES, DEFAULT_OWNER_PATHS } from "./policy.ts";
 import { WIKI_PREFIX } from "./wiki.ts";
+import { carryProof, nameWithOwner, type CarryProof } from "./ship.ts";
 
 /**
  * The one place evf merges a pull request (OPS-83). `evf ship` and `evf approve` both call `mergePullRequest`;
@@ -29,6 +30,8 @@ import { WIKI_PREFIX } from "./wiki.ts";
  *    his recorded approval for that head too. Doubt holds it under rule 2.
  * 4. A PR in the owner-path class (mergePolicy.ownerPaths: the landing and marketing site, OPS-111) merges only with his
  *    recorded approval for that head. It is classified with rule 2's diff and rules, and doubt counts as the class.
+ * 5. A PR with an `EVF-Owner` record (OPS-121) merges only a head that the latest record covers: the approved head, or
+ *    a head that carryProof reaches from it. Any other commit voids his approval until he approves the new head.
  *
  * `evf ship` and `evf drive` also refuse at their start on stale code (`requireCurrentCode`), before any GitHub write.
  */
@@ -223,8 +226,97 @@ export const heldApproveCommand = (h: HeldClasses, number: number, head: string)
 export const wikiApproveCommand = (number: number, head: string): string =>
 	`Sebastian approves each Wiki change; after his approval in chat, run: bin/evf approve ${number} --owner-approval "<his words>" --head ${head}`;
 
-/** Every PR merge in tools/evf. Refusals throw EvfError before gh runs; a gh failure returns its result. */
-export function mergePullRequest(req: MergeRequest): RunResult {
+/**
+ * Sebastian's recorded approval of one PR head (OPS-121): one `EVF-Owner:` line in a PR comment, which `evf approve
+ * --head` posts. The latest valid line on the PR wins. Like EVF-Review, it is unsigned coordination evidence.
+ */
+type OwnerRecord = { head: string; quote: string; at: string };
+export const ownerLine = (r: OwnerRecord): string => `EVF-Owner: ${JSON.stringify(r)}`;
+
+/** The latest valid EVF-Owner record in the PR's comments, oldest comment first. Unreadable comments refuse. */
+function ownerRecordOf(cwd: string, number: number): OwnerRecord | undefined {
+	const r = run("gh", ["api", `repos/${nameWithOwner(cwd)}/issues/${number}/comments`, "--paginate", "--slurp"], {
+		cwd,
+	});
+	let comments: Array<{ body?: unknown }> = [];
+	try {
+		if (r.code !== 0) throw new Error();
+		comments = (JSON.parse(r.stdout) as unknown[][]).flat() as typeof comments;
+	} catch {
+		fail(`evf does not merge PR #${number}: its comments are unreadable, so evf cannot read an owner approval.`);
+	}
+	let latest: OwnerRecord | undefined;
+	for (const comment of comments)
+		for (const match of String(comment?.body ?? "").matchAll(/^EVF-Owner: (.+)$/gm)) {
+			try {
+				const { head, quote, at } = JSON.parse(match[1]);
+				if (/^[0-9a-f]{40}$/.test(head) && typeof quote === "string" && typeof at === "string")
+					latest = { head, quote, at };
+			} catch {
+				// Not a record.
+			}
+		}
+	return latest;
+}
+
+/** The commits on the PR's own line after `from` up to `to`, oldest first, as "- <short sha> <subject>" lines. */
+export function commitsAfter(root: string, from: string, to: string): string {
+	const r = run("git", ["-C", root, "log", "--first-parent", "--reverse", "--format=- %h %s", `${from}..${to}`]);
+	const commits = r.code === 0 ? r.stdout.trim() : "";
+	return commits
+		? `Commits after the approved head, oldest first:\n${commits}`
+		: "evf cannot list the commits after the approved head.";
+}
+
+/** The command that records Sebastian's approval of `head` for an ordinary-route PR. */
+export const ownerApproveCommand = (number: number, head: string): string =>
+	`After Sebastian approves the new head in chat, run: bin/evf approve ${number} --owner-approval "<his words>" --head ${head}`;
+
+/** Every refusal of a voided owner approval carries this phrase; the drive's ship stage waits on it, with no new round. */
+export const OWNER_VOID = "Sebastian's owner approval is void";
+
+/** What a merge records about the owner approval that covers its head; `carry` is set when the head moved after it. */
+export type OwnerCover = { quote: string; approved_head: string; approved_at: string; carry?: CarryProof };
+
+/**
+ * Rule 5: undefined for a PR without an EVF-Owner record; otherwise the cover of `sha`, or a refusal that names the
+ * commits after the approved head, carryProof's reason and the approve command for `sha`.
+ */
+export function ownerCover(
+	root: string,
+	cfg: Config,
+	cwd: string | undefined,
+	number: number,
+	sha: string,
+): OwnerCover | undefined {
+	const record = ownerRecordOf(cwd ?? root, number);
+	if (!record) return undefined;
+	const cover = { quote: record.quote, approved_head: record.head, approved_at: record.at };
+	if (record.head === sha) return cover;
+	if (run("git", ["-C", root, "cat-file", "-e", `${record.head}^{commit}`]).code !== 0)
+		run("git", ["-C", root, "fetch", "--quiet", cfg.remote, record.head]);
+	let proof: CarryProof | string;
+	try {
+		proof = carryProof(root, record.head, sha, baseRef(root, cfg));
+	} catch (e) {
+		if (!(e instanceof EvfError)) throw e;
+		proof = e.message;
+	}
+	if (typeof proof !== "string") return { ...cover, carry: proof };
+	fail(
+		[
+			`evf does not merge PR #${number}: ${OWNER_VOID}. He approved ${record.head.slice(0, 10)} ("${record.quote}"); the head is ${sha.slice(0, 10)}, and his approval does not carry: ${proof}.`,
+			commitsAfter(root, record.head, sha),
+			ownerApproveCommand(number, sha),
+		].join("\n"),
+	);
+}
+
+/**
+ * Every PR merge in tools/evf. Refusals throw EvfError before gh runs; a gh failure returns its result. `owner` is
+ * the EVF-Owner approval that covers the merged head, when the PR has one.
+ */
+export function mergePullRequest(req: MergeRequest): RunResult & { owner?: OwnerCover } {
 	const { root, cfg, number, sha, ownerApproval } = req;
 	const fetchError = fetchBase(root, cfg);
 	requireCurrentCode(root, cfg, `evf does not merge PR #${number}`, fetchError);
@@ -243,7 +335,11 @@ export function mergePullRequest(req: MergeRequest): RunResult {
 				`evf does not merge PR #${number}: Sebastian approved ${ownerApproval.approved_head.slice(0, 10)}, not ${sha.slice(0, 10)}. His approval does not carry over to a new head.`,
 			);
 	}
-	return run("gh", ["pr", "merge", String(number), "--squash", "--match-head-commit", sha], { cwd: req.cwd });
+	const owner = ownerCover(root, cfg, req.cwd, number, sha);
+	return {
+		...run("gh", ["pr", "merge", String(number), "--squash", "--match-head-commit", sha], { cwd: req.cwd }),
+		owner,
+	};
 }
 
 /**
