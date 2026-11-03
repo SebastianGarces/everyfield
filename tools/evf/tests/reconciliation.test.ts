@@ -1539,18 +1539,20 @@ test("INV-ship-queue: concurrent ships run one after the other in arrival order;
 	try {
 		const log = join(f.root, "fake-bin/queue.log"),
 			lock = join(evfDataDir(f.root), "ship-queue/lock.json");
-		const holder = (name: string, holdMs: number) =>
+		// A holder with `release` keeps the lock until that file exists, so a slow process start never reorders the ships.
+		const holder = (name: string, holdMs: number, release = "") =>
 			spawn(
 				process.execPath,
 				[
 					"--input-type=module",
 					"-e",
-					`import { appendFileSync } from "node:fs";
+					`import { appendFileSync, existsSync } from "node:fs";
 import { withShipQueue } from ${JSON.stringify(join(source, "tools/evf/ship-queue.ts"))};
 import { sleep } from ${JSON.stringify(join(source, "tools/evf/lib.ts"))};
 withShipQueue(${JSON.stringify(f.root)}, ${JSON.stringify(name)}, () => {
 	appendFileSync(${JSON.stringify(log)}, "start ${name}\\n");
 	sleep(${holdMs});
+	while (${JSON.stringify(release)} && !existsSync(${JSON.stringify(release)})) sleep(20);
 	appendFileSync(${JSON.stringify(log)}, "end ${name}\\n");
 }, { waitMs: 20000, pollMs: 20 });`,
 				],
@@ -1567,11 +1569,16 @@ withShipQueue(${JSON.stringify(f.root)}, ${JSON.stringify(name)}, () => {
 				child.on("exit", (code) => done({ code, stderr }));
 			});
 
-		const first = holder("OPS-91", 600),
+		const release = join(f.root, "fake-bin/release-OPS-91");
+		const first = holder("OPS-91", 0, release),
 			firstDone = finished(first);
 		await started("OPS-91");
 		const second = holder("OPS-92", 50),
 			secondDone = finished(second);
+		let waiting = "";
+		second.stderr!.on("data", (d) => (waiting += d));
+		while (!waiting.includes("waits in the ship queue")) await new Promise((r) => setTimeout(r, 20));
+		writeFileSync(release, "");
 		const [a, b] = await Promise.all([firstDone, secondDone]);
 		assert.deepEqual([a.code, b.code], [0, 0], a.stderr + b.stderr);
 		assert.deepEqual(readFileSync(log, "utf8").trim().split("\n"), [
