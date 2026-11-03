@@ -56,7 +56,13 @@ changes a path under `docs/reference/wiki/`. `evf ship` runs the verifier checks
 `Approved <UTC>: "<words>"` as `notes` (one commit), runs the home checkout's `bin/wiki promote` for each passed draft
 (`--reviewed-sha` is that commit, `--approved-by` the draft's `approver`) and `bin/wiki check-seed`, commits the
 result, pushes, posts `evf/verify` on that head and prints `evf approve <PR> ... --head <sha>`. A failed step resets
-the branch to its start and pushes nothing. `evf wiki claim-check <task> --reviewer "<name>" --approval "<words>"`
+the branch to its start and pushes nothing. Lint checks a draft's links against the published seed only, so evf
+promotes in passes (OPS-122): each pass tries the remaining drafts in path order, and a draft that links to another
+draft of the PR passes once that draft is published. A failed draft gets another try only when the pass promoted
+another draft and the failed attempt left seed.json, manifest.json and the draft unchanged; a failed attempt that
+changed one of them stops ship at once. A pass that promotes nothing stops with each remaining draft's own
+`bin/wiki promote` output, lint `ERROR` lines included. Two drafts that link to each other never pass.
+`evf wiki claim-check <task> --reviewer "<name>" --approval "<words>"`
 records a named reviewer the same way. The review carries to the new head only over those claim checks, the deletion
 of the PR's drafts and the seed and manifest changes promotion makes (`wikiCarryProof` in `tools/evf/wiki.ts`).
 `evf approve` refuses a head with a pending or unpromoted draft and names the missing step. A claim check is never
