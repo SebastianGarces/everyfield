@@ -49,6 +49,8 @@ const retry: Record<Code, string> = {
 	open_successor: "refresh",
 	dependency_cycle: "refresh",
 	owner_ineligible: "refresh",
+	stale_catalog: "refresh",
+	offer_answered: "refresh",
 };
 function refused(error: TaskRefusal): TaskReply<never> {
 	return {
@@ -141,6 +143,7 @@ export type AuditCommand = AuditWrite & { actor: { accountId: string; plantId: s
 export type TaskWrite =
 	| "followups.correctOutcome"
 	| "followups.recordOutcome"
+	| "tasks.acceptPhaseOffer"
 	| "tasks.assignFollowUp"
 	| "tasks.bulkComplete"
 	| "tasks.bulkReschedule"
@@ -151,9 +154,11 @@ export type TaskWrite =
 	| "tasks.create"
 	| "tasks.createFollowUp"
 	| "tasks.createSubtask"
+	| "tasks.declinePhaseOffer"
 	| "tasks.delete"
 	| "tasks.edit"
 	| "tasks.executeHandoff"
+	| "tasks.importTemplate"
 	| "tasks.removeSubtask"
 	| "tasks.reopen"
 	| "tasks.replacePrerequisites"

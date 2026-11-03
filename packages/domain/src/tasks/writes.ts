@@ -24,6 +24,8 @@ import { lockOwner, ownerReason } from "./owner.ts";
 import { detailOf, loadTask, type LockedTask, type TaskRow } from "./queries.ts";
 import { successorOf } from "./recurrence.ts";
 import { structureWriter } from "./structure.ts";
+import type { Catalog } from "./catalog.ts";
+import { templateWriter } from "./templates.ts";
 
 /** What a reminder needs about one task after a write. WP-031's sync replaces its owed due and overdue notices. */
 export type ReminderSource = {
@@ -439,10 +441,11 @@ export function mutation(cmd: AuditCommand, row: TaskRow, outcome: "changed" | "
 }
 
 /** The task commands. The web mount supplies WP-031's reminder sync, as settings supplies its effects. */
-export function createTaskWriter(deps: { reminders: TaskReminders }) {
+export function createTaskWriter(deps: { reminders: TaskReminders; catalog?: Catalog }) {
 	const { reminders } = deps;
 	return {
 		...structureWriter(reminders),
+		...templateWriter(reminders, deps.catalog),
 		/** Create a top-level task. Owner/Admin. Checklist rows come from createSubtask. */
 		async create(tx: Tx, context: TaskContext, raw: unknown) {
 			return reply(tx, async () => {

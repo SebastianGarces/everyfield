@@ -23,6 +23,13 @@ export type Candidate = z.infer<typeof c.prerequisiteCandidates>["items"][number
 export type Occurrence = z.infer<typeof c.openOccurrence>;
 export type BulkResult = z.infer<typeof c.bulkResult>;
 export type BulkOutcome = z.infer<typeof c.bulkOutcome>;
+export type TemplateCatalog = z.infer<typeof c.templateCatalog>;
+export type ChecklistSummary = TemplateCatalog["checklists"][number];
+export type TemplatePreview = z.infer<typeof c.templatePreview>;
+export type TemplateImport = z.infer<typeof c.templateImport>;
+export type PhaseOffer = z.infer<typeof c.phaseOffer>;
+export type OpenOffer = Extract<PhaseOffer, { status: "open" }>;
+export type OfferAnswered = z.infer<typeof c.offerAnswered>;
 /**
  * A confirmed write: the task as saved, its audit record's ID (the history entry), whether anything changed and, for a
  * completed recurring task, the next occurrence it created.
@@ -529,6 +536,10 @@ export function problemText(code: Outcome<unknown>["status"] | TaskError["code"]
 			return "The server is busy. Try again in a moment.";
 		case "unavailable":
 			return "This task is no longer here, or your seat cannot change it. Reload the page.";
+		case "stale_catalog":
+			return "The checklists were updated since you opened them. We loaded the current version; check it and try again.";
+		case "offer_answered":
+			return "This phase offer was already answered, on another device or by someone else.";
 		default:
 			return "You cannot make this change. Your seat may have changed; reload the page.";
 	}
@@ -611,3 +622,24 @@ export function rebase<T extends object>(mine: T, base: T, latest: T): T {
 	for (const k of Object.keys(mine) as (keyof T)[]) if (!same(mine[k], base[k])) out[k] = mine[k];
 	return out;
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// Phase checklists (WP-026)
+
+/** The catalog grouped for browsing: each phase in order, then each category in the order it first appears. */
+export function checklistGroups(list: readonly ChecklistSummary[]) {
+	const phases = new Map<number, Map<Category, ChecklistSummary[]>>();
+	for (const k of list) {
+		const byCategory = phases.get(k.phase) ?? new Map<Category, ChecklistSummary[]>();
+		byCategory.set(k.category, [...(byCategory.get(k.category) ?? []), k]);
+		phases.set(k.phase, byCategory);
+	}
+	return [...phases.entries()]
+		.sort(([a], [b]) => a - b)
+		.map(([phase, byCategory]) => ({
+			phase,
+			categories: [...byCategory.entries()].map(([category, checklists]) => ({ category, checklists })),
+		}));
+}
+/** "1 task", "9 tasks". */
+export const taskCount = (n: number) => (n === 1 ? "1 task" : `${n} tasks`);

@@ -40,6 +40,7 @@ import {
 	type TaskHistory,
 	type TaskItem,
 } from "./model.ts";
+import { DescriptionView } from "./description.ts";
 import { DueLine, STATUS_TONE } from "./parts.tsx";
 import { BlockedBy, Repeats, Section, Steps, type StepAssignee } from "./structure.tsx";
 import { StatusItems, type Viewer } from "./TasksScreen.tsx";
@@ -328,11 +329,7 @@ export function TaskSheet({
 					{detail ? (
 						<>
 							<Section title="Description">
-								{detail.description ? (
-									<p className="text-md whitespace-pre-wrap text-ink">{detail.description}</p>
-								) : (
-									<p className="text-sm text-text-3">No description.</p>
-								)}
+								<DescriptionView value={detail.description} />
 							</Section>
 							<Steps
 								steps={shownSteps(detail.checklistItems, detail.id, pending)}

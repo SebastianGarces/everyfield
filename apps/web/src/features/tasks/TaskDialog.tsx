@@ -2,6 +2,7 @@
 
 import { Task01Icon, PencilEdit02Icon } from "@hugeicons/core-free-icons";
 import { Field, Input, Radio, RadioGroup, SearchInput, Select, Spinner, Textarea } from "@everyfield/ui/controls";
+import { DESCRIPTION_EXCERPT, MAX_DESCRIPTION, normalizeDescription } from "@everyfield/contracts/tasks";
 import { useEffect, useRef, useState } from "react";
 import { RecordDialog } from "../../components/save/parts.tsx";
 import type { Wait } from "../../components/save/model.ts";
@@ -190,10 +191,16 @@ function Form({
 	const dateError = touched && !due.ok && due.field === "date" ? "Pick a day." : null;
 	const timeError = gap ? "Pick another time." : touched && !due.ok && due.field === "time" ? "Pick a time." : null;
 
+	const descriptionLength = normalizeDescription(draft.description).length;
+	const descriptionError =
+		descriptionLength > MAX_DESCRIPTION
+			? `A description can be at most ${MAX_DESCRIPTION.toLocaleString("en-US")} characters. This one has ${descriptionLength.toLocaleString("en-US")}.`
+			: null;
+
 	/** Returns false when the form has missing answers. */
 	function submit(): boolean {
 		setTouched(true);
-		if (!title || !due.ok) return false;
+		if (!title || !due.ok || descriptionError) return false;
 		if (fold && draft.due.offsetSeconds === undefined) {
 			setProblem("Choose which time you mean.");
 			foldBox.current?.querySelector<HTMLElement>("button")?.focus();
@@ -244,6 +251,7 @@ function Form({
 			id: (PENDING_PREFIX + crypto.randomUUID()) as never,
 			revision: "0" as never,
 			title,
+			excerpt: "",
 			status: "not_started",
 			priority: draft.priority,
 			category: draft.category,
@@ -264,6 +272,7 @@ function Form({
 		const preview: TaskItem = {
 			...base,
 			title,
+			excerpt: normalizeDescription(draft.description).slice(0, DESCRIPTION_EXCERPT),
 			priority: draft.priority,
 			category: draft.category,
 			due: shownDue,
@@ -299,13 +308,13 @@ function Form({
 					onChange={(e) => set({ title: e.target.value })}
 				/>
 			</Field>
-			<Field label="Description" optional>
-				<Textarea
-					value={draft.description}
-					maxLength={10_000}
-					rows={3}
-					onChange={(e) => set({ description: e.target.value })}
-				/>
+			<Field
+				label="Description"
+				optional
+				hint="Simple formatting works: lists, **bold**, *italic* and links."
+				error={descriptionError}
+			>
+				<Textarea value={draft.description} rows={3} onChange={(e) => set({ description: e.target.value })} />
 			</Field>
 			<div className="grid grid-cols-2 gap-4 max-app-sm:grid-cols-1">
 				<Field label="Due">
