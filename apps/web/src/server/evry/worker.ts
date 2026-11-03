@@ -8,14 +8,25 @@ import {
 	executeProposal,
 	flushTraces,
 	runTurn,
+	type MailPort,
 	selectQualifiedModel,
 } from "@everyfield/evry";
 import "server-only";
+import { deliveryTransport, mailReady } from "../../features/communication/mail.ts";
 import { claimDue, finishJob } from "../jobs/queue.ts";
 
 // The Evry workers on the WP-031 queue. The request drains (index.ts) and the scheduled runner (jobs/scheduled.ts)
 // both run them. A job older than CLAIM_SECONDS is never claimed: Evry already reports it lost, and the scheduled
 // runner closes it (closeLostJobs).
+
+/**
+ * The email service and keys the Communication reviews use, or null when the server has no mail keys. A review that
+ * hashes addresses and an effect that reaches the email service both refuse without it.
+ */
+export function evryMail(): MailPort | null {
+	const ready = mailReady();
+	return ready ? { transport: deliveryTransport(ready), keys: ready.keys } : null;
+}
 
 const LEASE_SECONDS = 240; // above the 180-second turn wall time
 const EFFECT_LEASE_SECONDS = 60;
@@ -39,7 +50,7 @@ export async function runTurns(pool: Database, limit: number, until = Infinity) 
 			const [claim] = await claimDue(pool, ["assistant_turn"], 1, LEASE_SECONDS, CLAIM_SECONDS);
 			if (!claim) break;
 			const outcome = await runTurn(
-				{ db: pool, model, freshActor },
+				{ db: pool, model, freshActor, mail: evryMail() },
 				{
 					turnId: claim.id,
 					tenantId: claim.tenant_id,
@@ -69,6 +80,7 @@ export async function runEffects(pool: Database, reminders: TaskReminders, limit
 			pool,
 			{ jobId: claim.id, tenantId: claim.tenant_id, leaseOwner: claim.lease_owner, generation: claim.claim_generation },
 			reminders,
+			evryMail(),
 		);
 		if (outcome !== "lost") await finishJob(pool, claim, { state: outcome === "failed" ? "failed" : "succeeded" });
 	}

@@ -12,7 +12,7 @@ import {
 	type MergeKey,
 } from "@everyfield/contracts/communication";
 import type { RequestActor } from "../access/session.ts";
-import { audiencePeople, reviewedParts } from "./audience.ts";
+import { audiencePeople, reviewedParts, updatesOff } from "./audience.ts";
 import { z } from "zod";
 import { administers, deny, hash, parse, readReply, readerOf } from "./core.ts";
 import { meetingOpenSql, newRsvpToken, rsvpTokenDigest, rsvpTokenUpdate } from "../meetings/tokens.ts";
@@ -432,7 +432,7 @@ async function prepare(
 					i.payload, i.address, i.address_hash,
 					CASE WHEN EXISTS (
 						SELECT 1 FROM suppression s WHERE s.address_hash = i.address_hash AND s.cleared_at IS NULL
-					) THEN 'refused' ELSE 'dispatched' END,
+					) OR ${updatesOff(sql`i.person`)} THEN 'refused' ELSE 'dispatched' END,
 					clock_timestamp(), ${heldUntil}::timestamptz
 				FROM input i
 				JOIN gate g ON g.allowed

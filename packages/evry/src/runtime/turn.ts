@@ -18,6 +18,7 @@ import {
 import { EvryRefusal, projectError, scrub } from "../context/errors.ts";
 import { LIMITS, type StopReason } from "../context/limits.ts";
 import { allowedWrites, prepareProposal } from "../proposals/store.ts";
+import type { MailPort } from "../proposals/types.ts";
 import type { QualifiedModel } from "./model.ts";
 import { appendEvent, loadHistory, loadTurn, savedResult, type RunLease, type Turn } from "./run-store.ts";
 import { liveRoom } from "./live.ts";
@@ -30,6 +31,8 @@ export type RunDeps = {
 	model: QualifiedModel;
 	/** The session's current actor, read again from the database: the fresh authority check before every read. */
 	freshActor(session: string): Promise<EvryActor | null>;
+	/** The email service and keys a review that hashes addresses needs; null when the deployment has no mail keys. */
+	mail?: MailPort | null;
 	now?: () => Date;
 };
 /** succeeded: the turn saved its final state. failed: it saved a failure. lost: it no longer owned the run. */
@@ -353,7 +356,7 @@ async function run(
 				execute: async (call: { operation: string; input: unknown }) => {
 					const fresh = await admit();
 					if (!fresh) return { error: stop === "tool_budget" ? "tool_budget" : "access_denied" };
-					const proposal = await prepareProposal(db, fresh, lease, turn.conversation_id, call).catch((error) =>
+					const proposal = await prepareProposal(db, fresh, lease, turn.conversation_id, call, deps.mail ?? null).catch((error) =>
 						error instanceof EvryRefusal ? error.code : "unknown",
 					);
 					if (typeof proposal === "string") return { error: proposal };
@@ -366,7 +369,7 @@ async function run(
 							operation: "evry.prepareProposal",
 							status: "available",
 							// The target row lets replay withhold the card once the target is no longer available.
-							rows: target ? [{ kind: "person", id: target.id, label: target.label, fields: {} }] : [],
+							rows: target ? [{ kind: target.kind, id: target.id, label: target.label, fields: {} }] : [],
 							total: 1,
 							page: 1,
 							next: null,
@@ -387,7 +390,7 @@ async function run(
 								rows: target
 									? [
 											{
-												kind: "person",
+												kind: target.kind,
 												id: target.id,
 												label: target.label,
 												fields: { changes: proposal.review.changes },

@@ -5,7 +5,7 @@ import { privateHeaders } from "../platform/boundary";
 import { requestDatabase } from "../database";
 import { getViewer } from "../request-context";
 import { tasksMount } from "../tasks";
-import { runEffects, runTurns } from "./worker";
+import { evryMail, runEffects, runTurns } from "./worker";
 
 // The thin web door to the Evry kernel: one cached viewer per request (D60), the shared pool, sanitized errors and
 // the turn worker on the WP-031 queue. Domain behavior lives in @everyfield/evry.
@@ -66,3 +66,6 @@ export function drainEffects() {
 		if (reminders) await runEffects(evryDatabase(), reminders, 4);
 	});
 }
+
+/** The email service for a request that previews or checks a Communication effect (worker.ts). */
+export { evryMail };

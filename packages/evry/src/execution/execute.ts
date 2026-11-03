@@ -1,13 +1,14 @@
 import type { Database, Transaction } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import { RequestActor } from "@everyfield/domain/access";
+import { CommunicationRefusal } from "@everyfield/domain/communication";
 import { Refusal } from "@everyfield/domain/people";
 import type { TaskReminders } from "@everyfield/domain/tasks";
 import { owner, sessionId } from "@everyfield/contracts/common";
 import { z } from "zod";
 import { EvryRefusal } from "../context/errors.ts";
 import { REVIEWED_WRITES } from "../proposals/store.ts";
-import type { ReviewedWrite } from "../proposals/types.ts";
+import type { EffectResult, MailPort, ReviewedWrite } from "../proposals/types.ts";
 
 /** The executor's claim on one evry_effect job, as the WP-031 queue issued it. Only the current claim may publish. */
 export type EffectLease = { jobId: string; tenantId: string; leaseOwner: string; generation: string };
@@ -60,6 +61,17 @@ const locked = z.object({
 const refusalCode = (code: string) =>
 	code === "conflict" ? "revision_conflict" : code === "unavailable" ? "access_denied" : code;
 
+type Done = Extract<EffectResult, { receiptId: string }>;
+/** The first step committed; the email service step is next. */
+type Reach = {
+	write: ReviewedWrite<unknown>;
+	authority: RequestActor;
+	input: unknown;
+	effectKey: string;
+	result: Done;
+	id: string;
+};
+
 /** The approval lapsed or the claim stopped being current, possibly during a wait; the whole transaction rolls back. */
 class Unpublished extends Error {}
 
@@ -85,9 +97,10 @@ export async function executeProposal(
 	db: Database,
 	lease: EffectLease,
 	reminders: TaskReminders,
+	mail: MailPort | null = null,
 ): Promise<EffectOutcome> {
 	try {
-		return await db.transaction(async (tx) => {
+		const first = await db.transaction(async (tx): Promise<EffectOutcome | Reach> => {
 			const r = await tx.execute(sql`
 				SELECT p.id,p.account_id,p.tenant_id,c.context_kind,p.operation,p.revision,p.input,p.state,p.outcome,p.approved_session_id,
 					p.expires_at<=clock_timestamp() AS expired,${fence(lease)} AS fenced
@@ -107,16 +120,17 @@ export async function executeProposal(
 					? { kind: p.context_kind, id: p.tenant_id }
 					: { kind: "organization", id: p.tenant_id, organizationKind: p.context_kind },
 			);
-			if (!(await RequestActor.claimWrite(tx, session.data, selected))) throw new Refused("access_denied");
+			const claimed = await RequestActor.claimWrite(tx, session.data, selected);
+			if (!claimed) throw new Refused("access_denied");
 			const write = REVIEWED_WRITES[p.operation] as ReviewedWrite<unknown>;
-			const result = await write.execute(
-				tx,
-				{ session: session.data, selected },
-				p.input,
-				`evry:${p.id}:${p.revision}`,
-				reminders,
-			);
+			// A write that reaches the email service cannot run without it; nothing has changed yet.
+			if (write.reach && !mail) throw new Refused("mail_unavailable");
+			const effectKey = `evry:${p.id}:${p.revision}`;
+			const result = await write.execute(tx, { session: session.data, selected }, p.input, effectKey, reminders);
 			if ("refused" in result) throw new Refused(refusalCode(result.refused));
+			// The email service is called after this transaction commits, never inside it.
+			if (write.reach)
+				return { write, authority: claimed.authority, input: p.input, effectKey, result: result as Done, id: p.id };
 			// Publish only if the approval is still unexpired and this claim still current; the first read already holds
 			// the proposal and job locks. Otherwise the change and its audit row roll back with the transaction.
 			const published = await tx.execute(
@@ -126,6 +140,20 @@ export async function executeProposal(
 			if (!published.rowCount) throw new Unpublished();
 			return "completed";
 		});
+		if (typeof first === "string") return first;
+		// The email service step, outside any transaction. The change above is committed and its domain command replays,
+		// so a retry after a crash asks again with the same keys. The outcome is saved even when the approval lapsed in
+		// between: the change already happened, and only a lost claim stops the save.
+		const reached = await first.write.reach!(db, first.authority, first.input, first.effectKey, first.result, mail!);
+		if ("refused" in reached) throw new Refused(refusalCode(reached.refused));
+		const saved = await db.transaction(async (tx) => {
+			await holdPublicationLocks(tx, lease);
+			return tx.execute(
+				sql`UPDATE proposal SET outcome='completed',receipt=${JSON.stringify(reached)}::jsonb,updated_at=clock_timestamp()
+					WHERE id=${first.id}::uuid AND state='approved' AND outcome IS NULL AND ${fence(lease)}`,
+			);
+		});
+		return saved.rowCount ? "completed" : "lost";
 	} catch (error) {
 		// evry.expireProposal: an approval that lapsed before the effect committed expires under the same claim.
 		if (error instanceof Unpublished) {
@@ -141,7 +169,7 @@ export async function executeProposal(
 		const refused =
 			error instanceof Refused
 				? error.code
-				: error instanceof Refusal
+				: error instanceof Refusal || error instanceof CommunicationRefusal
 					? refusalCode(error.code)
 					: error instanceof EvryRefusal
 						? error.code

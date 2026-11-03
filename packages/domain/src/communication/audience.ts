@@ -1,5 +1,6 @@
 import type { AudienceInput } from "@everyfield/contracts/communication";
 import { audienceResult } from "@everyfield/contracts/communication";
+import { notificationCategory } from "@everyfield/contracts/settings";
 import { sql, type SQL } from "@everyfield/db/query";
 import { z } from "zod";
 
@@ -109,4 +110,23 @@ export function reviewedParts(raw: unknown): { people: string[]; emails: string[
 		people: rows.map((row) => row.id).sort(),
 		emails: rows.map((row) => row.email!.trim().toLowerCase()).sort(),
 	};
+}
+
+/** Update emails count as turned off when every email category the person's account can switch has been disabled. */
+const UPDATE_CATEGORIES = notificationCategory.options.filter((name) => name !== "wiki_upstream_review");
+/**
+ * True for a person whose linked account turned off update emails (every email category disabled). Planter email
+ * skips them at handoff, and a review names them, so what a review shows is what the handoff does.
+ */
+export function updatesOff(person: SQL): SQL {
+	return sql`EXISTS (
+		SELECT 1 FROM person up WHERE up.id = ${person} AND up.linked_account_id IS NOT NULL
+		AND NOT EXISTS (
+			SELECT 1 FROM unnest(${sql.param(UPDATE_CATEGORIES)}::text[]) c(category)
+			WHERE NOT EXISTS (
+				SELECT 1 FROM notification_preference np
+				WHERE np.account_id = up.linked_account_id AND np.category = c.category AND np.channel = 'email' AND np.enabled = false
+			)
+		)
+	)`;
 }

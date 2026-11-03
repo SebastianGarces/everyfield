@@ -10,15 +10,16 @@ import { currentAuthority } from "../context/authority.ts";
 import { EvryRefusal } from "../context/errors.ts";
 import { liveJob } from "../runtime/job.ts";
 import { fence, type RunLease } from "../runtime/run-store.ts";
+import { COMMUNICATION_COMMANDS } from "../adapters/communication/commands/index.ts";
 import { PEOPLE_COMMANDS } from "../adapters/people/commands/index.ts";
-import type { ReviewedWrite } from "./types.ts";
+import type { MailPort, ReviewedWrite } from "./types.ts";
 
 // Proposal commands are one statement each (D70): live authority, the change, the effect job and one audit row commit
 // together, and zero changed rows means refused, changed or not found. A refusal reads the current review once more to
 // say which, so a repeated approve or cancel returns the known state instead of failing.
 
 /** Every installed reviewed write. A model may propose only these, and only when the actor may use them natively. */
-export const REVIEWED_WRITES = PEOPLE_COMMANDS;
+export const REVIEWED_WRITES = { ...PEOPLE_COMMANDS, ...COMMUNICATION_COMMANDS } as const;
 type Operation = keyof typeof REVIEWED_WRITES;
 const operation = z.enum(Object.keys(REVIEWED_WRITES) as [Operation]);
 
@@ -73,7 +74,9 @@ const projection = (alias: string) =>
 	sql.raw(`jsonb_build_object('id',${alias}.id,'conversationId',${alias}.conversation_id,'operation',${alias}.operation,
 		'revision',${alias}.revision,'digest',${alias}.digest,'expiresAt',${alias}.expires_at,'approvedAt',${alias}.approved_at,
 		'status',CASE WHEN ${alias}.state='pending' AND ${alias}.expires_at<=clock_timestamp() THEN 'expired' ELSE ${alias}.state END,
-		'review',CASE WHEN ${alias}.review->'target'='null'::jsonb OR EXISTS(SELECT FROM person t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.tenant_id=${alias}.tenant_id AND t.state='live')
+		'review',CASE WHEN ${alias}.review->'target'='null'::jsonb
+			OR (${alias}.review->'target'->>'kind'='person' AND EXISTS(SELECT FROM person t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.tenant_id=${alias}.tenant_id AND t.state='live'))
+			OR (${alias}.review->'target'->>'kind'='message' AND EXISTS(SELECT FROM communication t WHERE t.id=(${alias}.review->'target'->>'id')::uuid AND t.plant_id=${alias}.tenant_id))
 			THEN ${alias}.review ELSE jsonb_build_object('target',NULL,'changes','[]'::jsonb,'withheld',true) END,
 		'outcome',coalesce(${alias}.outcome,(SELECT 'unknown' FROM job j WHERE j.id=${alias}.job_id AND ${alias}.state='approved'
 			AND NOT ${liveJob("j")})),
@@ -82,8 +85,10 @@ const projection = (alias: string) =>
 		'receipt',${alias}.receipt,'now',clock_timestamp())`);
 
 const review = z.object({
-	target: z.object({ kind: z.literal("person"), id: z.uuid(), label: z.string() }).nullable(),
+	target: z.object({ kind: z.enum(["person", "message"]), id: z.uuid(), label: z.string() }).nullable(),
 	changes: z.array(z.object({ field: z.string(), before: z.unknown(), after: z.unknown() })),
+	/** A plain reason the change cannot be approved as asked (for example a send time outside the window). */
+	refusal: z.string().optional(),
 	withheld: z.literal(true).optional(),
 });
 export const proposalRow = z.object({
@@ -99,7 +104,13 @@ export const proposalRow = z.object({
 	outcome: z.enum(["completed", "failed", "refused", "unknown"]).nullable(),
 	executing: z.boolean(),
 	receipt: z
-		.object({ receiptId: z.uuid().optional(), revision: z.string().optional(), code: z.string().optional() })
+		.object({
+			receiptId: z.uuid().optional(),
+			revision: z.string().optional(),
+			code: z.string().optional(),
+			/** What the email service confirmed, for a write that reaches it (adapters/communication). */
+			report: z.record(z.string(), z.unknown()).optional(),
+		})
 		.nullable(),
 	now: z.coerce.date(),
 });
@@ -127,12 +138,15 @@ export async function prepareProposal(
 	lease: RunLease,
 	conversationId: string,
 	raw: unknown,
+	mail: MailPort | null = null,
 ): Promise<Proposal | null> {
 	const call = parse(proposeInput, raw);
 	const write = adapter(actor, call.operation);
 	const input = parse(write.input, call.input);
+	const reviewSql = await write.review(actor, input, { db, mail });
+	if (!reviewSql) return null;
 	const r = await db.execute(sql`
-		WITH r AS (${write.review(actor, input)}),
+		WITH r AS (${reviewSql}),
 		c AS (
 			SELECT c.id,c.tenant_id,c.account_id FROM conversation c
 			WHERE c.id=${conversationId}::uuid AND c.account_id=${actor.accountId}::uuid AND c.tenant_id=${actor.owner.id}::uuid
@@ -154,13 +168,21 @@ const reviseInput = z.strictObject({ operation, revision: z.int().min(1), input:
  * digest and a fresh 15-minute expiry, any approval of the old revision is cleared and its unstarted effect is
  * superseded. A revision whose effect already ran cannot change. One statement.
  */
-export async function reviseProposal(db: Database, actor: EvryActor, id: string, raw: unknown): Promise<Proposal> {
+export async function reviseProposal(
+	db: Database,
+	actor: EvryActor,
+	id: string,
+	raw: unknown,
+	mail: MailPort | null = null,
+): Promise<Proposal> {
 	const proposalId = parse(z.uuid(), id);
 	const change = parse(reviseInput, raw);
 	const write = adapter(actor, change.operation);
 	const input = parse(write.input, change.input);
+	const reviewSql = await write.review(actor, input, { db, mail });
+	if (!reviewSql) throw new EvryRefusal("not_found");
 	const r = await db.execute(sql`
-		WITH r AS (${write.review(actor, input)}),
+		WITH r AS (${reviewSql}),
 		x AS (
 			UPDATE proposal p SET revision=p.revision+1,input=r.args,review=r.review,digest=${digest(sql`p.revision+1`)},
 				state='pending',approved_at=NULL,approved_session_id=NULL,job_id=NULL,expires_at=${expiry},updated_at=clock_timestamp()
@@ -260,7 +282,7 @@ export async function approveProposal(
 				UPDATE proposal p SET state='approved',approved_at=clock_timestamp(),approved_session_id=${actor.session}::uuid,
 					job_id=${job}::uuid,updated_at=clock_timestamp()
 				WHERE p.id=${proposalId}::uuid AND ${owned(actor)} AND p.state='pending' AND p.revision=${witness.revision}
-					AND p.digest=${witness.digest} AND p.expires_at>clock_timestamp()
+					AND p.digest=${witness.digest} AND p.expires_at>clock_timestamp() AND NOT (p.review ? 'refusal')
 					AND (p.operation<>'people.setPersonPhoto' OR p.input->'input'->>'uploadId'=${shownUpload}::text)
 				RETURNING p.*
 			), run AS (${effectJob(job, "a")}),
@@ -336,4 +358,31 @@ export async function retryUnresolvedEffects(db: Database, actor: EvryActor, id:
 	throw new EvryRefusal(
 		current.status === "expired" || current.expiresAt <= new Date() ? "review_expired" : "review_closed",
 	);
+}
+
+/**
+ * evry.checkProposal: asks the email service again about a completed effect whose report it has not confirmed (a
+ * cancel or time change still open). The proposal's owner only, under their live request authority. The call to the
+ * email service runs outside any transaction; the new report replaces the saved one in one statement that never
+ * replaces a confirmed report. A confirmed or refused effect is returned as it is.
+ */
+export async function checkProposal(db: Database, actor: EvryActor, id: string, mail: MailPort | null) {
+	const proposalId = parse(z.uuid(), id);
+	const current = await readReview(db, actor, proposalId);
+	const write = REVIEWED_WRITES[current.operation] as ReviewedWrite<unknown>;
+	const open = current.outcome === "completed" && current.receipt?.report?.confirmation === "not_confirmed";
+	if (!open || !write.check) return { proposal: current, checked: false };
+	if (!mail) throw new EvryRefusal("source_unavailable");
+	const stored = await db.execute(
+		sql`SELECT p.input FROM proposal p WHERE p.id=${proposalId}::uuid AND ${readable(actor)} AND p.outcome='completed'`,
+	);
+	if (!stored.rows.length) throw new EvryRefusal("not_found");
+	const keys = { effectKey: `evry:${proposalId}:${current.revision}`, checkKey: `evry:${proposalId}:check:${randomUUID()}` };
+	const result = await write.check(db, actor.authority, stored.rows[0]!.input, keys, mail);
+	if ("refused" in result) throw new EvryRefusal("review_closed");
+	await db.execute(sql`
+		UPDATE proposal p SET receipt=${JSON.stringify(result)}::jsonb,updated_at=clock_timestamp()
+		WHERE p.id=${proposalId}::uuid AND ${owned(actor)} AND p.outcome='completed'
+			AND p.receipt->'report'->>'confirmation'='not_confirmed'`);
+	return { proposal: await readReview(db, actor, proposalId), checked: true };
 }
