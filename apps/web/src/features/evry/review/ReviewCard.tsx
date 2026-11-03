@@ -630,16 +630,18 @@ function Footer({
 	if (view === "pending")
 		body = (
 			<>
-				<Button
-					size="sm"
-					variant="primary"
-					icon={Tick02Icon}
-					loading={r.busy === "approve"}
-					disabled={other("approve") || !canApprove || !!review.review.refusal || !!review.stale}
-					onClick={() => void r.approve()}
-				>
-					Approve
-				</Button>
+				{review.review.refusal ? null : (
+					<Button
+						size="sm"
+						variant="primary"
+						icon={Tick02Icon}
+						loading={r.busy === "approve"}
+						disabled={other("approve") || !canApprove || !!review.stale}
+						onClick={() => void r.approve()}
+					>
+						Approve
+					</Button>
+				)}
 				{review.stale ? (
 					<Button size="sm" variant="secondary" loading={r.busy === "revise"} onClick={() => void r.revise()}>
 						Review again

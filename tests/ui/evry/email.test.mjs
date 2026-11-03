@@ -89,10 +89,13 @@ async function openEvry(page, context, cookie = owner()) {
 }
 /** Sends one request and returns the newest card whose heading matches. */
 async function ask(panel, text, heading) {
+	const regions = panel.getByRole("region", { name: heading });
+	const seen = await regions.count();
 	const box = panel.getByLabel("Message Evry");
 	await box.fill(text);
 	await box.press("Enter");
-	const card = panel.getByRole("region", { name: heading }).last();
+	// The new card is the one after those already on screen.
+	const card = regions.nth(seen);
 	await card.waitFor({ timeout: 60_000 });
 	return card;
 }
@@ -101,6 +104,15 @@ async function approve(card) {
 	await card.getByRole("button", { name: "Approve" }).focus();
 	await card.page().keyboard.press("Enter");
 }
+/** Messages with its history loaded: the page text once the message is listed. */
+async function messages(page) {
+	await page.goto(`${BASE}/communication`);
+	await hydrated(page);
+	await page.getByText(SUBJECT).first().waitFor({ timeout: 30_000 });
+	return page.locator("main").innerText();
+}
+/** The status line of the newest history row with this subject. */
+const newestStatus = (text) => new RegExp(`${SUBJECT}\\n([^\\n]+)`).exec(text)?.[1];
 const done = (panel, heading) => panel.getByRole("region", { name: heading }).last();
 
 /** A saved draft, then scheduled for Friday at 9am: the state most criteria start from. Returns the message. */
@@ -165,7 +177,10 @@ for (const [engine, launcher] of ENGINES) {
 			await page.goto(`${BASE}/communication?compose=${draft.id}&step=write`);
 			await hydrated(page);
 			assert.equal(await page.getByLabel("Subject").inputValue(), SUBJECT);
-			assert.match(await page.getByRole("combobox", { name: "Message" }).innerText(), /interest meeting on Sunday/);
+			await page
+				.getByText(/interest meeting on Sunday at 4 pm/)
+				.first()
+				.waitFor({ timeout: 30_000 });
 		}));
 
 	test(`AC:WP-028-3 (${engine}): the schedule review names who gets it, who is left out and why, the content and the send time`, () =>
@@ -258,11 +273,9 @@ for (const [engine, launcher] of ENGINES) {
 			);
 			const first = await captured(mail.find((m) => m.provider_message_id).provider_message_id);
 			assert.equal(first.scheduledAt, message.scheduled_at, "the email service holds the reviewed time");
-			await page.goto(`${BASE}/communication`);
-			await hydrated(page);
-			const body = await page.locator("main").innerText();
+			const body = await messages(page);
 			assert.match(body, /Sunday's interest meeting/);
-			assert.match(body, /Scheduled/);
+			assert.equal(newestStatus(body), "Scheduled");
 			assert.doesNotMatch(body, /Delivered/);
 		}));
 
@@ -320,9 +333,7 @@ for (const [engine, launcher] of ENGINES) {
 				const unconfirmed = done(panel, "Cancel not confirmed");
 				await unconfirmed.waitFor({ timeout: 30_000 });
 				assert.equal((await d.mail(message.id)).filter((m) => m.state === "cancelled").length, 0);
-				await page.goto(`${BASE}/communication`);
-				await hydrated(page);
-				assert.doesNotMatch(await page.locator("main").innerText(), /Cancelled/, "Messages does not say Cancelled yet");
+				assert.equal(newestStatus(await messages(page)), "Cancel not confirmed", "Messages does not say Cancelled yet");
 				await silence(false);
 				await page.getByRole("button", { name: "Ask Evry" }).click();
 				await done(panel, "Cancel not confirmed").getByRole("button", { name: "Check again" }).click();
@@ -331,9 +342,7 @@ for (const [engine, launcher] of ENGINES) {
 				await silence(false);
 			}
 			assert.equal((await d.mail(message.id)).filter((m) => m.state === "cancelled").length, 3);
-			await page.goto(`${BASE}/communication`);
-			await hydrated(page);
-			assert.match(await page.locator("main").innerText(), /Cancelled/);
+			assert.equal(newestStatus(await messages(page)), "Cancelled");
 		}));
 
 	test(`AC:WP-028-8 (${engine}): a replacement is scheduled only when every original send is confirmed cancelled`, () =>

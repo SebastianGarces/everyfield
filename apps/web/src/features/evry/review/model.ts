@@ -197,10 +197,10 @@ const zoneLong = (at: string, zone: string) =>
 		.find((p) => p.type === "timeZoneName")?.value ?? zone;
 /** "Fri, 9:00 AM CST": the day, the time and the zone, in the church's own zone. */
 export const sendTime = ({ at, zone }: SendTime) =>
-	`${part(at, zone, { weekday: "short", hour: "numeric", minute: "2-digit" })} ${zoneShort(at, zone)}`;
+	`${part(at, zone, { weekday: "short" })}, ${part(at, zone, { hour: "numeric", minute: "2-digit" })} ${zoneShort(at, zone)}`;
 /** "Fri, Nov 6, 9:00 AM CST (Central Standard Time)": the full date and the zone's name. */
 export const sendTimeFull = ({ at, zone }: SendTime) =>
-	`${part(at, zone, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} ${zoneShort(at, zone)} (${zoneLong(at, zone)})`;
+	`${part(at, zone, { weekday: "short", month: "short", day: "numeric" })}, ${part(at, zone, { hour: "numeric", minute: "2-digit" })} ${zoneShort(at, zone)} (${zoneLong(at, zone)})`;
 /** A saved report's time on the card, in the church's zone. */
 export const reportTime = (report: MailReport, review: Review) => {
 	const zone = (sendTimeOf(review, "after") ?? sendTimeOf(review, "before"))?.zone;

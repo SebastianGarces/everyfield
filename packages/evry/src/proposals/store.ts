@@ -387,7 +387,10 @@ export async function checkProposal(db: Database, actor: EvryActor, id: string, 
 		sql`SELECT p.input FROM proposal p WHERE p.id=${proposalId}::uuid AND ${readable(actor)} AND p.outcome='completed'`,
 	);
 	if (!stored.rows.length) throw new EvryRefusal("not_found");
-	const keys = { effectKey: `evry:${proposalId}:${current.revision}`, checkKey: `evry:${proposalId}:check:${randomUUID()}` };
+	const keys = {
+		effectKey: `evry:${proposalId}:${current.revision}`,
+		checkKey: `evry:${proposalId}:check:${randomUUID()}`,
+	};
 	const result = await write.check(db, actor.authority, stored.rows[0]!.input, keys, mail);
 	if ("refused" in result) throw new EvryRefusal("review_closed");
 	await db.execute(sql`

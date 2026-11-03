@@ -37,6 +37,13 @@ async function up() {
 	const env = await openSeedEnvironment(people.origin);
 	const { admin } = env;
 	const ids: Record<string, string> = {};
+	// A repeated seed starts from its own people again.
+	await admin.execute(
+		sql`DELETE FROM person WHERE plant_id=${people.plant}::uuid AND display_name IN (${sql.join(
+			LAUNCH_TEAM.map(([name]) => sql`${name}`),
+			sql`, `,
+		)})`,
+	);
 	for (const [name, email] of LAUNCH_TEAM) {
 		const id = randomUUID();
 		ids[name] = id;
@@ -48,14 +55,21 @@ async function up() {
 	await admin.execute(sql`INSERT INTO provider_event(id,event_key,message_id,kind,occurred_at,received_at,payload_hash,safe_payload)
 		VALUES(${event}::uuid,${"seed-" + event},${"seed-" + event},'bounced',clock_timestamp(),clock_timestamp(),'x','{"hard_bounce":true}'::jsonb)`);
 	await admin.execute(sql`INSERT INTO suppression(address_hash,reason,source_event_id,suppressed_at)
-		VALUES(${createHmac("sha256", env.addressKey).update("priya.nair@example.test").digest("hex")},'hard_bounce',${event}::uuid,clock_timestamp())`);
-	// Dana turned off every update email on the member account her row is linked to.
+		VALUES(${createHmac("sha256", env.addressKey).update("priya.nair@example.test").digest("hex")},'hard_bounce',${event}::uuid,clock_timestamp())
+		ON CONFLICT (address_hash) DO NOTHING`);
+	// Dana has her own account and turned off every update email on it.
+	const user = randomUUID();
+	const account = randomUUID();
 	await admin.execute(
-		sql`UPDATE person SET linked_account_id=${people.member.accountId}::uuid WHERE id=${ids["Dana Cole"]}::uuid`,
+		sql`INSERT INTO auth_user(id,email,email_verified,name) VALUES(${user},${"dana.cole@example.test"},true,'Dana Cole')`,
 	);
+	await admin.execute(
+		sql`INSERT INTO account(id,auth_user_id,registration_state,registration_kind) VALUES(${account}::uuid,${user},'active','planter')`,
+	);
+	await admin.execute(sql`UPDATE person SET linked_account_id=${account}::uuid WHERE id=${ids["Dana Cole"]}::uuid`);
 	for (const category of CATEGORIES)
 		await admin.execute(sql`INSERT INTO notification_preference(id,account_id,category,channel,enabled,unsubscribe_revision)
-			VALUES(${randomUUID()}::uuid,${people.member.accountId}::uuid,${category},'email',false,1)`);
+			VALUES(${randomUUID()}::uuid,${account}::uuid,${category},'email',false,1)`);
 	const fixture = writeFixture("evry", env.schema, { people: ids });
 	await env.close();
 	console.log(JSON.stringify({ schema: env.schema, fixture }));

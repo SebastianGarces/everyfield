@@ -149,6 +149,8 @@ const draftRead = z.object({
 	subject: z.string().nullable(),
 	revision: z.string(),
 });
+/** Stands in for the first recipient's name until the review statement knows who that is. */
+const SAMPLE_NAME = "RECIPIENT_NAME_TOKEN_7F3A";
 const peopleRead = z.array(z.object({ id: z.uuid(), displayName: z.string(), email: z.string().nullable() }));
 
 /**
@@ -170,10 +172,8 @@ async function audienceFacts(context: ReviewContext, plantId: string, id: string
 	const hashes = Object.fromEntries(
 		addresses.map((address) => [address, mailAddressHash(context.mail!.keys.addressKey, address)]),
 	);
-	const sample = people.filter((p) => p.email?.trim()).sort((a, b) => a.displayName.localeCompare(b.displayName))[0];
-	const content = draft.body_html
-		? plainText(renderBody(draft.body_html, { name: sample?.displayName ?? "", rsvp_link: "" }))
-		: "";
+	// The first person who will get it is named in the content; the review statement puts the name in.
+	const content = draft.body_html ? plainText(renderBody(draft.body_html, { name: SAMPLE_NAME, rsvp_link: "" })) : "";
 	return { draft, parsed, hashes, content };
 }
 
@@ -210,7 +210,7 @@ export const schedule: ReviewedWrite<z.infer<typeof scheduleInput>> = {
 					${change("subject", null, sql`to_jsonb(c.subject)`)},
 					${change("recipients", null, sql`coalesce((SELECT jsonb_agg(jsonb_build_object('name',name) ORDER BY name,id) FROM classified WHERE reason IS NULL),'[]'::jsonb)`)},
 					${change("leftOut", null, sql`coalesce((SELECT jsonb_agg(jsonb_build_object('name',name,'reason',reason) ORDER BY name,id) FROM classified WHERE reason IS NOT NULL),'[]'::jsonb)`)},
-					${change("content", null, sql`${JSON.stringify(facts.content)}::jsonb`)},
+					${change("content", null, sql`to_jsonb(replace(${facts.content}::text, ${SAMPLE_NAME}::text, coalesce((SELECT name FROM classified WHERE reason IS NULL ORDER BY name, id LIMIT 1), '')))`)},
 					${change("sendAt", null, instantAt(at))}))`,
 			)} AS review,
 			jsonb_build_object('expectedRevision',c.revision::text,'input',jsonb_build_object('communicationId',c.id,'scheduledAt',${iso(at)})) AS args

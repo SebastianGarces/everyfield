@@ -19,7 +19,19 @@ import {
 import { listMessages } from "../../../../../packages/evry/src/adapters/communication/reads/index.ts";
 import { transaction } from "../../../../../apps/web/src/server/platform/database.ts";
 import { claimDue, finishClaim } from "../../../../../apps/web/src/server/jobs/queue.ts";
-import { accounts, actor, admin, db, people, plant, queries, role, setup, sql, teardown } from "../../../runtime/support.mts";
+import {
+	accounts,
+	actor,
+	admin,
+	db,
+	people,
+	plant,
+	queries,
+	role,
+	setup,
+	sql,
+	teardown,
+} from "../../../runtime/support.mts";
 
 // MAIL51-009 (WP-028 slice 2): Evry saves a draft and reviews a schedule, time change, cancel and replacement before any
 // of it runs. The email service is a recording fake; the database is real. Every effect goes through the real queue.
@@ -34,7 +46,14 @@ type Answer = "done" | "sent" | "unknown";
 /** A fake email service. `openTransactions` is how many transactions the runtime login held open while it was called. */
 function emailService() {
 	const calls = {
-		send: [] as { key: string; to: string[]; subject: string; text: string[]; scheduledAt: string | null; openTransactions: number }[],
+		send: [] as {
+			key: string;
+			to: string[];
+			subject: string;
+			text: string[];
+			scheduledAt: string | null;
+			openTransactions: number;
+		}[],
 		cancel: [] as string[][],
 		reschedule: [] as { ids: string[]; at: string }[],
 	};
@@ -48,7 +67,12 @@ function emailService() {
 			).rows[0]!.n,
 		);
 	const port: MailPort = {
-		keys: { encryptionKey: Buffer.alloc(32, 7), addressKey, from: "church@resend.dev", origin: "https://app.example.test" },
+		keys: {
+			encryptionKey: Buffer.alloc(32, 7),
+			addressKey,
+			from: "church@resend.dev",
+			origin: "https://app.example.test",
+		},
 		transport: {
 			async send(batch) {
 				calls.send.push({
@@ -100,7 +124,8 @@ before(async () => {
 	for (const category of notificationCategory.options.filter((name: string) => name !== "wiki_upstream_review"))
 		await admin.execute(sql`INSERT INTO notification_preference(id,account_id,category,channel,enabled,unsubscribe_revision)
 			VALUES(${randomUUID()},${accounts.member.id},${category},'email',false,1)`);
-	const [none] = (await admin.execute(sql`SELECT id FROM person WHERE plant_id=${plant} AND display_name='Member 001'`)).rows as { id: string }[];
+	const [none] = (await admin.execute(sql`SELECT id FROM person WHERE plant_id=${plant} AND display_name='Member 001'`))
+		.rows as { id: string }[];
 	people.noAddress = none!.id;
 });
 after(teardown);
@@ -113,7 +138,12 @@ async function turn(who: EvryActor, mail: MailPort | null) {
 	await submitTurn(db, who, c.id, { requestKey: randomUUID(), text: "hold this turn" });
 	const [claim] = await claimDue(db, ["assistant_turn"], 1, 240);
 	assert.ok(claim);
-	const run = { turnId: claim.id, tenantId: claim.tenant_id, leaseOwner: claim.lease_owner, generation: claim.claim_generation };
+	const run = {
+		turnId: claim.id,
+		tenantId: claim.tenant_id,
+		leaseOwner: claim.lease_owner,
+		generation: claim.claim_generation,
+	};
 	return {
 		async propose(operation: string, input: unknown) {
 			return prepareProposal(db, who, run, c.id, { operation, input }, mail);
@@ -163,7 +193,12 @@ async function savedDraft(who: EvryActor, mail: MailPort, subject = SUBJECT, bod
 	return { id: done.review.receipt!.receiptId!, revision: done.review.receipt!.revision! };
 }
 /** A message scheduled through its reviews and handed to the email service. */
-async function scheduledMessage(who: EvryActor, service: ReturnType<typeof emailService>, subject = SUBJECT, sendAt = localAt(3)) {
+async function scheduledMessage(
+	who: EvryActor,
+	service: ReturnType<typeof emailService>,
+	subject = SUBJECT,
+	sendAt = localAt(3),
+) {
 	const draft = await savedDraft(who, service.port, subject);
 	const t = await turn(who, service.port);
 	const proposal = await t.propose("communication.scheduleReviewed", { communicationId: draft.id, sendAt });
@@ -196,12 +231,18 @@ test("AC:WP-028-2 approving a draft saves it in Messages drafts with no mail and
 	const owner = await actor("owner");
 	const service = emailService();
 	const t = await turn(owner, service.port);
-	const proposal = await t.propose("communication.saveDraft", { subject: "Draft only", body: "Hello team.", audience: audience() });
+	const proposal = await t.propose("communication.saveDraft", {
+		subject: "Draft only",
+		body: "Hello team.",
+		audience: audience(),
+	});
 	assert.ok(proposal);
 	const done = await approve(owner, proposal, service.port);
 	assert.equal(done.outcome, "completed");
 	assert.equal(done.review.outcome, "completed");
-	const [draft] = await rows(sql`SELECT subject,state,body_text,audience FROM communication WHERE id=${done.review.receipt!.receiptId!}`);
+	const [draft] = await rows(
+		sql`SELECT subject,state,body_text,audience FROM communication WHERE id=${done.review.receipt!.receiptId!}`,
+	);
 	assert.equal(draft!.subject, "Draft only");
 	assert.equal(draft!.state, "draft");
 	assert.match(draft!.body_text, /Hello team\./);
@@ -209,7 +250,11 @@ test("AC:WP-028-2 approving a draft saves it in Messages drafts with no mail and
 	const found = await db.transaction((tx) => listMessages.invoke(tx, owner, { state: "draft", subject: "Draft only" }));
 	assert.equal(found.rows[0]!.id, done.review.receipt!.receiptId);
 	assert.deepEqual(
-		(await rows(sql`SELECT (SELECT count(*)::int FROM mail WHERE tenant_id=${plant}) m,(SELECT count(*)::int FROM mail_attempt WHERE tenant_id=${plant}) a`))[0],
+		(
+			await rows(
+				sql`SELECT (SELECT count(*)::int FROM mail WHERE tenant_id=${plant}) m,(SELECT count(*)::int FROM mail_attempt WHERE tenant_id=${plant}) a`,
+			)
+		)[0],
 		{ m: 0, a: 0 },
 	);
 	assert.equal(service.calls.send.length + service.calls.cancel.length + service.calls.reschedule.length, 0);
@@ -261,7 +306,9 @@ test("AC:WP-028-4 a schedule that is not approved, or whose approval lapsed, run
 	assert.equal(await runNext(service.port), null);
 	// Approved, then the approval lapses before the effect starts.
 	await approveProposal(db, owner, proposal.id, { revision: proposal.revision, digest: proposal.digest }, null);
-	await admin.execute(sql`UPDATE proposal SET expires_at=clock_timestamp()-interval '1 second' WHERE id=${proposal.id}`);
+	await admin.execute(
+		sql`UPDATE proposal SET expires_at=clock_timestamp()-interval '1 second' WHERE id=${proposal.id}`,
+	);
 	assert.equal(await runNext(service.port), "expired");
 	const [row] = await rows(sql`SELECT state,revision::text,scheduled_at FROM communication WHERE id=${draft.id}`);
 	assert.deepEqual({ state: row!.state, scheduled: row!.scheduled_at }, { state: "draft", scheduled: null });
@@ -293,12 +340,16 @@ test("AC:WP-028-5 approving a schedule makes one schedule request and reports co
 	assert.doesNotMatch(JSON.stringify(review.receipt), /delivered/i);
 	const [message] = await rows(sql`SELECT state FROM communication WHERE id=${id}`);
 	assert.equal(message!.state, "scheduled");
-	const states = await rows(sql`SELECT m.state,count(*)::int n FROM mail m WHERE m.logical_key LIKE ${"communication/" + id + "/%"} GROUP BY 1`);
+	const states = await rows(
+		sql`SELECT m.state,count(*)::int n FROM mail m WHERE m.logical_key LIKE ${"communication/" + id + "/%"} GROUP BY 1`,
+	);
 	assert.deepEqual(states, [
 		{ state: "accepted", n: 2 },
 		{ state: "refused", n: 2 },
 	]);
-	const found = await db.transaction((tx) => listMessages.invoke(tx, owner, { state: "scheduled", subject: "Scheduled once" }));
+	const found = await db.transaction((tx) =>
+		listMessages.invoke(tx, owner, { state: "scheduled", subject: "Scheduled once" }),
+	);
 	assert.equal(found.rows[0]!.fields.handedOff, true);
 });
 
@@ -318,12 +369,30 @@ test("AC:WP-028-6 a time change shows old and new time and says Saturday only af
 	service.answers.reschedule = "unknown";
 	const first = await approve(owner, proposal, service.port);
 	assert.equal(first.review.receipt!.report!.confirmation, "not_confirmed");
-	assert.equal((await rows(sql`SELECT count(*)::int n FROM mail WHERE logical_key LIKE ${"communication/" + id + "/%"} AND scheduled_at=${(time.after as { at: string }).at}`))[0]!.n, 0, "no recipient holds the new time yet");
+	assert.equal(
+		(
+			await rows(
+				sql`SELECT count(*)::int n FROM mail WHERE logical_key LIKE ${"communication/" + id + "/%"} AND scheduled_at=${(time.after as { at: string }).at}`,
+			)
+		)[0]!.n,
+		0,
+		"no recipient holds the new time yet",
+	);
 	service.answers.reschedule = "done";
 	const checked = await checkProposal(db, owner, proposal.id, service.port);
 	assert.equal(checked.proposal.receipt!.report!.confirmation, "confirmed");
-	assert.equal((await rows(sql`SELECT count(*)::int n FROM mail WHERE logical_key LIKE ${"communication/" + id + "/%"} AND scheduled_at=${(time.after as { at: string }).at}`))[0]!.n, 2);
-	assert.equal(new Date((await rows(sql`SELECT scheduled_at FROM communication WHERE id=${id}`))[0]!.scheduled_at).toISOString(), (time.after as { at: string }).at);
+	assert.equal(
+		(
+			await rows(
+				sql`SELECT count(*)::int n FROM mail WHERE logical_key LIKE ${"communication/" + id + "/%"} AND scheduled_at=${(time.after as { at: string }).at}`,
+			)
+		)[0]!.n,
+		2,
+	);
+	assert.equal(
+		new Date((await rows(sql`SELECT scheduled_at FROM communication WHERE id=${id}`))[0]!.scheduled_at).toISOString(),
+		(time.after as { at: string }).at,
+	);
 	// A confirmed time change is not checked again.
 	const again = await checkProposal(db, owner, proposal.id, service.port);
 	assert.equal(again.checked, false);
@@ -345,11 +414,25 @@ test("AC:WP-028-7 a cancel review shows subject, time and count; Cancelled needs
 		{ confirmation: first.review.receipt!.report!.confirmation, open: first.review.receipt!.report!.open },
 		{ confirmation: "not_confirmed", open: 2 },
 	);
-	assert.equal((await rows(sql`SELECT count(*)::int n FROM mail WHERE logical_key LIKE ${"communication/" + id + "/%"} AND state='cancelled'`))[0]!.n, 0);
+	assert.equal(
+		(
+			await rows(
+				sql`SELECT count(*)::int n FROM mail WHERE logical_key LIKE ${"communication/" + id + "/%"} AND state='cancelled'`,
+			)
+		)[0]!.n,
+		0,
+	);
 	service.answers.cancel = "done";
 	const checked = await checkProposal(db, owner, proposal.id, service.port);
 	assert.equal(checked.proposal.receipt!.report!.confirmation, "confirmed");
-	assert.equal((await rows(sql`SELECT count(*)::int n FROM mail WHERE logical_key LIKE ${"communication/" + id + "/%"} AND state='cancelled'`))[0]!.n, 2);
+	assert.equal(
+		(
+			await rows(
+				sql`SELECT count(*)::int n FROM mail WHERE logical_key LIKE ${"communication/" + id + "/%"} AND state='cancelled'`,
+			)
+		)[0]!.n,
+		2,
+	);
 });
 
 test("AC:WP-028-8 a replacement is scheduled only when every original send is confirmed cancelled", async () => {
@@ -374,18 +457,31 @@ test("AC:WP-028-8 a replacement is scheduled only when every original send is co
 	assert.equal(service.calls.send.length, sends + 1, "one new schedule request");
 	assert.deepEqual(service.calls.send.at(-1)!.to, ["alex.rivera@example.test"]);
 	assert.match(service.calls.send.at(-1)!.text[0]!, /5 pm/);
-	assert.equal((await rows(sql`SELECT count(*)::int n FROM mail WHERE logical_key LIKE ${"communication/" + ok.id + "/%"} AND state='cancelled'`))[0]!.n, 2);
+	assert.equal(
+		(
+			await rows(
+				sql`SELECT count(*)::int n FROM mail WHERE logical_key LIKE ${"communication/" + ok.id + "/%"} AND state='cancelled'`,
+			)
+		)[0]!.n,
+		2,
+	);
 
 	// One cancel unknown: nothing is scheduled and the affected recipient is named.
 	const partial = await scheduledMessage(owner, service, "Replace partial");
 	service.answers.cancel = (_id, n) => (n === 0 ? "unknown" : "done");
 	const sendsBefore = service.calls.send.length;
 	const blocked = await turn(owner, service.port);
-	const p2 = await blocked.propose("communication.replaceScheduledReviewed", { communicationId: partial.id, body: "Different text." });
+	const p2 = await blocked.propose("communication.replaceScheduledReviewed", {
+		communicationId: partial.id,
+		body: "Different text.",
+	});
 	const r2 = await approve(owner, p2!, service.port);
 	assert.equal(r2.review.receipt!.report!.replaced, false);
 	assert.equal(r2.review.receipt!.report!.confirmation, "not_confirmed");
-	assert.deepEqual((r2.review.receipt!.report!.people as { outcome: string }[]).map((p) => p.outcome), ["Cancel not confirmed"]);
+	assert.deepEqual(
+		(r2.review.receipt!.report!.people as { outcome: string }[]).map((p) => p.outcome),
+		["Cancel not confirmed"],
+	);
 	assert.equal(service.calls.send.length, sendsBefore, "no replacement was scheduled");
 
 	// One recipient's email already went out: also no replacement.
@@ -393,10 +489,16 @@ test("AC:WP-028-8 a replacement is scheduled only when every original send is co
 	const sentMessage = await scheduledMessage(owner, service, "Replace sent");
 	const sendsAfter = service.calls.send.length;
 	const t3 = await turn(owner, service.port);
-	const p3 = await t3.propose("communication.replaceScheduledReviewed", { communicationId: sentMessage.id, body: "Late change." });
+	const p3 = await t3.propose("communication.replaceScheduledReviewed", {
+		communicationId: sentMessage.id,
+		body: "Late change.",
+	});
 	const r3 = await approve(owner, p3!, service.port);
 	assert.equal(r3.review.receipt!.report!.replaced, false);
-	assert.deepEqual((r3.review.receipt!.report!.people as { outcome: string }[]).map((p) => p.outcome), ["Already sent"]);
+	assert.deepEqual(
+		(r3.review.receipt!.report!.people as { outcome: string }[]).map((p) => p.outcome),
+		["Already sent"],
+	);
 	assert.equal(service.calls.send.length, sendsAfter);
 });
 
@@ -408,7 +510,9 @@ test("AC:WP-028-9 a message that changed after the review refuses the approval a
 	const proposal = await t.propose("communication.scheduleReviewed", { communicationId: draft.id, sendAt: localAt(3) });
 	assert.ok(proposal);
 	// The message is edited in Messages before the approval: the approval is refused and nothing is queued.
-	await admin.execute(sql`UPDATE communication SET subject='Edited elsewhere',revision=revision+1 WHERE id=${draft.id}`);
+	await admin.execute(
+		sql`UPDATE communication SET subject='Edited elsewhere',revision=revision+1 WHERE id=${draft.id}`,
+	);
 	assert.equal((await readReview(db, owner, proposal.id)).stale, true);
 	await assert.rejects(
 		approveProposal(db, owner, proposal.id, { revision: proposal.revision, digest: proposal.digest }, null),
@@ -418,7 +522,17 @@ test("AC:WP-028-9 a message that changed after the review refuses the approval a
 	assert.equal(service.calls.send.length, 0);
 	assert.equal((await rows(sql`SELECT state FROM communication WHERE id=${draft.id}`))[0]!.state, "draft");
 	// Reviewing again reads the message as it is now and can be approved.
-	const again = await reviseProposal(db, owner, proposal.id, { operation: "communication.scheduleReviewed", revision: proposal.revision, input: { communicationId: draft.id, sendAt: localAt(3) } }, service.port);
+	const again = await reviseProposal(
+		db,
+		owner,
+		proposal.id,
+		{
+			operation: "communication.scheduleReviewed",
+			revision: proposal.revision,
+			input: { communicationId: draft.id, sendAt: localAt(3) },
+		},
+		service.port,
+	);
 	assert.equal(again.stale, false);
 	assert.equal(change(again, "subject")!.after, "Edited elsewhere");
 	// A change that lands after the approval, while the effect waits, is refused by the effect itself.
@@ -434,12 +548,13 @@ test("AC:WP-028-9 a message that changed after the review refuses the approval a
 	const moved = await scheduledMessage(owner, service, "Moved elsewhere");
 	const t2 = await turn(owner, service.port);
 	const p2 = await t2.propose("communication.rescheduleReviewed", { communicationId: moved.id, sendAt: localAt(5) });
-	await admin.execute(sql`UPDATE communication SET scheduled_at=scheduled_at+interval '1 hour',revision=revision+1 WHERE id=${moved.id}`);
-	const calls = service.calls.reschedule.length;
-	await assert.rejects(
-		approveProposal(db, owner, p2!.id, { revision: p2!.revision, digest: p2!.digest }, null),
-		{ code: "review_changed" },
+	await admin.execute(
+		sql`UPDATE communication SET scheduled_at=scheduled_at+interval '1 hour',revision=revision+1 WHERE id=${moved.id}`,
 	);
+	const calls = service.calls.reschedule.length;
+	await assert.rejects(approveProposal(db, owner, p2!.id, { revision: p2!.revision, digest: p2!.digest }, null), {
+		code: "review_changed",
+	});
 	assert.equal(await runNext(service.port), null);
 	assert.equal(service.calls.reschedule.length, calls);
 });
@@ -452,14 +567,25 @@ test("AC:WP-028-10 Evry finds messages by subject and send time; a member reads 
 	await scheduledMessage(owner, service, "Friday volunteer reminder", friday);
 	await scheduledMessage(owner, service, "Saturday cookout", localAt(3, "12:00"));
 	const byDate = await db.transaction((tx) => listMessages.invoke(tx, owner, { sendOn: friday.slice(0, 10) }));
-	assert.deepEqual(byDate.rows.map((r) => r.label), ["Friday volunteer reminder"]);
+	assert.deepEqual(
+		byDate.rows.map((r) => r.label),
+		["Friday volunteer reminder"],
+	);
 	assert.equal(byDate.rows[0]!.fields.zone, "America/Chicago");
-	const bySubject = await db.transaction((tx) => listMessages.invoke(tx, owner, { subject: "cookout", state: "scheduled" }));
-	assert.deepEqual(bySubject.rows.map((r) => r.label), ["Saturday cookout"]);
+	const bySubject = await db.transaction((tx) =>
+		listMessages.invoke(tx, owner, { subject: "cookout", state: "scheduled" }),
+	);
+	assert.deepEqual(
+		bySubject.rows.map((r) => r.label),
+		["Saturday cookout"],
+	);
 	assert.doesNotMatch(JSON.stringify(byDate), /example\.test|Come to Sunday/, "no address or body reaches the model");
 	const memberReads = await db.transaction((tx) => listMessages.invoke(tx, member, {}));
 	assert.ok(memberReads.rows.length >= 2, "a member reads drafts and scheduled messages");
-	const writes = (who: EvryActor) => readCatalog(who).reviewedWrites.map((w) => w.operation).filter((op) => op.startsWith("communication."));
+	const writes = (who: EvryActor) =>
+		readCatalog(who)
+			.reviewedWrites.map((w) => w.operation)
+			.filter((op) => op.startsWith("communication."));
 	assert.deepEqual(writes(member), []);
 	assert.deepEqual(writes(owner).sort(), [
 		"communication.cancelScheduledReviewed",
@@ -484,7 +610,11 @@ test("AC:WP-028-11 a second approval, a double click or a retried effect makes o
 	const owner = await actor("owner");
 	const service = emailService();
 	const t = await turn(owner, service.port);
-	const draftProposal = await t.propose("communication.saveDraft", { subject: "Only once", body: "One draft.", audience: audience() });
+	const draftProposal = await t.propose("communication.saveDraft", {
+		subject: "Only once",
+		body: "One draft.",
+		audience: audience(),
+	});
 	const witness = { revision: draftProposal!.revision, digest: draftProposal!.digest };
 	const [a, b] = await Promise.all([
 		approveProposal(db, owner, draftProposal!.id, witness, null),
@@ -523,7 +653,11 @@ test("AC:WP-028-11 a second approval, a double click or a retried effect makes o
 	await retryUnresolvedEffects(db, owner, sched!.id);
 	assert.equal(await runNext(service.port), "completed");
 	assert.equal(service.calls.send.length, scheduled, "the stored provider key resumes instead of sending again");
-	assert.equal((await rows(sql`SELECT count(*)::int n FROM mail WHERE logical_key LIKE ${"communication/" + draft.id + "/%"}`))[0]!.n, 4);
+	assert.equal(
+		(await rows(sql`SELECT count(*)::int n FROM mail WHERE logical_key LIKE ${"communication/" + draft.id + "/%"}`))[0]!
+			.n,
+		4,
+	);
 });
 
 test("AC:WP-028-13 each review and effect stays within its statement budget and no transaction is open during a provider call", async () => {
