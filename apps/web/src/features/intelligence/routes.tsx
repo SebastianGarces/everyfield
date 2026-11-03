@@ -9,7 +9,7 @@ import { CheckInScreen } from "./CheckInScreen.tsx";
 import { CheckInHeader } from "./Header.tsx";
 import { CHECK_IN_PATH } from "./path.ts";
 import { careViewer, loadCheckIn } from "./server.ts";
-import { loadAttestations, signalsViewer } from "./signals-server.ts";
+import { loadAttestations } from "./signals-server.ts";
 
 // The /me/check-in route (WP-039): the private weekly check-in of a church plant's Owner or Admin.
 // apps/web/src/app/(product)/(frame)/me/check-in/ only re-exports these. The page takes no address parameters: the
@@ -112,7 +112,7 @@ export function CheckInLoading() {
 export const attestationsMetadata: Metadata = { title: "Attestations", robots: { index: false, follow: false } };
 
 export async function AttestationsPage() {
-	const viewer = await signalsViewer();
+	const viewer = await careViewer();
 	if (!viewer) {
 		const v = await getViewer();
 		if (!v || v.status === "unauthenticated")

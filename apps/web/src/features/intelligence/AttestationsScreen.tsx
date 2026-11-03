@@ -17,8 +17,10 @@ import {
 	TEXT_MAX,
 	type AttestationsPage,
 	type CandidateEntry,
+	type HumanRevision,
 	type SignalEntry,
 	type SignalKey,
+	type SignalWriteResult,
 	type SignalValue,
 } from "@everyfield/contracts/intelligence";
 import {
@@ -113,10 +115,27 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 		}
 	};
 	const entryOf = (key: SignalKey) => page.signals.find((s) => s.key === key)!;
-	const fail = (result: SignalOutcome<unknown>) => ({
-		text: refusalText(result.status === "refused" ? result.error : null),
-		code: result.status === "refused" ? result.error.code : "lost",
-	});
+	const fail = (result: SignalOutcome<unknown>) => refusalText(result.status === "refused" ? result.error : null);
+
+	/** Show `optimistic` at once, send the write, then confirm with a history line or roll back to `entry`. */
+	async function writeSignal(
+		entry: SignalEntry,
+		optimistic: (today: string) => SignalEntry,
+		payload: string,
+		send: (requestKey: string) => Promise<SignalOutcome<SignalWriteResult>>,
+		line: (confirmed: SignalEntry) => HumanRevision,
+	): Promise<string | null> {
+		setPage((p) => withSignal(p, optimistic(p.today)));
+		const result = await sent(() => send(keyFor(payload)));
+		if (result.status !== "ok") {
+			setPage((p) => withSignal(p, entry));
+			return fail(result);
+		}
+		keys.current.delete(payload);
+		const confirmed = result.value.signal;
+		setPage((p) => withHistory(withSignal(p, confirmed), line(confirmed)));
+		return null;
+	}
 
 	/** Answer a signal for the first time or after a retraction, or correct it to the other value. */
 	async function save(entry: SignalEntry, draft: Draft): Promise<string | null> {
@@ -124,54 +143,36 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 		if (what === "none" || !draft.value) return null;
 		const value = draft.value;
 		const input = { key: entry.key, value, asOf: draft.asOf, detail: draft.detail, reference: draft.reference };
-		const payload = JSON.stringify([what, entry.revision, input]);
-		setPage((p) => withSignal(p, stated(entry, { ...draft, value }, p.today, viewerName)));
-		const result = await sent(() =>
-			what === "attest"
-				? attestSignal(keyFor(payload), entry.revision, input)
-				: correctSignal(keyFor(payload), entry.revision, { action: "correct", ...input }),
+		return writeSignal(
+			entry,
+			(today) => stated(entry, { ...draft, value }, today, viewerName),
+			JSON.stringify([what, entry.revision, input]),
+			(key) =>
+				what === "attest"
+					? attestSignal(key, entry.revision, input)
+					: correctSignal(key, entry.revision, { action: "correct", ...input }),
+			(confirmed) => historyLine(confirmed, what === "attest" ? "answered" : "corrected", value),
 		);
-		if (result.status !== "ok") {
-			setPage((p) => withSignal(p, entry));
-			return fail(result).text;
-		}
-		keys.current.delete(payload);
-		const confirmed = result.value.signal;
-		setPage((p) =>
-			withHistory(
-				withSignal(p, confirmed),
-				historyLine(confirmed, what === "attest" ? "answered" : "corrected", value),
-			),
-		);
-		return null;
 	}
 	async function retract(entry: SignalEntry): Promise<string | null> {
 		const input = { action: "retract", key: entry.key };
-		const payload = JSON.stringify(["retract", entry.revision, input]);
-		setPage((p) => withSignal(p, retracted(entry, viewerName)));
-		const result = await sent(() => correctSignal(keyFor(payload), entry.revision, input));
-		if (result.status !== "ok") {
-			setPage((p) => withSignal(p, entry));
-			return fail(result).text;
-		}
-		keys.current.delete(payload);
-		const confirmed = result.value.signal;
-		setPage((p) => withHistory(withSignal(p, confirmed), historyLine(confirmed, "retracted", null)));
-		return null;
+		return writeSignal(
+			entry,
+			() => retracted(entry, viewerName),
+			JSON.stringify(["retract", entry.revision, input]),
+			(key) => correctSignal(key, entry.revision, input),
+			(confirmed) => historyLine(confirmed, "retracted", null),
+		);
 	}
 	async function stillTrue(entry: SignalEntry): Promise<string | null> {
 		const input = { key: entry.key, expectedValue: entry.value };
-		const payload = JSON.stringify(["reaffirm", entry.revision, input]);
-		setPage((p) => withSignal(p, reaffirmed(entry, p.today, viewerName)));
-		const result = await sent(() => reaffirmSignal(keyFor(payload), entry.revision, input));
-		if (result.status !== "ok") {
-			setPage((p) => withSignal(p, entry));
-			return fail(result).text;
-		}
-		keys.current.delete(payload);
-		const confirmed = result.value.signal;
-		setPage((p) => withHistory(withSignal(p, confirmed), historyLine(confirmed, "reaffirmed", confirmed.value)));
-		return null;
+		return writeSignal(
+			entry,
+			(today) => reaffirmed(entry, today, viewerName),
+			JSON.stringify(["reaffirm", entry.revision, input]),
+			(key) => reaffirmSignal(key, entry.revision, input),
+			(confirmed) => historyLine(confirmed, "reaffirmed", confirmed.value),
+		);
 	}
 	async function reload() {
 		const result = await sent(() => reloadAttestations());
@@ -200,7 +201,7 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 					? withCandidate(p, before)
 					: { ...p, candidates: p.candidates.filter((c) => c.personId !== input.personId) },
 			);
-			return fail(result).text;
+			return fail(result);
 		}
 		keys.current.delete(payload);
 		const confirmed = result.value.candidate;

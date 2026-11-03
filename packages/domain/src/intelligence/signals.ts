@@ -24,20 +24,22 @@ class Refusal extends Error {
 function deny(code: Code): never {
 	throw new Refusal(code);
 }
+const refused = (code: Code) =>
+	({
+		status: "refused",
+		error: c.signalError.parse({
+			code,
+			details: {},
+			correlationId: randomUUID(),
+			retry: code === "revision_conflict" || code === "not_current" ? "refresh" : "never",
+		}),
+	}) as const;
 async function settle<T>(body: () => Promise<T>): Promise<c.SignalReply<T>> {
 	try {
 		return { status: "ok", value: await body() };
 	} catch (error) {
 		if (!(error instanceof Refusal)) throw error;
-		return {
-			status: "refused",
-			error: c.signalError.parse({
-				code: error.code,
-				details: {},
-				correlationId: randomUUID(),
-				retry: error.code === "revision_conflict" || error.code === "not_current" ? "refresh" : "never",
-			}),
-		};
+		return refused(error.code);
 	}
 }
 function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S> {
@@ -91,10 +93,8 @@ const stateRow = z.object({
 });
 type StateRow = z.infer<typeof stateRow>;
 
-export const daysBetween = c.daysBetween;
-
 /** One signal from its latest revision (null when never answered) and the church's today. */
-export function signalFrom(key: c.SignalKey, row: StateRow | null, today: string): c.SignalEntry {
+function signalFrom(key: c.SignalKey, row: StateRow | null, today: string): c.SignalEntry {
 	if (!row)
 		return c.signalEntry.parse({
 			key,
@@ -110,7 +110,7 @@ export function signalFrom(key: c.SignalKey, row: StateRow | null, today: string
 			renewal: { status: "unknown" },
 		});
 	const answered = row.kind !== "retracted";
-	const age = Math.max(0, daysBetween(row.asOf, today));
+	const age = Math.max(0, c.daysBetween(row.asOf, today));
 	return c.signalEntry.parse({
 		key,
 		state: answered ? "answered" : "retracted",
@@ -127,9 +127,9 @@ export function signalFrom(key: c.SignalKey, row: StateRow | null, today: string
 }
 
 /** A candidate from its latest revision. Established only when both behaviors are attested over 60 inclusive days. */
-export function candidateFrom(row: StateRow & { personId: string; personName: string }): c.CandidateEntry {
+function candidateFrom(row: StateRow & { personId: string; personName: string }): c.CandidateEntry {
 	const answered = row.kind !== "retracted";
-	const days = daysBetween(row.periodStart!, row.periodEnd!) + 1;
+	const days = c.daysBetween(row.periodStart!, row.periodEnd!) + 1;
 	const reasons: c.CandidateReason[] = [];
 	if (answered) {
 		if (!row.attended) reasons.push("attendance_not_attested");
@@ -205,6 +205,18 @@ const MANUAL = sql.join(
 	sql`,`,
 );
 
+/** The one audit row of a write, for each attestation row in `from`. */
+const audit = (s: Scope, action: "recorded" | "corrected", from: SQL) =>
+	sql`INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_id,occurred_at,recorded_at,event_key,after_revision,metadata)
+  SELECT x.plant_id,${s.me}::uuid,${"attestation." + action},${action === "recorded" ? "create" : "correct"},x.id,${s.at},${s.at},
+  'attestation:'||x.id||':'||x.revision,x.revision,jsonb_build_object('key',x.key) FROM ${from} x RETURNING 1`;
+/** The revision row of a manual-signal write, for each attestation row in `from`. */
+const signalRevision = (s: Scope, kind: c.HumanRevision["kind"], key: string, print: string, from: SQL) =>
+	sql`INSERT INTO attestation_revision(plant_id,attestation_id,revision,key,kind,answer,as_of,detail,reference,
+  question_version,author_id,request_key,request_fingerprint,recorded_at)
+  SELECT x.plant_id,x.id,x.revision,x.key,${kind},x.answer,x.as_of,x.statement,x.source_description,
+  ${c.SIGNAL_QUESTION_VERSION},${s.me}::uuid,${key},${print},${s.at} FROM ${from} x RETURNING *`;
+
 const writeRow = z.object({
 	ok: z.boolean().nullable(),
 	today: z.string().nullable(),
@@ -245,11 +257,29 @@ export function createSignals(config: { clock?: Clock } = {}) {
 	const closing = (s: Scope) => sql`(SELECT ok FROM gate) AS ok,${todayText(s)} AS today,
  (SELECT jsonb_build_object('fingerprint',p.request_fingerprint,'state',${stateJson(sql`p`, s)}) FROM prior p) AS prior`;
 
+	/** The tail of a signal write: the current row as it was and the revision it wrote. */
+	const signalClosing = (s: Scope) => sql`${closing(s)},
+ (SELECT jsonb_build_object('state',cur.state,'revision',cur.revision::text,'answer',cur.answer,'same',NULL::boolean) FROM cur) AS cur,
+ (SELECT ${stateJson(sql`x`, s)} FROM rev x) AS written`;
+
 	/** Replays an earlier write of the same request, or refuses a different request that reuses its key. */
 	function replayOf(r: WriteRow, print: string) {
 		if (!r.prior) return null;
 		if (r.prior.fingerprint !== print) deny("idempotency_conflict");
 		return { state: stateRow.parse(r.prior.state), today: r.today! };
+	}
+
+	/** The result of a signal write that saved now or earlier under the same request key; null otherwise. */
+	function signalSaved(r: WriteRow, print: string, key: c.SignalKey) {
+		const replay = replayOf(r, print);
+		if (replay)
+			return c.signalWriteResult.parse({ outcome: "saved", signal: signalFrom(key, replay.state, replay.today) });
+		if (!r.ok) deny("access_denied");
+		if (!r.written) return null;
+		return c.signalWriteResult.parse({
+			outcome: "saved",
+			signal: signalFrom(key, stateRow.parse(r.written), r.today!),
+		});
 	}
 
 	/** The refusal or result of a candidate write, in the order a caller can act on them. */
@@ -289,17 +319,7 @@ export function createSignals(config: { clock?: Clock } = {}) {
 	return {
 		/** signals.listDefinitions (PI-015): the seven keys in their order. Static; it reads no answer or author. */
 		listDefinitions(raw: unknown = {}): c.SignalReply<c.SignalDefinition[]> {
-			if (!c.listDefinitionsRequest.safeParse(raw).success) {
-				return {
-					status: "refused",
-					error: c.signalError.parse({
-						code: "invalid_input",
-						details: {},
-						correlationId: randomUUID(),
-						retry: "never",
-					}),
-				};
-			}
+			if (!c.listDefinitionsRequest.safeParse(raw).success) return refused("invalid_input");
 			return {
 				status: "ok",
 				value: c.SIGNAL_DEFINITIONS.map((d) =>
@@ -413,27 +433,13 @@ export function createSignals(config: { clock?: Clock } = {}) {
   statement=${c.textOf(i.detail)},source_description=${c.textOf(i.reference)},revision=a.revision+1
   FROM want w, cur WHERE a.id=cur.id AND a.state='retracted' AND a.revision=${q.expectedRevision}::bigint RETURNING a.*),
  changed AS (SELECT * FROM born UNION ALL SELECT * FROM again),
- rev AS (INSERT INTO attestation_revision(plant_id,attestation_id,revision,key,kind,answer,as_of,detail,reference,
-  question_version,author_id,request_key,request_fingerprint,recorded_at)
-  SELECT x.plant_id,x.id,x.revision,x.key,'answered',x.answer,x.as_of,x.statement,x.source_description,
-  ${c.SIGNAL_QUESTION_VERSION},${s.me}::uuid,${q.requestKey},${print},${s.at} FROM changed x RETURNING *),
- aud AS (INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_id,occurred_at,recorded_at,event_key,after_revision,metadata)
-  SELECT x.plant_id,${s.me}::uuid,'attestation.recorded','create',x.id,${s.at},${s.at},'attestation:'||x.id||':'||x.revision,
-  x.revision,jsonb_build_object('key',x.key) FROM changed x RETURNING 1)
- SELECT ${closing(s)},
- (SELECT jsonb_build_object('state',cur.state,'revision',cur.revision::text,'answer',cur.answer,'same',NULL::boolean) FROM cur) AS cur,
- (SELECT ${stateJson(sql`x`, s)} FROM rev x) AS written`,
+ rev AS (${signalRevision(s, "answered", q.requestKey, print, sql`changed`)}),
+ aud AS (${audit(s, "recorded", sql`changed`)})
+ SELECT ${signalClosing(s)}`,
 				);
-				const replay = replayOf(r, print);
-				if (replay)
-					return c.signalWriteResult.parse({ outcome: "saved", signal: signalFrom(i.key, replay.state, replay.today) });
-				if (!r.ok) deny("access_denied");
+				const saved = signalSaved(r, print, i.key);
+				if (saved) return saved;
 				if (i.asOf && i.asOf > r.today!) deny("invalid_input");
-				if (r.written)
-					return c.signalWriteResult.parse({
-						outcome: "saved",
-						signal: signalFrom(i.key, stateRow.parse(r.written), r.today!),
-					});
 				return deny("revision_conflict");
 			});
 		},
@@ -467,26 +473,12 @@ export function createSignals(config: { clock?: Clock } = {}) {
   attested_at=${s.at},statement=${detail},source_description=${reference},revision=a.revision+1
   FROM want w, cur WHERE a.id=cur.id AND a.state='answered' AND a.revision=${q.expectedRevision}::bigint
   ${retract ? sql`` : sql`AND a.answer IS DISTINCT FROM ${value}::boolean`} RETURNING a.*),
- rev AS (INSERT INTO attestation_revision(plant_id,attestation_id,revision,key,kind,answer,as_of,detail,reference,
-  question_version,author_id,request_key,request_fingerprint,recorded_at)
-  SELECT x.plant_id,x.id,x.revision,x.key,${retract ? "retracted" : "corrected"},x.answer,x.as_of,x.statement,x.source_description,
-  ${c.SIGNAL_QUESTION_VERSION},${s.me}::uuid,${q.requestKey},${print},${s.at} FROM edited x RETURNING *),
- aud AS (INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_id,occurred_at,recorded_at,event_key,after_revision,metadata)
-  SELECT x.plant_id,${s.me}::uuid,'attestation.corrected','correct',x.id,${s.at},${s.at},'attestation:'||x.id||':'||x.revision,
-  x.revision,jsonb_build_object('key',x.key) FROM edited x RETURNING 1)
- SELECT ${closing(s)},
- (SELECT jsonb_build_object('state',cur.state,'revision',cur.revision::text,'answer',cur.answer,'same',NULL::boolean) FROM cur) AS cur,
- (SELECT ${stateJson(sql`x`, s)} FROM rev x) AS written`,
+ rev AS (${signalRevision(s, retract ? "retracted" : "corrected", q.requestKey, print, sql`edited`)}),
+ aud AS (${audit(s, "corrected", sql`edited`)})
+ SELECT ${signalClosing(s)}`,
 				);
-				const replay = replayOf(r, print);
-				if (replay)
-					return c.signalWriteResult.parse({ outcome: "saved", signal: signalFrom(i.key, replay.state, replay.today) });
-				if (!r.ok) deny("access_denied");
-				if (r.written)
-					return c.signalWriteResult.parse({
-						outcome: "saved",
-						signal: signalFrom(i.key, stateRow.parse(r.written), r.today!),
-					});
+				const saved = signalSaved(r, print, i.key);
+				if (saved) return saved;
 				if (given && given > r.today!) deny("invalid_input");
 				if (!r.cur) deny("not_current");
 				if (r.cur.revision !== q.expectedRevision) deny("revision_conflict");
@@ -518,26 +510,12 @@ export function createSignals(config: { clock?: Clock } = {}) {
  edited AS (UPDATE attestation a SET as_of=${todayOf(s)},attested_at=${s.at},revision=a.revision+1
   FROM cur WHERE a.id=cur.id AND a.state='answered' AND a.revision=${q.expectedRevision}::bigint
   AND a.answer=${expectedAnswer} AND NOT EXISTS(SELECT FROM prior) AND (SELECT ok FROM gate) RETURNING a.*),
- rev AS (INSERT INTO attestation_revision(plant_id,attestation_id,revision,key,kind,answer,as_of,detail,reference,
-  question_version,author_id,request_key,request_fingerprint,recorded_at)
-  SELECT x.plant_id,x.id,x.revision,x.key,'reaffirmed',x.answer,x.as_of,x.statement,x.source_description,
-  ${c.SIGNAL_QUESTION_VERSION},${s.me}::uuid,${q.requestKey},${print},${s.at} FROM edited x RETURNING *),
- aud AS (INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_id,occurred_at,recorded_at,event_key,after_revision,metadata)
-  SELECT x.plant_id,${s.me}::uuid,'attestation.recorded','create',x.id,${s.at},${s.at},'attestation:'||x.id||':'||x.revision,
-  x.revision,jsonb_build_object('key',x.key) FROM edited x RETURNING 1)
- SELECT ${closing(s)},
- (SELECT jsonb_build_object('state',cur.state,'revision',cur.revision::text,'answer',cur.answer,'same',NULL::boolean) FROM cur) AS cur,
- (SELECT ${stateJson(sql`x`, s)} FROM rev x) AS written`,
+ rev AS (${signalRevision(s, "reaffirmed", q.requestKey, print, sql`edited`)}),
+ aud AS (${audit(s, "recorded", sql`edited`)})
+ SELECT ${signalClosing(s)}`,
 				);
-				const replay = replayOf(r, print);
-				if (replay)
-					return c.signalWriteResult.parse({ outcome: "saved", signal: signalFrom(i.key, replay.state, replay.today) });
-				if (!r.ok) deny("access_denied");
-				if (r.written)
-					return c.signalWriteResult.parse({
-						outcome: "saved",
-						signal: signalFrom(i.key, stateRow.parse(r.written), r.today!),
-					});
+				const saved = signalSaved(r, print, i.key);
+				if (saved) return saved;
 				if (!r.cur) deny("not_current");
 				if (r.cur.revision !== q.expectedRevision) deny("revision_conflict");
 				if (r.cur.state !== "answered") deny("not_current");
@@ -586,9 +564,7 @@ export function createSignals(config: { clock?: Clock } = {}) {
   SELECT x.plant_id,x.id,x.revision,x.key,x.person_id,'answered',x.as_of,x.statement,x.period_start,x.period_end,
   x.attendance_continuous,x.volunteering_continuous,${c.CANDIDATE_QUESTION_VERSION},${s.me}::uuid,${q.requestKey},${print},${s.at}
   FROM changed x RETURNING *),
- aud AS (INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_id,occurred_at,recorded_at,event_key,after_revision,metadata)
-  SELECT x.plant_id,${s.me}::uuid,'attestation.recorded','create',x.id,${s.at},${s.at},'attestation:'||x.id||':'||x.revision,
-  x.revision,jsonb_build_object('key',x.key) FROM changed x RETURNING 1)
+ aud AS (${audit(s, "recorded", sql`changed`)})
  SELECT ${closing(s)},
  (SELECT jsonb_build_object('state',cur.state,'revision',cur.revision::text,'answer',NULL::boolean,'same',NULL::boolean) FROM cur) AS cur,
  (SELECT jsonb_build_object('name',who.display_name) FROM who) AS person,
@@ -642,9 +618,7 @@ export function createSignals(config: { clock?: Clock } = {}) {
   SELECT x.plant_id,x.id,x.revision,x.key,x.person_id,${retract ? "retracted" : "corrected"},x.as_of,x.statement,x.period_start,x.period_end,
   x.attendance_continuous,x.volunteering_continuous,${c.CANDIDATE_QUESTION_VERSION},${s.me}::uuid,${q.requestKey},${print},${s.at}
   FROM edited x RETURNING *),
- aud AS (INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_id,occurred_at,recorded_at,event_key,after_revision,metadata)
-  SELECT x.plant_id,${s.me}::uuid,'attestation.corrected','correct',x.id,${s.at},${s.at},'attestation:'||x.id||':'||x.revision,
-  x.revision,jsonb_build_object('key',x.key) FROM edited x RETURNING 1)
+ aud AS (${audit(s, "corrected", sql`edited`)})
  SELECT ${closing(s)},
  (SELECT jsonb_build_object('state',cur.state,'revision',cur.revision::text,'answer',NULL::boolean,
   'same',CASE WHEN ${

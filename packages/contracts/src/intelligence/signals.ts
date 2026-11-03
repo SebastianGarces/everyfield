@@ -63,7 +63,7 @@ export const SIGNAL_DEFINITIONS = [
 ] as const;
 export const SIGNAL_KEYS = SIGNAL_DEFINITIONS.map((d) => d.key) as unknown as readonly [SignalKey, ...SignalKey[]];
 export type SignalKey = (typeof SIGNAL_DEFINITIONS)[number]["key"];
-export const signalKey = z.enum(SIGNAL_DEFINITIONS.map((d) => d.key) as unknown as [SignalKey, ...SignalKey[]]);
+export const signalKey = z.enum(SIGNAL_KEYS);
 /** Days a reaffirming answer stays current, counted in the church's calendar days. */
 export const REAFFIRM_WINDOW_DAYS = 30;
 /** Days a candidate period must cover, both ends included. */
@@ -268,7 +268,6 @@ export const personOption = z.strictObject({
 	/** The revision a candidate write names for this Person: 0 when there is no candidate row yet. */
 	candidateRevision: revision,
 });
-export type PersonOption = z.infer<typeof personOption>;
 
 export const attestationCounts = z.strictObject({
 	current: z.int().min(0),

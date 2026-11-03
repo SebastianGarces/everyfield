@@ -5,7 +5,6 @@ import {
 	daysBetween,
 	renewalOf,
 	SIGNAL_DEFINITIONS,
-	SIGNAL_GROUPS,
 	SIGNAL_QUESTION_VERSION,
 	type AttestationsPage,
 	type CandidateEntry,
@@ -28,7 +27,6 @@ export type SignalOutcome<T> =
 
 export const VALUE_LABEL: Record<SignalValue, string> = { yes: "Yes", not_yet: "Not yet" };
 export const definitionOf = (key: SignalKey) => SIGNAL_DEFINITIONS.find((d) => d.key === key)!;
-export const groupOf = (key: SignalKey) => SIGNAL_GROUPS.find((g) => g.id === definitionOf(key).group)!;
 export const signalsIn = (page: AttestationsPage, group: string) =>
 	page.signals.filter((s) => definitionOf(s.key).group === group);
 
@@ -155,8 +153,7 @@ const KIND_LABEL: Record<HumanRevision["kind"], string> = {
 export function historyText(line: HumanRevision) {
 	if (line.key === "leadership_candidate") {
 		const days = daysBetween(line.periodStart!, line.periodEnd!) + 1;
-		const what = line.kind === "retracted" ? "Retracted" : KIND_LABEL[line.kind];
-		return `${what} · ${shortDate(line.periodStart!)} to ${shortDate(line.periodEnd!)} · ${days} days`;
+		return `${KIND_LABEL[line.kind]} · ${shortDate(line.periodStart!)} to ${shortDate(line.periodEnd!)} · ${days} days`;
 	}
 	if (line.kind === "retracted") return "Retracted";
 	const head = line.kind === "reaffirmed" ? "Still true" : line.kind === "corrected" ? "Corrected to" : "Answered";
@@ -229,9 +226,10 @@ export const periodText = (c: Pick<CandidateEntry, "periodStart" | "periodEnd" |
 
 /** The page with one candidate replaced, added or (when retracted) kept as Retracted. */
 export function withCandidate(page: AttestationsPage, entry: CandidateEntry): AttestationsPage {
-	const rest = page.candidates.filter((c) => c.personId !== entry.personId);
 	const known = page.candidates.some((c) => c.personId === entry.personId);
-	const candidates = known ? page.candidates.map((c) => (c.personId === entry.personId ? entry : c)) : [entry, ...rest];
+	const candidates = known
+		? page.candidates.map((c) => (c.personId === entry.personId ? entry : c))
+		: [entry, ...page.candidates];
 	return {
 		...page,
 		candidates,

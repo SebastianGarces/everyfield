@@ -19,16 +19,13 @@ import { careViewer, type CareViewer } from "./server.ts";
 
 const signals = createSignals();
 
-export type SignalsViewer = CareViewer;
-export const signalsViewer = careViewer;
-
 const report = (outcome: string, error: unknown) =>
 	console.error(
 		JSON.stringify({ component: "signals", outcome, kind: (error as { code?: string })?.code ?? "unknown" }),
 	);
 
 /** The Attestations page: the seven signals, the counts, the candidates and the history. One statement. */
-export async function loadAttestations(viewer: SignalsViewer): Promise<SignalOutcome<AttestationsPage>> {
+export async function loadAttestations(viewer: CareViewer): Promise<SignalOutcome<AttestationsPage>> {
 	const db = requestDatabase();
 	if (!db) return { status: "lost" };
 	try {
@@ -43,7 +40,7 @@ export async function loadAttestations(viewer: SignalsViewer): Promise<SignalOut
 export async function runSignals<T extends SignalWriteResult | CandidateWriteResult | AttestationsPage>(
 	body: (signals: Signals, db: Database, authority: RequestActor) => Promise<SignalReply<T>>,
 ): Promise<SignalOutcome<T>> {
-	const viewer = await signalsViewer();
+	const viewer = await careViewer();
 	if (!viewer)
 		return {
 			status: "refused",
