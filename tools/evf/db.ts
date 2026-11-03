@@ -306,6 +306,7 @@ export type TaskRow = {
 	worktree: string | null;
 	seat_model: string | null;
 	seat_effort: string | null;
+	merge_commit?: string | null;
 };
 
 /** The mission goal that owns a package, if the goals are synced. */
@@ -326,20 +327,27 @@ export function missionFor(db: DatabaseSync, pkg: string): { id: number; title: 
 export function findTask(db: DatabaseSync, task: TaskRef): TaskRow | undefined {
 	return db
 		.prepare(
-			"SELECT id, ref, slug, mode, status, round, goal_id, spec, pr_number, worktree, seat_model, seat_effort FROM tasks WHERE ref = ? AND status != 'abandoned' ORDER BY (status = 'queued'), id DESC LIMIT 1",
+			`SELECT ${TASK_COLUMNS} FROM tasks WHERE ref = ? AND status != 'abandoned' ORDER BY (status = 'queued'), id DESC LIMIT 1`,
 		)
 		.get(task.id) as TaskRow | undefined;
+}
+const TASK_COLUMNS =
+	"id, ref, slug, mode, status, round, goal_id, spec, pr_number, worktree, seat_model, seat_effort, merge_commit";
+
+/** One store row by id, in any status. A drive reads the row it pinned at start this way (OPS-123). */
+export function taskById(db: DatabaseSync, id: number): TaskRow | undefined {
+	return db.prepare(`SELECT ${TASK_COLUMNS} FROM tasks WHERE id = ?`).get(id) as TaskRow | undefined;
 }
 
 /**
  * Refuse a task a seat must not start (OPS-86): a queued follow-up, or an implement seat for a task whose spec lists
  * later slices without follow-ups. Reading only: a store that does not exist yet has neither.
  */
-export function requireStartable(root: string, task: TaskRef, role?: string): void {
+export function requireStartable(root: string, task: TaskRef, role?: string, taskId?: number): void {
 	if (!existsSync(workDbPath(root))) return;
 	const db = openWorkDb(root, { readOnly: true });
 	try {
-		const row = findTask(db, task);
+		const row = taskId ? taskById(db, taskId) : findTask(db, task);
 		if (!row) return;
 		if (row.status === "queued")
 			fail(
@@ -373,16 +381,16 @@ export function withPartial(root: string, task: TaskRef, text: string): string {
 }
 
 /**
- * The seat override of a ref's current row. No store, a store older than schema 4 or no row gives no override. It
- * opens the store read-only, so a dry run creates nothing.
+ * The seat override of a ref's current row, or of row `taskId` (a drive's pinned row). No store, a store older than
+ * schema 4 or no row gives no override. It opens the store read-only, so a dry run creates nothing.
  */
-export function seatOverrideOf(root: string, task: TaskRef): { model?: string; effort?: string } {
+export function seatOverrideOf(root: string, task: TaskRef, taskId?: number): { model?: string; effort?: string } {
 	if (!existsSync(workDbPath(root))) return {};
 	const db = openWorkDb(root, { readOnly: true });
 	try {
 		const columns = db.prepare("PRAGMA table_info(tasks)").all() as Array<{ name: string }>;
 		if (!columns.some((c) => c.name === "seat_model")) return {};
-		const row = findTask(db, task);
+		const row = taskId ? taskById(db, taskId) : findTask(db, task);
 		return {
 			...(row?.seat_model ? { model: row.seat_model } : {}),
 			...(row?.seat_effort ? { effort: row.seat_effort } : {}),
@@ -449,27 +457,45 @@ export function markMerged(db: DatabaseSync, task: TaskRef, commit: string | nul
 	if (current?.status === "merged") return;
 	// The same merge recorded already: a released follow-up is now the current row and must not take it.
 	if (commit && db.prepare("SELECT 1 FROM tasks WHERE ref = ? AND merge_commit = ?").get(task.id, commit)) return;
-	const summary = `${task.id} merged${commit ? ` as ${commit.slice(0, 10)}` : ""}`;
+	if (current) return mergeRow(db, current.id, task.id, commit, runId);
+	const goal = missionFor(db, task.wp),
+		ts = now();
+	db.exec("BEGIN IMMEDIATE");
+	try {
+		const id = Number(
+			db
+				.prepare(
+					"INSERT INTO tasks (slug, mode, ref, goal_id, title, branch, status, merge_commit, created_at, updated_at) VALUES (?, 'implement', ?, ?, ?, ?, 'merged', ?, ?, ?)",
+				)
+				.run(task.slug, task.id, goal?.id ?? null, task.id, task.branch, commit, ts, ts).lastInsertRowid,
+		);
+		record(db, id, runId, "merged", { summary: mergedSummary(task.id, commit) });
+		db.exec("COMMIT");
+	} catch (e) {
+		db.exec("ROLLBACK");
+		throw e;
+	}
+}
+
+/**
+ * Record that row `id` merged as `commit`, whatever row is the ref's current one: a drive records the merge of the row
+ * it pinned (OPS-123). A row already merged is left alone. Its open runs close and its queued follow-up is released.
+ */
+export function markRowMerged(db: DatabaseSync, id: number, commit: string | null, runId: number | null): void {
+	const row = taskById(db, id);
+	if (!row || row.status === "merged") return;
+	mergeRow(db, id, row.ref, commit, runId);
+}
+
+const mergedSummary = (ref: string, commit: string | null) =>
+	`${ref} merged${commit ? ` as ${commit.slice(0, 10)}` : ""}`;
+
+function mergeRow(db: DatabaseSync, id: number, ref: string, commit: string | null, runId: number | null): void {
+	const summary = mergedSummary(ref, commit);
 	const ts = now();
 	db.exec("BEGIN IMMEDIATE");
 	try {
-		let id = current?.id;
-		if (id)
-			db.prepare("UPDATE tasks SET status = 'merged', merge_commit = ?, updated_at = ? WHERE id = ?").run(
-				commit,
-				ts,
-				id,
-			);
-		else {
-			const goal = missionFor(db, task.wp);
-			id = Number(
-				db
-					.prepare(
-						"INSERT INTO tasks (slug, mode, ref, goal_id, title, branch, status, merge_commit, created_at, updated_at) VALUES (?, 'implement', ?, ?, ?, ?, 'merged', ?, ?, ?)",
-					)
-					.run(task.slug, task.id, goal?.id ?? null, task.id, task.branch, commit, ts, ts).lastInsertRowid,
-			);
-		}
+		db.prepare("UPDATE tasks SET status = 'merged', merge_commit = ?, updated_at = ? WHERE id = ?").run(commit, ts, id);
 		record(db, id, runId, "merged", { summary });
 		// The ship outcome happened, so an open evf run passed; a seat run lost its task and aborted.
 		const close = db.prepare("UPDATE runs SET status = ?, ended_at = ?, summary = ? WHERE id = ?");

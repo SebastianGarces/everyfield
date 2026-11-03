@@ -7,11 +7,12 @@ import {
 	ensureTask,
 	findTask,
 	followUpsOfTask,
-	markMerged,
+	markRowMerged,
 	newTaskRow,
 	openWorkDb,
 	record,
 	seatText,
+	taskById,
 	type TaskRow,
 } from "./db.ts";
 import {
@@ -59,7 +60,7 @@ import { hasVerifiedHead, verify } from "./verify.ts";
  * A verifier that approves the code and the experience but finds only PR body faults closes verify `body-only` (OPS-113):
  * the body stage (the implementer seat) edits only the PR body at the reviewed head, evf checks it, and ci follows with
  * no round and no new verify. A head that moved after that review goes to pr and a full verify.
- * Three rules stop a loop that runs unattended. The loop cap: a verify or ci failure costs a round, and the fourth round
+ * Three rules stop a loop that runs unattended. The loop cap: a verify, ci or ship failure costs a round, and the fourth round
  * escalates to Sebastian (guard rail 2). The retry cap: any other failure costs no round, but three failures in a row
  * escalate too. The circuit breaker (OPS-115): a seat stage that a seat closes twice in a row with the same status at
  * the same progress fingerprint (worktree HEAD and spec hash) escalates at the second close, so no third seat launches.
@@ -68,7 +69,7 @@ import { hasVerifiedHead, verify } from "./verify.ts";
  */
 
 /**
- * Rounds a task may lose to failed verify and ci runs. It stands beside the retry cap (RETRY_CAP) and the circuit
+ * Rounds a task may lose to failed verify, ci and ship runs. It stands beside the retry cap (RETRY_CAP) and the circuit
  * breaker (`noProgress`: one seat stage closed twice with one status at one fingerprint); any of the three escalates.
  */
 export const LOOP_CAP = 3;
@@ -95,7 +96,7 @@ export const seatOf = (stage: Stage, task: TaskRef, spec: string | null): Role |
 	stage === "implement" && task.part === "ui" && wantsUiSeat(spec) ? "ui" : SEAT_STAGES[stage];
 
 export type Next = {
-	stage: Stage | "waiting" | "escalated" | "done" | "blocked";
+	stage: Stage | "waiting" | "escalated" | "done" | "blocked" | "abandoned";
 	role?: Role;
 	idea?: number;
 	round: number;
@@ -383,7 +384,7 @@ function nextPrototype(
 }
 
 /**
- * Pure: the next stage from the task's closed runs. Rounds are counted when a verify or ci run closes failed. After
+ * Pure: the next stage from the task's closed runs. Rounds are counted when a verify, ci or ship run closes failed. After
  * a reopen, the stage's reason names the reopen until a seat has run since, so the old failure never reads as current.
  */
 export function nextStage(
@@ -808,19 +809,20 @@ export function runDone(
 				now(),
 			);
 		let escalated = "";
-		if ((r.stage === "ci" || (r.stage === "verify" && !reviewedBefore)) && status === "failed") {
+		// A failed ship costs a round like a failed ci (OPS-123): the loop cap stops a ship that keeps failing.
+		if ((r.stage === "ci" || r.stage === "ship" || (r.stage === "verify" && !reviewedBefore)) && status === "failed") {
 			const round = r.round + 1;
 			record(db, r.task_id, runId, "round", {
 				round,
 				cause: r.stage,
-				summary: `round ${round} after ${r.stage} failed`,
+				summary: `round ${round} after ${r.stage} failed: ${first}`,
 			});
 			db.prepare("UPDATE tasks SET round = ?, updated_at = ? WHERE id = ?").run(round, now(), r.task_id);
 			if (round > LOOP_CAP) {
 				record(db, r.task_id, runId, "loop_cap_hit", {
 					round,
 					cap: LOOP_CAP,
-					summary: `${r.ref} hit the loop cap after ${r.stage} failed`,
+					summary: `${r.ref} hit the loop cap after ${r.stage} failed: ${first}`,
 				});
 				escalated = `loop cap ${LOOP_CAP} hit after ${r.stage} failed. ${first}`;
 			}
@@ -1482,7 +1484,7 @@ export const STAGE_PROMPTS: Record<string, Prompt> = {
 	plan: (task) =>
 		`Plan task ${task.id}: write the spec (Goal, numbered testable Done criteria, Non-goals) from the ask in your session-start context. Write one Done criterion for each user action and expected result in the verbatim ask, and cover each Ask coverage deliverable (route, page, screen, command, file). Give each criterion one line under it: "Check: AC:${task.id}-<n>" when a test can prove it (a test whose name carries that marker), or "Check: owner — <reason>" for a taste call a person must judge. A UI spec cannot be stored without them. Store it with bin/evf task spec ${task.id} --file <path>, then close with bin/evf run done $EVF_RUN --status passed --summary-file <path>.`,
 	implement: (task, next, ctx) =>
-		`Implement task ${task.id} in this worktree against the spec in your session-start context.${next.round && !ctx.reopen ? ` Round ${next.round}: ${next.reason}. Read the last verify or ci summary with bin/evf status --json ${task.id} and fix those findings first.` : ""} Before you close: add tests; for UI work read .agents/roles/ui-designer.md and capture 390 and 1440 px screenshots of each UI state you changed, outside the repository, as the capture half of .agents/skills/verify-preview/SKILL.md says; record bin/evf proof add ${task.id} --criterion <n> --status met|unmet|n/a --evidence <url-or-path> for each Done criterion you built or changed in this round whose Check: line is owner or that has no Check: line. For each criterion whose Check: is AC:${task.id}-<n>, write the test whose name carries that marker (tests/ui for browser behavior, tools/evf/tests for tooling) and do not proof add that row: bin/evf ac run ${task.id} runs the marked tests at HEAD and writes it, run done runs it again at your head, and the PR body proof table links each browser row's video. Keep bin/evf verify ${task.id} green, commit, and write the PR body to ${ctx.prBody} following .agents/skills/everyfield-pr/template.md with your EVF-Author line (bin/evf session prints your id). ${CLOSE}`,
+		`Implement task ${task.id} in this worktree against the spec in your session-start context.${next.round && !ctx.reopen ? ` Round ${next.round}: ${next.reason}. Read the last verify, ci or ship summary with bin/evf status --json ${task.id} and fix those findings first.` : ""} Before you close: add tests; for UI work read .agents/roles/ui-designer.md and capture 390 and 1440 px screenshots of each UI state you changed, outside the repository, as the capture half of .agents/skills/verify-preview/SKILL.md says; record bin/evf proof add ${task.id} --criterion <n> --status met|unmet|n/a --evidence <url-or-path> for each Done criterion you built or changed in this round whose Check: line is owner or that has no Check: line. For each criterion whose Check: is AC:${task.id}-<n>, write the test whose name carries that marker (tests/ui for browser behavior, tools/evf/tests for tooling) and do not proof add that row: bin/evf ac run ${task.id} runs the marked tests at HEAD and writes it, run done runs it again at your head, and the PR body proof table links each browser row's video. Keep bin/evf verify ${task.id} green, commit, and write the PR body to ${ctx.prBody} following .agents/skills/everyfield-pr/template.md with your EVF-Author line (bin/evf session prints your id). ${CLOSE}`,
 	simplify: (task, next) =>
 		`Simplify task ${task.id}: read the spec and git diff origin/main...HEAD, remove what the Done criteria do not need, commit. evf runs the author checks at your head in the pr stage.${next.reason.startsWith("pr failed") ? ` evf ran the author checks at the head and they failed (${next.reason}). Fix that first.` : ""} ${CLOSE}`,
 	body: (task, next, ctx) => {
@@ -1601,50 +1603,70 @@ function ciStage(t: TaskRow, wt: string, timing: DriveTiming): Outcome {
 	}
 }
 
-/** The ship stage. A PR GitHub already merged (a restart after the merge) is recorded, not shipped again. */
+/** GitHub's state of a PR and its merge commit. An unreadable GitHub gives state "". */
+function prState(root: string, pr: number | string): { state: string; commit: string | null } {
+	const r = run("gh", ["pr", "view", String(pr), "--json", "state,mergeCommit"], { cwd: root });
+	const text = r.code === 0 ? r.stdout.trim() : "";
+	try {
+		const v = JSON.parse(text) as { state?: string; mergeCommit?: { oid?: string } | null };
+		return { state: v.state ?? "", commit: v.mergeCommit?.oid ?? null };
+	} catch {
+		return { state: "", commit: /^[0-9a-f]{40}$/.test(text) ? text : null };
+	}
+}
+
+/**
+ * The ship stage. A PR GitHub already merged (a restart after the merge) is recorded, not shipped again. The merge is
+ * recorded on the drive's own row `t`, so a follow-up the merge released never reads as this task (OPS-123).
+ */
 function shipStage(db: DatabaseSync, root: string, task: TaskRef, t: TaskRow, runId: number): Outcome {
-	const view = (): { state: string; commit: string | null } => {
-		const r = run("gh", ["pr", "view", String(t.pr_number ?? task.branch), "--json", "state,mergeCommit"], {
-			cwd: root,
-		});
-		const text = r.code === 0 ? r.stdout.trim() : "";
-		try {
-			const v = JSON.parse(text) as { state?: string; mergeCommit?: { oid?: string } | null };
-			return { state: v.state ?? "", commit: v.mergeCommit?.oid ?? null };
-		} catch {
-			return { state: "", commit: /^[0-9a-f]{40}$/.test(text) ? text : null };
-		}
-	};
-	const before = view();
+	const pr = t.pr_number ?? task.branch;
+	const before = prState(root, pr);
 	if (before.state === "MERGED") {
-		markMerged(db, task, before.commit, runId);
+		markRowMerged(db, t.id, before.commit, runId);
 		return { status: "passed", summary: "already merged on GitHub" };
 	}
 	shipOnCurrentCode(root, loadConfig(root), task, () => ship(root, task));
-	const after = view();
+	const after = prState(root, pr);
 	// A task is merged only when GitHub says so. An owner route (Wiki-style waits, P2/P3, design, document
 	// templates) verifies and returns without a merge: the drive records the wait and stops, with no new round.
-	if (after.state !== "MERGED" && findTask(db, task)?.status !== "merged") {
-		const pr = t.pr_number ?? task.branch;
+	if (after.state !== "MERGED" && taskById(db, t.id)?.status !== "merged") {
 		const partial = partialLine(followUpsOf(db, t.id));
 		const cause = `${partial ? `${partial} ` : ""}PR #${pr} is verified and waits for Sebastian's approval. After his approval in chat, run: bin/evf approve ${pr} --owner-approval "<his words>"`;
 		record(db, t.id, runId, "owner_approval_wait", { pr: t.pr_number, summary: `${task.id}: ${cause}` });
 		notify(`${task.id} waits for Sebastian`, cause);
 		return { status: "passed", summary: "verified; waits for Sebastian's approval (evf approve)" };
 	}
-	markMerged(db, task, after.commit, runId);
+	markRowMerged(db, t.id, after.commit, runId);
 	return { status: "passed", summary: "shipped" };
 }
 
-/** The ship run passed without a merge (an owner route). When GitHub shows the PR merged since, mark the task merged. */
-function recordLateMerge(db: DatabaseSync, root: string, task: TaskRef, t: TaskRow): void {
-	const r = run("gh", ["pr", "view", String(t.pr_number ?? task.branch), "--json", "state,mergeCommit"], { cwd: root });
-	try {
-		const v = JSON.parse(r.stdout) as { state?: string; mergeCommit?: { oid?: string } | null };
-		if (v.state === "MERGED") markMerged(db, task, v.mergeCommit?.oid ?? null, null);
-	} catch {
-		// GitHub is unreadable: the task keeps waiting.
+/**
+ * How a drive's pinned row ended, or null while it is open (OPS-123). An abandoned row stops the drive. A merged row,
+ * recorded by this drive, by `evf ship` or `evf approve`, or found on GitHub now, ends it. The GitHub check runs once
+ * per pass and only for a row with a PR number; an unreadable GitHub leaves the row open.
+ */
+function driveEnd(db: DatabaseSync, root: string, t: TaskRow): Next | null {
+	if (t.status === "abandoned") {
+		const reason = latestEvent(db, t.id, ["abandon"])?.payload.reason;
+		return {
+			stage: "abandoned",
+			round: t.round,
+			reason: `store row ${t.id} of ${t.ref} was abandoned${typeof reason === "string" ? `: ${reason}` : ""}; the drive stops and starts no other row`,
+		};
 	}
+	if (t.status !== "merged" && t.pr_number) {
+		const gh = prState(root, t.pr_number);
+		if (gh.state === "MERGED") markRowMerged(db, t.id, gh.commit, null);
+	}
+	return mergedEnd(db, t.id);
+}
+
+/** The `done (merged as <commit>)` end of a drive whose row `id` is merged, or null. */
+function mergedEnd(db: DatabaseSync, id: number): Next | null {
+	const row = taskById(db, id);
+	if (row?.status !== "merged") return null;
+	return { stage: "done", round: row.round, reason: `merged${row.merge_commit ? ` as ${row.merge_commit}` : ""}` };
 }
 
 /** evf runs pr, ci and ship itself and records them as runs of role `evf`. */
@@ -1873,6 +1895,7 @@ function previousIdeaRun(runs: RunRow[], idea: number | undefined): PromptContex
 function launchOrLog(
 	root: string,
 	task: TaskRef,
+	taskId: number,
 	launching: {
 		role: Role;
 		prompt: string;
@@ -1891,13 +1914,14 @@ function launchOrLog(
 			mode: launching.mode,
 			timing: launching.launch,
 			driven: true,
+			taskId,
 		});
 	} catch (e) {
 		if (e instanceof LaunchLineTooLong) {
 			console.log(`${now()} drive ${task.id}: launch of ${launching.role} refused: ${e.message}`);
 			const db = openWorkDb(root);
 			try {
-				const t = ensureTask(db, task, launching.mode);
+				const t = taskById(db, taskId)!;
 				if (t.status !== "escalated") escalate(db, t, null, e.message);
 			} finally {
 				db.close();
@@ -1909,8 +1933,7 @@ function launchOrLog(
 		const db = openWorkDb(root);
 		let failures = 0;
 		try {
-			const t = ensureTask(db, task, launching.mode);
-			failures = failuresInARow(runsOf(db, t.id), reopenMarker(db, t.id));
+			failures = failuresInARow(runsOf(db, taskId), reopenMarker(db, taskId));
 		} finally {
 			db.close();
 		}
@@ -1924,8 +1947,29 @@ function launchOrLog(
 	}
 }
 
-/** One transition. Returns the stage it performed or waited on. */
-export function driveOnce(root: string, task: TaskRef, timing: DriveTiming = DRIVE_TIMING): Next {
+/**
+ * The row a fresh drive pins (OPS-123): the ref's current row, which may be a released follow-up with its own ask and
+ * seats. Only a ref with no row at all gets a new one here; a running drive never creates or switches rows after this.
+ */
+export function pinRow(root: string, task: TaskRef): number {
+	const db = openWorkDb(root);
+	try {
+		return ensureTask(db, task, "implement").id;
+	} finally {
+		db.close();
+	}
+}
+
+/**
+ * One transition on the pinned row `pin` (a fresh drive's pin when absent). Returns the stage it performed or waited
+ * on. A pass first ends the drive when the row is abandoned or merged, a merge on GitHub included.
+ */
+export function driveOnce(
+	root: string,
+	task: TaskRef,
+	timing: DriveTiming = DRIVE_TIMING,
+	pin: number = pinRow(root, task),
+): Next {
 	const db = openWorkDb(root);
 	let launching:
 		| {
@@ -1939,21 +1983,20 @@ export function driveOnce(root: string, task: TaskRef, timing: DriveTiming = DRI
 		  }
 		| undefined;
 	try {
-		const t = ensureTask(db, task, "implement");
+		const t = taskById(db, pin);
+		if (!t) fail(`Store row ${pin} of ${task.id} does not exist; the drive stops.`);
+		const ended = driveEnd(db, root, t);
+		if (ended) return ended;
 		const runs = runsOf(db, t.id);
 		const pick = pickOf(db, t.id);
 		const marker = reopenMarker(db, t.id),
 			extras = extrasOf(db, t.id);
 		const n = nextStage(task, t, runs, !!pick, marker, extras);
-		// The owner approved after ship returned: the PR is merged on GitHub now, so record it without shipping again.
-		if (n.stage === "done" && t.status !== "merged" && runs.at(-1)?.stage === "ship")
-			recordLateMerge(db, root, task, t);
-		if (t.status !== "merged")
-			record(db, t.id, n.run ?? null, "next", {
-				stage: n.stage,
-				round: n.round,
-				summary: `next: ${n.stage} (${n.reason})`,
-			});
+		record(db, t.id, n.run ?? null, "next", {
+			stage: n.stage,
+			round: n.round,
+			summary: `next: ${n.stage} (${n.reason})`,
+		});
 		// An escalation the task earned while a seat works is held back and recorded, so the TUI says why it stays active.
 		if (n.stage === "waiting" && n.deferred && extras.deferred !== n.deferred)
 			record(db, t.id, n.run ?? null, "escalation_deferred", {
@@ -2031,8 +2074,8 @@ export function driveOnce(root: string, task: TaskRef, timing: DriveTiming = DRI
 		}
 		const evfStatus = evfStage(db, root, task, t, n.stage, timing);
 		// A merge ends the task: the loop stops here and makes no further transition.
-		if (n.stage === "ship" && findTask(db, task)?.status === "merged")
-			return { stage: "done", round: n.round, reason: "merged" };
+		const merged = n.stage === "ship" ? mergedEnd(db, t.id) : null;
+		if (merged) return merged;
 		// A verified owner route stops here: Sebastian approves, then the next pass records the merge.
 		// A failed ship keeps its transition (a new implement round).
 		if (n.stage === "ship" && evfStatus === "passed") {
@@ -2048,7 +2091,7 @@ export function driveOnce(root: string, task: TaskRef, timing: DriveTiming = DRI
 		db.close();
 		if (launching) {
 			mkdirSync(launching.comparison, { recursive: true });
-			launchOrLog(root, task, launching, timing);
+			launchOrLog(root, task, pin, launching, timing);
 		}
 	}
 }
@@ -2098,11 +2141,13 @@ export function drive(
 		fail(`evf drive already runs for ${task.id} (pid ${holder}). Stop it first, or wait for it.`);
 	writeFileSync(pidFile, `${process.pid}\n`);
 	try {
+		// The drive stays on this row to its end; a follow-up its merge releases waits for a fresh drive (OPS-123).
+		const pin = pinRow(root, task);
 		for (;;) {
-			const n = driveOnce(root, task, timing);
+			const n = driveOnce(root, task, timing, pin);
 			console.log(`${now()} drive ${task.id}: ${n.stage} (${n.reason})`);
-			if (n.stage === "done" || n.stage === "escalated" || n.stage === "blocked" || n.stage === "pick" || opts.once)
-				return n.stage === "escalated" || n.stage === "blocked" ? 2 : 0;
+			const stop = n.stage === "escalated" || n.stage === "blocked" || n.stage === "abandoned";
+			if (stop || n.stage === "done" || n.stage === "pick" || opts.once) return stop ? 2 : 0;
 		}
 	} finally {
 		if (existsSync(pidFile) && Number(readFileSync(pidFile, "utf8").trim()) === process.pid) unlinkSync(pidFile);
