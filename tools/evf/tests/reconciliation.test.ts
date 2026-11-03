@@ -3846,6 +3846,314 @@ test("INV-document-templates-drive: the drive stops at a verified template PR wi
 	}
 });
 
+// OPS-123: a drive stays on the row it pinned, ends by itself at the merge and never starts the slice the merge releases.
+/** A Herdr that logs each call and answers `{}`, so a launch would show as an `agent start` or `workspace` call. */
+const loggingHerdr = (f: { root: string }) => {
+	const log = join(f.root, "herdr-calls.jsonl");
+	writeFileSync(
+		join(f.root, "fake-bin/herdr"),
+		`#!${process.execPath}\nrequire("node:fs").appendFileSync(${JSON.stringify(log)},JSON.stringify(process.argv.slice(2))+"\\n");process.stdout.write("{}");\n`,
+	);
+	chmodSync(join(f.root, "fake-bin/herdr"), 0o755);
+	return () =>
+		existsSync(log)
+			? readFileSync(log, "utf8")
+					.trim()
+					.split("\n")
+					.map((l) => JSON.parse(l) as string[])
+			: [];
+};
+/** File one later slice of the WP task as a queued row with the same ref, as storing its spec does (OPS-86). */
+const queuedSlice = (db: ReturnType<typeof openWorkDb>, task: { id: string }) => {
+	const parent = db.prepare("SELECT id, ref, ask, goal_id FROM tasks WHERE ref = ?").get(task.id) as {
+		id: number;
+		ref: string;
+		ask: string;
+		goal_id: number | null;
+	};
+	const spec = "Goal: g.\nDone criteria:\n1. One.\nNon-goals: none.\n\n## Later slices\n\n1. The second slice.";
+	db.prepare("UPDATE tasks SET spec = ? WHERE id = ?").run(spec, parent.id);
+	fileFollowUps(db, parent, spec, []);
+	return {
+		parent: parent.id,
+		slice: (db.prepare("SELECT id FROM tasks WHERE parent_task_id = ?").get(parent.id) as { id: number }).id,
+	};
+};
+const tasksTable = (db: ReturnType<typeof openWorkDb>) =>
+	(db.prepare("SELECT * FROM tasks ORDER BY id").all() as Array<Record<string, unknown>>).map((r) => ({ ...r }));
+
+test("OPS-123-ship AC:OPS-123-1: the drive merges its own row in its ship stage and starts no seat on the WP slice the merge releases", () => {
+	const { f, db, task } = wpShipFixture();
+	try {
+		const herdr = loggingHerdr(f);
+		const { parent, slice } = queuedSlice(db, task);
+		// The slice is a follow-up, so the PR body opens with the Partial: line the body standard asks for.
+		const s = f.getState();
+		s.pr.body = s.pr.body.replace(
+			"## Summary\n",
+			"## Summary\n\nPartial: this PR covers only part of the ask. Deferred: The second slice. (WP-001 slice 2).\n",
+		);
+		f.setState(s);
+		const { value: code, lines } = capturedLog(() => drive(f.root, task, {}, DRIVE_TIMING));
+		assert.equal(code, 0, lines.join("\n"));
+		const merge = f.git("rev-parse", "HEAD");
+		const rows = db.prepare("SELECT id, status, merge_commit FROM tasks WHERE ref = ? ORDER BY id").all(task.id);
+		assert.deepEqual(
+			rows.map((r) => ({ ...r })),
+			[
+				{ id: parent, status: "merged", merge_commit: merge },
+				{ id: slice, status: "new", merge_commit: null },
+			],
+			"the drive's row merged; the merge released the slice",
+		);
+		assert.equal(
+			db.prepare("SELECT COUNT(*) AS n FROM events WHERE task_id = ? AND type = 'merged'").get(parent)!.n,
+			1,
+		);
+		assert.ok(
+			lines.some((l) => l.includes(`drive ${task.id}: done (merged as ${merge})`)),
+			lines.join("\n"),
+		);
+		assert.ok(!lines.some((l) => /waits for Sebastian's approval/.test(l)), lines.join("\n"));
+		assert.equal(
+			db.prepare("SELECT COUNT(*) AS n FROM runs WHERE task_id = ?").get(slice)!.n,
+			0,
+			"no run on the slice",
+		);
+		assert.deepEqual(
+			herdr().filter((c) => c[0] === "workspace" || c[0] === "pane" || (c[0] === "agent" && c[1] === "start")),
+			[],
+			"no seat launched",
+		);
+	} finally {
+		db.close();
+		f.close();
+	}
+});
+
+test("OPS-123-owner AC:OPS-123-8: an owner-route ship stops the drive at the wait with the PR open; after evf approve a fresh drive ends merged", () => {
+	const { f, db, task } = wpShipFixture();
+	try {
+		templateConfig(f, ["packages/reference/"]);
+		loggingHerdr(f);
+		const id = (db.prepare("SELECT id FROM tasks WHERE ref = ?").get(task.id) as { id: number }).id;
+		const first = capturedLog(() => drive(f.root, task, {}, DRIVE_TIMING));
+		assert.equal(first.value, 0, first.lines.join("\n"));
+		assert.ok(
+			first.lines.some((l) => /drive WP-001: done \(PR #77 waits for Sebastian's approval\)/.test(l)),
+			first.lines.join("\n"),
+		);
+		assert.notEqual(
+			(db.prepare("SELECT status FROM tasks WHERE id = ?").get(id) as { status: string }).status,
+			"merged",
+		);
+		assert.deepEqual(mergeCalls(f), [], "the PR stays open");
+		assert.equal(
+			db.prepare("SELECT COUNT(*) AS n FROM events WHERE task_id = ? AND type = 'owner_approval_wait'").get(id)!.n,
+			1,
+		);
+		// Sebastian approves: evf approve merges and records it by branch. A fresh drive then ends at the merge.
+		const commit = "c".repeat(40);
+		markMergedByBranch(f.root, task.branch, commit);
+		const rows = tasksTable(db);
+		const second = capturedLog(() => drive(f.root, task, {}, DRIVE_TIMING));
+		assert.equal(second.value, 0, second.lines.join("\n"));
+		assert.ok(
+			second.lines.some((l) => l.includes(`drive WP-001: done (merged as ${commit})`)),
+			second.lines.join("\n"),
+		);
+		assert.deepEqual(tasksTable(db), rows, "no row inserted or changed");
+		assert.equal(db.prepare("SELECT COUNT(*) AS n FROM runs WHERE task_id = ? AND stage = 'ship'").get(id)!.n, 1);
+	} finally {
+		db.close();
+		f.close();
+	}
+});
+
+const WHOLE_SPEC =
+	"Goal: a reference bundle.\nDone criteria:\n1. The bundle exists.\nCheck: owner — a reader judges the bundle\nNon-goals: none.";
+/**
+ * A whole `evf drive WP-001` process from plan to its end, with no --once and no outside kill. Fake seats close their
+ * stages on `herdr agent wait`: the planner stores `spec`, the implementer commits a file and a proof (the first one
+ * under the PR body's author session), the verifier posts the exact-head review under its own session. `refuseMerges` makes that many
+ * `gh pr merge` calls fail first. Returns the process result and the drive's row id.
+ */
+function wholeDrive(fx: ReturnType<typeof wpShipFixture>, opts: { spec: string; body: string; refuseMerges?: number }) {
+	const { f, db, task } = fx;
+	const id = (db.prepare("SELECT id FROM tasks WHERE ref = ?").get(task.id) as { id: number }).id;
+	db.prepare("DELETE FROM runs WHERE task_id = ?").run(id);
+	db.prepare(
+		"UPDATE tasks SET spec = NULL, status = 'new', pr_number = NULL, title = 'Reference bundle', ask = 'Build the reference bundle.' WHERE id = ?",
+	).run(id);
+	mkdirSync(runtimeDir(f.root, task), { recursive: true });
+	writeFileSync(join(runtimeDir(f.root, task), "pr-body.md"), opts.body);
+	const dir = join(f.root, "fake-bin"),
+		wt = join(f.root, ".worktrees", task.slug),
+		spec = join(dir, "spec.md"),
+		summary = join(dir, "summary.md"),
+		calls = join(f.root, "herdr-calls.json"),
+		refused = join(dir, "merges-refused");
+	writeFileSync(spec, opts.spec);
+	writeFileSync(summary, "Done.");
+	writeFileSync(calls, "[]");
+	writeFileSync(refused, "0");
+	const review = JSON.stringify({ verdict: "approved", quality: approvedQuality, experience: approvedExperience });
+	const seat = `const seat=(name)=>{const m=/^(planner|implementer|simplifier|verifier)-${task.slug}-(\\d+)$/.exec(name);if(!m)return;
+const {DatabaseSync}=require("node:sqlite");const d=new DatabaseSync(${JSON.stringify(workDbPath(f.root))});d.exec("PRAGMA busy_timeout = 5000");
+const open=d.prepare("SELECT 1 FROM runs WHERE id = ? AND status = 'started'").get(Number(m[2]));
+const author=${JSON.stringify(AUTHOR.session)},own=open&&d.prepare("SELECT session_id FROM runs WHERE id = ?").get(Number(m[2])).session_id;
+if(open&&m[1]==="implementer"&&!d.prepare("SELECT 1 FROM runs WHERE session_id = ?").get(author))d.prepare("UPDATE runs SET session_id = ? WHERE id = ?").run(author,Number(m[2]));d.close();if(!open)return;
+const cp=require("node:child_process"),wt=${JSON.stringify(wt)};
+const evf=(...x)=>cp.spawnSync(process.execPath,[${JSON.stringify(join(source, "tools/evf/main.ts"))},...x],{cwd:${JSON.stringify(f.root)},encoding:"utf8",env:{...process.env,EVF_RUN:"",EVF_WORKTREE:"",EVF_STAGE:"",EVF_SESSION:"",EVF_ROLE:""}});
+if(m[1]==="planner")evf("task","spec",${JSON.stringify(task.id)},"--file",${JSON.stringify(spec)});
+if(m[1]==="implementer"){fs.writeFileSync(wt+"/packages/reference/round-"+m[2]+".txt","x");cp.spawnSync("git",["-C",wt,"add","packages/reference"]);cp.spawnSync("git",["-C",wt,"commit","-qm","round "+m[2]]);evf("proof","add",${JSON.stringify(task.id)},"--criterion","1","--status","met","--evidence","shot.png")}
+if(m[1]==="verifier"){const head=cp.execFileSync("git",["-C",wt,"rev-parse","HEAD"],{encoding:"utf8"}).trim();const p=process.env.EVF_FAKE_GH_STATE,s=JSON.parse(fs.readFileSync(p,"utf8"));s.pr.headRefOid=head;s.comments["77"]=[{body:"Verified.\\n\\nEVF-Review: "+JSON.stringify(Object.assign({head},${review},{verifier:Object.assign({},${JSON.stringify(VERIFIER)},{session:own})})),html_url:"https://github.com/test/private/pull/77#issuecomment-1"}];fs.writeFileSync(p,JSON.stringify(s))}
+const r=evf("run","done",m[2],"--status","passed","--summary-file",${JSON.stringify(summary)});fs.appendFileSync(${JSON.stringify(join(dir, "seats.log"))},name+" "+r.status+" "+r.stdout+r.stderr+"\\n")};\n`;
+	writeFileSync(
+		join(dir, "herdr"),
+		`#!${process.execPath}\nconst fs=require("node:fs");const a=process.argv.slice(2);const st={};\n` +
+			`const calls=JSON.parse(fs.readFileSync(${JSON.stringify(calls)},"utf8"));calls.push(a);fs.writeFileSync(${JSON.stringify(calls)},JSON.stringify(calls));\n` +
+			seat +
+			sessionStartJs(workDbPath(f.root)) +
+			`let r={};if(a[0]==="workspace"&&a[1]==="create")r={workspace:"w9",tab:"w9:t1",root_pane:{pane_id:"w9:p1"}};\n` +
+			`else if(a[0]==="pane"&&a[1]==="process-info")r={process_info:{shell_pid:7,foreground_process_group_id:7}};\n` +
+			`else if(a[0]==="agent"&&a[1]==="wait"){try{seat(a[2])}catch(e){fs.appendFileSync(${JSON.stringify(join(dir, "seats.log"))},String(e.stack)+"\\n")}r={agent:{agent_status:"idle"}}}\n` +
+			`else if(a[0]==="agent"&&a[1]==="get")r={agent:{agent_session:{value:"55555555-5555-4555-8555-555555555555"},agent_status:calls.some(c=>c[0]==="agent"&&c[1]==="prompt"&&c[2]===a[2])?"working":"idle"}};\n` +
+			`process.stdout.write(JSON.stringify({result:r}));\n`,
+	);
+	chmodSync(join(dir, "herdr"), 0o755);
+	// GitHub refuses the first `refuseMerges` merges; every other call goes to the fixture's fake gh.
+	const gh = join(dir, "gh"),
+		base = join(dir, "gh-base");
+	writeFileSync(base, readFileSync(gh));
+	chmodSync(base, 0o755);
+	writeFileSync(
+		gh,
+		`#!${process.execPath}\nconst fs=require("node:fs"),a=process.argv.slice(2),n=Number(fs.readFileSync(${JSON.stringify(refused)},"utf8"));` +
+			`if(a[0]==="pr"&&a[1]==="merge"&&n<${opts.refuseMerges ?? 0}){fs.writeFileSync(${JSON.stringify(refused)},String(n+1));process.stderr.write("fixture: GitHub refused the merge");process.exit(1)}` +
+			`const r=require("node:child_process").spawnSync(${JSON.stringify(base)},a,{stdio:"inherit"});process.exit(r.status??1);\n`,
+	);
+	chmodSync(gh, 0o755);
+	const r = spawnSync(
+		process.execPath,
+		["--disable-warning=ExperimentalWarning", join(source, "tools/evf/main.ts"), "drive", task.id],
+		{
+			cwd: f.root,
+			encoding: "utf8",
+			timeout: 300_000,
+			env: { ...process.env, EVF_RUN: "", EVF_WORKTREE: "", EVF_SESSION: "", EVF_ROLE: "", EVF_STAGE: "" },
+		},
+	);
+	const seats = existsSync(join(dir, "seats.log")) ? readFileSync(join(dir, "seats.log"), "utf8") : "";
+	const events = (
+		db.prepare("SELECT type, payload FROM events WHERE task_id = ? ORDER BY id").all(id) as Array<{
+			type: string;
+			payload: string;
+		}>
+	).map((e) => `${e.type} ${String(JSON.parse(e.payload).summary ?? "").slice(0, 300)}`);
+	return { ...r, id, log: [r.stdout, r.stderr, seats, ...events].join("\n") };
+}
+const runsOfRow = (db: ReturnType<typeof openWorkDb>, id: number) =>
+	(
+		db.prepare("SELECT stage, status, round FROM runs WHERE task_id = ? ORDER BY id").all(id) as Array<{
+			stage: string;
+			status: string;
+			round: number;
+		}>
+	).map((r) => `${r.stage}:${r.status}:${r.round}`);
+
+test("OPS-123-whole AC:OPS-123-9: a whole drive whose ship fails once runs a second round, merges and exits 0 by itself; the released slice stays new", () => {
+	const fx = wpShipFixture(),
+		{ f, db, task } = fx;
+	try {
+		const body = validPrBody().replace(
+			"## Summary\n",
+			"## Summary\nPartial: this PR covers only part of the ask. Deferred: The second slice. (WP-001 slice 2).\n",
+		);
+		const r = wholeDrive(fx, {
+			spec: `${WHOLE_SPEC}\n\n## Later slices\n\n1. The second slice.`,
+			body,
+			refuseMerges: 1,
+		});
+		assert.equal(r.status, 0, r.log);
+		const merge = f.git("rev-parse", "HEAD");
+		assert.match(r.stdout, new RegExp(`drive WP-001: done \\(merged as ${merge}\\)`), r.log);
+		assert.deepEqual(
+			runsOfRow(db, r.id),
+			[
+				"plan:passed:0",
+				"implement:passed:0",
+				"simplify:passed:0",
+				"pr:passed:0",
+				"verify:passed:0",
+				"ci:passed:0",
+				"ship:failed:0",
+				"implement:passed:1",
+				"simplify:passed:1",
+				"pr:passed:1",
+				"verify:passed:1",
+				"ci:passed:1",
+				"ship:passed:1",
+			],
+			r.log,
+		);
+		const slice = db.prepare("SELECT id, status FROM tasks WHERE ref = ? AND id <> ?").all(task.id, r.id) as Array<{
+			id: number;
+			status: string;
+		}>;
+		assert.deepEqual(
+			slice.map((s) => s.status),
+			["new"],
+			"the merge released the slice",
+		);
+		assert.equal(
+			db.prepare("SELECT COUNT(*) AS n FROM runs WHERE task_id = ?").get(slice[0]!.id)!.n,
+			0,
+			"never started",
+		);
+		assert.equal(
+			(db.prepare("SELECT status FROM tasks WHERE id = ?").get(r.id) as { status: string }).status,
+			"merged",
+		);
+	} finally {
+		db.close();
+		f.close();
+	}
+});
+
+test("OPS-123-whole AC:OPS-123-9: a whole drive whose ship is an owner route exits 0 by itself at the wait", () => {
+	const fx = wpShipFixture(),
+		{ f, db } = fx;
+	try {
+		templateConfig(f, ["packages/reference/"]);
+		execFileSync("git", ["-C", join(f.root, ".worktrees", fx.task.slug), "merge", "-q", "--no-edit", "main"]);
+		const r = wholeDrive(fx, { spec: WHOLE_SPEC, body: validPrBody() });
+		assert.equal(r.status, 0, r.log);
+		assert.match(r.stdout, /drive WP-001: done \(PR #77 waits for Sebastian's approval\)/, r.log);
+		assert.deepEqual(
+			runsOfRow(db, r.id),
+			[
+				"plan:passed:0",
+				"implement:passed:0",
+				"simplify:passed:0",
+				"pr:passed:0",
+				"verify:passed:0",
+				"ci:passed:0",
+				"ship:passed:0",
+			],
+			r.log,
+		);
+		assert.notEqual(
+			(db.prepare("SELECT status FROM tasks WHERE id = ?").get(r.id) as { status: string }).status,
+			"merged",
+		);
+		assert.deepEqual(mergeCalls(f), [], "the PR stays open");
+	} finally {
+		db.close();
+		f.close();
+	}
+});
+
 // OPS-83: one merge choke point; no document-template merge without Sebastian's approval, whatever evf code runs.
 import { mergePullRequest, setLoadedCode, templateClass, type CodeIdentity } from "../merge.ts";
 
@@ -4931,6 +5239,9 @@ test("AC:OPS-122-9 the OPS-109 wiki tests run and pass", { skip: process.env[NES
 
 // OPS-111: the landing and marketing site waits for Sebastian (mergePolicy.ownerPaths); stale evf code cannot ship or drive.
 import { drive } from "../drive.ts";
+import { markMergedByBranch, workDbPath } from "../db.ts";
+import { sessionStartJs } from "./fixtures.ts";
+import { fileFollowUps } from "../followups.ts";
 import { heldClasses } from "../merge.ts";
 import { DEFAULT_OWNER_PATHS } from "../policy.ts";
 
