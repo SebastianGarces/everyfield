@@ -39,7 +39,7 @@
 		"limit": 2
 	},
 	"GET /intelligence/attestations": {
-		"limit": 1
+		"limit": 2
 	},
 	"GET /intelligence/attestations (member)": {
 		"limit": 1
@@ -1810,6 +1810,9 @@
 	},
 	"signals.getHistory": {
 		"limit": 1
+	},
+	"signals.listDefinitions": {
+		"limit": 0
 	},
 	"signals.readAttestations": {
 		"limit": 1

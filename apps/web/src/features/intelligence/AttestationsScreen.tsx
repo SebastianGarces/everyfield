@@ -517,7 +517,7 @@ function AnswerDialog({
 
 	return (
 		<Dialog open onOpenChange={(next) => (next || busy ? null : onClose())}>
-			<DialogContent size="sm">
+			<DialogContent size="md">
 				<DialogHeader title={def.label} description={`${group.title} · ${def.description}`} />
 				<form
 					className="contents"
@@ -611,6 +611,7 @@ function AnswerDialog({
 								type="button"
 								variant="ghost"
 								disabled={busy}
+								className="mr-auto"
 								onClick={() => void run(() => onRetract(opened), "Answer retracted. It now reads as Unknown.")}
 							>
 								Retract answer

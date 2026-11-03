@@ -79,8 +79,8 @@ before(async () => {
 });
 after(() => f?.close());
 
-test("AC:PI-015 criterion 1: listDefinitions returns the seven keys of manual-signals.ts in order, with no answer or author", () => {
-	const listed = ok(signals.listDefinitions({}));
+test("AC:PI-015 criterion 1: listDefinitions returns the seven keys of manual-signals.ts in order, with no answer or author", async () => {
+	const listed = ok(await signals.listDefinitions({}));
 	assert.deepEqual(
 		listed.map((d) => d.key),
 		MANUAL_SIGNALS.map((d) => d.key),

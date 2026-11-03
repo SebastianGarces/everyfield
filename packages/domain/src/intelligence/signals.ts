@@ -318,7 +318,7 @@ export function createSignals(config: { clock?: Clock } = {}) {
 
 	return {
 		/** signals.listDefinitions (PI-015): the seven keys in their order. Static; it reads no answer or author. */
-		listDefinitions(raw: unknown = {}): c.SignalReply<c.SignalDefinition[]> {
+		async listDefinitions(raw: unknown = {}): Promise<c.SignalReply<c.SignalDefinition[]>> {
 			if (!c.listDefinitionsRequest.safeParse(raw).success) return refused("invalid_input");
 			return {
 				status: "ok",
