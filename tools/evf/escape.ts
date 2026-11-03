@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { newTaskRow, openWorkDb, record } from "./db.ts";
 import { nextId } from "./ids.ts";
@@ -284,6 +284,9 @@ export function uiEscapedGate(root: string, wt: string, task: TaskRef, baseSha: 
 	const ui = task.kind === "wp" && task.part === "ui";
 	if (!ui && !changed.length)
 		return { skip: `${task.id} is not a WP /ui part and changes no file under ${ESCAPED_DIR}.` };
+	const dir = join(wt, ESCAPED_DIR);
+	if (!existsSync(dir) || !readdirSync(dir).some((name) => ESCAPED_TEST.test(ESCAPED_DIR + name)))
+		return { skip: `${ESCAPED_DIR} holds no escaped test yet.` };
 	const baseUrl = liveStackUrl(root, wt, task);
 	if (!baseUrl) return { fail: noStack(task) };
 	const unsoaked = changed

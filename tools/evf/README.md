@@ -799,25 +799,21 @@ against the task's stack, with `UI_BASE_URL` set. The first failed run ends the 
 
 The `ui-escaped` check in `evf.config.json` runs `node --test tests/ui/escaped/*.test.mjs` with
 `UI_BASE_URL` set to the task's stack URL. `evf verify` runs it for WP `/ui` parts and for any task that
-changes a file under `tests/ui/escaped/`, OPS tasks included. It skips other tasks with one line that
-gives the reason. It fails without a running stack (the message names `bin/evf stack up <task>`), and it
-fails for a changed escaped test that has no 20-green soak record for its current bytes.
+changes a file under `tests/ui/escaped/`. It skips other tasks with one line that gives the reason, and it
+skips with one line while the folder holds no test. It fails without a running stack (the message names
+`bin/evf stack up <task>`), and it fails for a changed escaped test that has no 20-green soak record for its
+current bytes.
 
-The tests sign in with the people seed of the same preview. Seed the stack before `evf verify`:
+Example, for a UI task that adds an escaped test:
 
 ```bash
 bin/evf stack up WP-037/ui
-node --env-file=<home apps/web/.env.local> --conditions=react-server --import tsx \
-  tests/ui/people/seed.mts up <stack url>       # writes $PEOPLE_UI_FIXTURE (default /tmp/everyfield-people-ui.json)
-bin/evf escape soak tests/ui/escaped/fixed-overlap.test.mjs --task OPS-114   # only for a new or changed test
-bin/evf verify WP-037/ui                        # ui-escaped runs fixed-overlap.test.mjs on the stack
+bin/evf escape soak tests/ui/escaped/<name>.test.mjs --task WP-037/ui   # only for a new or changed test
+bin/evf verify WP-037/ui                        # ui-escaped runs every tests/ui/escaped/*.test.mjs on the stack
 ```
 
-`fixed-overlap.test.mjs` (#393) checks at 390 and 1440 px, in chromium and webkit, that the fixed or sticky
-app header does not cover the first visible content in `<main>` on each shell nav route and on the first
-deeper page of each. The #393 report came from a full-page screenshot taken after a scroll, which paints
-the sticky header in the middle of the page on every long page. The app had no overlap at load; see the
-OPS-114 PR.
+The folder is empty at OPS-114. An OPS task may own only tooling paths (`maintenanceScope` in `policy.ts`), so
+the first app escaped test, the fixed-header overlap check, comes in a WP task.
 
 ## Feedback and human ownership
 

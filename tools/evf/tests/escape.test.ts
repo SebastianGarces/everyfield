@@ -198,7 +198,7 @@ function opsTask(f: ReturnType<typeof fixture>) {
 		...cfg.maintenanceTasks,
 		"OPS-900": {
 			title: "Escape fixture",
-			owningPaths: ["tools/evf/", "tests/ui/escaped/"],
+			owningPaths: ["tools/evf/"],
 			checks: [{ name: "own", run: [process.execPath, "-e", ""] }],
 		},
 	};
@@ -221,10 +221,11 @@ function opsTask(f: ReturnType<typeof fixture>) {
 test("OPS-114-6: ui-escaped skips other tasks with one line, fails closed without a stack and runs with UI_BASE_URL", () => {
 	const f = fixture();
 	try {
-		const { wt, task, commit, stackUp } = opsTask(f);
+		// An OPS task that changes only tooling skips the check with one line.
+		const { commit } = opsTask(f);
 		commit("tools/evf/change.ts", "export {};\n");
 		let report!: ReturnType<typeof verify>;
-		const skipped = output(() => (report = verify(f.root, task, "author", "full")));
+		const skipped = output(() => (report = verify(f.root, parseTask("OPS-900"), "author", "full")));
 		assert.equal(report.passed, true);
 		assert.equal(
 			report.checks.some((c) => c.name === "ui-escaped"),
@@ -238,33 +239,50 @@ test("OPS-114-6: ui-escaped skips other tasks with one line, fails closed withou
 			"evf verify: ui-escaped skipped: OPS-900 is not a WP /ui part and changes no file under tests/ui/escaped/.",
 		);
 
+		// A WP /ui part: one line while the folder holds no test, then fail closed without a stack, then run.
+		const ui = parseTask("WP-005/ui");
+		f.authorize("WP-005");
+		f.commit();
+		const wt = f.task(ui.slug);
+		const uiCheck = () => {
+			let r!: ReturnType<typeof verify>;
+			const out = output(() => (r = verify(f.root, ui, "author", "full")));
+			return { out, check: r.checks.find((c) => c.name === "ui-escaped") };
+		};
+		const empty = uiCheck();
+		assert.equal(empty.check, undefined);
+		assert.match(empty.out, /^evf verify: ui-escaped skipped: tests\/ui\/escaped\/ holds no escaped test yet\.$/m);
+
 		const file = "tests/ui/escaped/overlap.test.mjs";
-		commit(file, "// one escaped test\n");
-		output(() => (report = verify(f.root, task, "author", "full")));
-		const noStack = report.checks.find((c) => c.name === "ui-escaped")!;
-		assert.equal(report.passed, false);
+		mkdirSync(join(wt, "tests/ui/escaped"), { recursive: true });
+		writeFileSync(join(wt, file), "// one escaped test\n");
+		f.git("-C", wt, "add", file);
+		f.git("-C", wt, "commit", "-qm", "Add an escaped test");
+		const noStack = uiCheck().check!;
 		assert.equal(noStack.passed, false);
 		assert.match(
 			readFileSync(noStack.log, "utf8"),
-			/No running stack for OPS-900\. Start it with bin\/evf stack up OPS-900/,
+			/No running stack for WP-005\/ui\. Start it with bin\/evf stack up WP-005\/ui/,
 		);
 
-		stackUp("https://ops-900.localhost:1355");
-		output(() => soak(f.root, task, join(wt, file), () => ({ code: 0, stdout: "ok", stderr: "" })));
-		output(() => (report = verify(f.root, task, "author", "full")));
-		const ran = report.checks.find((c) => c.name === "ui-escaped")!;
-		assert.equal(report.passed, true);
-		assert.match(readFileSync(ran.log, "utf8"), /ui-escaped ran against https:\/\/ops-900\.localhost:1355/);
+		mkdirSync(runtimeDir(f.root, ui), { recursive: true });
+		writeFileSync(
+			join(runtimeDir(f.root, ui), "stack.json"),
+			JSON.stringify({ url: "https://wp-005-ui.localhost:1355", state: "ready" }),
+		);
+		const unsoaked = uiCheck().check!;
+		assert.equal(unsoaked.passed, false);
+		assert.match(readFileSync(unsoaked.log, "utf8"), /has no 20-green soak record for its current bytes/);
 
-		// A WP /ui part runs it without touching the folder; its API part skips.
-		const base = f.git("rev-parse", "main");
-		assert.deepEqual(uiEscapedGate(f.root, f.root, parseTask("WP-001/ui"), base), {
-			fail: "No running stack for WP-001/ui. Start it with bin/evf stack up WP-001/ui, then rerun.",
+		output(() => soak(f.root, ui, join(wt, file), () => ({ code: 0, stdout: "ok", stderr: "" })));
+		const ran = uiCheck().check!;
+		assert.equal(ran.passed, true);
+		assert.match(readFileSync(ran.log, "utf8"), /ui-escaped ran against https:\/\/wp-005-ui\.localhost:1355/);
+
+		// The API part skips.
+		assert.deepEqual(uiEscapedGate(f.root, f.root, parseTask("WP-005/api"), f.git("rev-parse", "main")), {
+			skip: "WP-005/api is not a WP /ui part and changes no file under tests/ui/escaped/.",
 		});
-		mkdirSync(runtimeDir(f.root, parseTask("WP-001/ui")), { recursive: true });
-		writeFileSync(join(runtimeDir(f.root, parseTask("WP-001/ui")), "stack.json"), JSON.stringify({ url: "https://x" }));
-		assert.deepEqual(uiEscapedGate(f.root, f.root, parseTask("WP-001/ui"), base), { baseUrl: "https://x" });
-		assert.ok("skip" in uiEscapedGate(f.root, f.root, parseTask("WP-001/api"), base));
 	} finally {
 		f.close();
 	}

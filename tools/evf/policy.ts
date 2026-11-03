@@ -122,17 +122,7 @@ export function maintenanceScope(checkout: string, task: TaskRef, rev = "HEAD"):
 		"scripts/preview.json",
 		"scripts/stack.mjs",
 	];
-	// tests/ui/escaped/ holds the escaped-bug regression tests (OPS-114): test code that only reads the app.
-	const directories = [
-		".agents/",
-		".claude/",
-		"docs/",
-		"tools/evf/",
-		"tools/evf-tui/",
-		"tests/workflow/",
-		"tests/ui/escaped/",
-		".github/",
-	];
+	const directories = [".agents/", ".claude/", "docs/", "tools/evf/", "tools/evf-tui/", "tests/workflow/", ".github/"];
 	if (scope.route === "design") {
 		if (scope.owningPaths.some((path) => !path.startsWith("design/") || path.split("/").includes("..")))
 			fail("A design task owns only design/ paths.");

@@ -1584,7 +1584,7 @@
 		},
 		"OPS-114": {
 			"title": "Escaped bug becomes a permanent check",
-			"owningPaths": ["tools/evf/", "evf.config.json", "tests/ui/escaped/", ".agents/skills/verify/SKILL.md"],
+			"owningPaths": ["tools/evf/", "evf.config.json", ".agents/skills/verify/SKILL.md"],
 			"checks": [
 				{ "name": "documentation", "run": ["python3", "docs/check-all.py"] },
 				{ "name": "workflow-regressions", "run": ["bin/evf", "test"] }
