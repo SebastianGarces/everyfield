@@ -782,15 +782,17 @@ background job. Agent shells look the same in both modes, so the reminder prints
 A bug that Sebastian catches after review becomes a permanent local check. Everything here runs on this
 machine only. No CI workflow names `tests/ui/escaped` or `ui-escaped`, and no step calls a paid API.
 
-`evf escape <PR> --what "<his words>" [--head <sha>]` files one OPS task with status `new`. It reserves the
-id through `evf id next ops`. The stored ask holds the `--what` text byte for byte, the PR number, the
-escaped head and the Done template: a test in `tests/ui/escaped/` fails on the escaped head and passes on
-the fix (or on main when main never had the bug), the test passes the 20-run soak, and one `evf proof add`
-records each of the two runs. The escaped head is `--head` when given, else the merge commit of a merged
-PR, else the PR's current head. The command prints the `maintenanceTasks` entry to commit on the new
-task's branch (it owns `tests/ui/escaped/` and runs the documentation and workflow-regressions checks).
-It never edits `evf.config.json`. It refuses a missing or empty `--what` and an unknown PR before it
-reserves an id. A second call for the same PR and head files nothing and prints the existing id.
+`evf escape <PR> --what "<his words>" --task <WP-NNN/ui> [--head <sha>]` stores the escape on an existing
+WP /ui task that the coordinator names. OPS tasks do not own `tests/ui/escaped/`, so the command reserves no
+OPS id and prints no `maintenanceTasks` entry. It appends one escape block to the task's ask and records an
+`escape_filed` event on that row. The block holds the `--what` text byte for byte, the PR number, the escaped
+head and the Done template: a test in `tests/ui/escaped/` fails on the escaped head and passes on the fix (or
+on main when main never had the bug), the test passes the 20-run soak, and one `evf proof add` records each of
+the two runs. The escaped head is `--head` when given, else the merge commit of a merged PR, else the PR's
+current head. The command never edits `evf.config.json`. It refuses a missing or empty `--what`, a missing
+`--task`, a task that is not a WP /ui part, a task with no row or a merged row, and an unknown PR, and it
+writes nothing in those cases. A second call for the same PR and head stores nothing and prints the task that
+already carries the escape.
 
 `evf escape soak tests/ui/escaped/<name>.test.mjs [--task <task>]` runs one escaped test 20 times in a row
 against the task's stack, with `UI_BASE_URL` set. The first failed run ends the soak. The record goes to
@@ -807,13 +809,14 @@ current bytes.
 Example, for a UI task that adds an escaped test:
 
 ```bash
+bin/evf escape 393 --what "<his words>" --task WP-037/ui   # coordinator: store the escape on WP-037/ui
 bin/evf stack up WP-037/ui
 bin/evf escape soak tests/ui/escaped/<name>.test.mjs --task WP-037/ui   # only for a new or changed test
 bin/evf verify WP-037/ui                        # ui-escaped runs every tests/ui/escaped/*.test.mjs on the stack
 ```
 
 The folder is empty at OPS-114. An OPS task may own only tooling paths (`maintenanceScope` in `policy.ts`), so
-the first app escaped test, the fixed-header overlap check, comes in a WP task.
+every escaped test, the fixed-header overlap check first, comes in a WP /ui task.
 
 ## Feedback and human ownership
 

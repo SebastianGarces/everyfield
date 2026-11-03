@@ -161,8 +161,9 @@ Drive (harness)
   evf ask planner <task> "<question>"                         ask the task's planner (forked session resume)
 
 Escaped bugs (coordinator; local only, never in CI)
-  evf escape <PR> --what "<his words>" [--head <sha>]        file one OPS task (status new) whose Done is a regression test
-                                                              in tests/ui/escaped/; prints its maintenanceTasks entry
+  evf escape <PR> --what "<his words>" --task <WP-NNN/ui> [--head <sha>]
+                                                              store the escape and its Done template (a regression test in
+                                                              tests/ui/escaped/) on an existing WP /ui task; no OPS id
   evf escape soak <tests/ui/escaped/<name>.test.mjs> [--task <task>]
                                                               run one escaped test 20 times on the task's stack; ui-escaped
                                                               in evf verify needs a green soak of each changed test's bytes
@@ -512,10 +513,11 @@ function main(argv: string[]): number | Promise<number> {
 			}
 			const what = option(args, "--what"),
 				head = option(args, "--head"),
+				task = option(args, "--task"),
 				pr = Number(args[0]);
 			if (!Number.isInteger(pr) || pr <= 0 || args.length !== 1)
-				throw new EvfError('Give the PR number: evf escape <PR> --what "<his words>".');
-			return escape(root, { pr, what, head });
+				throw new EvfError('Give the PR number: evf escape <PR> --what "<his words>" --task <WP-NNN/ui>.');
+			return escape(root, { pr, what, head, task });
 		}
 		case "id": {
 			const kind = args[1];

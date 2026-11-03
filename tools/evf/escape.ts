@@ -1,8 +1,7 @@
 import { createHash } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
-import { newTaskRow, openWorkDb, record } from "./db.ts";
-import { nextId } from "./ids.ts";
+import { findTask, openWorkDb, record } from "./db.ts";
 import {
 	command,
 	evfDataDir,
@@ -13,15 +12,14 @@ import {
 	parseTask,
 	requireWorktree,
 	run,
-	type CheckDef,
 	type RunResult,
 	type TaskRef,
 } from "./lib.ts";
 import { stackEnv, stackInfo } from "./task.ts";
 
 /**
- * OPS-114: a bug Sebastian catches becomes a permanent check. `evf escape <PR> --what` files the OPS task that writes
- * the regression test into tests/ui/escaped/; `evf escape soak` proves a test is stable before it joins the folder; and
+ * OPS-114: a bug Sebastian catches becomes a permanent check. `evf escape <PR> --what --task <WP-NNN/ui>` stores the
+ * escape on the WP /ui task that writes the regression test into tests/ui/escaped/; `evf escape soak` proves a test is stable before it joins the folder; and
  * the `ui-escaped` check runs the folder on every UI task's stack. All of it runs on this machine only, never in CI.
  */
 
@@ -57,9 +55,7 @@ function escapedHead(pr: PrRead, override?: string): EscapedHead {
 	return { sha: pr.headRefOid, source: "PR head" };
 }
 
-const escapeTitle = (pr: number) => `Escaped bug from PR #${pr} becomes a permanent check`;
-
-/** The ask an escape task stores: `what` byte for byte, the PR, the escaped head and the Done template. */
+/** The escape block an escape stores on the task's ask: `what` byte for byte, the PR, the escaped head and the Done template. */
 function escapeAsk(pr: number, head: EscapedHead, what: string): string {
 	return [
 		`# Ask: escaped bug from PR #${pr} becomes a permanent check`,
@@ -81,22 +77,7 @@ function escapeAsk(pr: number, head: EscapedHead, what: string): string {
 	].join("\n");
 }
 
-/** The maintenanceTasks entry the coordinator commits on the new task's branch. evf never writes it. */
-function escapeEntry(checks: CheckDef[], pr: number): Record<string, unknown> {
-	const named = (name: string) => {
-		const check = checks.find((c) => c.name === name);
-		if (!check) fail(`evf.config.json checks must define "${name}".`);
-		return check;
-	};
-	return {
-		title: escapeTitle(pr),
-		owningPaths: [ESCAPED_DIR],
-		checks: [named("documentation"), named("workflow-regressions")],
-		risk: "ordinary",
-	};
-}
-
-/** The current escape task for this PR and head, if one was filed. */
+/** The task that already carries this PR and head's escape, if any. */
 function filedEscape(root: string, pr: number, head: string): string | undefined {
 	const db = openWorkDb(root);
 	try {
@@ -112,40 +93,47 @@ function filedEscape(root: string, pr: number, head: string): string | undefined
 }
 
 /**
- * File one OPS task for an escaped bug. Every refusal comes before the id reservation, so a refused call reserves no
- * id. A second call for the same PR and head files nothing and prints the existing id.
+ * Store an escaped bug on the WP /ui task the coordinator names. OPS tasks do not own tests/ui/escaped/, so the
+ * escape reserves no OPS id and prints no maintenanceTasks entry: it appends the escape block to the task's ask and
+ * records an escape_filed event. Every refusal comes before the write. A second call for the same PR and head stores
+ * nothing and prints the task that already carries it.
  */
 export function escape(
 	root: string,
-	opts: { pr: number; what?: string; head?: string },
-	deps: { readPr?: PrReader; reserveId?: () => string } = {},
+	opts: { pr: number; what?: string; head?: string; task?: string },
+	deps: { readPr?: PrReader } = {},
 ): number {
 	if (opts.what === undefined) fail('Give --what "<his words>": Sebastian\'s words for the bug, verbatim.');
 	if (!opts.what.trim()) fail("--what is empty. Give Sebastian's words for the bug, verbatim.");
-	const cfg = loadConfig(root);
+	if (!opts.task) fail("Give --task <WP-NNN/ui>: the WP /ui task that writes the escaped test.");
+	const task = parseTask(opts.task);
+	if (task.kind !== "wp" || task.part !== "ui")
+		fail(`${task.id} is not a WP /ui part. An escaped test lives in ${ESCAPED_DIR}, which only a WP /ui task owns.`);
 	const pr = (deps.readPr ?? ghPrReader(root))(opts.pr);
 	if (!pr) fail(`PR #${opts.pr} does not exist.`);
 	const head = escapedHead(pr, opts.head);
 	const existing = filedEscape(root, opts.pr, head.sha);
 	if (existing) {
-		console.log(`escape: ${existing} already covers PR #${opts.pr} at ${head.sha}. Nothing filed.`);
+		console.log(`escape: ${existing} already carries PR #${opts.pr} at ${head.sha}. Nothing stored.`);
 		console.log(existing);
 		return 0;
 	}
-	const id = (deps.reserveId ?? (() => nextId(root, cfg, "ops")))();
-	const task = parseTask(id);
-	const ask = escapeAsk(opts.pr, head, opts.what);
+	const block = escapeAsk(opts.pr, head, opts.what);
 	const db = openWorkDb(root);
 	try {
 		db.exec("BEGIN IMMEDIATE");
 		try {
-			const row = newTaskRow(db, task, "implement");
-			db.prepare("UPDATE tasks SET ask = ?, title = ? WHERE id = ?").run(ask, escapeTitle(opts.pr), row.id);
+			const row = findTask(db, task);
+			if (!row) fail(`${task.id} has no task row. File it first (bin/evf task new ${task.id} --ask-file <file>).`);
+			if (row.status === "merged") fail(`${task.id} has merged. Name an open WP /ui task.`);
+			const prior = (db.prepare("SELECT ask FROM tasks WHERE id = ?").get(row.id) as { ask: string | null }).ask;
+			const ask = prior?.trim() ? `${prior}\n\n${block}` : block;
+			db.prepare("UPDATE tasks SET ask = ?, updated_at = ? WHERE id = ?").run(ask, new Date().toISOString(), row.id);
 			record(db, row.id, null, "escape_filed", {
 				pr: opts.pr,
 				head: head.sha,
 				source: head.source,
-				summary: `${id}: escaped bug from PR #${opts.pr} at ${head.sha.slice(0, 10)}`,
+				summary: `${task.id}: escaped bug from PR #${opts.pr} at ${head.sha.slice(0, 10)}`,
 			});
 			db.exec("COMMIT");
 		} catch (e) {
@@ -155,12 +143,8 @@ export function escape(
 	} finally {
 		db.close();
 	}
-	console.log(`escape: filed ${id} (status new) for PR #${opts.pr} at ${head.sha} (${head.source}).`);
-	console.log(
-		`Commit this maintenanceTasks entry on the ${task.branch} branch before implement starts (evf does not edit evf.config.json):`,
-	);
-	console.log(JSON.stringify({ [id]: escapeEntry(cfg.checks, opts.pr) }, null, "\t"));
-	console.log(id);
+	console.log(`escape: stored PR #${opts.pr} at ${head.sha} (${head.source}) on ${task.id}.`);
+	console.log(task.id);
 	return 0;
 }
 

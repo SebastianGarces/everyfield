@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fixture, source } from "./fixtures.ts";
 import { parseTask, runtimeDir } from "../lib.ts";
-import { openWorkDb } from "../db.ts";
+import { ensureTask, openWorkDb } from "../db.ts";
 import { escape, soak, soakPath, uiEscapedGate, type PrRead } from "../escape.ts";
 import { verify } from "../verify.ts";
 
@@ -15,10 +15,6 @@ const MERGED = "a".repeat(40),
 	REVIEWED = "c".repeat(40);
 const merged: PrRead = { state: "MERGED", headRefOid: HEAD, mergeCommit: { oid: MERGED } };
 const open: PrRead = { state: "OPEN", headRefOid: HEAD, mergeCommit: null };
-const TOOLING = [
-	{ name: "documentation", run: ["python3", "docs/check-all.py"] },
-	{ name: "workflow-regressions", run: ["bin/evf", "test"] },
-];
 
 /** Run `fn` and return what it printed to console.log and console.error. */
 function output(fn: () => unknown): string {
@@ -36,12 +32,14 @@ function output(fn: () => unknown): string {
 	return out;
 }
 
-/** A fixture whose checks name the tooling checks the printed entry copies, with a bare remote for id reservation. */
+const PRIOR_ASK = "# Ask: WP-037 UI\n\nBuild the members page.";
+
+/**
+ * A fixture with a bare remote (so an OPS id reservation would show up as a ref) and two WP /ui task rows: WP-037/ui
+ * with an ask and WP-038/ui without one. `rows()` reads every task row; `escapes()` reads the escape_filed events.
+ */
 function withStore() {
 	const f = fixture();
-	f.cfg.checks = [...f.cfg.checks, ...TOOLING];
-	writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg, null, 2));
-	f.commit();
 	const remote = f.bare(join(f.root, "fake-bin/origin.git"));
 	f.git("remote", "add", "origin", remote);
 	f.git("push", "-q", "origin", "main");
@@ -51,67 +49,83 @@ function withStore() {
 		})
 			.stdout.split("\n")
 			.filter(Boolean);
-	const rows = () => {
-		const db = openWorkDb(f.root);
+	const db = openWorkDb(f.root);
+	try {
+		const ui = ensureTask(db, parseTask("WP-037/ui"), "implement");
+		db.prepare("UPDATE tasks SET ask = ? WHERE id = ?").run(PRIOR_ASK, ui.id);
+		ensureTask(db, parseTask("WP-038/ui"), "implement");
+	} finally {
+		db.close();
+	}
+	const query = <T>(sql: string) => {
+		const d = openWorkDb(f.root);
 		try {
-			return db.prepare("SELECT ref, status, ask, title FROM tasks WHERE ref LIKE 'OPS-%' ORDER BY id").all() as Array<{
-				ref: string;
-				status: string;
-				ask: string;
-				title: string;
-			}>;
+			return d.prepare(sql).all() as T[];
 		} finally {
-			db.close();
+			d.close();
 		}
 	};
-	return { ...f, reservations, rows };
+	const rows = () =>
+		query<{ ref: string; status: string; ask: string | null; title: string }>(
+			"SELECT ref, status, ask, title FROM tasks ORDER BY id",
+		);
+	const escapes = () =>
+		query<{ ref: string; payload: string }>(
+			"SELECT t.ref, e.payload FROM events e JOIN tasks t ON t.id = e.task_id WHERE e.type = 'escape_filed' ORDER BY e.id",
+		).map((e) => ({ ref: e.ref, ...(JSON.parse(e.payload) as { pr: number; head: string; source: string }) }));
+	return { ...f, reservations, rows, escapes };
 }
 
-test("OPS-114-1: evf escape reserves an OPS id and files one new task whose ask holds the words, PR, head and Done template", () => {
+const block = (pr: number, head: string, source: string, what: string) =>
+	`# Ask: escaped bug from PR #${pr} becomes a permanent check\n` +
+	"\n" +
+	"## Sebastian's words (verbatim)\n" +
+	"\n" +
+	`${what}\n` +
+	"\n" +
+	"## Escape\n" +
+	"\n" +
+	`- PR: #${pr}\n` +
+	`- Escaped head: ${head} (${source})\n` +
+	"\n" +
+	"## Done template\n" +
+	"\n" +
+	`1. A test in \`tests/ui/escaped/\` fails on the escaped head ${head} and passes on the fix, or on main when main never had the bug.\n` +
+	"2. The test passes the 20-run soak: `bin/evf escape soak tests/ui/escaped/<name>.test.mjs` records 20 green runs for the file's current bytes.\n" +
+	"3. One `bin/evf proof add` records each of the two runs (the failure on the escaped head and the pass on the fix or main), with the head SHA, the command and the result.";
+
+test("OPS-114-1: evf escape --task stores the words, PR, head and Done template on the named WP /ui row and reserves no OPS id", () => {
 	const f = withStore();
 	try {
 		const home = readFileSync(join(f.root, "evf.config.json"));
+		const before = f.rows();
 		const what = "  The top nav is drawn over the document — scroll up and it covers the title.\n";
-		const out = output(() => escape(f.root, { pr: 393, what }, { readPr: () => open }));
-		// The real reservation ran: main registers OPS-1..OPS-n, so the next id is one above the highest.
-		assert.deepEqual(f.reservations().length, 1);
-		const id = f.reservations()[0]!.replace("refs/evf/ids/", "");
-		const [row] = f.rows();
-		assert.equal(row?.ref, id);
-		assert.equal(row?.status, "new");
-		assert.equal(row?.title, "Escaped bug from PR #393 becomes a permanent check");
-		assert.equal(
-			row?.ask,
-			"# Ask: escaped bug from PR #393 becomes a permanent check\n" +
-				"\n" +
-				"## Sebastian's words (verbatim)\n" +
-				"\n" +
-				"  The top nav is drawn over the document — scroll up and it covers the title.\n" +
-				"\n" +
-				"\n" +
-				"## Escape\n" +
-				"\n" +
-				"- PR: #393\n" +
-				`- Escaped head: ${HEAD} (PR head)\n` +
-				"\n" +
-				"## Done template\n" +
-				"\n" +
-				`1. A test in \`tests/ui/escaped/\` fails on the escaped head ${HEAD} and passes on the fix, or on main when main never had the bug.\n` +
-				"2. The test passes the 20-run soak: `bin/evf escape soak tests/ui/escaped/<name>.test.mjs` records 20 green runs for the file's current bytes.\n" +
-				"3. One `bin/evf proof add` records each of the two runs (the failure on the escaped head and the pass on the fix or main), with the head SHA, the command and the result.",
-		);
-		// OPS-114-4: the printed entry owns tests/ui/escaped/ with the tooling checks; evf.config.json is untouched.
-		const entry = JSON.parse(out.slice(out.indexOf("{"), out.lastIndexOf("}") + 1));
-		assert.deepEqual(entry, {
-			[id]: {
-				title: "Escaped bug from PR #393 becomes a permanent check",
-				owningPaths: ["tests/ui/escaped/"],
-				checks: TOOLING,
-				risk: "ordinary",
+		const out = output(() => escape(f.root, { pr: 393, what, task: "WP-037/ui" }, { readPr: () => open }));
+		// The named row keeps its status and title; its ask keeps the prior text and gains the escape block.
+		const after = f.rows();
+		assert.equal(after.length, before.length);
+		const row = after.find((r) => r.ref === "WP-037/ui")!;
+		assert.equal(row.status, "new");
+		assert.equal(row.title, "WP-037/ui");
+		assert.equal(row.ask, `${PRIOR_ASK}\n\n${block(393, HEAD, "PR head", what)}`);
+		assert.deepEqual(f.escapes(), [
+			{
+				ref: "WP-037/ui",
+				pr: 393,
+				head: HEAD,
+				source: "PR head",
+				summary: `WP-037/ui: escaped bug from PR #393 at ${HEAD.slice(0, 10)}`,
 			},
-		});
+		]);
+		// A row without an ask gets the block alone.
+		output(() => escape(f.root, { pr: 394, what: "words", task: "WP-038/ui" }, { readPr: () => open }));
+		assert.equal(f.rows().find((r) => r.ref === "WP-038/ui")!.ask, block(394, HEAD, "PR head", "words"));
+		// OPS-114-4: no OPS id is reserved, no OPS row is filed, no maintenanceTasks entry prints, evf.config.json is untouched.
+		assert.deepEqual(f.reservations(), []);
+		assert.equal(f.rows().filter((r) => r.ref.startsWith("OPS-")).length, 0);
+		assert.doesNotMatch(out, /maintenanceTasks|owningPaths|OPS-/);
 		assert.deepEqual(readFileSync(join(f.root, "evf.config.json")), home);
-		assert.equal(out.trim().split("\n").at(-1), id);
+		assert.equal(out.trim().split("\n").at(-1), "WP-037/ui");
 	} finally {
 		f.close();
 	}
@@ -120,17 +134,21 @@ test("OPS-114-1: evf escape reserves an OPS id and files one new task whose ask 
 test("OPS-114-2: the escaped head is the merge commit, else the PR head, and --head overrides both", () => {
 	const f = withStore();
 	try {
-		let n = 0;
-		const reserveId = () => `OPS-${900 + ++n}`;
-		const headOf = (ref: string) => /Escaped head: (\S+) \(([^)]+)\)/.exec(f.rows().find((r) => r.ref === ref)!.ask)!;
-		output(() => escape(f.root, { pr: 10, what: "merged" }, { readPr: () => merged, reserveId }));
-		output(() => escape(f.root, { pr: 11, what: "open" }, { readPr: () => open, reserveId }));
-		output(() => escape(f.root, { pr: 12, what: "reviewed", head: REVIEWED }, { readPr: () => merged, reserveId }));
-		assert.deepEqual(headOf("OPS-901").slice(1), [MERGED, "merge commit"]);
-		assert.deepEqual(headOf("OPS-902").slice(1), [HEAD, "PR head"]);
-		assert.deepEqual(headOf("OPS-903").slice(1), [REVIEWED, "override"]);
+		const headOf = (pr: number) => f.escapes().find((e) => e.pr === pr)!;
+		output(() => escape(f.root, { pr: 10, what: "merged", task: "WP-037/ui" }, { readPr: () => merged }));
+		output(() => escape(f.root, { pr: 11, what: "open", task: "WP-037/ui" }, { readPr: () => open }));
+		output(() =>
+			escape(f.root, { pr: 12, what: "reviewed", head: REVIEWED, task: "WP-037/ui" }, { readPr: () => merged }),
+		);
+		assert.deepEqual([headOf(10).head, headOf(10).source], [MERGED, "merge commit"]);
+		assert.deepEqual([headOf(11).head, headOf(11).source], [HEAD, "PR head"]);
+		assert.deepEqual([headOf(12).head, headOf(12).source], [REVIEWED, "override"]);
+		assert.match(
+			f.rows().find((r) => r.ref === "WP-037/ui")!.ask!,
+			new RegExp(`Escaped head: ${REVIEWED} \\(override\\)`),
+		);
 		assert.throws(
-			() => escape(f.root, { pr: 13, what: "short", head: "abc123" }, { readPr: () => open, reserveId }),
+			() => escape(f.root, { pr: 13, what: "short", head: "abc123", task: "WP-037/ui" }, { readPr: () => open }),
 			/full 40-character commit SHA/,
 		);
 	} finally {
@@ -138,42 +156,51 @@ test("OPS-114-2: the escaped head is the merge commit, else the PR head, and --h
 	}
 });
 
-test("OPS-114-4: evf escape refuses a missing or empty --what and a PR that does not exist, and reserves no id", () => {
+test("OPS-114-4: evf escape refuses a missing or empty --what, a missing or non-WP-/ui --task, an unfiled or merged task and an unknown PR, and writes nothing", () => {
 	const f = withStore();
 	try {
-		let reserved = 0;
-		const reserveId = () => `OPS-${900 + ++reserved}`;
-		assert.throws(() => escape(f.root, { pr: 393 }, { readPr: () => open, reserveId }), /Give --what/);
-		for (const what of ["", "  \n\t"])
-			assert.throws(() => escape(f.root, { pr: 393, what }, { readPr: () => open, reserveId }), /--what is empty/);
-		assert.throws(
-			() => escape(f.root, { pr: 99999, what: "words" }, { readPr: () => null, reserveId }),
-			/PR #99999 does not exist/,
-		);
-		// The real reservation path is not reached either: the remote holds no reservation.
-		assert.throws(() => escape(f.root, { pr: 99999, what: "words" }, { readPr: () => null }), /does not exist/);
-		assert.equal(reserved, 0);
+		const before = f.rows();
+		const ok = { pr: 393, what: "words", task: "WP-037/ui" };
+		const refuse = (opts: Partial<typeof ok>, pattern: RegExp, readPr: () => PrRead | null = () => open) =>
+			assert.throws(() => escape(f.root, { ...ok, ...opts } as typeof ok, { readPr }), pattern);
+		refuse({ what: undefined }, /Give --what/);
+		for (const what of ["", "  \n\t"]) refuse({ what }, /--what is empty/);
+		refuse({ task: undefined }, /Give --task <WP-NNN\/ui>/);
+		for (const task of ["OPS-900", "WP-037", "WP-037/api", "FB-12"]) refuse({ task }, /is not a WP \/ui part/);
+		refuse({ task: "WP-099/ui" }, /WP-099\/ui has no task row/);
+		refuse({ pr: 99999 }, /PR #99999 does not exist/, () => null);
+		const db = openWorkDb(f.root);
+		db.prepare("UPDATE tasks SET status = 'merged' WHERE ref = 'WP-038/ui'").run();
+		db.close();
+		refuse({ task: "WP-038/ui" }, /WP-038\/ui has merged/);
 		assert.deepEqual(f.reservations(), []);
-		assert.deepEqual(f.rows(), []);
+		assert.deepEqual(f.escapes(), []);
+		assert.deepEqual(
+			f.rows().map((r) => r.ask),
+			before.map((r) => r.ask),
+		);
 	} finally {
 		f.close();
 	}
 });
 
-test("OPS-114-5: a second evf escape for the same PR and head files nothing and prints the existing id", () => {
+test("OPS-114-5: a second evf escape for the same PR and head stores nothing and prints the task that carries it", () => {
 	const f = withStore();
 	try {
-		let reserved = 0;
-		const reserveId = () => `OPS-${900 + ++reserved}`;
-		output(() => escape(f.root, { pr: 393, what: "first" }, { readPr: () => open, reserveId }));
-		const again = output(() => escape(f.root, { pr: 393, what: "second words" }, { readPr: () => open, reserveId }));
-		assert.equal(reserved, 1);
-		assert.equal(f.rows().length, 1);
-		assert.match(again, /OPS-901 already covers PR #393/);
-		assert.equal(again.trim().split("\n").at(-1), "OPS-901");
+		output(() => escape(f.root, { pr: 393, what: "first", task: "WP-037/ui" }, { readPr: () => open }));
+		const ask = f.rows().find((r) => r.ref === "WP-037/ui")!.ask;
+		// Naming another task does not file it twice either.
+		const again = output(() =>
+			escape(f.root, { pr: 393, what: "second words", task: "WP-038/ui" }, { readPr: () => open }),
+		);
+		assert.equal(f.escapes().length, 1);
+		assert.equal(f.rows().find((r) => r.ref === "WP-037/ui")!.ask, ask);
+		assert.equal(f.rows().find((r) => r.ref === "WP-038/ui")!.ask, "");
+		assert.match(again, /WP-037\/ui already carries PR #393/);
+		assert.equal(again.trim().split("\n").at(-1), "WP-037/ui");
 		// Another head of the same PR is another escape.
-		output(() => escape(f.root, { pr: 393, what: "later", head: REVIEWED }, { readPr: () => open, reserveId }));
-		assert.equal(f.rows().length, 2);
+		output(() => escape(f.root, { pr: 393, what: "later", head: REVIEWED, task: "WP-037/ui" }, { readPr: () => open }));
+		assert.equal(f.escapes().length, 2);
 	} finally {
 		f.close();
 	}
