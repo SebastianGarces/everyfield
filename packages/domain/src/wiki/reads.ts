@@ -406,7 +406,11 @@ export function contextGuide(db: Database, authority: RequestActor, raw: unknown
 			articleId: article.articleId,
 			title: article.title,
 			slug: article.slug,
-			body: sectionExcerpt(article.contentType, displayBody(article.contentType, false, article.body) ?? "", entry.heading),
+			body: sectionExcerpt(
+				article.contentType,
+				displayBody(article.contentType, false, article.body) ?? "",
+				entry.heading,
+			),
 		});
 	});
 }

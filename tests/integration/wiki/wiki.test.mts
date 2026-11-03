@@ -540,7 +540,9 @@ describe("wiki api", { concurrency: 1 }, () => {
 		async () => {
 			const listed = ok(await api.listArticles(db, await actor(people.owner), {}));
 			assert.equal(listed.orderRevision, "0");
-			assert.deepEqual(listed.churches, []);
+			// With no stored order, the order dialog still lists every live source, by join time.
+			assert.deepEqual(listed.churches, [S1, S2, S3, Sx]);
+			assert.deepEqual(listed.networks, [N1, N2]);
 			const leadView = await current(people.owner, lead);
 			assert.equal(leadView.article.body, "Global lead");
 			assert.equal(leadView.article.state, "source_order_required");
@@ -1710,7 +1712,8 @@ describe("wiki versions and the Guide", { concurrency: 1 }, () => {
 	const guideIds = new Map();
 	const id = () => randomUUID();
 	const LONG = "Pray, cast vision, tell stories and invite a response. ".repeat(12);
-	const sectionBody = (heading, text) => `Opening line\n## ${heading}\n${text}\n### Detail\nInside the section\n## Next part\nOutside`;
+	const sectionBody = (heading, text) =>
+		`Opening line\n## ${heading}\n${text}\n### Detail\nInside the section\n## Next part\nOutside`;
 
 	async function plant(plantId, name, orgs) {
 		await admin.execute(
@@ -1817,10 +1820,19 @@ describe("wiki versions and the Guide", { concurrency: 1 }, () => {
 			}
 			// The one-church plant reads its church copy: one church is never unranked against another.
 			assert.equal((await current(r1.owner, churchPair)).article.body, "Grace pair text");
-			const denied = ok(await api.setSourceOrder(db, await actor(r2.member), cmd({ churches: [C2, C1], networks: [M1] })));
+			// The order dialog lists both churches before any order is stored, so the first save can name each one.
+			const unsaved = ok(await api.listArticles(db, await actor(r2.owner), {}));
+			assert.deepEqual([unsaved.churches, unsaved.networks, unsaved.orderRevision], [[C1, C2], [M1], "0"]);
+			const denied = ok(
+				await api.setSourceOrder(db, await actor(r2.member), cmd({ churches: [C2, C1], networks: [M1] })),
+			);
 			assert.equal(denied.errorCode, "access_denied");
-			const saved = ok(await api.setSourceOrder(db, await actor(r2.owner), cmd({ churches: [C2, C1], networks: [M1] })));
+			const saved = ok(
+				await api.setSourceOrder(db, await actor(r2.owner), cmd({ churches: [C2, C1], networks: [M1] })),
+			);
 			assert.equal(saved.errorCode, null);
+			const ordered = ok(await api.listArticles(db, await actor(r2.owner), {}));
+			assert.deepEqual([ordered.churches, ordered.networks, ordered.orderRevision], [[C2, C1], [M1], "1"]);
 			for (const who of [r2.owner, r2.member]) {
 				const chosen = await current(who, worship);
 				assert.equal(chosen.article.state, "published");
@@ -1839,8 +1851,16 @@ describe("wiki versions and the Guide", { concurrency: 1 }, () => {
 				await api.updateProgress(db, reader, cmd({ articleId: support, fraction: "0.95", plantId: R1 })),
 			);
 			assert.equal(finished.completed, true);
-			ok(await api.setBookmark(db, await actor(r1.owner), cmd({ articleId: support, desired: true }, finished.revision)));
-			ok(await api.updateProgress(db, await actor(r1.owner), cmd({ articleId: typoPiece, fraction: "0.95", plantId: R1 })));
+			ok(
+				await api.setBookmark(db, await actor(r1.owner), cmd({ articleId: support, desired: true }, finished.revision)),
+			);
+			ok(
+				await api.updateProgress(
+					db,
+					await actor(r1.owner),
+					cmd({ articleId: typoPiece, fraction: "0.95", plantId: R1 }),
+				),
+			);
 			await revision({
 				id: id(),
 				article: support,
@@ -1949,7 +1969,11 @@ describe("wiki versions and the Guide", { concurrency: 1 }, () => {
 				if (entry.heading === "Seven Essential Elements")
 					assert.equal(guide.body, `## Seven Essential Elements\n${LONG}`.slice(0, 500), route);
 				else
-					assert.equal(guide.body, `## ${entry.heading}\nText under ${entry.heading}\n### Detail\nInside ${entry.heading}`, route);
+					assert.equal(
+						guide.body,
+						`## ${entry.heading}\nText under ${entry.heading}\n### Detail\nInside ${entry.heading}`,
+						route,
+					);
 			}
 			for (const route of [
 				"/people/duplicates",

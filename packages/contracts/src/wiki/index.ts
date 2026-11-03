@@ -120,6 +120,8 @@ export const setSourceOrderRequest = commandEnvelope(
 export const listResult = z.strictObject({
 	articles: z.array(wikiArticle),
 	nextCursor: z.string().nullable(),
+	/** The plant's live sending churches and networks in reading order: stored order first, then the rest by join
+	 * time. `orderRevision` "0" means no order is stored yet. */
 	churches: z.array(z.uuid()),
 	networks: z.array(z.uuid()),
 	orderRevision: z.string(),

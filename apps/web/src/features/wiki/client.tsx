@@ -359,7 +359,7 @@ function GuideBody({ result }: { result: GuideResult | null }) {
 				size="sm"
 				contentType="safe_mdx"
 				body={excerpt}
-				className="[&>:first-child]:mt-0 [&>:last-child]:mb-0 [&_h2]:text-[17px] [&_h2]:font-body [&_h2]:font-medium [&_h3]:text-[16px]"
+				className="[&>:first-child]:mt-0! [&>:last-child]:mb-0 [&_h2]:mt-5! [&_h2]:mb-1.5! [&_h2]:font-body! [&_h2]:text-[16px]! [&_h2]:font-semibold [&_h3]:mt-4! [&_h3]:mb-1! [&_h3]:font-body! [&_h3]:text-[15px]! [&_h3]:font-medium"
 			/>
 			<Link
 				href={result.href}
@@ -609,7 +609,6 @@ export function ReadStatus({
 			)}
 			{version ? (
 				<span className="inline-flex items-center gap-2">
-					<span aria-hidden="true">·</span>
 					<Tag tone={version.kind === "church" ? "teal" : "blue"}>
 						{version.kind === "church" ? "Church version" : "Network version"}
 					</Tag>

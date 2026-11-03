@@ -9,7 +9,11 @@ export const GUIDE_ROUTES = [
 	{ route: "/people", slug: "core-group/follow-up/database-management", heading: "What to Track" },
 	{ route: "/people/[personId]", slug: "core-group/follow-up/database-management", heading: "Status Categories" },
 	{ route: "/people/import", slug: "core-group/follow-up/database-management", heading: "After Each Vision Meeting" },
-	{ route: "/meetings", slug: "core-group/vision-meetings/what-is-a-vision-meeting", heading: "Seven Essential Elements" },
+	{
+		route: "/meetings",
+		slug: "core-group/vision-meetings/what-is-a-vision-meeting",
+		heading: "Seven Essential Elements",
+	},
 	{
 		route: "/meetings/[meetingId]",
 		slug: "core-group/vision-meetings/planning-your-vision-meeting",

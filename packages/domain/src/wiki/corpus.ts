@@ -320,6 +320,19 @@ export function articleFrom(extra: SQL = sql`true`): SQL {
 		WHERE ${extra}`;
 }
 
+/**
+ * The plant's live Wiki sources of one kind in reading order: the stored order first, then sources it does not
+ * name yet, by when they joined. The order dialog lists them and a save must name each one.
+ */
+function sourceList(access: CorpusAccess, kind: "sending_church" | "sending_network"): SQL {
+	const stored = kind === "sending_church" ? sql`p.churches` : sql`p.networks`;
+	return sql`COALESCE((
+		SELECT json_agg(l.org_id ORDER BY array_position(${stored}, l.org_id) NULLS LAST, l.accepted_at, l.org_id)
+		FROM links l CROSS JOIN pref p
+		WHERE ${access.owner.kind} = 'plant' AND l.kind = ${kind}
+	), '[]'::json)`;
+}
+
 export function pageQuery(access: CorpusAccess, source: SourceView, page: number, where: SQL = sql`true`): SQL {
 	const offset = (page - 1) * PAGE;
 	return sql`WITH ${corpusCtes(access, source)},
@@ -331,18 +344,8 @@ export function pageQuery(access: CorpusAccess, source: SourceView, page: number
 		)
 		SELECT
 			EXISTS (SELECT FROM me) AS allowed,
-			CASE WHEN EXISTS (SELECT FROM me)
-				THEN COALESCE((
-					SELECT json_agg(u.id ORDER BY u.ord)
-					FROM unnest((SELECT churches FROM pref)) WITH ORDINALITY AS u(id, ord)
-				), '[]'::json)
-				ELSE '[]'::json END AS churches,
-			CASE WHEN EXISTS (SELECT FROM me)
-				THEN COALESCE((
-					SELECT json_agg(u.id ORDER BY u.ord)
-					FROM unnest((SELECT networks FROM pref)) WITH ORDINALITY AS u(id, ord)
-				), '[]'::json)
-				ELSE '[]'::json END AS networks,
+			${sourceList(access, "sending_church")} AS churches,
+			${sourceList(access, "sending_network")} AS networks,
 			CASE WHEN EXISTS (SELECT FROM me) THEN (SELECT revision FROM pref) ELSE '0' END AS order_revision,
 			(SELECT count(*)::int FROM picked p WHERE ${where}) AS total,
 			(SELECT pl.phase FROM plant pl WHERE ${access.owner.kind} = 'plant' AND pl.id = ${access.owner.id}::uuid) AS plant_phase,
