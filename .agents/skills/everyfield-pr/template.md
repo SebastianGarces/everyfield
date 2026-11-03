@@ -37,6 +37,11 @@ Backend or tooling change: the script or command you ran and the relevant lines 
 before and after when a before exists.
 
 Say who verified it (author, or the independent Opus verifier) and on which preview.
+
+Proof table: one row per Done criterion with its Check: value, status and evidence. A row that
+names an AC:<task>-<n> marker links its video on the evidence page publish.mjs builds
+(https://.../index.html#<video>.webm). evf pr body refuses an AC: row with no video link. A row
+that only tools/evf/tests tests prove names tools/evf/tests instead.
 -->
 
 ## Risks and accepted exceptions
