@@ -3,11 +3,13 @@ import { Clock01Icon, LockKeyIcon } from "@hugeicons/core-free-icons";
 import { buttonVariants, Card, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { AttestationsScreen } from "./AttestationsScreen.tsx";
 import { CheckInScreen } from "./CheckInScreen.tsx";
 import { CheckInHeader } from "./Header.tsx";
 import { CHECK_IN_PATH } from "./path.ts";
 import { careViewer, loadCheckIn } from "./server.ts";
+import { loadAttestations } from "./signals-server.ts";
 
 // The /me/check-in route (WP-039): the private weekly check-in of a church plant's Owner or Admin.
 // apps/web/src/app/(product)/(frame)/me/check-in/ only re-exports these. The page takes no address parameters: the
@@ -101,6 +103,49 @@ export function CheckInLoading() {
 				<Skeleton className="h-[520px] rounded-card" />
 				<Skeleton className="h-[520px] rounded-card" />
 			</div>
+		</div>
+	);
+}
+
+// The Attestations page (WP-039 slice 2): /intelligence/attestations. A Member, an organization seat and a signed-in
+// account without a church seat get the same not-found answer as an unknown route.
+export const attestationsMetadata: Metadata = { title: "Attestations", robots: { index: false, follow: false } };
+
+export async function AttestationsPage() {
+	const viewer = await careViewer();
+	if (!viewer) {
+		const v = await getViewer();
+		if (!v || v.status === "unauthenticated")
+			redirect(`/signin?returnTo=${encodeURIComponent("/intelligence/attestations")}`);
+		notFound();
+	}
+	if (viewer.role === "member") notFound();
+	const loaded = await loadAttestations(viewer);
+	if (loaded.status !== "ok")
+		return (
+			<Blocked title="We could not load the attestations" tone="error">
+				This is a loading problem. Your answers are safe. Reload the page in a moment.
+			</Blocked>
+		);
+	return <AttestationsScreen initial={loaded.value} viewerName={viewer.displayName} />;
+}
+
+/** The first paint while the attestations load: their shape, not a spinner. */
+export function AttestationsLoading() {
+	return (
+		<div aria-busy="true" className="flex flex-col gap-6">
+			<span className="sr-only" role="status">
+				Loading the attestations
+			</span>
+			<Skeleton className="h-14 w-80 rounded-card" />
+			<Skeleton className="h-10 w-72 rounded-md" />
+			<div className="grid grid-cols-4 gap-4 max-app-md:grid-cols-2">
+				<Skeleton className="h-28 rounded-card" />
+				<Skeleton className="h-28 rounded-card" />
+				<Skeleton className="h-28 rounded-card" />
+				<Skeleton className="h-28 rounded-card" />
+			</div>
+			<Skeleton className="h-72 rounded-card" />
 		</div>
 	);
 }
