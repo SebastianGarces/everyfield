@@ -574,11 +574,11 @@ test("OPS-126: the seed stays idempotent, and a branch seeded before OPS-126 gai
 	const dir = mkdtempSync(join(tmpdir(), "evf-qa-old-")),
 		script = join(dir, "qa-seed.mts");
 	try {
-		const shown = spawnSync("git", ["show", "1e5fa559:tools/evf/qa-seed.ts"], { cwd: source, encoding: "utf8" });
-		assert.equal(shown.status, 0, shown.stderr);
+		// The OPS-106 seed as commit 1e5fa559 left it. A file, not `git show`: CI checks out one commit.
+		const shown = readFileSync(join(source, "tools/evf/tests/fixtures/qa-seed-ops106.ts.txt"), "utf8");
 		writeFileSync(
 			script,
-			shown.stdout.replaceAll('"../../', `"${source}/`).replace('"./qa-guard.ts"', `"${source}/tools/evf/qa-guard.ts"`),
+			shown.replaceAll('"../../', `"${source}/`).replace('"./qa-guard.ts"', `"${source}/tools/evf/qa-guard.ts"`),
 		);
 		const r = runSeed(old.env, script);
 		assert.equal(r.status, 0, r.stderr);
