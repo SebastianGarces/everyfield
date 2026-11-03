@@ -347,6 +347,7 @@ const generatedWriter = {
 	setBranding: churchWriter.setBranding,
 	exportNative: churchWriter.exportNative,
 	readChurch: churchWriter.readChurch,
+	readChurchForEdit: churchWriter.readChurchForEdit,
 	listChurch: churchWriter.listChurch,
 	readChurchFile: churchWriter.readChurchFile,
 	deleteChurch: churchWriter.deleteChurch,

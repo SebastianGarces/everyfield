@@ -245,7 +245,7 @@ function picture(w: W, image: ThemeImage, width: number, height: number, cover: 
 function image(w: W, node: Extract<BlockNode, { type: "image" }>) {
 	const a = attrsOf(node);
 	const width = Math.min(a.width, w.width / TW);
-	const source = a.source === "photo" ? w.theme.photo : w.theme.logo;
+	const source = w.theme.images ? w.theme.images[a.source] : a.source === "photo" ? w.theme.photo : w.theme.logo;
 	if (source && source.mediaType !== "image/svg+xml")
 		return para(picture(w, source, width, a.height, a.source === "photo"), jc(a.align));
 	if (a.source === "photo") return "";

@@ -337,7 +337,11 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		// the toolbar does (a tag, a link, a hard break, a page break) and save what comes out.
 		const schema = editorSchema();
 		const json: any = schema.nodeFromJSON(editorContent(doc.body)).toJSON();
-		json.content.push(
+		// The page footer is the last child of the editor's document, so the new blocks go in before it.
+		const body = json.content.at(-1)?.type === "pageFooter" ? json.content.slice(0, -1) : json.content;
+		const tail = json.content.at(-1)?.type === "pageFooter" ? [json.content.at(-1)] : [];
+		json.content = [
+			...body,
 			{ type: "pageBreak" },
 			{
 				type: "paragraph",
@@ -349,7 +353,8 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 					{ type: "text", marks: [{ type: "bold" }, { type: "italic" }], text: "more" },
 				],
 			},
-		);
+			...tail,
+		];
 		schema.nodeFromJSON(json).check();
 		const edited = documentFrom(doc.body, json);
 		const before = await counts();
@@ -365,6 +370,25 @@ describe("WP-036 Church Documents on everyfield.doc/1", { concurrency: 1 }, () =
 		assert.deepEqual(saved.body, edited);
 		assert.deepEqual(await counts(), { ...before, revisions: before.revisions + 1, audits: before.audits + 1 });
 		state.policy = saved;
+	});
+
+	test("WP-036 slice 3: the editor read carries the palette the PDF paints; a Member's call is refused", async () => {
+		const doc = state.policy;
+		const edit = ok(await documentsWriter.readChurchForEdit(db, await authority(ADMIN), { documentId: doc.id }));
+		assert.equal(edit.id, doc.id);
+		assert.equal(edit.brand.palette.themed, true, "the kit has a primary color and the document uses church branding");
+		assert.equal(edit.brand.palette.primary, "#1F4E79");
+		assert.equal(edit.brand.palette.accent, "#C9A227");
+		assert.deepEqual(edit.brand.assets, { logo: null, mark: null, photo: null }, "this kit has no images");
+		const { brand: _brand, ...document } = edit;
+		assert.deepEqual(
+			document,
+			ok(await documentsWriter.readChurch(db, await authority(ADMIN), { documentId: doc.id })),
+		);
+		refused(
+			await documentsWriter.readChurchForEdit(db, await authority(MEMBER), { documentId: doc.id }),
+			"access_denied",
+		);
 	});
 
 	test("AC:CASE-DOC-019-EDIT a wiped formal/legal fork saves and its PDF still prints the legal notice", async () => {

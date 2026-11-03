@@ -4,9 +4,6 @@ import { type Editor } from "@tiptap/react";
 // --- Hooks ---
 import { useTiptapEditor } from "../use-tiptap-editor.ts";
 
-// --- Lib ---
-import { isNodeTypeSelected } from "../tiptap-utils.ts";
-
 // --- Icons ---
 import { Redo2Icon, Undo2Icon } from "../icons.tsx";
 
@@ -55,7 +52,6 @@ export const historyIcons = {
  */
 export function canExecuteUndoRedoAction(editor: Editor | null, action: UndoRedoAction): boolean {
 	if (!editor || !editor.isEditable) return false;
-	if (isNodeTypeSelected(editor, ["image"])) return false;
 
 	return action === "undo" ? editor.can().undo() : editor.can().redo();
 }
