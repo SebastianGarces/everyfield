@@ -190,10 +190,24 @@ test("AC:CASE-COM-012 AC:GAP-COM-012 AC:MAIL51-003 AC:CASE-COM-005 a scheduled m
 
 test("AC:CASE-COM-012 a schedule the email service holds for nobody shows Not scheduled with the counts and stays saved", async () => {
 	const friday = plantTime("Fri", 9);
-	for (const [mode, counts] of [
-		["refuse", { accepted: 0, refused: 3, unknown: 0 }],
-		["error", { accepted: 0, refused: 0, unknown: 3 }],
-	]) {
+	// Refused for everyone: "Not scheduled". No answer for anyone: the email service may hold it, so "Not confirmed"
+	// with "Check result", never "Not scheduled" (criterion 9).
+	for (const [mode, counts, state, label, text] of [
+		[
+			"refuse",
+			{ accepted: 0, refused: 3, unknown: 0 },
+			"not_scheduled",
+			"Not scheduled",
+			"Not scheduled. The email service refused all 3. Accepted 0. Refused 3. No answer 0. The message stays saved in Messages.",
+		],
+		[
+			"error",
+			{ accepted: 0, refused: 0, unknown: 3 },
+			"unknown",
+			"Not confirmed",
+			"Not confirmed. The email service gave no answer. Accepted 0. Refused 0. No answer 3. Check result in Messages to ask it again.",
+		],
+	] as const) {
 		const resend = resendRecorder();
 		resend.batch(mode);
 		const message = await reviewed(friday);
@@ -203,15 +217,16 @@ test("AC:CASE-COM-012 a schedule the email service holds for nobody shows Not sc
 			counts,
 		);
 		const view = await shown(message);
-		assert.equal(view.item.state, "not_scheduled");
-		assert.equal(hubLabel[view.item.state], "Not scheduled");
+		assert.equal(view.item.state, state);
+		assert.equal(hubLabel[view.item.state], label);
 		assert.equal(view.detail.state, "scheduled");
 		assert.equal(view.detail.subject, "Friday gathering");
 		assert.deepEqual(
 			{ accepted: view.totals.accepted, refused: view.totals.failed, unknown: view.totals.unknown },
 			counts,
 		);
-		assert.match(scheduleText(result, "Fri 9:00"), /^Not scheduled\. The email service holds no recipient\./);
+		assert.equal(scheduleText(result, "Fri 9:00"), text);
+		assert.doesNotMatch(scheduleText(result, "Fri 9:00"), /Scheduled|delivered/);
 	}
 
 	// One recipient without an answer: the other two are held, so the message is Scheduled with exact counts.

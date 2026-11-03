@@ -373,7 +373,7 @@ function heldStatus(view: MessageView): { title: string; body: string } {
 		case "not_scheduled":
 			return {
 				title: "Not scheduled",
-				body: `The email service holds no recipient. ${handoffCounts(totals)} The message stays saved.`,
+				body: `The email service refused all ${totals.failed}. ${handoffCounts(totals)} The message stays saved.`,
 			};
 		case "cancel_unconfirmed":
 			return {

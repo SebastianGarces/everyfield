@@ -589,7 +589,7 @@ export function Compose({
 				onOpenChange={(open) => {
 					if (open) return;
 					setPlan(null);
-					if (scheduledId) onDone(scheduledId, "Scheduled. It has not been sent.");
+					if (scheduledId) onDone(scheduledId, scheduledNotSentText);
 				}}
 				title={
 					plan?.kind === "at"

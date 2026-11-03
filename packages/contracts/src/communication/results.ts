@@ -160,7 +160,7 @@ export const retryResult = z.strictObject({
 
 /**
  * The state history shows for a message. `scheduled`: the email service holds at least one recipient for the send
- * time. `not_scheduled`: a scheduled message the email service holds for no recipient. `failed`: a send the email
+ * time. `not_scheduled`: a scheduled message the email service refused for every recipient. `failed`: a send the email
  * service refused for every recipient ("Not sent"). `unknown`: no recipient confirmed ("Not confirmed").
  * `cancel_unconfirmed` and `time_unconfirmed`: a cancel or time change still open for some recipient.
  */

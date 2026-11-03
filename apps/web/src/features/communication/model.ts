@@ -166,11 +166,16 @@ export function deliveryText(report: DeliveryReport): string {
 	return `Not sent. The email service refused all ${report.rejectedCount}. ${counts(report)} The message stays saved in Messages.`;
 }
 
-/** A scheduled handoff result: "Scheduled" only when the email service holds at least one recipient. */
+/**
+ * A scheduled handoff result: "Scheduled" only when the email service holds at least one recipient. With no answer
+ * the email service may still hold it, so that is "Not confirmed"; "Not scheduled" is a refusal for everyone.
+ */
 export function scheduleText(report: DeliveryReport, when: string): string {
-	if (report.acceptedCount === 0)
-		return `Not scheduled. The email service holds no recipient. ${counts(report)} The message stays saved in Messages.`;
-	return `Scheduled for ${when}. The email service holds it until then. ${counts(report)}`;
+	if (report.acceptedCount > 0)
+		return `Scheduled for ${when}. The email service holds it until then. ${counts(report)}`;
+	if (report.unknownCount > 0)
+		return `Not confirmed. The email service gave no answer. ${counts(report)} Check result in Messages to ask it again.`;
+	return `Not scheduled. The email service refused all ${report.rejectedCount}. ${counts(report)} The message stays saved in Messages.`;
 }
 
 const wentOut = (count: number) => `${count} already went out and cannot be recalled.`;

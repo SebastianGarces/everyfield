@@ -110,7 +110,9 @@ function mailOn(plantId: string) {
 /**
  * The state history shows, from the recipient rows only (a scheduled handoff stores the held time on each row; a
  * send-now handoff stores none). "Scheduled" needs at least one recipient the email service accepted and holds. A
- * cancel or time change counts as done only when no accepted recipient is left open.
+ * recipient without an answer makes the handoff "Not confirmed", never "Not scheduled": the email service may hold
+ * it. "Not scheduled" is only a handoff the email service refused for everyone. A cancel or time change counts as
+ * done only when no accepted recipient is left open.
  */
 function hubState(plantId: string) {
 	const on = mailOn(plantId);
@@ -124,8 +126,8 @@ function hubState(plantId: string) {
 		WHEN ${any(sql`m.state = 'accepted' AND m.scheduled_at IS NOT NULL AND m.scheduled_at IS DISTINCT FROM c.scheduled_at`)} THEN 'time_unconfirmed'
 		WHEN ${any(sql`m.state = 'accepted' AND m.scheduled_at IS NOT NULL`)} THEN 'scheduled'
 		WHEN ${any(sql`m.state = 'accepted'`)} THEN 'sending'
-		WHEN ${any(sql`m.scheduled_at IS NOT NULL`)} THEN 'not_scheduled'
 		WHEN ${any(sql`m.state IN ('unknown', 'pending')`)} THEN 'unknown'
+		WHEN ${any(sql`m.scheduled_at IS NOT NULL`)} THEN 'not_scheduled'
 		WHEN ${any(sql`true`)} THEN 'failed'
 		WHEN c.state = 'scheduled' THEN 'not_scheduled'
 		ELSE 'unknown'
