@@ -297,7 +297,10 @@ for (const [name, engine] of ENGINES) {
 			await page.waitForURL(/\/communication\?message=[0-9a-f-]{36}$/);
 			await page
 				.getByRole("status")
-				.filter({ hasText: /^Scheduled for .+ The email service holds it until then\. Accepted \d+\. Refused \d+\. No answer \d+\.$/ })
+				.filter({
+					hasText:
+						/^Scheduled for .+ The email service holds it until then\. Accepted \d+\. Refused \d+\. No answer \d+\.$/,
+				})
 				.waitFor();
 			// The new message is first in the list and open, with the actions of a message the email service holds.
 			const first = page.getByRole("region", { name: "History" }).getByRole("listitem").first();

@@ -34,10 +34,13 @@ export type DeliveryTransport = {
 		signal: AbortSignal,
 	): Promise<DeliveryBatch>;
 	lookup(key: string, signal: AbortSignal): Promise<Exclude<DeliveryBatch, { outcome: "refused" }>>;
-	/** Cancel one held email by the id the email service gave it at handoff, never by the idempotency key. */
-	cancel(providerId: string, signal: AbortSignal): Promise<ProviderAnswer<"cancelled">>;
-	/** Move one held email to `at` by the id the email service gave it at handoff. */
-	reschedule(providerId: string, at: string, signal: AbortSignal): Promise<ProviderAnswer<"moved">>;
+	/**
+	 * Cancel each held email by the id the email service gave it at handoff, never by the idempotency key. One answer
+	 * per id, in the same order.
+	 */
+	cancel(providerIds: readonly string[], signal: AbortSignal): Promise<ProviderAnswer<"cancelled">[]>;
+	/** Move each held email to `at` by the id the email service gave it at handoff. One answer per id, in order. */
+	reschedule(providerIds: readonly string[], at: string, signal: AbortSignal): Promise<ProviderAnswer<"moved">[]>;
 };
 
 type Actor = ReturnType<typeof readerOf>;
@@ -53,21 +56,6 @@ type Member = {
 type Mode = "now" | "scheduled" | "lookup";
 /** Recipients the email service may still hold: a cancel or time change has an answer to wait for. */
 const holding = (row: Member) => row.state === "accepted" || row.state === "unknown" || row.state === "dispatched";
-/** Provider calls in flight at once for a per-recipient cancel or time change. */
-const PROVIDER_CALLS = 8;
-
-async function eachLimited<T, R>(items: readonly T[], run: (item: T) => Promise<R>): Promise<R[]> {
-	const results: R[] = new Array(items.length);
-	let next = 0;
-	const lane = async () => {
-		while (next < items.length) {
-			const index = next++;
-			results[index] = await run(items[index]!);
-		}
-	};
-	await Promise.all(Array.from({ length: Math.min(PROVIDER_CALLS, items.length) }, lane));
-	return results;
-}
 
 const one = (result: { rows: unknown[] }) => result.rows[0];
 const asJson = (value: unknown) => (typeof value === "string" ? JSON.parse(value) : value);
@@ -676,20 +664,27 @@ async function loadHandoff(db: Database, actor: Actor, communicationId: string, 
 	return { found, members: membersOf(found.members) };
 }
 
-/** One call per open recipient that has its own email-service id. A failed or missing answer leaves it open. */
-async function askEach(open: readonly Member[], ask: (providerId: string) => Promise<ProviderAnswer<string>>) {
-	const answers = await eachLimited(
-		open.filter((row) => row.provider !== null),
-		async (row): Promise<Answer | null> => {
-			try {
-				const { outcome } = await ask(row.provider!);
-				return outcome === "unknown" ? null : { position: row.position, outcome: outcome === "sent" ? "sent" : "done" };
-			} catch {
-				return null;
-			}
-		},
-	);
-	return answers.filter((answer): answer is Answer => answer !== null);
+/**
+ * Ask about every open recipient that has its own email-service id, in one transport call. A failed or missing
+ * answer leaves the recipient open.
+ */
+async function askEach(
+	open: readonly Member[],
+	ask: (providerIds: readonly string[]) => Promise<readonly ProviderAnswer<string>[]>,
+): Promise<Answer[]> {
+	const asked = open.filter((row) => row.provider !== null);
+	if (!asked.length) return [];
+	let replies: readonly ProviderAnswer<string>[];
+	try {
+		replies = await ask(asked.map((row) => row.provider!));
+	} catch {
+		return [];
+	}
+	return asked.flatMap((row, index): Answer[] => {
+		const outcome = replies[index]?.outcome ?? "unknown";
+		if (outcome === "unknown") return [];
+		return [{ position: row.position, outcome: outcome === "sent" ? "sent" : "done" }];
+	});
 }
 
 /**
@@ -767,7 +762,7 @@ export function cancelScheduled(db: Database, authority: RequestActor, raw: unkn
 						${"cancel-request/" + found.id}, '{}'::jsonb, jsonb_build_object('requested', (SELECT count(*) FROM updated))
 					WHERE EXISTS (SELECT 1 FROM updated)
 					ON CONFLICT (subject_id, event_key) DO NOTHING`);
-			const answers = await askEach(open, (providerId) => transport.cancel(providerId, signal()));
+			const answers = await askEach(open, (providerIds) => transport.cancel(providerIds, signal()));
 			next = answered(members, answers, (row) => ({ ...row, state: "cancelled" }));
 			if (answers.length) {
 				const openCount = next.filter(holding).length;
@@ -853,7 +848,7 @@ export function rescheduleDispatched(
 		);
 		let next = members;
 		if (found.request_id && open.length) {
-			const answers = await askEach(open, (providerId) => transport.reschedule(providerId, requested, signal()));
+			const answers = await askEach(open, (providerIds) => transport.reschedule(providerIds, requested, signal()));
 			next = answered(members, answers, (row) => ({ ...row, scheduledAt: requested }));
 			if (answers.length) {
 				const left = open.length - answers.length;

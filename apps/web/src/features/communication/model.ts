@@ -159,7 +159,10 @@ const counts = (report: DeliveryReport) =>
 	`Accepted ${report.acceptedCount}. Refused ${report.rejectedCount}. No answer ${report.unknownCount}.`;
 
 /** The headline of a handoff. Acceptance is not arrival, and an answer that never came is not a success. */
-export function deliveryHeadline(report: DeliveryReport, held: boolean): "Scheduled" | "Not scheduled" | "Not sent" | "Not confirmed" | "Accepted" {
+export function deliveryHeadline(
+	report: DeliveryReport,
+	held: boolean,
+): "Scheduled" | "Not scheduled" | "Not sent" | "Not confirmed" | "Accepted" {
 	if (report.acceptedCount > 0) return held ? "Scheduled" : "Accepted";
 	if (held) return "Not scheduled";
 	return report.unknownCount > 0 ? "Not confirmed" : "Not sent";
@@ -182,7 +185,8 @@ export function scheduleText(report: DeliveryReport, when: string): string {
 	return `Scheduled for ${when}. The email service holds it until then. ${counts(report)}`;
 }
 
-const wentOut = (n: number) => (n === 1 ? "1 already went out and cannot be recalled." : `${n} already went out and cannot be recalled.`);
+const wentOut = (n: number) =>
+	n === 1 ? "1 already went out and cannot be recalled." : `${n} already went out and cannot be recalled.`;
 
 export function cancelText(report: CancelReport): string {
 	if (report.scheduledCancel === "none") return "Nothing is waiting at the email service to cancel.";

@@ -19,7 +19,8 @@ after(() => f?.close());
 /** The invitee turned off every update email they can turn off (Wiki upstream review has no email to turn off). */
 async function updatesOff(accountId) {
 	for (const category of notificationCategory.options.filter((name) => name !== "wiki_upstream_review"))
-		await f.admin.execute(sql`INSERT INTO notification_preference (id, account_id, category, channel, enabled, unsubscribe_revision)
+		await f.admin
+			.execute(sql`INSERT INTO notification_preference (id, account_id, category, channel, enabled, unsubscribe_revision)
 			VALUES (${randomUUID()}, ${accountId}, ${category}, 'email', false, 1)`);
 }
 const sentTo = (address) => f.effects.filter((effect) => effect.to === address);
@@ -47,7 +48,8 @@ test("AC:CASE-NTF-011 an invitation to an address blocked after a bounce is not 
 	for (const kind of ["plant", "sending_church"]) {
 		const s = await f.setup(kind);
 		const eventId = randomUUID();
-		await f.admin.execute(sql`INSERT INTO provider_event(id,event_key,message_id,kind,occurred_at,received_at,payload_hash,safe_payload)
+		await f.admin
+			.execute(sql`INSERT INTO provider_event(id,event_key,message_id,kind,occurred_at,received_at,payload_hash,safe_payload)
 			VALUES(${eventId},${"seed-" + eventId},${"seed-" + eventId},'bounced',clock_timestamp(),clock_timestamp(),'x','{"hard_bounce":true}'::jsonb)`);
 		await f.admin.execute(sql`INSERT INTO suppression(address_hash,reason,source_event_id,suppressed_at)
 			VALUES(${f.addressHash(s.recipient.email)},'hard_bounce',${eventId},clock_timestamp())`);
@@ -74,7 +76,9 @@ test("AC:CASE-NTF-011 an invitation to an address blocked after a bounce is not 
 			[],
 		);
 		assert.deepEqual(
-			await rows(sql`SELECT id FROM mail WHERE tenant_id = ${s.w.id} AND purpose IN ('seat_invitation', 'relationship_invitation')`),
+			await rows(
+				sql`SELECT id FROM mail WHERE tenant_id = ${s.w.id} AND purpose IN ('seat_invitation', 'relationship_invitation')`,
+			),
 			[],
 		);
 		const pending = await f.invitations.list(actor, { workspace: s.w });

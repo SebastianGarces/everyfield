@@ -354,7 +354,9 @@ export function Compose({
 		keys.settle("save", result);
 		keys.settle("schedule", result);
 		if (result.status !== "ok")
-			throw new Error(outcomeText(result) ?? (plan.kind === "now" ? "The email was not sent." : "The email was not scheduled."));
+			throw new Error(
+				outcomeText(result) ?? (plan.kind === "now" ? "The email was not sent." : "The email was not scheduled."),
+			);
 		keys.settle("send", { status: "ok", value: null });
 		const { report, communicationId } = result.value;
 		if (report === null) {

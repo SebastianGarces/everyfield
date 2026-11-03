@@ -24,7 +24,8 @@ const ok = (result) => {
 async function bounce(address) {
 	const hash = createHmac("sha256", keys.addressKey).update(address).digest("hex");
 	const eventId = randomUUID();
-	await f.admin.execute(sql`INSERT INTO provider_event(id,event_key,message_id,kind,occurred_at,received_at,payload_hash,safe_payload)
+	await f.admin
+		.execute(sql`INSERT INTO provider_event(id,event_key,message_id,kind,occurred_at,received_at,payload_hash,safe_payload)
 		VALUES(${eventId},${"seed-" + eventId},${"seed-" + eventId},'bounced',clock_timestamp(),clock_timestamp(),'x','{"hard_bounce":true}'::jsonb)`);
 	await f.admin.execute(sql`INSERT INTO suppression(address_hash,reason,source_event_id,suppressed_at)
 		VALUES(${hash},'hard_bounce',${eventId},clock_timestamp()) ON CONFLICT(address_hash) DO UPDATE
@@ -59,7 +60,8 @@ async function listed(who) {
 async function seated(name) {
 	const account = await f.account();
 	await f.seat(account, plant, name === "Pat Owner" ? "owner" : "admin");
-	await f.admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,email,source,stage,adult_classification,
+	await f.admin
+		.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,email,source,stage,adult_classification,
 		commitment_state,pipeline_position,state,created_at,linked_account_id)
 		VALUES(${randomUUID()},${plant.id},${plant.id},${name},${account.email},'other','prospect','unknown','unknown',0,'live',
 		clock_timestamp(),${account.id})`);

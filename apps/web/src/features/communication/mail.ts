@@ -156,6 +156,25 @@ const emailBody = z.object({
 	scheduled_at: z.string().nullable().optional(),
 });
 
+/**
+ * Requests in flight at once for a per-recipient cancel or time change. Resend limits each team's request rate, so a
+ * recipient whose call is refused for rate stays open and the next Check again asks for it.
+ */
+const PROVIDER_CALLS = 8;
+
+async function eachLimited<T, R>(items: readonly T[], run: (item: T) => Promise<R>): Promise<R[]> {
+	const results: R[] = new Array(items.length);
+	let next = 0;
+	const lane = async () => {
+		while (next < items.length) {
+			const index = next++;
+			results[index] = await run(items[index]!);
+		}
+	};
+	await Promise.all(Array.from({ length: Math.min(PROVIDER_CALLS, items.length) }, lane));
+	return results;
+}
+
 /** Resend writes `2026-08-05 11:52:01.858+00`; the ISO form parses the same instant. */
 const instantOf = (text: string) => Date.parse(text.replace(" ", "T").replace(/([+-]\d\d)$/, "$1:00"));
 
@@ -173,7 +192,11 @@ export function deliveryTransport(
 		});
 
 	/** What the email service says about one email after a cancel or move it did not confirm. */
-	async function inspect(id: string, movedTo: string | null, signal: AbortSignal): Promise<"done" | "sent" | "unknown"> {
+	async function inspect(
+		id: string,
+		movedTo: string | null,
+		signal: AbortSignal,
+	): Promise<"done" | "sent" | "unknown"> {
 		const response = await call(`/emails/${encodeURIComponent(id)}`, { method: "GET", signal });
 		if (!response.ok) {
 			await response.body?.cancel();
@@ -189,11 +212,7 @@ export function deliveryTransport(
 	}
 
 	/** One cancel or move by the email's own id. A refusal is checked against the email's current state. */
-	async function change(
-		id: string,
-		movedTo: string | null,
-		signal: AbortSignal,
-	): Promise<"done" | "sent" | "unknown"> {
+	async function change(id: string, movedTo: string | null, signal: AbortSignal): Promise<"done" | "sent" | "unknown"> {
 		if (ready.apiKey === null) {
 			if (await captureSilent()) return "unknown";
 			return movedTo === null ? cancelCaptured(id) : moveCaptured(id, movedTo);
@@ -273,13 +292,17 @@ export function deliveryTransport(
 		async lookup() {
 			return { outcome: "unknown" };
 		},
-		async cancel(providerId, signal) {
-			const outcome = await change(providerId, null, signal);
-			return { outcome: outcome === "done" ? "cancelled" : outcome };
+		cancel(providerIds, signal) {
+			return eachLimited(providerIds, async (id) => {
+				const outcome = await change(id, null, signal);
+				return { outcome: outcome === "done" ? ("cancelled" as const) : outcome };
+			});
 		},
-		async reschedule(providerId, at, signal) {
-			const outcome = await change(providerId, at, signal);
-			return { outcome: outcome === "done" ? "moved" : outcome };
+		reschedule(providerIds, at, signal) {
+			return eachLimited(providerIds, async (id) => {
+				const outcome = await change(id, at, signal);
+				return { outcome: outcome === "done" ? ("moved" as const) : outcome };
+			});
 		},
 	};
 }

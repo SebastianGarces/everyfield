@@ -393,7 +393,12 @@ function ScheduledPanel({ view, actions }: { view: MessageView; actions: Schedul
 	const held = state === "scheduled" || state === "time_unconfirmed";
 	const unconfirmed = state === "cancel_unconfirmed" || state === "time_unconfirmed";
 	const secondary = (name: string, label: string, run: () => void) => (
-		<Button variant="secondary" onClick={run} loading={actions.pending === name} disabled={busy && actions.pending !== name}>
+		<Button
+			variant="secondary"
+			onClick={run}
+			loading={actions.pending === name}
+			disabled={busy && actions.pending !== name}
+		>
 			{label}
 		</Button>
 	);
@@ -442,7 +447,9 @@ function ScheduledPanel({ view, actions }: { view: MessageView; actions: Schedul
 						Cancel scheduled email
 					</Button>
 				) : null}
-				{state === "unknown" || state === "sending" ? secondary("reconcile", "Check result", actions.onReconcile) : null}
+				{state === "unknown" || state === "sending"
+					? secondary("reconcile", "Check result", actions.onReconcile)
+					: null}
 				{state === "cancelled" || state === "cancel_unconfirmed"
 					? secondary("replace", "Check replacement", actions.onReplace)
 					: null}
@@ -854,7 +861,10 @@ function Browser({
 						void act(
 							"cancel",
 							() => cancelScheduled(keys.take("cancel"), view.detail.revision, view.detail.communicationId),
-							(report) => ({ text: cancelText(report), tone: report.scheduledCancel === "reconcile" ? "alert" : "status" }),
+							(report) => ({
+								text: cancelText(report),
+								tone: report.scheduledCancel === "reconcile" ? "alert" : "status",
+							}),
 						),
 					onCheckTime: recheckTime,
 					onReconcile: () =>

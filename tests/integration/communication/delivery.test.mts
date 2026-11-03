@@ -71,9 +71,9 @@ function port(behavior) {
 			calls.lookup += 1;
 			return behavior.lookup(providerKey, calls);
 		},
-		async cancel() {
+		async cancel(ids) {
 			calls.cancel += 1;
-			return behavior.cancel ? behavior.cancel() : { outcome: "unknown" };
+			return ids.map(() => (behavior.cancel ? behavior.cancel() : { outcome: "unknown" }));
 		},
 		async reschedule() {
 			calls.reschedule += 1;

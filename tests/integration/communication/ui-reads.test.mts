@@ -129,8 +129,8 @@ function carrier(behavior) {
 		async lookup() {
 			return { outcome: "unknown" };
 		},
-		async cancel() {
-			return { outcome: "unknown" };
+		async cancel(ids) {
+			return ids.map(() => ({ outcome: "unknown" }));
 		},
 		async reschedule() {
 			throw new Error("provider_timeout");

@@ -112,8 +112,10 @@ test("AC:CASE-COM-012 a scheduled capture waits in the outbox, and cancel and ti
 	setEnv({});
 	const ready = mailReady()!;
 	const settled: string[] = [];
-	const capture = deliveryTransport(ready, () => Promise.reject(new Error("provider called")), (ids) =>
-		settled.push(...ids),
+	const capture = deliveryTransport(
+		ready,
+		() => Promise.reject(new Error("provider called")),
+		(ids) => settled.push(...ids),
 	);
 	const signal = () => AbortSignal.timeout(1_000);
 	const friday = new Date(Date.now() + 3 * 86_400_000).toISOString();
@@ -136,49 +138,65 @@ test("AC:CASE-COM-012 a scheduled capture waits in the outbox, and cancel and ti
 	const entry = async (id: string) => JSON.parse(await readFile(join(outbox, `${id}.json`), "utf8"));
 	assert.equal((await entry(first!)).scheduledAt, friday);
 
-	assert.deepEqual(await capture.reschedule(first!, saturday, signal()), { outcome: "moved" });
+	assert.deepEqual(await capture.reschedule([first!], saturday, signal()), [{ outcome: "moved" }]);
 	assert.equal((await entry(first!)).scheduledAt, saturday);
-	assert.deepEqual(await capture.reschedule(first!, saturday, signal()), { outcome: "moved" });
-	assert.deepEqual(await capture.cancel(second!, signal()), { outcome: "cancelled" });
+	assert.deepEqual(await capture.reschedule([first!], saturday, signal()), [{ outcome: "moved" }]);
+	assert.deepEqual(await capture.cancel([second!], signal()), [{ outcome: "cancelled" }]);
 	assert.equal((await entry(second!)).cancelled, true);
-	assert.deepEqual(await capture.cancel(second!, signal()), { outcome: "cancelled" });
-	assert.deepEqual(await capture.reschedule(second!, saturday, signal()), { outcome: "unknown" });
-	assert.deepEqual(await capture.cancel("capture-00000000-0000-0000-0000-000000000000", signal()), {
-		outcome: "unknown",
-	});
-	assert.deepEqual(await capture.cancel("../escape", signal()), { outcome: "unknown" });
+	assert.deepEqual(await capture.cancel([second!], signal()), [{ outcome: "cancelled" }]);
+	assert.deepEqual(await capture.reschedule([second!], saturday, signal()), [{ outcome: "unknown" }]);
+	assert.deepEqual(await capture.cancel(["capture-00000000-0000-0000-0000-000000000000"], signal()), [
+		{ outcome: "unknown" },
+	]);
+	assert.deepEqual(await capture.cancel(["../escape"], signal()), [{ outcome: "unknown" }]);
 
 	// A capture whose time has passed went out: it can no longer be cancelled or moved.
 	const past = await capture.send(
-		{ key: "k-now", messages: [{ to: "cy@example.test", subject: "Now", html: "<p>c</p>", text: "c" }], scheduledAt: null },
+		{
+			key: "k-now",
+			messages: [{ to: "cy@example.test", subject: "Now", html: "<p>c</p>", text: "c" }],
+			scheduledAt: null,
+		},
 		signal(),
 	);
 	const sentId = past.outcome === "ids" ? past.ids[0]! : "";
-	assert.deepEqual(await capture.cancel(sentId, signal()), { outcome: "sent" });
-	assert.deepEqual(await capture.reschedule(sentId, saturday, signal()), { outcome: "sent" });
+	assert.deepEqual(await capture.cancel([sentId], signal()), [{ outcome: "sent" }]);
+	assert.deepEqual(await capture.reschedule([sentId], saturday, signal()), [{ outcome: "sent" }]);
 });
 
 test("AC:CASE-COM-012 the no-answer switch makes the capture answer nothing, so each not-confirmed state can be shown", async () => {
 	setEnv({});
 	const ready = mailReady()!;
-	const capture = deliveryTransport(ready, () => Promise.reject(new Error("provider called")), () => {});
+	const capture = deliveryTransport(
+		ready,
+		() => Promise.reject(new Error("provider called")),
+		() => {},
+	);
 	const signal = () => AbortSignal.timeout(1_000);
 	const friday = new Date(Date.now() + 3 * 86_400_000).toISOString();
 	const held = await capture.send(
-		{ key: "k-quiet", messages: [{ to: "dee@example.test", subject: "Q", html: "<p>d</p>", text: "d" }], scheduledAt: friday },
+		{
+			key: "k-quiet",
+			messages: [{ to: "dee@example.test", subject: "Q", html: "<p>d</p>", text: "d" }],
+			scheduledAt: friday,
+		},
 		signal(),
 	);
 	const id = held.outcome === "ids" ? held.ids[0]! : "";
 	const before = (await readOutbox(outbox)).length;
 	await writeFile(join(outbox, NO_ANSWER_FILE), "");
 	try {
-		assert.deepEqual(await capture.cancel(id, signal()), { outcome: "unknown" });
-		assert.deepEqual(await capture.reschedule(id, new Date(Date.now() + 5 * 86_400_000).toISOString(), signal()), {
-			outcome: "unknown",
-		});
+		assert.deepEqual(await capture.cancel([id], signal()), [{ outcome: "unknown" }]);
+		assert.deepEqual(await capture.reschedule([id], new Date(Date.now() + 5 * 86_400_000).toISOString(), signal()), [
+			{ outcome: "unknown" },
+		]);
 		assert.deepEqual(
 			await capture.send(
-				{ key: "k-q2", messages: [{ to: "eli@example.test", subject: "Q", html: "<p>e</p>", text: "e" }], scheduledAt: null },
+				{
+					key: "k-q2",
+					messages: [{ to: "eli@example.test", subject: "Q", html: "<p>e</p>", text: "e" }],
+					scheduledAt: null,
+				},
 				signal(),
 			),
 			{ outcome: "unknown" },
@@ -187,5 +205,5 @@ test("AC:CASE-COM-012 the no-answer switch makes the capture answer nothing, so 
 	} finally {
 		await rm(join(outbox, NO_ANSWER_FILE));
 	}
-	assert.deepEqual(await capture.cancel(id, signal()), { outcome: "cancelled" });
+	assert.deepEqual(await capture.cancel([id], signal()), [{ outcome: "cancelled" }]);
 });

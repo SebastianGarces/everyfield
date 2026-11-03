@@ -111,7 +111,11 @@ const move = async (message, at, transport) =>
 	communicationWriter.rescheduleDispatched(
 		f.db,
 		owner.actor,
-		{ requestKey: key(), expectedRevision: await revisionOf(message), input: { communicationId: message.id, scheduledAt: at } },
+		{
+			requestKey: key(),
+			expectedRevision: await revisionOf(message),
+			input: { communicationId: message.id, scheduledAt: at },
+		},
 		transport,
 	);
 const revisionOf = async (message) =>
@@ -178,7 +182,10 @@ test("AC:CASE-COM-012 AC:GAP-COM-012 AC:MAIL51-003 AC:CASE-COM-005 a scheduled m
 		{ accepted: view.totals.accepted, refused: view.totals.failed, unknown: view.totals.unknown },
 		{ accepted: 3, refused: 0, unknown: 0 },
 	);
-	assert.equal(scheduleText(result, "Fri 9:00"), "Scheduled for Fri 9:00. The email service holds it until then. Accepted 3. Refused 0. No answer 0.");
+	assert.equal(
+		scheduleText(result, "Fri 9:00"),
+		"Scheduled for Fri 9:00. The email service holds it until then. Accepted 3. Refused 0. No answer 0.",
+	);
 });
 
 test("AC:CASE-COM-012 a schedule the email service holds for nobody shows Not scheduled with the counts and stays saved", async () => {
@@ -200,7 +207,10 @@ test("AC:CASE-COM-012 a schedule the email service holds for nobody shows Not sc
 		assert.equal(hubLabel[view.item.state], "Not scheduled");
 		assert.equal(view.detail.state, "scheduled");
 		assert.equal(view.detail.subject, "Friday gathering");
-		assert.deepEqual({ accepted: view.totals.accepted, refused: view.totals.failed, unknown: view.totals.unknown }, counts);
+		assert.deepEqual(
+			{ accepted: view.totals.accepted, refused: view.totals.failed, unknown: view.totals.unknown },
+			counts,
+		);
 		assert.match(scheduleText(result, "Fri 9:00"), /^Not scheduled\. The email service holds no recipient\./);
 	}
 
@@ -224,19 +234,29 @@ test("AC:MAIL51-005 AC:MAIL51-007 a cancel is Cancelled only after the email ser
 
 	const result = ok(await cancel(message, resend.transport));
 	const calls = resend.take();
-	assert.deepEqual(
-		calls.map((call) => `${call.method} ${call.path}`).sort(),
-		["POST /emails/re-1/cancel", "POST /emails/re-2/cancel", "POST /emails/re-3/cancel"],
-	);
+	assert.deepEqual(calls.map((call) => `${call.method} ${call.path}`).sort(), [
+		"POST /emails/re-1/cancel",
+		"POST /emails/re-2/cancel",
+		"POST /emails/re-3/cancel",
+	]);
 	assert.ok(calls.every((call) => !call.path.includes(stored[0].provider_key) && call.idempotencyKey === null));
 	assert.deepEqual(
-		{ status: result.scheduledCancel, confirmed: result.confirmedCount, open: result.openCount, sent: result.sentCount },
+		{
+			status: result.scheduledCancel,
+			confirmed: result.confirmedCount,
+			open: result.openCount,
+			sent: result.sentCount,
+		},
 		{ status: "confirmed", confirmed: 3, open: 0, sent: 0 },
 	);
 	assert.equal(cancelText(result), "Cancelled. The email service confirmed the cancel for 3.");
 	assert.deepEqual(
 		(await mailOf(message)).map((row) => [row.state, row.cancel_confirmed]),
-		[["cancelled", true], ["cancelled", true], ["cancelled", true]],
+		[
+			["cancelled", true],
+			["cancelled", true],
+			["cancelled", true],
+		],
 	);
 	const view = await shown(message);
 	assert.equal(view.item.state, "cancelled");
@@ -279,7 +299,11 @@ test("AC:MAIL51-005 AC:MAIL51-007 a cancel without every answer is Cancel not co
 	resend.fault("re-3", null);
 	const second = ok(await cancel(message, resend.transport));
 	assert.deepEqual(
-		resend.take().filter((call) => call.method === "POST").map((call) => call.path).sort(),
+		resend
+			.take()
+			.filter((call) => call.method === "POST")
+			.map((call) => call.path)
+			.sort(),
 		["/emails/re-2/cancel", "/emails/re-3/cancel"],
 	);
 	assert.deepEqual([second.scheduledCancel, second.confirmedCount, second.openCount], ["reconcile", 2, 1]);
@@ -393,7 +417,12 @@ test("AC:MAIL51-005 AC:MAIL51-007 an email the service already sent shows as sen
 	resend.wentOut("re-2");
 	const result = ok(await cancel(message, resend.transport));
 	assert.deepEqual(
-		{ status: result.scheduledCancel, confirmed: result.confirmedCount, sent: result.sentCount, open: result.openCount },
+		{
+			status: result.scheduledCancel,
+			confirmed: result.confirmedCount,
+			sent: result.sentCount,
+			open: result.openCount,
+		},
 		{ status: "confirmed", confirmed: 2, sent: 1, open: 0 },
 	);
 	assert.equal(
@@ -424,7 +453,12 @@ test("AC:CASE-COM-005 Send now that the email service refuses is Not sent, stays
 	const message = await reviewed(plantTime("Fri", 9));
 	const result = ok(await handOff(message, resend.transport, "sendReviewed"));
 	assert.deepEqual(
-		{ status: result.status, accepted: result.acceptedCount, refused: result.rejectedCount, unknown: result.unknownCount },
+		{
+			status: result.status,
+			accepted: result.acceptedCount,
+			refused: result.rejectedCount,
+			unknown: result.unknownCount,
+		},
 		{ status: "failed", accepted: 0, refused: 3, unknown: 0 },
 	);
 	assert.equal(
@@ -438,7 +472,9 @@ test("AC:CASE-COM-005 Send now that the email service refuses is Not sent, stays
 	assert.equal(view.detail.subject, "Friday gathering");
 
 	// Send now again from history: the same answer, and the email service is not asked again.
-	const again = ok(await handOff({ ...message, revision: await revisionOf(message) }, resend.transport, "sendReviewed"));
+	const again = ok(
+		await handOff({ ...message, revision: await revisionOf(message) }, resend.transport, "sendReviewed"),
+	);
 	assert.deepEqual([again.status, again.acceptedCount, again.rejectedCount, again.unknownCount], ["failed", 0, 3, 0]);
 	assert.equal(deliveryText(again), deliveryText(result));
 	assert.deepEqual(resend.take(), []);
@@ -451,7 +487,11 @@ test("AC:CASE-COM-005 a mixed result shows exact counts, an all-unknown result i
 	// One recipient's address is blocked after an earlier bounce, so it is refused before the email service is asked.
 	const blocked = `blocked-${key().slice(0, 8)}@example.test`;
 	await blockAddress(blocked);
-	const mixed = await reviewed(plantTime("Fri", 9), [await person("Dee", blocked), await person("Eli"), await person("Fay")]);
+	const mixed = await reviewed(plantTime("Fri", 9), [
+		await person("Dee", blocked),
+		await person("Eli"),
+		await person("Fay"),
+	]);
 	const result = ok(await handOff(mixed, resend.transport, "sendReviewed"));
 	assert.deepEqual(
 		{ accepted: result.acceptedCount, refused: result.rejectedCount, unknown: result.unknownCount },
@@ -476,10 +516,9 @@ test("AC:CASE-COM-005 a mixed result shows exact counts, an all-unknown result i
 
 	const tally = { confirmedCount: 1, sentCount: 1, openCount: 1 };
 	const texts = [
-		...[result, unknown, { status: "failed", acceptedCount: 0, rejectedCount: 2, unknownCount: 0 }].flatMap((report) => [
-			deliveryText(report),
-			scheduleText(report, "Friday"),
-		]),
+		...[result, unknown, { status: "failed", acceptedCount: 0, rejectedCount: 2, unknownCount: 0 }].flatMap(
+			(report) => [deliveryText(report), scheduleText(report, "Friday")],
+		),
 		...["confirmed", "reconcile", "none"].map((scheduledCancel) => cancelText({ ...tally, scheduledCancel })),
 		...["accepted", "unknown"].map((rescheduleStatus) =>
 			rescheduleText({ ...tally, rescheduleStatus, scheduledAt: "2026-11-07T15:00:00.000Z", heldAt: null }, String),
@@ -493,7 +532,8 @@ async function blockAddress(address) {
 	const { createHmac } = await import("node:crypto");
 	const hash = createHmac("sha256", keys.addressKey).update(address).digest("hex");
 	const eventId = randomUUID();
-	await f.admin.execute(sql`INSERT INTO provider_event(id,event_key,message_id,kind,occurred_at,received_at,payload_hash,safe_payload)
+	await f.admin
+		.execute(sql`INSERT INTO provider_event(id,event_key,message_id,kind,occurred_at,received_at,payload_hash,safe_payload)
 		VALUES(${eventId},${"seed-" + eventId},${"seed-" + eventId},'bounced',clock_timestamp(),clock_timestamp(),'x','{"hard_bounce":true}'::jsonb)`);
 	await f.admin.execute(sql`INSERT INTO suppression(address_hash,reason,source_event_id,suppressed_at)
 		VALUES(${hash},'hard_bounce',${eventId},clock_timestamp())`);

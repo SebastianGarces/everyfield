@@ -57,7 +57,9 @@ async function untouched(meetingId) {
 		guests: list.guests,
 		rsvpCounts: counts,
 		attendedCount: list.guests.filter((g) => g.presence === "attended").length,
-		attendance: ok(await f.db.transaction((tx) => attendanceReader.listAttendance(tx, owner.actor, { meetingId, limit: 500 }))),
+		attendance: ok(
+			await f.db.transaction((tx) => attendanceReader.listAttendance(tx, owner.actor, { meetingId, limit: 500 })),
+		),
 		analytics: ok(await f.db.transaction((tx) => attendanceReader.readAnalytics(tx, owner.actor, { meetingId }))),
 		participation: await rows(sql`SELECT person_id, rsvp, rsvp_source, presence, revision FROM participation
 			WHERE meeting_id = ${meetingId} ORDER BY person_id`),
@@ -104,7 +106,10 @@ test("AC:CASE-COM-010 a guest who opened the meeting email shows Email opened wi
 			return communicationWriter.scheduleReviewed(tx, ctx, {
 				requestKey: randomUUID(),
 				expectedRevision: saved.value.revision,
-				input: { communicationId: saved.value.communicationId, scheduledAt: new Date(Date.now() + 86_400_000).toISOString() },
+				input: {
+					communicationId: saved.value.communicationId,
+					scheduledAt: new Date(Date.now() + 86_400_000).toISOString(),
+				},
 			});
 		}),
 	);
@@ -112,7 +117,11 @@ test("AC:CASE-COM-010 a guest who opened the meeting email shows Email opened wi
 		await communicationWriter.sendReviewed(
 			f.db,
 			owner.actor,
-			{ requestKey: randomUUID(), expectedRevision: scheduled.revision, input: { communicationId: scheduled.communicationId } },
+			{
+				requestKey: randomUUID(),
+				expectedRevision: scheduled.revision,
+				input: { communicationId: scheduled.communicationId },
+			},
 			{
 				async send(batch) {
 					return { outcome: "ids", ids: batch.messages.map((_, i) => `prov-open-${scheduled.communicationId}-${i}`) };
@@ -120,11 +129,11 @@ test("AC:CASE-COM-010 a guest who opened the meeting email shows Email opened wi
 				async lookup() {
 					return { outcome: "unknown" };
 				},
-				async cancel() {
-					return { outcome: "unknown" };
+				async cancel(ids) {
+					return ids.map(() => ({ outcome: "unknown" }));
 				},
-				async reschedule() {
-					return { outcome: "unknown" };
+				async reschedule(ids) {
+					return ids.map(() => ({ outcome: "unknown" }));
 				},
 			},
 			keys,
