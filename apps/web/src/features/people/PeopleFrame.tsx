@@ -18,6 +18,7 @@ import { AppShell, RoleBanner, type ShellNav } from "@everyfield/ui/shell";
 import { usePathname } from "next/navigation";
 import { createContext, use, useState, type ReactNode } from "react";
 import { useEvryPanel } from "../evry/conversation/EvryPanel.tsx";
+import { evryOff } from "../intelligence/path.ts";
 import { useNotificationBell } from "../notifications/Bell.tsx";
 import { NotificationsProvider } from "../notifications/feed.tsx";
 import { AccountMenu } from "../settings/AccountMenu";
@@ -129,10 +130,12 @@ export function PeopleFrame({ settings: initial, seed, ...props }: FrameProps) {
 function Frame({ name, settings, seed = null, children }: FrameProps) {
 	const toast = useToast();
 	const dialog = useProductSettings(settings, seed);
-	const evry = useEvryPanel({ inPlant: settings?.context === "plant" });
+	const pathname = usePathname();
+	// Evry is off while the private check-in is open: its panel closes and Ask Evry says so (REQ-PI-038).
+	const privatePage = evryOff(pathname);
+	const evry = useEvryPanel({ inPlant: settings?.context === "plant", off: privatePage });
 	const bell = useNotificationBell();
 	const wiki = useWikiChrome();
-	const pathname = usePathname();
 	const role = settings && settings.context !== "account" ? settings.role : null;
 	// A plant Member reads People and Tasks and works on their own tasks; organization seats have neither.
 	const banner =
@@ -176,7 +179,14 @@ function Frame({ name, settings, seed = null, children }: FrameProps) {
 		<AppShell
 			nav={nav}
 			user={{ name, initials: initials(name), detail: role ? ROLE[role] : "" }}
-			userMenu={<AccountMenu name={name} detail={seat} onAccount={() => dialog.open("account")} />}
+			userMenu={
+				<AccountMenu
+					name={name}
+					detail={seat}
+					onAccount={() => dialog.open("account")}
+					checkIn={settings?.context === "plant" && role !== "member"}
+				/>
+			}
 			homeHref="/people"
 			unread={bell.unread}
 			width="wide"
@@ -190,7 +200,7 @@ function Frame({ name, settings, seed = null, children }: FrameProps) {
 				else later("Search")();
 			}}
 			onNotifications={bell.open}
-			onAskEvry={evry.open}
+			onAskEvry={privatePage ? undefined : evry.open}
 			banner={banner}
 		>
 			{children}

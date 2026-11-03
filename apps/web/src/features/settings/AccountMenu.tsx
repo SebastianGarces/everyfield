@@ -1,6 +1,6 @@
 "use client";
 
-import { Logout01Icon, ShieldUserIcon, UserIcon, UserMultipleIcon } from "@hugeicons/core-free-icons";
+import { LockKeyIcon, Logout01Icon, ShieldUserIcon, UserIcon, UserMultipleIcon } from "@hugeicons/core-free-icons";
 import { MenuItem, MenuLabel, MenuSeparator, useToast } from "@everyfield/ui/controls";
 import { useRouter } from "next/navigation";
 import { identityApi, loadPage } from "../identity/api";
@@ -11,7 +11,18 @@ import { SECTION_LABEL } from "./model";
  * Sign out. The AppShell's name button opens it on every signed-in page. Seats and Sharing are offered to every seat:
  * Members read them and the pages themselves hide every change a Member may not make.
  */
-export function AccountMenu({ name, detail, onAccount }: { name: string; detail: string; onAccount: () => void }) {
+export function AccountMenu({
+	name,
+	detail,
+	onAccount,
+	checkIn = false,
+}: {
+	name: string;
+	detail: string;
+	onAccount: () => void;
+	/** A plant Owner or Admin has a private weekly check-in; a Member has no entry point (REQ-PI-038). */
+	checkIn?: boolean;
+}) {
 	const router = useRouter();
 	const toast = useToast();
 
@@ -38,6 +49,15 @@ export function AccountMenu({ name, detail, onAccount }: { name: string; detail:
 			<MenuItem icon={ShieldUserIcon} onSelect={() => router.push("/settings/sharing")}>
 				{SECTION_LABEL.sharing}
 			</MenuItem>
+			{checkIn ? (
+				<>
+					<MenuSeparator />
+					<MenuItem icon={LockKeyIcon} onSelect={() => router.push("/me/check-in")}>
+						My weekly check-in
+						<span className="ml-2 rounded-sm bg-violet-100 px-1.5 text-xs font-semibold text-violet-600">Private</span>
+					</MenuItem>
+				</>
+			) : null}
 			<MenuSeparator />
 			<MenuItem icon={Logout01Icon} danger onSelect={signOut}>
 				Sign out

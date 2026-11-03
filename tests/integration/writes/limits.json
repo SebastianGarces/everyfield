@@ -38,6 +38,12 @@
 	"GET /intelligence": {
 		"limit": 2
 	},
+	"GET /me/check-in": {
+		"limit": 2
+	},
+	"GET /me/check-in (member)": {
+		"limit": 1
+	},
 	"GET /ministries?view=chart": {
 		"limit": 3
 	},
@@ -164,6 +170,15 @@
 	},
 	"POST phases.movePhase": {
 		"limit": 4
+	},
+	"POST intelligence.saveCheckIn": {
+		"limit": 2
+	},
+	"POST intelligence.correctCheckIn": {
+		"limit": 2
+	},
+	"POST intelligence.readCheckInHistory": {
+		"limit": 2
 	},
 	"accountPerson.ensureAccountPerson": {
 		"limit": 5
@@ -1711,6 +1726,21 @@
 		"limit": 2
 	},
 	"phases.readHistory": {
+		"limit": 1
+	},
+	"privateCare.correct": {
+		"limit": 1
+	},
+	"privateCare.readCurrent": {
+		"limit": 1
+	},
+	"privateCare.readHistory": {
+		"limit": 1
+	},
+	"privateCare.readTrends": {
+		"limit": 1
+	},
+	"privateCare.save": {
 		"limit": 1
 	},
 	"phases.transition": {
