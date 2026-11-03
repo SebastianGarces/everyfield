@@ -39,6 +39,7 @@ type AcRow = {
 
 const MAIN = join(import.meta.dirname, "main.ts");
 const REPORTER = pathToFileURL(join(import.meta.dirname, "ac-reporter.mjs")).href;
+const VIDEO = pathToFileURL(join(import.meta.dirname, "ac-video.mjs")).href;
 /** A browser run of one marker on one engine may take this long before evf browser run stops it. */
 const BROWSER_TIMEOUT_SECONDS = 1800;
 
@@ -99,6 +100,7 @@ function nodeTest(wt: string, files: string[], marker: string, engine: Engine, e
 	try {
 		const test = [
 			"--test",
+			...(engine === "node" ? [] : [`--import=${VIDEO}`]),
 			`--test-name-pattern=${markerPattern(marker)}`,
 			`--test-reporter=${REPORTER}`,
 			`--test-reporter-destination=${out}`,

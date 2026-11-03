@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
@@ -202,7 +203,7 @@ test("task spec: a UI spec needs one valid Check: line per criterion; tooling sp
 const UI_STUB = `import test from "node:test";
 import { appendFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-const log = (name) => appendFileSync(process.env.AC_STUB_LOG, JSON.stringify({ name, engine: process.env.UI_ENGINE, url: process.env.UI_BASE_URL, video: process.env.EVF_AC_VIDEO_DIR, browserRun: !!process.env.EVF_BROWSER_RUN }) + "\\n");
+const log = (name) => appendFileSync(process.env.AC_STUB_LOG, JSON.stringify({ name, engine: process.env.UI_ENGINE, url: process.env.UI_BASE_URL, video: process.env.EVF_AC_VIDEO_DIR, browserRun: !!process.env.EVF_BROWSER_RUN, preload: process.execArgv.some((a) => a.endsWith("tools/evf/ac-video.mjs")) }) + "\\n");
 	test("the oversight page lists every escalation AC:WP-005/ui-1", () => {
 	log("one");
 	writeFileSync(join(process.env.EVF_AC_VIDEO_DIR, "flow.webm"), "video");
@@ -259,12 +260,12 @@ test("ac run: marked tests run on Chromium and WebKit inside evf browser run aga
 			.split("\n")
 			.map((l) => JSON.parse(l));
 		assert.deepEqual(
-			calls.map((c) => [c.name, c.engine, c.url, c.browserRun]),
+			calls.map((c) => [c.name, c.engine, c.url, c.browserRun, c.preload]),
 			[
-				["one", "chromium", url, true],
-				["one", "webkit", url, true],
+				["one", "chromium", url, true, true],
+				["one", "webkit", url, true, true],
 			],
-			"only the marked browser test runs, once per engine, inside evf browser run; -1 never runs -10",
+			"only the marked browser test runs, once per engine, inside evf browser run with the video preload; -1 never runs -10",
 		);
 		for (const c of calls) {
 			assert.ok(!c.video.startsWith(f.wt), "videos go outside the repository");
@@ -331,35 +332,49 @@ test("ac run: marked tests run on Chromium and WebKit inside evf browser run aga
 	}
 });
 
-test("video: tests/ui/setup.mjs records every context of an ENGINES browser when EVF_AC_VIDEO_DIR is set (AC:OPS-112-8)", () => {
-	const probe = `
-const { recording } = await import(${JSON.stringify(pathToFileURL(join(source, "tests/ui/setup.mjs")).href)});
-const fake = { name: () => "fake", executablePath: () => "/fake/browser", launch: async () => ({ newContext: async (opts) => opts }) };
-const engine = recording(fake);
-const browser = await engine.launch({});
-console.log(JSON.stringify({
-	same: engine === fake,
-	path: engine.executablePath(),
-	small: await browser.newContext({ viewport: { width: 390, height: 844 } }),
-	plain: await browser.newContext(),
-}));`;
-	const run = (env: Record<string, string>) => {
-		const r = spawnSync(process.execPath, ["--input-type=module", "-e", probe], {
-			cwd: source,
-			encoding: "utf8",
-			env: { ...process.env, EVF_AC_VIDEO_DIR: "", ...env },
-		});
-		assert.equal(r.status, 0, r.stderr);
-		return JSON.parse(r.stdout);
-	};
-	const on = run({ EVF_AC_VIDEO_DIR: "/tmp/evf-ac-video" });
-	assert.equal(on.same, false);
-	assert.equal(on.path, "/fake/browser", "the wrapped engine keeps the engine's methods");
-	assert.deepEqual(on.small.recordVideo, { dir: "/tmp/evf-ac-video", size: { width: 390, height: 844 } });
-	assert.deepEqual(on.plain.recordVideo, { dir: "/tmp/evf-ac-video", size: { width: 1440, height: 900 } });
-	const off = run({});
-	assert.equal(off.same, true, "without the variable the engine is untouched");
-	assert.equal(off.small.recordVideo, undefined);
+test("video: the evf ac run preload makes every context of a launched browser record when EVF_AC_VIDEO_DIR is set (AC:OPS-112-8)", () => {
+	const dir = mkdtempSync(join(tmpdir(), "evf-ac-video-"));
+	try {
+		// A fake Playwright where the worktree keeps the real one; a browser test file loads it as tests/ui/setup.mjs does.
+		const pw = join(dir, "apps/web/node_modules/playwright");
+		mkdirSync(pw, { recursive: true });
+		writeFileSync(
+			join(pw, "index.mjs"),
+			`class BrowserType { constructor(name) { this.n = name; } name() { return this.n; } async launch() { return { newContext: async (opts) => opts, async newPage(opts = {}) { return this.newContext(opts); } }; } }
+export const chromium = new BrowserType("chromium"), webkit = new BrowserType("webkit");`,
+		);
+		writeFileSync(
+			join(dir, "probe.test.mjs"),
+			`import test from "node:test";
+import { appendFileSync } from "node:fs";
+import { chromium, webkit } from "./apps/web/node_modules/playwright/index.mjs";
+test("probe", async () => {
+	const b = await webkit.launch({});
+	appendFileSync("out.jsonl", JSON.stringify({ small: await b.newContext({ viewport: { width: 390, height: 844 } }), page: await b.newPage(), name: chromium.name() }) + "\\n");
+});`,
+		);
+		// Inside a node:test process this names the parent's protocol; the nested run would then skip its files.
+		const { NODE_TEST_CONTEXT: _, ...env } = process.env;
+		const run = (video: string) => {
+			const r = spawnSync(
+				process.execPath,
+				["--test", `--import=${pathToFileURL(join(source, "tools/evf/ac-video.mjs")).href}`, "probe.test.mjs"],
+				{ cwd: dir, encoding: "utf8", env: { ...env, EVF_AC_VIDEO_DIR: video } },
+			);
+			assert.equal(r.status, 0, `${r.stdout}${r.stderr}`);
+			const lines = readFileSync(join(dir, "out.jsonl"), "utf8").trim().split("\n");
+			rmSync(join(dir, "out.jsonl"));
+			return JSON.parse(lines.at(-1)!);
+		};
+		const on = run("/tmp/evf-ac-video");
+		assert.deepEqual(on.small.recordVideo, { dir: "/tmp/evf-ac-video", size: { width: 390, height: 844 } });
+		assert.deepEqual(on.page.recordVideo, { dir: "/tmp/evf-ac-video", size: { width: 1440, height: 900 } });
+		assert.equal(on.name, "chromium", "the patched engines keep their methods");
+		const off = run("");
+		assert.equal(off.small.recordVideo, undefined, "without the variable nothing records");
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
 });
 
 test("pr body: an AC: row of the proof table links its video unless only tools/evf/tests tests prove it (AC:OPS-112-9)", () => {

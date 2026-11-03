@@ -1,6 +1,6 @@
 // The one browser setup for every tests/ui suite. The preview URL comes from UI_BASE_URL. Portless previews use a local
 // certificate the test browsers do not know, so every context ignores HTTPS errors. UI_ENGINE=chromium|webkit limits a
-// run to one engine. EVF_AC_VIDEO_DIR records video of every context (evf ac run, OPS-112). Seeded suites read the fixture their seed wrote (tests/ui/seed-env.mts).
+// run to one engine. Seeded suites read the fixture their seed wrote (tests/ui/seed-env.mts).
 //   UI_BASE_URL=https://wp-....localhost:1355 corepack pnpm test:ui
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -8,31 +8,9 @@ import { chromium, webkit } from "../../apps/web/node_modules/playwright/index.m
 
 export const BASE = process.env.UI_BASE_URL;
 
-/**
- * With EVF_AC_VIDEO_DIR set (evf ac run sets it per criterion and engine, outside the repository), every context a
- * browser from ENGINES opens records video there, as capture.mjs records its flows: withPage contexts and the contexts
- * of suites that call browser.newContext themselves. Playwright writes the file when the context or browser closes.
- */
-const VIDEO_DIR = process.env.EVF_AC_VIDEO_DIR;
-export const recording = (engine) =>
-	VIDEO_DIR
-		? Object.assign(Object.create(engine), {
-				launch: async (options) => {
-					const browser = await engine.launch(options);
-					const newContext = browser.newContext.bind(browser);
-					browser.newContext = (opts = {}) =>
-						newContext({
-							recordVideo: { dir: VIDEO_DIR, size: opts.viewport ?? { width: 1440, height: 900 } },
-							...opts,
-						});
-					return browser;
-				},
-			})
-		: engine;
-
 export const ENGINES = [
-	["chromium", recording(chromium)],
-	["webkit", recording(webkit)],
+	["chromium", chromium],
+	["webkit", webkit],
 ].filter(([name]) => !process.env.UI_ENGINE || process.env.UI_ENGINE === name);
 
 /**

@@ -410,8 +410,10 @@ every criterion. Prototype plan specs and specs stored before OPS-112 keep the e
 run once with `UI_ENGINE=chromium` and once with `UI_ENGINE=webkit`, inside `evf browser run`, with `UI_BASE_URL` set
 to the worktree's newest ready portless preview. It refuses when that preview serves another head than HEAD, and it
 refuses a dirty worktree, because the rows bind to HEAD. `EVF_AC_VIDEO_DIR` points each browser run at
-`<git common dir>/evf/evidence/<task>/<head>/ac/criterion-<n>/<engine>/`, outside the repository; `tests/ui/setup.mjs`
-then records video of every context the `ENGINES` browsers open, `withPage` and suites with their own contexts alike.
+`<git common dir>/evf/evidence/<task>/<head>/ac/criterion-<n>/<engine>/`, outside the repository. Each browser run also loads
+`tools/evf/ac-video.mjs` with `node --test --import`: it patches the worktree's Playwright so every context a launched
+browser opens records video there, `withPage` and suites with their own contexts alike. `tests/ui/setup.mjs` stays
+unchanged, because an OPS task cannot own app test code.
 
 After the run evf writes one proof row per `AC:` criterion at HEAD, `written_by = 'evf'` (store migration 011): `met`
 only when at least one test carries the marker and every such test passed on every engine it ran on (a skipped or

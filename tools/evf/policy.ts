@@ -121,8 +121,6 @@ export function maintenanceScope(checkout: string, task: TaskRef, rev = "HEAD"):
 		"design/handoff/screens.md",
 		"scripts/preview.json",
 		"scripts/stack.mjs",
-		// The one browser setup of tests/ui: evf ac run turns its video recording on (OPS-112). Suites stay app-owned.
-		"tests/ui/setup.mjs",
 	];
 	const directories = [".agents/", ".claude/", "docs/", "tools/evf/", "tools/evf-tui/", "tests/workflow/", ".github/"];
 	if (scope.route === "design") {
