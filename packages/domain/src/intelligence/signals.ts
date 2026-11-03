@@ -64,9 +64,9 @@ const iso = (value: SQL) => sql`to_char(${value} AT TIME ZONE 'UTC','YYYY-MM-DD"
 const nameOf = (account: SQL, s: Scope) =>
 	sql`(SELECT np.display_name FROM person np WHERE np.tenant_id=${s.plant}::uuid AND np.linked_account_id=${account} LIMIT 1)`;
 /** One revision row `r` as a signal or candidate states it. */
-const stateJson = (r: SQL, s: Scope) =>
+const stateJson = (r: SQL, s: Scope, revision: SQL = sql`${r}.revision`) =>
 	sql`jsonb_build_object('key',${r}.key,'kind',${r}.kind,'answer',${r}.answer,'asOf',${r}.as_of,'detail',${r}.detail,
- 'reference',${r}.reference,'revision',${r}.revision::text,'authorName',${nameOf(sql`${r}.author_id`, s)},
+ 'reference',${r}.reference,'revision',(${revision})::text,'authorName',${nameOf(sql`${r}.author_id`, s)},
  'recordedAt',${iso(sql`${r}.recorded_at`)},'periodStart',${r}.period_start,'periodEnd',${r}.period_end,
  'attended',${r}.attendance_continuous,'volunteered',${r}.volunteering_continuous)`;
 /** The church's own calendar day for the statement clock. */
@@ -335,10 +335,11 @@ export function createSignals(config: { clock?: Clock } = {}) {
 				const { rows } = await db.execute(sql`WITH gate AS (SELECT ${s.ok} AS ok),
  ctx AS (SELECT pl.timezone AS zone,(${s.at} AT TIME ZONE pl.timezone)::date AS today FROM plant pl
   WHERE pl.id=${s.plant}::uuid AND (SELECT ok FROM gate)),
- sig AS (SELECT r.* FROM attestation a JOIN attestation_revision r ON r.attestation_id=a.id AND r.revision=a.revision
+ sig AS (SELECT r.*,a.revision AS cur_rev FROM attestation a
+  JOIN LATERAL (SELECT x.* FROM attestation_revision x WHERE x.attestation_id=a.id ORDER BY x.revision DESC LIMIT 1) r ON true
   WHERE a.plant_id=${s.plant}::uuid AND a.person_id IS NULL AND a.key IN (${MANUAL}) AND (SELECT ok FROM gate)),
- cand AS (SELECT r.*,pe.id AS pid,pe.display_name AS pname FROM attestation a
-  JOIN attestation_revision r ON r.attestation_id=a.id AND r.revision=a.revision
+ cand AS (SELECT r.*,a.revision AS cur_rev,pe.id AS pid,pe.display_name AS pname FROM attestation a
+  JOIN LATERAL (SELECT x.* FROM attestation_revision x WHERE x.attestation_id=a.id ORDER BY x.revision DESC LIMIT 1) r ON true
   JOIN person pe ON pe.id=a.person_id AND pe.tenant_id=a.plant_id AND pe.state='live'
   WHERE a.plant_id=${s.plant}::uuid AND a.key='leadership_candidate' AND (SELECT ok FROM gate)),
  ppl AS (SELECT pe.id,pe.display_name,coalesce(a.revision,0) AS rev FROM person pe
@@ -348,8 +349,8 @@ export function createSignals(config: { clock?: Clock } = {}) {
  hist AS (SELECT r.* FROM attestation_revision r WHERE r.plant_id=${s.plant}::uuid AND (SELECT ok FROM gate)
   ORDER BY r.recorded_at DESC,r.revision DESC,r.id LIMIT ${PAGE_HISTORY})
  SELECT (SELECT ok FROM gate) AS ok,(SELECT zone FROM ctx) AS zone,(SELECT today FROM ctx)::text AS today,
- coalesce((SELECT jsonb_agg(${stateJson(sql`x`, s)}) FROM sig x),'[]'::jsonb) AS signals,
- coalesce((SELECT jsonb_agg(${stateJson(sql`x`, s)}||jsonb_build_object('personId',x.pid,'personName',x.pname)
+ coalesce((SELECT jsonb_agg(${stateJson(sql`x`, s, sql`x.cur_rev`)}) FROM sig x),'[]'::jsonb) AS signals,
+ coalesce((SELECT jsonb_agg(${stateJson(sql`x`, s, sql`x.cur_rev`)}||jsonb_build_object('personId',x.pid,'personName',x.pname)
   ORDER BY x.recorded_at DESC) FROM cand x),'[]'::jsonb) AS candidates,
  coalesce((SELECT jsonb_agg(jsonb_build_object('id',p.id,'displayName',p.display_name,'candidateRevision',p.rev::text)
   ORDER BY p.display_name,p.id) FROM ppl p),'[]'::jsonb) AS people,
