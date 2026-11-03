@@ -228,12 +228,10 @@ export function approve(root: string, n: number, opts: { ownerApproval?: string;
 		fail(
 			`PR #${n} changes ${route.what}. Name the head Sebastian approved: bin/evf approve ${n} --owner-approval "<his words>" --head ${head}`,
 		);
-	if (opts.head && !head.startsWith(opts.head)) {
-		const stale = run("git", ["-C", root, "rev-parse", "--verify", "--quiet", `${opts.head}^{commit}`]).stdout.trim();
+	if (opts.head && !head.startsWith(opts.head))
 		fail(
-			`PR #${n} head is ${head.slice(0, 10)}, not the ${opts.head} Sebastian approved. His approval does not carry over: ${again}.${stale ? `\n${commitList(commitsAfter(root, stale, head))}` : ""}`,
+			`PR #${n} head is ${head.slice(0, 10)}, not the ${opts.head} Sebastian approved. His approval does not carry over: ${again}.\n${commitList(commitsAfter(root, opts.head, head))}`,
 		);
-	}
 	if (route.kind === "ordinary") return recordOwnerApproval(root, n, route.task, head, words);
 	// Updating the branch would create a head Sebastian never saw, so approve never updates it.
 	if (pr.mergeStateStatus === "BEHIND")

@@ -236,9 +236,8 @@ export const ownerLine = (r: OwnerRecord): string => `EVF-Owner: ${JSON.stringif
 function readOwnerRecord(value: unknown): OwnerRecord | undefined {
 	if (!value || typeof value !== "object") return undefined;
 	const { head, quote, at } = value as Record<string, unknown>;
-	if (typeof head !== "string" || !/^[0-9a-f]{40}$/.test(head)) return undefined;
-	if (typeof quote !== "string" || quote.trim().split(/\s+/).filter(Boolean).length < 2) return undefined;
-	if (typeof at !== "string" || Number.isNaN(Date.parse(at))) return undefined;
+	if (typeof head !== "string" || !/^[0-9a-f]{40}$/.test(head) || typeof quote !== "string" || typeof at !== "string")
+		return undefined;
 	return { head, quote, at };
 }
 
