@@ -419,5 +419,8 @@ test("AC:OPS-127-10 the QA runbook names articles A and B, the church and the ne
 		"Updated since you read it",
 	])
 		assert.ok(runbook.includes(text), `the runbook names ${text}`);
-	assert.match(runbook, /The church has people, .*a sending church .*Grace Fellowship \(QA\).* and a sending network/s);
+	assert.match(
+		runbook,
+		/The church has people, .*a sending church, "Grace Fellowship \(QA\)", and a sending network,\s+"Harvest Network \(QA\)"/s,
+	);
 });
