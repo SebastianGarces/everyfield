@@ -29,6 +29,7 @@ import {
 	rateText,
 	replaceText,
 	rescheduleText,
+	sentNote,
 	type ContactRow,
 	type DeliveryReport,
 	type DetailRecipient,
@@ -331,7 +332,6 @@ type ScheduledActions = {
 	onSendNow: () => void;
 	onCancel: () => void;
 	onCheckCancel: () => void;
-	onCheckTime: (requestedAt: string) => void;
 	onReconcile: () => void;
 	onReplace: () => void;
 	onReschedule: (instant: Date) => void;
@@ -344,7 +344,7 @@ const handoffCounts = (totals: MessageView["totals"]) =>
 /** Headline and detail for the message's state at the email service. Each line comes only from confirmed answers. */
 function heldStatus(view: MessageView): { title: string; body: string } {
 	const { totals, detail } = view;
-	const went = totals.sent > 0 ? ` ${totals.sent} already went out and cannot be recalled.` : "";
+	const went = sentNote(totals.sent);
 	switch (totals.state) {
 		case "scheduled":
 			return {
@@ -421,7 +421,7 @@ function ScheduledPanel({ view, actions }: { view: MessageView; actions: Schedul
 			<div className="flex flex-wrap gap-2">
 				{state === "cancel_unconfirmed" ? action("cancel", "Check again", actions.onCheckCancel, "primary") : null}
 				{state === "time_unconfirmed" && requestedAt
-					? action("reschedule", "Check again", () => actions.onCheckTime(requestedAt), "primary")
+					? action("reschedule", "Check again", () => actions.onReschedule(new Date(requestedAt)), "primary")
 					: null}
 				{!held && !unconfirmed && state !== "cancelled" ? (
 					<Button variant="primary" onClick={actions.onSendNow} disabled={busy}>
@@ -824,16 +824,6 @@ function Browser({
 		view.totals.state !== "sent" &&
 		view.totals.state !== "draft";
 
-	const recheckTime = (at: string) =>
-		void act(
-			"reschedule",
-			() => rescheduleDispatched(keys.take("reschedule"), view!.detail.revision, view!.detail.communicationId, at),
-			(report) => ({
-				text: rescheduleText(report, when),
-				tone: report.rescheduleStatus === "unknown" ? "alert" : "status",
-			}),
-		);
-
 	const actions: ScheduledActions | null =
 		scheduledShown && view
 			? {
@@ -850,7 +840,6 @@ function Browser({
 								tone: report.scheduledCancel === "reconcile" ? "alert" : "status",
 							}),
 						),
-					onCheckTime: recheckTime,
 					onReconcile: () =>
 						void act(
 							"reconcile",
@@ -876,7 +865,21 @@ function Browser({
 							() => replaceScheduled(keys.take("replace"), view.detail.revision, view.detail.communicationId),
 							(report) => ({ text: replaceText(report), tone: "status" }),
 						),
-					onReschedule: (instant) => recheckTime(instant.toISOString()),
+					onReschedule: (instant) =>
+						void act(
+							"reschedule",
+							() =>
+								rescheduleDispatched(
+									keys.take("reschedule"),
+									view.detail.revision,
+									view.detail.communicationId,
+									instant.toISOString(),
+								),
+							(report) => ({
+								text: rescheduleText(report, when),
+								tone: report.rescheduleStatus === "unknown" ? "alert" : "status",
+							}),
+						),
 				}
 			: null;
 
