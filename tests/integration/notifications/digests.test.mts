@@ -153,7 +153,9 @@ async function feed(who: { session: string }, category: "planter_digest" | "over
 	assert.ok(actor instanceof RequestActor);
 	const r = await feedApi.readFeed(runtime, actor, { category });
 	assert.equal(r.status, "ok", JSON.stringify(r));
-	return (r as { value: { items: { title: string; body: string | null; category: string }[] } }).value.items;
+	return (
+		r as { value: { items: { title: string; body: string | null; category: string; dueLocalDate: string | null }[] } }
+	).value.items;
 }
 /** Dispatch every due mail job through the fake provider, as the mail worker will. */
 async function dispatchAll() {
@@ -204,10 +206,11 @@ test("AC:NOTIFY47-004 WP-030 criteria 1-3: the church digest reaches the bell an
 	};
 	for (const who of [both, bellOnly]) {
 		const [entry] = await feed(who, "planter_digest");
-		assert.deepEqual(entry && { title: entry.title, body: entry.body, category: entry.category }, {
-			...expected,
-			category: "planter_digest",
-		});
+		// A digest has no due date: the entry shows no "Due" label.
+		assert.deepEqual(
+			entry && { title: entry.title, body: entry.body, category: entry.category, due: entry.dueLocalDate },
+			{ ...expected, category: "planter_digest", due: null },
+		);
 		assert.equal((await notices(who.id)).length, 1);
 	}
 	// Criterion 2: email on → one planter_digest intent with the same items; email off → none, the bell still shows it.

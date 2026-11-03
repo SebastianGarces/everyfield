@@ -198,9 +198,9 @@ export function createDigestWorker(config: { mail: ReturnType<typeof createMailS
 				WHERE id = ${row.coverage}::uuid AND revision = ${row.revision}::bigint RETURNING id, revision
 			), notices AS (
 				INSERT INTO notice(id, tenant_id, recipient_id, category, purpose, logical_key, source_record_id, source_revision,
-					title, safe_body, eligible_at, created_at, schedule_date, timezone, archived_at)
+					title, safe_body, eligible_at, created_at, timezone, archived_at)
 				SELECT ${notice}::uuid, ${tenant}::uuid, ${recipient}::uuid, 'digest', ${category}, ${key}, a.id, a.revision,
-					${text.title}, ${text.lines.join(" ")}, clock_timestamp(), clock_timestamp(), ${period.end}::date, ${row.zone},
+					${text.title}, ${text.lines.join(" ")}, clock_timestamp(), clock_timestamp(), ${row.zone},
 					CASE WHEN ${inApp}::boolean THEN NULL ELSE clock_timestamp() END
 				FROM advanced a WHERE ${send}::boolean
 				ON CONFLICT (recipient_id, logical_key) DO NOTHING RETURNING id
