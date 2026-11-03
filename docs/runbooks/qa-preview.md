@@ -1,7 +1,7 @@
 # QA preview runbook (OPS-106)
 
 A QA preview is a Vercel preview of one branch with its own database. It gives Nora a working copy of the app to test,
-with seeded data, three known logins and the same shared credentials as every preview. Nothing builds on a normal push
+with seeded data, five known logins and the same shared credentials as every preview. Nothing builds on a normal push
 or PR. A preview exists only when someone asks for one, and the lead removes it when the testing ends.
 
 `bin/evf qa` is the only sanctioned way to make a Vercel preview deployment (AGENTS.md).
@@ -37,15 +37,49 @@ If a step fails, the command removes what it made and prints the error with ever
 
 ### Logins on every QA preview
 
-| Role   | Email                           | Password                  |
-|--------|---------------------------------|---------------------------|
-| Owner  | `delivered+qa-owner@resend.dev`  | `Everyfield-QA-preview-1` |
-| Admin  | `delivered+qa-admin@resend.dev`  | `Everyfield-QA-preview-1` |
-| Member | `delivered+qa-member@resend.dev` | `Everyfield-QA-preview-1` |
+| Role                    | Email                                       | Password                  |
+|-------------------------|---------------------------------------------|---------------------------|
+| Owner                   | `delivered+qa-owner@resend.dev`             | `Everyfield-QA-preview-1` |
+| Admin                   | `delivered+qa-admin@resend.dev`             | `Everyfield-QA-preview-1` |
+| Member                  | `delivered+qa-member@resend.dev`            | `Everyfield-QA-preview-1` |
+| Network Admin           | `delivered+qa-network-admin@resend.dev`     | `Everyfield-QA-preview-1` |
+| Sending-church director | `delivered+qa-sending-director@resend.dev`  | `Everyfield-QA-preview-1` |
 
-These accounts exist only on QA Neon branches, behind Vercel Deployment Protection. Each one lands on the test church
-"Harvest Point (QA)". The church has people, a household, three teams, two meetings, tasks, two follow-ups, a written
-document, a draft message and the wiki.
+These accounts exist only on QA Neon branches, behind Vercel Deployment Protection. The Owner, Admin and Member land on
+the test church "Harvest Point (QA)". The church has people, a household, three teams, two meetings, tasks, two
+follow-ups, a written document, a draft message, the wiki and the Owner's private check-in history (below). It also has
+a sending church, "Grace Fellowship (QA)", and a sending network,
+"Harvest Network (QA)". Both share the wiki with Harvest Point (QA). Grace Fellowship (QA) has no login.
+
+The last two logins test the overseeing side. The Network Admin is an Admin of the network "Harvest Network (QA)". The
+sending-church director is the Owner of the sending church "Grace Church (QA)". Each organization oversees Harvest
+Point (QA): the church's Owner sent each one a connection request, and the organization's login accepted it.
+
+- To see the connection, sign in as one of these logins and open `/settings/sharing`. Harvest Point (QA) is in the
+  "Connected churches" list.
+- `/home` shows "This account is for an organization". The app has no organization home page yet, so this is expected.
+- These logins do not see planter-private data such as check-ins. They see the church only through what the
+  connection shares.
+
+### Church, network and revised wiki articles (OPS-127)
+
+The seed gives two wiki articles a known state, so Nora can test what a planter sees. Sign in as the owner and open the
+Wiki.
+
+- **Article A, "First Year Budget Planning".** Grace Fellowship (QA) and Harvest Network (QA) each have a published
+  version of it. The owner sees the church version: the title ends in "(Grace Fellowship (QA))", the line under the
+  title shows the "Church version" tag and the name "Grace Fellowship (QA)", and the body starts with "This is the
+  church version from Grace Fellowship (QA)." The source bar above the article shows "Source Grace Fellowship (QA)".
+  Open it: "Read this article from" lists Grace Fellowship (QA), Harvest Network (QA) and Global. Harvest Network (QA)
+  shows the "Network version" tag and its own title and body. Global shows the Everyfield article with no version tag.
+- **Article B, "Setting Up a Not-for-Profit Corporation".** The article has a second revision. Its title ends in
+  "(revised)" and its body starts with "Revised for QA". The owner finished the first revision a week ago, so the line
+  under the title shows "Read" and "Updated since you read it". The admin and member have not read it, so they see
+  no update note.
+
+The seed picks these two articles as the first and second article by position, then by slug, in the active wiki
+release of the development database. If the development wiki changes, the seed can pick other articles. Its output
+names the two titles ("wiki copies of …" and "wiki revision of …"), so check them when you send the URL to Nora.
 
 ### Check-in history on the owner login
 
