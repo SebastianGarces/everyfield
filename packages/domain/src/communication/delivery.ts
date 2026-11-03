@@ -331,6 +331,8 @@ async function prepare(
 	loaded: Awaited<ReturnType<typeof openLoaded>>,
 	keys: ReturnType<typeof keysOf>,
 	mode: Mode,
+	/** The send time the email service holds for a scheduled handoff; null for send now. */
+	heldUntil: string | null,
 ): Promise<Prepared> {
 	const { found } = loaded;
 	if (found.request_id && found.provider_key && found.attempt_id) {
@@ -343,8 +345,6 @@ async function prepare(
 		};
 	}
 	if (mode === "lookup") deny("not_found");
-	// A scheduled handoff stores the time the email service holds on each recipient row; a send-now handoff stores none.
-	const heldUntil = mode === "scheduled" ? found.scheduled_at : null;
 	// A message with an RSVP link needs an open meeting whose guest list the links come from.
 	const linked = usesRsvpLink(found.body_html);
 	// A link needs an https origin; without one the field renders nothing and no token is minted.
@@ -578,11 +578,12 @@ async function handoff(
 	const actor = requireActor(authority);
 	const opened = await openLoaded(db, actor, input.input.communicationId, input.expectedRevision);
 	const ready = keysOf(keys);
-	// The email service holds a scheduled email for at most 30 days and sends a past time at once.
+	// The email service holds a scheduled email for at most 30 days and sends a past time at once. A scheduled
+	// handoff stores the held time on each recipient row; a send-now handoff stores none.
 	const heldUntil = mode === "scheduled" ? opened.found.scheduled_at : null;
 	if (mode === "scheduled" && (!heldUntil || !scheduleAccepted(new Date(), new Date(heldUntil))))
 		deny("schedule_window_exceeded", { providerHandoffs: 0 });
-	const prepared = await prepare(db, actor, opened, ready, mode);
+	const prepared = await prepare(db, actor, opened, ready, mode, heldUntil);
 	if (prepared.kind === "done") return dispatchValue(input.input.communicationId, prepared.members, 0, "failed");
 	const open = prepared.members.filter((row) => row.state === "dispatched" || row.state === "unknown");
 	if (!open.length) return dispatchValue(input.input.communicationId, prepared.members, 0, "accepted");
