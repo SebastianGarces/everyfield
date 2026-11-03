@@ -79,13 +79,21 @@ async function assignLead(
 			.returning();
 	}
 	if (team!.leader_person_id && team!.leader_person_id !== personId) deny("conflict");
-	const tenures = await tx
-		.select()
-		.from(t.team_tenure)
-		.where(
-			and(eq(t.team_tenure.plant_id, plantId), eq(t.team_tenure.role_id, role!.id), isNull(t.team_tenure.ended_on)),
-		)
-		.for("update");
+	// A role created just now has no holder to read.
+	const tenures =
+		selection.kind === "minimal_role"
+			? []
+			: await tx
+					.select()
+					.from(t.team_tenure)
+					.where(
+						and(
+							eq(t.team_tenure.plant_id, plantId),
+							eq(t.team_tenure.role_id, role!.id),
+							isNull(t.team_tenure.ended_on),
+						),
+					)
+					.for("update");
 	if (tenures.some((r) => r.person_id !== personId)) deny("conflict");
 	if (!tenures.length)
 		await tx.insert(t.team_tenure).values({
@@ -105,6 +113,75 @@ async function assignLead(
 			})
 			.where(eq(t.team.id, team!.id));
 	return { teamId: team!.id, roleId: role!.id, personId };
+}
+/**
+ * The optional Senior pastor fill (REQ-IDN-014): the planter's lead role becomes the Leadership template's Senior pastor
+ * role. A missing Leadership ministry or role is created with only that role, so no other template role or ministry
+ * appears. A role another person holds is kept: the answer is null and the planter's own lead role applies instead. A
+ * leader the ministry already has stays its leader.
+ */
+async function fillSeniorPastor(tx: Tx, plantId: string, personId: string) {
+	// One locking read: the Leadership template ministry, its Senior pastor role and who holds that role now.
+	const found = await tx.execute(sql`SELECT t.id AS "teamId", t.leader_person_id AS "leaderId", r.id AS "roleId",
+			h.person_id AS "holderId"
+		FROM team t
+		LEFT JOIN LATERAL (SELECT id FROM team_role WHERE team_id = t.id AND plant_id = t.plant_id
+			AND template_key = 'senior_pastor' AND retired_at IS NULL ORDER BY sort_order, id LIMIT 1 FOR UPDATE) r ON true
+		LEFT JOIN LATERAL (SELECT person_id FROM team_tenure WHERE role_id = r.id AND plant_id = t.plant_id
+			AND ended_on IS NULL FOR UPDATE) h ON true
+		WHERE t.plant_id = ${plantId}::uuid AND t.template_key = 'leadership' AND t.archived_at IS NULL
+		ORDER BY t.sort_order, t.id LIMIT 1 FOR UPDATE OF t`);
+	const row = z
+		.object({
+			teamId: z.uuid(),
+			leaderId: z.uuid().nullable(),
+			roleId: z.uuid().nullable(),
+			holderId: z.uuid().nullable(),
+		})
+		.optional()
+		.parse(found.rows[0]);
+	if (row?.holderId && row.holderId !== personId) return null;
+	const teamId =
+		row?.teamId ??
+		(
+			await tx
+				.insert(t.team)
+				.values({ plant_id: plantId, name: "Leadership", template_key: "leadership", state: "forming", sort_order: 0 })
+				.returning({ id: t.team.id })
+		)[0]!.id;
+	const roleId =
+		row?.roleId ??
+		(
+			await tx
+				.insert(t.team_role)
+				.values({
+					plant_id: plantId,
+					team_id: teamId,
+					name: "Senior pastor",
+					template_key: "senior_pastor",
+					leadership: true,
+					sort_order: 0,
+				})
+				.returning({ id: t.team_role.id })
+		)[0]!.id;
+	if (!row?.holderId)
+		await tx.insert(t.team_tenure).values({
+			plant_id: plantId,
+			role_id: roleId,
+			person_id: personId,
+			started_on: sql`(clock_timestamp() AT TIME ZONE (SELECT timezone FROM plant WHERE id=${plantId}))::date`,
+		});
+	if (!row?.leaderId)
+		await tx
+			.update(t.team)
+			.set({
+				leader_person_id: personId,
+				leader_source: "role_derived",
+				leader_role_id: roleId,
+				revision: sql`${t.team.revision}+1`,
+			})
+			.where(eq(t.team.id, teamId));
+	return { teamId, roleId, personId };
 }
 export const setup: Pick<OnboardingProducer<Tx>, "answerLead" | "declareJourney" | "complete" | "getResume"> = {
 	async answerLead(tx, ctx, raw) {
@@ -127,11 +204,14 @@ export const setup: Pick<OnboardingProducer<Tx>, "answerLead" | "declareJourney"
 			if (cx.kind === "replay") return c.leadAnswerResult.parse(cx.value);
 			revision(q.expectedRevision, a.plant.revision);
 			const at = await stamp(tx, a.plant.id);
+			const filled =
+				q.input.answer === "yes" && q.input.seniorPastor ? await fillSeniorPastor(tx, a.plant.id, person.id) : null;
 			const lead = savedLead.parse(
 				q.input.answer === "yes"
 					? {
 							answer: "yes",
-							assignment: await assignLead(tx, a.plant.id, person.id, q.input.assignment),
+							assignment: filled ?? (await assignLead(tx, a.plant.id, person.id, q.input.assignment)),
+							...(q.input.seniorPastor ? { seniorPastor: filled ? "filled" : "occupied" } : {}),
 							savedAt: at,
 						}
 					: { answer: q.input.answer, savedAt: at },

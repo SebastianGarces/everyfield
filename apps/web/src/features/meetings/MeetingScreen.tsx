@@ -107,6 +107,7 @@ import { defaultTab, nextStep, pickTab, type Primary, type TabId } from "./next-
 import { deleteFromList } from "./deletions.ts";
 import { applyChange, withAttendees, type Change, type GuestRow, type PageView } from "./page-state.ts";
 import { PlanMeetingDialog } from "./PlanMeetingDialog.tsx";
+import { RosterUpdate } from "./RosterUpdate.tsx";
 import type { MeetingPageData } from "./server.ts";
 
 // Width-gated classes for the Kit tab's fill height. Tailwind reads class names as literals, so each is spelled out.
@@ -582,7 +583,10 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 							<Icon icon={Location01Icon} size={16} className="text-text-3" />
 							{m.venue ? `${m.venue.name}, ${m.venue.address}` : "No place yet"}
 						</span>
-						<span className="text-text-3">{TYPE_LABEL[m.type]}</span>
+						<span className="text-text-3">
+							{TYPE_LABEL[m.type]}
+							{m.team ? ` · ${m.team.name}` : ""}
+						</span>
 					</span>
 				}
 				actions={actions}
@@ -620,6 +624,18 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 								className={cn("flex flex-col gap-5 data-[state=inactive]:hidden", PANEL_CELL)}
 							>
 								<RsvpSummary guests={view.guests} attended={attendedCount} started={checkInStarted} />
+								<RosterUpdate
+									meeting={m}
+									canWrite={canWrite}
+									project={project}
+									onUpdated={(added, removed) => {
+										const gone = new Set(removed);
+										setData((d) => ({
+											...d,
+											guests: d.guests && [...d.guests.filter((g) => !gone.has(g.person.personId)), ...added],
+										}));
+									}}
+								/>
 								<GuestList
 									meeting={m}
 									guests={view.guests && presence.shown(view.guests)}

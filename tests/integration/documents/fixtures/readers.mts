@@ -73,6 +73,22 @@ export function wordText(xml: string): string {
 		.trim();
 }
 
+const MEDIA = `
+import sys, json, zipfile, io, hashlib
+z = zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read()))
+out = {}
+for name in z.namelist():
+    if name.startswith("word/media/"):
+        out[name] = hashlib.sha256(z.read(name)).hexdigest()
+json.dump(out, sys.stdout)
+`;
+
+/** The SHA-256 of each picture in a Word file, by part name. */
+export function docxMedia(bytes: Uint8Array): Record<string, string> {
+	const out = execFileSync("python3", ["-I", "-c", MEDIA], { input: Buffer.from(bytes), maxBuffer: 64 * 1024 * 1024 });
+	return JSON.parse(out.toString("utf8"));
+}
+
 export const hasSoffice = () => spawnSync("soffice", ["--version"], { stdio: "ignore" }).status === 0;
 
 /** LibreOffice converts the Word file to PDF; the result is that PDF's bytes. */

@@ -1,7 +1,7 @@
 "use client";
 
 import { Delete02Icon, Edit02Icon, FloppyDiskIcon, Refresh01Icon, ViewIcon } from "@hugeicons/core-free-icons";
-import { LEGAL_NOTICE, pageBox, tileBox, type DocDocument } from "@everyfield/contracts/documents";
+import { LEGAL_NOTICE, pageBox, tileBox, type DocBrand, type DocDocument } from "@everyfield/contracts/documents";
 import {
 	Button,
 	ConfirmDialog,
@@ -11,18 +11,22 @@ import {
 	DialogHeader,
 	Tooltip,
 } from "@everyfield/ui/controls";
-import { Extension } from "@tiptap/core";
+import { Extension, type Editor } from "@tiptap/core";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import { Selection } from "@tiptap/pm/state";
 import { EditorContent, EditorContext, useEditor, useEditorState } from "@tiptap/react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties } from "react";
+import { holdLeave } from "../../../../components/save/leave.ts";
 import { saveChurchDocument } from "../actions.ts";
 import { ChurchPdf } from "../ChurchPdf.tsx";
 import { deleteAllContent, deleteBlock, moveBlock } from "./blocks.ts";
 import { documentFrom, editorContent } from "./document-json.ts";
 import "./editor.css";
 import { editorExtensions, type FieldValues } from "./extensions.ts";
+import { BlockControls } from "./LayoutControls.tsx";
+import { readPage } from "./layout.ts";
+import { PageSetupPanel } from "./PageSetup.tsx";
 import { EditorToolbar } from "./Toolbar.tsx";
 
 // The Church Document editor: the toolbar, the paper page, the save status and the real-PDF preview. The editor holds
@@ -61,6 +65,8 @@ type Props = {
 	docId: string;
 	title: string;
 	document: DocDocument;
+	/** The palette the PDF paints for this document and the brand-kit images it may show. */
+	brand: DocBrand;
 	revision: string;
 	onRevision: (revision: string) => void;
 	previewSrc: (revision: string) => string;
@@ -70,6 +76,7 @@ export default function ChurchEditor({
 	docId,
 	title,
 	document: stored,
+	brand,
 	revision: initialRevision,
 	onRevision,
 	previewSrc,
@@ -82,7 +89,10 @@ export default function ChurchEditor({
 	const savedDoc = useRef<PMNode | null>(null);
 	const inflight = useRef<Promise<boolean> | null>(null);
 
-	const extensions = useMemo(() => [...editorExtensions(fieldValues(stored)), BlockShortcuts], [stored]);
+	const extensions = useMemo(
+		() => [...editorExtensions(fieldValues(stored), brand.assets), BlockShortcuts],
+		[stored, brand.assets],
+	);
 	const editor = useEditor({
 		extensions,
 		content: editorContent(stored),
@@ -103,11 +113,24 @@ export default function ChurchEditor({
 	});
 
 	// "Unsaved changes" means the document differs from the last saved one, so Undo back to it reads "Saved" again.
+	// Tiptap can build the schema again after the first render; the saved document is read into the current schema
+	// first, because nodes of two schemas are never equal.
+	const isSaved = useCallback((doc: PMNode) => {
+		let saved = savedDoc.current;
+		if (!saved) return true;
+		if (saved.type.schema !== doc.type.schema) saved = savedDoc.current = doc.type.schema.nodeFromJSON(saved.toJSON());
+		return saved.eq(doc);
+	}, []);
+	// Read when a way out is taken, not from React state: a click straight after an edit can come before React renders.
+	const unsaved = useCallback(
+		() => !!editor && (inflight.current !== null || !isSaved(editor.state.doc)),
+		[editor, isSaved],
+	);
 	useEffect(() => {
 		if (!editor) return;
 		savedDoc.current ??= editor.state.doc;
 		const sync = () => {
-			const same = (savedDoc.current as PMNode).eq(editor.state.doc);
+			const same = isSaved(editor.state.doc);
 			setStatus((current) =>
 				current.kind === "saving"
 					? current
@@ -120,7 +143,7 @@ export default function ChurchEditor({
 		};
 		editor.on("update", sync);
 		return () => void editor.off("update", sync);
-	}, [editor]);
+	}, [editor, isSaved]);
 
 	const save = useCallback((): Promise<boolean> => {
 		if (!editor) return Promise.resolve(false);
@@ -169,7 +192,7 @@ export default function ChurchEditor({
 		return () => window.removeEventListener("keydown", onKey);
 	}, [save]);
 
-	const leave = useLeaveGuard(status.kind !== "saved");
+	const leave = useLeaveGuard(editor, unsaved);
 
 	const preview = useCallback(async () => {
 		if (status.kind !== "saved" && !(await save())) return;
@@ -180,23 +203,44 @@ export default function ChurchEditor({
 		if (editor) deleteAllContent(editor);
 	}, [editor]);
 
-	const page = stored.page;
+	// The page setup the editor holds now: a change in the Page setup panel reaches the paper at once.
+	const page = useEditorState({
+		editor,
+		selector: ({ editor: e }) => (e ? readPage(e.state) : (stored.page as ReturnType<typeof readPage>)),
+	});
+	const [setupOpen, setSetupOpen] = useState(false);
+	const setupId = useId();
 	const sheet = useMemo(() => {
 		const full = pageBox(page) ?? { width: 612, height: 792 };
-		const cell = page.tile ? tileBox(page) : null;
+		const cell = page.tile ? tileBox(page as DocDocument["page"]) : null;
 		const width = cell ? cell.width : full.width;
 		const height = cell ? cell.height : full.height;
 		const pad = page.tile
 			? { x: page.tile.padding, y: page.tile.padding }
 			: { x: page.margin.left, y: page.margin.top };
 		const px = (n: number) => `${((n * 4) / 3).toFixed(2)}px`;
+		const { palette } = brand;
 		return {
 			"--page-w": px(width + (page.tile ? 2 * page.tile.padding : 0)),
 			"--page-h": px(height + (page.tile ? 2 * page.tile.padding : 0)),
 			"--pad-x": px(pad.x),
 			"--pad-y": px(pad.y),
+			// What each token of the format paints in this document: the PDF's palette.
+			"--tok-ink": palette.ink,
+			"--tok-muted-text": palette.mutedText,
+			"--tok-primary": palette.primary,
+			"--tok-accent": palette.accent,
+			"--tok-accent-line": palette.accentLine,
+			"--tok-muted": palette.muted,
+			"--tok-border": palette.border,
+			"--on-ink": palette.on.ink,
+			"--on-muted-text": palette.on["muted-text"],
+			"--on-primary": palette.on.primary,
+			"--on-accent": palette.on.accent,
+			"--on-muted": palette.on.muted,
+			"--on-border": palette.on.border,
 		} as CSSProperties;
-	}, [page]);
+	}, [page, brand]);
 
 	const empty = useEditorState({ editor, selector: ({ editor: e }) => (e ? e.state.doc.childCount === 0 : true) });
 	const legal = stored.class === "formal/legal";
@@ -248,8 +292,36 @@ export default function ChurchEditor({
 				{/* The editor stays in the page while the preview shows, so its content, cursor and undo history stay. */}
 				<div hidden={mode !== "edit"} className="flex flex-col gap-3">
 					<div className="sticky top-[calc(var(--ef-topbar-h)+28px)] z-20 overflow-hidden rounded-card bg-surface-raised shadow-[0_0_0_1px_var(--ef-line)]">
-						{editor ? <EditorToolbar editor={editor} /> : <div className="h-[49px]" />}
+						{editor ? (
+							<>
+								<EditorToolbar
+									editor={editor}
+									brand={brand}
+									pageSetup={{ open: setupOpen, controls: setupId, toggle: () => setSetupOpen((open) => !open) }}
+								/>
+								<BlockControls editor={editor} palette={brand.palette} />
+							</>
+						) : (
+							<div className="h-[49px]" />
+						)}
 					</div>
+					{setupOpen && editor ? (
+						<PageSetupPanel
+							editor={editor}
+							base={() => base.current}
+							id={setupId}
+							onClose={() => setSetupOpen(false)}
+						/>
+					) : null}
+					{page.tile ? (
+						<p className="text-center text-sm font-medium text-text-2">
+							<span className="rounded-pill bg-green-100 px-2.5 py-1 text-ink">4 per sheet</span>
+							<span className="ml-2">
+								One card shown. The preview and the PDF print 4 on a sheet{page.tile.cutMarks ? ", with cut marks" : ""}
+								.
+							</span>
+						</p>
+					) : null}
 					<div className="ef-sheet" style={sheet}>
 						<div className="ef-paper">
 							{empty && editor ? <p className="ef-empty">This document is empty. Use Insert to add a block.</p> : null}
@@ -334,20 +406,25 @@ function SaveStatusText({ status, revision, onRetry }: { status: SaveStatus; rev
 	);
 }
 
-/** A way out of the page that waits for an answer: `go` leaves, `stay` keeps the page as it was. */
-type LeaveRequest = { go: () => void; stay: () => void };
+/** A way out of the page that waits for an answer: `go` leaves, `stay` (if any) puts back what the way out undid. */
+type LeaveRequest = { go: () => void; stay?: () => void };
 
 /**
- * Asks before an in-app link or the Back button leaves the page while the document has changes that are not saved.
- * The question is an Everyfield dialog (LeaveDialog), never a browser confirm. Closing or reloading the tab can only
- * show the browser's own beforeunload prompt.
+ * Asks before an in-app link, the Back button or a page-wide action such as Sign out (`leavePage`) leaves the page
+ * while the document has changes that are not saved. The question is an Everyfield dialog (LeaveDialog), never a
+ * browser confirm. Closing or reloading the tab can only show the browser's own beforeunload prompt; after the person
+ * chose to leave, it stays quiet. The listeners stay on for the life of the editor and ask `unsaved` at the moment of
+ * the click or the Back press, so no edit, however close to the click, gets past them.
  */
-function useLeaveGuard(active: boolean) {
+function useLeaveGuard(editor: Editor | null, unsaved: () => boolean) {
 	const router = useRouter();
 	const [request, setRequest] = useState<LeaveRequest | null>(null);
 	useEffect(() => {
-		if (!active) return;
+		if (!editor) return;
+		// The person chose "Leave without saving" for a way out that loads a new page (Sign out): no second question.
+		let released = false;
 		const beforeUnload = (event: BeforeUnloadEvent) => {
+			if (released || !unsaved()) return;
 			event.preventDefault();
 			event.returnValue = "";
 		};
@@ -358,34 +435,62 @@ function useLeaveGuard(active: boolean) {
 			const url = new URL(link.href, window.location.href);
 			if (url.origin !== window.location.origin) return;
 			if (url.pathname === window.location.pathname && url.search === window.location.search) return;
+			if (!unsaved()) return;
 			event.preventDefault();
 			event.stopPropagation();
-			setRequest({ go: () => router.push(`${url.pathname}${url.search}${url.hash}`), stay: () => {} });
+			setRequest({ go: () => router.push(`${url.pathname}${url.search}${url.hash}`) });
 		};
-		// The Back button: a sentinel entry with the same address takes the first Back press, which asks before it leaves.
+		// The Back button: a sentinel entry with the same address takes the first Back press. The edit that makes the
+		// document unsaved pushes it, so it is in place before any Back press. Leaving the sentinel with nothing unsaved
+		// (after a Save) goes on back, so one press still leaves the page.
+		// The Settings dialog opens over the editor with its own history entries (/settings/account). They can sit above
+		// the sentinel, so an edit checks the entry it is on, and Back onto a Settings entry is no way out: the editor is
+		// still there under the dialog.
+		const here = () => window.location.pathname + window.location.search;
+		const home = here();
+		const onSentinel = () => window.history.state?.efLeaveGuard === true;
+		let armed = onSentinel();
 		let leaving = false;
-		const pushSentinel = () =>
+		const pushSentinel = () => {
 			window.history.pushState({ ...window.history.state, efLeaveGuard: true }, "", window.location.href);
-		if (!window.history.state?.efLeaveGuard) pushSentinel();
+			armed = true;
+		};
+		const arm = () => {
+			if (!onSentinel() && unsaved()) pushSentinel();
+		};
 		const onPopState = () => {
-			if (leaving) return;
+			const left = armed;
+			armed = onSentinel();
+			if (leaving || !left || armed || here() !== home) return;
+			const back = () => {
+				leaving = true;
+				window.history.back();
+			};
+			if (unsaved()) setRequest({ go: back, stay: pushSentinel });
+			else back();
+		};
+		const release = holdLeave((go) => {
+			if (!unsaved()) return false;
 			setRequest({
 				go: () => {
-					leaving = true;
-					window.history.back();
+					released = true;
+					go();
 				},
-				stay: pushSentinel,
 			});
-		};
+			return true;
+		});
+		editor.on("update", arm);
 		window.addEventListener("beforeunload", beforeUnload);
 		window.addEventListener("popstate", onPopState);
 		document.addEventListener("click", onClick, true);
 		return () => {
+			release();
+			editor.off("update", arm);
 			window.removeEventListener("beforeunload", beforeUnload);
 			window.removeEventListener("popstate", onPopState);
 			document.removeEventListener("click", onClick, true);
 		};
-	}, [active, router]);
+	}, [editor, unsaved, router]);
 	return { request, close: () => setRequest(null) };
 }
 
@@ -404,7 +509,7 @@ function LeaveDialog({
 		if (!request) return;
 		onDone();
 		if (leave) request.go();
-		else request.stay();
+		else request.stay?.();
 	};
 	return (
 		<Dialog

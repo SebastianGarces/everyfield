@@ -7,7 +7,7 @@ import "server-only";
 import type { RequestActor } from "../access/session.ts";
 import { dataFromRow } from "../branding/kit.ts";
 import { deny, parse, plantViewer, readPlant, rejectInput, settle } from "./access.ts";
-import { exportTheme } from "./church-theme.ts";
+import { documentBrand, exportTheme, type ImageSource } from "./church-theme.ts";
 import { docFormats, renderDocFile, type DocFormat } from "./doc-render.ts";
 import { docTemplateById } from "./doc-templates.ts";
 import { fieldValues, frozenData, type MergeSources } from "./doc-values.ts";
@@ -90,22 +90,26 @@ function churchResult(
 	return c.churchDocument.parse({ ...d, tenantId, formats: docFormats(d.body), archived: false });
 }
 
-/** The current state of one Church Document, as a reader sees it. One statement. */
-async function readChurch(db: Database, scope: Scope, documentId: string, admin = false) {
-	const found = await rowsOf<ChurchRow & { ok: boolean }>(
+/**
+ * The current state of one Church Document, as a reader sees it, with the plant's brand kit for the editor. One
+ * statement: the kit joins the same read.
+ */
+async function readChurchWithKit(db: Database, scope: Scope, documentId: string, admin = false) {
+	const found = await rowsOf<ChurchRow & { ok: boolean; kit: Record<string, unknown> | null }>(
 		db,
 		sql`SELECT g.ok, d.id, d.template_id, d.template_version, d.document_class, d.use_church_branding, d.title,
 			d.revision::text AS revision, r.id AS revision_id, r.body, r.content_hash,
-			d.input_provenance
+			d.input_provenance, to_jsonb(k) AS kit
 		FROM (SELECT ${gateSql(scope, admin)} AS ok) g
 		LEFT JOIN document d ON g.ok AND d.id = ${documentId}::uuid AND d.tenant_id = ${scope.tenantId}::uuid
 			AND d.kind = 'church_document' AND d.current_revision_id IS NOT NULL AND d.archived_at IS NULL
-		LEFT JOIN document_revision r ON r.id = d.current_revision_id AND r.tenant_id = d.tenant_id`,
+		LEFT JOIN document_revision r ON r.id = d.current_revision_id AND r.tenant_id = d.tenant_id
+		LEFT JOIN church_brand_kit k ON g.ok AND k.tenant_id = ${scope.tenantId}::uuid`,
 	);
 	if (found[0]?.ok !== true) deny("access_denied");
 	const row = found[0];
 	if (!row.id) return null;
-	return churchResult(scope.tenantId, {
+	const doc = churchResult(scope.tenantId, {
 		id: row.id,
 		templateId: row.template_id,
 		templateVersion: Number(row.template_version),
@@ -118,6 +122,12 @@ async function readChurch(db: Database, scope: Scope, documentId: string, admin 
 		contentHash: row.content_hash,
 		provenance: row.input_provenance,
 	});
+	return { doc, kit: row.kit ? dataFromRow(row.kit) : null };
+}
+
+/** The current state of one Church Document, as a reader sees it. One statement. */
+async function readChurch(db: Database, scope: Scope, documentId: string, admin = false) {
+	return (await readChurchWithKit(db, scope, documentId, admin))?.doc ?? null;
 }
 
 function safeJson(text: string): unknown {
@@ -534,6 +544,22 @@ export const churchWriter = {
 		});
 	},
 
+	/**
+	 * One Church Document for the editor: the document and what the PDF paints for it (the palette and the brand-kit
+	 * images). An Owner or Admin only. One statement, the same one a read makes.
+	 */
+	async readChurchForEdit(db: Database, authority: RequestActor, raw: unknown) {
+		return settle(async () => {
+			const input = parse(c.readChurchRequest, raw);
+			const found = await readChurchWithKit(db, adminScope(authority), input.documentId);
+			if (!found) return deny("unavailable");
+			return c.churchDocumentView.parse({
+				...found.doc,
+				brand: documentBrand(found.kit, found.doc.useChurchBranding),
+			});
+		});
+	},
+
 	/** The library: every Church Document of the church plant that is not deleted, newest first. One statement. */
 	async listChurch(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
@@ -744,6 +770,16 @@ export const churchWriter = {
 	},
 };
 
+/** The image sources a body uses, so the render reads only those brand assets. */
+function imageSources(node: unknown, found = new Set<ImageSource>()) {
+	if (node && typeof node === "object") {
+		const n = node as { type?: string; attrs?: { source?: ImageSource }; content?: unknown[] };
+		if (n.type === "image") found.add(n.attrs?.source ?? "logo");
+		for (const child of n.content ?? []) imageSources(child, found);
+	}
+	return found;
+}
+
 /**
  * The bytes of one stored revision in one format, with the theme chosen now: the church theme when the document uses
  * church branding and the plant has a brand kit, else the Everyfield-neutral theme. One render path for the preview,
@@ -765,6 +801,7 @@ async function renderRevision(
 		{ name: church, kit: row.kit ? dataFromRow(row.kit) : null },
 		body.class,
 		row.use_church_branding === true,
+		imageSources(body.body),
 	);
 	try {
 		const bytes = await renderDocFile(body, format, theme, new Date(row.recorded_at ?? 0));

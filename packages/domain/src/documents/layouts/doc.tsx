@@ -446,15 +446,18 @@ function box(r: R, node: BoxNode, key: number) {
 function image(r: R, node: ImageNode, key: number) {
 	const a = attrsOf(node);
 	const width = Math.min(a.width, r.width);
+	// A church theme carries the brand kit's own assets (the full logo, the mark, the cover photo); any other theme has
+	// the one class logo and no photo.
+	const asset = r.theme.images ? r.theme.images[a.source] : a.source === "photo" ? r.theme.photo : r.theme.logo;
 	const slot =
 		a.source === "photo" ? (
-			r.theme.photo ? (
-				PhotoSlot(r.theme.photo, width, a.height)
+			asset ? (
+				PhotoSlot(asset, width, a.height)
 			) : (
 				<View style={{ width, height: a.height }} />
 			)
 		) : (
-			LogoSlot(r, width, a.height, r.theme.logo, {
+			LogoSlot(r, width, a.height, asset, {
 				align: a.align === "center" ? "center" : "flex-start",
 				nameColor: inkOn(r).strong,
 				nameBg: r.bg,

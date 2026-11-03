@@ -158,8 +158,14 @@ export function problemText(code: string): string {
 	}
 }
 
-/** What a history entry did, in words. */
-export const HISTORY_KIND: Record<string, string> = {
+/** What a history entry did, in words. A correction that names a person and role corrected that role's dates. */
+export function historyTitle(e: HistoryEntry) {
+	if (e.kind === "correct" && e.about) return "Role dates corrected";
+	// A leader change with no new leader is a leader who left, for example with a removed seat.
+	if (e.kind === "leader_change" && !e.after?.leaderPersonId) return "Leader removed";
+	return HISTORY_KIND[e.kind] ?? "Changed";
+}
+const HISTORY_KIND: Record<string, string> = {
 	create: "Created",
 	edit: "Edited",
 	correct: "Corrected",
@@ -179,6 +185,8 @@ export const FIELD_LABEL: Record<string, string> = {
 	occupantPersonId: "Person",
 	desiredSkills: "Desired skills",
 	retired: "Retired",
+	startedOn: "Start date",
+	endedOn: "End date",
 };
 /** The changed fields of an entry ("Name, State"). Person IDs are not shown; the field name says what changed. */
 export function changedFields(entry: HistoryEntry): string {
@@ -195,6 +203,8 @@ export function shownValue(key: string, value: unknown): string | null {
 	if (key === "name" || key === "description")
 		return typeof value === "string" ? value : value === null ? "None" : null;
 	if (key === "archived") return value === true ? "Yes" : value === false ? "No" : null;
+	if (key === "startedOn" || key === "endedOn")
+		return typeof value === "string" ? dayText(value) : value === null ? "None" : null;
 	return null;
 }
 

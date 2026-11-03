@@ -145,6 +145,37 @@ export const coreValuesEvidence = z.strictObject({
 });
 
 const churchClass = z.enum(["formal/legal", "outward-facing", "operational"]);
+const hexColor = z.string().regex(/^#[0-9A-Fa-f]{6}$/);
+const brandAsset = z.strictObject({ fileId: recordId, alt: z.string().max(200) }).nullable();
+/**
+ * What the PDF paints for one document, so the editor paper can paint the same: the palette the renderer derives from
+ * the church theme (or the neutral theme when the document does not use church branding or the church has no kit), and
+ * the brand-kit images the document may show. An image the kit lacks is null.
+ */
+export const docBrand = z.strictObject({
+	palette: z.strictObject({
+		ink: hexColor,
+		mutedText: hexColor,
+		muted: hexColor,
+		border: hexColor,
+		primary: hexColor,
+		accent: hexColor,
+		accentLine: hexColor,
+		/** The text color the PDF prints on a box filled with each token. */
+		on: z.strictObject({
+			ink: hexColor,
+			"muted-text": hexColor,
+			primary: hexColor,
+			accent: hexColor,
+			muted: hexColor,
+			border: hexColor,
+		}),
+		/** True for a church theme; false for the Everyfield-neutral theme. */
+		themed: z.boolean(),
+	}),
+	assets: z.strictObject({ logo: brandAsset, mark: brandAsset, photo: brandAsset }),
+});
+export type DocBrand = z.infer<typeof docBrand>;
 /** A Church Document with its current revision. The body is an everyfield.doc/1 document. */
 export const churchDocument = z.strictObject({
 	id: recordId,
@@ -169,6 +200,8 @@ export const churchDocument = z.strictObject({
 		)
 		.max(20),
 });
+/** What a reader gets: the document and what the PDF paints for it. */
+export const churchDocumentView = churchDocument.extend({ brand: docBrand });
 export const churchRevisionSummary = z.strictObject({
 	id: recordId,
 	number: z.int().min(1),
