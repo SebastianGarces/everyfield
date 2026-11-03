@@ -8,7 +8,6 @@ import { fixture, source } from "./fixtures.ts";
 import { parseTask, runtimeDir } from "../lib.ts";
 import { openWorkDb } from "../db.ts";
 import { escape, soak, soakPath, uiEscapedGate, type PrRead } from "../escape.ts";
-import { onlyAppendsChecks } from "../policy.ts";
 import { verify } from "../verify.ts";
 
 const MERGED = "a".repeat(40),
@@ -372,56 +371,6 @@ test("OPS-114-7: a soak records 20 green runs, stops at the first failure, and a
 		assert.match(readFileSync(record.log, "utf8"), /--- run 7: exit 1\n\nflaky/);
 		assert.match(failed, /FAILED on run 7 of 20-run soak/);
 		assert.ok("fail" in uiEscapedGate(f.root, wt, task, base));
-	} finally {
-		f.close();
-	}
-});
-
-test("OPS-114-13: an OPS task that owns evf.config.json may append checks, never remove, rename or filter one", () => {
-	const f = fixture();
-	try {
-		const wt = f.task("ops-900"),
-			task = parseTask("OPS-900"),
-			base = f.git("rev-parse", "main");
-		const original = JSON.parse(readFileSync(join(wt, "evf.config.json"), "utf8"));
-		const tryEdit = (edit: (c: any) => void) => {
-			const cfg = structuredClone(original);
-			edit(cfg);
-			writeFileSync(join(wt, "evf.config.json"), JSON.stringify(cfg));
-			f.git("-C", wt, "commit", "-qam", "Edit checks");
-			const ok = onlyAppendsChecks(wt, task, base, "HEAD");
-			f.git("-C", wt, "reset", "-q", "--hard", base);
-			return ok;
-		};
-		const added = { name: "ui-escaped", run: ["node", "--test", "tests/ui/escaped/*.test.mjs"] };
-		assert.equal(
-			tryEdit((c) => c.checks.push(added)),
-			true,
-		);
-		assert.equal(
-			tryEdit((c) => c.checks.unshift(added)),
-			false,
-		);
-		assert.equal(
-			tryEdit((c) => (c.checks = [...c.checks.slice(1), added])),
-			false,
-		);
-		assert.equal(
-			tryEdit((c) => ((c.checks[0].name = "renamed"), c.checks.push(added))),
-			false,
-		);
-		assert.equal(
-			tryEdit((c) => ((c.checks[0].modes = ["full"]), c.checks.push(added))),
-			false,
-		);
-		assert.equal(
-			tryEdit((c) => (c.checks.push(added), (c.remote = "elsewhere"))),
-			false,
-		);
-		assert.equal(
-			tryEdit(() => {}),
-			false,
-		);
 	} finally {
 		f.close();
 	}

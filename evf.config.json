@@ -30,10 +30,6 @@
 		{
 			"name": "format",
 			"run": ["corepack", "pnpm", "format:check"]
-		},
-		{
-			"name": "ui-escaped",
-			"run": ["node", "--test", "tests/ui/escaped/*.test.mjs"]
 		}
 	],
 	"principles": {

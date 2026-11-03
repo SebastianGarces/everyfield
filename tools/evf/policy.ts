@@ -169,27 +169,6 @@ export function changesOnlyOwnRegistration(repo: string, task: TaskRef, base: st
 }
 
 /**
- * True when the only other change to evf.config.json appends checks (OPS-114 added ui-escaped): every check `base`
- * had stays first, unchanged and in order, and nothing else outside the task's own entry changes. An added check makes
- * verification stricter; a removed, renamed, reordered or mode-filtered one fails this.
- */
-export function onlyAppendsChecks(repo: string, task: TaskRef, base: string, head: string): boolean {
-	const read = (rev: string) => {
-		const cfg = committedConfig(repo, rev);
-		delete cfg.maintenanceTasks?.[task.id];
-		const checks = cfg.checks ?? [];
-		return { checks, rest: JSON.stringify({ ...cfg, checks: undefined }) };
-	};
-	const before = read(base),
-		after = read(head);
-	return (
-		before.rest === after.rest &&
-		after.checks.length > before.checks.length &&
-		JSON.stringify(after.checks.slice(0, before.checks.length)) === JSON.stringify(before.checks)
-	);
-}
-
-/**
  * Check the task's changed paths. An OPS branch may change evf.config.json only in its own maintenanceTasks
  * entry, whether or not it owns the file: that is how it registers, and the verifier reviews the entry.
  */
@@ -197,12 +176,10 @@ export function requireMaintenancePaths(root: string, wt: string, task: TaskRef)
 	if (task.kind !== "ops") return;
 	const base = baseRef(root, loadConfig(root)),
 		scope = maintenanceScope(wt, task);
-	// evf.config.json holds every task's registration, so owning it never waives the own-entry rule. Owning it allows
-	// one more change: appending checks, which only makes verification stricter.
-	const ownsConfig = scope.owningPaths.includes("evf.config.json");
+	// evf.config.json holds every task's registration, so owning it never waives the own-entry rule.
 	const owns = (path: string) =>
 		path === "evf.config.json"
-			? changesOnlyOwnRegistration(wt, task, base, "HEAD") || (ownsConfig && onlyAppendsChecks(wt, task, base, "HEAD"))
+			? changesOnlyOwnRegistration(wt, task, base, "HEAD")
 			: scope.owningPaths.some((p) => (p.endsWith("/") ? path.startsWith(p) : path === p));
 	const changed = git(wt, "diff", "--name-only", "--no-renames", base, "HEAD").split("\n").filter(Boolean);
 	if (changed.some((p) => !owns(p))) fail("Maintenance candidate changes paths outside its reviewed owning paths.");

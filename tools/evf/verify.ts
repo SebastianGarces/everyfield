@@ -108,10 +108,10 @@ export function verify(
 		// command inside a check (`evf test`) may therefore run without a terminal. An existing value stays.
 		EVF_MONITOR: process.env.EVF_MONITOR?.trim() || `evf verify ${task.id}`,
 	};
-	const definitions =
-		task.kind === "ops"
-			? withUiEscaped(withCiParity(maintenanceScope(wt, task).checks, cfg.checks), cfg.checks)
-			: cfg.checks;
+	const definitions = withUiEscaped(
+		task.kind === "ops" ? withCiParity(maintenanceScope(wt, task).checks, cfg.checks) : cfg.checks,
+		cfg.checks,
+	);
 	if (task.kind !== "ops" && cfg.stack?.usesPaidProviders) requireSpend(root);
 	const reports: string[] = [];
 	const inputsUnchanged = () => git(wt, "rev-parse", "HEAD") === sha && isClean(wt);
@@ -236,14 +236,15 @@ function withCiParity(own: CheckDef[], configured: CheckDef[]): CheckDef[] {
 }
 
 /**
- * OPS-114: the escaped-bug tests run for a WP /ui part (from the configured checks) and for any task that changes
- * tests/ui/escaped/, OPS tasks included, so an OPS task's own checks never leave them out. The gate in escape.ts
- * decides per task whether the check runs, skips with a reason or fails closed.
+ * OPS-114: every task gets the escaped-bug check, so no task's own check list leaves it out. It is built in because an
+ * OPS task may change only its own evf.config.json entry; a configured check of the same name replaces the command.
+ * The gate in escape.ts decides per task whether it runs, skips with a reason or fails closed.
  */
 const UI_ESCAPED = "ui-escaped";
+const UI_ESCAPED_CHECK: CheckDef = { name: UI_ESCAPED, run: ["node", "--test", "tests/ui/escaped/*.test.mjs"] };
 function withUiEscaped(own: CheckDef[], configured: CheckDef[]): CheckDef[] {
-	const check = configured.find((c) => c.name === UI_ESCAPED);
-	return check && !own.some((c) => c.name === UI_ESCAPED) ? [...own, check] : own;
+	if (own.some((c) => c.name === UI_ESCAPED)) return own;
+	return [...own, configured.find((c) => c.name === UI_ESCAPED) ?? UI_ESCAPED_CHECK];
 }
 
 /**

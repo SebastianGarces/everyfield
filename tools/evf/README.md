@@ -708,8 +708,7 @@ branch for `task start`, `verify`, `pr open` and `ship`, and the PR head for the
 names the missing entry; commit it there and run `task start` again for the brief. A start refuses
 an invalid entry that main or the task branch already carries before it creates the worktree.
 The branch may change `evf.config.json` only in its own entry, even when it owns the file; the verifier
-reviews that entry. One exception: a task that owns the file may also append checks. Every existing check
-stays first, unchanged and in order, and nothing else outside its entry changes (`onlyAppendsChecks`).
+reviews that entry.
 The only design file they may own is `design/handoff/screens.md`, the generated package-owner map.
 An entry with `"route": "design"` is a design task instead: it owns only `design/` paths and does not
 change `design/everyfield-ui.html`, the approved prototype that the app tokens come from, with one
@@ -797,8 +796,9 @@ reserves an id. A second call for the same PR and head files nothing and prints 
 against the task's stack, with `UI_BASE_URL` set. The first failed run ends the soak. The record goes to
 `.git/evf/evidence/<task slug>/soak/<sha256 of the file>.json`, with the run log beside it.
 
-The `ui-escaped` check in `evf.config.json` runs `node --test tests/ui/escaped/*.test.mjs` with
-`UI_BASE_URL` set to the task's stack URL. `evf verify` runs it for WP `/ui` parts and for any task that
+The `ui-escaped` check is built into `evf verify` (`verify.ts`), because an OPS task may change only its own
+entry in `evf.config.json`. A check named `ui-escaped` in `checks` replaces the built-in command. It runs
+`node --test tests/ui/escaped/*.test.mjs` with `UI_BASE_URL` set to the task's stack URL. `evf verify` runs it for WP `/ui` parts and for any task that
 changes a file under `tests/ui/escaped/`. It skips other tasks with one line that gives the reason, and it
 skips with one line while the folder holds no test. It fails without a running stack (the message names
 `bin/evf stack up <task>`), and it fails for a changed escaped test that has no 20-green soak record for its
