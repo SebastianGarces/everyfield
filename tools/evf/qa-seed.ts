@@ -1,8 +1,8 @@
 // OPS-106: the QA seed. It fills one QA Neon branch with a test church that Nora can sign in to and exercise every
 // planter flow on: three logins (owner, admin, member), people, a household, teams, meetings, tasks, follow-ups, a
 // document, a draft message and, when the branch has none, a published wiki. It writes through the domain writers,
-// the same code the screens call, except where noted. The owner also gets 13 answered past check-in weeks (OPS-125). Every address is delivered+<label>@resend.dev, so a real send
-// reaches no real person.
+// the same code the screens call, except where noted. The owner also gets 13 answered past check-in weeks (OPS-125).
+// Every address is delivered+<label>@resend.dev, so a real send reaches no real person.
 //
 // Idempotent: each part first looks for its own rows by a fixed name and is skipped when they are there. A second run
 // on a complete branch signs nobody in and writes nothing.
@@ -401,7 +401,7 @@ async function fill(admin: Database, runtime: Database, authDb: Database): Promi
 	}
 
 	if (await wiki(admin)) done.push("wiki");
-	done.push(...(await checkIns(admin, runtime, owner, plantId, ctx)));
+	done.push(...(await checkIns(admin, runtime, owner, plantId, ownerSession)));
 
 	if (session) await admin.execute(sql`DELETE FROM auth_session WHERE id=${session}`);
 	return done.length ? `QA seed wrote: ${done.join(", ")}.` : "QA seed: the branch is already complete.";
@@ -438,7 +438,7 @@ async function checkIns(
 	runtime: Database,
 	owner: string,
 	plantId: string,
-	ctx: () => Promise<Ctx>,
+	ownerSession: () => Promise<string>,
 ): Promise<string[]> {
 	const done: string[] = [];
 	const zoned = await rows(
@@ -460,7 +460,7 @@ async function checkIns(
 	).map((r) => r.at as string);
 	let now = "";
 	const care = createPrivateCare({ clock: { now: () => now } });
-	const actor = await RequestActor.resolve(runtime, (await ctx()).session as never);
+	const actor = await RequestActor.resolve(runtime, (await ownerSession()) as never);
 	if (!(actor instanceof RequestActor)) throw Error(`check-in actor: ${JSON.stringify(actor)}`);
 	await runtime.transaction(async (tx) => {
 		for (const [index, [spiritual, family, financial, pace, note]] of CHECK_INS.entries()) {
