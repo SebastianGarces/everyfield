@@ -147,28 +147,54 @@ function wikiTool(root: string): string {
 	return join(root, "bin/wiki");
 }
 
+/** The bytes of `paths` under `wt`, or null for a path that does not exist. */
+const snapshot = (wt: string, paths: string[]) =>
+	paths.map((path) => (existsSync(join(wt, path)) ? readFileSync(join(wt, path)) : null));
+const sameBytes = (a: (Buffer | null)[], b: (Buffer | null)[]) =>
+	a.every((x, i) => (x === null ? b[i] === null : b[i] !== null && x.equals(b[i]!)));
+const output = (r: { stdout: string; stderr: string }) => [r.stdout.trim(), r.stderr.trim()].filter(Boolean).join("\n");
+
 /**
  * Run `bin/wiki promote` for each draft of the branch whose claim check passed, with the claim-check commit as the
- * reviewed sha and the draft's own approver (D-d), then `bin/wiki check-seed`. Returns the promoted drafts; a wiki
- * tool failure throws its error.
+ * reviewed sha and the draft's own approver (D-d), then `bin/wiki check-seed`. Lint checks a draft's links against the
+ * published seed only, so a draft that links to another draft of this PR passes once that draft is promoted. evf
+ * therefore promotes in passes: each pass tries the remaining drafts in path order, and a failed draft gets another
+ * try only when the pass promoted some other draft and the failed attempt wrote nothing. A pass that promotes nothing
+ * stops with each remaining draft's own `bin/wiki promote` output. Returns the promoted drafts in promotion order; a
+ * wiki tool failure throws its error.
  */
 export function promoteDrafts(root: string, wt: string, base: string, number: number, reviewed: string): string[] {
 	const wiki = wikiTool(root),
 		seedDir = ["--seed-dir", join(wt, WIKI_PREFIX)];
-	const stopped = (what: string, r: { stdout: string; stderr: string }) =>
-		fail(`evf ship stopped before pushing anything: ${what} failed: ${(r.stderr || r.stdout).trim()}`);
+	const stopped = (what: string, detail: string) =>
+		fail(`evf ship stopped before pushing anything: ${what} failed: ${detail}`);
+	let remaining = taskDrafts(wt, base, "HEAD").filter(
+		(path) => parseDraft(path, readFileSync(join(wt, path), "utf8")).draft.claim_check.status === "passed",
+	);
 	const promoted: string[] = [];
-	for (const path of taskDrafts(wt, base, "HEAD")) {
-		const row = parseDraft(path, readFileSync(join(wt, path), "utf8"));
-		if (row.draft.claim_check.status !== "passed") continue;
-		const args = ["promote", join(wt, path), "--approved-by", String(row.draft.approver), "--pr", String(number)];
-		const r = run(wiki, [...args, "--reviewed-sha", reviewed, ...seedDir], { cwd: wt });
-		if (r.code !== 0) stopped(`bin/wiki promote ${path}`, r);
-		promoted.push(path);
+	while (remaining.length) {
+		const failed: { path: string; detail: string }[] = [];
+		for (const path of remaining) {
+			const row = parseDraft(path, readFileSync(join(wt, path), "utf8"));
+			const args = ["promote", join(wt, path), "--approved-by", String(row.draft.approver), "--pr", String(number)];
+			const watched = [SEED, MANIFEST, path],
+				before = snapshot(wt, watched);
+			const r = run(wiki, [...args, "--reviewed-sha", reviewed, ...seedDir], { cwd: wt });
+			if (r.code === 0) promoted.push(path);
+			else if (!sameBytes(before, snapshot(wt, watched)))
+				stopped(`bin/wiki promote ${path}`, `${output(r)}\nIt changed the seed, manifest or draft before it failed.`);
+			else failed.push({ path, detail: output(r) });
+		}
+		if (failed.length === remaining.length)
+			stopped(
+				failed.map((d) => `bin/wiki promote ${d.path}`).join(", "),
+				failed.map((d) => `\n${d.path}:\n${d.detail}`).join(""),
+			);
+		remaining = failed.map((d) => d.path);
 	}
 	if (promoted.length) {
 		const r = run(wiki, ["check-seed", ...seedDir], { cwd: wt });
-		if (r.code !== 0) stopped("bin/wiki check-seed after promotion", r);
+		if (r.code !== 0) stopped("bin/wiki check-seed after promotion", (r.stderr || r.stdout).trim());
 	}
 	return promoted;
 }
