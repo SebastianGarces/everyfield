@@ -474,6 +474,8 @@ export type Listed = {
 	excerpt: string | null;
 	observedFraction: string;
 	completed: boolean;
+	/** A meaningful revision came after this reader finished it. */
+	updated: boolean;
 };
 
 export function listed(article: WikiArticle): Listed {
@@ -484,6 +486,7 @@ export function listed(article: WikiArticle): Listed {
 		excerpt: article.excerpt,
 		observedFraction: article.observedFraction,
 		completed: article.completed,
+		updated: article.updatedLabel,
 	};
 }
 

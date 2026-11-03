@@ -1,5 +1,14 @@
-import { ArrowLeft01Icon, ArrowRight01Icon, BookOpen01Icon } from "@hugeicons/core-free-icons";
-import { Button, Card, EmptyState, PageHeader, StatePanel } from "@everyfield/ui/controls";
+import { ArrowLeft01Icon, ArrowRight01Icon, BookOpen01Icon, SortingIcon } from "@hugeicons/core-free-icons";
+import {
+	Button,
+	CalloutLabel,
+	CalloutText,
+	CalloutTitle,
+	Card,
+	EmptyState,
+	PageHeader,
+	StatePanel,
+} from "@everyfield/ui/controls";
 import { Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import {
@@ -70,6 +79,12 @@ function ArticleList({ title, articles }: { title: string; articles: Listed[] })
 							<span className="block font-medium text-ink">{article.title}</span>
 							<span className="mt-1 block text-sm text-text-2">
 								{article.completed ? "Read" : percentLabel(article.observedFraction)}
+								{article.updated ? (
+									<>
+										{" · "}
+										<span className="font-medium text-ink">Updated since you read it</span>
+									</>
+								) : null}
 								{article.excerpt ? ` · ${article.excerpt}` : ""}
 							</span>
 						</Link>
@@ -103,6 +118,29 @@ function StepCard({ step, direction }: { step: Step; direction: "previous" | "ne
 	);
 }
 
+/** Owner and Admin only: two church versions have no order, so everyone reads the next version in line. */
+function OrderPrompt({ slug, fallback }: { slug: string; fallback: { kind: "church" | "network" } | null }) {
+	return (
+		<Card variant="callout" tone="amber" className="mb-6">
+			<CalloutLabel tone="amber" icon={SortingIcon}>
+				Order needed
+			</CalloutLabel>
+			<CalloutTitle>Choose which church version comes first</CalloutTitle>
+			<CalloutText>
+				More than one sending church published its own version of this article. Until you choose an order, everyone
+				reads the {fallback?.kind === "network" ? "network version" : "global version"} below.
+			</CalloutText>
+			<div className="mt-4">
+				<Button asChild variant="secondary">
+					<Link href={`${articlePath(slug)}?order=edit`} scroll={false}>
+						Choose the order
+					</Link>
+				</Button>
+			</div>
+		</Card>
+	);
+}
+
 export function WikiScreen({ data, source }: { data: WikiPageData; source: string | null }) {
 	const article = data.article;
 	const headings =
@@ -113,7 +151,8 @@ export function WikiScreen({ data, source }: { data: WikiPageData; source: strin
 			: [];
 	const title = data.editing ? `Edit ${article?.article.title ?? "article"}` : (article?.article.title ?? "Wiki");
 	const phase = article?.article.phase;
-	const credit = article ? humanCredit(article.article.credit) : null;
+	// The stored credit belongs to the global article, so a church or network version shows its own name instead.
+	const credit = article && !article.version ? humanCredit(article.article.credit) : null;
 	const fixed = !data.editing;
 	const header = (
 		<PageHeader
@@ -140,7 +179,7 @@ export function WikiScreen({ data, source }: { data: WikiPageData; source: strin
 						"Organization version"
 					)
 				) : article ? (
-					<ReadStatus credit={credit} />
+					<ReadStatus credit={credit} version={article.version} />
 				) : (
 					`${data.readCount} of ${data.articleCount} articles read`
 				)
@@ -281,6 +320,7 @@ export function WikiScreen({ data, source }: { data: WikiPageData; source: strin
 					</Card>
 				) : article?.article.body ? (
 					<>
+						{article.orderPrompt ? <OrderPrompt slug={article.article.slug} fallback={article.version} /> : null}
 						<div id="wiki-article" className="rounded-card bg-surface px-6 py-8 shadow-card max-app-sm:px-4 sm:px-11">
 							<ArticleBody contentType={article.article.contentType} body={article.article.body} />
 							{data.feedback ? (

@@ -173,11 +173,15 @@ export const tocResult = z.strictObject({
 	headings: z.array(z.strictObject({ level: z.union([z.literal(2), z.literal(3)]), text: z.string() })),
 	errorCode: z.literal("content_access_denied").nullable(),
 });
+/** The Guide for one app route: the excerpt of the version the viewer reads, its title and slug. `citation` names
+ * the section heading the excerpt was asked for. */
 export const guideResult = z.strictObject({
 	found: z.boolean(),
 	missing: z.boolean(),
 	citation: z.string().nullable(),
 	articleId: z.uuid().nullable(),
+	title: z.string().nullable(),
+	slug: z.string().nullable(),
 	body: z.string().nullable(),
 });
 export const excerptResult = z.strictObject({

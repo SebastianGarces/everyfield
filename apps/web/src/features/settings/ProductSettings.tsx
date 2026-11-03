@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { loadPage } from "../identity/api";
 import {
 	finalizeAssetUpload,
@@ -63,7 +63,11 @@ const hrefFor = (key: SectionKey) => `/settings/${key}`;
  * the click, before Next.js reports the new address, so it opens while the opener still has focus and Escape
  * returns focus there.
  */
-export function useProductSettings(viewer: SettingsViewer | null, seed: SectionSeed | null = null) {
+export function useProductSettings(
+	viewer: SettingsViewer | null,
+	seed: SectionSeed | null = null,
+	headerActions?: ReactNode,
+) {
 	const pathname = usePathname();
 	const router = useRouter();
 	const atPath = sectionAt(pathname, viewer);
@@ -90,6 +94,7 @@ export function useProductSettings(viewer: SettingsViewer | null, seed: SectionS
 				section={section}
 				onNavigate={navigate}
 				hrefFor={hrefFor}
+				headerActions={headerActions}
 				// The request ended every session, so the next page is a full load of the restricted deletion page.
 				onDeletionRequested={(status) => loadPage(deletionPage(status))}
 			/>

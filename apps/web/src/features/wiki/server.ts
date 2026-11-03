@@ -9,6 +9,7 @@ import { createWikiProducer } from "@everyfield/domain/wiki";
 import "server-only";
 import {
 	articlePath,
+	humanCredit,
 	listed,
 	sourceInput,
 	sourceRows,
@@ -211,6 +212,10 @@ export type ArticleView = {
 	plantId?: string;
 	canOrder: boolean;
 	block: ArticleBlock;
+	/** Whose text this is, when it is not the global article. */
+	version: { kind: "church" | "network"; name: string } | null;
+	/** Two church copies have no order: an Owner or Admin is asked to choose one. The text below is the fallback. */
+	orderPrompt: boolean;
 	related: { articleId: string; title: string; href: string }[];
 };
 
@@ -347,7 +352,7 @@ export async function loadWiki(
 				? "denied"
 				: shown.hidden || (shown.body == null && shown.state === "hidden")
 					? "hidden"
-					: shown.state === "source_order_required"
+					: shown.state === "source_order_required" && shown.body == null
 						? "order"
 						: shown.body == null
 							? "denied"
@@ -361,6 +366,17 @@ export async function loadWiki(
 				plantId: seat.plantId,
 				canOrder: seat.canOrder,
 				block,
+				version:
+					shown.sourceKind === "global"
+						? null
+						: {
+								kind: shown.sourceKind,
+								name:
+									names.get(shown.sourceId) ??
+									humanCredit(shown.credit) ??
+									(shown.sourceKind === "church" ? "Sending church" : "Network"),
+							},
+				orderPrompt: seat.canOrder && source.kind === "current" && preferred.state === "source_order_required",
 				related: shown.relatedIds.flatMap((id) => {
 					const item = titles.get(id);
 					return item ? [{ articleId: id, title: item.title, href: articlePath(item.slug) }] : [];

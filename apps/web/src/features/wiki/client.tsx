@@ -1,6 +1,13 @@
 "use client";
 
-import { Bookmark02Icon, Download01Icon, PrinterIcon, Search01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
+import {
+	BookOpen02Icon,
+	Bookmark02Icon,
+	Download01Icon,
+	PrinterIcon,
+	Search01Icon,
+	Tick02Icon,
+} from "@hugeicons/core-free-icons";
 import {
 	Button,
 	Dialog,
@@ -36,6 +43,7 @@ import {
 } from "./actions.ts";
 import { ARTICLE_FIXED, BELOW_WIDE_ONLY, GRID, GRID_FIXED, RAIL_FIXED, RAIL_STICKY, RAIL_TOC_PAD } from "./layout.ts";
 import { fractionText, pdfFilename, PHASE_NAME, snippetParts, type SourceRow } from "./model.ts";
+import { ArticleBody } from "./prose.tsx";
 
 const Chrome = createContext<{ openSearch: () => void; toggleGuide: () => void; guideOpen: boolean } | null>(null);
 
@@ -285,6 +293,26 @@ function Snippet({ text }: { text: string }) {
 	);
 }
 
+/**
+ * The Guide inside a modal dialog that covers the frame's Guide button (Settings). Its panel renders inside the
+ * dialog's React tree, so using the panel does not count as a click outside the dialog.
+ */
+export function SettingsGuide() {
+	const [open, setOpen] = useState(false);
+	return (
+		<>
+			<IconButton
+				icon={BookOpen02Icon}
+				label="Guide"
+				size="sm"
+				aria-expanded={open}
+				onClick={() => setOpen((value) => !value)}
+			/>
+			<GuideSheet open={open} onOpenChange={setOpen} />
+		</>
+	);
+}
+
 function GuideSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
 	const pathname = usePathname();
 	const [result, setResult] = useState<{ path: string; value: GuideResult } | null>(null);
@@ -312,26 +340,34 @@ function GuideSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (open
 	);
 }
 
+const EXCERPT_LIMIT = 500;
+
 function GuideBody({ result }: { result: GuideResult | null }) {
 	if (!result) return <p>Loading the guide.</p>;
 	if (result.status === "missing") return <p>No guide for this page.</p>;
-	if (result.status === "gone") return <p>This guide is no longer available.</p>;
 	if (result.status === "denied") return <p>Sign in to read the guide.</p>;
 	if (result.status === "unavailable") return <p>The guide could not be loaded. Try again.</p>;
+	// The excerpt stops at 500 characters, so a cut section ends with an ellipsis.
+	const excerpt = result.excerpt.length >= EXCERPT_LIMIT ? `${result.excerpt.trimEnd()}…` : result.excerpt;
 	return (
-		<div className="flex flex-col gap-3">
-			{result.title ? <p className="font-medium text-ink">{result.title}</p> : null}
-			{result.body ? <p className="whitespace-pre-wrap">{result.body}</p> : null}
-			{result.citation ? <p className="text-sm text-text-3">{result.citation}</p> : null}
-			{result.href ? (
-				<Link
-					href={result.href}
-					className="font-medium text-ink underline decoration-green-500 decoration-2 underline-offset-[3px]"
-				>
-					Open the article
-				</Link>
-			) : null}
-		</div>
+		<article className="flex flex-col gap-4">
+			<header>
+				<p className="text-sm text-text-3">From the Wiki</p>
+				<h3 className="mt-0.5 font-title text-[21px] leading-tight tracking-[-0.02em] text-ink">{result.title}</h3>
+			</header>
+			<ArticleBody
+				size="sm"
+				contentType="safe_mdx"
+				body={excerpt}
+				className="[&>:first-child]:mt-0 [&>:last-child]:mb-0 [&_h2]:text-[17px] [&_h2]:font-body [&_h2]:font-medium [&_h3]:text-[16px]"
+			/>
+			<Link
+				href={result.href}
+				className="cursor-pointer self-start font-medium text-ink underline decoration-green-500 decoration-2 underline-offset-[3px]"
+			>
+				Open the article
+			</Link>
+		</article>
 	);
 }
 
@@ -553,7 +589,13 @@ export function ArticleTools() {
 }
 
 /** The meta line under the title: read status, the credit, the update flag and the status note. */
-export function ReadStatus({ credit }: { credit: string | null }) {
+export function ReadStatus({
+	credit,
+	version,
+}: {
+	credit: string | null;
+	version: { kind: "church" | "network"; name: string } | null;
+}) {
 	const { percent, done, updated, note } = useSession();
 	const text = `${Math.round(Math.min(1, Math.max(0, Number(percent) || 0)) * 100)}% read`;
 	return (
@@ -565,6 +607,15 @@ export function ReadStatus({ credit }: { credit: string | null }) {
 			) : (
 				<span>{text}</span>
 			)}
+			{version ? (
+				<span className="inline-flex items-center gap-2">
+					<span aria-hidden="true">·</span>
+					<Tag tone={version.kind === "church" ? "teal" : "blue"}>
+						{version.kind === "church" ? "Church version" : "Network version"}
+					</Tag>
+					<span className="text-ink">{version.name}</span>
+				</span>
+			) : null}
 			{credit ? <span>· {credit}</span> : null}
 			{updated ? <span>· Updated since you read it</span> : null}
 			{note ? (

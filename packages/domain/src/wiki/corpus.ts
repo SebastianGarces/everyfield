@@ -227,10 +227,12 @@ export function corpusCtes(access: CorpusAccess, source: SourceView): SQL {
 			WHERE ${pick.kind} = 'current'
 				OR (${pick.kind} = 'global' AND c.source_kind = 'global')
 				OR (${pick.kind} = 'organization' AND c.source_id = ${pick.organizationId}::uuid)
+			-- Unranked church copies have no winner (REQ-KNOW-191): the next version in line is read instead, the
+			-- network's, then the global one. Each church copy stays open by name.
 			ORDER BY c.article_id,
 				CASE
-					WHEN EXISTS (SELECT FROM unordered u WHERE u.article_id = c.article_id)
-						THEN CASE WHEN c.source_kind = 'global' THEN 0 ELSE 1 END
+					WHEN c.source_kind = 'church' AND EXISTS (SELECT FROM unordered u WHERE u.article_id = c.article_id)
+						THEN 1
 					ELSE 0
 				END,
 				c.rank, c.accepted_at, c.source_id
@@ -261,6 +263,11 @@ export function corpusCtes(access: CorpusAccess, source: SourceView): SQL {
 		)`;
 }
 
+/** The body a reader may see: none under a hide, and none when only unranked church copies remain. */
+export function visibleBodySql(): SQL {
+	return sql`CASE WHEN p.hidden OR (p.order_required AND p.source_kind = 'church') THEN NULL ELSE p.body END`;
+}
+
 export function articleJson(): SQL {
 	return sql`json_build_object(
 		'articleId', p.article_id,
@@ -268,7 +275,7 @@ export function articleJson(): SQL {
 		'sourceKind', p.source_kind,
 		'hidden', p.hidden,
 		'state', CASE WHEN p.order_required THEN 'source_order_required' ELSE p.state END,
-		'body', CASE WHEN p.hidden OR p.order_required THEN NULL ELSE p.body END,
+		'body', ${visibleBodySql()},
 		'title', p.title,
 		'slug', p.slug,
 		'excerpt', p.excerpt,
