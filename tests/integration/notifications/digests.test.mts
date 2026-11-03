@@ -4,7 +4,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { sessionId } from "../../../packages/contracts/src/common/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
-import { createNotificationProducer } from "../../../packages/domain/src/notifications/index.ts";
+import { createNotificationProducer, issueEmailOptOutToken } from "../../../packages/domain/src/notifications/index.ts";
 import { authorizeDigestMail, createDigestWorker, planDigests } from "../../../apps/web/src/server/jobs/digest.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
@@ -22,7 +22,8 @@ const sent: { to: string; subject: string; text: string }[] = [];
 let mail: ReturnType<typeof createMailService>;
 let worker: ReturnType<typeof createDigestWorker>;
 let tick: (request: Request) => Promise<Response>;
-const feedApi = createNotificationProducer({ optOutKey: randomBytes(32) });
+const optOutKey = randomBytes(32);
+const feedApi = createNotificationProducer({ optOutKey });
 /** A second runtime pool whose statements the budget test counts. */
 const counted = { db: null as unknown as typeof runtime, queries: [] as string[] };
 
@@ -264,8 +265,18 @@ test("AC:CASE-NTF-008 AC:NOTIFY47-005 WP-030 criteria 4, 8, 9: the 07:00 oversig
 		for (const text of [items[0]!.title, items[0]!.body!])
 			for (const word of [...PRIVATE, "Hidden Hollow", "3 activities"]) assert.ok(!text.includes(word), word);
 	}
-	// Criterion 8: no saved choice → bell only; email turned on → the email too.
+	// Criterion 8: no saved choice → bell only; email turned on → the email too. The opt-out page agrees.
 	assert.deepEqual(await mails(owner.id), []);
+	const token = issueEmailOptOutToken(optOutKey, {
+		purpose: "disable",
+		accountId: owner.id,
+		category: "oversight_digest",
+		unsubscribeRevision: "0",
+	});
+	const described = await feedApi.describeEmailOptOut(runtime, undefined as never, { token });
+	assert.equal(described.status, "ok", JSON.stringify(described));
+	const choice = (described as { value: { emailEnabled: boolean; inAppEnabled: boolean } }).value;
+	assert.deepEqual([choice.inAppEnabled, choice.emailEnabled], [true, false]);
 	assert.deepEqual(
 		(await mails(admin2.id)).map((m) => m.purpose),
 		["oversight_digest"],
