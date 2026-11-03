@@ -147,11 +147,9 @@ function wikiTool(root: string): string {
 	return join(root, "bin/wiki");
 }
 
-/** The bytes of `paths` under `wt`, or null for a path that does not exist. */
+/** The bytes of `paths` under `wt` as one string (latin1 keeps every byte); a missing path reads as null. */
 const snapshot = (wt: string, paths: string[]) =>
-	paths.map((path) => (existsSync(join(wt, path)) ? readFileSync(join(wt, path)) : null));
-const sameBytes = (a: (Buffer | null)[], b: (Buffer | null)[]) =>
-	a.every((x, i) => (x === null ? b[i] === null : b[i] !== null && x.equals(b[i]!)));
+	JSON.stringify(paths.map((path) => (existsSync(join(wt, path)) ? readFileSync(join(wt, path), "latin1") : null)));
 const output = (r: { stdout: string; stderr: string }) => [r.stdout.trim(), r.stderr.trim()].filter(Boolean).join("\n");
 
 /**
@@ -181,7 +179,7 @@ export function promoteDrafts(root: string, wt: string, base: string, number: nu
 				before = snapshot(wt, watched);
 			const r = run(wiki, [...args, "--reviewed-sha", reviewed, ...seedDir], { cwd: wt });
 			if (r.code === 0) promoted.push(path);
-			else if (!sameBytes(before, snapshot(wt, watched)))
+			else if (before !== snapshot(wt, watched))
 				stopped(`bin/wiki promote ${path}`, `${output(r)}\nIt changed the seed, manifest or draft before it failed.`);
 			else failed.push({ path, detail: output(r) });
 		}
