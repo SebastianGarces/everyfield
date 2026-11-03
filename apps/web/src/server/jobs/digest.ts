@@ -26,7 +26,7 @@ import { claimDue, finishClaim, finishJob, lockClaim, type Claim } from "./queue
 const OVERSIGHT_SLOT = { weekday: 1, hour: 7 } as const;
 /** Coverage starts and jobs queued by one planner statement, and digests one runner tick delivers. */
 const PLAN_LIMIT = 500;
-export const DIGESTS_PER_RUN = 20;
+const DIGESTS_PER_RUN = 20;
 
 /**
  * Queues the digests owed at `asOf`. One statement. A recipient seen for the first time starts their coverage at the
@@ -139,10 +139,11 @@ export function createDigestWorker(config: { mail: ReturnType<typeof createMailS
 		if (!row?.coverage || !row.revision || row.church_cadence === "off") return "nothing" as const;
 		const plant = row.kind === "plant";
 		const category = plant ? "planter_digest" : "oversight_digest";
+		const cadence = row.cadence ?? defaultDigestCadence[category];
 		const period = owedPeriod(
 			{
 				zone: row.zone,
-				cadence: row.cadence ?? defaultDigestCadence[category],
+				cadence,
 				weekday: plant ? z.number().parse(row.weekday) : OVERSIGHT_SLOT.weekday,
 				hour: plant ? z.number().parse(row.hour) : OVERSIGHT_SLOT.hour,
 				completedDaysOnly: !plant,
@@ -165,7 +166,7 @@ export function createDigestWorker(config: { mail: ReturnType<typeof createMailS
 		const inApp = row.in_app ?? defaultChannelEnabled(category, "in_app");
 		const email = (row.email ?? defaultChannelEnabled(category, "email")) && row.address !== null;
 		const send = digest.total > 0 && (inApp || email);
-		const text = digest.text;
+		const { text } = digest;
 		const key = digestKey(tenant, category, row.coverage, period.start, period.end);
 		const notice = randomUUID();
 		const mail = config.mail.queued(
@@ -193,7 +194,7 @@ export function createDigestWorker(config: { mail: ReturnType<typeof createMailS
 		// Coverage advances with what the period delivered, in one statement: an empty period or one with both channels
 		// off advances it alone. A notice whose bell channel is off is archived, and its email still goes.
 		const write = await tx.execute(sql`WITH advanced AS (
-				UPDATE digest_coverage SET covered_through = ${period.end}::date, cadence = ${row.cadence ?? defaultDigestCadence[category]},
+				UPDATE digest_coverage SET covered_through = ${period.end}::date, cadence = ${cadence},
 					timezone = ${row.zone}, revision = revision + 1
 				WHERE id = ${row.coverage}::uuid AND revision = ${row.revision}::bigint RETURNING id, revision
 			), notices AS (

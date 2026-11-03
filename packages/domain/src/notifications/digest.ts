@@ -158,7 +158,7 @@ export async function readPlanterDigest(db: Database, authority: RequestActor, r
 
 type Execute = { execute: Database["execute"] };
 /** At most this many lines in one digest; the total still counts every item (REQ-NTF-008: ≤100 lines). */
-export const DIGEST_LINES = 100;
+const DIGEST_LINES = 100;
 
 /** The recipient holds a current Owner or Admin seat in the tenant, and no lifecycle witness hides the account, seat or tenant. */
 const liveRecipient = (tenant: string, recipient: string) => sql`EXISTS (
@@ -178,8 +178,8 @@ export async function digestRecipientLive(db: Execute, tenant: string, recipient
 
 const planterItem = z.object({ kind: z.enum(["task", "meeting"]), date: localDate, title: z.string().min(1) });
 const oversightLine = z.object({ plant: z.string().min(1), date: localDate, count: z.number().int().positive() });
-export type PlanterDigestItem = z.infer<typeof planterItem>;
-export type OversightDigestLine = z.infer<typeof oversightLine>;
+type PlanterDigestItem = z.infer<typeof planterItem>;
+type OversightDigestLine = z.infer<typeof oversightLine>;
 const compiled = <T extends z.ZodType>(line: T) =>
 	z.object({ live: z.boolean(), total: z.number().int().nonnegative(), lines: z.array(line).max(DIGEST_LINES) });
 
