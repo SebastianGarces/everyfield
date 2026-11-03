@@ -202,7 +202,6 @@ export const churchDocument = z.strictObject({
 });
 /** What a reader gets: the document and what the PDF paints for it. */
 export const churchDocumentView = churchDocument.extend({ brand: docBrand });
-export type ChurchDocumentView = z.infer<typeof churchDocumentView>;
 export const churchRevisionSummary = z.strictObject({
 	id: recordId,
 	number: z.int().min(1),

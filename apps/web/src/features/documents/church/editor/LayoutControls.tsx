@@ -187,7 +187,6 @@ function HeightField({ editor, target }: { editor: Editor; target: Target }) {
 					value={draft ?? String(current)}
 					aria-invalid={problem ? true : undefined}
 					aria-describedby={problem ? `${id}-problem` : undefined}
-					title="Image height in points, 8 to 1440"
 					className="h-9 w-20 rounded-sm bg-surface px-2 text-md text-ink shadow-[0_0_0_1px_var(--ef-line-2)] outline-none focus-visible:shadow-[0_0_0_2px_var(--ef-focus)] aria-[invalid=true]:shadow-[0_0_0_1px_var(--ef-magenta-500)]"
 					onChange={(event) => {
 						const text = event.target.value;

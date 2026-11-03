@@ -71,7 +71,6 @@ function Inches({
 					step={0.05}
 					min={min}
 					max={max}
-					title={`${label} in inches`}
 					value={draft ?? String(toInches(points))}
 					onChange={(event) => {
 						const text = event.target.value;
@@ -163,7 +162,7 @@ export function PageSetupPanel({
 				<Segmented
 					label={`${key === "header" ? "Header" : "Footer"} prints on`}
 					value={pages}
-					options={PAGES.map((p) => ({ value: p.value, label: p.label }))}
+					options={[...PAGES]}
 					onChange={(value) => setRegion(editor, key, true, value)}
 				/>
 			) : null}
