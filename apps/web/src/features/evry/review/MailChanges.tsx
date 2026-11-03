@@ -5,12 +5,10 @@ import {
 	audienceOf,
 	audienceText,
 	LEFT_OUT_REASON,
-	mailReport,
 	reportTime,
 	sendTimeFull,
 	sendTimeOf,
 	type Change,
-	type MailReport,
 	type Review,
 } from "./model.ts";
 
@@ -149,14 +147,14 @@ export function MailChanges({ review }: { review: Review }) {
 				</>
 			) : null}
 			{time ? (
-				<Row label={op === "communication.cancelScheduledReviewed" ? "Was set for" : "Sends"}>
+				<Row label="Sends">
 					{op === "communication.rescheduleReviewed" && was ? (
 						<>
 							<Old>{sendTimeFull(was)}</Old>
 							<Then />
 						</>
 					) : null}
-					{op === "communication.cancelScheduledReviewed" ? null : <New>{sendTimeFull(time)}</New>}
+					<New>{sendTimeFull(time)}</New>
 				</Row>
 			) : null}
 			{op === "communication.cancelScheduledReviewed" && was ? (
@@ -186,11 +184,6 @@ export function mailConsequence(review: Review): string | null {
 	}
 }
 
-const COUNTS: [keyof MailReport, string][] = [
-	["accepted", "Accepted"],
-	["refused", "Refused"],
-	["unknown", "Unknown"],
-];
 function Tally({ items }: { items: [string, number][] }) {
 	return (
 		<ul className="flex flex-wrap gap-x-4 gap-y-1">
@@ -206,14 +199,20 @@ function Tally({ items }: { items: [string, number][] }) {
 
 /** The saved result of an email effect, in the words of what the email service said. */
 export function MailResult({ review }: { review: Review }) {
-	const report = mailReport(review);
+	const report = review.receipt?.report;
 	if (!report) return null;
 	const at = reportTime(report, review);
 	let lines: ReactNode = null;
 	if (report.kind === "schedule" || (report.kind === "replace" && report.replaced))
 		lines = (
 			<>
-				<Tally items={COUNTS.map(([k, label]) => [label, Number(report[k] ?? 0)])} />
+				<Tally
+					items={[
+						["Accepted", report.accepted ?? 0],
+						["Refused", report.refused ?? 0],
+						["Unknown", report.unknown ?? 0],
+					]}
+				/>
 				<p className="text-text-2">
 					The email service accepted these for {at}. Accepted does not mean the email arrived. The email service reports
 					what happens next.
@@ -226,9 +225,9 @@ export function MailResult({ review }: { review: Review }) {
 				<p>The email service confirmed {at}. The earlier time is gone.</p>
 			) : (
 				<p>
-					The email service did not confirm the new time for {Number(report.open ?? 0)}{" "}
-					{report.open === 1 ? "recipient" : "recipients"}. They may still hold the earlier time
-					{report.heldAt ? "" : ""}. Check again asks it again.
+					The email service did not confirm the new time for {report.open ?? 0}{" "}
+					{report.open === 1 ? "recipient" : "recipients"}. They may still hold the earlier time. Check again asks it
+					again.
 				</p>
 			);
 	if (report.kind === "cancel")
@@ -236,9 +235,9 @@ export function MailResult({ review }: { review: Review }) {
 			<>
 				<Tally
 					items={[
-						["Cancelled", Number(report.cancelled ?? 0)],
-						["Already sent", Number(report.sent ?? 0)],
-						["Not confirmed", Number(report.open ?? 0)],
+						["Cancelled", report.cancelled ?? 0],
+						["Already sent", report.sent ?? 0],
+						["Not confirmed", report.open ?? 0],
 					]}
 				/>
 				{report.confirmation === "not_confirmed" ? (

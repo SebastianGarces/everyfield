@@ -26,11 +26,9 @@ export type MailReport = {
 	kind: "schedule" | "reschedule" | "cancel" | "replace";
 	confirmation: "confirmed" | "not_confirmed" | "refused" | "none" | "blocked";
 	scheduledAt?: string;
-	heldAt?: string | null;
 	accepted?: number;
 	refused?: number;
 	unknown?: number;
-	confirmed?: number;
 	cancelled?: number;
 	sent?: number;
 	open?: number;
@@ -180,27 +178,23 @@ export const operationTitle = (operation: Operation) => TITLE[operation];
 // Email: the five reviewed Communication writes (MAIL51-009). The email service is the only source of "confirmed".
 
 export const isMail = (operation: Operation) => operation.startsWith("communication.");
-export type SendTime = { at: string; zone: string };
+type SendTime = { at: string; zone: string };
 const asTime = (value: unknown): SendTime | null =>
 	value && typeof value === "object" && "at" in value && "zone" in value ? (value as SendTime) : null;
 export const sendTimeOf = (review: Review, side: "before" | "after") =>
 	asTime(review.review.changes.find((c) => c.field === "sendAt")?.[side]);
 const part = (at: string, zone: string, options: Intl.DateTimeFormatOptions) =>
 	new Intl.DateTimeFormat("en-US", { ...options, timeZone: zone }).format(new Date(at));
-const zoneShort = (at: string, zone: string) =>
-	new Intl.DateTimeFormat("en-US", { timeZoneName: "short", timeZone: zone })
-		.formatToParts(new Date(at))
-		.find((p) => p.type === "timeZoneName")?.value ?? zone;
-const zoneLong = (at: string, zone: string) =>
-	new Intl.DateTimeFormat("en-US", { timeZoneName: "long", timeZone: zone })
+const zoneName = (at: string, zone: string, timeZoneName: "short" | "long") =>
+	new Intl.DateTimeFormat("en-US", { timeZoneName, timeZone: zone })
 		.formatToParts(new Date(at))
 		.find((p) => p.type === "timeZoneName")?.value ?? zone;
 /** "Fri, 9:00 AM CST": the day, the time and the zone, in the church's own zone. */
 export const sendTime = ({ at, zone }: SendTime) =>
-	`${part(at, zone, { weekday: "short" })}, ${part(at, zone, { hour: "numeric", minute: "2-digit" })} ${zoneShort(at, zone)}`;
+	`${part(at, zone, { weekday: "short" })}, ${part(at, zone, { hour: "numeric", minute: "2-digit" })} ${zoneName(at, zone, "short")}`;
 /** "Fri, Nov 6, 9:00 AM CST (Central Standard Time)": the full date and the zone's name. */
 export const sendTimeFull = ({ at, zone }: SendTime) =>
-	`${part(at, zone, { weekday: "short", month: "short", day: "numeric" })}, ${part(at, zone, { hour: "numeric", minute: "2-digit" })} ${zoneShort(at, zone)} (${zoneLong(at, zone)})`;
+	`${part(at, zone, { weekday: "short", month: "short", day: "numeric" })}, ${part(at, zone, { hour: "numeric", minute: "2-digit" })} ${zoneName(at, zone, "short")} (${zoneName(at, zone, "long")})`;
 /** A saved report's time on the card, in the church's zone. */
 export const reportTime = (report: MailReport, review: Review) => {
 	const zone = (sendTimeOf(review, "after") ?? sendTimeOf(review, "before"))?.zone;
@@ -209,7 +203,7 @@ export const reportTime = (report: MailReport, review: Review) => {
 };
 
 /** The church-local wall time the Evry tools take back for a review again: "2026-11-06T09:00". */
-export function localTime({ at, zone }: SendTime) {
+function localTime({ at, zone }: SendTime) {
 	const p = Object.fromEntries(
 		new Intl.DateTimeFormat("en-CA", {
 			timeZone: zone,
@@ -233,7 +227,7 @@ const GROUP_LABEL: Record<string, string> = {
 	leaders: "Leaders",
 	prospects: "Prospects",
 };
-export type AudienceValue = {
+type AudienceValue = {
 	groups: string[];
 	teamIds: string[];
 	personIds: string[];
@@ -260,12 +254,11 @@ export const LEFT_OUT_REASON: Record<string, string> = {
 	updates_off: "Turned off update emails",
 };
 
-export const mailReport = (review: Review): MailReport | null => review.receipt?.report ?? null;
 /** The report is not confirmed and the email service can be asked again. */
 export const checkable = (review: Review) =>
-	review.outcome === "completed" && mailReport(review)?.confirmation === "not_confirmed";
+	review.outcome === "completed" && review.receipt?.report?.confirmation === "not_confirmed";
 
-export type MailHead = { title: string; tone: "amber" | "green" | "magenta" | "gray" };
+type MailHead = { title: string; tone: "amber" | "green" | "magenta" | "gray" };
 const MAIL_PENDING: Record<string, string> = {
 	"communication.saveDraft": "Review before saving",
 	"communication.scheduleReviewed": "Review before scheduling",
@@ -286,7 +279,7 @@ export function mailHead(review: Review, phase: Phase): MailHead | null {
 	if (phase === "refused") return { title: "Refused", tone: "magenta" };
 	if (phase !== "completed") return null;
 	if (review.operation === "communication.saveDraft") return { title: "Saved", tone: "green" };
-	const report = mailReport(review);
+	const report = review.receipt?.report;
 	if (!report) return { title: "Done", tone: "green" };
 	const at = reportTime(report, review);
 	switch (report.kind) {
@@ -409,8 +402,8 @@ export function reviseInput(review: Review, edits: Record<string, string> = {}):
 		case "communication.cancelScheduledReviewed":
 			return { communicationId: target.id };
 		case "communication.replaceScheduledReviewed": {
-			const audience = audienceOf(changes.find((c) => c.field === "audience")?.after);
-			const body = changes.find((c) => c.field === "body")?.after;
+			const audience = audienceOf(after("audience"));
+			const body = after("body");
 			return {
 				communicationId: target.id,
 				...(typeof body === "string" ? { body } : {}),

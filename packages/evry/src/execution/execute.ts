@@ -129,8 +129,7 @@ export async function executeProposal(
 			const result = await write.execute(tx, { session: session.data, selected }, p.input, effectKey, reminders);
 			if ("refused" in result) throw new Refused(refusalCode(result.refused));
 			// The email service is called after this transaction commits, never inside it.
-			if (write.reach)
-				return { write, authority: claimed.authority, input: p.input, effectKey, result: result as Done, id: p.id };
+			if (write.reach) return { write, authority: claimed.authority, input: p.input, effectKey, result, id: p.id };
 			// Publish only if the approval is still unexpired and this claim still current; the first read already holds
 			// the proposal and job locks. Otherwise the change and its audit row roll back with the transaction.
 			const published = await tx.execute(

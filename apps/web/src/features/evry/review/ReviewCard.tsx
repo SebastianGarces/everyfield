@@ -789,7 +789,7 @@ function CardHead({
 /** Who the change affects: the person, or the new person a create adds. */
 function Affects({ review }: { review: Review }) {
 	const mail = isMail(review.operation);
-	const create = review.operation === "people.createPerson" || review.operation === "communication.saveDraft";
+	const create = review.operation === "people.createPerson";
 	const name = mail
 		? String(review.review.changes.find((c) => c.field === "subject")?.after ?? review.review.target?.label ?? "Email")
 		: create

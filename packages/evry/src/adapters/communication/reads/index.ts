@@ -24,7 +24,6 @@ const messageRow = z.object({
 	id: z.uuid(),
 	subject: z.string().nullable(),
 	state: z.string(),
-	at: z.string().nullable(),
 	local_date: z.string().nullable(),
 	local_time: z.string().nullable(),
 	zone: z.string(),
@@ -43,7 +42,7 @@ export const listMessages: ReadAdapter<z.infer<typeof listInput>> = {
 		const limit = input.limit ?? 20;
 		const words = input.subject ? `%${input.subject.replace(/[\\%_]/g, "\\$&")}%` : null;
 		const r = await tx.execute(sql`
-			SELECT c.id,c.subject,c.state,to_char(c.scheduled_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"') AS at,
+			SELECT c.id,c.subject,c.state,
 				to_char(c.scheduled_at AT TIME ZONE pl.timezone,'YYYY-MM-DD') AS local_date,
 				to_char(c.scheduled_at AT TIME ZONE pl.timezone,'HH24:MI') AS local_time,pl.timezone AS zone,
 				(SELECT count(*) FROM mail m WHERE m.tenant_id=c.plant_id AND m.logical_key LIKE 'communication/'||c.id||'/%'

@@ -75,76 +75,48 @@ function emailRequest(text: string) {
 function emailStep(text: string, canPropose: boolean, canRead: boolean, result: Record<string, unknown> | null) {
 	const e = emailRequest(text);
 	if (!canPropose) return null;
+	const propose = (operation: string, input: unknown) => [toolCall("propose_change", { operation, input })];
 	if (e.draft && !result)
-		return [
-			toolCall("propose_change", {
-				operation: "communication.saveDraft",
-				input: {
-					subject: "Sunday's interest meeting",
-					body: "Hi {{name}},\n\nWe are holding an interest meeting on Sunday at 4 pm. Please come and bring a friend.\n\nSee you there.",
-					audience: { groups: ["launch_team"] },
-				},
-			}),
-		];
+		return propose("communication.saveDraft", {
+			subject: "Sunday's interest meeting",
+			body: "Hi {{name}},\n\nWe are holding an interest meeting on Sunday at 4 pm. Please come and bring a friend.\n\nSee you there.",
+			audience: { groups: ["launch_team"] },
+		});
 	const target = e.schedule ?? e.relative ?? e.move ?? e.cancel ?? e.body ?? e.audience;
 	if (!target || !canRead) return null;
-	const sendOn = e.schedule || e.relative ? undefined : nextDate(target[1]!);
 	if (!result)
 		return [
 			toolCall("communication_read", {
 				operation: "communication.list",
-				input: e.schedule || e.relative ? { state: "draft" } : { state: "scheduled", sendOn },
+				input: e.schedule || e.relative ? { state: "draft" } : { state: "scheduled", sendOn: nextDate(target[1]!) },
 			}),
 		];
 	const first = (result.rows as { id: string }[] | undefined)?.[0];
 	if (!first || typeof result.proposalId === "string") return null;
+	const communicationId = first.id;
 	if (e.schedule)
-		return [
-			toolCall("propose_change", {
-				operation: "communication.scheduleReviewed",
-				input: {
-					communicationId: first.id,
-					sendAt: `${nextDate(e.schedule[1]!)}T${clock(e.schedule[2]!, e.schedule[3]!)}`,
-				},
-			}),
-		];
+		return propose("communication.scheduleReviewed", {
+			communicationId,
+			sendAt: `${nextDate(e.schedule[1]!)}T${clock(e.schedule[2]!, e.schedule[3]!)}`,
+		});
 	if (e.relative) {
 		const days = e.relative[1]!.toLowerCase() === "yesterday" ? -1 : Number(/\d+/.exec(e.relative[1]!)![0]);
 		const date = new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
-		return [
-			toolCall("propose_change", {
-				operation: "communication.scheduleReviewed",
-				input: { communicationId: first.id, sendAt: `${date}T${clock(e.relative[2]!, e.relative[3]!)}` },
-			}),
-		];
+		return propose("communication.scheduleReviewed", {
+			communicationId,
+			sendAt: `${date}T${clock(e.relative[2]!, e.relative[3]!)}`,
+		});
 	}
 	if (e.move)
-		return [
-			toolCall("propose_change", {
-				operation: "communication.rescheduleReviewed",
-				input: { communicationId: first.id, sendAt: `${nextDate(e.move[2]!)}T${clock(e.move[3]!, e.move[4]!)}` },
-			}),
-		];
-	if (e.cancel)
-		return [
-			toolCall("propose_change", {
-				operation: "communication.cancelScheduledReviewed",
-				input: { communicationId: first.id },
-			}),
-		];
-	if (e.body)
-		return [
-			toolCall("propose_change", {
-				operation: "communication.replaceScheduledReviewed",
-				input: { communicationId: first.id, body: e.body[2]!.trim() },
-			}),
-		];
-	return [
-		toolCall("propose_change", {
-			operation: "communication.replaceScheduledReviewed",
-			input: { communicationId: first.id, audience: { groups: ["launch_team"] } },
-		}),
-	];
+		return propose("communication.rescheduleReviewed", {
+			communicationId,
+			sendAt: `${nextDate(e.move[2]!)}T${clock(e.move[3]!, e.move[4]!)}`,
+		});
+	if (e.cancel) return propose("communication.cancelScheduledReviewed", { communicationId });
+	return propose(
+		"communication.replaceScheduledReviewed",
+		e.body ? { communicationId, body: e.body[2]!.trim() } : { communicationId, audience: { groups: ["launch_team"] } },
+	);
 }
 
 const FORMATTING = /\bformatting demo\b/i;
