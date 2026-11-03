@@ -723,16 +723,7 @@ function queuedMerge(root: string, cfg: Config, task: TaskRef, wt: string, numbe
 		fail(
 			`Merge refused: ${(merge.stderr || merge.stdout).trim()}. A changed head needs fresh CI and verifier approval.`,
 		);
-	return afterMerge(
-		root,
-		cfg,
-		task,
-		wt,
-		number,
-		verification,
-		baseSha,
-		merge.owner ? { ownerApproval: merge.owner } : {},
-	);
+	return afterMerge(root, cfg, task, wt, number, verification, baseSha, { ownerApproval: merge.owner });
 }
 
 /**

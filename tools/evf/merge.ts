@@ -337,8 +337,10 @@ export function mergePullRequest(req: MergeRequest): RunResult & { owner?: Owner
 			);
 	}
 	const owner = ownerCover(root, cfg, req.cwd, number, sha);
-	const merged = run("gh", ["pr", "merge", String(number), "--squash", "--match-head-commit", sha], { cwd: req.cwd });
-	return owner ? { ...merged, owner } : merged;
+	return {
+		...run("gh", ["pr", "merge", String(number), "--squash", "--match-head-commit", sha], { cwd: req.cwd }),
+		owner,
+	};
 }
 
 /**

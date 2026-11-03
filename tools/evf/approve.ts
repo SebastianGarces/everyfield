@@ -35,8 +35,7 @@ import { APPROVED_PROTOTYPE, changesOnlyOwnRegistration, mayChangePrototype } fr
  * marketing PRs (mergePolicy.ownerPaths, OPS-111; these need --head) and Wiki-content task PRs (OPS-109) that would
  * otherwise merge through evf ship. An ordinary task PR that evf ship merges gets his recorded approval of one exact head
  * (`--head`, OPS-121): an EVF-Owner line that every later merge must cover. Every other PR refuses before any write.
- * Sebastian approves in chat;
- * the agent runs this with his words. Agents never run it without that approval for this PR.
+ * Sebastian approves in chat; the agent runs this with his words. Agents never run it without that approval for this PR.
  * It records the approval on the PR, binds it to the exact head commit, and squash-merges.
  * When main is protected, it also posts the evf/verify status for that head.
  */
