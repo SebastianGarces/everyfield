@@ -26,15 +26,15 @@ import { stackEnv, stackInfo } from "./task.ts";
  */
 
 export const ESCAPED_DIR = "tests/ui/escaped/";
-export const SOAK_RUNS = 20;
+const SOAK_RUNS = 20;
 const ESCAPED_TEST = /^tests\/ui\/escaped\/[^/]+\.test\.mjs$/;
 const SHA = /^[a-f0-9]{40}$/;
 
 /** What evf reads of a PR. `null` from a reader means GitHub has no PR with that number. */
 export type PrRead = { state: string; headRefOid: string; mergeCommit: { oid: string } | null };
-export type PrReader = (pr: number) => PrRead | null;
+type PrReader = (pr: number) => PrRead | null;
 
-export function ghPrReader(root: string): PrReader {
+function ghPrReader(root: string): PrReader {
 	return (pr) => {
 		const r = run("gh", ["pr", "view", String(pr), "--json", "state,headRefOid,mergeCommit"], { cwd: root });
 		if (r.code !== 0) {
@@ -45,10 +45,10 @@ export function ghPrReader(root: string): PrReader {
 	};
 }
 
-export type EscapedHead = { sha: string; source: "override" | "merge commit" | "PR head" };
+type EscapedHead = { sha: string; source: "override" | "merge commit" | "PR head" };
 
 /** The head the bug escaped on: `--head` wins; else the merge commit of a merged PR; else the PR's current head. */
-export function escapedHead(pr: PrRead, override?: string): EscapedHead {
+function escapedHead(pr: PrRead, override?: string): EscapedHead {
 	if (override !== undefined) {
 		if (!SHA.test(override)) fail("--head takes a full 40-character commit SHA.");
 		return { sha: override, source: "override" };
@@ -57,17 +57,10 @@ export function escapedHead(pr: PrRead, override?: string): EscapedHead {
 	return { sha: pr.headRefOid, source: "PR head" };
 }
 
-/** The Done template every escape task carries (spec criterion 3). */
-export function doneTemplate(head: string): string {
-	return [
-		`1. A test in \`${ESCAPED_DIR}\` fails on the escaped head ${head} and passes on the fix, or on main when main never had the bug.`,
-		`2. The test passes the ${SOAK_RUNS}-run soak: \`bin/evf escape soak ${ESCAPED_DIR}<name>.test.mjs\` records ${SOAK_RUNS} green runs for the file's current bytes.`,
-		"3. One `bin/evf proof add` records each of the two runs (the failure on the escaped head and the pass on the fix or main), with the head SHA, the command and the result.",
-	].join("\n");
-}
+const escapeTitle = (pr: number) => `Escaped bug from PR #${pr} becomes a permanent check`;
 
-/** The ask an escape task stores. `what` stays byte for byte. */
-export function escapeAsk(pr: number, head: EscapedHead, what: string): string {
+/** The ask an escape task stores: `what` byte for byte, the PR, the escaped head and the Done template. */
+function escapeAsk(pr: number, head: EscapedHead, what: string): string {
 	return [
 		`# Ask: escaped bug from PR #${pr} becomes a permanent check`,
 		"",
@@ -82,19 +75,21 @@ export function escapeAsk(pr: number, head: EscapedHead, what: string): string {
 		"",
 		"## Done template",
 		"",
-		doneTemplate(head.sha),
+		`1. A test in \`${ESCAPED_DIR}\` fails on the escaped head ${head.sha} and passes on the fix, or on main when main never had the bug.`,
+		`2. The test passes the ${SOAK_RUNS}-run soak: \`bin/evf escape soak ${ESCAPED_DIR}<name>.test.mjs\` records ${SOAK_RUNS} green runs for the file's current bytes.`,
+		"3. One `bin/evf proof add` records each of the two runs (the failure on the escaped head and the pass on the fix or main), with the head SHA, the command and the result.",
 	].join("\n");
 }
 
 /** The maintenanceTasks entry the coordinator commits on the new task's branch. evf never writes it. */
-export function escapeEntry(checks: CheckDef[], pr: number): Record<string, unknown> {
+function escapeEntry(checks: CheckDef[], pr: number): Record<string, unknown> {
 	const named = (name: string) => {
 		const check = checks.find((c) => c.name === name);
 		if (!check) fail(`evf.config.json checks must define "${name}".`);
 		return check;
 	};
 	return {
-		title: `Escaped bug from PR #${pr} becomes a permanent check`,
+		title: escapeTitle(pr),
 		owningPaths: [ESCAPED_DIR],
 		checks: [named("documentation"), named("workflow-regressions")],
 		risk: "ordinary",
@@ -140,13 +135,12 @@ export function escape(
 	const id = (deps.reserveId ?? (() => nextId(root, cfg, "ops")))();
 	const task = parseTask(id);
 	const ask = escapeAsk(opts.pr, head, opts.what);
-	const title = `Escaped bug from PR #${opts.pr} becomes a permanent check`;
 	const db = openWorkDb(root);
 	try {
 		db.exec("BEGIN IMMEDIATE");
 		try {
 			const row = newTaskRow(db, task, "implement");
-			db.prepare("UPDATE tasks SET ask = ?, title = ? WHERE id = ?").run(ask, title, row.id);
+			db.prepare("UPDATE tasks SET ask = ?, title = ? WHERE id = ?").run(ask, escapeTitle(opts.pr), row.id);
 			record(db, row.id, null, "escape_filed", {
 				pr: opts.pr,
 				head: head.sha,
@@ -170,10 +164,9 @@ export function escape(
 	return 0;
 }
 
-export type SoakRecord = {
+type SoakRecord = {
 	file: string;
 	sha256: string;
-	required: number;
 	runs: number;
 	passed: boolean;
 	failedRun: number | null;
@@ -247,7 +240,7 @@ export function soak(
 	writeFileSync(log, `soak ${rel} sha256 ${hash} against ${baseUrl}\n`);
 	const once =
 		runOnce ??
-		((r: string, url: string, cwd: string) =>
+		((r, url, cwd) =>
 			run(process.execPath, ["--test", r], { cwd, env: { ...process.env, UI_BASE_URL: url }, timeoutMs: 600_000 }));
 	let runs = 0,
 		failedRun: number | null = null;
@@ -264,7 +257,6 @@ export function soak(
 	const result: SoakRecord = {
 		file: rel,
 		sha256: hash,
-		required: SOAK_RUNS,
 		runs,
 		passed: failedRun === null,
 		failedRun,
@@ -279,7 +271,7 @@ export function soak(
 }
 
 /** What `evf verify` does with the ui-escaped check for a task. */
-export type EscapedGate = { skip: string } | { fail: string } | { baseUrl: string };
+type EscapedGate = { skip: string } | { fail: string } | { baseUrl: string };
 
 /**
  * ui-escaped runs for WP /ui parts and for any task that changes tests/ui/escaped/. It fails closed without a running

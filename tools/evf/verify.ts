@@ -29,7 +29,7 @@ import { caseCoverage, caseGrep, hasCaseMarkers, testsOf } from "./coverage.ts";
 import { formatScope, wpScope, type ScopeReport } from "./scope.ts";
 import { requireFreeMigrationNumbers } from "./migrations.ts";
 import { awaitLoad } from "./load.ts";
-import { uiEscapedGate, type EscapedGate } from "./escape.ts";
+import { uiEscapedGate } from "./escape.ts";
 
 export type Role = "author" | "verifier";
 export type Mode = "full" | "quick";
@@ -115,8 +115,7 @@ export function verify(
 	if (task.kind !== "ops" && cfg.stack?.usesPaidProviders) requireSpend(root);
 	const reports: string[] = [];
 	const inputsUnchanged = () => git(wt, "rev-parse", "HEAD") === sha && isClean(wt);
-	let treeUnchanged = true,
-		escaped: EscapedGate | undefined;
+	let treeUnchanged = true;
 	for (const [index, c] of definitions.filter((c) => !c.modes || c.modes.includes(mode)).entries()) {
 		// Each check writes its own report, so one check can never overwrite another's results.
 		// The index keeps names that slug alike ("package cases", "package_cases") in separate files.
@@ -128,7 +127,7 @@ export function verify(
 		const log = join(dir, `${file}.log`);
 		let checkEnv: NodeJS.ProcessEnv = { ...env, EVF_TEST_REPORT: testReport };
 		if (c.name === UI_ESCAPED) {
-			escaped ??= uiEscapedGate(root, wt, task, baseSha);
+			const escaped = uiEscapedGate(root, wt, task, baseSha);
 			if ("skip" in escaped) {
 				console.error(`evf verify: ${UI_ESCAPED} skipped: ${escaped.skip}`);
 				continue;
