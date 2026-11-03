@@ -38,6 +38,12 @@
 	"GET /intelligence": {
 		"limit": 2
 	},
+	"GET /intelligence/attestations": {
+		"limit": 2
+	},
+	"GET /intelligence/attestations (member)": {
+		"limit": 1
+	},
 	"GET /me/check-in": {
 		"limit": 2
 	},
@@ -184,6 +190,21 @@
 	},
 	"POST phases.movePhase": {
 		"limit": 4
+	},
+	"POST intelligence.attestSignal": {
+		"limit": 2
+	},
+	"POST intelligence.correctSignal": {
+		"limit": 2
+	},
+	"POST intelligence.reaffirmSignal": {
+		"limit": 2
+	},
+	"POST intelligence.attestCandidate": {
+		"limit": 2
+	},
+	"POST intelligence.correctCandidate": {
+		"limit": 2
 	},
 	"POST intelligence.saveCheckIn": {
 		"limit": 2
@@ -1775,6 +1796,30 @@
 		"limit": 1
 	},
 	"privateCare.save": {
+		"limit": 1
+	},
+	"signals.attest": {
+		"limit": 1
+	},
+	"signals.attestCandidate": {
+		"limit": 1
+	},
+	"signals.correct": {
+		"limit": 1
+	},
+	"signals.correctCandidate": {
+		"limit": 1
+	},
+	"signals.getHistory": {
+		"limit": 1
+	},
+	"signals.listDefinitions": {
+		"limit": 0
+	},
+	"signals.readAttestations": {
+		"limit": 1
+	},
+	"signals.reaffirm": {
 		"limit": 1
 	},
 	"phases.transition": {
