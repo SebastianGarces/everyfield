@@ -242,7 +242,7 @@ test("OPS-125: a rerun writes nothing, and a branch without the history gets it 
 const OPS_BRANCH = "task/ops-125";
 /**
  * The OPS-125 change check on `repo`: no app or package file imports tools/evf/, and outside a shallow checkout at
- * least one `OPS-125:` commit exists and none of them, each against its first parent, edits apps/ or packages/. On
+ * least one non-merge `OPS-125:` commit exists and none of them, each against its first parent, edits apps/ or packages/. On
  * task/ops-125 the branch diff counts too. Another task branch's own app diff is not part of the change.
  */
 function checkOps125Change(repo: string, diagnostic: (message: string) => void = () => {}) {
@@ -271,7 +271,8 @@ function checkOps125Change(repo: string, diagnostic: (message: string) => void =
 		diagnostic("shallow checkout: no main history, so only the import scan runs");
 		return { shallow: true, commits: [] };
 	}
-	const commits = git("log", "--format=%H %s", "HEAD")
+	// A merge commit's first-parent diff is the other side's work; the branch diff covers task/ops-125 merges.
+	const commits = git("log", "--no-merges", "--format=%H %s", "HEAD")
 		.filter((line) => line.slice(41).startsWith("OPS-125:"))
 		.map((line) => line.slice(0, 40));
 	assert.ok(commits.length > 0, "no OPS-125: commit in the history of HEAD");
@@ -323,6 +324,15 @@ test("OPS-125: an app task branch on top of the OPS-125 change passes the check 
 		"packages/db/new.ts": "export {};\n",
 	});
 	assert.equal(checkOps125Change(repo.dir).commits.length, 1);
+	// task/ops-125 takes in a main that gained an app change through an `OPS-125:` merge commit.
+	repo.run("checkout", "-q", "main");
+	repo.run("checkout", "-q", "-b", OPS_BRANCH);
+	repo.commit("OPS-125: follow-up", { "tools/evf/tests/qa.test.ts": "export {};\n" });
+	repo.run("checkout", "-q", "main");
+	repo.commit("WP-028: email", { "apps/web/mail.ts": "export {};\n", "packages/db/mail.ts": "export {};\n" });
+	repo.run("checkout", "-q", OPS_BRANCH);
+	repo.run("merge", "-q", "--no-ff", "-m", "OPS-125: include current main", "main");
+	assert.equal(checkOps125Change(repo.dir).commits.length, 2);
 });
 
 test("OPS-125: the real worktree's OPS-125 change edits no app or package and nothing imports the tooling AC:OPS-125-2", (t) => {
