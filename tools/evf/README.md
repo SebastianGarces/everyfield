@@ -25,6 +25,22 @@ base do not overlap, and required CI passes on H. Ship posts the proof as an `EV
 before it merges and keeps it in the shipped record. Any other change refuses as before.
 Design tasks, P2/P3 feedback and every `evf approve` route keep exact-head review.
 
+Owner approval of an ordinary-route PR (OPS-121): a PR that `evf ship` merges by itself can carry Sebastian's
+recorded approval of one head. After his OK in chat, run `bin/evf approve <PR> --owner-approval "<his words>" --head <sha>`.
+It refuses before any write without `--head` or when the head is not the current PR head. Otherwise it posts one PR
+comment with the line `EVF-Owner: {"head":"<40 hex>","quote":"<his words>","at":"<ISO time>"}`, writes an `approvals`
+row (gate `owner`) and, when the head has a verifier approval and green required CI, merges through `evf ship`. If
+not, it keeps the record, merges nothing and names what is missing. From then on `mergePullRequest` merges only a
+head that the latest `EVF-Owner` line covers: the approved head, or a head that `carryProof` reaches from it (the
+carry rule above). Any other commit voids the approval: a code commit, a merge with conflict edits, a merge of a
+branch that is not on main, a rebase, or a merge where main changed a path the PR changes. `evf ship`, `evf approve`
+and the drive's ship stage then refuse with "Sebastian's owner approval is void". The refusal names the approved
+head, the `carryProof` reason, each later commit on the PR's own line (oldest first, short SHA and subject) and
+the command for a new approval of the current head. `evf approve` with a stale `--head` prints the same commit list.
+The drive records `owner_approval_wait` with that text and starts no implement round. A shipped record keeps the
+covering approval in `owner_approval` (quote, approved head, time and, after a pure merge, the carry proof). A PR
+without an `EVF-Owner` line merges as before. The held classes and the PR #13 routes keep their exact-head rule.
+
 Document-template class: a WP part, an OPS task without the design route or a P0/P1 fix joins it when
 its exact-head diff touches a path in `mergePolicy.documentTemplates` in `evf.config.json`. The diff runs
 from the merge base with main to the head (`git diff --name-only --no-renames`), so splitting commits or
@@ -249,7 +265,13 @@ simplify → pr → verify → ci → ship → merged, with a body stage between
 `evf launch` with a stage prompt, wait on it through Herdr and expect it to close with
 `evf run done <run> --status passed|failed --summary-file <file>`; the Stop hook blocks a seat that
 tries to end its turn with the stage open, and a seat that goes idle twice without closing is aborted.
-evf runs pr, ci and ship itself and records them as runs of role `evf`. The pr stage runs the author checks
+evf runs pr, ci and ship itself and records them as runs of role `evf`. The ci stage (OPS-121) uses the
+required-check rule of `evf ship`: the names come from the base branch's protection and rulesets
+(`requiredCheckNames`) and are matched on the exact PR head (`requiredCi`). Only a pass counts; skipped and cancelled
+count as failed. It is green only when each required check passed, and the summary lists them. A failed required
+check ends it at once; a missing or pending one waits, but a PR that GitHub reports as conflicting fails at once and
+names the missing checks and the conflict. When the wait runs out it fails and names each missing and pending check.
+A check that no rule requires, such as Vercel, never makes it green. The pr stage runs the author checks
 (`evf verify <task>`) at the current head, then opens or updates the PR from the body the implementer wrote to
 the task's runtime dir. A simplifier commit therefore never costs a round: when the checks fail at a head that
 followed a passed simplify, the next stage is simplify with the failure in its prompt, and no implement run starts.
