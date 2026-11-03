@@ -1252,7 +1252,7 @@
           "name": "reference_version_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "person_id": {
           "name": "person_id",
@@ -1517,6 +1517,309 @@
         "attestation_ck_5": {
           "name": "attestation_ck_5",
           "value": "((key <> ALL (ARRAY['values_documented'::text, 'financial_base_established'::text, 'core_group_giving'::text, 'prayer_leader_assigned'::text, 'prayer_rhythm_established'::text, 'prayer_in_gatherings'::text, 'systems_tested'::text])) OR (((state = 'answered'::text) AND (answer IS NOT NULL)) OR ((state = ANY (ARRAY['unanswered'::text, 'retracted'::text])) AND (answer IS NULL))))"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.attestation_revision": {
+      "name": "attestation_revision",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "plant_id": {
+          "name": "plant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "attestation_id": {
+          "name": "attestation_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "revision": {
+          "name": "revision",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "person_id": {
+          "name": "person_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "answer": {
+          "name": "answer",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "as_of": {
+          "name": "as_of",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "detail": {
+          "name": "detail",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reference": {
+          "name": "reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "period_start": {
+          "name": "period_start",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "period_end": {
+          "name": "period_end",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "attendance_continuous": {
+          "name": "attendance_continuous",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "volunteering_continuous": {
+          "name": "volunteering_continuous",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "question_version": {
+          "name": "question_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "author_id": {
+          "name": "author_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "request_key": {
+          "name": "request_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "request_fingerprint": {
+          "name": "request_fingerprint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "recorded_at": {
+          "name": "recorded_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "clock_timestamp()"
+        }
+      },
+      "indexes": {
+        "attestation_revision_ref_1": {
+          "name": "attestation_revision_ref_1",
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "recorded_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "attestation_revision_ref_2": {
+          "name": "attestation_revision_ref_2",
+          "columns": [
+            {
+              "expression": "person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "attestation_revision_ref_3": {
+          "name": "attestation_revision_ref_3",
+          "columns": [
+            {
+              "expression": "author_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "attestation_revision_fk_3": {
+          "name": "attestation_revision_fk_3",
+          "tableFrom": "attestation_revision",
+          "tableTo": "plant",
+          "columnsFrom": [
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "attestation_revision_fk_0": {
+          "name": "attestation_revision_fk_0",
+          "tableFrom": "attestation_revision",
+          "tableTo": "attestation",
+          "columnsFrom": [
+            "attestation_id",
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id",
+            "plant_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "attestation_revision_fk_1": {
+          "name": "attestation_revision_fk_1",
+          "tableFrom": "attestation_revision",
+          "tableTo": "person",
+          "columnsFrom": [
+            "person_id",
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id",
+            "tenant_id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "attestation_revision_fk_2": {
+          "name": "attestation_revision_fk_2",
+          "tableFrom": "attestation_revision",
+          "tableTo": "account",
+          "columnsFrom": [
+            "author_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "attestation_revision_pkey": {
+          "name": "attestation_revision_pkey",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "attestation_revision_uq_0": {
+          "name": "attestation_revision_uq_0",
+          "nullsNotDistinct": false,
+          "columns": [
+            "attestation_id",
+            "revision"
+          ]
+        },
+        "attestation_revision_uq_1": {
+          "name": "attestation_revision_uq_1",
+          "nullsNotDistinct": false,
+          "columns": [
+            "plant_id",
+            "request_key"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "attestation_revision_ck_0": {
+          "name": "attestation_revision_ck_0",
+          "value": "(revision >= 1)"
+        },
+        "attestation_revision_ck_1": {
+          "name": "attestation_revision_ck_1",
+          "value": "((key = 'leadership_candidate'::text) OR ((kind = 'retracted'::text) = (answer IS NULL)))"
+        },
+        "attestation_revision_ck_5": {
+          "name": "attestation_revision_ck_5",
+          "value": "(key = ANY (ARRAY['values_documented'::text, 'financial_base_established'::text, 'core_group_giving'::text, 'prayer_leader_assigned'::text, 'prayer_rhythm_established'::text, 'prayer_in_gatherings'::text, 'systems_tested'::text, 'leadership_candidate'::text]))"
+        },
+        "attestation_revision_ck_6": {
+          "name": "attestation_revision_ck_6",
+          "value": "((key <> 'leadership_candidate'::text) OR ((person_id IS NOT NULL) AND (period_start IS NOT NULL) AND (period_end IS NOT NULL) AND (attendance_continuous IS NOT NULL) AND (volunteering_continuous IS NOT NULL)))"
+        },
+        "attestation_revision_ck_2": {
+          "name": "attestation_revision_ck_2",
+          "value": "((char_length(request_key) >= 1) AND (char_length(request_key) <= 200))"
+        },
+        "attestation_revision_ck_3": {
+          "name": "attestation_revision_ck_3",
+          "value": "((period_end IS NULL) OR (period_start <= period_end))"
+        },
+        "attestation_revision_ck_4": {
+          "name": "attestation_revision_ck_4",
+          "value": "((detail IS NULL) OR ((char_length(detail) >= 1) AND (char_length(detail) <= 500))) AND ((reference IS NULL) OR ((char_length(reference) >= 1) AND (char_length(reference) <= 500)))"
         }
       },
       "isRLSEnabled": false

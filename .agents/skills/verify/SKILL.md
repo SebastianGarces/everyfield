@@ -12,6 +12,7 @@ Include current main and commit. `bin/evf verify <task>` runs configured checks 
 outside the checkout. It refuses dirty or stale inputs and detects changes during checks.
 `--role verifier` labels local logs; it grants no identity or approval. `--quick` aids iteration.
 Neither command replaces green GitHub CI or independent real verification.
+For a WP /ui part, `evf verify` also runs the `ui-escaped` check on the task's stack (`tools/evf/README.md`, Escaped bugs).
 
 Independent verification of a PR uses [verify-preview](../verify-preview/SKILL.md): a fresh Opus
 verifier session runs the exact PR head on its own preview, publishes the evidence and posts
