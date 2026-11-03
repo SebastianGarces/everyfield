@@ -392,6 +392,8 @@ try {
 		["GET /ministries?view=chart", "/ministries?view=chart", owner.cookie],
 		["GET /ministries/[teamId]", `/ministries/${ministry.id}`, owner.cookie],
 		["GET /intelligence", "/intelligence", owner.cookie],
+		["GET /intelligence/attestations", "/intelligence/attestations", owner.cookie],
+		["GET /intelligence/attestations (member)", "/intelligence/attestations", member.cookie],
 		["GET /me/check-in", "/me/check-in", owner.cookie],
 		["GET /me/check-in (member)", "/me/check-in", member.cookie],
 		["GET /signin (signed out)", "/signin", ""],
@@ -676,6 +678,41 @@ try {
 	careRevision = corrected.value.revision;
 	const olderWeeks = await act("POST intelligence.readCheckInHistory", "/me/check-in", care, "readCheckInHistory", [2]);
 	assert.equal(olderWeeks.status, "ok", JSON.stringify(olderWeeks));
+
+	// Manual signals and leadership candidates (WP-039 slice 2): each write is one request.
+	const sigs = "apps/web/src/features/intelligence/signals-actions.ts";
+	const answered = await act("POST intelligence.attestSignal", "/intelligence/attestations", sigs, "attestSignal", [
+		randomUUID(),
+		"0",
+		{ key: "prayer_rhythm_established", value: "yes", detail: "Weekly" },
+	]);
+	assert.equal(answered.status, "ok", JSON.stringify(answered));
+	const renewed = await act("POST intelligence.reaffirmSignal", "/intelligence/attestations", sigs, "reaffirmSignal", [
+		randomUUID(),
+		answered.value.signal.revision,
+		{ key: "prayer_rhythm_established", expectedValue: "yes" },
+	]);
+	assert.equal(renewed.status, "ok", JSON.stringify(renewed));
+	const fixed = await act("POST intelligence.correctSignal", "/intelligence/attestations", sigs, "correctSignal", [
+		randomUUID(),
+		renewed.value.signal.revision,
+		{ action: "correct", key: "prayer_rhythm_established", value: "not_yet" },
+	]);
+	assert.equal(fixed.status, "ok", JSON.stringify(fixed));
+	const candidate = await person("Candidate Person");
+	const day = (n) => new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
+	const recorded = await act("POST intelligence.attestCandidate", "/intelligence/attestations", sigs, "attestCandidate", [
+		randomUUID(),
+		"0",
+		{ personId: candidate.id, periodStart: day(70), periodEnd: day(2), attended: true, volunteered: true },
+	]);
+	assert.equal(recorded.status, "ok", JSON.stringify(recorded));
+	const retracted = await act("POST intelligence.correctCandidate", "/intelligence/attestations", sigs, "correctCandidate", [
+		randomUUID(),
+		recorded.value.candidate.revision,
+		{ action: "retract", personId: candidate.id },
+	]);
+	assert.equal(retracted.status, "ok", JSON.stringify(retracted));
 
 	// More data than one screen shows: the same pages must send the same statements.
 	for (let i = 0; i < 12; i++)

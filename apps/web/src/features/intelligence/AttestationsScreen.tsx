@@ -225,7 +225,7 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 				}
 			/>
 			<IntelligenceTabs current="attestations" count={attentionCount(page)} />
-			<div className="mb-5 grid grid-cols-4 gap-4 max-app-md:grid-cols-2 max-app-sm:grid-cols-1">
+			<div className="mb-5 grid grid-cols-4 gap-4 max-app-md:grid-cols-2">
 				<Stat label="Signals" value={page.signals.length} note="You answer these seven" />
 				<Stat label="Current" value={page.counts.current} note="Answered and up to date" />
 				<Stat
@@ -254,7 +254,7 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 								{group.title}
 							</h2>
 						</div>
-						<Card className="px-0 py-1">
+						<Card className="!p-0">
 							<ul>
 								{rows.map((entry, i) => (
 									<SignalRow
@@ -369,7 +369,7 @@ function SignalRow({ entry, first, onOpen }: { entry: SignalEntry; first: boolea
 	return (
 		<li
 			className={cn(
-				"grid grid-cols-[minmax(0,1.6fr)_110px_minmax(0,1fr)_auto] items-center gap-4 px-[18px] py-4 max-app-md:grid-cols-[minmax(0,1fr)_auto] max-app-md:gap-x-3 max-app-md:gap-y-2",
+				"grid grid-cols-[minmax(0,1.6fr)_120px_minmax(0,1fr)_84px] items-center gap-4 px-[18px] py-4 max-app-md:grid-cols-[minmax(0,1fr)_auto] max-app-md:gap-x-3 max-app-md:gap-y-2",
 				!first && "border-t border-line",
 			)}
 		>
@@ -795,8 +795,8 @@ function CandidateSection({
 					Leadership candidates
 				</h2>
 			</div>
-			<Card className="px-0 py-1">
-				<CardHeader className="px-[18px] pt-4">
+			<Card className="!p-0">
+				<CardHeader className="flex-wrap px-[18px] pt-4">
 					<CardHeading>
 						<CardTitle size="sm">Attended and volunteered, {CANDIDATE_DAYS} days unbroken</CardTitle>
 						<CardDescription>
@@ -814,7 +814,7 @@ function CandidateSection({
 						{page.candidates.map((c) => (
 							<li
 								key={c.personId}
-								className="grid grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_auto] items-center gap-4 border-t border-line px-[18px] py-4 max-app-md:grid-cols-[minmax(0,1fr)_auto] max-app-md:gap-y-2"
+								className="grid grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_104px] items-center gap-4 border-t border-line px-[18px] py-4 max-app-md:grid-cols-[minmax(0,1fr)_auto] max-app-md:gap-y-2"
 							>
 								<div className="min-w-0 max-app-md:col-span-2">
 									<div className="font-semibold text-ink">{c.personName}</div>
