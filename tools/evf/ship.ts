@@ -214,7 +214,7 @@ export type Approval = {
 const verifierLabel = (v: ReviewParty): string => `${v.model} (session ${v.session.slice(0, 8)})`;
 export type RequiredCheck = { name: string; bucket: string; state: string; link: string };
 /** Required CI on one PR head, by name. Only a pass counts; skipped and cancelled checks are failures. */
-export type RequiredCi = { passed: RequiredCheck[]; failed: string[]; missing: string[]; pending: string[] };
+type RequiredCi = { passed: RequiredCheck[]; failed: string[]; missing: string[]; pending: string[] };
 /** Why an approval of `approvedHead` still holds at `head`: only clean merges of main, on paths the PR never changed. */
 export type CarryProof = {
 	approvedHead: string;

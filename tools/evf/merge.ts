@@ -230,7 +230,7 @@ export const wikiApproveCommand = (number: number, head: string): string =>
  * Sebastian's recorded approval of one PR head (OPS-121): one `EVF-Owner:` line in a PR comment, which `evf approve
  * --head` posts. The latest valid line on the PR wins. Like EVF-Review, it is unsigned coordination evidence.
  */
-export type OwnerRecord = { head: string; quote: string; at: string };
+type OwnerRecord = { head: string; quote: string; at: string };
 export const ownerLine = (r: OwnerRecord): string => `EVF-Owner: ${JSON.stringify(r)}`;
 
 /** The latest valid EVF-Owner record in the PR's comments, oldest comment first. Unreadable comments refuse. */
@@ -238,16 +238,15 @@ function ownerRecordOf(cwd: string, number: number): OwnerRecord | undefined {
 	const r = run("gh", ["api", `repos/${nameWithOwner(cwd)}/issues/${number}/comments`, "--paginate", "--slurp"], {
 		cwd,
 	});
-	let pages: unknown;
+	let comments: Array<{ body?: unknown }> = [];
 	try {
-		pages = JSON.parse(r.stdout);
+		if (r.code !== 0) throw new Error();
+		comments = (JSON.parse(r.stdout) as unknown[][]).flat() as typeof comments;
 	} catch {
-		// Refused below.
-	}
-	if (r.code !== 0 || !Array.isArray(pages) || pages.some((page) => !Array.isArray(page)))
 		fail(`evf does not merge PR #${number}: its comments are unreadable, so evf cannot read an owner approval.`);
+	}
 	let latest: OwnerRecord | undefined;
-	for (const comment of (pages as unknown[][]).flat() as Array<{ body?: unknown }>)
+	for (const comment of comments)
 		for (const match of String(comment?.body ?? "").matchAll(/^EVF-Owner: (.+)$/gm)) {
 			try {
 				const { head, quote, at } = JSON.parse(match[1]);
