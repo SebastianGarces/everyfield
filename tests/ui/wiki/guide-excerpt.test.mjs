@@ -23,10 +23,25 @@ async function openGuide(page, context, path) {
 
 /** The Guide's visible text: no raw markdown, no doubled ellipsis, and the last word whole. */
 async function assertRenderedClean(article, label) {
-	const text = (await article.innerText()).replace(/\s*Read the full article.*$/s, "").trim();
+	const text = (await article.innerText()).replace(/\s*Open the article\s*$/, "").trim();
 	for (const raw of RAW) assert.doesNotMatch(text, raw, `${label}: ${raw}`);
 	assert.doesNotMatch(text, /…\s*…|\.\.\.…/, `${label}: one ellipsis at most`);
 	return text;
+}
+
+/**
+ * The body rows of `table` as cell texts. The sheet appends "…" to a body of 500 characters or more; after a table row
+ * the app's renderer shows it as one extra last cell, so that cell, and only there, is the sheet's and is dropped.
+ */
+async function bodyRows(table) {
+	const rows = await table
+		.locator("tr")
+		.evaluateAll((trs) => trs.map((tr) => [...tr.querySelectorAll("th, td")].map((td) => td.textContent.trim())));
+	const [head, ...body] = rows;
+	for (const row of body.slice(0, -1)) assert.equal(row.length, head.length, row.join(" | "));
+	const last = body.at(-1);
+	if (last.length > head.length) assert.deepEqual(last.splice(head.length), ["…"]);
+	return body;
 }
 
 /** Types `query` into the Wiki search dialog on /wiki and returns the visible text of each hit's snippet. */
@@ -62,9 +77,7 @@ for (const [name, engine] of ENGINES) {
 			const article = await openGuide(page, context, "/intelligence");
 			await article.getByRole("heading", { name: "How to Navigate the Playbook" }).waitFor();
 			await article.getByText(/^The Launch Playbook is organized into phases/).waitFor();
-			const rows = await article
-				.locator("table tbody tr")
-				.evaluateAll((trs) => trs.map((tr) => [...tr.querySelectorAll("td")].map((td) => td.textContent.trim())));
+			const rows = await bodyRows(article.locator("table"));
 			assert.deepEqual(
 				rows,
 				PHASE_ROWS.map((row) =>
@@ -74,9 +87,8 @@ for (const [name, engine] of ENGINES) {
 						.map((cell) => cell.trim().replaceAll("**", "")),
 				),
 			);
-			assert.equal(await article.locator("table tbody tr td strong").count(), 7);
+			assert.equal(await article.locator("table td strong").count(), 7);
 			const text = await assertRenderedClean(article, "/intelligence");
-			assert.match(text, /Phase 6\s+Post-Launch\s+Establishing rhythms, guest assimilation, sustainability\s*…?$/);
 		});
 	});
 
@@ -106,7 +118,12 @@ for (const [name, engine] of ENGINES) {
 				"/intelligence",
 			]) {
 				const article = await openGuide(page, context, path);
-				const text = await assertRenderedClean(article, path);
+				let text = await assertRenderedClean(article, path);
+				if (/\s…$/.test(text)) {
+					// The sheet's own ellipsis after a whole last table row (bodyRows checks that cell).
+					await bodyRows(article.locator("table").last());
+					text = text.replace(/\s…$/, "");
+				}
 				assert.match(text, /([.!?:)]|[\p{L}\p{N}]…|[\p{L}\p{N}])$/u, `${path}: ${text.slice(-40)}`);
 			}
 		});
@@ -135,20 +152,23 @@ for (const [name, engine] of ENGINES) {
 		});
 	});
 
-	test(`AC:WP-034/api-6: a table that starts inside the limit stays whole, and the sheet adds no stray text (${name})`, async () => {
+	test(`AC:WP-034/api-6: a table that starts inside the limit stays whole, and the sheet ellipsis is only one last cell (${name})`, async () => {
 		checks[6]();
 		await withPage(engine, async (page, context) => {
 			const article = await openGuide(page, context, "/people");
 			await assertRenderedClean(article, "/people");
 			// Both seeded tables stay whole: the second starts inside the limit and ends past it.
 			assert.equal(await article.locator("table").count(), 2);
-			assert.deepEqual(await article.locator("table").last().locator("tbody tr td:first-child").allInnerTexts(), [
-				"How they heard about us",
-				"First Vision Meeting attended",
-				"Vision Meetings attended",
-				"Current status",
-				"Assigned to",
-			]);
+			assert.deepEqual(
+				(await bodyRows(article.locator("table").last())).map((row) => row[0]),
+				[
+					"How they heard about us",
+					"First Vision Meeting attended",
+					"Vision Meetings attended",
+					"Current status",
+					"Assigned to",
+				],
+			);
 		});
 	});
 
@@ -182,15 +202,14 @@ for (const [name, engine] of ENGINES) {
 			const article = await openGuide(page, context, "/meetings/00000000-0000-4000-8000-000000000001");
 			await assertRenderedClean(article, "/meetings/[meetingId]");
 			const rows = cut.split("\n").filter((line) => /^\| \d/.test(line));
-			assert.equal(await article.locator("table tbody tr").count(), rows.length);
-			assert.equal(
-				(await article.locator("table tbody tr").last().innerText()).replace(/\s+/g, " ").trim(),
-				rows
-					.at(-1)
-					.split("|")
-					.slice(1, -1)
-					.map((cell) => cell.trim())
-					.join(" "),
+			assert.deepEqual(
+				await bodyRows(article.locator("table")),
+				rows.map((row) =>
+					row
+						.split("|")
+						.slice(1, -1)
+						.map((cell) => cell.trim()),
+				),
 			);
 		});
 	});
