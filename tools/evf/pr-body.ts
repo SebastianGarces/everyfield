@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { followUpsOfTask } from "./db.ts";
 import { partialLine, type FollowUp } from "./followups.ts";
+import { acVideoMarkers } from "./ac.ts";
 import { EvfError, fail, parseTask, readParty, run, type ReviewParty, type TaskRef } from "./lib.ts";
 
 const TEMPLATES = {
@@ -67,6 +68,12 @@ export const followUpsOfBranch = (root: string, branch: string | undefined): Fol
 	return task ? followUpsOfTask(root, task) : [];
 };
 
+/** The markers whose PR body proof row must link a video, for a branch's task (OPS-112). */
+export const acVideoMarkersOfBranch = (root: string, branch: string | undefined): Set<string> => {
+	const task = taskOfBranch(branch);
+	return task ? acVideoMarkers(root, task) : new Set();
+};
+
 /**
  * A task with follow-ups covers only part of its ask. The first non-empty line under `## Summary` starts with
  * `Partial:` and names every follow-up label, so a reader of the PR sees the deferred scope first.
@@ -85,12 +92,35 @@ function requirePartial(lines: string[], summaryAt: number, followUps: FollowUp[
 	);
 }
 
+const AC_MARKER = /AC:[A-Za-z]+-\d+(?:\/[a-z]+)?-\d+(?!\d)/;
+const VIDEO_LINK = /https?:\/\/\S*\.(?:webm|mp4)\b/i;
+
+/**
+ * The answer key in the PR body (OPS-112): each proof table row that names an `AC:` marker links its video on the
+ * evidence page publish.mjs builds. A row needs none only when it names tools/evf/tests and evf's own row for the
+ * marker stores no video (`videoMarkers` holds the markers a browser test proved).
+ */
+function requireAcVideos(lines: string[], videoMarkers: Set<string>): void {
+	const missing = lines
+		.filter((line) => /^\s*\|/.test(line))
+		.flatMap((row) => {
+			const marker = AC_MARKER.exec(row)?.[0];
+			if (!marker || VIDEO_LINK.test(row)) return [];
+			return !videoMarkers.has(marker) && row.includes("tools/evf/tests") ? [] : [marker];
+		});
+	if (missing.length)
+		fail(
+			`The PR body proof table has AC: rows with no video link: ${missing.join(", ")}. Link each row's video on the evidence page publish.mjs builds (https://…/index.html#<video>.webm). A row that only tools/evf/tests tests prove names tools/evf/tests instead.`,
+		);
+}
+
 /** Each class template owns its required sections. This check has no CI or review dependency. */
 export function checkPrBody(
 	root: string,
 	body: string,
 	kind: PrBodyClass = "ordinary",
 	followUps: FollowUp[] = [],
+	videoMarkers: Set<string> = new Set(),
 ): { kind: PrBodyClass; sections: string[]; author: ReviewParty } {
 	const template = TEMPLATES[kind],
 		path = join(root, template);
@@ -141,6 +171,10 @@ export function checkPrBody(
 		const summary = found.find((l) => l.text === "## Summary");
 		if (summary) requirePartial(lines, summary.index, followUps);
 	}
+	requireAcVideos(
+		plain.map((l) => l.text),
+		videoMarkers,
+	);
 	const footer = lines.slice(author.index + 1).filter((line) => line.trim());
 	if (footer.length !== 1 || !/^🤖 Generated with \[[^\]]+\]\(https:\/\/[^)]+\)$/.test(footer[0]))
 		fail("End the PR body with its attribution line after EVF-Author.");
@@ -209,6 +243,7 @@ export function checkGithubBody(
 		pr.body,
 		prBodyClass(pr),
 		followUpsOfBranch(root, (pr as { headRefName?: string }).headRefName),
+		acVideoMarkersOfBranch(root, (pr as { headRefName?: string }).headRefName),
 	);
 	return { body: pr.body, headRefOid, checked };
 }

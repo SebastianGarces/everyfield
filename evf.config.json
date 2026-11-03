@@ -1577,6 +1577,25 @@
 				}
 			],
 			"risk": "ordinary"
+		},
+		"OPS-112": {
+			"title": "Done criteria become an answer key that a browser test checks",
+			"owningPaths": [
+				"tools/evf/",
+				".agents/skills/verify-preview/",
+				".agents/skills/everyfield-pr/",
+				".agents/roles/coordinator.md",
+				".agents/roles/implementor.md",
+				".agents/roles/verifier.md",
+				".claude/agents/planner.md",
+				".claude/agents/implementer.md",
+				".claude/agents/verifier.md"
+			],
+			"checks": [
+				{ "name": "documentation", "run": ["python3", "docs/check-all.py"] },
+				{ "name": "workflow-regressions", "run": ["bin/evf", "test"] }
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {
