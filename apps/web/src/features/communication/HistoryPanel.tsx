@@ -433,9 +433,7 @@ function ScheduledPanel({ view, actions }: { view: MessageView; actions: Schedul
 						Cancel scheduled email
 					</Button>
 				) : null}
-				{state === "unknown" || state === "sending"
-					? action("reconcile", "Check result", actions.onReconcile)
-					: null}
+				{state === "unknown" || state === "sending" ? action("reconcile", "Check result", actions.onReconcile) : null}
 				{state === "cancelled" || state === "cancel_unconfirmed"
 					? action("replace", "Check replacement", actions.onReplace)
 					: null}
