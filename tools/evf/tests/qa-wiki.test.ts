@@ -14,6 +14,8 @@ import { startQuietDatabase, stopQuietDatabase, type QuietDatabase } from "../ti
 const GLOBAL = "00000000-0000-0000-0000-000000000000";
 const CHURCH = "Grace Fellowship (QA)";
 const NETWORK = "Harvest Network (QA)";
+/** OPS-126's sending church. It has a director login and its own connection; it has no Wiki copy. */
+const DIRECTOR_CHURCH = "Grace Church (QA)";
 const PASSWORD = "qa-role-password-0123";
 const tsx = join(source, "packages/domain/node_modules/.bin/tsx");
 const corpus = JSON.parse(readFileSync(join(source, "docs/reference/bootstrap/global-seed-payload.json"), "utf8")) as {
@@ -234,10 +236,11 @@ test("AC:OPS-127-1 the QA seed adds a sending church and network that share the 
 	assert.deepEqual(
 		await b.query(
 			`SELECT o.kind, o.name, f.share_wiki, f.ended_at IS NULL AS active FROM affiliation f
-				JOIN organization o ON o.id = f.organization_id WHERE f.plant_id = $1 ORDER BY o.kind`,
+				JOIN organization o ON o.id = f.organization_id WHERE f.plant_id = $1 ORDER BY o.kind, o.name`,
 			[plant],
 		),
 		[
+			{ kind: "sending_church", name: DIRECTOR_CHURCH, share_wiki: true, active: true },
 			{ kind: "sending_church", name: CHURCH, share_wiki: true, active: true },
 			{ kind: "sending_network", name: NETWORK, share_wiki: true, active: true },
 		],
@@ -350,7 +353,8 @@ test("AC:OPS-127-8 a second seed run writes nothing; the first run names the new
 	for (const b of [await fresh(), await development()]) {
 		assert.match(
 			b.first,
-			/QA seed wrote: .*sending church Grace Fellowship \(QA\), affiliation with Grace Fellowship \(QA\), sending network Harvest Network \(QA\), affiliation with Harvest Network \(QA\)/,
+			// OPS-126 makes Harvest Network (QA) and its connection first, so the wiki cases add only the church.
+			/QA seed wrote: .*Harvest Network \(QA\), Harvest Network \(QA\) admin seat, connection Harvest Network \(QA\), .*sending church Grace Fellowship \(QA\), affiliation with Grace Fellowship \(QA\), wiki copies/,
 		);
 		assert.match(b.first, /wiki copies of .*, wiki revision of .*, wiki reading/);
 		const counts = async () => {
@@ -368,21 +372,27 @@ test("AC:OPS-127-8 a second seed run writes nothing; the first run names the new
 		assert.equal(String(again.stdout).trim(), "QA seed: the branch is already complete.");
 		assert.deepEqual(await counts(), before);
 	}
-	// A run that stopped after an organization but before its affiliation: the rerun writes it and says so.
+	// A run that stopped after an organization but before its affiliation: the rerun writes it and says so. The network's
+	// connection belongs to OPS-126's invitation, so the case uses the church, which only the wiki cases connect.
 	const b = await fresh();
 	await b.query(`DELETE FROM affiliation WHERE organization_id = (SELECT id FROM organization WHERE name = $1)`, [
-		NETWORK,
+		CHURCH,
 	]);
 	const repair = b.seed();
 	assert.equal(repair.status, 0, String(repair.stderr));
-	assert.equal(String(repair.stdout).trim(), `QA seed wrote: affiliation with ${NETWORK}.`);
+	assert.equal(String(repair.stdout).trim(), `QA seed wrote: affiliation with ${CHURCH}.`);
 });
 
 test("AC:OPS-127-9 the new organizations add no login, seat or outside address; the OPS-106 seed test passes", async () => {
 	const b = await fresh();
+	// OPS-126 later gave the network and its own sending church one login each. Grace Fellowship (QA) still has none.
 	assert.deepEqual(
-		await b.query(`SELECT count(*)::int AS n FROM seat s JOIN organization o ON o.id = s.organization_id`),
-		[{ n: 0 }],
+		await b.query(`SELECT u.email, o.name FROM seat s JOIN organization o ON o.id = s.organization_id
+			JOIN account a ON a.id = s.account_id JOIN auth_user u ON u.id = a.auth_user_id ORDER BY o.name`),
+		[
+			{ email: "delivered+qa-sending-director@resend.dev", name: DIRECTOR_CHURCH },
+			{ email: "delivered+qa-network-admin@resend.dev", name: NETWORK },
+		],
 	);
 	assert.deepEqual(await b.query(`SELECT count(*)::int AS n FROM organization WHERE contact_email IS NOT NULL`), [
 		{ n: 0 },

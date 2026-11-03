@@ -7,12 +7,17 @@ export const NEON_PROJECT = "cool-math-76767811";
 export const DEV_ENDPOINT = "ep-autumn-dew";
 export const PROD_ENDPOINT = "ep-gentle-dust";
 
-/** The known QA login. It exists only on QA Neon branches, behind Vercel Deployment Protection (OPS-106 decision). */
+/**
+ * The known QA logins. They exist only on QA Neon branches, behind Vercel Deployment Protection (OPS-106 decision).
+ * The plant's Owner, Admin and Member, then the network Admin and the sending-church director (OPS-126).
+ */
 export const QA_PASSWORD = "Everyfield-QA-preview-1";
 export const QA_LOGINS = {
 	owner: "delivered+qa-owner@resend.dev",
 	admin: "delivered+qa-admin@resend.dev",
 	member: "delivered+qa-member@resend.dev",
+	network: "delivered+qa-network-admin@resend.dev",
+	sending: "delivered+qa-sending-director@resend.dev",
 } as const;
 
 /** The two app logins the QA seed creates on a QA branch, one for each app database role. */
