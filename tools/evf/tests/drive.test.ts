@@ -2793,7 +2793,8 @@ test("OPS-123-github AC:OPS-123-3: a PR merged on GitHub between stages ends the
 		readyToShip(g);
 		g.db.prepare("DELETE FROM runs WHERE task_id = ? AND stage = 'ci'").run(g.taskId);
 		const s = g.getState();
-		s.requiredChecks = [{ name: "ci", bucket: "pass" }];
+		s.requiredChecks = [{ name: "ci", bucket: "pass", link: "https://github.com/test/private/actions/runs/1" }];
+		s.protection = { required_status_checks: { contexts: ["ci"] } };
 		g.setState(s);
 		// GitHub cannot be read for the PR: the merge check finds nothing and the ci stage runs as before.
 		const gh = join(g.root, "fake-bin/gh"),
