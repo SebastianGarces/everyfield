@@ -254,7 +254,7 @@ changed and one `evf proof add` per `owner` or unchecked Done criterion it built
 file in the runtime dir exists and passes the `evf pr body` check, and the refusal names the failed check, so a body
 fault shows up before verify. UI work runs in the implementer seat unless the spec has the line `Seat: ui`.
 The verifier reads the full diff, reads the proof table and re-runs a flow only where a proof is unmet,
-missing or looks wrong; it captures a missing screenshot itself. A failed verify or ci costs a round, except a
+missing or looks wrong; it captures a missing screenshot itself. A failed verify, ci or ship costs a round, except a
 failed verify at a head where an earlier verify of the task already closed (a second review of an unchanged head
 records `review_repeat` and costs no round; it still counts toward the three-failure cap). The fourth
 round sets the task to escalated, records `loop_cap_hit` and `escalation`, shows a Herdr notification
@@ -263,7 +263,7 @@ passed stage escalate the same way, so no loop runs unattended forever. `evf tas
 "<two words or more>"` answers an escalation: it sets an escalated task to `pr_open` (it has a PR) or
 `active` and records a `reopen` event holding the highest run id. Later failure counts start after that
 run, so the task gets three more failures before it escalates again. It resets only the trailing-failure
-count, never the round (a task at the loop cap escalates again on its next failed verify or ci), and
+count, never the round (a task at the loop cap escalates again on its next failed verify, ci or ship), and
 it edits no run, event, approval or proof. It replaces the hand-written sqlite UPDATE. It refuses a task
 that is not escalated and refuses inside a seat (`EVF_RUN` set). The reason goes into the prompt of the first
 seat that launches afterwards, for every stage and verbatim, and into `evf refocus`; neither presents the failure
@@ -294,7 +294,7 @@ other launches, still gets all of it. If a drive dies inside its own pr, ci or s
 next drive aborts that run without a round and performs the stage again; a PR GitHub already merged is
 recorded, not shipped twice. Jonah polls `evf status --json`.
 
-**Circuit breaker (OPS-115).** The loop cap counts only verify and ci failures, and a passed run resets the
+**Circuit breaker (OPS-115).** The loop cap counts only verify, ci and ship failures, and a passed run resets the
 three-failure count, so neither stops a seat that closes `passed` again and again with nothing changed. When a seat
 closes a plan, implement, simplify or verify run itself with `evf run done`, evf records a progress fingerprint on the
 run: the worktree HEAD (`progress_head`) and a sha256 of the stored spec (`progress_spec`; migration 009). Run B is
@@ -360,13 +360,26 @@ is missing or names a dead pid) is orphaned. `evf status` (text, and `--json` un
 print one line for each: the ref, the run id, the stage, the age and one repair that never ships. A ship stage is
 repaired with `evf approve <PR>` once Sebastian approved, or `evf task reopen`; any other stage with
 `evf drive <task> --once`, whose restart recovery only aborts the run. A task already merged is repaired through the
-same late-merge path. Migration 005 closes the runs of tasks already merged. `markMerged` (ship, the drive's late
-merge and `evf approve`) closes every open `evf` run of the merged row `passed` with `<ref> merged as <sha10>`, and
+same merge check. Migration 005 closes the runs of tasks already merged. `markMerged` (ship, the drive's merge
+check and `evf approve`) closes every open `evf` run of the merged row `passed` with `<ref> merged as <sha10>`, and
 closes a seat run `aborted`. `evf approve` finds the row from the PR head branch and records the merge after the
 squash-merge; a branch with no row (a Wiki article) writes nothing.
 
-A merge ends the drive and the task. The drive exits 0 directly after its ship stage closes passed and makes
-no further transition. A standalone `evf ship` writes the same record: the ref's current row becomes `merged`
+**A drive ends by itself (OPS-123).** No watchdog script is needed to stop a drive; the drive stops itself. At start the drive
+pins one row: the ref's current row (a released follow-up slice included, with its own ask and seats), or a new row
+only when the ref has none. It reads that row by id on every pass and never creates or switches to another row
+while it runs. Each pass starts with an end check. An abandoned pinned row stops the drive with exit 2 and the line
+`drive <ref>: abandoned (store row <id> of <ref> was abandoned: <reason>; …)`. A pinned row that has a PR number
+and is not yet merged gets one `gh pr view` call: a PR GitHub merged (by hand, or by `evf approve` while the drive
+waited) is recorded with its merge commit. A merged pinned row, recorded by this drive's ship stage, by `evf ship` or
+`evf approve` in another process or by that GitHub check, ends the drive with exit 0 and the line
+`drive <ref>: done (merged as <sha>)`; no further stage runs. An unreadable GitHub does not end the drive; the pass
+goes on. The merge releases the next queued slice, but the running drive never starts it: a fresh `evf drive <ref>`
+pins and drives that slice. A failed ship does not end the drive either. It costs a round like a failed ci: evf
+records a `round` event with cause `ship` and the ship summary, and the next pass launches implement for that round
+with the summary in its prompt. A failed ship that takes the round past the loop cap escalates with that summary
+(`loop_cap_hit`, exit 2). An owner route ship still stops the drive at the wait (exit 0); after `evf approve`, a fresh
+drive ends at the merge. A standalone `evf ship` writes the same record: the ref's current row becomes `merged`
 with its merge commit and one `merged` event, or one merged row when the store had none, so `evf next` prints
 `done` (reason `merged`). Rewriting a row already merged with that commit changes nothing.
 
@@ -381,8 +394,8 @@ or EVF-Review session that evf never launched; a task row alone, from `evf check
 changes nothing for an ordinary PR.
 
 A ref has one current row: its latest row that is not `abandoned`, in any status. Every command that starts
-work (`evf drive`, `evf task spec`, `evf launch`, `evf proof add`) uses that row and never inserts a row for a
-merged ref; `evf drive` prints stage `done`, and `evf task spec` and `evf launch` fail. Only `evf task new
+work (`evf drive` at its start, `evf task spec`, `evf launch`, `evf proof add`) uses that row and never inserts a row
+for a merged ref; `evf drive` prints stage `done`, and `evf task spec` and `evf launch` fail. Only `evf task new
 <ref> --ask-file <file>` reopens a merged ref: it inserts one `new` row and its `task_new` event names the
 merged row it reopens (`reopens`).
 
