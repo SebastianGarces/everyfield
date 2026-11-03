@@ -1,8 +1,10 @@
 // OPS-106: the QA seed. It fills one QA Neon branch with a test church that Nora can sign in to and exercise every
 // planter flow on: three logins (owner, admin, member), people, a household, teams, meetings, tasks, follow-ups, a
-// document, a draft message and, when the branch has none, a published wiki. It writes through the domain writers,
-// the same code the screens call, except where noted. Every address is delivered+<label>@resend.dev, so a real send
-// reaches no real person.
+// document, a draft message and, when the branch has none, a published wiki. OPS-126 adds the overseeing side: a
+// network with an Admin login and a sending church with a director login, each connected to the church through the
+// organization invitation and acceptance commands, and one private check-in of the Owner. It writes through the domain
+// writers, the same code the screens call, except where noted. Every address is delivered+<label>@resend.dev, so a
+// real send reaches no real person.
 //
 // Idempotent: each part first looks for its own rows by a fixed name and is skipped when they are there. A second run
 // on a complete branch signs nobody in and writes nothing.
@@ -23,10 +25,14 @@ import { documentsWriter } from "../../packages/domain/src/documents/index.ts";
 import { createFollowUpWriter } from "../../packages/domain/src/followups/index.ts";
 import { createIdentityService } from "../../packages/domain/src/identity/index.ts";
 import { meetingsWriter } from "../../packages/domain/src/meetings/index.ts";
+import { createPrivateCare, personalCalendar } from "../../packages/domain/src/intelligence/index.ts";
 import { createOnboardingProducer } from "../../packages/domain/src/onboarding/index.ts";
+import { createOrganizationAdapter, type OrganizationEffects } from "../../packages/domain/src/organizations/index.ts";
 import { accountPersonProducer, peopleWriter, personFields } from "../../packages/domain/src/people/index.ts";
+import { timezoneOperations, withSettingsWrite } from "../../packages/domain/src/settings/index.ts";
 import { createTaskWriter } from "../../packages/domain/src/tasks/index.ts";
 import { teamsWriter } from "../../packages/domain/src/teams/index.ts";
+import { queueJobs } from "../../apps/web/src/server/jobs/queue.ts";
 import { QA_LOGINS, QA_PASSWORD, QA_ROLES as ROLES, roleUrl, seedRefusal } from "./qa-guard.ts";
 
 const CHURCH = "Harvest Point (QA)";
@@ -50,6 +56,27 @@ const TASKS = ["Book the school gym for launch Sunday", "Order welcome cards", "
 const MEETINGS = ["QA vision meeting", "QA orientation"];
 const DOCUMENT = "QA welcome letter";
 const MESSAGE = "Welcome to Harvest Point";
+/** The two overseeing organizations (OPS-126): each login's seat role and the name it registers with. */
+const ORGANIZATIONS = [
+	{
+		kind: "sending_network",
+		name: "Harvest Network (QA)",
+		login: QA_LOGINS.network,
+		person: "Marcus Bell",
+		role: "admin",
+	},
+	{
+		kind: "sending_church",
+		name: "Grace Church (QA)",
+		login: QA_LOGINS.sending,
+		person: "Grace Moreno",
+		role: "owner",
+	},
+] as const;
+const CHECK_IN = {
+	answers: { spiritual: "steady", family: "strained", financial: "steady", pace: "strained" },
+	note: "QA check-in: a full week before the launch Sunday.",
+} as const;
 
 type Ctx = { session: string; selected: { kind: "plant"; id: string } };
 type Reply = { status: string; value?: unknown };
@@ -135,12 +162,15 @@ async function fill(admin: Database, runtime: Database, authDb: Database): Promi
 			await rows(admin, sql`SELECT a.id FROM account a JOIN auth_user u ON u.id=a.auth_user_id WHERE u.email=${email}`)
 		)[0]?.id as string | undefined;
 
-	async function account(name: string, email: string): Promise<string> {
+	/** A verified, active account. An organization login registers as its organization kind, as the sign-up page does. */
+	async function account(name: string, email: string, organization?: (typeof ORGANIZATIONS)[number]): Promise<string> {
 		const known = await accountOf(email);
 		if (known) return known;
 		ip++;
 		const r = await call("register", {
-			kind: "plant_precreation",
+			...(organization
+				? { kind: organization.kind, organizationName: organization.name }
+				: { kind: "plant_precreation" }),
 			name,
 			email,
 			password: QA_PASSWORD,
@@ -158,21 +188,25 @@ async function fill(admin: Database, runtime: Database, authDb: Database): Promi
 	const owner = await account("Daniel Reyes", QA_LOGINS.owner);
 	const adminAccount = await account("Lena Park", QA_LOGINS.admin);
 	const member = await account("Ruth Allen", QA_LOGINS.member);
+	const overseers = [];
+	for (const o of ORGANIZATIONS) overseers.push({ ...o, account: await account(o.person, o.login, o) });
 
-	// One session for the owner, opened only when some part is missing. A complete branch gets no new session.
-	let session: string | null = null;
-	const ownerSession = async () => {
-		if (session) return session;
-		const signedIn = await call("sign-in/email", { email: QA_LOGINS.owner, password: QA_PASSWORD });
-		if (!signedIn.ok) throw Error(`sign in owner: ${signedIn.status}`);
+	// One session for each login the seed acts as, opened only when some part is missing. A complete branch gets none.
+	const sessions = new Map<string, string>();
+	const sessionOf = async (email: string) => {
+		const open = sessions.get(email);
+		if (open) return open;
+		const signedIn = await call("sign-in/email", { email, password: QA_PASSWORD });
+		if (!signedIn.ok) throw Error(`sign in ${email}: ${signedIn.status}`);
 		const row = await rows(
 			admin,
-			sql`SELECT s.id FROM auth_session s JOIN auth_user u ON u.id=s.user_id WHERE u.email=${QA_LOGINS.owner}
+			sql`SELECT s.id FROM auth_session s JOIN auth_user u ON u.id=s.user_id WHERE u.email=${email}
 				ORDER BY s.created_at DESC LIMIT 1`,
 		);
-		session = row[0]!.id as string;
-		return session;
+		sessions.set(email, row[0]!.id as string);
+		return sessions.get(email)!;
 	};
+	const ownerSession = () => sessionOf(QA_LOGINS.owner);
 
 	// The church, created by the owner through onboarding and marked complete, so every login lands on it.
 	const noop = async () => {};
@@ -399,9 +433,139 @@ async function fill(admin: Database, runtime: Database, authDb: Database): Promi
 		done.push("message");
 	}
 
+	// The overseeing side (OPS-126). No writer creates an organization or its first seat yet, so the seed writes those
+	// rows, as the Attestations UI seed does. The connection goes through the organization commands: the Owner invites
+	// each organization from the church, and the organization's login accepts with the proof the invitation mail carries.
+	// Acceptance applies the build's own sharing defaults; the seed changes none of them.
+	const proofs = new Map<string, string>();
+	const effects: OrganizationEffects = {
+		// The seed keeps the proof instead of mailing it, as it skips verification mail.
+		invitation: async (_tx, input) => void proofs.set(input.invitationId, input.proof),
+		// The app's own effects (apps/web/src/server/organizations): the coarse notice job and the stale-work supersede.
+		notice: (tx, input) =>
+			queueJobs(tx, [
+				{
+					tenant: input.pair.kind === "plant" ? input.pair.subject.id : input.pair.organization.id,
+					kind: "notification",
+					subject: input.relationshipId,
+					key: `${input.kind}/${input.eventId}`,
+					revision: input.revision,
+					eligibleAt: new Date().toISOString(),
+				},
+			]),
+		invalidate: (_tx, input) =>
+			sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${input.sourceId} AND kind IN ('assessment','digest') AND state IN ('ready','retry_wait','claimed')`,
+	};
+	const organizations = createOrganizationAdapter(effects, { candidates: async () => [] });
+	for (const o of overseers) {
+		let orgId = (
+			await rows(admin, sql`SELECT id FROM organization WHERE name=${o.name} AND kind=${o.kind} ORDER BY id LIMIT 1`)
+		)[0]?.id as string | undefined;
+		if (!orgId) {
+			orgId = randomUUID();
+			await admin.execute(
+				sql`INSERT INTO organization(id,kind,name,city,timezone,material_revision) VALUES(${orgId},${o.kind},${o.name},'Austin','America/Chicago',1)`,
+			);
+			done.push(o.name);
+		}
+		if (
+			!(await rows(admin, sql`SELECT 1 FROM seat WHERE account_id=${o.account} AND organization_id=${orgId}`)).length
+		) {
+			await admin.execute(
+				sql`INSERT INTO seat(account_id,organization_id,role,accepted_at) VALUES(${o.account},${orgId},${o.role},clock_timestamp())`,
+			);
+			done.push(`${o.name} ${o.role} seat`);
+		}
+		const connected = await rows(
+			admin,
+			sql`SELECT 1 FROM affiliation WHERE plant_id=${plantId} AND organization_id=${orgId} AND ended_at IS NULL`,
+		);
+		if (connected.length) continue;
+		const organization = { kind: "organization", id: orgId, organizationKind: o.kind } as const;
+		const s = (await ownerSession()) as never;
+		// A run that stopped between the request and its answer lost the proof: withdraw that request, then ask again.
+		const stale = await rows(
+			admin,
+			sql`SELECT i.id, i.revision::text AS revision FROM invitation i JOIN relationship_invitation r ON r.invitation_id=i.id
+				WHERE r.plant_id=${plantId} AND r.organization_id=${orgId} AND i.state='pending'`,
+		);
+		for (const i of stale)
+			await runtime.transaction((tx) =>
+				organizations["associations.revokeInvitation"](tx, s, plant, {
+					requestKey: randomUUID(),
+					expectedRevision: i.revision as string,
+					input: { invitationId: i.id as string },
+				} as never),
+			);
+		const revision = (await rows(admin, sql`SELECT revision::text AS r FROM plant WHERE id=${plantId}`))[0]!
+			.r as string;
+		const invited = await runtime.transaction((tx) =>
+			organizations["associations.invite"](tx, s, plant, {
+				requestKey: randomUUID(),
+				expectedRevision: revision,
+				input: { pair: { kind: "plant", subject: plant, organization }, recipientEmail: o.login },
+			} as never),
+		);
+		const answer = (await sessionOf(o.login)) as never;
+		await runtime.transaction((tx) =>
+			organizations["associations.acceptInvitation"](tx, answer, organization, {
+				requestKey: randomUUID(),
+				expectedRevision: invited.revision,
+				input: { invitationId: invited.invitationId, proof: proofs.get(invited.invitationId)!, decision: "accept" },
+			} as never),
+		);
+		done.push(`connection ${o.name}`);
+	}
+
+	// One private weekly check-in of the Owner (WP-039), so the overseeing logins have planter-private data to not see.
+	// A check-in needs the author's own time zone first; the seed confirms it through Settings, as the check-in page asks.
+	const answered = await rows(
+		admin,
+		sql`SELECT 1 FROM private_week WHERE author_id=${owner} AND plant_id=${plantId} AND answer_revision>0`,
+	);
+	if (!answered.length) {
+		const s = await ownerSession();
+		const zone = (await rows(admin, sql`SELECT personal_timezone FROM account WHERE id=${owner}`))[0]!
+			.personal_timezone;
+		if (!zone) {
+			// The seed plans no digest, as it sends no mail.
+			const tz = timezoneOperations({ replan: async () => "", invalidate: async () => {} }, personalCalendar);
+			const c = { session: s, selected: { kind: "account", id: owner } } as never;
+			const preview = ok(
+				"preview time zone",
+				await withSettingsWrite(runtime, undefined, c, (tx) =>
+					tz.previewPersonalTimezone(tx, c, { timeZone: "America/Chicago" }),
+				),
+			) as { previewId: string; expectedRevision: string; newZone: string };
+			ok(
+				"time zone",
+				await withSettingsWrite(runtime, undefined, c, (tx) =>
+					tz.setPersonalTimezone(tx, c, {
+						requestKey: randomUUID(),
+						expectedRevision: preview.expectedRevision,
+						input: { timeZone: preview.newZone, previewId: preview.previewId, confirmed: true },
+					}),
+				),
+			);
+		}
+		const actor = await RequestActor.resolve(runtime, s as never);
+		if (!(actor instanceof RequestActor)) throw Error(`check-in actor: ${JSON.stringify(actor)}`);
+		const care = createPrivateCare();
+		const current = ok("read check-in", await care.readCurrent(runtime, actor)) as { revision: string };
+		ok(
+			"check-in",
+			await care.save(runtime, actor, {
+				requestKey: randomUUID(),
+				expectedRevision: current.revision,
+				input: CHECK_IN,
+			}),
+		);
+		done.push("check-in");
+	}
+
 	if (await wiki(admin)) done.push("wiki");
 
-	if (session) await admin.execute(sql`DELETE FROM auth_session WHERE id=${session}`);
+	for (const id of sessions.values()) await admin.execute(sql`DELETE FROM auth_session WHERE id=${id}`);
 	return done.length ? `QA seed wrote: ${done.join(", ")}.` : "QA seed: the branch is already complete.";
 }
 
