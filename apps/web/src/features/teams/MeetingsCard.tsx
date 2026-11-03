@@ -55,7 +55,7 @@ export function MeetingsCard({
 					<CardTitle id="ministry-meetings" size="sm">
 						Meetings
 					</CardTitle>
-					{meetings && items.length ? (
+					{items.length ? (
 						<CardDescription>
 							{meetings.total > items.length
 								? `The latest ${items.length} of ${meetings.total}`

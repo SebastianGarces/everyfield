@@ -41,6 +41,7 @@ const rosterColumns = sql`(SELECT json_build_object('id', t.id, 'name', t.name, 
 	(SELECT coalesce(json_agg(x ORDER BY x.person_name, x.id), '[]') FROM (SELECT g.roster_member, ${guestColumns}
 		WHERE g.meeting_id = m.id) x) AS guests`;
 
+const ref = (g: GuestRow) => ({ personId: g.person_id, displayName: g.person_name, state: g.person_state });
 /**
  * The difference between the guest list and the ministry now. Only guests the ministry copy added can leave; one marked
  * present stays and is named as kept. A person removed earlier comes back as the same guest row.
@@ -53,14 +54,12 @@ function plan(row: Record<string, unknown>) {
 	const listed = new Set(current.map((g) => g.person_id));
 	const serving = new Set(f.serving.map((p) => p.personId));
 	const leaving = current.filter((g) => g.roster_member && !serving.has(g.person_id));
-	const ref = (g: GuestRow) => ({ personId: g.person_id, displayName: g.person_name, state: g.person_state });
 	return {
 		team: { id: f.team.id, name: f.team.name },
 		add: f.serving.filter((p) => !listed.has(p.personId)),
-		remove: leaving.filter((g) => g.presence !== "attended"),
+		remove: leaving.filter((g) => g.presence !== "attended").map(ref),
 		kept: leaving.filter((g) => g.presence === "attended").map(ref),
 		removedBefore: new Map(f.guests.filter((g) => g.removed_at).map((g) => [g.person_id, g])),
-		ref,
 	};
 }
 const sameSet = (a: readonly string[], b: readonly string[]) =>
@@ -79,13 +78,7 @@ export const rosterReader = {
 			);
 			if (!row || !admin) deny();
 			const p = plan(row);
-			return c.rosterPreview.parse({
-				meetingId: i.meetingId,
-				team: p.team,
-				add: p.add,
-				remove: p.remove.map(p.ref),
-				kept: p.kept,
-			});
+			return c.rosterPreview.parse({ meetingId: i.meetingId, team: p.team, add: p.add, remove: p.remove, kept: p.kept });
 		});
 	},
 };
@@ -109,7 +102,7 @@ export const rosterWriter = {
 				const m = meetingRow.parse(row);
 				const now = z.coerce.date().parse(row.now);
 				const p = plan(row);
-				const removeIds = p.remove.map((g) => g.person_id);
+				const removeIds = p.remove.map((g) => g.personId);
 				// The list changed since the review: nothing is applied that the person did not see.
 				const addIds = p.add.map((a) => a.personId);
 				if (!sameSet(input.input.add, addIds) || !sameSet(input.input.remove, removeIds)) deny("conflict");

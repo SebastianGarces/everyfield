@@ -104,9 +104,6 @@ export const journeySaved = (r: Resume) => r.journey.status === "saved";
 export const journeyLocked = (r: Resume) => r.journey.status === "saved" && r.journey.value.answer === "existing";
 /** A saved yes made a real role assignment; sending yes again would make a second one (R4). */
 export const leadLocked = (r: Resume) => r.lead.answer === "yes";
-/** The SKIPPED_FILL note says why a Senior pastor fill did not happen: another person already holds the role. */
-export const SKIPPED_FILL =
-	"We did not fill the Senior pastor role. Someone in Leadership already holds it, and they keep it. You hold the lead role you entered instead.";
 /** The lead answer in words, for the saved step and the finish summary. */
 export function leadText(lead: Resume["lead"]): string {
 	if (lead.answer === "yes")
@@ -115,7 +112,9 @@ export function leadText(lead: Resume["lead"]): string {
 }
 /** Why the Senior pastor fill was skipped, or null when it was not asked for or it filled the role. */
 export const skippedFill = (lead: Resume["lead"]) =>
-	lead.answer === "yes" && lead.seniorPastor === "occupied" ? SKIPPED_FILL : null;
+	lead.answer === "yes" && lead.seniorPastor === "occupied"
+		? "We did not fill the Senior pastor role. Someone in Leadership already holds it, and they keep it. You hold the lead role you entered instead."
+		: null;
 export const finished = (r: Resume) => r.completion.status === "completed";
 
 export function stepDone(key: StepKey, r: Resume): boolean {

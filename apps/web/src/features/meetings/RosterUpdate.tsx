@@ -249,6 +249,5 @@ function updatedText(added: number, removed: number) {
 function rosterProblem(code: string) {
 	if (code === "conflict")
 		return "The ministry or the guest list changed since you opened the update. Nothing was changed. Open it again to see the latest.";
-	if (code === "wrong_meeting_type") return "This meeting is not a team meeting, so it has no ministry to update from.";
 	return problemText(code);
 }
