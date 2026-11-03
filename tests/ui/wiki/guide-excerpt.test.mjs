@@ -21,7 +21,7 @@ async function openGuide(page, context, path) {
 	return sheet.locator("article");
 }
 
-/** The Guide's visible text: no raw markdown, no doubled ellipsis, and the last word whole. */
+/** The Guide's visible text, checked for raw markdown and a doubled ellipsis. */
 async function assertRenderedClean(article, label) {
 	const text = (await article.innerText()).replace(/\s*Open the article\s*$/, "").trim();
 	for (const raw of RAW) assert.doesNotMatch(text, raw, `${label}: ${raw}`);
@@ -88,7 +88,7 @@ for (const [name, engine] of ENGINES) {
 				),
 			);
 			assert.equal(await article.locator("table td strong").count(), 7);
-			const text = await assertRenderedClean(article, "/intelligence");
+			await assertRenderedClean(article, "/intelligence");
 		});
 	});
 
