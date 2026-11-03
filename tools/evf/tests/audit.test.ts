@@ -10,8 +10,9 @@ import { doctor } from "../doctor.ts";
 import { fixture, source } from "./fixtures.ts";
 
 const MAIN = join(source, "tools/evf/main.ts");
-const SPEC = (n: number) =>
-	`## Goal\n\nFixture.\n\n## Done criteria\n\n${Array.from({ length: n }, (_, i) => `${i + 1}. Criterion ${i + 1}.`).join("\n")}\n\n## Non-goals\n\n- None.\n`;
+/** A spec whose two Done criteria are checked by `AC:<ref>-1` and `AC:<ref>-2`, as OPS-112 writes them. */
+const SPEC = (ref: string) =>
+	`## Goal\n\nFixture.\n\n## Done criteria\n\n1. Criterion 1.\n   Check: AC:${ref}-1\n2. Criterion 2.\n   Check: AC:${ref}-2\n\n## Non-goals\n\n- None.\n`;
 
 /** The files of each fixture merge. Each merge adds its source lines and its marked tests in one squash commit. */
 const BASE: Record<string, string> = {
@@ -61,11 +62,20 @@ const MERGES: Record<string, Record<string, string>> = {
 	},
 	// Merged with candidates but no marked test.
 	"OPS-903": { "packages/calc/src/bare.mjs": "export const neg = (n) => n < 0;\n" },
+	// The marker only in a comment: the file carries it, but no test name does.
+	"OPS-908": {
+		"packages/calc/src/eight.mjs": "export const eight = (n) => n > 8;\n",
+		"tests/calc/eight.test.mjs":
+			'// AC:OPS-908-1 in a comment only\nimport { test } from "node:test";\ntest("eight", () => {});\n',
+	},
 	// A WP task: its markers are the package case IDs of WP-038; the runner sees NODE_ENV and the database env.
 	"WP-038": {
 		"packages/calc/src/phase.mjs": "export const last = (p) => p >= 6;\n",
 		"tests/calc/phase.test.mjs":
 			'import assert from "node:assert/strict";\nimport { test } from "node:test";\nimport { last } from "../../packages/calc/src/phase.mjs";\ntest("AC:PHASE-CASE-001 phase six is last", () => {\n\tassert.equal(last(6), true);\n\tassert.equal(last(5), false);\n\tassert.equal(process.env.NODE_ENV, "test");\n\tassert.equal(process.env.DATABASE_URL, undefined);\n});\n',
+		// The file carries a marker in a comment; its test name does not, so the test never runs (it would fail).
+		"tests/calc/comment.test.mjs":
+			'// AC:PHASE-CASE-001 in a comment\nimport assert from "node:assert/strict";\nimport { test } from "node:test";\ntest("unmarked", () => assert.fail("an unmarked test ran"));\n',
 		"tests/calc/near.test.mjs":
 			'import { test } from "node:test";\ntest("AC:PHASE-CASE-0010 not a WP-038 case", () => {});\n',
 		"tests/calc/db.production.test.mjs":
@@ -148,7 +158,7 @@ if (action === "up") {
 	for (const [ref, sha] of Object.entries(merges))
 		db.prepare(
 			"INSERT INTO tasks (slug, mode, ref, title, spec, status, merge_commit, created_at, updated_at) VALUES (?, 'implement', ?, ?, ?, 'merged', ?, ?, ?)",
-		).run(ref.toLowerCase(), ref, ref, ref.startsWith("OPS") ? SPEC(2) : null, sha, at, at);
+		).run(ref.toLowerCase(), ref, ref, ref.startsWith("OPS") ? SPEC(ref) : null, sha, at, at);
 	db.close();
 	const cli = (args: string[], env: NodeJS.ProcessEnv = process.env) => {
 		const r = spawnSync(process.execPath, [MAIN, "audit", ...args], { cwd: f.root, env, encoding: "utf8" });
@@ -227,11 +237,21 @@ test("AC:OPS-116-2 marked tests: WP case IDs, spec markers, the escaped folder, 
 		const ops = targetOf(f.root, db, main, "OPS-901") as Exclude<ReturnType<typeof targetOf>, string>;
 		db.close();
 		// AC:PHASE-CASE-0010 is not PHASE-CASE-001, and a *.production.* file never runs.
-		assert.deepEqual(wp.marked, ["tests/calc/phase.test.mjs", "tests/calc/phase.test.mts"]);
+		assert.deepEqual(wp.marked, [
+			"tests/calc/comment.test.mjs",
+			"tests/calc/phase.test.mjs",
+			"tests/calc/phase.test.mts",
+		]);
 		assert.ok(wp.markers.includes("PHASE-CASE-001"));
 		assert.deepEqual(wp.escaped, ["tests/ui/escaped/old-bug.test.mjs"]);
 		assert.deepEqual(ops.markers, ["OPS-901-1", "OPS-901-2"]);
 		assert.deepEqual(ops.marked, ["tests/calc/adult.test.mjs"]);
+
+		// Markers in comments only: the run refuses before it plants anything.
+		const commentOnly = f.cli(["--task", "OPS-908", "--seed", "1"]);
+		assert.equal(commentOnly.code, 1);
+		assert.match(commentOnly.err, /OPS-908 has no marked test: no test name on main carries AC:<marker>/);
+		assert.doesNotMatch(commentOnly.out, /planted/);
 
 		const notMerged = f.cli(["--list", "--task", "OPS-950"]);
 		assert.equal(notMerged.code, 1);
@@ -256,8 +276,11 @@ test("AC:OPS-116-2 marked tests: WP case IDs, spec markers, the escaped folder, 
 		assert.equal(run.code, 0, run.err + run.out);
 		assert.match(
 			run.out,
-			/tests \(3\): tests\/calc\/phase\.test\.mjs, tests\/calc\/phase\.test\.mts, tests\/ui\/escaped\/old-bug\.test\.mjs/,
+			/tests \(4\): tests\/calc\/comment\.test\.mjs, tests\/calc\/phase\.test\.mjs, tests\/calc\/phase\.test\.mts, tests\/ui\/escaped\/old-bug\.test\.mjs/,
 		);
+		// Only tests whose name carries a marker run: the unmarked test of comment.test.mjs never runs.
+		assert.match(run.out, /tests\/calc\/comment\.test\.mjs: passed \(0 tests\)/);
+		assert.match(run.out, /tests\/calc\/phase\.test\.mjs: passed \(1 tests\)/);
 		assert.match(run.out, /outcome killed/);
 		// Main and the mutant each ran the TypeScript file through tsx; the JavaScript files ran on plain Node.
 		const tsxRuns = readFileSync(tsxLog, "utf8").trim().split("\n");
@@ -276,7 +299,7 @@ test("AC:OPS-116-3 with no --task: never-audited first, then the oldest audit; a
 			now = new Date();
 		// Merges older than 30 days drop out; WP-038 merged last, so the never-audited OPS-901 (oldest merge) goes first.
 		const order: string[] = [];
-		const eligible = ["OPS-901", "OPS-902", "OPS-905", "OPS-906", "OPS-904", "WP-038"];
+		const eligible = ["OPS-901", "OPS-902", "OPS-905", "OPS-906", "OPS-904", "OPS-908", "WP-038"];
 		for (let i = 0; i < eligible.length; i++) {
 			const picked = pickTarget(f.root, db, main, now).ref;
 			order.push(picked);
@@ -476,8 +499,8 @@ Filed by \`evf audit\` (OPS-116). One planted bug survived every marked test of 
 
 ## Tests that ran
 
-- tests/calc/adult.test.mjs: main passed, mutant passed
-- tests/ui/escaped/old-bug.test.mjs: main passed, mutant passed
+- tests/calc/adult.test.mjs: 1 test ran; main passed, mutant passed
+- tests/ui/escaped/old-bug.test.mjs: 1 test ran; main passed, mutant passed
 
 ## Done template
 
@@ -602,8 +625,8 @@ test("AC:OPS-116-9 the store records each run, and doctor warns only when no aud
 		assert.equal(row.seed, 9);
 		assert.equal(row.outcome, "killed");
 		assert.deepEqual(JSON.parse(row.tests as string), [
-			{ file: "tests/calc/adult.test.mjs", main: "passed", mutant: "failed" },
-			{ file: "tests/ui/escaped/old-bug.test.mjs", main: "passed", mutant: "passed" },
+			{ file: "tests/calc/adult.test.mjs", ran: 1, main: "passed", mutant: "failed" },
+			{ file: "tests/ui/escaped/old-bug.test.mjs", ran: 1, main: "passed", mutant: "passed" },
 		]);
 		assert.equal(row.filed_task, null);
 		assert.ok(Date.parse(row.started_at as string) <= Date.parse(row.ended_at as string));

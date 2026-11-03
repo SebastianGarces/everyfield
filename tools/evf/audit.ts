@@ -24,7 +24,7 @@ import {
 	type TaskRef,
 } from "./lib.ts";
 import { awaitLoad } from "./load.ts";
-import { doneCriteria } from "./spec.ts";
+import { acCriteria } from "./spec.ts";
 
 /**
  * `evf audit` (OPS-116): a check of the answer key itself. It plants one realistic bug from the lines a merged task
@@ -47,7 +47,8 @@ export type Candidate = {
 };
 export type Outcome = "killed" | "survived" | "invalid" | "baseline-red";
 export type FileResult = "passed" | "failed" | "invalid";
-export type TestRow = { file: string; main: FileResult; mutant: FileResult | null };
+/** One test file: how many selected tests it ran on main, and its result on main and on the mutant. */
+export type TestRow = { file: string; ran: number; main: FileResult; mutant: FileResult | null };
 export type AuditTarget = {
 	ref: string;
 	mergeCommits: string[];
@@ -336,7 +337,7 @@ export function escapedTests(root: string, main: string): string[] {
 
 type MergedRow = { ref: string; merge_commit: string; spec: string | null };
 
-/** The markers of a task: its package case IDs for a WP task and AC:<task>-<n> for each Done criterion of a spec. */
+/** The markers of a task: its package case IDs for a WP task and the AC:<task>-<n> check of each Done criterion. */
 export function markersOf(
 	root: string,
 	task: TaskRef,
@@ -345,8 +346,8 @@ export function markersOf(
 ) {
 	const out = new Set<string>();
 	if (task.kind === "wp") for (const id of (cases ?? (() => packageCases(root)))().get(task.wp) ?? []) out.add(id);
-	const prefix = task.id.replace("/", "-");
-	for (const spec of specs) for (const n of doneCriteria(spec)) out.add(`${prefix}-${n}`);
+	// OPS-112's answer key: each Done criterion with `Check: AC:<task>-<n>` names its marker.
+	for (const spec of specs) for (const { marker } of acCriteria(spec)) out.add(marker.slice("AC:".length));
 	return [...out].sort();
 }
 
@@ -488,7 +489,9 @@ export function renderAsk(
 		"",
 		"## Tests that ran",
 		"",
-		...tests.map((t) => `- ${t.file}: main ${t.main}, mutant ${t.mutant ?? "not run"}`),
+		...tests.map(
+			(t) => `- ${t.file}: ${t.ran} test${t.ran === 1 ? "" : "s"} ran; main ${t.main}, mutant ${t.mutant ?? "not run"}`,
+		),
 		"",
 		"## Done template",
 		"",
@@ -701,10 +704,10 @@ async function runTests(
 	root: string,
 	cfg: Config,
 	tree: Tree,
-	files: string[],
+	files: Array<{ file: string; pattern: string | null }>,
 	browser: boolean,
 	log: (s: string) => void,
-): Promise<{ results: FileResult[]; startFailed: boolean }> {
+): Promise<{ results: Array<{ result: FileResult; ran: number }>; startFailed: boolean }> {
 	const env: NodeJS.ProcessEnv = { ...process.env, NODE_ENV: "test", EVF_AUDIT: "1" };
 	// Both engines run: tests/ui/setup.mjs limits itself to one only when UI_ENGINE is set. The development env file
 	// supplies the database, so a shell value never points a test elsewhere.
@@ -724,14 +727,14 @@ async function runTests(
 			: {};
 		if (up.code !== 0 || !info.url) {
 			log(`preview did not start:\n${up.out.trim().split("\n").slice(-20).join("\n")}`);
-			return { results: files.map(() => "invalid"), startFailed: true };
+			return { results: files.map(() => ({ result: "invalid", ran: 0 })), startFailed: true };
 		}
 		env.UI_BASE_URL = info.url;
 	}
-	const results: FileResult[] = [],
+	const results: Array<{ result: FileResult; ran: number }> = [],
 		tsx = tsxCli(tree.path);
 	try {
-		for (const file of files) {
+		for (const { file, pattern } of files) {
 			const r = await exec(
 				[
 					process.execPath,
@@ -741,14 +744,19 @@ async function runTests(
 					"--test",
 					"--test-concurrency=1",
 					"--test-reporter=tap",
+					...(pattern ? [`--test-name-pattern=${pattern}`] : []),
 					file,
 				],
 				{ cwd: tree.path, env, timeoutMs: 15 * 60_000 },
 			);
 			if (stopping) throw new Stopped();
-			const result = fileResult(r.code, r.out);
-			results.push(result);
-			log(`${file}: ${result}`);
+			const result = fileResult(r.code, r.out),
+				named = pattern ? new RegExp(pattern) : null;
+			const ran = [...r.out.matchAll(/^\s*(?:not )?ok \d+ - (.*)$/gm)].filter(
+				(m) => !named || named.test(m[1]!),
+			).length;
+			results.push({ result, ran });
+			log(`${file}: ${result} (${ran} tests)`);
 			if (result !== "passed") {
 				const failed = [...r.out.matchAll(/^\s*not ok \d+ - (.*)$/gm)].map((m) => m[1]).slice(0, 10);
 				if (failed.length) log(`  not ok: ${failed.join("; ")}`);
@@ -861,7 +869,10 @@ async function runAudit(
 				new Date().toISOString(),
 			).lastInsertRowid,
 	);
-	const rows: TestRow[] = tests.map((file) => ({ file, main: "failed", mutant: null }));
+	const rows: TestRow[] = tests.map((file) => ({ file, ran: 0, main: "failed", mutant: null }));
+	// A marked file runs only its tests whose name carries a marker; an escaped file runs whole.
+	const pattern = caseGrep(target.markers),
+		plan = tests.map((file) => ({ file, pattern: target.marked.includes(file) ? pattern : null }));
 	let outcome: Outcome | "stopped" | "error" = "error",
 		filed: string | null = null;
 	const onSignal = () => {
@@ -889,9 +900,9 @@ async function runAudit(
 		}
 		const browser = tests.some((f) => usesBrowser(root, main, f));
 		console.log(`evf audit: baseline on main${browser ? " with a preview" : ""}.`);
-		const base = await runTests(root, cfg, tree, tests, browser, log);
-		base.results.forEach((r, i) => (rows[i]!.main = r));
-		if (base.startFailed || base.results.some((r) => r !== "passed")) {
+		const base = await runTests(root, cfg, tree, plan, browser, log);
+		base.results.forEach((r, i) => Object.assign(rows[i]!, { main: r.result, ran: r.ran }));
+		if (base.startFailed || rows.some((r) => r.main !== "passed")) {
 			outcome = "baseline-red";
 			const red = rows.filter((r) => r.main !== "passed").map((r) => r.file);
 			console.log(
@@ -899,14 +910,18 @@ async function runAudit(
 			);
 			return 1;
 		}
+		if (!base.startFailed && !rows.some((r) => target.marked.includes(r.file) && r.ran > 0))
+			fail(
+				`${target.ref} has no marked test: no test name on main carries AC:<marker>; the files carry the markers only outside test names.`,
+			);
 		plant(tree.path, c);
 		console.log(`evf audit: mutant ${c.id} planted.`);
-		const mutant = await runTests(root, cfg, tree, tests, browser, log);
-		mutant.results.forEach((r, i) => (rows[i]!.mutant = r));
+		const mutant = await runTests(root, cfg, tree, plan, browser, log);
+		mutant.results.forEach((r, i) => (rows[i]!.mutant = r.result));
 		outcome =
-			mutant.startFailed || mutant.results.includes("invalid")
+			mutant.startFailed || rows.some((r) => r.mutant === "invalid")
 				? "invalid"
-				: mutant.results.includes("failed")
+				: rows.some((r) => r.mutant === "failed")
 					? "killed"
 					: "survived";
 		const killers = rows.filter((r) => r.mutant === "failed").map((r) => r.file);

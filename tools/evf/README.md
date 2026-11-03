@@ -832,12 +832,16 @@ Candidates come only from lines on current main that the task's merge commit las
 `slice` bound by 1. `dropped-call` removes one whole call statement such as `setOpen(false);`.
 `removed-route` deletes a `page.tsx` or `route.ts` under `apps/web/app/` or `apps/web/src/app/`.
 
-The tests are every test file on main whose text carries `AC:<marker>` for one of the task's markers,
-plus every `tests/ui/escaped/*.test.mjs`. The markers are the package case IDs of a WP task and
-`<task>-<n>` for each Done criterion of the stored spec. Files named `*.production.*` never run. Each
-file runs with `node --test` in the audit worktree (a TypeScript file through the `tsx` a workspace package
-installed, as the package test scripts run it), with `NODE_ENV=test` and the home checkout's
-`apps/web/.env.local` (the development database); a `DATABASE_URL` in the shell does not reach it.
+The tests are every test on main whose node:test name carries `AC:<marker>` for one of the task's
+markers, plus every test in `tests/ui/escaped/*.test.mjs`. The markers are the package case IDs of a WP
+task and the `Check: AC:<task>-<n>` marker of each Done criterion of its stored spec (OPS-112's answer
+key, read with `acCriteria`). evf finds the files whose text carries a marker and runs each with
+`--test-name-pattern`, so a test whose name carries no marker never runs. A task whose files carry
+markers only in comments has no marked test: the run stops after the baseline and plants nothing.
+Files named `*.production.*` never run. Each file runs with `node --test` in the audit worktree (a
+TypeScript file through the `tsx` a workspace package installed, as the package test scripts run it),
+with `NODE_ENV=test` and the home checkout's `apps/web/.env.local` (the development database); a
+`DATABASE_URL` in the shell does not reach it.
 When a selected `tests/ui` file opens a browser (it reads `setup.mjs` or `UI_BASE_URL`), each tree
 gets a production preview through the configured stack, and both engines run because `UI_ENGINE`
 is unset.
