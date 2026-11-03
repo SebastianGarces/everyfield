@@ -5,6 +5,7 @@ import { checkGithubBody, checkPrBody, taskOfBranch } from "./pr-body.ts";
 import type { FollowUp } from "./followups.ts";
 import { renderAc, renderBrief } from "./brief.ts";
 import { browserRun } from "./browser.ts";
+import { acRun, acVideoMarkers } from "./ac.ts";
 import { doctor, gc } from "./doctor.ts";
 import { EvfError, git, homeRoot, loadConfig, parseTask, readJson, run } from "./lib.ts";
 import { recordFastTrack } from "./progress.ts";
@@ -64,6 +65,9 @@ Planning (coordinator)
   evf plan <S0..S5 | WP-NNN ...> [--include-done] [--json]   @@@task blocks for Intent
   evf task brief <task> [--ui-tier UI-1..4] [--full]          context for one task
   evf ac <acceptance-or-case-id> ...                                      full obligations for one criterion
+  evf ac run <task>                                           the answer key: run every test whose name carries
+        AC:<task>-<n> (tests/ui on Chromium and WebKit against the worktree's ready preview of HEAD, with video;
+        tools/evf/tests once) and write evf's proof row per AC: criterion at HEAD. Local only, never in CI
   evf shipped [--clear <task> ...]                            review and acknowledge shipped milestones
   evf shipped --fast-track WP-097 --evidence <file>           record owner-approved completion on main
 
@@ -155,8 +159,11 @@ Drive (harness)
   evf drive <task> [--once] [--detach]                        run the stage machine: plan, implement, simplify, pr, verify, ci, ship; cap 3 rounds; one per task
                                                               refuses to start when the running evf code differs from main
   evf run done <run> --status passed|failed|body-only --summary-file <file>   close a stage (seats call this; a passed or body-only verify needs a met or n/a proof per Done criterion; body-only closes a verify only)
+        a passed implement or verify of a spec with AC: criteria runs evf ac run at the worktree HEAD first and
+        refuses while any AC: row is not met there
   evf check <task> [--ignore-load "<reason>"]                 author checks, recorded as a check_result event
   evf proof add <task> --criterion <n> --status met|unmet|n/a [--evidence <url>] [--notes <text>]
+        a criterion whose Check: is AC: takes only --status unmet; evf ac run writes its met row
   evf proof show <task> [--json]                              proof rows; rows from an earlier head of this branch show as carried
   evf ask planner <task> "<question>"                         ask the task's planner (forked session resume)
 
@@ -219,7 +226,7 @@ function main(argv: string[]): number | Promise<number> {
 					? "5-20 minutes"
 					: cmd === "escape" && args[0] === "soak"
 						? "20-60 minutes (20 runs)"
-						: cmd === "verify" || cmd === "check"
+						: cmd === "verify" || cmd === "check" || (cmd === "ac" && args[0] === "run")
 							? "2-15 minutes"
 							: undefined;
 	if (duration) requireForeground(cmd, duration);
@@ -312,6 +319,11 @@ function main(argv: string[]): number | Promise<number> {
 			return 0;
 		}
 		case "ac":
+			if (args[0] === "run") {
+				if (args.length !== 2) break;
+				const rows = acRun(root, parseTask(args[1]), { runId: Number(process.env.EVF_RUN) || null });
+				return rows.every((row) => row.status === "met") ? 0 : 1;
+			}
 			console.log((args.length ? args : [" "]).map((id) => renderAc(root, id)).join("\n\n"));
 			return 0;
 		case "shipped": {
@@ -456,7 +468,13 @@ function main(argv: string[]): number | Promise<number> {
 					if (!existsSync(file)) throw new EvfError("The PR body file does not exist.");
 					const task = taskRef ? parseTask(taskRef) : taskOfBranch(git(here, "rev-parse", "--abbrev-ref", "HEAD"));
 					const followUps: FollowUp[] = task ? followUpsOfTask(root, task) : [];
-					checked = checkPrBody(here, readFileSync(file, "utf8"), selected ?? "ordinary", followUps);
+					checked = checkPrBody(
+						here,
+						readFileSync(file, "utf8"),
+						selected ?? "ordinary",
+						followUps,
+						task ? acVideoMarkers(root, task) : new Set(),
+					);
 				} else {
 					if (selected !== undefined)
 						throw new EvfError(
