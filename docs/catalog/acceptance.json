@@ -2462,7 +2462,6 @@
     ],
     "operations": [
       "teams.archive",
-      "teams.correct",
       "teams.history",
       "teams.restore"
     ],

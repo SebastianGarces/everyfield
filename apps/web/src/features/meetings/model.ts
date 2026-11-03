@@ -65,8 +65,8 @@ export function evaluationIssues(issues: readonly Issue[]): EvaluationIssues {
 }
 
 export const TYPES = ["vision_meeting", "orientation", "team_meeting", "prelaunch_practice"] as const;
-/** The types a new meeting can be. Team meetings arrive with teams (WP-017). */
-export const NEW_TYPES = ["vision_meeting", "orientation", "prelaunch_practice"] as const;
+/** The types a new meeting can be. Planning one takes an Owner or Admin; a team meeting also names its ministry. */
+export const NEW_TYPES = ["vision_meeting", "orientation", "team_meeting", "prelaunch_practice"] as const;
 export const TYPE_LABEL: Record<MeetingType, string> = {
 	vision_meeting: "Vision meeting",
 	orientation: "Orientation",
@@ -286,6 +286,8 @@ export function problemText(code: string): string {
 			return "That person cannot own follow-up calls now. They need a seat and a core group, launch team or leader stage. Choose someone else.";
 		case "venue_archived":
 			return "That place is archived. Restore it in Places, or choose another one.";
+		case "team_unavailable":
+			return "That ministry is archived or no longer here. Choose another ministry, or restore it in Ministries.";
 		case "wrong_meeting_type":
 			return "This kind of meeting does not have that.";
 		case "status_transition":

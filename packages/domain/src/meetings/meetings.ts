@@ -6,6 +6,7 @@ import "server-only";
 import { z } from "zod";
 import { command, deny, next, parse, reply, type MeetingsContext, type Tx, type Writer } from "./core.ts";
 import { syncReminderJobs } from "./notifications.ts";
+import { servingPeople } from "./roster.ts";
 import { detail, facts, meetingColumns, meetingRow, plantMeeting, type MeetingRow } from "./rows.ts";
 
 type VenueChoice = z.infer<typeof c.venueChoice>;
@@ -93,21 +94,34 @@ export const meetingsWriter = {
 				const i = input.input,
 					zone = w.plant.timezone,
 					startsAt = resolve(i.date, i.time, zone, i.offsetSeconds);
+				const plant = sql`${w.plant.id}::uuid`;
+				// A team meeting's ministry, locked while its people are copied; an archived one is refused.
+				const team = i.teamId
+					? sql`(SELECT json_build_object('name', t.name, 'archived', t.archived_at IS NOT NULL,
+						'people', (SELECT coalesce(json_agg(s.id ORDER BY s.id), '[]') FROM (${servingPeople(sql`t.id`, plant)}) s))
+						FROM team t WHERE t.id = ${sql.param(i.teamId)}::uuid AND t.plant_id = ${plant} FOR SHARE)`
+					: sql`NULL::json`;
 				const r = await tx.execute(sql`SELECT
-					(SELECT coalesce(max(vision_number), 0) + 1 FROM meeting WHERE plant_id = ${w.plant.id}::uuid) AS vision_number,
+					(SELECT coalesce(max(vision_number), 0) + 1 FROM meeting WHERE plant_id = ${plant}) AS vision_number,
 					${chosenVenue(w.plant.id, i.venue)} AS venue,
-					ARRAY(SELECT id FROM person WHERE id = ANY(${sql.param(i.guests)}::uuid[]) AND tenant_id = ${w.plant.id}::uuid
+					ARRAY(SELECT id FROM person WHERE id = ANY(${sql.param(i.guests)}::uuid[]) AND tenant_id = ${plant}
 						AND state = 'live' ORDER BY id FOR SHARE) AS guests,
+					${team} AS team,
 					clock_timestamp() AS now`);
 				const f = z
 					.object({
 						vision_number: z.number().int(),
 						venue: venueFacts,
 						guests: z.array(z.uuid()),
+						team: z.object({ name: z.string(), archived: z.boolean(), people: z.array(z.uuid()) }).nullable(),
 						now: z.coerce.date(),
 					})
 					.parse(r.rows[0]);
 				if (f.guests.length !== i.guests.length) deny("invalid_subject");
+				if (i.teamId && (!f.team || f.team.archived)) deny("team_unavailable");
+				// The ministry's people join as copied guests; a person also chosen by hand stays a hand-added guest.
+				const chosen = new Set<string>(i.guests);
+				const roster = (f.team?.people ?? []).filter((p) => !chosen.has(p));
 				const vision = i.type === "vision_meeting",
 					id = randomUUID();
 				const place = location(w, i.venue, f.venue, null, audit.writes);
@@ -134,24 +148,29 @@ export const meetingsWriter = {
 					occurrence_voided_at: null,
 					retired_at: null,
 					creator_id: w.accountId,
-					guest_count: i.guests.length,
+					team_id: i.teamId ?? null,
+					team_name: f.team?.name ?? null,
+					guest_count: i.guests.length + roster.length,
 					confirmed_count: 0,
 					kit_total: vision ? c.visionKit.items.length : 0,
 					kit_checked: 0,
 				};
 				// The meeting, its copied venue, agenda, kit, guests and reminders commit together or not at all.
-				audit.writes.push(sql`INSERT INTO meeting (id, plant_id, type, title, notes, creator_id, local_date, local_time,
+				audit.writes
+					.push(sql`INSERT INTO meeting (id, plant_id, type, team_id, title, notes, creator_id, local_date, local_time,
 					timezone, starts_at, resolver_version, venue_id, venue_name, venue_address, vision_number, status,
 					attendance_revision, agenda, agenda_version, kit_version)
-					VALUES (${id}::uuid, ${w.plant.id}::uuid, ${m.type}, ${m.title}, ${m.notes}, ${w.accountId}::uuid,
+					VALUES (${id}::uuid, ${w.plant.id}::uuid, ${m.type}, ${m.team_id}::uuid, ${m.title}, ${m.notes}, ${w.accountId}::uuid,
 						${m.local_date}::date, ${m.local_time}::time, ${zone}, ${startsAt.toISOString()}::timestamptz, '1',
 						${m.venue_id}::uuid, ${m.venue_name}, ${m.venue_address}, ${m.vision_number}::int, 'planning', 1,
 						${JSON.stringify(agenda)}::jsonb, ${m.agenda_version}::int, ${m.kit_version}::int)`);
 				if (vision) audit.writes.push(seedKit(w.plant.id, id));
-				if (i.guests.length)
+				if (i.guests.length || roster.length)
 					audit.writes
 						.push(sql`INSERT INTO participation (plant_id, meeting_id, person_id, roster_member, rsvp, presence)
-						SELECT ${w.plant.id}::uuid, ${id}::uuid, p, false, 'pending', 'absent' FROM unnest(${sql.param(i.guests)}::uuid[]) p`);
+						SELECT ${w.plant.id}::uuid, ${id}::uuid, p, false, 'pending', 'absent' FROM unnest(${sql.param(i.guests)}::uuid[]) p
+						UNION ALL SELECT ${w.plant.id}::uuid, ${id}::uuid, p, true, 'pending', 'absent'
+							FROM unnest(${sql.param(roster)}::uuid[]) p`);
 				audit.writes.push(...syncReminderJobs(m, f.now));
 				return {
 					value: result(m, "changed", audit.id),
@@ -161,7 +180,13 @@ export const meetingsWriter = {
 					action: "meetings.changed",
 					kind: "create",
 					before: null,
-					after: { type: m.type, visionNumber: m.vision_number, guests: i.guests.length, ...facts(m) },
+					after: {
+						type: m.type,
+						visionNumber: m.vision_number,
+						guests: m.guest_count,
+						...(m.team_id ? { teamId: m.team_id } : {}),
+						...facts(m),
+					},
 				};
 			});
 		});
