@@ -174,7 +174,7 @@ export function scheduleText(report: DeliveryReport, when: string): string {
 	if (report.acceptedCount > 0)
 		return `Scheduled for ${when}. The email service holds it until then. ${counts(report)}`;
 	if (report.unknownCount > 0)
-		return `Not confirmed. The email service gave no answer. ${counts(report)} Check result in Messages to ask it again.`;
+		return `Not confirmed. The email service gave no answer. ${counts(report)} Check result to ask it again.`;
 	return `Not scheduled. The email service refused all ${report.rejectedCount}. ${counts(report)} The message stays saved in Messages.`;
 }
 

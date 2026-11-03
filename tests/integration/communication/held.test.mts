@@ -205,7 +205,7 @@ test("AC:CASE-COM-012 a schedule the email service holds for nobody shows Not sc
 			{ accepted: 0, refused: 0, unknown: 3 },
 			"unknown",
 			"Not confirmed",
-			"Not confirmed. The email service gave no answer. Accepted 0. Refused 0. No answer 3. Check result in Messages to ask it again.",
+			"Not confirmed. The email service gave no answer. Accepted 0. Refused 0. No answer 3. Check result to ask it again.",
 		],
 	] as const) {
 		const resend = resendRecorder();
