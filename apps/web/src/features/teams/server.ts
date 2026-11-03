@@ -1,5 +1,6 @@
 import { requestDatabase } from "@/server/database";
-import type { Viewer } from "../meetings/server.ts";
+import { read as readMeetings, type Viewer } from "../meetings/server.ts";
+import { meetingsReader } from "@everyfield/domain/meetings";
 import type { TeamsReply } from "@everyfield/contracts/teams";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { teamsReader, withTeamsWrite } from "@everyfield/domain/teams";
@@ -77,15 +78,16 @@ export async function loadTeams(viewer: Viewer) {
 
 export type TeamView = Extract<Awaited<ReturnType<typeof loadTeam>>, { status: "found" }>;
 /**
- * One ministry: the team, its roles, its people (current and past) and the chart around it, read side by side. Only
- * the team itself decides found or not found; a part that fails shows its own error in place.
+ * One ministry: the team, its roles, its people (current and past), its team meetings and the chart around it, read
+ * side by side. Only the team itself decides found or not found; a part that fails shows its own error in place.
  */
 export async function loadTeam(viewer: Viewer, teamId: string) {
-	const [list, chart, roles, members] = await Promise.all([
+	const [list, chart, roles, members, meetings] = await Promise.all([
 		read(viewer, (db, a) => teamsReader.list(db, a, { includeArchived: true })),
 		read(viewer, (db, a) => teamsReader.readOrgChart(db, a, { includeArchived: true })),
 		read(viewer, (db, a) => teamsReader.listRoles(db, a, { teamId })),
 		read(viewer, (db, a) => teamsReader.listMembers(db, a, { teamId })),
+		readMeetings(viewer, (db, a) => meetingsReader.list(db, a, { teamId, limit: 50 })),
 	]);
 	if (list.status === "failed") return { status: "failed" } as const;
 	const team = list.status === "ok" ? list.value.items.find((t) => t.id === teamId) : undefined;
@@ -99,11 +101,18 @@ export async function loadTeam(viewer: Viewer, teamId: string) {
 		roles: (value(roles)?.roles ?? null) as Role[] | null,
 		members: (page?.members ?? null) as Member[] | null,
 		past: (page?.history ?? null) as Member[] | null,
+		meetings: meetings.status === "ok" ? { items: meetings.value.items, total: meetings.value.total } : null,
+		now: new Date().toISOString(),
 		canChange: canChange(viewer, team),
 		admin: isAdmin(viewer),
 	} as const;
 }
 
+/** The ministries not archived, for a team meeting's ministry picker. */
+export const readMinistries = async (viewer: Viewer): Promise<Outcome<Pick<Team, "id" | "name">[]>> => {
+	const r = outcome(await read(viewer, (db, a) => teamsReader.list(db, a, {})));
+	return r.status === "ok" ? { status: "ok", value: r.value.items.map((t) => ({ id: t.id, name: t.name })) } : r;
+};
 /** The ministry's history, read when the person opens it. */
 export const readHistory = (viewer: Viewer, teamId: string) =>
 	read(viewer, (db, a) => teamsReader.listHistory(db, a, { teamId }));

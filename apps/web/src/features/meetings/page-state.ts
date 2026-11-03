@@ -32,6 +32,8 @@ export type Change =
 	| { kind: "own"; rsvp: Rsvp }
 	| { kind: "guest"; guest: GuestRow }
 	| { kind: "removeGuest"; guestId: string }
+	/** A reviewed update from the ministry: the people it adds, and the guests it takes off by Person. */
+	| { kind: "roster"; add: PendingGuest[]; removePersonIds: string[] }
 	| { kind: "card"; personId: string; card: CardEntry | null }
 	| { kind: "agenda"; agenda: Detail["agenda"] };
 
@@ -92,6 +94,16 @@ export function applyChange(v: PageView, change: Change): PageView {
 		}
 		case "removeGuest":
 			return { ...v, guests: v.guests?.filter((g) => g.id !== change.guestId) ?? null };
+		case "roster": {
+			const gone = new Set(change.removePersonIds);
+			return {
+				...v,
+				guests: v.guests && [
+					...v.guests.filter((g) => !g.person.personId || !gone.has(g.person.personId)),
+					...change.add,
+				],
+			};
+		}
 		case "card":
 			return {
 				...v,

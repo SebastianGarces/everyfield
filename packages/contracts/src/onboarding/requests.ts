@@ -63,7 +63,12 @@ export const leadAssignmentSelection = z.discriminatedUnion("kind", [
 ]);
 export const answerLeadRequest = commandEnvelope(
 	z.discriminatedUnion("answer", [
-		z.strictObject({ answer: z.literal("yes"), assignment: leadAssignmentSelection }),
+		z.strictObject({
+			answer: z.literal("yes"),
+			assignment: leadAssignmentSelection,
+			// The optional Senior pastor fill: the lead role becomes Leadership's vacant Senior pastor role. Off by default.
+			seniorPastor: z.boolean().default(false),
+		}),
 		z.strictObject({ answer: z.literal("no") }),
 		z.strictObject({ answer: z.literal("skip") }),
 	]),

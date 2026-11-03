@@ -13,6 +13,7 @@ export const PERSONAS = [
 	"discovery",
 	"created",
 	"resume",
+	"pastor-held",
 	"declared",
 	"finished",
 	"member",
@@ -28,6 +29,7 @@ export const PERSONA_LABEL: Record<Persona, string> = {
 	discovery: "Discovery with relationships",
 	created: "Owner, church just created",
 	resume: "Owner, part way",
+	"pastor-held": "Owner, Senior pastor held by someone",
 	declared: "Owner, phase declared",
 	finished: "Owner, finished",
 	member: "Member of a church",
@@ -175,6 +177,7 @@ function world(persona: Persona): World {
 			plant();
 			break;
 		case "resume":
+		case "pastor-held":
 			plant();
 			Object.assign(w.resume!, {
 				revision: "3",
@@ -333,7 +336,13 @@ function apply(w: World, op: Op, cmd: Command): unknown {
 		const at = now();
 		resume.lead =
 			input.answer === "yes"
-				? { answer: "yes", assignment: { teamId: id(), roleId: id(), personId: id() }, savedAt: at }
+				? {
+						answer: "yes",
+						assignment: { teamId: id(), roleId: id(), personId: id() },
+						// The Senior pastor fill: another person already holds the role for the pastor-held persona.
+						...(input.seniorPastor ? { seniorPastor: w.persona === "pastor-held" ? "occupied" : "filled" } : {}),
+						savedAt: at,
+					}
 				: { answer: input.answer, savedAt: at };
 		bump();
 		return C.leadAnswerResult.parse({ plant, revision: resume.revision, lead: resume.lead });

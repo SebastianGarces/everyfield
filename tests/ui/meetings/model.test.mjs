@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { evaluationIssues } from "../../../apps/web/src/features/meetings/model.ts";
+import { applyChange } from "../../../apps/web/src/features/meetings/page-state.ts";
 
 test("BUG-S2-F06: each issue maps to its factor, notes, reason or the dialog", () => {
 	const shown = evaluationIssues([
@@ -26,4 +27,26 @@ test("BUG-S2-F06: no issues maps to nothing, and an unknown path still says some
 	assert.deepEqual(evaluationIssues([{ path: "input.extra", problem: "Unrecognized key" }]).dialog, [
 		"Some details are not valid. Check them and try again.",
 	]);
+});
+
+// WP-017: a reviewed update from the ministry shows at once: the people it adds join, the guests it removes leave.
+test("INV-roster-projection: the update adds its people and removes guests by Person, keeping everyone else", () => {
+	const g = (id, personId, name) => ({ id, revision: "1", person: { personId, displayName: name, state: "live" } });
+	const view = {
+		guests: [g("a", "p1", "Ann"), g("b", "p2", "Ben"), g("c", "p3", "Cy")],
+		cards: [],
+		own: null,
+		agenda: [],
+		attendance: null,
+	};
+	const added = { id: "pending-p4", revision: null, person: { personId: "p4", displayName: "Dee", state: "live" } };
+	const next = applyChange(view, { kind: "roster", add: [added], removePersonIds: ["p2"] });
+	assert.deepEqual(
+		next.guests.map((x) => x.person.displayName),
+		["Ann", "Cy", "Dee"],
+	);
+	assert.deepEqual(
+		applyChange({ ...view, guests: null }, { kind: "roster", add: [added], removePersonIds: [] }).guests,
+		null,
+	);
 });
