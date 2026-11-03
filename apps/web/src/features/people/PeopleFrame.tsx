@@ -26,7 +26,7 @@ import { firstSection } from "../settings/model";
 import type { SectionSeed, SettingsViewer } from "../settings/port";
 import { useProductSettings } from "../settings/ProductSettings";
 import type { Role } from "./server.ts";
-import { SettingsGuide, useWikiChrome, WikiChrome } from "../wiki/client.tsx";
+import { useWikiChrome, WikiChrome } from "../wiki/client.tsx";
 
 // The product frame around People, Meetings, Messages, Tasks, Ministries, Wiki, Documents and Settings. Only destinations that
 // exist are in the navigation. The full product navigation and command palette come from their own packages and
@@ -129,8 +129,7 @@ export function PeopleFrame({ settings: initial, seed, ...props }: FrameProps) {
 
 function Frame({ name, settings, seed = null, children }: FrameProps) {
 	const toast = useToast();
-	// The Settings dialog covers the rail, so it carries its own Guide button (WP-034).
-	const dialog = useProductSettings(settings, seed, <SettingsGuide />);
+	const dialog = useProductSettings(settings, seed);
 	const pathname = usePathname();
 	// Evry is off while the private check-in is open: its panel closes and Ask Evry says so (REQ-PI-038).
 	const privatePage = evryOff(pathname);
