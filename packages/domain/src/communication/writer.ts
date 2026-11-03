@@ -36,6 +36,7 @@ import {
 import {
 	cancelScheduled,
 	dispatchReviewed,
+	handOffScheduled,
 	listOwnSuppression,
 	reconcileReviewed,
 	replaceScheduled,
@@ -369,6 +370,13 @@ export const communicationWriter = {
 		transport: DeliveryTransport,
 		keys: DeliveryKeys,
 	) => dispatchReviewed(db, authority, raw, transport, keys),
+	handOffScheduled: (
+		db: Database,
+		authority: RequestActor,
+		raw: unknown,
+		transport: DeliveryTransport,
+		keys: DeliveryKeys,
+	) => handOffScheduled(db, authority, raw, transport, keys),
 	reconcileProviderOutcome: (
 		db: Database,
 		authority: RequestActor,
