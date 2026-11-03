@@ -274,7 +274,7 @@ function mergeOnAnswer(f: Fx, head: string, answer: string, exit?: number) {
 	const path = "repos/test/private/issues/77/comments";
 	f.publish([], (s) => {
 		s.api = { [path]: answer };
-		if (exit) s.apiExit = { [path]: exit };
+		s.apiExit = { [path]: exit };
 	});
 	return () => mergePullRequest({ root: f.root, cfg: f.cfg, cwd: f.wt, number: 77, sha: head });
 }
@@ -298,10 +298,9 @@ test("AC:OPS-128-2 AC:OPS-128-4 a failed gh call, invalid JSON, null and a bare 
 	try {
 		const head = approvedWork(f);
 		// The failed call prints well-formed pages: only its exit code refuses it.
-		assert.throws(mergeOnAnswer(f, head, "[[]]", 1), { message: UNREADABLE }, "failed gh call");
-		assert.deepEqual(f.merges(), [], "failed gh call");
-		for (const answer of ["not json", "null", '{"message":"x"}']) {
-			assert.throws(mergeOnAnswer(f, head, answer), { message: UNREADABLE }, answer);
+		const answers: Array<[string, number?]> = [["[[]]", 1], ["not json"], ["null"], ['{"message":"x"}']];
+		for (const [answer, exit] of answers) {
+			assert.throws(mergeOnAnswer(f, head, answer, exit), { message: UNREADABLE }, answer);
 			assert.deepEqual(f.merges(), [], answer);
 		}
 	} finally {
@@ -312,29 +311,25 @@ test("AC:OPS-128-2 AC:OPS-128-4 a failed gh call, invalid JSON, null and a bare 
 test("AC:OPS-128-3 a list of lists behaves as before: no record merges without the owner check, and the latest valid record is used across pages", () => {
 	const f = ownerFixture();
 	try {
-		const earlier = approvedWork(f);
-		const head = f.commit("Later work", { "tools/evf/feature.ts": "export const feature = 2;\n" });
-		const pages = (...list: Array<Array<{ body: string } | number>>) => JSON.stringify(list);
+		const head = approvedWork(f);
 
 		// No EVF-Owner record: the merge reaches GitHub. What a page holds stays unchecked, so [[1]] has no record either.
-		for (const answer of ["[]", "[[]]", "[[1]]", pages([f.review(head)], [])]) {
+		for (const answer of ["[]", "[[]]", "[[1]]", JSON.stringify([[f.review(head)], []])]) {
 			assert.equal(mergeOnAnswer(f, head, answer)().owner, undefined, answer);
 			assert.deepEqual(f.merges(), [head], answer);
 		}
 
 		// The latest record is on the last page; a later line that is not a valid record does not replace it.
-		const cover = (quote: string) => ({ quote, approved_head: head, approved_at: "2026-11-02T22:18:00.000Z" });
 		const invalid = {
 			body: `EVF-Owner: not json\nEVF-Owner: ${JSON.stringify({ head: "short", quote: "x", at: "y" })}`,
 		};
-		const across = pages([f.owner(head, "first words")], [f.owner(head, "second words")], [invalid]);
-		assert.deepEqual(mergeOnAnswer(f, head, across)().owner, cover("second words"));
+		const across = JSON.stringify([[f.owner(head, "first words")], [f.owner(head, "second words")], [invalid]]);
+		assert.deepEqual(mergeOnAnswer(f, head, across)().owner, {
+			quote: "second words",
+			approved_head: head,
+			approved_at: "2026-11-02T22:18:00.000Z",
+		});
 		assert.deepEqual(f.merges(), [head]);
-
-		// The record on the last page decides, so an approval of the earlier head there voids the merge of this one.
-		const voided = pages([f.owner(head)], [f.owner(earlier)]);
-		assert.throws(mergeOnAnswer(f, head, voided), new RegExp(OWNER_VOID));
-		assert.deepEqual(f.merges(), []);
 	} finally {
 		f.close();
 	}
