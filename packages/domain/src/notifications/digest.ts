@@ -221,8 +221,7 @@ export async function compilePlanterDigest(
 export async function compileOversightDigest(
 	db: Execute,
 	input: { organization: string; recipient: string; start: string; end: string } & (
-		| { zone: TimeZone }
-		| { notice: { id: string; logicalKey: string } }
+		{ zone: TimeZone } | { notice: { id: string; logicalKey: string } }
 	),
 ) {
 	const stored =
