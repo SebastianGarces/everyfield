@@ -27,9 +27,9 @@ import { acCriteria } from "./spec.ts";
  * cannot write `met` or `n/a` for them. Everything runs on this machine: no CI job and no paid API.
  */
 
-export const AC_ENGINES = ["chromium", "webkit"] as const;
+const AC_ENGINES = ["chromium", "webkit"] as const;
 type Engine = "node" | (typeof AC_ENGINES)[number];
-export type AcRow = {
+type AcRow = {
 	criterion: string;
 	marker: string;
 	status: "met" | "unmet";
@@ -44,7 +44,7 @@ const BROWSER_TIMEOUT_SECONDS = 1800;
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
 /** The marker as a test name pattern: `AC:OPS-1-1` does not match a name that carries `AC:OPS-1-10`. */
-export const markerPattern = (marker: string) => `${escape(marker)}(?!\\d)`;
+const markerPattern = (marker: string) => `${escape(marker)}(?!\\d)`;
 
 /** A UI task: part `ui`, or a whole package whose owning paths include a UI path. */
 export function isUiTask(root: string, task: TaskRef): boolean {
@@ -74,14 +74,8 @@ const real = (path: string) => {
 /** The newest ready portless preview of the worktree. It must serve HEAD, or a passing test proves another commit. */
 function readyPreview(wt: string, head: string): string {
 	const r = run("portless", ["preview", "status", "--json"], { cwd: wt });
-	let previews: Preview[] = [];
-	try {
-		previews = r.code === 0 ? (JSON.parse(r.stdout) as Preview[]) : [];
-	} catch {
-		// Unreadable status: no preview.
-	}
 	if (r.code !== 0) fail(`Cannot read the portless preview status: ${(r.stderr || r.stdout).trim().slice(0, 300)}`);
-	const own = previews
+	const own = (JSON.parse(r.stdout) as Preview[])
 		.filter((p) => p.state === "ready" && real(p.project) === real(wt))
 		.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))[0];
 	const start = `node .agents/skills/verify-preview/scripts/preview.mjs ${wt}`;
@@ -102,10 +96,8 @@ function nodeTest(wt: string, files: string[], marker: string, engine: Engine, e
 		out = join(tmp, "results.jsonl");
 	// Inside a node:test process this names the parent's protocol; the nested run would then skip its reporters.
 	const { NODE_TEST_CONTEXT: _, ...clean } = env;
-	env = clean;
 	try {
-		const argv = [
-			process.execPath,
+		const test = [
 			"--test",
 			`--test-name-pattern=${markerPattern(marker)}`,
 			`--test-reporter=${REPORTER}`,
@@ -114,23 +106,17 @@ function nodeTest(wt: string, files: string[], marker: string, engine: Engine, e
 			"--test-reporter-destination=stdout",
 			...files,
 		];
-		const r =
-			engine === "node"
-				? run(argv[0]!, argv.slice(1), { cwd: wt, env })
-				: run(
-						process.execPath,
-						[
-							"--disable-warning=ExperimentalWarning",
-							MAIN,
-							"browser",
-							"run",
-							"--timeout",
-							String(BROWSER_TIMEOUT_SECONDS),
-							"--",
-							...argv,
-						],
-						{ cwd: wt, env },
-					);
+		const browser = [
+			"--disable-warning=ExperimentalWarning",
+			MAIN,
+			"browser",
+			"run",
+			"--timeout",
+			String(BROWSER_TIMEOUT_SECONDS),
+			"--",
+			process.execPath,
+		];
+		const r = run(process.execPath, engine === "node" ? test : [...browser, ...test], { cwd: wt, env: clean });
 		const lines = existsSync(out) ? readFileSync(out, "utf8").split("\n").filter(Boolean) : [];
 		const pattern = new RegExp(markerPattern(marker));
 		const results = lines

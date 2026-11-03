@@ -97,8 +97,8 @@ export function laterSlices(spec: string | null | undefined): string[] {
  * How evf checks one Done criterion (OPS-112). `ac`: a test whose name carries `marker` (`AC:<task ref>-<n>`), which
  * `evf ac run` runs and turns into the proof row. `owner`: a taste call a person judges, with the reason no test can.
  */
-export type Check = { kind: "ac"; marker: string; task: string; n: string } | { kind: "owner"; reason: string };
-export type CriterionCheck = { criterion: string; values: string[]; check: Check | null };
+type Check = { kind: "ac"; marker: string; task: string; n: string } | { kind: "owner"; reason: string };
+type CriterionCheck = { criterion: string; values: string[]; check: Check | null };
 
 const CHECK_LINE = /^\s*Check:\s*(.*?)\s*$/i;
 const AC_VALUE = /^AC:(\S+)-(\d+)$/;
