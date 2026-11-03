@@ -356,7 +356,10 @@ test("OPS-125: a depth-1 clone skips the history half and still runs the import 
 	});
 	assert.equal(r.status, 0, r.stderr);
 	const notes: string[] = [];
-	assert.deepEqual(checkOps125Change(clone, (m) => notes.push(m)), { shallow: true, commits: [] });
+	assert.deepEqual(
+		checkOps125Change(clone, (m) => notes.push(m)),
+		{ shallow: true, commits: [] },
+	);
 	assert.deepEqual(notes, ["shallow checkout: no main history, so only the import scan runs"]);
 	writeFileSync(join(clone, "apps/z.ts"), 'import "../tools/evf/qa-seed.ts";\n');
 	assert.throws(() => checkOps125Change(clone), /apps\/z\.ts/);
