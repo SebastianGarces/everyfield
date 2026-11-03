@@ -35,6 +35,8 @@ export type RenderTheme = {
 	logo?: ThemeImage;
 	tagline?: string;
 	photo?: ThemeImage;
+	/** The brand kit's own assets for the format's image node: `logo` is the full logo, `mark` the mark, `photo` the cover photo. */
+	images?: { logo?: ThemeImage; mark?: ThemeImage; photo?: ThemeImage };
 	letterhead?: Letterhead;
 };
 

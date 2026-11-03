@@ -1,5 +1,6 @@
 import type { Editor } from "@tiptap/core";
-import { Fragment, type Node as PMNode } from "@tiptap/pm/model";
+import { closeHistory } from "@tiptap/pm/history";
+import { Fragment, type Node as PMNode, type Schema } from "@tiptap/pm/model";
 import { NodeSelection, Selection, TextSelection, type EditorState, type Transaction } from "@tiptap/pm/state";
 
 // Whole-block actions: Insert, Move up, Move down and Delete act on the top-level block that holds the cursor or the
@@ -8,43 +9,88 @@ import { NodeSelection, Selection, TextSelection, type EditorState, type Transac
 
 type BlockRange = { index: number; from: number; to: number; node: PMNode };
 
-/** The top-level block that holds the selection, or null when the document has no blocks. */
-export function currentBlock(state: EditorState): BlockRange | null {
-	const { doc, selection } = state;
-	if (doc.childCount === 0) return null;
-	const $from = selection.$from;
-	// A selected top-level block has depth 0; a cursor inside one has depth 1 or more.
-	if (selection instanceof NodeSelection && $from.depth === 0) {
-		const index = $from.index(0);
-		return { index, from: selection.from, to: selection.to, node: doc.child(index) };
-	}
-	if ($from.depth === 0) {
-		const index = Math.min($from.index(0), doc.childCount - 1);
-		let from = 0;
-		for (let i = 0; i < index; i++) from += doc.child(i).nodeSize;
-		return { index, from, to: from + doc.child(index).nodeSize, node: doc.child(index) };
-	}
-	const index = $from.index(0);
-	return { index, from: $from.before(1), to: $from.after(1), node: doc.child(index) };
+/** The children of the document that are body blocks: the page header leads and the page footer ends the list. */
+function bodyRange(doc: PMNode) {
+	const first = doc.firstChild?.type.name === "pageHeader" ? 1 : 0;
+	const footer = doc.lastChild?.type.name === "pageFooter" && doc.childCount > first ? 1 : 0;
+	return { first, end: doc.childCount - footer };
 }
 
-const history = (tr: Transaction) => tr.setMeta("closeHistory", true).scrollIntoView();
+/** The top-level body block that holds the selection, or null when the body has no blocks or the cursor is in the header or footer. */
+export function currentBlock(state: EditorState): BlockRange | null {
+	const { doc, selection } = state;
+	const { first, end } = bodyRange(doc);
+	if (end <= first) return null;
+	const $from = selection.$from;
+	// A selected top-level block has depth 0; a cursor inside one has depth 1 or more.
+	let index: number;
+	if (selection instanceof NodeSelection && $from.depth === 0) index = $from.index(0);
+	else if ($from.depth === 0) index = Math.min(Math.max($from.index(0), first), end - 1);
+	else index = $from.index(0);
+	if (index < first || index >= end) return null;
+	let from = 0;
+	for (let i = 0; i < index; i++) from += doc.child(i).nodeSize;
+	return { index, from, to: from + doc.child(index).nodeSize, node: doc.child(index) };
+}
+
+// `closeHistory` ends the Undo group before this step, so one Undo reverses exactly this action.
+const history = (tr: Transaction) => closeHistory(tr).scrollIntoView();
 
 export type InsertKind =
-	"paragraph" | "heading" | "bulletList" | "orderedList" | "quote" | "divider" | "spacer" | "pageBreak";
-export const INSERT_KINDS: { kind: InsertKind; label: string }[] = [
-	{ kind: "paragraph", label: "Paragraph" },
-	{ kind: "heading", label: "Heading" },
-	{ kind: "bulletList", label: "Bulleted list" },
-	{ kind: "orderedList", label: "Numbered list" },
-	{ kind: "quote", label: "Quote" },
-	{ kind: "divider", label: "Divider" },
-	{ kind: "spacer", label: "Spacer" },
-	{ kind: "pageBreak", label: "Page break" },
+	| "paragraph"
+	| "heading"
+	| "bulletList"
+	| "orderedList"
+	| "quote"
+	| "divider"
+	| "accentBar"
+	| "spacer"
+	| "pageBreak"
+	| "columns2"
+	| "columns3"
+	| "columns4"
+	| "box"
+	| "writeIn"
+	| "signature"
+	| "dateLine"
+	| "logo"
+	| "mark"
+	| "photo";
+type InsertGroup = "text" | "rules" | "layout" | "lines" | "images";
+export const INSERT_KINDS: { kind: InsertKind; label: string; group: InsertGroup }[] = [
+	{ kind: "paragraph", label: "Paragraph", group: "text" },
+	{ kind: "heading", label: "Heading", group: "text" },
+	{ kind: "bulletList", label: "Bulleted list", group: "text" },
+	{ kind: "orderedList", label: "Numbered list", group: "text" },
+	{ kind: "quote", label: "Quote", group: "text" },
+	{ kind: "divider", label: "Divider", group: "rules" },
+	{ kind: "accentBar", label: "Accent bar", group: "rules" },
+	{ kind: "spacer", label: "Spacer", group: "rules" },
+	{ kind: "pageBreak", label: "Page break", group: "rules" },
+	{ kind: "columns2", label: "2 columns", group: "layout" },
+	{ kind: "columns3", label: "3 columns", group: "layout" },
+	{ kind: "columns4", label: "4 columns", group: "layout" },
+	{ kind: "box", label: "Colored box", group: "layout" },
+	{ kind: "writeIn", label: "Write-in line", group: "lines" },
+	{ kind: "signature", label: "Signature line", group: "lines" },
+	{ kind: "dateLine", label: "Date line", group: "lines" },
+	{ kind: "logo", label: "Logo", group: "images" },
+	{ kind: "mark", label: "Mark", group: "images" },
+	{ kind: "photo", label: "Photo", group: "images" },
 ];
 
-function build(editor: Editor, kind: InsertKind): PMNode {
-	const { schema } = editor.state;
+/** The brand-kit sources the image items offer, and what each is called in the brand kit. */
+export const IMAGE_KINDS = { logo: "full logo", mark: "mark", photo: "cover photo" } as const;
+export type ImageKind = keyof typeof IMAGE_KINDS;
+
+/** Default size in points of a new image: the format's own default for a logo, a square mark, a wide photo. */
+const IMAGE_SIZE: Record<ImageKind, { width: number; height: number } | undefined> = {
+	logo: undefined,
+	mark: { width: 48, height: 48 },
+	photo: { width: 360, height: 140 },
+};
+
+function build(schema: Schema, kind: InsertKind, alt = ""): PMNode {
 	const type = (name: string) => {
 		const found = schema.nodes[name];
 		if (!found) throw new Error(`the schema has no ${name}`);
@@ -61,26 +107,112 @@ function build(editor: Editor, kind: InsertKind): PMNode {
 			return type("quote").create(null, paragraph());
 		case "paragraph":
 			return paragraph();
+		case "accentBar":
+			return type("divider").create({ weight: "bar", color: "accent" });
+		case "columns2":
+		case "columns3":
+		case "columns4": {
+			const count = Number(kind.slice(-1));
+			return type("columns").create(
+				null,
+				Array.from({ length: count }, () => type("column").create(null, paragraph())),
+			);
+		}
+		case "box":
+			return type("box").create(null, paragraph());
+		case "writeIn":
+			return type("writeIn").create({ kind: "text", label: "Name", key: "name" });
+		case "signature":
+			return type("writeIn").create({ kind: "signature", label: "Signature", key: "signature" });
+		case "dateLine":
+			return type("writeIn").create({ kind: "date", label: "Date", key: "date" });
+		case "logo":
+		case "mark":
+		case "photo":
+			return type("image").create({ source: kind, ...IMAGE_SIZE[kind], ...(alt ? { alt } : {}) });
 		default:
 			return type(kind).create();
 	}
 }
 
-/** Adds a block after the current top-level block (at the start of an empty body). Text blocks take the cursor. */
-export function insertBlock(editor: Editor, kind: InsertKind): boolean {
+const CONTAINER_NAMES = new Set(["doc", "column", "box", "pageHeader", "pageFooter"]);
+
+/** Where Insert puts a block: after the block that holds the selection, inside the innermost column, box, header or footer. */
+function insertionPoint(state: EditorState): { pos: number; parent: PMNode; index: number } {
+	const { selection, doc } = state;
+	const $from = selection.$from;
+	for (let d = $from.depth; d >= 0; d--) {
+		const node = $from.node(d);
+		if (!CONTAINER_NAMES.has(node.type.name)) continue;
+		let pos: number;
+		if (selection instanceof NodeSelection && d === $from.depth) pos = selection.to;
+		else if ($from.depth > d) pos = $from.after(d + 1);
+		else pos = $from.pos;
+		// The body never reaches into the header or the footer.
+		const { first, end } = bodyRange(doc);
+		if (node.type.name === "doc") {
+			let start = 0;
+			for (let i = 0; i < first; i++) start += doc.child(i).nodeSize;
+			let stop = start;
+			for (let i = first; i < end; i++) stop += doc.child(i).nodeSize;
+			pos = Math.min(Math.max(pos, start), stop);
+		}
+		return { pos, parent: node, index: doc.resolve(pos).index() };
+	}
+	return { pos: 0, parent: doc, index: 0 };
+}
+
+/** True when the schema lets this block sit at the place Insert would put it. Hidden in the menu when it cannot. */
+export function canInsert(state: EditorState, kind: InsertKind): boolean {
+	const { parent, index } = insertionPoint(state);
+	const node = build(state.schema, kind);
+	return parent.canReplaceWith(index, index, node.type);
+}
+
+/** The page header or footer that holds the selection, or null. */
+export function regionAt(state: EditorState): "pageHeader" | "pageFooter" | null {
+	const $from = state.selection.$from;
+	for (let d = $from.depth; d >= 0; d--) {
+		const name = $from.node(d).type.name;
+		if (name === "pageHeader" || name === "pageFooter") return name;
+	}
+	return null;
+}
+
+/** Adds a block after the current block. Text blocks take the cursor. `alt` is the asset's alternative text for an image. */
+export function insertBlock(editor: Editor, kind: InsertKind, alt = ""): boolean {
 	const { state } = editor;
-	const at = currentBlock(state)?.to ?? 0;
-	const node = build(editor, kind);
+	if (!canInsert(state, kind)) return false;
+	const { pos: at, parent, index } = insertionPoint(state);
+	const node = build(state.schema, kind, alt);
 	const tr = history(state.tr);
-	const leaf = node.isLeaf;
-	// A leaf block at the end of the body gets an empty paragraph after it, so the cursor has somewhere to go.
-	const fragment = leaf && at >= state.doc.content.size ? Fragment.from([node, build(editor, "paragraph")]) : node;
-	tr.insert(at, fragment);
-	if (leaf) {
+	const textual = ["paragraph", "heading", "bulletList", "orderedList", "quote"].includes(node.type.name);
+	const next = parent.maybeChild(index);
+	const atEnd = !next || next.type.name === "pageFooter";
+	// A block with no text of its own at the end of its container gets an empty paragraph after it, so the cursor has
+	// somewhere to go.
+	const addParagraph = !textual && atEnd;
+	tr.insert(at, addParagraph ? Fragment.from([node, build(state.schema, "paragraph")]) : node);
+	if (node.isLeaf) {
 		const after = at + node.nodeSize;
-		const next = tr.doc.resolve(Math.min(after, tr.doc.content.size));
-		tr.setSelection(after < tr.doc.content.size ? Selection.near(next, 1) : NodeSelection.create(tr.doc, at));
+		const near = tr.doc.resolve(Math.min(after, tr.doc.content.size));
+		tr.setSelection(
+			addParagraph || after < tr.doc.content.size ? Selection.near(near, 1) : NodeSelection.create(tr.doc, at),
+		);
 	} else tr.setSelection(Selection.near(tr.doc.resolve(at + 1), 1));
+	editor.view.dispatch(tr);
+	editor.view.focus();
+	return true;
+}
+
+/** Adds a page number at the cursor. It works only in the page header or footer. */
+export function insertPageNumber(editor: Editor, format: "page" | "page-of-total"): boolean {
+	if (!regionAt(editor.state)) return false;
+	const type = editor.state.schema.nodes.pageNumber;
+	if (!type) return false;
+	const { selection } = editor.state;
+	if (!selection.$from.parent.inlineContent) return false;
+	const tr = history(editor.state.tr).replaceSelectionWith(type.create({ format }), false);
 	editor.view.dispatch(tr);
 	editor.view.focus();
 	return true;
@@ -89,7 +221,8 @@ export function insertBlock(editor: Editor, kind: InsertKind): boolean {
 export function canMove(state: EditorState, direction: -1 | 1): boolean {
 	const block = currentBlock(state);
 	if (!block) return false;
-	return direction === -1 ? block.index > 0 : block.index < state.doc.childCount - 1;
+	const { first, end } = bodyRange(state.doc);
+	return direction === -1 ? block.index > first : block.index < end - 1;
 }
 
 /** Swaps the current top-level block with its neighbor. The cursor or the block selection moves with it. */
@@ -134,10 +267,7 @@ export function deleteBlock(editor: Editor): boolean {
 /** Empties the body, the header and the footer in one step, so one Undo brings all three back. */
 export function deleteAllContent(editor: Editor): boolean {
 	const { state } = editor;
-	const tr = history(state.tr).delete(0, state.doc.content.size);
-	if (state.doc.attrs.header !== undefined) tr.setDocAttribute("header", undefined);
-	if (state.doc.attrs.footer !== undefined) tr.setDocAttribute("footer", undefined);
-	editor.view.dispatch(tr);
+	editor.view.dispatch(history(state.tr).delete(0, state.doc.content.size));
 	return true;
 }
 
