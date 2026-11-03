@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { followUpsOfTask } from "./db.ts";
 import { partialLine, type FollowUp } from "./followups.ts";
-import { EvfError, fail, parseTask, readParty, type ReviewParty, type TaskRef } from "./lib.ts";
+import { EvfError, fail, parseTask, readParty, run, type ReviewParty, type TaskRef } from "./lib.ts";
 
 const TEMPLATES = {
 	ordinary: ".agents/skills/everyfield-pr/template.md",
@@ -145,4 +145,70 @@ export function checkPrBody(
 	if (footer.length !== 1 || !/^🤖 Generated with \[[^\]]+\]\(https:\/\/[^)]+\)$/.test(footer[0]))
 		fail("End the PR body with its attribution line after EVF-Author.");
 	return { kind, sections, author: party };
+}
+
+/**
+ * One PR body fix a `body_only` review lists (OPS-113, D-c): an exact text the body must contain (`present`) or must
+ * not contain (`absent`), and why. The check is exact text only, so evf proves it without a model.
+ */
+export type BodyItem = { present: string; why: string } | { absent: string; why: string };
+
+const nonEmpty = (value: unknown): value is string => typeof value === "string" && value.trim().length > 0;
+
+/** Parses the `body` list of a `body_only` review. Returns the reason when the list or an item is malformed. */
+export function readBodyItems(input: unknown): BodyItem[] | string {
+	if (!Array.isArray(input) || !input.length) return "a body_only review needs a non-empty list of body items";
+	const items: BodyItem[] = [];
+	for (const [i, item] of input.entries()) {
+		const at = `body item ${i + 1}`;
+		if (!item || typeof item !== "object" || Array.isArray(item)) return `${at} is not an object`;
+		const keys = Object.keys(item).filter((k) => k !== "why");
+		if (keys.length !== 1 || (keys[0] !== "present" && keys[0] !== "absent"))
+			return `${at} needs exactly one of "present" or "absent" and nothing else besides "why"`;
+		const text = (item as Record<string, unknown>)[keys[0]],
+			why = (item as Record<string, unknown>).why;
+		if (!nonEmpty(text)) return `${at} needs a non-empty "${keys[0]}" text`;
+		if (!nonEmpty(why)) return `${at} needs a non-empty "why"`;
+		items.push(keys[0] === "present" ? { present: text, why } : { absent: text, why });
+	}
+	return items;
+}
+
+/** How a body item reads in prompts and refusals. */
+export const describeBodyItem = (item: BodyItem): string =>
+	"present" in item
+		? `present ${JSON.stringify(item.present)} (${item.why})`
+		: `absent ${JSON.stringify(item.absent)} (${item.why})`;
+
+/** The first item the body does not meet, or undefined when it meets every item. Line endings do not count. */
+export function unmetBodyItem(body: string, items: BodyItem[]): BodyItem | undefined {
+	const text = body.replace(/\r\n/g, "\n");
+	const has = (part: string) => text.includes(part.replace(/\r\n/g, "\n"));
+	return items.find((item) => ("present" in item ? !has(item.present) : has(item.absent)));
+}
+
+/**
+ * The `evf pr body <PR>` check: reads the PR body, branch, labels and files from GitHub and checks the body with the
+ * template its class selects. The body stage (OPS-113) runs this same code after it pushes the body.
+ */
+export function checkGithubBody(
+	cwd: string,
+	root: string,
+	number: number,
+): { body: string; headRefOid: string; checked: ReturnType<typeof checkPrBody> } {
+	const result = run("gh", ["pr", "view", String(number), "--json", "body,headRefName,headRefOid,labels,files"], {
+		cwd,
+	});
+	if (result.code !== 0) fail("Cannot read the PR body from GitHub.");
+	const pr: unknown = JSON.parse(result.stdout);
+	if (!pr || typeof pr !== "object" || !("body" in pr) || typeof pr.body !== "string")
+		fail("Cannot read the PR body from GitHub.");
+	const headRefOid = "headRefOid" in pr && typeof pr.headRefOid === "string" ? pr.headRefOid : "";
+	const checked = checkPrBody(
+		cwd,
+		pr.body,
+		prBodyClass(pr),
+		followUpsOfBranch(root, (pr as { headRefName?: string }).headRefName),
+	);
+	return { body: pr.body, headRefOid, checked };
 }

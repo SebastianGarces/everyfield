@@ -29,6 +29,14 @@ them. Comments are deliberate because agents share the owner's
 GitHub account. These records are unsigned coordination evidence, not authenticated identities.
 Use `changes_requested` instead of `approved` when verification fails. The latest record for that
 head wins. A changed head needs new CI and real verification.
+`body_only` (OPS-113) approves the code and the experience and adds a `"body"` list of exact-text items, each
+`{"present": "<text>", "why": "<reason>"}` or `{"absent": "<text>", "why": "<reason>"}`. Use it only when every
+open finding is a PR body fix that can be checked that way. evf's body stage fixes the body at the same head with
+no round and no new verify, and ship accepts the review as the code approval only when its quality and experience
+verdicts are approved and the current GitHub body meets every item; it names the first unmet item otherwise. The
+body must not change during the merge checks. A `body_only` review carries over merge-only commits like
+`approved` (EVF-Carry), and the items are checked on the merged head's body; a code commit needs a new verify.
+A failed verify at a head already reviewed costs no round. `tools/evf/README.md` lists decisions D-a to D-e.
 
 `evf ship <task>` requires every required GitHub check to pass on the exact PR head, an allowed
 family's approval of that head and a body passing the PR standard. Missing checks refuse.

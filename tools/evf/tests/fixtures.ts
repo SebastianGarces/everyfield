@@ -170,7 +170,7 @@ if(a[0]==='api') {
  else if(/branches\/main\/protection/.test(path))result=s.protection||{required_status_checks:{strict:true,contexts:['evf/verify']},enforce_admins:{enabled:true},required_pull_request_reviews:{required_approving_review_count:1,dismiss_stale_reviews:true}};
 }
 else if(a[0]==='repo'&&a[1]==='view')result=a.includes('-q')||a.includes('--jq')?'test/private':{nameWithOwner:'test/private',isPrivate:true};
-else if(a[0]==='pr'&&a[1]==='view')result=a.includes('mergeCommit')?s.mergeCommit:opt('--json')==='body'&&a.includes('--jq')?s.pr.body:s.pr||{number:77,url:'https://github.com/test/private/pull/77',state:'OPEN'};
+else if(a[0]==='pr'&&a[1]==='view'){if(s.prViewBodies?.length&&s.pr)s.pr.body=s.prViewBodies.shift();result=a.includes('mergeCommit')?s.mergeCommit:opt('--json')==='body'&&a.includes('--jq')?s.pr.body:s.pr||{number:77,url:'https://github.com/test/private/pull/77',state:'OPEN'};}
 else if(a[0]==='pr'&&a[1]==='list')result=s.openPrs??[];
 else if(a[0]==='run'&&a[1]==='list')result=s.mainRuns??[{conclusion:'success',headSha:'f'.repeat(40),url:'https://github.com/test/private/actions/runs/1'}];
 else if(a[0]==='pr'&&a[1]==='checks'){result=s.checksQueue?.length?s.checksQueue.shift():s.requiredChecks??[];if(s.checksError){fs.writeFileSync(p,JSON.stringify(s));process.stdout.write(JSON.stringify(result));process.exit(s.checksError);}}

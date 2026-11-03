@@ -1551,6 +1551,22 @@
 			],
 			"risk": "ordinary"
 		},
+		"OPS-113": {
+			"title": "Body-only fix path with no new round and no new Opus verify",
+			"owningPaths": [
+				"tools/evf/",
+				".agents/roles/verifier.md",
+				".claude/agents/verifier.md",
+				".agents/skills/verify-preview/SKILL.md",
+				".agents/skills/verify-preview/scripts/post-review.mjs",
+				".agents/skills/ship/SKILL.md"
+			],
+			"checks": [
+				{ "name": "documentation", "run": ["python3", "docs/check-all.py"] },
+				{ "name": "workflow-regressions", "run": ["bin/evf", "test"] }
+			],
+			"risk": "ordinary"
+		},
 		"OPS-117": {
 			"title": "evf readiness check refuses dependents of single-task WP-038",
 			"owningPaths": ["tools/evf/"],
