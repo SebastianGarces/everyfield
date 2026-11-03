@@ -339,12 +339,7 @@ function escapedTests(root: string, main: string): string[] {
 type MergedRow = { ref: string; merge_commit: string; spec: string | null };
 
 /** The markers of a task: its package case IDs for a WP task and the AC:<task>-<n> check of each Done criterion. */
-function markersOf(
-	root: string,
-	task: TaskRef,
-	specs: Array<string | null>,
-	cases?: () => Map<string, string[]>,
-) {
+function markersOf(root: string, task: TaskRef, specs: Array<string | null>, cases?: () => Map<string, string[]>) {
 	const out = new Set<string>();
 	if (task.kind === "wp") for (const id of (cases ?? (() => packageCases(root)))().get(task.wp) ?? []) out.add(id);
 	// OPS-112's answer key: each Done criterion with `Check: AC:<task>-<n>` names its marker.
@@ -854,7 +849,10 @@ async function runAudit(
 	const path = mkdtempSync(join(opts.tmpBase ?? tmpdir(), TREE_PREFIX));
 	const tree: Tree = { path, runtime: join(evfDataDir(root), "audit", basename(path)) };
 	mkdirSync(join(evfDataDir(root), "audit"), { recursive: true });
-	writeFileSync(activePath(root), JSON.stringify({ pid: process.pid, tree: path, runtime: tree.runtime } satisfies Active));
+	writeFileSync(
+		activePath(root),
+		JSON.stringify({ pid: process.pid, tree: path, runtime: tree.runtime } satisfies Active),
+	);
 	const rowId = Number(
 		db
 			.prepare(
