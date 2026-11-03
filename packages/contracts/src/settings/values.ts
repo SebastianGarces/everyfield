@@ -70,6 +70,17 @@ export const notificationCategory = z.enum([
 	"launch_milestone",
 	"wiki_upstream_review",
 ]);
+/**
+ * A channel's state for a person who never saved a choice. Every reader and every sender uses this one rule. The
+ * church digest goes by email only; the oversight digest goes to the bell only (WP-030 decision D-a).
+ */
+export function defaultChannelEnabled(category: z.infer<typeof notificationCategory>, channel: "email" | "in_app") {
+	if (category === "planter_digest") return channel === "email";
+	if (category === "oversight_digest") return channel === "in_app";
+	return true;
+}
+/** A person's digest cadence before they save one: weekly for the church digest, daily for oversight (D-b). */
+export const defaultDigestCadence = { planter_digest: "weekly", oversight_digest: "daily" } as const;
 export const notificationChoice = z.union([
 	z.strictObject({
 		category: notificationCategory.exclude(["wiki_upstream_review"]),
