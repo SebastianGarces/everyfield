@@ -78,7 +78,13 @@ export const rosterReader = {
 			);
 			if (!row || !admin) deny();
 			const p = plan(row);
-			return c.rosterPreview.parse({ meetingId: i.meetingId, team: p.team, add: p.add, remove: p.remove, kept: p.kept });
+			return c.rosterPreview.parse({
+				meetingId: i.meetingId,
+				team: p.team,
+				add: p.add,
+				remove: p.remove,
+				kept: p.kept,
+			});
 		});
 	},
 };
