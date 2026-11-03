@@ -145,7 +145,7 @@ async function notifications(db: Reader, deps: SectionDependencies, v: Viewer) {
 			channel,
 			enabled:
 				rows.find((r) => r.category === category && r.channel === channel)?.enabled ??
-				!(category === "planter_digest" && channel === "in_app"),
+				q.defaultChannelEnabled(category, channel),
 		})),
 	);
 	const suppression = await deps.suppression(db, v.principal.email);
@@ -157,9 +157,10 @@ async function notifications(db: Reader, deps: SectionDependencies, v: Viewer) {
 			revision: account.revision,
 			values: {
 				choices,
-				planterCadence: rows.find((r) => r.category === "planter_digest")?.cadence ?? "weekly",
+				planterCadence:
+					rows.find((r) => r.category === "planter_digest")?.cadence ?? q.defaultDigestCadence.planter_digest,
 				oversightCadence: account.organization
-					? (rows.find((r) => r.category === "oversight_digest")?.cadence ?? "weekly")
+					? (rows.find((r) => r.category === "oversight_digest")?.cadence ?? q.defaultDigestCadence.oversight_digest)
 					: null,
 				suppression,
 			},

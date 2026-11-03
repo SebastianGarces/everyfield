@@ -57,4 +57,11 @@ export function createNotificationProducer(config: NotificationConfig) {
 }
 
 export { issueEmailOptOutToken } from "./opt-out.ts";
-export { nextDigestInstant } from "./digest.ts";
+export {
+	compileOversightDigest,
+	compilePlanterDigest,
+	digestRecipientLive,
+	nextDigestInstant,
+	renderOversightDigest,
+	renderPlanterDigest,
+} from "./digest.ts";

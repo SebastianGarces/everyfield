@@ -1,5 +1,6 @@
 import { privateStorage } from "@everyfield/db/schema";
 import { jobDatabase } from "@/server/database";
+import { digestsMount } from "@/server/jobs/digest";
 import { scheduledJobs } from "@/server/jobs/scheduled";
 import { tasksMount } from "@/server/tasks";
 
@@ -10,10 +11,12 @@ export const maxDuration = 300;
 
 // Every minute: runs due background jobs and closes lost ones (server/jobs/scheduled.ts).
 export function GET(request: Request): Promise<Response> {
+	const db = jobDatabase();
 	return scheduledJobs({
 		secret: process.env.CRON_SECRET,
-		db: jobDatabase(),
+		db,
 		storage: privateStorage(),
 		reminders: tasksMount()?.reminders ?? null,
+		digests: digestsMount(db),
 	})(request);
 }
