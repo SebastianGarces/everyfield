@@ -383,25 +383,6 @@ test("AC:OPS-121-6 a new EVF-Owner record for the current head restores the merg
 	}
 });
 
-test("AC:OPS-121-6 evf ship merges after a new owner record for the current head", () => {
-	const f = ownerFixture();
-	try {
-		const approved = approvedWork(f);
-		const head = f.commit("Simplifier commit", { "tools/evf/feature.ts": "export const feature = 8;\n" });
-		f.publish([f.owner(approved), f.review(head)]);
-		assert.match(
-			f.refusal(() => ship(f.root, f.task, fastShip)),
-			new RegExp(OWNER_VOID),
-		);
-		f.publish([f.owner(approved), f.review(head), f.owner(head)], (s) => (s.allowMerge = true));
-		assert.equal(f.quietly(() => ship(f.root, f.task, fastShip)).value, 0);
-		assert.deepEqual(f.merges(), [head]);
-		assert.equal(f.shipped().owner_approval.approved_head, head);
-	} finally {
-		f.close();
-	}
-});
-
 test("AC:OPS-121-7 a clean merge of main made by ship's branch update keeps the approval; the shipped record holds it and the EVF-Carry proof", () => {
 	const f = ownerFixture();
 	try {
