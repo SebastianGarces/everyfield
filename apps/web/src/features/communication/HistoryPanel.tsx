@@ -177,7 +177,25 @@ function useHistory(load: (cursor: string | null) => Promise<Outcome<HistoryPage
 		});
 	};
 
-	return { items, page, error, pending, more, reload };
+	/** The open message's row follows its fresh detail after an action, so the list never keeps an old state. */
+	const patch = (id: string, view: MessageView) =>
+		setItems((current) =>
+			current.map((item) =>
+				item.id === id
+					? {
+							...item,
+							state: view.totals.state,
+							scheduledAt: view.detail.scheduledAt,
+							sentAt: view.detail.sentAt,
+							reachable: view.totals.reachable,
+							delivered: view.totals.delivered,
+							rate: view.totals.rate,
+						}
+					: item,
+			),
+		);
+
+	return { items, page, error, pending, more, reload, patch };
 }
 
 const stateTone: Record<HubState, string> = {
@@ -803,7 +821,9 @@ function Browser({
 
 	const refresh = async (id: string) => {
 		const fresh = await openMessage(id);
-		if (fresh.status === "ok") setDetail({ id, view: fresh.value, error: null });
+		if (fresh.status !== "ok") return;
+		setDetail({ id, view: fresh.value, error: null });
+		history.patch(id, fresh.value);
 	};
 
 	const act = async <T,>(
