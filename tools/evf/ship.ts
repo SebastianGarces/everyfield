@@ -23,7 +23,9 @@ import {
 	type TaskRef,
 } from "./lib.ts";
 import { maintenanceScope, requireTaskScope } from "./policy.ts";
+import { acVideoMarkers } from "./ac.ts";
 import {
+	acVideoMarkersOfBranch,
 	checkPrBody,
 	describeBodyItem,
 	followUpsOfBranch,
@@ -133,7 +135,7 @@ export function prOpen(root: string, task: TaskRef, bodyFile?: string): number {
 		fail("Write the PR body following the PR standard, then pass --body-file <file>.");
 	const body = readFileSync(bodyFile, "utf8");
 	const proto = isPrototype(root, task);
-	checkPrBody(wt, body, proto ? "prototype" : "ordinary", followUpsOfTask(root, task));
+	checkPrBody(wt, body, proto ? "prototype" : "ordinary", followUpsOfTask(root, task), acVideoMarkers(root, task));
 	const internal = internalIssueOf(root, task);
 	if (internal && !body.includes(`Closes #${internal}`))
 		fail(`Include Closes #${internal} in the PR body for this feedback task.`);
@@ -448,7 +450,13 @@ export function checkPr(
 		fail("Shipping requires an open, ready PR targeting main.");
 	if (expectedHead && pr.headRefOid !== expectedHead)
 		fail("PR head changed. Verify the new exact head before shipping.");
-	const { author } = checkPrBody(root, pr.body, "ordinary", followUpsOfBranch(root, pr.headRefName));
+	const { author } = checkPrBody(
+		root,
+		pr.body,
+		"ordinary",
+		followUpsOfBranch(root, pr.headRefName),
+		acVideoMarkersOfBranch(root, pr.headRefName),
+	);
 	const repo = nameWithOwner(root);
 	const ci = requiredCi(root, number, requiredCheckNames(root, repo, cfg.baseBranch));
 	if (ci.failed.length) fail(`Required GitHub CI must be green on the exact PR head: ${ci.failed.join(", ")} failed.`);

@@ -13,8 +13,13 @@ Own the assigned task through a reviewable PR.
 4. Prove your work before you close: add tests, capture 390 and 1440 px screenshots of each UI state you
    changed (outside the repository, as the capture half of `verify-preview` says) and record
    `bin/evf proof add <task> --criterion <n> --status met|unmet|n/a --evidence <url-or-path>` for each
-   Done criterion you built or changed in this round. Earlier proof carries forward. UI work: read
-   `ui-designer.md` and use the better-* skills. evf adds no gate on your close; the verifier covers a missing proof.
+   Done criterion you built or changed in this round whose `Check:` is `owner` or that has no `Check:` line.
+   Earlier proof carries forward. UI work: read `ui-designer.md` and use the better-* skills.
+   For each `Check: AC:<task>-<n>`, write the test whose name carries that marker (`tests/ui` for browser
+   behavior, `tools/evf/tests` for tooling). Do not `proof add` those rows: `bin/evf ac run <task>` runs the
+   marked tests at HEAD (browser tests on Chromium and WebKit against your ready preview of HEAD, with video)
+   and writes them. A passed implement close reruns it and refuses while an `AC:` row is not met. Publish the
+   videos with `publish.mjs` and link each browser row's video in the PR body proof table.
    An Evry adapter operation or catalog tool change adds or updates its eval cases and lists them in the PR
    body (`test-standard`).
 5. Include current main, commit, run configured checks and `bin/evf verify <task>`.
