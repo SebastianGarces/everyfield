@@ -133,6 +133,8 @@ export const invitationError = z.discriminatedUnion("code", [
 	defineSafeError("invitation_rate_limited", { retryAt: instant }, "same_request"),
 	defineSafeError("invitation_cooldown", { retryAt: instant }, "same_request"),
 	defineSafeError("idempotency_conflict", {}, "never"),
+	/** The address is blocked after an earlier bounce or complaint, so no invitation email can go to it. */
+	defineSafeError("address_blocked", {}, "never"),
 ]);
 export type InvitationSubject = z.infer<typeof invitationSubject>;
 export type AcceptSeatInvitationRequest = z.infer<typeof acceptSeatInvitationRequest>;

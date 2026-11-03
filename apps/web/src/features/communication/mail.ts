@@ -2,12 +2,15 @@ import "server-only";
 
 import { z } from "zod";
 
-import { captureAllowed, record } from "./capture.ts";
+import type { DeliveryTransport } from "@everyfield/domain/communication";
+import type { MailTransport } from "../../server/jobs/mail.ts";
+import { createResendTransport } from "../../server/jobs/resend.ts";
+import { captureAllowed, captureSilent, changeCaptured, record } from "./capture.ts";
 import { settleCaptured } from "./settle.ts";
 
-// Provider adapter for the Messages screens. The domain asks with its idempotency key, not a provider email id.
-// Cancel, reschedule and lookup therefore stay unknown: calling those provider routes with the wrong id could
-// change a different email. A missing id is unknown, never a fabricated acceptance.
+// Provider adapter for the Messages screens. A handoff is one batch call under the domain's idempotency key; a held
+// (scheduled) handoff carries its send time. Cancel and time change address each email by the id the email service
+// returned at handoff. A missing id or answer is unknown, never a fabricated acceptance.
 
 const env = z.object({
 	IDENTITY_MAIL_KEY: z.string().regex(/^[a-f0-9]{64}$/),
@@ -146,30 +149,132 @@ export function mailReady(): MailReady | null {
 	};
 }
 
+/**
+ * The transport for queued one-by-one mail (church invitations): Resend with a provider key, else the dev capture
+ * outbox. A capture records the email and answers accepted with its capture id; it never reaches a mailbox.
+ */
+export function queuedMailTransport(ready: MailReady, request: typeof fetch = fetch): MailTransport {
+	if (ready.apiKey) return createResendTransport(ready.apiKey, request);
+	return {
+		async send(payload) {
+			return { kind: "accepted", id: await record(payload) };
+		},
+		async lookup() {
+			return { kind: "unknown" };
+		},
+	};
+}
+
+/** `last_event` words that mean the email already left the email service. */
+const wentOut = new Set(["sent", "delivered", "delivery_delayed", "opened", "clicked", "bounced", "complained"]);
+
+const emailBody = z.object({
+	id: z.string().min(1).max(128),
+	last_event: z.string().nullable().optional(),
+	scheduled_at: z.string().nullable().optional(),
+});
+
+/**
+ * Requests in flight at once for a per-recipient cancel or time change. Resend limits each team's request rate, so a
+ * recipient whose call is refused for rate stays open and the next Check again asks for it.
+ */
+const PROVIDER_CALLS = 8;
+
+async function eachLimited<T, R>(items: readonly T[], run: (item: T) => Promise<R>): Promise<R[]> {
+	const results: R[] = new Array(items.length);
+	let next = 0;
+	const lane = async () => {
+		while (next < items.length) {
+			const index = next++;
+			results[index] = await run(items[index]!);
+		}
+	};
+	await Promise.all(Array.from({ length: Math.min(PROVIDER_CALLS, items.length) }, lane));
+	return results;
+}
+
+/** Resend writes `2026-08-05 11:52:01.858+00`; the ISO form parses the same instant. */
+const instantOf = (text: string) => Date.parse(text.replace(" ", "T").replace(/([+-]\d\d)$/, "$1:00"));
+
 export function deliveryTransport(
 	ready: MailReady,
 	request: typeof fetch = fetch,
 	/** Dev capture only: marks captured messages sent, as the provider callback would. */
 	settle: (ids: readonly string[]) => void = settleCaptured,
-) {
-	async function post(key: string, messages: readonly Outgoing[], signal: AbortSignal): Promise<Batch> {
+): DeliveryTransport {
+	const call = (path: string, init: RequestInit & { signal: AbortSignal }) =>
+		request(`https://api.resend.com${path}`, {
+			...init,
+			redirect: "error",
+			headers: { ...init.headers, Authorization: `Bearer ${ready.apiKey}`, "Content-Type": "application/json" },
+		});
+
+	/** What the email service says about one email after a cancel or move it did not confirm. */
+	async function inspect(
+		id: string,
+		movedTo: string | null,
+		signal: AbortSignal,
+	): Promise<"done" | "sent" | "unknown"> {
+		const response = await call(`/emails/${encodeURIComponent(id)}`, { method: "GET", signal });
+		if (!response.ok) {
+			await response.body?.cancel();
+			return "unknown";
+		}
+		const parsed = emailBody.safeParse(await response.json());
+		if (!parsed.success || parsed.data.id !== id) return "unknown";
+		const event = parsed.data.last_event ?? "";
+		if (wentOut.has(event)) return "sent";
+		if (movedTo === null) return event === "canceled" ? "done" : "unknown";
+		const held = parsed.data.scheduled_at;
+		return event === "scheduled" && held && instantOf(held) === Date.parse(movedTo) ? "done" : "unknown";
+	}
+
+	/** One cancel or move by the email's own id. A refusal is checked against the email's current state. */
+	async function change(id: string, movedTo: string | null, signal: AbortSignal): Promise<"done" | "sent" | "unknown"> {
+		if (ready.apiKey === null) {
+			if (await captureSilent()) return "unknown";
+			return changeCaptured(id, movedTo);
+		}
+		try {
+			const path = `/emails/${encodeURIComponent(id)}`;
+			const response = await call(
+				movedTo === null ? `${path}/cancel` : path,
+				movedTo === null
+					? { method: "POST", signal }
+					: { method: "PATCH", signal, body: JSON.stringify({ scheduled_at: movedTo }) },
+			);
+			if (response.ok) {
+				const parsed = emailBody.pick({ id: true }).safeParse(await response.json().catch(() => null));
+				if (parsed.success && parsed.data.id === id) return "done";
+			} else await response.body?.cancel();
+			return await inspect(id, movedTo, signal);
+		} catch {
+			return "unknown";
+		}
+	}
+
+	async function post(
+		key: string,
+		messages: readonly Outgoing[],
+		scheduledAt: string | null,
+		signal: AbortSignal,
+	): Promise<Batch> {
 		if (key.length < 1 || key.length > 256) return { outcome: "refused" };
 		if (ready.apiKey === null) {
-			const ids = await Promise.all(messages.map((message) => record({ from: ready.keys.from, ...message })));
-			settle(ids);
+			if (await captureSilent()) return { outcome: "unknown" };
+			const ids = await Promise.all(
+				messages.map((message) => record({ from: ready.keys.from, ...message }, scheduledAt)),
+			);
+			// A held capture is not sent yet, so no sent callback follows it.
+			if (scheduledAt === null) settle(ids);
 			return { outcome: "ids", ids };
 		}
 		// Reserved and unverified from-addresses are a confirmed provider refusal. Do not wait for that POST.
 		if (knownRefusal(ready)) return { outcome: "refused" };
-		const response = await request("https://api.resend.com/emails/batch", {
+		const response = await call("/emails/batch", {
 			method: "POST",
-			redirect: "error",
 			signal,
-			headers: {
-				Authorization: `Bearer ${ready.apiKey}`,
-				"Content-Type": "application/json",
-				"Idempotency-Key": key,
-			},
+			headers: { "Idempotency-Key": key },
 			body: JSON.stringify(
 				messages.map((message) => ({
 					from: ready.keys.from,
@@ -177,6 +282,7 @@ export function deliveryTransport(
 					subject: message.subject,
 					html: message.html,
 					text: message.text,
+					...(scheduledAt === null ? {} : { scheduled_at: scheduledAt }),
 				})),
 			),
 		});
@@ -197,17 +303,18 @@ export function deliveryTransport(
 	}
 
 	return {
-		send(batch: { key: string; messages: readonly Outgoing[] }, signal: AbortSignal) {
-			return post(batch.key, batch.messages, signal);
+		send(batch, signal) {
+			return post(batch.key, batch.messages, batch.scheduledAt, signal);
 		},
-		async lookup(): Promise<Exclude<Batch, { outcome: "refused" }>> {
+		// A batch handoff has no lookup by its idempotency key, so an earlier unknown stays unknown.
+		async lookup() {
 			return { outcome: "unknown" };
 		},
-		async cancel() {
-			return { outcome: "unknown" as const };
+		cancel(providerIds, signal) {
+			return eachLimited(providerIds, async (id) => ({ outcome: await change(id, null, signal) }));
 		},
-		async reschedule() {
-			return { outcome: "unknown" as const };
+		reschedule(providerIds, at, signal) {
+			return eachLimited(providerIds, async (id) => ({ outcome: await change(id, at, signal) }));
 		},
 	};
 }
