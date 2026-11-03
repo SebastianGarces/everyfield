@@ -29,6 +29,7 @@ import { caseCoverage, caseGrep, hasCaseMarkers, testsOf } from "./coverage.ts";
 import { formatScope, wpScope, type ScopeReport } from "./scope.ts";
 import { requireFreeMigrationNumbers } from "./migrations.ts";
 import { awaitLoad } from "./load.ts";
+import { uiEscapedGate } from "./escape.ts";
 
 export type Role = "author" | "verifier";
 export type Mode = "full" | "quick";
@@ -107,7 +108,10 @@ export function verify(
 		// command inside a check (`evf test`) may therefore run without a terminal. An existing value stays.
 		EVF_MONITOR: process.env.EVF_MONITOR?.trim() || `evf verify ${task.id}`,
 	};
-	const definitions = task.kind === "ops" ? withCiParity(maintenanceScope(wt, task).checks, cfg.checks) : cfg.checks;
+	const definitions = withUiEscaped(
+		task.kind === "ops" ? withCiParity(maintenanceScope(wt, task).checks, cfg.checks) : cfg.checks,
+		cfg.checks,
+	);
 	if (task.kind !== "ops" && cfg.stack?.usesPaidProviders) requireSpend(root);
 	const reports: string[] = [];
 	const inputsUnchanged = () => git(wt, "rev-parse", "HEAD") === sha && isClean(wt);
@@ -120,8 +124,24 @@ export function verify(
 		if (existsSync(testReport)) unlinkSync(testReport);
 		reports.push(testReport);
 		const argv = command(fill(c.run, { ...vars, testReport }));
+		const log = join(dir, `${file}.log`);
+		let checkEnv: NodeJS.ProcessEnv = { ...env, EVF_TEST_REPORT: testReport };
+		if (c.name === UI_ESCAPED) {
+			const escaped = uiEscapedGate(root, wt, task, baseSha);
+			if ("skip" in escaped) {
+				console.error(`evf verify: ${UI_ESCAPED} skipped: ${escaped.skip}`);
+				continue;
+			}
+			if ("fail" in escaped) {
+				console.error(`evf verify: ${UI_ESCAPED} failed. ${escaped.fail}`);
+				writeFileSync(log, `$ ${argv.join(" ")}\n\nNot run.\n${escaped.fail}\n`);
+				checks.push({ name: c.name, command: argv, exitCode: 1, log, passed: false });
+				continue;
+			}
+			checkEnv = { ...checkEnv, UI_BASE_URL: escaped.baseUrl };
+		}
 		console.error(`evf verify: running ${c.name}.`);
-		let result = run(argv[0], argv.slice(1), { cwd: wt, env: { ...env, EVF_TEST_REPORT: testReport } });
+		let result = run(argv[0], argv.slice(1), { cwd: wt, env: checkEnv });
 		let output = `${result.stdout}\n${result.stderr}`;
 		for (
 			let retry = 1;
@@ -138,11 +158,10 @@ export function verify(
 			sleep(10_000);
 			if (!inputsUnchanged()) break;
 			if (existsSync(testReport)) unlinkSync(testReport);
-			result = run(argv[0], argv.slice(1), { cwd: wt, env: { ...env, EVF_TEST_REPORT: testReport } });
+			result = run(argv[0], argv.slice(1), { cwd: wt, env: checkEnv });
 			output += `\n${notice}\n${result.stdout}\n${result.stderr}`;
 		}
 		console.error(`evf verify: ${c.name} ${result.code === 0 ? "passed" : "failed"}.`);
-		const log = join(dir, `${file}.log`);
 		writeFileSync(log, `$ ${argv.join(" ")}\n\n${output}`);
 		checks.push({ name: c.name, command: argv, exitCode: result.code, log, passed: result.code === 0 });
 		if (!inputsUnchanged()) {
@@ -214,6 +233,18 @@ function withCiParity(own: CheckDef[], configured: CheckDef[]): CheckDef[] {
 		return check;
 	});
 	return [...own, ...parity.filter((p) => !own.some((c) => c.name === p.name))];
+}
+
+/**
+ * OPS-114: every task gets the escaped-bug check, so no task's own check list leaves it out. It is built in because an
+ * OPS task may change only its own evf.config.json entry; a configured check of the same name replaces the command.
+ * The gate in escape.ts decides per task whether it runs, skips with a reason or fails closed.
+ */
+const UI_ESCAPED = "ui-escaped";
+const UI_ESCAPED_CHECK: CheckDef = { name: UI_ESCAPED, run: ["node", "--test", "tests/ui/escaped/*.test.mjs"] };
+function withUiEscaped(own: CheckDef[], configured: CheckDef[]): CheckDef[] {
+	if (own.some((c) => c.name === UI_ESCAPED)) return own;
+	return [...own, configured.find((c) => c.name === UI_ESCAPED) ?? UI_ESCAPED_CHECK];
 }
 
 /**
