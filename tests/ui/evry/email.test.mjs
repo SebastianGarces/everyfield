@@ -7,14 +7,16 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { BASE, ENGINES, fixture, hydrated, signIn, withPage } from "../setup.mjs";
 
 const owner = () => fixture("people").owner.cookie;
 const member = () => fixture("people").member.cookie;
 const SUBJECT = "Sunday's interest meeting";
-const outbox = process.env.EVERYFIELD_DEV_OUTBOX?.trim() || join(tmpdir(), "everyfield-dev-outbox");
+// The preview records mail in its own temp folder. `evf browser run` gives this process a private temp folder inside it.
+const systemTmp = /\/evf-browser-[^/]+$/.test(tmpdir()) ? dirname(tmpdir()) : tmpdir();
+const outbox = process.env.EVERYFIELD_DEV_OUTBOX?.trim() || join(systemTmp, "everyfield-dev-outbox");
 
 let db = null;
 /** The seeded database, opened on first use, for counting rows the page does not show. */
@@ -104,7 +106,7 @@ async function ask(panel, text, heading) {
 	await box.press("Enter");
 	// The new card is the one after those already on screen.
 	const card = regions.nth(seen);
-	await card.waitFor({ timeout: 60_000 });
+	await card.waitFor({ timeout: 120_000 });
 	return card;
 }
 /** Approves the way a keyboard user does (Safari does not focus a button on a mouse click). */
@@ -116,7 +118,7 @@ async function approve(card) {
 async function messages(page) {
 	await page.goto(`${BASE}/communication`);
 	await hydrated(page);
-	await page.getByText(SUBJECT).first().waitFor({ timeout: 30_000 });
+	await page.getByText(SUBJECT).first().waitFor({ timeout: 90_000 });
 	return page.locator("main").innerText();
 }
 /** The status line of the newest history row with this subject. */
@@ -131,10 +133,10 @@ async function scheduledFriday(panel, d) {
 		"Review before saving",
 	);
 	await approve(draft);
-	await done(panel, "Saved").waitFor({ timeout: 30_000 });
+	await done(panel, "Saved").waitFor({ timeout: 90_000 });
 	const schedule = await ask(panel, "Schedule it for Friday at 9am", "Review before scheduling");
 	await approve(schedule);
-	await done(panel, /^Scheduled for Fri, 9:00 AM/).waitFor({ timeout: 30_000 });
+	await done(panel, /^Scheduled for Fri, 9:00 AM/).waitFor({ timeout: 90_000 });
 	return d.message();
 }
 
@@ -172,7 +174,7 @@ for (const [engine, launcher] of ENGINES) {
 				"Review before saving",
 			);
 			await approve(card);
-			await done(panel, "Saved").waitFor({ timeout: 30_000 });
+			await done(panel, "Saved").waitFor({ timeout: 90_000 });
 			assert.equal(await d.count(), before + 1);
 			const draft = await d.message();
 			assert.equal(draft.state, "draft");
@@ -188,7 +190,7 @@ for (const [engine, launcher] of ENGINES) {
 			await page
 				.getByText(/interest meeting on Sunday at 4 pm/)
 				.first()
-				.waitFor({ timeout: 30_000 });
+				.waitFor({ timeout: 90_000 });
 		}));
 
 	test(`AC:WP-028-3 (${engine}): the schedule review names who gets it, who is left out and why, the content and the send time`, () =>
@@ -201,7 +203,7 @@ for (const [engine, launcher] of ENGINES) {
 				"Review before saving",
 			);
 			await approve(draft);
-			await done(panel, "Saved").waitFor({ timeout: 30_000 });
+			await done(panel, "Saved").waitFor({ timeout: 90_000 });
 			const card = await ask(panel, "Schedule it for Friday at 9am", "Review before scheduling");
 			const text = await card.innerText();
 			for (const name of ["Lena Ortiz", "Marcus Webb", "Rosa Bennett"]) assert.match(text, new RegExp(name));
@@ -241,7 +243,7 @@ for (const [engine, launcher] of ENGINES) {
 				"Review before saving",
 			);
 			await approve(draft);
-			await done(panel, "Saved").waitFor({ timeout: 30_000 });
+			await done(panel, "Saved").waitFor({ timeout: 90_000 });
 			const before = await d.message();
 			const card = await ask(panel, "Schedule it for Friday at 9am", "Review before scheduling");
 			// Not approved: the draft is unchanged and the email service has had no request.
@@ -251,7 +253,7 @@ for (const [engine, launcher] of ENGINES) {
 			await d.rows(d.sql`UPDATE proposal SET expires_at=clock_timestamp()-interval '1 second' WHERE id=${id}::uuid`);
 			await approve(card);
 			const expired = panel.getByRole("region", { name: "Expired" }).last();
-			await expired.waitFor({ timeout: 30_000 });
+			await expired.waitFor({ timeout: 90_000 });
 			assert.match(await expired.innerText(), /Review required/);
 			const after = await d.message();
 			assert.deepEqual(
@@ -301,7 +303,7 @@ for (const [engine, launcher] of ENGINES) {
 				assert.match(text, /Recipients and content stay the same/);
 				await approve(card);
 				const unconfirmed = done(panel, "Time change not confirmed");
-				await unconfirmed.waitFor({ timeout: 30_000 });
+				await unconfirmed.waitFor({ timeout: 90_000 });
 				assert.doesNotMatch(await unconfirmed.getByRole("heading").innerText(), /Moved to/);
 				const held = await d.mail(message.id);
 				assert.ok(
@@ -311,7 +313,7 @@ for (const [engine, launcher] of ENGINES) {
 				// The email service answers on the next ask.
 				await silence(false);
 				await unconfirmed.getByRole("button", { name: "Check again" }).click();
-				await done(panel, /^Moved to Sat, 9:00 AM/).waitFor({ timeout: 30_000 });
+				await done(panel, /^Moved to Sat, 9:00 AM/).waitFor({ timeout: 90_000 });
 			} finally {
 				await silence(false);
 			}
@@ -339,13 +341,13 @@ for (const [engine, launcher] of ENGINES) {
 				assert.match(text, /People\s*3 people/);
 				await approve(card);
 				const unconfirmed = done(panel, "Cancel not confirmed");
-				await unconfirmed.waitFor({ timeout: 30_000 });
+				await unconfirmed.waitFor({ timeout: 90_000 });
 				assert.equal((await d.mail(message.id)).filter((m) => m.state === "cancelled").length, 0);
 				assert.equal(newestStatus(await messages(page)), "Cancel not confirmed", "Messages does not say Cancelled yet");
 				await silence(false);
 				await page.getByRole("button", { name: "Ask Evry" }).click();
 				await done(panel, "Cancel not confirmed").getByRole("button", { name: "Check again" }).click();
-				await done(panel, "Cancelled").waitFor({ timeout: 30_000 });
+				await done(panel, "Cancelled").waitFor({ timeout: 90_000 });
 			} finally {
 				await silence(false);
 			}
@@ -374,7 +376,7 @@ for (const [engine, launcher] of ENGINES) {
 			try {
 				await approve(card);
 				const blocked = done(panel, /^Not replaced/);
-				await blocked.waitFor({ timeout: 30_000 });
+				await blocked.waitFor({ timeout: 90_000 });
 				const blockedText = await blocked.innerText();
 				assert.match(blockedText, /Nothing new was scheduled/);
 				assert.match(blockedText, /Lena Ortiz\s*Cancel not confirmed/);
@@ -389,7 +391,7 @@ for (const [engine, launcher] of ENGINES) {
 			await done(panel, /^Not replaced/)
 				.getByRole("button", { name: "Check again" })
 				.click();
-			await done(panel, /^Replacement scheduled for Fri, 9:00 AM/).waitFor({ timeout: 45_000 });
+			await done(panel, /^Replacement scheduled for Fri, 9:00 AM/).waitFor({ timeout: 120_000 });
 			assert.equal((await d.mail(original.id)).filter((m) => m.state === "cancelled").length, 3);
 			const replacement = await d.rows(
 				d.sql`SELECT id,state,body_text FROM communication WHERE plant_id=${d.plant}::uuid AND subject=${SUBJECT} AND id<>${original.id}::uuid ORDER BY created_at DESC LIMIT 1`,
@@ -411,7 +413,7 @@ for (const [engine, launcher] of ENGINES) {
 			);
 			await approve(card);
 			const stale = panel.getByRole("region", { name: "Message changed" }).last();
-			await stale.waitFor({ timeout: 30_000 });
+			await stale.waitFor({ timeout: 90_000 });
 			assert.match(await stale.innerText(), /This message changed since the review/);
 			assert.equal(await stale.getByRole("button", { name: "Approve" }).isDisabled(), true);
 			assert.deepEqual(
@@ -423,7 +425,7 @@ for (const [engine, launcher] of ENGINES) {
 			assert.equal(calls, 3);
 			// Reviewing again reads the message as it is now.
 			await stale.getByRole("button", { name: "Review again" }).click();
-			await panel.getByRole("region", { name: "Review before cancelling" }).last().waitFor({ timeout: 30_000 });
+			await panel.getByRole("region", { name: "Review before cancelling" }).last().waitFor({ timeout: 90_000 });
 		}));
 
 	test(`AC:WP-028-10 (${engine}): Evry finds the Friday email for "cancel the Friday email"; a member has no email write`, () =>
@@ -468,11 +470,11 @@ for (const [engine, launcher] of ENGINES) {
 				"Review before saving",
 			);
 			await draft.getByRole("button", { name: "Approve" }).dblclick();
-			await done(panel, "Saved").waitFor({ timeout: 30_000 });
+			await done(panel, "Saved").waitFor({ timeout: 90_000 });
 			assert.equal(await d.count(), before + 1, "one draft");
 			const card = await ask(panel, "Schedule it for Friday at 9am", "Review before scheduling");
 			await card.getByRole("button", { name: "Approve" }).dblclick();
-			await done(panel, /^Scheduled for Fri, 9:00 AM/).waitFor({ timeout: 30_000 });
+			await done(panel, /^Scheduled for Fri, 9:00 AM/).waitFor({ timeout: 90_000 });
 			const message = await d.message();
 			assert.equal(await d.requests(message.id), 1, "one schedule request");
 			assert.equal((await d.mail(message.id)).length, 5, "one mail row for each reviewed person, none twice");

@@ -9,7 +9,7 @@ import {
 	type CommunicationContext,
 	type CommunicationReply,
 } from "@everyfield/domain/communication";
-import { plainText, renderBody, sanitizeHtml } from "@everyfield/contracts/communication";
+import { renderBody, sanitizeHtml } from "@everyfield/contracts/communication";
 import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import type { EffectResult, MailPort, ReviewContext, ReviewedWrite } from "../../../proposals/types.ts";
@@ -51,6 +51,19 @@ const localTime = z
 	.regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)
 	.describe("The church's local date and time, like 2026-11-06T09:00, never a zone or offset");
 const messageId = z.uuid().describe("A message id from communication.list");
+
+/** An email body as the reader sees it: paragraphs and line breaks kept, markup and entities gone. */
+const readable = (html: string) =>
+	sanitizeHtml(html)
+		.replace(/<br\s*\/?>/gi, "\n")
+		.replace(/<\/p>\s*<p[^>]*>/gi, "\n\n")
+		.replace(/<[^>]+>/g, "")
+		.replaceAll("&lt;", "<")
+		.replaceAll("&gt;", ">")
+		.replaceAll("&quot;", '"')
+		.replaceAll("&#39;", "'")
+		.replaceAll("&amp;", "&")
+		.trim();
 
 /** Plain paragraphs become safe email markup; the domain sanitizes it again when it saves. */
 const escape = (text: string) => text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
@@ -124,7 +137,7 @@ export const saveDraft: ReviewedWrite<z.infer<typeof draftInput>> = {
 	review(actor, value) {
 		const html = paragraphs(value.body);
 		const safe = sanitizeHtml(html);
-		const shown = plainText(safe);
+		const shown = readable(safe);
 		return sql`SELECT jsonb_build_object('target','null'::jsonb,'changes',jsonb_build_array(
 				${change("subject", null, sql`${JSON.stringify(value.subject)}::jsonb`)},
 				${change("audience", null, audienceShape(actor.owner.id, value.audience))},
@@ -173,7 +186,7 @@ async function audienceFacts(context: ReviewContext, plantId: string, id: string
 		addresses.map((address) => [address, mailAddressHash(context.mail!.keys.addressKey, address)]),
 	);
 	// The first person who will get it is named in the content; the review statement puts the name in.
-	const content = draft.body_html ? plainText(renderBody(draft.body_html, { name: SAMPLE_NAME, rsvp_link: "" })) : "";
+	const content = draft.body_html ? readable(renderBody(draft.body_html, { name: SAMPLE_NAME, rsvp_link: "" })) : "";
 	return { draft, parsed, hashes, content };
 }
 
@@ -530,8 +543,8 @@ export const replace: ReviewedWrite<z.infer<typeof replaceInput>> = {
 			changes.push(
 				change(
 					"body",
-					sql`${JSON.stringify(plainText(before.body_html ?? ""))}::jsonb`,
-					sql`${JSON.stringify(plainText(safe))}::jsonb`,
+					sql`${JSON.stringify(readable(before.body_html ?? ""))}::jsonb`,
+					sql`${JSON.stringify(readable(safe))}::jsonb`,
 				),
 			);
 		if (value.audience)
