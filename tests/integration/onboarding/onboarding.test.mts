@@ -88,7 +88,12 @@ async function resume(f) {
 	const entry = await readOnboardingEntry(
 		db,
 		api,
-		{ status: "active", accountId: f.a.id, sessionId: f.a.session, expiresAt: new Date(Date.now() + 3600000).toISOString() },
+		{
+			status: "active",
+			accountId: f.a.id,
+			sessionId: f.a.session,
+			expiresAt: new Date(Date.now() + 3600000).toISOString(),
+		},
 		viewer.authority,
 		true,
 	);
@@ -420,6 +425,147 @@ test("AC:TARGET-IDN-014 AC:ROLE43-004 AC:ROLE43-005 lead answer uses the linked 
 		"conflict",
 	);
 	assert.deepEqual(await counts(), before);
+});
+
+const leadYes = (fill, roleName = "Lead planter", teamName = "Plant leadership") => ({
+	answer: "yes",
+	assignment: { kind: "minimal_role", roleName, container: { kind: "minimal", name: teamName } },
+	...(fill === undefined ? {} : { seniorPastor: fill }),
+});
+/** Every ministry, role and open tenure of a plant, by name, in a stable order. */
+async function ministryFacts(plantId) {
+	const r = await admin.execute(sql`SELECT
+		(SELECT coalesce(json_agg(json_build_array(name, template_key) ORDER BY name), '[]') FROM team WHERE plant_id=${plantId}) AS teams,
+		(SELECT coalesce(json_agg(json_build_array(name, template_key) ORDER BY name), '[]') FROM team_role WHERE plant_id=${plantId}) AS roles,
+		(SELECT coalesce(json_agg(json_build_array(p.display_name, r.name) ORDER BY r.name), '[]') FROM team_tenure tn
+			JOIN team_role r ON r.id=tn.role_id JOIN person p ON p.id=tn.person_id
+			WHERE tn.plant_id=${plantId} AND tn.ended_on IS NULL) AS held`);
+	return r.rows[0];
+}
+async function otherPerson(plantId, name) {
+	const id = randomUUID();
+	await admin.insert(t.person).values({
+		id,
+		tenant_id: plantId,
+		plant_id: plantId,
+		display_name: name,
+		source: "other",
+		stage: "leader",
+		adult_classification: "unknown",
+		commitment_state: "unknown",
+		pipeline_position: "1",
+		state: "live",
+		created_at: new Date(),
+	});
+	return id;
+}
+/** The Leadership template ministry with its two template roles, as a template import leaves it. */
+async function leadership(plantId) {
+	const team = randomUUID(),
+		pastor = randomUUID();
+	await admin.insert(t.team).values({
+		id: team,
+		plant_id: plantId,
+		name: "Leadership",
+		template_key: "leadership",
+		state: "forming",
+		sort_order: 1,
+	});
+	await admin.insert(t.team_role).values([
+		{
+			id: pastor,
+			plant_id: plantId,
+			team_id: team,
+			name: "Senior pastor",
+			template_key: "senior_pastor",
+			leadership: true,
+			sort_order: 1,
+		},
+		{
+			plant_id: plantId,
+			team_id: team,
+			name: "Launch coordinator",
+			template_key: "launch_coordinator",
+			leadership: true,
+			sort_order: 2,
+		},
+	]);
+	return { team, pastor };
+}
+
+test("AC:TARGET-IDN-014 the Senior pastor fill is off by default and only a Yes answer can carry it", async () => {
+	const f = await makePlant();
+	const r = await resume(f);
+	for (const answer of ["no", "skip"])
+		denied(await call("answerLead", f.a, command({ answer, seniorPastor: true }, r.revision), f.p), "invalid_input");
+	const result = ok(await call("answerLead", f.a, command(leadYes(undefined), r.revision), f.p));
+	assert.equal("seniorPastor" in result.lead, false);
+	assert.deepEqual(await ministryFacts(f.p.id), {
+		teams: [["Plant leadership", null]],
+		roles: [["Lead planter", null]],
+		held: [["Synthetic", "Lead planter"]],
+	});
+});
+
+test("AC:TARGET-IDN-014 with the fill on, the planter holds Leadership's Senior pastor role and nothing else", async () => {
+	// No Leadership ministry yet: it is created with the Senior pastor role only.
+	const f = await makePlant();
+	const result = ok(await call("answerLead", f.a, command(leadYes(true), (await resume(f)).revision), f.p));
+	assert.equal(result.lead.seniorPastor, "filled");
+	assert.deepEqual(await ministryFacts(f.p.id), {
+		teams: [["Leadership", "leadership"]],
+		roles: [["Senior pastor", "senior_pastor"]],
+		held: [["Synthetic", "Senior pastor"]],
+	});
+	const [team] = await admin.select().from(t.team).where(eq(t.team.id, result.lead.assignment.teamId));
+	assert.equal(team.leader_person_id, f.result.ownerSeat.personId);
+	assert.equal((await resume(f)).lead.seniorPastor, "filled");
+	const [seat] = await admin.select().from(t.seat).where(eq(t.seat.id, f.result.ownerSeat.seatId));
+	assert.equal(seat.role, "owner");
+
+	// A Leadership ministry from the templates with the role vacant: only that role is filled.
+	const g = await makePlant();
+	const l = await leadership(g.p.id);
+	const filled = ok(await call("answerLead", g.a, command(leadYes(true), (await resume(g)).revision), g.p));
+	assert.deepEqual(filled.lead.assignment, { teamId: l.team, roleId: l.pastor, personId: g.result.ownerSeat.personId });
+	assert.deepEqual(await ministryFacts(g.p.id), {
+		teams: [["Leadership", "leadership"]],
+		roles: [
+			["Launch coordinator", "launch_coordinator"],
+			["Senior pastor", "senior_pastor"],
+		],
+		held: [["Synthetic", "Senior pastor"]],
+	});
+});
+
+test("AC:TARGET-IDN-014 a Senior pastor role someone already holds is kept, and the planter gets their own lead role", async () => {
+	const f = await makePlant();
+	const l = await leadership(f.p.id);
+	const pastor = await otherPerson(f.p.id, "Pastor Kim");
+	await admin
+		.insert(t.team_tenure)
+		.values({ plant_id: f.p.id, role_id: l.pastor, person_id: pastor, started_on: "2026-01-01" });
+	const result = ok(await call("answerLead", f.a, command(leadYes(true), (await resume(f)).revision), f.p));
+	assert.equal(result.lead.seniorPastor, "occupied");
+	assert.notEqual(result.lead.assignment.teamId, l.team);
+	assert.deepEqual(await ministryFacts(f.p.id), {
+		teams: [
+			["Leadership", "leadership"],
+			["Plant leadership", null],
+		],
+		roles: [
+			["Launch coordinator", "launch_coordinator"],
+			["Lead planter", null],
+			["Senior pastor", "senior_pastor"],
+		],
+		held: [
+			["Synthetic", "Lead planter"],
+			["Pastor Kim", "Senior pastor"],
+		],
+	});
+	assert.equal((await resume(f)).lead.seniorPastor, "occupied");
+	ok(await call("complete", f.a, command({}, (await resume(f)).revision), f.p));
+	assert.equal((await resume(f)).completion.status, "completed");
 });
 
 async function discovery() {

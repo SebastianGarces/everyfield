@@ -573,9 +573,6 @@ export const teamsWriter = {
 	async edit(tx: Tx, ctx: TeamsContext, raw: unknown) {
 		return changeTeam(tx, ctx, c.editTeamRequest, "teams.edit", "edit", raw);
 	},
-	async correct(tx: Tx, ctx: TeamsContext, raw: unknown) {
-		return changeTeam(tx, ctx, c.correctTeamRequest, "teams.correct", "correct", raw);
-	},
 	async archive(tx: Tx, ctx: TeamsContext, raw: unknown) {
 		return changeTeam(tx, ctx, c.archiveTeamRequest, "teams.archive", "archive", raw, (row) => ({
 			...row,
@@ -961,6 +958,76 @@ export const teamsWriter = {
 			});
 		});
 	},
+	/**
+	 * Owner or Admin fixes the recorded start or end date of one role tenure, with a reason (REQ-TEAM-006). The
+	 * ministry's history names the old and new dates, the reason and who made it. A role held now keeps no end date.
+	 */
+	async correctTenure(tx: Tx, ctx: TeamsContext, raw: unknown) {
+		return reply(tx, async () => {
+			const input = parse(c.correctTenureRequest, raw);
+			return command(tx, ctx, "teams.correctTenure", input, async (w, audit) => {
+				const i = input.input;
+				const found = await oneRow(
+					tx,
+					sql`SELECT tn.id AS "tenureId", tn.revision::text AS revision, tn.started_on::text AS "startedOn",
+						tn.ended_on::text AS "endedOn", t.id AS "teamId", t.name AS "teamName", r.id AS "roleId",
+						r.name AS "roleName", r.desired_skills AS "desiredSkills"
+						FROM team_tenure tn
+						JOIN team_role r ON r.id = tn.role_id AND r.plant_id = tn.plant_id
+						JOIN team t ON t.id = r.team_id AND t.plant_id = r.plant_id
+						WHERE tn.id = ${i.tenureId}::uuid AND tn.plant_id = ${w.plant.id}::uuid FOR UPDATE OF tn`,
+				);
+				if (!found) {
+					const other = await oneRow(tx, sql`SELECT 1 AS n FROM team_tenure WHERE id = ${i.tenureId}::uuid`);
+					if (other) deny("access_denied");
+					deny();
+				}
+				const before = z
+					.object({
+						tenureId: id,
+						revision: z.string(),
+						startedOn: z.string(),
+						endedOn: z.string().nullable(),
+						teamId: id,
+						teamName: z.string(),
+						roleId: id,
+						roleName: z.string(),
+						desiredSkills: text,
+					})
+					.parse(found);
+				expectRevision(before.revision, input.expectedRevision);
+				if (before.endedOn === null && i.endedOn !== null)
+					deny("invalid_input", { issues: [{ path: "endedOn", problem: "held_now_has_no_end" }] });
+				if (before.endedOn !== null && i.endedOn === null)
+					deny("invalid_input", { issues: [{ path: "endedOn", problem: "end_required" }] });
+				const noop = before.startedOn === i.startedOn && before.endedOn === i.endedOn;
+				if (!noop)
+					audit.writes.push(sql`UPDATE team_tenure SET started_on = ${i.startedOn}::date, ended_on = ${i.endedOn}::date,
+						revision = revision + 1
+						WHERE id = ${before.tenureId}::uuid AND plant_id = ${w.plant.id}::uuid AND revision = ${before.revision}::bigint`);
+				const after = { ...before, startedOn: i.startedOn, endedOn: i.endedOn };
+				return {
+					value: c.tenureMutationResult.parse({
+						receiptId: audit.id,
+						outcome: noop ? "noop" : "changed",
+						assignment: {
+							...after,
+							revision: noop ? before.revision : next(before.revision),
+							active: after.endedOn === null,
+						},
+					}),
+					subject: before.teamId,
+					subjectType: "team",
+					kind: "correct",
+					outcome: noop ? "noop" : "changed",
+					reason: i.reason,
+					before: { startedOn: before.startedOn, endedOn: before.endedOn },
+					after: { startedOn: after.startedOn, endedOn: after.endedOn },
+					metadata: { tenureId: before.tenureId },
+				};
+			});
+		});
+	},
 	async initialize(tx: Tx, ctx: TeamsContext, raw: unknown) {
 		return reply(tx, async () => {
 			const input = parse(c.initializeRequest, raw);
@@ -1033,8 +1100,8 @@ async function changeTeam(
 	tx: Tx,
 	ctx: TeamsContext,
 	schema: z.ZodType<{ requestKey: string; expectedRevision: string; input: TeamPatch }>,
-	operation: "teams.edit" | "teams.correct" | "teams.archive" | "teams.restore",
-	kind: "edit" | "correct" | "archive" | "restore",
+	operation: "teams.edit" | "teams.archive" | "teams.restore",
+	kind: "edit" | "archive" | "restore",
 	raw: unknown,
 	apply?: (row: TeamRow) => TeamRow,
 ) {

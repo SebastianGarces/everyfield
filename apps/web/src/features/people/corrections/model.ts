@@ -335,3 +335,25 @@ export function correctedValueText(v: unknown): string {
 	}
 	return JSON.stringify(v);
 }
+
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+/**
+ * What is wrong with a role date correction before anything is sent, by field (REQ-TEAM-006). Empty when it can save.
+ * A role held now has no end date to correct.
+ */
+export function roleDateProblems(f: {
+	role: { endedOn: string | null };
+	startedOn: string;
+	endedOn: string;
+	reason: string;
+}): Partial<Record<"startedOn" | "endedOn" | "reason", string>> {
+	const ended = f.role.endedOn !== null;
+	return {
+		...(DATE.test(f.startedOn) ? {} : { startedOn: "Choose a start date." }),
+		...(ended && !DATE.test(f.endedOn) ? { endedOn: "Choose an end date." } : {}),
+		...(ended && DATE.test(f.startedOn) && DATE.test(f.endedOn) && f.endedOn < f.startedOn
+			? { endedOn: "The end date cannot be before the start date." }
+			: {}),
+		...(f.reason.trim() ? {} : { reason: "Say why the dates change. The ministry's history keeps it." }),
+	};
+}

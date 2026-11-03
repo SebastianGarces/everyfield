@@ -68,7 +68,7 @@ Retain the SME 60 days of unbroken attendance AND volunteering, described as ste
 
 **REQ-TEAM-002.** Archive hides a team from operational selectors, current staffing/health and default chart/list while retaining team/role/membership/training/meeting history. Explicit archived inclusion permits discovery and authorized restoration. Historical Person tabs show labelled former/archive records. Current follow-up duties remain visible; archiving does not waive them or broaden team programs to churchwide. Edit/archive/restore under unchanged reviewed state commits current state, before/after actor/reason history and assessment freshness; repeated same state no-ops. Restoration does not restore revoked seats or rewrite old tenure.
 
-**Target operations:** `teams.archive`, `teams.restore`, `teams.correct`, `teams.history`.
+**Target operations:** `teams.archive`, `teams.restore`, `teams.history`.
 
 **Acceptance:** AC-TEAM-002--TEAM-002. **Named cases:** TARGET-TEAM-002.
 

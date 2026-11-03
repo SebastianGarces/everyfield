@@ -163,6 +163,7 @@ export type Change<T> = {
 	after?: Record<string, unknown> | null;
 	revision?: { before: string | null; after: string };
 	reason?: string | null;
+	metadata?: Record<string, unknown>;
 };
 export function delta(before: Record<string, unknown> | null, after: Record<string, unknown> | null) {
 	const keys = [...new Set([...Object.keys(before ?? {}), ...Object.keys(after ?? {})])].filter(
@@ -178,7 +179,6 @@ export type TeamWrite =
 	| "teams.edit"
 	| "teams.archive"
 	| "teams.restore"
-	| "teams.correct"
 	| "teams.createRole"
 	| "teams.editRole"
 	| "teams.retireRole"
@@ -186,13 +186,13 @@ export type TeamWrite =
 	| "teams.endMembership"
 	| "teams.reactivateMembership"
 	| "teams.appointLeader"
+	| "teams.correctTenure"
 	| "teams.initialize"
 	| "teams.offerResponsibilities"
 	| "teams.addResponsibility"
 	| "teams.editResponsibility"
 	| "teams.completeResponsibility"
 	| "teams.deleteResponsibility"
-	| "meetings.copyTeamRoster"
 	| "teams.createProgram"
 	| "teams.correctProgram"
 	| "teams.setRequiredTrainingParticipants"
@@ -252,7 +252,7 @@ export async function command<T>(
 		before_value: values.before,
 		after_value: values.after,
 		reason: change.reason ?? null,
-		metadata: {},
+		metadata: change.metadata ?? {},
 	});
 	if (changed)
 		claim.writes.push(

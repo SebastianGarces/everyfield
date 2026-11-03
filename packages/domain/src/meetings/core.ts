@@ -227,6 +227,7 @@ export type MeetingWrite =
 	| "meetings.clearAttendance"
 	| "meetings.clearCard"
 	| "meetings.completePractice"
+	| "meetings.copyTeamRoster"
 	| "meetings.correctEvaluation"
 	| "meetings.correctOccurrence"
 	| "meetings.correctPracticeOccurrence"

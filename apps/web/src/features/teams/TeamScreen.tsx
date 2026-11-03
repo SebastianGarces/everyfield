@@ -75,7 +75,7 @@ import {
 	asRecordId,
 	asRevision,
 	FIELD_LABEL,
-	HISTORY_KIND,
+	historyTitle,
 	iconKey,
 	NEW_SETUP,
 	people,
@@ -90,6 +90,7 @@ import {
 	type Role,
 	type SetupForm,
 } from "./model.ts";
+import { MeetingsCard } from "./MeetingsCard.tsx";
 import { ChartTree } from "./OrgChart.tsx";
 import { LeaderLine, TeamBadge, TeamIcon } from "./parts.tsx";
 import { SetupDialog } from "./Setup.tsx";
@@ -540,6 +541,12 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 							</p>
 						) : null}
 					</Card>
+					<MeetingsCard
+						team={{ id: t.id, name: t.name }}
+						meetings={data.meetings}
+						now={data.now}
+						canPlan={data.admin && !t.archived}
+					/>
 					<Card>
 						<CardHeader>
 							<CardHeading>
@@ -1130,11 +1137,17 @@ function HistoryList({ state }: { state: Outcome<{ entries: HistoryEntry[] }> | 
 					{state.value.entries.map((e) => (
 						<li key={e.id} className="flex flex-col gap-1 py-3">
 							<p className="flex flex-wrap items-baseline justify-between gap-2">
-								<span className="font-medium text-ink">{HISTORY_KIND[e.kind] ?? "Changed"}</span>
-								<time dateTime={e.occurredAt} className="text-sm text-text-3">
-									{stampText(e.occurredAt)}
-								</time>
+								<span className="font-medium text-ink">{historyTitle(e)}</span>
+								<span className="text-sm text-text-3">
+									<time dateTime={e.occurredAt}>{stampText(e.occurredAt)}</time>
+									{e.actorName ? ` · ${e.actorName}` : null}
+								</span>
 							</p>
+							{e.about ? (
+								<p className="text-sm text-ink">
+									{e.about.personName} · {e.about.roleName}
+								</p>
+							) : null}
 							<Diff entry={e} />
 							{e.reason ? <p className="text-sm text-text-2">Reason: {e.reason}</p> : null}
 						</li>
@@ -1145,8 +1158,13 @@ function HistoryList({ state }: { state: Outcome<{ entries: HistoryEntry[] }> | 
 	);
 }
 
+/** The order a history entry lists its changed fields in: the order of FIELD_LABEL, then any others. */
+const FIELD_ORDER = Object.keys(FIELD_LABEL);
+const fieldRank = (k: string) => (FIELD_ORDER.includes(k) ? FIELD_ORDER.indexOf(k) : FIELD_ORDER.length);
 function Diff({ entry: e }: { entry: HistoryEntry }) {
-	const keys = [...new Set([...Object.keys(e.before ?? {}), ...Object.keys(e.after ?? {})])];
+	const keys = [...new Set([...Object.keys(e.before ?? {}), ...Object.keys(e.after ?? {})])].sort(
+		(a, b) => fieldRank(a) - fieldRank(b),
+	);
 	const lines = keys.flatMap((k) => {
 		const from = shownValue(k, e.before?.[k]);
 		const to = shownValue(k, e.after?.[k]);

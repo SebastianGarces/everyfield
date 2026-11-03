@@ -125,6 +125,14 @@ export async function reactivateMembership(
 	);
 }
 
+/**
+ * Owner or Admin corrects one role tenure's start or end date with a reason, from the person's record. The answer is
+ * the corrected row; the ministry's history names the change.
+ */
+export async function correctTenure(requestKey: string, expectedRevision: string, input: Record<string, unknown>) {
+	return change((tx, ctx) => teamsWriter.correctTenure(tx, ctx, command(requestKey, expectedRevision, input)));
+}
+
 /** The ministry page's data again, after a change was refused as out of date. */
 export async function reloadTeam(teamId: string): Promise<Outcome<TeamView | null>> {
 	const v = await seat();
