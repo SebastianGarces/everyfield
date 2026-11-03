@@ -252,7 +252,7 @@ function cut(blocks: Block[]): string {
 		}
 		const room = LIMIT - 1 - (used.length ? length(used) + 1 : 0);
 		const lines = cutBlock(block, room);
-		if (lines.length) out.push({ ...block, kind: "atomic", lines });
+		if (lines.length) out.push({ ...block, lines });
 		break;
 	}
 	while (out.length) {
