@@ -48,7 +48,8 @@ import { bodyOnlyItems, prFor, prOpen, ship } from "./ship.ts";
 import { checkGithubBody, checkPrBody, describeBodyItem, unmetBodyItem, type BodyItem } from "./pr-body.ts";
 import { isPrototype } from "./feedback.ts";
 import { fillRunUsage } from "./usage.ts";
-import { coordinatorNotes, doneCriteria } from "./spec.ts";
+import { acCriteria, checkProblems, coordinatorNotes, doneCriteria } from "./spec.ts";
+import { acRun, acVideoMarkers, isUiTask } from "./ac.ts";
 import { hasVerifiedHead, verify } from "./verify.ts";
 
 /**
@@ -667,6 +668,7 @@ function implementBodyFault(root: string, task: TaskRef, wt: string | null): str
 			readFileSync(file, "utf8"),
 			isPrototype(root, task) ? "prototype" : "ordinary",
 			followUpsOfTask(root, task),
+			acVideoMarkers(root, task),
 		);
 		return null;
 	} catch (e) {
@@ -716,6 +718,14 @@ export function runDone(
 		if (opts.status === "body-only" && r.stage !== "verify")
 			fail(`--status body-only closes a verify run only; run ${runId} is a ${r.stage} run.`);
 		const head = r.worktree && existsSync(r.worktree) ? git(r.worktree, "rev-parse", "HEAD") : null;
+		// The answer key (OPS-112): evf runs the marked tests at this head itself; an earlier run does not count.
+		if ((r.stage === "implement" || r.stage === "verify") && opts.status !== "failed" && acCriteria(r.spec).length) {
+			const unmet = acRun(root, parseTask(r.ref), { runId }).filter((row) => row.status !== "met");
+			if (unmet.length)
+				fail(
+					`${r.stage} cannot close ${opts.status}: evf ac run found AC: criteria not met at ${head?.slice(0, 10)}:\n${unmet.map((row) => `  criterion ${row.criterion} (${row.marker}): ${row.notes}`).join("\n")}\nWrite or fix the test that carries each marker, commit, and close again; or close this run as failed.`,
+				);
+		}
 		if (r.stage === "verify" && opts.status !== "failed") {
 			if (!head) fail(`${r.ref} has no worktree to read the head from; a verify cannot pass without proofs at a head.`);
 			const proven = provenCriteria(db, r.task_id, r.worktree!, head);
@@ -897,6 +907,13 @@ export function taskSpec(root: string, task: TaskRef, file: string): number {
 		const known = findTask(db, task);
 		if (known?.status === "merged")
 			fail(`${known.ref} is merged. Start a new task with evf task new ${known.ref} --ask-file <file>.`);
+		// A UI spec needs one Check: line per Done criterion; any other spec that has one follows the same rule. A
+		// prototype plan spec is exempt: its criteria describe what every proof of concept shows, not a test.
+		const problems = known?.mode === "prototype" ? [] : checkProblems(spec, task.id, isUiTask(root, task));
+		if (problems.length)
+			fail(
+				`The spec for ${task.id} fails the Check: rule:\n${problems.map((p) => `  ${p}`).join("\n")}\nUnder each Done criterion write one line "Check: AC:${task.id}-<n>" (a test whose name carries that marker proves it) or "Check: owner — <reason>" (a person judges it).`,
+			);
 		// OPS ids are reserved first: one failed reservation stores neither the spec nor a slice row.
 		const ids = reserveFollowUpIds(root, db, { id: known?.id ?? 0, ref: task.id }, spec);
 		const t = known ?? ensureTask(db, task, "implement");
@@ -1283,6 +1300,11 @@ export function proofAdd(
 	const db = openWorkDb(root);
 	try {
 		const t = ensureTask(db, task, "implement");
+		const ac = acCriteria(t.spec).find((c) => c.criterion === opts.criterion);
+		if (ac && opts.status !== "unmet")
+			fail(
+				`Criterion ${opts.criterion} checks ${ac.marker}: evf writes its met row after it runs the tests that carry the marker. Run bin/evf ac run ${t.ref}. A seat may still record --status unmet.`,
+			);
 		const runId = Number(process.env.EVF_RUN) || null;
 		db.prepare(
 			"INSERT INTO proofs (task_id, run_id, head_sha, criterion, status, evidence_url, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
@@ -1309,7 +1331,7 @@ export function proofShow(root: string, task: TaskRef, json: boolean): number {
 		const rows = t
 			? (db
 					.prepare(
-						"SELECT criterion, status, head_sha, evidence_url, notes, created_at FROM proofs WHERE task_id = ? ORDER BY id",
+						"SELECT criterion, status, head_sha, evidence_url, notes, written_by, created_at FROM proofs WHERE task_id = ? ORDER BY id",
 					)
 					.all(t.id) as Array<Record<string, unknown>>)
 			: [];
@@ -1326,7 +1348,7 @@ export function proofShow(root: string, task: TaskRef, json: boolean): number {
 			);
 			for (const p of marked)
 				console.log(
-					`  ${String(p.head_sha).slice(0, 10)} ${String(p.criterion).padEnd(4)} ${String(p.status).padEnd(5)} ${p.evidence_url ?? "-"} ${p.notes ?? ""}${p.carried ? " (carried from an earlier head)" : ""}`,
+					`  ${String(p.head_sha).slice(0, 10)} ${String(p.criterion).padEnd(4)} ${String(p.status).padEnd(5)} ${p.written_by === "evf" ? "by evf ac run" : "by a seat"} ${p.evidence_url ?? "-"} ${p.notes ?? ""}${p.carried ? " (carried from an earlier head)" : ""}`,
 				);
 		}
 		return 0;
@@ -1456,11 +1478,11 @@ const PROTOTYPE_PROMPTS: Record<string, Prompt> = {
 	merge: (task, _next, ctx) =>
 		`Sebastian picked idea ${ctx.pick?.idea} of prototype task ${task.id}: "${ctx.pick?.quote}". Its worktree: ${ctx.ideas[(ctx.pick?.idea ?? 1) - 1]}. Comparison: ${ctx.comparison}. Read the brief, the comparison and all three ideas, write the handoff spec (Goal, numbered Done criteria, Non-goals, Approach) and run bin/evf task handoff ${task.id} --file <path>. Close with bin/evf run done $EVF_RUN --status passed|failed --summary-file <path>.`,
 };
-const STAGE_PROMPTS: Record<string, Prompt> = {
+export const STAGE_PROMPTS: Record<string, Prompt> = {
 	plan: (task) =>
-		`Plan task ${task.id}: write the spec (Goal, numbered testable Done criteria, Non-goals) from the ask in your session-start context, store it with bin/evf task spec ${task.id} --file <path>, then close with bin/evf run done $EVF_RUN --status passed --summary-file <path>.`,
+		`Plan task ${task.id}: write the spec (Goal, numbered testable Done criteria, Non-goals) from the ask in your session-start context. Write one Done criterion for each user action and expected result in the verbatim ask, and cover each Ask coverage deliverable (route, page, screen, command, file). Give each criterion one line under it: "Check: AC:${task.id}-<n>" when a test can prove it (a test whose name carries that marker), or "Check: owner — <reason>" for a taste call a person must judge. A UI spec cannot be stored without them. Store it with bin/evf task spec ${task.id} --file <path>, then close with bin/evf run done $EVF_RUN --status passed --summary-file <path>.`,
 	implement: (task, next, ctx) =>
-		`Implement task ${task.id} in this worktree against the spec in your session-start context.${next.round && !ctx.reopen ? ` Round ${next.round}: ${next.reason}. Read the last verify or ci summary with bin/evf status --json ${task.id} and fix those findings first.` : ""} Before you close: add tests; for UI work read .agents/roles/ui-designer.md and capture 390 and 1440 px screenshots of each UI state you changed, outside the repository, as the capture half of .agents/skills/verify-preview/SKILL.md says; record bin/evf proof add ${task.id} --criterion <n> --status met|unmet|n/a --evidence <url-or-path> for each Done criterion you built or changed in this round. Keep bin/evf verify ${task.id} green, commit, and write the PR body to ${ctx.prBody} following .agents/skills/everyfield-pr/template.md with your EVF-Author line (bin/evf session prints your id). ${CLOSE}`,
+		`Implement task ${task.id} in this worktree against the spec in your session-start context.${next.round && !ctx.reopen ? ` Round ${next.round}: ${next.reason}. Read the last verify or ci summary with bin/evf status --json ${task.id} and fix those findings first.` : ""} Before you close: add tests; for UI work read .agents/roles/ui-designer.md and capture 390 and 1440 px screenshots of each UI state you changed, outside the repository, as the capture half of .agents/skills/verify-preview/SKILL.md says; record bin/evf proof add ${task.id} --criterion <n> --status met|unmet|n/a --evidence <url-or-path> for each Done criterion you built or changed in this round whose Check: line is owner or that has no Check: line. For each criterion whose Check: is AC:${task.id}-<n>, write the test whose name carries that marker (tests/ui for browser behavior, tools/evf/tests for tooling) and do not proof add that row: bin/evf ac run ${task.id} runs the marked tests at HEAD and writes it, run done runs it again at your head, and the PR body proof table links each browser row's video. Keep bin/evf verify ${task.id} green, commit, and write the PR body to ${ctx.prBody} following .agents/skills/everyfield-pr/template.md with your EVF-Author line (bin/evf session prints your id). ${CLOSE}`,
 	simplify: (task, next) =>
 		`Simplify task ${task.id}: read the spec and git diff origin/main...HEAD, remove what the Done criteria do not need, commit. evf runs the author checks at your head in the pr stage.${next.reason.startsWith("pr failed") ? ` evf ran the author checks at the head and they failed (${next.reason}). Fix that first.` : ""} ${CLOSE}`,
 	body: (task, next, ctx) => {
@@ -1473,7 +1495,7 @@ const STAGE_PROMPTS: Record<string, Prompt> = {
 		return `Fix the PR body of task ${task.id} at ${at}. The verifier approved the code and the experience there and posted a body_only review: only the PR body needs these fixes.${list}${next.reason.startsWith("body failed") ? ` evf checked the body after the last body run and it failed (${next.reason}). Fix that first.` : ""} Edit only the PR body file ${ctx.prBody}: each "present" text must appear in it exactly, each "absent" text must not appear, and the body must still pass bin/evf pr body --body-file ${ctx.prBody} --task ${task.id}. Keep the EVF-Author line. Make no commit and change no other file: a commit sends the task to a full verify. When you close passed, evf pushes the body with evf pr open --body-file at the same head, checks it with the evf pr body standard and checks every item. ${CLOSE}`;
 	},
 	verify: (task) =>
-		`Verify task ${task.id}: before you judge, read the full ask and spec with bin/evf task spec ${task.id} --show (your session-start context may shorten them), the goal chain and bin/evf proof show ${task.id}; read the full diff and judge the code. Spot-check the proof: open the evidence in the proof table and re-run a flow only where a proof is unmet, missing or looks wrong. When only a screenshot is missing, capture it and record it with bin/evf proof add instead of requesting changes. Follow verify-preview; post one review with post-review.mjs --session <bin/evf session> --model claude-opus-5-5. Close with bin/evf run done $EVF_RUN --status passed (approved; every Done criterion needs a met or n/a proof at the head or an ancestor of it), body-only (code and experience approved, and every open finding is a PR body fix you posted as a present or absent text with --verdict body_only --body-items) or failed (changes requested) --summary-file <path> listing every finding.`,
+		`Verify task ${task.id}: before you judge, read the full ask and spec with bin/evf task spec ${task.id} --show (your session-start context may shorten them), the goal chain and bin/evf proof show ${task.id}; read the full diff and judge the code and its simplicity. You judge the owner rows. evf wrote the AC: rows by running the marked tests at the head, and run done reruns them, so you may rely on those rows; still read each marked test and request changes when it checks too little (a test that only sees the page load proves nothing). Spot-check the proof: open the evidence in the proof table and re-run a flow only where a proof is unmet, missing or looks wrong. When only a screenshot is missing, capture it and record it with bin/evf proof add instead of requesting changes. Follow verify-preview; post one review with post-review.mjs --session <bin/evf session> --model claude-opus-5-5. Close with bin/evf run done $EVF_RUN --status passed (approved; every Done criterion needs a met or n/a proof at the head or an ancestor of it), body-only (code and experience approved, and every open finding is a PR body fix you posted as a present or absent text with --verdict body_only --body-items) or failed (changes requested) --summary-file <path> listing every finding.`,
 };
 
 /** The items of the body_only review at `head` for the body prompt, or why GitHub has none. */

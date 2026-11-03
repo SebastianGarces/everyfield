@@ -248,8 +248,9 @@ evf runs pr, ci and ship itself and records them as runs of role `evf`. The pr s
 the task's runtime dir. A simplifier commit therefore never costs a round: when the checks fail at a head that
 followed a passed simplify, the next stage is simplify with the failure in its prompt, and no implement run starts.
 The implementer proves its own work before it closes: tests, 390 and 1440 px screenshots of each UI state it
-changed and one `evf proof add` per Done criterion it built or changed. evf adds no proof gate on that close; the
-verifier covers a missing proof. The PR body is gated (OPS-113): an implement run closes passed only when the body
+changed and one `evf proof add` per `owner` or unchecked Done criterion it built or changed. For a spec with
+`AC:` criteria, a passed implement close runs `evf ac run` at the head and refuses while any `AC:` row is not met
+(see "Answer key" below); otherwise evf adds no proof gate on that close, and the verifier covers a missing proof. The PR body is gated (OPS-113): an implement run closes passed only when the body
 file in the runtime dir exists and passes the `evf pr body` check, and the refusal names the failed check, so a body
 fault shows up before verify. UI work runs in the implementer seat unless the spec has the line `Seat: ui`.
 The verifier reads the full diff, reads the proof table and re-runs a flow only where a proof is unmet,
@@ -384,6 +385,56 @@ work (`evf drive`, `evf task spec`, `evf launch`, `evf proof add`) uses that row
 merged ref; `evf drive` prints stage `done`, and `evf task spec` and `evf launch` fail. Only `evf task new
 <ref> --ask-file <file>` reopens a merged ref: it inserts one `new` row and its `task_new` event names the
 merged row it reopens (`reopens`).
+
+## Answer key (OPS-112)
+
+Each numbered Done criterion may carry one line under it that says how it is checked:
+
+```
+3. The `/oversight` page lists every open escalation.
+   Check: AC:WP-090/ui-3
+4. The empty state reads as calm, not alarming.
+   Check: owner — a tone call a person makes.
+```
+
+`Check: AC:<task ref>-<n>` names a test marker; `n` is that criterion's number. `Check: owner — <reason>` is a taste
+call Sebastian or the verifier judges; the reason is not empty. `tools/evf/spec.ts` (`doneChecks`) parses the lines.
+`evf task spec` refuses a spec for a UI task (part `ui`, or a whole package that owns a UI path by `isUiPath`) when a
+criterion has no valid `Check:` line, more than one, or an `AC:` marker that names another task or number; the
+message lists each bad criterion. A tooling spec may leave `Check:` out, but once it has one the same rule holds for
+every criterion. Prototype plan specs and specs stored before OPS-112 keep the earlier rule.
+
+`evf ac run <task>` is the answer key. In the worktree it finds every test whose node:test name carries
+`AC:<task>-<n>` (`--test-name-pattern`, with no digit after the number, so `-1` never matches `-10`) in
+`tests/ui/**/*.test.mjs` and `tools/evf/tests/**/*.test.ts`. `tools/evf/tests` matches run once. `tests/ui` matches
+run once with `UI_ENGINE=chromium` and once with `UI_ENGINE=webkit`, inside `evf browser run`, with `UI_BASE_URL` set
+to the worktree's newest ready portless preview. It refuses when that preview serves another head than HEAD, and it
+refuses a dirty worktree, because the rows bind to HEAD. `EVF_AC_VIDEO_DIR` points each browser run at
+`<git common dir>/evf/evidence/<task>/<head>/ac/criterion-<n>/<engine>/`, outside the repository; `tests/ui/setup.mjs`
+then records video of every context the `ENGINES` browsers open, `withPage` and suites with their own contexts alike.
+
+After the run evf writes one proof row per `AC:` criterion at HEAD, `written_by = 'evf'` (store migration 011): `met`
+only when at least one test carries the marker and every such test passed on every engine it ran on (a skipped or
+todo test does not pass). Otherwise the row is `unmet`; a marker no test carries gets the note
+`no test carries AC:<task>-<n>`. Notes name the tests, engines, results and head; the evidence is the video paths, or
+the test files when no video exists. `evf proof show` prints `by evf ac run` or `by a seat` for each row.
+`evf proof add --status met` and `--status n/a` are refused for an `AC:` criterion and point to `evf ac run`;
+`--status unmet` stays open to seats. `owner` criteria and specs with no `Check:` line keep the earlier rule.
+
+The gate: `evf run done --status passed` for an implement run, and `passed` or `body-only` for a verify run, of a task
+whose spec has `AC:` criteria runs `evf ac run` at the worktree HEAD first and fails, listing each criterion with its
+note, when any row is not met there. An `AC:` row from an earlier head never counts for this check. `--status failed`
+runs no test. The verify proof gate stays as it was: every criterion, `owner` rows included, still needs a met or
+n/a row at the head or an ancestor of it, and the Opus verifier still reviews and approves.
+
+The video link: publish the `ac` evidence folder with `.agents/skills/verify-preview/scripts/publish.mjs`; its
+evidence page gives each video an anchor. In the PR body proof table each row that names an `AC:` marker links its
+video (`https://…/index.html#criterion-3/chromium/<file>.webm`). `evf pr body`, the implement close and `evf pr open`
+refuse an `AC:` row with no video link and name it. A row that only `tools/evf/tests` tests prove names
+`tools/evf/tests` instead, and that waiver holds only while evf's latest row for the marker stores no video.
+
+All of this runs on this Mac only. No CI job runs `evf ac run` or `tests/ui`, nothing under `.github/` changes, and no
+step calls a paid API or e2e.tester.army.
 
 ## Later slices (OPS-86)
 

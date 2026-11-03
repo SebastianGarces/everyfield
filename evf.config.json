@@ -1589,7 +1589,8 @@
 				".agents/roles/verifier.md",
 				".claude/agents/planner.md",
 				".claude/agents/implementer.md",
-				".claude/agents/verifier.md"
+				".claude/agents/verifier.md",
+				"tests/ui/setup.mjs"
 			],
 			"checks": [
 				{ "name": "documentation", "run": ["python3", "docs/check-all.py"] },

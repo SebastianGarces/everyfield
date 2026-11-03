@@ -92,3 +92,59 @@ export function laterSlices(spec: string | null | undefined): string[] {
 	}
 	return items.map((item) => item.join(" ")).filter(Boolean);
 }
+
+/**
+ * How evf checks one Done criterion (OPS-112). `ac`: a test whose name carries `marker` (`AC:<task ref>-<n>`), which
+ * `evf ac run` runs and turns into the proof row. `owner`: a taste call a person judges, with the reason no test can.
+ */
+export type Check = { kind: "ac"; marker: string; task: string; n: string } | { kind: "owner"; reason: string };
+export type CriterionCheck = { criterion: string; values: string[]; check: Check | null };
+
+const CHECK_LINE = /^\s*Check:\s*(.*?)\s*$/i;
+const AC_VALUE = /^AC:(\S+)-(\d+)$/;
+const OWNER_VALUE = /^owner\s*[—–-]\s*(\S.*)$/i;
+
+/** One `Check:` value, or null when it is neither `AC:<task>-<n>` nor `owner — <reason>`. */
+export function parseCheck(value: string): Check | null {
+	const ac = AC_VALUE.exec(value);
+	if (ac) return { kind: "ac", marker: value, task: ac[1]!, n: ac[2]! };
+	const owner = OWNER_VALUE.exec(value);
+	return owner ? { kind: "owner", reason: owner[1]!.trim() } : null;
+}
+
+/** Each numbered Done criterion with the `Check:` values written under it and the check they parse to. */
+export function doneChecks(spec: string | null): CriterionCheck[] {
+	const done = spec ? specSections(spec).find((s) => s.kind === "done") : undefined;
+	const out: CriterionCheck[] = [];
+	for (const line of done?.lines.slice(1) ?? []) {
+		const n = NUMBERED.exec(line)?.[1];
+		if (n) out.push({ criterion: n, values: [], check: null });
+		else if (out.length && CHECK_LINE.test(line)) out.at(-1)!.values.push(CHECK_LINE.exec(line)![1]!);
+	}
+	for (const c of out) c.check = c.values.length === 1 ? parseCheck(c.values[0]!) : null;
+	return out;
+}
+
+/** The criteria a test proves: their number and marker. */
+export const acCriteria = (spec: string | null): Array<{ criterion: string; marker: string }> =>
+	doneChecks(spec).flatMap((c) => (c.check?.kind === "ac" ? [{ criterion: c.criterion, marker: c.check.marker }] : []));
+
+/**
+ * Why each Done criterion of a spec for `taskRef` fails the `Check:` rule, one line per bad criterion. With `required`
+ * every criterion needs one valid line; without it the rule applies only once the spec has any `Check:` line.
+ */
+export function checkProblems(spec: string, taskRef: string, required: boolean): string[] {
+	const checks = doneChecks(spec);
+	if (!required && !checks.some((c) => c.values.length)) return [];
+	return checks.flatMap(({ criterion: n, values, check }) => {
+		if (!values.length) return [`criterion ${n} has no Check: line`];
+		if (values.length > 1) return [`criterion ${n} has ${values.length} Check: lines; give one`];
+		if (!check)
+			return [`criterion ${n}: "Check: ${values[0]}" is neither AC:${taskRef}-${n} nor owner — <reason>`];
+		if (check.kind === "ac" && check.task !== taskRef)
+			return [`criterion ${n}: ${check.marker} names task ${check.task}, not ${taskRef}`];
+		if (check.kind === "ac" && check.n !== n)
+			return [`criterion ${n}: ${check.marker} names criterion ${check.n}, not ${n}`];
+		return [];
+	});
+}
