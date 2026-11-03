@@ -5,7 +5,7 @@ import { createRequire } from "node:module";
 import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
-import { source } from "./fixtures.ts";
+import { runSeed, source } from "./fixtures.ts";
 import { DEV_ENDPOINT, PROD_ENDPOINT, seedRefusal } from "../qa-guard.ts";
 import { startQuietDatabase, stopQuietDatabase } from "../timing-stack.ts";
 
@@ -257,16 +257,7 @@ test("OPS-106: a failed qa up shows redacted output and removes the Neon branch 
 	}
 });
 
-const seedArgs = ["--conditions=react-server", "tools/evf/qa-seed.ts"];
-const tsx = join(source, "packages/domain/node_modules/.bin/tsx");
-const runSeed = (env: Record<string, string | undefined>) => {
-	const clean: NodeJS.ProcessEnv = { ...process.env, NODE_ENV: undefined, DATABASE_URL: undefined };
-	for (const [k, v] of Object.entries(env)) clean[k] = v;
-	for (const k of Object.keys(clean)) if (clean[k] === undefined) delete clean[k];
-	return spawnSync(tsx, seedArgs, { cwd: source, encoding: "utf8", env: clean });
-};
-
-test("OPS-106: the QA seed refuses production, the shared development branch, NODE_ENV=production and no URL", () => {
+test("OPS-106: the QA seed refuses production, the shared development branch, NODE_ENV=production and no URL AC:OPS-125-7", () => {
 	const neon = (endpoint: string) =>
 		`postgres://u:${NEON_PASSWORD}@${endpoint}-x1.c-14.us-east-1.aws.neon.tech/neondb?sslmode=require`;
 	assert.match(seedRefusal({ DATABASE_URL: neon(PROD_ENDPOINT).replace("-x1.", "-x1-pooler.") })!, /production/);
@@ -285,7 +276,7 @@ test("OPS-106: the QA seed refuses production, the shared development branch, NO
 	}
 });
 
-test("OPS-106: the QA seed fills a fresh database, and a second run changes no table's row count", async () => {
+test("OPS-106: the QA seed fills a fresh database, and a second run changes no table's row count AC:OPS-125-7", async () => {
 	const db = startQuietDatabase(source, "qa-seed");
 	try {
 		const pg = createRequire(join(source, "packages/db/package.json"))("pg");
@@ -318,7 +309,7 @@ test("OPS-106: the QA seed fills a fresh database, and a second run changes no t
 		const env = { DATABASE_URL: db.adminUrl, QA_ROLE_PASSWORD: "qa-role-password-0123" };
 		const first = runSeed(env);
 		assert.equal(first.status, 0, first.stderr);
-		assert.match(first.stdout, /QA seed wrote: .*church.*wiki\./);
+		assert.match(first.stdout, /QA seed wrote: .*church.*wiki, owner timezone, 13 check-in weeks\./);
 		const seeded = await counts();
 		const second = runSeed(env);
 		assert.equal(second.status, 0, second.stderr);
