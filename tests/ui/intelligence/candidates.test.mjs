@@ -25,7 +25,7 @@ async function recordDialog(page) {
 	return page.getByRole("dialog", { name: "Record a leadership candidate" });
 }
 
-const status = (dialog) => dialog.locator("[aria-live=polite]");
+const status = (dialog) => dialog.locator("[aria-live=polite]").filter({ hasText: /stablished/ });
 
 for (const [name, engine] of ENGINES) {
 	test(`AC:WP-039-1 AC:WP-039-2 (${name}): a new candidate starts unticked and is established only after both deliberate ticks`, async () => {
@@ -45,7 +45,10 @@ for (const [name, engine] of ENGINES) {
 			// Criterion 2: a valid 60+ day period, then each box ticks on its own.
 			await dialog.getByLabel("Period starts").fill(iso(75));
 			await dialog.getByLabel("Period ends").fill(iso(5));
-			assert.match(await status(dialog).innerText(), /71 days · Not established: attendance is not attested; volunteering is not attested\./);
+			assert.match(
+				await status(dialog).innerText(),
+				/71 days · Not established: attendance is not attested; volunteering is not attested\./,
+			);
 			await attended.click();
 			assert.equal(await attended.isChecked(), true);
 			assert.equal(await volunteered.isChecked(), false);
@@ -65,6 +68,18 @@ for (const [name, engine] of ENGINES) {
 	test(`AC:WP-039-3 (${name}): a save stores each box exactly as ticked and the list shows the person as not established`, async () => {
 		await withPage(engine, async (page, context) => {
 			await open(page, context);
+			const row = page
+				.locator("section[aria-labelledby=att-candidates]")
+				.getByRole("listitem")
+				.filter({ hasText: PERSON[name] });
+			// A rerun first retracts the statement an earlier run saved, so this save is always a new record.
+			if ((await row.count()) && !(await row.innerText()).includes("Retracted")) {
+				await row.getByRole("button", { name: `Update: ${PERSON[name]}` }).click();
+				const earlier = page.getByRole("dialog", { name: PERSON[name] });
+				await earlier.getByRole("button", { name: "Retract" }).click();
+				await earlier.waitFor({ state: "detached" });
+				await row.getByText("Retracted").waitFor();
+			}
 			const dialog = await recordDialog(page);
 			await dialog.getByRole("combobox").click();
 			await page.getByRole("option", { name: PERSON[name] }).click();
@@ -72,13 +87,12 @@ for (const [name, engine] of ENGINES) {
 			await dialog.getByLabel("Period ends").fill(iso(5));
 			// Tick attendance only; volunteering stays as it started.
 			await dialog.getByRole("checkbox", { name: ATTENDED }).click();
-			await dialog.getByRole("button", { name: /^(Record candidate|Save changes)$/ }).click();
+			await dialog.getByRole("button", { name: "Record candidate" }).click();
 			await dialog.waitFor({ state: "detached" });
 
 			// The list after a reload reads the stored statement, not the optimistic one.
 			await page.reload();
 			await hydrated(page);
-			const row = page.locator("#att-candidates").locator("xpath=..").getByRole("listitem").filter({ hasText: PERSON[name] });
 			const text = await row.innerText();
 			assert.match(text, /Not established/);
 			assert.match(text, /Volunteering is not attested/);
