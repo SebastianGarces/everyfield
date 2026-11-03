@@ -177,7 +177,7 @@ export function launchPlan(
 	root: string,
 	task: TaskRef,
 	role: Role,
-	opts: { mode?: string; round?: number; run?: string; idea?: number; driven?: boolean },
+	opts: { mode?: string; round?: number; run?: string; idea?: number; driven?: boolean; stage?: string },
 ): LaunchPlan {
 	const cfg = loadConfig(root),
 		seat = resolveSeat(cfg, task, role, seatOverrideOf(root, task)),
@@ -185,7 +185,7 @@ export function launchPlan(
 		session = randomUUID(),
 		idea = opts.idea,
 		worktree = idea ? ideaWorktree(root, cfg, task, idea) : worktreePath(root, cfg, task),
-		stage = idea ? `idea${idea}` : seat.stage,
+		stage = idea ? `idea${idea}` : (opts.stage ?? seat.stage),
 		tag = idea ? String(idea) : "";
 	return {
 		task: task.id,
@@ -512,6 +512,8 @@ export function launch(
 		timing?: Partial<LaunchTiming>;
 		/** Set by the drive loop only. */
 		driven?: boolean;
+		/** Set by the drive loop only: a stage the role's seat runs besides its own (the body stage, OPS-113). */
+		stage?: string;
 	},
 ): number {
 	const timing = { ...LAUNCH_TIMING, ...opts.timing };
@@ -545,6 +547,7 @@ export function launch(
 			round: taskRow.round,
 			idea: opts.idea,
 			driven: opts.driven,
+			stage: opts.stage,
 		});
 		const event = (type: string, payload: Record<string, unknown>, runId: number): number =>
 			Number(

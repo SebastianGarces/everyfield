@@ -23,6 +23,12 @@ Tooling tasks rerun their commands as the probe. Also run `bin/evf verify <task>
 An OPS task's scope is the `maintenanceTasks` entry committed at the PR head. Review that entry
 with the diff. Never register a task in the home checkout's `evf.config.json`.
 Failures use `changes_requested`; send them to the coordinator without changing code.
+Use `body_only` when the code and the experience are approved and every open finding is a PR body fix you can
+state as an exact text that must be present or absent. Post it with `--verdict body_only --body-items <file>` and
+close verify with `--status body-only`. evf's body stage edits the body at the same head and checks each item
+with no new round and no new verify; ship checks the items again. Any code finding, or a body fix you cannot
+state as exact text, needs `changes_requested`. A later failed verify at a head already reviewed costs no round.
+`tools/evf/README.md` (Body-only fix path) has the rules and decisions D-a to D-e.
 Approved ordinary work goes through `bin/evf ship <task>`. Preserve the owner approval routes.
 A task PR that changes `docs/reference/wiki/` also goes through `bin/evf ship`: your approval becomes the claim
 check on its pending drafts, evf promotes them, and the PR waits for Sebastian's `evf approve --head`.
