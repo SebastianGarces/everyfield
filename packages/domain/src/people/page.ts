@@ -31,6 +31,7 @@ import { personHousehold, personHouseholdJson } from "./households/index.ts";
 import { interviewsJson, interviewsOf } from "./interviews/index.ts";
 import { activitiesJson, activityFeed, peopleReader } from "./queries.ts";
 import { personSkills, personSkillsJson, personTags, personTagsJson } from "./tags-skills/index.ts";
+import { personTenures, personTenuresJson } from "../teams/reads.ts";
 
 /**
  * The parts the person page reads with the person and its first Activity page. Each is null when not asked for.
@@ -78,7 +79,16 @@ export async function readPersonPage(
 				p.state === "merged" && p.merged_into_person_id
 					? await peopleReader.getPerson(tx, ctx, c.personRequest.parse({ personId: p.merged_into_person_id }))
 					: null;
-			return { found, activities: null, link: ok(link(p)), survivor, fields: null, records: null, duplicates: null };
+			return {
+				found,
+				activities: null,
+				link: ok(link(p)),
+				survivor,
+				fields: null,
+				records: null,
+				duplicates: null,
+				ministries: null,
+			};
 		};
 		return "rollback" in db ? run(db) : db.transaction(run);
 	});
@@ -98,6 +108,7 @@ const pageRow = z.object({
 	household: z.unknown(),
 	records: z.object({ assessments: z.unknown(), interviews: z.unknown(), commitments: z.unknown() }).nullable(),
 	duplicates: z.unknown(),
+	ministries: z.unknown(),
 });
 const evidence = (raw: unknown): Evidence[] =>
 	raw
@@ -140,6 +151,7 @@ async function plantPage(
  ${parts.fields ? sql`CASE WHEN ${own} THEN ${personTagsJson(plant)} END` : sql`NULL`} AS tags,
  ${parts.fields ? sql`CASE WHEN ${own} THEN ${personSkillsJson(plant)} END` : sql`NULL`} AS skills,
  ${parts.fields ? sql`CASE WHEN ${own} THEN ${personHouseholdJson(plant)} END` : sql`NULL`} AS household,
+ ${parts.fields ? sql`CASE WHEN ${own} THEN ${personTenuresJson(sql`person.id`, sql`${plant}::uuid`)} END` : sql`NULL`} AS ministries,
  ${
 		parts.records
 			? sql`(SELECT jsonb_build_object('assessments',${assessmentsJson(plant, records)},'interviews',${interviewsJson(plant, records)},
@@ -196,5 +208,7 @@ async function plantPage(
 		fields,
 		records: recordParts,
 		duplicates: parts.duplicates && p.state === "live" ? part(() => personDuplicates(row.duplicates)) : null,
+		/** The person's ministry roles, now and before (REQ-TEAM-006), with the field parts. */
+		ministries: parts.fields && p.plant_id === plant ? personTenures(row.ministries) : null,
 	};
 }

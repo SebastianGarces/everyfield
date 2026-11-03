@@ -378,7 +378,6 @@
     "teams.assignRole",
     "teams.attestCompletion",
     "teams.completeResponsibility",
-    "teams.correct",
     "teams.correctProgram",
     "teams.create",
     "teams.createProgram",

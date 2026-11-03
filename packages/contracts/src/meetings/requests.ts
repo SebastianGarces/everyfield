@@ -15,7 +15,6 @@ import {
 	preparation,
 	reason,
 	rsvpAnswer,
-	schedulableType,
 	venueFields,
 	venueId,
 	venuePatchFields,
@@ -32,19 +31,26 @@ export const venueChoice = z.discriminatedUnion("kind", [
 ]);
 const optionalText = (max: number) => z.string().trim().max(max).nullable().optional();
 
+/** A team meeting names one ministry; its guest list starts as a copy of that ministry's people (REQ-MTG-007). */
 export const scheduleMeetingRequest = create(
-	z.strictObject({
-		type: schedulableType,
-		title: optionalText(200),
-		notes: optionalText(5000),
-		...enteredTime,
-		venue: venueChoice.default({ kind: "none" }),
-		guests: z
-			.array(personId)
-			.max(200)
-			.refine((ids) => new Set(ids).size === ids.length, "duplicate_guest")
-			.default([]),
-	}),
+	z
+		.strictObject({
+			type: meetingType,
+			teamId: recordId.optional(),
+			title: optionalText(200),
+			notes: optionalText(5000),
+			...enteredTime,
+			venue: venueChoice.default({ kind: "none" }),
+			guests: z
+				.array(personId)
+				.max(200)
+				.refine((ids) => new Set(ids).size === ids.length, "duplicate_guest")
+				.default([]),
+		})
+		.refine((v) => (v.type === "team_meeting") === (v.teamId !== undefined), {
+			path: ["teamId"],
+			message: "team_meeting_needs_one_team",
+		}),
 );
 // Type and team are fixed at creation, so an edit cannot name them.
 export const editMeetingRequest = commandEnvelope(
@@ -130,6 +136,15 @@ export const recordCardRequest = commandEnvelope(
 	}),
 );
 export const clearCardRequest = commandEnvelope(z.strictObject({ ...guest, reason }));
+/**
+ * The reviewed update of a team meeting's guest list from its ministry: exactly the people the preview named. A list
+ * that no longer matches the ministry is refused as a conflict, so nothing changes that the person did not review.
+ */
+const reviewedPeople = z
+	.array(personId)
+	.max(500)
+	.refine((ids) => new Set(ids).size === ids.length, "duplicate_person");
+export const copyTeamRosterRequest = create(z.strictObject({ meetingId, add: reviewedPeople, remove: reviewedPeople }));
 /** Internal: the invitation send or guest transaction that already holds the reviewed intent mints the token. */
 export const createRsvpTokenRequest = z.strictObject(guest);
 export const rsvpToken = z
@@ -155,6 +170,8 @@ export const listMeetingsRequest = z.strictObject({
 	types: z.array(meetingType).max(8).default([]),
 	statuses: z.array(meetingStatus).max(10).default([]),
 	preparation: preparation.default("any"),
+	/** One ministry's team meetings, archived ministries included. */
+	teamId: recordId.optional(),
 	...pageInput,
 });
 export const meetingRequest = z.strictObject({ meetingId });

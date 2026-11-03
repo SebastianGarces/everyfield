@@ -319,6 +319,8 @@ function openedMinistry(form: TeamForm, nodes: TeamView["nodes"], admin: boolean
 		roles: [],
 		members: [],
 		past: [],
+		meetings: { items: [], total: 0 },
+		now: new Date().toISOString(),
 		canChange: false,
 		admin,
 	};

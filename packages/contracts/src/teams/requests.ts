@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { localDate } from "../common/time.ts";
 import { digest, personId, recordId, requestKey } from "../common/values.ts";
 import { commandEnvelope } from "../common/writes.ts";
 import { roleKey, teamIcon, teamName, teamState, teamText, templateKey } from "./values.ts";
@@ -30,15 +31,6 @@ const editReason = z
 	.transform((text) => text.trim() || undefined)
 	.optional();
 export const editTeamRequest = commandEnvelope(teamTarget.extend({ ...teamFacts.shape, reason: editReason }));
-export const correctTeamRequest = commandEnvelope(
-	teamTarget.extend({
-		name: teamName,
-		description,
-		icon,
-		state: teamState.optional(),
-		reason: z.string().trim().min(1).max(500),
-	}),
-);
 export const archiveTeamRequest = commandEnvelope(teamTarget);
 export const restoreTeamRequest = commandEnvelope(teamTarget);
 
@@ -66,6 +58,20 @@ export const assignRoleRequest = commandEnvelope(z.strictObject({ roleId: record
 export const endMembershipRequest = commandEnvelope(z.strictObject({ teamId: recordId, personId }));
 export const reactivateMembershipRequest = commandEnvelope(z.strictObject({ roleId: recordId, personId }));
 export const appointLeaderRequest = commandEnvelope(z.strictObject({ teamId: recordId, personId }));
+/**
+ * Fixes the recorded dates of one ministry role a person held or holds; the expected revision is the tenure's. A role
+ * held now keeps no end date: ending it is leaving the ministry. A reason is required and stays in the history.
+ */
+export const correctTenureRequest = commandEnvelope(
+	z
+		.strictObject({
+			tenureId: recordId,
+			startedOn: localDate,
+			endedOn: localDate.nullable(),
+			reason: z.string().trim().min(1, "reason_required").max(500),
+		})
+		.refine((v) => v.endedOn === null || v.endedOn >= v.startedOn, { path: ["endedOn"], message: "before_start" }),
+);
 
 const selection = z.strictObject({
 	teamKey: templateKey,
@@ -91,10 +97,6 @@ export const initializeRequest = z.strictObject({
 		lines: z.array(responsibilityLine).max(20).optional(),
 	}),
 });
-export const copyTeamRosterRequest = z.strictObject({
-	requestKey,
-	input: z.strictObject({ meetingId: recordId, teamId: recordId }),
-});
 
 export const listTeamsRequest = z.strictObject({ includeArchived: z.boolean().optional() });
 export const teamHistoryRequest = z.strictObject({ teamId: recordId });
@@ -106,4 +108,3 @@ export const listLeaderCandidatesRequest = z.strictObject({
 });
 export const orgChartRequest = z.strictObject({ includeArchived: z.boolean().optional() });
 export const orgChartExportRequest = z.strictObject({ includeArchived: z.boolean().optional() });
-export const rosterPreviewRequest = z.strictObject({ meetingId: recordId, teamId: recordId });

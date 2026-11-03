@@ -2,7 +2,7 @@
 
 import { LockKeyIcon, Logout01Icon, ShieldUserIcon, UserIcon, UserMultipleIcon } from "@hugeicons/core-free-icons";
 import { MenuItem, MenuLabel, MenuSeparator, useToast } from "@everyfield/ui/controls";
-import { useRouter } from "next/navigation";
+import { leavePage } from "../../components/save/leave.ts";
 import { identityApi, loadPage } from "../identity/api";
 import { SECTION_LABEL } from "./model";
 
@@ -23,7 +23,6 @@ export function AccountMenu({
 	/** A plant Owner or Admin has a private weekly check-in; a Member has no entry point (REQ-PI-038). */
 	checkIn?: boolean;
 }) {
-	const router = useRouter();
 	const toast = useToast();
 
 	async function signOut() {
@@ -43,23 +42,23 @@ export function AccountMenu({
 			<MenuItem icon={UserIcon} onSelect={onAccount}>
 				{SECTION_LABEL.account}
 			</MenuItem>
-			<MenuItem icon={UserMultipleIcon} onSelect={() => router.push("/settings/seats")}>
+			<MenuItem icon={UserMultipleIcon} href="/settings/seats">
 				{SECTION_LABEL.seats}
 			</MenuItem>
-			<MenuItem icon={ShieldUserIcon} onSelect={() => router.push("/settings/sharing")}>
+			<MenuItem icon={ShieldUserIcon} href="/settings/sharing">
 				{SECTION_LABEL.sharing}
 			</MenuItem>
 			{checkIn ? (
 				<>
 					<MenuSeparator />
-					<MenuItem icon={LockKeyIcon} onSelect={() => router.push("/me/check-in")}>
+					<MenuItem icon={LockKeyIcon} href="/me/check-in">
 						My weekly check-in
 						<span className="ml-2 rounded-sm bg-violet-100 px-1.5 text-xs font-semibold text-violet-600">Private</span>
 					</MenuItem>
 				</>
 			) : null}
 			<MenuSeparator />
-			<MenuItem icon={Logout01Icon} danger onSelect={signOut}>
+			<MenuItem icon={Logout01Icon} danger onSelect={() => leavePage(() => void signOut())}>
 				Sign out
 			</MenuItem>
 		</>

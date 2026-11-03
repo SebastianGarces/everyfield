@@ -752,6 +752,8 @@ try {
 	await notices(80);
 	for (let i = 0; i < 30; i++) await teams(teamsWriter.create, { input: { name: `Grown ministry ${i}` } });
 	for (let i = 0; i < 8; i++) await staff(`Grown role ${i}`);
+	// The ministry page lists its team meetings in one read: a dozen of them send the same statement count (WP-017).
+	for (let i = 0; i < 12; i++) await meeting("team_meeting", { team: ministry.id });
 	for (const id of ["budget-worksheet", "commitment-card", "guest-sign-in-sheet"])
 		for (let i = 0; i < 4; i++) await churchDocument(id);
 	// The same agenda reads at the largest size: 40 sections and 100 people on the list (the page count must not move).
