@@ -827,6 +827,74 @@ ordering with docs/acceptance/check.py and docs/package-context.py --check-case-
 Run tooling regressions with `bin/evf test`. Disposable repositories and fake GitHub responses
 exercise workflow behavior only. Tests contact no real GitHub or application database.
 
+## Mutation audit
+
+`evf audit` (OPS-116) checks the answer key itself. A task's `AC:` tests can pass and still check
+nothing, so the audit plants one bug in code a merged task wrote and sees whether a test fails.
+
+```sh
+bin/evf audit --list --task WP-033                 # the candidates of one merged task
+bin/evf audit --task WP-033 --seed 42 --dry-run    # one run; prints the ask it would file
+bin/evf audit                                      # pick the task and the candidate
+```
+
+Flags:
+
+- `--list` prints the candidates: stable id, operator, file, line and a one-line diff.
+- `--task <task>` audits one task. It refuses a task with no merged row whose merge commit is on main,
+  and a task with no marked test, and names the reason.
+- `--mutation <id>` plants that candidate. `--seed <n>` repeats a seeded pick; every run prints its seed
+  and the command that repeats it.
+- `--dry-run` runs everything, prints the ask a survivor would file, and reserves no id and files nothing.
+- `--ignore-load "<reason>"` skips the machine load wait, which works as it does for `evf verify` (D80).
+
+Candidates come only from lines on current main that the task's merge commit last changed
+(`git blame`), in non-test source files under `apps/` and `packages/`. There are three operators.
+`off-by-one` swaps `<` and `<=` or `>` and `>=`, or moves an integer literal of a comparison or a
+`slice` bound by 1. `dropped-call` removes one whole call statement such as `setOpen(false);`.
+`removed-route` deletes a `page.tsx` or `route.ts` under `apps/web/app/` or `apps/web/src/app/`.
+
+The tests are every test on main whose node:test name carries `AC:<marker>` for one of the task's
+markers, plus every test in `tests/ui/escaped/*.test.mjs`. The markers are the package case IDs of a WP
+task and the `Check: AC:<task>-<n>` marker of each Done criterion of its stored spec (OPS-112's answer
+key, read with `acCriteria`). evf finds the files whose text carries a marker and runs each with
+`--test-name-pattern`, so a test whose name carries no marker never runs. A task whose files carry
+markers only in comments has no marked test: the run stops after the baseline and plants nothing.
+Files named `*.production.*` never run. Each file runs with `node --test` in the audit worktree (a
+TypeScript file through the `tsx` a workspace package installed, and outside `tests/ui/` and `tests/contracts/`
+with `--conditions=react-server`, as the package test scripts run them),
+with `NODE_ENV=test` and the home checkout's `apps/web/.env.local` (the development database); a
+`DATABASE_URL` in the shell does not reach it.
+When a selected `tests/ui` file opens a browser (it reads `setup.mjs` or `UI_BASE_URL`) and one of
+its tests will run (it is escaped, or a test name carries a marker), each tree gets a production
+preview through the configured stack, and both engines run because `UI_ENGINE` is unset.
+
+With no `--task`, the audit picks among tasks merged in the last 30 days that have a marked test and
+a candidate. Never-audited tasks go first, then the oldest last audit. The candidate is a seeded
+random pick.
+
+Each run creates a detached worktree of current main under the system temp folder. It creates no
+branch, pushes nothing and opens no PR. It runs the tests on main first, then plants the mutation,
+commits it on the detached HEAD and runs them again. The outcomes:
+
+- `killed`: a test failed on the mutant. Nothing is filed.
+- `survived`: no test failed. evf reserves an OPS id, files a `new` task titled
+  `Answer key for <task> missed <operator> in <file>:<line>` with the diff, the tests and a Done
+  template, and prints the `maintenanceTasks` entry to commit on that task's branch. It does not edit
+  `evf.config.json`. The same task, candidate and main SHA files once; a repeat prints the first id.
+- `invalid`: the mutant did not build or start (a test file failed to load, or its preview did not
+  start). It proves nothing and files nothing.
+- `baseline-red`: a test failed on main before any mutation. evf names the tests, plants nothing,
+  files nothing and exits 1.
+
+The worktree and any preview go away on success, failure and SIGTERM. A crashed run leaves its
+worktree; `evf doctor` reports it and the next `evf audit` removes it. The work store's `audit_runs`
+table records each run: task, merge commit, main SHA, candidate, operator, file, seed, outcome, each
+test's result, the filed task and the start and end times. `evf doctor` prints one warning when no
+audit ended `killed` or `survived` in the last 31 days, with the command to run. That warning is the
+monthly cadence; evf has no scheduler. The audit runs only on this Mac, starts no model seat and calls
+no paid API. A `--with-verifier` step waits for Sebastian's answer to report decision D.2.
+
 ## Machine load limit
 
 Agents share one Mac. `evf task start`, `evf verify` and `evf browser run` wait while the 1-minute

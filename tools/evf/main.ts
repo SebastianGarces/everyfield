@@ -23,6 +23,7 @@ import {
 } from "./feedback.ts";
 import { listShipped, prOpen, ship, checkPr } from "./ship.ts";
 import { approve } from "./approve.ts";
+import { audit } from "./audit.ts";
 import { wikiClaimCheck } from "./wiki.ts";
 import { debugCmd, stack, taskStart } from "./task.ts";
 import { requireVerifiedHead, verify } from "./verify.ts";
@@ -178,6 +179,11 @@ Escaped bugs (coordinator; local only, never in CI)
                                                               in evf verify needs a green soak of each changed test's bytes
 
 Upkeep
+  evf audit [--task <task>] [--mutation <id>] [--seed <n>] [--dry-run] [--ignore-load "<reason>"]
+        monthly mutation audit of the answer key (OPS-116): plants one bug from a merged task's changed lines in a
+        detached temporary worktree of main, runs the task's AC: tests and tests/ui/escaped/; outcome killed,
+        survived (files one OPS task), invalid or baseline-red. No model tokens, no push, no branch, no PR
+  evf audit --list [--task <task>]                           the mutation candidates of one merged task
   evf ci-tests                                              check integration test inclusion in CI
   evf test [Node test options]                               local tooling regressions on evf's Node
   evf doctor [--here] [--browser-age <minutes>]               also lists headless browsers older than 15 min
@@ -224,13 +230,15 @@ function main(argv: string[]): number | Promise<number> {
 			? "2-5 minutes"
 			: cmd === "pre-push"
 				? "under 10 seconds"
-				: cmd === "timing"
-					? "5-20 minutes"
-					: cmd === "escape" && args[0] === "soak"
-						? "20-60 minutes (20 runs)"
-						: cmd === "verify" || cmd === "check" || (cmd === "ac" && args[0] === "run")
-							? "2-15 minutes"
-							: undefined;
+				: cmd === "audit" && !argv.includes("--list")
+					? "2-40 minutes"
+					: cmd === "timing"
+						? "5-20 minutes"
+						: cmd === "escape" && args[0] === "soak"
+							? "20-60 minutes (20 runs)"
+							: cmd === "verify" || cmd === "check" || (cmd === "ac" && args[0] === "run")
+								? "2-15 minutes"
+								: undefined;
 	if (duration) requireForeground(cmd, duration);
 	switch (cmd) {
 		case "ci-tests":
@@ -243,6 +251,19 @@ function main(argv: string[]): number | Promise<number> {
 				["--test", ...args, join(git(process.cwd(), "rev-parse", "--show-toplevel"), "tools/evf/tests/*.test.ts")],
 				{ cwd: process.cwd(), inherit: true },
 			).code;
+		case "audit": {
+			const list = flag(args, "--list"),
+				dryRun = flag(args, "--dry-run"),
+				task = option(args, "--task"),
+				mutation = option(args, "--mutation"),
+				seedArg = option(args, "--seed"),
+				ignoreLoad = option(args, "--ignore-load");
+			const seed = seedArg === undefined ? undefined : Number(seedArg);
+			if (seed !== undefined && (!Number.isInteger(seed) || seed < 0))
+				throw new EvfError("--seed takes a whole number.");
+			if (args.length || (list && (mutation || seedArg || dryRun))) break;
+			return audit(root, { list, task, mutation, seed, dryRun, ignoreLoad });
+		}
 		case "doctor": {
 			const here = flag(args, "--here"),
 				age = Number(option(args, "--browser-age") ?? 15);

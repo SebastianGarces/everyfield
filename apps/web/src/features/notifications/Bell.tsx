@@ -118,5 +118,5 @@ export function useNotificationBell() {
 			</PopoverContent>
 		</Popover>
 	);
-	return { unread: account.count ?? 0, open: show, element };
+	return { unread: account.count ?? 0, open: show, expanded: open, element };
 }
