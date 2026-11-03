@@ -2,7 +2,7 @@
 // set UI_BASE_URL and PEOPLE_UI_FIXTURE (tests/ui/people/seed.mts). Both browser engines run. The seed writes one
 // Frameworks group. The sidenav lists it by phase, then position: Setting up your website, Team handbook, Volunteer
 // guide (phase 0, reading length), Financial planning for a plant, Choosing a meeting place (phase 1), Raising support,
-// Diagram blocks, Counting Procedures, Partner Organization Coordination (phase 2), Launch checklist 1 to 22 (phase 3). The reading and bookmark tests write the owner's own state, so run the
+// Diagram blocks, Counting Procedures, Partner Organization Coordination (phase 2), Launch checklist 1 to 22 with the Guide articles after 6 (phase 3). The reading and bookmark tests write the owner's own state, so run the
 // suite once on a freshly seeded preview.
 import assert from "node:assert/strict";
 import { test } from "node:test";
