@@ -115,11 +115,7 @@ for (const [name, engine] of ENGINES) {
 				const response = await open(page, context, fixture("intelligence")[role].cookie);
 				assert.equal(response.status(), 200, role);
 				await page.getByRole("navigation", { name: "Plant Intelligence views" }).waitFor();
-				assert.equal(
-					await page.getByRole("link", { name: /Attestations/ }).getAttribute("aria-current"),
-					"page",
-					role,
-				);
+				assert.equal(await page.getByRole("link", { name: /Attestations/ }).getAttribute("aria-current"), "page", role);
 				assert.ok(await page.getByRole("button", { name: "Record a candidate" }).isVisible(), role);
 				assert.ok(await page.getByRole("button", { name: "Update: Alex Rivera" }).isVisible(), role);
 				assert.equal(await page.locator("main [data-tone=lock]").count(), 0, role);
