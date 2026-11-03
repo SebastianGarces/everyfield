@@ -254,7 +254,7 @@ changed and one `evf proof add` per `owner` or unchecked Done criterion it built
 file in the runtime dir exists and passes the `evf pr body` check, and the refusal names the failed check, so a body
 fault shows up before verify. UI work runs in the implementer seat unless the spec has the line `Seat: ui`.
 The verifier reads the full diff, reads the proof table and re-runs a flow only where a proof is unmet,
-missing or looks wrong; it captures a missing screenshot itself. A failed verify or ci costs a round, except a
+missing or looks wrong; it captures a missing screenshot itself. A failed verify, ci or ship costs a round, except a
 failed verify at a head where an earlier verify of the task already closed (a second review of an unchanged head
 records `review_repeat` and costs no round; it still counts toward the three-failure cap). The fourth
 round sets the task to escalated, records `loop_cap_hit` and `escalation`, shows a Herdr notification
@@ -263,7 +263,7 @@ passed stage escalate the same way, so no loop runs unattended forever. `evf tas
 "<two words or more>"` answers an escalation: it sets an escalated task to `pr_open` (it has a PR) or
 `active` and records a `reopen` event holding the highest run id. Later failure counts start after that
 run, so the task gets three more failures before it escalates again. It resets only the trailing-failure
-count, never the round (a task at the loop cap escalates again on its next failed verify or ci), and
+count, never the round (a task at the loop cap escalates again on its next failed verify, ci or ship), and
 it edits no run, event, approval or proof. It replaces the hand-written sqlite UPDATE. It refuses a task
 that is not escalated and refuses inside a seat (`EVF_RUN` set). The reason goes into the prompt of the first
 seat that launches afterwards, for every stage and verbatim, and into `evf refocus`; neither presents the failure
@@ -294,7 +294,7 @@ other launches, still gets all of it. If a drive dies inside its own pr, ci or s
 next drive aborts that run without a round and performs the stage again; a PR GitHub already merged is
 recorded, not shipped twice. Jonah polls `evf status --json`.
 
-**Circuit breaker (OPS-115).** The loop cap counts only verify and ci failures, and a passed run resets the
+**Circuit breaker (OPS-115).** The loop cap counts only verify, ci and ship failures, and a passed run resets the
 three-failure count, so neither stops a seat that closes `passed` again and again with nothing changed. When a seat
 closes a plan, implement, simplify or verify run itself with `evf run done`, evf records a progress fingerprint on the
 run: the worktree HEAD (`progress_head`) and a sha256 of the stored spec (`progress_spec`; migration 009). Run B is
@@ -360,13 +360,26 @@ is missing or names a dead pid) is orphaned. `evf status` (text, and `--json` un
 print one line for each: the ref, the run id, the stage, the age and one repair that never ships. A ship stage is
 repaired with `evf approve <PR>` once Sebastian approved, or `evf task reopen`; any other stage with
 `evf drive <task> --once`, whose restart recovery only aborts the run. A task already merged is repaired through the
-same late-merge path. Migration 005 closes the runs of tasks already merged. `markMerged` (ship, the drive's late
-merge and `evf approve`) closes every open `evf` run of the merged row `passed` with `<ref> merged as <sha10>`, and
+same merge check. Migration 005 closes the runs of tasks already merged. `markMerged` (ship, the drive's merge
+check and `evf approve`) closes every open `evf` run of the merged row `passed` with `<ref> merged as <sha10>`, and
 closes a seat run `aborted`. `evf approve` finds the row from the PR head branch and records the merge after the
 squash-merge; a branch with no row (a Wiki article) writes nothing.
 
-A merge ends the drive and the task. The drive exits 0 directly after its ship stage closes passed and makes
-no further transition. A standalone `evf ship` writes the same record: the ref's current row becomes `merged`
+**A drive ends by itself (OPS-123).** No watchdog script is needed to stop a drive; the drive stops itself. At start the drive
+pins one row: the ref's current row (a released follow-up slice included, with its own ask and seats), or a new row
+only when the ref has none. It reads that row by id on every pass and never creates or switches to another row
+while it runs. Each pass starts with an end check. An abandoned pinned row stops the drive with exit 2 and the line
+`drive <ref>: abandoned (store row <id> of <ref> was abandoned: <reason>; …)`. A pinned row that has a PR number
+and is not yet merged gets one `gh pr view` call: a PR GitHub merged (by hand, or by `evf approve` while the drive
+waited) is recorded with its merge commit. A merged pinned row, recorded by this drive's ship stage, by `evf ship` or
+`evf approve` in another process or by that GitHub check, ends the drive with exit 0 and the line
+`drive <ref>: done (merged as <sha>)`; no further stage runs. An unreadable GitHub does not end the drive; the pass
+goes on. The merge releases the next queued slice, but the running drive never starts it: a fresh `evf drive <ref>`
+pins and drives that slice. A failed ship does not end the drive either. It costs a round like a failed ci: evf
+records a `round` event with cause `ship` and the ship summary, and the next pass launches implement for that round
+with the summary in its prompt. A failed ship that takes the round past the loop cap escalates with that summary
+(`loop_cap_hit`, exit 2). An owner route ship still stops the drive at the wait (exit 0); after `evf approve`, a fresh
+drive ends at the merge. A standalone `evf ship` writes the same record: the ref's current row becomes `merged`
 with its merge commit and one `merged` event, or one merged row when the store had none, so `evf next` prints
 `done` (reason `merged`). Rewriting a row already merged with that commit changes nothing.
 
@@ -381,8 +394,8 @@ or EVF-Review session that evf never launched; a task row alone, from `evf check
 changes nothing for an ordinary PR.
 
 A ref has one current row: its latest row that is not `abandoned`, in any status. Every command that starts
-work (`evf drive`, `evf task spec`, `evf launch`, `evf proof add`) uses that row and never inserts a row for a
-merged ref; `evf drive` prints stage `done`, and `evf task spec` and `evf launch` fail. Only `evf task new
+work (`evf drive` at its start, `evf task spec`, `evf launch`, `evf proof add`) uses that row and never inserts a row
+for a merged ref; `evf drive` prints stage `done`, and `evf task spec` and `evf launch` fail. Only `evf task new
 <ref> --ask-file <file>` reopens a merged ref: it inserts one `new` row and its `task_new` event names the
 merged row it reopens (`reopens`).
 
@@ -804,6 +817,74 @@ ordering with docs/acceptance/check.py and docs/package-context.py --check-case-
 
 Run tooling regressions with `bin/evf test`. Disposable repositories and fake GitHub responses
 exercise workflow behavior only. Tests contact no real GitHub or application database.
+
+## Mutation audit
+
+`evf audit` (OPS-116) checks the answer key itself. A task's `AC:` tests can pass and still check
+nothing, so the audit plants one bug in code a merged task wrote and sees whether a test fails.
+
+```sh
+bin/evf audit --list --task WP-033                 # the candidates of one merged task
+bin/evf audit --task WP-033 --seed 42 --dry-run    # one run; prints the ask it would file
+bin/evf audit                                      # pick the task and the candidate
+```
+
+Flags:
+
+- `--list` prints the candidates: stable id, operator, file, line and a one-line diff.
+- `--task <task>` audits one task. It refuses a task with no merged row whose merge commit is on main,
+  and a task with no marked test, and names the reason.
+- `--mutation <id>` plants that candidate. `--seed <n>` repeats a seeded pick; every run prints its seed
+  and the command that repeats it.
+- `--dry-run` runs everything, prints the ask a survivor would file, and reserves no id and files nothing.
+- `--ignore-load "<reason>"` skips the machine load wait, which works as it does for `evf verify` (D80).
+
+Candidates come only from lines on current main that the task's merge commit last changed
+(`git blame`), in non-test source files under `apps/` and `packages/`. There are three operators.
+`off-by-one` swaps `<` and `<=` or `>` and `>=`, or moves an integer literal of a comparison or a
+`slice` bound by 1. `dropped-call` removes one whole call statement such as `setOpen(false);`.
+`removed-route` deletes a `page.tsx` or `route.ts` under `apps/web/app/` or `apps/web/src/app/`.
+
+The tests are every test on main whose node:test name carries `AC:<marker>` for one of the task's
+markers, plus every test in `tests/ui/escaped/*.test.mjs`. The markers are the package case IDs of a WP
+task and the `Check: AC:<task>-<n>` marker of each Done criterion of its stored spec (OPS-112's answer
+key, read with `acCriteria`). evf finds the files whose text carries a marker and runs each with
+`--test-name-pattern`, so a test whose name carries no marker never runs. A task whose files carry
+markers only in comments has no marked test: the run stops after the baseline and plants nothing.
+Files named `*.production.*` never run. Each file runs with `node --test` in the audit worktree (a
+TypeScript file through the `tsx` a workspace package installed, and outside `tests/ui/` and `tests/contracts/`
+with `--conditions=react-server`, as the package test scripts run them),
+with `NODE_ENV=test` and the home checkout's `apps/web/.env.local` (the development database); a
+`DATABASE_URL` in the shell does not reach it.
+When a selected `tests/ui` file opens a browser (it reads `setup.mjs` or `UI_BASE_URL`) and one of
+its tests will run (it is escaped, or a test name carries a marker), each tree gets a production
+preview through the configured stack, and both engines run because `UI_ENGINE` is unset.
+
+With no `--task`, the audit picks among tasks merged in the last 30 days that have a marked test and
+a candidate. Never-audited tasks go first, then the oldest last audit. The candidate is a seeded
+random pick.
+
+Each run creates a detached worktree of current main under the system temp folder. It creates no
+branch, pushes nothing and opens no PR. It runs the tests on main first, then plants the mutation,
+commits it on the detached HEAD and runs them again. The outcomes:
+
+- `killed`: a test failed on the mutant. Nothing is filed.
+- `survived`: no test failed. evf reserves an OPS id, files a `new` task titled
+  `Answer key for <task> missed <operator> in <file>:<line>` with the diff, the tests and a Done
+  template, and prints the `maintenanceTasks` entry to commit on that task's branch. It does not edit
+  `evf.config.json`. The same task, candidate and main SHA files once; a repeat prints the first id.
+- `invalid`: the mutant did not build or start (a test file failed to load, or its preview did not
+  start). It proves nothing and files nothing.
+- `baseline-red`: a test failed on main before any mutation. evf names the tests, plants nothing,
+  files nothing and exits 1.
+
+The worktree and any preview go away on success, failure and SIGTERM. A crashed run leaves its
+worktree; `evf doctor` reports it and the next `evf audit` removes it. The work store's `audit_runs`
+table records each run: task, merge commit, main SHA, candidate, operator, file, seed, outcome, each
+test's result, the filed task and the start and end times. `evf doctor` prints one warning when no
+audit ended `killed` or `survived` in the last 31 days, with the command to run. That warning is the
+monthly cadence; evf has no scheduler. The audit runs only on this Mac, starts no model seat and calls
+no paid API. A `--with-verifier` step waits for Sebastian's answer to report decision D.2.
 
 ## Machine load limit
 
