@@ -263,6 +263,9 @@
 	"communication.getTemplate": {
 		"limit": 1
 	},
+	"communication.handOffScheduled": {
+		"limit": 4
+	},
 	"communication.listDrafts": {
 		"limit": 1
 	},
@@ -315,7 +318,7 @@
 		"limit": 2
 	},
 	"communication.rescheduleDispatched": {
-		"limit": 2
+		"limit": 3
 	},
 	"communication.rescheduleReviewed": {
 		"limit": 2

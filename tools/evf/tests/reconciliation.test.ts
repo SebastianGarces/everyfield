@@ -4933,6 +4933,310 @@ test("OPS-109-unchanged: a P2 fix and a design task with Wiki paths keep their r
 	}
 });
 
+// OPS-122: evf ship promotes a PR's drafts in passes, so a draft that links to another draft of the PR promotes too.
+/** `d` with `edit` applied to its row, at the path its slug names. */
+function editedDraft(d: WikiDraft, edit: (row: any) => void): WikiDraft {
+	const row = JSON.parse(d.text);
+	edit(row);
+	return {
+		path: `docs/reference/wiki/drafts/${row.slug}.json`,
+		text: JSON.stringify(row, null, "\t") + "\n",
+		id: row.id,
+	};
+}
+/** A new draft named `name` whose related_article_slugs name `related`. */
+const linkingDraft = (f: { root: string }, name: string, related: string[]) =>
+	editedDraft(wikiDraft(f, name), (row) => (row.related_article_slugs = related));
+const slugOf = (d: WikiDraft) => JSON.parse(d.text).slug as string;
+/** A draft that renames the first published article to `name` in its section (replaces_id is its id). */
+function renamedDraft(f: { root: string }, name: string): WikiDraft {
+	const published = JSON.parse(readFileSync(join(f.root, "docs/reference/wiki/seed.json"), "utf8")).articles[0];
+	return editedDraft(wikiDraft(f, name), (row) => {
+		Object.assign(row, { ...published, slug: `${published.slug.replace(/\/[^/]+$/, "")}/${name}` });
+		Object.assign(row, { status: "draft", published_at: null });
+		row.draft.replaces_id = published.id;
+	});
+}
+const releaseIds = (wt: string, rev: string) =>
+	JSON.parse(at(wt, rev, "docs/reference/wiki/manifest.json")).releases.map((r: { id: string }) => r.id);
+/** Ship stops: the branch is back at `start`, the worktree is clean, nothing is pushed and no status is posted. */
+function assertNothingShipped(f: ReturnType<typeof wikiFixture>, start: string) {
+	assert.equal(headOf(f.wt), start, "the branch is back at the head it started from");
+	assert.equal(
+		execFileSync("git", ["-C", f.wt, "status", "--porcelain", "--untracked-files=all"], { encoding: "utf8" }),
+		"",
+	);
+	assert.equal(remoteHead(f.wt), start, "nothing pushed");
+	assert.deepEqual(callsWith(f, "POST"), []);
+}
+const shipError = (f: ReturnType<typeof wikiFixture>) => {
+	try {
+		capturedLog(() => ship(f.root, f.taskRef));
+	} catch (e) {
+		return (e as Error).message;
+	}
+	assert.fail("evf ship did not stop");
+};
+const LINT = "ERROR related_article_slugs must name known articles";
+/** Five drafts that sort before a renamed article and link to its new slug; ship promotes them all (PR #388's case). */
+function shipRenameCase(f: ReturnType<typeof wikiFixture>) {
+	const renamed = renamedDraft(f, "zz-welcome-renamed");
+	const linking = [1, 2, 3, 4, 5].map((n) => linkingDraft(f, `fixture-link-${n}`, [slugOf(renamed)]));
+	const drafts = [...linking, renamed];
+	assert.deepEqual(
+		drafts.map((d) => d.path),
+		drafts.map((d) => d.path).sort(),
+		"every linking draft sorts before the renamed article",
+	);
+	const reviewed = wikiHead(f, drafts);
+	const { value, lines } = capturedLog(() => ship(f.root, f.taskRef));
+	assert.equal(value, 0);
+	return { renamed, linking, drafts, reviewed, promoted: headOf(f.wt), lines };
+}
+/** A chain a -> b -> c in path order, so each draft needs the next one published first. */
+function shipChainCase(f: ReturnType<typeof wikiFixture>) {
+	const c = wikiDraft(f, "fixture-chain-c"),
+		b = linkingDraft(f, "fixture-chain-b", [slugOf(c)]),
+		a = linkingDraft(f, "fixture-chain-a", [slugOf(b)]);
+	const reviewed = wikiHead(f, [a, b, c]);
+	const { value, lines } = capturedLog(() => ship(f.root, f.taskRef));
+	assert.equal(value, 0);
+	return { a, b, c, reviewed, promoted: headOf(f.wt), lines };
+}
+
+test("AC:OPS-122-1 a renamed article and five drafts that sort before it and link to its new slug promote in one pushed commit", () => {
+	const f = wikiFixture();
+	try {
+		const { renamed, drafts, reviewed, promoted, lines } = shipRenameCase(f);
+		assert.equal(headOf(f.wt, "HEAD~2"), reviewed, "two commits: claim check, then one promotion");
+		assert.equal(
+			execFileSync("git", ["-C", f.wt, "log", "-1", "--format=%s"], { encoding: "utf8" }).trim(),
+			"OPS-1: promote 6 Wiki drafts",
+		);
+		assert.equal(remoteHead(f.wt), promoted, "pushed");
+		assert.match(lines.at(-1)!, /The verifier passed it; claim check recorded on 6 drafts and 6 drafts promoted\. /);
+		const seed = JSON.parse(at(f.wt, promoted, "docs/reference/wiki/seed.json"));
+		for (const d of drafts) {
+			const article = seed.articles.find((x: { id: string }) => x.id === d.id);
+			assert.equal(article.status, "published", d.path);
+			assert.equal(article.slug, slugOf(d));
+		}
+		assert.equal(
+			seed.articles.filter((x: { id: string }) => x.id === renamed.id).length,
+			1,
+			"the rename replaces the article",
+		);
+		assert.deepEqual(releaseIds(f.wt, promoted).slice(-6).sort(), drafts.map((d) => d.id).sort());
+		for (const d of drafts) assert.equal(existsSync(join(f.wt, d.path)), false, `${d.path} is deleted`);
+		const check = spawnSync(join(f.root, "bin/wiki"), ["check-seed", "--seed-dir", join(f.wt, "docs/reference/wiki")], {
+			encoding: "utf8",
+		});
+		assert.equal(check.status, 0, check.stderr);
+	} finally {
+		f.close();
+	}
+});
+
+test("AC:OPS-122-2 a chain of three drafts that each link to the next promotes in reverse path order in one ship and one commit", () => {
+	const f = wikiFixture();
+	try {
+		const { a, b, c, reviewed, promoted, lines } = shipChainCase(f);
+		assert.equal(headOf(f.wt, "HEAD~2"), reviewed, "two commits: claim check, then one promotion");
+		assert.equal(remoteHead(f.wt), promoted, "pushed");
+		assert.match(lines.at(-1)!, /3 drafts promoted\. /);
+		assert.deepEqual(releaseIds(f.wt, promoted).slice(-3), [c.id, b.id, a.id], "c first, then b, then a");
+	} finally {
+		f.close();
+	}
+});
+
+test("AC:OPS-122-3 a draft that names an unknown slug stops ship with its path and lint error, resets and pushes nothing", () => {
+	const f = wikiFixture();
+	try {
+		const broken = linkingDraft(f, "fixture-broken", ["administrative/financial/no-such-article"]),
+			start = wikiHead(f, [broken]);
+		const message = shipError(f);
+		assert.ok(
+			message.startsWith(`evf ship stopped before pushing anything: bin/wiki promote ${broken.path} failed: `),
+			message,
+		);
+		assert.ok(message.includes(`\n${broken.path}:\n`), message);
+		assert.ok(message.includes(LINT), message);
+		assert.ok(message.includes("Promotion requires a passing lint"), message);
+		assertNothingShipped(f, start);
+		assert.equal(at(f.wt, "HEAD", broken.path), broken.text, "the draft is unchanged");
+	} finally {
+		f.close();
+	}
+});
+
+test("AC:OPS-122-4 one broken draft among fine drafts promotes nothing and the message names only the broken draft", () => {
+	const f = wikiFixture();
+	try {
+		const before = wikiDraft(f, "fixture-a-fine"),
+			broken = linkingDraft(f, "fixture-b-broken", ["administrative/financial/no-such-article"]),
+			after = linkingDraft(f, "fixture-c-fine", [slugOf(before)]),
+			start = wikiHead(f, [before, broken, after]);
+		const message = shipError(f);
+		assert.ok(
+			message.startsWith(`evf ship stopped before pushing anything: bin/wiki promote ${broken.path} failed: `),
+			message,
+		);
+		assert.equal(message.split(LINT).length - 1, 1, message);
+		for (const fine of [before, after])
+			assert.ok(!message.includes(slugOf(fine)), `${fine.path} is not named: ${message}`);
+		assertNothingShipped(f, start);
+	} finally {
+		f.close();
+	}
+});
+
+test("AC:OPS-122-5 two drafts that link to each other fail; ship pushes nothing and names both with their lint errors", () => {
+	const f = wikiFixture();
+	try {
+		const x = editedDraft(wikiDraft(f, "fixture-cycle-x"), () => {});
+		const y = linkingDraft(f, "fixture-cycle-y", [slugOf(x)]);
+		const xLinked = editedDraft(x, (row) => (row.related_article_slugs = [slugOf(y)]));
+		const start = wikiHead(f, [xLinked, y]);
+		const message = shipError(f);
+		assert.ok(
+			message.startsWith(
+				`evf ship stopped before pushing anything: bin/wiki promote ${xLinked.path}, bin/wiki promote ${y.path} failed: `,
+			),
+			message,
+		);
+		for (const d of [xLinked, y])
+			assert.ok(new RegExp(`\\n${d.path}:\\n[^]*?${LINT}`).test(message), `${d.path}: ${message}`);
+		assert.equal(message.split(LINT).length - 1, 2, message);
+		assertNothingShipped(f, start);
+	} finally {
+		f.close();
+	}
+});
+
+test("AC:OPS-122-6 a promote attempt that writes and then fails is not retried: ship stops at once, resets and pushes nothing", () => {
+	const f = wikiFixture();
+	try {
+		const first = wikiDraft(f, "fixture-stub-a"),
+			second = wikiDraft(f, "fixture-stub-b"),
+			start = wikiHead(f, [first, second]);
+		const log = join(f.root, "wiki-calls.log");
+		for (const target of ["seed.json", "manifest.json", "the draft"]) {
+			// The stub logs its call, appends to `target` and exits 1, as a promotion that fails half way would.
+			const file = target === "the draft" ? '"$2"' : `"$last/${target}"`;
+			writeFileSync(
+				join(f.root, "bin/wiki"),
+				`#!/bin/sh\necho "$1 $2" >> ${JSON.stringify(log)}\nfor a; do last=$a; done\nprintf ' ' >> ${file}\necho "ERROR stub failure"\nexit 1\n`,
+			);
+			rmSync(log, { force: true });
+			const message = shipError(f);
+			assert.equal(
+				message,
+				`evf ship stopped before pushing anything: bin/wiki promote ${first.path} failed: ERROR stub failure\nIt changed the seed, manifest or draft before it failed.`,
+				target,
+			);
+			assert.deepEqual(
+				readFileSync(log, "utf8").trim().split("\n"),
+				[`promote ${join(f.wt, first.path)}`],
+				`${target}: one attempt only`,
+			);
+			assertNothingShipped(f, start);
+		}
+	} finally {
+		f.close();
+	}
+});
+
+test("AC:OPS-122-7 the review carries over an out-of-path-order promotion; a hand edit of a promoted article in that commit refuses", () => {
+	const f = wikiFixture();
+	try {
+		const { a, b, c, reviewed, promoted } = shipChainCase(f);
+		const main = headOf(f.root, "origin/main");
+		const carry = wikiCarryProof(f.wt, reviewed, promoted, main);
+		assert.deepEqual(carry, {
+			approvedHead: reviewed,
+			head: promoted,
+			claimChecked: [],
+			promoted: [a.path, b.path, c.path],
+		});
+		const seedPath = join(f.wt, "docs/reference/wiki/seed.json");
+		const seed = JSON.parse(readFileSync(seedPath, "utf8"));
+		seed.articles.find((x: { id: string }) => x.id === b.id).content += "\nAn unreviewed sentence.\n";
+		writeFileSync(seedPath, JSON.stringify(seed, null, 2) + "\n");
+		execFileSync("git", ["-C", f.wt, "commit", "-q", "--amend", "-a", "--no-edit"]);
+		assert.match(
+			String(wikiCarryProof(f.wt, reviewed, headOf(f.wt), main)),
+			/^seed\.json does not hold the reviewed article of \S+ as published$/,
+		);
+	} finally {
+		f.close();
+	}
+});
+
+test("AC:OPS-122-8 after an out-of-path-order promotion, approve needs his words for the promoted head and then merges it", () => {
+	const f = wikiFixture();
+	try {
+		const { drafts, reviewed, promoted } = shipRenameCase(f);
+		approvable(f, "task/ops-1", ["docs/reference/wiki/seed.json", "docs/reference/wiki/manifest.json"], promoted);
+		const t = f.getState();
+		t.commitStatus = verifiedStatus(promoted);
+		t.allowMerge = true;
+		t.mergeBranch = "task/ops-1";
+		t.calls = [];
+		f.setState(t);
+		for (const ownerApproval of [undefined, "", "yes"])
+			assert.throws(
+				() => inFakeCwd(f, () => approve(f.root, 77, { ownerApproval, head: promoted })),
+				/Quote Sebastian's approval/,
+			);
+		const words = "The welcome rename is good to merge";
+		assert.throws(
+			() => inFakeCwd(f, () => approve(f.root, 77, { ownerApproval: words, head: reviewed })),
+			/His approval does not carry over/,
+		);
+		assert.deepEqual(callsWith(f, "pr", "merge"), []);
+		assert.equal(
+			capturedLog(() => inFakeCwd(f, () => approve(f.root, 77, { ownerApproval: words, head: promoted }))).value,
+			0,
+		);
+		assert.deepEqual(callsWith(f, "pr", "merge")[0].args, [
+			"pr",
+			"merge",
+			"77",
+			"--squash",
+			"--match-head-commit",
+			promoted,
+		]);
+		const record = JSON.parse(readFileSync(join(evfDataDir(f.root), "shipped", "ops-1.json"), "utf8"));
+		assert.deepEqual(record.verification.wikiCarry, {
+			approvedHead: reviewed,
+			head: promoted,
+			claimChecked: [],
+			promoted: drafts.map((d) => d.path).sort(),
+		});
+		assert.equal(record.owner_approval.quote, words);
+		assert.equal(record.owner_approval.approved_head, promoted);
+	} finally {
+		f.close();
+	}
+});
+
+// The nested run gets only its own flags: process.execArgv would pass on this run's name pattern, and a nested run
+// that matched this test again would start another run without end. The env mark skips it in a nested run anyway.
+const NESTED = "EVF_TEST_NESTED_OPS109";
+test("AC:OPS-122-9 the OPS-109 wiki tests run and pass", { skip: process.env[NESTED] ? "nested run" : false }, () => {
+	// Inside a node:test process NODE_TEST_CONTEXT names the parent's protocol; the nested run would report nothing here.
+	const { NODE_TEST_CONTEXT: _, ...env } = process.env;
+	const r = spawnSync(
+		process.execPath,
+		["--test", "--test-reporter=tap", "--test-name-pattern=^OPS-109-", import.meta.filename],
+		{ encoding: "utf8", env: { ...env, [NESTED]: "1" }, maxBuffer: 64 * 1024 * 1024, timeout: 300_000 },
+	);
+	assert.equal(r.status, 0, r.stdout.slice(-4000) + r.stderr);
+	assert.match(r.stdout, /^# pass 7$/m, "the seven OPS-109 tests ran");
+	assert.match(r.stdout, /^# fail 0$/m);
+});
+
 // OPS-111: the landing and marketing site waits for Sebastian (mergePolicy.ownerPaths); stale evf code cannot ship or drive.
 import { drive } from "../drive.ts";
 import { markMergedByBranch, workDbPath } from "../db.ts";

@@ -122,7 +122,12 @@ export const guest = z.strictObject({
 	presence,
 	hasCard: z.boolean(),
 });
-export const guestList = z.strictObject({ meetingId, guests: z.array(guest).max(1000) });
+export const guestList = z.strictObject({
+	meetingId,
+	guests: z.array(guest).max(1000),
+	/** Owners and Admins only: when a guest first opened an email of this meeting. Not an RSVP and not attendance. */
+	emailOpens: z.array(z.strictObject({ personId, openedAt: instant })).max(1000),
+});
 /**
  * What an update from the ministry would change on a team meeting's guest list: live people serving now who are not
  * guests, and guests the ministry copy added who no longer serve. A guest added by hand is never removed; a guest
