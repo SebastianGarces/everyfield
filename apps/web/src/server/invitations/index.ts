@@ -54,12 +54,9 @@ export function invitationService(): ReturnType<typeof createInvitationService> 
 		budgetSecret: createHmac("sha256", v.IDENTITY_SECRET).update("invitation-budget").digest("hex"),
 		people: accountPersonProducer,
 		// The same address hash the mail service writes and the bounce callback blocks (WP-028).
-		addressBlocked: async (tx, email) => {
+		addressBlocked: (email) => {
 			const hash = createHmac("sha256", addressKey).update(email.trim().toLowerCase()).digest("hex");
-			const result = await tx.execute(
-				sql`SELECT EXISTS (SELECT 1 FROM suppression WHERE address_hash = ${hash} AND cleared_at IS NULL) AS blocked`,
-			);
-			return z.object({ blocked: z.boolean() }).parse(result.rows[0]).blocked;
+			return sql`EXISTS (SELECT 1 FROM suppression WHERE address_hash = ${hash} AND cleared_at IS NULL)`;
 		},
 		enqueueMail: (tx, m, command) => {
 			// Invitations belong to a plant or an organization; no other owner ever sends one.

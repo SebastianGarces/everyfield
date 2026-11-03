@@ -59,7 +59,7 @@ async function up(origin: string) {
 		origin,
 		budgetSecret: createHmac("sha256", secret).update("invitation-budget").digest("hex"),
 		people: accountPersonProducer,
-		addressBlocked: async () => false,
+		addressBlocked: () => sql`false`,
 		enqueueMail: (tx, m, command) => {
 			if (m.owner.kind === "global") throw Error("unavailable");
 			return mail.append(
