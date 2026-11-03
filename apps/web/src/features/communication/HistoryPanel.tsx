@@ -195,7 +195,9 @@ const stateTone: Record<HubState, string> = {
 
 function StateBadge({ state }: { state: HubState }) {
 	return (
-		<span className={`inline-flex h-6 items-center rounded-full px-2.5 text-xs font-medium ${stateTone[state]}`}>
+		<span
+			className={`inline-flex h-6 shrink-0 items-center rounded-full px-2.5 text-xs font-medium whitespace-nowrap ${stateTone[state]}`}
+		>
 			{hubLabel[state]}
 		</span>
 	);
