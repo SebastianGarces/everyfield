@@ -935,6 +935,24 @@ async function organization() {
 	await admin.insert(t.seat).values({ account_id: a.id, organization_id: id, role: "owner", accepted_at: new Date() });
 	return { o, a };
 }
+test("AC:CASE-NTF-004 WP-030 D-a: an organization member who never saved an oversight choice sees the bell on, email off and daily", async () => {
+	const { a } = await organization();
+	const current = ok(await section(a, { section: "notifications" }));
+	const oversight = (channel) =>
+		current.values.choices.find((c) => c.category === "oversight_digest" && c.channel === channel).enabled;
+	assert.deepEqual([oversight("in_app"), oversight("email"), current.values.oversightCadence], [true, false, "daily"]);
+	// Saving the cadence keeps the channels the person sees: the stored rows match the defaults shown.
+	const saved = ok(
+		await call(
+			"saveSection",
+			a,
+			command({ section: "notifications", patch: { kind: "oversight_cadence", cadence: "weekly" } }, current.revision),
+		),
+	);
+	const after = (channel) =>
+		saved.current.values.choices.find((c) => c.category === "oversight_digest" && c.channel === channel).enabled;
+	assert.deepEqual([after("in_app"), after("email"), saved.current.values.oversightCadence], [true, false, "weekly"]);
+});
 test("AC:ORG55-001 AC:ORG55-007 AC:TARGET-IDN-026 organization profile and exact-pair sharing use the shared producers with one revision/audit/intent set", async () => {
 	const f = await plant(),
 		g = await plant(),
@@ -1190,7 +1208,7 @@ test("AC:TARGET-TSK-018 frozen schedule previews disclose fold/gap policy and ig
 
 test("AC:WP010-IDN-012 exact task preference reaches enqueue and dispatch; church digest OFF stops owed delivery", async () => {
 	const { createNotificationService } = await import("../../../apps/web/src/server/jobs/notifications.ts");
-	const { createDigestService } = await import("../../../apps/web/src/server/jobs/digest.ts");
+	const { createDigestWorker, planDigests } = await import("../../../apps/web/src/server/jobs/digest.ts");
 	const { claimDue } = await import("../../../apps/web/src/server/jobs/queue.ts");
 	const f = await plant(),
 		task = randomUUID();
@@ -1289,17 +1307,18 @@ test("AC:WP010-IDN-012 exact task preference reaches enqueue and dispatch; churc
 	ok(
 		await call("setDigestSchedule", f.a, command({ plant: f.p, schedule: { cadence: "off" } }, profile.revision), f.p),
 	);
-	const digest = createDigestService({
-		origin,
-		nativePath: () => "/settings",
-		mail: sender,
-		eligible: async () => ({ address: "test@example.test", cadence: "weekly" }),
-		load: async () => {
-			throw Error("OFF digest must not load church content");
-		},
-	});
-	const result = await db.transaction((tx) => digest.generateOwed(tx, f.p, f.a.id, "2099-01-18T23:00:00Z"));
-	assert.deepEqual(result, { kind: "disabled" });
+	// The runner plans and delivers across two weekly slots: a church whose digest is off owes nobody anything.
+	const digests = createDigestWorker({ mail: sender, origin });
+	for (const at of ["2099-01-11T23:00:00.000Z", "2099-01-18T23:00:00.000Z"]) {
+		await planDigests(db, at);
+		await digests.run(db, at, 100);
+	}
+	const [owed] = (
+		await admin.execute(sql`SELECT (SELECT count(*) FROM digest_coverage WHERE recipient_id=${f.a.id})::int AS coverage,
+			(SELECT count(*) FROM notice WHERE recipient_id=${f.a.id} AND category='digest')::int AS notices,
+			(SELECT count(*) FROM mail WHERE recipient_account_id=${f.a.id} AND purpose='planter_digest')::int AS mail`)
+	).rows;
+	assert.deepEqual(owed, { coverage: 0, notices: 0, mail: 0 });
 });
 
 test("AC:TARGET-IDN-007 AC:TARGET-IDN-008 native credential budgets use own login rather than target and refuse exhausted password failures", async () => {

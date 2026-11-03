@@ -58,6 +58,8 @@ export type SettingsDialogProps = {
 	slots?: Partial<Record<SectionKey, ReactNode>>;
 	/** A deletion was requested: the session ends and the restricted status page takes over. */
 	onDeletionRequested: (status: DeletionStatus | null) => void;
+	/** Header buttons left of Close, such as the Guide: the dialog covers the frame's own Guide button. */
+	headerActions?: ReactNode;
 };
 
 /**
@@ -65,7 +67,14 @@ export type SettingsDialogProps = {
  * Every section has its own URL. Drafts stay while you move between sections; closing with unsaved changes asks
  * before discarding them, also when Back leaves settings (REQ-IDN-010).
  */
-export function SettingsDialog({ section, onNavigate, hrefFor, slots = {}, onDeletionRequested }: SettingsDialogProps) {
+export function SettingsDialog({
+	section,
+	onNavigate,
+	hrefFor,
+	slots = {},
+	onDeletionRequested,
+	headerActions,
+}: SettingsDialogProps) {
 	const { viewer } = useSettings();
 	const dirty = useDirtySections();
 	const offered = offeredSections(viewer, Object.keys(slots) as SectionKey[]);
@@ -209,6 +218,7 @@ export function SettingsDialog({ section, onNavigate, hrefFor, slots = {}, onDel
 									</span>
 								}
 								description={allowed && current ? DESCRIPTION[current] : undefined}
+								actions={headerActions}
 							/>
 							{current === null ? null : allowed ? (
 								<SectionContent

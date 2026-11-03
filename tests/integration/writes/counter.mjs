@@ -26,7 +26,6 @@ const factories = {
 	createMailService: "mail",
 	createNotificationService: "notifications",
 	createNotificationProducer: "notifications",
-	createDigestService: "digest",
 	createLifecycleCleanup: "lifecycle.purge",
 	referenceService: "reference",
 	attemptBudget: "identity.budget",

@@ -1,5 +1,6 @@
 import { notificationCategory, type NotificationReply } from "@everyfield/contracts/notifications";
 import { emailOptOutResult, emailOptOutRequest, optOutPurpose } from "@everyfield/contracts/notifications";
+import { defaultChannelEnabled } from "@everyfield/contracts/settings";
 import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
@@ -90,10 +91,6 @@ function windowTooLong(claim: Payload) {
 	return Date.parse(claim.exp) - Date.parse(claim.iat) > boundMs(claim.purpose);
 }
 
-function defaultInApp(category: string) {
-	return category !== "planter_digest";
-}
-
 async function readState(db: Database, claim: Payload) {
 	const result = await db.execute(sql`WITH locked AS (
 			SELECT id FROM account WHERE id = ${claim.accountId}::uuid AND registration_state = 'active'
@@ -102,9 +99,9 @@ async function readState(db: Database, claim: Payload) {
 			COALESCE((SELECT unsubscribe_revision::text FROM notification_preference
 				WHERE account_id = (SELECT id FROM locked) AND category = ${claim.category} AND channel = 'email'), '0') AS rev,
 			COALESCE((SELECT enabled FROM notification_preference
-				WHERE account_id = (SELECT id FROM locked) AND category = ${claim.category} AND channel = 'email'), true) AS email_enabled,
+				WHERE account_id = (SELECT id FROM locked) AND category = ${claim.category} AND channel = 'email'), ${defaultChannelEnabled(claim.category, "email")}) AS email_enabled,
 			COALESCE((SELECT enabled FROM notification_preference
-				WHERE account_id = (SELECT id FROM locked) AND category = ${claim.category} AND channel = 'in_app'), ${defaultInApp(claim.category)}) AS in_app_enabled,
+				WHERE account_id = (SELECT id FROM locked) AND category = ${claim.category} AND channel = 'in_app'), ${defaultChannelEnabled(claim.category, "in_app")}) AS in_app_enabled,
 			false AS changed`);
 	return stateRow.parse(result.rows[0]);
 }
@@ -122,9 +119,9 @@ async function writeState(db: Database, claim: Payload) {
 		state AS (
 			SELECT (SELECT id FROM locked) AS account_id,
 				COALESCE((SELECT unsubscribe_revision::text FROM email_pref), '0') AS rev,
-				COALESCE((SELECT enabled FROM email_pref), true) AS email_enabled,
+				COALESCE((SELECT enabled FROM email_pref), ${defaultChannelEnabled(claim.category, "email")}) AS email_enabled,
 				COALESCE((SELECT enabled FROM notification_preference
-					WHERE account_id = (SELECT id FROM locked) AND category = ${claim.category} AND channel = 'in_app'), ${defaultInApp(claim.category)}) AS in_app_enabled
+					WHERE account_id = (SELECT id FROM locked) AND category = ${claim.category} AND channel = 'in_app'), ${defaultChannelEnabled(claim.category, "in_app")}) AS in_app_enabled
 		),
 		upserted AS (
 			INSERT INTO notification_preference (account_id, category, channel, enabled, unsubscribe_revision)

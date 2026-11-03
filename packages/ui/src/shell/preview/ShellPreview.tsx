@@ -41,6 +41,7 @@ export function ShellPreview({ role, children }: { role: PreviewRole; children?:
 			unread={PREVIEW_UNREAD[role]}
 			onSearch={() => setLastAction("Search opens the command palette (WP-089).")}
 			onNotifications={() => setLastAction("Notifications opens the notification pop-over (WP-030).")}
+			notificationsOpen={false}
 			onAskEvry={() => setLastAction("Ask Evry opens the Evry panel (WP-051).")}
 			userMenu={
 				<MenuItem onSelect={() => setLastAction("The user menu lists your account, settings and Sign out (WP-010).")}>
