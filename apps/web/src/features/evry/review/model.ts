@@ -276,7 +276,8 @@ const MAIL_PENDING: Record<string, string> = {
 /** The head of an email card once it has a saved outcome: only what the email service confirmed is called done. */
 export function mailHead(review: Review, phase: Phase): MailHead | null {
 	if (!isMail(review.operation)) return null;
-	if (phase === "pending") return { title: review.stale ? "Message changed" : MAIL_PENDING[review.operation]!, tone: "amber" };
+	if (phase === "pending")
+		return { title: review.stale ? "Message changed" : MAIL_PENDING[review.operation]!, tone: "amber" };
 	if (phase === "running")
 		return {
 			title: review.operation === "communication.saveDraft" ? "Saving…" : "Working with the email service…",
@@ -361,9 +362,7 @@ export function hasBirthDate(review: Review, edits: Record<string, string>) {
 }
 
 export const editableChanges = (review: Review) =>
-	review.review.withheld || isMail(review.operation)
-		? []
-		: review.review.changes.filter((c) => !FIXED.has(c.field));
+	review.review.withheld || isMail(review.operation) ? [] : review.review.changes.filter((c) => !FIXED.has(c.field));
 
 /** The native command's input for this review with `edits` applied, or null when the review can't be rebuilt. */
 export function reviseInput(review: Review, edits: Record<string, string> = {}): unknown {
@@ -382,7 +381,11 @@ export function reviseInput(review: Review, edits: Record<string, string> = {}):
 	if (review.operation === "communication.saveDraft") {
 		const a = audienceOf(after("audience"));
 		return a
-			? { subject: after("subject"), body: after("body"), audience: { groups: a.groups, teamIds: a.teamIds, personIds: a.personIds } }
+			? {
+					subject: after("subject"),
+					body: after("body"),
+					audience: { groups: a.groups, teamIds: a.teamIds, personIds: a.personIds },
+				}
 			: null;
 	}
 	if (!target) return null;
@@ -411,7 +414,9 @@ export function reviseInput(review: Review, edits: Record<string, string> = {}):
 			return {
 				communicationId: target.id,
 				...(typeof body === "string" ? { body } : {}),
-				...(audience ? { audience: { groups: audience.groups, teamIds: audience.teamIds, personIds: audience.personIds } } : {}),
+				...(audience
+					? { audience: { groups: audience.groups, teamIds: audience.teamIds, personIds: audience.personIds } }
+					: {}),
 			};
 		}
 	}

@@ -17,7 +17,8 @@ import {
 // What an email review shows (MAIL51-009): the subject, who gets it and who is left out, the exact content, and the send
 // time in the church's zone. After approval it shows only what the email service confirmed, never "delivered".
 
-const find = (review: Review, field: string): Change | undefined => review.review.changes.find((c) => c.field === field);
+const find = (review: Review, field: string): Change | undefined =>
+	review.review.changes.find((c) => c.field === field);
 const text = (value: unknown) => (typeof value === "string" ? value : "");
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
@@ -35,7 +36,9 @@ const Then = () => (
 	</>
 );
 const Old = ({ children }: { children: ReactNode }) => <span className="text-text-2 line-through">{children}</span>;
-const New = ({ children }: { children: ReactNode }) => <span className="font-medium break-words text-ink">{children}</span>;
+const New = ({ children }: { children: ReactNode }) => (
+	<span className="font-medium break-words text-ink">{children}</span>
+);
 
 /** A long text kept in its own block so a body reads as the reader will see it. */
 function Block({ label, children, muted }: { label: string; children: string; muted?: boolean }) {
@@ -43,7 +46,12 @@ function Block({ label, children, muted }: { label: string; children: string; mu
 		<div className="flex flex-col gap-1">
 			<dt className="text-text-2">{label}</dt>
 			<dd>
-				<p className={cn("rounded-md bg-surface-raised px-3 py-2 whitespace-pre-line shadow-[inset_0_0_0_1px_var(--ef-line)]", muted && "text-text-2")}>
+				<p
+					className={cn(
+						"rounded-md bg-surface-raised px-3 py-2 whitespace-pre-line shadow-[inset_0_0_0_1px_var(--ef-line)]",
+						muted && "text-text-2",
+					)}
+				>
 					{children}
 				</p>
 			</dd>
@@ -116,7 +124,9 @@ export function MailChanges({ review }: { review: Review }) {
 					<Block label="What each person sees">{text(content)}</Block>
 				</>
 			) : null}
-			{op === "communication.rescheduleReviewed" || op === "communication.cancelScheduledReviewed" || op === "communication.replaceScheduledReviewed" ? (
+			{op === "communication.rescheduleReviewed" ||
+			op === "communication.cancelScheduledReviewed" ||
+			op === "communication.replaceScheduledReviewed" ? (
 				<Row label="People">
 					<New>
 						{String(count ?? 0)} {Number(count) === 1 ? "person" : "people"}
@@ -205,7 +215,8 @@ export function MailResult({ review }: { review: Review }) {
 			<>
 				<Tally items={COUNTS.map(([k, label]) => [label, Number(report[k] ?? 0)])} />
 				<p className="text-text-2">
-					The email service accepted these for {at}. Accepted is not delivered. It reports delivery later.
+					The email service accepted these for {at}. Accepted does not mean the email arrived. The email service reports
+					what happens next.
 				</p>
 			</>
 		);

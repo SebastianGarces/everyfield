@@ -201,7 +201,10 @@ function useReview(proposalId: string) {
 		const code = reply.status === "refused" ? reply.error.code : null;
 		if (current && (code === "review_expired" || code === "review_closed" || code === "photo_unavailable"))
 			return false;
-		setNotice({ text: actionNotice(reply.status === "refused" ? reply.error : "lost", isMail(before.operation)), tone: "error" });
+		setNotice({
+			text: actionNotice(reply.status === "refused" ? reply.error : "lost", isMail(before.operation)),
+			tone: "error",
+		});
 		return false;
 	}
 
@@ -475,7 +478,10 @@ export function ReviewCard({ proposalId, target }: { proposalId: string; target:
 	const why = note(view, review, r.lapsed, unknown);
 	const base = view === "loading" || view === "lost" ? HEAD.pending : HEAD[view];
 	// An email card says only what the email service confirmed (model.ts mailHead).
-	const mailTitle = review && (view === "pending" || view === "running" || view === "completed" || view === "refused") ? mailHead(review, view) : null;
+	const mailTitle =
+		review && (view === "pending" || view === "running" || view === "completed" || view === "refused")
+			? mailHead(review, view)
+			: null;
 	const h = mailTitle ? { ...base, title: mailTitle.title, tone: mailTitle.tone } : base;
 	const title = view === "loading" || view === "lost" ? (target ? `Change for ${target}` : "Prepared change") : h.title;
 	const meta =
@@ -545,7 +551,11 @@ export function ReviewCard({ proposalId, target }: { proposalId: string; target:
 							</>
 						) : (
 							<>
-								<Changes review={review} staged={photoGone ? { status: "gone" } : staged.photo} onRetry={staged.retry} />
+								<Changes
+									review={review}
+									staged={photoGone ? { status: "gone" } : staged.photo}
+									onRetry={staged.retry}
+								/>
 								{consequence(review) ? <p className="text-sm text-text-2">{consequence(review)}</p> : null}
 							</>
 						)}

@@ -48,6 +48,105 @@ function classify(text: string) {
 	return "application";
 }
 
+// Email requests (MAIL51-009): "draft an email to the launch team", "schedule it for Friday at 9am", "move the Friday
+// email to Saturday at 9am", "cancel the Friday email", "replace the body of the Friday email with: ...". The same
+// tools a model uses: find the message with a read, then propose the reviewed change.
+const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+/** The next date (UTC calendar) of a weekday name, from today: "friday" is never today. */
+function nextDate(day: string, now = new Date()) {
+	const ahead = (DAYS.indexOf(day.toLowerCase()) - now.getUTCDay() + 7) % 7 || 7;
+	return new Date(now.getTime() + ahead * 86_400_000).toISOString().slice(0, 10);
+}
+function clock(hour: string, am: string) {
+	const h = (Number(hour) % 12) + (/^p/i.test(am) ? 12 : 0);
+	return `${String(h).padStart(2, "0")}:00`;
+}
+const DAY = "(sunday|monday|tuesday|wednesday|thursday|friday|saturday)";
+function emailRequest(text: string) {
+	const schedule = new RegExp(`\\bschedule it for ${DAY} at (\\d{1,2})\\s*(am|pm)\\b`, "i").exec(text);
+	const relative = /\bschedule it for (yesterday|\d{1,3} days from now) at (\d{1,2})\s*(am|pm)\b/i.exec(text);
+	const move = new RegExp(`\\bmove the ${DAY} email to ${DAY} at (\\d{1,2})\\s*(am|pm)\\b`, "i").exec(text);
+	const cancel = new RegExp(`\\bcancel the ${DAY} email\\b`, "i").exec(text);
+	const body = new RegExp(`\\breplace the body of the ${DAY} email with:\\s*(.+)$`, "is").exec(text);
+	const audience = new RegExp(`\\bchange the ${DAY} email to go to the launch team\\b`, "i").exec(text);
+	const draft = /\bdraft an email to the launch team\b/i.test(text);
+	return { schedule, relative, move, cancel, body, audience, draft };
+}
+function emailStep(text: string, canPropose: boolean, canRead: boolean, result: Record<string, unknown> | null) {
+	const e = emailRequest(text);
+	if (!canPropose) return null;
+	if (e.draft && !result)
+		return [
+			toolCall("propose_change", {
+				operation: "communication.saveDraft",
+				input: {
+					subject: "Sunday's interest meeting",
+					body: "Hi {{name}},\n\nWe are holding an interest meeting on Sunday at 4 pm. Please come and bring a friend.\n\nSee you there.",
+					audience: { groups: ["launch_team"] },
+				},
+			}),
+		];
+	const target = e.schedule ?? e.relative ?? e.move ?? e.cancel ?? e.body ?? e.audience;
+	if (!target || !canRead) return null;
+	const sendOn = e.schedule || e.relative ? undefined : nextDate(target[1]!);
+	if (!result)
+		return [
+			toolCall("communication_read", {
+				operation: "communication.list",
+				input: e.schedule || e.relative ? { state: "draft" } : { state: "scheduled", sendOn },
+			}),
+		];
+	const first = (result.rows as { id: string }[] | undefined)?.[0];
+	if (!first || typeof result.proposalId === "string") return null;
+	if (e.schedule)
+		return [
+			toolCall("propose_change", {
+				operation: "communication.scheduleReviewed",
+				input: {
+					communicationId: first.id,
+					sendAt: `${nextDate(e.schedule[1]!)}T${clock(e.schedule[2]!, e.schedule[3]!)}`,
+				},
+			}),
+		];
+	if (e.relative) {
+		const days = e.relative[1]!.toLowerCase() === "yesterday" ? -1 : Number(/\d+/.exec(e.relative[1]!)![0]);
+		const date = new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+		return [
+			toolCall("propose_change", {
+				operation: "communication.scheduleReviewed",
+				input: { communicationId: first.id, sendAt: `${date}T${clock(e.relative[2]!, e.relative[3]!)}` },
+			}),
+		];
+	}
+	if (e.move)
+		return [
+			toolCall("propose_change", {
+				operation: "communication.rescheduleReviewed",
+				input: { communicationId: first.id, sendAt: `${nextDate(e.move[2]!)}T${clock(e.move[3]!, e.move[4]!)}` },
+			}),
+		];
+	if (e.cancel)
+		return [
+			toolCall("propose_change", {
+				operation: "communication.cancelScheduledReviewed",
+				input: { communicationId: first.id },
+			}),
+		];
+	if (e.body)
+		return [
+			toolCall("propose_change", {
+				operation: "communication.replaceScheduledReviewed",
+				input: { communicationId: first.id, body: e.body[2]!.trim() },
+			}),
+		];
+	return [
+		toolCall("propose_change", {
+			operation: "communication.replaceScheduledReviewed",
+			input: { communicationId: first.id, audience: { groups: ["launch_team"] } },
+		}),
+	];
+}
+
 const FORMATTING = /\bformatting demo\b/i;
 const FORMATTING_ANSWER = [
 	"There are **19 prospects** in this church, and the *list is complete*.",
@@ -74,6 +173,11 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 		text,
 	);
 	const result = lastToolOutput(options.prompt);
+	const canReadMail = options.tools?.some((t) => t.name === "communication_read") ?? false;
+	const email = emailStep(text, canPropose, canReadMail, result);
+	if (email) return email;
+	if (result && typeof result.proposalId === "string" && emailRequest(text).draft)
+		return [{ type: "text", text: "I prepared a draft for your review. Nothing is saved until you approve it." }];
 	if (result) {
 		if (result.error) return [{ type: "text", text: `I could not finish that read (${String(result.error)}).` }];
 		if (typeof result.proposalId === "string") {
@@ -82,6 +186,13 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 				fields: { changes: { field: string; before: unknown; after: unknown }[] };
 			}[];
 			if (!target) return [{ type: "text", text: "I prepared a change, but its source is no longer available." }];
+			if (/\b(schedule|move|cancel|replace|change the \w+ email)\b/i.test(text))
+				return [
+					{
+						type: "text",
+						text: `I prepared a review for ${target.label}. Nothing is sent or changed until you approve it.`,
+					},
+				];
 			const changes = target.fields.changes.map(
 				(c) => `${c.field} from ${String(c.before ?? "empty")} to ${String(c.after ?? "empty")}`,
 			);
