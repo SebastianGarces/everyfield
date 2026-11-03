@@ -450,7 +450,8 @@ test("OPS-86-owner: owner-review text and evf status start with a Partial: line 
 		newTask(f.root, "WP-097", "Ask.");
 		newTask(f.root, "WP-098", "Other ask.");
 		storeSpec(f.root, "WP-097", specWith(["Two: /oversight."]));
-		storeSpec(f.root, "WP-098", specWith([]));
+		// WP-098 owns a UI path, so its spec carries a Check: line per criterion (OPS-112).
+		storeSpec(f.root, "WP-098", specWith([]).replace(/^(\d\. .*)$/gm, "$1\n   Check: owner — fixture"));
 		const wait = "PR #9 is verified and waits for Sebastian's chat approval, then evf approve.";
 		assert.equal(
 			withPartial(f.root, parseTask("WP-097"), wait),
