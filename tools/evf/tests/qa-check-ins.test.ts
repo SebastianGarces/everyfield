@@ -278,7 +278,7 @@ test("OPS-125: every seed refusal stops before a connection and leaves no check-
 	assert.deepEqual((await seeded()).refused, { private_week: 0, private_week_revision: 0, private_calendar: 0 });
 });
 
-test("OPS-125: no app or package imports the QA tooling, and the change edits no app or package AC:OPS-125-8", () => {
+test("OPS-125: no app or package imports the QA tooling, and the change edits no app or package AC:OPS-125-8", (t) => {
 	const importers: string[] = [];
 	const walk = (dir: string) => {
 		for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -293,6 +293,12 @@ test("OPS-125: no app or package imports the QA tooling, and the change edits no
 	walk(join(source, "packages"));
 	assert.deepEqual(importers, []);
 	const git = (...args: string[]) => spawnSync("git", args, { cwd: source, encoding: "utf8" });
+	// CI checks out the PR merge commit at depth 1, with no main ref and no parents to diff against.
+	// The diff half then runs in `evf ac run` on the full worktree, where main is present.
+	if (git("rev-parse", "--is-shallow-repository").stdout.trim() === "true") {
+		t.diagnostic("shallow checkout: no main history, so only the import scan runs");
+		return;
+	}
 	const base = ["origin/main", "main"].map((ref) => git("merge-base", "HEAD", ref)).find((r) => r.status === 0);
 	assert.ok(base, "no main ref to compare with");
 	const changed = git("diff", "--name-only", base.stdout.trim(), "HEAD").stdout.split("\n").filter(Boolean);
