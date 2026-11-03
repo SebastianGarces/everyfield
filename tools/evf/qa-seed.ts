@@ -532,9 +532,11 @@ async function wikiCases(admin: Database, plantId: string, owner: string): Promi
 			admin,
 			sql`SELECT 1 FROM affiliation WHERE plant_id=${plantId} AND organization_id=${orgId} AND ended_at IS NULL`,
 		);
-		if (!linked.length)
+		if (!linked.length) {
 			await admin.execute(sql`INSERT INTO affiliation(id,plant_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
 				VALUES(${randomUUID()},${plantId},${orgId},clock_timestamp()-(${source.acceptedDaysAgo} || ' days')::interval,false,false,false,false,true,false,false)`);
+			done.push(`affiliation with ${source.name}`);
+		}
 		const copied = await rows(
 			admin,
 			sql`SELECT 1 FROM article_editor_state WHERE organization_id=${orgId} AND article_id=${articleA}`,

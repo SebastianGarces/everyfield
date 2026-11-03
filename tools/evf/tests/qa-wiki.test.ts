@@ -353,7 +353,7 @@ test("AC:OPS-127-8 a second seed run writes nothing; the first run names the new
 	for (const b of [await fresh(), await development()]) {
 		assert.match(
 			b.first,
-			/QA seed wrote: .*sending church Grace Fellowship \(QA\), sending network Harvest Network \(QA\)/,
+			/QA seed wrote: .*sending church Grace Fellowship \(QA\), affiliation with Grace Fellowship \(QA\), sending network Harvest Network \(QA\), affiliation with Harvest Network \(QA\)/,
 		);
 		assert.match(b.first, /wiki copies of .*, wiki revision of .*, wiki reading/);
 		const counts = async () => {
@@ -371,6 +371,14 @@ test("AC:OPS-127-8 a second seed run writes nothing; the first run names the new
 		assert.equal(String(again.stdout).trim(), "QA seed: the branch is already complete.");
 		assert.deepEqual(await counts(), before);
 	}
+	// A run that stopped after an organization but before its affiliation: the rerun writes it and says so.
+	const b = await fresh();
+	await b.query(`DELETE FROM affiliation WHERE organization_id = (SELECT id FROM organization WHERE name = $1)`, [
+		NETWORK,
+	]);
+	const repair = b.seed();
+	assert.equal(repair.status, 0, String(repair.stderr));
+	assert.equal(String(repair.stdout).trim(), `QA seed wrote: affiliation with ${NETWORK}.`);
 });
 
 test("AC:OPS-127-9 the new organizations add no login, seat or outside address; the OPS-106 seed test passes", async () => {
@@ -408,9 +416,19 @@ test("AC:OPS-127-9 the new organizations add no login, seat or outside address; 
 
 test("AC:OPS-127-10 the QA runbook names articles A and B, the church and the network, and what the owner sees", () => {
 	const runbook = readFileSync(join(source, "docs/runbooks/qa-preview.md"), "utf8");
+	// Development installs the approved Wiki seed, where position is sort_order. The seed's rule (first two published
+	// articles by position, then slug) picks these two there.
+	const approved = JSON.parse(readFileSync(join(source, "docs/reference/wiki/seed.json"), "utf8")) as {
+		articles: { slug: string; title: string; sort_order: number; status: string; published_at: string | null }[];
+	};
+	const [devA, devB] = approved.articles
+		.filter((article) => article.status === "published" && article.published_at)
+		.sort((x, y) => x.sort_order - y.sort_order || (x.slug < y.slug ? -1 : x.slug > y.slug ? 1 : 0));
+	assert.equal(devA!.title, "First Year Budget Planning");
+	assert.equal(devB!.title, "Setting Up a Not-for-Profit Corporation");
+	assert.match(runbook, new RegExp(`Article A, "${devA!.title}"`));
+	assert.match(runbook, new RegExp(`Article B, "${devB!.title}"`));
 	for (const text of [
-		"First Year Budget Planning",
-		"Setting Up a Not-for-Profit Corporation",
 		CHURCH,
 		NETWORK,
 		"Church version",
