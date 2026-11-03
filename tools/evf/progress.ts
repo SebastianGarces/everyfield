@@ -97,7 +97,7 @@ export function reviewedMilestone(root: string, record: ShippedRecord): boolean 
 			(v.carry?.approvedHead !== v.approval.head ||
 				v.carry.head !== v.head ||
 				typeof carryProof(root, v.approval.head, v.head, baseRef(root, cfg)) === "string")) ||
-		v.approval.verdict !== "approved" ||
+		v.approval.verdict === "changes_requested" ||
 		!independentRecord(v) ||
 		!v.checks.length ||
 		v.checks.some((c) => c.bucket !== "pass")
@@ -115,15 +115,20 @@ export function producerReady(root: string, wp: string): boolean {
 	const p = existsSync(path) ? readJson<Progress>(path).packages[wp] : undefined;
 	if (p?.status === "done") return true;
 	const pkg = findPackage(loadDag(root), wp);
-	const anchor = partsOf(pkg).includes("api") ? "api" : null;
-	const task = anchor ? `${wp}/${anchor}` : wp,
-		record = retained(root, task);
-	if (record?.acknowledged && reviewedMilestone(root, record)) return true;
+	if (!partsOf(pkg).includes("api")) return milestoneReady(root, p, wp, pathsForPart(pkg, null));
+	// A split package may also ship as one whole task; it counts when its reviewed diff built the api part.
+	const api = pathsForPart(pkg, "api");
+	return milestoneReady(root, p, `${wp}/api`, api) || milestoneReady(root, p, wp, api);
+}
+/** The retained record for `task` is reviewed and acknowledged, or the ledger keeps an earlier reviewed milestone. */
+function milestoneReady(root: string, p: ProgressPackage | undefined, task: string, paths: string[]): boolean {
+	const record = retained(root, task);
+	if (!record) return false;
+	const changed = !!git(root, "diff", "--binary", record.base_sha, record.verified_head, "--", ...paths);
+	if (record.acknowledged && changed && reviewedMilestone(root, record)) return true;
 	const milestone = p?.milestones?.[task];
-	if (!record || !milestone?.acknowledged || milestone.task !== task) return false;
-	const paths = pathsForPart(pkg, anchor);
 	// A maintenance-only merge does not replace the canonical, already reviewed producer.
-	if (git(root, "diff", "--binary", record.base_sha, record.verified_head, "--", ...paths)) return false;
+	if (!milestone?.acknowledged || milestone.task !== task || changed) return false;
 	return (
 		gitOk(root, "merge-base", "--is-ancestor", milestone.merge_commit, baseRef(root, loadConfig(root))) &&
 		!!git(root, "diff", "--binary", `${milestone.merge_commit}^`, milestone.merge_commit, "--", ...paths)

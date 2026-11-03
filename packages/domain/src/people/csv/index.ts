@@ -586,16 +586,22 @@ export const peopleCsv = {
 	},
 	/**
 	 * The directory's filtered people as formula-safe CSV, every matching row in one statement, with the exact filters and
-	 * counts. Members may export what the directory shows them.
+	 * counts. Members may export what the directory shows them. A person with neither stored name part exports the display
+	 * name's first word as first_name and the rest as last_name; nothing is written back (REQ-PPL-019).
 	 */
 	async exportPeople(tx: Tx, ctx: Context, raw: unknown) {
 		return readReply(async () => {
 			plantId(ctx);
 			const filters = parse(c.exportPeopleRequest, raw);
 			const result = await tx.execute(sql`SELECT ${access(ctx)} AS allowed,
- coalesce((SELECT jsonb_agg(jsonb_build_array(first_name,last_name,email,phone,street,city,state_province,postal_code,
+ coalesce((SELECT jsonb_agg(jsonb_build_array(export_first,export_last,email,phone,street,city,state_province,postal_code,
   country,stage,source,source_details,notes,tags,created) ORDER BY created_at,id) FROM (
-  SELECT person.*,to_char(person.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS created,
+  SELECT person.*,
+  CASE WHEN person.first_name IS NULL AND person.last_name IS NULL
+   THEN substring(btrim(person.display_name) from '^[^[:space:]]+') ELSE person.first_name END AS export_first,
+  CASE WHEN person.first_name IS NULL AND person.last_name IS NULL
+   THEN nullif(regexp_replace(btrim(person.display_name),'^[^[:space:]]+[[:space:]]*',''),'') ELSE person.last_name END AS export_last,
+  to_char(person.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS created,
   (SELECT string_agg(t.name,';' ORDER BY lower(t.name),t.id) FROM person_tag pt JOIN tag t ON t.id=pt.tag_id
    AND t.plant_id=pt.plant_id WHERE pt.person_id=person.id AND pt.plant_id=person.plant_id) AS tags
   FROM person WHERE ${and(...peopleFilters(ctx, filters, access(ctx)))}) x),'[]'::jsonb) AS rows`);

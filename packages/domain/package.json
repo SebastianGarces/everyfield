@@ -15,6 +15,8 @@
 		"./meetings": "./src/meetings/index.ts",
 		"./teams": "./src/teams/index.ts",
 		"./tasks": "./src/tasks/index.ts",
+		"./phases": "./src/phases/index.ts",
+		"./intelligence": "./src/intelligence/index.ts",
 		"./followups": "./src/followups/index.ts",
 		"./notifications": "./src/notifications/index.ts",
 		"./communication": "./src/communication/index.ts",
@@ -45,6 +47,8 @@
 		"test:followups": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 ../../tests/integration/followups/*.test.mts",
 		"test:branding": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 ../../tests/integration/branding/*.test.mts",
 		"test:documents": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 ../../tests/integration/documents/*.test.mts",
+		"test:phases": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 ../../tests/integration/phases/*.test.mts",
+		"test:intelligence": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test --test-concurrency=1 ../../tests/integration/intelligence/*.test.mts",
 		"test:writes": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local --test ../../tests/integration/writes/statements.test.mts",
 		"migrate": "tsx --conditions=react-server --env-file-if-exists=../../apps/web/.env.local scripts/migrate.ts"
 	},

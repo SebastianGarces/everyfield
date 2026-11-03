@@ -11,8 +11,6 @@
 	"people.getPersonPhoto",
 	"people.getPersonSkills",
 	"people.getPersonTags",
-	"people.getPipelineData",
-	"people.listPeople",
 	"people.listTags",
 	"people.previewImport",
 	"people.removePersonPhoto",

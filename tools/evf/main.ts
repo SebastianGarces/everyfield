@@ -1,7 +1,7 @@
 import { requireForeground } from "./foreground.ts";
 import { checkCiTests } from "./ci-tests.ts";
 import { existsSync, readFileSync } from "node:fs";
-import { checkPrBody, followUpsOfBranch, prBodyClass, taskOfBranch, type PrBodyClass } from "./pr-body.ts";
+import { checkGithubBody, checkPrBody, taskOfBranch } from "./pr-body.ts";
 import type { FollowUp } from "./followups.ts";
 import { renderAc, renderBrief } from "./brief.ts";
 import { browserRun } from "./browser.ts";
@@ -84,6 +84,9 @@ Verification (verifier)
         database, with the SELECT 1 (and, for saves, write) probe; labels, replaces, passes or fails
   evf pre-push <task>                                        require full exact-head author checks
   evf ship <task>                           report status and squash-merge
+        refuses before any GitHub write when the running evf code differs from main (update the home checkout)
+        a PR that changes landing and marketing owner paths (mergePolicy.ownerPaths), or that evf cannot classify,
+        is held: evf posts evf/verify and names evf approve <PR> --owner-approval "<his words>" --head <sha>
         a task PR that changes docs/reference/wiki/ is held: evf records the verifier's claim check on pending
         drafts, runs bin/wiki promote, pushes, posts evf/verify and names evf approve with the resulting head
   evf wiki claim-check <task> --reviewer "<name>" --approval "<words>"
@@ -105,8 +108,9 @@ Feedback desk (public feedback repo)
 Human approval (only after Sebastian approves that PR in chat)
   evf approve <PR> --owner-approval "<his words>" [--head <sha>]
                           Wiki articles, prototypes, feedback P2/P3, design tasks, document-template PRs
-                          (mergePolicy.documentTemplates) and Wiki-content task PRs after evf ship promoted
-                          their drafts: record his approval and squash-merge
+                          (mergePolicy.documentTemplates), landing and marketing PRs (mergePolicy.ownerPaths;
+                          --head required) and Wiki-content task PRs after evf ship promoted their drafts:
+                          record his approval and squash-merge
 
 IDs (coordinator)
   evf id next ops|decision                                    reserve the next OPS-n or Dn on the remote and print it
@@ -148,7 +152,8 @@ Drive (harness)
   evf task handoff <task> --file <spec>                       prototype mode: end the prototype, create the implement task
   evf next <task>                                             the next stage from the store, as JSON
   evf drive <task> [--once] [--detach]                        run the stage machine: plan, implement, simplify, pr, verify, ci, ship; cap 3 rounds; one per task
-  evf run done <run> --status passed|failed --summary-file <file>   close a stage (seats call this; a passed verify needs a met or n/a proof per Done criterion)
+                                                              refuses to start when the running evf code differs from main
+  evf run done <run> --status passed|failed|body-only --summary-file <file>   close a stage (seats call this; a passed or body-only verify needs a met or n/a proof per Done criterion; body-only closes a verify only)
   evf check <task> [--ignore-load "<reason>"]                 author checks, recorded as a check_result event
   evf proof add <task> --criterion <n> --status met|unmet|n/a [--evidence <url>] [--notes <text>]
   evf proof show <task> [--json]                              proof rows; rows from an earlier head of this branch show as carried
@@ -433,16 +438,14 @@ function main(argv: string[]): number | Promise<number> {
 					file = option(args, "--body-file"),
 					selected = option(args, "--class"),
 					taskRef = option(args, "--task");
-				let followUps: FollowUp[] = [];
 				if (selected !== undefined && selected !== "ordinary" && selected !== "wiki" && selected !== "prototype")
 					throw new EvfError("PR body class must be ordinary, wiki or prototype.");
-				let kind: PrBodyClass = selected ?? "ordinary";
-				let body: string;
+				let checked: ReturnType<typeof checkPrBody>;
 				if (file) {
 					if (!existsSync(file)) throw new EvfError("The PR body file does not exist.");
-					body = readFileSync(file, "utf8");
 					const task = taskRef ? parseTask(taskRef) : taskOfBranch(git(here, "rev-parse", "--abbrev-ref", "HEAD"));
-					followUps = task ? followUpsOfTask(root, task) : [];
+					const followUps: FollowUp[] = task ? followUpsOfTask(root, task) : [];
+					checked = checkPrBody(here, readFileSync(file, "utf8"), selected ?? "ordinary", followUps);
 				} else {
 					if (selected !== undefined)
 						throw new EvfError(
@@ -450,18 +453,8 @@ function main(argv: string[]): number | Promise<number> {
 						);
 					const number = Number(args[0]);
 					if (!Number.isInteger(number) || number <= 0) throw new EvfError("Give a PR number or --body-file <file>.");
-					const result = run("gh", ["pr", "view", String(number), "--json", "body,headRefName,labels,files"], {
-						cwd: here,
-					});
-					if (result.code !== 0) throw new EvfError("Cannot read the PR body from GitHub.");
-					const pr: unknown = JSON.parse(result.stdout);
-					if (!pr || typeof pr !== "object" || !("body" in pr) || typeof pr.body !== "string")
-						throw new EvfError("Cannot read the PR body from GitHub.");
-					body = pr.body;
-					kind = prBodyClass(pr);
-					followUps = followUpsOfBranch(root, (pr as { headRefName?: string }).headRefName);
+					checked = checkGithubBody(here, root, number).checked;
 				}
-				const checked = checkPrBody(here, body, kind, followUps);
 				console.log(
 					`PASSED ${checked.kind} PR body standard for ${checked.author.model} (${checked.author.role}): ${checked.sections.join(", ")}`,
 				);
@@ -593,7 +586,8 @@ function main(argv: string[]): number | Promise<number> {
 				status = option(args, "--status"),
 				summaryFile = option(args, "--summary-file");
 			if (sub !== "done" || !Number.isInteger(id) || id <= 0 || args.length) break;
-			if (status !== "passed" && status !== "failed") throw new EvfError("--status must be passed or failed.");
+			if (status !== "passed" && status !== "failed" && status !== "body-only")
+				throw new EvfError("--status must be passed, failed or body-only.");
 			if (!summaryFile || !existsSync(summaryFile))
 				throw new EvfError("Give --summary-file <file> with what happened.");
 			return runDone(root, id, { status, summaryFile });

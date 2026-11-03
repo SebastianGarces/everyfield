@@ -134,7 +134,7 @@ for (const [name, engine] of ENGINES) {
 			await chooseEveryone(page);
 			await next(page).click();
 			await heading(page, "Write the message").waitFor();
-			await page.waitForURL(/compose=[0-9a-f-]{36}&step=write/);
+			await page.waitForURL(/compose=new&step=write/);
 
 			// Task 13: the picker keeps the chosen template's name.
 			await page.getByLabel("Start from a template").click();

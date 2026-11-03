@@ -1,9 +1,18 @@
 import { setLoadedCode } from "../merge.ts";
-import { mkdtempSync, cpSync, mkdirSync, writeFileSync, readFileSync, rmSync, chmodSync } from "node:fs";
+import { mkdtempSync, cpSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync, chmodSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { execFileSync } from "node:child_process";
 export const source = resolve(import.meta.dirname, "../../..");
+/** The work store migration files in number order. A test that migrates a store reads them, so a new one edits no test. */
+export const STORE_MIGRATIONS = readdirSync(join(source, "tools/evf/db/migrations"))
+	.filter((f) => /^\d{3}-.*\.sql$/.test(f))
+	.sort();
+/** The highest work store migration number. */
+export const STORE_LATEST = Number(STORE_MIGRATIONS.at(-1)!.slice(0, 3));
+/** The migration files numbered `n` or higher: what `migrate` applies to a store that has every migration below `n`. */
+export const migrationsFrom = (n: number) => STORE_MIGRATIONS.filter((f) => Number(f.slice(0, 3)) >= n);
 /**
  * Source for a fake Herdr's `agent start` branch: it records the `session_start` event that the Claude session-start
  * hook writes, for the run whose id ends the agent name. In the fake's state, `noSession` skips it (a Claude that never
@@ -24,6 +33,9 @@ export const sessionStartJs = (dbPath: string, stateVar = "st") => {
 
 // Fixture repos hold no evf code of their own. Unless a test claims otherwise, the process runs the base code.
 setLoadedCode((base) => ({ checkout: "fixture", ...base, dirty: false }));
+// The evf subprocesses a test starts make the same claim through a preload (current-code.ts).
+process.env.NODE_OPTIONS =
+	`${process.env.NODE_OPTIONS ?? ""} --import=${pathToFileURL(join(import.meta.dirname, "current-code.ts")).href}`.trim();
 
 export function fixture() {
 	// Git starts detached auto-maintenance after commits and pushes. It would write into the fixture while
@@ -158,7 +170,7 @@ if(a[0]==='api') {
  else if(/branches\/main\/protection/.test(path))result=s.protection||{required_status_checks:{strict:true,contexts:['evf/verify']},enforce_admins:{enabled:true},required_pull_request_reviews:{required_approving_review_count:1,dismiss_stale_reviews:true}};
 }
 else if(a[0]==='repo'&&a[1]==='view')result=a.includes('-q')||a.includes('--jq')?'test/private':{nameWithOwner:'test/private',isPrivate:true};
-else if(a[0]==='pr'&&a[1]==='view')result=a.includes('mergeCommit')?s.mergeCommit:opt('--json')==='body'&&a.includes('--jq')?s.pr.body:s.pr||{number:77,url:'https://github.com/test/private/pull/77',state:'OPEN'};
+else if(a[0]==='pr'&&a[1]==='view'){if(s.prViewBodies?.length&&s.pr)s.pr.body=s.prViewBodies.shift();result=a.includes('mergeCommit')?s.mergeCommit:opt('--json')==='body'&&a.includes('--jq')?s.pr.body:s.pr||{number:77,url:'https://github.com/test/private/pull/77',state:'OPEN'};}
 else if(a[0]==='pr'&&a[1]==='list')result=s.openPrs??[];
 else if(a[0]==='run'&&a[1]==='list')result=s.mainRuns??[{conclusion:'success',headSha:'f'.repeat(40),url:'https://github.com/test/private/actions/runs/1'}];
 else if(a[0]==='pr'&&a[1]==='checks'){result=s.checksQueue?.length?s.checksQueue.shift():s.requiredChecks??[];if(s.checksError){fs.writeFileSync(p,JSON.stringify(s));process.stdout.write(JSON.stringify(result));process.exit(s.checksError);}}

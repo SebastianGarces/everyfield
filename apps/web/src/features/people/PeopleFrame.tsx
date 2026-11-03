@@ -4,6 +4,7 @@ import {
 	BookOpen01Icon,
 	BookOpen02Icon,
 	Calendar03Icon,
+	ChartLineData01Icon,
 	File02Icon,
 	Mail01Icon,
 	Settings02Icon,
@@ -17,6 +18,7 @@ import { AppShell, RoleBanner, type ShellNav } from "@everyfield/ui/shell";
 import { usePathname } from "next/navigation";
 import { createContext, use, useState, type ReactNode } from "react";
 import { useEvryPanel } from "../evry/conversation/EvryPanel.tsx";
+import { evryOff } from "../intelligence/path.ts";
 import { useNotificationBell } from "../notifications/Bell.tsx";
 import { NotificationsProvider } from "../notifications/feed.tsx";
 import { AccountMenu } from "../settings/AccountMenu";
@@ -71,6 +73,15 @@ const DOCUMENTS = {
 	icon: File02Icon,
 	prefetch: false,
 } as const;
+// Plant Intelligence (WP-038: the phase journey) is for a plant's Owners and Admins. It loads when chosen.
+const INTELLIGENCE = {
+	kind: "link",
+	key: "intelligence",
+	label: "Plant Intelligence",
+	href: "/intelligence",
+	icon: ChartLineData01Icon,
+	prefetch: false,
+} as const;
 const ROLE: Record<Role, string> = { owner: "Owner", admin: "Admin", member: "Member" };
 
 type FrameProps = {
@@ -119,10 +130,12 @@ export function PeopleFrame({ settings: initial, seed, ...props }: FrameProps) {
 function Frame({ name, settings, seed = null, children }: FrameProps) {
 	const toast = useToast();
 	const dialog = useProductSettings(settings, seed);
-	const evry = useEvryPanel({ inPlant: settings?.context === "plant" });
+	const pathname = usePathname();
+	// Evry is off while the private check-in is open: its panel closes and Ask Evry says so (REQ-PI-038).
+	const privatePage = evryOff(pathname);
+	const evry = useEvryPanel({ inPlant: settings?.context === "plant", off: privatePage });
 	const bell = useNotificationBell();
 	const wiki = useWikiChrome();
-	const pathname = usePathname();
 	const role = settings && settings.context !== "account" ? settings.role : null;
 	// A plant Member reads People and Tasks and works on their own tasks; organization seats have neither.
 	const banner =
@@ -135,7 +148,7 @@ function Frame({ name, settings, seed = null, children }: FrameProps) {
 	// The rail's Settings opens the dialog over the current page, as the user menu does; /settings is its address.
 	const nav: ShellNav = {
 		main: [PEOPLE, MEETINGS, MESSAGES, TASKS, MINISTRIES, WIKI],
-		pages: [DOCUMENTS],
+		pages: settings?.context === "plant" && role !== "member" ? [INTELLIGENCE, DOCUMENTS] : [DOCUMENTS],
 		tools: [
 			{
 				kind: "action",
@@ -166,7 +179,14 @@ function Frame({ name, settings, seed = null, children }: FrameProps) {
 		<AppShell
 			nav={nav}
 			user={{ name, initials: initials(name), detail: role ? ROLE[role] : "" }}
-			userMenu={<AccountMenu name={name} detail={seat} onAccount={() => dialog.open("account")} />}
+			userMenu={
+				<AccountMenu
+					name={name}
+					detail={seat}
+					onAccount={() => dialog.open("account")}
+					checkIn={settings?.context === "plant" && role !== "member"}
+				/>
+			}
 			homeHref="/people"
 			unread={bell.unread}
 			width="wide"
@@ -180,7 +200,7 @@ function Frame({ name, settings, seed = null, children }: FrameProps) {
 				else later("Search")();
 			}}
 			onNotifications={bell.open}
-			onAskEvry={evry.open}
+			onAskEvry={privatePage ? undefined : evry.open}
 			banner={banner}
 		>
 			{children}

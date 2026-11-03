@@ -1,6 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { chmodSync, existsSync, mkdirSync, readFileSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import {
+	chmodSync,
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+	statSync,
+	symlinkSync,
+	writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { assistantLine, fixture, sessionStartJs, source, writeTranscript } from "./fixtures.ts";
@@ -106,7 +118,13 @@ function driveFixture(opts: { failWhenFile?: string; nested?: string[] } = {}) {
 				.run(t.id, stage, role, taskRow().round, session ?? null, status, new Date().toISOString()).lastInsertRowid,
 		);
 	db.prepare("UPDATE tasks SET worktree = ? WHERE id = ?").run(wt, t.id);
-	return { ...f, task, wt, db, taskId: t.id, herdr, runs, events, taskRow, file, insertRun };
+	// The implementer's PR body: an implement run closes passed only with a body that passes evf pr body (OPS-113).
+	mkdirSync(runtimeDir(f.root, task), { recursive: true });
+	writeFileSync(join(runtimeDir(f.root, task), "pr-body.md"), prBody());
+	/** Progress for the circuit breaker (OPS-115): an empty commit moves the worktree HEAD. */
+	const advance = (message = "progress") =>
+		spawnSync("git", ["-C", wt, "commit", "-q", "--allow-empty", "-m", message], { encoding: "utf8" });
+	return { ...f, task, wt, db, taskId: t.id, herdr, runs, events, taskRow, file, insertRun, advance };
 }
 
 const SPEC =
@@ -276,7 +294,8 @@ test("OPS-59-drive: one transition launches the next seat through Herdr with the
 		);
 		assert.equal(JSON.parse(cli(f.root, {}, "next", "OPS-1").stdout).stage, "simplify");
 
-		// The pr stage is evf's own run and fails cleanly without a PR body.
+		// The pr stage is evf's own run and fails cleanly without a PR body (removed after implement passed with it).
+		rmSync(join(runtimeDir(f.root, f.task), "pr-body.md"));
 		runDone(f.root, Number((driveOnce(f.root, f.task, TIMING), f.runs().at(-1)!.id)), {
 			status: "passed",
 			summary: "Simplified.",
@@ -313,6 +332,7 @@ test("OPS-59-cap: a failed verify or ci costs a round and the fourth round escal
 					).lastInsertRowid,
 			);
 		for (let i = 1; i <= LOOP_CAP; i++) {
+			f.advance();
 			runDone(f.root, verifyRun(), { status: "failed", summary: `finding ${i}` });
 			assert.equal(f.taskRow().round, i);
 			assert.notEqual(f.taskRow().status, "escalated");
@@ -329,6 +349,7 @@ test("OPS-59-cap: a failed verify or ci costs a round and the fourth round escal
 			approvals.map((a) => a.decision),
 			["changes_requested", "changes_requested", "changes_requested"],
 		);
+		f.advance();
 		runDone(f.root, verifyRun(), { status: "failed", summary: "finding 4" });
 		assert.equal(f.taskRow().status, "escalated");
 		assert.equal(f.taskRow().round, LOOP_CAP + 1);
@@ -445,10 +466,12 @@ test("OPS-59-retry: three failures in a row that cost no round escalate; a resta
 	try {
 		f.db.prepare("UPDATE tasks SET spec = ?, status = 'active' WHERE id = ?").run(SPEC, f.taskId);
 		for (let i = 1; i < RETRY_CAP; i++) {
+			f.advance();
 			runDone(f.root, f.insertRun("implement", "implementer", "started"), { status: "failed", summary: `broke ${i}` });
 			assert.equal(f.taskRow().status, "active");
 		}
 		assert.equal(f.taskRow().round, 0, "implement failures cost no round");
+		f.advance();
 		runDone(f.root, f.insertRun("implement", "implementer", "started"), { status: "failed", summary: "broke again" });
 		assert.equal(f.taskRow().status, "escalated");
 		assert.match(f.events("escalation")[0]!.payload, /3 failures in a row, last in implement\. broke again/);
@@ -825,8 +848,10 @@ const nextOf = (f: ReturnType<typeof driveFixture>) => JSON.parse(cli(f.root, {}
 const reopen = (f: ReturnType<typeof driveFixture>, reason = "gate fixed upstream", env: Record<string, string> = {}) =>
 	cli(f.root, env, "task", "reopen", "OPS-1", "--reason", reason);
 const failStage = (f: ReturnType<typeof driveFixture>, stage: string, role: string, n = 1) => {
-	for (let i = 0; i < n; i++)
+	for (let i = 0; i < n; i++) {
+		f.advance(); // Each failure follows a commit, so the circuit breaker stays out of the retry-cap tests.
 		runDone(f.root, f.insertRun(stage, role, "started"), { status: "failed", summary: `${stage} broke` });
+	}
 };
 const storeCounts = (f: ReturnType<typeof driveFixture>) =>
 	Object.fromEntries(
@@ -1103,8 +1128,10 @@ test("OPS-70-pr: author checks that fail at a simplifier head send the task back
 		assert.match(prompt, /^Simplify task OPS-1.*author checks.*failed.*author checks failed at/);
 		assert.equal(f.runs().filter((r) => r.stage === "implement").length, 1, "no implement run starts");
 
+		f.advance(); // Each simplifier commits, so the circuit breaker stays out of the pr failure count.
 		runDone(f.root, f.runs().at(-1)!.id as number, { status: "passed", summary: "still failing" });
 		driveOnce(f.root, f.task, TIMING);
+		f.advance();
 		runDone(f.root, f.insertRun("simplify", "simplifier", "started"), { status: "passed", summary: "again" });
 		driveOnce(f.root, f.task, TIMING);
 		assert.equal(
@@ -1189,6 +1216,7 @@ test("OPS-70-carry: proof carries to a later head; an unmet row, a missing crite
 		assert.match(refused.stderr, /Done criteria 2 have no met or n\/a proof/);
 		assert.doesNotMatch(refused.stderr, /Done criteria 1/);
 		proofAt(f, b, "2", "n/a");
+		f.advance(); // A commit before the second passed verify keeps the circuit breaker out of the proof gate test.
 		assert.equal(close(f.runs().at(-1)!.id as number).status, 0, "a later met or n/a row at the head repairs it");
 
 		// (c) A proof at a head that is not an ancestor of the current head does not count.
@@ -1920,6 +1948,687 @@ test("OPS-100-signal: SIGTERM to a real drive blocked in its ship stage aborts t
 				// Already gone.
 			}
 		}
+		f.db.close();
+		f.close();
+	}
+});
+
+// OPS-115: the circuit breaker and the simplify skip.
+const sha256 = (text: string) => createHash("sha256").update(text).digest("hex");
+const progressOf = (f: ReturnType<typeof driveFixture>, id: number) =>
+	({ ...(f.db.prepare("SELECT progress_head, progress_spec FROM runs WHERE id = ?").get(id) as object) }) as {
+		progress_head: string | null;
+		progress_spec: string | null;
+	};
+const close = (
+	f: ReturnType<typeof driveFixture>,
+	stage: string,
+	role: string,
+	status: "passed" | "failed",
+	summary: string,
+) => {
+	const id = f.insertRun(stage, role, "started");
+	runDone(f.root, id, { status, summary });
+	return id;
+};
+/** Make the fake Herdr act as seats: on `agent wait` for a matching agent, run `js` (it has evf, cp, m and wt), then close passed. */
+function fakeSeats(f: ReturnType<typeof driveFixture>, roles: string, js = "") {
+	const main = join(source, "tools/evf/main.ts"),
+		summary = f.file("seat-summary.md", "Closed with no change.\nSecond line.");
+	const path = join(f.root, "fake-bin/herdr");
+	const marker = "const a=process.argv.slice(2);\n";
+	const seat =
+		`if(a[0]==="agent"&&a[1]==="wait"){const m=/^(${roles})-ops-1-(\\d+)$/.exec(a[2]);if(m){const cp=require("node:child_process"),wt=${JSON.stringify(f.wt)};` +
+		`const evf=(...x)=>cp.spawnSync(process.execPath,[${JSON.stringify(main)},...x],{cwd:${JSON.stringify(f.root)},env:{...process.env,EVF_RUN:"",EVF_WORKTREE:"",EVF_STAGE:""}});` +
+		js +
+		`evf("run","done",m[2],"--status","passed","--summary-file",${JSON.stringify(summary)})}}\n`;
+	writeFileSync(path, readFileSync(path, "utf8").replace(marker, marker + seat));
+}
+const agentStarts = (f: ReturnType<typeof driveFixture>, role: string) =>
+	f.herdr.calls().filter((c) => c[0] === "agent" && c[1] === "start" && new RegExp(`^${role}-`).test(c[2] ?? ""))
+		.length;
+const quiet = <T>(fn: () => T): T => {
+	const log = console.log;
+	console.log = () => {};
+	try {
+		return fn();
+	} finally {
+		console.log = log;
+	}
+};
+
+test("OPS-115-fingerprint: a seat that closes plan, implement (ui seat too), simplify or verify records HEAD and the spec hash; evf's stages and older runs carry none", () => {
+	const f = driveFixture();
+	try {
+		f.db.prepare("UPDATE tasks SET spec = ?, status = 'active' WHERE id = ?").run(SPEC, f.taskId);
+		const at = head(f);
+		for (const [stage, role] of [
+			["plan", "planner"],
+			["implement", "ui"],
+			["simplify", "simplifier"],
+			["verify", "verifier"],
+		] as const) {
+			f.advance();
+			const id = close(f, stage, role, "failed", `${stage} closed`);
+			assert.deepEqual(progressOf(f, id), { progress_head: head(f), progress_spec: sha256(SPEC) }, stage);
+		}
+		assert.notEqual(head(f), at);
+		const pr = close(f, "pr", "evf", "failed", "no PR body");
+		assert.deepEqual(progressOf(f, pr), { progress_head: null, progress_spec: null }, "evf's own stage");
+		const columns = (f.db.prepare("PRAGMA table_info(runs)").all() as Array<{ name: string }>).map((c) => c.name);
+		assert.ok(columns.includes("progress_head") && columns.includes("progress_spec"), "migration 009 adds the fields");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-115-breaker: two implement runs closed passed at the same head and spec escalate with the stage, both run ids, the head and both summary lines", () => {
+	const f = driveFixture();
+	try {
+		f.db.prepare("UPDATE tasks SET spec = ?, status = 'active' WHERE id = ?").run(SPEC, f.taskId);
+		// A run closed before the migration has no fingerprint and never counts as run A.
+		const old = f.insertRun("implement", "implementer", "passed");
+		f.db.prepare("UPDATE runs SET summary = 'old pass' WHERE id = ?").run(old);
+		const a = close(f, "implement", "implementer", "passed", "Built the roof.\nDetails follow.");
+		assert.equal(f.taskRow().status, "active", "one fingerprinted close never trips");
+		const b = close(f, "implement", "implementer", "passed", "Built the roof again.");
+		assert.equal(f.taskRow().status, "escalated");
+		const short = head(f).slice(0, 10);
+		const escalation = JSON.parse(f.events("escalation")[0]!.payload).summary as string;
+		assert.equal(
+			escalation,
+			`OPS-1 needs Sebastian: no progress: implement closed passed twice at ${short} with an unchanged spec (runs ${a} and ${b}). Run ${a}: "Built the roof."; run ${b}: "Built the roof again.". Restart after a fix with evf task reopen OPS-1 --reason "<words>".`,
+		);
+		const note = f.herdr.calls().find((c) => c[0] === "notification" && c[2] === "OPS-1 escalated")!;
+		assert.ok(note[4]!.includes('"Built the roof."') && note[4]!.includes('"Built the roof again."'), note[4]);
+		const shown = cli(f.root, {}, "status", "OPS-1");
+		assert.ok(shown.stdout.includes(`no progress: implement closed passed twice at ${short}`), shown.stdout);
+		assert.equal(nextOf(f).stage, "escalated");
+		assert.match(nextOf(f).reason, new RegExp(`^no progress: implement .*runs ${a} and ${b}`));
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-115-progress: a commit between two implement closes, or a changed spec between two plan closes, does not trip the breaker", () => {
+	const f = driveFixture();
+	try {
+		f.db.prepare("UPDATE tasks SET status = 'active' WHERE id = ?").run(f.taskId);
+		close(f, "plan", "planner", "passed", "Planned.");
+		f.db.prepare("UPDATE tasks SET spec = ? WHERE id = ?").run(SPEC, f.taskId);
+		close(f, "plan", "planner", "passed", "Planned again.");
+		assert.equal(f.taskRow().status, "active", "a stored spec is progress");
+		close(f, "implement", "implementer", "passed", "Built.");
+		commitFile(f, "roof.txt");
+		close(f, "implement", "implementer", "passed", "Built more.");
+		assert.equal(f.taskRow().status, "active", "a commit is progress");
+		assert.equal(f.events("escalation").length, 0);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-115-status: passed then failed at one fingerprint does not trip the breaker; the retry cap still ends a failing run of stages", () => {
+	const f = driveFixture();
+	try {
+		f.db.prepare("UPDATE tasks SET spec = ?, status = 'active' WHERE id = ?").run(SPEC, f.taskId);
+		close(f, "implement", "implementer", "passed", "Built.");
+		close(f, "implement", "implementer", "failed", "Broke it.");
+		assert.equal(f.taskRow().status, "active");
+		failStage(f, "implement", "implementer", RETRY_CAP - 1);
+		assert.equal(f.taskRow().status, "escalated");
+		assert.match(f.events("escalation")[0]!.payload, /3 failures in a row, last in implement/);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-115-seat: aborted runs, evf's own stages and runs evf closed for the seat are neither run A nor run B", () => {
+	const f = driveFixture();
+	try {
+		f.db.prepare("UPDATE tasks SET spec = ?, status = 'active' WHERE id = ?").run(SPEC, f.taskId);
+		const a = close(f, "implement", "implementer", "passed", "Built.");
+		// The drive closes a run that has no Herdr agent for the seat: no fingerprint, no trip.
+		const noAgent = f.insertRun("implement", "implementer", "started");
+		quiet(() => driveOnce(f.root, f.task, TIMING));
+		assert.equal(f.runs().find((r) => r.id === noAgent)!.status, "failed");
+		assert.deepEqual(progressOf(f, noAgent), { progress_head: null, progress_spec: null });
+		runDone(f.root, f.insertRun("implement", "implementer", "started"), {
+			status: "passed",
+			summary: "closed by evf",
+			closedBy: "evf",
+		});
+		f.insertRun("implement", "implementer", "aborted");
+		close(f, "pr", "evf", "passed", "PR open");
+		assert.equal(f.taskRow().status, "active", "none of these counts as run B");
+		const b = close(f, "implement", "implementer", "passed", "Built again.");
+		assert.equal(f.taskRow().status, "escalated", "nor as run A: the seat's own closes match");
+		assert.match(f.events("escalation")[0]!.payload, new RegExp(`runs ${a} and ${b}`));
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-115-next: nextStage escalates on the last two fingerprinted closes of a seat stage after the marker, and names the cause", () => {
+	const task = parseTask("OPS-1");
+	const t = {
+		id: 1,
+		ref: task.id,
+		slug: task.slug,
+		mode: "implement",
+		status: "active",
+		round: 0,
+		goal_id: null,
+		spec: SPEC,
+		pr_number: null,
+		worktree: null,
+		seat_model: null,
+		seat_effort: null,
+	};
+	const run = (id: number, stage: string, status: string, head: string | null, summary = `s${id}`) => ({
+		id,
+		stage,
+		role: "x",
+		status,
+		round: 0,
+		summary,
+		progress_head: head,
+		progress_spec: head ? "spec" : null,
+	});
+	const H = "a".repeat(40);
+	const stuck = [
+		run(1, "implement", "passed", H, "Built."),
+		run(2, "simplify", "passed", H),
+		run(3, "pr", "failed", null),
+		run(4, "implement", "passed", H, "Built again."),
+	];
+	const n = nextStage(task, t, stuck);
+	assert.equal(n.stage, "escalated");
+	assert.equal(
+		n.reason,
+		`no progress: implement closed passed twice at aaaaaaaaaa with an unchanged spec (runs 1 and 4). Run 1: "Built."; run 4: "Built again.". Restart after a fix with evf task reopen OPS-1 --reason "<words>".`,
+	);
+	assert.equal(
+		nextStage(task, { ...t, status: "escalated" }, stuck).reason,
+		n.reason,
+		"an escalated task names it too",
+	);
+	assert.equal(nextStage(task, t, stuck, false, 1).stage, "simplify", "run 1 is before the reopen marker");
+	const moved = [...stuck.slice(0, 3), run(4, "implement", "passed", "b".repeat(40))];
+	assert.equal(nextStage(task, t, moved).stage, "simplify");
+	const unmarked = stuck.map((r) => ({ ...r, progress_head: null, progress_spec: null }));
+	assert.equal(nextStage(task, t, unmarked).stage, "simplify", "runs without a fingerprint never trip it");
+	assert.equal(nextStage(task, t, [...stuck.slice(0, 3), run(4, "implement", "failed", H)]).stage, "implement");
+});
+
+test("OPS-115-drive: a fake planner that closes passed with no spec and no commit starts twice; the drive escalates and exits 2", () => {
+	const f = driveFixture();
+	try {
+		const made = cli(f.root, {}, "task", "new", "OPS-1", "--ask-file", f.file("ask.md", "Make the doghouse usable."));
+		assert.equal(made.status, 0, made.stderr);
+		fakeSeats(f, "planner");
+		const code = quiet(() => drive(f.root, f.task, {}, { ...TIMING, waitMs: 60_000 }));
+		assert.equal(code, 2);
+		assert.equal(f.taskRow().status, "escalated");
+		assert.equal(agentStarts(f, "planner"), 2, "two planners, not three");
+		assert.match(JSON.parse(f.events("escalation")[0]!.payload).summary, /no progress: plan closed passed twice/);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-115-drive: a fake implementer that closes passed with no commit starts at most twice; the drive escalates and exits 2", () => {
+	const f = driveFixture();
+	try {
+		f.db.prepare("UPDATE tasks SET spec = ?, status = 'specced' WHERE id = ?").run(SPEC, f.taskId);
+		fakeSeats(f, "implementer|simplifier");
+		const code = quiet(() => drive(f.root, f.task, {}, { ...TIMING, waitMs: 60_000 }));
+		assert.equal(code, 2);
+		assert.equal(f.taskRow().status, "escalated");
+		assert.ok(agentStarts(f, "implementer") <= 2, String(agentStarts(f, "implementer")));
+		assert.match(JSON.parse(f.events("escalation")[0]!.payload).summary, /no progress: implement closed passed twice/);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-115-defer: the breaker waits for another working seat and escalates when it closes", () => {
+	const f = driveFixture();
+	try {
+		f.db.prepare("UPDATE tasks SET spec = ?, status = 'active' WHERE id = ?").run(SPEC, f.taskId);
+		const other = openAgentRun(f, "simplify", "simplifier");
+		close(f, "implement", "implementer", "failed", "Roof leaks.");
+		close(f, "implement", "implementer", "failed", "Roof still leaks.");
+		assert.equal(f.taskRow().status, "active", "a seat of the task still works");
+		const held = f.events("escalation_deferred");
+		assert.equal(held.length, 1);
+		assert.match(held[0]!.payload, /no progress: implement closed failed twice/);
+		f.advance();
+		runDone(f.root, other, { status: "passed", summary: "Simplified." });
+		assert.equal(f.taskRow().status, "escalated", "the last open seat closed");
+		assert.match(
+			JSON.parse(f.events("escalation")[0]!.payload).summary,
+			/no progress: implement closed failed twice.*"Roof still leaks\."/,
+		);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-115-reopen: after a breaker escalation, evf task reopen sets a marker and the next transition launches the stage again", () => {
+	const f = driveFixture();
+	try {
+		f.db.prepare("UPDATE tasks SET spec = ?, status = 'active' WHERE id = ?").run(SPEC, f.taskId);
+		close(f, "implement", "implementer", "failed", "Blocked on the gate.");
+		close(f, "implement", "implementer", "failed", "Blocked on the gate.");
+		assert.equal(f.taskRow().status, "escalated");
+		assert.equal(quiet(() => driveOnce(f.root, f.task, TIMING)).stage, "escalated");
+		assert.equal(agentStarts(f, "implementer"), 0);
+		assert.equal(reopen(f).status, 0);
+		const n = quiet(() => driveOnce(f.root, f.task, TIMING));
+		assert.equal(n.stage, "implement");
+		assert.equal(agentStarts(f, "implementer"), 1, "the implementer launches again");
+		const relaunched = f.runs().at(-1)!;
+		assert.deepEqual([relaunched.stage, relaunched.status], ["implement", "started"]);
+		runDone(f.root, relaunched.id as number, { status: "failed", summary: "Blocked on the gate." });
+		assert.equal(f.taskRow().status, "active", "runs before the marker are not run A");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-115-skip: a round that changes only the PR body and a proof skips simplify with an event; pr runs next", () => {
+	const f = driveFixture();
+	try {
+		withPr(f);
+		f.db.prepare("UPDATE tasks SET spec = ?, status = 'active' WHERE id = ?").run(SPEC, f.taskId);
+		commitFile(f, "built.txt");
+		close(f, "implement", "implementer", "passed", "Built.");
+		assert.equal(nextOf(f).stage, "simplify", "round 0 has no earlier simplify");
+		const simplified = commitFile(f, "simplified.txt");
+		const simplify = close(f, "simplify", "simplifier", "passed", "Simplified.");
+		assert.equal(quiet(() => driveOnce(f.root, f.task, TIMING)).stage, "pr");
+		assert.equal(f.runs().at(-1)!.status, "passed");
+		close(f, "verify", "verifier", "failed", "Findings: criterion 2 has no proof.");
+		assert.equal(f.taskRow().round, 1);
+
+		// Round 1: the implementer only rewrites the PR body and adds a proof. Neither lives in the repository.
+		writeFileSync(join(runtimeDir(f.root, f.task), "pr-body.md"), `${prBody()}\n`);
+		const proof = cli(
+			f.root,
+			{},
+			"proof",
+			"add",
+			"OPS-1",
+			"--criterion",
+			"2",
+			"--status",
+			"met",
+			"--evidence",
+			"shot.png",
+		);
+		assert.equal(proof.status, 0, proof.stderr);
+		close(f, "implement", "implementer", "passed", "Added the proof.");
+		assert.equal(f.taskRow().status, "pr_open", "implement moved from the round-0 head: no escalation");
+		const before = f.runs().length;
+		const n = quiet(() => driveOnce(f.root, f.task, TIMING));
+		assert.equal(n.stage, "pr");
+		assert.equal(n.reason, `simplify skipped: no change since simplify run ${simplify} at ${simplified.slice(0, 10)}`);
+		assert.deepEqual(
+			f
+				.runs()
+				.slice(before)
+				.map((r) => [r.stage, r.role, r.status]),
+			[["pr", "evf", "passed"]],
+			"no simplify run in round 1",
+		);
+		assert.equal(agentStarts(f, "simplifier"), 0, "no simplifier seat launched");
+		const skipped = f.events("simplify_skipped").map((e) => JSON.parse(e.payload));
+		assert.equal(skipped.length, 1);
+		assert.deepEqual([skipped[0].simplify_run, skipped[0].head], [simplify, simplified]);
+		assert.match(skipped[0].summary, new RegExp(`simplify run ${simplify} at ${simplified.slice(0, 10)}`));
+
+		// A later implement run with a commit runs simplify again.
+		commitFile(f, "door.txt");
+		close(f, "implement", "implementer", "passed", "Fixed the door.");
+		assert.equal(nextOf(f).stage, "simplify", "the branch changed since the last passed simplify");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-115-skip: author checks that fail in pr after a skipped simplify send the task to implement, not to simplify", () => {
+	const flag = join(mkdtempSync(join(tmpdir(), "evf-ops115-")), "FAIL");
+	const f = driveFixture({ failWhenFile: flag });
+	try {
+		withPr(f);
+		f.db.prepare("UPDATE tasks SET spec = ?, status = 'active' WHERE id = ?").run(SPEC, f.taskId);
+		commitFile(f, "built.txt");
+		close(f, "implement", "implementer", "passed", "Built.");
+		commitFile(f, "simplified.txt");
+		close(f, "simplify", "simplifier", "passed", "Simplified.");
+		close(f, "implement", "implementer", "passed", "Only the PR body changed.");
+		writeFileSync(flag, "x"); // Outside the repository: the head and the diff stay as they are.
+		const n = quiet(() => driveOnce(f.root, f.task, TIMING));
+		assert.equal(n.stage, "pr");
+		assert.ok(n.skipped, "simplify was skipped");
+		const failed = f.runs().at(-1)!;
+		assert.deepEqual([failed.stage, failed.status], ["pr", "failed"]);
+		const after = nextOf(f);
+		assert.equal(after.stage, "implement");
+		assert.match(after.reason, /^pr failed: author checks failed at/);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+// OPS-113: the body-only fix path in the stage machine.
+const VERIFIER = { session: "22222222-2222-4222-8222-222222222222", model: "claude-opus-5-5", role: "verifier" };
+const BODY_ITEMS = [
+	{ present: "The verifier reviewed this head.", why: "How it was verified names an old head." },
+	{ absent: "still to come", why: "The verifier already reviewed the code." },
+];
+const bodyWith = (line: string) => prBody().replace("Concrete task evidence.", `Concrete task evidence. ${line}`);
+const STALE_BODY = bodyWith("The verifier is still to come."),
+	FIXED_BODY = bodyWith("The verifier reviewed this head.");
+
+/** An open PR at a new head with a body_only review on GitHub, proofs at the head and the verify closed body-only. */
+function bodyOnlyAt(f: ReturnType<typeof driveFixture>) {
+	withPr(f);
+	const sha = commitFile(f, "reviewed.txt");
+	const bodyFile = join(runtimeDir(f.root, f.task), "pr-body.md");
+	writeFileSync(bodyFile, STALE_BODY);
+	assert.equal(verify(f.root, f.task, "author", "full").passed, true, "the author checks ran at the head");
+	const state = f.getState();
+	state.pr = {
+		number: 77,
+		url: "https://github.com/test/private/pull/77",
+		state: "OPEN",
+		isDraft: false,
+		headRefName: f.task.branch,
+		headRefOid: sha,
+		baseRefName: "main",
+		body: STALE_BODY,
+		labels: [],
+		files: [],
+	};
+	state.requiredChecks = [
+		{ name: "ci", state: "SUCCESS", bucket: "pass", link: "https://github.com/test/private/actions/runs/1" },
+	];
+	state.comments["77"] = [
+		{
+			body: `EVF-Review: ${JSON.stringify({ head: sha, verifier: VERIFIER, verdict: "body_only", body: BODY_ITEMS, quality: { verdict: "approved", principles: ["laziness-protocol", "minimize-reader-load", "subtract-before-you-add", "test-behavior-not-implementation"] }, experience: { verdict: "approved", budget: "met" } })}`,
+			html_url: "https://github.com/test/private/pull/77#c1",
+		},
+	];
+	f.setState(state);
+	f.db.prepare("UPDATE tasks SET pr_number = 77, status = 'pr_open' WHERE id = ?").run(f.taskId);
+	for (const c of ["1", "2"]) proofAt(f, sha, c);
+	const v = f.insertRun("verify", "verifier", "started", VERIFIER.session);
+	runDone(f.root, v, { status: "body-only", summary: "Code approved; the body names an old head." });
+	return { sha, bodyFile, verifyRun: v };
+}
+const lastPrompt = (f: ReturnType<typeof driveFixture>) =>
+	f.herdr
+		.calls()
+		.filter((c) => c[0] === "agent" && c[1] === "prompt")
+		.at(-1)![3]!;
+
+test("OPS-113-close: --status body-only closes a verify run only, with the passed proof gate, a body_only approval at the head and no round", () => {
+	const f = driveFixture();
+	try {
+		f.db.prepare("UPDATE tasks SET spec = ? WHERE id = ?").run(SPEC, f.taskId);
+		const sha = head(f);
+		for (const [stage, role] of [
+			["implement", "implementer"],
+			["simplify", "simplifier"],
+			["body", "implementer"],
+		] as const) {
+			const id = f.insertRun(stage, role, "started");
+			assert.throws(
+				() => runDone(f.root, id, { status: "body-only", summary: "s" }),
+				new RegExp(`--status body-only closes a verify run only; run ${id} is a ${stage} run`),
+			);
+			assert.equal(f.runs().find((r) => r.id === id)!.status, "started", "the refused close changes nothing");
+		}
+		const v = f.insertRun("verify", "verifier", "started");
+		proofAt(f, sha, "1");
+		assert.throws(
+			() => runDone(f.root, v, { status: "body-only", summary: "body only" }),
+			/Done criteria 2 have no met or n\/a proof at [0-9a-f]{10}/,
+		);
+		proofAt(f, sha, "2", "unmet");
+		assert.throws(
+			() => runDone(f.root, v, { status: "body-only", summary: "body only" }),
+			/Done criteria 2 have no met/,
+		);
+		proofAt(f, sha, "2", "n/a");
+		quietly(() => runDone(f.root, v, { status: "body-only", summary: "Code approved; body items listed." }));
+		assert.equal(f.runs().find((r) => r.id === v)!.status, "passed");
+		const approval = f.db
+			.prepare("SELECT gate, head_sha, decision FROM approvals WHERE task_id = ? ORDER BY id DESC LIMIT 1")
+			.get(f.taskId);
+		assert.deepEqual({ ...approval }, { gate: "verify", head_sha: sha, decision: "body_only" });
+		assert.equal(f.taskRow().round, 0);
+		assert.equal(f.events("round").length, 0);
+		assert.match(f.events("stage_end").at(-1)!.payload, /"status":"body_only"/);
+		// The CLI takes the status and names it in its usage refusal.
+		const summary = f.file("summary.md", "s");
+		assert.match(
+			cli(f.root, {}, "run", "done", String(v), "--status", "bodyonly", "--summary-file", summary).stderr,
+			/passed, failed or body-only/,
+		);
+		const other = f.insertRun("implement", "implementer", "started");
+		assert.match(
+			cli(f.root, {}, "run", "done", String(other), "--status", "body-only", "--summary-file", summary).stderr,
+			/closes a verify run only/,
+		);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-113-body: after a body_only verify the body stage runs in the implementer seat, same round, with each item, the body file and its limits in the prompt", () => {
+	const f = driveFixture();
+	try {
+		const { sha, bodyFile } = bodyOnlyAt(f);
+		const n = nextOf(f);
+		assert.deepEqual([n.stage, n.role, n.round], ["body", "implementer", 0]);
+		assert.match(n.reason, new RegExp(`approved the code at ${sha.slice(0, 10)}`));
+		assert.equal(quietly(() => driveOnce(f.root, f.task, TIMING)).stage, "body");
+		const launched = f.runs().at(-1)!;
+		assert.deepEqual(
+			[launched.stage, launched.role, launched.status, launched.round],
+			["body", "implementer", "started", 0],
+		);
+		const prompt = lastPrompt(f);
+		assert.match(prompt, /^Fix the PR body of task OPS-1 at [0-9a-f]{10}\./);
+		assert.ok(
+			prompt.includes(`1. present "The verifier reviewed this head." (How it was verified names an old head.)`),
+			prompt,
+		);
+		assert.ok(prompt.includes(`2. absent "still to come" (The verifier already reviewed the code.)`), prompt);
+		assert.ok(prompt.includes(`Edit only the PR body file ${bodyFile}`), prompt);
+		assert.match(prompt, /Make no commit and change no other file/);
+		assert.match(prompt, /Close with bin\/evf run done \$EVF_RUN --status passed\|failed --summary-file <path>\.$/);
+		assert.equal(f.runs().filter((r) => r.stage === "verify").length, 1);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-113-check: a passed body seat makes evf push the body at the same head and check it; a pass goes to ci with no verify", () => {
+	const f = driveFixture();
+	try {
+		const { sha, bodyFile } = bodyOnlyAt(f);
+		const run = f.insertRun("body", "implementer", "started");
+		writeFileSync(bodyFile, FIXED_BODY);
+		const lines: string[] = [];
+		const log = console.log;
+		console.log = (l: string) => void lines.push(String(l));
+		try {
+			runDone(f.root, run, { status: "passed", summary: "Body fixed." });
+		} finally {
+			console.log = log;
+		}
+		assert.deepEqual([f.runs().at(-1)!.stage, f.runs().at(-1)!.status], ["body", "passed"]);
+		assert.ok(
+			lines.some((l) => /body check passed/.test(l)),
+			lines.join("\n"),
+		);
+		const state = f.getState();
+		assert.equal(state.pr.body, FIXED_BODY, "evf pr open pushed the body");
+		assert.ok(
+			state.calls.some((c: any) => c.args[0] === "pr" && c.args[1] === "edit" && c.args.includes("--body-file")),
+		);
+		assert.ok(
+			state.calls.some(
+				(c: any) =>
+					c.args[0] === "pr" && c.args[1] === "view" && c.args.includes("body,headRefName,headRefOid,labels,files"),
+			),
+			"the GitHub body was read with the evf pr body code",
+		);
+		assert.equal(head(f), sha);
+		const n = nextOf(f);
+		assert.deepEqual([n.stage, n.round], ["ci", 0]);
+		assert.equal(quietly(() => driveOnce(f.root, f.task, TIMING)).stage, "ci");
+		assert.equal(f.runs().at(-1)!.status, "passed");
+		assert.equal(nextOf(f).stage, "ship");
+		assert.equal(f.runs().filter((r) => r.stage === "verify").length, 1, "no verify run starts");
+		assert.equal(f.taskRow().round, 0);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-113-retry: a failed body check (unmet item or body standard) runs the body stage again with the failure, no round; three in a row escalate", () => {
+	const f = driveFixture();
+	try {
+		const { bodyFile } = bodyOnlyAt(f);
+		const close = (body: string) => {
+			writeFileSync(bodyFile, body);
+			quietly(() =>
+				runDone(f.root, f.insertRun("body", "implementer", "started"), { status: "passed", summary: "Body fixed." }),
+			);
+			return f.runs().at(-1)!;
+		};
+		let r = close(bodyWith("The verifier reviewed this head. It is still to come."));
+		assert.equal(r.status, "failed");
+		const unmet = f.db.prepare("SELECT summary FROM runs WHERE id = ?").get(r.id) as { summary: string };
+		assert.match(unmet.summary, /^body check failed: the PR body does not meet a body item: absent "still to come"/);
+		let n = nextOf(f);
+		assert.deepEqual([n.stage, n.role, n.round], ["body", "implementer", 0]);
+		assert.match(n.reason, /^body failed: body check failed: .*absent "still to come"/);
+		quietly(() => driveOnce(f.root, f.task, TIMING));
+		assert.match(
+			lastPrompt(f),
+			/evf checked the body after the last body run and it failed \(body failed: body check failed: .*still to come/,
+		);
+		quietly(() => runDone(f.root, f.runs().at(-1)!.id, { status: "failed", summary: "aborted for the test" }));
+		assert.equal(f.taskRow().status, "pr_open", "two failures in a row do not escalate yet");
+
+		// The fourth body run fails the body standard; that makes three failures in a row.
+		r = close(FIXED_BODY.replace("## Follow-ups", "## Later"));
+		assert.equal(r.status, "failed");
+		assert.match(
+			(f.db.prepare("SELECT summary FROM runs WHERE id = ?").get(r.id) as { summary: string }).summary,
+			/^body check failed: PR body is missing required sections: ## Follow-ups/,
+		);
+		assert.equal(f.taskRow().status, "escalated");
+		assert.match(f.events("escalation").at(-1)!.payload, /3 failures in a row, last in body/);
+		assert.equal(f.taskRow().round, 0, "no body failure costs a round");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-113-round: a failed verify at a head an earlier verify already closed at costs no round; a new head still does, and the cap stays 3", () => {
+	const f = driveFixture();
+	try {
+		f.db.prepare("UPDATE tasks SET spec = ? WHERE id = ?").run(SPEC, f.taskId);
+		const a = head(f);
+		for (const c of ["1", "2"]) proofAt(f, a, c);
+		const verifyRun = (session: string) => f.insertRun("verify", "verifier", "started", session);
+		quietly(() =>
+			runDone(f.root, verifyRun("66666666-6666-4666-8666-666666666661"), { status: "body-only", summary: "body only" }),
+		);
+		// A second reviewer of the same head requests changes: a duplicate review of an unchanged head, no round.
+		quietly(() =>
+			runDone(f.root, verifyRun("66666666-6666-4666-8666-666666666662"), { status: "failed", summary: "again" }),
+		);
+		assert.equal(f.taskRow().round, 0);
+		assert.equal(f.events("round").length, 0);
+		assert.match(f.events("review_repeat")[0]!.payload, new RegExp(`a head already reviewed; no round`));
+		for (let i = 1; i <= LOOP_CAP; i++) {
+			f.advance();
+			quietly(() =>
+				runDone(f.root, verifyRun(`66666666-6666-4666-8666-66666666667${i}`), {
+					status: "failed",
+					summary: `finding ${i}`,
+				}),
+			);
+			assert.equal(f.taskRow().round, i, "a failed verify at a new head costs a round");
+			assert.notEqual(f.taskRow().status, "escalated");
+		}
+		f.advance();
+		quietly(() =>
+			runDone(f.root, verifyRun("66666666-6666-4666-8666-666666666680"), { status: "failed", summary: "finding 4" }),
+		);
+		assert.equal(f.taskRow().round, LOOP_CAP + 1);
+		assert.equal(f.taskRow().status, "escalated");
+		assert.match(f.events("escalation").at(-1)!.payload, /loop cap 3 hit after verify failed/);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-113-implement: an implement run closes passed only with a PR body that passes the evf pr body check; the refusal names the check", () => {
+	const f = driveFixture();
+	try {
+		f.db.prepare("UPDATE tasks SET spec = ? WHERE id = ?").run(SPEC, f.taskId);
+		const bodyFile = join(runtimeDir(f.root, f.task), "pr-body.md");
+		const id = f.insertRun("implement", "implementer", "started");
+		rmSync(bodyFile);
+		assert.throws(
+			() => runDone(f.root, id, { status: "passed", summary: "built" }),
+			new RegExp(`Implement cannot close passed: no PR body at .*pr-body\\.md`),
+		);
+		writeFileSync(bodyFile, prBody().replace("## Follow-ups", "## Later"));
+		assert.throws(
+			() => runDone(f.root, id, { status: "passed", summary: "built" }),
+			/Implement cannot close passed: the PR body at .* fails the evf pr body check: PR body is missing required sections: ## Follow-ups\./,
+		);
+		writeFileSync(bodyFile, prBody().replace(/\n\n🤖.*$/, ""));
+		assert.throws(
+			() => runDone(f.root, id, { status: "passed", summary: "built" }),
+			/fails the evf pr body check: End the PR body with its attribution line/,
+		);
+		assert.equal(f.runs().find((r) => r.id === id)!.status, "started", "a refused close changes nothing");
+		// A failed implement needs no body.
+		rmSync(bodyFile);
+		quietly(() =>
+			runDone(f.root, f.insertRun("implement", "implementer", "started"), { status: "failed", summary: "blocked" }),
+		);
+		writeFileSync(bodyFile, prBody());
+		quietly(() => runDone(f.root, id, { status: "passed", summary: "built" }));
+		assert.equal(f.runs().find((r) => r.id === id)!.status, "passed");
+	} finally {
 		f.db.close();
 		f.close();
 	}

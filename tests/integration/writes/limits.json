@@ -35,6 +35,15 @@
 	"GET /ministries/[teamId]": {
 		"limit": 5
 	},
+	"GET /intelligence": {
+		"limit": 2
+	},
+	"GET /me/check-in": {
+		"limit": 2
+	},
+	"GET /me/check-in (member)": {
+		"limit": 1
+	},
 	"GET /ministries?view=chart": {
 		"limit": 3
 	},
@@ -66,10 +75,13 @@
 		"limit": 0
 	},
 	"GET /tasks": {
-		"limit": 5
+		"limit": 6
 	},
 	"GET /tasks?task=<follow-up>": {
-		"limit": 8
+		"limit": 9
+	},
+	"GET /tasks (phase offer)": {
+		"limit": 7
 	},
 	"POST notifications.markAllVisibleRead": {
 		"limit": 6
@@ -155,6 +167,32 @@
 	},
 	"POST tasks.createTask": {
 		"limit": 5
+	},
+	"POST tasks.importTemplate": {
+		"limit": 8,
+		"reason": "The session lookup, then BEGIN, the write gate, the importer's seat read, the tasks with their assignees and audit rows in one statement, and COMMIT. Every imported task is dated and assigned, so the shared reminder sync (notifications.syncTaskReminders) adds its 2 statements (F10) for the whole set, whatever its size."
+	},
+	"POST tasks.acceptPhaseOffer": {
+		"limit": 8,
+		"reason": "The session lookup, then BEGIN, the write gate, the locked read of the move with the checklists earlier answers settled and the accepter's seat, the answer with its tasks, assignees and audit rows in one statement, and COMMIT. Every accepted task is dated and assigned, so the shared reminder sync (notifications.syncTaskReminders) adds its 2 statements (F10) for the whole set."
+	},
+	"POST tasks.declinePhaseOffer": {
+		"limit": 6
+	},
+	"POST phases.declarePhase": {
+		"limit": 2
+	},
+	"POST phases.movePhase": {
+		"limit": 4
+	},
+	"POST intelligence.saveCheckIn": {
+		"limit": 2
+	},
+	"POST intelligence.correctCheckIn": {
+		"limit": 2
+	},
+	"POST intelligence.readCheckInHistory": {
+		"limit": 2
 	},
 	"accountPerson.ensureAccountPerson": {
 		"limit": 5
@@ -1026,9 +1064,9 @@
 		"reason": "Provisions a church: gate, request-key read, one statement for the seat lock and the setup and discovery checks, one statement for the plant with its owner seat and creation entry (its recorded time is in the reply), the account's first Person (one write) and one final statement; the producer-level count adds the caller's savepoint. RT-6a brought it from 20; per HTTP request it is 9 (was 13), and the screen's entry reload after it is one statement."
 	},
 	"onboarding.declareJourney": {
-		"limit": 14,
+		"limit": 12,
 		"retry": 9,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 3 read, 7 write."
+		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 2 transaction, 2 locked read, 2 read, 6 write."
 	},
 	"onboarding/core.withOnboardingWrite": {
 		"limit": 8,
@@ -1417,6 +1455,9 @@
 	"settings/deletion.issueRestrictedDeletionSession": {
 		"limit": 4
 	},
+	"tasks.acceptPhaseOffer": {
+		"limit": 2
+	},
 	"tasks.bulkComplete": {
 		"limit": 4
 	},
@@ -1441,11 +1482,17 @@
 	"tasks.createSubtask": {
 		"limit": 3
 	},
+	"tasks.declinePhaseOffer": {
+		"limit": 2
+	},
 	"tasks.delete": {
 		"limit": 3
 	},
 	"tasks.edit": {
 		"limit": 5
+	},
+	"tasks.importTemplate": {
+		"limit": 2
 	},
 	"tasks.removeSubtask": {
 		"limit": 2
@@ -1460,6 +1507,15 @@
 		"limit": 2
 	},
 	"tasks.waive": {
+		"limit": 2
+	},
+	"tasks.listTemplates": {
+		"limit": 1
+	},
+	"tasks.previewTemplate": {
+		"limit": 1
+	},
+	"tasks.readPhaseOffer": {
 		"limit": 2
 	},
 	"tasks/core.withTaskWrite": {
@@ -1697,5 +1753,31 @@
 	},
 	"wiki.emitUpstreamReview": {
 		"limit": 5
+	},
+	"phases.declare": {
+		"limit": 2
+	},
+	"phases.readHistory": {
+		"limit": 1
+	},
+	"privateCare.correct": {
+		"limit": 1
+	},
+	"privateCare.readCurrent": {
+		"limit": 1
+	},
+	"privateCare.readHistory": {
+		"limit": 1
+	},
+	"privateCare.readTrends": {
+		"limit": 1
+	},
+	"privateCare.save": {
+		"limit": 1
+	},
+	"phases.transition": {
+		"limit": 8,
+		"retry": 3,
+		"reason": "A forward move with connected sending churches or networks queues their phase-advance notices in the move's transaction through the notification service (NTF-009): BEGIN, the move, the notice source and preference read, the notice insert, the mail read, its authorization, the mail insert and COMMIT. Every other move sends BEGIN, the move and COMMIT."
 	}
 }

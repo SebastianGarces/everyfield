@@ -112,16 +112,20 @@ import {
 	type TaskItem,
 	type TaskQuery,
 	type BulkResult,
+	type OpenOffer,
 	type DueInput,
 	type Prerequisite,
 	type Rule,
 	type Step,
 } from "./model.ts";
+import { DescriptionPreview } from "./description.ts";
 import { Assignee, DoneBox, intentHandlers, MetaLine } from "./parts.tsx";
 import type { StepAssignee } from "./structure.tsx";
 import { warmAssignees } from "./AssigneePicker.tsx";
 import { TaskDialog, type Commit, type EditForm } from "./TaskDialog.tsx";
 import { TaskSheet, type DetailState, type PanelEdit } from "./TaskSheet.tsx";
+import { PhaseOffer } from "./PhaseOffer.tsx";
+import { Templates } from "./Templates.tsx";
 
 export type Viewer = { accountId: string; role: "owner" | "admin" | "member"; name: string | null };
 type Loaded = {
@@ -129,6 +133,8 @@ type Loaded = {
 	page: { items: TaskItem[]; total: number; page: number };
 	counts: TaskCounts;
 	opened: TaskLoad | null;
+	/** The open phase offer for an Owner or Admin, or null. */
+	offer: OpenOffer | null;
 };
 
 const GROUP: Record<Group["key"], { label: string; tone: "risk" | "measured" | "unknown" | "positive" } | null> = {
@@ -291,6 +297,14 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 	const [deleting, setDeleting] = useState<TaskItem | null>(null);
 	const loading = useRef(new Set<string>());
 	const query = loaded.query;
+	/** Tasks a checklist import or a phase offer just created: listed and counted when they match the query. */
+	const addTasks = (tasks: TaskItem[]) => {
+		const fresh = tasks.filter((t) => matches(query, t, viewer.accountId));
+		if (!fresh.length) return;
+		setItems((rows) => [...fresh, ...rows]);
+		setCounts((c) => fresh.reduce((n, t) => countsAfter(n, null, t), c));
+		setTotal((t) => t + fresh.length);
+	};
 
 	const go = (next: TaskQuery, replace = false) =>
 		startNav(() => (replace ? router.replace : router.push)(pathname + querySearch(next), { scroll: false }));
@@ -935,6 +949,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 						<IntentLink href="/tasks/follow-ups" className={buttonVariants({ variant: "secondary" })}>
 							Follow-ups
 						</IntentLink>
+						{admin ? <Templates year={year} onImported={addTasks} /> : null}
 						{admin ? (
 							<Button
 								variant="primary"
@@ -948,6 +963,9 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 					</>
 				}
 			/>
+			{admin && loaded.offer ? (
+				<PhaseOffer key={loaded.offer.transition.id} initial={loaded.offer} year={year} onAdded={addTasks} />
+			) : null}
 			<div className="grid grid-cols-[minmax(0,1.9fr)_minmax(0,1fr)] items-start gap-5 max-app-md:grid-cols-1">
 				<Card className="gap-2 px-[18px] py-5 max-app-sm:px-3">
 					<Toolbar query={query} go={go} admin={admin} rows={items} />
@@ -1188,6 +1206,7 @@ function TaskRow({
 						{wait === "saving" ? "Saving…" : "Check the last save first."}
 					</span>
 				) : null}
+				<DescriptionPreview value={task.excerpt} />
 				<MetaLine task={task} year={year} />
 			</div>
 			<Assignee task={task} you={you} />

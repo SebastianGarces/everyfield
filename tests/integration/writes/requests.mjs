@@ -21,6 +21,7 @@ import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { documentsWriter } from "../../../packages/domain/src/documents/index.ts";
 import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { teamsWriter } from "../../../packages/domain/src/teams/index.ts";
+import { CATALOG } from "../../../packages/domain/src/tasks/catalog.ts";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 const web = root + "apps/web/";
@@ -391,6 +392,9 @@ try {
 		["GET /ministries", "/ministries", owner.cookie],
 		["GET /ministries?view=chart", "/ministries?view=chart", owner.cookie],
 		["GET /ministries/[teamId]", `/ministries/${ministry.id}`, owner.cookie],
+		["GET /intelligence", "/intelligence", owner.cookie],
+		["GET /me/check-in", "/me/check-in", owner.cookie],
+		["GET /me/check-in (member)", "/me/check-in", member.cookie],
 		["GET /signin (signed out)", "/signin", ""],
 	];
 	// RT-6c: no request pays a cold-start cost. Server start checks the bucket's privacy without any request, and opens
@@ -632,7 +636,71 @@ try {
 	assert.equal(removed.value.assets.full_logo, null);
 	assert.equal((await asset(null, "GET", fileId, owner.cookie)).status, 404, "a removed file is not served");
 
+	// The phase journey (WP-038): a declaration, then a backward move with its reason. Each is one write request.
+	const phases = "apps/web/src/features/phases/actions.ts";
+	const plantRevision = async () =>
+		(await admin.execute(sql`SELECT revision::text AS r FROM plant WHERE id=${plant.id}`)).rows[0].r;
+	const declared = await act("POST phases.declarePhase", "/intelligence", phases, "declarePhase", [
+		randomUUID(),
+		await plantRevision(),
+		3,
+	]);
+	assert.equal(declared.status, "ok", JSON.stringify(declared));
+	const movedBack = await act("POST phases.movePhase", "/intelligence", phases, "movePhase", [
+		randomUUID(),
+		declared.value.state.revision,
+		2,
+		"Back to forming the launch team",
+	]);
+	assert.equal(movedBack.status, "ok", JSON.stringify(movedBack));
+
+	// The private check-in (WP-039): this week's save, a correction and an older history page. Each is one request.
+	await admin.execute(sql`UPDATE account SET personal_timezone='America/Chicago' WHERE id=${owner.accountId}`);
+	const care = "apps/web/src/features/intelligence/actions.ts";
+	const steady = { spiritual: "steady", family: "steady", financial: "steady", pace: "steady" };
+	const checkedIn = await act("POST intelligence.saveCheckIn", "/me/check-in", care, "saveCheckIn", [
+		randomUUID(),
+		"0",
+		steady,
+		"Rested this week",
+	]);
+	assert.equal(checkedIn.status, "ok", JSON.stringify(checkedIn));
+	let careRevision = checkedIn.value.revision;
+	const corrected = await act("POST intelligence.correctCheckIn", "/me/check-in", care, "correctCheckIn", [
+		randomUUID(),
+		careRevision,
+		checkedIn.value.week.id,
+		{ ...steady, pace: "strained" },
+		"",
+	]);
+	assert.equal(corrected.status, "ok", JSON.stringify(corrected));
+	careRevision = corrected.value.revision;
+	const olderWeeks = await act("POST intelligence.readCheckInHistory", "/me/check-in", care, "readCheckInHistory", [2]);
+	assert.equal(olderWeeks.status, "ok", JSON.stringify(olderWeeks));
+
 	// More data than one screen shows: the same pages must send the same statements.
+	for (let i = 0; i < 12; i++)
+		assert.equal(
+			(
+				await act(null, "/intelligence", phases, "movePhase", [
+					randomUUID(),
+					await plantRevision(),
+					i % 2 ? 2 : 1,
+					`Grown move ${i}`,
+				])
+			).status,
+			"ok",
+		);
+	for (let i = 0; i < 12; i++) {
+		const grown = await act(null, "/me/check-in", care, "saveCheckIn", [
+			randomUUID(),
+			careRevision,
+			{ ...steady, pace: i % 2 ? "steady" : "struggling" },
+			`Grown note ${i}`,
+		]);
+		assert.equal(grown.status, "ok", JSON.stringify(grown));
+		careRevision = grown.value.revision;
+	}
 	for (let i = 0; i < 30; i++) await person(`Grown ${String(i).padStart(2, "0")}`);
 	for (let i = 0; i < 5; i++) maria = await note(maria, `Grown note ${i}`);
 	for (let i = 0; i < 30; i++) await task(`Grown task ${i}`);
@@ -648,6 +716,46 @@ try {
 		const who = (await person(`Listed ${String(i).padStart(3, "0")}`)).id;
 		await guest(visionMeeting, who);
 		await guest(boardMeeting, who);
+	}
+	// Phase checklists (WP-026). The last move offers Phase 2's checklists: the Tasks page with an open offer is its own
+	// variant, read before and after an import grows the list. Accepting answers it; a move back to Phase 1 is declined,
+	// and the move to Phase 2 again offers nothing, so the second "GET /tasks" read shows no offer, as the first did.
+	const tasks = "apps/web/src/features/tasks/actions.ts";
+	const latestMove = async () =>
+		(
+			await admin.execute(sql`SELECT id FROM phase_transition WHERE plant_id=${plant.id} AND kind='movement'
+				ORDER BY occurred_at DESC, id DESC LIMIT 1`)
+		).rows[0].id;
+	const checklist = CATALOG.checklists.find((k) => k.key === "vision-meeting-preparation");
+	await get("GET /tasks (phase offer)", "/tasks", owner.cookie);
+	const imported = await act("POST tasks.importTemplate", "/tasks", tasks, "importTemplate", [
+		randomUUID(),
+		{ catalogVersion: CATALOG.version, checklistKey: checklist.key, itemKeys: checklist.items.map((i) => i.key) },
+	]);
+	assert.equal(imported.status, "ok", JSON.stringify(imported));
+	await get("GET /tasks (phase offer)", "/tasks", owner.cookie);
+	const accepted = await act("POST tasks.acceptPhaseOffer", "/tasks", tasks, "answerOffer", [
+		randomUUID(),
+		{ transitionId: await latestMove(), catalogVersion: CATALOG.version, checklistKeys: ["launch-date-planning"] },
+	]);
+	assert.equal(accepted.status, "ok", JSON.stringify(accepted));
+	for (const [toPhase, answer] of [
+		[1, "POST tasks.declinePhaseOffer"],
+		[2, null],
+	]) {
+		const moved = await act(null, "/intelligence", phases, "movePhase", [
+			randomUUID(),
+			await plantRevision(),
+			toPhase,
+			`Checklist move ${toPhase}`,
+		]);
+		assert.equal(moved.status, "ok", JSON.stringify(moved));
+		if (!answer) continue;
+		const declined = await act(answer, "/tasks", tasks, "answerOffer", [
+			randomUUID(),
+			{ transitionId: await latestMove(), catalogVersion: CATALOG.version, checklistKeys: [] },
+		]);
+		assert.equal(declined.status, "ok", JSON.stringify(declined));
 	}
 	for (const [name, path, cookie, status] of pages) await get(name, path, cookie, status);
 

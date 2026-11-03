@@ -6,6 +6,12 @@ const config: NextConfig = {
 	// The marketing copy lives in design/marketing-copy.json at the repository root.
 	turbopack: { root: path.join(import.meta.dirname, "../..") },
 	outputFileTracingRoot: path.join(import.meta.dirname, "../.."),
+	// The reference loader reads these two files at run time through a computed path, which the tracer cannot see.
+	// A literal `new URL` does not help: in a page chunk Turbopack turns it into a public /_next/static URL (WP-032).
+	// tests/reference/server-trace.test.mjs fails the build check when a route that bundles the loader drops them.
+	outputFileTracingIncludes: {
+		"/**": ["../../packages/reference/src/freeze.json", "../../packages/reference/src/artifacts.json"],
+	},
 	poweredByHeader: false,
 	// `next dev` prints each server action call with its arguments, which carry passwords and proofs (BUG-PR199).
 	logging: { serverFunctions: false },

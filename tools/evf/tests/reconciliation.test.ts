@@ -1,7 +1,7 @@
 import { checkPrBody } from "../pr-body.ts";
 import { prImages } from "../../wiki/pr-images.ts";
 import { createHash } from "node:crypto";
-import { packageContext, loadProgress, partsOf } from "../lib.ts";
+import { packageContext, loadProgress, partsOf, findPackage } from "../lib.ts";
 import { feedbackPromote, feedbackIdeas } from "../feedback.ts";
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -3198,6 +3198,119 @@ test("OPS-67-ship-ack: a WP record with no owning-path diff stays unacknowledged
 	}
 });
 
+// OPS-117: a split package (api and ui parts) that shipped as one whole task counts as its producer milestone.
+const quietDrive = (root: string, task: ReturnType<typeof parseTask>) =>
+	quiet(() => driveOnce(root, task, DRIVE_TIMING).stage);
+const PHASES_API = "packages/domain/src/phases/declare.ts",
+	PHASES_UI = "apps/web/src/features/phases/panel.tsx";
+
+test("OPS-117-whole-task: a reviewed, acknowledged whole-task record of a split package unlocks its dependents", () => {
+	const { f, db, task, shipped } = wpShipFixture(undefined, PHASES_API, { task: "WP-038", extraFiles: [PHASES_UI] });
+	try {
+		assert.deepEqual(partsOf(findPackage(loadDag(f.root), "WP-038")), ["api", "ui"]);
+		assert.equal(quietDrive(f.root, task), "done");
+		assert.equal(shipped().part, null);
+		assert.equal(shipped().acknowledged, true);
+		assert.equal(existsSync(join(evfDataDir(f.root), "shipped", "wp-038-api.json")), false);
+		assert.equal(producerReady(f.root, "WP-038"), true);
+
+		const recordPath = join(evfDataDir(f.root), "shipped", `${task.slug}.json`),
+			good = readFileSync(recordPath, "utf8"),
+			edit = (change: (r: any) => void) => {
+				const r = JSON.parse(good);
+				change(r);
+				writeFileSync(recordPath, JSON.stringify(r));
+			};
+		edit((r) => delete r.acknowledged);
+		assert.equal(producerReady(f.root, "WP-038"), false, "an unacknowledged whole-task record stays refused");
+		edit((r) => (r.verification.approval.verdict = "changes_requested"));
+		assert.equal(producerReady(f.root, "WP-038"), false, "a verdict other than approved stays refused");
+		edit((r) => (r.merge_commit = "a".repeat(40)));
+		assert.equal(producerReady(f.root, "WP-038"), false, "a merge commit off the base branch stays refused");
+		rmSync(recordPath);
+		assert.equal(producerReady(f.root, "WP-038"), false, "no shipped record stays refused");
+		writeFileSync(recordPath, good);
+		assert.equal(producerReady(f.root, "WP-038"), true);
+	} finally {
+		db.close();
+		f.close();
+	}
+});
+
+test("OPS-117-whole-task: the ledger keeps a whole-task milestone after a later maintenance-only record", () => {
+	const { f, db, task, progressPath, shipped } = wpShipFixture(undefined, PHASES_API, { task: "WP-038" });
+	try {
+		assert.equal(quietDrive(f.root, task), "done");
+		const milestone = loadProgress(f.root)["WP-038"].milestones["WP-038"];
+		assert.equal(milestone.acknowledged, true);
+		const reviewedMerge = milestone.merge_commit;
+		// A later reviewed merge of the same task changes only a path outside the owning paths.
+		f.git("push", "-q", "origin", "main");
+		const later = f.task(task.slug);
+		writeFileSync(join(later, "README.md"), "Later reviewed outside-path fix\n");
+		execFileSync("git", ["-C", later, "add", "README.md"]);
+		execFileSync("git", ["-C", later, "commit", "-qm", "Later maintenance"]);
+		const laterSha = f.git("rev-parse", task.branch),
+			state = f.getState();
+		state.pr.headRefOid = laterSha;
+		state.comments["77"][0].body =
+			`EVF-Review: ${JSON.stringify({ head: laterSha, verifier: VERIFIER, verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
+		f.setState(state);
+		assert.equal(
+			quiet(() => ship(f.root, task)),
+			0,
+		);
+		assert.notEqual(shipped().merge_commit, reviewedMerge, "the retained record is now the maintenance merge");
+		assert.equal(producerReady(f.root, "WP-038"), true, "the ledger milestone still counts");
+
+		const progress = readFileSync(progressPath, "utf8"),
+			canonical = JSON.parse(progress);
+		canonical.packages["WP-038"].milestones["WP-038"].acknowledged = false;
+		writeFileSync(progressPath, JSON.stringify(canonical));
+		assert.equal(producerReady(f.root, "WP-038"), false, "an unacknowledged ledger milestone stays refused");
+		canonical.packages["WP-038"].milestones["WP-038"] = { ...milestone, merge_commit: "a".repeat(40) };
+		writeFileSync(progressPath, JSON.stringify(canonical));
+		assert.equal(producerReady(f.root, "WP-038"), false, "an unintegrated ledger milestone stays refused");
+		canonical.packages["WP-038"].milestones["WP-038"] = { ...milestone, task: "WP-038/ui" };
+		writeFileSync(progressPath, JSON.stringify(canonical));
+		assert.equal(producerReady(f.root, "WP-038"), false, "a milestone keyed for another task stays refused");
+		writeFileSync(progressPath, progress);
+		assert.equal(producerReady(f.root, "WP-038"), true);
+	} finally {
+		db.close();
+		f.close();
+	}
+});
+
+test("OPS-117-whole-task: a whole-task record that changed only ui paths does not unlock dependents", () => {
+	const { f, db, task, shipped } = wpShipFixture(undefined, PHASES_UI, { task: "WP-038" });
+	try {
+		assert.equal(quietDrive(f.root, task), "done");
+		assert.equal(shipped().acknowledged, true, "the review itself is valid");
+		assert.equal(loadProgress(f.root)["WP-038"].milestones["WP-038"].acknowledged, true);
+		assert.equal(producerReady(f.root, "WP-038"), false);
+		assert.throws(
+			() => requireImplementation(f.root, "WP-026"),
+			/Prerequisites need reviewed producer\/interface milestones: [^\n]*WP-038/,
+		);
+	} finally {
+		db.close();
+		f.close();
+	}
+});
+
+test("OPS-117-whole-task: a WP-038/api record still unlocks dependents as before", () => {
+	const { f, db, task, shipped } = wpShipFixture(undefined, PHASES_API, { task: "WP-038/api" });
+	try {
+		assert.equal(quietDrive(f.root, task), "done");
+		assert.equal(shipped().acknowledged, true);
+		assert.equal(producerReady(f.root, "WP-038"), true);
+	} finally {
+		db.close();
+		f.close();
+	}
+});
+
 // OPS-80: document-template PRs wait for Sebastian (mergePolicy.documentTemplates).
 import { chmodSync } from "node:fs";
 import { DEFAULT_DOCUMENT_TEMPLATES } from "../policy.ts";
@@ -4509,5 +4622,603 @@ test("OPS-109-unchanged: a P2 fix and a design task with Wiki paths keep their r
 	} finally {
 		db.close();
 		g.close();
+	}
+});
+
+// OPS-111: the landing and marketing site waits for Sebastian (mergePolicy.ownerPaths); stale evf code cannot ship or drive.
+import { drive } from "../drive.ts";
+import { heldClasses } from "../merge.ts";
+import { DEFAULT_OWNER_PATHS } from "../policy.ts";
+
+const OWNER_ERR = "evf.config.json mergePolicy.ownerPaths";
+const OWNER_PATHS = [
+	"apps/web/src/app/page.tsx",
+	"apps/web/src/app/access/",
+	"apps/web/src/app/oversight/",
+	"apps/web/src/app/privacy/",
+	"apps/web/src/app/terms/",
+	"apps/web/src/marketing/",
+	"apps/web/src/styles/marketing.css",
+];
+/** PR #405: the six paths of its merge commit 6fc1c575. */
+const PR405_FILES = [
+	"apps/web/package.json",
+	"apps/web/src/components/kit/EvryBot.tsx",
+	"apps/web/src/styles/marketing.css",
+	"tests/ui/marketing/evry-bot.test.mjs",
+	"tests/ui/marketing/evry-follow.test.mjs",
+	"tests/ui/marketing/oversight.test.mjs",
+];
+const ownerApprove = (head: string) =>
+	`Sebastian approves each landing and marketing PR for its exact head; after his approval in chat, run: bin/evf approve 77 --owner-approval "<his words>" --head ${head}`;
+/** The GitHub writes ship could make: a status, a branch update, a comment or a merge. */
+const shipWrites = (f: any) =>
+	f
+		.getState()
+		.calls.filter(
+			(c: any) =>
+				(c.args[0] === "pr" && ["comment", "merge", "ready", "update-branch"].includes(c.args[1])) ||
+				c.args.includes("POST"),
+		);
+/** Commit `files` in the task worktree and point the fixture PR and an approved review at the new head. */
+function ownerHead(f: ReturnType<typeof mergeFixture>, wt: string, files: string[]): string {
+	for (const file of files) {
+		mkdirSync(dirname(join(wt, file)), { recursive: true });
+		writeFileSync(join(wt, file), "x");
+		execFileSync("git", ["-C", wt, "add", file]);
+	}
+	execFileSync("git", ["-C", wt, "commit", "-qm", "Owner paths"]);
+	const sha = execFileSync("git", ["-C", wt, "rev-parse", "HEAD"], { encoding: "utf8" }).trim(),
+		state = f.getState();
+	state.pr.headRefOid = sha;
+	state.comments["77"][0].body =
+		`EVF-Review: ${JSON.stringify({ head: sha, verifier: VERIFIER, verdict: "approved", quality: approvedQuality, experience: approvedExperience })}`;
+	f.setState(state);
+	return sha;
+}
+/** Moves origin/main to a commit whose evf.config.json is `text`; the home checkout keeps its own config. */
+function baseConfig(f: { root: string; git: (...a: string[]) => string }, text: string) {
+	f.git("checkout", "-q", "-b", "base-config", "origin/main");
+	writeFileSync(join(f.root, "evf.config.json"), text);
+	f.git("commit", "-qam", "Base config");
+	f.git("push", "-q", "origin", "base-config:main");
+	f.git("checkout", "-q", "main");
+}
+/** A config whose explicit ownerPaths key has an empty path list. */
+const malformedOwnerPaths = (cfg: any) => {
+	const c = structuredClone(cfg);
+	c.mergePolicy.ownerPaths = { ...structuredClone(DEFAULT_OWNER_PATHS), paths: [] };
+	return JSON.stringify(c);
+};
+const MALFORMED_OWNER = `evf.config.json is unreadable: ${OWNER_ERR}.paths must be a non-empty list of distinct relative paths with no .. part; got [].`;
+
+test("OPS-111-config: the built-in ownerPaths holds the report's seven paths and his words; a malformed key stops loadConfig and names it", () => {
+	const real = DEFAULT_OWNER_PATHS;
+	assert.deepEqual(real.paths, OWNER_PATHS);
+	assert.equal(real.approvedAtUtc, "2026-11-02T05:18:00Z");
+	assert.equal(real.quote, "you can make decisions and let me know what those were so I can revert them if I disagree");
+	assert.match(real.scope, /^The landing and marketing site: /);
+	const f = fixture();
+	try {
+		const load = (edit: (c: any) => void) => {
+			const cfg = structuredClone(f.cfg);
+			cfg.mergePolicy.ownerPaths = structuredClone(DEFAULT_OWNER_PATHS);
+			edit(cfg);
+			writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(cfg));
+			return () => loadConfig(f.root);
+		};
+		// The key is optional: an absent key loads and the built-in default applies; an explicit key loads as written.
+		assert.equal(load((c) => delete c.mergePolicy.ownerPaths)().mergePolicy.ownerPaths, undefined);
+		assert.deepEqual(load(() => {})().mergePolicy.ownerPaths, real);
+		assert.throws(
+			load((c) => (c.mergePolicy.ownerPaths = ["apps/web/"])),
+			{ message: `${OWNER_ERR} must be an object with paths, approvedAtUtc, quote and scope.` },
+		);
+		const paths = (value: unknown) => ({
+			message: `${OWNER_ERR}.paths must be a non-empty list of distinct relative paths with no .. part; got ${JSON.stringify(value)}.`,
+		});
+		for (const bad of [[], ["a.css", "a.css"], ["/apps/web/page.tsx"], ["apps/../web/page.tsx"], [""]])
+			assert.throws(
+				load((c) => (c.mergePolicy.ownerPaths.paths = bad)),
+				paths(bad),
+			);
+		assert.throws(
+			load((c) => (c.mergePolicy.ownerPaths.approvedAtUtc = "Nov 2, 2026, 1:18 AM ET")),
+			{ message: `${OWNER_ERR}.approvedAtUtc must be an ISO UTC timestamp; got "Nov 2, 2026, 1:18 AM ET".` },
+		);
+		for (const field of ["quote", "scope"])
+			for (const bad of [" ", undefined])
+				assert.throws(
+					load((c) => (c.mergePolicy.ownerPaths[field] = bad)),
+					{ message: `${OWNER_ERR}.${field} must be a non-empty string.` },
+				);
+	} finally {
+		f.close();
+	}
+});
+
+test("OPS-111-class: prefix and exact entries match from the base config; near misses stay ordinary", () => {
+	const f = mergeFixture();
+	try {
+		const cfg = loadConfig(f.root);
+		const branch = (name: string, ...files: string[]) => {
+			f.git("checkout", "-q", "-b", name, "main");
+			for (const file of files) {
+				mkdirSync(dirname(join(f.root, file)), { recursive: true });
+				writeFileSync(join(f.root, file), `${name}\n`);
+				f.git("add", file);
+			}
+			f.git("commit", "-qm", name);
+			f.git("checkout", "-q", "main");
+			return heldClasses(f.root, cfg, f.git("rev-parse", name).trim()).owner;
+		};
+		// A folder entry matches every path under it; a file entry matches that file only.
+		assert.deepEqual(branch("prefix", "apps/web/src/marketing/Hero.tsx", "apps/web/src/app/privacy/sections/a.tsx"), [
+			"apps/web/src/app/privacy/sections/a.tsx",
+			"apps/web/src/marketing/Hero.tsx",
+		]);
+		assert.deepEqual(branch("exact", "apps/web/src/app/page.tsx", "apps/web/src/styles/marketing.css", "README.md"), [
+			"apps/web/src/app/page.tsx",
+			"apps/web/src/styles/marketing.css",
+		]);
+		assert.deepEqual(
+			branch(
+				"near",
+				"apps/web/src/app/pages.tsx",
+				"apps/web/src/app/(product)/page.tsx",
+				"apps/web/src/app/terms.tsx",
+				"apps/web/src/marketing-kit.ts",
+				"apps/web/src/styles/marketing.css.map",
+				"apps/web/src/components/kit/EvryBot.tsx",
+			),
+			[],
+		);
+		// The home checkout's own config cannot narrow the class: it is read from the base branch.
+		const narrowed = structuredClone(f.cfg);
+		narrowed.mergePolicy.ownerPaths = { ...structuredClone(DEFAULT_OWNER_PATHS), paths: ["nothing/"] };
+		writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(narrowed));
+		assert.deepEqual(branch("home", "apps/web/src/styles/marketing.css"), ["apps/web/src/styles/marketing.css"]);
+	} finally {
+		f.close();
+	}
+});
+
+test("OPS-111-class: every failed step returns doubt with its reason", () => {
+	const cases: Array<[string, (f: ReturnType<typeof mergeFixture>, sha: string) => string, RegExp]> = [
+		["a bad sha", () => "HEAD", /the head to merge is not a full commit sha \("HEAD"\)/],
+		["a missing commit", () => "f".repeat(40), /commit ffffffffff is not in the repository/],
+		[
+			"a failed fetch",
+			(f, sha) => {
+				f.git("remote", "set-url", "origin", "/nonexistent/origin.git");
+				return sha;
+			},
+			/git fetch origin main failed/,
+		],
+		[
+			"no merge base",
+			(f) => f.git("commit-tree", "HEAD^{tree}", "-m", "orphan"),
+			/git merge-base origin\/main .* failed/,
+		],
+		[
+			"a failed diff",
+			(f, sha) => {
+				const tree = f.git("rev-parse", `${sha}^{tree}`);
+				rmSync(join(f.root, ".git", "objects", tree.slice(0, 2), tree.slice(2)), { force: true });
+				return sha;
+			},
+			/git diff to .* failed/,
+		],
+		[
+			"an unreadable base config",
+			(f, sha) => {
+				baseConfig(f, "{ not json");
+				return sha;
+			},
+			/the origin\/main evf\.config\.json is unreadable/,
+		],
+		[
+			"a malformed base ownerPaths",
+			(f, sha) => {
+				baseConfig(f, malformedOwnerPaths(f.cfg));
+				return sha;
+			},
+			/the origin\/main evf\.config\.json is unreadable: evf\.config\.json mergePolicy\.ownerPaths\.paths must be/,
+		],
+	];
+	for (const [name, setup, why] of cases) {
+		const f = mergeFixture();
+		try {
+			const cfg = loadConfig(f.root),
+				sha = setup(f, ownerHead(f, f.wt, ["README.md"]));
+			const held = heldClasses(f.root, cfg, sha);
+			assert.deepEqual([held.templates, held.owner], [[], []], name);
+			assert.match(held.doubt ?? "", why, name);
+		} finally {
+			f.close();
+		}
+	}
+});
+
+test("OPS-111-405: the verified #405 file list is held on marketing.css: status posted, no queue, no update, no merge", () => {
+	const { f, db, task } = wpShipFixture(undefined, PR405_FILES[0], { extraFiles: PR405_FILES.slice(1) });
+	try {
+		const sha = f.getState().pr.headRefOid,
+			wt = join(f.root, ".worktrees", task.slug);
+		assert.deepEqual(
+			execFileSync("git", ["-C", wt, "diff", "--name-only", "origin/main", sha], { encoding: "utf8" })
+				.trim()
+				.split("\n"),
+			PR405_FILES,
+			"the PR changes exactly #405's six paths",
+		);
+		const s = f.getState();
+		s.calls = [];
+		f.setState(s);
+		const { value, lines } = capturedLog(() => ship(f.root, task));
+		assert.equal(value, 0);
+		assert.deepEqual(lines, [
+			`evf ship does not merge PR #77: it changes landing and marketing owner paths (apps/web/src/styles/marketing.css). The verifier passed it. ${ownerApprove(sha)}`,
+		]);
+		assert.deepEqual(
+			shipWrites(f).map((c: any) => c.args),
+			[
+				[
+					"api",
+					"-X",
+					"POST",
+					`repos/test/private/statuses/${sha}`,
+					"-f",
+					"state=success",
+					"-f",
+					"context=evf/verify",
+					"-f",
+					`description=Verified by claude-opus-5-5 (session 22222222) at ${sha.slice(0, 10)}`,
+				],
+			],
+			"one evf/verify success; no update-branch, comment or merge",
+		);
+		assert.equal(existsSync(join(evfDataDir(f.root), "ship-queue")), false, "never entered the ship queue");
+	} finally {
+		db.close();
+		f.close();
+	}
+});
+
+test("OPS-111-ship: an OPS task and a P1 fix join the class; more than five paths show five and a count", () => {
+	for (const kind of ["ops", "fb"] as const) {
+		const f = mergeFixture();
+		try {
+			let task = f.taskRef,
+				wt = f.wt;
+			if (kind === "fb") {
+				f.authorize("WP-034");
+				f.commit();
+				f.git("push", "-q", "origin", "main");
+				feedbackTriage(f.root, 1, { cls: "p1", reason: "scoped feedback", wp: "WP-034" });
+				task = parseTask("FB-1");
+				wt = f.task(task.slug);
+			}
+			const files = Array.from({ length: 7 }, (_, i) => `apps/web/src/marketing/part-${i}.tsx`),
+				sha = ownerHead(f, wt, files);
+			const { value, lines } = capturedLog(() => ship(f.root, task));
+			assert.equal(value, 0, kind);
+			assert.deepEqual(mergeCalls(f), [], kind);
+			assert.equal(callsWith(f, "state=success").length, 1, kind);
+			assert.equal(lines.length, 1, kind);
+			assert.equal(
+				lines[0],
+				`evf ship does not merge PR #77: it changes landing and marketing owner paths (${files.slice(0, 5).join(", ")}) (7 paths in all). The verifier passed it. ${ownerApprove(sha)}`,
+				kind,
+			);
+		} finally {
+			f.close();
+		}
+	}
+});
+
+test("OPS-111-doubt: a malformed base ownerPaths or an unreadable base config holds an ordinary PR and names the reason", () => {
+	for (const [name, text, why] of [
+		[
+			"malformed ownerPaths",
+			(cfg: any) => malformedOwnerPaths(cfg),
+			`evf cannot tell whether it changes document templates or landing and marketing owner paths (the origin/main ${MALFORMED_OWNER}), so it holds it as if it did`,
+		],
+		[
+			"unreadable",
+			() => "{ not json",
+			"evf cannot tell whether it changes document templates or landing and marketing owner paths (the origin/main evf.config.json is unreadable: ",
+		],
+	] as const) {
+		const { f, db, task } = wpShipFixture();
+		try {
+			const head = f.getState().pr.headRefOid;
+			baseConfig(f, text(f.cfg));
+			const s = f.getState();
+			s.calls = [];
+			f.setState(s);
+			const { value, lines } = capturedLog(() => ship(f.root, task));
+			assert.equal(value, 0, name);
+			assert.equal(lines.length, 1, name);
+			assert.ok(lines[0].startsWith(`evf ship does not merge PR #77: ${why}`), `${name}: ${lines[0]}`);
+			assert.ok(lines[0].endsWith(`The verifier passed it. ${ownerApprove(head)}`), name);
+			assert.deepEqual(mergeCalls(f), [], name);
+			assert.equal(callsWith(f, "pr", "merge").length, 0, name);
+			assert.equal(callsWith(f, "state=success").length, 1, name);
+		} finally {
+			db.close();
+			f.close();
+		}
+	}
+});
+
+test("OPS-111-merge: the choke point refuses an owner-path PR without his words for that exact head", () => {
+	const { f, db, task } = wpShipFixture(undefined, "apps/web/src/styles/marketing.css");
+	try {
+		const cfg = loadConfig(f.root),
+			wt = join(f.root, ".worktrees", task.slug),
+			sha = f.getState().pr.headRefOid;
+		const merge = (ownerApproval?: { quote: string; approved_head: string }) =>
+			mergePullRequest({ root: f.root, cfg, cwd: wt, number: 77, sha, ownerApproval });
+		assert.throws(() => merge(), {
+			message: `evf does not merge PR #77: it changes landing and marketing owner paths (apps/web/src/styles/marketing.css). ${ownerApprove(sha)}`,
+		});
+		assert.throws(() => merge({ quote: "Approved", approved_head: sha }), /does not merge PR #77: it changes/);
+		assert.throws(
+			() => merge({ quote: "Approved: the page looks right", approved_head: "a".repeat(40) }),
+			/Sebastian approved aaaaaaaaaa, not .* His approval does not carry over to a new head\./,
+		);
+		assert.deepEqual(callsWith(f, "pr", "merge"), [], "no gh pr merge call");
+		assert.equal(merge({ quote: "Approved: the page looks right", approved_head: sha }).code, 0);
+		assert.deepEqual(callsWith(f, "pr", "merge")[0].args, [
+			"pr",
+			"merge",
+			"77",
+			"--squash",
+			"--match-head-commit",
+			sha,
+		]);
+	} finally {
+		db.close();
+		f.close();
+	}
+});
+
+test("OPS-111-merge: doubt about the owner class refuses the merge without his words", () => {
+	const { f, db, task } = wpShipFixture();
+	try {
+		const cfg = loadConfig(f.root),
+			wt = join(f.root, ".worktrees", task.slug),
+			sha = f.getState().pr.headRefOid;
+		baseConfig(f, malformedOwnerPaths(f.cfg));
+		assert.throws(
+			() => mergePullRequest({ root: f.root, cfg, cwd: wt, number: 77, sha }),
+			(e: Error) => e.message.includes(MALFORMED_OWNER) && e.message.includes(`--head ${sha}`),
+		);
+		assert.deepEqual(callsWith(f, "pr", "merge"), []);
+	} finally {
+		db.close();
+		f.close();
+	}
+});
+
+test("OPS-111-approve: merges a verified owner-path PR at --head; refuses without a verifier pass, --head, the same head or an up-to-date branch", () => {
+	const { f, db, task, shipped } = wpShipFixture(undefined, "apps/web/src/styles/marketing.css");
+	try {
+		const head = f.getState().pr.headRefOid,
+			words = "Approved: the landing page looks right";
+		approvable(f as any, task.branch, ["apps/web/src/styles/marketing.css"], head);
+		const refuses = (opts: { head?: string }, message: string | RegExp, edit: (s: any) => void = () => {}) => {
+			const s = f.getState();
+			s.calls = [];
+			edit(s);
+			f.setState(s);
+			assert.throws(
+				() => inFakeCwd(f, () => approve(f.root, 77, { ownerApproval: words, ...opts })),
+				typeof message === "string" ? { message } : message,
+			);
+			assert.deepEqual(approveWrites(f), []);
+		};
+		refuses(
+			{ head },
+			`PR #77 needs the verifier to pass it first (bin/evf ship WP-001) at ${head.slice(0, 10)}; a branch update needs a fresh verification.`,
+		);
+		const verified = (s: any) => (s.commitStatus = verifiedStatus(head));
+		refuses(
+			{},
+			`PR #77 changes landing and marketing owner paths. Name the head Sebastian approved: bin/evf approve 77 --owner-approval "<his words>" --head ${head}`,
+			verified,
+		);
+		refuses(
+			{ head: "deadbee" },
+			/head is .*, not the deadbee Sebastian approved\. His approval does not carry over/,
+			verified,
+		);
+		refuses({ head }, /PR #77 is behind main\. Update it/, (s) => {
+			verified(s);
+			s.pr.mergeStateStatus = "BEHIND";
+		});
+		const s = f.getState();
+		s.pr.mergeStateStatus = "CLEAN";
+		s.calls = [];
+		f.setState(s);
+		assert.equal(capturedLog(() => inFakeCwd(f, () => approve(f.root, 77, { ownerApproval: words, head }))).value, 0);
+		assert.deepEqual(callsWith(f, "pr", "merge")[0].args, [
+			"pr",
+			"merge",
+			"77",
+			"--squash",
+			"--match-head-commit",
+			head,
+		]);
+		assert.deepEqual(
+			{ quote: shipped().owner_approval.quote, head: shipped().owner_approval.approved_head },
+			{ quote: words, head },
+		);
+	} finally {
+		db.close();
+		f.close();
+	}
+});
+
+test("OPS-111-both: a PR in the document-template and owner-path classes is held and the message names both", () => {
+	const { f, db, task } = wpShipFixture(undefined, "packages/reference/fixture.txt", {
+		extraFiles: ["apps/web/src/styles/marketing.css"],
+	});
+	try {
+		templateConfig(f, ["packages/reference/"]);
+		const head = f.getState().pr.headRefOid;
+		const { value, lines } = capturedLog(() => ship(f.root, task));
+		assert.equal(value, 0);
+		assert.deepEqual(lines, [
+			`evf ship does not merge PR #77: it changes document-template paths (packages/reference/fixture.txt) and landing and marketing owner paths (apps/web/src/styles/marketing.css). The verifier passed it. ${ownerApprove(head)}`,
+		]);
+		assert.deepEqual(mergeCalls(f), []);
+	} finally {
+		db.close();
+		f.close();
+	}
+});
+
+test("OPS-111-unchanged: an ordinary PR whose paths only resemble the owner paths still merges through evf ship", () => {
+	const { f, db, task } = wpShipFixture(undefined, "packages/reference/fixture.txt", {
+		extraFiles: [
+			"apps/web/src/app/pages.tsx",
+			"apps/web/src/app/(product)/page.tsx",
+			"apps/web/src/components/kit/EvryBot.tsx",
+			"tests/ui/marketing/oversight.test.mjs",
+		],
+	});
+	try {
+		const head = f.getState().pr.headRefOid;
+		assert.equal(capturedLog(() => ship(f.root, task)).value, 0);
+		assert.deepEqual(
+			callsWith(f, "pr", "merge").map((c: any) => c.args),
+			[["pr", "merge", "77", "--squash", "--match-head-commit", head]],
+		);
+	} finally {
+		db.close();
+		f.close();
+	}
+});
+
+test("OPS-111-375: stale evf code stops evf ship before any GitHub write; the same PR on current code merges", () => {
+	const { f, db, task } = wpShipFixture();
+	try {
+		const head = f.getState().pr.headRefOid,
+			base = f.git("rev-parse", "origin/main").slice(0, 10),
+			rerun = `Update the home checkout to main (git -C ${f.root} merge --ff-only origin/main), then rerun the command from it.`;
+		const claims: Array<[string, Parameters<typeof setLoadedCode>[0], string]> = [
+			[
+				"a different tools/evf tree (#375)",
+				behindCode,
+				`The running evf code is at 1111111111 (/old/checkout); main is at ${base}. tools/evf or bin/evf differ from main, so a merge rule may be missing here. ${rerun}`,
+			],
+			[
+				"a different bin/evf tree",
+				(b) => ({ ...currentCode(b), binTree: "3".repeat(40) }),
+				"tools/evf or bin/evf differ from main",
+			],
+			[
+				"uncommitted changes",
+				(b) => ({ ...currentCode(b), dirty: true }),
+				"The checkout has uncommitted changes in tools/evf or bin/evf",
+			],
+			["code evf cannot read", () => undefined, "evf cannot tell which code it runs"],
+		];
+		for (const [name, claim, why] of claims) {
+			const s = f.getState();
+			s.calls = [];
+			f.setState(s);
+			withCode(claim, () =>
+				assert.throws(
+					() => ship(f.root, task),
+					(e: Error) =>
+						e.message.startsWith("evf ship does not merge PR #77: ") &&
+						e.message.includes(why) &&
+						e.message.includes(base) &&
+						e.message.endsWith(rerun),
+					name,
+				),
+			);
+			assert.deepEqual(shipWrites(f), [], `${name}: no status, update-branch, comment or merge`);
+		}
+		assert.equal(capturedLog(() => ship(f.root, task)).value, 0, "current code merges");
+		assert.deepEqual(
+			callsWith(f, "pr", "merge").map((c: any) => c.args),
+			[["pr", "merge", "77", "--squash", "--match-head-commit", head]],
+		);
+	} finally {
+		db.close();
+		f.close();
+	}
+});
+
+test("OPS-111-drive-start: evf drive on stale code refuses before any seat, run row or detached child", () => {
+	const { f, db, task } = wpShipFixture();
+	try {
+		writeFileSync(
+			join(f.root, "fake-bin/herdr"),
+			`#!${process.execPath}\nrequire("node:fs").appendFileSync(${JSON.stringify(join(f.root, "herdr-calls.jsonl"))},JSON.stringify(process.argv.slice(2))+"\\n");process.stdout.write("{}");\n`,
+		);
+		chmodSync(join(f.root, "fake-bin/herdr"), 0o755);
+		const runs = () => (db.prepare("SELECT COUNT(*) AS n FROM runs").get() as { n: number }).n,
+			before = runs(),
+			base = f.git("rev-parse", "origin/main").slice(0, 10);
+		for (const opts of [{ once: true }, {}, { detach: true }])
+			withCode(behindCode, () =>
+				assert.throws(
+					() => drive(f.root, task, opts, DRIVE_TIMING),
+					{
+						message: `evf drive does not start WP-001: The running evf code is at 1111111111 (/old/checkout); main is at ${base}. tools/evf or bin/evf differ from main, so a merge rule may be missing here. Update the home checkout to main (git -C ${f.root} merge --ff-only origin/main), then rerun the command from it.`,
+					},
+					JSON.stringify(opts),
+				),
+			);
+		assert.equal(runs(), before, "no new run row");
+		assert.equal(existsSync(join(f.root, "herdr-calls.jsonl")), false, "no seat launched");
+		assert.equal(existsSync(join(evfDataDir(f.root), "drive")), false, "no pid file and no detached log");
+		assert.deepEqual(shipWrites(f), []);
+	} finally {
+		db.close();
+		f.close();
+	}
+});
+
+test("OPS-111-drive: the drive holds an owner-path PR with no new round, on current code and through the base checkout when behind", () => {
+	for (const behind of [false, true]) {
+		const { f, db, task } = wpShipFixture(undefined, "apps/web/src/styles/marketing.css"),
+			log = console.log;
+		try {
+			publishEvfCode(f);
+			writeFileSync(join(f.root, "fake-bin/herdr"), `#!${process.execPath}\nprocess.stdout.write("{}");\n`);
+			chmodSync(join(f.root, "fake-bin/herdr"), 0o755);
+			console.log = () => {};
+			const id = (db.prepare("SELECT id FROM tasks WHERE ref = ?").get(task.id) as { id: number }).id;
+			// A drive that started on current code, after which main changed tools/evf under it.
+			const out = withCode(behind ? behindCode : currentCode, () => driveOnce(f.root, task, DRIVE_TIMING));
+			assert.equal(out.stage, "done");
+			assert.match(out.reason, /^PR #77 waits for Sebastian's approval$/);
+			assert.equal((db.prepare("SELECT round FROM tasks WHERE id = ?").get(id) as { round: number }).round, 0);
+			assert.deepEqual(mergeCalls(f), []);
+			const waits = db
+				.prepare("SELECT payload FROM events WHERE task_id = ? AND type = 'owner_approval_wait'")
+				.all(id) as Array<{ payload: string }>;
+			assert.equal(waits.length, 1);
+			assert.match(
+				JSON.parse(waits[0].payload).summary,
+				/^WP-001: PR #77 is verified and waits for Sebastian's approval/,
+			);
+			const dir = join(f.root, ".git/evf-code");
+			assert.equal(
+				existsSync(dir) ? readdirSync(dir).length : 0,
+				behind ? 1 : 0,
+				"behind code ships from the base checkout",
+			);
+		} finally {
+			console.log = log;
+			db.close();
+			f.close();
+		}
 	}
 });

@@ -1094,11 +1094,7 @@
         "Answers, notes, existence and calendar/history/nudge metadata have no Evry/model/org/email/export/shared-audit/log/trace path."
       ],
       "retention": "Full own history survives beyond the twelve-week viewport. Personal login deletion removes private care, including its private revisions/calendar state; seat removal preserves only approved shared-record attribution and does not transfer access. Subject deletion immediately denies normal access, holds privately for restricted cancellation for 30 days, then purges eligible data; copy expiry is at most seven days after coherent live purge and restore witnesses prevent resurrection.",
-      "current_tables": [
-        "planter_checkin",
-        "planter_checkin_event",
-        "app_account"
-      ],
+      "current_tables": ["private_calendar", "private_week", "private_week_revision", "account"],
       "notes": "docs/product/methodology-intelligence.md, Native private care; REQ-PI-038/040/041. Personal-zone/calendar state is private even without answers; correction history is separate from ordinary shared audit."
     },
     {
@@ -1116,10 +1112,7 @@
         "Twelve-week display is a viewport, not retention or eligibility; older streaks retain their actual dates."
       ],
       "retention": "No additional stored data; use only original-author private facts under the original-author check-in capability.",
-      "current_tables": [
-        "planter_checkin",
-        "planter_checkin_event"
-      ],
+      "current_tables": ["private_week", "private_week_revision"],
       "notes": "docs/product/methodology-intelligence.md, Native private care; REQ-PI-039. Recompute after correction without storing a new risk score/nudge/audit/event or generating a support task/message."
     },
     {
