@@ -100,6 +100,11 @@ export type MergePolicy = {
 	feedbackOwnerAfterVerifier: FeedbackBugClass[];
 	/** Optional: when absent, `DEFAULT_DOCUMENT_TEMPLATES` in policy.ts applies. */
 	documentTemplates?: DocumentTemplatePolicy;
+	/**
+	 * The landing and marketing pages (OPS-111): PRs whose exact-head diff touches one of `paths` wait for Sebastian's
+	 * approval for that head. Optional: when absent, `DEFAULT_OWNER_PATHS` in policy.ts applies.
+	 */
+	ownerPaths?: DocumentTemplatePolicy;
 };
 /**
  * PRs whose exact-head diff touches one of `paths` wait for Sebastian's approval. An entry that ends in `/` matches
@@ -277,8 +282,9 @@ export function committedConfig(checkout: string, rev = "HEAD"): Config {
 
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
 
-function parseDocumentTemplates(value: unknown): void {
-	const key = "evf.config.json mergePolicy.documentTemplates";
+/** Parses a path-class policy (documentTemplates or ownerPaths); each message names the key. */
+function parsePathClass(value: unknown, name: "documentTemplates" | "ownerPaths"): void {
+	const key = `evf.config.json mergePolicy.${name}`;
 	if (typeof value !== "object" || value === null || Array.isArray(value))
 		fail(`${key} must be an object with paths, approvedAtUtc, quote and scope.`);
 	const t = value as Record<string, unknown>;
@@ -307,7 +313,8 @@ function parseMergePolicy(policy: unknown): asserts policy is MergePolicy {
 	if (typeof policy !== "object" || policy === null || Array.isArray(policy))
 		fail("evf.config.json mergePolicy must be an object.");
 	const p = policy as Record<string, unknown>;
-	if (p.documentTemplates !== undefined) parseDocumentTemplates(p.documentTemplates);
+	if (p.documentTemplates !== undefined) parsePathClass(p.documentTemplates, "documentTemplates");
+	if (p.ownerPaths !== undefined) parsePathClass(p.ownerPaths, "ownerPaths");
 	const seen = new Set<string>();
 	for (const field of ["feedbackVerifierMerge", "feedbackOwnerAfterVerifier"]) {
 		const v = p[field];
