@@ -215,13 +215,24 @@ export async function compilePlanterDigest(
  * The oversight digest's activity counts (REQ-NTF-008): for each linked plant whose relationship is current and shares
  * activity, the number of audited changes on each local date from `start` to `end` in the organization's zone. It
  * returns plant names, dates and counts only: never a person, note, message or gift. The sharing links it counts stay
- * locked until the caller commits. One statement.
+ * locked until the caller commits. Given a delivered notice instead of a zone, it counts in the notice's zone and also
+ * returns the text that notice holds, so dispatch rechecks a queued email in one statement. One statement.
  */
 export async function compileOversightDigest(
 	db: Execute,
-	input: { organization: string; recipient: string; zone: TimeZone; start: string; end: string },
+	input: { organization: string; recipient: string; start: string; end: string } & (
+		| { zone: TimeZone }
+		| { notice: { id: string; logicalKey: string } }
+	),
 ) {
-	const r = await db.execute(sql`WITH live AS (SELECT ${liveRecipient(input.organization, input.recipient)} AS ok),
+	const stored =
+		"notice" in input
+			? sql`SELECT timezone, safe_body FROM notice WHERE id = ${input.notice.id}::uuid
+				AND tenant_id = ${input.organization}::uuid AND logical_key = ${input.notice.logicalKey} AND cancelled_at IS NULL`
+			: sql`SELECT ${input.zone}::text AS timezone, NULL::text AS safe_body`;
+	const zone = sql`(SELECT timezone FROM stored)`;
+	const r = await db.execute(sql`WITH stored AS (${stored}),
+		live AS (SELECT ${liveRecipient(input.organization, input.recipient)} AS ok),
 		links AS MATERIALIZED (
 			SELECT a.plant_id FROM affiliation a
 			WHERE a.organization_id = ${input.organization}::uuid AND a.plant_id IS NOT NULL AND a.ended_at IS NULL
@@ -230,17 +241,20 @@ export async function compileOversightDigest(
 					AND w.state NOT IN ('active','cancelled'))
 			ORDER BY a.id FOR SHARE OF a
 		), counted AS (
-			SELECT p.name AS plant, p.id, (e.occurred_at AT TIME ZONE ${input.zone})::date AS date, count(*)::int AS count
+			SELECT p.name AS plant, p.id, (e.occurred_at AT TIME ZONE ${zone})::date AS date, count(*)::int AS count
 			FROM links l JOIN plant p ON p.id = l.plant_id
 			JOIN audit_event e ON e.tenant_id = l.plant_id AND e.action IN (${sql.raw(actions)})
-				AND e.occurred_at >= (${input.start}::date::timestamp AT TIME ZONE ${input.zone})
-				AND e.occurred_at < ((${input.end}::date + 1)::timestamp AT TIME ZONE ${input.zone})
+				AND e.occurred_at >= (${input.start}::date::timestamp AT TIME ZONE ${zone})
+				AND e.occurred_at < ((${input.end}::date + 1)::timestamp AT TIME ZONE ${zone})
 			GROUP BY p.name, p.id, 3
 		)
 		SELECT (SELECT ok FROM live) AS live, coalesce((SELECT sum(count) FROM counted), 0)::int AS total,
 			coalesce((SELECT json_agg(json_build_object('plant', plant, 'date', date, 'count', count))
-				FROM (SELECT * FROM counted ORDER BY plant, id, date LIMIT ${DIGEST_LINES}) shown), '[]'::json) AS lines`);
-	return compiled(oversightLine).parse({ ...r.rows[0], lines: jsonValue(r.rows[0]?.lines) });
+				FROM (SELECT * FROM counted ORDER BY plant, id, date LIMIT ${DIGEST_LINES}) shown), '[]'::json) AS lines,
+			(SELECT safe_body FROM stored) AS stored`);
+	return compiled(oversightLine)
+		.extend({ stored: z.string().nullable() })
+		.parse({ ...r.rows[0], lines: jsonValue(r.rows[0]?.lines) });
 }
 
 const day = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });

@@ -184,23 +184,8 @@ export function createMailService(config: {
 						eq(tables.notification_preference.channel, "email"),
 					),
 				);
-			if (choice[0]?.enabled === false) return false;
-		}
-		if (m.purpose === "planter_digest" || m.purpose === "oversight_digest") {
-			const choice = await tx
-				.select({ enabled: tables.notification_preference.enabled })
-				.from(tables.notification_preference)
-				.where(
-					and(
-						and(
-							eq(tables.notification_preference.account_id, sql`${m.recipient_account_id}`),
-							eq(tables.notification_preference.category, m.purpose),
-						),
-						eq(tables.notification_preference.channel, "email"),
-					),
-				);
-			if (!(choice[0]?.enabled ?? defaultChannelEnabled(m.purpose, "email"))) return false;
-		}
+			if (!(choice[0]?.enabled ?? defaultChannelEnabled(preference, "email"))) return false;
+		} else if (m.purpose === "planter_digest" || m.purpose === "oversight_digest") return false;
 		return (await config.authorize(tx, [authority(m)])).has(m.id);
 	}
 	function audit(tx: Transaction, m: z.infer<typeof stored>, key: string, action: string) {

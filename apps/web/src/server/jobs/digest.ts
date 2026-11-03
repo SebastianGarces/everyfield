@@ -250,14 +250,7 @@ export const authorizeDigestMail: AuthorizeMail = async (tx, list) => {
 	const allowed = new Set<string>();
 	for (const m of list) {
 		if ((m.purpose !== "planter_digest" && m.purpose !== "oversight_digest") || !m.notice || !m.recipient) continue;
-		const r = await tx.execute(
-			sql`SELECT safe_body, timezone, logical_key FROM notice WHERE id = ${m.notice}::uuid AND tenant_id = ${m.tenant}::uuid AND cancelled_at IS NULL`,
-		);
-		const stored = z
-			.object({ safe_body: z.string(), timezone: timeZone, logical_key: z.string() })
-			.safeParse(r.rows[0]);
-		if (!stored.success || stored.data.logical_key !== m.logicalKey) continue;
-		const { category, start, end } = parseKey(stored.data.logical_key);
+		const { category, start, end } = parseKey(m.logicalKey);
 		if (category !== m.purpose) continue;
 		if (m.purpose === "planter_digest") {
 			if (await digestRecipientLive(tx, m.tenant, m.recipient)) allowed.add(m.id);
@@ -266,11 +259,11 @@ export const authorizeDigestMail: AuthorizeMail = async (tx, list) => {
 		const fresh = await compileOversightDigest(tx, {
 			organization: m.tenant,
 			recipient: m.recipient,
-			zone: stored.data.timezone,
+			notice: { id: m.notice, logicalKey: m.logicalKey },
 			start,
 			end,
 		});
-		if (fresh.live && renderOversightDigest({ start, end, ...fresh }).lines.join(" ") === stored.data.safe_body)
+		if (fresh.live && renderOversightDigest({ start, end, ...fresh }).lines.join(" ") === fresh.stored)
 			allowed.add(m.id);
 	}
 	return allowed;
