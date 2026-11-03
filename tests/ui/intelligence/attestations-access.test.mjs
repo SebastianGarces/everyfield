@@ -10,8 +10,8 @@ const PATH = "/intelligence/attestations";
 // Seeded candidates and the first signal group: attestation data a locked page must never show.
 const DATA = ["Alex Rivera", "Sam Ortiz", "Record a candidate", "Leadership candidates"];
 
-async function open(page, context, cookie) {
-	if (cookie) await signIn(context, cookie);
+async function open(page, context, seat) {
+	await signIn(context, fixture("intelligence")[seat].cookie);
 	const response = await page.goto(`${BASE}${PATH}`);
 	await hydrated(page);
 	return response;
@@ -45,7 +45,7 @@ async function assertFramedNotFoundFree(page, response) {
 for (const [name, engine] of ENGINES) {
 	test(`AC:WP-039-1 (${name}): a Member gets an HTTP 200 page inside the app frame with the menu, not the Next 404`, async () => {
 		await withPage(engine, async (page, context) => {
-			const response = await open(page, context, fixture("intelligence").member.cookie);
+			const response = await open(page, context, "member");
 			await assertFramedNotFoundFree(page, response);
 			assert.equal(new URL(page.url()).pathname, PATH);
 		});
@@ -53,7 +53,7 @@ for (const [name, engine] of ENGINES) {
 
 	test(`AC:WP-039-2 (${name}): the Member page has the Plant Intelligence header and one lock panel laid out as on /intelligence`, async () => {
 		await withPage(engine, async (page, context) => {
-			await open(page, context, fixture("intelligence").member.cookie);
+			await open(page, context, "member");
 			assert.deepEqual(await page.getByRole("heading", { level: 1 }).allInnerTexts(), ["Plant Intelligence"]);
 			const panels = page.locator("main [data-tone]");
 			assert.equal(await panels.count(), 1);
@@ -76,7 +76,7 @@ for (const [name, engine] of ENGINES) {
 
 	test(`AC:WP-039-3 (${name}): the Member page shows no attestation data, tab or record button`, async () => {
 		await withPage(engine, async (page, context) => {
-			const response = await open(page, context, fixture("intelligence").member.cookie);
+			const response = await open(page, context, "member");
 			// The server answer itself (HTML and React payload) carries no attestation data, not only the painted page.
 			const html = await response.text();
 			const text = await page.locator("main").innerText();
@@ -90,7 +90,7 @@ for (const [name, engine] of ENGINES) {
 
 	test(`AC:WP-039-4 (${name}): an account with no church-plant seat gets the frame and the lock page /intelligence shows it`, async () => {
 		await withPage(engine, async (page, context) => {
-			const response = await open(page, context, fixture("intelligence").organization.cookie);
+			const response = await open(page, context, "organization");
 			await assertFramedNotFoundFree(page, response);
 			const here = await lockPage(page);
 			assert.deepEqual(here.header, ["Plant Intelligence"]);
@@ -105,7 +105,7 @@ for (const [name, engine] of ENGINES) {
 	test(`AC:WP-039-5 (${name}): an Owner and an Admin still see the Attestations screen with its data`, async () => {
 		for (const role of ["owner", "admin"]) {
 			await withPage(engine, async (page, context) => {
-				const response = await open(page, context, fixture("intelligence")[role].cookie);
+				const response = await open(page, context, role);
 				assert.equal(response.status(), 200, role);
 				await page.getByRole("navigation", { name: "Plant Intelligence views" }).waitFor();
 				assert.equal(await page.getByRole("link", { name: /Attestations/ }).getAttribute("aria-current"), "page", role);

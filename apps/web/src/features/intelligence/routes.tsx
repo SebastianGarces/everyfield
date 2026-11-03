@@ -4,7 +4,7 @@ import { buttonVariants, Card, PageHeader, Skeleton, StatePanel } from "@everyfi
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Blocked as PlantIntelligenceBlocked } from "../phases/routes.tsx";
+import { NoChurchPlantSeat, PlantIntelligenceBlocked } from "../phases/PlantIntelligenceBlocked.tsx";
 import { AttestationsScreen } from "./AttestationsScreen.tsx";
 import { CheckInScreen } from "./CheckInScreen.tsx";
 import { CheckInHeader } from "./Header.tsx";
@@ -118,11 +118,7 @@ export async function AttestationsPage() {
 		const v = await getViewer();
 		if (!v || v.status === "unauthenticated")
 			redirect(`/signin?returnTo=${encodeURIComponent("/intelligence/attestations")}`);
-		return (
-			<PlantIntelligenceBlocked title="Plant Intelligence belongs to a church plant">
-				Your account has no current seat in a church plant, so there is no journey to show here.
-			</PlantIntelligenceBlocked>
-		);
+		return <NoChurchPlantSeat />;
 	}
 	// Attestations are for a plant's Owners and Admins only (signals authority).
 	if (viewer.role === "member")
