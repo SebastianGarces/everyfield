@@ -701,17 +701,25 @@ try {
 	assert.equal(fixed.status, "ok", JSON.stringify(fixed));
 	const candidate = await person("Candidate Person");
 	const day = (n) => new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
-	const recorded = await act("POST intelligence.attestCandidate", "/intelligence/attestations", sigs, "attestCandidate", [
-		randomUUID(),
-		"0",
-		{ personId: candidate.id, periodStart: day(70), periodEnd: day(2), attended: true, volunteered: true },
-	]);
+	const recorded = await act(
+		"POST intelligence.attestCandidate",
+		"/intelligence/attestations",
+		sigs,
+		"attestCandidate",
+		[
+			randomUUID(),
+			"0",
+			{ personId: candidate.id, periodStart: day(70), periodEnd: day(2), attended: true, volunteered: true },
+		],
+	);
 	assert.equal(recorded.status, "ok", JSON.stringify(recorded));
-	const retracted = await act("POST intelligence.correctCandidate", "/intelligence/attestations", sigs, "correctCandidate", [
-		randomUUID(),
-		recorded.value.candidate.revision,
-		{ action: "retract", personId: candidate.id },
-	]);
+	const retracted = await act(
+		"POST intelligence.correctCandidate",
+		"/intelligence/attestations",
+		sigs,
+		"correctCandidate",
+		[randomUUID(), recorded.value.candidate.revision, { action: "retract", personId: candidate.id }],
+	);
 	assert.equal(retracted.status, "ok", JSON.stringify(retracted));
 
 	// More data than one screen shows: the same pages must send the same statements.

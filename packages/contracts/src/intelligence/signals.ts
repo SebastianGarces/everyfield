@@ -197,7 +197,11 @@ export const daysBetween = (from: string, to: string) =>
  * through day 30 and need renewing from day 31, keeping their value. The others never expire. Unanswered and retracted
  * signals are Unknown, never no.
  */
-export function renewalOf(key: SignalKey, state: "answered" | "retracted" | "unanswered", ageDays: number | null): Renewal {
+export function renewalOf(
+	key: SignalKey,
+	state: "answered" | "retracted" | "unanswered",
+	ageDays: number | null,
+): Renewal {
 	if (state !== "answered" || ageDays === null) return { status: "unknown" };
 	if (!SIGNAL_DEFINITIONS.find((d) => d.key === key)!.reaffirms) return { status: "does_not_expire" };
 	return ageDays <= REAFFIRM_WINDOW_DAYS

@@ -329,7 +329,7 @@ function Stat({ label, value, note, tone }: { label: string; value: number; note
 	return (
 		<Card size="sm">
 			<div className="text-xs font-semibold text-text-3">{label}</div>
-			<div className={cn("mt-1 font-title text-title-lg leading-none text-ink", tone === "amber" && "text-amber-600")}>
+			<div className={cn("mt-1 font-display text-title-lg leading-none text-ink", tone === "amber" && "text-amber-600")}>
 				{value}
 			</div>
 			<div className="mt-2 text-sm text-text-3">{note}</div>

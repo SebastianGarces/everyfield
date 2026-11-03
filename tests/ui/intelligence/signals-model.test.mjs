@@ -19,8 +19,17 @@ import { MANUAL_SIGNALS } from "../../../docs/reference/manual-signals.ts";
 
 const TODAY = "2026-10-13";
 const blank = (key) => ({
-	key, state: "unanswered", value: null, asOf: null, detail: null, reference: null, authorName: null,
-	recordedAt: null, revision: "0", ageDays: null, renewal: { status: "unknown" },
+	key,
+	state: "unanswered",
+	value: null,
+	asOf: null,
+	detail: null,
+	reference: null,
+	authorName: null,
+	recordedAt: null,
+	revision: "0",
+	ageDays: null,
+	renewal: { status: "unknown" },
 });
 const page = () => {
 	const signals = SIGNAL_DEFINITIONS.map((d) => blank(d.key));
@@ -45,26 +54,45 @@ test("renewal: three signals go stale after 30 days and keep their value; the ot
 test("an answer shows at once, counts follow, and a refusal puts the row back", () => {
 	const before = page();
 	const entry = before.signals.find((s) => s.key === "prayer_in_gatherings");
-	const optimistic = withSignal(before, stated(entry, { value: "yes", asOf: "2026-10-01", detail: " Weekly ", reference: "" }, TODAY, "Daniel"));
+	const optimistic = withSignal(
+		before,
+		stated(entry, { value: "yes", asOf: "2026-10-01", detail: " Weekly ", reference: "" }, TODAY, "Daniel"),
+	);
 	const shown = optimistic.signals.find((s) => s.key === entry.key);
-	assert.deepEqual([shown.state, shown.value, shown.detail, shown.ageDays, shown.revision], ["answered", "yes", "Weekly", 12, "1"]);
+	assert.deepEqual(
+		[shown.state, shown.value, shown.detail, shown.ageDays, shown.revision],
+		["answered", "yes", "Weekly", 12, "1"],
+	);
 	assert.deepEqual(optimistic.counts, { current: 1, needsRenewing: 0, notAnswered: 6 });
 	assert.deepEqual(withSignal(optimistic, entry).counts, before.counts);
 });
 
 test("a retraction reads Retracted and Unknown, never no; Still true moves only the age", () => {
-	const answered = stated(blank("core_group_giving"), { value: "not_yet", asOf: "2026-08-01", detail: "", reference: "" }, TODAY, "Daniel");
+	const answered = stated(
+		blank("core_group_giving"),
+		{ value: "not_yet", asOf: "2026-08-01", detail: "", reference: "" },
+		TODAY,
+		"Daniel",
+	);
 	assert.equal(answered.renewal.status, "needs_renewing");
 	assert.equal(reaffirmed(answered, TODAY, "Daniel").ageDays, 0);
 	assert.equal(reaffirmed(answered, TODAY, "Daniel").value, "not_yet");
 	const gone = retracted(answered, "Daniel");
-	assert.deepEqual([answerLabel(gone), gone.value, gone.renewal.status, actionLabel(gone)], ["Retracted", null, "unknown", "Answer"]);
+	assert.deepEqual(
+		[answerLabel(gone), gone.value, gone.renewal.status, actionLabel(gone)],
+		["Retracted", null, "unknown", "Answer"],
+	);
 	assert.equal(answerLabel(blank("core_group_giving")), "Not answered");
 	assert.equal(actionLabel(answered), "Renew");
 });
 
 test("saving needs a choice; the same value is not a correction; candidate reasons name what is missing", () => {
-	const answered = stated(blank("systems_tested"), { value: "yes", asOf: TODAY, detail: "", reference: "" }, TODAY, "D");
+	const answered = stated(
+		blank("systems_tested"),
+		{ value: "yes", asOf: TODAY, detail: "", reference: "" },
+		TODAY,
+		"D",
+	);
 	assert.equal(intent(blank("systems_tested"), { value: null }), "none");
 	assert.equal(intent(blank("systems_tested"), { value: "yes" }), "attest");
 	assert.equal(intent(answered, { value: "yes" }), "none");
