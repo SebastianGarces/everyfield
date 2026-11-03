@@ -67,8 +67,10 @@
       "uniqueItems": true
     },
     "status": {
+      "description": "future-not-run: no passing test yet. passing: an AC-marked test in the owning package's suites runs this case and passes on main.",
       "enum": [
-        "future-not-run"
+        "future-not-run",
+        "passing"
       ]
     },
     "group": {

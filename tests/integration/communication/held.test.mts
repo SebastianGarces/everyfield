@@ -143,7 +143,7 @@ before(async () => {
 });
 after(() => f?.close());
 
-test("AC:CASE-COM-012 AC:GAP-COM-012 AC:CASE-COM-005 a scheduled message goes to the email service with its send time and stores each recipient's id", async () => {
+test("AC:CASE-COM-012 AC:GAP-COM-012 AC:MAIL51-003 AC:CASE-COM-005 a scheduled message goes to the email service with its send time and stores each recipient's id", async () => {
 	const friday = plantTime("Fri", 9);
 	const resend = resendRecorder();
 	const message = await reviewed(friday);
@@ -215,7 +215,7 @@ test("AC:CASE-COM-012 a schedule the email service holds for nobody shows Not sc
 	assert.deepEqual([view.totals.accepted, view.totals.failed, view.totals.unknown], [2, 0, 1]);
 });
 
-test("AC:MAIL51-004 AC:DEL58-006 a cancel is Cancelled only after the email service confirms every recipient, each by its own id", async () => {
+test("AC:MAIL51-005 AC:MAIL51-007 a cancel is Cancelled only after the email service confirms every recipient, each by its own id", async () => {
 	const resend = resendRecorder();
 	const message = await reviewed(plantTime("Fri", 9));
 	ok(await handOff(message, resend.transport));
@@ -245,7 +245,7 @@ test("AC:MAIL51-004 AC:DEL58-006 a cancel is Cancelled only after the email serv
 	assert.equal([...resend.emails.values()].filter((email) => email.lastEvent === "canceled").length, 3);
 });
 
-test("AC:MAIL51-005 a cancel without every answer is Cancel not confirmed; Check again asks only the open recipients and a later check writes nothing", async () => {
+test("AC:MAIL51-005 AC:MAIL51-007 a cancel without every answer is Cancel not confirmed; Check again asks only the open recipients and a later check writes nothing", async () => {
 	const resend = resendRecorder();
 	const message = await reviewed(plantTime("Fri", 9));
 	ok(await handOff(message, resend.transport));
@@ -310,7 +310,7 @@ test("AC:MAIL51-005 a cancel without every answer is Cancel not confirmed; Check
 	assert.deepEqual([again.scheduledCancel, again.confirmedCount, again.openCount], ["confirmed", 3, 0]);
 });
 
-test("AC:MAIL51-007 a time change shows the new time only after every recipient holds it, and the old time appears nowhere", async () => {
+test("AC:MAIL51-004 a time change shows the new time only after every recipient holds it, and the old time appears nowhere", async () => {
 	const friday = plantTime("Fri", 9);
 	const saturday = plantTime("Sat", 9, new Date(friday));
 	const resend = resendRecorder();
@@ -340,7 +340,7 @@ test("AC:MAIL51-007 a time change shows the new time only after every recipient 
 	assert.ok(!JSON.stringify(view).includes(friday), "Friday still shows on the message");
 });
 
-test("AC:MAIL51-007 a time change without confirmation names the requested and held times; Check again finishes it", async () => {
+test("AC:MAIL51-004 a time change without confirmation names the requested and held times; Check again finishes it", async () => {
 	const friday = plantTime("Fri", 9);
 	const saturday = plantTime("Sat", 9, new Date(friday));
 	const resend = resendRecorder();
@@ -385,7 +385,7 @@ test("AC:MAIL51-007 a time change without confirmation names the requested and h
 	assert.equal(await auditsOf(message), audits);
 });
 
-test("AC:MAIL51-004 an email the service already sent shows as sent, never Cancelled or moved, with the count", async () => {
+test("AC:MAIL51-005 AC:MAIL51-007 an email the service already sent shows as sent, never Cancelled or moved, with the count", async () => {
 	const friday = plantTime("Fri", 9);
 	const resend = resendRecorder();
 	const message = await reviewed(friday);
@@ -418,7 +418,7 @@ test("AC:MAIL51-004 an email the service already sent shows as sent, never Cance
 	assert.equal(after.totals.sent, 3);
 });
 
-test("AC:MAIL51-002 AC:MAIL51-003 Send now that the email service refuses is Not sent, stays saved and repeats the same result", async () => {
+test("AC:CASE-COM-005 Send now that the email service refuses is Not sent, stays saved and repeats the same result", async () => {
 	const resend = resendRecorder();
 	resend.batch("refuse");
 	const message = await reviewed(plantTime("Fri", 9));
@@ -444,7 +444,7 @@ test("AC:MAIL51-002 AC:MAIL51-003 Send now that the email service refuses is Not
 	assert.deepEqual(resend.take(), []);
 });
 
-test("AC:MAIL51-003 a mixed result shows exact counts, an all-unknown result is Not confirmed, and no result says delivered", async () => {
+test("AC:CASE-COM-005 a mixed result shows exact counts, an all-unknown result is Not confirmed, and no result says delivered", async () => {
 	const resend = resendRecorder();
 	// The batch holds only the two addresses that are not blocked; the second of them gets no answer.
 	resend.batch((index) => index !== 1);

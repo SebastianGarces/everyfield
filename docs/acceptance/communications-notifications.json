@@ -1056,7 +1056,7 @@
       "work_packages": [
         "WP-028"
       ],
-      "status": "future-not-run",
+      "status": "passing",
       "description": "100-member batch returns positional short response, timeout after acceptance, and crash before local receipt; repeat claim after lease.",
       "given": {
         "P": {
@@ -1970,7 +1970,7 @@
         "WP-020",
         "WP-028"
       ],
-      "status": "future-not-run",
+      "status": "passing",
       "description": "Scanner GET plus two concurrent confirm/decline POSTs on same seven-day token; expired token; foreign linked IDs.",
       "given": {
         "P": {
@@ -2095,7 +2095,7 @@
         "WP-028",
         "WP-029"
       ],
-      "status": "future-not-run",
+      "status": "passing",
       "description": "Incomplete draft reload; schedule at 30 days and beyond; time-only reschedule; content replace while cancellation outcome unknown.",
       "given": {
         "P": {
@@ -3968,7 +3968,7 @@
       "work_packages": [
         "WP-028"
       ],
-      "status": "future-not-run",
+      "status": "passing",
       "description": "Self fresh-verified current email restoration with reason, foreign address request, repeat clear and later hard bounce.",
       "given": {
         "P": {
@@ -4191,7 +4191,7 @@
       "work_packages": [
         "WP-028"
       ],
-      "status": "future-not-run",
+      "status": "passing",
       "description": "Security reset and association purpose mail with optional email preference OFF; transport timeout; log canary token.",
       "given": {
         "P": {
@@ -4620,7 +4620,7 @@
         "WP-028",
         "WP-029"
       ],
-      "status": "future-not-run",
+      "status": "passing",
       "description": "Saved draft rev1; desired send at now+29 days; second desired now+31 days; provider cancellation unknown",
       "given": {
         "P": {
@@ -7269,7 +7269,7 @@
       "work_packages": [
         "WP-028"
       ],
-      "status": "future-not-run",
+      "status": "passing",
       "description": "API schedule at 30 days versus 31 days, batch and DST fold/gap entered localtime.",
       "given": {
         "P": {
@@ -7378,7 +7378,7 @@
         "WP-028",
         "WP-029"
       ],
-      "status": "future-not-run",
+      "status": "passing",
       "description": "Accepted scheduled body/audience frozen; reviewed time-only change and lost update response.",
       "given": {
         "P": {
@@ -7475,7 +7475,7 @@
         "WP-028",
         "WP-029"
       ],
-      "status": "future-not-run",
+      "status": "passing",
       "description": "Accepted batch replacement with canceled, sent and unknown original recipient outcomes.",
       "given": {
         "P": {
@@ -7711,7 +7711,7 @@
       "work_packages": [
         "WP-028"
       ],
-      "status": "future-not-run",
+      "status": "passing",
       "description": "After provider acceptance authority/address/suppression changes before scheduled send.",
       "given": {
         "P": {
