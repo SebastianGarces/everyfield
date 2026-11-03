@@ -2737,7 +2737,11 @@
       "work_packages": [
         "WP-030"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/notifications/notifications.test.mts",
+        "tests/integration/settings/settings.test.mts"
+      ],
       "description": "Explicit email OFF survives cadence save/default-equivalent choice and organization audience change.",
       "given": {
         "P": {
@@ -3417,7 +3421,11 @@
         "WP-031",
         "WP-030"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/notifications/notifications.test.mts",
+        "tests/integration/notifications/digests.test.mts"
+      ],
       "description": "Two orgs linked to same plant, activity sharing OFF for one; daily/weekly cadence edit and no eligible activity.",
       "given": {
         "P": {
@@ -8147,7 +8155,10 @@
       "work_packages": [
         "WP-030"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/notifications/notifications.test.mts"
+      ],
       "description": "Default absence, explicit default-equivalent channel setting, planter digest and changed audience.",
       "given": {
         "P": {
@@ -8345,7 +8356,11 @@
         "WP-030",
         "WP-031"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/notifications/notifications.test.mts",
+        "tests/integration/notifications/digests.test.mts"
+      ],
       "description": "Planter Sunday 16 local weekly/default daily choice across DST and repeated owed period.",
       "given": {
         "P": {
@@ -8449,7 +8464,11 @@
       "work_packages": [
         "WP-030"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/notifications/notifications.test.mts",
+        "tests/integration/notifications/digests.test.mts"
+      ],
       "description": "Two independently affiliated orgs, activity sharing OFF for one, frequency/channel edit and no activity.",
       "given": {
         "P": {

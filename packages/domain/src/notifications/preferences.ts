@@ -8,6 +8,7 @@ import {
 	setPreferenceRequest,
 	setPreferencesRequest,
 } from "@everyfield/contracts/notifications";
+import { defaultChannelEnabled as defaultEnabled } from "@everyfield/contracts/settings";
 import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import { z } from "zod";
@@ -35,9 +36,6 @@ const writeRow = z.object({
 
 function channels(category: (typeof categories)[number]) {
 	return category === "wiki_upstream_review" ? (["in_app"] as const) : (["email", "in_app"] as const);
-}
-function defaultEnabled(category: string, channel: string) {
-	return !(category === "planter_digest" && channel === "in_app");
 }
 
 export async function getPreferences(db: Database, authority: RequestActor) {

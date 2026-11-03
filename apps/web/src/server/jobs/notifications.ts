@@ -78,26 +78,6 @@ const policy = {
 		source: "article_editor_state",
 	},
 } as const;
-export async function channelEnabled(
-	tx: Transaction,
-	recipient: string,
-	preference: string,
-	channel: "email" | "in_app",
-) {
-	const row = await tx
-		.select({ enabled: tables.notification_preference.enabled })
-		.from(tables.notification_preference)
-		.where(
-			and(
-				and(
-					eq(tables.notification_preference.account_id, recipient),
-					eq(tables.notification_preference.category, sql`${preference}`),
-				),
-				eq(tables.notification_preference.channel, channel),
-			),
-		);
-	return row[0] ? z.boolean().parse(row[0].enabled) : !(preference === "planter_digest" && channel === "in_app");
-}
 export function createNotificationService(config: {
 	mail: ReturnType<typeof createMailService>;
 	eligible: (tx: Transaction, input: readonly NoticeInput[]) => Promise<readonly ({ address: string | null } | null)[]>;
