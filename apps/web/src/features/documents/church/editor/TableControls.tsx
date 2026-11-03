@@ -3,7 +3,7 @@
 import { attrIssue, type DocBrand, type TableNode, type Token } from "@everyfield/contracts/documents";
 import type { Editor } from "@tiptap/react";
 import { useEditorState } from "@tiptap/react";
-import { useId, useState, type ReactNode } from "react";
+import { useId, useRef, useState, type ReactNode } from "react";
 import { Group, keepSelection, Labeled, Segmented, Swatches, Tip } from "./ControlParts.tsx";
 import { applyTable, newTyping, tableContext, tableFocusKey, typeInto, type TableContext } from "./table-actions.ts";
 import {
@@ -34,8 +34,6 @@ import { Button } from "./tiptap/primitives/button.tsx";
 // The settings of the table the cursor is in: rows, columns, the kind of a column, blank write-in rows, the header color
 // and striped rows, and for a budget its line items, categories and signs. Every control has a name and a tooltip. A
 // control that cannot work is disabled and says why, in its tooltip and in the line under the controls.
-
-const NO_CELL: Place = { row: null, blank: null, col: null };
 
 /** A button that does one action to the table, or says why it cannot. */
 function Act({
@@ -103,7 +101,7 @@ function run(editor: Editor, make: (context: TableContext) => { table: TableNode
 function WriteInField({ editor, context }: { editor: Editor; context: TableContext }) {
 	const id = useId();
 	const [draft, setDraft] = useState<string | null>(null);
-	const [typing] = useState(newTyping);
+	const typing = useRef(newTyping());
 	const current = context.table.attrs.writeInRows ?? 0;
 	const problem =
 		draft === null
@@ -137,12 +135,12 @@ function WriteInField({ editor, context }: { editor: Editor; context: TableConte
 						if (text.trim() === "" || attrIssue("table", "writeInRows", count) !== null) return;
 						const live = here(editor);
 						if (!live || live.pos !== context.pos) return;
-						typeInto(editor.view, typing, (tr) =>
+						typeInto(editor.view, typing.current, (tr) =>
 							tr.setNodeMarkup(live.pos, undefined, { ...live.node.attrs, writeInRows: count }),
 						);
 					}}
 					onBlur={() => {
-						typing.doc = null;
+						typing.current = newTyping();
 						setDraft(null);
 					}}
 				/>

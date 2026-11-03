@@ -293,8 +293,11 @@ export function setKind(t: TableNode, at: number, kind: Kind): TableNode {
 	if (!column) return t;
 	const columns = t.attrs.columns.map((c, i) => {
 		if (i !== at) return c;
-		const { formula: _formula, format: _format, ...rest } = c;
-		return { ...rest, type: kind };
+		// A column that is no formula keeps neither a formula nor a format.
+		const next: ColumnSpec = { ...c, type: kind };
+		delete next.formula;
+		delete next.format;
+		return next;
 	});
 	const content = rowsOf(t).map((row) => ({
 		...row,
@@ -370,7 +373,8 @@ export function setSign(t: TableNode, at: number, sign: "add" | "subtract"): Tab
 		t,
 		rowsOf(t).map((row, i) => {
 			if (i !== category.start) return row;
-			const { sign: _old, ...attrs } = row.attrs ?? {};
+			const attrs = { ...row.attrs };
+			delete attrs.sign;
 			return { ...row, attrs: { ...attrs, ...(sign === "subtract" ? { sign } : {}) } };
 		}),
 	);

@@ -28,8 +28,9 @@ function retype(table: Json, to: "valueCell" | "cell"): Json {
 				if (!isRec(cell)) return cell;
 				if (to === "valueCell") {
 					if (holdsText(columns[ci])) return cell;
-					const { content: _drop, ...rest } = cell;
-					return { ...rest, type: "valueCell" };
+					const rest: Json = { ...cell, type: "valueCell" };
+					delete rest.content;
+					return rest;
 				}
 				return cell.type === "valueCell" ? { ...cell, type: "cell" } : cell;
 			}),
