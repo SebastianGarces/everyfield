@@ -880,8 +880,9 @@ function CandidateDialog({
 	const [chosen, setChosen] = useState<string>(personId ?? "");
 	const [start, setStart] = useState<string>(opened?.periodStart ?? "");
 	const [end, setEnd] = useState<string>(opened?.periodEnd ?? page.today);
-	const [attended, setAttended] = useState(opened?.attended ?? true);
-	const [volunteered, setVolunteered] = useState(opened?.volunteered ?? true);
+	// A new candidate starts unticked: each behavior is attested only by a deliberate tick.
+	const [attended, setAttended] = useState(opened?.attended ?? false);
+	const [volunteered, setVolunteered] = useState(opened?.volunteered ?? false);
 	const [asOf, setAsOf] = useState<string>(page.today);
 	const [statement, setStatement] = useState(opened?.statement ?? "");
 	const [error, setError] = useState<string | null>(null);
