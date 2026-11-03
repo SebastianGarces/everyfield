@@ -75,10 +75,13 @@
 		"limit": 0
 	},
 	"GET /tasks": {
-		"limit": 5
+		"limit": 6
 	},
 	"GET /tasks?task=<follow-up>": {
-		"limit": 8
+		"limit": 9
+	},
+	"GET /tasks (phase offer)": {
+		"limit": 7
 	},
 	"POST notifications.markAllVisibleRead": {
 		"limit": 6
@@ -164,6 +167,17 @@
 	},
 	"POST tasks.createTask": {
 		"limit": 5
+	},
+	"POST tasks.importTemplate": {
+		"limit": 8,
+		"reason": "The session lookup, then BEGIN, the write gate, the importer's seat read, the tasks with their assignees and audit rows in one statement, and COMMIT. Every imported task is dated and assigned, so the shared reminder sync (notifications.syncTaskReminders) adds its 2 statements (F10) for the whole set, whatever its size."
+	},
+	"POST tasks.acceptPhaseOffer": {
+		"limit": 8,
+		"reason": "The session lookup, then BEGIN, the write gate, the locked read of the move with the checklists earlier answers settled and the accepter's seat, the answer with its tasks, assignees and audit rows in one statement, and COMMIT. Every accepted task is dated and assigned, so the shared reminder sync (notifications.syncTaskReminders) adds its 2 statements (F10) for the whole set."
+	},
+	"POST tasks.declinePhaseOffer": {
+		"limit": 6
 	},
 	"POST phases.declarePhase": {
 		"limit": 2
@@ -1441,6 +1455,9 @@
 	"settings/deletion.issueRestrictedDeletionSession": {
 		"limit": 4
 	},
+	"tasks.acceptPhaseOffer": {
+		"limit": 2
+	},
 	"tasks.bulkComplete": {
 		"limit": 4
 	},
@@ -1465,11 +1482,17 @@
 	"tasks.createSubtask": {
 		"limit": 3
 	},
+	"tasks.declinePhaseOffer": {
+		"limit": 2
+	},
 	"tasks.delete": {
 		"limit": 3
 	},
 	"tasks.edit": {
 		"limit": 5
+	},
+	"tasks.importTemplate": {
+		"limit": 2
 	},
 	"tasks.removeSubtask": {
 		"limit": 2
@@ -1484,6 +1507,15 @@
 		"limit": 2
 	},
 	"tasks.waive": {
+		"limit": 2
+	},
+	"tasks.listTemplates": {
+		"limit": 1
+	},
+	"tasks.previewTemplate": {
+		"limit": 1
+	},
+	"tasks.readPhaseOffer": {
 		"limit": 2
 	},
 	"tasks/core.withTaskWrite": {

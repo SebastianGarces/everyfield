@@ -215,6 +215,7 @@ export function itemOf(row: TaskRow, asOf: Instant) {
 		id: row.id,
 		revision: row.revision,
 		title: row.title,
+		excerpt: (row.description ?? "").slice(0, c.DESCRIPTION_EXCERPT),
 		status: row.status,
 		priority: row.priority,
 		category: row.category,
