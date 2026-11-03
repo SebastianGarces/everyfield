@@ -203,8 +203,9 @@ async function fill(admin: Database, runtime: Database, authDb: Database): Promi
 			sql`SELECT s.id FROM auth_session s JOIN auth_user u ON u.id=s.user_id WHERE u.email=${email}
 				ORDER BY s.created_at DESC LIMIT 1`,
 		);
-		sessions.set(email, row[0]!.id as string);
-		return sessions.get(email)!;
+		const id = row[0]!.id as string;
+		sessions.set(email, id);
+		return id;
 	};
 	const ownerSession = () => sessionOf(QA_LOGINS.owner);
 
