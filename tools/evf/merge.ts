@@ -15,7 +15,7 @@ import {
 } from "./lib.ts";
 import { DEFAULT_DOCUMENT_TEMPLATES, DEFAULT_OWNER_PATHS } from "./policy.ts";
 import { WIKI_PREFIX } from "./wiki.ts";
-import { carryProof, type CarryProof } from "./ship.ts";
+import { carryProof, nameWithOwner, type CarryProof } from "./ship.ts";
 
 /**
  * The one place evf merges a pull request (OPS-83). `evf ship` and `evf approve` both call `mergePullRequest`;
@@ -233,53 +233,41 @@ export const wikiApproveCommand = (number: number, head: string): string =>
 export type OwnerRecord = { head: string; quote: string; at: string };
 export const ownerLine = (r: OwnerRecord): string => `EVF-Owner: ${JSON.stringify(r)}`;
 
-function readOwnerRecord(value: unknown): OwnerRecord | undefined {
-	if (!value || typeof value !== "object") return undefined;
-	const { head, quote, at } = value as Record<string, unknown>;
-	if (typeof head !== "string" || !/^[0-9a-f]{40}$/.test(head) || typeof quote !== "string" || typeof at !== "string")
-		return undefined;
-	return { head, quote, at };
-}
-
 /** The latest valid EVF-Owner record in the PR's comments, oldest comment first. Unreadable comments refuse. */
-function ownerRecordOf(cwd: string | undefined, number: number): OwnerRecord | undefined {
-	const gh = (args: string[]) => {
-		const r = run("gh", args, { cwd });
-		if (r.code !== 0)
-			fail(
-				`evf does not merge PR #${number}: it cannot read the PR's owner approval records (gh ${args.slice(0, 2).join(" ")}: ${(r.stderr || r.stdout).trim()}).`,
-			);
-		return r.stdout.trim();
-	};
-	const repo = gh(["repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"]);
-	const pages: unknown = JSON.parse(gh(["api", `repos/${repo}/issues/${number}/comments`, "--paginate", "--slurp"]));
-	if (!Array.isArray(pages) || pages.some((page) => !Array.isArray(page)))
+function ownerRecordOf(cwd: string, number: number): OwnerRecord | undefined {
+	const r = run("gh", ["api", `repos/${nameWithOwner(cwd)}/issues/${number}/comments`, "--paginate", "--slurp"], {
+		cwd,
+	});
+	let pages: unknown;
+	try {
+		pages = JSON.parse(r.stdout);
+	} catch {
+		// Refused below.
+	}
+	if (r.code !== 0 || !Array.isArray(pages) || pages.some((page) => !Array.isArray(page)))
 		fail(`evf does not merge PR #${number}: its comments are unreadable, so evf cannot read an owner approval.`);
 	let latest: OwnerRecord | undefined;
-	for (const comment of pages.flat())
+	for (const comment of (pages as unknown[][]).flat() as Array<{ body?: unknown }>)
 		for (const match of String(comment?.body ?? "").matchAll(/^EVF-Owner: (.+)$/gm)) {
-			let value: unknown;
 			try {
-				value = JSON.parse(match[1]);
+				const { head, quote, at } = JSON.parse(match[1]);
+				if (/^[0-9a-f]{40}$/.test(head) && typeof quote === "string" && typeof at === "string")
+					latest = { head, quote, at };
 			} catch {
-				continue;
+				// Not a record.
 			}
-			latest = readOwnerRecord(value) ?? latest;
 		}
 	return latest;
 }
 
-/** The commits on the PR's own line after `from` up to `to`, oldest first, as "<short sha> <subject>". */
-export function commitsAfter(root: string, from: string, to: string): string[] {
-	const r = run("git", ["-C", root, "log", "--first-parent", "--reverse", "--format=%h %s", `${from}..${to}`]);
-	return r.code === 0 ? r.stdout.split("\n").filter(Boolean) : [];
-}
-
-/** The commit list a voided or stale owner approval names. */
-export const commitList = (commits: string[]): string =>
-	commits.length
-		? `Commits after the approved head, oldest first:\n${commits.map((c) => `- ${c}`).join("\n")}`
+/** The commits on the PR's own line after `from` up to `to`, oldest first, as "- <short sha> <subject>" lines. */
+export function commitsAfter(root: string, from: string, to: string): string {
+	const r = run("git", ["-C", root, "log", "--first-parent", "--reverse", "--format=- %h %s", `${from}..${to}`]);
+	const commits = r.code === 0 ? r.stdout.trim() : "";
+	return commits
+		? `Commits after the approved head, oldest first:\n${commits}`
 		: "evf cannot list the commits after the approved head.";
+}
 
 /** The command that records Sebastian's approval of `head` for an ordinary-route PR. */
 export const ownerApproveCommand = (number: number, head: string): string =>
@@ -302,7 +290,7 @@ export function ownerCover(
 	number: number,
 	sha: string,
 ): OwnerCover | undefined {
-	const record = ownerRecordOf(cwd, number);
+	const record = ownerRecordOf(cwd ?? root, number);
 	if (!record) return undefined;
 	const cover = { quote: record.quote, approved_head: record.head, approved_at: record.at };
 	if (record.head === sha) return cover;
@@ -319,7 +307,7 @@ export function ownerCover(
 	fail(
 		[
 			`evf does not merge PR #${number}: ${OWNER_VOID}. He approved ${record.head.slice(0, 10)} ("${record.quote}"); the head is ${sha.slice(0, 10)}, and his approval does not carry: ${proof}.`,
-			commitList(commitsAfter(root, record.head, sha)),
+			commitsAfter(root, record.head, sha),
 			ownerApproveCommand(number, sha),
 		].join("\n"),
 	);

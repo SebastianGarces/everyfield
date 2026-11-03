@@ -15,7 +15,6 @@ import {
 import { ensureTask, markMergedByBranch, openWorkDb } from "./db.ts";
 import { cachedTriage } from "./feedback.ts";
 import {
-	commitList,
 	commitsAfter,
 	heldClasses,
 	isHeld,
@@ -230,7 +229,7 @@ export function approve(root: string, n: number, opts: { ownerApproval?: string;
 		);
 	if (opts.head && !head.startsWith(opts.head))
 		fail(
-			`PR #${n} head is ${head.slice(0, 10)}, not the ${opts.head} Sebastian approved. His approval does not carry over: ${again}.\n${commitList(commitsAfter(root, opts.head, head))}`,
+			`PR #${n} head is ${head.slice(0, 10)}, not the ${opts.head} Sebastian approved. His approval does not carry over: ${again}.\n${commitsAfter(root, opts.head, head)}`,
 		);
 	if (route.kind === "ordinary") return recordOwnerApproval(root, n, route.task, head, words);
 	// Updating the branch would create a head Sebastian never saw, so approve never updates it.
