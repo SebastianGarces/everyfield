@@ -99,6 +99,8 @@ async function openEvry(page, context, cookie = owner()) {
 }
 /** Sends one request and returns the newest card whose heading matches. */
 async function ask(panel, text, heading) {
+	// One turn at a time: the earlier answer is finished before the next request goes in.
+	await panel.getByRole("button", { name: "Stop" }).waitFor({ state: "hidden", timeout: 120_000 });
 	const regions = panel.getByRole("region", { name: heading });
 	const seen = await regions.count();
 	const box = panel.getByLabel("Message Evry");
