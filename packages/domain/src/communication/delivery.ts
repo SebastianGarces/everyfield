@@ -25,15 +25,40 @@ export type DeliveryKeys = { encryptionKey: Uint8Array; addressKey: Uint8Array; 
 export type DeliveryMessage = { to: string; subject: string; html: string; text: string };
 export type DeliveryBatch =
 	{ outcome: "ids"; ids: readonly (string | null)[] } | { outcome: "unknown" } | { outcome: "refused" };
+/**
+ * One answer to a cancel or time change. `done`: the email service confirmed it. `sent`: the email already went out,
+ * so it can no longer be cancelled or moved.
+ */
+export type ProviderAnswer = { outcome: "done" | "sent" | "unknown" };
 export type DeliveryTransport = {
-	send(batch: { key: string; messages: readonly DeliveryMessage[] }, signal: AbortSignal): Promise<DeliveryBatch>;
+	/** One call for the whole batch. `scheduledAt` asks the email service to hold every message until then. */
+	send(
+		batch: { key: string; messages: readonly DeliveryMessage[]; scheduledAt: string | null },
+		signal: AbortSignal,
+	): Promise<DeliveryBatch>;
 	lookup(key: string, signal: AbortSignal): Promise<Exclude<DeliveryBatch, { outcome: "refused" }>>;
-	cancel?(key: string, signal: AbortSignal): Promise<{ outcome: "cancelled" | "unknown" }>;
-	reschedule?(key: string, at: string, signal: AbortSignal): Promise<{ outcome: "accepted" | "unknown" }>;
+	/**
+	 * Cancel each held email by the id the email service gave it at handoff, never by the idempotency key. One answer
+	 * per id, in the same order.
+	 */
+	cancel(providerIds: readonly string[], signal: AbortSignal): Promise<ProviderAnswer[]>;
+	/** Move each held email to `at` by the id the email service gave it at handoff. One answer per id, in order. */
+	reschedule(providerIds: readonly string[], at: string, signal: AbortSignal): Promise<ProviderAnswer[]>;
 };
 
 type Actor = ReturnType<typeof readerOf>;
-type Member = { position: number; state: string; personId: string | null; provider: string | null };
+type Member = {
+	position: number;
+	state: string;
+	personId: string | null;
+	provider: string | null;
+	/** The send time the email service holds for this recipient; null for a send-now handoff. */
+	scheduledAt: string | null;
+	cancelRequested: boolean;
+};
+type Mode = "now" | "scheduled" | "lookup";
+/** Recipients the email service may still hold: a cancel or time change has an answer to wait for. */
+const holding = (row: Member) => row.state === "accepted" || row.state === "unknown" || row.state === "dispatched";
 
 const one = (result: { rows: unknown[] }) => result.rows[0];
 const asJson = (value: unknown) => (typeof value === "string" ? JSON.parse(value) : value);
@@ -229,7 +254,9 @@ async function loadAudience(db: Database, actor: Actor, communicationId: string)
 			to_char(r.first_dispatched_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS first_at,
 			CASE WHEN r.id IS NULL THEN '[]'::jsonb ELSE (
 				SELECT coalesce(jsonb_agg(jsonb_build_object(
-					'position', mem.position, 'state', m.state, 'personId', m.recipient_person_id, 'provider', m.provider_message_id
+					'position', mem.position, 'state', m.state, 'personId', m.recipient_person_id, 'provider', m.provider_message_id,
+					'scheduledAt', to_char(m.scheduled_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+					'cancelRequested', m.cancel_requested_at IS NOT NULL
 				) ORDER BY mem.position), '[]'::jsonb)
 				FROM mail_request_member mem
 				JOIN mail m ON m.id = mem.mail_id
@@ -262,6 +289,8 @@ function membersOf(raw: unknown): Member[] {
 				state: z.string(),
 				personId: z.uuid().nullable(),
 				provider: z.string().nullable(),
+				scheduledAt: z.string().nullable(),
+				cancelRequested: z.boolean(),
 			}),
 		)
 		.parse(asJson(raw) ?? []);
@@ -304,7 +333,9 @@ async function prepare(
 	actor: Actor,
 	loaded: Awaited<ReturnType<typeof openLoaded>>,
 	keys: ReturnType<typeof keysOf>,
-	lookupOnly: boolean,
+	mode: Mode,
+	/** The send time the email service holds for a scheduled handoff; null for send now. */
+	heldUntil: string | null,
 ): Promise<Prepared> {
 	const { found } = loaded;
 	if (found.request_id && found.provider_key && found.attempt_id) {
@@ -316,7 +347,7 @@ async function prepare(
 			members: membersOf(found.members),
 		};
 	}
-	if (lookupOnly) deny("not_found");
+	if (mode === "lookup") deny("not_found");
 	// A message with an RSVP link needs an open meeting whose guest list the links come from.
 	const linked = usesRsvpLink(found.body_html);
 	// A link needs an https origin; without one the field renders nothing and no token is minted.
@@ -402,7 +433,7 @@ async function prepare(
 					CASE WHEN EXISTS (
 						SELECT 1 FROM suppression s WHERE s.address_hash = i.address_hash AND s.cleared_at IS NULL
 					) THEN 'refused' ELSE 'dispatched' END,
-					clock_timestamp(), ${found.scheduled_at}::timestamptz
+					clock_timestamp(), ${heldUntil}::timestamptz
 				FROM input i
 				JOIN gate g ON g.allowed
 				WHERE EXISTS (
@@ -448,7 +479,8 @@ async function prepare(
 			)
 			SELECT (SELECT allowed FROM gate) AS allowed,
 				(SELECT outcome FROM ins_attempt) AS outcome,
-				coalesce((SELECT jsonb_agg(jsonb_build_object('position', i.position, 'state', m.state, 'personId', i.person, 'provider', NULL) ORDER BY i.position)
+				coalesce((SELECT jsonb_agg(jsonb_build_object('position', i.position, 'state', m.state, 'personId', i.person, 'provider', NULL,
+					'scheduledAt', ${heldUntil}::text, 'cancelRequested', false) ORDER BY i.position)
 					FROM ins_mail m JOIN input i ON i.id = m.id), '[]'::jsonb) AS members,
 				(SELECT count(*) FROM ins_mem) AS members_written,
 				(SELECT count(*) FROM ins_audit) AS audits`),
@@ -543,13 +575,18 @@ async function handoff(
 	raw: unknown,
 	transport: DeliveryTransport,
 	keys: DeliveryKeys,
-	lookupOnly: boolean,
+	mode: Mode,
 ) {
 	const input = parse(c.dispatchRequest, raw);
 	const actor = requireActor(authority);
 	const opened = await openLoaded(db, actor, input.input.communicationId, input.expectedRevision);
 	const ready = keysOf(keys);
-	const prepared = await prepare(db, actor, opened, ready, lookupOnly);
+	// The email service holds a scheduled email for at most 30 days and sends a past time at once. A scheduled
+	// handoff stores the held time on each recipient row; a send-now handoff stores none.
+	const heldUntil = mode === "scheduled" ? opened.found.scheduled_at : null;
+	if (mode === "scheduled" && (!heldUntil || !scheduleAccepted(new Date(), new Date(heldUntil))))
+		deny("schedule_window_exceeded", { providerHandoffs: 0 });
+	const prepared = await prepare(db, actor, opened, ready, mode, heldUntil);
 	if (prepared.kind === "done") return dispatchValue(input.input.communicationId, prepared.members, 0, "failed");
 	const open = prepared.members.filter((row) => row.state === "dispatched" || row.state === "unknown");
 	if (!open.length) return dispatchValue(input.input.communicationId, prepared.members, 0, "accepted");
@@ -558,7 +595,10 @@ async function handoff(
 	try {
 		if (prepared.kind === "send") {
 			providerCalls = 1;
-			batch = await transport.send({ key: prepared.providerKey, messages: prepared.messages }, signal());
+			batch = await transport.send(
+				{ key: prepared.providerKey, messages: prepared.messages, scheduledAt: heldUntil },
+				signal(),
+			);
 		} else {
 			batch = await transport.lookup(prepared.providerKey, signal());
 		}
@@ -588,6 +628,7 @@ async function handoff(
 	return dispatchValue(input.input.communicationId, next, providerCalls, "accepted");
 }
 
+/** Hand a scheduled message to the email service now: it goes out at once. */
 export function dispatchReviewed(
 	db: Database,
 	authority: RequestActor,
@@ -595,7 +636,17 @@ export function dispatchReviewed(
 	transport: DeliveryTransport,
 	keys: DeliveryKeys,
 ) {
-	return readReply(() => handoff(db, authority, raw, transport, keys, false));
+	return readReply(() => handoff(db, authority, raw, transport, keys, "now"));
+}
+/** Hand a scheduled message to the email service with its send time; the email service holds it until then. */
+export function handOffScheduled(
+	db: Database,
+	authority: RequestActor,
+	raw: unknown,
+	transport: DeliveryTransport,
+	keys: DeliveryKeys,
+) {
+	return readReply(() => handoff(db, authority, raw, transport, keys, "scheduled"));
 }
 export function reconcileReviewed(
 	db: Database,
@@ -604,70 +655,168 @@ export function reconcileReviewed(
 	transport: DeliveryTransport,
 	keys: DeliveryKeys,
 ) {
-	return readReply(() => handoff(db, authority, raw, transport, keys, true));
+	return readReply(() => handoff(db, authority, raw, transport, keys, "lookup"));
 }
 
+type Answer = { position: number; outcome: Exclude<ProviderAnswer["outcome"], "unknown"> };
+
+async function loadHandoff(db: Database, actor: Actor, communicationId: string, expectedRevision: string) {
+	const found = await loadAudience(db, actor, communicationId);
+	if (found.allowed !== true) deny("access_denied");
+	if (!found.id) deny("not_found");
+	if (found.revision !== expectedRevision) deny("conflict");
+	return { found, members: membersOf(found.members) };
+}
+
+/**
+ * Ask about every open recipient that has its own email-service id, in one transport call. A failed or missing
+ * answer leaves the recipient open.
+ */
+async function askEach(
+	open: readonly Member[],
+	ask: (providerIds: readonly string[]) => Promise<readonly ProviderAnswer[]>,
+): Promise<Answer[]> {
+	const asked = open.filter((row) => row.provider !== null);
+	if (!asked.length) return [];
+	let replies: readonly ProviderAnswer[];
+	try {
+		replies = await ask(asked.map((row) => row.provider!));
+	} catch {
+		return [];
+	}
+	return asked.flatMap((row, index): Answer[] => {
+		const outcome = replies[index]?.outcome ?? "unknown";
+		return outcome === "unknown" ? [] : [{ position: row.position, outcome }];
+	});
+}
+
+/**
+ * The confirmed answers and their audit row in one statement. `done` is a confirmed cancel, or the new send time when
+ * `movedTo` is set; `sent` means the email already went out. A second run over the same answers changes no row and so
+ * writes no audit row.
+ */
+async function recordAnswers(
+	db: Database,
+	actor: Actor,
+	communicationId: string,
+	requestId: string,
+	answers: readonly Answer[],
+	movedTo: string | null,
+	audit: { eventKey: string; after: Record<string, number | string> },
+) {
+	const cancel = movedTo === null;
+	await db.execute(sql`WITH input AS (
+			SELECT * FROM jsonb_to_recordset(${JSON.stringify(answers)}::jsonb) AS x(position int, outcome text)
+		), updated AS (
+			UPDATE mail m SET
+				state = CASE WHEN x.outcome = 'sent' THEN 'sent' WHEN ${cancel}::boolean THEN 'cancelled' ELSE m.state END,
+				cancel_confirmed_at = CASE WHEN x.outcome = 'done' AND ${cancel}::boolean
+					THEN coalesce(m.cancel_confirmed_at, clock_timestamp()) ELSE m.cancel_confirmed_at END,
+				scheduled_at = CASE WHEN x.outcome = 'done' AND NOT ${cancel}::boolean
+					THEN ${movedTo}::timestamptz ELSE m.scheduled_at END,
+				sent_at = CASE WHEN x.outcome = 'sent' THEN coalesce(m.sent_at, clock_timestamp()) ELSE m.sent_at END
+			FROM mail_request_member mem
+			JOIN input x ON x.position = mem.position
+			WHERE mem.request_id = ${requestId}::uuid AND mem.tenant_id = ${actor.plantId}::uuid AND mem.mail_id = m.id
+				AND m.state IN ('accepted', 'unknown', 'dispatched') AND ${adminGate(actor)}
+			RETURNING m.id
+		)
+		INSERT INTO audit_event (tenant_id, actor_id, action, kind, subject_type, subject_id, event_key, metadata, after_value)
+		SELECT ${actor.plantId}::uuid, ${actor.accountId}::uuid, 'mail.reconciled', 'outcome', 'record', ${communicationId}::uuid,
+			${audit.eventKey}, '{}'::jsonb, ${JSON.stringify(audit.after)}::jsonb
+		WHERE EXISTS (SELECT 1 FROM updated)
+		ON CONFLICT (subject_id, event_key) DO NOTHING`);
+}
+
+function answered(members: readonly Member[], answers: readonly Answer[], done: (row: Member) => Member) {
+	const byPosition = new Map(answers.map((answer) => [answer.position, answer.outcome]));
+	return members.map((row) => {
+		const outcome = byPosition.get(row.position);
+		if (!outcome) return row;
+		return outcome === "sent" ? { ...row, state: "sent" } : done(row);
+	});
+}
+
+/**
+ * Cancel a scheduled message at the email service, one recipient at a time by its own id. The message counts as
+ * cancelled only when no recipient is open. A run asks only about open recipients, so a check after the cancel is
+ * confirmed sends nothing and writes nothing.
+ */
 export function cancelScheduled(db: Database, authority: RequestActor, raw: unknown, transport: DeliveryTransport) {
 	return readReply(async () => {
 		const input = parse(c.cancelScheduledRequest, raw);
 		const actor = requireActor(authority);
-		const found = loadedSchema.parse(await loadAudience(db, actor, input.input.communicationId));
-		if (found.allowed !== true) deny("access_denied");
-		if (!found.id) deny("not_found");
-		if (found.revision !== input.expectedRevision) deny("conflict");
-		const before = membersOf(found.members);
-		const sent = before.some((row) => row.state === "sent");
-		await db.execute(sql`WITH updated AS (
-				UPDATE mail SET cancel_requested_at = clock_timestamp()
-				WHERE tenant_id = ${actor.plantId}::uuid AND logical_key LIKE ${prefix(found.id!)}
-				AND sent_at IS NULL AND delivered_at IS NULL AND state <> 'cancelled' AND state <> 'sent'
-				AND ${adminGate(actor)}
-				RETURNING id
-			)
-			INSERT INTO audit_event (tenant_id, actor_id, action, kind, subject_type, subject_id, event_key, metadata, after_value)
-			SELECT ${actor.plantId}::uuid, ${actor.accountId}::uuid, 'mail.cancelled', 'outcome', 'record', ${found.id}::uuid,
-				${"cancel/" + input.requestKey}, '{}'::jsonb, jsonb_build_object('sent_recalled', false)
-			WHERE ${adminGate(actor)} AND (SELECT count(*) FROM updated) >= 0
-			ON CONFLICT (subject_id, event_key) DO NOTHING`);
-		let scheduledCancel: "reconcile" | "confirmed" | "none" = found.provider_key ? "reconcile" : "none";
-		if (found.provider_key && transport.cancel) {
-			try {
-				const result = await transport.cancel(found.provider_key, signal());
-				if (result.outcome === "cancelled") {
-					scheduledCancel = "confirmed";
-					await db.execute(sql`UPDATE mail SET state = 'cancelled', cancel_confirmed_at = clock_timestamp()
-						WHERE tenant_id = ${actor.plantId}::uuid AND logical_key LIKE ${prefix(found.id!)}
-						AND sent_at IS NULL AND delivered_at IS NULL AND state <> 'sent' AND ${adminGate(actor)}`);
-				}
-			} catch {
-				scheduledCancel = "reconcile";
+		const { found, members } = await loadHandoff(db, actor, input.input.communicationId, input.expectedRevision);
+		const open = members.filter(holding);
+		let next = members;
+		if (found.request_id && open.length) {
+			// The request is stored before the calls, so a lost answer still shows as a cancel not confirmed.
+			if (open.some((row) => !row.cancelRequested))
+				await db.execute(sql`WITH updated AS (
+						UPDATE mail m SET cancel_requested_at = clock_timestamp()
+						FROM mail_request_member mem
+						WHERE mem.request_id = ${found.request_id}::uuid AND mem.tenant_id = ${actor.plantId}::uuid
+							AND mem.mail_id = m.id AND m.state IN ('accepted', 'unknown', 'dispatched')
+							AND m.cancel_requested_at IS NULL AND ${adminGate(actor)}
+						RETURNING m.id
+					)
+					INSERT INTO audit_event (tenant_id, actor_id, action, kind, subject_type, subject_id, event_key, metadata, after_value)
+					SELECT ${actor.plantId}::uuid, ${actor.accountId}::uuid, 'mail.cancelled', 'outcome', 'record', ${found.id}::uuid,
+						${"cancel-request/" + found.id}, '{}'::jsonb, jsonb_build_object('requested', (SELECT count(*) FROM updated))
+					WHERE EXISTS (SELECT 1 FROM updated)
+					ON CONFLICT (subject_id, event_key) DO NOTHING`);
+			const answers = await askEach(open, (providerIds) => transport.cancel(providerIds, signal()));
+			next = answered(members, answers, (row) => ({ ...row, state: "cancelled" }));
+			if (answers.length) {
+				const openCount = next.filter(holding).length;
+				await recordAnswers(db, actor, found.id!, found.request_id, answers, null, {
+					eventKey: openCount === 0 ? `cancel-confirmed/${found.id}` : `cancel-check/${input.requestKey}`,
+					after: {
+						cancelled: answers.filter((answer) => answer.outcome === "done").length,
+						sent: answers.filter((answer) => answer.outcome === "sent").length,
+						open: openCount,
+					},
+				});
 			}
 		}
+		const held = next.some((row) => row.provider !== null || holding(row));
+		const openCount = next.filter(holding).length;
 		return c.cancelScheduledResult.parse({
 			newHandoffs: 0,
-			scheduledCancel: sent && scheduledCancel === "none" ? "none" : scheduledCancel,
+			scheduledCancel: !held ? "none" : openCount > 0 ? "reconcile" : "confirmed",
 			sentRecalled: false,
-			cancelRequested: true,
+			cancelRequested: open.length > 0,
 			recallGuaranteed: false,
 			newSend: false,
 			existingUrlMayWorkUntil: input.input.signedUrlExpires ?? null,
+			confirmedCount: next.filter((row) => row.state === "cancelled").length,
+			sentCount: next.filter((row) => row.state === "sent").length,
+			openCount,
 		});
 	});
 }
 
+/** A replacement may start only when the email service holds no recipient of the earlier message. */
 export function replaceScheduled(db: Database, authority: RequestActor, raw: unknown) {
 	return readReply(async () => {
 		const input = parse(c.replaceScheduledRequest, raw);
 		const actor = requireActor(authority);
-		const found = loadedSchema.parse(await loadAudience(db, actor, input.input.communicationId));
+		const found = await loadAudience(db, actor, input.input.communicationId);
 		if (found.allowed !== true) deny("access_denied");
 		if (!found.id) deny("not_found");
 		const members = membersOf(found.members);
-		const replacementAllowed = members.length > 0 && members.every((row) => row.state === "cancelled");
+		const replacementAllowed =
+			members.some((row) => row.state === "cancelled") &&
+			members.every((row) => row.state === "cancelled" || row.state === "refused" || row.state === "failed");
 		return c.replaceScheduledResult.parse({ replacementAllowed, replacementIntents: 0, blindResends: 0 });
 	});
 }
 
+/**
+ * Change the send time. Before a scheduled handoff only the saved time changes. After one, each accepted recipient
+ * moves by its own email-service id; history shows the new time only when every one of them holds it. Running it
+ * again with the same time asks only about recipients that still hold the old time.
+ */
 export function rescheduleDispatched(
 	db: Database,
 	authority: RequestActor,
@@ -679,39 +828,55 @@ export function rescheduleDispatched(
 		const actor = requireActor(authority);
 		const at = new Date(input.input.scheduledAt);
 		if (!scheduleAccepted(new Date(), at)) deny("schedule_window_exceeded", { providerHandoffs: 0 });
-		const found = loadedSchema.parse(await loadAudience(db, actor, input.input.communicationId));
-		if (found.allowed !== true) deny("access_denied");
-		if (!found.id || !found.body_html) deny("not_found");
-		if (found.revision !== input.expectedRevision || found.state !== "scheduled") deny("conflict");
-		await db.execute(sql`WITH updated AS (
-				UPDATE communication SET scheduled_at = ${at.toISOString()}::timestamptz,
-					revision = revision + 1, updated_at = clock_timestamp()
-				WHERE id = ${found.id}::uuid AND plant_id = ${actor.plantId}::uuid AND state = 'scheduled'
-				AND revision = ${found.revision}::bigint AND ${adminGate(actor)}
-				RETURNING id
-			)
-			INSERT INTO audit_event (tenant_id, actor_id, action, kind, subject_type, subject_id, event_key, metadata, after_value)
-			SELECT ${actor.plantId}::uuid, ${actor.accountId}::uuid, 'communication.rescheduled', 'edit', 'record', ${found.id}::uuid,
-				${"reschedule/" + input.requestKey}, '{}'::jsonb, jsonb_build_object('scheduled_at', ${at.toISOString()}::text)
-			FROM updated
-			ON CONFLICT (subject_id, event_key) DO NOTHING`);
-		let rescheduleStatus: "accepted" | "unknown" = "accepted";
-		if (found.provider_key) {
-			rescheduleStatus = "unknown";
-			if (transport.reschedule) {
-				try {
-					const result = await transport.reschedule(found.provider_key, at.toISOString(), signal());
-					if (result.outcome === "accepted") rescheduleStatus = "accepted";
-				} catch {
-					rescheduleStatus = "unknown";
-				}
+		const { found, members } = await loadHandoff(db, actor, input.input.communicationId, input.expectedRevision);
+		if (!found.body_html) deny("not_found");
+		if (found.state !== "scheduled") deny("conflict");
+		const requested = at.toISOString();
+		if (found.scheduled_at !== requested)
+			await db.execute(sql`WITH updated AS (
+					UPDATE communication SET scheduled_at = ${requested}::timestamptz,
+						revision = revision + 1, updated_at = clock_timestamp()
+					WHERE id = ${found.id}::uuid AND plant_id = ${actor.plantId}::uuid AND state = 'scheduled'
+					AND revision = ${found.revision}::bigint AND ${adminGate(actor)}
+					RETURNING id
+				)
+				INSERT INTO audit_event (tenant_id, actor_id, action, kind, subject_type, subject_id, event_key, metadata, before_value, after_value)
+				SELECT ${actor.plantId}::uuid, ${actor.accountId}::uuid, 'communication.rescheduled', 'edit', 'record', ${found.id}::uuid,
+					${"reschedule/" + input.requestKey}, '{}'::jsonb, jsonb_build_object('scheduled_at', ${found.scheduled_at}::text),
+					jsonb_build_object('scheduled_at', ${requested}::text)
+				FROM updated
+				ON CONFLICT (subject_id, event_key) DO NOTHING`);
+		// Accepted recipients the email service still holds at another time.
+		const holdsOther = (row: Member) =>
+			row.state === "accepted" && row.scheduledAt !== null && row.scheduledAt !== requested;
+		const open = members.filter(holdsOther);
+		let next = members;
+		if (found.request_id && open.length) {
+			const answers = await askEach(open, (providerIds) => transport.reschedule(providerIds, requested, signal()));
+			next = answered(members, answers, (row) => ({ ...row, scheduledAt: requested }));
+			if (answers.length) {
+				const left = open.length - answers.length;
+				await recordAnswers(db, actor, found.id!, found.request_id, answers, requested, {
+					eventKey: left === 0 ? `time-confirmed/${found.id}/${requested}` : `time-check/${input.requestKey}`,
+					after: {
+						scheduled_at: requested,
+						moved: answers.filter((answer) => answer.outcome === "done").length,
+						sent: answers.filter((answer) => answer.outcome === "sent").length,
+						open: left,
+					},
+				});
 			}
 		}
+		const still = next.filter(holdsOther);
 		return c.rescheduleDispatchedResult.parse({
 			body: found.body_text ?? found.body_html,
-			rescheduleStatus,
+			rescheduleStatus: still.length ? "unknown" : "accepted",
 			newCommunications: 0,
-			scheduledAt: at.toISOString(),
+			scheduledAt: requested,
+			heldAt: still.map((row) => row.scheduledAt!).sort()[0] ?? null,
+			confirmedCount: next.filter((row) => row.state === "accepted" && row.scheduledAt === requested).length,
+			sentCount: next.filter((row) => row.state === "sent").length,
+			openCount: still.length,
 		});
 	});
 }
@@ -737,12 +902,26 @@ export function listOwnSuppression(db: Database, authority: RequestActor, raw: u
 		const email = await accountEmail(db, actor);
 		if (input.address.trim().toLowerCase() !== email) deny("access_denied");
 		const hashValue = addressHash(ready.addressKey, email);
+		// The block and every earlier restore of this one address in one statement, at any number of restores. The
+		// restorer's name is the Person their account links to in the church where they restored it.
 		const row = one(
-			await db.execute(sql`SELECT id FROM suppression WHERE address_hash = ${hashValue} AND cleared_at IS NULL`),
-		) as { id?: string } | undefined;
+			await db.execute(sql`SELECT s.id IS NOT NULL AND s.cleared_at IS NULL AS active,
+				coalesce((
+					SELECT jsonb_agg(jsonb_build_object(
+						'at', to_char(a.occurred_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+						'actorName', (SELECT p.display_name FROM person p
+							WHERE p.linked_account_id = a.actor_id AND p.tenant_id = a.tenant_id AND p.state = 'live'
+							ORDER BY p.id LIMIT 1),
+						'reason', a.reason
+					) ORDER BY a.occurred_at DESC, a.id DESC)
+					FROM audit_event a WHERE a.subject_id = s.id AND a.kind = 'suppression_clear' AND a.reason IS NOT NULL
+				), '[]'::jsonb) AS restores
+				FROM (SELECT 1) seed LEFT JOIN suppression s ON s.address_hash = ${hashValue}`),
+		) as { active: boolean; restores: unknown };
 		return c.suppressionListResult.parse({
 			address: email,
-			active: Boolean(row?.id),
+			active: row.active,
+			restores: asJson(row.restores),
 			suppressionClears: 0,
 			newSends: 0,
 		});
@@ -844,6 +1023,7 @@ export function sendTransactionalMail(
 					{
 						key: providerKey,
 						messages: [{ to: address, subject: rendered.subject, html: rendered.html, text: rendered.text }],
+						scheduledAt: null,
 					},
 					signal(),
 				);
