@@ -669,8 +669,7 @@ test("AC:OPS-121-12 AC:OPS-121-13 the ci stage: only Vercel, a failed, a pending
 			status: "failed",
 			summary: "Required CI is not green after 0 min: ci missing, pr-body missing",
 		});
-		// A failed required check ends the stage at once.
-		const started = Date.now();
+		// A failed required check ends the stage at once: one read of the checks, no polling.
 		assert.deepEqual(
 			ci(
 				[
@@ -684,7 +683,7 @@ test("AC:OPS-121-12 AC:OPS-121-13 the ci stage: only Vercel, a failed, a pending
 				summary: "Required CI failed on the PR head: ci",
 			},
 		);
-		assert.ok(Date.now() - started < TIMING.ciWaitMs + 1500);
+		assert.equal(f.calls("checks").length, 1);
 		// A pending required check waits, then fails naming it.
 		assert.deepEqual(ci([pass("ci"), { ...pass("pr-body"), bucket: "pending" }]), {
 			status: "failed",
