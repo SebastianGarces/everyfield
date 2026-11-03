@@ -4913,13 +4913,16 @@ test("AC:OPS-122-8 after an out-of-path-order promotion, approve needs his words
 	}
 });
 
-test("AC:OPS-122-9 the OPS-109 wiki tests run and pass", () => {
-	// Inside a node:test process this names the parent's protocol; the nested run would then report nothing here.
+// The nested run gets only its own flags: process.execArgv would pass on this run's name pattern, and a nested run
+// that matched this test again would start another run without end. The env mark skips it in a nested run anyway.
+const NESTED = "EVF_TEST_NESTED_OPS109";
+test("AC:OPS-122-9 the OPS-109 wiki tests run and pass", { skip: process.env[NESTED] ? "nested run" : false }, () => {
+	// Inside a node:test process NODE_TEST_CONTEXT names the parent's protocol; the nested run would report nothing here.
 	const { NODE_TEST_CONTEXT: _, ...env } = process.env;
 	const r = spawnSync(
 		process.execPath,
-		[...process.execArgv, "--test", "--test-reporter=tap", "--test-name-pattern=^OPS-109-", import.meta.filename],
-		{ encoding: "utf8", env, maxBuffer: 64 * 1024 * 1024 },
+		["--test", "--test-reporter=tap", "--test-name-pattern=^OPS-109-", import.meta.filename],
+		{ encoding: "utf8", env: { ...env, [NESTED]: "1" }, maxBuffer: 64 * 1024 * 1024, timeout: 300_000 },
 	);
 	assert.equal(r.status, 0, r.stdout.slice(-4000) + r.stderr);
 	assert.match(r.stdout, /^# pass 7$/m, "the seven OPS-109 tests ran");
