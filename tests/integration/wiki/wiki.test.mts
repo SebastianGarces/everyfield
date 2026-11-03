@@ -7,6 +7,8 @@ import { migrate } from "../../../packages/db/src/schema/migrate.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { createWikiProducer } from "../../../packages/domain/src/wiki/index.ts";
 import { GUIDE_ROUTES, guideFor } from "../../../packages/domain/src/wiki/guides.ts";
+import { sectionExcerpt } from "../../../packages/domain/src/wiki/excerpt.ts";
+import { assertCleanEnd, PHASE_ROWS, seedBody, sourceSection } from "./excerpt-checks.mjs";
 
 const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
 const localCi =
@@ -1712,6 +1714,8 @@ describe("wiki versions and the Guide", { concurrency: 1 }, () => {
 	const guideIds = new Map();
 	const id = () => randomUUID();
 	const LONG = "Pray, cast vision, tell stories and invite a response. ".repeat(12);
+	// The section crosses the 500-character limit, so it is cut at the last sentence end inside it.
+	const LONG_CUT = `## Seven Essential Elements\n${"Pray, cast vision, tell stories and invite a response. ".repeat(8).trimEnd()}`;
 	const sectionBody = (heading, text) =>
 		`Opening line\n## ${heading}\n${text}\n### Detail\nInside the section\n## Next part\nOutside`;
 
@@ -1966,8 +1970,7 @@ describe("wiki versions and the Guide", { concurrency: 1 }, () => {
 				assert.equal(guide.title, `Title of ${entry.slug}`, route);
 				assert.equal(guide.slug, entry.slug, route);
 				assert.equal(guide.citation, entry.heading, route);
-				if (entry.heading === "Seven Essential Elements")
-					assert.equal(guide.body, `## Seven Essential Elements\n${LONG}`.slice(0, 500), route);
+				if (entry.heading === "Seven Essential Elements") assert.equal(guide.body, LONG_CUT, route);
 				else
 					assert.equal(
 						guide.body,
@@ -2049,7 +2052,7 @@ describe("wiki versions and the Guide", { concurrency: 1 }, () => {
 			// A plant outside Grace Church reads the global section, never Grace's text.
 			const outsider = await guideOf(people.outsider, "/meetings");
 			assert.equal(outsider.title, "Title of core-group/vision-meetings/what-is-a-vision-meeting");
-			assert.equal(outsider.body, `## Seven Essential Elements\n${LONG}`.slice(0, 500));
+			assert.equal(outsider.body, LONG_CUT);
 
 			const stale = await actor(r1.ending);
 			await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${r1.ending.id}`);
@@ -2057,4 +2060,93 @@ describe("wiki versions and the Guide", { concurrency: 1 }, () => {
 			refused(await api.contextGuide(db, stale, { route: "/tasks" }), "access_denied");
 		},
 	);
+	test("WP-034/api criteria 1, 3 and 9: on the seeded text each Guide is the clean cut, and referenceExcerpt returns the same cut", async () => {
+		const reader = await actor(people.outsider);
+		for (const entry of GUIDE_ROUTES) {
+			const found = await admin.execute(
+				sql`SELECT article_id::text AS id, max(revision_number)::int AS n FROM article_revision WHERE tenant_id=${GLOBAL} AND slug=${entry.slug} GROUP BY article_id`,
+			);
+			const row = found.rows[0];
+			assert.ok(row, entry.slug);
+			const body = seedBody(entry.slug);
+			await revision({
+				id: id(),
+				article: row.id,
+				tenant: GLOBAL,
+				release,
+				title: `Seeded ${entry.slug}`,
+				slug: entry.slug,
+				body,
+				number: row.n + 1,
+			});
+			const guide = await guideOf(people.outsider, entry.route.replace(/\[[^\]]+\]/, randomUUID()));
+			assert.equal(guide.title, `Seeded ${entry.slug}`, entry.route);
+			assert.equal(guide.body, sectionExcerpt("safe_mdx", body, entry.heading), entry.route);
+			assertCleanEnd(guide.body, sourceSection(body, entry.heading), entry.route);
+			const excerpt = ok(await api.referenceExcerpt(db, reader, { articleId: row.id, heading: entry.heading }));
+			assert.equal(excerpt.excerpt, guide.body, entry.route);
+		}
+		const intelligence = await guideOf(people.outsider, "/intelligence");
+		assert.deepEqual(intelligence.body.split("\n").slice(-7), PHASE_ROWS);
+		assert.match(intelligence.body, /^## How to Navigate the Playbook\n\nThe Launch Playbook is organized into phases/);
+	});
+
+	test("WP-034/api criteria 10 and 11: search snippets are plain whole words with each match in <b>", async () => {
+		const reader = await actor(people.outsider);
+		const marked = id();
+		const markdown = [
+			"## quokkamark heading",
+			"",
+			"**quokkamark bold** and __quokkamark strong__ and `quokkamark code` and [quokkamark link](https://example.org/x)",
+			"",
+			"---",
+			"",
+			"| Cell one | quokkamark cell |",
+			"|---|---|",
+			"| left | right |",
+			"",
+			"- quokkamark item one",
+			"- item two",
+			"",
+			'<Callout type="tip">quokkamark callout</Callout>',
+		].join("\n");
+		await globalArticle(marked, "wiki/markdown-snippet", "Markdown snippet", markdown);
+		const plain =
+			"quokkamark heading quokkamark bold and quokkamark strong and quokkamark code and quokkamark link Cell one quokkamark cell left right quokkamark item one item two quokkamark callout";
+		const words = (text) => text.replace(/<\/?b>/g, "").split(" ");
+		const contiguous = (part, whole) => ` ${whole.join(" ")} `.includes(` ${part.join(" ")} `);
+		const plainText = (snippet) => {
+			for (const syntax of [/(^|\s)#{1,6}\s/, /\*\*/, /__/, /---/, /\|/, /`/, /\]\(/, /<(?!\/?b>)[^>]*>/])
+				assert.doesNotMatch(snippet, syntax, snippet);
+			assert.doesNotMatch(snippet, /\s{2}|^\s|\s$/, snippet);
+		};
+		const result = ok(await api.search(db, reader, { query: "quokkamark" }));
+		assert.equal(result.results.length, 1);
+		const snippet = result.results[0].snippet;
+		plainText(snippet);
+		assert.match(snippet, /<b>quokkamark<\/b>/);
+		assert.ok(contiguous(words(snippet), plain.split(" ")), snippet);
+		assert.ok(words(snippet).length >= 5, snippet);
+
+		const phase = ok(await api.search(db, reader, { query: "Phase" }));
+		assert.equal(phase.status, "results");
+		const seeded = phase.results.find((article) => article.slug === "getting-started/welcome-to-the-launch-playbook");
+		assert.ok(seeded, "the seeded playbook welcome is a hit");
+		for (const article of phase.results) {
+			plainText(article.snippet);
+			assert.match(article.snippet, /<b>phase<\/b>/i, article.slug);
+			for (const match of article.snippet.matchAll(/<b>([^<]*)<\/b>/g)) assert.match(match[1], /^phase/i, article.slug);
+			// Each word, the first and last included, is a whole word of the article, never two words run together.
+			for (const word of words(article.snippet)) {
+				const bare = word.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+				if (!bare) continue;
+				const escaped = bare.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+				assert.match(
+					article.body ?? "",
+					new RegExp(`(^|[^\\p{L}\\p{N}])${escaped}([^\\p{L}\\p{N}]|$)`, "u"),
+					`${article.slug}: ${word}`,
+				);
+			}
+		}
+	});
 });
