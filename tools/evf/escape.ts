@@ -23,9 +23,9 @@ import { stackEnv, stackInfo } from "./task.ts";
  * the `ui-escaped` check runs the folder on every UI task's stack. All of it runs on this machine only, never in CI.
  */
 
-const ESCAPED_DIR = "tests/ui/escaped/";
+export const ESCAPED_DIR = "tests/ui/escaped/";
 const SOAK_RUNS = 20;
-const ESCAPED_TEST = /^tests\/ui\/escaped\/[^/]+\.test\.mjs$/;
+export const ESCAPED_TEST = /^tests\/ui\/escaped\/[^/]+\.test\.mjs$/;
 const SHA = /^[a-f0-9]{40}$/;
 
 /** What evf reads of a PR. `null` from a reader means GitHub has no PR with that number. */

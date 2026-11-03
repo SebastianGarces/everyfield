@@ -1547,6 +1547,15 @@
 			],
 			"risk": "ordinary"
 		},
+		"OPS-116": {
+			"title": "Monthly mutation audit of the verifier",
+			"owningPaths": ["tools/evf/"],
+			"checks": [
+				{ "name": "documentation", "run": ["python3", "docs/check-all.py"] },
+				{ "name": "workflow-regressions", "run": ["bin/evf", "test"] }
+			],
+			"risk": "ordinary"
+		},
 		"OPS-113": {
 			"title": "Body-only fix path with no new round and no new Opus verify",
 			"owningPaths": [
