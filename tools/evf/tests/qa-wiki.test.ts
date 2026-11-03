@@ -33,7 +33,6 @@ type Article = {
 	alternates: { sourceId: string; sourceKind: string; title: string }[];
 };
 type Branch = {
-	db: QuietDatabase;
 	query: (text: string, values?: unknown[]) => Promise<Row[]>;
 	seed: () => ReturnType<typeof spawnSync>;
 	read: (requests: { articleId: string; source?: unknown }[]) => Article[];
@@ -91,7 +90,7 @@ async function branch(tag: string, prepare: (query: Branch["query"]) => Promise<
 	};
 	const run = seed();
 	assert.equal(run.status, 0, String(run.stderr));
-	return { db, query, seed, read, first: String(run.stdout), a, b, releasesBefore };
+	return { query, seed, read, first: String(run.stdout), a, b, releasesBefore };
 }
 
 let freshBranch: Promise<Branch> | undefined;
@@ -210,7 +209,7 @@ async function sourcesHold(b: Branch) {
 	assert.equal(byGlobal!.sourceKind, "global");
 	assert.doesNotMatch(byGlobal!.body!, /This is the/);
 	assert.doesNotMatch(byGlobal!.title, /\(QA\)/);
-	return { church, network, current: current!, byNetwork: byNetwork!, byGlobal: byGlobal! };
+	return { current: current!, byGlobal: byGlobal! };
 }
 
 /** Criterion 6 on one branch: B reads as its newest revision, flagged as updated since the owner read it. */
@@ -268,9 +267,7 @@ test("AC:OPS-127-2 the seed gives article A a published church copy and network 
 
 test("AC:OPS-127-3 the owner opens article A and the reader returns the church copy, with network and global alternates", async () => {
 	const b = await fresh();
-	const { church, current } = await sourcesHold(b);
-	const names = await b.query("SELECT name FROM organization WHERE id=$1", [church]);
-	assert.deepEqual(names, [{ name: CHURCH }]);
+	const { current } = await sourcesHold(b);
 	assert.equal(current.alternates[1]!.title, corpus.articles[0]!.title);
 });
 

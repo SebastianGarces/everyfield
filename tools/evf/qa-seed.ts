@@ -404,7 +404,7 @@ async function fill(admin: Database, runtime: Database, authDb: Database): Promi
 
 	const wikiWritten = await wiki(admin);
 	done.push(...(await wikiCases(admin, plantId, owner)));
-	// Listed last: the wiki is the base the copies and the revision build on.
+	// Listed last: the OPS-106 test expects the output to end with "wiki.".
 	if (wikiWritten) done.push("wiki");
 
 	if (session) await admin.execute(sql`DELETE FROM auth_session WHERE id=${session}`);
@@ -450,26 +450,14 @@ const SOURCES = [
 	{ kind: "sending_church", name: "Grace Fellowship (QA)", version: "church version", acceptedDaysAgo: 30 },
 	{ kind: "sending_network", name: "Harvest Network (QA)", version: "network version", acceptedDaysAgo: 20 },
 ] as const;
-/**
- * A copy's body in the Wiki editor's document format (everyfield-editor-v1): an organization copy holds safe_nodes. Its
- * first line names the source, so a reader can tell the versions apart.
- */
-function copyBody(version: string, name: string): string {
-	const text = (value: string) => [{ type: "text", text: value, marks: [] }];
-	return JSON.stringify({
+/** A copy's body in the Wiki editor's document format (safe_nodes). Its line names the source. */
+const copyBody = (version: string, name: string) =>
+	JSON.stringify({
 		format: "everyfield-editor-v1",
 		blocks: [
-			{ type: "paragraph", children: text(`This is the ${version} from ${name}.`) },
-			{ type: "heading", level: 2, children: text(`How ${name} does this`) },
-			{
-				type: "paragraph",
-				children: text(
-					`${name} wrote this guidance for the churches it sends. Choose another source to read the other versions.`,
-				),
-			},
+			{ type: "paragraph", children: [{ type: "text", text: `This is the ${version} from ${name}.`, marks: [] }] },
 		],
 	});
-}
 
 /** The first line of article B's second revision. The seed finds its own revision by it. */
 const REVISED = "**Revised for QA:** this is the second revision of the article. It changed after you read the first.";
