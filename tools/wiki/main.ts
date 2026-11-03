@@ -16,8 +16,24 @@ const help = `Wiki authoring tools (Node 24; install: cd tools/wiki && pnpm inst
   wiki promote <draft.json> --approved-by <Sebastian|Bryan> --pr <n> --reviewed-sha <sha>
   wiki check-seed
   wiki roundtrip
-Seed commands also accept --seed-dir <dir> for disposable proof copies.
+Seed commands also accept --seed-dir <dir> for disposable proof copies; lint also accepts --allowlist <file>.
 Promotion records human approval given in chat or a PR comment. It does not grant approval.`;
+/** The ASCII allowlist file: a list of { slug, fingerprint } entries, each fingerprint 16 lowercase hex digits. */
+function parseAllowlist(listed: unknown): { slug: string; fingerprint: string }[] {
+	const where = "ascii allowlist";
+	if (!object(listed) || !Array.isArray(listed.entries)) throw new Error(`${where} needs an entries array`);
+	const seen = new Set<string>();
+	return listed.entries.map((entry: unknown) => {
+		if (!object(entry) || typeof entry.slug !== "string" || typeof entry.fingerprint !== "string")
+			throw new Error(`${where}: each entry needs a slug and a fingerprint`);
+		if (!/^[0-9a-f]{16}$/.test(entry.fingerprint))
+			throw new Error(`${where}: ${entry.slug} fingerprint must be 16 lowercase hex digits`);
+		const key = `${entry.slug} ${entry.fingerprint}`;
+		if (seen.has(key)) throw new Error(`${where}: ${key} is listed twice`);
+		seen.add(key);
+		return { slug: entry.slug, fingerprint: entry.fingerprint };
+	});
+}
 const digest = (bytes: Buffer) => createHash("sha256").update(bytes).digest("hex");
 
 async function main() {
@@ -31,7 +47,7 @@ async function main() {
 		flags = new Map<string, string | true>();
 	const booleans = new Set(["--seed", "--mobile", "--update-body"]);
 	const options: Record<string, string[]> = {
-		lint: ["--seed", "--seed-dir"],
+		lint: ["--seed", "--seed-dir", "--allowlist"],
 		render: ["--out", "--seed-dir"],
 		shot: ["--out", "--mobile", "--seed-dir"],
 		"pr-images": ["--update-body"],
@@ -107,20 +123,26 @@ async function main() {
 		if (!row) throw new Error(`Unknown seed article: ${input}`);
 		return { row, seed: true };
 	}
-	// Seed articles that still hold an ASCII-art diagram until OPS-97 migrates them. The list can only shrink.
-	const listed = await readJson(resolve(root, "tools/wiki/ascii-allowlist.json"));
-	if (!object(listed) || !Array.isArray(listed.slugs))
-		throw new Error("tools/wiki/ascii-allowlist.json needs a slugs array");
-	const allowlist = new Set(listed.slugs.map(String));
+	// Seed ASCII-art blocks that stay until OPS-97 migrates them. Each entry permits one block, by slug and fingerprint.
+	const allowlistFile = resolve(String(flags.get("--allowlist") || resolve(root, "tools/wiki/ascii-allowlist.json")));
+	const allowlist = parseAllowlist(await readJson(allowlistFile));
 	async function lint(row: ObjectRow, seed: boolean, label: string) {
 		const { inspect } = await import("./mdx.ts");
 		const slug = String(row.slug);
 		const result = await inspect(typeof row.content === "string" ? row.content : "", known, seed, slug);
 		result.errors.unshift(...shape(row, articles, sections, seed));
 		// Only seed rows read the allowlist; a draft with ASCII art always fails.
-		const allowed = seed && allowlist.has(slug);
-		if (allowed && !result.ascii.length) result.errors.push(`remove ${slug} from the allowlist`);
-		(allowed ? result.warnings : result.errors).push(...result.ascii);
+		const unmatched = seed ? allowlist.filter((entry) => entry.slug === slug).map((entry) => entry.fingerprint) : [];
+		for (const finding of result.ascii) {
+			const index = finding.fingerprint === null ? -1 : unmatched.indexOf(finding.fingerprint);
+			if (index >= 0) unmatched.splice(index, 1);
+			(index >= 0 ? result.warnings : result.errors).push(finding.message);
+		}
+		// An entry whose block is gone permits nothing. It is a warning, so a migration never needs a tooling edit.
+		for (const fingerprint of unmatched)
+			result.warnings.push(
+				`Inert ASCII allowlist entry ${slug} ${fingerprint}: no ASCII block matches it, so it permits nothing; delete it`,
+			);
 		if (
 			typeof row.read_time_minutes === "number" &&
 			Math.abs(row.read_time_minutes - Math.round(result.words / 200)) > 1
@@ -139,7 +161,7 @@ async function main() {
 		let failed = 0,
 			count = 0;
 		if (flags.has("--seed"))
-			for (const slug of allowlist)
+			for (const slug of new Set(allowlist.map((entry) => entry.slug)))
 				if (!known.has(slug)) {
 					console.log(`FAIL tools/wiki/ascii-allowlist.json\n  ERROR remove ${slug} from the allowlist`);
 					failed++;
