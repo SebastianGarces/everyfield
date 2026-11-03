@@ -134,7 +134,7 @@ const results = ui ?? backend;
 const rows = (ui?.shots ?? []).map((s) => `<tr><td>${esc(s.engine)} ${s.width}px<br><code>${esc(s.path)}</code><br>diff ${esc(s.diffPercent ?? "n/a")}%<br>${s.after.checks ? `flow ${s.after.checks.filter((c) => c.pass).length}/${s.after.checks.length}<br>` : ""}<b>${esc(s.verdict)}</b> ${esc(s.failures.join("; "))}</td>` +
   ["before", "after"].map((side) => s[side]?.screenshot ? `<td><a href="${esc(s[side].screenshot)}"><img src="${esc(s[side].screenshot)}" loading="lazy"></a></td>` : "<td>none</td>").join("") + "</tr>").join("\n");
 const checks = (backend?.checks ?? []).map((c) => `<tr><td>${c.pass ? "pass" : "FAIL"}</td><td>${esc(c.check)}</td><td><code>${esc(c.detail ?? "")}</code></td></tr>`).join("\n");
-const videos = files.filter((f) => /\.(webm|mp4)$/.test(f)).map((f) => `<figure><video src="${esc(f)}" controls muted width="480"></video><figcaption>${esc(f)}</figcaption></figure>`).join("\n");
+const videos = files.filter((f) => /\.(webm|mp4)$/.test(f)).map((f) => `<figure id="${esc(f)}"><video src="${esc(f)}" controls muted width="480"></video><figcaption><a href="#${esc(f)}">${esc(f)}</a></figcaption></figure>`).join("\n");
 const IMAGE = /\.(png|jpe?g|webp|gif)$/i;
 const url = (f) => esc(f.split("/").map(encodeURIComponent).join("/"));
 const folders = Map.groupBy(files, (f) => (f.includes("/") ? dirname(f) : ""));
