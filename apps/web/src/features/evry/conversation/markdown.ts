@@ -6,6 +6,8 @@
 // the text after it already takes the style it will have, so nothing reflows when the marker closes. A finished answer
 // shows a really unmatched marker as text.
 
+import { safeLinkAddress } from "@everyfield/contracts/common";
+
 export type Inline =
 	| { kind: "text"; text: string }
 	| { kind: "strong"; children: Inline[] }
@@ -15,14 +17,13 @@ export type Inline =
 
 export type Block = { kind: "paragraph"; lines: Inline[][] } | { kind: "list"; ordered: boolean; items: Inline[][] };
 
-/** The address a link may point to, or null: http, https, mailto or app-relative only. */
+/** The address a link may point to, or null: the shared outside-link rule, or an app-relative path. */
 export function safeHref(raw: string): { href: string; external: boolean } | null {
+	const external = safeLinkAddress(raw);
+	if (external !== null) return { href: external, external: true };
 	const href = raw.trim();
-	// Control characters and spaces hide schemes ("java\nscript:").
-	if (!href || /[\u0000- \u007f-\u009f]/.test(href)) return null;
-	if (/^https?:\/\/[^/?#]/i.test(href)) return { href, external: true };
-	if (/^mailto:[^\s]+$/i.test(href)) return { href, external: true };
-	if (href.startsWith("/") && !href.startsWith("//") && !href.includes("\\")) return { href, external: false };
+	if (href.startsWith("/") && !href.startsWith("//") && !/[\\\u0000- \u007f-\u009f]/.test(href))
+		return { href, external: false };
 	return null;
 }
 

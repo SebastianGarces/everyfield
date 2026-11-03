@@ -31,6 +31,7 @@ const factories = {
 	referenceService: "reference",
 	attemptBudget: "identity.budget",
 	createTaskWriter: "tasks",
+	createTemplateReader: "tasks",
 	createPhaseWriter: "phases",
 	createPrivateCare: "privateCare",
 	createSignals: "signals",
