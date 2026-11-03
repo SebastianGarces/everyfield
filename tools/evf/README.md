@@ -238,7 +238,8 @@ not a sandbox: it covers the edit tools only, and a seat with shell access can s
 ## Drive loop
 
 `evf drive <task>` runs implement mode as a stage machine kept in the work store: plan → implement →
-simplify → pr → verify → ci → ship → merged. Seat stages launch a fresh session through
+simplify → pr → verify → ci → ship → merged, with a body stage between verify and ci after a `body_only` review
+(see Body-only fix path below). Seat stages launch a fresh session through
 `evf launch` with a stage prompt, wait on it through Herdr and expect it to close with
 `evf run done <run> --status passed|failed --summary-file <file>`; the Stop hook blocks a seat that
 tries to end its turn with the stage open, and a seat that goes idle twice without closing is aborted.
@@ -247,10 +248,14 @@ evf runs pr, ci and ship itself and records them as runs of role `evf`. The pr s
 the task's runtime dir. A simplifier commit therefore never costs a round: when the checks fail at a head that
 followed a passed simplify, the next stage is simplify with the failure in its prompt, and no implement run starts.
 The implementer proves its own work before it closes: tests, 390 and 1440 px screenshots of each UI state it
-changed and one `evf proof add` per Done criterion it built or changed. evf adds no gate on that close; the
-verifier covers a missing proof. UI work runs in the implementer seat unless the spec has the line `Seat: ui`.
+changed and one `evf proof add` per Done criterion it built or changed. evf adds no proof gate on that close; the
+verifier covers a missing proof. The PR body is gated (OPS-113): an implement run closes passed only when the body
+file in the runtime dir exists and passes the `evf pr body` check, and the refusal names the failed check, so a body
+fault shows up before verify. UI work runs in the implementer seat unless the spec has the line `Seat: ui`.
 The verifier reads the full diff, reads the proof table and re-runs a flow only where a proof is unmet,
-missing or looks wrong; it captures a missing screenshot itself. A failed verify or ci costs a round; the fourth
+missing or looks wrong; it captures a missing screenshot itself. A failed verify or ci costs a round, except a
+failed verify at a head where an earlier verify of the task already closed (a second review of an unchanged head
+records `review_repeat` and costs no round; it still counts toward the three-failure cap). The fourth
 round sets the task to escalated, records `loop_cap_hit` and `escalation`, shows a Herdr notification
 and launches nothing more. Any other failure costs no round, but three failures in a row without a
 passed stage escalate the same way, so no loop runs unattended forever. `evf task reopen <task> --reason
@@ -303,6 +308,38 @@ closes with different statuses never trip it; the loop cap and the three-failure
 the breaker records `escalation_deferred` while another seat of the task works and escalates when the last one
 closes. Restart after an outside fix with `evf task reopen <task> --reason "<words>"`: runs before its marker are
 never run A, so the next seat runs. Prototype mode keeps its own same-headline rule.
+
+**Body-only fix path (OPS-113).** About 15 failed rounds and four loop-cap hits came from PR bodies, not code. A
+verifier that approves the code and the experience, and whose every open finding is a PR body fix it can state as an
+exact text, posts `post-review.mjs --verdict body_only --body-items <items.json>` and closes verify with
+`evf run done <run> --status body-only`. Each item is `{"present": "<text>", "why": "<reason>"}` or
+`{"absent": "<text>", "why": "<reason>"}`; the poster refuses an empty list, an item without exactly one non-empty
+`present` or `absent` text and a non-empty `why`, and a quality or experience verdict that is not approved. The
+EVF-Review line holds `"verdict":"body_only"` and a `"body"` array with the items. The close applies the passed
+proof gate, refuses any stage but verify, records a verify approval with decision `body_only` at the head and
+costs no round. `evf next` then names the `body` stage in the implementer seat, same round. Its prompt lists each
+item and the body file path, and tells the seat to edit only that file, make no commit and close with
+`evf run done`. When the seat closes passed, evf runs the body check itself: it pushes the body with
+`evf pr open --body-file` at the same head, reads the GitHub body with the `evf pr body` code (`checkGithubBody`)
+and checks each item of the review at that head (`unmetBodyItem`). It passes only when the head equals the
+reviewed head, the standard passes and every item is met; then the next stage is ci and no verify runs. A failed
+check closes the body run failed with the reason, and the body stage runs again with it in the prompt, with no
+round; three failures in a row escalate under the retry cap. A commit after the review voids the path: the next
+stage is pr and then a full verify. Ship (`checkPr`) takes the latest `body_only` review at the exact PR head as
+the code approval only when its quality and experience verdicts are approved and the GitHub body meets every
+item; it names the first unmet item otherwise. A later review at the same head replaces it. Independence (D82), the
+recorded sessions, required CI and the "PR changed during merge checks" refusal still apply, and `evf approve`
+reads it through the same `checkPr`, with the owner words and the exact head as before. Decisions taken under
+Sebastian's delegation, which he can revert:
+
+- D-a (report section D.1, approved): the Opus verifier does not read the final body. A deterministic check reads it.
+- D-b: the verdict value is `body_only`, with an underscore like `changes_requested`.
+- D-c: each body item is an exact substring rule, met when the body contains (`present`) or does not contain
+  (`absent`) the text. Line endings do not count. No semantic or model-based check.
+- D-d: the body stage runs in the existing implementer seat with a body-only prompt; no new seat role or agent file.
+  The item list limits its scope, and a head change sends the task to a full verify.
+- D-e: a `body_only` approval carries over merge-only commits under the EVF-Carry rule, the same as `approved`, and
+  ship checks the items on the merged head's body. A code commit after the review gets "does not carry".
 
 **Simplify skip.** After a passed implement, evf reads the last passed simplify run after the reopen marker. When
 `git diff --quiet <its progress_head> HEAD` finds no change in the worktree, no simplifier launches: evf records a

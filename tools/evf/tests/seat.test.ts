@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { assistantLine, fixture, sessionStartJs, source, writeTranscript } from "./fixtures.ts";
 import { ensureTask, openWorkDb, syncGoals, workDbPath } from "../db.ts";
-import { EvfError, parseTask } from "../lib.ts";
+import { EvfError, parseTask, runtimeDir } from "../lib.ts";
 import { guardTypedLine, launch, launchPlan, LaunchLineTooLong, typedLineBytes } from "../launch.ts";
 import { ROLES } from "../seats.ts";
 
@@ -99,6 +99,23 @@ function seatFixture() {
 				"SELECT id, stage, role, status, session_id, herdr_agent, herdr_pane, summary FROM runs WHERE task_id = ? ORDER BY id",
 			)
 			.all(row.id) as Array<Record<string, unknown>>;
+	// The PR template the worktree carries and the implementer's PR body: an implement run closes passed only with a
+	// body that passes evf pr body (OPS-113).
+	const template = ".agents/skills/everyfield-pr/template.md";
+	mkdirSync(join(worktree, ".agents/skills/everyfield-pr"), { recursive: true });
+	writeFileSync(join(worktree, template), readFileSync(join(f.root, template), "utf8"));
+	mkdirSync(runtimeDir(f.root, task), { recursive: true });
+	writeFileSync(
+		join(runtimeDir(f.root, task), "pr-body.md"),
+		`${readFileSync(join(f.root, template), "utf8")
+			.replace(/<!--[^]*?-->/g, "")
+			.split("\n")
+			.filter((line) => line.startsWith("## "))
+			.map((heading) => `${heading}\nConcrete task evidence.`)
+			.join(
+				"\n\n",
+			)}\n\nEVF-Author: ${JSON.stringify({ session: SESSION, model: "claude-sonnet-5-5", role: "implementer" })}\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)`,
+	);
 	return { ...f, task, worktree, db, taskId: row.id, run: Number(run), events, runs, env, herdr: fakeHerdr(f.root) };
 }
 
