@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { parseSource, sourceInput } from "./model.ts";
+import { articlePath, parseSource, sourceInput } from "./model.ts";
 import {
 	editorContext,
 	logSearchLost,
@@ -147,12 +147,12 @@ export async function searchWiki(
 }
 
 export type GuideResult =
-	| { status: "found"; body: string | null; citation: string | null; href: string | null; title: string | null }
+	| { status: "found"; title: string; section: string | null; excerpt: string; href: string }
 	| { status: "missing" }
-	| { status: "gone" }
 	| { status: "denied" }
 	| { status: "unavailable" };
 
+/** The Guide for the current address. One read; it records no view and no progress. */
 export async function loadGuide(route: string): Promise<GuideResult> {
 	const ready = await actorMount();
 	if (ready.status === "denied") return { status: "denied" };
@@ -163,26 +163,15 @@ export async function loadGuide(route: string): Promise<GuideResult> {
 		});
 		if (reply.status !== "ok")
 			return reply.error.code === "access_denied" ? { status: "denied" } : { status: "unavailable" };
-		if (reply.value.found && reply.value.articleId) {
-			const article = await ready.mount.producer.getArticle(ready.mount.db, ready.actor, {
-				articleId: reply.value.articleId,
-			});
-			const slug = article.status === "ok" ? article.value.article?.slug : null;
-			return {
-				status: "found",
-				body: reply.value.body,
-				citation: reply.value.citation,
-				href: slug
-					? `/wiki/${slug
-							.split("/")
-							.map((part) => encodeURIComponent(part))
-							.join("/")}`
-					: null,
-				title: article.status === "ok" ? (article.value.article?.title ?? null) : null,
-			};
-		}
-		if (reply.value.missing) return { status: "missing" };
-		return { status: "gone" };
+		const guide = reply.value;
+		if (!guide.found || !guide.title || !guide.slug || !guide.body) return { status: "missing" };
+		return {
+			status: "found",
+			title: guide.title,
+			section: guide.citation,
+			excerpt: guide.body,
+			href: articlePath(guide.slug),
+		};
 	} catch (error) {
 		console.error(JSON.stringify({ component: "wiki", outcome: "guide-failed", error: String(error) }));
 		return { status: "unavailable" };

@@ -33,11 +33,22 @@ function Lines({ text }: { text: string }) {
 }
 
 /** The article body. Headings carry the ids the contents list uses. */
-export function ArticleBody({ contentType, body }: { contentType: string; body: string }) {
+export function ArticleBody({
+	contentType,
+	body,
+	size,
+	className = "",
+}: {
+	contentType: string;
+	body: string;
+	size?: "md" | "sm";
+	className?: string;
+}) {
 	const blocks = articleBlocks(contentType, body);
 	return (
 		<Prose
-			className={`${HEADING_STOP} [&_td]:border [&_td]:border-line [&_td]:px-2.5 [&_td]:py-1.5 [&_th]:border [&_th]:border-line [&_th]:px-2.5 [&_th]:py-1.5 [&_table]:w-full [&_table]:border-collapse`}
+			size={size}
+			className={`${className} ${HEADING_STOP} [&_td]:border [&_td]:border-line [&_td]:px-2.5 [&_td]:py-1.5 [&_th]:border [&_th]:border-line [&_th]:px-2.5 [&_th]:py-1.5 [&_table]:w-full [&_table]:border-collapse`}
 		>
 			{blocks.map((block, index) => {
 				if (block.kind === "heading") {
