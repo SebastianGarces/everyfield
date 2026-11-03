@@ -113,12 +113,8 @@ export async function replaceAgenda(
 }
 
 /** The ministries a new team meeting can name: every one not archived, read when the plan dialog opens. */
-export async function listMinistries(): Promise<Outcome<{ id: string; name: string }[]>> {
-	return look(async (v) => {
-		const r = await readMinistries(v);
-		if (r.status !== "ok") return r;
-		return { status: "ok", value: r.value.filter((t) => !t.archived).map((t) => ({ id: t.id, name: t.name })) };
-	});
+export async function listMinistries() {
+	return look(readMinistries);
 }
 /** What an update from the ministry would change on this team meeting's guest list. Nothing is written. */
 export async function previewRoster(meetingId: string) {

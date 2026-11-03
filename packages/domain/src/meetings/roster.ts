@@ -111,14 +111,8 @@ export const rosterWriter = {
 				const p = plan(row);
 				const removeIds = p.remove.map((g) => g.person_id);
 				// The list changed since the review: nothing is applied that the person did not see.
-				if (
-					!sameSet(
-						input.input.add,
-						p.add.map((a) => a.personId),
-					) ||
-					!sameSet(input.input.remove, removeIds)
-				)
-					deny("conflict");
+				const addIds = p.add.map((a) => a.personId);
+				if (!sameSet(input.input.add, addIds) || !sameSet(input.input.remove, removeIds)) deny("conflict");
 				const added: GuestRow[] = p.add.map((a) => {
 					const was = p.removedBefore.get(a.personId);
 					return {
@@ -165,7 +159,6 @@ export const rosterWriter = {
 						ON CONFLICT (meeting_id, person_id) DO UPDATE SET removed_at = NULL, roster_member = true,
 							rsvp = 'pending', rsvp_source = NULL, rsvp_at = NULL, revision = participation.revision + 1
 							WHERE participation.removed_at IS NOT NULL`);
-				const ids = { added: added.map((g) => g.person_id), removed: removeIds };
 				return {
 					value: c.rosterUpdateResult.parse({
 						receiptId: audit.id,
@@ -181,7 +174,7 @@ export const rosterWriter = {
 					kind: "edit",
 					outcome: changed ? "changed" : "noop",
 					before: { rosterAdded: [], rosterRemoved: [] },
-					after: { rosterAdded: ids.added, rosterRemoved: ids.removed },
+					after: { rosterAdded: addIds, rosterRemoved: removeIds },
 					metadata: { teamId: p.team.id },
 				};
 			});

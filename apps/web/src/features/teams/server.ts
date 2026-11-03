@@ -77,8 +77,6 @@ export async function loadTeams(viewer: Viewer) {
 }
 
 export type TeamView = Extract<Awaited<ReturnType<typeof loadTeam>>, { status: "found" }>;
-/** How many of a ministry's meetings its page lists, latest first. */
-export const MEETINGS_SHOWN = 50;
 /**
  * One ministry: the team, its roles, its people (current and past), its team meetings and the chart around it, read
  * side by side. Only the team itself decides found or not found; a part that fails shows its own error in place.
@@ -89,7 +87,7 @@ export async function loadTeam(viewer: Viewer, teamId: string) {
 		read(viewer, (db, a) => teamsReader.readOrgChart(db, a, { includeArchived: true })),
 		read(viewer, (db, a) => teamsReader.listRoles(db, a, { teamId })),
 		read(viewer, (db, a) => teamsReader.listMembers(db, a, { teamId })),
-		readMeetings(viewer, (db, a) => meetingsReader.list(db, a, { teamId, limit: MEETINGS_SHOWN })),
+		readMeetings(viewer, (db, a) => meetingsReader.list(db, a, { teamId, limit: 50 })),
 	]);
 	if (list.status === "failed") return { status: "failed" } as const;
 	const team = list.status === "ok" ? list.value.items.find((t) => t.id === teamId) : undefined;
@@ -110,10 +108,10 @@ export async function loadTeam(viewer: Viewer, teamId: string) {
 	} as const;
 }
 
-/** Every ministry with its state, for a picker elsewhere (a team meeting's ministry). */
-export const readMinistries = async (viewer: Viewer): Promise<Outcome<Team[]>> => {
+/** The ministries not archived, for a team meeting's ministry picker. */
+export const readMinistries = async (viewer: Viewer): Promise<Outcome<Pick<Team, "id" | "name">[]>> => {
 	const r = outcome(await read(viewer, (db, a) => teamsReader.list(db, a, {})));
-	return r.status === "ok" ? { status: "ok", value: r.value.items } : r;
+	return r.status === "ok" ? { status: "ok", value: r.value.items.map((t) => ({ id: t.id, name: t.name })) } : r;
 };
 /** The ministry's history, read when the person opens it. */
 export const readHistory = (viewer: Viewer, teamId: string) =>

@@ -40,7 +40,7 @@ import { Problem } from "./parts.tsx";
 
 type Choice = { instant: string; offsetSeconds: number };
 /** A ministry a team meeting can name: one that is not archived. */
-export type Ministry = { id: string; name: string };
+type Ministry = { id: string; name: string };
 type Draft = {
 	type: MeetingType;
 	/** A team meeting's ministry; empty until one is chosen. */

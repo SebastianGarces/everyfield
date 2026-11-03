@@ -224,20 +224,7 @@ export const personTenuresJson = (personId: SQL, plantId: SQL) =>
 	WHERE tn.person_id = ${personId} AND tn.plant_id = ${plantId}), '[]'::json)`;
 export const personTenures = (raw: unknown) =>
 	z
-		.array(
-			z.object({
-				tenureId: id,
-				revision: z.string(),
-				teamId: id,
-				teamName: z.string(),
-				roleId: id,
-				roleName: z.string(),
-				desiredSkills: z.string().nullable(),
-				startedOn: day,
-				endedOn: day.nullable(),
-				active: z.boolean(),
-			}),
-		)
+		.array(z.unknown())
 		.parse(raw)
 		.slice(0, 200)
 		.map((a) => c.assignmentRow.parse(a));
