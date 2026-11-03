@@ -1614,6 +1614,15 @@
 				{ "name": "workflow-regressions", "run": ["bin/evf", "test"] }
 			],
 			"risk": "ordinary"
+		},
+		"OPS-122": {
+			"title": "Wiki ship promotes drafts in the right order and keeps the wiki check green after promotion",
+			"owningPaths": ["tools/evf/", "tools/wiki/"],
+			"checks": [
+				{ "name": "documentation", "run": ["python3", "docs/check-all.py"] },
+				{ "name": "workflow-regressions", "run": ["bin/evf", "test"] }
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {
