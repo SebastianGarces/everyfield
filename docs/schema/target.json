@@ -70,9 +70,9 @@
   "contract_status": "Reviewed starting design; builders may change it through a reviewed migration.",
   "as_of": "2026-10-17",
   "implementation_authorized": false,
-  "table_count": 101,
-  "column_count": 1172,
-  "foreign_key_count": 356,
+  "table_count": 102,
+  "column_count": 1192,
+  "foreign_key_count": 359,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
     "date": "YYYY-MM-DD local calendar date, never UTC midnight instant.",
@@ -134,6 +134,12 @@
       "answered",
       "unanswered",
       "retracted"
+    ],
+    "attestation_revision.kind": [
+      "answered",
+      "corrected",
+      "retracted",
+      "reaffirmed"
     ],
     "commitment.kind": [
       "core_group",
@@ -1334,6 +1340,16 @@
       "Pacific/Wake",
       "Pacific/Wallis",
       "UTC"
+    ],
+    "attestation_revision.key": [
+      "values_documented",
+      "financial_base_established",
+      "core_group_giving",
+      "prayer_leader_assigned",
+      "prayer_rhythm_established",
+      "prayer_in_gatherings",
+      "systems_tested",
+      "leadership_candidate"
     ],
     "audit_event.action": [
       "account.deletion_requested",
@@ -9295,7 +9311,7 @@
           "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
           "name": "reference_version_id",
           "type": "uuid",
-          "nullable": false
+          "nullable": true
         },
         {
           "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
@@ -9583,6 +9599,375 @@
           "attestation_ck_3",
           "attestation_ck_4",
           "attestation_ck_5"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "attestation_revision",
+      "domain": "phases",
+      "purpose": "Append-only history of attestations: every answer, correction, retraction and reaffirmation with its value, detail, reference, as-of date, author, question version and request key. A merge moves the current attestation and leaves each revision on the Person it was about.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-A-041",
+        "CAP-B-030",
+        "CAP-C-018"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-039"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-039"
+        ],
+        "rule": "WP-039 appends a revision when a signal or candidate attestation changes."
+      },
+      "feature_ids": [
+        "PHASE-004",
+        "PHASE-008",
+        "PI-014",
+        "PI-015",
+        "TEAM-011",
+        "TEAM-015"
+      ],
+      "acceptance_ids": [
+        "AC-PHASE-004--PHASE-004",
+        "AC-PHASE-008--PHASE-008",
+        "AC-PI-014--PI-014",
+        "AC-PI-015--PI-015",
+        "AC-TEAM-011--TEAM-011",
+        "AC-TEAM-015--TEAM-015"
+      ],
+      "future_case_ids": [
+        "B01-001",
+        "B01-002",
+        "B01-003",
+        "B01-004",
+        "B01-017",
+        "B01-024",
+        "B01-025",
+        "B01-026",
+        "B01-027",
+        "B02-017",
+        "CA015",
+        "CA025",
+        "GAP-TEAM-015",
+        "MW-CASE-016",
+        "MW-CASE-018",
+        "PHASE-CASE-004",
+        "PHASE-CASE-008",
+        "PI-CASE-006",
+        "PI-DISC-001",
+        "PI-DISC-002",
+        "SME53-002",
+        "SME53-004",
+        "SME53-005",
+        "SME53-006",
+        "SME53-007",
+        "SME53-009",
+        "TARGET-TEAM-011",
+        "TARGET-TEAM-015",
+        "TARGET-TEAM-016"
+      ],
+      "scope": "phases",
+      "invariants": [
+        "Rows are never updated except that the author link clears when the author's account is deleted; the runtime role cannot delete them.",
+        "One request key per church; a retry with the key replays the first result.",
+        "Only a human session writes a revision; models and private care never do.",
+        "Revision numbers follow the current attestation's revision without gaps."
+      ],
+      "revision": "No mutable revision column; each row is one immutable revision numbered like the attestation it belongs to.",
+      "idempotency": "A write keeps its request key and a fingerprint of the request on its revision; a retry with the same key and request replays that row, and the same key with a different request is refused.",
+      "deletion": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified. Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption. Tenant-owned content survives creator-account deletion with minimal attribution. Workspace deletion follows immediate access suspension, private 30-day cancellation hold, eligible live purge and seven-day recovery-copy horizon; restore reapplies current deletion/access witnesses.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "Revision identity.",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "note": "The church that owns the attestation.",
+          "name": "plant_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "The current attestation this revision belongs to.",
+          "name": "attestation_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "1 for the first answer, then one more for each change.",
+          "name": "revision",
+          "type": "bigint",
+          "nullable": false
+        },
+        {
+          "note": "The manual signal key or leadership_candidate.",
+          "name": "key",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "The Person a candidate revision was about when written. Not moved by a merge.",
+          "name": "person_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "answered, corrected, retracted or reaffirmed.",
+          "name": "kind",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "Yes (true) or Not yet (false); null once retracted and for candidates.",
+          "name": "answer",
+          "type": "boolean",
+          "nullable": true
+        },
+        {
+          "note": "The date the statement was true as of, in the church's time zone.",
+          "name": "as_of",
+          "type": "date",
+          "nullable": false
+        },
+        {
+          "note": "Optional detail, or a candidate's statement.",
+          "name": "detail",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "Optional reference to a document, meeting or note.",
+          "name": "reference",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "Candidate period start.",
+          "name": "period_start",
+          "type": "date",
+          "nullable": true
+        },
+        {
+          "note": "Candidate period end.",
+          "name": "period_end",
+          "type": "date",
+          "nullable": true
+        },
+        {
+          "note": "Candidate attended unbroken.",
+          "name": "attendance_continuous",
+          "type": "boolean",
+          "nullable": true
+        },
+        {
+          "note": "Candidate volunteered unbroken.",
+          "name": "volunteering_continuous",
+          "type": "boolean",
+          "nullable": true
+        },
+        {
+          "note": "The version of the question or definition the author answered.",
+          "name": "question_version",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "The account that wrote the revision; cleared if the account is deleted.",
+          "name": "author_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "The request key of the write.",
+          "name": "request_key",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "A hash of the request, so a retry with a different request is refused.",
+          "name": "request_fingerprint",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "When the revision was recorded.",
+          "name": "recorded_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [
+        {
+          "columns": [
+            "attestation_id",
+            "revision"
+          ]
+        },
+        {
+          "columns": [
+            "plant_id",
+            "request_key"
+          ]
+        }
+      ],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "History goes with its attestation in the church purge. The runtime login cannot delete attestations."
+          },
+          "columns": [
+            "attestation_id",
+            "plant_id"
+          ],
+          "references": {
+            "table": "attestation",
+            "columns": [
+              "id",
+              "plant_id"
+            ]
+          },
+          "on_delete": "cascade"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+          },
+          "columns": [
+            "person_id",
+            "plant_id"
+          ],
+          "references": {
+            "table": "person",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "set_null",
+            "policy": "Plant-owned facts survive personal account deletion with minimum necessary attribution."
+          },
+          "columns": [
+            "author_id"
+          ],
+          "references": {
+            "table": "account",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "set_null"
+        }
+      ],
+      "checks": [
+        "(revision >= 1)",
+        "((key = 'leadership_candidate'::text) OR ((kind = 'retracted'::text) = (answer IS NULL)))",
+        "((char_length(request_key) >= 1) AND (char_length(request_key) <= 200))",
+        "((period_end IS NULL) OR (period_start <= period_end))",
+        "((detail IS NULL) OR ((char_length(detail) >= 1) AND (char_length(detail) <= 500))) AND ((reference IS NULL) OR ((char_length(reference) >= 1) AND (char_length(reference) <= 500)))",
+        "key in ('values_documented', 'financial_base_established', 'core_group_giving', 'prayer_leader_assigned', 'prayer_rhythm_established', 'prayer_in_gatherings', 'systems_tested', 'leadership_candidate')",
+        "((key <> 'leadership_candidate'::text) OR ((person_id IS NOT NULL) AND (period_start IS NOT NULL) AND (period_end IS NOT NULL) AND (attendance_continuous IS NOT NULL) AND (volunteering_continuous IS NOT NULL)))"
+      ],
+      "indexes": {
+        "attestation_revision_ref_1": {
+          "name": "attestation_revision_ref_1",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "recorded_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "attestation_revision_ref_2": {
+          "name": "attestation_revision_ref_2",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "attestation_revision_ref_3": {
+          "name": "attestation_revision_ref_3",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "author_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "attestation_revision_pkey"
+        ],
+        "unique": [
+          "attestation_revision_uq_0",
+          "attestation_revision_uq_1"
+        ],
+        "foreign": [
+          "attestation_revision_fk_0",
+          "attestation_revision_fk_1",
+          "attestation_revision_fk_2"
+        ],
+        "checks": [
+          "attestation_revision_ck_0",
+          "attestation_revision_ck_1",
+          "attestation_revision_ck_5",
+          "attestation_revision_ck_6",
+          "attestation_revision_ck_2",
+          "attestation_revision_ck_3",
+          "attestation_revision_ck_4"
         ]
       },
       "policies": {},

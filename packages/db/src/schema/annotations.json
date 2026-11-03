@@ -11751,6 +11751,156 @@
 				}
 			}
 		},
+		"attestation_revision": {
+			"table": {
+				"name": "attestation_revision",
+				"domain": "phases",
+				"purpose": "Append-only history of attestations: every answer, correction, retraction and reaffirmation with its value, detail, reference, as-of date, author, question version and request key. A merge moves the current attestation and leaves each revision on the Person it was about.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-A-041", "CAP-B-030", "CAP-C-018"],
+				"replaces": [],
+				"producer_work_packages": ["WP-039"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-039"],
+					"rule": "WP-039 appends a revision when a signal or candidate attestation changes."
+				},
+				"feature_ids": ["PHASE-004", "PHASE-008", "PI-014", "PI-015", "TEAM-011", "TEAM-015"],
+				"acceptance_ids": [
+					"AC-PHASE-004--PHASE-004",
+					"AC-PHASE-008--PHASE-008",
+					"AC-PI-014--PI-014",
+					"AC-PI-015--PI-015",
+					"AC-TEAM-011--TEAM-011",
+					"AC-TEAM-015--TEAM-015"
+				],
+				"future_case_ids": [
+					"B01-001",
+					"B01-002",
+					"B01-003",
+					"B01-004",
+					"B01-017",
+					"B01-024",
+					"B01-025",
+					"B01-026",
+					"B01-027",
+					"B02-017",
+					"CA015",
+					"CA025",
+					"GAP-TEAM-015",
+					"MW-CASE-016",
+					"MW-CASE-018",
+					"PHASE-CASE-004",
+					"PHASE-CASE-008",
+					"PI-CASE-006",
+					"PI-DISC-001",
+					"PI-DISC-002",
+					"SME53-002",
+					"SME53-004",
+					"SME53-005",
+					"SME53-006",
+					"SME53-007",
+					"SME53-009",
+					"TARGET-TEAM-011",
+					"TARGET-TEAM-015",
+					"TARGET-TEAM-016"
+				],
+				"scope": "phases",
+				"invariants": [
+					"Rows are never updated except that the author link clears when the author's account is deleted; the runtime role cannot delete them.",
+					"One request key per church; a retry with the key replays the first result.",
+					"Only a human session writes a revision; models and private care never do.",
+					"Revision numbers follow the current attestation's revision without gaps."
+				],
+				"revision": "No mutable revision column; each row is one immutable revision numbered like the attestation it belongs to.",
+				"idempotency": "A write keeps its request key and a fingerprint of the request on its revision; a retry with the same key and request replays that row, and the same key with a different request is refused.",
+				"deletion": "Plant-owned facts and history survive personal account deletion with minimum necessary attribution. Plant deletion hides them immediately, holds eligible content only for 30-day cancellation, then purges live content; recovery copies expire within seven days of coherent live purge. No additional fixed history limit is specified. Plant-owned operational records follow the plant deletion policy. Account deletion preserves legitimate shared history with minimal scrubbed actor attribution. Soft deletion, retirement and correction preserve performed evidence; history is not a retention exemption. Tenant-owned content survives creator-account deletion with minimal attribution. Workspace deletion follows immediate access suspension, private 30-day cancellation hold, eligible live purge and seven-day recovery-copy horizon; restore reapplies current deletion/access witnesses.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": "Revision identity."
+				},
+				"plant_id": {
+					"note": "The church that owns the attestation."
+				},
+				"attestation_id": {
+					"note": "The current attestation this revision belongs to."
+				},
+				"revision": {
+					"note": "1 for the first answer, then one more for each change."
+				},
+				"key": {
+					"note": "The manual signal key or leadership_candidate."
+				},
+				"person_id": {
+					"note": "The Person a candidate revision was about when written. Not moved by a merge."
+				},
+				"kind": {
+					"note": "answered, corrected, retracted or reaffirmed."
+				},
+				"answer": {
+					"note": "Yes (true) or Not yet (false); null once retracted and for candidates."
+				},
+				"as_of": {
+					"note": "The date the statement was true as of, in the church's time zone."
+				},
+				"detail": {
+					"note": "Optional detail, or a candidate's statement."
+				},
+				"reference": {
+					"note": "Optional reference to a document, meeting or note."
+				},
+				"period_start": {
+					"note": "Candidate period start."
+				},
+				"period_end": {
+					"note": "Candidate period end."
+				},
+				"attendance_continuous": {
+					"note": "Candidate attended unbroken."
+				},
+				"volunteering_continuous": {
+					"note": "Candidate volunteered unbroken."
+				},
+				"question_version": {
+					"note": "The version of the question or definition the author answered."
+				},
+				"author_id": {
+					"note": "The account that wrote the revision; cleared if the account is deleted."
+				},
+				"request_key": {
+					"note": "The request key of the write."
+				},
+				"request_fingerprint": {
+					"note": "A hash of the request, so a retry with a different request is refused."
+				},
+				"recorded_at": {
+					"note": "When the revision was recorded."
+				}
+			},
+			"foreignKeys": {
+				"attestation_id,plant_id->attestation(id,plant_id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "History goes with its attestation in the church purge. The runtime login cannot delete attestations."
+					}
+				},
+				"person_id,plant_id->person(id,tenant_id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+					}
+				},
+				"author_id->account(id)": {
+					"deletion": {
+						"action": "set_null",
+						"policy": "Plant-owned facts survive personal account deletion with minimum necessary attribution."
+					}
+				}
+			}
+		},
 		"provider_event": {
 			"table": {
 				"name": "provider_event",

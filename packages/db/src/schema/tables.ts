@@ -371,7 +371,7 @@ export const attestation = pgTable(
 				"leadership_candidate",
 			],
 		}).notNull(),
-		reference_version_id: uuid("reference_version_id").notNull(),
+		reference_version_id: uuid("reference_version_id"),
 		person_id: uuid("person_id"),
 		state: text("state", { enum: ["answered", "unanswered", "retracted"] }).notNull(),
 		answer: boolean("answer"),
@@ -437,6 +437,88 @@ export const attestation = pgTable(
 		uniqueIndex("attestation_uq_2")
 			.using("btree", table.plant_id.asc().nullsLast(), table.key.asc().nullsLast(), table.person_id.asc().nullsLast())
 			.where(sql`(person_id IS NOT NULL)`),
+	],
+);
+export const attestation_revision = pgTable(
+	"attestation_revision",
+	{
+		id: uuid("id")
+			.notNull()
+			.default(sql`gen_random_uuid()`),
+		plant_id: uuid("plant_id").notNull(),
+		attestation_id: uuid("attestation_id").notNull(),
+		revision: int64("revision").notNull(),
+		key: text("key").notNull(),
+		// The Person this revision was about when it was written. A merge moves the current attestation and leaves this.
+		person_id: uuid("person_id"),
+		kind: text("kind", { enum: ["answered", "corrected", "retracted", "reaffirmed"] }).notNull(),
+		answer: boolean("answer"),
+		as_of: date("as_of", { mode: "string" }).notNull(),
+		detail: text("detail"),
+		reference: text("reference"),
+		period_start: date("period_start", { mode: "string" }),
+		period_end: date("period_end", { mode: "string" }),
+		attendance_continuous: boolean("attendance_continuous"),
+		volunteering_continuous: boolean("volunteering_continuous"),
+		question_version: text("question_version").notNull(),
+		author_id: uuid("author_id"),
+		request_key: text("request_key").notNull(),
+		request_fingerprint: text("request_fingerprint").notNull(),
+		recorded_at: timestamp("recorded_at", { withTimezone: true, mode: "date" })
+			.notNull()
+			.default(sql`clock_timestamp()`),
+	},
+	(table): PgTableExtraConfigValue[] => [
+		foreignKey({
+			name: "attestation_revision_fk_0",
+			columns: [table.attestation_id, table.plant_id],
+			foreignColumns: [attestation.id, attestation.plant_id],
+		})
+			.onDelete("cascade")
+			.onUpdate("no action"),
+		foreignKey({
+			name: "attestation_revision_fk_1",
+			columns: [table.person_id, table.plant_id],
+			foreignColumns: [person.id, person.tenant_id],
+		})
+			.onDelete("restrict")
+			.onUpdate("no action"),
+		foreignKey({ name: "attestation_revision_fk_2", columns: [table.author_id], foreignColumns: [account.id] })
+			.onDelete("set null")
+			.onUpdate("no action"),
+		primaryKey({ name: "attestation_revision_pkey", columns: [table.id] }),
+		unique("attestation_revision_uq_0").on(table.attestation_id, table.revision),
+		unique("attestation_revision_uq_1").on(table.plant_id, table.request_key),
+		index("attestation_revision_ref_1").using(
+			"btree",
+			table.plant_id.asc().nullsLast(),
+			table.recorded_at.desc().nullsLast(),
+		),
+		index("attestation_revision_ref_2").using(
+			"btree",
+			table.person_id.asc().nullsLast(),
+			table.plant_id.asc().nullsLast(),
+		),
+		index("attestation_revision_ref_3").using("btree", table.author_id.asc().nullsLast()),
+		check("attestation_revision_ck_0", sql`(revision >= 1)`),
+		check(
+			"attestation_revision_ck_1",
+			sql`((key = 'leadership_candidate'::text) OR ((kind = 'retracted'::text) = (answer IS NULL)))`,
+		),
+		check(
+			"attestation_revision_ck_5",
+			sql`(key = ANY (ARRAY['values_documented'::text, 'financial_base_established'::text, 'core_group_giving'::text, 'prayer_leader_assigned'::text, 'prayer_rhythm_established'::text, 'prayer_in_gatherings'::text, 'systems_tested'::text, 'leadership_candidate'::text]))`,
+		),
+		check(
+			"attestation_revision_ck_6",
+			sql`((key <> 'leadership_candidate'::text) OR ((person_id IS NOT NULL) AND (period_start IS NOT NULL) AND (period_end IS NOT NULL) AND (attendance_continuous IS NOT NULL) AND (volunteering_continuous IS NOT NULL)))`,
+		),
+		check("attestation_revision_ck_2", sql`((char_length(request_key) >= 1) AND (char_length(request_key) <= 200))`),
+		check("attestation_revision_ck_3", sql`((period_end IS NULL) OR (period_start <= period_end))`),
+		check(
+			"attestation_revision_ck_4",
+			sql`((detail IS NULL) OR ((char_length(detail) >= 1) AND (char_length(detail) <= 500))) AND ((reference IS NULL) OR ((char_length(reference) >= 1) AND (char_length(reference) <= 500)))`,
+		),
 	],
 );
 export const auth_account = pgTable(
