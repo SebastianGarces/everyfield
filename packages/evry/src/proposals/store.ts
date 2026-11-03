@@ -52,6 +52,13 @@ const owned = (actor: EvryActor) => sql`${mine(actor)} AND ${currentAuthority(ac
  */
 const readable = (actor: EvryActor) =>
 	sql`${mine(actor)} AND ${liveRead({ session: actor.session, owner: actor.owner, seatId: actor.seatId ?? undefined }, true)}`;
+/**
+ * A pending review of a message whose saved revision is no longer the one the review showed: it was edited, moved,
+ * cancelled or sent in Messages since. It can only be reviewed again.
+ */
+const staleMessage = (alias: string) =>
+	`coalesce(${alias}.review->'target'->>'kind'='message' AND NOT EXISTS(SELECT FROM communication t WHERE t.id=(${alias}.review->'target'->>'id')::uuid
+		AND t.plant_id=${alias}.tenant_id AND t.revision=(${alias}.input->>'expectedRevision')::bigint),false)`;
 const digest = (revision: SQL) =>
 	sql`encode(sha256(convert_to(jsonb_build_object('operation',p.operation,'revision',${revision},'args',r.args,'review',r.review)::text,'UTF8')),'hex')`;
 const expiry = sql`clock_timestamp()+make_interval(mins=>${REVIEW_MINUTES})`;
@@ -82,6 +89,7 @@ const projection = (alias: string) =>
 			AND NOT ${liveJob("j")})),
 		'executing',${alias}.state='approved' AND ${alias}.outcome IS NULL AND EXISTS(SELECT FROM job j WHERE j.id=${alias}.job_id
 			AND ${liveJob("j")}),
+		'stale',${alias}.state='pending' AND ${staleMessage(alias)},
 		'receipt',${alias}.receipt,'now',clock_timestamp())`);
 
 const review = z.object({
@@ -103,6 +111,8 @@ export const proposalRow = z.object({
 	review,
 	outcome: z.enum(["completed", "failed", "refused", "unknown"]).nullable(),
 	executing: z.boolean(),
+	/** A pending message review whose message changed since (staleMessage): approving it is refused. */
+	stale: z.boolean(),
 	receipt: z
 		.object({
 			receiptId: z.uuid().optional(),
@@ -282,7 +292,7 @@ export async function approveProposal(
 				UPDATE proposal p SET state='approved',approved_at=clock_timestamp(),approved_session_id=${actor.session}::uuid,
 					job_id=${job}::uuid,updated_at=clock_timestamp()
 				WHERE p.id=${proposalId}::uuid AND ${owned(actor)} AND p.state='pending' AND p.revision=${witness.revision}
-					AND p.digest=${witness.digest} AND p.expires_at>clock_timestamp() AND NOT (p.review ? 'refusal')
+					AND p.digest=${witness.digest} AND p.expires_at>clock_timestamp() AND NOT (p.review ? 'refusal') AND NOT ${sql.raw(staleMessage("p"))}
 					AND (p.operation<>'people.setPersonPhoto' OR p.input->'input'->>'uploadId'=${shownUpload}::text)
 				RETURNING p.*
 			), run AS (${effectJob(job, "a")}),
@@ -292,7 +302,7 @@ export async function approveProposal(
 	};
 	/** Not approved now: the known state of the review, or why it cannot be approved. */
 	const settled = (current: Proposal) => {
-		if (current.revision !== witness.revision || current.digest !== witness.digest)
+		if (current.revision !== witness.revision || current.digest !== witness.digest || current.stale)
 			throw new EvryRefusal("review_changed");
 		if (current.status === "approved") return { proposal: current, replayed: true };
 		throw new EvryRefusal(current.status === "expired" ? "review_expired" : "review_closed");

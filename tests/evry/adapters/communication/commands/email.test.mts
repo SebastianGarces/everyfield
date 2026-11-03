@@ -10,6 +10,7 @@ import {
 	readCatalog,
 	readReview,
 	retryUnresolvedEffects,
+	reviseProposal,
 	submitTurn,
 	type EvryActor,
 	type MailPort,
@@ -406,10 +407,25 @@ test("AC:WP-028-9 a message that changed after the review refuses the approval a
 	const t = await turn(owner, service.port);
 	const proposal = await t.propose("communication.scheduleReviewed", { communicationId: draft.id, sendAt: localAt(3) });
 	assert.ok(proposal);
-	// The message is edited in Messages before the approval.
+	// The message is edited in Messages before the approval: the approval is refused and nothing is queued.
 	await admin.execute(sql`UPDATE communication SET subject='Edited elsewhere',revision=revision+1 WHERE id=${draft.id}`);
-	const done = await approve(owner, proposal, service.port);
-	assert.equal(done.outcome, "refused");
+	assert.equal((await readReview(db, owner, proposal.id)).stale, true);
+	await assert.rejects(
+		approveProposal(db, owner, proposal.id, { revision: proposal.revision, digest: proposal.digest }, null),
+		{ code: "review_changed" },
+	);
+	assert.equal(await runNext(service.port), null, "no effect was queued");
+	assert.equal(service.calls.send.length, 0);
+	assert.equal((await rows(sql`SELECT state FROM communication WHERE id=${draft.id}`))[0]!.state, "draft");
+	// Reviewing again reads the message as it is now and can be approved.
+	const again = await reviseProposal(db, owner, proposal.id, { operation: "communication.scheduleReviewed", revision: proposal.revision, input: { communicationId: draft.id, sendAt: localAt(3) } }, service.port);
+	assert.equal(again.stale, false);
+	assert.equal(change(again, "subject")!.after, "Edited elsewhere");
+	// A change that lands after the approval, while the effect waits, is refused by the effect itself.
+	await approveProposal(db, owner, again.id, { revision: again.revision, digest: again.digest }, null);
+	await admin.execute(sql`UPDATE communication SET subject='Edited again',revision=revision+1 WHERE id=${draft.id}`);
+	assert.equal(await runNext(service.port), "refused");
+	const done = { review: await readReview(db, owner, again.id) };
 	assert.equal(done.review.outcome, "refused");
 	assert.equal(done.review.receipt!.code, "revision_conflict");
 	assert.equal(service.calls.send.length, 0);
@@ -420,8 +436,11 @@ test("AC:WP-028-9 a message that changed after the review refuses the approval a
 	const p2 = await t2.propose("communication.rescheduleReviewed", { communicationId: moved.id, sendAt: localAt(5) });
 	await admin.execute(sql`UPDATE communication SET scheduled_at=scheduled_at+interval '1 hour',revision=revision+1 WHERE id=${moved.id}`);
 	const calls = service.calls.reschedule.length;
-	const r2 = await approve(owner, p2!, service.port);
-	assert.equal(r2.review.receipt!.code, "revision_conflict");
+	await assert.rejects(
+		approveProposal(db, owner, p2!.id, { revision: p2!.revision, digest: p2!.digest }, null),
+		{ code: "review_changed" },
+	);
+	assert.equal(await runNext(service.port), null);
 	assert.equal(service.calls.reschedule.length, calls);
 });
 
@@ -531,6 +550,9 @@ test("AC:WP-028-13 each review and effect stays within its statement budget and 
 	await approveProposal(db, owner, move.id, { revision: move.revision, digest: move.digest }, null);
 	assert.equal(await runNext(service.port), "completed");
 	assert.deepEqual(service.calls.reschedule.length > 0, true);
-	await approveProposal(db, owner, cancel.id, { revision: cancel.revision, digest: cancel.digest }, null);
-	assert.equal(await runNext(service.port), "refused", "the message moved after the cancel review: revision_conflict");
+	await assert.rejects(
+		approveProposal(db, owner, cancel.id, { revision: cancel.revision, digest: cancel.digest }, null),
+		{ code: "review_changed" },
+		"the message moved after the cancel review",
+	);
 });
