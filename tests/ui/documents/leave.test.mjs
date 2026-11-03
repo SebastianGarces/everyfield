@@ -191,6 +191,7 @@ async function exits(page) {
 	for (const [label, href] of [
 		["Seats and invitations", "/settings/seats"],
 		["Sharing and privacy", "/settings/sharing"],
+		["My weekly check-in", "/me/check-in"],
 	])
 		out.push({ name: `account menu "${label}" to ${href}`, take: accountMenu(label) });
 	out.push({ name: 'account menu "Sign out"', take: accountMenu("Sign out") });
