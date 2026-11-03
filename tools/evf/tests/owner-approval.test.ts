@@ -269,6 +269,77 @@ test("AC:OPS-121-2 the merge choke point merges only a head the latest EVF-Owner
 	}
 });
 
+/** The merge of the approved head, with GitHub answering the comment read with exactly `answer`. */
+function mergeOnAnswer(f: Fx, head: string, answer: string, exit?: number) {
+	const path = "repos/test/private/issues/77/comments";
+	f.publish([], (s) => {
+		s.api = { [path]: answer };
+		if (exit) s.apiExit = { [path]: exit };
+	});
+	return () => mergePullRequest({ root: f.root, cfg: f.cfg, cwd: f.wt, number: 77, sha: head });
+}
+const UNREADABLE = "evf does not merge PR #77: its comments are unreadable, so evf cannot read an owner approval.";
+
+test("AC:OPS-128-1 AC:OPS-128-4 an answer with a page that is not a list refuses as unreadable and merges nothing", () => {
+	const f = ownerFixture();
+	try {
+		const head = approvedWork(f);
+		for (const answer of ['[{"message":"x"}]', '[[],{"message":"x"}]']) {
+			assert.throws(mergeOnAnswer(f, head, answer), { message: UNREADABLE }, answer);
+			assert.deepEqual(f.merges(), [], answer);
+		}
+	} finally {
+		f.close();
+	}
+});
+
+test("AC:OPS-128-2 AC:OPS-128-4 a failed gh call, invalid JSON, null and a bare object refuse as unreadable and merge nothing", () => {
+	const f = ownerFixture();
+	try {
+		const head = approvedWork(f);
+		// The failed call prints well-formed pages: only its exit code refuses it.
+		assert.throws(mergeOnAnswer(f, head, "[[]]", 1), { message: UNREADABLE }, "failed gh call");
+		assert.deepEqual(f.merges(), [], "failed gh call");
+		for (const answer of ["not json", "null", '{"message":"x"}']) {
+			assert.throws(mergeOnAnswer(f, head, answer), { message: UNREADABLE }, answer);
+			assert.deepEqual(f.merges(), [], answer);
+		}
+	} finally {
+		f.close();
+	}
+});
+
+test("AC:OPS-128-3 a list of lists behaves as before: no record merges without the owner check, and the latest valid record is used across pages", () => {
+	const f = ownerFixture();
+	try {
+		const earlier = approvedWork(f);
+		const head = f.commit("Later work", { "tools/evf/feature.ts": "export const feature = 2;\n" });
+		const pages = (...list: Array<Array<{ body: string } | number>>) => JSON.stringify(list);
+
+		// No EVF-Owner record: the merge reaches GitHub. What a page holds stays unchecked, so [[1]] has no record either.
+		for (const answer of ["[]", "[[]]", "[[1]]", pages([f.review(head)], [])]) {
+			assert.equal(mergeOnAnswer(f, head, answer)().owner, undefined, answer);
+			assert.deepEqual(f.merges(), [head], answer);
+		}
+
+		// The latest record is on the last page; a later line that is not a valid record does not replace it.
+		const cover = (quote: string) => ({ quote, approved_head: head, approved_at: "2026-11-02T22:18:00.000Z" });
+		const invalid = {
+			body: `EVF-Owner: not json\nEVF-Owner: ${JSON.stringify({ head: "short", quote: "x", at: "y" })}`,
+		};
+		const across = pages([f.owner(head, "first words")], [f.owner(head, "second words")], [invalid]);
+		assert.deepEqual(mergeOnAnswer(f, head, across)().owner, cover("second words"));
+		assert.deepEqual(f.merges(), [head]);
+
+		// The record on the last page decides, so an approval of the earlier head there voids the merge of this one.
+		const voided = pages([f.owner(head)], [f.owner(earlier)]);
+		assert.throws(mergeOnAnswer(f, head, voided), new RegExp(OWNER_VOID));
+		assert.deepEqual(f.merges(), []);
+	} finally {
+		f.close();
+	}
+});
+
 test("AC:OPS-121-3 a code commit after the approved head voids the approval, even with a verifier pass at the new head and green CI", () => {
 	const f = ownerFixture();
 	try {

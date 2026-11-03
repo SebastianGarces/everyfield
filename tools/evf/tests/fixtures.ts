@@ -176,6 +176,7 @@ if(a[0]==='api') {
  else if(/statuses\//.test(path)&&a.includes('POST'))result={};
  else if(/rules\/branches\/main$/.test(path))result=s.rules??[];
  else if(/branches\/main\/protection/.test(path))result=s.protection||{required_status_checks:{strict:true,contexts:['evf/verify']},enforce_admins:{enabled:true},required_pull_request_reviews:{required_approving_review_count:1,dismiss_stale_reviews:true}};
+ if(s.apiExit&&path in s.apiExit){fs.writeFileSync(p,JSON.stringify(s));process.stdout.write(JSON.stringify(result));process.exit(s.apiExit[path]);}
 }
 else if(a[0]==='repo'&&a[1]==='view')result=a.includes('-q')||a.includes('--jq')?'test/private':{nameWithOwner:'test/private',isPrivate:true};
 else if(a[0]==='pr'&&a[1]==='view'){if(s.prViewBodies?.length&&s.pr)s.pr.body=s.prViewBodies.shift();result=a.includes('mergeCommit')?s.mergeCommit:opt('--json')==='body'&&a.includes('--jq')?s.pr.body:s.pr||{number:77,url:'https://github.com/test/private/pull/77',state:'OPEN'};}
