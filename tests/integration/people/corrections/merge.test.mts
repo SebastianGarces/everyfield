@@ -6,6 +6,8 @@ import { randomUUID, randomBytes } from "node:crypto";
 import { setTimeout as sleep } from "node:timers/promises";
 
 import { migrate } from "../../../../packages/db/src/schema/migrate.ts";
+import { RequestActor } from "../../../../packages/domain/src/access/session.ts";
+import { createSignals } from "../../../../packages/domain/src/intelligence/index.ts";
 import { registry } from "../../../../packages/domain/src/people/person-reference-registry/index.ts";
 import {
 	assessments,
@@ -888,5 +890,218 @@ test("REQ-PPL-024: the reference registry names every Person foreign key in the 
 	assert.deepEqual(
 		registry.map((e) => `${e.table}.${e.column}`).sort(),
 		declared.map((d) => `${d.t.replace(schema + ".", "")}.${d.col}`).sort(),
+	);
+});
+
+// WP-039 slice 2: a candidate attestation follows its Person through merge, Unmerge, retirement and conflict.
+const signals = createSignals();
+const authority = (who = 3) => tx((t) => RequestActor.resolve(t, actors[who].session));
+async function attestCandidate(personId, who = 3) {
+	return ok(
+		await signals.attestCandidate(db, await authority(who), {
+			requestKey: key(),
+			expectedRevision: "0",
+			input: { personId, periodStart: day(70), periodEnd: day(1), attended: true, volunteered: true },
+		}),
+	).candidate;
+}
+const candidates = async (who = 3) => ok(await signals.readAttestations(db, await authority(who), {})).candidates;
+const attestationOf = (personId) =>
+	one(
+		sql`SELECT id,person_id,state,revision::text FROM attestation WHERE person_id=${sql.param(personId)} AND key='leadership_candidate'`,
+	);
+const attestationRows = (personId) =>
+	rows(
+		sql`SELECT revision::text, kind FROM attestation_revision WHERE person_id=${sql.param(personId)} ORDER BY revision`,
+	);
+const mergeReceipts = async (sourceId) =>
+	(await one(sql`SELECT count(*)::int n FROM person_merge WHERE source_id=${sql.param(sourceId)}`)).n;
+
+test("AC:PERSONREF-CANDIDATE-PERSON-ATTESTATION-MERGE AC:PERSONREF-CANDIDATE-PERSON-ATTESTATION-UNMERGE merge moves the candidate attestation to the survivor, keeps the source's history and Unmerge returns it", async () => {
+	const p1 = await person("Alex Rivera"),
+		p2 = await person("Alex Chen");
+	const made = await attestCandidate(p2.id);
+	const before = await attestationOf(p2.id);
+	assert.equal(made.personName, "Alex Chen");
+	const reviewed = ok(await review(p2.id, p1.id));
+	assert.deepEqual(
+		reviewed.references.filter((x) => x.kind === "attestation"),
+		[{ kind: "attestation", count: 1, treatment: "move" }],
+	);
+	assert.deepEqual(reviewed.blockers, { causes: [], references: [] });
+	const requestKey = key();
+	const merged = ok(
+		await tx((t) =>
+			peopleMerge.mergePeople(t, ctx(), {
+				requestKey,
+				input: { sourceId: p2.id, survivorId: p1.id, reviewDigest: reviewed.reviewDigest, fieldChoices: {} },
+			}),
+		),
+	);
+	const moved = await attestationOf(p1.id);
+	assert.equal(moved.id, before.id, "the same current attestation");
+	assert.equal(await attestationOf(p2.id), undefined);
+	assert.deepEqual(
+		(await candidates()).map((x) => [x.personId, x.personName, x.established]),
+		[[p1.id, "Alex Rivera", true]],
+	);
+	// P2's history stays on P2, and one receipt exists.
+	assert.deepEqual(await attestationRows(p2.id), [{ revision: "1", kind: "answered" }]);
+	assert.equal(await mergeReceipts(p2.id), 1);
+	// A repeat with the same request key writes nothing again.
+	const auditsBefore = (await one(sql`SELECT count(*)::int n FROM audit_event WHERE subject_id=${sql.param(p1.id)}`)).n;
+	const again = await tx((t) =>
+		peopleMerge.mergePeople(t, ctx(), {
+			requestKey,
+			input: { sourceId: p2.id, survivorId: p1.id, reviewDigest: reviewed.reviewDigest, fieldChoices: {} },
+		}),
+	);
+	assert.equal(ok(again).mergeId, merged.mergeId);
+	assert.equal(await mergeReceipts(p2.id), 1);
+	assert.equal((await attestationOf(p1.id)).revision, moved.revision);
+	assert.equal(
+		(await one(sql`SELECT count(*)::int n FROM audit_event WHERE subject_id=${sql.param(p1.id)}`)).n,
+		auditsBefore,
+	);
+	// Unmerge returns the attestation to P2.
+	ok(await unmerge(merged.mergeId));
+	const home = await attestationOf(p2.id);
+	assert.equal(home.id, before.id);
+	assert.equal(await attestationOf(p1.id), undefined);
+	assert.deepEqual(
+		(await candidates()).map((x) => [x.personId, x.established]),
+		[[p2.id, true]],
+	);
+	assert.deepEqual(await attestationRows(p2.id), [{ revision: "1", kind: "answered" }]);
+	// A repeat Unmerge is a no-op.
+	assert.equal(ok(await unmerge(merged.mergeId)).outcome, "noop");
+	assert.equal((await attestationOf(p2.id)).revision, home.revision);
+});
+
+test("AC:PERSONREF-CANDIDATE-PERSON-ATTESTATION-RETIRE retiring a Person removes it from the candidate list and keeps its history", async () => {
+	const p3 = await person("Riley Stone");
+	await attestCandidate(p3.id);
+	assert.equal(
+		(await candidates()).some((x) => x.personId === p3.id),
+		true,
+	);
+	const current = await personRow(p3.id);
+	const reviewRevision = ok(
+		await tx((t) => peopleReader.getStatusWarnings(t, ctx(), { personId: p3.id })),
+	).reviewRevision;
+	ok(
+		await tx((t) =>
+			people.retirePerson(
+				t,
+				ctx(),
+				{
+					requestKey: key(),
+					expectedRevision: current.revision,
+					input: { personId: p3.id, reason: "Moved away", reviewRevision, handoffs: [] },
+				},
+				async () => {
+					throw Error("unexpected task reminder replan");
+				},
+			),
+		),
+	);
+	assert.equal((await personRow(p3.id)).state, "retired");
+	assert.equal(
+		(await candidates()).some((x) => x.personId === p3.id),
+		false,
+	);
+	const page = ok(await signals.readAttestations(db, await authority(), {}));
+	assert.equal(page.history.filter((x) => x.personId === p3.id).length, 1);
+	assert.equal(
+		page.people.some((x) => x.id === p3.id),
+		false,
+	);
+	assert.equal((await attestationOf(p3.id)).state, "answered");
+	// A retired Person cannot get a new attestation.
+	refused(
+		await signals.attestCandidate(db, await authority(), {
+			requestKey: key(),
+			expectedRevision: "1",
+			input: { personId: p3.id, periodStart: day(70), periodEnd: day(1), attended: true, volunteered: true },
+		}),
+		"not_found",
+	);
+});
+
+test("AC:PERSONREF-CANDIDATE-PERSON-ATTESTATION-CONFLICT a stale reviewed reference state changes no reference; a survivor that already holds one keeps it and the source's stays as history", async () => {
+	const p1 = await person("Jordan Kim"),
+		p2 = await person("Jordan Kimball");
+	const made = await attestCandidate(p2.id);
+	// The review names attestation revision 1. A correction afterwards makes it stale.
+	const stale = ok(await review(p2.id, p1.id));
+	ok(
+		await signals.correctCandidate(db, await authority(), {
+			requestKey: key(),
+			expectedRevision: made.revision,
+			input: {
+				action: "correct",
+				personId: p2.id,
+				periodStart: day(70),
+				periodEnd: day(1),
+				attended: true,
+				volunteered: false,
+			},
+		}),
+	);
+	const beforeStale = await attestationOf(p2.id);
+	refused(
+		await tx((t) =>
+			peopleMerge.mergePeople(t, ctx(), {
+				requestKey: key(),
+				input: { sourceId: p2.id, survivorId: p1.id, reviewDigest: stale.reviewDigest, fieldChoices: {} },
+			}),
+		),
+		"conflict",
+	);
+	assert.deepEqual(await attestationOf(p2.id), beforeStale);
+	assert.equal(await attestationOf(p1.id), undefined);
+	assert.equal((await personRow(p2.id)).state, "live");
+	// A foreign survivor is unavailable and changes nothing.
+	const foreign = ok(
+		await tx((t) =>
+			people.createPerson(t, ctx(2), {
+				requestKey: key(),
+				input: { displayName: "Foreign canary", adultClassification: "adult" },
+			}),
+		),
+	).person;
+	refused(await review(p2.id, foreign.id));
+	// P1 already holds a current attestation: P1's stays current and P2's stays on P2.
+	await attestCandidate(p1.id);
+	const p1Before = await attestationOf(p1.id);
+	const reviewed = ok(await review(p2.id, p1.id));
+	assert.deepEqual(
+		reviewed.references.filter((x) => x.kind === "attestation"),
+		[{ kind: "attestation", count: 1, treatment: "deduplicate" }],
+	);
+	const merged = ok(
+		await tx((t) =>
+			peopleMerge.mergePeople(t, ctx(), {
+				requestKey: key(),
+				input: { sourceId: p2.id, survivorId: p1.id, reviewDigest: reviewed.reviewDigest, fieldChoices: {} },
+			}),
+		),
+	);
+	assert.deepEqual(await attestationOf(p1.id), p1Before);
+	assert.equal((await attestationOf(p2.id)).state, "answered", "kept on P2 as history");
+	assert.deepEqual(
+		(await candidates()).map((x) => x.personId).filter((id) => [p1.id, p2.id].includes(id)),
+		[p1.id],
+	);
+	// Unmerge restores P2's, and P1's is unchanged.
+	ok(await unmerge(merged.mergeId));
+	assert.deepEqual(await attestationOf(p1.id), p1Before);
+	assert.equal((await attestationOf(p2.id)).state, "answered");
+	assert.deepEqual(
+		(await candidates())
+			.map((x) => x.personId)
+			.filter((id) => [p1.id, p2.id].includes(id))
+			.sort(),
+		[p1.id, p2.id].sort(),
 	);
 });

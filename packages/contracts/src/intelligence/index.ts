@@ -109,3 +109,4 @@ export type CareReply<T> = { status: "ok"; value: T } | { status: "refused"; err
 
 /** The trimmed note, or null when it is blank. */
 export const noteOf = (raw: string) => raw.trim() || null;
+export * from "./signals.ts";
