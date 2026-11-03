@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { loadPage } from "../identity/api";
+import { SettingsGuide } from "../wiki/client.tsx";
 import {
 	finalizeAssetUpload,
 	getBrand,
@@ -90,6 +91,8 @@ export function useProductSettings(viewer: SettingsViewer | null, seed: SectionS
 				section={section}
 				onNavigate={navigate}
 				hrefFor={hrefFor}
+				// The dialog covers the frame's Guide button, so it carries its own (WP-034).
+				headerActions={<SettingsGuide />}
 				// The request ended every session, so the next page is a full load of the restricted deletion page.
 				onDeletionRequested={(status) => loadPage(deletionPage(status))}
 			/>

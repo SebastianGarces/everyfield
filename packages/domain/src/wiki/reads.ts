@@ -32,7 +32,16 @@ import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import type { RequestActor } from "../access/session.ts";
-import { articleJson, catalogQuery, corpusCtes, navigationQuery, pageQuery, type CorpusAccess } from "./corpus.ts";
+import {
+	articleJson,
+	catalogQuery,
+	corpusCtes,
+	navigationQuery,
+	pageQuery,
+	visibleBodySql,
+	type CorpusAccess,
+} from "./corpus.ts";
+import { guideFor, sectionExcerpt } from "./guides.ts";
 import { pdfFilename, printHtml, type PdfRenderer } from "./pdf.ts";
 import { deny, GLOBAL, meSql, PAGE, parse, pgCode, runRead, selectedOwner } from "./core.ts";
 
@@ -351,22 +360,57 @@ export function tableOfContents(db: Database, authority: RequestActor, raw: unkn
 		});
 	});
 }
+const guideRow = z.object({
+	articleId: z.uuid(),
+	title: z.string(),
+	slug: z.string(),
+	contentType: z.enum(["safe_mdx", "safe_nodes"]),
+	body: z.string().nullable(),
+});
+const noGuide = { found: false, missing: true, citation: null, articleId: null, title: null, slug: null, body: null };
+/** One statement for every route. A mapped route reads the version this viewer would open (C13 predicate inside). */
 export function contextGuide(db: Database, authority: RequestActor, raw: unknown) {
 	return runRead(async () => {
-		parse(contextGuideRequest, raw);
+		const input = parse(contextGuideRequest, raw);
 		const access = accessFor(authority);
-		const result = await db.execute(
-			sql`WITH ${meSql(authority, access.owner)} SELECT EXISTS (SELECT FROM me) AS allowed`,
-		);
-		const row = z.object({ allowed: z.boolean() }).parse(result.rows[0]);
+		const entry = guideFor(input.route);
+		if (!entry) {
+			const result = await db.execute(
+				sql`WITH ${meSql(authority, access.owner)} SELECT EXISTS (SELECT FROM me) AS allowed`,
+			);
+			if (!z.object({ allowed: z.boolean() }).parse(result.rows[0]).allowed) deny();
+			return guideResult.parse(noGuide);
+		}
+		const result = await db.execute(sql`WITH ${corpusCtes(access, { kind: "current" })}
+			SELECT
+				EXISTS (SELECT FROM me) AS allowed,
+				(
+					SELECT json_build_object(
+						'articleId', p.article_id,
+						'title', p.title,
+						'slug', p.slug,
+						'contentType', p.content_type,
+						'body', ${visibleBodySql()}
+					)
+					FROM picked p
+					WHERE p.article_id = (SELECT g.article_id FROM global_rev g WHERE g.slug = ${entry.slug} LIMIT 1)
+				) AS article`);
+		const row = z.object({ allowed: z.boolean(), article: guideRow.nullable() }).parse(result.rows[0]);
 		if (!row.allowed) deny();
-		// No approved release maps an app route to an article.
+		const article = row.article;
+		if (!article?.body) return guideResult.parse(noGuide);
 		return guideResult.parse({
-			found: false,
-			missing: true,
-			citation: null,
-			articleId: null,
-			body: null,
+			found: true,
+			missing: false,
+			citation: entry.heading,
+			articleId: article.articleId,
+			title: article.title,
+			slug: article.slug,
+			body: sectionExcerpt(
+				article.contentType,
+				displayBody(article.contentType, false, article.body) ?? "",
+				entry.heading,
+			),
 		});
 	});
 }
@@ -380,27 +424,13 @@ export function referenceExcerpt(db: Database, authority: RequestActor, raw: unk
 			1,
 			sql`p.article_id = ${input.articleId}::uuid`,
 		);
-		const body = page.articles[0]?.body ?? null;
-		if (!body)
-			return excerptResult.parse({
-				excerpt: null,
-				errorCode: page.articles[0] ? null : "content_access_denied",
-			});
-		if (!input.heading) return excerptResult.parse({ excerpt: body.slice(0, 500), errorCode: null });
-		const lines = body.split("\n");
-		const start = lines.findIndex((line) => line.replace(/^#{1,6}\s*/, "").trim() === input.heading);
-		if (start < 0) return excerptResult.parse({ excerpt: body.slice(0, 500), errorCode: null });
-		const opening = lines[start];
-		if (opening == null) return excerptResult.parse({ excerpt: body.slice(0, 500), errorCode: null });
-		const marks = /^(#+)\s/.exec(opening);
-		const level = marks?.[1]?.length ?? 2;
-		const taken = [opening];
-		for (const line of lines.slice(start + 1)) {
-			const next = /^(#+)\s/.exec(line)?.[1]?.length;
-			if (next != null && next <= level) break;
-			taken.push(line);
-		}
-		return excerptResult.parse({ excerpt: taken.join("\n").slice(0, 500), errorCode: null });
+		const article = page.articles[0];
+		if (!article?.body)
+			return excerptResult.parse({ excerpt: null, errorCode: article ? null : "content_access_denied" });
+		return excerptResult.parse({
+			excerpt: sectionExcerpt(article.contentType, article.body, input.heading),
+			errorCode: null,
+		});
 	});
 }
 export function readingRecent(db: Database, authority: RequestActor, raw: unknown) {

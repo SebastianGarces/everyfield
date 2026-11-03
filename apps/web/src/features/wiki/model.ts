@@ -467,6 +467,9 @@ function stripTags(text: string): string {
 	return text.replace(/<[^>]*>/g, "");
 }
 
+/** Whose text an article shows, when it is not the global article. */
+export type ArticleVersion = { kind: "church" | "network"; name: string };
+
 export type Listed = {
 	articleId: string;
 	title: string;
@@ -474,6 +477,8 @@ export type Listed = {
 	excerpt: string | null;
 	observedFraction: string;
 	completed: boolean;
+	/** A meaningful revision came after this reader finished it. */
+	updated: boolean;
 };
 
 export function listed(article: WikiArticle): Listed {
@@ -484,6 +489,7 @@ export function listed(article: WikiArticle): Listed {
 		excerpt: article.excerpt,
 		observedFraction: article.observedFraction,
 		completed: article.completed,
+		updated: article.updatedLabel,
 	};
 }
 

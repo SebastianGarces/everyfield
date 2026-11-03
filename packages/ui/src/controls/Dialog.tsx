@@ -54,10 +54,12 @@ type DialogHeaderProps = {
 	tone?: Tone;
 	/** Hide the close button only when the footer has an explicit way out. */
 	closable?: boolean;
+	/** Header buttons left of the close button. */
+	actions?: ReactNode;
 };
 
 /** Icon, Title, Description and Close. The title and description name and describe the dialog. */
-export function DialogHeader({ title, description, icon, tone = "ink", closable = true }: DialogHeaderProps) {
+export function DialogHeader({ title, description, icon, tone = "ink", closable = true, actions }: DialogHeaderProps) {
 	return (
 		<div className="flex flex-none items-start gap-4 px-7 pt-[26px] pb-4 max-app-sm:px-5 max-app-sm:pt-5">
 			{icon ? <CardIcon icon={icon} tone={tone} /> : null}
@@ -69,6 +71,7 @@ export function DialogHeader({ title, description, icon, tone = "ink", closable 
 					<DialogPrimitive.Description className="mt-1 text-md text-text-3">{description}</DialogPrimitive.Description>
 				) : null}
 			</div>
+			{actions}
 			{closable ? (
 				<DialogPrimitive.Close asChild>
 					<IconButton icon={Cancel01Icon} label="Close" size="sm" />
