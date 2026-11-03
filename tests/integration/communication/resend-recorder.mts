@@ -41,6 +41,12 @@ export function resendRecorder() {
 			});
 			return json(200, { data });
 		}
+		if (url.pathname === "/emails" && method === "POST") {
+			const entry = body as { to: string };
+			const id = `re-${++next}`;
+			emails.set(id, { id, to: entry.to, scheduledAt: null, lastEvent: "sent" });
+			return json(200, { id });
+		}
 		const match = url.pathname.match(/^\/emails\/([^/]+)(\/cancel)?$/);
 		const email = match ? emails.get(decodeURIComponent(match[1]!)) : undefined;
 		if (!match || !email) return json(404, { message: "not found" });
@@ -79,6 +85,8 @@ export function resendRecorder() {
 
 	return {
 		transport,
+		/** The fake Resend API itself, for transports other than the Messages adapter. */
+		fetch: fetchFake as typeof fetch,
 		requests,
 		emails,
 		/** What the next batch call does: accept every message, refuse (422), fail (500) or accept by position. */

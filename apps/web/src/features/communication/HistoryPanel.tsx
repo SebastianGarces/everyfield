@@ -326,9 +326,10 @@ function AddressFact({ label, value }: { label: string; value: string | null }) 
 	);
 }
 
+type Notice = { text: string; tone: "alert" | "status" };
 type ScheduledActions = {
 	pending: string | null;
-	notice: { text: string; tone: "alert" | "status" } | null;
+	notice: Notice | null;
 	onSendNow: () => void;
 	onCancel: () => void;
 	onCheckCancel: () => void;
@@ -383,6 +384,18 @@ function heldStatus(view: MessageView): { title: string; body: string } {
 	}
 }
 
+/** An action's result. It stays after the scheduled panel closes, as when every email already went out. */
+function ResultNotice({ notice }: { notice: Notice }) {
+	return (
+		<p
+			role={notice.tone}
+			className={notice.tone === "alert" ? "text-sm font-medium text-magenta-600" : "text-md text-ink"}
+		>
+			{notice.text}
+		</p>
+	);
+}
+
 function ScheduledPanel({ view, actions }: { view: MessageView; actions: ScheduledActions }) {
 	const [when_, setWhen] = useState("");
 	const [error, setError] = useState<string | undefined>();
@@ -410,14 +423,7 @@ function ScheduledPanel({ view, actions }: { view: MessageView; actions: Schedul
 				<h3 className={`text-md font-medium ${unconfirmed ? "text-magenta-600" : "text-ink"}`}>{status.title}</h3>
 				<p className="text-sm text-text-2">{status.body}</p>
 			</div>
-			{actions.notice ? (
-				<p
-					role={actions.notice.tone}
-					className={actions.notice.tone === "alert" ? "text-sm font-medium text-magenta-600" : "text-md text-ink"}
-				>
-					{actions.notice.text}
-				</p>
-			) : null}
+			{actions.notice ? <ResultNotice notice={actions.notice} /> : null}
 			<div className="flex flex-wrap gap-2">
 				{state === "cancel_unconfirmed" ? action("cancel", "Check again", actions.onCheckCancel, "primary") : null}
 				{state === "time_unconfirmed" && requestedAt
@@ -481,6 +487,7 @@ function Detail({
 	churchName,
 	origin,
 	scheduled,
+	notice,
 }: {
 	view: MessageView;
 	canWrite: boolean;
@@ -495,6 +502,7 @@ function Detail({
 	churchName: string;
 	origin: string;
 	scheduled: ScheduledActions | null;
+	notice: Notice | null;
 }) {
 	const detail = view.detail;
 	const names = new Map(view.recipients.map((row) => [row.personId, row.name]));
@@ -562,7 +570,11 @@ function Detail({
 					</div>
 				) : null}
 			</div>
-			{scheduled ? <ScheduledPanel view={view} actions={scheduled} /> : null}
+			{scheduled ? (
+				<ScheduledPanel view={view} actions={scheduled} />
+			) : notice ? (
+				<ResultNotice notice={notice} />
+			) : null}
 			<Totals view={view} />
 			{detail.bodyHtml ? (
 				<PreviewStage
@@ -720,7 +732,7 @@ function Browser({
 		null,
 	);
 	const [confirm, setConfirm] = useState<null | "follow-up" | "send" | "cancel">(null);
-	const [notice, setNotice] = useState<{ text: string; tone: "alert" | "status" } | null>(null);
+	const [notice, setNotice] = useState<Notice | null>(null);
 
 	const current = detail !== null && detail.id === selected ? detail : null;
 	const view = current?.view ?? null;
@@ -983,6 +995,7 @@ function Browser({
 							churchName={churchName}
 							origin={origin}
 							scheduled={actions}
+							notice={notice}
 						/>
 					) : detailPending === "open" || detailError ? null : (
 						<EmptyState icon={Mail01Icon} title="Choose a message">

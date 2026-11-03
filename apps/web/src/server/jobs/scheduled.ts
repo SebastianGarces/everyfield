@@ -23,13 +23,17 @@ const START_MS = 60_000;
  * runs and lost work is recovered with no page open. It first closes Evry jobs that can no longer make progress, then
  * runs the existing workers, each of which returns expired leases to the queue first. The workers claim with SKIP
  * LOCKED, so ticks that overlap each other or a request's own drain never run one job twice. The schedule grants no
- * business authority: every worker rechecks its own fences and sources. Mail waits for its worker (WP-028).
+ * business authority: every worker rechecks its own fences and sources. Church invitation mail runs here through
+ * `mail`. Other queued mail (identity, settings, organization connection, task, onboarding, phase and notification
+ * mail) has no worker yet: each mount still holds it with a refusing transport (see the WP-028 PR follow-ups).
  */
 export function scheduledJobs(config: {
 	secret: string | undefined;
 	db: Database | null;
 	storage: PrivateStorage | null;
 	reminders: TaskReminders | null;
+	/** Sends one bounded batch of due invitation mail; null when the deployment has no mail transport. */
+	mail: ((limit: number, until: number) => Promise<number>) | null;
 }) {
 	return async (request: Request): Promise<Response> => {
 		if (!config.secret) return Response.json({ status: "unavailable" }, { status: 503 });
@@ -46,7 +50,8 @@ export function scheduledJobs(config: {
 			const removed = config.storage ? await runDueObjectCleanup(db, config.storage, 4, until) : 0;
 			const effects = config.reminders ? await runEffects(db, config.reminders, 4, until) : 0;
 			const turns = await runTurns(db, 4, until);
-			return Response.json({ status: "ok", closed, removed, effects, turns });
+			const mailed = config.mail ? await config.mail(20, until) : 0;
+			return Response.json({ status: "ok", closed, removed, effects, turns, mailed });
 		} catch {
 			// No error text: it can carry row values.
 			console.error(JSON.stringify({ component: "scheduled-jobs", outcome: "error" }));

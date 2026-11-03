@@ -173,16 +173,22 @@ export function scheduleText(report: DeliveryReport, when: string): string {
 	return `Scheduled for ${when}. The email service holds it until then. ${counts(report)}`;
 }
 
-/** The note a cancel or time change adds when some email already went out, else nothing. */
-export const sentNote = (count: number) => (count > 0 ? ` ${count} already went out and cannot be recalled.` : "");
+const wentOut = (count: number) => `${count} already went out and cannot be recalled.`;
+/** The note a not-confirmed cancel or time change adds when some email already went out, else nothing. */
+export const sentNote = (count: number) => (count > 0 ? ` ${wentOut(count)}` : "");
 
 export function cancelText(report: CancelReport): string {
 	if (report.scheduledCancel === "none") return "Nothing is waiting at the email service to cancel.";
 	const sent = sentNote(report.sentCount);
 	if (report.scheduledCancel === "reconcile")
 		return `Cancel not confirmed. Confirmed ${report.confirmedCount}. Not confirmed ${report.openCount}.${sent} Check again to ask the email service.`;
-	if (report.confirmedCount === 0) return `Not cancelled.${sent}`;
-	return `Cancelled. The email service confirmed the cancel for ${report.confirmedCount}.${sent}`;
+	// Email that already went out leads: the message is not cancelled while any of it went out (criterion 7).
+	if (report.sentCount > 0)
+		return report.confirmedCount === 0
+			? `${wentOut(report.sentCount)} Nothing was cancelled.`
+			: `${wentOut(report.sentCount)} The email service stopped the other ${report.confirmedCount}.`;
+	if (report.confirmedCount === 0) return "Not cancelled.";
+	return `Cancelled. The email service confirmed the cancel for ${report.confirmedCount}.`;
 }
 
 export function replaceText(report: ReplaceReport): string {
@@ -195,7 +201,11 @@ export function rescheduleText(report: RescheduleReport, when: (iso: string) => 
 	const sent = sentNote(report.sentCount);
 	if (report.rescheduleStatus === "unknown")
 		return `Time change not confirmed. You asked for ${when(report.scheduledAt)}. The email service still holds ${report.heldAt ? when(report.heldAt) : "the earlier time"} for ${report.openCount}.${sent} Check again to ask the email service.`;
-	return `The send time is now ${when(report.scheduledAt)}.${sent} This change did not send the email.`;
+	if (report.sentCount > 0)
+		return report.confirmedCount === 0
+			? `${wentOut(report.sentCount)} The send time did not change.`
+			: `${wentOut(report.sentCount)} The other ${report.confirmedCount} now wait for ${when(report.scheduledAt)}. This change did not send the email.`;
+	return `The send time is now ${when(report.scheduledAt)}. This change did not send the email.`;
 }
 
 export function restoreText(report: RestoreReport): string {

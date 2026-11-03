@@ -3,6 +3,8 @@ import "server-only";
 import { z } from "zod";
 
 import type { DeliveryTransport } from "@everyfield/domain/communication";
+import type { MailTransport } from "../../server/jobs/mail.ts";
+import { createResendTransport } from "../../server/jobs/resend.ts";
 import { cancelCaptured, captureAllowed, captureSilent, moveCaptured, record } from "./capture.ts";
 import { settleCaptured } from "./settle.ts";
 
@@ -144,6 +146,22 @@ export function mailReady(): MailReady | null {
 	return {
 		keys: { encryptionKey, addressKey, from: parsed.data.IDENTITY_MAIL_FROM, origin: parsed.data.IDENTITY_ORIGIN },
 		apiKey,
+	};
+}
+
+/**
+ * The transport for queued one-by-one mail (church invitations): Resend with a provider key, else the dev capture
+ * outbox. A capture records the email and answers accepted with its capture id; it never reaches a mailbox.
+ */
+export function queuedMailTransport(ready: MailReady, request: typeof fetch = fetch): MailTransport {
+	if (ready.apiKey) return createResendTransport(ready.apiKey, request);
+	return {
+		async send(payload) {
+			return { kind: "accepted", id: await record(payload) };
+		},
+		async lookup() {
+			return { kind: "unknown" };
+		},
 	};
 }
 

@@ -425,9 +425,12 @@ test("AC:MAIL51-005 AC:MAIL51-007 an email the service already sent shows as sen
 		},
 		{ status: "confirmed", confirmed: 2, sent: 1, open: 0 },
 	);
+	// The result leads with what went out and never calls the message cancelled.
+	assert.equal(cancelText(result), "1 already went out and cannot be recalled. The email service stopped the other 2.");
+	assert.doesNotMatch(cancelText(result), /^Cancelled/);
 	assert.equal(
-		cancelText(result),
-		"Cancelled. The email service confirmed the cancel for 2. 1 already went out and cannot be recalled.",
+		cancelText({ ...result, confirmedCount: 0, sentCount: 3 }),
+		"3 already went out and cannot be recalled. Nothing was cancelled.",
 	);
 	const view = await shown(message);
 	assert.equal(view.item.state, "sent");
@@ -442,6 +445,15 @@ test("AC:MAIL51-005 AC:MAIL51-007 an email the service already sent shows as sen
 	resend.wentOut("re-6");
 	const moved = ok(await move(moving, plantTime("Sat", 9, new Date(friday)), resend.transport));
 	assert.deepEqual([moved.confirmedCount, moved.sentCount, moved.openCount], [0, 3, 0]);
+	// No new time is named as done when every email already went out.
+	assert.equal(
+		rescheduleText(moved, String),
+		"3 already went out and cannot be recalled. The send time did not change.",
+	);
+	assert.equal(
+		rescheduleText({ ...moved, confirmedCount: 2, sentCount: 1 }, () => "Saturday 9:00"),
+		"1 already went out and cannot be recalled. The other 2 now wait for Saturday 9:00. This change did not send the email.",
+	);
 	const after = await shown(moving);
 	assert.equal(after.item.state, "sent");
 	assert.equal(after.totals.sent, 3);

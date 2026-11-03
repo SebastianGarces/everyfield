@@ -716,3 +716,43 @@ export async function claimUnknownMail(db: Database, limit = 1): Promise<Claim[]
     FROM due WHERE j.id=due.id RETURNING j.*`);
 	return rows.rows.map((row) => claimSchema.parse(row));
 }
+
+/**
+ * Claims due mail jobs whose mail's logical key starts with one of `prefixes`, oldest first, skipping rows another
+ * claim holds. A mount's worker claims only the mail its own authorizer can judge: a job claimed by the wrong mount
+ * would fail authorization and be cancelled. One statement, so one implicit transaction.
+ */
+export async function claimDueMail(db: Database, prefixes: readonly string[], limit = 1): Promise<Claim[]> {
+	const config = z
+		.object({ prefixes: z.array(z.string().regex(/^[a-z-]+\/$/)).min(1), limit: z.number().int().min(1).max(100) })
+		.parse({ prefixes, limit });
+	const rows = await db.execute(sql`WITH due AS (
+    SELECT j.id FROM job j JOIN mail m ON m.id=j.subject_record_id
+    WHERE j.kind='mail' AND j.state IN ('ready','retry_wait') AND j.attempt_count<j.max_attempts
+    AND j.eligible_at<=clock_timestamp() AND (j.next_attempt_at IS NULL OR j.next_attempt_at<=clock_timestamp())
+    AND split_part(m.logical_key,'/',1)||'/'=ANY(${sql.param(config.prefixes)}::text[])
+    ORDER BY j.eligible_at,j.id FOR UPDATE OF j SKIP LOCKED LIMIT ${config.limit})
+    UPDATE job j SET state='claimed',attempt_count=attempt_count+1,claim_generation=claim_generation+1,
+    lease_owner=${randomUUID()},lease_until=clock_timestamp()+make_interval(secs=>${DEFAULT_LEASE_SECONDS}),revision=revision+1
+    FROM due WHERE j.id=due.id RETURNING j.*`);
+	return rows.rows.map((row) => claimSchema.parse(row));
+}
+
+/** One bounded batch of a mount's due mail: claim, then dispatch each under the mount's own authorizer. Returns the claims. */
+export async function runDueMail(
+	db: Database,
+	mail: Pick<ReturnType<typeof createMailService>, "dispatch">,
+	prefixes: readonly string[],
+	limit = 20,
+	until = Infinity,
+): Promise<number> {
+	let claimed = 0;
+	while (claimed < limit && Date.now() < until) {
+		const [claim] = await claimDueMail(db, prefixes);
+		if (!claim) break;
+		claimed++;
+		// A failed dispatch keeps its lease; lease recovery returns it to the queue. No error text: it can carry values.
+		await mail.dispatch(claim).catch(() => console.error(JSON.stringify({ component: "mail", outcome: "error" })));
+	}
+	return claimed;
+}
