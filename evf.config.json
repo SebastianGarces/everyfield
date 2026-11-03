@@ -1624,6 +1624,15 @@
 			],
 			"risk": "ordinary"
 		},
+		"OPS-122": {
+			"title": "Wiki ship promotes drafts in the right order",
+			"owningPaths": ["tools/evf/"],
+			"checks": [
+				{ "name": "documentation", "run": ["python3", "docs/check-all.py"] },
+				{ "name": "workflow-regressions", "run": ["bin/evf", "test"] }
+			],
+			"risk": "ordinary"
+		},
 		"OPS-125": {
 			"title": "Past check-in weeks on a QA preview",
 			"owningPaths": ["tools/evf/", "docs/runbooks/"],
