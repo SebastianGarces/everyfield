@@ -66,7 +66,10 @@ export const listMessages: ReadAdapter<z.infer<typeof listInput>> = {
 				label: m.subject || "Untitled draft",
 				fields: {
 					state: m.state,
-					sendsAt: m.local_date && m.local_time ? `${WEEKDAY[new Date(`${m.local_date}T00:00:00Z`).getUTCDay()]} ${m.local_date} ${m.local_time}` : null,
+					sendsAt:
+						m.local_date && m.local_time
+							? `${WEEKDAY[new Date(`${m.local_date}T00:00:00Z`).getUTCDay()]} ${m.local_date} ${m.local_time}`
+							: null,
 					zone: m.zone,
 					// A scheduled message the email service holds can be cancelled, moved or replaced; a draft can only be scheduled.
 					handedOff: m.held > 0,

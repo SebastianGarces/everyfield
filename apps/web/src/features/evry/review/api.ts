@@ -42,3 +42,7 @@ export async function readStagedPhoto(id: string): Promise<Reply<Blob>> {
 		return { status: "lost" };
 	}
 }
+
+/** Check again: asks the email service about an email effect it has not confirmed. */
+export const check = (id: string) =>
+	call<{ proposal: Review; checked: boolean }>(`proposals/${id}/check`, { method: "POST", body: {} });

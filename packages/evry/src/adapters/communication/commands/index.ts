@@ -70,7 +70,9 @@ const withRefusal = (refusal: SQL, review: SQL): SQL =>
 	sql`${review} || CASE WHEN ${refusal} IS NULL THEN '{}'::jsonb ELSE jsonb_build_object('refusal',${refusal}) END`;
 
 /** The args the review saved: the revision it showed and the native input, without a request key. */
-const savedArgs = z.object({ expectedRevision: z.string().optional(), input: z.record(z.string(), z.unknown()) }).loose();
+const savedArgs = z
+	.object({ expectedRevision: z.string().optional(), input: z.record(z.string(), z.unknown()) })
+	.loose();
 const key = (effectKey: string, step: string) => `${effectKey}:${step}`;
 
 const done = (reply: CommunicationReply<{ communicationId: string; revision: string }>): EffectResult =>
@@ -113,7 +115,7 @@ const draftInput = z.strictObject({
 	body: z.string().trim().min(1).max(20_000).describe("Plain text. A blank line starts a new paragraph."),
 	audience: audienceInput,
 });
-const saveDraft: ReviewedWrite<z.infer<typeof draftInput>> = {
+export const saveDraft: ReviewedWrite<z.infer<typeof draftInput>> = {
 	operation: "communication.saveDraft",
 	description:
 		"Propose saving a new email draft with its subject, audience and body. The draft is saved in Messages and nothing is sent. Nothing changes until the user approves the exact review.",
@@ -132,7 +134,9 @@ const saveDraft: ReviewedWrite<z.infer<typeof draftInput>> = {
 	},
 	async execute(tx, context, args, effectKey): Promise<EffectResult> {
 		const saved = savedArgs.parse(args);
-		return done(await communicationWriter.saveDraft(tx, context, { requestKey: key(effectKey, "draft"), input: saved.input }));
+		return done(
+			await communicationWriter.saveDraft(tx, context, { requestKey: key(effectKey, "draft"), input: saved.input }),
+		);
 	},
 };
 
@@ -163,7 +167,9 @@ async function audienceFacts(context: ReviewContext, plantId: string, id: string
 		(await context.db.execute(sql`SELECT ${audiencePeople(plantId, parsed)} AS people`)).rows[0]!.people,
 	);
 	const addresses = [...new Set(people.map((p) => p.email?.trim().toLowerCase()).filter((e): e is string => !!e))];
-	const hashes = Object.fromEntries(addresses.map((address) => [address, mailAddressHash(context.mail!.keys.addressKey, address)]));
+	const hashes = Object.fromEntries(
+		addresses.map((address) => [address, mailAddressHash(context.mail!.keys.addressKey, address)]),
+	);
 	const sample = people.filter((p) => p.email?.trim()).sort((a, b) => a.displayName.localeCompare(b.displayName))[0];
 	const content = draft.body_html
 		? plainText(renderBody(draft.body_html, { name: sample?.displayName ?? "", rsvp_link: "" }))
@@ -171,7 +177,7 @@ async function audienceFacts(context: ReviewContext, plantId: string, id: string
 	return { draft, parsed, hashes, content };
 }
 
-const schedule: ReviewedWrite<z.infer<typeof scheduleInput>> = {
+export const schedule: ReviewedWrite<z.infer<typeof scheduleInput>> = {
 	operation: "communication.scheduleReviewed",
 	description:
 		"Propose scheduling a saved draft for a send time in the church's time zone, within the next 30 days. The review lists who gets it, who is left out and why, and the exact content. Nothing is sent until the user approves.",
@@ -225,7 +231,11 @@ const schedule: ReviewedWrite<z.infer<typeof scheduleInput>> = {
 		const sent = await communicationWriter.handOffScheduled(
 			db,
 			authority,
-			{ requestKey: key(effectKey, "send"), expectedRevision: first.revision, input: { communicationId: saved.input.communicationId } },
+			{
+				requestKey: key(effectKey, "send"),
+				expectedRevision: first.revision,
+				input: { communicationId: saved.input.communicationId },
+			},
 			mail.transport,
 			mail.keys,
 		);
@@ -284,7 +294,7 @@ const checkedOnly = async (_tx: Transaction, _context: unknown, args: unknown): 
 	return { receiptId: z.uuid().parse(saved.input.communicationId), revision: saved.expectedRevision ?? "1" };
 };
 
-const reschedule: ReviewedWrite<z.infer<typeof rescheduleInput>> = {
+export const reschedule: ReviewedWrite<z.infer<typeof rescheduleInput>> = {
 	operation: "communication.rescheduleReviewed",
 	description:
 		"Propose moving a scheduled email to a new send time in the church's time zone, within the next 30 days. Recipients and content stay the same. The new time is shown only after the email service confirms it. Nothing changes until the user approves.",
@@ -293,12 +303,12 @@ const reschedule: ReviewedWrite<z.infer<typeof rescheduleInput>> = {
 	review(actor, value) {
 		const at = sql`(${value.sendAt}::timestamp AT TIME ZONE ${zone})`;
 		return sql`SELECT ${withRefusal(
-				acceptedWindow(at),
-				sql`jsonb_build_object('target',${message},'changes',jsonb_build_array(
+			acceptedWindow(at),
+			sql`jsonb_build_object('target',${message},'changes',jsonb_build_array(
 					${change("subject", null, sql`to_jsonb(c.subject)`)},
 					${change("recipientCount", null, sql`to_jsonb(${held})`)},
 					${change("sendAt", instantAt(sql`c.scheduled_at`), instantAt(at))}))`,
-			)} AS review,
+		)} AS review,
 			jsonb_build_object('expectedRevision',c.revision::text,'input',jsonb_build_object('communicationId',c.id,'scheduledAt',${iso(at)})) AS args
 			FROM communication c WHERE c.id=${value.communicationId}::uuid AND c.plant_id=${actor.owner.id}::uuid AND c.state='scheduled'`;
 	},
@@ -321,21 +331,33 @@ async function cancelAt(db: Database, authority: RequestActor, args: unknown, re
 	);
 	return { communicationId, revision: saved.expectedRevision!, cancelled };
 }
-const cancelReport = (v: { scheduledCancel: string; confirmedCount: number; sentCount: number; openCount: number }) => ({
+const cancelReport = (v: {
+	scheduledCancel: string;
+	confirmedCount: number;
+	sentCount: number;
+	openCount: number;
+}) => ({
 	kind: "cancel",
 	// Cancelled only once the email service confirmed every recipient it held.
-	confirmation: v.scheduledCancel === "confirmed" ? "confirmed" : v.scheduledCancel === "reconcile" ? "not_confirmed" : "none",
+	confirmation:
+		v.scheduledCancel === "confirmed" ? "confirmed" : v.scheduledCancel === "reconcile" ? "not_confirmed" : "none",
 	cancelled: v.confirmedCount,
 	sent: v.sentCount,
 	open: v.openCount,
 });
-async function cancelStep(db: Database, authority: RequestActor, args: unknown, requestKey: string, mail: MailPort): Promise<EffectResult> {
+async function cancelStep(
+	db: Database,
+	authority: RequestActor,
+	args: unknown,
+	requestKey: string,
+	mail: MailPort,
+): Promise<EffectResult> {
 	const r = await cancelAt(db, authority, args, requestKey, mail);
 	if (r.cancelled.status !== "ok") return { refused: r.cancelled.error.code };
 	return { receiptId: r.communicationId, revision: r.revision, report: cancelReport(r.cancelled.value) };
 }
 
-const cancel: ReviewedWrite<z.infer<typeof cancelInput>> = {
+export const cancel: ReviewedWrite<z.infer<typeof cancelInput>> = {
 	operation: "communication.cancelScheduledReviewed",
 	description:
 		"Propose cancelling a scheduled email with the email service. The result says Cancelled only after the email service confirms. Nothing changes until the user approves.",
@@ -351,7 +373,8 @@ const cancel: ReviewedWrite<z.infer<typeof cancelInput>> = {
 				AND c.state='scheduled' AND ${held}>0`;
 	},
 	execute: checkedOnly,
-	reach: (db, authority, args, effectKey, _first, mail) => cancelStep(db, authority, args, key(effectKey, "cancel"), mail),
+	reach: (db, authority, args, effectKey, _first, mail) =>
+		cancelStep(db, authority, args, key(effectKey, "cancel"), mail),
 	check: (db, authority, args, keys, mail) => cancelStep(db, authority, args, key(keys.checkKey, "cancel"), mail),
 };
 
@@ -359,7 +382,13 @@ const cancel: ReviewedWrite<z.infer<typeof cancelInput>> = {
 
 const replaceInput = z.strictObject({
 	communicationId: messageId,
-	body: z.string().trim().min(1).max(20_000).optional().describe("The new body as plain text, when the content changes"),
+	body: z
+		.string()
+		.trim()
+		.min(1)
+		.max(20_000)
+		.optional()
+		.describe("The new body as plain text, when the content changes"),
 	audience: audienceInput.optional().describe("The new audience, when the recipients change"),
 });
 
@@ -385,7 +414,13 @@ async function replaceStep(
 			scheduledAt: z.string(),
 		})
 		.parse(saved.input);
-	const old = await cancelAt(db, authority, { ...saved, input: { communicationId: input.communicationId } }, keys.cancelKey, mail);
+	const old = await cancelAt(
+		db,
+		authority,
+		{ ...saved, input: { communicationId: input.communicationId } },
+		keys.cancelKey,
+		mail,
+	);
 	if (old.cancelled.status !== "ok") return { refused: old.cancelled.error.code };
 	const people = await recipientOutcomes(db, authority, input.communicationId);
 	const gate = await communicationWriter.replaceScheduledReviewed(db, authority, {
@@ -394,13 +429,27 @@ async function replaceStep(
 		input: { communicationId: input.communicationId },
 	});
 	if (gate.status !== "ok") return { refused: gate.error.code };
-	const base = { kind: "replace", cancelled: old.cancelled.value.confirmedCount, sent: old.cancelled.value.sentCount, open: old.cancelled.value.openCount };
-	if (!gate.value.replacementAllowed || old.cancelled.value.scheduledCancel !== "confirmed" || old.cancelled.value.sentCount > 0)
+	const base = {
+		kind: "replace",
+		cancelled: old.cancelled.value.confirmedCount,
+		sent: old.cancelled.value.sentCount,
+		open: old.cancelled.value.openCount,
+	};
+	if (
+		!gate.value.replacementAllowed ||
+		old.cancelled.value.scheduledCancel !== "confirmed" ||
+		old.cancelled.value.sentCount > 0
+	)
 		return {
 			receiptId: input.communicationId,
 			revision: old.revision,
 			// No replacement was scheduled. Whoever still holds or got the old send is listed with what happened.
-			report: { ...base, confirmation: old.cancelled.value.openCount > 0 ? "not_confirmed" : "blocked", replaced: false, people: people.filter((p) => p.outcome !== "Cancelled" && p.outcome !== "Not accepted") },
+			report: {
+				...base,
+				confirmation: old.cancelled.value.openCount > 0 ? "not_confirmed" : "blocked",
+				replaced: false,
+				people: people.filter((p) => p.outcome !== "Cancelled" && p.outcome !== "Not accepted"),
+			},
 		};
 	const session = authority.session;
 	const owner = authority.actor.context.owner;
@@ -409,7 +458,12 @@ async function replaceStep(
 		const context: CommunicationContext = { session, selected: owner };
 		const draft = await communicationWriter.saveDraft(tx, context, {
 			requestKey: key(keys.buildKey, "draft"),
-			input: { subject: input.subject, bodyHtml: input.bodyHtml, audience: input.audience, ...(input.meetingId ? { meetingId: input.meetingId } : {}) },
+			input: {
+				subject: input.subject,
+				bodyHtml: input.bodyHtml,
+				audience: input.audience,
+				...(input.meetingId ? { meetingId: input.meetingId } : {}),
+			},
 		});
 		if (draft.status !== "ok") return draft;
 		return communicationWriter.scheduleReviewed(tx, context, {
@@ -424,7 +478,11 @@ async function replaceStep(
 	const sent = await communicationWriter.handOffScheduled(
 		db,
 		authority,
-		{ requestKey: key(keys.buildKey, "send"), expectedRevision: replacement.revision, input: { communicationId: replacement.communicationId } },
+		{
+			requestKey: key(keys.buildKey, "send"),
+			expectedRevision: replacement.revision,
+			input: { communicationId: replacement.communicationId },
+		},
 		mail.transport,
 		mail.keys,
 	);
@@ -445,11 +503,14 @@ async function replaceStep(
 	};
 }
 
-const replace: ReviewedWrite<z.infer<typeof replaceInput>> = {
+export const replace: ReviewedWrite<z.infer<typeof replaceInput>> = {
 	operation: "communication.replaceScheduledReviewed",
 	description:
 		"Propose replacing the body or the audience of a scheduled email. The old send is cancelled first; the new one is scheduled at the same time only after the email service confirms every cancel. Nothing changes until the user approves.",
-	input: replaceInput.refine((v) => v.body !== undefined || v.audience !== undefined, "Change the body or the audience"),
+	input: replaceInput.refine(
+		(v) => v.body !== undefined || v.audience !== undefined,
+		"Change the body or the audience",
+	),
 	allowed: ownerOrAdmin,
 	async review(actor, value, context): Promise<SQL | null> {
 		const found = await context.db.execute(
@@ -466,9 +527,17 @@ const replace: ReviewedWrite<z.infer<typeof replaceInput>> = {
 			change("recipientCount", null, sql`to_jsonb(${held})`),
 		];
 		if (safe !== null)
-			changes.push(change("body", sql`${JSON.stringify(plainText(before.body_html ?? ""))}::jsonb`, sql`${JSON.stringify(plainText(safe))}::jsonb`));
+			changes.push(
+				change(
+					"body",
+					sql`${JSON.stringify(plainText(before.body_html ?? ""))}::jsonb`,
+					sql`${JSON.stringify(plainText(safe))}::jsonb`,
+				),
+			);
 		if (value.audience)
-			changes.push(change("audience", audienceShape(actor.owner.id, oldAudience), audienceShape(actor.owner.id, value.audience)));
+			changes.push(
+				change("audience", audienceShape(actor.owner.id, oldAudience), audienceShape(actor.owner.id, value.audience)),
+			);
 		return sql`SELECT jsonb_build_object('target',${message},'changes',jsonb_build_array(${sql.join(changes, sql`,`)})) AS review,
 			jsonb_build_object('expectedRevision',c.revision::text,'input',jsonb_build_object('communicationId',c.id,'subject',coalesce(c.subject,''),
 				'bodyHtml',${html === null ? sql`coalesce(c.body_html,'')` : sql`${html}::text`},
