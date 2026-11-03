@@ -130,6 +130,8 @@ for (const [name, engine] of ENGINES) {
 	test(`AC:WP-039-6 (${name}): a signed-out visitor is sent to sign in with the page as returnTo`, async () => {
 		await withPage(engine, async (page) => {
 			await page.goto(`${BASE}${PATH}`);
+			// The page streams first (loading.tsx), so the redirect may land after the first answer.
+			await page.waitForURL((u) => u.pathname === "/signin");
 			const url = new URL(page.url());
 			assert.equal(`${url.pathname}${url.search}`, "/signin?returnTo=%2Fintelligence%2Fattestations");
 		});
