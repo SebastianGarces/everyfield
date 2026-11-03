@@ -8,6 +8,7 @@ import { and, eq, gt, inArray, isNull, sql } from "@everyfield/db/query";
 import { privateStorage } from "@everyfield/db/schema";
 import * as t from "@everyfield/db/tables";
 import type { RequestActor } from "@everyfield/domain/access";
+import { personalCalendar } from "@everyfield/domain/intelligence";
 import { trustedIdentityIp } from "@everyfield/domain/identity";
 import {
 	avatarOperations,
@@ -246,7 +247,7 @@ function create(v: z.infer<typeof env>) {
 		db,
 		origin,
 		sections,
-		timezones: timezoneOperations(effects),
+		timezones: timezoneOperations(effects, personalCalendar),
 		avatar,
 		deletion,
 		credentials,

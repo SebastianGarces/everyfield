@@ -459,6 +459,7 @@ test("INV-private-calendar: revoked seat keeps its personal preference but canno
 			},
 			apply: async () => {
 				calls.apply++;
+				return true;
 			},
 		},
 	});

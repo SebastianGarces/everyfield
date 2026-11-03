@@ -75,7 +75,7 @@ The DAG estimates effort from owned clauses, operations, cases and referenced ta
 | WP-035 | Wiki feedback/admin/revalidation | 89 | 7 | 88 | 3 | 4 |
 | WP-036 | Document template and format contracts | 27 | 5 | 16 | 3 | 2 |
 | WP-037 | Generated files and native owned documents | 27 | 18 | 29 | 3 | 2.5 |
-| WP-039 | Check-ins manual signals and corrections | 15 | 11 | 41 | 2 | 2 |
+| WP-039 | Check-ins manual signals and corrections | 15 | 11 | 41 | 5 | 2 |
 | WP-045 | Launch plan/readiness/milestones | 18 | 10 | 19 | 7 | 2 |
 | WP-046 | Launch outcomes/events/history | 43 | 11 | 45 | 5 | 3 |
 | WP-040 | Assessment facts, metrics and their source history | 41 | 4 | 125 | 0 | 3 |

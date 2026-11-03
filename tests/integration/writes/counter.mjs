@@ -32,6 +32,7 @@ const factories = {
 	attemptBudget: "identity.budget",
 	createTaskWriter: "tasks",
 	createPhaseWriter: "phases",
+	createPrivateCare: "privateCare",
 	createFollowUpWriter: "followups",
 	createAttendanceWriter: "meetings",
 	createWikiProducer: "wiki",
