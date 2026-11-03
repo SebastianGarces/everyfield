@@ -47,6 +47,17 @@ These accounts exist only on QA Neon branches, behind Vercel Deployment Protecti
 "Harvest Point (QA)". The church has people, a household, three teams, two meetings, tasks, two follow-ups, a written
 document, a draft message and the wiki.
 
+### Check-in history on the owner login
+
+Only the owner login has check-in history. Its personal timezone is America/New_York. Weekly check-in
+(`/me/check-in`) shows 13 answered past weeks. The last 3 of them are a run of Strained or Struggling answers in Pace,
+and that run ends last week. This week is open and unanswered, so a normal save also works. You can open and correct
+any past week, as a planter can.
+
+The weeks are relative to the day the preview was made. They do not move forward while the preview stays up, so on a
+preview made two weeks ago the run ends three weeks back. The admin and member logins have no check-in weeks and no
+personal timezone. A preview made before OPS-125 merged has no check-in history.
+
 The Neon branch is a copy of the development database, so it also holds the development data of other churches. The
 QA logins see only Harvest Point (QA).
 
