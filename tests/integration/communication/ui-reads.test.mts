@@ -160,7 +160,7 @@ function chain(personId, transport, keysFor, sendRevision = (revision) => revisi
 				});
 				return result.status === "ok" ? result : { status: "refused", code: result.code };
 			},
-			send: async (revision, communicationId) => {
+			handOff: async (revision, communicationId) => {
 				const sent = await communicationWriter.sendReviewed(
 					f.db,
 					owner.actor,

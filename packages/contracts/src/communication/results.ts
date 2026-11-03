@@ -103,14 +103,22 @@ export const dispatchResult = z.strictObject({
 	status: z.enum(["accepted", "partial", "uncertain", "failed", "accepted_unknown"]),
 	confirmedRecipientIds: z.array(z.string()),
 });
+const count = z.number().int().nonnegative();
+/**
+ * What the email service confirmed for one cancel or time change, per accepted recipient. `confirmed` counts the
+ * recipients it confirmed, `sent` the ones it says already went out, `open` the ones still without an answer.
+ */
+const providerTally = { confirmedCount: count, sentCount: count, openCount: count };
 export const cancelScheduledResult = z.strictObject({
 	newHandoffs: z.literal(0),
+	/** `confirmed`: no recipient is open. `reconcile`: some are. `none`: nothing was with the email service. */
 	scheduledCancel: z.enum(["reconcile", "confirmed", "none"]),
 	sentRecalled: z.literal(false),
 	cancelRequested: z.boolean(),
 	recallGuaranteed: z.literal(false),
 	newSend: z.literal(false),
 	existingUrlMayWorkUntil: instant.nullable(),
+	...providerTally,
 });
 export const replaceScheduledResult = z.strictObject({
 	replacementAllowed: z.boolean(),
@@ -119,9 +127,14 @@ export const replaceScheduledResult = z.strictObject({
 });
 export const rescheduleDispatchedResult = z.strictObject({
 	body: z.string(),
+	/** `accepted`: every open recipient now holds `scheduledAt`. `unknown`: some still hold `heldAt`. */
 	rescheduleStatus: z.enum(["accepted", "unknown"]),
 	newCommunications: z.literal(0),
+	/** The requested send time. */
 	scheduledAt: instant,
+	/** The time the email service still holds for an open recipient, or null when none is open. */
+	heldAt: instant.nullable(),
+	...providerTally,
 });
 export const transactionalResult = z.strictObject({
 	purposeMailAttempted: z.literal(true),
@@ -131,6 +144,8 @@ export const transactionalResult = z.strictObject({
 export const suppressionListResult = z.strictObject({
 	address: z.email(),
 	active: z.boolean(),
+	/** Each earlier restore of this address, newest first. `actorName` is null when no name is on record. */
+	restores: z.array(z.strictObject({ at: instant, actorName: z.string().nullable(), reason: z.string() })),
 	suppressionClears: z.literal(0),
 	newSends: z.literal(0),
 });
@@ -143,7 +158,25 @@ export const retryResult = z.strictObject({
 	retried: z.number().int().nonnegative(),
 });
 
-const hubStates = ["draft", "scheduled", "sending", "sent", "logged", "cancelled", "failed", "unknown"] as const;
+/**
+ * The state history shows for a message. `scheduled`: the email service holds at least one recipient for the send
+ * time. `not_scheduled`: a scheduled message the email service holds for no recipient. `failed`: a send the email
+ * service refused for every recipient ("Not sent"). `unknown`: no recipient confirmed ("Not confirmed").
+ * `cancel_unconfirmed` and `time_unconfirmed`: a cancel or time change still open for some recipient.
+ */
+export const hubStates = [
+	"draft",
+	"scheduled",
+	"not_scheduled",
+	"sending",
+	"sent",
+	"logged",
+	"cancelled",
+	"cancel_unconfirmed",
+	"time_unconfirmed",
+	"failed",
+	"unknown",
+] as const;
 const contactOutcomes = ["contacted", "attempted_no_contact", "administrative_completion", "no_longer_needed"] as const;
 
 export const historyItem = z.strictObject({
@@ -188,6 +221,10 @@ export const deliveryTotalsResult = z.strictObject({
 	failed: z.number().int().nonnegative(),
 	suppressed: z.number().int().nonnegative(),
 	unknown: z.number().int().nonnegative(),
+	/** Recipients the email service confirmed cancelled. */
+	cancelled: z.number().int().nonnegative(),
+	/** Recipients with a requested cancel that the email service has not confirmed. */
+	cancelOpen: z.number().int().nonnegative(),
 	asOf: instant,
 	rate: z.number().nullable(),
 	outcomes: z.array(z.enum(["accepted", "unknown", "rejected"])),
@@ -201,7 +238,10 @@ export const detailResult = z.strictObject({
 	bodyHtml: z.string().nullable(),
 	bodyText: z.string().nullable(),
 	meetingId: recordId.nullable(),
+	/** The send time the email service holds, once it holds the message; before that, the saved time. */
 	scheduledAt: instant.nullable(),
+	/** A requested send time the email service has not confirmed for every recipient, else null. */
+	requestedAt: instant.nullable(),
 	sentAt: instant.nullable(),
 	senderName: z.string().nullable(),
 	deliveryAddress: z.string().nullable(),

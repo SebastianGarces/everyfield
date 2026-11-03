@@ -84,6 +84,13 @@ export async function fixture({ lockTimeout = "0" } = {}) {
 		origin: "http://invitation.example.test",
 		budgetSecret: randomBytes(32).toString("hex"),
 		people: accountPersonProducer,
+		// As the invitation mount checks it: the mail service's own address hash against the active blocks.
+		addressBlocked: async (tx, email) =>
+			(
+				await tx.execute(
+					sql`SELECT EXISTS (SELECT 1 FROM suppression WHERE address_hash = ${hash(email.trim().toLowerCase())} AND cleared_at IS NULL) AS blocked`,
+				)
+			).rows[0].blocked === true,
 		enqueueMail: async (tx,m,command) => {
 			if (mailFault) throw Error("synthetic_outbox_failure");
 			return mail.append(tx, {
@@ -258,6 +265,7 @@ export async function fixture({ lockTimeout = "0" } = {}) {
 		mail,
 		effects,
 		dispatch,
+		addressHash: hash,
 		proof,
 		account,
 		workspace,

@@ -205,6 +205,8 @@ function inviteRefused(code: string | null, retryAt: string | null, zone: string
 			return `This address has had 3 invitations in the last 30 days.${retryAt ? ` You can invite it again after ${formatMoment(retryAt, zone)}.` : ""}`;
 		case "invitation_unavailable":
 			return "An invitation to this address is already waiting. Resend it from the list below.";
+		case "address_blocked":
+			return "Invitation not sent: this address is blocked after an earlier bounce.";
 		case "conflict":
 			return `Your ${place} changed since this page loaded. Reload the page, then send again.`;
 		default:
@@ -543,6 +545,7 @@ function resendRefused(code: string | null, retryAt: string | null, zone: string
 		return retryAt
 			? `This invitation was just sent. You can resend it after ${formatMoment(retryAt, zone)}.`
 			: "This invitation was just sent. Wait a minute, then resend it.";
+	if (code === "address_blocked") return "Invitation not sent: this address is blocked after an earlier bounce.";
 	return "The invitation was not sent again. It may have been accepted or revoked. Reload the list.";
 }
 

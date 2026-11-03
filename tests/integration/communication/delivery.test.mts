@@ -549,7 +549,7 @@ test("AC:DEL58-006 AC:MAIL51-004 AC:MAIL51-005 AC:MAIL51-007 cancel, replace, an
 			return { outcome: "ids", ids: ["prov-move"] };
 		},
 	});
-	ok(await handoff(owner, move.saved.communicationId, move.accepted.value.revision, movePort));
+	ok(await handoff(owner, move.saved.communicationId, move.accepted.value.revision, movePort, "handOffScheduled"));
 	const beforeCount = (await rows(sql`SELECT count(*)::int AS n FROM communication WHERE plant_id = ${plant.id}`))[0].n;
 	const moved = ok(
 		await communicationWriter.rescheduleDispatched(

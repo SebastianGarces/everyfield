@@ -182,10 +182,13 @@ function useHistory(load: (cursor: string | null) => Promise<Outcome<HistoryPage
 const stateTone: Record<HubState, string> = {
 	draft: "bg-surface-2 text-text-2",
 	scheduled: "bg-amber-100 text-amber-600",
+	not_scheduled: "bg-magenta-50 text-magenta-600",
 	sending: "bg-amber-100 text-amber-600",
 	sent: "bg-green-100 text-green-700",
 	logged: "bg-surface-2 text-text-2",
 	cancelled: "bg-surface-2 text-text-2",
+	cancel_unconfirmed: "bg-magenta-50 text-magenta-600",
+	time_unconfirmed: "bg-magenta-50 text-magenta-600",
 	failed: "bg-magenta-50 text-magenta-600",
 	unknown: "bg-surface-2 text-text-2",
 };
@@ -325,26 +328,81 @@ type ScheduledActions = {
 	notice: { text: string; tone: "alert" | "status" } | null;
 	onSendNow: () => void;
 	onCancel: () => void;
+	onCheckCancel: () => void;
+	onCheckTime: (requestedAt: string) => void;
 	onReconcile: () => void;
 	onReplace: () => void;
 	onReschedule: (instant: Date) => void;
 };
+
+/** The handoff counts every scheduled state names. Refused here is the email service's refusal, never a bounce. */
+const handoffCounts = (totals: MessageView["totals"]) =>
+	`Accepted ${totals.accepted}. Refused ${totals.failed}. No answer ${totals.unknown}.`;
+
+/** Headline and detail for the message's state at the email service. Each line comes only from confirmed answers. */
+function heldStatus(view: MessageView): { title: string; body: string } {
+	const { totals, detail } = view;
+	const went = totals.sent > 0 ? ` ${totals.sent} already went out and cannot be recalled.` : "";
+	switch (totals.state) {
+		case "scheduled":
+			return {
+				title: `Scheduled for ${when(detail.scheduledAt)}`,
+				body: `The email service holds it until then. ${handoffCounts(totals)}`,
+			};
+		case "not_scheduled":
+			return {
+				title: "Not scheduled",
+				body: `The email service holds no recipient. ${handoffCounts(totals)} The message stays saved.`,
+			};
+		case "cancel_unconfirmed":
+			return {
+				title: "Cancel not confirmed",
+				body: `Confirmed ${totals.cancelled}. Not confirmed ${totals.cancelOpen}.${went} A replacement stays blocked until every recipient is confirmed cancelled.`,
+			};
+		case "time_unconfirmed":
+			return {
+				title: "Time change not confirmed",
+				body: `You asked for ${when(detail.requestedAt)}. The email service still holds ${when(detail.scheduledAt)}.`,
+			};
+		case "cancelled":
+			return {
+				title: "Cancelled",
+				body: `The email service confirmed the cancel for ${totals.cancelled}.${went}`,
+			};
+		case "failed":
+			return {
+				title: "Not sent",
+				body: `The email service refused all ${totals.failed}. The message stays saved.`,
+			};
+		case "unknown":
+			return { title: "Not confirmed", body: `The email service gave no answer. ${handoffCounts(totals)}` };
+		default:
+			return { title: "Sending", body: `The email service accepted it. ${handoffCounts(totals)}` };
+	}
+}
 
 function ScheduledPanel({ view, actions }: { view: MessageView; actions: ScheduledActions }) {
 	const [when_, setWhen] = useState("");
 	const [error, setError] = useState<string | undefined>();
 	const bounds = useMemo(() => windowBounds(), []);
 	const busy = actions.pending !== null;
-	const detail = view.detail;
+	const state = view.totals.state;
+	const status = heldStatus(view);
+	const requestedAt = view.detail.requestedAt;
+	// The email service holds at least one recipient: cancel and time change go to it, and Send now would not.
+	const held = state === "scheduled" || state === "time_unconfirmed";
+	const unconfirmed = state === "cancel_unconfirmed" || state === "time_unconfirmed";
+	const secondary = (name: string, label: string, run: () => void) => (
+		<Button variant="secondary" onClick={run} loading={actions.pending === name} disabled={busy && actions.pending !== name}>
+			{label}
+		</Button>
+	);
 	return (
 		<section aria-label="Scheduled message" className="flex flex-col gap-4 rounded-lg bg-surface p-5">
-			<h3 className="text-sm font-medium text-ink-2">
-				{detail.scheduledAt ? `Scheduled for ${when(detail.scheduledAt)}` : "Scheduled"}
-			</h3>
-			<p className="text-sm text-text-2">
-				Send now hands this email to the provider now. It does not wait for the send time. Accepted does not mean
-				delivered.
-			</p>
+			<div className="flex flex-col gap-1">
+				<h3 className={`text-md font-medium ${unconfirmed ? "text-magenta-600" : "text-ink"}`}>{status.title}</h3>
+				<p className="text-sm text-text-2">{status.body}</p>
+			</div>
 			{actions.notice ? (
 				<p
 					role={actions.notice.tone}
@@ -354,59 +412,66 @@ function ScheduledPanel({ view, actions }: { view: MessageView; actions: Schedul
 				</p>
 			) : null}
 			<div className="flex flex-wrap gap-2">
-				<Button variant="primary" onClick={actions.onSendNow} disabled={busy}>
-					Send now
-				</Button>
-				<Button variant="danger" onClick={actions.onCancel} disabled={busy}>
-					Cancel provider send
-				</Button>
-				<Button
-					variant="secondary"
-					onClick={actions.onReconcile}
-					loading={actions.pending === "reconcile"}
-					disabled={busy && actions.pending !== "reconcile"}
-				>
-					Check provider result
-				</Button>
-				<Button
-					variant="secondary"
-					onClick={actions.onReplace}
-					loading={actions.pending === "replace"}
-					disabled={busy && actions.pending !== "replace"}
-				>
-					Check replacement
-				</Button>
+				{state === "cancel_unconfirmed" ? (
+					<Button
+						variant="primary"
+						onClick={actions.onCheckCancel}
+						loading={actions.pending === "cancel"}
+						disabled={busy && actions.pending !== "cancel"}
+					>
+						Check again
+					</Button>
+				) : null}
+				{state === "time_unconfirmed" && requestedAt ? (
+					<Button
+						variant="primary"
+						onClick={() => actions.onCheckTime(requestedAt)}
+						loading={actions.pending === "reschedule"}
+						disabled={busy && actions.pending !== "reschedule"}
+					>
+						Check again
+					</Button>
+				) : null}
+				{!held && !unconfirmed && state !== "cancelled" ? (
+					<Button variant="primary" onClick={actions.onSendNow} disabled={busy}>
+						Send now
+					</Button>
+				) : null}
+				{held ? (
+					<Button variant="danger" onClick={actions.onCancel} disabled={busy}>
+						Cancel scheduled email
+					</Button>
+				) : null}
+				{state === "unknown" || state === "sending" ? secondary("reconcile", "Check result", actions.onReconcile) : null}
+				{state === "cancelled" || state === "cancel_unconfirmed"
+					? secondary("replace", "Check replacement", actions.onReplace)
+					: null}
 			</div>
-			<div className="flex flex-wrap items-end gap-3">
-				<Field label="Change send time" hint="From now through the next 30 days." error={error}>
-					<Input
-						type="datetime-local"
-						value={when_}
-						min={bounds.min}
-						max={bounds.max}
-						suppressHydrationWarning
-						onChange={(event) => {
-							setWhen(event.target.value);
-							setError(undefined);
-						}}
-					/>
-				</Field>
-				<Button
-					variant="secondary"
-					loading={actions.pending === "reschedule"}
-					disabled={busy && actions.pending !== "reschedule"}
-					onClick={() => {
+			{held || state === "not_scheduled" ? (
+				<div className="flex flex-wrap items-end gap-3">
+					<Field label="Change send time" hint="From now through the next 30 days." error={error}>
+						<Input
+							type="datetime-local"
+							value={when_}
+							min={bounds.min}
+							max={bounds.max}
+							suppressHydrationWarning
+							onChange={(event) => {
+								setWhen(event.target.value);
+								setError(undefined);
+							}}
+						/>
+					</Field>
+					{secondary("reschedule", "Change send time", () => {
 						const at = when_ ? new Date(when_) : null;
 						if (!at || !insideWindow(at)) {
 							setError("Choose a send time from now through the next 30 days.");
 							return;
 						}
 						actions.onReschedule(at);
-					}}
-				>
-					Change send time
-				</Button>
-			</div>
+					})}
+				</div>
+			) : null}
 		</section>
 	);
 }
@@ -458,12 +523,13 @@ function Detail({
 	const [shownAs, setShownAs] = useState(0);
 	const [sample] = useState(() => pickSampleName(detail.communicationId));
 	const as = named[Math.min(shownAs, Math.max(0, named.length - 1))]?.name ?? sample;
+	const totals = view.totals;
+	const heldStates: HubState[] = ["scheduled", "time_unconfirmed", "cancel_unconfirmed"];
 	const stateWhen = detail.sentAt
 		? `Sent ${when(detail.sentAt)}`
-		: detail.scheduledAt
+		: detail.scheduledAt && heldStates.includes(totals.state)
 			? `Scheduled for ${when(detail.scheduledAt)}`
-			: "Not sent";
-	const totals = view.totals;
+			: hubLabel[totals.state];
 	return (
 		<div className="flex flex-col gap-8">
 			<div className="flex flex-col gap-3">
@@ -764,7 +830,18 @@ function Browser({
 		canWrite &&
 		view !== null &&
 		view.detail.state === "scheduled" &&
-		["scheduled", "sending", "unknown", "failed"].includes(view.totals.state);
+		view.totals.state !== "sent" &&
+		view.totals.state !== "draft";
+
+	const recheckTime = (at: string) =>
+		void act(
+			"reschedule",
+			() => rescheduleDispatched(keys.take("reschedule"), view!.detail.revision, view!.detail.communicationId, at),
+			(report) => ({
+				text: rescheduleText(report, when),
+				tone: report.rescheduleStatus === "unknown" ? "alert" : "status",
+			}),
+		);
 
 	const actions: ScheduledActions | null =
 		scheduledShown && view
@@ -773,6 +850,13 @@ function Browser({
 					notice,
 					onSendNow: () => setConfirm("send"),
 					onCancel: () => setConfirm("cancel"),
+					onCheckCancel: () =>
+						void act(
+							"cancel",
+							() => cancelScheduled(keys.take("cancel"), view.detail.revision, view.detail.communicationId),
+							(report) => ({ text: cancelText(report), tone: report.scheduledCancel === "reconcile" ? "alert" : "status" }),
+						),
+					onCheckTime: recheckTime,
 					onReconcile: () =>
 						void act(
 							"reconcile",
@@ -790,7 +874,7 @@ function Browser({
 							(report) =>
 								report
 									? { text: deliveryText(report), tone: report.status === "accepted" ? "status" : "alert" }
-									: { text: "The provider has no send for this email yet.", tone: "status" },
+									: { text: "The email service has no send for this email yet.", tone: "status" },
 						),
 					onReplace: () =>
 						void act(
@@ -798,21 +882,7 @@ function Browser({
 							() => replaceScheduled(keys.take("replace"), view.detail.revision, view.detail.communicationId),
 							(report) => ({ text: replaceText(report), tone: "status" }),
 						),
-					onReschedule: (instant) =>
-						void act(
-							"reschedule",
-							() =>
-								rescheduleDispatched(
-									keys.take("reschedule"),
-									view.detail.revision,
-									view.detail.communicationId,
-									instant.toISOString(),
-								),
-							(report) => {
-								const text = rescheduleText(report, when(report.scheduledAt));
-								return { text, tone: report.rescheduleStatus === "unknown" ? "alert" : "status" };
-							},
-						),
+					onReschedule: (instant) => recheckTime(instant.toISOString()),
 				}
 			: null;
 
@@ -964,10 +1034,10 @@ function Browser({
 				open={confirm === "send"}
 				onOpenChange={(next) => !next && setConfirm(null)}
 				title="Send this email now?"
-				description="The provider receives this email now."
+				description="The email service receives this email now."
 				consequences={[
 					"It does not wait for the send time.",
-					"Accepted does not mean delivered.",
+					"Acceptance by the email service is not arrival in an inbox.",
 					"If this email was already handed off, it is not sent again.",
 				]}
 				confirmLabel="Send email"
@@ -988,20 +1058,20 @@ function Browser({
 			<ConfirmDialog
 				open={confirm === "cancel"}
 				onOpenChange={(next) => !next && setConfirm(null)}
-				title="Cancel the provider send?"
-				description="This asks the provider to cancel. The scheduled message stays here."
+				title="Cancel the scheduled email?"
+				description="This asks the email service to cancel each recipient. The message stays here."
 				consequences={[
-					"Mail that already went out cannot be recalled.",
-					"The provider may not confirm the cancellation.",
+					"Email that already went out cannot be recalled.",
+					"It shows as cancelled only when the email service confirms every recipient.",
 				]}
-				confirmLabel="Cancel provider send"
+				confirmLabel="Cancel scheduled email"
 				tone="danger"
 				onConfirm={async () => {
-					if (!view) throw new Error("Open a scheduled email before you cancel the provider send.");
+					if (!view) throw new Error("Open a scheduled email before you cancel it.");
 					const id = view.detail.communicationId;
 					const result = await cancelScheduled(keys.take("cancel"), view.detail.revision, id);
 					keys.settle("cancel", result);
-					if (result.status !== "ok") throw new Error(outcomeText(result) ?? "Unable to cancel the provider send.");
+					if (result.status !== "ok") throw new Error(outcomeText(result) ?? "Unable to cancel the scheduled email.");
 					setNotice({
 						text: cancelText(result.value),
 						tone: result.value.scheduledCancel === "reconcile" ? "alert" : "status",

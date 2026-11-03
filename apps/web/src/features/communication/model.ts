@@ -1,6 +1,10 @@
 // The shapes the Messages screens share. They match the WP-027 contract results. The client does not import the
 // sanitizer.
 
+import type { hubStates as contractHubStates } from "@everyfield/contracts/communication";
+
+type ContractHubState = (typeof contractHubStates)[number];
+
 export const audienceGroups = ["core_group", "launch_team", "leaders", "prospects", "all"] as const;
 type AudienceGroup = (typeof audienceGroups)[number];
 
@@ -137,42 +141,69 @@ export type DeliveryReport = {
 	unknownCount: number;
 };
 
-export type CancelReport = { scheduledCancel: "reconcile" | "confirmed" | "none" };
+/** Per recipient, what the email service confirmed for a cancel or time change. */
+type ProviderTally = { confirmedCount: number; sentCount: number; openCount: number };
+export type CancelReport = ProviderTally & { scheduledCancel: "reconcile" | "confirmed" | "none" };
 export type ReplaceReport = { replacementAllowed: boolean };
-export type RescheduleReport = { rescheduleStatus: "accepted" | "unknown"; scheduledAt: string };
-export type SuppressionReport = { address: string; active: boolean };
+export type RescheduleReport = ProviderTally & {
+	rescheduleStatus: "accepted" | "unknown";
+	scheduledAt: string;
+	heldAt: string | null;
+};
+export type Restore = { at: string; actorName: string | null; reason: string };
+export type SuppressionReport = { address: string; active: boolean; restores: Restore[] };
 export type RestoreReport = { suppressionClears: number };
 
-/** Provider acceptance is not delivery, and an unknown result is not a success. */
-export function deliveryText(report: DeliveryReport): string {
-	if (report.status === "failed") return "The provider refused this email. No recipient was accepted.";
-	if (report.status === "uncertain" || report.status === "accepted_unknown")
-		return "The provider did not confirm this email. It was not sent again.";
-	if (report.status === "partial") {
-		return `Accepted ${report.acceptedCount}. Refused ${report.rejectedCount}. No result yet for ${report.unknownCount}. Nothing was marked sent.`;
-	}
-	if (report.acceptedCount === 1) return "The provider accepted 1 recipient. Accepted does not mean delivered.";
-	return `The provider accepted ${report.acceptedCount} recipients. Accepted does not mean delivered.`;
+/** The counts every handoff result names. */
+const counts = (report: DeliveryReport) =>
+	`Accepted ${report.acceptedCount}. Refused ${report.rejectedCount}. No answer ${report.unknownCount}.`;
+
+/** The headline of a handoff. Acceptance is not arrival, and an answer that never came is not a success. */
+export function deliveryHeadline(report: DeliveryReport, held: boolean): "Scheduled" | "Not scheduled" | "Not sent" | "Not confirmed" | "Accepted" {
+	if (report.acceptedCount > 0) return held ? "Scheduled" : "Accepted";
+	if (held) return "Not scheduled";
+	return report.unknownCount > 0 ? "Not confirmed" : "Not sent";
 }
 
+/** A send-now result. It never says the email arrived. */
+export function deliveryText(report: DeliveryReport): string {
+	const headline = deliveryHeadline(report, false);
+	if (headline === "Not sent")
+		return `Not sent. The email service refused all ${report.rejectedCount}. ${counts(report)} The message stays saved in Messages.`;
+	if (headline === "Not confirmed")
+		return `Not confirmed. The email service gave no answer. ${counts(report)} It was not sent again.`;
+	return `The email service accepted it and sends it now. ${counts(report)}`;
+}
+
+/** A scheduled handoff result: "Scheduled" only when the email service holds at least one recipient. */
+export function scheduleText(report: DeliveryReport, when: string): string {
+	if (deliveryHeadline(report, true) === "Not scheduled")
+		return `Not scheduled. The email service holds no recipient. ${counts(report)} The message stays saved in Messages.`;
+	return `Scheduled for ${when}. The email service holds it until then. ${counts(report)}`;
+}
+
+const wentOut = (n: number) => (n === 1 ? "1 already went out and cannot be recalled." : `${n} already went out and cannot be recalled.`);
+
 export function cancelText(report: CancelReport): string {
-	if (report.scheduledCancel === "confirmed")
-		return "The provider cancelled the scheduled send. Mail that already went out stays out.";
+	if (report.scheduledCancel === "none") return "Nothing is waiting at the email service to cancel.";
+	const sent = report.sentCount > 0 ? ` ${wentOut(report.sentCount)}` : "";
 	if (report.scheduledCancel === "reconcile")
-		return "Cancellation was requested. The provider has not confirmed it. Mail that already went out cannot be recalled.";
-	return "No provider send is waiting to cancel. Mail that already went out cannot be recalled.";
+		return `Cancel not confirmed. Confirmed ${report.confirmedCount}. Not confirmed ${report.openCount}.${sent} Check again to ask the email service.`;
+	if (report.confirmedCount === 0) return `Not cancelled.${sent}`;
+	return `Cancelled. The email service confirmed the cancel for ${report.confirmedCount}.${sent}`;
 }
 
 export function replaceText(report: ReplaceReport): string {
 	if (report.replacementAllowed)
 		return "Every previous send is cancelled. Write a new message to send again. No email was sent.";
-	return "A replacement stays blocked until every previous send is cancelled. No email was sent.";
+	return "A replacement stays blocked until every recipient is confirmed cancelled. No email was sent.";
 }
 
-export function rescheduleText(report: RescheduleReport, when: string): string {
+export function rescheduleText(report: RescheduleReport, when: (iso: string) => string): string {
+	const sent = report.sentCount > 0 ? ` ${wentOut(report.sentCount)}` : "";
 	if (report.rescheduleStatus === "unknown")
-		return `The send time is now ${when}. The provider has not confirmed that time.`;
-	return `The send time is now ${when}. This change did not send the email.`;
+		return `Time change not confirmed. You asked for ${when(report.scheduledAt)}. The email service still holds ${report.heldAt ? when(report.heldAt) : "the earlier time"} for ${report.openCount}.${sent} Check again to ask the email service.`;
+	return `The send time is now ${when(report.scheduledAt)}.${sent} This change did not send the email.`;
 }
 
 export function restoreText(report: RestoreReport): string {
@@ -180,17 +211,32 @@ export function restoreText(report: RestoreReport): string {
 	return "This address was already clear. No new email was sent.";
 }
 
-export const hubStates = ["draft", "scheduled", "sending", "sent", "logged", "cancelled", "failed", "unknown"] as const;
+export const hubStates = [
+	"draft",
+	"scheduled",
+	"not_scheduled",
+	"sending",
+	"sent",
+	"logged",
+	"cancelled",
+	"cancel_unconfirmed",
+	"time_unconfirmed",
+	"failed",
+	"unknown",
+] as const satisfies readonly ContractHubState[];
 export type HubState = (typeof hubStates)[number];
 export const hubLabel: Record<HubState, string> = {
 	draft: "Draft",
 	scheduled: "Scheduled",
+	not_scheduled: "Not scheduled",
 	sending: "Sending",
 	sent: "Sent",
 	logged: "Logged",
 	cancelled: "Cancelled",
-	failed: "Failed",
-	unknown: "Unknown",
+	cancel_unconfirmed: "Cancel not confirmed",
+	time_unconfirmed: "Time change not confirmed",
+	failed: "Not sent",
+	unknown: "Not confirmed",
 };
 
 export type HistoryItem = {
@@ -234,6 +280,8 @@ export type DeliveryTotals = {
 	failed: number;
 	suppressed: number;
 	unknown: number;
+	cancelled: number;
+	cancelOpen: number;
 	asOf: string;
 	rate: number | null;
 	outcomes: ("accepted" | "unknown" | "rejected")[];
@@ -259,7 +307,10 @@ export type MessageDetail = {
 	bodyHtml: string | null;
 	bodyText: string | null;
 	meetingId: string | null;
+	/** The time the email service holds once it holds the message, else the saved time. */
 	scheduledAt: string | null;
+	/** A requested time the email service has not confirmed for every recipient. */
+	requestedAt: string | null;
 	sentAt: string | null;
 	senderName: string | null;
 	deliveryAddress: string | null;
@@ -339,8 +390,8 @@ export type MeetingContext = {
 	guests: { id: string; displayName: string }[];
 };
 
-/** What one Send now did. `report` is null when the email was saved and scheduled but the send step did not finish. */
-export type SendNowResult = {
+/** What one Send now or Schedule did. `report` is null when the email was saved but the handoff did not finish. */
+export type HandoffResult = {
 	communicationId: string;
 	revision: string;
 	scheduledAt: string;
@@ -349,7 +400,7 @@ export type SendNowResult = {
 };
 
 export const scheduledNotSentText =
-	"The email is saved and scheduled, but it was not sent. Open it from Messages to send it again.";
+	"The email is saved, but the email service did not receive it. Open it from Messages to send it again.";
 
 /** The Messages address. Every state the page can show is one of these. */
 export type Route =

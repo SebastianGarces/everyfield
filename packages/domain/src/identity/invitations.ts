@@ -27,6 +27,8 @@ export interface InvitationConfig {
 	origin: string;
 	budgetSecret: string;
 	enqueueMail(tx: Transaction, input: InvitationMail, command: d.Command): Promise<string>;
+	/** Whether mail to this address is blocked after an earlier bounce or complaint. A blocked invite sends nothing. */
+	addressBlocked(tx: Transaction, email: string): Promise<boolean>;
 	people: Pick<AccountPersonProducer<Transaction>, "ensureAccountPerson">;
 }
 const sourceRow = z.object({
@@ -146,6 +148,7 @@ export function createInvitationService(config: InvitationConfig) {
 			if (v.expectedRevision !== (bound.plant?.revision ?? bound.organization?.revision)) d.refuse();
 			if ("personId" in v.input && (await activePerson(tx, selected.id, v.input.personId)).linked_account_id)
 				d.refuse();
+			if (await config.addressBlocked(tx, v.input.recipientEmail)) d.refuse("address_blocked");
 			await charge(tx, selected, v.input.recipientEmail, resident ? "relationship_invite" : "seat_invite");
 			const proof = randomBytes(32).toString("base64url"),
 				id = randomUUID();
@@ -262,6 +265,7 @@ export function createInvitationService(config: InvitationConfig) {
 			if (resend) {
 				const retry = new Date((i.resent_at ?? i.created_at).getTime() + 60000);
 				if (retry > (await d.now(tx))) d.refuse("invitation_cooldown", retry.toISOString());
+				if (await config.addressBlocked(tx, i.recipient_email)) d.refuse("address_blocked");
 				const proof = randomBytes(32).toString("base64url");
 				const [changedInvitation] = await tx
 					.update(t.invitation)

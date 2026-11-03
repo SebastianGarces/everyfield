@@ -10,8 +10,7 @@ import {
 	readMeetingContext,
 	readMeetingTemplate,
 	saveDraft,
-	scheduleDraft,
-	scheduleExisting,
+	scheduleAndHandOff,
 	sendNow,
 } from "./actions.ts";
 import { bodyToTextResult, textToBody } from "./body.ts";
@@ -32,6 +31,7 @@ import { pickSampleName } from "./fields.ts";
 import { MessageEditor } from "./MessageEditor.tsx";
 import {
 	deliveryText,
+	scheduleText,
 	outcomeText,
 	scheduledNotSentText,
 	templateBinding,
@@ -341,43 +341,30 @@ export function Compose({
 		if (!plan) return;
 		// Review always works on a saved revision, so the form is what the server holds.
 		if (!form.communicationId || !form.revision) throw new Error("Save the message before you send it.");
-		const reviewed = form.state === "reviewed";
-		if (plan.kind === "now") {
-			const result = await sendNow(
-				{ save: keys.take("save"), schedule: keys.take("schedule"), send: keys.take("send") },
-				form.revision,
-				reviewed
-					? { kind: "reviewed", communicationId: form.communicationId }
-					: { kind: "draft", input: draftPayload(form) },
-			);
-			keys.settle("save", result);
-			keys.settle("schedule", result);
-			if (result.status !== "ok") throw new Error(outcomeText(result) ?? "The email was not sent.");
-			if (result.value.report === null) {
-				keys.settle("send", { status: "ok", value: null });
-				setForm({
-					...form,
-					communicationId: result.value.communicationId,
-					revision: result.value.revision,
-					state: "scheduled",
-				});
-				setScheduledId(result.value.communicationId);
-				throw new Error(scheduledNotSentText);
-			}
-			keys.settle("send", { status: "ok", value: null });
-			onDone(result.value.communicationId, deliveryText(result.value.report));
-			return;
-		}
-		const instant = plan.at.toISOString();
-		const result = reviewed
-			? await scheduleExisting(keys.take("schedule"), form.revision, form.communicationId, instant)
-			: await scheduleDraft(keys.take("save"), keys.take("schedule"), form.revision, draftPayload(form), instant);
+		const target =
+			form.state === "reviewed"
+				? ({ kind: "reviewed", communicationId: form.communicationId } as const)
+				: ({ kind: "draft", input: draftPayload(form) } as const);
+		const steps = { save: keys.take("save"), schedule: keys.take("schedule"), send: keys.take("send") };
+		// Send now hands off at once; Schedule hands off with the send time, so the email service holds the email.
+		const result =
+			plan.kind === "now"
+				? await sendNow(steps, form.revision, target)
+				: await scheduleAndHandOff(steps, form.revision, target, plan.at.toISOString());
 		keys.settle("save", result);
 		keys.settle("schedule", result);
-		if (result.status !== "ok") throw new Error(outcomeText(result) ?? "The email was not scheduled.");
+		if (result.status !== "ok")
+			throw new Error(outcomeText(result) ?? (plan.kind === "now" ? "The email was not sent." : "The email was not scheduled."));
+		keys.settle("send", { status: "ok", value: null });
+		const { report, communicationId } = result.value;
+		if (report === null) {
+			setForm({ ...form, communicationId, revision: result.value.revision, state: "scheduled" });
+			setScheduledId(communicationId);
+			throw new Error(scheduledNotSentText);
+		}
 		onDone(
-			result.value.communicationId,
-			`Scheduled for ${formatWhen(result.value.scheduledAt)}. It has not been sent.`,
+			communicationId,
+			plan.kind === "now" ? deliveryText(report) : scheduleText(report, formatWhen(result.value.scheduledAt)),
 		);
 	};
 

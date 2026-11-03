@@ -26,14 +26,14 @@ import type {
 	ResendReview,
 	RestoreReport,
 	SavedResend,
-	SendNowResult,
+	HandoffResult,
 	SuppressionReport,
 	Template,
 	TrackingRow,
 } from "./model.ts";
 import { loadMeeting } from "../meetings/server.ts";
 import { canWrite, communicationViewer, deliver, read, write, type Viewer } from "./server.ts";
-import { chainSendNow } from "./sendNowChain.ts";
+import { chainHandoff, chainSendNow } from "./sendNowChain.ts";
 import { anticipateProvider, appOrigin, deliveryTransport, mailReady } from "./mail.ts";
 
 // Server actions for the Messages screens. The actor is the request's seat. The browser cannot send one.
@@ -127,15 +127,20 @@ export async function rescheduleReviewed(
 	);
 }
 
-/** Hand a scheduled email to the provider now. The provider key is the domain idempotency key. */
+/**
+ * Hand a scheduled email to the email service: at once for `now`, held until its saved time for `held`. The provider
+ * key is the domain idempotency key.
+ */
 export async function sendReviewed(
 	requestKey: string,
 	expectedRevision: string,
 	communicationId: string,
+	when: "now" | "held" = "now",
 ): Promise<Outcome<DeliveryReport>> {
 	const result = await deliver((db, viewer, mail) => {
 		anticipateProvider(mail);
-		return communicationWriter.sendReviewed(
+		const handOff = when === "now" ? communicationWriter.sendReviewed : communicationWriter.handOffScheduled;
+		return handOff(
 			db,
 			viewer.authority,
 			{ requestKey, expectedRevision, input: { communicationId } },
@@ -182,7 +187,7 @@ export async function reconcileDelivery(
 	};
 }
 
-/** Request cancellation. The domain id is not a provider email id, so confirmation can stay unknown. */
+/** Cancel at the email service, or check an open cancel again. Each recipient is asked by its own email id. */
 export async function cancelScheduled(
 	requestKey: string,
 	expectedRevision: string,
@@ -197,7 +202,8 @@ export async function cancelScheduled(
 		),
 	);
 	if (result.status !== "ok") return result;
-	return { status: "ok", value: { scheduledCancel: result.value.scheduledCancel } };
+	const { scheduledCancel, confirmedCount, sentCount, openCount } = result.value;
+	return { status: "ok", value: { scheduledCancel, confirmedCount, sentCount, openCount } };
 }
 
 /** Read whether every previous send is cancelled. This does not create or send a message. */
@@ -217,7 +223,7 @@ export async function replaceScheduled(
 	return { status: "ok", value: { replacementAllowed: result.value.replacementAllowed } };
 }
 
-/** Change the send time and ask the provider when a provider key exists. The new revision comes from readDraft. */
+/** Change the send time, or check an open time change again. Each held recipient moves by its own email id. */
 export async function rescheduleDispatched(
 	requestKey: string,
 	expectedRevision: string,
@@ -233,9 +239,10 @@ export async function rescheduleDispatched(
 		),
 	);
 	if (result.status !== "ok") return result;
+	const { rescheduleStatus, heldAt, confirmedCount, sentCount, openCount } = result.value;
 	return {
 		status: "ok",
-		value: { rescheduleStatus: result.value.rescheduleStatus, scheduledAt: result.value.scheduledAt },
+		value: { rescheduleStatus, scheduledAt: result.value.scheduledAt, heldAt, confirmedCount, sentCount, openCount },
 	};
 }
 
@@ -253,7 +260,8 @@ export async function readOwnSuppression(): Promise<Outcome<SuppressionReport>> 
 		communicationWriter.listForSelf(db, viewer.authority, { address }, mail.keys),
 	);
 	if (result.status !== "ok") return result;
-	return { status: "ok", value: { address: result.value.address, active: result.value.active } };
+	const { active, restores } = result.value;
+	return { status: "ok", value: { address: result.value.address, active, restores } };
 }
 
 /** Clear suppression for the signed-in account email. This does not send email. */
@@ -511,14 +519,36 @@ export async function sendNow(
 	keys: { save: string; schedule: string; send: string },
 	expectedRevision: string | null,
 	target: { kind: "draft"; input: unknown } | { kind: "reviewed"; communicationId: string },
-): Promise<Outcome<SendNowResult>> {
+): Promise<Outcome<HandoffResult>> {
 	return chainSendNow({
 		schedule: (at) =>
 			target.kind === "draft"
 				? scheduleDraft(keys.save, keys.schedule, expectedRevision, target.input, at)
 				: scheduleExisting(keys.schedule, expectedRevision ?? "", target.communicationId, at),
-		send: (revision, communicationId) => sendReviewed(keys.send, revision, communicationId),
+		handOff: (revision, communicationId) => sendReviewed(keys.send, revision, communicationId),
 	});
+}
+
+/**
+ * Schedule from a draft or a reviewed message: save the time, then hand the message to the email service with that
+ * time so the email service holds it. The message shows "Scheduled" only when the email service accepted a recipient.
+ */
+export async function scheduleAndHandOff(
+	keys: { save: string; schedule: string; send: string },
+	expectedRevision: string | null,
+	target: { kind: "draft"; input: unknown } | { kind: "reviewed"; communicationId: string },
+	scheduledAt: string,
+): Promise<Outcome<HandoffResult>> {
+	return chainHandoff(
+		{
+			schedule: (at) =>
+				target.kind === "draft"
+					? scheduleDraft(keys.save, keys.schedule, expectedRevision, target.input, at)
+					: scheduleExisting(keys.schedule, expectedRevision ?? "", target.communicationId, at),
+			handOff: (revision, communicationId) => sendReviewed(keys.send, revision, communicationId, "held"),
+		},
+		scheduledAt,
+	);
 }
 
 /** The meeting a message is attached to: title, time, place and its live guest list. */
