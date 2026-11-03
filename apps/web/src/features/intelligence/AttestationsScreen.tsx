@@ -568,7 +568,8 @@ function AnswerDialog({
 						<p className="text-sm text-text-3">
 							{def.reaffirms
 								? "Renew this answer every 30 days. After that it keeps its value and shows its age."
-								: "This answer does not expire. Update it if anything changes."}
+								: "This answer does not expire. Update it if anything changes."}{" "}
+							Recorded as your statement, with the date you choose.
 						</p>
 						<div>
 							<h3 className="mb-2 text-sm font-semibold text-ink">History</h3>
@@ -602,9 +603,6 @@ function AnswerDialog({
 						</div>
 					</DialogBody>
 					<DialogFooter>
-						<span className="mr-auto text-sm text-text-3 max-app-sm:hidden">
-							Recorded as your statement, with the date you choose.
-						</span>
 						{opened.state === "answered" ? (
 							<Button
 								type="button"
