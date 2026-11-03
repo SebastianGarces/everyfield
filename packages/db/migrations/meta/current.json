@@ -1708,6 +1708,19 @@
         }
       },
       "foreignKeys": {
+        "attestation_revision_fk_3": {
+          "name": "attestation_revision_fk_3",
+          "tableFrom": "attestation_revision",
+          "tableTo": "plant",
+          "columnsFrom": [
+            "plant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
         "attestation_revision_fk_0": {
           "name": "attestation_revision_fk_0",
           "tableFrom": "attestation_revision",

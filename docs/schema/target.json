@@ -72,7 +72,7 @@
   "implementation_authorized": false,
   "table_count": 102,
   "column_count": 1192,
-  "foreign_key_count": 359,
+  "foreign_key_count": 360,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
     "date": "YYYY-MM-DD local calendar date, never UTC midnight instant.",
@@ -6759,7 +6759,7 @@
         "WP-004",
         "WP-039"
       ],
-      "meaning": "Current relation with immutable original provenance",
+      "meaning": "Current candidate attestation. It follows the Person on merge; a survivor that already holds one keeps it and the source's stays on the source.",
       "lock_order": "Lock live same-plant source and survivor in UUID order, then consumer row and owner; reference inserts take the same Person locks.",
       "merge_policy": "Preview same-parent uniqueness collisions; apply only the reviewed canonical identity choice with exact pre/post revision witnesses. Preserve immutable evidence.",
       "inverse_policy": "Refuse inverse after conflicting edits, private-author transfer or irreversible delivery/disclosure; exact guarded prior/result witnesses only.",
@@ -6769,6 +6769,31 @@
       "future_case_ids": [
         "SCHEMA-009",
         "SCHEMA-010"
+      ]
+    },
+    {
+      "table": "attestation_revision",
+      "columns": [
+        "person_id",
+        "plant_id"
+      ],
+      "target_columns": [
+        "id",
+        "tenant_id"
+      ],
+      "consumer_work_packages": [
+        "WP-039"
+      ],
+      "meaning": "Append-only attestation history. A merge leaves each revision on the Person it was written for.",
+      "lock_order": "Lock live same-plant source and survivor in UUID order. Do not rewrite the revision.",
+      "merge_policy": "Keep the revision on the source person. The current attestation moves; its history stays.",
+      "inverse_policy": "Unmerge does not move a revision, because the merge did not move it.",
+      "retirement_policy": "Lists omit a retired person. The revisions remain under that person.",
+      "privacy_policy": "Revisions never transfer account grants, private care, or organization person evidence.",
+      "immutable_evidence_policy": "Author, as-of date, statement and question version stay as written. A correction appends a row.",
+      "future_case_ids": [
+        "SCHEMA-009",
+        "PERSONREF-CANDIDATE-PERSON-ATTESTATION-MERGE"
       ]
     },
     {
@@ -9877,6 +9902,22 @@
             ]
           },
           "on_delete": "set_null"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered purge or authorized detachment only; retain minimal body-free history where required. A foreign key grants no current access."
+          },
+          "columns": [
+            "plant_id"
+          ],
+          "references": {
+            "table": "plant",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "restrict"
         }
       ],
       "checks": [
@@ -9956,6 +9997,7 @@
           "attestation_revision_uq_1"
         ],
         "foreign": [
+          "attestation_revision_fk_3",
           "attestation_revision_fk_0",
           "attestation_revision_fk_1",
           "attestation_revision_fk_2"

@@ -32,6 +32,7 @@ CREATE TABLE "attestation_revision" (
 );
 --> statement-breakpoint
 ALTER TABLE "attestation" ALTER COLUMN "reference_version_id" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "attestation_revision" ADD CONSTRAINT "attestation_revision_fk_3" FOREIGN KEY ("plant_id") REFERENCES "plant"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "attestation_revision" ADD CONSTRAINT "attestation_revision_fk_0" FOREIGN KEY ("attestation_id","plant_id") REFERENCES "attestation"("id","plant_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "attestation_revision" ADD CONSTRAINT "attestation_revision_fk_1" FOREIGN KEY ("person_id","plant_id") REFERENCES "person"("id","tenant_id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "attestation_revision" ADD CONSTRAINT "attestation_revision_fk_2" FOREIGN KEY ("author_id") REFERENCES "account"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint

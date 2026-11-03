@@ -469,6 +469,9 @@ export const attestation_revision = pgTable(
 			.default(sql`clock_timestamp()`),
 	},
 	(table): PgTableExtraConfigValue[] => [
+		foreignKey({ name: "attestation_revision_fk_3", columns: [table.plant_id], foreignColumns: [plant.id] })
+			.onDelete("restrict")
+			.onUpdate("no action"),
 		foreignKey({
 			name: "attestation_revision_fk_0",
 			columns: [table.attestation_id, table.plant_id],

@@ -33,6 +33,10 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `attestation(reference_version_id)` | `reference_version(id)` | restrict |  |
 | `attestation(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
 | `attestation(id, plant_id)` | `record(id, tenant_id)` | restrict |  |
+| `attestation_revision(attestation_id, plant_id)` | `attestation(id, plant_id)` | cascade |  |
+| `attestation_revision(person_id, plant_id)` | `person(id, tenant_id)` | restrict |  |
+| `attestation_revision(author_id)` | `account(id)` | set_null |  |
+| `attestation_revision(plant_id)` | `plant(id)` | restrict |  |
 | `audit_event(command_id)` | `audit_event(id)` | set_null | Original command correlation may cross the owned endpoint of a reviewed conversion. Cleanup may sever correlation while retaining only independently owned facts. |
 | `audit_event(actor_id)` | `account(id)` | set_null |  |
 | `audit_event(tenant_id)` | `tenant(id)` | no_action |  |
@@ -384,6 +388,7 @@ Every declared Person FK has one registration in `target.json.person_references`
 | `obligation` | `person_id, plant_id` | WP-004, WP-024 |
 | `contact_outcome` | `person_id, plant_id` | WP-004, WP-023 |
 | `attestation` | `person_id, plant_id` | WP-004, WP-039 |
+| `attestation_revision` | `person_id, plant_id` | WP-039 |
 | `mail` | `recipient_person_id, tenant_id` | WP-004, WP-028, WP-031 |
 | `pipeline_person` | `person_id, organization_id` | WP-004, WP-098 |
 | `development_enrollment` | `person_id, organization_id` | WP-004, WP-099 |
