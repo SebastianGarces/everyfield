@@ -25,6 +25,7 @@ import { phaseName } from "./Templates.tsx";
 // Phase checklists can still add it later. One answer counts: a second device shows what was already decided.
 
 type Decided = Extract<Offer, { status: "answered" }>;
+const NONE: Offer = { status: "none" };
 
 export function PhaseOffer({
 	initial,
@@ -37,19 +38,19 @@ export function PhaseOffer({
 	onAdded: (tasks: TaskItem[]) => void;
 }) {
 	const toast = useToast();
-	const [offer, setOffer] = useState<OpenOffer | null>(initial);
-	const [decided, setDecided] = useState<Decided | null>(null);
+	// One card at a time: the open offer, what another device decided, or nothing. Close and every answer end it.
+	const [card, setCard] = useState<Offer>(initial);
 	const [chosen, setChosen] = useState<ReadonlySet<string>>(() => new Set());
 	const [saving, setSaving] = useState<"accept" | "decline" | null>(null);
 	const [problem, setProblem] = useState<string | null>(null);
 	// One answer intent: a lost reply is sent again with the same key and replays the stored answer.
 	const intent = useRef(crypto.randomUUID());
 
-	if (decided) return <AlreadyAnswered decided={decided} onClose={() => setDecided(null)} />;
-	if (!offer) return null;
+	if (card.status === "answered") return <AlreadyAnswered decided={card} onClose={() => setCard(NONE)} />;
+	if (card.status === "none") return null;
+	const offer = card;
 
 	async function answer(kind: "accept" | "decline") {
-		if (!offer) return;
 		setSaving(kind);
 		setProblem(null);
 		const keys = kind === "accept" ? offer.checklists.filter((k) => chosen.has(k.key)).map((k) => k.key) : [];
@@ -63,7 +64,7 @@ export function PhaseOffer({
 		intent.current = crypto.randomUUID();
 		if (r.status === "ok") {
 			onAdded(r.value.created);
-			setOffer(null);
+			setCard(NONE);
 			toast({
 				tone: "success",
 				message: r.value.created.length
@@ -74,18 +75,26 @@ export function PhaseOffer({
 		}
 		if (r.code === "offer_answered") {
 			const read = await loadOffer(offer.transition.id);
-			if (read.status === "ok" && read.value.status === "answered") return setDecided(read.value);
-			return setOffer(null);
+			return setCard(read.status === "ok" && read.value.status === "answered" ? read.value : NONE);
 		}
-		setProblem(problemText(r.code));
-		// The catalog or the phase changed: show the current offer, or none.
+		// The phase moved again (conflict): this offer no longer applies.
+		const message =
+			r.code === "conflict"
+				? "The church moved to another phase, so this offer no longer applies."
+				: problemText(r.code);
+		// The catalog or the phase changed: show the current offer with the reason, or say why the card went away.
 		if (r.code === "stale_catalog" || r.code === "conflict") {
 			const read = await loadOffer();
+			if (read.status === "ok" && read.value.status !== "open") {
+				toast({ tone: "error", message });
+				return setCard(NONE);
+			}
 			if (read.status === "ok") {
 				setChosen(new Set());
-				setOffer(read.value.status === "open" ? read.value : null);
+				setCard(read.value);
 			}
 		}
+		setProblem(message);
 	}
 
 	const toggle = (key: string) =>
@@ -192,7 +201,7 @@ function AlreadyAnswered({ decided, onClose }: { decided: Decided; onClose: () =
 			<CardTitle size="sm">This offer was already answered</CardTitle>
 			<p className="text-md text-text-2">
 				{a.answer === "accepted"
-					? `Someone accepted it on another device or seat. ${taskCount(a.tasks.length)} were added:`
+					? `Someone accepted it on another device or seat. Added ${taskCount(a.tasks.length)}:`
 					: "Someone declined every checklist on another device or seat. No tasks were added."}
 			</p>
 			{a.tasks.length ? (
