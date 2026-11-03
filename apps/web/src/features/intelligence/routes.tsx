@@ -3,7 +3,7 @@ import { Clock01Icon, LockKeyIcon } from "@hugeicons/core-free-icons";
 import { buttonVariants, Card, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import { AttestationsScreen } from "./AttestationsScreen.tsx";
 import { CheckInScreen } from "./CheckInScreen.tsx";
 import { CheckInHeader } from "./Header.tsx";
@@ -70,18 +70,21 @@ function ConfirmZone({ name }: { name: string }) {
 	);
 }
 
+/** A page that cannot show its content: the page header, then one lock or error panel in a card. */
 function Blocked({
+	page = "Weekly check-in",
 	title,
 	tone = "lock",
 	children,
 }: {
+	page?: "Weekly check-in" | "Plant Intelligence";
 	title: string;
 	tone?: "lock" | "error";
 	children: React.ReactNode;
 }) {
 	return (
 		<>
-			<PageHeader size="xl" title="Weekly check-in" />
+			<PageHeader size="xl" title={page} />
 			<Card>
 				<StatePanel tone={tone} icon={tone === "lock" ? LockKeyIcon : undefined} title={title} headingLevel="h2">
 					{children}
@@ -107,8 +110,8 @@ export function CheckInLoading() {
 	);
 }
 
-// The Attestations page (WP-039 slice 2): /intelligence/attestations. A Member, an organization seat and a signed-in
-// account without a church seat get the same not-found answer as an unknown route.
+// The Attestations page (WP-039 slice 2): /intelligence/attestations. A Member and a signed-in account without a
+// church-plant seat get the same lock page that /intelligence shows them, inside the app frame, and no attestations read.
 export const attestationsMetadata: Metadata = { title: "Attestations", robots: { index: false, follow: false } };
 
 export async function AttestationsPage() {
@@ -117,9 +120,19 @@ export async function AttestationsPage() {
 		const v = await getViewer();
 		if (!v || v.status === "unauthenticated")
 			redirect(`/signin?returnTo=${encodeURIComponent("/intelligence/attestations")}`);
-		notFound();
+		return (
+			<Blocked page="Plant Intelligence" title="Plant Intelligence belongs to a church plant">
+				Your account has no current seat in a church plant, so there is no journey to show here.
+			</Blocked>
+		);
 	}
-	if (viewer.role === "member") notFound();
+	// Attestations are for a plant's Owners and Admins only (signals authority).
+	if (viewer.role === "member")
+		return (
+			<Blocked page="Plant Intelligence" title="Attestations are for Owners and Admins">
+				Your Member seat does not include the church&apos;s attestations. Ask an Owner or Admin if you need them.
+			</Blocked>
+		);
 	const loaded = await loadAttestations(viewer);
 	if (loaded.status !== "ok")
 		return (
