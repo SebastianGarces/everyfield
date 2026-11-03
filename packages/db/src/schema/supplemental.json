@@ -2577,6 +2577,12 @@
 			"table_name": "record"
 		},
 		{
+			"definition": "CREATE TRIGGER immutable_revision BEFORE UPDATE ON <schema>.attestation_revision FOR EACH ROW EXECUTE FUNCTION freeze_fields('id,plant_id,attestation_id,revision,key,person_id,kind,answer,as_of,detail,reference,period_start,period_end,attendance_continuous,volunteering_continuous,question_version,request_key,request_fingerprint,recorded_at')",
+			"enabled": "O",
+			"name": "immutable_revision",
+			"table_name": "attestation_revision"
+		},
+		{
 			"definition": "CREATE TRIGGER immutable_revision BEFORE UPDATE ON <schema>.private_week_revision FOR EACH ROW EXECUTE FUNCTION freeze_fields('week_id,author_id,revision,kind,spiritual,family,financial,pace,note,calendar_revision,request_key,recorded_at')",
 			"enabled": "O",
 			"name": "immutable_revision",
@@ -3516,6 +3522,20 @@
 			"kind": "table",
 			"object": "article_revision",
 			"privilege_type": "UPDATE"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "attestation_revision",
+			"privilege_type": "DELETE"
+		},
+		{
+			"grantee": "everyfield_cleanup",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "attestation_revision",
+			"privilege_type": "SELECT"
 		},
 		{
 			"grantee": "everyfield_cleanup",
@@ -5509,8 +5529,15 @@
 			"grantee": "everyfield_runtime",
 			"is_grantable": false,
 			"kind": "table",
-			"object": "attestation",
-			"privilege_type": "DELETE"
+			"object": "attestation_revision",
+			"privilege_type": "INSERT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "attestation_revision",
+			"privilege_type": "SELECT"
 		},
 		{
 			"grantee": "everyfield_runtime",

@@ -2665,6 +2665,7 @@
       ],
       "consumer_table_names": [
         "admission_attempt",
+        "attestation_revision",
         "church_brand_kit",
         "commitment_change",
         "communication",
@@ -6998,6 +6999,7 @@
       ],
       "consumer_table_names": [
         "attestation",
+        "attestation_revision",
         "commitment",
         "commitment_change",
         "interview",
@@ -10254,6 +10256,7 @@
       ],
       "consumer_table_names": [
         "attestation",
+        "attestation_revision",
         "audit_event",
         "message_template",
         "plant_geography",
@@ -12682,6 +12685,7 @@
       "consumer_table_names": [
         "account",
         "attestation",
+        "attestation_revision",
         "audit_event",
         "notice",
         "onboarding_setup",
@@ -13014,6 +13018,7 @@
       ],
       "producer_table_names": [
         "attestation",
+        "attestation_revision",
         "private_calendar",
         "private_week",
         "private_week_revision",
@@ -13630,6 +13635,7 @@
       "producer_table_names": [],
       "consumer_table_names": [
         "attestation",
+        "attestation_revision",
         "audit_event",
         "job",
         "record"
@@ -26244,6 +26250,7 @@
         "article_editor_state",
         "article_revision",
         "attestation",
+        "attestation_revision",
         "audit_event",
         "auth_account",
         "auth_session",
@@ -32360,6 +32367,7 @@
         "article_editor_state",
         "article_revision",
         "attestation",
+        "attestation_revision",
         "audit_event",
         "auth_account",
         "auth_session",
