@@ -5,7 +5,7 @@ import { z } from "zod";
 import type { DeliveryTransport } from "@everyfield/domain/communication";
 import type { MailTransport } from "../../server/jobs/mail.ts";
 import { createResendTransport } from "../../server/jobs/resend.ts";
-import { cancelCaptured, captureAllowed, captureSilent, moveCaptured, record } from "./capture.ts";
+import { captureAllowed, captureSilent, changeCaptured, record } from "./capture.ts";
 import { settleCaptured } from "./settle.ts";
 
 // Provider adapter for the Messages screens. A handoff is one batch call under the domain's idempotency key; a held
@@ -233,7 +233,7 @@ export function deliveryTransport(
 	async function change(id: string, movedTo: string | null, signal: AbortSignal): Promise<"done" | "sent" | "unknown"> {
 		if (ready.apiKey === null) {
 			if (await captureSilent()) return "unknown";
-			return movedTo === null ? cancelCaptured(id) : moveCaptured(id, movedTo);
+			return changeCaptured(id, movedTo);
 		}
 		try {
 			const path = `/emails/${encodeURIComponent(id)}`;
@@ -311,16 +311,10 @@ export function deliveryTransport(
 			return { outcome: "unknown" };
 		},
 		cancel(providerIds, signal) {
-			return eachLimited(providerIds, async (id) => {
-				const outcome = await change(id, null, signal);
-				return { outcome: outcome === "done" ? ("cancelled" as const) : outcome };
-			});
+			return eachLimited(providerIds, async (id) => ({ outcome: await change(id, null, signal) }));
 		},
 		reschedule(providerIds, at, signal) {
-			return eachLimited(providerIds, async (id) => {
-				const outcome = await change(id, at, signal);
-				return { outcome: outcome === "done" ? ("moved" as const) : outcome };
-			});
+			return eachLimited(providerIds, async (id) => ({ outcome: await change(id, at, signal) }));
 		},
 	};
 }

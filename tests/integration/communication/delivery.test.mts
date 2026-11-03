@@ -512,7 +512,7 @@ test("AC:DEL58-006 AC:MAIL51-004 AC:MAIL51-005 AC:MAIL51-007 cancel, replace, an
 			return { outcome: "ids", ids: ["prov-drop"] };
 		},
 		cancel() {
-			return { outcome: "cancelled" };
+			return { outcome: "done" };
 		},
 	});
 	ok(await handoff(owner, drop.saved.communicationId, drop.accepted.value.revision, confirmPort));

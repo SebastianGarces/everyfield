@@ -138,12 +138,12 @@ test("AC:CASE-COM-012 a scheduled capture waits in the outbox, and cancel and ti
 	const entry = async (id: string) => JSON.parse(await readFile(join(outbox, `${id}.json`), "utf8"));
 	assert.equal((await entry(first!)).scheduledAt, friday);
 
-	assert.deepEqual(await capture.reschedule([first!], saturday, signal()), [{ outcome: "moved" }]);
+	assert.deepEqual(await capture.reschedule([first!], saturday, signal()), [{ outcome: "done" }]);
 	assert.equal((await entry(first!)).scheduledAt, saturday);
-	assert.deepEqual(await capture.reschedule([first!], saturday, signal()), [{ outcome: "moved" }]);
-	assert.deepEqual(await capture.cancel([second!], signal()), [{ outcome: "cancelled" }]);
+	assert.deepEqual(await capture.reschedule([first!], saturday, signal()), [{ outcome: "done" }]);
+	assert.deepEqual(await capture.cancel([second!], signal()), [{ outcome: "done" }]);
 	assert.equal((await entry(second!)).cancelled, true);
-	assert.deepEqual(await capture.cancel([second!], signal()), [{ outcome: "cancelled" }]);
+	assert.deepEqual(await capture.cancel([second!], signal()), [{ outcome: "done" }]);
 	assert.deepEqual(await capture.reschedule([second!], saturday, signal()), [{ outcome: "unknown" }]);
 	assert.deepEqual(await capture.cancel(["capture-00000000-0000-0000-0000-000000000000"], signal()), [
 		{ outcome: "unknown" },
@@ -205,5 +205,5 @@ test("AC:CASE-COM-012 the no-answer switch makes the capture answer nothing, so 
 	} finally {
 		await rm(join(outbox, NO_ANSWER_FILE));
 	}
-	assert.deepEqual(await capture.cancel([id], signal()), [{ outcome: "cancelled" }]);
+	assert.deepEqual(await capture.cancel([id], signal()), [{ outcome: "done" }]);
 });

@@ -25,8 +25,11 @@ export type DeliveryKeys = { encryptionKey: Uint8Array; addressKey: Uint8Array; 
 export type DeliveryMessage = { to: string; subject: string; html: string; text: string };
 export type DeliveryBatch =
 	{ outcome: "ids"; ids: readonly (string | null)[] } | { outcome: "unknown" } | { outcome: "refused" };
-/** `sent`: the email service says this email already went out, so it can no longer be cancelled or moved. */
-export type ProviderAnswer<Done extends string> = { outcome: Done | "sent" | "unknown" };
+/**
+ * One answer to a cancel or time change. `done`: the email service confirmed it. `sent`: the email already went out,
+ * so it can no longer be cancelled or moved.
+ */
+export type ProviderAnswer = { outcome: "done" | "sent" | "unknown" };
 export type DeliveryTransport = {
 	/** One call for the whole batch. `scheduledAt` asks the email service to hold every message until then. */
 	send(
@@ -38,9 +41,9 @@ export type DeliveryTransport = {
 	 * Cancel each held email by the id the email service gave it at handoff, never by the idempotency key. One answer
 	 * per id, in the same order.
 	 */
-	cancel(providerIds: readonly string[], signal: AbortSignal): Promise<ProviderAnswer<"cancelled">[]>;
+	cancel(providerIds: readonly string[], signal: AbortSignal): Promise<ProviderAnswer[]>;
 	/** Move each held email to `at` by the id the email service gave it at handoff. One answer per id, in order. */
-	reschedule(providerIds: readonly string[], at: string, signal: AbortSignal): Promise<ProviderAnswer<"moved">[]>;
+	reschedule(providerIds: readonly string[], at: string, signal: AbortSignal): Promise<ProviderAnswer[]>;
 };
 
 type Actor = ReturnType<typeof readerOf>;
@@ -655,7 +658,7 @@ export function reconcileReviewed(
 	return readReply(() => handoff(db, authority, raw, transport, keys, "lookup"));
 }
 
-type Answer = { position: number; outcome: "done" | "sent" };
+type Answer = { position: number; outcome: Exclude<ProviderAnswer["outcome"], "unknown"> };
 
 async function loadHandoff(db: Database, actor: Actor, communicationId: string, expectedRevision: string) {
 	const found = await loadAudience(db, actor, communicationId);
@@ -671,11 +674,11 @@ async function loadHandoff(db: Database, actor: Actor, communicationId: string, 
  */
 async function askEach(
 	open: readonly Member[],
-	ask: (providerIds: readonly string[]) => Promise<readonly ProviderAnswer<string>[]>,
+	ask: (providerIds: readonly string[]) => Promise<readonly ProviderAnswer[]>,
 ): Promise<Answer[]> {
 	const asked = open.filter((row) => row.provider !== null);
 	if (!asked.length) return [];
-	let replies: readonly ProviderAnswer<string>[];
+	let replies: readonly ProviderAnswer[];
 	try {
 		replies = await ask(asked.map((row) => row.provider!));
 	} catch {
@@ -683,8 +686,7 @@ async function askEach(
 	}
 	return asked.flatMap((row, index): Answer[] => {
 		const outcome = replies[index]?.outcome ?? "unknown";
-		if (outcome === "unknown") return [];
-		return [{ position: row.position, outcome: outcome === "sent" ? "sent" : "done" }];
+		return outcome === "unknown" ? [] : [{ position: row.position, outcome }];
 	});
 }
 

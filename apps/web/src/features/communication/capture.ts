@@ -41,8 +41,8 @@ export function captureAllowed(env: Env): boolean {
 	return env.VERCEL_ENV === undefined || env.VERCEL_ENV === "development" || env.VERCEL_ENV === "preview";
 }
 
-export async function captureSilent(directory = outboxFolder()): Promise<boolean> {
-	return access(join(directory, NO_ANSWER_FILE)).then(
+export async function captureSilent(): Promise<boolean> {
+	return access(join(outboxFolder(), NO_ANSWER_FILE)).then(
 		() => true,
 		() => false,
 	);
@@ -60,44 +60,23 @@ export async function record(
 	return id;
 }
 
-type Held = "done" | "sent" | "unknown";
-
 /**
- * Change one held capture. A repeat of a change already made answers done. A capture whose time has passed went out;
- * a missing or cancelled one has no answer.
+ * Cancel one held capture (`movedTo` null) or move it to `movedTo`. A repeat of a change already made answers done. A
+ * capture whose time has passed went out; a missing or cancelled one has no answer.
  */
-async function changeHeld(
-	id: string,
-	done: (entry: Captured) => boolean,
-	change: (entry: Captured) => Captured,
-	directory: string,
-): Promise<Held> {
+export async function changeCaptured(id: string, movedTo: string | null): Promise<"done" | "sent" | "unknown"> {
 	if (!/^capture-[0-9a-f-]{36}$/.test(id)) return "unknown";
-	const file = join(directory, `${id}.json`);
+	const file = join(outboxFolder(), `${id}.json`);
 	const entry = await readFile(file, "utf8").then(
 		(text) => JSON.parse(text) as Captured,
 		() => null,
 	);
 	if (!entry) return "unknown";
-	if (done(entry)) return "done";
+	const held = entry.scheduledAt === null ? null : Date.parse(entry.scheduledAt);
+	if (movedTo === null ? entry.cancelled : !entry.cancelled && held === Date.parse(movedTo)) return "done";
 	if (entry.cancelled) return "unknown";
-	if (entry.scheduledAt === null || Date.parse(entry.scheduledAt) <= Date.now()) return "sent";
-	await writeFile(file, JSON.stringify(change(entry)));
+	if (held === null || held <= Date.now()) return "sent";
+	const next = movedTo === null ? { ...entry, cancelled: true } : { ...entry, scheduledAt: movedTo };
+	await writeFile(file, JSON.stringify(next));
 	return "done";
 }
-
-export const cancelCaptured = (id: string, directory = outboxFolder()) =>
-	changeHeld(
-		id,
-		(entry) => entry.cancelled,
-		(entry) => ({ ...entry, cancelled: true }),
-		directory,
-	);
-
-export const moveCaptured = (id: string, at: string, directory = outboxFolder()) =>
-	changeHeld(
-		id,
-		(entry) => !entry.cancelled && entry.scheduledAt !== null && Date.parse(entry.scheduledAt) === Date.parse(at),
-		(entry) => ({ ...entry, scheduledAt: at }),
-		directory,
-	);
