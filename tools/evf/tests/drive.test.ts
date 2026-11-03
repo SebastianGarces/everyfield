@@ -14,6 +14,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { spawn, spawnSync } from "node:child_process";
 import { assistantLine, fixture, sessionStartJs, source, writeTranscript } from "./fixtures.ts";
 import { ensureTask, findTask, markMerged, openWorkDb, sessionsRecorded, syncGoals, workDbPath } from "../db.ts";
@@ -721,7 +722,7 @@ test("OPS-66-drive: the drive exits at the merge: one merged row, no next event 
 				.run(f.taskId, head, c, new Date().toISOString());
 		runDone(f.root, f.insertRun("verify", "verifier", "started"), { status: "passed", summary: "approved" });
 		runDone(f.root, f.insertRun("ci", "evf", "started"), { status: "passed", summary: "green" });
-		// GitHub reports the PR merged (a restart after the merge): the ship stage records it.
+		// GitHub reports the PR merged (a restart after the merge): the merge check before the ship stage records it.
 		const state = f.getState();
 		state.pr = { number: 77, state: "MERGED", mergeCommit: { oid: SHA } };
 		f.setState(state);
@@ -738,13 +739,8 @@ test("OPS-66-drive: the drive exits at the merge: one merged row, no next event 
 			f.db.prepare("SELECT type FROM events WHERE task_id = ? ORDER BY id").all(f.taskId) as Array<{ type: string }>
 		).map((e) => e.type);
 		assert.equal(types.filter((t) => t === "merged").length, 1);
-		assert.equal(types.lastIndexOf("next"), types.indexOf("next"), "one next event, before the ship");
-		assert.ok(types.indexOf("next") < types.indexOf("merged"));
-		assert.deepEqual(
-			types.slice(types.indexOf("merged") + 1),
-			["stage_end"],
-			"only the ship run closes after the merge",
-		);
+		assert.equal(types.at(-1), "merged", "no next event and no stage after the merge");
+		assert.ok(!f.runs().some((r) => r.stage === "ship"), "no ship stage runs for a merged PR");
 		assert.equal(launches(), before, "no launch after ship");
 	} finally {
 		console.log = log;
@@ -816,7 +812,7 @@ test("OPS-66-reopen: only evf task new reopens a merged ref; drive, spec and lau
 		]) {
 			const r = cli(f.root, {}, ...args);
 			assert.equal(r.status, 0, r.stderr);
-			assert.match(r.stdout, /drive OPS-1: done \(merged\)/);
+			assert.match(r.stdout, /drive OPS-1: done \(merged as a{40}\)/);
 			unchanged();
 		}
 		const spec = cli(f.root, {}, "task", "spec", "OPS-1", "--file", f.file("spec.md", SPEC));
@@ -1044,12 +1040,32 @@ function withPr(f: ReturnType<typeof driveFixture>) {
 	mkdirSync(runtimeDir(f.root, f.task), { recursive: true });
 	writeFileSync(join(runtimeDir(f.root, f.task), "pr-body.md"), prBody());
 	const state = f.getState();
-	state.pr = { number: 77, url: "https://github.com/test/private/pull/77", state: "MERGED", mergeCommit: { oid: SHA } };
+	state.pr = { number: 77, url: "https://github.com/test/private/pull/77", state: "OPEN" };
 	state.requiredChecks = [{ name: "ci", bucket: "pass", link: "https://github.com/test/private/actions/runs/1" }];
 	state.protection = { required_status_checks: { contexts: ["ci"] } };
 	f.setState(state);
 	f.db.prepare("UPDATE tasks SET spec = ?, status = 'active' WHERE id = ?").run(SPEC, f.taskId);
 	return remote;
+}
+
+/**
+ * GitHub merges the PR inside the ship stage: while the store has a started ship run, `gh pr view` reports the PR
+ * merged as `commit`. Every other call goes to the fixture's fake gh. The drive's merge check between stages sees OPEN.
+ */
+function mergeInShip(f: ReturnType<typeof driveFixture>, commit = SHA) {
+	const gh = join(f.root, "fake-bin/gh"),
+		base = join(f.root, "fake-bin/gh-base");
+	writeFileSync(base, readFileSync(gh));
+	chmodSync(base, 0o755);
+	writeFileSync(
+		gh,
+		`#!${process.execPath}
+const a=process.argv.slice(2);const {DatabaseSync}=require("node:sqlite");` +
+			`const d=new DatabaseSync(${JSON.stringify(workDbPath(f.root))});d.exec("PRAGMA busy_timeout = 5000");` +
+			`const shipping=d.prepare("SELECT 1 FROM runs WHERE stage = 'ship' AND status = 'started'").get();d.close();` +
+			`if(shipping&&a[0]==="pr"&&a[1]==="view"){process.stdout.write(JSON.stringify({number:77,state:"MERGED",mergeCommit:{oid:${JSON.stringify(commit)}}}));process.exit(0)}` +
+			`const r=require("node:child_process").spawnSync(${JSON.stringify(base)},a,{stdio:"inherit"});process.exit(r.status??1);\n`,
+	);
 }
 
 test("OPS-70-pr: the pr stage runs the author checks at the head a simplifier committed and opens the PR there, with no round", () => {
@@ -1318,6 +1334,7 @@ test("OPS-70-flow: fake seats take a task from plan to merged through plan, impl
 		const made = cli(f.root, {}, "task", "new", "OPS-1", "--ask-file", f.file("ask.md", "Make the doghouse usable."));
 		assert.equal(made.status, 0, made.stderr);
 		withPr(f);
+		mergeInShip(f);
 		f.db.prepare("UPDATE tasks SET spec = NULL, status = 'new' WHERE id = ?").run(f.taskId);
 		// Every `agent wait` is the seat doing its stage work and closing the run named in the agent name.
 		const main = join(source, "tools/evf/main.ts"),
@@ -1898,11 +1915,13 @@ test("OPS-100-signal: SIGTERM to a real drive blocked in its ship stage aborts t
 				.run(f.taskId, head, c, new Date().toISOString());
 		runDone(f.root, f.insertRun("verify", "verifier", "started"), { status: "passed", summary: "approved" });
 		runDone(f.root, f.insertRun("ci", "evf", "started"), { status: "passed", summary: "green" });
-		// Every gh call blocks, so the ship stage sits inside spawnSync, which holds Node's event loop.
-		const marker = join(f.root, "gh-blocked.pid");
+		// The merge check before the stage sees an open PR. Every later gh call blocks, so the ship stage sits inside
+		// spawnSync, which holds Node's event loop.
+		const marker = join(f.root, "gh-blocked.pid"),
+			checked = join(f.root, "gh-checked");
 		writeFileSync(
 			join(f.root, "fake-bin/gh"),
-			`#!${process.execPath}\nrequire("node:fs").writeFileSync(${JSON.stringify(marker)},String(process.pid));setTimeout(()=>{},60000)\n`,
+			`#!${process.execPath}\nconst fs=require("node:fs");if(!fs.existsSync(${JSON.stringify(checked)})){fs.writeFileSync(${JSON.stringify(checked)},"");process.stdout.write('{"state":"OPEN"}');process.exit(0)}fs.writeFileSync(${JSON.stringify(marker)},String(process.pid));setTimeout(()=>{},60000)\n`,
 		);
 		chmodSync(join(f.root, "fake-bin/gh"), 0o755);
 		// A shell reports how the drive ended: 128 + the signal number when a signal ended it.
@@ -2631,6 +2650,309 @@ test("OPS-113-implement: an implement run closes passed only with a PR body that
 		writeFileSync(bodyFile, prBody());
 		quietly(() => runDone(f.root, id, { status: "passed", summary: "built" }));
 		assert.equal(f.runs().find((r) => r.id === id)!.status, "passed");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+// OPS-123: a drive pins its row, reads it by id on every pass, ends at the merge and counts a round for a failed ship.
+/** A drive fixture whose row has a real title, ask and seats, so a row evf invents stands out. */
+function pinnedFixture() {
+	const f = driveFixture();
+	f.db
+		.prepare(
+			"UPDATE tasks SET title = 'Usable doghouse', ask = 'Make the doghouse usable.', seat_model = 'claude-opus-5-5', seat_effort = 'medium', spec = ? WHERE id = ?",
+		)
+		.run(SPEC, f.taskId);
+	return f;
+}
+/** A queued follow-up with the parent's ref, its own ask and seats, as a WP or FB slice is filed (OPS-86). */
+const addSlice = (f: ReturnType<typeof driveFixture>, status = "queued") =>
+	Number(
+		f.db
+			.prepare(
+				"INSERT INTO tasks (slug, mode, ref, title, ask, branch, status, parent_task_id, slice, seat_model, seat_effort, created_at, updated_at) VALUES ('ops-1', 'implement', 'OPS-1', 'The second slice', 'Build the second slice.', 'task/ops-1', ?, ?, 1, 'claude-opus-5-5', 'high', 'x', 'x')",
+			)
+			.run(status, f.taskId).lastInsertRowid,
+	);
+const tasksTable = (f: ReturnType<typeof driveFixture>) =>
+	(f.db.prepare("SELECT * FROM tasks ORDER BY id").all() as Array<Record<string, unknown>>).map((r) => ({ ...r }));
+/** No row that evf invented for a ref: the bare ref as title, no ask, or default seats. */
+const noInventedRow = (f: ReturnType<typeof driveFixture>) => {
+	for (const r of tasksTable(f)) {
+		assert.notEqual(r.title, r.ref, `row ${r.id} has the bare ref as its title`);
+		assert.ok(String(r.ask ?? "").trim(), `row ${r.id} has no ask`);
+		assert.ok(r.seat_model && r.seat_effort, `row ${r.id} has default seats`);
+	}
+};
+const launchCalls = (f: ReturnType<typeof driveFixture>) =>
+	f.herdr.calls().filter((c) => (c[0] === "workspace" && c[1] === "create") || (c[0] === "agent" && c[1] === "start"));
+/** The closed runs a drive reaches ship after: implement, simplify, pr, verify and ci passed, PR #77 open. */
+const readyToShip = (f: ReturnType<typeof driveFixture>, round = 0) => {
+	f.db.prepare("UPDATE tasks SET status = 'pr_open', pr_number = 77, round = ? WHERE id = ?").run(round, f.taskId);
+	for (const [stage, role] of [
+		["implement", "implementer"],
+		["simplify", "simplifier"],
+		["pr", "evf"],
+		["verify", "verifier"],
+		["ci", "evf"],
+	])
+		f.insertRun(stage!, role!, "passed");
+};
+/** A fake Herdr whose `agent wait` runs `js` once (with fs, cp and the store path `db`), then reports the seat working. */
+function herdrOnWait(f: ReturnType<typeof driveFixture>, js: string) {
+	const calls = join(f.root, "herdr-calls.json"),
+		once = join(f.root, "herdr-once");
+	writeFileSync(
+		join(f.root, "fake-bin/herdr"),
+		`#!${process.execPath}\nconst fs=require("node:fs"),cp=require("node:child_process"),a=process.argv.slice(2),db=${JSON.stringify(workDbPath(f.root))};\n` +
+			`const calls=JSON.parse(fs.readFileSync(${JSON.stringify(calls)},"utf8"));calls.push(a);fs.writeFileSync(${JSON.stringify(calls)},JSON.stringify(calls));\n` +
+			`if(a[0]==="agent"&&a[1]==="wait"&&!fs.existsSync(${JSON.stringify(once)})){fs.writeFileSync(${JSON.stringify(once)},"");${js}}\n` +
+			`process.stdout.write(JSON.stringify({result:{agent:{agent_status:"working"}}}));\n`,
+	);
+	chmodSync(join(f.root, "fake-bin/herdr"), 0o755);
+}
+const captured = <T>(fn: () => T): { value: T; lines: string[] } => {
+	const log = console.log,
+		lines: string[] = [];
+	console.log = (...a: unknown[]) => lines.push(a.join(" "));
+	try {
+		return { value: fn(), lines };
+	} finally {
+		console.log = log;
+	}
+};
+const MERGE = "c".repeat(40);
+
+test("OPS-123-elsewhere AC:OPS-123-2: a merge that evf approve records while the drive waits on a seat ends the drive on its next pass", () => {
+	const f = pinnedFixture();
+	try {
+		const slice = addSlice(f);
+		const seat = openSeatRun(f, true);
+		// Another process records the merge the way evf approve does: markMergedByBranch on the PR head branch.
+		const db = pathToFileURL(join(source, "tools/evf/db.ts")).href;
+		herdrOnWait(
+			f,
+			`cp.spawnSync(process.execPath,["--disable-warning=ExperimentalWarning","--input-type=module","-e",${JSON.stringify(`import { markMergedByBranch } from ${JSON.stringify(db)}; markMergedByBranch(${JSON.stringify(f.root)}, "task/ops-1", ${JSON.stringify(MERGE)});`)}],{stdio:"inherit"});`,
+		);
+		const before = launchCalls(f).length;
+		const { value: code, lines } = captured(() => drive(f.root, f.task, {}, TIMING));
+		assert.equal(code, 0, lines.join("\n"));
+		assert.ok(
+			lines.some((l) => l.includes(`drive OPS-1: done (merged as ${MERGE})`)),
+			lines.join("\n"),
+		);
+		assert.equal(f.taskRow().status, "merged");
+		assert.equal(f.runs().find((r) => r.id === seat)!.status, "aborted", "the merge closed the open seat run");
+		assert.equal(launchCalls(f).length, before, "no seat launched");
+		assert.equal(
+			(f.db.prepare("SELECT COUNT(*) AS n FROM runs WHERE task_id = ?").get(slice) as { n: number }).n,
+			0,
+			"the released slice never started",
+		);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-123-github AC:OPS-123-3: a PR merged on GitHub between stages ends the drive at the next pass with no ci or ship; an unreadable GitHub does not", () => {
+	const f = pinnedFixture();
+	try {
+		readyToShip(f);
+		f.db.prepare("DELETE FROM runs WHERE task_id = ? AND stage = 'ci'").run(f.taskId); // ci runs next
+		const s = f.getState();
+		s.pr = { number: 77, state: "MERGED", mergeCommit: { oid: MERGE } };
+		s.calls = [];
+		f.setState(s);
+		const { value: code, lines } = captured(() => drive(f.root, f.task, {}, TIMING));
+		assert.equal(code, 0, lines.join("\n"));
+		assert.ok(
+			lines.some((l) => l.includes(`drive OPS-1: done (merged as ${MERGE})`)),
+			lines.join("\n"),
+		);
+		assert.deepEqual(
+			{ ...(f.db.prepare("SELECT status, merge_commit FROM tasks WHERE id = ?").get(f.taskId) as object) },
+			{ status: "merged", merge_commit: MERGE },
+		);
+		assert.equal(f.events("merged").length, 1);
+		assert.deepEqual(
+			f.runs().filter((r) => r.stage === "ci" || r.stage === "ship"),
+			[],
+			"no ci or ship stage after the merge",
+		);
+		const gh = f.getState().calls.map((c: { args: string[] }) => c.args.slice(0, 2).join(" "));
+		assert.deepEqual(gh, ["pr view"], "one GitHub read, no checks and no merge");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+	const g = pinnedFixture();
+	try {
+		readyToShip(g);
+		g.db.prepare("DELETE FROM runs WHERE task_id = ? AND stage = 'ci'").run(g.taskId);
+		const s = g.getState();
+		s.requiredChecks = [{ name: "ci", bucket: "pass" }];
+		g.setState(s);
+		// GitHub cannot be read for the PR: the merge check finds nothing and the ci stage runs as before.
+		const gh = join(g.root, "fake-bin/gh"),
+			base = join(g.root, "fake-bin/gh-base");
+		writeFileSync(base, readFileSync(gh));
+		chmodSync(base, 0o755);
+		writeFileSync(
+			gh,
+			`#!${process.execPath}\nconst a=process.argv.slice(2);if(a[0]==="pr"&&a[1]==="view"){process.stderr.write("fixture: GitHub is down");process.exit(1)}` +
+				`process.exit(require("node:child_process").spawnSync(${JSON.stringify(base)},a,{stdio:"inherit"}).status??1);\n`,
+		);
+		const n = quiet(() => driveOnce(g.root, g.task, TIMING));
+		assert.equal(n.stage, "ci");
+		assert.deepEqual(
+			g
+				.runs()
+				.filter((r) => r.stage === "ci")
+				.map((r) => r.status),
+			["passed"],
+		);
+		assert.equal(g.taskRow().status, "pr_open");
+	} finally {
+		g.db.close();
+		g.close();
+	}
+});
+
+test("OPS-123-replay AC:OPS-123-4: after a recorded merge, with and without a released slice, the drive's next pass on its pinned row leaves the tasks table as it was", () => {
+	for (const withSlice of [false, true]) {
+		const f = pinnedFixture();
+		try {
+			const slice = withSlice ? addSlice(f) : 0;
+			const pin = f.taskId;
+			markMerged(f.db, f.task, MERGE, null);
+			if (withSlice) assert.equal(findTask(f.db, f.task)!.id, slice, "the released slice is the ref's current row now");
+			const before = tasksTable(f);
+			const n = quiet(() => driveOnce(f.root, f.task, TIMING, pin));
+			assert.deepEqual([n.stage, n.reason], ["done", `merged as ${MERGE}`]);
+			assert.deepEqual(tasksTable(f), before, `the same rows${withSlice ? " with the slice" : ""}`);
+			noInventedRow(f);
+			assert.deepEqual(launchCalls(f), [], "no seat launched");
+			assert.equal(f.events("next").length, 0, "the pass made no transition");
+		} finally {
+			f.db.close();
+			f.close();
+		}
+	}
+});
+
+test("OPS-123-fresh AC:OPS-123-5: a fresh drive on a merged row ends merged; on a released slice it drives the slice with its own seats; an abandoned pinned row stops with code 2", () => {
+	const f = pinnedFixture();
+	try {
+		f.db.prepare("UPDATE tasks SET status = 'merged', merge_commit = ? WHERE id = ?").run(MERGE, f.taskId);
+		const before = tasksTable(f);
+		const { value: code, lines } = captured(() => drive(f.root, f.task, {}, TIMING));
+		assert.equal(code, 0, lines.join("\n"));
+		assert.ok(
+			lines.some((l) => l.includes(`drive OPS-1: done (merged as ${MERGE})`)),
+			lines.join("\n"),
+		);
+		assert.deepEqual(tasksTable(f), before, "no row inserted");
+
+		// The merge released a slice: a fresh drive pins it and starts its planner with the slice's own seats.
+		const slice = addSlice(f, "new");
+		const once = captured(() => drive(f.root, f.task, { once: true }, TIMING));
+		assert.equal(once.value, 0, once.lines.join("\n"));
+		const runs = f.db.prepare("SELECT task_id, stage, model, effort FROM runs ORDER BY id").all() as Array<object>;
+		assert.deepEqual(
+			runs.map((r) => ({ ...r })),
+			[{ task_id: slice, stage: "plan", model: "claude-opus-5-5", effort: "high" }],
+		);
+		assert.equal(tasksTable(f).length, before.length + 1, "only the slice row the test filed was added");
+		noInventedRow(f);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+	const g = pinnedFixture();
+	try {
+		const seat = openSeatRun(g, true);
+		// The row is abandoned while the drive waits on its seat (store edit; evf task abandon refuses a live drive).
+		herdrOnWait(
+			g,
+			`const {DatabaseSync}=require("node:sqlite"),d=new DatabaseSync(db);d.exec("PRAGMA busy_timeout = 5000");` +
+				`d.prepare("UPDATE runs SET status = 'aborted' WHERE id = ?").run(${seat});d.prepare("UPDATE tasks SET status = 'abandoned' WHERE id = ?").run(${g.taskId});` +
+				`d.prepare("INSERT INTO events (task_id, run_id, ts, type, payload) VALUES (?, NULL, 'x', 'abandon', ?)").run(${g.taskId},JSON.stringify({reason:"replaced by a new plan"}));d.close();`,
+		);
+		const before = tasksTable(g).length;
+		const { value: code, lines } = captured(() => drive(g.root, g.task, {}, TIMING));
+		assert.equal(code, 2, lines.join("\n"));
+		assert.ok(
+			lines.some((l) =>
+				l.includes(`drive OPS-1: abandoned (store row ${g.taskId} of OPS-1 was abandoned: replaced by a new plan;`),
+			),
+			lines.join("\n"),
+		);
+		assert.equal(tasksTable(g).length, before, "no replacement row");
+		assert.equal(launchCalls(g).length, 0, "no seat launched");
+	} finally {
+		g.db.close();
+		g.close();
+	}
+});
+
+test("OPS-123-round AC:OPS-123-6: a failed ship records a ship round with its summary and the next pass launches implement for that round with the summary", () => {
+	const f = pinnedFixture();
+	try {
+		readyToShip(f);
+		const first = quiet(() => driveOnce(f.root, f.task, TIMING));
+		assert.equal(first.stage, "ship", "the failed ship does not end the drive");
+		const ship = f.db
+			.prepare("SELECT status, summary FROM runs WHERE task_id = ? AND stage = 'ship'")
+			.get(f.taskId) as {
+			status: string;
+			summary: string;
+		};
+		assert.equal(ship.status, "failed");
+		const headline = ship.summary.split("\n")[0]!;
+		const rounds = f.events("round").map((e) => JSON.parse(e.payload));
+		assert.deepEqual(rounds, [{ round: 1, cause: "ship", summary: `round 1 after ship failed: ${headline}` }]);
+		assert.equal(f.taskRow().round, 1);
+		const next = quiet(() => driveOnce(f.root, f.task, TIMING));
+		assert.deepEqual([next.stage, next.round], ["implement", 1]);
+		const implement = f.db
+			.prepare("SELECT round FROM runs WHERE task_id = ? AND stage = 'implement' ORDER BY id DESC LIMIT 1")
+			.get(f.taskId) as { round: number };
+		assert.equal(implement.round, 1);
+		const prompt = f.herdr
+			.calls()
+			.filter((c) => c[0] === "agent" && c[1] === "prompt")
+			.map((c) => c[3]!)
+			.find((p) => p.startsWith("Implement task"))!;
+		assert.ok(prompt.includes(`Round 1: ship failed: ${ship.summary}.`), prompt);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-123-cap AC:OPS-123-7: a failed ship past the loop cap escalates with the ship summary, exits 2 and launches no implement seat", () => {
+	const f = pinnedFixture();
+	try {
+		readyToShip(f, LOOP_CAP);
+		const { value: code, lines } = captured(() => drive(f.root, f.task, {}, TIMING));
+		assert.equal(code, 2, lines.join("\n"));
+		const ship = f.db.prepare("SELECT summary FROM runs WHERE task_id = ? AND stage = 'ship'").get(f.taskId) as {
+			summary: string;
+		};
+		const headline = ship.summary.split("\n")[0]!;
+		const cap = f.events("loop_cap_hit").map((e) => JSON.parse(e.payload));
+		assert.deepEqual(cap, [
+			{ round: LOOP_CAP + 1, cap: LOOP_CAP, summary: `OPS-1 hit the loop cap after ship failed: ${headline}` },
+		]);
+		assert.equal(
+			JSON.parse(f.events("escalation")[0]!.payload).summary,
+			`OPS-1 needs Sebastian: loop cap ${LOOP_CAP} hit after ship failed. ${headline}`,
+		);
+		assert.equal(f.taskRow().status, "escalated");
+		assert.equal(agentStarts(f, "implementer"), 0, "no implement seat launched");
 	} finally {
 		f.db.close();
 		f.close();
