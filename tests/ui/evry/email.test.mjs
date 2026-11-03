@@ -4,6 +4,7 @@
 // cancel or time change lands in the capture folder, and a file named no-answer there makes the capture give no answer.
 // Every test drives the Evry panel and approves the card the way a planter does, then checks the database and the capture.
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -19,6 +20,13 @@ let db = null;
 /** The seeded database, opened on first use, for counting rows the page does not show. */
 async function database() {
 	if (db) return db;
+	// `evf ac run` starts no env file: the admin connection comes from the home checkout's, which node loads and nothing prints.
+	if (!process.env.DATABASE_URL && !process.env.DATABASE_URL_UNPOOLED) {
+		const common = execFileSync("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"], {
+			encoding: "utf8",
+		}).trim();
+		process.loadEnvFile(join(common, "..", "apps/web/.env.local"));
+	}
 	const { openSeedEnvironment } = await import("../seed-env.mts");
 	const { sql } = await import("../../../packages/db/node_modules/drizzle-orm/index.js");
 	const env = await openSeedEnvironment(fixture("people").origin);

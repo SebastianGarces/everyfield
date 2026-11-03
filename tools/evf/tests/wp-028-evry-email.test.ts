@@ -17,8 +17,11 @@ const common = spawnSync("git", ["rev-parse", "--path-format=absolute", "--git-c
 const env = join(dirname(common.stdout.trim()), "apps/web/.env.local");
 
 function node(args: string[], cwd: string) {
+	// An answer-key run is itself a node:test child; a nested run must report as a plain run, not to that parent.
+	const { NODE_TEST_CONTEXT: _parent, ...clean } = process.env;
 	return spawnSync(process.execPath, ["--conditions=react-server", `--env-file-if-exists=${env}`, ...args], {
 		cwd,
+		env: clean,
 		encoding: "utf8",
 		timeout: 420_000,
 	});
@@ -57,6 +60,7 @@ test("AC:WP-028-12 the recorded email evals cover draft, schedule, time change, 
 	// The replay makes no paid call: it has no key, and a call without a recording fails.
 	const replay = node(["--test", "../../tests/evry/evals/communication.test.mts"], join(root, "packages/evry"));
 	assert.equal(replay.status, 0, passed(replay) || replay.stderr.slice(-800));
+	assert.match(replay.stdout, /✔ AC:EVRY-CONTEXT-BOUNDS email requests pick/);
 });
 
 test("AC:WP-028-13 each Evry email review and effect stays within its statement budget and calls the email service outside any transaction", () => {
