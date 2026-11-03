@@ -393,6 +393,8 @@ try {
 		["GET /ministries?view=chart", "/ministries?view=chart", owner.cookie],
 		["GET /ministries/[teamId]", `/ministries/${ministry.id}`, owner.cookie],
 		["GET /intelligence", "/intelligence", owner.cookie],
+		["GET /me/check-in", "/me/check-in", owner.cookie],
+		["GET /me/check-in (member)", "/me/check-in", member.cookie],
 		["GET /signin (signed out)", "/signin", ""],
 	];
 	// RT-6c: no request pays a cold-start cost. Server start checks the bucket's privacy without any request, and opens
@@ -652,6 +654,30 @@ try {
 	]);
 	assert.equal(movedBack.status, "ok", JSON.stringify(movedBack));
 
+	// The private check-in (WP-039): this week's save, a correction and an older history page. Each is one request.
+	await admin.execute(sql`UPDATE account SET personal_timezone='America/Chicago' WHERE id=${owner.accountId}`);
+	const care = "apps/web/src/features/intelligence/actions.ts";
+	const steady = { spiritual: "steady", family: "steady", financial: "steady", pace: "steady" };
+	const checkedIn = await act("POST intelligence.saveCheckIn", "/me/check-in", care, "saveCheckIn", [
+		randomUUID(),
+		"0",
+		steady,
+		"Rested this week",
+	]);
+	assert.equal(checkedIn.status, "ok", JSON.stringify(checkedIn));
+	let careRevision = checkedIn.value.revision;
+	const corrected = await act("POST intelligence.correctCheckIn", "/me/check-in", care, "correctCheckIn", [
+		randomUUID(),
+		careRevision,
+		checkedIn.value.week.id,
+		{ ...steady, pace: "strained" },
+		"",
+	]);
+	assert.equal(corrected.status, "ok", JSON.stringify(corrected));
+	careRevision = corrected.value.revision;
+	const olderWeeks = await act("POST intelligence.readCheckInHistory", "/me/check-in", care, "readCheckInHistory", [2]);
+	assert.equal(olderWeeks.status, "ok", JSON.stringify(olderWeeks));
+
 	// More data than one screen shows: the same pages must send the same statements.
 	for (let i = 0; i < 12; i++)
 		assert.equal(
@@ -665,6 +691,16 @@ try {
 			).status,
 			"ok",
 		);
+	for (let i = 0; i < 12; i++) {
+		const grown = await act(null, "/me/check-in", care, "saveCheckIn", [
+			randomUUID(),
+			careRevision,
+			{ ...steady, pace: i % 2 ? "steady" : "struggling" },
+			`Grown note ${i}`,
+		]);
+		assert.equal(grown.status, "ok", JSON.stringify(grown));
+		careRevision = grown.value.revision;
+	}
 	for (let i = 0; i < 30; i++) await person(`Grown ${String(i).padStart(2, "0")}`);
 	for (let i = 0; i < 5; i++) maria = await note(maria, `Grown note ${i}`);
 	for (let i = 0; i < 30; i++) await task(`Grown task ${i}`);

@@ -172,17 +172,13 @@ export interface CredentialProducer {
 	): Promise<z.infer<typeof credentialOutcome>>;
 }
 
-// WP-039 supplies this server-only collaborator. The account producer invokes it
-// only after current original-author eligibility; never queries it for ineligible
-// actors. Preview resolves the first strictly future Monday in requested zone.
-// The handle binds exact account preference + calendar revisions and is retained
-// server-side. Apply rechecks under the same author lock as answers/rollover and
-// account preference CAS; a refusal rolls the whole account transaction back.
-export interface PersonalTimezoneCalendar<Tx, AuthorPlan> {
-	preview(
-		tx: Tx,
-		context: NativeSettingsContext,
-		input: z.infer<typeof native.previewPersonalTimezoneRequest>,
-	): Promise<AuthorPlan>;
-	apply(tx: Tx, context: NativeSettingsContext, plan: AuthorPlan): Promise<void>;
+// WP-039 supplies this server-only collaborator (packages/domain/src/intelligence/care.ts). The account producer
+// invokes it only for a current Owner or Admin author and never for anyone else. Preview binds each of the author's
+// private calendars to the preview at its current revision; the binding stays in private storage, never in the
+// settings preview. Apply runs in the account transaction: it keeps every open week and starts the next week at the
+// first Monday strictly after `at` in the new zone. It answers false, having changed nothing, when a save or another
+// change moved a calendar since the preview; Settings then refuses the whole change.
+export interface PersonalTimezoneCalendar<Tx> {
+	preview(tx: Tx, input: { account: string; previewId: string }): Promise<void>;
+	apply(tx: Tx, input: { account: string; previewId: string; zone: string; at: string }): Promise<boolean>;
 }
