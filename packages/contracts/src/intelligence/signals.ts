@@ -188,6 +188,29 @@ export const signalEntry = z.strictObject({
 });
 export type SignalEntry = z.infer<typeof signalEntry>;
 
+const DAY = 86_400_000;
+/** Whole calendar days from `from` to `to`, both LocalDates. */
+export const daysBetween = (from: string, to: string) =>
+	Math.round((Date.parse(to + "T00:00:00Z") - Date.parse(from + "T00:00:00Z")) / DAY);
+/**
+ * The renewal state of one signal. Only an answered signal has an age. The three reaffirming signals are current
+ * through day 30 and need renewing from day 31, keeping their value. The others never expire. Unanswered and retracted
+ * signals are Unknown, never no.
+ */
+export function renewalOf(key: SignalKey, state: "answered" | "retracted" | "unanswered", ageDays: number | null): Renewal {
+	if (state !== "answered" || ageDays === null) return { status: "unknown" };
+	if (!SIGNAL_DEFINITIONS.find((d) => d.key === key)!.reaffirms) return { status: "does_not_expire" };
+	return ageDays <= REAFFIRM_WINDOW_DAYS
+		? { status: "current", daysLeft: REAFFIRM_WINDOW_DAYS - ageDays }
+		: { status: "needs_renewing" };
+}
+/** The page's counts over its seven entries: Current, Needs renewing and Not answered (unanswered or retracted). */
+export function countsOf(entries: readonly SignalEntry[]): AttestationCounts {
+	const answered = entries.filter((e) => e.state === "answered");
+	const stale = answered.filter((e) => e.renewal.status === "needs_renewing").length;
+	return { current: answered.length - stale, needsRenewing: stale, notAnswered: entries.length - answered.length };
+}
+
 export const candidateReason = z.enum(["attendance_not_attested", "volunteering_not_attested", "period_too_short"]);
 export type CandidateReason = z.infer<typeof candidateReason>;
 

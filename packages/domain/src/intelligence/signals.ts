@@ -91,14 +91,10 @@ const stateRow = z.object({
 });
 type StateRow = z.infer<typeof stateRow>;
 
-const DAY = 86_400_000;
-const dayNumber = (day: string) => Date.parse(day + "T00:00:00Z") / DAY;
-/** Whole calendar days from `from` to `to`, both LocalDates. */
-export const daysBetween = (from: string, to: string) => Math.round(dayNumber(to) - dayNumber(from));
+export const daysBetween = c.daysBetween;
 
 /** One signal from its latest revision (null when never answered) and the church's today. */
 export function signalFrom(key: c.SignalKey, row: StateRow | null, today: string): c.SignalEntry {
-	const definition = c.SIGNAL_DEFINITIONS.find((d) => d.key === key)!;
 	if (!row)
 		return c.signalEntry.parse({
 			key,
@@ -126,13 +122,7 @@ export function signalFrom(key: c.SignalKey, row: StateRow | null, today: string
 		recordedAt: row.recordedAt,
 		revision: row.revision,
 		ageDays: answered ? age : null,
-		renewal: !answered
-			? { status: "unknown" }
-			: !definition.reaffirms
-				? { status: "does_not_expire" }
-				: age <= c.REAFFIRM_WINDOW_DAYS
-					? { status: "current", daysLeft: c.REAFFIRM_WINDOW_DAYS - age }
-					: { status: "needs_renewing" },
+		renewal: c.renewalOf(key, answered ? "answered" : "retracted", answered ? age : null),
 	});
 }
 
@@ -359,17 +349,11 @@ export function createSignals(config: { clock?: Clock } = {}) {
 				if (!r.ok || !r.zone || !r.today) deny("access_denied");
 				const byKey = new Map(r.signals.map((x) => [x.key, x]));
 				const signals = c.SIGNAL_KEYS.map((k) => signalFrom(k, byKey.get(k) ?? null, r.today!));
-				const answered = signals.filter((x) => x.state === "answered");
-				const stale = answered.filter((x) => x.renewal.status === "needs_renewing").length;
 				return c.attestationsPage.parse({
 					zone: r.zone,
 					today: r.today,
 					signals,
-					counts: {
-						current: answered.length - stale,
-						needsRenewing: stale,
-						notAnswered: signals.length - answered.length,
-					},
+					counts: c.countsOf(signals),
 					candidates: r.candidates.map(candidateFrom),
 					people: r.people,
 					history: r.history.map(revisionOf),
