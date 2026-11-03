@@ -33,6 +33,7 @@ import { QA_LOGINS, QA_PASSWORD, QA_ROLES as ROLES, roleUrl, seedRefusal } from 
 const CHURCH = "Harvest Point (QA)";
 const ORIGIN = "https://qa-seed.everyfield.invalid";
 const GLOBAL = "00000000-0000-0000-0000-000000000000";
+const digest = () => randomBytes(32).toString("hex");
 
 const address = (label: string) => `delivered+qa-${label}@resend.dev`;
 const PEOPLE: [name: string, stage: string, label: string | null][] = [
@@ -417,7 +418,6 @@ async function fill(admin: Database, runtime: Database, authDb: Database): Promi
  */
 async function wiki(admin: Database): Promise<boolean> {
 	if ((await rows(admin, sql`SELECT 1 FROM reference_activation LIMIT 1`)).length) return false;
-	const digest = () => randomBytes(32).toString("hex");
 	const release = randomUUID(),
 		section = randomUUID();
 	const corpus = JSON.parse(
@@ -515,7 +515,6 @@ async function globalRevision(admin: Database, articleId: string) {
 async function wikiCases(admin: Database, plantId: string, owner: string): Promise<string[]> {
 	const done: string[] = [];
 	const [articleA, articleB] = await starterArticles(admin);
-	const digest = () => randomBytes(32).toString("hex");
 	const base = await globalRevision(admin, articleA);
 	let copies = false;
 	for (const source of SOURCES) {
