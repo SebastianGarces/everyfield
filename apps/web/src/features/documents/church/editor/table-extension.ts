@@ -152,7 +152,7 @@ const alignOf = (c: ColumnSpec) => c.align ?? (c.type === "text" ? "left" : "rig
 
 // ---------------------------------------------------------------- moving between cells
 
-type Stop = { area: "head"; col: number } | { area: "cell"; row: number; col: number };
+type Stop = { area: "head"; col: number } | { area: "cell"; row: number; col: number } | { area: "blank" };
 
 /** The places a Tab stops in a table, in reading order: the header labels, then every cell that takes input. */
 function stopsOf(context: TableContext): Stop[] {
@@ -167,13 +167,24 @@ function stopsOf(context: TableContext): Stop[] {
 				stops.push({ area: "cell", row: r, col });
 		});
 	});
+	// The blank rows are one stop at the end: a person who lands there can remove a blank row.
+	if (!a.source && a.writeInRows > 0) stops.push({ area: "blank" });
 	return stops;
 }
 
-const sameStop = (a: Stop, b: Stop) =>
-	a.area === b.area && a.col === b.col && (a.area === "head" || (b.area === "cell" && a.row === b.row));
+const sameStop = (a: Stop, b: Stop) => {
+	if (a.area !== b.area) return false;
+	if (a.area === "blank") return true;
+	if (a.area === "head") return b.area === "head" && a.col === b.col;
+	return b.area === "cell" && a.row === b.row && a.col === b.col;
+};
 
 function focusStop(view: EditorView, context: TableContext, stop: Stop) {
+	if (stop.area === "blank") {
+		const dom = view.nodeDOM(context.pos) as HTMLElement | null;
+		dom?.querySelector<HTMLElement>(".ef-table-blanks")?.focus();
+		return;
+	}
 	if (stop.area === "head") {
 		const dom = view.nodeDOM(context.pos) as HTMLElement | null;
 		(dom?.querySelectorAll<HTMLInputElement>(".ef-head-cell")[stop.col] ?? null)?.focus();
@@ -192,7 +203,33 @@ function focusStop(view: EditorView, context: TableContext, stop: Stop) {
 	} else view.focus();
 }
 
-/** Tab (`1`) or Shift+Tab (`-1`) from `from`. False at either end, so the browser moves on to the next control. */
+const TABBABLE =
+	'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]), [contenteditable="true"]';
+
+/**
+ * Tab past the last cell or Shift+Tab before the first moves on to the control after or before the table, as the
+ * browser would. The editor's own element holds the table, so the browser's choice would be the table's first field
+ * again: this picks the next one that is neither inside the table nor around it.
+ */
+function leaveTable(view: EditorView, tablePos: number, direction: 1 | -1): boolean {
+	const dom = view.nodeDOM(tablePos) as HTMLElement | null;
+	if (!dom) return false;
+	const all = [...document.querySelectorAll<HTMLElement>(TABBABLE)].filter(
+		(el) => el.offsetParent !== null && getComputedStyle(el).visibility !== "hidden",
+	);
+	const inside = all.filter((el) => dom.contains(el));
+	const edge = direction > 0 ? inside.at(-1) : inside[0];
+	if (!edge) return false;
+	let at = all.indexOf(edge) + direction;
+	while (all[at] && (dom.contains(all[at]!) || all[at]!.contains(dom))) at += direction;
+	const next = all[at];
+	// Nothing comes after the table: focus leaves the page's controls, as it does at the end of any page.
+	if (next) next.focus();
+	else (document.activeElement as HTMLElement | null)?.blur();
+	return true;
+}
+
+/** Tab (`1`) or Shift+Tab (`-1`) from `from`. At either end it moves on to the next control after or before the table. */
 export function moveFocus(editor: Editor, tablePos: number, from: Stop | null, direction: 1 | -1): boolean {
 	const node = editor.state.doc.nodeAt(tablePos);
 	if (!node || node.type.name !== "table") return false;
@@ -205,7 +242,7 @@ export function moveFocus(editor: Editor, tablePos: number, from: Stop | null, d
 	const stops = stopsOf(context);
 	const at = from ? stops.findIndex((s) => sameStop(s, from)) : -1;
 	const next = stops[at < 0 ? (direction > 0 ? 0 : stops.length - 1) : at + direction];
-	if (!next) return false;
+	if (!next) return leaveTable(editor.view, tablePos, direction);
 	focusStop(editor.view, context, next);
 	return true;
 }
@@ -527,6 +564,11 @@ function tableNodeView(
 	const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => widths());
 	observer?.observe(scroll);
 	blanks.addEventListener("focus", () => noteFocus(editor.view, getPos(), "blank", 0));
+	blanks.addEventListener("keydown", (event) => {
+		const pos = getPos();
+		if (event.key === "Tab" && pos !== undefined && moveFocus(editor, pos, { area: "blank" }, event.shiftKey ? -1 : 1))
+			event.preventDefault();
+	});
 	return {
 		dom,
 		contentDOM: body,
