@@ -10,8 +10,7 @@ import {
 	readMeetingContext,
 	readMeetingTemplate,
 	saveDraft,
-	scheduleAndHandOff,
-	sendNow,
+	handOff,
 } from "./actions.ts";
 import { bodyToTextResult, textToBody } from "./body.ts";
 import {
@@ -347,10 +346,7 @@ export function Compose({
 				: ({ kind: "draft", input: draftPayload(form) } as const);
 		const steps = { save: keys.take("save"), schedule: keys.take("schedule"), send: keys.take("send") };
 		// Send now hands off at once; Schedule hands off with the send time, so the email service holds the email.
-		const result =
-			plan.kind === "now"
-				? await sendNow(steps, form.revision, target)
-				: await scheduleAndHandOff(steps, form.revision, target, plan.at.toISOString());
+		const result = await handOff(steps, form.revision, target, plan.kind === "now" ? null : plan.at.toISOString());
 		keys.settle("save", result);
 		keys.settle("schedule", result);
 		if (result.status !== "ok")

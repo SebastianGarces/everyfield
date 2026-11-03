@@ -843,9 +843,10 @@ export function rescheduleDispatched(
 					jsonb_build_object('scheduled_at', ${requested}::text)
 				FROM updated
 				ON CONFLICT (subject_id, event_key) DO NOTHING`);
-		const open = members.filter(
-			(row) => row.state === "accepted" && row.scheduledAt !== null && row.scheduledAt !== requested,
-		);
+		// Accepted recipients the email service still holds at another time.
+		const holdsOther = (row: Member) =>
+			row.state === "accepted" && row.scheduledAt !== null && row.scheduledAt !== requested;
+		const open = members.filter(holdsOther);
 		let next = members;
 		if (found.request_id && open.length) {
 			const answers = await askEach(open, (providerIds) => transport.reschedule(providerIds, requested, signal()));
@@ -863,9 +864,7 @@ export function rescheduleDispatched(
 				});
 			}
 		}
-		const still = next.filter(
-			(row) => row.state === "accepted" && row.scheduledAt !== null && row.scheduledAt !== requested,
-		);
+		const still = next.filter(holdsOther);
 		return c.rescheduleDispatchedResult.parse({
 			body: found.body_text ?? found.body_html,
 			rescheduleStatus: still.length ? "unknown" : "accepted",

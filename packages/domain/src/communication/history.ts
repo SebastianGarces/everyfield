@@ -17,7 +17,6 @@ import {
 } from "./core.ts";
 import { z } from "zod";
 
-const HUB = c.hubStates;
 const one = (result: { rows: unknown[] }) => result.rows[0];
 const asJson = (value: unknown) => (typeof value === "string" ? JSON.parse(value) : value);
 const STAMP = 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"';
@@ -75,7 +74,7 @@ function textOrNull(value: unknown) {
 	return text ? text.slice(0, 200) : null;
 }
 function stateOrNull(value: unknown) {
-	return typeof value === "string" && (HUB as readonly string[]).includes(value) ? value : null;
+	return typeof value === "string" && (c.hubStates as readonly string[]).includes(value) ? value : null;
 }
 function uuidOrNull(value: unknown) {
 	return typeof value === "string" && z.uuid().safeParse(value).success ? value : null;
@@ -167,7 +166,7 @@ const rawItem = z.object({
 	meetingId: z.uuid().nullable(),
 	createdAt: z.string(),
 	epoch: z.string(),
-	hubState: z.enum(HUB),
+	hubState: z.enum(c.hubStates),
 	reachable: z.number().int(),
 	delivered: z.number().int(),
 	scheduledAt: z.string().nullable(),
@@ -384,7 +383,7 @@ export async function listForPerson(tx: Tx, authority: RequestActor, request: un
 }
 
 const totalsShape = z.object({
-	state: z.enum(HUB),
+	state: z.enum(c.hubStates),
 	selected: z.number().int(),
 	reachable: z.number().int(),
 	attempted: z.number().int(),

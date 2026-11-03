@@ -394,9 +394,9 @@ function ScheduledPanel({ view, actions }: { view: MessageView; actions: Schedul
 	// The email service holds at least one recipient: cancel and time change go to it, and Send now would not.
 	const held = state === "scheduled" || state === "time_unconfirmed";
 	const unconfirmed = state === "cancel_unconfirmed" || state === "time_unconfirmed";
-	const secondary = (name: string, label: string, run: () => void) => (
+	const action = (name: string, label: string, run: () => void, variant: "primary" | "secondary" = "secondary") => (
 		<Button
-			variant="secondary"
+			variant={variant}
 			onClick={run}
 			loading={actions.pending === name}
 			disabled={busy && actions.pending !== name}
@@ -419,26 +419,10 @@ function ScheduledPanel({ view, actions }: { view: MessageView; actions: Schedul
 				</p>
 			) : null}
 			<div className="flex flex-wrap gap-2">
-				{state === "cancel_unconfirmed" ? (
-					<Button
-						variant="primary"
-						onClick={actions.onCheckCancel}
-						loading={actions.pending === "cancel"}
-						disabled={busy && actions.pending !== "cancel"}
-					>
-						Check again
-					</Button>
-				) : null}
-				{state === "time_unconfirmed" && requestedAt ? (
-					<Button
-						variant="primary"
-						onClick={() => actions.onCheckTime(requestedAt)}
-						loading={actions.pending === "reschedule"}
-						disabled={busy && actions.pending !== "reschedule"}
-					>
-						Check again
-					</Button>
-				) : null}
+				{state === "cancel_unconfirmed" ? action("cancel", "Check again", actions.onCheckCancel, "primary") : null}
+				{state === "time_unconfirmed" && requestedAt
+					? action("reschedule", "Check again", () => actions.onCheckTime(requestedAt), "primary")
+					: null}
 				{!held && !unconfirmed && state !== "cancelled" ? (
 					<Button variant="primary" onClick={actions.onSendNow} disabled={busy}>
 						Send now
@@ -450,10 +434,10 @@ function ScheduledPanel({ view, actions }: { view: MessageView; actions: Schedul
 					</Button>
 				) : null}
 				{state === "unknown" || state === "sending"
-					? secondary("reconcile", "Check result", actions.onReconcile)
+					? action("reconcile", "Check result", actions.onReconcile)
 					: null}
 				{state === "cancelled" || state === "cancel_unconfirmed"
-					? secondary("replace", "Check replacement", actions.onReplace)
+					? action("replace", "Check replacement", actions.onReplace)
 					: null}
 			</div>
 			{held || state === "not_scheduled" ? (
@@ -471,7 +455,7 @@ function ScheduledPanel({ view, actions }: { view: MessageView; actions: Schedul
 							}}
 						/>
 					</Field>
-					{secondary("reschedule", "Change send time", () => {
+					{action("reschedule", "Change send time", () => {
 						const at = when_ ? new Date(when_) : null;
 						if (!at || !insideWindow(at)) {
 							setError("Choose a send time from now through the next 30 days.");

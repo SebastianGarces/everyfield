@@ -158,29 +158,17 @@ export type RestoreReport = { suppressionClears: number };
 const counts = (report: DeliveryReport) =>
 	`Accepted ${report.acceptedCount}. Refused ${report.rejectedCount}. No answer ${report.unknownCount}.`;
 
-/** The headline of a handoff. Acceptance is not arrival, and an answer that never came is not a success. */
-export function deliveryHeadline(
-	report: DeliveryReport,
-	held: boolean,
-): "Scheduled" | "Not scheduled" | "Not sent" | "Not confirmed" | "Accepted" {
-	if (report.acceptedCount > 0) return held ? "Scheduled" : "Accepted";
-	if (held) return "Not scheduled";
-	return report.unknownCount > 0 ? "Not confirmed" : "Not sent";
-}
-
-/** A send-now result. It never says the email arrived. */
+/** A send-now result. Acceptance is not arrival, and an answer that never came is not a success. */
 export function deliveryText(report: DeliveryReport): string {
-	const headline = deliveryHeadline(report, false);
-	if (headline === "Not sent")
-		return `Not sent. The email service refused all ${report.rejectedCount}. ${counts(report)} The message stays saved in Messages.`;
-	if (headline === "Not confirmed")
+	if (report.acceptedCount > 0) return `The email service accepted it and sends it now. ${counts(report)}`;
+	if (report.unknownCount > 0)
 		return `Not confirmed. The email service gave no answer. ${counts(report)} It was not sent again.`;
-	return `The email service accepted it and sends it now. ${counts(report)}`;
+	return `Not sent. The email service refused all ${report.rejectedCount}. ${counts(report)} The message stays saved in Messages.`;
 }
 
 /** A scheduled handoff result: "Scheduled" only when the email service holds at least one recipient. */
 export function scheduleText(report: DeliveryReport, when: string): string {
-	if (deliveryHeadline(report, true) === "Not scheduled")
+	if (report.acceptedCount === 0)
 		return `Not scheduled. The email service holds no recipient. ${counts(report)} The message stays saved in Messages.`;
 	return `Scheduled for ${when}. The email service holds it until then. ${counts(report)}`;
 }

@@ -511,44 +511,26 @@ export async function scheduleExisting(
 }
 
 /**
- * Send now from a draft. It chains the existing commands: save and schedule in one transaction, at the earliest time
- * the window accepts, then hand the new revision to the provider. Each step has its own request key. A send step that
- * fails or returns no result leaves the message Scheduled; the result says so and nothing is sent twice.
+ * Send now (`scheduledAt` null) or Schedule, from a draft or a reviewed message. It chains the existing commands:
+ * save and schedule in one transaction, then hand the new revision to the email service, at once or held until
+ * `scheduledAt`. Each step has its own request key. A handoff that fails or returns no result leaves the message
+ * saved; the result says so and nothing is sent twice.
  */
-export async function sendNow(
+export async function handOff(
 	keys: { save: string; schedule: string; send: string },
 	expectedRevision: string | null,
 	target: { kind: "draft"; input: unknown } | { kind: "reviewed"; communicationId: string },
+	scheduledAt: string | null,
 ): Promise<Outcome<HandoffResult>> {
-	return chainSendNow({
-		schedule: (at) =>
+	const steps = {
+		schedule: (at: string) =>
 			target.kind === "draft"
 				? scheduleDraft(keys.save, keys.schedule, expectedRevision, target.input, at)
 				: scheduleExisting(keys.schedule, expectedRevision ?? "", target.communicationId, at),
-		handOff: (revision, communicationId) => sendReviewed(keys.send, revision, communicationId),
-	});
-}
-
-/**
- * Schedule from a draft or a reviewed message: save the time, then hand the message to the email service with that
- * time so the email service holds it. The message shows "Scheduled" only when the email service accepted a recipient.
- */
-export async function scheduleAndHandOff(
-	keys: { save: string; schedule: string; send: string },
-	expectedRevision: string | null,
-	target: { kind: "draft"; input: unknown } | { kind: "reviewed"; communicationId: string },
-	scheduledAt: string,
-): Promise<Outcome<HandoffResult>> {
-	return chainHandoff(
-		{
-			schedule: (at) =>
-				target.kind === "draft"
-					? scheduleDraft(keys.save, keys.schedule, expectedRevision, target.input, at)
-					: scheduleExisting(keys.schedule, expectedRevision ?? "", target.communicationId, at),
-			handOff: (revision, communicationId) => sendReviewed(keys.send, revision, communicationId, "held"),
-		},
-		scheduledAt,
-	);
+		handOff: (revision: string, communicationId: string) =>
+			sendReviewed(keys.send, revision, communicationId, scheduledAt === null ? "now" : "held"),
+	};
+	return scheduledAt === null ? chainSendNow(steps) : chainHandoff(steps, scheduledAt);
 }
 
 /** The meeting a message is attached to: title, time, place and its live guest list. */
