@@ -2,6 +2,8 @@
 // through normalizeDescription, so storage holds only the canonical value and every screen renders that one value.
 // Pure and client-safe: no database, no HTML parser, no output that a browser could run.
 
+import { safeLinkAddress } from "../common/links.ts";
+
 /** The longest description a task keeps, in characters. */
 export const MAX_DESCRIPTION = 50_000;
 
@@ -14,14 +16,6 @@ const TAGS = /<[/!?]?[a-z][^>]*>/gi;
 // An address may hold one level of parentheses: "javascript:alert(1)".
 const LINKS = /\[([^\]\n]*)\]\(((?:[^()\n]|\([^()\n]*\))*)\)/g;
 
-/** Whether a link address may stay a link: http or https with a host, or mailto. Every other scheme loses its link. */
-function safeLink(raw: string): boolean {
-	const href = raw.trim();
-	// Control characters and spaces hide schemes ("java\nscript:").
-	if (!href || /[\u0000- \u007f-\u009f]/.test(href)) return false;
-	return /^https?:\/\/[^/?#]/i.test(href) || /^mailto:[^\s]+$/i.test(href);
-}
-
 /**
  * The canonical description: LF line endings, raw HTML and script removed, a link with any address other than http,
  * https or mailto reduced to its label, trailing spaces and runs of blank lines collapsed, then trimmed. Whitespace
@@ -33,7 +27,7 @@ export function normalizeDescription(raw: string): string {
 		.replace(COMMENTS, "")
 		.replace(BLOCKS, "")
 		.replace(TAGS, "")
-		.replace(LINKS, (link: string, label: string, href: string) => (safeLink(href) ? link : label))
+		.replace(LINKS, (link: string, label: string, href: string) => (safeLinkAddress(href) === null ? label : link))
 		.replace(/[ \t]+$/gm, "")
 		.replace(/\n{3,}/g, "\n\n")
 		.trim();

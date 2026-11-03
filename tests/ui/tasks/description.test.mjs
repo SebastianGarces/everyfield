@@ -3,11 +3,14 @@
 //   AC:TARGET-TSK-016 INV-same-text: the panel and the row preview show the same readable text from one canonical value,
 //     with its line breaks, and no script, event handler or javascript: link reaches the DOM. A cleared description
 //     shows the empty state in the panel and no preview in the row.
+//   INV-one-link-rule: the normalizer and the renderer accept the same outside link addresses (safeLinkAddress).
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { test } from "node:test";
 import { DESCRIPTION_EXCERPT, normalizeDescription } from "../../../packages/contracts/src/tasks/index.ts";
 import { DescriptionPreview, DescriptionView } from "../../../apps/web/src/features/tasks/description.ts";
+import { safeLinkAddress } from "../../../packages/contracts/src/common/index.ts";
+import { safeHref } from "../../../apps/web/src/features/evry/conversation/markdown.ts";
 
 const web = createRequire(new URL("../../../apps/web/package.json", import.meta.url));
 const { renderToStaticMarkup } = web("react-dom/server");
@@ -74,4 +77,41 @@ test("AC:TARGET-TSK-016 INV-same-text: a cleared description shows the empty sta
 	assert.match(html(DescriptionView, cleared), /data-description="empty"[^>]*>No description\.<\/p>/);
 	assert.equal(html(DescriptionPreview, cleared), "");
 	assert.match(html(DescriptionView, null), /No description\./);
+});
+
+test("AC:TARGET-TSK-016 storage and render share one outside-link rule", () => {
+	const addresses = [
+		["https://example.org/a?b=1", "https://example.org/a?b=1"],
+		["  http://example.org  ", "http://example.org"],
+		["mailto:a@b.co", "mailto:a@b.co"],
+		["HTTPS://EXAMPLE.ORG", "HTTPS://EXAMPLE.ORG"],
+		["javascript:alert(1)", null],
+		["JaVaScRiPt:alert(1)", null],
+		["java\nscript:alert(1)", null],
+		["data:text/html;base64,PHNjcmlwdD4=", null],
+		["https:///no-host", null],
+		["https://exa mple.org", null],
+		["mailto:", null],
+		["ftp://example.org", null],
+		["", null],
+	];
+	for (const [raw, expected] of addresses) {
+		assert.equal(safeLinkAddress(raw), expected, raw);
+		// The normalizer keeps a link exactly when the shared rule accepts its address.
+		const link = `[label](${raw})`;
+		const kept = normalizeDescription(link) === link.trim();
+		if (!raw.includes("\n")) assert.equal(kept, expected !== null, `normalizer: ${raw}`);
+		// The Evry parser, which also draws task descriptions, links the same outside addresses.
+		assert.deepEqual(safeHref(raw), expected === null ? null : { href: expected, external: true }, `render: ${raw}`);
+	}
+	// Only the render side adds app-relative paths; storage reduces them to their label.
+	assert.deepEqual(safeHref("/tasks"), { href: "/tasks", external: false });
+	assert.equal(normalizeDescription("[tasks](/tasks)"), "tasks");
+});
+
+test("AC:TARGET-TSK-016 text shaped like a tag goes with the tags (accepted trade-off)", () => {
+	// The normalizer has no HTML parser, so a letter right after "<" reads as a tag. A comparison with spaces stays.
+	assert.equal(normalizeDescription("a<b and c>d"), "ad");
+	assert.equal(normalizeDescription("Use `<div>` here"), "Use `` here");
+	assert.equal(normalizeDescription("Keep 3 < 4 and a > b"), "Keep 3 < 4 and a > b");
 });
