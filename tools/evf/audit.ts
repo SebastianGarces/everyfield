@@ -683,8 +683,15 @@ export function fileResult(code: number, tap: string): FileResult {
 	return LOAD_ERROR.test(tap) && /^# pass 0$/m.test(tap) ? "invalid" : "failed";
 }
 
-const usesBrowser = (root: string, main: string, file: string) =>
-	file.startsWith("tests/ui/") && /setup\.mjs|UI_BASE_URL/.test(show(root, main, file) ?? "");
+/**
+ * A browser file needs a preview only when one of its tests will run: an escaped file runs whole, and a marked file
+ * runs only the tests whose name carries a marker. A file that carries markers in comments only never needs one.
+ */
+export function needsPreview(file: string, text: string, escaped: boolean, grep: RegExp): boolean {
+	if (!file.startsWith("tests/ui/") || !/setup\.mjs|UI_BASE_URL/.test(text)) return false;
+	const names = text.matchAll(/\b(?:test|it|describe|suite)(?:\.\w+)?\(\s*(["'`])((?:\\.|(?!\1)[^\\])*)\1/g);
+	return escaped || [...names].some((m) => grep.test(m[2]!));
+}
 
 type Tree = { path: string; runtime: string };
 
@@ -898,7 +905,8 @@ async function runAudit(
 			});
 			if (install.code !== 0) fail(`pnpm install failed in the audit worktree:\n${install.out.trim().slice(-2000)}`);
 		}
-		const browser = tests.some((f) => usesBrowser(root, main, f));
+		const grep = new RegExp(pattern);
+		const browser = tests.some((f) => needsPreview(f, show(root, main, f) ?? "", !target.marked.includes(f), grep));
 		console.log(`evf audit: baseline on main${browser ? " with a preview" : ""}.`);
 		const base = await runTests(root, cfg, tree, plan, browser, log);
 		base.results.forEach((r, i) => Object.assign(rows[i]!, { main: r.result, ran: r.ran }));

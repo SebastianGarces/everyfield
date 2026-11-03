@@ -842,9 +842,9 @@ Files named `*.production.*` never run. Each file runs with `node --test` in the
 TypeScript file through the `tsx` a workspace package installed, as the package test scripts run it),
 with `NODE_ENV=test` and the home checkout's `apps/web/.env.local` (the development database); a
 `DATABASE_URL` in the shell does not reach it.
-When a selected `tests/ui` file opens a browser (it reads `setup.mjs` or `UI_BASE_URL`), each tree
-gets a production preview through the configured stack, and both engines run because `UI_ENGINE`
-is unset.
+When a selected `tests/ui` file opens a browser (it reads `setup.mjs` or `UI_BASE_URL`) and one of
+its tests will run (it is escaped, or a test name carries a marker), each tree gets a production
+preview through the configured stack, and both engines run because `UI_ENGINE` is unset.
 
 With no `--task`, the audit picks among tasks merged in the last 30 days that have a marked test and
 a candidate. Never-audited tasks go first, then the oldest last audit. The candidate is a seeded

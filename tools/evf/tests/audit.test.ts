@@ -76,6 +76,9 @@ const MERGES: Record<string, Record<string, string>> = {
 		// The file carries a marker in a comment; its test name does not, so the test never runs (it would fail).
 		"tests/calc/comment.test.mjs":
 			'// AC:PHASE-CASE-001 in a comment\nimport assert from "node:assert/strict";\nimport { test } from "node:test";\ntest("unmarked", () => assert.fail("an unmarked test ran"));\n',
+		// A browser file with the marker in a comment only: none of its tests runs, so the audit starts no preview.
+		"tests/ui/calc/comment-browser.test.mjs":
+			'// AC:PHASE-CASE-001 in a comment; reads UI_BASE_URL like tests/ui/setup.mjs\nimport assert from "node:assert/strict";\nimport { test } from "node:test";\ntest("unmarked browser test", () => assert.ok(process.env.UI_BASE_URL));\n',
 		"tests/calc/near.test.mjs":
 			'import { test } from "node:test";\ntest("AC:PHASE-CASE-0010 not a WP-038 case", () => {});\n',
 		"tests/calc/db.production.test.mjs":
@@ -241,6 +244,7 @@ test("AC:OPS-116-2 marked tests: WP case IDs, spec markers, the escaped folder, 
 			"tests/calc/comment.test.mjs",
 			"tests/calc/phase.test.mjs",
 			"tests/calc/phase.test.mts",
+			"tests/ui/calc/comment-browser.test.mjs",
 		]);
 		assert.ok(wp.markers.includes("PHASE-CASE-001"));
 		assert.deepEqual(wp.escaped, ["tests/ui/escaped/old-bug.test.mjs"]);
@@ -276,8 +280,11 @@ test("AC:OPS-116-2 marked tests: WP case IDs, spec markers, the escaped folder, 
 		assert.equal(run.code, 0, run.err + run.out);
 		assert.match(
 			run.out,
-			/tests \(4\): tests\/calc\/comment\.test\.mjs, tests\/calc\/phase\.test\.mjs, tests\/calc\/phase\.test\.mts, tests\/ui\/escaped\/old-bug\.test\.mjs/,
+			/tests \(5\): tests\/calc\/comment\.test\.mjs, tests\/calc\/phase\.test\.mjs, tests\/calc\/phase\.test\.mts, tests\/ui\/calc\/comment-browser\.test\.mjs, tests\/ui\/escaped\/old-bug\.test\.mjs/,
 		);
+		// The browser file runs no test, so no preview starts.
+		assert.match(run.out, /^evf audit: baseline on main\.$/m);
+		assert.equal(existsSync(f.stackLog), false);
 		// Only tests whose name carries a marker run: the unmarked test of comment.test.mjs never runs.
 		assert.match(run.out, /tests\/calc\/comment\.test\.mjs: passed \(0 tests\)/);
 		assert.match(run.out, /tests\/calc\/phase\.test\.mjs: passed \(1 tests\)/);
