@@ -35,7 +35,7 @@ import { acCriteria } from "./spec.ts";
  * costs no model tokens, pushes nothing and leaves no branch, worktree or preview behind.
  */
 
-export type Operator = "off-by-one" | "dropped-call" | "removed-route";
+type Operator = "off-by-one" | "dropped-call" | "removed-route";
 export type Candidate = {
 	id: string;
 	operator: Operator;
@@ -46,11 +46,11 @@ export type Candidate = {
 	/** The mutated line; null when the line or file is removed. */
 	after: string | null;
 };
-export type Outcome = "killed" | "survived" | "invalid" | "baseline-red";
-export type FileResult = "passed" | "failed" | "invalid";
+type Outcome = "killed" | "survived" | "invalid" | "baseline-red";
+type FileResult = "passed" | "failed" | "invalid";
 /** One test file: how many selected tests it ran on main, and its result on main and on the mutant. */
-export type TestRow = { file: string; ran: number; main: FileResult; mutant: FileResult | null };
-export type AuditTarget = {
+type TestRow = { file: string; ran: number; main: FileResult; mutant: FileResult | null };
+type AuditTarget = {
 	ref: string;
 	mergeCommits: string[];
 	mergedAt: string;
@@ -83,8 +83,8 @@ const KEYWORDS = new Set([
 	"function",
 ]);
 const DAY = 86_400_000;
-export const AUDIT_WINDOW_DAYS = 30;
-export const AUDIT_REMINDER_DAYS = 31;
+const AUDIT_WINDOW_DAYS = 30;
+const AUDIT_REMINDER_DAYS = 31;
 const TREE_PREFIX = "evf-audit-";
 
 /** True for each character of `line` that is code: not inside a string literal or a comment. */
@@ -115,7 +115,7 @@ const replaceAt = (s: string, at: number, len: number, by: string) => s.slice(0,
 const SWAP: Record<string, string> = { "<": "<=", "<=": "<", ">": ">=", ">=": ">" };
 
 /** The off-by-one mutants of one line: swap < and <=, > and >=, or move an integer literal of a comparison or slice bound by 1. */
-export function offByOne(line: string): string[] {
+function offByOne(line: string): string[] {
 	const mask = codeMask(line),
 		out = new Set<string>();
 	const bump = (at: number, digits: string) => {
@@ -147,7 +147,7 @@ export function offByOne(line: string): string[] {
 const CALL = /^(?:await |void )?([A-Za-z_$][\w$]*)(?:\??\.#?[A-Za-z_$][\w$]*)*(?:\?\.)?\(.*\);$/;
 
 /** True when `line` is one whole call statement, such as `setOpen(false);`, that follows a finished statement. */
-export function isCallStatement(line: string, previous: string | undefined): boolean {
+function isCallStatement(line: string, previous: string | undefined): boolean {
 	const text = line.trim(),
 		m = CALL.exec(text);
 	if (!m || KEYWORDS.has(m[1]!)) return false;
@@ -183,7 +183,7 @@ function candidateId(operator: Operator, file: string, occurrence: number, befor
  * The candidates of one file on main. `owned` holds the 1-based main line numbers that the audited merge added or
  * changed (git blame); `route` is true when the merge added or changed this file and it is a page or route.
  */
-export function fileCandidates(file: string, text: string, owned: Set<number>, route: boolean): Candidate[] {
+function fileCandidates(file: string, text: string, owned: Set<number>, route: boolean): Candidate[] {
 	const out: Candidate[] = [];
 	if (route)
 		out.push({
@@ -221,13 +221,13 @@ export function fileCandidates(file: string, text: string, owned: Set<number>, r
 }
 
 /** One line for `--list`: what the mutant changes. */
-export function oneLineDiff(c: Candidate): string {
+function oneLineDiff(c: Candidate): string {
 	if (c.operator === "removed-route") return "(file removed)";
 	return `${c.before.trim()} → ${c.after === null ? "(line removed)" : c.after.trim()}`;
 }
 
 /** The mutation as a unified diff, word for word. */
-export function mutationDiff(c: Candidate): string {
+function mutationDiff(c: Candidate): string {
 	if (c.operator === "removed-route") {
 		const lines = c.before.endsWith("\n") ? c.before.slice(0, -1).split("\n") : c.before.split("\n");
 		const range = lines.length === 1 ? "1" : `1,${lines.length}`;
@@ -239,7 +239,7 @@ export function mutationDiff(c: Candidate): string {
 }
 
 /** A small seeded generator (mulberry32): the same seed picks the same candidate. */
-export function seeded(seed: number): () => number {
+function seeded(seed: number): () => number {
 	let a = seed >>> 0;
 	return () => {
 		a = (a + 0x6d2b79f5) >>> 0;
@@ -281,7 +281,7 @@ function blamedLines(root: string, main: string, file: string, commits: Set<stri
 }
 
 /** The candidates of the merges on current main: only lines they changed that main still holds. */
-export function candidatesOf(root: string, main: string, merges: string[]): Candidate[] {
+function candidatesOf(root: string, main: string, merges: string[]): Candidate[] {
 	const commits = new Set(merges.flatMap((m) => commitsOf(root, m)));
 	const files = new Set<string>();
 	for (const merge of merges)
@@ -301,7 +301,7 @@ export function candidatesOf(root: string, main: string, merges: string[]): Cand
 }
 
 /** Test files on main that carry one of the markers as `AC:<marker>`. */
-export function markedTests(root: string, main: string, markers: string[]): string[] {
+function markedTests(root: string, main: string, markers: string[]): string[] {
 	if (!markers.length) return [];
 	const args = [
 		"grep",
@@ -327,7 +327,7 @@ export function markedTests(root: string, main: string, markers: string[]): stri
 }
 
 /** The tests OPS-114 keeps in tests/ui/escaped/ (its ESCAPED_TEST), on main. */
-export function escapedTests(root: string, main: string): string[] {
+function escapedTests(root: string, main: string): string[] {
 	return git(root, "ls-tree", "-r", "--name-only", main, "--", ESCAPED_DIR)
 		.split("\n")
 		.filter((f) => ESCAPED_TEST.test(f))
@@ -339,7 +339,7 @@ export function escapedTests(root: string, main: string): string[] {
 type MergedRow = { ref: string; merge_commit: string; spec: string | null };
 
 /** The markers of a task: its package case IDs for a WP task and the AC:<task>-<n> check of each Done criterion. */
-export function markersOf(
+function markersOf(
 	root: string,
 	task: TaskRef,
 	specs: Array<string | null>,
@@ -461,11 +461,11 @@ export function pickTarget(root: string, db: DatabaseSync, main: string, now: Da
 
 // ---- The ask a survived mutant files -------------------------------------------------------------------------------
 
-export function surviveTitle(ref: string, c: Candidate): string {
+function surviveTitle(ref: string, c: Candidate): string {
 	return `Answer key for ${ref} missed ${c.operator} in ${c.file}:${c.line}`;
 }
 
-export function renderAsk(
+function renderAsk(
 	target: Pick<AuditTarget, "ref" | "mergeCommits">,
 	main: string,
 	c: Candidate,
@@ -503,7 +503,7 @@ export function renderAsk(
 }
 
 /** The evf.config.json maintenanceTasks entry the coordinator commits on the new task's branch. */
-export function maintenanceEntry(id: string, title: string): string {
+function maintenanceEntry(id: string, title: string): string {
 	const entry = {
 		[id]: {
 			title,
@@ -558,7 +558,7 @@ function killGroup(child: ChildProcess, sig: NodeJS.Signals): void {
 }
 
 const activePath = (root: string) => join(evfDataDir(root), "audit", "active.json");
-type Active = { pid: number; tree: string; runtime: string; startedAt: string };
+type Active = { pid: number; tree: string; runtime: string };
 
 function alive(pid: number): boolean {
 	try {
@@ -578,7 +578,7 @@ function readActive(root: string): Active | null {
 }
 
 /** The audit worktrees `git worktree list` holds: their folder names start with evf-audit-. */
-export function auditWorktrees(root: string): string[] {
+function auditWorktrees(root: string): string[] {
 	return git(root, "worktree", "list", "--porcelain")
 		.split("\n")
 		.filter((l) => l.startsWith("worktree "))
@@ -609,7 +609,7 @@ function removeTree(root: string, cfg: Config, tree: string, runtime: string): v
  * Remove what a crashed audit left: its worktree, its preview and its lock. A live audit holds the lock, and a
  * second audit refuses to start beside it.
  */
-export function recoverAudits(root: string, cfg: Config): string[] {
+function recoverAudits(root: string, cfg: Config): string[] {
 	const active = readActive(root);
 	if (active && active.pid !== process.pid && alive(active.pid))
 		fail(`Another evf audit (PID ${active.pid}) is running on ${active.tree}. Wait for it to end.`);
@@ -688,7 +688,7 @@ export function fileResult(code: number, tap: string): FileResult {
  * A browser file needs a preview only when one of its tests will run: an escaped file runs whole, and a marked file
  * runs only the tests whose name carries a marker. A file that carries markers in comments only never needs one.
  */
-export function needsPreview(file: string, text: string, escaped: boolean, grep: RegExp): boolean {
+function needsPreview(file: string, text: string, escaped: boolean, grep: RegExp): boolean {
 	if (!file.startsWith("tests/ui/") || !/setup\.mjs|UI_BASE_URL/.test(text)) return false;
 	const names = text.matchAll(/\b(?:test|it|describe|suite)(?:\.\w+)?\(\s*(["'`])((?:\\.|(?!\1)[^\\])*)\1/g);
 	return escaped || [...names].some((m) => grep.test(m[2]!));
@@ -781,7 +781,7 @@ async function runTests(
 
 // ---- The command ---------------------------------------------------------------------------------------------------
 
-export type AuditOptions = {
+type AuditOptions = {
 	list?: boolean;
 	task?: string;
 	mutation?: string;
@@ -851,16 +851,10 @@ async function runAudit(
 	tests: string[],
 	opts: AuditOptions,
 ): Promise<number> {
-	const tree: Tree = {
-		path: mkdtempSync(join(opts.tmpBase ?? tmpdir(), TREE_PREFIX)),
-		runtime: "",
-	};
-	tree.runtime = join(evfDataDir(root), "audit", basename(tree.path));
+	const path = mkdtempSync(join(opts.tmpBase ?? tmpdir(), TREE_PREFIX));
+	const tree: Tree = { path, runtime: join(evfDataDir(root), "audit", basename(path)) };
 	mkdirSync(join(evfDataDir(root), "audit"), { recursive: true });
-	writeFileSync(
-		activePath(root),
-		JSON.stringify({ pid: process.pid, tree: tree.path, runtime: tree.runtime, startedAt: new Date().toISOString() }),
-	);
+	writeFileSync(activePath(root), JSON.stringify({ pid: process.pid, tree: path, runtime: tree.runtime } satisfies Active));
 	const rowId = Number(
 		db
 			.prepare(
@@ -922,7 +916,7 @@ async function runAudit(
 			);
 			return 1;
 		}
-		if (!base.startFailed && !rows.some((r) => target.marked.includes(r.file) && r.ran > 0))
+		if (!rows.some((r) => target.marked.includes(r.file) && r.ran > 0))
 			fail(
 				`${target.ref} has no marked test: no test name on main carries AC:<marker>; the files carry the markers only outside test names.`,
 			);
@@ -943,10 +937,8 @@ async function runAudit(
 		if (outcome === "survived") filed = fileSurvivor(root, cfg, db, main, target, c, seed, rows, opts.dryRun ?? false);
 		return 0;
 	} catch (e) {
-		if (e instanceof Stopped || stopping) {
-			outcome = "stopped";
-			return 143;
-		}
+		// Stopped is thrown only while stopping; the finally block records the outcome.
+		if (stopping) return 143;
 		throw e;
 	} finally {
 		if (stopping) outcome = "stopped";
