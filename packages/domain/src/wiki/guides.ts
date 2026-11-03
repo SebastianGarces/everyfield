@@ -80,7 +80,7 @@ export function guideFor(route: string): GuideEntry | null {
 	);
 }
 
-export const EXCERPT_LIMIT = 500;
+const EXCERPT_LIMIT = 500;
 
 type Node = {
 	type?: unknown;

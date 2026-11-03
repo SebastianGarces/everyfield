@@ -467,6 +467,9 @@ function stripTags(text: string): string {
 	return text.replace(/<[^>]*>/g, "");
 }
 
+/** Whose text an article shows, when it is not the global article. */
+export type ArticleVersion = { kind: "church" | "network"; name: string };
+
 export type Listed = {
 	articleId: string;
 	title: string;

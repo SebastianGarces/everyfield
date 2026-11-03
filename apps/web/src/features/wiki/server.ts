@@ -8,6 +8,7 @@ import type { RequestActor } from "@everyfield/domain/access";
 import { createWikiProducer } from "@everyfield/domain/wiki";
 import "server-only";
 import {
+	type ArticleVersion,
 	articlePath,
 	humanCredit,
 	listed,
@@ -212,8 +213,7 @@ export type ArticleView = {
 	plantId?: string;
 	canOrder: boolean;
 	block: ArticleBlock;
-	/** Whose text this is, when it is not the global article. */
-	version: { kind: "church" | "network"; name: string } | null;
+	version: ArticleVersion | null;
 	/** Two church copies have no order: an Owner or Admin is asked to choose one. The text below is the fallback. */
 	orderPrompt: boolean;
 	related: { articleId: string; title: string; href: string }[];

@@ -25,6 +25,7 @@ import { FRAME, HEADER_GAP, SOURCE_BAR_GAP } from "./layout.ts";
 import { WikiEditor } from "./editor.tsx";
 import { ArticleFeedback } from "./feedback.tsx";
 import {
+	type ArticleVersion,
 	articleBlocks,
 	articlePath,
 	editPath,
@@ -119,7 +120,7 @@ function StepCard({ step, direction }: { step: Step; direction: "previous" | "ne
 }
 
 /** Owner and Admin only: two church versions have no order, so everyone reads the next version in line. */
-function OrderPrompt({ slug, fallback }: { slug: string; fallback: { kind: "church" | "network" } | null }) {
+function OrderPrompt({ slug, fallback }: { slug: string; fallback: ArticleVersion | null }) {
 	return (
 		<Card variant="callout" tone="amber" className="mb-6">
 			<CalloutLabel tone="amber" icon={SortingIcon}>

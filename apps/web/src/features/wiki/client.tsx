@@ -42,7 +42,7 @@ import {
 	type WriteResult,
 } from "./actions.ts";
 import { ARTICLE_FIXED, BELOW_WIDE_ONLY, GRID, GRID_FIXED, RAIL_FIXED, RAIL_STICKY, RAIL_TOC_PAD } from "./layout.ts";
-import { fractionText, pdfFilename, PHASE_NAME, snippetParts, type SourceRow } from "./model.ts";
+import { type ArticleVersion, fractionText, pdfFilename, PHASE_NAME, snippetParts, type SourceRow } from "./model.ts";
 import { ArticleBody } from "./prose.tsx";
 
 const Chrome = createContext<{ openSearch: () => void; toggleGuide: () => void; guideOpen: boolean } | null>(null);
@@ -589,13 +589,7 @@ export function ArticleTools() {
 }
 
 /** The meta line under the title: read status, the credit, the update flag and the status note. */
-export function ReadStatus({
-	credit,
-	version,
-}: {
-	credit: string | null;
-	version: { kind: "church" | "network"; name: string } | null;
-}) {
+export function ReadStatus({ credit, version }: { credit: string | null; version: ArticleVersion | null }) {
 	const { percent, done, updated, note } = useSession();
 	const text = `${Math.round(Math.min(1, Math.max(0, Number(percent) || 0)) * 100)}% read`;
 	return (
