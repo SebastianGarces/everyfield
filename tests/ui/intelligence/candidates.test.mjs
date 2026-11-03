@@ -6,7 +6,6 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { BASE, ENGINES, fixture, hydrated, signIn, withPage } from "../setup.mjs";
 
-const URL_ = () => `${BASE}/intelligence/attestations`;
 const ATTENDED = "Attended every week, unbroken";
 const VOLUNTEERED = "Volunteered every week, unbroken";
 // Each engine saves a different seeded person, so the two engine runs never share a record.
@@ -16,7 +15,7 @@ const iso = (daysAgo) => new Date(Date.now() - daysAgo * DAY).toISOString().slic
 
 async function open(page, context) {
 	await signIn(context, fixture("intelligence").owner.cookie);
-	await page.goto(URL_());
+	await page.goto(`${BASE}/intelligence/attestations`);
 	await hydrated(page);
 }
 
