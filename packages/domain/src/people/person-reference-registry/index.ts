@@ -51,8 +51,12 @@ export const registry: readonly Registration[] = [
 	r("commitment_witness", "commitment", "witness_person_id", "plant_id", "keep"),
 	r("merge_record", "person_merge", "source_id", "tenant_id", "keep", "id", false),
 	r("merge_record", "person_merge", "survivor_id", "tenant_id", "keep", "id", false),
+	// A candidate attestation follows its Person. The history stays on the Person it was written for (WP-039). When the
+	// survivor already holds one, the source's stays on the source: a Person has one current candidate attestation.
+	r("attestation", "attestation", "person_id", "plant_id", "move"),
+	// A revision stays on the Person it was written for (evidence, never moved).
+	r("attestation_history", "attestation_revision", "person_id", "plant_id", "keep", "id", false),
 	// Owned by later packages, which prove their own references after merge (WP-091 closes the set).
-	r("attestation", "attestation", "person_id", "plant_id", "block"),
 	r("contact_outcome", "contact_outcome", "person_id", "plant_id", "block"),
 	r("development_enrollment", "development_enrollment", "person_id", "organization_id", "block"),
 	r("invitation", "invitation", "resident_person_id", "tenant_id", "block"),

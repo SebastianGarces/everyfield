@@ -6,6 +6,7 @@ import { basename, join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { caseGrep } from "./coverage.ts";
 import { ensureTask, openWorkDb, record } from "./db.ts";
+import { ESCAPED_DIR, ESCAPED_TEST } from "./escape.ts";
 import { nextId } from "./ids.ts";
 import {
 	baseRef,
@@ -63,7 +64,6 @@ const SOURCE = /^(?:apps|packages)\/.+\.(?:[cm]?[jt]s|[jt]sx)$/;
 const TEST_PATH = /(?:^|\/)(?:tests?|__tests__|__mocks__|fixtures?|node_modules)\/|\.(?:test|spec)\.[^/]+$|\.d\.ts$/;
 const ROUTE = /^apps\/web\/(?:src\/)?app\/(?:.+\/)?(?:page\.tsx|route\.ts)$/;
 const TEST_FILE = /\.test\.(?:[cm]?[jt]s|tsx)$/;
-const ESCAPED = "tests/ui/escaped/";
 const KEYWORDS = new Set([
 	"if",
 	"for",
@@ -326,10 +326,11 @@ export function markedTests(root: string, main: string, markers: string[]): stri
 		.sort();
 }
 
+/** The tests OPS-114 keeps in tests/ui/escaped/ (its ESCAPED_TEST), on main. */
 export function escapedTests(root: string, main: string): string[] {
-	return git(root, "ls-tree", "-r", "--name-only", main, "--", ESCAPED)
+	return git(root, "ls-tree", "-r", "--name-only", main, "--", ESCAPED_DIR)
 		.split("\n")
-		.filter((f) => f.startsWith(ESCAPED) && f.endsWith(".test.mjs"))
+		.filter((f) => ESCAPED_TEST.test(f))
 		.sort();
 }
 

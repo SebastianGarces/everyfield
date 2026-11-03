@@ -30,6 +30,7 @@ import { requireVerifiedHead, verify } from "./verify.ts";
 import { migrationsRenumber } from "./migrations.ts";
 import { awaitLoad } from "./load.ts";
 import { nextId } from "./ids.ts";
+import { escape, soak } from "./escape.ts";
 import { followUpsOfTask, dbMigrate, dbSeedProgress, goalsList, goalsSync, status, workDbPath } from "./db.ts";
 import { launch } from "./launch.ts";
 import { isRole, ROLES } from "./seats.ts";
@@ -167,6 +168,14 @@ Drive (harness)
   evf proof show <task> [--json]                              proof rows; rows from an earlier head of this branch show as carried
   evf ask planner <task> "<question>"                         ask the task's planner (forked session resume)
 
+Escaped bugs (coordinator; local only, never in CI)
+  evf escape <PR> --what "<his words>" --task <WP-NNN/ui> [--head <sha>]
+                                                              store the escape and its Done template (a regression test in
+                                                              tests/ui/escaped/) on an existing WP /ui task; no OPS id
+  evf escape soak <tests/ui/escaped/<name>.test.mjs> [--task <task>]
+                                                              run one escaped test 20 times on the task's stack; ui-escaped
+                                                              in evf verify needs a green soak of each changed test's bytes
+
 Upkeep
   evf audit [--task <task>] [--mutation <id>] [--seed <n>] [--dry-run] [--ignore-load "<reason>"]
         monthly mutation audit of the answer key (OPS-116): plants one bug from a merged task's changed lines in a
@@ -223,9 +232,11 @@ function main(argv: string[]): number | Promise<number> {
 					? "2-40 minutes"
 					: cmd === "timing"
 						? "5-20 minutes"
-						: cmd === "verify" || cmd === "check" || (cmd === "ac" && args[0] === "run")
-							? "2-15 minutes"
-							: undefined;
+						: cmd === "escape" && args[0] === "soak"
+							? "20-60 minutes (20 runs)"
+							: cmd === "verify" || cmd === "check" || (cmd === "ac" && args[0] === "run")
+								? "2-15 minutes"
+								: undefined;
 	if (duration) requireForeground(cmd, duration);
 	switch (cmd) {
 		case "ci-tests":
@@ -528,6 +539,24 @@ function main(argv: string[]): number | Promise<number> {
 			if (sub === "list" && args.length === 1) return qaList(root);
 			if (sub === "down" && arg && args.length === 2) return qaDown(root, arg);
 			break;
+		}
+		case "escape": {
+			if (args[0] === "soak") {
+				const taskArg = option(args, "--task");
+				if (args.length !== 2) break;
+				const task = taskArg
+					? parseTask(taskArg)
+					: taskOfBranch(git(process.cwd(), "rev-parse", "--abbrev-ref", "HEAD"));
+				if (!task) throw new EvfError("Run evf escape soak in the task worktree, or give --task <task>.");
+				return soak(root, task, args[1]!).passed ? 0 : 1;
+			}
+			const what = option(args, "--what"),
+				head = option(args, "--head"),
+				task = option(args, "--task"),
+				pr = Number(args[0]);
+			if (!Number.isInteger(pr) || pr <= 0 || args.length !== 1)
+				throw new EvfError('Give the PR number: evf escape <PR> --what "<his words>" --task <WP-NNN/ui>.');
+			return escape(root, { pr, what, head, task });
 		}
 		case "id": {
 			const kind = args[1];

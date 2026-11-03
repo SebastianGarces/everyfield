@@ -32,6 +32,7 @@ import {
 import { StatusBadge, type Status } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { useState } from "react";
+import { IntelligenceTabs } from "../intelligence/IntelligenceTabs.tsx";
 import { declarePhase, movePhase } from "./actions.ts";
 import {
 	entryDate,
@@ -120,6 +121,7 @@ export function JourneyScreen({ history, catalog, readiness, viewer }: Props) {
 				title="Plant Intelligence"
 				subtitle={`Where ${history.plantName} is on the Playbook journey. You decide when to move on.`}
 			/>
+			<IntelligenceTabs current="overview" />
 			<div className="grid grid-cols-[minmax(0,1.9fr)_minmax(0,1.1fr)] items-start gap-5 max-app-md:grid-cols-1">
 				<Card>
 					<CardHeader>
