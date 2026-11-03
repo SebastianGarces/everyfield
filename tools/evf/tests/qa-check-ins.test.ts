@@ -1,9 +1,11 @@
-import test, { after } from "node:test";
+import test, { after, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
-import { readdirSync, readFileSync } from "node:fs";
-import { join, relative } from "node:path";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, relative } from "node:path";
+import { pathToFileURL } from "node:url";
 import { runSeed, source, tsxRun } from "./fixtures.ts";
 import { startQuietDatabase, stopQuietDatabase, type QuietDatabase } from "../timing-stack.ts";
 
@@ -88,7 +90,7 @@ async function allWeeks() {
 }
 const nonSteady = (level: string) => level === "strained" || level === "struggling";
 
-test("OPS-125: the QA owner has a confirmed zone and 13 answered past weeks before an open week AC:OPS-125-1", async () => {
+test("OPS-125: the QA owner has a confirmed zone and 13 answered past weeks before an open week OPS-125-1", async () => {
 	const { query, firstSeed } = await seeded();
 	assert.match(firstSeed, /owner timezone, 13 check-in weeks\.$/);
 	assert.deepEqual(
@@ -120,7 +122,7 @@ test("OPS-125: the QA owner has a confirmed zone and 13 answered past weeks befo
 	);
 });
 
-test("OPS-125: the Pace run of 3 Strained or Struggling weeks ends last week, after a Steady week AC:OPS-125-2", async () => {
+test("OPS-125: the Pace run of 3 Strained or Struggling weeks ends last week, after a Steady week OPS-125-2", async () => {
 	const { weeks } = await allWeeks();
 	const past = weeks.slice(1).reverse(); // oldest first
 	const pace = past.map((w) => w.answer!.answers.pace);
@@ -135,7 +137,7 @@ test("OPS-125: the Pace run of 3 Strained or Struggling weeks ends last week, af
 	}
 });
 
-test("OPS-125: each seeded week is a planter's own save, across two history pages of 12 AC:OPS-125-3", async () => {
+test("OPS-125: each seeded week is a planter's own save, across two history pages of 12 OPS-125-3", async () => {
 	const { first, second, weeks } = await allWeeks();
 	assert.equal(first.pageCount, 2);
 	assert.equal(first.weeks.length, 12);
@@ -160,7 +162,7 @@ test("OPS-125: each seeded week is a planter's own save, across two history page
 	assert.ok(past.filter((w) => w.answer!.note).length >= 2);
 });
 
-test("OPS-125: the owner corrects one seeded past week, and no other week changes AC:OPS-125-4", async () => {
+test("OPS-125: the owner corrects one seeded past week, and no other week changes OPS-125-4", async () => {
 	const before = await allWeeks();
 	const target = before.weeks[5]!;
 	const answers = { spiritual: "struggling", family: "steady", financial: "steady", pace: "steady" };
@@ -191,7 +193,7 @@ test("OPS-125: the owner corrects one seeded past week, and no other week change
 	);
 });
 
-test("OPS-125: the QA admin and member get no check-in rows and no seeded zone AC:OPS-125-5", async () => {
+test("OPS-125: the QA admin and member get no check-in rows and no seeded zone OPS-125-5", async () => {
 	const { query } = await seeded();
 	for (const email of ["delivered+qa-admin@resend.dev", "delivered+qa-member@resend.dev"]) {
 		const [row] = await query(
@@ -206,7 +208,7 @@ test("OPS-125: the QA admin and member get no check-in rows and no seeded zone A
 	}
 });
 
-test("OPS-125: a rerun writes nothing, and a branch without the history gets it once AC:OPS-125-6", async () => {
+test("OPS-125: a rerun writes nothing, and a branch without the history gets it once OPS-125-6", async () => {
 	const { db, query } = await seeded();
 	const env = { DATABASE_URL: db.adminUrl, QA_ROLE_PASSWORD: PASSWORD };
 	const counts = async () =>
@@ -236,32 +238,154 @@ test("OPS-125: a rerun writes nothing, and a branch without the history gets it 
 	assert.deepEqual(await counts(), filled);
 });
 
-test("OPS-125: no app or package imports the QA tooling, and the change edits no app or package AC:OPS-125-8", (t) => {
+/** The task branch whose own diff is the OPS-125 change before it merges. */
+const OPS_BRANCH = "task/ops-125";
+type Ops125Change = {
+	/** App and package source files that name tools/evf/. */
+	importers: string[];
+	/** A depth-1 checkout: no history to read, so `commits` and `edits` stay empty. */
+	shallow: boolean;
+	/** Every commit reachable from HEAD whose subject starts with `OPS-125:`. */
+	commits: string[];
+	/** Paths under apps/ or packages/ that an OPS-125 commit, or the task/ops-125 branch diff, edits. */
+	edits: string[];
+};
+/**
+ * What the OPS-125 change touches in `repo`. The change is its `OPS-125:` commits, each against its first parent, and
+ * the task/ops-125 branch diff while that branch is checked out. Another task branch's own app diff is not part of it.
+ */
+function ops125Change(repo: string): Ops125Change {
 	const importers: string[] = [];
 	const walk = (dir: string) => {
+		if (!existsSync(dir)) return;
 		for (const entry of readdirSync(dir, { withFileTypes: true })) {
 			if (entry.name === "node_modules" || entry.name.startsWith(".")) continue;
 			const path = join(dir, entry.name);
 			if (entry.isDirectory()) walk(path);
 			else if (/\.(c|m)?[jt]sx?$/.test(entry.name) && /tools\/evf\//.test(readFileSync(path, "utf8")))
-				importers.push(relative(source, path));
+				importers.push(relative(repo, path));
 		}
 	};
-	walk(join(source, "apps"));
-	walk(join(source, "packages"));
-	assert.deepEqual(importers, []);
-	const git = (...args: string[]) => spawnSync("git", args, { cwd: source, encoding: "utf8" });
+	walk(join(repo, "apps"));
+	walk(join(repo, "packages"));
+	const git = (...args: string[]) => {
+		const r = spawnSync("git", args, { cwd: repo, encoding: "utf8" });
+		assert.equal(r.status, 0, `git ${args.join(" ")}: ${r.stderr}`);
+		return r.stdout.split("\n").filter(Boolean);
+	};
 	// CI checks out the PR merge commit at depth 1, with no main ref and no parents to diff against.
-	// The diff half then runs in `evf ac run` on the full worktree, where main is present.
-	if (git("rev-parse", "--is-shallow-repository").stdout.trim() === "true") {
-		t.diagnostic("shallow checkout: no main history, so only the import scan runs");
-		return;
-	}
-	const base = ["origin/main", "main"].map((ref) => git("merge-base", "HEAD", ref)).find((r) => r.status === 0);
-	assert.ok(base, "no main ref to compare with");
-	const changed = git("diff", "--name-only", base.stdout.trim(), "HEAD").stdout.split("\n").filter(Boolean);
-	assert.deepEqual(
-		changed.filter((path) => path.startsWith("apps/") || path.startsWith("packages/")),
-		[],
+	// The history half then runs in `evf ac run` on the full worktree.
+	if (git("rev-parse", "--is-shallow-repository")[0] === "true")
+		return { importers, shallow: true, commits: [], edits: [] };
+	const commits = git("log", "--format=%H %s", "HEAD")
+		.filter((line) => line.slice(41).startsWith("OPS-125:"))
+		.map((line) => line.slice(0, 40));
+	const changed = commits.flatMap((c) =>
+		spawnSync("git", ["rev-parse", "--verify", "-q", `${c}^1`], { cwd: repo }).status === 0
+			? git("diff", "--name-only", `${c}^1`, c)
+			: git("diff-tree", "-r", "--root", "--no-commit-id", "--name-only", c),
 	);
+	if (git("rev-parse", "--abbrev-ref", "HEAD")[0] === OPS_BRANCH) {
+		const base = ["origin/main", "main"]
+			.map((ref) => spawnSync("git", ["merge-base", "HEAD", ref], { cwd: repo, encoding: "utf8" }))
+			.find((r) => r.status === 0);
+		assert.ok(base, "no main ref to compare with");
+		changed.push(...git("diff", "--name-only", base.stdout.trim(), "HEAD"));
+	}
+	const edits = [...new Set(changed.filter((path) => path.startsWith("apps/") || path.startsWith("packages/")))].sort();
+	return { importers, shallow: false, commits, edits };
+}
+/** The OPS-125 change check: no importer, and outside a shallow checkout at least one OPS-125 commit and no app edit. */
+function checkOps125Change(repo: string, diagnostic: (message: string) => void = () => {}) {
+	const change = ops125Change(repo);
+	assert.deepEqual(change.importers, [], `app or package files import the QA tooling: ${change.importers.join(", ")}`);
+	if (change.shallow) {
+		diagnostic("shallow checkout: no main history, so only the import scan runs");
+		return change;
+	}
+	assert.ok(change.commits.length > 0, "no OPS-125: commit in the history of HEAD");
+	assert.deepEqual(change.edits, [], `the OPS-125 change edits app or package files: ${change.edits.join(", ")}`);
+	return change;
+}
+
+/** A temporary git repository. `run` runs git in it and returns trimmed stdout. */
+function gitRepo(t: TestContext) {
+	const dir = mkdtempSync(join(tmpdir(), "ops-125-"));
+	t.after(() => rmSync(dir, { recursive: true, force: true }));
+	const run = (...args: string[]) => {
+		const r = spawnSync(
+			"git",
+			["-c", "user.name=t", "-c", "user.email=t@t", "-c", "maintenance.auto=false", "-c", "gc.auto=0", ...args],
+			{
+				cwd: dir,
+				encoding: "utf8",
+			},
+		);
+		assert.equal(r.status, 0, `git ${args.join(" ")}: ${r.stderr}`);
+		return r.stdout.trim();
+	};
+	const commit = (subject: string, files: Record<string, string>) => {
+		for (const [path, text] of Object.entries(files)) {
+			mkdirSync(dirname(join(dir, path)), { recursive: true });
+			writeFileSync(join(dir, path), text);
+		}
+		run("add", "-A");
+		run("commit", "-q", "-m", subject);
+	};
+	run("init", "-q", "-b", "main");
+	commit("WP-001: the app", { "apps/web/page.ts": "export const page = 1;\n" });
+	return { dir, run, commit };
+}
+
+test("OPS-125: an app task branch on top of the OPS-125 change passes the check AC:OPS-125-1", (t) => {
+	const repo = gitRepo(t);
+	repo.commit("OPS-125: QA check-in tooling", { "tools/evf/qa-seed.ts": "export {};\n" });
+	repo.run("checkout", "-q", "-b", "task/wp-036");
+	repo.commit("WP-036: the app change", {
+		"apps/web/new.ts": "export const x = 1;\n",
+		"packages/db/new.ts": "export {};\n",
+	});
+	const change = checkOps125Change(repo.dir);
+	assert.equal(change.commits.length, 1);
+	assert.deepEqual(change.edits, []);
+});
+
+test("OPS-125: the real worktree's OPS-125 change edits no app or package and nothing imports the tooling AC:OPS-125-2", (t) => {
+	const change = checkOps125Change(source, (m) => t.diagnostic(m));
+	assert.deepEqual(change.importers, []);
+	if (!change.shallow) assert.ok(change.commits.length >= 1);
+});
+
+test("OPS-125: an OPS-125 commit, or the task/ops-125 branch, that edits apps/x.ts fails the check AC:OPS-125-2", (t) => {
+	const merged = gitRepo(t);
+	merged.commit("OPS-125: QA check-in tooling", {
+		"tools/evf/qa-seed.ts": "export {};\n",
+		"apps/x.ts": "export {};\n",
+	});
+	assert.throws(() => checkOps125Change(merged.dir), /apps\/x\.ts/);
+	const branch = gitRepo(t);
+	branch.commit("OPS-125: QA check-in tooling", { "tools/evf/qa-seed.ts": "export {};\n" });
+	branch.run("checkout", "-q", "-b", OPS_BRANCH);
+	branch.commit("follow-up", { "apps/x.ts": "export {};\n" });
+	assert.throws(() => checkOps125Change(branch.dir), /apps\/x\.ts/);
+	const none = gitRepo(t);
+	assert.throws(() => checkOps125Change(none.dir), /no OPS-125: commit/);
+});
+
+test("OPS-125: a depth-1 clone skips the history half and still runs the import scan AC:OPS-125-3", (t) => {
+	const repo = gitRepo(t);
+	repo.commit("OPS-125: QA check-in tooling", { "tools/evf/qa-seed.ts": "export {};\n", "apps/x.ts": "export {};\n" });
+	repo.commit("WP-002: more", { "apps/y.ts": "export {};\n" });
+	const clone = mkdtempSync(join(tmpdir(), "ops-125-shallow-"));
+	t.after(() => rmSync(clone, { recursive: true, force: true }));
+	const r = spawnSync("git", ["clone", "-q", "--depth", "1", pathToFileURL(repo.dir).href, clone], {
+		encoding: "utf8",
+	});
+	assert.equal(r.status, 0, r.stderr);
+	const notes: string[] = [];
+	const change = checkOps125Change(clone, (m) => notes.push(m));
+	assert.deepEqual(change, { importers: [], shallow: true, commits: [], edits: [] });
+	assert.deepEqual(notes, ["shallow checkout: no main history, so only the import scan runs"]);
+	writeFileSync(join(clone, "apps/z.ts"), 'import "../tools/evf/qa-seed.ts";\n');
+	assert.throws(() => checkOps125Change(clone), /apps\/z\.ts/);
 });
