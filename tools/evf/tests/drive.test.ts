@@ -1616,7 +1616,8 @@ test("OPS-72-grace: the start grace counts from the start of the wait, not from 
 			.run(new Date(Date.now() - 60_000).toISOString(), id);
 		// The seat reports idle at first, three polls later its turn begins, then it closes its stage.
 		scriptedHerdr(f, id, { waits: ["idle", "close"], gets: ["idle", "idle", "idle", "working"] });
-		driveOnce(f.root, f.task, { ...TIMING, startGraceMs: 600, seatPollMs: 10 });
+		// The grace is far longer than four polls take under load, and still shorter than the minute since the prompt.
+		driveOnce(f.root, f.task, { ...TIMING, startGraceMs: 30_000, seatPollMs: 10 });
 		const nudges = f.herdr.calls().filter((c) => c[0] === "agent" && c[1] === "prompt");
 		assert.equal(nudges.length, 0, "no nudge: the grace had not run out");
 		assert.equal(f.events("nudge").length, 0);
