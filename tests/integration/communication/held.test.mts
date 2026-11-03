@@ -498,3 +498,48 @@ async function blockAddress(address) {
 	await f.admin.execute(sql`INSERT INTO suppression(address_hash,reason,source_event_id,suppressed_at)
 		VALUES(${hash},'hard_bounce',${eventId},clock_timestamp())`);
 }
+
+test("AC:CASE-COM-012 in dev capture mode schedule, cancel, time change and Check again work against the outbox", async () => {
+	const { mkdtemp, rm, writeFile } = await import("node:fs/promises");
+	const { tmpdir } = await import("node:os");
+	const { join } = await import("node:path");
+	const { deliveryTransport } = await import("../../../apps/web/src/features/communication/mail.ts");
+	const { NO_ANSWER_FILE } = await import("../../../apps/web/src/features/communication/capture.ts");
+	const outbox = await mkdtemp(join(tmpdir(), "wp028-outbox-"));
+	const saved = process.env.EVERYFIELD_DEV_OUTBOX;
+	process.env.EVERYFIELD_DEV_OUTBOX = outbox;
+	try {
+		const capture = deliveryTransport(
+			{ keys: { ...keys, from: "church@example.test" }, apiKey: null },
+			() => Promise.reject(new Error("provider called")),
+			() => {},
+		);
+		const friday = plantTime("Fri", 9);
+		const saturday = plantTime("Sat", 9, new Date(friday));
+		const held = await reviewed(friday);
+		assert.equal(ok(await handOff(held, capture)).acceptedCount, 3);
+		assert.equal((await shown(held)).item.state, "scheduled");
+		assert.equal(ok(await move(held, saturday, capture)).rescheduleStatus, "accepted");
+		assert.equal((await shown(held)).detail.scheduledAt, saturday);
+		assert.equal(ok(await cancel(held, capture)).scheduledCancel, "confirmed");
+		assert.equal((await shown(held)).item.state, "cancelled");
+
+		const quiet = await reviewed(friday);
+		ok(await handOff(quiet, capture));
+		await writeFile(join(outbox, NO_ANSWER_FILE), "");
+		assert.equal(ok(await move(quiet, saturday, capture)).rescheduleStatus, "unknown");
+		assert.equal((await shown(quiet)).item.state, "time_unconfirmed");
+		await rm(join(outbox, NO_ANSWER_FILE));
+		assert.equal(ok(await move(quiet, saturday, capture)).rescheduleStatus, "accepted");
+		await writeFile(join(outbox, NO_ANSWER_FILE), "");
+		assert.equal(ok(await cancel(quiet, capture)).scheduledCancel, "reconcile");
+		assert.equal((await shown(quiet)).item.state, "cancel_unconfirmed");
+		await rm(join(outbox, NO_ANSWER_FILE));
+		assert.equal(ok(await cancel(quiet, capture)).scheduledCancel, "confirmed");
+		assert.equal((await shown(quiet)).item.state, "cancelled");
+	} finally {
+		if (saved === undefined) delete process.env.EVERYFIELD_DEV_OUTBOX;
+		else process.env.EVERYFIELD_DEV_OUTBOX = saved;
+		await rm(outbox, { recursive: true, force: true });
+	}
+});
