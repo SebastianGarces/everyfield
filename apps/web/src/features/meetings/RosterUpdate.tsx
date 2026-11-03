@@ -85,7 +85,13 @@ export function RosterUpdate({
 	return (
 		<>
 			<SaveNotice {...lane.noticeProps} dialogOpen={open} />
-			<Card as="section" aria-label="Guest list source" className="flex flex-wrap items-center gap-x-4 gap-y-3">
+			<Card
+				as="section"
+				variant="callout"
+				tone="violet"
+				aria-label="Guest list source"
+				className="flex-row flex-wrap items-center gap-x-4 gap-y-3"
+			>
 				<CardIcon icon={UserGroupIcon} tone="violet" size={36} />
 				<p className="min-w-[220px] flex-1 text-sm text-text-2">
 					The guest list was copied from{" "}
@@ -208,7 +214,10 @@ function Group({ title, people, children }: { title: string; people: string[]; c
 			<p className="text-sm text-text-2">{children}</p>
 			<ul className="flex flex-wrap gap-1.5">
 				{people.map((name, i) => (
-					<li key={`${name}-${i}`} className="rounded-full bg-surface-sunken px-2.5 py-0.5 text-sm text-ink">
+					<li
+						key={`${name}-${i}`}
+						className="rounded-pill border border-line bg-surface-raised px-2.5 py-0.5 text-sm text-ink"
+					>
 						{name}
 					</li>
 				))}

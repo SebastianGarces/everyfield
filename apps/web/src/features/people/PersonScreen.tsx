@@ -471,7 +471,9 @@ export function PersonScreen({
 									/>
 								</>
 							) : null}
-							{ministries ? <MinistryRoles key={generation} initial={ministries} canCorrect={canWrite} /> : null}
+							{ministries ? (
+								<MinistryRoles key={`ministries-${generation}`} initial={ministries} canCorrect={canWrite} />
+							) : null}
 							<Card>
 								<CardHeader className="mb-2">
 									<CardHeading>

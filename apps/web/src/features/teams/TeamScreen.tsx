@@ -1158,8 +1158,13 @@ function HistoryList({ state }: { state: Outcome<{ entries: HistoryEntry[] }> | 
 	);
 }
 
+/** The order a history entry lists its changed fields in: the order of FIELD_LABEL, then any others. */
+const FIELD_ORDER = Object.keys(FIELD_LABEL);
+const fieldRank = (k: string) => (FIELD_ORDER.includes(k) ? FIELD_ORDER.indexOf(k) : FIELD_ORDER.length);
 function Diff({ entry: e }: { entry: HistoryEntry }) {
-	const keys = [...new Set([...Object.keys(e.before ?? {}), ...Object.keys(e.after ?? {})])];
+	const keys = [...new Set([...Object.keys(e.before ?? {}), ...Object.keys(e.after ?? {})])].sort(
+		(a, b) => fieldRank(a) - fieldRank(b),
+	);
 	const lines = keys.flatMap((k) => {
 		const from = shownValue(k, e.before?.[k]);
 		const to = shownValue(k, e.after?.[k]);

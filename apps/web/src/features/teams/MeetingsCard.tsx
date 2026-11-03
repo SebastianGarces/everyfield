@@ -100,7 +100,7 @@ function Group({
 }) {
 	return (
 		<section aria-label={`${title} meetings`} className="flex flex-col gap-1">
-			<h3 className="text-xs font-semibold tracking-wide text-text-3 uppercase">{title}</h3>
+			<h3 className="font-sans text-xs font-semibold tracking-wide text-text-3 uppercase">{title}</h3>
 			{meetings.length === 0 ? (
 				<p className="py-1 text-sm text-text-3">{empty}</p>
 			) : (
