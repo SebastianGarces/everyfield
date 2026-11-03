@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { ensureTask, findTask, openWorkDb, requireStartable, seatOverrideOf, workDbPath } from "./db.ts";
+import { ensureTask, findTask, openWorkDb, requireStartable, seatOverrideOf, taskById, workDbPath } from "./db.ts";
 import {
 	baseRef,
 	EvfError,
@@ -177,10 +177,18 @@ export function launchPlan(
 	root: string,
 	task: TaskRef,
 	role: Role,
-	opts: { mode?: string; round?: number; run?: string; idea?: number; driven?: boolean; stage?: string },
+	opts: {
+		mode?: string;
+		round?: number;
+		run?: string;
+		idea?: number;
+		driven?: boolean;
+		stage?: string;
+		taskId?: number;
+	},
 ): LaunchPlan {
 	const cfg = loadConfig(root),
-		seat = resolveSeat(cfg, task, role, seatOverrideOf(root, task)),
+		seat = resolveSeat(cfg, task, role, seatOverrideOf(root, task, opts.taskId)),
 		agent = agentDefinition(root, role, seat),
 		session = randomUUID(),
 		idea = opts.idea,
@@ -514,6 +522,8 @@ export function launch(
 		driven?: boolean;
 		/** Set by the drive loop only: a stage the role's seat runs besides its own (the body stage, OPS-113). */
 		stage?: string;
+		/** Set by the drive loop only: the store row it pinned. The launch reads that row and never creates one (OPS-123). */
+		taskId?: number;
 	},
 ): number {
 	const timing = { ...LAUNCH_TIMING, ...opts.timing };
@@ -521,12 +531,13 @@ export function launch(
 	if (existsSync(workDbPath(root))) {
 		const known = openWorkDb(root, { readOnly: true });
 		try {
-			if (findTask(known, task)?.status === "merged") fail(`${task.id} is merged.`);
+			const row = opts.taskId ? taskById(known, opts.taskId) : findTask(known, task);
+			if (row?.status === "merged") fail(`${task.id} is merged.`);
 		} finally {
 			known.close();
 		}
 	}
-	requireStartable(root, task, role);
+	requireStartable(root, task, role, opts.taskId);
 	if (opts.dryRun) return launchDryRun(root, task, role, opts);
 	const cfg = loadConfig(root);
 	if (opts.idea && role !== "ideator") fail("--idea is for the ideator role.");
@@ -538,7 +549,9 @@ export function launch(
 	}
 	const db = openWorkDb(root);
 	try {
-		const taskRow = ensureTask(db, task, opts.mode ?? "implement");
+		const pinned = opts.taskId ? taskById(db, opts.taskId) : undefined;
+		if (opts.taskId && !pinned) fail(`Store row ${opts.taskId} of ${task.id} does not exist.`);
+		const taskRow = pinned ?? ensureTask(db, task, opts.mode ?? "implement");
 		if (taskRow.status === "merged" || taskRow.status === "abandoned") fail(`${task.id} is ${taskRow.status}.`);
 		if (taskRow.status === "escalated")
 			fail(`${task.id} is escalated after ${taskRow.round} rounds. Sebastian decides before another seat starts.`);
@@ -548,6 +561,7 @@ export function launch(
 			idea: opts.idea,
 			driven: opts.driven,
 			stage: opts.stage,
+			taskId: taskRow.id,
 		});
 		const event = (type: string, payload: Record<string, unknown>, runId: number): number =>
 			Number(
