@@ -10,9 +10,9 @@ const PATH = "/intelligence/attestations";
 // Seeded candidates and the first signal group: attestation data a locked page must never show.
 const DATA = ["Alex Rivera", "Sam Ortiz", "Record a candidate", "Leadership candidates"];
 
-async function open(page, context, cookie, path = PATH) {
+async function open(page, context, cookie) {
 	if (cookie) await signIn(context, cookie);
-	const response = await page.goto(`${BASE}${path}`);
+	const response = await page.goto(`${BASE}${PATH}`);
 	await hydrated(page);
 	return response;
 }
