@@ -164,7 +164,9 @@ for (const [name, engine] of ENGINES) {
 				});
 				assert.ok(named.label.length > 0, `control ${i + 1} has an accessible name`);
 				const text = ["text", "number"].includes(named.type);
-				assert.equal(named.cursor, named.disabled ? "not-allowed" : text ? "text" : "pointer", `${named.label}: cursor ${named.cursor}`);
+				// A field to type in shows the text cursor (WebKit leaves a number field at auto); the rest are clickable.
+				const want = named.disabled ? ["not-allowed"] : text ? ["text", "auto"] : ["pointer"];
+				assert.ok(want.includes(named.cursor), `${named.label}: cursor ${named.cursor}`);
 			}
 			for (const label of ["Add row above", "Add column right", "Remove column"]) {
 				await t.button(label).hover();

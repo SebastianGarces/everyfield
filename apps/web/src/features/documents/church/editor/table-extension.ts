@@ -561,7 +561,16 @@ function tableNodeView(
 		widths();
 	}
 	draw();
-	const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => widths());
+	// A change of the table's width lays the columns out again, in the next frame so the observer never loops on itself.
+	let seen = scroll.clientWidth;
+	const observer =
+		typeof ResizeObserver === "undefined"
+			? null
+			: new ResizeObserver(() => {
+					if (scroll.clientWidth === seen) return;
+					seen = scroll.clientWidth;
+					requestAnimationFrame(widths);
+				});
 	observer?.observe(scroll);
 	blanks.addEventListener("focus", () => noteFocus(editor.view, getPos(), "blank", 0));
 	blanks.addEventListener("keydown", (event) => {
