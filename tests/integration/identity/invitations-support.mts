@@ -36,6 +36,8 @@ export async function fixture({ lockTimeout = "0" } = {}) {
 	let db;
 	const effects = [];
 	let mailFault = false;
+	// A real transport a test can put behind the recording one, so the email goes to a recorded email service.
+	let relay = null;
 	const addressKey = randomBytes(32);
 	try {
 		await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
@@ -69,9 +71,9 @@ export async function fixture({ lockTimeout = "0" } = {}) {
 		from: "invitations@example.test",
 		authorize: (tx, m) => authorizeInvitationMail(tx, m, hash),
 		transport: {
-			async send(payload, key) {
+			async send(payload, key, signal) {
 				effects.push({ text: payload.text, to: payload.to, key });
-				return { kind: "accepted", id: randomUUID() };
+				return relay ? relay.send(payload, key, signal) : { kind: "accepted", id: randomUUID() };
 			},
 			async lookup() {
 				return { kind: "unknown" };
@@ -84,6 +86,9 @@ export async function fixture({ lockTimeout = "0" } = {}) {
 		origin: "http://invitation.example.test",
 		budgetSecret: randomBytes(32).toString("hex"),
 		people: accountPersonProducer,
+		// As the invitation mount checks it: the mail service's own address hash against the active blocks.
+		addressBlocked: (email) =>
+			sql`EXISTS (SELECT 1 FROM suppression WHERE address_hash = ${hash(email.trim().toLowerCase())} AND cleared_at IS NULL)`,
 		enqueueMail: async (tx,m,command) => {
 			if (mailFault) throw Error("synthetic_outbox_failure");
 			return mail.append(tx, {
@@ -258,6 +263,7 @@ export async function fixture({ lockTimeout = "0" } = {}) {
 		mail,
 		effects,
 		dispatch,
+		addressHash: hash,
 		proof,
 		account,
 		workspace,
@@ -267,6 +273,9 @@ export async function fixture({ lockTimeout = "0" } = {}) {
 		invitation,
 		setMailFault(v) {
 			mailFault = v;
+		},
+		setTransport(transport) {
+			relay = transport;
 		},
 		async close() {
 			await closeDatabase(db);

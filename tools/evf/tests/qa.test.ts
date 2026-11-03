@@ -446,8 +446,10 @@ test("OPS-126: the network login holds an admin seat and the sending-church logi
 			},
 		],
 	);
+	// OPS-127's Grace Fellowship (QA) shares the wiki and has no login.
 	assert.deepEqual(await query("SELECT name, kind FROM organization WHERE name LIKE '%(QA)' ORDER BY name"), [
 		{ name: ORGS.sending, kind: "sending_church" },
+		{ name: "Grace Fellowship (QA)", kind: "sending_church" },
 		{ name: ORGS.network, kind: "sending_network" },
 	]);
 	// The session each login gets selects its organization seat.
@@ -598,12 +600,14 @@ test("OPS-126: the seed stays idempotent, and a branch seeded before OPS-126 gai
 		beforeLogins = await logins();
 	assert.equal(beforeLogins.length, 3);
 
-	assert.equal(
-		old.seed(),
+	// The OPS-127 wiki cases came after OPS-106 too. Their article titles depend on the database's wiki release.
+	const upgrade = old.seed().split(/wiki copies of [^,]+, wiki revision of [^,]+, wiki reading/);
+	assert.deepEqual(upgrade, [
 		`QA seed wrote: login ${QA_LOGINS.network}, login ${QA_LOGINS.sending}, ${ORGS.network}, ${ORGS.network} admin seat, ` +
 			`connection ${ORGS.network}, ${ORGS.sending}, ${ORGS.sending} owner seat, connection ${ORGS.sending}, ` +
-			"owner timezone, 13 check-in weeks.",
-	);
+			"sending church Grace Fellowship (QA), affiliation with Grace Fellowship (QA), ",
+		", owner timezone, 13 check-in weeks.",
+	]);
 	assert.deepEqual(await church(), beforeChurch);
 	assert.deepEqual(
 		(await logins()).filter((l) => !String(l.email).includes("-network-") && !String(l.email).includes("-sending-")),

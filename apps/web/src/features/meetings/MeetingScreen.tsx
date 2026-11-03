@@ -623,6 +623,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 								<GuestList
 									meeting={m}
 									guests={view.guests && presence.shown(view.guests)}
+									emailOpens={data.emailOpens}
 									cards={view.cards}
 									attendance={view.attendance}
 									presence={presence}

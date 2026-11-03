@@ -297,19 +297,16 @@ for (const [name, engine] of ENGINES) {
 			await page.waitForURL(/\/communication\?message=[0-9a-f-]{36}$/);
 			await page
 				.getByRole("status")
-				.filter({ hasText: /^Scheduled for .+ It has not been sent\.$/ })
+				.filter({
+					hasText:
+						/^Scheduled for .+ The email service holds it until then\. Accepted \d+\. Refused \d+\. No answer \d+\.$/,
+				})
 				.waitFor();
-			// The new message is first in the list and open, with the scheduled actions.
+			// The new message is first in the list and open, with the actions of a message the email service holds.
 			const first = page.getByRole("region", { name: "History" }).getByRole("listitem").first();
 			assert.match(await first.innerText(), new RegExp(subject));
 			assert.match(await first.innerText(), /Scheduled/);
-			for (const label of [
-				"Send now",
-				"Cancel provider send",
-				"Check provider result",
-				"Check replacement",
-				"Change send time",
-			])
+			for (const label of ["Cancel scheduled email", "Change send time"])
 				await page.getByRole("button", { name: label, exact: true }).first().waitFor();
 
 			// A draft row goes back to Write at its own address.
