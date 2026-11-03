@@ -25,7 +25,7 @@ import { stackEnv, stackInfo } from "./task.ts";
  * the `ui-escaped` check runs the folder on every UI task's stack. All of it runs on this machine only, never in CI.
  */
 
-export const ESCAPED_DIR = "tests/ui/escaped/";
+const ESCAPED_DIR = "tests/ui/escaped/";
 const SOAK_RUNS = 20;
 const ESCAPED_TEST = /^tests\/ui\/escaped\/[^/]+\.test\.mjs$/;
 const SHA = /^[a-f0-9]{40}$/;
@@ -183,11 +183,6 @@ export function soakPath(root: string, task: TaskRef, hash: string): string {
 	return join(evfDataDir(root), "evidence", task.slug, "soak", `${hash}.json`);
 }
 
-function readSoak(root: string, task: TaskRef, hash: string): SoakRecord | undefined {
-	const path = soakPath(root, task, hash);
-	return existsSync(path) ? (JSON.parse(readFileSync(path, "utf8")) as SoakRecord) : undefined;
-}
-
 const noStack = (task: TaskRef) =>
 	`No running stack for ${task.id}. Start it with bin/evf stack up ${task.id}, then rerun.`;
 
@@ -292,8 +287,10 @@ export function uiEscapedGate(root: string, wt: string, task: TaskRef, baseSha: 
 	const unsoaked = changed
 		.filter((path) => ESCAPED_TEST.test(path) && existsSync(join(wt, path)))
 		.filter((path) => {
-			const soaked = readSoak(root, task, sha256(readFileSync(join(wt, path))));
-			return !(soaked?.passed && soaked.runs >= SOAK_RUNS);
+			const record = soakPath(root, task, sha256(readFileSync(join(wt, path))));
+			if (!existsSync(record)) return true;
+			const soaked = JSON.parse(readFileSync(record, "utf8")) as SoakRecord;
+			return !(soaked.passed && soaked.runs >= SOAK_RUNS);
 		});
 	if (unsoaked.length)
 		return {
