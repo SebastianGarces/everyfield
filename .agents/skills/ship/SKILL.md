@@ -29,6 +29,14 @@ them. Comments are deliberate because agents share the owner's
 GitHub account. These records are unsigned coordination evidence, not authenticated identities.
 Use `changes_requested` instead of `approved` when verification fails. The latest record for that
 head wins. A changed head needs new CI and real verification.
+`body_only` (OPS-113) approves the code and the experience and adds a `"body"` list of exact-text items, each
+`{"present": "<text>", "why": "<reason>"}` or `{"absent": "<text>", "why": "<reason>"}`. Use it only when every
+open finding is a PR body fix that can be checked that way. evf's body stage fixes the body at the same head with
+no round and no new verify, and ship accepts the review as the code approval only when its quality and experience
+verdicts are approved and the current GitHub body meets every item; it names the first unmet item otherwise. The
+body must not change during the merge checks. A `body_only` review carries over merge-only commits like
+`approved` (EVF-Carry), and the items are checked on the merged head's body; a code commit needs a new verify.
+A failed verify at a head already reviewed costs no round. `tools/evf/README.md` lists decisions D-a to D-e.
 
 `evf ship <task>` requires every required GitHub check to pass on the exact PR head, an allowed
 family's approval of that head and a body passing the PR standard. Missing checks refuse.
@@ -53,11 +61,18 @@ fix joins the class when its exact-head diff (merge base to head, all commits) t
 status, prints the `evf approve` command and exits 0 without merging. After he approves in chat,
 `evf approve <PR> --owner-approval "<his words>"` merges the exact head once an independent review
 and the verified status hold. It then writes the shipped record and unlocks dependents as `evf ship` does.
+Landing and marketing PRs (OPS-111) join the same wait in their own owner-path class: the exact-head diff touches a
+path in `mergePolicy.ownerPaths` (built-in default in `tools/evf/policy.ts`: the landing page, the access, oversight, privacy and terms pages,
+`apps/web/src/marketing/` and `apps/web/src/styles/marketing.css`). It is classified like the document-template
+class, from the base branch's config, and doubt holds the PR. `evf ship` posts the verified status, names up to five
+matched paths and prints `bin/evf approve <PR> --owner-approval "<his words>" --head <sha>`; approve refuses
+without `--head`. A PR in both classes is held once, and the message names both.
 All merges go through one function (`mergePullRequest`, `tools/evf/merge.ts`). On the exact head it merges, it
-holds a document-template class PR without his recorded approval, and treats any doubt about the class as the
-class. It refuses to merge from evf code that differs from the base branch or has uncommitted changes: update the
-home checkout to current main and rerun. The drive runs its ship stage on current base code, so a long drive never
-merges on old rules.
+holds a document-template or owner-path class PR without his recorded approval, and treats any doubt about a class
+as the class. It refuses to merge from evf code that differs from the base branch or has uncommitted changes: update
+the home checkout to current main and rerun. `evf ship` and `evf drive` make the same stale-code check at their
+start, so a stale ship posts no status, updates no branch and merges nothing, and a stale drive launches no seat.
+During a drive, its ship stage runs on current base code, so a long drive never merges on old rules.
 Preserve these PR #13 routes; they never carry an approval. Sensitive work and paid commitments still need their scoped owner approvals.
 
 Only evf writes canonical progress. Ship retains the CI and review references, exact head and

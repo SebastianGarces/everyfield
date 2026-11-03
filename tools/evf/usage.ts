@@ -201,7 +201,7 @@ type RunRow = {
 
 type Group = "build" | "review" | "prototype";
 const BUILD_STAGES = ["plan", "implement", "simplify"];
-const REVIEW_STAGES = ["evidence", "verify"];
+const REVIEW_STAGES = ["evidence", "verify", "body"];
 /** Build is plan, implement, ui and simplify in round 0; review and rework is the rest of the seat stages. */
 function groupOf(stage: string, round: number): Group | null {
 	if (BUILD_STAGES.includes(stage)) return round === 0 ? "build" : "review";
