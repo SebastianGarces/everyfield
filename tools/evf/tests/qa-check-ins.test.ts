@@ -240,21 +240,12 @@ test("OPS-125: a rerun writes nothing, and a branch without the history gets it 
 
 /** The task branch whose own diff is the OPS-125 change before it merges. */
 const OPS_BRANCH = "task/ops-125";
-type Ops125Change = {
-	/** App and package source files that name tools/evf/. */
-	importers: string[];
-	/** A depth-1 checkout: no history to read, so `commits` and `edits` stay empty. */
-	shallow: boolean;
-	/** Every commit reachable from HEAD whose subject starts with `OPS-125:`. */
-	commits: string[];
-	/** Paths under apps/ or packages/ that an OPS-125 commit, or the task/ops-125 branch diff, edits. */
-	edits: string[];
-};
 /**
- * What the OPS-125 change touches in `repo`. The change is its `OPS-125:` commits, each against its first parent, and
- * the task/ops-125 branch diff while that branch is checked out. Another task branch's own app diff is not part of it.
+ * The OPS-125 change check on `repo`: no app or package file imports tools/evf/, and outside a shallow checkout at
+ * least one `OPS-125:` commit exists and none of them, each against its first parent, edits apps/ or packages/. On
+ * task/ops-125 the branch diff counts too. Another task branch's own app diff is not part of the change.
  */
-function ops125Change(repo: string): Ops125Change {
+function checkOps125Change(repo: string, diagnostic: (message: string) => void = () => {}) {
 	const importers: string[] = [];
 	const walk = (dir: string) => {
 		if (!existsSync(dir)) return;
@@ -268,6 +259,7 @@ function ops125Change(repo: string): Ops125Change {
 	};
 	walk(join(repo, "apps"));
 	walk(join(repo, "packages"));
+	assert.deepEqual(importers, [], `app or package files import the QA tooling: ${importers.join(", ")}`);
 	const git = (...args: string[]) => {
 		const r = spawnSync("git", args, { cwd: repo, encoding: "utf8" });
 		assert.equal(r.status, 0, `git ${args.join(" ")}: ${r.stderr}`);
@@ -275,16 +267,15 @@ function ops125Change(repo: string): Ops125Change {
 	};
 	// CI checks out the PR merge commit at depth 1, with no main ref and no parents to diff against.
 	// The history half then runs in `evf ac run` on the full worktree.
-	if (git("rev-parse", "--is-shallow-repository")[0] === "true")
-		return { importers, shallow: true, commits: [], edits: [] };
+	if (git("rev-parse", "--is-shallow-repository")[0] === "true") {
+		diagnostic("shallow checkout: no main history, so only the import scan runs");
+		return { shallow: true, commits: [] };
+	}
 	const commits = git("log", "--format=%H %s", "HEAD")
 		.filter((line) => line.slice(41).startsWith("OPS-125:"))
 		.map((line) => line.slice(0, 40));
-	const changed = commits.flatMap((c) =>
-		spawnSync("git", ["rev-parse", "--verify", "-q", `${c}^1`], { cwd: repo }).status === 0
-			? git("diff", "--name-only", `${c}^1`, c)
-			: git("diff-tree", "-r", "--root", "--no-commit-id", "--name-only", c),
-	);
+	assert.ok(commits.length > 0, "no OPS-125: commit in the history of HEAD");
+	const changed = commits.flatMap((c) => git("diff", "--name-only", `${c}^1`, c));
 	if (git("rev-parse", "--abbrev-ref", "HEAD")[0] === OPS_BRANCH) {
 		const base = ["origin/main", "main"]
 			.map((ref) => spawnSync("git", ["merge-base", "HEAD", ref], { cwd: repo, encoding: "utf8" }))
@@ -293,19 +284,8 @@ function ops125Change(repo: string): Ops125Change {
 		changed.push(...git("diff", "--name-only", base.stdout.trim(), "HEAD"));
 	}
 	const edits = [...new Set(changed.filter((path) => path.startsWith("apps/") || path.startsWith("packages/")))].sort();
-	return { importers, shallow: false, commits, edits };
-}
-/** The OPS-125 change check: no importer, and outside a shallow checkout at least one OPS-125 commit and no app edit. */
-function checkOps125Change(repo: string, diagnostic: (message: string) => void = () => {}) {
-	const change = ops125Change(repo);
-	assert.deepEqual(change.importers, [], `app or package files import the QA tooling: ${change.importers.join(", ")}`);
-	if (change.shallow) {
-		diagnostic("shallow checkout: no main history, so only the import scan runs");
-		return change;
-	}
-	assert.ok(change.commits.length > 0, "no OPS-125: commit in the history of HEAD");
-	assert.deepEqual(change.edits, [], `the OPS-125 change edits app or package files: ${change.edits.join(", ")}`);
-	return change;
+	assert.deepEqual(edits, [], `the OPS-125 change edits app or package files: ${edits.join(", ")}`);
+	return { shallow: false, commits };
 }
 
 /** A temporary git repository. `run` runs git in it and returns trimmed stdout. */
@@ -316,10 +296,7 @@ function gitRepo(t: TestContext) {
 		const r = spawnSync(
 			"git",
 			["-c", "user.name=t", "-c", "user.email=t@t", "-c", "maintenance.auto=false", "-c", "gc.auto=0", ...args],
-			{
-				cwd: dir,
-				encoding: "utf8",
-			},
+			{ cwd: dir, encoding: "utf8" },
 		);
 		assert.equal(r.status, 0, `git ${args.join(" ")}: ${r.stderr}`);
 		return r.stdout.trim();
@@ -345,15 +322,11 @@ test("OPS-125: an app task branch on top of the OPS-125 change passes the check 
 		"apps/web/new.ts": "export const x = 1;\n",
 		"packages/db/new.ts": "export {};\n",
 	});
-	const change = checkOps125Change(repo.dir);
-	assert.equal(change.commits.length, 1);
-	assert.deepEqual(change.edits, []);
+	assert.equal(checkOps125Change(repo.dir).commits.length, 1);
 });
 
 test("OPS-125: the real worktree's OPS-125 change edits no app or package and nothing imports the tooling AC:OPS-125-2", (t) => {
-	const change = checkOps125Change(source, (m) => t.diagnostic(m));
-	assert.deepEqual(change.importers, []);
-	if (!change.shallow) assert.ok(change.commits.length >= 1);
+	checkOps125Change(source, (m) => t.diagnostic(m));
 });
 
 test("OPS-125: an OPS-125 commit, or the task/ops-125 branch, that edits apps/x.ts fails the check AC:OPS-125-2", (t) => {
@@ -383,8 +356,7 @@ test("OPS-125: a depth-1 clone skips the history half and still runs the import 
 	});
 	assert.equal(r.status, 0, r.stderr);
 	const notes: string[] = [];
-	const change = checkOps125Change(clone, (m) => notes.push(m));
-	assert.deepEqual(change, { importers: [], shallow: true, commits: [], edits: [] });
+	assert.deepEqual(checkOps125Change(clone, (m) => notes.push(m)), { shallow: true, commits: [] });
 	assert.deepEqual(notes, ["shallow checkout: no main history, so only the import scan runs"]);
 	writeFileSync(join(clone, "apps/z.ts"), 'import "../tools/evf/qa-seed.ts";\n');
 	assert.throws(() => checkOps125Change(clone), /apps\/z\.ts/);
