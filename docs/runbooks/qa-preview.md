@@ -1,7 +1,7 @@
 # QA preview runbook (OPS-106)
 
 A QA preview is a Vercel preview of one branch with its own database. It gives Nora a working copy of the app to test,
-with seeded data, three known logins and the same shared credentials as every preview. Nothing builds on a normal push
+with seeded data, five known logins and the same shared credentials as every preview. Nothing builds on a normal push
 or PR. A preview exists only when someone asks for one, and the lead removes it when the testing ends.
 
 `bin/evf qa` is the only sanctioned way to make a Vercel preview deployment (AGENTS.md).
@@ -37,16 +37,29 @@ If a step fails, the command removes what it made and prints the error with ever
 
 ### Logins on every QA preview
 
-| Role   | Email                           | Password                  |
-|--------|---------------------------------|---------------------------|
-| Owner  | `delivered+qa-owner@resend.dev`  | `Everyfield-QA-preview-1` |
-| Admin  | `delivered+qa-admin@resend.dev`  | `Everyfield-QA-preview-1` |
-| Member | `delivered+qa-member@resend.dev` | `Everyfield-QA-preview-1` |
+| Role                    | Email                                       | Password                  |
+|-------------------------|---------------------------------------------|---------------------------|
+| Owner                   | `delivered+qa-owner@resend.dev`             | `Everyfield-QA-preview-1` |
+| Admin                   | `delivered+qa-admin@resend.dev`             | `Everyfield-QA-preview-1` |
+| Member                  | `delivered+qa-member@resend.dev`            | `Everyfield-QA-preview-1` |
+| Network Admin           | `delivered+qa-network-admin@resend.dev`     | `Everyfield-QA-preview-1` |
+| Sending-church director | `delivered+qa-sending-director@resend.dev`  | `Everyfield-QA-preview-1` |
 
-These accounts exist only on QA Neon branches, behind Vercel Deployment Protection. Each one lands on the test church
-"Harvest Point (QA)". The church has people, a household, three teams, two meetings, tasks, two follow-ups, a written
-document, a draft message and the wiki. It also has a sending church, "Grace Fellowship (QA)", and a sending network,
-"Harvest Network (QA)". Both share the wiki with Harvest Point (QA). Neither one has a login.
+These accounts exist only on QA Neon branches, behind Vercel Deployment Protection. The Owner, Admin and Member land on
+the test church "Harvest Point (QA)". The church has people, a household, three teams, two meetings, tasks, two
+follow-ups, a written document, a draft message, the wiki and the Owner's private check-in history (below). It also has
+a sending church, "Grace Fellowship (QA)", and a sending network,
+"Harvest Network (QA)". Both share the wiki with Harvest Point (QA). Grace Fellowship (QA) has no login.
+
+The last two logins test the overseeing side. The Network Admin is an Admin of the network "Harvest Network (QA)". The
+sending-church director is the Owner of the sending church "Grace Church (QA)". Each organization oversees Harvest
+Point (QA): the church's Owner sent each one a connection request, and the organization's login accepted it.
+
+- To see the connection, sign in as one of these logins and open `/settings/sharing`. Harvest Point (QA) is in the
+  "Connected churches" list.
+- `/home` shows "This account is for an organization". The app has no organization home page yet, so this is expected.
+- These logins do not see planter-private data such as check-ins. They see the church only through what the
+  connection shares.
 
 ### Church, network and revised wiki articles (OPS-127)
 
