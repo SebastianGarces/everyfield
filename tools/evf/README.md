@@ -798,11 +798,11 @@ already carries the escape.
 against the task's stack, with `UI_BASE_URL` set. The first failed run ends the soak. The record goes to
 `.git/evf/evidence/<task slug>/soak/<sha256 of the file>.json`, with the run log beside it.
 
-The `ui-escaped` check is built into `evf verify` (`verify.ts`), because an OPS task may change only its own
-entry in `evf.config.json`. A check named `ui-escaped` in `checks` replaces the built-in command. It runs
-`node --test tests/ui/escaped/*.test.mjs` with `UI_BASE_URL` set to the task's stack URL. `evf verify` runs it for WP `/ui` parts and for any task that
-changes a file under `tests/ui/escaped/`. It skips other tasks with one line that gives the reason, and it
-skips with one line while the folder holds no test. It fails without a running stack (the message names
+The `ui-escaped` check is built into `evf verify` (`verify.ts`). A check named `ui-escaped` in `checks`
+replaces the built-in command. It runs `node --test tests/ui/escaped/*.test.mjs` with `UI_BASE_URL` set to the
+task's stack URL. `evf verify` runs it for WP `/ui` parts and for any task that changes a file under
+`tests/ui/escaped/`. It skips other tasks with one line that gives the reason, and it skips with one line
+while the folder holds no test. It fails without a running stack (the message names
 `bin/evf stack up <task>`), and it fails for a changed escaped test that has no 20-green soak record for its
 current bytes.
 
@@ -814,9 +814,6 @@ bin/evf stack up WP-037/ui
 bin/evf escape soak tests/ui/escaped/<name>.test.mjs --task WP-037/ui   # only for a new or changed test
 bin/evf verify WP-037/ui                        # ui-escaped runs every tests/ui/escaped/*.test.mjs on the stack
 ```
-
-The folder is empty at OPS-114. An OPS task may own only tooling paths (`maintenanceScope` in `policy.ts`), so
-every escaped test, the fixed-header overlap check first, comes in a WP /ui task.
 
 ## Feedback and human ownership
 
