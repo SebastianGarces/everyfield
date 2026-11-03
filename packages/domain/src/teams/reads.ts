@@ -1,5 +1,5 @@
 import * as c from "@everyfield/contracts/teams";
-import { sql } from "@everyfield/db/query";
+import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import type { RequestActor } from "../access/session.ts";
@@ -82,7 +82,11 @@ export const teamsReader = {
 				sql`SELECT (SELECT plant_id FROM team WHERE id = ${input.teamId}::uuid) AS owner,
 					coalesce((SELECT json_agg(json_build_object(
 						'id', a.id, 'kind', a.kind, 'occurredAt', a.occurred_at, 'reason', a.reason,
-						'before', a.before_value, 'after', a.after_value
+						'before', a.before_value, 'after', a.after_value,
+						'about', (SELECT json_build_object('personName', p.display_name, 'roleName', r.name) FROM team_tenure tn
+							JOIN team_role r ON r.id = tn.role_id JOIN person p ON p.id = tn.person_id
+							WHERE tn.id = (a.metadata->>'tenureId')::uuid AND tn.plant_id = a.tenant_id),
+						'actorName', (SELECT display_name FROM seat_identity(a.actor_id))
 					) ORDER BY a.occurred_at DESC, a.id DESC)
 					FROM (SELECT * FROM audit_event WHERE tenant_id = ${viewer.plantId}::uuid AND subject_id = ${input.teamId}::uuid
 							AND kind <> 'noop'
@@ -98,6 +102,8 @@ export const teamsReader = {
 						reason: z.string().nullable(),
 						before: z.record(z.string(), z.unknown()).nullable(),
 						after: z.record(z.string(), z.unknown()).nullable(),
+						actorName: z.string().nullable(),
+						about: z.object({ personName: z.string(), roleName: z.string() }).nullable(),
 					}),
 				)
 				.parse(found.entries);
@@ -150,37 +156,11 @@ export const teamsReader = {
 			const found = await row(
 				db,
 				viewer,
-				sql`SELECT p.tenant_id AS owner,
-					coalesce((SELECT json_agg(json_build_object(
-						'teamId', t.id, 'teamName', t.name, 'roleId', r.id, 'roleName', r.name,
-						'desiredSkills', r.desired_skills, 'startedOn', tn.started_on, 'endedOn', tn.ended_on,
-						'active', (tn.ended_on IS NULL)
-					) ORDER BY tn.started_on, tn.id)
-					FROM team_tenure tn
-					JOIN team_role r ON r.id = tn.role_id
-					JOIN team t ON t.id = r.team_id
-					WHERE tn.person_id = p.id AND tn.plant_id = p.tenant_id), '[]'::json) AS assignments
+				sql`SELECT p.tenant_id AS owner, ${personTenuresJson(sql`p.id`, sql`p.tenant_id`)} AS assignments
 					FROM person p WHERE p.id = ${input.personId}::uuid`,
 			);
 			owner(viewer.plantId, found.owner);
-			const assignments = z
-				.array(
-					z.object({
-						teamId: id,
-						teamName: z.string(),
-						roleId: id,
-						roleName: z.string(),
-						desiredSkills: z.string().nullable(),
-						startedOn: day,
-						endedOn: day.nullable(),
-						active: z.boolean(),
-					}),
-				)
-				.parse(found.assignments);
-			return c.personAssignments.parse({
-				personId: input.personId,
-				assignments: assignments.slice(0, 200),
-			});
+			return c.personAssignments.parse({ personId: input.personId, assignments: personTenures(found.assignments) });
 		});
 	},
 	async listLeaderCandidates(db: Reader, authority: RequestActor, raw: unknown) {
@@ -225,34 +205,42 @@ export const teamsReader = {
 			});
 		});
 	},
-	async readRosterPreview(db: Reader, authority: RequestActor, raw: unknown) {
-		return read(authority, async (viewer) => {
-			const input = parse(c.rosterPreviewRequest, raw);
-			const found = await row(
-				db,
-				viewer,
-				sql`SELECT (SELECT plant_id FROM meeting WHERE id = ${input.meetingId}::uuid) AS "meetingPlant",
-					(SELECT team_id FROM meeting WHERE id = ${input.meetingId}::uuid) AS "meetingTeam",
-					(SELECT plant_id FROM team WHERE id = ${input.teamId}::uuid) AS "teamPlant",
-					coalesce((SELECT json_agg(DISTINCT p.id) FROM team_tenure tn
-						JOIN team_role r ON r.id = tn.role_id
-						JOIN team t ON t.id = r.team_id
-						JOIN person p ON p.id = tn.person_id AND p.state = 'live'
-						WHERE t.id = ${input.teamId}::uuid AND t.plant_id = ${viewer.plantId}::uuid
-							AND t.archived_at IS NULL AND r.retired_at IS NULL AND tn.ended_on IS NULL), '[]'::json) AS ids`,
-			);
-			if (found.meetingPlant == null || found.teamPlant == null) deny();
-			owner(viewer.plantId, found.meetingPlant);
-			owner(viewer.plantId, found.teamPlant);
-			if (found.meetingTeam !== input.teamId) deny("invalid_subject");
-			return c.rosterPreview.parse({
-				meetingId: input.meetingId,
-				teamId: input.teamId,
-				personIds: z.array(id).parse(found.ids).slice(0, 500),
-			});
-		});
-	},
 };
+
+/**
+ * Every ministry role a person holds or held in the church, current ones first, then by start date, newest first. A
+ * part of the person page's own statement as well as its own read.
+ */
+export const personTenuresJson = (personId: SQL, plantId: SQL) =>
+	sql`coalesce((SELECT json_agg(json_build_object(
+		'tenureId', tn.id, 'revision', tn.revision::text,
+		'teamId', t.id, 'teamName', t.name, 'roleId', r.id, 'roleName', r.name,
+		'desiredSkills', r.desired_skills, 'startedOn', tn.started_on, 'endedOn', tn.ended_on,
+		'active', (tn.ended_on IS NULL)
+	) ORDER BY (tn.ended_on IS NULL) DESC, tn.started_on DESC, tn.id)
+	FROM team_tenure tn
+	JOIN team_role r ON r.id = tn.role_id AND r.plant_id = tn.plant_id
+	JOIN team t ON t.id = r.team_id AND t.plant_id = r.plant_id
+	WHERE tn.person_id = ${personId} AND tn.plant_id = ${plantId}), '[]'::json)`;
+export const personTenures = (raw: unknown) =>
+	z
+		.array(
+			z.object({
+				tenureId: id,
+				revision: z.string(),
+				teamId: id,
+				teamName: z.string(),
+				roleId: id,
+				roleName: z.string(),
+				desiredSkills: z.string().nullable(),
+				startedOn: day,
+				endedOn: day.nullable(),
+				active: z.boolean(),
+			}),
+		)
+		.parse(raw)
+		.slice(0, 200)
+		.map((a) => c.assignmentRow.parse(a));
 
 const memberRow = z.object({
 	personId: id,

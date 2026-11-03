@@ -36,6 +36,8 @@ export const meetingsError = z.discriminatedUnion("code", [
 	// The chosen follow-up owner is not a current eligible follow-up owner (REQ-TSK-012).
 	error("owner_ineligible", { accountId: accountId.optional() }, "refresh"),
 	error("venue_archived", {}, "never"),
+	// A team meeting's ministry is archived or not in this church.
+	error("team_unavailable", {}, "never"),
 	error("wrong_meeting_type", {}, "never"),
 	error("status_transition", {}, "never"),
 	error("nonexistent_local_time", {}, "never"),
@@ -53,6 +55,8 @@ export const meetingSummary = z.strictObject({
 	id: meetingId,
 	revision,
 	type: meetingType,
+	/** A team meeting's ministry, by its current name; other meetings have none. */
+	team: z.strictObject({ id: recordId, name: z.string() }).nullable(),
 	status: meetingStatus,
 	/** The one title every screen shows: the entered title, or the type with its Vision number. */
 	displayTitle: z.string().min(1),
@@ -119,6 +123,24 @@ export const guest = z.strictObject({
 	hasCard: z.boolean(),
 });
 export const guestList = z.strictObject({ meetingId, guests: z.array(guest).max(1000) });
+/**
+ * What an update from the ministry would change on a team meeting's guest list: live people serving now who are not
+ * guests, and guests the ministry copy added who no longer serve. A guest added by hand is never removed; a guest
+ * already marked present is kept and named as kept.
+ */
+export const rosterPreview = z.strictObject({
+	meetingId,
+	team: z.strictObject({ id: recordId, name: z.string() }),
+	add: z.array(personRef).max(500),
+	remove: z.array(personRef).max(500),
+	kept: z.array(personRef).max(500),
+});
+export const rosterUpdateResult = z.strictObject({
+	...receipt,
+	meetingId,
+	added: z.array(guest).max(500),
+	removedPersonIds: z.array(personId).max(500),
+});
 export const guestMutationResult = z.strictObject({ ...receipt, guest });
 export const guestContactResult = z.strictObject({ ...receipt, guest, personCreated: z.boolean() });
 export const ownRsvp = z.strictObject({

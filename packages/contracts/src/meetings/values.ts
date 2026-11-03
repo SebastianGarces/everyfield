@@ -5,8 +5,6 @@ import { recordId } from "../common/values.ts";
 export const meetingId = recordId;
 export const venueId = recordId;
 export const meetingType = z.enum(["vision_meeting", "orientation", "team_meeting", "prelaunch_practice"]);
-// Team meetings and their roster arrive with teams (WP-017); until then a new meeting cannot be one.
-export const schedulableType = meetingType.exclude(["team_meeting"]);
 export const meetingStatus = z.enum(["planning", "ready", "in_progress", "completed", "cancelled"]);
 export const meetingWindow = z.enum(["upcoming", "past", "all"]);
 export const preparation = z.enum(["complete", "incomplete", "any"]);

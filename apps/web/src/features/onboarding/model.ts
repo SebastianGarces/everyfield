@@ -53,7 +53,9 @@ export const PHASES = [
 export type JourneyDraft =
 	{ answer: "existing"; phase: number } | { answer: "unsure" } | { answer: "discerning" } | { answer: "skip" };
 export type LaunchDraft = { answer: "planned"; date: string } | { answer: "no_date" } | { answer: "skip" };
-export type LeadDraft = { answer: "yes"; roleName: string; teamName: string } | { answer: "no" } | { answer: "skip" };
+/** `seniorPastor` is the optional Senior pastor fill (REQ-IDN-014): offered only after Yes, and off by default. */
+export type LeadDraft =
+	{ answer: "yes"; roleName: string; teamName: string; seniorPastor: boolean } | { answer: "no" } | { answer: "skip" };
 export type BasicsDraft = { name: string; city: string; stateProvince: string; country: string; confirmed: boolean };
 
 export type Drafts = {
@@ -65,7 +67,7 @@ export type Drafts = {
 	keep: string[];
 };
 export const EMPTY_BASICS: BasicsDraft = { name: "", city: "", stateProvince: "", country: "", confirmed: false };
-export const DEFAULT_LEAD = { roleName: "Lead pastor", teamName: "Leadership" } as const;
+export const DEFAULT_LEAD = { roleName: "Lead pastor", teamName: "Leadership", seniorPastor: false } as const;
 export function emptyDrafts(): Drafts {
 	return { basics: EMPTY_BASICS, journey: null, launch: null, lead: null, keep: [] };
 }
@@ -102,6 +104,18 @@ export const journeySaved = (r: Resume) => r.journey.status === "saved";
 export const journeyLocked = (r: Resume) => r.journey.status === "saved" && r.journey.value.answer === "existing";
 /** A saved yes made a real role assignment; sending yes again would make a second one (R4). */
 export const leadLocked = (r: Resume) => r.lead.answer === "yes";
+/** The SKIPPED_FILL note says why a Senior pastor fill did not happen: another person already holds the role. */
+export const SKIPPED_FILL =
+	"We did not fill the Senior pastor role. Someone in Leadership already holds it, and they keep it. You hold the lead role you entered instead.";
+/** The lead answer in words, for the saved step and the finish summary. */
+export function leadText(lead: Resume["lead"]): string {
+	if (lead.answer === "yes")
+		return lead.seniorPastor === "filled" ? "You hold the Senior pastor role" : "You hold the lead role";
+	return lead.answer === "no" ? "Someone else leads" : lead.answer === "skip" ? "Skipped" : "Not answered";
+}
+/** Why the Senior pastor fill was skipped, or null when it was not asked for or it filled the role. */
+export const skippedFill = (lead: Resume["lead"]) =>
+	lead.answer === "yes" && lead.seniorPastor === "occupied" ? SKIPPED_FILL : null;
 export const finished = (r: Resume) => r.completion.status === "completed";
 
 export function stepDone(key: StepKey, r: Resume): boolean {
@@ -208,6 +222,7 @@ export function leadInput(draft: LeadDraft) {
 			roleName: draft.roleName.trim(),
 			container: { kind: "minimal" as const, name: draft.teamName.trim() },
 		},
+		seniorPastor: draft.seniorPastor,
 	};
 }
 

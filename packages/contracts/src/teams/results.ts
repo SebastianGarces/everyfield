@@ -61,6 +61,10 @@ export const historyEntry = z.strictObject({
 	kind: z.string().min(1).max(80),
 	occurredAt: z.string().min(1),
 	reason: z.string().nullable(),
+	/** Who made the change, by their account name; null when the change has no account. */
+	actorName: z.string().nullable(),
+	/** The person and role a role-date correction names; other entries name none. */
+	about: z.strictObject({ personName: z.string(), roleName: z.string() }).nullable(),
 	before: z.record(z.string(), z.unknown()).nullable(),
 	after: z.record(z.string(), z.unknown()).nullable(),
 });
@@ -119,6 +123,8 @@ export const memberPage = z.strictObject({
 	history: z.array(memberRow).max(500),
 });
 export const assignmentRow = z.strictObject({
+	tenureId: recordId,
+	revision,
 	teamId: recordId,
 	teamName: z.string().min(1).max(200),
 	roleId: recordId,
@@ -128,6 +134,8 @@ export const assignmentRow = z.strictObject({
 	endedOn: localDate.nullable(),
 	active: z.boolean(),
 });
+/** One corrected role tenure, as the person's record shows it. */
+export const tenureMutationResult = z.strictObject({ ...receipt, assignment: assignmentRow });
 export const personAssignments = z.strictObject({
 	personId,
 	assignments: z.array(assignmentRow).max(200),
@@ -190,17 +198,4 @@ export const orgChartExport = z.strictObject({
 	svg: z.string().min(1),
 	lines: z.array(z.string().min(1).max(200)).max(800),
 	nodes: z.array(chartNode).max(200),
-});
-
-export const rosterPreview = z.strictObject({
-	meetingId: recordId,
-	teamId: recordId,
-	personIds: z.array(personId).max(500),
-});
-export const rosterCopyResult = z.strictObject({
-	...receipt,
-	meetingId: recordId,
-	teamId: recordId,
-	addedPersonIds: z.array(personId).max(500),
-	skippedPersonIds: z.array(personId).max(500),
 });

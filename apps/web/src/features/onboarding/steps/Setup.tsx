@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Field, IntentLink, Input } from "@everyfield/ui/controls";
+import { Button, Field, IntentLink, Input, Switch } from "@everyfield/ui/controls";
 import { cn } from "@everyfield/ui/foundations";
 import { useState, type ReactNode } from "react";
 import {
@@ -13,6 +13,8 @@ import {
 	leadInput,
 	leadLocked,
 	leadProblems,
+	leadText,
+	skippedFill,
 	missingFacts,
 	nextStep,
 	previousStep,
@@ -253,9 +255,14 @@ export function TeamStep({ state, actions, resume, plantName }: Props) {
 		return (
 			<section data-onboarding-step="team">
 				<StepHeading title={`Who leads ${name}?`} />
-				<SavedCard title="You hold the lead role">
+				<SavedCard title={leadText(resume.lead)}>
 					It is an ordinary role on your team list. Change it later from your ministry teams.
 				</SavedCard>
+				{skippedFill(resume.lead) ? (
+					<p role="note" className="mx-auto mt-4 max-w-[820px] text-sm text-text-2">
+						{skippedFill(resume.lead)}
+					</p>
+				) : null}
 				<StepFooter onBack={back} onContinue={() => actions.go("finish")} />
 			</section>
 		);
@@ -303,9 +310,18 @@ export function TeamStep({ state, actions, resume, plantName }: Props) {
 							</Field>
 						</div>
 						<p className="mt-3 text-sm text-text-2">
-							We create the {shown.roleName.trim() || "role"} role in a new {shown.teamName.trim() || "team"} team and
-							assign it to you. Nothing else is added, and no one gets new access.
+							{shown.seniorPastor
+								? `We put you in the Senior pastor role of the Leadership ministry instead. If someone already holds it, they keep it and you get the ${shown.roleName.trim() || "role"} role in a new ${shown.teamName.trim() || "team"} team.`
+								: `We create the ${shown.roleName.trim() || "role"} role in a new ${shown.teamName.trim() || "team"} team and assign it to you.`}{" "}
+							Nothing else is added, and no one gets new access.
 						</p>
+						<Switch
+							className="mt-3 border-t border-line pt-3"
+							label="Fill the Senior pastor role"
+							description="Optional. Uses the Leadership ministry's Senior pastor role from the Playbook templates. No other role is filled."
+							checked={shown.seniorPastor}
+							onCheckedChange={(on) => edit({ ...shown, seniorPastor: on === true })}
+						/>
 					</div>
 				) : null}
 				<ChoiceCard
@@ -364,7 +380,6 @@ export function FinishStep({
 	const done = finished(resume);
 	const missing = missingFacts(resume, articleCount);
 	const journey = resume.journey.status === "saved" ? resume.journey.value : null;
-	const lead = resume.lead.answer;
 	return (
 		<section data-onboarding-step="finish">
 			<StepHeading title={done ? "Setup is finished" : "Ready to start?"} mood={done ? "happy" : "idle"}>
@@ -391,13 +406,10 @@ export function FinishStep({
 						{resume.scheduledLaunchDate ? longDate(resume.scheduledLaunchDate) : "Not set"}
 					</Fact>
 					<Fact label="Lead">
-						{lead === "yes"
-							? "You hold the lead role"
-							: lead === "no"
-								? "Someone else leads"
-								: lead === "skip"
-									? "Skipped"
-									: "Not answered"}
+						{leadText(resume.lead)}
+						{skippedFill(resume.lead) ? (
+							<span className="block text-sm text-text-3">{skippedFill(resume.lead)}</span>
+						) : null}
 					</Fact>
 				</dl>
 			</div>

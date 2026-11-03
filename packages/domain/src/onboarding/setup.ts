@@ -106,6 +106,78 @@ async function assignLead(
 			.where(eq(t.team.id, team!.id));
 	return { teamId: team!.id, roleId: role!.id, personId };
 }
+/**
+ * The optional Senior pastor fill (REQ-IDN-014): the planter's lead role becomes the Leadership template's Senior pastor
+ * role. A missing Leadership ministry or role is created with only that role, so no other template role or ministry
+ * appears. A role another person holds is kept: the answer is null and the planter's own lead role applies instead. A
+ * leader the ministry already has stays its leader.
+ */
+async function fillSeniorPastor(tx: Tx, plantId: string, personId: string) {
+	let [team] = await tx
+		.select()
+		.from(t.team)
+		.where(and(eq(t.team.plant_id, plantId), eq(t.team.template_key, "leadership"), isNull(t.team.archived_at)))
+		.orderBy(t.team.sort_order, t.team.id)
+		.limit(1)
+		.for("update");
+	team ??= (
+		await tx
+			.insert(t.team)
+			.values({ plant_id: plantId, name: "Leadership", template_key: "leadership", state: "forming", sort_order: 0 })
+			.returning()
+	)[0]!;
+	let [role] = await tx
+		.select()
+		.from(t.team_role)
+		.where(
+			and(
+				eq(t.team_role.team_id, team.id),
+				eq(t.team_role.plant_id, plantId),
+				eq(t.team_role.template_key, "senior_pastor"),
+				isNull(t.team_role.retired_at),
+			),
+		)
+		.orderBy(t.team_role.sort_order, t.team_role.id)
+		.limit(1)
+		.for("update");
+	role ??= (
+		await tx
+			.insert(t.team_role)
+			.values({
+				plant_id: plantId,
+				team_id: team.id,
+				name: "Senior pastor",
+				template_key: "senior_pastor",
+				leadership: true,
+				sort_order: 0,
+			})
+			.returning()
+	)[0]!;
+	const [holder] = await tx
+		.select()
+		.from(t.team_tenure)
+		.where(and(eq(t.team_tenure.plant_id, plantId), eq(t.team_tenure.role_id, role.id), isNull(t.team_tenure.ended_on)))
+		.for("update");
+	if (holder && holder.person_id !== personId) return null;
+	if (!holder)
+		await tx.insert(t.team_tenure).values({
+			plant_id: plantId,
+			role_id: role.id,
+			person_id: personId,
+			started_on: sql`(clock_timestamp() AT TIME ZONE (SELECT timezone FROM plant WHERE id=${plantId}))::date`,
+		});
+	if (!team.leader_person_id)
+		await tx
+			.update(t.team)
+			.set({
+				leader_person_id: personId,
+				leader_source: "role_derived",
+				leader_role_id: role.id,
+				revision: sql`${t.team.revision}+1`,
+			})
+			.where(eq(t.team.id, team.id));
+	return { teamId: team.id, roleId: role.id, personId };
+}
 export const setup: Pick<OnboardingProducer<Tx>, "answerLead" | "declareJourney" | "complete" | "getResume"> = {
 	async answerLead(tx, ctx, raw) {
 		return reply(tx, async () => {
@@ -127,11 +199,14 @@ export const setup: Pick<OnboardingProducer<Tx>, "answerLead" | "declareJourney"
 			if (cx.kind === "replay") return c.leadAnswerResult.parse(cx.value);
 			revision(q.expectedRevision, a.plant.revision);
 			const at = await stamp(tx, a.plant.id);
+			const filled =
+				q.input.answer === "yes" && q.input.seniorPastor ? await fillSeniorPastor(tx, a.plant.id, person.id) : null;
 			const lead = savedLead.parse(
 				q.input.answer === "yes"
 					? {
 							answer: "yes",
-							assignment: await assignLead(tx, a.plant.id, person.id, q.input.assignment),
+							assignment: filled ?? (await assignLead(tx, a.plant.id, person.id, q.input.assignment)),
+							...(q.input.seniorPastor ? { seniorPastor: filled ? "filled" : "occupied" } : {}),
 							savedAt: at,
 						}
 					: { answer: q.input.answer, savedAt: at },

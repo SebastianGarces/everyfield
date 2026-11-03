@@ -16,6 +16,8 @@ import {
 	type AttendanceWriter,
 	type MeetingsContext,
 	previewMeetingsWrite,
+	rosterReader,
+	rosterWriter,
 } from "@everyfield/domain/meetings";
 import { tasksMount } from "@/server/tasks";
 import { searchPeople as findPeople } from "@everyfield/domain/people";
@@ -23,6 +25,7 @@ import type { MeetingsReply, rsvpTokenView } from "@everyfield/contracts/meeting
 import { z } from "zod";
 import type { Transaction } from "@everyfield/db/client";
 import { read as readPeople } from "../people/server.ts";
+import { readMinistries } from "../teams/server.ts";
 import type { Finalization, Outcome } from "./model.ts";
 import { loadCheckIn, loadMeeting, loadReport, outcome, read, readAnalytics, write, type Viewer } from "./server.ts";
 
@@ -107,6 +110,23 @@ export async function replaceAgenda(
 	return act((tx, ctx) =>
 		meetingsWriter.replaceAgenda(tx, ctx, command(requestKey, expectedRevision, { meetingId, sections })),
 	);
+}
+
+/** The ministries a new team meeting can name: every one not archived, read when the plan dialog opens. */
+export async function listMinistries(): Promise<Outcome<{ id: string; name: string }[]>> {
+	return look(async (v) => {
+		const r = await readMinistries(v);
+		if (r.status !== "ok") return r;
+		return { status: "ok", value: r.value.filter((t) => !t.archived).map((t) => ({ id: t.id, name: t.name })) };
+	});
+}
+/** What an update from the ministry would change on this team meeting's guest list. Nothing is written. */
+export async function previewRoster(meetingId: string) {
+	return look((v) => read(v, (db, a) => rosterReader.previewRosterImport(db, a, { meetingId })).then(outcome));
+}
+/** Applies the reviewed update: exactly the people the preview named, or a refusal when the ministry changed since. */
+export async function updateRoster(requestKey: string, meetingId: string, add: string[], remove: string[]) {
+	return act((tx, ctx) => rosterWriter.copyTeamRoster(tx, ctx, { requestKey, input: { meetingId, add, remove } }));
 }
 
 /** The meeting page's data again, after a change was refused as out of date. Only this meeting is read. */

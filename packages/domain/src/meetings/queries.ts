@@ -20,7 +20,7 @@ const guests = (where: SQL) =>
 
 export const meetingsReader = {
 	/**
-	 * Upcoming, past or all meetings (default all), optionally by type, status and Vision kit readiness. Page numbers in
+	 * Upcoming, past or all meetings (default all), optionally by type, status, Vision kit readiness and ministry. Page numbers in
 	 * a stable order: upcoming soonest first, otherwise latest first, ties by ID. A page past the end is empty, with the
 	 * total of the whole filter.
 	 */
@@ -35,6 +35,7 @@ export const meetingsReader = {
 				db,
 				v,
 				sql`WITH f AS (SELECT m.id, m.starts_at FROM meeting m WHERE m.plant_id = ${v.plantId}::uuid AND m.retired_at IS NULL
+					AND (${i.teamId ?? null}::uuid IS NULL OR m.team_id = ${i.teamId ?? null}::uuid)
 					AND (cardinality(${sql.param(types)}::text[]) = 0 OR m.type = ANY(${sql.param(types)}::text[]))
 					AND (cardinality(${sql.param(statuses)}::text[]) = 0 OR m.status = ANY(${sql.param(statuses)}::text[]))
 					AND CASE ${i.window} WHEN 'upcoming' THEN m.starts_at >= clock_timestamp() WHEN 'past' THEN m.starts_at < clock_timestamp() ELSE true END

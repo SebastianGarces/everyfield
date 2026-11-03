@@ -34,7 +34,7 @@ import {
 } from "@everyfield/ui/controls";
 import { KeyValue, KeyValueList, StageChip, StatusBadge } from "@everyfield/ui/display";
 import Link from "next/link";
-import { useOptimistic, useRef, useState } from "react";
+import { useOptimistic, useRef, useState, type ComponentProps } from "react";
 import type { z } from "zod";
 import { reloadPerson, type Receipt } from "./actions.ts";
 import { ActivityCard, type Activities, type EntryFields, type Item } from "./ActivityCard.tsx";
@@ -47,6 +47,7 @@ import { HouseholdCard } from "./fields/HouseholdCard.tsx";
 import type { HouseholdResult, PersonFields } from "./fields/model.ts";
 import { PersonPhoto } from "./fields/PersonPhoto.tsx";
 import { SkillsCard } from "./fields/SkillsCard.tsx";
+import { MinistryRoles } from "./corrections/MinistryRoles.tsx";
 import { TagsField } from "./fields/TagsField.tsx";
 import type { PersonRecords } from "./assessments/model.ts";
 import { RecordsSection, type CorrectedRecord } from "./assessments/RecordsSection.tsx";
@@ -86,6 +87,7 @@ export function PersonScreen({
 	documentsEnabled,
 	duplicates: initialDuplicates = null,
 	followedMerge = false,
+	ministries = null,
 }: {
 	person: PlantPerson;
 	activities: Outcome<Activities>;
@@ -110,6 +112,8 @@ export function PersonScreen({
 	duplicates?: Hints | null;
 	/** The page opened from a link to a person who was merged into this one. */
 	followedMerge?: boolean;
+	/** The person's ministry roles, now and before (WP-017). Null for a person they do not apply to. */
+	ministries?: ComponentProps<typeof MinistryRoles>["initial"] | null;
 }) {
 	const [store, state] = usePersonStore<PlantPerson, PersonDraft>(person);
 	const [history, setHistory] = useState(activities);
@@ -467,6 +471,7 @@ export function PersonScreen({
 									/>
 								</>
 							) : null}
+							{ministries ? <MinistryRoles key={generation} initial={ministries} canCorrect={canWrite} /> : null}
 							<Card>
 								<CardHeader className="mb-2">
 									<CardHeading>
