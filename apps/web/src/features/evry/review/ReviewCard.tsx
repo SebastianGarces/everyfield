@@ -547,7 +547,7 @@ export function ReviewCard({ proposalId, target }: { proposalId: string; target:
 							<>
 								<MailChanges review={review} />
 								{view === "completed" ? <MailResult review={review} /> : null}
-								{view === "pending" ? (
+								{view === "pending" && !review.review.refusal ? (
 									<p className="text-sm text-text-2">{MAIL_CONSEQUENCE[review.operation]}</p>
 								) : null}
 							</>
@@ -558,9 +558,7 @@ export function ReviewCard({ proposalId, target }: { proposalId: string; target:
 									staged={photoGone ? { status: "gone" } : staged.photo}
 									onRetry={staged.retry}
 								/>
-								{!review.review.refusal && consequence(review) ? (
-									<p className="text-sm text-text-2">{consequence(review)}</p>
-								) : null}
+								{consequence(review) ? <p className="text-sm text-text-2">{consequence(review)}</p> : null}
 							</>
 						)}
 						{view === "pending" && !review.review.refusal && !review.stale ? (
