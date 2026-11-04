@@ -383,6 +383,7 @@ for (const [engine, launcher] of ENGINES) {
 			const card = await ask(panel, "Move the Friday email to Saturday at 9am", "Review the new time");
 			assert.match(await card.innerText(), /has not answered about every recipient of this message/);
 			assert.equal(await card.getByRole("button", { name: "Approve" }).count(), 0, "nothing to approve");
+			assert.doesNotMatch(await card.innerText(), /Approve by|Recipients and content stay the same/);
 			const now = await d.message();
 			assert.equal(now.id, message.id);
 			assert.equal(now.scheduled_at, before, "the saved time stays");
@@ -533,12 +534,17 @@ for (const [engine, launcher] of ENGINES) {
 			const box = memberPanel.getByLabel("Message Evry");
 			await box.fill("What can you do?");
 			await box.press("Enter");
-			const answer = await memberPanel
-				.getByText(/In this context I can/)
-				.last()
-				.innerText({ timeout: 60_000 });
-			assert.match(answer, /Find this church's email drafts and scheduled messages/, "the member reads messages");
-			assert.doesNotMatch(answer, /prepare these changes/, "no email write is offered to a member");
+			// The answer streams: wait for its read line, then for the end of the turn, before reading what it left out.
+			await memberPanel
+				.getByText(/Find this church's email drafts and scheduled messages/)
+				.first()
+				.waitFor({ timeout: 60_000 });
+			await memberPanel.getByRole("button", { name: "Stop" }).waitFor({ state: "hidden", timeout: 60_000 });
+			assert.doesNotMatch(
+				await memberPanel.innerText(),
+				/prepare these changes/,
+				"no email write is offered to a member",
+			);
 			await memberPage.close();
 		}));
 

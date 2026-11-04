@@ -558,10 +558,12 @@ export function ReviewCard({ proposalId, target }: { proposalId: string; target:
 									staged={photoGone ? { status: "gone" } : staged.photo}
 									onRetry={staged.retry}
 								/>
-								{consequence(review) ? <p className="text-sm text-text-2">{consequence(review)}</p> : null}
+								{!review.review.refusal && consequence(review) ? (
+									<p className="text-sm text-text-2">{consequence(review)}</p>
+								) : null}
 							</>
 						)}
-						{view === "pending" ? (
+						{view === "pending" && !review.review.refusal && !review.stale ? (
 							<p className="text-xs text-text-3">
 								Nothing changes until you approve. Approve by {clock(review.expiresAt)}.
 							</p>
