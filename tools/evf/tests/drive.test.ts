@@ -1430,7 +1430,8 @@ test("OPS-70-flow: fake seats take a task from plan to merged through plan, impl
 			`evf("run","done",m[2],"--status","passed","--summary-file",${JSON.stringify(summary)})}}\n`;
 		writeFileSync(path, script.replace(marker, marker + seat));
 		console.log = () => {};
-		const code = drive(f.root, f.task, {}, { ...TIMING, waitMs: 60_000, seatPollMs: 10 });
+		// The seat works inside the wait child. A kill at the 2 s floor under load fails the run and starts it again.
+		const code = drive(f.root, f.task, {}, { ...TIMING, waitMs: 60_000, seatPollMs: 10, waitKillMs: SLOW_CHILD_MS });
 		console.log = log;
 		assert.equal(code, 0);
 		assert.equal(f.taskRow().status, "merged");
