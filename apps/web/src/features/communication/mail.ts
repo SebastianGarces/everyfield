@@ -291,7 +291,9 @@ export function deliveryTransport(
 		let nextCaptured = 0;
 		return {
 			outcome: "ids",
-			ids: messages.map((message) => (isApproved(message) ? (batch.ids[nextSent++] ?? null) : captureIds[nextCaptured++]!)),
+			ids: messages.map((message) =>
+				isApproved(message) ? (batch.ids[nextSent++] ?? null) : captureIds[nextCaptured++]!,
+			),
 		};
 	}
 
