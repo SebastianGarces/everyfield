@@ -590,8 +590,8 @@ function escalate(
 	cause: string,
 ): void {
 	db.prepare("UPDATE tasks SET status = 'escalated', updated_at = ? WHERE id = ?").run(now(), t.id);
-	record(db, t.id, runId, "escalation", { summary: `${t.ref} needs Sebastian: ${cause}` });
 	noteOwnerAsk(db, root, t.id, "escalation");
+	record(db, t.id, runId, "escalation", { summary: `${t.ref} needs Sebastian: ${cause}` });
 	notify(`${t.ref} escalated`, cause);
 }
 
@@ -1652,8 +1652,8 @@ function shipStage(db: DatabaseSync, root: string, task: TaskRef, t: TaskRow, ru
 	} catch (e) {
 		// A voided owner approval (OPS-121) waits for Sebastian, like an owner route: no merge and no new round.
 		if (!(e instanceof EvfError) || !e.message.includes(OWNER_VOID)) throw e;
-		record(db, t.id, runId, "owner_approval_wait", { pr: t.pr_number, summary: `${task.id}: ${e.message}` });
 		noteOwnerAsk(db, root, t.id, "void_approval");
+		record(db, t.id, runId, "owner_approval_wait", { pr: t.pr_number, summary: `${task.id}: ${e.message}` });
 		notify(`${task.id} waits for Sebastian`, e.message);
 		return { status: "passed", summary: `waits for Sebastian's new approval: ${e.message}` };
 	}
@@ -1663,9 +1663,9 @@ function shipStage(db: DatabaseSync, root: string, task: TaskRef, t: TaskRow, ru
 	if (after.state !== "MERGED" && taskById(db, t.id)?.status !== "merged") {
 		const partial = partialLine(followUpsOf(db, t.id));
 		const cause = `${partial ? `${partial} ` : ""}PR #${pr} is verified and waits for Sebastian's approval. After his approval in chat, run: bin/evf approve ${pr} --owner-approval "<his words>" --head ${after.head ?? "<the PR head>"}`;
-		record(db, t.id, runId, "owner_approval_wait", { pr: t.pr_number, summary: `${task.id}: ${cause}` });
 		// Evf ship recorded the route's ask at this head, unless older base code ran it (shipOnCurrentCode).
 		noteOwnerAsk(db, root, t.id, task.kind === "fb" ? "feedback" : "parked");
+		record(db, t.id, runId, "owner_approval_wait", { pr: t.pr_number, summary: `${task.id}: ${cause}` });
 		notify(`${task.id} waits for Sebastian`, cause);
 		return { status: "passed", summary: "verified; waits for Sebastian's approval (evf approve)" };
 	}
@@ -2046,10 +2046,10 @@ export function driveOnce(
 		if (n.stage === "pick") {
 			if (t.status !== "awaiting_pick") {
 				db.prepare("UPDATE tasks SET status = 'awaiting_pick', updated_at = ? WHERE id = ?").run(now(), t.id);
+				noteOwnerAsk(db, root, t.id, "prototype_pick", null);
 				record(db, t.id, null, "awaiting_pick", {
 					summary: `${task.id}: comparison ready, waiting for Sebastian's pick`,
 				});
-				noteOwnerAsk(db, root, t.id, "prototype_pick", null);
 				notify(
 					`${task.id} ready to pick`,
 					`Three ideas and the comparison are ready: evf task pick ${task.id} <n> --owner-approval "<words>"`,
