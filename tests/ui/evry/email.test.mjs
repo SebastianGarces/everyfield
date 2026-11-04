@@ -415,7 +415,7 @@ for (const [engine, launcher] of ENGINES) {
 			await hydrated(messagesPage);
 			await messagesPage.getByRole("button", { name: "Cancel scheduled email", exact: true }).first().click();
 			await messagesPage.getByRole("alertdialog").getByRole("button", { name: "Cancel scheduled email" }).click();
-			await messagesPage.getByText("Cancelled").first().waitFor({ timeout: 90_000 });
+			await messagesPage.getByText(/The email service confirmed the cancel for/).waitFor({ timeout: 90_000 });
 			await messagesPage.close();
 			assert.equal((await d.mail(message.id)).filter((m) => m.state === "cancelled").length, 3);
 			const moved = await d.message();
