@@ -151,14 +151,8 @@ const saveDraft: ReviewedWrite<z.infer<typeof draftInput>> = {
 // --- 2. communication.scheduleReviewed ----------------------------------------------------------------------
 
 const scheduleInput = z.strictObject({ communicationId: messageId, sendAt: localTime });
-const draftRead = z.object({
-	audience: z.unknown(),
-	body_html: z.string().nullable(),
-	revision: z.string(),
-});
 /** Stands in for the first recipient's name until the review statement knows who that is. */
 const SAMPLE_NAME = "RECIPIENT_NAME_TOKEN_7F3A";
-const peopleRead = z.array(z.object({ email: z.string().nullable() }));
 
 /**
  * One audience as the handoff will resolve it. The address hashes are read first because the keys that hash an address
@@ -169,10 +163,13 @@ async function audienceFacts(context: ReviewContext, plantId: string, audience: 
 	if (!mail) return null;
 	const raw = (await context.db.execute(sql`SELECT ${audiencePeople(plantId, audience)} AS people`)).rows[0]!.people;
 	const hashes = Object.fromEntries(
-		peopleRead.parse(raw).flatMap((p) => {
-			const address = p.email?.trim().toLowerCase();
-			return address ? [[address, mailAddressHash(mail.keys.addressKey, address)]] : [];
-		}),
+		z
+			.array(z.object({ email: z.string().nullable() }))
+			.parse(raw)
+			.flatMap((p) => {
+				const address = p.email?.trim().toLowerCase();
+				return address ? [[address, mailAddressHash(mail.keys.addressKey, address)]] : [];
+			}),
 	);
 	return { audience, hashes, digest: recipientsDigest(raw) };
 }
@@ -233,7 +230,9 @@ const schedule: ReviewedWrite<z.infer<typeof scheduleInput>> = {
 				WHERE c.id=${value.communicationId}::uuid AND c.plant_id=${actor.owner.id}::uuid AND c.state IN ('draft','reviewed')`,
 		);
 		if (!found.rows.length) return null;
-		const draft = draftRead.parse(found.rows[0]);
+		const draft = z
+			.object({ audience: z.unknown(), body_html: z.string().nullable(), revision: z.string() })
+			.parse(found.rows[0]);
 		const facts = await audienceFacts(context, actor.owner.id, audienceInput.parse(draft.audience ?? {}));
 		if (!facts) return null;
 		// The first person who will get it is named in the content; the review statement puts the name in.
@@ -303,7 +302,13 @@ const schedule: ReviewedWrite<z.infer<typeof scheduleInput>> = {
 // --- 3. communication.rescheduleReviewed (time change) ---------------------------------------------------------
 
 /** Moves the time. Safe to repeat: a message already at the new time moves only the recipients that still hold the old one. */
-async function moveTime(db: Database, authority: RequestActor, args: unknown, requestKey: string, mail: MailPort) {
+async function moveTime(
+	db: Database,
+	authority: RequestActor,
+	args: unknown,
+	requestKey: string,
+	mail: MailPort,
+): Promise<EffectResult> {
 	const saved = savedTime.parse(args);
 	const { communicationId, scheduledAt } = saved.input;
 	// A message already at the new time is this effect's own earlier success, at the revision that success saved.
@@ -331,7 +336,7 @@ async function moveTime(db: Database, authority: RequestActor, args: unknown, re
 			open: v.openCount,
 			sent: v.sentCount,
 		},
-	} satisfies EffectResult;
+	};
 }
 /** Holds a review's native work in the executor's transaction without changing anything: the email service step does it. */
 const checkedOnly = async (_tx: Transaction, _context: unknown, args: unknown): Promise<EffectResult> => {
@@ -573,7 +578,7 @@ const replace: ReviewedWrite<z.infer<typeof replaceInput>> = {
 		if (!facts) return null;
 		const changes: SQL[] = [
 			change("subject", null, sql`to_jsonb(c.subject)`),
-			change("sendAt", instantAt(sql`c.scheduled_at`), instantAt(sql`c.scheduled_at`)),
+			change("sendAt", null, instantAt(sql`c.scheduled_at`)),
 			change("recipientCount", null, sql`to_jsonb(${held})`),
 		];
 		if (html !== null)

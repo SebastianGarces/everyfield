@@ -183,7 +183,7 @@ export const sendTimeFull = ({ at, zone }: SendTime) =>
 	`${part(at, zone, { weekday: "short", month: "short", day: "numeric" })}, ${part(at, zone, { hour: "numeric", minute: "2-digit" })} ${zoneName(at, zone, "short")} (${zoneName(at, zone, "long")})`;
 /** A saved report's time on the card, in the church's zone. */
 export const reportTime = (at: string, review: Review) => {
-	const zone = (sendTimeOf(review, "after") ?? sendTimeOf(review, "before"))?.zone;
+	const zone = sendTimeOf(review, "after")?.zone;
 	return zone ? sendTime({ at, zone }) : null;
 };
 
@@ -502,7 +502,7 @@ export function actionNotice(error: ProjectedError | "lost", mail: boolean): str
 			return "Some values are not valid. Check them, then update the review.";
 		case "not_found":
 			if (mail) return "This message is no longer waiting to send, so there is nothing to review again.";
-			return "Your seat no longer allows this, so Evry can't show the result.";
+		// falls through
 		case "access_denied":
 			// An earlier approval may already have run, so this says nothing about the change itself.
 			return "Your seat no longer allows this, so Evry can't show the result.";

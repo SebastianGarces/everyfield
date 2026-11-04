@@ -350,8 +350,8 @@ async function run(
 		const propose = proposeChangeTool(actor, async (call) => {
 			const fresh = await admit();
 			if (!fresh) return { error: stop === "tool_budget" ? "tool_budget" : "access_denied" };
-			const proposal = await prepareProposal(db, fresh, lease, turn.conversation_id, call, deps.mail ?? null).catch(
-				(error) => (error instanceof EvryRefusal ? error.code : "unknown"),
+			const proposal = await prepareProposal(db, fresh, lease, turn.conversation_id, call, deps.mail).catch((error) =>
+				error instanceof EvryRefusal ? error.code : "unknown",
 			);
 			if (typeof proposal === "string") return { error: proposal };
 			if (!proposal) return { error: "source_unavailable" };

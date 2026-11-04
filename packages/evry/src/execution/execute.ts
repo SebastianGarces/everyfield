@@ -8,7 +8,7 @@ import { owner, sessionId } from "@everyfield/contracts/common";
 import { z } from "zod";
 import { EvryRefusal } from "../context/errors.ts";
 import { REVIEWED_WRITES, staleMessage } from "../proposals/store.ts";
-import type { EffectDone, MailPort, ReviewedWrite } from "../proposals/types.ts";
+import type { EffectResult, MailPort, ReviewedWrite } from "../proposals/types.ts";
 
 /** The executor's claim on one evry_effect job, as the WP-031 queue issued it. Only the current claim may publish. */
 export type EffectLease = { jobId: string; tenantId: string; leaseOwner: string; generation: string };
@@ -64,14 +64,7 @@ const refusalCode = (code: string) =>
 	code === "conflict" ? "revision_conflict" : code === "unavailable" ? "access_denied" : code;
 
 /** The first step committed; the email service step is next. */
-type Reach = {
-	write: ReviewedWrite<unknown>;
-	authority: RequestActor;
-	input: unknown;
-	effectKey: string;
-	result: EffectDone;
-	id: string;
-};
+type Reach = { id: string; reach(): Promise<EffectResult> };
 
 /** The approval lapsed or the claim stopped being current, possibly during a wait; the whole transaction rolls back. */
 class Unpublished extends Error {}
@@ -128,7 +121,8 @@ export async function executeProposal(
 			if (!claimed) throw new Refused("access_denied");
 			const write = REVIEWED_WRITES[p.operation] as ReviewedWrite<unknown>;
 			// A write that reaches the email service cannot run without it; nothing has changed yet.
-			if (write.reach && !mail) throw new Refused("mail_unavailable");
+			const { reach } = write;
+			if (reach && !mail) throw new Refused("mail_unavailable");
 			const effectKey = `evry:${p.id}:${p.revision}`;
 			const context = { session: session.data, selected };
 			// The same fact that refused the approval also stops an effect that waited in the queue. An effect that already
@@ -142,9 +136,9 @@ export async function executeProposal(
 			if ("refused" in result) throw new Refused(refusalCode(result.refused));
 			// The email service is called after this transaction commits, never inside it. The saved mark tells a retry that
 			// this effect started.
-			if (write.reach) {
+			if (reach && mail) {
 				await tx.execute(sql`UPDATE proposal SET receipt='{"reached":true}'::jsonb WHERE id=${p.id}::uuid`);
-				return { write, authority: claimed.authority, input: p.input, effectKey, result, id: p.id };
+				return { id: p.id, reach: () => reach(db, claimed.authority, p.input, effectKey, result, mail) };
 			}
 			// Publish only if the approval is still unexpired and this claim still current; the first read already holds
 			// the proposal and job locks. Otherwise the change and its audit row roll back with the transaction.
@@ -159,7 +153,7 @@ export async function executeProposal(
 		// The email service step, outside any transaction. The change above is committed and its domain command replays,
 		// so a retry after a crash asks again with the same keys. The outcome is saved even when the approval lapsed in
 		// between: the change already happened, and only a lost claim stops the save.
-		const reached = await first.write.reach!(db, first.authority, first.input, first.effectKey, first.result, mail!);
+		const reached = await first.reach();
 		if ("refused" in reached) throw new Refused(refusalCode(reached.refused));
 		const saved = await db.transaction(async (tx) => {
 			await holdPublicationLocks(tx, lease);

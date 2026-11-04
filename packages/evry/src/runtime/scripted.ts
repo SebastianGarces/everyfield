@@ -63,6 +63,7 @@ function clock(hour: string, am: string) {
 }
 const DAY = `(${DAYS.join("|")})`;
 const DRAFT = /\bdraft an email to the launch team\b/i;
+const EMAIL_REVIEW = /\b(schedule|move|cancel|replace|change the \w+ email)\b/i;
 function emailStep(text: string, canPropose: boolean, canRead: boolean, result: Record<string, unknown> | null) {
 	if (!canPropose) return null;
 	const schedule = new RegExp(`\\bschedule it for ${DAY} at (\\d{1,2})\\s*(am|pm)\\b`, "i").exec(text);
@@ -144,8 +145,8 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	const canReadMail = options.tools?.some((t) => t.name === "communication_read") ?? false;
 	const email = emailStep(text, canPropose, canReadMail, result);
 	if (email) return email;
-	if (result && typeof result.proposalId === "string" && DRAFT.test(text))
-		return [{ type: "text", text: "I prepared a draft for your review. Nothing is saved until you approve it." }];
+	if (result && typeof result.proposalId === "string" && (DRAFT.test(text) || EMAIL_REVIEW.test(text)))
+		return [{ type: "text", text: "I prepared a review. Nothing is saved or sent until you approve it." }];
 	if (result) {
 		if (result.error) return [{ type: "text", text: `I could not finish that read (${String(result.error)}).` }];
 		if (typeof result.proposalId === "string") {
@@ -154,13 +155,6 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 				fields: { changes: { field: string; before: unknown; after: unknown }[] };
 			}[];
 			if (!target) return [{ type: "text", text: "I prepared a change, but its source is no longer available." }];
-			if (/\b(schedule|move|cancel|replace|change the \w+ email)\b/i.test(text))
-				return [
-					{
-						type: "text",
-						text: `I prepared a review for ${target.label}. Nothing is sent or changed until you approve it.`,
-					},
-				];
 			const changes = target.fields.changes.map(
 				(c) => `${c.field} from ${String(c.before ?? "empty")} to ${String(c.after ?? "empty")}`,
 			);
