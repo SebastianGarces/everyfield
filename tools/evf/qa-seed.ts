@@ -5,7 +5,8 @@
 // organization invitation and acceptance commands. OPS-127 adds a second sending church that shares the wiki, church
 // and network copies of one article and a revised article the owner has read. It writes through the domain writers,
 // the same code the screens call, except where noted. The owner also gets 13 answered past check-in weeks (OPS-125).
-// Every address is delivered+<label>@resend.dev, so a real send reaches no real person.
+// Every address is delivered+<label>@resend.dev, an approved test recipient. The send path keeps mail safe: on a preview
+// mailRecipientAllowed captures any other address, also one a tester types.
 //
 // Idempotent: each part first looks for its own rows by a fixed name and is skipped when they are there. A second run
 // on a complete branch signs nobody in and writes nothing.

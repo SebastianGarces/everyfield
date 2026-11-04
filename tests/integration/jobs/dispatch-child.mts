@@ -32,8 +32,10 @@ const service = createMailService({
 		);
 		return new Set(r.rows.map((r) => r.id));
 	},
-	transport: createResendTransport("synthetic", async (url, init) =>
-		fetch(endpoint.origin + new URL(url).pathname, init),
+	transport: createResendTransport(
+		"synthetic",
+		async (url, init) => fetch(endpoint.origin + new URL(url).pathname, init),
+		{ VERCEL_ENV: "production" },
 	),
 });
 try {

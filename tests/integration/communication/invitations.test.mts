@@ -44,6 +44,7 @@ test("AC:CASE-NTF-013 the scheduled runner hands a seat and a residency invitati
 				apiKey: "re_test_key",
 			},
 			resend.fetch,
+			{ VERCEL_ENV: "production" },
 		),
 	);
 	const secret = "cron-" + randomUUID();
