@@ -29,7 +29,7 @@ const SLOT_TARGET = 12;
 const RETENTION_MS = 30 * 24 * 60 * 60_000;
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
-/** Three probes at this timeout and a busy store still end well inside one minute, so ticks cannot stack. */
+/** A tick's four child processes at this timeout and a busy store still end inside one minute, so ticks cannot stack. */
 const PROBE_TIMEOUT_MS = 10_000;
 const LOAD_FILE = "load.jsonl";
 const CPU_FILE = "cpu.jsonl";

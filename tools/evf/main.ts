@@ -191,10 +191,10 @@ Upkeep
   evf gc [--apply]
   evf principles [--ref <sha>] [<task>]                       compare principles with pstack
   evf principles --apply <OPS-n> [--ref <sha>]                sync them into that task's worktree
-
-Browser checks (any role)
   evf sampler start | stop                                    one detached process records load, CPU share and queue state once per minute;
                                                               evf drive starts it, stop ends it (see "Minute sampler" in tools/evf/README.md)
+
+Browser checks (any role)
   evf browser run [--timeout <seconds>] [--session <name>] [--ignore-load "<reason>"] -- <command> [args...]
         runs a browser check in its own process group (default timeout 900 s), then closes its
         agent-browser session and stops every process it started, also on failure or timeout
