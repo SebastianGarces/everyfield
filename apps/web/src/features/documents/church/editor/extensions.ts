@@ -15,7 +15,7 @@ import { DOMSerializer, Fragment, Slice, type Node as PMNode } from "@tiptap/pm/
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import type { DocBrand } from "@everyfield/contracts/documents";
-import { attrsOfSpec, BLOCKS, px, type Attrs, type Kind } from "./attrs.ts";
+import { attrsOfSpec, BLOCKS, px, type Attrs } from "./attrs.ts";
 import { IMAGE_KINDS, regionAt } from "./blocks.ts";
 import { EfCell, EfRow, EfTable, EfValueCell, TableRules } from "./table-extension.ts";
 
@@ -260,34 +260,6 @@ const KIND_LABEL: Record<string, (attrs: Attrs) => string> = {
 	slot: (a) => `Section · ${String(a.label ?? "Statement of faith")}`,
 };
 export const blockLabel = (node: PMNode) => KIND_LABEL[node.type.name]?.(node.attrs) ?? node.type.name;
-
-function laterNode(
-	name: string,
-	options: {
-		group?: string;
-		content?: string;
-		attrs: Record<string, Kind>;
-		atom?: boolean;
-		leaf?: (node: PMNode) => string;
-	},
-) {
-	return Node.create({
-		name,
-		group: options.group,
-		content: options.content,
-		atom: options.atom ?? false,
-		isolating: true,
-		addAttributes: () => attrsOfSpec(options.attrs),
-		parseHTML: () => [{ tag: `div[data-ef-node="${name}"]` }],
-		renderHTML({ node, HTMLAttributes }) {
-			const attrs = mergeAttributes(HTMLAttributes, { "data-ef-node": name });
-			if (options.leaf) return ["div", attrs, options.leaf(node)];
-			return ["div", attrs, 0];
-		},
-		// A block with content is shown read-only: its kind as a label, and its content drawn by the same rules.
-		addNodeView: options.atom && options.content ? () => readOnlyView : undefined,
-	});
-}
 
 function readOnlyView({ node, editor }: { node: PMNode; editor: Editor }) {
 	const serializer = DOMSerializer.fromSchema(editor.schema);
@@ -544,11 +516,17 @@ function writeInView(initial: PMNode, editor: Editor, getPos: () => number | und
 	};
 }
 
-export const EfSlot = laterNode("slot", {
+/** A section a later slice edits. It shows read-only: its kind as a label, and its content drawn by the same rules. */
+export const EfSlot = Node.create({
+	name: "slot",
 	group: BLOCKS,
 	content: "(paragraph | bulletList | orderedList)*",
-	attrs: { label: "string" },
 	atom: true,
+	isolating: true,
+	addAttributes: () => attrsOfSpec({ label: "string" }),
+	parseHTML: () => [{ tag: 'div[data-ef-node="slot"]' }],
+	renderHTML: ({ HTMLAttributes }) => ["div", mergeAttributes(HTMLAttributes, { "data-ef-node": "slot" }), 0],
+	addNodeView: () => readOnlyView,
 });
 
 // ---------------------------------------------------------------- heading numbers

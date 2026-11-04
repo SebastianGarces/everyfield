@@ -36,7 +36,7 @@ export function nodeFromTable(schema: Schema, table: TableNode): PMNode {
  * Where the person is when no cell holds the cursor: the column header, or the blank write-in rows. Those are drawn by
  * the table itself, not by the document, so they set this by a transaction note. A move of the selection clears it.
  */
-type TableFocus = { pos: number; area: "head" | "blank"; col: number };
+type TableFocus = { pos: number; blank: boolean; col: number };
 const tableFocusKey = new PluginKey<TableFocus | null>("efTableFocus");
 
 export function tableFocusPlugin() {
@@ -82,7 +82,7 @@ export function tableContext(state: EditorState): TableContext | null {
 	if (pos < 0 && selection instanceof NodeSelection && selection.node.type.name === "table") pos = selection.from;
 	if (pos < 0) return null;
 	const node = state.doc.nodeAt(pos);
-	if (!node || node.type.name !== "table") return null;
+	if (!node) return null;
 	const table = tableOf(node);
 	let at: Place = { row: null, col: null };
 	if (depth >= 1 && $from.depth > depth) {
@@ -96,7 +96,7 @@ export function tableContext(state: EditorState): TableContext | null {
 			at = {
 				row: null,
 				col: Math.min(focus.col, a.columns.length - 1),
-				blank: focus.area === "blank" && a.writeInRows > 0,
+				blank: focus.blank && a.writeInRows > 0,
 			};
 	}
 	return { pos, node, table, at };
@@ -123,7 +123,7 @@ export function selectIn(tr: Transaction, tablePos: number, place: Place) {
 	const col = Math.min(place.col ?? 0, attrsOf(tableOf(table)).columns.length - 1);
 	return tr
 		.setSelection(NodeSelection.create(tr.doc, tablePos))
-		.setMeta(tableFocusKey, { pos: tablePos, area: place.blank ? "blank" : "head", col } satisfies TableFocus);
+		.setMeta(tableFocusKey, { pos: tablePos, blank: place.blank === true, col } satisfies TableFocus);
 }
 
 /**
@@ -205,13 +205,8 @@ export function typeInto(view: EditorView, typing: Typing, make: (tr: Transactio
 }
 
 /** Notes that the cursor is in the table's own header or blank rows, so the table controls know the column. */
-export function noteFocus(view: EditorView, pos: number | undefined, area: "head" | "blank", col: number) {
-	if (pos === undefined) return;
-	view.dispatch(
-		view.state.tr
-			.setSelection(NodeSelection.create(view.state.doc, pos))
-			.setMeta(tableFocusKey, { pos, area, col } satisfies TableFocus),
-	);
+export function noteFocus(view: EditorView, pos: number | undefined, place: Place) {
+	if (pos !== undefined) view.dispatch(selectIn(view.state.tr, pos, place));
 }
 
 /** Selects the amount or check box cell at `pos` so the table controls know its row and column. */

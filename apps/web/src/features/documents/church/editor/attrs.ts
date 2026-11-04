@@ -2,7 +2,7 @@
 // An attribute the file leaves out stays `undefined` in the editor and out of the JSON, so a document reads back exactly
 // as it was stored. A stored `null` (a table's `source`, an amount that was cleared) is written as `data-ef-<name>-null`.
 
-export type Kind = "string" | "number" | "boolean" | "json";
+type Kind = "string" | "number" | "boolean" | "json";
 export type Attrs = Record<string, unknown>;
 
 /** One format attribute: no default (the format's default applies at render), stored in a `data-ef-*` attribute. */

@@ -250,20 +250,14 @@ function valueCellView(
 			}
 		}
 	};
-	const tablePosOf = () => {
+	const amountKind = () => (spec?.kind === "money" ? "money" : "number");
+	const onKey = (event: KeyboardEvent) => {
 		const pos = getPos();
-		if (pos === undefined) return undefined;
+		if (pos === undefined) return;
+		// The cell's parent is its row, and the row's parent is the table.
 		const $pos = editor.state.doc.resolve(pos);
-		for (let d = $pos.depth; d >= 1; d--) if ($pos.node(d).type.name === "table") return $pos.before(d);
-		return undefined;
+		fieldKey(editor, event, $pos.before($pos.depth - 1), { row: $pos.index($pos.depth - 1), col: $pos.index() });
 	};
-	const stopHere = (): Place | null => {
-		const pos = getPos();
-		if (pos === undefined) return null;
-		const $pos = editor.state.doc.resolve(pos);
-		return { row: $pos.index($pos.depth - 1), col: $pos.index($pos.depth) };
-	};
-	const onKey = (event: KeyboardEvent) => fieldKey(editor, event, tablePosOf(), stopHere());
 
 	function build() {
 		const kind = spec?.kind;
@@ -286,15 +280,13 @@ function valueCellView(
 					input.select();
 				});
 				input.addEventListener("input", () => {
-					const read = parseAmount(input.value, kind === "money" ? "money" : "number");
+					const read = parseAmount(input.value, amountKind());
 					if (!read.ok) return setInvalid(read.message);
 					setInvalid(null);
 					const pos = getPos();
 					const current = pos === undefined ? null : editor.state.doc.nodeAt(pos);
 					if (!current || pos === undefined || (current.attrs.value ?? null) === read.value) return;
-					typeInto(editor.view, typing, (tr) =>
-						tr.setNodeMarkup(pos, undefined, { ...current.attrs, value: read.value }),
-					);
+					typeInto(editor.view, typing, (tr) => setAttrs(tr, pos, { ...current.attrs, value: read.value }));
 				});
 				input.addEventListener("blur", () => {
 					// The next keystroke is a new Undo step.
@@ -317,7 +309,7 @@ function valueCellView(
 			}
 			const input = field as HTMLInputElement;
 			input.setAttribute("aria-label", label);
-			const typed = parseAmount(input.value, kind === "money" ? "money" : "number");
+			const typed = parseAmount(input.value, amountKind());
 			// Undo or Redo can change the amount while the field has focus: the field shows the stored amount then too.
 			if (document.activeElement !== input || (typed.ok && typed.value !== (node.attrs.value ?? null))) {
 				input.value = amountText();
@@ -434,7 +426,7 @@ function tableNodeView(initial: PMNode, editor: Editor, getPos: () => number | u
 			cell.append(input);
 			input.value = c.label;
 			input.style.textAlign = alignOf(c);
-			input.addEventListener("focus", () => noteFocus(editor.view, getPos(), "head", i));
+			input.addEventListener("focus", () => noteFocus(editor.view, getPos(), { row: null, col: i }));
 			input.addEventListener("blur", () => {
 				typing.doc = null;
 			});
@@ -501,7 +493,7 @@ function tableNodeView(initial: PMNode, editor: Editor, getPos: () => number | u
 		requestAnimationFrame(widths);
 	});
 	observer.observe(scroll);
-	blanks.addEventListener("focus", () => noteFocus(editor.view, getPos(), "blank", 0));
+	blanks.addEventListener("focus", () => noteFocus(editor.view, getPos(), { row: null, col: 0, blank: true }));
 	blanks.addEventListener("keydown", (event) => {
 		fieldKey(editor, event, getPos(), { row: null, col: null, blank: true });
 	});
@@ -577,16 +569,6 @@ function decorationsFor(node: PMNode, pos: number): Decoration[] {
 	return list;
 }
 
-function tableDecorations(doc: PMNode) {
-	const found: Decoration[] = [];
-	doc.descendants((node, pos) => {
-		if (node.type.name !== "table") return true;
-		found.push(...decorationsFor(node, pos));
-		return false;
-	});
-	return DecorationSet.create(doc, found);
-}
-
 // ---------------------------------------------------------------- keeping a table valid
 
 /** True when the format accepts the table, and every cell is the editor's node for its column. */
@@ -606,10 +588,10 @@ function validTable(node: PMNode): boolean {
 }
 
 const tablesIn = (doc: PMNode) => {
-	const found: PMNode[] = [];
-	doc.descendants((node) => {
+	const found: { node: PMNode; pos: number }[] = [];
+	doc.descendants((node, pos) => {
 		if (node.type.name !== "table") return true;
-		found.push(node);
+		found.push({ node, pos });
 		return false;
 	});
 	return found;
@@ -663,7 +645,11 @@ export const TableRules = Extension.create({
 			new Plugin({
 				key: new PluginKey("efTableDisplay"),
 				props: {
-					decorations: (state) => tableDecorations(state.doc),
+					decorations: ({ doc }) =>
+						DecorationSet.create(
+							doc,
+							tablesIn(doc).flatMap(({ node, pos }) => decorationsFor(node, pos)),
+						),
 					// A selection inside a table stays in one cell: a drag or Shift+arrows cannot span cells.
 					createSelectionBetween: (_view, $anchor, $head) => {
 						const doc = $anchor.doc;
@@ -695,8 +681,8 @@ export const TableRules = Extension.create({
 				// deleting it must not cost the person a document they cannot save. The editor says why nothing happened.
 				filterTransaction: (tr, state) => {
 					if (!tr.docChanged) return true;
-					const before = new Set(tablesIn(state.doc));
-					const fits = tablesIn(tr.doc).every((table) => before.has(table) || validTable(table));
+					const before = new Set(tablesIn(state.doc).map((table) => table.node));
+					const fits = tablesIn(tr.doc).every(({ node }) => before.has(node) || validTable(node));
 					if (!fits) this.editor.emit("tableChangeRefused");
 					return fits;
 				},
@@ -704,30 +690,30 @@ export const TableRules = Extension.create({
 		];
 	},
 	addKeyboardShortcuts() {
-		const editor = () => this.editor;
-		const swallowInCell = () => inCell(editor().state);
+		const { editor } = this;
+		const swallowInCell = () => inCell(editor.state);
 		const atCellEdge = (edge: "start" | "end") => {
-			const { selection } = editor().state;
+			const { selection } = editor.state;
 			if (!selection.empty) return false;
 			const { $from } = selection;
 			if ($from.parent.type.name !== "cell") return false;
 			return edge === "start" ? $from.parentOffset === 0 : $from.parentOffset === $from.parent.content.size;
 		};
 		const selectedAmountCell = () => {
-			const { selection } = editor().state;
+			const { selection } = editor.state;
 			return selection instanceof NodeSelection && selection.node.type.name === "valueCell";
 		};
 		const tab = (direction: 1 | -1) => () => {
-			const context = tableContext(editor().state);
+			const context = tableContext(editor.state);
 			if (!context || context.at.row === null || context.at.col === null) return false;
-			return moveFocus(editor(), context.pos, { row: context.at.row, col: context.at.col }, direction);
+			return moveFocus(editor, context.pos, { row: context.at.row, col: context.at.col }, direction);
 		};
 		return {
 			// Select all in a cell selects the cell, as in any field: the next key would otherwise replace the whole document.
 			"Mod-a": () => {
-				const cell = cellAt(editor().state.doc, editor().state.selection.from);
+				const cell = cellAt(editor.state.doc, editor.state.selection.from);
 				if (!cell) return false;
-				return editor().commands.setTextSelection({ from: cell.start, to: cell.end });
+				return editor.commands.setTextSelection({ from: cell.start, to: cell.end });
 			},
 			// A cell is one line: no paragraph, no line break.
 			Enter: swallowInCell,

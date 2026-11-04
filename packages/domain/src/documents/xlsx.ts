@@ -1,5 +1,5 @@
 import type { BlockNode, EveryfieldDoc, Formula, TableNode } from "@everyfield/contracts/documents";
-import { attrsOf, computeTable, ledgerTables, parseFormula } from "@everyfield/contracts/documents";
+import { attrsOf, computeTable, parseFormula } from "@everyfield/contracts/documents";
 import { textOn } from "./contrast.ts";
 import type { Palette, RenderTheme } from "./theme.ts";
 import { makePalette, tokenColor } from "./theme.ts";
@@ -364,7 +364,7 @@ export function buildBudget(kind: "first-year" | "worksheet", church: string, th
 // ---------------------------------------------------------------- everyfield.doc/1 ledgers
 
 /**
- * The title above each ledger table: the text of the nearest heading before it in the body, merge fields filled in, so a
+ * The ledger tables of a document in body order, each with the title above it: the text of the nearest heading before it in the body, merge fields filled in, so a
  * title edited in the editor is the title of the sheet. A table with no heading above it has none.
  */
 function sheetTitles(doc: EveryfieldDoc, values: Record<string, string>) {
@@ -416,12 +416,10 @@ const cellText = (cell: TableNode["content"] extends (infer R)[] | undefined ? R
  * ticked check cell, the table's header fill and the rows the PDF stripes.
  */
 export function buildLedgerWorkbook(doc: EveryfieldDoc, values: Record<string, string>, theme: RenderTheme) {
-	const tables = ledgerTables(doc.body);
-	const titles = sheetTitles(doc, values);
 	const book = new StyleBook(theme);
 	const p = book.palette;
 	const used = new Set<string>();
-	const sheets = tables.map((table, ti): Sheet => {
+	const sheets = [...sheetTitles(doc, values)].map(([table, title], ti): Sheet => {
 		const a = attrsOf(table);
 		const cols = a.columns;
 		const computed = computeTable(table);
@@ -452,7 +450,7 @@ export function buildLedgerWorkbook(doc: EveryfieldDoc, values: Record<string, s
 			);
 		const church = values.church_name ?? "";
 		const rows: Cell[][] = [
-			[text(titles.get(table) || `${church} ${doc.title}`.trim(), S.title)],
+			[text(title || `${church} ${doc.title}`.trim(), S.title)],
 			[text(a.writeInRows ? "" : "Enter each amount in a boxed cell. The totals add up on their own.", S.note)],
 		];
 		if (a.header) rows.push(cols.map((c) => text(c.label, headStyle(c))));
@@ -480,7 +478,6 @@ export function buildLedgerWorkbook(doc: EveryfieldDoc, values: Record<string, s
 				// The rows the PDF stripes: every second item row.
 				const fill = a.zebra && index % 2 === 0 ? stripe : 0;
 				const label = book.xf(0, fill, 3, 0, LEFT);
-				const money = (ci: number) => book.xf(0, fill, 3, formats[ci] ?? 0, RIGHT);
 				rows.push(
 					cols.map((c, ci): Cell => {
 						if (c.type === "text") return text(cellText(row, ci), label);
@@ -490,7 +487,7 @@ export function buildLedgerWorkbook(doc: EveryfieldDoc, values: Record<string, s
 							return {
 								formula: excelFormula(parseFormula(c.formula ?? "0"), letter, at),
 								uncached: true,
-								style: money(ci),
+								style: book.xf(0, fill, 3, formats[ci] ?? 0, RIGHT),
 							};
 						const v = row.content[ci]?.attrs?.value;
 						const input = book.xf(0, fill, 1, formats[ci] ?? 0, RIGHT);

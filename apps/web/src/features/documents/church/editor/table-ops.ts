@@ -45,11 +45,11 @@ const withColumns = (t: TableNode, columns: ColumnSpec[], content: RowNode[]): T
 
 const emptyCell = (): CellNode => ({ type: "cell" });
 const textCell = (text: string): CellNode => (text ? { type: "cell", content: [{ type: "text", text }] } : emptyCell());
-const emptyRow = (t: TableNode, role?: RowRole, label = "", sign?: "subtract"): RowNode => {
+const emptyRow = (t: TableNode, role?: RowRole, label = ""): RowNode => {
 	const at = labelColumn(t);
 	return {
 		type: "row",
-		...(role && role !== "item" ? { attrs: { role, ...(sign ? { sign } : {}) } } : {}),
+		...(role && role !== "item" ? { attrs: { role } } : {}),
 		content: t.attrs.columns.map((_, ci) => (ci === at && label ? textCell(label) : emptyCell())),
 	};
 };

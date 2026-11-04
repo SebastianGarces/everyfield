@@ -17,7 +17,7 @@ export async function baseOf(id) {
 }
 
 /** The title the library lists a template under. */
-export const TITLES = {
+const TITLES = {
 	"budget-worksheet": "Budget Worksheet",
 	"guest-sign-in-sheet": "Guest Sign-in Sheet",
 	"commitment-card": "Core Group Commitment Card",
@@ -47,7 +47,7 @@ export function onFork(engine, templateId, run, { size, who = "owner", blank = f
 	);
 }
 
-export function helpers(page, base) {
+function helpers(page, base) {
 	const json = () => page.locator(PAPER).evaluate((el) => el.editor.getJSON());
 	const snap = async () => documentFrom(base, await json());
 	const body = async () => (await snap()).body.content ?? [];

@@ -45,7 +45,7 @@ export function parseAmount(text: string, kind: "money" | "number"): Amount {
 	const match = AMOUNT.exec(raw);
 	const refuse = (): Amount => ({
 		ok: false,
-		message: `"${raw.length > 24 ? `${raw.slice(0, 24)}…` : raw}" is not an amount. Type a number such as 3000, $3,000.50 or -20.`,
+		message: `"${raw}" is not an amount. Type a number such as 3000, $3,000.50 or -20.`,
 	});
 	if (!match || (match[1] && match[2])) return refuse();
 	const [, lead, tail, whole = "0", fraction = ""] = match;
@@ -54,7 +54,7 @@ export function parseAmount(text: string, kind: "money" | "number"): Amount {
 	let value = Number(`${digits}.${fraction || "0"}`);
 	if (kind === "money") value = Math.round((value + Number.EPSILON) * 100) / 100;
 	if (lead || tail) value = -value;
-	return { ok: true, value: value === 0 ? 0 : value };
+	return { ok: true, value };
 }
 
 /** The limits the format sets on a table. */

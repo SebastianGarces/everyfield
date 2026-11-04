@@ -5,7 +5,15 @@ import type { Editor } from "@tiptap/react";
 import { useEditorState } from "@tiptap/react";
 import { useId, useRef, useState } from "react";
 import { Group, keepSelection, Labeled, Segmented, Swatches, Tip } from "./ControlParts.tsx";
-import { applyTable, newTyping, setAttrs, tableContext, typeInto, type TableContext } from "./table-actions.ts";
+import {
+	applyTable,
+	newTyping,
+	samePlace,
+	setAttrs,
+	tableContext,
+	typeInto,
+	type TableContext,
+} from "./table-actions.ts";
 import { fieldKey } from "./table-extension.ts";
 import {
 	addCategory,
@@ -55,15 +63,7 @@ function useTableContext(editor: Editor) {
 	return useEditorState({
 		editor,
 		selector: ({ editor: e }) => tableContext(e.state),
-		equalityFn: (a, b) =>
-			a === b ||
-			(!!a &&
-				!!b &&
-				a.pos === b.pos &&
-				a.node === b.node &&
-				a.at.row === b.at.row &&
-				a.at.col === b.at.col &&
-				a.at.blank === b.at.blank),
+		equalityFn: (a, b) => a === b || (!!a && !!b && a.pos === b.pos && a.node === b.node && samePlace(a.at, b.at)),
 	});
 }
 
