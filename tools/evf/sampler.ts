@@ -13,7 +13,7 @@ import { loadavg } from "node:os";
 import { basename, join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { openWorkDb, record, type TaskRow } from "./db.ts";
-import { nextStageFromStore } from "./drive.ts";
+import { isStage, nextStageFromStore } from "./drive.ts";
 import { evfDataDir, parseTask, run, sleep } from "./lib.ts";
 import { countFullChecks } from "./load.ts";
 import { alive } from "./ship-queue.ts";
@@ -148,11 +148,12 @@ function queueCounts(db: DatabaseSync) {
 	for (const t of tasks) {
 		const { stage } = nextStageFromStore(db, parseTask(t.ref), t);
 		if (stage === "done" || stage === "abandoned") continue;
-		if (stage === "blocked") holdReasons[t.status === "queued" ? "queued" : "blocked"]++;
-		else if (stage === "escalated") holdReasons.escalated++;
+		if (stage === "escalated") holdReasons.escalated++;
 		// A task at `pick` waits for Sebastian: no free slot can take it, so it is held, as `waiting`.
 		else if (stage === "waiting" || stage === "pick") holdReasons.waiting++;
-		else runnable++;
+		else if (isStage(stage)) runnable++;
+		// Only a stage to perform is runnable, so `blocked`, `held` and any later stage with no seat stay held.
+		else holdReasons[t.status === "queued" ? "queued" : "blocked"]++;
 	}
 	const held = Object.values(holdReasons).reduce((sum, n) => sum + n, 0);
 	return { runnable, held, holdReasons, seats, slotsFree: Math.max(0, SLOT_TARGET - seats) };
@@ -170,7 +171,7 @@ function attempt<T>(action: () => T): T | null {
 const appendLine = (dir: string, file: string, line: Record<string, unknown>) =>
 	appendFileSync(join(dir, file), `${JSON.stringify(line)}\n`);
 
-/** One minute's records. The store goes last: a busy store costs only the queue_tick. */
+/** One minute's records. The store write goes last: a busy store costs only the queue_tick. */
 export function samplerTick(root: string, probes: SamplerProbes): void {
 	const dir = evfDataDir(root),
 		at = new Date(probes.now()).toISOString();

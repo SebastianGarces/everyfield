@@ -1040,7 +1040,7 @@ through a temporary file and a rename, so a reader never sees half a file. A lin
 - A CPU value is that class's part of the CPU in use at that tick, from `ps` `pcpu`, which macOS reports as a decayed
   average. The parts sum to 1 apart from rounding. `cpu.jsonl` holds class names only, never command text.
 - A failed or timed-out probe writes null in its fields for that tick. A busy store costs the `queue_tick` and leaves
-  both files written, with `seats` null.
+  both files written, with `seats` still the real count. `seats` is null only when the store cannot be opened or read.
 - `queue_tick` is left out of the recent feed of `evf status` and the TUI, which it would otherwise fill within an hour.
 - `load_wait` is one event per wait the gate caused, whether the wait ended under the limit or gave up. `maxLoad` is the
   highest load seen. A command under the limit on its first read or run with `--ignore-load` records none. `task` is
@@ -1051,7 +1051,8 @@ whose role is not `evf`. The counts come from `nextStage`, applied to each open 
 
 - Runnable: the next stage names a stage to perform. This includes stages evf runs itself (pr, ci, ship).
 - Held: `blocked`, `escalated` and `waiting`, counted by those names in `holdReasons`, plus `queued` for a queued
-  follow-up. A prototype at `pick` counts as `waiting`, because it waits for Sebastian and no free slot can take it.
+  follow-up. A prototype at `pick` counts as `waiting`, because it waits for Sebastian and no free slot can take it. A
+  `held_external` task (stage `held`) counts as `blocked`, because no seat can change the failure that holds it.
 - In neither: a task with a started run, and merged, done and abandoned tasks.
 
 `runnable` ignores package dependency order: a WP task whose dependency has not merged counts as runnable if `nextStage`

@@ -4,7 +4,7 @@ import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, st
 import { availableParallelism } from "node:os";
 import { delimiter, join } from "node:path";
 import { test } from "node:test";
-import { ensureTask, openWorkDb, workDbPath } from "../db.ts";
+import { ensureTask, openWorkDb, record, workDbPath } from "../db.ts";
 import { drive } from "../drive.ts";
 import { evfDataDir, parseTask } from "../lib.ts";
 import { awaitLoad, countFullChecks } from "../load.ts";
@@ -557,6 +557,7 @@ function addEveryKind(db: ReturnType<typeof openWorkDb>): void {
 	addTask(db, "OPS-67", { status: "done" });
 	addTask(db, "OPS-68", { status: "abandoned" });
 	addTask(db, "OPS-69", { status: "active", runs: ["pr:evf:started"] }); // A started evf run: in neither, and no seat.
+	addTask(db, "OPS-59", { status: "held_external", spec: "# OPS-59", runs: ["ci:evf:failed"] }); // nextStage says held.
 }
 
 test("queue_tick counts every kind of task once and slotsFree stops at 0 with 13 seats (AC:OPS-133-7)", () => {
@@ -569,8 +570,8 @@ test("queue_tick counts every kind of task once and slotsFree stops at 0 with 13
 		assert.equal(ticks[0]!.task_id, null);
 		assert.deepEqual(ticks[0]!.payload, {
 			runnable: 1,
-			held: 4,
-			holdReasons: { blocked: 1, escalated: 1, waiting: 1, queued: 1 },
+			held: 5,
+			holdReasons: { blocked: 2, escalated: 1, waiting: 1, queued: 1 },
 			seats: 13,
 			slotsFree: 0,
 			load: 3.46,
@@ -597,6 +598,37 @@ test("slotsFree reads 9 with 3 seats, and a later stage evf runs itself counts a
 		assert.equal(payload.slotsFree, 9);
 		assert.equal(payload.runnable, 1);
 		assert.equal(payload.held, 0);
+	} finally {
+		f.close();
+	}
+});
+
+test("a held_external task is held, and counts as runnable again once its hold ends (AC:OPS-133-7)", () => {
+	const f = fixture();
+	try {
+		const held = storeWith(f.root, (db) => {
+			const id = addTask(db, "OPS-73", {
+				status: "held_external",
+				spec: "# OPS-73",
+				runs: ["implement:implementer:passed", "ci:evf:failed"],
+			});
+			record(db, id, null, "held_external", { cause: "main", checks: ["app"], head: null, summary: "main fails" });
+			return id;
+		});
+		runSampler(f.root, fakeProbes(), { ticks: 1 });
+		assert.deepEqual(eventsOf(f.root, "queue_tick")[0]!.payload, {
+			runnable: 0,
+			held: 1,
+			holdReasons: { blocked: 1, escalated: 0, waiting: 0, queued: 0 },
+			seats: 0,
+			slotsFree: 12,
+			load: 3.46,
+		});
+		storeWith(f.root, (db) => db.prepare("UPDATE tasks SET status = 'pr_open' WHERE id = ?").run(held));
+		runSampler(f.root, fakeProbes(), { ticks: 1 });
+		const released = eventsOf(f.root, "queue_tick")[1]!.payload;
+		assert.equal(released.runnable, 1);
+		assert.equal(released.held, 0);
 	} finally {
 		f.close();
 	}
@@ -927,7 +959,9 @@ test("a busy store skips that queue_tick and leaves the two files written (AC:OP
 			writer.exec("ROLLBACK");
 			writer.close();
 		}
-		assert.equal(readLines(f.root, "load.jsonl").length, 1);
+		const loadLines = readLines(f.root, "load.jsonl");
+		assert.equal(loadLines.length, 1);
+		assert.equal(loadLines[0]!.seats, 0, "a read still works under a write lock, so seats is the real count");
 		assert.equal(readLines(f.root, "cpu.jsonl").length, 1);
 		assert.deepEqual(eventsOf(f.root, "queue_tick"), [], "the tick under the lock wrote no queue_tick");
 		samplerTick(f.root, fakeProbes());
