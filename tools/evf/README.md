@@ -123,6 +123,47 @@ docs/build-progress.json committed on main as merged tasks, once each, with a `l
 it never reads a checkout's working copy of the ledger. `evf status [--json] [<task>]` lists tasks,
 active seats, recent events and the health counters.
 
+`evf events [--since <time>] [--type <name>] [--task <task>] [--json]` reads the full event history from a
+read-only store, in id order, with no row limit. `--since` is inclusive and takes any ISO 8601 offset; `--task`
+matches the ref, its parts and the slug, as `evf status` does; filters combine. `--json` prints an array of
+`{id, ts, type, task, run, payload}` with `payload` parsed. Without it, each event is one line.
+
+### Check signals (OPS-132)
+
+Each `evf verify` run that reaches its checks records these events. `evf status` leaves all four out of `recent`,
+because one verify would push out the reopen, nudge and escalation rows.
+
+| Event | Fields |
+|---|---|
+| `check_start`, `check_end` | `run`, `task`, `head`, `treeHash`, `role`, `mode`, `trigger`, `queuedMs`, `durationMs`, `result` |
+| `check_suite_end` | `task`, `head`, `role`, `mode`, `suite`, `startedAt`, `durationMs`, `passed`, `loadStart`, `loadEnd` |
+| `test_failed` | `task`, `head`, `attempt`, `suite`, `test`, `touchesTestPaths` |
+
+`check_start` has `durationMs` and `result` null. `run` is `EVF_RUN` when the store holds that run, otherwise null.
+`trigger` is `pr-stage`, `evf-check`, `seat` or `manual`. `queuedMs` is the time spent in the load wait. `result` is
+`passed`, `failed`, `invalidated` or, when verify throws, `error`. Each `checks` entry in `checks.json` holds the same
+`startedAt` and `durationMs` as its `check_suite_end`.
+
+`test_failed` has a limit: only a check that reports test names can record it. `bin/evf test` writes names to its own
+`EVF_FAILED_TESTS` file, never to `EVF_TEST_REPORT`, because its `AC:OPS-*` markers would turn on case coverage for a
+WP task (D19). A check with an `EVF_TEST_REPORT` file gives the names of its `failed` tests. Any other failed check,
+at present `package-unit-tests` and `local-app`, records no `test_failed`, and its `check_suite_end` has `passed`
+false. One check records each test name once. `postgres://` and `npg_` values in a name are stored redacted.
+
+Before the first check of a rerun at one head, role and mode, evf copies the earlier evidence to
+`<evidence dir>/attempt-<n>`, with the next free number:
+
+```text
+.git/evf/evidence/<task>/<sha>/author-full/
+  checks.json, *.log          the newest run; hasVerifiedHead and evf pre-push read only this path
+  attempt-1/checks.json, *.log  the first run; its evidenceDir and log paths point inside attempt-1
+  attempt-2/...                 the second run
+```
+
+These folders are never pruned. The `ac` evidence folder has no attempts. Signals only observe: when the store is
+missing, locked or read-only, does not know the task, or the copy fails, verify prints one warning line on stderr and
+returns the same result.
+
 ## Usage and seat models
 
 `evf usage` reports what each seat run used. Nothing is billed: Sebastian is on a subscription, so every cost
