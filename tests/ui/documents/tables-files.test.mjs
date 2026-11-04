@@ -24,7 +24,7 @@ import { makePalette, NEUTRAL_THEME, tokenColor } from "../../../packages/domain
 import { clean, editorContent } from "../../../apps/web/src/features/documents/church/editor/document-json.ts";
 import { docxParts, pdfPages, wordText } from "../../integration/documents/fixtures/readers.mts";
 import { ENGINES } from "../setup.mjs";
-import { baseOf, MOD, onFork, PAPER } from "./tables-support.mjs";
+import { baseOf, onFork, PAPER } from "./tables-support.mjs";
 
 const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const textOf = (cell) => (cell?.content ?? []).map((n) => n.text ?? "").join("");
@@ -441,7 +441,7 @@ for (const [name, engine] of ENGINES)
 			engine,
 			"budget-worksheet",
 			async (page, context, t) => {
-				const { doc, grid } = await everything(await baseOf("budget-worksheet"));
+				const { doc } = await everything(await baseOf("budget-worksheet"));
 				assert.ok(docDocument.safeParse(doc).success, "the document under test parses");
 				await page
 					.locator(PAPER)
@@ -517,8 +517,6 @@ for (const [name, engine] of ENGINES)
 
 				// The preview is the file Download gives, byte for byte, for the same revision.
 				assert.equal(sha((await t.file("pdf", { download: false })).bytes), sha(pdfBytes));
-				void MOD;
-				void grid;
 			},
 			{ blank: true },
 		);
