@@ -123,6 +123,64 @@ docs/build-progress.json committed on main as merged tasks, once each, with a `l
 it never reads a checkout's working copy of the ledger. `evf status [--json] [<task>]` lists tasks,
 active seats, recent events and the health counters.
 
+## Owner queue
+
+`evf owner-queue [--json]` lists what waits for Sebastian, one line per open item: the PR, the head, a one-sentence
+ask, the age and the number of tasks that wait. Urgent items come first, then the oldest. An item that blocks 2 or
+more tasks is urgent. An item older than 48 h carries the question "Keep, abandon or reopen?". The command opens the
+store read-only. evf sends no message and has no schedule: Jonah sends the printed digest at the digest times and
+sends an urgent item at once (`.agents/roles/coordinator.md`).
+
+The blocked count is the item's own task, plus each follow-up row with this task as `parent_task_id` that is not
+merged or abandoned, plus each direct dependent package in `docs/plan/dag.json` that is not merged. A package is
+merged when the ledger marks it done or retired, or when its store rows hold a merged row and no open row.
+
+Two events carry the queue. `owner_ask` holds exactly `task`, `pr`, `head`, `kind`, `digestId` and `askedAt`. The kinds
+are `template`, `owner_path`, `wiki`, `design`, `feedback`, `void_approval`, `escalation`, `prototype_pick` and
+`parked`, and evf builds the ask sentence from the kind. `owner_answer` holds exactly `task`, `pr`, `head` and
+`answeredAt`. An open item is a task's latest `owner_ask` with no `owner_answer` after it, on a task that is not merged
+or abandoned. A second ask on the same head adds no event and keeps `askedAt`. An ask on a new head adds an event, and
+the age restarts.
+
+| Route | Records |
+|---|---|
+| `evf ship` holds a PR for a document template or an owner path | `owner_ask`, kind `template` or `owner_path` |
+| `evf ship` stops on the Wiki route, a design task or P2 or P3 feedback | `owner_ask`, kind `wiki`, `design` or `feedback` |
+| A void owner approval, in `evf ship` or the drive | `owner_ask`, kind `void_approval` |
+| An escalation, an awaiting pick | `owner_ask`, kind `escalation` or `prototype_pick` |
+| `evf owner-queue ask <task> --kind parked` | `owner_ask`, for a PR no route recorded |
+| `evf approve` on either route, a merge through `evf ship` | `owner_answer` |
+| `evf task pick`, `compare-passed`, `reopen`, `abandon` | `owner_answer` |
+| `evf owner-queue answer <task>`, such as a keep decision | `owner_answer`; it refuses with no open item |
+
+Recording never changes a merge. A failed write prints a warning on stderr, and the command goes on with the same exit
+code and the same GitHub calls. Migration 014 gives each task that already waits an `owner_ask`: `askedAt` is the time
+of its latest wait event, `head` and `digestId` are null, and the queue prints an unknown head as `unknown`. Old waits
+do not name a route, so a voided approval and an FB ref give the kind and any other wait is `parked`.
+
+The optional `ownerQueue` key in `evf.config.json` holds the time zone, the digest times and the owner hours. The code
+in `tools/evf/owner-queue.ts` parses it and holds the defaults. An invalid value makes `evf owner-queue` refuse with a
+message that names the key.
+
+```json
+"ownerQueue": {
+  "timeZone": "America/Chicago",
+  "digestTimes": ["09:00", "13:00", "17:00"],
+  "ownerHours": { "start": "08:00", "end": "18:00" }
+}
+```
+
+`digestTimes` must be 3 ascending `HH:MM` values, and they default to 09:00, 13:00 and 17:00. `timeZone` defaults to
+the system time zone. `digestId` is the next digest slot at or after `askedAt`, in local date and time, such as
+`2026-11-04T13:00`.
+
+Sebastian sets `ownerHours`, because evf does not track sleep and never guesses it. To set it, he gives Jonah a daily
+start and end, and a reviewed OPS task or a home-checkout edit adds the key to `evf.config.json`. `start` must come
+before `end`, so a window that crosses midnight is refused. While it is unset, the queue says so and shows no split.
+With it set, each item shows its age split into minutes inside and outside the hours (`insideMinutes` and
+`outsideMinutes` in `--json`). `splitWait` in `owner-queue.ts` does the split and counts real time across a
+daylight-saving change.
+
 ## Usage and seat models
 
 `evf usage` reports what each seat run used. Nothing is billed: Sebastian is on a subscription, so every cost

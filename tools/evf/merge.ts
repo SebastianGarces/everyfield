@@ -15,6 +15,7 @@ import {
 } from "./lib.ts";
 import { DEFAULT_DOCUMENT_TEMPLATES, DEFAULT_OWNER_PATHS } from "./policy.ts";
 import { WIKI_PREFIX } from "./wiki.ts";
+import { recordVoidAsk } from "./owner-queue.ts";
 import { carryProof, nameWithOwner, type CarryProof } from "./ship.ts";
 
 /**
@@ -305,6 +306,7 @@ export function ownerCover(
 		proof = e.message;
 	}
 	if (typeof proof !== "string") return { ...cover, carry: proof };
+	recordVoidAsk(root, number, sha);
 	fail(
 		[
 			`evf does not merge PR #${number}: ${OWNER_VOID}. He approved ${record.head.slice(0, 10)} ("${record.quote}"); the head is ${sha.slice(0, 10)}, and his approval does not carry: ${proof}.`,

@@ -29,6 +29,7 @@ import {
 } from "./followups.ts";
 import { ideaWorktree, launch, LaunchAborted, LaunchLineTooLong, type LaunchTiming } from "./launch.ts";
 import { OWNER_VOID, requireCurrentCode, shipOnCurrentCode } from "./merge.ts";
+import { noteOwnerAnswer, noteOwnerAsk } from "./owner-queue.ts";
 import { isOpus, validateOverride, type Role } from "./seats.ts";
 import {
 	EvfError,
@@ -581,9 +582,16 @@ function notify(title: string, body: string): void {
 }
 
 /** The task stops here until Sebastian decides: status escalated, events, a Herdr notification. */
-function escalate(db: DatabaseSync, t: { id: number; ref: string }, runId: number | null, cause: string): void {
+function escalate(
+	db: DatabaseSync,
+	root: string,
+	t: { id: number; ref: string },
+	runId: number | null,
+	cause: string,
+): void {
 	db.prepare("UPDATE tasks SET status = 'escalated', updated_at = ? WHERE id = ?").run(now(), t.id);
 	record(db, t.id, runId, "escalation", { summary: `${t.ref} needs Sebastian: ${cause}` });
+	noteOwnerAsk(db, root, t.id, "escalation");
 	notify(`${t.ref} escalated`, cause);
 }
 
@@ -857,7 +865,7 @@ export function runDone(
 				escalated = "";
 			} else if (!working.length) escalated ||= pending;
 		}
-		if (escalated) escalate(db, { id: r.task_id, ref: r.ref }, runId, escalated);
+		if (escalated) escalate(db, root, { id: r.task_id, ref: r.ref }, runId, escalated);
 		console.log(
 			`run ${runId} (${r.stage}) closed ${opts.status === "body-only" ? "body-only" : status}${escalated ? `; ${r.ref} escalated` : ""}.`,
 		);
@@ -988,6 +996,7 @@ export function taskPick(root: string, task: TaskRef, idea: number, ownerApprova
 			head,
 			summary: `Sebastian picked idea ${idea}: ${ownerApproval.trim().slice(0, 120)}`,
 		});
+		noteOwnerAnswer(db, t.id);
 		console.log(`pick: ${t.ref} idea ${idea}${head ? ` at ${head.slice(0, 10)}` : ""}.`);
 		return 0;
 	} finally {
@@ -1019,6 +1028,7 @@ export function taskReopen(root: string, task: TaskRef, reason: string): number 
 			after_run: afterRun,
 			summary: `${t.ref} reopened to ${status}: ${reason.trim()}`,
 		});
+		noteOwnerAnswer(db, t.id);
 		console.log(`reopen: ${t.ref} is ${status}.`);
 		return 0;
 	} finally {
@@ -1064,6 +1074,7 @@ export function taskComparePassed(root: string, task: TaskRef, ownerApproval: st
 			after_run: afterRun,
 			summary: `${t.ref}: Sebastian chose to compare ideas ${all.filter((i) => i !== idea).join(" and ")} without ${why}`,
 		});
+		noteOwnerAnswer(db, t.id);
 		console.log(
 			`compare-passed: ${t.ref} compares ideas ${all.filter((i) => i !== idea).join(" and ")}; idea ${idea} is missing.`,
 		);
@@ -1116,6 +1127,7 @@ export function taskAbandon(root: string, task: TaskRef, opts: { id?: number; re
 			from: row.status,
 			summary: `${task.id} row ${row.id} abandoned (was ${row.status}): ${opts.reason.trim()}`,
 		});
+		noteOwnerAnswer(db, row.id);
 		const event = (
 			db.prepare("SELECT MAX(id) AS id FROM events WHERE task_id = ? AND type = 'abandon'").get(row.id) as {
 				id: number;
@@ -1641,6 +1653,7 @@ function shipStage(db: DatabaseSync, root: string, task: TaskRef, t: TaskRow, ru
 		// A voided owner approval (OPS-121) waits for Sebastian, like an owner route: no merge and no new round.
 		if (!(e instanceof EvfError) || !e.message.includes(OWNER_VOID)) throw e;
 		record(db, t.id, runId, "owner_approval_wait", { pr: t.pr_number, summary: `${task.id}: ${e.message}` });
+		noteOwnerAsk(db, root, t.id, "void_approval");
 		notify(`${task.id} waits for Sebastian`, e.message);
 		return { status: "passed", summary: `waits for Sebastian's new approval: ${e.message}` };
 	}
@@ -1651,6 +1664,8 @@ function shipStage(db: DatabaseSync, root: string, task: TaskRef, t: TaskRow, ru
 		const partial = partialLine(followUpsOf(db, t.id));
 		const cause = `${partial ? `${partial} ` : ""}PR #${pr} is verified and waits for Sebastian's approval. After his approval in chat, run: bin/evf approve ${pr} --owner-approval "<his words>"`;
 		record(db, t.id, runId, "owner_approval_wait", { pr: t.pr_number, summary: `${task.id}: ${cause}` });
+		// Evf ship recorded the route's ask at this head, unless older base code ran it (shipOnCurrentCode).
+		noteOwnerAsk(db, root, t.id, task.kind === "fb" ? "feedback" : "parked");
 		notify(`${task.id} waits for Sebastian`, cause);
 		return { status: "passed", summary: "verified; waits for Sebastian's approval (evf approve)" };
 	}
@@ -1939,7 +1954,7 @@ function launchOrLog(
 			const db = openWorkDb(root);
 			try {
 				const t = taskById(db, taskId)!;
-				if (t.status !== "escalated") escalate(db, t, null, e.message);
+				if (t.status !== "escalated") escalate(db, root, t, null, e.message);
 			} finally {
 				db.close();
 			}
@@ -2026,7 +2041,7 @@ export function driveOnce(
 				head: n.skipped.head,
 				summary: `${task.id} skips simplify: no change since simplify run ${n.skipped.run} at ${n.skipped.head.slice(0, 10)}`,
 			});
-		if (n.stage === "escalated" && t.status !== "escalated") escalate(db, t, null, n.reason);
+		if (n.stage === "escalated" && t.status !== "escalated") escalate(db, root, t, null, n.reason);
 		if (n.stage === "done" || n.stage === "escalated" || n.stage === "blocked") return n;
 		if (n.stage === "pick") {
 			if (t.status !== "awaiting_pick") {
@@ -2034,6 +2049,7 @@ export function driveOnce(
 				record(db, t.id, null, "awaiting_pick", {
 					summary: `${task.id}: comparison ready, waiting for Sebastian's pick`,
 				});
+				noteOwnerAsk(db, root, t.id, "prototype_pick", null);
 				notify(
 					`${task.id} ready to pick`,
 					`Three ideas and the comparison are ready: evf task pick ${task.id} <n> --owner-approval "<words>"`,

@@ -41,6 +41,7 @@ import {
 	isHeld,
 	mergePullRequest,
 	ownerCover,
+	ownerHeld,
 	requireCurrentCode,
 	wikiApproveCommand,
 	wikiClass,
@@ -54,6 +55,7 @@ import { formatScope, wpScope } from "./scope.ts";
 import { acknowledgeShipped, recordProgress, type ShippedRecord } from "./progress.ts";
 import { requireVerifiedHead } from "./verify.ts";
 import { stack } from "./task.ts";
+import { recordOwnerAnswer, recordOwnerAsk } from "./owner-queue.ts";
 import { requireFreeMigrationNumbers } from "./migrations.ts";
 import {
 	cachedTriage,
@@ -589,11 +591,13 @@ function ownerRoute(
 		);
 	if (held) {
 		verified();
+		recordOwnerAsk(root, task, number, sha, ownerHeld(held) ? "owner_path" : "template");
 		console.log(withPartial(root, task, heldWaitMessage(number, held, sha)));
 		return 0;
 	}
 	if (design) {
 		verified();
+		recordOwnerAsk(root, task, number, sha, "design");
 		console.log(
 			withPartial(
 				root,
@@ -607,6 +611,7 @@ function ownerRoute(
 	if (!(cfg.mergePolicy.feedbackOwnerAfterVerifier as string[]).includes(cls))
 		fail("This feedback class requires the owner approval route.");
 	verified();
+	recordOwnerAsk(root, task, number, sha, "feedback");
 	console.log(
 		withPartial(root, task, `PR #${number} is verified and waits for Sebastian's chat approval, then evf approve.`),
 	);
@@ -647,6 +652,7 @@ function wikiRoute(root: string, cfg: Config, task: TaskRef, wt: string, number:
 		throw e;
 	}
 	postStatus(wt, cfg, head, "success", `Verified by ${verifierLabel(verifier)} at ${head.slice(0, 10)}`);
+	recordOwnerAsk(root, task, number, head, "wiki");
 	const steps = [
 		claimed.length ? `claim check recorded on ${claimed.length} draft${claimed.length === 1 ? "" : "s"}` : "",
 		promoted.length ? `${promoted.length} draft${promoted.length === 1 ? "" : "s"} promoted` : "",
@@ -723,6 +729,7 @@ function queuedMerge(root: string, cfg: Config, task: TaskRef, wt: string, numbe
 		fail(
 			`Merge refused: ${(merge.stderr || merge.stdout).trim()}. A changed head needs fresh CI and verifier approval.`,
 		);
+	recordOwnerAnswer(root, task.branch, sha);
 	return afterMerge(root, cfg, task, wt, number, verification, baseSha, { ownerApproval: merge.owner });
 }
 
