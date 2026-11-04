@@ -1,4 +1,5 @@
 import test from "node:test";
+import { DatabaseSync } from "node:sqlite";
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -687,6 +688,14 @@ test("AC:OPS-116-10 the default run starts no model seat, and the audit waits on
 		const busy = f.cli(["--task", "OPS-901", "--seed", "2"]);
 		assert.equal(busy.code, 1);
 		assert.match(busy.err, /The machine stayed above its load limit for 0 min .*--ignore-load/);
+		const waits = new DatabaseSync(join(f.root, ".git/evf/work.sqlite"))
+			.prepare("SELECT payload FROM events WHERE type = 'load_wait'")
+			.all() as Array<{ payload: string }>;
+		assert.deepEqual(
+			waits.map((w) => JSON.parse(w.payload).task),
+			["OPS-901"],
+			"evf audit passes its task to the load gate (OPS-133)",
+		);
 		const forced = f.cli(["--task", "OPS-901", "--seed", "2", "--ignore-load", "fixture override"]);
 		assert.equal(forced.code, 0, forced.err);
 		const overrides = readFileSync(join(f.root, ".git/evf/load-overrides.jsonl"), "utf8")
