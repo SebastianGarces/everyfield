@@ -681,12 +681,19 @@ export const TableRules = Extension.create({
 						const head = Math.min(Math.max($head.pos, start.start), start.end);
 						return TextSelection.create(doc, $anchor.pos, head);
 					},
-					// A key typed while the whole table is selected goes nowhere: it would replace the table.
-					handleTextInput: (view) => {
+					// A key typed while the whole table is selected, as Undo or Redo can leave it, would replace the table. It goes to
+					// the table's first field instead.
+					handleTextInput: (view, _from, _to, text) => {
 						const { selection } = view.state;
 						if (!(selection instanceof NodeSelection) || selection.node.type.name !== "table") return false;
 						const first = stopsOf(tableOf(selection.node))[0];
-						if (first) focusPlace(view, selection.from, first);
+						if (!first) return true;
+						focusPlace(view, selection.from, first);
+						const active = document.activeElement;
+						if (active instanceof HTMLInputElement) {
+							active.setRangeText(text, active.selectionStart ?? 0, active.selectionEnd ?? 0, "end");
+							active.dispatchEvent(new Event("input", { bubbles: true }));
+						} else if (view.state.selection instanceof TextSelection) view.dispatch(view.state.tr.insertText(text));
 						return true;
 					},
 					transformPastedText: (text, _plain, view) => (inCell(view.state) ? flat(text) : text),
@@ -721,6 +728,12 @@ export const TableRules = Extension.create({
 			return moveFocus(editor(), context.pos, { row: context.at.row, col: context.at.col }, direction);
 		};
 		return {
+			// Select all in a cell selects the cell, as in any field: the next key would otherwise replace the whole document.
+			"Mod-a": () => {
+				const cell = cellAt(editor().state.doc, editor().state.selection.from);
+				if (!cell) return false;
+				return editor().commands.setTextSelection({ from: cell.start, to: cell.end });
+			},
 			// A cell is one line: no paragraph, no line break.
 			Enter: swallowInCell,
 			"Shift-Enter": swallowInCell,

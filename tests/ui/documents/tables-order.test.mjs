@@ -56,6 +56,19 @@ for (const [name, engine] of ENGINES) {
 			await page.keyboard.type("x");
 			await t.settle();
 			assert.equal((await t.tables()).length, 1, "the table survives a key after Undo");
+			assert.equal(labelsOf(await t.table())[0], "x", "and the key lands in the first header label");
+		});
+	});
+
+	test(`AC:WP-036-1 (${name}): select all in a cell selects the cell, so the next key keeps the document`, async () => {
+		await onFork(engine, "budget-worksheet", async (page, context, t) => {
+			const blocks = (await t.body()).length;
+			await page.locator(`${PAPER} [data-ef-cell="text"]`).nth(1).click();
+			await page.keyboard.press(`${MOD}+a`);
+			await page.keyboard.type("Rent");
+			await t.settle();
+			assert.equal((await t.body()).length, blocks, "the document keeps its blocks");
+			assert.equal(firstCol(await t.table())[1], "Rent");
 		});
 	});
 
