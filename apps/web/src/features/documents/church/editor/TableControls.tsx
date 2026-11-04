@@ -124,7 +124,9 @@ function WriteInField({ editor, context }: { editor: Editor; context: TableConte
 						const count = Number(text);
 						const live = tableContext(editor.state);
 						if (!live || live.pos !== context.pos) return;
-						typeInto(editor.view, typing.current, (tr) => setAttrs(tr, live.pos, { ...live.node.attrs, writeInRows: count }));
+						typeInto(editor.view, typing.current, (tr) =>
+							setAttrs(tr, live.pos, { ...live.node.attrs, writeInRows: count }),
+						);
 					}}
 					onKeyDown={(event) => fieldKey(editor, event.nativeEvent)}
 					onBlur={() => {

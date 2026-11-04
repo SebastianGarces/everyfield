@@ -157,9 +157,9 @@ for (const [name, engine] of ENGINES) {
 					await t.save();
 					const { bytes } = await t.file("pdf");
 					const table = await t.table();
-					const editor = await page.locator(`${PAPER} .ef-head-wrap`).evaluateAll((els) =>
-						els.map((el) => (el.getBoundingClientRect().width * 3) / 4),
-					);
+					const editor = await page
+						.locator(`${PAPER} .ef-head-wrap`)
+						.evaluateAll((els) => els.map((el) => (el.getBoundingClientRect().width * 3) / 4));
 					for (const [i, column] of table.attrs.columns.entries()) {
 						if (column.type === "formula") continue;
 						const pdf = await pdfColumn(bytes, column.id);

@@ -219,7 +219,9 @@ for (const [name, engine] of ENGINES) {
 					const inTable = !!a?.closest?.('[data-ef-node="table"]');
 					const sel = document.querySelector(".ef-paper .ProseMirror")?.editor?.state.selection;
 					return {
-						head: a?.classList?.contains("ef-head-cell") ? [...a.closest(".ef-table-head").children].indexOf(a.parentElement) : null,
+						head: a?.classList?.contains("ef-head-cell")
+							? [...a.closest(".ef-table-head").children].indexOf(a.parentElement)
+							: null,
 						inTable,
 						cell: sel ? sel.$from.parent.type.name : null,
 						row: sel ? sel.$from.index(1) : null,
