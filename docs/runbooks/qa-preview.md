@@ -97,9 +97,25 @@ QA logins see only Harvest Point (QA).
 
 ### Email on a QA preview
 
-Every seeded person and login uses a `delivered+<label>@resend.dev` address. Resend accepts mail to these addresses
-and delivers it to nobody. Use "Send now" in Messages to test a send: the app hands the mail to Resend in the same
-request. No cron job is needed, and Vercel does not run cron on previews. Evry turns also run in the request.
+Outside production, mail goes only to approved test recipients. The send path enforces this on every send, with or
+without a Resend key. Only `VERCEL_ENV=production` lets mail reach any address. An address is approved in two cases:
+
+- The local part starts with `delivered+` and the domain is exactly `resend.dev`. Resend accepts mail to these addresses
+  and delivers it to nobody. Every seeded person and login uses one.
+- The full address is in `EMAIL_TEST_RECIPIENTS`, a comma-separated list that is empty by default. The list holds full
+  addresses. A domain or a wildcard approves nobody. The list adds addresses and it cannot turn the rule off.
+
+Every other address goes to the capture outbox and never appears in a request to Resend, also when a tester types a real
+address. Read the outbox at `/api/dev/outbox` on the preview. "Accepted" in Messages does not say which mode ran.
+
+The outbox is a temp folder on one server instance. On Vercel, another instance may not see a capture, so the outbox can
+miss it and a cancel or time change can answer unknown. Nothing is sent in that case.
+
+Use "Send now" in Messages to test a send: the app hands the mail to Resend or the outbox in the same request. No cron
+job is needed, and Vercel does not run cron on previews. Evry turns also run in the request.
+
+A preview built before WP-029 merged keeps the old code and can send to any address. Rebuild an open preview from that
+time with `evf qa up` before you test mail on it.
 
 ## 3. How a bot gets in: Protection Bypass for Automation
 

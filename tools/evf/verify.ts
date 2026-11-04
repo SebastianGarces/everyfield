@@ -28,7 +28,7 @@ import { maintenanceScope, requireSpend, requireTaskScope, requireMaintenancePat
 import { caseCoverage, caseGrep, hasCaseMarkers, testsOf } from "./coverage.ts";
 import { formatScope, wpScope, type ScopeReport } from "./scope.ts";
 import { requireFreeMigrationNumbers } from "./migrations.ts";
-import { awaitLoad } from "./load.ts";
+import { awaitLoad, markFullCheck } from "./load.ts";
 import { uiEscapedGate } from "./escape.ts";
 import { checkSignals, type DriveCaller } from "./signals.ts";
 
@@ -89,7 +89,7 @@ export function verify(
 	if (!gitOk(wt, "merge-base", "--is-ancestor", baseSha, "HEAD")) fail("Include current main before verification.");
 	requireFreeMigrationNumbers(wt, baseSha, task);
 	const queueStart = performance.now();
-	awaitLoad(root, "verify", ignoreLoad);
+	awaitLoad(root, "verify", ignoreLoad, undefined, task);
 	const queuedMs = Math.round(performance.now() - queueStart);
 	const cases = wp ? packageContext(wt, wp).case_ids : [];
 	const dir = evidenceDir(root, task, sha, `${role}-${mode}`);
@@ -127,6 +127,7 @@ export function verify(
 	);
 	if (task.kind !== "ops" && cfg.stack?.usesPaidProviders) requireSpend(root);
 	const signals = checkSignals({ root, wt, task, sha, baseSha, role, mode, dir, queuedMs, caller });
+	const unmarkFullCheck = markFullCheck(root, mode);
 	try {
 		const reports: string[] = [];
 		const inputsUnchanged = () => git(wt, "rev-parse", "HEAD") === sha && isClean(wt);
@@ -247,6 +248,8 @@ export function verify(
 	} catch (error) {
 		signals.end("error");
 		throw error;
+	} finally {
+		unmarkFullCheck();
 	}
 }
 

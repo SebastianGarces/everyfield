@@ -604,22 +604,36 @@ function roundCounts(db: DatabaseSync, taskId: number, wt: string | null) {
 	}
 }
 
-/** The owner events a task's next stage depends on, read from the store, and the simplify skip read from its worktree. */
-const extrasOf = (db: DatabaseSync, taskId: number): NextExtras => {
-	const t = db.prepare("SELECT spec, worktree, round FROM tasks WHERE id = ?").get(taskId) as
-		{ spec: string | null; worktree: string | null; round: number } | undefined;
-	const runs = runsOf(db, taskId);
+/** The owner events a task's next stage depends on, read from the store alone. */
+const storeExtrasOf = (db: DatabaseSync, taskId: number, spec: string | null): NextExtras => {
 	const held = latestEvent(db, taskId, ["held_external"]);
 	return {
 		reopenReason: reopenReasonOf(db, taskId),
 		deferred: deferredEscalation(db, taskId),
 		choice: compareChoiceOf(db, taskId),
-		unfiled: unfiledSlices(db, taskId, t?.spec ?? null),
+		unfiled: unfiledSlices(db, taskId, spec),
 		waitsFor: waitsFor(db, taskId),
-		simplifySkip: simplifySkipOf(runs, reopenMarker(db, taskId), t?.worktree ?? null, t?.round ?? 0),
-		bodyOnly: bodyOnlyOf(db, taskId, t?.worktree ?? null),
 		hold: held?.payload as Hold | undefined,
-		resumeCi: !!held && (runs.filter(happened).at(-1)?.id ?? 0) < (held.run_id ?? 0),
+		resumeCi: !!held && (runsOf(db, taskId).filter(happened).at(-1)?.id ?? 0) < (held.run_id ?? 0),
+	};
+};
+
+/**
+ * The next stage from the store alone, for the sampler (OPS-133), whose tick starts no child without a timeout. The two
+ * extras it leaves out read a worktree with git and only choose between named stages (simplify or pr, body or pr), so
+ * whether the task is runnable or held stays the same.
+ */
+export const nextStageFromStore = (db: DatabaseSync, task: TaskRef, t: TaskRow): Next =>
+	nextStage(task, t, runsOf(db, t.id), !!pickOf(db, t.id), reopenMarker(db, t.id), storeExtrasOf(db, t.id, t.spec));
+
+/** storeExtrasOf and the simplify skip and the body-only head, read from the task's worktree. */
+const extrasOf = (db: DatabaseSync, taskId: number): NextExtras => {
+	const t = db.prepare("SELECT spec, worktree, round FROM tasks WHERE id = ?").get(taskId) as
+		{ spec: string | null; worktree: string | null; round: number } | undefined;
+	return {
+		...storeExtrasOf(db, taskId, t?.spec ?? null),
+		simplifySkip: simplifySkipOf(runsOf(db, taskId), reopenMarker(db, taskId), t?.worktree ?? null, t?.round ?? 0),
+		bodyOnly: bodyOnlyOf(db, taskId, t?.worktree ?? null),
 	};
 };
 
@@ -2415,7 +2429,7 @@ const alive = (pid: number): boolean => {
 export function drive(
 	root: string,
 	task: TaskRef,
-	opts: { once?: boolean; detach?: boolean },
+	opts: { once?: boolean; detach?: boolean; startSampler?: (root: string) => void },
 	timing: DriveTiming = DRIVE_TIMING,
 ): number {
 	// A drive on stale evf code would run its stages on old rules, so it refuses before any seat or run row (OPS-111).
@@ -2448,6 +2462,11 @@ export function drive(
 		fail(`evf drive already runs for ${task.id} (pid ${holder}). Stop it first, or wait for it.`);
 	writeFileSync(pidFile, `${process.pid}\n`);
 	try {
+		try {
+			opts.startSampler?.(root);
+		} catch (e) {
+			console.error(`evf drive ${task.id}: the sampler did not start: ${String(e)}`);
+		}
 		// The drive stays on this row to its end; a follow-up its merge releases waits for a fresh drive (OPS-123).
 		const pin = pinRow(root, task);
 		for (;;) {
