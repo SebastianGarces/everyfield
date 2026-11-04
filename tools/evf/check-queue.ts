@@ -4,7 +4,7 @@ import { evfDataDir, sleep, WaitGaveUp } from "./lib.ts";
 import { readHolder, stopped, type QueueTiming } from "./ship-queue.ts";
 
 /** Code defaults (OPS-138): an OPS branch cannot add a key to evf.config.json, and no flag changes them. */
-export const CHECK_CAP = 3;
+const CHECK_CAP = 3;
 export type CheckQueueTiming = QueueTiming & { now: () => number; sleep: (ms: number) => void };
 export const CHECK_QUEUE: CheckQueueTiming = { waitMs: 120 * 60_000, pollMs: 1000, now: Date.now, sleep };
 
