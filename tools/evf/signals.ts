@@ -75,7 +75,7 @@ function failedNames(testReport: string, failedTests: string): string[] {
  * never from a command, the environment or a log.
  */
 export function checkSignals(ctx: Context) {
-	const { root, wt, task, sha, baseSha, role, mode, dir } = ctx;
+	const { root, wt, task, sha, baseSha, role, mode, dir, queuedMs, caller } = ctx;
 	let warned = false;
 	const guard = <T>(what: string, action: () => T): T | undefined => {
 		try {
@@ -86,7 +86,7 @@ export function checkSignals(ctx: Context) {
 			return undefined;
 		}
 	};
-	const target = guard("no check events recorded", () => {
+	let target = guard("no check events recorded", () => {
 		if (!existsSync(workDbPath(root))) throw new Error(`no work store at ${workDbPath(root)}`);
 		const db = openWorkDb(root);
 		try {
@@ -98,22 +98,22 @@ export function checkSignals(ctx: Context) {
 			db.close();
 		}
 	});
-	let storeOpen = target !== undefined;
 	const emit = (type: string, payload: Record<string, unknown>) => {
-		if (!storeOpen) return;
-		storeOpen =
-			guard("check events stopped", () => {
-				const db = openWorkDb(root);
-				try {
-					record(db, target!.taskId, target!.run, type, payload);
-					return true;
-				} finally {
-					db.close();
-				}
-			}) === true;
+		const open = target;
+		if (!open) return;
+		const written = guard("check events stopped", () => {
+			const db = openWorkDb(root);
+			try {
+				record(db, open.taskId, open.run, type, payload);
+				return true;
+			} finally {
+				db.close();
+			}
+		});
+		if (!written) target = undefined;
 	};
-	const treeHash = guard("no tree hash", () => git(wt, "rev-parse", "HEAD^{tree}")) ?? null,
-		trigger = ctx.caller ?? (process.env.EVF_RUN ? "seat" : "manual"),
+	const treeHash = git(wt, "rev-parse", "HEAD^{tree}"),
+		trigger = caller ?? (process.env.EVF_RUN ? "seat" : "manual"),
 		runFields = (durationMs: number | null, result: RunResult | null) => ({
 			run: target?.run ?? null,
 			task: task.id,
@@ -122,14 +122,16 @@ export function checkSignals(ctx: Context) {
 			role,
 			mode,
 			trigger,
-			queuedMs: ctx.queuedMs,
+			queuedMs,
 			durationMs,
 			result,
 		});
-	const earlier = guard("earlier evidence not read", () => earlierRun(dir)) ?? { next: 1, entries: [] };
+	const earlier = earlierRun(dir);
 	if (earlier.entries.length) guard("earlier evidence not copied", () => keepEarlierRun(dir, earlier));
 	const attempt = earlier.entries.length ? earlier.next + 1 : earlier.next;
-	let touchesTestPaths: boolean | undefined;
+	const touchesTestPaths = git(wt, "diff", "--name-only", "--no-renames", "-z", `${baseSha}..${sha}`)
+		.split("\0")
+		.some((path) => TEST_PATH.test(path));
 	const started = performance.now();
 	emit("check_start", runFields(null, null));
 	return {
@@ -157,12 +159,6 @@ export function checkSignals(ctx: Context) {
 		},
 		testsFailed(suite: string, testReport: string, failedTests: string) {
 			for (const name of guard("failed test names not read", () => failedNames(testReport, failedTests)) ?? []) {
-				touchesTestPaths ??= guard("test path change unknown", () =>
-					git(wt, "diff", "--name-only", "--no-renames", "-z", `${baseSha}..${sha}`)
-						.split("\0")
-						.some((path) => TEST_PATH.test(path)),
-				);
-				if (touchesTestPaths === undefined) return;
 				emit("test_failed", {
 					task: task.id,
 					head: sha,

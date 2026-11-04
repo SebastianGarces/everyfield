@@ -132,9 +132,9 @@ export function verify(
 		const inputsUnchanged = () => git(wt, "rev-parse", "HEAD") === sha && isClean(wt);
 		let treeUnchanged = true;
 		for (const [index, c] of definitions.filter((c) => !c.modes || c.modes.includes(mode)).entries()) {
+			const finished = signals.suite();
 			// Each check writes its own report, so one check can never overwrite another's results.
 			// The index keeps names that slug alike ("package cases", "package_cases") in separate files.
-			const finished = signals.suite();
 			const file = `${index + 1}-${c.name.replace(/[^\w.-]+/g, "_")}`,
 				testReport = join(dir, `${file}.tests.json`),
 				failedTests = join(dir, `${file}.failed-tests.jsonl`);

@@ -692,7 +692,7 @@ export const orphanLine = (o: OrphanRun): string =>
 /** One verify writes these many times, so they stay out of `recent` and reopen, nudge and escalation rows stay in it. */
 const NOT_SIGNAL = "type NOT IN ('check_start', 'check_end', 'check_suite_end', 'test_failed')";
 
-const ISO_TIME = /^(\d{4})-(\d{2})-(\d{2})(?:T\d{2}:\d{2}(?::\d{2}(?:[.,]\d+)?)?(Z|[+-]\d{2}(?::?\d{2})?)?)?$/;
+const ISO_TIME = /^(\d{4})-(\d{2})-(\d{2})(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(Z|[+-]\d{2}(?::?\d{2})?)?)?$/;
 
 /** An ISO 8601 date or time as epoch milliseconds, or undefined. `Date.parse` alone also takes "May 1" and rolls Feb 31. */
 export function parseIsoTime(text: string): number | undefined {
@@ -703,7 +703,7 @@ export function parseIsoTime(text: string): number | undefined {
 	if (date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return undefined;
 	const zone = m[4] ?? "",
 		offset = zone.replace(/^([+-]\d{2})(\d{2})?$/, (_, h: string, min?: string) => `${h}:${min ?? "00"}`),
-		at = Date.parse(text.slice(0, text.length - zone.length).replace(",", ".") + offset);
+		at = Date.parse(text.slice(0, text.length - zone.length) + offset);
 	return Number.isNaN(at) ? undefined : at;
 }
 
@@ -714,27 +714,16 @@ export function events(root: string, opts: { json: boolean; since?: string; type
 		fail(
 			`--since takes an ISO 8601 time, such as 2026-11-04T09:30:00Z or 2026-11-04T09:30:00+02:00. Got: ${opts.since}`,
 		);
-	if (!existsSync(workDbPath(root))) {
-		console.error(`work store: none at ${workDbPath(root)}.`);
-		if (opts.json) console.log("[]");
-		return 0;
-	}
 	const db = openWorkDb(root, { readOnly: true });
-	const where = [
-			...(opts.type === undefined ? [] : ["e.type = ?"]),
-			...(opts.task === undefined ? [] : ["(t.ref = ? OR t.ref LIKE ? OR t.slug = ?)"]),
-		],
-		params = [
-			...(opts.type === undefined ? [] : [opts.type]),
-			...(opts.task === undefined ? [] : [opts.task, `${opts.task}/%`, opts.task]),
-		];
 	const rows = db
 		.prepare(
 			`SELECT e.id, e.ts, e.type, COALESCE(t.ref, t.slug) AS task, e.run_id AS run, e.payload
 			 FROM events e LEFT JOIN tasks t ON t.id = e.task_id
-			 ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY e.id`,
+			 WHERE (:type IS NULL OR e.type = :type)
+			   AND (:task IS NULL OR t.ref = :task OR t.ref LIKE :task || '/%' OR t.slug = :task)
+			 ORDER BY e.id`,
 		)
-		.all(...params) as Array<{
+		.all({ type: opts.type ?? null, task: opts.task ?? null }) as Array<{
 		id: number;
 		ts: string;
 		type: string;

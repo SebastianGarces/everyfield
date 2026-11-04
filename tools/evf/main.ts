@@ -250,15 +250,14 @@ function main(argv: string[]): number | Promise<number> {
 			// Under evf verify, a second reporter writes the failed names to their own file. EVF_TEST_REPORT would not do:
 			// these tests carry AC:OPS-* markers, which would turn on case coverage for a WP task (D19).
 			const { EVF_FAILED_TESTS: failedTests, ...env } = process.env;
-			const report =
-				failedTests && !args.some((a) => a.startsWith("--test-reporter"))
-					? [
-							"--test-reporter=spec",
-							"--test-reporter-destination=stdout",
-							`--test-reporter=${join(import.meta.dirname, "failed-tests-reporter.mjs")}`,
-							`--test-reporter-destination=${failedTests}`,
-						]
-					: [];
+			const report = failedTests
+				? [
+						"--test-reporter=spec",
+						"--test-reporter-destination=stdout",
+						`--test-reporter=${join(import.meta.dirname, "failed-tests-reporter.mjs")}`,
+						`--test-reporter-destination=${failedTests}`,
+					]
+				: [];
 			return run(
 				process.execPath,
 				[
