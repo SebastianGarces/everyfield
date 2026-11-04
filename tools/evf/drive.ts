@@ -1854,6 +1854,7 @@ function waitOnSeat(
 				abortGoneSeat(db, t, runId, r.herdr_agent, r.stage);
 				return;
 			}
+			longRun(state === "working");
 			if (Date.now() >= deadline) {
 				runDone(root, runId, {
 					status: "failed",
@@ -1862,7 +1863,6 @@ function waitOnSeat(
 				});
 				return;
 			}
-			longRun(state === "working");
 			// A slice that ended with the seat still working, or a quick failure: look at the store again after a pause.
 			if (Date.now() - sliceStart < timing.seatPollMs) sleep(timing.seatPollMs - (Date.now() - sliceStart));
 			continue;
