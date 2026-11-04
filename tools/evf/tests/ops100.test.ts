@@ -183,7 +183,7 @@ test("OPS-100-migration: 005 closes orphan evf runs of merged tasks, adds the th
 			{ last_event: "stage_end", merged_at: view(1) && (view(1) as any).merged_at, ref_rows: 2 },
 		);
 		assert.ok((view(1) as any).merged_at);
-		assert.deepEqual({ ...(view(3) as object) }, { last_event: "owner_approval_wait", merged_at: null, ref_rows: 1 });
+		assert.deepEqual({ ...(view(3) as object) }, { last_event: "owner_ask", merged_at: null, ref_rows: 1 });
 
 		const snapshot = JSON.stringify(db.prepare("SELECT * FROM runs ORDER BY id").all());
 		assert.deepEqual(migrate(db), { version: STORE_LATEST, applied: [] });

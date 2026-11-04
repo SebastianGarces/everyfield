@@ -28,6 +28,7 @@ import {
 import { unfinishedDrafts } from "./wiki.ts";
 import { afterMerge, checkPr, ship, type MergeEvidence } from "./ship.ts";
 import { APPROVED_PROTOTYPE, changesOnlyOwnRegistration, mayChangePrototype } from "./policy.ts";
+import { recordOwnerAnswer } from "./owner-queue.ts";
 
 /**
  * Human-approved merge for the PRs that never merge automatically: Wiki articles, prototypes, and
@@ -196,6 +197,7 @@ function recordOwnerApproval(root: string, n: number, task: TaskRef | undefined,
 function approveOrdinary(root: string, n: number, task: TaskRef, head: string, words: string): number {
 	recordOwnerApproval(root, n, task, head, words);
 	console.log(`Recorded Sebastian's approval of ${head.slice(0, 10)} on PR #${n}.`);
+	recordOwnerAnswer(root, task.branch, head);
 	try {
 		checkPr(root, n, head, { carry: true });
 	} catch (e) {
@@ -306,6 +308,7 @@ export function approve(root: string, n: number, opts: { ownerApproval?: string;
 	});
 	if (merged.code !== 0) fail(`The merge failed: ${(merged.stderr || merged.stdout).trim()}`);
 	console.log(`Merged PR #${n} (${pr.title}) at ${head.slice(0, 10)} with Sebastian's approval.`);
+	recordOwnerAnswer(root, pr.headRefName, head);
 	const mergeCommit = run("gh", [
 		"pr",
 		"view",

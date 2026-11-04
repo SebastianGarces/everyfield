@@ -1729,6 +1729,15 @@
 				{ "name": "workflow-regressions", "run": ["bin/evf", "test"] }
 			],
 			"risk": "ordinary"
+		},
+		"OPS-131": {
+			"title": "Owner approval digest and owner wait signals",
+			"owningPaths": ["tools/evf/", ".agents/roles/coordinator.md"],
+			"checks": [
+				{ "name": "documentation", "run": ["python3", "docs/check-all.py"] },
+				{ "name": "workflow-regressions", "run": ["bin/evf", "test"] }
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {
