@@ -3,6 +3,7 @@ import {
 	columnWidths,
 	formatNumber,
 	parseAmount,
+	tableIssue,
 	tileBox,
 	type ColumnSpec,
 	type PageSetup,
@@ -588,7 +589,7 @@ function tableDecorations(doc: PMNode) {
 
 // ---------------------------------------------------------------- keeping a table valid
 
-/** True when every row has one cell for each column, and a cell of the kind its column needs. */
+/** True when the format accepts the table, and every cell is the editor's node for its column. */
 function validTable(node: PMNode): boolean {
 	const columns = node.attrs.columns as { type: string }[] | undefined;
 	if (!Array.isArray(columns) || columns.length === 0) return false;
@@ -601,7 +602,7 @@ function validTable(node: PMNode): boolean {
 				if (text !== (cell.type.name === "cell")) ok = false;
 			});
 	});
-	return ok;
+	return ok && tableIssue(tableOf(node)) === null;
 }
 
 const tablesIn = (doc: PMNode) => {
@@ -648,6 +649,12 @@ function oneLine(slice: Slice): Slice {
 
 const inCell = (state: EditorState) => cellAt(state.doc, state.selection.from) !== null;
 
+declare module "@tiptap/core" {
+	interface EditorEvents {
+		tableChangeRefused: void;
+	}
+}
+
 export const TableRules = Extension.create({
 	name: "tableRules",
 	addProseMirrorPlugins() {
@@ -684,11 +691,14 @@ export const TableRules = Extension.create({
 					transformPastedText: (text, _plain, view) => (inCell(view.state) ? flat(text) : text),
 					transformPasted: (slice, view) => (inCell(view.state) ? oneLine(slice) : slice),
 				},
-				// No change leaves a row short of a cell or with a cell of the wrong kind: that would not parse.
+				// No change leaves a table the format refuses. A selection can run across a table's edge or its rows, and
+				// deleting it must not cost the person a document they cannot save. The editor says why nothing happened.
 				filterTransaction: (tr, state) => {
 					if (!tr.docChanged) return true;
 					const before = new Set(tablesIn(state.doc));
-					return tablesIn(tr.doc).every((table) => before.has(table) || validTable(table));
+					const fits = tablesIn(tr.doc).every((table) => before.has(table) || validTable(table));
+					if (!fits) this.editor.emit("tableChangeRefused");
+					return fits;
 				},
 			}),
 		];

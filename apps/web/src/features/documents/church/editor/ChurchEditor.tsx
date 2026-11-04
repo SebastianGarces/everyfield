@@ -200,6 +200,22 @@ export default function ChurchEditor({
 		return () => window.removeEventListener("keydown", onKey);
 	}, [save]);
 
+	// A change that would break a table does not happen. The note says why, until the next change or cursor move.
+	const [refused, setRefused] = useState(false);
+	useEffect(() => {
+		if (!editor) return;
+		const show = () => setRefused(true);
+		const hide = () => setRefused(false);
+		editor.on("tableChangeRefused", show);
+		editor.on("update", hide);
+		editor.on("selectionUpdate", hide);
+		return () => {
+			editor.off("tableChangeRefused", show);
+			editor.off("update", hide);
+			editor.off("selectionUpdate", hide);
+		};
+	}, [editor]);
+
 	const leave = useLeaveGuard(editor, unsaved);
 
 	const preview = useCallback(async () => {
@@ -308,6 +324,11 @@ export default function ChurchEditor({
 									pageSetup={{ open: setupOpen, controls: setupId, toggle: () => setSetupOpen((open) => !open) }}
 								/>
 								<BlockControls editor={editor} palette={brand.palette} />
+								{refused ? (
+									<p role="alert" data-table-refused="" className="px-3 py-2 text-xs font-medium text-magenta-600">
+										That change would break a table, so nothing changed. Select the whole table, or text in one cell.
+									</p>
+								) : null}
 							</>
 						) : (
 							<div className="h-[49px]" />

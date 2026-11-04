@@ -307,6 +307,163 @@ for (const [name, engine] of ENGINES) {
 		});
 	});
 
+	// A selection that crosses a table's edge, by real mouse and keys. Each result is either no change with a note, or a
+	// document that parses and saves. Nothing leaves a document Save refuses.
+	const paragraph = (page) => page.locator(`${PAPER} p`).first();
+	const budgetCell = (page, label) => page.locator(`${PAPER} [data-ef-cell="text"]`).filter({ hasText: label }).first();
+	const shiftClick = async (page, box, x = 30) => {
+		await page.keyboard.down("Shift");
+		await page.mouse.click(box.x + x, box.y + box.height / 2);
+		await page.keyboard.up("Shift");
+	};
+	const saves = async (t) => {
+		t.valid(await t.snap(), "the document");
+		await t.save();
+		assert.equal((await t.file("pdf")).status, 200, "the PDF of the result");
+		assert.equal((await t.file("docx")).status, 200, "the Word file of the result");
+	};
+	const refusedNote = (page) => page.locator("[data-table-refused]");
+
+	for (const [how, press] of [
+		["Backspace", (page) => page.keyboard.press("Backspace")],
+		["Delete", (page) => page.keyboard.press("Delete")],
+		["a typed key", (page) => page.keyboard.type("x")],
+		["Cut", (page) => page.keyboard.press(`${MOD}+x`)],
+	]) {
+		test(`AC:WP-036-14 (${name}): ${how} on a selection from a paragraph's start into a budget's first line item changes nothing and says why`, async () => {
+			await onFork(engine, "budget-worksheet", async (page, context, t) => {
+				const before = await t.snap();
+				const start = await paragraph(page).boundingBox();
+				await page.mouse.click(start.x + 1, start.y + 6);
+				await t.settle();
+				const selectedFrom = await page.locator(PAPER).evaluate((el) => el.editor.state.selection.$from.parentOffset);
+				assert.equal(selectedFrom, 0, "the click put the cursor at the start of the paragraph");
+				await shiftClick(page, await budgetCell(page, "Tithes").boundingBox());
+				await t.settle();
+				await press(page);
+				await t.settle();
+				assert.deepStrictEqual(await t.snap(), before, "the document is the same");
+				await refusedNote(page).waitFor();
+				assert.match(await refusedNote(page).innerText(), /would break a table, so nothing changed/);
+				const table = await t.table();
+				assert.equal(table.content[0].attrs?.role, "group", "the category row stays");
+				// The next move of the cursor takes the note away, and the page still saves.
+				await budgetCell(page, "Tithes").click();
+				await t.settle();
+				assert.equal(await refusedNote(page).count(), 0, "a cursor move clears the note");
+				await page.keyboard.type("!");
+				await saves(t);
+			});
+		});
+	}
+
+	test(`AC:WP-036-14 (${name}): a selection from a paragraph's middle into a table changes nothing and says why`, async () => {
+		await onFork(engine, "budget-worksheet", async (page, context, t) => {
+			const before = await t.snap();
+			const start = await paragraph(page).boundingBox();
+			await page.mouse.click(start.x + 40, start.y + 6);
+			await t.settle();
+			await shiftClick(page, await budgetCell(page, "Tithes").boundingBox());
+			await t.settle();
+			await page.keyboard.press("Backspace");
+			await t.settle();
+			assert.deepStrictEqual(await t.snap(), before, "the document is the same");
+			await refusedNote(page).waitFor();
+		});
+	});
+
+	test(`AC:WP-036-14 (${name}): a selection across a budget's rows leaves a budget that saves, or no change`, async () => {
+		await onFork(engine, "budget-worksheet", async (page, context, t) => {
+			const before = await t.snap();
+			const rows = (await t.table()).content;
+			const group = rows.find((r) => r.attrs?.role === "group");
+			const groupBox = await budgetCell(page, textOf(group.content[0])).boundingBox();
+			await page.mouse.click(groupBox.x + 1, groupBox.y + groupBox.height / 2);
+			await t.settle();
+			const lastItem = rows[rows.findIndex((r) => r.attrs?.role === "subtotal") - 1];
+			await shiftClick(page, await budgetCell(page, textOf(lastItem.content[0])).boundingBox());
+			await t.settle();
+			await page.keyboard.press("Backspace");
+			await t.settle();
+			const after = await t.snap();
+			if (JSON.stringify(after) === JSON.stringify(before)) await refusedNote(page).waitFor();
+			await saves(t);
+		});
+	});
+
+	/** A paragraph after the table, added and typed by the person, since each template's table ends the body. */
+	const paragraphAfter = async (page, t) => {
+		await t.insert("Paragraph");
+		await page.keyboard.type("After the table");
+		await t.settle();
+		return page.locator(`${PAPER} p`).filter({ hasText: "After the table" });
+	};
+
+	test(`AC:WP-036-14 (${name}): a selection from a budget's last rows into the paragraph after them leaves a budget that saves, or no change`, async () => {
+		await onFork(engine, "budget-worksheet", async (page, context, t) => {
+			await budgetCell(page, "Tithes").click();
+			const after = await paragraphAfter(page, t);
+			const before = await t.snap();
+			const count = await t.rowsDom().count();
+			const lastItem = t
+				.rowsDom()
+				.nth(count - 3)
+				.locator('[data-ef-cell="text"]')
+				.first();
+			const from = await lastItem.boundingBox();
+			await page.mouse.click(from.x + 2, from.y + from.height / 2);
+			await t.settle();
+			const to = await after.boundingBox();
+			await shiftClick(page, to, 40);
+			await t.settle();
+			await page.keyboard.press("Backspace");
+			await t.settle();
+			if (JSON.stringify(await t.snap()) === JSON.stringify(before)) await refusedNote(page).waitFor();
+			await saves(t);
+			assert.equal((await t.file("xlsx")).status, 200, "the Excel file of the result");
+		});
+	});
+
+	test(`AC:WP-036-14 (${name}): a selection from a plain table's typed row into the paragraph after it leaves a table that saves, or no change`, async () => {
+		await onFork(engine, "guest-sign-in-sheet", async (page, context, t) => {
+			await page.locator(".ef-table-blanks").click();
+			await t.button("Add row below").click();
+			await page.keyboard.type("Ada");
+			const after = await paragraphAfter(page, t);
+			const before = await t.snap();
+			const from = await t.rowsDom().first().locator('[data-ef-cell="text"]').first().boundingBox();
+			await page.mouse.click(from.x + 2, from.y + from.height / 2);
+			await t.settle();
+			await shiftClick(page, await after.boundingBox(), 40);
+			await t.settle();
+			await page.keyboard.press("Backspace");
+			await t.settle();
+			if (JSON.stringify(await t.snap()) === JSON.stringify(before)) await refusedNote(page).waitFor();
+			await saves(t);
+		});
+	});
+
+	test(`AC:WP-036-14 (${name}): a selection from before a table to after it removes the whole table, with an exact Undo`, async () => {
+		await onFork(engine, "budget-worksheet", async (page, context, t) => {
+			await budgetCell(page, "Tithes").click();
+			const after = await paragraphAfter(page, t);
+			const before = await t.snap();
+			const start = await paragraph(page).boundingBox();
+			await page.mouse.click(start.x + 1, start.y + 6);
+			await t.settle();
+			await shiftClick(page, await after.boundingBox(), 40);
+			await t.settle();
+			await page.keyboard.press("Backspace");
+			await t.settle();
+			assert.equal((await t.tables()).length, 0, "the table is gone");
+			assert.equal(await refusedNote(page).count(), 0, "no note: the change happened");
+			await saves(t);
+			await t.undo();
+			await t.settle();
+			assert.deepStrictEqual(await t.snap(), before, "Undo gives the earlier JSON exactly");
+		});
+	});
+
 	test(`AC:WP-036-15 (${name}): a table's cells and labels pass axe, and a header label is a text box inside a column header`, async () => {
 		await onFork(engine, "budget-worksheet", async (page, context, t) => {
 			await t.cell(1, 0);

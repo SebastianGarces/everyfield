@@ -10,6 +10,7 @@ import {
 	formatNumber,
 	everyfieldDoc,
 	parseAmount,
+	tableIssue,
 	type TableNode,
 } from "../../../packages/contracts/src/documents/index.ts";
 import {
@@ -31,15 +32,6 @@ import { docTemplateById } from "../../../packages/domain/src/documents/doc-temp
 
 const budgetTemplate = () =>
 	structuredClone(docTemplateById("budget-worksheet")!.body.content!.find((n) => n.type === "table")) as TableNode;
-/** The first fault the format finds in a table, in a document that holds it alone. */
-const tableIssue = (table: TableNode) => {
-	const template = {
-		...docTemplateById("budget-worksheet")!,
-		exports: ["pdf"],
-		body: { type: "doc", content: [table] },
-	};
-	return everyfieldDoc.safeParse(template).error?.issues[0]?.message ?? null;
-};
 const roles = (t: TableNode) => (t.content ?? []).map((r) => r.attrs?.role ?? "item");
 
 test("formatNumber rounds money to cents, so 0.20 + 0.70 + 0.10 prints $1 and 100.50 keeps its cents", () => {
@@ -224,5 +216,21 @@ test("Remove row is off on the last row of a table with no header, and on a tabl
 	assert.match(availability(blank, { row: null, col: null, blank: true }).removeRow ?? "", /keeps at least one row/);
 	// A header stays on the page, so the same table can lose its last row.
 	const grid = newGrid();
-	assert.equal(availability({ ...grid, attrs: { ...grid.attrs, writeInRows: 1 } }, { row: null, col: 0, blank: true }).removeRow, null);
+	assert.equal(
+		availability({ ...grid, attrs: { ...grid.attrs, writeInRows: 1 } }, { row: null, col: 0, blank: true }).removeRow,
+		null,
+	);
+});
+
+test("the format's table check refuses a total with no category, and takes a budget with no total", () => {
+	const budget = newBudget();
+	assert.equal(tableIssue(budget), null);
+	const rows = budget.content ?? [];
+	const noGroup = { ...budget, content: rows.slice(1) };
+	assert.equal(tableIssue(noGroup), "a subtotal row adds a category, so a group row must come before it");
+	const noTotals = {
+		...budget,
+		content: rows.filter((r) => r.attrs?.role !== "subtotal" && r.attrs?.role !== "total"),
+	};
+	assert.equal(tableIssue(noTotals), null);
 });

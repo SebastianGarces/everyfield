@@ -305,20 +305,35 @@ type Ctx = {
 	region: string | null;
 };
 
+const newCtx = (schema: FormatSchema, fail: Ctx["fail"]): Ctx => ({
+	schema,
+	fail,
+	nodes: 0,
+	fields: new Map(),
+	writeIns: new Map(),
+	fieldRefs: [],
+	ledgers: 0,
+	region: null,
+});
+
+/** The first fault the format finds in one table, or null. The editor asks this before it applies a change to a table. */
+export function tableIssue(table: TableNode, schema = FORMAT_SCHEMA): string | null {
+	const errors: string[] = [];
+	const node = table as unknown as Rec;
+	checkTable(
+		node,
+		node.attrs as Rec,
+		"table",
+		newCtx(schema, (_path, message) => errors.push(message)),
+	);
+	return errors[0] ?? null;
+}
+
 /** Validate one document or template. Returns every fault found, each as "<path>: <message>". */
 export function validate(doc: unknown, schema = FORMAT_SCHEMA): { ok: boolean; errors: string[] } {
 	const errors: string[] = [];
 	const fail = (path: string, message: string) => errors.push(`${path}: ${message}`);
-	const ctx: Ctx = {
-		schema,
-		fail,
-		nodes: 0,
-		fields: new Map(),
-		writeIns: new Map(),
-		fieldRefs: [],
-		ledgers: 0,
-		region: null,
-	};
+	const ctx = newCtx(schema, fail);
 	if (!isRec(doc)) {
 		fail("(root)", "the file is not a JSON object");
 		return { ok: false, errors };

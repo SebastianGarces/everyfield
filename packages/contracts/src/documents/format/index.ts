@@ -16,6 +16,7 @@ export {
 	templateHash,
 	tileBox,
 	type Formula,
+	tableIssue,
 } from "./rules.ts";
 
 /**
