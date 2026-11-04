@@ -1,4 +1,4 @@
-import test from "node:test";
+import test, { type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { chmodSync, cpSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -76,7 +76,44 @@ function slotFixture() {
 	return { ...f, db, set, read, worktree, preview, common, logs, slot };
 }
 
-test("OPS-72-slots: a full pool releases only the orphan, then waits for a slot and succeeds; the wait is a run event", async () => {
+/**
+ * Runs `work` with `setTimeout` and `Date` on node:test's mock timers, started at the current real time. Each timer the
+ * wait sets is recorded and fires on the next real turn of the event loop, because the wait also does real async work.
+ */
+async function onFakeTime<T>(t: TestContext, work: () => Promise<T>) {
+	const start = Date.now();
+	t.mock.timers.enable({ apis: ["setTimeout", "Date"], now: start });
+	const mocked = globalThis.setTimeout,
+		sleeps: number[] = [];
+	let pending: number | null = null;
+	globalThis.setTimeout = ((run: () => void, ms: number) => {
+		sleeps.push(ms);
+		pending = ms;
+		return mocked(run, ms);
+	}) as typeof setTimeout;
+	let settled = false;
+	const running = work().finally(() => {
+		settled = true;
+	});
+	running.catch(() => {});
+	try {
+		while (!settled) {
+			await new Promise((turn) => setImmediate(turn));
+			if (pending !== null) {
+				const ms: number = pending;
+				pending = null;
+				t.mock.timers.tick(ms);
+			}
+		}
+		const elapsed = Date.now() - start;
+		return { running, sleeps, elapsed };
+	} finally {
+		globalThis.setTimeout = mocked;
+		t.mock.timers.reset();
+	}
+}
+
+test("OPS-72-slots: a full pool releases only the orphan, then waits for a slot and succeeds; the wait is a run event AC:OPS-136-1", async (t) => {
 	const f = slotFixture();
 	try {
 		const live1 = f.worktree("wp-001", "active", true),
@@ -99,8 +136,11 @@ test("OPS-72-slots: a full pool releases only the orphan, then waits for a slot 
 				{ dropAfter: { id: "p-wp-004", calls: 6 } },
 			);
 			const env = { ...process.env, EVF_RUN: String(live1.runId) };
-			const result = await f.slot(join(f.root, ".worktrees/wp-005"), { env });
+			const clock = await onFakeTime(t, () => f.slot(join(f.root, ".worktrees/wp-005"), { env }));
+			const result = await clock.running;
 			assert.equal(result.reused, false);
+			assert.deepEqual(clock.sleeps, [20, 20], "two polls until the slot came free");
+			assert.equal(clock.elapsed, 40);
 			const downs = f.read().calls.filter((c) => c[1] === "down");
 			assert.deepEqual(downs, [["preview", "down", "p-wp-002"]], "only the orphan is released");
 			const live = f
@@ -135,12 +175,14 @@ test("OPS-72-slots: a full pool releases only the orphan, then waits for a slot 
 	}
 });
 
-test("OPS-72-slots: a project that has a preview reuses it without waiting; a free pool starts at once", async () => {
+test("OPS-72-slots: a project that has a preview reuses it without waiting; a free pool starts at once AC:OPS-136-1", async (t) => {
 	const f = slotFixture();
 	try {
 		const dirs = ["wp-001", "wp-002", "wp-003", "wp-004"].map((s) => f.worktree(s, "active", true).dir);
 		f.set(dirs.map((d) => f.preview(d)));
-		const reuse = await f.slot(dirs[0]!);
+		const reused = await onFakeTime(t, () => f.slot(dirs[0]!));
+		assert.deepEqual([reused.sleeps, reused.elapsed], [[], 0], "no wait on the fake clock");
+		const reuse = await reused.running;
 		assert.equal(reuse.reused, true);
 		assert.deepEqual(
 			f.read().calls.map((c) => c[1]),
@@ -148,7 +190,9 @@ test("OPS-72-slots: a project that has a preview reuses it without waiting; a fr
 			"one status read, no gc, no down, no wait",
 		);
 		f.set(dirs.slice(0, 3).map((d) => f.preview(d)));
-		assert.equal((await f.slot(join(f.root, ".worktrees/wp-005"))).reused, false);
+		const free = await onFakeTime(t, () => f.slot(join(f.root, ".worktrees/wp-005")));
+		assert.deepEqual([free.sleeps, free.elapsed], [[], 0], "no wait on the fake clock");
+		assert.equal((await free.running).reused, false);
 		assert.deepEqual(f.logs, []);
 	} finally {
 		f.db.close();
@@ -156,13 +200,20 @@ test("OPS-72-slots: a project that has a preview reuses it without waiting; a fr
 	}
 });
 
-test("OPS-72-slots: a pool that stays full fails after the bound with the wait, the limit and the projects that hold the slots", async () => {
+test("OPS-72-slots: a pool that stays full fails after the bound with the wait, the limit and the projects that hold the slots AC:OPS-136-1", async (t) => {
 	const f = slotFixture();
 	try {
 		const dirs = ["wp-001", "wp-002", "wp-003", "wp-004"].map((s) => f.worktree(s, "active", true).dir);
 		f.set(dirs.map((d) => f.preview(d)));
+		const clock = await onFakeTime(t, () => f.slot(join(f.root, ".worktrees/wp-005"), { waitMs: 250 }));
+		assert.equal(clock.elapsed, 250, "the wait ends at the bound");
+		assert.deepEqual(
+			clock.sleeps,
+			[...Array<number>(12).fill(20), 10],
+			"polls until the bound, the last one cut short",
+		);
 		await assert.rejects(
-			f.slot(join(f.root, ".worktrees/wp-005"), { waitMs: 250 }),
+			clock.running,
 			(e: Error) =>
 				/No free preview slot after waiting \d+ s: 4\/4 previews in use \(PORTLESS_PREVIEW_LIMIT 4\)\. Held by: /.test(
 					e.message,
@@ -176,7 +227,7 @@ test("OPS-72-slots: a pool that stays full fails after the bound with the wait, 
 	}
 });
 
-test("OPS-72-slots: expired and failed previews go through gc, and a preview whose project is gone is released", async () => {
+test("OPS-72-slots: expired and failed previews go through gc, and a preview whose project is gone is released AC:OPS-136-1", async (t) => {
 	const f = slotFixture();
 	try {
 		const dirs = ["wp-001", "wp-002", "wp-003"].map((s) => f.worktree(s, "active", true).dir);
@@ -186,7 +237,9 @@ test("OPS-72-slots: expired and failed previews go through gc, and a preview who
 			f.preview(gone),
 			{ id: "p-failed", project: join(f.root, ".worktrees/wp-failed"), state: "failed" },
 		]);
-		assert.equal((await f.slot(join(f.root, ".worktrees/wp-005"))).reused, false);
+		const clock = await onFakeTime(t, () => f.slot(join(f.root, ".worktrees/wp-005")));
+		assert.deepEqual([clock.sleeps, clock.elapsed], [[], 0], "the released slot needs no wait");
+		assert.equal((await clock.running).reused, false);
 		const calls = f.read().calls.filter((c) => c[1] === "gc" || c[1] === "down");
 		assert.deepEqual(calls, [
 			["preview", "gc", "--apply"],
@@ -223,7 +276,7 @@ test("OPS-72-slots: evf stack up waits for a slot before the portless stack comm
 		);
 		const env = {
 			...process.env,
-			EVF_PREVIEW_WAIT_MS: "1500",
+			EVF_PREVIEW_WAIT_MS: "1",
 			EVF_PREVIEW_POLL_MS: "50",
 			PORTLESS_PREVIEW_LIMIT: "4",
 			EVF_RUN: "",

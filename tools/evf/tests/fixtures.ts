@@ -45,6 +45,28 @@ setLoadedCode((base) => ({ checkout: "fixture", ...base, dirty: false }));
 process.env.NODE_OPTIONS =
 	`${process.env.NODE_OPTIONS ?? ""} --import=${pathToFileURL(join(import.meta.dirname, "current-code.ts")).href}`.trim();
 
+/**
+ * A clock that a test moves. `sleep` records the wait, advances the time and returns at once. It starts at the current
+ * real time, because a wait also compares it with timestamps in the store. `onSleep` runs after each sleep with the
+ * elapsed fake time, so a close that a real timer used to do becomes a step at a fixed time.
+ */
+export function fakeClock(onSleep: (elapsed: number) => void = () => {}) {
+	const start = Date.now(),
+		sleeps: number[] = [];
+	let time = start;
+	return {
+		now: () => time,
+		sleep(ms: number) {
+			if (ms <= 0) return;
+			sleeps.push(ms);
+			time += ms;
+			onSleep(time - start);
+		},
+		elapsed: () => time - start,
+		sleeps,
+	};
+}
+
 export function fixture() {
 	// Git starts detached auto-maintenance after commits and pushes. It would write into the fixture while
 	// close() removes it, so every git process this test starts runs with automatic background work off.

@@ -845,6 +845,9 @@ ordering with docs/acceptance/check.py and docs/package-context.py --check-case-
 
 Run tooling regressions with `bin/evf test`. Disposable repositories and fake GitHub responses
 exercise workflow behavior only. Tests contact no real GitHub or application database.
+`bin/evf test` first runs the branch-diff lint (`branch-diff-lint.ts`), which refuses a test that reads the current
+checkout's branch diff, and timing tests pass a fake `Clock` (`timing.clock`, `fakeClock` in `tests/fixtures.ts`) so
+that machine load cannot fail them.
 
 ## Mutation audit
 

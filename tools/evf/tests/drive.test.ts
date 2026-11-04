@@ -16,9 +16,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { spawn, spawnSync } from "node:child_process";
-import { assistantLine, fixture, sessionStartJs, source, writeTranscript } from "./fixtures.ts";
+import { assistantLine, fakeClock, fixture, sessionStartJs, source, writeTranscript } from "./fixtures.ts";
 import { ensureTask, findTask, markMerged, openWorkDb, sessionsRecorded, syncGoals, workDbPath } from "../db.ts";
-import { drive, driveOnce, LOOP_CAP, nextStage, RETRY_CAP, runDone } from "../drive.ts";
+import { agentWaitKillMs, drive, DRIVE_TIMING, driveOnce, LOOP_CAP, nextStage, RETRY_CAP, runDone } from "../drive.ts";
+import { LAUNCH_TIMING } from "../launch.ts";
 import { doneCriteria } from "../spec.ts";
 import { evfDataDir, evidenceDir, parseTask, runtimeDir, sleep } from "../lib.ts";
 import { verify } from "../verify.ts";
@@ -30,6 +31,10 @@ const cli = (cwd: string, env: Record<string, string>, ...args: string[]) =>
 		env: { ...process.env, EVF_RUN: "", EVF_WORKTREE: "", EVF_SESSION: "", EVF_ROLE: "", EVF_STAGE: "", ...env },
 	});
 const TIMING = { waitMs: 2000, ciWaitMs: 200, ciPollMs: 10, seatPollMs: 10, startGraceMs: 150 };
+/** A kill limit that no fake Herdr child reaches under load, for a test whose child answers and must not be killed. */
+const SLOW_CHILD_MS = 120_000;
+/** The real time a hung child gets. It closes the run before it hangs, so the limit covers that close under load. */
+const HANG_KILL_MS = 15_000;
 
 /** A Herdr that answers at once: every agent is idle unless the test writes another state to herdr-state.json. */
 function fakeHerdr(root: string) {
@@ -617,19 +622,28 @@ test("OPS-59-gate: a verify closes passed only with a met or n/a proof per Done 
 	}
 });
 
-/** A scripted Herdr for waitOnSeat: `agent wait` and `agent get` answer from queues; "close" makes the seat close its stage. */
-function scriptedHerdr(f: ReturnType<typeof driveFixture>, runId: number, script: { waits: string[]; gets: string[] }) {
+/**
+ * A scripted Herdr for waitOnSeat: `agent wait` and `agent get` answer from queues; "close" makes the seat close its
+ * stage, and "close-hang" closes it and then hangs until the kill limit kills the child. `waitDelayMs` makes each
+ * `agent wait` answer that much real time late. The child ignores SIGTERM: the kill limit uses SIGKILL, and a process
+ * outside the test that signals every `herdr agent wait` on the machine must not end a wait this test times.
+ */
+function scriptedHerdr(
+	f: ReturnType<typeof driveFixture>,
+	runId: number,
+	script: { waits: string[]; gets: string[]; waitDelayMs?: number },
+) {
 	const calls = join(f.root, "herdr-calls.json"),
 		state = join(f.root, "herdr-script.json"),
 		summary = f.file("script-summary.md", "Done.");
 	writeFileSync(state, JSON.stringify(script));
 	writeFileSync(
 		join(f.root, "fake-bin/herdr"),
-		`#!${process.execPath}\nconst fs=require("node:fs");const a=process.argv.slice(2);\n` +
+		`#!${process.execPath}\nconst fs=require("node:fs");const a=process.argv.slice(2);process.on("SIGTERM",()=>{});\n` +
 			`const calls=JSON.parse(fs.readFileSync(${JSON.stringify(calls)},"utf8"));calls.push(a);fs.writeFileSync(${JSON.stringify(calls)},JSON.stringify(calls));\n` +
 			`const st=JSON.parse(fs.readFileSync(${JSON.stringify(state)},"utf8"));\n` +
 			`const next=k=>{const q=st[k];const v=q.length>1?q.shift():q[0];fs.writeFileSync(${JSON.stringify(state)},JSON.stringify(st));return v};\n` +
-			`let r={};if(a[0]==="agent"&&a[1]==="wait"){let s=next("waits");if(s==="close"){require("node:child_process").spawnSync(process.execPath,[${JSON.stringify(join(source, "tools/evf/main.ts"))},"run","done","${runId}","--status","passed","--summary-file",${JSON.stringify(summary)}],{cwd:${JSON.stringify(f.root)},env:{...process.env,EVF_RUN:"",EVF_WORKTREE:"",EVF_STAGE:""}});s="idle"}r={agent:{agent_status:s}}}\n` +
+			`let r={};if(a[0]==="agent"&&a[1]==="wait"){if(st.waitDelayMs)Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,st.waitDelayMs);let s=next("waits");if(s==="close"||s==="close-hang"){require("node:child_process").spawnSync(process.execPath,[${JSON.stringify(join(source, "tools/evf/main.ts"))},"run","done","${runId}","--status","passed","--summary-file",${JSON.stringify(summary)}],{cwd:${JSON.stringify(f.root)},env:{...process.env,EVF_RUN:"",EVF_WORKTREE:"",EVF_STAGE:""}});if(s==="close-hang"){setInterval(()=>{},1000);return}s="idle"}r={agent:{agent_status:s}}}\n` +
 			`else if(a[0]==="agent"&&a[1]==="get")r={agent:{agent_status:next("gets")}};\n` +
 			`process.stdout.write(JSON.stringify({result:r}));\n`,
 	);
@@ -646,14 +660,15 @@ function openSeatRun(f: ReturnType<typeof driveFixture>, promptSent: boolean) {
 	return id;
 }
 
-test("OPS-67-blocked: a blocked seat is polled in short intervals, reported once, and the drive goes on when it leaves blocked", () => {
+test("OPS-67-blocked: a blocked seat is polled in short intervals, reported once, and the drive goes on when it leaves blocked AC:OPS-136-1", () => {
 	const f = driveFixture();
 	try {
 		const id = openSeatRun(f, false);
 		scriptedHerdr(f, id, { waits: ["blocked", "close"], gets: ["blocked", "blocked", "blocked", "working"] });
-		const started = Date.now();
-		driveOnce(f.root, f.task, TIMING);
-		assert.ok(Date.now() - started < 5000, "the drive goes on within a few poll intervals");
+		const clock = fakeClock();
+		driveOnce(f.root, f.task, { ...TIMING, clock, waitKillMs: SLOW_CHILD_MS });
+		assert.ok(clock.elapsed() < 5000, "the drive goes on within a few poll intervals");
+		assert.deepEqual(clock.sleeps, [10, 10, 10, 10], "one seat poll before each look at the blocked seat");
 		assert.equal(f.events("blocked").length, 1, "one blocked event for the episode, not one per poll");
 		const episode = f.db
 			.prepare("SELECT type, payload FROM events WHERE run_id = ? AND type IN ('blocked', 'unblocked') ORDER BY id")
@@ -675,27 +690,20 @@ test("OPS-67-blocked: a blocked seat is polled in short intervals, reported once
 	}
 });
 
-test("OPS-67-blocked: a blocked seat whose run closes ends the wait at once", () => {
+test("OPS-67-blocked: a blocked seat whose run closes ends the wait at once AC:OPS-136-1", () => {
 	const f = driveFixture();
 	try {
 		const id = openSeatRun(f, false);
 		scriptedHerdr(f, id, { waits: ["blocked"], gets: ["blocked"] });
-		const closer = spawn(
-			process.execPath,
-			[
-				"-e",
-				`setTimeout(() => require("node:child_process").spawnSync(process.execPath, [process.argv[1], "run", "done", process.argv[2], "--status", "failed", "--summary-file", process.argv[3]], { cwd: process.argv[4], env: { ...process.env, EVF_RUN: "", EVF_WORKTREE: "", EVF_STAGE: "" } }), 200)`,
-				join(source, "tools/evf/main.ts"),
-				String(id),
-				f.file("closed.md", "Closed by someone else."),
-				f.root,
-			],
-			{ stdio: "inherit" },
-		);
-		const started = Date.now();
-		driveOnce(f.root, f.task, TIMING);
-		closer.kill();
-		assert.ok(Date.now() - started < 5000);
+		const summary = f.file("closed.md", "Closed by someone else.");
+		// Someone else closes the run during the second poll interval.
+		const clock = fakeClock((elapsed) => {
+			if (elapsed === 20) cli(f.root, {}, "run", "done", String(id), "--status", "failed", "--summary-file", summary);
+		});
+		driveOnce(f.root, f.task, { ...TIMING, clock, waitKillMs: SLOW_CHILD_MS });
+		assert.ok(clock.elapsed() < 5000);
+		assert.deepEqual(clock.sleeps, [10, 10], "the first look after the close ends the wait");
+		assert.equal(f.herdr.calls().filter((c) => c[0] === "agent" && c[1] === "get").length, 1);
 		assert.equal(f.events("blocked").length, 1);
 	} finally {
 		f.db.close();
@@ -1260,44 +1268,87 @@ test("OPS-70-carry: proof carries to a later head; an unmet row, a missing crite
 });
 
 /** Herdr whose `agent wait` hangs, or whose agent is gone; everything else answers like fakeHerdr. */
-function brokenHerdr(f: ReturnType<typeof driveFixture>, mode: "hang" | "gone") {
+function brokenHerdr(f: ReturnType<typeof driveFixture>) {
 	const path = join(f.root, "fake-bin/herdr");
 	const script = readFileSync(path, "utf8");
 	const marker = "const a=process.argv.slice(2);\n";
-	const guard =
-		mode === "hang"
-			? `if(a[0]==="agent"&&a[1]==="wait"){setInterval(()=>{},1000);return}\n`
-			: `if(a[0]==="agent"&&(a[1]==="wait"||a[1]==="get")){process.stderr.write("no such agent");process.exit(1)}\n`;
+	const guard = `if(a[0]==="agent"&&(a[1]==="wait"||a[1]==="get")){process.stderr.write("no such agent");process.exit(1)}\n`;
 	writeFileSync(path, script.replace(marker, marker + guard));
 }
 
-test("OPS-70-wait: a wait on a seat whose run already closed ends within two seat-poll intervals, although herdr agent wait hangs", () => {
+test("OPS-70-wait: a wait on a seat whose run already closed ends within two seat-poll intervals, although herdr agent wait hangs AC:OPS-136-1 AC:OPS-136-4", () => {
 	const f = driveFixture();
 	try {
 		const id = openSeatRun(f, false);
-		brokenHerdr(f, "hang");
-		const closer = spawn(
-			process.execPath,
-			[
-				"-e",
-				`setTimeout(() => require("node:child_process").spawnSync(process.execPath, [process.argv[1], "run", "done", process.argv[2], "--status", "passed", "--summary-file", process.argv[3]], { cwd: process.argv[4], env: { ...process.env, EVF_RUN: "", EVF_WORKTREE: "", EVF_STAGE: "" } }), 150)`,
-				join(source, "tools/evf/main.ts"),
-				String(id),
-				f.file("closed.md", "Closed by the seat."),
-				f.root,
-			],
-			{ stdio: "inherit" },
-		);
+		// The first slice ends with the seat still working. In the second, the child closes the run, then hangs.
+		scriptedHerdr(f, id, { waits: ["working", "close-hang"], gets: ["working"] });
 		const seatPollMs = 1500;
+		const clock = fakeClock();
 		const started = Date.now();
-		driveOnce(f.root, f.task, { ...TIMING, waitMs: 60_000, seatPollMs });
-		const elapsed = Date.now() - started;
-		closer.kill();
+		driveOnce(f.root, f.task, { ...TIMING, waitMs: 60_000, seatPollMs, waitKillMs: HANG_KILL_MS, clock });
+		assert.ok(Date.now() - started >= HANG_KILL_MS, "the limit killed the real hung child");
 		assert.equal(f.runs()[0]!.status, "passed");
-		assert.ok(elapsed < 2 * seatPollMs, `the drive moved on after ${elapsed} ms`);
+		assert.ok(clock.elapsed() < 2 * seatPollMs, `the drive moved on after ${clock.elapsed()} ms`);
+		assert.deepEqual(clock.sleeps, [seatPollMs], "the wait pauses only after the slice that found the seat working");
 	} finally {
 		f.db.close();
 		f.close();
+	}
+});
+
+test("OPS-136: an agent wait child slower than the 2 s production floor keeps its answer under a longer kill limit AC:OPS-136-4", () => {
+	const slow = driveFixture();
+	try {
+		const id = openSeatRun(slow, false);
+		scriptedHerdr(slow, id, { waits: ["blocked", "close"], gets: ["working"], waitDelayMs: 2_100 });
+		driveOnce(slow.root, slow.task, { ...TIMING, waitMs: 60_000, waitKillMs: SLOW_CHILD_MS, clock: fakeClock() });
+		assert.equal(slow.events("blocked").length, 1, "the late answer counted");
+		assert.equal(slow.runs()[0]!.status, "passed");
+	} finally {
+		slow.db.close();
+		slow.close();
+	}
+});
+
+test("OPS-136: production timing carries no clock, keeps its kill limit and waits on the real clock AC:OPS-136-5", () => {
+	assert.equal("clock" in DRIVE_TIMING, false);
+	assert.equal("clock" in LAUNCH_TIMING, false);
+	assert.equal("waitKillMs" in DRIVE_TIMING, false);
+	assert.equal(agentWaitKillMs(DRIVE_TIMING), 5_200, "seatPollMs + 200 above the floor");
+	assert.equal(agentWaitKillMs({ seatPollMs: 10 }), 2_000, "the floor");
+
+	// A child that always answers after the floor loses its answer under the default limit. waitMs 0 ends after one kill.
+	const killed = driveFixture();
+	try {
+		const id = openSeatRun(killed, false);
+		scriptedHerdr(killed, id, { waits: ["blocked"], gets: ["working"], waitDelayMs: 2_100 });
+		const started = Date.now();
+		driveOnce(killed.root, killed.task, { ...TIMING, waitMs: 0 });
+		assert.ok(Date.now() - started >= 2_000, "the child ran until the floor");
+		assert.equal(killed.events("blocked").length, 0, "the answer was lost to the kill");
+		const closed = killed.db.prepare("SELECT status, summary FROM runs WHERE id = ?").get(id) as {
+			status: string;
+			summary: string;
+		};
+		assert.equal(closed.status, "failed");
+		assert.match(closed.summary, /timed out/);
+	} finally {
+		killed.db.close();
+		killed.close();
+	}
+
+	// No clock option: the blocked polls sleep on the real clock, so real time passes.
+	const real = driveFixture();
+	try {
+		const id = openSeatRun(real, false);
+		scriptedHerdr(real, id, { waits: ["blocked", "close"], gets: ["blocked", "working"] });
+		const started = Date.now();
+		driveOnce(real.root, real.task, { ...TIMING, waitMs: 60_000, seatPollMs: 300, waitKillMs: SLOW_CHILD_MS });
+		assert.ok(Date.now() - started >= 600, "two real seat polls");
+		assert.equal(real.events("blocked").length, 1);
+	} finally {
+		real.db.close();
+		real.close();
 	}
 });
 
@@ -1306,7 +1357,7 @@ test("OPS-70-gone: a started run whose Herdr agent is gone is aborted, and the n
 	try {
 		const id = openSeatRun(f, false);
 		f.db.prepare("UPDATE tasks SET round = 1 WHERE id = ?").run(f.taskId);
-		brokenHerdr(f, "gone");
+		brokenHerdr(f);
 		driveOnce(f.root, f.task, TIMING);
 		assert.equal(f.runs()[0]!.status, "aborted");
 		assert.equal(f.events("seat_gone").length, 1);
@@ -1530,7 +1581,7 @@ test("OPS-72-defer: a seat whose Herdr agent is gone does not hold the escalatio
 		f.db.prepare("UPDATE tasks SET spec = ?, status = 'active', round = ? WHERE id = ?").run(SPEC, LOOP_CAP, f.taskId);
 		const verifyRun = openAgentRun(f, "verify", "verifier");
 		openAgentRun(f, "implement", "implementer");
-		brokenHerdr(f, "gone");
+		brokenHerdr(f);
 		runDone(f.root, verifyRun, { status: "failed", summary: "Findings: the roof leaks." });
 		assert.equal(f.taskRow().status, "escalated");
 		assert.equal(f.events("escalation_deferred").length, 0);
@@ -1607,7 +1658,7 @@ test("OPS-72-reopen: the first seat after a reopen gets the coordinator's reason
 	}
 });
 
-test("OPS-72-grace: the start grace counts from the start of the wait, not from the prompt that went out a minute ago", () => {
+test("OPS-72-grace: the start grace counts from the start of the wait, not from the prompt that went out a minute ago AC:OPS-136-1", () => {
 	const f = driveFixture();
 	try {
 		const id = openSeatRun(f, true);
@@ -1616,8 +1667,11 @@ test("OPS-72-grace: the start grace counts from the start of the wait, not from 
 			.run(new Date(Date.now() - 60_000).toISOString(), id);
 		// The seat reports idle at first, three polls later its turn begins, then it closes its stage.
 		scriptedHerdr(f, id, { waits: ["idle", "close"], gets: ["idle", "idle", "idle", "working"] });
-		// The grace is far longer than four polls take under load, and still shorter than the minute since the prompt.
-		driveOnce(f.root, f.task, { ...TIMING, startGraceMs: 30_000, seatPollMs: 10 });
+		// The grace is far longer than four polls, and still shorter than the minute since the prompt.
+		const clock = fakeClock();
+		driveOnce(f.root, f.task, { ...TIMING, startGraceMs: 30_000, seatPollMs: 10, clock, waitKillMs: SLOW_CHILD_MS });
+		assert.deepEqual(clock.sleeps, [10, 10, 10, 10], "four polls of the grace, until the turn began");
+		assert.equal(clock.elapsed(), 40);
 		const nudges = f.herdr.calls().filter((c) => c[0] === "agent" && c[1] === "prompt");
 		assert.equal(nudges.length, 0, "no nudge: the grace had not run out");
 		assert.equal(f.events("nudge").length, 0);
@@ -1714,7 +1768,7 @@ test("OPS-69-gone: a seat whose Herdr agent is gone is aborted with the usage of
 		const id = openSeatRun(f, false);
 		f.db.prepare("UPDATE runs SET session_id = ? WHERE id = ?").run(session, id);
 		writeTranscript(claude, session, [assistantLine("a", "claude-sonnet-5-5", { input: 100, output: 50, read: 1000 })]);
-		brokenHerdr(f, "gone");
+		brokenHerdr(f);
 		driveOnce(f.root, f.task, TIMING);
 		const row = f.db.prepare("SELECT status, tokens_in, tokens_out, cache_read_tokens FROM runs WHERE id = ?").get(id);
 		assert.deepEqual({ ...row }, { status: "aborted", tokens_in: 100, tokens_out: 50, cache_read_tokens: 1000 });

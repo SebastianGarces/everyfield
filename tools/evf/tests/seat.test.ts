@@ -4,7 +4,7 @@ import { chmodSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from "
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { assistantLine, fixture, sessionStartJs, source, writeTranscript } from "./fixtures.ts";
+import { assistantLine, fakeClock, fixture, sessionStartJs, source, writeTranscript } from "./fixtures.ts";
 import { ensureTask, openWorkDb, syncGoals, workDbPath } from "../db.ts";
 import { EvfError, parseTask, runtimeDir } from "../lib.ts";
 import { guardTypedLine, launch, launchPlan, LaunchLineTooLong, typedLineBytes } from "../launch.ts";
@@ -1402,15 +1402,20 @@ test("OPS-74-grow: the typed line does not grow with the role file; an over-long
 	}
 });
 
-test("OPS-74-prompt: agent_start_input_failed twice waits with backoff in the same pane, then starts the seat once", () => {
+test("OPS-74-prompt: agent_start_input_failed twice waits with backoff in the same pane, then starts the seat once AC:OPS-136-1", () => {
 	const f = seatFixture();
 	try {
 		f.herdr.setState({ inputFailStarts: 2 });
-		const t0 = Date.now();
-		const timing = { ...SHORT, busyBackoffMs: 40 };
+		const clock = fakeClock();
+		const timing = { ...SHORT, busyBackoffMs: 40, clock };
 		quiet(() => launch(f.root, f.task, "implementer", { timing }));
-		const waited = Date.now() - t0;
+		const waited = clock.elapsed();
 		assert.ok(waited >= 40 + 80, `waited ${waited} ms, at least the backoff sum 120`);
+		assert.deepEqual(
+			clock.sleeps.filter((ms) => ms >= 40),
+			[40, 80],
+			"one backoff before each retry, doubled",
+		);
 		const calls = f.herdr.calls();
 		assert.equal(startCalls(f).length, 3, "two refusals, one start");
 		assert.equal(pairs(calls, "pane", "split").length + pairs(calls, "workspace", "create").length, 1, "one pane");
@@ -1436,12 +1441,12 @@ test("OPS-74-prompt: agent_start_input_failed twice waits with backoff in the sa
 	}
 });
 
-test("OPS-74-prompt: agent_start_input_failed that never clears fails after the full backoff and names the code, attempts and wait", () => {
+test("OPS-74-prompt: agent_start_input_failed that never clears fails after the full backoff and names the code, attempts and wait AC:OPS-136-1", () => {
 	const f = seatFixture();
 	try {
 		f.herdr.setState({ inputFailStarts: 999 });
-		const timing = { ...SHORT, busyBackoffMs: 20 };
-		const t0 = Date.now();
+		const clock = fakeClock();
+		const timing = { ...SHORT, busyBackoffMs: 20, clock };
 		assert.throws(
 			() => quiet(() => launch(f.root, f.task, "implementer", { timing })),
 			(e) =>
@@ -1450,9 +1455,28 @@ test("OPS-74-prompt: agent_start_input_failed that never clears fails after the 
 					e.message,
 				),
 		);
-		assert.ok(Date.now() - t0 >= 20 + 40 + 80, "the whole backoff 20 + 40 + 80 ms ran");
+		assert.ok(clock.elapsed() >= 20 + 40 + 80, "the whole backoff 20 + 40 + 80 ms ran");
+		assert.deepEqual(
+			clock.sleeps.filter((ms) => ms >= 20),
+			[20, 40, 80, 20, 40, 80],
+			"the whole backoff in the first pane, then again in the new pane",
+		);
 		assert.equal(startCalls(f).length, 8, "four attempts, then the same once in a new pane");
 		assert.equal(f.runs().at(-1)!.status, "aborted");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-136: a launch with no clock option waits its backoff on the real clock AC:OPS-136-5", () => {
+	const f = seatFixture();
+	try {
+		f.herdr.setState({ inputFailStarts: 2 });
+		const started = Date.now();
+		quiet(() => launch(f.root, f.task, "implementer", { timing: { ...SHORT, busyBackoffMs: 200 } }));
+		assert.ok(Date.now() - started >= 200 + 400, "the backoff sum passed in real time");
+		assert.equal(startCalls(f).length, 3);
 	} finally {
 		f.db.close();
 		f.close();
