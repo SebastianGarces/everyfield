@@ -1376,7 +1376,7 @@ export function check(root: string, task: TaskRef, ignoreLoad?: string): number 
 	let passed = false,
 		detail = "";
 	try {
-		passed = verify(root, task, "author", "full", undefined, ignoreLoad).passed;
+		passed = verify(root, task, "author", "full", undefined, ignoreLoad, "evf-check").passed;
 	} catch (e) {
 		if (!(e instanceof EvfError)) throw e;
 		detail = e.message;
@@ -1562,7 +1562,9 @@ function prStage(db: DatabaseSync, root: string, task: TaskRef, t: TaskRow, wt: 
 	const body = prBodyPath(root, task);
 	if (!existsSync(body)) return { status: "failed", summary: `no PR body at ${body}; the implementer writes it` };
 	// The implementer's own run is the record when the head has not moved; only a new head runs the checks again.
-	const report = hasVerifiedHead(root, task) ? null : verify(root, task, "author", "full");
+	const report = hasVerifiedHead(root, task)
+		? null
+		: verify(root, task, "author", "full", undefined, undefined, "pr-stage");
 	if (report && !report.passed) {
 		const failed = report.checks.filter((c) => !c.passed).map((c) => `${c.name} (${c.log})`);
 		return {

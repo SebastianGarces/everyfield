@@ -523,6 +523,13 @@ export function isClean(wt: string): boolean {
 	return git(wt, "status", "--porcelain", "--untracked-files=all") === "";
 }
 
+/** Hide connection strings and Neon passwords in text that leaves a process. */
+export function redactConnections(text: string): string {
+	return text
+		.replace(/\b(postgres(?:ql)?):\/\/[^\s"'<>]+/g, "$1://<redacted>")
+		.replace(/\bnpg_[A-Za-z0-9]+/g, "<redacted>");
+}
+
 export function oneLine(text: string, max = 220): string {
 	const t = text.replace(/\s+/g, " ").trim();
 	return t.length > max ? `${t.slice(0, max - 1)}…` : t;

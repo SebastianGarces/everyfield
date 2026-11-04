@@ -31,7 +31,7 @@ import { migrationsRenumber } from "./migrations.ts";
 import { awaitLoad } from "./load.ts";
 import { nextId } from "./ids.ts";
 import { escape, soak } from "./escape.ts";
-import { followUpsOfTask, dbMigrate, dbSeedProgress, goalsList, goalsSync, status, workDbPath } from "./db.ts";
+import { followUpsOfTask, dbMigrate, dbSeedProgress, events, goalsList, goalsSync, status, workDbPath } from "./db.ts";
 import { launch } from "./launch.ts";
 import { isRole, ROLES } from "./seats.ts";
 import { hook, refocus, session, showSpec } from "./seat.ts";
@@ -129,6 +129,7 @@ State store (harness)
                                                               tasks from the ledger committed on main
   evf goals sync | list                                       project goal and S-row missions from the plan docs
   evf status [--json] [<task>]                                tasks, seats, recent events and health from the store
+  evf events [--since <time>] [--type <name>] [--task <task>] [--json]   every matching event in id order, with no row limit
   evf owner-queue [--json]                                    what waits for Sebastian: PR, head, ask, age, blocked tasks; prints only, sends nothing
   evf owner-queue ask <task> --kind parked                    add a PR no route recorded, with the task's PR number and known head
   evf owner-queue answer <task>                               record the answer to an open item, such as a keep decision
@@ -248,13 +249,30 @@ function main(argv: string[]): number | Promise<number> {
 		case "ci-tests":
 			checkCiTests(git(process.cwd(), "rev-parse", "--show-toplevel"));
 			return 0;
-		case "test":
+		case "test": {
 			checkCiTests(git(process.cwd(), "rev-parse", "--show-toplevel"));
+			// Under evf verify, a second reporter writes the failed names to their own file. EVF_TEST_REPORT would not do:
+			// these tests carry AC:OPS-* markers, which would turn on case coverage for a WP task (D19).
+			const { EVF_FAILED_TESTS: failedTests, ...env } = process.env;
+			const report = failedTests
+				? [
+						"--test-reporter=spec",
+						"--test-reporter-destination=stdout",
+						`--test-reporter=${join(import.meta.dirname, "failed-tests-reporter.mjs")}`,
+						`--test-reporter-destination=${failedTests}`,
+					]
+				: [];
 			return run(
 				process.execPath,
-				["--test", ...args, join(git(process.cwd(), "rev-parse", "--show-toplevel"), "tools/evf/tests/*.test.ts")],
-				{ cwd: process.cwd(), inherit: true },
+				[
+					"--test",
+					...report,
+					...args,
+					join(git(process.cwd(), "rev-parse", "--show-toplevel"), "tools/evf/tests/*.test.ts"),
+				],
+				{ cwd: process.cwd(), inherit: true, env },
 			).code;
+		}
 		case "audit": {
 			const list = flag(args, "--list"),
 				dryRun = flag(args, "--dry-run"),
@@ -585,6 +603,17 @@ function main(argv: string[]): number | Promise<number> {
 			if (sub === "sync" && !args.length) return goalsSync(root);
 			if (sub === "list" && !args.length) return goalsList(root);
 			break;
+		}
+		case "events": {
+			for (const name of ["--since", "--type", "--task"])
+				if (args.includes(name) && (args[args.indexOf(name) + 1] ?? "--").startsWith("--"))
+					throw new EvfError(`${name} needs a value.`);
+			const json = flag(args, "--json"),
+				since = option(args, "--since"),
+				type = option(args, "--type"),
+				task = option(args, "--task");
+			if (args.length) break;
+			return events(root, { json, since, type, task });
 		}
 		case "status": {
 			const json = flag(args, "--json");

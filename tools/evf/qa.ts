@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openWorkDb } from "./db.ts";
-import { fail } from "./lib.ts";
+import { fail, redactConnections } from "./lib.ts";
 import {
 	devParent,
 	NEON_PROJECT,
@@ -38,9 +38,7 @@ class Redactor {
 	clean(text: string): string {
 		let out = text;
 		for (const v of this.values) out = out.split(v).join("<redacted>");
-		return out
-			.replace(/\b(postgres(?:ql)?):\/\/[^\s"'<>]+/g, "$1://<redacted>")
-			.replace(/\bnpg_[A-Za-z0-9]+/g, "<redacted>");
+		return redactConnections(out);
 	}
 }
 
