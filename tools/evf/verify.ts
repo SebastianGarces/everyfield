@@ -79,27 +79,31 @@ export function verify(
 		role === "verifier"
 			? git(process.cwd(), "rev-parse", "--show-toplevel")
 			: requireWorktree(root, loadConfig(root), task);
-	const cfg = loadConfig(wt);
 	const wp = task.kind === "wp" ? task.wp : task.kind === "fb" ? cachedTriage(root, task.issue!)?.wp : undefined;
-	requireTaskScope(root, wt, task, wp);
-	requireMaintenancePaths(root, wt, task);
-	const definitions = withUiEscaped(
-		task.kind === "ops" ? withCiParity(maintenanceScope(wt, task).checks, cfg.checks) : cfg.checks,
-		cfg.checks,
-	);
-	if (task.kind !== "ops" && cfg.stack?.usesPaidProviders) requireSpend(root);
-	/** The refusals that need no check. Main or the checkout can move during a wait, so they run again after it. */
+	/**
+	 * Every refusal that needs no check, and the check list. Main or the checkout can move during a wait, so this runs
+	 * again after it. `sha` comes first: a commit after that read makes the run INVALIDATED.
+	 */
 	const inputs = () => {
+		const sha = git(wt, "rev-parse", "HEAD"),
+			cfg = loadConfig(wt);
+		requireTaskScope(root, wt, task, wp);
 		if (hasRemote(root, cfg)) git(root, "fetch", "--quiet", cfg.remote, cfg.baseBranch);
 		const ref = baseRef(root, cfg),
-			baseSha = git(root, "rev-parse", ref),
-			sha = git(wt, "rev-parse", "HEAD");
+			baseSha = git(root, "rev-parse", ref);
 		if (head !== undefined && (!/^[a-f0-9]{40}$/.test(head) || sha !== head))
 			fail(`Checkout HEAD ${sha} does not match requested SHA ${head}.`);
 		if (!isClean(wt)) fail(`The checked checkout ${wt} is not clean. Commit the task changes before verification.`);
 		if (!gitOk(wt, "merge-base", "--is-ancestor", baseSha, "HEAD")) fail("Include current main before verification.");
+		// After the check above: while main is not included, this diff lists main's own new files as the task's changes.
+		requireMaintenancePaths(root, wt, task);
 		requireFreeMigrationNumbers(wt, baseSha, task);
-		return { ref, baseSha, sha };
+		const definitions = withUiEscaped(
+			task.kind === "ops" ? withCiParity(maintenanceScope(wt, task).checks, cfg.checks) : cfg.checks,
+			cfg.checks,
+		);
+		if (task.kind !== "ops" && cfg.stack?.usesPaidProviders) requireSpend(root);
+		return { ref, baseSha, sha, definitions };
 	};
 	inputs();
 	const queueStart = performance.now();
@@ -107,7 +111,7 @@ export function verify(
 	const checked = () => {
 		awaitLoad(root, "verify", ignoreLoad, undefined, task);
 		const queuedMs = Math.round(performance.now() - queueStart);
-		return runChecks({ root, wt, task, wp, role, mode, caller, definitions, queuedMs, ...inputs() });
+		return runChecks({ root, wt, task, wp, role, mode, caller, queuedMs, ...inputs() });
 	};
 	return mode === "full" ? withCheckQueue(root, task.id, checked, queue) : checked();
 }

@@ -783,6 +783,53 @@ test("evf help and the README state the cap, the order, the limit and the gated 
 	}
 });
 
+test("a commit during the queue wait meets the same owning-path refusal as one before it (AC:OPS-138-14)", async () => {
+	const f = queueFixture();
+	try {
+		const holders = [f.holder(1), f.holder(2), f.holder(3)];
+		const waiting = f.cli(f.wt, ["verify", "OPS-1"]);
+		await until("the wait", () => /position 1/.test(waiting.err()));
+		f.commitFiles({ "outside.txt": "x" });
+		await f.stop(holders[0]!);
+		assert.equal(await waiting.done, 1, waiting.out());
+		assert.match(waiting.err(), /changes paths outside its reviewed owning paths/);
+		assert.equal(existsSync(f.ran), false, "no check ran");
+		assert.deepEqual(f.events("check_start"), []);
+		assert.equal(f.tickets().length, 2, "the refusal frees the slot");
+	} finally {
+		await f.finish();
+	}
+});
+
+test("the checks that run are the list of the commit they check, also when it lands during the queue wait (AC:OPS-138-14)", async () => {
+	const f = queueFixture();
+	try {
+		const holders = [f.holder(1), f.holder(2), f.holder(3)];
+		const waiting = f.cli(f.wt, ["verify", "OPS-1"]);
+		await until("the wait", () => /position 1/.test(waiting.err()));
+		const later = {
+			...f.cfg,
+			maintenanceTasks: {
+				"OPS-1": { title: "Queue", owningPaths: ["tools/evf/"], checks: [{ name: "later", run: node("") }] },
+			},
+		};
+		f.commitFiles({ "evf.config.json": JSON.stringify(later) });
+		const head = f.git("-C", f.wt, "rev-parse", "HEAD");
+		await f.stop(holders[0]!);
+		assert.equal(await waiting.done, 0, waiting.err());
+		const path = /PASSED local tooling checks: (\S+checks\.json)/.exec(waiting.out())![1]!;
+		const report = JSON.parse(readFileSync(path, "utf8")) as { sha: string; checks: Array<{ name: string }> };
+		assert.equal(report.sha, head);
+		assert.deepEqual(
+			report.checks.map((c) => c.name),
+			["later", "format", "package-unit-tests"],
+		);
+		assert.equal(existsSync(f.ran), false, "the list from before the commit did not run");
+	} finally {
+		await f.finish();
+	}
+});
+
 test("through the queue the same named checks run in the same order per mode with the same results; the ship queue stays apart (AC:OPS-138-14)", () => {
 	const ok = node("");
 	const f = queueFixture([

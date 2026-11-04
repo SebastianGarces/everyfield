@@ -1017,8 +1017,9 @@ on this gate.
 
 At most 3 full checks run at once on this machine, a code default with no `evf.config.json` key. The queue covers every
 full-mode `verify`: `evf verify`, `evf check` and the pr stage. `evf verify --quick`, `evf test` and `evf ac run` take no
-slot. A refusal that needs no check (dirty checkout, wrong `--head`, main not included) comes before the queue. The
-refusals run again when a slot is free, because main or the checkout can move during the wait.
+slot. A refusal that needs no check (dirty checkout, wrong `--head`, main not included, a path outside the owning paths)
+comes before the queue. The refusals run again when a slot is free, and the check list is read again, because main or
+the checkout can move during the wait.
 
 Waiters start in arrival order. A waiter prints its position when it starts to wait and then once per minute. A process
 that stops, also by SIGKILL, loses its place, and a slot frees when the checks pass, fail or throw. After 120 minutes in
