@@ -195,7 +195,16 @@ test("AC:OPS-134-3 coordinator.md, evf help and the README give the headless rou
 });
 
 /** A Herdr for the watch loop. `waits` are the `agent wait` answers; after the last one the seat closes its run. */
-function watchHerdr(f: Fixture, run: number, script: { waits: string[]; promptFails?: boolean; keepOpen?: boolean }) {
+/**
+ * A fake Herdr that answers as the real one does. `agent wait` never reports `working`: a slice that ends with the seat
+ * working is a timeout with exit 1, empty stdout and an error on stderr. `agent get` reports the seat's state: `working`,
+ * or the next of `gets`. After the last of `gets` it closes the run and keeps that last state.
+ */
+function watchHerdr(
+	f: Fixture,
+	run: number,
+	script: { waits: string[]; gets?: string[]; promptFails?: boolean; keepOpen?: boolean },
+) {
 	const calls = join(f.root, "herdr-calls.json"),
 		state = join(f.root, "herdr-script.json");
 	writeFileSync(calls, "[]");
@@ -205,12 +214,14 @@ function watchHerdr(f: Fixture, run: number, script: { waits: string[]; promptFa
 		`#!${process.execPath}\nconst fs=require("node:fs");const a=process.argv.slice(2);\n` +
 			`const calls=JSON.parse(fs.readFileSync(${JSON.stringify(calls)},"utf8"));calls.push(a);fs.writeFileSync(${JSON.stringify(calls)},JSON.stringify(calls));\n` +
 			`const st=JSON.parse(fs.readFileSync(${JSON.stringify(state)},"utf8"));let r={};\n` +
+			`const closeRun=()=>{const {DatabaseSync}=require("node:sqlite");const d=new DatabaseSync(${JSON.stringify(workDbPath(f.root))});d.exec("PRAGMA busy_timeout = 5000");d.prepare("UPDATE runs SET status='passed' WHERE id = ?").run(${run});d.close()};\n` +
 			`if(a[0]==="agent"&&a[1]==="prompt"&&st.promptFails&&!a.includes("--wait")){process.stderr.write("fixture: send failed");process.exit(1)}\n` +
 			`if(a[0]==="agent"&&a[1]==="wait"){let s=st.waits.shift();fs.writeFileSync(${JSON.stringify(state)},JSON.stringify(st));\n` +
 			`if(s===undefined&&st.keepOpen)s="working";\n` +
-			`if(s===undefined){const {DatabaseSync}=require("node:sqlite");const d=new DatabaseSync(${JSON.stringify(workDbPath(f.root))});d.exec("PRAGMA busy_timeout = 5000");d.prepare("UPDATE runs SET status='passed' WHERE id = ?").run(${run});d.close();s="idle"}\n` +
+			`if(s===undefined){closeRun();s="idle"}\n` +
+			`if(s==="working"){process.stderr.write('{"error":{"code":"timeout","message":"timed out waiting for agent status"},"id":"cli:agent:wait"}');process.exit(1)}\n` +
 			`r={agent:{agent_status:s}}}\n` +
-			`else if(a[0]==="agent"&&a[1]==="get")r={agent:{agent_status:"working"}};\n` +
+			`else if(a[0]==="agent"&&a[1]==="get"){let s="working";if(st.gets){if(st.gets.length){s=st.last=st.gets.shift();fs.writeFileSync(${JSON.stringify(state)},JSON.stringify(st))}else{closeRun();s=st.last}}\nr={agent:{agent_status:s}}}\n` +
 			`process.stdout.write(JSON.stringify({result:r}));\n`,
 	);
 	chmodSync(join(f.root, "fake-bin/herdr"), 0o755);
@@ -247,6 +258,34 @@ const commitAt = (f: Fixture, ms: number) =>
 		env: { ...process.env, GIT_COMMITTER_DATE: new Date(ms).toISOString() },
 	});
 
+test("AC:OPS-134-1 a compaction inside a turn does not restart the turn", () => {
+	const f = store();
+	try {
+		const run = f.insertRun("implement", "implementer", "started", T0, SESSION);
+		f.transcript([
+			promptLine(T0),
+			toolCallLine(T0 + 1000, "a", "Read"),
+			toolDoneLine(T0 + 3000, "a"),
+			JSON.stringify({
+				type: "user",
+				timestamp: new Date(T0 + 4000).toISOString(),
+				isCompactSummary: true,
+				isVisibleInTranscriptOnly: true,
+				message: { role: "user", content: `summary ${MARKER}` },
+			}),
+			endTurnLine(T0 + 6000),
+		]);
+		assert.equal(stopHook(f, run, {}).status, 0);
+		const [turn, ...more] = f.events("turn_end");
+		assert.equal(more.length, 0);
+		assert.equal(turn!.startedAt, new Date(T0).toISOString());
+		assert.equal(turn!.endedAt, new Date(T0 + 6000).toISOString());
+		assert.deepEqual([turn!.toolMs, turn!.checkMs, turn!.waitMs, turn!.modelMs], [2000, 0, 0, 4000]);
+	} finally {
+		f.close();
+	}
+});
+
 test("AC:OPS-134-4 a working seat at 60 min that meets the rule gets one nudge, also across drives; the near misses get none", () => {
 	const f = store();
 	try {
@@ -263,10 +302,10 @@ test("AC:OPS-134-4 a working seat at 60 min that meets the rule gets one nudge, 
 		driveOnce(f.root, f.task, { ...TIMING, clock: () => (later += 2 * MIN) });
 		assert.equal(h.longNudges().length, 1, "no second nudge after a new drive process");
 		// The near misses, on a clean store. Each case replaces the run before it.
-		const nudges = (elapsedMin: number, lines: string[]) => {
+		const nudges = (elapsedMin: number, lines: string[], gets?: string[]) => {
 			f.db.exec("DELETE FROM events; DELETE FROM runs");
 			const { run: id } = seat(f, elapsedMin, lines);
-			const quiet = watchHerdr(f, id, { waits: [...WORKING] });
+			const quiet = watchHerdr(f, id, { waits: [...WORKING], ...(gets ? { gets } : {}) });
 			driveOnce(f.root, f.task, { ...TIMING, clock: () => NOW });
 			assert.equal(f.events("long_run_nudge").length, quiet.longNudges().length);
 			return quiet.longNudges().length;
@@ -283,6 +322,21 @@ test("AC:OPS-134-4 a working seat at 60 min that meets the rule gets one nudge, 
 		};
 		assert.equal(nudges(100, split(70)), 0, "a run at exactly 70%");
 		assert.equal(nudges(100, split(71)), 1, "the control: 71% is over the line");
+		// The rule holds, but `agent get` says that the seat does not work now.
+		assert.equal(nudges(61, longCheck(NOW - 61 * MIN), Array(20).fill("idle")), 0, "a seat that agent get calls idle");
+		assert.equal(
+			nudges(61, longCheck(NOW - 61 * MIN), Array(20).fill("blocked")),
+			0,
+			"a seat that agent get calls blocked",
+		);
+		// A seat on a prompt: the drive stays in its blocked loop, which ends when the fake closes the run.
+		f.db.exec("DELETE FROM events; DELETE FROM runs");
+		const { run: onPrompt } = seat(f, 61, longCheck(NOW - 61 * MIN));
+		const blocked = watchHerdr(f, onPrompt, { waits: ["blocked"], gets: Array(6).fill("blocked") });
+		let blockedNow = NOW;
+		driveOnce(f.root, f.task, { ...TIMING, clock: () => (blockedNow += 2 * MIN) });
+		assert.equal(f.events("blocked").length, 1);
+		assert.equal(blocked.longNudges().length, 0, "a seat in the blocked loop");
 		commitAt(f, NOW - 10 * MIN);
 		assert.equal(nudges(60, longCheck(NOW - 60 * MIN)), 0, "a run with a commit in the last 60 min");
 	} finally {
@@ -655,6 +709,19 @@ test("AC:OPS-134-11 coordinator and registration runs change nothing in the stag
 		assert.equal(groups.coordination.input, 2000);
 		for (const name of ["build", "review", "prototype"]) assert.equal(groups[name].runs, 0, name);
 		assert.match(evf(f.root, {}, "", "usage").stdout, /coordinator and registration: input 2,000/);
+	} finally {
+		f.close();
+	}
+});
+
+test("AC:OPS-134-11 a seat's refocus names its own stage while a newer headless run exists", () => {
+	const f = store();
+	try {
+		f.insertRun("verify", "verifier", "started", T0);
+		f.insertRun("coordinator", "coordinator", "started", T0 + 1000);
+		const out = evf(f.root, {}, "", "refocus", "OPS-1").stdout;
+		assert.match(out, /^Stage: verify \(verifier seat\)$/m);
+		assert.doesNotMatch(out, /coordinator seat/);
 	} finally {
 		f.close();
 	}

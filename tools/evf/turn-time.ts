@@ -11,7 +11,7 @@ type Kind = "check" | "wait" | "tool";
 type Span = { from: number; to: number; kind: Kind };
 type Entry = {
 	ts: number;
-	/** A user entry with no tool_result and no isMeta flag: a prompt that begins a turn. */
+	/** A user entry with no tool_result, no isMeta flag and no isCompactSummary flag: a prompt that begins a turn. */
 	opens: boolean;
 	endsTurn: boolean;
 	calls: Array<{ id: string; kind: Kind }>;
@@ -71,7 +71,7 @@ export function parseEntries(lines: string[]): Entry[] {
 		const results = content.filter((b) => b?.type === "tool_result").map((b) => String(b.tool_use_id));
 		out.push({
 			ts,
-			opens: e.type === "user" && !results.length && e.isMeta !== true,
+			opens: e.type === "user" && !results.length && e.isMeta !== true && e.isCompactSummary !== true,
 			endsTurn: e.type === "assistant" && (e.message?.stop_reason === "end_turn" || e.message?.model === "<synthetic>"),
 			calls: content
 				.filter((b) => b?.type === "tool_use")

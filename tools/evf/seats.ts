@@ -28,6 +28,8 @@ export type Role = keyof typeof ROLES;
  */
 export type HeadlessRole = "coordinator" | "registration";
 export const isHeadlessRole = (v: string | undefined): v is HeadlessRole => v === "coordinator" || v === "registration";
+/** The same roles for a `role NOT IN ...` query that reads the seats of the stage machine. */
+export const HEADLESS_ROLES_SQL = "('coordinator', 'registration')";
 
 /** The levels `claude --effort` accepts. */
 const EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;

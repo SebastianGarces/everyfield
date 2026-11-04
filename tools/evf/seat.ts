@@ -5,6 +5,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { missionFor, openWorkDb } from "./db.ts";
 import { fail, parseTask, run, type TaskRef } from "./lib.ts";
 import { closeRunPane } from "./panes.ts";
+import { HEADLESS_ROLES_SQL } from "./seats.ts";
 import { readEntries, turnOf } from "./turn-time.ts";
 import { fillRunUsage, transcriptPath } from "./usage.ts";
 import { coordinatorNotes, doneCriteria, sectionItems, specSections } from "./spec.ts";
@@ -122,7 +123,9 @@ export function refocusText(db: DatabaseSync, task: TaskRef, header?: string): s
 	) as Row | undefined;
 	const stage = t
 		? (db
-				.prepare("SELECT stage, role FROM runs WHERE task_id = ? ORDER BY started_at DESC, id DESC LIMIT 1")
+				.prepare(
+					`SELECT stage, role FROM runs WHERE task_id = ? AND role NOT IN ${HEADLESS_ROLES_SQL} ORDER BY started_at DESC, id DESC LIMIT 1`,
+				)
 				.get(t.id as number) as Row | undefined)
 		: undefined;
 	const lines = [`Goal chain for ${task.id}`, `Project: ${project?.body ?? "(not synced yet: run evf goals sync)"}`];

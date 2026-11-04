@@ -2093,6 +2093,8 @@ function waitOnSeat(
 			worktree: idea ? ideaWorktree(root, cfg, task, Number(idea[1])) : worktreePath(root, cfg, task),
 		},
 		timing.clock ?? Date.now,
+		// `agent wait` never answers `working`: a slice that ends with the seat working is a timeout with empty stdout.
+		() => parseAgentState(run("herdr", ["agent", "get", r.herdr_agent], { timeoutMs: 10_000 }).stdout) === "working",
 	);
 	let turnSeen = false,
 		waitsLogged = 0;
@@ -2133,7 +2135,7 @@ function waitOnSeat(
 				abortGoneSeat(db, t, runId, r.herdr_agent, r.stage);
 				return;
 			}
-			longRun(state === "working");
+			longRun();
 			if (Date.now() >= deadline) {
 				runDone(root, runId, {
 					status: "failed",
@@ -2152,7 +2154,7 @@ function waitOnSeat(
 			do {
 				sleep(timing.seatPollMs);
 				if (runStatus(db, runId) !== "started") return;
-				longRun(false);
+				longRun();
 			} while (agentState(r.herdr_agent) === "blocked");
 			// The prompt is gone: say so, or the last event keeps reading "blocked" for as long as the seat works.
 			record(db, t.id, runId, "unblocked", { summary: `${r.herdr_agent} resumed after a prompt` });

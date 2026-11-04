@@ -603,6 +603,31 @@ test("slotsFree reads 9 with 3 seats, and a later stage evf runs itself counts a
 	}
 });
 
+test("a started headless run is no seat and leaves its task in the count (AC:OPS-134-11)", () => {
+	const f = fixture();
+	try {
+		storeWith(f.root, (db) => {
+			addTask(db, "OPS-70", { status: "active", runs: ["implement:implementer:started"] });
+			addTask(db, "OPS-71", {
+				status: "pr_open",
+				spec: "# OPS-71",
+				runs: ["pr:evf:passed", "coordinator:coordinator:started"],
+			});
+			addTask(db, "OPS-72", {
+				status: "pr_open",
+				spec: "# OPS-72",
+				runs: ["pr:evf:passed", "registration:registration:started"],
+			});
+		});
+		runSampler(f.root, fakeProbes(), { ticks: 1 });
+		const { payload } = eventsOf(f.root, "queue_tick")[0]!;
+		assert.equal(payload.seats, 1);
+		assert.equal(payload.runnable, 2);
+	} finally {
+		f.close();
+	}
+});
+
 test("a held_external task is held, and counts as runnable again once its hold ends (AC:OPS-133-7)", () => {
 	const f = fixture();
 	try {

@@ -16,6 +16,7 @@ import { openWorkDb, record, type TaskRow } from "./db.ts";
 import { nextStageFromStore } from "./drive.ts";
 import { evfDataDir, parseTask, run, sleep } from "./lib.ts";
 import { countFullChecks } from "./load.ts";
+import { HEADLESS_ROLES_SQL } from "./seats.ts";
 import { alive } from "./ship-queue.ts";
 
 /**
@@ -132,15 +133,17 @@ export function machineProbes(root: string, timeoutMs = PROBE_TIMEOUT_MS): Sampl
 	};
 }
 
-/** Runnable and held open tasks with no started run, and the seats and free slots. */
+/** Runnable and held open tasks with no started run, and the seats and free slots. A headless session is not a seat. */
 function queueCounts(db: DatabaseSync) {
 	const { seats } = db
-		.prepare("SELECT COUNT(*) AS seats FROM runs WHERE status = 'started' AND role <> 'evf'")
+		.prepare(
+			`SELECT COUNT(*) AS seats FROM runs WHERE status = 'started' AND role <> 'evf' AND role NOT IN ${HEADLESS_ROLES_SQL}`,
+		)
 		.get() as { seats: number };
 	const tasks = db
 		.prepare(
 			`SELECT * FROM tasks t WHERE status NOT IN ('merged', 'done', 'abandoned')
-			AND NOT EXISTS (SELECT 1 FROM runs r WHERE r.task_id = t.id AND r.status = 'started')`,
+			AND NOT EXISTS (SELECT 1 FROM runs r WHERE r.task_id = t.id AND r.status = 'started' AND r.role NOT IN ${HEADLESS_ROLES_SQL})`,
 		)
 		.all() as TaskRow[];
 	const holdReasons = { blocked: 0, escalated: 0, waiting: 0, queued: 0 };
