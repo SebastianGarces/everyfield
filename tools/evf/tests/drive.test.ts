@@ -39,7 +39,7 @@ import {
 import { drive, driveOnce, LOOP_CAP, nextStage, RETRY_CAP, runDone } from "../drive.ts";
 import { doneCriteria } from "../spec.ts";
 import { evfDataDir, evidenceDir, parseTask, runtimeDir, sleep } from "../lib.ts";
-import { verify } from "../verify.ts";
+import { hasVerifiedHead, verify } from "../verify.ts";
 
 const cli = (cwd: string, env: Record<string, string>, ...args: string[]) =>
 	spawnSync(process.execPath, [join(source, "tools/evf/main.ts"), ...args], {
@@ -75,10 +75,11 @@ function fakeHerdr(root: string) {
 	};
 }
 
-function driveFixture(opts: { failWhenFile?: string; nested?: string[] } = {}) {
+function driveFixture(opts: { failWhenFile?: string; failFullOnly?: boolean; nested?: string[] } = {}) {
 	const f = fixture(),
 		task = parseTask("OPS-1");
 	// `failWhenFile` makes the first check fail while that file exists in the worktree, to fail the author checks at one head.
+	// `failFullOnly` limits that check to full runs, so a quick run at the same head passes.
 	// `nested` makes the first check run a guarded evf command through main.ts, once: the nested verify sees EVF_NESTED.
 	const first = opts.nested
 		? {
@@ -97,6 +98,7 @@ function driveFixture(opts: { failWhenFile?: string; nested?: string[] } = {}) {
 						"-e",
 						`process.exit(require("node:fs").existsSync(${JSON.stringify(opts.failWhenFile)}) ? 1 : 0)`,
 					],
+					...(opts.failFullOnly ? { modes: ["full"] } : {}),
 				}
 			: undefined;
 	const checks = first ? [first, ...f.cfg.checks.slice(1)] : f.cfg.checks;
@@ -2973,6 +2975,71 @@ test("OPS-123-cap AC:OPS-123-7: a failed ship past the loop cap escalates with t
 		);
 		assert.equal(f.taskRow().status, "escalated");
 		assert.equal(agentStarts(f, "implementer"), 0, "no implement seat launched");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+// OPS-130: the simplifier seat runs the quick check; the pr stage stays the gate.
+test("OPS-130-seat AC:OPS-130-1: the simplifier seat commits first and runs the quick check, and no line asks it for the full check", () => {
+	const seat = readFileSync(join(source, ".claude/agents/simplifier.md"), "utf8");
+	assert.match(seat, /^description: .*bin\/evf verify <task> --quick/m);
+	assert.match(seat, /^3\. Commit.*bin\/evf verify <task> --quick/m);
+	assert.deepEqual(seat.match(/bin\/evf verify[^`]*/g), Array(2).fill("bin/evf verify <task> --quick"));
+});
+
+test("OPS-130-full AC:OPS-130-2: a passing quick report at the simplifier head does not stand in for full; the pr stage runs full author checks at that head and pushes it", () => {
+	const f = driveFixture();
+	try {
+		const remote = withPr(f);
+		runDone(f.root, f.insertRun("implement", "implementer", "started"), { status: "passed", summary: "built" });
+		assert.equal(verify(f.root, f.task, "author", "full").passed, true, "the implementer's last verify, at head A");
+		const b = commitFile(f, "simplified.txt");
+		assert.equal(verify(f.root, f.task, "author", "quick").passed, true, "the simplifier's quick check, at head B");
+		runDone(f.root, f.insertRun("simplify", "simplifier", "started"), { status: "passed", summary: "simplified" });
+		assert.equal(hasVerifiedHead(f.root, f.task), false, "a quick report never counts as a verified head");
+
+		driveOnce(f.root, f.task, TIMING);
+
+		assert.deepEqual([f.runs().at(-1)!.stage, f.runs().at(-1)!.status], ["pr", "passed"]);
+		const report = JSON.parse(readFileSync(join(evidenceDir(f.root, f.task, b, "author-full"), "checks.json"), "utf8"));
+		assert.deepEqual([report.sha, report.mode, report.passed], [b, "full", true]);
+		assert.equal(sh(f.root, "--git-dir", remote, "rev-parse", "refs/heads/task/ops-1"), b);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-130-route AC:OPS-130-3: quick passes and full fails at the simplifier head; the pr run fails and the task returns to simplify in round 0 with the failure, no second implement run", () => {
+	const f = driveFixture({ failWhenFile: "tools/evf/FAIL", failFullOnly: true });
+	try {
+		withPr(f);
+		runDone(f.root, f.insertRun("implement", "implementer", "started"), { status: "passed", summary: "built" });
+		commitFile(f, "FAIL");
+		assert.equal(verify(f.root, f.task, "author", "quick").passed, true, "the simplifier's quick check passes");
+		runDone(f.root, f.insertRun("simplify", "simplifier", "started"), { status: "passed", summary: "simplified" });
+
+		driveOnce(f.root, f.task, TIMING);
+
+		const failed = f.runs().at(-1)!;
+		assert.deepEqual([failed.stage, failed.status], ["pr", "failed"]);
+		const { summary } = f.db.prepare("SELECT summary FROM runs WHERE id = ?").get(failed.id as number) as {
+			summary: string;
+		};
+		assert.match(summary, /author checks failed at [0-9a-f]{10}: fixture-check/);
+		const after = nextOf(f);
+		assert.deepEqual([after.stage, after.round], ["simplify", 0]);
+
+		driveOnce(f.root, f.task, TIMING);
+		assert.equal(f.runs().at(-1)!.role, "simplifier");
+		const prompt = f.herdr
+			.calls()
+			.filter((c) => c[0] === "agent" && c[1] === "prompt")
+			.at(-1)![3]!;
+		assert.match(prompt, /author checks failed at [0-9a-f]{10}: fixture-check/);
+		assert.equal(f.runs().filter((r) => r.stage === "implement").length, 1, "no second implement run starts");
 	} finally {
 		f.db.close();
 		f.close();
