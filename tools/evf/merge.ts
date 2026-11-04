@@ -214,27 +214,25 @@ export function heldWhy({ templates, owner, doubt }: HeldClasses): string {
 export const wikiWhy = ({ paths }: PathClass): string => `it changes Wiki content ${shown(paths)}`;
 
 /**
- * The command that records Sebastian's approval for a held PR. The owner-path class binds it to the exact head;
- * the document-template class alone keeps its OPS-80 command.
+ * The command that records Sebastian's approval for a held PR, bound to its exact head for both classes: approve
+ * without --head refuses on a PR with a stale record (OPS-129).
  */
 export const heldApproveCommand = (h: HeldClasses, number: number, head: string): string =>
-	ownerHeld(h)
-		? `Sebastian approves each landing and marketing PR for its exact head; after his approval in chat, run: bin/evf approve ${number} --owner-approval "<his words>" --head ${head}`
-		: `Sebastian approves each document-template PR; after his approval in chat, run: bin/evf approve ${number} --owner-approval "<his words>"`;
+	`Sebastian approves each ${ownerHeld(h) ? "landing and marketing" : "document-template"} PR for its exact head; after his approval in chat, run: bin/evf approve ${number} --owner-approval "<his words>" --head ${head}`;
 
 /** The command that records Sebastian's approval for a held Wiki-content task PR, bound to its head. */
 export const wikiApproveCommand = (number: number, head: string): string =>
 	`Sebastian approves each Wiki change; after his approval in chat, run: bin/evf approve ${number} --owner-approval "<his words>" --head ${head}`;
 
 /**
- * Sebastian's recorded approval of one PR head (OPS-121): one `EVF-Owner:` line in a PR comment, which `evf approve
- * --head` posts. The latest valid line on the PR wins. Like EVF-Review, it is unsigned coordination evidence.
+ * Sebastian's recorded approval of one PR head (OPS-121): one `EVF-Owner:` line in a PR comment, which every `evf
+ * approve` route posts. The latest valid line on the PR wins. Like EVF-Review, it is unsigned coordination evidence.
  */
 type OwnerRecord = { head: string; quote: string; at: string };
 export const ownerLine = (r: OwnerRecord): string => `EVF-Owner: ${JSON.stringify(r)}`;
 
 /** The latest valid EVF-Owner record in the PR's comments, oldest comment first. Unreadable comments refuse. */
-function ownerRecordOf(cwd: string, number: number): OwnerRecord | undefined {
+export function ownerRecordOf(cwd: string, number: number): OwnerRecord | undefined {
 	const r = run("gh", ["api", `repos/${nameWithOwner(cwd)}/issues/${number}/comments`, "--paginate", "--slurp"], {
 		cwd,
 	});

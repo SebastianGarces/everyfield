@@ -1678,6 +1678,15 @@
 			],
 			"risk": "ordinary"
 		},
+		"OPS-129": {
+			"title": "A stale owner record never leaves a PR stuck with no sanctioned way to merge",
+			"owningPaths": ["tools/evf/"],
+			"checks": [
+				{ "name": "documentation", "run": ["python3", "docs/check-all.py"] },
+				{ "name": "workflow-regressions", "run": ["bin/evf", "test"] }
+			],
+			"risk": "ordinary"
+		},
 		"OPS-135": {
 			"title": "Round routing: no round for outside failures, no simplify for merge-only rounds",
 			"owningPaths": [
