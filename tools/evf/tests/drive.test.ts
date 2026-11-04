@@ -890,7 +890,9 @@ test("OPS-68-reopen: three failures escalate, the reopen restarts the count, the
 		const after = storeCounts(f);
 		for (const t of ["runs", "approvals", "proofs"]) assert.deepEqual(after[t], before[t!], `${t} unchanged`);
 		assert.deepEqual(after.events!.slice(0, before.events!.length), before.events, "old events unchanged");
-		assert.equal(after.events!.length, before.events!.length + 1);
+		// The reopen event, and the owner_answer to the escalation's owner_ask (OPS-131).
+		assert.equal(after.events!.length, before.events!.length + 2);
+		assert.equal(f.events("owner_answer").length, 1);
 
 		const n = nextOf(f);
 		assert.equal(n.stage, "implement");
