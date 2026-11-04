@@ -765,11 +765,11 @@ export function status(root: string, opts: { json: boolean; task?: string }): nu
 	);
 	if (tasks.length) {
 		console.log(
-			`${column("REF", 16)} ${column("MODE", 13)} ${column("STATUS", 10)} ${column("STAGE", 10)} ${column("ROUND", 5)} ${column("PR", 6)} ${column("GOAL", 5)} ${column("SEATS", 26)} UPDATED`,
+			`${column("REF", 16)} ${column("MODE", 13)} ${column("STATUS", 13)} ${column("STAGE", 10)} ${column("ROUND", 5)} ${column("PR", 6)} ${column("GOAL", 5)} ${column("SEATS", 26)} UPDATED`,
 		);
 		for (const t of tasks)
 			console.log(
-				`${column(t.ref ?? t.slug, 16)} ${column(t.mode, 13)} ${column(t.status, 10)} ${column(t.stage, 10)} ${column(t.round, 5)} ${column(t.pr_number ? `#${t.pr_number}` : "-", 6)} ${column(t.goal_key, 5)} ${column(seatText(t), 26)} ${String(t.updated_at ?? "").slice(0, 16)}`,
+				`${column(t.ref ?? t.slug, 16)} ${column(t.mode, 13)} ${column(t.status, 13)} ${column(t.stage, 10)} ${column(t.round, 5)} ${column(t.pr_number ? `#${t.pr_number}` : "-", 6)} ${column(t.goal_key, 5)} ${column(seatText(t), 26)} ${String(t.updated_at ?? "").slice(0, 16)}`,
 			);
 	}
 	for (const t of tasks) if (t.partial) console.log(`${t.ref ?? t.slug}: ${t.partial}`);

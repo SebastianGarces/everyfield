@@ -64,6 +64,8 @@ import { hasVerifiedHead, verify } from "./verify.ts";
  * escalates to Sebastian (guard rail 2). The retry cap: any other failure costs no round, but three failures in a row
  * escalate too. The circuit breaker (OPS-115): a seat stage that a seat closes twice in a row with the same status at
  * the same progress fingerprint (worktree HEAD and spec hash) escalates at the second close, so no third seat launches.
+ * Round routing (OPS-135): a ci or ship failure a seat cannot change holds the task (`held_external`) with no seat and
+ * no round, until its cause clears or the coordinator reopens it.
  * `evf next` reads the store and names the next stage; `evf drive` performs it, waits on the seat through Herdr and
  * repeats. Jonah only launches `evf drive --detach` and polls `evf status --json`.
  */
@@ -96,7 +98,7 @@ export const seatOf = (stage: Stage, task: TaskRef, spec: string | null): Role |
 	stage === "implement" && task.part === "ui" && wantsUiSeat(spec) ? "ui" : SEAT_STAGES[stage];
 
 export type Next = {
-	stage: Stage | "waiting" | "escalated" | "done" | "blocked" | "abandoned";
+	stage: Stage | "waiting" | "escalated" | "done" | "blocked" | "abandoned" | "held";
 	role?: Role;
 	idea?: number;
 	round: number;
@@ -106,9 +108,18 @@ export type Next = {
 	deferred?: string;
 	/** Set on a `pr` that skips simplify: the passed simplify run whose head HEAD still matches. */
 	skipped?: SimplifySkip;
+	/** Set on `held`: why a seat cannot change the failure. */
+	cause?: HoldCause;
 };
-/** A passed simplify run after the reopen marker and its head, when the worktree has no change since that head. */
-export type SimplifySkip = { run: number; head: string };
+/**
+ * A passed simplify run after the reopen marker and its head, when the worktree has no change since that head, or, with
+ * `reason: "merge_only"`, when round 1 or later added only clean merges of main since that head (OPS-135).
+ */
+export type SimplifySkip = { run: number; head: string; reason?: "merge_only" };
+/** Who can clear a held failure: main's owners, or a rerun or new head of a PR whose own code is not the cause. */
+export type HoldCause = "main" | "external";
+/** The payload of a `held_external` event. `head` is the PR head the failure was read at. */
+type Hold = { cause: HoldCause; checks: string[]; head: string | null; summary: string };
 type RunRow = {
 	id: number;
 	stage: string;
@@ -146,15 +157,15 @@ const unknownTask = (task: TaskRef): TaskRow => ({
 	seat_effort: null,
 });
 
-type OwnerEvent = { id: number; type: string; payload: Record<string, unknown> };
+type OwnerEvent = { id: number; run_id: number | null; type: string; payload: Record<string, unknown> };
 /** The newest event of the task among `types`, with its payload parsed. */
 const latestEvent = (db: DatabaseSync, taskId: number, types: string[]): OwnerEvent | null => {
 	const row = db
 		.prepare(
-			`SELECT id, type, payload FROM events WHERE task_id = ? AND type IN (${types.map(() => "?").join(", ")}) ORDER BY id DESC LIMIT 1`,
+			`SELECT id, run_id, type, payload FROM events WHERE task_id = ? AND type IN (${types.map(() => "?").join(", ")}) ORDER BY id DESC LIMIT 1`,
 		)
-		.get(taskId, ...types) as { id: number; type: string; payload: string } | undefined;
-	return row ? { id: row.id, type: row.type, payload: JSON.parse(row.payload) as Record<string, unknown> } : null;
+		.get(taskId, ...types) as { id: number; run_id: number | null; type: string; payload: string } | undefined;
+	return row ? { ...row, payload: JSON.parse(row.payload) as Record<string, unknown> } : null;
 };
 
 /**
@@ -197,6 +208,10 @@ export type NextExtras = {
 	simplifySkip?: SimplifySkip | null;
 	/** Set when the task's latest verify approval is `body_only` (OPS-113): its head and whether HEAD moved since. */
 	bodyOnly?: BodyOnly | null;
+	/** Set on a `held_external` task: its latest hold. */
+	hold?: Hold | null;
+	/** Set after a release or reopen of a hold until a later run closes: ci runs again, also after a held ship. */
+	resumeCi?: boolean;
 };
 /** The head a `body_only` verify approved, and whether the worktree HEAD is another commit now. */
 type BodyOnly = { head: string; moved: boolean };
@@ -249,6 +264,9 @@ export function noProgress(ref: string, runs: RunRow[], marker: number): string 
 		return null;
 	return `no progress: ${b.stage} closed ${b.status} twice at ${b.progress_head!.slice(0, 10)} with an unchanged spec (runs ${a.id} and ${b.id}). Run ${a.id}: "${headline(a.summary ?? "")}"; run ${b.id}: "${headline(b.summary ?? "")}". Restart after a fix with evf task reopen ${ref} --reason "<words>".`;
 }
+
+/** An evf run aborted by a restart or a hold never happened: the run before it decides the next stage. */
+const happened = (r: RunRow) => !(r.role === "evf" && r.status === "aborted");
 
 const ideaStage = /^idea\d$/;
 /** The first line of a summary with hex ids, digits and runs of space normalized, so two runs of one blocker compare equal. */
@@ -425,6 +443,13 @@ function nextStageOf(
 			round,
 			reason: noProgress(task.id, runs, reopenAfter) ?? `loop cap of ${LOOP_CAP} rounds hit`,
 		};
+	if (t.status === "held_external")
+		return {
+			stage: "held",
+			round,
+			...(extras.hold ? { cause: extras.hold.cause } : {}),
+			reason: extras.hold?.summary ?? `${task.id} is held`,
+		};
 	const open = runs.find((r) => r.status === "started");
 	if (open)
 		return {
@@ -450,8 +475,9 @@ function nextStageOf(
 		reason: named(reason),
 	});
 	// An evf run aborted by a restart never happened: the stage before it decides.
-	const last = runs.filter((r) => !(r.role === "evf" && r.status === "aborted")).at(-1);
+	const last = runs.filter(happened).at(-1);
 	if (!last) return t.spec ? go("implement", "spec stored, no runs yet") : go("plan", "no spec yet");
+	if (extras.resumeCi) return go("ci", "the hold ended");
 	const passed = last.status === "passed";
 	const again = (stage: Stage) => go(stage, `${last.stage} ${last.status}: ${last.summary ?? ""}`.trim());
 	// After a body_only verify the body stage runs at the reviewed head until its check passes; ci follows with no
@@ -475,11 +501,11 @@ function nextStageOf(
 				: go("plan", `plan ${last.status}${t.spec ? "" : ", no spec stored"}`);
 		case "implement": {
 			if (!passed) return again("implement");
-			// No commit since the last passed simplify: the simplifier would read the same diff, so pr runs next.
+			// Nothing for the simplifier to read since the last passed simplify (no diff, or only clean merges of main).
 			const skip = extras.simplifySkip;
 			return skip
 				? {
-						...go("pr", `simplify skipped: no change since simplify run ${skip.run} at ${skip.head.slice(0, 10)}`),
+						...go("pr", `simplify skipped: ${skipWhy(skip)} simplify run ${skip.run} at ${skip.head.slice(0, 10)}`),
 						skipped: skip,
 					}
 				: go("simplify", "implement passed");
@@ -489,7 +515,7 @@ function nextStageOf(
 		case "pr": {
 			if (passed) return go("verify", "PR open");
 			// The author checks failed at a head the simplifier committed: simplify fixes it, no round, no implement run.
-			const before = runs.filter((r) => r !== last && !(r.role === "evf" && r.status === "aborted")).at(-1);
+			const before = runs.filter((r) => r !== last && happened(r)).at(-1);
 			return before?.stage === "simplify" &&
 				before.status === "passed" &&
 				last.summary?.startsWith(AUTHOR_CHECKS_FAILED)
@@ -513,30 +539,86 @@ function nextStageOf(
 /**
  * The simplify skip (OPS-115), read only after a passed implement: the last passed simplify after the marker, when
  * `git diff --quiet <its head> HEAD` finds no change in the worktree. The PR body and the proofs live outside the
- * repository, so a round that changed only those has no diff. Null when simplify must run.
+ * repository, so a round that changed only those has no diff. Round 1 or later also skips after a passed implement whose
+ * commits since that head are only clean merges of main (OPS-135). Null when simplify must run.
  */
-function simplifySkipOf(runs: RunRow[], marker: number, wt: string | null): SimplifySkip | null {
+function simplifySkipOf(runs: RunRow[], marker: number, wt: string | null, round: number): SimplifySkip | null {
 	const simplify = runs
 		.filter((r) => r.id > marker && r.stage === "simplify" && r.status === "passed" && r.progress_head)
 		.at(-1);
 	if (!simplify || !wt || !existsSync(wt)) return null;
-	return gitOk(wt, "diff", "--quiet", simplify.progress_head!, "HEAD")
-		? { run: simplify.id, head: simplify.progress_head! }
-		: null;
+	const skip = { run: simplify.id, head: simplify.progress_head! };
+	if (gitOk(wt, "diff", "--quiet", skip.head, "HEAD")) return skip;
+	const last = runs.filter(happened).at(-1);
+	if (round < 1 || last?.stage !== "implement" || last.status !== "passed") return null;
+	return onlyCleanMerges(wt, skip.head) ? { ...skip, reason: "merge_only" } : null;
+}
+const skipWhy = (skip: SimplifySkip) => (skip.reason ? "only merges of main since" : "no change since");
+
+const MAIN_REF = "origin/main";
+/** The commits a range reaches past main, so a merge of main counts only the merge. Options go before the range. */
+const pastMain = (wt: string, from: string, ...options: string[]) =>
+	git(wt, "rev-list", ...options, `${from}..HEAD`, "--not", MAIN_REF).split("\n").filter(Boolean);
+/** At least one commit since `from`, all merges, none of them a conflict resolution, which a person wrote. */
+function onlyCleanMerges(wt: string, from: string): boolean {
+	gitOk(wt, "fetch", "--quiet", "origin", "main");
+	try {
+		if (pastMain(wt, from, "--no-merges").length) return false;
+		const merges = pastMain(wt, from, "--merges");
+		return merges.length > 0 && merges.every((m) => !git(wt, "show", "--cc", "--format=", m));
+	} catch (e) {
+		if (e instanceof EvfError) return false;
+		throw e;
+	}
+}
+
+/**
+ * What the round that just ended added, for `round_start`: non-merge commits and added plus deleted lines from the head
+ * of the previous `round_start` (the merge base with main for the first) to HEAD, without main's commits. Null when the
+ * worktree is gone or git cannot read the range.
+ */
+function roundCounts(db: DatabaseSync, taskId: number, wt: string | null) {
+	const none = { nonMergeCommits: null, diffLines: null };
+	if (!wt || !existsSync(wt)) return none;
+	gitOk(wt, "fetch", "--quiet", "origin", "main");
+	try {
+		const previous = db
+			.prepare(
+				"SELECT json_extract(payload, '$.head') AS head FROM events WHERE task_id = ? AND type = 'round_start' AND json_extract(payload, '$.head') IS NOT NULL ORDER BY id DESC LIMIT 1",
+			)
+			.get(taskId) as { head: string } | undefined;
+		const from = previous?.head ?? git(wt, "merge-base", MAIN_REF, "HEAD");
+		const numstat = git(wt, "log", "--no-merges", "--numstat", "--format=", `${from}..HEAD`, "--not", MAIN_REF);
+		return {
+			nonMergeCommits: pastMain(wt, from, "--no-merges").length,
+			// A binary file reports "-" for both counts and adds no lines.
+			diffLines: numstat
+				.split("\n")
+				.flatMap((line) => line.split("\t").slice(0, 2))
+				.reduce((sum, n) => sum + (Number(n) || 0), 0),
+		};
+	} catch (e) {
+		if (e instanceof EvfError) return none;
+		throw e;
+	}
 }
 
 /** The owner events a task's next stage depends on, read from the store, and the simplify skip read from its worktree. */
 const extrasOf = (db: DatabaseSync, taskId: number): NextExtras => {
-	const t = db.prepare("SELECT spec, worktree FROM tasks WHERE id = ?").get(taskId) as
-		{ spec: string | null; worktree: string | null } | undefined;
+	const t = db.prepare("SELECT spec, worktree, status, round FROM tasks WHERE id = ?").get(taskId) as
+		{ spec: string | null; worktree: string | null; status: string; round: number } | undefined;
+	const runs = runsOf(db, taskId);
+	const held = latestEvent(db, taskId, ["held_external"]);
 	return {
 		reopenReason: reopenReasonOf(db, taskId),
 		deferred: deferredEscalation(db, taskId),
 		choice: compareChoiceOf(db, taskId),
 		unfiled: unfiledSlices(db, taskId, t?.spec ?? null),
 		waitsFor: waitsFor(db, taskId),
-		simplifySkip: simplifySkipOf(runsOf(db, taskId), reopenMarker(db, taskId), t?.worktree ?? null),
+		simplifySkip: simplifySkipOf(runs, reopenMarker(db, taskId), t?.worktree ?? null, t?.round ?? 0),
 		bodyOnly: bodyOnlyOf(db, taskId, t?.worktree ?? null),
+		hold: t?.status === "held_external" ? (held?.payload as Hold | undefined) : null,
+		resumeCi: !!held && t?.status !== "held_external" && (runs.filter(happened).at(-1)?.id ?? 0) < (held.run_id ?? 0),
 	};
 };
 
@@ -690,7 +772,14 @@ function implementBodyFault(root: string, task: TaskRef, wt: string | null): str
 export function runDone(
 	root: string,
 	runId: number,
-	opts: { status: "passed" | "failed" | "body-only"; summaryFile?: string; summary?: string; closedBy?: "evf" },
+	opts: {
+		status: "passed" | "failed" | "body-only";
+		summaryFile?: string;
+		summary?: string;
+		closedBy?: "evf";
+		/** The PR head a ci or ship failure was read at; the worktree HEAD otherwise. */
+		failedHead?: string | null;
+	},
 ): number {
 	const db = openWorkDb(root);
 	try {
@@ -825,7 +914,15 @@ export function runDone(
 					summary: `${r.ref} hit the loop cap after ${r.stage} failed: ${first}`,
 				});
 				escalated = `loop cap ${LOOP_CAP} hit after ${r.stage} failed. ${first}`;
-			}
+			} else
+				record(db, r.task_id, runId, "round_start", {
+					cause: "this_pr" satisfies FailureClass,
+					...roundCounts(db, r.task_id, r.worktree),
+					round,
+					stage: r.stage,
+					head: opts.failedHead ?? head,
+					summary: `round ${round} starts after ${r.stage} failed: ${first}`,
+				});
 		} else {
 			db.prepare("UPDATE tasks SET updated_at = ? WHERE id = ?").run(now(), r.task_id);
 			if (reviewedBefore && status === "failed")
@@ -995,7 +1092,10 @@ export function taskPick(root: string, task: TaskRef, idea: number, ownerApprova
 	}
 }
 
-/** The coordinator's answer to an escalation: leave `escalated` and mark the run id after which failures count again. */
+/**
+ * The coordinator's answer to an escalation or a hold: leave the status and mark the run id after which failures count
+ * again. After a hold ci runs again, and a check that still fails at that head with main green starts a round.
+ */
 export function taskReopen(root: string, task: TaskRef, reason: string): number {
 	if (process.env.EVF_RUN)
 		fail("A seat cannot reopen its own escalation: the coordinator runs evf task reopen from a human shell.");
@@ -1005,7 +1105,8 @@ export function taskReopen(root: string, task: TaskRef, reason: string): number 
 	try {
 		const t = findTask(db, task);
 		if (!t) fail(`${task.id} has no task row, so there is nothing to reopen.`);
-		if (t.status !== "escalated") fail(`${t.ref} is ${t.status}, not escalated: only an escalated task reopens.`);
+		if (t.status !== "escalated" && t.status !== "held_external")
+			fail(`${t.ref} is ${t.status}, not escalated or held: only an escalated or held task reopens.`);
 		const status = t.pr_number ? "pr_open" : "active";
 		const { m: afterRun } = db.prepare("SELECT COALESCE(MAX(id), 0) AS m FROM runs WHERE task_id = ?").get(t.id) as {
 			m: number;
@@ -1013,7 +1114,7 @@ export function taskReopen(root: string, task: TaskRef, reason: string): number 
 		db.prepare("UPDATE tasks SET status = ?, updated_at = ? WHERE id = ?").run(status, now(), t.id);
 		record(db, t.id, null, "reopen", {
 			reason: reason.trim(),
-			from: "escalated",
+			from: t.status,
 			to: status,
 			round: t.round,
 			after_run: afterRun,
@@ -1531,6 +1632,8 @@ export type DriveTiming = {
 	 * after the second. The abort that reaches RETRY_CAP escalates at once and does not wait. Unset means no wait.
 	 */
 	abortBackoffMs?: number;
+	/** How often a drive looks at a held task again. */
+	holdPollMs: number;
 };
 const DRIVE_TIMING: DriveTiming = {
 	waitMs: 6 * 60 * 60_000,
@@ -1539,6 +1642,7 @@ const DRIVE_TIMING: DriveTiming = {
 	ciWaitMs: 40 * 60_000,
 	ciPollMs: 30_000,
 	abortBackoffMs: 30_000,
+	holdPollMs: 60_000,
 };
 
 type Outcome = { status: "passed" | "failed"; summary: string };
@@ -1609,6 +1713,171 @@ function ciStage(root: string, t: TaskRow, wt: string, timing: DriveTiming): Out
 				summary: `Required CI is not green after ${Math.round(timing.ciWaitMs / 60_000)} min: ${waiting}`,
 			};
 		sleep(timing.ciPollMs);
+	}
+}
+
+/** How evf routes a ci or ship failure: a new round for the PR's own code, a hold for what a seat cannot change. */
+export type FailureClass = "this_pr" | HoldCause;
+type Failure = { cause: FailureClass; checks: string[]; head: string | null };
+
+/** The PR head GitHub reports, or the worktree HEAD when GitHub does not answer. */
+function prHead(cwd: string, pr: number): string | null {
+	const r = run("gh", ["pr", "view", String(pr), "--json", "headRefOid"], { cwd });
+	try {
+		const head = (JSON.parse(r.stdout) as { headRefOid?: unknown }).headRefOid;
+		if (typeof head === "string" && head) return head;
+	} catch {
+		// Falls through to the worktree.
+	}
+	const local = run("git", ["rev-parse", "HEAD"], { cwd });
+	return local.code === 0 ? local.stdout.trim() : null;
+}
+
+/** Every check the PR head reports, not only the required ones. Null when GitHub gives no list. */
+function reportedChecks(cwd: string, pr: number): Array<{ name: string; bucket: string }> | null {
+	const r = run("gh", ["pr", "checks", String(pr), "--json", "name,bucket"], { cwd });
+	try {
+		const checks: unknown = JSON.parse(r.stdout);
+		return Array.isArray(checks) ? checks : null;
+	} catch {
+		return null;
+	}
+}
+
+const MAIN_COMMITS_READ = 10;
+const FAILED_ON_MAIN = new Set(["failure", "timed_out", "startup_failure", "error"]);
+const PASSED_ON_MAIN = new Set(["success", "neutral"]);
+/**
+ * The names whose latest finished result on main is a failure. It walks back from main's newest commit, so a run in
+ * progress does not hide the last result. A cancelled or skipped run is no result. It throws when GitHub does not answer.
+ */
+function failingOnMain(cwd: string, repo: string, base: string, names: string[]): string[] {
+	const read = (path: string): unknown => JSON.parse(ghRead(cwd, path));
+	const commits = read(`repos/${repo}/commits?sha=${base}&per_page=${MAIN_COMMITS_READ}`);
+	if (!Array.isArray(commits)) fail(`The commits of ${base} are unreadable.`);
+	const failing: string[] = [];
+	const open = new Set(names);
+	for (const commit of commits as Array<{ sha: string }>) {
+		if (!open.size) break;
+		const runs = read(`repos/${repo}/commits/${commit.sha}/check-runs?per_page=100`) as {
+			check_runs?: Array<{ name: string; conclusion: string | null }>;
+		};
+		const statuses = read(`repos/${repo}/commits/${commit.sha}/status`) as {
+			statuses?: Array<{ context: string; state: string }>;
+		};
+		if (!Array.isArray(runs.check_runs) || !Array.isArray(statuses.statuses))
+			fail(`The checks of ${base} at ${commit.sha} are unreadable.`);
+		const results = [
+			...runs.check_runs.map((c) => [c.name, c.conclusion] as const),
+			...statuses.statuses.map((c) => [c.context, c.state] as const),
+		];
+		for (const name of [...open]) {
+			const mine = results.filter(([n]) => n === name).map(([, result]) => result ?? "");
+			if (mine.some((result) => FAILED_ON_MAIN.has(result))) failing.push(name);
+			else if (!mine.some((result) => PASSED_ON_MAIN.has(result))) continue;
+			open.delete(name);
+		}
+	}
+	return failing;
+}
+function ghRead(cwd: string, path: string): string {
+	const r = run("gh", ["api", path], { cwd });
+	if (r.code !== 0) fail(`gh api ${path} failed: ${(r.stderr || r.stdout).trim()}`);
+	return r.stdout;
+}
+
+/** The head of the task's previous ci or ship failure after the reopen marker. Undefined when it has none. */
+function previousFailureHead(db: DatabaseSync, taskId: number): string | null | undefined {
+	const row = db
+		.prepare(
+			"SELECT json_extract(payload, '$.head') AS head FROM events WHERE task_id = ? AND run_id > ? AND (type = 'held_external' OR (type = 'round_start' AND json_extract(payload, '$.stage') IN ('ci', 'ship'))) ORDER BY id DESC LIMIT 1",
+		)
+		.get(taskId, reopenMarker(db, taskId)) as { head: string | null } | undefined;
+	return row?.head;
+}
+
+/**
+ * Classify a failed ci or ship by the checks on the PR head now. `this_pr` when a seat can act on it: a conflict with
+ * main, required checks all green, no failing check anywhere, or a required check red only on this PR at a new head. An
+ * unreadable GitHub gives `this_pr`, the behavior before OPS-135. Several failing checks with any `this_pr` one are
+ * `this_pr`: a seat has work to do, and the next ci classifies what is left.
+ */
+function classifyFailure(db: DatabaseSync, root: string, t: TaskRow, wt: string): Failure {
+	const cwd = existsSync(wt) ? wt : root;
+	const pr = t.pr_number;
+	if (!pr) return { cause: "this_pr", checks: [], head: null };
+	const head = prHead(cwd, pr);
+	const thisPr = (checks: string[] = []): Failure => ({ cause: "this_pr", checks, head });
+	try {
+		if (conflicting(cwd, pr)) return thisPr();
+		const repo = nameWithOwner(cwd),
+			base = loadConfig(root).baseBranch,
+			required = requiredCheckNames(cwd, repo, base),
+			ci = requiredCi(cwd, pr, required);
+		if (!ci.failed.length) {
+			if (!ci.missing.length && !ci.pending.length) return thisPr();
+			const outside = (reportedChecks(cwd, pr) ?? [])
+				.filter((c) => !required.includes(c.name) && (c.bucket === "fail" || c.bucket === "cancel"))
+				.map((c) => c.name);
+			return outside.length ? { cause: "external", checks: [...new Set(outside)], head } : thisPr();
+		}
+		const onMain = failingOnMain(cwd, repo, base, ci.failed);
+		const sameHead = !!head && previousFailureHead(db, t.id) === head;
+		if (!sameHead && ci.failed.some((name) => !onMain.includes(name))) return thisPr(ci.failed);
+		return { cause: onMain.length ? "main" : "external", checks: ci.failed, head };
+	} catch (e) {
+		if (e instanceof EvfError || e instanceof SyntaxError) return thisPr();
+		throw e;
+	}
+}
+
+const WAY_OUT: Record<HoldCause, string> = {
+	main: "It resumes when they no longer fail on main.",
+	external: "It resumes when the PR head moves or they no longer fail.",
+};
+/** The failure is not the PR's: close the run as if it never happened, hold the task and tell the coordinator once. */
+function holdTask(db: DatabaseSync, t: TaskRow, runId: number, stage: Stage, cause: HoldCause, f: Failure): void {
+	const names = f.checks.join(", ");
+	const summary = `${t.ref} held (${cause}): ${names} at ${f.head?.slice(0, 10) ?? "an unknown head"}; no seat and no round`;
+	db.prepare("UPDATE runs SET status = 'aborted', ended_at = ?, summary = ? WHERE id = ?").run(now(), summary, runId);
+	fillRunUsage(db, runId);
+	record(db, t.id, runId, "stage_end", { stage, status: "aborted", summary });
+	db.prepare("UPDATE tasks SET status = 'held_external', updated_at = ? WHERE id = ?").run(now(), t.id);
+	record(db, t.id, runId, "held_external", { cause, checks: f.checks, head: f.head, summary });
+	notify(
+		`${t.ref} held: ${cause}`,
+		`${summary}. ${WAY_OUT[cause]} To overrule: bin/evf task reopen ${t.ref} --reason "<words>"`,
+	);
+}
+
+/**
+ * Why a hold ends, or null while its cause stands or GitHub does not answer. A check that no longer fails on main needs
+ * main's fix on the PR head, so the branch updates first; a failed update is left for ci to report.
+ */
+function holdRelease(root: string, t: TaskRow, wt: string, hold: Hold): string | null {
+	const cwd = existsSync(wt) ? wt : root;
+	const cfg = loadConfig(root);
+	try {
+		if (hold.cause === "main") {
+			if (failingOnMain(cwd, nameWithOwner(cwd), cfg.baseBranch, hold.checks).length) return null;
+			const update = run("gh", ["pr", "update-branch", String(t.pr_number)], { cwd });
+			const updated =
+				update.code === 0 &&
+				existsSync(wt) &&
+				gitOk(wt, "fetch", "--quiet", cfg.remote, parseTask(t.ref).branch) &&
+				gitOk(wt, "merge", "--quiet", "--ff-only", "FETCH_HEAD");
+			return `${hold.checks.join(", ")} no longer fail on main; ${updated ? "the branch includes main" : "the branch update failed"}`;
+		}
+		const head = prHead(cwd, t.pr_number!);
+		if (head && head !== hold.head) return `the PR head moved to ${head.slice(0, 10)}`;
+		const checks = reportedChecks(cwd, t.pr_number!);
+		if (!checks) return null;
+		const failing = (name: string) =>
+			checks.some((c) => c.name === name && ["fail", "cancel", "skipping"].includes(c.bucket));
+		return hold.checks.some(failing) ? null : `${hold.checks.join(", ")} no longer fail on the PR head`;
+	} catch (e) {
+		if (e instanceof EvfError || e instanceof SyntaxError) return null;
+		throw e;
 	}
 }
 
@@ -1719,8 +1988,12 @@ function evfStage(
 		outcome = { status: "failed", summary: e.message };
 	}
 	// A merge inside the stage (markMerged) already closed this run as passed; only the stage_end event is left.
-	if (runStatus(db, runId) === "started") runDone(root, runId, outcome);
-	else record(db, t.id, runId, "stage_end", { stage, status: outcome.status, summary: outcome.summary });
+	if (runStatus(db, runId) === "started") {
+		const failure =
+			outcome.status === "failed" && (stage === "ci" || stage === "ship") ? classifyFailure(db, root, t, wt) : null;
+		if (failure && failure.cause !== "this_pr") holdTask(db, t, runId, stage, failure.cause, failure);
+		else runDone(root, runId, { ...outcome, failedHead: failure?.head });
+	} else record(db, t.id, runId, "stage_end", { stage, status: outcome.status, summary: outcome.summary });
 	return outcome.status;
 }
 
@@ -2004,6 +2277,19 @@ export function driveOnce(
 		if (!t) fail(`Store row ${pin} of ${task.id} does not exist; the drive stops.`);
 		const ended = driveEnd(db, root, t);
 		if (ended) return ended;
+		// A hold writes nothing while it stands, so polls and restarts add no event and no notification.
+		if (t.status === "held_external") {
+			const hold = latestEvent(db, t.id, ["held_external"])!.payload as Hold;
+			const released = holdRelease(root, t, worktreePath(root, loadConfig(root), task), hold);
+			if (!released) return { stage: "held", round: t.round, cause: hold.cause, reason: hold.summary };
+			db.prepare("UPDATE tasks SET status = 'pr_open', updated_at = ? WHERE id = ?").run(now(), t.id);
+			record(db, t.id, null, "hold_released", {
+				cause: hold.cause,
+				reason: released,
+				summary: `${task.id} hold released: ${released}`,
+			});
+			return { stage: "ci", round: t.round, reason: `hold released: ${released}` };
+		}
 		const runs = runsOf(db, t.id);
 		const pick = pickOf(db, t.id);
 		const marker = reopenMarker(db, t.id),
@@ -2024,10 +2310,11 @@ export function driveOnce(
 			record(db, t.id, null, "simplify_skipped", {
 				simplify_run: n.skipped.run,
 				head: n.skipped.head,
-				summary: `${task.id} skips simplify: no change since simplify run ${n.skipped.run} at ${n.skipped.head.slice(0, 10)}`,
+				...(n.skipped.reason ? { reason: n.skipped.reason } : {}),
+				summary: `${task.id} skips simplify: ${skipWhy(n.skipped)} simplify run ${n.skipped.run} at ${n.skipped.head.slice(0, 10)}`,
 			});
 		if (n.stage === "escalated" && t.status !== "escalated") escalate(db, t, null, n.reason);
-		if (n.stage === "done" || n.stage === "escalated" || n.stage === "blocked") return n;
+		if (n.stage === "done" || n.stage === "escalated" || n.stage === "blocked" || n.stage === "held") return n;
 		if (n.stage === "pick") {
 			if (t.status !== "awaiting_pick") {
 				db.prepare("UPDATE tasks SET status = 'awaiting_pick', updated_at = ? WHERE id = ?").run(now(), t.id);
@@ -2160,9 +2447,15 @@ export function drive(
 	try {
 		// The drive stays on this row to its end; a follow-up its merge releases waits for a fresh drive (OPS-123).
 		const pin = pinRow(root, task);
-		for (;;) {
+		for (let held = false; ; ) {
 			const n = driveOnce(root, task, timing, pin);
-			console.log(`${now()} drive ${task.id}: ${n.stage} (${n.reason})`);
+			// A hold logs once and keeps the drive alive; the pass that sees its cause clear resumes the task.
+			if (!(held && n.stage === "held")) console.log(`${now()} drive ${task.id}: ${n.stage} (${n.reason})`);
+			held = n.stage === "held";
+			if (held && !opts.once) {
+				sleep(timing.holdPollMs);
+				continue;
+			}
 			const stop = n.stage === "escalated" || n.stage === "blocked" || n.stage === "abandoned";
 			if (stop || n.stage === "done" || n.stage === "pick" || opts.once) return stop ? 2 : 0;
 		}

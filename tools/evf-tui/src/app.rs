@@ -54,12 +54,13 @@ pub enum Group {
     AwaitingOwner,
     NeedsPick,
     Escalated,
+    HeldExternal,
     #[default]
     Other,
 }
 
 impl Group {
-    pub const ALL: [Group; 12] = [
+    pub const ALL: [Group; 13] = [
         Group::Queued,
         Group::Plan,
         Group::Implement,
@@ -71,6 +72,7 @@ impl Group {
         Group::AwaitingOwner,
         Group::NeedsPick,
         Group::Escalated,
+        Group::HeldExternal,
         Group::Other,
     ];
 
@@ -87,6 +89,7 @@ impl Group {
             Group::AwaitingOwner => "awaiting owner",
             Group::NeedsPick => "needs pick",
             Group::Escalated => "escalated",
+            Group::HeldExternal => "held",
             Group::Other => "other",
         }
     }
@@ -189,6 +192,7 @@ fn gate_of(task: &store::Task) -> String {
     match task.status.as_str() {
         "awaiting_pick" => "pick".into(),
         "escalated" => "escalated".into(),
+        "held_external" => "held".into(),
         _ => match task.pr_number {
             Some(n) => format!("PR #{n}"),
             None if task.status == "pr_open" => "pr open".into(),
@@ -198,7 +202,10 @@ fn gate_of(task: &store::Task) -> String {
 }
 
 fn task_needs_you(task: &store::Task) -> bool {
-    matches!(task.status.as_str(), "awaiting_pick" | "escalated")
+    matches!(
+        task.status.as_str(),
+        "awaiting_pick" | "escalated" | "held_external"
+    )
 }
 
 /// A merged task shows in TABLE this long after its `merged` event, as `merged_24h` counts it. The time of the
@@ -253,6 +260,7 @@ pub fn group_of(snap: &store::Snapshot, task: &store::Task) -> Group {
         "new" | "specced" => return Group::Queued,
         "awaiting_pick" => return Group::NeedsPick,
         "escalated" => return Group::Escalated,
+        "held_external" => return Group::HeldExternal,
         _ => {}
     }
     if is_held(task, &seats_of(snap, task)) {
@@ -295,6 +303,7 @@ pub fn build_rows(snap: &store::Snapshot, herdr: &herdr::State, now: DateTime<Ut
                 match task.status.as_str() {
                     "awaiting_pick" => "needs pick",
                     "escalated" => "escalated",
+                    "held_external" => "held",
                     "pr_open" => "pr open",
                     "new" | "specced" => task.status.as_str(),
                     _ => "no seat",
@@ -414,6 +423,13 @@ pub fn attention(snap: &store::Snapshot, rows: &[Row]) -> Vec<Attention> {
             "escalated" => out.push(Attention {
                 what: format!("{label} escalated after {LOOP_CAP} rounds"),
                 command: format!("evf status {label}"),
+            }),
+            "held_external" => out.push(Attention {
+                what: format!(
+                    "{label} is held, cause {}: no seat, no round",
+                    task.hold_cause.as_deref().unwrap_or("unknown")
+                ),
+                command: format!("evf task reopen {label} --reason \"<words>\""),
             }),
             _ => {
                 if group_of(snap, task) == Group::AwaitingOwner {
@@ -1469,6 +1485,31 @@ mod tests {
         assert_eq!(summarize(&rows, &snap).needs_you, 1);
         let needs = attention(&snap, &rows);
         assert_eq!(needs[0].command, "herdr agent focus verifier-wp-102");
+    }
+
+    #[test]
+    fn a_held_task_is_an_attention_row_with_its_cause() {
+        let task = store::Task {
+            id: 7,
+            reference: Some("OPS-7".into()),
+            status: "held_external".into(),
+            pr_number: Some(77),
+            hold_cause: Some("main".into()),
+            ref_rows: 1,
+            ..Default::default()
+        };
+        let snap = store::Snapshot {
+            tasks: vec![task],
+            ..Default::default()
+        };
+        let rows = build_rows(&snap, &herdr_state(), now());
+        assert_eq!(rows[0].state, "held");
+        assert_eq!(rows[0].gate, "held");
+        assert!(rows[0].needs_you);
+        assert_eq!(group_of(&snap, &snap.tasks[0]), Group::HeldExternal);
+        let needs = attention(&snap, &rows);
+        assert_eq!(needs[0].what, "OPS-7 is held, cause main: no seat, no round");
+        assert_eq!(needs[0].command, "evf task reopen OPS-7 --reason \"<words>\"");
     }
 
     #[test]

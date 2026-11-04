@@ -32,6 +32,8 @@ pub struct Task {
     pub merged_at: Option<String>,
     /// Non-abandoned rows of the same ref, this one included (v_tasks.ref_rows, schema 5).
     pub ref_rows: i64,
+    /// Cause of the task's latest `held_external` event, or None (v_tasks.hold_cause, schema 13).
+    pub hold_cause: Option<String>,
     pub updated_at: String,
 }
 
@@ -181,6 +183,7 @@ fn task_row(r: &Row) -> rusqlite::Result<Task> {
         last_event: r.get("last_event").unwrap_or(None),
         merged_at: r.get("merged_at").unwrap_or(None),
         ref_rows: r.get("ref_rows").unwrap_or(1),
+        hold_cause: r.get("hold_cause").unwrap_or(None),
         updated_at: r.get("updated_at")?,
     })
 }
