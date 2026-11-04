@@ -239,7 +239,9 @@ export function ownerRecordOf(cwd: string, number: number): OwnerRecord | undefi
 	let comments: Array<{ body?: unknown }> = [];
 	try {
 		if (r.code !== 0) throw new Error();
-		comments = (JSON.parse(r.stdout) as unknown[][]).flat() as typeof comments;
+		const pages: unknown = JSON.parse(r.stdout);
+		if (!Array.isArray(pages) || pages.some((page) => !Array.isArray(page))) throw new Error();
+		comments = pages.flat();
 	} catch {
 		fail(`evf does not merge PR #${number}: its comments are unreadable, so evf cannot read an owner approval.`);
 	}

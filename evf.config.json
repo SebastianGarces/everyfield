@@ -1669,6 +1669,15 @@
 			],
 			"risk": "ordinary"
 		},
+		"OPS-128": {
+			"title": "evf refuses to merge when a PR's comments come back in an unexpected shape",
+			"owningPaths": ["tools/evf/merge.ts", "tools/evf/tests/"],
+			"checks": [
+				{ "name": "documentation", "run": ["python3", "docs/check-all.py"] },
+				{ "name": "workflow-regressions", "run": ["bin/evf", "test"] }
+			],
+			"risk": "ordinary"
+		},
 		"OPS-129": {
 			"title": "A stale owner record never leaves a PR stuck with no sanctioned way to merge",
 			"owningPaths": ["tools/evf/"],
