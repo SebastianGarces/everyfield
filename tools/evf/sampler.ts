@@ -347,7 +347,9 @@ export function startSampler(root: string): number {
 		console.log(holder === pid ? `Sampler started (pid ${pid}).` : `A sampler already runs (pid ${holder}).`);
 		return 0;
 	}
-	console.error(`The sampler (pid ${pid}) did not take its lock in ${waitMs / 1000} s. Is the home checkout's evf code current?`);
+	console.error(
+		`The sampler (pid ${pid}) did not take its lock in ${waitMs / 1000} s. Is the home checkout's evf code current?`,
+	);
 	return 1;
 }
 
