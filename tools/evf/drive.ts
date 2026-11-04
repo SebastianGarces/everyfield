@@ -1647,7 +1647,13 @@ const DRIVE_TIMING: DriveTiming = {
 	holdPollMs: 60_000,
 };
 
-type Outcome = { status: "passed" | "failed"; summary: string };
+type Outcome = {
+	status: "passed" | "failed";
+	summary: string;
+	/** The checks the ci stage read at its failure, so classifying it reads them no second time. */
+	read?: CheckRead;
+};
+type CheckRead = { required: string[]; ci: ReturnType<typeof requiredCi> };
 /**
  * The pr stage: run the author checks at the current head, then push and open or update the PR from the body the
  * implementer wrote, and remember its number. A simplifier commit moved the head, so the checks run here, not in a seat.
@@ -1697,7 +1703,11 @@ function ciStage(root: string, t: TaskRow, wt: string, timing: DriveTiming): Out
 	for (;;) {
 		const ci = requiredCi(wt, t.pr_number, required);
 		if (ci.failed.length)
-			return { status: "failed", summary: `Required CI failed on the PR head: ${ci.failed.join(", ")}` };
+			return {
+				status: "failed",
+				summary: `Required CI failed on the PR head: ${ci.failed.join(", ")}`,
+				read: { required, ci },
+			};
 		const waiting = [...ci.missing.map((n) => `${n} missing`), ...ci.pending.map((n) => `${n} pending`)].join(", ");
 		if (!waiting)
 			return {
@@ -1713,6 +1723,7 @@ function ciStage(root: string, t: TaskRow, wt: string, timing: DriveTiming): Out
 			return {
 				status: "failed",
 				summary: `Required CI is not green after ${Math.round(timing.ciWaitMs / 60_000)} min: ${waiting}`,
+				read: { required, ci },
 			};
 		sleep(timing.ciPollMs);
 	}
@@ -1804,7 +1815,7 @@ function previousFailureHead(db: DatabaseSync, taskId: number): string | null | 
  * unreadable GitHub gives `this_pr`, the behavior before OPS-135. Several failing checks with any `this_pr` one are
  * `this_pr`: a seat has work to do, and the next ci classifies what is left.
  */
-function classifyFailure(db: DatabaseSync, root: string, t: TaskRow, wt: string): Failure {
+function classifyFailure(db: DatabaseSync, root: string, t: TaskRow, wt: string, read?: CheckRead): Failure {
 	const cwd = existsSync(wt) ? wt : root;
 	const pr = t.pr_number;
 	if (!pr) return { cause: "this_pr", checks: [], head: null };
@@ -1814,8 +1825,8 @@ function classifyFailure(db: DatabaseSync, root: string, t: TaskRow, wt: string)
 		if (conflicting(cwd, pr)) return thisPr();
 		const repo = nameWithOwner(cwd),
 			base = loadConfig(root).baseBranch,
-			required = requiredCheckNames(cwd, repo, base),
-			ci = requiredCi(cwd, pr, required);
+			required = read?.required ?? requiredCheckNames(cwd, repo, base),
+			ci = read?.ci ?? requiredCi(cwd, pr, required);
 		if (!ci.failed.length) {
 			if (!ci.missing.length && !ci.pending.length) return thisPr();
 			const outside = (reportedChecks(cwd, pr) ?? [])
@@ -1992,9 +2003,11 @@ function evfStage(
 	// A merge inside the stage (markMerged) already closed this run as passed; only the stage_end event is left.
 	if (runStatus(db, runId) === "started") {
 		const failure =
-			outcome.status === "failed" && (stage === "ci" || stage === "ship") ? classifyFailure(db, root, t, wt) : null;
+			outcome.status === "failed" && (stage === "ci" || stage === "ship")
+				? classifyFailure(db, root, t, wt, outcome.read)
+				: null;
 		if (failure && failure.cause !== "this_pr") holdTask(db, t, runId, stage, failure.cause, failure);
-		else runDone(root, runId, { ...outcome, failedHead: failure?.head });
+		else runDone(root, runId, { status: outcome.status, summary: outcome.summary, failedHead: failure?.head });
 	} else record(db, t.id, runId, "stage_end", { stage, status: outcome.status, summary: outcome.summary });
 	return outcome.status;
 }
