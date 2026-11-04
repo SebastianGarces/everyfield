@@ -24,6 +24,7 @@ import {
 	type Config,
 	type TaskRef,
 } from "./lib.ts";
+import { runVerifier, stopSeat, verifierRefusal, type VerifierResult } from "./audit-verifier.ts";
 import { awaitLoad } from "./load.ts";
 import { acCriteria } from "./spec.ts";
 
@@ -553,7 +554,7 @@ function killGroup(child: ChildProcess, sig: NodeJS.Signals): void {
 }
 
 const activePath = (root: string) => join(evfDataDir(root), "audit", "active.json");
-type Active = { pid: number; tree: string; runtime: string };
+type Active = { pid: number; tree: string; runtime: string; review?: string };
 
 function alive(pid: number): boolean {
 	try {
@@ -616,6 +617,7 @@ function recoverAudits(root: string, cfg: Config): string[] {
 		removeTree(root, cfg, tree, runtime);
 		removed.push(tree);
 	}
+	if (active?.review) rmSync(active.review, { recursive: true, force: true });
 	rmSync(activePath(root), { force: true });
 	return removed;
 }
@@ -645,7 +647,7 @@ export function auditDoctorLines(root: string, db: DatabaseSync | null, now = ne
 }
 
 /** Plant one mutation in the tree and commit it on the detached HEAD, so a preview builds that exact tree. */
-function plant(tree: string, c: Candidate): void {
+function plant(tree: string, c: Candidate): string {
 	const path = join(tree, c.file);
 	if (c.operator === "removed-route") rmSync(path);
 	else {
@@ -669,6 +671,7 @@ function plant(tree: string, c: Candidate): void {
 		"-am",
 		`evf audit mutant ${c.id}`,
 	);
+	return git(tree, "rev-parse", "HEAD");
 }
 
 /** A file that fails to load, not an assertion, marks a mutant that does not build. */
@@ -783,6 +786,8 @@ type AuditOptions = {
 	seed?: number;
 	dryRun?: boolean;
 	ignoreLoad?: string;
+	/** OPS-124: after a killed or survived run, one verifier seat reviews the task's change with the bug in it. */
+	withVerifier?: boolean;
 	now?: Date;
 	tmpBase?: string;
 };
@@ -803,6 +808,11 @@ export async function audit(root: string, opts: AuditOptions = {}): Promise<numb
 	for (const tree of recoverAudits(root, cfg)) console.error(`evf audit: removed ${tree}, left by a stopped audit.`);
 	const db = openWorkDb(root);
 	try {
+		// The monthly limit holds before any test runs. A dry run starts no seat, so it is not limited.
+		if (opts.withVerifier && !opts.dryRun) {
+			const refusal = verifierRefusal(db, opts.now ?? new Date());
+			if (refusal) fail(refusal);
+		}
 		let target: AuditTarget;
 		if (opts.task) {
 			const t = targetOf(root, db, main, opts.task);
@@ -877,14 +887,28 @@ async function runAudit(
 	const pattern = caseGrep(target.markers),
 		plan = tests.map((file) => ({ file, pattern: target.marked.includes(file) ? pattern : null }));
 	let outcome: Outcome | "stopped" | "error" = "error",
-		filed: string | null = null;
+		filed: string | null = null,
+		verifier: VerifierResult | "dry-run" | "not run" = "not run",
+		saved = false;
+	const save = () => {
+		saved = true;
+		db.prepare("UPDATE audit_runs SET outcome = ?, tests = ?, filed_task = ?, ended_at = ? WHERE id = ?").run(
+			outcome,
+			JSON.stringify(rows),
+			filed,
+			new Date().toISOString(),
+			rowId,
+		);
+	};
 	const onSignal = () => {
 		if (stopping) return;
 		stopping = true;
 		console.error("evf audit: stopping; removing the audit worktree and preview.");
 		for (const child of live) killGroup(child, "SIGTERM");
+		stopSeat("SIGTERM");
 		setTimeout(() => {
 			for (const child of live) killGroup(child, "SIGKILL");
+			stopSeat("SIGKILL");
 		}, 5000).unref();
 	};
 	process.on("SIGTERM", onSignal);
@@ -918,7 +942,7 @@ async function runAudit(
 			fail(
 				`${target.ref} has no marked test: no test name on main carries AC:<marker>; the files carry the markers only outside test names.`,
 			);
-		plant(tree.path, c);
+		const mutantSha = plant(tree.path, c);
 		console.log(`evf audit: mutant ${c.id} planted.`);
 		const mutant = await runTests(root, cfg, tree, plan, browser, log);
 		mutant.results.forEach((r, i) => (rows[i]!.mutant = r.result));
@@ -933,25 +957,41 @@ async function runAudit(
 			`evf audit: outcome ${outcome}.${outcome === "killed" ? ` Failed on the mutant: ${killers.join(", ")}.` : outcome === "invalid" ? " The mutant did not build or start; it proves nothing." : ""}`,
 		);
 		if (outcome === "survived") filed = fileSurvivor(root, cfg, db, main, target, c, seed, rows, opts.dryRun ?? false);
+		if (opts.withVerifier && (outcome === "killed" || outcome === "survived")) {
+			// The test outcome and any filed task are final before the seat starts; a seat failure changes neither.
+			save();
+			removeTree(root, cfg, tree.path, tree.runtime);
+			verifier = await runVerifier({
+				root,
+				db,
+				rowId,
+				target,
+				planted: c,
+				mutant: mutantSha,
+				dryRun: opts.dryRun ?? false,
+				tmpBase: opts.tmpBase,
+				onFolder: (review) => {
+					const active = readActive(root);
+					if (active) writeFileSync(activePath(root), JSON.stringify({ ...active, review: review ?? undefined }));
+				},
+				stopped: () => stopping,
+			});
+			if (stopping) return 143;
+		}
 		return 0;
 	} catch (e) {
 		// Stopped is thrown only while stopping; the finally block records the outcome.
 		if (stopping) return 143;
 		throw e;
 	} finally {
-		if (stopping) outcome = "stopped";
+		if (stopping && !saved) outcome = "stopped";
 		removeTree(root, cfg, tree.path, tree.runtime);
 		rmSync(activePath(root), { force: true });
-		db.prepare("UPDATE audit_runs SET outcome = ?, tests = ?, filed_task = ?, ended_at = ? WHERE id = ?").run(
-			outcome,
-			JSON.stringify(rows),
-			filed,
-			new Date().toISOString(),
-			rowId,
-		);
+		if (!saved) save();
 		process.off("SIGTERM", onSignal);
 		process.off("SIGINT", onSignal);
 		stopping = false;
+		if (opts.withVerifier) console.log(`tests: ${outcome}, verifier: ${verifier}`);
 	}
 }
 

@@ -179,10 +179,12 @@ Escaped bugs (coordinator; local only, never in CI)
                                                               in evf verify needs a green soak of each changed test's bytes
 
 Upkeep
-  evf audit [--task <task>] [--mutation <id>] [--seed <n>] [--dry-run] [--ignore-load "<reason>"]
+  evf audit [--task <task>] [--mutation <id>] [--seed <n>] [--dry-run] [--with-verifier] [--ignore-load "<reason>"]
         monthly mutation audit of the answer key (OPS-116): plants one bug from a merged task's changed lines in a
         detached temporary worktree of main, runs the task's AC: tests and tests/ui/escaped/; outcome killed,
-        survived (files one OPS task), invalid or baseline-red. No model tokens, no push, no branch, no PR
+        survived (files one OPS task), invalid or baseline-red. No model tokens, no push, no branch, no PR.
+        --with-verifier then starts one fresh Opus 5.5 medium seat on the task's change with the bug in it (no PR) and
+        records found, missed or no-verdict; one found or missed result per 30 days (Sebastian's monthly Opus verify)
   evf audit --list [--task <task>]                           the mutation candidates of one merged task
   evf ci-tests                                              check integration test inclusion in CI
   evf test [Node test options]                               local tooling regressions on evf's Node
@@ -254,6 +256,7 @@ function main(argv: string[]): number | Promise<number> {
 		case "audit": {
 			const list = flag(args, "--list"),
 				dryRun = flag(args, "--dry-run"),
+				withVerifier = flag(args, "--with-verifier"),
 				task = option(args, "--task"),
 				mutation = option(args, "--mutation"),
 				seedArg = option(args, "--seed"),
@@ -261,8 +264,8 @@ function main(argv: string[]): number | Promise<number> {
 			const seed = seedArg === undefined ? undefined : Number(seedArg);
 			if (seed !== undefined && (!Number.isInteger(seed) || seed < 0))
 				throw new EvfError("--seed takes a whole number.");
-			if (args.length || (list && (mutation || seedArg || dryRun))) break;
-			return audit(root, { list, task, mutation, seed, dryRun, ignoreLoad });
+			if (args.length || (list && (mutation || seedArg || dryRun || withVerifier))) break;
+			return audit(root, { list, task, mutation, seed, dryRun, withVerifier, ignoreLoad });
 		}
 		case "doctor": {
 			const here = flag(args, "--here"),
