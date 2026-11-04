@@ -3514,7 +3514,7 @@ test("INV-document-templates-ship: a verified WP part that changes a template is
 		);
 		assert.deepEqual(mergeCalls(f), [], "no merge and no update-branch call");
 		assert.deepEqual(lines, [
-			`evf ship does not merge PR #77: it changes document-template paths (packages/reference/fixture.txt). The verifier passed it. Sebastian approves each document-template PR; after his approval in chat, run: bin/evf approve 77 --owner-approval "<his words>"`,
+			`evf ship does not merge PR #77: it changes document-template paths (packages/reference/fixture.txt). The verifier passed it. Sebastian approves each document-template PR for its exact head; after his approval in chat, run: bin/evf approve 77 --owner-approval "<his words>" --head ${head}`,
 		]);
 		assert.equal(existsSync(join(evfDataDir(f.root), "shipped", `${task.slug}.json`)), false, "nothing shipped yet");
 	} finally {
@@ -3710,7 +3710,12 @@ test("INV-document-templates-approve: with review and verified status it records
 		const { value } = capturedLog(() => inFakeCwd(f, () => approve(f.root, 77, { ownerApproval: words, head })));
 		assert.equal(value, 0);
 		const comment = callsWith(f, "pr", "comment")[0];
-		assert.equal(comment.body, `Approved by Sebastian at \`${head.slice(0, 10)}\`:\n\n> ${words}`);
+		assert.match(
+			comment.body,
+			new RegExp(
+				`^Approved by Sebastian at \`${head.slice(0, 10)}\`:\\n\\n> ${words}\\n\\nEVF-Owner: \\{"head":"${head}","quote":"${words}","at":"[^"]+"\\}$`,
+			),
+		);
 		const status = callsWith(f, "POST", `repos/test/private/statuses/${head}`);
 		assert.deepEqual(status.at(-1).args.slice(-2), ["-f", `description=Approved by Sebastian at ${head.slice(0, 10)}`]);
 		assert.deepEqual(callsWith(f, "pr", "merge")[0].args, [
