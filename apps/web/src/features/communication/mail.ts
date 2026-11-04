@@ -3,9 +3,10 @@ import "server-only";
 import { z } from "zod";
 
 import type { DeliveryTransport } from "@everyfield/domain/communication";
+import { mailRecipientAllowed, type MailEnv } from "@everyfield/domain/mail-recipients";
 import type { MailTransport } from "../../server/jobs/mail.ts";
 import { createResendTransport } from "../../server/jobs/resend.ts";
-import { captureAllowed, captureSilent, changeCaptured, record } from "./capture.ts";
+import { captureAllowed, captureSilent, changeCaptured, isCaptureId, record } from "./capture.ts";
 import { settleCaptured } from "./settle.ts";
 
 // Provider adapter for the Messages screens. A handoff is one batch call under the domain's idempotency key; a held
@@ -102,7 +103,6 @@ export function anticipateProvider(ready: MailReady): void {
 }
 
 function knownRefusal(ready: MailReady): boolean {
-	if (ready.apiKey === null) return false;
 	const domain = fromDomain(ready.keys.from);
 	if (reservedDomain(domain)) return true;
 	if (resendTestDomain(domain)) return false;
@@ -115,7 +115,7 @@ function knownRefusal(ready: MailReady): boolean {
 
 export type MailReady = {
 	keys: { encryptionKey: Uint8Array; addressKey: Uint8Array; from: string; origin: string };
-	/** The provider key, or null when a development or preview server records sends and delivers none. */
+	/** The provider key, or null when a development or preview server has none. Then every send is captured. */
 	apiKey: string | null;
 };
 
@@ -150,11 +150,16 @@ export function mailReady(): MailReady | null {
 }
 
 /**
- * The transport for queued one-by-one mail (church invitations): Resend with a provider key, else the dev capture
- * outbox. A capture records the email and answers accepted with its capture id; it never reaches a mailbox.
+ * The transport for queued one-by-one mail (church invitations): Resend with a provider key, which captures a recipient
+ * that is not approved, else the capture outbox. A capture records the email and answers accepted with its capture id;
+ * it never reaches a mailbox.
  */
-export function queuedMailTransport(ready: MailReady, request: typeof fetch = fetch): MailTransport {
-	if (ready.apiKey) return createResendTransport(ready.apiKey, request);
+export function queuedMailTransport(
+	ready: MailReady,
+	request: typeof fetch = fetch,
+	environment: MailEnv = process.env,
+): MailTransport {
+	if (ready.apiKey) return createResendTransport(ready.apiKey, request, environment);
 	return {
 		async send(payload) {
 			return { kind: "accepted", id: await record(payload) };
@@ -201,6 +206,7 @@ export function deliveryTransport(
 	request: typeof fetch = fetch,
 	/** Dev capture only: marks captured messages sent, as the provider callback would. */
 	settle: (ids: readonly string[]) => void = settleCaptured,
+	environment: MailEnv = process.env,
 ): DeliveryTransport {
 	const call = (path: string, init: RequestInit & { signal: AbortSignal }) =>
 		request(`https://api.resend.com${path}`, {
@@ -231,10 +237,11 @@ export function deliveryTransport(
 
 	/** One cancel or move by the email's own id. A refusal is checked against the email's current state. */
 	async function change(id: string, movedTo: string | null, signal: AbortSignal): Promise<"done" | "sent" | "unknown"> {
-		if (ready.apiKey === null) {
+		if (isCaptureId(id)) {
 			if (await captureSilent()) return "unknown";
 			return changeCaptured(id, movedTo);
 		}
+		if (ready.apiKey === null) return "unknown";
 		try {
 			const path = `/emails/${encodeURIComponent(id)}`;
 			const response = await call(
@@ -260,15 +267,42 @@ export function deliveryTransport(
 		signal: AbortSignal,
 	): Promise<Batch> {
 		if (key.length < 1 || key.length > 256) return { outcome: "refused" };
-		if (ready.apiKey === null) {
-			if (await captureSilent()) return { outcome: "unknown" };
-			const ids = await Promise.all(
-				messages.map((message) => record({ from: ready.keys.from, ...message }, scheduledAt)),
+		// The provider receives approved recipients only. Without a key nothing goes to the provider.
+		const isApproved = (message: Outgoing) => ready.apiKey !== null && mailRecipientAllowed(environment, message.to);
+		const approved = messages.filter(isApproved);
+		const captured = messages.filter((message) => !isApproved(message));
+		if (captured.length > 0 && (await captureSilent())) return { outcome: "unknown" };
+		const batch: Batch =
+			approved.length > 0 ? await postApproved(key, approved, scheduledAt, signal) : { outcome: "ids", ids: [] };
+		if (batch.outcome !== "ids") return batch;
+		// After the provider's ids: a refused or unknown batch leaves no capture that a retry would duplicate.
+		let captureIds: string[];
+		try {
+			captureIds = await Promise.all(
+				captured.map((message) => record({ from: ready.keys.from, ...message }, scheduledAt)),
 			);
-			// A held capture is not sent yet, so no sent callback follows it.
-			if (scheduledAt === null) settle(ids);
-			return { outcome: "ids", ids };
+		} catch {
+			return { outcome: "unknown" };
 		}
+		// A held capture is not sent yet, so no sent callback follows it.
+		if (captureIds.length > 0 && scheduledAt === null) settle(captureIds);
+		// Each id returns to its message's position. A provider answer with no id stays null.
+		let nextSent = 0;
+		let nextCaptured = 0;
+		return {
+			outcome: "ids",
+			ids: messages.map((message) =>
+				isApproved(message) ? (batch.ids[nextSent++] ?? null) : captureIds[nextCaptured++]!,
+			),
+		};
+	}
+
+	async function postApproved(
+		key: string,
+		messages: readonly Outgoing[],
+		scheduledAt: string | null,
+		signal: AbortSignal,
+	): Promise<Batch> {
 		// Reserved and unverified from-addresses are a confirmed provider refusal. Do not wait for that POST.
 		if (knownRefusal(ready)) return { outcome: "refused" };
 		const response = await call("/emails/batch", {

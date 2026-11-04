@@ -34,7 +34,8 @@ import { nextId } from "./ids.ts";
 import { escape, soak } from "./escape.ts";
 import { followUpsOfTask, dbMigrate, dbSeedProgress, events, goalsList, goalsSync, status, workDbPath } from "./db.ts";
 import { launch } from "./launch.ts";
-import { isRole, ROLES } from "./seats.ts";
+import { headless } from "./headless.ts";
+import { HEADLESS_ROLES, isHeadlessRole, isRole, ROLES } from "./seats.ts";
 import { hook, refocus, session, showSpec } from "./seat.ts";
 import { finishPane } from "./panes.ts";
 import { tui } from "./tui.ts";
@@ -60,6 +61,7 @@ import { driveWithSignals } from "./drive-signal.ts";
 import { timing } from "./timing.ts";
 import { qaDown, qaList, qaUp } from "./qa.ts";
 import { usageBackfill, usageReport } from "./usage.ts";
+import { ownerQueue, ownerQueueAnswer, ownerQueueAsk } from "./owner-queue.ts";
 
 const HELP = `evf: Everyfield v3 workflow CLI
 
@@ -130,6 +132,9 @@ State store (harness)
   evf goals sync | list                                       project goal and S-row missions from the plan docs
   evf status [--json] [<task>]                                tasks, seats, recent events and health from the store
   evf events [--since <time>] [--type <name>] [--task <task>] [--json]   every matching event in id order, with no row limit
+  evf owner-queue [--json]                                    what waits for Sebastian: PR, head, ask, age, blocked tasks; prints only, sends nothing
+  evf owner-queue ask <task> --kind parked                    add a PR no route recorded, with the task's PR number and known head
+  evf owner-queue answer <task>                               record the answer to an open item, such as a keep decision
   evf usage [--json] [<task>]                                 tokens and estimated cost by task, role, model and round (list prices; nothing is billed)
   evf usage --backfill                                        fill the usage columns of runs that have a readable transcript
   evf tui [--dry-run] [--once]                                live screen of every task, seat and event (tools/evf-tui,
@@ -139,6 +144,9 @@ Seats (harness)
   evf launch <task> --role <role> [--idea <n>] [--prompt-file <file>] [--dry-run] [--ignore-load "<reason>"]
         worktree + Herdr workspace + claude --agent evf:<role> with evf's session id; records the run.
         Roles: planner, implementer, ui, simplifier, verifier, ideator (with --idea), comparer, prototype-merger.
+  evf headless <task> --role coordinator|registration --prompt-file <file> [--model <id>] [--effort <level>]
+        a coordinator-launched claude -p session with a run row, so evf usage shows its cost; defaults claude-opus-5-5
+        and medium; the session's stdout passes through and its exit code is returned
   evf refocus <task>                                          the goal chain for a seat: ask, spec, proof rule (fits the hook limit; says what it cut)
   evf session                                                 this pane's Claude Code session id, for EVF-Author and EVF-Review
   evf hook <event>                                            Claude Code hook entry (session-start, path-guard, stop, session-end)
@@ -619,6 +627,15 @@ function main(argv: string[]): number | Promise<number> {
 			if (args.length > 1) break;
 			return status(root, { json, task: args[0] });
 		}
+		case "owner-queue": {
+			const json = flag(args, "--json"),
+				kind = option(args, "--kind");
+			if (args.length === 0 && kind === undefined) return ownerQueue(root, json);
+			if (json || args.length !== 2) break;
+			if (args[0] === "ask") return ownerQueueAsk(root, parseTask(args[1]), kind);
+			if (args[0] === "answer" && kind === undefined) return ownerQueueAnswer(root, parseTask(args[1]));
+			break;
+		}
 		case "usage": {
 			const backfill = flag(args, "--backfill"),
 				json = flag(args, "--json");
@@ -657,6 +674,16 @@ function main(argv: string[]): number | Promise<number> {
 				dryRun,
 				idea,
 			});
+		}
+		case "headless": {
+			const role = option(args, "--role"),
+				promptFile = option(args, "--prompt-file"),
+				model = option(args, "--model"),
+				effort = option(args, "--effort");
+			if (!isHeadlessRole(role)) throw new EvfError(`--role must be one of ${HEADLESS_ROLES.join(", ")}.`);
+			if (!promptFile || !existsSync(promptFile)) throw new EvfError("--prompt-file must name an existing file.");
+			if (args.length !== 1) break;
+			return headless(root, parseTask(args[0]), role, { promptFile, model, effort });
 		}
 		case "refocus":
 			if (args.length !== 1) break;

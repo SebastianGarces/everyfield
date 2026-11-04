@@ -16,7 +16,7 @@ import {refuse} from "../../../packages/domain/src/identity/invitation-core.ts";
 import {sessionId} from "../../../packages/contracts/src/common/index.ts";
 import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
 export const key = randomUUID;
-export async function fixture({ lockTimeout = "0" } = {}) {
+export async function fixture({ lockTimeout = "0", mailKeys = null } = {}) {
 	const source = new URL(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL ?? "about:blank");
 	const ci =
 		process.env.CI === "true" &&
@@ -38,7 +38,8 @@ export async function fixture({ lockTimeout = "0" } = {}) {
 	let mailFault = false;
 	// A real transport a test can put behind the recording one, so the email goes to a recorded email service.
 	let relay = null;
-	const addressKey = randomBytes(32);
+	const addressKey = mailKeys?.addressKey ?? randomBytes(32);
+	let runtimeUrl;
 	try {
 		await admin.execute(sql.raw(`CREATE SCHEMA ${schema}`));
 		await migrate(admin, schema);
@@ -52,6 +53,8 @@ export async function fixture({ lockTimeout = "0" } = {}) {
 		const runtime = new URL(source);
 		runtime.username = role;
 		runtime.password = password;
+		runtimeUrl = new URL(runtime);
+		runtimeUrl.searchParams.set("options", options);
 		db = createDatabase({
 			connectionString: runtime.href,
 			options: options + ` -c lock_timeout=${lockTimeout}`,
@@ -67,7 +70,7 @@ export async function fixture({ lockTimeout = "0" } = {}) {
 	const mail = createMailService({
 		db,
 		addressKey,
-		encryptionKey: randomBytes(32),
+		encryptionKey: mailKeys?.encryptionKey ?? randomBytes(32),
 		from: "invitations@example.test",
 		authorize: (tx, m) => authorizeInvitationMail(tx, m, hash),
 		transport: {
@@ -258,6 +261,8 @@ export async function fixture({ lockTimeout = "0" } = {}) {
 		native,
 		admin,
 		db,
+		/** The runtime login with this schema, for a mount that opens its own pool from the environment. */
+		runtimeUrl: runtimeUrl.href,
 		invitations,
 		seats: createSeatService(db),
 		mail,

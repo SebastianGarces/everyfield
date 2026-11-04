@@ -3,6 +3,7 @@
 	"private": true,
 	"type": "module",
 	"exports": {
+		"./mail-recipients": "./src/mail-recipients.ts",
 		"./early-access": "./src/early-access/index.ts",
 		"./early-access/contract": "./src/early-access/contract.ts",
 		"./operations": "./src/operations/index.ts",

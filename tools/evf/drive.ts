@@ -29,7 +29,9 @@ import {
 } from "./followups.ts";
 import { ideaWorktree, launch, LaunchAborted, LaunchLineTooLong, type LaunchTiming } from "./launch.ts";
 import { OWNER_VOID, requireCurrentCode, shipOnCurrentCode } from "./merge.ts";
-import { isOpus, validateOverride, type Role } from "./seats.ts";
+import { longRunCheck } from "./long-run.ts";
+import { noteOwnerAnswer, noteOwnerAsk } from "./owner-queue.ts";
+import { isHeadlessRole, isOpus, validateOverride, type Role } from "./seats.ts";
 import {
 	EvfError,
 	evfDataDir,
@@ -134,12 +136,15 @@ type RunRow = {
 
 const now = () => new Date().toISOString();
 const headline = (text: string, max = 160) => text.split("\n")[0]?.slice(0, max) ?? "";
+/** The runs of the stage machine. A coordinator or registration session has a row but no stage here (OPS-134). */
 const runsOf = (db: DatabaseSync, taskId: number): RunRow[] =>
-	db
-		.prepare(
-			"SELECT id, stage, status, role, round, summary, progress_head, progress_spec FROM runs WHERE task_id = ? ORDER BY started_at, id",
-		)
-		.all(taskId) as RunRow[];
+	(
+		db
+			.prepare(
+				"SELECT id, stage, status, role, round, summary, progress_head, progress_spec FROM runs WHERE task_id = ? ORDER BY started_at, id",
+			)
+			.all(taskId) as RunRow[]
+	).filter((r) => !isHeadlessRole(r.role));
 
 /** A task row for a ref the store does not know yet, so read commands can answer without writing. */
 const unknownTask = (task: TaskRef): TaskRow => ({
@@ -674,8 +679,15 @@ function notify(title: string, body: string): void {
 }
 
 /** The task stops here until Sebastian decides: status escalated, events, a Herdr notification. */
-function escalate(db: DatabaseSync, t: { id: number; ref: string }, runId: number | null, cause: string): void {
+function escalate(
+	db: DatabaseSync,
+	root: string,
+	t: { id: number; ref: string },
+	runId: number | null,
+	cause: string,
+): void {
 	db.prepare("UPDATE tasks SET status = 'escalated', updated_at = ? WHERE id = ?").run(now(), t.id);
+	noteOwnerAsk(db, root, t.id, "escalation");
 	record(db, t.id, runId, "escalation", { summary: `${t.ref} needs Sebastian: ${cause}` });
 	notify(`${t.ref} escalated`, cause);
 }
@@ -965,7 +977,7 @@ export function runDone(
 				escalated = "";
 			} else if (!working.length) escalated ||= pending;
 		}
-		if (escalated) escalate(db, { id: r.task_id, ref: r.ref }, runId, escalated);
+		if (escalated) escalate(db, root, { id: r.task_id, ref: r.ref }, runId, escalated);
 		console.log(
 			`run ${runId} (${r.stage}) closed ${opts.status === "body-only" ? "body-only" : status}${escalated ? `; ${r.ref} escalated` : ""}.`,
 		);
@@ -1096,6 +1108,7 @@ export function taskPick(root: string, task: TaskRef, idea: number, ownerApprova
 			head,
 			summary: `Sebastian picked idea ${idea}: ${ownerApproval.trim().slice(0, 120)}`,
 		});
+		noteOwnerAnswer(db, t.id);
 		console.log(`pick: ${t.ref} idea ${idea}${head ? ` at ${head.slice(0, 10)}` : ""}.`);
 		return 0;
 	} finally {
@@ -1131,6 +1144,7 @@ export function taskReopen(root: string, task: TaskRef, reason: string): number 
 			after_run: afterRun,
 			summary: `${t.ref} reopened to ${status}: ${reason.trim()}`,
 		});
+		noteOwnerAnswer(db, t.id);
 		console.log(`reopen: ${t.ref} is ${status}.`);
 		return 0;
 	} finally {
@@ -1176,6 +1190,7 @@ export function taskComparePassed(root: string, task: TaskRef, ownerApproval: st
 			after_run: afterRun,
 			summary: `${t.ref}: Sebastian chose to compare ideas ${all.filter((i) => i !== idea).join(" and ")} without ${why}`,
 		});
+		noteOwnerAnswer(db, t.id);
 		console.log(
 			`compare-passed: ${t.ref} compares ideas ${all.filter((i) => i !== idea).join(" and ")}; idea ${idea} is missing.`,
 		);
@@ -1228,6 +1243,7 @@ export function taskAbandon(root: string, task: TaskRef, opts: { id?: number; re
 			from: row.status,
 			summary: `${task.id} row ${row.id} abandoned (was ${row.status}): ${opts.reason.trim()}`,
 		});
+		noteOwnerAnswer(db, row.id);
 		const event = (
 			db.prepare("SELECT MAX(id) AS id FROM events WHERE task_id = ? AND type = 'abandon'").get(row.id) as {
 				id: number;
@@ -1643,6 +1659,8 @@ export type DriveTiming = {
 	 * after the second. The abort that reaches RETRY_CAP escalates at once and does not wait. Unset means no wait.
 	 */
 	abortBackoffMs?: number;
+	/** The present time of the long run check; tests fake it. Unset means the system clock. */
+	clock?: () => number;
 	/** How often a drive looks at a held task again. */
 	holdPollMs: number;
 };
@@ -2063,6 +2081,22 @@ function waitOnSeat(
 	}
 	const watchStart = Date.now(),
 		deadline = watchStart + timing.waitMs;
+	const idea = /^idea(\d)$/.exec(r.stage),
+		cfg = loadConfig(root),
+		agent = r.herdr_agent;
+	const longRun = longRunCheck(
+		db,
+		{
+			taskId: t.id,
+			ref: task.id,
+			runId,
+			agent,
+			worktree: idea ? ideaWorktree(root, cfg, task, Number(idea[1])) : worktreePath(root, cfg, task),
+		},
+		timing.clock ?? Date.now,
+		// `agent wait` never answers `working`: a slice that ends with the seat working is a timeout with empty stdout.
+		() => agentState(agent) === "working",
+	);
 	let turnSeen = false,
 		waitsLogged = 0;
 	for (let nudged = false; ;) {
@@ -2102,6 +2136,7 @@ function waitOnSeat(
 				abortGoneSeat(db, t, runId, r.herdr_agent, r.stage);
 				return;
 			}
+			longRun();
 			if (Date.now() >= deadline) {
 				runDone(root, runId, {
 					status: "failed",
@@ -2120,6 +2155,7 @@ function waitOnSeat(
 			do {
 				sleep(timing.seatPollMs);
 				if (runStatus(db, runId) !== "started") return;
+				longRun();
 			} while (agentState(r.herdr_agent) === "blocked");
 			// The prompt is gone: say so, or the last event keeps reading "blocked" for as long as the seat works.
 			record(db, t.id, runId, "unblocked", { summary: `${r.herdr_agent} resumed after a prompt` });
@@ -2208,7 +2244,7 @@ function launchOrLog(
 			const db = openWorkDb(root);
 			try {
 				const t = taskById(db, taskId)!;
-				if (t.status !== "escalated") escalate(db, t, null, e.message);
+				if (t.status !== "escalated") escalate(db, root, t, null, e.message);
 			} finally {
 				db.close();
 			}
@@ -2309,11 +2345,12 @@ export function driveOnce(
 				reason: n.skipped.reason,
 				summary: `${task.id} skips simplify: ${skipWhy(n.skipped)} simplify run ${n.skipped.run} at ${n.skipped.head.slice(0, 10)}`,
 			});
-		if (n.stage === "escalated" && t.status !== "escalated") escalate(db, t, null, n.reason);
+		if (n.stage === "escalated" && t.status !== "escalated") escalate(db, root, t, null, n.reason);
 		if (n.stage === "done" || n.stage === "escalated" || n.stage === "blocked") return n;
 		if (n.stage === "pick") {
 			if (t.status !== "awaiting_pick") {
 				db.prepare("UPDATE tasks SET status = 'awaiting_pick', updated_at = ? WHERE id = ?").run(now(), t.id);
+				noteOwnerAsk(db, root, t.id, "prototype_pick");
 				record(db, t.id, null, "awaiting_pick", {
 					summary: `${task.id}: comparison ready, waiting for Sebastian's pick`,
 				});

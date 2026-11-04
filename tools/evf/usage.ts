@@ -3,6 +3,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { openWorkDb, workDbPath } from "./db.ts";
+import { isHeadlessRole } from "./seats.ts";
 
 /**
  * Token usage and estimated cost per seat run (OPS-69). Numbers come only from the local Claude Code transcript of the
@@ -69,6 +70,9 @@ function transcriptFiles(session: string): string[] | null {
 	}
 	return null;
 }
+
+/** The session's main transcript, or null when none exists. */
+export const transcriptPath = (session: string): string | null => transcriptFiles(session)?.[0] ?? null;
 
 /**
  * Token totals per model for a session. Claude Code writes one line per content block, so a message's usage repeats
@@ -199,11 +203,13 @@ type RunRow = {
 	cost_est: number | null;
 };
 
-type Group = "build" | "review" | "prototype";
+type Group = "build" | "review" | "prototype" | "coordination";
 const BUILD_STAGES = ["plan", "implement", "simplify"];
 const REVIEW_STAGES = ["evidence", "verify", "body"];
 /** Build is plan, implement, ui and simplify in round 0; review and rework is the rest of the seat stages. */
 function groupOf(stage: string, round: number): Group | null {
+	// `evf headless` writes the role as the run's stage.
+	if (isHeadlessRole(stage)) return "coordination";
 	if (BUILD_STAGES.includes(stage)) return round === 0 ? "build" : "review";
 	if (REVIEW_STAGES.includes(stage)) return "review";
 	if (/^idea\d*$/.test(stage) || stage === "compare" || stage === "merge") return "prototype";
@@ -298,6 +304,7 @@ export function buildUsageReport(db: DatabaseSync, only?: string): UsageReport {
 					build: bucket(),
 					review: bucket(),
 					prototype: bucket(),
+					coordination: bucket(),
 					total: bucket(),
 				};
 				add(m[g], r);
@@ -324,7 +331,12 @@ export function buildUsageReport(db: DatabaseSync, only?: string): UsageReport {
 			.sort(([a], [b]) => a.localeCompare(b))
 			.map(([model, m]) => ({
 				model,
-				groups: { build: cell(m.build), review: cell(m.review), prototype: cell(m.prototype) },
+				groups: {
+					build: cell(m.build),
+					review: cell(m.review),
+					prototype: cell(m.prototype),
+					coordination: cell(m.coordination),
+				},
 				total: cell(m.total),
 			}));
 	return report;
@@ -352,6 +364,7 @@ export function renderUsageReport(r: UsageReport): string {
 			out.push(`    ${line("build (round 0 plan, implement, ui, simplify)", m.groups.build)}`);
 			out.push(`    ${line("review and rework (evidence, verify, round 1+ build stages)", m.groups.review)}`);
 			out.push(`    ${line("prototype", m.groups.prototype)}`);
+			out.push(`    ${line("coordinator and registration", m.groups.coordination)}`);
 			out.push(`    ${line("total", m.total)}`);
 		}
 	}
