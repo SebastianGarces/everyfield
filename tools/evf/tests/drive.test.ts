@@ -694,11 +694,15 @@ test("OPS-67-blocked: a blocked seat whose run closes ends the wait at once AC:O
 	const f = driveFixture();
 	try {
 		const id = openSeatRun(f, false);
-		scriptedHerdr(f, id, { waits: ["blocked"], gets: ["blocked"] });
+		// The script ends on its own, so a test that fell back to the real clock fails on its sleeps and does not hang.
+		scriptedHerdr(f, id, { waits: ["blocked", "close"], gets: ["blocked", "working"] });
 		const summary = f.file("closed.md", "Closed by someone else.");
 		// Someone else closes the run during the second poll interval.
+		let closed = false;
 		const clock = fakeClock((elapsed) => {
-			if (elapsed === 20) cli(f.root, {}, "run", "done", String(id), "--status", "failed", "--summary-file", summary);
+			if (closed || elapsed < 20) return;
+			closed = true;
+			cli(f.root, {}, "run", "done", String(id), "--status", "failed", "--summary-file", summary);
 		});
 		driveOnce(f.root, f.task, { ...TIMING, clock, waitKillMs: SLOW_CHILD_MS });
 		assert.ok(clock.elapsed() < 5000);
