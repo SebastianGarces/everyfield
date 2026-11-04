@@ -25,7 +25,6 @@ const CATEGORIES = [
 	"meeting_announcement",
 	"meeting_reminder",
 	"planter_digest",
-	"oversight_digest",
 	"relationship_milestone",
 	"sharing_milestone",
 	"phase_milestone",

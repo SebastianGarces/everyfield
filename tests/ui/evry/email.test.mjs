@@ -158,7 +158,7 @@ for (const [engine, launcher] of ENGINES) {
 			const text = await card.innerText();
 			assert.match(text, /Subject\s*Sunday's interest meeting/);
 			assert.match(text, /Launch team/);
-			assert.match(text, /5 people will get it/);
+			assert.match(text, /5 with an email address/);
 			assert.match(text, /1 with no email address/);
 			assert.match(text, /interest meeting on Sunday at 4 pm/);
 			assert.match(text, /Nothing is sent/);
@@ -408,38 +408,60 @@ for (const [engine, launcher] of ENGINES) {
 			const d = await database();
 			const panel = await openEvry(page, context);
 			const message = await scheduledFriday(panel, d);
-			const card = await ask(panel, "Cancel the Friday email", "Review before cancelling");
-			// Another window moves the send time in Messages before the approval.
-			await d.rows(
-				d.sql`UPDATE communication SET scheduled_at=scheduled_at+interval '1 hour',revision=revision+1 WHERE id=${message.id}::uuid`,
-			);
+			const card = await ask(panel, "Move the Friday email to Saturday at 9am", "Review the new time");
+			// Another window cancels the message in Messages before the approval.
+			const messagesPage = await context.newPage();
+			await messagesPage.goto(`${BASE}/communication`);
+			await hydrated(messagesPage);
+			await messagesPage.getByRole("button", { name: "Cancel scheduled email", exact: true }).first().click();
+			await messagesPage
+				.getByRole("alertdialog")
+				.getByRole("button", { name: /Cancel scheduled email|Yes/ })
+				.click();
+			await messagesPage.getByText("Cancelled").first().waitFor({ timeout: 90_000 });
+			await messagesPage.close();
+			assert.equal((await d.mail(message.id)).filter((m) => m.state === "cancelled").length, 3);
+			const moved = await d.message();
 			await approve(card);
 			const stale = panel.getByRole("region", { name: "Message changed" }).last();
 			await stale.waitFor({ timeout: 90_000 });
 			assert.match(await stale.innerText(), /This message changed since the review/);
 			assert.equal(await stale.getByRole("button", { name: "Approve" }).isDisabled(), true);
-			assert.deepEqual(
-				(await d.mail(message.id)).filter((m) => m.state === "cancelled"),
-				[],
-				"nothing changed",
-			);
-			const calls = (await d.mail(message.id)).filter((m) => m.state === "accepted").length;
-			assert.equal(calls, 3);
-			// Reviewing again reads the message as it is now.
+			assert.equal((await d.message()).scheduled_at, moved.scheduled_at, "the time did not move");
+			// Reviewing again finds nothing left to move, and says so.
 			await stale.getByRole("button", { name: "Review again" }).click();
-			await panel.getByRole("region", { name: "Review before cancelling" }).last().waitFor({ timeout: 90_000 });
+			await stale.getByText(/no longer waiting to send/).waitFor({ timeout: 90_000 });
 		}));
 
 	test(`AC:WP-028-10 (${engine}): Evry finds the Friday email for "cancel the Friday email"; a member has no email write`, () =>
 		run(async (page, context) => {
 			const d = await database();
 			const panel = await openEvry(page, context);
-			const message = await scheduledFriday(panel, d);
+			const friday = await scheduledFriday(panel, d);
 			// A second message on another day must not be picked.
+			const draft = await ask(
+				panel,
+				"Draft an email to the launch team inviting them to Sunday's interest meeting.",
+				"Review before saving",
+			);
+			await approve(draft);
+			await panel.getByRole("region", { name: "Saved" }).nth(1).waitFor({ timeout: 90_000 });
+			const later = await ask(panel, "Schedule it for Saturday at 9am", "Review before scheduling");
+			await approve(later);
+			await done(panel, /^Scheduled for Sat, 9:00 AM/).waitFor({ timeout: 90_000 });
+			const saturday = await d.message();
+			assert.notEqual(saturday.id, friday.id);
 			const card = await ask(panel, "Cancel the Friday email", "Review before cancelling");
 			assert.match(await card.innerText(), /Subject\s*Sunday's interest meeting/);
-			assert.equal(await card.getByRole("button", { name: "Approve" }).isEnabled(), true);
-			assert.ok(message.id);
+			assert.match(await card.innerText(), /Was set for\s*Fri,/);
+			await approve(card);
+			await done(panel, "Cancelled").waitFor({ timeout: 90_000 });
+			assert.equal((await d.mail(friday.id)).filter((m) => m.state === "cancelled").length, 3, "the Friday email");
+			assert.equal(
+				(await d.mail(saturday.id)).filter((m) => m.state === "cancelled").length,
+				0,
+				"not the Saturday one",
+			);
 			// A member can read the church's messages through Evry but is offered no email write.
 			const memberPage = await context.newPage();
 			await signIn(context, member());

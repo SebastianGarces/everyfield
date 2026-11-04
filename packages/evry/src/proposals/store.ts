@@ -10,7 +10,9 @@ import { currentAuthority } from "../context/authority.ts";
 import { EvryRefusal } from "../context/errors.ts";
 import { liveJob } from "../runtime/job.ts";
 import { fence, type RunLease } from "../runtime/run-store.ts";
+import { mailReport } from "@everyfield/contracts/communication";
 import { COMMUNICATION_COMMANDS } from "../adapters/communication/commands/index.ts";
+import { untouchedMail } from "../adapters/communication/reads/index.ts";
 import { PEOPLE_COMMANDS } from "../adapters/people/commands/index.ts";
 import type { MailPort, ReviewedWrite } from "./types.ts";
 
@@ -53,12 +55,14 @@ const owned = (actor: EvryActor) => sql`${mine(actor)} AND ${currentAuthority(ac
 const readable = (actor: EvryActor) =>
 	sql`${mine(actor)} AND ${liveRead({ session: actor.session, owner: actor.owner, seatId: actor.seatId ?? undefined }, true)}`;
 /**
- * A pending review of a message whose saved revision is no longer the one the review showed: it was edited, moved,
- * cancelled or sent in Messages since. It can only be reviewed again.
+ * A review of a message that is no longer what the review showed. An edit or a time change moves the revision. A cancel
+ * or a sent email changes only its mail rows, so the review also saved how many recipients the email service held with
+ * no cancel asked. It can only be reviewed again.
  */
-const staleMessage = (alias: string) =>
+export const staleMessage = (alias: string) =>
 	`coalesce(${alias}.review->'target'->>'kind'='message' AND NOT EXISTS(SELECT FROM communication t WHERE t.id=(${alias}.review->'target'->>'id')::uuid
-		AND t.plant_id=${alias}.tenant_id AND t.revision=(${alias}.input->>'expectedRevision')::bigint),false)`;
+		AND t.plant_id=${alias}.tenant_id AND t.revision=(${alias}.input->>'expectedRevision')::bigint
+		AND ${untouchedMail("t")}=(${alias}.input->>'untouched')::int),false)`;
 const digest = (revision: SQL) =>
 	sql`encode(sha256(convert_to(jsonb_build_object('operation',p.operation,'revision',${revision},'args',r.args,'review',r.review)::text,'UTF8')),'hex')`;
 const expiry = sql`clock_timestamp()+make_interval(mins=>${REVIEW_MINUTES})`;
@@ -119,7 +123,7 @@ export const proposalRow = z.object({
 			revision: z.string().optional(),
 			code: z.string().optional(),
 			/** What the email service confirmed, for a write that reaches it (adapters/communication). */
-			report: z.record(z.string(), z.unknown()).optional(),
+			report: mailReport.optional(),
 		})
 		.nullable(),
 	now: z.coerce.date(),
@@ -350,7 +354,7 @@ export async function retryUnresolvedEffects(db: Database, actor: EvryActor, id:
 	const job = randomUUID();
 	const r = await db.execute(sql`
 		WITH x AS (
-			UPDATE proposal p SET outcome=NULL,receipt=NULL,job_id=${job}::uuid,approved_session_id=${actor.session}::uuid,updated_at=clock_timestamp()
+			UPDATE proposal p SET outcome=NULL,receipt=CASE WHEN p.receipt ? 'reached' THEN p.receipt END,job_id=${job}::uuid,approved_session_id=${actor.session}::uuid,updated_at=clock_timestamp()
 			FROM (SELECT id,job_id FROM proposal WHERE id=${proposalId}::uuid) old
 			WHERE p.id=old.id AND ${owned(actor)} AND p.state='approved' AND p.expires_at>clock_timestamp()
 				AND (p.outcome='failed' OR (p.outcome IS NULL AND NOT EXISTS(SELECT FROM job j WHERE j.id=p.job_id AND ${sql.raw(liveJob("j"))})))
@@ -391,7 +395,11 @@ export async function checkProposal(db: Database, actor: EvryActor, id: string, 
 		db,
 		actor.authority,
 		stored.rows[0]!.input,
-		{ effectKey: `evry:${proposalId}:${current.revision}`, checkKey: `evry:${proposalId}:check:${randomUUID()}` },
+		{
+			effectKey: `evry:${proposalId}:${current.revision}`,
+			checkKey: `evry:${proposalId}:check:${randomUUID()}`,
+			revision: current.receipt?.revision,
+		},
 		mail,
 	);
 	if ("refused" in result) throw new EvryRefusal("review_closed");

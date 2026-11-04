@@ -3,6 +3,7 @@
 // approved revision are separate (REQ-EVR-033). The card derives what it shows from that review and the time the
 // approval has left on the server's clock; the browser's clock is never read.
 
+import type { MailReport, RecipientOutcome } from "@everyfield/contracts/communication";
 import { SOURCE_LABEL, STAGE_LABEL, type SourceValue, type StageValue } from "../../people/model.ts";
 import type { ProjectedError } from "../conversation/model.ts";
 
@@ -20,21 +21,6 @@ export type Operation =
 	| "communication.replaceScheduledReviewed";
 
 export type Change = { field: string; before: unknown; after: unknown };
-
-/** What the email service confirmed for an email effect, as the executor saved it (adapters/communication). */
-export type MailReport = {
-	kind: "schedule" | "reschedule" | "cancel" | "replace";
-	confirmation: "confirmed" | "not_confirmed" | "refused" | "none" | "blocked";
-	scheduledAt?: string;
-	accepted?: number;
-	refused?: number;
-	unknown?: number;
-	cancelled?: number;
-	sent?: number;
-	open?: number;
-	replaced?: boolean;
-	people?: { name: string; outcome: string }[];
-};
 
 /** evry.readReview, as the API sends it (packages/evry/src/proposals/store.ts, proposalRow). */
 export type Review = {
@@ -196,10 +182,9 @@ const sendTime = ({ at, zone }: SendTime) =>
 export const sendTimeFull = ({ at, zone }: SendTime) =>
 	`${part(at, zone, { weekday: "short", month: "short", day: "numeric" })}, ${part(at, zone, { hour: "numeric", minute: "2-digit" })} ${zoneName(at, zone, "short")} (${zoneName(at, zone, "long")})`;
 /** A saved report's time on the card, in the church's zone. */
-export const reportTime = (report: MailReport, review: Review) => {
+export const reportTime = (at: string, review: Review) => {
 	const zone = (sendTimeOf(review, "after") ?? sendTimeOf(review, "before"))?.zone;
-	const at = report.scheduledAt;
-	return zone && at ? sendTime({ at, zone }) : null;
+	return zone ? sendTime({ at, zone }) : null;
 };
 
 /** The church-local wall time the Evry tools take back for a review again: "2026-11-06T09:00". */
@@ -236,7 +221,7 @@ type AudienceValue = {
 };
 const audienceOf = (value: unknown): AudienceValue | null =>
 	value && typeof value === "object" && "recipients" in value ? (value as AudienceValue) : null;
-/** "Launch team and 2 people · 4 can get it, 1 has no email address". */
+/** "Launch team, 2 people · 4 with an email address · 1 with no email address". */
 export function audienceText(value: unknown) {
 	const a = audienceOf(value);
 	if (!a) return null;
@@ -245,7 +230,7 @@ export function audienceText(value: unknown) {
 		...(a.teamIds.length ? [`${a.teamIds.length} ${a.teamIds.length === 1 ? "team" : "teams"}`] : []),
 		...(a.personIds.length ? [`${a.personIds.length} ${a.personIds.length === 1 ? "person" : "people"}`] : []),
 	].join(", ");
-	const count = `${a.recipients} ${a.recipients === 1 ? "person" : "people"} will get it`;
+	const count = `${a.recipients} with an email address`;
 	return [who || "Nobody chosen", count, a.noAddress ? `${a.noAddress} with no email address` : null]
 		.filter(Boolean)
 		.join(" · ");
@@ -284,30 +269,43 @@ export function mailHead(
 	if (phase !== "completed") return null;
 	const report = review.receipt?.report;
 	if (!report) return { title: "Saved", tone: "green" };
-	const at = reportTime(report, review);
 	switch (report.kind) {
 		case "schedule":
-			if (report.confirmation === "confirmed") return { title: `Scheduled for ${at}`, tone: "green" };
+			if (report.confirmation === "confirmed")
+				return { title: `Scheduled for ${reportTime(report.scheduledAt, review)}`, tone: "green" };
 			return report.confirmation === "refused"
 				? { title: "Not scheduled", tone: "magenta" }
 				: { title: "Schedule not confirmed", tone: "amber" };
 		case "reschedule":
-			return report.confirmation === "confirmed"
-				? { title: `Moved to ${at}`, tone: "green" }
-				: { title: "Time change not confirmed", tone: "amber" };
-		case "cancel":
 			if (report.confirmation === "confirmed")
-				return { title: report.sent ? "Cancelled, some already sent" : "Cancelled", tone: "green" };
-			return report.confirmation === "none"
-				? { title: "Nothing to cancel", tone: "gray" }
-				: { title: "Cancel not confirmed", tone: "amber" };
+				return { title: `Moved to ${reportTime(report.scheduledAt, review)}`, tone: "green" };
+			if (report.confirmation === "not_confirmed") return { title: "Time change not confirmed", tone: "amber" };
+			return report.sent
+				? { title: "Not moved: already sent", tone: "magenta" }
+				: { title: "Nothing to move", tone: "gray" };
+		case "cancel":
+			if (report.confirmation === "not_confirmed") return { title: "Cancel not confirmed", tone: "amber" };
+			if (report.cancelled) return { title: report.sent ? "Cancelled, some already sent" : "Cancelled", tone: "green" };
+			return report.sent
+				? { title: "Not cancelled: already sent", tone: "magenta" }
+				: { title: "Nothing to cancel", tone: "gray" };
 		case "replace":
-			if (report.replaced) return { title: `Replacement scheduled for ${at}`, tone: "green" };
+			return report.confirmation === "confirmed"
+				? { title: `Replacement scheduled for ${reportTime(report.scheduledAt, review)}`, tone: "green" }
+				: { title: "Replacement not confirmed", tone: "amber" };
+		case "replace_stopped":
 			return report.confirmation === "not_confirmed"
 				? { title: "Not replaced: cancel not confirmed", tone: "amber" }
 				: { title: "Not replaced", tone: "magenta" };
 	}
 }
+
+/** What became of one recipient of the old send, in plain words. */
+export const RECIPIENT_OUTCOME: Record<RecipientOutcome, string> = {
+	cancelled: "Cancelled",
+	sent: "Already sent",
+	open: "Cancel not confirmed",
+};
 
 /** The one sentence under the target that says what happens to them beyond the listed fields. */
 export function consequence(review: Review): string | null {
@@ -466,8 +464,28 @@ export function mailRefusalText(code: string | undefined): string {
 			return "This server cannot reach the email service, so nothing was done.";
 		case "not_found":
 			return "This message is no longer in Messages, so nothing was done.";
+		case "rsvp_needs_meeting":
+			return "This email has an RSVP link and no open meeting, so nothing was done.";
 		default:
 			return "Messages refused this change, so nothing was done.";
+	}
+}
+
+/** Why a step after the first one stopped, in a sentence that follows what did happen. */
+export function stoppedReason(code: string | undefined): string {
+	switch (code) {
+		case "stale_review":
+			return "The recipients or the content changed since the review.";
+		case "schedule_window_exceeded":
+			return "The send time is no longer within the next 30 days.";
+		case "rsvp_needs_meeting":
+			return "This email has an RSVP link, and its meeting is no longer open.";
+		case "access_denied":
+			return "Your seat no longer allows email changes.";
+		case "provider_refused":
+			return "The email service refused every recipient.";
+		default:
+			return "Messages refused the next step.";
 	}
 }
 
@@ -486,8 +504,10 @@ export function actionNotice(error: ProjectedError | "lost", mail = false): stri
 			return "The uploaded photo is no longer available, so nothing was saved.";
 		case "invalid_input":
 			return "Some values are not valid. Check them, then update the review.";
-		case "access_denied":
 		case "not_found":
+			if (mail) return "This message is no longer waiting to send, so there is nothing to review again.";
+			return "Your seat no longer allows this, so Evry can't show the result.";
+		case "access_denied":
 			// An earlier approval may already have run, so this says nothing about the change itself.
 			return "Your seat no longer allows this, so Evry can't show the result.";
 		default:

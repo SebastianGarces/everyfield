@@ -7,6 +7,6 @@ export {
 	type CommunicationReply,
 } from "./core.ts";
 export { communicationWriter } from "./writer.ts";
-export { audiencePeople, updatesOff } from "./audience.ts";
-export { mailAddressHash } from "./delivery.ts";
+export { audiencePeople, recipientsDigest, updatesOff } from "./audience.ts";
+export { BATCH_LIMIT, mailAddressHash } from "./delivery.ts";
 export type { DeliveryKeys, DeliveryTransport } from "./delivery.ts";

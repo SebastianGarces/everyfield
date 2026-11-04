@@ -1,12 +1,15 @@
 import { ArrowRight02Icon } from "@hugeicons/core-free-icons";
 import { cn, Icon } from "@everyfield/ui/foundations";
+import type { MailReport } from "@everyfield/contracts/communication";
 import type { ReactNode } from "react";
 import {
 	audienceText,
 	LEFT_OUT_REASON,
+	RECIPIENT_OUTCOME,
 	reportTime,
 	sendTimeFull,
 	sendTimeOf,
+	stoppedReason,
 	type Change,
 	type Review,
 } from "./model.ts";
@@ -190,67 +193,111 @@ function Tally({ items }: { items: [string, number][] }) {
 	);
 }
 
+const noun = (n: number) => (n === 1 ? "recipient" : "recipients");
+
+/** The accepted, refused and unknown counts of one request to the email service. */
+const handoffTally = (report: { accepted: number; refused: number; unknown: number }) => (
+	<Tally
+		items={[
+			["Accepted", report.accepted],
+			["Refused", report.refused],
+			["Unknown", report.unknown],
+		]}
+	/>
+);
+const cancelTally = (report: { cancelled: number; sent: number; open: number }) => (
+	<Tally
+		items={[
+			["Cancelled", report.cancelled],
+			["Already sent", report.sent],
+			["Not confirmed", report.open],
+		]}
+	/>
+);
+
+/** What the email service said about one request, in words that never go past what it said. */
+function handoffText(report: { confirmation: string; unknown: number }, at: string | null): string {
+	return report.confirmation === "confirmed"
+		? `The email service accepted these for ${at}. Accepted does not mean the email arrived. The email service reports what happens next.`
+		: `The email service has not answered for ${report.unknown} ${noun(report.unknown)}, so they may or may not get this email at ${at}. Check again asks it again.`;
+}
+
+function stoppedText(report: Extract<MailReport, { kind: "replace_stopped" }>) {
+	if (report.confirmation === "not_confirmed")
+		return "Nothing new was scheduled. The email service did not confirm every cancel. Check again asks it again.";
+	if (report.confirmation === "blocked")
+		return "Nothing new was scheduled. At least one recipient could not be cancelled because the email already went out.";
+	return `The old send is cancelled, and the new one was not scheduled. ${stoppedReason(report.code)} Nobody gets this email unless you schedule it again.`;
+}
+
 /** The saved result of an email effect, in the words of what the email service said. */
 export function MailResult({ review }: { review: Review }) {
 	const report = review.receipt?.report;
 	if (!report) return null;
-	const at = reportTime(report, review);
 	let lines: ReactNode = null;
-	if (report.kind === "schedule" || (report.kind === "replace" && report.replaced))
-		lines = (
-			<>
-				<Tally
-					items={[
-						["Accepted", report.accepted ?? 0],
-						["Refused", report.refused ?? 0],
-						["Unknown", report.unknown ?? 0],
-					]}
-				/>
-				<p className="text-text-2">
-					The email service accepted these for {at}. Accepted does not mean the email arrived. The email service reports
-					what happens next.
-				</p>
-			</>
-		);
-	if (report.kind === "reschedule")
-		lines =
-			report.confirmation === "confirmed" ? (
-				<p>The email service confirmed {at}. The earlier time is gone.</p>
-			) : (
-				<p>
-					The email service did not confirm the new time for {report.open ?? 0}{" "}
-					{report.open === 1 ? "recipient" : "recipients"}. They may still hold the earlier time. Check again asks it
-					again.
-				</p>
+	switch (report.kind) {
+		case "schedule":
+			lines = (
+				<>
+					{handoffTally(report)}
+					<p className="text-text-2">
+						{report.confirmation === "refused"
+							? report.code
+								? `Messages shows this message as scheduled, but the email service was not asked, so no email is on its way. ${stoppedReason(report.code)}`
+								: "The email service refused every recipient, so no email is on its way. Messages shows what it refused."
+							: handoffText(report, reportTime(report.scheduledAt, review))}
+					</p>
+				</>
 			);
-	if (report.kind === "cancel")
-		lines = (
-			<>
-				<Tally
-					items={[
-						["Cancelled", report.cancelled ?? 0],
-						["Already sent", report.sent ?? 0],
-						["Not confirmed", report.open ?? 0],
-					]}
-				/>
-				{report.confirmation === "not_confirmed" ? (
-					<p className="text-text-2">Not confirmed is not cancelled. Check again asks the email service again.</p>
-				) : null}
-			</>
-		);
-	if (report.kind === "replace" && !report.replaced)
-		lines = (
-			<>
-				<p>
-					Nothing new was scheduled.{" "}
-					{report.confirmation === "not_confirmed"
-						? "The email service did not confirm every cancel. Check again asks it again."
-						: "At least one recipient could not be cancelled because the email already went out."}
-				</p>
-				{report.people?.length ? (
-					<People label="Affected" names={report.people.map((p) => ({ name: p.name, note: p.outcome }))} />
-				) : null}
-			</>
-		);
+			break;
+		case "replace":
+			lines = (
+				<>
+					{handoffTally(report)}
+					<p className="text-text-2">
+						The old send is cancelled. {handoffText(report, reportTime(report.scheduledAt, review))}
+					</p>
+				</>
+			);
+			break;
+		case "reschedule":
+			lines =
+				report.confirmation === "confirmed" ? (
+					<p>
+						The email service confirmed {reportTime(report.scheduledAt, review)}. The earlier time is gone.
+						{report.sent ? ` ${report.sent} ${noun(report.sent)} had already been sent.` : ""}
+					</p>
+				) : report.confirmation === "none" ? (
+					<p>The email service holds no recipient of this message, so no time changed.</p>
+				) : (
+					<p>
+						The email service did not confirm the new time for {report.open} {noun(report.open)}. They may still hold
+						the earlier time. Check again asks it again.
+					</p>
+				);
+			break;
+		case "cancel":
+			lines = (
+				<>
+					{cancelTally(report)}
+					{report.confirmation === "not_confirmed" ? (
+						<p className="text-text-2">Not confirmed is not cancelled. Check again asks the email service again.</p>
+					) : null}
+				</>
+			);
+			break;
+		case "replace_stopped":
+			lines = (
+				<>
+					{cancelTally(report)}
+					<p>{stoppedText(report)}</p>
+					<People
+						label="Affected"
+						names={report.people.map((p) => ({ name: p.name, note: RECIPIENT_OUTCOME[p.outcome] }))}
+					/>
+				</>
+			);
+			break;
+	}
 	return <div className="flex flex-col gap-2 rounded-md bg-surface-2 px-3 py-2.5 text-sm">{lines}</div>;
 }

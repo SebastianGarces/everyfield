@@ -7,7 +7,7 @@ import type { TaskReminders } from "@everyfield/domain/tasks";
 import { owner, sessionId } from "@everyfield/contracts/common";
 import { z } from "zod";
 import { EvryRefusal } from "../context/errors.ts";
-import { REVIEWED_WRITES } from "../proposals/store.ts";
+import { REVIEWED_WRITES, staleMessage } from "../proposals/store.ts";
 import type { EffectDone, MailPort, ReviewedWrite } from "../proposals/types.ts";
 
 /** The executor's claim on one evry_effect job, as the WP-031 queue issued it. Only the current claim may publish. */
@@ -44,6 +44,8 @@ async function holdPublicationLocks(tx: Transaction, lease: EffectLease) {
 
 const locked = z.object({
 	id: z.uuid(),
+	stale: z.boolean(),
+	reached: z.boolean(),
 	account_id: z.uuid(),
 	tenant_id: z.uuid(),
 	context_kind: z.enum(["account", "plant", "sending_church", "sending_network"]),
@@ -102,7 +104,8 @@ export async function executeProposal(
 		const first = await db.transaction(async (tx): Promise<EffectOutcome | Reach> => {
 			const r = await tx.execute(sql`
 				SELECT p.id,p.account_id,p.tenant_id,c.context_kind,p.operation,p.revision,p.input,p.state,p.outcome,p.approved_session_id,
-					p.expires_at<=clock_timestamp() AS expired,${fence(lease)} AS fenced
+					p.expires_at<=clock_timestamp() AS expired,${fence(lease)} AS fenced,
+					${sql.raw(staleMessage("p"))} AS stale,coalesce((p.receipt->>'reached')::boolean,false) AS reached
 				FROM proposal p JOIN conversation c ON c.id=p.conversation_id JOIN job j ON j.id=p.job_id AND j.tenant_id=p.tenant_id
 				WHERE p.job_id=${lease.jobId}::uuid AND p.tenant_id=${lease.tenantId}::uuid FOR UPDATE OF p FOR SHARE OF j`);
 			if (!r.rows.length) return "lost";
@@ -125,10 +128,22 @@ export async function executeProposal(
 			// A write that reaches the email service cannot run without it; nothing has changed yet.
 			if (write.reach && !mail) throw new Refused("mail_unavailable");
 			const effectKey = `evry:${p.id}:${p.revision}`;
-			const result = await write.execute(tx, { session: session.data, selected }, p.input, effectKey, reminders);
+			const context = { session: session.data, selected };
+			// The same fact that refused the approval also stops an effect that waited in the queue. An effect that already
+			// started changed the message itself, so its retry replays by its keys instead.
+			if (!p.reached) {
+				if (p.stale) throw new Refused("revision_conflict");
+				const changed = await write.recheck?.(tx, context, p.input);
+				if (changed) throw new Refused(changed);
+			}
+			const result = await write.execute(tx, context, p.input, effectKey, reminders);
 			if ("refused" in result) throw new Refused(refusalCode(result.refused));
-			// The email service is called after this transaction commits, never inside it.
-			if (write.reach) return { write, authority: claimed.authority, input: p.input, effectKey, result, id: p.id };
+			// The email service is called after this transaction commits, never inside it. The saved mark tells a retry that
+			// this effect started.
+			if (write.reach) {
+				await tx.execute(sql`UPDATE proposal SET receipt='{"reached":true}'::jsonb WHERE id=${p.id}::uuid`);
+				return { write, authority: claimed.authority, input: p.input, effectKey, result, id: p.id };
+			}
 			// Publish only if the approval is still unexpired and this claim still current; the first read already holds
 			// the proposal and job locks. Otherwise the change and its audit row roll back with the transaction.
 			const published = await tx.execute(

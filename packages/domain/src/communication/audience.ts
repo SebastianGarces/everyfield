@@ -1,8 +1,9 @@
 import type { AudienceInput } from "@everyfield/contracts/communication";
 import { audienceResult } from "@everyfield/contracts/communication";
-import { notificationCategory } from "@everyfield/contracts/settings";
+import { defaultChannelEnabled, notificationCategory } from "@everyfield/contracts/settings";
 import { sql, type SQL } from "@everyfield/db/query";
 import { z } from "zod";
+import { hash } from "../operations/canonical.ts";
 
 const personRow = z.object({
 	id: z.uuid(),
@@ -112,21 +113,28 @@ export function reviewedParts(raw: unknown): { people: string[]; emails: string[
 	};
 }
 
-/** Update emails count as turned off when every email category the person's account can switch has been disabled. */
+/** The people and addresses of one resolved audience: a review saves it, and the schedule compares it. */
+export const recipientsDigest = (raw: unknown) => hash(reviewedParts(raw));
+
+/** The email categories a person can switch, each with its state for a person who never saved a choice. */
 const UPDATE_CATEGORIES = notificationCategory.options.filter((name) => name !== "wiki_upstream_review");
+const UPDATE_DEFAULTS = UPDATE_CATEGORIES.map((name) => defaultChannelEnabled(name, "email"));
 /**
- * True for a person whose linked account turned off update emails (every email category disabled). Planter email
- * skips them at handoff, and a review names them, so what a review shows is what the handoff does.
+ * True for a person whose linked account has every email category it can switch turned off, by the same rule Settings
+ * shows: a saved choice, else the default. Settings offers the oversight digest only to an account with an organization
+ * seat. Planter email skips these people at handoff, and a review names them, so a review shows what the handoff does.
  */
 export function updatesOff(person: SQL): SQL {
 	return sql`EXISTS (
 		SELECT 1 FROM person up WHERE up.id = ${person} AND up.linked_account_id IS NOT NULL
 		AND NOT EXISTS (
-			SELECT 1 FROM unnest(${sql.param(UPDATE_CATEGORIES)}::text[]) c(category)
-			WHERE NOT EXISTS (
-				SELECT 1 FROM notification_preference np
-				WHERE np.account_id = up.linked_account_id AND np.category = c.category AND np.channel = 'email' AND np.enabled = false
-			)
+			SELECT 1 FROM unnest(${sql.param(UPDATE_CATEGORIES)}::text[], ${sql.param(UPDATE_DEFAULTS)}::boolean[]) c(category, by_default)
+			LEFT JOIN notification_preference np
+				ON np.account_id = up.linked_account_id AND np.category = c.category AND np.channel = 'email'
+			WHERE coalesce(np.enabled, c.by_default)
+				AND (c.category <> 'oversight_digest' OR EXISTS (
+					SELECT 1 FROM seat s WHERE s.account_id = up.linked_account_id AND s.ended_at IS NULL AND s.organization_id IS NOT NULL
+				))
 		)
 	)`;
 }

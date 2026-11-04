@@ -31,7 +31,12 @@ const messageRow = z.object({
 });
 
 /** Recipients the email service still holds for message `c`: a cancel or a time change has something to act on. */
-export const held = sql`(SELECT count(*)::int FROM mail m WHERE m.tenant_id=c.plant_id AND m.logical_key LIKE 'communication/'||c.id||'/%' AND m.state IN ('accepted','unknown','dispatched'))`;
+const holding = (message: string) =>
+	`m.tenant_id=${message}.plant_id AND m.logical_key LIKE 'communication/'||${message}.id||'/%' AND m.state IN ('accepted','unknown','dispatched')`;
+export const held = sql.raw(`(SELECT count(*)::int FROM mail m WHERE ${holding("c")})`);
+/** Of those, the recipients with no cancel asked: a cancel or a sent email in Messages lowers it. */
+export const untouchedMail = (message: string) =>
+	`(SELECT count(*)::int FROM mail m WHERE ${holding(message)} AND m.cancel_requested_at IS NULL)`;
 
 const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 

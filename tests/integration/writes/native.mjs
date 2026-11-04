@@ -44,6 +44,8 @@ import { withSettingsWrite } from "../../../packages/domain/src/settings/index.t
 import { sectionOperations } from "../../../packages/domain/src/settings/sections.ts";
 import { sendOnboardingRelationships } from "../../../apps/web/src/server/jobs/notifications.ts";
 import { readPair, readRecords, readUnmerge } from "../../../apps/web/src/features/people/corrections/server.ts";
+import { listMessages } from "../../../packages/evry/src/adapters/communication/reads/index.ts";
+import { evryActor } from "../../../packages/evry/src/context/actor.ts";
 import { measure } from "./counter.mjs";
 
 // Exercise the outer request boundary too; the existing suites also cover tool producers and races.
@@ -52,6 +54,10 @@ try {
 	const s = await f.setup(),
 		actor = await f.actor(s.sender.session);
 	const run = (name, body) => measure("native.people." + name, () => withPeopleWrite(f.db, actor, body));
+	// The Evry read of drafts and scheduled messages: one statement in the read transaction, however many messages match.
+	await measure("communication.list", () =>
+		f.db.transaction((tx) => listMessages.invoke(tx, evryActor(actor), { state: "scheduled" })),
+	);
 	const createKey = randomUUID();
 	const created = await run("createPerson", (tx, ctx) =>
 		peopleWriter.createPerson(tx, ctx, { requestKey: createKey, input: { displayName: "Synthetic native" } }),

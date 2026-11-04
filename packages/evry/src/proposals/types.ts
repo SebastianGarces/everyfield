@@ -2,6 +2,7 @@ import type { Database, Transaction } from "@everyfield/db/client";
 import type { SQL } from "@everyfield/db/query";
 import type { RequestActor } from "@everyfield/domain/access";
 import type { DeliveryKeys, DeliveryTransport } from "@everyfield/domain/communication";
+import type { MailReport } from "@everyfield/contracts/communication";
 import type { PeopleContext } from "@everyfield/contracts/people";
 import type { TaskReminders } from "@everyfield/domain/tasks";
 import type { z } from "zod";
@@ -20,7 +21,7 @@ export type ReviewContext = { db: Pick<Database, "execute">; mail: MailPort | nu
  * The owning domain write's saved receipt, or the domain's refusal code. `report` is what the email service confirmed;
  * only a write that reaches the email service has one.
  */
-export type EffectDone = { receiptId: string; revision: string; report?: Record<string, unknown> };
+export type EffectDone = { receiptId: string; revision: string; report?: MailReport };
 export type EffectResult = EffectDone | { refused: string };
 
 /**
@@ -52,6 +53,11 @@ export type ReviewedWrite<I> = {
 		reminders: TaskReminders,
 	): Promise<EffectResult>;
 	/**
+	 * A fact the review froze that the proposal cannot compare in SQL. The executor runs it inside its transaction on an
+	 * effect's first run only, never on a retry of an effect that already started. Returns a refusal code, or null.
+	 */
+	recheck?(tx: Transaction, context: PeopleContext, args: unknown): Promise<string | null>;
+	/**
 	 * The second kind of effect: a step that calls the email service. The executor runs it after `execute` committed
 	 * and before it saves the outcome, never inside a transaction. It runs again, with the same keys, after a crash, so
 	 * each domain command it calls must replay (request key, stored provider key or confirmed answers).
@@ -72,7 +78,7 @@ export type ReviewedWrite<I> = {
 		db: Database,
 		authority: RequestActor,
 		args: unknown,
-		keys: { effectKey: string; checkKey: string },
+		keys: { effectKey: string; checkKey: string; revision: string | undefined },
 		mail: MailPort,
 	): Promise<EffectResult>;
 };

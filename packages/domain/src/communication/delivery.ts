@@ -17,7 +17,7 @@ import { z } from "zod";
 import { administers, deny, hash, parse, readReply, readerOf } from "./core.ts";
 import { meetingOpenSql, newRsvpToken, rsvpTokenDigest, rsvpTokenUpdate } from "../meetings/tokens.ts";
 
-const BATCH_LIMIT = 100;
+export const BATCH_LIMIT = 100;
 const CALL_TIMEOUT_MS = 10_000;
 
 /** `origin` is the deployment's app origin (the one Better Auth uses). RSVP links in invitations start with it. */
@@ -336,6 +336,7 @@ async function prepare(
 	mode: Mode,
 	/** The send time the email service holds for a scheduled handoff; null for send now. */
 	heldUntil: string | null,
+	leftOut: readonly string[],
 ): Promise<Prepared> {
 	const { found } = loaded;
 	if (found.request_id && found.provider_key && found.attempt_id) {
@@ -432,7 +433,7 @@ async function prepare(
 					i.payload, i.address, i.address_hash,
 					CASE WHEN EXISTS (
 						SELECT 1 FROM suppression s WHERE s.address_hash = i.address_hash AND s.cleared_at IS NULL
-					) OR ${updatesOff(sql`i.person`)} THEN 'refused' ELSE 'dispatched' END,
+					) OR ${updatesOff(sql`i.person`)} OR i.person = ANY(${sql.param(leftOut)}::uuid[]) THEN 'refused' ELSE 'dispatched' END,
 					clock_timestamp(), ${heldUntil}::timestamptz
 				FROM input i
 				JOIN gate g ON g.allowed
@@ -586,7 +587,7 @@ async function handoff(
 	const heldUntil = mode === "scheduled" ? opened.found.scheduled_at : null;
 	if (mode === "scheduled" && (!heldUntil || !scheduleAccepted(new Date(), new Date(heldUntil))))
 		deny("schedule_window_exceeded", { providerHandoffs: 0 });
-	const prepared = await prepare(db, actor, opened, ready, mode, heldUntil);
+	const prepared = await prepare(db, actor, opened, ready, mode, heldUntil, input.input.leftOut ?? []);
 	if (prepared.kind === "done") return dispatchValue(input.input.communicationId, prepared.members, 0, "failed");
 	const open = prepared.members.filter((row) => row.state === "dispatched" || row.state === "unknown");
 	if (!open.length) return dispatchValue(input.input.communicationId, prepared.members, 0, "accepted");
