@@ -12,6 +12,7 @@ const TITLE: Record<string, string> = {
 	"people.getHousehold": "Household",
 	"people.getHouseholdMembers": "Household members",
 	"evry.selectReturnedRows": "Selected people",
+	"communication.list": "Messages",
 };
 const HOUSEHOLD_LIST = "people.listHouseholds";
 const HOUSEHOLD_DETAIL = new Set(["people.getHousehold", "people.getHouseholdMembers"]);
@@ -32,7 +33,7 @@ export type RowView = {
 export type CardView = {
 	title: string;
 	summary: string;
-	icon: "person" | "people" | "household";
+	icon: "person" | "people" | "household" | "message";
 	rows: RowView[];
 	facts: string[];
 };
@@ -40,6 +41,15 @@ export type CardView = {
 function rowView(operation: string, row: SourceRow): RowView {
 	const { fields } = row;
 	const key = `${row.kind}:${row.id}`;
+	if (row.kind === "message")
+		return {
+			key,
+			name: row.label,
+			line: typeof fields.sendsAt === "string" ? `Sends ${fields.sendsAt}` : "Draft",
+			mark: null,
+			avatar: null,
+			href: null,
+		};
 	if (row.kind === "household") {
 		const city = typeof fields.city === "string" && fields.city ? fields.city : null;
 		const members = Number(fields.memberCount);
@@ -96,7 +106,12 @@ export function cardView(operation: string, result: SourceResult, originalTotal:
 	const households = operation === HOUSEHOLD_LIST;
 	const detail = HOUSEHOLD_DETAIL.has(operation);
 	const shown = result.rows.length;
-	const noun = households ? (["household", "households"] as const) : (["person", "people"] as const);
+	const messages = operation === "communication.list";
+	const noun = messages
+		? (["message", "messages"] as const)
+		: households
+			? (["household", "households"] as const)
+			: (["person", "people"] as const);
 	// A household read counts the people it names; the household's own row is the title of the card, not a person.
 	const counted = detail ? result.rows.filter((r) => r.kind === "person").length : shown;
 	const summary =
@@ -110,16 +125,18 @@ export function cardView(operation: string, result: SourceResult, originalTotal:
 	const facts: string[] = [];
 	if (result.status === "not_found" || !shown)
 		facts.push(
-			households || detail
-				? "No household in this church matches, or you can't see them."
-				: "No person in this church matches, or you can't see them.",
+			messages
+				? "No draft or scheduled message in this church matches."
+				: households || detail
+					? "No household in this church matches, or you can't see them."
+					: "No person in this church matches, or you can't see them.",
 		);
 	if (result.withheldRows)
 		facts.push(`${count(result.withheldRows, "row is", "rows are")} no longer available and not shown.`);
 	if (result.completeness === "partial")
 		facts.push(
 			result.next !== null
-				? `More ${households ? "households" : "people"} match. Ask Evry for page ${result.next}.`
+				? `More ${noun[1]} match. Ask Evry for page ${result.next}.`
 				: "Only the first matches are shown.",
 		);
 	if (operation === "evry.selectReturnedRows") {
@@ -128,7 +145,7 @@ export function cardView(operation: string, result: SourceResult, originalTotal:
 	return {
 		title: TITLE[operation] ?? "Records",
 		summary,
-		icon: households || detail ? "household" : shown > 1 ? "people" : "person",
+		icon: messages ? "message" : households || detail ? "household" : shown > 1 ? "people" : "person",
 		rows: result.rows.map((row) => rowView(operation, row)),
 		facts,
 	};
