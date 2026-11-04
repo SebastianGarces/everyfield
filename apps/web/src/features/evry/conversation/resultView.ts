@@ -1,3 +1,4 @@
+import { sendTimeShort } from "../review/model.ts";
 import type { SourceResult, SourceRow } from "./model.ts";
 
 // What a result card says, as plain data: the title, the count, the notes under the rows and, per row, its name, a short
@@ -45,7 +46,10 @@ function rowView(operation: string, row: SourceRow): RowView {
 		return {
 			key,
 			name: row.label,
-			line: typeof fields.sendsAt === "string" ? `Sends ${fields.sendsAt}` : "Draft",
+			line:
+				typeof fields.sendsAtInstant === "string" && typeof fields.zone === "string"
+					? `Sends ${sendTimeShort({ at: fields.sendsAtInstant, zone: fields.zone })}`
+					: "Draft",
 			mark: null,
 			avatar: null,
 			href: null,

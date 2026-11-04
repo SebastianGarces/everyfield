@@ -156,13 +156,9 @@ function evalModel(): LanguageModelV4 {
 type Proposal = { operation: string; input: any };
 /** One request, as the runtime asks it: the real system prompt, read tools and propose tool, up to five model steps. */
 async function converse(model: LanguageModelV4, text: string) {
-	const reads: { operation: string; input: any }[] = [];
 	const proposals: Proposal[] = [];
 	let n = 0;
-	const tools = readTools(owner, async (adapter, input) => {
-		reads.push({ operation: adapter.operation, input });
-		return answerList(input as never, ++n);
-	});
+	const tools = readTools(owner, async (_adapter, input) => answerList(input as never, ++n));
 	tools.propose_change = proposeChangeTool(owner, async (call) => {
 		proposals.push(call as Proposal);
 		return { proposalId: randomUUID(), status: "awaiting_approval", rows: [] };
@@ -185,7 +181,7 @@ async function converse(model: LanguageModelV4, text: string) {
 		maxOutputTokens: LIMITS.outputTokensPerCall,
 		onError: () => undefined,
 	});
-	return { reads, proposals, answer: await run.text };
+	return { proposals, answer: await run.text };
 }
 
 const SEND_OPERATIONS = /sendReviewed|dispatchAttempt|executeResend|retryProvenFailed/;

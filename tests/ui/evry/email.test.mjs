@@ -111,6 +111,8 @@ async function ask(panel, text, heading) {
 	await card.waitFor({ timeout: 120_000 });
 	return card;
 }
+/** The head icon of a card, to tell the confirmed tick from the alert. */
+const headIcon = (card) => card.locator("h3 svg").first().innerHTML();
 /** Approves the way a keyboard user does (Safari does not focus a button on a mouse click). */
 async function approve(card) {
 	await card.getByRole("button", { name: "Approve" }).focus();
@@ -394,6 +396,17 @@ for (const [engine, launcher] of ENGINES) {
 			const d = await database();
 			const panel = await openEvry(page, context);
 			const message = await scheduledFriday(panel, d);
+			const tick = await headIcon(done(panel, /^Scheduled for Fri/));
+			// Closing the review is not a cancel: the card never says the word the email service has not confirmed.
+			const dismissed = await ask(panel, "Cancel the Friday email", "Review before cancelling");
+			await dismissed.getByRole("button", { name: "Close review" }).click();
+			const closed = done(panel, "Review closed");
+			await closed.waitFor({ timeout: 90_000 });
+			const closedText = await closed.innerText();
+			assert.match(closedText, /The message still sends at its set time/);
+			assert.doesNotMatch(closedText, /\bCancelled\b/);
+			assert.notEqual(await headIcon(closed), tick);
+			assert.equal((await d.mail(message.id)).filter((m) => m.state === "cancelled").length, 0);
 			await silence(true);
 			try {
 				const card = await ask(panel, "Cancel the Friday email", "Review before cancelling");
@@ -404,12 +417,14 @@ for (const [engine, launcher] of ENGINES) {
 				await approve(card);
 				const unconfirmed = done(panel, "Cancel not confirmed");
 				await unconfirmed.waitFor({ timeout: 90_000 });
+				assert.notEqual(await headIcon(unconfirmed), tick, "only a confirmed result carries the tick");
 				assert.equal((await d.mail(message.id)).filter((m) => m.state === "cancelled").length, 0);
 				assert.equal(newestStatus(await messages(page)), "Cancel not confirmed", "Messages does not say Cancelled yet");
 				await silence(false);
 				await page.getByRole("button", { name: "Ask Evry" }).click();
 				await done(panel, "Cancel not confirmed").getByRole("button", { name: "Check again" }).click();
 				await done(panel, "Cancelled").waitFor({ timeout: 90_000 });
+				assert.equal(await headIcon(done(panel, "Cancelled")), tick);
 			} finally {
 				await silence(false);
 			}
@@ -422,6 +437,7 @@ for (const [engine, launcher] of ENGINES) {
 			const d = await database();
 			const panel = await openEvry(page, context);
 			const original = await scheduledFriday(panel, d);
+			const tick = await headIcon(done(panel, /^Scheduled for Fri/));
 			const card = await ask(
 				panel,
 				"Replace the body of the Friday email with: We moved to 5 pm. Please arrive by 4:45.",
@@ -439,6 +455,7 @@ for (const [engine, launcher] of ENGINES) {
 				await approve(card);
 				const blocked = done(panel, /^Not replaced/);
 				await blocked.waitFor({ timeout: 90_000 });
+				assert.notEqual(await headIcon(blocked), tick, "only a confirmed result carries the tick");
 				const blockedText = await blocked.innerText();
 				assert.match(blockedText, /Nothing new was scheduled/);
 				assert.match(blockedText, /Lena Ortiz\s*Cancel not confirmed/);
@@ -485,12 +502,38 @@ for (const [engine, launcher] of ENGINES) {
 			await approve(card);
 			const stale = panel.getByRole("region", { name: "Message changed" }).last();
 			await stale.waitFor({ timeout: 90_000 });
-			assert.match(await stale.innerText(), /This message changed since the review/);
+			const staleText = await stale.innerText();
+			assert.match(staleText, /This message changed since the review/);
+			assert.doesNotMatch(staleText, /stay the same/, "a stale card promises nothing");
 			assert.equal(await stale.getByRole("button", { name: "Approve" }).isDisabled(), true);
 			assert.equal((await d.message()).scheduled_at, moved.scheduled_at, "the time did not move");
 			// Reviewing again finds nothing left to move, and says so.
 			await stale.getByRole("button", { name: "Review again" }).click();
 			await stale.getByText(/no longer waiting to send/).waitFor({ timeout: 90_000 });
+		}));
+
+	test(`AC:WP-028-9 (${engine}): a review whose message was deleted calls it a message and changes nothing`, () =>
+		run(async (page, context) => {
+			const d = await database();
+			const panel = await openEvry(page, context);
+			const draft = await ask(
+				panel,
+				"Draft an email to the launch team inviting them to Sunday's interest meeting.",
+				"Review before saving",
+			);
+			await approve(draft);
+			await done(panel, "Saved").waitFor({ timeout: 90_000 });
+			const message = await d.message();
+			await ask(panel, "Schedule it for Friday at 9am", "Review before scheduling");
+			await d.rows(d.sql`DELETE FROM communication WHERE id=${message.id}::uuid`);
+			await page.reload();
+			await hydrated(page);
+			await page.getByRole("button", { name: "Ask Evry" }).click();
+			const gone = page.getByRole("dialog", { name: "Evry" }).getByRole("region", { name: "No longer available" }).last();
+			await gone.waitFor({ timeout: 90_000 });
+			const text = await gone.innerText();
+			assert.match(text, /The message in this change is no longer available to you/);
+			assert.doesNotMatch(text, /person/i);
 		}));
 
 	test(`AC:WP-028-10 (${engine}): Evry finds the Friday email for "cancel the Friday email"; a member has no email write`, () =>

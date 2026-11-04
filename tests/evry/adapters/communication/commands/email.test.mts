@@ -1007,6 +1007,7 @@ test("AC:WP-028-10 Evry finds messages by subject and send time; a member reads 
 		["Friday volunteer reminder"],
 	);
 	assert.equal(byDate.rows[0]!.fields.zone, "America/Chicago");
+	assert.equal(new Date(byDate.rows[0]!.fields.sendsAtInstant as string).toISOString().slice(0, 10), friday.slice(0, 10));
 	const bySubject = await db.transaction((tx) =>
 		listMessages.invoke(tx, owner, { subject: "cookout", state: "scheduled" }),
 	);

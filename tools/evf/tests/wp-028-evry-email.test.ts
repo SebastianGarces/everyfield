@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -63,7 +63,11 @@ test("AC:WP-028-12 the recorded email evals cover draft, schedule, time change, 
 	assert.match(replay.stdout, /✔ AC:EVRY-CONTEXT-BOUNDS email requests pick/);
 });
 
-test("AC:WP-028-13 each Evry email review and effect stays within its statement budget and calls the email service outside any transaction", () => {
+// The tooling CI job has no database; `db (@everyfield/evry)` runs the same marked test with one. An answer-key run on
+// a machine with no database skips here too, and a skipped row stays unmet, so a skip never passes as proof.
+const noDatabase = !process.env.DATABASE_URL && !existsSync(env) && "no database: the db job runs this marked test";
+
+test("AC:WP-028-13 each Evry email review and effect stays within its statement budget and calls the email service outside any transaction", { skip: noDatabase }, () => {
 	const run = node(
 		[
 			"--test",

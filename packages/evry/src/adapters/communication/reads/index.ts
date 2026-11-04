@@ -7,7 +7,7 @@ import type { ReadAdapter, SourceResult } from "../../../catalog/types.ts";
 
 // The Communication reads. Evry finds the church's drafts and scheduled messages by subject and send time, so "cancel
 // the Friday email" names one message id. Only the safe identifying fields reach the model: never a body or an address.
-// Any seat in the church may read them, as Messages lets a member see the church name; writes need Owner or Admin.
+// Any seat in the church may read them; writes need Owner or Admin.
 
 const inPlant = (actor: EvryActor) => actor.owner.kind === "plant" && actor.role !== null;
 const listInput = z.strictObject({
@@ -25,6 +25,7 @@ const messageRow = z.object({
 	subject: z.string().nullable(),
 	state: z.string(),
 	sends_at: z.string().nullable(),
+	sends_at_instant: z.string().nullable(),
 	zone: z.string(),
 	held: z.number().int(),
 });
@@ -61,7 +62,8 @@ export const listMessages: ReadAdapter<z.infer<typeof listInput>> = {
 		const words = input.subject ? `%${input.subject.replace(/[\\%_]/g, "\\$&")}%` : null;
 		const r = await tx.execute(sql`
 			SELECT c.id,c.subject,c.state,
-				to_char(c.scheduled_at AT TIME ZONE pl.timezone,'Dy YYYY-MM-DD HH24:MI') AS sends_at,pl.timezone AS zone,
+				to_char(c.scheduled_at AT TIME ZONE pl.timezone,'Dy YYYY-MM-DD HH24:MI') AS sends_at,
+				to_char(c.scheduled_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"') AS sends_at_instant,pl.timezone AS zone,
 				${held} AS held
 			FROM communication c JOIN plant pl ON pl.id=c.plant_id
 			WHERE c.plant_id=${actor.owner.id}::uuid AND c.state IN ('draft','scheduled') AND ${canStillGoOut}
@@ -82,6 +84,7 @@ export const listMessages: ReadAdapter<z.infer<typeof listInput>> = {
 				fields: {
 					state: m.state,
 					sendsAt: m.sends_at,
+					sendsAtInstant: m.sends_at_instant,
 					zone: m.zone,
 					// A scheduled message the email service holds can be cancelled, moved or replaced; a draft can only be scheduled.
 					handedOff: m.held > 0,

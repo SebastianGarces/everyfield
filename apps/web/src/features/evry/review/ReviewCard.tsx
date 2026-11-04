@@ -36,6 +36,7 @@ import {
 	hasBirthDate,
 	isMail,
 	isRequired,
+	MAIL_DISMISSED,
 	mailHead,
 	mailRefusalText,
 	missingRequired,
@@ -390,6 +391,11 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 				? "Evry can't confirm what happened. Try again. A change the email service already holds is not made twice."
 				: "Evry can't confirm what happened, and the approval expired, so this card can't try again. Open Messages to see this message.";
 		if (view === "running") return "Working in the background. This card shows what the email service confirms.";
+		if (view === "cancelled") return MAIL_DISMISSED[review.operation] ?? null;
+		if (view === "withheld")
+			return review.status === "approved"
+				? "The message in this change is no longer available to you, so Evry can't show this change or its result."
+				: "The message in this change is no longer available to you. Nothing was changed.";
 	}
 	switch (view) {
 		case "pending":
@@ -419,7 +425,7 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 				: "The person in this change is no longer available to you. Nothing was changed.";
 		case "unavailable":
 			// Access ended, so the card can't read the result: it says so and claims nothing about the change.
-			return "You can't see this change now, so Evry can't show its result. Changes to people need an Owner or Admin seat in this church.";
+			return "You can't see this change now, so Evry can't show its result. Changes like this need an Owner or Admin seat in this church.";
 		default:
 			return null;
 	}
@@ -427,7 +433,10 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 
 /** What a screen reader hears when the card changes after it loaded. */
 function announcement(view: View, review: Review | null, lapsed: boolean, unknown?: Action) {
-	const head = view === "loading" || view === "lost" ? "" : HEAD[view].title.replace("…", "");
+	const head =
+		view === "loading" || view === "lost"
+			? ""
+			: ((review && mailHead(review, view)?.title) ?? HEAD[view].title).replace("…", "");
 	if (view === "pending" && !(review && review.revision > 1)) return "";
 	if (view === "running") return "Approved. Saving in the background.";
 	if (view === "completed" && review && isMail(review.operation)) return mailHead(review, "completed")!.title;
@@ -482,7 +491,9 @@ export function ReviewCard({ proposalId, target }: { proposalId: string; target:
 	const base = view === "loading" || view === "lost" ? HEAD.pending : HEAD[view];
 	// An email card says only what the email service confirmed (model.ts mailHead).
 	const mailTitle = review ? mailHead(review, view) : null;
-	const h = mailTitle ? { ...base, ...mailTitle } : base;
+	// Only a confirmed result carries the tick: a saved outcome that says nothing happened carries the alert.
+	const icon = view === "completed" && mailTitle && mailTitle.tone !== "green" ? Alert02Icon : base.icon;
+	const h = mailTitle ? { ...base, ...mailTitle, icon } : base;
 	const title = view === "loading" || view === "lost" ? (target ? `Change for ${target}` : "Prepared change") : h.title;
 	const meta =
 		view === "completed" && review?.approvedAt
@@ -547,7 +558,7 @@ export function ReviewCard({ proposalId, target }: { proposalId: string; target:
 							<>
 								<MailChanges review={review} />
 								{view === "completed" ? <MailResult review={review} /> : null}
-								{view === "pending" && !review.review.refusal ? (
+								{view === "pending" && !review.review.refusal && !review.stale ? (
 									<p className="text-sm text-text-2">{MAIL_CONSEQUENCE[review.operation]}</p>
 								) : null}
 							</>
@@ -625,7 +636,8 @@ function Footer({
 			disabled={other("cancel")}
 			onClick={() => void r.cancel()}
 		>
-			Cancel
+			{/* On a cancel review, "Cancel" would read as cancelling the email. */}
+			{isMail(review.operation) ? "Close review" : "Cancel"}
 		</Button>
 	);
 	let body: ReactNode = null;

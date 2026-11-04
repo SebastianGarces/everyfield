@@ -128,7 +128,12 @@ test("AC:WP-028-10 a message read is a Messages card with the send time, no pers
 		kind: "message",
 		id: H,
 		label: "Friday note",
-		fields: { state: "scheduled", sendsAt: "Fri 2026-11-06 09:00" },
+		fields: {
+			state: "scheduled",
+			sendsAt: "Fri 2026-11-06 09:00",
+			sendsAtInstant: "2026-11-06T15:00:00Z",
+			zone: "America/Chicago",
+		},
 	};
 	const draft = { kind: "message", id: P1, label: "Untitled draft", fields: { state: "draft", sendsAt: null } };
 	const view = cardView("communication.list", result("communication.list", [friday, draft]), null);
@@ -138,7 +143,7 @@ test("AC:WP-028-10 a message read is a Messages card with the send time, no pers
 	assert.deepEqual(
 		view.rows.map((r) => [r.name, r.line, r.avatar, r.href]),
 		[
-			["Friday note", "Sends Fri 2026-11-06 09:00", null, null],
+			["Friday note", "Sends Fri, Nov 6, 9:00 AM CST", null, null],
 			["Untitled draft", "Draft", null, null],
 		],
 	);

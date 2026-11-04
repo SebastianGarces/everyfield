@@ -178,9 +178,12 @@ const zoneName = (at: string, zone: string, timeZoneName: "short" | "long") =>
 /** "Fri, 9:00 AM CST": the day, the time and the zone, in the church's own zone. */
 const sendTime = ({ at, zone }: SendTime) =>
 	`${part(at, zone, { weekday: "short" })}, ${part(at, zone, { hour: "numeric", minute: "2-digit" })} ${zoneName(at, zone, "short")}`;
+/** "Fri, Nov 6, 9:00 AM CST": the date, the time and the zone, in the church's own zone. */
+export const sendTimeShort = ({ at, zone }: SendTime) =>
+	`${part(at, zone, { weekday: "short", month: "short", day: "numeric" })}, ${part(at, zone, { hour: "numeric", minute: "2-digit" })} ${zoneName(at, zone, "short")}`;
 /** "Fri, Nov 6, 9:00 AM CST (Central Standard Time)": the full date and the zone's name. */
 export const sendTimeFull = ({ at, zone }: SendTime) =>
-	`${part(at, zone, { weekday: "short", month: "short", day: "numeric" })}, ${part(at, zone, { hour: "numeric", minute: "2-digit" })} ${zoneName(at, zone, "short")} (${zoneName(at, zone, "long")})`;
+	`${sendTimeShort({ at, zone })} (${zoneName(at, zone, "long")})`;
 /** A saved report's time on the card, in the church's zone. */
 export const reportTime = (at: string, review: Review) => {
 	const zone = sendTimeOf(review, "after")?.zone;
@@ -257,6 +260,14 @@ const MAIL_PENDING: Record<string, string> = {
 	"communication.cancelScheduledReviewed": "Review before cancelling",
 	"communication.replaceScheduledReviewed": "Review the replacement",
 };
+/** The note on a review the Owner dismissed: what stays as it was. */
+export const MAIL_DISMISSED: Partial<Record<Operation, string>> = {
+	"communication.saveDraft": "You closed this review. Nothing was saved.",
+	"communication.scheduleReviewed": "You closed this review. The draft stays saved and is not scheduled.",
+	"communication.rescheduleReviewed": "You closed this review. The message still sends at its set time.",
+	"communication.cancelScheduledReviewed": "You closed this review. The message still sends at its set time.",
+	"communication.replaceScheduledReviewed": "You closed this review. The message still sends as it was, at its set time.",
+};
 /** The head of an email card once it has a saved outcome: only what the email service confirmed is called done. */
 export function mailHead(
 	review: Review,
@@ -271,6 +282,8 @@ export function mailHead(
 			tone: "amber",
 		};
 	if (phase === "refused") return { title: "Refused", tone: "magenta" };
+	// "Cancelled" is the word for a cancel the email service confirmed, so a dismissed review never uses it.
+	if (phase === "cancelled") return { title: "Review closed", tone: "gray" };
 	if (phase !== "completed") return null;
 	const report = review.receipt?.report;
 	if (!report) return { title: "Saved", tone: "green" };

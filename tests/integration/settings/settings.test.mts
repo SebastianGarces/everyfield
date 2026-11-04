@@ -409,7 +409,7 @@ test("AC:WP010-IDN-012 account preferences keep exact category/channel choices i
 });
 
 test("AC:WP-028-3 a person who turns off every email switch Settings shows is left out of planter email, and nobody else", async () => {
-	const off = sql`${updatesOff(sql`up_person.id`)}`;
+	const off = updatesOff(sql`up_person.id`);
 	const f = await plant();
 	const person = async (account) => {
 		const [row] = (
