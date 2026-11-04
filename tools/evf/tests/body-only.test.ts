@@ -31,7 +31,7 @@ const ITEMS = [
 	{ absent: "still to come", why: "The verifier already reviewed the code." },
 ];
 const SPEC = "Goal: g.\nDone criteria:\n1. One.\n2. Two.\nNon-goals: none.";
-const TIMING = { waitMs: 2000, ciWaitMs: 200, ciPollMs: 10, seatPollMs: 10, startGraceMs: 10 };
+const TIMING = { waitMs: 2000, ciWaitMs: 200, ciPollMs: 10, seatPollMs: 10, startGraceMs: 10, holdPollMs: 10 };
 
 /** A body from the PR template with `line` added to the Summary section. */
 function prBody(line: string, author = AUTHOR) {
