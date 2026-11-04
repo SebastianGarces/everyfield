@@ -34,7 +34,8 @@ import { nextId } from "./ids.ts";
 import { escape, soak } from "./escape.ts";
 import { followUpsOfTask, dbMigrate, dbSeedProgress, events, goalsList, goalsSync, status, workDbPath } from "./db.ts";
 import { launch } from "./launch.ts";
-import { isRole, ROLES } from "./seats.ts";
+import { headless } from "./headless.ts";
+import { HEADLESS_ROLES, isHeadlessRole, isRole, ROLES } from "./seats.ts";
 import { hook, refocus, session, showSpec } from "./seat.ts";
 import { finishPane } from "./panes.ts";
 import { tui } from "./tui.ts";
@@ -143,6 +144,9 @@ Seats (harness)
   evf launch <task> --role <role> [--idea <n>] [--prompt-file <file>] [--dry-run] [--ignore-load "<reason>"]
         worktree + Herdr workspace + claude --agent evf:<role> with evf's session id; records the run.
         Roles: planner, implementer, ui, simplifier, verifier, ideator (with --idea), comparer, prototype-merger.
+  evf headless <task> --role coordinator|registration --prompt-file <file> [--model <id>] [--effort <level>]
+        a coordinator-launched claude -p session with a run row, so evf usage shows its cost; defaults claude-opus-5-5
+        and medium; the session's stdout passes through and its exit code is returned
   evf refocus <task>                                          the goal chain for a seat: ask, spec, proof rule (fits the hook limit; says what it cut)
   evf session                                                 this pane's Claude Code session id, for EVF-Author and EVF-Review
   evf hook <event>                                            Claude Code hook entry (session-start, path-guard, stop, session-end)
@@ -670,6 +674,16 @@ function main(argv: string[]): number | Promise<number> {
 				dryRun,
 				idea,
 			});
+		}
+		case "headless": {
+			const role = option(args, "--role"),
+				promptFile = option(args, "--prompt-file"),
+				model = option(args, "--model"),
+				effort = option(args, "--effort");
+			if (!isHeadlessRole(role)) throw new EvfError(`--role must be one of ${HEADLESS_ROLES.join(", ")}.`);
+			if (!promptFile || !existsSync(promptFile)) throw new EvfError("--prompt-file must name an existing file.");
+			if (args.length !== 1) break;
+			return headless(root, parseTask(args[0]), role, { promptFile, model, effort });
 		}
 		case "refocus":
 			if (args.length !== 1) break;
