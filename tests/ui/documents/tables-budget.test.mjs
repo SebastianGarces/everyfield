@@ -139,6 +139,8 @@ for (const [name, engine] of ENGINES) {
 		await onFork(engine, "budget-worksheet", async (page, context, t) => {
 			const requests = [];
 			page.on("request", (r) => {
+				// The navigation bar's link prefetches run on their own schedule, whatever the person types.
+				if (r.headers()["next-router-prefetch"]) return;
 				if (["fetch", "xhr", "document"].includes(r.resourceType())) requests.push(`${r.method()} ${r.url()}`);
 			});
 			await t.checked("Type Tithes 3000", () => t.typeAmount("Tithes and offerings", "3000"));
