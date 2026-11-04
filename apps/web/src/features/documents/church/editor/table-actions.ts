@@ -140,9 +140,13 @@ export function setAttrs(tr: Transaction, pos: number, attrs: Attrs) {
 export function focusPlace(view: EditorView, tablePos: number, place: Place) {
 	const table = view.nodeDOM(tablePos) as HTMLElement | null;
 	if (place.row === null) {
-		const label = table?.querySelectorAll<HTMLElement>(".ef-head-cell")[place.col ?? 0];
+		const label = table?.querySelectorAll<HTMLInputElement>(".ef-head-cell")[place.col ?? 0];
 		const blanks = table?.querySelector<HTMLElement>(".ef-table-blanks");
-		(place.blank ? blanks : (label ?? blanks))?.focus();
+		if (label && !place.blank) {
+			// As a Tab does: the next key replaces a label such as "Column 1".
+			label.focus();
+			label.select();
+		} else blanks?.focus();
 		return;
 	}
 	const tr = selectIn(view.state.tr, tablePos, place);

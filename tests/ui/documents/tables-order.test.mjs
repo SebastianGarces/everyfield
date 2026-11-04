@@ -116,7 +116,7 @@ for (const [name, engine] of ENGINES) {
 			assert.deepEqual(labelsOf(await t.table()).slice(0, 3), ["Column 1", "Column 2", "Phone"]);
 			assert.equal((await t.table()).attrs.columns.length, 4);
 			await page.keyboard.type("Next");
-			assert.equal(labelsOf(await t.table())[3], "Column 4Next", "focus went to the new column's label");
+			assert.equal(labelsOf(await t.table())[3], "Next", "focus went to the new column's label");
 			await t.button("Remove column").click();
 			await t.settle();
 			assert.deepEqual(labelsOf(await t.table()), ["Column 1", "Column 2", "Phone"]);
