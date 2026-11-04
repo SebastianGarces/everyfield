@@ -183,9 +183,8 @@ The blocked count is the item's own task, plus each follow-up row with this task
 merged or abandoned, plus each direct dependent package in `docs/plan/dag.json` that is not merged. A package is
 merged when the ledger marks it done or retired, or when its store rows hold a merged row and no open row.
 
-Two events carry the queue. `owner_ask` holds exactly `task`, `pr`, `head`, `kind`, `digestId` and `askedAt`. The kinds
-are `template`, `owner_path`, `wiki`, `design`, `feedback`, `void_approval`, `escalation`, `prototype_pick` and
-`parked`, and evf builds the ask sentence from the kind. `owner_answer` holds exactly `task`, `pr`, `head` and
+Two events carry the queue. `owner_ask` holds exactly `task`, `pr`, `head`, `kind`, `digestId` and `askedAt`, and evf
+builds the ask sentence from the kind. `owner_answer` holds exactly `task`, `pr`, `head` and
 `answeredAt`. An open item is a task's latest `owner_ask` with no `owner_answer` after it, on a task that is not merged
 or abandoned. A second ask on the same head adds no event and keeps `askedAt`. An ask on a new head adds an event, and
 the age restarts.

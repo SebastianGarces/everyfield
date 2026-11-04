@@ -104,9 +104,9 @@ const offsetAt = (ms: number, zone: string) => wallClock(ms, zone) - Math.floor(
 function instantOf(wall: number, zone: string): number {
 	const before = offsetAt(wall - DAY, zone),
 		after = offsetAt(wall + DAY, zone);
-	if (offsetAt(wall - before, zone) === before) return wall - before;
-	if (offsetAt(wall - after, zone) === after) return wall - after;
-	return wall - before;
+	return offsetAt(wall - before, zone) !== before && offsetAt(wall - after, zone) === after
+		? wall - after
+		: wall - before;
 }
 
 const midnightOf = (ms: number, zone: string) => {
@@ -126,7 +126,7 @@ export function splitWait(
 	start: Date,
 	end: Date,
 	ownerHours: OwnerHours,
-	timeZone: string = systemZone(),
+	timeZone: string,
 ): { inside: number; outside: number } {
 	const from = start.getTime(),
 		to = end.getTime();
@@ -259,8 +259,8 @@ export function recordVoidAsk(root: string, pr: number, head: string): void {
 /** The drive asks Sebastian about a task row it holds open: at the task's known head. A pick has no head. */
 export function noteOwnerAsk(db: DatabaseSync, root: string, taskId: number, kind: OwnerKind): void {
 	warned(`the owner ask of task row ${taskId}`, () => {
-		const row = taskById(db, taskId);
-		if (row) ask(db, root, row, row.pr_number, kind === "prototype_pick" ? null : knownHead(root, row), kind);
+		const row = taskById(db, taskId)!;
+		ask(db, root, row, row.pr_number, kind === "prototype_pick" ? null : knownHead(root, row), kind);
 	});
 }
 
@@ -324,14 +324,14 @@ type OwnerItem = {
 function openItems(root: string, db: DatabaseSync, q: OwnerQueueConfig, now: number): OwnerItem[] {
 	const rows = db
 		.prepare(
-			"SELECT DISTINCT t.id, COALESCE(t.ref, t.slug) AS ref FROM tasks t JOIN events e ON e.task_id = t.id WHERE e.type = 'owner_ask' AND t.status NOT IN ('merged', 'abandoned')",
+			"SELECT DISTINCT t.id FROM tasks t JOIN events e ON e.task_id = t.id WHERE e.type = 'owner_ask' AND t.status NOT IN ('merged', 'abandoned')",
 		)
-		.all() as Array<{ id: number; ref: string }>;
+		.all() as Array<{ id: number }>;
 	const items = rows.flatMap((row): OwnerItem[] => {
 		const open = openAsk(db, row.id);
 		if (!open) return [];
 		const asked = Date.parse(open.askedAt),
-			blocked = blockedCount(root, db, row.id, row.ref);
+			blocked = blockedCount(root, db, row.id, open.task);
 		const split = q.ownerHours && splitWait(new Date(asked), new Date(now), q.ownerHours, q.timeZone);
 		return [
 			{
@@ -421,9 +421,7 @@ export function ownerQueueAnswer(root: string, task: TaskRef): number {
 		const rows = db
 			.prepare("SELECT id FROM tasks WHERE ref = ? AND status NOT IN ('merged', 'abandoned') ORDER BY id DESC")
 			.all(task.id) as Array<{ id: number }>;
-		const row = rows.find((r) => openAsk(db, r.id));
-		if (!row) fail(`${task.id} has no open owner ask, so there is nothing to answer.`);
-		answer(db, row.id);
+		if (!rows.some((r) => answer(db, r.id))) fail(`${task.id} has no open owner ask, so there is nothing to answer.`);
 		console.log(`owner-queue: recorded the answer for ${task.id}.`);
 		return 0;
 	} finally {

@@ -37,11 +37,14 @@ const TEMPLATE = "tools/evf/held-template.txt",
 	OWNER_PATH = "tools/evf/held-owner.txt";
 type Fx = ReturnType<typeof fixture>;
 
+const NO_SEAT = { EVF_RUN: "", EVF_WORKTREE: "", EVF_SESSION: "", EVF_ROLE: "", EVF_STAGE: "" };
+const SPEC = "Goal: g.\nDone criteria:\n1. One.\nNon-goals: none.";
+
 const cli = (f: { root: string }, ...args: string[]) =>
 	spawnSync(process.execPath, [join(source, "tools/evf/main.ts"), ...args], {
 		cwd: f.root,
 		encoding: "utf8",
-		env: { ...process.env, EVF_RUN: "", EVF_WORKTREE: "", EVF_SESSION: "", EVF_ROLE: "", EVF_STAGE: "" },
+		env: { ...process.env, ...NO_SEAT },
 	});
 
 /** The real command in a process whose clock reads `now` and whose system time zone is `TZ`. */
@@ -52,7 +55,7 @@ const cliAt = (f: { root: string }, now: string, TZ: string, ...args: string[]) 
 		{
 			cwd: f.root,
 			encoding: "utf8",
-			env: { ...process.env, TZ, EVF_RUN: "", EVF_WORKTREE: "", EVF_SESSION: "", EVF_ROLE: "", EVF_STAGE: "" },
+			env: { ...process.env, ...NO_SEAT, TZ },
 		},
 	);
 
@@ -511,10 +514,7 @@ test("AC:OPS-131-5 a P2 fix, a void approval, an escalation and an awaiting pick
 		assert.deepEqual([manual[0]!.head, manual[0]!.kind, manual[0]!.pr], [head, "void_approval", 77]);
 
 		withStore(f, (db) => {
-			db.prepare("UPDATE tasks SET spec = ? WHERE id = ?").run(
-				"Goal: g.\nDone criteria:\n1. One.\nNon-goals: none.",
-				row,
-			);
+			db.prepare("UPDATE tasks SET spec = ? WHERE id = ?").run(SPEC, row);
 			for (const [stage, role, session] of [
 				["implement", "implementer", AUTHOR.session],
 				["verify", "verifier", VERIFIER.session],
@@ -535,11 +535,10 @@ test("AC:OPS-131-5 a P2 fix, a void approval, an escalation and an awaiting pick
 	f = prFixture();
 	try {
 		herdrStub(f.root);
-		const spec = "Goal: g.\nDone criteria:\n1. One.\nNon-goals: none.";
 		withStore(f, (db) => {
 			const t = ensureTask(db, f.task, "implement");
 			db.prepare("UPDATE tasks SET spec = ?, status = 'pr_open', pr_number = 77, worktree = ? WHERE id = ?").run(
-				spec,
+				SPEC,
 				f.wt,
 				t.id,
 			);
@@ -564,10 +563,9 @@ test("AC:OPS-131-5 a P2 fix, a void approval, an escalation and an awaiting pick
 	f = prFixture();
 	try {
 		herdrStub(f.root);
-		const spec = "Goal: g.\nDone criteria:\n1. One.\nNon-goals: none.";
 		withStore(f, (db) => {
 			const t = ensureTask(db, f.task, "prototype");
-			db.prepare("UPDATE tasks SET spec = ?, status = 'active' WHERE id = ?").run(spec, t.id);
+			db.prepare("UPDATE tasks SET spec = ?, status = 'active' WHERE id = ?").run(SPEC, t.id);
 			for (const [stage, role] of [
 				["plan", "planner"],
 				["idea1", "ideator"],
