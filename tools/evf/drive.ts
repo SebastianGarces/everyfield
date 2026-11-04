@@ -2046,7 +2046,7 @@ export function driveOnce(
 		if (n.stage === "pick") {
 			if (t.status !== "awaiting_pick") {
 				db.prepare("UPDATE tasks SET status = 'awaiting_pick', updated_at = ? WHERE id = ?").run(now(), t.id);
-				noteOwnerAsk(db, root, t.id, "prototype_pick", null);
+				noteOwnerAsk(db, root, t.id, "prototype_pick");
 				record(db, t.id, null, "awaiting_pick", {
 					summary: `${task.id}: comparison ready, waiting for Sebastian's pick`,
 				});

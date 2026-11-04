@@ -167,8 +167,7 @@ code and the same GitHub calls. Migration 014 gives each task that already waits
 of its latest wait event, `head` and `digestId` are null, and the queue prints an unknown head as `unknown`. Old waits
 do not name a route, so a voided approval and an FB ref give the kind and any other wait is `parked`.
 
-The optional `ownerQueue` key in `evf.config.json` holds the time zone, the digest times and the owner hours. The code
-in `tools/evf/owner-queue.ts` parses it and holds the defaults. An invalid value makes `evf owner-queue` refuse with a
+The optional `ownerQueue` key in `evf.config.json` holds the time zone, the digest times and the owner hours. An invalid value makes `evf owner-queue` refuse with a
 message that names the key.
 
 ```json

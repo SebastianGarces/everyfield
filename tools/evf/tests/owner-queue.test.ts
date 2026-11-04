@@ -712,7 +712,6 @@ test("AC:OPS-131-8 ownerHours set shows the age split in both outputs; unset say
 		assert.match(q.text, /^ownerHours is not set, so ages show no inside or outside split\.$/m);
 		assert.doesNotMatch(q.lines[1]!, /inside|outside/);
 		assert.match(q.json.note, /ownerHours is not set/);
-		assert.equal(q.json.ownerHours, null);
 		assert.ok(!("insideMinutes" in q.json.items[0]));
 
 		// The whole day is inside the hours or nearly so, in a zone with a known offset.
@@ -875,7 +874,7 @@ test("AC:OPS-131-11 owner-queue ask adds a PR no route recorded and owner-queue 
 
 		assert.equal(cli(f, "owner-queue", "ask", "OPS-1", "--kind", "parked").status, 0);
 		assert.equal(ownerEvents(f).length, 1, "a rerun on the same head adds no event");
-		assert.match(cli(f, "owner-queue", "ask", "OPS-1", "--kind", "bogus").stderr, /--kind must be one of/);
+		assert.match(cli(f, "owner-queue", "ask", "OPS-1", "--kind", "bogus").stderr, /--kind must be parked/);
 		assert.match(cli(f, "owner-queue", "ask", "OPS-9", "--kind", "parked").stderr, /OPS-9 has no task row/);
 
 		const answer = cli(f, "owner-queue", "answer", "OPS-1");

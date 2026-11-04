@@ -11,18 +11,16 @@ import { fail, loadConfig, parseTask, readJson, run, type Dag, type TaskRef } fr
  * not merged or abandoned.
  */
 
-export const OWNER_KINDS = [
-	"template",
-	"owner_path",
-	"wiki",
-	"design",
-	"feedback",
-	"void_approval",
-	"escalation",
-	"prototype_pick",
-	"parked",
-] as const;
-export type OwnerKind = (typeof OWNER_KINDS)[number];
+type OwnerKind =
+	| "template"
+	| "owner_path"
+	| "wiki"
+	| "design"
+	| "feedback"
+	| "void_approval"
+	| "escalation"
+	| "prototype_pick"
+	| "parked";
 
 const MINUTE = 60_000,
 	DAY = 24 * 60 * MINUTE,
@@ -43,8 +41,8 @@ const ASKS: Record<OwnerKind, (subject: string) => string> = {
 	parked: (s) => `Say what happens to ${s}, which waits with no recorded route.`,
 };
 
-export type OwnerHours = { start: string; end: string };
-export type OwnerQueueConfig = { timeZone: string; digestTimes: string[]; ownerHours: OwnerHours | null };
+type OwnerHours = { start: string; end: string };
+type OwnerQueueConfig = { timeZone: string; digestTimes: string[]; ownerHours: OwnerHours | null };
 
 const DEFAULT_DIGEST_TIMES = ["09:00", "13:00", "17:00"];
 const HH_MM = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -56,9 +54,7 @@ export function parseOwnerQueue(raw: unknown): OwnerQueueConfig {
 	if (raw === undefined) return { timeZone: systemZone(), digestTimes: DEFAULT_DIGEST_TIMES, ownerHours: null };
 	if (!raw || typeof raw !== "object" || Array.isArray(raw))
 		fail("evf.config.json ownerQueue must be an object with timeZone, digestTimes and ownerHours.");
-	const { timeZone, digestTimes, ownerHours, ...other } = raw as Record<string, unknown>;
-	const unknown = Object.keys(other);
-	if (unknown.length) fail(`evf.config.json ownerQueue has an unknown key: ownerQueue.${unknown[0]}.`);
+	const { timeZone, digestTimes, ownerHours } = raw as Record<string, unknown>;
 	if (timeZone !== undefined) {
 		const zoneError = "evf.config.json ownerQueue.timeZone must be an IANA time zone such as America/Chicago.";
 		if (typeof timeZone !== "string") fail(zoneError);
@@ -86,8 +82,6 @@ export function parseOwnerQueue(raw: unknown): OwnerQueueConfig {
 		ownerHours: (ownerHours as OwnerHours | undefined) ?? null,
 	};
 }
-
-const pad = (n: number) => String(n).padStart(2, "0");
 
 /** The wall clock of `ms` in `zone`, as the UTC time with the same fields. */
 function wallClock(ms: number, zone: string): number {
@@ -157,10 +151,7 @@ export function nextDigest(ms: number, q: OwnerQueueConfig): string {
 	const today = midnightOf(ms, q.timeZone);
 	for (let day = today; ; day += DAY)
 		for (const time of q.digestTimes)
-			if (instantOf(wallAt(day, time), q.timeZone) >= ms) {
-				const d = new Date(day);
-				return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}T${time}`;
-			}
+			if (instantOf(wallAt(day, time), q.timeZone) >= ms) return `${new Date(day).toISOString().slice(0, 10)}T${time}`;
 }
 
 type AskPayload = {
@@ -228,6 +219,18 @@ function warned(what: string, write: () => void): void {
 	}
 }
 
+/** The same, for a route that holds no open store. */
+function warnedInStore(root: string, what: string, write: (db: DatabaseSync) => void): void {
+	warned(what, () => {
+		const db = openWorkDb(root);
+		try {
+			write(db);
+		} finally {
+			db.close();
+		}
+	});
+}
+
 /** The task's worktree head, else its branch head, else null. */
 function knownHead(root: string, row: { ref: string; worktree: string | null }): string | null {
 	const { branch } = parseTask(row.ref);
@@ -245,44 +248,28 @@ function knownHead(root: string, row: { ref: string; worktree: string | null }):
 
 /** A route in evf ship or evf approve asks Sebastian about this PR head. */
 export function recordOwnerAsk(root: string, task: TaskRef, pr: number, head: string, kind: OwnerKind): void {
-	warned(`the owner ask of ${task.id}`, () => {
-		const db = openWorkDb(root);
-		try {
-			ask(db, root, ensureTask(db, task, "implement"), pr, head, kind);
-		} finally {
-			db.close();
-		}
+	warnedInStore(root, `the owner ask of ${task.id}`, (db) => {
+		ask(db, root, ensureTask(db, task, "implement"), pr, head, kind);
 	});
 }
 
 /** A voided approval of PR `pr`. The refusal knows the PR and head, so the row comes from the PR number. */
 export function recordVoidAsk(root: string, pr: number, head: string): void {
-	warned(`the owner ask of PR #${pr}`, () => {
-		const db = openWorkDb(root);
-		try {
-			const row = db
-				.prepare(
-					"SELECT id, ref FROM tasks WHERE pr_number = ? AND ref IS NOT NULL AND status NOT IN ('merged', 'abandoned') ORDER BY id DESC LIMIT 1",
-				)
-				.get(pr) as { id: number; ref: string } | undefined;
-			if (row) ask(db, root, row, pr, head, "void_approval");
-		} finally {
-			db.close();
-		}
+	warnedInStore(root, `the owner ask of PR #${pr}`, (db) => {
+		const row = db
+			.prepare(
+				"SELECT id, ref FROM tasks WHERE pr_number = ? AND ref IS NOT NULL AND status NOT IN ('merged', 'abandoned') ORDER BY id DESC LIMIT 1",
+			)
+			.get(pr) as { id: number; ref: string } | undefined;
+		if (row) ask(db, root, row, pr, head, "void_approval");
 	});
 }
 
-/** The drive asks Sebastian about a task row it holds open: at the task's known head, or with no head (a pick). */
-export function noteOwnerAsk(
-	db: DatabaseSync,
-	root: string,
-	taskId: number,
-	kind: OwnerKind,
-	head: "known" | null = "known",
-): void {
+/** The drive asks Sebastian about a task row it holds open: at the task's known head. A pick has no head. */
+export function noteOwnerAsk(db: DatabaseSync, root: string, taskId: number, kind: OwnerKind): void {
 	warned(`the owner ask of task row ${taskId}`, () => {
 		const row = taskById(db, taskId);
-		if (row) ask(db, root, row, row.pr_number, head && knownHead(root, row), kind);
+		if (row) ask(db, root, row, row.pr_number, kind === "prototype_pick" ? null : knownHead(root, row), kind);
 	});
 }
 
@@ -293,16 +280,11 @@ export function noteOwnerAnswer(db: DatabaseSync, taskId: number): void {
 
 /** Sebastian answered the PR on this branch, at this head. A branch with no open ask records nothing. */
 export function recordOwnerAnswer(root: string, branch: string, head: string): void {
-	warned(`the owner answer of ${branch}`, () => {
-		const db = openWorkDb(root);
-		try {
-			const rows = db
-				.prepare("SELECT id FROM tasks WHERE branch = ? AND status <> 'abandoned' ORDER BY id DESC")
-				.all(branch) as Array<{ id: number }>;
-			for (const row of rows) if (answer(db, row.id, head)) return;
-		} finally {
-			db.close();
-		}
+	warnedInStore(root, `the owner answer of ${branch}`, (db) => {
+		const rows = db
+			.prepare("SELECT id FROM tasks WHERE branch = ? AND status <> 'abandoned' ORDER BY id DESC")
+			.all(branch) as Array<{ id: number }>;
+		for (const row of rows) if (answer(db, row.id, head)) return;
 	});
 }
 
@@ -332,7 +314,7 @@ function blockedCount(root: string, db: DatabaseSync, taskId: number, ref: strin
 	return 1 + followUps + dependents.filter((p) => !packageMerged(db, ledger, p.id)).length;
 }
 
-export type OwnerItem = {
+type OwnerItem = {
 	task: string;
 	pr: number | null;
 	head: string | null;
@@ -380,9 +362,6 @@ function openItems(root: string, db: DatabaseSync, q: OwnerQueueConfig, now: num
 	return items.sort((a, b) => Number(b.urgent) - Number(a.urgent) || Date.parse(a.askedAt) - Date.parse(b.askedAt));
 }
 
-/** The migration that records the waits older than this code. A store without it would print a false empty queue. */
-const QUEUE_MIGRATION = "owner-queue";
-
 function itemLine(i: OwnerItem): string {
 	const age = `age ${Math.floor(i.ageMinutes / 60)}h ${i.ageMinutes % 60}m`;
 	return [
@@ -408,7 +387,8 @@ export function ownerQueue(root: string, opts: { json: boolean; now?: number }):
 	if (existsSync(workDbPath(root))) {
 		const db = openWorkDb(root, { readOnly: true });
 		try {
-			if (!db.prepare("SELECT 1 FROM schema_version WHERE name = ?").get(QUEUE_MIGRATION))
+			// The migration records the waits older than this code. A store without it would print a false empty queue.
+			if (!db.prepare("SELECT 1 FROM schema_version WHERE name = 'owner-queue'").get())
 				fail("The work store has no owner queue yet. Run evf db migrate, then run evf owner-queue again.");
 			items = openItems(root, db, q, now);
 		} finally {
@@ -421,7 +401,6 @@ export function ownerQueue(root: string, opts: { json: boolean; now?: number }):
 				{
 					nextDigest: next,
 					timeZone: q.timeZone,
-					ownerHours: q.ownerHours,
 					...(q.ownerHours ? {} : { note: HOURS_NOT_SET }),
 					items,
 				},
@@ -440,15 +419,14 @@ export function ownerQueue(root: string, opts: { json: boolean; now?: number }):
 
 /** `evf owner-queue ask`: put a PR on the queue that no route recorded, such as a parked PR. */
 export function ownerQueueAsk(root: string, task: TaskRef, kind: string | undefined): number {
-	if (!OWNER_KINDS.includes(kind as OwnerKind)) fail(`--kind must be one of ${OWNER_KINDS.join(", ")}.`);
+	if (kind !== "parked") fail("--kind must be parked.");
 	const db = openWorkDb(root);
 	try {
 		const row = findTask(db, task);
 		if (!row) fail(`${task.id} has no task row, so nothing can wait on it.`);
-		if (row.status === "merged") fail(`${row.ref} is merged, so it waits for nobody.`);
-		if (kind === "parked" && !row.pr_number) fail(`${row.ref} has no PR number in the store, so no PR can be parked.`);
+		if (!row.pr_number) fail(`${row.ref} has no PR number in the store, so no PR can be parked.`);
 		const head = knownHead(root, row);
-		const added = ask(db, root, row, row.pr_number, head, kind as OwnerKind);
+		const added = ask(db, root, row, row.pr_number, head, kind);
 		console.log(
 			added
 				? `owner-queue: ${row.ref} waits for Sebastian at ${head?.slice(0, 10) ?? "an unknown head"}.`
