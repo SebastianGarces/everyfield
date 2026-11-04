@@ -217,6 +217,28 @@ for (const [name, engine] of ENGINES) {
 
 // ---------------------------------------------------------------- Excel shows what the table shows
 
+for (const [name, engine] of ENGINES)
+	test(`AC:WP-036-11 (${name}): the Excel file downloaded after an edit shows the cents, the header color and the stripes the editor shows`, async () => {
+		await onFork(engine, "budget-worksheet", async (page, context, t) => {
+			await t.typeAmount("Tithes and offerings", "100.50");
+			await t.typeAmount("Sending church support", "200");
+			await page.getByLabel("Striped rows").check();
+			await page.getByRole("radio", { name: "accent", exact: true }).first().click();
+			await t.save();
+			const sheet = workbook(await downloadExcel(page));
+			assert.equal(
+				sheet.fill("A3"),
+				palette.accent.replace("#", "").toUpperCase(),
+				"the header takes the header color",
+			);
+			assert.equal(sheet.fill("A5"), null, "the first line item is not striped");
+			assert.equal(sheet.fill("A6"), palette.muted.replace("#", "").toUpperCase(), "the second line item is striped");
+			for (const ref of ["B5", "B6", "B10", "B23"])
+				assert.match(sheet.format(ref), /^"\$"#,##0\.00/, `${ref} shows cents, as the editor does`);
+			assert.deepEqual(await t.computed("Total income"), ["$300.50", "$3,606"], "the editor shows the same total");
+		});
+	});
+
 /** The Excel file of a document, as the download route builds it. */
 const renderXlsx = (doc) => buildLedgerWorkbook(doc, fieldValues(doc), NEUTRAL_THEME);
 
