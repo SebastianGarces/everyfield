@@ -458,6 +458,40 @@ Sebastian's delegation, which he can revert:
 `simplify_skipped` event that names that run and its head, and pr runs next. The PR body and the proofs live outside
 the repository, so a round that changed only those skips simplify. Round 0 and every round with a new commit still
 run it. When the author checks fail in the pr stage after a skip, the task goes back to implement, not to simplify.
+In round 1 or later, a passed implement whose commits since that run are only clean merges of main also skips, and the
+event carries `reason: "merge_only"`. One new non-merge commit, or a merge with a conflict resolution (non-empty
+`git show --cc`), runs simplify. A merge-only branch in round 0 runs it.
+
+**Round routing.** Before a failed ci or ship starts a round, the drive reads the checks on the PR head and classifies
+the failure:
+
+- `this_pr`: a required check fails on the PR head, does not fail on main, and the head has no earlier ci or ship
+  failure after the reopen marker. A conflict with main, no failing check anywhere, required checks all green and an
+  unreadable GitHub are also `this_pr`. With several failing checks, one `this_pr` check makes the whole failure
+  `this_pr`. The task starts a round as before. A verifier's changes request is always `this_pr`.
+- `main`: each failing required check that is not the PR's fails in its latest finished result on main. Main is read
+  over its last 10 commits, as check runs and commit statuses.
+- `external`: a required check fails again at the head of the previous failure, or required checks are missing or
+  pending and a non-required check fails. Required checks green with a non-required check red still pass ci.
+
+`main` and `external` hold the task. Its status is `held_external`, one `held_external` event records
+`{cause, checks, head, summary}`, the run closes `aborted`, no seat launches, `tasks.round` and the retry count do not
+change, and one Herdr notification names the cause, the checks and the way out. A poll or restart during the hold writes
+nothing. `evf next` prints stage `held` with the cause. The drive looks again every `holdPollMs` and resumes with one
+`hold_released` event when the cause clears, then runs ci:
+
+- `main`: the checks no longer fail on main. The drive runs `gh pr update-branch` and fast-forwards the worktree. A
+  failed update leaves the conflict for ci to report as `this_pr`.
+- `external`: the PR head moved, or the named checks no longer fail.
+
+`evf task reopen` also ends a hold. Failures before it no longer count, so a check that still fails at that head with
+main green starts a round; a check that still fails on main holds again. `evf ship` reads the same checks as before and
+refuses a held task while a required check fails.
+
+**`round_start`.** Each new round records `{cause, nonMergeCommits, diffLines, round, stage, head, summary}`. The counts
+cover what the previous round added: non-merge commits and added plus deleted lines from the head of the previous
+`round_start` (the merge base with `origin/main` for the first) to HEAD, without main's commits. They are null when the
+worktree is gone. A hold, a repeat review of a reviewed head and a loop cap stop record none.
 
 **Stopping a drive.** The drive loop runs in a worker thread, so the main thread can answer SIGTERM and SIGINT
 while a stage blocks in a child process. A signal that arrives inside a pr, ci or ship stage closes that `evf` run

@@ -28,7 +28,7 @@ const QUALITY = {
 	],
 };
 const WORDS = "looks good";
-const TIMING = { waitMs: 2000, ciWaitMs: 200, ciPollMs: 10, seatPollMs: 10, startGraceMs: 10 };
+const TIMING = { waitMs: 2000, ciWaitMs: 200, ciPollMs: 10, seatPollMs: 10, startGraceMs: 10, holdPollMs: 10 };
 const fastShip = { queue: { waitMs: 10_000, pollMs: 10 }, ciWaitMs: 10_000, ciPollMs: 1 };
 const pass = (name: string) => ({
 	name,
