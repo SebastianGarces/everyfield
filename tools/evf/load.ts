@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { availableParallelism, loadavg } from "node:os";
 import { join } from "node:path";
@@ -58,15 +57,15 @@ export function awaitLoad(
 	}
 	const start = probe.now(),
 		maxWaitMs = gate.maxWaitMinutes * 60_000;
-	let maxLoad: number | null = null;
-	const recordWait = () => recordLoadWait(root, command, task, start, probe.now(), maxLoad!);
+	let maxLoad = 0; // Above 0 once a read passed the limit, so a command that never waited records nothing.
+	const recordWait = () => recordLoadWait(root, command, task, start, probe.now(), maxLoad);
 	for (let printed = 0; ;) {
 		const load = probe.read();
 		if (load <= gate.limit) {
-			if (maxLoad !== null) recordWait();
+			if (maxLoad > 0) recordWait();
 			return;
 		}
-		maxLoad = Math.max(maxLoad ?? load, load);
+		maxLoad = Math.max(maxLoad, load);
 		const waited = probe.now() - start;
 		if (waited >= maxWaitMs) {
 			recordWait();
@@ -122,7 +121,7 @@ const fullCheckDir = (root: string) => join(evfDataDir(root), "full-checks");
  */
 export function withFullCheck<T>(root: string, mode: string, checks: () => T): T {
 	if (mode !== "full") return checks();
-	const mark = join(fullCheckDir(root), `${process.pid}-${randomUUID()}`);
+	const mark = join(fullCheckDir(root), String(process.pid));
 	try {
 		mkdirSync(fullCheckDir(root), { recursive: true });
 		writeFileSync(mark, "");
@@ -141,7 +140,7 @@ export function countFullChecks(root: string): number {
 	const dir = fullCheckDir(root);
 	if (!existsSync(dir)) return 0;
 	return readdirSync(dir).filter((mark) => {
-		const live = alive(Number.parseInt(mark, 10));
+		const live = alive(Number(mark));
 		if (!live) rmSync(join(dir, mark), { force: true });
 		return live;
 	}).length;

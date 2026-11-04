@@ -254,10 +254,10 @@ test("fullChecks counts a live full verify, also one inside a drive's own proces
 		assert.equal(readFileSync(seen, "utf8"), "0\n", "a quick verify does not count");
 
 		mkdirSync(marks, { recursive: true });
-		writeFileSync(join(marks, `${deadPid()}-killed`), "");
-		writeFileSync(join(marks, `${process.pid}-live`), "");
+		writeFileSync(join(marks, String(deadPid())), "");
+		writeFileSync(join(marks, String(process.pid)), "");
 		assert.equal(countFullChecks(f.root), 1, "a killed verify does not count");
-		assert.deepEqual(readdirSync(marks), [`${process.pid}-live`]);
+		assert.deepEqual(readdirSync(marks), [String(process.pid)]);
 	} finally {
 		f.close();
 	}
@@ -944,7 +944,6 @@ test("a throwing probe writes null in its fields, and the next tick runs (AC:OPS
 			[null, 1],
 			"the queue is still counted when load fails",
 		);
-		assert.match(readFileSync(join(evfDataDir(f.root), "sampler.last-error"), "utf8"), /probe failed/);
 	} finally {
 		f.close();
 	}
@@ -964,7 +963,6 @@ test("a busy store skips that queue_tick and leaves the two files written (AC:OP
 		assert.equal(readLines(f.root, "load.jsonl").length, 1);
 		assert.equal(readLines(f.root, "cpu.jsonl").length, 1);
 		assert.deepEqual(eventsOf(f.root, "queue_tick"), [], "the tick under the lock wrote no queue_tick");
-		assert.match(readFileSync(join(evfDataDir(f.root), "sampler.last-error"), "utf8"), /locked|busy/i);
 		samplerTick(f.root, fakeProbes());
 		assert.equal(eventsOf(f.root, "queue_tick").length, 1, "the next tick records again");
 	} finally {

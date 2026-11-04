@@ -155,8 +155,8 @@ transcript, writes nothing else, prints how many runs it filled and skipped (no 
 and gives the same rows when run again.
 
 **Report.** `evf usage [--json] [<task>]` prints, per task, tokens and estimated cost by role and model,
-rounds, verify fails and CI fails. Without a task it adds a by-model summary that splits _build_ (plan,
-implement, ui and simplify runs in round 0) from _review and rework_ (evidence and verify runs in any round,
+rounds, verify fails and CI fails. Without a task it adds a by-model summary that splits *build* (plan,
+implement, ui and simplify runs in round 0) from *review and rework* (evidence and verify runs in any round,
 and implement, ui and simplify runs in round 1 or later). Prototype stages are their own group. `pr`, `ci` and
 `ship` have no Claude session and no usage. A run with no data counts as "no data", never as zero.
 
@@ -964,8 +964,8 @@ through a temporary file and a rename, so a reader never sees half a file. A lin
 - `previews` counts portless previews that are not removed, failed or expired.
 - A CPU value is that class's part of the CPU in use at that tick, from `ps` `pcpu`, which macOS reports as a decayed
   average. The parts sum to 1 apart from rounding. `cpu.jsonl` holds class names only, never command text.
-- A failed or timed-out probe writes null in its fields for that tick, and `sampler.last-error` keeps the last message.
-  A busy store costs the `queue_tick` and leaves both files written, with `seats` null.
+- A failed or timed-out probe writes null in its fields for that tick. A busy store costs the `queue_tick` and leaves
+  both files written, with `seats` null.
 - `queue_tick` is left out of the recent feed of `evf status` and the TUI, which it would otherwise fill within an hour.
 - `load_wait` is one event per wait the gate caused, whether the wait ended under the limit or gave up. `maxLoad` is the
   highest load seen. A command under the limit on its first read or run with `--ignore-load` records none. `task` is

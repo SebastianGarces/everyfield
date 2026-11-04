@@ -14,7 +14,7 @@ import { basename, join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { openWorkDb, record, type TaskRow } from "./db.ts";
 import { nextStageFromStore } from "./drive.ts";
-import { evfDataDir, parseTask, run, sleep, type TaskRef } from "./lib.ts";
+import { evfDataDir, parseTask, run, sleep } from "./lib.ts";
 import { countFullChecks } from "./load.ts";
 import { alive } from "./ship-queue.ts";
 
@@ -33,9 +33,6 @@ const HOUR_MS = 60 * MINUTE_MS;
 const PROBE_TIMEOUT_MS = 10_000;
 const LOAD_FILE = "load.jsonl";
 const CPU_FILE = "cpu.jsonl";
-const LOCK_FILE = "sampler.lock";
-/** The last failure of a probe or a write, for someone who asks why a field reads null. One line, overwritten. */
-const ERROR_FILE = "sampler.last-error";
 /** The states preview-slots.mjs does not count as in use. */
 const DEAD_PREVIEW_STATES = new Set(["removed", "failed", "expired"]);
 
@@ -72,7 +69,7 @@ const MACOS_PROGRAM = /^(\/System\/|\/usr\/libexec\/|\/usr\/sbin\/|\/sbin\/|\/Li
  * A process's class. Only the program decides, and for node also its arguments, because a node process's program says
  * nothing about its work. The result is one of the fixed names, so no command text can reach the file.
  */
-export function classify(command: string): CpuClass {
+function classify(command: string): CpuClass {
 	const [first = "", ...args] = command.trim().split(/\s+/);
 	const program = basename(first);
 	if (program === "node") {
@@ -117,57 +114,39 @@ export function machineProbes(root: string, timeoutMs = PROBE_TIMEOUT_MS): Sampl
 			return Number(used[1]) / (used[2] === "M" ? 1024 : 1);
 		},
 		// The figure `memory_pressure` prints as "free percentage"; os.freemem leaves out memory macOS can reclaim.
-		freeMemPct: () => {
-			const level = Number(probeOutput("sysctl", ["-n", "kern.memorystatus_level"], timeoutMs).trim());
-			if (!Number.isFinite(level)) throw new Error("sysctl kern.memorystatus_level is not a number");
-			return level;
-		},
+		freeMemPct: () => Number(probeOutput("sysctl", ["-n", "kern.memorystatus_level"], timeoutMs)),
 		previews: () => {
 			const records = JSON.parse(probeOutput("portless", ["preview", "status", "--json"], timeoutMs)) as Array<{
 				state: string;
 			}>;
 			return records.filter((p) => !DEAD_PREVIEW_STATES.has(p.state)).length;
 		},
-		processes: () => {
-			const rows = probeOutput("ps", ["-Awwo", "pcpu=,command="], timeoutMs)
+		processes: () =>
+			probeOutput("ps", ["-Awwo", "pcpu=,command="], timeoutMs)
 				.split("\n")
 				.flatMap((line) => {
 					const m = /^\s*([\d.,]+)\s+(.*)$/.exec(line);
 					return m ? [{ pcpu: Number(m[1]!.replace(",", ".")) || 0, command: m[2]! }] : [];
-				});
-			if (!rows.length) throw new Error("ps listed no process");
-			return rows;
-		},
+				}),
 		fullChecks: () => countFullChecks(root),
 	};
 }
 
-export type QueueCounts = {
-	runnable: number;
-	held: number;
-	holdReasons: { blocked: number; escalated: number; waiting: number; queued: number };
-	seats: number;
-	slotsFree: number;
-};
-
 /** Runnable and held open tasks with no started run, and the seats and free slots. */
-export function queueCounts(db: DatabaseSync): QueueCounts {
+function queueCounts(db: DatabaseSync) {
 	const { seats } = db
 		.prepare("SELECT COUNT(*) AS seats FROM runs WHERE status = 'started' AND role <> 'evf'")
 		.get() as { seats: number };
 	const tasks = db
 		.prepare(
-			`SELECT id, ref, slug, mode, status, round, goal_id, spec, pr_number, worktree, seat_model, seat_effort, merge_commit
-			FROM tasks t WHERE status NOT IN ('merged', 'done', 'abandoned')
+			`SELECT * FROM tasks t WHERE status NOT IN ('merged', 'done', 'abandoned')
 			AND NOT EXISTS (SELECT 1 FROM runs r WHERE r.task_id = t.id AND r.status = 'started')`,
 		)
 		.all() as TaskRow[];
 	const holdReasons = { blocked: 0, escalated: 0, waiting: 0, queued: 0 };
 	let runnable = 0;
 	for (const t of tasks) {
-		const task = refOf(t);
-		if (!task) continue;
-		const { stage } = nextStageFromStore(db, task, t);
+		const { stage } = nextStageFromStore(db, parseTask(t.ref), t);
 		if (stage === "done" || stage === "abandoned") continue;
 		if (stage === "blocked") holdReasons[t.status === "queued" ? "queued" : "blocked"]++;
 		else if (stage === "escalated") holdReasons.escalated++;
@@ -179,25 +158,11 @@ export function queueCounts(db: DatabaseSync): QueueCounts {
 	return { runnable, held, holdReasons, seats, slotsFree: Math.max(0, SLOT_TARGET - seats) };
 }
 
-/** A row whose ref evf cannot read costs that row, not the tick. */
-function refOf(t: TaskRow): TaskRef | null {
-	try {
-		return parseTask(t.ref);
-	} catch {
-		return null;
-	}
-}
-
-/** A failure costs one value or one write, and leaves its message in ERROR_FILE. */
-function attempt<T>(dir: string, action: () => T): T | null {
+/** A failure costs one value or one write, never the sampler. */
+function attempt<T>(action: () => T): T | null {
 	try {
 		return action();
-	} catch (e) {
-		try {
-			writeFileSync(join(dir, ERROR_FILE), `${new Date().toISOString()} ${String(e)}\n`);
-		} catch {
-			// The error file is the last resort; the tick goes on without it.
-		}
+	} catch {
 		return null;
 	}
 }
@@ -208,34 +173,33 @@ const appendLine = (dir: string, file: string, line: Record<string, unknown>) =>
 /** One minute's records. The store goes last: a busy store costs only the queue_tick. */
 export function samplerTick(root: string, probes: SamplerProbes): void {
 	const dir = evfDataDir(root),
-		at = new Date(probes.now()).toISOString(),
-		field = <T>(probe: () => T) => attempt(dir, probe);
-	const db = attempt(dir, () => openWorkDb(root));
+		at = new Date(probes.now()).toISOString();
+	const db = attempt(() => openWorkDb(root));
 	try {
-		const queue = db && attempt(dir, () => queueCounts(db)),
-			[load1 = null, load5 = null] = field(probes.load)?.map((n) => round(n, 2)) ?? [],
-			swapUsed = field(probes.swapUsedGb),
-			processes = field(probes.processes),
-			shares = processes && attempt(dir, () => cpuShares(processes));
-		attempt(dir, () =>
+		const queue = db && attempt(() => queueCounts(db)),
+			[load1 = null, load5 = null] = attempt(probes.load)?.map((n) => round(n, 2)) ?? [],
+			swapUsed = attempt(probes.swapUsedGb),
+			processes = attempt(probes.processes),
+			shares = processes && cpuShares(processes);
+		attempt(() =>
 			appendLine(dir, LOAD_FILE, {
 				at,
 				load1,
 				load5,
 				swapUsedGb: swapUsed === null ? null : round(swapUsed, 2),
-				freeMemPct: field(probes.freeMemPct),
+				freeMemPct: attempt(probes.freeMemPct),
 				seats: queue?.seats ?? null,
-				fullChecks: field(probes.fullChecks),
-				previews: field(probes.previews),
+				fullChecks: attempt(probes.fullChecks),
+				previews: attempt(probes.previews),
 			}),
 		);
-		attempt(dir, () =>
+		attempt(() =>
 			appendLine(dir, CPU_FILE, {
 				at,
 				...Object.fromEntries(CPU_CLASSES.map((c) => [c, shares?.[c] ?? null])),
 			}),
 		);
-		if (db && queue) attempt(dir, () => record(db, null, null, "queue_tick", { ...queue, load: load1 }, at));
+		if (db && queue) attempt(() => record(db, null, null, "queue_tick", { ...queue, load: load1 }, at));
 	} finally {
 		db?.close();
 	}
@@ -265,11 +229,11 @@ function trimFile(path: string, cutoffMs: number): void {
 export function applyRetention(root: string, nowMs: number): void {
 	const dir = evfDataDir(root),
 		cutoffMs = nowMs - RETENTION_MS;
-	for (const file of [LOAD_FILE, CPU_FILE]) attempt(dir, () => trimFile(join(dir, file), cutoffMs));
-	attempt(dir, () => {
+	for (const file of [LOAD_FILE, CPU_FILE]) attempt(() => trimFile(join(dir, file), cutoffMs));
+	attempt(() => {
 		const db = openWorkDb(root);
 		try {
-			db.prepare("DELETE FROM events WHERE type IN ('queue_tick', 'load_wait') AND ts GLOB '[0-9]*' AND ts < ?").run(
+			db.prepare("DELETE FROM events WHERE type IN ('queue_tick', 'load_wait') AND ts < ?").run(
 				new Date(cutoffMs).toISOString(),
 			);
 		} finally {
@@ -278,7 +242,7 @@ export function applyRetention(root: string, nowMs: number): void {
 	});
 }
 
-const lockPath = (root: string) => join(evfDataDir(root), LOCK_FILE);
+const lockPath = (root: string) => join(evfDataDir(root), "sampler.lock");
 
 function lockPid(lock: string): number | null {
 	try {
@@ -327,9 +291,8 @@ function claimLock(lock: string): boolean {
  * names it, which also closes the rare race of two starts that both reap one stale lock. `ticks` bounds a test's run.
  */
 export function runSampler(root: string, probes = machineProbes(root), opts: { ticks?: number } = {}): boolean {
-	const dir = evfDataDir(root),
-		lock = lockPath(root);
-	mkdirSync(dir, { recursive: true });
+	const lock = lockPath(root);
+	mkdirSync(evfDataDir(root), { recursive: true });
 	if (!claimLock(lock)) return false;
 	let retainedAt = -Infinity,
 		nextAt = probes.now();
@@ -340,7 +303,7 @@ export function runSampler(root: string, probes = machineProbes(root), opts: { t
 			retainedAt = now;
 			applyRetention(root, now);
 		}
-		attempt(dir, () => samplerTick(root, probes));
+		attempt(() => samplerTick(root, probes));
 		const after = probes.now();
 		nextAt += MINUTE_MS;
 		while (nextAt <= after) nextAt += MINUTE_MS; // A slow tick skips a minute; it never runs two at once.
@@ -368,9 +331,9 @@ function spawnSampler(root: string): number | undefined {
 }
 
 /** `evf sampler start`. Two starts at once both spawn; the lock lets one child through and the other exits. */
-export function startSampler(root: string, waitMs = 10_000): number {
-	const lock = lockPath(root);
-	mkdirSync(evfDataDir(root), { recursive: true });
+export function startSampler(root: string): number {
+	const lock = lockPath(root),
+		waitMs = 10_000;
 	const running = liveHolder(lock);
 	if (running !== null) {
 		console.log(`A sampler already runs (pid ${running}).`);
@@ -388,7 +351,7 @@ export function startSampler(root: string, waitMs = 10_000): number {
 }
 
 /** `evf sampler stop`. SIGTERM ends the sampler at once: it has no handler, and its records are whole lines. */
-export function stopSampler(root: string, waitMs = 5000): number {
+export function stopSampler(root: string): number {
 	const lock = lockPath(root),
 		pid = liveHolder(lock);
 	if (pid === null) {
@@ -397,7 +360,7 @@ export function stopSampler(root: string, waitMs = 5000): number {
 		return 0;
 	}
 	process.kill(pid, "SIGTERM");
-	for (const deadline = Date.now() + waitMs; alive(pid) && Date.now() < deadline;) sleep(50);
+	for (const deadline = Date.now() + 5000; alive(pid) && Date.now() < deadline;) sleep(50);
 	rmSync(lock, { force: true });
 	console.log(`Sampler stopped (pid ${pid}).`);
 	return 0;
@@ -406,6 +369,5 @@ export function stopSampler(root: string, waitMs = 5000): number {
 /** The drive's start: no wait and no print. A test's drive through main.ts sets EVF_NO_SAMPLER (tests/fixtures.ts). */
 export function ensureSampler(root: string): void {
 	if (process.env.EVF_NO_SAMPLER) return;
-	mkdirSync(evfDataDir(root), { recursive: true });
 	if (liveHolder(lockPath(root)) === null) spawnSampler(root);
 }
