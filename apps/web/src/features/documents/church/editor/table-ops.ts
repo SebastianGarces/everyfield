@@ -27,8 +27,8 @@ export const KINDS: { kind: Kind; label: string }[] = [
 	{ kind: "index", label: "Row number" },
 ];
 
-/** Where the person is in the table: a typed row, a blank write-in row, and a column. Any of them may be null. */
-export type Place = { row: number | null; blank: number | null; col: number | null };
+/** Where the person is in the table: a typed row or the blank write-in rows, and a column. */
+export type Place = { row: number | null; col: number | null; blank?: boolean };
 
 /** The reason a control is off, or null when it works. */
 export type Reason = string | null;
@@ -63,10 +63,10 @@ export const labelColumn = (t: TableNode) =>
 
 // ---------------------------------------------------------------- categories of a budget
 
-export type Category = { start: number; end: number; subtotal: number | null; items: number[] };
+type Category = { start: number; end: number; subtotal: number | null; items: number[] };
 
 /** The categories of a budget, in order: a group row, its line items and its total. A grand total belongs to none. */
-export function categories(t: TableNode): Category[] {
+function categories(t: TableNode): Category[] {
 	const out: Category[] = [];
 	let open: Category | null = null;
 	rowsOf(t).forEach((row, i) => {
@@ -112,32 +112,12 @@ const lastTextColumn = (t: TableNode, index: number) =>
 const ROW_LIMIT = `A table holds at most ${TABLE_LIMITS.rows} rows.`;
 const COLUMN_LIMIT = `A table holds at most ${TABLE_LIMITS.columns} columns.`;
 
-export type Availability = {
-	addRowAbove: Reason;
-	addRowBelow: Reason;
-	removeRow: Reason;
-	addColumnLeft: Reason;
-	addColumnRight: Reason;
-	removeColumn: Reason;
-	/** Why no kind can be chosen, or null. */
-	kind: Reason;
-	/** Why the write-in row count cannot change, or null. */
-	writeIn: Reason;
-	addItem: Reason;
-	removeItem: Reason;
-	addCategory: Reason;
-	removeCategory: Reason;
-	sign: Reason;
-};
-
-export function availability(t: TableNode, at: Place): Availability {
+export function availability(t: TableNode, at: Place) {
 	const rows = rowsOf(t);
 	const cols = t.attrs.columns;
 	const source = t.attrs.source;
 	const ledger = isLedger(t);
 	const noRows = source ? `This table lists the "${source}" field, so it has no typed rows.` : null;
-	const roomForRow = rows.length >= TABLE_LIMITS.rows ? ROW_LIMIT : noRows;
-	const column = (at.col === null ? undefined : cols[at.col]) ?? null;
 
 	const addColumn = (position: number): Reason =>
 		cols.length >= TABLE_LIMITS.columns
@@ -145,8 +125,6 @@ export function availability(t: TableNode, at: Place): Availability {
 			: joinsASum(t, position)
 				? "A formula adds up a range of columns here, so a new column would join the sum."
 				: null;
-	const left = at.col ?? 0;
-	const right = at.col === null ? cols.length : at.col + 1;
 
 	let removeColumn: Reason = null;
 	let kind: Reason = null;
@@ -155,49 +133,32 @@ export function availability(t: TableNode, at: Place): Availability {
 		kind = "Put the cursor in a column to change its kind.";
 	} else {
 		const reader = readerOf(t, at.col);
-		if (cols.length === 1) removeColumn = "A table keeps at least one column.";
-		else if (reader) removeColumn = `The "${reader.label}" column reads this column.`;
-		else if (lastTextColumn(t, at.col))
-			removeColumn = "A budget table keeps one text column, which holds its category and total labels.";
-		if (column?.type === "formula") kind = "A formula column keeps its kind.";
-		else if (reader) kind = `The "${reader.label}" column reads this column.`;
-		else if (lastTextColumn(t, at.col))
-			kind = "A budget table keeps one text column, which holds its category and total labels.";
+		const readBy = reader ? `The "${reader.label}" column reads this column.` : null;
+		const lastText = lastTextColumn(t, at.col)
+			? "A budget table keeps one text column, which holds its category and total labels."
+			: null;
+		removeColumn = cols.length === 1 ? "A table keeps at least one column." : (readBy ?? lastText);
+		kind = cols[at.col]?.type === "formula" ? "A formula column keeps its kind." : (readBy ?? lastText);
 	}
 
 	const category = ledger ? categoryAt(t, at.row) : null;
 	const inRow = at.row !== null ? rows[at.row] : undefined;
 	const noCategory = "Put the cursor in a category.";
 	return {
-		addRowAbove: ledger ? null : roomForRow,
-		addRowBelow: ledger ? null : roomForRow,
-		removeRow: ledger
-			? null
-			: at.row !== null
-				? null
-				: at.blank !== null
-					? null
-					: "Put the cursor in a row to remove it.",
-		addColumnLeft: addColumn(left),
-		addColumnRight: addColumn(right),
+		addRow: ledger ? null : rows.length >= TABLE_LIMITS.rows ? ROW_LIMIT : noRows,
+		removeRow: at.row !== null || at.blank ? null : "Put the cursor in a row to remove it.",
+		addColumnLeft: addColumn(at.col ?? 0),
+		addColumnRight: addColumn(at.col === null ? cols.length : at.col + 1),
 		removeColumn,
 		kind,
-		writeIn: ledger ? "A budget table has no blank rows." : null,
-		addItem: !ledger ? null : rows.length >= TABLE_LIMITS.rows ? ROW_LIMIT : !category ? noCategory : null,
-		removeItem: !ledger ? null : inRow && roleOf(inRow) === "item" ? null : "Put the cursor in a line item.",
-		addCategory: !ledger ? null : rows.length + 3 > TABLE_LIMITS.rows ? ROW_LIMIT : null,
-		removeCategory: !ledger
-			? null
-			: !category
-				? noCategory
-				: categories(t).length <= 1
-					? "A budget's only category cannot be removed."
-					: null,
-		sign: !ledger
-			? null
-			: category && rows[category.start] && roleOf(rows[category.start] as RowNode) === "group"
-				? null
-				: noCategory,
+		addItem: rows.length >= TABLE_LIMITS.rows ? ROW_LIMIT : !category ? noCategory : null,
+		removeItem: inRow && roleOf(inRow) === "item" ? null : "Put the cursor in a line item.",
+		addCategory: rows.length + 3 > TABLE_LIMITS.rows ? ROW_LIMIT : null,
+		removeCategory: !category
+			? noCategory
+			: categories(t).length <= 1
+				? "A budget's only category cannot be removed."
+				: null,
 	};
 }
 
@@ -226,7 +187,7 @@ export function setWriteInRows(t: TableNode, count: number): TableNode {
 // ---------------------------------------------------------------- columns
 
 /** The first id `column_n` that no column of the table uses. */
-export function freeColumnId(columns: readonly ColumnSpec[]) {
+function freeColumnId(columns: readonly ColumnSpec[]) {
 	const taken = new Set(columns.map((c) => c.id));
 	for (let n = columns.length + 1; ; n++) if (!taken.has(`column_${n}`)) return `column_${n}`;
 }
@@ -250,13 +211,6 @@ export function removeColumn(t: TableNode, at: number): TableNode {
 		t,
 		t.attrs.columns.filter((_, i) => i !== at),
 		content,
-	);
-}
-
-export function setLabel(t: TableNode, at: number, label: string): TableNode {
-	return withColumns(
-		t,
-		t.attrs.columns.map((c, i) => (i === at ? { ...c, label } : c)),
 	);
 }
 
@@ -331,10 +285,6 @@ export function addLineItem(t: TableNode, at: number): TableNode {
 	const index = roleOf(row) === "subtotal" ? at : at + 1;
 	rows.splice(index, 0, emptyRow(t, "item", LINE_ITEM));
 	return withRows(t, rows);
-}
-
-export function removeLineItem(t: TableNode, at: number): TableNode {
-	return removeRow(t, at);
 }
 
 /** A new category (a group row, a line item and a total) after the category that holds `at`, before any grand total. */

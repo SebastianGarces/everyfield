@@ -22,8 +22,8 @@ import { EfCell, EfRow, EfTable, EfValueCell, TableRules } from "./table-extensi
 // The Tiptap extensions for everyfield.doc/1. Each node and mark has the name and the attributes of the format
 // (packages/contracts/src/documents/format/schema.ts), so `editor.getJSON()` is the document body and there is no
 // mapping layer for prose. An attribute the file leaves out stays `undefined` in the editor and out of the JSON, so a
-// document reads back exactly as it was stored. Nodes that later slices edit (columns, box, image, write-in, slot,
-// table and the inline field) load, show, move, delete and save unchanged.
+// document reads back exactly as it was stored. Nodes that later slices edit (columns, box, image, write-in, slot
+// and the inline field) load, show, move, delete and save unchanged.
 
 /** What the page header and footer hold: the blocks a column holds, and columns. A page break cannot sit there. */
 const REGION_BLOCKS = "(colblock | columns)*";
@@ -258,7 +258,6 @@ const KIND_LABEL: Record<string, (attrs: Attrs) => string> = {
 	image: (a) => `Image · ${String(a.source ?? "logo")}`,
 	writeIn: (a) => (a.kind === "signature" ? "Signature line" : a.kind === "date" ? "Date line" : "Write-in line"),
 	slot: (a) => `Section · ${String(a.label ?? "Statement of faith")}`,
-	table: () => "Table",
 };
 export const blockLabel = (node: PMNode) => KIND_LABEL[node.type.name]?.(node.attrs) ?? node.type.name;
 
@@ -696,12 +695,7 @@ export const LayoutRules = Extension.create({
 // ---------------------------------------------------------------- the set
 
 /** Every extension of the editor. The headless tests load the same list. */
-export function editorExtensions(
-	values: FieldValues = {},
-	assets: Assets | null = null,
-	/** How many entries each list field holds: a table that reads one prints those rows and no blank ones. */
-	lists: Record<string, number> = {},
-) {
+export function editorExtensions(values: FieldValues = {}, assets: Assets | null = null) {
 	return [
 		EfDocument,
 		Text,
@@ -738,6 +732,6 @@ export function editorExtensions(
 		HeadingNumbers,
 		LayoutRules,
 		// Last, so its Enter, Backspace and Tab in a table cell come before every other extension's.
-		TableRules.configure({ lists }),
+		TableRules,
 	];
 }

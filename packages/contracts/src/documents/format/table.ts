@@ -23,22 +23,15 @@ export function formatNumber(value: number, kind: "money" | "number") {
 	return `${sign}${grouped(abs)}${decimals}`;
 }
 
-/** True when a money amount carries cents (an Excel column then shows two decimals). */
-export const hasCents = (value: number) => Math.round(Math.abs(value) * 100) % 100 !== 0;
-
-/** The narrowest a column shares out, in points. */
-export const MIN_COLUMN = 24;
-
 /** Column widths in points: fixed widths as given, the rest of `width` shared by the columns with width 0. */
 export function columnWidths(cols: readonly Pick<ColumnSpec, "width">[], width: number) {
 	const fixed = cols.reduce((s, c) => s + c.width, 0);
 	const auto = cols.filter((c) => c.width === 0).length;
-	const share = auto ? Math.max(MIN_COLUMN, (width - fixed) / auto) : 0;
+	const share = auto ? Math.max(24, (width - fixed) / auto) : 0;
 	return cols.map((c) => +(c.width || share).toFixed(2));
 }
 
-export type AmountKind = "money" | "number";
-export type Amount = { ok: true; value: number | null } | { ok: false; message: string };
+type Amount = { ok: true; value: number | null } | { ok: false; message: string };
 
 const AMOUNT = /^(-)?\$?(-)?(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+))?$/;
 
@@ -46,7 +39,7 @@ const AMOUNT = /^(-)?\$?(-)?(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+))?$/;
  * An amount typed by hand. Blank is no amount (null). `$3,000`, `3000.50` and `-20` read; money rounds to cents.
  * Anything else is refused with a message that says what to type.
  */
-export function parseAmount(text: string, kind: AmountKind): Amount {
+export function parseAmount(text: string, kind: "money" | "number"): Amount {
 	const raw = text.trim();
 	if (raw === "") return { ok: true, value: null };
 	const match = AMOUNT.exec(raw);
@@ -69,11 +62,10 @@ const TABLE = FORMAT_SCHEMA.nodes.table;
 export const TABLE_LIMITS = {
 	columns: TABLE?.attrs.columns?.max ?? 16,
 	rows: TABLE?.content?.max ?? 1000,
-	writeInRows: { min: TABLE?.attrs.writeInRows?.min ?? 0, max: TABLE?.attrs.writeInRows?.max ?? 200 },
 } as const;
 
 /** True when the body holds a budget table (a ledger), in a column or a box too. The page header and footer do not count. */
-export function bodyHasLedger(body: DocDocument["body"]): boolean {
+function bodyHasLedger(body: DocDocument["body"]): boolean {
 	const walk = (nodes: readonly BlockNode[] | undefined): boolean =>
 		(nodes ?? []).some(
 			(node) =>

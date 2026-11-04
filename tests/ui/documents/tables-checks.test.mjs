@@ -33,7 +33,13 @@ for (const [name, engine] of ENGINES) {
 			await t.checked("Add column right", () => t.button("Add column right").click());
 			await t.cell(0, 2);
 			await t.checked("Remove column", () => t.button("Remove column").click());
-			await t.checked("Edit a header label", () => page.locator(".ef-head-cell").nth(0).fill("Guest"));
+			// Key by key: the field keeps focus between keystrokes, so every letter lands.
+			await t.checked("Edit a header label", async () => {
+				const label = page.locator(".ef-head-cell").nth(0);
+				await label.fill("");
+				await label.pressSequentially("Guest");
+				assert.equal((await t.table()).attrs.columns[0].label, "Guest");
+			});
 			// 4: each kind of column.
 			for (const [col, value] of [
 				[0, "number"],

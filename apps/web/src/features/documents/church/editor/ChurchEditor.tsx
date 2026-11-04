@@ -46,18 +46,6 @@ export type SaveStatus =
 const NOTICE_WHY =
 	"Every formal or legal document prints this notice, in the PDF and the Word file. Editing the document cannot remove it.";
 
-type DocFormat = ExportFormat;
-
-/** How many entries each list field holds: a table that reads one prints those rows and no blank ones. */
-function listCounts(doc: DocDocument): Record<string, number> {
-	const counts: Record<string, number> = {};
-	for (const field of doc.fields) {
-		const raw = doc.data?.[field.key];
-		if (field.type === "list" && Array.isArray(raw)) counts[field.key] = raw.length;
-	}
-	return counts;
-}
-
 function fieldValues(doc: DocDocument): FieldValues {
 	const values: FieldValues = {};
 	for (const field of doc.fields) {
@@ -88,7 +76,7 @@ type Props = {
 	brand: DocBrand;
 	revision: string;
 	/** A save moved the revision; `formats` are the downloads its body offers (Excel only with a budget table). */
-	onRevision: (revision: string, formats: DocFormat[]) => void;
+	onRevision: (revision: string, formats: ExportFormat[]) => void;
 	previewSrc: (revision: string) => string;
 };
 
@@ -110,7 +98,7 @@ export default function ChurchEditor({
 	const inflight = useRef<Promise<boolean> | null>(null);
 
 	const extensions = useMemo(
-		() => [...editorExtensions(fieldValues(stored), brand.assets, listCounts(stored)), BlockShortcuts],
+		() => [...editorExtensions(fieldValues(stored), brand.assets), BlockShortcuts],
 		[stored, brand.assets],
 	);
 	const editor = useEditor({

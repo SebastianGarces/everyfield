@@ -4,18 +4,7 @@ import type { DocDocument, DocTemplate, EveryfieldDoc } from "./types.ts";
 
 export * from "./types.ts";
 export { FORMAT_SCHEMA } from "./schema.ts";
-export {
-	bodyHasLedger,
-	columnWidths,
-	exportsFor,
-	formatNumber,
-	hasCents,
-	MIN_COLUMN,
-	parseAmount,
-	TABLE_LIMITS,
-	type Amount,
-	type AmountKind,
-} from "./table.ts";
+export { columnWidths, exportsFor, formatNumber, parseAmount, TABLE_LIMITS } from "./table.ts";
 export {
 	attrsOf,
 	attrIssue,
@@ -24,11 +13,9 @@ export {
 	formulaDeps,
 	pageBox,
 	parseFormula,
-	tableIssue,
 	templateHash,
 	tileBox,
 	type Formula,
-	type FormulaDep,
 } from "./rules.ts";
 
 /**

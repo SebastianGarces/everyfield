@@ -8,8 +8,8 @@ import {
 	computeTable,
 	exportsFor,
 	formatNumber,
+	everyfieldDoc,
 	parseAmount,
-	tableIssue,
 	type TableNode,
 } from "../../../packages/contracts/src/documents/index.ts";
 import {
@@ -26,11 +26,20 @@ import {
 	setKind,
 	setSign,
 } from "../../../apps/web/src/features/documents/church/editor/table-ops.ts";
-import { tableView } from "../../../apps/web/src/features/documents/church/editor/table-model.ts";
+import { blankRows, tableView } from "../../../apps/web/src/features/documents/church/editor/table-model.ts";
 import { docTemplateById } from "../../../packages/domain/src/documents/doc-templates.ts";
 
 const budgetTemplate = () =>
 	structuredClone(docTemplateById("budget-worksheet")!.body.content!.find((n) => n.type === "table")) as TableNode;
+/** The first fault the format finds in a table, in a document that holds it alone. */
+const tableIssue = (table: TableNode) => {
+	const template = {
+		...docTemplateById("budget-worksheet")!,
+		exports: ["pdf"],
+		body: { type: "doc", content: [table] },
+	};
+	return everyfieldDoc.safeParse(template).error?.issues[0]?.message ?? null;
+};
 const roles = (t: TableNode) => (t.content ?? []).map((r) => r.attrs?.role ?? "item");
 
 test("formatNumber rounds money to cents, so 0.20 + 0.70 + 0.10 prints $1 and 100.50 keeps its cents", () => {
@@ -83,7 +92,7 @@ test("every new table of Insert parses, and a column or row action leaves the ta
 	for (let i = 0; i < 13; i++) grid = addColumn(grid, 0);
 	assert.equal(grid.attrs.columns.length, 16);
 	assert.equal(new Set(grid.attrs.columns.map((c) => c.id)).size, 16, "every column id is unique");
-	assert.match(availability(grid, { row: null, blank: null, col: 0 }).addColumnLeft ?? "", /at most 16 columns/);
+	assert.match(availability(grid, { row: null, col: 0 }).addColumnLeft ?? "", /at most 16 columns/);
 	assert.equal(tableIssue(removeColumn(grid, 3)), null);
 });
 
@@ -129,12 +138,12 @@ test("a column kind change converts the cells: text that reads as a number, numb
 
 test("a column a formula reads, and a budget's last text column, cannot be removed or change kind", () => {
 	const t = budgetTemplate();
-	const reads = availability(t, { row: 1, blank: null, col: 1 });
+	const reads = availability(t, { row: 1, col: 1 });
 	assert.equal(reads.removeColumn, 'The "Annual" column reads this column.');
 	assert.equal(reads.kind, 'The "Annual" column reads this column.');
-	const labels = availability(t, { row: 1, blank: null, col: 0 });
+	const labels = availability(t, { row: 1, col: 0 });
 	assert.match(labels.removeColumn ?? "", /keeps one text column/);
-	const formula = availability(t, { row: 1, blank: null, col: 2 });
+	const formula = availability(t, { row: 1, col: 2 });
 	assert.equal(formula.kind, "A formula column keeps its kind.");
 	assert.equal(formula.removeColumn, null);
 	assert.equal(tableIssue(removeColumn(t, 2)), null);
@@ -150,7 +159,7 @@ test("a column a formula reads, and a budget's last text column, cannot be remov
 			],
 		},
 	};
-	assert.match(availability(summed, { row: null, blank: null, col: 0 }).addColumnRight ?? "", /adds up a range/);
+	assert.match(availability(summed, { row: null, col: 0 }).addColumnRight ?? "", /adds up a range/);
 });
 
 test("a line item goes before its category total, a category before the grand total, and a sign is its own control", () => {
@@ -173,10 +182,7 @@ test("a line item goes before its category total, a category before the grand to
 	const removed = removeCategory(next, group);
 	assert.deepEqual(removed.content, t.content);
 	const single = newBudget();
-	assert.equal(
-		availability(single, { row: 1, blank: null, col: 0 }).removeCategory,
-		"A budget's only category cannot be removed.",
-	);
+	assert.equal(availability(single, { row: 1, col: 0 }).removeCategory, "A budget's only category cannot be removed.");
 	assert.equal(categoryAt(single, 3), null, "the grand total belongs to no category");
 });
 
@@ -188,20 +194,23 @@ test("the table view numbers rows and stripes as the PDF does: blank rows count 
 		{ type: "row", content: [{ type: "cell" }, { type: "cell" }, { type: "cell" }] },
 		{ type: "row", content: [{ type: "cell" }, { type: "cell" }, { type: "cell" }] },
 	];
-	const view = tableView(t);
 	assert.deepEqual(
-		view.rows.map((r) => [r.index, r.stripe, r.shown[0]]),
+		tableView(t).map((r) => [r.stripe, r.shown[0]]),
 		[
-			[1, false, "1"],
-			[2, true, "2"],
+			[false, "1"],
+			[true, "2"],
 		],
 	);
-	assert.deepEqual(view.blanks, [
+	assert.deepEqual(blankRows(t), [
 		{ index: 3, stripe: false },
 		{ index: 4, stripe: true },
 		{ index: 5, stripe: false },
 		{ index: 6, stripe: true },
 		{ index: 7, stripe: false },
 	]);
-	assert.equal(tableView(t, 4).blanks.length, 0, "a table that reads a list prints no blank rows");
+	assert.equal(
+		blankRows({ ...t, attrs: { ...t.attrs, source: "names" } }).length,
+		0,
+		"a table that reads a list has no blank rows",
+	);
 });

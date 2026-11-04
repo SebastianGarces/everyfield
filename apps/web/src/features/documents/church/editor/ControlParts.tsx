@@ -45,13 +45,11 @@ export function Segmented<T extends string | number>({
 	value,
 	options,
 	onChange,
-	disabled = false,
 }: {
 	label: string;
 	value: T;
 	options: { value: T; label: string; tooltip?: string }[];
 	onChange: (value: T) => void;
-	disabled?: boolean;
 }) {
 	return (
 		<div
@@ -69,7 +67,6 @@ export function Segmented<T extends string | number>({
 					tooltip={option.tooltip ?? option.label}
 					tabIndex={option.value === value ? 0 : -1}
 					data-active-state={option.value === value ? "on" : "off"}
-					disabled={disabled}
 					className="h-8 min-w-8 px-2.5"
 					onMouseDown={keepSelection}
 					onKeyDown={(event) =>

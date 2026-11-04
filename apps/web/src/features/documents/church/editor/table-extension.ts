@@ -21,9 +21,8 @@ import {
 	tableFocusPlugin,
 	tableOf,
 	typeInto,
-	type TableContext,
 } from "./table-actions.ts";
-import { tableView } from "./table-model.ts";
+import { blankRows, tableView } from "./table-model.ts";
 
 // The table the editor draws and edits. It is the format's own `table`, not Tiptap's general table. A text column holds
 // typed text in `cell` nodes. Every other column holds `valueCell` leaves that this file draws: an amount field, a check
@@ -59,7 +58,7 @@ export const EfTable = TiptapNode.create({
 		0,
 	],
 	addNodeView() {
-		return ({ node, editor, getPos, decorations }) => tableNodeView(node, editor, getPos, decorations);
+		return ({ node, editor, getPos }) => tableNodeView(node, editor, getPos);
 	},
 });
 
@@ -131,14 +130,6 @@ const cellSpecOf = (decorations: readonly Decoration[]): CellSpec | null => {
 	}
 	return null;
 };
-type TableSpec = { items: number };
-const tableSpecOf = (decorations: readonly Decoration[]): TableSpec => {
-	for (const d of decorations) {
-		const spec = (d as unknown as { spec?: Partial<TableSpec> }).spec;
-		if (spec && typeof spec.items === "number") return spec as TableSpec;
-	}
-	return { items: 0 };
-};
 
 // ---------------------------------------------------------------- DOM helpers
 
@@ -155,8 +146,7 @@ const alignOf = (c: ColumnSpec) => c.align ?? (c.type === "text" ? "left" : "rig
 type Stop = { area: "head"; col: number } | { area: "cell"; row: number; col: number } | { area: "blank" };
 
 /** The places a Tab stops in a table, in reading order: the header labels, then every cell that takes input. */
-function stopsOf(context: TableContext): Stop[] {
-	const table = context.table;
+function stopsOf(table: TableNode): Stop[] {
 	const a = attrsOf(table);
 	const stops: Stop[] = [];
 	if (a.header) a.columns.forEach((_, col) => stops.push({ area: "head", col }));
@@ -179,22 +169,17 @@ const sameStop = (a: Stop, b: Stop) => {
 	return b.area === "cell" && a.row === b.row && a.col === b.col;
 };
 
-function focusStop(view: EditorView, context: TableContext, stop: Stop) {
+function focusStop(view: EditorView, tablePos: number, stop: Stop) {
+	const table = view.nodeDOM(tablePos) as HTMLElement | null;
 	if (stop.area === "blank") {
-		const dom = view.nodeDOM(context.pos) as HTMLElement | null;
-		dom?.querySelector<HTMLElement>(".ef-table-blanks")?.focus();
+		table?.querySelector<HTMLElement>(".ef-table-blanks")?.focus();
 		return;
 	}
 	if (stop.area === "head") {
-		const dom = view.nodeDOM(context.pos) as HTMLElement | null;
-		(dom?.querySelectorAll<HTMLInputElement>(".ef-head-cell")[stop.col] ?? null)?.focus();
+		table?.querySelectorAll<HTMLInputElement>(".ef-head-cell")[stop.col]?.focus();
 		return;
 	}
-	const tr = selectIn(view.state.tr.setMeta("addToHistory", false), context.pos, {
-		row: stop.row,
-		blank: null,
-		col: stop.col,
-	});
+	const tr = selectIn(view.state.tr, tablePos, { row: stop.row, col: stop.col });
 	view.dispatch(tr);
 	// A text cell takes the editor's cursor; an amount or check box cell takes its own field.
 	if (tr.selection instanceof NodeSelection && tr.selection.node.type.name === "valueCell") {
@@ -230,28 +215,27 @@ function leaveTable(view: EditorView, tablePos: number, direction: 1 | -1): bool
 }
 
 /** Tab (`1`) or Shift+Tab (`-1`) from `from`. At either end it moves on to the next control after or before the table. */
-export function moveFocus(editor: Editor, tablePos: number, from: Stop | null, direction: 1 | -1): boolean {
+function moveFocus(editor: Editor, tablePos: number, from: Stop, direction: 1 | -1): boolean {
 	const node = editor.state.doc.nodeAt(tablePos);
 	if (!node || node.type.name !== "table") return false;
-	const context: TableContext = {
-		pos: tablePos,
-		node,
-		table: tableOf(node),
-		at: { row: null, blank: null, col: null },
-	};
-	const stops = stopsOf(context);
-	const at = from ? stops.findIndex((s) => sameStop(s, from)) : -1;
-	const next = stops[at < 0 ? (direction > 0 ? 0 : stops.length - 1) : at + direction];
+	const stops = stopsOf(tableOf(node));
+	const next = stops[stops.findIndex((s) => sameStop(s, from)) + direction];
 	if (!next) return leaveTable(editor.view, tablePos, direction);
-	focusStop(editor.view, context, next);
+	focusStop(editor.view, tablePos, next);
 	return true;
 }
 
-/** The stop that holds the editor's cursor, if it is in a table cell. */
-function stopOfSelection(state: EditorState): { pos: number; stop: Stop } | null {
-	const context = tableContext(state);
-	if (!context || context.at.row === null || context.at.col === null) return null;
-	return { pos: context.pos, stop: { area: "cell", row: context.at.row, col: context.at.col } };
+/** The keys every field of a table shares: one Undo history for the whole document, and Tab between the stops. */
+function fieldKey(editor: Editor, event: KeyboardEvent, tablePos: number | undefined, stop: Stop | null) {
+	const key = event.key.toLowerCase();
+	if ((event.metaKey || event.ctrlKey) && !event.altKey && (key === "z" || key === "y")) {
+		// The field's own Undo would split a typed amount.
+		event.preventDefault();
+		if (key === "y" || event.shiftKey) editor.commands.redo();
+		else editor.commands.undo();
+	} else if (event.key === "Tab" && tablePos !== undefined && stop) {
+		if (moveFocus(editor, tablePos, stop, event.shiftKey ? -1 : 1)) event.preventDefault();
+	}
 }
 
 // ---------------------------------------------------------------- the amount and check box cell
@@ -269,7 +253,6 @@ function valueCellView(
 	let field: HTMLInputElement | HTMLButtonElement | HTMLElement | null = null;
 	const note = el("span", "ef-vnote", { role: "alert" });
 	const typing = newTyping();
-	let invalid: string | null = null;
 
 	const amountText = () => {
 		const value = node.attrs.value;
@@ -278,7 +261,6 @@ function valueCellView(
 			: "";
 	};
 	const setInvalid = (message: string | null) => {
-		invalid = message;
 		note.textContent = message ?? "";
 		if (field instanceof HTMLInputElement) {
 			if (message) {
@@ -303,21 +285,7 @@ function valueCellView(
 		const $pos = editor.state.doc.resolve(pos);
 		return { area: "cell", row: $pos.index($pos.depth - 1), col: $pos.index($pos.depth) };
 	};
-	const arrow = (event: KeyboardEvent) => {
-		const key = event.key;
-		if ((event.metaKey || event.ctrlKey) && !event.altKey && key.toLowerCase() === "z") {
-			// One history for the whole document: the field's own Undo would split a typed amount.
-			event.preventDefault();
-			if (event.shiftKey) editor.commands.redo();
-			else editor.commands.undo();
-		} else if ((event.metaKey || event.ctrlKey) && !event.altKey && key.toLowerCase() === "y") {
-			event.preventDefault();
-			editor.commands.redo();
-		} else if (key === "Tab") {
-			const pos = tablePosOf();
-			if (pos !== undefined && moveFocus(editor, pos, stopHere(), event.shiftKey ? -1 : 1)) event.preventDefault();
-		}
-	};
+	const onKey = (event: KeyboardEvent) => fieldKey(editor, event, tablePosOf(), stopHere());
 
 	function build() {
 		const kind = spec?.kind;
@@ -357,7 +325,7 @@ function valueCellView(
 					input.value = amountText();
 				});
 				input.addEventListener("keydown", (event) => {
-					arrow(event);
+					onKey(event);
 					if (event.key === "Enter") event.preventDefault();
 					if (event.key === "Escape") {
 						input.value = amountText();
@@ -374,7 +342,7 @@ function valueCellView(
 			const typed = parseAmount(input.value, kind === "money" ? "money" : "number");
 			if (document.activeElement !== input) {
 				input.value = amountText();
-				if (invalid) setInvalid(null);
+				setInvalid(null);
 			} else if (typed.ok && (typed.value ?? null) !== (node.attrs.value ?? null)) {
 				// Undo or Redo changed the amount while the field had focus: the field shows the stored amount.
 				input.value = amountText();
@@ -396,7 +364,7 @@ function valueCellView(
 						}),
 					);
 				});
-				box.addEventListener("keydown", arrow);
+				box.addEventListener("keydown", onKey);
 				dom.append(box);
 				field = box;
 			}
@@ -405,13 +373,11 @@ function valueCellView(
 			box.setAttribute("aria-checked", String(node.attrs.checked === true));
 			box.dataset.checked = String(node.attrs.checked === true);
 		} else {
-			if (field && (field instanceof HTMLInputElement || field instanceof HTMLButtonElement)) dom.replaceChildren();
 			if (!field || field instanceof HTMLInputElement || field instanceof HTMLButtonElement) {
 				field = el("span", "ef-computed");
 				dom.replaceChildren(field);
 			}
 			field.textContent = spec?.shown ?? "";
-			dom.dataset.shown = spec?.shown ?? "";
 		}
 	}
 	build();
@@ -431,12 +397,7 @@ function valueCellView(
 
 // ---------------------------------------------------------------- the table
 
-function tableNodeView(
-	initial: PMNode,
-	editor: Editor,
-	getPos: () => number | undefined,
-	initialDecorations: readonly Decoration[],
-) {
+function tableNodeView(initial: PMNode, editor: Editor, getPos: () => number | undefined) {
 	const dom = el("div", "ef-table", { "data-ef-node": "table" });
 	const scroll = el("div", "ef-table-scroll");
 	const grid = el("div", "ef-table-grid", { role: "table" });
@@ -451,12 +412,11 @@ function tableNodeView(
 	scroll.append(grid);
 	dom.append(scroll, note);
 	let node = initial;
-	let items = tableSpecOf(initialDecorations).items;
 	const typing = newTyping();
 	let headKey = "";
 	let blankKey = "";
 
-	const table = () => formatAttrs(node);
+	const table = () => attrsOf(tableOf(node));
 
 	function widths() {
 		const cols = table().columns;
@@ -469,12 +429,12 @@ function tableNodeView(
 
 	function drawHead() {
 		const a = table();
-		const key = JSON.stringify([a.columns.map((c) => [c.label, c.type, c.align ?? null]), a.header]);
+		const key = JSON.stringify([a.columns.map((c) => [c.type, c.align ?? null]), a.header]);
 		if (key === headKey) {
-			// Labels are not rewritten while a person types in one.
+			// The inputs stay while a person types in one. Only Undo and Redo make a value differ from its label.
 			a.columns.forEach((c, i) => {
 				const input = head.children[i] as HTMLInputElement | undefined;
-				if (input && document.activeElement !== input && input.value !== c.label) input.value = c.label;
+				if (input && input.value !== c.label) input.value = c.label;
 			});
 			return;
 		}
@@ -504,18 +464,8 @@ function tableNodeView(
 				typeInto(editor.view, typing, (tr) => tr.setNodeMarkup(pos, undefined, { ...current.attrs, columns }));
 			});
 			input.addEventListener("keydown", (event) => {
-				if ((event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === "z") {
-					event.preventDefault();
-					if (event.shiftKey) editor.commands.redo();
-					else editor.commands.undo();
-				} else if ((event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === "y") {
-					event.preventDefault();
-					editor.commands.redo();
-				} else if (event.key === "Tab") {
-					const pos = getPos();
-					if (pos !== undefined && moveFocus(editor, pos, { area: "head", col: i }, event.shiftKey ? -1 : 1))
-						event.preventDefault();
-				} else if (event.key === "Enter") event.preventDefault();
+				fieldKey(editor, event, getPos(), { area: "head", col: i });
+				if (event.key === "Enter") event.preventDefault();
 			});
 			head.append(input);
 		});
@@ -523,20 +473,21 @@ function tableNodeView(
 
 	function drawBlanks() {
 		const a = table();
-		const count = a.source ? 0 : a.writeInRows;
-		const key = JSON.stringify([count, items, a.zebra, a.columns.map((c) => [c.type, c.align ?? null])]);
+		const rows = blankRows(tableOf(node));
+		const count = rows.length;
+		const key = JSON.stringify([rows, a.columns.map((c) => [c.type, c.align ?? null])]);
 		if (key === blankKey) return;
 		blankKey = key;
 		blanks.replaceChildren();
 		blanks.hidden = count === 0;
 		blanks.setAttribute("aria-label", `${count} blank row${count === 1 ? "" : "s"} to write in by hand`);
-		for (let k = 1; k <= count; k++) {
+		for (const blank of rows) {
 			const row = el("div", "ef-blank-row", { role: "row", "data-role": "item" });
-			if (a.zebra && (items + k) % 2 === 0) row.classList.add("ef-stripe");
+			if (blank.stripe) row.classList.add("ef-stripe");
 			a.columns.forEach((c) => {
 				const cell = el("div", "ef-blank-cell", { role: "cell", "data-kind": c.type });
 				cell.style.textAlign = alignOf(c);
-				if (c.type === "index") cell.textContent = String(items + k);
+				if (c.type === "index") cell.textContent = String(blank.index);
 				else if (c.type === "check") cell.append(el("span", "ef-blank-box"));
 				row.append(cell);
 			});
@@ -574,17 +525,14 @@ function tableNodeView(
 	observer?.observe(scroll);
 	blanks.addEventListener("focus", () => noteFocus(editor.view, getPos(), "blank", 0));
 	blanks.addEventListener("keydown", (event) => {
-		const pos = getPos();
-		if (event.key === "Tab" && pos !== undefined && moveFocus(editor, pos, { area: "blank" }, event.shiftKey ? -1 : 1))
-			event.preventDefault();
+		if (event.key === "Tab") fieldKey(editor, event, getPos(), { area: "blank" });
 	});
 	return {
 		dom,
 		contentDOM: body,
-		update(next: PMNode, decorations: readonly Decoration[]) {
+		update(next: PMNode) {
 			if (next.type !== initial.type) return false;
 			node = next;
-			items = tableSpecOf(decorations).items;
 			draw();
 			return true;
 		},
@@ -596,37 +544,22 @@ function tableNodeView(
 	};
 }
 
-/** The attributes of a table node with the format's defaults, for drawing. */
-function formatAttrs(node: PMNode) {
-	const json = {
-		type: "table",
-		attrs: Object.fromEntries(Object.entries(node.attrs).filter(([, v]) => v !== undefined)),
-	} as unknown as TableNode;
-	return attrsOf(json);
-}
-
 // ---------------------------------------------------------------- decorations: what each row and cell shows
 
 type Cached = { pos: number; list: Decoration[] };
 const decorationCache = new WeakMap<PMNode, Cached>();
 
-function decorationsFor(node: PMNode, pos: number, lists: Record<string, number>): Decoration[] {
+function decorationsFor(node: PMNode, pos: number): Decoration[] {
 	const hit = decorationCache.get(node);
 	if (hit && hit.pos === pos) return hit.list;
 	const table = tableOf(node);
 	const a = attrsOf(table);
-	const sourceRows = a.source ? (lists[a.source] ?? 0) : 0;
-	const view = tableView(table, sourceRows);
+	const view = tableView(table);
 	const list: Decoration[] = [];
-	const typedItems = view.rows.filter((r) => r.role === "item").length;
-	list.push(Decoration.node(pos, pos + node.nodeSize, {}, { items: typedItems + sourceRows }));
 	let rowPos = pos + 1;
 	node.forEach((row, _offset, r) => {
-		const shown = view.rows[r];
-		const attrs: Record<string, string> = {};
-		if (shown?.stripe) attrs.class = "ef-stripe";
-		if (a.rowHeight) attrs.style = `min-height:${px(a.rowHeight)}`;
-		if (Object.keys(attrs).length) list.push(Decoration.node(rowPos, rowPos + row.nodeSize, attrs));
+		const shown = view[r];
+		if (shown?.stripe) list.push(Decoration.node(rowPos, rowPos + row.nodeSize, { class: "ef-stripe" }));
 		let cellPos = rowPos + 1;
 		row.forEach((cell, _o, ci) => {
 			const column = a.columns[ci];
@@ -650,11 +583,11 @@ function decorationsFor(node: PMNode, pos: number, lists: Record<string, number>
 	return list;
 }
 
-function tableDecorations(doc: PMNode, lists: Record<string, number>) {
+function tableDecorations(doc: PMNode) {
 	const found: Decoration[] = [];
 	doc.descendants((node, pos) => {
 		if (node.type.name !== "table") return true;
-		found.push(...decorationsFor(node, pos, lists));
+		found.push(...decorationsFor(node, pos));
 		return false;
 	});
 	return DecorationSet.create(doc, found);
@@ -717,27 +650,20 @@ function oneLine(slice: Slice): Slice {
 			}
 		});
 	walk(slice.content);
-	const trimmed = out.filter((n) => !n.isText || (n.text ?? "") !== "");
-	return new Slice(Fragment.from(trimmed), 0, 0);
+	return new Slice(Fragment.from(out), 0, 0);
 }
 
-const inCell = (state: EditorState) => {
-	const $from = state.selection.$from;
-	for (let d = $from.depth; d >= 1; d--) if ($from.node(d).type.name === "cell") return true;
-	return false;
-};
+const inCell = (state: EditorState) => cellAt(state.doc, state.selection.from) !== null;
 
-export const TableRules = Extension.create<{ lists: Record<string, number> }>({
+export const TableRules = Extension.create({
 	name: "tableRules",
-	addOptions: () => ({ lists: {} }),
 	addProseMirrorPlugins() {
-		const lists = this.options.lists;
 		return [
 			tableFocusPlugin(),
 			new Plugin({
 				key: new PluginKey("efTableDisplay"),
 				props: {
-					decorations: (state) => tableDecorations(state.doc, lists),
+					decorations: (state) => tableDecorations(state.doc),
 					// A selection inside a table stays in one cell: a drag or Shift+arrows cannot span cells.
 					createSelectionBetween: (_view, $anchor, $head) => {
 						const doc = $anchor.doc;
@@ -774,8 +700,9 @@ export const TableRules = Extension.create<{ lists: Record<string, number> }>({
 			return selection instanceof NodeSelection && selection.node.type.name === "valueCell";
 		};
 		const tab = (direction: 1 | -1) => () => {
-			const here = stopOfSelection(editor().state);
-			return here ? moveFocus(editor(), here.pos, here.stop, direction) : false;
+			const context = tableContext(editor().state);
+			if (!context || context.at.row === null || context.at.col === null) return false;
+			return moveFocus(editor(), context.pos, { area: "cell", row: context.at.row, col: context.at.col }, direction);
 		};
 		return {
 			// A cell is one line: no paragraph, no line break.

@@ -5,7 +5,7 @@ import type { Node as PMNode, Schema } from "@tiptap/pm/model";
 import { NodeSelection, Plugin, PluginKey, TextSelection, type EditorState, type Transaction } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 import { clean } from "./document-json.ts";
-import { asFormatTable, tableToEditor } from "./table-json.ts";
+import { tableFromEditor, tableToEditor } from "./table-json.ts";
 import type { Place } from "./table-ops.ts";
 
 // The editor side of a table: where the cursor is in it, how a table of the format becomes a node and back, and how an
@@ -19,7 +19,7 @@ const cache = new WeakMap<PMNode, TableNode>();
 export function tableOf(node: PMNode): TableNode {
 	let table = cache.get(node);
 	if (!table) {
-		table = clean(asFormatTable(node.toJSON() as Record<string, unknown>));
+		table = clean(tableFromEditor(node.toJSON() as Record<string, unknown>)) as unknown as TableNode;
 		cache.set(node, table);
 	}
 	return table;
@@ -79,20 +79,13 @@ export function tableContext(state: EditorState): TableContext | null {
 	if (pos < 0) return null;
 	const node = state.doc.nodeAt(pos);
 	if (!node || node.type.name !== "table") return null;
-	let at: Place = { row: null, blank: null, col: null };
+	let at: Place = { row: null, col: null };
 	if (depth >= 1 && $from.depth > depth) {
 		// A cursor in a text cell has the row and cell above it; a selected amount cell sits in its row.
-		const row = $from.index(depth);
-		const col =
-			$from.depth >= depth + 2
-				? $from.index(depth + 1)
-				: selection instanceof NodeSelection
-					? $from.index(depth + 1)
-					: null;
-		at = { row, blank: null, col };
+		at = { row: $from.index(depth), col: $from.index(depth + 1) };
 	} else {
 		const focus = tableFocusKey.getState(state);
-		if (focus && focus.pos === pos) at = { row: null, blank: focus.area === "blank" ? 0 : null, col: focus.col };
+		if (focus && focus.pos === pos) at = { row: null, col: focus.col, blank: focus.area === "blank" };
 	}
 	return { pos, node, table: tableOf(node), at };
 }
@@ -100,7 +93,7 @@ export function tableContext(state: EditorState): TableContext | null {
 // ---------------------------------------------------------------- selections
 
 /** Where the cursor goes in a table: the end of a text cell, or the selected amount cell, else the table itself. */
-export function selectIn(tr: Transaction, tablePos: number, place: Place, area: "head" | "blank" = "head") {
+export function selectIn(tr: Transaction, tablePos: number, place: Place) {
 	const table = tr.doc.nodeAt(tablePos);
 	if (!table) return tr;
 	if (place.row !== null && place.row < table.childCount) {
@@ -108,17 +101,17 @@ export function selectIn(tr: Transaction, tablePos: number, place: Place, area: 
 		let cellPos = tablePos + 1;
 		for (let i = 0; i < place.row; i++) cellPos += table.child(i).nodeSize;
 		cellPos += 1;
-		const index = Math.min(Math.max(place.col ?? 0, 0), row.childCount - 1);
+		const index = Math.min(place.col ?? 0, row.childCount - 1);
 		for (let i = 0; i < index; i++) cellPos += row.child(i).nodeSize;
 		const cell = row.child(index);
 		return cell.type.name === "valueCell"
 			? tr.setSelection(NodeSelection.create(tr.doc, cellPos))
 			: tr.setSelection(TextSelection.create(tr.doc, cellPos + 1 + cell.content.size));
 	}
-	const col = Math.min(Math.max(place.col ?? 0, 0), Math.max(0, attrsOf(tableOf(table)).columns.length - 1));
+	const col = Math.min(place.col ?? 0, attrsOf(tableOf(table)).columns.length - 1);
 	return tr
 		.setSelection(NodeSelection.create(tr.doc, tablePos))
-		.setMeta(tableFocusKey, { pos: tablePos, area: place.blank !== null ? "blank" : area, col } satisfies TableFocus);
+		.setMeta(tableFocusKey, { pos: tablePos, area: place.blank ? "blank" : "head", col } satisfies TableFocus);
 }
 
 // ---------------------------------------------------------------- actions
@@ -127,13 +120,7 @@ export function selectIn(tr: Transaction, tablePos: number, place: Place, area: 
  * Replaces the table by `next` in one transaction and puts the cursor at `place`. When only the attributes changed, the
  * node keeps its rows, so its cells keep their text and their focus.
  */
-export function applyTable(
-	editor: Editor,
-	context: TableContext,
-	next: TableNode,
-	place: Place,
-	area?: "head" | "blank",
-) {
+export function applyTable(editor: Editor, context: TableContext, next: TableNode, place: Place) {
 	const { state } = editor;
 	const tr = closeHistory(state.tr);
 	const replacement = nodeFromTable(state.schema, next);
@@ -143,7 +130,7 @@ export function applyTable(
 		tr.setNodeMarkup(context.pos, undefined, replacement.attrs);
 	} else {
 		tr.replaceWith(context.pos, end, replacement);
-		selectIn(tr, context.pos, place, area);
+		selectIn(tr, context.pos, place);
 	}
 	editor.view.dispatch(tr.scrollIntoView());
 }
@@ -172,21 +159,17 @@ export function typeInto(view: EditorView, typing: Typing, make: (tr: Transactio
 /** Notes that the cursor is in the table's own header or blank rows, so the table controls know the column. */
 export function noteFocus(view: EditorView, pos: number | undefined, area: "head" | "blank", col: number) {
 	if (pos === undefined) return;
-	const node = view.state.doc.nodeAt(pos);
-	if (!node || node.type.name !== "table") return;
-	const tr = view.state.tr
-		.setSelection(NodeSelection.create(view.state.doc, pos))
-		.setMeta("addToHistory", false)
-		.setMeta(tableFocusKey, { pos, area, col } satisfies TableFocus);
-	view.dispatch(tr);
+	view.dispatch(
+		view.state.tr
+			.setSelection(NodeSelection.create(view.state.doc, pos))
+			.setMeta(tableFocusKey, { pos, area, col } satisfies TableFocus),
+	);
 }
 
 /** Selects the amount or check box cell at `pos` so the table controls know its row and column. */
 export function noteCell(view: EditorView, pos: number | undefined) {
 	if (pos === undefined) return;
-	const node = view.state.doc.nodeAt(pos);
-	if (!node || node.type.name !== "valueCell") return;
 	const { selection } = view.state;
 	if (selection instanceof NodeSelection && selection.from === pos) return;
-	view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, pos)).setMeta("addToHistory", false));
+	view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, pos)));
 }

@@ -1,5 +1,5 @@
 import type { BlockNode, EveryfieldDoc, Formula, TableNode } from "@everyfield/contracts/documents";
-import { attrsOf, computeTable, hasCents, parseFormula } from "@everyfield/contracts/documents";
+import { attrsOf, computeTable, parseFormula } from "@everyfield/contracts/documents";
 import { textOn } from "./contrast.ts";
 import type { Palette, RenderTheme } from "./theme.ts";
 import { makePalette, tokenColor } from "./theme.ts";
@@ -100,9 +100,7 @@ class StyleBook {
 
 	/** The id of a number format, added when it is new. */
 	numFmt(code: string) {
-		let at = this.numFmts.indexOf(code);
-		if (at < 0) at = this.numFmts.push(code) - 1;
-		return 164 + at;
+		return 164 + this.index(this.numFmts, code);
 	}
 	private index(list: string[], entry: string) {
 		const at = list.indexOf(entry);
@@ -451,12 +449,11 @@ export function buildLedgerWorkbook(doc: EveryfieldDoc, values: Record<string, s
 		// One number format for each numeric column: cents when any amount or total in it has them.
 		const formats = cols.map((c, ci) => {
 			if (!numeric(c.type)) return 0;
-			const seen = (table.content ?? []).flatMap((row, ri) => {
-				const typed = row.content[ci]?.attrs?.value;
-				return [typeof typed === "number" ? typed : null, computed[ri]?.[ci] ?? null];
-			});
-			const nums = seen.filter((v): v is number => typeof v === "number");
-			if (kindOf(c) === "money") return book.numFmt(nums.some(hasCents) ? MONEY_CENTS : MONEY_WHOLE);
+			const nums = (table.content ?? [])
+				.flatMap((row, ri) => [row.content[ci]?.attrs?.value, computed[ri]?.[ci]])
+				.filter((v): v is number => typeof v === "number");
+			if (kindOf(c) === "money")
+				return book.numFmt(nums.some((v) => Math.round(Math.abs(v) * 100) % 100 !== 0) ? MONEY_CENTS : MONEY_WHOLE);
 			return book.numFmt(nums.some((v) => !Number.isInteger(+v.toFixed(4))) ? NUMBER_DECIMALS : NUMBER_WHOLE);
 		});
 		const stripe = book.fill(p.muted);
@@ -481,7 +478,6 @@ export function buildLedgerWorkbook(doc: EveryfieldDoc, values: Record<string, s
 		const groups: Group[] = [];
 		let open: Group | null = null;
 		let index = 0;
-		let item = 0;
 		(table.content ?? []).forEach((row, ri) => {
 			const at = FIRST + ri;
 			const role = row.attrs?.role ?? "item";
@@ -498,9 +494,8 @@ export function buildLedgerWorkbook(doc: EveryfieldDoc, values: Record<string, s
 				}
 				open.items.push(at);
 				index += 1;
-				item += 1;
 				// The rows the PDF stripes: every second item row.
-				const fill = a.zebra && item % 2 === 0 ? stripe : 0;
+				const fill = a.zebra && index % 2 === 0 ? stripe : 0;
 				const label = book.xf(0, fill, 3, 0, LEFT);
 				const money = (ci: number) => book.xf(0, fill, 3, formats[ci] ?? 0, RIGHT);
 				rows.push(

@@ -223,7 +223,7 @@ export function insertBlock(editor: Editor, kind: InsertKind, alt = ""): boolean
 			return firstText === null;
 		});
 		if (firstText !== null) tr.setSelection(TextSelection.create(tr.doc, firstText + 1));
-		else selectIn(tr, at, { row: null, blank: null, col: 0 });
+		else selectIn(tr, at, { row: null, col: 0 });
 	} else tr.setSelection(Selection.near(tr.doc.resolve(at + 1), 1));
 	editor.view.dispatch(tr);
 	editor.view.focus();

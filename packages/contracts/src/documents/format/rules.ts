@@ -138,10 +138,9 @@ function formulaRefs(tree: Formula, columnIds: string[]) {
 	return out;
 }
 
-export type FormulaDep = {
+type FormulaDep = {
 	/** The formula column. */
 	column: TableNode["attrs"]["columns"][number];
-	index: number;
 	/** Every column id the formula reads, a sum range expanded. */
 	reads: string[];
 	/** The column index spans of its sum ranges: a column added inside one would join the sum. */
@@ -152,7 +151,7 @@ export type FormulaDep = {
 export function formulaDeps(columns: TableNode["attrs"]["columns"]): FormulaDep[] {
 	const ids = columns.map((c) => c.id);
 	const out: FormulaDep[] = [];
-	columns.forEach((column, index) => {
+	columns.forEach((column) => {
 		if (column.type !== "formula") return;
 		let tree: Formula;
 		try {
@@ -173,24 +172,9 @@ export function formulaDeps(columns: TableNode["attrs"]["columns"]): FormulaDep[
 			}
 		};
 		walk(tree);
-		out.push({ column, index, reads: formulaRefs(tree, ids), spans });
+		out.push({ column, reads: formulaRefs(tree, ids), spans });
 	});
 	return out;
-}
-
-/** The first fault the format finds in one table (its columns, formulas and rows), in its words, or null. */
-export function tableIssue(table: TableNode): string | null {
-	let message: string | null = null;
-	const ctx = {
-		schema: FORMAT_SCHEMA,
-		fail: (_path: string, text: string) => {
-			message ??= text;
-		},
-		fieldRefs: [],
-		ledgers: 0,
-	} as unknown as Ctx;
-	checkTable(table as unknown as Rec, (table.attrs ?? {}) as Rec, "table", ctx);
-	return message;
 }
 
 function evalTree(n: Formula, get: (id: string) => number, columnIds: string[]): number {
@@ -667,12 +651,12 @@ function checkValue(value: unknown, spec: ValueSpec, path: string, ctx: Ctx) {
 }
 
 /** What the format says about one attribute value of a node type, in its words, or null when the value is fine. */
-export function attrIssue(node: string, attribute: string, value: unknown, schema = FORMAT_SCHEMA): string | null {
-	const spec = schema.nodes[node]?.attrs[attribute];
+export function attrIssue(node: string, attribute: string, value: unknown): string | null {
+	const spec = FORMAT_SCHEMA.nodes[node]?.attrs[attribute];
 	if (!spec) return null;
 	let message: string | null = null;
 	const ctx = {
-		schema,
+		schema: FORMAT_SCHEMA,
 		fail: (_path: string, text: string) => {
 			message ??= text;
 		},

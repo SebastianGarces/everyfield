@@ -5,7 +5,7 @@ import type { Editor } from "@tiptap/react";
 import { useEditorState } from "@tiptap/react";
 import { useId, useRef, useState, type ReactNode } from "react";
 import { Group, keepSelection, Labeled, Segmented, Swatches, Tip } from "./ControlParts.tsx";
-import { applyTable, newTyping, tableContext, tableFocusKey, typeInto, type TableContext } from "./table-actions.ts";
+import { applyTable, newTyping, tableContext, typeInto, type TableContext } from "./table-actions.ts";
 import {
 	addCategory,
 	addColumn,
@@ -17,7 +17,6 @@ import {
 	labelColumn,
 	removeCategory,
 	removeColumn,
-	removeLineItem,
 	removeRow,
 	setHeaderFill,
 	setKind,
@@ -79,22 +78,10 @@ function useTableContext(editor: Editor) {
 	});
 }
 
-/** What a person means by "the current row" for a control: the row of the cursor, else none. */
-const here = (editor: Editor) => tableContext(editor.state);
-
 function run(editor: Editor, make: (context: TableContext) => { table: TableNode; place: Place } | null) {
-	const context = here(editor);
-	if (!context) return;
-	const done = make(context);
-	if (!done) return;
-	const focus = tableFocusKey.getState(editor.state);
-	applyTable(
-		editor,
-		context,
-		done.table,
-		done.place,
-		context.at.blank !== null || focus?.area === "blank" ? "blank" : "head",
-	);
+	const context = tableContext(editor.state);
+	const done = context && make(context);
+	if (done) applyTable(editor, context, done.table, done.place);
 }
 
 /** The write-in row count: 0 to 200. A count outside it shows the format's message and is not applied. */
@@ -103,19 +90,15 @@ function WriteInField({ editor, context }: { editor: Editor; context: TableConte
 	const [draft, setDraft] = useState<string | null>(null);
 	const typing = useRef(newTyping());
 	const current = context.table.attrs.writeInRows ?? 0;
-	const problem =
-		draft === null
-			? null
-			: draft.trim() === ""
-				? "Type a number from 0 to 200."
-				: attrIssue("table", "writeInRows", Number(draft));
-	const reason = availability(context.table, context.at).writeIn;
+	const issue = (text: string) =>
+		text.trim() === "" ? "Type a number from 0 to 200." : attrIssue("table", "writeInRows", Number(text));
+	const problem = draft === null ? null : issue(draft);
 	return (
 		<span className="flex flex-wrap items-center gap-2">
 			<label htmlFor={id} className="cursor-pointer text-sm text-text-2">
 				Blank rows
 			</label>
-			<Tip text={reason ?? "How many blank rows to write in by hand, 0 to 200"}>
+			<Tip text="How many blank rows to write in by hand, 0 to 200">
 				<input
 					id={id}
 					type="number"
@@ -124,16 +107,15 @@ function WriteInField({ editor, context }: { editor: Editor; context: TableConte
 					max={200}
 					step={1}
 					value={draft ?? String(current)}
-					disabled={reason !== null}
 					aria-invalid={problem ? true : undefined}
 					aria-describedby={problem ? `${id}-problem` : undefined}
-					className="h-9 w-20 rounded-sm bg-surface px-2 text-md text-ink shadow-[0_0_0_1px_var(--ef-line-2)] outline-none focus-visible:shadow-[0_0_0_2px_var(--ef-focus)] disabled:cursor-not-allowed disabled:opacity-45 aria-[invalid=true]:shadow-[0_0_0_1px_var(--ef-magenta-500)]"
+					className="h-9 w-20 rounded-sm bg-surface px-2 text-md text-ink shadow-[0_0_0_1px_var(--ef-line-2)] outline-none focus-visible:shadow-[0_0_0_2px_var(--ef-focus)] aria-[invalid=true]:shadow-[0_0_0_1px_var(--ef-magenta-500)]"
 					onChange={(event) => {
 						const text = event.target.value;
 						setDraft(text);
+						if (issue(text)) return;
 						const count = Number(text);
-						if (text.trim() === "" || attrIssue("table", "writeInRows", count) !== null) return;
-						const live = here(editor);
+						const live = tableContext(editor.state);
 						if (!live || live.pos !== context.pos) return;
 						typeInto(editor.view, typing.current, (tr) =>
 							tr.setNodeMarkup(live.pos, undefined, { ...live.node.attrs, writeInRows: count }),
@@ -156,7 +138,6 @@ function WriteInField({ editor, context }: { editor: Editor; context: TableConte
 
 export function TableControls({ editor, palette }: { editor: Editor; palette: DocBrand["palette"] }) {
 	const context = useTableContext(editor);
-	const kindId = useId();
 	const zebraId = useId();
 	if (!context) return null;
 	const { table, at } = context;
@@ -168,16 +149,13 @@ export function TableControls({ editor, palette }: { editor: Editor; palette: Do
 	// Reasons a control is off because of the table itself, shown under the controls. Where the cursor is stays in tooltips.
 	const reasons = (
 		[
-			["Add row", can.addRowBelow],
+			["Add row", can.addRow],
 			["Add column", can.addColumnRight],
 			["Remove column", can.removeColumn],
 			["Column kind", can.kind],
-			["Blank rows", can.writeIn],
 			["Remove category", can.removeCategory],
 		] as const
-	)
-		.filter(([, reason]) => reason !== null && !reason.startsWith("Put the cursor"))
-		.filter(([name]) => !(ledger && (name === "Add row" || name === "Blank rows")));
+	).filter(([, reason]) => reason !== null && !reason.startsWith("Put the cursor"));
 	const seen = new Set<string>();
 	const unique = reasons.filter(([, reason]) => !seen.has(reason as string) && seen.add(reason as string));
 
@@ -187,7 +165,7 @@ export function TableControls({ editor, palette }: { editor: Editor; palette: Do
 				place.row === null ? (side < 0 ? 0 : (t.content ?? []).length) : side < 0 ? place.row : place.row + 1;
 			return {
 				table: addRow(t, place.row, side),
-				place: { row: index, blank: null, col: Math.max(place.col ?? 0, 0) },
+				place: { row: index, col: place.col ?? 0 },
 			};
 		});
 
@@ -196,8 +174,8 @@ export function TableControls({ editor, palette }: { editor: Editor; palette: Do
 			<Group label="Table">
 				{!ledger ? (
 					<>
-						<Act label="Add row above" reason={can.addRowAbove} run={() => rowAfter(-1)} />
-						<Act label="Add row below" reason={can.addRowBelow} run={() => rowAfter(1)} />
+						<Act label="Add row above" reason={can.addRow} run={() => rowAfter(-1)} />
+						<Act label="Add row below" reason={can.addRow} run={() => rowAfter(1)} />
 						<Act
 							label="Remove row"
 							reason={can.removeRow}
@@ -208,10 +186,10 @@ export function TableControls({ editor, palette }: { editor: Editor; palette: Do
 										const left = (next.content ?? []).length;
 										return {
 											table: next,
-											place: { row: left ? Math.min(place.row, left - 1) : null, blank: null, col: place.col },
+											place: { row: left ? Math.min(place.row, left - 1) : null, col: place.col },
 										};
 									}
-									return { table: setWriteInRows(t, Math.max(0, (t.attrs.writeInRows ?? 0) - 1)), place: at };
+									return { table: setWriteInRows(t, Math.max(0, (t.attrs.writeInRows ?? 0) - 1)), place };
 								})
 							}
 						/>
@@ -253,9 +231,8 @@ export function TableControls({ editor, palette }: { editor: Editor; palette: Do
 				<Labeled label="Column kind">
 					<Tip text={can.kind ?? "What this column holds"}>
 						<select
-							id={kindId}
 							aria-label="Column kind"
-							value={column ? (column.type === "formula" ? "formula" : column.type) : ""}
+							value={column?.type ?? ""}
 							disabled={can.kind !== null}
 							className="h-9 cursor-pointer rounded-sm bg-surface px-2 text-md text-ink shadow-[0_0_0_1px_var(--ef-line-2)] outline-none focus-visible:shadow-[0_0_0_2px_var(--ef-focus)] disabled:cursor-not-allowed disabled:opacity-45"
 							onMouseDown={(event) => event.stopPropagation()}
@@ -291,7 +268,7 @@ export function TableControls({ editor, palette }: { editor: Editor; palette: Do
 								const next = addLineItem(t, place.row);
 								const row = (t.content ?? [])[place.row];
 								const index = row?.attrs?.role === "subtotal" ? place.row : place.row + 1;
-								return { table: next, place: { row: index, blank: null, col: textAt } };
+								return { table: next, place: { row: index, col: textAt } };
 							})
 						}
 					/>
@@ -301,11 +278,11 @@ export function TableControls({ editor, palette }: { editor: Editor; palette: Do
 						run={() =>
 							run(editor, ({ table: t, at: place }) => {
 								if (place.row === null) return null;
-								const next = removeLineItem(t, place.row);
+								const next = removeRow(t, place.row);
 								const category = categoryAt(next, Math.max(0, place.row - 1));
 								return {
 									table: next,
-									place: { row: category ? Math.min(place.row, category.end) : null, blank: null, col: textAt },
+									place: { row: category ? Math.min(place.row, category.end) : null, col: textAt },
 								};
 							})
 						}
@@ -316,8 +293,8 @@ export function TableControls({ editor, palette }: { editor: Editor; palette: Do
 						run={() =>
 							run(editor, ({ table: t, at: place }) => {
 								const next = addCategory(t, place.row);
-								const added = (next.content ?? []).findIndex((row, i) => i >= 0 && row !== (t.content ?? [])[i]);
-								return { table: next, place: { row: Math.max(0, added), blank: null, col: textAt } };
+								const added = (next.content ?? []).findIndex((row, i) => row !== (t.content ?? [])[i]);
+								return { table: next, place: { row: Math.max(0, added), col: textAt } };
 							})
 						}
 					/>
@@ -330,7 +307,7 @@ export function TableControls({ editor, palette }: { editor: Editor; palette: Do
 								const category = categoryAt(t, place.row);
 								const next = removeCategory(t, place.row);
 								const row = Math.max(0, Math.min(category?.start ?? 0, (next.content ?? []).length - 1));
-								return { table: next, place: { row, blank: null, col: textAt } };
+								return { table: next, place: { row, col: textAt } };
 							})
 						}
 					/>
@@ -343,7 +320,9 @@ export function TableControls({ editor, palette }: { editor: Editor; palette: Do
 						]}
 						onChange={(sign) =>
 							run(editor, ({ table: t, at: place }) =>
-								place.row === null || can.sign !== null ? null : { table: setSign(t, place.row, sign), place },
+								signAt(t, place.row) === null || place.row === null
+									? null
+									: { table: setSign(t, place.row, sign), place },
 							)
 						}
 					/>
