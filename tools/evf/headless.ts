@@ -33,11 +33,8 @@ export function headless(
 				)
 				.run(t.id, role, role, model, effort, t.round, session, now()).lastInsertRowid,
 		);
-		const env: NodeJS.ProcessEnv = { ...process.env, EVF_RUN: String(runId), EVF_ROLE: role, EVF_SESSION: session };
-		// A session started from inside a seat must not inherit that seat's stage or edit rails.
-		for (const k of ["EVF_STAGE", "EVF_WORKTREE", "EVF_RUNTIME", "EVF_BLIND"]) delete env[k];
 		const r = spawnSync("claude", ["-p", "--session-id", session, "--model", model, "--effort", effort], {
-			env,
+			env: { ...process.env, EVF_RUN: String(runId), EVF_ROLE: role, EVF_SESSION: session, EVF_STAGE: undefined },
 			input: prompt,
 			stdio: ["pipe", "inherit", "inherit"],
 		});

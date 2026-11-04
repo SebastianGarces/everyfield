@@ -18,7 +18,7 @@ type Entry = {
 	results: string[];
 };
 
-const ENV_PREFIX = /^(?:[A-Za-z_]\w*=(?:'[^']*'|"[^"]*"|\S*)\s+)*/;
+const ENV_PREFIX = /^(?:[A-Za-z_]\w*=\S*\s+)*/;
 /** The shell words that can stand before a command, as in `until x; do sleep 5; done`. */
 const SHELL_PREFIX = /^(?:(?:do|then|else|elif|if|while|until|time|!)\s+)*/;
 const EVF_CHECKS = new Set(["verify", "check", "test", "timing", "ac run", "browser run"]);
@@ -92,11 +92,11 @@ function toolSpans(entries: Entry[], end: number): Span[] {
 		open.delete(id);
 	};
 	for (const e of entries) {
-		if (e.opens) for (const id of [...open.keys()]) close(id, e.ts);
+		if (e.opens) for (const id of open.keys()) close(id, e.ts);
 		for (const id of e.results) close(id, e.ts);
-		for (const c of e.calls) if (!open.has(c.id)) open.set(c.id, { from: e.ts, kind: c.kind });
+		for (const c of e.calls) open.set(c.id, { from: e.ts, kind: c.kind });
 	}
-	for (const id of [...open.keys()]) close(id, end);
+	for (const id of open.keys()) close(id, end);
 	return spans;
 }
 
@@ -142,16 +142,16 @@ export function turnOf(
 /** The split of a run's whole time so far: time outside any turn is wait, because such a seat waits on something. */
 export function runSplit(entries: Entry[], start: number, now: number): Split {
 	const outside: Span[] = [];
-	let inTurn = false,
-		outsideFrom = start;
-	entries.forEach((e, i) => {
+	let outsideFrom: number | null = start;
+	for (const e of entries) {
 		// One final message can span several lines, each with its stop reason; the turn ends at the last of them.
-		if (!inTurn && !(e.endsTurn && entries[i - 1]?.endsTurn))
-			outside.push({ from: outsideFrom, to: e.ts, kind: "wait" });
-		inTurn = !e.endsTurn;
 		if (e.endsTurn) outsideFrom = e.ts;
-	});
-	if (!inTurn) outside.push({ from: outsideFrom, to: now, kind: "wait" });
+		else if (outsideFrom !== null) {
+			outside.push({ from: outsideFrom, to: e.ts, kind: "wait" });
+			outsideFrom = null;
+		}
+	}
+	if (outsideFrom !== null) outside.push({ from: outsideFrom, to: now, kind: "wait" });
 	return partition([...toolSpans(entries, now), ...outside], start, now);
 }
 

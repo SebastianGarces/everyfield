@@ -13,7 +13,7 @@ import { transcriptPath } from "./usage.ts";
 const MINUTE = 60_000,
 	NUDGE_AT = 60 * MINUTE,
 	NOTICE_AT = 120 * MINUTE,
-	SEND_TIMEOUT_MS = 10_000;
+	RUN_TIMEOUT_MS = 10_000;
 
 type LongRunSeat = { taskId: number; ref: string; runId: number; agent: string; worktree: string };
 
@@ -38,9 +38,9 @@ function readSplit(session: string | null, start: number, at: number): Split | n
 
 /** Whether the worktree HEAD's committer time is over 60 min old. Unknown counts as no. */
 function noRecentCommit(worktree: string, at: number): boolean {
-	const r = run("git", ["-C", worktree, "log", "-1", "--format=%ct"], { timeoutMs: SEND_TIMEOUT_MS });
+	const r = run("git", ["-C", worktree, "log", "-1", "--format=%ct"], { timeoutMs: RUN_TIMEOUT_MS });
 	const seconds = Number(r.stdout.trim());
-	return r.code === 0 && seconds > 0 && at - seconds * 1000 > NUDGE_AT;
+	return r.code === 0 && at - seconds * 1000 > NUDGE_AT;
 }
 
 /**
@@ -72,7 +72,7 @@ export function longRunCheck(db: DatabaseSync, seat: LongRunSeat, clock: () => n
 		if (wantsNotice) {
 			const body = `${agent} is open at ${elapsedMin} min: ${text}. It keeps working; no action is taken.`;
 			run("herdr", ["notification", "show", `${ref} long run`, "--body", body, "--sound", "request"], {
-				timeoutMs: SEND_TIMEOUT_MS,
+				timeoutMs: RUN_TIMEOUT_MS,
 			});
 			record(db, taskId, runId, "long_run_notice", {
 				elapsedMin,
@@ -98,7 +98,7 @@ export function longRunCheck(db: DatabaseSync, seat: LongRunSeat, clock: () => n
 				agent,
 				`Long run check for ${ref}: this run is open at ${elapsedMin} min with no commit in the last 60 min. Time so far: ${text}. Over 70% of it went to checks or waits. Act on this split: stop any check that repeats without new information, run a smaller check, or commit the work that is ready, and then go on.`,
 			],
-			{ timeoutMs: SEND_TIMEOUT_MS },
+			{ timeoutMs: RUN_TIMEOUT_MS },
 		);
 		record(db, taskId, runId, "long_run_nudge", {
 			elapsedMin,
