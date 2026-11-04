@@ -1,14 +1,14 @@
 {
-	"why": "Seed articles that still draw a diagram in ASCII art. OPS-97 migrates each to a ```diagram block and removes its slug. bin/wiki lint --seed reports a listed slug as a warning, and a listed slug that no longer offends as an error, so this list only shrinks.",
-	"slugs": [
-		"administrative/financial/disbursements-and-approvals",
-		"core-group/building-your-core-group/the-core-group-funnel",
-		"core-group/commitment/the-three-key-documents",
-		"discovery/the-worship-walk-work-witness-model",
-		"frameworks/8-critical-success-factors-overview",
-		"frameworks/the-ministry-funnel",
-		"getting-started/launch-process-goals",
-		"post-launch/the-guest-assimilation-journey",
-		"training/boot-camp-overview"
+	"why": "Seed ASCII-art blocks that stay until OPS-97 migrates them to ```diagram blocks. tools/wiki/README.md explains the entries. This list only shrinks.",
+	"entries": [
+		{ "slug": "administrative/financial/disbursements-and-approvals", "fingerprint": "fa93d37d2db18357" },
+		{ "slug": "core-group/building-your-core-group/the-core-group-funnel", "fingerprint": "430e5f7897e63c55" },
+		{ "slug": "core-group/commitment/the-three-key-documents", "fingerprint": "f366e75a56490c6a" },
+		{ "slug": "discovery/the-worship-walk-work-witness-model", "fingerprint": "67fd544a40aa05fd" },
+		{ "slug": "frameworks/8-critical-success-factors-overview", "fingerprint": "b79f2346495ce3a9" },
+		{ "slug": "frameworks/the-ministry-funnel", "fingerprint": "521248153692017b" },
+		{ "slug": "getting-started/launch-process-goals", "fingerprint": "4b6f6de671a896d3" },
+		{ "slug": "post-launch/the-guest-assimilation-journey", "fingerprint": "7f4aefc0d77fc58e" },
+		{ "slug": "training/boot-camp-overview", "fingerprint": "baa5d805038a52a3" }
 	]
 }
