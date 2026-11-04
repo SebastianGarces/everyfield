@@ -36,8 +36,7 @@ function kindOfCommand(command: string): Kind {
 		const words = part.trim().replace(SHELL_PREFIX, "").replace(ENV_PREFIX, "").split(/\s+/),
 			[path = "", second = "", third = ""] = words,
 			first = path.slice(path.lastIndexOf("/") + 1);
-		if (first === "evf" && (EVF_CHECKS.has(second) || EVF_CHECKS.has(`${second} ${third}`)))
-			return "check";
+		if (first === "evf" && (EVF_CHECKS.has(second) || EVF_CHECKS.has(`${second} ${third}`))) return "check";
 		if (
 			first === "sleep" ||
 			(first === "herdr" && second === "agent" && third === "wait") ||
