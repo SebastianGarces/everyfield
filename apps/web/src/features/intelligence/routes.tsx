@@ -3,7 +3,8 @@ import { Clock01Icon, LockKeyIcon } from "@hugeicons/core-free-icons";
 import { buttonVariants, Card, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
+import { NoChurchPlantSeat, PlantIntelligenceBlocked } from "../phases/PlantIntelligenceBlocked.tsx";
 import { AttestationsScreen } from "./AttestationsScreen.tsx";
 import { CheckInScreen } from "./CheckInScreen.tsx";
 import { CheckInHeader } from "./Header.tsx";
@@ -107,8 +108,8 @@ export function CheckInLoading() {
 	);
 }
 
-// The Attestations page (WP-039 slice 2): /intelligence/attestations. A Member, an organization seat and a signed-in
-// account without a church seat get the same not-found answer as an unknown route.
+// The Attestations page (WP-039 slice 2): /intelligence/attestations. A Member and a signed-in account without a
+// church-plant seat get the same lock page that /intelligence shows them, inside the app frame, and no attestations read.
 export const attestationsMetadata: Metadata = { title: "Attestations", robots: { index: false, follow: false } };
 
 export async function AttestationsPage() {
@@ -117,9 +118,15 @@ export async function AttestationsPage() {
 		const v = await getViewer();
 		if (!v || v.status === "unauthenticated")
 			redirect(`/signin?returnTo=${encodeURIComponent("/intelligence/attestations")}`);
-		notFound();
+		return <NoChurchPlantSeat />;
 	}
-	if (viewer.role === "member") notFound();
+	// Attestations are for a plant's Owners and Admins only (signals authority).
+	if (viewer.role === "member")
+		return (
+			<PlantIntelligenceBlocked title="Attestations are for Owners and Admins">
+				Your Member seat does not include the church&apos;s attestations. Ask an Owner or Admin if you need them.
+			</PlantIntelligenceBlocked>
+		);
 	const loaded = await loadAttestations(viewer);
 	if (loaded.status !== "ok")
 		return (
