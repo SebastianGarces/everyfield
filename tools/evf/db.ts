@@ -689,6 +689,63 @@ export function orphanRuns(db: DatabaseSync, root: string): OrphanRun[] {
 export const orphanLine = (o: OrphanRun): string =>
 	`orphan evf run ${o.run_id}: ${o.ref} ${o.stage} started ${o.age_minutes} min ago, no live drive. Repair: ${o.repair}`;
 
+/** One verify writes these many times, so they stay out of `recent` and reopen, nudge and escalation rows stay in it. */
+const NOT_SIGNAL = "type NOT IN ('check_start', 'check_end', 'check_suite_end', 'test_failed')";
+
+const ISO_TIME = /^(\d{4})-(\d{2})-(\d{2})(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(Z|[+-]\d{2}(?::?\d{2})?)?)?$/;
+
+/** An ISO 8601 date or time as epoch milliseconds, or undefined. `Date.parse` alone also takes "May 1" and rolls Feb 31. */
+export function parseIsoTime(text: string): number | undefined {
+	const m = ISO_TIME.exec(text);
+	if (!m) return undefined;
+	const [year, month, day] = m.slice(1, 4).map(Number),
+		date = new Date(Date.UTC(year, month - 1, day));
+	if (date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return undefined;
+	const zone = m[4] ?? "",
+		offset = zone.replace(/^([+-]\d{2})(\d{2})?$/, (_, h: string, min?: string) => `${h}:${min ?? "00"}`),
+		at = Date.parse(text.slice(0, text.length - zone.length) + offset);
+	return Number.isNaN(at) ? undefined : at;
+}
+
+/** The full event history in id order, with no row limit. It opens the store read-only. */
+export function events(root: string, opts: { json: boolean; since?: string; type?: string; task?: string }): number {
+	const since = opts.since === undefined ? undefined : parseIsoTime(opts.since);
+	if (opts.since !== undefined && since === undefined)
+		fail(
+			`--since takes an ISO 8601 time, such as 2026-11-04T09:30:00Z or 2026-11-04T09:30:00+02:00. Got: ${opts.since}`,
+		);
+	const db = openWorkDb(root, { readOnly: true });
+	const rows = db
+		.prepare(
+			`SELECT e.id, e.ts, e.type, COALESCE(t.ref, t.slug) AS task, e.run_id AS run, e.payload
+			 FROM events e LEFT JOIN tasks t ON t.id = e.task_id
+			 WHERE (:type IS NULL OR e.type = :type)
+			   AND (:task IS NULL OR t.ref = :task OR t.ref LIKE :task || '/%' OR t.slug = :task)
+			 ORDER BY e.id`,
+		)
+		.all({ type: opts.type ?? null, task: opts.task ?? null }) as Array<{
+		id: number;
+		ts: string;
+		type: string;
+		task: string | null;
+		run: number | null;
+		payload: string;
+	}>;
+	db.close();
+	// In JavaScript, not SQL: stored times are compared as instants, whatever text form a writer gave them.
+	const matching = since === undefined ? rows : rows.filter((e) => Date.parse(e.ts) >= since);
+	if (opts.json)
+		console.log(
+			JSON.stringify(
+				matching.map((e) => ({ ...e, payload: JSON.parse(e.payload) as unknown })),
+				null,
+				2,
+			),
+		);
+	else for (const e of matching) console.log(`${e.id} ${e.ts} ${e.type} ${e.task ?? "-"} ${e.run ?? "-"} ${e.payload}`);
+	return 0;
+}
+
 /** Tasks, seats, recent events and health, from the views only. `task` narrows to one ref and its parts. */
 export function status(root: string, opts: { json: boolean; task?: string }): number {
 	const path = workDbPath(root);
@@ -734,8 +791,8 @@ export function status(root: string, opts: { json: boolean; task?: string }): nu
 	const inIds = ids.length ? `(${ids.join(",")})` : "(NULL)";
 	const recent = (
 		opts.task
-			? db.prepare(`SELECT * FROM v_recent WHERE task_id IN ${inIds} LIMIT 50`).all()
-			: db.prepare("SELECT * FROM v_recent LIMIT 50").all()
+			? db.prepare(`SELECT * FROM v_recent WHERE task_id IN ${inIds} AND ${NOT_SIGNAL} LIMIT 50`).all()
+			: db.prepare(`SELECT * FROM v_recent WHERE ${NOT_SIGNAL} LIMIT 50`).all()
 	) as Row[];
 	const detail = opts.task
 		? {
