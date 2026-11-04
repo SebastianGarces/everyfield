@@ -29,7 +29,8 @@ import { caseCoverage, caseGrep, hasCaseMarkers, testsOf } from "./coverage.ts";
 import { formatScope, wpScope, type ScopeReport } from "./scope.ts";
 import { requireFreeMigrationNumbers } from "./migrations.ts";
 import { awaitLoad, loadGatePassed, markFullCheck, requireLoadInputs } from "./load.ts";
-import { CHECK_QUEUE, withCheckQueue, type CheckQueueTiming } from "./check-queue.ts";
+import { CHECK_QUEUE, withCheckQueue } from "./check-queue.ts";
+import type { QueueTiming } from "./ship-queue.ts";
 import { uiEscapedGate } from "./escape.ts";
 import { checkSignals, type DriveCaller } from "./signals.ts";
 
@@ -73,7 +74,7 @@ export function verify(
 	head?: string,
 	ignoreLoad?: string,
 	caller?: DriveCaller,
-	queue: CheckQueueTiming = CHECK_QUEUE,
+	queue: QueueTiming = CHECK_QUEUE,
 ): CheckReport {
 	const wt =
 		role === "verifier"

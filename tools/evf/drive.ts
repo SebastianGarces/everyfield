@@ -54,7 +54,7 @@ import { fillRunUsage } from "./usage.ts";
 import { acCriteria, checkProblems, coordinatorNotes, doneCriteria } from "./spec.ts";
 import { acRun, acVideoMarkers, isUiTask } from "./ac.ts";
 import { hasVerifiedHead, verify } from "./verify.ts";
-import type { CheckQueueTiming } from "./check-queue.ts";
+import type { QueueTiming } from "./ship-queue.ts";
 
 /**
  * The stage machine of implement mode (the GPS of the talk, in code): plan → implement → simplify → pr → verify →
@@ -1658,7 +1658,7 @@ export type DriveTiming = {
 	 */
 	abortBackoffMs?: number;
 	/** The wait in the full check queue; tests shorten it, production uses CHECK_QUEUE. */
-	checkQueue?: CheckQueueTiming;
+	checkQueue?: QueueTiming;
 	/** How often a drive looks at a held task again. */
 	holdPollMs: number;
 };

@@ -1136,7 +1136,7 @@ test("the pr stage's verify that gives up in the queue or the load wait reruns t
 		const held = [1, 2, 3].map((n) => join(queue, `${String(n).padStart(15, "0")}.json`));
 		for (const path of held)
 			writeFileSync(path, JSON.stringify({ pid: process.pid, task: "OPS-H", at: new Date().toISOString() }));
-		const timing = { ...TIMING, checkQueue: { waitMs: 30, pollMs: 5, now: Date.now, sleep } };
+		const timing = { ...TIMING, checkQueue: { waitMs: 30, pollMs: 5 } };
 		const summaryOf = (id: number) =>
 			(f.db.prepare("SELECT summary FROM runs WHERE id = ?").get(id) as { summary: string }).summary;
 		const agents = () => f.herdr.calls().filter((c) => c[0] === "agent" && c[1] === "start").length;

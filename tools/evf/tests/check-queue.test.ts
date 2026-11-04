@@ -183,7 +183,7 @@ withCheckQueue(${JSON.stringify(f.root)}, ${JSON.stringify(name)}, () => {
 	appendFileSync(${JSON.stringify(log)}, "start ${name}\\n");
 	while (!existsSync(${JSON.stringify(`${log}-${name}`)})) sleep(5);
 	appendFileSync(${JSON.stringify(log)}, "end ${name}\\n");
-}, { waitMs: 60000, pollMs: 10, now: Date.now, sleep });`,
+}, { waitMs: 60000, pollMs: 10 });`,
 			],
 			{ stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, NODE_TEST_CONTEXT: undefined } },
 		),
@@ -199,16 +199,11 @@ function workerWaiter(f: ReturnType<typeof queueFixture>, log: string) {
 		script,
 		`import { writeFileSync } from "node:fs";
 import { withCheckQueue } from ${JSON.stringify(join(source, "tools/evf/check-queue.ts"))};
-import { sleep } from ${JSON.stringify(join(source, "tools/evf/lib.ts"))};
 let clock = 0;
+Date.now = () => (clock += 20000);
 withCheckQueue(${JSON.stringify(f.root)}, "OPS-1", () => writeFileSync(${JSON.stringify(log)}, "started"), {
 	waitMs: Infinity,
-	pollMs: 20000,
-	now: () => clock,
-	sleep: (ms) => {
-		clock += ms;
-		sleep(5);
-	},
+	pollMs: 5,
 });`,
 	);
 	return watch(
@@ -757,18 +752,15 @@ test("a full check gives up after 120 minutes: the message names the queue, no c
 		tickets(f.dir, [1, 2, 3]);
 		const held = f.tickets();
 
+		const realNow = Date.now;
 		let clock = 0;
+		Date.now = () => (clock += 30 * 60_000);
 		const fake = quiet(() =>
-			withCheckQueue(f.root, "OPS-1", () => assert.fail("no check runs"), {
-				...CHECK_QUEUE,
-				now: () => clock,
-				sleep: (ms) => void (clock += ms),
-				pollMs: CHECK_QUEUE.waitMs,
-			}),
+			withCheckQueue(f.root, "OPS-1", () => assert.fail("no check runs"), { ...CHECK_QUEUE, pollMs: 1 }),
 		);
+		Date.now = realNow;
 		assert.ok(fake.thrown instanceof WaitGaveUp);
 		assert.match(fake.thrown.message, /waited in the full check queue for 120 min and no check ran/);
-		assert.equal(clock, 120 * 60_000);
 		assert.deepEqual(f.tickets(), held);
 
 		const real = quiet(() =>
