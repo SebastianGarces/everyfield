@@ -117,7 +117,7 @@ export type Next = {
  */
 export type SimplifySkip = { run: number; head: string; reason?: "merge_only" };
 /** Who can clear a held failure: main's owners, or a rerun or new head of a PR whose own code is not the cause. */
-export type HoldCause = "main" | "external";
+type HoldCause = "main" | "external";
 /** The payload of a `held_external` event. `head` is the PR head the failure was read at. */
 type Hold = { cause: HoldCause; checks: string[]; head: string | null; summary: string };
 type RunRow = {
@@ -208,7 +208,7 @@ export type NextExtras = {
 	simplifySkip?: SimplifySkip | null;
 	/** Set when the task's latest verify approval is `body_only` (OPS-113): its head and whether HEAD moved since. */
 	bodyOnly?: BodyOnly | null;
-	/** The task's latest hold, read only while its status is `held_external`. */
+	/** The task's latest hold, which `nextStageOf` reads only while its status is `held_external`. */
 	hold?: Hold | null;
 	/** Set after a release or reopen of a hold until a later run closes: ci runs again, also after a held ship. */
 	resumeCi?: boolean;
@@ -1823,7 +1823,7 @@ function classifyFailure(db: DatabaseSync, root: string, t: TaskRow, wt: string,
 			const outside = (reportedChecks(cwd, pr) ?? [])
 				.filter((c) => !required.includes(c.name) && (c.bucket === "fail" || c.bucket === "cancel"))
 				.map((c) => c.name);
-			return outside.length ? { cause: "external", checks: [...new Set(outside)], head } : thisPr;
+			return outside.length ? { cause: "external", checks: outside, head } : thisPr;
 		}
 		const onMain = failingOnMain(cwd, repo, base, ci.failed);
 		const sameHead = !!head && previousFailureHead(db, t.id) === head;
@@ -2319,7 +2319,7 @@ export function driveOnce(
 				summary: `${task.id} skips simplify: ${skipWhy(n.skipped)} simplify run ${n.skipped.run} at ${n.skipped.head.slice(0, 10)}`,
 			});
 		if (n.stage === "escalated" && t.status !== "escalated") escalate(db, t, null, n.reason);
-		if (n.stage === "done" || n.stage === "escalated" || n.stage === "blocked" || n.stage === "held") return n;
+		if (n.stage === "done" || n.stage === "escalated" || n.stage === "blocked") return n;
 		if (n.stage === "pick") {
 			if (t.status !== "awaiting_pick") {
 				db.prepare("UPDATE tasks SET status = 'awaiting_pick', updated_at = ? WHERE id = ?").run(now(), t.id);
