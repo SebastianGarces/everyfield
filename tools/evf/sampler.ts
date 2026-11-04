@@ -15,7 +15,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { openWorkDb, record, type TaskRow } from "./db.ts";
 import { nextStageFromStore } from "./drive.ts";
 import { machineWatcher, watcherTick, type WatcherProbes } from "./drive-watcher.ts";
-import { evfDataDir, parseTask, run, sleep } from "./lib.ts";
+import { evfDataDir, parseTask, processCommand, run, sleep } from "./lib.ts";
 import { countFullChecks } from "./load.ts";
 import { HEADLESS_ROLES_SQL } from "./seats.ts";
 import { alive } from "./ship-queue.ts";
@@ -269,8 +269,8 @@ function liveHolder(lock: string): number | null {
 	const pid = lockPid(lock);
 	if (pid === null || !alive(pid)) return null;
 	if (pid === process.pid) return pid;
-	const ps = run("ps", ["-p", String(pid), "-wwo", "command="], { timeoutMs: PROBE_TIMEOUT_MS });
-	return ps.code !== 0 || /main\.ts sampler run/.test(ps.stdout) ? pid : null;
+	const command = processCommand(pid, PROBE_TIMEOUT_MS);
+	return command === null || /main\.ts sampler run/.test(command) ? pid : null;
 }
 
 /** Take the lock, or return false if a sampler holds it. A hard link is atomic and never shows an empty lock. */

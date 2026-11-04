@@ -1,9 +1,10 @@
+import { evfDataDir } from "../lib.ts";
 import { setLoadedCode } from "../merge.ts";
 import { mkdtempSync, cpSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync, chmodSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 export const source = resolve(import.meta.dirname, "../../..");
 /** Runs a repo TypeScript file with tsx, as the QA seed runs, with `env` over a clean NODE_ENV and DATABASE_URL. */
 export function tsxRun(args: string[], env: Record<string, string | undefined>) {
@@ -47,6 +48,18 @@ process.env.NODE_OPTIONS =
 
 // A drive that a test starts through main.ts starts no real sampler. The sampler tests clear this on purpose.
 process.env.EVF_NO_SAMPLER = "1";
+
+/** A real process that holds a task's pid file. Named `main.ts` with the args `drive <id>`, its command reads as a drive. */
+export async function pidFileHolder(root: string, slug: string, name = "main.ts", ...args: string[]) {
+	const script = join(root, name);
+	writeFileSync(script, "setInterval(() => {}, 1000);\n");
+	const child = spawn(process.execPath, [script, ...args], { stdio: "ignore" });
+	await new Promise((resolve) => child.once("spawn", resolve));
+	mkdirSync(join(evfDataDir(root), "drive"), { recursive: true });
+	writeFileSync(join(evfDataDir(root), "drive", `${slug}.pid`), `${child.pid}\n`);
+	const exited = new Promise<NodeJS.Signals | null>((resolve) => child.once("exit", (_, signal) => resolve(signal)));
+	return { child, exited };
+}
 
 export function fixture() {
 	// Git starts detached auto-maintenance after commits and pushes. It would write into the fixture while

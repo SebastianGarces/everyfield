@@ -170,8 +170,8 @@ Drive (harness)
   evf task handoff <task> --file <spec>                       prototype mode: end the prototype, create the implement task
   evf next <task>                                             the next stage from the store, as JSON
   evf drive <task> [--once] [--detach]                        run the stage machine: plan, implement, simplify, pr, verify, ci, ship; cap 3 rounds; one per task
-  evf drive <task> --stop                                     stop the live drive and tell the dead drive watcher not to restart it; exits 0 when none runs
                                                               refuses to start when the running evf code differs from main
+  evf drive <task> --stop                                     stop the live drive and tell the dead drive watcher not to restart it; exits 0 when none runs
   evf run done <run> --status passed|failed|body-only --summary-file <file>   close a stage (seats call this; a passed or body-only verify needs a met or n/a proof per Done criterion; body-only closes a verify only)
         a passed implement or verify of a spec with AC: criteria runs evf ac run at the worktree HEAD first and
         refuses while any AC: row is not met there

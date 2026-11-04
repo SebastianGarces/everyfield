@@ -2,7 +2,7 @@ import { existsSync, readFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { Worker } from "node:worker_threads";
 import { findTask, openWorkDb, record, taskById } from "./db.ts";
-import { EvfError, evfDataDir, run, type TaskRef } from "./lib.ts";
+import { EvfError, evfDataDir, fail, processCommand, type TaskRef } from "./lib.ts";
 import { HEADLESS_ROLES_SQL } from "./seats.ts";
 import { alive } from "./ship-queue.ts";
 
@@ -16,21 +16,24 @@ const PS_TIMEOUT_MS = 10_000;
 const drivePidFile = (root: string, slug: string) => join(evfDataDir(root), "drive", `${slug}.pid`);
 
 /**
- * The pid in the task's pid file when a drive runs there, or null. A pid gets reused, so a live pid must also run the
- * drive command. A live pid that `ps` cannot read counts as a drive: the caller then does nothing until a later look.
+ * Who holds the task's pid file. A pid gets reused, so a live pid must also run the drive command. `unread` is a live pid
+ * whose command `ps` cannot read, and each caller takes the safe way: a start and the watcher treat it as a drive, and
+ * `--stop` sends it no signal.
  */
-export function liveDrivePid(root: string, slug: string): number | null {
+export type DriveHolder = { kind: "none" } | { kind: "drive"; pid: number } | { kind: "unread"; pid: number };
+
+export function driveHolder(root: string, slug: string): DriveHolder {
 	const pidFile = drivePidFile(root, slug);
 	const pid = existsSync(pidFile) ? Number(readFileSync(pidFile, "utf8").trim()) : 0;
-	if (!pid || !alive(pid)) return null;
-	const ps = run("ps", ["-p", String(pid), "-wwo", "command="], { timeoutMs: PS_TIMEOUT_MS });
-	return ps.code !== 0 || /main\.ts drive\b/.test(ps.stdout) ? pid : null;
+	if (!pid || !alive(pid)) return { kind: "none" };
+	const command = processCommand(pid, PS_TIMEOUT_MS);
+	if (command === null) return alive(pid) ? { kind: "unread", pid } : { kind: "none" };
+	return /main\.ts drive\b/.test(command) ? { kind: "drive", pid } : { kind: "none" };
 }
 
 /** The parent's command line, or null when the read fails. It describes the parent. It does not name a signal's sender. */
 export function readParentCommand(ppid: number): string | null {
-	const ps = run("ps", ["-p", String(ppid), "-wwo", "command="], { timeoutMs: PARENT_READ_MS });
-	return (ps.code === 0 && ps.stdout.trim().slice(0, PARENT_COMMAND_CHARS)) || null;
+	return processCommand(ppid, PARENT_READ_MS)?.slice(0, PARENT_COMMAND_CHARS) ?? null;
 }
 
 export type StopProbes = { now: () => number; parentCommand: (ppid: number) => string | null };
@@ -122,10 +125,16 @@ export function startHeartbeat(root: string, pin: number): () => void {
 
 /**
  * `evf drive <task> --stop`. The request goes in first, so that the watcher never restarts this drive. It also goes in
- * when no drive runs, because a drive that died just before the stop must stay down too.
+ * when no drive runs, because a drive that died just before the stop must stay down too. A pid it cannot read gets no
+ * signal and no request, because that request would hide a drive that may still run from the watcher.
  */
 export function stopDrive(root: string, task: TaskRef): number {
-	const pid = liveDrivePid(root, task.slug);
+	const holder = driveHolder(root, task.slug);
+	if (holder.kind === "unread")
+		fail(
+			`evf drive --stop could not read the command of pid ${holder.pid}, so it sent no signal and recorded no stop. Run it again.`,
+		);
+	const pid = holder.kind === "drive" ? holder.pid : null;
 	const db = openWorkDb(root);
 	try {
 		const row = findTask(db, task);
@@ -144,7 +153,13 @@ export function stopDrive(root: string, task: TaskRef): number {
 		console.log(`No drive runs for ${task.id}.`);
 		return 0;
 	}
-	process.kill(pid, "SIGTERM");
+	try {
+		process.kill(pid, "SIGTERM");
+	} catch (e) {
+		if ((e as NodeJS.ErrnoException).code !== "ESRCH") throw e;
+		console.log(`No drive runs for ${task.id}: pid ${pid} ended before the signal.`);
+		return 0;
+	}
 	console.log(`Sent SIGTERM to the drive of ${task.id} (pid ${pid}).`);
 	return 0;
 }

@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { mock, test } from "node:test";
 import { ensureTask, openWorkDb, syncGoals } from "../db.ts";
 import {
-	liveDrivePid,
+	driveHolder,
 	readParentCommand,
 	recordDriveStopped,
 	startHeartbeat,
@@ -15,7 +15,7 @@ import { machineWatcher, watcherTick, type WatcherProbes } from "../drive-watche
 import { drive } from "../drive.ts";
 import { evfDataDir, parseTask } from "../lib.ts";
 import { applyRetention, runSampler, type SamplerProbes } from "../sampler.ts";
-import { fixture, source } from "./fixtures.ts";
+import { fixture, pidFileHolder, source } from "./fixtures.ts";
 
 const T0 = Date.parse("2026-11-04T10:00:00.000Z");
 const MIN = 60_000;
@@ -571,17 +571,8 @@ test("an uncaught failure in the drive loop records no drive_ended, so the watch
 	}
 });
 
-/** A real process whose command reads as `main.ts drive`, as the pid file's holder would. */
-async function fakeDriveProcess(s: ReturnType<typeof store>, name = "main.ts", ...args: string[]) {
-	const script = join(s.root, name);
-	writeFileSync(script, "setInterval(() => {}, 1000);\n");
-	const child = spawn(process.execPath, [script, ...args], { stdio: "ignore" });
-	await new Promise((resolve) => child.once("spawn", resolve));
-	mkdirSync(join(evfDataDir(s.root), "drive"), { recursive: true });
-	writeFileSync(join(evfDataDir(s.root), "drive", `${task.slug}.pid`), `${child.pid}\n`);
-	const exited = new Promise<NodeJS.Signals | null>((resolve) => child.once("exit", (_, signal) => resolve(signal)));
-	return { child, exited };
-}
+const fakeDriveProcess = (s: ReturnType<typeof store>, name = "main.ts", ...args: string[]) =>
+	pidFileHolder(s.root, task.slug, name, ...args);
 
 test("evf drive --stop records the request, signals the live drive and exits 0 when none runs; that stop never restarts, a new drive's heartbeat clears it (AC:OPS-137-9)", async () => {
 	const s = store();
@@ -629,6 +620,68 @@ test("--stop signals no process that a pid file names when that pid now runs ano
 	}
 });
 
+test("--stop on a live pid whose command ps cannot read sends no signal, records nothing and exits non-zero; the watcher waits; a start refuses (AC:OPS-137-9) (AC:OPS-137-10)", async () => {
+	const s = store();
+	const { child } = await fakeDriveProcess(s, "main.ts", "drive", "OPS-1");
+	try {
+		writeFileSync(join(s.root, "fake-bin/ps"), "#!/bin/sh\nexit 1\n");
+		chmodSync(join(s.root, "fake-bin/ps"), 0o755);
+		const r = realDrive(s, "--stop");
+		assert.equal(r.status, 1);
+		assert.match(r.stderr, new RegExp(`could not read the command of pid ${child.pid}`));
+		assert.equal(s.count("drive_stop_requested"), 0);
+		await new Promise((resolve) => setTimeout(resolve, 200));
+		assert.equal(child.signalCode, null, "no signal reached the process");
+		assert.equal(child.exitCode, null);
+
+		assert.deepEqual(driveHolder(s.root, task.slug), { kind: "unread", pid: child.pid });
+		const w = watcher(s);
+		w.probes.liveDrive = machineWatcher(s.root).liveDrive;
+		beat(s, T0);
+		w.tick(T0 + 60 * MIN);
+		assert.equal(watcherEvents(s), 0);
+		assert.deepEqual(w.starts, []);
+
+		const start = realDrive(s);
+		assert.notEqual(start.status, 0);
+		assert.match(start.stderr, /evf drive already runs for OPS-1/);
+	} finally {
+		child.kill("SIGKILL");
+		s.done();
+	}
+});
+
+test("--stop exits 0 with a message when the drive ends between the check and the signal (AC:OPS-137-9)", async () => {
+	const s = store();
+	const { child, exited } = await fakeDriveProcess(s, "main.ts", "drive", "OPS-1");
+	try {
+		// The drive dies during the check. The async spawn lets this test process reap it, so the pid is really gone.
+		writeFileSync(
+			join(s.root, "fake-bin/ps"),
+			`#!/bin/sh\nkill -9 ${child.pid}\nsleep 1\necho "node main.ts drive OPS-1"\n`,
+		);
+		chmodSync(join(s.root, "fake-bin/ps"), 0o755);
+		const stop = spawn(
+			process.execPath,
+			["--disable-warning=ExperimentalWarning", join(source, "tools/evf/main.ts"), "drive", "OPS-1", "--stop"],
+			{
+				cwd: s.root,
+				env: { ...process.env, EVF_RUN: "", EVF_WORKTREE: "", EVF_SESSION: "", EVF_ROLE: "", EVF_STAGE: "" },
+			},
+		);
+		let out = "";
+		stop.stdout.on("data", (d) => (out += d));
+		const code = await new Promise((resolve) => stop.once("exit", resolve));
+		assert.equal(await exited, "SIGKILL");
+		assert.equal(code, 0);
+		assert.match(out, new RegExp(`No drive runs for OPS-1: pid ${child.pid} ended before the signal`));
+		assert.equal(s.events("drive_stop_requested")[0]!.payload.pid, child.pid);
+	} finally {
+		child.kill("SIGKILL");
+		s.done();
+	}
+});
+
 test("SIGINT never restarts, SIGTERM from any other sender does, and a task with no heartbeat is not watched (AC:OPS-137-9)", () => {
 	const interrupted = store();
 	try {
@@ -666,11 +719,11 @@ test("a silent drive that is still alive starts nothing, records nothing and use
 	const s = store();
 	try {
 		const w = watcher(s);
-		w.probes.liveDrive = (slug) => liveDrivePid(s.root, slug);
+		w.probes.liveDrive = machineWatcher(s.root).liveDrive;
 		beat(s, T0);
 
 		const live = await fakeDriveProcess(s, "main.ts", "drive", "OPS-1");
-		assert.equal(liveDrivePid(s.root, task.slug), live.child.pid);
+		assert.deepEqual(driveHolder(s.root, task.slug), { kind: "drive", pid: live.child.pid });
 		for (const m of [5, 60, 600]) w.tick(T0 + m * MIN);
 		assert.equal(watcherEvents(s), 0);
 		assert.deepEqual(w.starts, []);
@@ -680,12 +733,12 @@ test("a silent drive that is still alive starts nothing, records nothing and use
 
 		// A pid that a different command now holds.
 		const other = await fakeDriveProcess(s, "other.ts");
-		assert.equal(liveDrivePid(s.root, task.slug), null);
+		assert.deepEqual(driveHolder(s.root, task.slug), { kind: "none" });
 		w.tick(T0 + 601 * MIN);
 		assert.equal(s.count("drive_restart"), 1, "another command's pid counts as dead");
 		other.child.kill("SIGKILL");
 		await other.exited;
-		assert.equal(liveDrivePid(s.root, task.slug), null, "a dead pid counts as dead");
+		assert.deepEqual(driveHolder(s.root, task.slug), { kind: "none" }, "a dead pid counts as dead");
 		w.tick(T0 + 606 * MIN);
 		assert.equal(s.count("drive_death_alert"), 1);
 
@@ -699,6 +752,35 @@ test("a silent drive that is still alive starts nothing, records nothing and use
 		back.child.kill("SIGKILL");
 		await back.exited;
 	} finally {
+		s.done();
+	}
+});
+
+test("the real restart recovers a drive whose pid another command now holds: the new drive takes the pid file and records a heartbeat (AC:OPS-137-10)", async () => {
+	const s = store("pr_open");
+	const other = await fakeDriveProcess(s, "other.ts");
+	try {
+		symlinkSync(join(source, "tools/evf/main.ts"), join(s.root, "tools/evf/main.ts"));
+		beat(s, Date.now() - 10 * MIN);
+		const real = machineWatcher(s.root);
+		watcherTick(s.root, {
+			...real,
+			notify: () => assert.fail("no notification"),
+			// A merged row, so that the started drive records its heartbeat and ends by itself.
+			startDrive: (ref) => {
+				s.db.prepare("UPDATE tasks SET status = 'merged' WHERE id = ?").run(s.id);
+				return real.startDrive(ref);
+			},
+		});
+		for (let i = 0; i < 1800 && s.count("drive_ended") === 0; i++) await new Promise((r) => setTimeout(r, 50));
+		assert.equal(s.count("drive_restart"), 1);
+		assert.equal(s.count("drive_restart_refused"), 0);
+		assert.equal(s.count("drive_ended"), 1, readFileSync(join(evfDataDir(s.root), "drive/ops-1.log"), "utf8"));
+		assert.equal(s.count("drive_heartbeat"), 2, "the seeded heartbeat and the new drive's");
+		assert.notEqual(s.events("drive_heartbeat")[1]!.payload.pid, other.child.pid);
+		assert.equal(other.child.signalCode, null, "the other command gets no signal");
+	} finally {
+		other.child.kill("SIGKILL");
 		s.done();
 	}
 });

@@ -1,8 +1,8 @@
 import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { findTask, openWorkDb } from "./db.ts";
-import { liveDrivePid } from "./drive-signal.ts";
-import { parseTask, run } from "./lib.ts";
+import { driveHolder } from "./drive-signal.ts";
+import { notify, parseTask, run } from "./lib.ts";
 
 /**
  * The dead drive watcher (OPS-137). It restores a drive that was already running and schedules no new work (D86 in
@@ -11,11 +11,10 @@ import { parseTask, run } from "./lib.ts";
 
 const DEAD_AFTER_MS = 5 * 60_000;
 const COMMAND_TIMEOUT_MS = 30_000;
-const NOTIFY_TIMEOUT_MS = 10_000;
 
 export type WatcherProbes = {
 	now: () => number;
-	/** The pid of the live `evf drive` process that the task's pid file names, or null. */
+	/** The pid of the live `evf drive` process that the task's pid file names, or null. A pid it cannot read counts as live. */
 	liveDrive: (slug: string) => number | null;
 	/** Runs `evf drive <ref> --detach`. A string is the refusal text; null means that the drive started. */
 	startDrive: (ref: string) => string | null;
@@ -26,7 +25,10 @@ export type WatcherProbes = {
 export function machineWatcher(root: string): WatcherProbes {
 	return {
 		now: Date.now,
-		liveDrive: (slug) => liveDrivePid(root, slug),
+		liveDrive: (slug) => {
+			const holder = driveHolder(root, slug);
+			return holder.kind === "none" ? null : holder.pid;
+		},
 		startDrive: (ref) => {
 			// The sampler inherits the environment of the drive that started it, which may carry a seat's identity.
 			const { EVF_RUN, EVF_WORKTREE, EVF_SESSION, EVF_ROLE, EVF_STAGE, ...env } = process.env;
@@ -37,11 +39,7 @@ export function machineWatcher(root: string): WatcherProbes {
 			);
 			return started.code === 0 ? null : started.stderr.trim() || `evf drive --detach exited ${started.code}`;
 		},
-		notify: (title, body) => {
-			run("herdr", ["notification", "show", title, "--body", body, "--sound", "request"], {
-				timeoutMs: NOTIFY_TIMEOUT_MS,
-			});
-		},
+		notify,
 	};
 }
 

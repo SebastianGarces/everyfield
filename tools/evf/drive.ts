@@ -39,6 +39,7 @@ import {
 	git,
 	gitOk,
 	loadConfig,
+	notify,
 	parseTask,
 	run,
 	runtimeDir,
@@ -46,6 +47,7 @@ import {
 	worktreePath,
 	type TaskRef,
 } from "./lib.ts";
+import { driveHolder } from "./drive-signal.ts";
 import { closeRunPane } from "./panes.ts";
 import { bodyOnlyItems, nameWithOwner, prFor, prOpen, requiredCheckNames, requiredCi, ship } from "./ship.ts";
 import { checkGithubBody, checkPrBody, describeBodyItem, unmetBodyItem, type BodyItem } from "./pr-body.ts";
@@ -674,10 +676,6 @@ export function next(root: string, task: TaskRef): number {
 	}
 }
 
-function notify(title: string, body: string): void {
-	run("herdr", ["notification", "show", title, "--body", body, "--sound", "request"]);
-}
-
 /** The task stops here until Sebastian decides: status escalated, events, a Herdr notification. */
 function escalate(
 	db: DatabaseSync,
@@ -1233,10 +1231,9 @@ export function taskAbandon(root: string, task: TaskRef, opts: { id?: number; re
 			fail(
 				`Store row ${row.id} of ${task.id} has a started run (${open.map((o) => o.id).join(", ")}); close or abort it first.`,
 			);
-		const pidFile = join(evfDataDir(root), "drive", `${row.slug}.pid`);
-		const holder = existsSync(pidFile) ? Number(readFileSync(pidFile, "utf8").trim()) : 0;
-		if (holder && holder !== process.pid && alive(holder))
-			fail(`evf drive runs for ${task.id} (pid ${holder}). Stop it first.`);
+		const holder = driveHolder(root, row.slug);
+		if (holder.kind !== "none" && holder.pid !== process.pid)
+			fail(`evf drive runs for ${task.id} (pid ${holder.pid}). Stop it first.`);
 		db.prepare("UPDATE tasks SET status = 'abandoned', updated_at = ? WHERE id = ?").run(now(), row.id);
 		record(db, row.id, null, "abandon", {
 			reason: opts.reason.trim(),
@@ -2433,15 +2430,6 @@ export function driveOnce(
 	}
 }
 
-const alive = (pid: number): boolean => {
-	try {
-		process.kill(pid, 0);
-		return true;
-	} catch {
-		return false;
-	}
-};
-
 export function drive(
 	root: string,
 	task: TaskRef,
@@ -2481,9 +2469,10 @@ export function drive(
 		return 0;
 	}
 	// One drive per task: a second loop would launch the same seat twice and close the first loop's own stage.
-	const holder = existsSync(pidFile) ? Number(readFileSync(pidFile, "utf8").trim()) : 0;
-	if (holder && holder !== process.pid && alive(holder))
-		fail(`evf drive already runs for ${task.id} (pid ${holder}). Stop it first, or wait for it.`);
+	// A pid that another command now holds is no drive, and it blocks no start. One that `ps` cannot read counts as a drive.
+	const holder = driveHolder(root, task.slug);
+	if (holder.kind !== "none" && holder.pid !== process.pid)
+		fail(`evf drive already runs for ${task.id} (pid ${holder.pid}). Stop it first, or wait for it.`);
 	writeFileSync(pidFile, `${process.pid}\n`);
 	try {
 		try {

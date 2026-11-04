@@ -569,8 +569,10 @@ worktree is gone. A hold, a repeat review of a reviewed head and a loop cap stop
 stage blocks in a child process or a seat wait. Stop a drive with `evf drive <task> --stop`. It records
 `drive_stop_requested` with `{pid, summary}`, sends SIGTERM to the live drive and tells the dead drive watcher not to
 restart it. It exits 0 with a message when no drive runs, and it still records the request, so a drive that died just
-before the stop also stays down. A pid file whose pid now runs another command gets no signal. SIGKILL cannot be
-caught and leaves the run `started`; `evf status` and `evf doctor` report it (below).
+before the stop also stays down. A pid file whose pid now runs another command gets no signal, and that pid blocks no new
+`evf drive` or `evf task abandon`. When `ps` cannot read the command of a live pid, `--stop` sends no signal, records
+nothing and exits non-zero, and a new `evf drive` or `evf task abandon` refuses. SIGKILL cannot be caught and leaves the
+run `started`; `evf status` and `evf doctor` report it (below).
 
 Each SIGTERM or SIGINT records exactly one `drive_stopped` event, in a pr, ci or ship stage, in a seat wait and between
 stages. The drive removes its pid file and ends by the signal, which a shell reads as exit 128 plus the signal number
@@ -1216,7 +1218,8 @@ alone in each of these cases:
 - A `drive_stop_requested` has no later heartbeat from another pid, or the last stop was a SIGINT. A SIGTERM from any
   other sender does not protect the task: it restarts like any other death.
 - The pid file names a live `evf drive` process, for example after the Mac wakes from sleep. The tick starts nothing,
-  records nothing and uses no restart. A dead pid, or a pid that another command now holds, counts as dead.
+  records nothing and uses no restart. A live pid whose command `ps` cannot read counts the same until a later tick. A
+  dead pid, or a pid that another command now holds, counts as dead, and the restarted drive takes over the pid file.
 
 | Event                   | When                                                                                      | Fields                                    |
 | ----------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------- |

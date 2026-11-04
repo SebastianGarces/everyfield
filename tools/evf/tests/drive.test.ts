@@ -20,6 +20,7 @@ import { DatabaseSync } from "node:sqlite";
 import {
 	assistantLine,
 	fixture,
+	pidFileHolder,
 	sessionStartJs,
 	source,
 	STORE_LATEST,
@@ -567,7 +568,7 @@ test("OPS-64-gate: the proof gate reads the Done list from its header, not from 
 	assert.deepEqual(doneCriteria("Goal: x\n1. a\n2. b"), [], "no Done header, no criteria");
 });
 
-test("OPS-59-gate: a verify closes passed only with a met or n/a proof per Done criterion at the head; read commands write nothing; one drive per task", () => {
+test("OPS-59-gate: a verify closes passed only with a met or n/a proof per Done criterion at the head; read commands write nothing; one drive per task", async () => {
 	const f = driveFixture();
 	try {
 		assert.deepEqual(doneCriteria(SPEC), ["1", "2"]);
@@ -623,10 +624,12 @@ test("OPS-59-gate: a verify closes passed only with a met or n/a proof per Done 
 
 		const pidFile = join(evfDataDir(f.root), "drive", "ops-1.pid");
 		mkdirSync(join(evfDataDir(f.root), "drive"), { recursive: true });
-		writeFileSync(pidFile, `${process.pid}\n`);
+		const holder = await pidFileHolder(f.root, "ops-1", "main.ts", "drive", "OPS-1");
 		const busy = cli(f.root, {}, "drive", "OPS-1", "--once");
+		holder.child.kill("SIGKILL");
+		await holder.exited;
 		assert.equal(busy.status, 1);
-		assert.match(busy.stderr, new RegExp(`evf drive already runs for OPS-1 \\(pid ${process.pid}\\)`));
+		assert.match(busy.stderr, new RegExp(`evf drive already runs for OPS-1 \\(pid ${holder.child.pid}\\)`));
 		writeFileSync(pidFile, "999999999\n");
 		f.db.prepare("UPDATE tasks SET status = 'escalated' WHERE id = ?").run(f.taskId);
 		assert.equal(cli(f.root, {}, "drive", "OPS-1", "--once").status, 2, "a dead holder's pid file is taken over");
@@ -1652,7 +1655,7 @@ test("OPS-72-grace: the start grace counts from the start of the wait, not from 
 	}
 });
 
-test("OPS-72-abandon: a stale row closes with an abandon event; merged rows, open runs, live drives and seats are refused", () => {
+test("OPS-72-abandon: a stale row closes with an abandon event; merged rows, open runs, live drives and seats are refused", async () => {
 	const f = driveFixture();
 	try {
 		const abandon = (extra: string[], env: Record<string, string> = {}) =>
@@ -1687,17 +1690,15 @@ test("OPS-72-abandon: a stale row closes with an abandon event; merged rows, ope
 		assert.match(abandon(["--id", String(active), "--reason", "shipped long ago"]).stderr, /has a started run/);
 		f.db.prepare("UPDATE runs SET status = 'aborted' WHERE id = ?").run(open);
 
-		const holder = spawn("sleep", ["30"]);
+		const holder = await pidFileHolder(f.root, "ops-1", "main.ts", "drive", "OPS-1");
 		const pidFile = join(evfDataDir(f.root), "drive", "ops-1.pid");
-		mkdirSync(join(evfDataDir(f.root), "drive"), { recursive: true });
-		writeFileSync(pidFile, `${holder.pid}\n`);
 		try {
 			assert.match(
 				abandon(["--id", String(active), "--reason", "shipped long ago"]).stderr,
 				/evf drive runs for OPS-1/,
 			);
 		} finally {
-			holder.kill();
+			holder.child.kill("SIGKILL");
 		}
 		assert.equal(status(active), "active");
 		writeFileSync(pidFile, "99999999\n");
@@ -2044,7 +2045,7 @@ test("in a real hold: heartbeats go on, and a SIGTERM between stages records nul
 	}
 });
 
-test("a drive that refuses to start records no heartbeat: stale code, and another drive that holds the task (AC:OPS-137-1)", () => {
+test("a drive that refuses to start records no heartbeat: stale code, and another drive that holds the task (AC:OPS-137-1)", async () => {
 	const f = driveFixture();
 	try {
 		const env = { ...process.env, EVF_RUN: "", EVF_WORKTREE: "", EVF_SESSION: "", EVF_ROLE: "", EVF_STAGE: "" };
@@ -2057,9 +2058,10 @@ test("a drive that refuses to start records no heartbeat: stale code, and anothe
 		const stale = start({ ...env, NODE_OPTIONS: "" });
 		assert.notEqual(stale.status, 0);
 		assert.match(stale.stderr, /evf drive does not start OPS-1/);
-		mkdirSync(join(evfDataDir(f.root), "drive"), { recursive: true });
-		writeFileSync(join(evfDataDir(f.root), "drive", "ops-1.pid"), `${process.pid}\n`);
+		const holder = await pidFileHolder(f.root, "ops-1", "main.ts", "drive", "OPS-1");
 		const held = start(env);
+		holder.child.kill("SIGKILL");
+		await holder.exited;
 		assert.notEqual(held.status, 0);
 		assert.match(held.stderr, /evf drive already runs for OPS-1/);
 		assert.equal(f.events("drive_heartbeat").length, 0);
