@@ -9,9 +9,11 @@ import { fixture } from "./fixtures.ts";
 import { evfDataDir, parseTask } from "../lib.ts";
 import { ensureTask, openWorkDb } from "../db.ts";
 import { approve } from "../approve.ts";
+import { feedbackTriage } from "../feedback.ts";
 import { ship } from "../ship.ts";
 import { driveOnce } from "../drive.ts";
 import { mergePullRequest, OWNER_VOID } from "../merge.ts";
+import { DEFAULT_OWNER_PATHS } from "../policy.ts";
 
 const source = resolve(import.meta.dirname, "../../..");
 const AUTHOR = { session: "11111111-1111-4111-8111-111111111111", model: "claude-sonnet-5-5", role: "implementer" };
@@ -53,10 +55,16 @@ function prBody(): string {
  * An ordinary OPS-1 task PR (#77) in a fixture repository with a remote: its worktree, a fake GitHub with green
  * required CI (ci and pr-body) and helpers that move the head, post reviews and owner records, and read the calls.
  */
-function ownerFixture(owningPaths = ["tools/evf/", "evf.config.json"]) {
+function ownerFixture(
+	owningPaths = ["tools/evf/", "evf.config.json"],
+	{ route, id = "OPS-1", ownerPaths }: { route?: string; id?: string; ownerPaths?: string[] } = {},
+) {
 	const f = fixture(),
-		task = parseTask("OPS-1");
-	f.cfg.maintenanceTasks = { [task.id]: { title: "Workflow upkeep", checks: f.cfg.checks, owningPaths } };
+		task = parseTask(id);
+	f.cfg.maintenanceTasks = {
+		"OPS-1": { title: "Workflow upkeep", checks: f.cfg.checks, owningPaths, ...(route ? { route } : {}) },
+	};
+	if (ownerPaths) f.cfg.mergePolicy.ownerPaths = { ...DEFAULT_OWNER_PATHS, paths: ownerPaths };
 	writeFileSync(join(f.root, "evf.config.json"), JSON.stringify(f.cfg, null, "\t"));
 	mkdirSync(join(f.root, "tools/evf"), { recursive: true });
 	writeFileSync(join(f.root, "tools/evf/main.ts"), "export const main = 1;\n");
@@ -477,6 +485,24 @@ test("AC:OPS-121-7 a clean merge of main made by ship's branch update keeps the 
 	}
 });
 
+/** A task whose verify and ci stages passed: the next drive pass runs its ship stage on PR #77. */
+function atShip(f: Fx, db: ReturnType<typeof openWorkDb>) {
+	const row = ensureTask(db, f.task, "implement");
+	db.prepare("UPDATE tasks SET spec = ?, pr_number = 77, status = 'pr_open' WHERE id = ?").run(
+		"Goal: g.\nDone criteria:\n1. One.\nNon-goals: none.",
+		row.id,
+	);
+	for (const [stage, role, session] of [
+		["implement", "implementer", AUTHOR.session],
+		["verify", "verifier", VERIFIER.session],
+		["ci", "evf", null],
+	] as const)
+		db.prepare(
+			"INSERT INTO runs (task_id, stage, role, round, session_id, status, started_at) VALUES (?, ?, ?, 0, ?, 'passed', ?)",
+		).run(row.id, stage, role, session, new Date().toISOString());
+	return row;
+}
+
 test("AC:OPS-121-8 the drive's ship stage records owner_approval_wait for a void approval, merges nothing and starts no implement round", () => {
 	const f = ownerFixture();
 	try {
@@ -487,19 +513,7 @@ test("AC:OPS-121-8 the drive's ship stage records owner_approval_wait for a void
 		f.publish([f.owner(approved), f.review(head)], (s) => (s.allowMerge = true));
 		const db = openWorkDb(f.root);
 		try {
-			const row = ensureTask(db, f.task, "implement");
-			db.prepare("UPDATE tasks SET spec = ?, pr_number = 77, status = 'pr_open' WHERE id = ?").run(
-				"Goal: g.\nDone criteria:\n1. One.\nNon-goals: none.",
-				row.id,
-			);
-			for (const [stage, role, session] of [
-				["implement", "implementer", AUTHOR.session],
-				["verify", "verifier", VERIFIER.session],
-				["ci", "evf", null],
-			] as const)
-				db.prepare(
-					"INSERT INTO runs (task_id, stage, role, round, session_id, status, started_at) VALUES (?, ?, ?, 0, ?, 'passed', ?)",
-				).run(row.id, stage, role, session, new Date().toISOString());
+			const row = atShip(f, db);
 			const out = f.quietly(() => driveOnce(f.root, f.task, TIMING)).value;
 			assert.equal(out.stage, "done");
 			assert.deepEqual(f.merges(), []);
@@ -750,6 +764,450 @@ test("AC:OPS-121-12 AC:OPS-121-13 the ci stage: only Vercel, a failed, a pending
 			summary: "CI green: required ci, pr-body passed",
 		});
 		assert.equal(existsSync(join(evfDataDir(f.root), "shipped")), false, "the ci stage never ships");
+	} finally {
+		f.close();
+	}
+});
+
+// OPS-129: a stale owner record stays refused until Sebastian approves the new head, and the named command works.
+const TEMPLATE_FILE = { "docs/catalog/document-templates.json": "{}\n" };
+// An OPS task cannot own application code, so the fixture's base config lists a path it can own as an owner path.
+const OWNER_FILE = { "docs/fixture-marketing/hero.md": "Hero.\n" };
+const HELD: Array<[string, Record<string, string>]> = [
+	["document-template", TEMPLATE_FILE],
+	["owner-path", OWNER_FILE],
+];
+const heldFixture = () =>
+	ownerFixture(["docs/catalog/", "docs/fixture-marketing/", "tools/evf/", "evf.config.json"], {
+		ownerPaths: ["docs/fixture-marketing/"],
+	});
+const HIS_WORDS = "Approved: this new head looks right";
+const command = (head: string) => `bin/evf approve 77 --owner-approval "<his words>" --head ${head}`;
+/** Sebastian's new approval of `head` needs the verifier's evf/verify status there; `evf ship` posts it. */
+const verified = (head: string) => ({
+	statuses: [
+		{
+			context: "evf/verify",
+			state: "success",
+			description: `Verified by claude-opus-5-5 (session 22222222) at ${head.slice(0, 10)}`,
+		},
+	],
+});
+/** A verified, merge-ready new head. */
+const mergeReady = (head: string) => (s: any) => {
+	s.commitStatus = verified(head);
+	s.allowMerge = true;
+};
+/** Runs evf approve in the worktree, where the fake GitHub merges. */
+function approveIn(f: Fx, opts: { ownerApproval?: string; head?: string }) {
+	const cwd = process.cwd();
+	process.chdir(f.wt);
+	try {
+		return approve(f.root, 77, opts);
+	} finally {
+		process.chdir(cwd);
+	}
+}
+/** Runs the one command the output names, unedited except for his words. */
+function runNamed(f: Fx, out: string) {
+	const named = /bin\/evf approve (\d+) --owner-approval "<his words>" --head ([0-9a-f]{40})/.exec(out);
+	assert.ok(named, out);
+	assert.equal(named[1], "77");
+	return f.quietly(() => approveIn(f, { ownerApproval: HIS_WORDS, head: named[2] }));
+}
+const commandsIn = (out: string) => out.match(/bin\/evf /g)?.length ?? 0;
+/** Every GitHub write evf approve or evf ship could make. */
+const writes = (f: Fx) =>
+	f
+		.getState()
+		.calls.filter(
+			(c: any) =>
+				(c.args[0] === "pr" && ["comment", "merge", "update-branch", "ready"].includes(c.args[1])) ||
+				c.args.includes("POST"),
+		);
+/** The latest EVF-Owner record among the comments on the fake PR. */
+const latestRecord = (f: Fx) =>
+	JSON.parse(
+		f
+			.getState()
+			.comments["77"].flatMap((c: any) => [...c.body.matchAll(/^EVF-Owner: (.+)$/gm)])
+			.at(-1)![1],
+	);
+/** The merge happened at `head` with his words on the record, the approvals row and the shipped record. */
+function assertMergedWithRecord(f: Fx, head: string) {
+	assert.deepEqual(f.calls("merge").at(-1).args, ["pr", "merge", "77", "--squash", "--match-head-commit", head]);
+	const record = latestRecord(f);
+	assert.deepEqual([record.head, record.quote], [head, HIS_WORDS]);
+	assert.deepEqual(f.ownerRows().at(-1), {
+		gate: "owner",
+		approver: "Sebastian",
+		head_sha: head,
+		decision: "approved",
+		quote: HIS_WORDS,
+	});
+	const shipped = f.shipped().owner_approval;
+	assert.deepEqual([shipped.approved_head, shipped.quote], [head, HIS_WORDS]);
+	// Nobody touches an earlier comment: comments are only added.
+	for (const call of f.getState().calls as Array<{ args: string[] }>) {
+		const text = call.args.join(" ");
+		assert.doesNotMatch(text, /--edit-last|--delete-last|-X (PATCH|DELETE)|minimizeComment|graphql/, text);
+	}
+}
+/** An ordinary head A with a record, then new head B that adds the held files; verified, green and merge-ready. */
+function stuck(f: Fx, files: Record<string, string>) {
+	const a = approvedWork(f);
+	const b = f.commit("Add a held path", files);
+	f.publish([f.owner(a), f.review(b)], mergeReady(b));
+	return { a, b };
+}
+
+for (const [name, files] of [...HELD, ["both classes", { ...TEMPLATE_FILE, ...OWNER_FILE }]] as typeof HELD)
+	test(`AC:OPS-129-1 AC:OPS-129-2 ${name}: ship merges nothing on a stale record and names one approve command with the full new head`, () => {
+		const f = heldFixture();
+		try {
+			const { b } = stuck(f, files);
+			const { value, out } = f.quietly(() => ship(f.root, f.task, fastShip));
+			assert.equal(value, 0);
+			assert.deepEqual([f.merges(), f.calls("update-branch"), f.calls("comment")], [[], [], []]);
+			assert.equal(f.getState().pr.state, "OPEN");
+			assert.equal(commandsIn(out), 1, out);
+			assert.ok(out.endsWith(command(b)), out);
+		} finally {
+			f.close();
+		}
+	});
+
+for (const [name, files] of HELD) {
+	test(`AC:OPS-129-3 ${name}: the named command merges the new head and leaves a record, a row and a shipped approval for it`, () => {
+		const f = heldFixture();
+		try {
+			const { b } = stuck(f, files);
+			const { out } = f.quietly(() => ship(f.root, f.task, fastShip));
+			assert.equal(runNamed(f, out).value, 0);
+			assert.deepEqual(f.merges(), [b]);
+			assertMergedWithRecord(f, b);
+			const order = f.getState().calls.map((c: any) => c.args[1]);
+			assert.ok(order.indexOf("comment") < order.indexOf("merge"), "the record exists before the merge reads it");
+		} finally {
+			f.close();
+		}
+	});
+
+	test(`AC:OPS-129-4 ${name}: a code commit after a held approved head refuses, and the named command with a new approval merges`, () => {
+		const f = heldFixture();
+		try {
+			const a = f.commit("Held change", files);
+			const b = f.commit("Code change", { "tools/evf/feature.ts": "export const feature = 1;\n" });
+			f.publish([f.owner(a), f.review(b)], mergeReady(b));
+			const { out } = f.quietly(() => ship(f.root, f.task, fastShip));
+			assert.deepEqual([f.merges(), f.calls("update-branch")], [[], []]);
+			assert.equal(commandsIn(out), 1, out);
+			assert.ok(out.endsWith(command(b)), out);
+			runNamed(f, out);
+			assert.deepEqual(f.merges(), [b]);
+			assertMergedWithRecord(f, b);
+		} finally {
+			f.close();
+		}
+	});
+
+	test(`AC:OPS-129-5 ${name}: approve at the old head refuses before any write, lists the later commits and names the command that merges`, () => {
+		const f = heldFixture();
+		try {
+			const a = f.commit("Held change", files);
+			const b = f.commit("Code change", { "tools/evf/feature.ts": "export const feature = 1;\n" });
+			f.publish([f.owner(a), f.review(b)], mergeReady(b));
+			const message = f.refusal(() => approveIn(f, { ownerApproval: HIS_WORDS, head: a }));
+			assert.deepEqual(writes(f), []);
+			assert.ok(
+				message.includes(`Commits after the approved head, oldest first:\n- ${f.short(b)} Code change`),
+				message,
+			);
+			assert.equal(commandsIn(message), 1, message);
+			assert.ok(message.includes(`${command(b)}\n`), message);
+			runNamed(f, message);
+			assert.deepEqual(f.merges(), [b]);
+			assertMergedWithRecord(f, b);
+		} finally {
+			f.close();
+		}
+	});
+
+	test(`AC:OPS-129-6 ${name}: on a stale record every other approve still refuses with no merge and no new record`, () => {
+		const f = heldFixture();
+		try {
+			const { a, b } = stuck(f, files);
+			const comments = [f.owner(a), f.review(b)];
+			const ready = mergeReady(b);
+			const refuses = (opts: { ownerApproval?: string; head?: string }, expected: RegExp) => {
+				const message = f.refusal(() => approveIn(f, opts));
+				assert.match(message, expected);
+				assert.deepEqual(writes(f), [], message);
+				assert.deepEqual(f.ownerRows(), []);
+				assert.equal(latestRecord(f).head, a);
+				return message;
+			};
+			const atB = { ownerApproval: HIS_WORDS, head: b };
+
+			assert.ok(refuses({ ownerApproval: HIS_WORDS }, /--head/).includes(command(b)));
+
+			// No verifier pass: no review, then a review but no evf/verify status. Each refuses before a record.
+			const unverified = (s: any) => {
+				s.commitStatus = { statuses: [] };
+				s.allowMerge = true;
+			};
+			f.publish([f.owner(a)], unverified);
+			refuses(atB, /needs the verifier to pass it first.*Missing verifier approval/s);
+			f.publish(comments, unverified);
+			refuses(atB, /needs the verifier to pass it first/);
+
+			f.publish(comments, (s) => {
+				ready(s);
+				s.requiredChecks = [{ ...pass("ci"), bucket: "fail" }, pass("pr-body")];
+			});
+			refuses(atB, /Required GitHub CI must be green on the exact PR head: ci failed/);
+			f.publish(comments, (s) => {
+				ready(s);
+				s.requiredChecks = [pass("pr-body")];
+			});
+			refuses(atB, /Required GitHub CI is missing on the exact PR head: ci/);
+
+			f.publish(comments, (s) => {
+				ready(s);
+				s.pr.mergeStateStatus = "BEHIND";
+			});
+			refuses(
+				atB,
+				/is behind main\. Update it \(gh pr update-branch 77\), then have the verifier pass the new head \(bin\/evf ship OPS-1\), then ask Sebastian to approve it\./,
+			);
+
+			f.publish(comments, ready);
+			refuses({ ownerApproval: "yes", head: b }, /Quote Sebastian's approval/);
+			refuses({ ownerApproval: HIS_WORDS, head: "b".repeat(40) }, /not the b{40} Sebastian approved/);
+		} finally {
+			f.close();
+		}
+	});
+
+	test(`AC:OPS-129-7 ${name}: a pure merge of main after a recorded held head still needs a new exact-head approval`, () => {
+		const f = heldFixture();
+		try {
+			const { b } = stuck(f, files);
+			// His approval of B: the record stays when GitHub refuses the merge.
+			f.publish([f.review(b)], (s) => (s.commitStatus = verified(b)));
+			assert.match(
+				f.refusal(() => approveIn(f, { ownerApproval: WORDS, head: b })),
+				/The merge failed/,
+			);
+			assert.equal(latestRecord(f).head, b);
+			const record = f.getState().comments["77"];
+
+			f.mainCommit("Main changes an unrelated path", { "docs/main-only.md": "Main only.\n" });
+			f.inWt("merge", "-q", "--no-edit", "origin/main");
+			const c = f.inWt("rev-parse", "HEAD");
+			f.publish([...record, f.review(c)], mergeReady(c));
+			assert.ok(f.quietly(() => ship(f.root, f.task, fastShip)).out.endsWith(command(c)));
+			assert.ok(f.refusal(() => approveIn(f, { ownerApproval: WORDS })).includes(command(c)), "no --head refuses");
+			assert.ok(
+				f.refusal(() => approveIn(f, { ownerApproval: WORDS, head: b })).includes(command(c)),
+				"the old head refuses",
+			);
+			assert.deepEqual(f.merges(), []);
+			f.quietly(() => approveIn(f, { ownerApproval: HIS_WORDS, head: c }));
+			assert.deepEqual(f.merges(), [c]);
+			assertMergedWithRecord(f, c);
+		} finally {
+			f.close();
+		}
+	});
+
+	test(`AC:OPS-129-9 ${name}: the drive records owner_approval_wait with ship's command, merges nothing and starts no round`, () => {
+		const f = heldFixture();
+		try {
+			const { b } = stuck(f, files);
+			const db = openWorkDb(f.root);
+			try {
+				const row = atShip(f, db);
+				const { value, out } = f.quietly(() => driveOnce(f.root, f.task, TIMING));
+				assert.equal(value.stage, "done");
+				assert.deepEqual([f.merges(), f.calls("update-branch")], [[], []]);
+				assert.ok(out.includes(command(b)), out);
+				const wait = db
+					.prepare("SELECT payload FROM events WHERE task_id = ? AND type = 'owner_approval_wait'")
+					.all(row.id)
+					.map((r) => JSON.parse(String(r.payload)).summary);
+				assert.equal(wait.length, 1);
+				assert.equal(commandsIn(wait[0]), 1, wait[0]);
+				assert.ok(wait[0].endsWith(command(b)), wait[0]);
+				assert.equal(f.quietly(() => driveOnce(f.root, f.task, TIMING)).value.stage, "done");
+				assert.equal(
+					db.prepare("SELECT COUNT(*) AS n FROM runs WHERE task_id = ? AND stage = 'implement'").get(row.id)!.n,
+					1,
+				);
+				assert.equal(db.prepare("SELECT round FROM tasks WHERE id = ?").get(row.id)!.round, 0);
+			} finally {
+				db.close();
+			}
+		} finally {
+			f.close();
+		}
+	});
+
+	test(`AC:OPS-129-10 ${name}: the stuck case replayed from a real record to a merge through the command in ship's output`, () => {
+		const f = heldFixture();
+		try {
+			// A real record: approve at A on an ordinary PR with no verifier pass keeps it and merges nothing.
+			const a = approvedWork(f);
+			f.publish([]);
+			f.quietly(() => approveIn(f, { ownerApproval: WORDS, head: a }));
+			assert.deepEqual([f.merges(), latestRecord(f).head], [[], a]);
+			const record = f.getState().comments["77"];
+
+			// A commit adds the held path; the verifier passes B and evf ship refuses. Its status is the real one.
+			const b = f.commit("Add a held path", files);
+			f.publish([...record, f.review(b)]);
+			const { out } = f.quietly(() => ship(f.root, f.task, fastShip));
+			assert.deepEqual(f.merges(), []);
+			const status = f.getState().calls.find((c: any) => c.args.includes("POST"));
+			const s = f.getState();
+			s.commitStatus = {
+				statuses: [
+					{
+						context: "evf/verify",
+						state: "success",
+						description: status.args.at(-1).replace("description=", ""),
+					},
+				],
+			};
+			s.allowMerge = true;
+			f.setState(s);
+
+			assert.equal(runNamed(f, out).value, 0);
+			assert.deepEqual(f.merges(), [b]);
+			assertMergedWithRecord(f, b);
+		} finally {
+			f.close();
+		}
+	});
+}
+
+test("AC:OPS-129-7 an ordinary head: a code commit after approve records the head voids it with the OPS-121 refusal", () => {
+	const f = ownerFixture();
+	try {
+		const a = approvedWork(f);
+		f.publish([]);
+		f.quietly(() => approveIn(f, { ownerApproval: WORDS, head: a }));
+		const record = f.getState().comments["77"];
+		const b = f.commit("Later work", { "tools/evf/feature.ts": "export const feature = 2;\n" });
+		f.publish([...record, f.review(b)], (s) => (s.allowMerge = true));
+		const message = f.refusal(() => ship(f.root, f.task, fastShip));
+		assert.ok(message.includes(OWNER_VOID), message);
+		assert.ok(message.includes(`He approved ${a.slice(0, 10)} ("${WORDS}")`), message);
+		assert.deepEqual(f.merges(), []);
+	} finally {
+		f.close();
+	}
+});
+
+test("AC:OPS-129-8 these merge as today: no record, an exact record, a record carried over a clean merge, a template PR with no record and no --head", () => {
+	const ready = (s: any) => (s.allowMerge = true);
+	let f = ownerFixture();
+	try {
+		const head = approvedWork(f);
+		f.publish([f.review(head)], ready);
+		assert.equal(f.quietly(() => ship(f.root, f.task, fastShip)).value, 0);
+		assert.deepEqual(f.merges(), [head]);
+		assert.equal(f.shipped().owner_approval, undefined);
+	} finally {
+		f.close();
+	}
+	f = ownerFixture();
+	try {
+		const head = approvedWork(f);
+		f.publish([f.owner(head), f.review(head)], ready);
+		assert.equal(f.quietly(() => ship(f.root, f.task, fastShip)).value, 0);
+		assert.deepEqual(f.merges(), [head]);
+		assert.equal(f.shipped().owner_approval.approved_head, head);
+	} finally {
+		f.close();
+	}
+	f = ownerFixture();
+	try {
+		const approved = approvedWork(f);
+		f.mainCommit("Main changes an unrelated path", { "docs/main-only.md": "Main only.\n" });
+		f.inWt("merge", "-q", "--no-edit", "origin/main");
+		const head = f.publish([f.owner(approved), f.review(approved)], ready);
+		assert.equal(f.quietly(() => ship(f.root, f.task, fastShip)).value, 0);
+		assert.deepEqual(f.merges(), [head]);
+		assert.equal(f.shipped().owner_approval.approved_head, approved);
+	} finally {
+		f.close();
+	}
+	f = heldFixture();
+	try {
+		const head = f.commit("Template change", TEMPLATE_FILE);
+		f.publish([f.review(head)], mergeReady(head));
+		assert.equal(f.quietly(() => approveIn(f, { ownerApproval: HIS_WORDS })).value, 0);
+		assert.deepEqual(f.merges(), [head]);
+		assertMergedWithRecord(f, head);
+	} finally {
+		f.close();
+	}
+});
+
+/** approve on a route with its own stale --head wording: no --head and the old head refuse, the new head merges. */
+function otherRoute(f: Fx, a: string, b: string) {
+	assert.ok(
+		f.refusal(() => approveIn(f, { ownerApproval: HIS_WORDS })).includes(command(b)),
+		"no --head names the new head",
+	);
+	assert.match(
+		f.refusal(() => approveIn(f, { ownerApproval: HIS_WORDS, head: a })),
+		/have the verifier pass the new head \(bin\/evf ship [\w-]+\), then ask Sebastian to approve it\./,
+	);
+	assert.deepEqual(writes(f), []);
+	f.quietly(() => approveIn(f, { ownerApproval: HIS_WORDS, head: b }));
+	assert.deepEqual(f.merges(), [b]);
+	assert.deepEqual([latestRecord(f).head, latestRecord(f).quote], [b, HIS_WORDS]);
+}
+
+test("AC:OPS-129-11 a Wiki-content task PR with a stale record merges through approve --head; its refusals stay", () => {
+	const f = ownerFixture(["docs/reference/wiki/", "tools/evf/", "evf.config.json"]);
+	try {
+		const a = approvedWork(f);
+		const b = f.commit("Wiki content", { "docs/reference/wiki/fixture-note.md": "A note.\n" });
+		f.publish([f.owner(a), f.review(b)], mergeReady(b));
+		otherRoute(f, a, b);
+		assertMergedWithRecord(f, b);
+	} finally {
+		f.close();
+	}
+});
+
+test("AC:OPS-129-11 a design task PR with a stale record merges through approve --head; its refusals stay", () => {
+	const f = ownerFixture(["design/"], { route: "design" });
+	try {
+		const a = f.commit("Design work", { "design/a.md": "A.\n" });
+		const b = f.commit("More design work", { "design/b.md": "B.\n" });
+		f.publish([f.owner(a), f.review(b)], (s) => {
+			s.pr.files = [{ path: "design/a.md" }, { path: "design/b.md" }];
+			s.commitStatus = verified(b);
+			s.allowMerge = true;
+		});
+		otherRoute(f, a, b);
+	} finally {
+		f.close();
+	}
+});
+
+test("AC:OPS-129-11 a P2 feedback fix with a stale record merges through approve --head; its refusals stay", () => {
+	const f = ownerFixture(undefined, { id: "FB-1" });
+	try {
+		feedbackTriage(f.root, 1, { cls: "p2", reason: "scoped feedback", wp: "WP-034" });
+		const a = approvedWork(f);
+		const b = f.commit("The fix", { "tools/evf/feature.ts": "export const feature = 2;\n" });
+		f.publish([f.owner(a), f.review(b)], mergeReady(b));
+		otherRoute(f, a, b);
 	} finally {
 		f.close();
 	}

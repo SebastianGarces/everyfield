@@ -1626,12 +1626,12 @@ function ciStage(root: string, t: TaskRow, wt: string, timing: DriveTiming): Out
 }
 
 /** GitHub's state of a PR and its merge commit. An unreadable GitHub gives state "". */
-function prState(root: string, pr: number | string): { state: string; commit: string | null } {
-	const r = run("gh", ["pr", "view", String(pr), "--json", "state,mergeCommit"], { cwd: root });
+function prState(root: string, pr: number | string): { state: string; commit: string | null; head?: string } {
+	const r = run("gh", ["pr", "view", String(pr), "--json", "state,mergeCommit,headRefOid"], { cwd: root });
 	const text = r.code === 0 ? r.stdout.trim() : "";
 	try {
-		const v = JSON.parse(text) as { state?: string; mergeCommit?: { oid?: string } | null };
-		return { state: v.state ?? "", commit: v.mergeCommit?.oid ?? null };
+		const v = JSON.parse(text) as { state?: string; mergeCommit?: { oid?: string } | null; headRefOid?: string };
+		return { state: v.state ?? "", commit: v.mergeCommit?.oid ?? null, head: v.headRefOid };
 	} catch {
 		return { state: "", commit: /^[0-9a-f]{40}$/.test(text) ? text : null };
 	}
@@ -1662,7 +1662,7 @@ function shipStage(db: DatabaseSync, root: string, task: TaskRef, t: TaskRow, ru
 	// templates) verifies and returns without a merge: the drive records the wait and stops, with no new round.
 	if (after.state !== "MERGED" && taskById(db, t.id)?.status !== "merged") {
 		const partial = partialLine(followUpsOf(db, t.id));
-		const cause = `${partial ? `${partial} ` : ""}PR #${pr} is verified and waits for Sebastian's approval. After his approval in chat, run: bin/evf approve ${pr} --owner-approval "<his words>"`;
+		const cause = `${partial ? `${partial} ` : ""}PR #${pr} is verified and waits for Sebastian's approval. After his approval in chat, run: bin/evf approve ${pr} --owner-approval "<his words>" --head ${after.head ?? "<the PR head>"}`;
 		record(db, t.id, runId, "owner_approval_wait", { pr: t.pr_number, summary: `${task.id}: ${cause}` });
 		notify(`${task.id} waits for Sebastian`, cause);
 		return { status: "passed", summary: "verified; waits for Sebastian's approval (evf approve)" };
