@@ -558,7 +558,9 @@ const skipWhy = (skip: SimplifySkip) => (skip.reason ? "only merges of main sinc
 const MAIN_REF = "origin/main";
 /** The commits a range reaches past main, so a merge of main counts only the merge. Options go before the range. */
 const pastMain = (wt: string, from: string, ...options: string[]) =>
-	git(wt, "rev-list", ...options, `${from}..HEAD`, "--not", MAIN_REF).split("\n").filter(Boolean);
+	git(wt, "rev-list", ...options, `${from}..HEAD`, "--not", MAIN_REF)
+		.split("\n")
+		.filter(Boolean);
 /** At least one commit since `from`, all merges, none of them a conflict resolution, which a person wrote. */
 function onlyCleanMerges(wt: string, from: string): boolean {
 	gitOk(wt, "fetch", "--quiet", "origin", "main");
@@ -2447,7 +2449,7 @@ export function drive(
 	try {
 		// The drive stays on this row to its end; a follow-up its merge releases waits for a fresh drive (OPS-123).
 		const pin = pinRow(root, task);
-		for (let held = false; ; ) {
+		for (let held = false; ;) {
 			const n = driveOnce(root, task, timing, pin);
 			// A hold logs once and keeps the drive alive; the pass that sees its cause clear resumes the task.
 			if (!(held && n.stage === "held")) console.log(`${now()} drive ${task.id}: ${n.stage} (${n.reason})`);

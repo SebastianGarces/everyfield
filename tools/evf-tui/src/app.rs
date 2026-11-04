@@ -1508,8 +1508,14 @@ mod tests {
         assert!(rows[0].needs_you);
         assert_eq!(group_of(&snap, &snap.tasks[0]), Group::HeldExternal);
         let needs = attention(&snap, &rows);
-        assert_eq!(needs[0].what, "OPS-7 is held, cause main: no seat, no round");
-        assert_eq!(needs[0].command, "evf task reopen OPS-7 --reason \"<words>\"");
+        assert_eq!(
+            needs[0].what,
+            "OPS-7 is held, cause main: no seat, no round"
+        );
+        assert_eq!(
+            needs[0].command,
+            "evf task reopen OPS-7 --reason \"<words>\""
+        );
     }
 
     #[test]
