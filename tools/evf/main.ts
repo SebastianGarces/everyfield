@@ -60,6 +60,7 @@ import { driveWithSignals } from "./drive-signal.ts";
 import { timing } from "./timing.ts";
 import { qaDown, qaList, qaUp } from "./qa.ts";
 import { usageBackfill, usageReport } from "./usage.ts";
+import { ownerQueue, ownerQueueAnswer, ownerQueueAsk } from "./owner-queue.ts";
 
 const HELP = `evf: Everyfield v3 workflow CLI
 
@@ -130,6 +131,9 @@ State store (harness)
   evf goals sync | list                                       project goal and S-row missions from the plan docs
   evf status [--json] [<task>]                                tasks, seats, recent events and health from the store
   evf events [--since <time>] [--type <name>] [--task <task>] [--json]   every matching event in id order, with no row limit
+  evf owner-queue [--json]                                    what waits for Sebastian: PR, head, ask, age, blocked tasks; prints only, sends nothing
+  evf owner-queue ask <task> --kind parked                    add a PR no route recorded, with the task's PR number and known head
+  evf owner-queue answer <task>                               record the answer to an open item, such as a keep decision
   evf usage [--json] [<task>]                                 tokens and estimated cost by task, role, model and round (list prices; nothing is billed)
   evf usage --backfill                                        fill the usage columns of runs that have a readable transcript
   evf tui [--dry-run] [--once]                                live screen of every task, seat and event (tools/evf-tui,
@@ -646,6 +650,15 @@ function main(argv: string[]): number | Promise<number> {
 			const json = flag(args, "--json");
 			if (args.length > 1) break;
 			return status(root, { json, task: args[0] });
+		}
+		case "owner-queue": {
+			const json = flag(args, "--json"),
+				kind = option(args, "--kind");
+			if (args.length === 0 && kind === undefined) return ownerQueue(root, json);
+			if (json || args.length !== 2) break;
+			if (args[0] === "ask") return ownerQueueAsk(root, parseTask(args[1]), kind);
+			if (args[0] === "answer" && kind === undefined) return ownerQueueAnswer(root, parseTask(args[1]));
+			break;
 		}
 		case "usage": {
 			const backfill = flag(args, "--backfill"),
