@@ -208,7 +208,7 @@ export type NextExtras = {
 	simplifySkip?: SimplifySkip | null;
 	/** Set when the task's latest verify approval is `body_only` (OPS-113): its head and whether HEAD moved since. */
 	bodyOnly?: BodyOnly | null;
-	/** Set on a `held_external` task: its latest hold. */
+	/** The task's latest hold, read only while its status is `held_external`. */
 	hold?: Hold | null;
 	/** Set after a release or reopen of a hold until a later run closes: ci runs again, also after a held ship. */
 	resumeCi?: boolean;
@@ -447,7 +447,7 @@ function nextStageOf(
 		return {
 			stage: "held",
 			round,
-			...(extras.hold ? { cause: extras.hold.cause } : {}),
+			cause: extras.hold?.cause,
 			reason: extras.hold?.summary ?? `${task.id} is held`,
 		};
 	const open = runs.find((r) => r.status === "started");
@@ -584,12 +584,8 @@ function roundCounts(db: DatabaseSync, taskId: number, wt: string | null) {
 	if (!wt || !existsSync(wt)) return none;
 	gitOk(wt, "fetch", "--quiet", "origin", "main");
 	try {
-		const previous = db
-			.prepare(
-				"SELECT json_extract(payload, '$.head') AS head FROM events WHERE task_id = ? AND type = 'round_start' AND json_extract(payload, '$.head') IS NOT NULL ORDER BY id DESC LIMIT 1",
-			)
-			.get(taskId) as { head: string } | undefined;
-		const from = previous?.head ?? git(wt, "merge-base", MAIN_REF, "HEAD");
+		const previous = latestEvent(db, taskId, ["round_start"])?.payload.head as string | null | undefined;
+		const from = previous ?? git(wt, "merge-base", MAIN_REF, "HEAD");
 		const numstat = git(wt, "log", "--no-merges", "--numstat", "--format=", `${from}..HEAD`, "--not", MAIN_REF);
 		return {
 			nonMergeCommits: pastMain(wt, from, "--no-merges").length,
@@ -607,8 +603,8 @@ function roundCounts(db: DatabaseSync, taskId: number, wt: string | null) {
 
 /** The owner events a task's next stage depends on, read from the store, and the simplify skip read from its worktree. */
 const extrasOf = (db: DatabaseSync, taskId: number): NextExtras => {
-	const t = db.prepare("SELECT spec, worktree, status, round FROM tasks WHERE id = ?").get(taskId) as
-		{ spec: string | null; worktree: string | null; status: string; round: number } | undefined;
+	const t = db.prepare("SELECT spec, worktree, round FROM tasks WHERE id = ?").get(taskId) as
+		{ spec: string | null; worktree: string | null; round: number } | undefined;
 	const runs = runsOf(db, taskId);
 	const held = latestEvent(db, taskId, ["held_external"]);
 	return {
@@ -619,8 +615,8 @@ const extrasOf = (db: DatabaseSync, taskId: number): NextExtras => {
 		waitsFor: waitsFor(db, taskId),
 		simplifySkip: simplifySkipOf(runs, reopenMarker(db, taskId), t?.worktree ?? null, t?.round ?? 0),
 		bodyOnly: bodyOnlyOf(db, taskId, t?.worktree ?? null),
-		hold: t?.status === "held_external" ? (held?.payload as Hold | undefined) : null,
-		resumeCi: !!held && t?.status !== "held_external" && (runs.filter(happened).at(-1)?.id ?? 0) < (held.run_id ?? 0),
+		hold: held?.payload as Hold | undefined,
+		resumeCi: !!held && (runs.filter(happened).at(-1)?.id ?? 0) < (held.run_id ?? 0),
 	};
 };
 
@@ -918,7 +914,7 @@ export function runDone(
 				escalated = `loop cap ${LOOP_CAP} hit after ${r.stage} failed. ${first}`;
 			} else
 				record(db, r.task_id, runId, "round_start", {
-					cause: "this_pr" satisfies FailureClass,
+					cause: "this_pr",
 					...roundCounts(db, r.task_id, r.worktree),
 					round,
 					stage: r.stage,
@@ -1730,18 +1726,12 @@ function ciStage(root: string, t: TaskRow, wt: string, timing: DriveTiming): Out
 }
 
 /** How evf routes a ci or ship failure: a new round for the PR's own code, a hold for what a seat cannot change. */
-export type FailureClass = "this_pr" | HoldCause;
-type Failure = { cause: FailureClass; checks: string[]; head: string | null };
+type Failure = { cause: "this_pr"; head: string | null } | Omit<Hold, "summary">;
 
 /** The PR head GitHub reports, or the worktree HEAD when GitHub does not answer. */
 function prHead(cwd: string, pr: number): string | null {
-	const r = run("gh", ["pr", "view", String(pr), "--json", "headRefOid"], { cwd });
-	try {
-		const head = (JSON.parse(r.stdout) as { headRefOid?: unknown }).headRefOid;
-		if (typeof head === "string" && head) return head;
-	} catch {
-		// Falls through to the worktree.
-	}
+	const head = prState(cwd, pr).head;
+	if (head) return head;
 	const local = run("git", ["rev-parse", "HEAD"], { cwd });
 	return local.code === 0 ? local.stdout.trim() : null;
 }
@@ -1765,7 +1755,11 @@ const PASSED_ON_MAIN = new Set(["success", "neutral"]);
  * progress does not hide the last result. A cancelled or skipped run is no result. It throws when GitHub does not answer.
  */
 function failingOnMain(cwd: string, repo: string, base: string, names: string[]): string[] {
-	const read = (path: string): unknown => JSON.parse(ghRead(cwd, path));
+	const read = (path: string): unknown => {
+		const r = run("gh", ["api", path], { cwd });
+		if (r.code !== 0) fail(`gh api ${path} failed: ${(r.stderr || r.stdout).trim()}`);
+		return JSON.parse(r.stdout);
+	};
 	const commits = read(`repos/${repo}/commits?sha=${base}&per_page=${MAIN_COMMITS_READ}`);
 	if (!Array.isArray(commits)) fail(`The commits of ${base} are unreadable.`);
 	const failing: string[] = [];
@@ -1793,11 +1787,6 @@ function failingOnMain(cwd: string, repo: string, base: string, names: string[])
 	}
 	return failing;
 }
-function ghRead(cwd: string, path: string): string {
-	const r = run("gh", ["api", path], { cwd });
-	if (r.code !== 0) fail(`gh api ${path} failed: ${(r.stderr || r.stdout).trim()}`);
-	return r.stdout;
-}
 
 /** The head of the task's previous ci or ship failure after the reopen marker. Undefined when it has none. */
 function previousFailureHead(db: DatabaseSync, taskId: number): string | null | undefined {
@@ -1818,28 +1807,28 @@ function previousFailureHead(db: DatabaseSync, taskId: number): string | null | 
 function classifyFailure(db: DatabaseSync, root: string, t: TaskRow, wt: string, read?: CheckRead): Failure {
 	const cwd = existsSync(wt) ? wt : root;
 	const pr = t.pr_number;
-	if (!pr) return { cause: "this_pr", checks: [], head: null };
+	if (!pr) return { cause: "this_pr", head: null };
 	const head = prHead(cwd, pr);
-	const thisPr = (checks: string[] = []): Failure => ({ cause: "this_pr", checks, head });
+	const thisPr: Failure = { cause: "this_pr", head };
 	try {
-		if (conflicting(cwd, pr)) return thisPr();
+		if (conflicting(cwd, pr)) return thisPr;
 		const repo = nameWithOwner(cwd),
 			base = loadConfig(root).baseBranch,
 			required = read?.required ?? requiredCheckNames(cwd, repo, base),
 			ci = read?.ci ?? requiredCi(cwd, pr, required);
 		if (!ci.failed.length) {
-			if (!ci.missing.length && !ci.pending.length) return thisPr();
+			if (!ci.missing.length && !ci.pending.length) return thisPr;
 			const outside = (reportedChecks(cwd, pr) ?? [])
 				.filter((c) => !required.includes(c.name) && (c.bucket === "fail" || c.bucket === "cancel"))
 				.map((c) => c.name);
-			return outside.length ? { cause: "external", checks: [...new Set(outside)], head } : thisPr();
+			return outside.length ? { cause: "external", checks: [...new Set(outside)], head } : thisPr;
 		}
 		const onMain = failingOnMain(cwd, repo, base, ci.failed);
 		const sameHead = !!head && previousFailureHead(db, t.id) === head;
-		if (!sameHead && ci.failed.some((name) => !onMain.includes(name))) return thisPr(ci.failed);
+		if (!sameHead && ci.failed.some((name) => !onMain.includes(name))) return thisPr;
 		return { cause: onMain.length ? "main" : "external", checks: ci.failed, head };
 	} catch (e) {
-		if (e instanceof EvfError || e instanceof SyntaxError) return thisPr();
+		if (e instanceof EvfError || e instanceof SyntaxError) return thisPr;
 		throw e;
 	}
 }
@@ -1849,14 +1838,13 @@ const WAY_OUT: Record<HoldCause, string> = {
 	external: "It resumes when the PR head moves or they no longer fail.",
 };
 /** The failure is not the PR's: close the run as if it never happened, hold the task and tell the coordinator once. */
-function holdTask(db: DatabaseSync, t: TaskRow, runId: number, stage: Stage, cause: HoldCause, f: Failure): void {
-	const names = f.checks.join(", ");
-	const summary = `${t.ref} held (${cause}): ${names} at ${f.head?.slice(0, 10) ?? "an unknown head"}; no seat and no round`;
+function holdTask(db: DatabaseSync, t: TaskRow, runId: number, stage: Stage, f: Omit<Hold, "summary">): void {
+	const { cause, checks, head } = f;
+	const summary = `${t.ref} held (${cause}): ${checks.join(", ")} at ${head?.slice(0, 10) ?? "an unknown head"}; no seat and no round`;
 	db.prepare("UPDATE runs SET status = 'aborted', ended_at = ?, summary = ? WHERE id = ?").run(now(), summary, runId);
-	fillRunUsage(db, runId);
 	record(db, t.id, runId, "stage_end", { stage, status: "aborted", summary });
 	db.prepare("UPDATE tasks SET status = 'held_external', updated_at = ? WHERE id = ?").run(now(), t.id);
-	record(db, t.id, runId, "held_external", { cause, checks: f.checks, head: f.head, summary });
+	record(db, t.id, runId, "held_external", { ...f, summary });
 	notify(
 		`${t.ref} held: ${cause}`,
 		`${summary}. ${WAY_OUT[cause]} To overrule: bin/evf task reopen ${t.ref} --reason "<words>"`,
@@ -2006,7 +1994,7 @@ function evfStage(
 			outcome.status === "failed" && (stage === "ci" || stage === "ship")
 				? classifyFailure(db, root, t, wt, outcome.read)
 				: null;
-		if (failure && failure.cause !== "this_pr") holdTask(db, t, runId, stage, failure.cause, failure);
+		if (failure && failure.cause !== "this_pr") holdTask(db, t, runId, stage, failure);
 		else runDone(root, runId, { status: outcome.status, summary: outcome.summary, failedHead: failure?.head });
 	} else record(db, t.id, runId, "stage_end", { stage, status: outcome.status, summary: outcome.summary });
 	return outcome.status;
@@ -2325,7 +2313,7 @@ export function driveOnce(
 			record(db, t.id, null, "simplify_skipped", {
 				simplify_run: n.skipped.run,
 				head: n.skipped.head,
-				...(n.skipped.reason ? { reason: n.skipped.reason } : {}),
+				reason: n.skipped.reason,
 				summary: `${task.id} skips simplify: ${skipWhy(n.skipped)} simplify run ${n.skipped.run} at ${n.skipped.head.slice(0, 10)}`,
 			});
 		if (n.stage === "escalated" && t.status !== "escalated") escalate(db, t, null, n.reason);
@@ -2462,12 +2450,11 @@ export function drive(
 	try {
 		// The drive stays on this row to its end; a follow-up its merge releases waits for a fresh drive (OPS-123).
 		const pin = pinRow(root, task);
-		for (let held = false; ;) {
+		for (;;) {
 			const n = driveOnce(root, task, timing, pin);
-			// A hold logs once and keeps the drive alive; the pass that sees its cause clear resumes the task.
-			if (!(held && n.stage === "held")) console.log(`${now()} drive ${task.id}: ${n.stage} (${n.reason})`);
-			held = n.stage === "held";
-			if (held && !opts.once) {
+			console.log(`${now()} drive ${task.id}: ${n.stage} (${n.reason})`);
+			// A hold keeps the drive alive; the pass that sees its cause clear resumes the task.
+			if (n.stage === "held" && !opts.once) {
 				sleep(timing.holdPollMs);
 				continue;
 			}
