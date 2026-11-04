@@ -272,7 +272,7 @@ export function lintBranchDiffSource(file: string, text: string): Refusal[] {
 	};
 
 	/** Does this expression name the current checkout? */
-	function isCurrent(expr: Token[], at: number, env: Env, seen: Set<unknown> = new Set()): boolean {
+	function isCurrent(expr: Token[], at: number, env: Env, seen: Set<Variable> = new Set()): boolean {
 		for (let i = 0; i < expr.length; i++) {
 			const t = expr[i]!;
 			if (t.kind === "tpl") {
@@ -290,8 +290,8 @@ export function lintBranchDiffSource(file: string, text: string): Refusal[] {
 				if (t.text === "source") return true;
 				continue;
 			}
-			if (seen.has(found.kind === "var" ? found.variable : found.fn)) continue;
 			if (found.kind === "var") {
+				if (seen.has(found.variable)) continue;
 				seen.add(found.variable);
 				if (isCurrent(found.variable.init, at, env, seen)) return true;
 			} else if (found.kind === "param") {
@@ -467,7 +467,6 @@ export function lintBranchDiffSource(file: string, text: string): Refusal[] {
 			decide(site, env);
 		} catch (e) {
 			if (!(e instanceof NeedsCall)) throw e;
-			if (env.size >= 8) return;
 			for (const call of callsOf(e.fn)) expand(site, new Map(env).set(e.fn, call));
 		}
 	}

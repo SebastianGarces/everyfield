@@ -116,13 +116,16 @@ async function seed(env: Readonly<Record<string, string | undefined>>): Promise<
 	const password = env.QA_ROLE_PASSWORD;
 	if (!password || password.length < 16) throw new SeedRefusal("QA_ROLE_PASSWORD must hold at least 16 characters.");
 	const source = env.DATABASE_URL!;
-	const admin = createDatabase({ connectionString: source, max: 2 });
+	// The pool's 10 s connect limit is for a request. A seed can wait: a loaded machine or a cold branch answers late.
+	const connect = (connectionString: string) =>
+		createDatabase({ connectionString, max: 2, connectionTimeoutMillis: 60_000 });
+	const admin = connect(source);
 	let runtime: Database | null = null,
 		authDb: Database | null = null;
 	try {
 		await logins(admin, password);
-		runtime = createDatabase({ connectionString: roleUrl(source, ROLES.runtime, password), max: 2 });
-		authDb = createDatabase({ connectionString: roleUrl(source, ROLES.auth, password), max: 2 });
+		runtime = connect(roleUrl(source, ROLES.runtime, password));
+		authDb = connect(roleUrl(source, ROLES.auth, password));
 		return await fill(admin, runtime, authDb);
 	} finally {
 		if (runtime) await closeDatabase(runtime);
@@ -762,7 +765,11 @@ if (import.meta.main) {
 		console.log(await seed(process.env));
 	} catch (error) {
 		// A refusal names the rule; any other failure names the step. Neither prints a connection string.
-		console.error(error instanceof SeedRefusal ? `QA seed refused: ${error.message}` : `QA seed failed: ${error}`);
+		// The driver's reason is in `cause`: drizzle's own message names only the query.
+		const reason = error instanceof Error && error.cause instanceof Error ? `\nCause: ${error.cause.message}` : "";
+		console.error(
+			error instanceof SeedRefusal ? `QA seed refused: ${error.message}` : `QA seed failed: ${error}${reason}`,
+		);
 		process.exitCode = error instanceof SeedRefusal ? 2 : 1;
 	}
 }
