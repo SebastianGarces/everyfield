@@ -239,11 +239,11 @@ place, from the home checkout:
 git diff -- evf.config.json > /tmp/owner-queue-key.patch
 git restore evf.config.json
 git merge --ff-only origin/main
-git apply --3way /tmp/owner-queue-key.patch
+git apply /tmp/owner-queue-key.patch
 ```
 
-The last step leaves conflict markers when main changed the lines next to the key. Remove them by hand, and keep the
-key. Between `git restore` and `git apply`, the queue shows no split. `machineLoad` has the same cost.
+The last step refuses and changes nothing when main changed the lines next to the key. Add the key again by hand then.
+Between `git restore` and `git apply`, the queue shows no split. `machineLoad` has the same cost.
 
 ## Usage and seat models
 

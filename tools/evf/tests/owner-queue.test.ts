@@ -1103,6 +1103,6 @@ test("AC:OPS-131-15 evf help lists owner-queue and its forms, and the README des
 	for (const word of ["## Owner queue", "owner_ask", "owner_answer", "`ownerQueue`", "ownerHours", "digestTimes"])
 		assert.ok(readme.includes(word), word);
 	assert.match(readme, /Sebastian sets `ownerHours`/);
-	for (const step of ["git restore evf.config.json", "git merge --ff-only origin/main", "git apply --3way"])
+	for (const step of ["git restore evf.config.json", "git merge --ff-only origin/main", "git apply /tmp/owner-queue-key.patch"])
 		assert.ok(readme.includes(step), step);
 });
