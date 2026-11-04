@@ -57,6 +57,6 @@ for (const name of [
 	"AC:WP-029-13 only the guarded senders can reach Resend",
 	"AC:WP-029-14 no variable other than VERCEL_ENV turns the guard off",
 	"AC:WP-029-15 the texts state the new behavior",
-] as const) {
+]) {
 	test(name, { skip }, () => runMarker(name.split(" ")[0]!));
 }

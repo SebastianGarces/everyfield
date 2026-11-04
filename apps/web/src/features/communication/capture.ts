@@ -12,8 +12,6 @@ import { join } from "node:path";
 
 type Env = Readonly<Record<string, string | undefined>>;
 
-const CAPTURE_PREFIX = "capture-";
-
 export type Captured = {
 	id: string;
 	at: string;
@@ -47,7 +45,7 @@ export function captureAllowed(env: Env): boolean {
 }
 
 /** A capture id, as `record` makes it. Any other id belongs to the provider. */
-export const isCaptureId = (id: string): boolean => id.startsWith(CAPTURE_PREFIX);
+export const isCaptureId = (id: string): boolean => id.startsWith("capture-");
 
 export async function captureSilent(): Promise<boolean> {
 	return access(join(outboxFolder(), NO_ANSWER_FILE)).then(
@@ -61,7 +59,7 @@ export async function record(
 	scheduledAt: string | null = null,
 	directory = outboxFolder(),
 ): Promise<string> {
-	const id = `${CAPTURE_PREFIX}${randomUUID()}`;
+	const id = `capture-${randomUUID()}`;
 	await mkdir(directory, { recursive: true });
 	const entry: Captured = { id, at: new Date().toISOString(), ...message, scheduledAt, cancelled: false };
 	await writeFile(join(directory, `${id}.json`), JSON.stringify(entry), { flag: "wx" });

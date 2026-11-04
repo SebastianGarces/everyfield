@@ -103,7 +103,6 @@ export function anticipateProvider(ready: MailReady): void {
 }
 
 function knownRefusal(ready: MailReady): boolean {
-	if (ready.apiKey === null) return false;
 	const domain = fromDomain(ready.keys.from);
 	if (reservedDomain(domain)) return true;
 	if (resendTestDomain(domain)) return false;
@@ -273,12 +272,9 @@ export function deliveryTransport(
 		const approved = messages.filter(isApproved);
 		const captured = messages.filter((message) => !isApproved(message));
 		if (captured.length > 0 && (await captureSilent())) return { outcome: "unknown" };
-		let sent: (string | null)[] = [];
-		if (approved.length > 0) {
-			const batch = await postApproved(key, approved, scheduledAt, signal);
-			if (batch.outcome !== "ids") return batch;
-			sent = batch.ids;
-		}
+		const batch: Batch =
+			approved.length > 0 ? await postApproved(key, approved, scheduledAt, signal) : { outcome: "ids", ids: [] };
+		if (batch.outcome !== "ids") return batch;
 		// After the provider's ids: a refused or unknown batch leaves no capture that a retry would duplicate.
 		let captureIds: string[];
 		try {
@@ -295,7 +291,7 @@ export function deliveryTransport(
 		let nextCaptured = 0;
 		return {
 			outcome: "ids",
-			ids: messages.map((message) => (isApproved(message) ? (sent[nextSent++] ?? null) : captureIds[nextCaptured++]!)),
+			ids: messages.map((message) => (isApproved(message) ? (batch.ids[nextSent++] ?? null) : captureIds[nextCaptured++]!)),
 		};
 	}
 
