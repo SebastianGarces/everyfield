@@ -414,6 +414,7 @@ test("AC:OPS-134-8 the durations are a partition: each class, each wrapper, and 
 		"EVF_FOREGROUND=1 bin/evf verify OPS-1",
 		"cd x && bin/evf verify OPS-1",
 		'cd x && EVF_MONITOR="a b" /abs/bin/evf test',
+		"if true; then bin/evf verify OPS-1; fi",
 	])
 		assert.deepEqual(
 			(({ toolMs, checkMs, waitMs, modelMs }) => ({ toolMs, checkMs, waitMs, modelMs }))(bash(command)),
@@ -426,6 +427,9 @@ test("AC:OPS-134-8 the durations are a partition: each class, each wrapper, and 
 		"gh pr checks 12 --watch",
 		"gh run watch 99",
 		"cd x && sleep 3",
+		"/bin/sleep 3",
+		"until grep -q done log; do sleep 5; done",
+		"for i in 1 2; do /bin/sleep 10; done",
 	]) {
 		const t = bash(command);
 		assert.deepEqual([t.toolMs, t.checkMs, t.waitMs, t.modelMs], [0, 0, 2000, 4000], command);
@@ -440,6 +444,7 @@ test("AC:OPS-134-8 the durations are a partition: each class, each wrapper, and 
 		["Bash", { command: 'git commit -m "sleep && bin/evf verify"' }],
 		["Bash", { command: "cat <<EOF\nsleep 9\nEOF" }],
 		["Bash", { command: "grep evf README.md" }],
+		["Bash", { command: "for f in a b; do cat $f; done" }],
 		["Bash", { command: "bin/evf proof show OPS-1" }],
 	] as const) {
 		const t = oneCall(name, input);

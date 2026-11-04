@@ -26,14 +26,17 @@ const simpleCommands = (line: string): string[] =>
 		.split(/[\n;|&(){}]/);
 
 const ENV_PREFIX = /^(?:[A-Za-z_]\w*=(?:'[^']*'|"[^"]*"|\S*)\s+)*/;
+/** The shell words that can stand before a command, as in `until x; do sleep 5; done`. */
+const SHELL_PREFIX = /^(?:(?:do|then|else|elif|if|while|until|time|!)\s+)*/;
 const EVF_CHECKS = new Set(["verify", "check", "test", "timing", "ac run", "browser run"]);
 
 function kindOfCommand(command: string): Kind {
 	let kind: Kind = "tool";
 	for (const part of simpleCommands(command)) {
-		const words = part.trim().replace(ENV_PREFIX, "").split(/\s+/),
-			[first = "", second = "", third = ""] = words;
-		if ((first === "evf" || first.endsWith("/evf")) && (EVF_CHECKS.has(second) || EVF_CHECKS.has(`${second} ${third}`)))
+		const words = part.trim().replace(SHELL_PREFIX, "").replace(ENV_PREFIX, "").split(/\s+/),
+			[path = "", second = "", third = ""] = words,
+			first = path.slice(path.lastIndexOf("/") + 1);
+		if (first === "evf" && (EVF_CHECKS.has(second) || EVF_CHECKS.has(`${second} ${third}`)))
 			return "check";
 		if (
 			first === "sleep" ||
