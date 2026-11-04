@@ -29,8 +29,7 @@ import { caseCoverage, caseGrep, hasCaseMarkers, testsOf } from "./coverage.ts";
 import { formatScope, wpScope, type ScopeReport } from "./scope.ts";
 import { requireFreeMigrationNumbers } from "./migrations.ts";
 import { awaitLoad, loadGatePassed, markFullCheck, requireLoadInputs } from "./load.ts";
-import { CHECK_QUEUE, withCheckQueue } from "./check-queue.ts";
-import type { QueueTiming } from "./ship-queue.ts";
+import { withCheckQueue } from "./check-queue.ts";
 import { uiEscapedGate } from "./escape.ts";
 import { checkSignals, type DriveCaller } from "./signals.ts";
 
@@ -74,7 +73,6 @@ export function verify(
 	head?: string,
 	ignoreLoad?: string,
 	caller?: DriveCaller,
-	queue: QueueTiming = CHECK_QUEUE,
 ): CheckReport {
 	const wt =
 		role === "verifier"
@@ -115,7 +113,7 @@ export function verify(
 		const queuedMs = Math.round(performance.now() - queueStart);
 		return runChecks({ root, wt, task, wp, role, mode, caller, queuedMs, ...inputs() });
 	};
-	return mode === "full" ? withCheckQueue(root, task.id, checked, queue) : checked();
+	return mode === "full" ? withCheckQueue(root, task.id, checked) : checked();
 }
 
 function runChecks({

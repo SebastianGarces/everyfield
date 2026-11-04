@@ -397,7 +397,7 @@ function main(argv: string[]): number | Promise<number> {
 		}
 		case "ac":
 			if (args[0] === "run") {
-				const ignoreLoad = ignoreLoadReason(args);
+				const ignoreLoad = option(args, "--ignore-load");
 				if (args.length !== 2) break;
 				const task = parseTask(args[1]);
 				// Only this command passes the gate; the acRun of `evf run done` stays ungated at its own start.

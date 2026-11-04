@@ -7,7 +7,7 @@ import os from "node:os";
 import { syncBuiltinESMExports } from "node:module";
 import { fixture, source } from "./fixtures.ts";
 import { acRun } from "../ac.ts";
-import { CHECK_QUEUE, withCheckQueue } from "../check-queue.ts";
+import { withCheckQueue } from "../check-queue.ts";
 import { ensureTask, openWorkDb } from "../db.ts";
 import { evfDataDir, parseTask, WaitGaveUp } from "../lib.ts";
 import { withShipQueue } from "../ship-queue.ts";
@@ -439,7 +439,7 @@ test("SIGKILL of a holder frees its slot and SIGKILL of a waiter removes its pla
 		assert.deepEqual(f.tickets(), []);
 
 		// A pass, a failed report and a throw each end with no ticket.
-		assert.equal(quiet(() => withCheckQueue(f.root, "OPS-1", () => "passed", CHECK_QUEUE)).value, "passed");
+		assert.equal(quiet(() => withCheckQueue(f.root, "OPS-1", () => "passed")).value, "passed");
 		assert.deepEqual(f.tickets(), []);
 		const failed = f.cfg.maintenanceTasks["OPS-1"];
 		failed.checks = [{ name: "red", run: node("process.exit(1)") }];
@@ -452,14 +452,9 @@ test("SIGKILL of a holder frees its slot and SIGKILL of a waiter removes its pla
 		assert.match(
 			String(
 				quiet(() =>
-					withCheckQueue(
-						f.root,
-						"OPS-1",
-						() => {
-							throw new Error("thrown inside");
-						},
-						CHECK_QUEUE,
-					),
+					withCheckQueue(f.root, "OPS-1", () => {
+						throw new Error("thrown inside");
+					}),
 				).thrown,
 			),
 			/thrown inside/,
@@ -755,23 +750,10 @@ test("a full check gives up after 120 minutes: the message names the queue, no c
 		const realNow = Date.now;
 		let clock = 0;
 		Date.now = () => (clock += 30 * 60_000);
-		const fake = quiet(() =>
-			withCheckQueue(f.root, "OPS-1", () => assert.fail("no check runs"), { ...CHECK_QUEUE, pollMs: 1 }),
-		);
+		const gaveUp = quiet(() => verify(f.root, task, "author", "full"));
 		Date.now = realNow;
-		assert.ok(fake.thrown instanceof WaitGaveUp);
-		assert.match(fake.thrown.message, /waited in the full check queue for 120 min and no check ran/);
-		assert.deepEqual(f.tickets(), held);
-
-		const real = quiet(() =>
-			verify(f.root, task, "author", "full", undefined, undefined, undefined, {
-				...CHECK_QUEUE,
-				waitMs: 30,
-				pollMs: 5,
-			}),
-		);
-		assert.ok(real.thrown instanceof WaitGaveUp);
-		assert.match(real.thrown.message, /full check queue .*no check ran/);
+		assert.ok(gaveUp.thrown instanceof WaitGaveUp);
+		assert.match(gaveUp.thrown.message, /waited in the full check queue for 120 min and no check ran/);
 		assert.deepEqual(f.events("check_start"), []);
 		assert.deepEqual(f.tickets(), held);
 		assert.equal(existsSync(f.ran), false);

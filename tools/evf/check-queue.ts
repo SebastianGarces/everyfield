@@ -5,7 +5,7 @@ import { readHolder, stopped, type QueueTiming } from "./ship-queue.ts";
 
 /** Code defaults (OPS-138): an OPS branch cannot add a key to evf.config.json, and no flag changes them. */
 const CHECK_CAP = 3;
-export const CHECK_QUEUE: QueueTiming = { waitMs: 120 * 60_000, pollMs: 1000 };
+const CHECK_QUEUE: QueueTiming = { waitMs: 120 * 60_000, pollMs: 1000 };
 
 const tickets = (dir: string) => readdirSync(dir).sort();
 
@@ -44,7 +44,7 @@ function liveTickets(dir: string): string[] {
  * tickets run and the others wait, so a running check keeps its ticket and needs no second lock file. A process that
  * stops, however it stops, loses its ticket to the next reader; a ticket goes on return or throw.
  */
-export function withCheckQueue<T>(root: string, task: string, fn: () => T, timing: QueueTiming): T {
+export function withCheckQueue<T>(root: string, task: string, fn: () => T, timing = CHECK_QUEUE): T {
 	const dir = join(evfDataDir(root), "check-queue");
 	mkdirSync(dir, { recursive: true });
 	const ticket = takeTicket(dir, task);

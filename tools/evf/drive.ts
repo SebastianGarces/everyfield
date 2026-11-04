@@ -55,7 +55,6 @@ import { fillRunUsage } from "./usage.ts";
 import { acCriteria, checkProblems, coordinatorNotes, doneCriteria } from "./spec.ts";
 import { acRun, acVideoMarkers, isUiTask } from "./ac.ts";
 import { hasVerifiedHead, verify } from "./verify.ts";
-import type { QueueTiming } from "./ship-queue.ts";
 
 /**
  * The stage machine of implement mode (the GPS of the talk, in code): plan → implement → simplify → pr → verify →
@@ -1661,8 +1660,6 @@ export type DriveTiming = {
 	 * after the second. The abort that reaches RETRY_CAP escalates at once and does not wait. Unset means no wait.
 	 */
 	abortBackoffMs?: number;
-	/** The wait in the full check queue; tests shorten it, production uses CHECK_QUEUE. */
-	checkQueue?: QueueTiming;
 	/** The present time of the long run check; tests fake it. Unset means the system clock. */
 	clock?: () => number;
 	/** How often a drive looks at a held task again. */
@@ -1689,13 +1686,13 @@ type CheckRead = { required: string[]; ci: ReturnType<typeof requiredCi> };
  * The pr stage: run the author checks at the current head, then push and open or update the PR from the body the
  * implementer wrote, and remember its number. A simplifier commit moved the head, so the checks run here, not in a seat.
  */
-function prStage(db: DatabaseSync, root: string, task: TaskRef, t: TaskRow, wt: string, timing: DriveTiming): Outcome {
+function prStage(db: DatabaseSync, root: string, task: TaskRef, t: TaskRow, wt: string): Outcome {
 	const body = prBodyPath(root, task);
 	if (!existsSync(body)) return { status: "failed", summary: `no PR body at ${body}; the implementer writes it` };
 	// The implementer's own run is the record when the head has not moved; only a new head runs the checks again.
 	const report = hasVerifiedHead(root, task)
 		? null
-		: verify(root, task, "author", "full", undefined, undefined, "pr-stage", timing.checkQueue);
+		: verify(root, task, "author", "full", undefined, undefined, "pr-stage");
 	if (report && !report.passed) {
 		const failed = report.checks.filter((c) => !c.passed).map((c) => `${c.name} (${c.log})`);
 		return {
@@ -1993,7 +1990,7 @@ function evfStage(
 	try {
 		outcome =
 			stage === "pr"
-				? prStage(db, root, task, t, wt, timing)
+				? prStage(db, root, task, t, wt)
 				: stage === "ci"
 					? ciStage(root, t, wt, timing)
 					: stage === "ship"
