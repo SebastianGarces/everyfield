@@ -267,6 +267,13 @@ for (const [name, engine] of ENGINES) {
 			assert.equal(after.content.length, before.content.length - 1);
 			assert.equal(firstCol(after).includes(label), false, `${label} is the row removed`);
 
+			// The cursor stays on a line item, so the same control works again.
+			const items = () => t.table().then((table) => table.content.filter((r) => !r.attrs?.role).length);
+			const left = await items();
+			await t.button("Remove line item").click();
+			await t.settle();
+			assert.equal(await items(), left - 1, "Remove line item works twice from one place");
+
 			const sign = page.getByRole("radiogroup", { name: "Category sign" });
 			assert.equal(await sign.count(), 1, "a category shows its sign");
 			const total = after.content.findIndex((r) => r.attrs?.role === "total");

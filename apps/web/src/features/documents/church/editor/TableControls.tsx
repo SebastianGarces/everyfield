@@ -298,11 +298,11 @@ export function TableControls({ editor, palette }: { editor: Editor; palette: Do
 							run(editor, ({ table: t, at: place }) => {
 								if (place.row === null) return null;
 								const next = removeRow(t, place.row);
-								const category = categoryAt(next, Math.max(0, place.row - 1));
-								return {
-									table: next,
-									place: { row: category ? Math.min(place.row, category.end) : null, col: textAt },
-								};
+								// The cursor stays on a line item when one is left, so Remove line item works again from here.
+								const rows = next.content ?? [];
+								const isItem = (index: number) => rows[index] !== undefined && rows[index]?.attrs?.role === undefined;
+								const row = isItem(place.row) ? place.row : isItem(place.row - 1) ? place.row - 1 : place.row;
+								return { table: next, place: { row, col: textAt } };
 							})
 						}
 					/>
