@@ -27,7 +27,7 @@ async function recordDialog(page) {
 const status = (dialog) => dialog.locator("[aria-live=polite]").filter({ hasText: /stablished/ });
 
 for (const [name, engine] of ENGINES) {
-	test(`AC:WP-039-1 AC:WP-039-2 (${name}): a new candidate starts unticked and is established only after both deliberate ticks`, async () => {
+	test(`WP-039 checkbox-1 checkbox-2 (${name}): a new candidate starts unticked and is established only after both deliberate ticks`, async () => {
 		await withPage(engine, async (page, context) => {
 			await open(page, context);
 			const dialog = await recordDialog(page);
@@ -64,7 +64,7 @@ for (const [name, engine] of ENGINES) {
 		});
 	});
 
-	test(`AC:WP-039-3 (${name}): a save stores each box exactly as ticked and the list shows the person as not established`, async () => {
+	test(`WP-039 checkbox-3 (${name}): a save stores each box exactly as ticked and the list shows the person as not established`, async () => {
 		await withPage(engine, async (page, context) => {
 			await open(page, context);
 			const row = page
@@ -105,7 +105,7 @@ for (const [name, engine] of ENGINES) {
 		});
 	});
 
-	test(`AC:WP-039-4 (${name}): an existing candidate opens with the values its current statement recorded`, async () => {
+	test(`WP-039 checkbox-4 (${name}): an existing candidate opens with the values its current statement recorded`, async () => {
 		await withPage(engine, async (page, context) => {
 			await open(page, context);
 			// Seeded: Alex Rivera attended and volunteered; Sam Ortiz attended but did not volunteer.
