@@ -411,13 +411,10 @@ for (const [engine, launcher] of ENGINES) {
 			const card = await ask(panel, "Move the Friday email to Saturday at 9am", "Review the new time");
 			// Another window cancels the message in Messages before the approval.
 			const messagesPage = await context.newPage();
-			await messagesPage.goto(`${BASE}/communication`);
+			await messagesPage.goto(`${BASE}/communication?message=${message.id}`);
 			await hydrated(messagesPage);
 			await messagesPage.getByRole("button", { name: "Cancel scheduled email", exact: true }).first().click();
-			await messagesPage
-				.getByRole("alertdialog")
-				.getByRole("button", { name: /Cancel scheduled email|Yes/ })
-				.click();
+			await messagesPage.getByRole("alertdialog").getByRole("button", { name: "Cancel scheduled email" }).click();
 			await messagesPage.getByText("Cancelled").first().waitFor({ timeout: 90_000 });
 			await messagesPage.close();
 			assert.equal((await d.mail(message.id)).filter((m) => m.state === "cancelled").length, 3);
