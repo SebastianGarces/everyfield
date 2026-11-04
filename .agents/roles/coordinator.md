@@ -32,6 +32,11 @@ Name the task the session serves most; a registration session names the reserved
 
 Stop a drive with SIGTERM so that it closes its run, because SIGKILL leaves the run for `evf doctor`.
 
+The owner digest routine (OPS-131): Jonah runs `bin/evf owner-queue` and sends the digest at the fixed digest times,
+sends an urgent item at once, and asks the keep, abandon or reopen question for an item older than 48 h. An item is
+urgent when it blocks 2 or more tasks. evf sends no message. Record a PR that no route recorded with `bin/evf owner-queue ask <task> --kind parked`, and a
+keep decision with `bin/evf owner-queue answer <task>`.
+
 Write the Done criteria from the verbatim ask (OPS-112): one criterion for each user action and expected
 result the ask names, and one for each Ask coverage deliverable (route, page, screen, command, file). Give
 each criterion one line under it: `Check: AC:<task>-<n>` when a test can prove it, or
