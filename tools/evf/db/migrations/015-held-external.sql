@@ -1,4 +1,4 @@
--- 013-held-external (OPS-135): the status `held_external` means a ci or ship failure that a seat cannot change holds
+-- 015-held-external (OPS-135): the status `held_external` means a ci or ship failure that a seat cannot change holds
 -- the task: no seat runs and no round is lost until the cause clears or the coordinator reopens it. SQLite cannot change
 -- a CHECK in place, so the table is rebuilt as in 006. Every existing row keeps its data and status. v_tasks gains
 -- hold_cause, the cause of the task's latest hold, for the TUI.

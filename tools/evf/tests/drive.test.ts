@@ -3665,7 +3665,10 @@ test("round routing (AC:OPS-135-12): the migration leaves existing rows and stat
 	const db = new DatabaseSync(":memory:");
 	try {
 		db.exec("CREATE TABLE schema_version (version INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TEXT NOT NULL)");
-		for (const file of STORE_MIGRATIONS.filter((m) => Number(m.slice(0, 3)) < 13)) {
+		for (const file of STORE_MIGRATIONS.slice(
+			0,
+			STORE_MIGRATIONS.findIndex((m) => m.endsWith("-held-external.sql")),
+		)) {
 			db.exec(readFileSync(join(source, "tools/evf/db/migrations", file), "utf8"));
 			db.prepare("INSERT INTO schema_version VALUES (?, ?, 'then')").run(Number(file.slice(0, 3)), file.slice(4, -4));
 		}

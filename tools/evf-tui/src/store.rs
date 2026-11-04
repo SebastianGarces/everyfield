@@ -32,7 +32,7 @@ pub struct Task {
     pub merged_at: Option<String>,
     /// Non-abandoned rows of the same ref, this one included (v_tasks.ref_rows, schema 5).
     pub ref_rows: i64,
-    /// Cause of the task's latest `held_external` event, or None (v_tasks.hold_cause, schema 13).
+    /// Cause of the task's latest `held_external` event, or None (v_tasks.hold_cause, schema 15).
     pub hold_cause: Option<String>,
     pub updated_at: String,
 }
