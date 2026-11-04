@@ -1,7 +1,7 @@
 import { mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { evfDataDir, sleep, WaitGaveUp } from "./lib.ts";
-import { alive, readHolder, type QueueTiming } from "./ship-queue.ts";
+import { readHolder, stopped, type QueueTiming } from "./ship-queue.ts";
 
 /** Code defaults (OPS-138): an OPS branch cannot add a key to evf.config.json, and no flag changes them. */
 export const CHECK_CAP = 3;
@@ -34,26 +34,21 @@ function takeTicket(dir: string, task: string): string {
 /** The tickets in arrival order. A stopped process's ticket goes; a ticket still being written keeps its place. */
 function liveTickets(dir: string): string[] {
 	return tickets(dir).filter((name) => {
-		const holder = readHolder(join(dir, name));
-		if (holder === "stale" || (typeof holder === "object" && !alive(holder.pid))) {
-			rmSync(join(dir, name), { force: true });
-			return false;
-		}
-		return true;
+		if (!stopped(readHolder(join(dir, name)))) return true;
+		rmSync(join(dir, name), { force: true });
+		return false;
 	});
 }
 
 /**
  * One machine-wide, first-come queue for full checks in the home checkout's Git folder. The first CHECK_CAP live
  * tickets run and the others wait, so a running check keeps its ticket and needs no second lock file. A process that
- * stops loses its ticket; a ticket goes on return, throw or exit.
+ * stops, however it stops, loses its ticket to the next reader; a ticket goes on return or throw.
  */
 export function withCheckQueue<T>(root: string, task: string, fn: () => T, timing: CheckQueueTiming): T {
 	const dir = join(evfDataDir(root), "check-queue");
 	mkdirSync(dir, { recursive: true });
 	const ticket = takeTicket(dir, task);
-	const release = () => rmSync(join(dir, ticket), { force: true });
-	process.on("exit", release);
 	try {
 		const start = timing.now();
 		for (let printed = 0; ;) {
@@ -74,7 +69,6 @@ export function withCheckQueue<T>(root: string, task: string, fn: () => T, timin
 		}
 		return fn();
 	} finally {
-		release();
-		process.off("exit", release);
+		rmSync(join(dir, ticket), { force: true });
 	}
 }
