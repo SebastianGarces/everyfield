@@ -60,7 +60,6 @@ export function fakeClock(onSleep: (elapsed: number) => void = () => {}) {
 	return {
 		now: () => time,
 		sleep(ms: number) {
-			if (ms <= 0) return;
 			sleeps.push(ms);
 			time += ms;
 			onSleep(time - start);
