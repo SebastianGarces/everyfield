@@ -334,3 +334,41 @@ export function writeTranscript(configDir: string, session: string, lines: strin
 		writeFileSync(join(dir, session, "subagents", `agent-${i}.jsonl`), sub.join("\n") + "\n"),
 	);
 }
+
+/** Timed transcript lines for the time split (OPS-134). `ms` is the entry's time; each line carries MARKER as its text. */
+const at = (ms: number) => new Date(ms).toISOString();
+export const promptLine = (ms: number, meta = false) =>
+	JSON.stringify({
+		type: "user",
+		timestamp: at(ms),
+		...(meta ? { isMeta: true } : {}),
+		message: { role: "user", content: `prompt ${MARKER}` },
+	});
+export const toolCallLine = (ms: number, id: string, name: string, input: Record<string, unknown> = {}) =>
+	JSON.stringify({
+		type: "assistant",
+		timestamp: at(ms),
+		message: {
+			id: `msg-${id}`,
+			model: "claude-opus-5-5",
+			stop_reason: "tool_use",
+			content: [{ type: "tool_use", id, name, input }],
+		},
+	});
+export const toolDoneLine = (ms: number, id: string) =>
+	JSON.stringify({
+		type: "user",
+		timestamp: at(ms),
+		message: { role: "user", content: [{ type: "tool_result", tool_use_id: id, content: MARKER }] },
+	});
+export const endTurnLine = (ms: number) =>
+	JSON.stringify({
+		type: "assistant",
+		timestamp: at(ms),
+		message: {
+			id: `msg-end-${ms}`,
+			model: "claude-opus-5-5",
+			stop_reason: "end_turn",
+			content: [{ type: "text", text: MARKER }],
+		},
+	});

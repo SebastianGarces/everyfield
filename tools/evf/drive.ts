@@ -29,8 +29,9 @@ import {
 } from "./followups.ts";
 import { ideaWorktree, launch, LaunchAborted, LaunchLineTooLong, type LaunchTiming } from "./launch.ts";
 import { OWNER_VOID, requireCurrentCode, shipOnCurrentCode } from "./merge.ts";
+import { longRunCheck } from "./long-run.ts";
 import { noteOwnerAnswer, noteOwnerAsk } from "./owner-queue.ts";
-import { isOpus, validateOverride, type Role } from "./seats.ts";
+import { isHeadlessRole, isOpus, validateOverride, type Role } from "./seats.ts";
 import {
 	EvfError,
 	WaitGaveUp,
@@ -137,12 +138,15 @@ type RunRow = {
 
 const now = () => new Date().toISOString();
 const headline = (text: string, max = 160) => text.split("\n")[0]?.slice(0, max) ?? "";
+/** The runs of the stage machine. A coordinator or registration session has a row but no stage here (OPS-134). */
 const runsOf = (db: DatabaseSync, taskId: number): RunRow[] =>
-	db
-		.prepare(
-			"SELECT id, stage, status, role, round, summary, progress_head, progress_spec FROM runs WHERE task_id = ? ORDER BY started_at, id",
-		)
-		.all(taskId) as RunRow[];
+	(
+		db
+			.prepare(
+				"SELECT id, stage, status, role, round, summary, progress_head, progress_spec FROM runs WHERE task_id = ? ORDER BY started_at, id",
+			)
+			.all(taskId) as RunRow[]
+	).filter((r) => !isHeadlessRole(r.role));
 
 /** A task row for a ref the store does not know yet, so read commands can answer without writing. */
 const unknownTask = (task: TaskRef): TaskRow => ({
@@ -1659,6 +1663,8 @@ export type DriveTiming = {
 	abortBackoffMs?: number;
 	/** The wait in the full check queue; tests shorten it, production uses CHECK_QUEUE. */
 	checkQueue?: QueueTiming;
+	/** The present time of the long run check; tests fake it. Unset means the system clock. */
+	clock?: () => number;
 	/** How often a drive looks at a held task again. */
 	holdPollMs: number;
 };
@@ -2089,6 +2095,22 @@ function waitOnSeat(
 	}
 	const watchStart = Date.now(),
 		deadline = watchStart + timing.waitMs;
+	const idea = /^idea(\d)$/.exec(r.stage),
+		cfg = loadConfig(root),
+		agent = r.herdr_agent;
+	const longRun = longRunCheck(
+		db,
+		{
+			taskId: t.id,
+			ref: task.id,
+			runId,
+			agent,
+			worktree: idea ? ideaWorktree(root, cfg, task, Number(idea[1])) : worktreePath(root, cfg, task),
+		},
+		timing.clock ?? Date.now,
+		// `agent wait` never answers `working`: a slice that ends with the seat working is a timeout with empty stdout.
+		() => agentState(agent) === "working",
+	);
 	let turnSeen = false,
 		waitsLogged = 0;
 	for (let nudged = false; ;) {
@@ -2128,6 +2150,7 @@ function waitOnSeat(
 				abortGoneSeat(db, t, runId, r.herdr_agent, r.stage);
 				return;
 			}
+			longRun();
 			if (Date.now() >= deadline) {
 				runDone(root, runId, {
 					status: "failed",
@@ -2146,6 +2169,7 @@ function waitOnSeat(
 			do {
 				sleep(timing.seatPollMs);
 				if (runStatus(db, runId) !== "started") return;
+				longRun();
 			} while (agentState(r.herdr_agent) === "blocked");
 			// The prompt is gone: say so, or the last event keeps reading "blocked" for as long as the seat works.
 			record(db, t.id, runId, "unblocked", { summary: `${r.herdr_agent} resumed after a prompt` });

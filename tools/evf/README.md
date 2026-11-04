@@ -378,6 +378,40 @@ the run is aborted at once, so the store never lists a seat that does not exist.
 not a sandbox: it covers the edit tools only, and a seat with shell access can still write elsewhere.
 `evf session` prints the pane's Claude Code session id from Herdr, for the EVF-Author and EVF-Review lines.
 
+### Headless sessions (OPS-134)
+
+`evf headless <task> --role coordinator|registration --prompt-file <file> [--model <id>] [--effort <level>]` starts
+one `claude -p` session that a coordinator needs, and gives it a `runs` row. The row ends `passed` on exit 0 and
+`failed` on any other exit, whatever the session-end hook wrote first. No permission flag is passed, so a tool that
+needs a prompt is denied. These roles are not Herdr seats: `evf launch` refuses them and the drive ignores them
+(`runsOf`). `evf usage` shows them in their own by-model group.
+
+## Turn time and the long run check (OPS-134)
+
+`turn-time.ts` divides time into model, tool, check and wait, from the session transcript. Overlapping tool calls count
+once, with check over wait over tool. Check is `evf verify`, `check`, `test`, `ac run`, `timing` and `browser run`,
+also after `cd x &&` or an environment prefix. Wait is `sleep`, `herdr agent wait`, `gh pr checks --watch`,
+`gh run watch` and the Monitor tool. Any other tool call, an Agent call included, is tool time. The rest is model time.
+
+`evf hook stop` records one `turn_end` event per turn: `run`, `session`, `startedAt`, `endedAt`, `toolMs`, `checkMs`,
+`waitMs` and `modelMs`, never text. A turn starts at the last user prompt, or at the previous `endedAt` after a
+stop-hook continuation, and ends at the last transcript entry. A missing or unreadable transcript records no
+`turn_end` and changes nothing else in the hook.
+
+The drive runs the long run check (`long-run.ts`) while it watches a seat. Its split covers the time since
+`runs.started_at`; time outside any turn is wait, and a call with no result runs to the present.
+
+- **Nudge, once per run.** A seat that Herdr reports as working gets one `herdr agent prompt`, sent without `--wait` so
+  that Claude Code queues it, when the run is open 60 min or more, the worktree HEAD's committer time is over 60 min old
+  and over 70% of the elapsed time is check or wait. It records `long_run_nudge` with `delivered`. A failed send does
+  not retry. It is apart from the close nudge of the idle rule.
+- **Notice, once per run.** A run open 120 min or more records `long_run_notice`, sends a Herdr notification and shows
+  as an `evf status` recent line, each with the elapsed minutes and the split. It has no other condition. With no
+  readable transcript there is no nudge, and the notice says the split is not available.
+
+The check only informs. It closes no run or pane, changes no task status and never escalates. While the drive blocks
+in the close nudge's `--wait`, the check does not run.
+
 ## Drive loop
 
 `evf drive <task>` runs implement mode as a stage machine kept in the work store: plan → implement →

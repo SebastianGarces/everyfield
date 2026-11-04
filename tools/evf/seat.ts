@@ -5,7 +5,9 @@ import type { DatabaseSync } from "node:sqlite";
 import { missionFor, openWorkDb } from "./db.ts";
 import { fail, parseTask, run, type TaskRef } from "./lib.ts";
 import { closeRunPane } from "./panes.ts";
-import { fillRunUsage } from "./usage.ts";
+import { HEADLESS_ROLES_SQL } from "./seats.ts";
+import { readEntries, turnOf } from "./turn-time.ts";
+import { fillRunUsage, transcriptPath } from "./usage.ts";
 import { coordinatorNotes, doneCriteria, sectionItems, specSections } from "./spec.ts";
 
 /**
@@ -121,7 +123,9 @@ export function refocusText(db: DatabaseSync, task: TaskRef, header?: string): s
 	) as Row | undefined;
 	const stage = t
 		? (db
-				.prepare("SELECT stage, role FROM runs WHERE task_id = ? ORDER BY started_at DESC, id DESC LIMIT 1")
+				.prepare(
+					`SELECT stage, role FROM runs WHERE task_id = ? AND role NOT IN ${HEADLESS_ROLES_SQL} ORDER BY started_at DESC, id DESC LIMIT 1`,
+				)
 				.get(t.id as number) as Row | undefined)
 		: undefined;
 	const lines = [`Goal chain for ${task.id}`, `Project: ${project?.body ?? "(not synced yet: run evf goals sync)"}`];
@@ -296,6 +300,37 @@ function seatRun(db: DatabaseSync, runId: number): SeatRun | null {
 	);
 }
 
+/**
+ * Record the `turn_end` of the turn that just ended (OPS-134): durations and ids only. A missing or unreadable transcript
+ * records nothing, and no error here may reach the stop hook's own work.
+ */
+function recordTurnEnd(db: DatabaseSync, seat: SeatRun, input: HookInput): void {
+	try {
+		const session = input.session_id,
+			path = session ? transcriptPath(session) : null;
+		if (!path) return;
+		const previous =
+			input.stop_hook_active === true
+				? (db
+						.prepare(
+							"SELECT json_extract(payload, '$.endedAt') AS endedAt FROM events WHERE run_id = ? AND type = 'turn_end' ORDER BY id DESC LIMIT 1",
+						)
+						.get(seat.id) as { endedAt: string } | undefined)
+				: undefined;
+		const turn = turnOf(readEntries(path), previous ? Date.parse(previous.endedAt) : null);
+		if (!turn) return;
+		record(db, seat.task_id, seat.id, "turn_end", {
+			run: seat.id,
+			session,
+			...turn,
+			startedAt: new Date(turn.startedAt).toISOString(),
+			endedAt: new Date(turn.endedAt).toISOString(),
+		});
+	} catch {
+		// The transcript is a measurement. The stop event and the stage-open block do not depend on it.
+	}
+}
+
 /** Claude Code ends a session on /clear and an in-app /resume too; the seat keeps working in the same pane. */
 const SEAT_CONTINUES = new Set(["clear", "resume"]);
 
@@ -341,6 +376,7 @@ export function hook(root: string, event: string): number {
 				stop_hook_active: input.stop_hook_active === true,
 				summary: `${seat.role}@${seat.ref} ended a turn`,
 			});
+			recordTurnEnd(db, seat, input);
 			// A seat does not end its turn with its stage open (Claude Code caps these continuations itself).
 			if (seat.status === "started" && input.stop_hook_active !== true && process.env.EVF_STAGE)
 				console.log(
