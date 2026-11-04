@@ -430,12 +430,18 @@ test("every full verify queues; --quick and refusals that need no check do not w
 		// Quick: no slot, and it holds no ticket while it runs.
 		await expectNoWait(["verify", "OPS-1", "--quick"], 0, /PASSED local tooling checks/);
 		await expectNoWait(["verify", "OPS-1", "--head", "0".repeat(40)], 1, /does not match requested SHA/);
+		for (const command of ["verify", "check"])
+			for (const reason of ["", "  "])
+				await expectNoWait([command, "OPS-1", "--ignore-load", reason], 1, /--ignore-load needs a reason/);
 		writeFileSync(join(f.wt, "dirty"), "x");
 		await expectNoWait(["verify", "OPS-1"], 1, /is not clean/);
 		rmSync(join(f.wt, "dirty"));
 		f.commitFiles({ "tools/evf/later.txt": "x" }, f.root);
 		await expectNoWait(["verify", "OPS-1"], 1, /Include current main/);
 		f.git("-C", f.wt, "merge", "-q", "--no-edit", "main");
+		f.setLoad({ maxPerCore: 0, maxWaitMinutes: 0 });
+		await expectNoWait(["verify", "OPS-1"], 1, /machineLoad needs/);
+		f.setLoad({ maxPerCore: 2, maxWaitMinutes: 30 });
 
 		const checked = f.cli(f.wt, ["check", "OPS-1"]);
 		await until("evf check in the queue", () => /position 1/.test(checked.err()));

@@ -1017,7 +1017,7 @@ on this gate.
 
 At most 3 full checks run at once on this machine, a code default with no `evf.config.json` key. The queue covers every
 full-mode `verify`: `evf verify`, `evf check` and the pr stage. `evf verify --quick`, `evf test` and `evf ac run` take no
-slot. A refusal that needs no check (dirty checkout, wrong `--head`, main not included, a path outside the owning paths)
+slot. A refusal that needs no check (dirty checkout, wrong `--head`, main not included, a path outside the owning paths, a blank `--ignore-load` reason)
 comes before the queue. The refusals run again when a slot is free, and the check list is read again, because main or
 the checkout can move during the wait.
 

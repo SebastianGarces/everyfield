@@ -39,6 +39,13 @@ export function loadGatePassed(root: string): NodeJS.ProcessEnv {
 	return { EVF_LOAD_GATE_ROOT: realpathSync(root) };
 }
 
+/** What awaitLoad refuses whatever the load is. A command that waits for anything else first calls it before that wait. */
+export function requireLoadInputs(root: string, override: string | undefined): LoadLimit {
+	const gate = loadLimit(root);
+	if (override !== undefined && !override.trim()) fail("--ignore-load needs a reason.");
+	return gate;
+}
+
 /**
  * Heavy commands wait while the 1-minute load average is above the limit, print one line per minute and give up
  * after maxWaitMinutes. `--ignore-load <reason>` runs at once and appends the override to load-overrides.jsonl.
@@ -50,9 +57,8 @@ export function awaitLoad(
 	probe = machine,
 	task: TaskRef | null = null,
 ): void {
-	const gate = loadLimit(root);
+	const gate = requireLoadInputs(root, override);
 	if (override !== undefined) {
-		if (!override.trim()) fail("--ignore-load needs a reason.");
 		const load = probe.read();
 		mkdirSync(evfDataDir(root), { recursive: true });
 		appendFileSync(

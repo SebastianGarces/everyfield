@@ -28,7 +28,7 @@ import { maintenanceScope, requireSpend, requireTaskScope, requireMaintenancePat
 import { caseCoverage, caseGrep, hasCaseMarkers, testsOf } from "./coverage.ts";
 import { formatScope, wpScope, type ScopeReport } from "./scope.ts";
 import { requireFreeMigrationNumbers } from "./migrations.ts";
-import { awaitLoad, loadGatePassed, markFullCheck } from "./load.ts";
+import { awaitLoad, loadGatePassed, markFullCheck, requireLoadInputs } from "./load.ts";
 import { CHECK_QUEUE, withCheckQueue, type CheckQueueTiming } from "./check-queue.ts";
 import { uiEscapedGate } from "./escape.ts";
 import { checkSignals, type DriveCaller } from "./signals.ts";
@@ -87,6 +87,7 @@ export function verify(
 	const inputs = () => {
 		const sha = git(wt, "rev-parse", "HEAD"),
 			cfg = loadConfig(wt);
+		requireLoadInputs(root, ignoreLoad);
 		requireTaskScope(root, wt, task, wp);
 		if (hasRemote(root, cfg)) git(root, "fetch", "--quiet", cfg.remote, cfg.baseBranch);
 		const ref = baseRef(root, cfg),
