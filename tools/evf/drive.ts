@@ -32,6 +32,7 @@ import { OWNER_VOID, requireCurrentCode, shipOnCurrentCode } from "./merge.ts";
 import { isOpus, validateOverride, type Role } from "./seats.ts";
 import {
 	EvfError,
+	WaitGaveUp,
 	evfDataDir,
 	fail,
 	git,
@@ -52,6 +53,7 @@ import { fillRunUsage } from "./usage.ts";
 import { acCriteria, checkProblems, coordinatorNotes, doneCriteria } from "./spec.ts";
 import { acRun, acVideoMarkers, isUiTask } from "./ac.ts";
 import { hasVerifiedHead, verify } from "./verify.ts";
+import type { CheckQueueTiming } from "./check-queue.ts";
 
 /**
  * The stage machine of implement mode (the GPS of the talk, in code): plan → implement → simplify → pr → verify →
@@ -1629,6 +1631,8 @@ export type DriveTiming = {
 	 * after the second. The abort that reaches RETRY_CAP escalates at once and does not wait. Unset means no wait.
 	 */
 	abortBackoffMs?: number;
+	/** The wait in the full check queue; tests shorten it, production uses CHECK_QUEUE. */
+	checkQueue?: CheckQueueTiming;
 	/** How often a drive looks at a held task again. */
 	holdPollMs: number;
 };
@@ -1647,19 +1651,21 @@ type Outcome = {
 	summary: string;
 	/** The checks the ci stage read at its failure, so classifying it reads them no second time. */
 	read?: CheckRead;
+	/** The pr stage's checks gave up waiting for their turn: no check ran, so the stage runs again. */
+	waitGaveUp?: boolean;
 };
 type CheckRead = { required: string[]; ci: ReturnType<typeof requiredCi> };
 /**
  * The pr stage: run the author checks at the current head, then push and open or update the PR from the body the
  * implementer wrote, and remember its number. A simplifier commit moved the head, so the checks run here, not in a seat.
  */
-function prStage(db: DatabaseSync, root: string, task: TaskRef, t: TaskRow, wt: string): Outcome {
+function prStage(db: DatabaseSync, root: string, task: TaskRef, t: TaskRow, wt: string, timing: DriveTiming): Outcome {
 	const body = prBodyPath(root, task);
 	if (!existsSync(body)) return { status: "failed", summary: `no PR body at ${body}; the implementer writes it` };
 	// The implementer's own run is the record when the head has not moved; only a new head runs the checks again.
 	const report = hasVerifiedHead(root, task)
 		? null
-		: verify(root, task, "author", "full", undefined, undefined, "pr-stage");
+		: verify(root, task, "author", "full", undefined, undefined, "pr-stage", timing.checkQueue);
 	if (report && !report.passed) {
 		const failed = report.checks.filter((c) => !c.passed).map((c) => `${c.name} (${c.log})`);
 		return {
@@ -1957,7 +1963,7 @@ function evfStage(
 	try {
 		outcome =
 			stage === "pr"
-				? prStage(db, root, task, t, wt)
+				? prStage(db, root, task, t, wt, timing)
 				: stage === "ci"
 					? ciStage(root, t, wt, timing)
 					: stage === "ship"
@@ -1965,7 +1971,16 @@ function evfStage(
 						: { status: "failed", summary: `evf cannot run stage ${stage}` };
 	} catch (e) {
 		if (!(e instanceof EvfError)) throw e;
-		outcome = { status: "failed", summary: e.message };
+		outcome = { status: "failed", summary: e.message, waitGaveUp: e instanceof WaitGaveUp };
+	}
+	if (outcome.waitGaveUp) {
+		db.prepare("UPDATE runs SET status = 'aborted', ended_at = ?, summary = ? WHERE id = ?").run(
+			now(),
+			outcome.summary,
+			runId,
+		);
+		record(db, t.id, runId, "stage_end", { stage, status: "aborted", summary: outcome.summary });
+		return outcome.status;
 	}
 	// A merge inside the stage (markMerged) already closed this run as passed; only the stage_end event is left.
 	if (runStatus(db, runId) === "started") {

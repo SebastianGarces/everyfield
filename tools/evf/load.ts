@@ -1,7 +1,7 @@
-import { appendFileSync, mkdirSync } from "node:fs";
+import { appendFileSync, mkdirSync, realpathSync } from "node:fs";
 import { availableParallelism, loadavg } from "node:os";
 import { join } from "node:path";
-import { evfDataDir, fail, loadConfig, sleep } from "./lib.ts";
+import { evfDataDir, fail, loadConfig, sleep, WaitGaveUp } from "./lib.ts";
 
 export type LoadLimit = { cores: number; maxPerCore: number; limit: number; maxWaitMinutes: number };
 export type LoadProbe = { read: () => number; sleep: (ms: number) => void; now: () => number };
@@ -30,6 +30,14 @@ export function describeLoad(load: number, gate: LoadLimit): string {
 }
 
 /**
+ * The environment of what a command starts after it passed the gate: nothing inside it waits a second time. It names
+ * the home checkout, so a disposable repository of a test keeps its own gate.
+ */
+export function loadGatePassed(root: string): NodeJS.ProcessEnv {
+	return { EVF_LOAD_GATE_ROOT: realpathSync(root) };
+}
+
+/**
  * Heavy commands wait while the 1-minute load average is above the limit, print one line per minute and give up
  * after maxWaitMinutes. `--ignore-load <reason>` runs at once and appends the override to load-overrides.jsonl.
  */
@@ -47,6 +55,7 @@ export function awaitLoad(root: string, command: string, override: string | unde
 		console.error(`evf ${command}: load override logged (${describeLoad(load, gate)}): ${override}`);
 		return;
 	}
+	if (process.env.EVF_LOAD_GATE_ROOT === realpathSync(root)) return;
 	const start = probe.now(),
 		maxWaitMs = gate.maxWaitMinutes * 60_000;
 	for (let printed = 0; ;) {
@@ -54,7 +63,7 @@ export function awaitLoad(root: string, command: string, override: string | unde
 		if (load <= gate.limit) return;
 		const waited = probe.now() - start;
 		if (waited >= maxWaitMs)
-			fail(
+			throw new WaitGaveUp(
 				`The machine stayed above its load limit for ${gate.maxWaitMinutes} min (${describeLoad(load, gate)}). Retry later, or pass --ignore-load "<reason>", which evf logs.`,
 			);
 		if (waited >= printed * 60_000) {

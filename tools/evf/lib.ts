@@ -196,6 +196,8 @@ export type TaskRef = {
 };
 
 export class EvfError extends Error {}
+/** A check waited for its turn and gave up: no check ran, so the result says nothing about the code. */
+export class WaitGaveUp extends EvfError {}
 
 export function fail(message: string): never {
 	throw new EvfError(message);

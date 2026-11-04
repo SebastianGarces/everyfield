@@ -18,6 +18,7 @@ import {
 	type TaskRef,
 } from "./lib.ts";
 import { acCriteria } from "./spec.ts";
+import { awaitLoad, loadGatePassed } from "./load.ts";
 
 /**
  * The answer key (OPS-112). A Done criterion with `Check: AC:<task>-<n>` is proven only by tests whose node:test name
@@ -163,7 +164,11 @@ function rowOf(criterion: string, marker: string, head: string, runs: Outcome[],
  * Run the answer key of a task at its worktree HEAD and write one evf proof row per `AC:` criterion. The worktree must
  * be clean, so the tests run the committed HEAD. Returns the rows; a task whose spec has no `AC:` line returns none.
  */
-export function acRun(root: string, task: TaskRef, opts: { runId?: number | null } = {}): AcRow[] {
+export function acRun(
+	root: string,
+	task: TaskRef,
+	opts: { runId?: number | null; loadGate?: { ignoreLoad: string | undefined } } = {},
+): AcRow[] {
 	const db = openWorkDb(root);
 	let spec: string | null;
 	try {
@@ -178,7 +183,17 @@ export function acRun(root: string, task: TaskRef, opts: { runId?: number | null
 	}
 	const wt = worktreePath(root, loadConfig(root), task);
 	if (!existsSync(wt)) fail(`No worktree for ${task.id}; evf ac run tests the worktree HEAD.`);
-	if (!isClean(wt)) fail(`${wt} has uncommitted changes. Commit them: evf ac run proves the committed HEAD.`);
+	const requireClean = () => {
+		if (!isClean(wt)) fail(`${wt} has uncommitted changes. Commit them: evf ac run proves the committed HEAD.`);
+	};
+	requireClean();
+	// Only the command `evf ac run` passes this gate; the run `evf run done` starts stays ungated at its own start.
+	let env = process.env;
+	if (opts.loadGate) {
+		awaitLoad(root, "ac run", opts.loadGate.ignoreLoad);
+		requireClean();
+		env = { ...env, ...loadGatePassed(root) };
+	}
 	const head = git(wt, "rev-parse", "HEAD");
 	const ui = testFiles(wt, "tests/ui", ".test.mjs"),
 		tools = testFiles(wt, "tools/evf/tests", ".test.ts");
@@ -192,14 +207,14 @@ export function acRun(root: string, task: TaskRef, opts: { runId?: number | null
 		console.log(`ac: ${marker}: ${uiFiles.length + toolFiles.length} file(s) carry it`);
 		const runs: Outcome[] = [],
 			videos: string[] = [];
-		if (toolFiles.length) runs.push(nodeTest(wt, toolFiles, marker, "node", process.env));
+		if (toolFiles.length) runs.push(nodeTest(wt, toolFiles, marker, "node", env));
 		for (const engine of uiFiles.length ? AC_ENGINES : []) {
 			const dir = join(evidenceDir(root, task, head, "ac"), `criterion-${criterion}`, engine);
 			rmSync(dir, { recursive: true, force: true });
 			mkdirSync(dir, { recursive: true });
 			runs.push(
 				nodeTest(wt, uiFiles, marker, engine, {
-					...process.env,
+					...env,
 					UI_ENGINE: engine,
 					UI_BASE_URL: url!,
 					EVF_AC_VIDEO_DIR: dir,
