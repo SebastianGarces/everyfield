@@ -387,6 +387,24 @@ test("evf sampler start runs one detached process; a second start says so and ex
 	}
 });
 
+test("a start from a worktree runs the home checkout's code, so queue_tick outlives that worktree (AC:OPS-133-7)", () => {
+	const f = fixture(),
+		home = join(f.root, "tools/evf/main.ts");
+	try {
+		mkdirSync(join(f.root, "tools/evf"), { recursive: true });
+		writeFileSync(home, `await import(${JSON.stringify(join(source, "tools/evf/main.ts"))});\n`);
+		const start = cli(f.root, {}, "sampler", "start");
+		assert.equal(start.status, 0, start.stderr);
+		const ps = spawnSync("ps", ["-p", String(lockPidOf(f.root)), "-wwo", "command="], { encoding: "utf8" });
+		assert.match(ps.stdout, new RegExp(`${home.replace(/[.*+?^\${}()|[\]\\]/g, "\\$&")} sampler run`));
+		waitFor("the first queue_tick", () => eventsOf(f.root, "queue_tick").length > 0);
+		assert.equal(cli(f.root, {}, "sampler", "stop").status, 0);
+	} finally {
+		cleanUp(f.root);
+		f.close();
+	}
+});
+
 test("cpu.jsonl holds no command text: each line has only at and the class keys (AC:OPS-133-4)", () => {
 	const f = fixture(),
 		marker = "MARKER-7f3a91-secret-arg";
