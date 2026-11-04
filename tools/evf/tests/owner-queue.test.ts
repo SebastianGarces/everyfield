@@ -48,11 +48,7 @@ const cli = (f: { root: string }, ...args: string[]) =>
 const cliAt = (f: { root: string }, now: string, TZ: string, ...args: string[]) =>
 	spawnSync(
 		process.execPath,
-		[
-			`--import=data:text/javascript,Date.now=()=>${Date.parse(now)}`,
-			join(source, "tools/evf/main.ts"),
-			...args,
-		],
+		[`--import=data:text/javascript,Date.now=()=>${Date.parse(now)}`, join(source, "tools/evf/main.ts"), ...args],
 		{
 			cwd: f.root,
 			encoding: "utf8",
@@ -501,7 +497,10 @@ test("AC:OPS-131-5 a P2 fix, a void approval, an escalation and an awaiting pick
 		} finally {
 			console.error = error;
 		}
-		assert.match(warnings.join("\n"), /warning: could not record the owner ask of PR #77: no open task row holds PR #77/);
+		assert.match(
+			warnings.join("\n"),
+			/warning: could not record the owner ask of PR #77: no open task row holds PR #77/,
+		);
 		assert.equal(ownerEvents(f).length, 0);
 		withStore(f, (db) => db.prepare("UPDATE tasks SET pr_number = 77 WHERE id = ?").run(row));
 
@@ -1103,6 +1102,10 @@ test("AC:OPS-131-15 evf help lists owner-queue and its forms, and the README des
 	for (const word of ["## Owner queue", "owner_ask", "owner_answer", "`ownerQueue`", "ownerHours", "digestTimes"])
 		assert.ok(readme.includes(word), word);
 	assert.match(readme, /Sebastian sets `ownerHours`/);
-	for (const step of ["git restore evf.config.json", "git merge --ff-only origin/main", "git apply /tmp/owner-queue-key.patch"])
+	for (const step of [
+		"git restore evf.config.json",
+		"git merge --ff-only origin/main",
+		"git apply /tmp/owner-queue-key.patch",
+	])
 		assert.ok(readme.includes(step), step);
 });
