@@ -60,7 +60,7 @@ const NODE_ARG_RULES: Array<[CpuClass, RegExp]> = [
 	["claude", /\/claude-code\//],
 	["browser", /playwright/i],
 ];
-const BROWSER_PROGRAM = /Chrom(e|ium)|WebKit|Firefox|headless_shell|chrome-headless-shell|ms-playwright/i;
+const BROWSER_PROGRAM = /Chrom(e|ium)|WebKit|Firefox|headless_shell/i;
 /** An application path holds spaces, so this rule reads the command from its start. */
 const BROWSER_APP = /^\/Applications\/(Google Chrome|Chromium|Safari|Firefox)[^/]*\.app\//;
 const MACOS_PROGRAM = /^(\/System\/|\/usr\/libexec\/|\/usr\/sbin\/|\/sbin\/|\/Library\/Apple\/|kernel_task$)/;
@@ -199,7 +199,7 @@ export function samplerTick(root: string, probes: SamplerProbes): void {
 				...Object.fromEntries(CPU_CLASSES.map((c) => [c, shares?.[c] ?? null])),
 			}),
 		);
-		if (db && queue) attempt(() => record(db, null, null, "queue_tick", { ...queue, load: load1 }, at));
+		if (db && queue) attempt(() => record(db, null, null, "queue_tick", { ...queue, load: load1 }));
 	} finally {
 		db?.close();
 	}
@@ -219,7 +219,6 @@ function trimFile(path: string, cutoffMs: number): void {
 	if (!existsSync(path)) return;
 	const lines = readFileSync(path, "utf8").split("\n"),
 		kept = lines.filter((line) => !isOld(line, cutoffMs));
-	if (kept.length === lines.length) return;
 	const temporary = `${path}.${process.pid}.tmp`;
 	writeFileSync(temporary, kept.join("\n"));
 	renameSync(temporary, path);
@@ -287,17 +286,17 @@ function claimLock(lock: string): boolean {
 }
 
 /**
- * The sampler loop. It returns false at once when another sampler holds the lock, and it ends when the lock no longer
- * names it, which also closes the rare race of two starts that both reap one stale lock. `ticks` bounds a test's run.
+ * The sampler loop. It returns at once when another sampler holds the lock, and it ends when the lock no longer names
+ * it, which also closes the rare race of two starts that both reap one stale lock. `ticks` bounds a test's run.
  */
-export function runSampler(root: string, probes = machineProbes(root), opts: { ticks?: number } = {}): boolean {
+export function runSampler(root: string, probes = machineProbes(root), opts: { ticks?: number } = {}): void {
 	const lock = lockPath(root);
 	mkdirSync(evfDataDir(root), { recursive: true });
-	if (!claimLock(lock)) return false;
+	if (!claimLock(lock)) return;
 	let retainedAt = -Infinity,
 		nextAt = probes.now();
 	for (let n = 0; opts.ticks === undefined || n < opts.ticks; n++) {
-		if (lockPid(lock) !== process.pid) return true;
+		if (lockPid(lock) !== process.pid) return;
 		const now = probes.now();
 		if (now - retainedAt >= HOUR_MS) {
 			retainedAt = now;
@@ -310,20 +309,12 @@ export function runSampler(root: string, probes = machineProbes(root), opts: { t
 		probes.sleep(nextAt - after);
 	}
 	rmSync(lock, { force: true });
-	return true;
 }
 
-/** The fixture has no evf code, and the home checkout's copy outlives any worktree whose bin/evf started the sampler. */
 function spawnSampler(root: string): number | undefined {
-	const home = join(root, "tools/evf/main.ts");
 	const child = spawn(
 		process.execPath,
-		[
-			"--disable-warning=ExperimentalWarning",
-			existsSync(home) ? home : join(import.meta.dirname, "main.ts"),
-			"sampler",
-			"run",
-		],
+		["--disable-warning=ExperimentalWarning", join(import.meta.dirname, "main.ts"), "sampler", "run"],
 		{ cwd: root, detached: true, stdio: "ignore" },
 	);
 	child.unref();
@@ -346,7 +337,7 @@ export function startSampler(root: string): number {
 		console.log(holder === pid ? `Sampler started (pid ${pid}).` : `A sampler already runs (pid ${holder}).`);
 		return 0;
 	}
-	console.error(`The sampler (pid ${pid}) did not take its lock in ${waitMs / 1000} s. Is this evf code current?`);
+	console.error(`The sampler (pid ${pid}) did not take its lock in ${waitMs / 1000} s.`);
 	return 1;
 }
 

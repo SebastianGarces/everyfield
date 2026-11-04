@@ -94,17 +94,15 @@ function recordLoadWait(
 ): void {
 	try {
 		if (!existsSync(workDbPath(root))) return;
-		const db = openWorkDb(root),
-			endAt = new Date(endMs).toISOString();
+		const db = openWorkDb(root);
 		try {
-			const payload = {
+			record(db, (task && findTask(db, task)?.id) ?? null, null, "load_wait", {
 				command,
 				task: task?.id ?? null,
 				startAt: new Date(startMs).toISOString(),
-				endAt,
+				endAt: new Date(endMs).toISOString(),
 				maxLoad,
-			};
-			record(db, (task && findTask(db, task)?.id) ?? null, null, "load_wait", payload, endAt);
+			});
 		} finally {
 			db.close();
 		}

@@ -407,12 +407,11 @@ export function record(
 	runId: number | null,
 	type: string,
 	payload: Record<string, unknown>,
-	ts: string = now(),
 ): void {
 	db.prepare("INSERT INTO events (task_id, run_id, ts, type, payload) VALUES (?, ?, ?, ?, ?)").run(
 		taskId,
 		runId,
-		ts,
+		now(),
 		type,
 		JSON.stringify(payload),
 	);
