@@ -1,7 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+	chmodSync,
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readdirSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
@@ -125,9 +134,7 @@ if (action === "up") {
 	Object.entries(MERGES).forEach(([ref, files], i) => {
 		write(files);
 		f.git("add", "-A");
-		process.env.GIT_COMMITTER_DATE = process.env.GIT_AUTHOR_DATE = new Date(
-			now - 10 * DAY + i * 60_000,
-		).toISOString();
+		process.env.GIT_COMMITTER_DATE = process.env.GIT_AUTHOR_DATE = new Date(now - 10 * DAY + i * 60_000).toISOString();
 		f.git("commit", "-qm", `${ref}: fixture merge`);
 		delete process.env.GIT_COMMITTER_DATE;
 		delete process.env.GIT_AUTHOR_DATE;
@@ -188,7 +195,13 @@ if (action === "up") {
 		env: Record<string, string>;
 		files: Record<string, string>;
 		pid: number;
-	}> => (existsSync(join(bin, "seat.log")) ? readFileSync(join(bin, "seat.log"), "utf8").trim().split("\n").map((l) => JSON.parse(l)) : []);
+	}> =>
+		existsSync(join(bin, "seat.log"))
+			? readFileSync(join(bin, "seat.log"), "utf8")
+					.trim()
+					.split("\n")
+					.map((l) => JSON.parse(l))
+			: [];
 	const rows = () => {
 		const d = store();
 		const r = d.prepare("SELECT * FROM audit_runs WHERE dry_run = 0 ORDER BY id").all() as Array<Record<string, any>>;
@@ -386,10 +399,21 @@ test("AC:OPS-124-2 the seat gets a plain folder of change.diff and task.md that 
 			assert.match(call.files["change.diff"]!, /^diff --git a\/packages\/calc\/src\/greet\.mjs/m);
 			assert.match(call.files["change.diff"]!, /^diff --git a\/tests\/calc\/adult\.test\.mjs/m);
 			assert.doesNotMatch(call.files["change.diff"]!, /unrelated\.mjs/);
-			const everything = [call.cwd, call.stdin, ...Object.values(call.files), ...Object.entries(call.env).flat()].join("\n");
-			for (const banned of [obo.id, drop.id, /off-by-one|dropped-call|removed-route/, /audit|mutant|mutation/i, /killed|survived/])
+			const everything = [call.cwd, call.stdin, ...Object.values(call.files), ...Object.entries(call.env).flat()].join(
+				"\n",
+			);
+			for (const banned of [
+				obo.id,
+				drop.id,
+				/off-by-one|dropped-call|removed-route/,
+				/audit|mutant|mutation/i,
+				/killed|survived/,
+			])
 				assert.doesNotMatch(everything, typeof banned === "string" ? new RegExp(banned) : banned);
-			assert.deepEqual(Object.keys(call.env).filter((k) => k.startsWith("EVF_")), []);
+			assert.deepEqual(
+				Object.keys(call.env).filter((k) => k.startsWith("EVF_")),
+				[],
+			);
 		}
 		assert.ok(first.files["change.diff"]!.includes(`+\t${obo.after}`), "the diff holds the off-by-one line");
 		assert.ok(!first.files["change.diff"]!.includes("return age >= 18;"));
@@ -436,9 +460,17 @@ test("AC:OPS-124-3 grading: found within 3 lines, missed outside, and no-verdict
 	assert.equal(grade(route, [at(route.file, 900)]), "found");
 	assert.equal(grade(route, [at("apps/web/src/app/y/page.tsx", 1)]), "missed");
 	// Fenced JSON and a bare list parse; so do findings inside prose.
-	assert.equal(verdictOf(PLANTED, seat({ result: "```json\n" + JSON.stringify({ findings: [at(PLANTED.file, 40)] }) + "\n```" })).result, "found");
+	assert.equal(
+		verdictOf(PLANTED, seat({ result: "```json\n" + JSON.stringify({ findings: [at(PLANTED.file, 40)] }) + "\n```" }))
+			.result,
+		"found",
+	);
 	assert.equal(verdictOf(PLANTED, seat({ result: JSON.stringify([at(PLANTED.file, 40)]) })).result, "found");
-	assert.equal(verdictOf(PLANTED, seat({ result: `Here you go: ${JSON.stringify({ findings: [at(PLANTED.file, 40)] })} done.` })).result, "found");
+	assert.equal(
+		verdictOf(PLANTED, seat({ result: `Here you go: ${JSON.stringify({ findings: [at(PLANTED.file, 40)] })} done.` }))
+			.result,
+		"found",
+	);
 
 	// No verdict: output that does not parse, a bad finding, an error result, a non-zero exit, a timeout, no binary.
 	for (const bad of [
@@ -632,11 +664,19 @@ test("AC:OPS-124-6 one found or missed result in 30 days; no-verdict does not co
 
 		// The seat's env: no API key, no cloud switch, no EVF variable.
 		const env = f.calls()[0]!.env;
-		for (const k of ["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX", "EVF_LEAK_CHECK"])
+		for (const k of [
+			"ANTHROPIC_API_KEY",
+			"ANTHROPIC_AUTH_TOKEN",
+			"CLAUDE_CODE_USE_BEDROCK",
+			"CLAUDE_CODE_USE_VERTEX",
+			"EVF_LEAK_CHECK",
+		])
 			assert.equal(env[k], undefined, k);
 		assert.equal(env.CLAUDE_CONFIG_DIR, f.cfgDir);
 		assert.deepEqual(
-			Object.keys(seatEnv({ PATH: "/bin", HOME: "/h", ANTHROPIC_API_KEY: "k", EVF_RUN: "1", NODE_OPTIONS: "x", LC_ALL: "C" })).sort(),
+			Object.keys(
+				seatEnv({ PATH: "/bin", HOME: "/h", ANTHROPIC_API_KEY: "k", EVF_RUN: "1", NODE_OPTIONS: "x", LC_ALL: "C" }),
+			).sort(),
 			["HOME", "LC_ALL", "PATH"],
 		);
 		// The seat code lives in its own file; the default run's file names no model call (AC:OPS-116-10/11 test that).
@@ -655,7 +695,17 @@ test("AC:OPS-124-7 help lists the flag, the README documents it, and no workflow
 	assert.match(help, /evf audit \[--task <task>\].*\[--dry-run\] \[--with-verifier\]/);
 	const readme = readFileSync(join(source, "tools/evf/README.md"), "utf8");
 	const section = readme.split("## Mutation audit")[1]!.split(/\n## /)[0]!;
-	for (const word of ["--with-verifier", "change.diff", "task.md", "found", "missed", "no-verdict", "30 days", "claude-opus-5-5", "ANTHROPIC_API_KEY"])
+	for (const word of [
+		"--with-verifier",
+		"change.diff",
+		"task.md",
+		"found",
+		"missed",
+		"no-verdict",
+		"30 days",
+		"claude-opus-5-5",
+		"ANTHROPIC_API_KEY",
+	])
 		assert.ok(section.includes(word), word);
 	assert.doesNotMatch(readme, /waits for Sebastian's answer to report decision D\.2/);
 	const workflows = join(source, ".github/workflows");

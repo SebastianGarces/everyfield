@@ -117,9 +117,7 @@ type Merged = { ref: string; mergeCommits: string[] };
 export function buildReview(root: string, db: DatabaseSync, target: Merged, mutant: string, tmpBase?: string): string {
 	const files = new Set<string>();
 	for (const m of target.mergeCommits)
-		for (const f of git(root, "diff", "--no-renames", "--name-only", `${m}^1`, m)
-			.split("\n")
-			.filter(Boolean))
+		for (const f of git(root, "diff", "--no-renames", "--name-only", `${m}^1`, m).split("\n").filter(Boolean))
 			files.add(f);
 	const first = [...target.mergeCommits].sort(
 		(a, b) => Number(git(root, "show", "-s", "--format=%ct", a)) - Number(git(root, "show", "-s", "--format=%ct", b)),
@@ -242,8 +240,12 @@ export function grade(planted: Planted, findings: Finding[]): "found" | "missed"
 }
 
 /** The verdict of one seat run. A failed run, a timeout or output that does not parse is never `missed`. */
-export function verdictOf(planted: Planted, seat: SeatRun): { result: VerifierResult; findings: Finding[] | null; note: string } {
-	if (seat.spawnError) return { result: "no-verdict", findings: null, note: `the seat did not start: ${seat.spawnError}` };
+export function verdictOf(
+	planted: Planted,
+	seat: SeatRun,
+): { result: VerifierResult; findings: Finding[] | null; note: string } {
+	if (seat.spawnError)
+		return { result: "no-verdict", findings: null, note: `the seat did not start: ${seat.spawnError}` };
 	if (seat.timedOut) return { result: "no-verdict", findings: null, note: "the seat timed out" };
 	if (seat.code !== 0)
 		return { result: "no-verdict", findings: null, note: `the seat exited ${seat.code ?? "on a signal"}` };
@@ -276,7 +278,9 @@ export async function runVerifier(a: VerifierRun): Promise<VerifierResult | "dry
 		if (a.dryRun) {
 			const files = ["task.md", "change.diff"];
 			console.log(`evf audit: dry run. No verifier seat started. The seat would run in a new folder with:`);
-			console.log(`  claude ${seatArgs("<new session id>").join(" ")}  (environment: PATH, HOME, locale and proxy only)`);
+			console.log(
+				`  claude ${seatArgs("<new session id>").join(" ")}  (environment: PATH, HOME, locale and proxy only)`,
+			);
 			console.log(`  prompt:\n${SEAT_PROMPT.replace(/^/gm, "    ")}`);
 			for (const f of files) console.log(`  ${f}:\n${readFileSync(join(folder, f), "utf8").replace(/^/gm, "    ")}`);
 			return "dry-run";
