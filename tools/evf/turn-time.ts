@@ -135,7 +135,7 @@ export function turnOf(
 ): (Split & { startedAt: number; endedAt: number }) | null {
 	const endedAt = entries.at(-1)?.ts,
 		startedAt = previousEnd ?? entries.findLast((e) => e.opens)?.ts;
-	if (endedAt === undefined || startedAt === undefined || endedAt < startedAt) return null;
+	if (endedAt === undefined || startedAt === undefined) return null;
 	return { startedAt, endedAt, ...partition(toolSpans(entries, endedAt), startedAt, endedAt) };
 }
 

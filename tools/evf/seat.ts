@@ -306,7 +306,7 @@ function seatRun(db: DatabaseSync, runId: number): SeatRun | null {
  */
 function recordTurnEnd(db: DatabaseSync, seat: SeatRun, input: HookInput): void {
 	try {
-		const session = input.session_id ?? seat.session_id,
+		const session = input.session_id,
 			path = session ? transcriptPath(session) : null;
 		if (!path) return;
 		const previous =

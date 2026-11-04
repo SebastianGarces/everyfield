@@ -2082,19 +2082,20 @@ function waitOnSeat(
 	const watchStart = Date.now(),
 		deadline = watchStart + timing.waitMs;
 	const idea = /^idea(\d)$/.exec(r.stage),
-		cfg = loadConfig(root);
+		cfg = loadConfig(root),
+		agent = r.herdr_agent;
 	const longRun = longRunCheck(
 		db,
 		{
 			taskId: t.id,
 			ref: task.id,
 			runId,
-			agent: r.herdr_agent,
+			agent,
 			worktree: idea ? ideaWorktree(root, cfg, task, Number(idea[1])) : worktreePath(root, cfg, task),
 		},
 		timing.clock ?? Date.now,
 		// `agent wait` never answers `working`: a slice that ends with the seat working is a timeout with empty stdout.
-		() => parseAgentState(run("herdr", ["agent", "get", r.herdr_agent], { timeoutMs: 10_000 }).stdout) === "working",
+		() => agentState(agent) === "working",
 	);
 	let turnSeen = false,
 		waitsLogged = 0;

@@ -26,10 +26,11 @@ export type Role = keyof typeof ROLES;
  * The roles of `evf headless`: `claude -p` sessions with a `runs` row, not Herdr seats, so they stay out of ROLES. They
  * never take part in a task's stage machine (OPS-134).
  */
-export type HeadlessRole = "coordinator" | "registration";
-export const isHeadlessRole = (v: string | undefined): v is HeadlessRole => v === "coordinator" || v === "registration";
+export const HEADLESS_ROLES = ["coordinator", "registration"] as const;
+export type HeadlessRole = (typeof HEADLESS_ROLES)[number];
+export const isHeadlessRole = (v: string | undefined): v is HeadlessRole => HEADLESS_ROLES.includes(v as HeadlessRole);
 /** The same roles for a `role NOT IN ...` query that reads the seats of the stage machine. */
-export const HEADLESS_ROLES_SQL = "('coordinator', 'registration')";
+export const HEADLESS_ROLES_SQL = `('${HEADLESS_ROLES.join("', '")}')`;
 
 /** The levels `claude --effort` accepts. */
 const EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
