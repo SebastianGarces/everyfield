@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { compile, run } from "@mdx-js/mdx";
 import remarkGfm from "remark-gfm";
 import * as runtime from "react/jsx-runtime";
@@ -59,6 +60,20 @@ export function asciiArt(content: string): DiagramError[] {
 			found.push({ line: index + 1, message: "Box-drawing character; use a ```diagram block" });
 	});
 	return found.sort((a, b) => a.line - b.line);
+}
+
+/** The allowlist fingerprint of one fenced block: the first 16 hex digits of the SHA-256 of its info string and body. */
+export function blockFingerprint(block: { info: string; body: string }): string {
+	return createHash("sha256").update(`${block.info}\n${block.body}`).digest("hex").slice(0, 16);
+}
+
+/** Each ASCII-art finding. A fenced finding carries its block's fingerprint, so an allowlist entry can permit that block. */
+export function asciiFindings(content: string) {
+	const opened = new Map(fencedBlocks(content).map((block) => [block.start + 1, block]));
+	return asciiArt(content).map((finding) => {
+		const block = opened.get(finding.line);
+		return { ...finding, fingerprint: block ? blockFingerprint(block) : null };
+	});
 }
 
 /** Each fault of each ```diagram block, at its article line: the fence line plus the parser's body line. */
@@ -150,7 +165,10 @@ export async function inspect(content: string, known: Set<string>, seed = false,
 		else if (/^(?:javascript|data|vbscript):/i.test(url)) errors.push(`Unsafe link: ${url}`);
 	}
 	for (const error of diagramErrors(content)) errors.push(`Diagram block at ${slug}:${error.line}: ${error.message}`);
-	const ascii = asciiArt(content).map((error) => `ASCII-art at ${slug}:${error.line}: ${error.message}`);
+	const ascii = asciiFindings(content).map((finding) => ({
+		message: `ASCII-art at ${slug}:${finding.line}: ${finding.message}`,
+		fingerprint: finding.fingerprint,
+	}));
 	const plain = content.replace(/<[^>]+>/g, "");
 	const words = (plain.match(/[\p{L}\p{N}_]+/gu) || []).length;
 	if (words < 500 || words > 2500) errors.push(`${words} words; allowed 500–2,500`);
