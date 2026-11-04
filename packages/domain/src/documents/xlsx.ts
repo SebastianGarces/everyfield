@@ -1,5 +1,5 @@
 import type { BlockNode, EveryfieldDoc, Formula, TableNode } from "@everyfield/contracts/documents";
-import { attrsOf, computeTable, parseFormula } from "@everyfield/contracts/documents";
+import { attrsOf, computeTable, ledgerTables, parseFormula } from "@everyfield/contracts/documents";
 import { textOn } from "./contrast.ts";
 import type { Palette, RenderTheme } from "./theme.ts";
 import { makePalette, tokenColor } from "./theme.ts";
@@ -82,20 +82,17 @@ class StyleBook {
 			`<border><left/><right/>${edge("top", p.ink)}<bottom/><diagonal/></border>`,
 			`<border><left/><right/><top/>${edge("bottom", p.border)}<diagonal/></border>`,
 		];
-		const base: [number, number, number, number, string][] = [
-			[0, 0, 0, 0, ""],
-			[1, 0, 0, 0, LEFT],
-			[2, 0, 0, 0, LEFT],
-			[3, 2, 0, 0, LEFT],
-			[3, 2, 0, 0, RIGHT],
-			[4, 3, 0, 0, LEFT],
-			[0, 0, 3, 0, LEFT],
-			[0, 0, 1, 164, RIGHT],
-			[0, 0, 3, 164, RIGHT],
-			[4, 3, 2, 0, LEFT],
-			[4, 3, 2, 164, RIGHT],
-		];
-		for (const [f, fill, border, num, align] of base) this.xf(f, fill, border, num, align);
+		this.xf(0, 0, 0);
+		this.xf(1, 0, 0, 0, LEFT);
+		this.xf(2, 0, 0, 0, LEFT);
+		this.xf(3, 2, 0, 0, LEFT);
+		this.xf(3, 2, 0, 0, RIGHT);
+		this.xf(4, 3, 0, 0, LEFT);
+		this.xf(0, 0, 3, 0, LEFT);
+		this.xf(0, 0, 1, 164, RIGHT);
+		this.xf(0, 0, 3, 164, RIGHT);
+		this.xf(4, 3, 2, 0, LEFT);
+		this.xf(4, 3, 2, 164, RIGHT);
 	}
 
 	/** The id of a number format, added when it is new. */
@@ -366,20 +363,6 @@ export function buildBudget(kind: "first-year" | "worksheet", church: string, th
 
 // ---------------------------------------------------------------- everyfield.doc/1 ledgers
 
-/** The ledger tables of a document, in body order (columns and boxes included). */
-export function ledgerTables(doc: EveryfieldDoc): TableNode[] {
-	const out: TableNode[] = [];
-	const walk = (nodes: readonly BlockNode[] | undefined) => {
-		for (const node of nodes ?? []) {
-			if (node.type === "table" && node.attrs.style === "ledger") out.push(node);
-			if (node.type === "columns") for (const col of node.content) walk(col.content);
-			if (node.type === "box") walk(node.content);
-		}
-	};
-	walk(doc.body.content);
-	return out;
-}
-
 /**
  * The title above each ledger table: the text of the nearest heading before it in the body, merge fields filled in, so a
  * title edited in the editor is the title of the sheet. A table with no heading above it has none.
@@ -433,7 +416,7 @@ const cellText = (cell: TableNode["content"] extends (infer R)[] | undefined ? R
  * ticked check cell, the table's header fill and the rows the PDF stripes.
  */
 export function buildLedgerWorkbook(doc: EveryfieldDoc, values: Record<string, string>, theme: RenderTheme) {
-	const tables = ledgerTables(doc);
+	const tables = ledgerTables(doc.body);
 	const titles = sheetTitles(doc, values);
 	const book = new StyleBook(theme);
 	const p = book.palette;

@@ -227,7 +227,7 @@ function valueCellView(
 	dom.contentEditable = "false";
 	let node = initial;
 	let spec = cellSpecOf(initialDecorations);
-	let field: HTMLInputElement | HTMLButtonElement | HTMLElement | null = null;
+	let field: HTMLElement | null = null;
 	const note = el("span", "ef-vnote", { role: "alert" });
 	const typing = newTyping();
 
@@ -317,11 +317,8 @@ function valueCellView(
 			const input = field as HTMLInputElement;
 			input.setAttribute("aria-label", label);
 			const typed = parseAmount(input.value, kind === "money" ? "money" : "number");
-			if (document.activeElement !== input) {
-				input.value = amountText();
-				setInvalid(null);
-			} else if (typed.ok && (typed.value ?? null) !== (node.attrs.value ?? null)) {
-				// Undo or Redo changed the amount while the field had focus: the field shows the stored amount.
+			// Undo or Redo can change the amount while the field has focus: the field shows the stored amount then too.
+			if (document.activeElement !== input || (typed.ok && typed.value !== (node.attrs.value ?? null))) {
 				input.value = amountText();
 				setInvalid(null);
 			}
@@ -483,10 +480,7 @@ function tableNodeView(initial: PMNode, editor: Editor, getPos: () => number | u
 
 	function draw() {
 		const a = table();
-		dom.dataset.style = a.style;
 		dom.dataset.headerFill = a.headerFill;
-		dom.dataset.header = String(a.header);
-		dom.dataset.zebra = String(a.zebra);
 		grid.setAttribute("aria-label", a.sheet ?? "Table");
 		grid.setAttribute("aria-rowcount", String(node.childCount + (a.source ? 0 : a.writeInRows) + (a.header ? 1 : 0)));
 		if (a.rowHeight) grid.style.setProperty("--ef-row-h", px(a.rowHeight));
@@ -500,15 +494,12 @@ function tableNodeView(initial: PMNode, editor: Editor, getPos: () => number | u
 	draw();
 	// A change of the table's width lays the columns out again, in the next frame so the observer never loops on itself.
 	let seen = scroll.clientWidth;
-	const observer =
-		typeof ResizeObserver === "undefined"
-			? null
-			: new ResizeObserver(() => {
-					if (scroll.clientWidth === seen) return;
-					seen = scroll.clientWidth;
-					requestAnimationFrame(widths);
-				});
-	observer?.observe(scroll);
+	const observer = new ResizeObserver(() => {
+		if (scroll.clientWidth === seen) return;
+		seen = scroll.clientWidth;
+		requestAnimationFrame(widths);
+	});
+	observer.observe(scroll);
 	blanks.addEventListener("focus", () => noteFocus(editor.view, getPos(), "blank", 0));
 	blanks.addEventListener("keydown", (event) => {
 		fieldKey(editor, event, getPos(), { row: null, col: null, blank: true });
@@ -546,7 +537,7 @@ function tableNodeView(initial: PMNode, editor: Editor, getPos: () => number | u
 		ignoreMutation: (mutation: ViewMutationRecord) =>
 			mutation.type === "selection" ? false : !body.contains(mutation.target),
 		destroy: () => {
-			observer?.disconnect();
+			observer.disconnect();
 			editor.off("transaction", onTransaction);
 		},
 	};
@@ -554,12 +545,7 @@ function tableNodeView(initial: PMNode, editor: Editor, getPos: () => number | u
 
 // ---------------------------------------------------------------- decorations: what each row and cell shows
 
-type Cached = { pos: number; list: Decoration[] };
-const decorationCache = new WeakMap<PMNode, Cached>();
-
 function decorationsFor(node: PMNode, pos: number): Decoration[] {
-	const hit = decorationCache.get(node);
-	if (hit && hit.pos === pos) return hit.list;
 	const table = tableOf(node);
 	const a = attrsOf(table);
 	const view = tableView(table);
@@ -574,7 +560,7 @@ function decorationsFor(node: PMNode, pos: number): Decoration[] {
 			if (column) {
 				const align = `text-align:${alignOf(column)}`;
 				list.push(
-					Decoration.node(cellPos, cellPos + cell.nodeSize, { style: align, "data-col": String(ci) }, {
+					Decoration.node(cellPos, cellPos + cell.nodeSize, { style: align }, {
 						kind: column.type,
 						shown: shown?.shown[ci] ?? null,
 						input: (shown?.role ?? "item") === "item",
@@ -587,7 +573,6 @@ function decorationsFor(node: PMNode, pos: number): Decoration[] {
 		});
 		rowPos += row.nodeSize;
 	});
-	decorationCache.set(node, { pos, list });
 	return list;
 }
 

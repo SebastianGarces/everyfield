@@ -6,7 +6,7 @@ export type Kind = "string" | "number" | "boolean" | "json";
 export type Attrs = Record<string, unknown>;
 
 /** One format attribute: no default (the format's default applies at render), stored in a `data-ef-*` attribute. */
-export function attr(name: string, kind: Kind = "string") {
+function attr(name: string, kind: Kind = "string") {
 	const html = `data-ef-${name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`;
 	return {
 		default: undefined as unknown,

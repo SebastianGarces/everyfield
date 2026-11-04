@@ -30,16 +30,16 @@ export const KINDS: { kind: Kind; label: string }[] = [
 /** Where the person is in the table: a typed row or the blank write-in rows, and a column. */
 export type Place = { row: number | null; col: number | null; blank?: boolean };
 
-/** The reason a control is off, or null when it works. */
-export type Reason = string | null;
-
 const isLedger = (t: TableNode) => t.attrs.style === "ledger";
 const rowsOf = (t: TableNode) => t.content ?? [];
 const roleOf = (row: RowNode): RowRole => row.attrs?.role ?? "item";
 const withRows = (t: TableNode, content: RowNode[]): TableNode => ({ ...t, content });
-const withColumns = (t: TableNode, columns: ColumnSpec[], content: RowNode[] = rowsOf(t)): TableNode => ({
+export const withAttrs = (t: TableNode, attrs: Partial<TableNode["attrs"]>): TableNode => ({
 	...t,
-	attrs: { ...t.attrs, columns },
+	attrs: { ...t.attrs, ...attrs },
+});
+const withColumns = (t: TableNode, columns: ColumnSpec[], content: RowNode[]): TableNode => ({
+	...withAttrs(t, { columns }),
 	content,
 });
 
@@ -63,7 +63,7 @@ export const labelColumn = (t: TableNode) =>
 
 // ---------------------------------------------------------------- categories of a budget
 
-type Category = { start: number; end: number; subtotal: number | null; items: number[] };
+type Category = { start: number; end: number };
 
 /** The categories of a budget, in order: a group row, its line items and its total. A grand total belongs to none. */
 function categories(t: TableNode): Category[] {
@@ -76,12 +76,10 @@ function categories(t: TableNode): Category[] {
 			return;
 		}
 		if (role === "group" || !open) {
-			open = { start: i, end: i, subtotal: null, items: [] };
+			open = { start: i, end: i };
 			out.push(open);
 		}
 		open.end = i;
-		if (role === "item") open.items.push(i);
-		if (role === "subtotal") open.subtotal = i;
 	});
 	return out;
 }
@@ -121,15 +119,15 @@ export function availability(t: TableNode, at: Place) {
 	const ledger = isLedger(t);
 	const noRows = source ? `This table lists the "${source}" field, so it has no typed rows.` : null;
 
-	const addColumn = (position: number): Reason =>
+	const addColumn = (position: number): string | null =>
 		cols.length >= TABLE_LIMITS.columns
 			? COLUMN_LIMIT
 			: joinsASum(t, position)
 				? "A formula adds up a range of columns here, so a new column would join the sum."
 				: null;
 
-	let removeColumn: Reason = null;
-	let kind: Reason = null;
+	let removeColumn: string | null = null;
+	let kind: string | null = null;
 	if (at.col === null) {
 		removeColumn = "Put the cursor in a column to remove it.";
 		kind = "Put the cursor in a column to change its kind.";
@@ -171,10 +169,9 @@ export function availability(t: TableNode, at: Place) {
 
 // ---------------------------------------------------------------- rows
 
-/** A new typed row above (`side` -1) or below (1) the row `at`; with no row, first or last. */
-export function addRow(t: TableNode, at: number | null, side: -1 | 1): TableNode {
+/** A new typed row at `index`. */
+export function addRow(t: TableNode, index: number): TableNode {
 	const rows = [...rowsOf(t)];
-	const index = at === null ? (side < 0 ? 0 : rows.length) : side < 0 ? at : at + 1;
 	rows.splice(index, 0, emptyRow(t));
 	return withRows(t, rows);
 }
@@ -184,11 +181,6 @@ export function removeRow(t: TableNode, at: number): TableNode {
 		t,
 		rowsOf(t).filter((_, i) => i !== at),
 	);
-}
-
-/** Sets the count of blank write-in rows. The caller has checked the range against the format. */
-export function setWriteInRows(t: TableNode, count: number): TableNode {
-	return { ...t, attrs: { ...t.attrs, writeInRows: count } };
 }
 
 // ---------------------------------------------------------------- columns
@@ -267,17 +259,6 @@ export function setKind(t: TableNode, at: number, kind: Kind): TableNode {
 	return withColumns(t, columns, content);
 }
 
-// ---------------------------------------------------------------- header color and stripes
-
-export const setHeaderFill = (t: TableNode, headerFill: TableNode["attrs"]["headerFill"]): TableNode => ({
-	...t,
-	attrs: { ...t.attrs, headerFill },
-});
-export const setZebra = (t: TableNode, zebra: boolean): TableNode => ({
-	...t,
-	attrs: { ...t.attrs, zebra },
-});
-
 // ---------------------------------------------------------------- a budget
 
 const LINE_ITEM = "Line item";
@@ -297,10 +278,8 @@ export function addLineItem(t: TableNode, at: number): TableNode {
 /** A new category (a group row, a line item and a total) after the category that holds `at`, before any grand total. */
 export function addCategory(t: TableNode, at: number | null): TableNode {
 	const rows = [...rowsOf(t)];
-	const all = categories(t);
-	const current = categoryAt(t, at);
-	const last = all.at(-1);
-	const index = current ? current.end + 1 : last ? last.end + 1 : rows.length;
+	const after = categoryAt(t, at) ?? categories(t).at(-1);
+	const index = after ? after.end + 1 : rows.length;
 	rows.splice(
 		index,
 		0,
@@ -321,28 +300,28 @@ export function removeCategory(t: TableNode, at: number): TableNode {
 	);
 }
 
+/** The index of the group row of the category that holds `at`, or null when it has none. */
+function groupRow(t: TableNode, at: number | null) {
+	const start = categoryAt(t, at)?.start;
+	return start !== undefined && rowsOf(t)[start]?.attrs?.role === "group" ? start : null;
+}
+
 /** Sets whether the category that holds `at` adds to the grand total or subtracts from it. */
 export function setSign(t: TableNode, at: number, sign: "add" | "subtract"): TableNode {
-	const category = categoryAt(t, at);
-	const group = category ? rowsOf(t)[category.start] : undefined;
-	if (!category || !group || roleOf(group) !== "group") return t;
+	const group = groupRow(t, at);
 	return withRows(
 		t,
-		rowsOf(t).map((row, i) => {
-			if (i !== category.start) return row;
-			const attrs = { ...row.attrs };
-			delete attrs.sign;
-			return { ...row, attrs: { ...attrs, ...(sign === "subtract" ? { sign } : {}) } };
-		}),
+		rowsOf(t).map((row, i) =>
+			i === group ? { ...row, attrs: { role: "group", ...(sign === "subtract" ? { sign } : {}) } } : row,
+		),
 	);
 }
 
 /** The sign of the category that holds `at`. */
 export function signAt(t: TableNode, at: number | null): "add" | "subtract" | null {
-	const category = categoryAt(t, at);
-	const group = category ? rowsOf(t)[category.start] : undefined;
-	if (!group || roleOf(group) !== "group") return null;
-	return group.attrs?.sign === "subtract" ? "subtract" : "add";
+	const group = groupRow(t, at);
+	if (group === null) return null;
+	return rowsOf(t)[group]?.attrs?.sign === "subtract" ? "subtract" : "add";
 }
 
 // ---------------------------------------------------------------- new tables

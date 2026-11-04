@@ -3,7 +3,7 @@
 import { attrIssue, type DocBrand, type TableNode, type Token } from "@everyfield/contracts/documents";
 import type { Editor } from "@tiptap/react";
 import { useEditorState } from "@tiptap/react";
-import { useId, useRef, useState, type ReactNode } from "react";
+import { useId, useRef, useState } from "react";
 import { Group, keepSelection, Labeled, Segmented, Swatches, Tip } from "./ControlParts.tsx";
 import { applyTable, newTyping, setAttrs, tableContext, typeInto, type TableContext } from "./table-actions.ts";
 import { fieldKey } from "./table-extension.ts";
@@ -20,15 +20,12 @@ import {
 	removeCategory,
 	removeColumn,
 	removeRow,
-	setHeaderFill,
 	setKind,
 	setSign,
-	setWriteInRows,
-	setZebra,
 	signAt,
+	withAttrs,
 	type Kind,
 	type Place,
-	type Reason,
 } from "./table-ops.ts";
 import { Button } from "./tiptap/primitives/button.tsx";
 
@@ -37,17 +34,7 @@ import { Button } from "./tiptap/primitives/button.tsx";
 // control that cannot work is disabled and says why, in its tooltip and in the line under the controls.
 
 /** A button that does one action to the table, or says why it cannot. */
-function Act({
-	label,
-	reason,
-	run,
-	children,
-}: {
-	label: string;
-	reason: Reason;
-	run: () => void;
-	children?: ReactNode;
-}) {
+function Act({ label, reason, run }: { label: string; reason: string | null; run: () => void }) {
 	return (
 		<Button
 			type="button"
@@ -59,7 +46,7 @@ function Act({
 			onMouseDown={keepSelection}
 			onClick={run}
 		>
-			{children ?? label}
+			{label}
 		</Button>
 	);
 }
@@ -79,6 +66,10 @@ function useTableContext(editor: Editor) {
 				a.at.blank === b.at.blank),
 	});
 }
+
+/** The index of the first row `next` adds to `t`. */
+const firstNewRow = (t: TableNode, next: TableNode) =>
+	(next.content ?? []).findIndex((row, i) => row !== (t.content ?? [])[i]);
 
 function run(editor: Editor, make: (context: TableContext) => { table: TableNode; place: Place } | null) {
 	const context = tableContext(editor.state);
@@ -173,10 +164,7 @@ export function TableControls({ editor, palette }: { editor: Editor; palette: Do
 		run(editor, ({ table: t, at: place }) => {
 			const index =
 				place.row === null ? (side < 0 ? 0 : (t.content ?? []).length) : side < 0 ? place.row : place.row + 1;
-			return {
-				table: addRow(t, place.row, side),
-				place: { row: index, col: place.col ?? 0 },
-			};
+			return { table: addRow(t, index), place: { row: index, col: place.col ?? 0 } };
 		});
 
 	return (
@@ -210,7 +198,7 @@ export function TableControls({ editor, palette }: { editor: Editor; palette: Do
 										: typed
 											? { row: typed - 1, col: place.col ?? 0 }
 											: { row: null, col: place.col ?? 0 };
-									return { table: setWriteInRows(t, count), place: after };
+									return { table: withAttrs(t, { writeInRows: count }), place: after };
 								})
 							}
 						/>
@@ -287,9 +275,7 @@ export function TableControls({ editor, palette }: { editor: Editor; palette: Do
 							run(editor, ({ table: t, at: place }) => {
 								if (place.row === null) return null;
 								const next = addLineItem(t, place.row);
-								const row = (t.content ?? [])[place.row];
-								const index = row?.attrs?.role === "subtotal" ? place.row : place.row + 1;
-								return { table: next, place: { row: index, col: textAt } };
+								return { table: next, place: { row: firstNewRow(t, next), col: textAt } };
 							})
 						}
 					/>
@@ -314,8 +300,7 @@ export function TableControls({ editor, palette }: { editor: Editor; palette: Do
 						run={() =>
 							run(editor, ({ table: t, at: place }) => {
 								const next = addCategory(t, place.row);
-								const added = (next.content ?? []).findIndex((row, i) => row !== (t.content ?? [])[i]);
-								return { table: next, place: { row: Math.max(0, added), col: textAt } };
+								return { table: next, place: { row: firstNewRow(t, next), col: textAt } };
 							})
 						}
 					/>
@@ -356,7 +341,9 @@ export function TableControls({ editor, palette }: { editor: Editor; palette: Do
 						label="Header color"
 						value={(table.attrs.headerFill as Token | undefined) ?? "muted"}
 						palette={palette}
-						onChange={(fill) => run(editor, ({ table: t, at: place }) => ({ table: setHeaderFill(t, fill), place }))}
+						onChange={(fill) =>
+							run(editor, ({ table: t, at: place }) => ({ table: withAttrs(t, { headerFill: fill }), place }))
+						}
 					/>
 				</Labeled>
 				<Tip text="Shade every second row">
@@ -368,7 +355,10 @@ export function TableControls({ editor, palette }: { editor: Editor; palette: Do
 							checked={table.attrs.zebra === true}
 							onMouseDown={keepSelection}
 							onChange={(event) =>
-								run(editor, ({ table: t, at: place }) => ({ table: setZebra(t, event.target.checked), place }))
+								run(editor, ({ table: t, at: place }) => ({
+									table: withAttrs(t, { zebra: event.target.checked }),
+									place,
+								}))
 							}
 						/>
 						Striped rows

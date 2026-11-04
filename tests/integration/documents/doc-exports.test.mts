@@ -10,6 +10,7 @@ import {
 	computeTable,
 	docDocument,
 	forkTemplate,
+	ledgerTables,
 	type BlockNode,
 	type DocDocument,
 	type InlineNode,
@@ -19,7 +20,6 @@ import { docFormats, renderDocFile } from "../../../packages/domain/src/document
 import { docTemplateById } from "../../../packages/domain/src/documents/doc-templates.ts";
 import { fieldValues } from "../../../packages/domain/src/documents/doc-values.ts";
 import { NEUTRAL_THEME } from "../../../packages/domain/src/documents/theme.ts";
-import { ledgerTables } from "../../../packages/domain/src/documents/xlsx.ts";
 import { docxParts, hasSoffice, pdfPages, sofficeToPdf, wordText } from "./fixtures/readers.mts";
 
 const THEME = {
@@ -150,7 +150,7 @@ test(
 /** The budget fork with an amount in every line item: 100.5, 200.5, ... */
 async function seededBudget() {
 	const doc = await fork("budget-worksheet");
-	const table = ledgerTables(doc)[0]!;
+	const table = ledgerTables(doc.body)[0]!;
 	let n = 0;
 	for (const row of table.content!)
 		if ((row.attrs?.role ?? "item") === "item") row.content[1] = { type: "cell", attrs: { value: 100 * ++n + 0.5 } };
@@ -182,7 +182,7 @@ test("WP-036 the ledger workbook has typed inputs, live formulas and SUM totals 
 
 	// Two ledger tables give two sheets; a document without one offers no Excel and refuses to make one.
 	const two = structuredClone(doc);
-	const copy = structuredClone(ledgerTables(two)[0]!) as TableNode;
+	const copy = structuredClone(ledgerTables(two.body)[0]!) as TableNode;
 	copy.attrs.sheet = "Second budget";
 	two.body.content!.push(copy);
 	assert.equal(sheetsOf(await renderDocFile(docDocument.parse(two), "xlsx", THEME, SAVED)).sheets.length, 2);

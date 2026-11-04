@@ -1,7 +1,7 @@
 // The table rules the editor and every renderer share: how a number prints, how wide a column is, how an amount typed by
 // hand reads, and which exports follow from the body. One copy here, so the editor shows what the PDF, Word and Excel print.
 import { FORMAT_SCHEMA } from "./schema.ts";
-import type { BlockNode, ColumnSpec, DocDocument, ExportFormat } from "./types.ts";
+import type { BlockNode, ColumnSpec, DocDocument, ExportFormat, TableNode } from "./types.ts";
 
 const grouped = (n: number) => String(Math.trunc(Math.abs(n))).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 
@@ -64,16 +64,18 @@ export const TABLE_LIMITS = {
 	rows: TABLE?.content?.max ?? 1000,
 } as const;
 
-/** True when the body holds a budget table (a ledger), in a column or a box too. The page header and footer do not count. */
-function bodyHasLedger(body: DocDocument["body"]): boolean {
-	const walk = (nodes: readonly BlockNode[] | undefined): boolean =>
-		(nodes ?? []).some(
-			(node) =>
-				(node.type === "table" && node.attrs.style === "ledger") ||
-				(node.type === "columns" && node.content.some((col) => walk(col.content))) ||
-				(node.type === "box" && walk(node.content)),
-		);
-	return walk(body.content);
+/** The budget tables (ledgers) of a body, in order, columns and boxes included. The page header and footer do not count. */
+export function ledgerTables(body: DocDocument["body"]): TableNode[] {
+	const out: TableNode[] = [];
+	const walk = (nodes: readonly BlockNode[] | undefined) => {
+		for (const node of nodes ?? []) {
+			if (node.type === "table" && node.attrs.style === "ledger") out.push(node);
+			if (node.type === "columns") for (const col of node.content) walk(col.content);
+			if (node.type === "box") walk(node.content);
+		}
+	};
+	walk(body.content);
+	return out;
 }
 
 /**
@@ -82,7 +84,7 @@ function bodyHasLedger(body: DocDocument["body"]): boolean {
  */
 export function exportsFor(exports: readonly ExportFormat[], body: DocDocument["body"]): ExportFormat[] {
 	const has = exports.includes("xlsx");
-	const ledger = bodyHasLedger(body);
+	const ledger = ledgerTables(body).length > 0;
 	if (ledger === has) return [...exports];
 	return ledger ? [...exports, "xlsx"] : exports.filter((format) => format !== "xlsx");
 }

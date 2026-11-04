@@ -36,8 +36,8 @@ export function nodeFromTable(schema: Schema, table: TableNode): PMNode {
  * Where the person is when no cell holds the cursor: the column header, or the blank write-in rows. Those are drawn by
  * the table itself, not by the document, so they set this by a transaction note. A move of the selection clears it.
  */
-export type TableFocus = { pos: number; area: "head" | "blank"; col: number };
-export const tableFocusKey = new PluginKey<TableFocus | null>("efTableFocus");
+type TableFocus = { pos: number; area: "head" | "blank"; col: number };
+const tableFocusKey = new PluginKey<TableFocus | null>("efTableFocus");
 
 export function tableFocusPlugin() {
 	return new Plugin<TableFocus | null>({
