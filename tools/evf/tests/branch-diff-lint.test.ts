@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 import { fixture, source } from "./fixtures.ts";
 import { checkBranchDiffTests, describeRefusal, lintBranchDiffSource } from "../branch-diff-lint.ts";
 
-const inTest = (body: string, name = "t") => `test(${JSON.stringify(name)}, () => {\n${body}\n});\n`;
+const inTest = (body: string) => `test("t", () => {\n${body}\n});\n`;
 const lines = (text: string) => lintBranchDiffSource("x.test.ts", text).map((r) => [r.line, r.read]);
 
 const REFUSED: Array<[string, string, Array<[number, string]>]> = [
@@ -64,15 +64,14 @@ for (const [name, text, expected] of REFUSED)
 		assert.deepEqual(lines(text), expected);
 	});
 
-test("OPS-136: a refusal names the file, the line, the test and the fix AC:OPS-136-6", () => {
+test("OPS-136: a refusal names the file, the line and the fix AC:OPS-136-6", () => {
 	const refusals = lintBranchDiffSource(
 		"tools/evf/tests/x.test.ts",
-		`function check(repo: string) {\n\treturn spawnSync("git", ["log"], { cwd: repo });\n}\n${inTest("check(source);", "reads history")}`,
+		`function check(repo: string) {\n\treturn spawnSync("git", ["log"], { cwd: repo });\n}\n${inTest("check(source);")}`,
 	);
 	assert.equal(refusals.length, 1);
 	const message = describeRefusal(refusals[0]!);
-	assert.match(message, /^tools\/evf\/tests\/x\.test\.ts:5: test "reads history" reads the branch diff/);
-	assert.match(message, /git log at line 2/);
+	assert.match(message, /^tools\/evf\/tests\/x\.test\.ts:5: reads the branch diff of the current checkout: git log\./);
 	assert.match(message, /Fix: read the diff in a repository the test builds itself/);
 });
 
@@ -124,12 +123,8 @@ test("OPS-136: the decision is per test block: one file holds a refused block an
 	const text = `function changed(repo: string) {
 	return spawnSync("git", ["diff", "main"], { cwd: repo });
 }
-${inTest(`const f = fixture();\nchanged(f.root);`, "on a fixture")}${inTest("changed(source);", "on the checkout")}`;
-	const refusals = lintBranchDiffSource("x.test.ts", text);
-	assert.deepEqual(
-		refusals.map((r) => [r.test, r.line]),
-		[["on the checkout", 9]],
-	);
+${inTest(`const f = fixture();\nchanged(f.root);`)}${inTest("changed(source);")}`;
+	assert.deepEqual(lines(text), [[9, "git diff"]], "only the call in the second block");
 });
 
 function repoWith(testFile: string) {
@@ -170,7 +165,7 @@ test("OPS-136: evf test prints the refusal, exits non-zero and starts no tests; 
 	try {
 		const r = refused.evfTest();
 		assert.notEqual(r.status, 0);
-		assert.match(r.stderr, /tools\/evf\/tests\/one\.test\.ts:8: test "one" reads the branch diff/);
+		assert.match(r.stderr, /tools\/evf\/tests\/one\.test\.ts:8: reads the branch diff/);
 		assert.equal(existsSync(refused.started), false, "no test started");
 	} finally {
 		refused.f.close();

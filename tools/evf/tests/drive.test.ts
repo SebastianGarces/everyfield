@@ -1294,7 +1294,7 @@ test("OPS-70-carry: proof carries to a later head; an unmet row, a missing crite
 	}
 });
 
-/** Herdr whose `agent wait` hangs, or whose agent is gone; everything else answers like fakeHerdr. */
+/** Herdr whose agent is gone; everything else answers like fakeHerdr. */
 function brokenHerdr(f: ReturnType<typeof driveFixture>) {
 	const path = join(f.root, "fake-bin/herdr");
 	const script = readFileSync(path, "utf8");

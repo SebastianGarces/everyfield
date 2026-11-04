@@ -762,11 +762,7 @@ if (import.meta.main) {
 		console.log(await seed(process.env));
 	} catch (error) {
 		// A refusal names the rule; any other failure names the step. Neither prints a connection string.
-		// The driver's reason is in `cause`: drizzle's own message names only the query.
-		const reason = error instanceof Error && error.cause instanceof Error ? `\nCause: ${error.cause.message}` : "";
-		console.error(
-			error instanceof SeedRefusal ? `QA seed refused: ${error.message}` : `QA seed failed: ${error}${reason}`,
-		);
+		console.error(error instanceof SeedRefusal ? `QA seed refused: ${error.message}` : `QA seed failed: ${error}`);
 		process.exitCode = error instanceof SeedRefusal ? 2 : 1;
 	}
 }

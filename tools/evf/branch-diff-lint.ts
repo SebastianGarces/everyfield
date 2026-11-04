@@ -39,10 +39,10 @@ type Site = { at: number; options: Token[] | null } & (
 	{ kind: "git"; args: Token[] } | { kind: "shell"; command: Token[] }
 );
 
-type Refusal = { file: string; line: number; test: string | null; read: string; readLine: number };
+type Refusal = { file: string; line: number; read: string };
 
 /** `==` joins so that a comparison never reads as an assignment; `...` and `=>` are what the parser looks for. */
-const JOINED = ["...", "===", "==", "=>"];
+const JOINED = ["...", "==", "=>"];
 
 function tokenize(src: string): Token[] {
 	let at = 0,
@@ -240,16 +240,16 @@ export function lintBranchDiffSource(file: string, text: string): Refusal[] {
 		}
 	}
 
-	const width = (s: Scope) => s.to - s.from;
 	const within = (s: Scope, at: number) => s.from <= at && at <= s.to;
 	type Found = { kind: "param"; fn: Fn; index: number } | { kind: "var"; variable: Variable } | { kind: "fn"; fn: Fn };
 	function lookup(name: string, at: number): Found | null {
 		let best: Found | null = null,
 			bestWidth = Infinity;
 		const offer = (found: Found, scope: Scope) => {
-			if (within(scope, at) && width(scope) <= bestWidth) {
+			const width = scope.to - scope.from;
+			if (within(scope, at) && width <= bestWidth) {
 				best = found;
-				bestWidth = width(scope);
+				bestWidth = width;
 			}
 		};
 		for (const fn of fns) {
@@ -423,21 +423,13 @@ export function lintBranchDiffSource(file: string, text: string): Refusal[] {
 		}
 	}
 
-	function testOf(at: number): string | null {
-		for (let i = 0; i < tokens.length; i++) {
-			if (tokens[i]!.text !== "test" || !isP(tokens[i + 1], "(") || isP(tokens[i - 1], ".")) continue;
-			if (i + 1 < at && at < closer(tokens, i + 1)) return tokens[i + 2]?.text ?? "";
-		}
-		return null;
-	}
-
 	const refusals = new Map<string, Refusal>();
 	function refuse(site: Site, env: Env, read: string) {
 		// The refusal names the outermost call: a helper's caller, where the checkout goes in.
 		let at = site.at;
 		for (const call of env.values()) if (![...env.keys()].some((fn) => within(fn, call.at))) at = call.at;
-		const r: Refusal = { file, line: tokens[at]!.line, test: testOf(at), read, readLine: tokens[site.at]!.line };
-		refusals.set(`${r.line} ${r.read}`, r);
+		const line = tokens[at]!.line;
+		refusals.set(`${line} ${read}`, { file, line, read });
 	}
 
 	/** Decide one site under one set of helper calls. An unbound helper parameter raises NeedsCall. */
@@ -480,7 +472,7 @@ export function lintBranchDiffSource(file: string, text: string): Refusal[] {
 const synthetic = (kind: Token["kind"], text: string): Token => ({ kind, text, line: 0 });
 
 export const describeRefusal = (r: Refusal) =>
-	`${r.file}:${r.line}: ${r.test === null ? "code outside a test" : `test "${r.test}"`} reads the branch diff of the current checkout: ${r.read}${r.readLine === r.line ? "" : ` at line ${r.readLine}`}. Fix: read the diff in a repository the test builds itself (fixture(), a temporary git init, or --git-dir on a fixture remote). This checkout's diff changes with each branch, so the test would fail on branches that did not touch it.`;
+	`${r.file}:${r.line}: reads the branch diff of the current checkout: ${r.read}. Fix: read the diff in a repository the test builds itself (fixture(), a temporary git init, or --git-dir on a fixture remote). This checkout's diff changes with each branch, so the test would fail on branches that did not touch it.`;
 
 /** Refuses a test under tools/evf/tests/ that reads the branch diff of the current checkout. */
 export function checkBranchDiffTests(root: string): void {
