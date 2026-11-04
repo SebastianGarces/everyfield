@@ -24,8 +24,7 @@ const messageRow = z.object({
 	id: z.uuid(),
 	subject: z.string().nullable(),
 	state: z.string(),
-	local_date: z.string().nullable(),
-	local_time: z.string().nullable(),
+	sends_at: z.string().nullable(),
 	zone: z.string(),
 	held: z.number().int(),
 });
@@ -38,8 +37,6 @@ export const held = sql.raw(`(SELECT count(*)::int FROM mail m WHERE ${holding("
 export const untouchedMail = (message: string) =>
 	`(SELECT count(*)::int FROM mail m WHERE ${holding(message)} AND m.cancel_requested_at IS NULL)`;
 
-const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
 export const listMessages: ReadAdapter<z.infer<typeof listInput>> = {
 	operation: "communication.list",
 	description:
@@ -51,8 +48,7 @@ export const listMessages: ReadAdapter<z.infer<typeof listInput>> = {
 		const words = input.subject ? `%${input.subject.replace(/[\\%_]/g, "\\$&")}%` : null;
 		const r = await tx.execute(sql`
 			SELECT c.id,c.subject,c.state,
-				to_char(c.scheduled_at AT TIME ZONE pl.timezone,'YYYY-MM-DD') AS local_date,
-				to_char(c.scheduled_at AT TIME ZONE pl.timezone,'HH24:MI') AS local_time,pl.timezone AS zone,
+				to_char(c.scheduled_at AT TIME ZONE pl.timezone,'Dy YYYY-MM-DD HH24:MI') AS sends_at,pl.timezone AS zone,
 				${held} AS held
 			FROM communication c JOIN plant pl ON pl.id=c.plant_id
 			WHERE c.plant_id=${actor.owner.id}::uuid AND c.state IN ('draft','scheduled')
@@ -72,10 +68,7 @@ export const listMessages: ReadAdapter<z.infer<typeof listInput>> = {
 				label: m.subject || "Untitled draft",
 				fields: {
 					state: m.state,
-					sendsAt:
-						m.local_date && m.local_time
-							? `${WEEKDAY[new Date(`${m.local_date}T00:00:00Z`).getUTCDay()]} ${m.local_date} ${m.local_time}`
-							: null,
+					sendsAt: m.sends_at,
 					zone: m.zone,
 					// A scheduled message the email service holds can be cancelled, moved or replaced; a draft can only be scheduled.
 					handedOff: m.held > 0,

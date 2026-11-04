@@ -101,14 +101,12 @@ const savedSchedule = savedArgs.extend({
 	input: z.object({ communicationId: z.uuid(), scheduledAt: z.string(), recipientsDigest: z.string() }),
 });
 const untouched = sql.raw(untouchedMail("c"));
-const key = (effectKey: string, step: string) => `${effectKey}:${step}`;
 
 const done = (reply: CommunicationReply<{ communicationId: string; revision: string }>): EffectResult =>
 	reply.status === "ok"
 		? { receiptId: reply.value.communicationId, revision: reply.value.revision }
 		: { refused: reply.error.code };
 
-const person = z.object({ name: z.string(), outcome: recipientOutcome });
 /** What became of each recipient the email service held for a message. A recipient it never took is not affected. */
 async function recipientOutcomes(db: Database, authority: RequestActor, communicationId: string) {
 	const plantId = authority.actor.context.owner.id;
@@ -120,7 +118,7 @@ async function recipientOutcomes(db: Database, authority: RequestActor, communic
 				AND m.state NOT IN ('refused','failed')
 			ORDER BY p.display_name`,
 	);
-	return r.rows.map((row) => person.parse(row));
+	return z.array(z.object({ name: z.string(), outcome: recipientOutcome })).parse(r.rows);
 }
 
 // --- 1. communication.saveDraft -----------------------------------------------------------------------------
@@ -146,7 +144,7 @@ const saveDraft: ReviewedWrite<z.infer<typeof draftInput>> = {
 	},
 	async execute(tx, context, args, effectKey): Promise<EffectResult> {
 		const { input } = z.object({ input: z.unknown() }).parse(args);
-		return done(await communicationWriter.saveDraft(tx, context, { requestKey: key(effectKey, "draft"), input }));
+		return done(await communicationWriter.saveDraft(tx, context, { requestKey: `${effectKey}:draft`, input }));
 	},
 };
 
@@ -270,7 +268,7 @@ const schedule: ReviewedWrite<z.infer<typeof scheduleInput>> = {
 		const saved = savedSchedule.parse(args);
 		return done(
 			await communicationWriter.scheduleReviewed(tx, context, {
-				requestKey: key(effectKey, "schedule"),
+				requestKey: `${effectKey}:schedule`,
 				expectedRevision: saved.expectedRevision,
 				input: saved.input,
 			}),
@@ -283,7 +281,7 @@ const schedule: ReviewedWrite<z.infer<typeof scheduleInput>> = {
 			db,
 			authority,
 			{
-				requestKey: key(effectKey, "send"),
+				requestKey: `${effectKey}:send`,
 				expectedRevision: first.revision,
 				input: { communicationId, leftOut: saved.leftOut },
 			},
@@ -299,7 +297,7 @@ const schedule: ReviewedWrite<z.infer<typeof scheduleInput>> = {
 		const asked = await communicationWriter.reconcileProviderOutcome(
 			db,
 			authority,
-			{ requestKey: key(keys.checkKey, "send"), expectedRevision: keys.revision, input: { communicationId } },
+			{ requestKey: `${keys.checkKey}:send`, expectedRevision: keys.revision, input: { communicationId } },
 			mail.transport,
 			mail.keys,
 		);
@@ -367,8 +365,8 @@ const reschedule: ReviewedWrite<z.infer<typeof scheduleInput>> = {
 				AND c.state='scheduled' AND ${held}>0`;
 	},
 	execute: checkedOnly,
-	reach: (db, authority, args, effectKey, _first, mail) => moveTime(db, authority, args, key(effectKey, "move"), mail),
-	check: (db, authority, args, keys, mail) => moveTime(db, authority, args, key(keys.checkKey, "move"), mail),
+	reach: (db, authority, args, effectKey, _first, mail) => moveTime(db, authority, args, `${effectKey}:move`, mail),
+	check: (db, authority, args, keys, mail) => moveTime(db, authority, args, `${keys.checkKey}:move`, mail),
 };
 
 // --- 4. communication.cancelScheduledReviewed ---------------------------------------------------------------
@@ -422,9 +420,8 @@ const cancel: ReviewedWrite<z.infer<typeof cancelInput>> = {
 				AND c.state='scheduled' AND ${held}>0`;
 	},
 	execute: checkedOnly,
-	reach: (db, authority, args, effectKey, _first, mail) =>
-		cancelStep(db, authority, args, key(effectKey, "cancel"), mail),
-	check: (db, authority, args, keys, mail) => cancelStep(db, authority, args, key(keys.checkKey, "cancel"), mail),
+	reach: (db, authority, args, effectKey, _first, mail) => cancelStep(db, authority, args, `${effectKey}:cancel`, mail),
+	check: (db, authority, args, keys, mail) => cancelStep(db, authority, args, `${keys.checkKey}:cancel`, mail),
 };
 
 // --- 5. communication.replaceScheduledReviewed --------------------------------------------------------------
@@ -496,7 +493,7 @@ async function replaceStep(
 		},
 	});
 	const gate = await communicationWriter.replaceScheduledReviewed(db, authority, {
-		requestKey: key(keys.cancelKey, "gate"),
+		requestKey: `${keys.cancelKey}:gate`,
 		expectedRevision: saved.expectedRevision,
 		input: { communicationId: input.communicationId },
 	});
@@ -509,7 +506,7 @@ async function replaceStep(
 		if (!(await RequestActor.claimWrite(tx, session, owner))) return null;
 		const context: CommunicationContext = { session, selected: owner };
 		const draft = await communicationWriter.saveDraft(tx, context, {
-			requestKey: key(keys.buildKey, "draft"),
+			requestKey: `${keys.buildKey}:draft`,
 			input: {
 				subject: input.subject,
 				bodyHtml: input.bodyHtml,
@@ -519,7 +516,7 @@ async function replaceStep(
 		});
 		if (draft.status !== "ok") return draft;
 		return communicationWriter.scheduleReviewed(tx, context, {
-			requestKey: key(keys.buildKey, "schedule"),
+			requestKey: `${keys.buildKey}:schedule`,
 			expectedRevision: draft.value.revision,
 			input: {
 				communicationId: draft.value.communicationId,
@@ -535,7 +532,7 @@ async function replaceStep(
 		db,
 		authority,
 		{
-			requestKey: key(keys.buildKey, "send"),
+			requestKey: `${keys.buildKey}:send`,
 			expectedRevision: replacement.revision,
 			input: { communicationId: replacement.communicationId, leftOut: saved.leftOut },
 		},
@@ -625,9 +622,9 @@ const replace: ReviewedWrite<z.infer<typeof replaceInput>> = {
 	},
 	execute: checkedOnly,
 	reach: (db, authority, args, effectKey, _first, mail) =>
-		replaceStep(db, authority, args, { cancelKey: key(effectKey, "cancel"), buildKey: effectKey }, mail),
+		replaceStep(db, authority, args, { cancelKey: `${effectKey}:cancel`, buildKey: effectKey }, mail),
 	check: (db, authority, args, keys, mail) =>
-		replaceStep(db, authority, args, { cancelKey: key(keys.checkKey, "cancel"), buildKey: keys.effectKey }, mail),
+		replaceStep(db, authority, args, { cancelKey: `${keys.checkKey}:cancel`, buildKey: keys.effectKey }, mail),
 };
 
 /** The installed Communication reviewed writes, keyed by operation. */

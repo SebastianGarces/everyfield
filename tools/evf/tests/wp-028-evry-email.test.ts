@@ -26,7 +26,7 @@ function node(args: string[], cwd: string) {
 		timeout: 420_000,
 	});
 }
-const passed = (r: ReturnType<typeof node>) =>
+const failures = (r: ReturnType<typeof node>) =>
 	`${r.stdout}\n${r.stderr}`
 		.split("\n")
 		.filter((l) => /^(✖|ℹ fail)/.test(l))
@@ -59,7 +59,7 @@ test("AC:WP-028-12 the recorded email evals cover draft, schedule, time change, 
 	assert.ok(Object.keys(recorded.streams).length >= cases.length, "every case has recorded calls");
 	// The replay makes no paid call: it has no key, and a call without a recording fails.
 	const replay = node(["--test", "../../tests/evry/evals/communication.test.mts"], join(root, "packages/evry"));
-	assert.equal(replay.status, 0, passed(replay) || replay.stderr.slice(-800));
+	assert.equal(replay.status, 0, failures(replay) || replay.stderr.slice(-800));
 	assert.match(replay.stdout, /✔ AC:EVRY-CONTEXT-BOUNDS email requests pick/);
 });
 
@@ -73,6 +73,6 @@ test("AC:WP-028-13 each Evry email review and effect stays within its statement 
 		],
 		join(root, "packages/evry"),
 	);
-	assert.equal(run.status, 0, passed(run) || run.stderr.slice(-800));
+	assert.equal(run.status, 0, failures(run) || run.stderr.slice(-800));
 	assert.match(run.stdout, /✔ AC:WP-028-13 /);
 });

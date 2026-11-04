@@ -354,7 +354,6 @@ export const contactCorrectionResult = z.strictObject({
 /** What became of one recipient of an earlier send that a replacement tried to cancel. */
 export const recipientOutcome = z.enum(["cancelled", "sent", "open"]);
 export type RecipientOutcome = z.infer<typeof recipientOutcome>;
-const code = z.string().min(1);
 /**
  * What the email service confirmed for an Evry email effect, as the proposal saves it and the review card reads it.
  * `code` is why Messages stopped a step after the first one committed; with no code the email service itself answered.
@@ -367,7 +366,7 @@ export const mailReport = z.discriminatedUnion("kind", [
 		accepted: count,
 		refused: count,
 		unknown: count,
-		code: code.optional(),
+		code: z.string().optional(),
 	}),
 	z.object({
 		kind: z.literal("reschedule"),
@@ -401,7 +400,7 @@ export const mailReport = z.discriminatedUnion("kind", [
 		sent: count,
 		open: count,
 		people: z.array(z.object({ name: z.string(), outcome: recipientOutcome })),
-		code: code.optional(),
+		code: z.string().optional(),
 	}),
 ]);
 export type MailReport = z.infer<typeof mailReport>;

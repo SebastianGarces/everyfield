@@ -44,7 +44,7 @@ export type Review = {
 	executing: boolean;
 	receipt: { receiptId?: string; revision?: string; code?: string; report?: MailReport } | null;
 	/** A pending message review whose message changed since: it can only be reviewed again. */
-	stale?: boolean;
+	stale: boolean;
 	/** The server's time when it answered: the approval's time left is counted from it. */
 	now: string;
 };
@@ -452,7 +452,6 @@ export function refusalText(code: string | undefined, target: string | null): st
 export function mailRefusalText(code: string | undefined): string {
 	switch (code) {
 		case "revision_conflict":
-		case "conflict":
 			return "This message changed since the review, so nothing was done and the email service was not asked. Ask Evry to review it again.";
 		case "stale_review":
 			return "The recipients or the content changed since the review, so nothing was sent to the email service. Ask Evry to review it again.";

@@ -636,7 +636,7 @@ function Footer({
 						variant="primary"
 						icon={Tick02Icon}
 						loading={r.busy === "approve"}
-						disabled={other("approve") || !canApprove || !!review.stale}
+						disabled={other("approve") || !canApprove || review.stale}
 						onClick={() => void r.approve()}
 					>
 						Approve

@@ -15,7 +15,7 @@ import type { EvryActor } from "../context/actor.ts";
 export type MailPort = { transport: DeliveryTransport; keys: DeliveryKeys };
 
 /** What a review may read besides the proposal statement itself. */
-export type ReviewContext = { db: Pick<Database, "execute">; mail: MailPort | null };
+export type ReviewContext = { db: Database; mail: MailPort | null };
 
 /**
  * The owning domain write's saved receipt, or the domain's refusal code. `report` is what the email service confirmed;
