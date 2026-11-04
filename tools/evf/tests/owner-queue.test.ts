@@ -977,7 +977,7 @@ test("AC:OPS-131-14 with event writes forced to fail, evf ship and evf approve r
 			return {
 				held: held.value,
 				approved: approved.value,
-				heldOut: held.out.replaceAll(head.slice(0, 10), "<short>").replaceAll(head, "<sha>"),
+				heldOut: held.out.replaceAll(head, "<sha>").replaceAll(head.slice(0, 10), "<short>"),
 				heldCalls,
 				approveCalls: githubCalls(f),
 				merged: f.getState().calls.filter((c: any) => c.args[1] === "merge").length,
