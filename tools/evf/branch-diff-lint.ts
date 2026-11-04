@@ -14,7 +14,10 @@ import { fail } from "./lib.ts";
  *
  * Limit: it sees direct git calls and helpers in the same file. It does not follow a git read across files, into an evf
  * command, or through a helper passed as a value. It accepts a call whose arguments it cannot read: a subcommand or
- * options in a variable, a shell string that is not one literal or template, or `shell: true`.
+ * options in a variable, a shell string that is not one literal or template, or `shell: true`. It also accepts three forms
+ * it does not recognize: a helper written as a function expression (`const c = function (repo) { ... }`), a flag in a
+ * template (`--git-dir=${source}/.git`), and a git program given by path (`/usr/bin/git`). It refuses a local `source` that
+ * comes from destructuring or a `for...of` loop, because it reads that name as the current checkout.
  */
 
 type Token = {

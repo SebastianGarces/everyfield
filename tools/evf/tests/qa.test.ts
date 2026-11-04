@@ -276,6 +276,16 @@ test("OPS-106: the QA seed refuses production, the shared development branch, NO
 	}
 });
 
+test("OPS-136: a seed that cannot connect prints the driver's cause and no connection string", () => {
+	// Nothing listens on this port, so the first query fails at once.
+	const secret = "x".repeat(20);
+	const r = runSeed({ DATABASE_URL: `postgres://u:${secret}@127.0.0.1:1/qa`, QA_ROLE_PASSWORD: "y".repeat(20) });
+	assert.equal(r.status, 1, r.stderr);
+	assert.match(r.stderr, /QA seed failed: /);
+	assert.match(r.stderr, /\nCause: connect ECONNREFUSED 127\.0\.0\.1:1\n/);
+	assert.ok(!r.stderr.includes(secret));
+});
+
 const ROLE_PASSWORD = "qa-role-password-0123";
 const started: QuietDatabase[] = [];
 after(() => started.forEach(stopQuietDatabase));

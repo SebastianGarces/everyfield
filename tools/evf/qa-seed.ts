@@ -116,16 +116,13 @@ async function seed(env: Readonly<Record<string, string | undefined>>): Promise<
 	const password = env.QA_ROLE_PASSWORD;
 	if (!password || password.length < 16) throw new SeedRefusal("QA_ROLE_PASSWORD must hold at least 16 characters.");
 	const source = env.DATABASE_URL!;
-	// The pool's 10 s connect limit is for a request. A seed can wait: a loaded machine or a cold branch answers late.
-	const connect = (connectionString: string) =>
-		createDatabase({ connectionString, max: 2, connectionTimeoutMillis: 60_000 });
-	const admin = connect(source);
+	const admin = createDatabase({ connectionString: source, max: 2 });
 	let runtime: Database | null = null,
 		authDb: Database | null = null;
 	try {
 		await logins(admin, password);
-		runtime = connect(roleUrl(source, ROLES.runtime, password));
-		authDb = connect(roleUrl(source, ROLES.auth, password));
+		runtime = createDatabase({ connectionString: roleUrl(source, ROLES.runtime, password), max: 2 });
+		authDb = createDatabase({ connectionString: roleUrl(source, ROLES.auth, password), max: 2 });
 		return await fill(admin, runtime, authDb);
 	} finally {
 		if (runtime) await closeDatabase(runtime);
