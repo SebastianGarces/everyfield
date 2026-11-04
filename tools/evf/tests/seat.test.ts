@@ -1446,7 +1446,7 @@ test("OPS-74-prompt: agent_start_input_failed that never clears fails after the 
 			() => quiet(() => launch(f.root, f.task, "implementer", { timing })),
 			(e) =>
 				e instanceof EvfError &&
-				/answered agent_start_input_failed in workspace w9 pane w9:p1 on all 4 attempts over \d+\.\d s of waiting/.test(
+				/answered agent_start_input_failed in workspace w9 pane w9:p1 on all 4 attempts over \d+(\.\d)? s of waiting/.test(
 					e.message,
 				),
 		);

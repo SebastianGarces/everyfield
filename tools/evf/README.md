@@ -592,8 +592,8 @@ open, because the seat goes on working. The event's `run_id` column names the cl
 report a sender, and no record claims one. When `mergeWithin60s` is true, the summary says so and tells the coordinator
 to consider an OPS task. Nothing files that task automatically.
 
-**Drive records.** Three more events tell what a drive did. The main thread is their one writer, so no heartbeat can
-come after the drive's own end.
+**Drive records.** Three more events tell what a drive did. The drive's main thread writes the first two, so no
+heartbeat can come after the drive's own end.
 
 - `drive_heartbeat` `{pid}`: one at the start, when the drive holds its pid file and has pinned its row, and then one
   per minute, on that row with a null run. Heartbeats go on while the loop blocks in a stage, a seat wait or a hold. A
