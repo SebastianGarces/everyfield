@@ -5,7 +5,6 @@ import type { DatabaseSync } from "node:sqlite";
 import { missionFor, openWorkDb } from "./db.ts";
 import { fail, parseTask, run, type TaskRef } from "./lib.ts";
 import { closeRunPane } from "./panes.ts";
-import { NOT_HEADLESS_SQL } from "./seats.ts";
 import { readLastTurn, turnOf } from "./turn-time.ts";
 import { fillRunUsage, transcriptPath } from "./usage.ts";
 import { coordinatorNotes, doneCriteria, sectionItems, specSections } from "./spec.ts";
@@ -27,7 +26,6 @@ type HookInput = {
 	tool_input?: Record<string, unknown>;
 	stop_hook_active?: boolean;
 	reason?: string;
-	transcript_path?: string;
 };
 const QUESTION = "Is what you are doing now aligned with this? If not, stop and say so.";
 /**
@@ -124,9 +122,7 @@ export function refocusText(db: DatabaseSync, task: TaskRef, header?: string): s
 	) as Row | undefined;
 	const stage = t
 		? (db
-				.prepare(
-					`SELECT stage, role FROM runs WHERE task_id = ? AND ${NOT_HEADLESS_SQL} ORDER BY started_at DESC, id DESC LIMIT 1`,
-				)
+				.prepare("SELECT stage, role FROM runs WHERE task_id = ? ORDER BY started_at DESC, id DESC LIMIT 1")
 				.get(t.id as number) as Row | undefined)
 		: undefined;
 	const lines = [`Goal chain for ${task.id}`, `Project: ${project?.body ?? "(not synced yet: run evf goals sync)"}`];
@@ -307,28 +303,25 @@ function seatRun(db: DatabaseSync, runId: number): SeatRun | null {
  */
 function recordTurnEnd(db: DatabaseSync, seat: SeatRun, input: HookInput): void {
 	try {
-		const session = input.session_id ?? seat.session_id;
-		if (!session) return;
-		const given = input.transcript_path;
-		const path = given && existsSync(given) ? given : transcriptPath(session);
+		const session = input.session_id ?? seat.session_id,
+			path = session ? transcriptPath(session) : null;
 		if (!path) return;
-		const previous = db
-			.prepare("SELECT payload FROM events WHERE run_id = ? AND type = 'turn_end' ORDER BY id DESC LIMIT 1")
-			.get(seat.id) as { payload: string } | undefined;
-		const last = previous ? (JSON.parse(previous.payload) as { session?: string; endedAt?: string }) : null;
-		const previousEnd =
-			input.stop_hook_active === true && last?.session === session && last.endedAt ? Date.parse(last.endedAt) : null;
-		const turn = turnOf(readLastTurn(path), previousEnd);
+		const previous =
+			input.stop_hook_active === true
+				? (db
+						.prepare(
+							"SELECT json_extract(payload, '$.endedAt') AS endedAt FROM events WHERE run_id = ? AND type = 'turn_end' ORDER BY id DESC LIMIT 1",
+						)
+						.get(seat.id) as { endedAt: string } | undefined)
+				: undefined;
+		const turn = turnOf(readLastTurn(path), previous ? Date.parse(previous.endedAt) : null);
 		if (!turn) return;
 		record(db, seat.task_id, seat.id, "turn_end", {
 			run: seat.id,
 			session,
+			...turn,
 			startedAt: new Date(turn.startedAt).toISOString(),
 			endedAt: new Date(turn.endedAt).toISOString(),
-			toolMs: turn.toolMs,
-			checkMs: turn.checkMs,
-			waitMs: turn.waitMs,
-			modelMs: turn.modelMs,
 		});
 	} catch {
 		// The transcript is a measurement. The stop event and the stage-open block do not depend on it.

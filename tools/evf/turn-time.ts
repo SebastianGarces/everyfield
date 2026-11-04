@@ -9,7 +9,7 @@ import { closeSync, fstatSync, openSync, readFileSync, readSync } from "node:fs"
 export type Split = { toolMs: number; checkMs: number; waitMs: number; modelMs: number };
 type Kind = "check" | "wait" | "tool";
 type Span = { from: number; to: number; kind: Kind };
-export type Entry = {
+type Entry = {
 	ts: number;
 	/** A user entry with no tool_result and no isMeta flag: a prompt that begins a turn. */
 	opens: boolean;
@@ -18,31 +18,12 @@ export type Entry = {
 	results: string[];
 };
 
-/** Split a shell line into its simple commands. Quoted text stays inside its command and a heredoc body is not code. */
-function simpleCommands(line: string): string[] {
-	const out: string[] = [];
-	let current = "",
-		quote = "";
-	for (let i = 0; i < line.length; i++) {
-		const c = line[i]!;
-		if (c === "\\" && quote !== "'") {
-			current += c + (line[++i] ?? "");
-		} else if (quote) {
-			if (c === quote) quote = "";
-			current += c;
-		} else if (c === "'" || c === '"') {
-			quote = c;
-			current += c;
-		} else if (line.startsWith("<<", i)) {
-			break;
-		} else if ("\n;|&(){}".includes(c)) {
-			out.push(current);
-			current = "";
-		} else current += c;
-	}
-	out.push(current);
-	return out;
-}
+/** The simple commands of a shell line. Quoted text and a heredoc body are not code. */
+const simpleCommands = (line: string): string[] =>
+	line
+		.replace(/'[^']*'|"(?:\\.|[^"\\])*"/g, "''")
+		.replace(/<<[^]*$/, "")
+		.split(/[\n;|&(){}]/);
 
 const ENV_PREFIX = /^(?:[A-Za-z_]\w*=(?:'[^']*'|"[^"]*"|\S*)\s+)*/;
 const EVF_CHECKS = new Set(["verify", "check", "test", "timing", "ac run", "browser run"]);
@@ -66,7 +47,7 @@ function kindOfCommand(command: string): Kind {
 }
 
 /** Check, wait or tool, for one tool call. An Agent call is tool time. */
-export function kindOf(name: unknown, input: unknown): Kind {
+function kindOf(name: unknown, input: unknown): Kind {
 	if (name === "Monitor") return "wait";
 	const command = (input as { command?: unknown } | null)?.command;
 	return name === "Bash" && typeof command === "string" ? kindOfCommand(command) : "tool";
@@ -144,7 +125,7 @@ function partition(spans: Span[], start: number, end: number): Split {
 	return split;
 }
 
-export type Turn = Split & { startedAt: number; endedAt: number };
+type Turn = Split & { startedAt: number; endedAt: number };
 
 /**
  * The turn that just ended: from the last prompt, or from `previousEnd` for a stop-hook continuation (whose feedback

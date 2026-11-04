@@ -15,7 +15,7 @@ const MINUTE = 60_000,
 	NOTICE_AT = 120 * MINUTE,
 	SEND_TIMEOUT_MS = 10_000;
 
-export type LongRunSeat = { taskId: number; ref: string; runId: number; agent: string; worktree: () => string };
+export type LongRunSeat = { taskId: number; ref: string; runId: number; agent: string; worktree: string };
 
 const minutes = (ms: number) => Math.round(ms / MINUTE);
 function splitText(s: Split, elapsed: number): string {
@@ -46,70 +46,66 @@ function noRecentCommit(worktree: string, at: number): boolean {
 /**
  * The check for one watched run. Call the result on each poll: `working` says Herdr reports the seat as working, and
  * only such a seat is nudged. It reads the transcript at most once a minute, not before minute 60 and not after both
- * events exist. It never throws: a check that cannot run must not stop the drive.
+ * events exist.
  */
 export function longRunCheck(db: DatabaseSync, seat: LongRunSeat, clock: () => number): (working: boolean) => void {
 	const { taskId, ref, runId, agent } = seat;
 	const has = (type: string) => !!db.prepare("SELECT 1 FROM events WHERE run_id = ? AND type = ?").get(runId, type);
 	let lastRead = -Infinity;
 	return (working) => {
-		try {
-			const at = clock();
-			if (at - lastRead < MINUTE) return;
-			const row = db.prepare("SELECT started_at, session_id FROM runs WHERE id = ?").get(runId) as {
-				started_at: string;
-				session_id: string | null;
-			};
-			const start = Date.parse(row.started_at),
-				elapsed = at - start;
-			if (!(elapsed >= NUDGE_AT)) return;
-			const wantsNotice = elapsed >= NOTICE_AT && !has("long_run_notice"),
-				wantsNudge = working && !has("long_run_nudge");
-			if (!wantsNotice && !wantsNudge) return;
-			lastRead = at;
-			const split = readSplit(row.session_id, start, at),
-				elapsedMin = minutes(elapsed),
-				text = split ? splitText(split, elapsed) : "the split is not available (no readable transcript)";
-			if (wantsNotice) {
-				const body = `${agent} is open at ${elapsedMin} min: ${text}. It keeps working; no action is taken.`;
-				const sent = run("herdr", ["notification", "show", `${ref} long run`, "--body", body, "--sound", "request"], {
-					timeoutMs: SEND_TIMEOUT_MS,
-				});
-				record(db, taskId, runId, "long_run_notice", {
-					elapsedMin,
-					split,
-					delivered: sent.code === 0,
-					summary: `${ref} ${body}`,
-				});
-			}
-			// Integer arithmetic: exactly 70% must not count as over 70%.
-			if (
-				!wantsNudge ||
-				!split ||
-				(split.checkMs + split.waitMs) * 10 <= elapsed * 7 ||
-				!noRecentCommit(seat.worktree(), at)
-			)
-				return;
-			// No --wait, and Herdr refuses --timeout without it: the process timeout bounds the send. Herdr submits the text to
-			// the working agent, and Claude Code queues it for the running turn.
-			const sent = run(
-				"herdr",
-				[
-					"agent",
-					"prompt",
-					agent,
-					`Long run check for ${ref}: this run is open at ${elapsedMin} min with no commit in the last 60 min. Time so far: ${text}. Over 70% of it went to checks or waits. Act on this split: stop any check that repeats without new information, run a smaller check, or commit the work that is ready, and then go on.`,
-				],
-				{ timeoutMs: SEND_TIMEOUT_MS },
-			);
-			record(db, taskId, runId, "long_run_nudge", {
+		const at = clock();
+		if (at - lastRead < MINUTE) return;
+		const row = db.prepare("SELECT started_at, session_id FROM runs WHERE id = ?").get(runId) as {
+			started_at: string;
+			session_id: string | null;
+		};
+		const start = Date.parse(row.started_at),
+			elapsed = at - start;
+		if (elapsed < NUDGE_AT) return;
+		const wantsNotice = elapsed >= NOTICE_AT && !has("long_run_notice"),
+			wantsNudge = working && !has("long_run_nudge");
+		if (!wantsNotice && !wantsNudge) return;
+		lastRead = at;
+		const split = readSplit(row.session_id, start, at),
+			elapsedMin = minutes(elapsed),
+			text = split ? splitText(split, elapsed) : "the split is not available (no readable transcript)";
+		if (wantsNotice) {
+			const body = `${agent} is open at ${elapsedMin} min: ${text}. It keeps working; no action is taken.`;
+			const sent = run("herdr", ["notification", "show", `${ref} long run`, "--body", body, "--sound", "request"], {
+				timeoutMs: SEND_TIMEOUT_MS,
+			});
+			record(db, taskId, runId, "long_run_notice", {
 				elapsedMin,
 				split,
 				delivered: sent.code === 0,
-				summary: `${agent} nudged at ${elapsedMin} min: ${text}`,
+				summary: `${ref} ${body}`,
 			});
-		} catch (e) {
-			console.error(`long run check of run ${runId}: ${String(e)}`);
 		}
+		// Integer arithmetic: exactly 70% must not count as over 70%.
+		if (
+			!wantsNudge ||
+			!split ||
+			(split.checkMs + split.waitMs) * 10 <= elapsed * 7 ||
+			!noRecentCommit(seat.worktree, at)
+		)
+			return;
+		// No --wait, and Herdr refuses --timeout without it: the process timeout bounds the send. Herdr submits the text to
+		// the working agent, and Claude Code queues it for the running turn.
+		const sent = run(
+			"herdr",
+			[
+				"agent",
+				"prompt",
+				agent,
+				`Long run check for ${ref}: this run is open at ${elapsedMin} min with no commit in the last 60 min. Time so far: ${text}. Over 70% of it went to checks or waits. Act on this split: stop any check that repeats without new information, run a smaller check, or commit the work that is ready, and then go on.`,
+			],
+			{ timeoutMs: SEND_TIMEOUT_MS },
+		);
+		record(db, taskId, runId, "long_run_nudge", {
+			elapsedMin,
+			split,
+			delivered: sent.code === 0,
+			summary: `${agent} nudged at ${elapsedMin} min: ${text}`,
+		});
 	};
 }

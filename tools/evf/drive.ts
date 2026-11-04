@@ -30,7 +30,7 @@ import {
 import { ideaWorktree, launch, LaunchAborted, LaunchLineTooLong, type LaunchTiming } from "./launch.ts";
 import { OWNER_VOID, requireCurrentCode, shipOnCurrentCode } from "./merge.ts";
 import { longRunCheck } from "./long-run.ts";
-import { isOpus, NOT_HEADLESS_SQL, validateOverride, type Role } from "./seats.ts";
+import { isHeadlessRole, isOpus, validateOverride, type Role } from "./seats.ts";
 import {
 	EvfError,
 	evfDataDir,
@@ -126,11 +126,13 @@ const now = () => new Date().toISOString();
 const headline = (text: string, max = 160) => text.split("\n")[0]?.slice(0, max) ?? "";
 /** The runs of the stage machine. A coordinator or registration session has a row but no stage here (OPS-134). */
 const runsOf = (db: DatabaseSync, taskId: number): RunRow[] =>
-	db
-		.prepare(
-			`SELECT id, stage, status, role, round, summary, progress_head, progress_spec FROM runs WHERE task_id = ? AND ${NOT_HEADLESS_SQL} ORDER BY started_at, id`,
-		)
-		.all(taskId) as RunRow[];
+	(
+		db
+			.prepare(
+				"SELECT id, stage, status, role, round, summary, progress_head, progress_spec FROM runs WHERE task_id = ? ORDER BY started_at, id",
+			)
+			.all(taskId) as RunRow[]
+	).filter((r) => !isHeadlessRole(r.role));
 
 /** A task row for a ref the store does not know yet, so read commands can answer without writing. */
 const unknownTask = (task: TaskRef): TaskRow => ({
@@ -1101,9 +1103,7 @@ export function taskAbandon(root: string, task: TaskRef, opts: { id?: number; re
 				`Store row ${row.id} of ${task.id} is merged; merged work is not abandoned.${rows.length > 1 ? ` The ref has rows ${rows.map((r) => `${r.id} (${r.status})`).join(", ")}: pick one with --id.` : ""}`,
 			);
 		if (row.status === "abandoned") fail(`Store row ${row.id} of ${task.id} is already abandoned.`);
-		const open = db
-			.prepare(`SELECT id FROM runs WHERE task_id = ? AND status = 'started' AND ${NOT_HEADLESS_SQL}`)
-			.all(row.id) as Array<{
+		const open = db.prepare("SELECT id FROM runs WHERE task_id = ? AND status = 'started'").all(row.id) as Array<{
 			id: number;
 		}>;
 		if (open.length)
@@ -1800,6 +1800,8 @@ function waitOnSeat(
 	}
 	const watchStart = Date.now(),
 		deadline = watchStart + timing.waitMs;
+	const idea = /^idea(\d)$/.exec(r.stage),
+		cfg = loadConfig(root);
 	const longRun = longRunCheck(
 		db,
 		{
@@ -1807,11 +1809,7 @@ function waitOnSeat(
 			ref: task.id,
 			runId,
 			agent: r.herdr_agent,
-			worktree: () => {
-				const idea = /^idea(\d)$/.exec(r.stage),
-					cfg = loadConfig(root);
-				return idea ? ideaWorktree(root, cfg, task, Number(idea[1])) : (t.worktree ?? worktreePath(root, cfg, task));
-			},
+			worktree: idea ? ideaWorktree(root, cfg, task, Number(idea[1])) : (t.worktree ?? worktreePath(root, cfg, task)),
 		},
 		timing.clock ?? Date.now,
 	);

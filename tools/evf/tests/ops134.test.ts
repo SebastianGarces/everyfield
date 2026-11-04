@@ -115,7 +115,7 @@ test("AC:OPS-134-1 evf hook stop records one turn_end with the exact values of t
 			toolDoneLine(T0 + 18_000, "t3"),
 			endTurnLine(T0 + 21_000),
 		]);
-		const r = stopHook(f, run, { transcript_path: f.transcriptFile() });
+		const r = stopHook(f, run, {});
 		assert.equal(r.status, 0, r.stderr);
 		assert.deepEqual(f.events("turn_end"), [
 			{
@@ -470,23 +470,25 @@ test("AC:OPS-134-9 a missing or garbled transcript leaves the stop hook as it wa
 	const f = store();
 	try {
 		const run = f.insertRun("implement", "implementer", "started", T0, SESSION);
-		const missing = stopHook(f, run, { transcript_path: join(f.root, "nope.jsonl") }, { EVF_STAGE: "implement" });
+		const missing = stopHook(f, run, {}, { EVF_STAGE: "implement" });
 		assert.equal(missing.status, 0, missing.stderr);
 		assert.equal(JSON.parse(missing.stdout).decision, "block");
 		assert.equal(f.events("stop").length, 1);
 		assert.equal(f.events("turn_end").length, 0);
-		const garbled = join(f.root, "garbled.jsonl");
-		writeFileSync(garbled, "{not json\n\u0000\u0001 garbage\n");
-		const bad = stopHook(f, run, { transcript_path: garbled, stop_hook_active: true }, { EVF_STAGE: "implement" });
+		f.transcript(["{not json", "\u0000\u0001 garbage"]);
+		const bad = stopHook(f, run, { stop_hook_active: true }, { EVF_STAGE: "implement" });
 		assert.equal(bad.status, 0, bad.stderr);
 		assert.equal(bad.stdout, "");
 		assert.equal(f.events("stop").length, 2);
 		assert.equal(f.events("turn_end").length, 0);
 		// A directory cannot be read as a file: an error, caught.
-		const unreadable = stopHook(f, run, { transcript_path: f.root }, { EVF_STAGE: "implement" });
+		rmSync(f.transcriptFile());
+		mkdirSync(f.transcriptFile());
+		const unreadable = stopHook(f, run, {}, { EVF_STAGE: "implement" });
 		assert.equal(unreadable.status, 0, unreadable.stderr);
 		assert.equal(JSON.parse(unreadable.stdout).decision, "block");
 		assert.equal(f.events("turn_end").length, 0);
+		rmSync(f.transcriptFile(), { recursive: true });
 
 		f.transcript([
 			promptLine(T0),
@@ -494,7 +496,7 @@ test("AC:OPS-134-9 a missing or garbled transcript leaves the stop hook as it wa
 			toolDoneLine(T0 + 2000, "x"),
 			endTurnLine(T0 + 3000),
 		]);
-		assert.equal(stopHook(f, run, { transcript_path: f.transcriptFile() }).status, 0);
+		assert.equal(stopHook(f, run, {}).status, 0);
 		// The Stop hook's feedback goes in as a meta user entry; the model answers it and stops again.
 		f.transcript([
 			promptLine(T0),
@@ -506,7 +508,7 @@ test("AC:OPS-134-9 a missing or garbled transcript leaves the stop hook as it wa
 			toolDoneLine(T0 + 7000, "y"),
 			endTurnLine(T0 + 8000),
 		]);
-		assert.equal(stopHook(f, run, { transcript_path: f.transcriptFile(), stop_hook_active: true }).status, 0);
+		assert.equal(stopHook(f, run, { stop_hook_active: true }).status, 0);
 		const turns = f.events("turn_end");
 		assert.equal(turns.length, 2);
 		assert.equal(turns[1]!.startedAt, turns[0]!.endedAt, "the continuation starts at the previous endedAt");
@@ -517,13 +519,7 @@ test("AC:OPS-134-9 a missing or garbled transcript leaves the stop hook as it wa
 		const empty = mkdtempSync(join(tmpdir(), "evf-plain-"));
 		const plain = spawnSync("git", ["init", "-q", empty]);
 		assert.equal(plain.status, 0);
-		const outside = evf(
-			empty,
-			{},
-			JSON.stringify({ session_id: SESSION, transcript_path: f.transcriptFile() }),
-			"hook",
-			"stop",
-		);
+		const outside = evf(empty, {}, JSON.stringify({ session_id: SESSION }), "hook", "stop");
 		assert.equal(outside.status, 0, outside.stderr);
 		assert.equal(outside.stdout, "");
 		assert.ok(!existsSync(workDbPath(empty)), "a session with no EVF_RUN writes nothing");
