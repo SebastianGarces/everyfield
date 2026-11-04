@@ -1687,6 +1687,15 @@
 			],
 			"risk": "ordinary"
 		},
+		"OPS-132": {
+			"title": "evf events command and check signals",
+			"owningPaths": ["tools/evf/"],
+			"checks": [
+				{ "name": "documentation", "run": ["python3", "docs/check-all.py"] },
+				{ "name": "workflow-regressions", "run": ["bin/evf", "test"] }
+			],
+			"risk": "ordinary"
+		},
 		"OPS-133": {
 			"title": "Minute sampler for load, CPU and queue idle time",
 			"owningPaths": ["tools/evf/", "tools/evf-tui/", "evf.config.json"],
