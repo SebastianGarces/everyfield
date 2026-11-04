@@ -142,11 +142,11 @@ matches the ref, its parts and the slug, as `evf status` does; filters combine. 
 Each `evf verify` run that reaches its checks records these events. `evf status` leaves all four out of `recent`,
 because one verify would push out the reopen, nudge and escalation rows.
 
-| Event                      | Fields                                                                                               |
-| -------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `check_start`, `check_end` | `run`, `task`, `head`, `treeHash`, `role`, `mode`, `trigger`, `queuedMs`, `durationMs`, `result`     |
-| `check_suite_end`          | `task`, `head`, `role`, `mode`, `suite`, `startedAt`, `durationMs`, `passed`, `loadStart`, `loadEnd` |
-| `test_failed`              | `task`, `head`, `attempt`, `suite`, `test`, `touchesTestPaths`                                       |
+| Event | Fields |
+|---|---|
+| `check_start`, `check_end` | `run`, `task`, `head`, `treeHash`, `role`, `mode`, `trigger`, `queuedMs`, `durationMs`, `result` |
+| `check_suite_end` | `task`, `head`, `role`, `mode`, `suite`, `startedAt`, `durationMs`, `passed`, `loadStart`, `loadEnd` |
+| `test_failed` | `task`, `head`, `attempt`, `suite`, `test`, `touchesTestPaths` |
 
 `check_start` has `durationMs` and `result` null. `run` is `EVF_RUN` when the store holds that run, otherwise null.
 `trigger` is `pr-stage`, `evf-check`, `seat` or `manual`. `queuedMs` is the time spent in the full check queue plus the load wait. `result` is
@@ -196,8 +196,8 @@ transcript, writes nothing else, prints how many runs it filled and skipped (no 
 and gives the same rows when run again.
 
 **Report.** `evf usage [--json] [<task>]` prints, per task, tokens and estimated cost by role and model,
-rounds, verify fails and CI fails. Without a task it adds a by-model summary that splits _build_ (plan,
-implement, ui and simplify runs in round 0) from _review and rework_ (evidence and verify runs in any round,
+rounds, verify fails and CI fails. Without a task it adds a by-model summary that splits *build* (plan,
+implement, ui and simplify runs in round 0) from *review and rework* (evidence and verify runs in any round,
 and implement, ui and simplify runs in round 1 or later). Prototype stages are their own group. `pr`, `ci` and
 `ship` have no Claude session and no usage. A run with no data counts as "no data", never as zero.
 
