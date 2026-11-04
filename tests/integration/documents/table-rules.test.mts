@@ -214,3 +214,15 @@ test("the table view numbers rows and stripes as the PDF does: blank rows count 
 		"a table that reads a list has no blank rows",
 	);
 });
+
+test("Remove row is off on the last row of a table with no header, and on a table's last blank row with no header", () => {
+	const checklist = newChecklist();
+	assert.equal(availability(checklist, { row: 0, col: 1 }).removeRow, null);
+	const one = { ...checklist, content: checklist.content?.slice(0, 1) };
+	assert.match(availability(one, { row: 0, col: 1 }).removeRow ?? "", /keeps at least one row/);
+	const blank = { ...checklist, attrs: { ...checklist.attrs, writeInRows: 1 }, content: [] };
+	assert.match(availability(blank, { row: null, col: null, blank: true }).removeRow ?? "", /keeps at least one row/);
+	// A header stays on the page, so the same table can lose its last row.
+	const grid = newGrid();
+	assert.equal(availability({ ...grid, attrs: { ...grid.attrs, writeInRows: 1 } }, { row: null, col: 0, blank: true }).removeRow, null);
+});
