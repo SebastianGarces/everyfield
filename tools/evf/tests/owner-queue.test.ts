@@ -44,6 +44,22 @@ const cli = (f: { root: string }, ...args: string[]) =>
 		env: { ...process.env, EVF_RUN: "", EVF_WORKTREE: "", EVF_SESSION: "", EVF_ROLE: "", EVF_STAGE: "" },
 	});
 
+/** The real command in a process whose clock reads `now` and whose system time zone is `TZ`. */
+const cliAt = (f: { root: string }, now: string, TZ: string, ...args: string[]) =>
+	spawnSync(
+		process.execPath,
+		[
+			`--import=data:text/javascript,Date.now=()=>${Date.parse(now)}`,
+			join(source, "tools/evf/main.ts"),
+			...args,
+		],
+		{
+			cwd: f.root,
+			encoding: "utf8",
+			env: { ...process.env, TZ, EVF_RUN: "", EVF_WORKTREE: "", EVF_SESSION: "", EVF_ROLE: "", EVF_STAGE: "" },
+		},
+	);
+
 /** The queue through the real command, in both outputs. */
 function queue(f: { root: string }) {
 	const text = cli(f, "owner-queue"),
@@ -257,6 +273,34 @@ test("AC:OPS-131-1 evf owner-queue prints one line per open item, urgent first a
 	}
 });
 
+test("AC:OPS-131-1 a merged or abandoned task with an open ask is not an item, and answer refuses on it", () => {
+	const f = fixture();
+	try {
+		withStore(f, (db) => {
+			for (const [ref, status] of [
+				["OPS-2", "merged"],
+				["OPS-3", "abandoned"],
+				["OPS-4", "pr_open"],
+			] as const)
+				asked(db, addRow(db, ref, { status, pr: 7 }), ref, 60, { pr: 7 });
+		});
+		const { lines, json } = queue(f);
+		assert.equal(lines[0], "1 waiting for Sebastian.");
+		assert.deepEqual(
+			json.items.map((i: { task: string }) => i.task),
+			["OPS-4"],
+		);
+		for (const task of ["OPS-2", "OPS-3"]) {
+			const r = cli(f, "owner-queue", "answer", task);
+			assert.equal(r.status, 1);
+			assert.match(r.stderr, /has no open owner ask/);
+		}
+		assert.equal(ownerEvents(f, "owner_answer").length, 0);
+	} finally {
+		f.close();
+	}
+});
+
 test("AC:OPS-131-2 evf owner-queue --json returns the same items with every field and the next digest time", () => {
 	const f = fixture();
 	try {
@@ -447,6 +491,20 @@ test("AC:OPS-131-5 a P2 fix, a void approval, an escalation and an awaiting pick
 			db.prepare("UPDATE tasks SET pr_number = 77, status = 'pr_open', worktree = ? WHERE id = ?").run(f.wt, t.id);
 			return t.id;
 		});
+		// A row with no PR number cannot take the ask: evf says so, and the refusal stays the same.
+		withStore(f, (db) => db.prepare("UPDATE tasks SET pr_number = NULL WHERE id = ?").run(row));
+		const error = console.error,
+			warnings: string[] = [];
+		console.error = (...a) => warnings.push(a.join(" "));
+		try {
+			assert.throws(() => ship(f.root, f.task, fastShip), /owner approval is void/);
+		} finally {
+			console.error = error;
+		}
+		assert.match(warnings.join("\n"), /warning: could not record the owner ask of PR #77: no open task row holds PR #77/);
+		assert.equal(ownerEvents(f).length, 0);
+		withStore(f, (db) => db.prepare("UPDATE tasks SET pr_number = 77 WHERE id = ?").run(row));
+
 		assert.throws(() => quietly(() => ship(f.root, f.task, fastShip)), /owner approval is void/);
 		const manual = ownerEvents(f);
 		assert.equal(manual.length, 1);
@@ -714,14 +772,31 @@ test("AC:OPS-131-8 ownerHours set shows the age split in both outputs; unset say
 		assert.match(q.json.note, /ownerHours is not set/);
 		assert.ok(!("insideMinutes" in q.json.items[0]));
 
-		// The whole day is inside the hours or nearly so, in a zone with a known offset.
-		config(f, { timeZone: "UTC", ownerHours: { start: "00:00", end: "23:59" } });
-		q = queue(f);
-		assert.doesNotMatch(q.text, /ownerHours is not set/);
-		assert.ok(!("note" in q.json));
-		const item = q.json.items[0];
-		assert.equal(item.insideMinutes + item.outsideMinutes, item.ageMinutes);
-		assert.ok(q.lines[1]!.includes(`(inside ${item.insideMinutes} min, outside ${item.outsideMinutes} min)`));
+		// Asked at midnight in Chicago and read at 14:00 there, so 14 h, with 13:00 to 18:00 open for the last hour.
+		// Read in Tokyo, the process's system zone, or in UTC, the same window would hold 180 or 300 minutes.
+		withStore(f, (db) => {
+			record(db, addRow(db, "OPS-3", { pr: 3 }), null, "owner_ask", {
+				task: "OPS-3",
+				pr: 3,
+				head: HEAD,
+				kind: "design",
+				digestId: null,
+				askedAt: "2026-11-04T06:00:00.000Z",
+			});
+			db.prepare("DELETE FROM events WHERE json_extract(payload, '$.task') = 'OPS-2'").run();
+		});
+		config(f, { timeZone: "America/Chicago", ownerHours: { start: "13:00", end: "18:00" } });
+		const now = "2026-11-04T20:00:00.000Z";
+		const text = cliAt(f, now, "Asia/Tokyo", "owner-queue"),
+			json = JSON.parse(cliAt(f, now, "Asia/Tokyo", "owner-queue", "--json").stdout);
+		assert.equal(text.status, 0, text.stderr);
+		assert.doesNotMatch(text.stdout, /ownerHours is not set/);
+		assert.ok(!("note" in json));
+		assert.deepEqual(
+			[json.items[0].ageMinutes, json.items[0].insideMinutes, json.items[0].outsideMinutes],
+			[14 * HOUR, HOUR, 13 * HOUR],
+		);
+		assert.ok(text.stdout.includes("| age 14h 0m (inside 60 min, outside 780 min) |"), text.stdout);
 
 		for (const bad of [
 			{ start: "9:00", end: "17:00" },
@@ -1028,4 +1103,6 @@ test("AC:OPS-131-15 evf help lists owner-queue and its forms, and the README des
 	for (const word of ["## Owner queue", "owner_ask", "owner_answer", "`ownerQueue`", "ownerHours", "digestTimes"])
 		assert.ok(readme.includes(word), word);
 	assert.match(readme, /Sebastian sets `ownerHours`/);
+	for (const step of ["git restore evf.config.json", "git merge --ff-only origin/main", "git apply --3way"])
+		assert.ok(readme.includes(step), step);
 });

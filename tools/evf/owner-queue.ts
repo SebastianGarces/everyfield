@@ -251,7 +251,8 @@ export function recordVoidAsk(root: string, pr: number, head: string): void {
 				"SELECT id, ref FROM tasks WHERE pr_number = ? AND ref IS NOT NULL AND status NOT IN ('merged', 'abandoned') ORDER BY id DESC LIMIT 1",
 			)
 			.get(pr) as { id: number; ref: string } | undefined;
-		if (row) ask(db, root, row, pr, head, "void_approval");
+		if (!row) throw new Error(`no open task row holds PR #${pr}`);
+		ask(db, root, row, pr, head, "void_approval");
 	});
 }
 

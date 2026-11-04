@@ -203,8 +203,9 @@ the age restarts.
 
 Recording never changes a merge. A failed write prints a warning on stderr, and the command goes on with the same exit
 code and the same GitHub calls. Migration 014 gives each task that already waits an `owner_ask`: `askedAt` is the time
-of its latest wait event, `head` and `digestId` are null, and the queue prints an unknown head as `unknown`. Old waits
-do not name a route, so their kind is `parked`.
+of its latest wait event, `head` and `digestId` are null, and the queue prints an unknown head as `unknown`. An
+`escalated` task gets kind `escalation` and an `awaiting_pick` task gets `prototype_pick`. An old `owner_approval_wait`
+does not name a route, so its kind is `parked`.
 
 The optional `ownerQueue` key in `evf.config.json` holds the time zone, the digest times and the owner hours. An invalid value makes `evf owner-queue` refuse with a
 message that names the key.
@@ -223,9 +224,26 @@ the system time zone. `digestId` is the next digest slot at or after `askedAt`, 
 
 Sebastian sets `ownerHours`, because evf does not track sleep and never guesses it. An OPS branch cannot add the key,
 because it may change only its own `maintenanceTasks` entry. He adds the key himself to `evf.config.json` in the home
-checkout, which is the file evf reads. `start` must come before `end`, so a window that crosses midnight is refused.
-While it is unset, the queue says so and shows no split. With it set, each item shows its age split into minutes inside
-and outside the hours (`insideMinutes` and `outsideMinutes` in `--json`).
+checkout, which is the file evf reads, near the top of the file and away from `maintenanceTasks`. `start` must come
+before `end`, so a window that crosses midnight is refused. While it is unset, the queue says so and shows no split.
+With it set, each item shows its age split into minutes inside and outside the hours (`insideMinutes` and
+`outsideMinutes` in `--json`).
+
+The key has a cost: no merge route carries it, so it stays an uncommitted edit in the home checkout. Each OPS task that
+registers changes `evf.config.json` on main, and `git merge --ff-only` then refuses to update the home checkout. When
+`tools/evf` or `bin/evf` also changed on main, `evf ship` and `evf drive` refuse until the home checkout is current.
+`evf doctor` also warns that the workspace root has uncommitted changes. To update the home checkout with the key in
+place, from the home checkout:
+
+```sh
+git diff -- evf.config.json > /tmp/owner-queue-key.patch
+git restore evf.config.json
+git merge --ff-only origin/main
+git apply --3way /tmp/owner-queue-key.patch
+```
+
+The last step leaves conflict markers when main changed the lines next to the key. Remove them by hand, and keep the
+key. Between `git restore` and `git apply`, the queue shows no split. `machineLoad` has the same cost.
 
 ## Usage and seat models
 
