@@ -23,7 +23,7 @@ import { meetingOpenSql } from "@everyfield/domain/meetings";
 import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import type { EffectResult, MailPort, ReviewContext, ReviewedWrite } from "../../../proposals/types.ts";
-import { held, untouchedMail } from "../reads/index.ts";
+import { held, unanswered, untouchedMail } from "../reads/index.ts";
 
 // The Communication reviewed writes (MAIL51-009). Each review reads the message live in the actor's church and saves the
 // native command's exact arguments, including the revision the review showed. Messages and Evry call the same native
@@ -347,8 +347,11 @@ const reschedule: ReviewedWrite<z.infer<typeof scheduleInput>> = {
 	allowed: ownerOrAdmin,
 	review(actor, value) {
 		const at = sql`(${value.sendAt}::timestamp AT TIME ZONE ${zone})`;
+		// A time moves by the email service's id for each recipient. One it never answered about may hold the old time for good.
+		const refusal = sql`coalesce(CASE WHEN ${unanswered}>0 THEN 'The email service has not answered about every recipient of this message, so the send time can''t change.' END,
+			${acceptedWindow(at)})`;
 		return sql`SELECT ${withRefusal(
-			acceptedWindow(at),
+			refusal,
 			sql`jsonb_build_object('target',${message},'changes',jsonb_build_array(
 					${change("subject", null, sql`to_jsonb(c.subject)`)},
 					${change("recipientCount", null, sql`to_jsonb(${held})`)},

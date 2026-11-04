@@ -584,6 +584,46 @@ test("AC:WP-028-6 a time change shows old and new time and says Saturday only af
 	assert.equal(service.calls.reschedule.length, asked);
 });
 
+test("AC:WP-028-6 a schedule the email service did not answer refuses a time change on the review, and no time moves", async () => {
+	const owner = await actor("owner");
+	const service = emailService();
+	const draft = await savedDraft(owner, service.port, "Unanswered then moved");
+	const t = await turn(owner, service.port);
+	const scheduled = await t.propose("communication.scheduleReviewed", {
+		communicationId: draft.id,
+		sendAt: localAt(3),
+	});
+	service.answers.send = "unknown";
+	const done = await approve(owner, scheduled!, service.port);
+	assert.equal(done.review.receipt!.report!.confirmation, "not_confirmed");
+	service.answers.send = "ids";
+	const t2 = await turn(owner, service.port);
+	const move = await t2.propose("communication.rescheduleReviewed", { communicationId: draft.id, sendAt: localAt(5) });
+	assert.match(move!.review.refusal!, /has not answered about every recipient/);
+	const before = (await rows(sql`SELECT scheduled_at,revision FROM communication WHERE id=${draft.id}`))[0];
+	await assert.rejects(
+		approveProposal(db, owner, move!.id, { revision: move!.revision, digest: move!.digest }, null),
+		"a refused review cannot be approved",
+	);
+	assert.equal(await runNext(service.port), null, "no effect is queued");
+	assert.equal(service.calls.reschedule.length, 0);
+	assert.deepEqual((await rows(sql`SELECT scheduled_at,revision FROM communication WHERE id=${draft.id}`))[0], before);
+});
+
+test("AC:WP-028-6 one unanswered recipient beside an accepted one refuses a time change", async () => {
+	const owner = await actor("owner");
+	const service = emailService();
+	const { id } = await scheduledMessage(owner, service, "Mixed then moved");
+	await admin.execute(
+		sql`UPDATE mail SET state='unknown' WHERE id=(SELECT id FROM mail WHERE logical_key LIKE ${"communication/" + id + "/%"} AND state='accepted' LIMIT 1)`,
+	);
+	const t = await turn(owner, service.port);
+	const move = await t.propose("communication.rescheduleReviewed", { communicationId: id, sendAt: localAt(5) });
+	assert.match(move!.review.refusal!, /has not answered about every recipient/);
+	await assert.rejects(approveProposal(db, owner, move!.id, { revision: move!.revision, digest: move!.digest }, null));
+	assert.equal(service.calls.reschedule.length, 0);
+});
+
 test("AC:WP-028-7 a cancel review shows subject, time and count; Cancelled needs the email service's confirmation", async () => {
 	const owner = await actor("owner");
 	const service = emailService();
@@ -1001,6 +1041,53 @@ test("AC:WP-028-10 Evry finds messages by subject and send time; a member reads 
 	);
 });
 
+test("AC:WP-028-10 the read offers only a message that can still go out, so a replaced original never beats its replacement", async () => {
+	const owner = await actor("owner");
+	const service = emailService();
+	const when = localAt(6);
+	const sendOn = when.slice(0, 10);
+	const list = () => db.transaction((tx) => listMessages.invoke(tx, owner, { sendOn }));
+
+	const cancelled = await scheduledMessage(owner, service, "Read cancelled", when);
+	const t = await turn(owner, service.port);
+	const cancel = await t.propose("communication.cancelScheduledReviewed", { communicationId: cancelled.id });
+	assert.equal((await approve(owner, cancel!, service.port)).review.receipt!.report!.confirmation, "confirmed");
+
+	// The original and its replacement have the same subject and day: only the replacement can still go out.
+	const original = await scheduledMessage(owner, service, "Read replaced", when);
+	const t2 = await turn(owner, service.port);
+	const replace = await t2.propose("communication.replaceScheduledReviewed", {
+		communicationId: original.id,
+		body: "New words",
+	});
+	const replaced = await approve(owner, replace!, service.port);
+	assert.equal(replaced.review.receipt!.report!.confirmation, "confirmed");
+
+	const sent = await scheduledMessage(owner, service, "Read sent", when);
+	await admin.execute(
+		sql`UPDATE mail SET state='sent' WHERE logical_key LIKE ${"communication/" + sent.id + "/%"} AND state='accepted'`,
+	);
+	// Sent to one recipient and still held for the other: it can still go out.
+	const partly = await scheduledMessage(owner, service, "Read partly sent", when);
+	await admin.execute(
+		sql`UPDATE mail SET state='sent' WHERE id=(SELECT id FROM mail WHERE logical_key LIKE ${"communication/" + partly.id + "/%"} AND state='accepted' LIMIT 1)`,
+	);
+	// The email service did not answer: it may hold them, so it may still go out.
+	const draft = await savedDraft(owner, service.port, "Read unanswered");
+	const t3 = await turn(owner, service.port);
+	const unanswered = await t3.propose("communication.scheduleReviewed", { communicationId: draft.id, sendAt: when });
+	service.answers.send = "unknown";
+	await approve(owner, unanswered!, service.port);
+	service.answers.send = "ids";
+
+	const found = (await list()).rows.filter((r) => r.label.startsWith("Read "));
+	assert.deepEqual(found.map((r) => r.label).sort(), ["Read partly sent", "Read replaced", "Read unanswered"]);
+	const row = found.find((r) => r.label === "Read replaced")!;
+	assert.equal(row.id, replaced.review.receipt!.receiptId, "the replacement, not the original");
+	assert.equal(row.fields.handedOff, true);
+	for (const r of found) assert.equal(r.fields.state, "scheduled");
+});
+
 test("AC:WP-028-11 a second approval, a double click or a retried effect makes one draft, one schedule request and one cancel", async () => {
 	const owner = await actor("owner");
 	const service = emailService();
@@ -1084,6 +1171,41 @@ test("AC:WP-028-11 a second approval, a double click or a retried effect makes o
 		"its own earlier cancel does not make the message look changed",
 	);
 	assert.equal((await readReview(db, owner, part!.id)).receipt!.report!.confirmation, "confirmed");
+});
+
+test("AC:WP-028-11 a retry that runs after the approval lapsed reports what the email service holds, never that nothing was done", async () => {
+	const owner = await actor("owner");
+	const service = emailService();
+	const draft = await savedDraft(owner, service.port, "Reached then lapsed");
+	const t = await turn(owner, service.port);
+	const proposal = await t.propose("communication.scheduleReviewed", {
+		communicationId: draft.id,
+		sendAt: localAt(3),
+	});
+	await approve(owner, proposal!, service.port);
+	const sends = service.calls.send.length;
+	await loseOutcome(proposal!.id);
+	await admin.execute(
+		sql`UPDATE job SET state='failed' WHERE id=(SELECT job_id FROM proposal WHERE id=${proposal!.id})`,
+	);
+	await retryUnresolvedEffects(db, owner, proposal!.id);
+	await admin.execute(sql`UPDATE proposal SET expires_at=clock_timestamp()-interval '1 minute' WHERE id=${proposal!.id}`);
+	assert.equal(await runNext(service.port), "completed");
+	const review = await readReview(db, owner, proposal!.id);
+	assert.equal(review.status, "approved");
+	assert.equal(review.outcome, "completed");
+	assert.equal(review.receipt!.report!.confirmation, "confirmed");
+	assert.equal(review.receipt!.report!.accepted, 2);
+	assert.equal(service.calls.send.length, sends, "no second schedule request");
+
+	// An effect that has not started still expires: nothing ran, so the card may say so.
+	const other = await savedDraft(owner, service.port, "Lapsed before it started");
+	const t2 = await turn(owner, service.port);
+	const fresh = await t2.propose("communication.scheduleReviewed", { communicationId: other.id, sendAt: localAt(3) });
+	await approveProposal(db, owner, fresh!.id, { revision: fresh!.revision, digest: fresh!.digest }, null);
+	await admin.execute(sql`UPDATE proposal SET expires_at=clock_timestamp()-interval '1 minute' WHERE id=${fresh!.id}`);
+	assert.equal(await runNext(service.port), "expired");
+	assert.equal(service.calls.send.length, sends);
 });
 
 test("AC:WP-028-13 each read and effect stays within its budget in limits.json and no transaction is open during a provider call", async () => {

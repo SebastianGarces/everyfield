@@ -29,10 +29,23 @@ const messageRow = z.object({
 	held: z.number().int(),
 });
 
+const mailOf = (message: string) =>
+	`m.tenant_id=${message}.plant_id AND m.logical_key LIKE 'communication/'||${message}.id||'/%'`;
 /** Recipients the email service still holds for message `c`: a cancel or a time change has something to act on. */
-const holding = (message: string) =>
-	`m.tenant_id=${message}.plant_id AND m.logical_key LIKE 'communication/'||${message}.id||'/%' AND m.state IN ('accepted','unknown','dispatched')`;
+const holding = (message: string) => `${mailOf(message)} AND m.state IN ('accepted','unknown','dispatched')`;
 export const held = sql.raw(`(SELECT count(*)::int FROM mail m WHERE ${holding("c")})`);
+/** Of those, the recipients the email service never answered about: they have no email service id to move by. */
+export const unanswered = sql.raw(
+	`(SELECT count(*)::int FROM mail m WHERE ${mailOf("c")} AND m.state IN ('unknown','dispatched'))`,
+);
+/**
+ * Message `c` can still go out. A cancel, a replacement or a sent email changes only mail rows, so a message whose every
+ * recipient is finished stays `scheduled`, and the read must not offer it as the one to act on.
+ */
+const canStillGoOut = sql.raw(
+	`(c.state='draft' OR NOT EXISTS(SELECT FROM mail m WHERE ${mailOf("c")})
+		OR EXISTS(SELECT FROM mail m WHERE ${mailOf("c")} AND m.state NOT IN ('sent','cancelled','refused','failed')))`,
+);
 /** Of those, the recipients with no cancel asked: a cancel or a sent email in Messages lowers it. */
 export const untouchedMail = (message: string) =>
 	`(SELECT count(*)::int FROM mail m WHERE ${holding(message)} AND m.cancel_requested_at IS NULL)`;
@@ -51,7 +64,7 @@ export const listMessages: ReadAdapter<z.infer<typeof listInput>> = {
 				to_char(c.scheduled_at AT TIME ZONE pl.timezone,'Dy YYYY-MM-DD HH24:MI') AS sends_at,pl.timezone AS zone,
 				${held} AS held
 			FROM communication c JOIN plant pl ON pl.id=c.plant_id
-			WHERE c.plant_id=${actor.owner.id}::uuid AND c.state IN ('draft','scheduled')
+			WHERE c.plant_id=${actor.owner.id}::uuid AND c.state IN ('draft','scheduled') AND ${canStillGoOut}
 				AND ${liveRead({ session: actor.session, owner: actor.owner, seatId: actor.seatId ?? undefined })}
 				AND (${input.state ?? null}::text IS NULL OR c.state=${input.state ?? null})
 				AND (${words}::text IS NULL OR c.subject ILIKE ${words} ESCAPE '\\')

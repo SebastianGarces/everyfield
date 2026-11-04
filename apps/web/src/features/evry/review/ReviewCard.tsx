@@ -386,7 +386,9 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 			return "This message changed since the review. Nothing was changed. Review it again to see it as it is now.";
 		if (view === "expired") return "This review expired, so nothing was done. Review required: prepare it again.";
 		if (view === "unconfirmed")
-			return "Evry can't confirm what happened. Try again. A change the email service already holds is not made twice.";
+			return retryable(review, lapsed)
+				? "Evry can't confirm what happened. Try again. A change the email service already holds is not made twice."
+				: "Evry can't confirm what happened, and the approval expired, so this card can't try again. Open Messages to see this message.";
 		if (view === "running") return "Working in the background. This card shows what the email service confirms.";
 	}
 	switch (view) {

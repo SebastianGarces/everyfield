@@ -291,6 +291,34 @@ for (const [engine, launcher] of ENGINES) {
 			assert.doesNotMatch(body, /Delivered/);
 		}));
 
+	test(`AC:WP-028-5 (${engine}): a card with no saved result and a lapsed approval says so and offers no Try again`, () =>
+		run(async (page, context) => {
+			const d = await database();
+			const panel = await openEvry(page, context);
+			const draft = await ask(
+				panel,
+				"Draft an email to the launch team inviting them to Sunday's interest meeting.",
+				"Review before saving",
+			);
+			await approve(draft);
+			await done(panel, "Saved").waitFor({ timeout: 90_000 });
+			const schedule = await ask(panel, "Schedule it for Friday at 9am", "Review before scheduling");
+			const id = await schedule.evaluate((el) => el.getAttribute("data-proposal"));
+			await approve(schedule);
+			await done(panel, /^Scheduled for Fri, 9:00 AM/).waitFor({ timeout: 90_000 });
+			// The effect ended with no saved result and its approval lapsed: the state a killed worker can leave.
+			await d.rows(
+				d.sql`UPDATE proposal SET outcome='failed',receipt='{"reached":true}'::jsonb,expires_at=clock_timestamp()-interval '1 second' WHERE id=${id}::uuid`,
+			);
+			await page.reload();
+			await hydrated(page);
+			await page.getByRole("button", { name: "Ask Evry" }).click();
+			const card = page.getByRole("dialog", { name: "Evry" }).locator(`[data-proposal="${id}"]`);
+			await card.getByText(/approval expired/).waitFor({ timeout: 90_000 });
+			assert.doesNotMatch(await card.innerText(), /Try again\./);
+			assert.equal(await card.getByRole("button", { name: "Try again" }).count(), 0);
+		}));
+
 	test(`AC:WP-028-6 (${engine}): a time change shows old and new time and the new time only after the email service confirms`, () =>
 		run(async (page, context) => {
 			const d = await database();
@@ -327,6 +355,37 @@ for (const [engine, launcher] of ENGINES) {
 					.every((m) => m.scheduled_at === moved.scheduled_at),
 			);
 			assert.equal(await d.requests(moved.id), 1, "the time change made no second send");
+		}));
+
+	test(`AC:WP-028-6 (${engine}): a schedule the email service did not answer refuses a time change on the card`, () =>
+		run(async (page, context) => {
+			const d = await database();
+			const panel = await openEvry(page, context);
+			const draft = await ask(
+				panel,
+				"Draft an email to the launch team inviting them to Sunday's interest meeting.",
+				"Review before saving",
+			);
+			await approve(draft);
+			await done(panel, "Saved").waitFor({ timeout: 90_000 });
+			const schedule = await ask(panel, "Schedule it for Friday at 9am", "Review before scheduling");
+			await silence(true);
+			let message;
+			let before;
+			try {
+				await approve(schedule);
+				await done(panel, /not confirmed/i).waitFor({ timeout: 90_000 });
+				message = await d.message();
+				before = message.scheduled_at;
+			} finally {
+				await silence(false);
+			}
+			const card = await ask(panel, "Move the Friday email to Saturday at 9am", "Review the new time");
+			assert.match(await card.innerText(), /has not answered about every recipient of this message/);
+			assert.equal(await card.getByRole("button", { name: "Approve" }).count(), 0, "nothing to approve");
+			const now = await d.message();
+			assert.equal(now.id, message.id);
+			assert.equal(now.scheduled_at, before, "the saved time stays");
 		}));
 
 	test(`AC:WP-028-7 (${engine}): a cancel says Cancelled only after the email service confirms, and Check again asks again`, () =>
@@ -481,6 +540,32 @@ for (const [engine, launcher] of ENGINES) {
 			assert.match(answer, /Find this church's email drafts and scheduled messages/, "the member reads messages");
 			assert.doesNotMatch(answer, /prepare these changes/, "no email write is offered to a member");
 			await memberPage.close();
+		}));
+
+	test(`AC:WP-028-10 (${engine}): the read leaves out a replaced original, so Friday's email is its replacement`, () =>
+		run(async (page, context) => {
+			const d = await database();
+			const panel = await openEvry(page, context);
+			const original = await scheduledFriday(panel, d);
+			/** How many Friday messages the newest read returned. */
+			const offered = async () => {
+				const label = await panel
+					.getByRole("region", { name: /^Messages, \d+ messages?$/ })
+					.last()
+					.getAttribute("aria-label");
+				return Number(/\d+/.exec(label)[0]);
+			};
+			const card = await ask(panel, "Replace the body of the Friday email with: New words", "Review the replacement");
+			const before = await offered();
+			await approve(card);
+			await done(panel, /^Replacement scheduled for Fri, 9:00 AM/).waitFor({ timeout: 120_000 });
+			const replacement = await d.message();
+			assert.notEqual(replacement.id, original.id);
+			const cancel = await ask(panel, "Cancel the Friday email", "Review before cancelling");
+			assert.equal(await offered(), before, "the replacement took the place of the original, which is not offered");
+			await approve(cancel);
+			await done(panel, "Cancelled").waitFor({ timeout: 90_000 });
+			assert.equal((await d.mail(replacement.id)).filter((m) => m.state === "cancelled").length, 3);
 		}));
 
 	test(`AC:WP-028-11 (${engine}): a double click on Approve makes one schedule request`, () =>

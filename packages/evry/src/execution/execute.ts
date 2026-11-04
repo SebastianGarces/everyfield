@@ -112,7 +112,9 @@ export async function executeProposal(
 			const p = locked.parse(r.rows[0]);
 			if (!p.fenced) return "lost";
 			if (p.state !== "approved" || p.outcome !== null) return "closed";
-			if (p.expired) throw new Unpublished();
+			// A lapsed approval stops an effect that has not started. One that started goes on, so its result is saved and
+			// the card says what the email service holds, never that nothing was done.
+			if (p.expired && !p.reached) throw new Unpublished();
 			// The approving session in the proposal's exact context: its live seat and lifecycle are locked and checked now,
 			// and the native command checks the role on that same lock. A signed-out session has no authority.
 			const session = sessionId.safeParse(p.approved_session_id);
