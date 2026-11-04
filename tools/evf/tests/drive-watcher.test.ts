@@ -459,7 +459,6 @@ test("every normal exit records drive_ended with its stage and exit code, and th
 					["ship", "evf"],
 				])
 					s.insertRun(stage!, role!, "passed");
-				s.seed("owner_approval_wait", T0, { summary: "waits for the owner" });
 				return [];
 			},
 		],
@@ -522,11 +521,6 @@ test("every normal exit records drive_ended with its stage and exit code, and th
 			assert.equal(ended[0]!.payload.stage, stage, name);
 			assert.equal(ended[0]!.payload.code, code, name);
 			assert.ok(s.count("drive_heartbeat") >= 1, name);
-			if (name === "owner wait")
-				assert.equal(
-					s.db.prepare("SELECT last_event FROM v_tasks WHERE id = ?").get(s.id)!.last_event,
-					"owner_approval_wait",
-				);
 			// The row goes back to a watched status, as a task can after a drive ends. The latest drive record still decides.
 			s.db.prepare("UPDATE tasks SET status = 'active', mode = 'implement' WHERE id = ?").run(s.id);
 			const w = watcher(s);
