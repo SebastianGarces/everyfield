@@ -8,7 +8,7 @@ import { owner, sessionId } from "@everyfield/contracts/common";
 import { z } from "zod";
 import { EvryRefusal } from "../context/errors.ts";
 import { REVIEWED_WRITES } from "../proposals/store.ts";
-import type { EffectResult, MailPort, ReviewedWrite } from "../proposals/types.ts";
+import type { EffectDone, MailPort, ReviewedWrite } from "../proposals/types.ts";
 
 /** The executor's claim on one evry_effect job, as the WP-031 queue issued it. Only the current claim may publish. */
 export type EffectLease = { jobId: string; tenantId: string; leaseOwner: string; generation: string };
@@ -61,14 +61,13 @@ const locked = z.object({
 const refusalCode = (code: string) =>
 	code === "conflict" ? "revision_conflict" : code === "unavailable" ? "access_denied" : code;
 
-type Done = Extract<EffectResult, { receiptId: string }>;
 /** The first step committed; the email service step is next. */
 type Reach = {
 	write: ReviewedWrite<unknown>;
 	authority: RequestActor;
 	input: unknown;
 	effectKey: string;
-	result: Done;
+	result: EffectDone;
 	id: string;
 };
 

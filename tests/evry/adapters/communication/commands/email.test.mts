@@ -394,8 +394,9 @@ test("AC:WP-028-6 a time change shows old and new time and says Saturday only af
 		(time.after as { at: string }).at,
 	);
 	// A confirmed time change is not checked again.
-	const again = await checkProposal(db, owner, proposal.id, service.port);
-	assert.equal(again.checked, false);
+	const asked = service.calls.reschedule.length;
+	await checkProposal(db, owner, proposal.id, service.port);
+	assert.equal(service.calls.reschedule.length, asked);
 });
 
 test("AC:WP-028-7 a cancel review shows subject, time and count; Cancelled needs the email service's confirmation", async () => {

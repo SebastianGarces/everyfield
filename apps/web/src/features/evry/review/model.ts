@@ -190,7 +190,7 @@ const zoneName = (at: string, zone: string, timeZoneName: "short" | "long") =>
 		.formatToParts(new Date(at))
 		.find((p) => p.type === "timeZoneName")?.value ?? zone;
 /** "Fri, 9:00 AM CST": the day, the time and the zone, in the church's own zone. */
-export const sendTime = ({ at, zone }: SendTime) =>
+const sendTime = ({ at, zone }: SendTime) =>
 	`${part(at, zone, { weekday: "short" })}, ${part(at, zone, { hour: "numeric", minute: "2-digit" })} ${zoneName(at, zone, "short")}`;
 /** "Fri, Nov 6, 9:00 AM CST (Central Standard Time)": the full date and the zone's name. */
 export const sendTimeFull = ({ at, zone }: SendTime) =>
@@ -234,10 +234,12 @@ type AudienceValue = {
 	recipients: number;
 	noAddress: number;
 };
-export const audienceOf = (value: unknown): AudienceValue | null =>
+const audienceOf = (value: unknown): AudienceValue | null =>
 	value && typeof value === "object" && "recipients" in value ? (value as AudienceValue) : null;
 /** "Launch team and 2 people · 4 can get it, 1 has no email address". */
-export function audienceText(a: AudienceValue) {
+export function audienceText(value: unknown) {
+	const a = audienceOf(value);
+	if (!a) return null;
 	const who = [
 		...a.groups.map((g) => GROUP_LABEL[g] ?? g),
 		...(a.teamIds.length ? [`${a.teamIds.length} ${a.teamIds.length === 1 ? "team" : "teams"}`] : []),
@@ -258,7 +260,6 @@ export const LEFT_OUT_REASON: Record<string, string> = {
 export const checkable = (review: Review) =>
 	review.outcome === "completed" && review.receipt?.report?.confirmation === "not_confirmed";
 
-type MailHead = { title: string; tone: "amber" | "green" | "magenta" | "gray" };
 const MAIL_PENDING: Record<string, string> = {
 	"communication.saveDraft": "Review before saving",
 	"communication.scheduleReviewed": "Review before scheduling",
@@ -267,7 +268,10 @@ const MAIL_PENDING: Record<string, string> = {
 	"communication.replaceScheduledReviewed": "Review the replacement",
 };
 /** The head of an email card once it has a saved outcome: only what the email service confirmed is called done. */
-export function mailHead(review: Review, phase: Phase): MailHead | null {
+export function mailHead(
+	review: Review,
+	phase: string,
+): { title: string; tone: "amber" | "green" | "magenta" | "gray" } | null {
 	if (!isMail(review.operation)) return null;
 	if (phase === "pending")
 		return { title: review.stale ? "Message changed" : MAIL_PENDING[review.operation]!, tone: "amber" };
@@ -278,9 +282,8 @@ export function mailHead(review: Review, phase: Phase): MailHead | null {
 		};
 	if (phase === "refused") return { title: "Refused", tone: "magenta" };
 	if (phase !== "completed") return null;
-	if (review.operation === "communication.saveDraft") return { title: "Saved", tone: "green" };
 	const report = review.receipt?.report;
-	if (!report) return { title: "Done", tone: "green" };
+	if (!report) return { title: "Saved", tone: "green" };
 	const at = reportTime(report, review);
 	switch (report.kind) {
 		case "schedule":
@@ -427,8 +430,7 @@ export function missingRequired(review: Review, edits: Record<string, string>) {
 // Words: refusals and notices say what happened and what to do next, and never more than the server said.
 
 /** Why a run was refused, from the saved receipt code. Nothing was changed in each case. */
-export function refusalText(code: string | undefined, target: string | null, mail = false): string {
-	if (mail) return mailRefusalText(code);
+export function refusalText(code: string | undefined, target: string | null): string {
 	const who = target ?? "this person";
 	switch (code) {
 		case "revision_conflict":
@@ -449,7 +451,7 @@ export function refusalText(code: string | undefined, target: string | null, mai
 }
 
 /** Why an email effect was refused. The email service had not been asked unless the text says otherwise. */
-function mailRefusalText(code: string | undefined): string {
+export function mailRefusalText(code: string | undefined): string {
 	switch (code) {
 		case "revision_conflict":
 		case "conflict":

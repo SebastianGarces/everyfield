@@ -381,21 +381,23 @@ export async function checkProposal(db: Database, actor: EvryActor, id: string, 
 	const current = await readReview(db, actor, proposalId);
 	const write = REVIEWED_WRITES[current.operation] as ReviewedWrite<unknown>;
 	const open = current.outcome === "completed" && current.receipt?.report?.confirmation === "not_confirmed";
-	if (!open || !write.check) return { proposal: current, checked: false };
+	if (!open || !write.check) return { proposal: current };
 	if (!mail) throw new EvryRefusal("source_unavailable");
 	const stored = await db.execute(
 		sql`SELECT p.input FROM proposal p WHERE p.id=${proposalId}::uuid AND ${readable(actor)} AND p.outcome='completed'`,
 	);
 	if (!stored.rows.length) throw new EvryRefusal("not_found");
-	const keys = {
-		effectKey: `evry:${proposalId}:${current.revision}`,
-		checkKey: `evry:${proposalId}:check:${randomUUID()}`,
-	};
-	const result = await write.check(db, actor.authority, stored.rows[0]!.input, keys, mail);
+	const result = await write.check(
+		db,
+		actor.authority,
+		stored.rows[0]!.input,
+		{ effectKey: `evry:${proposalId}:${current.revision}`, checkKey: `evry:${proposalId}:check:${randomUUID()}` },
+		mail,
+	);
 	if ("refused" in result) throw new EvryRefusal("review_closed");
 	await db.execute(sql`
 		UPDATE proposal p SET receipt=${JSON.stringify(result)}::jsonb,updated_at=clock_timestamp()
 		WHERE p.id=${proposalId}::uuid AND ${owned(actor)} AND p.outcome='completed'
 			AND p.receipt->'report'->>'confirmation'='not_confirmed'`);
-	return { proposal: await readReview(db, actor, proposalId), checked: true };
+	return { proposal: await readReview(db, actor, proposalId) };
 }

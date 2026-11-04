@@ -20,8 +20,8 @@ export type ReviewContext = { db: Pick<Database, "execute">; mail: MailPort | nu
  * The owning domain write's saved receipt, or the domain's refusal code. `report` is what the email service confirmed;
  * only a write that reaches the email service has one.
  */
-export type EffectResult =
-	{ receiptId: string; revision: string; report?: Record<string, unknown> } | { refused: string };
+export type EffectDone = { receiptId: string; revision: string; report?: Record<string, unknown> };
+export type EffectResult = EffectDone | { refused: string };
 
 /**
  * A reviewed adapter from one durable operation flagged evry_review to its native domain command. The model may only
@@ -61,7 +61,7 @@ export type ReviewedWrite<I> = {
 		authority: RequestActor,
 		args: unknown,
 		effectKey: string,
-		first: Extract<EffectResult, { receiptId: string }>,
+		first: EffectDone,
 		mail: MailPort,
 	): Promise<EffectResult>;
 	/**

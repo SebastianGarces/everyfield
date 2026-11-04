@@ -21,7 +21,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, ty
 import { STAGE_KEY, type StageValue } from "../../people/model.ts";
 import type { Reply } from "../conversation/api.ts";
 import * as api from "./api.ts";
-import { MailChanges, MailResult, mailConsequence } from "./MailChanges.tsx";
+import { MAIL_CONSEQUENCE, MailChanges, MailResult } from "./MailChanges.tsx";
 import {
 	actionNotice,
 	approvalLeft,
@@ -37,6 +37,7 @@ import {
 	isMail,
 	isRequired,
 	mailHead,
+	mailRefusalText,
 	missingRequired,
 	operationTitle,
 	phaseOf,
@@ -379,7 +380,7 @@ const HEAD_TONE: Record<Tone, string> = {
 function note(view: View, review: Review | null, lapsed: boolean, unknown?: Action): string | null {
 	const who = review?.review.target?.label ?? null;
 	const mail = !!review && isMail(review.operation);
-	if (mail && review) {
+	if (mail) {
 		if (view === "pending" && review.review.refusal) return review.review.refusal;
 		if (view === "pending" && review.stale)
 			return "This message changed since the review. Nothing was changed. Review it again to see it as it is now.";
@@ -396,7 +397,7 @@ function note(view: View, review: Review | null, lapsed: boolean, unknown?: Acti
 		case "running":
 			return "Saving in the background. You can keep working. This card shows the result.";
 		case "refused":
-			return refusalText(review?.receipt?.code, who, mail);
+			return mail ? mailRefusalText(review.receipt?.code) : refusalText(review?.receipt?.code, who);
 		case "unconfirmed":
 			return review && retryable(review, lapsed)
 				? "Evry can't confirm that this was saved. Try again. A change that was saved is not saved twice."
@@ -478,11 +479,8 @@ export function ReviewCard({ proposalId, target }: { proposalId: string; target:
 	const why = note(view, review, r.lapsed, unknown);
 	const base = view === "loading" || view === "lost" ? HEAD.pending : HEAD[view];
 	// An email card says only what the email service confirmed (model.ts mailHead).
-	const mailTitle =
-		review && (view === "pending" || view === "running" || view === "completed" || view === "refused")
-			? mailHead(review, view)
-			: null;
-	const h = mailTitle ? { ...base, title: mailTitle.title, tone: mailTitle.tone } : base;
+	const mailTitle = review ? mailHead(review, view) : null;
+	const h = mailTitle ? { ...base, ...mailTitle } : base;
 	const title = view === "loading" || view === "lost" ? (target ? `Change for ${target}` : "Prepared change") : h.title;
 	const meta =
 		view === "completed" && review?.approvedAt
@@ -547,7 +545,9 @@ export function ReviewCard({ proposalId, target }: { proposalId: string; target:
 							<>
 								<MailChanges review={review} />
 								{view === "completed" ? <MailResult review={review} /> : null}
-								{view === "pending" ? <p className="text-sm text-text-2">{mailConsequence(review)}</p> : null}
+								{view === "pending" ? (
+									<p className="text-sm text-text-2">{MAIL_CONSEQUENCE[review.operation]}</p>
+								) : null}
 							</>
 						) : (
 							<>

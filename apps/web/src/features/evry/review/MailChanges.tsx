@@ -2,7 +2,6 @@ import { ArrowRight02Icon } from "@hugeicons/core-free-icons";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import type { ReactNode } from "react";
 import {
-	audienceOf,
 	audienceText,
 	LEFT_OUT_REASON,
 	reportTime,
@@ -101,7 +100,7 @@ export function MailChanges({ review }: { review: Review }) {
 			{op === "communication.saveDraft" ? (
 				<>
 					<Row label="Audience">
-						<New>{audienceOf(audience?.after) ? audienceText(audienceOf(audience!.after)!) : "Not chosen"}</New>
+						<New>{audienceText(audience?.after) ?? "Not chosen"}</New>
 					</Row>
 					<Block label="Body">{text(body?.after)}</Block>
 				</>
@@ -133,9 +132,9 @@ export function MailChanges({ review }: { review: Review }) {
 			) : null}
 			{op === "communication.replaceScheduledReviewed" && audience ? (
 				<Row label="Audience">
-					{audienceOf(audience.before) ? <Old>{audienceText(audienceOf(audience.before)!)}</Old> : null}
+					<Old>{audienceText(audience.before)}</Old>
 					<Then />
-					{audienceOf(audience.after) ? <New>{audienceText(audienceOf(audience.after)!)}</New> : null}
+					<New>{audienceText(audience.after)}</New>
 				</Row>
 			) : null}
 			{op === "communication.replaceScheduledReviewed" && body ? (
@@ -167,22 +166,16 @@ export function MailChanges({ review }: { review: Review }) {
 }
 
 /** What the card tells the owner will and will not happen, in one sentence. */
-export function mailConsequence(review: Review): string | null {
-	switch (review.operation) {
-		case "communication.saveDraft":
-			return "The draft is saved in Messages. Nothing is sent.";
-		case "communication.scheduleReviewed":
-			return "The email service holds the email until this time. It says Scheduled only after the email service accepts it.";
-		case "communication.rescheduleReviewed":
-			return "Recipients and content stay the same. The new time shows only after the email service confirms it.";
-		case "communication.cancelScheduledReviewed":
-			return "It says Cancelled only after the email service confirms every cancel.";
-		case "communication.replaceScheduledReviewed":
-			return "The old send is cancelled first. The new one is scheduled at the same time only after the email service confirms every cancel. If any cancel is not confirmed or already sent, nothing new is scheduled.";
-		default:
-			return null;
-	}
-}
+export const MAIL_CONSEQUENCE: Record<string, string> = {
+	"communication.saveDraft": "The draft is saved in Messages. Nothing is sent.",
+	"communication.scheduleReviewed":
+		"The email service holds the email until this time. It says Scheduled only after the email service accepts it.",
+	"communication.rescheduleReviewed":
+		"Recipients and content stay the same. The new time shows only after the email service confirms it.",
+	"communication.cancelScheduledReviewed": "It says Cancelled only after the email service confirms every cancel.",
+	"communication.replaceScheduledReviewed":
+		"The old send is cancelled first. The new one is scheduled at the same time only after the email service confirms every cancel. If any cancel is not confirmed or already sent, nothing new is scheduled.",
+};
 
 function Tally({ items }: { items: [string, number][] }) {
 	return (
