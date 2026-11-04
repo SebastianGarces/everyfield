@@ -28,7 +28,7 @@ import { maintenanceScope, requireSpend, requireTaskScope, requireMaintenancePat
 import { caseCoverage, caseGrep, hasCaseMarkers, testsOf } from "./coverage.ts";
 import { formatScope, wpScope, type ScopeReport } from "./scope.ts";
 import { requireFreeMigrationNumbers } from "./migrations.ts";
-import { awaitLoad, loadGatePassed } from "./load.ts";
+import { awaitLoad, loadGatePassed, markFullCheck } from "./load.ts";
 import { CHECK_QUEUE, withCheckQueue, type CheckQueueTiming } from "./check-queue.ts";
 import { uiEscapedGate } from "./escape.ts";
 import { checkSignals, type DriveCaller } from "./signals.ts";
@@ -105,7 +105,7 @@ export function verify(
 	const queueStart = performance.now();
 	// The slot comes first, so waiters keep their arrival order while the load is high.
 	const checked = () => {
-		awaitLoad(root, "verify", ignoreLoad);
+		awaitLoad(root, "verify", ignoreLoad, undefined, task);
 		const queuedMs = Math.round(performance.now() - queueStart);
 		return runChecks({ root, wt, task, wp, role, mode, caller, definitions, queuedMs, ...inputs() });
 	};
@@ -171,6 +171,7 @@ function runChecks({
 		EVF_MONITOR: process.env.EVF_MONITOR?.trim() || `evf verify ${task.id}`,
 	};
 	const signals = checkSignals({ root, wt, task, sha, baseSha, role, mode, dir, queuedMs, caller });
+	const unmarkFullCheck = markFullCheck(root, mode);
 	try {
 		const reports: string[] = [];
 		const inputsUnchanged = () => git(wt, "rev-parse", "HEAD") === sha && isClean(wt);
@@ -292,6 +293,8 @@ function runChecks({
 	} catch (error) {
 		signals.end("error");
 		throw error;
+	} finally {
+		unmarkFullCheck();
 	}
 }
 

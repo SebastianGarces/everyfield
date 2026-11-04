@@ -45,6 +45,9 @@ setLoadedCode((base) => ({ checkout: "fixture", ...base, dirty: false }));
 process.env.NODE_OPTIONS =
 	`${process.env.NODE_OPTIONS ?? ""} --import=${pathToFileURL(join(import.meta.dirname, "current-code.ts")).href}`.trim();
 
+// A drive that a test starts through main.ts starts no real sampler. The sampler tests clear this on purpose.
+process.env.EVF_NO_SAMPLER = "1";
+
 export function fixture() {
 	// Git starts detached auto-maintenance after commits and pushes. It would write into the fixture while
 	// close() removes it, so every git process this test starts runs with automatic background work off.

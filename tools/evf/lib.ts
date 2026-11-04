@@ -506,8 +506,12 @@ export function requireWorktree(root: string, cfg: Config, task: TaskRef): strin
 	return wt;
 }
 
+const dataDirs = new Map<string, string>();
+/** Cached per root: a checkout's common dir stays put, and a sampler tick must start no git child without a timeout. */
 export function evfDataDir(root: string): string {
-	return join(commonDir(root), "evf");
+	let dir = dataDirs.get(root);
+	if (!dir) dataDirs.set(root, (dir = join(commonDir(root), "evf")));
+	return dir;
 }
 
 export function runtimeDir(root: string, task: TaskRef): string {
