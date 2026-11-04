@@ -5,12 +5,14 @@ import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-// Dev-only mail capture (criterion 35). With no provider key, a development or preview server records each send
-// to a folder and delivers to nobody. A hosted production server never records: the guard names the allowed
-// environments, so an unknown value fails closed. A scheduled capture waits in the folder like a held email: it can
-// be cancelled or moved until its time passes, and after that it counts as sent.
+// Mail capture (criterion 35, WP-029). The senders record a message here when mailRecipientAllowed refuses its
+// address, or when a development or preview server has no provider key. A record delivers to nobody. A production
+// deployment approves every address, so it records nothing. A scheduled capture waits in the folder like a held email:
+// it can be cancelled or moved until its time passes, and after that it counts as sent.
 
 type Env = Readonly<Record<string, string | undefined>>;
+
+const CAPTURE_PREFIX = "capture-";
 
 export type Captured = {
 	id: string;
@@ -35,11 +37,17 @@ export const outboxFolder = (): string =>
  */
 export const NO_ANSWER_FILE = "no-answer";
 
-/** True only with no provider key and a Vercel environment that is absent (local), "development" or "preview". */
+/**
+ * May this server run on capture with no provider key, and may it show the outbox? True only for a Vercel environment
+ * that is absent (local), "development" or "preview", with or without a key, so an unknown value fails closed. This is
+ * not the recipient rule: `mailRecipientAllowed` alone decides which address the provider may receive.
+ */
 export function captureAllowed(env: Env): boolean {
-	if (env.RESEND_API_KEY?.trim()) return false;
 	return env.VERCEL_ENV === undefined || env.VERCEL_ENV === "development" || env.VERCEL_ENV === "preview";
 }
+
+/** A capture id, as `record` makes it. Any other id belongs to the provider. */
+export const isCaptureId = (id: string): boolean => id.startsWith(CAPTURE_PREFIX);
 
 export async function captureSilent(): Promise<boolean> {
 	return access(join(outboxFolder(), NO_ANSWER_FILE)).then(
@@ -53,7 +61,7 @@ export async function record(
 	scheduledAt: string | null = null,
 	directory = outboxFolder(),
 ): Promise<string> {
-	const id = `capture-${randomUUID()}`;
+	const id = `${CAPTURE_PREFIX}${randomUUID()}`;
 	await mkdir(directory, { recursive: true });
 	const entry: Captured = { id, at: new Date().toISOString(), ...message, scheduledAt, cancelled: false };
 	await writeFile(join(directory, `${id}.json`), JSON.stringify(entry), { flag: "wx" });
