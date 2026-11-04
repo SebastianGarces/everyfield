@@ -29,6 +29,8 @@ export type Config = {
 	maxAgentsMdLines: number;
 	/** C51, C81: task start, verify and browser run wait while the 1-minute load is above maxPerCore × CPU cores. Default in load.ts. */
 	machineLoad?: { maxPerCore: number; maxWaitMinutes: number };
+	/** OPS-131: the time zone, digest times and owner hours of evf owner-queue, parsed in owner-queue.ts. */
+	ownerQueue?: unknown;
 	stack: StackDef | null;
 	checks: CheckDef[];
 	maintenanceTasks?: Record<string, MaintenanceScope>;
@@ -508,8 +510,12 @@ export function requireWorktree(root: string, cfg: Config, task: TaskRef): strin
 	return wt;
 }
 
+const dataDirs = new Map<string, string>();
+/** Cached per root: a checkout's common dir stays put, and a sampler tick must start no git child without a timeout. */
 export function evfDataDir(root: string): string {
-	return join(commonDir(root), "evf");
+	let dir = dataDirs.get(root);
+	if (!dir) dataDirs.set(root, (dir = join(commonDir(root), "evf")));
+	return dir;
 }
 
 export function runtimeDir(root: string, task: TaskRef): string {
@@ -523,6 +529,13 @@ export function evidenceDir(root: string, task: TaskRef, sha: string, label: str
 /** Untracked files count even when the user's git config hides them: CI never sees them. */
 export function isClean(wt: string): boolean {
 	return git(wt, "status", "--porcelain", "--untracked-files=all") === "";
+}
+
+/** Hide connection strings and Neon passwords in text that leaves a process. */
+export function redactConnections(text: string): string {
+	return text
+		.replace(/\b(postgres(?:ql)?):\/\/[^\s"'<>]+/g, "$1://<redacted>")
+		.replace(/\bnpg_[A-Za-z0-9]+/g, "<redacted>");
 }
 
 export function oneLine(text: string, max = 220): string {

@@ -41,14 +41,23 @@ The drive records `owner_approval_wait` with that text and starts no implement r
 covering approval in `owner_approval` (quote, approved head, time and, after a pure merge, the carry proof). A PR
 without an `EVF-Owner` line merges as before. The held classes and the PR #13 routes keep their exact-head rule.
 
+A stale record never leaves a PR stuck (OPS-129). Every `evf approve` route posts the same comment with the
+`EVF-Owner` line for the exact head, after its checks and before the merge, so his new approval becomes the latest
+record. A route with a task also writes the `approvals` row. A PR with a record for another head that gains a held
+path, or a held PR that gains a commit, is refused until he approves the new head: `evf ship` and the drive name
+`bin/evf approve <PR> --owner-approval "<his words>" --head <sha>`. On any route, `evf approve` without `--head` on a
+PR whose latest record names another head refuses before any write and names that command. On a held route, a stale
+`--head` names it too.
+
 Document-template class: a WP part, an OPS task without the design route or a P0/P1 fix joins it when
 its exact-head diff touches a path in `mergePolicy.documentTemplates` in `evf.config.json`. The diff runs
 from the merge base with main to the head (`git diff --name-only --no-renames`), so splitting commits or
 renaming a file out of a template folder does not leave the class. `evf ship` runs the usual review and CI
-checks, posts the `evf/verify` status and prints the `evf approve` command; it never queues, updates the branch
-or merges, and exits 0. `evf approve <PR> --owner-approval "<his words>"` merges it after Sebastian approves
-in chat, only with an independent review of the exact head and the verified status on it. Then it
-writes the shipped record with an `owner_approval` field, acknowledges progress and removes the worktree.
+checks, posts the `evf/verify` status and prints the `evf approve` command with `--head <sha>`; it never queues,
+updates the branch or merges, and exits 0. `evf approve <PR> --owner-approval "<his words>" --head <sha>` merges it
+after Sebastian approves in chat, only with an independent review of the exact head and the verified status on it.
+Then it writes the shipped record with an `owner_approval` field, acknowledges progress and removes the worktree.
+`--head` stays optional on a document-template PR with no `EVF-Owner` record for another head.
 `evf drive` records the wait and stops; a later pass records the merge. The key is optional: when it is
 absent, the built-in default in `tools/evf/policy.ts` applies. A malformed key stops `loadConfig`.
 
@@ -122,6 +131,118 @@ The documents stay the source. `evf db seed-progress` imports the merged milesto
 docs/build-progress.json committed on main as merged tasks, once each, with a `legacy_milestone` event;
 it never reads a checkout's working copy of the ledger. `evf status [--json] [<task>]` lists tasks,
 active seats, recent events and the health counters.
+
+`evf events [--since <time>] [--type <name>] [--task <task>] [--json]` reads the full event history from a
+read-only store, in id order, with no row limit. `--since` is inclusive and takes any ISO 8601 offset; `--task`
+matches the ref, its parts and the slug, as `evf status` does; filters combine. `--json` prints an array of
+`{id, ts, type, task, run, payload}` with `payload` parsed. Without it, each event is one line.
+
+### Check signals (OPS-132)
+
+Each `evf verify` run that reaches its checks records these events. `evf status` leaves all four out of `recent`,
+because one verify would push out the reopen, nudge and escalation rows.
+
+| Event | Fields |
+|---|---|
+| `check_start`, `check_end` | `run`, `task`, `head`, `treeHash`, `role`, `mode`, `trigger`, `queuedMs`, `durationMs`, `result` |
+| `check_suite_end` | `task`, `head`, `role`, `mode`, `suite`, `startedAt`, `durationMs`, `passed`, `loadStart`, `loadEnd` |
+| `test_failed` | `task`, `head`, `attempt`, `suite`, `test`, `touchesTestPaths` |
+
+`check_start` has `durationMs` and `result` null. `run` is `EVF_RUN` when the store holds that run, otherwise null.
+`trigger` is `pr-stage`, `evf-check`, `seat` or `manual`. `queuedMs` is the time spent in the load wait. `result` is
+`passed`, `failed`, `invalidated` or, when verify throws, `error`. Each `checks` entry in `checks.json` holds the same
+`startedAt` and `durationMs` as its `check_suite_end`.
+
+`test_failed` has a limit: only a check that reports test names can record it. `bin/evf test` writes names to its own
+`EVF_FAILED_TESTS` file, never to `EVF_TEST_REPORT`, because its `AC:OPS-*` markers would turn on case coverage for a
+WP task (D19). A check with an `EVF_TEST_REPORT` file gives the names of its `failed` tests. Any other failed check,
+at present `package-unit-tests` and `local-app`, records no `test_failed`, and its `check_suite_end` has `passed`
+false. One check records each test name once. `postgres://` and `npg_` values in a name are stored redacted.
+
+Before the first check of a rerun at one head, role and mode, evf copies the earlier evidence to
+`<evidence dir>/attempt-<n>`, with the next free number:
+
+```text
+.git/evf/evidence/<task>/<sha>/author-full/
+  checks.json, *.log          the newest run; hasVerifiedHead and evf pre-push read only this path
+  attempt-1/checks.json, *.log  the first run; its evidenceDir and log paths point inside attempt-1
+  attempt-2/...                 the second run
+```
+
+These folders are never pruned. The `ac` evidence folder has no attempts. Signals only observe: when the store is
+missing, locked or read-only, does not know the task, or the copy fails, verify prints one warning line on stderr and
+returns the same result.
+
+## Owner queue
+
+`evf owner-queue [--json]` lists what waits for Sebastian, urgent items first and then the oldest. An item that blocks
+2 or more tasks is urgent. An item older than 48 h carries the question "Keep, abandon or reopen?". The command opens
+the store read-only and sends nothing: Jonah sends the digest (`.agents/roles/coordinator.md`).
+
+The blocked count is the item's own task, plus each follow-up row with this task as `parent_task_id` that is not
+merged or abandoned, plus each direct dependent package in `docs/plan/dag.json` that is not merged. A package is
+merged when the ledger marks it done or retired, or when its store rows hold a merged row and no open row.
+
+Two events carry the queue. `owner_ask` holds exactly `task`, `pr`, `head`, `kind`, `digestId` and `askedAt`, and evf
+builds the ask sentence from the kind. `owner_answer` holds exactly `task`, `pr`, `head` and
+`answeredAt`. An open item is a task's latest `owner_ask` with no `owner_answer` after it, on a task that is not merged
+or abandoned. A second ask on the same head adds no event and keeps `askedAt`. An ask on a new head adds an event, and
+the age restarts.
+
+| Route | Records |
+|---|---|
+| `evf ship` holds a PR for a document template or an owner path | `owner_ask`, kind `template` or `owner_path` |
+| `evf ship` stops on the Wiki route, a design task or P2 or P3 feedback | `owner_ask`, kind `wiki`, `design` or `feedback` |
+| A void owner approval | `owner_ask`, kind `void_approval` |
+| An escalation, an awaiting pick | `owner_ask`, kind `escalation` or `prototype_pick` |
+| `evf owner-queue ask <task> --kind parked` | `owner_ask`, for a PR no route recorded |
+| `evf approve` on either route, a merge through `evf ship` | `owner_answer` |
+| `evf task pick`, `compare-passed`, `reopen`, `abandon` | `owner_answer` |
+| `evf owner-queue answer <task>`, such as a keep decision | `owner_answer`; it refuses with no open item |
+
+Recording never changes a merge. A failed write prints a warning on stderr, and the command goes on with the same exit
+code and the same GitHub calls. Migration 014 gives each task that already waits an `owner_ask`: `askedAt` is the time
+of its latest wait event, `head` and `digestId` are null, and the queue prints an unknown head as `unknown`. An
+`escalated` task gets kind `escalation` and an `awaiting_pick` task gets `prototype_pick`. An old `owner_approval_wait`
+does not name a route, so its kind is `parked`.
+
+The optional `ownerQueue` key in `evf.config.json` holds the time zone, the digest times and the owner hours. An invalid value makes `evf owner-queue` refuse with a
+message that names the key.
+
+```json
+"ownerQueue": {
+  "timeZone": "America/Chicago",
+  "digestTimes": ["09:00", "13:00", "17:00"],
+  "ownerHours": { "start": "08:00", "end": "18:00" }
+}
+```
+
+`digestTimes` must be 3 ascending `HH:MM` values, and they default to 09:00, 13:00 and 17:00. `timeZone` defaults to
+the system time zone. `digestId` is the next digest slot at or after `askedAt`, in local date and time, such as
+`2026-11-04T13:00`.
+
+Sebastian sets `ownerHours`, because evf does not track sleep and never guesses it. An OPS branch cannot add the key,
+because it may change only its own `maintenanceTasks` entry. He adds the key himself to `evf.config.json` in the home
+checkout, which is the file evf reads, near the top of the file and away from `maintenanceTasks`. `start` must come
+before `end`, so a window that crosses midnight is refused. While it is unset, the queue says so and shows no split.
+With it set, each item shows its age split into minutes inside and outside the hours (`insideMinutes` and
+`outsideMinutes` in `--json`).
+
+The key has a cost: no merge route carries it, so it stays an uncommitted edit in the home checkout. Each OPS task that
+registers changes `evf.config.json` on main, and `git merge --ff-only` then refuses to update the home checkout. When
+`tools/evf` or `bin/evf` also changed on main, `evf ship` and `evf drive` refuse until the home checkout is current.
+`evf doctor` also warns that the workspace root has uncommitted changes. To update the home checkout with the key in
+place, from the home checkout:
+
+```sh
+git diff -- evf.config.json > /tmp/owner-queue-key.patch
+git restore evf.config.json
+git merge --ff-only origin/main
+git apply /tmp/owner-queue-key.patch
+```
+
+The last step refuses and changes nothing when main changed the lines next to the key. Add the key again by hand then.
+Between `git restore` and `git apply`, the queue shows no split. `machineLoad` has the same cost.
 
 ## Usage and seat models
 
@@ -375,6 +496,40 @@ Sebastian's delegation, which he can revert:
 `simplify_skipped` event that names that run and its head, and pr runs next. The PR body and the proofs live outside
 the repository, so a round that changed only those skips simplify. Round 0 and every round with a new commit still
 run it. When the author checks fail in the pr stage after a skip, the task goes back to implement, not to simplify.
+In round 1 or later, a passed implement whose commits since that run are only clean merges of main also skips, and the
+event carries `reason: "merge_only"`. One new non-merge commit, or a merge with a conflict resolution (non-empty
+`git show --cc`), runs simplify. A merge-only branch in round 0 runs it.
+
+**Round routing.** Before a failed ci or ship starts a round, the drive reads the checks on the PR head and classifies
+the failure:
+
+- `this_pr`: a required check fails on the PR head, does not fail on main, and the head has no earlier ci or ship
+  failure after the reopen marker. A conflict with main, no failing check anywhere, required checks all green and an
+  unreadable GitHub are also `this_pr`. With several failing checks, one `this_pr` check makes the whole failure
+  `this_pr`. The task starts a round as before. A verifier's changes request is always `this_pr`.
+- `main`: each failing required check that is not the PR's fails in its latest finished result on main. Main is read
+  over its last 10 commits, as check runs and commit statuses.
+- `external`: a required check fails again at the head of the previous failure, or required checks are missing or
+  pending and a non-required check fails. Required checks green with a non-required check red still pass ci.
+
+`main` and `external` hold the task. Its status is `held_external`, one `held_external` event records
+`{cause, checks, head, summary}`, the run closes `aborted`, no seat launches, `tasks.round` and the retry count do not
+change, and one Herdr notification names the cause, the checks and the way out. A poll or restart during the hold writes
+nothing. `evf next` prints stage `held` with the cause. The drive looks again every `holdPollMs` and resumes with one
+`hold_released` event when the cause clears, then runs ci:
+
+- `main`: the checks no longer fail on main. The drive runs `gh pr update-branch` and fast-forwards the worktree. A
+  failed update leaves the conflict for ci to report as `this_pr`.
+- `external`: the PR head moved, or the named checks no longer fail.
+
+`evf task reopen` also ends a hold. Failures before it no longer count, so a check that still fails at that head with
+main green starts a round; a check that still fails on main holds again. `evf ship` reads the same checks as before and
+refuses a held task while a required check fails.
+
+**`round_start`.** Each new round records `{cause, nonMergeCommits, diffLines, round, stage, head, summary}`. The counts
+cover what the previous round added: non-merge commits and added plus deleted lines from the head of the previous
+`round_start` (the merge base with `origin/main` for the first) to HEAD, without main's commits. They are null when the
+worktree is gone. A hold, a repeat review of a reviewed head and a loop cap stop record none.
 
 **Stopping a drive.** The drive loop runs in a worker thread, so the main thread can answer SIGTERM and SIGINT
 while a stage blocks in a child process. A signal that arrives inside a pr, ci or ship stage closes that `evf` run
@@ -928,6 +1083,58 @@ because it may change only its own `maintenanceTasks` entry.
 `--ignore-load "<reason>"` runs at once and appends the time, command, load, limit and reason to
 `load-overrides.jsonl` under the Git common directory's `evf/` folder. `evf doctor` shows the
 current load and limit. CI runners use the same rule with their own core count.
+
+## Minute sampler
+
+One detached process (OPS-133) records load, CPU share by class and queue state once per minute, so a bottleneck
+review reads numbers. It only writes history. No gate, scheduler, report or doctor line reads these records, and the
+load limit above does not change.
+
+`evf sampler start` starts it. A second start exits 0 and says a sampler already runs. `evf sampler stop` ends it with
+SIGTERM, removes its lock and exits 0 when none runs. `evf drive` starts it if none runs, and a sampler failure never
+stops a drive. There is no start at login: the sampler lives until `evf sampler stop`, a reboot or its own crash, and
+the next drive starts it again. The lock is `sampler.lock` in the same folder. A lock whose pid is dead or now runs
+another command does not block a start.
+
+Retention: 30 days. At start and then once per hour the sampler removes lines and
+events older than 30 days from all four record kinds. That is at most 43,200 lines per file. It rewrites each file
+through a temporary file and a rename, so a reader never sees half a file. A line with an unreadable `at` stays.
+
+| Record       | Where                          | Fields                                                                                |
+| ------------ | ------------------------------ | ------------------------------------------------------------------------------------- |
+| Load line    | `.git/evf/load.jsonl`          | `at`, `load1`, `load5`, `swapUsedGb`, `freeMemPct`, `seats`, `fullChecks`, `previews` |
+| CPU line     | `.git/evf/cpu.jsonl`           | `at`, `next`, `node-test`, `browser`, `tsc`, `claude`, `macOS`, `other`               |
+| `queue_tick` | `events` table, null `task_id` | `runnable`, `held`, `holdReasons`, `seats`, `slotsFree`, `load`                       |
+| `load_wait`  | `events` table                 | `command`, `task`, `startAt`, `endAt`, `maxLoad`                                      |
+
+- `freeMemPct` is the figure `memory_pressure` prints as free percentage (`sysctl kern.memorystatus_level`).
+- `fullChecks` counts live full `evf verify` calls through a mark under `.git/evf/full-checks/`, because the drive's pr
+  stage runs verify inside its own process and `ps` cannot see it.
+- `previews` counts portless previews that are not removed, failed or expired.
+- A CPU value is that class's part of the CPU in use at that tick, from `ps` `pcpu`, which macOS reports as a decayed
+  average. The parts sum to 1 apart from rounding. `cpu.jsonl` holds class names only, never command text.
+- A failed or timed-out probe writes null in its fields for that tick. A busy store costs the `queue_tick` and leaves
+  both files written, with `seats` still the real count. `seats` is null only when the store cannot be opened or read.
+- `queue_tick` is left out of the recent feed of `evf status` and the TUI, which it would otherwise fill within an hour.
+- `load_wait` is one event per wait the gate caused, whether the wait ended under the limit or gave up. `maxLoad` is the
+  highest load seen. A command under the limit on its first read or run with `--ignore-load` records none. `task` is
+  null for a caller with no task (`evf browser run`), and the event has the task's row id when the task has a store row.
+
+A slot is one seat up to the top of the seat target: `slotsFree` is `max(0, 12 - seats)`, and `seats` counts started runs
+whose role is not `evf`. The counts come from `nextStage`, applied to each open task with no started run:
+
+- Runnable: the next stage names a stage to perform. This includes stages evf runs itself (pr, ci, ship).
+- Held: `blocked`, `escalated` and `waiting`, counted by those names in `holdReasons`, plus `queued` for a queued
+  follow-up. A prototype at `pick` counts as `waiting`, because it waits for Sebastian and no free slot can take it. A
+  `held_external` task (stage `held`) counts as `blocked`, because no seat can change the failure that holds it.
+- In neither: a task with a started run, and merged, done and abandoned tasks.
+
+`runnable` ignores package dependency order: a WP task whose dependency has not merged counts as runnable if `nextStage`
+names a stage for it. Later analysis must allow for that.
+
+Read a free slot together with `load`, which `queue_tick` carries. A free slot with runnable work and load under the
+limit is idle time. The same slot with load above the limit is a machine with no room, and a seat started there waits at
+the gate.
 
 ## Browser checks and process hygiene
 

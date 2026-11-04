@@ -28,6 +28,7 @@ before(async () => {
 	await migrate(db, isolatedSchema);
 });
 const env = {
+	VERCEL_ENV: "production",
 	RESEND_API_KEY: "fake-provider-key",
 	EMAIL_FROM: "Everyfield <hello@everyfield.app>",
 	EARLY_ACCESS_EMAIL_TO: "owner@example.org",

@@ -153,7 +153,7 @@ export function taskStart(
 		}
 	}
 
-	awaitLoad(root, "task start", opts.ignoreLoad);
+	awaitLoad(root, "task start", opts.ignoreLoad, undefined, task);
 	if (hasRemote(root, cfg)) git(root, "fetch", "--quiet", cfg.remote, cfg.baseBranch);
 	const base = baseRef(root, cfg);
 	const wt = worktreePath(root, cfg, task);

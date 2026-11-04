@@ -9,7 +9,13 @@ type Held = { id: string; to: string; scheduledAt: string | null; lastEvent: str
 /** `fail`: the change call answers 500 and the email stays as it was. `drop`: the call throws, as a timeout would. */
 type Fault = "fail" | "drop";
 
-export function resendRecorder() {
+/** `env` is what the adapter's recipient rule reads. A test that sends to any address passes a production one. */
+export function resendRecorder(
+	env: Readonly<Record<string, string | undefined>> = process.env,
+	settle: (ids: readonly string[]) => void = () => {
+		throw new Error("a provider transport never settles captures");
+	},
+) {
 	const requests: Recorded[] = [];
 	const emails = new Map<string, Held>();
 	const faults = new Map<string, Fault>();
@@ -78,9 +84,8 @@ export function resendRecorder() {
 			apiKey: "re_test_key",
 		},
 		fetchFake as typeof fetch,
-		() => {
-			throw new Error("a provider transport never settles captures");
-		},
+		settle,
+		env,
 	);
 
 	return {

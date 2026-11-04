@@ -30,9 +30,10 @@ import { debugCmd, stack, taskStart } from "./task.ts";
 import { requireVerifiedHead, verify } from "./verify.ts";
 import { migrationsRenumber } from "./migrations.ts";
 import { awaitLoad } from "./load.ts";
+import { runSampler, startSampler, stopSampler } from "./sampler.ts";
 import { nextId } from "./ids.ts";
 import { escape, soak } from "./escape.ts";
-import { followUpsOfTask, dbMigrate, dbSeedProgress, goalsList, goalsSync, status, workDbPath } from "./db.ts";
+import { followUpsOfTask, dbMigrate, dbSeedProgress, events, goalsList, goalsSync, status, workDbPath } from "./db.ts";
 import { launch } from "./launch.ts";
 import { isRole, ROLES } from "./seats.ts";
 import { hook, refocus, session, showSpec } from "./seat.ts";
@@ -60,6 +61,7 @@ import { driveWithSignals } from "./drive-signal.ts";
 import { timing } from "./timing.ts";
 import { qaDown, qaList, qaUp } from "./qa.ts";
 import { usageBackfill, usageReport } from "./usage.ts";
+import { ownerQueue, ownerQueueAnswer, ownerQueueAsk } from "./owner-queue.ts";
 
 const HELP = `evf: Everyfield v3 workflow CLI
 
@@ -129,6 +131,10 @@ State store (harness)
                                                               tasks from the ledger committed on main
   evf goals sync | list                                       project goal and S-row missions from the plan docs
   evf status [--json] [<task>]                                tasks, seats, recent events and health from the store
+  evf events [--since <time>] [--type <name>] [--task <task>] [--json]   every matching event in id order, with no row limit
+  evf owner-queue [--json]                                    what waits for Sebastian: PR, head, ask, age, blocked tasks; prints only, sends nothing
+  evf owner-queue ask <task> --kind parked                    add a PR no route recorded, with the task's PR number and known head
+  evf owner-queue answer <task>                               record the answer to an open item, such as a keep decision
   evf usage [--json] [<task>]                                 tokens and estimated cost by task, role, model and round (list prices; nothing is billed)
   evf usage --backfill                                        fill the usage columns of runs that have a readable transcript
   evf tui [--dry-run] [--once]                                live screen of every task, seat and event (tools/evf-tui,
@@ -191,6 +197,8 @@ Upkeep
   evf gc [--apply]
   evf principles [--ref <sha>] [<task>]                       compare principles with pstack
   evf principles --apply <OPS-n> [--ref <sha>]                sync them into that task's worktree
+  evf sampler start | stop                                    one detached process records load, CPU share and queue state once per minute;
+                                                              evf drive starts it, stop ends it (see "Minute sampler" in tools/evf/README.md)
 
 Browser checks (any role)
   evf browser run [--timeout <seconds>] [--session <name>] [--ignore-load "<reason>"] -- <command> [args...]
@@ -245,14 +253,31 @@ function main(argv: string[]): number | Promise<number> {
 		case "ci-tests":
 			checkCiTests(git(process.cwd(), "rev-parse", "--show-toplevel"));
 			return 0;
-		case "test":
+		case "test": {
 			checkBranchDiffTests(git(process.cwd(), "rev-parse", "--show-toplevel"));
 			checkCiTests(git(process.cwd(), "rev-parse", "--show-toplevel"));
+			// Under evf verify, a second reporter writes the failed names to their own file. EVF_TEST_REPORT would not do:
+			// these tests carry AC:OPS-* markers, which would turn on case coverage for a WP task (D19).
+			const { EVF_FAILED_TESTS: failedTests, ...env } = process.env;
+			const report = failedTests
+				? [
+						"--test-reporter=spec",
+						"--test-reporter-destination=stdout",
+						`--test-reporter=${join(import.meta.dirname, "failed-tests-reporter.mjs")}`,
+						`--test-reporter-destination=${failedTests}`,
+					]
+				: [];
 			return run(
 				process.execPath,
-				["--test", ...args, join(git(process.cwd(), "rev-parse", "--show-toplevel"), "tools/evf/tests/*.test.ts")],
-				{ cwd: process.cwd(), inherit: true },
+				[
+					"--test",
+					...report,
+					...args,
+					join(git(process.cwd(), "rev-parse", "--show-toplevel"), "tools/evf/tests/*.test.ts"),
+				],
+				{ cwd: process.cwd(), inherit: true, env },
 			).code;
+		}
 		case "audit": {
 			const list = flag(args, "--list"),
 				dryRun = flag(args, "--dry-run"),
@@ -534,7 +559,7 @@ function main(argv: string[]): number | Promise<number> {
 			if (!setFile || args.length !== 1) break;
 			if (!Number.isFinite(timeoutSeconds) || timeoutSeconds <= 0)
 				throw new EvfError("--timeout takes a number of seconds.");
-			awaitLoad(root, "timing", ignoreLoad);
+			awaitLoad(root, "timing", ignoreLoad, undefined, parseTask(args[0]));
 			return timing(root, parseTask(args[0]), { setFile, head, timeoutSeconds });
 		}
 		case "qa": {
@@ -584,10 +609,30 @@ function main(argv: string[]): number | Promise<number> {
 			if (sub === "list" && !args.length) return goalsList(root);
 			break;
 		}
+		case "events": {
+			for (const name of ["--since", "--type", "--task"])
+				if (args.includes(name) && (args[args.indexOf(name) + 1] ?? "--").startsWith("--"))
+					throw new EvfError(`${name} needs a value.`);
+			const json = flag(args, "--json"),
+				since = option(args, "--since"),
+				type = option(args, "--type"),
+				task = option(args, "--task");
+			if (args.length) break;
+			return events(root, { json, since, type, task });
+		}
 		case "status": {
 			const json = flag(args, "--json");
 			if (args.length > 1) break;
 			return status(root, { json, task: args[0] });
+		}
+		case "owner-queue": {
+			const json = flag(args, "--json"),
+				kind = option(args, "--kind");
+			if (args.length === 0 && kind === undefined) return ownerQueue(root, json);
+			if (json || args.length !== 2) break;
+			if (args[0] === "ask") return ownerQueueAsk(root, parseTask(args[1]), kind);
+			if (args[0] === "answer" && kind === undefined) return ownerQueueAnswer(root, parseTask(args[1]));
+			break;
 		}
 		case "usage": {
 			const backfill = flag(args, "--backfill"),
@@ -648,6 +693,16 @@ function main(argv: string[]): number | Promise<number> {
 			if (args.length !== 1) break;
 			if (detach) return drive(root, parseTask(args[0]), { once, detach });
 			return driveWithSignals(root, parseTask(args[0]), once);
+		}
+		case "sampler": {
+			if (args.length !== 1) break;
+			if (args[0] === "start") return startSampler(root);
+			if (args[0] === "stop") return stopSampler(root);
+			if (args[0] === "run") {
+				runSampler(root); // internal: the detached process that `start` spawns
+				return 0;
+			}
+			break;
 		}
 		case "pane-finish": // internal: the detached close and rebalance of closeRunPane
 			if (args.length !== 2) break;

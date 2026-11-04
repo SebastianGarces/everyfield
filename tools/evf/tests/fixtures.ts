@@ -45,6 +45,9 @@ setLoadedCode((base) => ({ checkout: "fixture", ...base, dirty: false }));
 process.env.NODE_OPTIONS =
 	`${process.env.NODE_OPTIONS ?? ""} --import=${pathToFileURL(join(import.meta.dirname, "current-code.ts")).href}`.trim();
 
+// A drive that a test starts through main.ts starts no real sampler. The sampler tests clear this on purpose.
+process.env.EVF_NO_SAMPLER = "1";
+
 /**
  * A clock that a test moves. `sleep` records the wait, advances the time and returns at once. It starts at the current
  * real time, because a wait also compares it with timestamps in the store. `onSleep` runs after each sleep with the

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync, unlinkSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { stripVTControlCharacters } from "node:util";
 import {
@@ -28,12 +28,22 @@ import { maintenanceScope, requireSpend, requireTaskScope, requireMaintenancePat
 import { caseCoverage, caseGrep, hasCaseMarkers, testsOf } from "./coverage.ts";
 import { formatScope, wpScope, type ScopeReport } from "./scope.ts";
 import { requireFreeMigrationNumbers } from "./migrations.ts";
-import { awaitLoad } from "./load.ts";
+import { awaitLoad, markFullCheck } from "./load.ts";
 import { uiEscapedGate } from "./escape.ts";
+import { checkSignals, type DriveCaller } from "./signals.ts";
 
 export type Role = "author" | "verifier";
 export type Mode = "full" | "quick";
-export type CheckResult = { name: string; command: string[]; exitCode: number; log: string; passed: boolean };
+export type CheckResult = {
+	name: string;
+	command: string[];
+	exitCode: number;
+	log: string;
+	passed: boolean;
+	/** Written since OPS-132. A record from before it has neither. */
+	startedAt?: string;
+	durationMs?: number;
+};
 export type CheckReport = {
 	schema: 3;
 	task: string;
@@ -59,6 +69,7 @@ export function verify(
 	mode: Mode,
 	head?: string,
 	ignoreLoad?: string,
+	caller?: DriveCaller,
 ): CheckReport {
 	const wt =
 		role === "verifier"
@@ -77,7 +88,9 @@ export function verify(
 	if (!isClean(wt)) fail(`The checked checkout ${wt} is not clean. Commit the task changes before verification.`);
 	if (!gitOk(wt, "merge-base", "--is-ancestor", baseSha, "HEAD")) fail("Include current main before verification.");
 	requireFreeMigrationNumbers(wt, baseSha, task);
-	awaitLoad(root, "verify", ignoreLoad);
+	const queueStart = performance.now();
+	awaitLoad(root, "verify", ignoreLoad, undefined, task);
+	const queuedMs = Math.round(performance.now() - queueStart);
 	const cases = wp ? packageContext(wt, wp).case_ids : [];
 	const dir = evidenceDir(root, task, sha, `${role}-${mode}`);
 	mkdirSync(dir, { recursive: true });
@@ -113,112 +126,131 @@ export function verify(
 		cfg.checks,
 	);
 	if (task.kind !== "ops" && cfg.stack?.usesPaidProviders) requireSpend(root);
-	const reports: string[] = [];
-	const inputsUnchanged = () => git(wt, "rev-parse", "HEAD") === sha && isClean(wt);
-	let treeUnchanged = true;
-	for (const [index, c] of definitions.filter((c) => !c.modes || c.modes.includes(mode)).entries()) {
-		// Each check writes its own report, so one check can never overwrite another's results.
-		// The index keeps names that slug alike ("package cases", "package_cases") in separate files.
-		const file = `${index + 1}-${c.name.replace(/[^\w.-]+/g, "_")}`,
-			testReport = join(dir, `${file}.tests.json`);
-		if (existsSync(testReport)) unlinkSync(testReport);
-		reports.push(testReport);
-		const argv = command(fill(c.run, { ...vars, testReport }));
-		const log = join(dir, `${file}.log`);
-		let checkEnv: NodeJS.ProcessEnv = { ...env, EVF_TEST_REPORT: testReport };
-		if (c.name === UI_ESCAPED) {
-			const escaped = uiEscapedGate(root, wt, task, baseSha);
-			if ("skip" in escaped) {
-				console.error(`evf verify: ${UI_ESCAPED} skipped: ${escaped.skip}`);
-				continue;
+	const signals = checkSignals({ root, wt, task, sha, baseSha, role, mode, dir, queuedMs, caller });
+	const unmarkFullCheck = markFullCheck(root, mode);
+	try {
+		const reports: string[] = [];
+		const inputsUnchanged = () => git(wt, "rev-parse", "HEAD") === sha && isClean(wt);
+		let treeUnchanged = true;
+		for (const [index, c] of definitions.filter((c) => !c.modes || c.modes.includes(mode)).entries()) {
+			const finished = signals.suite();
+			// Each check writes its own report, so one check can never overwrite another's results.
+			// The index keeps names that slug alike ("package cases", "package_cases") in separate files.
+			const file = `${index + 1}-${c.name.replace(/[^\w.-]+/g, "_")}`,
+				testReport = join(dir, `${file}.tests.json`),
+				failedTests = join(dir, `${file}.failed-tests.jsonl`);
+			rmSync(testReport, { force: true });
+			rmSync(failedTests, { force: true });
+			reports.push(testReport);
+			const argv = command(fill(c.run, { ...vars, testReport }));
+			const log = join(dir, `${file}.log`);
+			let checkEnv: NodeJS.ProcessEnv = { ...env, EVF_TEST_REPORT: testReport, EVF_FAILED_TESTS: failedTests };
+			if (c.name === UI_ESCAPED) {
+				const escaped = uiEscapedGate(root, wt, task, baseSha);
+				if ("skip" in escaped) {
+					console.error(`evf verify: ${UI_ESCAPED} skipped: ${escaped.skip}`);
+					continue;
+				}
+				if ("fail" in escaped) {
+					console.error(`evf verify: ${UI_ESCAPED} failed. ${escaped.fail}`);
+					writeFileSync(log, `$ ${argv.join(" ")}\n\nNot run.\n${escaped.fail}\n`);
+					checks.push(finished({ name: c.name, command: argv, exitCode: 1, log, passed: false }));
+					continue;
+				}
+				checkEnv = { ...checkEnv, UI_BASE_URL: escaped.baseUrl };
 			}
-			if ("fail" in escaped) {
-				console.error(`evf verify: ${UI_ESCAPED} failed. ${escaped.fail}`);
-				writeFileSync(log, `$ ${argv.join(" ")}\n\nNot run.\n${escaped.fail}\n`);
-				checks.push({ name: c.name, command: argv, exitCode: 1, log, passed: false });
-				continue;
+			console.error(`evf verify: running ${c.name}.`);
+			let result = run(argv[0], argv.slice(1), { cwd: wt, env: checkEnv });
+			let output = `${result.stdout}\n${result.stderr}`;
+			for (
+				let retry = 1;
+				result.code !== 0 &&
+				retry <= 3 &&
+				/Another next build process is already running\./i.test(
+					stripVTControlCharacters(`${result.stdout}\n${result.stderr}`),
+				) &&
+				inputsUnchanged();
+				retry++
+			) {
+				const notice = `Retry ${retry}/3: held Next build lock; waiting 10 seconds.`;
+				console.error(notice);
+				sleep(10_000);
+				if (!inputsUnchanged()) break;
+				rmSync(testReport, { force: true });
+				rmSync(failedTests, { force: true });
+				result = run(argv[0], argv.slice(1), { cwd: wt, env: checkEnv });
+				output += `\n${notice}\n${result.stdout}\n${result.stderr}`;
 			}
-			checkEnv = { ...checkEnv, UI_BASE_URL: escaped.baseUrl };
+			console.error(`evf verify: ${c.name} ${result.code === 0 ? "passed" : "failed"}.`);
+			writeFileSync(log, `$ ${argv.join(" ")}\n\n${output}`);
+			checks.push(finished({ name: c.name, command: argv, exitCode: result.code, log, passed: result.code === 0 }));
+			signals.testsFailed(c.name, testReport, failedTests);
+			if (!inputsUnchanged()) {
+				treeUnchanged = false;
+				break;
+			}
 		}
-		console.error(`evf verify: running ${c.name}.`);
-		let result = run(argv[0], argv.slice(1), { cwd: wt, env: checkEnv });
-		let output = `${result.stdout}\n${result.stderr}`;
-		for (
-			let retry = 1;
-			result.code !== 0 &&
-			retry <= 3 &&
-			/Another next build process is already running\./i.test(
-				stripVTControlCharacters(`${result.stdout}\n${result.stderr}`),
-			) &&
-			inputsUnchanged();
-			retry++
-		) {
-			const notice = `Retry ${retry}/3: held Next build lock; waiting 10 seconds.`;
-			console.error(notice);
-			sleep(10_000);
-			if (!inputsUnchanged()) break;
-			if (existsSync(testReport)) unlinkSync(testReport);
-			result = run(argv[0], argv.slice(1), { cwd: wt, env: checkEnv });
-			output += `\n${notice}\n${result.stdout}\n${result.stderr}`;
+		if (treeUnchanged && task.kind !== "ops" && mode === "full" && existsSync(join(wt, "package.json"))) {
+			console.error("evf verify: running fresh-checkout-typecheck.");
+			const finished = signals.suite();
+			checks.push(finished(freshCheckoutTypecheck(root, wt, sha, dir, role)));
+			treeUnchanged = inputsUnchanged();
 		}
-		console.error(`evf verify: ${c.name} ${result.code === 0 ? "passed" : "failed"}.`);
-		writeFileSync(log, `$ ${argv.join(" ")}\n\n${output}`);
-		checks.push({ name: c.name, command: argv, exitCode: result.code, log, passed: result.code === 0 });
-		if (!inputsUnchanged()) {
-			treeUnchanged = false;
-			break;
+		// Coverage runs only when some report carries AC: markers; tooling-only reports never opt a task in (D19).
+		// Real acceptance remains the verifier's job.
+		const results = treeUnchanged
+			? reports.filter(existsSync).map((path) => JSON.parse(readFileSync(path, "utf8")) as unknown)
+			: [];
+		if (results.some(hasCaseMarkers)) {
+			const finished = signals.suite();
+			const coverage = caseCoverage(cases, { tests: results.flatMap((r) => testsOf(r)) }),
+				log = join(dir, "case-coverage.log");
+			writeFileSync(log, JSON.stringify(coverage, null, 2));
+			checks.push(
+				finished({
+					name: "case-coverage",
+					command: ["evf", "coverage"],
+					exitCode: coverage.missing.length ? 1 : 0,
+					log,
+					passed: coverage.missing.length === 0,
+				}),
+			);
 		}
+		// Advisory: the verifier reviews paths outside the owning paths and the narrow D14/D16 rulings.
+		const scope = task.kind === "wp" ? wpScope(wt, baseSha, task.wp, task.part) : undefined;
+		if (scope) {
+			writeFileSync(join(dir, "scope.json"), JSON.stringify(scope, null, 2) + "\n");
+			console.log(formatScope(scope));
+		}
+		const unchanged = treeUnchanged && inputsUnchanged() && git(root, "rev-parse", ref) === baseSha;
+		const report: CheckReport = {
+			schema: 3,
+			task: task.id,
+			role,
+			mode,
+			kind: task.kind === "ops" ? "tooling" : "application",
+			sha,
+			baseSha,
+			clean: true,
+			unchanged,
+			checks,
+			passed: unchanged && checks.length > 0 && checks.every((c) => c.passed),
+			evidenceDir: dir,
+			finishedAt: new Date().toISOString(),
+			...(scope ? { scope } : {}),
+		};
+		writeFileSync(join(dir, "checks.json"), JSON.stringify(report, null, 2) + "\n");
+		signals.end(!unchanged ? "invalidated" : report.passed ? "passed" : "failed");
+		console.log(
+			`${!unchanged ? "INVALIDATED: checked tree or base changed during verification; rerun on stable inputs." : report.passed ? "PASSED" : "FAILED"} local ${report.kind} checks: ${join(dir, "checks.json")}. Independent real verification and GitHub CI are separate.`,
+		);
+		return report;
+	} catch (error) {
+		signals.end("error");
+		throw error;
+	} finally {
+		unmarkFullCheck();
 	}
-	if (treeUnchanged && task.kind !== "ops" && mode === "full" && existsSync(join(wt, "package.json"))) {
-		console.error("evf verify: running fresh-checkout-typecheck.");
-		checks.push(freshCheckoutTypecheck(root, wt, sha, dir, role));
-		treeUnchanged = inputsUnchanged();
-	}
-	// Coverage runs only when some report carries AC: markers; tooling-only reports never opt a task in (D19).
-	// Real acceptance remains the verifier's job.
-	const results = treeUnchanged
-		? reports.filter(existsSync).map((path) => JSON.parse(readFileSync(path, "utf8")) as unknown)
-		: [];
-	if (results.some(hasCaseMarkers)) {
-		const coverage = caseCoverage(cases, { tests: results.flatMap((r) => testsOf(r)) }),
-			log = join(dir, "case-coverage.log");
-		writeFileSync(log, JSON.stringify(coverage, null, 2));
-		checks.push({
-			name: "case-coverage",
-			command: ["evf", "coverage"],
-			exitCode: coverage.missing.length ? 1 : 0,
-			log,
-			passed: coverage.missing.length === 0,
-		});
-	}
-	// Advisory: the verifier reviews paths outside the owning paths and the narrow D14/D16 rulings.
-	const scope = task.kind === "wp" ? wpScope(wt, baseSha, task.wp, task.part) : undefined;
-	if (scope) {
-		writeFileSync(join(dir, "scope.json"), JSON.stringify(scope, null, 2) + "\n");
-		console.log(formatScope(scope));
-	}
-	const unchanged = treeUnchanged && inputsUnchanged() && git(root, "rev-parse", ref) === baseSha;
-	const report: CheckReport = {
-		schema: 3,
-		task: task.id,
-		role,
-		mode,
-		kind: task.kind === "ops" ? "tooling" : "application",
-		sha,
-		baseSha,
-		clean: true,
-		unchanged,
-		checks,
-		passed: unchanged && checks.length > 0 && checks.every((c) => c.passed),
-		evidenceDir: dir,
-		finishedAt: new Date().toISOString(),
-		...(scope ? { scope } : {}),
-	};
-	writeFileSync(join(dir, "checks.json"), JSON.stringify(report, null, 2) + "\n");
-	console.log(
-		`${!unchanged ? "INVALIDATED: checked tree or base changed during verification; rerun on stable inputs." : report.passed ? "PASSED" : "FAILED"} local ${report.kind} checks: ${join(dir, "checks.json")}. Independent real verification and GitHub CI are separate.`,
-	);
-	return report;
 }
 
 /**

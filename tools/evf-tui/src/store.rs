@@ -32,6 +32,8 @@ pub struct Task {
     pub merged_at: Option<String>,
     /// Non-abandoned rows of the same ref, this one included (v_tasks.ref_rows, schema 5).
     pub ref_rows: i64,
+    /// Cause of the task's latest `held_external` event, or None (v_tasks.hold_cause, schema 15).
+    pub hold_cause: Option<String>,
     pub updated_at: String,
 }
 
@@ -181,6 +183,7 @@ fn task_row(r: &Row) -> rusqlite::Result<Task> {
         last_event: r.get("last_event").unwrap_or(None),
         merged_at: r.get("merged_at").unwrap_or(None),
         ref_rows: r.get("ref_rows").unwrap_or(1),
+        hold_cause: r.get("hold_cause").unwrap_or(None),
         updated_at: r.get("updated_at")?,
     })
 }
@@ -239,7 +242,7 @@ pub fn read(conn: &Connection) -> Result<Snapshot> {
         }
     }
     let recent = conn
-        .prepare(&format!("SELECT * FROM v_recent LIMIT {RECENT_LIMIT}"))?
+        .prepare(&format!("SELECT * FROM v_recent WHERE type <> 'queue_tick' LIMIT {RECENT_LIMIT}"))?
         .query_map([], |r| {
             Ok(Event {
                 id: r.get("id")?,
@@ -527,6 +530,24 @@ pub mod tests {
             .unwrap_err();
         assert!(err.to_string().contains("readonly"), "{err}");
         assert!(detail(&conn, 999).is_err());
+    }
+
+    #[test]
+    fn the_recent_feed_leaves_out_the_sampler_queue_ticks() {
+        let store = TempStore::new();
+        store.seed();
+        let conn = open(&store.path).unwrap();
+        let before = read(&conn).unwrap().recent.len();
+        store
+            .writer()
+            .execute_batch(
+                "INSERT INTO events (ts, type) VALUES ('2026-10-27T20:50:00.000Z', 'queue_tick');
+                 INSERT INTO events (ts, type) VALUES ('2026-10-27T20:51:00.000Z', 'load_wait');",
+            )
+            .unwrap();
+        let recent = read(&conn).unwrap().recent;
+        assert_eq!(recent.len(), before + 1);
+        assert_eq!(recent[0].kind, "load_wait");
     }
 
     #[test]
