@@ -1,4 +1,4 @@
-import { mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, rmSync, writeFileSync, writeSync } from "node:fs";
 import { join } from "node:path";
 import { evfDataDir, sleep, WaitGaveUp } from "./lib.ts";
 import { readHolder, stopped, type QueueTiming } from "./ship-queue.ts";
@@ -41,6 +41,16 @@ function liveTickets(dir: string): string[] {
 }
 
 /**
+ * Written to the descriptor because the drive's pr stage waits in a worker thread that never yields, and a worker's
+ * console.error reaches the log only when the wait ends. A closed or full stderr costs a line, never the place.
+ */
+function printPosition(line: string): void {
+	try {
+		writeSync(2, `${line}\n`);
+	} catch {}
+}
+
+/**
  * One machine-wide, first-come queue for full checks in the home checkout's Git folder. The first CHECK_CAP live
  * tickets run and the others wait, so a running check keeps its ticket and needs no second lock file. A process that
  * stops, however it stops, loses its ticket to the next reader; a ticket goes on return or throw.
@@ -60,7 +70,7 @@ export function withCheckQueue<T>(root: string, task: string, fn: () => T, timin
 					`${task} waited in the full check queue for ${Math.round(waited / 60_000)} min and no check ran: ${CHECK_CAP} full checks stayed ahead of it. Run it again later.`,
 				);
 			if (waited >= printed * 60_000) {
-				console.error(
+				printPosition(
 					`evf verify: ${task} waits in the full check queue, position ${index - CHECK_CAP + 1}, ${CHECK_CAP} running, ${Math.floor(waited / 60_000)} min.`,
 				);
 				printed = Math.floor(waited / 60_000) + 1;

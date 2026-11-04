@@ -189,6 +189,44 @@ withCheckQueue(${JSON.stringify(f.root)}, ${JSON.stringify(name)}, () => {
 		),
 	);
 }
+/**
+ * A process that waits in the queue inside a worker thread that never yields, as the drive's pr stage does, on a clock
+ * that runs one minute in each 15 ms.
+ */
+function workerWaiter(f: ReturnType<typeof queueFixture>, log: string) {
+	const script = join(f.root, "fake-bin/worker-waiter.mjs");
+	writeFileSync(
+		script,
+		`import { writeFileSync } from "node:fs";
+import { withCheckQueue } from ${JSON.stringify(join(source, "tools/evf/check-queue.ts"))};
+import { sleep } from ${JSON.stringify(join(source, "tools/evf/lib.ts"))};
+let clock = 0;
+withCheckQueue(${JSON.stringify(f.root)}, "OPS-1", () => writeFileSync(${JSON.stringify(log)}, "started"), {
+	waitMs: Infinity,
+	pollMs: 20000,
+	now: () => clock,
+	sleep: (ms) => {
+		clock += ms;
+		sleep(5);
+	},
+});`,
+	);
+	return watch(
+		spawn(
+			process.execPath,
+			[
+				"-e",
+				`new (require("node:worker_threads").Worker)(${JSON.stringify(script)}).on("error", (e) => { throw e; });`,
+			],
+			{ stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, NODE_TEST_CONTEXT: undefined } },
+		),
+	);
+}
+const positions = (err: string) =>
+	[...err.matchAll(/position (\d+), 3 running, (\d+) min\./g)].map((m) => ({
+		position: Number(m[1]),
+		minute: Number(m[2]),
+	}));
 const logged = (log: string) => (existsSync(log) ? readFileSync(log, "utf8").trim().split("\n") : []);
 
 /** Own-process tickets with low numbers, in the test's process. */
@@ -252,34 +290,56 @@ test("with fewer than three running a full check starts at once (AC:OPS-138-1)",
 	}
 });
 
-test("a waiter prints its position at the start and once per minute, and the position falls (AC:OPS-138-2)", () => {
+test("a waiter in a worker thread prints its position once per minute during the wait, and the position falls (AC:OPS-138-2)", async () => {
 	const f = queueFixture();
 	try {
 		tickets(f.dir, [1, 2, 3, 4, 5]);
-		let clock = 0;
-		const gone = [1, 2, 3];
-		const run = quiet(() =>
-			withCheckQueue(f.root, "OPS-1", () => "started", {
-				waitMs: CHECK_QUEUE.waitMs,
-				pollMs: 20_000,
-				now: () => clock,
-				sleep: (ms) => {
-					clock += ms;
-					// One waiter ahead starts each minute: the first running check ends and the queue moves up.
-					if (clock % 60_000 === 0 && gone.length) rmSync(join(f.dir, ticketName(gone.shift()!)));
-				},
-			}),
-		);
-		assert.equal(run.value, "started");
+		const log = join(f.root, "fake-bin/started.log");
+		const waiter = workerWaiter(f, log);
+		// Each line arrives while the wait goes on: the drive's pr stage waits in a worker thread that never yields.
+		for (const [position, ahead] of [
+			[3, 1],
+			[2, 2],
+			[1, 3],
+		] as const) {
+			await until(`position ${position}, one minute on`, () => {
+				const lines = positions(waiter.err()).filter((line) => line.position === position);
+				return lines.length >= 2;
+			});
+			assert.equal(existsSync(log), false, "the waiter still waits");
+			rmSync(join(f.dir, ticketName(ahead)));
+		}
+		assert.equal(await waiter.done, 0, waiter.err());
+		assert.equal(existsSync(log), true);
+		const lines = positions(waiter.err());
 		assert.deepEqual(
-			run.err.trim().split("\n"),
-			[
-				"evf verify: OPS-1 waits in the full check queue, position 3, 3 running, 0 min.",
-				"evf verify: OPS-1 waits in the full check queue, position 2, 3 running, 1 min.",
-				"evf verify: OPS-1 waits in the full check queue, position 1, 3 running, 2 min.",
-			],
+			lines.map((line) => line.minute),
+			lines.map((_, minute) => minute),
 			"one line at the start and one per minute",
 		);
+		assert.deepEqual(
+			[...new Set(lines.map((line) => line.position))],
+			[3, 2, 1],
+			"the position falls as waiters ahead of it start",
+		);
+	} finally {
+		f.close();
+	}
+});
+
+test("a position line that nobody can read does not end the wait (AC:OPS-138-2)", async () => {
+	const f = queueFixture();
+	try {
+		tickets(f.dir, [1, 2, 3]);
+		const log = join(f.root, "fake-bin/started.log");
+		const waiter = workerWaiter(f, log);
+		await until("the first position", () => positions(waiter.err()).length > 0);
+		waiter.child.stderr!.destroy();
+		await delay(200);
+		assert.equal(existsSync(log), false, "the waiter still waits");
+		rmSync(join(f.dir, ticketName(1)));
+		await until("the start", () => existsSync(log));
+		assert.equal(await waiter.done, 0);
 	} finally {
 		f.close();
 	}
@@ -703,13 +763,12 @@ test("a full check gives up after 120 minutes: the message names the queue, no c
 				...CHECK_QUEUE,
 				now: () => clock,
 				sleep: (ms) => void (clock += ms),
-				pollMs: 60_000,
+				pollMs: CHECK_QUEUE.waitMs,
 			}),
 		);
 		assert.ok(fake.thrown instanceof WaitGaveUp);
 		assert.match(fake.thrown.message, /waited in the full check queue for 120 min and no check ran/);
 		assert.equal(clock, 120 * 60_000);
-		assert.equal(fake.err.trim().split("\n").length, 120, "one line per minute until the limit");
 		assert.deepEqual(f.tickets(), held);
 
 		const real = quiet(() =>

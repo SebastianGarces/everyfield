@@ -264,9 +264,11 @@ function main(argv: string[]): number | Promise<number> {
 						? "5-20 minutes"
 						: cmd === "escape" && args[0] === "soak"
 							? "20-60 minutes (20 runs)"
-							: cmd === "verify" || cmd === "check" || (cmd === "ac" && args[0] === "run")
-								? "2-15 minutes"
-								: undefined;
+							: cmd === "verify" || cmd === "check"
+								? "2-15 minutes, plus any wait in the full check queue (up to 120 minutes)"
+								: cmd === "ac" && args[0] === "run"
+									? "2-15 minutes"
+									: undefined;
 	if (duration) requireForeground(cmd, duration);
 	switch (cmd) {
 		case "ci-tests":
