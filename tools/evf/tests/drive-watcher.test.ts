@@ -583,28 +583,17 @@ async function fakeDriveProcess(s: ReturnType<typeof store>, name = "main.ts", .
 	return { child, exited };
 }
 
-const stopCli = (s: ReturnType<typeof store>) =>
-	spawnSync(
-		process.execPath,
-		["--disable-warning=ExperimentalWarning", join(source, "tools/evf/main.ts"), "drive", "OPS-1", "--stop"],
-		{
-			cwd: s.root,
-			encoding: "utf8",
-			env: { ...process.env, EVF_RUN: "", EVF_WORKTREE: "" },
-		},
-	);
-
 test("evf drive --stop records the request, signals the live drive and exits 0 when none runs; that stop never restarts, a new drive's heartbeat clears it (AC:OPS-137-9)", async () => {
 	const s = store();
 	try {
-		const none = stopCli(s);
+		const none = realDrive(s, "--stop");
 		assert.equal(none.status, 0);
 		assert.match(none.stdout, /No drive runs for OPS-1/);
 		assert.equal(s.events("drive_stop_requested")[0]!.payload.pid, null);
 
 		const { child, exited } = await fakeDriveProcess(s, "main.ts", "drive", "OPS-1");
 		beat(s, T0, child.pid!);
-		const stopped = stopCli(s);
+		const stopped = realDrive(s, "--stop");
 		assert.equal(stopped.status, 0);
 		assert.match(stopped.stdout, new RegExp(`pid ${child.pid}`));
 		assert.equal(await exited, "SIGTERM");
@@ -629,7 +618,7 @@ test("--stop signals no process that a pid file names when that pid now runs ano
 	const s = store();
 	const { child } = await fakeDriveProcess(s, "other.ts");
 	try {
-		const r = stopCli(s);
+		const r = realDrive(s, "--stop");
 		assert.equal(r.status, 0);
 		assert.match(r.stdout, /No drive runs/);
 		assert.equal(child.exitCode, null);
@@ -795,6 +784,7 @@ test("the watcher ticks once per minute in the sampler; either one's failure lea
 		let calls = 0;
 		const failing: WatcherProbes = {
 			now: () => {
+				calls++;
 				throw new Error("watcher failure");
 			},
 			liveDrive: () => null,
@@ -805,16 +795,7 @@ test("the watcher ticks once per minute in the sampler; either one's failure lea
 		const savedError = console.error;
 		console.error = () => {};
 		try {
-			runSampler(s.root, samplerProbes(), {
-				ticks: 3,
-				watcher: {
-					...failing,
-					now: () => {
-						calls++;
-						return failing.now();
-					},
-				},
-			});
+			runSampler(s.root, samplerProbes(), { ticks: 3, watcher: failing });
 		} finally {
 			console.error = savedError;
 		}
@@ -849,18 +830,9 @@ test("the watcher ticks once per minute in the sampler; either one's failure lea
 		assert.match(code, /export function watcherTick/);
 
 		process.env.EVF_NO_SAMPLER = "1";
-		let noSampler = 0;
-		runSampler(s.root, samplerProbes(), {
-			ticks: 2,
-			watcher: {
-				...failing,
-				now: () => {
-					noSampler++;
-					return T0;
-				},
-			},
-		});
-		assert.equal(noSampler, 0);
+		calls = 0;
+		runSampler(s.root, samplerProbes(), { ticks: 2, watcher: failing });
+		assert.equal(calls, 0);
 	} finally {
 		process.env.EVF_NO_SAMPLER = saved;
 		s.done();

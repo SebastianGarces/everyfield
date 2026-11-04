@@ -1,4 +1,3 @@
-import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { findTask, openWorkDb } from "./db.ts";
@@ -31,16 +30,9 @@ export function machineWatcher(root: string): WatcherProbes {
 		startDrive: (ref) => {
 			// The sampler inherits the environment of the drive that started it, which may carry a seat's identity.
 			const { EVF_RUN, EVF_WORKTREE, EVF_SESSION, EVF_ROLE, EVF_STAGE, ...env } = process.env;
-			const home = join(root, "tools/evf/main.ts");
 			const started = run(
 				process.execPath,
-				[
-					"--disable-warning=ExperimentalWarning",
-					existsSync(home) ? home : join(import.meta.dirname, "main.ts"),
-					"drive",
-					ref,
-					"--detach",
-				],
+				["--disable-warning=ExperimentalWarning", join(root, "tools/evf/main.ts"), "drive", ref, "--detach"],
 				{ cwd: root, env, timeoutMs: COMMAND_TIMEOUT_MS },
 			);
 			return started.code === 0 ? null : started.stderr.trim() || `evf drive --detach exited ${started.code}`;
@@ -118,7 +110,7 @@ function watchTask(db: DatabaseSync, t: { id: number; ref: string; slug: string 
 }
 
 /** One minute's look at every active task. A failure on one task leaves the other tasks to go ahead. */
-export function watcherTick(root: string, probes: WatcherProbes = machineWatcher(root)): void {
+export function watcherTick(root: string, probes: WatcherProbes): void {
 	const db = openWorkDb(root);
 	try {
 		const tasks = db

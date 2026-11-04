@@ -1201,7 +1201,6 @@ Read a free slot together with `load`, which `queue_tick` carries. A free slot w
 limit is idle time. The same slot with load above the limit is a machine with no room, and a seat started there waits at
 the gate.
 
-
 ### Dead drive watcher
 
 The watcher (OPS-137, `tools/evf/drive-watcher.ts`) ticks once per minute in the sampler process, in its own function.

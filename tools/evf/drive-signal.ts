@@ -22,7 +22,7 @@ const drivePidFile = (root: string, slug: string) => join(evfDataDir(root), "dri
 export function liveDrivePid(root: string, slug: string): number | null {
 	const pidFile = drivePidFile(root, slug);
 	const pid = existsSync(pidFile) ? Number(readFileSync(pidFile, "utf8").trim()) : 0;
-	if (!Number.isInteger(pid) || pid <= 0 || !alive(pid)) return null;
+	if (!pid || !alive(pid)) return null;
 	const ps = run("ps", ["-p", String(pid), "-wwo", "command="], { timeoutMs: PS_TIMEOUT_MS });
 	return ps.code !== 0 || /main\.ts drive\b/.test(ps.stdout) ? pid : null;
 }
@@ -97,43 +97,27 @@ export function recordDriveStopped(
 	}
 }
 
-/** A failed heartbeat write costs one heartbeat, never the drive. Returns the function that ends the heartbeats. */
-export function startHeartbeat(root: string, pin: number): () => void {
-	const beat = () => {
-		try {
-			const db = openWorkDb(root);
-			try {
-				record(db, pin, null, "drive_heartbeat", { pid: process.pid });
-			} finally {
-				db.close();
-			}
-		} catch (e) {
-			console.error(`evf drive: the heartbeat did not record: ${String(e)}`);
-		}
-	};
-	beat();
-	const timer = setInterval(beat, HEARTBEAT_MS);
-	timer.unref();
-	return () => clearInterval(timer);
-}
-
-/** Only this thread records the end, after it ends the heartbeats, so no heartbeat can follow a drive_ended. */
-function recordDriveEnded(root: string, pin: number, end: { stage: string; reason: string }, code: number): void {
+/** A drive's own record on its pinned row. A failed write costs that record, never the drive. */
+function recordSafely(root: string, pin: number, type: string, payload: Record<string, unknown>): void {
 	try {
 		const db = openWorkDb(root);
 		try {
-			record(db, pin, null, "drive_ended", {
-				pid: process.pid,
-				stage: end.stage,
-				code,
-				summary: `drive ended at ${end.stage}, exit ${code}: ${end.reason}`,
-			});
+			record(db, pin, null, type, payload);
 		} finally {
 			db.close();
 		}
 	} catch (e) {
-		console.error(`evf drive: the end did not record: ${String(e)}`);
+		console.error(`evf drive: ${type} did not record: ${String(e)}`);
 	}
+}
+
+/** One heartbeat now and one per minute. Returns the function that ends them. */
+export function startHeartbeat(root: string, pin: number): () => void {
+	const beat = () => recordSafely(root, pin, "drive_heartbeat", { pid: process.pid });
+	beat();
+	const timer = setInterval(beat, HEARTBEAT_MS);
+	timer.unref();
+	return () => clearInterval(timer);
 }
 
 /**
@@ -207,8 +191,16 @@ export function driveWithSignals(root: string, task: TaskRef, once: boolean): Pr
 				}
 				done();
 				if (m.refusal !== undefined) return reject(new EvfError(m.refusal));
-				if (m.end && pin !== undefined) recordDriveEnded(root, pin, m.end, m.code ?? 0);
-				resolve(m.code ?? 0);
+				const code = m.code ?? 0;
+				// done() ended the heartbeats, so no heartbeat can follow a drive_ended.
+				if (m.end && pin !== undefined)
+					recordSafely(root, pin, "drive_ended", {
+						pid: process.pid,
+						stage: m.end.stage,
+						code,
+						summary: `drive ended at ${m.end.stage}, exit ${code}: ${m.end.reason}`,
+					});
+				resolve(code);
 			},
 		);
 		worker.once("error", (e) => {

@@ -2045,22 +2045,19 @@ test("in a real hold: heartbeats go on, and a SIGTERM between stages records nul
 test("a drive that refuses to start records no heartbeat: stale code, and another drive that holds the task (AC:OPS-137-1)", () => {
 	const f = driveFixture();
 	try {
-		const main = join(source, "tools/evf/main.ts");
 		const env = { ...process.env, EVF_RUN: "", EVF_WORKTREE: "", EVF_SESSION: "", EVF_ROLE: "", EVF_STAGE: "" };
-		const stale = spawnSync(process.execPath, ["--disable-warning=ExperimentalWarning", main, "drive", "OPS-1"], {
-			cwd: f.root,
-			encoding: "utf8",
-			env: { ...env, NODE_OPTIONS: "" },
-		});
+		const start = (startEnv: NodeJS.ProcessEnv) =>
+			spawnSync(
+				process.execPath,
+				["--disable-warning=ExperimentalWarning", join(source, "tools/evf/main.ts"), "drive", "OPS-1"],
+				{ cwd: f.root, encoding: "utf8", env: startEnv },
+			);
+		const stale = start({ ...env, NODE_OPTIONS: "" });
 		assert.notEqual(stale.status, 0);
 		assert.match(stale.stderr, /evf drive does not start OPS-1/);
 		mkdirSync(join(evfDataDir(f.root), "drive"), { recursive: true });
 		writeFileSync(join(evfDataDir(f.root), "drive", "ops-1.pid"), `${process.pid}\n`);
-		const held = spawnSync(process.execPath, ["--disable-warning=ExperimentalWarning", main, "drive", "OPS-1"], {
-			cwd: f.root,
-			encoding: "utf8",
-			env,
-		});
+		const held = start(env);
 		assert.notEqual(held.status, 0);
 		assert.match(held.stderr, /evf drive already runs for OPS-1/);
 		assert.equal(f.events("drive_heartbeat").length, 0);
