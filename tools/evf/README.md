@@ -911,8 +911,46 @@ worktree; `evf doctor` reports it and the next `evf audit` removes it. The work 
 table records each run: task, merge commit, main SHA, candidate, operator, file, seed, outcome, each
 test's result, the filed task and the start and end times. `evf doctor` prints one warning when no
 audit ended `killed` or `survived` in the last 31 days, with the command to run. That warning is the
-monthly cadence; evf has no scheduler. The audit runs only on this Mac, starts no model seat and calls
-no paid API. A `--with-verifier` step waits for Sebastian's answer to report decision D.2.
+monthly cadence; evf has no scheduler. The audit runs only on this Mac. Without `--with-verifier` it
+starts no model seat and calls no paid API.
+
+### `--with-verifier`
+
+`evf audit --with-verifier` (OPS-124) adds one step. Sebastian approved it as report decision D.2. After
+a non-dry run that ends `killed` or `survived`, evf starts one fresh Opus verifier seat on the task's
+change with the planted bug in it. It opens no PR and pushes nothing. `invalid`, `baseline-red`,
+`stopped` and `error` start no seat. `--dry-run --with-verifier` runs the tests and prints what the
+seat would receive. `--list --with-verifier` is a usage error.
+
+What the seat receives: a new temporary folder with a neutral name, not a Git checkout, that holds
+`change.diff` and `task.md`. `change.diff` is `git diff <first audited merge>^1 <mutant commit>`, limited
+to the files the audited merges changed. `task.md` holds the task's stored ask and spec. evf deletes the
+audit worktree before the seat starts. The seat runs `claude -p` with a new session id, `--model
+claude-opus-5-5`, `--effort medium` and the tools Read, Grep and Glob only. Its prompt is the one a
+reviewer of any change would get; it names no candidate, operator or outcome. Its environment holds
+`PATH`, `HOME`, the user, shell, locale and temp variables and `CLAUDE_CONFIG_DIR`. It holds no `EVF_*`
+variable, no `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `CLAUDE_CODE_USE_BEDROCK` or
+`CLAUDE_CODE_USE_VERTEX`, so it runs only on the subscription. The seat writes no `runs` row and does not
+touch the task's row, so no ship, verify or drive gate reads it. The code is `tools/evf/audit-verifier.ts`.
+
+The seat returns JSON, a list of `{ file, line, summary }`. evf grades it with code, not a model. The
+result is stored in `audit_runs` (`verifier_result`, `verifier_session`, `verifier_findings`,
+`verifier_usage`, `verifier_ended_at`) and the run prints `tests: <outcome>, verifier: <result>` as its
+last line:
+
+- `found`: a finding names the mutated file and a line within 3 of the mutated line (the file alone for
+  `removed-route`).
+- `missed`: no finding does. A removed route of a file the task added leaves that file out of
+  `change.diff`, so only a comparison with `task.md` can find it; `missed` there is a real miss.
+- `no-verdict`: the output did not parse, the seat exited non-zero, 30 minutes passed or `claude` is
+  missing. It is never `missed`.
+
+The test outcome and any filed task are written before the seat starts. A seat failure changes neither,
+nor the exit code. The limit is one `found` or `missed` result in 30 days (the one approved Opus verify a
+month). A run that would start a second seat refuses before any test runs and names the date of the last
+result and the first date it will run. No flag overrides it; more than one a month needs a new approval
+from Sebastian. A `no-verdict` run does not count. SIGTERM stops the seat, removes the folder and
+records `no-verdict`.
 
 ## Machine load limit
 
