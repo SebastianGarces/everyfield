@@ -14,6 +14,7 @@ import { basename, join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { openWorkDb, record, type TaskRow } from "./db.ts";
 import { nextStageFromStore } from "./drive.ts";
+import { machineWatcher, watcherTick, type WatcherProbes } from "./drive-watcher.ts";
 import { evfDataDir, parseTask, run, sleep } from "./lib.ts";
 import { countFullChecks } from "./load.ts";
 import { HEADLESS_ROLES_SQL } from "./seats.ts";
@@ -22,12 +23,14 @@ import { alive } from "./ship-queue.ts";
 /**
  * The minute sampler (OPS-133): one detached process that records load, CPU share by class and queue state once per
  * minute, so a bottleneck review reads numbers. It only writes history: nothing reads these records to decide anything.
+ * The same process runs the dead drive watcher once per minute (drive-watcher.ts), which reads none of these records.
  * The rules a reader of the records needs are in the "Minute sampler" section of tools/evf/README.md.
  */
 
 /** A slot is one seat up to the top of the seat target of 8 to 12. */
 const SLOT_TARGET = 12;
 const RETENTION_MS = 30 * 24 * 60 * 60_000;
+const HEARTBEAT_RETENTION_MS = 7 * 24 * 60 * 60_000;
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
 /** A tick's four child processes at this timeout and a busy store still end inside one minute, so ticks cannot stack. */
@@ -227,7 +230,7 @@ function trimFile(path: string, cutoffMs: number): void {
 	renameSync(temporary, path);
 }
 
-/** The retention rule: 30 days for all four record kinds. A failure in one place leaves the others to go ahead. */
+/** The retention rule: 30 days for all four record kinds, 7 for drive_heartbeat. A failure in one place leaves the others to go ahead. */
 export function applyRetention(root: string, nowMs: number): void {
 	const dir = evfDataDir(root),
 		cutoffMs = nowMs - RETENTION_MS;
@@ -237,6 +240,9 @@ export function applyRetention(root: string, nowMs: number): void {
 		try {
 			db.prepare("DELETE FROM events WHERE type IN ('queue_tick', 'load_wait') AND ts < ?").run(
 				new Date(cutoffMs).toISOString(),
+			);
+			db.prepare("DELETE FROM events WHERE type = 'drive_heartbeat' AND ts < ?").run(
+				new Date(nowMs - HEARTBEAT_RETENTION_MS).toISOString(),
 			);
 		} finally {
 			db.close();
@@ -292,7 +298,11 @@ function claimLock(lock: string): boolean {
  * The sampler loop. It returns at once when another sampler holds the lock, and it ends when the lock no longer names
  * it, which also closes the rare race of two starts that both reap one stale lock. `ticks` bounds a test's run.
  */
-export function runSampler(root: string, probes = machineProbes(root), opts: { ticks?: number } = {}): void {
+export function runSampler(
+	root: string,
+	probes = machineProbes(root),
+	opts: { ticks?: number; watcher?: WatcherProbes } = {},
+): void {
 	const lock = lockPath(root);
 	mkdirSync(evfDataDir(root), { recursive: true });
 	if (!claimLock(lock)) return;
@@ -306,6 +316,7 @@ export function runSampler(root: string, probes = machineProbes(root), opts: { t
 			applyRetention(root, now);
 		}
 		attempt(() => samplerTick(root, probes));
+		if (!process.env.EVF_NO_SAMPLER) attempt(() => watcherTick(root, opts.watcher ?? machineWatcher(root)));
 		const after = probes.now();
 		nextAt += MINUTE_MS;
 		while (nextAt <= after) nextAt += MINUTE_MS; // A slow tick skips a minute; it never runs two at once.

@@ -2445,7 +2445,15 @@ const alive = (pid: number): boolean => {
 export function drive(
 	root: string,
 	task: TaskRef,
-	opts: { once?: boolean; detach?: boolean; startSampler?: (root: string) => void },
+	opts: {
+		once?: boolean;
+		detach?: boolean;
+		startSampler?: (root: string) => void;
+		/** Called once, when this drive holds the pid file and has pinned its row. */
+		onPinned?: (pin: number) => void;
+		/** Called on a normal end only: an uncaught failure skips it, so the failure counts as a death (OPS-137). */
+		onEnd?: (end: Next) => void;
+	},
 	timing: DriveTiming = DRIVE_TIMING,
 ): number {
 	// A drive on stale evf code would run its stages on old rules, so it refuses before any seat or run row (OPS-111).
@@ -2485,6 +2493,7 @@ export function drive(
 		}
 		// The drive stays on this row to its end; a follow-up its merge releases waits for a fresh drive (OPS-123).
 		const pin = pinRow(root, task);
+		opts.onPinned?.(pin);
 		for (;;) {
 			const n = driveOnce(root, task, timing, pin);
 			console.log(`${now()} drive ${task.id}: ${n.stage} (${n.reason})`);
@@ -2494,7 +2503,10 @@ export function drive(
 				continue;
 			}
 			const stop = n.stage === "escalated" || n.stage === "blocked" || n.stage === "abandoned";
-			if (stop || n.stage === "done" || n.stage === "pick" || opts.once) return stop ? 2 : 0;
+			if (stop || n.stage === "done" || n.stage === "pick" || opts.once) {
+				opts.onEnd?.(n);
+				return stop ? 2 : 0;
+			}
 		}
 	} finally {
 		if (existsSync(pidFile) && Number(readFileSync(pidFile, "utf8").trim()) === process.pid) unlinkSync(pidFile);

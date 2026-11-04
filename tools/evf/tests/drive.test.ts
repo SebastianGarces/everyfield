@@ -1926,7 +1926,151 @@ test("OPS-75-seat: a seat the drive launches carries the promise naming the driv
 	}
 });
 
-test("OPS-100-signal: SIGTERM to a real drive blocked in its ship stage aborts the run, records drive_stopped, removes the pid file and exits 143", async () => {
+/** A real drive's environment, with the one-minute heartbeat timer shortened (fast-heartbeat.ts). */
+const fastHeartbeatEnv = () => ({
+	...process.env,
+	EVF_RUN: "",
+	EVF_WORKTREE: "",
+	EVF_SESSION: "",
+	EVF_ROLE: "",
+	EVF_STAGE: "",
+	NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ""} --import=${pathToFileURL(join(source, "tools/evf/tests/fast-heartbeat.ts")).href}`,
+});
+
+/** Three more heartbeats arrive while the drive loop stays where it is. */
+async function moreHeartbeats(f: ReturnType<typeof driveFixture>) {
+	const from = f.events("drive_heartbeat").length;
+	for (let i = 0; i < 400 && f.events("drive_heartbeat").length < from + 3; i++)
+		await new Promise((r) => setTimeout(r, 25));
+	assert.ok(f.events("drive_heartbeat").length >= from + 3, "heartbeats go on");
+	assert.deepEqual(Object.keys(JSON.parse(f.events("drive_heartbeat")[0]!.payload)), ["pid"]);
+}
+
+/** A real drive through main.ts, and how a shell reports its end. The test sends the signal. */
+async function liveDrive(f: ReturnType<typeof driveFixture>, ready: () => boolean) {
+	const status = join(f.root, "drive-status.txt");
+	const child = spawn(
+		"sh",
+		[
+			"-c",
+			`"$0" --disable-warning=ExperimentalWarning "$1" drive OPS-1; echo $? > "$2"`,
+			process.execPath,
+			join(source, "tools/evf/main.ts"),
+			status,
+		],
+		{ cwd: f.root, env: fastHeartbeatEnv(), stdio: "ignore" },
+	);
+	const exited = new Promise<void>((resolve) => child.on("exit", () => resolve()));
+	for (let i = 0; i < 800 && !ready(); i++) await new Promise((r) => setTimeout(r, 25));
+	assert.ok(ready(), "the drive reached the state under test");
+	const pidFile = join(evfDataDir(f.root), "drive", "ops-1.pid");
+	const pid = Number(readFileSync(pidFile, "utf8"));
+	return {
+		pid,
+		stop: async () => {
+			process.kill(pid, "SIGTERM");
+			await exited;
+			assert.equal(readFileSync(status, "utf8").trim(), "143");
+			assert.ok(!existsSync(pidFile), "the pid file is gone");
+		},
+	};
+}
+
+test("in a real seat wait: heartbeats go on, and a SIGTERM records the seat's run and stage, leaves the seat's run open and exits 143 (AC:OPS-137-1) (AC:OPS-137-2)", async () => {
+	const f = driveFixture();
+	const hung = join(f.root, "herdr-hung.pid");
+	try {
+		const seat = openSeatRun(f, true);
+		// The hanging `agent wait` outlives the drive it served, so it leaves its pid for the cleanup below.
+		const script = join(f.root, "fake-bin/herdr");
+		writeFileSync(
+			script,
+			readFileSync(script, "utf8").replace(
+				"const a=process.argv.slice(2);\n",
+				`const a=process.argv.slice(2);\nif(a[0]==="agent"&&a[1]==="wait"){fs.writeFileSync(${JSON.stringify(hung)},String(process.pid));setInterval(()=>{},1000);return}\n`,
+			),
+		);
+		const d = await liveDrive(f, () => existsSync(hung));
+		await moreHeartbeats(f);
+		await d.stop();
+		const stopped = f.events("drive_stopped").map((e) => JSON.parse(e.payload));
+		assert.equal(stopped.length, 1);
+		assert.deepEqual(
+			{ stage: stopped[0].stage, run: stopped[0].run, pid: stopped[0].pid, signal: stopped[0].signal },
+			{ stage: "implement", run: seat, pid: d.pid, signal: "SIGTERM" },
+		);
+		assert.equal(
+			(f.db.prepare("SELECT status FROM runs WHERE id = ?").get(seat) as { status: string }).status,
+			"started",
+		);
+		const count = f.events("drive_heartbeat").length;
+		await new Promise((r) => setTimeout(r, 300));
+		assert.equal(f.events("drive_heartbeat").length, count, "no heartbeat after the stop");
+	} finally {
+		if (existsSync(hung)) process.kill(Number(readFileSync(hung, "utf8")), "SIGKILL");
+		await new Promise((r) => setTimeout(r, 200));
+		f.db.close();
+		f.close();
+	}
+});
+
+test("in a real hold: heartbeats go on, and a SIGTERM between stages records null run and stage and exits 143 (AC:OPS-137-1) (AC:OPS-137-2)", async () => {
+	const f = driveFixture();
+	try {
+		f.db
+			.prepare("UPDATE tasks SET spec = ?, status = 'held_external', pr_number = 77 WHERE id = ?")
+			.run(SPEC, f.taskId);
+		f.db
+			.prepare("INSERT INTO events (task_id, ts, type, payload) VALUES (?, ?, 'held_external', ?)")
+			.run(
+				f.taskId,
+				new Date().toISOString(),
+				JSON.stringify({ cause: "pr", checks: ["x"], head: "abc", summary: "held" }),
+			);
+		const pidFile = join(evfDataDir(f.root), "drive", "ops-1.pid");
+		const d = await liveDrive(f, () => existsSync(pidFile) && f.events("drive_heartbeat").length > 0);
+		await moreHeartbeats(f);
+		await d.stop();
+		const stopped = f.events("drive_stopped").map((e) => JSON.parse(e.payload));
+		assert.equal(stopped.length, 1);
+		assert.deepEqual({ stage: stopped[0].stage, run: stopped[0].run }, { stage: null, run: null });
+		assert.equal(f.taskRow().status, "held_external");
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("a drive that refuses to start records no heartbeat: stale code, and another drive that holds the task (AC:OPS-137-1)", () => {
+	const f = driveFixture();
+	try {
+		const main = join(source, "tools/evf/main.ts");
+		const env = { ...process.env, EVF_RUN: "", EVF_WORKTREE: "", EVF_SESSION: "", EVF_ROLE: "", EVF_STAGE: "" };
+		const stale = spawnSync(process.execPath, ["--disable-warning=ExperimentalWarning", main, "drive", "OPS-1"], {
+			cwd: f.root,
+			encoding: "utf8",
+			env: { ...env, NODE_OPTIONS: "" },
+		});
+		assert.notEqual(stale.status, 0);
+		assert.match(stale.stderr, /evf drive does not start OPS-1/);
+		mkdirSync(join(evfDataDir(f.root), "drive"), { recursive: true });
+		writeFileSync(join(evfDataDir(f.root), "drive", "ops-1.pid"), `${process.pid}\n`);
+		const held = spawnSync(process.execPath, ["--disable-warning=ExperimentalWarning", main, "drive", "OPS-1"], {
+			cwd: f.root,
+			encoding: "utf8",
+			env,
+		});
+		assert.notEqual(held.status, 0);
+		assert.match(held.stderr, /evf drive already runs for OPS-1/);
+		assert.equal(f.events("drive_heartbeat").length, 0);
+		assert.equal(f.events("drive_ended").length, 0);
+	} finally {
+		f.db.close();
+		f.close();
+	}
+});
+
+test("OPS-100-signal: SIGTERM to a real drive blocked in its ship stage aborts the run, records drive_stopped, removes the pid file and exits 143, and heartbeats go on during the block (AC:OPS-137-1) (AC:OPS-137-2)", async () => {
 	const f = driveFixture();
 	let blocker = 0;
 	try {
@@ -1960,7 +2104,7 @@ test("OPS-100-signal: SIGTERM to a real drive blocked in its ship stage aborts t
 			],
 			{
 				cwd: f.root,
-				env: { ...process.env, EVF_RUN: "", EVF_WORKTREE: "", EVF_SESSION: "", EVF_ROLE: "", EVF_STAGE: "" },
+				env: fastHeartbeatEnv(),
 				stdio: "ignore",
 			},
 		);
@@ -1968,6 +2112,7 @@ test("OPS-100-signal: SIGTERM to a real drive blocked in its ship stage aborts t
 		for (let i = 0; i < 400 && !existsSync(marker); i++) await new Promise((r) => setTimeout(r, 25));
 		assert.ok(existsSync(marker), "the ship stage reached gh");
 		blocker = Number(readFileSync(marker, "utf8"));
+		await moreHeartbeats(f);
 		const pidFile = join(evfDataDir(f.root), "drive", "ops-1.pid");
 		const drivePid = Number(readFileSync(pidFile, "utf8"));
 		const started = Date.now();
@@ -1983,6 +2128,8 @@ test("OPS-100-signal: SIGTERM to a real drive blocked in its ship stage aborts t
 			{ stage: JSON.parse(stopped[0].payload).stage, signal: JSON.parse(stopped[0].payload).signal },
 			{ stage: "ship", signal: "SIGTERM" },
 		);
+		assert.equal(JSON.parse(stopped[0].payload).pid, drivePid);
+		assert.match(JSON.parse(stopped[0].payload).parentCommand, /\bsh\b/);
 		assert.ok(!existsSync(pidFile), "the pid file is gone");
 	} finally {
 		if (blocker) {

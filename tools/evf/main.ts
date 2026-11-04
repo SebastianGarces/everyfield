@@ -57,7 +57,7 @@ import {
 	taskReopen,
 	taskSpec,
 } from "./drive.ts";
-import { driveWithSignals } from "./drive-signal.ts";
+import { driveWithSignals, stopDrive } from "./drive-signal.ts";
 import { timing } from "./timing.ts";
 import { qaDown, qaList, qaUp } from "./qa.ts";
 import { usageBackfill, usageReport } from "./usage.ts";
@@ -170,6 +170,7 @@ Drive (harness)
   evf task handoff <task> --file <spec>                       prototype mode: end the prototype, create the implement task
   evf next <task>                                             the next stage from the store, as JSON
   evf drive <task> [--once] [--detach]                        run the stage machine: plan, implement, simplify, pr, verify, ci, ship; cap 3 rounds; one per task
+  evf drive <task> --stop                                     stop the live drive and tell the dead drive watcher not to restart it; exits 0 when none runs
                                                               refuses to start when the running evf code differs from main
   evf run done <run> --status passed|failed|body-only --summary-file <file>   close a stage (seats call this; a passed or body-only verify needs a met or n/a proof per Done criterion; body-only closes a verify only)
         a passed implement or verify of a spec with AC: criteria runs evf ac run at the worktree HEAD first and
@@ -200,7 +201,7 @@ Upkeep
   evf gc [--apply]
   evf principles [--ref <sha>] [<task>]                       compare principles with pstack
   evf principles --apply <OPS-n> [--ref <sha>]                sync them into that task's worktree
-  evf sampler start | stop                                    one detached process records load, CPU share and queue state once per minute;
+  evf sampler start | stop                                    one detached process records load, CPU share and queue state and runs the dead drive watcher once per minute;
                                                               evf drive starts it, stop ends it (see "Minute sampler" in tools/evf/README.md)
 
 Browser checks (any role)
@@ -701,8 +702,10 @@ function main(argv: string[]): number | Promise<number> {
 			return next(root, parseTask(args[0]));
 		case "drive": {
 			const once = flag(args, "--once"),
-				detach = flag(args, "--detach");
-			if (args.length !== 1) break;
+				detach = flag(args, "--detach"),
+				stop = flag(args, "--stop");
+			if (args.length !== 1 || (stop && (once || detach))) break;
+			if (stop) return stopDrive(root, parseTask(args[0]));
 			if (detach) return drive(root, parseTask(args[0]), { once, detach });
 			return driveWithSignals(root, parseTask(args[0]), once);
 		}
