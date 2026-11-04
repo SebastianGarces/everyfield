@@ -1,7 +1,14 @@
 "use client";
 
 import { Delete02Icon, Edit02Icon, FloppyDiskIcon, Refresh01Icon, ViewIcon } from "@hugeicons/core-free-icons";
-import { LEGAL_NOTICE, pageBox, tileBox, type DocBrand, type DocDocument } from "@everyfield/contracts/documents";
+import {
+	LEGAL_NOTICE,
+	pageBox,
+	tileBox,
+	type DocBrand,
+	type DocDocument,
+	type ExportFormat,
+} from "@everyfield/contracts/documents";
 import {
 	Button,
 	ConfirmDialog,
@@ -68,7 +75,8 @@ type Props = {
 	/** The palette the PDF paints for this document and the brand-kit images it may show. */
 	brand: DocBrand;
 	revision: string;
-	onRevision: (revision: string) => void;
+	/** A save moved the revision; `formats` are the downloads its body offers (Excel only with a budget table). */
+	onRevision: (revision: string, formats: ExportFormat[]) => void;
 	previewSrc: (revision: string) => string;
 };
 
@@ -158,7 +166,7 @@ export default function ChurchEditor({
 				savedDoc.current = doc;
 				base.current = body;
 				setShownRevision(result.revision);
-				onRevision(result.revision);
+				onRevision(result.revision, body.exports);
 				// Edits typed while the request ran keep the "Unsaved changes" status.
 				setStatus((editor.state.doc.eq(doc) ? { kind: "saved" } : { kind: "dirty" }) satisfies SaveStatus);
 				return true;

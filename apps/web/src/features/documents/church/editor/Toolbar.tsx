@@ -107,6 +107,7 @@ const GROUP_LABEL = {
 	layout: "Layout",
 	lines: "Lines to fill in",
 	images: "Brand kit images",
+	tables: "Tables",
 } as const;
 
 /** A heading over a group of Insert menu items. */

@@ -364,13 +364,22 @@ test("AC:DOC-EDIT-ACTIONS: every editing action is checked with Undo and Redo on
 				await cursorIn(page, "Each board member signs");
 				await button(page, "Delete block").click();
 			});
-			// Later-slice blocks move and delete as whole blocks.
-			await checked(page, "move a later-slice block up", async () => {
-				await page.locator(".ef-block[data-ef-node=table]").click();
+			// A table moves and deletes as a whole block, selected as a block.
+			const selectTable = () =>
+				page.locator(PAPER).evaluate((el) => {
+					let pos = -1;
+					el.editor.state.doc.descendants((node, at) => {
+						if (node.type.name === "table" && pos < 0) pos = at;
+						return pos < 0;
+					});
+					el.editor.chain().focus().setNodeSelection(pos).run();
+				});
+			await checked(page, "move a table up", async () => {
+				await selectTable();
 				await button(page, "Move block up").click();
 			});
-			await checked(page, "delete a later-slice block", async () => {
-				await page.locator(".ef-block[data-ef-node=table]").click();
+			await checked(page, "delete a table", async () => {
+				await selectTable();
 				await button(page, "Delete block").click();
 			});
 			await checked(page, "delete a block from the keyboard", async () => {

@@ -1,4 +1,5 @@
-import type { DocDocument } from "@everyfield/contracts/documents";
+import { exportsFor, type DocDocument } from "@everyfield/contracts/documents";
+import { blocksFromEditor, blocksToEditor } from "./table-json.ts";
 
 // Between the stored document and the editor. The editor holds the body as ProseMirror JSON and the page header and
 // footer as attributes of the root node (so Undo covers them). Nothing else changes: the prose JSON is the format.
@@ -29,14 +30,14 @@ export function editorContent(doc: DocDocument): Json {
 			{
 				type: REGION_NODE[key],
 				attrs: { pages: value.pages },
-				...(value.content?.length ? { content: value.content } : {}),
+				...(value.content?.length ? { content: blocksToEditor(value.content) } : {}),
 			},
 		];
 	};
 	return {
 		type: "doc",
 		attrs: { page },
-		content: [...region("header"), ...(doc.body.content ?? []), ...region("footer")],
+		content: [...region("header"), ...blocksToEditor(doc.body.content ?? []), ...region("footer")],
 	};
 }
 
@@ -67,7 +68,7 @@ export function clean<T>(value: T): T {
 export function documentFrom(base: DocDocument, json: Json): DocDocument {
 	const { attrs, content = [] } = clean(json) as { attrs?: { page?: Json }; content?: Json[] };
 	const page: Json = { ...(attrs?.page ?? (base.page as Json)) };
-	const body = [...content];
+	const body = blocksFromEditor(content) as Json[];
 	// A region node left in the page becomes the region; with none, the page keeps a stored null or has no key.
 	for (const [key, type] of Object.entries(REGION_NODE) as [keyof typeof REGION_NODE, string][]) {
 		delete page[key];
@@ -79,9 +80,7 @@ export function documentFrom(base: DocDocument, json: Json): DocDocument {
 			page[key] = { pages, content: (node.content as unknown[] | undefined) ?? [] };
 		} else if ((attrs?.page as Json | undefined)?.[key] === null) page[key] = null;
 	}
-	return {
-		...base,
-		page,
-		body: { type: "doc", ...(body.length ? { content: body } : {}) },
-	} as unknown as DocDocument;
+	const next = { type: "doc", ...(body.length ? { content: body } : {}) } as DocDocument["body"];
+	// Excel follows the body: `exports` lists it only while the body holds a budget table.
+	return { ...base, page, body: next, exports: exportsFor(base.exports, next) } as unknown as DocDocument;
 }

@@ -1,7 +1,8 @@
 import type { BlockNode, EveryfieldDoc, Formula, TableNode } from "@everyfield/contracts/documents";
-import { parseFormula } from "@everyfield/contracts/documents";
-import type { RenderTheme } from "./theme.ts";
-import { makePalette } from "./theme.ts";
+import { attrsOf, computeTable, ledgerTables, parseFormula } from "@everyfield/contracts/documents";
+import { textOn } from "./contrast.ts";
+import type { Palette, RenderTheme } from "./theme.ts";
+import { makePalette, tokenColor } from "./theme.ts";
 import { zip } from "./zip.ts";
 
 const xml = (value: string) =>
@@ -39,49 +40,102 @@ type Sheet = { name: string; widths: number[]; freeze: { x: number; y: number };
 
 const argb = (hex: string) => "FF" + hex.replace("#", "").toUpperCase();
 
-function styles(theme: RenderTheme) {
-	const p = makePalette(theme);
-	const font = (extra: string) => `<font>${extra}<sz val="11"/><name val="DM Sans"/></font>`;
-	const fonts = [
-		font(""),
-		font(`<b/><color rgb="${argb(p.primaryText)}"/>`).replace('<sz val="11"/>', '<sz val="16"/>'),
-		font(`<color rgb="${argb(p.mutedText)}"/>`),
-		font(`<b/><color rgb="${argb(p.onPrimary)}"/>`),
-		font("<b/>"),
-	];
-	const fills = [
-		'<fill><patternFill patternType="none"/></fill>',
-		'<fill><patternFill patternType="gray125"/></fill>',
-		`<fill><patternFill patternType="solid"><fgColor rgb="${argb(p.primary)}"/></patternFill></fill>`,
-		`<fill><patternFill patternType="solid"><fgColor rgb="${argb(p.muted)}"/></patternFill></fill>`,
-	];
-	const edge = (side: string, color: string, style = "thin") =>
-		`<${side} style="${style}"><color rgb="${argb(color)}"/></${side}>`;
-	const borders = [
-		"<border><left/><right/><top/><bottom/><diagonal/></border>",
-		`<border>${edge("left", p.fieldBorder)}${edge("right", p.fieldBorder)}${edge("top", p.fieldBorder)}${edge("bottom", p.fieldBorder)}<diagonal/></border>`,
-		`<border><left/><right/>${edge("top", p.ink)}<bottom/><diagonal/></border>`,
-		`<border><left/><right/><top/>${edge("bottom", p.border)}<diagonal/></border>`,
-	];
-	const xf = (font: number, fill: number, border: number, num = 0, align = "") =>
-		`<xf numFmtId="${num}" fontId="${font}" fillId="${fill}" borderId="${border}" xfId="0" applyFont="1" applyFill="1" applyBorder="1"${num ? ' applyNumberFormat="1"' : ""}${align ? ' applyAlignment="1">' + align + "</xf>" : "/>"}`;
-	const left = '<alignment horizontal="left" vertical="center"/>';
-	const right = '<alignment horizontal="right" vertical="center"/>';
-	const cellXfs = [
-		xf(0, 0, 0),
-		xf(1, 0, 0, 0, left),
-		xf(2, 0, 0, 0, left),
-		xf(3, 2, 0, 0, left),
-		xf(3, 2, 0, 0, right),
-		xf(4, 3, 0, 0, left),
-		xf(0, 0, 3, 0, left),
-		xf(0, 0, 1, 164, right),
-		xf(0, 0, 3, 164, right),
-		xf(4, 3, 2, 0, left),
-		xf(4, 3, 2, 164, right),
-	];
-	return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="&quot;$&quot;#,##0;[Red]\\-&quot;$&quot;#,##0"/></numFmts><fonts count="${fonts.length}">${fonts.join("")}</fonts><fills count="${fills.length}">${fills.join("")}</fills><borders count="${borders.length}">${borders.join("")}</borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="${cellXfs.length}">${cellXfs.join("")}</cellXfs></styleSheet>`;
+const MONEY_WHOLE = '"$"#,##0;[Red]\\-"$"#,##0';
+const MONEY_CENTS = '"$"#,##0.00;[Red]\\-"$"#,##0.00';
+const NUMBER_WHOLE = "#,##0;[Red]\\-#,##0";
+const NUMBER_DECIMALS = "#,##0.0###;[Red]\\-#,##0.0###";
+
+const LEFT = '<alignment horizontal="left" vertical="center"/>';
+const RIGHT = '<alignment horizontal="right" vertical="center"/>';
+
+/**
+ * The styles part of a workbook. The first eleven cell formats are the ones `S` names, in that order, so the budgets that
+ * only use them keep their bytes. A table adds its own formats after them: number formats, header fills and stripes.
+ */
+class StyleBook {
+	readonly palette: Palette;
+	private fonts: string[];
+	private fills: string[];
+	private borders: string[];
+	private xfs: string[] = [];
+	private numFmts: string[] = [MONEY_WHOLE];
+
+	constructor(theme: RenderTheme) {
+		const p = (this.palette = makePalette(theme));
+		const font = (extra: string) => `<font>${extra}<sz val="11"/><name val="DM Sans"/></font>`;
+		this.fonts = [
+			font(""),
+			font(`<b/><color rgb="${argb(p.primaryText)}"/>`).replace('<sz val="11"/>', '<sz val="16"/>'),
+			font(`<color rgb="${argb(p.mutedText)}"/>`),
+			font(`<b/><color rgb="${argb(p.onPrimary)}"/>`),
+			font("<b/>"),
+		];
+		this.fills = [
+			'<fill><patternFill patternType="none"/></fill>',
+			'<fill><patternFill patternType="gray125"/></fill>',
+			`<fill><patternFill patternType="solid"><fgColor rgb="${argb(p.primary)}"/></patternFill></fill>`,
+			`<fill><patternFill patternType="solid"><fgColor rgb="${argb(p.muted)}"/></patternFill></fill>`,
+		];
+		this.borders = [
+			"<border><left/><right/><top/><bottom/><diagonal/></border>",
+			`<border>${edge("left", p.fieldBorder)}${edge("right", p.fieldBorder)}${edge("top", p.fieldBorder)}${edge("bottom", p.fieldBorder)}<diagonal/></border>`,
+			`<border><left/><right/>${edge("top", p.ink)}<bottom/><diagonal/></border>`,
+			`<border><left/><right/><top/>${edge("bottom", p.border)}<diagonal/></border>`,
+		];
+		this.xf(0, 0, 0);
+		this.xf(1, 0, 0, 0, LEFT);
+		this.xf(2, 0, 0, 0, LEFT);
+		this.xf(3, 2, 0, 0, LEFT);
+		this.xf(3, 2, 0, 0, RIGHT);
+		this.xf(4, 3, 0, 0, LEFT);
+		this.xf(0, 0, 3, 0, LEFT);
+		this.xf(0, 0, 1, 164, RIGHT);
+		this.xf(0, 0, 3, 164, RIGHT);
+		this.xf(4, 3, 2, 0, LEFT);
+		this.xf(4, 3, 2, 164, RIGHT);
+	}
+
+	/** The id of a number format, added when it is new. */
+	numFmt(code: string) {
+		return 164 + this.index(this.numFmts, code);
+	}
+	private index(list: string[], entry: string) {
+		const at = list.indexOf(entry);
+		return at < 0 ? list.push(entry) - 1 : at;
+	}
+	/** A bold font in a color, or the plain bold font when `color` is null. */
+	boldFont(color: string | null) {
+		return color
+			? this.index(this.fonts, `<font><b/><color rgb="${argb(color)}"/><sz val="11"/><name val="DM Sans"/></font>`)
+			: 4;
+	}
+	/** A solid fill in a color. */
+	fill(color: string) {
+		return this.index(
+			this.fills,
+			`<fill><patternFill patternType="solid"><fgColor rgb="${argb(color)}"/></patternFill></fill>`,
+		);
+	}
+	/** A border with one line under the cell, in a color. */
+	bottomRule(color: string) {
+		return this.index(
+			this.borders,
+			`<border><left/><right/><top/>${edge("bottom", color, "medium")}<diagonal/></border>`,
+		);
+	}
+	xf(font: number, fill: number, border: number, num = 0, align = "") {
+		const entry = `<xf numFmtId="${num}" fontId="${font}" fillId="${fill}" borderId="${border}" xfId="0" applyFont="1" applyFill="1" applyBorder="1"${num ? ' applyNumberFormat="1"' : ""}${align ? ' applyAlignment="1">' + align + "</xf>" : "/>"}`;
+		return this.index(this.xfs, entry);
+	}
+	xml() {
+		const fmts = this.numFmts.map((code, i) => `<numFmt numFmtId="${164 + i}" formatCode="${xml(code)}"/>`).join("");
+		return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="${this.numFmts.length}">${fmts}</numFmts><fonts count="${this.fonts.length}">${this.fonts.join("")}</fonts><fills count="${this.fills.length}">${this.fills.join("")}</fills><borders count="${this.borders.length}">${this.borders.join("")}</borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="${this.xfs.length}">${this.xfs.join("")}</cellXfs></styleSheet>`;
+	}
+}
+
+function edge(side: string, color: string, style = "thin") {
+	return `<${side} style="${style}"><color rgb="${argb(color)}"/></${side}>`;
 }
 
 function sheetXml(sheet: Sheet) {
@@ -111,7 +165,7 @@ function sheetXml(sheet: Sheet) {
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><sheetViews><sheetView workbookViewId="0" showGridLines="0">${pane}</sheetView></sheetViews><sheetFormatPr defaultRowHeight="20"/><cols>${cols}</cols><sheetData>${rows}</sheetData><pageMargins left="0.5" right="0.5" top="0.5" bottom="0.5" header="0.3" footer="0.3"/><pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>`;
 }
 
-function workbook(sheets: Sheet[], theme: RenderTheme) {
+function workbook(sheets: Sheet[], book: StyleBook) {
 	const n = sheets.length;
 	const names = sheets.map((s, i) => `<sheet name="${xml(s.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join("");
 	const rels = [
@@ -148,7 +202,7 @@ function workbook(sheets: Sheet[], theme: RenderTheme) {
 			),
 		},
 		...sheets.map((sheet, i) => ({ name: `xl/worksheets/sheet${i + 1}.xml`, data: Buffer.from(sheetXml(sheet)) })),
-		{ name: "xl/styles.xml", data: Buffer.from(styles(theme)) },
+		{ name: "xl/styles.xml", data: Buffer.from(book.xml()) },
 	];
 	return zip(entries.map((entry) => ({ ...entry, store: true })));
 }
@@ -304,23 +358,32 @@ function worksheet(church: string): Sheet[] {
 
 /** A budget workbook in stored ZIP form. Totals are live formulas. The same inputs give the same bytes. */
 export function buildBudget(kind: "first-year" | "worksheet", church: string, theme: RenderTheme) {
-	return workbook(kind === "first-year" ? firstYear(church) : worksheet(church), theme);
+	return workbook(kind === "first-year" ? firstYear(church) : worksheet(church), new StyleBook(theme));
 }
 
 // ---------------------------------------------------------------- everyfield.doc/1 ledgers
 
-/** The ledger tables of a document, in body order (columns and boxes included). */
-export function ledgerTables(doc: EveryfieldDoc): TableNode[] {
-	const out: TableNode[] = [];
+/**
+ * The title above each ledger table: the text of the nearest heading before it in the body, merge fields filled in, so a
+ * title edited in the editor is the title of the sheet. A table with no heading above it has none.
+ */
+function sheetTitles(doc: EveryfieldDoc, values: Record<string, string>) {
+	const titles = new Map<TableNode, string>();
+	let last = "";
 	const walk = (nodes: readonly BlockNode[] | undefined) => {
 		for (const node of nodes ?? []) {
-			if (node.type === "table" && node.attrs.style === "ledger") out.push(node);
-			if (node.type === "columns") for (const col of node.content) walk(col.content);
-			if (node.type === "box") walk(node.content);
+			if (node.type === "heading")
+				last = (node.content ?? [])
+					.map((n) => (n.type === "text" ? n.text : n.type === "field" ? (values[n.attrs.key] ?? "") : ""))
+					.join("")
+					.trim();
+			else if (node.type === "table" && node.attrs.style === "ledger") titles.set(node, last);
+			else if (node.type === "columns") for (const col of node.content) walk(col.content);
+			else if (node.type === "box") walk(node.content);
 		}
 	};
 	walk(doc.body.content);
-	return out;
+	return titles;
 }
 
 /** A column formula as an Excel formula in one sheet row: column ids become letters, sum(a:b) becomes SUM(A5:C5). */
@@ -349,29 +412,50 @@ const cellText = (cell: TableNode["content"] extends (infer R)[] | undefined ? R
  * One sheet per ledger table. Money and number inputs are boxed cells holding the typed values. A formula column is a
  * live Excel formula in each item row. A subtotal row is SUM over its category's item rows; a total row adds each
  * category (its subtotal, or the SUM of its items) with the group's sign. `fullCalcOnLoad` makes every reader compute.
+ * The sheet shows what the editor and the PDF show: cents when a money column has them, no `$` on a number column, a
+ * ticked check cell, the table's header fill and the rows the PDF stripes.
  */
 export function buildLedgerWorkbook(doc: EveryfieldDoc, values: Record<string, string>, theme: RenderTheme) {
-	const tables = ledgerTables(doc);
+	const tables = ledgerTables(doc.body);
+	const titles = sheetTitles(doc, values);
+	const book = new StyleBook(theme);
+	const p = book.palette;
 	const used = new Set<string>();
 	const sheets = tables.map((table, ti): Sheet => {
-		const cols = table.attrs.columns;
+		const a = attrsOf(table);
+		const cols = a.columns;
+		const computed = computeTable(table);
 		const letter = (id: string) => column(cols.findIndex((c) => c.id === id) + 1);
 		const numeric = (type: string) => type === "money" || type === "number" || type === "formula";
-		const style = (c: (typeof cols)[number]) => {
-			if (c.type === "money" || c.type === "number") return S.input;
-			return c.type === "formula" && c.format === "money" ? S.money : S.label;
-		};
+		const kindOf = (c: (typeof cols)[number]): "money" | "number" =>
+			c.type === "money" || (c.type === "formula" && c.format === "money") ? "money" : "number";
+		// One number format for each numeric column: cents when any amount or total in it has them.
+		const formats = cols.map((c, ci) => {
+			if (!numeric(c.type)) return 0;
+			const nums = (table.content ?? [])
+				.flatMap((row, ri) => [row.content[ci]?.attrs?.value, computed[ri]?.[ci]])
+				.filter((v): v is number => typeof v === "number");
+			if (kindOf(c) === "money")
+				return book.numFmt(nums.some((v) => Math.round(Math.abs(v) * 100) % 100 !== 0) ? MONEY_CENTS : MONEY_WHOLE);
+			return book.numFmt(nums.some((v) => !Number.isInteger(+v.toFixed(4))) ? NUMBER_DECIMALS : NUMBER_WHOLE);
+		});
+		const stripe = book.fill(p.muted);
+		const headFill = tokenColor(p, a.headerFill);
+		const headFont = book.boldFont(headFill ? textOn(headFill, p.ink) : null);
+		const headStyle = (c: (typeof cols)[number]) =>
+			book.xf(
+				headFont,
+				headFill ? book.fill(headFill) : 0,
+				headFill ? 0 : book.bottomRule(p.ink),
+				0,
+				c.type === "text" ? LEFT : RIGHT,
+			);
 		const church = values.church_name ?? "";
 		const rows: Cell[][] = [
-			[text(`${church} ${doc.title}`.trim(), S.title)],
-			[
-				text(
-					table.attrs.writeInRows ? "" : "Enter each amount in a boxed cell. The totals add up on their own.",
-					S.note,
-				),
-			],
-			cols.map((c) => text(c.label, c.type === "text" ? S.head : S.headRight)),
+			[text(titles.get(table) || `${church} ${doc.title}`.trim(), S.title)],
+			[text(a.writeInRows ? "" : "Enter each amount in a boxed cell. The totals add up on their own.", S.note)],
 		];
+		if (a.header) rows.push(cols.map((c) => text(c.label, headStyle(c))));
 		const FIRST = rows.length + 1;
 		type Group = { sign: 1 | -1; items: number[]; subtotal: number | null };
 		const groups: Group[] = [];
@@ -393,19 +477,24 @@ export function buildLedgerWorkbook(doc: EveryfieldDoc, values: Record<string, s
 				}
 				open.items.push(at);
 				index += 1;
+				// The rows the PDF stripes: every second item row.
+				const fill = a.zebra && index % 2 === 0 ? stripe : 0;
+				const label = book.xf(0, fill, 3, 0, LEFT);
+				const money = (ci: number) => book.xf(0, fill, 3, formats[ci] ?? 0, RIGHT);
 				rows.push(
 					cols.map((c, ci): Cell => {
-						if (c.type === "text") return text(cellText(row, ci), S.label);
-						if (c.type === "index") return { value: index, style: S.label };
-						if (c.type === "check") return blank(S.label);
+						if (c.type === "text") return text(cellText(row, ci), label);
+						if (c.type === "index") return { value: index, style: label };
+						if (c.type === "check") return row.content[ci]?.attrs?.checked ? text("\u2612", label) : blank(label);
 						if (c.type === "formula")
 							return {
 								formula: excelFormula(parseFormula(c.formula ?? "0"), letter, at),
 								uncached: true,
-								style: style(c),
+								style: money(ci),
 							};
 						const v = row.content[ci]?.attrs?.value;
-						return typeof v === "number" ? { value: v, style: style(c) } : blank(style(c));
+						const input = book.xf(0, fill, 1, formats[ci] ?? 0, RIGHT);
+						return typeof v === "number" ? { value: v, style: input } : blank(input);
 					}),
 				);
 				return;
@@ -426,19 +515,25 @@ export function buildLedgerWorkbook(doc: EveryfieldDoc, values: Record<string, s
 					// A subtotal adds its category; only a total applies each group's sign.
 					const sign = (g: Group, gi: number) => (role === "total" && g.sign < 0 ? "-" : gi === 0 ? "" : "+");
 					const terms = parts.map((g, gi) => `${sign(g, gi)}${sum(L, g)}`);
-					return { formula: terms.join("") || "0", uncached: true, style: S.total };
+					return { formula: terms.join("") || "0", uncached: true, style: book.xf(4, 3, 2, formats[ci] ?? 0, RIGHT) };
 				}),
 			);
 		});
-		let name = (table.attrs.sheet ?? `Sheet ${ti + 1}`).replace(/[\\/?*[\]:]/g, " ").slice(0, 31) || `Sheet ${ti + 1}`;
-		while (used.has(name)) name = `${name.slice(0, 28)} ${ti + 1}`;
-		used.add(name);
+		const clean = (value: string) =>
+			value
+				.replace(/[\\/?*[\]:]/g, " ")
+				.replace(/^'+|'+$/g, "")
+				.trim();
+		let name = clean(a.sheet ?? "").slice(0, 31) || `Sheet ${ti + 1}`;
+		// Excel compares sheet names without regard to case.
+		while (used.has(name.toLowerCase())) name = `${name.slice(0, 28)} ${ti + 1}`;
+		used.add(name.toLowerCase());
 		return {
 			name,
 			widths: cols.map((c) => (c.type === "text" ? 36 : c.type === "index" || c.type === "check" ? 6 : 16)),
-			freeze: { x: 1, y: 3 },
+			freeze: { x: 1, y: FIRST - 1 },
 			rows,
 		};
 	});
-	return workbook(sheets, theme);
+	return workbook(sheets, book);
 }
