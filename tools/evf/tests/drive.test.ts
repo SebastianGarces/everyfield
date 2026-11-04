@@ -646,8 +646,7 @@ test("OPS-59-gate: a verify closes passed only with a met or n/a proof per Done 
 /**
  * A scripted Herdr for waitOnSeat: `agent wait` and `agent get` answer from queues; "close" makes the seat close its
  * stage, and "close-hang" closes it and then hangs until the kill limit kills the child. `waitDelayMs` makes each
- * `agent wait` answer that much real time late. The child ignores SIGTERM: the kill limit uses SIGKILL, and a process
- * outside the test that signals every `herdr agent wait` on the machine must not end a wait this test times.
+ * `agent wait` answer that much real time late.
  */
 function scriptedHerdr(
 	f: ReturnType<typeof driveFixture>,
@@ -660,7 +659,7 @@ function scriptedHerdr(
 	writeFileSync(state, JSON.stringify(script));
 	writeFileSync(
 		join(f.root, "fake-bin/herdr"),
-		`#!${process.execPath}\nconst fs=require("node:fs");const a=process.argv.slice(2);process.on("SIGTERM",()=>{});\n` +
+		`#!${process.execPath}\nconst fs=require("node:fs");const a=process.argv.slice(2);\n` +
 			`const calls=JSON.parse(fs.readFileSync(${JSON.stringify(calls)},"utf8"));calls.push(a);fs.writeFileSync(${JSON.stringify(calls)},JSON.stringify(calls));\n` +
 			`const st=JSON.parse(fs.readFileSync(${JSON.stringify(state)},"utf8"));\n` +
 			`const next=k=>{const q=st[k];const v=q.length>1?q.shift():q[0];fs.writeFileSync(${JSON.stringify(state)},JSON.stringify(st));return v};\n` +

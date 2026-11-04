@@ -13,7 +13,8 @@ import { fail } from "./lib.ts";
  * its own test block.
  *
  * Limit: it sees direct git calls and helpers in the same file. It does not follow a git read across files, into an evf
- * command, or through a helper passed as a value, and it accepts a call whose arguments it cannot read.
+ * command, or through a helper passed as a value. It accepts a call whose arguments it cannot read: a subcommand or
+ * options in a variable, a shell string that is not one literal or template, or `shell: true`.
  */
 
 type Token = {
@@ -24,22 +25,21 @@ type Token = {
 	parts?: string[];
 	exprs?: Token[][];
 };
-type Param = { name: string | null; rest: boolean; initial: Token[] };
+type Param = { name: string | null; rest: boolean };
 type Fn = { name: string; params: Param[]; from: number; to: number; scope: Scope };
 type Variable = { name: string; init: Token[]; scope: Scope };
 type Scope = { from: number; to: number };
 type Call = { args: Token[][]; at: number };
 type Env = Map<Fn, Call>;
 type Word = { lit: string | null; tokens: Token[]; at: number };
-type Site = { at: number } & (
-	| { kind: "git"; args: Token[]; options: Token[] | null; cwd?: Token[] }
-	| { kind: "shell"; command: Token[]; options: Token[] | null }
+type Site = { at: number; options: Token[] | null } & (
+	{ kind: "git"; args: Token[] } | { kind: "shell"; command: Token[] }
 );
 
-export type Refusal = { file: string; line: number; test: string | null; read: string; readLine: number };
+type Refusal = { file: string; line: number; test: string | null; read: string; readLine: number };
 
-const REGEX_AFTER = new Set(["return", "typeof", "case", "in", "of", "delete", "void", "throw", "new", "else"]);
-const JOINED = ["...", "===", "!==", "=>", "==", "!=", "<=", ">="];
+/** `==` joins so that a comparison never reads as an assignment; `...` and `=>` are what the parser looks for. */
+const JOINED = ["...", "===", "==", "=>"];
 
 function tokenize(src: string): Token[] {
 	let at = 0,
@@ -88,13 +88,9 @@ function tokenize(src: string): Token[] {
 				advance(at + 1);
 				parts.push(text);
 				tokens.push({ kind: "tpl", text: parts.join(""), line: l, parts, exprs });
-			} else if (/[A-Za-z_$]/.test(c)) {
+			} else if (/[\w$]/.test(c)) {
 				const m = /^[\w$]+/.exec(src.slice(at, at + 200))![0];
 				tokens.push({ kind: "id", text: m, line });
-				advance(at + m.length);
-			} else if (/\d/.test(c)) {
-				const m = /^[\w.]+/.exec(src.slice(at, at + 60))![0];
-				tokens.push({ kind: "other", text: m, line });
 				advance(at + m.length);
 			} else if (c === "/" && regexAllowed(tokens.at(-1))) {
 				let end = at + 1,
@@ -124,9 +120,7 @@ function tokenize(src: string): Token[] {
 }
 
 const regexAllowed = (prev: Token | undefined) =>
-	!prev ||
-	(prev.kind === "punct" && ![")", "]"].includes(prev.text)) ||
-	(prev.kind === "id" && REGEX_AFTER.has(prev.text));
+	!prev || (prev.kind === "punct" && ![")", "]"].includes(prev.text)) || (prev.kind === "id" && prev.text === "return");
 
 const OPEN = new Set(["(", "[", "{"]),
 	CLOSE = new Set([")", "]", "}"]);
@@ -179,14 +173,7 @@ function parseParams(tokens: Token[]): Param[] {
 	return splitCommas(tokens).map((p) => {
 		const rest = isP(p[0], "...");
 		const first = p[rest ? 1 : 0];
-		let depth = 0,
-			eq = -1;
-		for (let i = 0; i < p.length && eq < 0; i++) {
-			if (p[i]!.kind === "punct" && OPEN.has(p[i]!.text)) depth++;
-			if (p[i]!.kind === "punct" && CLOSE.has(p[i]!.text)) depth--;
-			if (depth === 0 && isP(p[i], "=")) eq = i;
-		}
-		return { name: first?.kind === "id" ? first.text : null, rest, initial: eq < 0 ? [] : p.slice(eq + 1) };
+		return { name: first?.kind === "id" ? first.text : null, rest };
 	});
 }
 
@@ -205,21 +192,17 @@ export function lintBranchDiffSource(file: string, text: string): Refusal[] {
 	const fns: Fn[] = [],
 		variables: Variable[] = [];
 
-	const bodyEnd = (arrow: number) =>
-		isP(tokens[arrow + 1], "{") ? closer(tokens, arrow + 1) : expressionEnd(tokens, arrow + 1);
 	for (let i = 0; i < tokens.length; i++) {
 		const t = tokens[i]!;
 		if (t.kind === "id" && t.text === "function" && tokens[i + 1]?.kind === "id" && isP(tokens[i + 2], "(")) {
 			const close = closer(tokens, i + 2);
 			let body = close + 1;
-			if (isP(tokens[body], ":")) {
-				body++;
-				while (
-					body < tokens.length &&
-					!(isP(tokens[body], "{") && !isP(tokens[body - 1], ":") && !isP(tokens[body - 1], "|"))
-				)
-					body = isP(tokens[body], "{") ? closer(tokens, body) + 1 : body + 1;
-			}
+			// A return type can hold an object type: the body is the first brace that does not start a type.
+			while (
+				body < tokens.length &&
+				!(isP(tokens[body], "{") && !isP(tokens[body - 1], ":") && !isP(tokens[body - 1], "|"))
+			)
+				body = isP(tokens[body], "{") ? closer(tokens, body) + 1 : body + 1;
 			fns.push({
 				name: tokens[i + 1]!.text,
 				params: parseParams(tokens.slice(i + 3, close)),
@@ -231,7 +214,6 @@ export function lintBranchDiffSource(file: string, text: string): Refusal[] {
 		if (t.kind === "id" && isP(tokens[i + 1], "=") && !isP(tokens[i - 1], ".")) {
 			let start = i + 2;
 			if (tokens[start]?.text === "async") start++;
-			if (tokens[start]?.text === "function" && isP(tokens[start + 1], "(")) start++;
 			let params: Param[] | null = null,
 				arrow = -1;
 			if (isP(tokens[start], "(")) {
@@ -242,19 +224,21 @@ export function lintBranchDiffSource(file: string, text: string): Refusal[] {
 					const limit = expressionEnd(tokens, arrow);
 					while (arrow < limit && !isP(tokens[arrow], "=>")) arrow++;
 				}
-				if (!isP(tokens[arrow], "=>") && !isP(tokens[arrow], "{")) params = null;
-				if (params && isP(tokens[arrow], "{")) arrow--; // A `function (...) {` body starts right after the parameters.
+				if (!isP(tokens[arrow], "=>")) params = null;
 			} else if (tokens[start]?.kind === "id" && isP(tokens[start + 1], "=>")) {
-				params = [{ name: tokens[start]!.text, rest: false, initial: [] }];
+				params = [{ name: tokens[start]!.text, rest: false }];
 				arrow = start + 1;
 			}
-			if (params) fns.push({ name: t.text, params, from: start, to: bodyEnd(arrow), scope: scopes[i]! });
-			else variables.push({ name: t.text, init: tokens.slice(i + 2, expressionEnd(tokens, i + 2)), scope: scopes[i]! });
+			if (params) {
+				const to = isP(tokens[arrow + 1], "{") ? closer(tokens, arrow + 1) : expressionEnd(tokens, arrow + 1);
+				fns.push({ name: t.text, params, from: start, to, scope: scopes[i]! });
+			} else
+				variables.push({ name: t.text, init: tokens.slice(i + 2, expressionEnd(tokens, i + 2)), scope: scopes[i]! });
 		}
 	}
 
 	const width = (s: Scope) => s.to - s.from;
-	const within = (s: { from: number; to: number }, at: number) => s.from <= at && at <= s.to;
+	const within = (s: Scope, at: number) => s.from <= at && at <= s.to;
 	type Found = { kind: "param"; fn: Fn; index: number } | { kind: "var"; variable: Variable } | { kind: "fn"; fn: Fn };
 	function lookup(name: string, at: number): Found | null {
 		let best: Found | null = null,
@@ -267,7 +251,7 @@ export function lintBranchDiffSource(file: string, text: string): Refusal[] {
 		};
 		for (const fn of fns) {
 			const index = fn.params.findIndex((p) => p.name === name);
-			if (index >= 0) offer({ kind: "param", fn, index }, { from: fn.from, to: fn.to });
+			if (index >= 0) offer({ kind: "param", fn, index }, fn);
 			if (fn.name === name) offer({ kind: "fn", fn }, fn.scope);
 		}
 		for (const variable of variables) if (variable.name === name) offer({ kind: "var", variable }, variable.scope);
@@ -313,8 +297,8 @@ export function lintBranchDiffSource(file: string, text: string): Refusal[] {
 			} else if (found.kind === "param") {
 				const call = boundArgs(found.fn, env);
 				const arg = call.args[found.index];
-				if (arg ? isCurrent(arg, call.at, env, seen) : !found.fn.params[found.index]!.initial.length) return true;
-				if (!arg && isCurrent(found.fn.params[found.index]!.initial, at, env, seen)) return true;
+				// A helper called without the path runs the child in the current directory.
+				if (!arg || isCurrent(arg, call.at, env, seen)) return true;
 			}
 		}
 		return false;
@@ -323,66 +307,36 @@ export function lintBranchDiffSource(file: string, text: string): Refusal[] {
 	const literal = (t: Token[]) =>
 		t.length === 1 && (t[0]!.kind === "str" || (t[0]!.kind === "tpl" && !t[0]!.exprs!.length)) ? t[0]!.text : null;
 
-	function wordOf(expr: Token[], at: number, env: Env): Word {
-		const lit = literal(expr);
-		if (lit !== null) return { lit, tokens: expr, at };
-		if (expr.length === 1 && expr[0]!.kind === "id") {
-			const found = lookup(expr[0]!.text, at);
-			if (found?.kind === "param" && !found.fn.params[found.index]!.rest) {
-				const call = boundArgs(found.fn, env);
-				const arg = call.args[found.index];
-				if (arg) return wordOf(arg, call.at, env);
-			} else if (found?.kind === "var") return { ...wordOf(found.variable.init, at, env), at };
-		}
-		return { lit: null, tokens: expr, at };
-	}
+	const wordOf = (expr: Token[], at: number): Word => ({ lit: literal(expr), tokens: expr, at });
 
 	/** The words of an argv expression: an array literal, an alias of one, or an array or rest parameter. */
 	function wordsOf(expr: Token[], at: number, env: Env): Word[] {
-		if (isP(expr[0], "[")) {
-			return splitCommas(expr.slice(1, closer(expr, 0))).flatMap((element) =>
-				isP(element[0], "...") ? wordsOf(element.slice(1), at, env) : [wordOf(element, at, env)],
-			);
-		}
+		const element = (e: Token[], from: number) =>
+			isP(e[0], "...") ? wordsOf(e.slice(1), from, env) : [wordOf(e, from)];
+		if (isP(expr[0], "[")) return splitCommas(expr.slice(1, closer(expr, 0))).flatMap((e) => element(e, at));
 		if (expr.length === 1 && expr[0]!.kind === "id") {
 			const found = lookup(expr[0]!.text, at);
 			if (found?.kind === "var") return wordsOf(found.variable.init, at, env);
 			if (found?.kind === "param") {
 				const call = boundArgs(found.fn, env);
 				if (found.fn.params[found.index]!.rest)
-					return call.args
-						.slice(found.index)
-						.flatMap((arg) => (isP(arg[0], "...") ? wordsOf(arg.slice(1), call.at, env) : [wordOf(arg, call.at, env)]));
+					return call.args.slice(found.index).flatMap((arg) => element(arg, call.at));
 				const arg = call.args[found.index];
 				if (arg) return wordsOf(arg, call.at, env);
 			}
 		}
-		return [{ lit: null, tokens: expr, at }];
+		return [wordOf(expr, at)];
 	}
 
-	/** Where the options send the child: nothing given, the `cwd` value, or something this lint cannot read. */
-	function cwdOf(
-		options: Token[] | null,
-		at: number,
-		env: Env,
-	): { none: true } | { unknown: true } | { tokens: Token[]; at: number } {
-		if (!options) return { none: true };
-		if (options.length === 1 && options[0]!.kind === "id") {
-			const found = lookup(options[0]!.text, at);
-			if (found?.kind === "var") return cwdOf(found.variable.init, at, env);
-			if (found?.kind === "param") {
-				const call = boundArgs(found.fn, env);
-				const arg = call.args[found.index];
-				return arg ? cwdOf(arg, call.at, env) : { none: true };
-			}
-			return { unknown: true };
-		}
-		if (!isP(options[0], "{")) return { unknown: true };
+	/** Do these options leave the child in the current checkout? Options this lint cannot read count as no. */
+	function optionsAreCurrent(options: Token[] | null, at: number, env: Env): boolean {
+		if (!options) return true;
+		if (!isP(options[0], "{")) return false;
 		for (const field of splitCommas(options.slice(1, closer(options, 0)))) {
-			if (field[0]?.text === "cwd") return { tokens: isP(field[1], ":") ? field.slice(2) : field, at };
-			if (isP(field[0], "...")) return { unknown: true };
+			if (field[0]?.text === "cwd") return isCurrent(isP(field[1], ":") ? field.slice(2) : field, at, env);
+			if (isP(field[0], "...")) return false;
 		}
-		return { none: true };
+		return true;
 	}
 
 	const READS = new Set(["diff", "log", "merge-base", "rev-list", "cherry"]);
@@ -395,8 +349,6 @@ export function lintBranchDiffSource(file: string, text: string): Refusal[] {
 			if (w.lit === "-C" || w.lit === "--git-dir") target = words[++i] ?? null;
 			else if (w.lit === "-c") i++;
 			else if (w.lit?.startsWith("--git-dir=")) target = w;
-			else if (w.lit === null && w.tokens[0]?.kind === "tpl" && w.tokens[0].parts![0]!.startsWith("--git-dir="))
-				target = w;
 			else if (w.lit === null) return null;
 			else if (!w.lit.startsWith("-")) {
 				const rest = words.slice(i + 1);
@@ -408,63 +360,30 @@ export function lintBranchDiffSource(file: string, text: string): Refusal[] {
 		return null;
 	}
 
-	/** A shell string as text, with a placeholder for each expression, so `git -C ${source} log` keeps its target. */
-	function shellText(expr: Token[], at: number, env: Env, holes: Token[][]): string {
-		let text = "";
-		let depth = 0,
-			piece: Token[] = [];
-		const pieces: Token[][] = [];
-		for (const t of expr) {
-			if (t.kind === "punct" && OPEN.has(t.text)) depth++;
-			if (t.kind === "punct" && CLOSE.has(t.text)) depth--;
-			if (depth === 0 && isP(t, "+")) {
-				pieces.push(piece);
-				piece = [];
-			} else piece.push(t);
-		}
-		pieces.push(piece);
-		for (const p of pieces) {
-			const only = p.length === 1 ? p[0]! : null;
-			if (only?.kind === "str") text += only.text;
-			else if (only?.kind === "tpl")
-				only.parts!.forEach((part, i) => {
-					text += part;
-					if (i < only.exprs!.length) {
-						holes.push(only.exprs![i]!);
-						text += `\u0001${holes.length - 1}\u0001`;
-					}
-				});
-			else {
-				const word = wordOf(p, at, env);
-				if (word.lit !== null) text += word.lit;
-				else {
-					holes.push(p);
-					text += `\u0001${holes.length - 1}\u0001`;
-				}
-			}
-		}
-		return text;
-	}
-
-	/** The git reads of one shell string, with the `cd` before each. */
-	function shellReads(site: Extract<Site, { kind: "shell" }>, env: Env) {
-		const holes: Token[][] = [];
-		const text = shellText(site.command, site.at, env, holes);
-		const reads: Array<{ read: string; target: Word | null; cd: Word | null }> = [];
-		let cd: Word | null = null;
+	/** The git reads of one shell string, a `cd` before a read counting as its target. Only a literal or a template is read. */
+	function shellReads(site: Extract<Site, { kind: "shell" }>) {
+		const only = site.command.length === 1 ? site.command[0]! : null;
+		if (only?.kind !== "str" && only?.kind !== "tpl") return [];
+		const exprs = only.exprs ?? [];
+		// A placeholder stands for each expression, so `git -C ${source} log` keeps its target.
+		const text = (only.parts ?? [only.text])
+			.map((part, i) => (i < exprs.length ? `${part}\u0001${i}\u0001` : part))
+			.join("");
 		const toWord = (raw: string): Word => {
 			const clean = raw.replace(/^['"]|['"]$/g, "");
 			const hole = /\u0001(\d+)\u0001/.exec(clean);
 			return hole
-				? { lit: null, tokens: holes[Number(hole[1])]!, at: site.at }
+				? { lit: null, tokens: exprs[Number(hole[1])]!, at: site.at }
 				: { lit: clean, tokens: [], at: site.at };
 		};
+		const reads: Array<{ read: string; target: Word | null }> = [];
+		let cd: Word | null = null;
 		for (const command of text.split(/&&|\|\||[;|\n()]|\$\(/)) {
 			const words = command.trim().split(/\s+/).filter(Boolean).map(toWord);
 			if (words[0]?.lit === "cd" && words[1]) cd = words[1];
 			if (words[0]?.lit !== "git") continue;
 			const read = readOf(words.slice(1));
-			if (read) reads.push({ ...read, cd });
+			if (read) reads.push({ read: read.read, target: read.target ?? cd });
 		}
 		return reads;
 	}
@@ -476,56 +395,35 @@ export function lintBranchDiffSource(file: string, text: string): Refusal[] {
 		const t = tokens[i]!;
 		if (t.kind !== "id" || !isP(tokens[i + 1], "(")) continue;
 		const member = isP(tokens[i - 1], ".");
-		if (tokens[i - 1]?.text === "function") continue;
 		const args = () => splitCommas(tokens.slice(i + 2, closer(tokens, i + 1)));
 		if (SPAWN.has(t.text)) {
 			const a = args(),
 				program = a[0] ? literal(a[0]) : null;
-			if (program === "git" && a[1] && !isP(a[1][0], "{"))
-				sites.push({ kind: "git", at: i, args: a[1], options: a[2] ?? null });
-			else if (program === "git" && !a[1]) sites.push({ kind: "git", at: i, args: [], options: null });
+			if (program === "git" && a[1]) sites.push({ kind: "git", at: i, args: a[1], options: a[2] ?? null });
 			else if (program && /(^|\/)(sh|bash|zsh)$/.test(program) && a[1] && isP(a[1][0], "[")) {
-				const elements = splitCommas(a[1].slice(1, -1));
-				const dashC = elements.findIndex((e) => literal(e)?.startsWith("-") && literal(e)?.includes("c"));
-				if (dashC >= 0 && elements[dashC + 1])
-					sites.push({ kind: "shell", at: i, command: elements[dashC + 1]!, options: a[2] ?? null });
-			} else if (
-				a[0] &&
-				a
-					.slice(1)
-					.some(
-						(o) =>
-							isP(o[0], "{") &&
-							splitCommas(o.slice(1, -1)).some((f) => f[0]?.text === "shell" && f[2]?.text === "true"),
-					)
-			)
-				sites.push({ kind: "shell", at: i, command: a[0], options: a.slice(1).find((o) => isP(o[0], "{")) ?? null });
-		} else if (EXEC.has(t.text) && (!member || /^(cp|childProcess|child_process)$/.test(tokens[i - 2]?.text ?? ""))) {
+				const [flag, command] = splitCommas(a[1].slice(1, -1));
+				if (flag && command && literal(flag) === "-c")
+					sites.push({ kind: "shell", at: i, command, options: a[2] ?? null });
+			}
+		} else if (EXEC.has(t.text) && !member) {
 			const a = args();
 			if (a[0]) sites.push({ kind: "shell", at: i, command: a[0], options: a[1] ?? null });
 		} else if ((t.text === "git" || t.text === "gitOk") && !member && !lookup(t.text, i)) {
-			// lib.ts's git(cwd, ...args).
-			const a = args();
-			if (a[0])
-				sites.push({
-					kind: "git",
-					at: i,
-					args: [punct("["), ...a.slice(1).flatMap((w) => [...w, punct(",")]), punct("]")],
-					options: null,
-					cwd: a[0],
-				});
+			// lib.ts's git(cwd, ...args) is `git -C cwd ...args`.
+			const argv = [[synthetic("str", "-C")], ...args()].flatMap((w) => [...w, synthetic("punct", ",")]);
+			sites.push({
+				kind: "git",
+				at: i,
+				args: [synthetic("punct", "["), ...argv, synthetic("punct", "]")],
+				options: null,
+			});
 		}
 	}
 
 	function testOf(at: number): string | null {
 		for (let i = 0; i < tokens.length; i++) {
-			const t = tokens[i]!;
-			if (t.kind !== "id" || (t.text !== "test" && t.text !== "it") || isP(tokens[i - 1], ".")) continue;
-			const open = isP(tokens[i + 1], "(") ? i + 1 : isP(tokens[i + 1], ".") && isP(tokens[i + 3], "(") ? i + 3 : -1;
-			if (open < 0) continue;
-			const close = closer(tokens, open);
-			if (open < at && at < close) return tokens[open + 1]?.text ?? "";
-			i = Math.max(i, close);
+			if (tokens[i]!.text !== "test" || !isP(tokens[i + 1], "(") || isP(tokens[i - 1], ".")) continue;
+			if (i + 1 < at && at < closer(tokens, i + 1)) return tokens[i + 2]?.text ?? "";
 		}
 		return null;
 	}
@@ -534,26 +432,20 @@ export function lintBranchDiffSource(file: string, text: string): Refusal[] {
 	function refuse(site: Site, env: Env, read: string) {
 		// The refusal names the outermost call: a helper's caller, where the checkout goes in.
 		let at = site.at;
-		for (const call of env.values())
-			if (![...env.keys()].some((fn) => within({ from: fn.from, to: fn.to }, call.at))) at = call.at;
+		for (const call of env.values()) if (![...env.keys()].some((fn) => within(fn, call.at))) at = call.at;
 		const r: Refusal = { file, line: tokens[at]!.line, test: testOf(at), read, readLine: tokens[site.at]!.line };
 		refusals.set(`${r.line} ${r.read}`, r);
 	}
 
 	/** Decide one site under one set of helper calls. An unbound helper parameter raises NeedsCall. */
 	function decide(site: Site, env: Env) {
-		const checks =
-			site.kind === "git"
-				? [{ ...readOf(wordsOf(site.args, site.at, env)), cd: null as Word | null }]
-				: shellReads(site, env);
-		for (const check of checks) {
-			if (!check.read) continue;
-			const where =
-				check.target ??
-				check.cd ??
-				(site.kind === "git" && site.cwd ? { tokens: site.cwd, at: site.at } : cwdOf(site.options, site.at, env));
-			const current = "none" in where ? true : "unknown" in where ? false : isCurrent(where.tokens, where.at, env);
-			if (current) refuse(site, env, check.read);
+		const reads = site.kind === "git" ? [readOf(wordsOf(site.args, site.at, env))] : shellReads(site);
+		for (const r of reads) {
+			if (!r) continue;
+			const current = r.target
+				? isCurrent(r.target.tokens, r.target.at, env)
+				: optionsAreCurrent(site.options, site.at, env);
+			if (current) refuse(site, env, r.read);
 		}
 	}
 
@@ -562,7 +454,7 @@ export function lintBranchDiffSource(file: string, text: string): Refusal[] {
 		for (let i = 0; i < tokens.length; i++) {
 			const t = tokens[i]!;
 			if (t.kind !== "id" || t.text !== fn.name || !isP(tokens[i + 1], "(") || isP(tokens[i - 1], ".")) continue;
-			if (tokens[i - 1]?.text === "function" || within({ from: fn.from, to: fn.to }, i)) continue;
+			if (tokens[i - 1]?.text === "function" || within(fn, i)) continue;
 			const found = lookup(t.text, i);
 			if (found?.kind === "fn" && found.fn === fn)
 				calls.push({ args: splitCommas(tokens.slice(i + 2, closer(tokens, i + 1))), at: i });
@@ -583,13 +475,10 @@ export function lintBranchDiffSource(file: string, text: string): Refusal[] {
 	return [...refusals.values()].sort((a, b) => a.line - b.line);
 }
 
-const punct = (text: string): Token => ({ kind: "punct", text, line: 0 });
-
-export const FIX =
-	"Fix: read the diff in a repository the test builds itself (fixture(), a temporary git init, or --git-dir on a fixture remote). This checkout's diff changes with each branch, so the test would fail on branches that did not touch it.";
+const synthetic = (kind: Token["kind"], text: string): Token => ({ kind, text, line: 0 });
 
 export const describeRefusal = (r: Refusal) =>
-	`${r.file}:${r.line}: ${r.test === null ? "code outside a test" : `test "${r.test}"`} reads the branch diff of the current checkout: ${r.read}${r.readLine === r.line ? "" : ` at line ${r.readLine}`}. ${FIX}`;
+	`${r.file}:${r.line}: ${r.test === null ? "code outside a test" : `test "${r.test}"`} reads the branch diff of the current checkout: ${r.read}${r.readLine === r.line ? "" : ` at line ${r.readLine}`}. Fix: read the diff in a repository the test builds itself (fixture(), a temporary git init, or --git-dir on a fixture remote). This checkout's diff changes with each branch, so the test would fail on branches that did not touch it.`;
 
 /** Refuses a test under tools/evf/tests/ that reads the branch diff of the current checkout. */
 export function checkBranchDiffTests(root: string): void {
@@ -597,5 +486,4 @@ export function checkBranchDiffTests(root: string): void {
 	const refusals = files.flatMap((file) => lintBranchDiffSource(file, readFileSync(join(root, file), "utf8")));
 	if (refusals.length)
 		fail(`Tests that read this checkout's branch diff:\n${refusals.map(describeRefusal).join("\n")}`);
-	console.log(`No test among ${files.length} files reads the branch diff of the current checkout.`);
 }

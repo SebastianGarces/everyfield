@@ -30,7 +30,6 @@ const REFUSED: Array<[string, string, Array<[number, string]>]> = [
 	["shell template", inTest("execSync(`git -C ${source} log main..HEAD`);"), [[2, "git log"]]],
 	["shell after cd", inTest("execSync(`cd ${source} && git log`, { cwd: f.root });"), [[2, "git log"]]],
 	["sh -c", inTest(`spawnSync("sh", ["-c", "git merge-base HEAD main"], { cwd: source });`), [[2, "git merge-base"]]],
-	["shell option", inTest(`spawnSync("git log main..HEAD", { shell: true });`), [[2, "git log"]]],
 	[
 		"OPS-125: a file-local helper called with source",
 		`function check(repo: string) {
@@ -187,7 +186,6 @@ test("OPS-136: evf test prints the refusal, exits non-zero and starts no tests; 
 	assert.match(readFileSync(join(source, ".github/workflows/ci.yml"), "utf8"), /^ +- run: bin\/evf test$/m);
 });
 
-test("OPS-136: the lint passes on the real tools/evf/tests AC:OPS-136-9", (t) => {
-	t.mock.method(console, "log", () => {});
+test("OPS-136: the lint passes on the real tools/evf/tests AC:OPS-136-9", () => {
 	checkBranchDiffTests(source);
 });

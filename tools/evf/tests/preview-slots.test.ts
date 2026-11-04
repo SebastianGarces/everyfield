@@ -105,8 +105,7 @@ async function onFakeTime<T>(t: TestContext, work: () => Promise<T>) {
 				t.mock.timers.tick(ms);
 			}
 		}
-		const elapsed = Date.now() - start;
-		return { running, sleeps, elapsed };
+		return { running, sleeps, elapsed: Date.now() - start };
 	} finally {
 		globalThis.setTimeout = mocked;
 		t.mock.timers.reset();
