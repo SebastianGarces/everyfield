@@ -1221,6 +1221,8 @@ test("AC:DOC-LAYOUT-ACCESS: every new control has a name, a tooltip and its curs
 
 		await t.test("at 390 px the page setup panel and each block control fit with no sideways scroll", async () => {
 			await page.setViewportSize({ width: 390, height: 844 });
+			// For a frame after the resize the page still measures its old layout (599 px, then 375 px).
+			await frames(page);
 			const fits = async (what) => {
 				const [scroll, width, wide] = await page.evaluate(() => [
 					document.documentElement.scrollWidth,
