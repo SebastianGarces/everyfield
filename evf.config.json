@@ -1686,6 +1686,15 @@
 				{ "name": "workflow-regressions", "run": ["bin/evf", "test"] }
 			],
 			"risk": "ordinary"
+		},
+		"OPS-132": {
+			"title": "evf events command and check signals",
+			"owningPaths": ["tools/evf/"],
+			"checks": [
+				{ "name": "documentation", "run": ["python3", "docs/check-all.py"] },
+				{ "name": "workflow-regressions", "run": ["bin/evf", "test"] }
+			],
+			"risk": "ordinary"
 		}
 	},
 	"internalFeedback": {
